@@ -404,6 +404,16 @@ function RegistroBadge({ stato, partner }: { stato: string; partner?: boolean })
   );
 }
 
+/** Scadenza passata su una trattativa ancora aperta. Confronto con la data
+ *  LOCALE: isoOggiTratt() usa toISOString (UTC) e la sera in Italia direbbe
+ *  «ieri» — qui si costruisce il giorno del calendario di chi guarda. */
+function scadutaDeal(deal: TrattativaConLuogo): boolean {
+  if (!deal.scadenza || deal.fase === 'closedwon' || deal.fase === 'closedlost') return false;
+  const d = new Date();
+  const oggi = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return deal.scadenza < oggi;
+}
+
 /** Da quando è aperta la trattativa. Le righe che arrivano da HubSpot o dal
  *  registro non portano una data, e quelle Scout aperte prima della migrazione
  *  0039 non ce l'hanno: in quei casi si dice che non si sa, non si inventa. */
@@ -463,6 +473,22 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
       <View style={styles.ownerRow}>
         <Ionicons name="calendar-outline" size={14} color={colors.grigio} />
         <Text style={styles.dataTxt}>{dataApertura(deal)}</Text>
+        {/* La scadenza del follow-up accanto all'apertura: sono le due date che
+            servono per decidere se muoversi. Rossa se è passata e la trattativa
+            è ancora aperta. */}
+        {deal.scadenza ? (
+          <>
+            <Ionicons
+              name="alarm-outline"
+              size={14}
+              color={scadutaDeal(deal) ? colors.errore : colors.grigio}
+              style={{ marginLeft: 6 }}
+            />
+            <Text style={[styles.dataTxt, scadutaDeal(deal) && styles.dataScaduta]}>
+              Scade il {formattaData(deal.scadenza)}
+            </Text>
+          </>
+        ) : null}
         {deal.place_account ? (
           <>
             <Ionicons name="briefcase-outline" size={14} color={colors.grigio} style={{ marginLeft: 6 }} />
@@ -1114,6 +1140,7 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
   scadenzaSel: { color: colors.goldStrong, fontWeight: '700', fontSize: 12, marginTop: 4 },
+  dataScaduta: { color: colors.errore, fontWeight: '700' },
   notaRegistro: {
     color: colors.testoSoft,
     fontSize: 12,

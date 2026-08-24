@@ -11,11 +11,21 @@ import type { TrattativaConLuogo } from '@/lib/db';
 import type { DealStage, StatoAffiliazione } from '@/types';
 import { useMemo } from 'react';
 
-type Colonna = 'negozio' | 'linea' | 'fase' | 'valore' | 'scadenza' | 'azione';
+type Colonna = 'negozio' | 'linea' | 'fase' | 'valore' | 'aperta' | 'scadenza' | 'azione';
 
-function formattaData(iso: string): string {
-  const [a, m, g] = iso.split('-');
-  return `${g}/${m}/${a}`;
+/** gg/mm/aa compatto, sia per date pure («2026-09-01») sia per timestamp. */
+function dataBreve(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+/** Oggi in AAAA-MM-GG LOCALE: toISOString è UTC e la sera in Italia sposta al
+ *  giorno prima — una scadenza di oggi sembrerebbe scaduta dopo le 22. */
+function oggiLocale(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function TabellaTrattative({
@@ -40,6 +50,7 @@ export function TabellaTrattative({
         if (c === 'linea') return d.titolo ?? (d.linee?.length ? d.linee.join(', ') : d.linea) ?? '';
         if (c === 'fase') return ordineFasi.indexOf(d.fase);
         if (c === 'valore') return d.valore_atteso;
+        if (c === 'aperta') return d.created_at ?? null;
         if (c === 'scadenza') return d.scadenza;
         return d.next_action ?? null;
       }),
@@ -54,6 +65,7 @@ export function TabellaTrattative({
           { c: 'linea' as const, label: 'Trattativa', stile: styles.colLinea },
           { c: 'fase' as const, label: 'Fase', stile: styles.colFase },
           { c: 'valore' as const, label: 'Valore', stile: styles.colDx },
+          { c: 'aperta' as const, label: 'Aperta', stile: styles.colData },
           { c: 'scadenza' as const, label: 'Scadenza', stile: styles.colData },
           { c: 'azione' as const, label: 'Prossima azione', stile: styles.colLinea },
         ]).map((h) => (
@@ -70,6 +82,9 @@ export function TabellaTrattative({
         const lineaTxt = d.titolo ?? (d.linee?.length ? d.linee.join(', ') : d.linea) ?? '—';
         const daRegistro = d.origine === 'anagrafiche';
         const statoReg = (d.anagrafiche_stato ?? 'in_trattativa') as StatoAffiliazione;
+        // Scadenza passata su una trattativa ancora aperta: in rosso.
+        const scaduta =
+          !!d.scadenza && d.scadenza < oggiLocale() && d.fase !== 'closedwon' && d.fase !== 'closedlost';
         return (
           <Pressable
             key={d.id}
@@ -107,7 +122,8 @@ export function TabellaTrattative({
                 ? `€ ${d.valore_atteso.toLocaleString('it-IT', { useGrouping: 'always' } as unknown as Intl.NumberFormatOptions)}`
                 : '—'}
             </Text>
-            <Text style={styles.cellaData}>{d.scadenza ? formattaData(d.scadenza) : '—'}</Text>
+            <Text style={styles.cellaData}>{dataBreve(d.created_at)}</Text>
+            <Text style={[styles.cellaData, scaduta && styles.cellaScaduta]}>{dataBreve(d.scadenza)}</Text>
             <Text style={styles.cellaAzione} numberOfLines={2}>{d.next_action || '—'}</Text>
             <Ionicons name="chevron-forward" size={15} color={colors.grigio} />
           </Pressable>
@@ -163,4 +179,5 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   cellaAzione: { flex: 1.2, minWidth: 0, color: colors.testoSoft, fontSize: 12.5, lineHeight: 16 },
+  cellaScaduta: { color: colors.errore, fontWeight: '700' },
 });
