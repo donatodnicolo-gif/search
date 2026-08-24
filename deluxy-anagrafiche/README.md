@@ -31,7 +31,7 @@ anagrafici nelle vostre app — leggeteli da qui.
 
 ### Se leggi (tutte le app)
 
-- `GET /api/v1/partners?q=&categoria=&citta=&provincia=&regione=&stato=&livello=&statoFinanziario=&statoAnalisi=&interesse=&page=&perPage=`
+- `GET /api/v1/partners?q=&categoria=&citta=&provincia=&regione=&stato=&livello=&statoFinanziario=&statoAnalisi=&statoFornitore=&interesse=&page=&perPage=`
   → `{ totale, dati: [...] }`. `q` è multi-parola su **tutti i campi** (anagrafica
   + referenti); i filtri si combinano in AND. Città e province sono in MAIUSCOLO.
 - `GET /api/v1/partners/:id` — accetta anche il vostro `platformId`.
@@ -227,10 +227,11 @@ curl -X POST https://deluxy-anagrafiche.vercel.app/api/v1/feedback \
   che inizia per `search`) aggiungono da sé l'interesse **«Affiliazioni»** —
   chi entra o passa di lì lavora per noi. È additivo: non tocca gli altri
   interessi e resta modificabile dal registro.
-- `statoFinanziario` e `statoAnalisi` invece **si scrivono**: nascono in FINANCE
-  (deluxy-partner), quindi seguono la regola dei campi fattuali (vince il più
-  fresco `asOf`, a parità la sorgente più autorevole; la UI del registro ha
-  sempre l'ultima parola). Valori in «Le tre dimensioni di stato».
+- `statoFinanziario`, `statoAnalisi` e `statoFornitore` invece **si scrivono**:
+  i primi due nascono in FINANCE (deluxy-partner), il terzo da chi coi fornitori
+  ci parla (ricerca fornitori, acquisti); tutti seguono la regola dei campi
+  fattuali (vince il più fresco `asOf`, a parità la sorgente più autorevole; la
+  UI del registro ha sempre l'ultima parola). Valori in «Le cinque dimensioni di stato».
 - **Note** in append, **referenti** in merge per identità (email>tel>nome):
   nessun'app cancella quelli inseriti da altre.
 
@@ -266,7 +267,7 @@ L'import è idempotente: rilanciandolo sostituisce solo le anagrafiche con
 
 ## Modello dati
 
-### Le quattro dimensioni di stato
+### Le cinque dimensioni di stato
 
 Ogni azienda ha **quattro stati indipendenti** (catalogo in `src/lib/stati.ts`):
 
@@ -276,11 +277,16 @@ Ogni azienda ha **quattro stati indipendenti** (catalogo in `src/lib/stati.ts`):
 | **Livello del contatto** | `livello` | `in_contatto`, `in_attesa`, `da_ricontattare`, `attivo`, `a_rischio`, `non_interessato`; vuoto = non indicato | il team commerciale / Scout (curato come lo stato) |
 | **Finanziario** | `statoFinanziario` | `da_verificare` (predefinito), `regolare`, `in_ritardo`, `insoluto`, `piano_di_rientro`, `bloccato` | amministrazione / FINANCE |
 | **Analisi** | `statoAnalisi` | `pp` (P.P., pari perimetro), `nuovo`, `dismesso`; vuoto = mai analizzata | FINANCE (`Partner.clienteAnno` di deluxy-partner) |
+| **Fornitore** | `statoFornitore` | `da_provare`, `abituale`, `da_evitare`; vuoto = **non è un nostro fornitore** | chi coi fornitori ci parla (ricerca fornitori, acquisti) e la UI |
+
+Il **Fornitore** (24/08/2026) è il simmetrico di «Cliente» sul verso opposto:
+`stato: attivo` dice che ci compra, `statoFornitore` che ci fornisce — la stessa
+azienda può avere entrambi, ed è il motivo per cui non sta nel funnel commerciale.
 
 In scrittura `statoAnalisi` accetta anche le forme di FINANCE (`"P.P."`,
-`"Nuovo"`, `"Dismesso"`) e le normalizza sugli slug. I cambi delle quattro
-dimensioni finiscono tutti in `PassaggioStato`, con prefisso `liv:`, `fin:` e
-`ana:` per le tre non commerciali.
+`"Nuovo"`, `"Dismesso"`) e le normalizza sugli slug. I cambi delle cinque
+dimensioni finiscono tutti in `PassaggioStato`, con prefisso `liv:`, `fin:`,
+`ana:` e `for:` per le quattro non commerciali.
 
 ⚠️ **`attivo` esiste in due dimensioni e vuol dire due cose**: come *stato* «è
 un cliente», come *livello* «il rapporto è vivo, ci parliamo». Un cliente che
@@ -388,7 +394,8 @@ Autenticazione: header `x-api-key: <chiave>` (oppure `Authorization: Bearer <chi
 
 Filtri di `GET /partners`: `q` (multi-parola su tutti i campi e i contatti),
 `categoria`, `citta`, `provincia`, `regione`, `stato` (commerciale),
-`statoFinanziario`, `statoAnalisi` (`nessuno` = mai analizzate), `fonte`,
+`statoFinanziario`, `statoAnalisi` (`nessuno` = mai analizzate),
+`statoFornitore` (`nessuno` = chi non ci fornisce), `fonte`,
 `platformId`, `votoD2CMin`/`votoD2CMax`, `feedbackD2C` (`si` = con feedback,
 `nessuno` = mai valutate), `attivo` (`false` = solo disattivati, `tutti` =
 tutti), `page`, `perPage` (max 200).

@@ -6,7 +6,7 @@ import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
 import { diffCampi, registraModifiche } from "@/lib/log-modifiche";
 import { mergeContatti } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
-import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO } from "@/lib/stati";
+import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, PREFISSO_FORNITORE } from "@/lib/stati";
 import { ARCHIVIATA, registraPassaggio } from "@/lib/storico";
 
 const INCLUDE = { contatti: true, riferimenti: true } as const;
@@ -97,6 +97,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       id,
       `${PREFISSO_ANALISI}${esistente.statoAnalisi ?? ""}`,
       `${PREFISSO_ANALISI}${aggiornato.statoAnalisi ?? ""}`,
+      client.nome,
+    );
+  }
+  if (dati.statoFornitore) {
+    await registraPassaggio(
+      id,
+      `${PREFISSO_FORNITORE}${esistente.statoFornitore ?? ""}`,
+      `${PREFISSO_FORNITORE}${aggiornato.statoFornitore ?? ""}`,
       client.nome,
     );
   }

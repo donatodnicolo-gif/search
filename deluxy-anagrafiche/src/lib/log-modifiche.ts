@@ -167,6 +167,7 @@ export const ETICHETTE_CAMPO: Record<string, string> = {
   tipoProspect: "Tipo prospect",
   statoFinanziario: "Stato finanziario",
   statoAnalisi: "Stato analisi",
+  statoFornitore: "Stato fornitore",
   stato: "Stato commerciale",
   // valet
   cognome: "Cognome",

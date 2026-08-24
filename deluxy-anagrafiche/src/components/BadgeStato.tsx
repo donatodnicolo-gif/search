@@ -3,14 +3,17 @@ import {
   COLORE_STATO,
   COLORE_STATO_ANALISI,
   COLORE_STATO_FINANZIARIO,
+  COLORE_STATO_FORNITORE,
   ETICHETTE_LIVELLO,
   ETICHETTE_STATO,
   ETICHETTE_STATO_ANALISI,
   ETICHETTE_STATO_FINANZIARIO,
+  ETICHETTE_STATO_FORNITORE,
   isLivello,
   isStato,
   isStatoAnalisi,
   isStatoFinanziario,
+  isStatoFornitore,
 } from "@/lib/stati";
 
 function Badge({ colore, etichetta }: { colore: string; etichetta: string }) {
@@ -52,6 +55,18 @@ export function BadgeStatoAnalisi({ stato }: { stato: string | null }) {
     <Badge
       colore={noto ? COLORE_STATO_ANALISI[stato] : "var(--text-tertiary)"}
       etichetta={noto ? ETICHETTE_STATO_ANALISI[stato] : stato}
+    />
+  );
+}
+
+// Stato fornitore: il rapporto di fornitura. Vuoto = non è un nostro fornitore.
+export function BadgeStatoFornitore({ stato }: { stato: string | null }) {
+  if (!stato) return <Badge colore="var(--text-tertiary)" etichetta="—" />;
+  const noto = isStatoFornitore(stato);
+  return (
+    <Badge
+      colore={noto ? COLORE_STATO_FORNITORE[stato] : "var(--text-tertiary)"}
+      etichetta={noto ? ETICHETTE_STATO_FORNITORE[stato] : stato}
     />
   );
 }

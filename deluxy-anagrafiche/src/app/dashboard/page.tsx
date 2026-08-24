@@ -8,15 +8,19 @@ import {
   COLORE_STATO,
   COLORE_STATO_ANALISI,
   COLORE_STATO_FINANZIARIO,
+  COLORE_STATO_FORNITORE,
   ETICHETTE_STATO,
   ETICHETTE_STATO_ANALISI,
   ETICHETTE_STATO_FINANZIARIO,
+  ETICHETTE_STATO_FORNITORE,
   STATI,
   STATI_ANALISI,
   STATI_FINANZIARI,
+  STATI_FORNITORE,
   isStato,
   isStatoAnalisi,
   isStatoFinanziario,
+  isStatoFornitore,
 } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +65,7 @@ type Ricerca = {
   stato?: string;
   statoFinanziario?: string;
   statoAnalisi?: string;
+  statoFornitore?: string;
   interesse?: string;
 };
 
@@ -76,9 +81,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     sp.statoAnalisi === "nessuno" || (sp.statoAnalisi && isStatoAnalisi(sp.statoAnalisi))
       ? sp.statoAnalisi
       : undefined;
+  const statoFornitore =
+    sp.statoFornitore && isStatoFornitore(sp.statoFornitore) ? sp.statoFornitore : undefined;
   const interesse = sp.interesse?.trim() || undefined;
   const linee = await getLinee();
-  const filtriAttivi = [categoria, regione, stato, statoFinanziario, statoAnalisi, interesse].filter(
+  const filtriAttivi = [categoria, regione, stato, statoFinanziario, statoAnalisi, statoFornitore, interesse].filter(
     Boolean,
   ).length;
 
@@ -89,6 +96,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   if (stato) where.stato = stato;
   if (statoFinanziario) where.statoFinanziario = statoFinanziario;
   if (statoAnalisi) where.statoAnalisi = statoAnalisi === "nessuno" ? null : statoAnalisi;
+  if (statoFornitore) where.statoFornitore = statoFornitore;
   if (interesse) where.interessi = { has: interesse };
 
   const cond: Prisma.Sql[] = [Prisma.sql`"attivo"`];
@@ -103,6 +111,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         : Prisma.sql`"statoAnalisi" = ${statoAnalisi}`,
     );
   }
+  if (statoFornitore) cond.push(Prisma.sql`"statoFornitore" = ${statoFornitore}`);
   if (interesse) cond.push(Prisma.sql`${interesse} = ANY("interessi")`);
   const whereRaw = Prisma.join(cond, " AND ");
 
@@ -116,6 +125,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     perStato,
     perStatoFinanziario,
     perStatoAnalisi,
+    perStatoFornitore,
     perCategoria,
     perRegione,
     perCitta,
@@ -136,6 +146,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     prisma.partner.groupBy({ by: ["stato"], where, _count: { _all: true } }),
     prisma.partner.groupBy({ by: ["statoFinanziario"], where, _count: { _all: true } }),
     prisma.partner.groupBy({ by: ["statoAnalisi"], where, _count: { _all: true } }),
+    prisma.partner.groupBy({ by: ["statoFornitore"], where, _count: { _all: true } }),
     prisma.partner.groupBy({ by: ["categoria"], where, _count: { _all: true }, orderBy: { _count: { categoria: "desc" } } }),
     prisma.partner.groupBy({ by: ["regione"], where: regione ? where : { ...where, regione: { not: null } }, _count: { _all: true }, orderBy: { _count: { regione: "desc" } } }),
     prisma.partner.groupBy({ by: ["citta"], where: { ...where, citta: { not: null } }, _count: { _all: true }, orderBy: { _count: { citta: "desc" } }, take: 10 }),
@@ -192,9 +203,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const analisiConteggio = new Map(
     perStatoAnalisi.map((s) => [s.statoAnalisi ?? "nessuno", s._count._all]),
   );
+  const fornitoreConteggio = new Map(
+    perStatoFornitore.map((s) => [s.statoFornitore ?? "nessuno", s._count._all]),
+  );
   const interesseConteggio = new Map(perInteresse.map((i) => [i.interesse, Number(i.totale)]));
   const maxStato = Math.max(...STATI.map((s) => statoConteggio.get(s) ?? 0), 1);
   const maxFinanziario = Math.max(...STATI_FINANZIARI.map((s) => finanziarioConteggio.get(s) ?? 0), 1);
+  const maxFornitore = Math.max(...STATI_FORNITORE.map((s) => fornitoreConteggio.get(s) ?? 0), 1);
   const maxAnalisi = Math.max(
     ...STATI_ANALISI.map((s) => analisiConteggio.get(s) ?? 0),
     analisiConteggio.get("nessuno") ?? 0,
@@ -255,6 +270,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         statoAttivo={stato ?? null}
         statoFinanziarioAttivo={statoFinanziario ?? null}
         statoAnalisiAttivo={statoAnalisi ?? null}
+        statoFornitoreAttivo={statoFornitore ?? null}
         interesseAttivo={interesse ?? null}
       />
       <main className="main">
@@ -273,7 +289,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           categorie={opzioniCategorie.map((c) => c.categoria)}
           regioni={opzioniRegioni.map((r) => r.regione!).filter(Boolean)}
           interessi={linee}
-          valori={{ categoria, regione, stato, statoFinanziario, statoAnalisi, interesse }}
+          valori={{ categoria, regione, stato, statoFinanziario, statoAnalisi, statoFornitore, interesse }}
         />
 
         <div className="sync-riepilogo" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
@@ -343,6 +359,23 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               colore="var(--fill-active)"
               href="/?statoAnalisi=nessuno"
             />
+          </section>
+
+          <section className="scheda">
+            <h2 className="scheda-titolo">
+              Fornitori <span className="scheda-sub">chi ci fornisce, e com'è andata</span>
+            </h2>
+            {STATI_FORNITORE.map((s) => (
+              <Barra
+                key={s}
+                etichetta={ETICHETTE_STATO_FORNITORE[s]}
+                valore={fornitoreConteggio.get(s) ?? 0}
+                massimo={maxFornitore}
+                colore={COLORE_STATO_FORNITORE[s]}
+                href={`/?statoFornitore=${s}`}
+                dettaglio={`${ETICHETTE_STATO_FORNITORE[s]}: ${fornitoreConteggio.get(s) ?? 0} (${pct(fornitoreConteggio.get(s) ?? 0)}% della fetta)`}
+              />
+            ))}
           </section>
 
           <section className="scheda">

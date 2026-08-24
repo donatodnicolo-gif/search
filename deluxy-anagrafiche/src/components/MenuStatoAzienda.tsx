@@ -1,19 +1,22 @@
 "use client";
 
 import { useOptimistic, useRef, useState } from "react";
-import { cambiaLivello, cambiaStatoAnalisi, cambiaStatoFinanziario } from "@/lib/azioni";
-import { BadgeLivello, BadgeStatoAnalisi, BadgeStatoFinanziario } from "./BadgeStato";
+import { cambiaLivello, cambiaStatoAnalisi, cambiaStatoFinanziario, cambiaStatoFornitore } from "@/lib/azioni";
+import { BadgeLivello, BadgeStatoAnalisi, BadgeStatoFinanziario, BadgeStatoFornitore } from "./BadgeStato";
 import type { DimensioneAzienda } from "./SelettoreStatoAzienda";
 import {
   COLORE_LIVELLO,
   COLORE_STATO_ANALISI,
   COLORE_STATO_FINANZIARIO,
+  COLORE_STATO_FORNITORE,
   DESCRIZIONI_STATO_ANALISI,
   ETICHETTE_LIVELLO,
   ETICHETTE_STATO_FINANZIARIO,
+  ETICHETTE_STATO_FORNITORE,
   LIVELLI,
   STATI_ANALISI,
   STATI_FINANZIARI,
+  STATI_FORNITORE,
 } from "@/lib/stati";
 
 type Voce = { valore: string; etichetta: string; colore: string };
@@ -44,9 +47,17 @@ export function MenuStatoAzienda({
       ? cambiaStatoFinanziario
       : dimensione === "analisi"
         ? cambiaStatoAnalisi
-        : cambiaLivello;
+        : dimensione === "fornitore"
+          ? cambiaStatoFornitore
+          : cambiaLivello;
   const campo =
-    dimensione === "finanziario" ? "statoFinanziario" : dimensione === "analisi" ? "statoAnalisi" : "livello";
+    dimensione === "finanziario"
+      ? "statoFinanziario"
+      : dimensione === "analisi"
+        ? "statoAnalisi"
+        : dimensione === "fornitore"
+          ? "statoFornitore"
+          : "livello";
   const voci: Voce[] =
     dimensione === "finanziario"
       ? STATI_FINANZIARI.map((s) => ({
@@ -63,20 +74,31 @@ export function MenuStatoAzienda({
             })),
             { valore: "", etichetta: "Non analizzata", colore: "var(--text-tertiary)" },
           ]
-        : [
-            ...LIVELLI.map((l) => ({
-              valore: l as string,
-              etichetta: ETICHETTE_LIVELLO[l],
-              colore: COLORE_LIVELLO[l],
-            })),
-            { valore: "", etichetta: "Non indicato", colore: "var(--text-tertiary)" },
-          ];
+        : dimensione === "fornitore"
+          ? [
+              ...STATI_FORNITORE.map((s) => ({
+                valore: s as string,
+                etichetta: ETICHETTE_STATO_FORNITORE[s],
+                colore: COLORE_STATO_FORNITORE[s],
+              })),
+              { valore: "", etichetta: "Non fornitore", colore: "var(--text-tertiary)" },
+            ]
+          : [
+              ...LIVELLI.map((l) => ({
+                valore: l as string,
+                etichetta: ETICHETTE_LIVELLO[l],
+                colore: COLORE_LIVELLO[l],
+              })),
+              { valore: "", etichetta: "Non indicato", colore: "var(--text-tertiary)" },
+            ];
 
   const badge =
     dimensione === "finanziario" ? (
       <BadgeStatoFinanziario stato={statoMostrato} />
     ) : dimensione === "analisi" ? (
       <BadgeStatoAnalisi stato={statoMostrato || null} />
+    ) : dimensione === "fornitore" ? (
+      <BadgeStatoFornitore stato={statoMostrato || null} />
     ) : (
       <BadgeLivello livello={statoMostrato || null} />
     );

@@ -7,9 +7,11 @@ import {
   DESCRIZIONI_STATO_ANALISI,
   ETICHETTE_STATO,
   ETICHETTE_STATO_FINANZIARIO,
+  ETICHETTE_STATO_FORNITORE,
   STATI,
   STATI_ANALISI,
   STATI_FINANZIARI,
+  STATI_FORNITORE,
   STATO_FINANZIARIO_PREDEFINITO,
 } from "@/lib/stati";
 
@@ -111,6 +113,16 @@ export default async function Nuovo({
                   <option value="">Non analizzata</option>
                   {STATI_ANALISI.map((s) => (
                     <option key={s} value={s}>{DESCRIZIONI_STATO_ANALISI[s]}</option>
+                  ))}
+                </select>
+              </Campo>
+              {/* Sto censendo un fornitore nuovo: è proprio alla creazione che
+                  serve poterlo dire, senza riaprire la scheda. */}
+              <Campo etichetta="Fornitore" nome="statoFornitore">
+                <select id="statoFornitore" name="statoFornitore" defaultValue="">
+                  <option value="">Non fornitore</option>
+                  {STATI_FORNITORE.map((s) => (
+                    <option key={s} value={s}>{ETICHETTE_STATO_FORNITORE[s]}</option>
                   ))}
                 </select>
               </Campo>

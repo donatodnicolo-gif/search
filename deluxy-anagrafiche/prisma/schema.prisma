@@ -38,6 +38,13 @@ model Partner {
   // Stato ANALISI (perimetro dell'anno, catalogo di FINANCE/deluxy-partner
   // `clienteAnno`): pp (pari perimetro) | nuovo | dismesso. Vuoto = non analizzata.
   statoAnalisi     String?
+  // Stato FORNITORE (il rapporto di fornitura, richiesto il 24/08/2026): dice
+  // se quest'azienda ci FORNISCE e a che punto siamo con lei — da_provare |
+  // abituale | da_evitare. Vuoto = non è un nostro fornitore. È una dimensione
+  // a parte, non uno stato commerciale: la stessa azienda può comprarci
+  // (stato "attivo" = Cliente) E fornirci, e metterli nella stessa lista
+  // obbligherebbe a scegliere fra due cose vere insieme.
+  statoFornitore   String?
   citta          String?
   provincia      String?
   regione        String?
@@ -129,6 +136,7 @@ model Partner {
   @@index([stato])
   @@index([statoFinanziario])
   @@index([statoAnalisi])
+  @@index([statoFornitore])
   @@index([livello])
   @@index([citta])
   @@index([nome])

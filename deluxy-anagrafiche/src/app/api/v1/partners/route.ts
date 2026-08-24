@@ -9,7 +9,7 @@ import { diffCampi, registraModifica, registraModifiche } from "@/lib/log-modifi
 import { calcolaMerge, mergeContatti, nomeSistema, provenienzaIniziale } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { whereRicerca } from "@/lib/ricerca";
-import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, PREFISSO_LIVELLO, normalizzaStatoAnalisi } from "@/lib/stati";
+import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, PREFISSO_FORNITORE, PREFISSO_LIVELLO, normalizzaStatoAnalisi } from "@/lib/stati";
 import { registraPassaggio } from "@/lib/storico";
 
 // La fatturazione è della società: se una scrittura ha toccato campi
@@ -40,7 +40,8 @@ async function registraRiferimenti(
 // GET /api/v1/partners — elenco con filtri e paginazione.
 // Filtri: q (ricerca a parole su tutti i campi e i contatti), categoria, citta,
 // provincia, regione, stato (commerciale), statoFinanziario, statoAnalisi
-// (`nessuno` = mai analizzata), fonte, platformId, votoD2CMin/votoD2CMax,
+// (`nessuno` = mai analizzata), statoFornitore (`nessuno` = chi non ci
+// fornisce), fonte, platformId, votoD2CMin/votoD2CMax,
 // feedbackD2C (`si`/`nessuno`), attivo (default: solo attivi; attivo=tutti per
 // tutto).
 export async function GET(req: NextRequest) {
@@ -64,6 +65,11 @@ export async function GET(req: NextRequest) {
   ] as const) {
     const v = p.get(campo)?.trim();
     if (v) where[campo] = campo === "categoria" ? v.toUpperCase() : v;
+  }
+  // Stato fornitore: `nessuno` = chi non è un nostro fornitore (colonna vuota).
+  const statoFornitore = p.get("statoFornitore")?.trim();
+  if (statoFornitore) {
+    where.statoFornitore = statoFornitore === "nessuno" ? null : statoFornitore;
   }
   // Stato analisi: accetta gli slug del registro, le forme di FINANCE
   // ("P.P.", "Nuovo", …) e `nessuno` per le anagrafiche mai analizzate.
@@ -248,6 +254,17 @@ export async function POST(req: NextRequest) {
         esistente.id,
         `${PREFISSO_ANALISI}${esistente.statoAnalisi ?? ""}`,
         `${PREFISSO_ANALISI}${datiMerge.statoAnalisi}`,
+        sistema,
+      );
+    }
+    if (
+      typeof datiMerge.statoFornitore === "string" &&
+      datiMerge.statoFornitore !== esistente.statoFornitore
+    ) {
+      await registraPassaggio(
+        esistente.id,
+        `${PREFISSO_FORNITORE}${esistente.statoFornitore ?? ""}`,
+        `${PREFISSO_FORNITORE}${datiMerge.statoFornitore}`,
         sistema,
       );
     }

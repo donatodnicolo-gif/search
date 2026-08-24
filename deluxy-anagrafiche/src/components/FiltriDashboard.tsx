@@ -5,9 +5,11 @@ import {
   DESCRIZIONI_STATO_ANALISI,
   ETICHETTE_STATO,
   ETICHETTE_STATO_FINANZIARIO,
+  ETICHETTE_STATO_FORNITORE,
   STATI,
   STATI_ANALISI,
   STATI_FINANZIARI,
+  STATI_FORNITORE,
 } from "@/lib/stati";
 
 // Barra di macro-filtri della dashboard: ogni scelta aggiorna subito tutti i
@@ -28,6 +30,7 @@ export function FiltriDashboard({
     stato?: string;
     statoFinanziario?: string;
     statoAnalisi?: string;
+    statoFornitore?: string;
     interesse?: string;
   };
 }) {
@@ -77,6 +80,12 @@ export function FiltriDashboard({
           <option key={s} value={s}>{DESCRIZIONI_STATO_ANALISI[s]}</option>
         ))}
         <option value="nessuno">Non analizzate</option>
+      </select>
+      <select value={valori.statoFornitore ?? ""} onChange={(e) => cambia("statoFornitore", e.target.value)}>
+        <option value="">Fornitori: tutte</option>
+        {STATI_FORNITORE.map((s) => (
+          <option key={s} value={s}>{ETICHETTE_STATO_FORNITORE[s]}</option>
+        ))}
       </select>
       <select value={valori.interesse ?? ""} onChange={(e) => cambia("interesse", e.target.value)}>
         <option value="">Tutti gli interessi</option>

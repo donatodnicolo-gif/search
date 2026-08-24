@@ -334,6 +334,15 @@ export default async function Dettaglio({
             <SelettoreStatoAzienda partnerId={p.id} dimensione="analisi" statoAttuale={p.statoAnalisi} />
           </div>
           <div className="riga-dimensione">
+            <span
+              className="etichetta-dimensione"
+              title="Il rapporto di fornitura: quest'azienda ci fornisce? Indipendente dal funnel di vendita — può essere Cliente e fornirci insieme"
+            >
+              Fornitore
+            </span>
+            <SelettoreStatoAzienda partnerId={p.id} dimensione="fornitore" statoAttuale={p.statoFornitore} />
+          </div>
+          <div className="riga-dimensione">
             <span className="etichetta-dimensione">Interessi</span>
             <MenuInteressi partnerId={p.id} interessi={p.interessi} linee={linee} />
           </div>

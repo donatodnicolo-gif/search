@@ -1,20 +1,24 @@
-import { cambiaLivello, cambiaStatoAnalisi, cambiaStatoFinanziario } from "@/lib/azioni";
+import { cambiaLivello, cambiaStatoAnalisi, cambiaStatoFinanziario, cambiaStatoFornitore } from "@/lib/azioni";
 import {
   COLORE_LIVELLO,
   COLORE_STATO_ANALISI,
   COLORE_STATO_FINANZIARIO,
+  COLORE_STATO_FORNITORE,
   DESCRIZIONI_STATO_ANALISI,
   ETICHETTE_LIVELLO,
   ETICHETTE_STATO_FINANZIARIO,
+  ETICHETTE_STATO_FORNITORE,
   LIVELLI,
   STATI_ANALISI,
   STATI_FINANZIARI,
+  STATI_FORNITORE,
   isLivello,
   isStatoAnalisi,
   isStatoFinanziario,
+  isStatoFornitore,
 } from "@/lib/stati";
 
-export type DimensioneAzienda = "livello" | "finanziario" | "analisi";
+export type DimensioneAzienda = "livello" | "finanziario" | "analisi" | "fornitore";
 
 type Voce = { valore: string; etichetta: string; colore: string };
 
@@ -59,6 +63,21 @@ const DIMENSIONI: Record<
       { valore: "", etichetta: "Non analizzata", colore: "var(--text-tertiary)" },
     ],
     noto: (v) => !v || isStatoAnalisi(v),
+  },
+  // Vuoto = non è un nostro fornitore: è la voce che TOGLIE il ruolo, e senza
+  // di lei un'azienda segnata fornitore per sbaglio lo resterebbe per sempre.
+  fornitore: {
+    campo: "statoFornitore",
+    azione: cambiaStatoFornitore,
+    voci: [
+      ...STATI_FORNITORE.map((s) => ({
+        valore: s as string,
+        etichetta: ETICHETTE_STATO_FORNITORE[s],
+        colore: COLORE_STATO_FORNITORE[s],
+      })),
+      { valore: "", etichetta: "Non fornitore", colore: "var(--text-tertiary)" },
+    ],
+    noto: (v) => !v || isStatoFornitore(v),
   },
 };
 

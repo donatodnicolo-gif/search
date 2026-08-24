@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { valutazioneD2C } from "./feedback-d2c";
 import { CAMPI_FINANZIARI } from "./insegna";
-import { isLivello, isStato, isStatoFinanziario, normalizzaStatoAnalisi } from "./stati";
+import { isLivello, isStato, isStatoFinanziario, isStatoFornitore, normalizzaStatoAnalisi } from "./stati";
 
 // Campi scalari accettati in scrittura dalle API (POST/PATCH).
 const CAMPI_TESTO = [
@@ -10,11 +10,12 @@ const CAMPI_TESTO = [
   "categoria",
   "tipoProspect",
   // gli stati dell'azienda: commerciale (storico `stato`), livello del
-  // contatto, finanziario, analisi
+  // contatto, finanziario, analisi, fornitore
   "stato",
   "livello",
   "statoFinanziario",
   "statoAnalisi",
+  "statoFornitore",
   "citta",
   "provincia",
   "regione",
@@ -117,6 +118,9 @@ export function validaPartner(
   if (dati.statoFinanziario && !isStatoFinanziario(String(dati.statoFinanziario))) {
     return { errore: `Stato finanziario non valido: '${dati.statoFinanziario}'` };
   }
+  if (dati.statoFornitore && !isStatoFornitore(String(dati.statoFornitore))) {
+    return { errore: `Stato fornitore non valido: '${dati.statoFornitore}'` };
+  }
   if (dati.statoAnalisi) {
     // FINANCE manda "P.P." / "Nuovo" / "Dismesso": si normalizza sullo slug
     const normalizzato = normalizzaStatoAnalisi(String(dati.statoAnalisi));
@@ -198,6 +202,9 @@ export function serializzaPartner(p: PartnerConContatti) {
     livello: p.livello,
     statoFinanziario: p.statoFinanziario,
     statoAnalisi: p.statoAnalisi,
+    // Il rapporto di fornitura: da_provare | abituale | da_evitare.
+    // Vuoto = non è un nostro fornitore.
+    statoFornitore: p.statoFornitore,
     citta: p.citta,
     provincia: p.provincia,
     regione: p.regione,

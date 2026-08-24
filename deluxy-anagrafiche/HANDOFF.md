@@ -40,7 +40,7 @@ che diventano clienti, vedi §7-A punto 0. Finché manca, quel richiamo è inert
 ## 3. Modello dati (Prisma, schema `anagrafiche`)
 
 - **Partner** — l'anagrafica. Campi chiave: `nome` (insegna), `ragioneSociale`, `categoria`
-  (MAIUSCOLO: BOUTIQUE/FIORISTA/PASTICCERIA/…/`DA CLASSIFICARE`), **quattro stati indipendenti**
+  (MAIUSCOLO: BOUTIQUE/FIORISTA/PASTICCERIA/…/`DA CLASSIFICARE`), **cinque stati indipendenti**
   (catalogo unico in `src/lib/stati.ts`, dal 23/07/2026):
   · `stato` = **stato commerciale**, cioè a che punto del funnel siamo (ex "stato", nome del campo
   invariato per compatibilità):
@@ -62,7 +62,14 @@ che diventano clienti, vedi §7-A punto 0. Finché manca, quel richiamo è inert
   · `statoFinanziario` = da_verificare(default)·regolare·in_ritardo·insoluto·piano_di_rientro·bloccato;
   · `statoAnalisi` = pp(P.P., pari perimetro)·nuovo·dismesso, vuoto = mai analizzata — catalogo preso
   da **FINANCE** (`Partner.clienteAnno` di deluxy-partner, "P.P./Nuovo/Dismesso": in API si accettano
-  anche quelle forme e si normalizzano),
+  anche quelle forme e si normalizzano);
+  · `statoFornitore` = **il rapporto di fornitura (24/08/2026, richiesta dell'utente: «come c'è
+  Cliente dobbiamo avere anche Fornitore»)**: da_provare·abituale·da_evitare, **vuoto = non è un
+  nostro fornitore**. È il simmetrico di «Cliente» sul verso opposto — `stato: attivo` dice che ci
+  compra, questo che ci fornisce — e NON sta nel funnel commerciale perché la stessa azienda può
+  avere entrambi («prospect» su un fornitore non vuol dire niente, dal disegno del 30/07 in §7.4).
+  Vuoto che si può rimettere dalla pillola «Non fornitore». Passaggi in `PassaggioStato` con
+  prefisso `for:`,
   `citta`/`provincia`/`regione`, `indirizzo`, `email`, `telefono`, `pIva`, `codiceFiscale`,
   `account`, `ultimaVisita`, `interessi[]` (multi, `src/lib/interessi.ts`: consegne·affiliazione·
   gifting·catering·eventi·pr_activation·in_store·vendor), `note`, `datiExtra` (JSON tracker),
@@ -150,7 +157,7 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
 - **Bloccati** (curati dal team): `stato` (commerciale), `interessi` mai sovrascritti; `account`/`categoria`
   solo se vuoti (categoria: anche se `DA CLASSIFICARE`/`ALTRO`).
 - **Fattuali** (nome, ragioneSociale, città, indirizzo, email, telefono, pIva, CF, ultimaVisita,
-  **statoFinanziario**, **statoAnalisi**: questi due nascono in FINANCE, quindi le app li scrivono —
+  **statoFinanziario**, **statoAnalisi**, **statoFornitore**: i primi due nascono in FINANCE, quindi le app li scrivono —
   `da_verificare` vale come casella vuota; fiducia `partner` = 70, sotto platform, sopra scout):
   **vince il più fresco** (`asOf`) o, a parità, la sorgente più **autorevole** (ranking di
   fiducia: ui 100 > platform 80 > scout 60 > suppliers 55 > hubspot 40 > … > sconosciuta 20).
@@ -160,11 +167,12 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
 ## 4. Funzionalità UI (pagine)
 
 - **`/`** Aziende (ex "Visione globale") — elenco con ricerca "a parole" su tutti i campi + referenti, filtri
-  (categoria/città/**stato commerciale/stato finanziario/stato analisi**/interesse), ordinamenti
+  (categoria/città/**stato commerciale/stato finanziario/stato analisi/fornitore**/interesse), ordinamenti
   cliccabili, **sezione Novità** (top 10 tra
   data creazione e ultimo contatto), colonne Interessi/Ultimo contatto/Note, cambio
-  dei **tre stati** e degli interessi in riga (menu a tendina sul badge, `MenuStato` per il
-  commerciale e `MenuStatoAzienda` per finanziario/analisi), archivia/ripristina,
+  dei **quattro stati** e degli interessi in riga (menu a tendina sul badge, `MenuStato` per il
+  commerciale e `MenuStatoAzienda` per livello/finanziario/analisi/fornitore; la colonna
+  **Fornitore** mostra «—» per chi non ci fornisce), archivia/ripristina,
   riconciliazione HubSpot (⇄), bottone **＋ Nuovo**.
   **Gruppi aziendali** — due meccanismi che si sommano:
   1. **Automatico per insegna** (nessun dato da preparare): le anagrafiche con lo stesso `nome`
@@ -181,9 +189,9 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   era uno solo.
   Nota: la paginazione conta i record, non i gruppi — una pagina da 50 record mostra meno righe.
 - **`/dashboard`** — analisi con **macro-filtri** (tipologia/regione/stato commerciale/stato
-  finanziario/stato analisi/interesse in AND): KPI (compreso **A rischio incasso** = ritardo →
+  finanziario/stato analisi/**fornitore**/interesse in AND): KPI (compreso **A rischio incasso** = ritardo →
   bloccato), funnel per stato commerciale, **stati finanziari**, **perimetro di analisi**,
-  interessi, tipologie/regioni/città, contatti per mese, qualità dati.
+  **fornitori**, interessi, tipologie/regioni/città, contatti per mese, qualità dati.
 - **`/contatti`** — rubrica di tutti i referenti (Excel + HubSpot), ricerca, filtro fonte,
   colonna **Azienda** (link alla scheda), telefoni cliccabili (`tel:` → avvia la chiamata),
   colonna **Google** («Salva in Google» via People API + fallback .vcf), link al contatto HubSpot (↗).
@@ -221,8 +229,8 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   un giudizio interno → `registraFeedbackD2C`, sorgente `ui`, campo «Chi valuta» = `autore`); colonna ordinabile **D2C** nell'elenco `/` (e in Novità)
   con i partner senza voto sempre in fondo; filtro «Valutazione D2C» (con feedback / da valutare);
   scheda **Valutazione D2C** in dashboard (fasce + media pesata della fetta).
-- **`/partner/:id`** — scheda: anagrafica, **tre righe di pillole** (Commerciale · Finanziario ·
-  Analisi, `SelettoreStato` + `SelettoreStatoAzienda`) + menu interessi, ✎ Modifica, archivia,
+- **`/partner/:id`** — scheda: anagrafica, **cinque righe di pillole** (Commerciale · Livello ·
+  Finanziario · Analisi · **Fornitore**, `SelettoreStato` + `SelettoreStatoAzienda`) + menu interessi, ✎ Modifica, archivia,
   sezione **Contatti** (Excel+HubSpot con link al CRM, telefono cliccabile, **✕ rimuove il
   referente** dall'azienda → `staccaContatto`), Note, Dati del tracker, **Storia** (timeline).
   **Storia = log completo (30/07/2026)**: non più solo i cambi di stato. Ogni riga dice *quale
@@ -467,8 +475,10 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   da Budgets con la loro grafia, e forzarli avrebbe fatto sì che il valore salvato non combaciasse
   più con l'opzione del menu. I valori vecchi («ELEONORA», «GAIA, ELEONORA») restano come sono.
 - **Sidebar** a sezioni espandibili (Registro·Tipologie·**Stati commerciali·Livello del contatto·
-  Stati finanziari·Stati analisi**·Interessi·Archivio·Identità aziende·**Impostazioni → Chiavi API**), con i conteggi per
-  ogni stato, toggle a scomparsa (☰), preferenze in localStorage.
+  Stati finanziari·Stati analisi·Fornitori**·Interessi·Archivio·Identità aziende·**Impostazioni → Chiavi API**), con i conteggi per
+  ogni stato, toggle a scomparsa (☰), preferenze in localStorage. La sezione **Fornitori** elenca
+  solo le tre voci valorizzate (chi non ci fornisce non è un conteggio interessante); il
+  sotto-select sta nella query unica della sidebar, come da regola prestazioni.
 
 ## 5. API (base `https://deluxy-anagrafiche.vercel.app`)
 
@@ -477,7 +487,7 @@ Pubbliche `/api/v1` — auth header `x-api-key: <chiave>` (o `Authorization: Bea
 | Metodo | Percorso | Permesso | Note |
 |---|---|---|---|
 | GET | `/api/v1/health` | — | Stato servizio |
-| GET | `/api/v1/partners` | lettura | Filtri: q, categoria, citta, provincia, regione, stato (commerciale), **livello** (`nessuno` = non indicato), statoFinanziario, statoAnalisi (`nessuno` = mai analizzate), interesse, fonte, platformId, attivo; page, perPage |
+| GET | `/api/v1/partners` | lettura | Filtri: q, categoria, citta, provincia, regione, stato (commerciale), **livello** (`nessuno` = non indicato), statoFinanziario, statoAnalisi (`nessuno` = mai analizzate), **statoFornitore** (`nessuno` = chi non ci fornisce), interesse, fonte, platformId, attivo; page, perPage |
 | GET | `/api/v1/partners/:id` | lettura | id registro, platformId, o **qualsiasi** idEsterno via xref |
 | GET | `/api/v1/partners/by-ref/:sistema/:idEsterno` | lettura | Risolve dall'id di un'altra app |
 | GET | `/api/v1/partners/match` | lettura | `?pIva=&codiceFiscale=&nome=&citta=&idEsterno=` → match/candidati+confidenza; registra RichiestaMatch |
@@ -494,10 +504,11 @@ Pubbliche `/api/v1` — auth header `x-api-key: <chiave>` (o `Authorization: Bea
 Interne `/api/interno/*` (solo UI, cookie di sessione, NON per le app): `cerca-partner`, `cerca-hubspot`.
 
 **Stati nelle API (23/07/2026)**: la risposta espone `stato` (commerciale, nome storico),
-`statoCommerciale` (stesso valore, alias esplicito), `statoFinanziario` e `statoAnalisi`. In
-scrittura si accettano tutti e quattro i nomi; `statoAnalisi` accetta anche "P.P."/"Nuovo"/
-"Dismesso" di FINANCE. Ogni cambio finisce in `PassaggioStato` (prefissi `fin:` / `ana:`,
-resi leggibili da `nomeEventoStato`).
+`statoCommerciale` (stesso valore, alias esplicito), `statoFinanziario`, `statoAnalisi` e
+`statoFornitore` (24/08/2026). In
+scrittura si accettano tutti i nomi; `statoAnalisi` accetta anche "P.P."/"Nuovo"/
+"Dismesso" di FINANCE. Ogni cambio finisce in `PassaggioStato` (prefissi `fin:` / `ana:` /
+`for:`, resi leggibili da `nomeEventoStato`).
 
 **Chiavi**: una per app, in `<app>/.env` (gitignored), mai committare i valori. Si gestiscono
 dalla pagina **`/chiavi`** (crea/rigenera/sospendi/elimina, cambio di tipologia) oppure da
@@ -719,14 +730,18 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    ⚠️ Non toccare la compatibilità nel registro **prima** che quella funzione sia cambiata: senza,
    ogni scrittura di Scout tornerebbe 400.
 
-4. **Fornitori nel registro** (impianto discusso il 30/07/2026, non costruito). Il fornitore
-   oggi vive come testo libero altrove: `fornitore` sull'ordine in Orders, `beneficiario` sulla
-   richiesta di pagamento in FINANCE, e una tabella `Fornitore` tutta sua in Merchandising.
-   Disegno concordato: **`ruoli[]`** sull'anagrafica (cliente · fornitore · vendor — non
-   esclusivi: la stessa azienda ci compra, ci fornisce e ci fa vendere a commissione), uno
-   **stato fornitore** suo (da provare / abituale / da evitare: «prospect» su un fornitore non
-   vuol dire niente), e un livello **cercabile** — cosa fornisce (tag), province servite, lead
-   time, tagli minimi, canale per la richiesta. I **preventivi non stanno nel registro**: sono
+4. **Fornitori nel registro** (impianto discusso il 30/07/2026; **il primo pezzo è COSTRUITO
+   il 24/08/2026**). ✅ FATTO: la dimensione **`statoFornitore`** (da_provare · abituale ·
+   da_evitare, vuoto = non ci fornisce) — è insieme il ruolo («è un fornitore» = valorizzato)
+   e lo stato del rapporto, quindi il `ruoli[]` del disegno originale non serve più per questa
+   parte; «cliente» resta detto dallo stato commerciale. Pillole in scheda, colonna e filtro
+   in elenco, sezione sidebar coi conteggi, macro-filtro e scheda in dashboard, campo nel form
+   Nuovo, API in lettura/scrittura (fattuale nel merge), storia con prefisso `for:`.
+   ❌ RESTA DA FARE: il livello **cercabile** — cosa fornisce (tag), province servite, lead
+   time, tagli minimi, canale per la richiesta. Il fornitore vive ancora come testo libero
+   altrove: `fornitore` sull'ordine in Orders, `beneficiario` sulla richiesta di pagamento in
+   FINANCE, e una tabella `Fornitore` tutta sua in Merchandising — da agganciare al registro
+   (xref) ora che la dimensione esiste. I **preventivi non stanno nel registro**: sono
    transazioni, casa naturale l'app Ricerca fornitori (già manda richieste e tiene lo storico —
    ma su KV, per i preventivi serve una tabella) oppure `deluxy-acquisti`.
    **Decisione aperta: il catalogo del «cosa fornisce» è chiuso (come le categorie) o aperto

@@ -6,14 +6,17 @@ import {
   COLORE_STATO,
   COLORE_STATO_ANALISI,
   COLORE_STATO_FINANZIARIO,
+  COLORE_STATO_FORNITORE,
   ETICHETTE_LIVELLO,
   ETICHETTE_STATO,
   ETICHETTE_STATO_ANALISI,
   ETICHETTE_STATO_FINANZIARIO,
+  ETICHETTE_STATO_FORNITORE,
   LIVELLI,
   STATI,
   STATI_ANALISI,
   STATI_FINANZIARI,
+  STATI_FORNITORE,
 } from "@/lib/stati";
 import { IconaCategoria } from "./IconaCategoria";
 import { SbSezione } from "./SbSezione";
@@ -27,6 +30,7 @@ export async function Sidebar({
   livelloAttivo,
   statoFinanziarioAttivo,
   statoAnalisiAttivo,
+  statoFornitoreAttivo,
   interesseAttivo,
   archivioAttivo = false,
   hubspotAttivo = false,
@@ -46,6 +50,7 @@ export async function Sidebar({
   livelloAttivo?: string | null;
   statoFinanziarioAttivo?: string | null;
   statoAnalisiAttivo?: string | null;
+  statoFornitoreAttivo?: string | null;
   interesseAttivo?: string | null;
   archivioAttivo?: boolean;
   hubspotAttivo?: boolean;
@@ -76,6 +81,7 @@ export async function Sidebar({
         livelli: { v: string; n: number }[] | null;
         finanziari: { v: string; n: number }[] | null;
         analisi: { v: string; n: number }[] | null;
+        fornitori: { v: string; n: number }[] | null;
         interessi: { v: string; n: number }[] | null;
         damatch: number;
         dariconciliare: number;
@@ -106,6 +112,9 @@ export async function Sidebar({
         (SELECT json_agg(t) FROM (
           SELECT coalesce("statoAnalisi", 'nessuno') AS v, count(*)::int AS n
           FROM "anagrafiche"."Partner" WHERE "attivo" GROUP BY 1) t) AS analisi,
+        (SELECT json_agg(t) FROM (
+          SELECT "statoFornitore" AS v, count(*)::int AS n FROM "anagrafiche"."Partner"
+          WHERE "attivo" AND "statoFornitore" IS NOT NULL GROUP BY 1) t) AS fornitori,
         (SELECT json_agg(t) FROM (
           SELECT unnest("interessi") AS v, count(*)::int AS n FROM "anagrafiche"."Partner"
           WHERE "attivo" GROUP BY 1) t) AS interessi,
@@ -138,10 +147,11 @@ export async function Sidebar({
   const perLivello = new Map((c?.livelli ?? []).map((s) => [s.v, s.n]));
   const perStatoFinanziario = new Map((c?.finanziari ?? []).map((s) => [s.v, s.n]));
   const perStatoAnalisi = new Map((c?.analisi ?? []).map((s) => [s.v, s.n]));
+  const perStatoFornitore = new Map((c?.fornitori ?? []).map((s) => [s.v, s.n]));
   const perInteresse = new Map((c?.interessi ?? []).map((i) => [i.v, i.n]));
 
   const globaleAttiva =
-    !categoriaAttiva && !statoAttivo && !livelloAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive && !affiliatiAttivi && !valetAttivo && !consumersAttivi;
+    !categoriaAttiva && !statoAttivo && !livelloAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !statoFornitoreAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive && !affiliatiAttivi && !valetAttivo && !consumersAttivi;
 
   return (
     <aside className="sidebar">
@@ -274,6 +284,25 @@ export async function Sidebar({
             <span className="sb-nome">Non analizzate</span>
             <span className="sb-count">{perStatoAnalisi.get("nessuno") ?? 0}</span>
           </a>
+        </SbSezione>
+
+        {/* Chi ci FORNISCE, come «Cliente» dice chi ci compra: le tre voci
+            sono solo le aziende con un rapporto di fornitura — il resto del
+            registro non è «non fornitore» in modo interessante. */}
+        <SbSezione titolo="Fornitori">
+          {STATI_FORNITORE.map((s) => (
+            <a
+              key={s}
+              className={`sb-item${statoFornitoreAttivo === s ? " attiva" : ""}`}
+              href={`/?statoFornitore=${s}`}
+            >
+              <span className="sb-icona">
+                <span className="sb-dot" style={{ background: COLORE_STATO_FORNITORE[s] }} />
+              </span>
+              <span className="sb-nome">{ETICHETTE_STATO_FORNITORE[s]}</span>
+              <span className="sb-count">{perStatoFornitore.get(s) ?? 0}</span>
+            </a>
+          ))}
         </SbSezione>
 
         <SbSezione titolo="Interessi">

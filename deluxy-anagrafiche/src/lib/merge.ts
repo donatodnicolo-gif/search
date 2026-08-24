@@ -48,6 +48,9 @@ const FATTUALI = [
   // (fiducia 100) resta comunque l'ultima parola
   "statoFinanziario",
   "statoAnalisi",
+  // il rapporto di fornitura: lo scrive chi coi fornitori ci parla (ricerca
+  // fornitori, acquisti), la UI resta l'ultima parola come per gli altri due
+  "statoFornitore",
   // dati finanziari / fatturazione (dopo la scrittura vengono propagati alle
   // sedi della stessa insegna: la fatturazione è della società)
   "pec",

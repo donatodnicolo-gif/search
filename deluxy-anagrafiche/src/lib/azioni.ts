@@ -13,12 +13,14 @@ import { diffCampi, registraModifica, registraModifiche } from "./log-modifiche"
 import {
   PREFISSO_ANALISI,
   PREFISSO_FINANZIARIO,
+  PREFISSO_FORNITORE,
   PREFISSO_LIVELLO,
   STATO_FINANZIARIO_PREDEFINITO,
   isLivello,
   isStato,
   isStatoAnalisi,
   isStatoFinanziario,
+  isStatoFornitore,
 } from "./stati";
 import { ARCHIVIATA, registraPassaggio } from "./storico";
 import { notificaCommerciale } from "./commerciale";
@@ -105,6 +107,31 @@ export async function cambiaStatoAnalisi(partnerId: string, fd: FormData) {
   revalidatePath("/");
 }
 
+// Cambio dello stato FORNITORE (il rapporto di fornitura). Indipendente dal
+// funnel di vendita: la stessa azienda può essere Cliente E fornirci.
+// Vuoto = non è un nostro fornitore: si toglie senza dover archiviare niente.
+export async function cambiaStatoFornitore(partnerId: string, fd: FormData) {
+  const grezzo = String(fd.get("statoFornitore") ?? "");
+  const nuovo = grezzo === "" ? null : isStatoFornitore(grezzo) ? grezzo : undefined;
+  if (nuovo === undefined) return;
+  const attuale = await prisma.partner.findUnique({
+    where: { id: partnerId },
+    select: { statoFornitore: true },
+  });
+  if (!attuale) return;
+  await prisma.partner.update({ where: { id: partnerId }, data: { statoFornitore: nuovo } });
+  after(() =>
+    registraPassaggio(
+      partnerId,
+      `${PREFISSO_FORNITORE}${attuale.statoFornitore ?? ""}`,
+      `${PREFISSO_FORNITORE}${nuovo ?? ""}`,
+      "ui",
+    ),
+  );
+  revalidatePath(`/partner/${partnerId}`);
+  revalidatePath("/");
+}
+
 // Cambio del LIVELLO del contatto (in contatto / in attesa / da ricontattare).
 // Vuoto = non indicato: si toglie senza dover scegliere un ripiego, perché
 // nessuno dei tre è il livello «di partenza» di un'anagrafica.
@@ -180,6 +207,7 @@ export async function creaPartner(fd: FormData) {
   const stato = String(fd.get("stato") ?? "");
   const statoFinanziario = String(fd.get("statoFinanziario") ?? "");
   const statoAnalisi = String(fd.get("statoAnalisi") ?? "");
+  const statoFornitore = String(fd.get("statoFornitore") ?? "");
   const citta = maiuscolo("citta");
 
   const esistente = await prisma.partner.findFirst({
@@ -210,6 +238,7 @@ export async function creaPartner(fd: FormData) {
         ? statoFinanziario
         : STATO_FINANZIARIO_PREDEFINITO,
       statoAnalisi: isStatoAnalisi(statoAnalisi) ? statoAnalisi : null,
+      statoFornitore: isStatoFornitore(statoFornitore) ? statoFornitore : null,
       citta,
       provincia: maiuscolo("provincia"),
       regione: maiuscolo("regione"),
@@ -823,6 +852,7 @@ export async function aggiungiSede(
       stato: madre.stato,
       statoFinanziario: madre.statoFinanziario,
       statoAnalisi: madre.statoAnalisi,
+      statoFornitore: madre.statoFornitore,
       interessi: madre.interessi,
       citta,
       provincia: maiuscolo("provincia") ?? madre.provincia,
@@ -949,7 +979,7 @@ export async function unisciAnagrafiche(
   // Campi fattuali: si riempiono solo i buchi della destinazione.
   const DA_TRAVASARE = [
     "ragioneSociale", "citta", "provincia", "regione", "sede", "tipoLuogo", "indirizzo",
-    "email", "telefono", "pIva", "codiceFiscale", "account", "tipoProspect", "ultimaVisita",
+    "email", "telefono", "pIva", "codiceFiscale", "account", "tipoProspect", "ultimaVisita", "statoFornitore",
     "pec", "codiceSdi", "iban", "intestatarioConto", "banca", "metodoPagamento", "condizioniPagamento",
     "gruppoPagamento", "amministrazioneNome", "amministrazioneTelefono", "amministrazioneEmail",
     "platformId", "hubspotId",

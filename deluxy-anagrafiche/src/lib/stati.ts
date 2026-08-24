@@ -1,9 +1,11 @@
-// Un'azienda ha quattro stati indipendenti, uno per dimensione:
+// Un'azienda ha cinque stati indipendenti, uno per dimensione:
 //  - COMMERCIALE (`stato`)            — a che punto del funnel siamo arrivati
 //  - LIVELLO     (`livello`)          — com'è messo il contatto *dentro* quel punto
 //  - FINANZIARIO (`statoFinanziario`) — come paga, se possiamo lavorarci a credito
 //  - ANALISI     (`statoAnalisi`)     — perimetro di analisi, catalogo di FINANCE
 //                                       (deluxy-partner, campo "Cliente per l'anno")
+//  - FORNITORE   (`statoFornitore`)   — ci fornisce? e com'è andata (24/08/2026);
+//                                       vuoto = non è un nostro fornitore
 // Etichette, colori e guardie di ogni dimensione stanno qui.
 
 // Stati del ciclo di vita COMMERCIALE. "attivo" = partner operativo.
@@ -213,6 +215,32 @@ export function normalizzaStatoAnalisi(v: string): StatoAnalisi | null {
   return null;
 }
 
+// ————————————————————— Stato FORNITORE —————————————————————
+// Il rapporto di FORNITURA (24/08/2026): quest'azienda ci fornisce? E com'è
+// andata finora? È il simmetrico di «Cliente», ma non sta nel funnel
+// commerciale: la stessa azienda può comprarci E fornirci, e «prospect» su un
+// fornitore non vuol dire niente. Vuoto = non è un nostro fornitore — è così
+// che si distingue chi ci fornisce da chi no, senza un flag a parte.
+export const STATI_FORNITORE = ["da_provare", "abituale", "da_evitare"] as const;
+
+export type StatoFornitore = (typeof STATI_FORNITORE)[number];
+
+export const ETICHETTE_STATO_FORNITORE: Record<StatoFornitore, string> = {
+  da_provare: "Da provare",
+  abituale: "Abituale",
+  da_evitare: "Da evitare",
+};
+
+export const COLORE_STATO_FORNITORE: Record<StatoFornitore, string> = {
+  da_provare: "var(--blue)",
+  abituale: "var(--green)",
+  da_evitare: "var(--red)",
+};
+
+export function isStatoFornitore(v: string): v is StatoFornitore {
+  return (STATI_FORNITORE as readonly string[]).includes(v);
+}
+
 // ————————————————————— Storia —————————————————————
 // I passaggi delle tre dimensioni finiscono nello stesso storico: quelli non
 // commerciali sono prefissati ("fin:regolare", "ana:nuovo") così restano
@@ -220,6 +248,7 @@ export function normalizzaStatoAnalisi(v: string): StatoAnalisi | null {
 export const PREFISSO_FINANZIARIO = "fin:";
 export const PREFISSO_ANALISI = "ana:";
 export const PREFISSO_LIVELLO = "liv:";
+export const PREFISSO_FORNITORE = "for:";
 
 // Nome leggibile di un valore che compare nello storico dei passaggi.
 export function nomeEventoStato(v: string): string {
@@ -235,6 +264,10 @@ export function nomeEventoStato(v: string): string {
   if (v.startsWith(PREFISSO_ANALISI)) {
     const s = v.slice(PREFISSO_ANALISI.length);
     return `Analisi: ${isStatoAnalisi(s) ? ETICHETTE_STATO_ANALISI[s] : s || "—"}`;
+  }
+  if (v.startsWith(PREFISSO_FORNITORE)) {
+    const s = v.slice(PREFISSO_FORNITORE.length);
+    return `Fornitore: ${isStatoFornitore(s) ? ETICHETTE_STATO_FORNITORE[s] : s || "—"}`;
   }
   if (isStato(v)) return ETICHETTE_STATO[v];
   // Storico più vecchio del 31/07/2026: «in_contatto» & C. erano stati
