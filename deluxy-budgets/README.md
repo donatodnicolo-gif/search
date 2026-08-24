@@ -1687,6 +1687,14 @@ COGS a 805.545 €, poi rimesso a vuoto.
 ⚠️ Fuori da **0–100** si rifiuta, in pagina (bordo rosso + bottone spento) **e** nell'API. Il campo
 accetta la **virgola decimale** italiana.
 
+📌 **Applicato il 20% a tutte e otto** (23/08/2026, `scripts/margine-linee-predefinito.ts`, su «ok
+correggi»): **COGS 808.320 → 708.320 €**, margine lordo **293.609 → 393.609 €** (35,7%), EBITDA
+**−228.661 → −128.661 €**. ⚠️ **Il 20% è un'assunzione, non una misura**: è il margine che l'azienda usa
+già per **B2B ed Eventi**, cioè per gli stessi servizi che queste linee vendono. Va corretto riga per riga
+in `/margini` dove non torna — su una **fee di affiliazione**, per dire, il margine vero è molto più alto
+di 20. Lo script tocca **solo le linee senza margine**: una percentuale già scritta è la decisione di
+qualcuno e non si sovrascrive.
+
 ⚠️⚠️ **`PATCH /api/commerciale` scrive due cose che si impostano da due pagine diverse** — il margine da
 `/margini`, il collegamento a Finance da `/commerciale` — e ognuna manda **solo la sua**. Per questo
 **assente ≠ vuoto**: se un campo assente valesse «stringa vuota», salvare i margini **cancellerebbe tutti
