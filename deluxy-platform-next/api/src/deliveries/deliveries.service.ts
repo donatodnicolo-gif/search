@@ -28,6 +28,28 @@ import { SettingsService } from '../settings/settings.module';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
 
+/**
+ * Che cosa serve all'ELENCO — non tutto quello che una consegna sa.
+ *
+ * ⚠️ Il modello ha 119 colonne, e mandarle tutte faceva 250 KB per venti righe:
+ * 12,5 KB a consegna per riempire una tabella che ne mostra otto. Il contratto
+ * del frontend (`core/models.ts`, interfaccia `Delivery`) ne dichiara venti, e
+ * il calendario ne usa ancora meno: sono quelle.
+ *
+ * Il DETTAGLIO continua a caricare tutto (`DELIVERY_INCLUDE` sotto): li' le
+ * colonne servono davvero, ed e' una consegna sola.
+ */
+const DELIVERY_LIST_SELECT = {
+  id: true, code: true, date: true, status: true,
+  deliveryTimeFrom: true, deliveryTimeTo: true, deliveryFlexible: true,
+  pickupTimeFrom: true, pickupTimeTo: true, pickupFlexible: true,
+  recipientFirstName: true, recipientLastName: true, recipientAddress: true,
+  paymentOnDelivery: true, paymentAmount: true, price: true,
+  partner: { select: { id: true, insegna: true } },
+  valet: { select: { id: true, firstName: true, lastName: true } },
+  serviceType: { select: { id: true, name: true, pricingModel: true } },
+} as const;
+
 const DELIVERY_INCLUDE = {
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
@@ -149,19 +171,17 @@ export class DeliveriesService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.delivery.findMany({
         where,
-        include: DELIVERY_INCLUDE,
+        select: DELIVERY_LIST_SELECT,
         orderBy: this.ordinamento(query),
         skip,
         take,
       }),
       this.prisma.delivery.count({ where }),
     ]);
-    return {
-      items: rows.map((d) => this.hideInternalNotes(d, user)),
-      total,
-      page,
-      pageSize,
-    };
+    // Le note interne non si nascondono piu' dopo averle lette: l'elenco non
+    // le seleziona affatto. E' la stessa protezione, un passo prima — un campo
+    // che non esce dal database non puo' finire in un carico per sbaglio.
+    return { items: rows, total, page, pageSize };
   }
 
   /**
