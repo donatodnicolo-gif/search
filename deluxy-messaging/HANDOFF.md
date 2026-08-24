@@ -1,5 +1,38 @@
 # Handoff — Deluxy Customer Service
 
+## 24/08/2026 (sera 6) — il fornitore pagato entra da solo nel registro anagrafiche
+
+Premendo «Pagata», oltre alla riconciliazione e all'avviso, parte un terzo
+automatismo: **il fornitore finisce nel registro Anagrafiche**
+(`src/lib/registro-fornitori.ts`, chiamato dal PATCH di `/api/pagamenti/[id]`).
+Richiesta dell'utente: «se viene pagato un fornitore aggiungilo direttamente in
+anagrafica se non già esistente».
+
+- **Prima si chiede `GET /partners/match`** (fuzzy per nome), perché il POST del
+  registro aggancia per nome+città ESATTI e noi la città del fornitore non la
+  sappiamo (quella dell'ordine è la città di CONSEGNA: dedurla scriverebbe un
+  dato inventato). Match `agganciata` → si rimandano nome+città **del registro**
+  e il merge colpisce il record giusto; `candidati` → **non si scrive** (la
+  richiesta resta nella pagina /match del registro, decide una persona);
+  `nessuna` → si crea, senza città.
+- Il fornitore entra/si aggiorna con **`statoFornitore: "abituale"`** (l'abbiamo
+  pagato: è del nostro giro), più telefono/email presi dall'ORDINE se ci sono, e
+  l'**IBAN solo se verificato** (checksum ok) con il suo intestatario.
+- **Un «da evitare» del team NON si ribalta**: guardia nel merge del registro
+  (24/08/2026) — il pagamento di un arretrato non riabilita un fornitore bocciato.
+- **Niente registro sui rimborsi al cliente**: se la riconciliazione dice
+  `rimborso-al-cliente`, quel beneficiario non è un fornitore e non si tocca.
+- Best-effort come l'avviso: un fallimento NON fa fallire il pagamento; l'esito
+  torna nella risposta (`registro`).
+- La chiave è la stessa della ricerca fornitori (`deluxy-messaging`, env
+  `ANAGRAFICHE_API_KEY` o Impostazioni): dal 24/08/2026 il registro le ha dato
+  lo scope **driver di prima parte** (solo POST upsert, niente cancellazioni).
+- Il nome mandato è `ordine.fornitoreNome` se c'è, altrimenti l'intestatario
+  del pagamento (dopo la riconciliazione spesso coincidono).
+- ⚠️ I pagamenti STORICI (già pagati prima di stasera) NON sono stati mandati
+  al registro: il gancio vale da ora in avanti. Se serve il recupero, farlo
+  passando da `segnalaFornitorePagatoAlRegistro(id)` per ognuno.
+
 ## 24/08/2026 (sera 5) — il link all'ordine non trovava niente, e la ricevuta si scarica
 
 **IL LINK.** Cliccando il numero d'ordine dai Pagamenti si finiva su una ricerca

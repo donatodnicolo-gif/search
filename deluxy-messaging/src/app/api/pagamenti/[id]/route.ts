@@ -5,6 +5,10 @@ import { verificaIban } from '@/lib/iban'
 import { avvisaFornitorePagato } from '@/lib/avvisa-pagamento'
 import { riconciliaDaPagamento, type EsitoRiconciliazione } from '@/lib/riconcilia'
 import {
+  segnalaFornitorePagatoAlRegistro,
+  type EsitoRegistroFornitore,
+} from '@/lib/registro-fornitori'
+import {
   cosaManca,
   metodoValido,
   ricevutaAccettabile,
@@ -171,7 +175,39 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       },
       select: { avvisoIl: true, avvisoCanale: true, avvisoEsito: true },
     })
-    return NextResponse.json({ richiesta: { ...pagata, ...conAvviso }, avviso, riconciliato })
+
+    // ── IL FORNITORE PAGATO ENTRA NEL REGISTRO, DA SOLO ──
+    //
+    // ⚠️ Chiesto dall'utente il 24/08/2026: «se viene pagato un fornitore
+    // aggiungilo direttamente in anagrafica se non già esistente». Il registro
+    // (deluxy-anagrafiche) fa l'upsert-merge e resta il proprietario del dato.
+    //
+    // ⚠️ NON quando il pagamento è un rimborso al cliente: quel beneficiario
+    // non è un fornitore, e il registro dei partner non è il posto suo. È lo
+    // stesso verdetto della riconciliazione, non un secondo controllo.
+    //
+    // ⚠️ Un fallimento qui NON fa fallire il pagamento (stesso contratto
+    // dell'avviso): l'esito si restituisce e basta.
+    let registro: EsitoRegistroFornitore | null = null
+    if (riconciliato?.verdetto === 'rimborso-al-cliente') {
+      registro = {
+        ok: false,
+        esito: 'rimborso',
+        messaggio: 'Sembra un rimborso al cliente: non è un fornitore, il registro non si tocca.',
+      }
+    } else {
+      try {
+        registro = await segnalaFornitorePagatoAlRegistro(id)
+      } catch (e) {
+        registro = {
+          ok: false,
+          esito: 'errore',
+          messaggio: e instanceof Error ? e.message : 'errore',
+        }
+      }
+    }
+
+    return NextResponse.json({ richiesta: { ...pagata, ...conAvviso }, avviso, riconciliato, registro })
   }
 
   // ── CORREGGERE ──
