@@ -57,6 +57,8 @@ export function Glossario() {
     termine: string
     definizione: string
     categoria: string
+    /** Il brand a cui la voce vale. Vuoto = tutti. */
+    negozioId: string
   } | null>(null)
 
   const [q, setQ] = useState('')
@@ -229,6 +231,11 @@ export function Glossario() {
                                   termine: p.termine,
                                   definizione: p.definizione,
                                   categoria: p.categoria,
+                                  // ⚠️ Si parte da quello che l'AI ha proposto,
+                                  // non da «tutti»: aprire la modifica non deve
+                                  // allargare a tutti i marchi una voce nata per
+                                  // uno solo, per il solo fatto di averla aperta.
+                                  negozioId: p.negozioId,
                                 }
                           )
                         }
@@ -274,6 +281,48 @@ export function Glossario() {
                         <option value="tecnico">interno</option>
                       </select>
                     </label>
+                    {/* ── PER QUALE MARCHIO VALE ──
+                        ⚠️⚠️ Il brand cambia il SENSO della voce, non la sua
+                        forma: «la consegna è gratuita» è vera per un negozio e
+                        falsa per un altro. Accettandola per tutti quando vale
+                        per uno solo si mette in bocca agli operatori una
+                        promessa sbagliata — e il glossario è fatto apposta
+                        perché la ripetano.
+                        ⚠️ Compare solo sulle AGGIUNTE: su una correzione la
+                        voce esiste già col suo marchio, e cambiarlo qui la
+                        sposterebbe di nascosto su un'altra. */}
+                    {p.tipo === 'aggiunta' ? (
+                      <label className="campo">
+                        <span>Per quale marchio vale</span>
+                        <select
+                          value={correggo.negozioId}
+                          onChange={(e) =>
+                            setCorreggo({ ...correggo, negozioId: e.target.value })
+                          }
+                        >
+                          <option value="">tutti i marchi</option>
+                          {dati.negozi.map((n) => (
+                            <option key={n.id} value={n.id}>
+                              solo {n.nome}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : p.negozioId ? (
+                      // ⚠️ Qui il marchio si MOSTRA e basta. Su una CORREZIONE
+                      // cambiarlo sposterebbe di nascosto la voce su un altro
+                      // marchio (la chiave è termine+marchio); su un AVVISO non
+                      // si scrive niente in glossario, quindi non c'è un marchio
+                      // da scegliere. Il testo dice quale dei due è, invece di
+                      // una frase che va bene per nessuno dei due.
+                      <p className="cella-sub">
+                        {p.tipo === 'correzione'
+                          ? 'Corregge una voce di '
+                          : 'Riguarda '}
+                        <strong>{p.negozioNome || p.negozioId}</strong>
+                        {p.tipo === 'correzione' ? ': il marchio resta il suo.' : '.'}
+                      </p>
+                    ) : null}
                     {/* ⚠️ Si dice che la proposta originale RESTA scritta: senza,
                         correggere sembra cancellare la prova, e chi ci tiene
                         preferisce scartare e riscrivere — cioè quello che
@@ -294,6 +343,7 @@ export function Glossario() {
                             termine: correggo.termine,
                             definizione: correggo.definizione,
                             categoria: correggo.categoria,
+                            negozioId: correggo.negozioId,
                           }).then(() => setCorreggo(null))
                         }
                       >

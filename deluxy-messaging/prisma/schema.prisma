@@ -1524,6 +1524,22 @@ model PropostaGlossario {
   corretta    Boolean  @default(false)
   termineAccettato String @default("")
   definizioneAccettata String @default("") @db.Text
+  /**
+   * Il brand deciso accettando, quando è diverso da quello proposto.
+   *
+   * ⚠️⚠️ Serve perché il brand cambia il SENSO della voce, non la sua forma:
+   * «la consegna è gratuita» è vera per un negozio e falsa per un altro, e
+   * accettarla per tutti quando vale per uno solo mette in bocca agli operatori
+   * una promessa sbagliata. Se chi accetta la restringe a un marchio, quel
+   * cambiamento è importante quanto una riscrittura del testo — quindi si
+   * archivia come gli altri due, invece di sovrascrivere in silenzio quello che
+   * aveva proposto l'AI.
+   *
+   * ⚠️ Vuoto ha DUE significati e vanno distinti guardando `corretta`: se
+   * `corretta` è falso non è stato cambiato niente; se è vero, vuoto vuol dire
+   * «l'ho reso valido per tutti».
+   */
+  negozioAccettato String @default("")
   creatoIl    DateTime @default(now())
 
   @@index([stato, creatoIl])

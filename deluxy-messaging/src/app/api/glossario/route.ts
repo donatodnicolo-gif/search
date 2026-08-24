@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { categoriaValida, type PropostaDto, type VoceDto } from '@/lib/glossario'
+import { categoriaValida, testoDaScrivere, type PropostaDto, type VoceDto } from '@/lib/glossario'
 import { leggiQuotaFornitore } from '@/lib/orders'
 import { giroGlossario } from '@/lib/glossario-ai'
 import { utenteCorrente } from '@/lib/sessione'
@@ -143,34 +143,6 @@ type Corpo = {
   negozioId?: string
 }
 
-/**
- * Che cosa si scrive davvero in glossario accettando una proposta.
- *
- * ⚠️⚠️ Chi accetta può aver corretto il testo. Prima si poteva solo prendere o
- * lasciare: con una proposta giusta all'80% — il fatto è quello, la frase no —
- * l'unica strada era **scartarla** e riscrivere la voce da capo, cioè buttare
- * via anche la parte buona e la prova (la conversazione da cui nasce).
- *
- * ⚠️ Se il testo è cambiato lo si SCRIVE: `corretta`. Senza, l'archivio direbbe
- * «proposta dall'AI e accettata» anche su una frase riscritta da capo —
- * racconterebbe un'AI più precisa di quella che è, e nessuno saprebbe che il
- * prompt va cambiato.
- */
-function testoDaScrivere(
-  p: { termine: string; definizione: string; categoria: string },
-  c: Corpo
-): { termine: string; definizione: string; categoria: string; corretta: boolean } {
-  const termine = (c.termine ?? '').trim() || p.termine
-  const definizione = (c.definizione ?? '').trim() || p.definizione
-  const categoria = (c.categoria ?? '').trim() || p.categoria
-  return {
-    termine,
-    definizione,
-    categoria,
-    corretta:
-      termine !== p.termine || definizione !== p.definizione || categoria !== p.categoria,
-  }
-}
 
 export async function POST(req: NextRequest) {
   const { io, errore } = await chi()
@@ -213,8 +185,14 @@ export async function POST(req: NextRequest) {
           },
         })
       } else if (p.tipo === 'aggiunta') {
+        // ⚠️ Il brand è quello DECISO accettando, non quello proposto: chi
+        // legge la conversazione si accorge che «la consegna è gratuita» vale
+        // per un negozio solo, e deve poterlo restringere prima di scrivere in
+        // glossario una promessa che gli operatori poi ripetono a tutti.
         await db.voceGlossario.upsert({
-          where: { termine_negozioId: { termine: scritto.termine, negozioId: p.negozioId } },
+          where: {
+            termine_negozioId: { termine: scritto.termine, negozioId: scritto.negozioId },
+          },
           update: {
             definizione: scritto.definizione,
             categoria: scritto.categoria,
@@ -226,7 +204,7 @@ export async function POST(req: NextRequest) {
             termine: scritto.termine,
             definizione: scritto.definizione,
             categoria: scritto.categoria,
-            negozioId: p.negozioId,
+            negozioId: scritto.negozioId,
             fonte,
             conversazioneId: p.conversazioneId,
             autoreNome: io!.nome,
@@ -248,6 +226,10 @@ export async function POST(req: NextRequest) {
         termineAccettato: c.azione === 'accetta' && scritto.corretta ? scritto.termine : '',
         definizioneAccettata:
           c.azione === 'accetta' && scritto.corretta ? scritto.definizione : '',
+        // ⚠️ Anche il brand deciso si archivia: restringere una voce a un
+        // marchio cambia il senso di quella frase quanto riscriverla, e senza
+        // questo campo l'archivio non saprebbe dire che cosa è stato cambiato.
+        negozioAccettato: c.azione === 'accetta' && scritto.corretta ? scritto.negozioId : '',
       },
     })
     return NextResponse.json(await leggiGlossario())

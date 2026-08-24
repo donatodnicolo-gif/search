@@ -66,3 +66,60 @@ export type PropostaDto = {
   conversazioneId: string
   creatoIl: string
 }
+
+// ── CHE COSA SI SCRIVE ACCETTANDO UNA PROPOSTA ──
+
+/** Solo i campi che servono a decidere: il resto della richiesta non c'entra. */
+export type CorrezioneProposta = {
+  termine?: string
+  definizione?: string
+  categoria?: string
+  negozioId?: string
+}
+
+/**
+ * Che cosa si scrive davvero in glossario accettando una proposta.
+ *
+ * ⚠️⚠️ Chi accetta può aver corretto il testo. Prima si poteva solo prendere o
+ * lasciare: con una proposta giusta all'80% — il fatto è quello, la frase no —
+ * l'unica strada era **scartarla** e riscrivere la voce da capo, cioè buttare
+ * via anche la parte buona e la prova (la conversazione da cui nasce).
+ *
+ * ⚠️ Se il testo è cambiato lo si SCRIVE: `corretta`. Senza, l'archivio direbbe
+ * «proposta dall'AI e accettata» anche su una frase riscritta da capo —
+ * racconterebbe un'AI più precisa di quella che è, e nessuno saprebbe che il
+ * prompt va cambiato.
+ */
+export function testoDaScrivere(
+  p: { termine: string; definizione: string; categoria: string; negozioId: string },
+  c: CorrezioneProposta
+): {
+  termine: string
+  definizione: string
+  categoria: string
+  negozioId: string
+  corretta: boolean
+} {
+  const termine = (c.termine ?? '').trim() || p.termine
+  const definizione = (c.definizione ?? '').trim() || p.definizione
+  const categoria = (c.categoria ?? '').trim() || p.categoria
+  // ⚠️⚠️ IL BRAND SI LEGGE SOLO SE È STATO MANDATO, e la differenza conta: qui
+  // la stringa VUOTA è un valore vero («vale per tutti i marchi»), non un campo
+  // non compilato. Con il solito `|| p.negozioId` non si potrebbe più allargare
+  // a tutti una proposta nata per un negozio — il vuoto verrebbe scambiato per
+  // «non me l'hanno detto» e ricadrebbe sul brand di partenza.
+  const negozioId = c.negozioId === undefined ? p.negozioId : (c.negozioId ?? '').trim()
+  return {
+    termine,
+    definizione,
+    categoria,
+    negozioId,
+    corretta:
+      termine !== p.termine ||
+      definizione !== p.definizione ||
+      categoria !== p.categoria ||
+      // ⚠️ Cambiare il brand È una correzione, anche a testo identico: cambia a
+      // CHI quella frase si può dire, che è il senso della voce.
+      negozioId !== p.negozioId,
+  }
+}
