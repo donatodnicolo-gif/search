@@ -186,12 +186,27 @@ export default async function Impostazioni({
                 <div className="kpi-etichetta">Uscite (pagamenti)</div>
               </div>
               <div className="kpi">
+                {/* La completezza si misura contro il proprietario, non si presume
+                    dall'ultima data: se i due totali non tornano, lo scarto va
+                    mostrato qui, accanto al numero, non a fondo pagina. */}
+                <div
+                  className="kpi-valore"
+                  style={movimenti.totaleFinance != null && movimenti.totaleFinance !== movimenti.totale ? { color: "var(--rosso, #B3261E)" } : undefined}
+                >
+                  {movimenti.totaleFinance != null ? movimenti.totaleFinance.toLocaleString("it-IT") : "n.d."}
+                </div>
+                <div className="kpi-etichetta">In Finance (il padrone)</div>
+              </div>
+              <div className="kpi">
                 <div className="kpi-valore">{controllo.conCosto.toLocaleString("it-IT")}</div>
                 <div className="kpi-etichetta">Ordini con un costo</div>
               </div>
             </div>
             <p className="testo-guida">
               {movimenti.ultimoImport ? `Ultimo scarico: ${dataBreve(movimenti.ultimoImport)}.` : "Mai scaricato finora."}{" "}
+              {movimenti.totaleFinance != null && movimenti.totaleFinance !== movimenti.totale
+                ? `⚠ Lo specchio non è completo: Finance dichiara ${movimenti.totaleFinance.toLocaleString("it-IT")} movimenti, qui ce ne sono ${movimenti.totale.toLocaleString("it-IT")} (${Math.abs(movimenti.totaleFinance - movimenti.totale).toLocaleString("it-IT")} di differenza). Rilancia lo scarico con «rileggi tutto dall'inizio». `
+                : ""}
               {movimenti.primo && movimenti.ultimo
                 ? `L'estratto copre dal ${dataBreve(movimenti.primo)} al ${dataBreve(movimenti.ultimo)}: gli ordini più vecchi non hanno un movimento da abbinare, e non è un errore.`
                 : ""}

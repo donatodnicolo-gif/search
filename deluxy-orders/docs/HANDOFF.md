@@ -1,9 +1,46 @@
 # Handoff — Deluxy Orders
 
-Stato al **17/08/2026** (fotografia qui sotto; il corpo del documento è del
-30/07). Aggiornare a ogni tappa (regole di lavoro Deluxy).
-Serve a far ripartire una finestra nuova senza contesto: prima lo stato, poi le
-**trappole già pagate** — quelle valgono più dell'elenco delle funzioni.
+Stato al **24/08/2026** (sezione qui sotto; la fotografia contata è del 17/08,
+il corpo del documento del 30/07). Aggiornare a ogni tappa (regole di lavoro
+Deluxy). Serve a far ripartire una finestra nuova senza contesto: prima lo
+stato, poi le **trappole già pagate** — quelle valgono più dell'elenco delle
+funzioni.
+
+## 24/08/2026 — Audit architettura: copie ridotte, annullamenti non più muti
+
+Cinque interventi dall'audit di conformità (il rapporto per app sta
+nell'artifact «Architettura Dati Deluxy», §7):
+
+1. **`FeedbackOrdine` non è più una copia: è un riferimento coi codici.**
+   Tolte dalla tabella e dall'import le colonne coi contenuti del Customer
+   Service: `clienteNome/Email/Telefono`, `descrizione`, `azioni`, `esito`,
+   `testo`, `colpaNome`, `soggettoNome`. Restano l'identità (`idEsterno`),
+   l'aggancio all'ordine e i codici per contare (tipo, stato, casistica,
+   colpaTipo, gravità, voto, origine, soggettoTipo). La scheda ordine mostra i
+   codici e rimanda al Customer Service per il racconto. ⚠️ Le colonne nel
+   database cadono al prossimo `prisma db push` (chiede conferma perché
+   contengono dati: sono copie, la fonte le ha tutte).
+2. **`MovimentoBanca` resta, ed è una scelta dichiarata.** L'audit chiedeva di
+   ridurlo a riferimento, ma l'abbinamento cerca DENTRO descrizione e
+   controparte di tutto l'estratto (~11.000 movimenti in memoria): a domanda
+   non si può fare. In cambio la completezza ora si **misura**: il riepilogo in
+   Impostazioni confronta il totale locale col `totale` dichiarato da Finance
+   (`/api/v1/movimenti?limit=1`) e segna in rosso lo scarto — una sync non si
+   verifica dall'ultima data.
+3. **Gli annullamenti non sono più silenziosi per chi tiene copie.**
+   `GET /api/v1/ordini?annullatiDa=<ISO>` restituisce solo gli ordini annullati
+   da quel momento (con `annullatoIl`), così un lettore (Customer Service,
+   Merchandising, Marketing) ritira le sue righe. Prima un ordine annullato
+   spariva dall'elenco e la copia a valle restava valida per sempre.
+4. **La UI è fail-closed in produzione**: senza `ORDERS_APP_PASSWORD` su Vercel
+   l'app risponde 503 invece di aprirsi (prima si apriva: 14.000 ordini a un
+   typo di variabile dalla rete). In locale senza password si lavora come prima.
+5. **`/api/health` sta fuori dal middleware** (return anticipato): nessuna riga
+   futura del ramo `/api` può metterle un cancello davanti per sbaglio.
+
+**Deciso e rimandato**: i webhook Shopify (`orders/create|updated|cancelled`
+con verifica HMAC) al posto del solo polling a 15′ — richiedono la
+registrazione sui 3 negozi e un segreto per negozio; il polling oggi basta.
 
 
 ## 23/08/2026 — La quota del fornitore si può chiedere da fuori

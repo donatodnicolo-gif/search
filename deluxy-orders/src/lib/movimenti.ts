@@ -327,7 +327,29 @@ export async function adottaControlloDaFinance(): Promise<EsitoAdozione> {
   return esito;
 }
 
-// Riepilogo per la pagina Impostazioni: com'è fatto lo specchio.
+// Quanti movimenti dichiara Finance in tutto. Serve al riepilogo per MISURARE
+// la completezza dello specchio: l'ultima data non tradisce i buchi in mezzo
+// (trappola già pagata proprio sull'archivio banca). `null` = non verificabile
+// adesso (Finance non configurato o non raggiungibile), che è diverso da zero.
+async function totaleDichiaratoDaFinance(): Promise<number | null> {
+  const conf = configurazioneFinance();
+  if (!conf) return null;
+  try {
+    const res = await fetch(`${conf.url}/api/v1/movimenti?page=1&limit=1`, {
+      headers: { "x-api-key": conf.chiave, "x-app": "deluxy-orders" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(6_000), // è una riga di riepilogo: meglio «n.d.» che una pagina appesa
+    });
+    if (!res.ok || !(res.headers.get("content-type") ?? "").includes("application/json")) return null;
+    const dati = (await res.json()) as { totale?: number };
+    return typeof dati.totale === "number" ? dati.totale : null;
+  } catch {
+    return null;
+  }
+}
+
+// Riepilogo per la pagina Impostazioni: com'è fatto lo specchio, e quanto è
+// COMPLETO rispetto al proprietario (totale qui contro totale in Finance).
 export async function riepilogoMovimenti(): Promise<{
   totale: number;
   entrate: number;
@@ -335,13 +357,15 @@ export async function riepilogoMovimenti(): Promise<{
   primo: Date | null;
   ultimo: Date | null;
   ultimoImport: Date | null;
+  totaleFinance: number | null; // null = non verificabile adesso
 }> {
-  const [totale, entrate, primo, ultimo, ultimoImport] = await Promise.all([
+  const [totale, entrate, primo, ultimo, ultimoImport, totaleFinance] = await Promise.all([
     prisma.movimentoBanca.count(),
     prisma.movimentoBanca.count({ where: { importo: { gt: 0 } } }),
     prisma.movimentoBanca.findFirst({ orderBy: { data: "asc" }, select: { data: true } }),
     prisma.movimentoBanca.findFirst({ orderBy: { data: "desc" }, select: { data: true } }),
     prisma.movimentoBanca.findFirst({ orderBy: { importatoIl: "desc" }, select: { importatoIl: true } }),
+    totaleDichiaratoDaFinance(),
   ]);
   return {
     totale,
@@ -350,5 +374,6 @@ export async function riepilogoMovimenti(): Promise<{
     primo: primo?.data ?? null,
     ultimo: ultimo?.data ?? null,
     ultimoImport: ultimoImport?.importatoIl ?? null,
+    totaleFinance,
   };
 }

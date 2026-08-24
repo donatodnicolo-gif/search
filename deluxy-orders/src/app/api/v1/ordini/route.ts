@@ -16,6 +16,12 @@ import { tipologiePerOrdini } from "@/lib/tipologia-cliente";
 // fatturato — e un ordine annullato resta spesso "pagato", quindi non si
 // riconosce dallo stato del pagamento. Chi ha bisogno anche di quelli lo chiede
 // esplicitamente con `annullati=inclusi` (oppure `annullati=solo`).
+//
+// `annullatiDa=<ISO>` è il canale per chi tiene una copia: restituisce SOLO gli
+// ordini annullati da quel momento in poi (con `annullatoIl` valorizzato), così
+// il lettore ritira le sue righe. Senza questo canale l'annullamento era
+// silenzioso: l'ordine spariva dall'elenco e la copia a valle restava valida
+// per sempre (audit 24/08/2026).
 export async function GET(req: NextRequest) {
   const client = await autentica(req);
   if (client instanceof NextResponse) return client;
@@ -24,7 +30,17 @@ export async function GET(req: NextRequest) {
   const where = whereOrdini(p);
 
   const annullati = p.get("annullati")?.trim().toLowerCase();
-  if (annullati === "solo") where.annullatoIl = { not: null };
+  const annullatiDa = p.get("annullatiDa")?.trim();
+  if (annullatiDa) {
+    const da = new Date(annullatiDa);
+    if (Number.isNaN(da.getTime())) {
+      return NextResponse.json(
+        { errore: "annullatiDa non è una data valida: serve una ISO 8601, es. 2026-08-01T00:00:00Z" },
+        { status: 400 },
+      );
+    }
+    where.annullatoIl = { gte: da };
+  } else if (annullati === "solo") where.annullatoIl = { not: null };
   else if (annullati !== "inclusi") where.annullatoIl = null;
   const page = Math.max(1, Number(p.get("page") ?? "1") || 1);
   const limit = Math.min(200, Math.max(1, Number(p.get("limit") ?? "50") || 50));
@@ -54,7 +70,7 @@ export async function GET(req: NextRequest) {
     limit,
     pagine: Math.max(1, Math.ceil(totale / limit)),
     // esplicito, così chi consuma sa cosa NON sta ricevendo
-    annullatiInclusi: annullati === "inclusi" || annullati === "solo",
+    annullatiInclusi: Boolean(annullatiDa) || annullati === "inclusi" || annullati === "solo",
     ordini: ordini.map((o) => serializzaOrdine(o, tipologie, ordinaliOrdini)),
   });
 }

@@ -9,7 +9,11 @@ import { prisma } from "./db";
 //  - **voti**: il giudizio 1-5 di una persona su un valet o un partner. È
 //    un'opinione, e senza numero d'ordine non viene nemmeno esportata.
 //
-// Qui si tiene una COPIA di sola lettura: la fonte resta il Customer Service.
+// Qui si tiene il RIFERIMENTO più i codici sintetici (tipo, stato, casistica,
+// gravità, voto): quanto basta per contare e per l'aggancio all'ordine. I
+// contenuti — cliente, testi, azioni, esiti — NON si copiano: restano nel
+// Customer Service, che è la fonte (ridotto così il 24/08/2026, audit
+// architettura: niente copie di verità né dati personali replicati).
 // L'import è **incrementale** (`da` = ultimo aggiornamento importato) e
 // **idempotente** (upsert su `idEsterno`): rilanciarlo non crea doppioni.
 //
@@ -146,29 +150,22 @@ async function salva(voce: VoceApi, tipo: "reclamo" | "voto", esito: EsitoImport
   const { ordineId, collegamento } = await collegaOrdine(voce.ordine.numero, voce.ordine.negozio);
   const idEsterno = `${tipo}:${voce.id}`;
 
+  // Solo riferimento e codici: i contenuti (cliente, testi, azioni, esito)
+  // restano nel Customer Service e non si salvano qui.
   const dati = {
     tipo,
     ordineId,
     ordineNumero: voce.ordine.numero ?? "",
     negozio: voce.ordine.negozio ?? "",
     collegamento,
-    clienteNome: voce.cliente?.nome ?? "",
-    clienteEmail: voce.cliente?.email ?? "",
-    clienteTelefono: voce.cliente?.telefono ?? "",
     casistica: voce.casistica ?? "",
     colpaTipo: voce.colpaTipo ?? "",
-    colpaNome: voce.colpaNome ?? "",
     gravita: voce.gravita ?? null,
     stato: voce.stato ?? "",
-    descrizione: voce.descrizione || null,
-    azioni: voce.azioni || null,
-    esito: voce.esito || null,
     risoltoIl: voce.risoltoIl ? new Date(voce.risoltoIl) : null,
     voto: voce.voto ?? null,
-    testo: voce.testo || null,
     origine: voce.origine || null,
     soggettoTipo: voce.soggettoTipo || null,
-    soggettoNome: voce.soggettoNome || null,
     creatoIl: new Date(voce.creatoIl),
     aggiornatoIl: new Date(voce.aggiornatoIl),
   };

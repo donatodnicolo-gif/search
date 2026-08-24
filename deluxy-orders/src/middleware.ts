@@ -34,6 +34,11 @@ function conMarcaSessione(req: NextRequest, res: NextResponse): NextResponse {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // La sonda di salute sta FUORI da tutto (convenzione del Hub, /stato): niente
+  // CORS, niente sessione, nessuna riga futura del ramo /api può metterle un
+  // cancello davanti per sbaglio.
+  if (pathname === "/api/health") return NextResponse.next();
+
   if (pathname.startsWith("/api")) {
     if (req.method === "OPTIONS") {
       return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
@@ -44,7 +49,18 @@ export async function middleware(req: NextRequest) {
   }
 
   const password = process.env.ORDERS_APP_PASSWORD;
-  if (!password || pathname === "/login") return conMarcaSessione(req, NextResponse.next());
+  if (!password) {
+    // In locale si lavora senza password. In produzione l'assenza CHIUDE: prima
+    // apriva, e 14.000 ordini con nomi e telefoni restavano a un typo di
+    // variabile dalla rete (pattern di deluxy-merchandising, audit 24/08/2026).
+    if (process.env.VERCEL) {
+      return new NextResponse("ORDERS_APP_PASSWORD non impostata: l'app resta chiusa finché non la imposti su Vercel.", {
+        status: 503,
+      });
+    }
+    return conMarcaSessione(req, NextResponse.next());
+  }
+  if (pathname === "/login") return conMarcaSessione(req, NextResponse.next());
 
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;
   if (cookie && cookie === (await sessionToken(password))) {

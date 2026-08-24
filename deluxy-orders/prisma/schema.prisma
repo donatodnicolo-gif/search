@@ -517,10 +517,13 @@ model Ordine {
 }
 
 // Ciò che il CUSTOMER SERVICE sa di un ordine: reclami e voti importati da
-// deluxy-messaging (porta 3140) via `/api/v1/feedback`. È una COPIA di sola
-// lettura: la fonte resta il Customer Service, qui si mostra accanto all'ordine
-// e al cliente. Nessuno modifica un reclamo da Orders — si aprono e si chiudono
-// dove c'è la persona che ha parlato col cliente.
+// deluxy-messaging (porta 3140) via `/api/v1/feedback`. NON è più una copia dei
+// contenuti: è il RIFERIMENTO (idEsterno + aggancio all'ordine) più i soli
+// codici sintetici che servono a contare e filtrare (tipo, stato, casistica,
+// gravità, voto). I contenuti — chi è il cliente, cosa ha scritto, cosa è stato
+// fatto — restano SOLO nel Customer Service, che è la fonte: da qui ci si
+// arriva con l'idEsterno. Ridotto così il 24/08/2026 (audit architettura:
+// niente copie di verità, e mai dati personali in una copia).
 model FeedbackOrdine {
   id        String @id @default(cuid())
   // "reclamo:<id>" oppure "voto:<id>": l'identità nel Customer Service, così
@@ -538,27 +541,17 @@ model FeedbackOrdine {
   negozio      String  @default("")
   collegamento String  @default("non-trovato")
 
-  clienteNome     String @default("")
-  clienteEmail    String @default("")
-  clienteTelefono String @default("")
-
-  // --- reclamo ---
-  casistica   String  @default("")
-  colpaTipo   String  @default("") // valet | partner | azienda | cliente | nessuno
-  colpaNome   String  @default("")
-  gravita     Int? // 1 lieve · 2 media · 3 grave
-  stato       String  @default("") // aperto | in_lavorazione | risolto | chiuso
-  descrizione String?
-  azioni      String?
-  esito       String?
-  risoltoIl   DateTime?
+  // --- reclamo: solo i codici, mai i testi ---
+  casistica String  @default("")
+  colpaTipo String  @default("") // valet | partner | azienda | cliente | nessuno
+  gravita   Int? // 1 lieve · 2 media · 3 grave
+  stato     String  @default("") // aperto | in_lavorazione | risolto | chiuso
+  risoltoIl DateTime?
 
   // --- voto (giudizio 1-5 su valet o partner, legato a un ordine) ---
   voto         Int?
-  testo        String?
   origine      String? // telefono | whatsapp | email | reclamo | altro
   soggettoTipo String? // valet | partner
-  soggettoNome String?
 
   creatoIl     DateTime // quando è nato nel Customer Service
   aggiornatoIl DateTime // ultima modifica là: è la base dell'import incrementale
@@ -637,6 +630,12 @@ model EventoOrdine {
 // filtra e abbina su ~11.000 movimenti, e deve funzionare anche quando Finance è
 // lento o giù. La copia è idempotente su `hash` (l'identità del movimento in
 // Finance): reimportare non duplica niente.
+//
+// È la REPLICA DI LAVORO dichiarata dell'audit 24/08/2026: non si riduce a un
+// riferimento perché l'abbinamento cerca DENTRO descrizione/controparte di
+// tutto l'estratto — a domanda non si può fare. In cambio la completezza si
+// MISURA, non si presume: il riepilogo confronta il conteggio locale col
+// `totale` dichiarato da Finance (una sync non si verifica dall'ultima data).
 //
 // ⚠️ Qui NON si scrive mai niente che riguardi Finance: il denaro, la categoria
 // di costo e lo stato contabile restano suoi. Di nostro c'è solo l'uso che ne fa

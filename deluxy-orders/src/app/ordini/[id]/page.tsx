@@ -411,7 +411,9 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
       )}
 
       {/* Customer Service: cosa è andato storto su questo ordine, e come l'ha
-          giudicato il cliente. Arriva da deluxy-messaging: qui è sola lettura. */}
+          giudicato il cliente. Qui arrivano solo i CODICI (casistica, colpa,
+          gravità, stato, voto): i contenuti — chi è il cliente, cosa ha scritto,
+          come è finita — vivono solo nel Customer Service, che è la fonte. */}
       {ordine.feedback.length > 0 && (
         <div className="scheda">
           <div className="scheda-titolo">Customer Service — reclami e voti</div>
@@ -426,7 +428,7 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
                         {f.casistica || "Reclamo"}
                       </span>
                       <span className="badge neutro">{statoFeedbackLeggibile(f.stato)}</span>
-                      {f.colpaNome && <span className="stato-shopify">colpa: {f.colpaNome}</span>}
+                      {f.colpaTipo && <span className="stato-shopify">colpa: {f.colpaTipo}</span>}
                     </>
                   ) : (
                     <>
@@ -434,20 +436,18 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
                         <span className="dot" />
                         Voto {f.voto}/5
                       </span>
-                      {f.soggettoNome && <span className="stato-shopify">su {f.soggettoNome}</span>}
+                      {f.soggettoTipo && <span className="stato-shopify">su un {f.soggettoTipo}</span>}
                       {f.origine && <span className="stato-shopify">via {f.origine}</span>}
                     </>
                   )}
                   <span className="feedback-data">{dataBreve(f.creatoIl)}</span>
                 </div>
-                {(f.descrizione || f.testo) && <p className="feedback-testo">{f.descrizione || f.testo}</p>}
-                {f.esito && <p className="feedback-esito"><strong>Esito:</strong> {f.esito}</p>}
               </li>
             ))}
           </ul>
           <p className="testo-guida" style={{ marginTop: 10 }}>
-            Copia di sola lettura: reclami e voti si aprono e si chiudono nell&apos;app Customer
-            Service, non da qui.
+            Il racconto completo — cliente, testi, azioni, esito — si legge nell&apos;app Customer
+            Service, che è la fonte: qui restano i codici per contare e riconoscere il caso.
           </p>
         </div>
       )}
