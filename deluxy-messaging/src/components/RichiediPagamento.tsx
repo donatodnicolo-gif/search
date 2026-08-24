@@ -379,8 +379,12 @@ export function RichiediPagamento() {
       // nome, fra sei mesi, nessuna ricevuta si distingue dalle altre. Il nome
       // glielo diamo noi, con la data.
       const est = file.type === 'application/pdf' ? 'pdf' : file.type.split('/')[1] || 'png'
-      const oggi = new Date().toISOString().slice(0, 10)
-      const rinominato = new File([file], `incollata-${oggi}.${est}`, { type: file.type })
+      // ⚠️⚠️ Con la sola DATA due ricevute incollate lo stesso giorno hanno lo
+      // STESSO nome — misurato sulle tre vere, erano identiche tutte e tre. Ci
+      // si mette anche l ora: nella cartella dei download «(1)» e «(2)» non
+      // dicono quale bonifico sia, e la prova si perde proprio quando serve.
+      const q = new Date().toISOString().slice(0, 16).replace(`T`, `-`).replace(/:/g, ``)
+      const rinominato = new File([file], `incollata-${q}.${est}`, { type: file.type })
       // ⚠️⚠️ DOVE finisce non si indovina: dipende da cosa si sta facendo.
       // Col pop-up «Pagata» aperto si sta registrando un'uscita di denaro e
       // quella è una ricevuta; altrimenti si sta compilando la richiesta e

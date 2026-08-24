@@ -25,7 +25,14 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
   const r = await db.richiestaPagamento.findUnique({
     where: { id },
-    select: { ricevutaDati: true, ricevutaNome: true, ricevutaTipo: true, causale: true },
+    select: {
+      ricevutaDati: true,
+      ricevutaNome: true,
+      ricevutaTipo: true,
+      causale: true,
+      ordineNumero: true,
+      intestatario: true,
+    },
   })
   if (!r) return NextResponse.json({ errore: 'Richiesta non trovata.' }, { status: 404 })
   if (!r.ricevutaDati) {
@@ -53,7 +60,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
   // dominio — cioè uno script che gira con la sessione di chi scarica. Se il
   // tipo salvato non è fra quelli che accettiamo, si scarica come file generico.
   const tipo = TIPI_RICEVUTA.includes(r.ricevutaTipo) ? r.ricevutaTipo : 'application/octet-stream'
-  const nome = nomeFileRicevuta(r.ricevutaNome, r.causale, tipo)
+  // ⚠️ Ordine e intestatario servono al nome: le ricevute incollate si
+  // chiamano tutte uguali (vedi nomeFileRicevuta), e tre file identici nella
+  // cartella dei download non sono tre prove, sono un indovinello.
+  const nome = nomeFileRicevuta(r.ricevutaNome, r.causale, tipo, {
+    ordineNumero: r.ordineNumero,
+    intestatario: r.intestatario,
+  })
 
   return new NextResponse(new Uint8Array(byte), {
     headers: {

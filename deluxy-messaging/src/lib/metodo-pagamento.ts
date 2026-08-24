@@ -118,7 +118,13 @@ export const TIPI_RICEVUTA = [
  * costruisce uno con la causale: «ricevuta.png» ripetuto venti volte nella
  * cartella dei download non si distingue più.
  */
-export function nomeFileRicevuta(nome: string, causale: string, tipo: string): string {
+export function nomeFileRicevuta(
+  nome: string,
+  causale: string,
+  tipo: string,
+  /** L'ordine e chi è stato pagato: servono quando il nome non distingue. */
+  chi: { ordineNumero?: string; intestatario?: string } = {}
+): string {
   const estensione =
     tipo === 'application/pdf'
       ? 'pdf'
@@ -130,13 +136,40 @@ export function nomeFileRicevuta(nome: string, causale: string, tipo: string): s
     .replace(/[^\w .()-]/g, '')
     .trim()
     .slice(0, 80)
-  if (pulito && /\.[a-z0-9]{2,4}$/i.test(pulito)) return pulito
-  const daCausale = (causale || 'ricevuta')
-    .replace(/[^\w -]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .slice(0, 60)
-  return `${pulito || daCausale || 'ricevuta'}.${estensione}`
+  // ⚠️⚠️ UN NOME CHE NON DISTINGUE NON È UN NOME. Le ricevute incollate con
+  // Ctrl+V le battezzavo `incollata-2026-08-24.png`: con la data e basta, tutte
+  // quelle di uno stesso giorno hanno lo STESSO nome — misurato sulle tre vere,
+  // erano identiche tutte e tre. Scaricandole finiscono nella cartella dei
+  // download come «(1)» e «(2)», e la prova di quale bonifico sia si perde
+  // proprio nel momento in cui serve tirarla fuori.
+  //
+  // ⚠️ Quindi un nome generato da noi NON si tiene: si ricostruisce da ordine e
+  // intestatario, che sono le due cose per cui quella ricevuta si va a cercare.
+  const generato = /^incollata-\d{4}-\d{2}-\d{2}\.[a-z0-9]+$/i.test(pulito)
+  if (pulito && !generato && /\.[a-z0-9]{2,4}$/i.test(pulito)) return pulito
+
+  const pezzi = [
+    'ricevuta',
+    (chi.ordineNumero || '').replace('#', ''),
+    (chi.intestatario || '').slice(0, 40),
+  ]
+    .map((p) =>
+      p
+        .replace(/[^\w -]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+    )
+    .filter(Boolean)
+  // Senza ordine né intestatario resta la causale: meglio di «ricevuta» secco.
+  if (pezzi.length === 1) {
+    const daCausale = (causale || '')
+      .replace(/[^\w -]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .slice(0, 60)
+    if (daCausale) pezzi.push(daCausale)
+  }
+  return `${pezzi.join('-').slice(0, 90)}.${estensione}`
 }
 
 export function ricevutaAccettabile(tipo: string, byte: number): string {

@@ -26,7 +26,7 @@ prova('senza numero, nessun link', linkOrdine('') === '' && linkOrdine('   ') ==
 
 console.log('\n══ IL NOME DEL FILE DELLA RICEVUTA ══')
 prova('un nome buono si tiene', nomeFileRicevuta('bonifico-marzo.pdf', 'Ordine #2785', 'application/pdf') === 'bonifico-marzo.pdf')
-prova('senza nome si usa la causale', nomeFileRicevuta('', 'Ordine #2785', 'image/png') === 'Ordine-2785.png',
+prova('senza nome si usa la causale', nomeFileRicevuta('', 'Ordine #2785', 'image/png') === 'ricevuta-Ordine-2785.png',
   nomeFileRicevuta('', 'Ordine #2785', 'image/png'))
 prova('jpeg diventa jpg', nomeFileRicevuta('', 'x', 'image/jpeg').endsWith('.jpg'), nomeFileRicevuta('', 'x', 'image/jpeg'))
 {
@@ -40,6 +40,40 @@ prova('via le barre dei percorsi', !nomeFileRicevuta('../../etc/passwd.png', 'c'
   nomeFileRicevuta('../../etc/passwd.png', 'c', 'image/png'))
 prova('un nome lunghissimo si accorcia', nomeFileRicevuta('a'.repeat(300) + '.png', 'c', 'image/png').length <= 84)
 prova('un tipo che non conosciamo non finge un estensione', nomeFileRicevuta('', 'c', 'application/zip').endsWith('.bin'))
+
+// ══════════════════════════════════════════════════════════════════════════
+// ⚠️⚠️ UN NOME CHE NON DISTINGUE NON E UN NOME
+//
+// Misurato sulle TRE ricevute vere caricate dall utente: si chiamavano tutte e
+// tre `incollata-2026-08-24.png`, perche' le battezzavo con la sola data.
+// Scaricandole finirebbero nella cartella dei download come «(1)» e «(2)», e la
+// prova di QUALE bonifico sia si perde proprio nel momento in cui serve tirarla
+// fuori — davanti a un fornitore che dice di non aver ricevuto niente.
+// ══════════════════════════════════════════════════════════════════════════
+console.log('\n══ UN NOME GENERATO DA NOI NON SI TIENE ══')
+{
+  const a = nomeFileRicevuta('incollata-2026-08-24.png', '2790', 'image/png', {
+    ordineNumero: '#2790',
+    intestatario: 'Ratschiller Erika',
+  })
+  const b = nomeFileRicevuta('incollata-2026-08-24.png', '1803', 'image/png', {
+    ordineNumero: '#1803',
+    intestatario: 'BUFFA GIOVANNA',
+  })
+  prova('i due nomi identici diventano diversi', a !== b, `${a}  |  ${b}`)
+  prova('e dicono l ordine', a.includes('2790') && b.includes('1803'))
+  prova('e chi e stato pagato', a.includes('Ratschiller') && b.includes('BUFFA'))
+  prova('con l estensione giusta', a.endsWith('.png'))
+}
+// ⚠️ Ma un nome scelto da una PERSONA si rispetta: e' lei che sa come si
+// chiama quel file, e riscriverglielo sarebbe presuntuoso e basta.
+prova(
+  'un nome scelto da una persona si RISPETTA',
+  nomeFileRicevuta('bonifico-battistella.pdf', 'c', 'application/pdf', {
+    ordineNumero: '#1',
+    intestatario: 'X',
+  }) === 'bonifico-battistella.pdf'
+)
 
 console.log(male === 0 ? '\nTutto a posto.' : `\n${male} SBAGLIATI.`)
 process.exit(male === 0 ? 0 : 1)
