@@ -424,6 +424,22 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 
 ## FATTO
 
+- **⚠️ 24/08 — «ESTINGUI»: 3.584 utenti estinti. IRREVERSIBILE, già eseguito.** Deploy `delivery-nqwmo9fz7`.
+  - **Un gesto solo** al posto di due mezze misure. Archiviare conserva lo storico ma lascia nome/email/telefono di chi se n’è andato; cancellare davvero li toglie ma **svuota l’autore su tutto lo storico** (`Delivery.createdByUserId` è `ON DELETE SET NULL`, **49.728 consegne**) e porta via il registro delle azioni (`UserEvent` è `onDelete: Cascade`). **Estingui tiene l’ID** — lo storico non si muove — e cancella la persona: email `estinto-<id>@deluxy.invalid`, nome «Utente estinto», password e token azzerati. L’evento si scrive **prima** e sopravvive.
+  - `UserStatus.EXTINCT` in `common/enums.ts`; `UsersService.estingui()`; `DELETE /users/:id` ora estingue. Il login blocca già tutto ciò che non è `active`.
+  - **Chi**: nessuna traccia da oltre 3 anni (consegne create / ricevute come cliente / del proprio partner / come valet, eventi, attivazione). Applicato a **3.584**: 3.370 CUSTOMER, 148 VALET, 66 PARTNER. Script ripetibile e con prova a vuoto: `scripts/estingui-utenti.mjs` (`--anni=N`, `--scrivi`).
+  - 🔴 **Due fermate prima di scrivere, e la seconda era grave**:
+    1. **«Nessuna consegna» ≠ «se n’è andato»**: `Chanel Corporate` è attivo, ha due account di persone vere e zero consegne. Ora chi ha l’anagrafica **ancora attiva** non si estingue → **33 salvati**.
+    2. **Il personale interno non si misura con le consegne**: su **20** fra ADMIN/OPERATION/PROJECT_MANAGER, **venti** risultavano «mai attivato» — non perché se ne siano andati, ma perché la piattaforma è appena partita e un PM non crea consegne. La regola li avrebbe estinti **tutti**: colleghi in servizio, anonimizzati e chiusi fuori. Ora esclusi **per ruolo** (`INTERNI`).
+  - ✅ **Controprove dopo la scrittura**: consegne 61.836 invariate · con autore 49.728 invariate · utenti 5.082 invariati · **0** estinti con l’email vera rimasta · 3.584 eventi `extinguished` registrati.
+  - **Stati ora**: `active` 910 · `invited` 574 · `extinct` 3.584 · `archived` 9 · `suspended` 5.
+  - 🔜 **Lasciati stare su decisione dell’utente (24/08)**: i **9 `archived`** dal vecchio gesto (chiusi ma **non** anonimizzati: i dati personali sono ancora dentro) e i **574 `invited`** che non hanno mai scelto la password.
+
+- **Prodotti: i filtri dell’app vera, e il tab Archivio che non filtrava** — 24/08, deploy `delivery-broyopcrc` e `delivery-4dhkrektc`.
+  - 🔴 **Il tab «Archivio» non mandava mai `archived`**: cliccandolo cambiava solo l’evidenziazione e la lista restava quella dei non archiviati. L’API rispondeva correttamente a chi il parametro glielo passava — per questo a un controllo sull’endpoint sembrava funzionante. **Provare l’API non è provare la pagina.**
+  - Aggiunti i sei filtri Sì/No del manuale §3.6: Attivo, Approvato, Prodotto unico, Super prodotto, Super provincia, In magazzino. **A tre stati** (vuoto/Sì/No): con un booleano secco «mostrami i non approvati» sarebbe inesprimibile, e sono **19.789**.
+  - ⭐ **«Prodotto unico» e «super prodotto» sono DUE cose, non una** (confermato dall’utente). Nel legacy sono due colonne indipendenti; io le avevo fuse in un enum. Il danno vero era nel form: `type = isSuperProduct ? SUPERPRODOTTO : isUnique ? UNICO : …` — spuntare «super prodotto» **cancellava** «prodotto unico**, in silenzio. Aggiunto `Product.isSuperProduct`; i 10 `SUPERPRODOTTO` sono tornati a `NON_UNICO` (com’è nel legacy). ⚠️ Quei 10 ora vanno alla lista priorità nello smistamento invece che a un proprietario: è corretto, ma è un cambio di comportamento.
+
 - **⭐ Gli ordini entrano: Orders → Vendite → partner** — 24/08, deploy `delivery-65w4t122b`. Il giro completo, tutto provato in produzione.
   - **`orders-sync`** (`api/src/orders-sync/orders-sync.module.ts`) legge `GET /api/v1/ordini` da **Deluxy Orders** (`https://deluxy-orders.vercel.app`, chiave di **sola lettura** in Impostazioni) e passa ogni ordine allo smistamento. `POST /orders-sync/esegui` **di default NON scrive**: risponde col conto di cosa succederebbe.
   - 🔴 **Lo SKU degli ordini è quello della VARIANTE, non del prodotto.** Sui primi 200 ordini veri ne entravano **16**: 129 finivano in «prodotto sconosciuto» pur essendo tutti in catalogo. Provati 5 SKU a campione: **nessuno** su `Product.sku`, **tutti e 5** su `ProductVariant.sku`. Ora si guardano entrambi → **139 su 200 (70%)**.
