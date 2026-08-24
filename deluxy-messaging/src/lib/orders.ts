@@ -423,6 +423,27 @@ export type OrdineOrdersRaw = {
   } | null
   consegna?: { data?: string | null; fascia?: string | null } | null
   classificazione?: { stato?: { chiave?: string; nome?: string } | null } | null
+  /**
+   * I SOLDI dell'ordine, come li calcola **Orders**.
+   *
+   * ⚠️⚠️ Il margine si legge da qui e NON si rifà in casa. Lo Standard Deluxy
+   * §7.4 lo dice esplicitamente — «il margine si calcola SOLO in Orders» — e la
+   * ragione è la stessa della quota fornitore: una formula ricopiata resta al
+   * valore vecchio il giorno che la cambiano là, e nessuna delle due schermate
+   * dà errore. Direbbero solo due numeri diversi sulla stessa cosa.
+   *
+   * ⚠️ `costo` e `margine` sono `null` quando il costo del fornitore non si sa —
+   * e allora si scrive «non calcolabile», mai zero: uno zero verrebbe letto come
+   * «nessun margine», che è un'altra cosa (§7.3 punto 6).
+   */
+  controllo?: {
+    costo?: number | null
+    costoFornitore?: string | null
+    costoIl?: string | null
+    /** manuale | causale | finance: chi ha deciso quel costo. */
+    costoDa?: string | null
+    margine?: number | null
+  } | null
   spedizione?: {
     nome?: string | null
     indirizzo?: string | null
@@ -664,5 +685,45 @@ export async function leggiQuotaFornitore(totale?: number): Promise<QuotaFornito
     }
   } catch {
     return null
+  }
+}
+
+/**
+ * I SOLDI di un ordine, chiesti a Orders: costo del fornitore e MARGINE.
+ *
+ * ⚠️⚠️ Esiste per NON rifare il conto in casa. Lo Standard Deluxy §7.4 dice che
+ * il margine si calcola solo in Orders, e §7.3 che le regole economiche vivono
+ * in un posto solo: una formula ricopiata resta al valore vecchio il giorno che
+ * la cambiano là, e nessuna delle due schermate dà errore — direbbero solo due
+ * numeri diversi sulla stessa cosa.
+ *
+ * ⚠️ `null` NON è zero: quando Orders non risponde, o il costo del fornitore
+ * non lo sa, il chiamante deve scrivere «non calcolabile». È la regola §7.3.6.
+ */
+export type SoldiOrdine = {
+  totale: number
+  /** Quanto risulta pagato al fornitore, secondo Orders. `null` = non lo sa. */
+  costo: number | null
+  /** Chi lo prepara, secondo Orders. */
+  fornitore: string
+  /** Il margine, calcolato DA ORDERS. `null` = non calcolabile. */
+  margine: number | null
+  /** manuale | causale | finance — chi ha deciso quel costo. */
+  costoDa: string
+}
+
+export async function soldiOrdineDaOrders(
+  numero: string,
+  shopifyId = ''
+): Promise<SoldiOrdine | null> {
+  const esito = await ordineDaOrders(numero, shopifyId)
+  if (esito.stato !== 'ok') return null
+  const c = esito.ordine.controllo ?? null
+  return {
+    totale: esito.ordine.totale ?? 0,
+    costo: typeof c?.costo === 'number' ? c.costo : null,
+    fornitore: c?.costoFornitore ?? '',
+    margine: typeof c?.margine === 'number' ? c.margine : null,
+    costoDa: c?.costoDa ?? '',
   }
 }

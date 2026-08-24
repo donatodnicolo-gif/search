@@ -20,6 +20,13 @@ export type OrdineTrovato = {
   data: string
   fornitoreNome: string
   fornitoreCosto: number | null
+  /**
+   * Viene dall'ARCHIVIO di Orders, non dalla nostra copia di 60 giorni.
+   * ⚠️ Si dice, perché di un ordine d'archivio non sappiamo chi lo prepara né
+   * come lo stiamo lavorando: quei dati sono nostri e valgono solo su ciò che è
+   * passato di qui.
+   */
+  daArchivio?: boolean
 }
 
 export function ScegliOrdine({
@@ -43,6 +50,7 @@ export function ScegliOrdine({
   const [scelto, setScelto] = useState<OrdineTrovato | null>(null)
   const [cerco, setCerco] = useState(false)
   const [fatto, setFatto] = useState(false)
+  const [nota, setNota] = useState('')
   const ultima = useRef('')
   const giaProvato = useRef('')
 
@@ -58,7 +66,8 @@ export function ScegliOrdine({
     try {
       const res = await fetch(`/api/ordini/per-numero?q=${encodeURIComponent(t)}`)
       if (!res.ok) return []
-      const d = (await res.json()) as { ordini: OrdineTrovato[] }
+      const d = (await res.json()) as { ordini: OrdineTrovato[]; nota?: string }
+      setNota(d.nota ?? '')
       if (ultima.current !== t) return []
       setTrovati(d.ordini)
       setFatto(true)
@@ -92,6 +101,7 @@ export function ScegliOrdine({
     return (
       <div className="ordine-collegato">
         <span className="badge">{scelto.numero}</span>
+        {scelto.daArchivio ? <span className="cella-sub">archivio</span> : null}
         <span className="cella-sub">
           {[
             scelto.negozioNome,
@@ -140,8 +150,11 @@ export function ScegliOrdine({
       </label>
       {cerco ? <p className="cella-sub">Cerco…</p> : null}
       {fatto && !cerco && trovati.length === 0 ? (
-        <p className="cella-sub">Nessun ordine con questo numero fra quelli che abbiamo in casa.</p>
+        <p className="cella-sub">
+          Nessun ordine con questo numero, né fra i recenti né nell&apos;archivio Ordini.
+        </p>
       ) : null}
+      {nota ? <p className="cella-sub">{nota}</p> : null}
       {trovati.length > 1 ? (
         // ⚠️ Si dice PERCHÉ ce n'è più d'uno: senza, sembra che l'app non sappia
         // decidere, mentre il fatto è che quel numero appartiene a due ordini
@@ -165,6 +178,10 @@ export function ScegliOrdine({
               >
                 <span className="titolo">
                   {o.numero} · {o.negozioNome}
+                  {/* ⚠️ Un ordine d'archivio si distingue: puo' essere di anni
+                      fa, e senza dirlo si collega un pagamento all'ordine
+                      sbagliato con lo stesso numero. */}
+                  {o.daArchivio ? <span className="cella-sub"> · archivio</span> : null}
                 </span>
                 <span className="cella-sub">
                   {[
