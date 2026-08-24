@@ -12,6 +12,7 @@
 //     calcola il database (`coppie_duplicate`, migrazione 0058): la distanza
 //     decide, l'indirizzo corregge.
 import { supabase } from '@/lib/supabase';
+import { env } from '@/lib/env';
 
 export interface SenzaPosizione {
   id: string;
@@ -98,7 +99,24 @@ export async function fetchCoppieDuplicate(): Promise<CoppiaDuplicata[]> {
  * copia, e senza quello la scoperta sulla mappa ricreerebbe lo stesso negozio
  * al primo giro — riaprendo il doppione appena chiuso.
  */
-export async function unisciCoppia(tieneId: string, togliId: string): Promise<void> {
+/** Cos'è successo nel REGISTRO mentre univamo qui. Non è un dettaglio tecnico:
+ *  se l'unione non è arrivata là, il doppione torna al prossimo import. */
+export type EsitoRegistro =
+  | { stato: 'unite'; sorgente?: string; destinazione?: string }
+  | { stato: 'non_serviva' }
+  | { stato: 'non_configurato' }
+  | { stato: 'errore'; motivo: string };
+
+export async function unisciCoppia(tieneId: string, togliId: string): Promise<EsitoRegistro> {
+  // ⚠️ I due legami col registro si leggono ORA, prima di unire: fra un attimo
+  // la riga `togliId` non esiste più e il suo `anagrafiche_id` sarebbe perso.
+  const { data: legami } = await supabase
+    .from('places')
+    .select('id, anagrafiche_id')
+    .in('id', [tieneId, togliId]);
+  const anaTiene = legami?.find((r) => r.id === tieneId)?.anagrafiche_id ?? null;
+  const anaTogli = legami?.find((r) => r.id === togliId)?.anagrafiche_id ?? null;
+
   const { data: d } = await supabase
     .from('places')
     .select('google_place_id, google_rating, google_reviews')
@@ -132,6 +150,83 @@ export async function unisciCoppia(tieneId: string, togliId: string): Promise<vo
   // Best-effort: se fallisce, l'unione è già avvenuta e non va annullata per
   // un flag — al massimo il negozio va ripescato dai Nascosti.
   await supabase.from('places').update({ nascosto: false }).eq('id', tieneId);
+
+  // ── E ORA IL REGISTRO ────────────────────────────────────────────────────
+  //
+  // Se il doppione esiste anche là (due `anagrafiche_id` diversi), unire solo
+  // qui non basta: l'import fa `upsert on conflict (anagrafiche_id)`, quindi
+  // **al giro dopo il negozio scartato torna**. Misurato il 23/08/2026: 65
+  // coppie su 364.
+  //
+  // Quando invece il legame è uno solo, non c'è niente da unire là: ci pensa
+  // la migrazione 0067 a portarlo sul superstite.
+  if (!anaTiene || !anaTogli || anaTiene === anaTogli) return { stato: 'non_serviva' };
+
+  try {
+    const esito = await unisciAnagraficheRegistro(anaTogli, anaTiene);
+    return esito;
+  } catch (e) {
+    // ⚠️ Non si rilancia: qui l'unione LOCALE è già fatta e non si disfa. Ma
+    // non si tace nemmeno — chi ha premuto deve sapere che nel registro sono
+    // ancora due, se no crede chiuso un doppione che tornerà.
+    return { stato: 'errore', motivo: (e as Error)?.message ?? 'errore sconosciuto' };
+  }
+}
+
+/**
+ * Cosa dire a chi ha premuto «Unisci», guardando com'è andata nel registro.
+ *
+ * ⭐ Silenzio quando è andata bene: l'unione ha fatto quello che il bottone
+ * prometteva, e un avviso per ognuna delle 364 coppie sarebbe solo un tasto in
+ * più da premere. Si parla **solo** quando nel registro sono rimaste due — che
+ * è il caso che costa lavoro dopo, perché al prossimo import il doppione torna.
+ */
+export function avvisoRegistro(esito: EsitoRegistro): { titolo: string; testo: string } | null {
+  if (esito.stato === 'unite' || esito.stato === 'non_serviva') return null;
+  if (esito.stato === 'non_configurato') {
+    return {
+      titolo: 'Unito qui, non nel registro',
+      testo:
+        'In Scout le due schede sono unite, ma nel registro Anagrafiche restano due: manca la chiave di scrittura ' +
+        '(Profilo → Impostazioni → App collegate). Finché è così, al prossimo import il doppione torna.',
+    };
+  }
+  return {
+    titolo: 'Unito qui, non nel registro',
+    testo:
+      'In Scout le due schede sono unite, ma il registro non le ha unite: ' +
+      esito.motivo +
+      '.\n\nAl prossimo import il doppione torna: vanno unite anche in Anagrafiche.',
+  };
+}
+
+/** Chiede al registro di unire le due anagrafiche (via la Edge `anagrafiche`).
+ *  Là la sorgente viene **archiviata**, non cancellata. */
+async function unisciAnagraficheRegistro(sorgenteId: string, destinazioneId: string): Promise<EsitoRegistro> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/anagrafiche`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ action: 'unisci_anagrafiche', sorgenteId, destinazioneId }),
+  });
+  const body = await res.json().catch(() => ({}) as Record<string, unknown>);
+  if (body?.ok) {
+    return { stato: 'unite', sorgente: body?.archiviata?.nome, destinazione: body?.resta?.nome };
+  }
+  // `non_configurato` non è un guasto: è la chiave di scrittura che non c'è
+  // ancora. Va detto con parole diverse da un errore, se no si va a cercare un
+  // problema che non esiste.
+  if (body?.reason === 'non_configurato') return { stato: 'non_configurato' };
+  if (body?.reason === 'chiave_sola_lettura') {
+    return { stato: 'errore', motivo: 'la chiave del registro è di sola lettura: serve una chiave di scrittura' };
+  }
+  return { stato: 'errore', motivo: String(body?.dettaglio ?? body?.error ?? `il registro ha risposto ${res.status}`) };
 }
 
 /** «Non sono la stessa cosa»: la coppia non ricompare più. */

@@ -59,6 +59,48 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // SCRITTURA: unisce nel registro le due anagrafiche di un doppione che in
+    // Scout è appena stato unito. Senza questo passaggio l'unione vive solo
+    // qui: il registro resta con due schede e, siccome l'import fa `upsert on
+    // conflict (anagrafiche_id)`, **al giro dopo il doppione torna**.
+    // Misurato il 23/08/2026: 65 coppie su 364 si sarebbero disfatte da sole.
+    //
+    // ⚠️ Nel registro la sorgente viene ARCHIVIATA, non cancellata: un'unione
+    // sbagliata si può ancora guardare in faccia.
+    if (body.action === 'unisci_anagrafiche') {
+      const writeKey = await chiaveHub('ANAGRAFICHE_WRITE_KEY');
+      if (!writeKey) return json({ ok: false, reason: 'non_configurato' });
+      const res = await fetch(`${BASE}/api/v1/partners/unisci`, {
+        method: 'POST',
+        headers: { 'x-api-key': writeKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sorgenteId: body.sorgenteId,
+          destinazioneId: body.destinazioneId,
+          prova: body.prova === true,
+        }),
+      });
+      const txt = await res.text();
+      const dati = (() => {
+        try {
+          return JSON.parse(txt);
+        } catch {
+          return null;
+        }
+      })();
+      // ⚠️ L'esito NON si ingoia: 403 vuol dire che la chiave che abbiamo è di
+      // sola lettura, ed è un'informazione azionabile («creane una di
+      // scrittura»), non un guasto misterioso. Restituirlo come `ok:true`
+      // farebbe credere unito ciò che nel registro è ancora doppio.
+      if (!res.ok) {
+        return json({
+          ok: false,
+          reason: res.status === 403 ? 'chiave_sola_lettura' : `registro_${res.status}`,
+          dettaglio: (dati?.errore ?? dati?.error ?? txt).toString().slice(0, 200),
+        });
+      }
+      return json({ ok: true, ...(dati ?? {}) });
+    }
+
     // SCRITTURA: crea/aggiorna il PARTNER nel registro a partire da un negozio
     // Scout (upsert-merge per riferimento esterno scout+place_id). Serve una
     // chiave con scope di scrittura partner (`ANAGRAFICHE_PARTNER_KEY`). Inerte

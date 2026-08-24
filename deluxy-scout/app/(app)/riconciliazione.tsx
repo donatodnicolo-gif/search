@@ -21,6 +21,7 @@ import {
   ignoraCoppia,
   salvaPosizione,
   unisciCoppia,
+  avvisoRegistro,
   type CoppiaDuplicata,
   type SenzaPosizione,
 } from '@/lib/riconciliazione';
@@ -287,12 +288,14 @@ function DoppioniLista({
                 onPress={() =>
                   conferma(
                     'Sono lo stesso negozio?',
-                    `«${c.togli}» sparisce e tutto quello che ha — contatti, visite, trattative — passa a «${c.tiene}». Non si torna indietro.`,
+                    `«${c.togli}» sparisce e tutto quello che ha — contatti, visite, trattative — passa a «${c.tiene}». Non si torna indietro.\n\nSe il doppione è anche nel registro Anagrafiche, vengono unite pure lì (la scheda scartata viene archiviata, non cancellata).`,
                     async () => {
                       setInCorso(chiave);
                       try {
-                        await unisciCoppia(c.tiene_id, c.togli_id);
+                        const esito = await unisciCoppia(c.tiene_id, c.togli_id);
                         await onFatto();
+                        const nota = avvisoRegistro(esito);
+                        if (nota) avvisa(nota.titolo, nota.testo);
                       } catch (e) {
                         avvisa('Non è stato unito', (e as Error)?.message ?? 'Riprova.');
                       } finally {

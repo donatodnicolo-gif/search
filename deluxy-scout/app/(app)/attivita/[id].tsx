@@ -15,6 +15,7 @@ import {
   fetchCoppieDuplicate,
   ignoraCoppia,
   unisciCoppia,
+  avvisoRegistro,
   type CoppiaDuplicata,
   type VerdettoDuplicato,
 } from '@/lib/riconciliazione';
@@ -245,11 +246,14 @@ export default function SchedaAttivita() {
       'Unire le due schede?',
       'Resta «' + resta + '». Contatti, visite, trattative e task di «' + sparisce + '» passano lì, e «' + sparisce +
         '» viene eliminata.' +
-        (s.restaQui ? '' : '\n\nÈ questa scheda a sparire: ti porto su quella che resta.'),
+        (s.restaQui ? '' : '\n\nÈ questa scheda a sparire: ti porto su quella che resta.') +
+        '\n\nSe il doppione è anche nel registro Anagrafiche, vengono unite pure lì (la scheda scartata viene archiviata, non cancellata).',
       async () => {
         setUnendo(true);
         try {
-          await unisciCoppia(s.tieneId, s.togliId);
+          const esito = await unisciCoppia(s.tieneId, s.togliId);
+          const nota = avvisoRegistro(esito);
+          if (nota) avvisa(nota.titolo, nota.testo);
           chiudiSegnalazione(s.altroId);
           // Se è questa scheda a sparire, restarci mostrerebbe un negozio che
           // non esiste più.
