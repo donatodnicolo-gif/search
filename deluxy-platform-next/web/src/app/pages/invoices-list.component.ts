@@ -368,7 +368,8 @@ const NEXT: Record<string, { next: string; key: string }> = {
               @if (expanded() === i.id) {
                 <tr class="detail-row">
                   <td [attr.colspan]="view() === 'archive' ? 8 : 7">
-                    @if (i.lines?.length) {
+                    @if (righeInCorso()) { <span class="muted">{{ 'common.loading' | translate }}</span> }
+                    @else if (righe().length) {
                       <table class="lines">
                         <thead><tr>
                           <th>{{ 'invoices.line.date' | translate }}</th>
@@ -377,7 +378,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
                           <th class="num">{{ 'invoices.line.amount' | translate }}</th>
                         </tr></thead>
                         <tbody>
-                          @for (l of i.lines; track l.id) {
+                          @for (l of righe(); track l.id) {
                             <tr>
                               <td>{{ l.date | date: 'dd/MM/yy' }}</td>
                               <td>{{ l.recipient }}</td>
@@ -668,8 +669,26 @@ export class InvoicesListComponent {
       .subscribe({ next: (d) => this.pendingTotals.set(d.totali ?? null), error: () => {} });
   }
 
+  /** Le righe della fattura aperta: si chiedono al momento, non prima. */
+  readonly righe = signal<InvoiceLine[]>([]);
+  readonly righeInCorso = signal(false);
+
+  /**
+   * Apre il dettaglio e VA A PRENDERE le righe.
+   *
+   * Prima l'elenco le portava tutte con se': lo Storico rispondeva 3,2 MB —
+   * 559 fatture con dentro le loro 9.811 righe — e il browser si piantava a
+   * montarle. Aperto un dettaglio per volta, sono una ventina di righe.
+   */
   toggleDetail(i: Invoice): void {
-    this.expanded.set(this.expanded() === i.id ? null : i.id);
+    if (this.expanded() === i.id) { this.expanded.set(null); return; }
+    this.expanded.set(i.id);
+    this.righe.set([]);
+    this.righeInCorso.set(true);
+    this.http.get<InvoiceLine[]>(`${environment.apiUrl}/invoices/${i.id}/lines`).subscribe({
+      next: (r) => { this.righe.set(r ?? []); this.righeInCorso.set(false); },
+      error: () => this.righeInCorso.set(false),
+    });
   }
 
   /** Apre il pannello Genera precompilando il partner dal filtro. */

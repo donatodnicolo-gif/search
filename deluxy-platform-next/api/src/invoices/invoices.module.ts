@@ -266,13 +266,30 @@ export class InvoicesService {
         { partner: { businessName: { contains: t, mode: 'insensitive' } } },
       ];
     }
+    // ⚠️ Le RIGHE non escono da qui. Caricandole insieme all'elenco, lo
+    // Storico rispondeva 3,2 MB — 559 fatture con dentro tutte le 9.811 righe —
+    // e il browser si piantava a montarle. Il dettaglio le chiede a parte,
+    // quando qualcuno lo apre: sono 18 righe per volta, non 9.811.
     return this.prisma.invoice.findMany({
       where,
-      include: {
-        partner: { select: { id: true, insegna: true } },
-        lines: { orderBy: { date: 'asc' } },
-      },
+      include: { partner: { select: { id: true, insegna: true } } },
       orderBy: { periodStart: 'desc' },
+    });
+  }
+
+  /** Le righe di UNA fattura: si leggono aprendo il dettaglio, non prima. */
+  async lines(user: JwtUser, id: string) {
+    const fattura = await this.prisma.invoice.findUnique({
+      where: { id },
+      select: { id: true, partnerId: true },
+    });
+    if (!fattura) throw new NotFoundException('Fattura non trovata');
+    if (user.role === Role.PARTNER && user.partnerId !== fattura.partnerId) {
+      throw new NotFoundException('Fattura non trovata');
+    }
+    return this.prisma.invoiceLine.findMany({
+      where: { invoiceId: id },
+      orderBy: { date: 'asc' },
     });
   }
 
@@ -1026,6 +1043,12 @@ export class InvoicesController {
   @ApiQuery({ name: 'fino', required: false })
   pendingDetail(@CurrentUser() user: JwtUser, @Param('partnerId') partnerId: string, @Query('fino') fino?: string) {
     return this.invoicesService.pendingDetail(user, partnerId, fino);
+  }
+
+  @Get(':id/lines')
+  @ApiOperation({ summary: 'Le righe di una fattura (il dettaglio le chiede a parte)' })
+  lines(@CurrentUser() user: JwtUser, @Param('id') id: string) {
+    return this.invoicesService.lines(user, id);
   }
 
   @Get('recap/:partnerId')
