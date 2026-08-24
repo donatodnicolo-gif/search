@@ -252,6 +252,19 @@ in `deluxy-budgets/.env` e `deluxy-partner/.env` locali. ⚠️ Le env `Sensitiv
   «Richiesta Linee Servizi»): la riga è stata rinominata a database e da questo
   commit il codice **tollera il nome libero se il progetto ha una voce sola**;
   con più voci vale solo il nome canonico `BUDGETS_API_KEY`.
+- Una chiave **«generata» dalla Configurazione di Budgets non diventa quella
+  attiva**: in produzione `chiave()` legge prima l'**env Sensitive di Vercel**
+  (che vince sempre, ed è la stessa che manda Finance) e la Configurazione
+  scrive a database solo con `APP_SECRET`, che in prod manca. Il secondo
+  tentativo dell'utente (24/08, riga «budgets / Budget», suffisso `L484`) era
+  proprio una chiave generata così: inerte, Budgets risponde 401 comunque.
+  **La chiave valida è UNA**: quella dell'env, copia leggibile nei `.env`
+  locali di `deluxy-budgets` e `deluxy-partner` (suffisso `376f`).
+- **Gli orari di `/chiavi` e dell'«ultimo accesso» in `/utenti` erano UTC**
+  (segnalato dall'utente guardando «aggiornata 09:08» alle 11): mancava
+  `timeZone: "Europe/Rome"` nei due `dataIt()` — il Cartellino invece lo aveva
+  ovunque. È [[trappola-periodi-fuso-server]] in versione «solo visualizzazione»;
+  provato con `TZ=UTC` (09:08 → 11:08).
 
 ## 6. Deploy e ambiente (Vercel)
 

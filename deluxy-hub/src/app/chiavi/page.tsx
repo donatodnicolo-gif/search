@@ -27,7 +27,13 @@ const MESSAGGI_ERRORE: Record<string, string> = {
 };
 
 function dataIt(d: Date) {
-  return new Intl.DateTimeFormat("it-IT", { dateStyle: "short", timeStyle: "short" }).format(d);
+  // Il server è in UTC: senza il fuso esplicito «aggiornata alle 09:08» era
+  // l'ora di Greenwich, due ore indietro rispetto a chi guardava la pagina.
+  return new Intl.DateTimeFormat("it-IT", {
+    timeZone: "Europe/Rome",
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(d);
 }
 
 export default async function ChiaviPage({

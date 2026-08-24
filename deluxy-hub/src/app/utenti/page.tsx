@@ -70,7 +70,12 @@ const MESSAGGI_ERRORE: Record<string, string> = {
 
 function dataIt(d: Date | null) {
   if (!d) return "mai";
-  return new Intl.DateTimeFormat("it-IT", { dateStyle: "short", timeStyle: "short" }).format(d);
+  // Il server è in UTC: senza il fuso l'«ultimo accesso» era due ore indietro.
+  return new Intl.DateTimeFormat("it-IT", {
+    timeZone: "Europe/Rome",
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(d);
 }
 
 export default async function UtentiPage({
