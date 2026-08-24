@@ -70,8 +70,6 @@ Ogni app ha la **sua** porta, fissata nello script `dev` del `package.json`:
 | 3090 | deluxy-tasks *(riservata)* | | 3150 | deluxy-orders |
 | | | | 3160 | deluxy-transactions |
 | | | | 3170 | deluxy-scripts |
-| | | | 3180 | deluxy-fondo |
-| | | | 3190 | deluxy-crm |
 | 3180 | deluxy-fondo *(in `app/`)* | | 3190 | deluxy-crm *(in `app/`)* |
 | 3200 | deluxy-personale *(in `app/`)* | | | |
 
