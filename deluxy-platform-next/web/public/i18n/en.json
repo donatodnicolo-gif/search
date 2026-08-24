@@ -1642,5 +1642,26 @@
         "errore": "errors"
       }
     }
+  },
+  "activities": {
+    "title": "Activities",
+    "caption": "Pickups and deliveries of the day.",
+    "emptyTitle": "No activities",
+    "emptyHint": "Change day or pick “All”.",
+    "capped": "Showing {{mostrate}} of {{totale}}: the list is capped so it does not load tens of thousands.",
+    "markDone": "Mark done",
+    "markPending": "Reopen",
+    "type": {
+      "PICKUP": "Pickup",
+      "DELIVERY": "Delivery"
+    },
+    "col": {
+      "type": "Type",
+      "time": "When",
+      "address": "Address",
+      "delivery": "Delivery",
+      "valet": "Valet",
+      "status": "Status"
+    }
   }
 }

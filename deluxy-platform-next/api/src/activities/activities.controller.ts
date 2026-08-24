@@ -12,8 +12,12 @@ export class ActivitiesController {
   @Get()
   @ApiOperation({ summary: 'Lista attivita (team leader vede quelle delle sue province)' })
   @ApiQuery({ name: 'date', required: false })
-  findAll(@CurrentUser() user: JwtUser, @Query('date') date?: string) {
-    return this.activitiesService.findAll(user, date);
+  findAll(
+    @CurrentUser() user: JwtUser,
+    @Query('date') date?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.activitiesService.findAll(user, date, Number(limit) || 300);
   }
 
   @Post('reorder')

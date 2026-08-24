@@ -13,7 +13,18 @@ export class ActivitiesService {
    *   degli altri valet delle sue province.
    * - Partner: attivita' delle proprie consegne.
    */
-  async findAll(user: JwtUser, date?: string) {
+  /**
+   * Le attivita' di ritiro e consegna.
+   *
+   * ⚠️ C'e' un TETTO, e serve: in tabella ce ne sono 57.253 e senza un filtro
+   * di data uscivano tutte in una risposta sola. Sono quasi tutte storia —
+   * oggi ne cadono 9 — quindi il valore normale e' il giorno, e «tutte» e'
+   * una vista di comodo che va limitata invece che lasciata esplodere.
+   *
+   * Il totale vero si restituisce sempre: chi guarda deve sapere che sta
+   * vedendo una fetta, non tutto.
+   */
+  async findAll(user: JwtUser, date?: string, limite = 300) {
     let where: any = {};
 
     if (user.role === Role.VALET) {
@@ -42,7 +53,10 @@ export class ActivitiesService {
       where.scheduledAt = { gte: day, lt: next };
     }
 
-    return this.prisma.activity.findMany({
+    const tetto = Math.min(1000, Math.max(1, limite));
+    const [totale, items] = await this.prisma.$transaction([
+      this.prisma.activity.count({ where }),
+      this.prisma.activity.findMany({
       where,
       include: {
         delivery: {
@@ -51,7 +65,10 @@ export class ActivitiesService {
         valet: { select: { id: true, firstName: true, lastName: true } },
       },
       orderBy: [{ scheduledAt: 'asc' }, { timeFrom: 'asc' }, { sortOrder: 'asc' }],
-    });
+        take: tetto,
+      }),
+    ]);
+    return { items, totale, mostrate: items.length, tetto };
   }
 
   /** Riordino manuale delle attivita' (drag & drop nel frontend). */
@@ -71,3 +88,14 @@ export class ActivitiesService {
     return this.prisma.activity.update({ where: { id }, data: { status } });
   }
 }
+  /**
+   * Le attivita' di ritiro e consegna.
+   *
+   * ⚠️ C'e' un TETTO, e serve: in tabella ce ne sono 57.253 e senza filtro di
+   * data uscivano tutte in una risposta sola. Sono quasi tutte storia — oggi
+   * ne cadono 9 — quindi il valore normale e' il giorno, e «tutte» e' una
+   * vista di comodo da limitare, non da lasciar esplodere.
+   *
+   * Il totale vero si restituisce sempre: chi guarda deve sapere che sta
+   * vedendo una fetta, non tutto.
+   */

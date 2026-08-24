@@ -1642,5 +1642,26 @@
         "errore": "errori"
       }
     }
+  },
+  "activities": {
+    "title": "Attività",
+    "caption": "I ritiri e le consegne della giornata.",
+    "emptyTitle": "Nessuna attività",
+    "emptyHint": "Cambia giorno o scegli «Tutte».",
+    "capped": "Ne vedi {{mostrate}} su {{totale}}: la lista è tagliata per non caricarne decine di migliaia.",
+    "markDone": "Segna fatta",
+    "markPending": "Riapri",
+    "type": {
+      "PICKUP": "Ritiro",
+      "DELIVERY": "Consegna"
+    },
+    "col": {
+      "type": "Tipo",
+      "time": "Quando",
+      "address": "Indirizzo",
+      "delivery": "Consegna",
+      "valet": "Valet",
+      "status": "Stato"
+    }
   }
 }

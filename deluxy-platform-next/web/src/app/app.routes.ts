@@ -386,9 +386,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/sales-list.component').then((m) => m.SalesListComponent),
       },
+      // ---- Attività (ritiri e consegne della giornata) ----
+      {
+        path: 'activities',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'VALET'] },
+        loadComponent: () =>
+          import('./pages/activities-list.component').then((m) => m.ActivitiesListComponent),
+      },
       // ---- Route stub: sezioni in migrazione ----
       ...[
-        { path: 'activities', title: 'Attivita', roles: ['ADMIN', 'OPERATION', 'VALET'] },
         { path: 'sms-templates', title: 'Modelli SMS', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
         { path: 'availability', title: 'Disponibilita', roles: ['VALET'] },
         { path: 'provinces', title: 'Province e citta', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
