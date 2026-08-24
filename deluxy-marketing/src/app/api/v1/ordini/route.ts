@@ -17,7 +17,21 @@ export async function GET(req: NextRequest) {
     },
     orderBy: { data: "desc" },
     take: Number(p.get("limite") ?? 200),
-    include: { righe: true },
+    // ⚠️ Campi ELENCATI, non `include` sul record intero. Con l'include questa
+    // rotta ripubblicava tutte le colonne che la tabella aveva addosso — nome
+    // ed email dei clienti compresi, che non sono di questa app — e ogni
+    // colonna aggiunta in futuro sarebbe uscita di qui senza che nessuno lo
+    // decidesse. Quello che si espone si sceglie una riga alla volta.
+    select: {
+      id: true, negozio: true, brand: true, numero: true, idEsterno: true,
+      data: true, totale: true, netto: true, spedizione: true, sconto: true,
+      valuta: true, stato: true, citta: true, cittaFonte: true, paese: true,
+      provincia: true, origine: true, utmSource: true, utmCampagna: true,
+      // Quanti ordini aveva il cliente prima di questo: un numero, non una
+      // persona. Per nome, email e telefono si chiede a Deluxy Orders.
+      ordiniPrima: true,
+      righe: true,
+    },
   });
   return NextResponse.json({ ordini });
 }
@@ -25,7 +39,9 @@ export async function GET(req: NextRequest) {
 // POST /api/v1/ordini — carica ordini (batch). Le sessioni Claude che hanno
 // accesso a Shopify possono usarlo al posto dello script con token.
 // Body: { negozio*, brand?, ordini: [{ idEsterno*, numero*, data*, totale?, netto?,
-//   spedizione?, sconto?, stato?, cliente?, email?, citta?, paese?, origine?,
+//   spedizione?, sconto?, stato?, citta?, paese?, origine?, ordiniPrima?,
+// ⚠️ `cliente` ed `email` non si accettano più: se arrivano vengono ignorati.
+// Le persone sono di Deluxy Orders (Standard §7).
 //   utmSource?, utmCampagna?, righe: [{ titolo*, sku?, vendor?, tipo?, quantita?, prezzo?, totale?, categoria? }] }] }
 export async function POST(req: NextRequest) {
   const cliente = await autentica(req, { scrittura: true });
@@ -56,8 +72,6 @@ export async function POST(req: NextRequest) {
       sconto: o.sconto != null ? Number(o.sconto) : null,
       valuta: o.valuta ?? "EUR",
       stato: o.stato ?? "pagato",
-      cliente: o.cliente ?? null,
-      email: o.email ?? null,
       citta: o.citta ?? null,
       paese: o.paese ?? null,
       origine: o.origine ?? null,

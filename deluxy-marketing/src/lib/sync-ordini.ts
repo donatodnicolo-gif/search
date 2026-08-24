@@ -140,11 +140,11 @@ export async function eseguiSyncOrdini(
       const chiavi = ordini
         .map((o) => ({ mappa: BRAND[String((o as Record<string, unknown>).brand)], idEsterno: idNudo((o as Record<string, unknown>).orderId) }))
         .filter((x) => x.mappa && x.idEsterno);
-      const gia = new Map<string, { id: string; totale: number | null; stato: string; numero: string; origine: string | null; utmSource: string | null; _count: { righe: number } }>();
+      const gia = new Map<string, { id: string; totale: number | null; stato: string; numero: string; origine: string | null; utmSource: string | null; ordiniPrima: number | null; _count: { righe: number } }>();
       if (chiavi.length > 0) {
         const trovati = await prisma.ordine.findMany({
           where: { OR: chiavi.map((x) => ({ negozio: x.mappa.negozio, idEsterno: x.idEsterno })) },
-          select: { id: true, negozio: true, idEsterno: true, totale: true, stato: true, numero: true, origine: true, utmSource: true, _count: { select: { righe: true } } },
+          select: { id: true, negozio: true, idEsterno: true, totale: true, stato: true, numero: true, origine: true, utmSource: true, ordiniPrima: true, _count: { select: { righe: true } } },
         });
         for (const t of trovati) gia.set(`${t.negozio}|${t.idEsterno}`, t);
       }
@@ -158,7 +158,7 @@ export async function eseguiSyncOrdini(
           conteggi.saltati++;
           continue;
         }
-        const cliente = (o.cliente ?? {}) as Record<string, string | undefined>;
+        const cliente = (o.cliente ?? {}) as Record<string, unknown>;
         const spedizione = (o.spedizione ?? {}) as Record<string, string | undefined>;
         const marketing = (o.marketing ?? {}) as Record<string, string | undefined>;
         const shopify = (o.shopify ?? {}) as Record<string, unknown>;
@@ -173,8 +173,12 @@ export async function eseguiSyncOrdini(
           totale: (o.totale as number) ?? null,
           valuta: (o.valuta as string) || "EUR",
           stato: statoDa(shopify.financialStatus as string, shopify.annullato as boolean),
-          cliente: cliente.nome ?? undefined,
-          email: cliente.email ?? undefined,
+          // ⚠️ NON nome ed email: sono di Orders, e qui non li usava nessuna
+          // schermata. Di quel blocco serve un numero solo — quanti ordini
+          // aveva il cliente PRIMA di questo — che Orders calcola su TUTTA la
+          // sua storia, non solo da quando questa app importa. Vedi il commento
+          // su `Ordine.ordiniPrima` nello schema.
+          ordiniPrima: cliente.ordiniPrima != null ? Number(cliente.ordiniPrima) : undefined,
           citta: spedizione.citta ?? undefined,
           paese: spedizione.paese ?? undefined,
           // Da dove è arrivato l'ordine secondo Shopify, attribuito al PRIMO
@@ -204,7 +208,12 @@ export async function eseguiSyncOrdini(
             esistente.stato !== dati.stato ||
             esistente.numero !== dati.numero ||
             (dati.origine != null && esistente.origine !== dati.origine) ||
-            (dati.utmSource != null && esistente.utmSource !== dati.utmSource);
+            (dati.utmSource != null && esistente.utmSource !== dati.utmSource) ||
+            // ⚠️ Un campo NUOVO non entra mai negli ordini già presenti — che
+            // sono la quasi totalità — se non è anche qui dentro. Costata due
+            // volte: la provincia il 02/08, `ordiniPrima` il 24/08 (246 ordini
+            // riempiti su 8.448, con lo script che diceva «già uguali»).
+            (dati.ordiniPrima != null && esistente.ordiniPrima !== dati.ordiniPrima);
           if (cambiato) await prisma.ordine.update({ where: { id: esistente.id }, data: dati });
           // Le righe si riscrivono solo se mancano: rifarle a ogni giro
           // cancellerebbe e ricreerebbe migliaia di righe per niente.

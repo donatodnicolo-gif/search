@@ -123,6 +123,7 @@ export function FornitoreOrdine({
       const d = (await res.json().catch(() => ({}))) as {
         fornitore?: typeof dati
         errore?: string
+        orders?: { ok: boolean; messaggio?: string }
       }
       // ⚠️ L'errore si dice. Un fornitore che sembra registrato e non lo è vale
       // meno di nessun fornitore: chi l'ha scritto smette di pensarci.
@@ -132,6 +133,11 @@ export function FornitoreOrdine({
       }
       setDati(d.fornitore)
       setApri(false)
+      // ⚠️⚠️ Se la proposta a Orders NON e passata lo si DICE, anche se qui e
+      // stato salvato: il costo serve la' per il margine, e una proposta che
+      // rimbalza in silenzio lascia il margine vuoto senza che nessuno capisca
+      // perche. Il fatto resta registrato — quello e nostro.
+      setErrore(d.orders && !d.orders.ok ? `Registrato qui. ⚠️ Ma Orders non l ha preso: ${d.orders.messaggio ?? ''}` : '')
       onCambiato?.()
     } catch {
       setErrore('Non è stato registrato: rete assente.')

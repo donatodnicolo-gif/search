@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { importaAnalisiDaDrive } from "./analisi-drive";
 import { prisma } from "./db";
+import { segreto } from "./segreti";
 
 // Indicizzazione (SOLA LETTURA) della cartella ufficiale "ADV DELUXY SRL",
 // sincronizzata in locale da Google Drive per Desktop. L'app non scrive mai
@@ -37,10 +38,11 @@ export async function driveDir(): Promise<string> {
 }
 
 async function driveApiKey(): Promise<string | null> {
-  const salvata = await prisma.impostazione
-    .findUnique({ where: { chiave: CHIAVE_APIKEY } })
-    .catch(() => null);
-  return salvata?.valore || process.env.GOOGLE_DRIVE_API_KEY || null;
+  // ⚠️ L'AMBIENTE COMANDA, il database è il ripiego. Prima era il contrario:
+  // mettere la chiave fra le variabili non disattivava quella salvata, che
+  // restava in chiaro su un Postgres condiviso da quattordici app — e nessuno
+  // se ne accorgeva, perché l'app funzionava lo stesso. Vedi `lib/segreti.ts`.
+  return segreto(CHIAVE_APIKEY);
 }
 
 // Riconosce se l'impostazione è un Google Drive (link o ID cartella) invece di

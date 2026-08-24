@@ -652,8 +652,22 @@ model Ordine {
   valuta      String       @default("EUR")
   // pagato | rimborsato | parzialmente_rimborsato | annullato
   stato       String       @default("pagato")
-  cliente     String?
-  email       String?
+  // ⚠️⚠️ NIENTE NOME NÉ EMAIL DEL CLIENTE, dal 24/08/2026 (Standard Deluxy §7).
+  // Ci sono stati fino a oggi — 8.446 ordini, 6.486 con l'email e 8.152 col
+  // nome — e non li usava nessuna schermata di questa app: il nome compariva
+  // in un sottotitolo dell'elenco ordini, l'email serviva solo a contare
+  // clienti nuovi contro clienti di ritorno. Una copia di dati personali che
+  // non serve è superficie in più senza niente in cambio, e le persone sono di
+  // Deluxy Orders, non della memoria pubblicitaria.
+  //
+  // ⭐ E la sostituzione è MIGLIORE dell'originale, non un ripiego. «Nuovo o di
+  // ritorno» qui si calcolava dal primo ordine con quella email **nell'archivio
+  // di questa app**, che parte dal 01/01/2025: un cliente del 2024 che torna
+  // risultava NUOVO. Orders, che possiede il cliente, la risposta ce l'ha già e
+  // la manda in ogni ordine (cliente.ordiniPrima): quanti ordini aveva prima
+  // di questo. Zero = nuovo. Si legge da chi lo sa, invece di dedurlo da una
+  // copia parziale — ed è esattamente la regola dello Standard.
+  ordiniPrima Int?
   citta       String?
   // Come si sa la citta: "tag" o "prodotto" se arriva dalla classificazione
   // di Orders, vuoto se e quella scritta dal cliente al checkout.

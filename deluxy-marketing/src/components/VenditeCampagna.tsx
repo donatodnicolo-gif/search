@@ -415,7 +415,7 @@ function TabellaBlocco({ blocco }: { blocco: BloccoVendite }) {
           <div className="kpi-etichetta">
             Clienti nuovi / di ritorno
             {quotaNuovi != null && ` — ${Math.round(quotaNuovi * 100)}% nuovi`}
-            {blocco.senzaEmail > 0 && ` · ${blocco.senzaEmail} ordini senza email, non classificabili`}
+            {blocco.senzaStoriaCliente > 0 && ` · ${blocco.senzaStoriaCliente} ordini senza la storia del cliente da Orders, non classificabili`}
           </div>
         </div>
       </div>

@@ -401,6 +401,13 @@ export type SpedizioneOrdine = {
  * minimo, così una loro aggiunta non ci obbliga a toccare niente.
  */
 export type OrdineOrdersRaw = {
+  /**
+   * L'id INTERNO di Orders (cuid), diverso dal gid Shopify (`orderId`) e dal
+   * nostro. ⚠️ È quello che vuole la sua rotta `/api/v1/ordini/<id>` quando le
+   * si propone qualcosa: passarle il gid darebbe un 404 che sembra «ordine
+   * inesistente» mentre l'ordine c'è.
+   */
+  id?: string
   numero?: string
   brand?: string
   orderId?: string
@@ -725,5 +732,79 @@ export async function soldiOrdineDaOrders(
     fornitore: c?.costoFornitore ?? '',
     margine: typeof c?.margine === 'number' ? c.margine : null,
     costoDa: c?.costoDa ?? '',
+  }
+}
+
+/**
+ * COMUNICA A ORDERS il costo del fornitore deciso qui.
+ *
+ * ⚠️⚠️ Decisione dell'utente (24/08/2026), che **devia dallo Standard §7.4**
+ * («il margine si calcola SOLO in Orders»): il margine lo calcola questa app,
+ * perché nasce dal costo che decide questa app, e lo si comunica a Orders. La
+ * deviazione è scritta nello standard, come lo standard stesso prescrive.
+ *
+ * ⚠️ Si manda il COSTO, non il margine: il margine è `totale − costo` e Orders
+ * lo fa già da sé. Mandare tutti e due vorrebbe dire due numeri per un fatto
+ * solo, e il giorno che divergono nessuno saprebbe quale credere.
+ *
+ * ⚠️ Un fallimento NON deve far fallire la registrazione qui: il fatto («questo
+ * ordine lo prepara Tizio a 80 €») è nostro e vale comunque. Si torna l'errore
+ * e lo si mostra, invece di perdere il dato.
+ */
+export async function comunicaCostoAOrders(
+  numero: string,
+  shopifyId: string,
+  costo: number | null,
+  fornitore: string
+): Promise<{ ok: true } | { ok: false; messaggio: string }> {
+  const c = await configOrders()
+  if (!c) return { ok: false, messaggio: 'Orders non è configurato (Impostazioni).' }
+
+  // ⚠️ Serve l'id INTERNO di Orders, non il nostro né il gid: la sua rotta è
+  // `/api/v1/ordini/<id>`. Lo si ricava cercando l'ordine, che è anche il modo
+  // di accorgersi se quel numero là non esiste o è ambiguo.
+  const trovato = await ordineDaOrders(numero, shopifyId)
+  if (trovato.stato !== 'ok') {
+    return {
+      ok: false,
+      messaggio: trovato.stato === 'non-configurato' ? 'Orders non è configurato.' : trovato.messaggio,
+    }
+  }
+
+  try {
+    const res = await fetch(`${c.base}/api/v1/ordini/${encodeURIComponent(trovato.ordine.id ?? "")}`, {
+      method: 'PATCH',
+      headers: { 'x-api-key': c.chiave, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        costoFornitore: costo,
+        costoFornitoreNome: fornitore || null,
+        fornitore: fornitore || null,
+      }),
+      signal: AbortSignal.timeout(12000),
+      cache: 'no-store',
+    })
+    if (res.ok) return { ok: true }
+    // ⚠️ Il 403 si spiega, invece di dire «non riuscito»: la chiave di
+    // quest'app in Orders nasce in sola lettura, e senza il flag di scrittura
+    // ogni proposta rimbalza. È una configurazione, non un guasto.
+    if (res.status === 401 || res.status === 403) {
+      return {
+        ok: false,
+        messaggio:
+          'Orders ha rifiutato la scrittura: la chiave di quest’app è in sola lettura. ' +
+          'Va abilitata alla scrittura in Orders.',
+      }
+    }
+    const d = (await res.json().catch(() => ({}))) as { errore?: string }
+    return { ok: false, messaggio: d.errore || `Orders ha risposto ${res.status}.` }
+  } catch (e) {
+    const err = e as Error
+    return {
+      ok: false,
+      messaggio:
+        err.name === 'TimeoutError'
+          ? 'Orders non ha risposto in tempo.'
+          : `Orders non raggiungibile: ${err.message}`,
+    }
   }
 }

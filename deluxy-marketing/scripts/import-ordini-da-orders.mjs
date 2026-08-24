@@ -143,7 +143,7 @@ do {
       // provincia e citta servono al confronto qui sotto: senza leggerle, il
       // controllo "e cambiato?" le vedrebbe sempre diverse e riscriverebbe
       // ogni ordine a ogni giro.
-      select: { id: true, negozio: true, idEsterno: true, totale: true, stato: true, numero: true, origine: true, utmSource: true, provincia: true, citta: true, cittaFonte: true, _count: { select: { righe: true } } },
+      select: { id: true, negozio: true, idEsterno: true, totale: true, stato: true, numero: true, origine: true, utmSource: true, provincia: true, citta: true, cittaFonte: true, ordiniPrima: true, _count: { select: { righe: true } } },
     });
     for (const t of trovati) gia.set(`${t.negozio}|${t.idEsterno}`, t);
   }
@@ -171,8 +171,10 @@ do {
       totale: o.totale,
       valuta: o.valuta || "EUR",
       stato: statoDa(o.shopify?.financialStatus, o.shopify?.annullato),
-      cliente: o.cliente?.nome ?? undefined,
-      email: o.cliente?.email ?? undefined,
+      // Niente nome né email: sono di Orders (vedi `Ordine.ordiniPrima` nello
+      // schema). Di quel blocco serve solo quanti ordini aveva il cliente prima
+      // di questo, che Orders calcola su tutta la sua storia.
+      ordiniPrima: o.cliente?.ordiniPrima != null ? Number(o.cliente.ordiniPrima) : undefined,
       // La citta di consegna. Orders ne tiene DUE e la sua e meglio: quella
       // scritta dal cliente ha "Rome", "Milan", i refusi e le maiuscole a caso;
       // quella DEDOTTA arriva gia risolta, con la prova di come ci si e
@@ -219,7 +221,14 @@ do {
         // arriva davvero, per non cancellare quello che c e con un null.
         (dati.provincia != null && esistente.provincia !== dati.provincia) ||
         (dati.citta != null && esistente.citta !== dati.citta) ||
-        (dati.cittaFonte != null && esistente.cittaFonte !== dati.cittaFonte);
+        (dati.cittaFonte != null && esistente.cittaFonte !== dati.cittaFonte) ||
+        // ⚠️ `ordiniPrima` è nel confronto per la STESSA ragione della provincia
+        // qui sopra, e la lezione è costata due volte: un campo NUOVO non entra
+        // mai negli ordini già presenti — che sono la quasi totalità — se non lo
+        // si mette anche qui. Provato: al primo giro dopo l'aggiunta della
+        // colonna si erano riempiti **246 ordini su 8.448**, e lo script
+        // dichiarava allegramente «8.159 già uguali».
+        (dati.ordiniPrima != null && esistente.ordiniPrima !== dati.ordiniPrima);
       if (cambiato) await prisma.ordine.update({ where: { id: esistente.id }, data: dati });
       // Le righe si riscrivono solo se mancano: rifarle a ogni giro
       // cancellerebbe e ricreerebbe migliaia di righe per niente.

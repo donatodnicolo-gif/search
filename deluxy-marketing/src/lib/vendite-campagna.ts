@@ -288,7 +288,7 @@ export type BloccoVendite = {
   scontrinoMedio: number | null;
   clientiNuovi: number;
   clientiRitorno: number;
-  senzaEmail: number;
+  senzaStoriaCliente: number;
   perCategoria: RigaCategoria[];
   // Solo per il blocco di contesto: da dove arrivano gli ordini
   paesi: { paese: string; ordini: number }[];
@@ -305,7 +305,8 @@ type OrdineLetto = {
   id: string;
   data: Date;
   totale: number | null;
-  email: string | null;
+  /** Quanti ordini aveva il cliente PRIMA di questo, secondo Deluxy Orders. */
+  ordiniPrima: number | null;
   paese: string | null;
   citta: string | null;
   provincia: string | null;
@@ -319,7 +320,7 @@ const BLOCCO_VUOTO: BloccoVendite = {
   scontrinoMedio: null,
   clientiNuovi: 0,
   clientiRitorno: 0,
-  senzaEmail: 0,
+  senzaStoriaCliente: 0,
   perCategoria: [],
   paesi: [],
   citta: [],
@@ -363,7 +364,7 @@ export function nomeCitta(grezza: string | null): string | null {
     .join(" ");
 }
 
-function aggrega(ordini: OrdineLetto[], primoOrdineDi: Map<string, number>): BloccoVendite {
+function aggrega(ordini: OrdineLetto[]): BloccoVendite {
   if (ordini.length === 0) return { ...BLOCCO_VUOTO };
 
   const perCategoria = new Map<string, RigaCategoria>();
@@ -373,7 +374,7 @@ function aggrega(ordini: OrdineLetto[], primoOrdineDi: Map<string, number>): Blo
   let vendite = 0;
   let clientiNuovi = 0;
   let clientiRitorno = 0;
-  let senzaEmail = 0;
+  let senzaStoriaCliente = 0;
 
   for (const o of ordini) {
     vendite += o.totale ?? 0;
@@ -402,15 +403,18 @@ function aggrega(ordini: OrdineLetto[], primoOrdineDi: Map<string, number>): Blo
       perProvincia.set(prov, pv);
     }
 
-    // Nuovo o di ritorno: si guarda se questo è il PRIMO ordine mai registrato
-    // per quella email. Senza email non si può dire, e non si tira a indovinare.
-    const email = o.email?.trim().toLowerCase();
-    if (!email) senzaEmail++;
-    else {
-      const primo = primoOrdineDi.get(email);
-      if (primo != null && o.data.getTime() > primo) clientiRitorno++;
-      else clientiNuovi++;
-    }
+    // Nuovo o di ritorno: **lo dice Deluxy Orders**, che possiede il cliente e
+    // conosce tutta la sua storia. `ordiniPrima` = quanti ordini aveva prima di
+    // questo; zero vuol dire nuovo.
+    //
+    // ⚠️ Prima si deduceva dal primo ordine con quella email **in questo
+    // archivio**, che parte dal 01/01/2025: un cliente del 2024 che tornava
+    // risultava NUOVO, e nessuno poteva accorgersene. Chi non porta il dato
+    // (gli ordini presi dalla vecchia strada diretta da Shopify) non si conta
+    // né di qua né di là: si dichiara, non si indovina.
+    if (o.ordiniPrima == null) senzaStoriaCliente++;
+    else if (o.ordiniPrima > 0) clientiRitorno++;
+    else clientiNuovi++;
 
     for (const r of o.righe) {
       const cat = r.categoria ?? "altro";
@@ -429,7 +433,7 @@ function aggrega(ordini: OrdineLetto[], primoOrdineDi: Map<string, number>): Blo
     scontrinoMedio: ordini.length > 0 ? vendite / ordini.length : null,
     clientiNuovi,
     clientiRitorno,
-    senzaEmail,
+    senzaStoriaCliente,
     perCategoria: [...perCategoria.values()].sort((a, b) => b.valore - a.valore),
     province: [...perProvincia.entries()]
       .map(([provincia, v]) => ({ provincia, ordini: v.ordini, vendite: v.vendite }))
@@ -579,7 +583,7 @@ export async function venditeDiCampagna(
   // Una lettura sola degli ordini del periodo per il negozio della campagna, e
   // poi il taglio in memoria: una query per riga qui vorrebbe dire centinaia di
   // andate e ritorno e la pagina morirebbe di timeout.
-  const [metriche, ordini, primi, primoAssoluto] = await Promise.all([
+  const [metriche, ordini, primoAssoluto] = await Promise.all([
     prisma.metricaCampagna.findMany({
       where: { campagnaId: campagna.id, data: { gte: da } },
       select: { spesa: true, conversioni: true, ricavi: true },
@@ -594,7 +598,7 @@ export async function venditeDiCampagna(
         id: true,
         data: true,
         totale: true,
-        email: true,
+        ordiniPrima: true,
         paese: true,
         citta: true,
         provincia: true,
@@ -602,29 +606,16 @@ export async function venditeDiCampagna(
         righe: { select: { titolo: true, categoria: true, quantita: true, totale: true, prezzo: true } },
       },
     }),
-    // Primo ordine per email nello stesso negozio: una groupBy sola, senza
-    // liste di id in IN(...).
-    prisma.ordine.groupBy({
-      by: ["email"],
-      where: {
-        stato: { notIn: STATI_NON_VENDUTI },
-        email: { not: null },
-        ...(legame.negozio ? { negozio: legame.negozio } : { brand: campagna.brand }),
-      },
-      _min: { data: true },
-    }),
+    // ⚠️ Qui c'era una groupBy sulle EMAIL per trovare il primo ordine di
+    // ciascun cliente. Non serve più: la risposta la manda Orders dentro ogni
+    // ordine, ed è anche più giusta (vedi sopra). Una query in meno, e una
+    // colonna di dati personali in meno da tenere.
     prisma.ordine.findFirst({ orderBy: { data: "asc" }, select: { data: true } }),
   ]);
 
   const spesa = metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
   const conversioniDichiarate = metriche.reduce((s, m) => s + (m.conversioni ?? 0), 0);
   const ricaviDichiarati = metriche.reduce((s, m) => s + (m.ricavi ?? 0), 0);
-  const primoOrdineDi = new Map<string, number>();
-  for (const p of primi) {
-    const email = p.email?.trim().toLowerCase();
-    if (email && p._min.data) primoOrdineDi.set(email, p._min.data.getTime());
-  }
-
   // ——— Legame 1: attribuzione via UTM ———
   // Il metro è `metroUtm`, lo stesso che usa il confronto delle conversioni in
   // cima alla scheda: nomi normalizzati (come l'import) più l'id di
@@ -695,14 +686,14 @@ export async function venditeDiCampagna(
       // italiani — sta solo cancellando i dati. Meglio mostrare tutto e dire
       // perché, che mostrare uno zero che sembra "questa campagna non vende".
       if (filtrati.length < 3 && conProdotto.length >= 10) {
-        contesto = aggrega(conProdotto, primoOrdineDi);
+        contesto = aggrega(conProdotto);
         linguaIgnorata = `il paese scritto sull'ordine è quello di CONSEGNA, non del cliente: qui ${filtrati.length} ordini su ${conProdotto.length} risultano ${paese.descrizione}, cioè il filtro non sta separando gli stranieri dagli italiani, li sta cancellando. Succede sui negozi che consegnano in Italia (deluxy.it, cakedesign.me) anche quando a comprare è un turista o un'azienda estera. Sotto ci sono quindi TUTTI i clienti del prodotto`;
       } else {
-        contesto = aggrega(filtrati, primoOrdineDi);
+        contesto = aggrega(filtrati);
         filtroClienti = paese.descrizione;
       }
     } else {
-      contesto = aggrega(conProdotto, primoOrdineDi);
+      contesto = aggrega(conProdotto);
     }
   }
 
@@ -713,7 +704,7 @@ export async function venditeDiCampagna(
     spesa,
     conversioniDichiarate,
     ricaviDichiarati,
-    attribuite: aggrega(attribuiti, primoOrdineDi),
+    attribuite: aggrega(attribuiti),
     utmSimili: [...simili.entries()]
       .map(([valore, ordini]) => ({ valore, ordini }))
       .sort((x, y) => y.ordini - x.ordini)

@@ -50,7 +50,10 @@ export default async function PaginaOrdini({
       data: { gte: da, lte: a },
       ...(p.brand ? { brand: p.brand } : {}),
       ...(p.q
-        ? { OR: [{ numero: { contains: p.q } }, { cliente: { contains: p.q } }, { citta: { contains: p.q } }] }
+        ? // ⚠️ Non più per NOME del cliente: quel campo non vive più qui (è di
+          // Deluxy Orders). Restano numero e città, che sono i due modi con cui
+          // un ordine si cerca davvero da una schermata di marketing.
+          { OR: [{ numero: { contains: p.q } }, { citta: { contains: p.q } }] }
         : {}),
     },
     orderBy: { data: "desc" },
@@ -167,7 +170,17 @@ export default async function PaginaOrdini({
                     <tr key={o.id} style={o.stato === "annullato" ? { opacity: 0.5 } : undefined}>
                       <td>
                         <div className="cella-nome">{o.numero}</div>
-                        <div className="cella-sub">{o.cliente ?? "—"}</div>
+                        {/* Il nome del cliente non vive più qui: è di Deluxy
+                            Orders. Al suo posto il solo fatto che serve a
+                            leggere una campagna — se chi ha ordinato era già
+                            cliente — che è quello che Orders ci manda. */}
+                        <div className="cella-sub">
+                          {o.ordiniPrima == null
+                            ? "—"
+                            : o.ordiniPrima > 0
+                              ? `cliente di ritorno · ${o.ordiniPrima} ordini prima`
+                              : "cliente nuovo"}
+                        </div>
                       </td>
                       <td className="cella-muta">{formattaData(o.data)}</td>
                       <td>

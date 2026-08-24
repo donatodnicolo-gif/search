@@ -545,6 +545,31 @@ parola per parola, così «rossi pasticceria» trova «Pasticceria Rossi».
 
 Prova: `npx tsx scripts/prova-cerca-fornitore.mts`
 
+## Il costo del fornitore si comunica a Orders
+
+Registrando chi prepara un ordine, il costo concordato viene **proposto a
+Orders** (PATCH, ). Prima quel numero restava solo
+qui, e in Orders il margine risultava «non calcolabile» su quasi tutti gli ordini
+— misurato il 24/08 su #2780, #2783 e #2785: rispondeva «costo: non lo sa».
+
+⚠️⚠️ **Deviazione dichiarata** rispetto allo Standard §7.4, decisa dall utente e
+scritta nello standard: il margine lo calcola questa app (nasce dal costo che
+decide questa app) e lo si comunica a Orders. ⚠️ Si manda il **costo**, non il
+margine: il margine è  e Orders lo fa già da sé — mandarli tutti
+e due vorrebbe dire due numeri per un fatto solo.
+
+⚠️ **Un rifiuto non fa fallire la registrazione**: il fatto («questo ordine lo
+prepara Tizio a 80 €») è nostro e vale comunque. L esito si mostra a schermo —
+una proposta che rimbalza in silenzio lascerebbe il margine vuoto in Orders senza
+che nessuno capisca perché.
+
+⚠️ **Anche il ritiro si comunica**: se il fornitore ha detto di no, un costo
+rimasto in Orders continuerebbe a produrre un margine su un ordine che non è
+stato dato a nessuno.
+
+⚠️ Serve la **chiave di scrittura** in Orders: quella di quest app nasce in sola
+lettura e ogni proposta rimbalzava con 403. Abilitata il 24/08.
+
 ## Il calendario dice anche a che punto siamo
 
 Ogni consegna porta il suo **stato di lavorazione** — da iniziare · ricerca

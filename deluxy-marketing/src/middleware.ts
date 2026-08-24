@@ -25,6 +25,19 @@ export async function middleware(req: NextRequest) {
   if (pathname.startsWith("/api/cron/")) return NextResponse.next();
 
   const password = process.env.MARKETING_APP_PASSWORD;
+  // ⚠️⚠️ **In produzione, senza password si CHIUDE, non si apre.** Il fail-open
+  // serviva allo sviluppo locale, ma girava identico su Vercel: un rename o un
+  // typo della variabile e il deploy successivo metteva online la memoria ADV,
+  // le Impostazioni (dove sta anche il collegamento a Drive) e la coda delle
+  // operazioni che SCRIVONO su Google Ads e Meta — senza che nessuno se ne
+  // accorgesse, perché l'app «funziona» benissimo, solo per chiunque. Un 503
+  // invece si vede subito. Stessa forma di deluxy-merchandising.
+  if (!password && process.env.VERCEL) {
+    return new NextResponse(
+      "App non configurata: manca MARKETING_APP_PASSWORD. Per prudenza l'accesso resta chiuso.",
+      { status: 503 },
+    );
+  }
   if (!password || pathname === "/login") return NextResponse.next();
 
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;

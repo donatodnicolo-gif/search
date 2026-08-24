@@ -129,8 +129,10 @@ async function importaNegozio({ handle, brand }) {
         sconto: numero(o.totalDiscountsSet?.shopMoney?.amount),
         valuta: o.currentTotalPriceSet?.shopMoney?.currencyCode ?? "EUR",
         stato: statoDa(o.displayFinancialStatus, o.cancelledAt),
-        cliente: o.customer?.displayName ?? null,
-        email: o.customer?.email ?? null,
+        // Niente nome né email: le persone sono di Deluxy Orders. ⚠️ Questa
+        // strada legge Shopify DIRETTAMENTE e quindi non sa `ordiniPrima`, che
+        // lo calcola Orders: gli ordini presi da qui restano senza «nuovo o di
+        // ritorno». È un motivo in più per passare da `import:ordini-orders`.
         citta: o.shippingAddress?.city ?? null,
         paese: o.shippingAddress?.country ?? null,
         origine: visita?.source ?? null,

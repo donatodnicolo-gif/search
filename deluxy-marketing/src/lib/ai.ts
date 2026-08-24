@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { chiave as chiaveVault } from "@/lib/chiavi";
 import { prisma } from "@/lib/db";
+import { SEGRETI, segreto } from "@/lib/segreti";
 
 // Quale AI legge i numeri: Claude o OpenAI, a scelta.
 //
@@ -54,6 +55,12 @@ export const IMP_FORNITORE = "ai_fornitore";
 export const IMP_ISTRUZIONI = "ai_istruzioni";
 
 const leggiImp = async (chiave: string): Promise<string | null> => {
+  // ⚠️ Le CREDENZIALI passano da `segreto()`, che mette l'ambiente davanti al
+  // database: `ai_chiave_anthropic` stava in chiaro su un Postgres condiviso
+  // da quattordici app. Le altre impostazioni (fornitore, modello, istruzioni)
+  // non sono segreti e restano dove sono — è la pagina Impostazioni a
+  // cambiarle, ed è giusto così.
+  if (chiave in SEGRETI) return segreto(chiave);
   const r = await prisma.impostazione.findUnique({ where: { chiave } }).catch(() => null);
   const v = (r?.valore ?? "").trim();
   return v || null;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
 import { costoValido, ripulisciFornitore } from '@/lib/fornitore-ordine'
+import { comunicaCostoAOrders } from '@/lib/orders'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +37,10 @@ export async function POST(req: NextRequest, { params }: Params) {
     )
   }
 
-  const ordine = await db.ordine.findUnique({ where: { id }, select: { id: true } })
+  const ordine = await db.ordine.findUnique({
+    where: { id },
+    select: { id: true, numero: true, shopifyId: true },
+  })
   if (!ordine) return NextResponse.json({ errore: 'Ordine non trovato' }, { status: 404 })
 
   const aggiornato = await db.ordine.update({
@@ -59,11 +63,32 @@ export async function POST(req: NextRequest, { params }: Params) {
       fornitoreIl: true,
     },
   })
+  // ── LO SI COMUNICA A ORDERS ──
+  //
+  // ⚠️⚠️ Il costo del fornitore nasce QUI — al telefono, con chi prepara — ma
+  // l'ordine è di Orders, e finché quel numero non arrivava là il margine di
+  // quasi tutti gli ordini risultava «non calcolabile». Misurato il 24/08: su
+  // #2780, #2783 e #2785 Orders rispondeva «costo: non lo sa».
+  //
+  // ⚠️ Un fallimento NON fa fallire la registrazione: il fatto è nostro e vale
+  // comunque. L'esito si RESTITUISCE e la schermata lo mostra — una proposta
+  // che rimbalza in silenzio farebbe credere che Orders sappia, e il margine
+  // resterebbe vuoto senza che nessuno capisca perché.
+  const versoOrders = await comunicaCostoAOrders(
+    ordine.numero,
+    ordine.shopifyId,
+    aggiornato.fornitoreCosto,
+    aggiornato.fornitoreNome
+  )
+
   // ⚠️ NON si tocca `gestione`. Registrare il fornitore vuol dire «la ricerca è
   // finita», non «l'ordine è in consegna»: spostare da solo lo stato di
   // lavorazione direbbe una cosa che non è ancora successa, e chi guarda la
-  // bacheca si fiderebbe. Lo stato lo muove una persona, con i suoi bottoni.
-  return NextResponse.json({ fornitore: aggiornato })
+  // bacheca si fiderebbe. Lo stato lo muove una persona, coi suoi bottoni.
+  return NextResponse.json({
+    fornitore: aggiornato,
+    orders: versoOrders.ok ? { ok: true } : { ok: false, messaggio: versoOrders.messaggio },
+  })
 }
 
 // Toglierlo: capita di sbagliare riga, e capita che il fornitore dica di no
@@ -77,6 +102,13 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const ordine = await db.ordine.findUnique({ where: { id }, select: { id: true } })
   if (!ordine) return NextResponse.json({ errore: 'Ordine non trovato' }, { status: 404 })
 
+  // ⚠️ Anche il RITIRO si comunica: se il fornitore ha detto di no, un costo
+  // rimasto in Orders continuerebbe a produrre un margine su un ordine che non
+  // è stato dato a nessuno.
+  const primaDiTogliere = await db.ordine.findUnique({
+    where: { id },
+    select: { numero: true, shopifyId: true },
+  })
   await db.ordine.update({
     where: { id },
     data: {
@@ -92,5 +124,11 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       fornitoreIl: null,
     },
   })
-  return NextResponse.json({ tolto: true })
+  const ritiro = primaDiTogliere
+    ? await comunicaCostoAOrders(primaDiTogliere.numero, primaDiTogliere.shopifyId, null, '')
+    : { ok: false as const, messaggio: 'Ordine non trovato.' }
+  return NextResponse.json({
+    tolto: true,
+    orders: ritiro.ok ? { ok: true } : { ok: false, messaggio: ritiro.messaggio },
+  })
 }

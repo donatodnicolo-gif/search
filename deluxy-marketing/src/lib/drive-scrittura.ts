@@ -1,5 +1,6 @@
 import { createSign } from "crypto";
 import { prisma } from "@/lib/db";
+import { segreto } from "@/lib/segreti";
 import { idCartellaDrive, driveDir } from "@/lib/drive";
 
 // SCRITTURA su Google Drive: il ponte `ads/App Azioni/OUT - dall'app`.
@@ -95,10 +96,11 @@ const PERCORSO_OUT = ["ads", "App Azioni", "OUT - dall'app"];
 type Credenziali = { client_email: string; private_key: string };
 
 async function credenziali(): Promise<Credenziali | null> {
-  const riga = await prisma.impostazione
-    .findUnique({ where: { chiave: IMP_SERVICE_ACCOUNT } })
-    .catch(() => null);
-  const grezzo = (riga?.valore ?? process.env.GOOGLE_SERVICE_ACCOUNT ?? "").trim();
+  // ⚠️ L'AMBIENTE COMANDA (vedi `lib/segreti.ts`). Qui il ripiego c'era già,
+  // ma nell'ordine sbagliato: il valore del database vinceva, quindi una
+  // chiave privata messa fra le variabili lasciava comunque quella vecchia
+  // attiva e leggibile in chiaro.
+  const grezzo = (await segreto(IMP_SERVICE_ACCOUNT)) ?? "";
   if (!grezzo) return null;
   try {
     const j = JSON.parse(grezzo) as Partial<Credenziali>;
