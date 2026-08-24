@@ -389,7 +389,15 @@
       "period": "Period",
       "invoiceAll": "Invoice",
       "empty": "Nothing to invoice: every delivery is already on an invoice.",
-      "capped": "Showing the partner's first 500 deliveries."
+      "capped": "Showing the partner's first 500 deliveries.",
+      "unpriced": "No price",
+      "service": "Service",
+      "noPrice": "no price",
+      "listino": "rate card",
+      "fromListino": "{{n}} from rate card",
+      "fromListinoHint": "The price was not on the delivery: it is computed from the partner rate card according to the service type (hourly, per item, % fee on sales).",
+      "unpricedRow": "No price on the delivery and no partner rate card for this service: it stays out of the invoice until a rate is decided.",
+      "unpricedHint": "{{n}} deliveries stay out of the invoice: they have no price and the partner has no rate card for their service. Invoicing them at 0 EUR would be a document that lies."
     }
   },
   "salaries": {

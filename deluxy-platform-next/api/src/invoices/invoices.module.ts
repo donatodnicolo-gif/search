@@ -40,6 +40,113 @@ export class WebhookApiKeyGuard implements CanActivate {
   }
 }
 
+/**
+ * Quanto costa una consegna al partner, secondo il TIPO DI SERVIZIO.
+ *
+ * Non tutti i servizi si pagano allo stesso modo, e fatturarli tutti come
+ * "price + additionalPrice" era il difetto: su 47.126 consegne da fatturare,
+ * **21.245 hanno price = 0** e sarebbero finite in fattura a zero euro.
+ *
+ * I cinque modelli (`ServiceType.pricingModel`):
+ *  - `PREZZO_FISSO`  tariffa del listino, piu' i km oltre quelli inclusi e
+ *                     l'eventuale supplemento fuori citta'.
+ *  - `A_ORA`         tariffa oraria x le ore, con il minimo di ore del servizio
+ *                     (`minHours`): mezz'ora di lavoro non si fattura mezza.
+ *  - `MAGAZZINO`     prezzo base + prezzo a pezzo x i pezzi movimentati.
+ *  - `VENDITA`       ⚠️ qui il numero del listino **non e' euro, e' una
+ *                     percentuale**: la fee sul valore venduto. Scambiarla per
+ *                     euro e' un errore gia' fatto una volta.
+ *  - `CORPORATE`     il servizio corporate passa dai prodotti, non dalla
+ *                     replica della consegna: si somma il valore dei prodotti.
+ *
+ * ⚠️ Il prezzo scritto sulla consegna VINCE sempre. È la fotografia di quanto
+ * si è deciso quel giorno, e ricalcolarlo a posteriori riscriverebbe il
+ * passato: il listino di oggi non è quello di allora.
+ *
+ * Torna `null` quando il prezzo non e' determinabile — nessun prezzo sulla
+ * consegna e nessun listino del partner per quel servizio. È il caso di
+ * 17.029 consegne, e dirlo è meglio che fatturarle a zero.
+ */
+export type ConsegnaDaPrezzare = {
+  price?: number | null;
+  additionalPrice?: number | null;
+  hours?: number | null;
+  distanceKm?: number | null;
+  extraKm?: number | null;
+  extraOutOfCity?: boolean | null;
+  serviceType?: { pricingModel?: string | null; basePrice?: number | null; perPiecePrice?: number | null; minHours?: number | null } | null;
+  products?: { quantity?: number | null; price?: number | null }[];
+};
+export type ListinoPartner = {
+  price?: number | null;
+  includedKm?: number | null;
+  extraKmPrice?: number | null;
+  extraOutOfCityPrice?: number | null;
+  pricePerItem?: number | null;
+} | null;
+
+export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner):
+  { amount: number; origine: 'consegna' | 'listino'; modello: string } | null {
+  const extra = d.additionalPrice ?? 0;
+  const arrotonda = (n: number) => Math.round(n * 100) / 100;
+
+  // Il prezzo deciso sulla consegna vince: è un fatto, non una stima.
+  if ((d.price ?? 0) > 0) {
+    return { amount: arrotonda(d.price! + extra), origine: 'consegna', modello: d.serviceType?.pricingModel ?? '—' };
+  }
+
+  const modello = d.serviceType?.pricingModel ?? '';
+  const valoreProdotti = (d.products ?? []).reduce(
+    (s, p) => s + (p.price ?? 0) * (p.quantity ?? 1), 0,
+  );
+
+  // Km oltre quelli inclusi: vale solo dove si paga la distanza.
+  const supplementoKm = (): number => {
+    if (!listino) return 0;
+    const inclusi = listino.includedKm ?? 0;
+    const percorsi = d.distanceKm ?? 0;
+    const oltre = d.extraKm && d.extraKm > 0 ? d.extraKm : Math.max(0, percorsi - inclusi);
+    const perKm = oltre * (listino.extraKmPrice ?? 0);
+    const fuori = d.extraOutOfCity ? (listino.extraOutOfCityPrice ?? 0) : 0;
+    return perKm + fuori;
+  };
+
+  switch (modello) {
+    case 'PREZZO_FISSO': {
+      const tariffa = listino?.price ?? d.serviceType?.basePrice ?? 0;
+      if (tariffa <= 0) return null;
+      return { amount: arrotonda(tariffa + supplementoKm() + extra), origine: 'listino', modello };
+    }
+    case 'A_ORA': {
+      const tariffa = listino?.price ?? 0;
+      if (tariffa <= 0) return null;
+      // Il minimo di ore del servizio: mezz'ora di lavoro non si fattura mezza.
+      const ore = Math.max(d.hours ?? 0, d.serviceType?.minHours ?? 1);
+      return { amount: arrotonda(tariffa * ore + supplementoKm() + extra), origine: 'listino', modello };
+    }
+    case 'MAGAZZINO': {
+      const base = listino?.price ?? d.serviceType?.basePrice ?? 0;
+      const aPezzo = listino?.pricePerItem ?? d.serviceType?.perPiecePrice ?? 0;
+      const pezzi = (d.products ?? []).reduce((s, p) => s + (p.quantity ?? 1), 0);
+      const totale = base + aPezzo * pezzi;
+      if (totale <= 0) return null;
+      return { amount: arrotonda(totale + extra), origine: 'listino', modello };
+    }
+    case 'VENDITA': {
+      // ⚠️ `listino.price` qui e' una PERCENTUALE, non euro.
+      const feePercento = listino?.price ?? 0;
+      if (feePercento <= 0 || valoreProdotti <= 0) return null;
+      return { amount: arrotonda((valoreProdotti * feePercento) / 100 + extra), origine: 'listino', modello };
+    }
+    case 'CORPORATE': {
+      if (valoreProdotti <= 0) return null;
+      return { amount: arrotonda(valoreProdotti + extra), origine: 'listino', modello };
+    }
+    default:
+      return null;
+  }
+}
+
 /** Aliquota IVA e conversione imponibile → totale: una regola sola per tutti. */
 const IVA = 22;
 const conIva = (n: number) => Math.round(n * (1 + IVA / 100) * 100) / 100;
@@ -86,34 +193,94 @@ export class InvoicesService {
     else if (opzioni.partnerId) where.partnerId = opzioni.partnerId;
     if (opzioni.fino) where.date = { lte: new Date(opzioni.fino) };
 
-    const raggruppate = await this.prisma.delivery.groupBy({
-      by: ['partnerId'],
+    const deliveries = await this.prisma.delivery.findMany({
       where,
-      _count: { _all: true },
-      _sum: { price: true, additionalPrice: true },
-      _min: { date: true },
-      _max: { date: true },
+      select: {
+        id: true, partnerId: true, serviceTypeId: true, date: true,
+        price: true, additionalPrice: true, hours: true,
+        distanceKm: true, extraKm: true, extraOutOfCity: true,
+        serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
+      },
     });
 
+    // I prodotti servono solo dove il prezzo si ricava da loro (vendita a
+    // percentuale, corporate, magazzino a pezzo) e manca sulla consegna:
+    // caricarli per tutte e 47.126 sarebbe una lettura enorme per niente.
+    const DA_PRODOTTI = ['VENDITA', 'CORPORATE', 'MAGAZZINO'];
+    const serveProdotti = deliveries
+      .filter((d) => (d.price ?? 0) <= 0 && DA_PRODOTTI.includes(d.serviceType?.pricingModel ?? ''))
+      .map((d) => d.id);
+    const prodotti = new Map<string, { quantity: number; price: number | null }[]>();
+    for (let i = 0; i < serveProdotti.length; i += 2000) {
+      for (const p of await this.prisma.deliveryProduct.findMany({
+        where: { deliveryId: { in: serveProdotti.slice(i, i + 2000) } },
+        select: { deliveryId: true, quantity: true, price: true },
+      })) {
+        const arr = prodotti.get(p.deliveryId) ?? [];
+        arr.push({ quantity: p.quantity, price: p.price });
+        prodotti.set(p.deliveryId, arr);
+      }
+    }
+
+    const listini = new Map(
+      (await this.prisma.partnerService.findMany({
+        where: opzioni.partnerId || user.role === Role.PARTNER
+          ? { partnerId: where.partnerId }
+          : undefined,
+      })).map((l) => [`${l.partnerId}|${l.serviceTypeId}`, l]),
+    );
+
+    type Riga = {
+      partnerId: string; deliveriesCount: number; netAmount: number;
+      unpricedCount: number; from: Date; to: Date;
+      /** Quante consegne prendono il prezzo dal listino invece che da sé. */
+      fromListino: number;
+      modelli: Record<string, number>;
+    };
+    const per = new Map<string, Riga>();
+    for (const d of deliveries) {
+      if (!d.partnerId) continue;
+      const calcolo = prezzoConsegna(
+        { ...d, products: prodotti.get(d.id) ?? [] } as any,
+        listini.get(`${d.partnerId}|${d.serviceTypeId}`) ?? null,
+      );
+      const r = per.get(d.partnerId) ?? {
+        partnerId: d.partnerId, deliveriesCount: 0, netAmount: 0, unpricedCount: 0,
+        from: d.date, to: d.date, fromListino: 0, modelli: {},
+      };
+      r.deliveriesCount++;
+      const m = d.serviceType?.pricingModel ?? '—';
+      r.modelli[m] = (r.modelli[m] ?? 0) + 1;
+      if (calcolo) {
+        r.netAmount += calcolo.amount;
+        if (calcolo.origine === 'listino') r.fromListino++;
+      } else r.unpricedCount++;
+      if (d.date < r.from) r.from = d.date;
+      if (d.date > r.to) r.to = d.date;
+      per.set(d.partnerId, r);
+    }
+
     const partners = await this.prisma.partner.findMany({
-      where: { id: { in: raggruppate.map((r) => r.partnerId).filter(Boolean) as string[] } },
+      where: { id: { in: [...per.keys()] } },
       select: { id: true, insegna: true },
     });
     const nome = new Map(partners.map((p) => [p.id, p.insegna]));
 
-    const voci = raggruppate
-      .filter((r) => r.partnerId)
+    const voci = [...per.values()]
       .map((r) => {
-        const netAmount = Math.round(((r._sum.price ?? 0) + (r._sum.additionalPrice ?? 0)) * 100) / 100;
+        const netAmount = Math.round(r.netAmount * 100) / 100;
         return {
-          partnerId: r.partnerId as string,
-          partner: { id: r.partnerId as string, insegna: nome.get(r.partnerId as string) ?? '—' },
-          deliveriesCount: r._count._all,
+          partnerId: r.partnerId,
+          partner: { id: r.partnerId, insegna: nome.get(r.partnerId) ?? '—' },
+          deliveriesCount: r.deliveriesCount,
+          unpricedCount: r.unpricedCount,
+          fromListino: r.fromListino,
+          modelli: r.modelli,
           netAmount,
           vatRate: IVA,
           totalAmount: conIva(netAmount),
-          from: r._min.date,
-          to: r._max.date,
+          from: r.from,
+          to: r.to,
         };
       })
       .sort((a, b) => b.netAmount - a.netAmount);
@@ -123,6 +290,8 @@ export class InvoicesService {
       totali: {
         partners: voci.length,
         deliveriesCount: voci.reduce((s, v) => s + v.deliveriesCount, 0),
+        unpricedCount: voci.reduce((s, v) => s + v.unpricedCount, 0),
+        fromListino: voci.reduce((s, v) => s + v.fromListino, 0),
         netAmount: Math.round(voci.reduce((s, v) => s + v.netAmount, 0) * 100) / 100,
         totalAmount: Math.round(voci.reduce((s, v) => s + v.totalAmount, 0) * 100) / 100,
       },
@@ -144,17 +313,35 @@ export class InvoicesService {
     const deliveries = await this.prisma.delivery.findMany({
       where,
       select: {
-        id: true, code: true, date: true, status: true, price: true, additionalPrice: true,
+        id: true, code: true, date: true, status: true, serviceTypeId: true,
+        price: true, additionalPrice: true, hours: true,
+        distanceKm: true, extraKm: true, extraOutOfCity: true,
         recipientFirstName: true, recipientLastName: true, recipientAddress: true,
+        serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
+        products: { select: { quantity: true, price: true } },
       },
       orderBy: { date: 'desc' },
       take: 500,
     });
+    const listini = new Map(
+      (await this.prisma.partnerService.findMany({ where: { partnerId } }))
+        .map((l) => [l.serviceTypeId, l]),
+    );
     return {
-      deliveries: deliveries.map((d) => ({
-        ...d,
-        amount: Math.round(((d.price ?? 0) + (d.additionalPrice ?? 0)) * 100) / 100,
-      })),
+      deliveries: deliveries.map((d) => {
+        const calcolo = prezzoConsegna(d as any, listini.get(d.serviceTypeId) ?? null);
+        return {
+          id: d.id, code: d.code, date: d.date, status: d.status,
+          recipientFirstName: d.recipientFirstName, recipientLastName: d.recipientLastName,
+          recipientAddress: d.recipientAddress,
+          service: d.serviceType?.name ?? '—',
+          pricingModel: d.serviceType?.pricingModel ?? '—',
+          amount: calcolo?.amount ?? null,
+          /// Da dove viene il numero: dalla consegna (deciso allora) o dal
+          /// listino (ricalcolato ora). `null` = non prezzabile.
+          origine: calcolo?.origine ?? null,
+        };
+      }),
       troncato: deliveries.length === 500,
     };
   }
@@ -183,15 +370,45 @@ export class InvoicesService {
         date: { gte: new Date(periodStart), lte: new Date(periodEnd) },
         invoiceLines: { none: {} },
       },
+      include: {
+        serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
+        products: { select: { quantity: true, price: true } },
+      },
       orderBy: { date: 'asc' },
     });
-    const lines = deliveries.map((d) => ({
-      deliveryId: d.id,
-      date: d.date,
-      recipient: `${d.recipientLastName} ${d.recipientFirstName}`.trim(),
-      description: d.recipientAddress ?? null,
-      amount: (d.price ?? 0) + (d.additionalPrice ?? 0),
-    }));
+
+    // Il listino del partner, una lettura sola: serve a prezzare i servizi a
+    // ora, a pezzo e a percentuale, che sulla consegna il prezzo non ce l'hanno.
+    const listini = new Map(
+      (await this.prisma.partnerService.findMany({ where: { partnerId } }))
+        .map((l) => [l.serviceTypeId, l]),
+    );
+
+    const lines: { deliveryId: string; date: Date; recipient: string; description: string | null; amount: number }[] = [];
+    const nonPrezzabili: { code: number; date: Date; servizio: string }[] = [];
+    for (const d of deliveries) {
+      const calcolo = prezzoConsegna(d as any, listini.get(d.serviceTypeId) ?? null);
+      if (!calcolo) {
+        // Fuori dalla fattura: una riga a 0 € sarebbe un documento che dice il
+        // falso. Chi la emette deve saperlo, quindi si torna l'elenco.
+        nonPrezzabili.push({ code: d.code, date: d.date, servizio: d.serviceType?.pricingModel ?? '—' });
+        continue;
+      }
+      lines.push({
+        deliveryId: d.id,
+        date: d.date,
+        recipient: `${d.recipientLastName} ${d.recipientFirstName}`.trim(),
+        description: d.recipientAddress ?? null,
+        amount: calcolo.amount,
+      });
+    }
+    if (!lines.length) {
+      throw new BadRequestException(
+        nonPrezzabili.length
+          ? `Nessuna consegna prezzabile nel periodo: ${nonPrezzabili.length} senza prezzo né listino per il loro servizio.`
+          : 'Nessuna consegna da fatturare nel periodo.',
+      );
+    }
     // L'imponibile è la somma delle righe; il totale del documento è con IVA.
     // ⚠️ Prima qui il totale ERA l'imponibile: le fatture nuove sarebbero
     // uscite senza IVA, incoerenti con le 559 storiche (che l'IVA la hanno).
@@ -215,7 +432,7 @@ export class InvoicesService {
         lines: { create: lines },
       },
       include: { lines: true },
-    });
+    }).then((fattura) => ({ ...fattura, nonPrezzabili }));
   }
 
   /** Avanzamento: DRAFT -> ISSUED (emessa: archivia in storico) -> PAID (pagata). */

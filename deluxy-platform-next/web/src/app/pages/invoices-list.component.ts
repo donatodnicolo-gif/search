@@ -36,6 +36,11 @@ interface Pending {
   partnerId: string;
   partner: { id: string; insegna: string };
   deliveriesCount: number;
+  /** Consegne senza prezzo e senza listino: non entrano in fattura. */
+  unpricedCount: number;
+  /** Quante prendono il prezzo dal listino invece che da se'. */
+  fromListino: number;
+  modelli: Record<string, number>;
   netAmount: number;
   vatRate: number;
   totalAmount: number;
@@ -43,7 +48,11 @@ interface Pending {
   to: string;
 }
 interface PendingDelivery {
-  id: string; code: number; date: string; status: string; amount: number;
+  id: string; code: number; date: string; status: string;
+  /** null = non prezzabile: nessun prezzo sulla consegna, nessun listino. */
+  amount: number | null;
+  origine: 'consegna' | 'listino' | null;
+  service: string; pricingModel: string;
   recipientFirstName?: string | null; recipientLastName?: string | null; recipientAddress?: string | null;
 }
 
@@ -131,7 +140,13 @@ const NEXT: Record<string, { next: string; key: string }> = {
           <div><span class="etichetta">{{ 'invoices.pending.deliveries' | translate }}</span><strong>{{ t.deliveriesCount | number }}</strong></div>
           <div><span class="etichetta">{{ 'invoices.col.net' | translate }}</span><strong>{{ t.netAmount | number: '1.2-2' }} €</strong></div>
           <div><span class="etichetta">{{ 'invoices.col.total' | translate }}</span><strong class="oro">{{ t.totalAmount | number: '1.2-2' }} €</strong></div>
+          @if (t.unpricedCount) {
+            <div><span class="etichetta">{{ 'invoices.pending.unpriced' | translate }}</span><strong class="rosso">{{ t.unpricedCount | number }}</strong></div>
+          }
         </div>
+        @if (t.unpricedCount) {
+          <p class="avviso">{{ 'invoices.pending.unpricedHint' | translate:{ n: t.unpricedCount } }}</p>
+        }
       }
       <div class="card table-wrap">
         <table>
@@ -140,6 +155,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
               <th>{{ 'invoices.col.partner' | translate }}</th>
               <th>{{ 'invoices.pending.period' | translate }}</th>
               <th class="num">{{ 'invoices.col.deliveries' | translate }}</th>
+              <th class="num">{{ 'invoices.pending.unpriced' | translate }}</th>
               <th class="num">{{ 'invoices.col.net' | translate }}</th>
               <th class="num">{{ 'invoices.col.total' | translate }}</th>
               <th>{{ 'invoices.col.actions' | translate }}</th>
@@ -150,7 +166,13 @@ const NEXT: Record<string, { next: string; key: string }> = {
               <tr>
                 <td class="strong">{{ r.partner.insegna }}</td>
                 <td class="muted">{{ r.from | date: 'dd/MM/yy' }} – {{ r.to | date: 'dd/MM/yy' }}</td>
-                <td class="num">{{ r.deliveriesCount | number }}</td>
+                <td class="num">
+                  {{ r.deliveriesCount | number }}
+                  @if (r.fromListino) { <span class="ric" [title]="'invoices.pending.fromListinoHint' | translate">{{ 'invoices.pending.fromListino' | translate:{ n: r.fromListino } }}</span> }
+                </td>
+                <td class="num">
+                  @if (r.unpricedCount) { <span class="rosso">{{ r.unpricedCount | number }}</span> } @else { <span class="muted">—</span> }
+                </td>
                 <td class="num muted">{{ r.netAmount | number: '1.2-2' }} €</td>
                 <td class="num strong">{{ r.totalAmount | number: '1.2-2' }} €</td>
                 <td class="row-actions">
@@ -164,14 +186,14 @@ const NEXT: Record<string, { next: string; key: string }> = {
               </tr>
               @if (pendingOpen() === r.partnerId) {
                 <tr class="detail-row">
-                  <td colspan="6">
+                  <td colspan="7">
                     @if (pendingDetailLoading()) { <p class="muted">{{ 'common.loading' | translate }}</p> }
                     @else {
                       <table class="sub">
                         <thead><tr>
                           <th>{{ 'invoices.line.date' | translate }}</th>
                           <th>{{ 'invoices.line.recipient' | translate }}</th>
-                          <th>{{ 'invoices.line.description' | translate }}</th>
+                          <th>{{ 'invoices.pending.service' | translate }}</th>
                           <th class="num">{{ 'invoices.line.amount' | translate }}</th>
                         </tr></thead>
                         <tbody>
@@ -179,8 +201,15 @@ const NEXT: Record<string, { next: string; key: string }> = {
                             <tr>
                               <td>{{ d.date | date: 'dd/MM/yy' }}</td>
                               <td>{{ (d.recipientLastName || '') + ' ' + (d.recipientFirstName || '') }}</td>
-                              <td class="muted">{{ d.recipientAddress || '—' }}</td>
-                              <td class="num">{{ d.amount | number: '1.2-2' }} €</td>
+                              <td class="muted">{{ d.service }}</td>
+                              <td class="num">
+                                @if (d.amount === null) {
+                                  <span class="rosso" [title]="'invoices.pending.unpricedRow' | translate">{{ 'invoices.pending.noPrice' | translate }}</span>
+                                } @else {
+                                  {{ d.amount | number: '1.2-2' }} €
+                                  @if (d.origine === 'listino') { <span class="ric" [title]="'invoices.pending.fromListinoHint' | translate">{{ 'invoices.pending.listino' | translate }}</span> }
+                                }
+                              </td>
                             </tr>
                           }
                         </tbody>
@@ -192,7 +221,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
               }
             }
             @if (!pendingFiltered().length) {
-              <tr><td colspan="6" class="muted empty">{{ 'invoices.pending.empty' | translate }}</td></tr>
+              <tr><td colspan="7" class="muted empty">{{ 'invoices.pending.empty' | translate }}</td></tr>
             }
           </tbody>
         </table>
@@ -329,6 +358,8 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .riepilogo > div { display: flex; flex-direction: column; gap: 2px; }
       .riepilogo .etichetta { font-size: 12px; color: var(--text-secondary); }
       .riepilogo strong { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+      .rosso { color: #C0392B; font-weight: 600; }
+      .avviso { margin: -4px 0 12px; font-size: 13px; color: var(--text-secondary); }
       .riepilogo .oro { color: var(--gold-strong, #B8963E); }
       .tab .pill { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); font-variant-numeric: tabular-nums; }
       .ric { margin-left: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--gold-strong, #B8963E); background: color-mix(in srgb, #B8963E 12%, transparent); border-radius: 999px; padding: 2px 6px; cursor: help; }
@@ -353,7 +384,7 @@ export class InvoicesListComponent {
   /** Si apre su «Da fatturare»: e' la domanda che si fa arrivando qui. */
   readonly view = signal<'pending' | 'active' | 'archive'>('pending');
   readonly pending = signal<Pending[]>([]);
-  readonly pendingTotals = signal<{ partners: number; deliveriesCount: number; netAmount: number; totalAmount: number } | null>(null);
+  readonly pendingTotals = signal<{ partners: number; deliveriesCount: number; unpricedCount: number; fromListino: number; netAmount: number; totalAmount: number } | null>(null);
   readonly pendingOpen = signal<string | null>(null);
   readonly pendingDetail = signal<PendingDelivery[]>([]);
   readonly pendingDetailLoading = signal(false);

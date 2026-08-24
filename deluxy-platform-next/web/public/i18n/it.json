@@ -389,7 +389,15 @@
       "period": "Periodo",
       "invoiceAll": "Fattura",
       "empty": "Niente da fatturare: ogni consegna ha già la sua fattura.",
-      "capped": "Mostrate le prime 500 consegne del partner."
+      "capped": "Mostrate le prime 500 consegne del partner.",
+      "unpriced": "Senza prezzo",
+      "service": "Servizio",
+      "noPrice": "non prezzabile",
+      "listino": "listino",
+      "fromListino": "{{n}} da listino",
+      "fromListinoHint": "Il prezzo non era sulla consegna: e' calcolato dal listino del partner secondo il tipo di servizio (a ora, a pezzo, fee % sul venduto).",
+      "unpricedRow": "Nessun prezzo sulla consegna e nessun listino del partner per questo servizio: non entra in fattura finche' non si decide la tariffa.",
+      "unpricedHint": "{{n}} consegne non entrano in fattura: non hanno prezzo e il partner non ha un listino per il loro servizio. Fatturarle a 0 EUR sarebbe un documento che dice il falso."
     }
   },
   "salaries": {
