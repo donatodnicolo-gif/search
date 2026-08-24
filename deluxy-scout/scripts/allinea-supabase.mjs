@@ -20,7 +20,7 @@
 // quali; e il deploy delle funzioni si dimenticava — con l'effetto che una
 // schermata restava vuota senza dire perché (è successo con `anagrafiche` e il
 // filtro per fonte). Qui c'è la lista di cosa deve essere allineato.
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,36 +32,19 @@ const PAT = process.env.SUPABASE_PAT || process.env.SUPABASE_ACCESS_TOKEN;
 // Cosa allineare. Le migrazioni sono idempotenti: rilanciarle non fa danni, e
 // la 0046 va anzi rilanciata apposta (il canale `web` è arrivato dopo).
 //
-// ⚠️ QUESTO ELENCO SI SCRIVE A MANO, non si legge dalla cartella: le migrazioni
-// prima della 0045 sono state applicate per altre strade e non sono tutte
-// idempotenti, quindi un glob le rilancerebbe. Il prezzo è che **aggiungere il
-// file non basta**: se il nome non finisce qui, la migrazione non parte mai e
-// lo script dice «ok» lo stesso — è successo il 23/08 con la 0066.
-const MIGRAZIONI = [
-  '0045_chiavi_app.sql',
-  '0046_contatti_avviati.sql',
-  '0047_bozze_e_pianificazione.sql',
-  '0048_stato_selezionato.sql',
-  '0049_linee_canoniche.sql',
-  '0050_sequenze.sql',
-  '0051_stato_lead.sql',
-  '0052_passo_mail_propria.sql',
-  '0053_visita_motivi.sql',
-  '0054_places_cancellazione.sql',
-  '0055_preventivi_fornitori.sql',
-  '0056_stato_a_rischio.sql',
-  '0057_momento_contatto.sql',
-  '0058_coppie_duplicate.sql',
-  '0059_coppie_duplicate_veloce.sql',
-  '0060_richiamo_chiuso.sql',
-  '0061_doppioni_anche_fra_schede_del_registro.sql',
-  '0062_doppioni_veloci.sql',
-  '0063_doppioni_meno_rumore.sql',
-  '0064_richieste_web_cancella_apri_cron.sql',
-  '0065_copertura_salvata.sql',
-  '0066_preventivi_da_mail.sql',
-  '0067_unione_porta_il_legame_al_registro.sql',
-];
+// DALLA CARTELLA, NON PIÙ A MANO (audit 24/08/2026): l'elenco scritto a mano
+// aveva già fatto il suo danno due volte — il 23/08 la 0066 mancava e lo
+// script diceva «ok», e la 0009 (il cron HubSpot) non c'è mai entrata, così la
+// sua correzione non sarebbe mai ripartita. Ora si leggono i file: aggiungere
+// una migrazione BASTA. Resta il confine: **prima della 0045 non si torna** —
+// quelle sono state applicate per altre strade e non sono tutte idempotenti.
+// ⚠️ Corollario: da qui in poi ogni migrazione >= 0045 DEVE essere idempotente
+// (CREATE OR REPLACE, IF NOT EXISTS, ON CONFLICT…), perché verrà rilanciata a
+// ogni giro.
+const DALLA = '0045';
+const MIGRAZIONI = readdirSync(join(RADICE, 'supabase/migrations'))
+  .filter((f) => /^\d{4}_.+\.sql$/.test(f) && f.slice(0, 4) >= DALLA)
+  .sort();
 // `ordini` è il proxy verso Deluxy Orders (venduto per provincia): resta inerte
 // finché in cassaforte non c'è `ORDERS_API_KEY`, ma senza deploy non esiste
 // proprio e la vista Province non mostra nessun valore di vendita.
@@ -82,7 +65,16 @@ const MIGRAZIONI = [
 // `mail` è entrata il 23/08 col filtro dei mittenti-robot: la chiama il cron
 // delle Richieste Web, e lasciarla fuori dalla lista avrebbe voluto dire tenere
 // in produzione la versione senza filtro senza che nessuno se ne accorgesse.
-const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', 'partner', 'lead', 'trattativa', 'preventivi', 'hubspot-match', 'mail'];
+//
+// TUTTE, DALLA CARTELLA (audit 24/08/2026): la lista a mano copriva 11
+// funzioni su 21 — le altre 10 nessuno le ripubblicava mai, e una correzione
+// di sicurezza su una di loro restava a terra in silenzio (è la storia di
+// `hubspot-match`, ed era ancora quella di `hubspot-sync`). Ora si deployano
+// tutte le cartelle di `supabase/functions/` tranne `_shared`.
+const FUNZIONI = readdirSync(join(RADICE, 'supabase/functions'), { withFileTypes: true })
+  .filter((d) => d.isDirectory() && d.name !== '_shared')
+  .map((d) => d.name)
+  .sort();
 // `health` deve rispondere SENZA sessione (il Hub non ne ha una): va deployata
 // con --no-verify-jwt, altrimenti risponde 401 e la pagina «stato dei servizi»
 // vede Scout come irraggiungibile.
@@ -102,7 +94,23 @@ const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', '
 // chiama da server — togliendo la flag quella strada morirebbe al gateway.
 // Pubblica al gateway **non** vuol più dire aperta: l'auth è nel codice, e ora
 // sta prima dello smistamento delle azioni.
-const SENZA_JWT = new Set(['health', 'partner', 'lead', 'trattativa', 'preventivi', 'hubspot-match', 'mail']);
+// ⚠️ `linee`, `hubspot-sync` e `calendario-ics` erano GIÀ pubbliche al gateway
+// in produzione (audit 24/08/2026) ma fuori dalla lista: entrarci senza la
+// flag le avrebbe rotte al primo deploy. La loro difesa è nel codice —
+// `linee` con la chiave a confronto costante, `hubspot-sync` con la sessione
+// PRIMA di ogni azione, `calendario-ics` col suo token per calendario.
+const SENZA_JWT = new Set([
+  'health',
+  'partner',
+  'lead',
+  'trattativa',
+  'preventivi',
+  'hubspot-match',
+  'mail',
+  'linee',
+  'hubspot-sync',
+  'calendario-ics',
+]);
 
 if (!PAT) {
   console.error('\n✗ Manca SUPABASE_PAT.\n');

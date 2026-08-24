@@ -29,20 +29,24 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   try {
-    const token = Deno.env.get('HUBSPOT_TOKEN');
-    if (!token) return json({ error: 'HUBSPOT_TOKEN non configurato' }, 500);
-
     // Client Supabase con service role (bypassa RLS lato server).
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Verifica il JWT dell'utente (l'app deve essere autenticata).
+    // Verifica il JWT dell'utente (l'app deve essere autenticata) — PRIMA di
+    // qualsiasi altra risposta.
     const authHeader = req.headers.get('Authorization') ?? '';
     const jwt = authHeader.replace('Bearer ', '');
     const { data: userData } = await admin.auth.getUser(jwt);
     if (!userData?.user) return json({ error: 'Non autenticato' }, 401);
+
+    // ⚠️ Il controllo dei segreti sta DOPO l'auth: prima un anonimo si sentiva
+    // dire QUALE variabile mancava — un pezzo del dietro le quinte regalato.
+    // Stesso pattern già corretto in hubspot-match il 23/08 (audit 24/08/2026).
+    const token = Deno.env.get('HUBSPOT_TOKEN');
+    if (!token) return json({ error: 'HUBSPOT_TOKEN non configurato' }, 500);
 
     const body = await req.json();
     const hs = new HubSpot(token);

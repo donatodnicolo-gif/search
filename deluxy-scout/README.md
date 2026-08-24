@@ -1,5 +1,30 @@
 # Deluxy Scout
 
+> **24/08/2026 — audit architettura, cinque correzioni** (migr. `0068`):
+> 1. **Il cron HubSpot torna vivo**: `sync-hubspot-crm` era morto in silenzio dal
+>    23/08 (la correzione d'auth su `hubspot-match` rifiutava la sua vecchia
+>    anon key con 401 ogni notte). La 0068 lo rifà con la chiave d'ingresso da
+>    `chiavi_app._ingresso`, come il cron delle Richieste Web.
+> 2. **`allinea-supabase.mjs` legge migrazioni e funzioni DALLA CARTELLA**: via
+>    l'elenco a mano che aveva saltato la 0066 e lasciato 10 funzioni su 21
+>    senza ripubblicazione. `SENZA_JWT` ora include anche `linee`,
+>    `hubspot-sync`, `calendario-ics` (già pubbliche in produzione). Corollario:
+>    ogni migrazione ≥ 0045 DEVE essere idempotente.
+> 3. **L'import non copia più i referenti dei clienti attivi**: sapere CHI è
+>    cliente serve (Copertura, Affiliazioni), tenerne la rubrica no — vive nel
+>    registro. I contatti già copiati restano; non se ne aggiungono.
+> 4. `hubspot-sync`: il controllo dei segreti sta DOPO l'auth (come
+>    `hubspot-match`); `linee`: confronto della chiave a tempo costante.
+> 5. Verificato e NON toccato: l'upsert verso Anagrafiche manda `stato`/
+>    `interessi` ma il registro li BLOCCA dal merge e li tiene come proposte in
+>    revisione — è il canale previsto, non una scrittura nella verità. E
+>    `partners/match?pIva=` non si applica a Scout: i places non hanno P.IVA,
+>    l'aggancio è `sistema`+`idEsterno` (già in uso).
+>
+> Restano aperti: bucket `vetrine` pubblico (passarlo a privato tocca il client
+> RN: URL firmati), e la chiave publishable nella storia git della 0009
+> (pubblica per progettazione, nessuna rotazione necessaria).
+
 App di prospezione commerciale sul territorio per il Team Commerciale Deluxy a
 Milano. Mappa tutte le attività del territorio con priorità e ipotesi di interesse
 pre-calcolate, registra le visite (anche offline) e **alimenta HubSpot** creando

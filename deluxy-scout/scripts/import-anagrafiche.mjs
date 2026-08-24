@@ -299,7 +299,20 @@ for (const p of partners) {
   });
 }
 const contatti = [];
+let contattiClientiSaltati = 0;
 for (const p of partners) {
+  // ⚠️ I REFERENTI DEI CLIENTI NON SI COPIANO (audit 24/08/2026). L'eccezione
+  // di Scout vale «finché è prospezione»: sapere CHE un partner è attivo serve
+  // (Copertura e Affiliazioni vivono su quello), tenerne la RUBRICA no — nomi,
+  // email e telefoni dei clienti firmati vivono nel registro, e chi li vuole li
+  // legge live (functions/anagrafiche, action dettaglio). I contatti dei
+  // clienti già copiati in passato restano dove sono: questo import smette di
+  // aggiungerne e aggiornarne, non cancella.
+  const statoReg = MOMENTI.includes(p.stato) ? STATO_DA_LIVELLO[p.stato] : p.stato;
+  if (statoReg === 'attivo' || statoReg === 'a_rischio') {
+    contattiClientiSaltati += (p.contatti ?? []).length;
+    continue;
+  }
   for (const c of p.contatti ?? []) {
     const nome = (c.nome || c.ruolo || '').trim();
     if (!nome) continue;
@@ -312,6 +325,9 @@ for (const p of partners) {
       decisore: DECISORE.test(c.ruolo || ''),
     });
   }
+}
+if (contattiClientiSaltati) {
+  console.log(`  (${contattiClientiSaltati} referenti di clienti attivi NON copiati: la rubrica dei clienti sta nel registro)`);
 }
 console.log(`→ da scrivere: ${righe.length} attività, ${contatti.length} contatti`);
 if (DRY) { console.log('(--dry: nessuna scrittura)'); process.exit(0); }

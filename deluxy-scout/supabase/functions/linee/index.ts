@@ -8,6 +8,7 @@
 // Risposta: { linee: [{ id, nome, icona, attiva, ordine, pitch,
 //                       sottolinee: [{ id, nome, icona, attiva, ordine, pitch }] }] }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { uguali } from '../_shared/chiaveIn.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -34,7 +35,9 @@ Deno.serve(async (req) => {
     const atteso = Deno.env.get('LINEE_API_KEY');
     if (!atteso) return json({ error: 'LINEE_API_KEY non configurata sul master' }, 500);
     const key = req.headers.get('x-api-key') ?? req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-    if (key !== atteso) return json({ error: 'Chiave API mancante o non valida (header x-api-key).' }, 401);
+    // Confronto a tempo costante (audit 24/08/2026): `!==` esce alla prima
+    // differenza e su una chiave è misurabile da fuori.
+    if (!uguali(key ?? '', atteso)) return json({ error: 'Chiave API mancante o non valida (header x-api-key).' }, 401);
 
     const url = new URL(req.url);
     const soloAttive = url.searchParams.get('soloAttive') === '1' || url.searchParams.get('soloAttive') === 'true';

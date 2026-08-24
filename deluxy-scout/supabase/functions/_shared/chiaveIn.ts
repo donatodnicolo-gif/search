@@ -18,8 +18,10 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 
 export const APP_CHIAVE_INGRESSO = '_ingresso';
 
-/** Confronto a tempo costante: su un segreto, `===` esce alla prima differenza. */
-function uguali(a: string, b: string): boolean {
+/** Confronto a tempo costante: su un segreto, `===` esce alla prima differenza.
+ *  Esportata perché la usi CHIUNQUE confronti una chiave (es. `linee`): questo
+ *  file esiste apposta, e un `!==` scritto altrove è la stessa falla di nuovo. */
+export function uguali(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
