@@ -11,7 +11,7 @@ import type { TrattativaConLuogo } from '@/lib/db';
 import type { DealStage, StatoAffiliazione } from '@/types';
 import { useMemo } from 'react';
 
-type Colonna = 'negozio' | 'linea' | 'fase' | 'valore' | 'aperta' | 'scadenza' | 'azione';
+type Colonna = 'negozio' | 'trattativa' | 'linea' | 'fase' | 'valore' | 'aperta' | 'scadenza' | 'azione';
 
 /** gg/mm/aa compatto, sia per date pure («2026-09-01») sia per timestamp. */
 function dataBreve(iso: string | null | undefined): string {
@@ -47,7 +47,8 @@ export function TabellaTrattative({
     () =>
       ordinaRighe(righe, ordine, (d, c) => {
         if (c === 'negozio') return d.place_nome ?? '';
-        if (c === 'linea') return d.titolo ?? (d.linee?.length ? d.linee.join(', ') : d.linea) ?? '';
+        if (c === 'trattativa') return d.titolo ?? null;
+        if (c === 'linea') return (d.linee?.length ? d.linee.join(', ') : d.linea) ?? null;
         if (c === 'fase') return ordineFasi.indexOf(d.fase);
         if (c === 'valore') return d.valore_atteso;
         if (c === 'aperta') return d.created_at ?? null;
@@ -62,7 +63,8 @@ export function TabellaTrattative({
       <View style={[styles.riga, styles.intesta]}>
         {([
           { c: 'negozio' as const, label: 'Negozio', stile: styles.colNegozio },
-          { c: 'linea' as const, label: 'Trattativa', stile: styles.colLinea },
+          { c: 'trattativa' as const, label: 'Trattativa', stile: styles.colLinea },
+          { c: 'linea' as const, label: 'Linea', stile: styles.colTag },
           { c: 'fase' as const, label: 'Fase', stile: styles.colFase },
           { c: 'valore' as const, label: 'Valore', stile: styles.colDx },
           { c: 'aperta' as const, label: 'Aperta', stile: styles.colData },
@@ -79,7 +81,11 @@ export function TabellaTrattative({
         <View style={{ width: 16 }} />
       </View>
       {ordinate.map((d) => {
-        const lineaTxt = d.titolo ?? (d.linee?.length ? d.linee.join(', ') : d.linea) ?? '—';
+        // Titolo e linea sono DUE informazioni: il titolo è come si chiama la
+        // trattativa (spesso assente sui deal nati da una visita), la linea è
+        // il servizio in gioco. Prima stavano fuse in una colonna sola.
+        const titoloTxt = d.titolo ?? '—';
+        const lineaTxt = (d.linee?.length ? d.linee.join(', ') : d.linea) ?? '—';
         const daRegistro = d.origine === 'anagrafiche';
         const statoReg = (d.anagrafiche_stato ?? 'in_trattativa') as StatoAffiliazione;
         // Scadenza passata su una trattativa ancora aperta: in rosso.
@@ -107,7 +113,8 @@ export function TabellaTrattative({
               <Text style={styles.negozio} numberOfLines={1}>{d.place_nome ?? '—'}</Text>
               {d.place_account ? <Text style={styles.sotto} numberOfLines={1}>{d.place_account}</Text> : null}
             </Pressable>
-            <Text style={styles.cellaLinea} numberOfLines={2}>{lineaTxt}</Text>
+            <Text style={styles.cellaLinea} numberOfLines={2}>{titoloTxt}</Text>
+            <Text style={styles.cellaTag} numberOfLines={2}>{lineaTxt}</Text>
             <View style={styles.colFase}>
               {daRegistro ? (
                 <StatusBadge small label={labelAffiliazione[statoReg] ?? statoReg} colore={coloreAffiliazione[statoReg] ?? colors.grigio} />
@@ -155,16 +162,18 @@ const styles = StyleSheet.create({
   rigaHover: { backgroundColor: 'rgba(120,120,128,0.05)' },
   th: { color: colors.grigio, fontSize: 12, fontWeight: '500' },
   thOn: { color: colors.testo, fontWeight: '700' },
-  colNegozio: { flex: 1.4, minWidth: 0 },
-  colLinea: { flex: 1.2, minWidth: 0 },
-  colFase: { width: 150 },
-  colDx: { width: 95, alignItems: 'flex-end' },
-  colData: { width: 88, alignItems: 'flex-end' },
+  colNegozio: { flex: 1.3, minWidth: 0 },
+  colLinea: { flex: 1, minWidth: 0 },
+  colTag: { flex: 0.9, minWidth: 0 },
+  colFase: { width: 140 },
+  colDx: { width: 90, alignItems: 'flex-end' },
+  colData: { width: 76, alignItems: 'flex-end' },
   negozio: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   sotto: { color: colors.grigio, fontSize: 11.5, marginTop: 1 },
-  cellaLinea: { flex: 1.2, minWidth: 0, color: colors.testo, fontSize: 13, lineHeight: 17 },
+  cellaLinea: { flex: 1, minWidth: 0, color: colors.testo, fontSize: 13, lineHeight: 17 },
+  cellaTag: { flex: 0.9, minWidth: 0, color: colors.testoSoft, fontSize: 12.5, lineHeight: 16 },
   cellaValore: {
-    width: 95,
+    width: 90,
     textAlign: 'right',
     color: colors.testo,
     fontWeight: '700',
@@ -172,7 +181,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   cellaData: {
-    width: 88,
+    width: 76,
     textAlign: 'right',
     color: colors.testoSoft,
     fontSize: 12.5,
