@@ -131,6 +131,32 @@ export default async function MaisonIndex({
       (s, b, i) => s + meseAttuale(b, d2cMesi[i] ?? 0, vendutoMesi ? vendutoMesi[i] ?? 0 : null, i),
       0
     );
+  // ---- Lo scostamento dal budget, in percentuale ----
+  //
+  // Va **sotto il numero**, piccolo e in corsivo: è una lettura del numero, non
+  // un secondo numero. Scritto della stessa dimensione competerebbe con quello
+  // sopra e la riga diventerebbe illeggibile.
+  //
+  // ⚠️ **Solo sui mesi chiusi.** Sul mese in corso confronterebbe ventiquattro
+  // giorni di vendite con un mese intero di budget, e un brand in perfetta
+  // salute sembrerebbe a −40%. È la stessa regola già scritta in cima a questa
+  // pagina per il confronto «a che punto siamo».
+  //
+  // ⚠️ E **niente percentuale se il budget di quel mese è zero**: non è −100% né
+  // +∞, è che il budget non c'è (i sei mesi vuoti di Deluxy.it).
+  const scostamentoPct = (venduto: number, budget: number) =>
+    budget > 0 ? ((venduto - budget) / budget) * 100 : null;
+
+  // ⚠️ **Un mese in cui ANCHE UN SOLO brand vende senza budget non è
+  // confrontabile a livello d'azienda.** Il totale del budget resta indietro di
+  // tutto quello che manca, e la percentuale esce enorme: sul 24/08/2026 la riga
+  // d'azienda segnava **+298%, +468%, +391%** su gennaio, febbraio e marzo —
+  // non perché l'azienda avesse fatto cinque volte il budget, ma perché nel
+  // denominatore mancava Deluxy.it. È lo stesso «866%» di prima, un piano più
+  // in alto e quindi più credibile.
+  const meseConfrontabile = (i: number) =>
+    !righe.some((r) => r.mesiSenzaBudget.includes(i + 1));
+
   // Il venduto vero fin qui, mese in corso **compreso**: è il totale della riga
   // blu, e deve sommare le sue caselle.
   const vendutoFinQui = (vendutoMesi: number[] | null) =>
@@ -282,10 +308,40 @@ export default async function MaisonIndex({
                                 }}
                               >
                                 {chiuso(i) || inCorso(i) ? eur(r.vendutoMesi![i] ?? 0) : "—"}
+                                {chiuso(i) &&
+                                  (() => {
+                                    const d = scostamentoPct(r.vendutoMesi![i] ?? 0, r.d2cMesi[i] ?? 0);
+                                    if (d === null)
+                                      return (
+                                        <div className="scost muted" title="Nessun budget D2C scritto per questo mese: non c'è niente da cui scostarsi.">
+                                          senza budget
+                                        </div>
+                                      );
+                                    return (
+                                      <div className={`scost ${d >= 0 ? "pos" : "neg"}`}>
+                                        {d >= 0 ? "+" : "−"}{pct(Math.abs(d), 0)}
+                                      </div>
+                                    );
+                                  })()}
                               </td>
                             ))}
                             <td className="num" style={{ fontSize: 12.5, color: "var(--blue)" }}>
                               {eur(vendutoFinQui(r.vendutoMesi))}
+                              {/* Sul totale la percentuale si mostra **solo se il
+                                  budget copre tutti i mesi chiusi**: con dei mesi
+                                  vuoti in mezzo sarebbe la stessa bugia del
+                                  «realizzato 866%». */}
+                              {(() => {
+                                if (r.mesiSenzaBudget.length > 0)
+                                  return <div className="scost muted">budget incompleto</div>;
+                                const d = scostamentoPct(r.vendutoReale ?? 0, r.budgetD2C);
+                                if (d === null) return null;
+                                return (
+                                  <div className={`scost ${d >= 0 ? "pos" : "neg"}`}>
+                                    {d >= 0 ? "+" : "−"}{pct(Math.abs(d), 0)}
+                                  </div>
+                                );
+                              })()}
                             </td>
                           </tr>
                         )}
@@ -356,10 +412,40 @@ export default async function MaisonIndex({
                         }}
                       >
                         {chiuso(i) || inCorso(i) ? eur(totVendutoMesi[i] ?? 0) : "—"}
+                        {chiuso(i) &&
+                          (() => {
+                            if (!meseConfrontabile(i))
+                              return <div className="scost muted">budget incompleto</div>;
+                            const d = scostamentoPct(totVendutoMesi[i] ?? 0, totD2CMesi[i] ?? 0);
+                            if (d === null) return <div className="scost muted">senza budget</div>;
+                            return (
+                              <div className={`scost ${d >= 0 ? "pos" : "neg"}`}>
+                                {d >= 0 ? "+" : "−"}{pct(Math.abs(d), 0)}
+                              </div>
+                            );
+                          })()}
                       </td>
                     ))}
                     <td className="num" style={{ color: "var(--blue)" }}>
                       {eur(vendutoFinQui(totVendutoMesi))}
+                      {/* ⚠️ Sul totale d'azienda la percentuale si mostra solo se
+                          **nessun brand** ha mesi chiusi senza budget: bastano i
+                          sei vuoti di Deluxy.it a renderla una bugia, e sarebbe
+                          la bugia più credibile di tutte perché è il numero
+                          grande in fondo. */}
+                      {(() => {
+                        if (righe.some((r) => r.mesiSenzaBudget.length > 0))
+                          return <div className="scost muted">budget incompleto</div>;
+                        const budget = mesiChiusi.reduce((sm, mm) => sm + (totD2CMesi[mm - 1] ?? 0), 0);
+                        const venduto = mesiChiusi.reduce((sm, mm) => sm + (totVendutoMesi[mm - 1] ?? 0), 0);
+                        const d = scostamentoPct(venduto, budget);
+                        if (d === null) return null;
+                        return (
+                          <div className={`scost ${d >= 0 ? "pos" : "neg"}`}>
+                            {d >= 0 ? "+" : "−"}{pct(Math.abs(d), 0)}
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                   <tr className="tot">
@@ -386,7 +472,13 @@ export default async function MaisonIndex({
           Le righe in <strong style={{ color: "var(--blue)" }}>blu</strong> sono <strong>quello che è già
           successo</strong>: il venduto vero dei negozi nei <strong>mesi chiusi</strong> ({MESI[0]}–
           {MESI[mesiChiusi.length - 1]}), sulla stessa base del budget D2C — prezzo pieno pagato dal cliente,
-          IVA e spedizione incluse — quindi il confronto è omogeneo.
+          IVA e spedizione incluse — quindi il confronto è omogeneo. Sotto ogni importo, in piccolo, lo{" "}
+          <strong>scostamento dal budget di quel mese</strong>:{" "}
+          <span className="scost pos" style={{ display: "inline" }}>+18%</span> vuol dire che il negozio ha
+          venduto il 18% più di quanto era previsto. C&apos;è <strong>solo sui mesi chiusi</strong> — sul mese
+          in corso confronterebbe mezzo mese di vendite con un mese intero di budget — e sparisce dove il
+          budget di quel mese <strong>non è mai stato scritto</strong>, perché lì non c&apos;è niente da cui
+          scostarsi.
           {cIsInCorso && (
             <>
               {" "}

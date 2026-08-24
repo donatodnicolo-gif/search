@@ -37,6 +37,13 @@ Budgets **emette le sue chiavi API** con scope e revoca.
    e «scostamento» restano **vuoti**, la colonna del budget scrive quali mesi mancano e sopra la
    tabella c'è l'avviso col venduto di quei mesi. Prima Deluxy.it segnava **«realizzato 866%»** —
    50.000 € di budget su sette mesi contro **432.941** venduti — che sembra un record ed è un buco.
+   ⭐ **E nella griglia mensile lo scostamento è in %**, sotto ogni importo del venduto, piccolo e in
+   corsivo: è una **lettura** del numero sopra, non un secondo numero. Solo sui **mesi chiusi** (sul
+   mese in corso confronterebbe mezzo mese con un mese intero) e **mai dove il budget non c'è**.
+   ⚠️ Sulla riga d'azienda serve un controllo in più: un mese in cui **anche un solo brand** vende
+   senza budget non è confrontabile, perché nel denominatore manca quello che manca — segnava
+   **+298%, +468%, +391%** su gennaio, febbraio e marzo. È lo stesso «866%» un piano più in alto, e
+   quindi più credibile.
 2. 🔴 **I margini delle 8 linee commerciali sono tutti al 20%, ma è un'assunzione** presa da B2B ed
    Eventi. Su una **fee di affiliazione** il margine vero è molto più alto; su **Consegne Corporate**
    o **Magazzino**, dove il fornitore prende la parte grossa, può essere troppo. Si correggono in
