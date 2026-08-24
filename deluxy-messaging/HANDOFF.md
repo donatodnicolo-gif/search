@@ -1,5 +1,27 @@
 # Handoff — Deluxy Customer Service
 
+## 24/08/2026 (sera 4) — il «nuovo ordine» diventa un'API per le altre app
+
+Il CRM (e domani chiunque) può creare un ordine con link di pagamento
+passando da qui: **`POST /api/v1/nuovo-ordine`** + tre GET di appoggio
+(`/negozi`, `/prodotti?negozio=&q=`, `/spedizioni?negozio=`). Le rotte sono
+gusci sottili sulla stessa lib della schermata interna (`src/lib/nuovo-ordine.ts`):
+stessa bozza Shopify, stessi due esiti (link | pagato), stessa riga di lavoro
+`OrdineCreato` — le app passano `operatore.nome` tipo «CRM — Nome», così il
+conteggio per persona resta vero.
+
+⚠️ Serve una chiave con **SCRITTURA**: scope nuovo su `ApiKey`
+(`scrittura Boolean @default(false)`, migrato con db push, additivo). Le
+chiavi esistenti restano di sola lettura; reclami e voti restano read-only
+per tutti. Si emette con `npm run chiave -- <app> --scrittura` (fatta:
+`deluxy-crm`).
+
+⚠️ **Trappola pagata al deploy**: la working copy aveva la riconciliazione a
+metà (altra sessione) e la build remota è caduta su `rigaDi`; pubblicato con
+la procedura della copia pulita (`git worktree add <tmp> <commit>` + copia di
+`.vercel/` + deploy da lì). Commit `f69c7b32`, LIVE e collaudato dal CRM
+(bozza reale creata e poi eliminata).
+
 ## 24/08/2026 (sera 3) — la riconciliazione e AUTOMATICA quando si paga da qui
 
 Premendo «Pagata» su una richiesta collegata a un ordine, l ordine impara **da
