@@ -187,19 +187,15 @@ export default async function MaisonIndex({
           <h1 className="page-title">Maison</h1>
           <p className="page-caption">
             Budget {dati.year} per brand: quanto vale ogni mese, come si divide fra i canali, e — dove esiste un
-            consuntivo per brand — a che punto è. Livello mostrato:{" "}
-            {LIVELLI.find((l) => l.key === livello)?.label} (×{molt.toLocaleString("it-IT")}).
+            consuntivo per brand — a che punto è.
           </p>
         </div>
-        <div className="page-actions">
-          <div className="seg">
-            {LIVELLI.map((l) => (
-              <Link key={l.key} href={`/maison?livello=${l.key}`} className={l.key === livello ? "on" : ""}>
-                {l.label}
-              </Link>
-            ))}
-          </div>
-        </div>
+        {/* Il selettore di scenario non sta più qui (revisione del 24/08/2026):
+            il budget si scrive UNA volta — è il raggiungibile — e gli scenari
+            sfidante/irraggiungibile sono moltiplicatori che si guardano nel
+            conto economico e nei premi. Qui confondevano: sembrava di poter
+            scrivere tre budget diversi. L'URL con ?livello= continua a
+            funzionare per i link vecchi. */}
       </div>
 
       <div className="kpi-grid">

@@ -4,6 +4,38 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+## La revisione profonda (24/08/2026): quattro voci, non ventitré
+
+«l'app è troppo complessa per il suo obiettivo: individuare budget che i responsabili devono inserire
+e monitorare, confermare il raggiungimento di target, costruire il conto economico ipotetico e reale».
+L'app aveva **23 pagine di navigazione** per tre domande, e nessuna rispondeva a «cosa manca?» — il
+buco dei sei mesi di Deluxy.it è rimasto invisibile per settimane proprio per questo.
+
+**La navigazione ora è:**
+
+| voce | risponde a | cosa contiene |
+|---|---|---|
+| **Da fare** (`/da-fare`, la home) | cosa manca? | budget mai scritti, quote che non fanno 100, linee senza margine/consuntivo, target che aspettano una persona — **ogni riga è un'azione con un link**; quello che è a posto non compare |
+| **Budget** (`/budget`) | quanto abbiamo pianificato? | hub coi 5 blocchi (vendite per brand, linee, pubblicità, personale, margini), ciascuno con valore e stato; le pagine di dettaglio si aprono da qui |
+| **Target e premi** (`/premi`) | chi ha raggiunto cosa? | la sezione premi |
+| **Conto economico** (`/pl`) | come sta andando? | ipotetico (3 livelli) + consuntivo, con i **sette approfondimenti** (venduto, fatturato, CFO, ricorrenti, competenza, civilistico, tasse) come link interni, non più voci di navigazione |
+
+**Decisioni prese con l'utente:**
+- **Inserimento diretto**: il flusso proposte (proponi → approva → consolida) esce dalla UI dell'admin;
+  i dati storici restano, `/proposte` resta raggiungibile dal hub e per il ruolo `proposte`.
+- **Scenari solo nel conto economico (e nei premi)**: il budget si scrive UNA volta — è il
+  raggiungibile — e sfidante/irraggiungibile sono moltiplicatori di lettura. Il selettore è sparito
+  dalle pagine di inserimento (`/maison`), dove faceva sembrare che esistessero tre budget da scrivere.
+- **Pagine tecnico-contabili come approfondimenti**, non voci di primo livello.
+- `/` → `/da-fare`; `/dashboard` → `/pl` (erano due pagine per la stessa domanda, ed è già successo
+  che dessero due numeri con la stessa etichetta).
+
+⚠️ **Nessuna pagina è stata cancellata**: sono cambiate le porte. Tutti gli URL vecchi funzionano.
+
+⚠️ Il ruolo **`proposte`** vede ancora solo le proposte (middleware invariato): decidere se e cosa i
+responsabili potranno scrivere direttamente è un passo successivo, da fare col permesso giusto e non
+di corsa.
+
 ## Dove siamo (24/08/2026) — leggere questo per primo
 
 Il conto economico a budget, come lo mostrano `/dashboard` e `/pl` (livello **Raggiungibile**):

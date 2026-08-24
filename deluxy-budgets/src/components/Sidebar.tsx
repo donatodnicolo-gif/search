@@ -125,59 +125,22 @@ const icons = {
 type Gruppo = { label?: string; items: Item[] };
 type AreaNav = { area: string; badge: string; gruppi: Gruppo[] };
 
+// ⭐ **Quattro voci, non ventitré** (revisione del 24/08/2026: «l'app è troppo
+// complessa per il suo obiettivo»). La navigazione risponde alle tre domande
+// dell'app — cosa manca, quanto abbiamo pianificato, come sta andando — più i
+// premi. Le pagine di dettaglio esistono ancora tutte, ma ci si arriva **dal
+// hub che le contiene**: in una lista di venti voci nessuna si trova.
 const nav: AreaNav[] = [
   {
-    area: "Budget",
+    area: "Lavoro",
     badge: "blue",
     gruppi: [
       {
         items: [
-          { href: "/dashboard", label: "Dashboard", icon: icons.dashboard },
-          { href: "/pl", label: "P&L aziendale", icon: icons.pl },
-        ],
-      },
-      {
-        label: "Budget vendite",
-        items: [
-          { href: "/maison", label: "Maison", icon: icons.maison },
-          { href: "/commerciale", label: "Team commerciale", icon: icons.commerciale },
-          { href: "/margini", label: "Margini", icon: icons.margini },
-        ],
-      },
-      {
-        label: "Spese e persone",
-        items: [
-          { href: "/spese", label: "Spese ADV", icon: icons.spese },
-          { href: "/piattaforme", label: "Piattaforme ADV", icon: icons.piattaforme },
-          { href: "/dipendenti", label: "Dipendenti", icon: icons.dipendenti },
-          { href: "/team", label: "Team", icon: icons.team },
-          // I premi stanno **con le persone**, non nelle impostazioni: sono un
-          // impegno verso qualcuno, e la domanda «quanto costa il lavoro» li
-          // comprende.
-          { href: "/premi", label: "Premi", icon: icons.premi },
-        ],
-      },
-      {
-        label: "Processo",
-        items: [{ href: "/proposte", label: "Proposte budget", icon: icons.proposte }],
-      },
-    ],
-  },
-  {
-    area: "Consuntivo",
-    badge: "green",
-    gruppi: [
-      {
-        items: [
-          // L'ordine è quello del denaro: prima quanto è passato dalla cassa dei
-          // negozi (venduto), poi quanto ne resta a Deluxy (fatturato), poi i costi.
-          { href: "/venduto", label: "Venduto (ecommerce)", icon: icons.spese },
-          { href: "/consuntivo", label: "Fatturato reale", icon: icons.consuntivo },
-          { href: "/cfo", label: "Costi reali (CFO)", icon: icons.cfo },
-          { href: "/ricorrenti", label: "Costi ricorrenti", icon: icons.ricorrenti },
-          { href: "/competenza", label: "Competenza", icon: icons.impostazioni },
-          { href: "/conto-economico", label: "Conto economico", icon: icons.pl },
-          { href: "/tasse", label: "Tasse", icon: icons.impostazioni },
+          { href: "/da-fare", label: "Da fare", icon: icons.dashboard },
+          { href: "/budget", label: "Budget", icon: icons.maison },
+          { href: "/premi", label: "Target e premi", icon: icons.premi },
+          { href: "/pl", label: "Conto economico", icon: icons.pl },
         ],
       },
     ],
@@ -188,7 +151,7 @@ const nav: AreaNav[] = [
     gruppi: [
       {
         items: [
-          { href: "/impostazioni", label: "Scenari, premi e costi", icon: icons.impostazioni },
+          { href: "/impostazioni", label: "Scenari e costi", icon: icons.impostazioni },
           { href: "/impostazioni/chiavi", label: "Chiavi", icon: icons.cfo },
           { href: "/impostazioni/accesso", label: "Accesso", icon: icons.premi },
         ],
@@ -202,11 +165,17 @@ const nav: AreaNav[] = [
 // il modo piu sicuro per far pensare che l app sia rotta.
 export function Sidebar({ ruolo = "admin", nome = null }: { ruolo?: "admin" | "lettura" | "proposte"; nome?: string | null }) {
   const pathname = usePathname();
-  const visibile = ruolo === "admin"
+  // ⚠️ Le proposte non stanno più nella navigazione dell'admin (il budget si
+  // scrive diretto), ma il ruolo «proposte» continua a vivere di quelle: la sua
+  // voce si costruisce qui invece di filtrare una nav che non la contiene più —
+  // filtrandola, un responsabile vedrebbe una sidebar vuota.
+  const visibile: AreaNav[] = ruolo === "admin"
     ? nav
-    : nav
-        .map((a) => ({ ...a, gruppi: a.gruppi.map((g) => ({ ...g, items: g.items.filter((i) => i.href.startsWith("/proposte")) })).filter((g) => g.items.length) }))
-        .filter((a) => a.gruppi.length);
+    : [{
+        area: "Lavoro",
+        badge: "blue",
+        gruppi: [{ items: [{ href: "/proposte", label: "Proposte budget", icon: icons.proposte }] }],
+      }];
   // La radice rimanda al consuntivo: finché il redirect non è atterrato è quella
   // la voce accesa, così la sidebar non lampeggia su niente all'apertura.
   // Vince la voce col percorso **più lungo** che combacia: con il semplice

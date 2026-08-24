@@ -8,13 +8,13 @@ Prima serviva un secondo clic sulla pagina Riconciliazione — cioe rifare a man
 una cosa gia decisa, che e esattamente il motivo per cui c erano 8 pagamenti
 fatti e ZERO ordini che sapessero chi li aveva preparati.
 
-⚠️⚠️ **La scrittura sta in UNA funzione sola**:  in
-, usata sia dal PATCH di  (azione
-, modo ) sia dal POST di  (modo ).
+⚠️⚠️ **La scrittura sta in UNA funzione sola**: `riconciliaDaPagamento()` in
+`src/lib/riconcilia.ts`, usata sia dal PATCH di `/api/pagamenti/[id]` (azione
+`pagata`, modo `auto`) sia dal POST di `/api/riconciliazione` (modo `a-mano`).
 Due copie della stessa logica divergerebbero, e il buco resterebbe aperto sulla
 strada automatica — quella che nessuno guarda.
 
-⚠️ **Automatico non vuol dire senza controlli**: i rifiuti di 
+⚠️ **Automatico non vuol dire senza controlli**: i rifiuti di `decidi()`
 (rimborso al cliente, fornitore diverso gia scritto, costo che non torna)
 valgono identici. Cio che non passa resta nella pagina Riconciliazione, che ora
 e l ELENCO DELLE ECCEZIONI e non la coda di tutto il lavoro.
@@ -26,8 +26,9 @@ non un telefono): l avviso restera «non avvisato» finche non li scrive qualcun
 **RECUPERATI TUTTI E 8 i pagamenti storici** (4 da me, 3 gia fatti a mano
 dall utente, 1 di prova): **8 ordini su 8 sanno chi li ha preparati** (erano 0)
 e **Orders calcola 490 EUR di margine** che prima diceva «non calcolabile».
-Verificato leggendo Orders: nel suo ,  e il numero e
- e il NOME (attenzione al nome del campo).
+Verificato leggendo Orders: nel suo `controllo`, `costo` e il NUMERO e
+`costoFornitore` e il NOME — attenzione, leggendo il campo sbagliato sembra che
+Orders non abbia preso niente.
 
 
 ## 24/08/2026 (sera 2) — «risolvi tutto»: riconciliazione, contestazioni, e i buchi muti

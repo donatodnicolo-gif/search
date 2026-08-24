@@ -568,6 +568,36 @@ export default async function ContoEconomico({
         proporzione ai ricavi. Personale e struttura non scalano con il livello di budget: sono impegni
         già presi, quindi il maggior fatturato dello scenario sfidante cade quasi interamente a margine.
       </p>
+
+      {/* ---- Gli approfondimenti del consuntivo ----
+          Erano sette voci di navigazione (revisione del 24/08/2026): sono i
+          dettagli di QUESTO conto economico, e la porta giusta è da qui — chi
+          non se li cerca non se li trova più davanti. */}
+      <h2 className="section-title" style={{ marginTop: 28 }}>Approfondimenti del consuntivo</h2>
+      <div className="card tight">
+        <div className="table-wrap">
+          <table>
+            <tbody>
+              {[
+                { href: "/venduto", nome: "Venduto (ecommerce)", cosa: "il venduto dei negozi giorno per giorno, dal registro ordini" },
+                { href: "/consuntivo", nome: "Fatturato reale", cosa: "il consuntivo per tipologia contro il budget, con il dettaglio fatture" },
+                { href: "/cfo", nome: "Costi reali (CFO)", cosa: "le uscite di banca per categoria, con le regole di classificazione" },
+                { href: "/ricorrenti", nome: "Costi ricorrenti", cosa: "canoni e abbonamenti in fila per regolarità" },
+                { href: "/competenza", nome: "Competenza", cosa: "le rettifiche d'esercizio: cosa appartiene a quale anno" },
+                { href: "/conto-economico", nome: "Conto economico civilistico", cosa: "la vista per voci di bilancio (B6, B7, B9…)" },
+                { href: "/tasse", nome: "Tasse", cosa: "IRES, IRAP e l'IVA da mettere da parte" },
+              ].map((r) => (
+                <tr key={r.href}>
+                  <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>
+                    <Link href={r.href} style={{ color: "var(--blue)" }}>{r.nome}</Link>
+                  </td>
+                  <td className="muted">{r.cosa}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </>
   );
 }
