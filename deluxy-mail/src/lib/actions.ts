@@ -4236,7 +4236,14 @@ export async function eseguiInvioApp(
   messaggioId: string,
   azioneId: string,
   datiJson: string
-): Promise<{ ok: boolean; messaggio: string; link?: string }> {
+): Promise<{
+  ok: boolean
+  messaggio: string
+  link?: string
+  /** Se l'app non ha saputo decidere fra più record: i candidati da far scegliere. */
+  campoScelta?: string
+  scelte?: { valore: string; etichetta: string }[]
+}> {
   const u = await utenteCorrente()
   if (!u) return { ok: false, messaggio: 'Sessione scaduta: rientra.' }
   const utenteId = u.id

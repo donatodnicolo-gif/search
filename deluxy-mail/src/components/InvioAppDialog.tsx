@@ -187,7 +187,13 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
   const [dati, setDati] = useState('')
   // Modulo (predefinito) oppure JSON grezzo, per chi lo preferisce.
   const [comeJson, setComeJson] = useState(false)
-  const [esito, setEsito] = useState<{ ok: boolean; messaggio: string; link?: string } | null>(null)
+  const [esito, setEsito] = useState<{
+    ok: boolean
+    messaggio: string
+    link?: string
+    campoScelta?: string
+    scelte?: { valore: string; etichetta: string }[]
+  } | null>(null)
   const [inCorso, start] = useTransition()
   const router = useRouter()
 
@@ -216,13 +222,39 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const invia = () =>
+  const invia = (correzione?: { campo: string; valore: string }) =>
     start(async () => {
       if (!messaggioId || !proposta?.azione) return
-      const r = await eseguiInvioApp(messaggioId, proposta.azione.id, dati)
+      // ⚠️ `dati` è la STRINGA json del riquadro, non un oggetto: la correzione
+      // si applica sul contenuto, non con uno spread.
+      let daMandare = dati
+      if (correzione) {
+        try {
+          const o = JSON.parse(dati || '{}')
+          o[correzione.campo] = correzione.valore
+          daMandare = JSON.stringify(o, null, 2)
+          setDati(daMandare)
+        } catch {
+          // JSON scritto a mano e rotto: si manda com'è, l'app dirà cosa non va.
+        }
+      }
+      const r = await eseguiInvioApp(messaggioId, proposta.azione.id, daMandare)
       setEsito(r)
       if (r.ok) router.refresh()
     })
+
+  /**
+   * L'app non sapeva quale record intendessimo e ci ha dato i candidati: qui si
+   * sceglie e si rimanda subito, senza far ricominciare da capo.
+   * ⚠️ Il valore scelto entra anche nei dati a schermo (`setDati`): se l'invio
+   * fallisse di nuovo, chi guarda deve vedere con COSA ha riprovato.
+   */
+  const scegliCandidato = (valore: string) => {
+    const campo = esito?.campoScelta
+    if (!campo) return
+    setEsito(null)
+    invia({ campo, valore })
+  }
 
   function chiudi() {
     setMessaggioId(null)
@@ -345,6 +377,22 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
                   </a>
                 </>
               )}
+            {/* Più record combaciano: si sceglie qui, non nell'altra app. */}
+            {!esito.ok && esito.scelte && esito.scelte.length > 0 && (
+              <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {esito.scelte.map((s) => (
+                  <button
+                    key={s.valore}
+                    type="button"
+                    className="btn secondary small"
+                    disabled={inCorso}
+                    onClick={() => scegliCandidato(s.valore)}
+                  >
+                    {s.etichetta}
+                  </button>
+                ))}
+              </div>
+            )}
             </span>
           </div>
         )}
@@ -359,7 +407,7 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
             {esito?.ok ? 'Chiudi' : 'Annulla'}
           </button>
           {proposta?.ok && proposta.azione && !esito?.ok && (
-            <button className="btn primary" type="button" onClick={invia} disabled={inCorso || !dati.trim()}>
+            <button className="btn primary" type="button" onClick={() => invia()} disabled={inCorso || !dati.trim()}>
               {inCorso ? 'Invio…' : `Conferma e invia a ${proposta.azione.app}`}
             </button>
           )}

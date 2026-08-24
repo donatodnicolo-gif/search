@@ -30,7 +30,31 @@ export const CHIAVE_DI_APP: Record<string, NomeChiaveApp> = {
 
 // ---------- Tipi ----------
 
-export type EsitoAzione = { ok: boolean; messaggio: string; link?: string }
+/**
+ * L'esito di un'azione verso un'app Deluxy.
+ *
+ * `scelte`: quando l'app non riesce a decidere DA SOLA fra più record (due
+ * negozi che si chiamano quasi uguale), invece di fermarsi con una frase
+ * restituisce i candidati e qui si fanno vedere. ⚠️ Prima li buttavamo via:
+ * l'app rispondeva `{ error, candidati: [...] }` e AI Mail teneva solo il testo,
+ * lasciando l'utente a indovinare il nome esatto o ad andare a mano nell'altra
+ * app (segnalato il 24/08/2026 con «Più negozi corrispondono a HAVI»).
+ */
+export type SceltaAzione = {
+  /** Il valore da rimettere nel campo (per l'app: il nome ESATTO). */
+  valore: string
+  /** Come si legge nel bottone: «HAVI Milano — Brera». */
+  etichetta: string
+}
+
+export type EsitoAzione = {
+  ok: boolean
+  messaggio: string
+  link?: string
+  /** Quale campo dei dati va corretto con la scelta (es. `negozio`). */
+  campoScelta?: string
+  scelte?: SceltaAzione[]
+}
 
 /** Contesto passato a un'azione: chi la esegue (header/log), la sua chiave, i
  *  domini delle NOSTRE caselle (per non registrare noi stessi come azienda) e
@@ -845,7 +869,28 @@ const AZIONI: AzioneApp[] = [
           if (status === 200 || status === 201) return { ok: true, messaggio: `Trattativa aperta per «${negozio}».`, link }
           if (status === 401 || status === 403)
             return { ok: false, messaggio: 'Chiave Commerciale non valida: controllala in Impostazioni App.' }
-          if (status === 404) return { ok: false, messaggio: testoErrore(risposta, 'Negozio non trovato in Commerciale.') }
+          if (status === 404) {
+            // ⚠️ Il 404 di «trattativa» porta con sé i CANDIDATI
+            // (`{ error, candidati: [{ id, nome, zona }] }`): non si buttano, si
+            // fanno scegliere. Rimandiamo il NOME esatto perché la funzione
+            // accetta solo quello, e sul nome esatto smette di essere ambigua.
+            const c = risposta && typeof risposta === 'object' ? (risposta as Record<string, unknown>).candidati : null
+            const scelte = Array.isArray(c)
+              ? c
+                  .map((x) => {
+                    const o = (x ?? {}) as Record<string, unknown>
+                    const nome = typeof o.nome === 'string' ? o.nome : ''
+                    const zona = typeof o.zona === 'string' && o.zona ? ` — ${o.zona}` : ''
+                    return nome ? { valore: nome, etichetta: `${nome}${zona}` } : null
+                  })
+                  .filter((x): x is { valore: string; etichetta: string } => x !== null)
+              : []
+            return {
+              ok: false,
+              messaggio: testoErrore(risposta, 'Negozio non trovato in Commerciale.'),
+              ...(scelte.length ? { scelte, campoScelta: 'negozio' } : {}),
+            }
+          }
           return { ok: false, messaggio: testoErrore(risposta, `Commerciale ha risposto ${status}.`) }
         }
       )

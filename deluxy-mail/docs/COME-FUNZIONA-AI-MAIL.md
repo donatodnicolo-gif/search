@@ -762,6 +762,17 @@ Sono due cose diverse: una dice cosa c'è da fare, l'altra a che punto sei.
 La nota non resta chiusa in AI Mail: arriva anche nell'app Attività, in coda alla
 descrizione, quindi la leggono i colleghi che la vedono da lì.
 
+### Quando più record combaciano, scegli tu
+
+Mandando una mail a un app Deluxy può capitare che l app non sappia a quale record
+ti riferisci: due negozi che si chiamano quasi uguale, per esempio. In quel caso
+non si ferma con una frase: mostra **i candidati come bottoni** e tu scegli.
+Premendo, la richiesta riparte da sola col nome esatto, senza uscire dalla mail.
+
+⚠️ Prima quei candidati l app li mandava già, ma AI Mail li buttava via tenendo
+solo il testo dell errore: bisognava indovinare il nome esatto o andare a mano
+nell altra app.
+
 ### Gli appuntamenti finiscono in agenda da soli
 
 Quando una mail contiene un appuntamento con **data e ora certe** — un invito a
