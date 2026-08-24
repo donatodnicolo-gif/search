@@ -91,6 +91,7 @@ model Persona {
   note            String    @default("")
 
   assegnazioni    Assegnazione[]
+  mansionario     AttivitaPersona[]
   inquadramenti   Inquadramento[]
   compensi        Compenso[]
   funzioniGuidate Funzione[]      @relation("ResponsabileFunzione")
@@ -102,6 +103,23 @@ model Persona {
   @@index([funzioneId])
   @@index([responsabileId])
   @@index([nome])
+}
+
+// Il MANSIONARIO PERSONALE: la lista delle cose che UNA persona fa davvero,
+// scritta sulla sua scheda. Complementare alle attività di mansione (che
+// descrivono il ruolo-tipo): qui si fotografa il lavoro reale del singolo.
+model AttivitaPersona {
+  id        String   @id @default(cuid())
+  personaId String
+  persona   Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  nome      String
+  dettaglio String   @default("")
+  // giornaliera | settimanale | mensile | su richiesta | "" (non indicata)
+  frequenza String   @default("")
+  ordine    Int      @default(0)
+  creatoIl  DateTime @default(now())
+
+  @@index([personaId, ordine])
 }
 
 // Persona ↔ mansione: chi copre cosa (con una mansione principale).

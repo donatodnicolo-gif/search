@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
       funzione: true,
       responsabile: true,
       assegnazioni: { include: { mansione: { include: { funzione: true } } } },
+      mansionario: { orderBy: { ordine: "asc" } },
       inquadramenti: true,
       compensi: true,
     },
@@ -61,6 +62,12 @@ export async function GET(req: NextRequest) {
         nome: a.mansione.nome,
         funzione: a.mansione.funzione.nome,
         principale: a.principale,
+      })),
+      // Il mansionario personale: cosa fa davvero questa persona, riga per riga.
+      mansionario: x.mansionario.map((a) => ({
+        nome: a.nome,
+        dettaglio: a.dettaglio || null,
+        frequenza: a.frequenza || null,
       })),
       inquadramento: inquadramento
         ? {

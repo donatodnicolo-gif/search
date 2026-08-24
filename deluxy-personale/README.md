@@ -14,10 +14,15 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
 ## Dove siamo (24/08/2026)
 
 - ✅ App completa e in produzione: Persone (elenco + KPI), scheda persona
-  (dati, mansioni, storico inquadramenti, storico retribuzioni, cessazione),
-  Organigramma (albero dei riporti), Funzioni e mansioni (mansionario),
-  Stipendi (quadro con totali dichiarati), Inquadramenti (scadenze in testa),
-  Chiavi delle app.
+  (dati, mansioni, **mansionario personale**, storico inquadramenti, storico
+  retribuzioni, cessazione), Organigramma (albero dei riporti, **costruibile
+  dalla pagina**: menu «riporta a» su ogni scheda, salvataggio immediato,
+  anti-ciclo sia nel menu sia nella server action), Funzioni e mansioni
+  (mansionario di ruolo), Stipendi, Inquadramenti, Chiavi delle app.
+- ✅ **Mansionario personale** (24/08): su ogni scheda la lista delle cose che
+  la persona fa davvero (attività + dettaglio + frequenza), tabella
+  `AttivitaPersona`; sotto, in sola lettura, le attività-tipo delle mansioni
+  assegnate. Esce anche da `/api/v1/persone` (campo `mansionario`).
 - ✅ `/api/health` pubblico con `SELECT 1` vero (convenzione Hub).
 - ✅ `/api/v1` di sola lettura con chiave (`x-api-key`): `team` (stesso formato
   del team di Budgets), `persone`, `funzioni`, `organigramma`.

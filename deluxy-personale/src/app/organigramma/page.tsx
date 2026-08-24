@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/db";
+import { RiportoSelect } from "@/components/RiportoSelect";
 
-// L'organigramma si disegna dai riporti (Persona.responsabileId): radici = chi
-// non riporta a nessuno. Chi è attivo ma non collocato non sparisce: finisce
-// in un elenco dichiarato in fondo (un albero che perde persone è peggio di un
-// albero con una voce "da collocare").
+// L'organigramma si disegna dai riporti (Persona.responsabileId) e SI COSTRUISCE
+// da qui: su ogni scheda c'è il menu «riporta a», che salva subito. Radici =
+// chi non riporta a nessuno. Chi è attivo ma non collocato non sparisce.
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +12,16 @@ type Nodo = {
   nome: string;
   ruolo: string;
   funzione: string | null;
+  responsabileId: string | null;
   figli: Nodo[];
 };
 
-export default async function PaginaOrganigramma() {
+export default async function PaginaOrganigramma({
+  searchParams,
+}: {
+  searchParams: Promise<{ err?: string }>;
+}) {
+  const sp = await searchParams;
   const persone = await prisma.persona.findMany({
     where: { stato: "attivo" },
     include: { funzione: true },
@@ -24,7 +30,14 @@ export default async function PaginaOrganigramma() {
 
   const nodi = new Map<string, Nodo>();
   for (const p of persone) {
-    nodi.set(p.id, { id: p.id, nome: p.nome, ruolo: p.ruolo, funzione: p.funzione?.nome ?? null, figli: [] });
+    nodi.set(p.id, {
+      id: p.id,
+      nome: p.nome,
+      ruolo: p.ruolo,
+      funzione: p.funzione?.nome ?? null,
+      responsabileId: p.responsabileId,
+      figli: [],
+    });
   }
   const radici: Nodo[] = [];
   for (const p of persone) {
@@ -39,6 +52,8 @@ export default async function PaginaOrganigramma() {
   }
 
   const conta = (n: Nodo): number => n.figli.reduce((s, f) => s + conta(f), n.figli.length);
+  const opzioni = persone.map((p) => ({ id: p.id, nome: p.nome }));
+  const nessunCollegamento = persone.length > 0 && persone.every((p) => !p.responsabileId);
 
   return (
     <>
@@ -46,10 +61,20 @@ export default async function PaginaOrganigramma() {
         <div>
           <h1 className="page-title">Organigramma</h1>
           <p className="page-sub">
-            Chi riporta a chi. Si cambia dalla scheda della persona («Riporta a»).
+            Chi riporta a chi. Si costruisce da qui: scegli su ogni scheda il responsabile con il
+            menu «riporta a» — il salvataggio è immediato.
           </p>
         </div>
       </div>
+
+      {sp.err && <div className="avviso-errore">{sp.err}</div>}
+
+      {nessunCollegamento && (
+        <div className="avviso-nota">
+          Ancora nessun collegamento: tutte le persone sono allo stesso livello. Parti dal vertice
+          (che resta «nessuno») e collega gli altri, uno per uno, col menu sulla loro scheda.
+        </div>
+      )}
 
       {persone.length === 0 ? (
         <div className="card vuoto">
@@ -65,7 +90,7 @@ export default async function PaginaOrganigramma() {
       ) : (
         <div className="org-albero">
           {radici.map((r) => (
-            <Ramo key={r.id} nodo={r} squadra={conta(r)} />
+            <Ramo key={r.id} nodo={r} squadra={conta(r)} opzioni={opzioni} />
           ))}
         </div>
       )}
@@ -73,19 +98,32 @@ export default async function PaginaOrganigramma() {
   );
 }
 
-function Ramo({ nodo, squadra }: { nodo: Nodo; squadra?: number }) {
+function Ramo({ nodo, squadra, opzioni }: { nodo: Nodo; squadra?: number; opzioni: { id: string; nome: string }[] }) {
   const iniziali = nodo.nome
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase())
     .join("");
+
+  // Sé stessi e i propri sottoposti (a catena) non sono responsabili validi:
+  // il menu non li offre nemmeno (la guardia vera resta nella server action).
+  const sottoAlbero = new Set<string>();
+  const raccogli = (n: Nodo) => {
+    sottoAlbero.add(n.id);
+    n.figli.forEach(raccogli);
+  };
+  raccogli(nodo);
+  const selezionabili = opzioni.filter((o) => !sottoAlbero.has(o.id));
+
   return (
     <div className="org-nodo">
-      <a className="org-scheda" href={`/persone/${nodo.id}`}>
+      <div className="org-scheda">
         <div className="avatar">{iniziali}</div>
         <div className="org-info">
-          <div className="org-nome">{nodo.nome}</div>
+          <a className="org-nome link-nome" href={`/persone/${nodo.id}`}>
+            {nodo.nome}
+          </a>
           <div className="org-ruolo">{nodo.ruolo || "ruolo da indicare"}</div>
         </div>
         <div className="org-extra">
@@ -101,12 +139,13 @@ function Ramo({ nodo, squadra }: { nodo: Nodo; squadra?: number }) {
               {squadra} in squadra
             </span>
           )}
+          <RiportoSelect personaId={nodo.id} valore={nodo.responsabileId ?? ""} opzioni={selezionabili} />
         </div>
-      </a>
+      </div>
       {nodo.figli.length > 0 && (
         <div className="org-figli">
           {nodo.figli.map((f) => (
-            <Ramo key={f.id} nodo={f} />
+            <Ramo key={f.id} nodo={f} opzioni={opzioni} />
           ))}
         </div>
       )}

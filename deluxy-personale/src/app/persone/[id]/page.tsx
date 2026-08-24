@@ -4,6 +4,7 @@ import { dataIt, dataInput, euro, numero } from "@/lib/formato";
 import {
   compensoCorrente,
   costoAziendaAnnuo,
+  FREQUENZE_ATTIVITA,
   inquadramentoCorrente,
   MOTIVI_COMPENSO,
   nomeMotivoCompenso,
@@ -16,8 +17,10 @@ import {
   aggiornaPersona,
   assegnaMansione,
   cessaPersona,
+  creaAttivitaPersona,
   creaCompenso,
   creaInquadramento,
+  eliminaAttivitaPersona,
   eliminaCompenso,
   eliminaInquadramento,
   riattivaPersona,
@@ -48,7 +51,13 @@ export default async function SchedaPersona({
       funzione: true,
       responsabile: true,
       riporti: { where: { stato: "attivo" }, orderBy: { nome: "asc" } },
-      assegnazioni: { include: { mansione: { include: { funzione: true } } }, orderBy: { creatoIl: "asc" } },
+      mansionario: { orderBy: { ordine: "asc" } },
+      assegnazioni: {
+        include: {
+          mansione: { include: { funzione: true, attivita: { orderBy: { ordine: "asc" } } } },
+        },
+        orderBy: { creatoIl: "asc" },
+      },
       inquadramenti: { orderBy: { decorrenza: "desc" } },
       compensi: { orderBy: { decorrenza: "desc" } },
     },
@@ -266,6 +275,98 @@ export default async function SchedaPersona({
               "Tutte le mansioni esistenti sono già assegnate a questa persona."
             )}
           </p>
+        )}
+      </div>
+
+      {/* ---------- Mansionario personale ---------- */}
+      <div className="card">
+        <div className="card-testa">
+          <div>
+            <h2 className="card-titolo">Mansionario</h2>
+            <p className="card-sub">
+              La lista delle cose che {persona.nome.split(" ")[0]} fa davvero, una per riga. Le
+              attività-tipo delle mansioni assegnate restano sotto, per confronto.
+            </p>
+          </div>
+        </div>
+
+        {persona.mansionario.length === 0 ? (
+          <p style={{ fontSize: 13.5, color: "var(--text-tertiary)", marginBottom: 12 }}>
+            Ancora vuoto: aggiungi la prima attività.
+          </p>
+        ) : (
+          <div className="attivita-lista" style={{ marginBottom: 14 }}>
+            {persona.mansionario.map((a) => (
+              <div key={a.id} className="attivita-riga">
+                <span className="attivita-punto">•</span>
+                <span>{a.nome}</span>
+                {a.dettaglio && <span style={{ color: "var(--text-secondary)" }}>— {a.dettaglio}</span>}
+                {a.frequenza && <span className="attivita-freq">({a.frequenza})</span>}
+                <FormConferma
+                  azione={eliminaAttivitaPersona}
+                  conferma={`Eliminare «${a.nome}» dal mansionario di ${persona.nome}?`}
+                  campi={{ id: a.id, personaId: persona.id }}
+                  etichetta="×"
+                  classe="btn ghost mini"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <form action={creaAttivitaPersona} className="form-inline">
+          <input type="hidden" name="personaId" value={persona.id} />
+          <div className="campo">
+            <label>Nuova attività</label>
+            <input type="text" name="nome" required placeholder="Es. rispondere ai clienti VIP su WhatsApp" />
+          </div>
+          <div className="campo" style={{ flex: 2 }}>
+            <label>Dettaglio</label>
+            <input type="text" name="dettaglio" placeholder="Come, con chi, con che strumenti (facoltativo)" />
+          </div>
+          <div className="campo" style={{ maxWidth: 170 }}>
+            <label>Frequenza</label>
+            <select name="frequenza" defaultValue="">
+              <option value="">— non indicata —</option>
+              {FREQUENZE_ATTIVITA.map((fr) => (
+                <option key={fr} value={fr}>
+                  {fr}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="btn" type="submit">
+            Aggiungi
+          </button>
+        </form>
+
+        {persona.assegnazioni.some((a) => a.mansione.attivita.length > 0) && (
+          <div style={{ marginTop: 18, borderTop: "1px solid var(--hairline)", paddingTop: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 8 }}>
+              Dalle mansioni assegnate
+            </div>
+            {persona.assegnazioni
+              .filter((a) => a.mansione.attivita.length > 0)
+              .map((a) => (
+                <div key={a.id} style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                    {a.mansione.nome} —{" "}
+                    <a href="/funzioni" style={{ textDecoration: "underline" }}>
+                      si modifica in Funzioni e mansioni
+                    </a>
+                  </div>
+                  <div className="attivita-lista" style={{ marginTop: 4 }}>
+                    {a.mansione.attivita.map((att) => (
+                      <div key={att.id} className="attivita-riga" style={{ color: "var(--text-secondary)" }}>
+                        <span className="attivita-punto">•</span>
+                        <span>{att.nome}</span>
+                        {att.frequenza && <span className="attivita-freq">({att.frequenza})</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+          </div>
         )}
       </div>
 

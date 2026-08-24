@@ -222,6 +222,24 @@ export async function aggiornaPersona(fd: FormData): Promise<void> {
   redirect(percorso);
 }
 
+// Collegamento «riporta a» fatto direttamente dall'organigramma: stessa
+// scrittura del form della scheda, stessa guardia sui cicli.
+export async function impostaResponsabile(fd: FormData): Promise<void> {
+  const negato = await richiediAdmin();
+  if (negato) conErrore("/organigramma", negato);
+  const personaId = testo(fd, "personaId");
+  if (!personaId) conErrore("/organigramma", "Persona mancante.");
+  const responsabileId = testo(fd, "responsabileId") || null;
+  if (responsabileId && (responsabileId === personaId || (await creaCicloOrganigramma(personaId, responsabileId)))) {
+    conErrore("/organigramma", "Così l'organigramma girerebbe in cerchio: scegli un altro responsabile.");
+  }
+  await prisma.persona.update({ where: { id: personaId }, data: { responsabileId } });
+  revalidatePath("/organigramma");
+  revalidatePath("/");
+  revalidatePath(`/persone/${personaId}`);
+  redirect("/organigramma");
+}
+
 export async function cessaPersona(fd: FormData): Promise<void> {
   const id = testo(fd, "id");
   const percorso = `/persone/${id}`;
@@ -253,6 +271,43 @@ export async function riattivaPersona(fd: FormData): Promise<void> {
   await prisma.persona.update({ where: { id }, data: { stato: "attivo", dataCessazione: null } });
   revalidatePath(percorso);
   revalidatePath("/");
+  redirect(percorso);
+}
+
+// ---------- Mansionario personale ----------
+
+export async function creaAttivitaPersona(fd: FormData): Promise<void> {
+  const personaId = testo(fd, "personaId");
+  const percorso = `/persone/${personaId}`;
+  const negato = await richiediAdmin();
+  if (negato) conErrore(percorso, negato);
+  const nome = testo(fd, "nome");
+  if (!nome) conErrore(percorso, "Scrivi cosa fa la persona: il nome dell'attività è obbligatorio.");
+  const frequenza = testo(fd, "frequenza");
+  const ultime = await prisma.attivitaPersona.aggregate({
+    where: { personaId },
+    _max: { ordine: true },
+  });
+  await prisma.attivitaPersona.create({
+    data: {
+      personaId,
+      nome,
+      dettaglio: testo(fd, "dettaglio"),
+      frequenza: (FREQUENZE_ATTIVITA as readonly string[]).includes(frequenza) ? frequenza : "",
+      ordine: (ultime._max.ordine ?? 0) + 1,
+    },
+  });
+  revalidatePath(percorso);
+  redirect(percorso);
+}
+
+export async function eliminaAttivitaPersona(fd: FormData): Promise<void> {
+  const personaId = testo(fd, "personaId");
+  const percorso = `/persone/${personaId}`;
+  const negato = await richiediAdmin();
+  if (negato) conErrore(percorso, negato);
+  await prisma.attivitaPersona.delete({ where: { id: testo(fd, "id") } });
+  revalidatePath(percorso);
   redirect(percorso);
 }
 
