@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { dataIt } from "@/lib/formato";
+import { inquadramentoCorrente, prossimaDecorrenza } from "@/lib/organico";
 import { RiportoSelect } from "@/components/RiportoSelect";
 
 // L'organigramma si disegna dai riporti (Persona.responsabileId) e SI COSTRUISCE
@@ -13,6 +15,8 @@ type Nodo = {
   ruolo: string;
   funzione: string | null;
   responsabileId: string | null;
+  // Contratto che decorre in futuro (assunzione a settembre): la scheda lo dice.
+  dal: Date | null;
   figli: Nodo[];
 };
 
@@ -24,18 +28,21 @@ export default async function PaginaOrganigramma({
   const sp = await searchParams;
   const persone = await prisma.persona.findMany({
     where: { stato: "attivo" },
-    include: { funzione: true },
+    include: { funzione: true, inquadramenti: true },
     orderBy: { nome: "asc" },
   });
 
   const nodi = new Map<string, Nodo>();
   for (const p of persone) {
+    const corrente = inquadramentoCorrente(p.inquadramenti);
+    const futuro = corrente ? null : prossimaDecorrenza(p.inquadramenti);
     nodi.set(p.id, {
       id: p.id,
       nome: p.nome,
       ruolo: p.ruolo,
       funzione: p.funzione?.nome ?? null,
       responsabileId: p.responsabileId,
+      dal: futuro?.decorrenza ?? null,
       figli: [],
     });
   }
@@ -127,6 +134,12 @@ function Ramo({ nodo, squadra, opzioni }: { nodo: Nodo; squadra?: number; opzion
           <div className="org-ruolo">{nodo.ruolo || "ruolo da indicare"}</div>
         </div>
         <div className="org-extra">
+          {nodo.dal && (
+            <span className="badge blu">
+              <span className="dot" />
+              dal {dataIt(nodo.dal)}
+            </span>
+          )}
           {nodo.funzione && (
             <span className="badge">
               <span className="dot" />

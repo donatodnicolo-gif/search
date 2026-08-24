@@ -4,31 +4,24 @@ import type { Compenso, Inquadramento } from "@prisma/client";
 // QUI e in nessun'altra pagina: due pagine che si calcolano lo stesso numero
 // per conto loro prima o poi danno due numeri (lezione di Budgets).
 
+// Comprende anche i tipi con cui ragiona Budgets (Dipendente, Consulente;
+// Stagista = stage): sono selezionabili come gli altri — deciso dall'utente il
+// 24/08, «dovresti poter importare anche tipo contratto da budget». Chi vuole
+// la forma legale precisa (indeterminato, apprendistato…) la sceglie apposta.
 export const TIPI_CONTRATTO = [
+  { chiave: "dipendente", nome: "Dipendente" },
   { chiave: "indeterminato", nome: "Tempo indeterminato" },
   { chiave: "determinato", nome: "Tempo determinato" },
   { chiave: "apprendistato", nome: "Apprendistato" },
   { chiave: "collaborazione", nome: "Collaborazione (co.co.co.)" },
   { chiave: "partita_iva", nome: "Partita IVA" },
+  { chiave: "consulente", nome: "Consulente" },
   { chiave: "stage", nome: "Stage / tirocinio" },
   { chiave: "altro", nome: "Altro" },
 ] as const;
 
-// Tipi generici arrivati dall'import da Budgets (là il roster distingue solo
-// dipendente/stagista/consulente): si MOSTRANO col loro nome, ma il form non
-// li offre — un inquadramento scritto a mano nasce con la forma vera del
-// contratto, non con una categoria.
-export const TIPI_IMPORTATI: Record<string, string> = {
-  dipendente: "Dipendente (da precisare)",
-  consulente: "Consulente (da precisare)",
-};
-
 export function nomeTipoContratto(chiave: string): string {
-  return (
-    TIPI_CONTRATTO.find((t) => t.chiave === chiave)?.nome ??
-    TIPI_IMPORTATI[chiave] ??
-    (chiave || "non indicato")
-  );
+  return TIPI_CONTRATTO.find((t) => t.chiave === chiave)?.nome ?? (chiave || "non indicato");
 }
 
 export const QUALIFICHE = ["operaio", "impiegato", "quadro", "dirigente"] as const;

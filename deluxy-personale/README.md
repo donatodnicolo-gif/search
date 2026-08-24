@@ -40,9 +40,18 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
   per applicare; idempotente: persone per nome normalizzato, contratti solo
   per chi non ne ha). Monte RAL correnti: 176.150 € su 8 persone (3 decorrono
   da settembre); il netto non viaggia mai.
-- 🔴 Da completare a mano: la forma legale dei contratti «da precisare»
-  (indeterminato? apprendistato?), CCNL/livello/qualifica, i netti se li si
-  vuole a registro, e l'organigramma (nessun «riporta a» è impostato).
+- ✅ **I tipi di Budgets sono selezionabili** (24/08, richiesta dell'utente):
+  «Dipendente» e «Consulente» sono tipi di prima classe del vocabolario
+  (niente più suffisso «da precisare»); chi vuole la forma legale precisa
+  sceglie indeterminato/determinato/apprendistato. L'organigramma marca con
+  «dal gg/mm» chi ha il contratto che decorre in futuro.
+- ✅ **Cessato Andrea Bellazzi al 30/06/2026** (periodo dichiarato finito,
+  richiesta «mostra solo gli attivi»). 🔴 Restano da cessare **Carine
+  Turchiello (30/06)** e **Giada Lo Proto (31/05)**: il permesso di scrivere
+  quelle due cessazioni è stato negato dal classificatore — si fanno in due
+  click dalla loro scheda, form «Cessazione» (reversibile con «Riattiva»).
+- 🔴 Da completare a mano: CCNL/livello/qualifica, i netti se li si vuole a
+  registro, e i «riporta a» dell'organigramma (si montano dalla sua pagina).
   ❓ **I mesi dichiarati sono anche il periodo del contratto** (24/08, terzo
   giro): chi finisce prima di dicembre ha la **scadenza** all'ultimo giorno
   dell'ultimo mese — Bellazzi e Turchiello al 30/06, Lo Proto al 31/05, oggi

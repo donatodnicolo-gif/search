@@ -3,9 +3,9 @@
 //   1. team → Funzione (col responsabile collegato per nome);
 //   2. persona → Persona (team come funzione, provenienza nelle note);
 //   3. contratto → Inquadramento COME DICHIARATO: stagista → stage; dipendente
-//      e consulente restano col loro nome («da precisare»: il roster non dice
-//      la forma legale, e indovinare indeterminato/determinato sarebbe un dato
-//      inventato. Part-time e periodo a budget vengono dichiarati anche loro);
+//      e consulente arrivano col loro nome (dal 24/08 sono tipi di prima
+//      classe del vocabolario dell'app; la forma legale precisa —
+//      indeterminato, apprendistato… — la sceglie chi la conosce);
 //   4. retribuzione → Compenso: RAL = `lordoAnnuo` calcolato da BUDGETS con la
 //      sua regola pubblicata (tabellare + superminimo, ×12 se mensile, ridotto
 //      al part-time), mensilità e % contributi come dichiarate. Il netto non
