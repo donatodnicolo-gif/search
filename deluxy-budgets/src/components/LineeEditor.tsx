@@ -121,25 +121,7 @@ export function LineeEditor({
     Object.fromEntries(linee.map((l) => [l.id, l.vociFinance.join(", ")]))
   );
   const [salvoVoci, setSalvoVoci] = useState(false);
-  // Il margine per riga, come testo ("" = non deciso). Testo e non numero
-  // perché mentre si scrive «12,» il campo deve poter essere incompleto senza
-  // che il valore salti a zero.
-  const [marg, setMarg] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      linee.map((l) => [l.id, l.marginePct === null ? "" : String(l.marginePct).replace(".", ",")])
-    )
-  );
   const senzaMargine = linee.filter((l) => l.marginePct === null).length;
-  // Un margine si scrive fra 0 e 100: sopra vorrebbe dire guadagnare più di
-  // quanto si vende, sotto vendere in perdita — che esiste, ma non si esprime
-  // con una percentuale di margine. Si segna in rosso e non si salva.
-  const margineErrato = (id: string) => {
-    const t = (marg[id] ?? "").trim();
-    if (t === "") return false;
-    const n = leggiNumero(t);
-    return n === null || n > 100;
-  };
-  const marginiErrati = linee.filter((l) => margineErrato(l.id)).length;
 
   const chiuso = (month: number) => month < primoMeseAperto;
   const key = (lineaId: string, month: number, m: Misura) => `${lineaId}:${month}:${m}`;
@@ -244,11 +226,10 @@ export function LineeEditor({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        mappature: linee.map((l) => ({
-          lineaId: l.id,
-          vociFinance: voci[l.id] ?? "",
-          marginePct: marg[l.id] ?? "",
-        })),
+        // ⚠️ **Solo** le voci di Finance: il margine si scrive in `/margini` e
+        // mandarlo anche da qui, preso da uno schermo dove non si tocca, vorrebbe
+        // dire riscriverlo con quello che c'era all'apertura della pagina.
+        mappature: linee.map((l) => ({ lineaId: l.id, vociFinance: voci[l.id] ?? "" })),
       }),
     });
     const body = await res.json().catch(() => null);
@@ -542,21 +523,21 @@ export function LineeEditor({
           collegamento **non si indovina** — «Consegne Corporate» è «Consegne»?
           «Torte e Mono» è «Food Supplier»? — lo dice chi sa come si fattura. */}
       <div className="card">
-        <h2 className="section-title" style={{ marginTop: 0 }}>Margine e consuntivo di ogni linea</h2>
+        <h2 className="section-title" style={{ marginTop: 0 }}>Da dove arriva il consuntivo</h2>
         <p className="page-caption" style={{ marginTop: 0 }}>
-          Due cose per riga, e servono a due domande diverse. Il{" "}
-          <strong>margine sulla vendita</strong> decide con che costo del venduto la linea entra nel{" "}
-          <Link href="/pl" style={{ color: "var(--blue)" }}>conto economico</Link>; le{" "}
-          <strong>voci di Finance</strong> dicono da dove si legge il suo consuntivo.
+          Le <strong>voci di Finance</strong> dicono da dove si legge il fatturato vero di ogni linea. Il{" "}
+          <strong>margine</strong> qui accanto si <strong>legge soltanto</strong>: si scrive in{" "}
+          <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>, insieme a tutti gli altri
+          dell&apos;azienda.
           {senzaMargine > 0 && (
             <>
               {" "}
               <strong style={{ color: "var(--orange)" }}>
                 {senzaMargine} {senzaMargine === 1 ? "linea è" : "linee sono"} senza margine
               </strong>
-              : {senzaMargine === 1 ? "entra" : "entrano"} a <strong>zero</strong>, cioè il ricavo si conta
-              e il costo del venduto se lo mangia tutto. Non è prudenza per caso — è il modo di non
-              spostare l&apos;EBITDA con un margine che nessuno ha scritto.
+              : {senzaMargine === 1 ? "entra" : "entrano"} nel conto economico a <strong>zero</strong>, cioè
+              il ricavo si conta e il costo del venduto se lo mangia tutto — ed è il motivo per cui il costo
+              del venduto del P&amp;L sembra enorme.
             </>
           )}
         </p>
@@ -584,7 +565,7 @@ export function LineeEditor({
             <thead>
               <tr>
                 <th>Linea</th>
-                <th className="num" style={{ width: 130 }}>Margine %</th>
+                <th className="num">Margine</th>
                 <th>Tipologie di Finance</th>
                 <th className="num">Consuntivo {MESI[0]}–{MESI[Math.max(0, primoMeseAperto - 2)]}</th>
               </tr>
@@ -593,33 +574,23 @@ export function LineeEditor({
               {linee.map((l) => (
                 <tr key={l.id}>
                   <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>{l.nome}</td>
+                  {/* Il margine si **legge** qui e si **scrive** in Margini:
+                      tutti i margini dell'azienda stanno in un posto solo. Qui
+                      resta perché è il numero che spiega il consuntivo accanto,
+                      e mandarlo a cercare altrove per leggerlo sarebbe peggio. */}
                   <td className="num">
-                    {/* Il margine si **scrive**, non si sceglie da un elenco:
-                        una linea commerciale non fattura per forza come una
-                        delle tre tipologie, e la percentuale è la cosa che di
-                        lei si sa davvero. (Il menù a tendina che c'era prima
-                        aveva anche un difetto suo: «— non decisa (margine 0%)»
-                        non ci stava dentro e la casella sembrava vuota.) */}
-                    <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={marg[l.id] ?? ""}
-                        placeholder="—"
-                        style={{ width: 76, textAlign: "right" }}
-                        className={margineErrato(l.id) ? "errata" : undefined}
-                        title={
-                          l.marginePct === null
-                            ? `${l.nome} non ha un margine: entra nel P&L a zero, cioè il costo del venduto si prende tutto il ricavo.`
-                            : `Su ${formatta(totLinea(l, "valore"), "valore")} € di budget fanno ${formatta(
-                                (totLinea(l, "valore") * (l.marginePct ?? 0)) / 100,
-                                "valore"
-                              )} € di margine.`
-                        }
-                        onChange={(e) => setMarg((p) => ({ ...p, [l.id]: e.target.value }))}
-                      />
-                      <span className="muted">%</span>
-                    </div>
+                    {l.marginePct === null ? (
+                      <span className="muted" title="Nessun margine impostato: nel P&L questa linea entra a zero.">
+                        —
+                      </span>
+                    ) : (
+                      <span title={`Su ${formatta(totLinea(l, "valore"), "valore")} € di budget fanno ${formatta(
+                        (totLinea(l, "valore") * l.marginePct) / 100,
+                        "valore"
+                      )} € di margine.`}>
+                        {formatta(l.marginePct, "clienti")}%
+                      </span>
+                    )}
                   </td>
                   <td>
                     <input
@@ -646,24 +617,11 @@ export function LineeEditor({
         </div>
         <div className="form-footer">
           <span className="muted">
-            {marginiErrati > 0 ? (
-              <strong style={{ color: "var(--red)" }}>
-                {marginiErrati === 1 ? "Un margine non è" : `${marginiErrati} margini non sono`} un numero fra
-                0 e 100: {marginiErrati === 1 ? "correggilo" : "correggili"} prima di salvare.
-              </strong>
-            ) : (
-              <>
-                Il budget scritto sopra non si tocca: qui si dice solo <strong>quanto margine</strong> lascia
-                ogni linea e <strong>da dove si legge il suo consuntivo</strong>.
-              </>
-            )}
+            Il budget scritto sopra non si tocca: qui si dice solo{" "}
+            <strong>da dove si legge il consuntivo</strong> di ogni linea.
           </span>
-          <button
-            className="btn secondary"
-            onClick={salvaVoci}
-            disabled={salvoVoci || marginiErrati > 0}
-          >
-            {salvoVoci ? "Salvo…" : "Salva margini e collegamenti"}
+          <button className="btn secondary" onClick={salvaVoci} disabled={salvoVoci}>
+            {salvoVoci ? "Salvo…" : "Salva i collegamenti"}
           </button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { misuraQuota } from "@/lib/quota";
+import { quotaDeluxyAnno } from "@/lib/quota";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import {
@@ -28,7 +28,10 @@ export default async function MaisonDetail({
   const livello = (LIVELLI.some((l) => l.key === sp.livello) ? sp.livello : "RAGGIUNGIBILE") as Livello;
   const molt = moltiplicatore(dati, livello);
   const t = totaliMaison(maison);
-  const q = (await misuraQuota(dati.year, [1,2,3,4,5,6,7,8,9,10,11,12], [])).percentuale / 100;
+  // Stessa quota di tutte le altre pagine: con il venduto vuoto `misuraQuota`
+  // restituisce la **stima** (40%) invece della misura, e questa scheda diceva
+  // un ricavo D2C diverso da quello del P&L per lo stesso brand.
+  const q = (await quotaDeluxyAnno(dati.year, dati.maisons)).percentuale / 100;
   const pl = contoEconomico(dati, livello, maison.slug, q);
 
   // ---- Il consuntivo dei mesi già chiusi ----

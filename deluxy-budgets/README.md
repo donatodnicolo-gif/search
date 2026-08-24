@@ -1666,12 +1666,31 @@ campagne che per definizione non gli serve. Per la stessa ragione non compare ne
 maison: non appartiene a nessuna, e spalmarlo in proporzione ai ricavi attribuirebbe a un negozio un
 fatturato fatto da un'altra squadra.
 
-**Il margine si scrive linea per linea**, in percentuale: campo `LineaCommerciale.marginePct`, dal
-riquadro «Margine e consuntivo di ogni linea» in `/commerciale`. ⭐ **Si scrive, non si sceglie da un
-elenco** (correzione dell'utente: «più che fattura come metti la % di margine della vendita»): una linea
-commerciale non fattura per forza come una delle tre tipologie, e la percentuale è la cosa che di lei si
-sa davvero. Il menù a tendina che c'era prima aveva anche un difetto suo — «— non decisa (margine 0%)»
-non ci stava dentro e **la casella sembrava vuota**.
+**Il margine si scrive linea per linea**, in percentuale (`LineaCommerciale.marginePct`), e sta **in
+`/margini`** insieme a tutti gli altri margini dell'azienda (richiesta dell'utente: «dovrebbe però essere
+tutto sotto margini»). ⭐ **Chi cerca «il margine» non deve sapere in anticipo di che tipo di ricavo si
+tratta**: sopra i margini per tipologia, sotto quelli delle linee, e i totali della pagina sono quelli
+del P&L. In `/commerciale` il margine si **legge** soltanto — è il numero che spiega il consuntivo
+accanto — con il rimando a dove si scrive.
+
+⭐ **Si scrive, non si sceglie da un elenco**: una linea commerciale non fattura per forza come una delle
+tre tipologie. Il menù a tendina che c'era per un'ora aveva anche un difetto suo — «— non decisa (margine
+0%)» era più lungo della colonna e **la casella sembrava vuota**, con la sola freccetta.
+
+⭐ **`null` = non deciso vale ZERO**, non un margine di comodo: il ricavo si conta lo stesso (ignorarlo
+gonfierebbe il risultato) ma il costo del venduto se lo mangia tutto. Finché nessuno scrive la
+percentuale, aggiungere le linee al P&L **non sposta l'EBITDA** — ed è per questo che il costo del venduto
+sembra enorme (**808.320 € su 1.101.929**, di cui **500.000 sono le otto linee a margine zero**). Le
+pagine lo scrivono invece di lasciarlo credere. Provato: «Torte e Mono» (15.000 €) al **18,5%** porta il
+COGS a 805.545 €, poi rimesso a vuoto.
+
+⚠️ Fuori da **0–100** si rifiuta, in pagina (bordo rosso + bottone spento) **e** nell'API. Il campo
+accetta la **virgola decimale** italiana.
+
+⚠️⚠️ **`PATCH /api/commerciale` scrive due cose che si impostano da due pagine diverse** — il margine da
+`/margini`, il collegamento a Finance da `/commerciale` — e ognuna manda **solo la sua**. Per questo
+**assente ≠ vuoto**: se un campo assente valesse «stringa vuota», salvare i margini **cancellerebbe tutti
+i collegamenti a Finance**, in silenzio. Verificato salvando un margine con i collegamenti già scritti.
 
 ⭐ **`null` = non deciso vale ZERO**, non un margine di comodo: il ricavo si conta lo stesso (ignorarlo
 gonfierebbe il risultato) ma il costo del venduto se lo mangia tutto. Effetto voluto: finché nessuno

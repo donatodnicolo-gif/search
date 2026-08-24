@@ -1,5 +1,5 @@
 import { ANNO_CORRENTE, caricaAnno, totaliMaison } from "@/lib/calc";
-import { misuraQuota } from "@/lib/quota";
+import { quotaDeluxyAnno } from "@/lib/quota";
 import { MarginiEditor } from "@/components/MarginiEditor";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,13 @@ export default async function Margini() {
   // qui dentro faceva sembrare il costo del venduto enorme rispetto a un numero
   // che nel P&L non compare — ed e la stessa confusione che teneva in piedi il
   // doppio conteggio corretto il 23/08/2026.
-  const q = (await misuraQuota(dati.year, [1,2,3,4,5,6,7,8,9,10,11,12], [])).percentuale / 100;
+  // ⚠️ **La stessa funzione delle altre pagine.** Qui c'era ancora
+  // `misuraQuota(anno, tuttiIMesi, [])`, che con il venduto vuoto restituisce la
+  // **stima** del 40% invece della misura: questa pagina diceva 1.196.953 € di
+  // ricavi contro i 1.101.929 del P&L, cioè 95.000 € di differenza sulla stessa
+  // parola. È lo stesso guasto già trovato su `/dashboard` il 23/08/2026 — e si
+  // ripresenta ogni volta che una pagina si calcola la quota per conto suo.
+  const q = (await quotaDeluxyAnno(dati.year, dati.maisons)).percentuale / 100;
   const ricavi: Record<string, number> = {};
   for (const [slug, v] of Object.entries(venduto)) ricavi[slug] = slug === "D2C" ? v * q : v;
 
@@ -32,9 +38,11 @@ export default async function Margini() {
         <div>
           <h1 className="page-title">Margini</h1>
           <p className="page-caption">
-            Il margine lordo per tipologia di servizio. Il costo del venduto del P&amp;L {dati.year} è la
-            somma dei ricavi di ogni tipologia al netto del suo margine: cambiando il mix di vendita
-            cambia il margine complessivo.
+            <strong>Tutti i margini dell&apos;azienda, in un posto solo.</strong> Sopra quelli per{" "}
+            <strong>tipologia di servizio</strong>, che valgono sul budget delle maison; sotto quelli
+            delle <strong>linee commerciali</strong>, che hanno il loro. Il costo del venduto del
+            P&amp;L {dati.year} è la somma dei ricavi al netto del margine di ognuno: cambiando il mix
+            di vendita cambia il margine complessivo.
           </p>
         </div>
       </div>
@@ -48,6 +56,12 @@ export default async function Margini() {
           ricavi: ricavi[t.slug] ?? 0,
           venduto: venduto[t.slug] ?? 0,
           vociFinance: t.vociFinance,
+        }))}
+        linee={dati.linee.map((l) => ({
+          id: l.id,
+          nome: l.nome,
+          marginePct: l.marginePct,
+          budget: l.mesi.reduce((s, v) => s + v, 0),
         }))}
       />
     </>

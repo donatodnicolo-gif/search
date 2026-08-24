@@ -127,10 +127,20 @@ export async function PATCH(req: Request) {
     // Arriva come testo «A, B, C» dal form: qui diventa un JSON array. Vuoto =
     // `null`, cioè «cerca una tipologia che si chiami come la linea» — che è la
     // stessa regola di `TipologiaServizio.vociFinance`.
-    const lista = String(m?.vociFinance ?? "")
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
+    //
+    // ⚠️⚠️ **Assente ≠ vuoto.** Le due cose che questa rotta scrive si
+    // impostano da due pagine diverse — il margine in `/margini`, il
+    // collegamento in `/commerciale` — e ognuna manda solo la sua. Se un campo
+    // assente valesse «stringa vuota», salvare i margini **cancellerebbe tutti i
+    // collegamenti a Finance**, in silenzio e senza che nessuno l'abbia chiesto.
+    let vociFinance: string | null | undefined = undefined;
+    if (m?.vociFinance !== undefined) {
+      const lista = String(m.vociFinance)
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+      vociFinance = lista.length > 0 ? JSON.stringify(lista) : null;
+    }
     // Il **margine sulla vendita** della linea. Arriva come testo dal form,
     // con la virgola decimale italiana. Vuoto = «non deciso» → `null`, che vale
     // zero nel P&L: il ricavo si conta, il margine no.
@@ -156,7 +166,7 @@ export async function PATCH(req: Request) {
     await prisma.lineaCommerciale.update({
       where: { id: lineaId },
       data: {
-        vociFinance: lista.length > 0 ? JSON.stringify(lista) : null,
+        ...(vociFinance === undefined ? {} : { vociFinance }),
         ...(marginePct === undefined ? {} : { marginePct }),
       },
     });
