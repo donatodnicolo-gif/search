@@ -112,10 +112,21 @@ export class OrdersSyncService {
       (await this.prisma.province.findMany({ select: { id: true, code: true } }))
         .map((p) => [p.code.toUpperCase(), p.id]),
     );
+    // ⚠️ Lo SKU che arriva da Shopify e' quasi sempre quello della VARIANTE, non
+    // del prodotto. Cercandolo solo fra i prodotti, su 200 ordini veri ne
+    // entravano 16: 129 finivano in «prodotto sconosciuto» pur essendo tutti
+    // in catalogo. Le varianti con SKU sono 18.375, i prodotti 20.287: si
+    // guardano entrambi, prima il prodotto e poi la variante.
     const prodotti = new Map(
       (await this.prisma.product.findMany({ where: { NOT: { sku: null } }, select: { id: true, sku: true } }))
         .map((p) => [p.sku!.trim().toUpperCase(), p.id]),
     );
+    for (const v of await this.prisma.productVariant.findMany({
+      where: { NOT: { sku: null } }, select: { sku: true, productId: true },
+    })) {
+      const k = v.sku!.trim().toUpperCase();
+      if (!prodotti.has(k)) prodotti.set(k, v.productId);
+    }
 
     const conteggio: Record<Esito, number> = {
       creata: 0, 'gia-presente': 0, 'senza-provincia': 0, 'provincia-sconosciuta': 0,
