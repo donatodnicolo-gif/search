@@ -134,11 +134,12 @@ correggono in Budgets, qui si creano solo gli accessi.
   set»): un account per chi ha già finito non serve, e la pagina lo fa vedere.
 - La chiave si cerca prima nella cassaforte `/chiavi` (progetto `deluxy-budgets`
   o `budgets`), poi nell'ambiente (`BUDGETS_API_KEY`) come ripiego: **quello che
-  l'admin scrive in /chiavi comanda** (scelta dell'utente, 24/08). ⚠️ Vale solo
-  la chiave in entrata **già attiva** di Budgets — una generata al momento dalla
-  sua Configurazione non lo è. Senza chiave o con Budgets giù la sezione
-  **spiega cosa manca** invece di sparire; il resto della pagina funziona
-  comunque (timeout 6 s).
+  l'admin scrive in /chiavi comanda** (scelta dell'utente, 24/08). La chiave si
+  ottiene da Budgets → Configurazione → Chiavi: dal 24/08 Budgets **emette
+  chiavi per app** (scope «lettura» basta al Hub, revocabili una a una), e in
+  parallelo resta valida la vecchia chiave condivisa, solo in lettura. Senza
+  chiave o con Budgets giù la sezione **spiega cosa manca** invece di sparire;
+  il resto della pagina funziona comunque (timeout 6 s).
 - Nella lista utenti, chi è riconosciuto nell'organico ha la sua squadra accanto
   all'email.
 

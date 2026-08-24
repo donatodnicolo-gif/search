@@ -91,7 +91,7 @@ export async function organicoDaBudgets(): Promise<Organico> {
     if (!res.ok) {
       const motivo =
         res.status === 401
-          ? "Budgets non riconosce la chiave in cassaforte (401). Vale solo la chiave in entrata già attiva di Budgets — una generata adesso dalla sua pagina Configurazione non lo è, e nemmeno la password dell'app"
+          ? "Budgets non riconosce la chiave in cassaforte (401): revocata o incollata male. Se ne genera una nuova da Budgets → Configurazione → Chiavi (scope «lettura») e si aggiorna la voce in /chiavi"
           : `Budgets risponde ${res.status}`;
       return { stato: "errore", motivo };
     }

@@ -255,26 +255,28 @@ in `deluxy-budgets/.env` e `deluxy-partner/.env` locali. ⚠️ Le env `Sensitiv
   «Richiesta Linee Servizi»): la riga è stata rinominata a database e da questo
   commit il codice **tollera il nome libero se il progetto ha una voce sola**;
   con più voci vale solo il nome canonico `BUDGETS_API_KEY`.
-- Una chiave **«generata» dalla Configurazione di Budgets non diventa quella
-  attiva**: in produzione `chiave()` legge prima l'**env Sensitive di Vercel**
-  (che vince sempre, ed è la stessa che manda Finance) e la Configurazione
-  scrive a database solo con `APP_SECRET`, che in prod manca. Il secondo
-  tentativo dell'utente (24/08, riga «budgets / Budget», suffisso `L484`, poi
-  rigenerata: `DYt4`) era proprio una chiave generata così: inerte, Budgets
-  risponde 401 comunque.
-  **La chiave valida è UNA**: quella dell'env, copia leggibile nei `.env`
-  locali di `deluxy-budgets` e `deluxy-partner` (suffisso `376f`).
+- Per buona parte del 24/08 una chiave **«generata» da Budgets non diventava
+  quella attiva** (l'env Sensitive vinceva su tutto), e i primi due tentativi
+  dell'utente con chiavi generate (`L484`, poi `DYt4`) presero 401. ⭐ **Alle
+  11:27 un'altra sessione ha cambiato la regola**: commit `c04d13c7`, Budgets
+  **emette chiavi per app** (`ChiaveEmessa`: hash a database, scope
+  lettura/scrittura deciso dal metodo HTTP, revocabili una a una, `ultimoUso`
+  tracciato) e le accetta accanto alla vecchia `BUDGETS_API_KEY` condivisa,
+  che resta valida **solo in lettura**. Da quel deploy le chiavi generate
+  dall'utente («App Hub» e «Test», mai revocate) **erano valide davvero** —
+  la lezione va quindi a metà: prima aveva ragione il codice, dopo l'utente.
 
-🔴 **Stato della cassaforte al 24/08 ~12:10 — la chiave giusta manca ancora.**
-In `/chiavi` ci sono due righe legate a Budgets, nessuna delle due valida:
-`deluxy-budgets / BUDGETS_APP_PASSWORD` (`••••1w8i`, la password dell'app,
-rietichettata col suo nome vero, da tenere o cancellare) e `budgets / Budget`
-(`••••DYt4`, chiave generata inerte, si può cancellare). Perché la sezione
-di `/utenti` si accenda va creata la voce **`deluxy-budgets` /
-`BUDGETS_API_KEY`** incollando la chiave da `deluxy-budgets/.env`: a
-salvataggio fatto la lista deve mostrarla come **`••••376f`** — è il
-controllo a vista che stavolta è quella giusta. Effetto immediato, senza
-redeploy.
+✅ **Chiuso alle ~12:15 del 24/08 — la sezione di `/utenti` è viva.** L'utente
+ha incollato la chiave condivisa (suffisso `376f`) nella riga «budgets /
+Budget» e la riga è stata rinominata **`BUDGETS_API_KEY`** (solo metadati):
+nome canonico + valore valido, provato con **200** su `/api/v1/team` anche
+sotto la nuova autenticazione. In `/chiavi` resta
+`deluxy-budgets / BUDGETS_APP_PASSWORD` (`••••1w8i`, la password dell'app
+rietichettata col suo nome vero): non dà fastidio, si può cancellare.
+Volendo passare a una **chiave emessa** (revocabile, con `ultimoUso`): se ne
+genera una in Budgets → Configurazione → Chiavi con scope «lettura» e si
+aggiorna la voce `BUDGETS_API_KEY` in `/chiavi` — le vecchie emesse mai usate
+(«App Hub», «Test») si possono revocare da là.
 - **Gli orari di `/chiavi` e dell'«ultimo accesso» in `/utenti` erano UTC**
   (segnalato dall'utente guardando «aggiornata 09:08» alle 11): mancava
   `timeZone: "Europe/Rome"` nei due `dataIt()` — il Cartellino invece lo aveva
