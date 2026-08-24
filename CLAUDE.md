@@ -4,6 +4,22 @@ Questo repo contiene le app dell'ecosistema Deluxy: `deluxy-hub/` (portale unico
 
 > `deluxy-search-supplier/` è pubblicata su Vercel (progetto `search-deluxy`, **Root Directory = `deluxy-search-supplier`**) dal branch **`main`**: si sviluppa lì, non su questo branch. Spec: [deluxy-search-supplier/AI_SPEC.md](deluxy-search-supplier/AI_SPEC.md).
 
+## Architettura dei dati (OBBLIGATORIA — 24/08/2026)
+
+**Prima di aggiungere una tabella, leggere dati di un'altra app o ricopiare un
+numero, leggere lo Standard Deluxy §7** (fonte unica delle regole tecniche:
+`C:\Users\nicol\scoutwt\deluxy-standard\STANDARD-DELUXY.md`). La regola
+fondante: **ogni dato ha una casa sola** — chi lo possiede è l'unico che lo
+scrive, gli altri leggono via `/api/v1` con chiave a scope. Mai query su schemi
+altrui; mai tabelle-copia (cache TTL breve sì, riferimento per id sì); regole
+economiche (quota, margine, fee, IVA) mai ricopiate: si leggono dal
+proprietario. Il **giro dell'ordine D2C** è in §7.4 dello standard: Orders
+(registro e margine) → Customer Service (decisore, per mano o per regola) →
+piattaforma consegne (offerta del fornitore col `type=UNICO`, incarichi
+proposto→accettato, esecuzione col valet) → Transactions (unica uscita del
+denaro). Il disegno completo con diagrammi e audit: artifact **«Architettura
+Dati Deluxy»** (galleria claude.ai/code/artifacts).
+
 ## Anagrafiche partner (deluxy-anagrafiche)
 
 Le anagrafiche dei partner B2B vivono SOLO in `deluxy-anagrafiche/` (porta 3060): le altre app le leggono via API con chiave di sola lettura; l'unica app con chiave di scrittura è la piattaforma consegne (`deluxy-platform-next`), che sincronizza automaticamente ogni partner creato/modificato. Non duplicare dati anagrafici nelle altre app: integrare le API descritte in [deluxy-anagrafiche/README.md](deluxy-anagrafiche/README.md).

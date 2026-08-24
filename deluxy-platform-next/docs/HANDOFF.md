@@ -3,7 +3,29 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
-**Ultimo aggiornamento:** 21 agosto 2026
+> 🏛️ **ARCHITETTURA DEI DATI (OBBLIGATORIA, 24/08/2026)** — Standard Deluxy §7
+> (`C:\Users\nicol\scoutwt\deluxy-standard\STANDARD-DELUXY.md`). Il ruolo di
+> QUESTA app nel giro dell'ordine D2C: è **il canale applicativo del
+> fornitore-partner** — possiede l'**offerta** che il fornitore carica dal suo
+> account (`Product.type = UNICO | NON_UNICO | SUPERPRODOTTO`, `partnerId`,
+> `price` = costo per noi, `prepDays`, approvazione admin), gli **incarichi**
+> (`proposto → accettato | rifiutato | scaduto`, col timer) e l'**esecuzione**
+> delle consegne quando la logistica è nostra (valet, tracking). NON possiede:
+> l'ordine Shopify (Orders), la decisione di gestione (Customer Service), il
+> margine (Orders). **Da costruire qui, in quest'ordine**: ① chiave API a
+> scope per le app (pattern api-auth di Orders/Anagrafiche — oggi ci sono solo
+> utenti propri); ② `sistema`+`idEsterno` (unique) su `Delivery` — oggi nessun
+> campo la lega a un ordine esterno; ③ `POST /api/v1/consegne` (propone
+> l'incarico, idempotente) e `GET /api/v1/consegne/by-ref/:sistema/:idEsterno`
+> (stato, accettataIl, consegnataIl, costo, fee); ④ ciclo di accettazione
+> nella vista partner + tipo servizio «consegna del produttore»; ⑤ rotta di
+> lettura dei prodotti UNICI pubblicati (per il riconoscimento automatico del
+> Customer Service). E dall'audit 24/08 restano da chiudere: `schema=platform`
+> negli `.env.example` (dicono ancora `public`!), chiave di scrittura
+> Anagrafiche via dai settings (mascherare subito), `/api/health` vero,
+> `regions: ["fra1"]` dichiarata, `.vercelignore`.
+
+**Ultimo aggiornamento:** 24 agosto 2026 (architettura); corpo del 21 agosto 2026
 **Branch di produzione:** `main` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
 
