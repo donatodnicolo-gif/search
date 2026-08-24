@@ -8,6 +8,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '@/lib/auth';
+import { DialoghiHost } from '@/lib/dialoghi';
 import { avviaAutoFlush } from '@/lib/syncQueue';
 import { colors } from '@/lib/theme';
 
@@ -27,6 +28,8 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(app)" />
         </Stack>
+        {/* Avvisi e conferme in stile DS (sul web): vedi lib/dialoghi. */}
+        <DialoghiHost />
       </AuthProvider>
     </SafeAreaProvider>
   );

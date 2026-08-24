@@ -3,11 +3,14 @@
 // mail, social, o inserito a mano), e SI LAVORA: o diventa una trattativa
 // (canale web) agganciata a un negozio, o si scarta. Un lead "nuovo" più
 // vecchio di 2 giorni è in ritardo: sul web chi non risponde subito perde.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+//
+// La scheda è components/LeadCard (dati del cliente estratti dalle notifiche
+// del modulo Shopify), le finestre stanno su components/Foglio (centrate su
+// desktop, foglio dal basso su telefono).
+import { useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
   Linking,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -19,22 +22,16 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
-import {
-  cercaPlaces,
-  creaLead,
-  eliminaLead,
-  fetchLeads,
-  qualificaLead,
-  scartaLead,
-  type PlaceLite,
-} from '@/lib/db';
+import { EmptyState, PageIntro } from '@/components/ui';
+import { Foglio } from '@/components/Foglio';
+import { LeadCard } from '@/components/LeadCard';
+import { QualificaLeadModal } from '@/components/QualificaLeadModal';
+import { creaLead, eliminaLead, fetchLeads, scartaLead } from '@/lib/db';
 import { urlMessaggioAiMail } from '@/lib/aimail';
-import { fetchCorpoMail } from '@/lib/mail';
+import { fetchCorpoMail, importaRichiesteDaMail } from '@/lib/mail';
 import { avvisa, conferma } from '@/lib/dialoghi';
+import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import type { FonteLead, Lead } from '@/types';
-import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
-import { importaRichiesteDaMail } from '@/lib/mail';
 
 const FONTI: { valore: FonteLead; label: string }[] = [
   { valore: 'sito', label: 'Sito' },
@@ -43,10 +40,6 @@ const FONTI: { valore: FonteLead; label: string }[] = [
   { valore: 'passaparola', label: 'Passaparola' },
   { valore: 'altro', label: 'Altro' },
 ];
-
-function etaGiorni(iso: string): number {
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400_000);
-}
 
 export default function LeadWeb() {
   const router = useRouter();
@@ -170,6 +163,8 @@ export default function LeadWeb() {
     }
   }
 
+  const infoDaLeggere = daLeggere ? analizzaMessaggioLead(daLeggere.nome, daLeggere.messaggio) : null;
+
   return (
     <View style={styles.container}>
       <View style={[styles.head, contenutoCentrato]}>
@@ -207,78 +202,20 @@ export default function LeadWeb() {
           />
         }
         renderItem={({ item }) => {
-          const eta = etaGiorni(item.created_at);
-          const ritardo = item.stato === 'nuovo' && eta >= GIORNI_RISPOSTA_LEAD;
-          // La scheda intera apre la mail: è la prima cosa che si vuole fare su
-          // una richiesta, e cercare il link in fondo era un passaggio in più.
-          // Ma solo se c'è davvero qualcosa da leggere: le richieste inserite a
-          // mano non hanno mail, e un pop-up vuoto è peggio di un clic che non
-          // fa niente.
+          // La scheda intera apre la mail, ma solo se c'è davvero qualcosa da
+          // leggere: le richieste inserite a mano non hanno mail, e un pop-up
+          // vuoto è peggio di un clic che non fa niente.
           const leggibile = !!(item.messaggio || item.mail_ref || item.mail_id);
-          // Le azioni dentro la scheda non devono far scattare anche il pop-up:
-          // sul web l'evento risale, quindi lo si ferma qui.
-          const solo = (fn: () => void) => (e?: any) => {
-            e?.stopPropagation?.();
-            fn();
-          };
           return (
-            <Pressable
-              style={({ hovered }: any) => [styles.card, leggibile && hovered && styles.cardHover]}
-              onPress={leggibile ? () => apriMessaggio(item) : undefined}
-              disabled={!leggibile}
-              accessibilityRole={leggibile ? 'button' : undefined}
-              accessibilityLabel={leggibile ? `Apri il messaggio di ${item.nome}` : undefined}
-            >
-              <View style={styles.cardHead}>
-                <Text numberOfLines={3} style={styles.nome}>{item.nome}</Text>
-                <Text style={[styles.eta, ritardo && styles.ritardo]}>
-                  {eta === 0 ? 'oggi' : `${eta}g fa`}{ritardo ? ' · in ritardo' : ''}
-                </Text>
-              </View>
-              {item.messaggio ? <Text style={styles.messaggio} numberOfLines={2}>{item.messaggio}</Text> : null}
-              <View style={styles.metaRow}>
-                <StatusBadge small label={FONTI.find((f) => f.valore === item.fonte)?.label ?? item.fonte} colore={colors.blue} />
-                {item.contatto ? <Text style={styles.meta} numberOfLines={1}>{item.contatto}</Text> : null}
-              </View>
-              {item.stato === 'nuovo' ? (
-                <View style={styles.azioni}>
-                  <Pressable style={styles.btn} onPress={solo(() => setDaQualificare(item))}>
-                    <Ionicons name="briefcase-outline" size={15} color={colors.bianco} />
-                    <Text style={styles.btnTxt}>Qualifica → trattativa</Text>
-                  </Pressable>
-                  <Pressable style={styles.btnGhost} onPress={solo(() => scarta(item))}>
-                    <Text style={styles.btnGhostTxt}>Scarta</Text>
-                  </Pressable>
-                </View>
-              ) : item.stato === 'qualificato' ? (
-                <Pressable onPress={solo(() => router.push('/(app)/trattative'))}>
-                  <Text style={styles.link}>Vedi la trattativa generata ›</Text>
-                </Pressable>
-              ) : null}
-
-              {/* Azioni sulla MAIL, valide in qualunque stato: leggerla per
-                  intero e toglierla di mezzo sono cose che servono anche su una
-                  richiesta già lavorata o scartata. */}
-              <View style={styles.azioniMail}>
-                {leggibile ? (
-                  <Pressable hitSlop={6} onPress={solo(() => apriMessaggio(item))}>
-                    <Text style={styles.azioneTxt}>Apri il messaggio</Text>
-                  </Pressable>
-                ) : null}
-                {item.mail_ref ? (
-                  <>
-                    <Text style={styles.sep}>·</Text>
-                    <Pressable hitSlop={6} onPress={solo(() => Linking.openURL(urlMessaggioAiMail(item.mail_ref!)))}>
-                      <Text style={styles.azioneTxt}>Vedila in AI Mail</Text>
-                    </Pressable>
-                  </>
-                ) : null}
-                <Text style={styles.sep}>·</Text>
-                <Pressable hitSlop={6} onPress={solo(() => elimina(item))}>
-                  <Text style={[styles.azioneTxt, styles.azionePericolo]}>Elimina</Text>
-                </Pressable>
-              </View>
-            </Pressable>
+            <LeadCard
+              lead={item}
+              onApri={leggibile ? () => apriMessaggio(item) : undefined}
+              onQualifica={() => setDaQualificare(item)}
+              onScarta={() => scarta(item)}
+              onVediTrattativa={() => router.push('/(app)/trattative')}
+              onApriAiMail={item.mail_ref ? () => Linking.openURL(urlMessaggioAiMail(item.mail_ref!)) : undefined}
+              onElimina={() => elimina(item)}
+            />
           );
         }}
       />
@@ -289,80 +226,68 @@ export default function LeadWeb() {
       </Pressable>
 
       {formAperto ? <NuovoLeadModal onClose={() => setFormAperto(false)} onSalvato={() => { setFormAperto(false); carica(); }} /> : null}
+
       {daLeggere ? (
-        <Modal visible transparent animationType="slide" onRequestClose={() => setDaLeggere(null)}>
-          {/* Si chiude anche toccando fuori: qui non si sta scrivendo niente,
-              è una lettura, e un pop-up che si chiude solo dalla × sembra
-              bloccato. Il clic dentro non deve risalire fino allo sfondo. */}
-          <Pressable style={styles.overlay} onPress={() => setDaLeggere(null)}>
-            <Pressable style={styles.sheetMail} onPress={() => {}}>
-              <View style={styles.sheetHead}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sheetTitolo} numberOfLines={2}>{daLeggere.nome}</Text>
-                  {daLeggere.contatto ? <Text style={styles.meta}>{daLeggere.contatto}</Text> : null}
-                </View>
-                <Pressable onPress={() => setDaLeggere(null)} hitSlop={10}>
-                  <Ionicons name="close" size={24} color={colors.testoSoft} />
-                </Pressable>
-              </View>
+        <Foglio
+          titolo={infoDaLeggere?.persona || daLeggere.nome}
+          sottotitolo={[infoDaLeggere?.email || daLeggere.contatto, infoDaLeggere?.telefono].filter(Boolean).join(' · ') || undefined}
+          onClose={() => setDaLeggere(null)}
+        >
+          <ScrollView style={styles.corpoBox} contentContainerStyle={{ paddingBottom: 8 }}>
+            {corpoStato === 'carico' ? (
+              <Text style={styles.corpoAttesa}>Prendo il testo da AI Mail…</Text>
+            ) : null}
+            {/* Il testo intero se AI Mail lo dà; se no resta l'anteprima
+                salvata all'import, che è meglio di niente ma è solo l'inizio. */}
+            <Text style={styles.corpoMail} selectable>
+              {corpo || daLeggere.messaggio || 'Nessun testo disponibile.'}
+            </Text>
+            {corpoStato === 'ripiego' ? (
+              <Text style={styles.corpoNota}>
+                Questo è l’estratto salvato all’import: il testo intero non è arrivato
+                {corpoErrore ? ` (${corpoErrore})` : ''}.
+              </Text>
+            ) : null}
+          </ScrollView>
 
-              <ScrollView style={styles.corpoBox} contentContainerStyle={{ paddingBottom: 8 }}>
-                {corpoStato === 'carico' ? (
-                  <Text style={styles.corpoAttesa}>Prendo il testo da AI Mail…</Text>
-                ) : null}
-                {/* Il testo intero se AI Mail lo dà; se no resta l'anteprima
-                    salvata all'import, che è meglio di niente ma è solo l'inizio. */}
-                <Text style={styles.corpoMail} selectable>
-                  {corpo || daLeggere.messaggio || 'Nessun testo disponibile.'}
-                </Text>
-                {corpoStato === 'ripiego' ? (
-                  <Text style={styles.corpoNota}>
-                    Questo è l’estratto salvato all’import: il testo intero non è arrivato
-                    {corpoErrore ? ` (${corpoErrore})` : ''}.
-                  </Text>
-                ) : null}
-              </ScrollView>
-
-              <View style={styles.azioniMail}>
-                {daLeggere.mail_ref ? (
-                  <Pressable hitSlop={6} onPress={() => Linking.openURL(urlMessaggioAiMail(daLeggere.mail_ref!))}>
-                    <Text style={styles.azioneTxt}>Aprila in AI Mail</Text>
-                  </Pressable>
-                ) : null}
-                {daLeggere.stato === 'nuovo' ? (
-                  <>
-                    <Text style={styles.sep}>·</Text>
-                    <Pressable
-                      hitSlop={6}
-                      onPress={() => {
-                        const l = daLeggere;
-                        setDaLeggere(null);
-                        setDaQualificare(l);
-                      }}
-                    >
-                      <Text style={styles.azioneTxt}>Qualifica</Text>
-                    </Pressable>
-                  </>
-                ) : null}
+          <View style={styles.azioniMail}>
+            {daLeggere.mail_ref ? (
+              <Pressable hitSlop={6} onPress={() => Linking.openURL(urlMessaggioAiMail(daLeggere.mail_ref!))}>
+                <Text style={styles.azioneTxt}>Aprila in AI Mail</Text>
+              </Pressable>
+            ) : null}
+            {daLeggere.stato === 'nuovo' ? (
+              <>
                 <Text style={styles.sep}>·</Text>
                 <Pressable
                   hitSlop={6}
                   onPress={() => {
                     const l = daLeggere;
                     setDaLeggere(null);
-                    elimina(l);
+                    setDaQualificare(l);
                   }}
                 >
-                  <Text style={[styles.azioneTxt, styles.azionePericolo]}>Elimina</Text>
+                  <Text style={styles.azioneTxt}>Qualifica</Text>
                 </Pressable>
-              </View>
+              </>
+            ) : null}
+            <Text style={styles.sep}>·</Text>
+            <Pressable
+              hitSlop={6}
+              onPress={() => {
+                const l = daLeggere;
+                setDaLeggere(null);
+                elimina(l);
+              }}
+            >
+              <Text style={[styles.azioneTxt, styles.azionePericolo]}>Elimina</Text>
             </Pressable>
-          </Pressable>
-        </Modal>
+          </View>
+        </Foglio>
       ) : null}
 
       {daQualificare ? (
-        <QualificaModal
+        <QualificaLeadModal
           lead={daQualificare}
           onClose={() => setDaQualificare(null)}
           onFatto={() => {
@@ -399,128 +324,33 @@ function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitolo}>Nuova richiesta</Text>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={24} color={colors.testoSoft} />
+    // bloccaSfondo: un form scritto a metà non si chiude con un clic fuori.
+    <Foglio titolo="Nuova richiesta" onClose={onClose} bloccaSfondo>
+      <ScrollView contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled">
+        <Text style={styles.campoLabel}>Chi ci ha contattato</Text>
+        <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="nome persona o azienda" placeholderTextColor={colors.grigio} autoFocus />
+        <Text style={styles.campoLabel}>Contatto (email o telefono)</Text>
+        <TextInput style={styles.input} value={contatto} onChangeText={setContatto} placeholder="es. maria@negozio.it" placeholderTextColor={colors.grigio} autoCapitalize="none" />
+        <Text style={styles.campoLabel}>Fonte</Text>
+        <View style={styles.chips}>
+          {FONTI.map((f) => (
+            <Pressable key={f.valore} onPress={() => setFonte(f.valore)} style={[styles.chip, fonte === f.valore && styles.chipOn]}>
+              <Text style={[styles.chipTxt, fonte === f.valore && styles.chipTxtOn]}>{f.label}</Text>
             </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled">
-            <Text style={styles.campoLabel}>Chi ci ha contattato</Text>
-            <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="nome persona o azienda" placeholderTextColor={colors.grigio} autoFocus />
-            <Text style={styles.campoLabel}>Contatto (email o telefono)</Text>
-            <TextInput style={styles.input} value={contatto} onChangeText={setContatto} placeholder="es. maria@negozio.it" placeholderTextColor={colors.grigio} autoCapitalize="none" />
-            <Text style={styles.campoLabel}>Fonte</Text>
-            <View style={styles.chips}>
-              {FONTI.map((f) => (
-                <Pressable key={f.valore} onPress={() => setFonte(f.valore)} style={[styles.chip, fonte === f.valore && styles.chipOn]}>
-                  <Text style={[styles.chipTxt, fonte === f.valore && styles.chipTxtOn]}>{f.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.campoLabel}>Cosa chiede</Text>
-            <TextInput style={[styles.input, { minHeight: 60 }]} value={messaggio} onChangeText={setMessaggio} placeholder="es. preventivo consegne weekend" placeholderTextColor={colors.grigio} multiline />
-            {errore ? <Text style={styles.errore}>{errore}</Text> : null}
-          </ScrollView>
-          <Pressable style={[styles.btn, styles.btnLargo, (!nome.trim() || salvando) && { opacity: 0.5 }]} disabled={!nome.trim() || salvando} onPress={salva}>
-            <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : 'Salva richiesta'}</Text>
-          </Pressable>
+          ))}
         </View>
-      </View>
-    </Modal>
-  );
-}
-
-// ── Qualifica: scegli il negozio → nasce la trattativa (canale web) ───────────
-function QualificaModal({ lead, onClose, onFatto }: { lead: Lead; onClose: () => void; onFatto: () => void }) {
-  // Chi ci ha scritto è una persona vera, con nome e recapito: se non lo si
-  // salva ora, va ridigitato dopo nella scheda del negozio.
-  const [conContatto, setConContatto] = useState(Boolean(lead.contatto));
-  const [ricerca, setRicerca] = useState(lead.nome);
-  const [risultati, setRisultati] = useState<PlaceLite[]>([]);
-  const [salvando, setSalvando] = useState(false);
-  const [errore, setErrore] = useState<string | null>(null);
-  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (debounce.current) clearTimeout(debounce.current);
-    debounce.current = setTimeout(async () => {
-      try {
-        setRisultati(await cercaPlaces(ricerca));
-      } catch {
-        setRisultati([]);
-      }
-    }, 250);
-    return () => {
-      if (debounce.current) clearTimeout(debounce.current);
-    };
-  }, [ricerca]);
-
-  async function scegli(p: PlaceLite) {
-    if (salvando) return;
-    setSalvando(true);
-    setErrore(null);
-    try {
-      await qualificaLead(lead, p.id, conContatto);
-      onFatto();
-    } catch (e: any) {
-      setErrore(e?.message ?? 'Qualifica non riuscita');
-      setSalvando(false);
-    }
-  }
-
-  return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitolo}>A quale negozio appartiene?</Text>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={24} color={colors.testoSoft} />
-            </Pressable>
-          </View>
-          <Text style={styles.qualificaNota}>
-            «{lead.nome}»{lead.messaggio ? ` — ${lead.messaggio.slice(0, 80)}` : ''}. Scegli il negozio: la trattativa nasce lì, canale web.
-          </Text>
-          <TextInput style={styles.input} value={ricerca} onChangeText={setRicerca} placeholder="Cerca negozio per nome…" placeholderTextColor={colors.grigio} autoFocus />
-          <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled">
-            {risultati.map((p) => (
-              <Pressable key={p.id} style={styles.risultato} onPress={() => scegli(p)}>
-                <Ionicons name="storefront-outline" size={16} color={colors.testoSoft} />
-                <View style={{ flex: 1 }}>
-                  <Text numberOfLines={3} style={styles.risNome}>{p.nome}</Text>
-                  {p.indirizzo ? <Text style={styles.risInd} numberOfLines={1}>{p.indirizzo}</Text> : null}
-                </View>
-              </Pressable>
-            ))}
-          </ScrollView>
-          {errore ? <Text style={styles.errore}>{errore}</Text> : null}
-        </View>
-      </View>
-    </Modal>
+        <Text style={styles.campoLabel}>Cosa chiede</Text>
+        <TextInput style={[styles.input, { minHeight: 60 }]} value={messaggio} onChangeText={setMessaggio} placeholder="es. preventivo consegne weekend" placeholderTextColor={colors.grigio} multiline />
+        {errore ? <Text style={styles.errore}>{errore}</Text> : null}
+      </ScrollView>
+      <Pressable style={[styles.btn, styles.btnLargo, (!nome.trim() || salvando) && { opacity: 0.5 }]} disabled={!nome.trim() || salvando} onPress={salva}>
+        <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : 'Salva richiesta'}</Text>
+      </Pressable>
+    </Foglio>
   );
 }
 
 const styles = StyleSheet.create({
-  azioniMail: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 2 },
-  azioneTxt: { color: colors.navy, fontSize: 12.5, fontWeight: '600' },
-  azionePericolo: { color: colors.errore },
-  sep: { color: colors.grigio, fontSize: 12 },
-  corpoMail: { color: colors.testo, fontSize: 14.5, lineHeight: 23 },
-  corpoBox: { maxHeight: 380, marginVertical: spacing.sm },
-  corpoAttesa: { color: colors.testoSoft, fontSize: 13, marginBottom: 6 },
-  corpoNota: { color: colors.testoSoft, fontSize: 12, marginTop: 10, fontStyle: 'italic' },
-  sheetMail: {
-    backgroundColor: colors.bianco,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    padding: spacing.md,
-    gap: 4,
-    maxHeight: '88%',
-  },
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: { padding: spacing.md, gap: spacing.sm },
   btnImporta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingVertical: 9 },
@@ -531,24 +361,9 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
   chipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 90 },
-  card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 7 },
-  // Sul web è l'unico segnale che la scheda si apre: sul telefono lo dice il
-  // link «Apri il messaggio», che infatti resta.
-  cardHover: { backgroundColor: colors.fill },
-  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  nome: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 15 },
-  eta: { color: colors.testoSoft, fontSize: 12 },
-  ritardo: { color: colors.errore, fontWeight: '800' },
-  messaggio: { color: colors.testo, fontSize: 13.5 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  meta: { color: colors.testoSoft, fontSize: 12.5 },
-  azioni: { flexDirection: 'row', gap: 8, marginTop: 2 },
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 8 },
   btnLargo: { marginTop: spacing.sm },
   btnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 12.5 },
-  btnGhost: { borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 8 },
-  btnGhostTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
-  link: { color: colors.goldStrong, fontWeight: '700', fontSize: 13 },
   fab: {
     position: 'absolute',
     right: spacing.md,
@@ -562,15 +377,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.sfondo, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.md, gap: 8, maxHeight: '85%' },
-  sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sheetTitolo: { color: colors.navy, fontWeight: '800', fontSize: 17 },
   campoLabel: { color: colors.testoSoft, fontWeight: '700', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
-  input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, color: colors.testo, fontSize: 14 },
+  input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.hairlineStrong, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, color: colors.testo, fontSize: 14 },
   errore: { color: colors.errore, fontSize: 13, fontWeight: '700' },
-  qualificaNota: { color: colors.testoSoft, fontSize: 13 },
-  risultato: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: 10 },
-  risNome: { color: colors.testo, fontWeight: '700', fontSize: 14 },
-  risInd: { color: colors.testoSoft, fontSize: 12 },
+  corpoMail: { color: colors.testo, fontSize: 14.5, lineHeight: 23 },
+  corpoBox: { maxHeight: 380, marginVertical: spacing.sm },
+  corpoAttesa: { color: colors.testoSoft, fontSize: 13, marginBottom: 6 },
+  corpoNota: { color: colors.testoSoft, fontSize: 12, marginTop: 10, fontStyle: 'italic' },
+  azioniMail: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 2 },
+  azioneTxt: { color: colors.navy, fontSize: 12.5, fontWeight: '600' },
+  azionePericolo: { color: colors.errore },
+  sep: { color: colors.grigio, fontSize: 12 },
 });
