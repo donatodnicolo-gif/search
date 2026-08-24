@@ -25,7 +25,7 @@ const db = new PrismaClient({ datasources: { db: { url: `postgresql://${u.userna
 
 // Le gia' fatturate secondo il legacy (`delivery.invoiced`) sono fuori: sono
 // 35.135, e contarle avrebbe gonfiato il «da fatturare» a 47.126 invece di 22.031.
-const where = { billable:true, status:{notIn:['cancelled','notDelivered']}, invoiceLines:{none:{}}, invoiced:false };
+const where = { billable:true, deletedAt:null, status:{notIn:['cancelled','not_delivered','invalidated','not_accepted']}, invoiceLines:{none:{}}, invoiced:false };
 const deliveries = await db.delivery.findMany({ where, select:{
   id:true,partnerId:true,serviceTypeId:true,price:true,additionalPrice:true,hours:true,
   distanceKm:true,extraKm:true,extraOutOfCity:true,

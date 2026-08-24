@@ -241,6 +241,9 @@ export class InvoicesService {
    */
   async pending(user: JwtUser, opzioni: { partnerId?: string; fino?: string; dal?: string; al?: string } = {}) {
     const where: any = {
+      // Le consegne cancellate logicamente non esistono piu': ne restavano
+      // 431 nel conto del da fatturare.
+      deletedAt: null,
       billable: true,
       status: { notIn: InvoicesService.NON_BILLABLE_STATUSES },
       invoiceLines: { none: {} },
@@ -380,6 +383,9 @@ export class InvoicesService {
     }
     const where: any = {
       partnerId,
+      // Le consegne cancellate logicamente non esistono piu': ne restavano
+      // 431 nel conto del da fatturare.
+      deletedAt: null,
       billable: true,
       status: { notIn: InvoicesService.NON_BILLABLE_STATUSES },
       invoiceLines: { none: {} },
@@ -432,7 +438,22 @@ export class InvoicesService {
   }
 
   // Stati esclusi dalla fatturazione: annullata e non consegnata.
-  private static readonly NON_BILLABLE_STATUSES = ['cancelled', 'notDelivered'];
+  /**
+   * Stati che NON si fatturano.
+   *
+   * ⚠️ Qui c'era scritto `notDelivered`, in camelCase — e in banca dati lo
+   * stato si chiama `not_delivered`. Il filtro non ha mai escluso niente:
+   * 1.744 consegne NON CONSEGNATE risultavano da fatturare, piu' 230
+   * `invalidated` e 6 `not_accepted`. Un valore che non combacia con nessuna
+   * riga non da' errore, da' un filtro che non filtra.
+   *
+   * `cancellation_requested` resta dentro apposta: la cancellazione e' stata
+   * CHIESTA, non fatta, e finche' non lo diventa la consegna e' avvenuta.
+   */
+  private static readonly NON_BILLABLE_STATUSES = [
+    'cancelled', 'not_delivered', 'invalidated', 'not_accepted',
+  ];
+
 
   /**
    * Genera la fattura del periodo per un partner: una riga per ogni consegna
@@ -450,10 +471,14 @@ export class InvoicesService {
     const deliveries = await this.prisma.delivery.findMany({
       where: {
         partnerId,
+        // Le consegne cancellate logicamente non esistono piu': ne restavano
+        // 431 nel conto del da fatturare.
+        deletedAt: null,
         billable: true,
         status: { notIn: InvoicesService.NON_BILLABLE_STATUSES },
         date: { gte: new Date(periodStart), lte: new Date(periodEnd) },
         invoiceLines: { none: {} },
+
       // ⭐ Il legacy segna sulla consegna se e' gia' stata fatturata, e non e'
       // deducibile dalle righe: 35.135 consegne sono marcate fatturate ma solo
       // 9.811 hanno una riga che le colleghi a un documento. Senza questo

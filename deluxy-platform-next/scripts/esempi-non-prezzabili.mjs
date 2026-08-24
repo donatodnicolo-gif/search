@@ -39,7 +39,7 @@ const linea = (c) => console.log((c || '─').repeat(76));
 // ═══════════════════════════ FATTURE ═══════════════════════════
 const daFatturare = await db.delivery.findMany({
   where: {
-    billable: true, status: { notIn: ['cancelled', 'notDelivered'] },
+    billable: true, deletedAt: null, status: { notIn: ['cancelled', 'not_delivered', 'invalidated', 'not_accepted'] },
     invoiceLines: { none: {} }, invoiced: false,
     OR: [{ price: null }, { price: 0 }],
   },
@@ -99,7 +99,7 @@ for (const [causa, dd] of Object.entries(gruppiF).sort((a, b) => b[1].length - a
 const daPagare = await db.delivery.findMany({
   where: {
     NOT: { valetId: null }, valet: { placeholder: false }, payable: true,
-    status: { in: ['delivered', 'delivered_time_approved'] },
+    deletedAt: null, status: { in: ['delivered', 'approved'] },
     paymentStatus: { not: 'paid' }, salaryLines: { none: {} },
     OR: [{ valetSalary: null }, { valetSalary: 0 }],
   },

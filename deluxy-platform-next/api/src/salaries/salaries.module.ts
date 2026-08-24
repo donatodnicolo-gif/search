@@ -492,9 +492,17 @@ export class SalariesService {
     // conto delle «non pagabili» come se mancasse un dato — mentre il dato c'e'
     // ed e' che non c'e' nessuno da pagare.
     valet: { placeholder: false },
+    deletedAt: null,
     payable: true,
 
-    status: { in: ['delivered', 'delivered_time_approved'] },
+    // ⚠️ `delivered_time_approved` non esiste: in banca dati gli stati sono
+    // `delivered_time_to_approve` (in attesa di approvazione) e `approved`
+    // (approvata). Il valore sbagliato non dava errore, lasciava semplicemente
+    // fuori dallo stipendio 550 consegne approvate e da pagare.
+    //
+    // `delivered_time_to_approve` resta fuori: aspetta ancora un via libera.
+    status: { in: ['delivered', 'approved'] },
+
     paymentStatus: { not: 'paid' },
     salaryLines: { none: {} },
   };

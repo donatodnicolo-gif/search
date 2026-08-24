@@ -27,7 +27,7 @@ const db = new PrismaClient({ datasources: { db: { url:
 
 const where = {
   NOT: { valetId: null }, valet: { placeholder: false }, payable: true,
-  status: { in: ['delivered', 'delivered_time_approved'] },
+  deletedAt: null, status: { in: ['delivered', 'approved'] },
   paymentStatus: { not: 'paid' }, salaryLines: { none: {} },
 };
 const dd = await db.delivery.findMany({ where, select: {
