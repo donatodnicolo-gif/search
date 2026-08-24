@@ -396,3 +396,39 @@ costoFornitore` (percorsi con consegna del fornitore) oppure `incassato −
 costoFornitore − costoConsegna + fee` (consegna nostra) — costo e fee arrivano
 dall'incarico della piattaforma, il costo pattuito è il `price` caricato dal
 fornitore **cristallizzato sull'incarico** alla proposta.
+
+**Deviazione dichiarata — `deluxy-messaging` (24/08/2026, decisa dall'utente).**
+Due punti di §7.4 sono stati cambiati, e vale la pena scrivere perché.
+
+**1 · Il margine lo calcola il Customer Service, e lo comunica a Orders.**
+Il costo del fornitore **nasce nel Customer Service** — è la cifra che si concorda
+al telefono con chi prepara l'ordine, ed è la stessa app che §7.2 indica come
+proprietaria della «decisione di gestione». Il margine discende da quella
+decisione, quindi si mostra lì nel momento in cui la cifra si scrive: è quello
+l'istante in cui serve, perché è quando si può ancora discutere il prezzo.
+Il numero **si comunica a Orders** via `PATCH /api/v1/ordini/<id>`
+(`costoFornitore`, `costoDa: "customer-service"`), e Orders resta il posto dove
+il margine si legge per i riepiloghi.
+⚠️ **Si manda il costo, non il margine**: il margine è `totale − costo` e Orders
+lo fa già da sé. Mandarli tutti e due vorrebbe dire due numeri per un fatto solo,
+e il giorno che divergono nessuno saprebbe quale credere.
+⚠️ **Il rischio noto**: sui percorsi con consegna nostra §7.4 prevede
+`− costoConsegna + fee`. Su quelli il conto del Customer Service e quello di
+Orders **non coincidono**, e vince quello di Orders. Finché gli incarichi in
+piattaforma non esistono la questione è teorica; quando esisteranno, il Customer
+Service dovrà leggere il margine da Orders invece di mostrarlo.
+*Misurato il 24/08 prima della modifica: su #2780, #2783 e #2785 Orders rispondeva
+«costo: non lo sa» — il margine era «non calcolabile» su quasi tutti i ~1.300
+ordini, perché quel numero non arrivava mai fin lì.*
+
+**2 · Il pagamento non passa sempre da Transactions.**
+Un bonifico esce quasi sempre dal **portale della banca**, a mano; a volte si paga
+in contanti alla consegna, o si compensa con quello che quel fornitore ci deve.
+Il Customer Service registra il pagamento **e da dove è uscito**
+(`RichiestaPagamento.pagatoCon`: banca · transactions · contanti · compensazione
+· altro), con la ricevuta allegata.
+⚠️ È lo stesso fatto che Transactions chiama `pagatoCon: "fuori_app"` e che
+FINANCE già dichiara («pagato altrove: portale della banca, contanti,
+compensazione»): l'ecosistema lo prevedeva già, §7.4 no.
+⚠️ **Vuoto resta «non indicato»**: indovinare il canale di un'uscita di denaro
+manda a cercare quel movimento dove non è mai passato.
