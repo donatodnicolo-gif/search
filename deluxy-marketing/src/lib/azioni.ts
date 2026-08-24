@@ -2642,39 +2642,19 @@ export async function aggiornaAdesso(fd: FormData) {
   }
 
   if (canale === "tiktok") {
-    const { leggiMetricheTikTok, leggiStatoCampagneTikTok, tiktokConfigurato } = await import("./tiktok");
-    if (!(await tiktokConfigurato())) {
-      redirect(`${dove}?aggiornamento=tiktok-non-configurato`);
-    }
-    const iso = (d: Date) => d.toISOString().slice(0, 10);
-    const al = iso(new Date());
-    const dal = iso(new Date(Date.now() - giorni * 86_400_000));
-    const advertiser = await prisma.accountAdv.findMany({
-      where: { piattaforma: "tiktok", attivo: true },
-      select: { idEsterno: true, brand: true },
-    });
-    const { salvaMetriche } = await import("./ingest-metriche");
-    let salvate = 0;
-    const rifiutate = new Set<string>();
-    for (const acc of advertiser) {
-      const lettura = await leggiMetricheTikTok(acc.idEsterno, dal, al);
-      lettura.metricheRifiutate.forEach((m) => rifiutate.add(m));
-      if (lettura.righe.length === 0) continue;
-      const { stati } = await leggiStatoCampagneTikTok(acc.idEsterno);
-      const righe = lettura.righe.map((r) => {
-        const s = stati.get(r.idCampagna);
-        return { ...r, stato: s?.stato ?? null, budgetGiornaliero: s?.budget ?? null, obiettivo: s?.obiettivo ?? null };
-      });
-      const esito = await salvaMetriche(righe, { canale: "tiktok", account: acc.idEsterno, brand: acc.brand ?? undefined });
-      salvate += esito.metricheSalvate;
-    }
-    await registra({
-      autore: "utente", tipo: "sync", entita: "metrica",
-      titolo: `Aggiornamento TikTok a mano: ${salvate} giorni-campagna`,
-      dettaglio: `Periodo ${dal} → ${al}` + (rifiutate.size ? ` · metriche rifiutate: ${[...rifiutate].join(", ")}` : ""),
-    });
+    // ⚠️ UNA STRADA SOLA (24/08/2026). Qui c'era una TERZA copia del giro
+    // TikTok, oltre a quella della rotta v1 — e non era una copia identica:
+    // **non scriveva la consegna in `/ricezione`** e **non chiamava
+    // `deduciTipoConversione`**. Premendo «Aggiorna TikTok ora» i dati
+    // entravano senza lasciare traccia, e la pagina che serve a rispondere a
+    // «cosa sto ricevendo e da quando» non ne sapeva niente. Tre copie della
+    // stessa cosa non restano uguali: divergono, e la differenza si scopre
+    // mesi dopo, guardando un numero che non torna.
+    const { eseguiSyncTikTok } = await import("./sync-tiktok");
+    const esito = await eseguiSyncTikTok({ giorni }, "utente");
     revalidatePath(dove);
-    redirect(`${dove}?aggiornamento=tiktok-fatto&righe=${salvate}`);
+    if (!esito.ok) redirect(`${dove}?aggiornamento=tiktok-non-configurato`);
+    redirect(`${dove}?aggiornamento=tiktok-fatto&righe=${esito.totaleMetriche}`);
   }
 
   // Google: si mette in coda, UNA RICHIESTA PER ACCOUNT.
