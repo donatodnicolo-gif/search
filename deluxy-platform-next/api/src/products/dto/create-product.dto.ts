@@ -154,9 +154,18 @@ export class CreateProductDto {
   @IsBoolean()
   active?: boolean;
 
-  @ApiProperty({ enum: ProductType, description: 'UNICO (di un partner) | NON_UNICO (es. fiori) | SUPERPRODOTTO (combinazione)' })
+  @ApiProperty({ enum: ProductType, description: 'Chi lo vende: UNICO (di un partner) | NON_UNICO (es. fiori)' })
   @IsEnum(ProductType)
   type: ProductType;
+
+  /**
+   * Com'e' fatto: combinazione di piu' prodotti. Indipendente da `type` —
+   * un prodotto puo' essere unico di un partner E combinato.
+   */
+  @ApiPropertyOptional({ description: 'Super prodotto: combinazione di piu prodotti' })
+  @IsOptional()
+  @IsBoolean()
+  isSuperProduct?: boolean;
 
   @ApiPropertyOptional({ description: 'Partner proprietario (obbligatorio per UNICO)' })
   @IsOptional()
@@ -245,7 +254,7 @@ export class CreateProductDto {
   @Type(() => ProductFieldDto)
   fields?: ProductFieldDto[];
 
-  @ApiPropertyOptional({ type: [ProductComponentDto], description: 'Componenti (solo SUPERPRODOTTO)' })
+  @ApiPropertyOptional({ type: [ProductComponentDto], description: 'Componenti (solo se isSuperProduct)' })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

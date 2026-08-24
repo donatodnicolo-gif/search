@@ -81,20 +81,18 @@ export class ProductsService {
       ['approved', query.approved],
       ['isSuperProvince', query.superProvince],
       ['controlStock', query.inStock],
+      ['isSuperProduct', query.superProduct],
     ] as const) {
       if (valore !== undefined) siNo[campo] = valore;
     }
-    // «Prodotto unico» e «Super prodotto» non sono flag ma valori di `type`:
-    // nel legacy erano `uniqueProduct` e `isSuperProduct`, qui sono
-    // ProductType.UNICO e ProductType.SUPERPRODOTTO.
+    // ⚠️ «Prodotto unico» e «Super prodotto» sono DUE cose separate, non due
+    // valori dello stesso campo: la prima dice CHI lo vende (`type`), la
+    // seconda COM'È FATTO (`isSuperProduct`). Un prodotto può essere unico e
+    // combinato insieme, e filtrandoli sullo stesso campo quella combinazione
+    // sarebbe stata invisibile.
     const perTipo: Record<string, unknown> = {};
     if (query.unique !== undefined) {
       perTipo['type'] = query.unique ? ProductType.UNICO : { not: ProductType.UNICO };
-    }
-    if (query.superProduct !== undefined) {
-      perTipo['type'] = query.superProduct
-        ? ProductType.SUPERPRODOTTO
-        : { not: ProductType.SUPERPRODOTTO };
     }
     const scope = { ...roleScope, archived: query.archived === true, ...siNo, ...perTipo };
     const search = textSearch(query.q, ProductsService.SEARCH_FIELDS);
@@ -176,7 +174,7 @@ export class ProductsService {
           ? { create: additionalPartnerIds.map((partnerId) => ({ partnerId })) }
           : undefined,
         components:
-          dto.type === ProductType.SUPERPRODOTTO && components?.length
+          dto.isSuperProduct && components?.length
             ? { create: components }
             : undefined,
       },

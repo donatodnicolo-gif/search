@@ -587,7 +587,17 @@ model Product {
   approvalEmailSent       Boolean            @default(false)
   deletedAt               DateTime?
   approved                Boolean            @default(false)
-  type                    String // UNICO | NON_UNICO | SUPERPRODOTTO
+  /// Chi lo vende: UNICO (di un partner solo) | NON_UNICO (lista priorità).
+  ///
+  /// ⚠️ SUPERPRODOTTO non è un tipo: nel legacy `uniqueProduct` e
+  /// `isSuperProduct` sono DUE colonne indipendenti, e l'utente ha confermato
+  /// il 24/08/2026 che restano separate. Sono due domande diverse — *chi lo
+  /// vende* e *com'è fatto* — e un prodotto può essere unico E combinato.
+  /// Averle fuse in un enum rendeva quella combinazione inesprimibile.
+  type                    String // UNICO | NON_UNICO
+  /// Com'è fatto: combinazione di più prodotti (i componenti stanno in
+  /// ProductComponent). Indipendente da `type`.
+  isSuperProduct          Boolean            @default(false)
   partnerId               String?
   partner                 Partner?           @relation(fields: [partnerId], references: [id])
   categoryId              String?

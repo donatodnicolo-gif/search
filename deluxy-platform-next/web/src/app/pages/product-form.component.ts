@@ -372,8 +372,10 @@ export class ProductFormComponent {
     // partnerId/categoryId possono essere null lato API: la select vuole ''
     m['partnerId'] = p['partnerId'] ?? '';
     m['categoryId'] = p['categoryId'] ?? '';
-    // I flag del form derivano dal `type` dell'API
-    m['isSuperProduct'] = p['type'] === 'SUPERPRODOTTO';
+    // «Unico» viene dal tipo (chi lo vende), «super prodotto» dal suo flag
+    // (com'e' fatto): sono due domande diverse e un prodotto puo' essere
+    // tutte e due le cose.
+    m['isSuperProduct'] = p['isSuperProduct'] === true;
     m['isUnique'] = p['type'] === 'UNICO';
 
     // Piattaforme (JSON array)
@@ -429,8 +431,10 @@ export class ProductFormComponent {
       return;
     }
 
-    // Tipo derivato dai flag (super prodotto ha priorità, poi unico, altrimenti non-unico)
-    const type = m.isSuperProduct ? 'SUPERPRODOTTO' : m.isUnique ? 'UNICO' : 'NON_UNICO';
+    // ⚠️ Il tipo dice solo CHI lo vende. Prima era
+    //   `m.isSuperProduct ? 'SUPERPRODOTTO' : m.isUnique ? 'UNICO' : ...`
+    // e spuntare «super prodotto» CANCELLAVA «prodotto unico» senza dirlo.
+    const type = m.isUnique ? 'UNICO' : 'NON_UNICO';
 
     const images = this.imageRows.map((r) => r.url.trim()).filter(Boolean);
 
