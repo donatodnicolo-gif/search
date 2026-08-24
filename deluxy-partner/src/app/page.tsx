@@ -90,13 +90,16 @@ export default async function Dashboard({
         <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid var(--blue)" }}>
           <span className="badge blue">
             <span className="dot" />
-            {sp.richiesta.split("|")[1] === "gia"
-              ? `Richiesta già inviata: ${sp.richiesta.split("|")[0]}`
-              : `Richiesta inviata: ${sp.richiesta.split("|")[0]}`}
+            {sp.richiesta.split("|")[0] === "invio"
+              ? `Richiesta in partenza verso Transactions (${sp.richiesta.split("|")[1] ?? ""})`
+              : sp.richiesta.split("|")[1] === "gia"
+                ? `Richiesta già inviata: ${sp.richiesta.split("|")[0]}`
+                : `Richiesta inviata: ${sp.richiesta.split("|")[0]}`}
           </span>
           <p className="muted" style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0, lineHeight: 1.6 }}>
-            <strong>Non è uscito nessun denaro.</strong> La richiesta è in attesa di essere autorizzata da una
-            persona dentro <a href="https://deluxy-transactions.vercel.app" target="_blank" rel="noreferrer" style={{ color: "var(--blue)" }}>Deluxy Transactions</a>;
+            <strong>Non è uscito nessun denaro.</strong> L&apos;esito dell&apos;invio compare sulla riga del mese
+            (ricarica tra qualche istante); il pagamento va poi autorizzato da una persona dentro{" "}
+            <a href="https://deluxy-transactions.vercel.app" target="_blank" rel="noreferrer" style={{ color: "var(--blue)" }}>Deluxy Transactions</a>;
             il mese qui resta «da bonificare» finché non risulta pagata.
           </p>
         </div>
@@ -188,7 +191,7 @@ export default async function Dashboard({
                             niente e non si segna niente come pagato. Se la
                             richiesta è già partita, al posto del bottone si
                             mostra a che punto è. */}
-                        {trxAttiva && (!x.saldo?.richiestaRif || richiestaRifacibile(x.saldo.richiestaStato)) && (
+                        {trxAttiva && (!x.saldo?.richiestaRif || richiestaRifacibile(x.saldo.richiestaStato, x.saldo.richiestaIl)) && (
                           <form
                             action={richiediPagamento.bind(
                               null,
@@ -214,7 +217,7 @@ export default async function Dashboard({
                         {/* Richiesta già partita: niente più bottone, solo lo
                             stato. Si ritorna cliccabile solo se annullata o
                             rifiutata (vedi richiestaRifacibile). */}
-                        {x.saldo?.richiestaRif && !richiestaRifacibile(x.saldo.richiestaStato) && (
+                        {x.saldo?.richiestaRif && !richiestaRifacibile(x.saldo.richiestaStato, x.saldo.richiestaIl) && (
                           <span
                             className={`badge ${etichettaRichiesta(x.saldo.richiestaStato).badge}`}
                             title={`Richiesta ${x.saldo.richiestaRif} inviata a Deluxy Transactions — il pagamento va autorizzato lì`}

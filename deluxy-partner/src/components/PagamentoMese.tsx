@@ -22,6 +22,7 @@ export function PagamentoMese({
   trxAttiva,
   richiestaRif,
   richiestaStato,
+  richiestaIl,
 }: {
   partnerId: string;
   anno: number;
@@ -37,6 +38,9 @@ export function PagamentoMese({
   trxAttiva?: boolean;
   richiestaRif?: string | null;
   richiestaStato?: string | null;
+  // Quando e' partito l'ultimo invio: serve a sbloccare un «invio» rimasto
+  // appeso (vedi richiestaRifacibile).
+  richiestaIl?: Date | null;
 }) {
   const oggi = new Date().toISOString().slice(0, 10);
   const inviato = registraPagamentoMese.bind(null, partnerId, anno, mese, "inviato");
@@ -78,15 +82,20 @@ export function PagamentoMese({
 
         {/* Form a se: dentro quello sopra, premendo Invio nel campo importo
             sarebbe partita la richiesta invece della registrazione. */}
-        {daBonificare >= 0.01 && trxAttiva && (!richiestaRif || richiestaRifacibile(richiestaStato)) && (
+        {daBonificare >= 0.01 && trxAttiva && (!richiestaRif || richiestaRifacibile(richiestaStato, richiestaIl)) && (
           <form action={richiedi} className="pay-group">
             <span className="pay-title" style={{ color: "var(--blue)" }}>Chiedi a Transactions</span>
             <BottoneInvio className="btn small primary" inCorso="Invio…" title="Avvia il pagamento del residuo del mese su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona.">
               Paga
             </BottoneInvio>
+            {(richiestaStato === "invio_fallito" || richiestaStato === "invio") && (
+              <span style={{ color: "var(--red)", fontSize: 12.5 }}>
+                L&apos;ultimo invio non è arrivato a Transactions: il motivo è nel registro modifiche. Riprova.
+              </span>
+            )}
           </form>
         )}
-        {richiestaRif && !richiestaRifacibile(richiestaStato) && (
+        {richiestaRif && !richiestaRifacibile(richiestaStato, richiestaIl) && (
           <span className="pay-group" style={{ alignItems: "center" }}>
             <span className="pay-title">Richiesta a Transactions</span>
             <span className={`badge ${etichettaRichiesta(richiestaStato).badge}`} title={`${richiestaRif} — il pagamento va autorizzato in Transactions`}>

@@ -35,7 +35,7 @@ export default async function PartnerDetail({
   params: Promise<{ id: string }>;
   searchParams: Promise<{
     amm?: string; fic?: string; ficreg?: string; mail?: string; nota?: string; mese?: string; anag?: string;
-    ficCollegata?: string; ficErrore?: string;
+    ficCollegata?: string; ficErrore?: string; errorePag?: string; richiesta?: string;
   }>;
 }) {
   const { id } = await params;
@@ -161,6 +161,37 @@ export default async function PartnerDetail({
           <p style={{ marginTop: 14, fontSize: 13.5, color: "var(--text-secondary)" }}>{partner.note}</p>
         )}
       </div>
+
+      {/* Esito di «Chiedi a Transactions» (richiediPagamento redirige qui):
+          senza questi due blocchi il rifiuto finiva nell'URL e la pagina si
+          ricaricava identica — il bottone sembrava rotto (visto su ARTE E
+          FIORI senza IBAN, 24/08/2026). */}
+      {sp.errorePag && (
+        <div
+          className="card"
+          style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}
+        >
+          <span style={{ color: "var(--red)", fontSize: 14 }}>Pagamento non richiesto — {sp.errorePag}</span>
+        </div>
+      )}
+      {sp.richiesta && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid var(--blue)" }}>
+          <span className="badge blue">
+            <span className="dot" />
+            {sp.richiesta.split("|")[0] === "invio"
+              ? `Richiesta in partenza verso Transactions (${sp.richiesta.split("|")[1] ?? ""})`
+              : sp.richiesta.split("|")[1] === "gia"
+                ? `Richiesta già inviata: ${sp.richiesta.split("|")[0]}`
+                : `Richiesta inviata: ${sp.richiesta.split("|")[0]}`}
+          </span>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0, lineHeight: 1.6 }}>
+            <strong>Non è uscito nessun denaro.</strong> L&apos;esito dell&apos;invio compare sul mese tra qualche
+            istante (ricarica la pagina); il pagamento va poi autorizzato da una persona dentro{" "}
+            <a href="https://deluxy-transactions.vercel.app" target="_blank" rel="noreferrer" style={{ color: "var(--blue)" }}>Deluxy Transactions</a>,
+            e il mese resta «da bonificare» finché non risulta pagata.
+          </p>
+        </div>
+      )}
 
       {sp.amm && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
@@ -665,6 +696,7 @@ export default async function PartnerDetail({
               trxAttiva={trxAttiva}
               richiestaRif={saldo?.richiestaRif ?? null}
               richiestaStato={saldo?.richiestaStato ?? null}
+              richiestaIl={saldo?.richiestaIl ?? null}
             />
           </div>
         </div>

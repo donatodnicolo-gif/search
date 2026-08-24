@@ -14,7 +14,17 @@
 
 > ⚠️ **L'app si chiama FINANCE.** Dal 01/08/2026 è così che si presenta a schermo (titolo, sidebar, accesso). **Cartella, database, URL `deluxy-partner.vercel.app`, cookie `dp_session` e il `sistema: "deluxy-partner"` con cui il registro Anagrafiche riconosce chi scrive NON sono stati rinominati**: cambiarli scollegherebbe le altre app.
 
-## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17/08/2026, poi il 21/08/2026)
+## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17/08/2026, poi il 21/08/2026, poi il 24/08/2026)
+
+> ### 24/08/2026 — «Paga» rifiutato senza dirlo, e l'attesa di Transactions spostata dopo la risposta
+>
+> Visto dal video di un operatore: nella scheda partner il bottone «Paga» (Chiedi a Transactions) su ARTE E FIORI restava su «Invio…» e poi tornava com'era, senza nessun segnale. **Non era un blocco: la richiesta veniva rifiutata subito** — il partner non ha l'IBAN — ma il messaggio finiva in `?errorePag=` nell'URL e **la scheda partner non leggeva quel parametro** (lo mostrava solo la Dashboard). Pagina ricaricata identica, bottone di nuovo lì: sembrava rotto.
+>
+> Corretto su due piani (commit di oggi). (a) **L'esito si vede dove succede**: `/partner/[id]` ora mostra `errorePag` (rosso, col mese nel messaggio: «Pagamento non richiesto — Marzo 2026 — …») e `richiesta` (azzurro), come già la Dashboard. (b) **La chiamata a Transactions non si paga più guardando il bottone** (`richiediPagamento`): i controlli locali — config, importo, partner, IBAN — rispondono subito; l'invio vero parte DOPO la risposta con `after()` di next/server. Lo stato transitorio **`invio`** prenota il mese (badge «Invio a Transactions in corso…», bottone nascosto); in background l'esito vero: ok → stato di Transactions + voce di registro; fallito → **`invio_fallito`** (bottone di nuovo attivo con l'avviso accanto) e **il motivo nel registro modifiche**, perché sul saldo non c'è un campo per conservarlo. Un «invio» appeso oltre 10 minuti torna rifacibile da solo (`richiestaRifacibile(stato, richiestaIl)`), altrimenti un crash murerebbe il mese. Il riferimento idempotente vive in un posto solo (`riferimentoSaldo()` in transactions.ts, usato sia per prenotare sia per inviare), e il beneficiario della richiesta di saldo ora è **l'intestatario del conto** quando c'è (poi ragione sociale, poi insegna), come già nelle richieste libere.
+>
+> **Provato in locale sui dati veri**: clic su «Paga» di ARTE E FIORI (senza IBAN) → banner rosso nella scheda, nessuna scrittura (il controllo IBAN precede tutto); banner azzurro «Richiesta in partenza» renderizzato; typecheck pulito. ⚠️ **Il percorso di successo dell'invio in background non è provabile senza creare una richiesta vera in Transactions**: lo prova il primo uso reale, e l'esito resta tracciato (badge sul mese + registro modifiche).
+>
+> ⚠️ Resta il DATO: **ARTE E FIORI è senza IBAN e senza intestatario del conto** — finché non si compilano dalla scheda (o da /registrazioni/riconciliazione, dove l'IBAN può arrivare precompilato dai beneficiari Qonto), «Paga» continuerà a fermarsi, adesso dicendolo.
 
 > ### 21/08/2026 — `/analisi` diceva «scaduto» su mesi in cui non era scaduto niente
 >

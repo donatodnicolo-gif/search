@@ -74,6 +74,17 @@ export type EsitoRichiesta =
  *  generarne due, nemmeno se il bottone viene premuto due volte o se la rete
  *  fa ripetere la chiamata. Su un'app che muove denaro è la garanzia che conta
  *  più di tutte. */
+/** Riferimento esterno della richiesta di un saldo partner+mese. Il numero di
+ *  tentativo entra nel riferimento solo dal secondo in poi: cosi' i riferimenti
+ *  gia' mandati restano quelli, e una richiesta rifiutata puo' essere rifatta
+ *  senza che Transactions restituisca la vecchia. Vive qui perche' lo usano sia
+ *  l'invio sia chi registra la richiesta prima dell'invio: due formule
+ *  divergerebbero in silenzio. */
+export function riferimentoSaldo(partnerId: string, anno: number, mese: number, tentativo = 1): string {
+  const base = `saldo-${partnerId}-${anno}-${String(mese).padStart(2, "0")}`;
+  return tentativo > 1 ? `${base}-r${tentativo}` : base;
+}
+
 export async function richiediPagamentoPartner(opts: {
   partnerId: string;
   beneficiario: string;
@@ -85,11 +96,7 @@ export async function richiediPagamentoPartner(opts: {
   note?: string;
   tentativo?: number;
 }): Promise<EsitoRichiesta> {
-  // Il numero di tentativo entra nel riferimento solo dal secondo in poi: cosi'
-  // i riferimenti gia' mandati restano quelli, e una richiesta rifiutata puo'
-  // essere rifatta senza che Transactions restituisca la vecchia.
-  const base = `saldo-${opts.partnerId}-${opts.anno}-${String(opts.mese).padStart(2, "0")}`;
-  const riferimentoEsterno = (opts.tentativo ?? 1) > 1 ? `${base}-r${opts.tentativo}` : base;
+  const riferimentoEsterno = riferimentoSaldo(opts.partnerId, opts.anno, opts.mese, opts.tentativo ?? 1);
   try {
     const { stato, dati } = await chiamataFirmata(
       "POST",
@@ -195,12 +202,27 @@ export function notificaAutentica(corpoGrezzo: string, timestamp: string, firmaH
 
 /** Una richiesta annullata o rifiutata e' una partita CHIUSA senza pagamento:
  *  il dovuto e' ancora li' e va poter essere richiesto di nuovo. Senza questo,
- *  un rifiuto bloccherebbe quel mese per sempre. */
-export function richiestaRifacibile(stato: string | null | undefined): boolean {
-  return stato === "annullata" || stato === "rifiutata";
+ *  un rifiuto bloccherebbe quel mese per sempre.
+ *
+ *  «invio» e' lo stato transitorio dell'invio in background (vedi
+ *  pagamenti-partner-actions): normalmente dura secondi e NON e' rifacibile —
+ *  ripremere creerebbe una seconda richiesta mentre la prima e' in volo. Ma se
+ *  resta li' oltre qualche minuto l'invio e' morto senza scrivere l'esito, e il
+ *  mese non deve restare bloccato per sempre: per questo serve anche QUANDO
+ *  l'invio e' partito, non solo lo stato. */
+const MS_INVIO_STALLO = 10 * 60_000;
+export function richiestaRifacibile(stato: string | null | undefined, richiestaIl?: Date | string | null): boolean {
+  if (stato === "annullata" || stato === "rifiutata" || stato === "invio_fallito") return true;
+  if (stato === "invio") {
+    if (!richiestaIl) return true; // stato incoerente: meglio ridare il bottone che murare il mese
+    return Date.now() - new Date(richiestaIl).getTime() > MS_INVIO_STALLO;
+  }
+  return false;
 }
 
 export const STATI_RICHIESTA: Record<string, { label: string; badge: string }> = {
+  invio: { label: "Invio a Transactions in corso…", badge: "blue" },
+  invio_fallito: { label: "Invio non riuscito", badge: "red" },
   in_attesa: { label: "Pagamento in attesa", badge: "orange" },
   sospesa: { label: "Sospesa", badge: "orange" },
   approvata: { label: "Approvata", badge: "blue" },
