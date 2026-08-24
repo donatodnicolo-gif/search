@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, computed} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -47,7 +47,9 @@ interface ImageRow { url: string; }
           <label class="fld"><span>{{ 'productForm.field.partner' | translate }} {{ model.isUnique ? '*' : '' }}</span>
             <select class="field" name="partnerId" [(ngModel)]="model.partnerId">
               <option value="">{{ 'productForm.option.noPartner' | translate }}</option>
-              @for (p of partners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
+              @for (p of partnerSelezionabili(); track p.id) {
+                <option [value]="p.id">{{ p.insegna }}@if (!p.active) { <span> ({{ 'productForm.partnerInactive' | translate }})</span> }</option>
+              }
             </select></label>
           <label class="fld"><span>SKU</span>
             <input class="field" [value]="'productForm.skuAuto' | translate" disabled /></label>
@@ -130,10 +132,10 @@ interface ImageRow { url: string; }
           <span class="block-sub">{{ 'productForm.section.additionalPartners.sub' | translate }}</span></header>
         <label class="toggle"><input type="checkbox" name="visibleToOtherPartners" [(ngModel)]="model.visibleToOtherPartners" /><span>{{ 'productForm.toggle.visibleToOtherPartners' | translate }}</span></label>
         @if (model.visibleToOtherPartners) {
-          @if (partners().length === 0) { <p class="muted mt">{{ 'productForm.noPartners' | translate }}</p> }
+          @if (partnerAttivi().length === 0) { <p class="muted mt">{{ 'productForm.noPartners' | translate }}</p> }
           @else {
             <div class="chips mt">
-              @for (p of partners(); track p.id) {
+              @for (p of partnerAttivi(); track p.id) {
                 <button type="button" class="chip" [class.on]="selectedPartners.has(p.id)" (click)="toggle(selectedPartners, p.id)">{{ p.insegna }}</button>
               }
             </div>
@@ -281,6 +283,29 @@ export class ProductFormComponent {
 
   readonly categories = signal<Category[]>([]);
   readonly partners = signal<Partner[]>([]);
+
+  /**
+   * Solo i partner ATTIVI: la tendina ne mostrava tutti e 267, compresi
+   * «ACCOUNT DEMO», «ARMANI TEST» e tre «ARMANI FIORI» identici. Chi compila
+   * non ha modo di sapere quale sia quello buono.
+   */
+  readonly partnerAttivi = computed(() => this.partners().filter((p) => p.active));
+
+  /**
+   * ⚠️ Il partner GIA' SCELTO resta nell'elenco anche se non e' piu' attivo.
+   *
+   * Senza questa riga, aprendo un vecchio prodotto di un partner disattivato
+   * la tendina risulterebbe vuota e il primo salvataggio gli toglierebbe il
+   * partner — senza che nessuno abbia chiesto niente. Si mostra, marcato
+   * «non attivo», cosi' la scelta di cambiarlo resta di chi guarda.
+   */
+  readonly partnerSelezionabili = computed(() => {
+    const attivi = this.partnerAttivi();
+    const scelto = this.model.partnerId;
+    if (!scelto || attivi.some((p) => p.id === scelto)) return attivi;
+    const suo = this.partners().find((p) => p.id === scelto);
+    return suo ? [suo, ...attivi] : attivi;
+  });
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly justSaved = signal(false);

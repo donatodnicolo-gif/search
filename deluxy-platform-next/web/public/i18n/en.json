@@ -1303,7 +1303,8 @@
       "descHint": "Description shown on each selected platform.",
       "descFor": "Description ({{platform}})"
     },
-    "editTitle": "Edit product"
+    "editTitle": "Edit product",
+    "partnerInactive": "inactive"
   },
   "serviceForm": {
     "backToServices": "Services",
