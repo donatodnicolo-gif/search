@@ -12,18 +12,36 @@
 > (`proposto → accettato | rifiutato | scaduto`, col timer) e l'**esecuzione**
 > delle consegne quando la logistica è nostra (valet, tracking). NON possiede:
 > l'ordine Shopify (Orders), la decisione di gestione (Customer Service), il
-> margine (Orders). **Da costruire qui, in quest'ordine**: ① chiave API a
-> scope per le app (pattern api-auth di Orders/Anagrafiche — oggi ci sono solo
-> utenti propri); ② `sistema`+`idEsterno` (unique) su `Delivery` — oggi nessun
-> campo la lega a un ordine esterno; ③ `POST /api/v1/consegne` (propone
-> l'incarico, idempotente) e `GET /api/v1/consegne/by-ref/:sistema/:idEsterno`
-> (stato, accettataIl, consegnataIl, costo, fee); ④ ciclo di accettazione
-> nella vista partner + tipo servizio «consegna del produttore»; ⑤ rotta di
-> lettura dei prodotti UNICI pubblicati (per il riconoscimento automatico del
-> Customer Service). E dall'audit 24/08 restano da chiudere: `schema=platform`
-> negli `.env.example` (dicono ancora `public`!), chiave di scrittura
-> Anagrafiche via dai settings (mascherare subito), `/api/health` vero,
-> `regions: ["fra1"]` dichiarata, `.vercelignore`.
+> margine (Orders).
+>
+> **⭐ La sera del 24/08 si è scoperto che l'INCARICO esisteva già**: è il
+> modello `Sale` (`da_gestire → proposta → accettata/non_accettata/annullata`,
+> `refusedPartnerIds` per il ri-smistamento, `discountPercent`, `deliveryId`
+> nato dall'accettazione) alimentato da `orders-sync` (pull da Orders, con
+> simulazione di default) e smistato da `SalesService` col comportamento
+> dell'app reale (manuale §3.7): UNICO → al partner proprietario se aperto;
+> NON UNICO → primo partner APERTO della lista priorità (`PartnerCategory.
+> priority`) per provincia e categoria. Gli sconti per provincia sono
+> `CategoryDiscount` (categoria × provincia), gestiti dall'admin.
+>
+> **Costruito la sera del 24/08** (commit `32fff0fc` + `7e2c9bfe`, deployati e
+> verificati live): ① il **canale app-to-app** — tabella `AppApiKey` (solo
+> SHA-256; chiavi con `api/scripts/crea-chiave-app.mjs`, creata e consegnata a
+> Orders), guard `x-api-key` e le rotte `GET /api/v1/app/vendite`
+> (pull incrementale su `aggiornateDa`) e `GET /api/v1/app/vendite/by-ref/
+> :source/:externalOrderId` — è la finestra da cui Orders ritira evasione,
+> costo del partner accettante e consegna per il margine; ② lo **sconto che si
+> cristallizza sulla vendita**: il `create` ora scrive `discountPercent` dalla
+> regola `CategoryDiscount` — il campo c'era, la tabella pure, mancava il filo.
+>
+> **Resta da fare qui**: attivare il giro vero di `orders-sync` con
+> `applica=true` (oggi manuale/admin — decidere se farne un cron); esporre nel
+> canale app anche costo della consegna e fee di listino (per il margine
+> completo della consegna nostra); verificare/completare la UI del partner per
+> accettare o rifiutare la vendita proposta. E dall'audit 24/08 restano:
+> `schema=platform` negli `.env.example` (dicono ancora `public`!), chiave di
+> scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
+> vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
 **Ultimo aggiornamento:** 24 agosto 2026 (architettura); corpo del 21 agosto 2026
 **Branch di produzione:** `main` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
