@@ -226,6 +226,34 @@ guardava solo i messaggi: venivano buttate in silenzio. Adesso si leggono.
 
 Si ricontrolla con `npx tsx scripts/prova-reazioni.mts` (crea righe finte e le cancella).
 
+## Correggere una proposta del glossario prima di accettarla
+
+Ogni proposta dell'AI ha tre bottoni: **Accetta**, **Modifica**, **Scarta**.
+«Modifica» apre termine, testo e categoria lì nella riga; poi **Accetta così**.
+
+⚠️⚠️ **Prima si poteva solo prendere o lasciare.** Con una proposta giusta
+all'80% — il fatto è quello, la frase no — l'unica strada era **scartarla** e
+riscrivere la voce da capo: si buttava via anche la parte buona e la **prova**,
+cioè la conversazione da cui nasce. Nella pratica quelle proposte restavano lì.
+
+⚠️⚠️ **La proposta originale resta archiviata.** `termine` e `definizione` della
+proposta non si toccano: quello che si è deciso di scrivere va accanto
+(`termineAccettato`, `definizioneAccettata`, `corretta`). Sovrascriverle avrebbe
+cancellato la prova di che cosa aveva detto l'AI — e serve all'unica domanda che
+conta: **quanto spesso ci prende?** Un archivio che dice «proposta dall'AI e
+accettata» anche su una frase riscritta da capo racconta un'AI più precisa di
+quella che è, e nessuno saprebbe che il prompt va cambiato.
+
+⚠️ Per lo stesso motivo la voce nata da una proposta corretta si dichiara
+**«proposta dall'AI e corretta a mano»** (`fonte: 'ai-corretta'`), non
+«proposta dall'AI».
+
+⚠️ **Niente «Modifica» sugli avvisi**: un avviso è una cosa da sapere, non una
+voce — non c'è un testo da correggere, e un bottone che lo promette manda a
+cercare un modulo che non serve.
+
+Prova: `npx tsx scripts/prova-proposta-corretta.mts`
+
 ## Quanto ci resta, mentre scrivi l'importo
 
 Sotto il campo **Importo**, appena c'è una cifra, la pagina Pagamenti dice quanto

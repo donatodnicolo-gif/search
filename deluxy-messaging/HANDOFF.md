@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 12:45** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 14:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,24 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- **CORREGGERE UNA PROPOSTA DEL GLOSSARIO** (24/08/2026, chiesto: «consenti di
+  modificare la risposta»). Terzo bottone **Modifica** accanto ad Accetta e
+  Scarta: apre termine, testo e categoria nella riga, poi «Accetta così».
+  - ⚠️⚠️ Prima era prendere-o-lasciare: con una proposta giusta all'80% si
+    doveva **scartare** e riscrivere da capo, buttando via anche la parte buona
+    e la prova (la chat da cui nasce). Nella pratica restavano lì — 37 aperte.
+  - ⚠️⚠️ **La proposta originale NON si sovrascrive**: il testo deciso va
+    accanto (`corretta`, `termineAccettato`, `definizioneAccettata`).
+    Sovrascriverla cancellerebbe la prova di che cosa aveva detto l'AI, e
+    l'archivio racconterebbe un'AI più precisa di quella che è.
+  - ⚠️ La voce risulta `fonte: 'ai-corretta'` → «proposta dall'AI e corretta a
+    mano». Un'etichetta che si prende il merito di una frase riscritta da una
+    persona falsa il conto.
+  - ⚠️ Niente «Modifica» sugli **avvisi**: non sono voci, non c'è testo da
+    correggere.
+  - ✅ `npx tsx scripts/prova-proposta-corretta.mts`: 13 su 13, e a schermo il
+    payload parte con termine+definizione+categoria corretti.
 
 - **IL MARGINE, MENTRE SCRIVI L'IMPORTO** (24/08/2026, chiesto: «quando
   inserisci l'importo calcola automaticamente la % di margine su valore

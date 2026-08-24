@@ -143,6 +143,35 @@ type Corpo = {
   negozioId?: string
 }
 
+/**
+ * Che cosa si scrive davvero in glossario accettando una proposta.
+ *
+ * ⚠️⚠️ Chi accetta può aver corretto il testo. Prima si poteva solo prendere o
+ * lasciare: con una proposta giusta all'80% — il fatto è quello, la frase no —
+ * l'unica strada era **scartarla** e riscrivere la voce da capo, cioè buttare
+ * via anche la parte buona e la prova (la conversazione da cui nasce).
+ *
+ * ⚠️ Se il testo è cambiato lo si SCRIVE: `corretta`. Senza, l'archivio direbbe
+ * «proposta dall'AI e accettata» anche su una frase riscritta da capo —
+ * racconterebbe un'AI più precisa di quella che è, e nessuno saprebbe che il
+ * prompt va cambiato.
+ */
+function testoDaScrivere(
+  p: { termine: string; definizione: string; categoria: string },
+  c: Corpo
+): { termine: string; definizione: string; categoria: string; corretta: boolean } {
+  const termine = (c.termine ?? '').trim() || p.termine
+  const definizione = (c.definizione ?? '').trim() || p.definizione
+  const categoria = (c.categoria ?? '').trim() || p.categoria
+  return {
+    termine,
+    definizione,
+    categoria,
+    corretta:
+      termine !== p.termine || definizione !== p.definizione || categoria !== p.categoria,
+  }
+}
+
 export async function POST(req: NextRequest) {
   const { io, errore } = await chi()
   if (errore) return errore
@@ -162,7 +191,13 @@ export async function POST(req: NextRequest) {
     const p = c.id ? await db.propostaGlossario.findUnique({ where: { id: c.id } }) : null
     if (!p) return NextResponse.json({ errore: 'Proposta non trovata.' }, { status: 404 })
 
+    const scritto = testoDaScrivere(p, c)
     if (c.azione === 'accetta') {
+      // ⚠️ Una voce nata da una proposta CORRETTA a mano non è «proposta
+      // dall'AI»: è a metà, e si dice. Un'etichetta che si prende il merito di
+      // una frase riscritta da una persona falsa il conto di quanto l'AI ci
+      // prende.
+      const fonte = scritto.corretta ? 'ai-corretta' : 'ai'
       // ⚠️ Un «avviso» non è una voce: è una cosa da sapere, non da scrivere in
       // glossario. Accettarlo vuol dire «l'ho letto», e sparisce dall'elenco.
       if (p.tipo === 'correzione' && p.voceId) {
@@ -171,28 +206,28 @@ export async function POST(req: NextRequest) {
         await db.voceGlossario.updateMany({
           where: { id: p.voceId },
           data: {
-            definizione: p.definizione,
-            fonte: 'ai',
+            definizione: scritto.definizione,
+            fonte,
             conversazioneId: p.conversazioneId,
             autoreNome: io!.nome,
           },
         })
       } else if (p.tipo === 'aggiunta') {
         await db.voceGlossario.upsert({
-          where: { termine_negozioId: { termine: p.termine, negozioId: p.negozioId } },
+          where: { termine_negozioId: { termine: scritto.termine, negozioId: p.negozioId } },
           update: {
-            definizione: p.definizione,
-            categoria: p.categoria,
-            fonte: 'ai',
+            definizione: scritto.definizione,
+            categoria: scritto.categoria,
+            fonte,
             conversazioneId: p.conversazioneId,
             autoreNome: io!.nome,
           },
           create: {
-            termine: p.termine,
-            definizione: p.definizione,
-            categoria: p.categoria,
+            termine: scritto.termine,
+            definizione: scritto.definizione,
+            categoria: scritto.categoria,
             negozioId: p.negozioId,
-            fonte: 'ai',
+            fonte,
             conversazioneId: p.conversazioneId,
             autoreNome: io!.nome,
           },
@@ -206,6 +241,13 @@ export async function POST(req: NextRequest) {
         stato: c.azione === 'accetta' ? 'accettata' : 'scartata',
         decisaDaNome: io!.nome,
         decisaIl: new Date(),
+        // ⚠️ `termine` e `definizione` NON si toccano: restano la proposta
+        // originale, che è la prova di che cosa aveva detto l'AI. Quello che si
+        // è deciso di scrivere va accanto.
+        corretta: c.azione === 'accetta' && scritto.corretta,
+        termineAccettato: c.azione === 'accetta' && scritto.corretta ? scritto.termine : '',
+        definizioneAccettata:
+          c.azione === 'accetta' && scritto.corretta ? scritto.definizione : '',
       },
     })
     return NextResponse.json(await leggiGlossario())

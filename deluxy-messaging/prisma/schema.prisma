@@ -1411,6 +1411,22 @@ model PropostaGlossario {
   stato       String   @default("aperta")
   decisaDaNome String  @default("")
   decisaIl    DateTime?
+  /**
+   * ⚠️⚠️ ACCETTATA DOPO AVERLA CORRETTA A MANO.
+   *
+   * Serve a una domanda sola, ma è la domanda importante: **quanto spesso l'AI
+   * ci prende?** Senza questo campo l'archivio direbbe «proposta dall'AI e
+   * accettata» anche quando il testo è stato riscritto da capo — cioè
+   * racconterebbe un'AI più precisa di quella che è, e nessuno saprebbe che il
+   * prompt va cambiato.
+   *
+   * ⚠️ `termine` e `definizione` restano **la proposta originale**: quello che
+   * si è deciso di scrivere davvero sta qui accanto. Sovrascriverli avrebbe
+   * cancellato la prova di che cosa aveva detto l'AI.
+   */
+  corretta    Boolean  @default(false)
+  termineAccettato String @default("")
+  definizioneAccettata String @default("") @db.Text
   creatoIl    DateTime @default(now())
 
   @@index([stato, creatoIl])

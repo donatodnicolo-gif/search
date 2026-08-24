@@ -43,6 +43,21 @@ export function Glossario() {
   const [errore, setErrore] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [giroDetto, setGiroDetto] = useState('')
+  /**
+   * La proposta che si sta correggendo prima di accettarla.
+   *
+   * ⚠️⚠️ Prima si poteva solo prendere o lasciare. Con una proposta giusta
+   * all'80% — il fatto è quello, la frase no — l'unica strada era **scartarla**
+   * e riscrivere la voce da capo: si buttava via anche la parte buona e la
+   * prova, cioè la conversazione da cui nasce. E nella pratica vuol dire che
+   * quelle proposte restavano lì.
+   */
+  const [correggo, setCorreggo] = useState<{
+    id: string
+    termine: string
+    definizione: string
+    categoria: string
+  } | null>(null)
 
   const [q, setQ] = useState('')
   const [filtroBrand, setFiltroBrand] = useState('')
@@ -197,6 +212,31 @@ export function Glossario() {
                     >
                       {p.tipo === 'avviso' ? 'Letto' : 'Accetta'}
                     </button>
+                    {/* ⚠️ Solo su quello che si SCRIVE in glossario. Un
+                        «avviso» è una cosa da sapere, non una voce: non c'è un
+                        testo da correggere, e un bottone che lo promette
+                        manderebbe a cercare un modulo che non serve. */}
+                    {p.tipo !== 'avviso' ? (
+                      <button
+                        className="bottone secondario mini"
+                        disabled={salvando}
+                        onClick={() =>
+                          setCorreggo(
+                            correggo?.id === p.id
+                              ? null
+                              : {
+                                  id: p.id,
+                                  termine: p.termine,
+                                  definizione: p.definizione,
+                                  categoria: p.categoria,
+                                }
+                          )
+                        }
+                        title="Correggi il testo prima di accettarlo: la proposta e la sua chat restano"
+                      >
+                        {correggo?.id === p.id ? 'Lascia stare' : 'Modifica'}
+                      </button>
+                    ) : null}
                     <button
                       className="bottone secondario mini"
                       disabled={salvando}
@@ -206,7 +246,64 @@ export function Glossario() {
                     </button>
                   </span>
                 </div>
-                <p style={{ margin: '6px 0 0', fontSize: 14 }}>{p.definizione}</p>
+                {correggo?.id === p.id ? (
+                  <div className="correggo-proposta">
+                    <label className="campo">
+                      <span>Termine</span>
+                      <input
+                        value={correggo.termine}
+                        onChange={(e) => setCorreggo({ ...correggo, termine: e.target.value })}
+                      />
+                    </label>
+                    <label className="campo">
+                      <span>Che cosa si sa</span>
+                      <textarea
+                        rows={3}
+                        value={correggo.definizione}
+                        onChange={(e) => setCorreggo({ ...correggo, definizione: e.target.value })}
+                        autoFocus
+                      />
+                    </label>
+                    <label className="campo">
+                      <span>A chi si può dire</span>
+                      <select
+                        value={correggo.categoria}
+                        onChange={(e) => setCorreggo({ ...correggo, categoria: e.target.value })}
+                      >
+                        <option value="cliente">si può dire al cliente</option>
+                        <option value="tecnico">interno</option>
+                      </select>
+                    </label>
+                    {/* ⚠️ Si dice che la proposta originale RESTA scritta: senza,
+                        correggere sembra cancellare la prova, e chi ci tiene
+                        preferisce scartare e riscrivere — cioè quello che
+                        succedeva prima. */}
+                    <p className="cella-sub">
+                      Quello che aveva proposto l&apos;AI resta archiviato, e la voce risulterà
+                      «proposta dall&apos;AI e corretta a mano»: è così che si vede se l&apos;AI
+                      sta migliorando.
+                    </p>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        className="bottone mini"
+                        disabled={salvando || !correggo.termine.trim() || !correggo.definizione.trim()}
+                        onClick={() =>
+                          void manda({
+                            azione: 'accetta',
+                            id: p.id,
+                            termine: correggo.termine,
+                            definizione: correggo.definizione,
+                            categoria: correggo.categoria,
+                          }).then(() => setCorreggo(null))
+                        }
+                      >
+                        Accetta così
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ margin: '6px 0 0', fontSize: 14 }}>{p.definizione}</p>
+                )}
                 {p.perche ? (
                   <p className="cella-sub" style={{ marginTop: 4 }}>
                     Perché: {p.perche}
@@ -393,7 +490,11 @@ export function Glossario() {
               </div>
               <p style={{ margin: '6px 0 0', fontSize: 14 }}>{v.definizione}</p>
               <p className="cella-sub" style={{ marginTop: 4 }}>
-                {v.fonte === 'ai' ? 'proposta dall’AI e accettata' : 'scritta a mano'}
+                {v.fonte === 'ai'
+                  ? 'proposta dall’AI e accettata'
+                  : v.fonte === 'ai-corretta'
+                    ? 'proposta dall’AI e corretta a mano'
+                    : 'scritta a mano'}
                 {v.autoreNome ? ` · ${v.autoreNome}` : ''}
               </p>
             </div>
