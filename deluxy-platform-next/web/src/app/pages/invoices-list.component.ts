@@ -19,7 +19,10 @@ interface Invoice {
   number?: string;
   periodStart: string;
   periodEnd: string;
+  netAmount: number;
+  vatRate: number;
   totalAmount: number;
+  legacyTotalAmount?: number | null;
   deliveriesCount: number;
   status: string;
   archived: boolean;
@@ -105,6 +108,8 @@ const NEXT: Record<string, { next: string; key: string }> = {
               <th>{{ 'invoices.col.number' | translate }}</th>
               <th>{{ 'invoices.col.period' | translate }}</th>
               <th class="num">{{ 'invoices.col.deliveries' | translate }}</th>
+              <th class="num">{{ 'invoices.col.net' | translate }}</th>
+              <th class="num">{{ 'invoices.col.vat' | translate }}</th>
               <th class="num">{{ 'invoices.col.total' | translate }}</th>
               <th>{{ 'invoices.col.status' | translate }}</th>
               @if (view() === 'archive') { <th>{{ 'invoices.col.financial' | translate }}</th> }
@@ -118,7 +123,17 @@ const NEXT: Record<string, { next: string; key: string }> = {
                 <td>{{ i.number || '—' }}</td>
                 <td class="muted">{{ i.periodStart | date: 'dd/MM/yy' }} – {{ i.periodEnd | date: 'dd/MM/yy' }}</td>
                 <td class="num">{{ i.deliveriesCount }}</td>
-                <td class="num strong">{{ i.totalAmount | number: '1.2-2' }} €</td>
+                <td class="num muted">{{ i.netAmount | number: '1.2-2' }} €</td>
+                <td class="num muted">{{ iva(i) | number: '1.2-2' }} €</td>
+                <td class="num strong">
+                  {{ i.totalAmount | number: '1.2-2' }} €
+                  <!-- Il legacy lasciava vuoto l'importo su 292 fatture su 559:
+                       il totale lì è ricostruito dall'imponibile, e va detto
+                       invece di farlo passare per un dato del documento. -->
+                  @if (ricostruito(i)) {
+                    <span class="ric" [title]="'invoices.rebuiltHint' | translate">{{ 'invoices.rebuilt' | translate }}</span>
+                  }
+                </td>
                 <td>
                   <span class="badge" [style.--c]="statusColor(i.status)"><span class="dot"></span>{{ statusLabel(i.status) }}</span>
                 </td>
@@ -211,6 +226,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .link-btn { background: none; border: none; padding: 0; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
       .link-btn.danger { color: var(--red); }
       .link-btn:disabled { opacity: 0.5; cursor: default; }
+      .ric { margin-left: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--gold-strong, #B8963E); background: color-mix(in srgb, #B8963E 12%, transparent); border-radius: 999px; padding: 2px 6px; cursor: help; }
       .state-card { padding: 28px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
@@ -291,6 +307,19 @@ export class InvoicesListComponent {
   next(status: string): { next: string; key: string } | null { return NEXT[status] ?? null; }
   isPaid(i: Invoice): boolean { return i.status === 'PAID'; }
 
+  /** IVA in euro: il totale meno l'imponibile, non ricalcolata sull'aliquota. */
+  iva(i: Invoice): number { return Math.round(((i.totalAmount ?? 0) - (i.netAmount ?? 0)) * 100) / 100; }
+
+  /**
+   * Vero quando il totale non viene dal documento ma dall'imponibile.
+   *
+   * Il legacy teneva l'importo con IVA in un solo campo, e su 292 fatture su
+   * 559 quel campo era vuoto: a schermo uscivano 0 €. Il totale lì è
+   * l'imponibile x 1,22 — la stessa regola che combacia al centesimo sulle
+   * altre — e chi guarda ha diritto di sapere che è ricostruito.
+   */
+  ricostruito(i: Invoice): boolean { return !i.legacyTotalAmount && (i.totalAmount ?? 0) > 0; }
+
   generate(): void {
     this.genError.set(null);
     if (!this.genPartner || !this.genFrom || !this.genTo) {
@@ -335,14 +364,16 @@ export class InvoicesListComponent {
     const t = (k: string) => this.translate.instant(k);
     const head = [
       t('invoices.col.partner'), t('invoices.col.number'), t('invoices.col.period'),
-      t('invoices.col.deliveries'), t('invoices.col.total'), t('invoices.col.status'),
+      t('invoices.col.deliveries'), t('invoices.col.net'), t('invoices.col.vat'),
+      t('invoices.col.total'), t('invoices.col.status'),
     ];
     const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
     const rows = this.filtered().map((i) => [
       i.partner?.insegna ?? '',
       i.number ?? '',
       `${i.periodStart?.slice(0, 10)} / ${i.periodEnd?.slice(0, 10)}`,
-      String(i.deliveriesCount), i.totalAmount.toFixed(2), this.statusLabel(i.status),
+      String(i.deliveriesCount), i.netAmount.toFixed(2), this.iva(i).toFixed(2),
+      i.totalAmount.toFixed(2), this.statusLabel(i.status),
     ]);
     const csv = [head, ...rows].map((r) => r.map(esc).join(';')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });

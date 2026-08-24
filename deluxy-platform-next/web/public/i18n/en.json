@@ -362,7 +362,9 @@
       "total": "Total",
       "status": "Status",
       "financial": "Payment status",
-      "actions": "Actions"
+      "actions": "Actions",
+      "net": "Net",
+      "vat": "VAT 22%"
     },
     "line": {
       "date": "Date",
@@ -377,7 +379,9 @@
       "reopen": "Reopen",
       "detail": "Detail",
       "hideDetail": "Hide"
-    }
+    },
+    "rebuilt": "rebuilt",
+    "rebuiltHint": "The original document carried no amount: the total is the net plus 22% VAT, the same rule that matches on the other invoices."
   },
   "salaries": {
     "title": "Salaries",

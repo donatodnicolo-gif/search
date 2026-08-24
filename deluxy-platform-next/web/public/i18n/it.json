@@ -362,7 +362,9 @@
       "total": "Totale",
       "status": "Stato",
       "financial": "Stato pagamento",
-      "actions": "Azioni"
+      "actions": "Azioni",
+      "net": "Imponibile",
+      "vat": "IVA 22%"
     },
     "line": {
       "date": "Data",
@@ -377,7 +379,9 @@
       "reopen": "Riapri",
       "detail": "Dettaglio",
       "hideDetail": "Nascondi"
-    }
+    },
+    "rebuilt": "ricostruito",
+    "rebuiltHint": "Il documento originale non riportava l'importo: il totale è l'imponibile più l'IVA al 22%, la stessa regola che combacia sulle altre fatture."
   },
   "salaries": {
     "title": "Stipendi",

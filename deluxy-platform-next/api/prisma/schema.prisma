@@ -1284,7 +1284,23 @@ model Invoice {
   number          String? // FAT-<anno>-<n>
   periodStart     DateTime
   periodEnd       DateTime
+  /// Imponibile: la somma delle righe, IVA esclusa. È il numero che si
+  /// ricostruisce sempre dalle consegne, ed è quello che il generatore
+  /// calcolava (sbagliando) come totale.
+  netAmount       Float     @default(0)
+  /// Aliquota IVA applicata, in percento.
+  vatRate         Float     @default(22)
+  /// Totale del documento, IVA compresa.
+  ///
+  /// ⚠️ Nel legacy `invoiceAmount` è l'importo CON IVA: su 267
+  /// fatture compilate, 194 sono esattamente la somma delle righe x 1,22. Le
+  /// altre 291 non erano compilate affatto (uscivano a 0 €), e per quelle il
+  /// totale è ricostruito dall'imponibile — non inventato: applicato con la
+  /// stessa regola misurata sulle altre.
   totalAmount     Float     @default(0)
+  /// Quello che diceva il documento originario, zeri compresi: serve a non
+  /// perdere il dichiarato quando il totale è stato ricostruito.
+  legacyTotalAmount Float?
   deliveriesCount Int       @default(0)
   status          String    @default("DRAFT")
   // Emettendo la fattura esce dalle bozze ed entra nello Storico.

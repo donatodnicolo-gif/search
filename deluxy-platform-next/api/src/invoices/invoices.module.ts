@@ -85,7 +85,12 @@ export class InvoicesService {
       description: d.recipientAddress ?? null,
       amount: (d.price ?? 0) + (d.additionalPrice ?? 0),
     }));
-    const totalAmount = lines.reduce((sum, l) => sum + l.amount, 0);
+    // L'imponibile è la somma delle righe; il totale del documento è con IVA.
+    // ⚠️ Prima qui il totale ERA l'imponibile: le fatture nuove sarebbero
+    // uscite senza IVA, incoerenti con le 559 storiche (che l'IVA la hanno).
+    const netAmount = lines.reduce((sum, l) => sum + l.amount, 0);
+    const vatRate = 22;
+    const totalAmount = Math.round(netAmount * (1 + vatRate / 100) * 100) / 100;
     const year = new Date(periodStart).getFullYear();
     const count = await this.prisma.invoice.count();
 
@@ -95,6 +100,8 @@ export class InvoicesService {
         number: `FAT-${year}-${count + 1}`,
         periodStart: new Date(periodStart),
         periodEnd: new Date(periodEnd),
+        netAmount,
+        vatRate,
         totalAmount,
         deliveriesCount: lines.length,
         status: InvoiceStatus.DRAFT,
