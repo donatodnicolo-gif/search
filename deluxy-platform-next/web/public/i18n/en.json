@@ -398,6 +398,21 @@
       "fromListinoHint": "The price was not on the delivery: it is computed from the partner rate card according to the service type (hourly, per item, % fee on sales).",
       "unpricedRow": "No price on the delivery and no partner rate card for this service: it stays out of the invoice until a rate is decided.",
       "unpricedHint": "{{n}} deliveries stay out of the invoice: they have no price and the partner has no rate card for their service. Invoicing them at 0 EUR would be a document that lies."
+    },
+    "filter": {
+      "search": "Search",
+      "searchPh": "Invoice number or partner",
+      "searchPendingPh": "Partner",
+      "from": "From",
+      "to": "To",
+      "allStatuses": "All statuses",
+      "clear": "Clear filters",
+      "onlyPriced": "Only partners with priceable deliveries"
+    },
+    "status": {
+      "DRAFT": "Draft",
+      "ISSUED": "Issued",
+      "PAID": "Paid"
     }
   },
   "salaries": {

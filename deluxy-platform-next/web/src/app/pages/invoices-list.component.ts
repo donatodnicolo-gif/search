@@ -79,12 +79,6 @@ const NEXT: Record<string, { next: string; key: string }> = {
         <p class="page-caption">{{ 'invoices.caption' | translate }}</p>
       </div>
       <div class="head-actions">
-        @if (canManage()) {
-          <select class="field" [(ngModel)]="partnerFilter">
-            <option value="">{{ 'invoices.allPartners' | translate }}</option>
-            @for (p of partners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
-          </select>
-        }
         <button class="btn btn-ghost" [disabled]="!filtered().length" (click)="exportCsv()">{{ 'invoices.export' | translate }}</button>
         @if (canManage() && view() === 'active') {
           <button class="btn btn-primary" (click)="toggleGen()">{{ (showGen() ? 'common.cancel' : 'invoices.generate') | translate }}</button>
@@ -99,6 +93,52 @@ const NEXT: Record<string, { next: string; key: string }> = {
       </button>
       <button class="tab" [class.on]="view() === 'active'" (click)="setView('active')">{{ 'invoices.tab.active' | translate }}</button>
       <button class="tab" [class.on]="view() === 'archive'" (click)="setView('archive')">{{ 'invoices.tab.archive' | translate }}</button>
+    </div>
+
+    <!-- I filtri vanno al server: filtrare nel browser dopo aver scaricato
+         tutto regge finche' le fatture sono 559, non oltre. -->
+    <div class="filtri card">
+      <label class="f cerca">
+        <span>{{ 'invoices.filter.search' | translate }}</span>
+        <input class="field" type="search" [(ngModel)]="cerca" (ngModelChange)="filtroCambiato()"
+               [placeholder]="(view() === 'pending' ? 'invoices.filter.searchPendingPh' : 'invoices.filter.searchPh') | translate" />
+      </label>
+      @if (canManage()) {
+        <label class="f">
+          <span>{{ 'invoices.gen.partner' | translate }}</span>
+          <select class="field" [(ngModel)]="partnerFilter" (ngModelChange)="filtroCambiato()">
+            <option value="">{{ 'invoices.allPartners' | translate }}</option>
+            @for (p of partners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
+          </select>
+        </label>
+      }
+      <label class="f">
+        <span>{{ 'invoices.filter.from' | translate }}</span>
+        <input class="field" type="date" [(ngModel)]="dal" (ngModelChange)="filtroCambiato()" />
+      </label>
+      <label class="f">
+        <span>{{ 'invoices.filter.to' | translate }}</span>
+        <input class="field" type="date" [(ngModel)]="al" (ngModelChange)="filtroCambiato()" />
+      </label>
+      @if (view() !== 'pending') {
+        <label class="f">
+          <span>{{ 'invoices.col.status' | translate }}</span>
+          <select class="field" [(ngModel)]="stato" (ngModelChange)="filtroCambiato()">
+            <option value="">{{ 'invoices.filter.allStatuses' | translate }}</option>
+            <option value="DRAFT">{{ 'invoices.status.DRAFT' | translate }}</option>
+            <option value="ISSUED">{{ 'invoices.status.ISSUED' | translate }}</option>
+            <option value="PAID">{{ 'invoices.status.PAID' | translate }}</option>
+          </select>
+        </label>
+      } @else {
+        <label class="f interruttore">
+          <input type="checkbox" [(ngModel)]="soloPrezzabili" (ngModelChange)="filtroCambiato()" />
+          <span>{{ 'invoices.filter.onlyPriced' | translate }}</span>
+        </label>
+      }
+      @if (filtriAttivi()) {
+        <button type="button" class="link-btn azzera" (click)="azzeraFiltri()">{{ 'invoices.filter.clear' | translate }}</button>
+      }
     </div>
 
     @if (showGen() && view() === 'active') {
@@ -358,6 +398,13 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .riepilogo > div { display: flex; flex-direction: column; gap: 2px; }
       .riepilogo .etichetta { font-size: 12px; color: var(--text-secondary); }
       .riepilogo strong { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+      .filtri { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; padding: 14px 18px; margin-bottom: 12px; }
+      .filtri .f { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+      .filtri .f.cerca { flex: 1 1 220px; }
+      .filtri .f > span { font-size: 12px; color: var(--text-secondary); }
+      .filtri .interruttore { flex-direction: row; align-items: center; gap: 7px; min-width: 0; padding-bottom: 8px; }
+      .filtri .interruttore > span { font-size: 13px; color: var(--text); }
+      .filtri .azzera { padding-bottom: 8px; }
       .rosso { color: #C0392B; font-weight: 600; }
       .avviso { margin: -4px 0 12px; font-size: 13px; color: var(--text-secondary); }
       .riepilogo .oro { color: var(--gold-strong, #B8963E); }
@@ -392,6 +439,13 @@ export class InvoicesListComponent {
   readonly expanded = signal<string | null>(null);
 
   partnerFilter = '';
+  cerca = '';
+  dal = '';
+  al = '';
+  stato = '';
+  soloPrezzabili = false;
+  /** Il debounce della ricerca: una chiamata per pausa, non per tasto. */
+  private attesa?: ReturnType<typeof setTimeout>;
   readonly showGen = signal(false);
   readonly generating = signal(false);
   readonly genError = signal<string | null>(null);
@@ -399,12 +453,42 @@ export class InvoicesListComponent {
   genFrom = '';
   genTo = '';
 
-  readonly filtered = computed(() =>
-    this.partnerFilter ? this.invoices().filter((i) => i.partnerId === this.partnerFilter) : this.invoices(),
-  );
-  readonly pendingFiltered = computed(() =>
-    this.partnerFilter ? this.pending().filter((r) => r.partnerId === this.partnerFilter) : this.pending(),
-  );
+  // Il filtro vero lo fa il server (vedi load()): qui resta solo cio' che il
+  // server non sa, cioe' «nascondi le righe fatte di sole consegne senza prezzo».
+  readonly filtered = computed(() => this.invoices());
+  // Nel «Da fatturare» la ricerca resta qui: sono 189 righe, gia' scaricate, e
+  // una chiamata al server per ogni lettera sarebbe uno spreco.
+  readonly cercaPending = signal('');
+  readonly pendingFiltered = computed(() => {
+    const t = this.cercaPending().trim().toLowerCase();
+    return this.pending().filter((r) =>
+      (!this.soloPrezzabili || r.deliveriesCount > r.unpricedCount) &&
+      (!t || r.partner.insegna.toLowerCase().includes(t)),
+    );
+  });
+
+  filtriAttivi(): boolean {
+    return !!(this.cerca || this.partnerFilter || this.dal || this.al || this.stato || this.soloPrezzabili);
+  }
+
+  /**
+   * Un filtro e' cambiato: si ricarica, ma non a ogni tasto.
+   *
+   * La ricerca aspetta una pausa di 300 ms; gli altri filtri no, perche' li si
+   * cambia una volta sola e aspettare sembrerebbe un ritardo.
+   */
+  filtroCambiato(): void {
+    this.cercaPending.set(this.cerca);
+    clearTimeout(this.attesa);
+    this.attesa = setTimeout(() => this.load(), 300);
+  }
+
+  azzeraFiltri(): void {
+    this.cerca = ''; this.partnerFilter = ''; this.dal = ''; this.al = '';
+    this.stato = ''; this.soloPrezzabili = false;
+    this.cercaPending.set('');
+    this.load();
+  }
 
   canManage(): boolean {
     const r = this.auth.user()?.role;
@@ -465,6 +549,7 @@ export class InvoicesListComponent {
     this.load();
   }
 
+  /** Il conto sulla linguetta e' il totale, senza filtri: e' un'insegna, non un risultato. */
   private caricaTotaliPending(): void {
     this.http.get<{ totali: any }>(`${environment.apiUrl}/invoices/pending`)
       .subscribe({ next: (d) => this.pendingTotals.set(d.totali ?? null), error: () => {} });
@@ -483,8 +568,14 @@ export class InvoicesListComponent {
 
   private load(): void {
     this.loading.set(true);
+    const filtri: Record<string, string> = {};
+    if (this.partnerFilter) filtri['partnerId'] = this.partnerFilter;
+    if (this.dal) filtri['dal'] = this.dal;
+    if (this.al) filtri['al'] = this.al;
     if (this.view() === 'pending') {
-      this.http.get<{ voci: Pending[]; totali: any }>(`${environment.apiUrl}/invoices/pending`).subscribe({
+      this.http.get<{ voci: Pending[]; totali: any }>(
+        `${environment.apiUrl}/invoices/pending`, { params: filtri },
+      ).subscribe({
         next: (d) => {
           this.pending.set(d.voci ?? []);
           this.pendingTotals.set(d.totali ?? null);
@@ -497,8 +588,10 @@ export class InvoicesListComponent {
       });
       return;
     }
-    const params = this.view() === 'archive' ? { params: { archived: 'true' } } : {};
-    this.http.get<Invoice[]>(`${environment.apiUrl}/invoices`, params).subscribe({
+    if (this.view() === 'archive') filtri['archived'] = 'true';
+    if (this.stato) filtri['stato'] = this.stato;
+    if (this.cerca.trim()) filtri['cerca'] = this.cerca.trim();
+    this.http.get<Invoice[]>(`${environment.apiUrl}/invoices`, { params: filtri }).subscribe({
       next: (d) => { this.invoices.set(d); this.loading.set(false); },
       error: () => { this.loading.set(false); this.error.set(this.translate.instant('common.loadError')); },
     });

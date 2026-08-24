@@ -23,7 +23,9 @@ const riga = fs.readFileSync('C:/Users/nicol/app/deluxy-tasks/.env','utf8').spli
 const u = new URL(riga.slice(13).trim().replace(/^"|"$/g,''));
 const db = new PrismaClient({ datasources: { db: { url: `postgresql://${u.username}:${u.password}@${u.hostname}:5432/postgres?schema=platform&connection_limit=1` } } });
 
-const where = { billable:true, status:{notIn:['cancelled','notDelivered']}, invoiceLines:{none:{}} };
+// Le gia' fatturate secondo il legacy (`delivery.invoiced`) sono fuori: sono
+// 35.135, e contarle avrebbe gonfiato il «da fatturare» a 47.126 invece di 22.031.
+const where = { billable:true, status:{notIn:['cancelled','notDelivered']}, invoiceLines:{none:{}}, invoiced:false };
 const deliveries = await db.delivery.findMany({ where, select:{
   id:true,partnerId:true,serviceTypeId:true,price:true,additionalPrice:true,hours:true,
   distanceKm:true,extraKm:true,extraOutOfCity:true,
@@ -51,12 +53,13 @@ for (const d of deliveries) {
   if (c.origine === 'listino') { daListino++; per[m].recuperate++; per[m].recuperateEur += c.amount; }
   else daConsegna++;
 }
-console.log('PREZZI PER TIPO DI SERVIZIO — 47.126 consegne da fatturare\n');
+console.log('PREZZI PER TIPO DI SERVIZIO — consegne da fatturare\n');
 console.log('  modello'.padEnd(16)+'n'.padStart(7)+'  prezzate'.padStart(10)+'  dal listino'.padStart(13)+'   recuperati EUR'.padStart(17)+'      imponibile');
 for (const [m,x] of Object.entries(per).sort((a,b)=>b[1].eur-a[1].eur))
   console.log('  '+m.padEnd(14)+String(x.n).padStart(7)+String(x.n-x.senza).padStart(10)+String(x.recuperate).padStart(13)+x.recuperateEur.toLocaleString('it-IT',{maximumFractionDigits:0}).padStart(17)+x.eur.toLocaleString('it-IT',{minimumFractionDigits:2}).padStart(16)+' EUR');
-console.log('\n  PRIMA (price+additionalPrice):  565.390,49 EUR');
-console.log('  ADESSO (per tipo di servizio): '+tot.toLocaleString('it-IT',{minimumFractionDigits:2})+' EUR');
+console.log('
+  consegne considerate:', deliveries.length.toLocaleString('it-IT'));
+console.log('  imponibile per tipo di servizio: '+tot.toLocaleString('it-IT',{minimumFractionDigits:2})+' EUR');
 console.log('  consegne prezzate dal listino:', daListino.toLocaleString('it-IT'), '· dalla consegna:', daConsegna.toLocaleString('it-IT'));
 console.log('  ⚠️ NON prezzabili (niente prezzo, niente listino):', senza.toLocaleString('it-IT'));
 await db.$disconnect();

@@ -398,6 +398,21 @@
       "fromListinoHint": "Il prezzo non era sulla consegna: e' calcolato dal listino del partner secondo il tipo di servizio (a ora, a pezzo, fee % sul venduto).",
       "unpricedRow": "Nessun prezzo sulla consegna e nessun listino del partner per questo servizio: non entra in fattura finche' non si decide la tariffa.",
       "unpricedHint": "{{n}} consegne non entrano in fattura: non hanno prezzo e il partner non ha un listino per il loro servizio. Fatturarle a 0 EUR sarebbe un documento che dice il falso."
+    },
+    "filter": {
+      "search": "Cerca",
+      "searchPh": "Numero fattura o partner",
+      "searchPendingPh": "Partner",
+      "from": "Dal",
+      "to": "Al",
+      "allStatuses": "Tutti gli stati",
+      "clear": "Azzera filtri",
+      "onlyPriced": "Solo partner con consegne prezzabili"
+    },
+    "status": {
+      "DRAFT": "Bozza",
+      "ISSUED": "Emessa",
+      "PAID": "Pagata"
     }
   },
   "salaries": {

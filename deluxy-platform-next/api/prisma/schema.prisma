@@ -982,6 +982,7 @@ model Delivery {
   /// Le righe di fattura che riguardano questa consegna: se ce n'è una, la
   /// consegna è già fatturata e non deve rientrare in una fattura nuova.
   invoiceLines       InvoiceLine[]
+
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 }

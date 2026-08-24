@@ -155,9 +155,34 @@ const conIva = (n: number) => Math.round(n * (1 + IVA / 100) * 100) / 100;
 export class InvoicesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(user: JwtUser, archived = false) {
+  /**
+   * Le fatture, filtrate.
+   *
+   * I filtri stanno qui e non nel browser perche' lo storico cresce: filtrare
+   * dopo aver scaricato tutto funziona finche' le fatture sono 559.
+   *
+   * `dal`/`al` guardano il PERIODO fatturato, non la data di emissione: e' il
+   * modo in cui si cerca una fattura («quella di giugno»).
+   */
+  findAll(user: JwtUser, archived = false, filtri: {
+    partnerId?: string; stato?: string; dal?: string; al?: string; cerca?: string;
+  } = {}) {
     const where: any = { archived };
     if (user.role === Role.PARTNER) where.partnerId = user.partnerId ?? '-';
+    else if (filtri.partnerId) where.partnerId = filtri.partnerId;
+    if (filtri.stato) where.status = filtri.stato;
+    // Periodo sovrapposto, non contenuto: una fattura 01/06–30/06 deve uscire
+    // anche cercando dal 15/06, altrimenti si trova solo cominciando dal primo.
+    if (filtri.dal) where.periodEnd = { gte: new Date(filtri.dal) };
+    if (filtri.al) where.periodStart = { lte: new Date(filtri.al) };
+    if (filtri.cerca?.trim()) {
+      const t = filtri.cerca.trim();
+      where.OR = [
+        { number: { contains: t, mode: 'insensitive' } },
+        { partner: { insegna: { contains: t, mode: 'insensitive' } } },
+        { partner: { businessName: { contains: t, mode: 'insensitive' } } },
+      ];
+    }
     return this.prisma.invoice.findMany({
       where,
       include: {
@@ -183,15 +208,24 @@ export class InvoicesService {
    * Torna gli importi come li tratta la fattura: imponibile (somma delle
    * righe) e totale con IVA.
    */
-  async pending(user: JwtUser, opzioni: { partnerId?: string; fino?: string } = {}) {
+  async pending(user: JwtUser, opzioni: { partnerId?: string; fino?: string; dal?: string; al?: string } = {}) {
     const where: any = {
       billable: true,
       status: { notIn: InvoicesService.NON_BILLABLE_STATUSES },
       invoiceLines: { none: {} },
+      // ⭐ Il legacy segna sulla consegna se e' gia' stata fatturata, e non e'
+      // deducibile dalle righe: 35.135 consegne sono marcate fatturate ma solo
+      // 9.811 hanno una riga che le colleghi a un documento. Senza questo
+      // filtro il «da fatturare» contava 47.126 consegne invece di 22.031, e
+      // avrebbe rifatturato il gia' fatturato.
+      invoiced: false,
     };
     if (user.role === Role.PARTNER) where.partnerId = user.partnerId ?? '-';
     else if (opzioni.partnerId) where.partnerId = opzioni.partnerId;
-    if (opzioni.fino) where.date = { lte: new Date(opzioni.fino) };
+    const data: any = {};
+    if (opzioni.dal) data.gte = new Date(opzioni.dal);
+    if (opzioni.al || opzioni.fino) data.lte = new Date((opzioni.al ?? opzioni.fino)!);
+    if (Object.keys(data).length) where.date = data;
 
     const deliveries = await this.prisma.delivery.findMany({
       where,
@@ -308,6 +342,12 @@ export class InvoicesService {
       billable: true,
       status: { notIn: InvoicesService.NON_BILLABLE_STATUSES },
       invoiceLines: { none: {} },
+      // ⭐ Il legacy segna sulla consegna se e' gia' stata fatturata, e non e'
+      // deducibile dalle righe: 35.135 consegne sono marcate fatturate ma solo
+      // 9.811 hanno una riga che le colleghi a un documento. Senza questo
+      // filtro il «da fatturare» contava 47.126 consegne invece di 22.031, e
+      // avrebbe rifatturato il gia' fatturato.
+      invoiced: false,
     };
     if (fino) where.date = { lte: new Date(fino) };
     const deliveries = await this.prisma.delivery.findMany({
@@ -369,6 +409,12 @@ export class InvoicesService {
         status: { notIn: InvoicesService.NON_BILLABLE_STATUSES },
         date: { gte: new Date(periodStart), lte: new Date(periodEnd) },
         invoiceLines: { none: {} },
+      // ⭐ Il legacy segna sulla consegna se e' gia' stata fatturata, e non e'
+      // deducibile dalle righe: 35.135 consegne sono marcate fatturate ma solo
+      // 9.811 hanno una riga che le colleghi a un documento. Senza questo
+      // filtro il «da fatturare» contava 47.126 consegne invece di 22.031, e
+      // avrebbe rifatturato il gia' fatturato.
+      invoiced: false,
       },
       include: {
         serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
@@ -418,7 +464,7 @@ export class InvoicesService {
     const year = new Date(periodStart).getFullYear();
     const count = await this.prisma.invoice.count();
 
-    return this.prisma.invoice.create({
+    const fattura = await this.prisma.invoice.create({
       data: {
         partnerId,
         number: `FAT-${year}-${count + 1}`,
@@ -432,7 +478,17 @@ export class InvoicesService {
         lines: { create: lines },
       },
       include: { lines: true },
-    }).then((fattura) => ({ ...fattura, nonPrezzabili }));
+    });
+
+    // La consegna impara di essere stata fatturata. È la stessa colonna che
+    // usava il legacy (`delivery.invoiced`): tenerla indietro vorrebbe dire
+    // avere due verità sullo stesso fatto, e prima o poi crederle alla peggiore.
+    await this.prisma.delivery.updateMany({
+      where: { id: { in: lines.map((l) => l.deliveryId) } },
+      data: { invoiced: true },
+    });
+
+    return { ...fattura, nonPrezzabili };
   }
 
   /** Avanzamento: DRAFT -> ISSUED (emessa: archivia in storico) -> PAID (pagata). */
@@ -494,16 +550,37 @@ export class InvoicesController {
   @Get()
   @ApiOperation({ summary: 'Lista fatture (il partner vede le proprie). archived=true per lo storico' })
   @ApiQuery({ name: 'archived', required: false })
-  findAll(@CurrentUser() user: JwtUser, @Query('archived') archived?: string) {
-    return this.invoicesService.findAll(user, archived === 'true');
+  @ApiQuery({ name: 'partnerId', required: false })
+  @ApiQuery({ name: 'stato', required: false, description: 'DRAFT | ISSUED | PAID' })
+  @ApiQuery({ name: 'dal', required: false, description: 'Periodo fatturato che finisce da questa data in poi' })
+  @ApiQuery({ name: 'al', required: false })
+  @ApiQuery({ name: 'cerca', required: false, description: 'Numero fattura o insegna/ragione sociale' })
+  findAll(
+    @CurrentUser() user: JwtUser,
+    @Query('archived') archived?: string,
+    @Query('partnerId') partnerId?: string,
+    @Query('stato') stato?: string,
+    @Query('dal') dal?: string,
+    @Query('al') al?: string,
+    @Query('cerca') cerca?: string,
+  ) {
+    return this.invoicesService.findAll(user, archived === 'true', { partnerId, stato, dal, al, cerca });
   }
 
   @Get('pending')
   @ApiOperation({ summary: 'Il lavoro ancora da fatturare, per partner (consegne senza fattura)' })
   @ApiQuery({ name: 'partnerId', required: false })
   @ApiQuery({ name: 'fino', required: false, description: 'Solo le consegne fino a questa data (ISO)' })
-  pending(@CurrentUser() user: JwtUser, @Query('partnerId') partnerId?: string, @Query('fino') fino?: string) {
-    return this.invoicesService.pending(user, { partnerId, fino });
+  @ApiQuery({ name: 'dal', required: false })
+  @ApiQuery({ name: 'al', required: false })
+  pending(
+    @CurrentUser() user: JwtUser,
+    @Query('partnerId') partnerId?: string,
+    @Query('fino') fino?: string,
+    @Query('dal') dal?: string,
+    @Query('al') al?: string,
+  ) {
+    return this.invoicesService.pending(user, { partnerId, fino, dal, al });
   }
 
   @Get('pending/:partnerId')
