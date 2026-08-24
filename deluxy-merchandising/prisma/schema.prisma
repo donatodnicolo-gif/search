@@ -115,6 +115,14 @@ model Prodotto {
   // **pubblicazione**: e' il momento in cui il cliente ha potuto vederlo.
   pubblicatoIlShopify DateTime?
   creatoIlShopify     DateTime?
+  // **Dove e' nato il prodotto.** `merchandising` = disegnato qui (il caso
+  // normale); `platform` = caricato da un partner nella piattaforma consegne,
+  // dove il partner ha il suo account. Non e' un dettaglio di provenienza: un
+  // prodotto nato altrove non deve entrare nelle classifiche di assortimento
+  // come se l'avessimo scelto noi.
+  origine    String  @default("merchandising")
+  // Il suo id nell'app dov'e' nato, per ritrovarlo senza indovinare.
+  idEsterno  String?
   // **L'anagrafica vera del prodotto**, dai metafield `custom.*` di Shopify.
   // Sono liste scelte da un elenco chiuso — non testo libero come i tag — quindi
   // una condizione costruita qui sopra non sbaglia per una maiuscola o un
