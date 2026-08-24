@@ -1,5 +1,44 @@
 # Handoff — Deluxy Customer Service
 
+## 24/08/2026 (sera 5) — il link all'ordine non trovava niente, e la ricevuta si scarica
+
+**IL LINK.** Cliccando il numero d'ordine dai Pagamenti si finiva su una ricerca
+senza risultati. Due motivi, tutti e due misurati:
+
+1. La pagina Ordini globali leggeva `?apri=` ma **non leggeva `?q=`**. Quattro
+   punti dell'app ci mandavano col numero nell'indirizzo (Pagamenti,
+   Riconciliazione, Diario, aiuto laterale): si arrivava con la casella vuota e
+   l'elenco di sempre, che non contenendo l'ordine cercato — è tagliato a 200 su
+   1.341, ordinato per urgenza — si legge come «non trova niente».
+2. ⚠️⚠️ E tutti e quattro **toglievano il cancelletto**. La ricerca fa
+   `contains`, quindi «2780» combacia anche con **#12780**, di un altro negozio
+   e di un altro cliente. Misurato: «2780» → 2 risultati, «2786» → 4,
+   «#2785» → 1. Col cancelletto il numero torna un identificatore: «#2785» non
+   sta dentro «#12785». Ora il link lo costruisce `linkOrdine()` in
+   `src/lib/link-ordine.ts`, una funzione sola invece di quattro copie.
+
+Se il risultato è **uno solo** la scheda si apre da sola (`apertaDaLink`): chi
+clicca l'id di un ordine si aspetta l'ordine, non un elenco. ⚠️ Solo se è uno —
+«#1733» esiste su Cake e su Deluxy.
+
+**LA RICEVUTA SI SCARICA**: `GET /api/pagamenti/[id]/ricevuta`. Rotta a parte
+perché i byte non escono nell'elenco (duecento file per una tabella che usa solo
+il nome). ⚠️ Il `Content-Type` si prende dalla NOSTRA lista e non dal database —
+un tipo da un campo scrivibile è la strada per far servire `text/html` dal nostro
+dominio; `attachment` + `nosniff`; il nome ripulito, perché virgolette e a-capo
+dentro un `Content-Disposition` la spezzano.
+
+⚠️⚠️ **E un difetto mio, trovato sulle prime tre ricevute vere**: si chiamavano
+tutte e tre `incollata-2026-08-24.png` — le battezzavo con la sola data, e nel
+commento avevo pure scritto che serviva a evitare proprio questo. Ora scaricando,
+un nome generato da noi **non si tiene**: si ricostruisce da ordine e
+intestatario (`ricevuta-2790-Ratschiller-Erika.png`). Un nome scelto da una
+persona invece si rispetta. E incollando si aggiunge anche l'ora.
+
+Prove: `scripts/prova-link-e-ricevuta.mts` (21 casi). Commit `9016e6f4` e
+`7966746b`, deployati.
+
+
 ## 24/08/2026 (sera 4) — il fornitore si cerca fra i FORNITORI del registro, e su Google Maps
 
 La casella «Cerca il fornitore» guarda ora in **quattro** posti: pagamenti già
