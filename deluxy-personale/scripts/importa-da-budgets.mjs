@@ -125,7 +125,10 @@ console.log(scrive ? "MODO: scrivi (le modifiche si applicano).\n" : "MODO: prov
 // ---------- stato attuale di Personale ----------
 const funzioniEsistenti = await prisma.funzione.findMany();
 const personeEsistenti = await prisma.persona.findMany({
-  include: { _count: { select: { inquadramenti: true, compensi: true } } },
+  include: {
+    inquadramenti: true, // servono le righe vere: sui contratti già importati si completa la scadenza
+    _count: { select: { inquadramenti: true, compensi: true } },
+  },
 });
 const funzionePerNome = new Map(funzioniEsistenti.map((f) => [normalizza(f.nome), f]));
 const personaPerNome = new Map(personeEsistenti.map((p) => [normalizza(p.nome), p]));
@@ -139,6 +142,8 @@ const esito = {
   responsabiliNonTrovati: [],
   inquadramentiCreati: [],
   inquadramentiSaltati: [],
+  scadenzeImpostate: [],
+  scadenzeFinoAdAnno: [],
   compensiCreati: [],
   compensiSenzaImporto: [],
   compensiSaltati: [],
@@ -222,6 +227,17 @@ function decorrenzaDa(p) {
   return new Date(Date.UTC(anno, primoMese - 1, 1));
 }
 
+// Scadenza = ultimo giorno dell'ultimo mese dichiarato, SOLO se il periodo
+// finisce prima di dicembre: un roster annuale finisce comunque con l'anno,
+// e trasformare quel bordo in una scadenza marcherebbe «in scadenza» anche
+// i contratti stabili. (Il giorno 0 del mese successivo è l'ultimo del mese.)
+function scadenzaDa(p) {
+  if (!Array.isArray(p.mesi) || p.mesi.length === 0) return null;
+  const ultimo = Math.max(...p.mesi);
+  if (ultimo >= 12) return null;
+  return new Date(Date.UTC(anno, ultimo, 0));
+}
+
 async function importaContratto(p) {
   const persona = personaPerNome.get(normalizza(p.nome));
   if (!persona) return;
@@ -233,7 +249,23 @@ async function importaContratto(p) {
   // Inquadramento: solo per chi non ne ha nessuno (chi ha già una storia
   // scritta a mano non si tocca).
   if (persona._count.inquadramenti > 0) {
-    esito.inquadramentiSaltati.push(`${p.nome} (ne ha già ${persona._count.inquadramenti})`);
+    // Sul contratto NATO DALL'IMPORT (riconoscibile dalla nota) si completa la
+    // scadenza coi mesi dichiarati, se ancora non c'è. Le righe scritte a mano
+    // non si toccano mai.
+    const importato = (persona.inquadramenti ?? []).find((i) =>
+      (i.note ?? "").startsWith(`Come dichiarato nel roster ${anno} di Budgets`),
+    );
+    const scadenza = scadenzaDa(p);
+    if (importato && !importato.scadenza && scadenza) {
+      esito.scadenzeImpostate.push(`${p.nome}: fino al ${scadenza.toISOString().slice(0, 10)}`);
+      if (scrive) {
+        await prisma.inquadramento.update({ where: { id: importato.id }, data: { scadenza } });
+      }
+    } else if (importato && !importato.scadenza && !scadenza) {
+      esito.scadenzeFinoAdAnno.push(p.nome);
+    } else {
+      esito.inquadramentiSaltati.push(`${p.nome} (ne ha già ${persona._count.inquadramenti})`);
+    }
   } else {
     esito.inquadramentiCreati.push(
       `${p.nome}: ${p.tipoNome ?? p.tipo}${partTimePct !== 100 ? ` · part-time ${partTimePct}%` : ""}${mesiTesto ? ` · ${mesiTesto}` : ""}`,
@@ -251,6 +283,7 @@ async function importaContratto(p) {
         data: {
           personaId: persona.id,
           decorrenza: decorrenzaDa(p),
+          scadenza: scadenzaDa(p),
           tipoContratto,
           partTimePct: Math.min(100, Math.max(1, partTimePct)),
           note: [
@@ -313,6 +346,8 @@ stampa("Persone già presenti (non toccate)", esito.personeGiaPresenti);
 stampa("Responsabili di funzione da collegare", esito.responsabiliCollegati);
 stampa("Responsabili NON trovati fra le persone", esito.responsabiliNonTrovati);
 stampa("Inquadramenti da creare (come dichiarati)", esito.inquadramentiCreati);
+stampa("Scadenze da completare sui contratti importati (mesi fino a prima di dicembre)", esito.scadenzeImpostate);
+stampa("Contratti importati SENZA scadenza (mesi fino a dicembre: lì finisce il roster, non per forza il contratto)", esito.scadenzeFinoAdAnno);
 stampa("Inquadramenti saltati (storia già scritta)", esito.inquadramentiSaltati);
 stampa("Retribuzioni da creare (come dichiarate)", esito.compensiCreati);
 stampa("Retribuzioni saltate (storia già scritta)", esito.compensiSaltati);

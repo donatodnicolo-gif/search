@@ -38,9 +38,13 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
 - 🔴 Da completare a mano: la forma legale dei contratti «da precisare»
   (indeterminato? apprendistato?), CCNL/livello/qualifica, i netti se li si
   vuole a registro, e l'organigramma (nessun «riporta a» è impostato).
-  ❓ Bellazzi, Turchiello e Lo Proto hanno mesi a budget solo fino a
-  giugno/maggio: se sono usciti davvero, vanno cessati dalla loro scheda
-  (il roster non dice il perché, quindi l'import non l'ha dedotto).
+  ❓ **I mesi dichiarati sono anche il periodo del contratto** (24/08, terzo
+  giro): chi finisce prima di dicembre ha la **scadenza** all'ultimo giorno
+  dell'ultimo mese — Bellazzi e Turchiello al 30/06, Lo Proto al 31/05, oggi
+  segnalati «scaduto» in cima a /inquadramenti. Chi arriva a dicembre resta
+  senza scadenza (lì finisce il roster, non per forza il contratto). Se i tre
+  «scaduti» sono usciti davvero, vanno cessati dalla loro scheda; finché sono
+  attivi, i loro importi restano nei totali di /stipendi.
 
 ## Le regole che l'app rispetta
 
