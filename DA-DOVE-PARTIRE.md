@@ -54,7 +54,11 @@ in parallelo sullo stesso branch.
 | `deluxy-standard` | regole tecniche comuni | — | — | [STANDARD-DELUXY.md](deluxy-standard/STANDARD-DELUXY.md) |
 | `scripts` | catalogo degli script di **codice** del repo (l'app `deluxy-scripts`, invece, è dei testi commerciali) | — | — | [README.md](scripts/README.md) |
 
-Porte riservate ma non ancora in questo repo: 3090 tasks, 3100 acquisti, 3110 calendario.
+Porte riservate ma non in questo repo (le cartelle stanno in `C:\Users\nicol\app`):
+3090 tasks, 3100 acquisti, 3110 calendario, 3180 fondo, 3190 crm,
+**3200 personale** — organico/HR (funzioni, mansioni, organigramma, inquadramenti,
+retribuzioni), LIVE su [deluxy-personale.vercel.app](https://deluxy-personale.vercel.app),
+leggi per primo `deluxy-personale/README.md` in `app/`.
 
 ---
 
