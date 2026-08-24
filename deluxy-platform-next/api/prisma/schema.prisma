@@ -659,6 +659,16 @@ model ProductVariant {
   controlStock Boolean @default(false) // controlla stock variante
   stock        Int? // giacenza variante
   active       Boolean @default(true)
+  /// La stessa variante in Merchandising, che ne e' la casa.
+  ///
+  /// La variante dice COM'E' FATTO il prodotto (taglia, colore), e questo e'
+  /// mestiere del PLM. Qui serve a due cose sole: riconoscere lo SKU di un
+  /// ordine e prezzare una riga di consegna.
+  ///
+  /// ⚠️ 5.201 varianti esistono in tutte e due le app con lo stesso SKU. Il
+  /// collegamento non le sposta: dichiara chi comanda, cosi' quando i due
+  /// valori discordano si sa quale guardare invece di indovinare.
+  merchandisingId String?
   product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   deliveryProducts DeliveryProduct[]
 }
