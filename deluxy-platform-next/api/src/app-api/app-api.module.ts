@@ -8,6 +8,7 @@ import {
   Module,
   NotFoundException,
   Param,
+  Query,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
@@ -69,6 +70,99 @@ export class AppApiKeyGuard implements CanActivate {
 export class AppApiService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Le vendite di una sorgente aggiornate da un momento in poi: è la rotta del
+   * PULL incrementale di Deluxy Orders (una chiamata a giro di cron, non una
+   * per ordine). Il formato di ogni voce è lo stesso del by-ref.
+   */
+  async venditeAggiornate(source: string, aggiornateDa: string | undefined, limite: number) {
+    const da = aggiornateDa ? new Date(aggiornateDa) : null;
+    if (aggiornateDa && Number.isNaN(da?.getTime())) {
+      throw new NotFoundException('aggiornateDa non è una data ISO valida.');
+    }
+    const vendite = await this.prisma.sale.findMany({
+      where: { source, ...(da ? { updatedAt: { gte: da } } : {}) },
+      orderBy: { updatedAt: 'asc' },
+      take: Math.min(200, Math.max(1, limite)),
+      include: {
+        partner: { select: { id: true, insegna: true } },
+        province: { select: { code: true } },
+        product: { select: { id: true, name: true, type: true } },
+      },
+    });
+    const consegne = new Map(
+      (
+        await this.prisma.delivery.findMany({
+          where: { id: { in: vendite.map((s) => s.deliveryId).filter((x): x is string => !!x) } },
+          select: {
+            id: true,
+            status: true,
+            date: true,
+            deliveryTimeFrom: true,
+            deliveryTimeTo: true,
+            valetId: true,
+          },
+        })
+      ).map((d) => [d.id, d]),
+    );
+    return {
+      totale: vendite.length,
+      vendite: vendite.map((s) => this.serializza(s, s.deliveryId ? consegne.get(s.deliveryId) ?? null : null)),
+    };
+  }
+
+  private serializza(
+    s: {
+      id: string;
+      status: string;
+      amount: number;
+      discountPercent: number;
+      externalOrderId: string | null;
+      partner: { id: string; insegna: string | null } | null;
+      province: { code: string } | null;
+      product: { id: string; name: string; type: string } | null;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    consegna: {
+      id: string;
+      status: string;
+      date: Date | null;
+      deliveryTimeFrom: string | null;
+      deliveryTimeTo: string | null;
+      valetId: string | null;
+    } | null,
+  ) {
+    const costoPartner = Math.round(s.amount * (1 - s.discountPercent / 100) * 100) / 100;
+    return {
+      vendita: {
+        id: s.id,
+        riferimentoEsterno: s.externalOrderId,
+        stato: s.status,
+        importo: s.amount,
+        scontoPercento: s.discountPercent,
+        costoPartner,
+        partner: s.partner ? { id: s.partner.id, insegna: s.partner.insegna } : null,
+        provincia: s.province?.code ?? null,
+        prodotto: s.product ? { id: s.product.id, nome: s.product.name, tipo: s.product.type } : null,
+        creataIl: s.createdAt.toISOString(),
+        aggiornataIl: s.updatedAt.toISOString(),
+      },
+      consegna: consegna
+        ? {
+            id: consegna.id,
+            stato: consegna.status,
+            data: consegna.date ? consegna.date.toISOString() : null,
+            fascia:
+              consegna.deliveryTimeFrom && consegna.deliveryTimeTo
+                ? `${consegna.deliveryTimeFrom}-${consegna.deliveryTimeTo}`
+                : null,
+            conValet: Boolean(consegna.valetId),
+          }
+        : null,
+    };
+  }
+
   /** Lo stato di una vendita smistata, per il riferimento esterno. */
   async venditaByRef(source: string, externalOrderId: string) {
     const s = await this.prisma.sale.findFirst({
@@ -97,42 +191,8 @@ export class AppApiService {
           },
         })
       : null;
-
-    // Quanto va al partner: l'importo meno lo sconto che riconosce a Deluxy,
-    // CRISTALLIZZATO sulla vendita alla nascita (non il listino di oggi).
-    const costoPartner =
-      Math.round(s.amount * (1 - s.discountPercent / 100) * 100) / 100;
-
-    return {
-      vendita: {
-        id: s.id,
-        stato: s.status, // da_gestire | proposta | accettata | non_accettata | annullata
-        importo: s.amount,
-        scontoPercento: s.discountPercent,
-        costoPartner,
-        partner: s.partner ? { id: s.partner.id, insegna: s.partner.insegna } : null,
-        provincia: s.province?.code ?? null,
-        prodotto: s.product
-          ? { id: s.product.id, nome: s.product.name, tipo: s.product.type }
-          : null,
-        creataIl: s.createdAt.toISOString(),
-        aggiornataIl: s.updatedAt.toISOString(),
-      },
-      // La consegna nata dall'accettazione, se c'è. `null` = non ancora nata:
-      // è un'informazione, non un errore.
-      consegna: consegna
-        ? {
-            id: consegna.id,
-            stato: consegna.status,
-            data: consegna.date ? consegna.date.toISOString() : null,
-            fascia:
-              consegna.deliveryTimeFrom && consegna.deliveryTimeTo
-                ? `${consegna.deliveryTimeFrom}-${consegna.deliveryTimeTo}`
-                : null,
-            conValet: Boolean(consegna.valetId),
-          }
-        : null,
-    };
+    // Stesso formato della lista: chi consuma non deve imparare due dialetti.
+    return this.serializza(s, consegna);
   }
 }
 
@@ -142,6 +202,20 @@ export class AppApiService {
 @UseGuards(AppApiKeyGuard)
 export class AppApiController {
   constructor(private readonly service: AppApiService) {}
+
+  @Get('vendite')
+  @ApiOperation({
+    summary:
+      'Vendite di una sorgente aggiornate da un momento in poi (il pull incrementale di Deluxy Orders)',
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (scripts/crea-chiave-app.mjs)' })
+  vendite(
+    @Query('source') source = 'deluxy-orders',
+    @Query('aggiornateDa') aggiornateDa?: string,
+    @Query('limit') limit = '200',
+  ) {
+    return this.service.venditeAggiornate(source, aggiornateDa, Number(limit) || 200);
+  }
 
   @Get('vendite/by-ref/:source/:externalOrderId')
   @ApiOperation({
