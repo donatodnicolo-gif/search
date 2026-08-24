@@ -374,7 +374,7 @@ locale, altrimenti nulla si decifra.
     una nota lasciata a un collega non esisterebbe.
 
 - **IL CALENDARIO MOSTRA LO STATO DI GESTIONE** (24/08/2026, chiesto).
-  - ⚠️⚠️ Non è lo stato che c era già:  viene dalla pipeline di
+  - ⚠️⚠️ Non è lo stato che c era già: `statoNome` viene dalla pipeline di
     Orders e dice a che punto è l ordine **per il negozio**; la gestione dice a
     che punto siamo **noi**. Su un calendario di consegne è la seconda la
     domanda vera.

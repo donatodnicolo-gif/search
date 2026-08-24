@@ -551,7 +551,7 @@ Ogni consegna porta il suo **stato di lavorazione** — da iniziare · ricerca
 fornitore · in pagamento · attesa consegna · gestito — accanto allo stato che
 c era già.
 
-⚠️⚠️ Sono **due cose diverse**:  viene dalla pipeline di
+⚠️⚠️ Sono **due cose diverse**: `statoNome` viene dalla pipeline di
 Orders/Shopify e dice a che punto è l ordine **per il negozio**; la gestione dice
 a che punto siamo **noi**. Su un calendario di consegne la seconda è la domanda
 vera — «cosa esce giovedì, e cosa mi manca ancora da fare».
