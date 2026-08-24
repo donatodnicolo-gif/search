@@ -4,6 +4,51 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+## Dove siamo (24/08/2026) — leggere questo per primo
+
+Il conto economico a budget, come lo mostrano `/dashboard` e `/pl` (livello **Raggiungibile**):
+
+| voce | |
+| --- | ---: |
+| Ricavi | **1.101.929 €** |
+| └ dalle maison (le genera la pubblicità online) | 601.929 € |
+| └ dal team commerciale (lo porta il lavoro del team) | 500.000 € |
+| Costo del venduto | − 708.320 € |
+| Margine lordo | **393.609 € (35,7%)** |
+| Pubblicità | − 196.491 € |
+| Personale | − 218.877 € |
+| Struttura | − 106.929 € |
+| **EBITDA** | **− 128.688 €** |
+
+La **quota D2C** è **27,8%, misurata** sui mesi chiusi, e la decidono tutte e tre le pagine da un
+posto solo (`quotaDeluxyAnno()`).
+
+**Cambiato il 23–24/08:** i ricavi sono **due fonti sommate** (prima solo le maison); i **costi di
+struttura** vengono dal consuntivo (prima valevano zero); **B2B ed Experience non fanno pubblicità**;
+il **ROS** si imposta per brand; il **budget delle linee commerciali si scrive** da `/commerciale`;
+Budgets **emette le sue chiavi API** con scope e revoca.
+
+### Cosa aspetta una decisione
+
+1. 🔴 **Il budget D2C di Deluxy.it è a zero da gennaio a giugno**, contro **453.396 €** venduti
+   davvero nell'anno. Non si aggiusta dal codice: sono sei mesi di budget da scrivere, e finché
+   mancano ogni percentuale di realizzazione del periodo è illeggibile.
+2. 🔴 **I margini delle 8 linee commerciali sono tutti al 20%, ma è un'assunzione** presa da B2B ed
+   Eventi. Su una **fee di affiliazione** il margine vero è molto più alto; su **Consegne Corporate**
+   o **Magazzino**, dove il fornitore prende la parte grossa, può essere troppo. Si correggono in
+   `/margini`.
+3. 🔴 **Nessuna linea è collegata alle voci di Finance** (solo «Affiliazioni» combacia per nome
+   identico): sui mesi chiusi il consuntivo delle altre resta **«n.d.»**, che non è zero. Il
+   collegamento non si indovina — «Consegne Corporate» è «Consegne»? — e si scrive in `/commerciale`.
+4. 🔴 **`/api/v1` espone solo letture**: una chiave con scope `scrittura` si emette già ma non ha
+   niente da scrivere. Da decidere quali dati le altre app devono poter cambiare.
+5. 🔴 **`LINEE_API_KEY` manca anche in produzione**: `/commerciale` mostra «fallback locale» e non
+   confronta con l'elenco delle linee vive di Scout.
+6. ⚠️ **`BUDGETS_API_KEY` è ancora valida in lettura** per non rompere Marketing. Quando Marketing
+   avrà la sua chiave emessa, quella condivisa si può togliere.
+7. ❓ **Affiliazioni è passata da 100.000 a 96.000 €** durante la sessione del 23/08 (agosto 4.000 →
+   0). Non risulta da nessuna scrittura dell'assistente: probabilmente una modifica dell'utente.
+
 ## Cosa fa (v1)
 
 - **L'app si apre sul Consuntivo**: `/` rimanda a `/consuntivo`, perché la domanda quotidiana è
