@@ -456,6 +456,21 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 
 ## FATTO
 
+- **🔴⭐ 24/08 (sera, 3) — «SI BLOCCA TUTTA L'APP»: tre cause, tutte trovate misurando.** Deploy `delivery-lgwelmg1s`.
+  1. **Lo Storico fatture rispondeva 3,2 MB.** `GET /invoices?archived=true` portava le 559 fatture **con dentro tutte le 9.811 righe**. La rete se la cavava; a piantarsi era il browser. Le righe ora si chiedono aprendo il dettaglio (`GET /invoices/:id/lines`). **3,2 MB → 370 KB.**
+  2. **`Delivery` non aveva NESSUN indice** — 61.405 righe. Il solo conto per la paginazione costava **1.888 ms** a ogni apertura. Aggiunti `deletedAt+date`, `partnerId+date`, `valetId+date`, `status`, `invoiced`, `paymentStatus`, `realOrderNumber`. **1.888 ms → 26 ms.**
+  3. **⭐⭐ LA FUNZIONE GIRAVA A WASHINGTON E IL DATABASE È A FRANCOFORTE** (`X-Vercel-Id: fra1::iad1`). Dopo aver sistemato carico e indici il tempo restava ~5 s: non erano i dati. `regions: ["fra1"]` in `vercel.json`. **Trappola già in memoria, mai applicata qui.**
+  - In più l'elenco consegne mandava **119 colonne** per riempirne otto (250 KB per venti righe): ora seleziona le venti dichiarate dal contratto del frontend. **250 KB → 31 KB.** Di lato: le note interne non escono più affatto, invece di essere nascoste dopo la lettura.
+  - **Misure finali, a caldo**: Consegne 5,0 s → **0,62 s** · Storico 2,9 s → **0,33 s** · Da fatturare 7,6 s → **0,48 s** · Da pagare 5,8 s → 2,46 s (resta il più pesante: carica 36.642 consegne).
+
+- **⭐ 24/08 — Il margine dell'ordine si completa: la piattaforma espone costo consegna e fee.**
+  - Orders sa già fare il conto (`totale − costoFornitore − costoConsegna + feeConsegna`) ma dichiarava il margine **parziale** con la nota «la piattaforma non lo espone ancora». Ora lo espone: `POST /orders-sync/margini` e `scripts/spingi-margini-a-orders.mjs`.
+  - Formule del manuale §3.8: `costoConsegna` = paga valet (`valetSalary + valetAdditionalPrice`), `feeConsegna` = `commissionPercent/100 × (price + additionalPrice)`.
+  - **Si mandano gli INGREDIENTI, non il margine**: il margine si calcola in un posto solo (Standard §7); il totale dell'ordine e il costo del fornitore vivono in Orders.
+  - ⚠️ **Il legame NON passa da `Sale.externalOrderId`** (nasce solo quando un partner accetta: 0 su 66) ma da **`Delivery.realOrderNumber`**. ⚠️ E le due app scrivono quel numero diverso: Orders `gid://shopify/Order/1103…`, la piattaforma `1103…` — senza normalizzare l'appaiamento usciva **zero su 4.000 ordini**.
+  - Misurato: **9.210 ordini appaiati, 11.004 consegne su 11.054 (99,5%), 103.258 € di costo consegna e 28.768 € di fee.**
+  - **Lato Orders (repo scoutwt, branch `scout-ui`)**: il PATCH accetta `costoConsegna`/`feeConsegna`; e ⭐ **l'API calcolava il margine a mano** (`totale − costoFornitore`) mentre il serializzatore dieci righe più su usava `margineOrdine()` — due numeri diversi nello stesso file, e quello dell'API sempre più alto del vero. Ora usa la funzione, ed espone `margineParziale`, `margineNota`, `costoConsegna`, `feeConsegna`.
+
 - **⭐⭐ 24/08 (sera, 2) — La fattura e' un MESE, il recap al partner, e l'arretrato chiuso al 1 agosto.** Deploy `delivery-2sxphn6ll`.
   - **«fatturazione cosi' non ha logica»** — vero: una riga era un partner col periodo di TUTTE le sue consegne mai fatturate («Artista Locale · 2001–2026 · 2.524 consegne»), e «Fattura» avrebbe emesso un documento per venticinque anni. Misurato come si fatturava davvero: **324 delle 559 fatture storiche coprivano un mese** (mediana 21 giorni, 18 consegne). Ora **una riga = un partner in un mese**, ordinate per mese piu' recente; il mese in corso porta «in corso»; «Fattura» compila il primo e l'ultimo giorno di quel mese. Il mese si calcola **in ora di Roma** (a Greenwich il 1° alle 00:30 e' ancora il mese prima). Le date impossibili del legacy (2926, 2029, 2001) sono escluse e contate a parte.
   - **⭐ Nelle VENDITE il denaro va nell'altro verso**: il cliente paga Deluxy, noi tratteniamo la percentuale e **il resto lo dobbiamo al partner**. Due colonne nuove, **Venduto** e **Dovuto al partner**, in riga e nel riepilogo: 4.091 consegne per **444.819 €** di venduto.
