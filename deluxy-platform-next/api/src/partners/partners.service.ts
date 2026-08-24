@@ -1,7 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
-  NotFoundException,
+  NotFoundException,  Logger,
 } from '@nestjs/common';
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
@@ -33,6 +33,8 @@ const PARTNER_INCLUDE = {
 
 @Injectable()
 export class PartnersService {
+  private readonly logger = new Logger(PartnersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
@@ -442,11 +444,42 @@ export class PartnersService {
     return summary;
   }
 
+  /**
+   * I prodotti seguono il partner: se lo si disattiva, vanno in archivio.
+   *
+   * Un prodotto di un partner spento non è vendibile — non compare nel form
+   * consegna, non lo smista nessuno — ma restava nella lista principale come
+   * se lo fosse. Erano 522 su 15.135.
+   *
+   * ⚠️ Si segna il MOTIVO (`archivedReason`), e serve alla direzione opposta:
+   * riattivando il partner si ripescano **solo** i prodotti finiti in archivio
+   * per causa sua. Senza quel segno, riattivare avrebbe tirato fuori anche
+   * quelli che qualcuno aveva archiviato apposta — disfacendo una decisione
+   * presa da una persona.
+   */
+  private async seguiLoStatoDelPartner(partnerId: string, prima: boolean, dopo: boolean) {
+    if (prima === dopo) return;
+    const MOTIVO = 'partner-disattivato';
+    if (!dopo) {
+      const { count } = await this.prisma.product.updateMany({
+        where: { partnerId, archived: false },
+        data: { archived: true, archivedAt: new Date(), archivedReason: MOTIVO },
+      });
+      if (count) this.logger.log(`Partner ${partnerId} disattivato: ${count} prodotti archiviati`);
+      return;
+    }
+    const { count } = await this.prisma.product.updateMany({
+      where: { partnerId, archived: true, archivedReason: MOTIVO },
+      data: { archived: false, archivedAt: null, archivedReason: null },
+    });
+    if (count) this.logger.log(`Partner ${partnerId} riattivato: ${count} prodotti ripescati`);
+  }
+
   async update(id: string, dto: UpdatePartnerDto, user: JwtUser) {
     if (user.role === Role.PARTNER && user.partnerId !== id) {
       throw new ForbiddenException('Accesso non consentito');
     }
-    await this.findOne(id);
+    const prima = await this.findOne(id);
     const { provinceIds, categoryIds, services, openingHours, pickupAddresses, ...rest } = dto;
     const scalar = {
       ...rest,
@@ -507,6 +540,7 @@ export class PartnersService {
       include: PARTNER_INCLUDE,
       omit: PARTNER_OMIT,
     });
+    await this.seguiLoStatoDelPartner(id, prima.active, aggiornato.active);
     this.anagrafiche.sincronizza(aggiornato);
     return aggiornato;
   }

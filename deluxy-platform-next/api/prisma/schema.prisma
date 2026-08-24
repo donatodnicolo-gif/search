@@ -633,6 +633,13 @@ model Product {
   // visibile nella lista principale; uno archiviato va nella sezione Archivio.
   archived                Boolean            @default(false)
   archivedAt              DateTime?
+  /// Perche' e' finito in archivio: `partner-disattivato` quando ci e' andato
+  /// da solo, `null` quando l'ha archiviato una persona.
+  ///
+  /// Serve a poter DISFARE la regola automatica: riattivando il partner si
+  /// ripescano solo i prodotti che erano stati archiviati per causa sua, e non
+  /// quelli che qualcuno aveva archiviato apposta.
+  archivedReason          String?
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
 }
