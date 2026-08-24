@@ -135,41 +135,48 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
     return perKm + fuori;
   };
 
+  // ⚠️ Senza listino non si sa: e' l'unico caso di «non prezzabile».
+  //
+  // Se il listino C'E' ed e' a zero, zero e' la RISPOSTA, non un buco: ci sono
+  // partner per cui non si trattiene niente — una vendita con fee 0% e' una
+  // scelta commerciale, non un dato mancante. Prima li contavo tutti come
+  // incompleti: 3.285 consegne accusate di essere un buco quando erano
+  // semplicemente gratuite.
+  if (!listino && modello !== 'CORPORATE') return null;
+
   switch (modello) {
     case 'PREZZO_FISSO': {
       const tariffa = listino?.price ?? d.serviceType?.basePrice ?? 0;
-      if (tariffa <= 0) return null;
       return { amount: mai_negativo(tariffa + supplementoKm() + extra), origine: 'listino', modello };
     }
     case 'A_ORA': {
-      const tariffa = listino?.price ?? 0;
-      if (tariffa <= 0) return null;
       // Il minimo di ore del servizio: mezz'ora di lavoro non si fattura mezza.
       const ore = Math.max(d.hours ?? 0, d.serviceType?.minHours ?? 1);
-      return { amount: mai_negativo(tariffa * ore + supplementoKm() + extra), origine: 'listino', modello };
+      return { amount: mai_negativo((listino?.price ?? 0) * ore + supplementoKm() + extra), origine: 'listino', modello };
     }
     case 'MAGAZZINO': {
       const base = listino?.price ?? d.serviceType?.basePrice ?? 0;
       const aPezzo = listino?.pricePerItem ?? d.serviceType?.perPiecePrice ?? 0;
       const pezzi = (d.products ?? []).reduce((s, p) => s + (p.quantity ?? 1), 0);
-      const totale = base + aPezzo * pezzi;
-      if (totale <= 0) return null;
-      return { amount: mai_negativo(totale + extra), origine: 'listino', modello };
+      return { amount: mai_negativo(base + aPezzo * pezzi + extra), origine: 'listino', modello };
     }
     case 'VENDITA': {
-      // ⚠️ `listino.price` qui e' una PERCENTUALE, non euro.
+      // ⚠️ `listino.price` qui e' una PERCENTUALE, non euro. Una fee dello 0%
+      // e' legittima: la consegna e' avvenuta e non si trattiene niente.
       const feePercento = listino?.price ?? 0;
-      if (feePercento <= 0 || valoreProdotti <= 0) return null;
       return { amount: mai_negativo((valoreProdotti * feePercento) / 100 + extra), origine: 'listino', modello };
     }
     case 'CORPORATE': {
-      if (valoreProdotti <= 0) return null;
+      // Il corporate non passa dal listino ma dai prodotti: senza prodotti non
+      // c'e' proprio niente su cui calcolare.
+      if (!(d.products ?? []).length) return null;
       return { amount: mai_negativo(valoreProdotti + extra), origine: 'listino', modello };
     }
     default:
       return null;
   }
 }
+
 
 /** Aliquota IVA e conversione imponibile → totale: una regola sola per tutti. */
 const IVA = 22;

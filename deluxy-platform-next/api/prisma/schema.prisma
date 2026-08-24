@@ -465,7 +465,15 @@ model Valet {
   birthPlace          String?
   birthDate           DateTime?
   iban                String?
+  /// ⭐ Non e' una persona: e' il segnaposto «Consegna Partner», usato quando
+  /// la consegna se l'e' fatta il partner e non c'e' nessun valet da pagare.
+  ///
+  /// Serve una colonna perche' riconoscerlo dal NOME sarebbe pericoloso: c'e'
+  /// un valet vero che si chiama «Consegna Amin» (una persona, 220 consegne da
+  /// pagare) e una regola larga su «consegna» lo cancellerebbe dagli stipendi.
+  placeholder         Boolean           @default(false)
   isTeamLeader        Boolean           @default(false)
+
   // Team leader: province dove può assegnare + partner associati + partner esclusi (JSON array di id, compat. SQLite)
   teamLeaderProvinces String?
   teamLeaderPartners  String?

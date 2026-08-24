@@ -123,23 +123,22 @@ export function pagaConsegna(
   const modello = listino.serviceType?.pricingModel ?? d.serviceType?.pricingModel ?? '';
   const perKm = (d.extraKm ?? 0) * (listino.extraKmPrice ?? 0);
 
+  // Come lato partner: se il listino c'e', il suo numero e' la risposta anche
+  // quando vale zero (esistono servizi inclusi, che il valet non fattura a
+  // parte). «Non pagabile» resta solo quando il listino non c'e' affatto —
+  // gestito sopra dal `if (!listino) return null`.
   if (modello === 'A_ORA') {
-    const oraria = listino.salary ?? 0;
-    if (oraria <= 0) return null;
     const ore = Math.max(d.hours ?? 0, listino.serviceType?.minHours ?? d.serviceType?.minHours ?? 1);
-    return { amount: mai_negativo(oraria * ore + perKm + extra), origine: 'listino' };
+    return { amount: mai_negativo((listino.salary ?? 0) * ore + perKm + extra), origine: 'listino' };
   }
   if (modello === 'MAGAZZINO') {
     const aPezzo = listino.salaryPerItem ?? 0;
     const pezzi = (d.products ?? []).reduce((s, p) => s + (p.quantity ?? 1), 0);
-    const totale = (listino.salary ?? 0) + aPezzo * pezzi;
-    if (totale <= 0) return null;
-    return { amount: mai_negativo(totale + perKm + extra), origine: 'listino' };
+    return { amount: mai_negativo((listino.salary ?? 0) + aPezzo * pezzi + perKm + extra), origine: 'listino' };
   }
-  const fissa = listino.salary ?? 0;
-  if (fissa <= 0) return null;
-  return { amount: mai_negativo(fissa + perKm + extra), origine: 'listino' };
+  return { amount: mai_negativo((listino.salary ?? 0) + perKm + extra), origine: 'listino' };
 }
+
 
 @Injectable()
 export class SalariesService {
@@ -432,7 +431,13 @@ export class SalariesService {
    */
   private static readonly DA_PAGARE = {
     NOT: { valetId: null },
+    // ⭐ «Consegna Partner» non e' una persona: e' il segnaposto delle consegne
+    // che si e' fatto il partner. Sono 1.882, tutte a paga zero, e finivano nel
+    // conto delle «non pagabili» come se mancasse un dato — mentre il dato c'e'
+    // ed e' che non c'e' nessuno da pagare.
+    valet: { placeholder: false },
     payable: true,
+
     status: { in: ['delivered', 'delivered_time_approved'] },
     paymentStatus: { not: 'paid' },
     salaryLines: { none: {} },

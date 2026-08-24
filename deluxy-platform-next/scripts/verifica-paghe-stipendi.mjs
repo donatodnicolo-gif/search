@@ -26,7 +26,7 @@ const db = new PrismaClient({ datasources: { db: { url:
   `postgresql://${u.username}:${u.password}@${u.hostname}:5432/postgres?schema=platform&connection_limit=1` } } });
 
 const where = {
-  NOT: { valetId: null }, payable: true,
+  NOT: { valetId: null }, valet: { placeholder: false }, payable: true,
   status: { in: ['delivered', 'delivered_time_approved'] },
   paymentStatus: { not: 'paid' }, salaryLines: { none: {} },
 };
