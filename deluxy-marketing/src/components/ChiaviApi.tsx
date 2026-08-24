@@ -156,7 +156,7 @@ export function ChiaviApi({ chiavi }: { chiavi: RigaChiave[] }) {
                       {c.scrittura ? "lettura e scrittura" : "solo lettura"}
                     </span>
                   </td>
-                  <td className="cella-muta">{new Date(c.creataIl).toLocaleDateString("it-IT")}</td>
+                  <td className="cella-muta">{new Date(c.creataIl).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}</td>
                   <td className="cella-muta">
                     {c.ultimoUso ? (
                       new Date(c.ultimoUso).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })

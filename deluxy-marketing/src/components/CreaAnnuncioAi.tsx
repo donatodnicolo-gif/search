@@ -276,7 +276,7 @@ export function CreaAnnuncioAi({
             {ripresaDel && (
               <div className="avviso-ok" style={{ marginBottom: 14 }}>
                 Ripresa la bozza lasciata il{" "}
-                {new Date(ripresaDel).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}.
+                {new Date(ripresaDel).toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}.
                 {scartaBozza && (
                   <>
                     {" "}
@@ -460,7 +460,7 @@ export function CreaAnnuncioAi({
                 chiede se perderà il lavoro. */}
             <span className="cella-sub" style={{ marginRight: "auto" }}>
               {salvataIl
-                ? `Bozza salvata alle ${new Date(salvataIl).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} — puoi chiudere e riprendere dopo`
+                ? `Bozza salvata alle ${new Date(salvataIl).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit" })} — puoi chiudere e riprendere dopo`
                 : titoli.length || descrizioni.length
                 ? ""
                 : ""}

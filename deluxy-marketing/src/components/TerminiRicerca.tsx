@@ -199,7 +199,7 @@ export async function TerminiRicerca({
   }
   const elencoFinestre = [...finestre.values()].sort((a, b) => b.righe - a.righe);
   const piuFinestre = elencoFinestre.length > 1;
-  const data = (d: Date) => d.toLocaleDateString("it-IT");
+  const data = (d: Date) => d.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" });
   // La finestra di riferimento è quella della maggioranza delle righe; quando
   // ce n'è più d'una si dichiara l'intervallo complessivo e il perché.
   const principale = elencoFinestre[0] ?? null;

@@ -311,7 +311,7 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
         chiave: "dati-fermi",
         titolo: `I dati di "${d.campagna.nome}" sono fermi da ${giorni} giorni`,
         perche:
-          `L'ultimo giorno con metriche è il ${ultimo.toLocaleDateString("it-IT")}. Di solito è la colonna Frequenza ` +
+          `L'ultimo giorno con metriche è il ${ultimo.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}. Di solito è la colonna Frequenza ` +
           `dello script rimasta vuota: "Esegui" lancia una volta sola.`,
         priorita: "alta",
         dove: "/ricezione",

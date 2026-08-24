@@ -53,7 +53,7 @@ export async function SegmentiCampagna({ campagnaId, brand }: { campagnaId: stri
 
   const be = breakEvenRoas(brand);
   const periodo = righe[0].dal && righe[0].al
-    ? `${righe[0].dal.toLocaleDateString("it-IT")} → ${righe[0].al.toLocaleDateString("it-IT")}`
+    ? `${righe[0].dal.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })} → ${righe[0].al.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}`
     : null;
 
   const tipi = ["dispositivo", "giorno", "rete"].filter((t) => righe.some((r) => r.tipo === t));

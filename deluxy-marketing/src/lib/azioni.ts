@@ -278,7 +278,7 @@ export async function cambiaStatoCampagna(stato: string, fd: FormData) {
     await prisma.azione.create({
       data: {
         titolo: `Far partire "${campagna.nome}"`,
-        descrizione: `Deciso dall'app Marketing il ${new Date().toLocaleDateString("it-IT")}: la campagna è pronta e va fatta partire.`,
+        descrizione: `Deciso dall'app Marketing il ${new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}: la campagna è pronta e va fatta partire.`,
         brand: campagna.brand,
         canale: campagna.canale,
         priorita: "alta",
@@ -293,7 +293,7 @@ export async function cambiaStatoCampagna(stato: string, fd: FormData) {
     await prisma.azione.create({
       data: {
         titolo: `Eseguire su ${campagna.canale === "meta_ads" ? "Meta" : "Google Ads"}: concludere "${campagna.nome}"`,
-        descrizione: `Deciso dall'app Marketing il ${new Date().toLocaleDateString("it-IT")}. ⚠️ Concludere una campagna NON è fra le operazioni che lo script sa eseguire: va fatto in interfaccia. Al termine chiudere questa azione con l'esito reale.`,
+        descrizione: `Deciso dall'app Marketing il ${new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}. ⚠️ Concludere una campagna NON è fra le operazioni che lo script sa eseguire: va fatto in interfaccia. Al termine chiudere questa azione con l'esito reale.`,
         brand: campagna.brand,
         canale: campagna.canale,
         priorita: "alta",
@@ -652,7 +652,7 @@ export async function riprovaCompletamento(fd: FormData) {
       // scriverà uno nuovo e due esiti insieme sarebbero una bugia.
       esito: null,
       motivo:
-        `${op.motivo ? op.motivo + " · " : ""}Riprovato il ${new Date().toLocaleDateString("it-IT")}: ` +
+        `${op.motivo ? op.motivo + " · " : ""}Riprovato il ${new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}: ` +
         `il giro precedente aveva lasciato indietro qualcosa — ${(op.esito ?? "").slice(0, 400)}`,
     },
   });
@@ -1185,6 +1185,9 @@ export async function registraModifica(fd: FormData) {
     deltaBudgetPct,
     rollbackPiano,
     ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+    // ⚠️ Anche COSA era: l'avviso deve poterla nominare, o chi legge se la va
+    // a cercare nello storico (o non se la cerca affatto).
+    ultimaModificaVoce: campagna.modifiche[0] ?? null,
   });
   // Il change control non rifiuta più (04/08/2026): quello che avrebbe detto
   // resta scritto nello storico accanto alla modifica, così fra un mese si sa
@@ -1481,7 +1484,7 @@ export async function creaOccasione(fd: FormData) {
         priorita: "alta",
         owner: "ai",
         scadenza: new Date(data.getTime() + c.giorni * 86_400_000),
-        eventi: { create: { tipo: "creazione", autore: "sistema", testo: `Generata dall'occasione "${nome}" (${data.toLocaleDateString("it-IT")})` } },
+        eventi: { create: { tipo: "creazione", autore: "sistema", testo: `Generata dall'occasione "${nome}" (${data.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })})` } },
       },
     });
   }
@@ -1639,6 +1642,9 @@ export async function creaOperazione(fd: FormData) {
     deltaBudgetPct: deltaPct,
     rollbackPiano: testo(fd, "rollbackPiano"),
     ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+    // ⚠️ Anche COSA era: l'avviso deve poterla nominare, o chi legge se la va
+    // a cercare nello storico (o non se la cerca affatto).
+    ultimaModificaVoce: campagna.modifiche[0] ?? null,
     l2Settimana: numeroDa(fd, "l2Settimana") ?? 0,
   });
   // Add-before-pause (doc 11, da ERR-2026-001): su una traino il vincente non
@@ -1733,6 +1739,9 @@ export async function creaOperazioneKeyword(fd: FormData) {
       deltaBudgetPct: null,
       rollbackPiano: testo(fd, "rollbackPiano"),
       ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+    // ⚠️ Anche COSA era: l'avviso deve poterla nominare, o chi legge se la va
+    // a cercare nello storico (o non se la cerca affatto).
+    ultimaModificaVoce: campagna.modifiche[0] ?? null,
       l2Settimana,
     });
     avvisi.push(...esito.avvisi);
@@ -2056,7 +2065,7 @@ export async function accettaProposta(propostaId: string) {
     await prisma.azione.create({
       data: {
         titolo: `${p.azione === "alza" ? "Spingere di più" : p.azione === "abbassa" ? "Ridimensionare" : "Guardare"}: "${p.testo}" su ${p.campagna.nome}`,
-        descrizione: `Proposta dall'AI il ${new Date().toLocaleDateString("it-IT")}: ${p.motivo}\n\nNumeri su cui è stata fatta: ${p.numeri ?? "—"}.\n\nLe offerte non si toccano da script: va fatto in interfaccia Google Ads.`,
+        descrizione: `Proposta dall'AI il ${new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}: ${p.motivo}\n\nNumeri su cui è stata fatta: ${p.numeri ?? "—"}.\n\nLe offerte non si toccano da script: va fatto in interfaccia Google Ads.`,
         brand: p.campagna.brand,
         canale: p.campagna.canale,
         priorita: "media",
@@ -2434,6 +2443,9 @@ export async function creaOperazioneGruppo(fd: FormData) {
     deltaBudgetPct: null,
     rollbackPiano: testo(fd, "rollbackPiano"),
     ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+    // ⚠️ Anche COSA era: l'avviso deve poterla nominare, o chi legge se la va
+    // a cercare nello storico (o non se la cerca affatto).
+    ultimaModificaVoce: campagna.modifiche[0] ?? null,
     l2Settimana,
   });
   if (campagna.incidenti.length > 0) {
@@ -3367,7 +3379,7 @@ export async function riprovaFallita(fd: FormData) {
       // prossimo giro ne scrivera' uno nuovo.
       esito: null,
       motivo:
-        `${op.motivo ? op.motivo + " · " : ""}Rimessa in coda il ${new Date().toLocaleDateString("it-IT")} ` +
+        `${op.motivo ? op.motivo + " · " : ""}Rimessa in coda il ${new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })} ` +
         `dopo un tentativo fallito — ${(op.esito ?? "").slice(0, 400)}`,
     },
   });
@@ -3835,7 +3847,7 @@ export async function accodaBudgetCampagne(input: {
     messaggio:
       `${messe === 1 ? "1 modifica messa" : `${messe} modifiche messe`} in coda` +
       (daEseguireDal
-        ? `, programmate dal ${daEseguireDal.toLocaleDateString("it-IT")}: restano ferme fino a quel giorno anche se le approvi adesso.`
+        ? `, programmate dal ${daEseguireDal.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}: restano ferme fino a quel giorno anche se le approvi adesso.`
         : ".") +
       (saltate.length
         ? ` Saltate perché ne hanno già una in coda: ${saltate.join(", ")}.`

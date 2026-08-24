@@ -39,7 +39,7 @@ export async function FreschezzaDati({
       <span className="nota-icona" style={{ color: grave ? "var(--red)" : "var(--orange)" }}>⚠</span>
       <span>
         <b>
-          I dati si fermano al {ultimo._max.data.toLocaleDateString("it-IT")}
+          I dati si fermano al {ultimo._max.data.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}
           {giorniIndietro > 1 ? ` — ${giorniIndietro} giorni fa` : ""}
         </b>
         : mancano i giorni successivi, quindi i totali del periodo sono più bassi del vero.

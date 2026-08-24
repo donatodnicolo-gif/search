@@ -92,7 +92,7 @@ export async function OggiCampagna({
                 : <>, <b style={{ color: "var(--orange)" }}>superato di {formattaEuro(-restaBudget)}</b></>
             )}
             {ultimaScritta
-              ? ` · ricevuta alle ${ultimaScritta.creataIl.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`
+              ? ` · ricevuta alle ${ultimaScritta.creataIl.toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit" })}`
               : ""}
           </div>
         </div>

@@ -413,7 +413,7 @@ export default async function SchedaGruppo({
       : `L'app ha già creato ${
           annunciGiaCreati.length === 1 ? "un annuncio" : annunciGiaCreati.length + " annunci"
         } su Google per questo gruppo (${annunciGiaCreati
-          .map((x) => x.eseguitaIl?.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }) ?? "?")
+          .map((x) => x.eseguitaIl?.toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit" }) ?? "?")
           .join(", ")}). Un gruppo con più annunci va bene — due identici no.`;
 
   const urlSuggerito = (() => {

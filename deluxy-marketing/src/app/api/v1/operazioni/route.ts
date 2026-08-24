@@ -103,6 +103,9 @@ export async function POST(req: NextRequest) {
       deltaBudgetPct: body.deltaBudgetPct != null ? Number(body.deltaBudgetPct) : null,
       rollbackPiano: body.rollbackPiano ?? null,
       ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+    // ⚠️ Anche COSA era: l'avviso deve poterla nominare, o chi legge se la va
+    // a cercare nello storico (o non se la cerca affatto).
+    ultimaModificaVoce: campagna.modifiche[0] ?? null,
     });
     // Niente più 409: il change control avvisa e l'avviso viaggia con
     // l'operazione fino a chi approva. Vale anche per l'incidente aperto.

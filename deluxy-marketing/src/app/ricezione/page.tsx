@@ -157,7 +157,7 @@ export default async function Ricezione({
             <div className="kpi-etichetta">
               Giorni-campagna in archivio
               {metriche._min.data && metriche._max.data && (
-                <> · dal {metriche._min.data.toLocaleDateString("it-IT")} al {metriche._max.data.toLocaleDateString("it-IT")}</>
+                <> · dal {metriche._min.data.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })} al {metriche._max.data.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}</>
               )}
             </div>
           </div>
@@ -225,7 +225,7 @@ export default async function Ricezione({
                         <td>{s.righe.toLocaleString("it-IT")}</td>
                         <td className="cella-muta">
                           {s.dal && s.al
-                            ? `${s.dal.toLocaleDateString("it-IT")} – ${s.al.toLocaleDateString("it-IT")}`
+                            ? `${s.dal.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })} – ${s.al.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}`
                             : "—"}
                         </td>
                         <td>
@@ -267,7 +267,7 @@ export default async function Ricezione({
                       <td>{c.righe.toLocaleString("it-IT")}</td>
                       <td className="cella-muta">{c.campagne || "—"}</td>
                       <td className="cella-muta">
-                        {c.dal && c.al ? `${c.dal.toLocaleDateString("it-IT")} – ${c.al.toLocaleDateString("it-IT")}` : "—"}
+                        {c.dal && c.al ? `${c.dal.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })} – ${c.al.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}` : "—"}
                       </td>
                       <td>
                         <span style={{ fontSize: 12, fontWeight: 600, color: c.esito === "ok" ? "var(--green)" : "var(--orange)" }}>

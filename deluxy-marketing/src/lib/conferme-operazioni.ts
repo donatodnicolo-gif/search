@@ -111,7 +111,7 @@ function euro(n: number): string {
 }
 
 function dataOra(d: Date): string {
-  return d.toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 function giorniDa(d: Date): number {

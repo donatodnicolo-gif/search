@@ -234,7 +234,7 @@ export default async function PaginaOperazioni({
     //    stanotte.
     const programmata =
       o.daEseguireDal && o.daEseguireDal.getTime() > Date.now()
-        ? o.daEseguireDal.toLocaleDateString("it-IT")
+        ? o.daEseguireDal.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })
         : null;
     const dettagli = [
       o.prima ? `prima: ${o.prima}` : null,

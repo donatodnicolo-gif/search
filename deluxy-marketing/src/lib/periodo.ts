@@ -48,7 +48,7 @@ export function risolviPeriodo(preset?: string, daStr?: string, aStr?: string, a
   if (daStr && aStr && !isNaN(new Date(daStr).getTime()) && !isNaN(new Date(aStr).getTime())) {
     da = mezzanotte(new Date(daStr));
     a = new Date(mezzanotte(new Date(aStr)).getTime() + GIORNO); // inclusiva → esclusiva
-    etichetta = `${da.toLocaleDateString("it-IT")} – ${new Date(a.getTime() - GIORNO).toLocaleDateString("it-IT")}`;
+    etichetta = `${da.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })} – ${new Date(a.getTime() - GIORNO).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}`;
     chiave = "libero";
   } else if (chiave === "7g") {
     a = domani;

@@ -361,7 +361,7 @@ export async function accodaAnnuncio(input: {
           ok: false,
           errore:
             `Questo identico annuncio è già stato creato su Google il ` +
-            `${g.eseguitaIl ? g.eseguitaIl.toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "in precedenza"}. ` +
+            `${g.eseguitaIl ? g.eseguitaIl.toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "in precedenza"}. ` +
             `Due copie identiche non fanno una gara: sono lo stesso annuncio che compete con se stesso. ` +
             `Cambia almeno un titolo se ne vuoi una variante, oppure lascia stare.`,
         };

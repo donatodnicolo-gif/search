@@ -132,7 +132,7 @@ export default async function PaginaMkt({
       colonne.push({
         chiave: `W${pad(w)}`,
         etichetta: `W${w}`,
-        sotto: s.inizio.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }),
+        sotto: s.inizio.toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit" }),
         tipo: "periodo",
       });
     }

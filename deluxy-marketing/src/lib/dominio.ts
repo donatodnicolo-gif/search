@@ -238,18 +238,16 @@ export const ETICHETTA_CATEGORIA_DRIVE: Record<string, string> = {
 
 export function formattaData(d: Date | string | null | undefined): string {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(d).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 export function formattaDataOra(d: Date | string | null | undefined): string {
   if (!d) return "—";
-  return new Date(d).toLocaleString("it-IT", {
-    day: "2-digit",
+  return new Date(d).toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
-    minute: "2-digit",
-  });
+    minute: "2-digit", });
 }
 
 export function formattaEuro(n: number | null | undefined): string {

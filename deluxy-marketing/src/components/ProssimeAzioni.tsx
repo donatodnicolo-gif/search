@@ -131,8 +131,8 @@ export async function ProssimeAzioni({ campagnaId }: { campagnaId: string }) {
                 {/* Da dove nasce: una proposta senza provenienza è un'opinione. */}
                 <div className="cella-sub" style={{ marginTop: 4, color: "var(--text-tertiary)" }}>
                   {v.origine ?? "Regola dell'app sui numeri di questa campagna"}
-                  {v.dal && ` · aperto il ${v.dal.toLocaleDateString("it-IT")}`}
-                  {!v.dal && ultimoGiorno && ` · calcolata adesso sui dati fino al ${ultimoGiorno.toLocaleDateString("it-IT")}`}
+                  {v.dal && ` · aperto il ${v.dal.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}`}
+                  {!v.dal && ultimoGiorno && ` · calcolata adesso sui dati fino al ${ultimoGiorno.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}`}
                 </div>
                 {v.dove && (
                   <div style={{ marginTop: 4 }}>

@@ -33,8 +33,8 @@ export function GraficoSpesa({ punti }: { punti: { data: Date; valore: number }[
       </svg>
       <div className="grafico-legenda">
         <span>
-          {punti[0].data.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })} →{" "}
-          {punti[punti.length - 1].data.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}
+          {punti[0].data.toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit" })} →{" "}
+          {punti[punti.length - 1].data.toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit" })}
         </span>
         <span>
           Totale {formattaEuro(totale)} · picco {formattaEuro(max)}

@@ -233,6 +233,14 @@ export function validaModifica(opts: {
   deltaBudgetPct: number | null;
   rollbackPiano: string | null;
   ultimaModifica: Date | null;
+  /**
+   * QUALE era la modifica precedente. Senza, l'avviso diceva «seconda modifica
+   * in 69 ore» e basta: un fatto vero e inutilizzabile, perché per decidere
+   * bisogna sapere **cosa** era stato cambiato — e chi legge doveva andarselo
+   * a cercare nello storico. Chiesto dall'utente il 24/08/2026 guardando
+   * l'avviso: «mostrami quali sono le modifiche già fatte».
+   */
+  ultimaModificaVoce?: { descrizione: string; prima: string | null; dopo: string | null; livello: string } | null;
   // quante L2/L3 sono gia state fatte questa settimana su questa campagna
   l2Settimana?: number;
   adesso?: Date;
@@ -255,8 +263,30 @@ export function validaModifica(opts: {
   if (opts.ultimaModifica) {
     const ore = (adesso.getTime() - opts.ultimaModifica.getTime()) / 3600_000;
     if (ore < ORE_BLACKOUT) {
+      const v = opts.ultimaModificaVoce;
+      // Cos'era: il passaggio prima→dopo se c'è (è la forma che si legge in un
+      // colpo d'occhio), altrimenti la descrizione registrata.
+      const cosa = v
+        ? v.prima && v.dopo
+          ? `«${v.prima} → ${v.dopo}»${v.livello ? ` (${v.livello})` : ""}`
+          : `«${v.descrizione}»`
+        : null;
+      // Quando torna giudicabile: un avviso che dice solo «è troppo presto»
+      // lascia a chi legge il conto delle ore. Dirgli l'ora esatta trasforma
+      // l'avviso in una decisione: aspetto fino alle 16:09, o vado lo stesso.
+      const fine = new Date(opts.ultimaModifica.getTime() + ORE_BLACKOUT * 3600_000);
+      const quando = fine.toLocaleString("it-IT", {
+        timeZone: "Europe/Rome",
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
       avvisi.push(
-        `Seconda modifica sulla stessa campagna in ${Math.round(ore)} ore: i risultati dei prossimi giorni non diranno quale delle due li ha prodotti, e la prima non sarà più giudicabile (doc 11 §3.4 chiede 72h). Le negative L0 non contano.`
+        `Seconda modifica sulla stessa campagna in ${Math.round(ore)} ore` +
+          (cosa ? `: la precedente era ${cosa}` : "") +
+          `. I risultati dei prossimi giorni non diranno quale delle due li ha prodotti, e la prima non sarà più giudicabile (doc 11 §3.4 chiede 72h). ` +
+          `Aspettando fino alle ${quando} l'avviso non c'è più. Le negative L0 non contano.`
       );
     }
   }
