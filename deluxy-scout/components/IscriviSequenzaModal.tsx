@@ -5,8 +5,9 @@
 // passi non manderebbe mai niente, e una spenta nemmeno — proporle vorrebbe
 // dire far credere di aver messo in moto qualcosa.
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Foglio } from '@/components/Foglio';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -75,22 +76,11 @@ export function IscriviSequenzaModal({
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.head}>
-            <Text style={styles.titolo} numberOfLines={2}>
-              Metti {place.nome} in sequenza
-            </Text>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={24} color={colors.testoSoft} />
-            </Pressable>
-          </View>
-          <Text style={styles.aiuto}>
-            L’app terrà il conto delle scadenze. Se il cliente risponde la sequenza si ferma da sé, e prima di
-            ogni invio controlla che non abbia già risposto.
-          </Text>
-
+    <Foglio
+      titolo={`Metti ${place.nome} in sequenza`}
+      sottotitolo="L’app terrà il conto delle scadenze. Se il cliente risponde la sequenza si ferma da sé, e prima di ogni invio controlla che non abbia già risposto."
+      onClose={onClose}
+    >
           {errore ? <Text style={styles.errore}>{errore}</Text> : null}
 
           {sequenze === null ? (
@@ -142,26 +132,11 @@ export function IscriviSequenzaModal({
               })}
             </ScrollView>
           )}
-        </View>
-      </View>
-    </Modal>
+    </Foglio>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.sfondo,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
-    gap: spacing.sm,
-  },
-  head: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  titolo: { flex: 1, fontSize: 17, fontWeight: '900', color: colors.navy },
-  aiuto: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
   errore: { color: colors.errore, fontSize: 13, fontWeight: '600' },
   vuoto: { gap: spacing.sm, alignItems: 'flex-start', paddingVertical: spacing.sm },
   vuotoTxt: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },

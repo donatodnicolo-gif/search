@@ -2,9 +2,10 @@
 // creano/modificano/archiviano le linee e le loro SOTTOLINEE. Le altre app le
 // leggono dalla Edge Function `linee`.
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Stack, useFocusEffect } from 'expo-router';
+import { Foglio } from '@/components/Foglio';
 import { colors, radius, spacing } from '@/lib/theme';
 import { PageIntro, StatusBadge } from '@/components/ui';
 import { conferma, avvisa } from '@/lib/dialoghi';
@@ -176,15 +177,8 @@ function EditorModal({ editor, onClose, onSalvato }: { editor: Editor; onClose: 
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitolo}>{titolo}</Text>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={24} color={colors.testoSoft} />
-            </Pressable>
-          </View>
+    // bloccaSfondo: un form scritto a metà non si chiude con un clic fuori.
+    <Foglio titolo={titolo} onClose={onClose} bloccaSfondo>
           <Text style={styles.label}>Nome *</Text>
           <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Es. Consegne" placeholderTextColor={colors.grigio} />
           <Text style={styles.label}>Icona (nome Ionicons, facoltativo)</Text>
@@ -202,9 +196,7 @@ function EditorModal({ editor, onClose, onSalvato }: { editor: Editor; onClose: 
           <Pressable style={[styles.salva, salvando && styles.salvaOff]} onPress={salva} disabled={salvando}>
             {salvando ? <ActivityIndicator color={colors.bianco} /> : <Text style={styles.salvaTxt}>Salva</Text>}
           </Pressable>
-        </View>
-      </View>
-    </Modal>
+    </Foglio>
   );
 }
 
@@ -230,10 +222,6 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4,
   },
   fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.sfondo, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.md, paddingBottom: spacing.lg, gap: spacing.sm, maxWidth: 560, width: '100%', alignSelf: 'center' },
-  sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sheetTitolo: { fontSize: 18, fontWeight: '900', color: colors.testo },
   label: { fontSize: 12, fontWeight: '700', color: colors.testoSoft, marginTop: 4 },
   input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 11, fontSize: 15, color: colors.testo },
   attivaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4 },

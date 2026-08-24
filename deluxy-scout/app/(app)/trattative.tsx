@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -13,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Foglio } from '@/components/Foglio';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import {
@@ -643,16 +643,9 @@ function TrattativaModal({
   const labelSalva = !inModifica ? 'Crea trattativa' : daRegistro ? 'Crea trattativa Scout' : 'Salva modifiche';
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitolo}>{titoloSheet}</Text>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={24} color={colors.testoSoft} />
-            </Pressable>
-          </View>
-
+    // bloccaSfondo: una trattativa scritta a metà non si chiude col clic fuori;
+    // largo perché il form ha molti campi.
+    <Foglio titolo={titoloSheet} onClose={onClose} bloccaSfondo largo>
           <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
             {/* Negozio / contatto */}
             <Text style={styles.campoLabel}>Negozio</Text>
@@ -890,9 +883,7 @@ function TrattativaModal({
               <Text style={styles.salvaTxt}>{labelSalva}</Text>
             )}
           </Pressable>
-        </View>
-      </View>
-    </Modal>
+    </Foglio>
   );
 }
 
@@ -1025,26 +1016,8 @@ const styles = StyleSheet.create({
   fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
 
   // Modal / sheet
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.sfondo,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    maxHeight: '90%',
-    paddingBottom: spacing.lg,
-  },
-  sheetHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.grigioChiaro,
-  },
-  sheetTitolo: { fontSize: 18, fontWeight: '900', color: colors.testo },
-  sheetBody: { padding: spacing.md, gap: spacing.xs },
+  // Il padding esterno lo dà il Foglio: qui resta solo il ritmo fra i campi.
+  sheetBody: { gap: spacing.xs, paddingBottom: spacing.sm },
   campoLabel: { fontSize: 12, fontWeight: '800', color: colors.testoSoft, marginTop: spacing.sm, marginBottom: 4 },
   input: {
     backgroundColor: colors.bianco,

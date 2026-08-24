@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Foglio } from '@/components/Foglio';
 import type { Priorita, Profilo, Task } from '@/types';
 import { colors, coloreProprita, radius, spacing } from '@/lib/theme';
 import { supabase } from '@/lib/supabase';
@@ -99,15 +99,8 @@ export function TaskFormModal({
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.head}>
-            <Text style={styles.titolo}>{inModifica ? 'Modifica task' : 'Nuovo task'}</Text>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={24} color={colors.testoSoft} />
-            </Pressable>
-          </View>
+    // bloccaSfondo: un task scritto a metà non si chiude con un clic fuori.
+    <Foglio titolo={inModifica ? 'Modifica task' : 'Nuovo task'} onClose={onClose} bloccaSfondo>
           {placeNome ? (
             <Text numberOfLines={3} style={styles.negozio}>
               <Ionicons name="storefront-outline" size={13} color={colors.oro} /> {placeNome}
@@ -185,25 +178,11 @@ export function TaskFormModal({
               )}
             </Pressable>
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
+    </Foglio>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.sfondo,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    padding: spacing.md,
-    paddingBottom: spacing.lg,
-    gap: spacing.sm,
-    maxHeight: '88%',
-  },
-  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  titolo: { fontSize: 18, fontWeight: '900', color: colors.testo },
   negozio: { color: colors.goldStrong, fontWeight: '700', fontSize: 13 },
   input: {
     backgroundColor: colors.bianco,

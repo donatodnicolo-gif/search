@@ -8,7 +8,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +21,7 @@ import type { EsitoVisita, Place } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { fetchBozzaVisita, registraVisitaRapida, salvaBozzaVisita, segnaVisitatoDaCompletare } from '@/lib/db';
 import { EsitoButtons } from '@/components/EsitoButtons';
+import { Foglio } from '@/components/Foglio';
 
 export function VisitaModal({
   place,
@@ -162,13 +162,9 @@ export function VisitaModal({
   }
 
   return (
-    <Modal transparent visible animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
-          <View style={styles.grip} />
-          <Text numberOfLines={3} style={styles.titolo}>
-            Visita · {place.nome}
-          </Text>
+    // Chiudere toccando fuori qui è SICURO: la bozza si salva da sola mentre
+    // si scrive, quindi niente va perso (vedi commento in testa al file).
+    <Foglio titolo={`Visita · ${place.nome}`} onClose={onClose}>
           {place.aggancio_apertura ? (
             <Text style={styles.aggancio} numberOfLines={2}>
               <Ionicons name="chatbubble-outline" size={12} color={colors.testoSoft} /> {place.aggancio_apertura}
@@ -235,25 +231,11 @@ export function VisitaModal({
               {busy ? <ActivityIndicator color={colors.navy} /> : <Text style={styles.btnPriTxt}>Salva visita</Text>}
             </Pressable>
           </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    </Foglio>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.sfondo,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
-    maxHeight: '88%',
-  },
-  grip: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: colors.grigioChiaro, marginBottom: spacing.sm },
-  titolo: { fontSize: 18, fontWeight: '900', color: colors.navy, marginBottom: spacing.sm },
   aggancio: { color: colors.testoSoft, fontSize: 13, fontStyle: 'italic', marginBottom: spacing.sm },
   hint: { color: colors.testoSoft, fontSize: 12, marginTop: -spacing.xs },
   body: { paddingBottom: spacing.md, gap: spacing.sm },

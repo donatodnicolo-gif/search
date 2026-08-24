@@ -6,7 +6,6 @@
 // e SYNC con calendari esterni (feed iCal).
 import { useCallback, useMemo, useState } from 'react';
 import {
-  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -19,6 +18,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { Foglio } from '@/components/Foglio';
 import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { PageIntro } from '@/components/ui';
 import { fetchCalToken, fetchTask, fetchTutteTrattative, urlFeedCalendario } from '@/lib/db';
@@ -293,20 +293,11 @@ function SyncModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitolo}>Sync con altri calendari</Text>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={24} color={colors.testoSoft} />
-            </Pressable>
-          </View>
-          <Text style={styles.sheetSub}>
-            Aggiungi questo calendario a Google, Apple o Outlook: si aggiorna da solo con i tuoi
-            task e follow-up in scadenza. È in sola lettura.
-          </Text>
-
+    <Foglio
+      titolo="Sync con altri calendari"
+      sottotitolo="Aggiungi questo calendario a Google, Apple o Outlook: si aggiorna da solo con i tuoi task e follow-up in scadenza. È in sola lettura."
+      onClose={onClose}
+    >
           <Text style={styles.label}>Link di sottoscrizione (privato)</Text>
           <TextInput style={styles.urlInput} value={url ?? 'Caricamento…'} editable={false} multiline selectTextOnFocus />
           <Pressable style={styles.copiaBtn} onPress={copia} disabled={!url}>
@@ -326,9 +317,7 @@ function SyncModal({ onClose }: { onClose: () => void }) {
               È un link segreto e personale: chi ce l'ha vede i tuoi appuntamenti. Non condividerlo.
             </Text>
           </View>
-        </View>
-      </View>
-    </Modal>
+    </Foglio>
   );
 }
 
@@ -420,21 +409,6 @@ const styles = StyleSheet.create({
     ...shadow.float,
   },
   fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.sfondo,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    padding: spacing.md,
-    paddingBottom: spacing.lg,
-    gap: spacing.sm,
-    maxWidth: 560,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sheetTitolo: { fontSize: 18, fontWeight: '900', color: colors.testo },
-  sheetSub: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
   label: { fontSize: 11, fontWeight: '800', color: colors.grigio, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
   urlInput: {
     backgroundColor: colors.bianco,

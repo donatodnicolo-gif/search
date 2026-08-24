@@ -2,7 +2,8 @@
 // team riusa. Da qui si creano/modificano i modelli e si parte per l'invio a più
 // contatti. I segnaposto {nome} e {negozio} vengono personalizzati per ciascuno.
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Foglio } from '@/components/Foglio';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
@@ -174,15 +175,9 @@ function EditorModal({ script, onClose, onSalvato }: { script?: ScriptEmail; onC
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitolo}>{script ? 'Modifica script' : 'Nuovo script'}</Text>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={24} color={colors.testoSoft} />
-            </Pressable>
-          </View>
+    // bloccaSfondo: un testo scritto a metà non si chiude col clic fuori;
+    // largo perché l'editor del corpo merita spazio.
+    <Foglio titolo={script ? 'Modifica script' : 'Nuovo script'} onClose={onClose} bloccaSfondo largo>
           <ScrollView contentContainerStyle={{ gap: spacing.sm }} keyboardShouldPersistTaps="handled">
             <Text style={styles.label}>Titolo *</Text>
             <TextInput style={styles.input} value={titolo} onChangeText={setTitolo} placeholder="Es. Primo contatto boutique" placeholderTextColor={colors.grigio} />
@@ -216,9 +211,7 @@ function EditorModal({ script, onClose, onSalvato }: { script?: ScriptEmail; onC
               {salvando ? <ActivityIndicator color={colors.bianco} /> : <Text style={styles.salvaTxt}>Salva script</Text>}
             </Pressable>
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
+    </Foglio>
   );
 }
 
@@ -246,10 +239,6 @@ const styles = StyleSheet.create({
     ...shadow.float,
   },
   fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.sfondo, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.md, paddingBottom: spacing.lg, gap: spacing.sm, maxHeight: '92%' },
-  sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sheetTitolo: { fontSize: 18, fontWeight: '900', color: colors.testo },
   label: { fontSize: 12, fontWeight: '700', color: colors.testoSoft, marginTop: 4 },
   input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 11, fontSize: 15, color: colors.testo },
   hint: { color: colors.grigio, fontSize: 12, lineHeight: 16 },

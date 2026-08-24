@@ -2,8 +2,9 @@
 // nuovo) e vai alla schermata di invio. Lo script è il testo, l'invio resta
 // quello di sempre — con revisione e conferma esplicita, mai automatico.
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Foglio } from '@/components/Foglio';
 import { useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { fetchScript, LABEL_TIPO, type ScriptEmail } from '@/lib/script';
@@ -92,22 +93,11 @@ export function ScegliScriptModal({
     scelti.length === 1 ? `Mail a ${scelti[0].nome}` : `Mail a ${scelti.length} negozi`;
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.head}>
-            <Text style={styles.titolo} numberOfLines={2}>
-              {titolo}
-            </Text>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={24} color={colors.testoSoft} />
-            </Pressable>
-          </View>
-          <Text style={styles.aiuto}>
-            Scegli lo script: nella schermata d&apos;invio selezioni i contatti, rivedi il testo e
-            confermi. Niente parte da solo.
-          </Text>
-
+    <Foglio
+      titolo={titolo}
+      sottotitolo="Scegli lo script: nella schermata d'invio selezioni i contatti, rivedi il testo e confermi. Niente parte da solo."
+      onClose={onClose}
+    >
           {script === null ? (
             <ActivityIndicator color={colors.oro} style={{ marginVertical: spacing.md }} />
           ) : (
@@ -165,24 +155,11 @@ export function ScegliScriptModal({
             <Ionicons name="add" size={15} color={colors.testo} />
             <Text style={styles.btnSecTxt}>Nuovo script da riusare</Text>
           </Pressable>
-        </View>
-      </View>
-    </Modal>
+    </Foglio>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.sfondo,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    padding: spacing.md,
-    gap: 10,
-  },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  titolo: { color: colors.navy, fontWeight: '800', fontSize: 17, flex: 1 },
-  aiuto: { color: colors.testoSoft, fontSize: 13 },
   vuoto: { color: colors.grigio, fontStyle: 'italic', fontSize: 13 },
   riga: {
     flexDirection: 'row',

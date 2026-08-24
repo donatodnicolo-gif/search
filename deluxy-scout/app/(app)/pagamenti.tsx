@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
+import { Foglio } from '@/components/Foglio';
 import type { RichiestaPagamento, StatoPagamento } from '@/types';
 import { colors, labelFase, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
@@ -453,15 +453,9 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitolo}>Richiesta di pagamento</Text>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={24} color={colors.testoSoft} />
-            </Pressable>
-          </View>
+    // bloccaSfondo: una richiesta scritta a metà non si chiude col clic fuori;
+    // largo perché le righe delle rate hanno bisogno di respiro.
+    <Foglio titolo="Richiesta di pagamento" onClose={onClose} bloccaSfondo largo>
           <ScrollView contentContainerStyle={{ gap: spacing.sm }} keyboardShouldPersistTaps="handled">
             <Text style={styles.label}>Trattativa</Text>
             {scelta ? (
@@ -625,9 +619,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
               {salvando ? <ActivityIndicator color={colors.bianco} /> : <Text style={styles.salvaTxt}>Crea richiesta</Text>}
             </Pressable>
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
+    </Foglio>
   );
 }
 
@@ -678,10 +670,6 @@ const styles = StyleSheet.create({
     ...shadow.float,
   },
   fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.sfondo, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.md, paddingBottom: spacing.lg, gap: spacing.sm, maxHeight: '92%' },
-  sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sheetTitolo: { fontSize: 18, fontWeight: '900', color: colors.testo },
   label: { fontSize: 11, fontWeight: '800', color: colors.grigio, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
   input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 11, fontSize: 15, color: colors.testo },
   risultato: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 9 },

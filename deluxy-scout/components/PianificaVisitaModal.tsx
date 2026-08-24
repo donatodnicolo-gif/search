@@ -7,8 +7,9 @@
 // le scelte rapide bastano quasi sempre; sul web c'è anche il campo data del
 // browser per i casi in cui si programma la settimana da seduti.
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Foglio } from '@/components/Foglio';
 import type { Place } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { pianificaVisita } from '@/lib/db';
@@ -75,17 +76,11 @@ export function PianificaVisitaModal({
   }
 
   return (
-    <Modal transparent visible animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
-          <View style={styles.grip} />
-          <Text numberOfLines={2} style={styles.titolo}>
-            Quando ci vai? · {place.nome}
-          </Text>
-          <Text style={styles.aiuto}>
-            È la data che ti dai tu. Quando registri la visita sparisce da sola.
-          </Text>
-
+    <Foglio
+      titolo={`Quando ci vai? · ${place.nome}`}
+      sottotitolo="È la data che ti dai tu. Quando registri la visita sparisce da sola."
+      onClose={onClose}
+    >
           <View style={styles.chips}>
             {RAPIDE.map((r) => {
               const valore = fraGiorni(r.giorni);
@@ -147,26 +142,12 @@ export function PianificaVisitaModal({
               {busy ? <ActivityIndicator color={colors.bianco} /> : <Text style={styles.btnPriTxt}>Salva</Text>}
             </Pressable>
           </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    </Foglio>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.sfondo,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
-  },
-  grip: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: colors.grigioChiaro, marginBottom: spacing.sm },
-  titolo: { fontSize: 18, fontWeight: '900', color: colors.navy },
-  aiuto: { color: colors.testoSoft, fontSize: 13, marginTop: 4, marginBottom: spacing.md },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: spacing.xs },
   chip: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
