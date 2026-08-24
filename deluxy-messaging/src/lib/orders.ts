@@ -23,6 +23,8 @@ export type OrdineArchivio = {
   data: string
   totale: number
   valuta: string
+  /** Governo del giro: "manuale" = riservato a noi, l'automatico lo salta. */
+  smistamento: string
   clienteNome: string
   telefono: string
   email: string
@@ -73,6 +75,7 @@ type OrdineOrders = {
   data: string
   totale: number
   valuta: string
+  smistamento?: string | null
   cliente?: {
     nome?: string | null
     email?: string | null
@@ -141,6 +144,7 @@ function normalizza(o: OrdineOrders): OrdineArchivio {
     data: o.data,
     totale: o.totale,
     valuta: o.valuta,
+    smistamento: o.smistamento ?? '',
     clienteNome: o.cliente?.nome ?? '',
     telefono: o.cliente?.telefono ?? '',
     email: o.cliente?.email ?? '',
@@ -751,6 +755,54 @@ export async function soldiOrdineDaOrders(
  * ordine lo prepara Tizio a 80 €») è nostro e vale comunque. Si torna l'errore
  * e lo si mostra, invece di perdere il dato.
  */
+/**
+ * Dice a Orders se questo ordine può andare nello smistamento automatico della
+ * piattaforma o se ce lo teniamo noi ("manuale"). È il GOVERNO del giro
+ * (Standard §7.4): l'automatico non scavalca mai il decisore — la piattaforma
+ * legge il flag dal registro e salta l'ordine riservato.
+ */
+export async function comunicaSmistamentoAOrders(
+  numero: string,
+  shopifyId: string,
+  modo: 'manuale' | 'auto'
+): Promise<{ ok: true } | { ok: false; messaggio: string }> {
+  const c = await configOrders()
+  if (!c) return { ok: false, messaggio: 'Orders non è configurato (Impostazioni).' }
+  const trovato = await ordineDaOrders(numero, shopifyId)
+  if (trovato.stato !== 'ok') {
+    return {
+      ok: false,
+      messaggio: trovato.stato === 'non-configurato' ? 'Orders non è configurato.' : trovato.messaggio,
+    }
+  }
+  try {
+    const res = await fetch(`${c.base}/api/v1/ordini/${encodeURIComponent(trovato.ordine.id ?? '')}`, {
+      method: 'PATCH',
+      headers: { 'x-api-key': c.chiave, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ smistamento: modo }),
+      signal: AbortSignal.timeout(12000),
+      cache: 'no-store',
+    })
+    if (res.ok) return { ok: true }
+    if (res.status === 401 || res.status === 403) {
+      return {
+        ok: false,
+        messaggio:
+          'Orders ha rifiutato la scrittura: la chiave di quest’app è in sola lettura. Va abilitata alla scrittura in Orders.',
+      }
+    }
+    const d = (await res.json().catch(() => ({}))) as { errore?: string }
+    return { ok: false, messaggio: d.errore || `Orders ha risposto ${res.status}.` }
+  } catch (e) {
+    const err = e as Error
+    return {
+      ok: false,
+      messaggio:
+        err.name === 'TimeoutError' ? 'Orders non ha risposto in tempo.' : `Orders non raggiungibile: ${err.message}`,
+    }
+  }
+}
+
 export async function comunicaCostoAOrders(
   numero: string,
   shopifyId: string,

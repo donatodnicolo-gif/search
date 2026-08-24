@@ -346,6 +346,11 @@ model Ordine {
   totale         Float    @default(0)
   valuta         String   @default("EUR")
   statoPagamento String   @default("")
+  // GOVERNO del giro: "manuale" = questo ordine ce lo teniamo noi e lo
+  // smistamento automatico della piattaforma lo salta; "" = può andare in
+  // automatico. La verità sta su Orders (il registro che la piattaforma
+  // legge): qui è il riflesso per la scheda, riscritto dalla sync.
+  smistamento    String   @default("")
   // ⚠️ ANNULLATO SU SHOPIFY. Orders esclude gli annullati dai suoi elenchi:
   // senza questo campo l'annullamento era INVISIBILE da qui — l'ordine copiato
   // restava «valido» per sempre, smistabile e pagabile. Lo valorizza la sync

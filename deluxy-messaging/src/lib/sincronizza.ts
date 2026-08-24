@@ -171,6 +171,9 @@ export async function sincronizzaOrdini(
       // nota, il simbolo in lista deve spegnersi. È l'opposto degli ordinali,
       // dove un null in arrivo vuol dire «non calcolato» e non «non c'è più».
       haBiglietto: o.haBiglietto,
+      // Il GOVERNO dello smistamento: la verità sta su Orders, qui il
+      // riflesso per la scheda — si riscrive sempre, come gli stati.
+      smistamento: o.smistamento,
       // ⚠️ Pagamento e rischio si riscrivono SEMPRE, anche a vuoto: sono lo
       // stato di adesso, non un dato che si accumula. Un ordine rimborsato
       // ieri e «PENDING» oggi deve smettere di dirsi pagato — e uno che Shopify

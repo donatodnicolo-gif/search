@@ -1,5 +1,18 @@
 # Handoff — Deluxy Customer Service
 
+## 24/08/2026 (sera 7) — MANUALE O AUTOMATICO: il governo è dell'operatore
+
+Sulla scheda ordine c'è l'interruttore del giro (deciso dall'utente):
+**«Può andare in automatico» / «Riservato a noi: l'automatico lo salta»**.
+Il bottone scrive PRIMA su Orders (`smistamento: manuale|auto`, rotta
+`/api/ordini/[id]/smistamento`) e solo se là è andata aggiorna il riflesso
+locale — un flag locale diverso dalla verità farebbe credere «riservato» a un
+ordine che l'automatico sta già smistando. La piattaforma legge il flag dal
+registro e il suo orders-sync salta i riservati (esito `riservato-al-cs`);
+un ordine assegnato in chat (`evasione=fornitore_diretto`) è comunque fuori
+dall'automatico, con o senza flag. Lo specchio locale ha il campo
+`smistamento` (riscritto dalla sync, come gli stati).
+
 ## 24/08/2026 (sera 6) — l'assegnazione dice anche l'EVASIONE (percorso A)
 
 Quando si registra «a chi diamo l'ordine» col costo, la stessa proposta verso

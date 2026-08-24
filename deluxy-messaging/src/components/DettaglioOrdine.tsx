@@ -56,6 +56,8 @@ type OrdineDettaglio = {
   totale: number
   valuta: string
   statoPagamento: string
+  /** "manuale" = riservato a noi: lo smistamento automatico lo salta. */
+  smistamento?: string
   /** Valorizzato = annullato su Shopify: la scheda lo urla e non si lavora. */
   annullatoIl?: string | null
   clienteNome: string
@@ -259,6 +261,8 @@ export function DettaglioOrdine({
   linkShopify?: string
 }) {
   const [ordine, setOrdine] = useState<OrdineDettaglio | null>(null)
+  const [smistamentoInCorso, setSmistamentoInCorso] = useState(false)
+  const [smistamentoErrore, setSmistamentoErrore] = useState('')
   const [righe, setRighe] = useState<Riga[]>([])
   const [righeNota, setRigheNota] = useState('')
   /**
@@ -515,6 +519,55 @@ export function DettaglioOrdine({
                   clic su un bottone che non c'è. */}
               {soloArchivio ? ' · archivio storico (sola lettura)' : ''}
             </div>
+            {/* ── IL GOVERNO DELLO SMISTAMENTO (Standard §7.4) ──
+                L'operatore decide se l'ordine può andare nello smistamento
+                automatico della piattaforma o se ce lo teniamo noi. La verità
+                sta su Orders (la piattaforma legge da lì): il bottone scrive
+                prima là, e solo se va aggiorna quello che si vede qui. */}
+            {ordine && ordine.id && !ordine.annullatoIl ? (
+              <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span
+                  className="badge"
+                  style={{ color: ordine.smistamento === 'manuale' ? 'var(--gold-strong, #8a6d2f)' : 'var(--text-secondary)' }}
+                >
+                  <span className="dot" />
+                  {ordine.smistamento === 'manuale' ? 'Riservato a noi: l’automatico lo salta' : 'Può andare in automatico'}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-secondario small"
+                  disabled={smistamentoInCorso}
+                  onClick={async () => {
+                    const modo = ordine.smistamento === 'manuale' ? 'auto' : 'manuale'
+                    setSmistamentoInCorso(true)
+                    setSmistamentoErrore('')
+                    try {
+                      const res = await fetch(`/api/ordini/${ordine.id}/smistamento`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ modo }),
+                      })
+                      const d = (await res.json().catch(() => ({}))) as { smistamento?: string; errore?: string }
+                      if (!res.ok) throw new Error(d.errore || `Errore ${res.status}`)
+                      setOrdine({ ...ordine, smistamento: d.smistamento ?? (modo === 'manuale' ? 'manuale' : '') })
+                    } catch (e) {
+                      setSmistamentoErrore((e as Error).message)
+                    } finally {
+                      setSmistamentoInCorso(false)
+                    }
+                  }}
+                >
+                  {smistamentoInCorso
+                    ? 'Un attimo…'
+                    : ordine.smistamento === 'manuale'
+                      ? 'Lascia andare in automatico'
+                      : 'Tienilo manuale'}
+                </button>
+                {smistamentoErrore ? (
+                  <span style={{ fontSize: 12, color: 'var(--rosso, #B3261E)' }}>{smistamentoErrore}</span>
+                ) : null}
+              </div>
+            ) : null}
             {/* ── ANNULLATO: si urla in testa, non si annota in fondo ──
                 Un ordine annullato su Shopify non si lavora: né smistato a un
                 fornitore, né pagato. Prima l'annullamento era invisibile da qui
