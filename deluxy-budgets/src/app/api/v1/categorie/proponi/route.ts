@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { chiave } from "@/lib/chiavi";
+import { autentica } from "@/lib/api-auth";
 import { proponiRiconciliazioni } from "@/lib/ai";
 
 // POST /api/v1/categorie/proponi — l'AI propone una categoria di costo per un
@@ -25,20 +25,16 @@ import { proponiRiconciliazioni } from "@/lib/ai";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const INVISIBILI = new RegExp("[\u200B-\u200D\uFEFF\u00A0]", "g");
-
 export async function POST(req: NextRequest) {
-  const attesa = await chiave("BUDGETS_API_KEY");
-  if (!attesa) {
-    return NextResponse.json(
-      { errore: "BUDGETS_API_KEY non configurata su questa app: l'API è disattivata." },
-      { status: 503 }
-    );
-  }
-  const inviata = (req.headers.get("x-api-key") ?? "").replace(INVISIBILI, "").trim();
-  if (!inviata || inviata !== attesa.trim()) {
-    return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
-  }
+  // ⚠️ Questa rotta si riscriveva il controllo della chiave a mano, e così
+  // **scavalcava scope e revoche**: una chiave revocata continuava a entrare da
+  // qui. È esattamente il guaio per cui `autentica()` sta in un file solo.
+  //
+  // `scrive: false` perché è un POST che **non cambia niente**: chiede all'AI
+  // come classificherebbe delle spese e risponde. Con una chiave di sola
+  // lettura deve funzionare.
+  const negata = await autentica(req, { scrive: false });
+  if (negata) return negata;
 
   const body = (await req.json().catch(() => null)) as { controparti?: unknown } | null;
   const grezze = Array.isArray(body?.controparti) ? body!.controparti : null;

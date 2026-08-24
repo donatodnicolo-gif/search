@@ -408,3 +408,36 @@ model UtenteBudgets {
   creato        DateTime  @default(now())
   ultimoAccesso DateTime?
 }
+
+// **Le chiavi che questa app EMETTE** per le altre app Deluxy. Da non confondere
+// con `ChiaveApi`, che è il contrario: là ci sono le chiavi con cui Budgets
+// chiama gli altri, qui quelle con cui gli altri chiamano Budgets.
+//
+// ⚠️ **Il valore in chiaro non si conserva.** A database sta solo l'impronta
+// SHA-256: si mostra una volta sola al momento della creazione e poi non è più
+// recuperabile da nessuno, nemmeno da chi ha il database. Se si perde si revoca
+// e se ne fa un'altra — che è più sicuro di una chiave che chiunque possa
+// rileggere in un elenco.
+//
+// Il `prefisso` sono i primi caratteri, tenuti in chiaro apposta: servono a
+// riconoscere una chiave in un log o in un elenco senza poterla usare.
+model ChiaveEmessa {
+  id        String    @id @default(cuid())
+  // A chi è stata data: «Marketing», «Scout»… Serve a sapere cosa si rompe
+  // quando la si revoca.
+  nome      String
+  prefisso  String
+  hash      String    @unique
+  // `lettura` = solo GET. `scrittura` = anche POST/PUT/PATCH/DELETE.
+  scope     String    @default("lettura")
+  creata    DateTime  @default(now())
+  // ⚠️ Quando è stata usata l'ultima volta. **Una chiave che esiste non è una
+  // chiave che serve**: senza questo dato, revocare fa paura e non si revoca mai.
+  ultimoUso DateTime?
+  // Si **revoca**, non si cancella: sparita la riga sparisce anche la traccia di
+  // chi l'aveva e da quando.
+  revocata  DateTime?
+  note      String?
+
+  @@index([prefisso])
+}

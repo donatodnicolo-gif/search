@@ -802,6 +802,48 @@ quasi pareggiava il debito.
 > **di cassa**, non la liquidazione vera, che si fa sui registri per data di fattura: qui gli acquisti
 > arrivano dalla banca, cioe da quando il denaro e uscito. Motore in .
 
+## Chiavi che questa app EMETTE (23/08/2026)
+
+«dobbiamo avere la possibilità di generare chiavi di questa app a cui possono accedere altre app in
+lettura o scrittura». Da **Configurazione → Chiavi**, secondo riquadro. ⚠️ In quella pagina ora ci sono
+**due elenchi che vanno in direzioni opposte** — le chiavi con cui Budgets chiama gli altri e quelle con
+cui gli altri chiamano Budgets — ed è scritto in testata, perché scambiarli è facilissimo.
+
+**Una chiave per app, con scope `lettura` o `scrittura`, revocabile da sola.** Prima ce n'era **una
+sola** (`BUDGETS_API_KEY`), condivisa fra tutte le app: non si poteva revocare senza rompere tutti, e
+dal log non si sapeva chi avesse chiamato.
+
+⚠️ **Il valore in chiaro non si conserva**: a database c'è solo l'impronta **SHA-256**. Si vede una
+volta sola alla creazione e poi non la rilegge più nessuno, nemmeno chi ha il database. Se si perde si
+revoca e se ne fa un'altra — più sicuro di un elenco da cui si possono ricopiare. Il `prefisso` (i primi
+caratteri) resta in chiaro apposta: serve a riconoscere una chiave in un elenco **senza poterla usare**.
+
+⚠️ **Lo scope si decide dal metodo HTTP**, non da un parametro che la rotta deve ricordarsi di passare:
+una rotta di scrittura nuova nasce protetta anche se chi la scrive se ne dimentica. L'unica eccezione è
+`/api/v1/categorie/proponi` (`autentica(req, { scrive: false })`): è un POST perché ha un corpo ma **non
+cambia niente**, e trattarlo da scrittura obbligherebbe Finance a una chiave che può scrivere nel budget
+per fare una domanda.
+
+⚠️ Il confronto è a **tempo costante** (`timingSafeEqual`): un `===` esce al primo carattere diverso, e
+dal tempo di risposta si indovina il prefisso un carattere per volta.
+
+⚠️ Si **revoca**, non si cancella: sparita la riga sparisce la traccia di chi aveva accesso e da quando.
+E si registra l'**ultimo uso** — ⭐ *una chiave che esiste non è una chiave che serve*, e senza quel dato
+revocare fa paura e non si revoca mai.
+
+🔴 **`BUDGETS_API_KEY` resta valida ma SOLO IN LETTURA.** Marketing la usa già e toglierla di colpo
+romperebbe un'app in produzione; ma una chiave condivisa, incollata in più posti e che nessuno può
+revocare senza rompere gli altri, non deve poter scrivere nel budget dell'azienda. Chi prova a scrivere
+con quella riceve **403** con scritto il perché.
+
+🔴 **Oggi `/api/v1` espone solo letture** (`maison`, `team`, `categorie`, `categorie/proponi`): una
+chiave `scrittura` si può già emettere ma **non ha ancora niente da scrivere**. Le rotte di scrittura
+sono da decidere.
+
+📌 Provato: chiave di lettura → GET **200**, POST **respinta per scope**; chiave di scrittura → tutt'e
+due ammesse; chiave inventata e chiamata senza header → **401**; dopo la revoca → **401 con il motivo**;
+ultimo uso registrato; la chiave in chiaro **non compare a database**.
+
 ## Chiavi (cassaforte del Hub)
 
 Le chiavi (`FINANCE_API_KEY`, `ORDERS_API_KEY`, `OPENAI_API_KEY`, …) non stanno nel `.env` di questa app: si
