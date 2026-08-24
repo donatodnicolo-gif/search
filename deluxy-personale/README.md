@@ -64,7 +64,12 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
 
 1. **Nessun dato dedotto.** Il netto in busta si scrive se lo si conosce, mai
    calcolato dal lordo. Il costo azienda esiste solo se la % contributi è
-   dichiarata: altrimenti è «non calcolabile», non zero.
+   dichiarata: altrimenti è «non calcolabile», non zero. **Eccezione
+   dichiarata — gli AUTONOMI** (Partita IVA, Consulente): non hanno RAL ma un
+   **compenso** (niente mensilità né netto), e il costo azienda è il compenso
+   stesso anche senza percentuale — su una fattura non ci sono oneri
+   datoriali nascosti; gli oneri pattuiti in più (es. rivalsa) si dichiarano.
+   La co.co.co. resta nel mondo RAL+contributi (gestione separata).
 2. **I totali dichiarano chi manca.** Il monte RAL e il costo azienda sommano
    solo chi ha il dato, e la pagina elenca gli esclusi.
 3. **La storia non si riscrive.** Aumenti e cambi contratto sono righe nuove;
