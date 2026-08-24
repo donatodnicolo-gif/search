@@ -14,8 +14,10 @@ import {
   nomeMetodo,
   messaggioPagato,
   nomeUscita,
+  perchePersoAvviso,
   pesoScritto,
   ricevutaAccettabile,
+  TIPI_RICEVUTA,
   type Metodo,
 } from '@/lib/metodo-pagamento'
 
@@ -116,6 +118,12 @@ export function RichiediPagamento() {
     byte: number
   } | null>(null)
   const [pagando, setPagando] = useState('')
+  // L'ultima cosa incollata con Ctrl+V, e dove è finita. ⚠️ Serve per POTERLA
+  // SPOSTARE: la destinazione la sceglie il codice dal contesto, e quando
+  // sbaglia bisogna poter rimediare senza rifare tutto.
+  const [incollata, setIncollata] = useState<{ file: File; come: 'ricevuta' | 'immagine' } | null>(
+    null
+  )
   // ⚠️⚠️ DA DOVE ESCE IL DENARO. Un bonifico non parte per forza da un'app
   // nostra: quasi sempre esce dal portale della banca, a mano; a volte si paga
   // in contanti, o si scala da quello che quel fornitore ci deve. Dare per
@@ -223,7 +231,7 @@ export function RichiediPagamento() {
     }
   }, [])
 
-  function scegliImmagine(file: File | null) {
+  const scegliImmagine = useCallback(function scegliImmagine(file: File | null) {
     if (!file) {
       setImmagine(null)
       return
@@ -236,7 +244,7 @@ export function RichiediPagamento() {
       setImmagine({ dati, tipo: file.type, nome: file.name })
     }
     lettore.readAsDataURL(file)
-  }
+  }, [])
 
   async function leggiConAi() {
     if (!testo.trim() && !immagine) {
@@ -321,7 +329,7 @@ export function RichiediPagamento() {
   }
 
   /** Il file della ricevuta, letto come data URI. */
-  function scegliRicevuta(file: File | null) {
+  const scegliRicevuta = useCallback(function scegliRicevuta(file: File | null) {
     if (!file) {
       setRicevuta(null)
       return
@@ -342,6 +350,64 @@ export function RichiediPagamento() {
         byte: file.size,
       })
     lettore.readAsDataURL(file)
+  }, [])
+
+  // ── SI INCOLLA, NON SI CARICA ──
+  //
+  // ⚠️⚠️ Sia l'IBAN che ci mandano sia la prova del bonifico nascono come una
+  // SCHERMATA: si ritagliano da WhatsApp o dal portale della banca e stanno
+  // negli appunti. Chiedere un file vuol dire chiedere di salvarla prima da
+  // qualche parte, ritrovarla fra i download e sceglierla — tre passaggi, e
+  // alla terza volta non si allega più niente.
+  //
+  // ⚠️ Si ascolta su tutta la pagina e non su un campo: una schermata negli
+  // appunti non ha un posto dove "cliccare prima di incollare", e obbligare a
+  // dare il fuoco a un riquadro riporterebbe il problema di partenza.
+  //
+  // ⚠️ Si interviene SOLO se negli appunti c'è davvero un file di un tipo che
+  // accettiamo. Se ci fosse del testo si starebbe incollando un IBAN in un
+  // campo, e rubare quel Ctrl+V romperebbe il lavoro normale della pagina.
+  useEffect(() => {
+    function daAppunti(e: ClipboardEvent) {
+      const file = Array.from(e.clipboardData?.files ?? []).find((f) =>
+        TIPI_RICEVUTA.includes(f.type)
+      )
+      if (!file) return
+      e.preventDefault()
+      // ⚠️ Una schermata incollata si chiama «image.png» per tutti: con quel
+      // nome, fra sei mesi, nessuna ricevuta si distingue dalle altre. Il nome
+      // glielo diamo noi, con la data.
+      const est = file.type === 'application/pdf' ? 'pdf' : file.type.split('/')[1] || 'png'
+      const oggi = new Date().toISOString().slice(0, 10)
+      const rinominato = new File([file], `incollata-${oggi}.${est}`, { type: file.type })
+      // ⚠️⚠️ DOVE finisce non si indovina: dipende da cosa si sta facendo.
+      // Col pop-up «Pagata» aperto si sta registrando un'uscita di denaro e
+      // quella è una ricevuta; altrimenti si sta compilando la richiesta e
+      // quella è l'immagine da far leggere. Un PDF non lo sa leggere l'AI, e
+      // allora è comunque una ricevuta.
+      const comeRicevuta = !!chiedoPagata || file.type === 'application/pdf'
+      if (comeRicevuta) scegliRicevuta(rinominato)
+      else scegliImmagine(rinominato)
+      // ⚠️ Si DICE dove è finita, e si può spostare. Un allegato che atterra
+      // dove non ti aspetti, in silenzio, si scopre solo dopo aver salvato.
+      setIncollata({ file: rinominato, come: comeRicevuta ? 'ricevuta' : 'immagine' })
+    }
+    document.addEventListener('paste', daAppunti)
+    return () => document.removeEventListener('paste', daAppunti)
+  }, [chiedoPagata, scegliRicevuta, scegliImmagine])
+
+  /** Sposta l'ultima incollata sull'altra destinazione. */
+  function spostaIncollata() {
+    if (!incollata) return
+    if (incollata.come === 'ricevuta') {
+      scegliRicevuta(null)
+      scegliImmagine(incollata.file)
+      setIncollata({ ...incollata, come: 'immagine' })
+    } else {
+      scegliImmagine(null)
+      scegliRicevuta(incollata.file)
+      setIncollata({ ...incollata, come: 'ricevuta' })
+    }
   }
 
   /**
@@ -593,6 +659,18 @@ export function RichiediPagamento() {
           {immagine ? (
             <p className="descrizione" style={{ marginTop: -6 }}>
               Immagine pronta: <strong>{immagine.nome}</strong>
+            </p>
+          ) : null}
+          {/* ⚠️ Dove è atterrata l'ultima incollata, e come spostarla. Un
+              allegato che finisce dove non te lo aspetti, in silenzio, si
+              scopre solo dopo aver salvato — cioè troppo tardi. */}
+          {incollata ? (
+            <p className="descrizione" style={{ marginTop: -6 }}>
+              Incollata come{' '}
+              <strong>{incollata.come === 'ricevuta' ? 'ricevuta' : 'immagine da leggere'}</strong>.{' '}
+              <button type="button" className="btn btn-secondario small" onClick={spostaIncollata}>
+                No, è {incollata.come === 'ricevuta' ? 'da leggere' : 'la ricevuta'}
+              </button>
             </p>
           ) : null}
           <button className="btn" onClick={leggiConAi} disabled={leggo}>
@@ -902,7 +980,9 @@ export function RichiediPagamento() {
           qualcuno di fotografare uno schermo. */}
       <div className="riquadro-ricevuta">
         <label className="campo" style={{ margin: 0 }}>
-          <span>Ricevuta da allegare (immagine o PDF)</span>
+          {/* ⚠️ La scorciatoia si SCRIVE: una funzione che nessuno sa che
+              c'è non esiste, e questa si scoprirebbe solo per caso. */}
+          <span>Ricevuta da allegare — o incollala con Ctrl+V (immagine o PDF)</span>
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
@@ -1115,7 +1195,11 @@ export function RichiediPagamento() {
                     ) : null}
                     {r.avvisoEsito ? (
                       <span className="badge rosso" style={{ marginLeft: 4 }} title={r.avvisoEsito}>
-                        non avvisato
+                        {/* ⚠️ Il MOTIVO sulla riga, non solo nel titolo: sul
+                            telefono il passaggio del mouse non esiste, e «non
+                            avvisato» da solo non dice se si risolve in dieci
+                            secondi o se bisogna telefonare. */}
+                        non avvisato · {perchePersoAvviso(r.avvisoEsito)}
                       </span>
                     ) : null}
                     {r.pagataIl ? (

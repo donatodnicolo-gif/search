@@ -164,6 +164,32 @@ export function pesoScritto(byte: number): string {
 // sappiamo è che è PARTITO, e la differenza sono due o tre giorni lavorativi in
 // cui il fornitore non lo vedrebbe e ci richiamerebbe pensando a un errore.
 
+/**
+ * Perché l'avviso non è partito, in tre parole.
+ *
+ * ⚠️⚠️ «non avvisato» da solo non vuol dire niente: il motivo stava solo nel
+ * titolo, che sul telefono non si può nemmeno leggere — non c'è il passaggio del
+ * mouse. E i motivi sono cose diversissime fra loro: «non c'è nessun ordine
+ * collegato» si risolve in dieci secondi, «sono passate 24 ore» vuol dire
+ * telefonare. Un'etichetta che non distingue fra le due fa perdere tempo su
+ * tutte e due.
+ */
+export function perchePersoAvviso(esito: string): string {
+  const e = (esito || '').toLowerCase()
+  if (!e) return ''
+  if (e.includes('non è collegata a un ordine') || e.includes('non e collegata a un ordine')) {
+    return 'nessun ordine collegato'
+  }
+  if (e.includes('né telefono né email') || e.includes('ne telefono ne email')) {
+    return 'il fornitore non ha recapiti'
+  }
+  if (e.includes('131047') || e.includes('24 ore')) return 'fuori dalle 24 ore di WhatsApp'
+  if (e.includes('casella di posta')) return 'nessuna casella di posta'
+  // ⚠️ Se non lo riconosciamo si mostra l'inizio del messaggio vero, non un
+  // generico «errore»: un motivo sconosciuto va comunque letto da qualcuno.
+  return esito.slice(0, 60)
+}
+
 export function messaggioPagato(d: {
   chi: string
   importo: number

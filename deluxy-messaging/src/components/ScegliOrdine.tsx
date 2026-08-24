@@ -164,6 +164,18 @@ export function ScegliOrdine({
           sull&apos;ordine sbagliato.
         </p>
       ) : null}
+      {/* ⚠️⚠️ SCRIVERE IL NUMERO NON COLLEGA NIENTE. Il campo, una volta
+          scritto, sembra compilato: si va avanti e si salva credendo che
+          l'ordine sia collegato. Non lo è — e la riga finisce con la causale
+          «Ordine #2791» e nessun ordine: niente valore, niente margine, e
+          l'avviso al fornitore non parte perché non si sa a chi scrivere.
+          Misurato il 24/08 su una riga vera. */}
+      {trovati.length > 0 ? (
+        <p className="cella-sub" style={{ color: 'var(--red)' }}>
+          Scrivere il numero non basta: <strong>tocca l&apos;ordine</strong> qui sotto, o resta
+          scollegato.
+        </p>
+      ) : null}
       {trovati.length > 0 ? (
         <ul className="elenco-ordini-trovati">
           {trovati.map((o) => (
