@@ -42,7 +42,7 @@ export default async function SchedaPersona({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ err?: string }>;
+  searchParams: Promise<{ err?: string; nota?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -114,6 +114,7 @@ export default async function SchedaPersona({
       </div>
 
       {sp.err && <div className="avviso-errore">{sp.err}</div>}
+      {sp.nota && <div className="avviso-nota">{sp.nota}</div>}
 
       {/* ---------- Dati ---------- */}
       <form action={aggiornaPersona} className="card">

@@ -8,6 +8,7 @@ import { prisma } from "./db";
 import { isAdmin } from "./ruoli";
 import { parseData, parseImporto } from "./formato";
 import { QUALIFICHE, FREQUENZE_ATTIVITA, MOTIVI_COMPENSO, TIPI_CONTRATTO } from "./organico";
+import { proponiPersonaABudgets } from "./budgets";
 
 // Tutte le scritture dell'app passano da qui. Regole:
 // - scrive solo un admin (l'ingresso con la password d'app vale admin);
@@ -201,9 +202,21 @@ export async function creaPersona(fd: FormData): Promise<void> {
   const negato = await richiediAdmin();
   if (negato) conErrore("/persone/nuova", negato);
   const dati = datiPersonaDaForm(fd, "/persone/nuova");
-  const persona = await prisma.persona.create({ data: dati });
+  const persona = await prisma.persona.create({ data: dati, include: { funzione: true } });
   revalidatePath("/");
-  redirect(`/persone/${persona.id}`);
+
+  // Il ponte verso Budgets (regola del 24/08): la persona pubblicata qui si
+  // PROPONE anche al roster di pianificazione. Un guasto là non blocca la
+  // nascita qui: diventa un avviso sulla scheda.
+  const esito = await proponiPersonaABudgets({
+    nome: persona.nome,
+    ruolo: persona.ruolo,
+    team: persona.funzione?.nome ?? null,
+  });
+  const parametro = esito.ok
+    ? `nota=${encodeURIComponent(esito.messaggio)}`
+    : `err=${encodeURIComponent(`La persona è stata creata qui, ma NON è arrivata a Budgets: ${esito.messaggio}`)}`;
+  redirect(`/persone/${persona.id}?${parametro}`);
 }
 
 export async function aggiornaPersona(fd: FormData): Promise<void> {

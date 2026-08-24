@@ -80,6 +80,17 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
 5. **I task operativi vivono in Deluxy Tasks.** Le "attività" qui sono il
    mansionario (cosa comporta una mansione), non le cose da fare.
 
+## Il ponte verso Budgets (24/08)
+
+Quando qui si **pubblica una persona nuova**, l'app la **propone anche al
+roster di Budgets** (`POST /api/v1/persone` di Budgets, chiave
+`BUDGETS_WRITE_KEY` con scope scrittura): là nasce come seme — tipo
+DIPENDENTE, importo 0 (non sposta il P&L), team agganciato per nome, nota che
+dichiara la provenienza. Budgets resta il proprietario del suo roster: mai
+aggiornamenti o cancellazioni da qui, e se il nome là esiste già non si tocca.
+Il ponte non blocca mai la creazione locale: l'esito (proposta / già presente
+/ fallita e perché) compare come avviso sulla scheda appena creata.
+
 ## Confini col resto dell'ecosistema
 
 | Dato | Casa | Nota |
