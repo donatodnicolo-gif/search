@@ -511,6 +511,12 @@ model Bozza {
   corpo   String @db.Text
   corpoAI String @default("") @db.Text
 
+  /** Il gruppo di `AllegatoCaricato` che tiene gli allegati di questa bozza.
+   *  ⚠️ Un allegato in partenza non ha un posto dove stare: quello di una
+   *  mail RICEVUTA vive sul server IMAP, questo esiste solo nel browser
+   *  finche non parte. Se la bozza deve ricordarlo, i byte vanno tenuti. */
+  allegatiGruppo String?
+
   modificata   Boolean   @default(false)
   inviata      Boolean   @default(false)
   inviataIl    DateTime?

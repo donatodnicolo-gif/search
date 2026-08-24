@@ -8,6 +8,8 @@
 import { PrismaClient } from '@prisma/client'
 
 const stmts = [
+  // Gli allegati di una bozza: il gruppo che li tiene in `AllegatoCaricato`.
+  `ALTER TABLE "Bozza" ADD COLUMN IF NOT EXISTS "allegatiGruppo" TEXT`,
   // Le note di chi segue un attivita: separate da `dettaglio`, che dice cosa
   // fare ed e spesso scritto dall AI. Annotare non deve cancellare quello.
   `ALTER TABLE "Attivita" ADD COLUMN IF NOT EXISTS "note" TEXT`,

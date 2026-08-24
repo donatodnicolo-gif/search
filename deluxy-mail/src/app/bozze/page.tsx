@@ -54,6 +54,23 @@ export default async function Bozze({ searchParams }: Props) {
     },
   })
 
+  // Quanti allegati ha ogni bozza: UNA query per tutte, e senza tirarsi
+  // dietro i byte (un `include` degli allegati porterebbe i file interi in
+  // memoria per disegnare un numero).
+  const gruppi = bozze.map((b) => b.allegatiGruppo).filter((g): g is string => Boolean(g))
+  const quantiAllegati = new Map<string, number>()
+  if (gruppi.length) {
+    try {
+      const conteggi = await db.allegatoCaricato.groupBy({
+        by: ['gruppo', 'file'],
+        where: { utenteId: u.id, gruppo: { in: gruppi } },
+      })
+      for (const c of conteggi) quantiAllegati.set(c.gruppo, (quantiAllegati.get(c.gruppo) ?? 0) + 1)
+    } catch {
+      /* tabella non migrata: si mostra la bozza senza il numero */
+    }
+  }
+
   const mie = bozze.filter((b) => b.origine === 'utente')
   const daAI = bozze.filter((b) => b.origine === 'ai')
 
@@ -113,7 +130,7 @@ export default async function Bozze({ searchParams }: Props) {
               <div className="card tight">
                 <div className="mail-list">
                   {mie.map((b) => (
-                    <RigaBozza key={b.id} bozza={b} />
+                    <RigaBozza key={b.id} bozza={b} allegati={b.allegatiGruppo ? (quantiAllegati.get(b.allegatiGruppo) ?? 0) : 0} />
                   ))}
                 </div>
               </div>
@@ -126,7 +143,7 @@ export default async function Bozze({ searchParams }: Props) {
               <div className="card tight">
                 <div className="mail-list">
                   {daAI.map((b) => (
-                    <RigaBozza key={b.id} bozza={b} />
+                    <RigaBozza key={b.id} bozza={b} allegati={b.allegatiGruppo ? (quantiAllegati.get(b.allegatiGruppo) ?? 0) : 0} />
                   ))}
                 </div>
               </div>
@@ -150,7 +167,10 @@ type BozzaConMessaggio = {
   messaggio: { id: string; mittente: string; mittenteNome: string | null } | null
 }
 
-function RigaBozza({ bozza }: { bozza: BozzaConMessaggio }) {
+/** `allegati`: quanti file la bozza si porta dietro (0 = nessuno). Arriva
+ *  come numero e non come elenco: la riga deve disegnare un bollino, non
+ *  caricare i byte dei file. */
+function RigaBozza({ bozza, allegati = 0 }: { bozza: BozzaConMessaggio; allegati?: number }) {
   // Una bozza tua si riapre nella schermata di scrittura da cui è nata (la
   // risposta sotto il messaggio, la mail nuova in "Scrivi"); una dell'AI si
   // rivede sotto il messaggio a cui risponde.
@@ -180,6 +200,11 @@ function RigaBozza({ bozza }: { bozza: BozzaConMessaggio }) {
             </span>
           </div>
           <div className="mail-tags" style={{ paddingLeft: 17 }}>
+            {allegati > 0 && (
+              <span className="badge neutral" title="Allegati conservati con la bozza">
+                📎 {allegati}
+              </span>
+            )}
             {bozza.modo === 'nuova' && <span className="badge neutral">nuova mail</span>}
             {bozza.modo === 'inoltra' && <span className="badge neutral">inoltro</span>}
             {bozza.modo === 'tutti' && <span className="badge neutral">a tutti</span>}

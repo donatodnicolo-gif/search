@@ -2156,6 +2156,15 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
     const account = bozza.messaggio.account
     const { html, testo: testoPiano } = corpoDaForm(bozza.corpo)
     const allegati = form ? await leggiAllegati(form, utenteId) : []
+    // ⚠️ E quelli CONSERVATI con la bozza: chi riprende una bozza e preme invia
+    //    senza ripassare dal modulo non ha nessun file nel form, ma la mail deve
+    //    partire con gli allegati che si vedevano.
+    if (bozza.allegatiGruppo) {
+      const { allegatiDelGruppo } = await import('./allegatiGrandi')
+      const conservati = await allegatiDelGruppo(utenteId, bozza.allegatiGruppo)
+      const gia = new Set(allegati.map((x) => x.filename))
+      for (const c of conservati) if (!gia.has(c.filename)) allegati.push(c)
+    }
     // Se serve tradurre (lingua non letta) si manda solo testo tradotto.
     const t = await traduciSeStraniera(utenteId, bozza.messaggio.lingua, testoPiano)
     const tradottoIn = t.tradottoIn
@@ -2186,6 +2195,16 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
     const avviso = await registraInviato(
       utenteId, account, daInviare, raw, messageId, threadRadice, null, null, bozza.messaggio.id, 'rispondi'
     )
+
+    // ⚠️ Gli allegati conservati per la bozza si buttano SOLO ORA, a mail
+    //    partita davvero. Erano finiti subito dopo il lucchetto `inviata`, che
+    //    si prende PRIMA di spedire: se l invio falliva, la bozza restava li
+    //    senza piu i suoi file — persi per sempre, perche un allegato in
+    //    partenza non vive da nessun altra parte.
+    if (bozza.allegatiGruppo) {
+      const { scartaGruppo } = await import('./allegatiGrandi')
+      await scartaGruppo(utenteId, bozza.allegatiGruppo).catch(() => {})
+    }
 
     // `inviata` è già a true (lock preso sopra): resta solo da togliere gli
     // avanzi. Le ALTRE bozze rimaste su quella mail se ne vanno: hai risposto,
@@ -2807,18 +2826,43 @@ export async function salvaMinuta(
       })
     }
 
-    // Il corpo è ora nella bozza: i pezzi caricati non servono più.
+    // ⚠️ GLI ALLEGATI SI CONSERVANO PRIMA DI SCARTARE IL TRANSITO, e l ordine
+    //    e tutto: fino al 21/08/2026 qui si chiamava solo `ripulisciAllegatiGrandi`,
+    //    quindi salvare una bozza BUTTAVA VIA i file gia caricati. Un allegato in
+    //    partenza non vive da nessun altra parte.
+    const { conservaPerBozza } = await import('./allegatiGrandi')
+    const allegatiOra = await leggiAllegati(form, utenteId)
+    const gruppoBozza = await conservaPerBozza(utenteId, bozza.id, allegatiOra)
+    if (gruppoBozza !== bozza.allegatiGruppo) {
+      await db.bozza.update({ where: { id: bozza.id }, data: { allegatiGruppo: gruppoBozza } })
+    }
+
+    // Il corpo e gli allegati sono ora nella bozza: i pezzi di transito no.
     await ripulisciAllegatiGrandi(form, utenteId)
 
     revalidatePath('/', 'layout')
-    return { ok: true, messaggio: 'Bozza salvata. La trovi in Bozze.', id: bozza.id }
+    const quanti = allegatiOra.length
+    return {
+      ok: true,
+      messaggio: quanti
+        ? `Bozza salvata con ${quanti} ${quanti === 1 ? 'allegato' : 'allegati'}. La trovi in Bozze.`
+        : 'Bozza salvata. La trovi in Bozze.',
+      id: bozza.id,
+    }
   } catch (e) {
     return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
   }
 }
 
 export async function eliminaBozza(id: string) {
-  await db.bozza.deleteMany({ where: { id, utenteId: await uid() } })
+  const utenteId = await uid()
+  await db.bozza.deleteMany({ where: { id, utenteId } })
+  // ⚠️ E i suoi allegati: sono byte nel database, e una bozza cancellata che
+  //    lascia i file dietro di sé li fa crescere per sempre senza che nessuno
+  //    li veda più. È lo stesso principio di `htmlServer`: il database non
+  //    deve accumulare ciò che non serve più a nessuno.
+  const { scartaGruppo, gruppoBozza } = await import('./allegatiGrandi')
+  await scartaGruppo(utenteId, gruppoBozza(id)).catch(() => {})
   revalidatePath('/', 'layout')
 }
 
