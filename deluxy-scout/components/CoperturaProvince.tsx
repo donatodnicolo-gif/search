@@ -13,7 +13,7 @@
 // Il filtro «Scoperte» toglie le province dove un fornitore attivo c'è già:
 // resta l'elenco di dove si vende (o si potrebbe vendere) senza avere nessuno.
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -94,6 +94,12 @@ const euro = (n: number) =>
 
 export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string) => void }) {
   const router = useRouter();
+  // Sul telefono sette colonne a larghezza fissa schiacciano il nome a zero:
+  // sotto i 700px le tre di dettaglio (torte/fiori/altro) si nascondono e
+  // restano le quattro che rispondono alla domanda della schermata. Il
+  // dettaglio per categoria si guarda da schermo largo.
+  const { width } = useWindowDimensions();
+  const stretto = width < 700;
   const [righe, setRighe] = useState<Riga[]>([]);
   const [soloScoperte, setSoloScoperte] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -308,9 +314,13 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
             { c: 'nome' as const, label: 'Provincia', stile: styles.cellaNome },
             { c: 'attivi' as const, label: 'Fornit.', stile: styles.cellaNum },
             { c: 'lavorazione' as const, label: 'In lav.', stile: styles.cellaNum },
-            { c: 'torte' as const, label: 'Torte', stile: styles.cellaTipo },
-            { c: 'fiori' as const, label: 'Fiori', stile: styles.cellaTipo },
-            { c: 'altro' as const, label: 'Altro', stile: styles.cellaTipo },
+            ...(stretto
+              ? []
+              : [
+                  { c: 'torte' as const, label: 'Torte', stile: styles.cellaTipo },
+                  { c: 'fiori' as const, label: 'Fiori', stile: styles.cellaTipo },
+                  { c: 'altro' as const, label: 'Altro', stile: styles.cellaTipo },
+                ]),
             { c: 'lordo' as const, label: 'Venduto', stile: styles.cellaEuro },
           ]).map((h) => (
             <Pressable key={h.c} style={h.stile} onPress={() => ordinaPer(h.c)}>
@@ -354,9 +364,13 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
                 {r.lavorazione || '—'}
               </Text>
               {/* Le tre sommano esatte al venduto: ogni ordine sta in una sola. */}
-              <Text style={styles.cellaTipo}>{r.torte ? euro(r.torte) : '—'}</Text>
-              <Text style={styles.cellaTipo}>{r.fiori ? euro(r.fiori) : '—'}</Text>
-              <Text style={styles.cellaTipo}>{r.altro ? euro(r.altro) : '—'}</Text>
+              {!stretto ? (
+                <>
+                  <Text style={styles.cellaTipo}>{r.torte ? euro(r.torte) : '—'}</Text>
+                  <Text style={styles.cellaTipo}>{r.fiori ? euro(r.fiori) : '—'}</Text>
+                  <Text style={styles.cellaTipo}>{r.altro ? euro(r.altro) : '—'}</Text>
+                </>
+              ) : null}
               <View style={styles.cellaEuro}>
                 <Text style={[styles.euro, buco && styles.euroBuco]}>{r.lordo ? euro(r.lordo) : '—'}</Text>
                 {r.ordini ? <Text style={styles.ordini}>{r.ordini} ord.</Text> : null}

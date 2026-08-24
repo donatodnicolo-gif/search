@@ -1,7 +1,9 @@
 // Selettore di periodo condiviso: chip (Oggi/Ieri/7gg/30gg/Personalizzato) e,
-// per "Personalizzato", due campi data Da–A (AAAA-MM-GG).
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+// per "Personalizzato", due campi data Da–A. I campi sono CampoData: sul web
+// aprono il calendario vero del browser invece di chiedere «AAAA-MM-GG» a mano.
+import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '@/lib/theme';
+import { CampoData } from '@/components/CampoData';
 import { OPZIONI_PERIODO, type Periodo } from '@/lib/periodo';
 
 export function PeriodoSelector({
@@ -35,25 +37,11 @@ export function PeriodoSelector({
         <View style={styles.customRow}>
           <View style={styles.campo}>
             <Text style={styles.campoLbl}>Da</Text>
-            <TextInput
-              style={styles.input}
-              value={periodo.da ?? ''}
-              onChangeText={(t) => onChange({ ...periodo, da: t })}
-              placeholder="AAAA-MM-GG"
-              placeholderTextColor={colors.grigio}
-              autoCapitalize="none"
-            />
+            <CampoData valore={periodo.da ?? null} onCambia={(v) => onChange({ ...periodo, da: v ?? undefined })} placeholder="inizio" />
           </View>
           <View style={styles.campo}>
             <Text style={styles.campoLbl}>A</Text>
-            <TextInput
-              style={styles.input}
-              value={periodo.a ?? ''}
-              onChangeText={(t) => onChange({ ...periodo, a: t })}
-              placeholder="AAAA-MM-GG"
-              placeholderTextColor={colors.grigio}
-              autoCapitalize="none"
-            />
+            <CampoData valore={periodo.a ?? null} onCambia={(v) => onChange({ ...periodo, a: v ?? undefined })} placeholder="fine" />
           </View>
         </View>
       ) : null}
@@ -81,14 +69,4 @@ const styles = StyleSheet.create({
   customRow: { flexDirection: 'row', gap: spacing.sm, marginTop: 4 },
   campo: { flex: 1, gap: 2 },
   campoLbl: { color: colors.grigio, fontSize: 11, fontWeight: '700' },
-  input: {
-    backgroundColor: colors.bianco,
-    borderWidth: 1,
-    borderColor: colors.grigioChiaro,
-    borderRadius: radius.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: colors.testo,
-  },
 });

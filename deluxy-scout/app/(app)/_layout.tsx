@@ -5,7 +5,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions } from '@react-navigation/native';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { BarraMobile } from '@/components/BarraMobile';
+import { navRef } from '@/lib/navRef';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { usePreferiti, rimuoviPreferito } from '@/lib/preferiti';
@@ -112,6 +114,11 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
 // l'overlay. Testuale così è sempre visibile anche sul web.
 function BtnMenu({ isWide, onToggleEspansa }: { isWide: boolean; onToggleEspansa: () => void }) {
   const nav = useNavigation();
+  // Deposita la navigation per la barra mobile (vedi lib/navRef): l'header è
+  // montato su ogni schermata, quindi il ponte è sempre aggiornato.
+  useEffect(() => {
+    navRef.corrente = nav as any;
+  }, [nav]);
   return (
     <Pressable
       onPress={() => (isWide ? onToggleEspansa() : nav.dispatch(DrawerActions.toggleDrawer()))}
@@ -352,6 +359,9 @@ export default function AppLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      {/* Su schermo stretto la barra sta SOTTO il contenuto (in flusso, non
+          sovrapposta): i FAB delle schermate restano visibili sopra di lei. */}
+      <View style={{ flex: 1 }}>
       <Drawer
         // Default del Drawer = 'firstRoute': il back tornava SEMPRE alla prima
         // schermata ("Oggi"). Con 'history' torna all'ultima visitata davvero,
@@ -414,6 +424,8 @@ export default function AppLayout() {
         <Drawer.Screen name="venditore/[ownerId]" options={dettaglio('Venditore')} />
         <Drawer.Screen name="invio/[scriptId]" options={dettaglio('Invio email')} />
       </Drawer>
+      </View>
+      {!isWide ? <BarraMobile /> : null}
     </GestureHandlerRootView>
   );
 }
