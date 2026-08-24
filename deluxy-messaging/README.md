@@ -548,14 +548,14 @@ Prova: `npx tsx scripts/prova-cerca-fornitore.mts`
 ## Il costo del fornitore si comunica a Orders
 
 Registrando chi prepara un ordine, il costo concordato viene **proposto a
-Orders** (PATCH, ). Prima quel numero restava solo
+Orders** (PATCH, `costoDa: "customer-service"`). Prima quel numero restava solo
 qui, e in Orders il margine risultava «non calcolabile» su quasi tutti gli ordini
 — misurato il 24/08 su #2780, #2783 e #2785: rispondeva «costo: non lo sa».
 
 ⚠️⚠️ **Deviazione dichiarata** rispetto allo Standard §7.4, decisa dall utente e
 scritta nello standard: il margine lo calcola questa app (nasce dal costo che
 decide questa app) e lo si comunica a Orders. ⚠️ Si manda il **costo**, non il
-margine: il margine è  e Orders lo fa già da sé — mandarli tutti
+margine: il margine è `totale − costo` e Orders lo fa già da sé — mandarli tutti
 e due vorrebbe dire due numeri per un fatto solo.
 
 ⚠️ **Un rifiuto non fa fallire la registrazione**: il fatto («questo ordine lo
