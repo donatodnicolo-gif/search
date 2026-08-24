@@ -2,12 +2,15 @@ import { prisma } from "@/lib/db";
 import { FREQUENZE_ATTIVITA } from "@/lib/organico";
 import {
   aggiornaFunzione,
+  assegnaMansione,
   creaAttivita,
   creaFunzione,
   creaMansione,
   eliminaAttivita,
   eliminaFunzione,
   eliminaMansione,
+  rimuoviAssegnazione,
+  spostaInFunzione,
 } from "@/lib/azioni";
 import { FormConferma } from "@/components/FormConferma";
 
@@ -37,7 +40,11 @@ export default async function PaginaFunzioni({
       },
       orderBy: [{ ordine: "asc" }, { nome: "asc" }],
     }),
-    prisma.persona.findMany({ where: { stato: "attivo" }, orderBy: { nome: "asc" } }),
+    prisma.persona.findMany({
+      where: { stato: "attivo" },
+      include: { funzione: true },
+      orderBy: { nome: "asc" },
+    }),
   ]);
 
   return (
@@ -47,7 +54,7 @@ export default async function PaginaFunzioni({
           <h1 className="page-title">Funzioni e mansioni</h1>
           <p className="page-sub">
             Il disegno dell&apos;organizzazione: ogni funzione ha le sue mansioni, ogni mansione le
-            attività che comporta. Le persone si collegano dalle loro schede.
+            attività che comporta. Le persone si assegnano da qui o dalle loro schede.
           </p>
         </div>
       </div>
@@ -150,6 +157,49 @@ export default async function PaginaFunzioni({
             </form>
           </details>
 
+          {/* Persone della funzione: si assegnano (e si tolgono) da qui */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            {f.persone.map((p) => (
+              <span key={p.id} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+                <a className="badge" href={`/persone/${p.id}`}>
+                  <span className="dot" />
+                  {p.nome}
+                </a>
+                <FormConferma
+                  azione={spostaInFunzione}
+                  conferma={`Togliere ${p.nome} dalla funzione «${f.nome}»? (Resta in organico, senza funzione.)`}
+                  campi={{ personaId: p.id, funzioneId: "", torna: "/funzioni" }}
+                  etichetta="×"
+                  classe="btn ghost mini"
+                />
+              </span>
+            ))}
+            {(() => {
+              const candidate = persone.filter((p) => p.funzioneId !== f.id);
+              if (candidate.length === 0) return null;
+              return (
+                <form action={spostaInFunzione} className="form-inline" style={{ gap: 6 }}>
+                  <input type="hidden" name="funzioneId" value={f.id} />
+                  <input type="hidden" name="torna" value="/funzioni" />
+                  <select name="personaId" required defaultValue="" style={{ width: "auto", fontSize: 13 }}>
+                    <option value="" disabled>
+                      Aggiungi una persona…
+                    </option>
+                    {candidate.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nome}
+                        {p.funzione ? ` (da ${p.funzione.nome})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="btn ghost mini" type="submit">
+                    Aggiungi
+                  </button>
+                </form>
+              );
+            })()}
+          </div>
+
           {/* Mansioni della funzione */}
           {f.mansioni.map((m) => (
             <div key={m.id} className="mansione-blocco">
@@ -165,10 +215,19 @@ export default async function PaginaFunzioni({
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   {m.assegnazioni.length > 0 ? (
                     m.assegnazioni.map((a) => (
-                      <a key={a.id} className="badge" href={`/persone/${a.persona.id}`}>
-                        <span className="dot" />
-                        {a.persona.nome}
-                      </a>
+                      <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+                        <a className="badge" href={`/persone/${a.persona.id}`}>
+                          <span className="dot" />
+                          {a.persona.nome}
+                        </a>
+                        <FormConferma
+                          azione={rimuoviAssegnazione}
+                          conferma={`Togliere la mansione «${m.nome}» a ${a.persona.nome}?`}
+                          campi={{ id: a.id, personaId: a.persona.id, torna: "/funzioni" }}
+                          etichetta="×"
+                          classe="btn ghost mini"
+                        />
+                      </span>
                     ))
                   ) : (
                     <span className="badge arancio">
@@ -176,6 +235,30 @@ export default async function PaginaFunzioni({
                       scoperta
                     </span>
                   )}
+                  {(() => {
+                    const assegnati = new Set(m.assegnazioni.map((a) => a.personaId));
+                    const candidate = persone.filter((p) => !assegnati.has(p.id));
+                    if (candidate.length === 0) return null;
+                    return (
+                      <form action={assegnaMansione} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <input type="hidden" name="mansioneId" value={m.id} />
+                        <input type="hidden" name="torna" value="/funzioni" />
+                        <select name="personaId" required defaultValue="" style={{ width: "auto", fontSize: 12.5, padding: "4px 10px", borderRadius: "var(--radius-pill)" }}>
+                          <option value="" disabled>
+                            Assegna a…
+                          </option>
+                          {candidate.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.nome}
+                            </option>
+                          ))}
+                        </select>
+                        <button className="btn ghost mini" type="submit">
+                          Assegna
+                        </button>
+                      </form>
+                    );
+                  })()}
                   <FormConferma
                     azione={eliminaMansione}
                     conferma={`Eliminare la mansione «${m.nome}» e le sue attività?`}

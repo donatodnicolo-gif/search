@@ -18,7 +18,10 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
   retribuzioni, cessazione), Organigramma (albero dei riporti, **costruibile
   dalla pagina**: menu «riporta a» su ogni scheda, salvataggio immediato,
   anti-ciclo sia nel menu sia nella server action), Funzioni e mansioni
-  (mansionario di ruolo), Stipendi, Inquadramenti, Chiavi delle app.
+  (mansionario di ruolo — **e dal 24/08 le persone si assegnano anche da lì**:
+  menu su ogni funzione per aggiungere/spostare una persona, menu «Assegna a…»
+  su ogni mansione, rimozioni al volo con conferma), Stipendi, Inquadramenti,
+  Chiavi delle app.
 - ✅ **Mansionario personale** (24/08): su ogni scheda la lista delle cose che
   la persona fa davvero (attività + dettaglio + frequenza), tabella
   `AttivitaPersona`; sotto, in sola lettura, le attività-tipo delle mansioni

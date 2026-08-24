@@ -325,12 +325,16 @@ export async function eliminaAttivitaPersona(fd: FormData): Promise<void> {
 }
 
 // ---------- Assegnazioni di mansione ----------
+// Le stesse azioni servono DUE pagine: la scheda della persona e «Funzioni e
+// mansioni» (campo `torna`): l'assegnazione deve potersi fare da tutte e due
+// le direzioni — dalla persona verso il ruolo e dal ruolo verso la persona.
 
 export async function assegnaMansione(fd: FormData): Promise<void> {
   const personaId = testo(fd, "personaId");
-  const percorso = `/persone/${personaId}`;
+  const percorso = testo(fd, "torna") || `/persone/${personaId}`;
   const negato = await richiediAdmin();
   if (negato) conErrore(percorso, negato);
+  if (!personaId) conErrore(percorso, "Scegli la persona a cui assegnare la mansione.");
   const mansioneId = testo(fd, "mansioneId");
   if (!mansioneId) conErrore(percorso, "Scegli la mansione da assegnare.");
   const principale = fd.get("principale") === "1";
@@ -344,17 +348,36 @@ export async function assegnaMansione(fd: FormData): Promise<void> {
   } catch {
     conErrore(percorso, "Questa mansione è già assegnata alla persona.");
   }
-  revalidatePath(percorso);
+  revalidatePath(`/persone/${personaId}`);
+  revalidatePath("/funzioni");
   redirect(percorso);
 }
 
 export async function rimuoviAssegnazione(fd: FormData): Promise<void> {
   const personaId = testo(fd, "personaId");
-  const percorso = `/persone/${personaId}`;
+  const percorso = testo(fd, "torna") || `/persone/${personaId}`;
   const negato = await richiediAdmin();
   if (negato) conErrore(percorso, negato);
   await prisma.assegnazione.delete({ where: { id: testo(fd, "id") } });
-  revalidatePath(percorso);
+  revalidatePath(`/persone/${personaId}`);
+  revalidatePath("/funzioni");
+  redirect(percorso);
+}
+
+// Mettere una persona in una funzione (o toglierla: funzioneId vuoto) anche
+// dalla pagina delle funzioni. Una persona sta in UNA funzione: assegnarla da
+// qui la SPOSTA, e il menu lo dice mostrando da dove arriva.
+export async function spostaInFunzione(fd: FormData): Promise<void> {
+  const percorso = testo(fd, "torna") || "/funzioni";
+  const negato = await richiediAdmin();
+  if (negato) conErrore(percorso, negato);
+  const personaId = testo(fd, "personaId");
+  if (!personaId) conErrore(percorso, "Scegli la persona.");
+  const funzioneId = testo(fd, "funzioneId") || null;
+  await prisma.persona.update({ where: { id: personaId }, data: { funzioneId } });
+  revalidatePath("/funzioni");
+  revalidatePath("/");
+  revalidatePath(`/persone/${personaId}`);
   redirect(percorso);
 }
 
