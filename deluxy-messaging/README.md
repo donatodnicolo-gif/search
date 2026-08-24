@@ -425,19 +425,42 @@ salvato.
 
 ## La Riconciliazione
 
+⚠️⚠️ **Pagando da questa app non serve venire qui**: premendo «Pagata» su una
+richiesta collegata a un ordine, l’ordine impara **da solo** chi l’ha preparato
+e quanto è costato, e il costo parte verso Deluxy Orders. In questa pagina
+restano le **eccezioni**: i pagamenti vecchi, quelli fatti altrove, e quelli su
+cui il codice non decide da sé.
+
+⚠️⚠️ La scrittura sta in **una funzione sola** (`riconciliaDaPagamento`), usata
+sia dal percorso automatico sia dal bottone di questa pagina. Non è un dettaglio
+di stile: se le due strade avessero due copie della stessa logica, il giorno che
+si corregge un controllo se ne correggerebbe una sola — e il buco resterebbe
+aperto proprio su quella automatica, che è la strada che nessuno guarda.
+
+⚠️ **Automatico non vuol dire senza controlli.** I tre rifiuti qui sotto valgono
+identici sulle due strade; anzi in automatico contano di più, perché a mano c’è
+una persona che legge la frase e si accorge.
+
+⚠️ **I recapiti non arrivano dal pagamento**: una richiesta ha un IBAN, non un
+telefono. L’avviso al fornitore legge telefono ed email **dall’ordine**, quindi
+resterà «non avvisato» finché non li scrive qualcuno. Inventarli sarebbe peggio,
+ma va detto, o si crede che la catena sia completa.
+
 `/riconciliazione` — i pagamenti già fatti dicono **chi ha preparato** un ordine
 e **quanto è costato**. Qui quel fatto si porta sull'ordine, dove serve.
 
-⚠️⚠️ Misurato il 24/08/2026: **8 pagamenti fatti** (nome, IBAN, importo, ordine
-collegato) e **ZERO ordini con un fornitore registrato, su 1.341**. Il dato non
-mancava: stava in un'altra tabella. Senza, il costo non arriva a Orders e il
-margine risulta «non calcolabile» dove è calcolabilissimo — **490 €**, il 41% su
-sei di loro.
+⚠️⚠️ Da dove nasce, misurato il 24/08/2026: **8 pagamenti fatti** (nome, IBAN,
+importo, ordine collegato) e **ZERO ordini con un fornitore registrato, su
+1.341**. Il dato non mancava: stava in un altra tabella. Senza, il costo non
+arrivava a Orders e il margine risultava «non calcolabile» dove era
+calcolabilissimo. **Recuperati tutti e 8 lo stesso giorno: 490 € di margine che
+Orders adesso calcola.** Perche non si riformi, il caso normale e ora
+automatico (vedi sopra); qui restano le eccezioni.
 
-⚠️ La pagina **propone e una persona conferma**. Un «sistema tutto» che scrive
-ottanta costi di fornitura senza che nessuno li abbia letti sposta soltanto il
-problema: da «non sappiamo niente» a «sappiamo cose che nessuno ha verificato»,
-che è peggio perché sembra vero.
+⚠️ Sulle eccezioni la pagina **propone e una persona conferma**, una riga per
+volta. Un «sistema tutto» che scrive ottanta costi di fornitura senza che
+nessuno li abbia letti sposta soltanto il problema: da «non sappiamo niente» a
+«sappiamo cose che nessuno ha verificato», che è peggio perché sembra vero.
 
 ### I tre controlli, e l'errore da cui nascono
 

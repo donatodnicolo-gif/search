@@ -1,5 +1,35 @@
 # Handoff — Deluxy Customer Service
 
+## 24/08/2026 (sera 3) — la riconciliazione e AUTOMATICA quando si paga da qui
+
+Premendo «Pagata» su una richiesta collegata a un ordine, l ordine impara **da
+solo** chi l ha preparato e quanto e costato, e il costo parte verso Orders.
+Prima serviva un secondo clic sulla pagina Riconciliazione — cioe rifare a mano
+una cosa gia decisa, che e esattamente il motivo per cui c erano 8 pagamenti
+fatti e ZERO ordini che sapessero chi li aveva preparati.
+
+⚠️⚠️ **La scrittura sta in UNA funzione sola**:  in
+, usata sia dal PATCH di  (azione
+, modo ) sia dal POST di  (modo ).
+Due copie della stessa logica divergerebbero, e il buco resterebbe aperto sulla
+strada automatica — quella che nessuno guarda.
+
+⚠️ **Automatico non vuol dire senza controlli**: i rifiuti di 
+(rimborso al cliente, fornitore diverso gia scritto, costo che non torna)
+valgono identici. Cio che non passa resta nella pagina Riconciliazione, che ora
+e l ELENCO DELLE ECCEZIONI e non la coda di tutto il lavoro.
+
+⚠️ Parte **prima dell avviso**, di proposito: l avviso legge i recapiti dall
+ORDINE. ⚠️ Ma i recapiti NON arrivano dal pagamento (una richiesta ha un IBAN,
+non un telefono): l avviso restera «non avvisato» finche non li scrive qualcuno.
+
+**RECUPERATI TUTTI E 8 i pagamenti storici** (4 da me, 3 gia fatti a mano
+dall utente, 1 di prova): **8 ordini su 8 sanno chi li ha preparati** (erano 0)
+e **Orders calcola 490 EUR di margine** che prima diceva «non calcolabile».
+Verificato leggendo Orders: nel suo ,  e il numero e
+ e il NOME (attenzione al nome del campo).
+
+
 ## 24/08/2026 (sera 2) — «risolvi tutto»: riconciliazione, contestazioni, e i buchi muti
 
 **LA RICONCILIAZIONE (nuova pagina `/riconciliazione`).** Misurato oggi: **8
