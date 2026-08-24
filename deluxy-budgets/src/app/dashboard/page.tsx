@@ -54,10 +54,10 @@ export default async function Dashboard() {
             pubblicità online, e quello delle{" "}
             <Link href="/commerciale" style={{ color: "var(--blue)" }}>linee commerciali</Link>, che lo
             porta il lavoro del team.{" "}
-            {pls[0].lineeSenzaTipologia > 0 && (
+            {pls[0].lineeSenzaMargine > 0 && (
               <>
                 <strong style={{ color: "var(--orange)" }}>
-                  {pls[0].lineeSenzaTipologia} linee non hanno ancora una tipologia
+                  {pls[0].lineeSenzaMargine} linee non hanno ancora un margine
                 </strong>
                 : entrano a <strong>margine zero</strong>, quindi non spostano l&apos;EBITDA finché non la
                 si sceglie.{" "}

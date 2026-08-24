@@ -120,6 +120,7 @@ export async function PATCH(req: Request) {
   if (!mappature) return NextResponse.json({ error: "payload non valido" }, { status: 400 });
 
   let scritte = 0;
+  let rifiutati = 0;
   for (const m of mappature) {
     const lineaId = String(m?.lineaId ?? "");
     if (!lineaId) continue;
@@ -130,22 +131,37 @@ export async function PATCH(req: Request) {
       .split(",")
       .map((x) => x.trim())
       .filter(Boolean);
-    // La **tipologia con cui la linea fattura**, da cui eredita il margine nel
-    // conto economico. Si manda solo quando si cambia: assente = non si tocca.
-    // Stringa vuota = «non decisa», che vale margine zero e la pagina lo dice.
-    const grezza = m?.tipologiaSlug;
-    const tipologiaSlug =
-      grezza === undefined ? undefined : String(grezza).trim() === "" ? null : String(grezza).trim();
+    // Il **margine sulla vendita** della linea. Arriva come testo dal form,
+    // con la virgola decimale italiana. Vuoto = «non deciso» → `null`, che vale
+    // zero nel P&L: il ricavo si conta, il margine no.
+    //
+    // ⚠️ Fuori da 0–100 si **rifiuta**, non si taglia: un margine sopra 100
+    // vorrebbe dire guadagnare più di quanto si vende, e una correzione
+    // silenziosa non si scopre mai (lezione già pagata su `/api/spese`).
+    const grezzo = m?.marginePct;
+    let marginePct: number | null | undefined = undefined;
+    if (grezzo !== undefined) {
+      const testo = String(grezzo).replace(",", ".").trim();
+      if (testo === "") marginePct = null;
+      else {
+        const n = Number(testo);
+        if (!Number.isFinite(n) || n < 0 || n > 100) {
+          rifiutati++;
+          continue;
+        }
+        marginePct = n;
+      }
+    }
 
     await prisma.lineaCommerciale.update({
       where: { id: lineaId },
       data: {
         vociFinance: lista.length > 0 ? JSON.stringify(lista) : null,
-        ...(tipologiaSlug === undefined ? {} : { tipologiaSlug }),
+        ...(marginePct === undefined ? {} : { marginePct }),
       },
     });
     scritte++;
   }
 
-  return NextResponse.json({ ok: true, scritte });
+  return NextResponse.json({ ok: true, scritte, rifiutati });
 }

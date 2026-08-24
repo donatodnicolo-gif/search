@@ -151,8 +151,8 @@ export default async function ContoEconomico({
     {
       label: "Ricavi da team commerciale",
       nota:
-        plScelto.lineeSenzaTipologia > 0
-          ? `${dati.linee.length} linee · ${plScelto.lineeSenzaTipologia} senza tipologia, quindi a margine zero`
+        plScelto.lineeSenzaMargine > 0
+          ? `${dati.linee.length} linee · ${plScelto.lineeSenzaMargine} senza margine scritto, quindi a zero`
           : `${dati.linee.length} linee di vendita`,
       valore: (pl: PL) => pl.ricaviCommerciale,
       cons: () => null,

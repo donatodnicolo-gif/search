@@ -141,8 +141,8 @@ export type MaisonBudget = {
 export type LineaBudgetPL = {
   id: string;
   nome: string;
-  // Come fattura: da qui eredita il margine. `null` = non deciso → margine zero.
-  tipologiaSlug: string | null;
+  // Il margine sulla vendita, in %. `null` = non deciso → vale zero.
+  marginePct: number | null;
   // Il budget in € per mese (1..12).
   mesi: number[];
 };
@@ -248,7 +248,7 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
     linee: lineeDb.map((l) => ({
       id: l.id,
       nome: l.nome,
-      tipologiaSlug: l.tipologiaSlug,
+      marginePct: l.marginePct,
       mesi: Array.from({ length: 12 }, (_, i) => l.targets.find((t) => t.month === i + 1)?.valore ?? 0),
     })),
     scenari: scenari.map((s) => ({
@@ -499,9 +499,9 @@ export type PL = {
   // I ricavi del team commerciale, tenuti a parte perché sono un'altra fonte:
   // le pagine li mostrano su una riga loro invece di confonderli con le maison.
   ricaviCommerciale: number;
-  // Quante linee non hanno ancora una tipologia, e quindi entrano a margine
+  // Quante linee non hanno ancora un margine scritto, e quindi entrano a
   // zero. Si dichiara: un margine dedotto dal silenzio è peggio di un buco.
-  lineeSenzaTipologia: number;
+  lineeSenzaMargine: number;
 };
 
 // Margine di una tipologia. Una tipologia sconosciuta (dato vecchio rimasto in
@@ -592,10 +592,11 @@ export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: st
     ? 0
     : dati.linee.reduce((s, l) => {
         const v = l.mesi.reduce((a, b) => a + b, 0) * molt;
-        // Linea senza tipologia = margine zero: il ricavo si conta lo stesso
-        // (ignorarlo gonfierebbe il risultato) ma senza margine. Finché nessuno
-        // sceglie, aggiungere le linee **non sposta l'EBITDA**.
-        return s + v * (1 - (l.tipologiaSlug ? margineDi(dati, l.tipologiaSlug) : 0) / 100);
+        // Linea senza margine impostato = margine zero: il ricavo si conta lo
+        // stesso (ignorarlo gonfierebbe il risultato) ma senza margine. Finché
+        // nessuno scrive la percentuale, aggiungere le linee **non sposta
+        // l'EBITDA**.
+        return s + v * (1 - (l.marginePct ?? 0) / 100);
       }, 0);
 
   // Si risomma dalle tipologie invece di usare `venditeBase`: con la quota
@@ -633,7 +634,7 @@ export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: st
     risultatoNetto: ebitda - p,
     ebitdaPct: ricavi > 0 ? (ebitda / ricavi) * 100 : 0,
     ricaviCommerciale,
-    lineeSenzaTipologia: maisonSlug ? 0 : dati.linee.filter((l) => !l.tipologiaSlug).length,
+    lineeSenzaMargine: maisonSlug ? 0 : dati.linee.filter((l) => l.marginePct === null).length,
   };
 }
 
@@ -682,7 +683,7 @@ export function contoEconomicoMensile(dati: DatiAnno, livello: Livello, quotaD2C
     for (const l of dati.linee) {
       const r = (l.mesi[month - 1] ?? 0) * molt;
       ricavi += r;
-      cogs += r * (1 - (l.tipologiaSlug ? margineDi(dati, l.tipologiaSlug) : 0) / 100);
+      cogs += r * (1 - (l.marginePct ?? 0) / 100);
     }
     const adv =
       dati.maisons.reduce((s, m) => {

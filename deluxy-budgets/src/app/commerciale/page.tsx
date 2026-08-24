@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { ANNO_CORRENTE, caricaAnno, leggiVociFinance } from "@/lib/calc";
+import { ANNO_CORRENTE, leggiVociFinance } from "@/lib/calc";
 import { fetchConsuntivoMensile } from "@/lib/finance";
 import { eur, num } from "@/lib/format";
 import { fetchLineeScout, normalizzaNome, type LineaScout } from "@/lib/scout";
@@ -13,7 +13,7 @@ export default async function Commerciale() {
   // Scout è il master dell'elenco linee; i target di budget stanno in Budgets e
   // si agganciano per nome. Le due letture in parallelo.
   const aperto = primoMeseAperto(ANNO_CORRENTE);
-  const [scout, lineeBudget, consuntivo, dati] = await Promise.all([
+  const [scout, lineeBudget, consuntivo] = await Promise.all([
     fetchLineeScout(),
     prisma.lineaCommerciale.findMany({
       orderBy: { ordine: "asc" },
@@ -22,9 +22,6 @@ export default async function Commerciale() {
     // Il **fatturato vero** di Finance, mese per mese: sui mesi già passati il
     // budget non è più la domanda, la domanda è quanto è stato fatto.
     fetchConsuntivoMensile({ anno: ANNO_CORRENTE, dal: 1, al: 12 }),
-    // Serve solo per l'elenco delle tipologie con il loro margine: da lì la
-    // linea eredita il margine con cui entra nel conto economico.
-    caricaAnno(ANNO_CORRENTE),
   ]);
 
   // Il consuntivo di Finance indicizzato per nome normalizzato.
@@ -80,7 +77,7 @@ export default async function Commerciale() {
         return { month: i + 1, valore: t?.valore ?? 0, clienti: t?.clienti ?? 0 };
       }),
       vociFinance: leggiVociFinance(l.vociFinance),
-      tipologiaSlug: l.tipologiaSlug,
+      marginePct: l.marginePct,
       // Il consuntivo mese per mese, **o `null`**. Un `null` non è uno zero: se
       // la linea non è collegata a nessuna voce di Finance non sappiamo quanto
       // ha fatturato, e scrivere «0 €» sarebbe dire che non ha venduto niente.
@@ -147,7 +144,6 @@ export default async function Commerciale() {
         lineeScoutSenzaBudget={lineeScoutSenzaBudget}
         vociFinanceNote={consuntivo.ok ? consuntivo.tipologie.map((t) => t.tipologia) : []}
         consuntivoOk={consuntivo.ok}
-        tipologie={dati.tipologie.map((t) => ({ slug: t.slug, nome: t.nome, marginePct: t.marginePct }))}
       />
 
       {scout.ok && <LineeDaScout linee={scout.linee} budgetDi={budgetDi} />}

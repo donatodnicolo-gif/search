@@ -172,16 +172,17 @@ model LineaCommerciale {
   // dice chi sa come si fattura, e finche non lo dice il consuntivo di quella
   // linea non e zero, e **non misurato**.
   vociFinance String?
-  // Come **fattura** questa linea: lo slug della tipologia di servizio, da cui
-  // eredita il margine nel conto economico. Stessa convenzione di
-  // `BudgetEntry.canale`, che pure tiene lo slug e non una relazione.
+  // Il **margine sulla vendita** di questa linea, in percentuale: da qui esce
+  // il costo del venduto nel conto economico. Si scrive un numero invece di
+  // ereditarlo da una tipologia (scelta dell utente, 23/08/2026): una linea
+  // commerciale non fattura per forza come una delle tre tipologie, e il
+  // margine e la cosa che si sa davvero di lei.
   //
-  // ⚠️ `null` = **non ancora deciso**, e allora il margine vale zero: il ricavo
-  // si conta lo stesso (ignorarlo gonfierebbe il risultato) ma senza margine,
-  // che e la scelta prudente gia usata da `margineDi`. Effetto: finche nessuno
-  // sceglie, aggiungere le linee al P&L **non sposta l EBITDA** — ricavo e
-  // costo del venduto crescono dello stesso importo.
-  tipologiaSlug String?
+  // ⚠️ `null` = **non ancora deciso**, e vale zero. Il ricavo si conta lo
+  // stesso (ignorarlo gonfierebbe il risultato) ma senza margine. Effetto
+  // voluto: finche nessuno scrive la percentuale, aggiungere le linee al P&L
+  // **non sposta l EBITDA** — ricavo e costo del venduto crescono uguali.
+  marginePct Float?
   targets TargetLinea[]
 }
 

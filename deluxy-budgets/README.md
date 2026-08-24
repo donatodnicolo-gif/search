@@ -1666,13 +1666,22 @@ campagne che per definizione non gli serve. Per la stessa ragione non compare ne
 maison: non appartiene a nessuna, e spalmarlo in proporzione ai ricavi attribuirebbe a un negozio un
 fatturato fatto da un'altra squadra.
 
-**Il margine si imposta linea per linea** (scelta dell'utente): campo `LineaCommerciale.tipologiaSlug`,
-si sceglie dal riquadro «Come fattura ogni linea» in `/commerciale` e da lì eredita il margine della
-tipologia. ⭐ **`null` = non decisa vale margine ZERO**, non un margine di comodo: il ricavo si conta lo
-stesso (ignorarlo gonfierebbe il risultato) ma il costo del venduto se lo mangia tutto. Effetto voluto:
-finché nessuno sceglie, **aggiungere le linee al P&L non sposta l'EBITDA** — ricavo e COGS crescono dello
-stesso importo. Provato: mettendo «Torte e Mono» (15.000 €) su B2B al 20%, l'EBITDA si muove di
-**3.000 €** esatti, poi rimesso a «non decisa».
+**Il margine si scrive linea per linea**, in percentuale: campo `LineaCommerciale.marginePct`, dal
+riquadro «Margine e consuntivo di ogni linea» in `/commerciale`. ⭐ **Si scrive, non si sceglie da un
+elenco** (correzione dell'utente: «più che fattura come metti la % di margine della vendita»): una linea
+commerciale non fattura per forza come una delle tre tipologie, e la percentuale è la cosa che di lei si
+sa davvero. Il menù a tendina che c'era prima aveva anche un difetto suo — «— non decisa (margine 0%)»
+non ci stava dentro e **la casella sembrava vuota**.
+
+⭐ **`null` = non deciso vale ZERO**, non un margine di comodo: il ricavo si conta lo stesso (ignorarlo
+gonfierebbe il risultato) ma il costo del venduto se lo mangia tutto. Effetto voluto: finché nessuno
+scrive la percentuale, aggiungere le linee al P&L **non sposta l'EBITDA** — ricavo e COGS crescono dello
+stesso importo. Provato: «Torte e Mono» (15.000 €) al **22,5%** muove l'EBITDA di ~3.300 €, poi rimesso
+a vuoto.
+
+⚠️ Fuori da **0–100** si rifiuta, in pagina (bordo rosso + bottone spento) **e** nell'API: un margine
+sopra 100 vorrebbe dire guadagnare più di quanto si vende, e una correzione silenziosa non si scopre mai.
+Il campo accetta la **virgola decimale** italiana («22,5»).
 
 ⚠️ Sul confronto col consuntivo la riga del commerciale mostra **«—»** di proposito: Finance fattura
 tutto insieme e **non sa dire** quale ordine è arrivato da una campagna e quale l'ha portato un

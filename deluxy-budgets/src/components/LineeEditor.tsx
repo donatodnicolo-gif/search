@@ -23,9 +23,8 @@ export type LineaBudget = {
   mesi: Mese[];
   // Le tipologie di Finance che compongono il consuntivo di questa linea.
   vociFinance: string[];
-  // Con quale tipologia di servizio fattura: da lì eredita il margine nel P&L.
-  // `null` = non deciso, e allora il margine vale zero.
-  tipologiaSlug: string | null;
+  // Il margine sulla vendita, in %. `null` = non deciso, e vale zero.
+  marginePct: number | null;
   // Il fatturato vero mese per mese, **o `null`**. Un `null` non e uno zero:
   // senza collegamento a Finance non sappiamo quanto ha fatturato, e «0 €»
   // direbbe che non ha venduto niente.
@@ -79,7 +78,6 @@ export function LineeEditor({
   lineeScoutSenzaBudget,
   vociFinanceNote,
   consuntivoOk,
-  tipologie,
 }: {
   year: number;
   linee: LineaBudget[];
@@ -95,9 +93,6 @@ export function LineeEditor({
   // scriverne uno che non esiste e restare senza consuntivo senza capire perche.
   vociFinanceNote: string[];
   consuntivoOk: boolean;
-  // Le tipologie di servizio col loro margine: una linea ne sceglie una e da
-  // quella eredita il margine con cui entra nel conto economico.
-  tipologie: { slug: string; nome: string; marginePct: number }[];
 }) {
   const router = useRouter();
   const [misura, setMisura] = useState<Misura>("valore");
@@ -126,11 +121,25 @@ export function LineeEditor({
     Object.fromEntries(linee.map((l) => [l.id, l.vociFinance.join(", ")]))
   );
   const [salvoVoci, setSalvoVoci] = useState(false);
-  // La tipologia scelta per riga, come slug ("" = non decisa).
-  const [tip, setTip] = useState<Record<string, string>>(() =>
-    Object.fromEntries(linee.map((l) => [l.id, l.tipologiaSlug ?? ""]))
+  // Il margine per riga, come testo ("" = non deciso). Testo e non numero
+  // perché mentre si scrive «12,» il campo deve poter essere incompleto senza
+  // che il valore salti a zero.
+  const [marg, setMarg] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      linee.map((l) => [l.id, l.marginePct === null ? "" : String(l.marginePct).replace(".", ",")])
+    )
   );
-  const senzaTipologia = linee.filter((l) => !l.tipologiaSlug).length;
+  const senzaMargine = linee.filter((l) => l.marginePct === null).length;
+  // Un margine si scrive fra 0 e 100: sopra vorrebbe dire guadagnare più di
+  // quanto si vende, sotto vendere in perdita — che esiste, ma non si esprime
+  // con una percentuale di margine. Si segna in rosso e non si salva.
+  const margineErrato = (id: string) => {
+    const t = (marg[id] ?? "").trim();
+    if (t === "") return false;
+    const n = leggiNumero(t);
+    return n === null || n > 100;
+  };
+  const marginiErrati = linee.filter((l) => margineErrato(l.id)).length;
 
   const chiuso = (month: number) => month < primoMeseAperto;
   const key = (lineaId: string, month: number, m: Misura) => `${lineaId}:${month}:${m}`;
@@ -238,7 +247,7 @@ export function LineeEditor({
         mappature: linee.map((l) => ({
           lineaId: l.id,
           vociFinance: voci[l.id] ?? "",
-          tipologiaSlug: tip[l.id] ?? "",
+          marginePct: marg[l.id] ?? "",
         })),
       }),
     });
@@ -533,21 +542,21 @@ export function LineeEditor({
           collegamento **non si indovina** — «Consegne Corporate» è «Consegne»?
           «Torte e Mono» è «Food Supplier»? — lo dice chi sa come si fattura. */}
       <div className="card">
-        <h2 className="section-title" style={{ marginTop: 0 }}>Come fattura ogni linea</h2>
+        <h2 className="section-title" style={{ marginTop: 0 }}>Margine e consuntivo di ogni linea</h2>
         <p className="page-caption" style={{ marginTop: 0 }}>
-          Due cose per riga, e servono a due domande diverse. La{" "}
-          <strong>tipologia</strong> dice con che margine la linea entra nel{" "}
+          Due cose per riga, e servono a due domande diverse. Il{" "}
+          <strong>margine sulla vendita</strong> decide con che costo del venduto la linea entra nel{" "}
           <Link href="/pl" style={{ color: "var(--blue)" }}>conto economico</Link>; le{" "}
           <strong>voci di Finance</strong> dicono da dove si legge il suo consuntivo.
-          {senzaTipologia > 0 && (
+          {senzaMargine > 0 && (
             <>
               {" "}
               <strong style={{ color: "var(--orange)" }}>
-                {senzaTipologia} linee sono senza tipologia
+                {senzaMargine} {senzaMargine === 1 ? "linea è" : "linee sono"} senza margine
               </strong>
-              : entrano a <strong>margine zero</strong>, cioè il ricavo si conta e il costo del venduto se
-              lo mangia tutto. Non è una stima prudente per caso — è il modo di non spostare l&apos;EBITDA
-              con un margine che nessuno ha scelto.
+              : {senzaMargine === 1 ? "entra" : "entrano"} a <strong>zero</strong>, cioè il ricavo si conta
+              e il costo del venduto se lo mangia tutto. Non è prudenza per caso — è il modo di non
+              spostare l&apos;EBITDA con un margine che nessuno ha scritto.
             </>
           )}
         </p>
@@ -575,7 +584,7 @@ export function LineeEditor({
             <thead>
               <tr>
                 <th>Linea</th>
-                <th>Fattura come</th>
+                <th className="num" style={{ width: 130 }}>Margine %</th>
                 <th>Tipologie di Finance</th>
                 <th className="num">Consuntivo {MESI[0]}–{MESI[Math.max(0, primoMeseAperto - 2)]}</th>
               </tr>
@@ -584,19 +593,33 @@ export function LineeEditor({
               {linee.map((l) => (
                 <tr key={l.id}>
                   <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>{l.nome}</td>
-                  <td>
-                    <select
-                      value={tip[l.id] ?? ""}
-                      onChange={(e) => setTip((p) => ({ ...p, [l.id]: e.target.value }))}
-                      title="Da questa tipologia la linea eredita il margine con cui entra nel P&L."
-                    >
-                      <option value="">— non decisa (margine 0%)</option>
-                      {tipologie.map((t) => (
-                        <option key={t.slug} value={t.slug}>
-                          {t.nome} · margine {t.marginePct.toLocaleString("it-IT")}%
-                        </option>
-                      ))}
-                    </select>
+                  <td className="num">
+                    {/* Il margine si **scrive**, non si sceglie da un elenco:
+                        una linea commerciale non fattura per forza come una
+                        delle tre tipologie, e la percentuale è la cosa che di
+                        lei si sa davvero. (Il menù a tendina che c'era prima
+                        aveva anche un difetto suo: «— non decisa (margine 0%)»
+                        non ci stava dentro e la casella sembrava vuota.) */}
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={marg[l.id] ?? ""}
+                        placeholder="—"
+                        style={{ width: 76, textAlign: "right" }}
+                        className={margineErrato(l.id) ? "errata" : undefined}
+                        title={
+                          l.marginePct === null
+                            ? `${l.nome} non ha un margine: entra nel P&L a zero, cioè il costo del venduto si prende tutto il ricavo.`
+                            : `Su ${formatta(totLinea(l, "valore"), "valore")} € di budget fanno ${formatta(
+                                (totLinea(l, "valore") * (l.marginePct ?? 0)) / 100,
+                                "valore"
+                              )} € di margine.`
+                        }
+                        onChange={(e) => setMarg((p) => ({ ...p, [l.id]: e.target.value }))}
+                      />
+                      <span className="muted">%</span>
+                    </div>
                   </td>
                   <td>
                     <input
@@ -623,11 +646,24 @@ export function LineeEditor({
         </div>
         <div className="form-footer">
           <span className="muted">
-            Il budget scritto sopra non si tocca: qui si dice solo <strong>come si legge</strong> e{" "}
-            <strong>con che margine entra nel conto economico</strong>.
+            {marginiErrati > 0 ? (
+              <strong style={{ color: "var(--red)" }}>
+                {marginiErrati === 1 ? "Un margine non è" : `${marginiErrati} margini non sono`} un numero fra
+                0 e 100: {marginiErrati === 1 ? "correggilo" : "correggili"} prima di salvare.
+              </strong>
+            ) : (
+              <>
+                Il budget scritto sopra non si tocca: qui si dice solo <strong>quanto margine</strong> lascia
+                ogni linea e <strong>da dove si legge il suo consuntivo</strong>.
+              </>
+            )}
           </span>
-          <button className="btn secondary" onClick={salvaVoci} disabled={salvoVoci}>
-            {salvoVoci ? "Salvo…" : "Salva i collegamenti"}
+          <button
+            className="btn secondary"
+            onClick={salvaVoci}
+            disabled={salvoVoci || marginiErrati > 0}
+          >
+            {salvoVoci ? "Salvo…" : "Salva margini e collegamenti"}
           </button>
         </div>
       </div>

@@ -239,9 +239,14 @@ input:focus, select:focus, textarea:focus {
 .mese-cell { display: flex; flex-direction: column; }
 .mese-cell .k { flex: 1; }
 /* una casella cambiata e non ancora salvata: si vede quale muove il totale */
-.mesi-grid input.toccata { border-color: var(--blue); background: rgba(0, 113, 227, 0.08); }
+/* ⭐ Le due segnalazioni valgono **ovunque**, non solo nella griglia dei mesi:
+   erano nate lì e ogni tabella nuova ripartiva col bordo grigio, cioè con una
+   casella in errore identica a una sana. «Toccata, non ancora salvata» e «non è
+   un numero» sono lo stesso messaggio in tutta l'app e devono avere lo stesso
+   aspetto. */
+input.toccata { border-color: var(--blue); background: rgba(0, 113, 227, 0.08); }
 /* una casella impossibile (fuori dallo 0–100%): blocca il salvataggio */
-.mesi-grid input.errata { border-color: var(--red); background: rgba(215, 0, 21, 0.07); }
+input.errata { border-color: var(--red); background: rgba(215, 0, 21, 0.07); }
 .mese-cell .errore { color: var(--red); font-weight: 600; }
 .avviso-errore {
   border: 1px solid var(--red); border-radius: var(--radius-m);
@@ -335,12 +340,6 @@ input:focus, select:focus, textarea:focus {
 .tab-mesi input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .tab-mesi input[type="number"]::-webkit-outer-spin-button,
 .tab-mesi input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-/* Le stesse due segnalazioni della griglia dei mesi — «toccata, non ancora
-   salvata» e «non è un numero» — valgono qui: erano scritte solo dentro
-   `.mesi-grid`, quindi in questa tabella il bordo restava grigio e la casella
-   in errore non si distingueva da una sana. */
-.tab-mesi input.toccata { border-color: var(--blue); background: rgba(0, 113, 227, 0.08); }
-.tab-mesi input.errata { border-color: var(--red); background: rgba(215, 0, 21, 0.07); }
 /* Un mese gia chiuso: niente casella, il numero e il consuntivo. Lo sfondo
    tenue lo separa dai mesi che si scrivono senza gridarlo, e la colonna si
    stringe perche non deve piu contenere un input. */
