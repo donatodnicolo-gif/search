@@ -62,6 +62,49 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   for (const campo of ["tipoConsegna", "tipoProdotto", "canale", "assegnatoApp", "fornitore", "responsabile", "noteInterne"] as const) {
     if (campo in body) data[campo] = body[campo] == null ? null : String(body[campo]);
   }
+  // ── IL COSTO DEL FORNITORE, PROPOSTO DAL CUSTOMER SERVICE ──
+  //
+  // ⚠️⚠️ Chi decide a chi va l'ordine e a quanto è il **Customer Service**
+  // (Standard Deluxy §7.2: «decisione di gestione dell'ordine — come si evade, a
+  // chi, esiti coi fornitori»). Quel numero nasce lì, al telefono col fornitore,
+  // e finora non arrivava mai fin qui: `costoFornitore` si poteva scrivere solo
+  // a mano da questa app, e infatti su ~1.300 ordini è quasi sempre `null` —
+  // cioè il margine risultava «non calcolabile» su quasi tutto.
+  //
+  // ⚠️ `costoDa: "customer-service"` e non "manuale": chi legge deve poter
+  // distinguere un costo deciso qui da uno arrivato da un'altra app. Un'origine
+  // sbagliata fa cercare la persona che non l'ha scritto.
+  //
+  // ⚠️ `null` cancella il costo (il fornitore ha detto di no, la riga era
+  // sbagliata) e azzera anche nome, data e origine: lasciarne uno pieno
+  // vorrebbe dire un ordine che dice di avere un costo che non ha.
+  if ("costoFornitore" in body) {
+    const grezzo = body.costoFornitore;
+    if (grezzo === null || grezzo === "") {
+      data.costoFornitore = null;
+      data.costoFornitoreNome = null;
+      data.costoIl = null;
+      data.costoDa = null;
+    } else {
+      const n = Number(grezzo);
+      // ⚠️ Il tetto non è un vezzo: un importo assurdo arrivato da un'altra app
+      // finirebbe nei margini e nei riepiloghi, e lì un numero sbagliato non si
+      // riconosce — sembra un ordine andato male.
+      if (!Number.isFinite(n) || n < 0 || n > 100000) {
+        return erroreApi(400, "costoFornitore non è un importo valido (fra 0 e 100.000)");
+      }
+      data.costoFornitore = +n.toFixed(2);
+      data.costoIl = new Date();
+      data.costoDa = "customer-service";
+      if ("costoFornitoreNome" in body) {
+        data.costoFornitoreNome = body.costoFornitoreNome == null ? null : String(body.costoFornitoreNome).slice(0, 120);
+      }
+    }
+  } else if ("costoFornitoreNome" in body) {
+    // Il nome da solo si può correggere senza toccare l'importo.
+    data.costoFornitoreNome = body.costoFornitoreNome == null ? null : String(body.costoFornitoreNome).slice(0, 120);
+  }
+
   if ("classificazioni" in body) {
     data.classificazioni = body.classificazioni == null ? Prisma.DbNull : body.classificazioni;
   }
@@ -89,8 +132,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   data.ultimaClassifica = new Date();
 
   await prisma.ordine.update({ where: { id }, data: data as Prisma.OrdineUncheckedUpdateInput });
+  // ⚠️ L'evento dice CHE COSA è cambiato, non solo «riclassificato»: un costo
+  // che compare senza traccia manda a cercare chi l'ha messo, e la storia
+  // dell'ordine è l'unico posto dove si può rispondere.
+  const pezzi: string[] = [];
+  if ("costoFornitore" in body) {
+    pezzi.push(
+      data.costoFornitore == null
+        ? "costo fornitore rimosso"
+        : `costo fornitore ${data.costoFornitore} €${data.costoFornitoreNome ? " — " + data.costoFornitoreNome : ""}`,
+    );
+  }
+  if ("fornitore" in body) pezzi.push(`fornitore: ${body.fornitore ?? "—"}`);
   await prisma.eventoOrdine.create({
-    data: { ordineId: id, tipo: "categoria", descrizione: `Riclassificato via API (${client.nome})`, autore: client.nome },
+    data: {
+      ordineId: id,
+      tipo: pezzi.length ? "controllo" : "categoria",
+      descrizione: pezzi.length
+        ? `${pezzi.join(" · ")} (via API, ${client.nome})`
+        : `Riclassificato via API (${client.nome})`,
+      autore: client.nome,
+    },
   });
 
   const aggiornato = await prisma.ordine.findUnique({ where: { id }, include: INCLUDE_ORDINE });
