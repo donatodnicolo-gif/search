@@ -1,5 +1,72 @@
 # Handoff — Deluxy Customer Service
 
+## 24/08/2026 (sera 2) — «risolvi tutto»: riconciliazione, contestazioni, e i buchi muti
+
+**LA RICONCILIAZIONE (nuova pagina `/riconciliazione`).** Misurato oggi: **8
+pagamenti fatti** — nome, IBAN, importo, ordine collegato — e **ZERO ordini con
+un fornitore registrato, su 1.341**. Il dato non mancava: stava in un'altra
+tabella e nessuno lo aveva mai portato di là. Senza, il costo non arriva a
+Orders e il margine risulta «non calcolabile» dove è calcolabilissimo: **490 €
+di margine**, il 41% su sei di loro. La pagina PROPONE e una persona conferma —
+un «sistema tutto» sposterebbe il problema da «non sappiamo niente» a «sappiamo
+cose che nessuno ha verificato», che è peggio perché sembra vero.
+
+Tre controlli, ognuno nato da un errore vero (`src/lib/riconciliazione.ts`):
+
+1. ⚠️⚠️ **Il rimborso.** Un rimborso al cliente esce dalla stessa pagina e
+   finisce nella stessa tabella. Registrarlo come costo di fornitura direbbe che
+   il cliente si è preparato l'ordine da solo e falserebbe il margine per
+   sempre, in silenzio. Se l'intestatario è il cliente dell'ordine non si
+   propone niente. La regola vuole **tutte** le parole del cliente, non una: con
+   «basta una parola» un pagamento a «Fioreria Rossi» su un ordine di «Marta
+   Rossi» diventava un sospetto rimborso, e non si registrava più niente.
+2. ⚠️⚠️ **Chi è nel registro.** La regola della casella di ricerca («basta una
+   parola») è giusta per PROPORRE e sbagliata per AFFERMARE. Usandola qui
+   usciva `Battistella fioreria srl → BEYOND 142 SRL` (combaciava «SRL») e
+   `Goshà flowers → ANTOFLOWERS…`. Ora contano solo le **parole distintive**
+   (tolte forme societarie e mestieri) e ne servono due — o una sola se
+   identifica anche l'altro nome. Sui dati veri: 7 «non trovato» e 1 vero,
+   `RIGUTTO ELENA → Il Giardino Di Rigutto Elena`.
+3. ⚠️⚠️ **Il registro troncato.** Chiedendo l'elenco intero arrivavano **200
+   schede su 1048**, e un censimento troncato letto come completo trasforma
+   «non l'ho ricevuto» in «non c'è» — cioè manda a creare un doppione. Ora si
+   cerca **per nome**, una richiesta per riga, col tetto dichiarato a schermo.
+
+Non si sovrascrive niente: un fornitore diverso già scritto, o un costo che non
+torna, si SEGNALANO. E un ordine pagato che risulta ancora «da iniziare» ha il
+suo bottone per allinearsi (`#2785`).
+
+**LE CONTESTAZIONI dicono se abbiamo di che rispondere.** La pagina sapeva dire
+la scadenza e sapeva mandare le prove, ma non se le prove **esistono**: si
+trovava «da rispondere, 12 giorni» e un riquadro vuoto. È il motivo per cui
+dieci contestazioni erano state perse per 2.087,66 € con le prove mai partite —
+non per una decisione, ma perché rispondere cominciava con mezz'ora di ricerche.
+Ora un riquadro raccoglie quello che i nostri archivi sanno (chi ha preparato e
+quanto è stato pagato, la consegna prevista, chi ha spuntato lo stato, le
+conversazioni) e i punti si copiano nella bozza **con un bottone**, non da soli.
+⚠️ Il verdetto può essere scomodo ed è scritto per esserlo: su «mai ricevuto»
+contro un ordine mai lavorato dice che non abbiamo niente e che la strada è il
+rimborso, non la difesa.
+
+🔴 **Aperte al 24/08, scadenza 4 settembre**: `#12726` 99,94 € **NIENTE** (mai
+lavorato) e `#1741` 103,34 € **POCO** (solo «gestito» il 05/08 da Federica).
+
+**I DUE BUCHI MUTI** (trovati sulla stessa riga vera): scrivere il numero
+d'ordine **non lo collega** — adesso l'elenco lo dice in rosso; e «non avvisato»
+non voleva dire niente — adesso il motivo sta sulla riga, perché sul telefono il
+titolo non si legge. **La ricevuta si incolla** con Ctrl+V, e dove finisce si
+dice e si può spostare.
+
+**Il costo del fornitore arriva a Orders** (`comunicaCostoAOrders`), anche
+ritirandolo. ⚠️ Ha richiesto di abilitare alla **scrittura** la chiave
+`deluxy-messaggi` in Orders. Deviazioni dichiarate in `deluxy-standard`.
+
+**Ancora aperto, e serve una persona**: 37 proposte di glossario da approvare
+(1 doppione: «Pagamento in valuta estera» ×2); i pagamenti hanno tutti
+`pagatoCon` **non indicato**, quindi non si sa da dove sia uscito il denaro; e
+le 8 righe della riconciliazione aspettano un clic ciascuna.
+
+
 ## 24/08/2026 — il giro fornitore→pagamento→margine, e i suoi due buchi muti
 
 **Il costo del fornitore arriva a Orders.** Registrando chi prepara un ordine, il

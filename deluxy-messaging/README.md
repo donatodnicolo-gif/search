@@ -403,6 +403,99 @@ male».
 
 Prova: `npx tsx scripts/prova-pagamenti.mts`
 
+### Si incolla, non si carica
+
+**Ctrl+V** (o ⌘V) attacca quello che c'è negli appunti. La prova di un bonifico
+nasce come una schermata: chiedere un *file* vuol dire chiedere di salvarla,
+ritrovarla fra i download e sceglierla — tre passaggi, e alla terza volta non si
+allega più niente.
+
+⚠️ Si ascolta su **tutta la pagina**, non su un campo: una schermata negli
+appunti non ha un posto dove «cliccare prima di incollare».
+
+⚠️ Interviene **solo se negli appunti c'è davvero un file** di un tipo accettato.
+Se c'è del testo si sta incollando un IBAN in un campo, e rubare quel Ctrl+V
+romperebbe il lavoro normale della pagina.
+
+⚠️ **Dove finisce dipende da cosa stai facendo** — col pop-up «Pagata» aperto è
+una ricevuta, altrimenti è l'immagine da far leggere all'AI; un PDF è sempre una
+ricevuta perché l'AI non lo legge. Lo si **dice a schermo e si può spostare**: un
+allegato che atterra dove non te lo aspetti, in silenzio, si scopre dopo aver
+salvato.
+
+## La Riconciliazione
+
+`/riconciliazione` — i pagamenti già fatti dicono **chi ha preparato** un ordine
+e **quanto è costato**. Qui quel fatto si porta sull'ordine, dove serve.
+
+⚠️⚠️ Misurato il 24/08/2026: **8 pagamenti fatti** (nome, IBAN, importo, ordine
+collegato) e **ZERO ordini con un fornitore registrato, su 1.341**. Il dato non
+mancava: stava in un'altra tabella. Senza, il costo non arriva a Orders e il
+margine risulta «non calcolabile» dove è calcolabilissimo — **490 €**, il 41% su
+sei di loro.
+
+⚠️ La pagina **propone e una persona conferma**. Un «sistema tutto» che scrive
+ottanta costi di fornitura senza che nessuno li abbia letti sposta soltanto il
+problema: da «non sappiamo niente» a «sappiamo cose che nessuno ha verificato»,
+che è peggio perché sembra vero.
+
+### I tre controlli, e l'errore da cui nascono
+
+⚠️⚠️ **Il rimborso.** Non tutti i soldi che escono vanno a un fornitore: un
+rimborso al cliente esce dalla stessa pagina e finisce nella stessa tabella.
+Registrarlo come costo di fornitura direbbe che il cliente si è preparato
+l'ordine da solo, e sottrarrebbe quella cifra dal margine — falso, e per sempre,
+senza che nessuno lo veda. Servono **tutte** le parole del nome del cliente, non
+una: con «basta una parola» un pagamento a «Fioreria Rossi» su un ordine di
+«Marta Rossi» diventava un sospetto rimborso, e non si registrava più niente.
+
+⚠️⚠️ **Chi è nel registro.** Cercare e affermare non sono la stessa cosa. La
+regola della casella di ricerca («basta una parola») è giusta per proporre —
+sceglie una persona — e sbagliata per affermare. Usandola qui usciva
+`Battistella fioreria srl → BEYOND 142 SRL` (combaciava «SRL») e
+`Goshà flowers → ANTOFLOWERS…`. Ora contano solo le **parole distintive**, tolte
+forme societarie e mestieri, e ne servono due — o una sola se identifica anche
+l'altro nome. Qualche abbinamento vero si perde: è lo sbaglio giusto, «non
+trovato» manda a controllare, un nome falso scritto come fatto no.
+
+⚠️⚠️ **Il registro troncato.** Chiedendo l'elenco intero ne arrivavano **200
+schede su 1048**, e un censimento troncato letto come completo trasforma «non
+l'ho ricevuto» in «non c'è» — cioè manda a creare il doppione di un fornitore
+che abbiamo già. Ora si cerca per nome, una richiesta per riga, e il tetto è
+scritto a schermo.
+
+Non si sovrascrive niente: un fornitore diverso già registrato, o un costo che
+non torna, si **segnalano** e decide una persona. Un ordine pagato che risulta
+ancora «da iniziare» ha il bottone per allinearsi.
+
+Prova: `npx tsx scripts/prova-riconciliazione.mts`
+
+## Le contestazioni: abbiamo di che rispondere?
+
+Nella pagina Chargeback, aprendo una contestazione, un riquadro dice **che cosa
+abbiamo in mano**: chi ha preparato l'ordine e quanto l'abbiamo pagato, la
+consegna prevista, chi ha spuntato lo stato e quando, le conversazioni col
+cliente.
+
+⚠️⚠️ Prima c'era solo «da rispondere, 12 giorni» e un riquadro di testo vuoto:
+per sapere se c'era qualcosa da opporre bisognava cercare ordine, conversazioni e
+fornitore uno per uno. È il motivo per cui dieci contestazioni sono state perse
+per **2.087,66 €** con le prove mai partite — non per una decisione, ma perché
+rispondere cominciava con mezz'ora di ricerche.
+
+⚠️ I punti si copiano nella bozza **con un bottone**, non ci finiscono da soli:
+sono fatti presi dai nostri archivi e vanno riletti prima di mandarli a una banca.
+
+⚠️⚠️ **Il verdetto può essere scomodo, ed è scritto per esserlo.** Su «prodotto
+mai ricevuto» contro un ordine che non risulta nemmeno lavorato — nessun
+fornitore, nessuna conversazione, stato ancora di partenza — dice che non
+abbiamo niente, e che se il cliente non ha ricevuto la strada è il **rimborso**,
+non la difesa. Una difesa costruita su una consegna che non risulta è una
+dichiarazione falsa mandata a una banca, e vale molto più dei cento euro in
+ballo.
+
+Prova: `npx tsx scripts/prova-prove-chargeback.mts`
+
 ## Correggere una proposta del glossario prima di accettarla
 
 Ogni proposta dell'AI ha tre bottoni: **Accetta**, **Modifica**, **Scarta**.
