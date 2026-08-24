@@ -158,6 +158,7 @@ model Province {
   categoryDiscounts CategoryDiscount[]
   sales             Sale[]
   deliveries        Delivery[]
+  priorityLists     PriorityList[]
 }
 
 model City {
@@ -302,6 +303,7 @@ model Partner {
   invoices            Invoice[]
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
+  priorityEntries     PriorityEntry[]
 }
 
 model PartnerProvince {
@@ -333,6 +335,49 @@ model PartnerService {
 }
 
 // Categorie di prodotto vendute dal partner, con priorita' di smistamento vendite
+/// La LISTA PRIORITA' di una coppia (provincia, categoria).
+///
+/// E' il cuore dello smistamento dei prodotti NON UNICI: quando arriva un
+/// ordine, si scorre questa lista nell'ordine deciso e si propone al primo
+/// partner aperto. Nel database originario sono due tabelle senza nome
+/// (`tabella-53` le liste, `tabella-54` i partner dentro): 29 liste e 49
+/// partner ordinati.
+///
+/// ⚠️ Non e' la stessa cosa di `PartnerCategory`, che dice solo QUALI categorie
+/// tratta un partner senza dire dove ne' in che ordine. Fino al 24/08/2026 lo
+/// smistamento usava quella, e le sue 455 righe avevano tutte `priority = 0`:
+/// ordinava per un campo uguale per tutti, cioe' non ordinava affatto.
+model PriorityList {
+  id         String   @id @default(cuid())
+  /// id nel database originario MySQL
+  legacyId   Int?     @unique
+  provinceId String
+  province   Province @relation(fields: [provinceId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  entries    PriorityEntry[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([provinceId, categoryId])
+}
+
+/// Un partner dentro una lista priorita', con la sua posizione.
+model PriorityEntry {
+  id       String       @id @default(cuid())
+  /// id nel database originario MySQL
+  legacyId Int?         @unique
+  listId   String
+  list     PriorityList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  partnerId String
+  partner   Partner     @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  /// Posizione: 1 = primo a cui si propone.
+  position  Int         @default(1)
+
+  @@unique([listId, partnerId])
+  @@index([listId, position])
+}
+
 model PartnerCategory {
   id         String   @id @default(cuid())
   partnerId  String
@@ -527,10 +572,21 @@ model Category {
   name             String             @unique
   notes            String?
   aiPrompt         String? // prompt per generazione AI (es. torte)
+  /// Fuori dal catalogo corrente, ma non cancellata.
+  ///
+  /// ⚠️ Archiviare una categoria NON tocca i prodotti che ce l'hanno: 16
+  /// categorie su 65 non hanno più un prodotto in lista, ma i loro prodotti
+  /// archiviati continuano a dire a quale categoria appartenevano — e senza
+  /// quel nome una scheda del 2023 diventa illeggibile.
+  ///
+  /// Sparisce dalle tendine di scelta, resta ovunque sia già scritta.
+  archived         Boolean            @default(false)
+  archivedAt       DateTime?
   products         Product[]
   discounts        CategoryDiscount[] // sconto % per provincia
   fields           CategoryField[] // campi testuali extra per i prodotti della categoria
   partnerCategories PartnerCategory[]
+  priorityLists    PriorityList[]
 }
 
 // Campo testuale extra definito a livello categoria.

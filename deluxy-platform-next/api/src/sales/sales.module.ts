@@ -266,7 +266,7 @@ export class SalesService {
   // --- smistamento -------------------------------------------------------
 
   /** Chi puo' prendere questa vendita, nell'ordine giusto. */
-  private async candidati(product: ProdottoDaSmistare): Promise<Candidato[]> {
+  private async candidati(product: ProdottoDaSmistare, provinceId: string): Promise<Candidato[]> {
     if (product.type === ProductType.UNICO) {
       const lista: Candidato[] = product.partnerId
         ? [{ partnerId: product.partnerId, motivo: 'proprietario del prodotto unico' }]
@@ -287,14 +287,41 @@ export class SalesService {
       return lista;
     }
     if (!product.categoryId) return [];
-    const priorita = await this.prisma.partnerCategory.findMany({
-      where: { categoryId: product.categoryId },
-      orderBy: { priority: 'asc' },
-      select: { partnerId: true, priority: true },
+
+    // ⭐ La LISTA PRIORITA' vera: una per coppia (provincia, categoria), coi
+    // partner in un ordine deciso da qualcuno. Importate dal legacy il
+    // 24/08/2026: 26 liste, 48 partner.
+    //
+    // ⚠️ Prima si usava PartnerCategory, che dice solo QUALI categorie tratta
+    // un partner — senza provincia, e con `priority` a 0 su tutte e 455 le
+    // righe. Ordinare per un campo uguale per tutti non e' ordinare: il
+    // partner scelto era il primo che capitava.
+    const lista = await this.prisma.priorityList.findUnique({
+      where: { provinceId_categoryId: { provinceId, categoryId: product.categoryId } },
+      include: {
+        entries: { orderBy: { position: 'asc' }, select: { partnerId: true, position: true } },
+      },
     });
-    return priorita.map((p) => ({
-      partnerId: p.partnerId,
-      motivo: `lista priorita' (${p.priority})`,
+    if (lista?.entries.length) {
+      return lista.entries.map((e) => ({
+        partnerId: e.partnerId,
+        motivo: `lista priorita' ${e.position}a di ${lista.entries.length}`,
+      }));
+    }
+
+    // Nessuna lista per questa coppia. Il manuale dice che la vendita resta
+    // «da gestire», e in teoria ha ragione — ma le liste coprono 26 coppie su
+    // centinaia possibili, e applicarlo alla lettera oggi manderebbe in coda
+    // quasi tutto. Si ripiega su chi tratta la categoria, DICENDO che e' un
+    // ripiego: cosi' chi guarda una vendita sa se il partner e' stato scelto
+    // da una lista o da un'approssimazione.
+    const ripiego = await this.prisma.partnerCategory.findMany({
+      where: { categoryId: product.categoryId },
+      select: { partnerId: true },
+    });
+    return ripiego.map((x) => ({
+      partnerId: x.partnerId,
+      motivo: 'nessuna lista per questa provincia: scelto fra chi tratta la categoria',
     }));
   }
 
@@ -304,7 +331,7 @@ export class SalesService {
     quando: Date,
     escludi: string[],
   ): Promise<Candidato | null> {
-    const lista = (await this.candidati(product)).filter(
+    const lista = (await this.candidati(product, provinceId)).filter(
       (c) => !escludi.includes(c.partnerId),
     );
     if (!lista.length) return null;

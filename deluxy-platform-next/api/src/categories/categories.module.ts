@@ -1,12 +1,15 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Get,
   Injectable,
   Module,
   NotFoundException,
   Param,
+  Patch,
   Post,
+  Query,
   Put,
 } from '@nestjs/common';
 import {
@@ -93,11 +96,52 @@ const CATEGORY_INCLUDE = {
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
+  /**
+   * Le categorie. Di default SOLO quelle in uso; con `archived` l'archivio.
+   *
+   * ⚠️ Il default conta: questa lista alimenta le tendine di scelta del form
+   * prodotto e delle liste priorita'. Una categoria archiviata non deve poter
+   * essere SCELTA di nuovo — ma resta scritta ovunque lo sia gia'.
+   */
+  findAll(archived = false) {
     return this.prisma.category.findMany({
+      where: { archived },
       include: CATEGORY_INCLUDE,
       orderBy: { name: 'asc' },
     });
+  }
+
+  /**
+   * Archivia o ripristina una categoria.
+   *
+   * ⚠️ NON tocca i prodotti che ce l'hanno: 16 categorie su 65 non hanno piu'
+   * un prodotto in lista, ma i loro prodotti archiviati continuano a dire a
+   * quale categoria appartenevano. Senza quel nome una scheda del 2023
+   * diventa illeggibile.
+   *
+   * ⚠️ E non tocca lo SMISTAMENTO: le liste priorita' partner-categoria
+   * continuano a funzionare. Archiviare e' igiene del catalogo, non un
+   * interruttore operativo — un ordine che arriva per una categoria
+   * archiviata va smistato lo stesso, se no sparirebbe senza dirlo a nessuno.
+   */
+  async setArchived(id: string, archived: boolean) {
+    await this.findOne(id);
+    return this.prisma.category.update({
+      where: { id },
+      data: { archived, archivedAt: archived ? new Date() : null },
+      include: CATEGORY_INCLUDE,
+    });
+  }
+
+  /** Archivia o ripristina piu' categorie insieme. */
+  async azioneMultipla(ids: string[], azione: 'archivia' | 'ripristina') {
+    if (!ids?.length) throw new BadRequestException('Nessuna categoria selezionata.');
+    const archived = azione === 'archivia';
+    const { count } = await this.prisma.category.updateMany({
+      where: { id: { in: ids } },
+      data: { archived, archivedAt: archived ? new Date() : null },
+    });
+    return { azione, fatti: count };
   }
 
   async findOne(id: string) {
@@ -171,8 +215,22 @@ export class CategoriesController {
 
   @Get()
   @ApiOperation({ summary: 'Lista categorie con campi e sconti per provincia' })
-  findAll() {
-    return this.categoriesService.findAll();
+  findAll(@Query('archived') archived?: string) {
+    return this.categoriesService.findAll(archived === 'true' || archived === '1');
+  }
+
+  @Patch(':id/archive')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Archivia o ripristina una categoria: i prodotti che ce l hanno non cambiano' })
+  setArchived(@Param('id') id: string, @Body() body: { archived: boolean }) {
+    return this.categoriesService.setArchived(id, body?.archived === true);
+  }
+
+  @Post('azione-multipla')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Archivia o ripristina piu categorie insieme' })
+  azioneMultipla(@Body() body: { ids: string[]; azione: 'archivia' | 'ripristina' }) {
+    return this.categoriesService.azioneMultipla(body?.ids ?? [], body?.azione);
   }
 
   @Get(':id')
