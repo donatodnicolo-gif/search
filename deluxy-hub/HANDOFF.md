@@ -228,11 +228,14 @@ accanto a ognuna lo stato dell'accesso al portale — badge verde/rosso se il no
 all'email. Il Hub **non salva nulla** dell'organico: la fonte resta Budgets.
 
 La chiave è la **chiave in entrata di Budgets** (la stessa che usa Finance):
-`BUDGETS_API_KEY` da variabile d'ambiente **oppure** dalla cassaforte `/chiavi`
-(progetto `deluxy-budgets`; accettato anche `budgets`). Senza chiave, o con
-Budgets giù, la sezione spiega cosa manca e il resto della pagina vive lo stesso
-(timeout 6 s). Stati verificati sul dev server contro l'API di produzione:
-organico completo (11 persone, 2 squadre + 4 senza squadra), senza chiave, 401.
+si legge **prima dalla cassaforte `/chiavi`** (progetto `deluxy-budgets`;
+accettato anche `budgets`; nome canonico `BUDGETS_API_KEY`, o nome libero se il
+progetto ha una voce sola) e **poi, come ripiego, dall'ambiente** — ordine
+INVERSO rispetto a `posta.ts`, deciso dall'utente il 24/08 («fai che vinca non
+su Vercel ma chiave che inserisco su app»). Senza chiave, o con Budgets giù, la
+sezione spiega cosa manca e il resto della pagina vive lo stesso (timeout 6 s).
+Stati verificati sul dev server contro l'API di produzione: organico completo
+(11 persone, 2 squadre + 4 senza squadra), senza chiave, 401.
 
 Il classificatore dei permessi **blocca ogni scrittura automatica della
 chiave** (cassaforte via script, `vercel env add`): il valore lo incolla
@@ -520,7 +523,7 @@ descrizione}`; `isRuolo(x)` type-guard. Elenco chiuso: aggiungere un ruolo qui.
 | `HUB_SSO_SECRET` | cifra il token SSO Hub→app; **stesso valore** nell'app di destinazione, min 32 caratteri. Assente = l'app chiede il suo login |
 | `HUB_KEYS_TOKEN` | token con cui il Hub legge la *propria* cassaforte via API |
 | `SMTP_HOST` `_PORT` `_USER` `_PASS` `_FROM` | invio del riepilogo presenze; in alternativa nella cassaforte `/chiavi`, progetto `hub` (l'ambiente vince) |
-| `BUDGETS_API_KEY` | chiave in entrata di Budgets per squadre e persone in `/utenti`; in alternativa nella cassaforte `/chiavi`, progetto `deluxy-budgets` (l'ambiente vince). **Assente in produzione al 24/08** (vedi §5-quater) |
+| `BUDGETS_API_KEY` | **solo ripiego** per squadre e persone in `/utenti`: il posto della chiave è la cassaforte `/chiavi`, progetto `deluxy-budgets`, **che vince sull'ambiente** (scelta utente 24/08, vedi §5-quater). Assente in produzione, ed è previsto così |
 | `APP_URL_SEARCH` `_PARTNER` `_ANAGRAFICHE` `_MAISON` `_SCOUT` `_MAIL` `_CONSEGNE` `_TASKS` `_CALENDARIO` `_BUDGETS` `_MARKETING` `_MERCHANDISING` `_MESSAGGI` `_ORDERS` `_TRANSACTIONS` `_SCRIPTS` | dove puntano le icone (assente in prod = app nascosta, tranne le eccezioni con ripiego `localhost` in §3) |
 | `SEED_ADMIN_EMAIL` `SEED_ADMIN_PASSWORD` | primo admin creato da `db:seed` (solo primo avvio) |
 

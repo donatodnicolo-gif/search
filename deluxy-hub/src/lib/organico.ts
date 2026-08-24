@@ -7,12 +7,14 @@ import { decifra } from "./cifratura";
 // Budgets, qui si legge e basta.
 //
 // La chiave è la "chiave in ENTRATA" di Budgets (la stessa che usa Finance per
-// le categorie di costo). Si cerca in due posti, nell'ordine di tutta l'app
-// (vedi posta.ts): prima l'ambiente (BUDGETS_API_KEY), poi la cassaforte
-// /chiavi. Nella cassaforte va bene sia il progetto «deluxy-budgets» (dove
-// Budgets stessa cerca le proprie chiavi) sia «budgets» (l'id del catalogo che
-// la pagina /chiavi suggerisce): un nome "sbagliato" dei due non deve costare
-// un pomeriggio di debug.
+// le categorie di costo). Si cerca in due posti: PRIMA la cassaforte /chiavi,
+// poi l'ambiente (BUDGETS_API_KEY) come ripiego. È l'ordine inverso di
+// posta.ts, ed è una scelta dell'utente (24/08/2026): questa chiave la
+// gestisce lui dalla pagina Chiavi, e quello che scrive lì deve valere senza
+// passare da Vercel. Nella cassaforte va bene sia il progetto «deluxy-budgets»
+// (dove Budgets stessa cerca le proprie chiavi) sia «budgets» (l'id del
+// catalogo che la pagina /chiavi suggerisce): un nome "sbagliato" dei due non
+// deve costare un pomeriggio di debug.
 
 export type PersonaBudgets = {
   nome: string;
@@ -46,9 +48,6 @@ export type Organico =
   | { stato: "errore"; motivo: string };
 
 async function chiaveBudgets(): Promise<string | null> {
-  const ambiente = (process.env.BUDGETS_API_KEY ?? "").trim();
-  if (ambiente) return ambiente;
-
   const righe = await prisma.chiave.findMany({
     where: { progetto: { in: ["deluxy-budgets", "budgets"] } },
     select: { nome: true, valoreCifrato: true },
@@ -59,13 +58,17 @@ async function chiaveBudgets(): Promise<string | null> {
   // indovina — si torna al messaggio che spiega come chiamarla.
   const riga =
     righe.find((r) => r.nome === "BUDGETS_API_KEY") ?? (righe.length === 1 ? righe[0] : null);
-  if (!riga) return null;
-  try {
-    return decifra(riga.valoreCifrato).trim() || null;
-  } catch {
-    // Cifrata con un altro segreto (HUB_CHIAVI_SECRET cambiato): vale come assente.
-    return null;
+  if (riga) {
+    try {
+      const valore = decifra(riga.valoreCifrato).trim();
+      if (valore) return valore;
+    } catch {
+      // Cifrata con un altro segreto (HUB_CHIAVI_SECRET cambiato): vale come assente.
+    }
   }
+
+  // Ripiego: la variabile d'ambiente, per chi configura da Vercel o in locale.
+  return (process.env.BUDGETS_API_KEY ?? "").trim() || null;
 }
 
 function urlBudgets(): string {
@@ -88,7 +91,7 @@ export async function organicoDaBudgets(): Promise<Organico> {
     if (!res.ok) {
       const motivo =
         res.status === 401
-          ? "la chiave BUDGETS_API_KEY non è quella giusta (Budgets risponde 401)"
+          ? "Budgets non riconosce la chiave in cassaforte (401). Vale solo la chiave in entrata già attiva di Budgets — una generata adesso dalla sua pagina Configurazione non lo è, e nemmeno la password dell'app"
           : `Budgets risponde ${res.status}`;
       return { stato: "errore", motivo };
     }

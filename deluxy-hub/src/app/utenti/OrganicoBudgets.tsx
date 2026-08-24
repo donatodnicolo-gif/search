@@ -75,9 +75,10 @@ export function OrganicoBudgets({
         <p style={{ fontSize: 13.5, color: "var(--text-secondary)", margin: 0 }}>
           Le squadre e le persone vivono in Budgets, e per leggerle serve la sua chiave in
           entrata. Incolla <code>BUDGETS_API_KEY</code> nella <a href="/chiavi">cassaforte</a>{" "}
-          (progetto «deluxy-budgets»; va bene anche «budgets») oppure impostala come variabile
-          d&rsquo;ambiente del Hub. È la stessa chiave che Budgets mostra in Configurazione →
-          Chiavi come «chiave in ENTRATA».
+          (progetto «deluxy-budgets»; va bene anche «budgets»): è la cassaforte a comandare, la
+          variabile d&rsquo;ambiente fa solo da ripiego. ⚠️ Vale solo la chiave in entrata{" "}
+          <strong>già attiva</strong> di Budgets (la stessa che usa Finance): una chiave
+          generata adesso dalla sua pagina Configurazione non lo è.
         </p>
       )}
       {organico.stato === "errore" && (

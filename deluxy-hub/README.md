@@ -84,7 +84,7 @@ connection string Supabase con `?schema=hub` in fondo.
 | `HUB_SESSION_SECRET` | firma il cookie di sessione. **Cambiarlo disconnette tutti.** Generalo con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `HUB_CHIAVI_SECRET` | **facoltativo.** cifra i valori della pagina `/chiavi` (AES-256-GCM, min 32 caratteri). Se assente si riusa `HUB_SESSION_SECRET`, così la cassaforte funziona senza configurare nulla. **Cambiarlo rende illeggibili le chiavi già salvate** |
 | `APP_URL_SEARCH` / `APP_URL_PARTNER` / `APP_URL_SCOUT` | dove puntano le icone |
-| `BUDGETS_API_KEY` | **facoltativa.** chiave in **entrata** di Budgets: con questa `/utenti` legge squadre e persone da `GET /api/v1/team`. In alternativa si incolla nella cassaforte `/chiavi` (progetto `deluxy-budgets`, va bene anche `budgets`) — l'ambiente vince. Senza, la sezione spiega cosa manca |
+| `BUDGETS_API_KEY` | **facoltativa, solo ripiego.** chiave in **entrata** di Budgets: con questa `/utenti` legge squadre e persone da `GET /api/v1/team`. Il posto suo è la cassaforte `/chiavi` (progetto `deluxy-budgets`, va bene anche `budgets`), **che vince sull'ambiente** (scelta dell'utente, 24/08). Senza, la sezione spiega cosa manca |
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | primo admin creato dal seed (solo primo avvio) |
 
 `.env` è in `.gitignore`: i segreti non finiscono mai nel repo.
@@ -132,10 +132,13 @@ correggono in Budgets, qui si creano solo gli accessi.
   account»** porta al form con il nome già compilato.
 - Chi non è in forza tutto l'anno ha accanto i suoi mesi («fino a giu», «da
   set»): un account per chi ha già finito non serve, e la pagina lo fa vedere.
-- La chiave si cerca prima nell'ambiente (`BUDGETS_API_KEY`), poi nella
-  cassaforte `/chiavi` (progetto `deluxy-budgets` o `budgets`). Senza chiave o
-  con Budgets giù la sezione **spiega cosa manca** invece di sparire; il resto
-  della pagina funziona comunque (timeout 6 s).
+- La chiave si cerca prima nella cassaforte `/chiavi` (progetto `deluxy-budgets`
+  o `budgets`), poi nell'ambiente (`BUDGETS_API_KEY`) come ripiego: **quello che
+  l'admin scrive in /chiavi comanda** (scelta dell'utente, 24/08). ⚠️ Vale solo
+  la chiave in entrata **già attiva** di Budgets — una generata al momento dalla
+  sua Configurazione non lo è. Senza chiave o con Budgets giù la sezione
+  **spiega cosa manca** invece di sparire; il resto della pagina funziona
+  comunque (timeout 6 s).
 - Nella lista utenti, chi è riconosciuto nell'organico ha la sua squadra accanto
   all'email.
 
