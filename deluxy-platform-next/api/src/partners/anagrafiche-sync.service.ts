@@ -30,6 +30,29 @@ export type AnagraficaPartner = {
   attivo?: boolean;
   /** Chi ha creato il record nel registro: `platform` = lo abbiamo scritto noi. */
   fonte?: string | null;
+  /**
+   * I dati fiscali e bancari della societa', con la loro PROVENIENZA.
+   *
+   * ⭐ `aggiornamenti` dice, per ogni campo, chi l'ha scritto e quando
+   * (`{ sistema, asOf }`). E' la risposta alla domanda «e' piu' aggiornato il
+   * loro o il nostro?», che le date di record non possono dare: qui
+   * `updatedAt` cambia anche solo perche' un import ha toccato il telefono.
+   */
+  datiFinanziari?: {
+    pec?: string | null;
+    codiceSdi?: string | null;
+    iban?: string | null;
+    intestatarioConto?: string | null;
+    banca?: string | null;
+    metodoPagamento?: string | null;
+    condizioniPagamento?: string | null;
+    noteAmministrative?: string | null;
+    amministrazioneNome?: string | null;
+    amministrazioneTelefono?: string | null;
+    amministrazioneEmail?: string | null;
+    aggiornamenti?: Record<string, { sistema: string; asOf?: string }>;
+  } | null;
+  statoFinanziario?: string | null;
 };
 
 type PartnerPiattaforma = {

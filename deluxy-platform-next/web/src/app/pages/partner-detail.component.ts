@@ -1,7 +1,9 @@
+import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 import { DeliveryRuleFormComponent } from './delivery-rule-form.component';
@@ -71,7 +73,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
 @Component({
   selector: 'app-partner-detail',
   standalone: true,
-  imports: [RouterLink, TranslatePipe, DeliveryRuleFormComponent],
+  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe, DeliveryRuleFormComponent],
   template: `
     <div class="form-head">
       <a routerLink="/partners" class="back">← {{ 'partners.title' | translate }}</a>
@@ -168,7 +170,11 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                       <tr [class.rischiosa]="rischioso(d.campo)">
                         <td>{{ d.campo }}</td>
                         <td>{{ d.piattaforma ?? '—' }}</td>
-                        <td class="reg">{{ d.registro ?? '—' }}</td>
+                        <td class="reg">{{ d.registro ?? '—' }}
+                          @if (d.scrittoDa) {
+                            <span class="provenienza">{{ 'partnerAnagrafica.writtenBy' | translate:{ sistema: d.scrittoDa, quando: (d.scrittoIl | date: 'dd/MM/yyyy') } }}</span>
+                          }
+                        </td>
                         <td class="scegli">
                           @if (d.registro) {
                             <input type="checkbox" [checked]="daPrendere().has(d.campo)"
@@ -248,18 +254,54 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           </section>
 
           <section class="card block">
-            <h2>{{ 'partnerForm.openingHours.title' | translate }}</h2>
-            @if (weekHours(p).length) {
-              <div class="hours">
-                @for (h of weekHours(p); track h.key) {
-                  <div class="hours-row">
-                    <span class="hours-day">{{ 'partnerForm.openingHours.days.' + h.key | translate }}</span>
-                    @if (h.closed) { <span class="hours-closed">{{ 'partnerForm.openingHours.closed' | translate }}</span> }
-                    @else { <span class="hours-time">{{ h.openTime }}<span class="sep">–</span>{{ h.closeTime }}</span> }
+            <header class="block-head">
+              <h2>{{ 'partnerForm.openingHours.title' | translate }}</h2>
+              @if (canManage()) {
+                <button type="button" class="btn btn-secondary mini" (click)="apriOrari(p)">
+                  {{ (modificaOrari() ? 'common.cancel' : 'common.edit') | translate }}
+                </button>
+              }
+            </header>
+
+            @if (!modificaOrari()) {
+              @if (weekHours(p).length) {
+                <div class="hours">
+                  @for (h of weekHours(p); track h.key) {
+                    <div class="hours-row">
+                      <span class="hours-day">{{ 'partnerForm.openingHours.days.' + h.key | translate }}</span>
+                      @if (h.closed) { <span class="hours-closed">{{ 'partnerForm.openingHours.closed' | translate }}</span> }
+                      @else { <span class="hours-time">{{ h.openTime }}<span class="sep">–</span>{{ h.closeTime }}</span> }
+                    </div>
+                  }
+                </div>
+              } @else { <p class="muted">{{ 'partnerForm.openingHours.emptyDetail' | translate }}</p> }
+            } @else {
+              <!-- Tutti e sette i giorni, anche quelli mai impostati: la lettura
+                   mostra solo i giorni compilati, ma per COMPILARLI bisogna
+                   vederli. Un giorno che non esiste nell'elenco non si aggiunge. -->
+              <div class="orari-edit">
+                @for (r of righeOrari(); track r.dayOfWeek) {
+                  <div class="orari-riga">
+                    <span class="orari-giorno">{{ 'partnerForm.openingHours.days.' + r.key | translate }}</span>
+                    <label class="toggle mini">
+                      <input type="checkbox" [(ngModel)]="r.closed" [name]="'closed' + r.dayOfWeek" />
+                      <span>{{ 'partnerForm.openingHours.closed' | translate }}</span>
+                    </label>
+                    <input class="field" type="time" [(ngModel)]="r.openTime"
+                           [name]="'open' + r.dayOfWeek" [disabled]="r.closed" />
+                    <input class="field" type="time" [(ngModel)]="r.closeTime"
+                           [name]="'close' + r.dayOfWeek" [disabled]="r.closed" />
                   </div>
                 }
               </div>
-            } @else { <p class="muted">{{ 'partnerForm.openingHours.emptyDetail' | translate }}</p> }
+              <p class="hint">{{ 'partnerForm.openingHours.editHint' | translate }}</p>
+              <div class="azioni">
+                <button type="button" class="btn btn-primary" [disabled]="salvandoOrari()" (click)="salvaOrari(p)">
+                  {{ (salvandoOrari() ? 'common.saving' : 'common.save') | translate }}
+                </button>
+                @if (esitoOrari(); as e) { <span class="esito" [class.ok]="e.ok">{{ e.messaggio }}</span> }
+              </div>
+            }
           </section>
 
           <section class="card block span-2">
@@ -372,6 +414,13 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .candidati { margin: 6px 0 0 18px; font-size: 13px; }
       .azioni { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
       .esito { font-size: 13px; color: var(--red, #d70015); }
+      .provenienza { display: block; font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+      .orari-edit { display: flex; flex-direction: column; gap: 8px; }
+      .orari-riga { display: grid; grid-template-columns: 92px 96px 1fr 1fr; gap: 8px; align-items: center; }
+      .orari-giorno { font-size: 13px; font-weight: 550; }
+      .orari-riga .field { padding: 6px 8px; font-size: 13px; }
+      .orari-riga .toggle.mini span { font-size: 12px; }
+      @media (max-width: 640px) { .orari-riga { grid-template-columns: 1fr 1fr; } .orari-giorno { grid-column: 1 / -1; } }
       .esito.ok { color: #1a7f37; }
       .reg { color: var(--text-secondary); }
       .hint.ok { color: #1a7f37; }
@@ -430,6 +479,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
 })
 export class PartnerDetailComponent {
   private readonly http = inject(HttpClient);
+  private readonly translate = inject(TranslateService);
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
 
@@ -439,7 +489,9 @@ export class PartnerDetailComponent {
     specchio?: boolean;
     gemelli?: { id: string; nome: string; ragioneSociale: string | null; citta: string | null; fonte: string | null; contatti: number }[];
     anagrafica: { id: string; nome: string; platformId: string | null } | null;
-    differenze: { campo: string; piattaforma: string | null; registro: string | null }[];
+    // `scrittoDa`/`scrittoIl`: chi ha scritto quel dato nel registro e quando.
+    // Ci sono solo dove il registro lo sa — non si inventa una provenienza.
+    differenze: { campo: string; piattaforma: string | null; registro: string | null; scrittoDa?: string | null; scrittoIl?: string | null }[];
     candidati: { id: string; nome: string; pIva?: string | null }[];
   } | null>(null);
   readonly anagraficaCaricata = signal(false);
@@ -519,7 +571,12 @@ export class PartnerDetailComponent {
   }
 
   rischioso(campo: string): boolean {
-    return campo === 'Insegna / nome' || campo === 'Indirizzo';
+    // ⚠️ IBAN e P.IVA sono qui per una ragione diversa dalle altre due: non
+    // sono «l'azienda contro il punto vendita», sono SOLDI. Un IBAN preso per
+    // sbaglio e' un bonifico a un estraneo, e su 97 partner abbinati 3 IBAN e
+    // 12 P.IVA discordano gia' oggi.
+    return campo === 'Insegna / nome' || campo === 'Indirizzo'
+      || campo === 'IBAN' || campo === 'P.IVA';
   }
 
   scegli(campo: string): void {
@@ -647,6 +704,72 @@ export class PartnerDetailComponent {
   canSeeCalendar(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION';
+  }
+
+  // --- modifica orari dalla scheda ------------------------------------------
+
+  readonly modificaOrari = signal(false);
+  readonly salvandoOrari = signal(false);
+  readonly esitoOrari = signal<{ ok: boolean; messaggio: string } | null>(null);
+  /** Le sette righe in lavorazione: tutti i giorni, anche quelli vuoti. */
+  righeOrari = signal<{ dayOfWeek: number; key: string; closed: boolean; openTime: string; closeTime: string }[]>([]);
+
+  apriOrari(p: PartnerDetail): void {
+    if (this.modificaOrari()) { this.modificaOrari.set(false); return; }
+    const perGiorno = new Map((p.openingHours ?? []).map((h) => [h.dayOfWeek, h]));
+    this.righeOrari.set(WEEK_DAYS.map((d) => {
+      const h = perGiorno.get(d.dayOfWeek);
+      return {
+        dayOfWeek: d.dayOfWeek, key: d.key,
+        closed: !!h?.closed,
+        openTime: h?.openTime ?? '',
+        closeTime: h?.closeTime ?? '',
+      };
+    }));
+    this.esitoOrari.set(null);
+    this.modificaOrari.set(true);
+  }
+
+  /**
+   * Salva gli orari settimanali.
+   *
+   * ⚠️ Si mandano SOLO i giorni compilati (chiusi, o con l'orario completo).
+   * Un giorno lasciato vuoto significa «non lo so», non «aperto 00:00–00:00»:
+   * mandarlo comunque riempirebbe la settimana di orari inventati, e lo
+   * smistamento li prenderebbe per veri — un partner risulterebbe aperto a
+   * mezzanotte perché nessuno aveva compilato il martedì.
+   *
+   * ⚠️ E si manda solo `openingHours`: il PUT del partner sostituisce ciò che
+   * riceve, quindi mandare l'intero modello riscriverebbe anche campi che
+   * nessuno ha toccato.
+   */
+  salvaOrari(p: PartnerDetail): void {
+    const righe = this.righeOrari()
+      .filter((r) => r.closed || (r.openTime && r.closeTime))
+      .map((r) => ({
+        dayOfWeek: r.dayOfWeek,
+        closed: r.closed,
+        openTime: r.closed ? null : r.openTime,
+        closeTime: r.closed ? null : r.closeTime,
+      }));
+    const incomplete = this.righeOrari().filter((r) => !r.closed && ((r.openTime && !r.closeTime) || (!r.openTime && r.closeTime)));
+    if (incomplete.length) {
+      this.esitoOrari.set({ ok: false, messaggio: this.translate.instant('partnerForm.openingHours.incomplete') });
+      return;
+    }
+    this.salvandoOrari.set(true);
+    this.esitoOrari.set(null);
+    this.http.put(`${environment.apiUrl}/partners/${p.id}`, { openingHours: righe }).subscribe({
+      next: () => {
+        this.salvandoOrari.set(false);
+        this.modificaOrari.set(false);
+        this.ricarica();
+      },
+      error: (e) => {
+        this.salvandoOrari.set(false);
+        this.esitoOrari.set({ ok: false, messaggio: e?.error?.message ?? 'Salvataggio non riuscito' });
+      },
+    });
   }
 
   /** Orari settimanali ordinati lun→dom, solo i giorni impostati (chiusi o con orario). */

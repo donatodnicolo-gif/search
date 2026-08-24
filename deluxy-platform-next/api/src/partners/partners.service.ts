@@ -145,6 +145,23 @@ export class PartnersService {
     const gemelli = await this.anagrafiche.gemelli(trovato);
     const specchio = trovato.fonte === 'platform' && gemelli.length > 0;
 
+    const fin = trovato.datiFinanziari ?? null;
+    // ⭐ Da dove viene, e da quando, ogni dato fiscale del registro.
+    //
+    // È la risposta alla domanda «è più aggiornato il loro o il nostro?».
+    // Le date di record non possono darla: il nostro `updatedAt` cambia anche
+    // solo perché un import ha toccato il telefono, e infatti su 142 RESTAURANT
+    // diceva che eravamo più freschi noi — ma solo perché ci avevo scritto io
+    // quella mattina.
+    const provenienza = fin?.aggiornamenti ?? {};
+    const DA_DOVE: Record<string, string> = {
+      'Codice SDI': 'codiceSdi', PEC: 'pec', IBAN: 'iban',
+      'Intestatario conto': 'intestatarioConto', 'Metodo di pagamento': 'metodoPagamento',
+      'Amministrazione — nome': 'amministrazioneNome',
+      'Amministrazione — email': 'amministrazioneEmail',
+      'Amministrazione — telefono': 'amministrazioneTelefono',
+    };
+
     // Campo per campo: quello che c'è qui contro quello che c'è là.
     const coppie: [string, unknown, unknown][] = [
       ['Insegna / nome', p.insegna, trovato.nome],
@@ -157,10 +174,33 @@ export class PartnersService {
       // Nel registro il referente sta fra i contatti, non su un campo suo.
       ['Referente', p.contactName, (trovato as any).contatti?.[0]?.nome ?? null],
       ['Attivo', p.active, trovato.attivo],
+      // — Dati fiscali e bancari —
+      //
+      // Stanno nel registro sotto `datiFinanziari`, e sono i piu' utili da
+      // confrontare: su 97 partner abbinati ci sono 164 valori che qui mancano
+      // e la' ci sono. Sono anche i piu' delicati: 12 P.IVA e 3 IBAN
+      // discordano, e un IBAN sbagliato e' un bonifico a un estraneo.
+      ['Codice SDI', p.sdiCode, fin?.codiceSdi],
+      ['PEC', p.certifiedEmail, fin?.pec],
+      ['IBAN', p.bankAccount, fin?.iban],
+      ['Intestatario conto', p.bankAccountName, fin?.intestatarioConto],
+      ['Metodo di pagamento', p.paymentMethod, fin?.metodoPagamento],
+      ['Stato finanziario', p.financialStatus, trovato.statoFinanziario],
+      ['Amministrazione — nome', p.adminName, fin?.amministrazioneNome],
+      ['Amministrazione — email', p.adminEmail, fin?.amministrazioneEmail],
+      ['Amministrazione — telefono', p.adminPhone, fin?.amministrazioneTelefono],
     ];
     const norm = (v: unknown) => (v === null || v === undefined || v === '' ? null : String(v).trim());
     const differenze = coppie
-      .map(([campo, qui, la]) => ({ campo, piattaforma: norm(qui), registro: norm(la) }))
+      .map(([campo, qui, la]) => {
+        const prov = provenienza[DA_DOVE[campo] ?? ''];
+        return {
+          campo, piattaforma: norm(qui), registro: norm(la),
+          // Presenti solo dove il registro lo sa: una data non si inventa.
+          scrittoDa: prov?.sistema ?? null,
+          scrittoIl: prov?.asOf ?? null,
+        };
+      })
       .filter((d) => d.piattaforma !== d.registro);
 
     return {
@@ -632,4 +672,15 @@ const CAMPI_IMPORTABILI: Record<string, string> = {
   'Indirizzo': 'address',
   'Telefono': 'phone',
   'Referente': 'contactName',
+  // — Fiscali e bancari: sono il motivo per cui la maggior parte dei partner
+  // ha qualcosa da prendere dal registro (164 valori su 97 partner abbinati).
+  'Codice SDI': 'sdiCode',
+  'PEC': 'certifiedEmail',
+  'IBAN': 'bankAccount',
+  'Intestatario conto': 'bankAccountName',
+  'Metodo di pagamento': 'paymentMethod',
+  'Stato finanziario': 'financialStatus',
+  'Amministrazione — nome': 'adminName',
+  'Amministrazione — email': 'adminEmail',
+  'Amministrazione — telefono': 'adminPhone',
 };

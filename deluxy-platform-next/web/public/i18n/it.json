@@ -1030,7 +1030,9 @@
         "fri": "Venerdì",
         "sat": "Sabato",
         "sun": "Domenica"
-      }
+      },
+      "editHint": "I giorni lasciati vuoti non vengono salvati: vuoto vuol dire «non lo so», non «aperto». Spunta «chiuso» per dire che quel giorno il partner non lavora.",
+      "incomplete": "Un giorno ha solo un orario dei due: metti sia apertura sia chiusura, oppure spunta «chiuso»."
     },
     "payments": {
       "title": "Pagamenti e fatturazione",
@@ -1579,7 +1581,8 @@
     "pull": "Prendi dal registro ({{n}})",
     "pullHint": "Prende nella piattaforma solo i campi spuntati. Le righe dove il registro è vuoto non si possono spuntare: un vuoto non sovrascrive mai un valore. Le righe in giallo sono insegna e indirizzo — nel registro c’è l’azienda, qui il punto vendita, quindi non partono spuntate.",
     "riskyField": "Nel registro c’è l’azienda, qui il punto vendita: spuntalo solo se sai che serve.",
-    "emptyThere": "Nel registro questo campo è vuoto: non c’è niente da prendere."
+    "emptyThere": "Nel registro questo campo è vuoto: non c’è niente da prendere.",
+    "writtenBy": "nel registro da {{sistema}}, il {{quando}}"
   },
   "sales": {
     "title": "Vendite",
