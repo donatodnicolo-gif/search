@@ -779,6 +779,12 @@ export async function comunicaCostoAOrders(
         costoFornitore: costo,
         costoFornitoreNome: fornitore || null,
         fornitore: fornitore || null,
+        // Il percorso A del giro (Standard §7.4): dare l'ordine a un fornitore
+        // in chat SIGNIFICA evaderlo per fornitore diretto — si dice a Orders
+        // nella stessa proposta, non in una chiamata a parte. La consegna
+        // («consegnataIl») arriverà quando il fornitore conferma; l'evasione
+        // via piattaforma la scrive solo il ritiro di Orders, mai noi.
+        evasione: 'fornitore_diretto',
       }),
       signal: AbortSignal.timeout(12000),
       cache: 'no-store',

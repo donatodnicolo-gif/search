@@ -1,5 +1,15 @@
 # Handoff — Deluxy Customer Service
 
+## 24/08/2026 (sera 6) — l'assegnazione dice anche l'EVASIONE (percorso A)
+
+Quando si registra «a chi diamo l'ordine» col costo, la stessa proposta verso
+Orders ora porta anche **`evasione: 'fornitore_diretto'`** (Standard §7.4,
+percorso A: fornitore in chat che consegna lui). È il pezzo del CS nel giro
+dell'ordine: Orders da stasera possiede evasione/consegna/margine, e il ramo
+«piattaforma» lo scrive SOLO il suo ritiro dal canale della piattaforma — noi
+non lo tocchiamo mai. Manca ancora (dichiarato): il gesto «il fornitore ha
+consegnato» in scheda, che manderà `consegnataIl` con lo stesso PATCH.
+
 ## 24/08/2026 (sera 5) — lo STATO DI LAVORAZIONE parte verso Orders
 
 Come il costo del fornitore (sera 3), ora anche lo **stato di lavorazione**
