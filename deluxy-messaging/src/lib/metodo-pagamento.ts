@@ -116,9 +116,75 @@ export function ricevutaAccettabile(tipo: string, byte: number): string {
   return ''
 }
 
+// ── DA DOVE È USCITO IL DENARO ──
+//
+// ⚠️⚠️ Un bonifico NON parte per forza da un'app nostra. Quasi sempre esce dal
+// portale della banca, a mano; a volte si paga in contanti alla consegna, o si
+// scala da quello che quel fornitore ci deve. Dare per scontato che passi da
+// Deluxy Transactions vuol dire costruire un registro che descrive un mondo che
+// non esiste — e che quindi nessuno tiene aggiornato.
+//
+// ⚠️ È lo stesso fatto che nel resto dell'ecosistema si chiama
+// `pagatoCon: "fuori_app"`: là serve a ricordare che la prova del pagamento non
+// ce l'ha l'app. Qui la prova c'è — è la ricevuta — ma resta importante sapere
+// da dove è uscito, perché è l'unica cosa che permette di ritrovarlo in banca.
+
+export const USCITE: { chiave: string; nome: string }[] = [
+  { chiave: 'banca', nome: 'Dal portale della banca' },
+  { chiave: 'app', nome: 'Da Deluxy Transactions' },
+  { chiave: 'contanti', nome: 'Contanti' },
+  { chiave: 'compensazione', nome: 'Compensato con quello che ci deve' },
+  { chiave: 'altro', nome: 'Altro' },
+]
+
+export function nomeUscita(v: string): string {
+  // ⚠️ Vuoto = «non indicato», e si scrive così. Indovinare il canale di
+  // un'uscita di denaro è la cosa che non si deve fare: fra sei mesi qualcuno
+  // andrebbe a cercare quel bonifico dove non è mai passato.
+  if (!v) return 'non indicato'
+  return USCITE.find((u) => u.chiave === v)?.nome ?? v
+}
+
 /** Quanto pesa, scritto come si legge. */
 export function pesoScritto(byte: number): string {
   if (byte < 1000) return `${byte} byte`
   if (byte < 1_000_000) return `${Math.round(byte / 1000)} KB`
   return `${(byte / 1_000_000).toFixed(1)} MB`
+}
+
+// ── AVVISARE CHI ABBIAMO PAGATO ──
+//
+// ⚠️⚠️ Il messaggio si PREPARA, non parte da solo. È la stessa regola che vale
+// in tutta l'app per quello che esce verso una persona: un avviso mandato da un
+// automatismo, su un pagamento, è una promessa fatta a nome nostro senza che
+// nessuno l'abbia riletta — e se la riga era sbagliata l'abbiamo appena detto al
+// fornitore.
+//
+// ⚠️ Non si scrive «il bonifico è arrivato»: non lo sappiamo. Quello che
+// sappiamo è che è PARTITO, e la differenza sono due o tre giorni lavorativi in
+// cui il fornitore non lo vedrebbe e ci richiamerebbe pensando a un errore.
+
+export function messaggioPagato(d: {
+  chi: string
+  importo: number
+  ordine: string
+  quando: Date
+}): string {
+  const soldi = d.importo
+    ? d.importo.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
+    : ''
+  const righe = [
+    `Buongiorno${d.chi ? ' ' + d.chi : ''},`,
+    '',
+    `abbiamo disposto il pagamento${soldi ? ' di ' + soldi : ''}${
+      d.ordine ? ' per l’ordine ' + d.ordine : ''
+    } in data ${d.quando.toLocaleDateString('it-IT')}.`,
+    '',
+    'Dovrebbe vederlo sul conto entro qualche giorno lavorativo. Se non arriva,',
+    'ci scriva pure e controlliamo.',
+    '',
+    'Grazie,',
+    'Deluxy',
+  ]
+  return righe.join('\n')
 }

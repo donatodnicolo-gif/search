@@ -3345,6 +3345,26 @@ td .azioni-ordine {
   margin: 0;
 }
 
+/* La pillola del margine, in tabella. ⚠️ Colorata come il riquadro del modulo,
+   perche e la stessa informazione: se «oltre» fosse grigio qui e oro la
+   si leggerebbero come due cose diverse. */
+.pillola-margine {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--hairline);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pillola-margine.margine-ok { color: var(--green); border-color: var(--green); }
+.pillola-margine.margine-oltre { color: var(--gold); border-color: var(--gold); }
+.pillola-margine.margine-perdita { color: var(--red); border-color: var(--red); }
+/* ⚠️ Senza verdetto resta grigia: una pillola colorata che non giudica si
+   legge come un via libera. */
+.pillola-margine.margine-senza-verdetto { color: var(--text-secondary); }
+
 /* ---- Copiare una cella toccandola ---- */
 
 /* ⚠️ Sembra testo, non un bottone: dentro una tabella una fila di bottoni

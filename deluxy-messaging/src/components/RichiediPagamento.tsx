@@ -3,14 +3,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CercaFornitore } from './CercaFornitore'
 import { ibanAccorciato, type FornitoreTrovato } from '@/lib/cerca-fornitore'
-import { calcolaMargine, frasiMargine } from '@/lib/margine'
+import { calcolaMargine, frasiMargine, pct } from '@/lib/margine'
 import { CellaCopiabile } from './CellaCopiabile'
 import { ScegliOrdine, type OrdineTrovato } from './ScegliOrdine'
 import {
   METODI,
   cosaManca,
   linkSicuro,
+  USCITE,
   nomeMetodo,
+  messaggioPagato,
+  nomeUscita,
   pesoScritto,
   ricevutaAccettabile,
   type Metodo,
@@ -41,6 +44,12 @@ type Richiesta = {
   pagataDaNome: string
   ricevutaNome: string
   ricevutaTipo: string
+  pagatoCon: string
+  /** Quanto valeva l'ordine: serve alla colonna del margine. 0 = non lo sappiamo. */
+  valoreOrdine: number
+  fornitoreOrdine: string
+  /** Quanti ordini portano quel numero: piu' di uno = non si mostra il margine. */
+  ordiniOmonimi: number
 }
 
 const STATI_PARTNER: Record<string, string> = {
@@ -104,6 +113,12 @@ export function RichiediPagamento() {
     byte: number
   } | null>(null)
   const [pagando, setPagando] = useState('')
+  // ⚠️⚠️ DA DOVE ESCE IL DENARO. Un bonifico non parte per forza da un'app
+  // nostra: quasi sempre esce dal portale della banca, a mano; a volte si paga
+  // in contanti, o si scala da quello che quel fornitore ci deve. Dare per
+  // scontato un solo canale vorrebbe dire un registro che descrive un mondo che
+  // non esiste, e che quindi nessuno tiene aggiornato.
+  const [pagatoCon, setPagatoCon] = useState('')
 
   // Arrivando dal bottone "Richiedi pagamento" di un ordine, i campi si
   // precompilano da soli con numero, cliente e importo.
@@ -331,6 +346,7 @@ export function RichiediPagamento() {
         body: JSON.stringify({
           azione: pagata ? 'pagata' : 'nonpagata',
           ricevuta: pagata ? ricevuta : null,
+          pagatoCon: pagata ? pagatoCon : '',
         }),
       })
       const d = (await res.json().catch(() => ({}))) as { errore?: string }
@@ -769,6 +785,25 @@ export function RichiediPagamento() {
             onChange={(e) => scegliRicevuta(e.target.files?.[0] ?? null)}
           />
         </label>
+        {/* ── DA DOVE È USCITO IL DENARO ──
+            ⚠️⚠️ Un bonifico non parte per forza da un'app nostra: quasi sempre
+            esce dal portale della banca, a mano; a volte si paga in contanti
+            alla consegna, o si scala da quello che quel fornitore ci deve.
+            Costruire il registro dando per scontato un solo canale vuol dire
+            descrivere un mondo che non esiste — e nessuno lo tiene aggiornato.
+            ⚠️ Si può lasciare vuoto: «non indicato» è una risposta, indovinare
+            il canale di un'uscita di denaro no. */}
+        <label className="campo" style={{ margin: 0 }}>
+          <span>Da dove esce (facoltativo)</span>
+          <select value={pagatoCon} onChange={(e) => setPagatoCon(e.target.value)}>
+            <option value="">non indicato</option>
+            {USCITE.map((u) => (
+              <option key={u.chiave} value={u.chiave}>
+                {u.nome}
+              </option>
+            ))}
+          </select>
+        </label>
         {ricevuta ? (
           <p className="cella-sub">
             Pronta: <strong>{ricevuta.nome}</strong> ({pesoScritto(ricevuta.byte)}). Adesso premi
@@ -793,6 +828,7 @@ export function RichiediPagamento() {
                 <th>Come si paga</th>
                 <th>Intestatario</th>
                 <th className="num">Importo</th>
+                <th className="num">Margine</th>
                 <th>Ordine</th>
                 <th>Causale</th>
                 <th>Verifica</th>
@@ -836,6 +872,39 @@ export function RichiediPagamento() {
                         : '—'
                     }
                   />
+                  {/* ── IL MARGINE, RIGA PER RIGA ──
+                      ⚠️ Nel modulo si vede solo quello che si sta scrivendo:
+                      qui si vede lo storico, ed è dove ci si accorge che a un
+                      fornitore diamo sistematicamente troppo. */}
+                  <td className="cella-num">
+                    {(() => {
+                      // ⚠️ Più ordini con lo stesso numero: NON si mostra una
+                      // percentuale, perché potrebbe essere di un altro ordine.
+                      // Un margine sbagliato è peggio di nessun margine.
+                      if (r.ordiniOmonimi > 1) {
+                        return (
+                          <span
+                            className="cella-sub"
+                            title={`Ci sono ${r.ordiniOmonimi} ordini col numero ${r.ordineNumero}, su negozi diversi: non so su quale calcolarlo.`}
+                          >
+                            più ordini
+                          </span>
+                        )
+                      }
+                      const m = calcolaMargine(r.valoreOrdine, r.importo, quotaPrevista)
+                      // ⚠️ Senza il valore dell'ordine non si inventa niente.
+                      if (!m) return <span className="cella-sub">—</span>
+                      const f = frasiMargine(m)
+                      return (
+                        <span
+                          className={`pillola-margine margine-${m.verdetto}`}
+                          title={`${f.riga} ${f.verdetto}`}
+                        >
+                          {pct(m.marginePct)}
+                        </span>
+                      )
+                    })()}
+                  </td>
                   {/* L'ordine collegato: si apre, non si copia — di lì si va a
                       vedere di che si tratta. */}
                   <td className="cella-muta">
@@ -873,9 +942,13 @@ export function RichiediPagamento() {
                         className="badge verde"
                         title={`Pagata il ${new Date(r.pagataIl).toLocaleString('it-IT')}${
                           r.pagataDaNome ? ` da ${r.pagataDaNome}` : ''
-                        }`}
+                        } — ${nomeUscita(r.pagatoCon)}`}
                       >
-                        pagata
+                        {/* ⚠️ Il canale si legge SULLA RIGA, non solo nel
+                            titolo: «pagata» da solo non dice dove andare a
+                            cercare quel movimento, e fra sei mesi è l'unica
+                            cosa che serve davvero. */}
+                        pagata{r.pagatoCon ? ` · ${nomeUscita(r.pagatoCon).toLowerCase()}` : ''}
                       </span>
                     ) : r.inviataIl ? (
                       <span
@@ -893,6 +966,36 @@ export function RichiediPagamento() {
                       <span className="badge" style={{ marginLeft: 4 }} title={r.ricevutaNome}>
                         ricevuta ✓
                       </span>
+                    ) : null}
+                    {/* ── AVVISARE CHI ABBIAMO PAGATO ──
+                        ⚠️⚠️ Il messaggio si PREPARA, non parte da solo: si apre
+                        la chat col testo già scritto e lo manda una persona. Un
+                        avviso automatico su un pagamento è una promessa fatta a
+                        nome nostro senza che nessuno l'abbia riletta — e se la
+                        riga era sbagliata l'abbiamo appena detto al fornitore.
+                        ⚠️ Dice «disposto», non «arrivato»: fra i due ci sono
+                        due o tre giorni lavorativi in cui il fornitore non lo
+                        vede e richiama pensando a un errore. */}
+                    {r.pagataIl ? (
+                      <button
+                        className="btn btn-secondario small"
+                        style={{ marginLeft: 6 }}
+                        onClick={() => {
+                          const testo = messaggioPagato({
+                            chi: r.intestatario,
+                            importo: r.importo,
+                            ordine: r.ordineNumero,
+                            quando: new Date(r.pagataIl!),
+                          })
+                          void copia(testo, `avviso-${r.id}`)
+                          setAvviso(
+                            'Avviso copiato: incollalo nella chat del fornitore. Non parte da solo — lo rileggi e lo mandi tu.'
+                          )
+                        }}
+                        title="Copia l’avviso di pagamento da mandare al fornitore"
+                      >
+                        {copiato === `avviso-${r.id}` ? 'Copiato ✓' : 'Avvisa'}
+                      </button>
                     ) : null}
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>

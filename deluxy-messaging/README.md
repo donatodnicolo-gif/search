@@ -282,6 +282,57 @@ fornitore che richiama per sapere se è stato pagato non c'era niente da guardar
 Si può disfare (capita di spuntare la riga sbagliata), ma **la ricevuta resta**:
 è un documento.
 
+### Da dove esce il denaro
+
+⚠️⚠️ **Un bonifico non parte per forza da un'app nostra.** Quasi sempre esce dal
+portale della banca, a mano; a volte si paga in contanti alla consegna, o si
+scala da quello che quel fornitore ci deve. Segnando «Pagata» si può dire da
+dove: *portale della banca · Deluxy Transactions · contanti · compensazione ·
+altro*.
+
+⚠️ Si può **lasciare vuoto**: «non indicato» è una risposta, indovinare il canale
+di un'uscita di denaro no — manderebbe qualcuno, fra sei mesi, a cercare quel
+movimento dove non è mai passato.
+
+⚠️ È lo stesso fatto che nel resto dell'ecosistema si chiama
+`pagatoCon: "fuori_app"`. Il canale si legge **sulla riga**, non solo nel
+titolo: «pagata» da solo non dice dove andare a cercare.
+
+### Avvisare chi abbiamo pagato
+
+Sulle righe pagate c'è **Avvisa**: copia un messaggio pronto per il fornitore.
+
+⚠️⚠️ **Non parte da solo.** Un avviso automatico su un pagamento è una promessa
+fatta a nome nostro senza che nessuno l'abbia riletta — e se la riga era
+sbagliata l'abbiamo appena detto al fornitore.
+
+⚠️ Dice «abbiamo **disposto** il pagamento», non «è arrivato»: fra i due ci sono
+due o tre giorni lavorativi in cui il fornitore non lo vede e richiama pensando a
+un errore.
+
+### «In pagamento», da solo
+
+Salvando una richiesta legata a un ordine, quell'ordine passa a **in pagamento**:
+chiedere il pagamento *è* quel passo, e spuntarlo a mano dopo vuol dire che metà
+degli ordini resta indietro di uno stato.
+
+⚠️ **Solo se l'ordine è ancora indietro** (da gestire, ricerca fornitore,
+comunicazione). Su uno già «attesa consegna» o «gestito» sarebbe tornare indietro
+nel tempo: una richiesta si può salvare anche dopo aver pagato.
+
+⚠️ Un errore qui non fa fallire il salvataggio: la richiesta è la cosa che conta,
+lo stato è un contorno.
+
+### Il margine, anche in tabella
+
+Colonna **Margine** su ogni riga salvata: nel modulo si vede solo quello che si
+sta scrivendo, in tabella si vede lo storico — ed è lì che ci si accorge che a un
+fornitore diamo sistematicamente troppo.
+
+⚠️ Se il numero d'ordine appartiene a **più ordini** (negozi diversi) non si
+mostra nessuna percentuale ma «più ordini»: un margine sbagliato è peggio di
+nessun margine.
+
 ### La ricevuta
 
 Si sceglie una volta, sopra la tabella, poi si preme «Pagata» sulla riga giusta.

@@ -147,6 +147,25 @@ model RichiestaPagamento {
   pagataIl     DateTime?
   pagataDaNome String   @default("")
   /**
+   * COME è uscito il denaro: `banca` · `contanti` · `compensazione` ·
+   * `app` (da Deluxy Transactions) · `altro`. Vuoto = **non indicato**.
+   *
+   * ⚠️⚠️ Un bonifico NON parte per forza da un'app nostra. Quasi sempre esce dal
+   * portale della banca, a mano; a volte si paga in contanti alla consegna, o si
+   * scala da quello che quel fornitore ci deve. Dare per scontato che passi da
+   * Deluxy Transactions vuol dire costruire un registro che descrive un mondo
+   * che non esiste — e che quindi nessuno tiene aggiornato.
+   *
+   * ⚠️ È lo stesso fatto che nel resto dell'ecosistema si chiama
+   * `pagatoCon: "fuori_app"` (vedi la rotta di notifica di Partner): là serve a
+   * ricordare che **la prova del pagamento non ce l'ha l'app**. Qui la prova
+   * c'è — è la ricevuta — ma resta importante sapere da dove è uscito.
+   *
+   * ⚠️ Vuoto NON si riempie da soli: «non indicato» è una risposta, indovinare
+   * il canale di un'uscita di denaro no.
+   */
+  pagatoCon    String   @default("")
+  /**
    * La ricevuta: immagine o PDF, tenuta come data URI.
    *
    * ⚠️ Sta nel database e non in uno storage perché quest'app **non ha uno

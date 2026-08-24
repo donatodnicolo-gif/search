@@ -42,6 +42,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     riferimentoPagamento?: string
     ordineNumero?: string
     ricevuta?: { dati: string; nome: string; tipo: string; byte: number } | null
+    /** Da dove è uscito il denaro: banca · app · contanti · compensazione · altro. */
+    pagatoCon?: string
   }
 
   // ── SEGNARE CHE È STATA PAGATA ──
@@ -52,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       // documento, e cancellarla per un clic sbagliato sarebbe peggio.
       const tornata = await db.richiestaPagamento.update({
         where: { id },
-        data: { pagataIl: null, pagataDaNome: '' },
+        data: { pagataIl: null, pagataDaNome: '', pagatoCon: '' },
       })
       return NextResponse.json({ richiesta: tornata })
     }
@@ -60,6 +62,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const dati: Record<string, unknown> = {
       pagataIl: new Date(),
       pagataDaNome: io.nome,
+      // ⚠️ Solo se ce l'ha detto. Vuoto resta «non indicato»: indovinare il
+      // canale di un'uscita di denaro manderebbe qualcuno, fra sei mesi, a
+      // cercare quel bonifico dove non è mai passato.
+      pagatoCon: (c.pagatoCon ?? '').trim(),
     }
     if (c.ricevuta) {
       const problema = ricevutaAccettabile(c.ricevuta.tipo, c.ricevuta.byte)

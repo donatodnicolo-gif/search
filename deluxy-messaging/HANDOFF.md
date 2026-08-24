@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 16:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 17:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,27 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- **DA DOVE ESCE IL DENARO, AVVISO, «IN PAGAMENTO», MARGINE IN TABELLA**
+  (24/08/2026). ⚠️⚠️ Nasce da una **correzione dell'utente**: «non è detto che
+  un bonifico parti da transactions». Aveva ragione, ed è scritto nel loro
+  stesso codice — Partner: «pagato altrove (portale della banca, contanti,
+  compensazione)», Transactions: `pagatoCon: "fuori_app"`.
+  - **`pagatoCon`** su «Pagata»: banca · app · contanti · compensazione ·
+    altro. ⚠️ Vuoto resta «non indicato»: indovinare il canale di un'uscita di
+    denaro manda a cercare quel movimento dove non è mai passato. Il canale si
+    legge **sulla riga**, non solo nel titolo.
+  - **Avvisa**: copia un messaggio pronto per il fornitore. ⚠️⚠️ NON parte da
+    solo. ⚠️ Dice «disposto», non «arrivato» — fra i due ci sono due o tre
+    giorni in cui il fornitore non lo vede e richiama.
+  - **«In pagamento» automatico** salvando una richiesta legata a un ordine.
+    ⚠️ Solo se l'ordine è ancora indietro: su uno «gestito» sarebbe tornare
+    indietro nel tempo. ⚠️ Un errore non fa fallire il salvataggio.
+  - **Colonna Margine** in tabella (una query sola per tutte le righe). ⚠️ Col
+    numero su più negozi si scrive «più ordini», non una percentuale che
+    potrebbe essere di un altro.
+  - ✅ `npx tsx scripts/prova-pagamento-fatto.mts`, e sui dati veri i margini
+    tornano: #2783 40,7%, #2784 41,2%, #2780 41,4% — tutti «ok» contro il 60%.
 
 - **LA PAGINA PAGAMENTI, RIFATTA** (24/08/2026, sei richieste dell'utente in
   fila: metodi diversi dall'IBAN, associazione con l'ordine, margine subito,

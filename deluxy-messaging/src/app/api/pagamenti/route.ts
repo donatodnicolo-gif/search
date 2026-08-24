@@ -41,14 +41,50 @@ export async function GET() {
       riferimentoPagamento: true,
       pagataIl: true,
       pagataDaNome: true,
+      pagatoCon: true,
       // Il NOME e il TIPO sì (servono a dire «ricevuta ✓» e ad aprirla), i byte no.
       ricevutaNome: true,
       ricevutaTipo: true,
       creatoIl: true,
     },
   })
+  // ── QUANTO VALEVA L'ORDINE, per ogni riga ──
+  //
+  // ⚠️ Serve alla colonna «Margine»: senza il venduto, la percentuale non si può
+  // calcolare — e una tabella di pagamenti che non dice quanto ci resta è
+  // esattamente quella che fa scoprire un accordo sbagliato a fine mese.
+  //
+  // ⚠️ UNA query per tutte le righe, non una per riga: con duecento richieste
+  // sarebbero duecento andate e ritorni al database a ogni caricamento.
+  const numeri = [...new Set(richieste.map((r) => r.ordineNumero).filter(Boolean))]
+  const ordini = numeri.length
+    ? await db.ordine.findMany({
+        where: { numero: { in: numeri } },
+        select: { numero: true, totale: true, fornitoreNome: true, gestione: true },
+      })
+    : []
+  // ⚠️ Se lo stesso numero esiste su più negozi si tiene il PIÙ ALTO invece di
+  // uno a caso: sul valore più alto il margine risulta migliore di quello vero,
+  // e un margine gonfiato si nota; uno sgonfiato manda a ridiscutere un prezzo
+  // che era giusto. Nessuna delle due è buona, ma questa si accorge di sé.
+  const valore = new Map<string, number>()
+  const fornitore = new Map<string, string>()
+  for (const o of ordini) {
+    valore.set(o.numero, Math.max(valore.get(o.numero) ?? 0, o.totale ?? 0))
+    if (o.fornitoreNome) fornitore.set(o.numero, o.fornitoreNome)
+  }
+
   return NextResponse.json({
-    richieste: richieste.map((r) => ({ ...r, stringa: stringaPagamento(r) })),
+    richieste: richieste.map((r) => ({
+      ...r,
+      stringa: stringaPagamento(r),
+      valoreOrdine: valore.get(r.ordineNumero) ?? 0,
+      fornitoreOrdine: fornitore.get(r.ordineNumero) ?? '',
+      // ⚠️ Più di un ordine con quel numero: lo si dice, e la colonna del
+      // margine lo segnala invece di mostrare una percentuale che potrebbe
+      // essere di un altro ordine.
+      ordiniOmonimi: ordini.filter((o) => o.numero === r.ordineNumero).length,
+    })),
   })
 }
 
@@ -116,6 +152,34 @@ export async function POST(req: NextRequest) {
       ordineNumero: (c.ordineNumero ?? '').trim(),
     },
   })
+
+  // ── L'ORDINE PASSA A «IN PAGAMENTO», DA SOLO ──
+  //
+  // ⚠️ Chiesto dall'utente, ed è giusto: chiedere il pagamento di un ordine È
+  // il passo «in pagamento». Farlo spuntare a mano dopo vuol dire che metà
+  // degli ordini resta indietro di un passo — e la bacheca, che si legge a
+  // colpo d'occhio, mostra uno stato più vecchio del vero.
+  //
+  // ⚠️ Solo se l'ordine è ancora INDIETRO. Su uno già «attesa consegna» o
+  // «gestito» riportarlo a «in pagamento» sarebbe tornare indietro nel tempo:
+  // una richiesta si può salvare anche dopo aver pagato, e lo stato di
+  // lavorazione non deve arretrare per questo.
+  //
+  // ⚠️ Un errore qui NON fa fallire il salvataggio: la richiesta è la cosa che
+  // conta, lo stato è un contorno.
+  if (richiesta.ordineNumero) {
+    try {
+      await db.ordine.updateMany({
+        where: {
+          numero: richiesta.ordineNumero,
+          gestione: { in: ['da_gestire', 'ricerca_fornitore', 'comunicazione'] },
+        },
+        data: { gestione: 'in_pagamento', gestioneIl: new Date() },
+      })
+    } catch {
+      // lo stato è un contorno: la richiesta resta salvata
+    }
+  }
 
   // Inoltro a Deluxy Partner, che approva e paga. Un fallimento qui non annulla
   // il salvataggio: la richiesta resta e si può rimandare.
