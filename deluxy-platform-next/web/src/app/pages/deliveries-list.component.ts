@@ -76,12 +76,19 @@ const SERVICE_ICONS: Record<string, string> = {
             (click)="vaiA('')"
           >{{ 'deliveries.quick.all' | translate }}</button>
         </div>
-        <input
-          class="field"
-          type="date"
-          [(ngModel)]="dateFilter"
-          (ngModelChange)="reload()"
-        />
+        <div class="intervallo">
+          <label class="dal"><span>{{ 'deliveries.filter.from' | translate }}</span>
+            <input class="field" type="date" [(ngModel)]="dateFilter" (ngModelChange)="reload()" />
+          </label>
+          <label class="al"><span>{{ 'deliveries.filter.to' | translate }}</span>
+            <input class="field" type="date" [(ngModel)]="dateTo" [min]="dateFilter" (ngModelChange)="reload()" />
+          </label>
+          @if (dateTo) {
+            <button type="button" class="btn btn-secondary mini" (click)="azzeraIntervallo()">
+              {{ 'deliveries.filter.clearRange' | translate }}
+            </button>
+          }
+        </div>
         <input
           class="field"
           name="q"
@@ -378,6 +385,10 @@ const SERVICE_ICONS: Record<string, string> = {
         gap: 2px;
       }
       .quick-tabs.vista { background: var(--surface-sunken, #e4e4e8); }
+      .intervallo { display: flex; align-items: flex-end; gap: 8px; }
+      .intervallo label { display: flex; flex-direction: column; gap: 3px; }
+      .intervallo label span { font-size: 11px; color: var(--text-tertiary); padding-left: 2px; }
+      .intervallo .btn.mini { padding: 6px 12px; font-size: 13px; }
       .quick-tab {
         border: 0;
         background: transparent;
@@ -965,6 +976,8 @@ export class DeliveriesListComponent {
 
   statusFilter = '';
   dateFilter = '';
+  /** Secondo estremo dell'intervallo. Vuoto = un giorno solo, come prima. */
+  dateTo = '';
   readonly showMap = signal(false);
 
   /** La mappa consegne (indirizzi = dati sensibili) è solo per Admin/Operation. */
@@ -1009,6 +1022,14 @@ export class DeliveriesListComponent {
   /** Scelta rapida: stringa vuota = tutte le date. */
   vaiA(data: string): void {
     this.dateFilter = data;
+    // Oggi/Domani/Tutte sono giorni singoli: l'intervallo si chiude, se no
+    // resterebbe appeso un «al» che mostra un periodo che nessuno ha chiesto.
+    this.dateTo = '';
+    this.reload();
+  }
+
+  azzeraIntervallo(): void {
+    this.dateTo = '';
     this.reload();
   }
 
@@ -1133,7 +1154,16 @@ export class DeliveriesListComponent {
       .set('dir', this.dir())
       .set('view', this.vista);
     if (this.statusFilter) params = params.set('status', this.statusFilter);
-    if (this.dateFilter) params = params.set('date', this.dateFilter);
+    // Un giorno solo resta `date`, com'era. Con due estremi si passa a
+    // dateFrom/dateTo, che il backend già capisce: `dateTo` include tutta la
+    // giornata finale, se no l'ultimo giorno scelto resterebbe fuori.
+    if (this.dateFilter && this.dateTo) {
+      params = params.set('dateFrom', this.dateFilter).set('dateTo', this.dateTo);
+    } else if (this.dateFilter) {
+      params = params.set('date', this.dateFilter);
+    } else if (this.dateTo) {
+      params = params.set('dateTo', this.dateTo);
+    }
     if (this.query.trim()) params = params.set('q', this.query.trim());
     this.http
       .get<{ items: Delivery[]; total: number }>(`${environment.apiUrl}/deliveries`, { params })

@@ -539,6 +539,11 @@
       "change": "Click to change the status",
       "current": "Current",
       "set": "Set"
+    },
+    "filter": {
+      "from": "From",
+      "to": "To",
+      "clearRange": "Single day"
     }
   },
   "partners": {
@@ -935,9 +940,16 @@
       "requiredFields": "Fill in date, partner, service, address and recipient first/last name.",
       "customerNotSaved": "Customer not saved: ",
       "genericShort": "error",
-      "createFailed": "Error while creating the delivery"
+      "createFailed": "Error while creating the delivery",
+      "missing": "Missing: {{campi}}."
     },
-    "editTitle": "Edit delivery"
+    "editTitle": "Edit delivery",
+    "customer": {
+      "search": "Search by surname, name, email or phone…",
+      "hint": "Type at least 2 characters. Leave empty for a new recipient.",
+      "none": "No customer found.",
+      "change": "Change"
+    }
   },
   "partnerForm": {
     "title": "New partner",

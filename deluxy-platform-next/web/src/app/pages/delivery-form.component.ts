@@ -175,11 +175,42 @@ interface ProductRow {
       <!-- 4. Destinatario e mittente -->
       <section class="card block">
         <header class="block-head"><h2>{{ 'deliveryForm.section.people.title' | translate }}</h2></header>
+        <!-- Ricerca cliente, non tendina.
+             I clienti in produzione sono 4.092 e la tendina ne mostrava 500:
+             gli altri 3.592 non erano raggiungibili in nessun modo da qui. -->
         <label class="fld"><span>{{ 'deliveryForm.field.existingCustomer' | translate }}</span>
-          <select class="field" name="customerId" [(ngModel)]="model.customerId" (ngModelChange)="applyCustomer($event)">
-            <option value="">— {{ 'deliveryForm.option.newRecipient' | translate }} —</option>
-            @for (c of customers(); track c.id) { <option [value]="c.id">{{ c.lastName }} {{ c.firstName }}</option> }
-          </select></label>
+          @if (clienteScelto(); as c) {
+            <div class="scelto">
+              <span><strong>{{ c.lastName }} {{ c.firstName }}</strong>
+                @if (c.email) { <span class="muted">· {{ c.email }}</span> }
+                @if (c.phone) { <span class="muted">· {{ c.phone }}</span> }
+              </span>
+              <button type="button" class="btn btn-secondary mini" (click)="scollegaCliente()">
+                {{ 'deliveryForm.customer.change' | translate }}
+              </button>
+            </div>
+          } @else {
+            <input class="field" name="cercaCliente" [ngModel]="cercaCliente()"
+                   (ngModelChange)="cercaClienti($event)" autocomplete="off"
+                   [placeholder]="'deliveryForm.customer.search' | translate" />
+            @if (cercandoClienti()) { <span class="slot-hint">{{ 'common.loading' | translate }}</span> }
+            @else if (cercaCliente().length >= 2 && !risultatiClienti().length) {
+              <span class="slot-hint">{{ 'deliveryForm.customer.none' | translate }}</span>
+            }
+            @if (risultatiClienti().length) {
+              <ul class="risultati">
+                @for (c of risultatiClienti(); track c.id) {
+                  <li><button type="button" (click)="scegliCliente(c)">
+                    <strong>{{ c.lastName }} {{ c.firstName }}</strong>
+                    @if (c.email) { <span class="muted">· {{ c.email }}</span> }
+                    @if (c.phone) { <span class="muted">· {{ c.phone }}</span> }
+                  </button></li>
+                }
+              </ul>
+            }
+            <span class="slot-hint">{{ 'deliveryForm.customer.hint' | translate }}</span>
+          }
+        </label>
         @if (!model.customerId) {
           <label class="toggle mt"><input type="checkbox" name="saveCustomer" [(ngModel)]="model.saveCustomer" /><span>{{ 'deliveryForm.toggle.saveCustomer' | translate }}</span></label>
         }
@@ -341,6 +372,24 @@ interface ProductRow {
       .mt { margin-top: 16px; }
       .mt2 { margin-top: 20px; }
       .slot-hint { margin-top: 6px; font-size: 12.5px; color: var(--gold-strong); font-weight: 550; }
+      .scelto {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        padding: 9px 12px; border: 1px solid var(--hairline, #e5e5ea);
+        border-radius: var(--radius-md, 12px); background: var(--surface-2, #f5f5f7);
+      }
+      .scelto .muted { color: var(--text-tertiary); font-weight: 400; }
+      .risultati {
+        list-style: none; margin: 6px 0 0; padding: 0; max-height: 260px; overflow-y: auto;
+        border: 1px solid var(--hairline, #e5e5ea); border-radius: var(--radius-md, 12px); background: #fff;
+      }
+      .risultati li + li { border-top: 1px solid var(--hairline, #e5e5ea); }
+      .risultati button {
+        display: block; width: 100%; text-align: left; padding: 9px 12px;
+        background: none; border: 0; cursor: pointer; font: inherit;
+      }
+      .risultati button:hover { background: var(--surface-2, #f5f5f7); }
+      .risultati .muted { color: var(--text-tertiary); }
+      .btn.mini { padding: 4px 12px; font-size: 13px; }
       .slot-hint.warn { color: var(--red); }
       .toggle.mini { margin-top: 6px; font-size: 13px; }
       .fld { display: flex; flex-direction: column; gap: 6px; }
@@ -737,9 +786,61 @@ export class DeliveryFormComponent implements AfterViewInit {
     return this.valets().filter((v) => (v.provinces ?? []).some((pp) => pp.province?.code === prov.code));
   });
 
+  // --- ricerca cliente -----------------------------------------------------
+
+  readonly cercaCliente = signal('');
+  readonly cercandoClienti = signal(false);
+  readonly risultatiClienti = signal<Customer[]>([]);
+  readonly clienteScelto = signal<Customer | null>(null);
+  private ritardoRicerca?: ReturnType<typeof setTimeout>;
+
+  /**
+   * Cerca i clienti sul server mentre si scrive.
+   *
+   * Si parte da DUE caratteri: con uno solo tornerebbero centinaia di risultati
+   * e la lista sarebbe inutile quanto la tendina di prima. E si aspetta un
+   * attimo prima di chiedere, se no ogni tasto e' una chiamata.
+   */
+  cercaClienti(testo: string): void {
+    this.cercaCliente.set(testo);
+    clearTimeout(this.ritardoRicerca);
+    const q = testo.trim();
+    if (q.length < 2) { this.risultatiClienti.set([]); this.cercandoClienti.set(false); return; }
+    this.cercandoClienti.set(true);
+    this.ritardoRicerca = setTimeout(() => {
+      this.http
+        .get<{ items: Customer[] }>(`${environment.apiUrl}/customers`, { params: { q, pageSize: 20 } })
+        .subscribe({
+          next: (d) => { this.risultatiClienti.set(d.items ?? []); this.cercandoClienti.set(false); },
+          error: () => { this.risultatiClienti.set([]); this.cercandoClienti.set(false); },
+        });
+    }, 300);
+  }
+
+  scegliCliente(c: Customer): void {
+    this.clienteScelto.set(c);
+    this.model.customerId = c.id;
+    this.risultatiClienti.set([]);
+    this.cercaCliente.set('');
+    this.riempiDaCliente(c);
+  }
+
+  /**
+   * Scollega il cliente ma NON svuota i campi gia' riempiti: chi ha corretto
+   * l'indirizzo dopo averlo scelto non deve ritrovarselo cancellato.
+   */
+  scollegaCliente(): void {
+    this.clienteScelto.set(null);
+    this.model.customerId = '';
+  }
+
   applyCustomer(id: string): void {
     const c = this.customers().find((x) => x.id === id);
     if (!c) return;
+    this.riempiDaCliente(c);
+  }
+
+  private riempiDaCliente(c: Customer): void {
     this.model.recipientFirstName = c.firstName ?? '';
     this.model.recipientLastName = c.lastName ?? '';
     if (c.address) { this.model.recipientAddress = c.address; this.onAddressChange(); }
@@ -932,9 +1033,25 @@ export class DeliveryFormComponent implements AfterViewInit {
     this.error.set(null);
     this.justSaved.set(false);
     const m = this.model;
-    if (!m.date || !m.partnerId || !m.serviceTypeId || !m.recipientAddress.trim()
-      || !m.recipientFirstName.trim() || !m.recipientLastName.trim()) {
-      this.error.set(this.translate.instant('deliveryForm.error.requiredFields'));
+    // Si dice QUALI campi mancano, non «compila i campi obbligatori».
+    //
+    // ⚠️ L'orario di consegna era marcato con l'asterisco ma non veniva
+    // controllato da nessuno: lasciandolo vuoto il salvataggio partiva e la
+    // consegna nasceva senza orario. Chi guardava vedeva «non succede nulla»,
+    // perché il messaggio generico non nominava il campo che mancava.
+    const mancanti: string[] = [];
+    if (!m.date) mancanti.push(this.translate.instant('deliveryForm.field.date'));
+    if (!m.recipientAddress.trim()) mancanti.push(this.translate.instant('deliveryForm.field.recipientAddress'));
+    if (!m.partnerId) mancanti.push(this.translate.instant('deliveryForm.field.partner'));
+    if (!m.serviceTypeId) mancanti.push(this.translate.instant('deliveryForm.field.service'));
+    if (!m.deliveryTimeFrom) mancanti.push(this.translate.instant('deliveryForm.field.deliverySlot'));
+    if (!m.recipientFirstName.trim()) mancanti.push(this.translate.instant('deliveryForm.field.recipientFirstName'));
+    if (!m.recipientLastName.trim()) mancanti.push(this.translate.instant('deliveryForm.field.recipientLastName'));
+    if (mancanti.length) {
+      this.error.set(this.translate.instant('deliveryForm.error.missing', { campi: mancanti.join(', ') }));
+      // L'errore sta in fondo al form: senza questo, chi ha compilato in cima
+      // non lo vede e conclude che il bottone non funziona.
+      queueMicrotask(() => document.querySelector('.error-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
       return;
     }
 

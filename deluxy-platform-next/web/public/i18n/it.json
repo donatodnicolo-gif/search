@@ -539,6 +539,11 @@
       "change": "Clic per cambiare lo stato",
       "current": "Attuale",
       "set": "Imposta"
+    },
+    "filter": {
+      "from": "Dal",
+      "to": "Al",
+      "clearRange": "Solo un giorno"
     }
   },
   "partners": {
@@ -935,9 +940,16 @@
       "requiredFields": "Compila data, partner, servizio, indirizzo e nome/cognome destinatario.",
       "customerNotSaved": "Cliente non salvato: ",
       "genericShort": "errore",
-      "createFailed": "Errore nella creazione della consegna"
+      "createFailed": "Errore nella creazione della consegna",
+      "missing": "Manca: {{campi}}."
     },
-    "editTitle": "Modifica consegna"
+    "editTitle": "Modifica consegna",
+    "customer": {
+      "search": "Cerca per cognome, nome, email o telefono…",
+      "hint": "Scrivi almeno 2 caratteri. Lascia vuoto per un destinatario nuovo.",
+      "none": "Nessun cliente trovato.",
+      "change": "Cambia"
+    }
   },
   "partnerForm": {
     "title": "Nuovo partner",
