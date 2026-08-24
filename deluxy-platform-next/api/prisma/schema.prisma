@@ -1291,6 +1291,13 @@ model Invoice {
   archived        Boolean   @default(false)
   issuedAt        DateTime?
   paidAt          DateTime?
+  /// Il PDF della fattura, come lo teneva il sistema originario
+  /// (`delivery-invoices.invoiceUrl`). Tutte e 559 le fatture storiche ne
+  /// hanno uno: senza, l'archivio conserva un totale ma non il documento.
+  documentUrl     String?
+  /// Il pagamento Stripe, dove c'e' (`paymentIntentId`): nel legacy solo 2
+  /// fatture su 559 — le altre sono state incassate fuori.
+  paymentIntentId String?
   lines           InvoiceLine[]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
