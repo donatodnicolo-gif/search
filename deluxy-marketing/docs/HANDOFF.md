@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **24/08/2026** (ri-misurato a mezzogiorno). Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **24/08/2026** (pomeriggio). Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 >
@@ -54,9 +54,10 @@
 > dal nome. Il **margine** e la **quota fornitore** non si toccano: non sono di
 > questa app.
 >
-> 🔴 **Tre scostamenti dal contratto, verificati sul database il 24/08** (non
-> chiusi: sono qui perché il prossimo che passa li veda, non perché siano
-> accettati):
+> ✅ **I tre scostamenti sono stati AFFRONTATI il 24/08 pomeriggio** — sotto
+> restano descritti perché la storia serva, ma vedi la sezione in FATTO per
+> cosa è stato fatto e per **i due passi che restano a una persona**: togliere
+> le due colonne personali (il comando è pronto) e **ruotare le credenziali**.
 > 1. **Un segreto in chiaro**: l'impostazione `drive.service_account` contiene
 >    la chiave privata del service account Google — 2.343 caratteri, leggibili
 >    da chiunque legga quella tabella. Va spostata in una variabile d'ambiente
@@ -240,6 +241,92 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐ I TRE SCOSTAMENTI dal contratto dati, chiusi (24/08/2026 pomeriggio)
+
+**1. La password non apre più l'app quando manca.** `middleware.ts` era
+fail-OPEN anche su Vercel: un rename o un typo della variabile e il deploy
+successivo metteva online la memoria ADV, le Impostazioni e **la coda che
+scrive su Google Ads e Meta** — senza che nessuno se ne accorgesse, perché
+l'app «funziona» benissimo, solo per chiunque. Ora **503**, stessa forma di
+`deluxy-merchandising`.
+
+**2. Via il nome e l'email dei clienti, e la sostituzione è MIGLIORE
+dell'originale.** Erano 8.446 ordini copiati qui, 6.486 con l'email e 8.152 col
+nome, e non li usava nessuna schermata: il nome stava in un sottotitolo
+dell'elenco, l'email serviva solo a contare clienti nuovi contro clienti di
+ritorno. ⭐ Quella risposta **Orders la manda già in ogni ordine**
+(`cliente.ordiniPrima`) — e la sua è più giusta: qui si guardava il primo
+ordine con quella email **nell'archivio di questa app**, che parte dal
+01/01/2025, quindi un cliente del 2024 che tornava risultava **nuovo** e
+nessuno poteva accorgersene. Riempiti **8.159 ordini su 8.448 (97%)**: 6.350
+nuovi, 1.809 di ritorno. La rotta `/api/v1/ordini` adesso **elenca i campi**
+invece di fare `include` sul record intero — con l'include ogni colonna futura
+sarebbe uscita di lì senza che nessuno lo decidesse.
+
+⚠️⚠️ **TRAPPOLA PAGATA DUE VOLTE, e sta scritta nel codice che l'aveva già
+pagata**: un campo NUOVO non entra mai negli ordini già presenti — che sono la
+quasi totalità — se non lo si mette **anche nel controllo «è cambiato?»**. Al
+primo giro si erano riempiti **246 ordini su 8.448**, e lo script dichiarava
+allegramente «8.159 già uguali». Identico a quello che era successo con la
+provincia il 02/08, con il commento a due righe di distanza.
+
+🔴 **RESTA UN PASSO, e serve il permesso**: le colonne `cliente` ed `email`
+sono ancora **fisicamente nella tabella** — il codice non le legge e non le
+scrive più, ma i valori sono lì. Il comando c'è ed è già stato provato a vuoto:
+
+    node scripts/ordini-senza-dati-personali.mjs --togli
+
+Si rifiuta di partire sotto il 95% di riempimento (siamo al 97%). ⚠️ Va
+lanciato **dopo** il deploy, che è già andato: la produzione non le legge più.
+
+**3. Le credenziali: l'ambiente comanda, il database è il ripiego.** Erano
+**tre** in chiaro su un Postgres condiviso da quattordici app con un solo
+utente — `drive.service_account` (2.343 caratteri, la chiave privata Google),
+`ai_chiave_anthropic` (108), `drive.apikey` (39). Non è un rischio teorico: è
+una `SELECT`. ⚠️ L'audit ne aveva vista **una**: la chiave Anthropic è saltata
+fuori solo guardando tutte e sette le impostazioni una per una.
+
+⚠️ **Due punti leggevano già dall'ambiente, ma come RIPIEGO**: il valore del
+database vinceva, quindi mettere la chiave fra le variabili **non la
+disattivava** — restava lì, leggibile, e nessuno se ne accorgeva perché l'app
+funzionava. Invertita la precedenza in `src/lib/segreti.ts`; il ripiego sul
+database resta per lo sviluppo locale.
+
+🔴 **RESTANO DUE PASSI, e sono di una persona**:
+
+    node scripts/segreti-fuori-dal-db.mjs --scrivi .env.segreti
+    # incollare le variabili su Vercel, poi cancellare il file
+    node scripts/segreti-fuori-dal-db.mjs --togli
+
+Lo script **non stampa mai i valori** e si rifiuta di cancellare una riga la cui
+variabile d'ambiente non esiste ancora. ⚠️⚠️ **E comunque VANNO RUOTATE**: sono
+state in chiaro per settimane su un database condiviso, e spostarle non
+cancella il passato. Chiave Drive e account di servizio dalla Google Cloud
+Console, chiave Anthropic dalla console Anthropic.
+
+### ⭐ I ricavi sulle schede campagna (24/08/2026)
+
+Il ROAS era il rapporto fra due numeri di cui se ne mostrava **uno solo**: si
+vedeva quanto è uscito e un moltiplicatore, non quanto è entrato. Per decidere
+se alzare un budget serve l'ordine di grandezza, non solo il rapporto — *5× su
+26 €* e *5× su 2.600 €* sono la stessa cifra e due situazioni diverse. Il dato
+era già calcolato per il ROAS, mancava solo a schermo (l'archivio delle spente
+la colonna «Incasso» ce l'aveva già). Verificato in produzione: 86 schede su 86
+mostrano spesa e ricavi.
+
+### ⚠️ Un commit di questa sessione è finito dentro quello di un'altra
+
+I file di marketing di stamattina (i tre scostamenti) sono dentro
+**`8c7a7335` «Ordini: il costo del fornitore si comunica a Orders»**, che è di
+un'altra sessione. In `scoutwt` **l'indice git è uno solo**: avevo i file in
+stage, l'altra sessione ha fatto `git commit`, e se li è portati via tutti e
+quindici. Verificato che il contenuto sia **integro e su origin** (nessuna
+differenza fra il disco e `origin/scout-ui`). Non ho riscritto la storia: il
+ramo è condiviso e un'altra sessione ci sta lavorando sopra — riscriverlo
+sarebbe stato molto peggio del messaggio sbagliato. **La regola per la
+prossima volta**: `git add` e `git commit` nello **stesso comando**, mai
+separati da altro lavoro.
 
 ### ⭐⭐ «22 GIORNI CONCLUSI» era di calendario, non dei dati — e i confini del mese erano a Greenwich (24/08/2026)
 
