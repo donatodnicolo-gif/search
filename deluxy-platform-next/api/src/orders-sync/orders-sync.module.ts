@@ -81,6 +81,155 @@ export class OrdersSyncService {
    * Nessuno di questi e' un guasto: e' un dato che manca alla sorgente, e
    * dirlo con un conto e' piu' utile che fallire.
    */
+  /**
+   * Il numero Shopify nudo, dalle due grafie che girano.
+   *
+   * ⚠️ Orders tiene l'id in forma lunga — `gid://shopify/Order/11039527862595`
+   * — e la piattaforma il numero e basta, `11039527862595`. Confrontandoli
+   * cosi' come sono, l'appaiamento usciva ZERO su 2.000 ordini letti e 11.054
+   * consegne che il numero ce l'hanno: sembrava che non ci fosse niente da
+   * mandare, e invece era solo un prefisso.
+   */
+  private static numeroShopify(v?: string | null): string | null {
+    const t = (v ?? '').trim();
+    if (!t) return null;
+    const coda = t.split('/').pop() ?? '';
+    return /^d+$/.test(coda) ? coda : null;
+  }
+
+  /**
+   * Manda a Orders gli INGREDIENTI del margine sulla consegna nostra.
+   *
+   * Orders sa gia' fare il conto — `totale − costoFornitore − costoConsegna +
+   * feeConsegna` — ma finora dichiarava il margine PARZIALE con la nota «la
+   * piattaforma non lo espone ancora». Questa e' l'esposizione.
+   *
+   * ⚠️ Si mandano gli ingredienti, NON il margine gia' fatto. Il margine si
+   * calcola in un posto solo (Standard Deluxy §7): il totale dell'ordine e il
+   * costo del fornitore vivono in Orders e qui non si conoscono, e se ogni app
+   * spedisse il proprio numero due schermate direbbero due cifre diverse.
+   *
+   * I due numeri, con le formule del manuale (§3.8, verificate su
+   * app.deluxy.it il 21/07):
+   *   costoConsegna = paga del valet         = valetSalary + valetAdditionalPrice
+   *   feeConsegna   = Fee% x Prezzo partner  = commissionPercent/100 x (price + additionalPrice)
+   *
+   * ⚠️ Il legame ordine↔consegna passa da `Delivery.realOrderNumber`, che e'
+   * l'id Shopify dell'ordine — lo stesso `orderId` con cui Orders identifica il
+   * suo. NON da `Sale.externalOrderId`: quel legame nasce solo quando un
+   * partner accetta un incarico, e oggi nessuno ha ancora accettato (0 su 66).
+   * Cercandolo li' il conto uscirebbe zero su tutto.
+   *
+   * Un ordine puo' avere PIU' consegne: gli ingredienti si sommano, o un ordine
+   * con due consegne risulterebbe costato la meta'.
+   *
+   * ⚠️ Di default NON scrive: risponde con il conto di cosa manderebbe.
+   */
+  async spingiMargini(opzioni: { applica?: boolean; da?: string; limite?: number } = {}) {
+    const { url, chiave } = await this.config();
+    if (!url || !chiave) {
+      return { ok: false, messaggio: 'Indirizzo o chiave di Orders non impostati (Configurazione → Impostazioni).' };
+    }
+
+    // 1) Gli ordini che Orders conosce, per poter tradurre il numero Shopify
+    //    nel suo id interno. Senza questa traduzione non si potrebbe scrivere.
+    const perOrderId = new Map<string, { id: string; numero?: string | null }>();
+    let pagina = 1;
+    const limite = Math.min(5000, Math.max(1, opzioni.limite ?? 2000));
+    while (perOrderId.size < limite) {
+      const q = new URLSearchParams({ page: String(pagina), limit: '200' });
+      if (opzioni.da) q.set('da', opzioni.da);
+      const res = await fetch(`${url}/api/v1/ordini?${q}`, { headers: { 'x-api-key': chiave } });
+      if (!res.ok) return { ok: false, messaggio: `Orders risponde HTTP ${res.status} leggendo la pagina ${pagina}.` };
+      const body = (await res.json()) as { ordini?: { id: string; orderId?: string | null; numero?: string | null }[]; pagine?: number };
+      for (const o of body.ordini ?? []) {
+        const k = OrdersSyncService.numeroShopify(o.orderId);
+        if (k) perOrderId.set(k, { id: o.id, numero: o.numero });
+      }
+      if (!body.ordini?.length || pagina >= (body.pagine ?? 1)) break;
+      pagina++;
+    }
+
+    // 2) Le consegne che portano un numero d'ordine conosciuto.
+    const deliveries = await this.prisma.delivery.findMany({
+      where: {
+        deletedAt: null,
+        realOrderNumber: { in: [...perOrderId.keys()] },
+      },
+      select: {
+        code: true, realOrderNumber: true, status: true,
+        valetSalary: true, valetAdditionalPrice: true,
+        price: true, additionalPrice: true,
+        partner: { select: { commissionPercent: true } },
+      },
+    });
+
+    // 3) Somma per ordine.
+    type Conto = { costoConsegna: number; feeConsegna: number; consegne: number; senzaFee: number };
+    const per = new Map<string, Conto>();
+    for (const d of deliveries) {
+      const k = d.realOrderNumber!;
+      const c = per.get(k) ?? { costoConsegna: 0, feeConsegna: 0, consegne: 0, senzaFee: 0 };
+      c.consegne++;
+      c.costoConsegna += (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0);
+      const prezzoPartner = (d.price ?? 0) + (d.additionalPrice ?? 0);
+      const feePercent = d.partner?.commissionPercent ?? 0;
+      if (feePercent > 0) c.feeConsegna += (feePercent / 100) * prezzoPartner;
+      else c.senzaFee++;
+      per.set(k, c);
+    }
+
+    const voci = [...per.entries()].map(([orderId, c]) => ({
+      orderId,
+      ordersId: perOrderId.get(orderId)!.id,
+      numero: perOrderId.get(orderId)!.numero ?? null,
+      consegne: c.consegne,
+      costoConsegna: Math.round(c.costoConsegna * 100) / 100,
+      feeConsegna: Math.round(c.feeConsegna * 100) / 100,
+      /// Quante consegne dell'ordine hanno un partner senza Fee% impostata: la
+      /// fee di quelle vale 0, e dirlo evita di leggere un totale come completo.
+      senzaFee: c.senzaFee,
+    }));
+
+    const totali = {
+      ordiniConosciutiDaOrders: perOrderId.size,
+      ordiniConIngredienti: voci.length,
+      consegneCollegate: deliveries.length,
+      costoConsegna: Math.round(voci.reduce((s, v) => s + v.costoConsegna, 0) * 100) / 100,
+      feeConsegna: Math.round(voci.reduce((s, v) => s + v.feeConsegna, 0) * 100) / 100,
+      conFeeAZero: voci.filter((v) => v.feeConsegna === 0).length,
+    };
+
+    if (!opzioni.applica) {
+      return { ok: true, simulazione: true, totali, esempi: voci.slice(0, 10) };
+    }
+
+    let scritti = 0;
+    const errori: { numero: string | null; messaggio: string }[] = [];
+    for (const v of voci) {
+      try {
+        const res = await fetch(`${url}/api/v1/ordini/${v.ordersId}`, {
+          method: 'PATCH',
+          headers: { 'x-api-key': chiave, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ costoConsegna: v.costoConsegna, feeConsegna: v.feeConsegna }),
+        });
+        if (!res.ok) {
+          const t = await res.text().catch(() => '');
+          errori.push({ numero: v.numero, messaggio: `HTTP ${res.status} ${t.slice(0, 120)}` });
+          // ⚠️ 401/403 non e' un caso isolato: e' la chiave sbagliata, e
+          // insistere per centinaia di ordini non la fa diventare giusta.
+          if (res.status === 401 || res.status === 403) break;
+          continue;
+        }
+        scritti++;
+      } catch (err) {
+        errori.push({ numero: v.numero, messaggio: (err as Error).message });
+      }
+    }
+    this.logger.log(`Margini: ingredienti mandati a Orders per ${scritti} ordini`);
+    return { ok: errori.length === 0, totali, scritti, errori: errori.slice(0, 10) };
+  }
+
   async sincronizza(opzioni: {
     da?: string;
     limite?: number;
@@ -282,6 +431,13 @@ export class OrdersSyncController {
   })
   esegui(@Body() body: { da?: string; limite?: number; applica?: boolean; brand?: string }) {
     return this.service.sincronizza(body ?? {});
+  }
+
+  @Post('margini')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Manda a Orders costo consegna e fee: gli ingredienti del margine. Simula, salvo applica=true' })
+  margini(@Body() body: { applica?: boolean; da?: string; limite?: number }) {
+    return this.service.spingiMargini(body ?? {});
   }
 
   @Get('prova')
