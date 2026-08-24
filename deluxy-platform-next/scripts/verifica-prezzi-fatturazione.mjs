@@ -57,8 +57,8 @@ console.log('PREZZI PER TIPO DI SERVIZIO — consegne da fatturare\n');
 console.log('  modello'.padEnd(16)+'n'.padStart(7)+'  prezzate'.padStart(10)+'  dal listino'.padStart(13)+'   recuperati EUR'.padStart(17)+'      imponibile');
 for (const [m,x] of Object.entries(per).sort((a,b)=>b[1].eur-a[1].eur))
   console.log('  '+m.padEnd(14)+String(x.n).padStart(7)+String(x.n-x.senza).padStart(10)+String(x.recuperate).padStart(13)+x.recuperateEur.toLocaleString('it-IT',{maximumFractionDigits:0}).padStart(17)+x.eur.toLocaleString('it-IT',{minimumFractionDigits:2}).padStart(16)+' EUR');
-console.log('
-  consegne considerate:', deliveries.length.toLocaleString('it-IT'));
+console.log('');
+console.log('  consegne considerate:', deliveries.length.toLocaleString('it-IT'));
 console.log('  imponibile per tipo di servizio: '+tot.toLocaleString('it-IT',{minimumFractionDigits:2})+' EUR');
 console.log('  consegne prezzate dal listino:', daListino.toLocaleString('it-IT'), '· dalla consegna:', daConsegna.toLocaleString('it-IT'));
 console.log('  ⚠️ NON prezzabili (niente prezzo, niente listino):', senza.toLocaleString('it-IT'));
