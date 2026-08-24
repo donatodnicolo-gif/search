@@ -490,6 +490,18 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 
 ## 9. Problemi noti / gotchas
 
+- **«Leggi recensione» lasciava un rettangolo grigio (24 ago)** — nella mail di Trustpilot
+  il bottone ha **`target="_self"`** (misurato sull'HTML nel database), che **vince** sul
+  `<base target="_blank">` dell'involucro: il clic navigava l'**iframe** verso
+  trustpilot.com, che rifiuta di essere incorniciato (X-Frame-Options) → al posto della
+  mail restava un riquadro grigio vuoto, e la recensione non si apriva da nessuna parte.
+  Ora i clic sui link li intercetta la PAGINA (stessa strada dei tasti rapidi:
+  `allow-same-origin`, niente script nel contenuto) e apre una scheda nuova con
+  `noopener,noreferrer`. Solo http/https: `mailto:` resta al browser.
+  ⚠️ **Regola**: dentro un iframe con contenuto altrui, `<base target>` non basta — un
+  `target` scritto sul singolo link lo scavalca, e il guasto si vede solo sulle mail che
+  lo usano (quelle «di piattaforma»: Trustpilot, corrieri, marketplace).
+
 - **«App sconosciuta» salvando la chiave di Commerciale (24 ago)** — la card mostrava il
   campo, si incollava la chiave, e sotto compariva in rosso «App sconosciuta.». L'app c'era
   eccome: `commerciale` sta in `NomeChiaveApp` e in `MAPPA` (`chiaviApp.ts`) dal 23/08.

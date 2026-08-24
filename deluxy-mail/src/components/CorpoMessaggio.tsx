@@ -117,7 +117,36 @@ export function CorpoMessaggio({ html: htmlIniziale, testo, tradotto, lingua, ht
       )
     }
     doc.addEventListener('keydown', inoltra)
-    return () => doc.removeEventListener('keydown', inoltra)
+
+    /**
+     * OGNI LINK DELLA MAIL SI APRE IN UNA SCHEDA NUOVA, qualunque cosa dichiari.
+     *
+     * ⚠️ L'involucro ha gia `<base target="_blank">`, ma un `target="_self"`
+     * scritto sul SINGOLO link vince sulla regola generale — e le mail vere lo
+     * fanno: il «Leggi recensione» di Trustpilot ce l'ha (misurato il
+     * 24/08/2026). Il clic navigava l'IFRAME verso trustpilot.com, che rifiuta
+     * di essere incorniciato: al posto della mail restava un rettangolo grigio
+     * vuoto, e la recensione non si apriva da nessuna parte.
+     *
+     * Quindi i clic sui link li gestisce la PAGINA: si intercettano qui (stessa
+     * strada dei tasti rapidi: sandbox con allow-same-origin, niente script nel
+     * contenuto) e si apre una scheda nuova con `noopener` — la pagina aperta
+     * non deve poter toccare chi l'ha aperta.
+     * ⚠️ Solo http/https: mailto e simili restano al browser.
+     */
+    const clic = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest?.('a')
+      const href = a?.getAttribute('href') ?? ''
+      const h = href.trim().toLowerCase()
+      if (!h.startsWith('http://') && !h.startsWith('https://')) return
+      e.preventDefault()
+      window.open(href, '_blank', 'noopener,noreferrer')
+    }
+    doc.addEventListener('click', clic)
+    return () => {
+      doc.removeEventListener('keydown', inoltra)
+      doc.removeEventListener('click', clic)
+    }
     // `altezza` è nelle dipendenze perché l'iframe si (ri)crea col contenuto:
     // riagganciarsi dopo il caricamento è ciò che rende l'ascolto affidabile.
   }, [vista, altezza])
