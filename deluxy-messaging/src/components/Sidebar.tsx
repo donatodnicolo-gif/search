@@ -55,6 +55,9 @@ export function Sidebar({ amministratore = false }: { amministratore?: boolean }
         { href: '/ordini-globali', nome: 'Ordini globali', icona: iconaArchivio },
         { href: '/clienti', nome: 'Clienti', icona: iconaClienti },
         { href: '/pagamenti', nome: 'Pagamenti', icona: iconaPagamenti },
+        // Subito sotto Pagamenti perche' e' la sua conseguenza: legge i
+        // pagamenti gia' fatti e li porta sugli ordini.
+        { href: '/riconciliazione', nome: 'Riconciliazione', icona: iconaRiconcilia },
         { href: '/partner', nome: 'Partner', icona: iconaPartner },
       ],
     },
@@ -196,6 +199,13 @@ const iconaPagamenti = (
     <rect x="2.5" y="6" width="19" height="12" rx="2" />
     <path d="M2.5 10h19" />
     <path d="M6 14.5h3" />
+  </svg>
+)
+// Due frecce che si incontrano: due cose che si rimettono insieme.
+const iconaRiconcilia = (
+  <svg {...T} strokeLinejoin="round">
+    <path d="M3 8h13l-3-3" />
+    <path d="M21 16H8l3 3" />
   </svg>
 )
 const iconaClienti = (

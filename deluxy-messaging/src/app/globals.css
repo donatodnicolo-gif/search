@@ -4486,3 +4486,22 @@ td .azioni-ordine {
   vertical-align: middle;
   flex: 0 0 auto;
 }
+
+/* ── RICONCILIAZIONE ──
+   I pagamenti gia' fatti dicono chi ha preparato un ordine: qui quel fatto si
+   porta sull'ordine. ⚠️ Le righe sono poche e ognuna va LETTA prima di premere
+   il bottone, quindi respirano: una tabella fitta si scorre, e qui scorrere
+   senza leggere vuol dire scrivere costi di fornitura che nessuno ha
+   verificato. */
+.elenco-riconciliazione {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.frase-riconciliazione {
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
