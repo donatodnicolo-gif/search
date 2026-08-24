@@ -248,6 +248,52 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐ TIKTOK: c'era tutto tranne chi lo facesse partire (24/08/2026)
+
+Chiesto dall'utente: «dammi come collegare TikTok». Guardando il codice per
+scrivere i passi è saltato fuori che i passi **non sarebbero bastati**.
+
+Dal 27/07 c'erano token, pagina in `/impostazioni`, registro degli advertiser,
+lettura della Business API v1.3, gestione delle metriche che TikTok rifiuta.
+Ma la sincronizzazione viveva **dentro** `POST /api/v1/sync/tiktok`, cioè dietro
+una chiave di scrittura: la poteva chiamare solo una persona o uno script.
+**Nessun cron.** Collegare TikTok avrebbe prodotto zero righe finché qualcuno
+non chiamava l'endpoint a mano — cioè mai. È lo stesso buco che Meta aveva fino
+al 28/07, e per cui era stato scritto `lib/sync-meta.ts` con il suo cron.
+
+Fatto: motore in **`lib/sync-tiktok.ts`**, cron **`/api/cron/tiktok`** ogni due
+ore al minuto **37** — sfalsato da Meta (:07) e dagli ordini (:20), perché tre
+giri che partono insieme si contendono lo stesso pool del Postgres condiviso e
+`connection_limit 5` non perdona. Il cron resta **chiuso** senza `CRON_SECRET`, e
+distingue «TikTok non collegato» (503) e «nessun advertiser censito» (400) da un
+guasto vero, così nel registro si legge **cosa manca**. Provato in produzione:
+`401` senza il segreto, non `404`.
+
+⚠️⚠️ **E il giro era in TRE copie.** Oltre alla rotta e al cron, il bottone
+«Aggiorna TikTok ora» aveva la sua dentro `azioni.ts` — **e non era identica**:
+non scriveva la consegna in `/ricezione` e non chiamava `deduciTipoConversione`.
+Premendolo, i dati entravano **senza lasciare traccia**, e la pagina che serve a
+rispondere a «cosa sto ricevendo e da quando» non ne sapeva niente. Adesso tutte
+e tre passano dalla stessa libreria. *Tre copie della stessa cosa non restano
+uguali: divergono, e la differenza si scopre mesi dopo guardando un numero che
+non torna.*
+
+🔴 **PER COLLEGARLO SERVONO DUE COSE, e le ha solo una persona**:
+1. un **access token** da un'app *TikTok for Business* autorizzata
+   sull'advertiser, con lettura dei report (l'app chiama
+   `/report/integrated/get/` e `/campaign/get/`);
+2. l'**ID numerico dell'advertiser** (18 cifre, da TikTok Ads Manager).
+Poi: Impostazioni → **TikTok Ads** per il token, e Impostazioni → **Account
+pubblicitari** → piattaforma *TikTok Ads* per l'advertiser. Da lì il cron fa
+il resto da solo. ⚠️ Il token sta nel **database**, non fra le variabili
+d'ambiente: è una scelta dichiarata in pagina — un token scade e cambiarlo non
+deve richiedere un deploy.
+
+⚠️ **Quello che arriva è meno di Google**: TikTok dà il **ritorno** (ROAS), non
+l'importo incassato, quindi i ricavi sono `ROAS × spesa` — un numero **derivato**,
+e l'app lo dichiara. Se TikTok rifiuta una metrica, la sync salva lo stesso
+spesa e clic e dice quale manca.
+
 ### ⭐⭐⭐ IL CENSIMENTO DELLE PAROLE ESCLUSE È ARRIVATO, e il dubbio era un falso allarme (24/08/2026, 17:13)
 
 L'utente ha reincollato gli script. Misurato subito dopo, sul database di
