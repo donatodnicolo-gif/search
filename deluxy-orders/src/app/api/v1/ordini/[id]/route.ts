@@ -105,6 +105,34 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.costoFornitoreNome = body.costoFornitoreNome == null ? null : String(body.costoFornitoreNome).slice(0, 120);
   }
 
+  // ── LO STATO DI LAVORAZIONE, PROPOSTO DAL CUSTOMER SERVICE ──
+  //
+  // ⚠️ Come si evade l'ordine lo decide il Customer Service (§7.2): qui lo si
+  // COPIA soltanto, per mostrarlo sulla scheda. NON è la nostra pipeline
+  // (`stato`), che è un'altra cosa (registro/controllo): due campi distinti,
+  // apposta. `csGestioneDa` è chi l'ha deciso, `csGestioneIl` quando (se non
+  // arriva, "ora": un momento inventato è meglio di nessuna traccia).
+  //
+  // ⚠️ `""`/`null` azzera anche chi e quando: uno stato tolto che lasciasse un
+  // autore attaccato manderebbe a cercare chi non ha deciso niente.
+  if ("csGestione" in body) {
+    const g = body.csGestione == null ? "" : String(body.csGestione).slice(0, 40);
+    data.csGestione = g;
+    if (!g) {
+      data.csGestioneDa = "";
+      data.csGestioneIl = null;
+    } else {
+      if ("csGestioneDa" in body) {
+        data.csGestioneDa = body.csGestioneDa == null ? "" : String(body.csGestioneDa).slice(0, 120);
+      }
+      const quando = "csGestioneIl" in body ? new Date(String(body.csGestioneIl)) : new Date();
+      data.csGestioneIl = Number.isNaN(quando.getTime()) ? new Date() : quando;
+    }
+  } else if ("csGestioneDa" in body) {
+    // Il nome da solo si può correggere senza toccare lo stato.
+    data.csGestioneDa = body.csGestioneDa == null ? "" : String(body.csGestioneDa).slice(0, 120);
+  }
+
   if ("classificazioni" in body) {
     data.classificazioni = body.classificazioni == null ? Prisma.DbNull : body.classificazioni;
   }
@@ -144,6 +172,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     );
   }
   if ("fornitore" in body) pezzi.push(`fornitore: ${body.fornitore ?? "—"}`);
+  if ("csGestione" in body) {
+    pezzi.push(
+      data.csGestione
+        ? `lavorazione CS: ${data.csGestione}${data.csGestioneDa ? " — " + data.csGestioneDa : ""}`
+        : "stato di lavorazione CS rimosso",
+    );
+  }
   await prisma.eventoOrdine.create({
     data: {
       ordineId: id,

@@ -741,6 +741,25 @@ non dice anche il negozio, il feedback resta *senza ordine riconosciuto*
 sbagliato. Un reclamo sull'ordine sbagliato manda a un fornitore la colpa di un
 altro: meglio scollegato.
 
+### Lo stato di lavorazione del Customer Service (24/08/2026)
+Sulla scheda dell'ordine, sopra la pipeline «Stato», può comparire la scheda
+**«Customer Service — lavorazione»**: come il Customer Service (deluxy-messaging)
+sta lavorando *quest'*ordine — `da gestire`, `in pagamento`, `in comunicazione`,
+`ricerca fornitore`, `in attesa di consegna`, `gestito` — con **chi** l'ha
+deciso e **quando**.
+
+- **Non è la nostra pipeline.** «Stato» qui sotto è dove sta l'ordine nel
+  *registro* (Nuovo, Da smistare, …); questa scheda è come lo si *evade*, ed è
+  **deciso dal Customer Service** (è lui che parla col cliente e col fornitore,
+  Standard §7.2). Orders lo **mostra soltanto**: è una copia di sola lettura, la
+  fonte resta il Customer Service.
+- **Compare solo quando c'è.** Finché il Customer Service non l'ha comunicato, la
+  scheda non si vede: uno stato inventato sarebbe peggio di nessuno stato.
+- **Da dove arriva.** Il Customer Service lo *propone* a Orders via
+  `PATCH /api/v1/ordini/:id` (campo `csGestione`), lo stesso canale con cui gli
+  manda il costo del fornitore. Un vocabolario nuovo aggiunto di là non sparisce
+  qui: uno stato che Orders non conosce si mostra comunque, reso leggibile.
+
 ### Split per brand e per categoria
 Ogni lista si può guardare **per singolo negozio** e **per categoria di prodotto**,
 e i due tagli funzionano in modo diverso apposta:
@@ -1151,9 +1170,12 @@ viene aggiornato per altri motivi, il rischio viene salvato in quell'occasione.
 Le altre app leggono con una chiave di sola lettura (`GET /api/v1/ordini`,
 `/api/v1/ordini/:id`, `/api/v1/stati`, `/api/v1/liste`, `/api/v1/liste/:chiave`,
 `/api/v1/clienti`, `/api/v1/clienti/:cliente`, `/api/v1/ricavi`,
-`/api/v1/marketing`, `/api/v1/province`, `/api/v1/quota-fornitore`). Chi ha una
-chiave di scrittura può anche riclassificare (`PATCH /api/v1/ordini/:id`).
-Dettaglio in `README.md`.
+`/api/v1/marketing`, `/api/v1/province`, `/api/v1/quota-fornitore`). Ogni ordine
+porta il blocco `customerService { gestione, etichetta, da, il }` — lo stato di
+lavorazione deciso dal Customer Service, `null` finché non l'ha comunicato. Chi
+ha una chiave di scrittura può **riclassificare** (`PATCH /api/v1/ordini/:id`) e
+**proporre lo stato di lavorazione** (`csGestione`) o il **costo del fornitore**
+(`costoFornitore`, da cui Orders calcola il margine). Dettaglio in `README.md`.
 
 ### La città dedotta esce a parte (`cittaDedotta`, 03/08/2026)
 `spedizione.citta` è la città dell'**indirizzo**: quella vera. Accanto, quando

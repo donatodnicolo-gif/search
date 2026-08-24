@@ -55,6 +55,56 @@ registrazione sui 3 negozi e un segreto per negozio; il polling oggi basta.
 > formula del margine esposta via `/api/v1`.
 
 
+## 24/08/2026 (sera) — Orders RICEVE lo stato di lavorazione dal Customer Service
+
+Primo pezzo della roadmap qui sopra: Orders ora può **ricevere e mostrare** lo
+stato di lavorazione che il Customer Service decide su un ordine (§7.2: il CS è
+il decisore dell'evasione). Prima Orders mostrava solo la **propria pipeline**
+(`statoId`: Nuovo/…) e i **codici dei feedback**; lo stato «come lo stiamo
+lavorando» (`gestito`, `da_gestire`, `in_pagamento`, `ricerca_fornitore`,
+`attesa_consegna`, `comunicazione`) viveva **solo** in deluxy-messaging.
+
+- **Schema**: tre campi nuovi su `Ordine` — `csGestione`, `csGestioneDa` (nome
+  denormalizzato), `csGestioneIl`. La sync da Shopify **non li tocca** (non sono
+  un dato Shopify).
+- **PATCH `/api/v1/ordini/:id`** accetta `csGestione` (+ `csGestioneDa`,
+  `csGestioneIl`); `""`/`null` azzera anche chi e quando. Lascia una riga nella
+  storia («lavorazione CS: gestito — …»).
+- **API**: `serializzaOrdine` espone il blocco `customerService { gestione,
+  etichetta, da, il }` (`null` finché il CS non l'ha comunicato). Le etichette e
+  i colori stanno in `src/lib/customer-service.ts`, con **ripiego sul codice
+  grezzo** per uno stato sconosciuto: il vocabolario è del CS e può crescere.
+- **Pagina ordine**: scheda **«Customer Service — lavorazione»** con la pill
+  colorata, chi e quando, sopra la pipeline «Stato» e **distinta** da essa.
+
+⚠️ **È METÀ del giro, per scelta (regola 4).** Orders *riceve*; il **push** dal
+Customer Service (deluxy-messaging → PATCH `csGestione`) **NON** è stato scritto
+qui, perché quella cartella la stava modificando un'altra sessione. Finché il CS
+non chiama il PATCH, la scheda resta nascosta. La chiave `deluxy-messaggi` in
+Orders **è già di scrittura** (usata oggi 10:42), quindi il canale è pronto: al
+CS manca solo aggiungere `csGestione` alla chiamata che già fa
+(`comunicaCostoAOrders` in `src/lib/orders.ts`).
+
+⚠️ **IL MARGINE È A SECCO, NON ROTTO.** Misurato il 24/08: su **tutti** gli
+ordini del Customer Service quelli con un `fornitoreCosto` registrato sono
+**0**. Il margine in Orders (`totale − costoFornitore`) compare solo quando un
+costo atterra; il push del costo (`comunicaCostoAOrders`) esiste e la chiave può
+scrivere, ma **nessuno registra ancora il costo del fornitore in CS**. Quindi i
+margini vuoti sono **mancanza d'input**, non un bug: non c'è niente da
+«sistemare» in Orders. Verificato su #2791 (Flowers, 85 €): in CS è `gestito`
+(Federica, 10:22) ma senza fornitore né costo → margine legittimamente «—».
+
+⚠️ **Le colonne si sono aggiunte con un `ALTER TABLE … ADD COLUMN IF NOT
+EXISTS`, NON con `prisma db push`**: il push avrebbe tentato anche il drop delle
+colonne orfane di `FeedbackOrdine` (che va lanciato a mano, non come effetto
+collaterale). Schema, client e DB sono allineati; il build (`prisma generate`)
+rigenera il client coi campi nuovi.
+
+**Verificato** (dev locale, codice nuovo): API con blocco `customerService`,
+pagina con la scheda, `tsc --noEmit` pulito. #2791 seminato col suo valore vero
+via SQL (nessun evento, storia intatta): idempotente col futuro push del CS.
+
+
 ## 23/08/2026 — La quota del fornitore si può chiedere da fuori
 
 Nuova rotta **`GET /api/v1/quota-fornitore`** (sola lettura, chiave come le

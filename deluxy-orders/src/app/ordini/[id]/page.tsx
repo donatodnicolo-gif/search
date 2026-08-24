@@ -16,6 +16,7 @@ import { LinkPagamento } from "@/components/LinkPagamento";
 import { GESTIONI_INCASSO, STATI_INCASSO, quotaFornitore, valutaQuota } from "@/lib/controllo";
 import { ordinali } from "@/lib/repeater";
 import { canale } from "@/lib/marketing";
+import { etichettaLavorazioneCs } from "@/lib/customer-service";
 import { PillRepeater, TagLuoghi, PillUrgenza } from "@/components/Provenienza";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,11 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
   const movimentoIncasso = ordine.movimentoIncassoId
     ? await prisma.movimentoBanca.findUnique({ where: { id: ordine.movimentoIncassoId } })
     : null;
+
+  // Lo stato di lavorazione arrivato dal Customer Service (§7.2: è lui il
+  // decisore dell'evasione). `null` finché il CS non l'ha comunicato: allora la
+  // scheda non si mostra affatto.
+  const csLav = etichettaLavorazioneCs(ordine.csGestione);
 
   return (
     <main className="main">
@@ -158,6 +164,29 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
           </dl>
         )}
       </div>
+
+      {/* Customer Service — come sta lavorando l'ordine. È il decisore
+          dell'evasione (§7.2): questo stato lo decide lì e ce lo propone via
+          API; qui si mostra soltanto, ed è distinto dalla nostra pipeline qui
+          sotto. Non si mostra finché il CS non l'ha comunicato. */}
+      {csLav && (
+        <div className="scheda">
+          <div className="scheda-titolo">Customer Service — lavorazione</div>
+          <div className="riga-provenienza">
+            <span className="pill-stato" style={{ color: csLav.colore }} title={csLav.spiega}>
+              <span className="dot" style={{ background: csLav.colore }} />
+              {csLav.nome}
+            </span>
+            {ordine.csGestioneDa && <span className="stato-shopify">{ordine.csGestioneDa}</span>}
+            {ordine.csGestioneIl && <span className="feedback-data">{dataBreve(ordine.csGestioneIl)}</span>}
+          </div>
+          <p className="testo-guida" style={{ marginTop: 8 }}>
+            Come il <strong>Customer Service</strong> sta lavorando quest&apos;ordine — chi lo evade, a chi, con
+            che esito. È deciso lì, dov&apos;è chi parla col cliente e col fornitore: qui si mostra soltanto, e non
+            va confuso con la nostra pipeline qui sotto (che dice a che punto è nel registro).
+          </p>
+        </div>
+      )}
 
       {/* Stato / pipeline */}
       <div className="scheda">

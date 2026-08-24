@@ -5,6 +5,7 @@ import { CANALI_PAGATI } from "./marketing";
 import { prisma } from "./db";
 import { daLontano, variantiCitta } from "./luoghi";
 import { giorniDiAnticipo } from "./urgenza";
+import { etichettaLavorazioneCs } from "./customer-service";
 
 // Costruzione del filtro Prisma degli ordini, condivisa tra la UI (elenco) e le
 // API di lettura, così i due percorsi filtrano allo stesso modo.
@@ -407,6 +408,20 @@ export function serializzaOrdine(
       margine: o.costoFornitore != null ? +(o.totale - o.costoFornitore).toFixed(2) : null,
       nota: o.controlloNota,
     },
+    // Lo stato di LAVORAZIONE secondo il Customer Service (deluxy-messaging), che
+    // è il decisore dell'evasione (§7.2): da_gestire | in_pagamento |
+    // comunicazione | ricerca_fornitore | attesa_consegna | gestito. È una copia
+    // di sola lettura — la fonte è il CS, che ce lo propone via PATCH — ed è cosa
+    // diversa da `classificazione.stato`, che è la nostra pipeline. `null` quando
+    // il CS non l'ha ancora comunicato.
+    customerService: o.csGestione
+      ? {
+          gestione: o.csGestione,
+          etichetta: etichettaLavorazioneCs(o.csGestione)?.nome ?? o.csGestione,
+          da: o.csGestioneDa || null,
+          il: o.csGestioneIl?.toISOString() ?? null,
+        }
+      : null,
     updatedAt: o.updatedAt.toISOString(),
   };
 }

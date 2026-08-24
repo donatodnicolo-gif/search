@@ -480,8 +480,26 @@ model Ordine {
   costoFornitoreNome String?
   costoMovimentoId   String? // MovimentoBanca.id dell'addebito
   costoIl            DateTime?
-  costoDa            String? // manuale | causale | finance
+  costoDa            String? // manuale | causale | finance | customer-service
   controlloNota      String?
+
+  // ── STATO DI LAVORAZIONE DAL CUSTOMER SERVICE ──
+  //
+  // Come il Customer Service (deluxy-messaging) sta lavorando l'ordine:
+  // da_gestire | in_pagamento | comunicazione | ricerca_fornitore |
+  // attesa_consegna | gestito. È deciso LÀ — il CS è il decisore dell'evasione
+  // (Standard §7.2) — e ce lo PROPONE via PATCH; qui è una copia di sola
+  // lettura, mostrata sull'ordine ACCANTO alla nostra pipeline (`statoId`), che
+  // è un'altra cosa (registro/controllo, non lavorazione). Vuoto = il CS non
+  // l'ha ancora comunicato.
+  //
+  // ⚠️ La sync da Shopify NON tocca questi campi: non sono un dato Shopify, e
+  // riscriverli a ogni giro cancellerebbe ciò che il CS ha deciso. Come
+  // `gestione` in deluxy-messaging non si tocca leggendo da Orders, qui
+  // `csGestione` non si tocca leggendo da Shopify.
+  csGestione   String    @default("")
+  csGestioneDa String    @default("") // nome (denormalizzato) di chi l'ha deciso
+  csGestioneIl DateTime?
 
   noteInterne      String?
   ultimaClassifica DateTime? // ultima modifica manuale della classificazione
