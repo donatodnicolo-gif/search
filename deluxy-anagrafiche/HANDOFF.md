@@ -64,10 +64,12 @@ che diventano clienti, vedi §7-A punto 0. Finché manca, quel richiamo è inert
   da **FINANCE** (`Partner.clienteAnno` di deluxy-partner, "P.P./Nuovo/Dismesso": in API si accettano
   anche quelle forme e si normalizzano);
   · `statoFornitore` = **il rapporto di fornitura (24/08/2026, richiesta dell'utente: «come c'è
-  Cliente dobbiamo avere anche Fornitore»)**: da_provare·abituale·da_evitare, **vuoto = non è un
+  Cliente dobbiamo avere anche Fornitore»)**: **segnalato**·da_provare·abituale·da_evitare, **vuoto = non è un
   nostro fornitore**. È il simmetrico di «Cliente» sul verso opposto — `stato: attivo` dice che ci
   compra, questo che ci fornisce — e NON sta nel funnel commerciale perché la stessa azienda può
   avere entrambi («prospect» su un fornitore non vuol dire niente, dal disegno del 30/07 in §7.4).
+  **«Segnalato» è il gradino zero**: l'app di ricerca fornitori l'ha trovato e mandato qui, nessuno
+  ci ha ancora lavorato — lo scrive da sé la regola automatica (vedi sotto).
   Vuoto che si può rimettere dalla pillola «Non fornitore». Passaggi in `PassaggioStato` con
   prefisso `for:`,
   `citta`/`provincia`/`regione`, `indirizzo`, `email`, `telefono`, `pIva`, `codiceFiscale`,
@@ -137,6 +139,19 @@ che diventano clienti, vedi §7-A punto 0. Finché manca, quel richiamo è inert
   provenienza), `hash`, i 4 flag di permesso, `attiva`, `creataIl`, `ultimoUso`, e dal 29/07/2026
   `prefisso` (primi 12 caratteri in chiaro, per riconoscerla in elenco: non basta per autenticarsi)
   e `note` (a cosa serve). Si gestiscono dalla pagina `/chiavi` o da `npm run chiave`.
+
+### Regola automatica: chi entra dai fornitori è fornitore «Segnalato» (24/08/2026)
+Le scritture `POST /api/v1/partners` che arrivano dall'**app di ricerca fornitori** (stesso
+riconoscimento `eRicercaFornitori` della regola Affiliazioni qui sotto) impostano da sé
+**`statoFornitore = "segnalato"`** — in creazione, e in merge **solo se il campo è vuoto**: un
+«abituale» o un «da evitare» non tornano «segnalato» perché l'app l'ha rimandato, e se la
+scrittura porta già uno statoFornitore suo vince quello (merge fattuale). Ogni impostazione
+finisce nello storico (`for:` → `for:segnalato`, origine = il sistema chiamante). Idempotente:
+rimandare lo stesso fornitore non duplica il passaggio.
+**Recupero dello storico fatto il 24/08/2026**: `scripts/recupera-fornitori-segnalati.mjs`
+(con `--prova`, rieseguibile) ha marcato «segnalato» le **41 anagrafiche vive** già arrivate
+da quell'app prima della regola (fonte o xref `deluxy-suppliers`; le 2 di prova archiviate
+saltate), con passaggio `origine: recupero-segnalati` nello storico di ognuna.
 
 ### Regola automatica: chi entra dai fornitori è «Affiliazioni» (26/07/2026)
 Le scritture `POST /api/v1/partners` che arrivano dall'**app di ricerca fornitori** aggiungono
@@ -731,12 +746,15 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    ogni scrittura di Scout tornerebbe 400.
 
 4. **Fornitori nel registro** (impianto discusso il 30/07/2026; **il primo pezzo è COSTRUITO
-   il 24/08/2026**). ✅ FATTO: la dimensione **`statoFornitore`** (da_provare · abituale ·
-   da_evitare, vuoto = non ci fornisce) — è insieme il ruolo («è un fornitore» = valorizzato)
-   e lo stato del rapporto, quindi il `ruoli[]` del disegno originale non serve più per questa
-   parte; «cliente» resta detto dallo stato commerciale. Pillole in scheda, colonna e filtro
-   in elenco, sezione sidebar coi conteggi, macro-filtro e scheda in dashboard, campo nel form
-   Nuovo, API in lettura/scrittura (fattuale nel merge), storia con prefisso `for:`.
+   il 24/08/2026**). ✅ FATTO: la dimensione **`statoFornitore`** (**segnalato** · da_provare ·
+   abituale · da_evitare, vuoto = non ci fornisce) — è insieme il ruolo («è un fornitore» =
+   valorizzato) e lo stato del rapporto, quindi il `ruoli[]` del disegno originale non serve più
+   per questa parte; «cliente» resta detto dallo stato commerciale. Pillole in scheda, colonna e
+   filtro in elenco, sezione sidebar coi conteggi, macro-filtro e scheda in dashboard, campo nel
+   form Nuovo, API in lettura/scrittura (fattuale nel merge), storia con prefisso `for:`.
+   ✅ FATTO (stesso giorno): la **regola «Segnalato»** — chi arriva dall'app di ricerca
+   fornitori diventa fornitore segnalato da sé — e il **recupero dei 41 già arrivati** (vedi
+   «Regola automatica» in §3).
    ❌ RESTA DA FARE: il livello **cercabile** — cosa fornisce (tag), province servite, lead
    time, tagli minimi, canale per la richiesta. Il fornitore vive ancora come testo libero
    altrove: `fornitore` sull'ordine in Orders, `beneficiario` sulla richiesta di pagamento in
@@ -812,7 +830,7 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
 
 ## 8. Script (`package.json`)
 
-`db:push`, `import:excel`, `import:hubspot-contatti` (con `--crea-aziende`: crea l'anagrafica
+`db:push`, `import:excel`, `scripts/recupera-fornitori-segnalati.mjs` (una tantum 24/08, rieseguibile: marca «segnalato» chi è arrivato dall'app di ricerca fornitori prima della regola), `import:hubspot-contatti` (con `--crea-aziende`: crea l'anagrafica
 mancante dalla company HubSpot così nessun contatto viene scartato — genera prospect «DA
 CLASSIFICARE» a livello di gruppo/holding da riordinare; con `--importa-orfani` anche i
 contatti senza azienda associata entrano, agganciati all'anagrafica-contenitore «Contatti

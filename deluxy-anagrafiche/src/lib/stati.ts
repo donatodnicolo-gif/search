@@ -221,17 +221,23 @@ export function normalizzaStatoAnalisi(v: string): StatoAnalisi | null {
 // commerciale: la stessa azienda può comprarci E fornirci, e «prospect» su un
 // fornitore non vuol dire niente. Vuoto = non è un nostro fornitore — è così
 // che si distingue chi ci fornisce da chi no, senza un flag a parte.
-export const STATI_FORNITORE = ["da_provare", "abituale", "da_evitare"] as const;
+// «segnalato» è il gradino zero: l'app di ricerca fornitori l'ha trovato e
+// mandato qui, ma nessuno di noi ci ha ancora lavorato — lo scrive da sé la
+// regola in POST /api/v1/partners quando la sorgente è quell'app.
+export const STATI_FORNITORE = ["segnalato", "da_provare", "abituale", "da_evitare"] as const;
 
 export type StatoFornitore = (typeof STATI_FORNITORE)[number];
 
 export const ETICHETTE_STATO_FORNITORE: Record<StatoFornitore, string> = {
+  segnalato: "Segnalato",
   da_provare: "Da provare",
   abituale: "Abituale",
   da_evitare: "Da evitare",
 };
 
 export const COLORE_STATO_FORNITORE: Record<StatoFornitore, string> = {
+  // Come «Selezionato» del funnel: un nome sulla lista, nessun giudizio ancora.
+  segnalato: "var(--text-tertiary)",
   da_provare: "var(--blue)",
   abituale: "var(--green)",
   da_evitare: "var(--red)",

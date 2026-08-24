@@ -280,6 +280,27 @@ export async function POST(req: NextRequest) {
         data: { interessi: { push: INTERESSE_AFFILIAZIONE } },
       });
     }
+    // Chi arriva dall'app di ricerca fornitori è un fornitore SEGNALATO
+    // (24/08/2026): il campo si riempie da sé, ma solo se è VUOTO — un
+    // «abituale» o un «da evitare» non tornano «segnalato» perché l'app
+    // l'ha rimandato, e se la scrittura porta già uno statoFornitore suo
+    // ci ha pensato il merge qui sopra.
+    if (
+      eRicercaFornitori(sistema) &&
+      !esistente.statoFornitore &&
+      typeof datiMerge.statoFornitore !== "string"
+    ) {
+      await prisma.partner.update({
+        where: { id: esistente.id },
+        data: { statoFornitore: "segnalato" },
+      });
+      await registraPassaggio(
+        esistente.id,
+        `${PREFISSO_FORNITORE}`,
+        `${PREFISSO_FORNITORE}segnalato`,
+        sistema,
+      );
+    }
     const aggiornato = await prisma.partner.findUnique({ where: { id: esistente.id }, include: INCLUDE });
     return NextResponse.json({
       esito: "merged",
@@ -309,6 +330,11 @@ export async function POST(req: NextRequest) {
   if (eRicercaFornitori(sistema)) {
     const gia = Array.isArray(datiCreate.interessi) ? (datiCreate.interessi as string[]) : [];
     datiCreate.interessi = [...new Set([...gia, INTERESSE_AFFILIAZIONE])];
+    // ...e nasce fornitore «segnalato» (24/08/2026), se l'app non ha già
+    // dichiarato uno stato fornitore più preciso.
+    if (typeof datiCreate.statoFornitore !== "string") {
+      datiCreate.statoFornitore = "segnalato";
+    }
   }
   delete datiCreate.account;
   delete datiCreate.attivo;
@@ -329,6 +355,15 @@ export async function POST(req: NextRequest) {
   // Audit: se nasce già con uno stato non-prospect (driver di prima parte)
   if (typeof datiCreate.stato === "string" && datiCreate.stato !== "prospect") {
     await registraPassaggio(creato.id, "creazione", datiCreate.stato, sistema);
+  }
+  // Audit: se nasce già fornitore (regola «segnalato» o valore dell'app)
+  if (typeof datiCreate.statoFornitore === "string") {
+    await registraPassaggio(
+      creato.id,
+      `${PREFISSO_FORNITORE}`,
+      `${PREFISSO_FORNITORE}${datiCreate.statoFornitore}`,
+      sistema,
+    );
   }
   await propagaSeFinanziari(creato.id, datiCreate);
   const creatoFull = await prisma.partner.findUnique({ where: { id: creato.id }, include: INCLUDE });

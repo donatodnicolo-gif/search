@@ -277,11 +277,17 @@ Ogni azienda ha **quattro stati indipendenti** (catalogo in `src/lib/stati.ts`):
 | **Livello del contatto** | `livello` | `in_contatto`, `in_attesa`, `da_ricontattare`, `attivo`, `a_rischio`, `non_interessato`; vuoto = non indicato | il team commerciale / Scout (curato come lo stato) |
 | **Finanziario** | `statoFinanziario` | `da_verificare` (predefinito), `regolare`, `in_ritardo`, `insoluto`, `piano_di_rientro`, `bloccato` | amministrazione / FINANCE |
 | **Analisi** | `statoAnalisi` | `pp` (P.P., pari perimetro), `nuovo`, `dismesso`; vuoto = mai analizzata | FINANCE (`Partner.clienteAnno` di deluxy-partner) |
-| **Fornitore** | `statoFornitore` | `da_provare`, `abituale`, `da_evitare`; vuoto = **non è un nostro fornitore** | chi coi fornitori ci parla (ricerca fornitori, acquisti) e la UI |
+| **Fornitore** | `statoFornitore` | `segnalato`, `da_provare`, `abituale`, `da_evitare`; vuoto = **non è un nostro fornitore** | chi coi fornitori ci parla (ricerca fornitori, acquisti) e la UI |
 
 Il **Fornitore** (24/08/2026) è il simmetrico di «Cliente» sul verso opposto:
 `stato: attivo` dice che ci compra, `statoFornitore` che ci fornisce — la stessa
 azienda può avere entrambi, ed è il motivo per cui non sta nel funnel commerciale.
+**Regola automatica**: le scritture che arrivano dall'**app di ricerca fornitori**
+(`sistema` con `supplier`/`fornitor` o che inizia per `search`) impostano da sé
+`statoFornitore = "segnalato"` — il gradino zero: trovato e mandato qui, nessuno
+ci ha ancora lavorato. Solo se il campo è vuoto: uno stato già deciso dal team
+non viene degradato. Le altre app possono mandare direttamente un valore più
+preciso nel body (`statoFornitore`), che essendo fattuale passa dal merge.
 
 In scrittura `statoAnalisi` accetta anche le forme di FINANCE (`"P.P."`,
 `"Nuovo"`, `"Dismesso"`) e le normalizza sugli slug. I cambi delle cinque
