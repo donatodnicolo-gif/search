@@ -716,15 +716,19 @@ Nella scheda dell'ordine compare la scheda **«Customer Service — reclami e
 voti»** quando c'è qualcosa da sapere:
 
 - **reclami**: casistica, gravità (lieve/media/grave, con il colore del
-  Customer Service), stato (aperto, in lavorazione, risolto, chiuso), a chi è
-  imputato, descrizione ed esito;
+  Customer Service), stato (aperto, in lavorazione, risolto, chiuso) e il tipo
+  di soggetto a cui è imputata la colpa (valet, partner, azienda…);
 - **voti**: il giudizio 1-5 dato da una persona su un valet o un partner,
   quando è legato a quell'ordine, con il canale da cui è arrivato.
 
 Arrivano da **deluxy-messaging (Customer Service, porta 3140)** via
-`GET /api/v1/feedback` con chiave di sola lettura, e qui sono una **copia in
-sola lettura**: un reclamo si apre e si chiude là, dove c'è chi ha parlato col
-cliente. L'import gira ogni notte insieme alla sincronizzazione da Shopify, ed è
+`GET /api/v1/feedback` con chiave di sola lettura. Dal **24/08/2026** qui non
+c'è più una copia: c'è il **riferimento coi codici** — l'identità nel Customer
+Service, l'aggancio all'ordine e i codici per contare e riconoscere il caso
+(tipo, stato, casistica, colpa, gravità, voto, origine). Il racconto completo —
+chi è il cliente, cosa ha scritto, cosa è stato fatto, com'è finita — **vive
+solo nel Customer Service**, che è la fonte: la scheda lo dice e ci rimanda.
+L'import gira ogni notte insieme alla sincronizzazione da Shopify, ed è
 lanciabile a mano da Impostazioni («Importa ora», con l'opzione «rileggi tutto
 dall'inizio»). Ogni reclamo nuovo lascia anche una riga nella *Storia*
 dell'ordine, con autore `customer-service`.
@@ -1147,8 +1151,9 @@ viene aggiornato per altri motivi, il rischio viene salvato in quell'occasione.
 Le altre app leggono con una chiave di sola lettura (`GET /api/v1/ordini`,
 `/api/v1/ordini/:id`, `/api/v1/stati`, `/api/v1/liste`, `/api/v1/liste/:chiave`,
 `/api/v1/clienti`, `/api/v1/clienti/:cliente`, `/api/v1/ricavi`,
-`/api/v1/marketing`). Chi ha una chiave di scrittura può anche riclassificare
-(`PATCH /api/v1/ordini/:id`). Dettaglio in `README.md`.
+`/api/v1/marketing`, `/api/v1/province`, `/api/v1/quota-fornitore`). Chi ha una
+chiave di scrittura può anche riclassificare (`PATCH /api/v1/ordini/:id`).
+Dettaglio in `README.md`.
 
 ### La città dedotta esce a parte (`cittaDedotta`, 03/08/2026)
 `spedizione.citta` è la città dell'**indirizzo**: quella vera. Accanto, quando
@@ -1254,6 +1259,38 @@ dà il catalogo con i conteggi (e le soglie, così chi legge sa cosa significano
 È l'interfaccia pensata per Marketing: da lì nascono i pubblici Customer Match e
 Meta senza esportare a mano un CSV.
 
+### Il venduto per territorio (`/api/v1/province`)
+Chi ragiona per territorio e non per periodo — le viste Province e Copertura di
+**Deluxy Scout**, dove accanto a «quanti partner abbiamo qui» sta «quanto vale
+qui» — chiede il venduto aggregato per **provincia di consegna**: ordini, lordo
+e clienti distinti per sigla, con le stesse esclusioni di `/api/v1/ricavi`
+(annullati e rimborsati fuori, salvo `annullati=inclusi` /
+`rimborsati=inclusi`). Filtri `anno=`, `da=`/`a=`, `brand=`; senza periodo
+risponde su TUTTO lo storico, apposta: per capire dove si vende, tre anni
+dicono più di dodici mesi.
+
+- **La provincia non c'è sempre** (~10.300 ordini su ~13.600 italiani): chi non
+  ce l'ha finisce nel blocco `senzaProvincia` invece di sparire, e **non** la
+  si deduce da CAP o città — sarebbe un'ipotesi travestita da dato. Le sigle
+  sono quelle vere di Shopify («MI», ma anche «ENG»): la geografia la
+  normalizza chi legge.
+- **Ogni provincia porta lo split `torte` / `fiori` / `altro`** (23/08/2026),
+  chiesto da Scout per sapere se il fornitore da cercare è un fiorista o una
+  pasticceria. Usa la colonna `categorie` già calcolata sugli ordini; un ordine
+  sta in **una colonna sola** (chi ha sia torte sia fiori va dove pesa di più,
+  contando il valore delle righe), così le tre colonne sommano esatte al lordo.
+
+### La quota del fornitore (`/api/v1/quota-fornitore`)
+Risponde con la **percentuale che spetta al fornitore** (di norma 60) e, se le
+si passa `?totale=135`, anche l'importo atteso (`atteso: 81`). Esiste perché la
+regola vive **solo qui**: il Customer Service la mostra sulla scheda di un
+ordine («al fornitore, indicativamente, 81,00 €») senza ricopiarsi il numero
+nel proprio codice — una copia resterebbe al valore vecchio il giorno che qui
+cambia, e due schermate direbbero due numeri diversi. Il conto lo fa questa
+app, che possiede la regola; un `totale` illeggibile **non diventa zero**: si
+risponde senza importo, perché «≈ 0,00 €» sarebbe una risposta sbagliata con
+l'aria di una giusta.
+
 ### Gli ordini annullati non escono dalle API
 È la regola più importante di questa interfaccia. Un'app a valle che ricevesse
 un ordine annullato potrebbe lavorarlo come valido — mandarlo a un fornitore,
@@ -1265,6 +1302,11 @@ non lo riconoscerebbe dallo stato del pagamento.
 - `GET /api/v1/ordini/:id` su un ordine annullato risponde **410** spiegando il
   motivo, invece di servirlo come se fosse valido.
 - Chi deve gestirli davvero passa `annullati=inclusi` (o `annullati=solo`).
+- Chi tiene una **copia** degli ordini (Customer Service, Merchandising,
+  Marketing) chiede `annullatiDa=<ISO>` e riceve **solo gli ordini annullati da
+  quel momento** (con `annullatoIl`), così ritira le proprie righe. Prima un
+  ordine annullato spariva dall'elenco e la copia a valle restava valida per
+  sempre (24/08/2026).
 
 **Finance è l'eccezione**: la riconciliazione ha bisogno degli annullati, perché
 dietro ci sono rimborsi da quadrare e incassi realmente avvenuti. Chiama con

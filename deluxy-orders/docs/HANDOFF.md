@@ -62,6 +62,36 @@ lo facesse ogni consumatore, la moltiplicazione sarebbe sparsa in cinque posti.
 ⚠️ Un `totale` illeggibile **non diventa zero**: si risponde senza importo. Un
 «≈ 0,00 €» sarebbe una risposta sbagliata con l'aria di una giusta.
 
+## 23/08/2026 — `/api/v1/province`: il venduto per territorio, in torte, fiori e altro
+
+`GET /api/v1/province` (sola lettura, chiave come le altre): venduto aggregato
+per **provincia di consegna** — ordini, lordo, clienti distinti per sigla — con
+le stesse esclusioni di `/api/v1/ricavi` e il blocco `senzaProvincia`
+dichiarato. Filtri `anno=`, `da=`/`a=`, `brand=`; senza periodo risponde su
+tutto lo storico, apposta: per capire dove si vende, tre anni dicono più di
+dodici mesi.
+
+⚠️ **Questa rotta era fuori dall'handoff**: è nata il **27/07/2026 dentro un
+commit di Deluxy Scout** (`8b65ff53`, la vista Province di Scout la consuma) e
+nessuno l'aveva registrata qui — scoperta e documentata il 24/08. Lezione: una
+rotta scritta dalla sessione di un'ALTRA app non finisce da sola nei documenti
+dell'app che la ospita.
+
+- ⚠️ **La provincia non c'è sempre** (~10.300 su ~13.600 ordini italiani): chi
+  non ce l'ha sta in `senzaProvincia`, non sparisce; e **non si deduce** da CAP
+  o città. Le sigle restano quelle di Shopify («MI», ma anche «ENG»):
+  normalizza chi legge (Scout ha `lib/province.ts`).
+- **Dal 23/08 (`e53b268e`) ogni provincia porta lo split
+  `torte`/`fiori`/`altro`**, chiesto da Scout per la vista Copertura: il
+  fornitore da cercare è un fiorista o una pasticceria a seconda della
+  risposta. Usa la colonna `categorie` già calcolata (regole + AI + mano):
+  rifare qui la classificazione sarebbe una seconda regola che col tempo dice
+  altro.
+- ⚠️ **Ogni ordine sta in UNA colonna sola** e le tre sommano esatte al lordo:
+  i misti torte+fiori (il 4% del fatturato) vanno dove pesano di più, contando
+  il valore delle righe. In due colonne sforerebbero il totale; buttati in
+  «altro» direbbero una cosa falsa.
+
 ## FOTOGRAFIA AL 17/08/2026 — contata sul database, non ricordata
 
 **L'app è viva e la catena Shopify → Orders gira da sola.** `GET /api/v1/health`
