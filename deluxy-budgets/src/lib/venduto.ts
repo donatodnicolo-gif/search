@@ -32,6 +32,10 @@ export type Quota = {
   // Come si è arrivati a quel numero: la pagina lo scrive invece di mostrare
   // una percentuale senza padre.
   spiegazione: string;
+  // La stessa cosa in due parole, per le testate («regola di Orders»,
+  // «misurata», «stimata»): senza, le pagine scrivevano «misurata» anche
+  // quando la quota era una regola letta dal proprietario.
+  etichetta?: string;
 };
 
 export const QUOTA_STIMATA: Quota = {

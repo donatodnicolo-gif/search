@@ -143,7 +143,7 @@ export default async function DaFare() {
         <div className="kpi">
           <div className="kpi-label">EBITDA a budget</div>
           <div className={`kpi-value ${pl.ebitda >= 0 ? "pos" : "neg"}`}>{eur(pl.ebitda)}</div>
-          <div className="kpi-sub">quota D2C {q.percentuale.toLocaleString("it-IT", { maximumFractionDigits: 1 })}%{q.misurata ? ", misurata" : ", stimata"}</div>
+          <div className="kpi-sub" title={q.spiegazione}>quota D2C {q.percentuale.toLocaleString("it-IT", { maximumFractionDigits: 1 })}% · {q.etichetta ?? (q.misurata ? "misurata" : "stimata")}</div>
         </div>
       </div>
 

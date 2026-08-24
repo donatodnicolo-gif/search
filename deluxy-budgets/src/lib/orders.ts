@@ -110,3 +110,39 @@ export function abbinaMaison(
   const perSlug = maisons.find((m) => normalizzaNome(m.slug) === b);
   return perSlug ? perSlug.slug : null;
 }
+
+// ---- La quota del fornitore, cioè il margine del D2C ----
+//
+// **La regola economica vive in Orders e si legge da lì** (contratto dati,
+// Standard Deluxy §7: quota, margine e fee non si ricopiano — le tiene chi le
+// possiede). Orders risponde con la quota che va al fornitore (60%): il margine
+// che resta a Deluxy è il complemento.
+//
+// È la fine della quota **misurata dalla banca** per questo scopo: quel conto
+// divideva TUTTI i pagamenti ai fioristi per il SOLO venduto dei negozi, quindi
+// ci finivano dentro anche i fioristi degli eventi e del B2B — e la quota
+// peggiorava ogni volta che si classificava meglio la banca, che è il contrario
+// di come si comporta una misura.
+export async function fetchQuotaFornitore(): Promise<
+  { ok: true; quotaFornitore: number; dove: string } | { ok: false; errore: string }
+> {
+  const key = await chiave("ORDERS_API_KEY");
+  if (!key) return { ok: false, errore: "ORDERS_API_KEY non configurata." };
+  try {
+    const res = await fetch(`${BASE}/api/v1/quota-fornitore`, {
+      headers: { "X-API-Key": key, "X-App": "deluxy-budgets" },
+      next: { revalidate: RIVALIDA },
+    });
+    if (!res.ok) return { ok: false, errore: `Orders ha risposto ${res.status}.` };
+    const dati = (await res.json()) as { quota?: number; dove?: string };
+    const q = Number(dati?.quota);
+    // Una quota fuori da 0–100 non è una quota: meglio il ripiego dichiarato
+    // che un margine negativo scritto nel conto economico.
+    if (!Number.isFinite(q) || q <= 0 || q >= 100) {
+      return { ok: false, errore: "Orders ha risposto con una quota fuori scala." };
+    }
+    return { ok: true, quotaFornitore: q, dove: dati?.dove ?? "Deluxy Orders" };
+  } catch {
+    return { ok: false, errore: "Orders non raggiungibile." };
+  }
+}

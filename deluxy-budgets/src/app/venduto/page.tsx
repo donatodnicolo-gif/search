@@ -214,7 +214,7 @@ export default async function VendutoPage({
                   </tr>
                   <tr>
                     <td className="muted" style={{ whiteSpace: "nowrap", paddingLeft: 26 }}>
-                      di cui fatturato Deluxy ({quotaDeluxy.misurata ? "misurata" : "stima"} {quotaDeluxy.percentuale}%)
+                      di cui fatturato Deluxy ({quotaDeluxy.etichetta ?? (quotaDeluxy.misurata ? "misurata" : "stima")} {quotaDeluxy.percentuale}%)
                     </td>
                     {p.mesiPeriodo.map((m) => (
                       <td className="num muted" key={m}>{eur(fatturatoDaVenduto(vend.mese[m - 1] ?? 0, quotaDeluxy))}</td>

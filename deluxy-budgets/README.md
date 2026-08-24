@@ -4,6 +4,28 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+## Il margine del D2C viene da Orders (24/08/2026)
+
+«il margine del d2c lo prendi da orders». Orders tiene la **quota del fornitore**
+(`/api/v1/quota-fornitore` → 60%): il margine che resta a Deluxy è il complemento, **40%**. È la regola
+economica letta dal suo proprietario — Standard Deluxy §7: quota, margine e fee **non si ricopiano e non
+si ricavano di sponda**, si leggono da chi le possiede.
+
+⭐ **È la fine della quota misurata dalla banca** come fonte primaria: quel conto divideva TUTTI i
+pagamenti ai fioristi per il SOLO venduto dei negozi, quindi ci finivano dentro anche i fioristi degli
+eventi e del B2B — e la quota **peggiorava a ogni classificazione in più** (39,1% → 27,1% in una
+giornata di lavoro sulla banca), che è il contrario di come si comporta una misura. La misura di banca
+resta come **ripiego dichiarato** per quando Orders non risponde, e la stima del 40% come ultimo.
+
+📌 Effetto: quota **27,8% → 40%**, ricavi a budget **1.101.929 → 1.196.953 €**, **EBITDA −74.074 →
++20.279 €**. Un salto del genere non è un dettaglio: metà del rosso che si guardava da giorni era la
+quota sbagliata.
+
+⚠️ Le testate ora dicono **«regola di Orders»** invece di «misurata»: chiamare misura una regola è la
+stessa bugia di chiamare misura una stima, e il campo `Quota.etichetta` esiste per questo (il tooltip
+porta la spiegazione intera). `/consuntivo` continua col suo conto a parte (fee vendor per vendita +
+margine fornitori), che è più fine della regola piatta.
+
 ## La revisione profonda (24/08/2026): quattro voci, non ventitré
 
 «l'app è troppo complessa per il suo obiettivo: individuare budget che i responsabili devono inserire

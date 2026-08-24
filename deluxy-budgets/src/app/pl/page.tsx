@@ -382,7 +382,8 @@ export default async function ContoEconomico({
 
       <div className="card" style={{ marginTop: 10, borderColor: "var(--orange)" }}>
         <strong>Il budget è mezzo convertito, e va finito.</strong> I <strong>ricavi</strong> D2C entrano qui
-        con la quota che resta a Deluxy ({quotaDeluxy.percentuale}%, {quotaDeluxy.misurata ? "misurata" : "stimata"}) —
+        con la quota che resta a Deluxy ({quotaDeluxy.percentuale}%,{" "}
+        <span title={quotaDeluxy.spiegazione}>{quotaDeluxy.etichetta ?? (quotaDeluxy.misurata ? "misurata" : "stimata")}</span>) —
         la stessa base del consuntivo, così «scostamento» e «realizzato» confrontano finalmente due cose uguali.
         Il <strong>costo per servizi a budget</strong> però si calcola ancora dai margini per tipologia scritti
         quando il ricavo era il venduto pieno: applicare un margine del 35% a un ricavo già netto lascia dentro
