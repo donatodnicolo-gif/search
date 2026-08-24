@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { valuta as valutaProve, type ProveOrdine } from '@/lib/prove-chargeback'
 
 // Le contestazioni di pagamento, e la risposta alla banca.
 //
@@ -26,6 +27,9 @@ type Chargeback = {
 }
 
 type Evidenza = { submitted: boolean; uncategorizedText: string }
+
+const ACAPO = String.fromCharCode(10)
+const RIGA_VUOTA = ACAPO + ACAPO
 
 const NOMI_STATO: Record<string, string> = {
   needs_response: 'Da rispondere',
@@ -75,6 +79,8 @@ export function ChargebackLista() {
   const [evidenza, setEvidenza] = useState<Evidenza | null>(null)
   const [testo, setTesto] = useState('')
   const [salvando, setSalvando] = useState(false)
+  // Che cosa abbiamo in mano, per ogni contestazione aperta.
+  const [prove, setProve] = useState<Record<string, ProveOrdine>>({})
 
   const carica = useCallback(async () => {
     const res = await fetch(`/api/chargeback?stato=${tutti ? 'tutti' : 'aperti'}`)
@@ -83,7 +89,9 @@ export function ChargebackLista() {
       chargeback: Chargeback[]
       aperti: number
       soldiAperti: number
+      prove?: Record<string, ProveOrdine>
     }
+    setProve(d.prove ?? {})
     setRighe(d.chargeback)
     setAperti(d.aperti)
     setSoldiAperti(d.soldiAperti)
@@ -305,6 +313,61 @@ export function ChargebackLista() {
                     ? 'La banca chiede la prova che il prodotto fosse conforme: foto del prodotto consegnato, descrizione, eventuali scambi col cliente e la nostra politica di reso.'
                     : 'Racconta i fatti con date e riferimenti: cosa è stato ordinato, cosa è stato consegnato, e cosa si è detto al cliente.'}
             </p>
+
+            {/* ── CHE COSA ABBIAMO IN MANO ──
+                ⚠️⚠️ Prima c'era solo «da rispondere, 12 giorni» e un riquadro
+                vuoto: per sapere se avevamo qualcosa da opporre bisognava
+                cercare ordine, conversazioni e fornitore uno per uno. È il
+                motivo per cui dieci contestazioni sono state perse per 2.087,66 €
+                con le prove mai partite — non per una decisione, ma perché
+                rispondere cominciava con mezz'ora di ricerche. */}
+            {prove[aperta.id] ? (
+              (() => {
+                const v = valutaProve(prove[aperta.id], aperta.motivo)
+                return (
+                  <div
+                    className="riquadro-fornitore"
+                    style={{
+                      borderColor:
+                        v.livello === 'niente'
+                          ? 'var(--red)'
+                          : v.livello === 'abbiamo'
+                            ? 'var(--green)'
+                            : undefined,
+                    }}
+                  >
+                    <strong>{v.titolo}</strong>
+                    <p className="cella-sub" style={{ margin: '4px 0 8px' }}>
+                      {v.spiegazione}
+                    </p>
+                    {v.punti.length ? (
+                      <ul style={{ margin: 0, paddingLeft: 18 }}>
+                        {v.punti.map((p) => (
+                          <li key={p} className="cella-sub" style={{ marginBottom: 3 }}>
+                            {p}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {/* ⚠️ Si COPIANO nella bozza, non ci finiscono da soli: sono
+                        fatti presi dai nostri archivi e vanno riletti prima di
+                        mandarli a una banca. */}
+                    {v.punti.length ? (
+                      <button
+                        type="button"
+                        className="btn btn-secondario small"
+                        style={{ marginTop: 8 }}
+                        onClick={() =>
+                          setTesto((x) => (x ? x + RIGA_VUOTA : '') + v.punti.join(ACAPO))
+                        }
+                      >
+                        Mettili nella bozza
+                      </button>
+                    ) : null}
+                  </div>
+                )
+              })()
+            ) : null}
 
             {evidenza?.submitted ? (
               <div className="avviso-ok">
