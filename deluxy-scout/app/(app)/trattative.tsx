@@ -543,8 +543,11 @@ function TrattativaModal({
       : placeIniziale ?? null,
   );
   const [contatti, setContatti] = useState<Contact[]>([]);
+  // In MODIFICA si parte da ciò che è SALVATO — anche niente: preselezionare
+  // «Consegne» su una trattativa senza linea faceva vedere nel form un dato
+  // che la tabella (onesta) non mostrava. Il default vale solo in CREAZIONE.
   const [linee, setLinee] = useState<string[]>(
-    deal?.linee?.length ? deal.linee : deal?.linea ? [deal.linea] : ['Consegne'],
+    deal ? (deal.linee?.length ? deal.linee : deal.linea ? [deal.linea] : []) : ['Consegne'],
   );
   const [fase, setFase] = useState<DealStage>((deal?.fase as DealStage) ?? 'appointmentscheduled');
   const [valore, setValore] = useState(deal?.valore_atteso != null ? String(deal.valore_atteso) : '');
