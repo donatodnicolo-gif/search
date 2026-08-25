@@ -14,7 +14,17 @@
 
 > ⚠️ **L'app si chiama FINANCE.** Dal 01/08/2026 è così che si presenta a schermo (titolo, sidebar, accesso). **Cartella, database, URL `deluxy-partner.vercel.app`, cookie `dp_session` e il `sistema: "deluxy-partner"` con cui il registro Anagrafiche riconosce chi scrive NON sono stati rinominati**: cambiarli scollegherebbe le altre app.
 
-## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17/08/2026, poi il 21/08/2026, poi il 24/08/2026)
+## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24 e 25/08/2026)
+
+> ### 25/08/2026 — ricontrollo: l'app è viva, e «fatture aperte» ha DUE definizioni
+>
+> Health 200 in **0,30 s**, ultimo deploy in produzione di **20 ore fa** → il lavoro del 21 e del 24/08 **è online** (Finance non si auto-deploya dal push: va verificato ogni volta). Niente di non committato. **I due cron girano**: Qonto alle 05:00 del 25/08, Ordini alle 05:30 su tutti e tre i negozi. `RichiestaVerifica` è a **3.160 righe** (2.541 il 17/08 → ~77 al giorno, ancora senza pulizia).
+>
+> ⚠️⚠️ **La tabella «Contato il 17/08» qui sotto è gonfiata, e va letta con questa nota accanto.** Diceva «233 fatture aperte senza scadenza su 283»: contava il solo flag `pagata=false`. Contato oggi: **282 aperte grezze**, ma **132 di quelle righe valgono ZERO euro** (imponibile 0, tutte del 2025 — righe vuote rimaste dall'import del foglio Excel storico) e **12 sono compensate**. Le fatture aperte **vere** sono **138**, quelle **senza scadenza 92 per 56.231,50 € di residuo**: **71 del 2026** (35.865,84 €) e **21 del 2025** (20.365,66 €). **È esattamente il numero del riquadro di `/analisi`** (93 il 21/08, 92 oggi): i due conti non litigavano, contavano cose diverse. Prima di riportare un numero di fatture aperte, dire **con quale definizione** — quella buona è `residuoFattura` > 0 **meno le compensate**, la stessa di `/scadenzario` e `/analisi`.
+>
+> **Il flusso del 24/08 è stato usato davvero**: ultima voce del registro il 24/08 alle 15:59, «Richiesto a Transactions il pagamento di 494,28 € a FAG TORINO FIORI». ⚠️ **Ma in `SaldoMensile` ci sono 9 richieste `in_attesa` + 1 `in_lotto`**, e deluxy-transactions è ferma dal 3/08 con zero bonifici eseguiti: di qui le richieste partono, di là non le paga nessuno. Da guardare insieme, è denaro che il partner sta aspettando.
+>
+> **Altri numeri di oggi**: 108 partner (72 collegati al registro), **15 con IBAN** — 93 senza, e ogni SEPA verso di loro si ferma; 22.582 movimenti bancari (l'ultimo del 24/08); ordini 1.752 `incassato_gateway` + **163 `da_riconciliare`** e **ancora zero `riconciliato`** — in otto giorni l'abbinamento 1:1 col movimento bancario non ha prodotto un solo ordine, e i da riconciliare sono saliti da 157.
 
 > ### 24/08/2026 — «Paga» rifiutato senza dirlo, e l'attesa di Transactions spostata dopo la risposta
 >
