@@ -934,6 +934,12 @@
       "consegne": "Consegne",
       "piuPagate": "{{n}} pagate",
       "nota": "Qui gli importi che stanno a monte — valore pagato dal cliente, spese di consegna, costo del giro — contati una volta per ordine. Gli altri {{n}} ordini hanno una consegna sola e stanno solo nell'elenco qui sotto."
+    },
+    "margine": {
+      "negativo": "Margine negativo",
+      "minimo": "Margine minimo (≤5%)",
+      "basso": "Margine basso (≤15%)",
+      "vuoto": "Nessun ordine in questa fascia di margine, nel periodo scelto."
     }
   },
   "stub": {

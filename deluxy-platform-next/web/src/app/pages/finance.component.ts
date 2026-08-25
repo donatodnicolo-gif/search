@@ -142,6 +142,17 @@ interface Summary {
           <button type="button" class="quick-tab" (click)="periodo(-1)">{{ 'finance.lastMonth' | translate }}</button>
           <button type="button" class="quick-tab" (click)="periodo(-12)">{{ 'finance.year' | translate }}</button>
         </div>
+        <!-- Le fasce di margine: si guardano gli ORDINI che rendono poco, e il
+             filtro vale anche per i totali — altrimenti il piede della tabella
+             direbbe una cosa e le righe un'altra. -->
+        <div class="quick">
+          <button type="button" class="quick-tab" [class.on]="margine === 'negativo'"
+                  (click)="fascia('negativo')">{{ 'finance.margine.negativo' | translate }}</button>
+          <button type="button" class="quick-tab" [class.on]="margine === 'minimo'"
+                  (click)="fascia('minimo')">{{ 'finance.margine.minimo' | translate }}</button>
+          <button type="button" class="quick-tab" [class.on]="margine === 'basso'"
+                  (click)="fascia('basso')">{{ 'finance.margine.basso' | translate }}</button>
+        </div>
         @if (tab() === 'corrispettivi') {
           <button class="btn btn-ghost" [disabled]="!rows().length" (click)="exportCsv()">{{ 'finance.export' | translate }}</button>
         }
@@ -202,7 +213,7 @@ interface Summary {
     } @else {
       @if (rows().length === 0) {
         <div class="card state-card">
-          {{ 'finance.empty' | translate }}
+          @if (margine) { {{ 'finance.margine.vuoto' | translate }} } @else { {{ 'finance.empty' | translate }} }
           <!-- «Non c'e'» e «non e' ancora arrivata qui» sono cose diverse, e
                chi cerca un numero d'ordine merita di sapere quale delle due. -->
           @if (summary()?.altrove; as a) {
@@ -413,6 +424,8 @@ export class FinanceComponent {
   to = '';
   cerca = '';
   partnerId = '';
+  /** La fascia di margine scelta: '' = tutte. */
+  margine = '';
   readonly partners = signal<{ id: string; insegna: string }[]>([]);
   /** La ricerca aspetta una pausa: una chiamata per pausa, non per tasto. */
   private attesa?: ReturnType<typeof setTimeout>;
@@ -423,6 +436,18 @@ export class FinanceComponent {
       next: (d) => this.partners.set((d ?? []).map((x) => ({ id: x.id, insegna: x.insegna }))),
       error: () => {},
     });
+  }
+
+  /**
+   * Sceglie una fascia di margine, e ripremendola la toglie.
+   *
+   * Un filtro che si accende e non si spegne costringe a ricaricare la pagina
+   * per tornare a vedere tutto, e chi guarda finisce per credere che gli ordini
+   * siano quelli.
+   */
+  fascia(quale: string): void {
+    this.margine = this.margine === quale ? '' : quale;
+    this.reload();
   }
 
   cercaCambiata(): void {
@@ -459,6 +484,7 @@ export class FinanceComponent {
     if (this.to) p = p.set('to', this.to);
     if (this.partnerId) p = p.set('partnerId', this.partnerId);
     if (this.cerca.trim()) p = p.set('cerca', this.cerca.trim());
+    if (this.margine) p = p.set('margine', this.margine);
     return p;
   }
 

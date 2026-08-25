@@ -934,6 +934,12 @@
       "consegne": "Deliveries",
       "piuPagate": "{{n}} paid",
       "nota": "Here the upstream amounts — customer price, shipping, round cost — counted once per order. The other {{n}} orders have a single delivery and appear only in the list below."
+    },
+    "margine": {
+      "negativo": "Negative margin",
+      "minimo": "Minimal margin (≤5%)",
+      "basso": "Low margin (≤15%)",
+      "vuoto": "No order in this margin band, in the chosen period."
     }
   },
   "stub": {

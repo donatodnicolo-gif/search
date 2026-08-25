@@ -129,6 +129,25 @@ const STATI_ESCLUSI = ['cancelled'];
 const MODELLO_VENDITA = 'VENDITA';
 
 /**
+ * Le fasce di margine dei filtri rapidi.
+ *
+ * ⚠️ Si filtrano gli ORDINI, non le consegne: il margine e' dell'ordine, e una
+ * consegna presa da sola non ne ha uno che voglia dire qualcosa. Ed e' il
+ * margine in PERCENTUALE, non in euro: un ordine da 2.000 € che ne rende 40 e
+ * uno da 40 che ne rende 5 hanno lo stesso problema, e in valore assoluto
+ * sembrerebbero due cose diverse.
+ *
+ * ⚠️ Le fasce partono tutte da zero e si contengono a vicenda — «entro il 15%»
+ * comprende «entro il 5%» — perche' e' cosi' che si legge la domanda «quali
+ * ordini rendono poco». Chi vuole solo la corona esterna filtra due volte.
+ */
+const FASCE_MARGINE: Record<string, (percentuale: number) => boolean> = {
+  negativo: (p) => p < 0,
+  minimo: (p) => p >= 0 && p <= 5,
+  basso: (p) => p >= 0 && p <= 15,
+};
+
+/**
  * Perche' una riga non e' attendibile.
  *
  * ⚠️ Una riga sbagliata non si nasconde e non si aggiusta da sola: si mostra
@@ -308,10 +327,21 @@ export class FinanceService {
     return soloVendite ? { serviceType: { pricingModel: MODELLO_VENDITA } } : {};
   }
 
+  /**
+   * Tiene gli ordini di una fascia di margine.
+   *
+   * Una fascia che non esiste non filtra niente: meglio mostrare tutto che
+   * mostrare il vuoto per un parametro scritto male.
+   */
+  private perFascia(ordini: RecapOrdine[], fascia?: string): RecapOrdine[] {
+    const regola = fascia ? FASCE_MARGINE[fascia] : undefined;
+    return regola ? ordini.filter((o) => regola(o.totalMarginPercent)) : ordini;
+  }
+
   async corrispettivi(
     from?: string,
     to?: string,
-    opzioni: { partnerId?: string; cerca?: string; limite?: number; soloVendite?: boolean } = {},
+    opzioni: { partnerId?: string; cerca?: string; limite?: number; soloVendite?: boolean; margine?: string } = {},
   ): Promise<CorrispettivoRow[]> {
     const deliveries = await this.prisma.delivery.findMany({
       where: {
@@ -337,7 +367,13 @@ export class FinanceService {
       },
       orderBy: { date: 'desc' },
     });
-    return deliveries.map((d) => this.computeRow(d));
+    const rows = deliveries.map((d) => this.computeRow(d));
+    // ⚠️ Il filtro sul margine si applica agli ORDINI, e le consegne seguono i
+    // loro: tenere una consegna il cui ordine e' fuori fascia farebbe un elenco
+    // che non corrisponde ne' ai totali ne' alle righe d'ordine.
+    if (!opzioni.margine) return rows;
+    const tenuti = new Set(this.perFascia(this.recap(rows), opzioni.margine).map((o) => o.saleRef));
+    return rows.filter((r) => tenuti.has(r.saleRef ?? `consegna-${r.deliveryCode}`));
   }
 
   /**
@@ -433,7 +469,7 @@ export class FinanceService {
   async summary(
     from?: string,
     to?: string,
-    opzioni: { partnerId?: string; cerca?: string; soloVendite?: boolean } = {},
+    opzioni: { partnerId?: string; cerca?: string; soloVendite?: boolean; margine?: string } = {},
   ) {
     const soloVendite = opzioni.soloVendite ?? true;
     const rows = await this.corrispettivi(from, to, { ...opzioni, limite: 5000 });
@@ -468,7 +504,7 @@ export class FinanceService {
     // ciascuna consegna. Il risultato era un piede di tabella che non era la
     // somma di cio' che si leggeva sopra — la cosa piu' facile da sbagliare e la
     // piu' difficile da accorgersene, perche' tutti i numeri restano plausibili.
-    const ordini = this.recap(rows);
+    const ordini = this.perFascia(this.recap(rows), opzioni.margine);
     const sum = (f: (o: RecapOrdine) => number) => round2(ordini.reduce((s, o) => s + f(o), 0));
     const publicPrice = sum((o) => o.saleValue);
     const deliveryFee = sum((o) => o.deliveryFee);
@@ -476,7 +512,7 @@ export class FinanceService {
     const takings = sum((o) => o.takings);
     const totalMargin = sum((o) => o.totalMargin);
     return {
-      deliveries: rows.length,
+      deliveries: ordini.reduce((s, o) => s + o.consegne, 0),
       /** Consegne a buon fine del periodo che NON sono vendite (fuori ambito). */
       excluded: escluse,
       /** Righe non attendibili: si contano, non si nascondono. */
@@ -680,6 +716,11 @@ export class FinanceController {
     required: false,
     description: 'Predefinito true: solo i servizi di tipo VENDITA. `false` per tutte le consegne',
   })
+  @ApiQuery({
+    name: 'margine',
+    required: false,
+    description: 'Fascia di margine dell ordine: negativo | minimo (entro 5%) | basso (entro 15%)',
+  })
   corrispettivi(
     @CurrentUser() user: JwtUser,
     @Query('from') from?: string,
@@ -688,6 +729,7 @@ export class FinanceController {
     @Query('cerca') cerca?: string,
     @Query('limite') limite?: string,
     @Query('soloVendite') soloVendite?: string,
+    @Query('margine') margine?: string,
   ) {
     this.assertAdmin(user);
     return this.financeService.corrispettivi(from, to, {
@@ -695,6 +737,7 @@ export class FinanceController {
       cerca,
       limite: limite ? Number(limite) : undefined,
       soloVendite: this.soloVendite(soloVendite),
+      margine,
     });
   }
 
@@ -705,6 +748,7 @@ export class FinanceController {
   @ApiQuery({ name: 'partnerId', required: false })
   @ApiQuery({ name: 'cerca', required: false })
   @ApiQuery({ name: 'soloVendite', required: false, description: 'Predefinito true' })
+  @ApiQuery({ name: 'margine', required: false, description: 'negativo | minimo | basso' })
   summary(
     @CurrentUser() user: JwtUser,
     @Query('from') from?: string,
@@ -712,12 +756,14 @@ export class FinanceController {
     @Query('partnerId') partnerId?: string,
     @Query('cerca') cerca?: string,
     @Query('soloVendite') soloVendite?: string,
+    @Query('margine') margine?: string,
   ) {
     this.assertAdmin(user);
     return this.financeService.summary(from, to, {
       partnerId,
       cerca,
       soloVendite: this.soloVendite(soloVendite),
+      margine,
     });
   }
 }
