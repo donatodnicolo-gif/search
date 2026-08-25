@@ -3028,6 +3028,22 @@ export async function depositaLogAzioniOra() {
   );
 }
 
+export async function depositaRisultatiOra() {
+  "use server";
+  // Stessa funzione del cron settimanale, non una copia.
+  const { depositaRisultati } = await import("./ponte-risultati");
+  const esito = await depositaRisultati();
+  revalidatePath("/impostazioni");
+  if (!esito.ok) {
+    redirect(`/impostazioni?salvato=ponte-no&perche=${encodeURIComponent(esito.errore.slice(0, 200))}`);
+  }
+  redirect(
+    `/impostazioni?salvato=ponte-ok&perche=${encodeURIComponent(
+      esito.file.map((f) => `${f.nome} (${f.righe} righe)`).join(" · ").slice(0, 220),
+    )}`
+  );
+}
+
 export async function provaScritturaDrive() {
   "use server";
   const adesso = new Date();

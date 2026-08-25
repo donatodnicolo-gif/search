@@ -83,7 +83,23 @@ export type EsitoDeposito =
  * testo si legge PRIMA che nasca il file — e il ponte è append-only, quindi
  * un file sbagliato non si corregge, si può solo affiancare.
  */
-export type OpzioniDeposito = { anteprima?: boolean };
+export type OpzioniDeposito = {
+  anteprima?: boolean;
+  /**
+   * Da quando raccogliere, se non dall'ultimo deposito. Serve al **recupero
+   * dello storico**: il giro normale parte da dove si era fermato, ma la prima
+   * volta il ponte va riempito all'indietro, o il custode riceve un log che
+   * comincia a metà di una storia che non ha mai visto.
+   */
+  da?: Date;
+  /**
+   * Anche i tentativi FALLITI. Di norma no — un APPEND è il log di ciò che è
+   * stato fatto — ma «tutto quello che è stato fatto» comprende anche ciò che
+   * si è provato e non è passato: un annuncio rifiutato da Google è un fatto
+   * che il progetto di brand deve conoscere, non un non-evento.
+   */
+  falliti?: boolean;
+};
 
 /**
  * Deposita nel ponte le operazioni eseguite dall'ultimo deposito in poi.
@@ -98,11 +114,18 @@ export async function depositaAppendAzioni(opzioni: OpzioniDeposito = {}): Promi
   // Al primo giro non si riversa nel ponte tutta la storia dell'app: si parte
   // dalle ultime 24 ore. Il passato lo hanno già i progetti di brand, e un
   // APPEND con dentro un mese non lo consolida nessuno.
-  const inizio = da && !isNaN(da.getTime()) ? da : new Date(Date.now() - 24 * 3600_000);
+  const inizio =
+    opzioni.da ?? (da && !isNaN(da.getTime()) ? da : new Date(Date.now() - 24 * 3600_000));
 
+  const stati = opzioni.falliti ? ["eseguita", "fallita"] : ["eseguita"];
   const operazioni = await prisma.operazioneAdv.findMany({
-    where: { stato: "eseguita", eseguitaIl: { gt: inizio } },
-    orderBy: { eseguitaIl: "asc" },
+    // ⚠️ Le fallite non hanno `eseguitaIl`: si ordinano e si filtrano sulla
+    // creazione, o sparirebbero dal recupero proprio perché sono fallite.
+    where: {
+      stato: { in: stati },
+      OR: [{ eseguitaIl: { gt: inizio } }, { eseguitaIl: null, creataIl: { gt: inizio } }],
+    },
+    orderBy: [{ eseguitaIl: "asc" }, { creataIl: "asc" }],
   });
   if (operazioni.length === 0) {
     return { ok: true, scritto: false, motivo: `Nessuna operazione eseguita dopo il ${quando(inizio).testo}.` };
@@ -136,9 +159,18 @@ export async function depositaAppendAzioni(opzioni: OpzioniDeposito = {}): Promi
       ? `approvata in coda${o.approvataDa ? ` da ${o.approvataDa}` : ""} il ${quando(o.approvataIl).testo}`
       : "senza approvazione registrata";
     const conf = conferme.get(o.id);
-    const verifica = conf ? `${conf.etichetta} — ${conf.frase}` : (o.esito ?? "—");
+    // ⚠️ Una FALLITA non ha una conferma da Google — non è mai arrivata a
+    // Google. Il suo esito è il rifiuto, e si scrive quello, marcato: leggere
+    // «—» al posto di «rifiutata» farebbe sembrare la riga incompleta invece
+    // che negativa.
+    const verifica =
+      o.stato === "fallita"
+        ? `NON ESEGUITA — ${o.esito ?? "rifiutata, motivo non registrato"}`
+        : conf
+          ? `${conf.etichetta} — ${conf.frase}`
+          : (o.esito ?? "—");
     return (
-      `- [${quando(o.eseguitaIl!).testo}] [App-Azioni] Canale: ${CANALE[o.canale] ?? o.canale} [${brand}]` +
+      `- [${quando(o.eseguitaIl ?? o.creataIl).testo}] [App-Azioni] Canale: ${CANALE[o.canale] ?? o.canale} [${brand}]` +
       ` · Campagna/oggetto: ${oggetto}` +
       ` · Cosa: ${cosa(o)}` +
       ` · Autorizzazione: ${autorizzazione}` +
@@ -151,7 +183,9 @@ export async function depositaAppendAzioni(opzioni: OpzioniDeposito = {}): Promi
     `\n` +
     // Da quando a quando: senza, chi consolida non sa se una voce manca perché
     // non è successa o perché il periodo non la copriva.
-    `Periodo coperto: dal ${quando(inizio).testo} al ${q.testo} · ${operazioni.length} operazioni · scritto dall'app deluxy-marketing.\n` +
+    `Periodo coperto: dal ${quando(inizio).testo} al ${q.testo} · ${operazioni.length} voci` +
+    (opzioni.falliti ? " (eseguite e NON eseguite)" : " (solo eseguite)") +
+    ` · scritto dall'app deluxy-marketing.\n` +
     `\n` +
     righe.join("\n") +
     `\n`;
@@ -167,7 +201,13 @@ export async function depositaAppendAzioni(opzioni: OpzioniDeposito = {}): Promi
   // prima, un errore di rete farebbe sparire quelle operazioni dal ponte per
   // sempre — e nessuno se ne accorgerebbe, perché il giro dopo ripartirebbe
   // da dopo.
-  const ultimo = operazioni[operazioni.length - 1].eseguitaIl!.toISOString();
+  // ⚠️ Il segno tiene il momento PIÙ RECENTE fra quelli depositati, non
+  // l'ultimo della lista: con le fallite dentro, l'ordinamento mescola
+  // `eseguitaIl` e `creataIl`, e prendere «l'ultima riga» sposterebbe il
+  // segno indietro — facendo ridepositare domani cose già depositate.
+  const ultimo = new Date(
+    Math.max(...operazioni.map((o) => (o.eseguitaIl ?? o.creataIl).getTime())),
+  ).toISOString();
   await prisma.impostazione.upsert({
     where: { chiave: CHIAVE_ULTIMO },
     update: { valore: ultimo },

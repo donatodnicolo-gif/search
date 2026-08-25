@@ -1,6 +1,6 @@
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
-import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaServiceAccountDrive, salvaImpersonazioneDrive, salvaOauthDrive, provaScritturaDrive, depositaLogAzioniOra, salvaTokenTikTok } from "@/lib/azioni";
+import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaServiceAccountDrive, salvaImpersonazioneDrive, salvaOauthDrive, provaScritturaDrive, depositaLogAzioniOra, depositaRisultatiOra, salvaTokenTikTok } from "@/lib/azioni";
 import { tokenTikTok } from "@/lib/tiktok";
 import { FORNITORI, istruzioniOperative, statoAi } from "@/lib/ai";
 import { emailImpersonata, oauthConfigurato, statoScritturaDrive } from "@/lib/drive-scrittura";
@@ -280,6 +280,9 @@ export default async function PaginaImpostazioni({
                   funzione del cron serale. */}
               <form action={depositaLogAzioniOra} style={{ marginTop: 10, display: "inline-block", marginRight: 10 }}>
                 <button className="btn" type="submit">Deposita il log azioni ora</button>
+              </form>
+              <form action={depositaRisultatiOra} style={{ marginTop: 10, display: "inline-block", marginRight: 10 }}>
+                <button className="btn fantasma" type="submit">Deposita lo stato attuale</button>
               </form>
               <form action={provaScritturaDrive} style={{ marginTop: 10, display: "inline-block" }}>
                 <button className="btn fantasma" type="submit">Prova a scrivere nel ponte</button>
