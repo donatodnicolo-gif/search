@@ -6,8 +6,10 @@
 //
 // ⭐ Allineato la sera stessa al modello vero, quello che usa anche la pagina:
 //   prezzo pubblico = somma( DeliveryProduct.price x quantita )
+//   consegna cliente= Delivery.deliveryPrice    <- importata il 25/08 dalla vendita
+//   valore vendite  = pubblico + consegna cliente
 //   dato al partner = Delivery.productValue     <- SCRITTO, non dedotto
-//   guadagno lordo  = pubblico - dato al partner
+//   guadagno lordo  = valore vendite - dato al partner
 //   guadagno netto  = lordo / 1,22
 //   costo consegna  = paga del valet + plus/minus   <- c'era, mancava dal conto
 //   commissione     = pubblico x 3%
@@ -168,7 +170,9 @@ try {
   const SOGLIA_SCARTO = 1;
 
   const valutate = consegne.map((d) => {
-    const venduto = r2(d.products.reduce((s, l) => s + (l.price ?? 0) * (l.quantity ?? 1), 0));
+    const pubblico = r2(d.products.reduce((s, l) => s + (l.price ?? 0) * (l.quantity ?? 1), 0));
+    const consegnaCliente = r2(d.deliveryPrice ?? 0);
+    const venduto = r2(pubblico + consegnaCliente);
     // ⚠️ SI LEGGE. Il vuoto resta vuoto: con zero il partner risulterebbe non
     // aver preso niente e il guadagno sarebbe tutto nostro.
     const alPartner = (d.productValue ?? 0) > 0 ? r2(d.productValue) : null;
@@ -195,7 +199,9 @@ try {
     // ⚠️ Un guadagno a ZERO non e' un'anomalia: con un partner a fee 0% e' una
     // scelta commerciale. Delle 3.003 vendite senza quota, 2.880 erano proprio
     // questo — accusarle tutte avrebbe segnalato righe sane.
-    const guadagnoPc = guadagno != null && venduto > 0 ? (guadagno / venduto) * 100 : null;
+    // ⚠️ La percentuale si guarda sul NETTO (l'utente, 25/08): netto su lordo
+    // darebbe un numero piu' basso del vero senza dire quale dei due e'.
+    const guadagnoPc = guadagnoNetto != null && venduto > 0 ? (guadagnoNetto / venduto) * 100 : null;
     const scostaDaContratto = feeContratto > 0 && guadagnoPc != null && guadagno > 0
       && Math.abs(guadagnoPc - feeContratto) > 5;
     const anomalia = venduto <= 0 ? 'prezzo pubblico a zero'
@@ -203,7 +209,7 @@ try {
         : alPartner > venduto ? 'al partner piu\' del pubblico'
           : scostaDaContratto ? 'guadagno lontano dalla fee di contratto'
             : null;
-    return { d, venduto, alPartner, guadagno, guadagnoNetto, costoConsegna, commissione,
+    return { d, pubblico, consegnaCliente, venduto, alPartner, guadagno, guadagnoNetto, costoConsegna, commissione,
       margine, trattenuto, catalogo, anomalia, o, li, totOrdine, scarto,
       feeReale: guadagnoPc != null ? r2(guadagnoPc) : null };
   });
@@ -212,7 +218,8 @@ try {
   // ---- 2) unione + CSV -----------------------------------------------------
   const testa = [
     'consegna', 'data', 'stato', 'partner', 'fee contratto %', 'servizio', 'anomalia',
-    'prezzo pubblico (righe consegna)', 'DATO AL PARTNER (productValue)',
+    'prezzo pubblico (righe consegna)', 'consegna pagata dal cliente', 'valore vendite',
+    'DATO AL PARTNER (productValue)',
     'guadagno lordo', 'guadagno netto IVA', 'guadagno %',
     'costo consegna (paga valet)', 'commissione incassi 3%', 'MARGINE',
     'quota a listino (Delivery.price+plus)',
@@ -241,7 +248,7 @@ try {
       d.code, d.date.toISOString().slice(0, 10), d.status,
       d.partner?.insegna ?? '', d.partner?.commissionPercent ?? '', d.serviceType?.name ?? '',
       x.anomalia ?? '',
-      x.venduto, x.alPartner ?? '', x.guadagno ?? '', x.guadagnoNetto ?? '', x.feeReale ?? '',
+      x.pubblico, x.consegnaCliente, x.venduto, x.alPartner ?? '', x.guadagno ?? '', x.guadagnoNetto ?? '', x.feeReale ?? '',
       x.costoConsegna, x.commissione, x.margine ?? '',
       x.trattenuto,
       x.catalogo, d.price ?? '', d.additionalPrice ?? '', d.deliveryPrice ?? '',

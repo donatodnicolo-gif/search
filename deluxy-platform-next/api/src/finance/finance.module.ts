@@ -42,7 +42,7 @@
 //   guadagnoNetto      = guadagnoLordo / 1.22         <- il guadagno vero
 //   iva                = guadagnoLordo - guadagnoNetto
 //   feeContratto       = Delivery.price + additionalPrice  (quota a listino, per confronto)
-//   feePercent         = guadagnoLordo / prezzoPubblico
+//   feePercent         = guadagnoNetto / valoreVendite   (netto su netto: l'utente)
 //   feePercentContract = Partner.commissionPercent
 //   commissioneIncassi = prezzoPubblico x 3%
 //   costoConsegna      = paga del valet + plus/minus
@@ -155,7 +155,7 @@ interface CorrispettivoRow {
   takingsNet: number;
   /** La quota che sarebbe spettata a listino (`Delivery.price` + plus/minus). */
   feeContract: number;
-  /** Il guadagno lordo in percentuale sul pubblico. */
+  /** Il guadagno NETTO IVA in percentuale sul valore vendite. */
   feePercent: number;
   /** La fee scritta in anagrafica: se diverge da quella vera, si vede. */
   feePercentContract: number;
@@ -315,7 +315,7 @@ export class FinanceService {
       takings: round2(takings),
       takingsNet: round2(sum((r) => r.takingsNet)),
       feeContract: round2(sum((r) => r.feeContract)),
-      feePercent: saleValue > 0 ? round2((takings / saleValue) * 100) : 0,
+      feePercent: saleValue > 0 ? round2((sum((r) => r.takingsNet) / saleValue) * 100) : 0,
       deliveryCost: round2(sum((r) => r.deliveryCost)),
       vat: round2(sum((r) => r.vat)),
       incassiCommission: round2(sum((r) => r.incassiCommission)),
@@ -340,7 +340,9 @@ export class FinanceService {
     // L'IVA e' quella gia' tolta dal guadagno: si mostra, non si risottrae.
     const vat = takings - takingsNet;
     const feeContractAmount = Math.max(0, (d.price ?? 0) + (d.additionalPrice ?? 0));
-    const feePercent = saleValue > 0 && haValorePartner ? (takings / saleValue) * 100 : 0;
+    // ⚠️ Netto su lordo darebbe una percentuale piu' bassa del vero e nessuno
+    // saprebbe di quale delle due sta guardando: l'utente la vuole sul NETTO.
+    const feePercent = saleValue > 0 && haValorePartner ? (takingsNet / saleValue) * 100 : 0;
     const deliveryCost = (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0);
     const incassiCommission = saleValue * INCASSI;
     const totalMargin = takingsNet - deliveryCost - incassiCommission;
