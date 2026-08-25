@@ -336,6 +336,31 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐ L'APP SA RIMUOVERE UN'ESTENSIONE — e la prima in coda è il claim vietato (25/08/2026, sera)
+
+F13 dell'analisi Flowers: il sitelink **«White-glove deliveries»** è un claim
+VIETATO dal 2/8, verificato live ancora Eligible — 1.771 impr, 188 clic,
+**362,78 €** in 30 giorni. E l'app sapeva solo AGGIUNGERE estensioni
+(`creaEstensione`): per spegnerne una bisognava entrare in Google Ads a mano.
+
+Nuovo tipo di operazione **`rimuovi_estensione`** (sitelink, callout, snippet):
+lo script stacca dalla campagna tutte le estensioni col testo esatto, rilegge
+per confermare (la parola di chi scrive non basta), e se non trova niente lo
+dice **con le possibilità scritte nell'errore** — già tolto, o agganciato
+all'ACCOUNT/gruppo (lo script vede solo il livello campagna), o testo diverso.
+`VERSIONE_SCRIPT` → **2026-08-25.2** (cambia cosa sa fare), copie rigenerate.
+
+**In coda, da approvare**: `rimuovi_estensione` del sitelink «White-glove
+deliveries» sulla `[Deluxyflowers] - ITALIAN - ENG` (op `cmt9582qz…`), col
+motivo che cita F13. ⭐ E l'avviso di versione di stamattina ha lavorato DA
+SOLO: l'operazione porta scritto «la copia sul conto 825-518-1560 non dichiara
+la propria versione… se fallisce, si reincolla e si rimette in coda». Restano
+da accodare (decisione utente): i 6 sitelink same-day su 4 campagne, i 3
+«Consegna Oggi» e i callout white-gloves della campagna London. I claim dentro
+gli RSA (descrizioni «guanti bianchi», titoli «Consegna oggi») sono un'altra
+strada: l'app non sa mettere in pausa un annuncio.
+
+
 ### ⭐⭐⭐ LE ANALISI DIVENTANO SCHEDE GRAFICHE — verdetto, KPI, findings e il bottone ANALISI sulle campagne (25/08/2026, sera)
 
 > **Aggiornamento della stessa sera — la scheda INVECCHIATA si riprende da

@@ -38,6 +38,7 @@ const ETICHETTA_TIPO: Record<string, string> = {
   lista_negative: "Applica una lista di parole escluse",
   localita: "Cambia le localita' della campagna",
   estensione: "Aggiungi un'estensione",
+  rimuovi_estensione: "Rimuovi un'estensione (sitelink, callout o snippet)",
 };
 
 

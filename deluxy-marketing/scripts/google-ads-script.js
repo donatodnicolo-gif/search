@@ -173,11 +173,11 @@ var LAVORI_LETTURA = ["metriche", "gruppi", "keyword-giorni", "approvazioni", "d
 // LA DATA SI ALZA QUANDO CAMBIA COSA SO FARE, non a ogni ritocco: è la versione
 // delle CAPACITÀ, e serve a chi legge nell'app per capire se la copia incollata
 // è più vecchia dell'app. SO_ESEGUIRE va tenuto uguale ai tipi di applica().
-var VERSIONE_SCRIPT = "2026-08-25";
+var VERSIONE_SCRIPT = "2026-08-25.2";
 var SO_ESEGUIRE = [
   "pausa_campagna", "attiva_campagna", "budget", "negativa",
   "pausa_keyword", "attiva_keyword", "pausa_gruppo", "attiva_gruppo",
-  "estensione", "localita", "lista_negative",
+  "estensione", "rimuovi_estensione", "localita", "lista_negative",
   "nuovo_annuncio", "nuova_keyword", "nuova_campagna", "completa_campagna"
 ];
 
@@ -2228,6 +2228,7 @@ function applica(op, mira, conto) {
   }
 
   if (t === "estensione") return creaEstensione(op, mira);
+  if (t === "rimuovi_estensione") return rimuoviEstensione(op, mira);
   if (t === "localita") return cambiaLocalita(op, mira);
   if (t === "lista_negative") return applicaListaNegative(op, mira);
   if (t === "nuovo_annuncio") return creaAnnuncio(op, mira);
@@ -2888,6 +2889,86 @@ function creaEstensione(op, mira) {
   }
 
   throw new Error("Tipo di estensione non gestito: " + tipo + " (sitelink, callout, snippet)");
+}
+
+/**
+ * Stacca dalla campagna le estensioni con QUEL testo (sitelink per link text,
+ * callout per testo, snippet per intestazione).
+ *
+ * PERCHE' (25/08/2026): l'analisi Flowers ha trovato claim VIETATI ancora in
+ * asta — un sitelink "White-glove deliveries" con 362 EUR di spesa in 30
+ * giorni — e l'app sapeva solo AGGIUNGERE estensioni: per spegnerne una
+ * bisognava entrare in Google Ads a mano. Un claim vietato che eroga e' un
+ * problema legale, non solo di resa: la rimozione deve poter partire dalla
+ * stessa coda con cui si e' approvato tutto il resto.
+ *
+ * ATTENZIONE: si rimuovono TUTTE quelle col testo esatto (case-insensitive)
+ * sulla campagna. E' l'intento vero — il claim deve sparire — e un testo che
+ * combacia due volte e' lo stesso claim caricato due volte.
+ *
+ * ATTENZIONE: qui si vede solo il livello CAMPAGNA. Un'estensione agganciata
+ * all'account o al gruppo non viene toccata, e se non si trova niente lo si
+ * dice con questa possibilita' scritta nell'errore.
+ */
+function rimuoviEstensione(op, mira) {
+  var par = op.parametri || {};
+  var tipo = String(par.tipo || "").toLowerCase();
+  var testo = String(par.testo || "").trim();
+  var campagna = mira.campagna;
+  if (!campagna) throw new Error("Campagna non trovata per la rimozione");
+  if (!testo) throw new Error("Serve il testo dell'estensione da rimuovere");
+  if (typeof campagna.extensions !== "function") {
+    throw new Error("Questa copia dello script non conosce le estensioni: va reincollata.");
+  }
+  var ext = campagna.extensions();
+
+  function raccogli(iteratore, leggi) {
+    var trovate = [];
+    while (iteratore.hasNext()) {
+      var e = iteratore.next();
+      if (String(leggi(e) || "").trim().toLowerCase() === testo.toLowerCase()) trovate.push(e);
+    }
+    return trovate;
+  }
+
+  var daTogliere, togli, cosa;
+  if (tipo === "sitelink") {
+    daTogliere = raccogli(ext.sitelinks().get(), function (e) { return e.getLinkText(); });
+    togli = function (e) { campagna.removeSitelink(e); };
+    cosa = "sitelink";
+  } else if (tipo === "callout") {
+    daTogliere = raccogli(ext.callouts().get(), function (e) { return e.getText(); });
+    togli = function (e) { campagna.removeCallout(e); };
+    cosa = "callout";
+  } else if (tipo === "snippet") {
+    daTogliere = raccogli(ext.snippets().get(), function (e) { return e.getHeader(); });
+    togli = function (e) { campagna.removeSnippet(e); };
+    cosa = "snippet";
+  } else {
+    throw new Error("Tipo di estensione non gestito: " + tipo + " (sitelink, callout, snippet)");
+  }
+
+  if (daTogliere.length === 0) {
+    throw new Error(
+      cosa + " \"" + testo + "\" non trovato sulla campagna \"" + campagna.getName() + "\": " +
+      "o e' gia' stato tolto, o e' agganciato all'ACCOUNT o a un GRUPPO (questo script vede solo il livello campagna), o il testo e' diverso."
+    );
+  }
+  for (var i = 0; i < daTogliere.length; i++) togli(daTogliere[i]);
+
+  // Rilettura, come per le negative: la parola di chi ha scritto non basta.
+  var rimaste = raccogli(
+    tipo === "sitelink" ? ext.sitelinks().get() : tipo === "callout" ? ext.callouts().get() : ext.snippets().get(),
+    tipo === "sitelink" ? function (e) { return e.getLinkText(); } : tipo === "callout" ? function (e) { return e.getText(); } : function (e) { return e.getHeader(); }
+  );
+  var nota = rimaste.length === 0
+    ? " (confermato rileggendo: non c'e' piu')"
+    : " - ATTENZIONE: rileggendo ne risultano ancora " + rimaste.length + ". Puo' essere il ritardo di Google dentro la stessa esecuzione: ricontrollare al prossimo giro.";
+  return {
+    dettaglio: daTogliere.length + " " + cosa + " \"" + testo + "\" rimossi dalla campagna" + nota,
+    prima: testo + " (" + daTogliere.length + " agganci)",
+    dopo: "rimosso",
+  };
 }
 
 function cambiaLocalita(op, mira) {
