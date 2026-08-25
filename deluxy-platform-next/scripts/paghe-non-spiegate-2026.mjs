@@ -24,8 +24,9 @@
 //
 // NON SCRIVE NIENTE.
 //
-// Uso:  node scripts/paghe-non-spiegate-2026.mjs
+// Uso:  node scripts/paghe-non-spiegate-2026.mjs            (solo il 2026)
 //       node scripts/paghe-non-spiegate-2026.mjs --anno=2025
+//       node scripts/paghe-non-spiegate-2026.mjs --tutto     (tutto l'arretrato)
 // ============================================================
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
@@ -33,6 +34,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { PrismaClient } = require('@prisma/client');
 
+const TUTTO = process.argv.includes('--tutto');
 const ANNO = Number((process.argv.find((a) => a.startsWith('--anno=')) ?? '--anno=2026').slice('--anno='.length));
 const riga = fs.readFileSync('C:/Users/nicol/app/deluxy-tasks/.env', 'utf8')
   .split(/\r?\n/).find((l) => l.startsWith('DATABASE_URL='));
@@ -47,15 +49,16 @@ const uguale = (a, b) => Math.abs(a - b) < 0.011;
 
 try {
   const da = new Date(Date.UTC(ANNO, 0, 1)), a = new Date(Date.UTC(ANNO + 1, 0, 1));
+  const periodo = TUTTO ? {} : { date: { gte: da, lt: a } };
   const consegne = await db.delivery.findMany({
-    where: { deletedAt: null, valetId: { not: null }, distanceKm: { gt: 0 }, date: { gte: da, lt: a } },
+    where: { deletedAt: null, valetId: { not: null }, distanceKm: { gt: 0 }, ...periodo },
     select: { code: true, date: true, distanceKm: true, valetSalary: true, valetAdditionalPrice: true,
       hours: true, payable: true, valetServiceId: true, pickupAddress: true, recipientAddress: true,
       partner: { select: { insegna: true } },
       serviceType: { select: { name: true, pricingModel: true, minHours: true } },
       valet: { select: { firstName: true, lastName: true, minimumKmIncluded: true, extraOutOfCityPrice: true } } },
   });
-  console.log(`${ANNO}: consegne con valet e distanza: ${consegne.length}`);
+  console.log(`${TUTTO ? "TUTTO L ARRETRATO" : ANNO}: consegne con valet e distanza: ${consegne.length}`);
 
   const idServizi = [...new Set(consegne.map((c) => c.valetServiceId).filter(Boolean))];
   const listini = new Map((await db.valetService.findMany({
@@ -102,7 +105,18 @@ try {
   }
 
   const vere = nonSpiegate.filter((x) => x.perche === 'nessuna formula combacia');
-  console.log(`\n=== le NON SPIEGATE del ${ANNO}: ${vere.length} — ${eu(vere.reduce((s, x) => s + x.paga, 0))} ===`);
+  console.log(`\n=== le NON SPIEGATE ${TUTTO ? "di tutto l arretrato" : "del " + ANNO}: ${vere.length} — ${eu(vere.reduce((s, x) => s + x.paga, 0))} ===`);
+  if (TUTTO) {
+    const perAnno = {};
+    for (const x of vere) { const k = x.date.getUTCFullYear(); (perAnno[k] ??= []).push(x); }
+    console.log("\n  per anno:");
+    console.log("  | anno | non spiegate | paga | scarto dall urbano |");
+    console.log("  |---|---|---|---|");
+    for (const k of Object.keys(perAnno).sort()) {
+      const g = perAnno[k];
+      console.log(`  | ${k} | ${g.length} | ${eu(g.reduce((s, x) => s + x.paga, 0))} | ${eu(g.reduce((s, x) => s + x.paga - x.urbano, 0))} |`);
+    }
+  }
   console.log(`  di cui pagabili: ${vere.filter((x) => x.payable).length}`);
   console.log(`  con un plus/minus scritto sulla consegna: ${vere.filter((x) => x.plus !== 0).length}`);
   console.log(`  con la paga SOPRA quella urbana: ${vere.filter((x) => x.paga > x.urbano).length} (${eu(vere.filter((x) => x.paga > x.urbano).reduce((s, x) => s + x.paga - x.urbano, 0))} in piu')`);
