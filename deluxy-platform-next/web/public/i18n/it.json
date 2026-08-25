@@ -1600,6 +1600,14 @@
     "internalNotes": "Note interne",
     "noLogs": "Nessun evento nello storico.",
     "logUpdated": "Consegna aggiornata",
+    "logEvent": {
+      "creata": "Consegna creata",
+      "partita": "Consegna partita",
+      "consegnata": "Consegna effettuata",
+      "letta-partner": "Letta dal partner",
+      "letta-valet": "Letta dal valet",
+      "letta": "Letta"
+    },
     "act": {
       "print": "Stampa",
       "edit": "Modifica",

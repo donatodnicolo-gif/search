@@ -122,7 +122,15 @@ const DELIVERY_INCLUDE = {
   valet: { select: { id: true, firstName: true, lastName: true } },
   serviceType: { select: { id: true, name: true, pricingModel: true } },
   customer: { select: { id: true, firstName: true, lastName: true } },
-  products: { include: { product: { select: { id: true, name: true, price: true } } } },
+  // ⚠️ Serve anche la VARIANTE: la riga di consegna può puntare a una taglia
+  // (es. Cappelliera M: partner 215, pubblico 300) e mostrarle il prezzo del
+  // prodotto base (110) fa sembrare sbagliato un numero giusto.
+  products: {
+    include: {
+      product: { select: { id: true, name: true, price: true } },
+      productVariant: { select: { id: true, name: true, price: true, publicPrice: true } },
+    },
+  },
   pickups: true,
 } as const;
 
@@ -373,9 +381,36 @@ export class DeliveriesService {
           select: { id: true, firstName: true, lastName: true },
         })).map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]))
       : new Map<string, string>();
+
+    // CHE COSA è successo, però, si può spesso RICONOSCERE: la consegna porta
+    // i timestamp dei suoi eventi (partita, consegnata, letta…) e la riga di
+    // storico che cade sullo stesso istante È quell'evento. Misurato sui dati
+    // veri: 6.509 righe su 17.680 combaciano con UN evento entro 10 s, 2.494
+    // con più d'uno (quasi sempre readAt che duplica readAtByPartner: decide
+    // la distanza, poi la specificità), 8.677 con nessuno — quelle restano
+    // «aggiornata», perché un'etichetta dedotta male è peggio di una generica.
+    const EVENTI: [string, Date | null | undefined, number][] = [
+      ['consegnata', delivery.deliveredAt, 0],
+      ['partita', delivery.startedAt, 1],
+      ['letta-partner', delivery.readAtByPartner, 2],
+      ['letta-valet', delivery.readAtByValet, 3],
+      ['letta', delivery.readAt, 4],
+      ['creata', delivery.createdAt, 5],
+    ];
+    const TOLLERANZA_MS = 10_000;
+    const eventoDelLog = (quando: Date): string | null => {
+      const vicini = EVENTI
+        .filter(([, t]) => t != null)
+        .map(([nome, t, rango]) => ({ nome, rango, distanza: Math.abs(t!.getTime() - quando.getTime()) }))
+        .filter((e) => e.distanza <= TOLLERANZA_MS)
+        .sort((a, b) => a.distanza - b.distanza || a.rango - b.rango);
+      return vicini[0]?.nome ?? null;
+    };
+
     const logs = delivery.logs.map((l) => ({
       ...l,
       userName: l.userId ? utenti.get(l.userId) ?? null : null,
+      evento: l.type === 'legacy_update' ? eventoDelLog(l.createdAt) : null,
     }));
 
     return this.hideInternalNotes({ ...delivery, logs }, user);

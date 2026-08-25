@@ -134,9 +134,34 @@ in 200); **lanciata a mano col Bearer** ha letto 14.018 ordini e risposto
 deliveryPrice 25 e i log col nome («Fabio Fioriavanti»), /sms-templates dà 36
 modelli (29 di partner, con insegna), /provinces 107 province e 46 città.
 
+### Correzione della stessa sera: lo storico DICE l'evento, e la riga prodotto dice la VARIANTE
+
+**«Consegna aggiornata» non bastava** (l'utente): il legacy non ha il testo
+degli eventi (la tabella `delivery-updates` ha solo id/consegna/utente/orario,
+verificato su TUTTE le tabelle esportate), ma la consegna porta i **timestamp
+dei suoi eventi** (`startedAt`, `deliveredAt`, `readAt`, `readAtByPartner`,
+`readAtByValet`, `createdAt`) e una riga di storico che cade sullo stesso
+istante È quell'evento. **Misurato prima di fidarsene**: su 17.680 righe,
+**6.509 combaciano con UN evento** entro 10 s (partita 1.520, consegnata 3.034,
+lette 1.907, creata 48), 2.494 con più d'uno (quasi sempre `readAt` che duplica
+`readAtByPartner`: decide la distanza, poi la specificità), **8.677 con
+nessuno** (assegnazioni e gesti senza timestamp) — quelle restano «Consegna
+aggiornata»: un'etichetta dedotta male è peggio di una generica. La classifica
+avviene in **lettura** (`findOne`), niente riscritture in banca.
+
+**E il «prezzo sbagliato» del prodotto era la VARIANTE mancante**: la riga
+della 62637 punta alla variante **M** della Cappelliera (partner **215**,
+pubblico **300**; base 110/150, L 430/600, XL 640/900). 300 + 25 di consegna =
+i **325 pagati su Shopify** (ordine #12739: confermato dai dati Shopify
+specchiati in Orders; il connettore Shopify diretto risulta scollegato). Ora
+`DELIVERY_INCLUDE` porta anche `productVariant`, la riga mostra la variante a
+pillola e il prezzo giusto (`price` della riga → variante → prodotto base).
+`productValue` 215 = il listino della variante venduta: torna tutto.
+
 **Resta da fare qui**: creazione/modifica dei modelli SMS da UI (l'API `POST
 /sms-templates` c'è); creazione provincia da UI; la prima corsa AUTOMATICA del
-cron è stanotte alle 4:30 italiane (quella a mano è già andata).
+cron è stanotte alle 4:30 italiane (quella a mano è già andata); riconnettere
+il connettore Shopify se si vuole interrogare Shopify direttamente.
 
 ## 25/08/2026 — Artista Locale ritira nella città di consegna (e i km sopra 50 non si credono)
 

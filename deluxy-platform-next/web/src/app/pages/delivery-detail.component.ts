@@ -8,13 +8,20 @@ import { AuthService } from '../core/auth.service';
 import { Province, ValetRef } from '../core/models';
 import { detectProvince } from '../core/province.util';
 
-interface DeliveryLog { id: string; type: string; message: string; createdAt: string; userName?: string | null; }
+interface DeliveryLog {
+  id: string; type: string; message: string; createdAt: string;
+  userName?: string | null;
+  /** Evento riconosciuto dall'orario (partita, consegnata, letta…), se univoco. */
+  evento?: string | null;
+}
 interface DeliveryProductRow {
   id: string;
   quantity: number;
   price?: number;
   flexiblePrice: boolean;
+  variantName?: string | null;
   product?: { id: string; name: string; price?: number };
+  productVariant?: { id: string; name: string; price?: number; publicPrice?: number } | null;
 }
 
 /** Dettaglio consegna (sola lettura), sezioni come l'app reale. */
@@ -182,10 +189,17 @@ interface DeliveryDetail {
               <tbody>
                 @for (p of d.products; track p.id) {
                   <tr>
-                    <td>{{ p.product?.name }}</td>
+                    <td>{{ p.product?.name }}
+                      <!-- La variante non è un dettaglio: la Cappelliera base fa
+                           110, la M ne fa 215 — senza la variante il prezzo
+                           giusto sembra sbagliato. -->
+                      @if (p.variantName || p.productVariant?.name) {
+                        <span class="variante">{{ p.variantName || p.productVariant?.name }}</span>
+                      }
+                    </td>
                     <td class="num">{{ p.quantity }}</td>
                     @if (!isPartner()) {
-                      <td class="num">{{ (p.price ?? p.product?.price) != null ? ((p.price ?? p.product?.price) + ' €') : '—' }}</td>
+                      <td class="num">{{ prezzoRiga(p) != null ? (prezzoRiga(p) + ' €') : '—' }}</td>
                     }
                   </tr>
                 }
@@ -282,10 +296,13 @@ interface DeliveryDetail {
                     <span class="log-date">{{ l.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
                     <span class="log-msg">
                       <!-- Le righe importate dicono solo «legacy#15957»: il vecchio
-                           sistema registrava chi e quando, non che cosa. Meglio
-                           dirlo in chiaro che mostrare il rimando nudo. -->
+                           sistema registrava chi e quando, non che cosa. Quando
+                           l'orario combacia con un evento della consegna (partita,
+                           consegnata, letta…) si scrive QUELLO; se non combacia
+                           con niente resta «aggiornata» — un'etichetta dedotta
+                           male è peggio di una generica. -->
                       @if (l.type === 'legacy_update') {
-                        {{ 'deliveryDetail.logUpdated' | translate }}
+                        {{ (l.evento ? ('deliveryDetail.logEvent.' + l.evento) : 'deliveryDetail.logUpdated') | translate }}
                         <span class="log-ref">{{ l.message }}</span>
                       } @else {
                         {{ l.message }}
@@ -383,6 +400,7 @@ interface DeliveryDetail {
       .log-date { color: var(--text-tertiary); font-variant-numeric: tabular-nums; white-space: nowrap; }
       .log-user { color: var(--text-secondary); }
       .log-ref { color: var(--text-tertiary); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+      .variante { margin-left: 6px; font-size: 11px; background: var(--fill); color: var(--text-secondary); border-radius: 980px; padding: 2px 8px; }
       .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 980px; padding: 3px 12px; font-size: 12.5px; font-weight: 550; background: var(--fill); color: var(--text-secondary); }
       .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-tertiary); }
       .dot.s-created { background: var(--red); }
@@ -437,6 +455,15 @@ export class DeliveryDetailComponent {
     if (!prov) return this.valets();
     return this.valets().filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code));
   });
+
+  /**
+   * Il prezzo della riga: quello scritto sulla riga, poi quello della VARIANTE
+   * scelta, e solo in ultimo il prodotto base — la Cappelliera base fa 110 ma
+   * la M venduta qui ne fa 215.
+   */
+  prezzoRiga(p: DeliveryProductRow): number | null {
+    return p.price ?? p.productVariant?.price ?? p.product?.price ?? null;
+  }
 
   /** Il partner non vede note interne né i costi. */
   isPartner(): boolean {

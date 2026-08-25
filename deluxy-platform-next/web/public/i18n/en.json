@@ -1600,6 +1600,14 @@
     "internalNotes": "Internal notes",
     "noLogs": "No history events.",
     "logUpdated": "Delivery updated",
+    "logEvent": {
+      "creata": "Delivery created",
+      "partita": "Delivery departed",
+      "consegnata": "Delivery completed",
+      "letta-partner": "Read by partner",
+      "letta-valet": "Read by valet",
+      "letta": "Read"
+    },
     "act": {
       "print": "Print",
       "edit": "Edit",
