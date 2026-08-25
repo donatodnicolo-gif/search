@@ -1651,3 +1651,48 @@ model MessaggioAiuto {
 
   @@index([domandaId, creatoIl])
 }
+
+/// A CHI ABBIAMO CHIESTO SE PUÒ FARE QUEST'ORDINE.
+///
+/// ⚠️⚠️ Non esisteva, e si vedeva: il bottone WhatsApp apriva la chat col
+/// messaggio già scritto e poi **non restava traccia di niente**. Da cui, ogni
+/// volta: non si sapeva a chi si era già chiesto, un collega richiedeva allo
+/// stesso fornitore, e quando uno rispondeva sì bisognava andare a registrarlo
+/// a mano in un'altra parte della scheda. Su un ordine urgente, con tre persone
+/// che lo guardano, è il modo in cui si telefona due volte allo stesso fioraio e
+/// a nessun altro.
+///
+/// ⚠️ Una riga qui vuol dire «gliel'ho CHIESTO», non «lo prepara lui»: chi lo
+/// prepara sta sull'ordine (`Ordine.fornitoreNome`) e ci arriva solo quando
+/// qualcuno risponde sì. Confondere le due cose vorrebbe dire dare per fatto un
+/// ordine che nessuno ha ancora accettato.
+model RichiestaFornitore {
+  id            String   @id @default(cuid())
+  /// Il nostro ordine (`Ordine.id`).
+  ordineId      String
+  ordineNumero  String   @default("")
+  fornitoreNome String
+  /// L'id nel registro Anagrafiche, quando il fornitore viene da lì.
+  fornitoreId   String   @default("")
+  telefono      String   @default("")
+  email         String   @default("")
+  /// whatsapp · email · telefono (chiamato a voce).
+  canale        String   @default("whatsapp")
+  /// Il testo com'era quando è partito.
+  ///
+  /// ⚠️ Si archivia INTERO e non si ricalcola: la data di consegna o
+  /// l'indirizzo possono cambiare dopo, e allora «cosa gli abbiamo chiesto»
+  /// diventerebbe una domanda senza risposta — proprio quando serve, cioè
+  /// davanti a un fornitore che dice «a me avevate detto un'altra cosa».
+  testo         String   @default("") @db.Text
+  chiestoIl     DateTime @default(now())
+  chiestoDaId   String   @default("")
+  chiestoDaNome String   @default("")
+  /// in_attesa · si · no
+  esito         String   @default("in_attesa")
+  rispostaIl    DateTime?
+  nota          String   @default("") @db.Text
+
+  @@index([ordineId, chiestoIl])
+  @@index([fornitoreNome])
+}

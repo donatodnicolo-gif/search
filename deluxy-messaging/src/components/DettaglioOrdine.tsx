@@ -8,6 +8,14 @@ import { CHIUSURA, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import { coloreTipoCliente, nomeTipoCliente } from '@/lib/clienti-tipo'
 import { fasciaRitiro, messaggioFornitore } from '@/lib/ritiro'
 import { richiestaFornitore } from '@/lib/messaggio-fornitore'
+import {
+  chiaveFornitore,
+  daQuanto,
+  ordinaCandidati,
+  riassunto,
+  siPuoRichiedere,
+  type Chiesto,
+} from '@/lib/richieste-fornitore'
 import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
 import type { BozzaMail } from './ComponiMail'
 
@@ -287,6 +295,14 @@ export function DettaglioOrdine({
   // apre già pieno. Senza, chi ha appena telefonato dovrebbe ricopiare a mano
   // nome, città e telefono che ha davanti agli occhi — e non lo farebbe.
   const [proposto, setProposto] = useState<FornitoreProposto | null>(null)
+  // ── A CHI ABBIAMO GIÀ CHIESTO ──
+  // ⚠️⚠️ Prima non restava traccia: si apriva WhatsApp col messaggio pronto e
+  // finiva lì. Non si sapeva a chi si era già chiesto, un collega richiedeva
+  // allo stesso fornitore, e chi rispondeva sì andava registrato a mano da
+  // un'altra parte.
+  const [chiesti, setChiesti] = useState<Chiesto[]>([])
+  const [chiedendo, setChiedendo] = useState('')
+  const [esitoChiesto, setEsitoChiesto] = useState('')
   const [zonaCaricata, setZonaCaricata] = useState(false)
   /**
    * Che mestiere cercare: vuoto = lo decide il negozio (Cake → pasticcerie,
@@ -436,6 +452,105 @@ export function DettaglioOrdine({
   // scriverebbero su una riga inesistente non si offrono. È il dato caricato a
   // dirlo, non il parametro con cui è stato aperto: l'archivio pesca anche
   // ordini recenti, che in casa ci sono e vanno aperti per intero.
+
+  // ── A CHI ABBIAMO GIÀ CHIESTO, per quest'ordine ──
+  const caricaChiesti = useCallback(async () => {
+    if (!ordine?.id) return
+    try {
+      const res = await fetch(`/api/ordini/${ordine.id}/chiesti`)
+      if (!res.ok) return
+      const d = (await res.json()) as { chiesti?: Chiesto[] }
+      setChiesti(d.chiesti ?? [])
+    } catch {
+      // ⚠️ Se non arriva, l'elenco funziona lo stesso: si perde solo la memoria
+      // di chi è già stato chiesto, e chiedere due volte è meglio che non poter
+      // chiedere affatto.
+    }
+  }, [ordine?.id])
+
+  useEffect(() => {
+    void caricaChiesti()
+  }, [caricaChiesti])
+
+  /**
+   * Segna che la proposta è partita.
+   *
+   * ⚠️⚠️ Si registra QUI, nell'istante in cui si preme il bottone che apre
+   * WhatsApp — non dopo, e non con un modulo a parte. Chiedendolo dopo, «segna
+   * che hai chiesto» è un secondo gesto che nessuno fa: è esattamente il motivo
+   * per cui finora non risultava mai niente.
+   *
+   * ⚠️ Non manda niente da solo: apre la chat col testo pronto, e a premere
+   * «invia» è una persona. Vedi la risposta all'utente del 24/08 — la finestra
+   * di 24 ore di WhatsApp non ci lascerebbe comunque scrivere per primi.
+   */
+  async function segnaChiesto(
+    fz: { id: string; nome: string; telefono: string; email: string },
+    canale: string,
+    testo: string
+  ) {
+    if (!ordine?.id) return
+    setChiedendo(fz.id)
+    try {
+      const res = await fetch(`/api/ordini/${ordine.id}/chiesti`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fornitoreNome: fz.nome,
+          fornitoreId: fz.id,
+          telefono: fz.telefono,
+          email: fz.email,
+          canale,
+          testo,
+        }),
+      })
+      const d = (await res.json().catch(() => ({}))) as { errore?: string }
+      if (!res.ok) {
+        setEsitoChiesto(d.errore || 'Non sono riuscito a segnarlo.')
+        return
+      }
+      setEsitoChiesto('')
+      await caricaChiesti()
+    } catch {
+      setEsitoChiesto('Segnato solo sul tuo telefono: la rete non ha risposto.')
+    } finally {
+      setChiedendo('')
+    }
+  }
+
+  /** La risposta del fornitore. Un «sì» scrive anche chi prepara l'ordine. */
+  async function rispondeChiesto(richiestaId: string, esito: 'si' | 'no' | 'in_attesa') {
+    if (!ordine?.id) return
+    setChiedendo(richiestaId)
+    try {
+      const res = await fetch(`/api/ordini/${ordine.id}/chiesti`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ richiestaId, esito }),
+      })
+      const d = (await res.json().catch(() => ({}))) as {
+        chiesti?: Chiesto[]
+        sullOrdine?: { ok: boolean; messaggio: string } | null
+        errore?: string
+      }
+      if (!res.ok) {
+        setEsitoChiesto(d.errore || 'Non sono riuscito a registrare la risposta.')
+        return
+      }
+      setChiesti(d.chiesti ?? [])
+      // ⚠️ Che cosa è successo SULL'ORDINE si dice: un «sì» che scrive chi lo
+      // prepara è una cosa importante, e se invece NON l'ha scritto (c'era già
+      // un altro fornitore) quello va detto ancora di più.
+      setEsitoChiesto(d.sullOrdine?.messaggio ?? '')
+      // ⚠️ La scheda si rilegge: il fornitore e il costo li ha appena scritti
+      // il server, e lasciarli fuori dallo schermo farebbe premere di nuovo.
+      if (d.sullOrdine?.ok) void carica()
+    } catch {
+      setEsitoChiesto('La rete non ha risposto.')
+    } finally {
+      setChiedendo('')
+    }
+  }
 
   // ── I fornitori in provincia ──
   //
@@ -1264,6 +1379,15 @@ export function DettaglioOrdine({
                 <h3 style={{ marginTop: 0, fontSize: 15 }}>
                   Fornitori in provincia di {zonaProvincia || spedizione.provincia}
                 </h3>
+                {/* ⚠️⚠️ QUANTI NE HAI GIÀ CHIESTI, in una riga. È la cosa che
+                    prima non si poteva sapere: il bottone WhatsApp apriva la
+                    chat e finiva lì, e su un ordine urgente guardato da tre
+                    persone si finiva per scrivere due volte allo stesso fioraio
+                    e a nessun altro. */}
+                <p className="cella-sub" style={{ marginTop: -4 }}>
+                  {riassunto(chiesti)}
+                </p>
+                {esitoChiesto ? <p className="cella-sub">{esitoChiesto}</p> : null}
                 <div
                   style={{
                     display: 'flex',
@@ -1326,7 +1450,35 @@ export function DettaglioOrdine({
                   </p>
                 ) : (
                   <div className="griglia-fornitori">
-                    {zona.map((fz) => {
+                    {/* ⚠️ L'ordine dell'elenco È la decisione di chi lavora:
+                        davanti a una consegna di domani si scrive ai primi due o
+                        tre, non a tutti. Prima chi non è ancora stato chiesto,
+                        poi chi è in attesa, in fondo chi ha già risposto — e in
+                        cima, a parità, chi ha già lavorato per noi. */}
+                    {ordinaCandidati(
+                      zona.map((fz) => ({
+                        id: fz.id,
+                        nome: fz.nome,
+                        categoria: fz.categoria,
+                        citta: fz.citta,
+                        // ⚠️ Il recapito è già quello «utile»: la rotta di zona
+                        // pesca il numero del referente quando l'insegna non ce
+                        // l'ha, e senza quella regola metà dei fornitori
+                        // risulterebbe irraggiungibile pur avendo un numero
+                        // scritto due righe sotto.
+                        telefono: fz.telefono || '',
+                        email: fz.email || '',
+                        recapitoDa: fz.recapitoDa,
+                        stato: fz.stato,
+                        // ⚠️ Quanti ordini gli abbiamo già dato non lo sappiamo
+                        // qui: lo saprebbe solo una query in più per ogni riga.
+                        // Zero è onesto — meglio non ordinare per un dato che
+                        // non abbiamo che ordinarlo per uno inventato.
+                        ordiniFatti: 0,
+                      })),
+                      new Map(chiesti.map((x) => [chiaveFornitore(x.fornitoreNome), x]))
+                    ).map(({ candidato, chiesto: giaChiesto }) => {
+                      const fz = zona.find((z) => z.id === candidato.id)!
                       const richiesta = richiestaFornitore({
                         prodotto: righe[0]?.titolo ?? '',
                         variante: righe[0]?.variante ?? '',
@@ -1345,21 +1497,105 @@ export function DettaglioOrdine({
                             {[fz.categoria, fz.citta, fz.stato].filter(Boolean).join(' · ')}
                             {fz.recapitoDa ? ` · recapito di ${fz.recapitoDa}` : ''}
                           </div>
+                          {/* ── QUELLO CHE GIÀ SAPPIAMO DI LUI, SU QUEST'ORDINE ──
+                              ⚠️⚠️ Si segna nell'istante in cui si apre la chat,
+                              non con un secondo bottone «ho chiesto»: quel
+                              secondo gesto non lo fa nessuno, ed è il motivo per
+                              cui finora non risultava mai niente.
+                              ⚠️ Si segna anche se poi il messaggio non parte. È
+                              lo sbaglio giusto: «gli ho chiesto e non ricordo»
+                              costa una telefonata, «non gli ho chiesto e credevo
+                              di sì» costa l'ordine.
+                              ⚠️ Chi ha già risposto NON sparisce dall'elenco:
+                              sparire vorrebbe dire che quel lavoro non è stato
+                              fatto, e qualcuno lo rifarebbe. */}
+                          {giaChiesto ? (
+                            <div className="cella-sub" style={{ marginTop: 4 }}>
+                              <span
+                                className="badge"
+                                style={{
+                                  color:
+                                    giaChiesto.esito === 'si'
+                                      ? 'var(--green)'
+                                      : giaChiesto.esito === 'no'
+                                        ? 'var(--red)'
+                                        : 'var(--text-tertiary)',
+                                }}
+                              >
+                                {giaChiesto.esito === 'si'
+                                  ? 'ha detto sì'
+                                  : giaChiesto.esito === 'no'
+                                    ? 'ha detto no'
+                                    : 'chiesto, in attesa'}
+                              </span>{' '}
+                              {daQuanto(giaChiesto.chiestoIl, Date.now())}
+                              {giaChiesto.chiestoDaNome ? ` · da ${giaChiesto.chiestoDaNome}` : ''}
+                              {giaChiesto.canale === 'email' ? ' · per email' : ''}
+                            </div>
+                          ) : null}
+                          {/* ⚠️ La risposta si registra dalla riga di chi si è
+                              appena chiamato: è l'istante in cui si sa. Un
+                              modulo a parte, da riempire a memoria dopo, non lo
+                              compila nessuno. */}
+                          {giaChiesto && giaChiesto.esito === 'in_attesa' ? (
+                            <div
+                              style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}
+                            >
+                              <button
+                                className="btn small"
+                                disabled={chiedendo === giaChiesto.id}
+                                onClick={() => void rispondeChiesto(giaChiesto.id, 'si')}
+                                title="Registra che lo prepara lui: lo scrive sull’ordine"
+                              >
+                                Ha detto sì
+                              </button>
+                              <button
+                                className="btn btn-secondario small"
+                                disabled={chiedendo === giaChiesto.id}
+                                onClick={() => void rispondeChiesto(giaChiesto.id, 'no')}
+                              >
+                                Ha detto no
+                              </button>
+                            </div>
+                          ) : null}
                           <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                            {cifre.length >= 8 ? (
+                            {cifre.length >= 8 && siPuoRichiedere(giaChiesto) ? (
                               <a
                                 className="btn btn-secondario small"
                                 href={`https://wa.me/${cifre}?text=${encodeURIComponent(richiesta)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                onClick={() =>
+                                  void segnaChiesto(
+                                    {
+                                      id: fz.id,
+                                      nome: fz.nome,
+                                      telefono: fz.telefono,
+                                      email: fz.email,
+                                    },
+                                    'whatsapp',
+                                    richiesta
+                                  )
+                                }
+                                title="Apre WhatsApp col messaggio già scritto, e segna che gliel’hai chiesto"
                               >
-                                WhatsApp
+                                {giaChiesto ? 'Riscrivi' : 'WhatsApp'}
                               </a>
                             ) : null}
                             {fz.email && onScriviMail ? (
                               <button
                                 className="btn btn-secondario small"
-                                onClick={() =>
+                                onClick={() => {
+                                  void segnaChiesto(
+                                    {
+                                      id: fz.id,
+                                      nome: fz.nome,
+                                      telefono: fz.telefono,
+                                      email: fz.email,
+                                    },
+                                    'email',
+                                    richiesta
+                                  )
                                   onScriviMail({
                                     a: fz.email,
                                     oggetto: `Richiesta disponibilità — ordine ${ordine.numero}`,
@@ -1372,7 +1608,7 @@ export function DettaglioOrdine({
                                     allegatoUrl: righe[0]?.immagine ?? '',
                                     allegatoNome: righe[0]?.titolo ?? '',
                                   })
-                                }
+                                }}
                               >
                                 Email
                               </button>
