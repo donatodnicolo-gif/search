@@ -1,6 +1,6 @@
 # Deluxy Scout — Stato del progetto & Handoff
 
-Ultimo aggiornamento: **24 agosto 2026, pomeriggio** (ultimo commit di Scout: `944023b0` «la LINEA ha la sua colonna» — nella tabella trattative titolo e linea sono due colonne, non piu' fuse: «Trattativa» = titolo o —, «Linea» = servizio, ordinabile). Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+Ultimo aggiornamento: **24 agosto 2026, sera** (ultimo commit di Scout: `e01ba435`). 📌 Le linee dei deal HubSpot: 40 dedotte dal nome e scritte sul MIRROR (7 ambigue lasciate vuote); `sync_crm` ora PRESERVA la linea locale quando HubSpot ha null (prima l'upsert notturno l'avrebbe riazzerata) — **verificare domattina che le 40 sopravvivano al cron**. Su HubSpot deluxy_linea resta vuota: si riempie modificando dal form.. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
 
 > 📅 **Le due date delle trattative (richiesta utente, `46a3fa78`)**: colonna **«Aperta»** (created_at, gg/mm/aa) accanto alla **Scadenza** nella tabella — entrambe ordinabili — e la scadenza anche **nelle schede mobile**, accanto alla data di apertura. Una scadenza **passata su una trattativa ancora aperta è ROSSA** (closedwon/closedlost no). ⚠️ Il confronto «è passata?» usa il **giorno LOCALE** costruito a mano, non `toISOString()` che è UTC e la sera in Italia direbbe «ieri». Le righe da HubSpot/registro senza `created_at` mostrano «—», non una data inventata.
 
