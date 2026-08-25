@@ -224,6 +224,20 @@ export default function Oggi() {
   );
   const pipeline = useMemo(() => aperteMie.reduce((s, d) => s + (d.valore_atteso ?? 0), 0), [aperteMie]);
 
+  // Le aperte in ordine di URGENZA, per la sezione in cima (richiesta utente
+  // 25/08: «metti per prima cosa le trattative aperte»): prima chi ha la
+  // scadenza passata o di oggi, poi le scadenze future, in fondo quelle senza
+  // scadenza — ordinate per valore, che è l'unico segnale rimasto.
+  const aperteOrdinate = useMemo(() => {
+    const rank = (d: TrattativaConLuogo) => (d.scadenza ? (d.scadenza <= oggi ? 0 : 1) : 2);
+    return aperteMie.slice().sort((a, b) => {
+      const r = rank(a) - rank(b);
+      if (r !== 0) return r;
+      if (a.scadenza && b.scadenza && a.scadenza !== b.scadenza) return a.scadenza < b.scadenza ? -1 : 1;
+      return (b.valore_atteso ?? 0) - (a.valore_atteso ?? 0);
+    });
+  }, [aperteMie, oggi]);
+
   const righeDettaglio = useMemo<RigaDettaglio[]>(() => {
     const nome = (id: string | null | undefined) => (id && nomiPlace.get(id)) || 'Negozio senza nome';
     if (dettaglio === 'visite') {
@@ -350,6 +364,39 @@ export default function Oggi() {
         }}
       />
 
+      {/* 0. LE TRATTATIVE APERTE, per prime (richiesta utente 25/08): sono i
+          soldi in gioco, e la giornata parte da lì. In cima le scadute/di
+          oggi (in rosso), poi le scadenze future, in fondo le senza scadenza
+          per valore. La riga apre LA trattativa (parametro `apri`). */}
+      <Canale
+        icona="briefcase-outline"
+        titolo="Le tue trattative aperte"
+        conteggio={aperteMie.length}
+        nota={daMuovere.length ? `${daMuovere.length} da muovere oggi` : undefined}
+        cta="Apri le Trattative"
+        onCta={() => router.push('/(app)/trattative')}
+        vuoto={loading ? 'Caricamento…' : 'Nessuna trattativa aperta assegnata a te: se ne apre una dalla scheda di un negozio o da Trattative.'}
+      >
+        {aperteOrdinate.slice(0, 5).map((t) => {
+          const inRitardo = !!t.scadenza && t.scadenza <= oggi;
+          return (
+            <Pressable key={t.id} style={styles.riga} onPress={() => router.push(`/(app)/trattative?apri=${t.id}`)}>
+              <Ionicons name="briefcase-outline" size={16} color={inRitardo ? colors.errore : colors.navy} />
+              <View style={{ flex: 1 }}>
+                <Text numberOfLines={3} style={styles.rigaTitolo}>{t.place_nome ?? t.oggetto ?? t.titolo ?? 'Trattativa'}</Text>
+                {t.oggetto || t.next_action ? (
+                  <Text style={styles.rigaSotto} numberOfLines={1}>{t.oggetto ?? t.next_action}</Text>
+                ) : null}
+              </View>
+              <Text style={[styles.rigaMeta, inRitardo && styles.ritardo]}>
+                {t.valore_atteso ? euro(t.valore_atteso) : ''}
+                {inRitardo ? ' · da muovere' : t.scadenza ? ` · ${dataBreve(t.scadenza)}` : ''}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </Canale>
+
       {/* 1a. TERRITORIO — il giro di oggi */}
       <Canale
         icona="walk-outline"
@@ -430,31 +477,10 @@ export default function Oggi() {
         </Canale>
       ) : null}
 
-      {/* 2. Trattative da muovere: prima i soldi fermi */}
-      <Canale
-        icona="briefcase-outline"
-        titolo="Trattative da muovere"
-        conteggio={daMuovere.length}
-        cta="Apri le Trattative"
-        onCta={() => router.push('/(app)/trattative')}
-        vuoto={loading ? 'Caricamento…' : 'Nessun follow-up scaduto: le trattative con scadenza di oggi o in ritardo compariranno qui.'}
-      >
-        {daMuovere.slice(0, 5).map((t) => (
-          <Pressable key={t.id} style={styles.riga} onPress={() => router.push('/(app)/trattative')}>
-            <Ionicons name="briefcase-outline" size={16} color={t.scadenza! < oggi ? colors.errore : colors.navy} />
-            <View style={{ flex: 1 }}>
-              <Text numberOfLines={3} style={styles.rigaTitolo}>{t.place_nome ?? t.oggetto ?? 'Trattativa'}</Text>
-              {t.oggetto || t.next_action ? (
-                <Text style={styles.rigaSotto} numberOfLines={1}>{t.oggetto ?? t.next_action}</Text>
-              ) : null}
-            </View>
-            <Text style={[styles.rigaMeta, t.scadenza! < oggi && styles.ritardo]}>
-              {t.valore_atteso ? euro(t.valore_atteso) : ''}
-              {t.scadenza! < oggi ? ' · ritardo' : ''}
-            </Text>
-          </Pressable>
-        ))}
-      </Canale>
+      {/* La vecchia sezione «Trattative da muovere» è stata ASSORBITA da «Le
+          tue trattative aperte» in cima: le da-muovere sono le sue prime
+          righe (in rosso) e il conteggio sta nella nota — due sezioni con le
+          stesse righe avrebbero detto la stessa cosa due volte. */}
 
       {/* 3. Da riprendere: le perse arrivate a maturazione (pipeline differita) */}
       {daRiprendere.length ? (
