@@ -1,0 +1,38 @@
+[
+ {
+  "id": "cmt5zz54u066mi63c9250jubt",
+  "pickupAddress": "Stazione Termini, Via Marsala, 27, 00185 Roma RM, Italia",
+  "distanceKm": 577.41,
+  "valetSalary": 15.49
+ },
+ {
+  "id": "cmt5zz8jl08fxi63ci2kochi9",
+  "pickupAddress": "Via Orefici, 15, 20123 Milano MI, Italia",
+  "distanceKm": 589.17,
+  "valetSalary": 0
+ },
+ {
+  "id": "cmt5zz9qq093di63c0t63ov6l",
+  "pickupAddress": "Via Marsala, 27, 00185 Roma RM, Italia",
+  "distanceKm": 572.89,
+  "valetSalary": 572.89
+ },
+ {
+  "id": "cmt5zzc9f0apei63c7cu8r7yv",
+  "pickupAddress": "Via Orefici, 15, 20123 Milano MI, Italia",
+  "distanceKm": 571.41,
+  "valetSalary": 0
+ },
+ {
+  "id": "cmt5zzd0v0atii63c2wm5h7o7",
+  "pickupAddress": "Via Orefici, 15, 20123 Milano MI, Italia",
+  "distanceKm": 563.52,
+  "valetSalary": 0
+ },
+ {
+  "id": "cmt60002b0irxi63cq3av3c0n",
+  "pickupAddress": "Via Orefici, 15, 20123 Milano MI, Italia",
+  "distanceKm": 593.36,
+  "valetSalary": 593.36
+ }
+]
