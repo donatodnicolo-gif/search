@@ -3,6 +3,51 @@
 > Documento per riprendere il lavoro da zero in una nuova sessione. Aggiornato il 24/08/2026.
 > Leggi anche `README.md` (brief di integrazione per le altre app) e il `CLAUDE.md` alla radice del repo.
 
+## ⚠️ 25/08/2026 — «un solo risultato» non è un'identità (match per nome)
+
+Errore **trovato in produzione**, nel registro delle modifiche di quest'app:
+
+```
+RichiestaMatch  25/08 11:10  «nome:Paradis des fleurs» → agganciata (media)
+                             → «Contatti senza azienda (HubSpot)»
+Modifica        25/08 11:10  statoFornitore: «» → «abituale»  [origine: customer-service]
+```
+
+Il Customer Service stava registrando il pagamento a un fioraio; il registro gli
+ha risposto che quel fioraio **è** il contenitore dei contatti HubSpot, e lui ci
+ha scritto sopra. Risultato doppio: il fornitore vero **non è in anagrafica**, e
+un record che non è nemmeno un'azienda risulta nostro fornitore abituale.
+
+**Perché.** `whereRicerca` è una ricerca «a parole»: ogni parola deve comparire
+in almeno un campo — **compresi i contatti collegati**. Quel contenitore ne ha
+**288**: «paradis» compare in uno, «des» in sei, «fleurs» in un altro. Combacia.
+Ed essendo l'**unico** risultato, `trovati.length === 1` lo promuoveva ad
+«agganciata».
+
+⚠️⚠️ È la regola larga di una **ricerca** riusata per **affermare** un'identità.
+Una ricerca larga è giusta quando a scegliere è una persona che guarda l'elenco;
+qui non guarda nessuno, e si scrive.
+
+**Cosa è cambiato** (`src/lib/match.ts`): il risultato unico diventa
+«agganciata» solo se `nomeAffine(cercato, trovato)` — stesso nome, oppure lo
+stesso nome con altra punteggiatura, oppure il più corto contenuto **per intero
+e in sequenza** nell'altro (è il caso per cui il match esiste: «Ketty Flowers» →
+«Ketty Flowers · PORTO CERVO»). Altrimenti torna fra i **candidati**, e sceglie
+una persona dalla pagina Match.
+
+⚠️ Il nome corto deve avere sostanza (due parole, sei caratteri): senza,
+un'anagrafica generica si aggancerebbe a mezzo registro.
+
+Provato sui dati veri: `npx tsx scripts/prova-match-nome.mts` — i 17 fornitori
+pagati dal Customer Service, «Paradis des fleurs» ora torna **candidati**, e
+«RIGUTTO ELENA» continua ad agganciarsi a **«Il Giardino Di Rigutto Elena»**
+(che è giusto: evita il doppione).
+
+⚠️ **Resta aperto, ed è un limite della ricerca a parole, non di questa
+correzione**: «Battistella fioreria srl» non trova «Fioreria Battistella» perché
+«srl» non compare da nessuna parte — quindi risponde «nessuna» e chi chiama
+creerebbe un quasi-doppione.
+
 ## 1. Cos'è, in una riga
 
 Registro **centralizzato** delle anagrafiche partner/prospect B2B Deluxy: la **fonte di

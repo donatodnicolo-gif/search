@@ -235,6 +235,24 @@ curl -X POST https://deluxy-anagrafiche.vercel.app/api/v1/feedback \
 - **Note** in append, **referenti** in merge per identità (email>tel>nome):
   nessun'app cancella quelli inseriti da altre.
 
+⚠️⚠️ **«agganciata» per NOME non è una prova d'identità, ed è nostra cura che
+non lo sembri.** Dal 25/08/2026 un risultato **unico** diventa «agganciata» solo
+se **si chiama davvero così** (stesso nome, stessa cosa con altra punteggiatura,
+o il nome più corto contenuto per intero e in sequenza nell'altro: «Ketty
+Flowers» ↔ «Ketty Flowers · PORTO CERVO»). Altrimenti torna fra i **candidati**.
+
+Il motivo, misurato: la ricerca «a parole» pretende che ogni parola compaia in
+almeno un campo — **compresi i contatti collegati** — e il record «Contatti
+senza azienda (HubSpot)» ne ha 288. Chiedendo «Paradis des fleurs» rispondeva
+lui, unico risultato, quindi «agganciata»: chi ha chiamato gli ha scritto sopra
+uno stato che non gli apparteneva. Una ricerca larga va bene per una persona che
+sceglie dall'elenco, non per affermare che due nomi sono la stessa azienda.
+
+⚠️ **Chi chiama controlli comunque il nome** che gli torna: il registro non può
+sapere quanto vi fidate della somiglianza, e un `esito: "agganciata"` resta la
+migliore ipotesi del registro, non un giuramento.
+
+
 La risposta del POST dice cosa è successo: `{ esito: "creato"|"merged", applicati:
 [...], in_revisione: [...], riferimenti: [...] }`.
 

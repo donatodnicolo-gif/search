@@ -5,6 +5,39 @@ import { whereRicerca } from "./ricerca";
 const norm = (s: string) =>
   s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+// ⚠️⚠️ UN SOLO RISULTATO NON È UN'IDENTITÀ.
+//
+// `whereRicerca` è una ricerca «a parole»: ogni parola deve comparire in almeno
+// un campo — compresi i CONTATTI collegati. È giusta per una persona che guarda
+// l'elenco e sceglie; non per affermare che due nomi sono la stessa azienda.
+//
+// Il caso vero, 25/08/2026: il Customer Service ha chiesto «Paradis des
+// fleurs». L'unico risultato è stato «Contatti senza azienda (HubSpot)» — un
+// contenitore con 288 contatti dentro, in cui «paradis» compariva in uno, «des»
+// in sei e «fleurs» in un altro. Un solo risultato → «agganciata» → e quel
+// contenitore si è preso un `statoFornitore: abituale` che non gli appartiene.
+//
+// Quindi il risultato unico viene promosso ad «agganciata» solo se **si chiama
+// davvero così**; altrimenti torna come CANDIDATO, e sceglie una persona.
+const attaccato = (s: string) => norm(s).replace(/ /g, "");
+
+export function nomeAffine(cercato: string, trovato: string): boolean {
+  const a = norm(cercato);
+  const b = norm(trovato);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  // Stesso nome con punteggiatura diversa: «S.R.L.S.» contro «srls».
+  if (attaccato(a) === attaccato(b)) return true;
+  const ta = a.split(" ");
+  const tb = b.split(" ");
+  const corto = ta.length <= tb.length ? ta : tb;
+  const lungo = corto === ta ? tb : ta;
+  // ⚠️ Il nome corto deve avere sostanza: due parole e sei caratteri. Senza,
+  // un'anagrafica generica («Fiori») si aggancerebbe a mezzo registro.
+  if (corto.length < 2 || corto.join("").length < 6) return false;
+  return ` ${lungo.join(" ")} `.includes(` ${corto.join(" ")} `);
+}
+
 export type TipoMatch = "piva" | "codice_fiscale" | "nome_citta" | "nome" | "vuota";
 export type EsitoMatch = "agganciata" | "candidati" | "nessuna";
 export type Confidenza = "alta" | "media" | "nessuna";
@@ -58,7 +91,12 @@ export async function risolviMatch(input: {
       return { tipo, esito: "agganciata", confidenza: citta ? "alta" : "media", match: esatti[0], candidati: [] };
     }
     if (esatti.length > 1) return { tipo, esito: "candidati", confidenza: "media", match: null, candidati: esatti };
-    if (trovati.length === 1) return { tipo, esito: "agganciata", confidenza: "media", match: trovati[0], candidati: [] };
+    if (trovati.length === 1) {
+      // ⚠️ Vedi nomeAffine(): un solo risultato non basta a dire «è lui».
+      return nomeAffine(nome, trovati[0].nome)
+        ? { tipo, esito: "agganciata" as const, confidenza: "media" as const, match: trovati[0], candidati: [] }
+        : { tipo, esito: "candidati" as const, confidenza: "nessuna" as const, match: null, candidati: trovati };
+    }
     if (trovati.length > 1) return { tipo, esito: "candidati", confidenza: "nessuna", match: null, candidati: trovati };
   }
 
