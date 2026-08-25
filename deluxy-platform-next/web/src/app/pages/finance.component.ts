@@ -87,6 +87,8 @@ interface Summary {
   ordini: RecapOrdine[];
   /** Ordini in cui risulta pagata piu' di una consegna. */
   ordiniConPiuPaghe: number;
+  /** Ordini la cui commissione di incasso e' una stima, non una tariffa confermata. */
+  commissioniStimate: number;
 }
 
 /**
@@ -177,6 +179,9 @@ interface Summary {
     @if (!loading() && summary(); as s) {
       @if (s.ordiniConPiuPaghe > 0) {
         <p class="avviso">{{ 'finance.piuPaghe' | translate:{ n: s.ordiniConPiuPaghe } }}</p>
+      }
+      @if (s.commissioniStimate > 0) {
+        <p class="avviso ambito">{{ 'finance.commissioniStimate' | translate:{ n: s.commissioniStimate } }}</p>
       }
     }
     <!-- Le righe sbagliate si contano in cima: nasconderle farebbe quadrare un

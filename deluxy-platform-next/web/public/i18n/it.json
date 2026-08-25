@@ -941,7 +941,8 @@
       "basso": "Margine basso (≤15%)",
       "vuoto": "Nessun ordine in questa fascia di margine, nel periodo scelto."
     },
-    "apriConsegna": "Apri la scheda della consegna in una scheda nuova"
+    "apriConsegna": "Apri la scheda della consegna in una scheda nuova",
+    "commissioniStimate": "La commissione di incasso di {{n}} ordini e' una STIMA: o non sappiamo come ha pagato il cliente (si applica il 3%), o la tariffa del gestore non e' ancora confermata da una fattura nostra."
   },
   "stub": {
     "caption": "Sezione in arrivo sulla nuova piattaforma.",

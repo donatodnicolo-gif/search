@@ -92,7 +92,16 @@ import { PrismaService } from '../prisma/prisma.service';
 
 /** IVA applicata al corrispettivo (22%). */
 const VAT = 0.22;
-/** Commissione incassi (3% del valore vendite). */
+/**
+ * La commissione di incasso quando NON si sa come ha pagato il cliente.
+ *
+ * ⚠️ Era il 3% per tutti, e non voleva dire niente: incassare costa quanto
+ * chiede il gestore, e il gestore dipende dal metodo di pagamento e dal piano
+ * del negozio. Ora le tariffe vere stanno in `CommissioneIncasso` — con la loro
+ * fonte e un flag `confermata`, perche' sono state CERCATE e non lette da un
+ * contratto. Questo 3% resta solo per gli ordini di cui non conosciamo il
+ * metodo, ed e' dichiarato a schermo come stima.
+ */
 const INCASSI = 0.03;
 /**
  * Gli stati che NON entrano nei corrispettivi.
@@ -207,6 +216,9 @@ interface CorrispettivoRow {
    * stesso ordine portano LO STESSO prodotto o due prodotti diversi.
    */
   prodotti: { nome: string; quantita: number; prezzo: number }[];
+  /** Come ha pagato il cliente (copia di comodo: il dato e' di Orders). */
+  paymentGateway: string | null;
+  paymentBrand: string | null;
 }
 
 /**
@@ -224,6 +236,15 @@ interface CorrispettivoRow {
  *  - il costo della consegna, che per la regola carnet si paga UNA volta sola
  *    per giro, non una per destinazione.
  */
+/** Una tariffa di incasso, come sta in tabella. */
+interface TariffaIncasso {
+  gateway: string;
+  brand: string | null;
+  percentuale: number;
+  fissa: number;
+  confermata: boolean;
+}
+
 interface RecapOrdine {
   /** L'id della vendita: e' la chiave che tiene insieme le consegne. */
   saleRef: string;
@@ -247,6 +268,10 @@ interface RecapOrdine {
   totalMarginPercent: number;
   /** Righe non attendibili dentro l'ordine. */
   anomalie: number;
+  /** Come ha pagato il cliente: decide quanto costa incassare. */
+  gateway: string | null;
+  /** `false` quando la tariffa applicata e' una stima, non un dato confermato. */
+  commissioneConfermata: boolean;
   /** Le consegne dell'ordine: la riga si apre e le mostra. */
   righe: CorrispettivoRow[];
   /**
@@ -372,7 +397,8 @@ export class FinanceService {
     // loro: tenere una consegna il cui ordine e' fuori fascia farebbe un elenco
     // che non corrisponde ne' ai totali ne' alle righe d'ordine.
     if (!opzioni.margine) return rows;
-    const tenuti = new Set(this.perFascia(this.recap(rows), opzioni.margine).map((o) => o.saleRef));
+    const tenuti = new Set(this.perFascia(this.recap(rows, await this.tariffe()), opzioni.margine)
+      .map((o) => o.saleRef));
     return rows.filter((r) => tenuti.has(r.saleRef ?? `consegna-${r.deliveryCode}`));
   }
 
@@ -385,7 +411,22 @@ export class FinanceService {
    * `legacyOrderId = 0`, che nel database tiene insieme 10.272 consegne che non
    * hanno niente a che vedere fra loro.
    */
-  private recap(rows: CorrispettivoRow[]): RecapOrdine[] {
+  /**
+   * La tariffa di incasso per un ordine.
+   *
+   * Si cerca prima quella del NEGOZIO — il piano Shopify e' del negozio, e su
+   * «gifts» e' diverso dagli altri — e solo se non c'e' quella valida per tutti.
+   * Senza gateway non si indovina: si torna `null` e chi chiama usa il ripiego,
+   * dichiarandolo.
+   */
+  private tariffa(tariffe: TariffaIncasso[], gateway: string | null, brand: string | null): TariffaIncasso | null {
+    if (!gateway) return null;
+    return tariffe.find((t) => t.gateway === gateway && t.brand === brand)
+      ?? tariffe.find((t) => t.gateway === gateway && t.brand == null)
+      ?? null;
+  }
+
+  private recap(rows: CorrispettivoRow[], tariffe: TariffaIncasso[] = []): RecapOrdine[] {
     const gruppi = new Map<string, CorrispettivoRow[]>();
     for (const r of rows) {
       const k = r.saleRef ?? `consegna-${r.deliveryCode}`;
@@ -430,7 +471,16 @@ export class FinanceService {
       const takingsNet = round2(takings / (1 + VAT));
       // Il costo del giro e' la somma dei costi delle singole consegne.
       const deliveryCost = round2(g.reduce((s, r) => s + r.deliveryCost, 0));
-      const incassiCommission = round2(valore * INCASSI);
+      // ⚠️ LA COMMISSIONE E' DI UNA TRANSAZIONE, quindi si conta una volta per
+      // ORDINE: la quota fissa moltiplicata per il numero di consegne sarebbe
+      // un costo inventato. E la fissa non e' trascurabile — 0,30 € su un
+      // ordine da 8 € sono il 3,75%, piu' della percentuale.
+      const gateway = g.find((r) => r.paymentGateway)?.paymentGateway ?? null;
+      const brand = g.find((r) => r.paymentBrand)?.paymentBrand ?? null;
+      const tar = this.tariffa(tariffe, gateway, brand);
+      const incassiCommission = tar
+        ? round2((valore * tar.percentuale) / 100 + tar.fissa)
+        : round2(valore * INCASSI);
       return {
       saleRef,
       consegne: g.length,
@@ -452,6 +502,8 @@ export class FinanceService {
       totalMargin: round2(takingsNet - deliveryCost - incassiCommission),
       totalMarginPercent: valore > 0 ? round2(((takingsNet - deliveryCost - incassiCommission) / valore) * 100) : 0,
       anomalie: g.filter((r) => r.anomalia).length,
+      gateway,
+      commissioneConfermata: tar ? tar.confermata : false,
       consegnePagate: g.filter((r) => r.deliveryCost > 0).length,
       righe: g,
     };
@@ -504,7 +556,7 @@ export class FinanceService {
     // ciascuna consegna. Il risultato era un piede di tabella che non era la
     // somma di cio' che si leggeva sopra — la cosa piu' facile da sbagliare e la
     // piu' difficile da accorgersene, perche' tutti i numeri restano plausibili.
-    const ordini = this.perFascia(this.recap(rows), opzioni.margine);
+    const ordini = this.perFascia(this.recap(rows, await this.tariffe()), opzioni.margine);
     const sum = (f: (o: RecapOrdine) => number) => round2(ordini.reduce((s, o) => s + f(o), 0));
     const publicPrice = sum((o) => o.saleValue);
     const deliveryFee = sum((o) => o.deliveryFee);
@@ -528,6 +580,8 @@ export class FinanceService {
       ordiniTotali: ordini.length,
       /** Ordini in cui risulta pagata piu' di una consegna: regola non applicata. */
       ordiniConPiuPaghe: ordini.filter((o) => o.consegnePagate > 1).length,
+      /** Ordini la cui commissione di incasso e' una stima, non una tariffa confermata. */
+      commissioniStimate: ordini.filter((o) => !o.commissioneConfermata).length,
       partnerPrice: sum((o) => o.partnerPrice),
       takings,
       takingsNet: sum((o) => o.takingsNet),
@@ -550,6 +604,14 @@ export class FinanceService {
    *  - ci sono ma sono FUORI dal periodo scelto;
    *  - ci sono ma non sono vendite (fuori dall'ambito della pagina).
    */
+  /** Il listino delle commissioni, letto una volta per richiesta. */
+  private async tariffe(): Promise<TariffaIncasso[]> {
+    return this.prisma.commissioneIncasso.findMany({
+      where: { attiva: true },
+      select: { gateway: true, brand: true, percentuale: true, fissa: true, confermata: true },
+    });
+  }
+
   private async doveSono(
     from: string | undefined,
     to: string | undefined,
@@ -654,6 +716,8 @@ export class FinanceService {
       totalMargin: round2(totalMargin),
       totalMarginPercent: saleValue > 0 ? round2((totalMargin / saleValue) * 100) : 0,
       anomalia,
+      paymentGateway: d.paymentGateway ?? null,
+      paymentBrand: d.paymentBrand ?? null,
       prodotti: lines.map((l) => ({
         nome: String(l.product?.name ?? l.productName ?? '?'),
         quantita: l.quantity ?? 1,

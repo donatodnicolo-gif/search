@@ -170,6 +170,58 @@ model City {
   province   Province @relation(fields: [provinceId], references: [id])
 }
 
+/// La COMMISSIONE DI INCASSO per metodo di pagamento.
+///
+/// ⭐ 25/08/2026: prima la Finanza toglieva un 3% fisso a tutti. Ma il costo
+/// di incassare dipende da COME ha pagato il cliente — Shopify Payments non
+/// costa quanto PayPal, e un bonifico o un contrassegno non costano affatto
+/// quello. Il metodo lo sa Deluxy Orders (`gateway` e `categoriaPagamento`).
+///
+/// ⚠️ `confermata` esiste perche' queste percentuali sono state CERCATE, non
+/// lette da un contratto: le tariffe cambiano col piano e le fonti pubbliche
+/// non concordano (per PayPal si trova 2,49%, 3,4% e 3,49% a seconda di dove
+/// si guarda). Finche' resta `false` il numero e' una stima dichiarata, e la
+/// pagina lo dice. Chi ha in mano la fattura del gestore la conferma.
+///
+/// ⚠️ La commissione ha DUE parti: una percentuale e una quota FISSA per
+/// transazione. Sui piccoli importi la fissa pesa piu' della percentuale —
+/// 0,25 € su un ordine da 8 € sono il 3,1% — e tenerla fuori dal conto
+/// sottostima proprio gli ordini che gia' rendono poco.
+model CommissioneIncasso {
+  id          String    @id @default(cuid())
+  /// Il gateway come lo scrive Shopify: `shopify_payments`, `paypal`, `manual`…
+  gateway     String
+  /// Il NEGOZIO a cui vale la tariffa; null = tutti.
+  ///
+  /// ⚠️ Serve perche' la commissione di Shopify Payments dipende dal PIANO, e
+  /// il piano e' del negozio: Deluxy sta sul Basic dappertutto tranne che su
+  /// «gifts» (`deluxygifts.myshopify.com`, brand `deluxy.it`), che sta sul
+  /// piano subito sopra. Una tariffa sola per tutti sarebbe sbagliata proprio
+  /// sul negozio piu' grande — 11.800 ordini su 14.406.
+  brand       String?
+  /// La categoria di Orders: carta | bonifico | contrassegno | altro.
+  categoria   String?
+  /// Quota percentuale sull'incassato.
+  percentuale Float     @default(0)
+  /// Quota fissa per transazione.
+  fissa       Float     @default(0)
+  /// Da quando vale (null = da sempre); le tariffe cambiano nel tempo, e
+  /// questa tabella non deve ripetere l'errore del listino valet.
+  validoDa    DateTime?
+  validoA     DateTime?
+  /// Dove l'abbiamo presa: serve a poterla rimettere in discussione.
+  fonte       String?
+  /// `false` = stima cercata, non confermata da un documento nostro.
+  confermata  Boolean   @default(false)
+  note        String?
+  attiva      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([gateway, brand, validoDa])
+  @@index([gateway, brand, validoDa])
+}
+
 // ------------------------------------------------------------
 // Tipi di servizio
 // pricingModel: PREZZO_FISSO | A_ORA | VENDITA | CORPORATE | MAGAZZINO
@@ -946,6 +998,17 @@ model Delivery {
   /// non entra in un intero a 32 bit, quindi e' testo.
   legacySaleId       String?
   legacyPrimarySaleId Int?
+  /// Come ha pagato il cliente, per sapere quanto costa incassare.
+  ///
+  /// ⚠️ Questo dato NON e' nostro: lo possiede Deluxy Orders, che tiene
+  /// l'ordine Shopify. Qui e' una copia di comodo per il calcolo del margine,
+  /// aggiornata dall'import — non una seconda fonte di verita'. Se i due
+  /// divergono, ha ragione Orders.
+  paymentGateway     String?
+  /// La categoria del pagamento secondo Orders: carta | bonifico | contrassegno | altro.
+  paymentCategory    String?
+  /// Il negozio Shopify dell'ordine: decide il piano, e il piano la tariffa.
+  paymentBrand       String?
   saleType           String? // unique | nonunique | shopifysale
   acceptSale         Boolean           @default(false)
   customSaleDelivery Boolean           @default(false)
