@@ -1,11 +1,12 @@
 // Andamento → Storico: le visite fatte, per GIORNO, con l'account (venditore), il
 // negozio e la via. Filtri per account e città.
 import { useCallback, useMemo, useState } from 'react';
-import { SectionList, StyleSheet, Text, View } from 'react-native';
+import { SectionList, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import type { EsitoVisita } from '@/types';
-import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { fetchStorico, type VisitaStorico } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
@@ -95,6 +96,65 @@ export default function Storico() {
     [sezioni],
   );
 
+  // Da 900px in su ogni giorno è una TABELLA (le righe-scheda restano sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
+  const sezioniVista = useMemo(
+    () => (aTabella ? sezioni.map((s) => ({ ...s, data: [s.data] as unknown as VisitaStorico[] })) : sezioni),
+    [aTabella, sezioni],
+  );
+
+  const colonne: ColonnaTabella<VisitaStorico>[] = [
+    {
+      chiave: 'negozio',
+      label: 'Negozio',
+      flex: 1.2,
+      valore: (v) => v.place_nome,
+      cella: (v) => (
+        <Text style={styles.tabNome} numberOfLines={2}>
+          {v.place_nome}
+        </Text>
+      ),
+    },
+    {
+      chiave: 'via',
+      label: 'Via',
+      flex: 1,
+      valore: (v) => viaDi(v.place_indirizzo) || null,
+      cella: (v) => (
+        <Text style={styles.via} numberOfLines={2}>
+          {viaDi(v.place_indirizzo) || '—'}
+          {v.place_zona ? ` · ${v.place_zona}` : ''}
+        </Text>
+      ),
+    },
+    { chiave: 'account', label: 'Venditore', flex: 0.7, valore: (v) => v.owner_nome ?? null },
+    {
+      chiave: 'esito',
+      label: 'Esito',
+      width: 120,
+      valore: (v) => v.esito ?? null,
+      cella: (v) =>
+        v.esito ? (
+          <View style={styles.esitoTag}>
+            <View style={[styles.dot, { backgroundColor: COLORE_ESITO[v.esito] }]} />
+            <Text style={[styles.esitoTxt, { color: COLORE_ESITO[v.esito] }]}>{LABEL_ESITO[v.esito]}</Text>
+          </View>
+        ) : (
+          <Text style={styles.via}>—</Text>
+        ),
+    },
+    {
+      chiave: 'ora',
+      label: 'Ora',
+      width: 56,
+      destra: true,
+      numerica: true,
+      valore: (v) => v.data,
+      cella: (v) => <Text style={styles.tabOra}>{oraDi(v.data)}</Text>,
+    },
+  ];
+
   return (
     <View style={styles.container}>
       <View style={styles.head}>
@@ -113,9 +173,9 @@ export default function Storico() {
       </View>
 
       <SectionList
-        sections={sezioni}
-        keyExtractor={(v) => v.id}
-        contentContainerStyle={[styles.list, contenutoCentrato]}
+        sections={sezioniVista}
+        keyExtractor={(v: any, i) => (Array.isArray(v) ? `tab-${i}` : v.id)}
+        contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
         stickySectionHeadersEnabled={false}
         renderSectionHeader={({ section }) => (
           <View style={styles.giornoHead}>
@@ -123,7 +183,18 @@ export default function Storico() {
             <Text style={styles.giornoConta}>{section.data.length}</Text>
           </View>
         )}
-        renderItem={({ item }) => (
+        renderItem={({ item }) => {
+          if (Array.isArray(item)) {
+            return (
+              <Tabella
+                righe={item as VisitaStorico[]}
+                colonne={colonne}
+                chiaveRiga={(v) => v.id}
+                ordineIniziale={{ campo: 'ora', verso: 'desc' }}
+              />
+            );
+          }
+          return (
           <View style={styles.riga}>
             <View style={styles.icona}>
               <Ionicons name="location-outline" size={16} color={colors.goldStrong} />
@@ -142,15 +213,18 @@ export default function Storico() {
                 ) : null}
                 {item.esito ? (
                   <View style={styles.esitoTag}>
-                    <View style={[styles.dot, { backgroundColor: COLORE_ESITO[item.esito] }]} />
-                    <Text style={[styles.esitoTxt, { color: COLORE_ESITO[item.esito] }]}>{LABEL_ESITO[item.esito]}</Text>
+                    <View style={[styles.dot, { backgroundColor: COLORE_ESITO[item.esito as EsitoVisita] }]} />
+                    <Text style={[styles.esitoTxt, { color: COLORE_ESITO[item.esito as EsitoVisita] }]}>
+                      {LABEL_ESITO[item.esito as EsitoVisita]}
+                    </Text>
                   </View>
                 ) : null}
                 <Text style={styles.ora}>{oraDi(item.data)}</Text>
               </View>
             </View>
           </View>
-        )}
+          );
+        }}
         ListEmptyComponent={
           <EmptyState
             loading={loading}
@@ -208,4 +282,6 @@ const styles = StyleSheet.create({
   dot: { width: 7, height: 7, borderRadius: 4 },
   esitoTxt: { fontWeight: '800', fontSize: 12 },
   ora: { color: colors.grigio, fontSize: 12, marginLeft: 'auto' },
+  tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabOra: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
 });

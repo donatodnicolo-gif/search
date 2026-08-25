@@ -3,11 +3,12 @@
 // qui si segue solo l'incasso: da incassare → incassato (o annullato).
 // La pipeline dice quanto stiamo trattando; questa pagina quanto abbiamo chiuso.
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, fetchOrdini, type OrdineConLuogo } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 
@@ -72,6 +73,77 @@ export default function Ordini() {
     };
   }, [ordini]);
 
+  // Da 900px in su l'elenco è una TABELLA (le schede restano sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
+
+  const colonne: ColonnaTabella<OrdineConLuogo>[] = [
+    {
+      chiave: 'cliente',
+      label: 'Cliente',
+      flex: 1.2,
+      valore: (o) => o.place_nome ?? o.cliente,
+      cella: (o) => (
+        <View>
+          <Text style={styles.tabNome} numberOfLines={2}>{o.place_nome ?? o.cliente}</Text>
+          {o.descrizione ? <Text style={styles.descr} numberOfLines={1}>{o.descrizione}</Text> : null}
+        </View>
+      ),
+    },
+    { chiave: 'linea', label: 'Linea', flex: 0.7, valore: (o) => o.linea ?? null },
+    { chiave: 'canale', label: 'Canale', width: 80, valore: (o) => o.canale ?? null },
+    {
+      chiave: 'valore',
+      label: 'Valore',
+      width: 92,
+      destra: true,
+      numerica: true,
+      valore: (o) => o.valore,
+      cella: (o) => <Text style={styles.tabValore}>{importoBreve(o.valore)}</Text>,
+    },
+    {
+      chiave: 'quando',
+      label: 'Creato',
+      width: 82,
+      destra: true,
+      numerica: true,
+      valore: (o) => o.created_at,
+      cella: (o) => <Text style={styles.tabData}>{dataIt(o.created_at)}</Text>,
+    },
+    {
+      chiave: 'stato',
+      label: 'Stato',
+      width: 108,
+      valore: (o) => o.stato,
+      cella: (o) => <StatusBadge small label={labelStatoOrdine[o.stato]} colore={coloreStatoOrdine[o.stato]} />,
+    },
+    {
+      chiave: 'azioni',
+      label: '',
+      width: 210,
+      fissa: true,
+      valore: () => null,
+      cella: (o) => (
+        <View style={styles.tabAzioni}>
+          {o.stato === 'da_incassare' ? (
+            <>
+              <Pressable style={styles.btn} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'incassato'); }}>
+                <Text style={styles.btnTxt}>Incassato</Text>
+              </Pressable>
+              <Pressable style={styles.btnGhost} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'annullato'); }}>
+                <Text style={styles.btnGhostTxt}>Annulla</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable style={styles.btnGhost} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'da_incassare'); }}>
+              <Text style={styles.btnGhostTxt}>Da incassare</Text>
+            </Pressable>
+          )}
+        </View>
+      ),
+    },
+  ];
+
   async function cambiaStato(o: OrdineConLuogo, stato: OrdineConLuogo['stato']) {
     try {
       await aggiornaOrdine(o.id, {
@@ -110,9 +182,10 @@ export default function Ordini() {
       </View>
 
       <FlatList
-        data={dati}
-        keyExtractor={(o) => o.id}
-        contentContainerStyle={[styles.list, contenutoCentrato]}
+        // In tabella la FlatList riceve UNA riga con l'intero elenco.
+        data={aTabella ? (dati.length ? [dati] : []) : dati}
+        keyExtractor={(o: any) => (aTabella ? 'tabella' : (o as OrdineConLuogo).id)}
+        contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
           <EmptyState
@@ -124,40 +197,56 @@ export default function Ordini() {
             onAzione={() => router.push('/(app)/trattative')}
           />
         }
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardHead}>
-              <Pressable style={{ flex: 1 }} onPress={() => item.place_id && router.push(`/(app)/attivita/${item.place_id}`)}>
-                <Text numberOfLines={3} style={styles.nome}>{item.place_nome ?? item.cliente}</Text>
-                {item.descrizione ? <Text style={styles.descr} numberOfLines={1}>{item.descrizione}</Text> : null}
-              </Pressable>
-              <Text style={styles.valore}>{euro(item.valore)}</Text>
-            </View>
-            <View style={styles.metaRow}>
-              <StatusBadge small label={labelStatoOrdine[item.stato]} colore={coloreStatoOrdine[item.stato]} />
-              {item.canale ? <Text style={styles.meta}>canale {item.canale}</Text> : null}
-              {item.linea ? <Text style={styles.meta}>{item.linea}</Text> : null}
-              <Text style={styles.meta}>{dataIt(item.created_at)}</Text>
-            </View>
-            <View style={styles.azioni}>
-              {item.stato === 'da_incassare' ? (
-                <>
-                  <Pressable style={styles.btn} onPress={() => cambiaStato(item, 'incassato')}>
-                    <Ionicons name="checkmark-circle-outline" size={15} color={colors.bianco} />
-                    <Text style={styles.btnTxt}>Segna incassato</Text>
-                  </Pressable>
-                  <Pressable style={styles.btnGhost} onPress={() => cambiaStato(item, 'annullato')}>
-                    <Text style={styles.btnGhostTxt}>Annulla</Text>
-                  </Pressable>
-                </>
-              ) : (
-                <Pressable style={styles.btnGhost} onPress={() => cambiaStato(item, 'da_incassare')}>
-                  <Text style={styles.btnGhostTxt}>Riporta a «da incassare»</Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
-        )}
+        renderItem={({ item }) =>
+          aTabella ? (
+            <Tabella
+              righe={item as OrdineConLuogo[]}
+              colonne={colonne}
+              chiaveRiga={(o) => o.id}
+              ordineIniziale={{ campo: 'quando', verso: 'desc' }}
+              onRiga={(o) => o.place_id && router.push(`/(app)/attivita/${o.place_id}`)}
+              labelRiga={(o) => `Apri la scheda di ${o.place_nome ?? o.cliente}`}
+            />
+          ) : (
+            (() => {
+              const o = item as OrdineConLuogo;
+              return (
+                <View style={styles.card}>
+                  <View style={styles.cardHead}>
+                    <Pressable style={{ flex: 1 }} onPress={() => o.place_id && router.push(`/(app)/attivita/${o.place_id}`)}>
+                      <Text numberOfLines={3} style={styles.nome}>{o.place_nome ?? o.cliente}</Text>
+                      {o.descrizione ? <Text style={styles.descr} numberOfLines={1}>{o.descrizione}</Text> : null}
+                    </Pressable>
+                    <Text style={styles.valore}>{euro(o.valore)}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <StatusBadge small label={labelStatoOrdine[o.stato]} colore={coloreStatoOrdine[o.stato]} />
+                    {o.canale ? <Text style={styles.meta}>canale {o.canale}</Text> : null}
+                    {o.linea ? <Text style={styles.meta}>{o.linea}</Text> : null}
+                    <Text style={styles.meta}>{dataIt(o.created_at)}</Text>
+                  </View>
+                  <View style={styles.azioni}>
+                    {o.stato === 'da_incassare' ? (
+                      <>
+                        <Pressable style={styles.btn} onPress={() => cambiaStato(o, 'incassato')}>
+                          <Ionicons name="checkmark-circle-outline" size={15} color={colors.bianco} />
+                          <Text style={styles.btnTxt}>Segna incassato</Text>
+                        </Pressable>
+                        <Pressable style={styles.btnGhost} onPress={() => cambiaStato(o, 'annullato')}>
+                          <Text style={styles.btnGhostTxt}>Annulla</Text>
+                        </Pressable>
+                      </>
+                    ) : (
+                      <Pressable style={styles.btnGhost} onPress={() => cambiaStato(o, 'da_incassare')}>
+                        <Text style={styles.btnGhostTxt}>Riporta a «da incassare»</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              );
+            })()
+          )
+        }
       />
     </View>
   );
@@ -188,6 +277,10 @@ const styles = StyleSheet.create({
   nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   descr: { color: colors.testoSoft, fontSize: 12.5, fontStyle: 'italic', marginTop: 1 },
   valore: { color: colors.navy, fontWeight: '800', fontSize: 15 },
+  tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabValore: { color: colors.testo, fontWeight: '700', fontSize: 13.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   meta: { color: colors.testoSoft, fontSize: 12 },
   azioni: { flexDirection: 'row', gap: 8 },

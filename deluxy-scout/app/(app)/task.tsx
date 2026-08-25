@@ -2,11 +2,12 @@
 // - "Miei": i task assegnati a me.
 // - "Tutti": ciò che l'RLS concede (creati da me; se admin, di tutti).
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import type { Task } from '@/types';
-import { colors, coloreProprita, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, coloreProprita, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { completaTask, eliminaTask, fetchTask } from '@/lib/db';
@@ -73,6 +74,101 @@ export default function TaskScreen() {
     }
   }
 
+  // Da 900px in su le due sezioni sono TABELLE (le righe-scheda sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
+  const colonne: ColonnaTabella<Task>[] = [
+    {
+      chiave: 'fatto',
+      label: '',
+      width: 34,
+      fissa: true,
+      valore: () => null,
+      cella: (t) => (
+        <Pressable
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            toggle(t);
+          }}
+          hitSlop={8}
+          accessibilityLabel={t.completata ? 'Riapri il task' : 'Segna come fatto'}
+        >
+          <Ionicons
+            name={t.completata ? 'checkmark-circle' : 'ellipse-outline'}
+            size={22}
+            color={t.completata ? colors.successo : coloreProprita[t.priorita]}
+          />
+        </Pressable>
+      ),
+    },
+    {
+      chiave: 'titolo',
+      label: 'Task',
+      flex: 1.6,
+      valore: (t) => t.titolo,
+      cella: (t) => (
+        <Text style={[styles.tabTitolo, t.completata && styles.titoloFatto]} numberOfLines={2}>
+          {t.titolo}
+        </Text>
+      ),
+    },
+    {
+      chiave: 'priorita',
+      label: 'Priorità',
+      width: 66,
+      valore: (t) => t.priorita,
+      cella: (t) => (t.completata ? <Text style={styles.tabMuto}>—</Text> : <PriorityBadge priorita={t.priorita} small />),
+    },
+    {
+      chiave: 'scadenza',
+      label: 'Scadenza',
+      width: 120,
+      destra: true,
+      numerica: true,
+      valore: (t) => t.scadenza ?? null,
+      cella: (t) => {
+        const sc = scadenzaInfo(t.scadenza);
+        if (!sc) return <Text style={styles.tabMuto}>—</Text>;
+        return (
+          <Text style={[styles.tabData, sc.ritardo && !t.completata && styles.metaRitardo]} numberOfLines={2}>
+            {sc.txt}
+          </Text>
+        );
+      },
+    },
+    { chiave: 'assegnato', label: 'Assegnato a', flex: 0.7, valore: (t) => t.owner_nome ?? null },
+    {
+      chiave: 'elimina',
+      label: '',
+      width: 36,
+      fissa: true,
+      valore: () => null,
+      cella: (t) => (
+        <Pressable
+          hitSlop={8}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            rimuovi(t);
+          }}
+          accessibilityLabel="Elimina il task"
+          {...({ title: 'Elimina' } as any)}
+        >
+          <Ionicons name="trash-outline" size={16} color={colors.errore} />
+        </Pressable>
+      ),
+    },
+  ];
+  const tabellaDi = (righe: Task[]) => (
+    <Tabella
+      righe={righe}
+      colonne={colonne}
+      chiaveRiga={(t) => t.id}
+      ordineIniziale={{ campo: 'scadenza', verso: 'asc' }}
+      onRiga={(t) => setModal(t)}
+      labelRiga={(t) => `Modifica «${t.titolo}»`}
+    />
+  );
+
   return (
     <View style={styles.container}>
       <PageIntro testo="I tuoi promemoria e quelli assegnati al team: spunta un task quando è fatto, toccalo per modificarlo." />
@@ -85,7 +181,7 @@ export default function TaskScreen() {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, contenutoCentrato]}
+        contentContainerStyle={[styles.content, aTabella ? contenutoLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
       >
         {tasks.length === 0 ? (
@@ -100,18 +196,22 @@ export default function TaskScreen() {
         {aperti.length > 0 ? (
           <>
             <Text style={styles.sezione}>Da fare ({aperti.length})</Text>
-            {aperti.map((t) => (
-              <RigaTask key={t.id} t={t} mostraOwner={scope === 'tutti'} onEdit={() => setModal(t)} onToggle={() => toggle(t)} onDelete={() => rimuovi(t)} />
-            ))}
+            {aTabella
+              ? tabellaDi(aperti)
+              : aperti.map((t) => (
+                  <RigaTask key={t.id} t={t} mostraOwner={scope === 'tutti'} onEdit={() => setModal(t)} onToggle={() => toggle(t)} onDelete={() => rimuovi(t)} />
+                ))}
           </>
         ) : null}
 
         {fatti.length > 0 ? (
           <>
             <Text style={[styles.sezione, { marginTop: spacing.lg }]}>Completati ({fatti.length})</Text>
-            {fatti.map((t) => (
-              <RigaTask key={t.id} t={t} mostraOwner={scope === 'tutti'} onEdit={() => setModal(t)} onToggle={() => toggle(t)} onDelete={() => rimuovi(t)} />
-            ))}
+            {aTabella
+              ? tabellaDi(fatti)
+              : fatti.map((t) => (
+                  <RigaTask key={t.id} t={t} mostraOwner={scope === 'tutti'} onEdit={() => setModal(t)} onToggle={() => toggle(t)} onDelete={() => rimuovi(t)} />
+                ))}
           </>
         ) : null}
       </ScrollView>
@@ -246,6 +346,9 @@ const styles = StyleSheet.create({
   metaSep: { color: colors.grigioChiaro, fontSize: 12 },
   meta: { color: colors.testoSoft, fontSize: 12, fontWeight: '600' },
   metaRitardo: { color: colors.errore, fontWeight: '800' },
+  tabTitolo: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabMuto: { color: colors.grigio, fontSize: 12.5 },
+  tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   del: { width: 24, alignItems: 'flex-end' },
   fab: {
     position: 'absolute',
