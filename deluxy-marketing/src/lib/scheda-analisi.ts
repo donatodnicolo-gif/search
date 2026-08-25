@@ -151,7 +151,12 @@ Regole, nell'ordine in cui contano:
    specifico, con verdetto e una riga di nota: è quello che la scheda campagna
    mostrerà accanto al bottone ANALISI.
 7. "nonCoperto": cosa il documento dichiara di NON aver potuto verificare.
-8. Scrivi conciso: la scheda si legge in un minuto, il documento resta su Drive.`;
+8. Se il documento è un AUDIT o una verifica (checklist, controlli su
+   tracciamento, struttura account, asset, landing): i findings sono i
+   CONTROLLI FALLITI, i KPI sono i conteggi e i punteggi che l'audit stesso
+   dà (controlli passati/totali, score), e il verdetto è lo stato dell'ACCOUNT
+   — non delle vendite. Un audit non giudica il ROAS: giudica la casa.
+9. Scrivi conciso: la scheda si legge in un minuto, il documento resta su Drive.`;
 
 export type EsitoElaborazione =
   | { ok: true; verdetto: VerdettoScheda; kpi: number; findings: number; campagne: number }
