@@ -119,7 +119,10 @@
 > (Gifts 70.106 · Flowers 18.357 · Cake 4.268), **tutte agganciate alla loro
 > campagna** (0 orfane su 92.731) e riviste stanotte. Una sola campagna Google
 > attiva non ne ha nessuna: `[Deluxyflower] Brand protection`.
-> Campagne: Google **21 attive · 140 in pausa**, Meta **10 · 58**.
+> Campagne: Google **21 attive · 140 in pausa**; Meta a mezzogiorno diceva
+> **10 · 58**, ma era il difetto degli stati congelati (vedi FATTO): dopo la
+> correzione sono **8 · 61** — e degli 8, **2 sono i fantasmi senza id** (vivi
+> nel database, esclusi dal file per il custode), quindi le accese vere sono **6**.
 > Spesa 7 giorni: Google Flowers 969 € · Gifts 710 € · Cake 233 €;
 > Meta Flowers 318 € · Cake 131 € · Gifts 109 €.
 >
@@ -377,7 +380,9 @@ smette solo di affermare una cosa che il file promette di non affermare.
 **Provato in produzione, non dedotto**: due sync Meta vere dopo i deploy →
 `statiAllineati` 2+1+5 al primo giro e 1 al secondo; DEF ATC → **PAUSED**, Festa
 della Mamma → **PAUSED**; le campagne Meta che l'app dice accese sono passate da
-**10 a 8**, e le 8 coincidono con quelle dichiarate dall'analisi.
+**10 a 8** — e va detto giusto: **6 vere + i 2 fantasmi senza id**, che il ponte
+filtra ma il database conserva. Sul perimetro coperto dall'analisi (Gifts) le
+accese vere sono 2 — VENDITE e [Palloncini] AWARENESS — e **coincidono**.
 
 ⚠️ **Le due righe fantasma restano nel database** (marcate `defunta` da noi,
 `statoPiattaforma` ENABLED, senza id): non le tocco senza mandato. Vanno
