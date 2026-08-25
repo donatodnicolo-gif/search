@@ -11,35 +11,49 @@
 // significherebbero niente. Sommarle insieme non fa un totale piu' grande, fa
 // un totale sbagliato.
 //
-// ⭐ FORMULE RISCRITTE IL 25/08/2026, e prima erano capovolte.
-// -----------------------------------------------------------
-// `Delivery.price` su una VENDITA e' la QUOTA CHE TRATTENIAMO NOI, non cio' che
-// paghiamo al partner. Misurato sulle 12.247 vendite: vale il 12,5% del valore
-// dei prodotti, e su 8.470 righe **5.221 (il 62%)** hanno quella quota identica
-// **entro un decimo di punto** alla fee% dichiarata del partner; solo 159
-// (l'1,9%) superano meta' del venduto, cioe' sono anche solo compatibili con la
-// lettura vecchia. Esempio deciso dall'utente: bouquet da 410 €, quota 73,80 €
-// (= 18%, la fee di Arte e Fiori Firenze) → **al fioraio dobbiamo 336,20 €**,
-// non 73,80.
+// ⭐ FORMULE RISCRITTE IL 25/08/2026, e prima erano capovolte: la pagina
+// trattava `Delivery.price` come cio' che PAGHIAMO al partner, mentre e' la
+// quota che TRATTENIAMO noi — cosi' Deluxy risultava tenersi l'87% di ogni
+// vendita. E' la lettura che la Fatturazione aveva gia' («nei servizi di VENDITA
+// il denaro va nell'altro verso: il cliente paga Deluxy, Deluxy trattiene la sua
+// percentuale e deve il resto al partner», `invoices.module.ts`).
 //
-// E' la stessa lettura della Fatturazione (`invoices.module.ts`,
-// `prezzoConsegna`: «nei servizi di VENDITA il denaro va nell'altro verso: il
-// cliente paga Deluxy, Deluxy trattiene la sua percentuale e deve il resto al
-// partner»), gia' verificata sui dati veri. Ora i due moduli dicono lo stesso
-// numero sugli stessi ordini.
+// ⭐⭐ CORRETTO ANCORA POCHE ORE DOPO, e stavolta dai numeri dell'utente.
+// --------------------------------------------------------------------------
+// Il valore dato al partner NON si calcola: **e' scritto**, in
+// `Delivery.productValue` (nel legacy la colonna 56 di `delivery`, importata dal
+// primo giorno e mai letta da questa pagina). Lo ha fatto notare l'utente:
+// «per il 62395 al partner abbiamo dato 70 €» — e `productValue` di #62395 vale
+// esattamente 70.
 //
-//   venduto            = somma( DeliveryProduct.price x quantita )
-//   consegnaPrezzo     = Delivery.deliveryPrice        (qui sempre 0, vedi sotto)
-//   valoreVendite      = venduto + consegnaPrezzo
-//   corrispettivo      = Delivery.price + additionalPrice   <- QUELLO CHE RESTA A NOI
-//   dovutoAlPartner    = valoreVendite - corrispettivo
-//   feePercent         = corrispettivo / valoreVendite       (la fee VERA, dai soldi)
-//   feePercentContract = Partner.commissionPercent           (quella in anagrafica)
-//   corrispettivoConIva= corrispettivo x 1.22
-//   iva                = corrispettivo x 22%
-//   commissioneIncassi = valoreVendite x 3%
+// Prova decisiva su 8.850 vendite: `Delivery.price` e' la fee di contratto
+// calcolata su **productValue**, non sul prezzo pubblico — combacia con la fee%
+// del partner entro un decimo di punto nel **92,6%** dei casi contro il 62,6%
+// usando il prezzo delle righe.
+//
+// E il GUADAGNO e' la differenza, **al netto IVA**: #63013 → pubblico 135, al
+// partner 80, differenza 55, e 55/1,22 = **45,08**, cioe' i «45» dell'utente.
+// E' la stessa scelta gia' fatta in Deluxy Orders (margine sempre al netto IVA,
+// 22% su tutto).
+//
+//   prezzoPubblico     = somma( DeliveryProduct.price x quantita )
+//   datoAlPartner      = Delivery.productValue        <- SCRITTO, non dedotto
+//   guadagnoLordo      = prezzoPubblico - datoAlPartner
+//   guadagnoNetto      = guadagnoLordo / 1.22         <- il guadagno vero
+//   iva                = guadagnoLordo - guadagnoNetto
+//   feeContratto       = Delivery.price + additionalPrice  (quota a listino, per confronto)
+//   feePercent         = guadagnoLordo / prezzoPubblico
+//   feePercentContract = Partner.commissionPercent
+//   commissioneIncassi = prezzoPubblico x 3%
 //   costoConsegna      = paga del valet + plus/minus
-//   margineTotale      = corrispettivo - costoConsegna - iva - commissioneIncassi
+//   margineTotale      = guadagnoNetto - costoConsegna - commissioneIncassi
+//
+// ⚠️ L'IVA **non si sottrae due volte**: il guadagno netto l'ha gia' tolta. La
+// colonna IVA c'e' per farla vedere, non per rientrare nel margine.
+//
+// ⚠️ `Delivery.price` resta a schermo come **quota di contratto**, accanto al
+// guadagno vero: sull'archivio valgono 165.739 € contro 188.007 € lordi, e dove
+// si scostano c'e' qualcosa da guardare.
 //
 // ⚠️ Il venduto si legge dalla RIGA DI CONSEGNA (`DeliveryProduct.price`, la
 // fotografia di quel giorno), non dal catalogo: il catalogo intanto cambia, e
@@ -113,7 +127,11 @@ const MODELLO_VENDITA = 'VENDITA';
  * vanno corretti alla fonte — `scripts/estrai-anomalie-prezzo-vendite.mjs` li
  * tira fuori tutti, col confronto contro l'ordine Shopify.
  */
-type Anomalia = 'quota_oltre_venduto' | 'venduto_a_zero' | 'quota_a_zero' | null;
+type Anomalia =
+  | 'partner_oltre_pubblico'
+  | 'venduto_a_zero'
+  | 'valore_partner_mancante'
+  | null;
 
 interface CorrispettivoRow {
   deliveryId: string;
@@ -125,19 +143,22 @@ interface CorrispettivoRow {
   /** Il servizio del partner: e' cio' per cui la riga e' qui (sempre di VENDITA). */
   service: string;
   partner: string;
-  /** Somma dei prezzi scritti sulle righe di consegna. */
+  /** Prezzo pubblico: somma dei prezzi scritti sulle righe di consegna. */
   publicPrice: number;
   deliveryFee: number;
   saleValue: number;
-  /** Quello che resta a noi: `Delivery.price` + plus/minus. */
-  takings: number;
-  /** Quello che dobbiamo al partner: valore vendite - corrispettivo. */
+  /** Quello che abbiamo dato al partner: `Delivery.productValue`, scritto. */
   partnerPrice: number;
-  /** La fee vera, ricavata dagli importi. */
+  /** Guadagno lordo: prezzo pubblico - dato al partner. */
+  takings: number;
+  /** Guadagno al NETTO IVA: e' il guadagno vero. */
+  takingsNet: number;
+  /** La quota che sarebbe spettata a listino (`Delivery.price` + plus/minus). */
+  feeContract: number;
+  /** Il guadagno lordo in percentuale sul pubblico. */
   feePercent: number;
   /** La fee scritta in anagrafica: se diverge da quella vera, si vede. */
   feePercentContract: number;
-  feeWithVat: number;
   deliveryCost: number;
   vat: number;
   incassiCommission: number;
@@ -232,6 +253,8 @@ export class FinanceService {
       // ⚠️ Un tetto c'e' sempre: senza, un periodo largo rimette la pagina
       // esattamente nella condizione da cui non rispondeva.
       take: Math.min(5000, Math.max(1, opzioni.limite ?? 2000)),
+      // `productValue` e' il valore dato al partner: senza di lui questa pagina
+      // deduce cio' che e' gia' scritto, ed e' l'errore appena corretto.
       include: {
         partner: { select: { insegna: true, commissionPercent: true } },
         serviceType: { select: { name: true, pricingModel: true } },
@@ -283,15 +306,16 @@ export class FinanceService {
       deliveries: rows.length,
       /** Consegne a buon fine del periodo che NON sono vendite (fuori ambito). */
       excluded: escluse,
-      /** Righe col prezzo sbagliato in origine: si contano, non si nascondono. */
+      /** Righe non attendibili: si contano, non si nascondono. */
       anomalie: rows.filter((r) => r.anomalia).length,
       publicPrice: round2(sum((r) => r.publicPrice)),
       deliveryFee: round2(sum((r) => r.deliveryFee)),
       saleValue: round2(saleValue),
-      takings: round2(takings),
       partnerPrice: round2(sum((r) => r.partnerPrice)),
+      takings: round2(takings),
+      takingsNet: round2(sum((r) => r.takingsNet)),
+      feeContract: round2(sum((r) => r.feeContract)),
       feePercent: saleValue > 0 ? round2((takings / saleValue) * 100) : 0,
-      feeWithVat: round2(sum((r) => r.feeWithVat)),
       deliveryCost: round2(sum((r) => r.deliveryCost)),
       vat: round2(sum((r) => r.vat)),
       incassiCommission: round2(sum((r) => r.incassiCommission)),
@@ -302,38 +326,36 @@ export class FinanceService {
 
   private computeRow(d: any): CorrispettivoRow {
     const lines: any[] = d.products ?? [];
-    // Il venduto e' la fotografia di quel giorno, non il catalogo di oggi.
+    // Il prezzo pubblico e' la fotografia di quel giorno, non il catalogo di oggi.
     const publicPrice = lines.reduce((s, l) => s + (l.price ?? 0) * (l.quantity ?? 1), 0);
     const deliveryFee = d.deliveryPrice ?? 0;
     const saleValue = publicPrice + deliveryFee;
-    // Quello che resta a noi. Uno sconto non puo' portarlo sotto zero: e' la
-    // stessa regola della Fatturazione (`mai_negativo`).
-    const takings = Math.max(0, (d.price ?? 0) + (d.additionalPrice ?? 0));
-    const partnerPrice = Math.max(0, saleValue - takings);
-    const feePercent = saleValue > 0 ? (takings / saleValue) * 100 : 0;
-    const feeWithVat = takings * (1 + VAT);
+    // ⚠️ SI LEGGE, non si calcola. E il vuoto resta vuoto: dove `productValue`
+    // manca (418 vendite) non si mette zero, si dichiara — con zero il partner
+    // risulterebbe non aver preso niente e il guadagno sarebbe tutto nostro.
+    const haValorePartner = (d.productValue ?? 0) > 0;
+    const partnerPrice = d.productValue ?? 0;
+    const takings = haValorePartner ? saleValue - partnerPrice : 0;
+    const takingsNet = takings / (1 + VAT);
+    // L'IVA e' quella gia' tolta dal guadagno: si mostra, non si risottrae.
+    const vat = takings - takingsNet;
+    const feeContractAmount = Math.max(0, (d.price ?? 0) + (d.additionalPrice ?? 0));
+    const feePercent = saleValue > 0 && haValorePartner ? (takings / saleValue) * 100 : 0;
     const deliveryCost = (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0);
-    const vat = takings * VAT;
     const incassiCommission = saleValue * INCASSI;
-    const totalMargin = takings - deliveryCost - vat - incassiCommission;
+    const totalMargin = takingsNet - deliveryCost - incassiCommission;
     const feeContract = d.partner?.commissionPercent ?? 0;
-    // ⚠️ In ordine: la prima rende la riga impossibile (tratteniamo piu' di
-    // quanto e' stato venduto), le altre due dicono che manca un pezzo.
-    //
-    // ⚠️⚠️ «Niente trattenuto» e' un'anomalia SOLO se il partner una fee ce
-    // l'ha. Con la fee a 0% non abbiamo trattenuto niente perche' non si doveva
-    // trattenere niente: e' una scelta commerciale, non un buco. Misurato il
-    // 25/08: delle 3.003 vendite senza quota, **2.880** sono di partner a fee
-    // zero e solo **123** sono un dato mancante (2.206 € di quota). Segnalarle
-    // tutte avrebbe accusato 2.880 righe sane — e' la stessa distinzione che la
-    // Fatturazione aveva gia' dovuto imparare.
+    // ⚠️ Le tre cose che rendono la riga non attendibile, in ordine di gravita'.
+    // Un guadagno a zero NON e' fra queste: con un partner a fee 0% e' una
+    // scelta commerciale, non un buco (delle 3.003 vendite senza quota, 2.880
+    // erano proprio questo — accusarle tutte avrebbe segnalato righe sane).
     const anomalia: Anomalia =
       saleValue <= 0
         ? 'venduto_a_zero'
-        : takings > saleValue
-          ? 'quota_oltre_venduto'
-          : takings <= 0 && feeContract > 0
-            ? 'quota_a_zero'
+        : !haValorePartner
+          ? 'valore_partner_mancante'
+          : partnerPrice > saleValue
+            ? 'partner_oltre_pubblico'
             : null;
     const first = lines[0];
     const productLabel = lines.length
@@ -353,11 +375,12 @@ export class FinanceService {
       publicPrice: round2(publicPrice),
       deliveryFee: round2(deliveryFee),
       saleValue: round2(saleValue),
-      takings: round2(takings),
       partnerPrice: round2(partnerPrice),
+      takings: round2(takings),
+      takingsNet: round2(takingsNet),
+      feeContract: round2(feeContractAmount),
       feePercent: round2(feePercent),
       feePercentContract: round2(feeContract),
-      feeWithVat: round2(feeWithVat),
       deliveryCost: round2(deliveryCost),
       vat: round2(vat),
       incassiCommission: round2(incassiCommission),

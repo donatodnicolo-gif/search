@@ -14,26 +14,28 @@ interface CorrispettivoRow {
   category: string | null;
   service: string;
   partner: string;
-  /** Il venduto: somma dei prezzi scritti sulle righe di consegna. */
+  /** Prezzo pubblico: somma dei prezzi scritti sulle righe di consegna. */
   publicPrice: number;
   deliveryFee: number;
   saleValue: number;
-  /** Quello che resta a noi. */
-  takings: number;
-  /** Quello che dobbiamo al partner. */
+  /** Quello che abbiamo DATO al partner: sta scritto sulla consegna. */
   partnerPrice: number;
-  /** La fee vera, ricavata dagli importi. */
+  /** Guadagno lordo: pubblico - dato al partner. */
+  takings: number;
+  /** Guadagno al netto IVA: e' il guadagno vero. */
+  takingsNet: number;
+  /** La quota che sarebbe spettata a listino, per confronto. */
+  feeContract: number;
   feePercent: number;
   /** La fee scritta in anagrafica. */
   feePercentContract: number;
-  feeWithVat: number;
   deliveryCost: number;
   vat: number;
   incassiCommission: number;
   totalMargin: number;
   totalMarginPercent: number;
-  /** Perche' la riga non e' attendibile (prezzo sbagliato all'origine). */
-  anomalia: 'quota_oltre_venduto' | 'venduto_a_zero' | 'quota_a_zero' | null;
+  /** Perche' la riga non e' attendibile. */
+  anomalia: 'partner_oltre_pubblico' | 'venduto_a_zero' | 'valore_partner_mancante' | null;
 }
 
 interface Summary {
@@ -45,10 +47,11 @@ interface Summary {
   publicPrice: number;
   deliveryFee: number;
   saleValue: number;
-  takings: number;
   partnerPrice: number;
+  takings: number;
+  takingsNet: number;
+  feeContract: number;
   feePercent: number;
-  feeWithVat: number;
   deliveryCost: number;
   vat: number;
   incassiCommission: number;
@@ -68,12 +71,18 @@ interface Summary {
  * formule darebbero numeri senza significato. Quante ne restano fuori e' scritto
  * a schermo — un filtro silenzioso fa sommare una parte credendola il tutto.
  *
- * ⭐ 25/08/2026 le colonne sono cambiate, non solo i numeri: su una vendita il
- * «prezzo partner» NON e' cio' che paghiamo al fioraio ma la quota che
- * TRATTENIAMO noi. Ora la tabella dice «Corrispettivo» per quello che resta a
- * noi e «Dovuto al partner» per il resto, mostra la fee VERA accanto a quella
- * di contratto, e marca le righe col prezzo sbagliato all'origine invece di
- * lasciarle in mezzo alle altre. Vedi finance.module.ts.
+ * ⭐⭐ 25/08/2026, due correzioni in un giorno. La prima: su una vendita il
+ * «prezzo partner» non e' cio' che paghiamo al fioraio ma la quota che
+ * tratteniamo noi. La seconda, dai numeri dell'utente: **il valore dato al
+ * partner non si calcola, sta scritto sulla consegna** (`productValue`), e il
+ * guadagno e' la differenza col prezzo pubblico **al netto IVA** — #63013:
+ * 135 − 80 = 55, e 55/1,22 = 45,08.
+ *
+ * La tabella mostra affiancati **Dato al partner** (letto), **Guadagno lordo**,
+ * **Guadagno netto IVA** e la **quota di contratto** (quello che sarebbe
+ * spettato a listino): dove le ultime due si scostano c'e' qualcosa da
+ * guardare. Le righe non attendibili sono marcate col motivo, non nascoste.
+ * Vedi finance.module.ts.
  */
 @Component({
   selector: 'app-finance',
@@ -143,8 +152,10 @@ interface Summary {
         <div class="cards">
           <div class="stat"><span class="k">{{ 'finance.m.deliveries' | translate }}</span><span class="v">{{ s.deliveries }}</span></div>
           <div class="stat"><span class="k">{{ 'finance.c.saleValue' | translate }}</span><span class="v">{{ euro(s.saleValue) }}</span></div>
-          <div class="stat"><span class="k">{{ 'finance.c.takings' | translate }}</span><span class="v">{{ euro(s.takings) }}</span><span class="pct">{{ s.feePercent | number: '1.0-2' }}%</span></div>
           <div class="stat"><span class="k">{{ 'finance.c.partnerPrice' | translate }}</span><span class="v">{{ euro(s.partnerPrice) }}</span></div>
+          <div class="stat"><span class="k">{{ 'finance.c.takings' | translate }}</span><span class="v">{{ euro(s.takings) }}</span><span class="pct">{{ s.feePercent | number: '1.0-2' }}%</span></div>
+          <div class="stat"><span class="k">{{ 'finance.c.takingsNet' | translate }}</span><span class="v">{{ euro(s.takingsNet) }}</span></div>
+          <div class="stat"><span class="k">{{ 'finance.c.feeContract' | translate }}</span><span class="v">{{ euro(s.feeContract) }}</span></div>
           <div class="stat"><span class="k">{{ 'finance.c.deliveryCost' | translate }}</span><span class="v">{{ euro(s.deliveryCost) }}</span></div>
           <div class="stat"><span class="k">{{ 'finance.c.vat' | translate }}</span><span class="v">{{ euro(s.vat) }}</span></div>
           <div class="stat"><span class="k">{{ 'finance.c.incassiCommission' | translate }}</span><span class="v">{{ euro(s.incassiCommission) }}</span></div>
@@ -169,11 +180,12 @@ interface Summary {
                 <th class="num">{{ 'finance.c.publicPrice' | translate }}</th>
                 <th class="num">{{ 'finance.c.deliveryFee' | translate }}</th>
                 <th class="num">{{ 'finance.c.saleValue' | translate }}</th>
+                <th class="num">{{ 'finance.c.partnerPrice' | translate }}</th>
                 <th class="num">{{ 'finance.c.takings' | translate }}</th>
+                <th class="num">{{ 'finance.c.takingsNet' | translate }}</th>
                 <th class="num">{{ 'finance.c.feePercent' | translate }}</th>
                 <th class="num">{{ 'finance.c.feePercentContract' | translate }}</th>
-                <th class="num">{{ 'finance.c.feeWithVat' | translate }}</th>
-                <th class="num">{{ 'finance.c.partnerPrice' | translate }}</th>
+                <th class="num">{{ 'finance.c.feeContract' | translate }}</th>
                 <th class="num">{{ 'finance.c.deliveryCost' | translate }}</th>
                 <th class="num">{{ 'finance.c.vat' | translate }}</th>
                 <th class="num">{{ 'finance.c.incassiCommission' | translate }}</th>
@@ -198,13 +210,17 @@ interface Summary {
                   <td class="num">{{ euro(r.publicPrice) }}</td>
                   <td class="num">{{ euro(r.deliveryFee) }}</td>
                   <td class="num">{{ euro(r.saleValue) }}</td>
+                  <!-- Letto dalla consegna, non dedotto: dove manca si dichiara. -->
+                  <td class="num">
+                    @if (r.anomalia === 'valore_partner_mancante') { — } @else { {{ euro(r.partnerPrice) }} }
+                  </td>
                   <td class="num">{{ euro(r.takings) }}</td>
-                  <!-- La fee vera e quella di contratto affiancate: se non
+                  <td class="num" [class.neg]="r.takingsNet < 0">{{ euro(r.takingsNet) }}</td>
+                  <!-- La percentuale vera e quella di contratto affiancate: se non
                        combaciano si vede senza doverlo cercare. -->
                   <td class="num" [class.diverge]="scostaDalContratto(r)">{{ r.feePercent | number: '1.0-1' }}%</td>
                   <td class="num contratto">{{ r.feePercentContract | number: '1.0-1' }}%</td>
-                  <td class="num">{{ euro(r.feeWithVat) }}</td>
-                  <td class="num">{{ euro(r.partnerPrice) }}</td>
+                  <td class="num contratto">{{ euro(r.feeContract) }}</td>
                   <td class="num">{{ euro(r.deliveryCost) }}</td>
                   <td class="num">{{ euro(r.vat) }}</td>
                   <td class="num">{{ euro(r.incassiCommission) }}</td>
@@ -220,11 +236,12 @@ interface Summary {
                   <td class="num">{{ euro(s.publicPrice) }}</td>
                   <td class="num">{{ euro(s.deliveryFee) }}</td>
                   <td class="num">{{ euro(s.saleValue) }}</td>
+                  <td class="num">{{ euro(s.partnerPrice) }}</td>
                   <td class="num">{{ euro(s.takings) }}</td>
+                  <td class="num">{{ euro(s.takingsNet) }}</td>
                   <td class="num">{{ s.feePercent | number: '1.0-1' }}%</td>
                   <td class="num"></td>
-                  <td class="num">{{ euro(s.feeWithVat) }}</td>
-                  <td class="num">{{ euro(s.partnerPrice) }}</td>
+                  <td class="num">{{ euro(s.feeContract) }}</td>
                   <td class="num">{{ euro(s.deliveryCost) }}</td>
                   <td class="num">{{ euro(s.vat) }}</td>
                   <td class="num">{{ euro(s.incassiCommission) }}</td>
@@ -384,16 +401,18 @@ export class FinanceComponent {
     const head = [
       t('finance.c.status'), t('finance.c.delivery'), t('finance.c.date'), t('finance.c.product'),
       t('finance.c.category'), t('finance.c.service'), t('finance.c.partner'), t('finance.c.publicPrice'), t('finance.c.deliveryFee'),
-      t('finance.c.saleValue'), t('finance.c.takings'), t('finance.c.feePercent'), t('finance.c.feePercentContract'),
-      t('finance.c.feeWithVat'), t('finance.c.partnerPrice'), t('finance.c.deliveryCost'),
+      t('finance.c.saleValue'), t('finance.c.partnerPrice'), t('finance.c.takings'), t('finance.c.takingsNet'),
+      t('finance.c.feePercent'), t('finance.c.feePercentContract'), t('finance.c.feeContract'), t('finance.c.deliveryCost'),
       t('finance.c.vat'), t('finance.c.incassiCommission'), t('finance.c.totalMargin'),
       t('finance.c.totalMarginPercent'), t('finance.c.anomalia'),
     ];
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const rows = this.rows().map((r) => [
       r.status, `#${r.deliveryCode}`, r.date.slice(0, 10), r.product, r.category ?? '', r.service, r.partner,
-      r.publicPrice.toFixed(2), r.deliveryFee.toFixed(2), r.saleValue.toFixed(2), r.takings.toFixed(2),
-      r.feePercent.toFixed(1), r.feePercentContract.toFixed(1), r.feeWithVat.toFixed(2), r.partnerPrice.toFixed(2),
+      r.publicPrice.toFixed(2), r.deliveryFee.toFixed(2), r.saleValue.toFixed(2),
+      r.anomalia === 'valore_partner_mancante' ? '' : r.partnerPrice.toFixed(2),
+      r.takings.toFixed(2), r.takingsNet.toFixed(2),
+      r.feePercent.toFixed(1), r.feePercentContract.toFixed(1), r.feeContract.toFixed(2),
       r.deliveryCost.toFixed(2), r.vat.toFixed(2), r.incassiCommission.toFixed(2),
       r.totalMargin.toFixed(2), r.totalMarginPercent.toFixed(2),
       r.anomalia ? t('finance.anomalia.' + r.anomalia) : '',

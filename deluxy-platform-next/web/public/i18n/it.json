@@ -873,7 +873,7 @@
     "export": "Esporta",
     "empty": "Nessuna vendita nel periodo.",
     "total": "Totale",
-    "assumption": "Su una vendita il cliente paga Deluxy, Deluxy trattiene la sua quota e deve il resto al partner. Le stesse formule della Fatturazione. Venduto letto dalla riga di consegna, IVA 22% sul corrispettivo, commissione incassi 3%.",
+    "assumption": "Il valore dato al partner è scritto sulla consegna, non calcolato. Guadagno = prezzo pubblico − dato al partner, mostrato lordo e al netto IVA (÷1,22). Accanto, la quota che sarebbe spettata a listino.",
     "tab": {
       "corrispettivi": "Corrispettivi",
       "margini": "Margini"
@@ -888,18 +888,19 @@
       "publicPrice": "Venduto",
       "deliveryFee": "Consegna prezzo",
       "saleValue": "Valore vendite",
-      "partnerPrice": "Dovuto al partner",
-      "feePercent": "Fee % reale",
-      "feeWithVat": "Corrispettivo +IVA",
+      "partnerPrice": "Dato al partner",
+      "feePercent": "Guadagno %",
       "deliveryCost": "Costo consegna",
-      "takings": "Corrispettivo (a noi)",
+      "takings": "Guadagno lordo",
       "vat": "IVA",
       "incassiCommission": "Commissione incassi",
       "totalMargin": "Margine totale",
       "totalMarginPercent": "Margine totale %",
       "service": "Servizio",
       "feePercentContract": "Fee % contratto",
-      "anomalia": "Anomalia"
+      "anomalia": "Anomalia",
+      "takingsNet": "Guadagno netto IVA",
+      "feeContract": "Quota a listino"
     },
     "m": {
       "deliveries": "Consegne"
@@ -914,11 +915,11 @@
     "capped": "Mostrate {{n}} righe: il periodo scelto ne contiene di piu'. Stringi le date o filtra, o i totali non corrispondono all'elenco.",
     "onlySales": "Corrispettivi: solo le consegne con un servizio di tipo Vendita.",
     "excluded": "Nel periodo ce ne sono altre {{n}} con altri servizi (sola consegna, a ora, magazzino, aziendale): non sono vendite e restano fuori dai conti.",
-    "anomalie": "{{n}} righe hanno un prezzo sbagliato all'origine e sono marcate in tabella: i totali le comprendono così come sono.",
+    "anomalie": "{{n}} righe non sono attendibili e sono marcate in tabella: i totali le comprendono così come sono.",
     "anomalia": {
-      "quota_oltre_venduto": "trattenuto > venduto",
-      "venduto_a_zero": "venduto a zero",
-      "quota_a_zero": "niente trattenuto"
+      "partner_oltre_pubblico": "al partner più del pubblico",
+      "venduto_a_zero": "prezzo pubblico a zero",
+      "valore_partner_mancante": "manca il valore al partner"
     }
   },
   "stub": {

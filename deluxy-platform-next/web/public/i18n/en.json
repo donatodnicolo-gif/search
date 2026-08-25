@@ -873,7 +873,7 @@
     "export": "Export",
     "empty": "No sales in this period.",
     "total": "Total",
-    "assumption": "On a sale the customer pays Deluxy, Deluxy keeps its share and owes the rest to the partner. Same formulas as Invoicing. Sold value read from the delivery line, 22% VAT on the takings, 3% collection fee.",
+    "assumption": "The value given to the partner is recorded on the delivery, not derived. Profit = public price − value given to the partner, shown gross and net of VAT (÷1.22). Alongside, the share due under the contract.",
     "tab": {
       "corrispettivi": "Takings",
       "margini": "Margins"
@@ -888,18 +888,19 @@
       "publicPrice": "Sold",
       "deliveryFee": "Delivery price",
       "saleValue": "Sales value",
-      "partnerPrice": "Owed to partner",
-      "feePercent": "Actual fee %",
-      "feeWithVat": "Takings +VAT",
+      "partnerPrice": "Given to partner",
+      "feePercent": "Profit %",
       "deliveryCost": "Delivery cost",
-      "takings": "Takings (ours)",
+      "takings": "Gross profit",
       "vat": "VAT",
       "incassiCommission": "Collection commission",
       "totalMargin": "Total margin",
       "totalMarginPercent": "Total margin %",
       "service": "Service",
       "feePercentContract": "Contract fee %",
-      "anomalia": "Anomaly"
+      "anomalia": "Anomaly",
+      "takingsNet": "Profit net of VAT",
+      "feeContract": "Contract share"
     },
     "m": {
       "deliveries": "Deliveries"
@@ -914,11 +915,11 @@
     "capped": "Showing {{n}} rows: the chosen period holds more. Narrow the dates or filter, or the totals will not match the list.",
     "onlySales": "Takings: only deliveries whose service is of type Sale.",
     "excluded": "This period has {{n}} more with other services (delivery only, hourly, warehouse, corporate): they are not sales and stay out of the figures.",
-    "anomalie": "{{n}} rows have a wrong price at the source and are flagged in the table: the totals include them as they are.",
+    "anomalie": "{{n}} rows are not reliable and are flagged in the table: the totals include them as they are.",
     "anomalia": {
-      "quota_oltre_venduto": "kept > sold",
-      "venduto_a_zero": "sold is zero",
-      "quota_a_zero": "nothing kept"
+      "partner_oltre_pubblico": "partner got more than public",
+      "venduto_a_zero": "public price is zero",
+      "valore_partner_mancante": "partner value missing"
     }
   },
   "stub": {
