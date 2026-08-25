@@ -45,6 +45,27 @@ rifatta**, prima su telefono e poi in gerarchia sul desktop — vedi §9):
 - 🔎 **Da guardare a schermo, sul telefono vero**: la barra fissa in basso, il foglio
   «⋯ Altro» e che «Delega Renè» si apra **sopra** la barra e non dentro.
 
+**Ricontrollo delle 12:55 — questa volta guardando il DATABASE di produzione, non solo
+l'app.** Fino a oggi la fotografia si fermava a `/api/health` e al deploy; leggere le
+tabelle ha corretto **quattro** voci dei punti aperti (dettaglio sotto, punti 1-bis, 2, 4, 6).
+Quello che si vede in produzione adesso:
+
+| | |
+|---|---|
+| Caselle attive | **8** (`commerciale@`, `cs@` ×2, `info@deluxyflowers.com`, `edoardo.`, `eleonora.`, `nicolo.`, `renato.`) |
+| Utenti | **10** |
+| Messaggi | **31.575** (l'ultimo entrato alle 12:45) |
+| Ultimo giro del cron | **12:55:56–12:56:00**, tutte e 8 le caselle, **zero errori** |
+| Arretrato posta in arrivo | finito ovunque (`storicoFinito = true` × 8) |
+| Attività | 213, di cui **44 aperte** |
+| Iscrizioni alle notifiche push | 🔴 **1 sola**, su 10 utenti |
+| Chiavi delle app Deluxy | tutte e 7 presenti (anagrafiche, calendario, commerciale, finance, fornitori, scripts, tasks) |
+
+⚠️ Due righe `Account` hanno la **stessa casella `cs@deluxy.it`** con lo stesso intervallo
+di UID (16917..25821), su due utenti diversi: è il funzionamento previsto del multi-utente
+(ognuno ha la sua copia della casella condivisa), ma vuol dire che quella posta viene
+scaricata e analizzata **due volte** a ogni giro. Da confermare con l'utente se è voluto.
+
 - ⚠️ **Il push non pubblica**: il deploy è manuale —
   `npx vercel --prod --cwd C:/Users/nicol/scoutwt/deluxy-mail`, da lanciare come
   comando **semplice** — quindi prima di dire «è online» si verifica che la
@@ -120,11 +141,20 @@ l'apertura di una mail resa veloce (vedi punto 1 qui sotto).
    prima e ora si possono fondere.
 1-bis. ✅ **Migrazione del vincolo UID: VERIFICATA sul database** (17/08, letto da
    `pg_indexes`): esiste `Messaggio_accountId_direzione_uid_key`, il vecchio
-   `Messaggio_accountId_uid_key` non c'è più. ⚠️ **Come leggere la produzione da
-   qui**: la stringa sta in `A_DATABASE_URL` di `.env` (`DATABASE_URL` sta in
-   `.env.local` e punta al Postgres **locale**), e per query parametrizzate va
-   usata la porta **5432** — sulla 6543 (pgbouncer) danno
-   «prepared statement "s0" already exists».
+   `Messaggio_accountId_uid_key` non c'è più.
+   🔴 **Come leggere la produzione da qui — CORRETTO il 25/08.** Dal trasloco del
+   18-19/08 la produzione è **`DATABASE_URL` di `.env`** (host
+   `zegbztfxisqeowngvgvh`, `aws-0-eu-central-1`, schema `mail`). **`A_DATABASE_URL`
+   NON è più la produzione**: punta al vecchio progetto `feleldlsreurqpdhstla`, che
+   è ancora **acceso e con dentro lo schema `mail` congelato al 19/08 07:25 UTC**.
+   Chi segue la vecchia riga di questo handoff ci si collega, vede l'ultimo
+   `ultimoSync` di sei giorni fa e conclude che **l'app è morta** — è successo oggi.
+   ⚠️ Un database dismesso ma vivo è **peggio** di uno spento: risponde, e risponde
+   il falso ([[trappola-confronto-con-il-proprio-specchio]] è la parente stretta).
+   Per query parametrizzate va usata la porta **5432** — sulla 6543 (pgbouncer)
+   danno «prepared statement "s0" already exists»; in `.env.local` `DATABASE_URL`
+   punta al Postgres **locale** e vince su `.env`, quindi l'app in locale non tocca
+   la produzione.
 2. **Ruotare i segreti finiti in chat il 28/07**: chiave OpenAI e password del
    database (è la stessa su vecchio e nuovo). Rigenerare, aggiornare Vercel e
    `.env`. **`APP_SECRET` no**: cambiarlo scollegherebbe le caselle.
@@ -134,18 +164,29 @@ l'apertura di una mail resa veloce (vedi punto 1 qui sotto).
    esercizio sereno del nuovo. Stanno su un **secondo account Supabase**
    (cs@deluxy.it): chiusi i progetti, valutare se chiudere anche quell abbonamento,
    visto che l org Deluxy paga gia il Pro che ora ospita AI Mail.
-4. **Timeout del cron `/api/sync` a 300s**: la lettura posta viene ancora uccisa
-   a ogni giro quando c'è arretrato. Registri e pulizia HTML girano prima
-   apposta (vedi §9), ma il problema di fondo resta aperto.
+   ⚠️ **Finché resta acceso non è solo una spesa: è una trappola.** Verificato il
+   25/08 che `feleldlsreurqpdhstla` risponde ancora e ha lo schema `mail` congelato
+   al 19/08 — chi ci si collega per sbaglio legge dati veri ma vecchi di sei giorni.
+   Se non si può spegnerlo subito, **rinominare lo schema `mail` in `mail_dismesso`**
+   là dentro: l'errore diventa rumoroso invece che silenzioso.
+4. **Timeout del cron `/api/sync` a 300s** — molto ridimensionato (misurato il
+   25/08): l'arretrato della **posta in arrivo è finito su tutte e 8 le caselle**
+   (`storicoFinito = true` ovunque) e nessun account ha un `ultimoErrore`; il giro
+   completo di 8 caselle sta in **~5 secondi**. Resta indietro solo lo storico
+   della cartella **Inviata**: `storicoInviataFinito = false` su **5 caselle su 8**
+   (commerciale, le due cs@, edoardo, nicolo). Il rischio del taglio a 300s vale
+   ormai solo per quel recupero, non per il giro di tutti i giorni.
 5. **856 mail vecchie col testo sporco** (804 con `mailto:` incastrati, 56 col
    CSS): sono tutte **senza HTML nel database** (alleggerite, l'impaginato sta
    sul server IMAP), quindi `scripts/ripara-testi-sporchi.mjs` non le tocca. In
    elenco si vedono pulite lo stesso (la pulizia è anche in lettura), ma il
    testo che legge l'**AI** resta sporco: per sistemarle servirebbe rileggerle
    dal server una per una.
-6. **Calendario condiviso spento**: manca la chiave `mail` dell'app
-   deluxy-calendario (`npm run chiave -- mail --scrittura` in
-   `C:\Users\nicol\app\deluxy-calendario`) da incollare in Impostazioni App.
+6. ✅ **Calendario condiviso: ACCESO** (verificato sul database il 25/08).
+   `Impostazione.app.calendario.key` c'è (114 caratteri) e ha già lavorato:
+   `calendario.cursore = 16`, `calendario.inviati` con **5 eventi** mandati. Il
+   punto è chiuso; resta da guardare a schermo che gli eventi si vedano davvero
+   nell'app Calendario.
 7. **Scripts**: la chiave qui dev'essere di **scrittura** per salvare le
    «Risposte rapide» (`npm run chiave -- deluxy-mail --scrittura` in
    deluxy-scripts) e i testi vanno accesi per AI Mail dall'app Scripts.
@@ -205,10 +246,17 @@ che impediva a stato commerciale e interessi di arrivare.
    switch fra account con 2 caselle, API `?ordine=`. Se l'utente segnala che
    una non funziona, **prima chiedi cosa vede a schermo**: quasi tutte ora
    mostrano stato/errore invece di fallire mute.
-2. **Notifiche push: il codice è pronto ma non bastano.** Su Vercel Hobby il
-   cron gira ~1 volta al giorno, quindi ad app chiusa non arrivano. Serve un
-   **cron esterno** (es. cron-job.org) che chiami `GET /api/sync?token=<CRON_SECRET>`
-   ogni ~5 min, oppure Vercel Pro. Deciso dall'utente, non fatto.
+2. ✅ **Notifiche push: il cron gira, l'ostacolo è un altro** (rimisurato il 25/08,
+   la vecchia diagnosi «Hobby, 1 volta al giorno» era **superata**). Il cron
+   `*/5` di `vercel.json` **gira davvero ogni 5 minuti**: due letture a distanza
+   di cinque minuti danno `Account.ultimoSync` alle **10:50:58** e alle
+   **10:55:56** UTC, cioè sulla griglia dei :50 e dei :55 — non su secondi a caso
+   come sarebbe un giro lanciato da un utente; e ci sono mail entrate alle 00:xx e
+   02:xx UTC, quando nessuno era davanti all'app. `sincronizzaTutti` chiama
+   `notificaNuoveMail` proprio sul giro automatico (`src/lib/sync.ts:2229`).
+   🔴 **Quello che manca è l'iscrizione**: in `PushIscrizione` c'è **1 sola riga**
+   per **10 utenti**. Chi non le riceve, con ogni probabilità non si è mai iscritto
+   da Impostazioni (o l'ha fatto da un browser diverso da quello che usa).
 3. **`/api/allegati-zip` costruisce lo zip in memoria** → stesso tetto ~4,5 MB
    di Vercel: con molti allegati pesanti non parte. Il download singolo è già
    a flusso; lo zip **no**. Da convertire se serve.
@@ -351,7 +399,7 @@ Rotte di lettura in background (fetch, non Server Action, così non bloccano i c
 - **`POST /api/leggi-posta`** — un giro breve di posta NUOVA. `SyncButton` la chiama all'apertura **in loop** (drena tutto l'arretrato nuovo) e poi a intervalli.
 - **`POST /api/scarica-storico`** — un blocco (80) di posta VECCHIA per l'account che ne ha ancora; torna `{ scaricati, finito }`. Il componente `StoricoAuto` la chiama in loop, in background, se l'utente ha attivato `scaricaStoricoAuto` (Impostazioni), finché la casella non è completa.
 
-Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby può girare **1 volta al giorno** (`vercel.json`). L'auto-refresh a 30s è **client-side** (SyncButton), gira solo con la app aperta e in primo piano.
+Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — pianificato `*/5` in `vercel.json` e **misurato ogni 5 minuti in produzione** il 25/08 (non più «1 volta al giorno»: quella era la regola di Vercel Hobby, il progetto sta sull'org Deluxy). L'auto-refresh a 30s è **client-side** (SyncButton), gira solo con la app aperta e in primo piano.
 
 **`maxDuration = 60`** è impostato sulle pagine che scatenano l'AI (`/`, `/messaggio/[id]`, `/rubrica/[email]`, `/assistente/[id]`) — necessario perché le Server Action NON ereditano il maxDuration del layout, e a 10s (default Vercel) l'analisi AI verrebbe uccisa a metà.
 
