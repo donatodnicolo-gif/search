@@ -50,6 +50,72 @@ const DELIVERY_LIST_SELECT = {
   serviceType: { select: { id: true, name: true, pricingModel: true } },
 } as const;
 
+/**
+ * IL RITIRO E' NELLA CITTA' DI CONSEGNA — partner "locali" (25/08/2026).
+ *
+ * Per un partner come «Artista Locale» il fornitore sta, per definizione, dove
+ * abita chi riceve: non esiste un magazzino da cui partire. Quando il ritiro
+ * arriva come etichetta generica («Milano») la distanza viene calcolata da
+ * quel punto, e su 1.561 consegne di quel partner risultavano 312 km di media
+ * — Milano→Firenze per una consegna dentro Firenze.
+ *
+ * ⚠️ NON e' un difetto estetico: la paga del valet fuori citta' e'
+ * `extraOutOfCityPrice x distanceKm` (calculations.fixedPrice) — la distanza
+ * INTERA, non l'eccedenza. Con la tariffa di 1 EUR/km, ogni chilometro
+ * sbagliato e' un euro pagato in piu': una consegna Roma→Fiumicino di 25 km
+ * ne ha pagati 615,86.
+ *
+ * Qui il ritiro si FORZA alla citta' del destinatario, e la distanza ereditata
+ * si azzera: era misurata da un'altra origine, tenerla vorrebbe dire lasciare
+ * in piedi proprio il numero che sbaglia la paga. Chi conosce la distanza vera
+ * la riscrive dalla consegna.
+ */
+// ⚠️ UN SOLO partner, non una categoria: la regola vale per ARTISTA LOCALE e
+// basta. Aggiungerne un altro e' una decisione di business (vuol dire dire che
+// quel fornitore non ha un magazzino), non una riga da allungare di passaggio.
+const PARTNER_RITIRO_IN_CITTA = 'artista locale';
+
+/**
+ * Oltre questa distanza, per un fornitore LOCALE, il numero non e' una
+ * consegna lunga: e' una distanza misurata dall'origine sbagliata. Il campione
+ * lo dice — le consegne di Artista Locale col ritiro «Milano» hanno 312 km di
+ * media, e il valet quel giorno lavorava dentro Firenze.
+ *
+ * ⚠️ La soglia serve perche' la paga fuori citta' e' `extraOutOfCityPrice x
+ * distanceKm` sulla distanza INTERA (calculations.fixedPrice): con la tariffa
+ * di 1 EUR/km un chilometro sbagliato e' un euro pagato in piu'.
+ */
+const KM_MASSIMI_IN_CITTA = 50;
+
+/**
+ * La citta' dentro un indirizzo, nei formati che il campo contiene davvero
+ * (misurati sulle 2.568 consegne del partner, 99,6% riconosciute):
+ *   «Lungarno Cristoforo Colombo, 22/a, 50136 Firenze FI, Italia» -> Firenze
+ *   «Via di Belvedere 33, 50125, Firenze, FI, Italy»              -> Firenze
+ *   «Milano MI, Italia»                                           -> Milano
+ * Se non combacia torna null: un ritiro sbagliato e' meglio di un ritiro
+ * inventato, e chi chiama lascia le cose come stanno. Restano fuori gli
+ * indirizzi degeneri («Milano» secco, «35030 PD, Italia» senza citta').
+ */
+export function cittaDaIndirizzo(indirizzo: string | null | undefined): string | null {
+  if (!indirizzo) return null;
+  const parti = indirizzo.split(',').map((x) => x.trim()).filter(Boolean);
+  while (parti.length && /^(italia|italy)$/i.test(parti[parti.length - 1])) parti.pop();
+  if (!parti.length) return null;
+  const ultima = parti[parti.length - 1];
+  // «…, Firenze, FI»: la sigla di provincia sta da sola in coda.
+  if (/^[A-Z]{2}$/.test(ultima) && parti.length >= 2) {
+    const citta = parti[parti.length - 2].replace(/^\d{5}\s*/, '').trim();
+    return citta || null;
+  }
+  // «…, 50136 Firenze FI» oppure «Milano MI».
+  const conCap = ultima.match(/^\d{5}\s+(.+?)\s+[A-Z]{2}$/);
+  if (conCap) return conCap[1].trim();
+  const senzaCap = ultima.match(/^(.+?)\s+[A-Z]{2}$/);
+  if (senzaCap) return senzaCap[1].replace(/^\d{5}\s*/, '').trim() || null;
+  return null;
+}
+
 const DELIVERY_INCLUDE = {
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
@@ -334,6 +400,32 @@ export class DeliveriesService {
     }));
   }
 
+  /**
+   * Se il partner e' fra quelli che ritirano SEMPRE in citta'
+   * (PARTNER_RITIRO_IN_CITTA), riscrive il ritiro con la citta' del
+   * destinatario e butta via la distanza ereditata. Torna null quando non c'e'
+   * niente da forzare: il chiamante non tocca nulla.
+   */
+  private async ritiroInCittaDiConsegna(
+    partnerId: string,
+    recipientAddress: string | null | undefined,
+    distanceKm?: number | null,
+  ): Promise<{ pickupAddress: string; distanceKm: null; kmScartati: number | null } | null> {
+    const partner = await this.prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { insegna: true },
+    });
+    const insegna = (partner?.insegna ?? '').trim().toLowerCase();
+    if (insegna !== PARTNER_RITIRO_IN_CITTA) return null;
+    const citta = cittaDaIndirizzo(recipientAddress);
+    if (!citta) return null;
+    // La distanza si butta SEMPRE quando era misurata da un'altra origine, ma
+    // si DICHIARA quando era anche esagerata: un valore sopra la soglia e' la
+    // firma dell'errore, e chi rilegge la consegna deve poterla riconoscere.
+    const kmScartati = distanceKm != null && distanceKm > KM_MASSIMI_IN_CITTA ? distanceKm : null;
+    return { pickupAddress: citta, distanceKm: null, kmScartati };
+  }
+
   async create(dto: CreateDeliveryDto, user: JwtUser) {
     // Il partner crea solo per se stesso
     const partnerId =
@@ -351,6 +443,18 @@ export class DeliveriesService {
         partnerId_serviceTypeId: { partnerId, serviceTypeId: dto.serviceTypeId },
       },
     });
+
+    // ⚠️ Prima del prezzo: il calcolo qui sotto usa la distanza, e per un
+    // partner "locale" quella ereditata e' misurata dall'origine sbagliata.
+    const inCitta = await this.ritiroInCittaDiConsegna(
+      partnerId,
+      dto.recipientAddress,
+      dto.distanceKm,
+    );
+    if (inCitta) {
+      dto.pickupAddress = inCitta.pickupAddress;
+      dto.distanceKm = undefined;
+    }
 
     const hours = dto.hours ?? 1;
     let price = partnerService?.price ?? serviceType.basePrice ?? 0;
@@ -413,11 +517,29 @@ export class DeliveriesService {
           ],
         },
         logs: {
-          create: {
-            type: 'created',
-            message: 'Consegna inserita',
-            userId: user.sub,
-          },
+          // Il ritiro forzato non e' un dettaglio tecnico: cambia la paga del
+          // valet. Se resta solo nel codice, fra un mese nessuno sa perche'
+          // quella consegna dice «Firenze» invece di «Milano».
+          create: [
+            {
+              type: 'created',
+              message: 'Consegna inserita',
+              userId: user.sub,
+            },
+            ...(inCitta
+              ? [
+                  {
+                    type: 'ritiro-forzato',
+                    message:
+                      `Ritiro impostato sulla città di consegna (${inCitta.pickupAddress}): il fornitore è locale.` +
+                      (inCitta.kmScartati != null
+                        ? ` Scartata la distanza di ${inCitta.kmScartati} km, misurata da un'altra origine (soglia ${KM_MASSIMI_IN_CITTA} km).`
+                        : ''),
+                    userId: user.sub,
+                  },
+                ]
+              : []),
+          ],
         },
       },
       include: DELIVERY_INCLUDE,
@@ -443,6 +565,23 @@ export class DeliveriesService {
       }
     }
     const { products, pickups, partnerId, date, ...scalar } = dto;
+    // Stessa regola della creazione: per un partner "locale" il ritiro segue il
+    // destinatario, anche quando la modifica arriva a mano dal pannello.
+    const partnerDaUsare = partnerId ?? delivery.partnerId;
+    const inCitta =
+      partnerDaUsare && (dto.recipientAddress || dto.pickupAddress != null)
+        ? await this.ritiroInCittaDiConsegna(
+            partnerDaUsare,
+            dto.recipientAddress ?? delivery.recipientAddress,
+            dto.distanceKm ?? delivery.distanceKm,
+          )
+        : null;
+    // ⚠️ `distanceKm: null` esplicito, non `undefined`: in Prisma undefined vuol
+    // dire «non toccare», e la distanza vecchia — misurata dall'origine
+    // sbagliata — sopravviverebbe alla correzione del ritiro.
+    const forzatura = inCitta
+      ? { pickupAddress: inCitta.pickupAddress, distanceKm: null, extraKm: 0 }
+      : {};
     // Se l'indirizzo destinatario cambia, rigeocodifica le coordinate della mappa.
     const reGeocode =
       dto.recipientAddress && dto.recipientAddress !== delivery.recipientAddress
@@ -452,6 +591,7 @@ export class DeliveriesService {
       where: { id },
       data: {
         ...scalar,
+        ...forzatura,
         ...(date ? { date: new Date(date) } : {}),
         ...(reGeocode !== undefined
           ? { latitude: reGeocode?.lat ?? null, longitude: reGeocode?.lng ?? null }

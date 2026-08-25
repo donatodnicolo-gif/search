@@ -61,6 +61,49 @@
 **Branch di produzione:** `main` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
 
+## 25/08/2026 — Artista Locale ritira nella città di consegna (e i km sopra 50 non si credono)
+
+**Da dove nasce**: guardando i margini in Deluxy Orders è saltato fuori l'ordine
+#12597 (160 € incassati, 80 € al fornitore) con **314,63 € di paga valet**. La
+consegna (codice 61576, valet Giacomo Manuel Orosco) aveva ritiro **«Milano»** e
+consegna a **Firenze**: 314,63 km. Il valet quel giorno stava a Firenze e aveva
+appena fatto una consegna urbana di 5,51 km.
+
+⚠️ **Perché un chilometro sbagliato è un euro sbagliato**: la paga fuori città è
+`extraOutOfCityPrice × distanceKm` (`calculations.fixedPrice`) — la distanza
+**intera**, non l'eccedenza. Con la tariffa di 1 €/km, paga e km coincidono: non
+è un campo copiato in due colonne (ci ero cascato), è aritmetica. La prova
+definitiva è la consegna **56948**: stesso valet, stesso giorno, **stessa tratta**
+di altre due (Roma → Fiumicino, 24,83 e 25,05 km) ma segnata **615,86 km** →
+615,86 € di paga.
+
+**Regola nuova (`deliveries.service.ts`)**: per il partner **Artista Locale** —
+e solo per lui, il fornitore è locale per definizione e non ha un magazzino da
+cui partire — il **ritiro si forza alla città del destinatario** e la distanza
+ereditata si azzera (era misurata da un'altra origine). Vale in `create()` (prima
+del calcolo del prezzo, che usa la distanza) e in `update()`, con
+`distanceKm: null` **esplicito**: in Prisma `undefined` vuol dire «non toccare»,
+e la distanza vecchia sarebbe sopravvissuta alla correzione.
+
+- `PARTNER_RITIRO_IN_CITTA = 'artista locale'` — una **stringa sola**, non una
+  lista: aggiungere un partner è una decisione di business, non una riga da
+  allungare di passaggio.
+- `KM_MASSIMI_IN_CITTA = 50`: sopra la soglia la distanza non è una consegna
+  lunga, è un'origine sbagliata. Viene scartata **e dichiarata** nel log della
+  consegna (`type: 'ritiro-forzato'`), perché il ritiro forzato cambia la paga
+  del valet e fra un mese nessuno saprebbe perché dice «Firenze».
+- `cittaDaIndirizzo()`: **misurata sui dati veri**, riconosce la città su
+  **2.557 indirizzi su 2.568 (99,6%)** nei tre formati presenti
+  («…, 50136 Firenze FI, Italia», «…, 50125, Firenze, FI, Italy», «Milano MI,
+  Italia»). Sugli 11 degeneri torna `null` e **non tocca niente**: un ritiro
+  inventato è peggio di un ritiro sbagliato.
+
+**Lo storico NON è stato toccato** (serve conferma: la paga è denaro già
+maturato). L'estrazione di cosa cambierebbe è in
+`artista-locale-ritiri-corretti.csv`: **2.568** consegne del partner, **2.200**
+ritiri da correggere, **1.239** con km oltre 50, **8.780,93 €** di paghe da
+rivedere.
+
 ## 🟢 STATO PRODUZIONE — 21/08/2026: l'app è TORNATA SU dopo 26 giorni
 
 **`https://deluxy-delivery.vercel.app` funziona.** Deploy `delivery-85ynuuzl0` del 21/08, aliasato.
