@@ -873,7 +873,7 @@
     "export": "Esporta",
     "empty": "Nessuna vendita nel periodo.",
     "total": "Totale",
-    "assumption": "Il valore dato al partner è scritto sulla consegna, non calcolato. Guadagno = prezzo pubblico − dato al partner, mostrato lordo e al netto IVA (÷1,22). Accanto, la quota che sarebbe spettata a listino.",
+    "assumption": "Il valore dato al partner è scritto sulla consegna, non calcolato. Guadagno = valore vendite − dato al partner, mostrato lordo e al netto IVA (÷1,22). «Fee registrata» è la commissione scritta sulla consegna: se si scosta dal guadagno, c'è qualcosa da guardare.",
     "tab": {
       "corrispettivi": "Corrispettivi",
       "margini": "Margini"
@@ -900,7 +900,8 @@
       "feePercentContract": "Fee % contratto",
       "anomalia": "Anomalia",
       "takingsNet": "Guadagno netto IVA",
-      "feeContract": "Quota a listino"
+      "feeContract": "Fee registrata",
+      "sale": "ID Vendita"
     },
     "m": {
       "deliveries": "Consegne"

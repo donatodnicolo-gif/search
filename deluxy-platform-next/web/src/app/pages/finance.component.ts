@@ -8,6 +8,8 @@ import { environment } from '../../environments/environment';
 interface CorrispettivoRow {
   deliveryId: string;
   deliveryCode: number;
+  /** L'id della vendita: nell'app reale sta accanto a quello della consegna. */
+  saleRef: string | null;
   status: string;
   date: string;
   product: string;
@@ -187,6 +189,7 @@ interface Summary {
             <thead>
               <tr>
                 <th>{{ 'finance.c.status' | translate }}</th>
+                <th>{{ 'finance.c.sale' | translate }}</th>
                 <th>{{ 'finance.c.delivery' | translate }}</th>
                 <th>{{ 'finance.c.date' | translate }}</th>
                 <th>{{ 'finance.c.product' | translate }}</th>
@@ -213,6 +216,7 @@ interface Summary {
               @for (r of rows(); track r.deliveryId) {
                 <tr [class.riga-anomala]="r.anomalia">
                   <td><span class="pill">{{ r.status }}</span></td>
+                  <td class="mono">{{ r.saleRef ?? '—' }}</td>
                   <td class="mono">#{{ r.deliveryCode }}
                     @if (r.anomalia) {
                       <span class="tag-anomalia">{{ 'finance.anomalia.' + r.anomalia | translate }}</span>
@@ -248,7 +252,7 @@ interface Summary {
             @if (summary(); as s) {
               <tfoot>
                 <tr class="totals">
-                  <td colspan="7">{{ 'finance.total' | translate }}</td>
+                  <td colspan="8">{{ 'finance.total' | translate }}</td>
                   <td class="num">{{ euro(s.publicPrice) }}</td>
                   <td class="num">{{ euro(s.deliveryFee) }}</td>
                   <td class="num">{{ euro(s.saleValue) }}</td>
@@ -418,7 +422,7 @@ export class FinanceComponent {
   exportCsv(): void {
     const t = (k: string) => this.translate.instant(k);
     const head = [
-      t('finance.c.status'), t('finance.c.delivery'), t('finance.c.date'), t('finance.c.product'),
+      t('finance.c.status'), t('finance.c.sale'), t('finance.c.delivery'), t('finance.c.date'), t('finance.c.product'),
       t('finance.c.category'), t('finance.c.service'), t('finance.c.partner'), t('finance.c.publicPrice'), t('finance.c.deliveryFee'),
       t('finance.c.saleValue'), t('finance.c.partnerPrice'), t('finance.c.takings'), t('finance.c.takingsNet'),
       t('finance.c.feePercent'), t('finance.c.feePercentContract'), t('finance.c.feeContract'), t('finance.c.deliveryCost'),
@@ -427,7 +431,7 @@ export class FinanceComponent {
     ];
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const rows = this.rows().map((r) => [
-      r.status, `#${r.deliveryCode}`, r.date.slice(0, 10), r.product, r.category ?? '', r.service, r.partner,
+      r.status, r.saleRef ?? '', `#${r.deliveryCode}`, r.date.slice(0, 10), r.product, r.category ?? '', r.service, r.partner,
       r.publicPrice.toFixed(2), r.deliveryFee.toFixed(2), r.saleValue.toFixed(2),
       r.anomalia === 'valore_partner_mancante' ? '' : r.partnerPrice.toFixed(2),
       r.takings.toFixed(2), r.takingsNet.toFixed(2),

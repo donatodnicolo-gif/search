@@ -429,11 +429,37 @@ export class SalesService {
     deliveryDate: Date | null;
     serviceTypeId: string | null;
     amount: number;
+    discountPercent?: number;
+    externalOrderId?: string | null;
+    source?: string;
   }) {
     if (!vendita.partnerId || !vendita.serviceTypeId || !vendita.deliveryDate) return null;
     if (!vendita.recipientFirstName || !vendita.recipientLastName || !vendita.recipientAddress) {
       return null;
     }
+
+    // ⭐ L'ECONOMIA DELLA VENDITA, che prima non veniva scritta affatto.
+    //
+    // Su una vendita il cliente paga `amount`, noi tratteniamo la nostra quota e
+    // il resto e' del partner:
+    //   quotaNostra    = amount x discountPercent%      -> `Delivery.price`
+    //   datoAlPartner  = amount - quotaNostra           -> `Delivery.productValue`
+    //
+    // ⚠️ Prima qui c'era `price: vendita.amount`, cioe' l'INTERO importo della
+    // vendita nel campo che invece contiene la sola quota trattenuta — e
+    // `productValue` restava vuoto. Una consegna nata cosi' avrebbe detto alla
+    // Finanza che ci teniamo tutto e che al partner non spetta niente. E' lo
+    // stesso equivoco che il 25/08/2026 ha fatto risultare Deluxy padrona
+    // dell'87% del venduto sull'intero archivio.
+    const quotaNostra = arrotonda((vendita.amount * (vendita.discountPercent ?? 0)) / 100);
+    const datoAlPartner = arrotonda(Math.max(0, vendita.amount - quotaNostra));
+
+    // ⭐ LA REGOLA DEL DDT. Su una vendita la consegna viaggia col documento di
+    // trasporto, e il suo numero e' il riferimento della vendita: nei dati veri
+    // e' cosi' su 10.515 consegne su 12.967 con un DDT (l'81%), e il 96% delle
+    // vendite ne ha uno. Qui non veniva scritto: ogni consegna nata da una
+    // vendita partiva senza documento.
+    const numeroDdt = vendita.externalOrderId?.trim() || null;
 
     const ultimo = await this.prisma.delivery.aggregate({ _max: { code: true } });
     return this.prisma.delivery.create({
@@ -447,11 +473,19 @@ export class SalesService {
         recipientLastName: vendita.recipientLastName,
         recipientAddress: vendita.recipientAddress,
         recipientPhone: vendita.recipientPhone,
-        price: vendita.amount,
+        price: quotaNostra,
+        productValue: datoAlPartner,
+        ddtNumber: numeroDdt,
+        legacySaleId: vendita.externalOrderId ?? null,
       },
       select: { id: true, code: true, date: true },
     });
   }
+}
+
+/** Due decimali: gli importi si scrivono come si leggono. */
+function arrotonda(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 @ApiTags('sales')

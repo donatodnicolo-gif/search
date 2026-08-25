@@ -145,6 +145,15 @@ type Anomalia =
 interface CorrispettivoRow {
   deliveryId: string;
   deliveryCode: number;
+  /**
+   * L'ID DELLA VENDITA, che nell'app reale sta accanto a quello della consegna.
+   *
+   * ⚠️ Non e' un campo solo: la piattaforma tiene il riferimento in tre posti
+   * diversi a seconda di da dove arriva l'ordine — `legacySaleId`, il numero
+   * d'ordine del vecchio sistema, o il numero del DDT. Mostrarne uno solo
+   * significa lasciare vuota la colonna su una parte delle righe.
+   */
+  saleRef: string | null;
   status: string;
   date: Date;
   product: string;
@@ -430,6 +439,7 @@ export class FinanceService {
     return {
       deliveryId: d.id,
       deliveryCode: d.code,
+      saleRef: d.legacySaleId ?? (d.legacyOrderId != null ? String(d.legacyOrderId) : null) ?? d.ddtNumber ?? null,
       status: d.status,
       date: d.date,
       product: productLabel,

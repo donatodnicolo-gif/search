@@ -873,7 +873,7 @@
     "export": "Export",
     "empty": "No sales in this period.",
     "total": "Total",
-    "assumption": "The value given to the partner is recorded on the delivery, not derived. Profit = public price − value given to the partner, shown gross and net of VAT (÷1.22). Alongside, the share due under the contract.",
+    "assumption": "The value given to the partner is recorded on the delivery, not derived. Profit = sales value − value given to the partner, shown gross and net of VAT (÷1.22). \"Recorded fee\" is the commission written on the delivery: if it differs from the profit, something is worth a look.",
     "tab": {
       "corrispettivi": "Takings",
       "margini": "Margins"
@@ -900,7 +900,8 @@
       "feePercentContract": "Contract fee %",
       "anomalia": "Anomaly",
       "takingsNet": "Profit net of VAT",
-      "feeContract": "Contract share"
+      "feeContract": "Recorded fee",
+      "sale": "Sale ID"
     },
     "m": {
       "deliveries": "Deliveries"
