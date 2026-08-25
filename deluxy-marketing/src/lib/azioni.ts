@@ -3009,6 +3009,25 @@ export async function salvaServiceAccountDrive(formData: FormData) {
 //
 // Serve a scoprire ADESSO se la condivisione della cartella è giusta, invece
 // di scoprirlo il giorno in cui l'app deve depositare un log vero.
+export async function depositaLogAzioniOra() {
+  "use server";
+  // ⚠️ Lo stesso motore del cron serale (`lib/ponte-drive.ts`), non una copia:
+  // il bottone serve a vedere subito se il ponte regge, e se le due strade
+  // divergessero la prova non proverebbe niente di quello che gira davvero.
+  const { depositaAppendAzioni } = await import("./ponte-drive");
+  const esito = await depositaAppendAzioni();
+  revalidatePath("/impostazioni");
+  if (!esito.ok) {
+    redirect(`/impostazioni?salvato=ponte-no&perche=${encodeURIComponent(esito.errore.slice(0, 200))}`);
+  }
+  if (!esito.scritto) {
+    redirect(`/impostazioni?salvato=ponte-niente&perche=${encodeURIComponent(esito.motivo.slice(0, 200))}`);
+  }
+  redirect(
+    `/impostazioni?salvato=ponte-ok&perche=${encodeURIComponent(`${esito.nome} · ${esito.voci} operazioni`)}`
+  );
+}
+
 export async function provaScritturaDrive() {
   "use server";
   const adesso = new Date();

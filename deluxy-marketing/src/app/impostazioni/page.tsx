@@ -1,6 +1,6 @@
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
-import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaServiceAccountDrive, salvaImpersonazioneDrive, salvaOauthDrive, provaScritturaDrive, salvaTokenTikTok } from "@/lib/azioni";
+import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaServiceAccountDrive, salvaImpersonazioneDrive, salvaOauthDrive, provaScritturaDrive, depositaLogAzioniOra, salvaTokenTikTok } from "@/lib/azioni";
 import { tokenTikTok } from "@/lib/tiktok";
 import { FORNITORI, istruzioniOperative, statoAi } from "@/lib/ai";
 import { emailImpersonata, oauthConfigurato, statoScritturaDrive } from "@/lib/drive-scrittura";
@@ -54,6 +54,9 @@ const CONFERME: Record<string, string> = {
   "drive-oauth-negato": "Consenso non dato: il collegamento non è stato creato.",
   "drive-oauth-errore": "Collegamento NON riuscito per un errore di rete o di configurazione.",
   "drive-scollegato": "Drive scollegato: l’app non può più scrivere.",
+  "ponte-ok": "Log delle azioni depositato nel ponte.",
+  "ponte-niente": "Niente da depositare: nessuna operazione nuova.",
+  "ponte-no": "Deposito NON riuscito.",
 };
 
 // ⚠️ Quali di questi esiti sono FALLIMENTI. Serve perché la cornice li vestiva
@@ -69,6 +72,7 @@ const ESITI_NEGATIVI = new Set([
   "drive-json-invalido",
   "drive-json-incompleto",
   "drive-impersona-invalida",
+  "ponte-no",
 ]);
 
 export default async function PaginaImpostazioni({
@@ -271,7 +275,13 @@ export default async function PaginaImpostazioni({
                 </div>
               </form>
 
-              <form action={provaScritturaDrive} style={{ marginTop: 10 }}>
+              {/* Il deposito vero, accanto alla prova: il ponte è servito a
+                  qualcosa solo quando ci passa il log delle azioni. Stessa
+                  funzione del cron serale. */}
+              <form action={depositaLogAzioniOra} style={{ marginTop: 10, display: "inline-block", marginRight: 10 }}>
+                <button className="btn" type="submit">Deposita il log azioni ora</button>
+              </form>
+              <form action={provaScritturaDrive} style={{ marginTop: 10, display: "inline-block" }}>
                 <button className="btn fantasma" type="submit">Prova a scrivere nel ponte</button>
               </form>
             </>
