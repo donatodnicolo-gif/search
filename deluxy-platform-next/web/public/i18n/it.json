@@ -867,13 +867,13 @@
   },
   "finance": {
     "title": "Finanza",
-    "caption": "Corrispettivi e margini dell'azienda",
+    "caption": "Corrispettivi e margini dell'azienda — solo servizi di vendita",
     "from": "Dal",
     "to": "Al",
     "export": "Esporta",
-    "empty": "Nessun corrispettivo nel periodo.",
+    "empty": "Nessuna vendita nel periodo.",
     "total": "Totale",
-    "assumption": "Formule verificate sull'app reale (fee = fee% × prezzo partner; +IVA 22%; commissione incassi 3%). Riga per consegna: manca ancora il legame Vendita↔Consegna.",
+    "assumption": "Formule verificate sull'app reale (fee = fee% × prezzo partner; +IVA 22%; commissione incassi 3%). Riga per consegna di vendita: manca ancora il legame Vendita↔Consegna.",
     "tab": {
       "corrispettivi": "Corrispettivi",
       "margini": "Margini"
@@ -900,7 +900,8 @@
       "incassiCommission": "Commissione incassi",
       "totalMargin": "Margine totale",
       "totalMarginPercent": "Margine totale %",
-      "partnerPayout": "Incasso partner"
+      "partnerPayout": "Incasso partner",
+      "service": "Servizio"
     },
     "m": {
       "deliveries": "Consegne"
@@ -912,7 +913,9 @@
     "thisMonth": "Mese",
     "lastMonth": "Mese scorso",
     "year": "Anno",
-    "capped": "Mostrate {{n}} righe: il periodo scelto ne contiene di piu'. Stringi le date o filtra, o i totali non corrispondono all'elenco."
+    "capped": "Mostrate {{n}} righe: il periodo scelto ne contiene di piu'. Stringi le date o filtra, o i totali non corrispondono all'elenco.",
+    "onlySales": "Corrispettivi: solo le consegne con un servizio di tipo Vendita.",
+    "excluded": "Nel periodo ce ne sono altre {{n}} con altri servizi (sola consegna, a ora, magazzino, aziendale): non sono vendite e restano fuori dai conti."
   },
   "stub": {
     "caption": "Sezione in arrivo sulla nuova piattaforma.",

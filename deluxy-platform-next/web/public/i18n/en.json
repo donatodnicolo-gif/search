@@ -867,13 +867,13 @@
   },
   "finance": {
     "title": "Finance",
-    "caption": "Company takings and margins",
+    "caption": "Company takings and margins — sales services only",
     "from": "From",
     "to": "To",
     "export": "Export",
-    "empty": "No takings in this period.",
+    "empty": "No sales in this period.",
     "total": "Total",
-    "assumption": "Formulas verified against the real app (fee = fee% × partner price; +VAT 22%; collection commission 3%). Row per delivery: the Sale↔Delivery link is still missing.",
+    "assumption": "Formulas verified on the real app (fee = fee% × partner price; +22% VAT; 3% collection fee). One row per sale delivery: the Sale↔Delivery link is still missing.",
     "tab": {
       "corrispettivi": "Takings",
       "margini": "Margins"
@@ -900,7 +900,8 @@
       "incassiCommission": "Collection commission",
       "totalMargin": "Total margin",
       "totalMarginPercent": "Total margin %",
-      "partnerPayout": "Partner payout"
+      "partnerPayout": "Partner payout",
+      "service": "Service"
     },
     "m": {
       "deliveries": "Deliveries"
@@ -912,7 +913,9 @@
     "thisMonth": "Month",
     "lastMonth": "Last month",
     "year": "Year",
-    "capped": "Showing {{n}} rows: the chosen period holds more. Narrow the dates or filter, or the totals will not match the list."
+    "capped": "Showing {{n}} rows: the chosen period holds more. Narrow the dates or filter, or the totals will not match the list.",
+    "onlySales": "Takings: only deliveries whose service is of type Sale.",
+    "excluded": "This period has {{n}} more with other services (delivery only, hourly, warehouse, corporate): they are not sales and stay out of the figures."
   },
   "stub": {
     "caption": "Section coming soon to the new platform.",

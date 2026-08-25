@@ -14,6 +14,15 @@
 //   margineTotale      = primoMargine - costoConsegna - iva - commissioneIncassi
 //   incassoPartner     = prezzoPartner - feeConIva
 //
+// AMBITO (25/08/2026, deciso dall'utente): i CORRISPETTIVI riguardano SOLO i
+// servizi di tipo VENDITA. Le formule qui sopra descrivono una vendita: noi
+// incassiamo dal cliente finale (prezzo pubblico + consegna) e PAGHIAMO il
+// partner (`corrispettivo = valoreVendite - prezzoPartner`, `incassoPartner =
+// prezzoPartner - feeConIva`). Su un servizio di sola consegna (PREZZO_FISSO,
+// A_ORA, MAGAZZINO, CORPORATE) il verso del denaro e' l'opposto: il partner e'
+// il CLIENTE e la consegna gli viene FATTURATA. Sommarle insieme non fa un
+// totale piu' grande, fa un totale sbagliato.
+//
 // Nota residua: nel nuovo ambiente la riga e' per CONSEGNA (con i suoi prodotti
 // aggregati per il prezzo pubblico), non ancora per vendita: manca il legame
 // Vendita<->Consegna. IVA e commissione incassi sono costanti qui sotto
@@ -53,6 +62,16 @@ const INCASSI = 0.03;
  */
 const REVENUE_STATUSES = ['delivered', 'approved'];
 
+/**
+ * Il `pricingModel` dei servizi di VENDITA (`ServiceType.pricingModel`).
+ *
+ * ⚠️ E' il servizio del PARTNER (`Delivery.serviceType`), non quello del valet
+ * (`Delivery.valetServiceId`): sullo stesso record convivono due tassonomie, e
+ * leggere l'una per l'altra qui vorrebbe dire filtrare per il lavoro del valet
+ * invece che per il tipo di vendita.
+ */
+const MODELLO_VENDITA = 'VENDITA';
+
 interface CorrispettivoRow {
   deliveryId: string;
   deliveryCode: number;
@@ -60,6 +79,8 @@ interface CorrispettivoRow {
   date: Date;
   product: string;
   category: string | null;
+  /** Il servizio del partner: e' cio' per cui la riga e' qui (sempre di VENDITA). */
+  service: string;
   partner: string;
   publicPrice: number;
   deliveryFee: number;
@@ -137,16 +158,29 @@ export class FinanceService {
     return w;
   }
 
+  /**
+   * L'ambito: solo i servizi di VENDITA.
+   *
+   * `soloVendite: false` resta per chi vuole davvero guardare tutte le consegne
+   * a buon fine (analisi, controprove). La pagina non lo usa, e chi lo usa deve
+   * sapere che su quelle righe le formule dei corrispettivi non significano
+   * niente.
+   */
+  private ambito(soloVendite = true) {
+    return soloVendite ? { serviceType: { pricingModel: MODELLO_VENDITA } } : {};
+  }
+
   async corrispettivi(
     from?: string,
     to?: string,
-    opzioni: { partnerId?: string; cerca?: string; limite?: number } = {},
+    opzioni: { partnerId?: string; cerca?: string; limite?: number; soloVendite?: boolean } = {},
   ): Promise<CorrispettivoRow[]> {
     const deliveries = await this.prisma.delivery.findMany({
       where: {
         deletedAt: null,
         status: { in: REVENUE_STATUSES },
         ...this.dateWhere(from, to),
+        ...this.ambito(opzioni.soloVendite ?? true),
         ...this.filtri(opzioni),
       },
       // ⚠️ Un tetto c'e' sempre: senza, un periodo largo rimette la pagina
@@ -154,6 +188,7 @@ export class FinanceService {
       take: Math.min(5000, Math.max(1, opzioni.limite ?? 2000)),
       include: {
         partner: { select: { insegna: true, commissionPercent: true } },
+        serviceType: { select: { name: true, pricingModel: true } },
         products: {
           include: {
             product: {
@@ -180,14 +215,35 @@ export class FinanceService {
    * da sbagliare e la piu' difficile da accorgersene — i numeri sono tutti
    * plausibili, solo non si sommano.
    */
-  async summary(from?: string, to?: string, opzioni: { partnerId?: string; cerca?: string } = {}) {
+  async summary(
+    from?: string,
+    to?: string,
+    opzioni: { partnerId?: string; cerca?: string; soloVendite?: boolean } = {},
+  ) {
+    const soloVendite = opzioni.soloVendite ?? true;
     const rows = await this.corrispettivi(from, to, { ...opzioni, limite: 5000 });
+    // ⚠️ Un filtro che toglie righe va DETTO, come il tetto delle 5.000: se la
+    // pagina mostra 154 consegne dove il periodo ne ha 558, chi guarda deve
+    // sapere che le altre 404 non sono sparite, sono di un altro mestiere.
+    const escluse = soloVendite
+      ? await this.prisma.delivery.count({
+          where: {
+            deletedAt: null,
+            status: { in: REVENUE_STATUSES },
+            ...this.dateWhere(from, to),
+            serviceType: { pricingModel: { not: MODELLO_VENDITA } },
+            ...this.filtri(opzioni),
+          },
+        })
+      : 0;
     const sum = (f: (r: CorrispettivoRow) => number) => rows.reduce((s, r) => s + f(r), 0);
     const saleValue = sum((r) => r.saleValue);
     const totalMargin = sum((r) => r.totalMargin);
     const firstMargin = sum((r) => r.firstMargin);
     return {
       deliveries: rows.length,
+      /** Consegne a buon fine del periodo che NON sono vendite (fuori ambito). */
+      excluded: escluse,
       publicPrice: round2(sum((r) => r.publicPrice)),
       deliveryFee: round2(sum((r) => r.deliveryFee)),
       saleValue: round2(saleValue),
@@ -238,6 +294,7 @@ export class FinanceService {
       date: d.date,
       product: productLabel,
       category: first?.category?.name ?? null,
+      service: d.serviceType?.name ?? '—',
       partner: d.partner?.insegna ?? '—',
       publicPrice: round2(publicPrice),
       deliveryFee: round2(deliveryFee),
@@ -276,13 +333,25 @@ export class FinanceController {
     }
   }
 
+  /** `soloVendite`: assente o diverso da `false` = solo servizi di VENDITA. */
+  private soloVendite(v?: string): boolean {
+    return v !== 'false' && v !== '0';
+  }
+
   @Get('corrispettivi')
-  @ApiOperation({ summary: 'Corrispettivi per consegna a buon fine (solo admin)' })
+  @ApiOperation({
+    summary: 'Corrispettivi delle consegne a buon fine di tipo VENDITA (solo admin)',
+  })
   @ApiQuery({ name: 'from', required: false })
   @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'partnerId', required: false })
   @ApiQuery({ name: 'cerca', required: false, description: 'Numero ordine/consegna, destinatario o partner' })
   @ApiQuery({ name: 'limite', required: false })
+  @ApiQuery({
+    name: 'soloVendite',
+    required: false,
+    description: 'Predefinito true: solo i servizi di tipo VENDITA. `false` per tutte le consegne',
+  })
   corrispettivi(
     @CurrentUser() user: JwtUser,
     @Query('from') from?: string,
@@ -290,10 +359,14 @@ export class FinanceController {
     @Query('partnerId') partnerId?: string,
     @Query('cerca') cerca?: string,
     @Query('limite') limite?: string,
+    @Query('soloVendite') soloVendite?: string,
   ) {
     this.assertAdmin(user);
     return this.financeService.corrispettivi(from, to, {
-      partnerId, cerca, limite: limite ? Number(limite) : undefined,
+      partnerId,
+      cerca,
+      limite: limite ? Number(limite) : undefined,
+      soloVendite: this.soloVendite(soloVendite),
     });
   }
 
@@ -303,15 +376,21 @@ export class FinanceController {
   @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'partnerId', required: false })
   @ApiQuery({ name: 'cerca', required: false })
+  @ApiQuery({ name: 'soloVendite', required: false, description: 'Predefinito true' })
   summary(
     @CurrentUser() user: JwtUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('partnerId') partnerId?: string,
     @Query('cerca') cerca?: string,
+    @Query('soloVendite') soloVendite?: string,
   ) {
     this.assertAdmin(user);
-    return this.financeService.summary(from, to, { partnerId, cerca });
+    return this.financeService.summary(from, to, {
+      partnerId,
+      cerca,
+      soloVendite: this.soloVendite(soloVendite),
+    });
   }
 }
 

@@ -269,7 +269,7 @@ Lista: ID, Cognome, Nome, Email, Telefono, Città, Mezzo (Auto / Bicicletta / Fu
 
 Visibile solo agli admin abilitati (es. utente "support").
 
-- Tab **CORRISPETTIVI**: per ogni vendita: Stato, ID Vendita, ID Consegna, Data consegna, Prodotto, Categoria, Valore vendite, Prezzo pubblico, Prezzo consegna, Partner, Prezzo partner, Fee %, Fee value, Fee+IVA, Costo consegna, Primo margine, Primo margine %. Con ESPORTA.
+- Tab **CORRISPETTIVI**: per ogni **vendita** — la parola è letterale, vedi l'ambito qui sotto — Stato, ID Vendita, ID Consegna, Data consegna, Prodotto, Categoria, Valore vendite, Prezzo pubblico, Prezzo consegna, Partner, Prezzo partner, Fee %, Fee value, Fee+IVA, Costo consegna, Primo margine, Primo margine %. Con ESPORTA.
 - Tab **MARGINI**: margini totali dell'azienda.
 
 **Formule reali (verificate su app.deluxy.it il 21/07, sessione admin).** La tab **CORRISPETTIVI** ha una riga **per vendita** (colonne `ID VENDITA` e `ID CONSEGNE` distinte) con queste colonne e formule (verificate al centesimo su più righe):
@@ -295,7 +295,13 @@ Visibile solo agli admin abilitati (es. utente "support").
 
 In fondo una riga **Totale** che somma le colonne in euro. La tab **MARGINI** è invece una tabella **per consegna** con colonne operative (Vendita, Platform, Valet, Tipo servizio, Da fatturare/Da pagare, Prezzo, +/− Prezzo, Valet salario, +/− Prezzo stipendi, Margine totale, %). Entrambe le tab: filtro Stato, filtri per-colonna con operatori (`= < > >= <=`), elementi/pagina, ESPORTA, RICERCA/RESET.
 
+**⭐ AMBITO — i Corrispettivi sono SOLO i servizi di tipo Vendita (25/08/2026, deciso dall'utente).** Le formule qui sopra descrivono una vendita: incassiamo dal cliente finale (prezzo pubblico + consegna prezzo) e **paghiamo** il partner (`Corrispettivo = Valore vendite − Prezzo partner`, `Incasso partner = Prezzo partner − Fee+IVA`). Su un servizio di **sola consegna** — Prezzo Fisso, a Ora, Magazzino, Aziendale — il denaro va nel verso opposto: il partner è il **cliente** e la consegna gli viene **fatturata** (sezione Fatturazione). Applicare a quelle righe le formule dei corrispettivi non dà un totale più grande, dà un totale **sbagliato**.
+
+Misurato sui dati veri il 25/08: delle **53.868** consegne a buon fine (`delivered`/`approved`), sono di tipo Vendita **12.247 (22,7%)** — le altre sono Prezzo Fisso 34.939, a Ora 6.447, Aziendale 144, Magazzino 91. La pagina **dichiara sempre quante ne restano fuori** nel periodo scelto («…altre 404 con altri servizi»), come già fa col tetto delle righe: un filtro silenzioso fa sommare una parte credendola il tutto. È stata aggiunta la colonna **Servizio** (fra Categoria e Partner), così il criterio si vede invece di doverlo ricordare. L'API accetta `?soloVendite=false` per le controprove, ma la pagina non lo usa.
+
 **[PORTATA nel nuovo ambiente — riallineata alle formule reali il 21/07]** — sezione **Finanza** (`/finance`, solo ADMIN). Per supportare le formule reali sono stati aggiunti allo schema: **`Partner.commissionPercent`** (la Fee%) e **`Delivery.deliveryPrice`** (la "Consegna prezzo"). IVA 22% e commissione incassi 3% sono costanti in `finance.module.ts` (candidate a diventare impostazioni). Nota residua: la riga dei Corrispettivi nel nuovo ambiente è per **consegna** (con i suoi prodotti aggregati), non ancora per vendita — manca il legame Vendita↔Consegna.
+
+> 🔴 **Due colonne su tre del «Valore vendite» oggi valgono zero.** `Delivery.deliveryPrice` («Consegna prezzo») è **null su tutte le 61.836 consegne**: nel `delivery` legacy quella colonna **non esiste**, perché nel vecchio sistema la consegna prezzo sta sulla **vendita** (`totalShippingAmount` delle sei tabelle di vendita Shopify, mai importate). E il **prezzo pubblico** arriva dal prodotto, ma solo **6.328 prodotti su 22.952** hanno `publicPrice` > 0. Finché il legame Vendita↔Consegna non c'è, il Valore vendite è **sottostimato** e con lui ogni margine che ne discende. Per l'architettura dei dati quel pezzo è di **Orders**, non di qui.
 
 ### 3.9 Setup
 

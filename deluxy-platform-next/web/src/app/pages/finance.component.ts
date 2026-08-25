@@ -12,6 +12,7 @@ interface CorrispettivoRow {
   date: string;
   product: string;
   category: string | null;
+  service: string;
   partner: string;
   publicPrice: number;
   deliveryFee: number;
@@ -33,6 +34,8 @@ interface CorrispettivoRow {
 
 interface Summary {
   deliveries: number;
+  /** Consegne a buon fine del periodo che non sono vendite: restano fuori. */
+  excluded: number;
   publicPrice: number;
   deliveryFee: number;
   saleValue: number;
@@ -55,6 +58,12 @@ interface Summary {
  * buon fine con i valori economici e i margini, riga Totale in fondo) e tab
  * MARGINI (i totali del periodo). Riservata agli admin. Le formule sono quelle
  * verificate sull'app reale (vedi finance.module.ts e il manuale).
+ *
+ * ⚠️ AMBITO: entrambe le tab guardano SOLO i servizi di tipo VENDITA. Le altre
+ * consegne (sola consegna, a ora, magazzino, aziendale) non sono vendite: li'
+ * il partner e' il cliente e la consegna gli viene fatturata, quindi le stesse
+ * formule darebbero numeri senza significato. Quante ne restano fuori e' scritto
+ * a schermo — un filtro silenzioso fa sommare una parte credendola il tutto.
  */
 @Component({
   selector: 'app-finance',
@@ -95,6 +104,14 @@ interface Summary {
       <button class="tab" [class.on]="tab() === 'margini'" (click)="tab.set('margini')">{{ 'finance.tab.margini' | translate }}</button>
     </div>
 
+    <!-- L'ambito va DETTO, per la stessa ragione del tetto qui sotto: la pagina
+         non mostra tutte le consegne del periodo, mostra le vendite. -->
+    @if (!loading() && summary(); as s) {
+      <p class="avviso ambito">
+        {{ 'finance.onlySales' | translate }}
+        @if (s.excluded > 0) { {{ 'finance.excluded' | translate:{ n: s.excluded } }} }
+      </p>
+    }
     <!-- Il tetto va DETTO. Una tabella tagliata in silenzio fa sommare a occhio
          una parte credendola il tutto, e i numeri restano tutti plausibili. -->
     @if (!loading() && rows().length >= 2000) {
@@ -132,6 +149,7 @@ interface Summary {
                 <th>{{ 'finance.c.date' | translate }}</th>
                 <th>{{ 'finance.c.product' | translate }}</th>
                 <th>{{ 'finance.c.category' | translate }}</th>
+                <th>{{ 'finance.c.service' | translate }}</th>
                 <th>{{ 'finance.c.partner' | translate }}</th>
                 <th class="num">{{ 'finance.c.publicPrice' | translate }}</th>
                 <th class="num">{{ 'finance.c.deliveryFee' | translate }}</th>
@@ -159,6 +177,7 @@ interface Summary {
                   <td>{{ r.date | date: 'd/M/yy' }}</td>
                   <td>{{ r.product }}</td>
                   <td>{{ r.category ?? '—' }}</td>
+                  <td>{{ r.service }}</td>
                   <td>{{ r.partner }}</td>
                   <td class="num">{{ euro(r.publicPrice) }}</td>
                   <td class="num">{{ euro(r.deliveryFee) }}</td>
@@ -182,7 +201,7 @@ interface Summary {
             @if (summary(); as s) {
               <tfoot>
                 <tr class="totals">
-                  <td colspan="6">{{ 'finance.total' | translate }}</td>
+                  <td colspan="7">{{ 'finance.total' | translate }}</td>
                   <td class="num">{{ euro(s.publicPrice) }}</td>
                   <td class="num">{{ euro(s.deliveryFee) }}</td>
                   <td class="num">{{ euro(s.saleValue) }}</td>
@@ -228,6 +247,8 @@ interface Summary {
       .quick-tab { border: 0; background: none; border-radius: 980px; padding: 6px 12px; font-size: 12.5px; font-weight: 550; font-family: inherit; color: var(--text-secondary); cursor: pointer; }
       .quick-tab:hover { background: #fff; color: var(--text); }
       .avviso { margin: 0 0 12px; font-size: 13px; font-weight: 550; color: var(--gold-strong, #B8963E); }
+      /* L'ambito e' una precisazione, non un allarme: sta in grigio, il tetto in oro. */
+      .avviso.ambito { color: var(--text-secondary); font-weight: 500; }
       table.fin { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
       table.fin th, table.fin td { padding: 7px 9px; border-bottom: 1px solid var(--hairline); text-align: left; }
       table.fin th { color: var(--text-tertiary); font-weight: 500; font-size: 11px; }
@@ -333,7 +354,7 @@ export class FinanceComponent {
     const t = (k: string) => this.translate.instant(k);
     const head = [
       t('finance.c.status'), t('finance.c.delivery'), t('finance.c.date'), t('finance.c.product'),
-      t('finance.c.category'), t('finance.c.partner'), t('finance.c.publicPrice'), t('finance.c.deliveryFee'),
+      t('finance.c.category'), t('finance.c.service'), t('finance.c.partner'), t('finance.c.publicPrice'), t('finance.c.deliveryFee'),
       t('finance.c.saleValue'), t('finance.c.partnerPrice'), t('finance.c.feePercent'), t('finance.c.feeValue'),
       t('finance.c.feeWithVat'), t('finance.c.deliveryCost'), t('finance.c.firstMargin'), t('finance.c.firstMarginPercent'),
       t('finance.c.takings'), t('finance.c.vat'), t('finance.c.incassiCommission'), t('finance.c.totalMargin'),
@@ -341,7 +362,7 @@ export class FinanceComponent {
     ];
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const rows = this.rows().map((r) => [
-      r.status, `#${r.deliveryCode}`, r.date.slice(0, 10), r.product, r.category ?? '', r.partner,
+      r.status, `#${r.deliveryCode}`, r.date.slice(0, 10), r.product, r.category ?? '', r.service, r.partner,
       r.publicPrice.toFixed(2), r.deliveryFee.toFixed(2), r.saleValue.toFixed(2), r.partnerPrice.toFixed(2),
       r.feePercent.toFixed(0), r.feeValue.toFixed(2), r.feeWithVat.toFixed(2), r.deliveryCost.toFixed(2),
       r.firstMargin.toFixed(2), r.firstMarginPercent.toFixed(2), r.takings.toFixed(2), r.vat.toFixed(2),
