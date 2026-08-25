@@ -161,6 +161,26 @@ var MINUTI_MASSIMI = 25; // Google ferma gli script a 30': ci fermiamo prima, co
 //      keyword per account a blocchi di 200) ed è la lettura meno urgente.
 var LAVORI_LETTURA = ["metriche", "gruppi", "keyword-giorni", "approvazioni", "diagnosi", "asset", "copy", "stati-keyword", "negative"];
 
+// ── LA CARTA D'IDENTITÀ DI QUESTA COPIA ─────────────────────────────────────
+//
+// ⚠️⚠️ PERCHÉ (25/08/2026). Le copie di questo file vivono DENTRO Google Ads,
+// incollate a mano una per account: l'app non le vede e non le aggiorna. Fino
+// a oggi «il conto Cake sa eseguire `localita`?» era una domanda senza
+// risposta — l'unico modo di saperlo era accodare un'operazione VERA e
+// guardare come finiva, cioè spendere una modifica su un account vero per fare
+// una prova. Da qui in avanti la copia lo dice da sé, a ogni giro di "esegui".
+//
+// LA DATA SI ALZA QUANDO CAMBIA COSA SO FARE, non a ogni ritocco: è la versione
+// delle CAPACITÀ, e serve a chi legge nell'app per capire se la copia incollata
+// è più vecchia dell'app. SO_ESEGUIRE va tenuto uguale ai tipi di applica().
+var VERSIONE_SCRIPT = "2026-08-25";
+var SO_ESEGUIRE = [
+  "pausa_campagna", "attiva_campagna", "budget", "negativa",
+  "pausa_keyword", "attiva_keyword", "pausa_gruppo", "attiva_gruppo",
+  "estensione", "localita", "lista_negative",
+  "nuovo_annuncio", "nuova_keyword", "nuova_campagna", "completa_campagna"
+];
+
 var MAX_STATI_KEYWORD = 20000; // tetto di sicurezza (vedi nota sotto)
 // ATTENZIONE: Era 4000, e su Gifts non bastava: l archivio ne ha 4.623. Il ciclo si
 // ferma al tetto SENZA ricordare dove era arrivato, quindi il giro dopo
@@ -1617,7 +1637,18 @@ function leggiApprovazioni() {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function eseguiOperazioni(conto) {
-  var risposta = chiamata("get", "/api/v1/operazioni?canale=google_ads", null);
+  // Si dichiara chi siamo insieme alla richiesta del lavoro: è l'unica chiamata
+  // che questo lavoro fa comunque, quindi non ne aggiunge nessuna. L'app se lo
+  // segna e lo mostra in /operazioni — così «questa copia sa fare X» smette di
+  // essere un ricordo e diventa una cosa scritta, con la data dell'ultimo giro.
+  var risposta = chiamata(
+    "get",
+    "/api/v1/operazioni?canale=google_ads" +
+      "&conto=" + encodeURIComponent(conto.id) +
+      "&versione=" + encodeURIComponent(VERSIONE_SCRIPT) +
+      "&sa=" + encodeURIComponent(SO_ESEGUIRE.join(",")),
+    null
+  );
   if (!risposta.ok) {
     Logger.log("L'app non risponde (HTTP " + risposta.codice + "): non eseguo nulla. " + risposta.testo);
     RIEPILOGO.push("esegui: app non raggiungibile");

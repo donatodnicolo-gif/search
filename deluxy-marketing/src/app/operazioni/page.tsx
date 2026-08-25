@@ -16,6 +16,7 @@ import { spiegaErroreGoogle } from "@/lib/errori-google";
 import { EseguiMeta } from "@/components/EseguiMeta";
 import { Icona } from "@/components/Icona";
 import { iconaCanale } from "@/lib/salute";
+import { dichiarazioniScript, TIPI_ESEGUIBILI_OGGI } from "@/lib/versione-script";
 
 export const dynamic = "force-dynamic";
 
@@ -134,6 +135,27 @@ export default async function PaginaOperazioni({
   // cosa ha rimandato Google dopo, nei giri di lettura che arrivano comunque.
   // Vale per ogni tipo di operazione, non solo per le campagne nuove.
   const conferme = await confermeOperazioni(operazioni);
+
+  // ── COSA SANNO ESEGUIRE LE COPIE DELLO SCRIPT ──────────────────────────
+  // ⚠️ Le copie vivono dentro Google Ads e le incolla una persona: l'app non
+  // le vede. Finché non dicevano la propria versione, «questo conto sa
+  // eseguire `localita`?» si poteva rispondere solo accodando un'operazione
+  // vera e guardando come finiva — una prova pagata con una modifica su un
+  // account vero. Dal 25/08/2026 la copia lo dichiara al giro di «esegui», e
+  // qui si legge. Un conto MUTO non è un conto senza script: è un conto la cui
+  // copia è più vecchia di quella data, e va scritto con queste parole.
+  const [contiGoogle, dichiarazioni] = await Promise.all([
+    prisma.accountAdv.findMany({
+      where: { piattaforma: "google_ads", attivo: true },
+      select: { idEsterno: true, nome: true, brand: true },
+      orderBy: { brand: "asc" },
+    }),
+    dichiarazioniScript(),
+  ]);
+  const contiIncerti = contiGoogle.filter((c) => {
+    const d = dichiarazioni.get(c.idEsterno.trim());
+    return !d || TIPI_ESEGUIBILI_OGGI.some((t) => !d.sa.includes(t));
+  });
   const smentite = concluse.filter((o) => {
     const c = conferme.get(o.id);
     return c && (c.stato === "smentita" || c.stato === "rifiutata");
@@ -586,6 +608,68 @@ export default async function PaginaOperazioni({
             </p>
           </div>
         </div>
+
+        {/* ⚠️ CHI ESEGUE, E COSA SA FARE. Sta in cima perché è la domanda che
+            viene prima di ogni approvazione: approvare un tipo che la copia
+            incollata non conosce vuol dire mettere in coda un'attesa, non una
+            modifica. Si mostra sempre — anche quando va tutto bene — perché
+            «nessun avviso» e «non l'ho guardato» si somigliano troppo. */}
+        {contiGoogle.length > 0 && (
+          <div
+            className="nota-info"
+            style={
+              contiIncerti.length > 0
+                ? { borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }
+                : undefined
+            }
+          >
+            <span className="nota-icona" style={{ color: contiIncerti.length > 0 ? "var(--orange)" : "var(--green)" }}>
+              {contiIncerti.length > 0 ? "⚠" : "✓"}
+            </span>
+            <span>
+              <b>Le copie dello script, e cosa dichiarano di saper eseguire.</b>{" "}
+              Su Google esegue una copia di questo script <b>incollata dentro l&apos;account</b>:
+              se è vecchia, un&apos;operazione approvata resta in coda finché non fallisce con
+              «Tipo di operazione non gestito».
+              <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                {contiGoogle.map((c) => {
+                  const d = dichiarazioni.get(c.idEsterno.trim());
+                  const mancanti = d ? TIPI_ESEGUIBILI_OGGI.filter((t) => !d.sa.includes(t)) : [];
+                  return (
+                    <li key={c.idEsterno} style={{ marginBottom: 4 }}>
+                      <b>{c.nome}</b> <span className="cella-sub">({c.idEsterno})</span>{" "}
+                      {!d ? (
+                        <span className="cella-sub">
+                          — <b>non dichiara la sua versione</b>: la copia incollata è più vecchia
+                          del 25/08/2026. Non si sa cosa sappia eseguire finché non la si reincolla.
+                        </span>
+                      ) : mancanti.length > 0 ? (
+                        <span className="cella-sub">
+                          — versione <b>{d.versione}</b>, vista il {formattaDataOra(d.visto)}.{" "}
+                          <b>Non sa eseguire:</b> {mancanti.join(", ")} — va reincollata.
+                        </span>
+                      ) : (
+                        <span className="cella-sub">
+                          — versione <b>{d.versione}</b>, vista il {formattaDataOra(d.visto)}: sa
+                          eseguire tutti i {TIPI_ESEGUIBILI_OGGI.length} tipi che l&apos;app può
+                          mettere in coda.
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              {contiIncerti.length > 0 && (
+                <div className="cella-sub" style={{ marginTop: 8 }}>
+                  Le copie aggiornate si rigenerano con{" "}
+                  <code>node scripts/genera-copie-google.mjs</code> e si reincollano una per
+                  account (CHIAVE_API e BRAND vanno rimessi a mano). La dichiarazione arriva al
+                  primo giro di <b>esegui</b>.
+                </div>
+              )}
+            </span>
+          </div>
+        )}
 
         {/* ⚠️ «Eseguita» su una campagna nuova vuol dire INVIATA, non CREATA.
             Il bulk upload di Google non risponde e viene lavorato dopo: se lo

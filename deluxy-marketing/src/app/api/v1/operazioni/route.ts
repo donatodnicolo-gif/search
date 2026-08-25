@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { accodaOperazione } from "@/lib/operazioni";
 import { registra } from "@/lib/registro";
 import { MODIFICHE_CHE_PESANO, validaModifica } from "@/lib/guardrail";
+import { registraDichiarazione } from "@/lib/versione-script";
 
 // GET /api/v1/operazioni?canale=google_ads&account=825-518-1560
 // Restituisce SOLO le operazioni già approvate a mano: è quello che lo script
@@ -13,6 +14,25 @@ export async function GET(req: NextRequest) {
   const cliente = await autentica(req);
   if (cliente instanceof NextResponse) return cliente;
   const p = req.nextUrl.searchParams;
+
+  // ⚠️ **Lo script dice chi è, e lo dice QUI.** È l'unica chiamata che fa il
+  // lavoro «esegui», quindi è l'unico punto da cui una copia incollata dentro
+  // Google Ads passa di sicuro prima di eseguire qualcosa. Una copia più
+  // vecchia del 25/08/2026 non manda questi parametri e resta muta — ed è
+  // proprio il suo silenzio a dire che è vecchia (vedi `lib/versione-script`).
+  //
+  // Non cambia NIENTE della risposta: chi non dichiara riceve il lavoro
+  // esattamente come prima. Registrare non è un permesso, è un fatto in più.
+  const conto = p.get("conto")?.trim();
+  const versione = p.get("versione")?.trim();
+  if (conto && versione) {
+    await registraDichiarazione(
+      conto,
+      versione,
+      (p.get("sa") ?? "").split(",").map((t) => t.trim()).filter(Boolean)
+    );
+  }
+
   const operazioni = await prisma.operazioneAdv.findMany({
     where: {
       stato: "approvata",

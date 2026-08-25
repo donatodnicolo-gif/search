@@ -1,56 +1,77 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **25/08/2026** (dopo il reincollo di `esegui.js` e con la WORLD-ENG che eroga). Una finestra Claude nuova deve poter riprendere da qui
-> senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
-> questo documento dice **dove siamo** e **cosa manca**.
+> Stato al **25/08/2026 (pomeriggio)**. Una finestra Claude nuova deve poter
+> riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
+> per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
-> 🔴 **I punti aperti (ri-misurati il 24/08 a mezzogiorno)**:
+> 🔴 **I punti aperti, RI-MISURATI sul database di produzione il 25/08 fra le 12 e le 13**
+> (`/api/health` 200, `database: true`; query in sola lettura, poi il lavoro di
+> oggi — vedi la prima sezione di FATTO):
 >
-> 1. **Gli script vanno REINCOLLATI** in Google Ads. Le copie sono state
->    **rigenerate alle 23:26** in `Downloads\deluxy-google-ads` (adesso sono
->    **11**: c'è anche `negative.js`) con `node scripts/genera-copie-google.mjs`.
->    Servono per due cose diverse:
->    · **`esegui.js`** — tre tipi di operazione non hanno chi li esegua finché
->      non lo si reincolla: `lista_negative`, `localita`, `estensione`.
->    · **`tutto.js`** (oppure `negative.js` a parte) — porta il giro
->      **`negative`**: finché non arriva, le dieci negative della WORLD-ENG
->      restano «da confermare» e la scheda campagna dice «non ancora censite».
->    ⚠️ `CHIAVE_API` e `BRAND` sono vuoti nelle copie e vanno rimessi a mano.
->    ✅ **FATTO SU TUTTI E TRE I CONTI il 24/08** (Flowers 17:14 · Cake 17:55 ·
->    Gifts 18:12): **92.731 parole escluse** censite su 131 campagne, e
->    **3 censimenti completi su 3**. Vedi la sezione in FATTO.
->    ✅ **ANCHE `esegui.js` REINCOLLATO SU TUTTI E TRE** (25/08, dichiarato
->    dall'utente). Restava l'ultima copia scoperta: le operazioni le applica un
->    lavoro `esegui` **schedulato a parte** (ogni ora, ~:09), che è un file
->    diverso da `tutto.js` — una poteva essere nuova e l'altra vecchia.
->    ⚠️ **Prova ancora da fare, e non è pigrizia**: `lista_negative`, `localita`
->    ed `estensione` **non sono MAI state messe in coda** (verificato sul DB il
->    25/08: zero righe di quei tre tipi, da sempre). Finché non se ne accoda una,
->    l'app non ha modo di dire se quel giro le sa eseguire — lo script non
->    dichiara la sua versione. Che `esegui` giri è invece certo: le ultime
->    `budget` e `pausa_gruppo` sono state applicate il 24/08 alle 21:04.
-> 2. **Il doppione dell'annuncio** sulla WORLD-ENG: due RSA identici nel gruppo
->    «Luxury Flower Delivery - Worldwide» (creati il 21 alle 22:17 e il 23 alle
->    11:05, stessi testi). Vanno tolti a mano in Google Ads — l'app non sa
->    mettere in pausa un annuncio. Da oggi non può più succedere.
-> 3. **La landing della WORLD-ENG** — ✅ il rifiuto tecnico è rientrato:
->    `deluxyflowers.com/en/pages/fiori-in-consegna-oggi` era stata rifiutata per
->    `DESTINATION_NOT_WORKING`, ma la campagna adesso **eroga e converte**
->    (misurato il 25/08: 3 giorni, 37,46 € spesi, 37 clic, 2 conversioni,
->    222,66 € di ricavi — ROAS 5,9×). ⚠️ **Resta però la domanda editoriale**,
->    che il funzionare non risolve: una campagna **mondiale in inglese** che
->    atterra su una pagina il cui indirizzo è in italiano è comunque una scelta
->    da rivedere. «Non è più rotta» e «è quella giusta» sono due cose diverse.
-> 4. **Cake**: 310 € di ADV consentiti in agosto contro 1.324 € già spesi. O il
->    numero regge e Cake viaggia a quattro volte il suo tetto, o è la previsione
->    di vendita in Budgets che va guardata.
+> 1. **Le copie dello script vanno reincollate — ma adesso è l'APP a dirlo.**
+>    Il problema vero non era reincollare: era che *nessuno poteva sapere* se
+>    una copia incollata dentro Google Ads fosse vecchia o nuova. `lista_negative`,
+>    `localita` ed `estensione` sono in `applica()` da settimane e **non sono MAI
+>    state messe in coda** (0 righe di quei tre tipi, da sempre — ricontato oggi):
+>    l'unico modo di provarle era spendere un'operazione vera su un account vero.
+>    Dal 25/08 **la copia dichiara la propria versione e i tipi che sa eseguire**
+>    a ogni giro di «esegui», e `/operazioni` lo mostra conto per conto.
+>    ⚠️ **Oggi i tre conti risultano MUTI**, ed è corretto: le copie incollate
+>    ieri sono precedenti a questa modifica. Vanno rigenerate
+>    (`node scripts/genera-copie-google.mjs` → **fatto oggi**, 11 copie in
+>    `Downloads\deluxy-google-ads`) e reincollate; `CHIAVE_API` e `BRAND` a mano.
+>    Al primo giro di «esegui» il riquadro diventa verde da solo, uno per conto.
+> 2. **Il doppione dell'annuncio sulla WORLD-ENG: ANCORA LÌ.** Contati oggi due
+>    RSA `ENABLED` nello stesso gruppo «Luxury Flower Delivery - Worldwide»
+>    (`821753433517` e `821974827836`). Vanno tolti a mano in Google Ads: l'app
+>    non sa mettere in pausa un annuncio. Resta anche l'unica operazione
+>    **fallita**, ferma dal 21/08 (`nuovo_annuncio`, `DUPLICATE_ASSET`).
+> 3. **La landing della WORLD-ENG** — la campagna eroga e converte: 3 giorni,
+>    **37,46 € spesi, 37 clic, 2 conversioni, 222,66 € di ricavi, ROAS 5,94×**
+>    (23/08: 16,83 € → 135 € · 24/08: 16,89 € → 87,66 € · 25/08 a metà giornata:
+>    3,74 €, 7 clic, 0 conversioni). ⚠️ Il **budget è 15 €/g**, non i 35 con cui
+>    era nata: chi l'ha abbassato non l'ha scritto qui. E resta la domanda
+>    editoriale: una campagna **mondiale in inglese** che atterra su un indirizzo
+>    italiano (`/en/pages/fiori-in-consegna-oggi`). «Non è più rotta» e «è quella
+>    giusta» sono due cose diverse.
+> 4. **Cake, e QUALE tetto** — ri-misurata la spesa di agosto: **1.435,85 €**
+>    (Google 918,03 + Meta 517,82). ⚠️ E il tetto ha **due numeri diversi**: la
+>    copia locale `BudgetMensile` (scritta il 23/07) dice **1.272,73 €**, il
+>    `advConsentito` letto da Budgets diceva **310 €**. Non è un dettaglio: fra
+>    i due c'è la differenza fra «Cake sfora di poco» e «Cake viaggia a quattro
+>    volte il suo tetto». Da decidere quale comanda **prima** di toccare i budget
+>    — e la copia locale, se non comanda, va tolta di mezzo (Standard §7).
+> 5. 🆕 **I dati personali sono ancora NEL DATABASE.** Lo schema Prisma e il
+>    codice non hanno più `cliente` né `email` dal 24/08 — ma le **colonne
+>    fisiche ci sono ancora**, con **8.152 nomi** e **6.486 email** dentro
+>    (contate oggi su `information_schema`). È la trappola della correzione non
+>    retroattiva: pulire il codice non pulisce quello che il codice ha già
+>    scritto. Il comando è pronto e si rifiuta di partire a vuoto:
+>    `node scripts/ordini-senza-dati-personali.mjs --togli`. **Va lanciato**
+>    (cancella colonne su un Postgres condiviso: chiedere prima).
+> 6. **Segreti in chiaro nella tabella `Impostazione`: sono CINQUE, non uno.**
+>    `drive.service_account` (2.343 caratteri), `ai_chiave_anthropic` (108),
+>    `drive.oauth_refresh` (103), `drive.oauth_client_secret` (35),
+>    `drive.apikey` (39). Chiunque legga quella tabella li legge. Vanno spostati
+>    (`scripts/segreti-fuori-dal-db.mjs`) **e ruotati**, perché sono già stati
+>    in chiaro.
 >
-> ✅ **Chiuso oggi**: la WORLD-ENG è **accesa** (`attiva_campagna` eseguita alle
-> 14:09, «confermato rileggendo»), con 9 località, 15 keyword, l'annuncio in
-> asta e le negative di lancio applicate. E la scrittura su **Meta funziona**,
-> provata in produzione. In serata: **le keyword escluse si importano**, e con
-> loro le operazioni `negativa` hanno finalmente una conferma indipendente
-> (prima sezione di FATTO).
+> ✅ **Sano, ricontato oggi**: coda **0 in attesa · 0 approvate · 96 eseguite ·
+> 7 annullate · 1 fallita**; **0 consegne non-ok** in 10 giorni; ordini da
+> Orders alle 09:20 (**8.462**); Meta ogni ora (11:07); Google su tutti e tre i
+> conti stanotte (Cake 02:38 · Gifts 03:47 · Flowers 05:14).
+> Il **censimento delle negative si RIPETE da solo**: **92.731** parole escluse
+> (Gifts 70.106 · Flowers 18.357 · Cake 4.268), **tutte agganciate alla loro
+> campagna** (0 orfane su 92.731) e riviste stanotte. Una sola campagna Google
+> attiva non ne ha nessuna: `[Deluxyflower] Brand protection`.
+> Campagne: Google **21 attive · 140 in pausa**, Meta **10 · 58**.
+> Spesa 7 giorni: Google Flowers 969 € · Gifts 710 € · Cake 233 €;
+> Meta Flowers 318 € · Cake 131 € · Gifts 109 €.
+>
+> ✅ **Due dei tre scostamenti d'architettura sono chiusi NEL CODICE**: il
+> `middleware` adesso risponde **503** su Vercel se manca `MARKETING_APP_PASSWORD`
+> (fail-closed, riletto oggi in `src/middleware.ts`), e lo schema non porta
+> più i dati personali. Ma vedi il punto 5: il codice è pulito, il database no.
 
 > 🏛️ **ARCHITETTURA (OBBLIGATORIA, Standard Deluxy §7)** — Il ruolo di QUESTA
 > app: **la memoria e il comando della PUBBLICITÀ**. Possiede — ed è l'unica a
@@ -254,6 +275,59 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ✅ LO SCRIPT DICE CHI È — e i tre tipi mai provati smettono di essere un mistero (25/08/2026)
+
+**Il problema, detto bene.** Su Google non esegue l'app: esegue una **copia di
+`scripts/google-ads-script.js` incollata a mano dentro l'account**, una per
+conto. L'app non la vede, non la aggiorna e non sa che versione sia. Finché è
+così, «il conto Cake sa eseguire `localita`?» è una domanda **senza risposta**:
+l'unico modo di rispondere era accodare un'operazione **vera** e guardare come
+finiva — cioè spendere una modifica su un account vero per fare una prova.
+
+Ed era esattamente il punto aperto n°1 di ieri: `lista_negative`, `localita` ed
+`estensione` vivono in `applica()` da settimane e **non sono mai state messe in
+coda nemmeno una volta** (ricontato oggi: 0 righe di quei tre tipi, da sempre).
+Le copie incollate potevano essere di prima o di dopo, e l'unica fonte era il
+ricordo di chi le aveva incollate.
+
+**La correzione.** La copia si presenta:
+
+- `scripts/google-ads-script.js` porta `VERSIONE_SCRIPT` e `SO_ESEGUIRE` (i
+  tipi che `applica()` conosce), e li manda **insieme alla richiesta del
+  lavoro** — `GET /api/v1/operazioni?…&conto=…&versione=…&sa=…`. Nessuna
+  chiamata in più: quella la faceva già.
+- `/api/v1/operazioni` se lo segna in `Impostazione` (`script.esegui.<conto>`),
+  la stessa forma del marcatore del censimento negative. **Non cambia niente
+  della risposta**: chi non dichiara riceve il lavoro come prima. Registrare
+  non è un permesso.
+- `/operazioni` lo **mostra**, conto per conto: versione, ultimo giro, e i tipi
+  che quella copia *non* sa eseguire. Si vede sempre, anche quando va tutto
+  bene — «nessun avviso» e «non l'ho guardato» si somigliano troppo.
+- `accodaOperazione()` attacca l'avviso all'operazione che nasce: «la copia sul
+  conto X non sa eseguire *questo* tipo». Sta **lì** e non nella rotta API per
+  lo stesso motivo per cui ci sta `account`: le operazioni nascono da undici
+  punti diversi. **Avvisa, non blocca** — una copia reincollata un minuto fa
+  non ha ancora fatto il suo giro, e rifiutare punirebbe il caso normale.
+
+⭐ **Perché funziona SUBITO, senza che il vecchio script collabori: l'assenza è
+la risposta.** Una copia più vecchia di oggi non manda niente — e «questo conto
+non dichiara nulla» vuol dire esattamente «la sua copia è più vecchia del
+25/08». Non serve che il vecchio parli: basta che il nuovo lo faccia.
+
+**Verificato davvero** (non «dovrebbe funzionare»): `npx tsc --noEmit` pulito ·
+`node scripts/prova-script-google.mjs` = 12 lavori su 12 ok, 0 rotti ·
+`npm run build` completato · chiamata vera al server locale con un conto
+**finto** (`000-000-PROVA` — mai uno vero: scriverebbe una dichiarazione
+falsa) → `HTTP 200` e riga scritta
+`{"versione":"2026-08-25","sa":[…],"visto":"…"}`, **poi cancellata** · pagina
+`/operazioni` letta dal DOM: i tre conti veri compaiono tutti e tre con «non
+dichiara la sua versione», che oggi è la verità.
+
+⚠️ **Cosa resta a una persona**: reincollare le 11 copie rigenerate oggi in
+`Downloads\deluxy-google-ads` (`CHIAVE_API` e `BRAND` a mano). Il riquadro
+diventa verde da sé, un conto per volta, al primo giro di «esegui».
+
 
 ### ✅ LA WORLD-ENG EROGA E CONVERTE, e la catena regge tutta (25/08/2026)
 

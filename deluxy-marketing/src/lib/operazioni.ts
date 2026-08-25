@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { avvisoTipoNonDichiarato, dichiarazioniScript } from "./versione-script";
 
 // Su quale account va eseguita un'operazione in coda.
 //
@@ -56,13 +57,15 @@ type ArgomentiCreate = Parameters<typeof prisma.operazioneAdv.create>[0];
  */
 export async function accodaOperazione(args: ArgomentiCreate) {
   const d = args.data as {
+    tipo?: string;
     account?: string | null;
     canale?: string | null;
     campagnaId?: string | null;
     gruppoId?: string | null;
+    avvisi?: string | null;
   };
 
-  if (d.account) return prisma.operazioneAdv.create(args);
+  if (d.account) return prisma.operazioneAdv.create(await conAvvisoScript(args, d.account));
 
   let brand: string | null = null;
   if (d.campagnaId) {
@@ -72,5 +75,31 @@ export async function accodaOperazione(args: ArgomentiCreate) {
   }
   const account = d.canale ? await accountDiBrand(d.canale, brand) : null;
 
-  return prisma.operazioneAdv.create({ ...args, data: { ...args.data, account } });
+  return prisma.operazioneAdv.create(
+    await conAvvisoScript({ ...args, data: { ...args.data, account } }, account)
+  );
+}
+
+/**
+ * L'avviso «la copia dello script su quel conto non sa eseguire questo tipo»,
+ * attaccato all'operazione appena nasce.
+ *
+ * ⚠️ Sta QUI e non nella rotta API per lo stesso motivo per cui ci sta
+ * `account`: le operazioni nascono da undici punti diversi (le pagine, le
+ * proposte dell'AI, l'API) e un controllo scritto in uno solo di quelli è un
+ * controllo che dieci volte su undici non c'è. Questo è il collo di bottiglia.
+ *
+ * ⚠️ Avvisa, non blocca — come tutto il change control dal 04/08/2026. Una
+ * copia può essere stata reincollata un minuto fa e non avere ancora fatto il
+ * suo giro di «esegui»: rifiutare l'operazione punirebbe il caso normale.
+ */
+async function conAvvisoScript(args: ArgomentiCreate, account: string | null): Promise<ArgomentiCreate> {
+  const d = args.data as { tipo?: string; canale?: string | null; avvisi?: string | null };
+  if (!account || (d.canale ?? "google_ads") !== "google_ads" || !d.tipo) return args;
+  const avviso = avvisoTipoNonDichiarato(d.tipo, account, (await dichiarazioniScript()).get(account.trim()));
+  if (!avviso) return args;
+  return {
+    ...args,
+    data: { ...args.data, avvisi: d.avvisi ? `${d.avvisi} · ${avviso}` : avviso },
+  };
 }
