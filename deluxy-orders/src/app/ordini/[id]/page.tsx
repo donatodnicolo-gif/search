@@ -13,7 +13,7 @@ import { linkRicerca, brandPerRicerca } from "@/lib/fornitori";
 import { cambiaStato, toggleEtichetta, aggiornaClassificazione, segnaProblemaGestito } from "@/app/actions";
 import { registraCosto, azzeraCosto, chiediLinkPagamento } from "@/app/controllo/actions";
 import { LinkPagamento } from "@/components/LinkPagamento";
-import { GESTIONI_INCASSO, STATI_INCASSO, margineOrdine, quotaFornitore, valutaQuota } from "@/lib/controllo";
+import { ALIQUOTA_IVA, GESTIONI_INCASSO, STATI_INCASSO, margineOrdine, quotaFornitore, valutaQuota } from "@/lib/controllo";
 import { ordinali } from "@/lib/repeater";
 import { canale } from "@/lib/marketing";
 import { etichettaLavorazioneCs } from "@/lib/customer-service";
@@ -362,7 +362,11 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
                   <>
                     <strong style={{ color: perdita ? "var(--red)" : "var(--green)" }}>
                       {euro(m.valore)}
-                      {m.pct != null && <span style={{ marginLeft: 6, fontSize: 13, fontWeight: 600 }}>· {Math.round(m.pct)}%</span>}
+                      {m.pct != null && (
+                        <span style={{ marginLeft: 6, fontSize: 13, fontWeight: 600 }}>
+                          · {Math.round(m.pct)}% dell&apos;imponibile
+                        </span>
+                      )}
                       {perdita && <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 700 }}>PERDITA</span>}
                     </strong>
                     <div className="cella-muta">{m.nota}</div>
@@ -380,7 +384,23 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
                   </>
                 );
               })()}
-              <div className="cella-muta">sul lordo, IVA e spedizione incluse</div>
+              {/* ⚠️ Qui c'era scritto «sul lordo, IVA e spedizione incluse»: era
+                  vero fino al 24/08, ed è diventato FALSO il giorno dopo, quando
+                  il margine è passato al netto IVA. Una didascalia che
+                  contraddice il numero che sta sopra è peggio di nessuna
+                  didascalia: il numero sembra sbagliato anche quando è giusto.
+                  E la BASE della percentuale va scritta, perché non compare
+                  altrove nella pagina: 81,97 € non sono il 40% di 250 €. */}
+              {(() => {
+                const m = margineOrdine(ordine);
+                return (
+                  <div className="cella-muta">
+                    Valore <strong>al netto IVA {ALIQUOTA_IVA}%</strong>; la percentuale è sull&apos;
+                    <strong>imponibile</strong> ({euro(m.imponibile)}), non sul totale lordo (
+                    {euro(ordine.totale)}, IVA e spedizione incluse).
+                  </div>
+                );
+              })()}
             </dd>
           </div>
         </div>

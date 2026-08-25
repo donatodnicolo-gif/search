@@ -180,9 +180,20 @@ export function margineOrdine(o: {
   feeConsegna: number | null;
   evasione: string;
   consegnataDa: string;
-}): { valore: number | null; pct: number | null; parziale: boolean; nota: string } {
+}): {
+  valore: number | null;
+  pct: number | null;
+  /** Il ricavo NETTO dell'ordine (totale ÷ 1,22): è la BASE su cui è calcolata
+   *  `pct`. Torna da qui perché chi mostra la percentuale deve poter dire
+   *  accanto a quale numero vale — un 40% letto accanto al totale lordo sembra
+   *  sbagliato, e chi legge ha ragione a dirlo. */
+  imponibile: number;
+  parziale: boolean;
+  nota: string;
+} {
+  const imponibile = Math.round((o.totale / (1 + ALIQUOTA_IVA / 100)) * 100) / 100;
   if (o.costoFornitore == null) {
-    return { valore: null, pct: null, parziale: false, nota: "manca il costo del fornitore" };
+    return { valore: null, pct: null, imponibile, parziale: false, nota: "manca il costo del fornitore" };
   }
   let lordo = o.totale - o.costoFornitore;
   let parziale = false;
@@ -205,8 +216,14 @@ export function margineOrdine(o: {
   // colpisce ricavo e costo alla stessa aliquota, quindi il rapporto NON cambia
   // con lo scorporo: equivale a `lordo / totale`. Cambia il valore in euro, non
   // la percentuale.
+  //
+  // ⚠️ MA LE DUE BASI NON VANNO MESCOLATE A SCHERMO: 81,97 € di margine netto
+  // NON sono il 40% di 250 € (sono il 40% di 204,92 €, l'imponibile). Chi mostra
+  // valore e percentuale insieme deve mostrare anche la base, o chi legge divide
+  // per il totale che ha davanti e conclude — con ragione — che il conto è
+  // sbagliato. Per questo `imponibile` esce di qui.
   const pct = o.totale > 0.005 ? Math.round((lordo / o.totale) * 1000) / 10 : null;
-  return { valore, pct, parziale, nota: `${nota} · al netto IVA ${ALIQUOTA_IVA}%` };
+  return { valore, pct, imponibile, parziale, nota: `${nota} · al netto IVA ${ALIQUOTA_IVA}%` };
 }
 
 export async function salvaQuotaFornitore(quota: number): Promise<void> {

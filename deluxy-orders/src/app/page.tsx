@@ -650,7 +650,11 @@ function MargineChiuso({
   const perdita = m.valore < 0;
   const colore = perdita ? "var(--red)" : "var(--green)";
   return (
-    <span className="badge" style={{ color: colore }} title={`Margine reale — ${m.nota}`}>
+    <span
+      className="badge"
+      style={{ color: colore }}
+      title={`Margine reale — ${m.nota}. La percentuale è sull'imponibile (${euro(m.imponibile)}), non sul totale lordo (${euro(ordine.totale)}).`}
+    >
       <span className="dot" style={{ background: colore }} />
       margine {euro(m.valore)}{m.pct != null ? ` · ${Math.round(m.pct)}%` : ""}
       {perdita ? " · perdita" : ""}{m.parziale ? " · parziale" : ""}

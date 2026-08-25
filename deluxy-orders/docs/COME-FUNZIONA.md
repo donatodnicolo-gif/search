@@ -410,6 +410,18 @@ averlo segnalato). La **percentuale** del margine non cambia con lo scorporo
 euro. Se un giorno serve l'aliquota per categoria, si cambia in un posto solo
 (`controllo.ALIQUOTA_IVA`).
 
+⚠️ **Le due basi non si mescolano, e le schermate lo dicono (25/08/2026).** Il
+valore in euro è **netto**, il totale dell'ordine è **lordo**: chi legge
+«81,97 € · 40%» accanto a un ordine da 250 € fa la divisione con il numero che
+ha davanti, ottiene 32,8% e conclude — con ragione — che il conto non torna.
+Il 40% è `81,97 ÷ 204,92`, cioè il margine netto sull'**imponibile**, che prima
+non compariva da nessuna parte. Adesso la base è scritta accanto al numero:
+sulla scheda dell'ordine «· 40% dell'imponibile» più la riga «la percentuale è
+sull'imponibile (204,92 €), non sul totale lordo (250,00 €)»; in `/margini` il
+KPI dice «su 4.151,72 € imponibili (5.065,10 € lordi)»; nell'elenco e in
+`/controllo` sta nel suggerimento del chip. `margineOrdine()` torna
+l'`imponibile` apposta, così nessuna pagina se lo ricalcola per conto suo.
+
 ### Controllo (`/controllo`)
 I soldi di ogni ordine: **quello che il cliente ha pagato** e **quello che abbiamo
 pagato al fornitore**. È il mestiere che si faceva in Finance

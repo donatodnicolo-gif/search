@@ -495,7 +495,7 @@ export default async function Controllo({
                       <td
                         className="cella-num"
                         style={{ color: m.valore != null ? (m.valore >= 0 ? "var(--green)" : "var(--red)") : undefined }}
-                        title={m.valore != null ? m.nota : undefined}
+                        title={m.valore != null ? `${m.nota} · imponibile ${euro(m.imponibile)}` : undefined}
                       >
                         {m.valore != null ? euro(m.valore) : "—"}
                       </td>

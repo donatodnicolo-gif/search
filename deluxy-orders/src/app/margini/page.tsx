@@ -28,7 +28,7 @@ import {
   perDimensione,
   sopraQuota,
 } from "@/lib/margini";
-import { quotaFornitore } from "@/lib/controllo";
+import { ALIQUOTA_IVA, quotaFornitore } from "@/lib/controllo";
 
 export const dynamic = "force-dynamic";
 
@@ -237,14 +237,19 @@ export default async function Margini({
 
       {/* I numeri del margine misurato */}
       <div className="griglia-kpi">
-        <div className="kpi kpi-analisi" title="Venduto degli ordini con un costo registrato, meno il costo. Gli altri ordini non entrano.">
-          <div className="kpi-etichetta">Margine misurato</div>
+        <div className="kpi kpi-analisi" title="Venduto degli ordini con un costo registrato, meno il costo, al netto dell'IVA. Gli altri ordini non entrano.">
+          <div className="kpi-etichetta">Margine misurato (netto IVA)</div>
           <div className="kpi-valore" style={{ color: k.margine >= 0 ? "var(--green)" : "var(--red)" }}>
             {euro(k.margine)}
           </div>
-          <div className="testo-guida">su {euro(k.lordoConCosto)} di venduto misurato</div>
+          {/* Il margine è netto e il venduto è lordo: accostarli senza dirlo fa
+              sembrare sbagliata una percentuale giusta. Qui si dichiarano
+              tutt'e due, nell'ordine in cui il conto si fa. */}
+          <div className="testo-guida">
+            su {euro(k.imponibileConCosto)} imponibili ({euro(k.lordoConCosto)} lordi)
+          </div>
         </div>
-        <div className="kpi kpi-analisi" title="Margine in percentuale del venduto misurato. Con la quota attesa dovrebbe stare intorno a 100 − quota.">
+        <div className="kpi kpi-analisi" title="Margine netto in percentuale del venduto misurato al netto IVA. Non cambia con lo scorporo (l'IVA colpisce ricavo e costo alla stessa aliquota), quindi vale anche lordo su lordo. Con la quota attesa dovrebbe stare intorno a 100 − quota.">
           <div className="kpi-etichetta">Margine %</div>
           <div className="kpi-valore" style={{ color: coloreMargine(k.pctMargine, quota) }}>
             {pct(k.pctMargine)}
@@ -421,9 +426,17 @@ export default async function Margini({
       </div>
 
       <p className="testo-guida">
-        Il <strong>lordo è lordo</strong>: <code>totale</code> è il totale Shopify, IVA e spedizione incluse.
-        L&apos;aliquota non sta sull&apos;ordine (fiori e torte non hanno la stessa), quindi qui non si scorpora niente
-        e questo è un margine <strong>sul lordo</strong>. Chi deve fare il conto netto lo scorpora e lo dichiara.
+        Il <strong>venduto è lordo</strong>: <code>totale</code> è il totale Shopify, IVA e spedizione incluse.
+        Il <strong>margine, invece, è netto</strong>: si scorpora l&apos;IVA al {ALIQUOTA_IVA}% (÷{" "}
+        {(1 + ALIQUOTA_IVA / 100).toLocaleString("it-IT")}, non −{ALIQUOTA_IVA}%) — scelta dichiarata del 25/08/2026,
+        con <strong>aliquota unica</strong> anche se fiori e torte in Italia sarebbero di norma al 10%: su quelli il
+        margine reale è più alto di quanto si legge qui.
+        <br />
+        ⚠️ <strong>I due numeri hanno basi diverse, e vanno letti così.</strong> La percentuale è il margine netto
+        sull&apos;<strong>imponibile</strong>, non sul totale lordo: un ordine da 250 € con 150 € di costo fa 81,97 €
+        di margine e <strong>40%</strong> — che è 81,97 su 204,92 (l&apos;imponibile), non 81,97 su 250. La
+        percentuale non cambia con lo scorporo (l&apos;IVA colpisce ricavo e costo alla stessa aliquota): cambia solo
+        il valore in euro.
       </p>
     </main>
   );

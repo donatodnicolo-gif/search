@@ -55,6 +55,7 @@ const ZERO: Misure = {
 
 export type Margine = Misure & {
   margine: number; // misurato, AL NETTO IVA: (lordo degli ordini con costo − costo) ÷ 1,22
+  imponibileConCosto: number; // il venduto misurato AL NETTO IVA: è la base di pctMargine
   pctMargine: number; // margine reale in % (invariante allo scorporo: = margineLordo/lordoConCosto)
   coperturaOrdini: number; // % di ordini validi che hanno un costo
   coperturaLordo: number; // % di venduto valido coperto dalla misura
@@ -72,6 +73,10 @@ export function calcola(m: Misure, quota: number): Margine {
   return {
     ...m,
     margine,
+    // La base della percentuale, scorporata qui una volta sola: a schermo il
+    // margine netto va letto accanto al venduto NETTO, non accanto al lordo —
+    // altrimenti i due numeri non tornano e chi guarda ha ragione.
+    imponibileConCosto: Math.round((m.lordoConCosto / iva) * 100) / 100,
     pctMargine: m.lordoConCosto > 0.005 ? (margineLordo / m.lordoConCosto) * 100 : 0,
     coperturaOrdini: m.ordiniValidi ? (m.ordiniConCosto / m.ordiniValidi) * 100 : 0,
     coperturaLordo: m.lordoValido > 0.005 ? (m.lordoConCosto / m.lordoValido) * 100 : 0,

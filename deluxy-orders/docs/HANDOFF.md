@@ -1,9 +1,45 @@
 # Handoff — Deluxy Orders
 
-Stato al **25/08/2026 (pomeriggio)** (sezione qui sotto; il corpo del documento
+Stato al **25/08/2026 (pomeriggio 2)** (sezione qui sotto; il corpo del documento
 è del 30/07). Aggiornare a ogni tappa (regole di lavoro Deluxy). Serve a far
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
+
+## 25/08/2026 (pomeriggio 2) — «81,97 su 250 non fa 40%»: aveva ragione lui, e due didascalie mentivano
+
+Domanda dell'utente davanti al margine di un ordine. Il conto era **giusto** e la
+schermata **illeggibile**: 40% è `81,97 ÷ 204,92` (margine netto ÷ **imponibile**),
+ma l'imponibile **non compariva da nessuna parte** — a schermo c'erano solo
+81,97 € e 250 €, e con quei due numeri viene 32,8%.
+
+⭐⭐ **La lezione: un valore NETTO e una percentuale accanto a un totale LORDO
+sono due basi diverse nello stesso sguardo.** Chi legge divide per il numero che
+ha davanti; se la base non è scritta, il numero giusto sembra sbagliato — e la
+fiducia nel dato se ne va prima della spiegazione. La regola nuova, valida per
+ogni app: *quando una percentuale non ha la sua base a schermo, scrivila accanto.*
+
+**E cercando la base sono uscite due didascalie diventate false** il 25/08,
+quando il margine è passato al netto IVA — nessuno rilegge le scritte sotto un
+numero quando cambia la formula:
+- scheda ordine: sotto il margine c'era **«sul lordo, IVA e spedizione incluse»**;
+- `/margini`, in fondo: **«qui non si scorpora niente e questo è un margine sul
+  lordo»** — mentre `calcola()` scorpora dal 25/08 (l'handoff dava la nota per
+  aggiornata: era stata corretta quella nel **modulo**, non quella **a schermo**).
+
+**Fatto** (commit `d4a1b7e0`… vedi git log, LIVE):
+- `margineOrdine()` torna anche **`imponibile`** (totale ÷ 1,22): la base esce
+  dalla funzione unica, nessuna pagina se la ricalcola;
+- scheda ordine: «· 40% **dell'imponibile**» + riga «la percentuale è
+  sull'imponibile (204,92 €), non sul totale lordo (250,00 €)»;
+- `/margini`: KPI «Margine misurato **(netto IVA)**» con «su 4.151,72 €
+  imponibili (5.065,10 € lordi)» — ora il KPI «Margine %» (56,2%) torna con la
+  divisione che uno fa a occhio; nota di fondo riscritta;
+- elenco e `/controllo`: la base sta nel suggerimento del chip;
+- `calcola()` in `margini.ts` espone **`imponibileConCosto`**.
+
+**Verificato**: `tsc` pulito, `next build`, pagine lette nel DOM col build di
+produzione — #2798 «81,97 € · 40% dell'imponibile», `/margini` 2.335,20 € su
+4.151,72 € imponibili.
 
 ## 25/08/2026 (pomeriggio) — DOVE SI È FERMATO IL GIRO, e chi comanda quando le due strade si incrociano
 
