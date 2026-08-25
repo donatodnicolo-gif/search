@@ -98,11 +98,41 @@ e la distanza vecchia sarebbe sopravvissuta alla correzione.
   Italia»). Sugli 11 degeneri torna `null` e **non tocca niente**: un ritiro
   inventato è peggio di un ritiro sbagliato.
 
-**Lo storico NON è stato toccato** (serve conferma: la paga è denaro già
-maturato). L'estrazione di cosa cambierebbe è in
-`artista-locale-ritiri-corretti.csv`: **2.568** consegne del partner, **2.200**
-ritiri da correggere, **1.239** con km oltre 50, **8.780,93 €** di paghe da
-rivedere.
+**Lo storico è stato poi corretto** — vedi qui sotto. L'estrazione di cosa
+cambiava è in `artista-locale-ritiri-corretti.csv`.
+
+### Lo storico è stato portato alla regola (25/08/2026, su richiesta dell'utente)
+
+Script `api/scripts/correggi-ritiri-artista-locale.mjs` (di default **simula**;
+scrive solo con `--applica`, e prima salva i valori vecchi in
+`scripts/backup-ritiri-artista-locale.json` — senza quello la correzione non si
+può disfare). Lanciato in produzione:
+
+- **2.200 consegne corrette** su 2.568 del partner;
+- ritiro portato sulla città del destinatario su tutte e 2.200;
+- **1.239** avevano la distanza sopra i 50 km: azzerata;
+- **2.200 righe** nel registro della consegna (`DeliveryLog`, `ritiro-forzato`)
+  che dicono il valore di prima e la soglia — la correzione si legge dalla
+  consegna, non solo da qui.
+
+**Verificato dopo la scrittura**: la consegna 61576 (ordine Orders #12597) ora
+dice ritiro **Firenze**, distanza vuota; restano 4 consegne sopra i 50 km, e
+sono le uniche con l'indirizzo degenere («35030 PD, Italia», «Italia») dove la
+città non è riconoscibile — tutte e quattro con **paga 0**, quindi senza effetto
+sui soldi. Le 550 rimaste con ritiro «Milano» sono quelle **consegnate a
+Milano** (541 verificate sull'indirizzo): lì «Milano» è la risposta giusta.
+La distanza media del partner passa da **312,3 km a 10,4 km**.
+
+⚠️ **`valetSalary` NON è stata toccata**: 8.780,93 € di paghe restano legate ai
+km scartati. È denaro già maturato e in buona parte pagato — ricalcolarlo è una
+rettifica verso dei collaboratori, non una correzione tecnica, e si decide a
+parte. Per lo stesso motivo **Deluxy Orders non cambia**: il `costoConsegna` che
+riceve nasce da `valetSalary`, che è rimasta com'era.
+
+**Prima di scrivere** ho verificato che la correzione non muovesse le fatture
+partner: `extraKm` è **0 su tutte** le 2.568 consegne e `price > 0` solo su **3**
+(150 € in tutto), quindi il supplemento chilometrico non ha mai fatturato nulla.
+
 
 ## 🟢 STATO PRODUZIONE — 21/08/2026: l'app è TORNATA SU dopo 26 giorni
 
