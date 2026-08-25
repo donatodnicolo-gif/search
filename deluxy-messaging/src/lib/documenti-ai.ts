@@ -6,6 +6,8 @@
 // ⚠️ Un documento NON diventa un'istruzione da solo: si carica, l'AI propone
 // delle regole, una persona sceglie quali tenere. Vedi src/lib/cs-ai.ts.
 
+import { testoDaHtml } from './html-a-testo'
+
 /** Il tetto del corpo di una funzione su Vercel è 4,5 MB: qui si sta sotto. */
 export const LIMITE_BYTE = 4 * 1024 * 1024
 
@@ -108,20 +110,10 @@ async function daDocx(buf: Buffer): Promise<Estrazione> {
   return sistema(r.value, 0)
 }
 
-/** Via i tag, via script e style col loro contenuto (che testo non è). */
-function daHtml(html: string): string {
-  return html
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-}
+/** Via i tag, via script e style col loro contenuto (che testo non è).
+ *  Sta in `html-a-testo.ts` perché serve anche alla posta in arrivo: una mail
+ *  scritta solo in HTML arrivava qui senza corpo. */
+const daHtml = testoDaHtml
 
 /** Normalizza gli spazi e applica il tetto, dicendolo. */
 function sistema(grezzo: string, pagine: number): Estrazione {

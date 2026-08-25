@@ -22,17 +22,44 @@ export async function POST() {
 
   const ignorati = await elencoMittentiIgnorati()
 
-  const risultati: { casella: string; ok: boolean; nuove: number; errore: string }[] = []
+  const risultati: {
+    casella: string
+    ok: boolean
+    nuove: number
+    /** Mail già in archivio a cui questo giro ha ridato il corpo (erano vuote). */
+    ripescate: number
+    errore: string
+  }[] = []
 
   for (const casella of caselle) {
     try {
       const mail = await scaricaEmail(casella)
       let nuove = 0
+      let ripescate = 0
       // dalla più vecchia alla più recente, così l'ultima resta in cima
       for (const m of [...mail].reverse()) {
         if (m.idEsterno) {
           const gia = await db.messaggio.findFirst({ where: { idEsterno: m.idEsterno } })
-          if (gia) continue
+          if (gia) {
+            // ⚠️ CORREGGERE IL CODICE NON BASTA: le mail solo-HTML entrate prima
+            // del 25/08/2026 sono già in archivio **col corpo vuoto**, e il
+            // dedup qui sopra le salterebbe per sempre — la correzione varrebbe
+            // solo per la posta futura, e chi apre un ordine di ieri
+            // continuerebbe a vedere un messaggio bianco.
+            // Finché la mail è ancora sul server (lo scarico guarda gli ultimi
+            // 7 giorni) il corpo si ripesca: si riscrive SOLO se prima era
+            // vuoto e adesso c'è qualcosa. Mai sovrascrivere un testo esistente:
+            // quello in archivio è ciò che l'operatore ha letto e a cui ha
+            // risposto.
+            if (!gia.testo.trim() && m.testo.trim()) {
+              await db.messaggio.update({
+                where: { id: gia.id },
+                data: { testo: m.testo, lingua: linguaDelTesto(m.testo) },
+              })
+              ripescate++
+            }
+            continue
+          }
         }
 
         // A QUALE SITO appartiene questa mail: dal numero d'ordine citato
@@ -92,17 +119,19 @@ export async function POST() {
         })
         nuove++
       }
-      risultati.push({ casella: casella.indirizzo, ok: true, nuove, errore: '' })
+      risultati.push({ casella: casella.indirizzo, ok: true, nuove, ripescate, errore: '' })
     } catch (e) {
       risultati.push({
         casella: casella.indirizzo,
         ok: false,
         nuove: 0,
+        ripescate: 0,
         errore: (e as Error).message,
       })
     }
   }
 
   const nuove = risultati.reduce((s, r) => s + r.nuove, 0)
-  return NextResponse.json({ nuove, risultati })
+  const ripescate = risultati.reduce((s, r) => s + r.ripescate, 0)
+  return NextResponse.json({ nuove, ripescate, risultati })
 }

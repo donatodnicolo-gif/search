@@ -1,5 +1,73 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (sera 9) — la mail si apre in un pop-up, e quelle solo-HTML arrivavano VUOTE
+
+Chiesto dall'utente: «al click apri la mail con un popup», sulla scheda
+dell'ordine (riquadro **Messaggi del cliente**, `MessaggiOrdine.tsx`). Fatto — ma
+la schermata che ha mandato conteneva anche un difetto che nessuno aveva notato.
+
+**1. Il pop-up (quello che era stato chiesto).** Ogni battuta è ora un
+`<button>`: cliccandola — o arrivandoci col Tab e premendo Invio — si apre il
+messaggio **per intero**. Nell'elenco il testo è tagliato a 400 caratteri dentro
+un riquadro alto 260px: basta a capire di cosa si parlava, non a leggere una
+richiesta vera con indirizzo e orari. Il pop-up ha oggetto, mittente, data per
+esteso, il corpo che scorre dentro di sé (max 60vh, la testata resta ferma) e
+«Apri in Inbox». Si chiude con la ✕, con Esc o col clic sul velo.
+
+⚠️⚠️ **Due trappole dell'annidamento**, perché questo pop-up nasce DENTRO la
+scheda dell'ordine, che è già una finestra:
+
+- **Il velo**: serve `velo velo-sopra` (z-index 70 contro 60) o nasce dietro; e
+  il clic sul proprio velo va fermato con `stopPropagation`, perché il velo
+  della scheda ordine è un antenato nel DOM e ha anche lui un `onClick` che
+  chiude. Senza, chiudere il pop-up chiudeva anche l'ordine.
+- **Esc**: `DettaglioOrdine` ascolta `keydown` sullo **stesso `document`**. Due
+  ascoltatori sullo stesso nodo non si fermano a vicenda con `stopPropagation`
+  in risalita — decide l'ordine di registrazione, e la scheda ordine si è
+  registrata prima. La soluzione è ascoltare **in cattura**
+  (`addEventListener('keydown', h, true)`): lì si arriva prima della fase di
+  risalita, e `stopPropagation()` basta a non farlo vedere alla scheda.
+- Provato a schermo su tutti e tre i modi di chiudere (Esc, clic sul velo,
+  bottone Chiudi): il pop-up si chiude, **la scheda dell'ordine resta aperta**.
+
+**2. Il difetto trovato per strada: 36 mail in archivio col corpo VUOTO.** Nella
+schermata dell'utente le due «Re: ORDER 2798» mostravano l'oggetto e sotto il
+nulla. Non era la grafica: sul database quelle due righe hanno
+`length(testo) = 0`. Causa in `src/lib/email.ts`, che faceva
+`testo: (m.text ?? '').trim()` — ma **una mail può non avere affatto la parte
+`text/plain`**: chi la scrive con un editor visuale, o la manda una piattaforma,
+spedisce spesso solo `text/html`. In quel caso `m.text` è `undefined` e il
+messaggio entrava in archivio bianco. Non era solo estetica: `linguaDelTesto('')`
+non riconosce niente, e l'AI che legge quelle conversazioni leggeva una riga
+vuota. Misura del 25/08: **36 su 1.240** mail email, fra cui le due segnalate.
+
+- Ora il corpo si prende dall'HTML come ripiego, ridotto a testo
+  (`corpoDellaMail` in `email.ts`, con `testoDaHtml` nel nuovo
+  `src/lib/html-a-testo.ts` — la stessa funzione che usava già `documenti-ai.ts`,
+  che ora la importa invece di tenersene una copia).
+- ⚠️ **Correggere il codice non basta**: le 36 già in archivio il dedup le
+  salterebbe per sempre, e la correzione varrebbe solo per la posta futura. Sia
+  `POST /api/email/sync` sia il **cron `/api/cron/posta`** ora, quando trovano
+  una mail già presente **col testo vuoto** e stavolta ce l'hanno, la
+  **riscrivono** (solo da vuoto a pieno, mai il contrario: il testo in archivio è
+  quello che l'operatore ha letto e a cui ha risposto). Le due rotte tornano
+  `ripescate` accanto a `nuove`. È il cron a fare il lavoro vero, da solo, sulle
+  mail ancora sul server — che guarda **gli ultimi 2 giorni**: le vuote più
+  vecchie di così restano vuote, e per quelle c'è «Apri in Inbox».
+- Nel frattempo l'elenco scrive **«(senza testo)»** invece di lasciare il buco, e
+  il pop-up spiega perché invece di aprirsi bianco.
+
+**Verifica**: `tsc --noEmit` pulito e `npm run build` a buon fine (esito letto
+direttamente, non da una pipe). Il comportamento è stato provato nel browser su
+una pagina d'anteprima temporanea sotto `/chat` (unico ramo pubblico), poi
+cancellata.
+
+⚠️ **Nota sul repo condiviso**: le regole CSS di questo lavoro
+(`.mail-aperta*`, `.battuta` come bottone) sono finite dentro il commit
+`0f58293e` di un'**altra sessione**, che ha staggiato `globals.css` mentre la mia
+modifica era già nel file. Nulla è andato perso — ma è il motivo per cui in
+`git log -- globals.css` questo lavoro non compare col suo messaggio.
+
 ## 25/08/2026 (sera 8) — «non vedo Passiflora fra i fornitori» (ordine #2798)
 
 Segnalato dall'utente. Aveva ragione, e i motivi erano **tre**, tutti silenziosi.

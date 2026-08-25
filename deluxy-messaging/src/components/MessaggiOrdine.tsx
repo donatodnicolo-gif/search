@@ -53,11 +53,132 @@ function quando(iso: string): string {
   })
 }
 
+/** Data per esteso: nel pop-up c'è lo spazio, e «25 ago» non dice l'anno. */
+function quandoPerEsteso(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleString('it-IT', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+/**
+ * Il messaggio aperto per intero.
+ *
+ * Nell'elenco ogni battuta è tagliata a 400 caratteri e sta in un riquadro alto
+ * 260px: va bene per capire di cosa si parlava, non per LEGGERE. Una mail vera
+ * — con la richiesta del cliente, l'indirizzo, gli orari — lì dentro si vede a
+ * metà, e per il resto bisognava uscire dall'ordine e cercarla in Inbox.
+ */
+export function MailAperta({
+  messaggio,
+  conversazione,
+  onChiudi,
+}: {
+  messaggio: MessaggioOrdine
+  conversazione: ConversazioneOrdine
+  onChiudi: () => void
+}) {
+  useEffect(() => {
+    function suTasto(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      // ⚠️ La scheda dell'ordine ascolta Esc anche lei, sullo STESSO document:
+      // senza fermare l'evento qui, un solo Esc chiuderebbe il pop-up **e**
+      // l'ordine sotto — e chi voleva solo tornare all'elenco dei messaggi si
+      // ritroverebbe fuori da tutto.
+      // In cattura, così questo arriva prima di quello della scheda (che è in
+      // risalita): stopPropagation basta a non farglielo vedere.
+      e.stopPropagation()
+      onChiudi()
+    }
+    document.addEventListener('keydown', suTasto, true)
+    return () => document.removeEventListener('keydown', suTasto, true)
+  }, [onChiudi])
+
+  const nostra = messaggio.direzione === 'out'
+  const testo = messaggio.testo.trim()
+
+  return (
+    // ⚠️ `velo-sopra`: questo pop-up nasce DENTRO la scheda dell'ordine, che è
+    // già una finestra col suo velo. Allo stesso livello lo ordinerebbe il DOM,
+    // e finirebbe dietro.
+    // ⚠️ E il clic sul velo va fermato: il velo della scheda dell'ordine è un
+    // nostro antenato e ha anche lui un onClick che chiude — senza
+    // stopPropagation, chiudere il pop-up chiuderebbe pure l'ordine.
+    <div
+      className="velo velo-sopra"
+      role="presentation"
+      onClick={(e) => {
+        e.stopPropagation()
+        onChiudi()
+      }}
+    >
+      <div
+        className="pannello mail-aperta"
+        role="dialog"
+        aria-label={messaggio.oggetto || 'Messaggio del cliente'}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="pannello-testa">
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>
+              {messaggio.oggetto || (nostra ? 'La nostra risposta' : 'Messaggio del cliente')}
+            </h2>
+            <div className="cella-sub" style={{ marginTop: 2 }}>
+              <span className={`badge canale-${conversazione.canale}`}>
+                {NOMI_CANALE[conversazione.canale] ?? conversazione.canale}
+              </span>{' '}
+              {nostra
+                ? `Inviato da ${messaggio.utenteNome || 'noi'} a ${conversazione.chi}`
+                : `Da ${conversazione.chi}`}{' '}
+              · {quandoPerEsteso(messaggio.creatoIl)}
+            </div>
+          </div>
+          <button className="btn btn-secondario small" onClick={onChiudi}>
+            Chiudi
+          </button>
+        </div>
+
+        {testo ? (
+          <div className="mail-aperta-corpo">{testo}</div>
+        ) : (
+          // ⚠️ Un pop-up vuoto sembra rotto. Se il corpo non c'è si dice
+          // perché: è una mail scritta solo in HTML, entrata prima del
+          // 25/08/2026 quando lo scarico teneva solo la parte in testo
+          // semplice. Il cron della posta lo ripesca da solo se la mail è
+          // ancora sul server (ultimi 2 giorni).
+          <p className="descrizione mail-aperta-corpo vuoto">
+            Questa mail è arrivata senza testo semplice — era scritta solo in HTML, e allora il
+            corpo non veniva conservato. Se è degli ultimi due giorni il corpo torna da solo al
+            prossimo scarico della posta; altrimenti si legge dalla casella, con «Apri in Inbox».
+          </p>
+        )}
+
+        <div className="mail-aperta-piede">
+          <a className="btn btn-secondario small" href={`/inbox?c=${conversazione.id}`}>
+            Apri in Inbox
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function MessaggiOrdine({ ordineId }: { ordineId: string }) {
   const [conversazioni, setConversazioni] = useState<ConversazioneOrdine[] | null>(null)
   const [bozze, setBozze] = useState<Record<string, string>>({})
   const [inviando, setInviando] = useState('')
   const [errore, setErrore] = useState('')
+  // Quale messaggio è aperto nel pop-up. Si tengono gli ID e non l'oggetto:
+  // dopo una risposta la lista si ricarica, e un oggetto congelato mostrerebbe
+  // una copia vecchia di quello che c'è sotto.
+  const [aperto, setAperto] = useState<{ conversazioneId: string; messaggioId: string } | null>(
+    null
+  )
 
   const carica = useCallback(async () => {
     try {
@@ -127,6 +248,16 @@ export function MessaggiOrdine({ ordineId }: { ordineId: string }) {
     )
   }
 
+  // Il messaggio aperto si ripesca ogni volta dai dati freschi: se dopo un
+  // ricarico non c'è più (ne teniamo le ultime sei), il pop-up sparisce invece
+  // di mostrare un fantasma.
+  const conversazioneAperta = aperto
+    ? (conversazioni.find((c) => c.id === aperto.conversazioneId) ?? null)
+    : null
+  const messaggioAperto = conversazioneAperta
+    ? (conversazioneAperta.messaggi.find((m) => m.id === aperto?.messaggioId) ?? null)
+    : null
+
   return (
     <div className="card">
       <h3 style={{ marginTop: 0, fontSize: 15 }}>
@@ -154,14 +285,27 @@ export function MessaggiOrdine({ ordineId }: { ordineId: string }) {
 
           <div className="battute">
             {c.messaggi.map((m) => (
-              <div key={m.id} className={`battuta ${m.direzione === 'out' ? 'nostra' : 'sua'}`}>
+              // Cliccabile: l'elenco taglia a 400 caratteri, il pop-up mostra
+              // tutto. È un <button> e non un <div> con onClick perché si deve
+              // poter arrivare col Tab e aprire con Invio — qui dentro ci sono
+              // mail di clienti, e chi lavora in tastiera non deve prendere il
+              // mouse per leggerne una.
+              <button
+                type="button"
+                key={m.id}
+                className={`battuta ${m.direzione === 'out' ? 'nostra' : 'sua'}`}
+                onClick={() => setAperto({ conversazioneId: c.id, messaggioId: m.id })}
+                title="Apri il messaggio"
+              >
                 {m.oggetto ? <span className="oggetto">{m.oggetto}</span> : null}
-                <span className="testo">{m.testo.slice(0, 400)}</span>
+                <span className="testo">
+                  {m.testo.trim().slice(0, 400) || <span className="senza-testo">(senza testo)</span>}
+                </span>
                 <span className="quando">
                   {quando(m.creatoIl)}
                   {m.direzione === 'out' && m.utenteNome ? ` · ${m.utenteNome}` : ''}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
 
@@ -182,6 +326,14 @@ export function MessaggiOrdine({ ordineId }: { ordineId: string }) {
           </div>
         </div>
       ))}
+
+      {messaggioAperto && conversazioneAperta ? (
+        <MailAperta
+          messaggio={messaggioAperto}
+          conversazione={conversazioneAperta}
+          onChiudi={() => setAperto(null)}
+        />
+      ) : null}
     </div>
   )
 }

@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 
   const ignorati = await elencoMittentiIgnorati()
 
-  const risultati: { casella: string; nuove: number; errore: string }[] = []
+  const risultati: { casella: string; nuove: number; ripescate: number; errore: string }[] = []
 
   for (const casella of caselle) {
     try {
@@ -49,10 +49,25 @@ export async function GET(req: NextRequest) {
       // giorno per trovarne una nuova.
       const mail = await scaricaEmail(casella, 2)
       let nuove = 0
+      let ripescate = 0
       for (const m of [...mail].reverse()) {
         if (m.idEsterno) {
           const gia = await db.messaggio.findFirst({ where: { idEsterno: m.idEsterno } })
-          if (gia) continue
+          if (gia) {
+            // Ripesca il corpo delle mail solo-HTML entrate vuote prima del
+            // 25/08/2026 (stesso rimedio di `POST /api/email/sync`, spiegato
+            // per esteso lì). È QUI che serve davvero: il cron passa da solo,
+            // quindi le mail ancora sul server si riparano senza che nessuno
+            // debba premere niente. Solo da vuoto a pieno, mai il contrario.
+            if (!gia.testo.trim() && m.testo.trim()) {
+              await db.messaggio.update({
+                where: { id: gia.id },
+                data: { testo: m.testo, lingua: linguaDelTesto(m.testo) },
+              })
+              ripescate++
+            }
+            continue
+          }
         }
         // A QUALE SITO appartiene questa mail: dal numero d'ordine citato
         // nell'oggetto o nel corpo, cercato nella tabella ordini. Le notifiche
@@ -123,17 +138,23 @@ export async function GET(req: NextRequest) {
         })
         nuove++
       }
-      risultati.push({ casella: casella.indirizzo, nuove, errore: '' })
+      risultati.push({ casella: casella.indirizzo, nuove, ripescate, errore: '' })
     } catch (e) {
       // Una casella che non risponde non deve fermare le altre.
-      risultati.push({ casella: casella.indirizzo, nuove: 0, errore: (e as Error).message })
+      risultati.push({
+        casella: casella.indirizzo,
+        nuove: 0,
+        ripescate: 0,
+        errore: (e as Error).message,
+      })
     }
   }
 
   const nuove = risultati.reduce((s, r) => s + r.nuove, 0)
+  const ripescate = risultati.reduce((s, r) => s + r.ripescate, 0)
   // Serve solo a tenere «caldo» il risolutore dei marchi in cache: se una mail
   // nuova arriva su una casella collegata a un marchio, l'inbox la mostra già
   // nella colonna giusta al primo caricamento.
   if (nuove) await risolutoreMarchio()
-  return NextResponse.json({ ok: true, nuove, risultati })
+  return NextResponse.json({ ok: true, nuove, ripescate, risultati })
 }

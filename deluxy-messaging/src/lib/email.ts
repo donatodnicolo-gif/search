@@ -3,6 +3,7 @@ import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
 import { db } from './db'
 import { cifra, decifra } from './crypto'
+import { normalizzaSpazi, testoDaHtml } from './html-a-testo'
 
 // Client di posta delle caselle aziendali. Se ne possono collegare più d'una
 // (tabella CasellaEmail): le mail entrano nella stessa inbox degli altri
@@ -229,6 +230,33 @@ export type EmailRicevuta = {
   data: Date
 }
 
+/**
+ * Il corpo della mail, da qualunque parte arrivi.
+ *
+ * ⚠️⚠️ Prima qui c'era `(m.text ?? '').trim()`, e basta. Ma **una mail può non
+ * avere affatto la parte `text/plain`**: chi la scrive con un editor visuale (o
+ * la manda una piattaforma) spesso spedisce solo `text/html`. In quel caso
+ * `m.text` è `undefined` e il messaggio finiva in archivio **con il corpo
+ * vuoto**: in Inbox e nella scheda dell'ordine restava l'oggetto e sotto il
+ * nulla, come se il cliente avesse mandato una mail bianca. E non era solo
+ * questione di aspetto: `linguaDelTesto('')` non riconosce niente, e l'AI che
+ * legge quelle conversazioni leggeva una riga vuota.
+ *
+ * Misurato sul database il 25/08/2026: **36 mail su 1.240** erano così — fra
+ * cui le due «Re: ORDER 2798» da cui è partita la segnalazione.
+ *
+ * L'HTML si usa solo come ripiego, e ridotto a testo: qui non si conserva
+ * impaginato: quello resta sul server IMAP.
+ */
+export function corpoDellaMail(text: string | undefined, html: string | false | undefined): string {
+  const semplice = (text ?? '').trim()
+  if (semplice) return semplice.slice(0, 8000)
+  if (typeof html === 'string' && html.trim()) {
+    return normalizzaSpazi(testoDaHtml(html)).slice(0, 8000)
+  }
+  return ''
+}
+
 /** Scarica le mail recenti della posta in arrivo di una casella. */
 export async function scaricaEmail(c: Casella, giorni = 7): Promise<EmailRicevuta[]> {
   const client = connessioneImap(c)
@@ -249,7 +277,7 @@ export async function scaricaEmail(c: Casella, giorni = 7): Promise<EmailRicevut
           da: indirizzo,
           nome: mittente?.name || indirizzo,
           oggetto: m.subject ?? '',
-          testo: (m.text ?? '').trim().slice(0, 8000),
+          testo: corpoDellaMail(m.text, m.html),
           data: m.date ?? new Date(),
         })
       }
