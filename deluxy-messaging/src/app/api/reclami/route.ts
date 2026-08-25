@@ -49,7 +49,30 @@ export async function GET(req: NextRequest) {
   ])
 
   const perStato = Object.fromEntries(conteggi.map((c) => [c.stato, c._count._all]))
-  return NextResponse.json({ reclami, totale, perStato })
+
+  // ── LE DOMANDE ANCORA SENZA RISPOSTA, per ogni reclamo ──
+  //
+  // ⚠️⚠️ Sta nell'ELENCO e non solo dentro la scheda perché è la cosa che
+  // aspetta qualcuno: un reclamo con una domanda aperta non è fermo per
+  // pigrizia, dipende da un altro — e chi guarda la lista deve poterlo vedere
+  // senza aprire sei schede una per una.
+  //
+  // ⚠️ Due query e non una per riga: l'elenco arriva a 300.
+  const ids = reclami.map((r) => r.id)
+  const messaggi = ids.length
+    ? await db.messaggioReclamo.findMany({
+        where: { reclamoId: { in: ids } },
+        select: { id: true, reclamoId: true, domanda: true, rispostaA: true },
+      })
+    : []
+  const risposte = new Set(messaggi.map((m) => m.rispostaA).filter(Boolean))
+  const domandeAperte: Record<string, number> = {}
+  for (const m of messaggi) {
+    if (!m.domanda || risposte.has(m.id)) continue
+    domandeAperte[m.reclamoId] = (domandeAperte[m.reclamoId] ?? 0) + 1
+  }
+
+  return NextResponse.json({ reclami, totale, perStato, domandeAperte })
 }
 
 // Crea o aggiorna un reclamo. Il cambio di stato passa da qui o dalla rotta

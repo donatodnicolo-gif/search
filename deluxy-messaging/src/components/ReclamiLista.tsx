@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { SoldiReclamo } from './SoldiReclamo'
+import { FiloReclamo } from './FiloReclamo'
 import {
   STATI_RECLAMO,
   COLPA_TIPI,
@@ -81,6 +83,8 @@ function dataBreve(iso: string): string {
 export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri?: string }) {
   const [reclami, setReclami] = useState<Reclamo[]>([])
   const [perStato, setPerStato] = useState<Record<string, number>>({})
+  /** Quante domande del filo aspettano ancora una risposta, per reclamo. */
+  const [domandeAperte, setDomandeAperte] = useState<Record<string, number>>({})
   const [caricato, setCaricato] = useState(false)
   const [casistiche, setCasistiche] = useState<Casistica[]>([])
   const [valet, setValet] = useState<Valet[]>([])
@@ -108,9 +112,14 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
       if (filtroGravita) p.set('gravita', filtroGravita)
       const res = await fetch('/api/reclami?' + p.toString())
       if (!res.ok) return
-      const d = (await res.json()) as { reclami: Reclamo[]; perStato: Record<string, number> }
+      const d = (await res.json()) as {
+        reclami: Reclamo[]
+        perStato: Record<string, number>
+        domandeAperte?: Record<string, number>
+      }
       setReclami(d.reclami)
       setPerStato(d.perStato)
+      setDomandeAperte(d.domandeAperte ?? {})
     } catch {
       // rete assente
     } finally {
@@ -576,6 +585,21 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
               Annulla
             </button>
           </div>
+
+          {/* ── QUELLO CHE STA INTORNO AL RECLAMO ──
+              ⚠️ Solo su un reclamo che ESISTE già: un filo di domande e i soldi
+              di un ordine non hanno senso su un modulo ancora da salvare, e
+              mostrarli vuoti insegnerebbe a ignorarli.
+              ⚠️⚠️ I soldi stanno QUI e non in fondo alla pagina perché servono
+              nel momento in cui si decide: rimborsare 250 € su un ordine che ce
+              ne ha lasciati 40 non è la stessa decisione che rimborsarli su uno
+              che ne ha lasciati 120. */}
+          {bozza.id ? (
+            <>
+              <SoldiReclamo reclamoId={bozza.id} />
+              <FiloReclamo reclamoId={bozza.id} />
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -669,7 +693,20 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
                     </div>
                   </td>
                   <td>
-                    <div>{r.casistica}</div>
+                    <div>
+                      {r.casistica}
+                      {/* ⚠️⚠️ Una domanda senza risposta si vede DALL'ELENCO. Un
+                          reclamo fermo perché aspetta una risposta non è un
+                          reclamo trascurato, ed è l'unica cosa che si può
+                          sbloccare andando a cercare qualcuno: tenerla dentro la
+                          scheda vorrebbe dire aprirne sei per scoprirlo. */}
+                      {domandeAperte[r.id] ? (
+                        <span className="badge" style={{ marginLeft: 6, color: 'var(--red)' }}>
+                          {domandeAperte[r.id]}{' '}
+                          {domandeAperte[r.id] === 1 ? 'domanda aperta' : 'domande aperte'}
+                        </span>
+                      ) : null}
+                    </div>
                     {r.descrizione ? (
                       <div className="cella-sub" style={{ maxWidth: 260 }}>
                         {r.descrizione.length > 90 ? r.descrizione.slice(0, 90) + '…' : r.descrizione}

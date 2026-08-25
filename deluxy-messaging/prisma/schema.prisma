@@ -1696,3 +1696,36 @@ model RichiestaFornitore {
   @@index([ordineId, chiestoIl])
   @@index([fornitoreNome])
 }
+
+/// IL FILO DI DOMANDE E RISPOSTE DI UN RECLAMO.
+///
+/// ⚠️⚠️ Un reclamo non si risolve con un campo «descrizione» e uno «esito»: in
+/// mezzo c'è una conversazione — «il valet dice che ha citofonato, il cliente
+/// dice di no», «chiedo al fioraio se ha la prova di consegna», «risposto: ce
+/// l'ha, foto allegata». Finora quella conversazione stava nelle chat fra
+/// colleghi o in testa a chi ci aveva lavorato: chi riapriva il reclamo tre
+/// giorni dopo ricominciava da zero, e chi decideva un rimborso lo decideva
+/// senza sapere cosa era già stato chiesto.
+///
+/// ⚠️ Le DOMANDE si segnano come tali (`domanda`), e una domanda senza risposta
+/// resta visibile come tale: è la parte che aspetta qualcuno. Un filo di note
+/// tutte uguali nasconderebbe proprio quella.
+model MessaggioReclamo {
+  id        String @id @default(cuid())
+  reclamoId String
+  /// Chi ha scritto. ⚠️ Il NOME si copia qui: il filo si legge senza caricare
+  /// gli utenti, e chi scrive oggi può non essere più in squadra fra sei mesi —
+  /// la riga deve continuare a dire di chi era.
+  autoreId   String @default("")
+  autoreNome String @default("")
+  testo      String @db.Text
+  /// true = è una domanda, e resta aperta finché non arriva una risposta.
+  domanda    Boolean @default(false)
+  /// L'id della domanda a cui questo messaggio risponde ('' = non risponde a
+  /// niente, è una riga del filo).
+  rispostaA  String  @default("")
+  creatoIl   DateTime @default(now())
+
+  @@index([reclamoId, creatoIl])
+  @@index([rispostaA])
+}

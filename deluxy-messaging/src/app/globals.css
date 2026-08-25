@@ -4616,3 +4616,11 @@ td .azioni-ordine {
 }
 
 .serve-scelta button { align-self: flex-start; margin-top: 2px; }
+
+/* Il filo di domande e risposte di un reclamo.
+   ⚠️ Niente pallini: sono messaggi, non un elenco puntato — e con il rientro
+   delle risposte i pallini farebbero sembrare le risposte voci sorelle della
+   domanda invece che figlie. */
+.filo-reclamo { list-style: none; margin: 8px 0 12px; padding: 0; }
+.filo-reclamo > li { padding: 8px 0; border-top: 1px solid var(--hairline, rgba(0,0,0,.08)); }
+.filo-reclamo > li:first-child { border-top: none; }

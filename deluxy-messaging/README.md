@@ -1644,6 +1644,46 @@ Attenzione, oltre Critico). Così un solo reclamo grave ancora aperto accende gi
 sempre visibile da cosa nasce il numero. Per il quadro completo — feedback, orari e altre
 variabili — c'è la **pagella** qui sotto.
 
+### Il filo di domande e risposte, e i soldi dell'ordine
+
+Aprendo un reclamo (bottone **Apri** sulla riga) sotto il modulo ci sono due
+riquadri nuovi.
+
+**Quest'ordine, in soldi.** Valore dell'ordine · quanto è andato al fornitore ·
+**quanto ci è rimasto**, con la percentuale sul totale pagato dal cliente.
+
+⚠️⚠️ Il margine si **legge da Deluxy Orders**, non si rifà qui: è l'unico posto
+dove si calcola (Standard §7.4) ed è al **netto IVA**. Rifarlo come «totale −
+costo» darebbe un numero più alto e altrettanto credibile, e le due schermate
+direbbero due cifre diverse sulla stessa cosa senza che nessuna dia errore.
+⚠️ Per lo stesso motivo quota del fornitore e margine **non fanno 100 fra loro**:
+il costo è lordo su lordo, il margine netto su lordo.
+
+⚠️ Se Orders non risponde, o di quell'ordine non conosce il costo, si scrive
+**«non calcolabile»** — mai «0 €», che si legge come «non ci abbiamo guadagnato
+niente». A che serve: è la cifra che manca quando si decide un rimborso.
+Rimborsare 250 € su un ordine che ce ne ha lasciati 40 non è la stessa decisione
+che rimborsarli su uno che ne ha lasciati 120.
+
+**Domande e risposte.** Il filo di quello che si chiede e si scopre lavorando il
+reclamo: «il valet dice che ha citofonato, il cliente dice di no» · «chiedo al
+fioraio se ha la prova di consegna» · «risposto: ce l'ha».
+
+⚠️⚠️ Una riga si può segnare come **domanda**: resta marcata **«domanda aperta»**
+finché qualcuno non preme *Rispondi*, e le risposte stanno **sotto** la loro
+domanda, non in fondo al filo. Un elenco di note tutte uguali nasconderebbe
+proprio la cosa che aspetta qualcuno.
+
+⚠️ Il conto delle domande aperte si vede **dall'elenco dei reclami**, accanto
+alla casistica: un reclamo fermo perché aspetta una risposta non è un reclamo
+trascurato, ed è l'unico che si sblocca andando a cercare una persona. Tenerlo
+dentro la scheda vorrebbe dire aprirne sei per scoprirlo.
+
+⚠️ Scrivere nel filo **non chiude** una domanda: solo *Rispondi* lo fa. È la
+differenza fra «ho detto qualcosa» e «ho risposto», ed è provata
+(`scripts/prova-filo-reclamo.mts`).
+
+
 ## CS AI: come l'AI parla ai clienti
 
 In **CS AI** si scrive il *come*: tono di voce, firma, cosa non promettere mai, cosa cambia

@@ -1,5 +1,60 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (sera 3) — un reclamo adesso ha un filo, e dice quanto vale l'ordine
+
+Chiesto dall'utente su `/reclami?apri=cmt8q1opb000njv04q4vvyhzk`: «consenti di
+fare un thread di domande e risposte per ogni reclamo» e «indica anche il valore
+dell'ordine e il margine che abbiamo avuto».
+
+### Il filo (`MessaggioReclamo`, tabella nuova)
+
+⚠️⚠️ Un reclamo non si risolve con «descrizione» + «esito»: in mezzo c'è una
+conversazione — «il valet dice che ha citofonato, il cliente dice di no» ·
+«chiedo al fioraio se ha la prova di consegna» · «risposto: ce l'ha». Finora
+viveva nelle chat fra colleghi: chi riapriva il reclamo tre giorni dopo
+ricominciava da capo, e chi decideva un rimborso non sapeva cosa era già stato
+chiesto.
+
+- Una riga si segna come **domanda** e resta **«domanda aperta»** finché
+  qualcuno non preme *Rispondi*. ⚠️ **Scrivere nel filo NON chiude una domanda**:
+  è la differenza fra «ho detto qualcosa» e «ho risposto», ed è provata.
+- Le **risposte stanno sotto la loro domanda**, non in fondo: un filo piatto con
+  la risposta quaranta righe più giù è di nuovo una chat da ricostruire a mente.
+- ⚠️ Il conto delle domande aperte si vede **dall'elenco** (accanto alla
+  casistica): un reclamo fermo perché aspetta una risposta non è trascurato, ed è
+  l'unico che si sblocca andando a cercare una persona. Due query per l'elenco
+  intero, non una per riga.
+- ⚠️ Il nome dell'autore si **copia** sulla riga: il filo si legge senza caricare
+  gli utenti, e chi scrive oggi può non essere più in squadra fra sei mesi.
+- ⚠️ `rispostaA` si valida lato server contro il reclamo: un id arrivato dal
+  browser non è una prova, e una risposta agganciata al filo sbagliato
+  sparirebbe dalla vista di tutti e due.
+
+### I soldi dell'ordine (`GET /api/reclami/<id>/soldi`)
+
+Valore dell'ordine · quanto è andato al fornitore · **quanto ci è rimasto**, con
+la percentuale **sul totale pagato dal cliente** (stessa base di Orders).
+
+⚠️⚠️ **Il margine si LEGGE da Deluxy Orders** (`soldiOrdineDaOrders`, che
+esisteva e non lo usava nessuno) e non si rifà qui: è l'unico posto dove si
+calcola (Standard §7.4) ed è al **netto IVA**. Misurato: #2798 → 250 € − 150 € =
+100 € lordi, ma il margine vero è **81,97 €** (÷1,22). Rifarlo in casa avrebbe
+dato un numero più alto e altrettanto credibile, senza errori da nessuna parte.
+
+⚠️ `null` non è zero: se Orders non risponde, o non conosce il costo, si scrive
+**«non calcolabile»**. Sul reclamo dell'utente (#12805) è proprio così: totale
+100 €, costo del fornitore mai registrato → nessun margine, e lo dice.
+
+⚠️ Quota fornitore e margine **non fanno 100 fra loro** (costo lordo su lordo,
+margine netto su lordo): scritto a schermo invece che lasciato scoprire.
+
+**Provato sui dati veri**: `npx tsx scripts/prova-filo-reclamo.mts <idReclamo>` —
+crea domanda, nota e risposta sul reclamo vero, verifica che solo la risposta
+chiuda la domanda, e **cancella solo le righe che ha creato lui** (mai un
+`deleteMany` largo: il Postgres è condiviso). Schema applicato con
+`prisma db push`; contati dopo: 1.360 ordini, 6 reclami, 18 pagamenti intatti.
+
+
 ## 25/08/2026 (sera 2) — «clicco mail e non succede nulla»
 
 Segnalato dall'utente con lo screenshot della riga della tabella. Era vero, alla
