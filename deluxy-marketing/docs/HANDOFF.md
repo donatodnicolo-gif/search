@@ -78,26 +78,37 @@
 >    `drive.apikey` (39). Chiunque legga quella tabella li legge. Vanno spostati
 >    (`scripts/segreti-fuori-dal-db.mjs`) **e ruotati**, perché sono già stati
 >    in chiaro.
-> 7. 🆕 **L'indice di Drive gira SOLO a mano, e da QUESTO PC.** `sync-drive` legge
->    `G:\Il mio Drive\ADV DELUXY SRL`, cioè un percorso che **su Vercel non
->    esiste**: non c'è nessun cron che possa farlo. Conseguenza misurata il
->    25/08: l'ultima sync era del **17/08 alle 08:31** (lanciata a mano), il
->    documento più recente che l'app conosceva era del **07/08**, e la tabella
->    `Analisi` si fermava al **04/08** — mentre su Drive, negli otto giorni in
->    mezzo, erano stati depositati 13 file veri. **Riallineato oggi**
->    (`npm run sync-drive`): 655 documenti, +11 nuovi, **88 analisi** (+2).
->    ⚠️ Finché resta così, «l'app non ha analisi recenti» non vuol dire «non ne
->    sono state depositate»: vuol dire **che nessuno ha lanciato la sync**. Serve
->    o l'OAuth di Drive già configurato (`drive.oauth_refresh` c'è) usato da un
->    cron, o un promemoria a schermo che dica **da quanti giorni** l'indice è fermo.
+> 7. ✅ **CHIUSO IN GIORNATA — l'indice di Drive adesso si allinea da solo.**
+>    Era stato scritto qui che `sync-drive` «gira solo a mano e da questo PC
+>    perché legge `G:\…`, che su Vercel non esiste». **Sbagliato**, e
+>    l'utente l'ha corretto in un colpo: *l'app è già collegata a Drive, infatti
+>    ci scrive*. Vero — il ponte ci deposita APPEND e RISULTATI ogni sera.
+>    Guardando meglio: `sincronizzaDrive()` **sceglie da sé la strada**, e se la
+>    cartella è configurata come URL/id di Drive (lo è) con la chiave API (c'è)
+>    usa l'API, non il filesystem. Il percorso `G:\…` è solo il ripiego dello
+>    sviluppo locale, ed è **lo script standalone** `npm run sync-drive` l'unico
+>    legato al disco — è quello che era stato lanciato il 17/08, ed è da lì che
+>    nasceva l'equivoco. **Mancava soltanto il cron**, e adesso c'è:
+>    `/api/cron/drive`, ogni giorno alle 06:10 UTC.
+>    Provato davvero, non dedotto: chiamata all'endpoint con la sua chiave →
+>    `radice: "drive:1VENQ…"` (cioè **l'API**, non il disco), 659 documenti, 5
+>    nuovi, 1 analisi, `interrotta: false`. In produzione l'endpoint esiste e
+>    risponde **401 senza chiave**.
+>    ⚠️ `maxDuration` è **300**, non 60 come gli altri cron: il budget interno
+>    (45 s) copre solo la visita, la scrittura sul database sta fuori, e la
+>    passata vera ha impiegato **68 s**. Con 60 la funzione morirebbe proprio
+>    nella fase che non sa riprendere.
 
-> ⚠️ Una nota su come si legge un handoff: due affermazioni di questa testata
+> ⚠️ Una nota su come si legge un handoff: **tre** affermazioni di questa testata
 > sono state scritte il 25/08 e **smentite dai dati lo stesso giorno** — «il tetto
 > sforato è di Cake» (era di Gifts) e «il budget l'ha abbassato qualcuno senza
-> scriverlo» (l'aveva deciso l'utente dall'app, tracciato tre volte). In tutti e
-> due i casi l'errore è lo stesso: **si era guardato in UN posto solo** — una
-> copia locale invece della fonte, una colonna di stato invece dello storico. La
-> regola: prima di scrivere «non risulta», dire **dove** si è guardato.
+> scriverlo» (l'aveva deciso l'utente dall'app, tracciato tre volte), e «la sync
+> di Drive può girare solo da quel PC» (l'app è collegata a Drive via API e ci
+> scrive ogni sera: mancava il cron). In tutti e
+> tre i casi l'errore è lo stesso: **si era guardato in UN posto solo** — una
+> copia locale invece della fonte, una colonna di stato invece dello storico, uno
+> script standalone invece della funzione che l'app usa davvero. La regola: prima
+> di scrivere «non risulta» o «non si può», dire **dove** si è guardato.
 
 >
 > ✅ **Sano, ricontato oggi**: coda **0 in attesa · 0 approvate · 96 eseguite ·
