@@ -646,6 +646,16 @@ tbody tr:hover { background: var(--fill); }
 }
 .conferma .segno { color: var(--green); font-weight: 700; }
 
+/* ⚠️ Un esito NEGATIVO non si veste da conferma. Fino al 24/08/2026 c'era una
+   sola cornice, verde e con la spunta, e ci finiva dentro anche «Collegamento
+   non riuscito»: la forma diceva «fatto» e il testo diceva «non fatto», e la
+   forma vince. È così che un collegamento Drive fallito è stato riprovato due
+   volte credendo che funzionasse. */
+.conferma.esito-no {
+  background: rgba(197, 48, 48, 0.07); border-color: rgba(197, 48, 48, 0.3);
+}
+.conferma.esito-no .segno { color: var(--red); }
+
 /* Azioni in testata: vanno a capo su schermi stretti, niente sovrapposizioni */
 .page-head { align-items: flex-start; }
 

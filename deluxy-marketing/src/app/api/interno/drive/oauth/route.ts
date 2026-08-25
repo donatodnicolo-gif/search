@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import {
-  AMBITO_DRIVE,
+  AMBITI_CONSENSO,
   IMP_OAUTH_EMAIL,
   IMP_OAUTH_REFRESH,
   oauthConfigurato,
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     auth.searchParams.set("client_id", o.id);
     auth.searchParams.set("redirect_uri", indirizzoRitorno(req));
     auth.searchParams.set("response_type", "code");
-    auth.searchParams.set("scope", AMBITO_DRIVE);
+    auth.searchParams.set("scope", AMBITI_CONSENSO);
     // "offline" + "consent" servono a ottenere il permesso duraturo: senza,
     // Google dà solo un accesso di un'ora e domani l'app non scrive più.
     auth.searchParams.set("access_type", "offline");

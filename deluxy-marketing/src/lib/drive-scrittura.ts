@@ -45,12 +45,26 @@ export const IMP_OAUTH_SEGRETO = "drive.oauth_client_secret";
 export const IMP_OAUTH_REFRESH = "drive.oauth_refresh";
 export const IMP_OAUTH_EMAIL = "drive.oauth_email";
 
-// Ambito richiesto: "drive.file" dà accesso ai soli file creati dall'app, che
-// è esattamente quello che serve per depositare nel ponte e non un grammo di
-// più. Se Google dovesse rifiutare la creazione dentro una cartella altrui si
-// passa a "drive" pieno, ma si parte dal minimo: un permesso che non serve è
-// un permesso che prima o poi fa danno.
-export const AMBITO_DRIVE = "https://www.googleapis.com/auth/drive.file";
+// Ambito richiesto.
+//
+// ⚠️⚠️ SI ERA PARTITI DA `drive.file`, ED È STATO GIUSTO PROVARLO — ma non può
+// funzionare qui, e il 24/08/2026 l'abbiamo misurato: `drive.file` dà accesso
+// ai soli file **che l'app ha creato lei** (o che l'utente le ha passato con il
+// Picker di Google). La cartella `ads` esiste da prima ed è di una persona:
+// con quell'ambito l'app **non la vede nemmeno**, e il ponte si fermava su
+// «Non trovo la cartella "ads"» — che sembra un problema di percorso e invece
+// è un problema di permessi.
+//
+// Serve quindi `drive` pieno. Il prezzo è dichiarato: l'app può vedere tutto il
+// Drive di chi ha dato il consenso. Le tre reti che lo limitano stanno nel
+// codice, non nella buona volontà — si scrive SOLO dentro "OUT - dall'app",
+// SOLO file nuovi, SOLO .md (vedi le regole in cima a questo file).
+export const AMBITO_DRIVE = "https://www.googleapis.com/auth/drive";
+// ⚠️ E l'email di chi acconsente va CHIESTA: senza `email` fra gli ambiti, la
+// chiamata a `userinfo` non risponde e l'app non sa dire con quale account sta
+// scrivendo — che è proprio la domanda che ci si fa un mese dopo. Era il motivo
+// per cui la pagina diceva «collegato» senza dire come chi.
+export const AMBITI_CONSENSO = [AMBITO_DRIVE, "email"].join(" ");
 
 export async function oauthConfigurato(): Promise<{ id: string | null; segreto: string | null; refresh: string | null; email: string | null }> {
   const righe = await prisma.impostazione

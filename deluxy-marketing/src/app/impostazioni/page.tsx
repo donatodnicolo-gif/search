@@ -50,10 +50,26 @@ const CONFERME: Record<string, string> = {
   "drive-oauth-salvato": "Credenziali dell’app OAuth salvate: ora premi «Collega Drive».",
   "drive-oauth-manca": "Prima servono ID client e segreto dell’app OAuth.",
   "drive-oauth-ok": "Drive collegato. Prova a scrivere nel ponte.",
-  "drive-oauth-no": "Collegamento non riuscito.",
+  "drive-oauth-no": "Collegamento NON riuscito: Google non ha dato il permesso duraturo.",
   "drive-oauth-negato": "Consenso non dato: il collegamento non è stato creato.",
+  "drive-oauth-errore": "Collegamento NON riuscito per un errore di rete o di configurazione.",
   "drive-scollegato": "Drive scollegato: l’app non può più scrivere.",
 };
+
+// ⚠️ Quali di questi esiti sono FALLIMENTI. Serve perché la cornice li vestiva
+// tutti da conferma — verde, con la spunta — anche quando il testo diceva
+// «NON riuscita»: la forma dice «fatto» e vince sul testo. È così che un
+// collegamento Drive fallito è stato riprovato due volte credendo funzionasse.
+const ESITI_NEGATIVI = new Set([
+  "drive-oauth-no",
+  "drive-oauth-negato",
+  "drive-oauth-errore",
+  "drive-oauth-manca",
+  "drive-prova-no",
+  "drive-json-invalido",
+  "drive-json-incompleto",
+  "drive-impersona-invalida",
+]);
 
 export default async function PaginaImpostazioni({
   searchParams,
@@ -101,8 +117,11 @@ export default async function PaginaImpostazioni({
         </div>
 
         {salvato && CONFERME[salvato] && (
-          <div className="conferma">
-            <span className="segno">✓</span>
+          /* ⚠️ La cornice segue l'ESITO, non il fatto che qualcosa sia successo.
+             Prima era sempre verde con la spunta — anche su «Collegamento non
+             riuscito» — e chi guardava leggeva la forma, non il testo. */
+          <div className={`conferma${ESITI_NEGATIVI.has(salvato) ? " esito-no" : ""}`}>
+            <span className="segno">{ESITI_NEGATIVI.has(salvato) ? "✕" : "✓"}</span>
             {CONFERME[salvato]}
             {perche && <div className="cella-sub" style={{ marginTop: 6, whiteSpace: "normal" }}>{perche}</div>}
           </div>
