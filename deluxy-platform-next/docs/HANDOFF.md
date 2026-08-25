@@ -172,6 +172,44 @@ di costo consegna, che sono la 41967 (600,75 €, sbagliata) più la 41969
 (17,76 €, giusta): dopo il ricalcolo diventano **32,76 €**.
 
 
+### Applicato: paghe ricalcolate e Orders aggiornata (25/08/2026)
+
+**27 paghe ricalcolate**: 9.606,00 € → **396,78 €**. La 41967 (Roma, 3,6 km dal
+centro) passa da **600,75 € a 15,00 €**. Dopo l'intervento il partner non ha più
+nessuna paga sopra i 50 €: la massima è **47,73 €**.
+
+🐛 **Un difetto che ha impedito per un giorno intero al margine di arrivare in
+Orders.** `OrdersSyncService.numeroShopify` conteneva **`/^d+$/`** invece di
+`/^\d+$/` (commit `f641a24b`, il commit stesso che ha introdotto la spinta dei
+margini): la regex cerca la lettera «d», quindi **nessun id d'ordine è mai stato
+riconosciuto** e `spingiMargini` rispondeva `ordiniConosciutiDaOrders: 0`
+dichiarando `ok: true`. Un fallimento **silenzioso e verde**. Corretto.
+
+**Nuova opzione `soloOrdiniShopify`** su `spingiMargini`: rispinge solo gli
+ordini indicati invece di riscrivere gli ingredienti di novemila. Serve perché
+**ogni PATCH lascia una riga nella storia dell'ordine** in Orders: novemila
+righe identiche renderebbero illeggibile proprio la cronologia che dovrebbe
+spiegare le correzioni. La lettura resta completa, mirata è solo la scrittura.
+
+**Orders aggiornata** (25 ordini toccati): costo consegna **10.027,18 € →
+2.224,38 €**. L'ordine **#9099** (172 €) passa da **618,51 € a 32,76 €**.
+
+⚠️⚠️ **Un guasto che ho causato io, trovato dal rifiuto di Orders.** Due ordini
+sono stati respinti con «costoConsegna non è un importo valido»: le consegne
+**41622** e **41774** avevano già una **rettifica a mano** (`valetAdditionalPrice`
+−563 e −560) messa lì per annullare la paga gonfiata — 578,86 − 563 = 15,86 netti,
+il compenso giusto. Ricalcolando la paga a 15 € e lasciando la rettifica, il netto
+è diventato **−548** e **−545**: la stessa correzione applicata due volte.
+Rettifiche azzerate, netto tornato a 15 €, e i due ordini rispinti.
+**Lezione: prima di ricalcolare un importo, guardare se qualcuno l'ha già
+corretto a mano** — la rettifica è la prova che il problema era noto.
+⚠️ Su 59551 la rettifica è **+2 €** ed è un extra vero: lasciata. Per questo i
+due casi sono stati riconosciuti **uno per uno**, non con una regola a soglia.
+
+Restano 3 consegne del partner col netto negativo (21625, 23405, 38982): sono
+rettifiche vere del 2024-2025, **non toccate**.
+
+
 ## 🟢 STATO PRODUZIONE — 21/08/2026: l'app è TORNATA SU dopo 26 giorni
 
 **`https://deluxy-delivery.vercel.app` funziona.** Deploy `delivery-85ynuuzl0` del 21/08, aliasato.

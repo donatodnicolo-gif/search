@@ -94,7 +94,7 @@ export class OrdersSyncService {
     const t = (v ?? '').trim();
     if (!t) return null;
     const coda = t.split('/').pop() ?? '';
-    return /^d+$/.test(coda) ? coda : null;
+    return /^\d+$/.test(coda) ? coda : null;
   }
 
   /**
@@ -125,7 +125,22 @@ export class OrdersSyncService {
    *
    * ⚠️ Di default NON scrive: risponde con il conto di cosa manderebbe.
    */
-  async spingiMargini(opzioni: { applica?: boolean; da?: string; limite?: number } = {}) {
+  async spingiMargini(
+    opzioni: {
+      applica?: boolean;
+      da?: string;
+      limite?: number;
+      /**
+       * Solo questi ordini (numero Shopify, la coda del gid). Serve quando si
+       * corregge un pugno di consegne e non ha senso riscrivere gli ingredienti
+       * di novemila ordini: ogni PATCH lascia una riga nella storia dell'ordine,
+       * e novemila righe identiche rendono illeggibile proprio la cronologia che
+       * dovrebbe spiegare le correzioni. La lettura resta completa (le pagine si
+       * scorrono lo stesso), mirata è solo la SCRITTURA.
+       */
+      soloOrdiniShopify?: string[];
+    } = {},
+  ) {
     const { url, chiave } = await this.config();
     if (!url || !chiave) {
       return { ok: false, messaggio: 'Indirizzo o chiave di Orders non impostati (Configurazione → Impostazioni).' };
@@ -134,8 +149,11 @@ export class OrdersSyncService {
     // 1) Gli ordini che Orders conosce, per poter tradurre il numero Shopify
     //    nel suo id interno. Senza questa traduzione non si potrebbe scrivere.
     const perOrderId = new Map<string, { id: string; numero?: string | null }>();
+    const soloQuesti = opzioni.soloOrdiniShopify?.length ? new Set(opzioni.soloOrdiniShopify) : null;
     let pagina = 1;
-    const limite = Math.min(5000, Math.max(1, opzioni.limite ?? 2000));
+    // Col filtro mirato il tetto non c'entra: si scorre finché non si trovano
+    // tutti quelli chiesti (o finiscono le pagine).
+    const limite = soloQuesti ? Number.MAX_SAFE_INTEGER : Math.min(5000, Math.max(1, opzioni.limite ?? 2000));
     while (perOrderId.size < limite) {
       const q = new URLSearchParams({ page: String(pagina), limit: '200' });
       if (opzioni.da) q.set('da', opzioni.da);
@@ -144,8 +162,11 @@ export class OrdersSyncService {
       const body = (await res.json()) as { ordini?: { id: string; orderId?: string | null; numero?: string | null }[]; pagine?: number };
       for (const o of body.ordini ?? []) {
         const k = OrdersSyncService.numeroShopify(o.orderId);
-        if (k) perOrderId.set(k, { id: o.id, numero: o.numero });
+        if (!k) continue;
+        if (soloQuesti && !soloQuesti.has(k)) continue;
+        perOrderId.set(k, { id: o.id, numero: o.numero });
       }
+      if (soloQuesti && perOrderId.size >= soloQuesti.size) break;
       if (!body.ordini?.length || pagina >= (body.pagine ?? 1)) break;
       pagina++;
     }
