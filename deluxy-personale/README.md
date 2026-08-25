@@ -94,6 +94,20 @@ aggiornamenti o cancellazioni da qui, e se il nome là esiste già non si tocca.
 Il ponte non blocca mai la creazione locale: l'esito (proposta / già presente
 / fallita e perché) compare come avviso sulla scheda appena creata.
 
+## Cartellini e rapporto al commercialista (25/08)
+
+La pagina **/cartellini** legge timbrature e assenze del mese **dal Hub**
+(`GET /api/presenze?mese=YYYY-MM`, token di servizio con scope «personale»):
+i numeri sono ESATTAMENTE quelli della schermata Cartellino del Hub, perché il
+Hub impagina anche il rapporto (oggetto + testo + HTML) con la stessa funzione
+della sua email. Da qui il rapporto **parte via AI Mail** al commercialista
+per le buste paga (destinatario precompilabile con `COMMERCIALISTA_EMAIL`,
+nota libera in testa, anteprima del testo prima dell'invio; la copia resta
+negli «Inviati» della casella). Env: `HUB_URL`+`HUB_KEYS_TOKEN` (emesso),
+`MAIL_URL`+`MAIL_UTENTE` (impostati) e 🔴 **`MAIL_API_KEY` da incollare** — il
+token esiste già in AI Mail (Impostazioni App → «Token API di AI Mail»):
+finché manca, la pagina mostra i cartellini e dichiara che l'invio è spento.
+
 ## Confini col resto dell'ecosistema
 
 | Dato | Casa | Nota |

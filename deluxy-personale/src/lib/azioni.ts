@@ -15,6 +15,8 @@ import {
   TIPI_CONTRATTO,
 } from "./organico";
 import { proponiPersonaABudgets } from "./budgets";
+import { presenzeDalHub } from "./presenze-hub";
+import { inviaMail } from "./posta";
 
 // Tutte le scritture dell'app passano da qui. Regole:
 // - scrive solo un admin (l'ingresso con la password d'app vale admin);
@@ -569,6 +571,38 @@ export async function eliminaInquadramento(fd: FormData): Promise<void> {
   revalidatePath(percorso);
   revalidatePath("/inquadramenti");
   redirect(percorso);
+}
+
+// ---------- Cartellini (presenze dal Hub → report al commercialista) ----------
+
+export async function inviaReportPresenze(fd: FormData): Promise<void> {
+  const mese = testo(fd, "mese");
+  const percorso = `/cartellini?mese=${encodeURIComponent(mese)}`;
+  const negato = await richiediAdmin();
+  if (negato) conErrore(percorso, negato);
+  if (!/^\d{4}-\d{2}$/.test(mese)) conErrore("/cartellini", "Mese non valido.");
+  const destinatario = testo(fd, "destinatario").toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
+    conErrore(percorso, "L'email del destinatario non è valida.");
+  }
+  const nota = testo(fd, "nota");
+
+  // Il rapporto lo impagina il Hub (stessa fonte della sua schermata): qui si
+  // rilegge fresco al momento dell'invio, con l'eventuale nota in testa.
+  const presenze = await presenzeDalHub(mese, nota || undefined);
+  if (!presenze.ok) conErrore(percorso, `Rapporto non generato: ${presenze.messaggio}`);
+
+  const esito = await inviaMail({
+    a: destinatario,
+    oggetto: presenze.dati.rapporto.oggetto,
+    corpo: presenze.dati.rapporto.testo,
+    corpoHtml: presenze.dati.rapporto.html,
+  });
+  if (!esito.ok) conErrore(percorso, `La mail non è partita: ${esito.errore}`);
+
+  redirect(
+    `${percorso}&nota=${encodeURIComponent(`Rapporto «${presenze.dati.rapporto.oggetto}» inviato a ${destinatario} (copia negli Inviati della casella).`)}`,
+  );
 }
 
 // ---------- Compensi ----------

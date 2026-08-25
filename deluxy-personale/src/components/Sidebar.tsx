@@ -47,6 +47,12 @@ const ICONE = {
       <path d="M14.5 3.5V8H19M9.8 12h6.4M9.8 15.5h6.4" />
     </svg>
   ),
+  cartellini: (
+    <svg viewBox="0 0 24 24" {...S}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.2V12l3.2 2" />
+    </svg>
+  ),
   chiavi: (
     <svg viewBox="0 0 24 24" {...S}>
       <circle cx="8" cy="15.5" r="4.2" />
@@ -69,6 +75,7 @@ const SEZIONI: { nome: string; voci: Voce[] }[] = [
     voci: [
       { href: "/stipendi", nome: "Stipendi", icona: ICONE.stipendi },
       { href: "/inquadramenti", nome: "Inquadramenti", icona: ICONE.inquadramenti },
+      { href: "/cartellini", nome: "Cartellini", icona: ICONE.cartellini },
     ],
   },
   {
