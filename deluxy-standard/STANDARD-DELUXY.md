@@ -399,23 +399,31 @@ costoFornitore − costoConsegna + fee` (consegna nostra) — costo e fee arriva
 dall'incarico della piattaforma, il costo pattuito è il `price` caricato dal
 fornitore **cristallizzato sull'incarico** alla proposta.
 
-**Sconti per provincia e lista di priorità (deciso il 24/08/2026):**
+**Sconti per provincia e lista di priorità (deciso il 24/08/2026; CORRETTO la
+sera stessa dopo la verifica sul codice della piattaforma):**
 
-- La **% riconosciuta al fornitore può variare per provincia** (e per
-  categoria: fiori/torte): è una regola economica dell'ordine, quindi vive in
-  **Orders** — è l'evoluzione della quota fornitore che Orders possiede già.
-  `GET /api/v1/quota-fornitore` accetta `?provincia=` (e `?categoria=`) e
-  risponde quota e importo atteso; senza una riga per quella provincia vale il
-  default. Nessun'app ricopia la tabella: la si interroga. L'atteso è la
-  bussola — il costo **concordato** dal CS può sempre scostarsene, e sono i
-  due numeri che il controllo di Orders confronta. ⚠️ Non si applica ai
-  prodotti `UNICO`: lì il costo è il `price` caricato dal fornitore.
-- La **lista di priorità dei fornitori per provincia** è del **Customer
-  Service**, il decisore: nasce dai suoi fatti (a chi abbiamo dato gli ordini,
-  esiti, reclami con colpa, tempi di risposta) più la preferenza manuale
-  dell'operatore; può usare la quota di Orders come ingrediente. **Search
-  resta il motore di scoperta** (chi esiste in zona, aperto adesso) e non
-  tiene graduatorie; Anagrafiche resta l'identità.
+- **Per gli ordini SMISTATI dalla piattaforma** (il suo `orders-sync` legge da
+  Orders e crea le vendite `Sale` con ciclo `da_gestire → proposta →
+  accettata/non_accettata` e ri-smistamento): la **% di sconto vive nella
+  piattaforma** — `CategoryDiscount (categoria, provincia) → %`, con gestione
+  admin già esistente — e la **lista di priorità pure**:
+  `PartnerCategory.priority`, usata dallo smistamento (prodotto `UNICO` → al
+  partner proprietario se aperto; `NON_UNICO` → primo partner APERTO della
+  lista priorità per provincia e categoria). ⭐ Era già costruito: la prima
+  stesura di questo paragrafo assegnava sconti a Orders e priorità al CS
+  senza sapere che la piattaforma li possedeva — la lezione è che **una
+  decisione architetturale si scrive DOPO aver letto lo schema di chi è già in
+  campo**.
+- **Per i fornitori in chat** (percorsi A/C: fuori piattaforma, WhatsApp dal
+  Customer Service): la quota attesa resta in **Orders**
+  (`GET /api/v1/quota-fornitore`, estendibile con `?provincia=`/`?categoria=`,
+  default dove manca la riga); la **graduatoria informale di chi chiamare
+  prima** è del **Customer Service** (nasce dai suoi fatti: storico, esiti,
+  reclami). **Search resta il motore di scoperta**, senza graduatorie.
+- Il **margine in Orders** prende il costo dalla strada giusta: per gli
+  smistati, `amount × (1 − discountPercent/100)` letto dalla vendita della
+  piattaforma via API; per i fornitori in chat, il costo concordato dal CS
+  (con la quota come bussola).
 
 **Deviazione dichiarata — `deluxy-messaging` (24/08/2026, decisa dall'utente).**
 Due punti di §7.4 sono stati cambiati, e vale la pena scrivere perché.
