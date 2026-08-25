@@ -1,5 +1,6 @@
 import { db } from './db'
 import { leggiImpostazioni } from './impostazioni'
+import { agganciaAffidabile } from './aggancio-fornitore'
 
 // IL FORNITORE PAGATO ENTRA NEL REGISTRO (24/08/2026, richiesta dell'utente).
 //
@@ -107,6 +108,23 @@ export async function segnalaFornitorePagatoAlRegistro(
         ok: false,
         esito: 'ambiguo',
         messaggio: `«${nome}» somiglia a più anagrafiche: la richiesta è nella pagina Match del registro, da risolvere a mano.`,
+      }
+    }
+
+    // ⚠️⚠️ E un «agganciata» NON si prende sulla parola: il 25/08/2026 il
+    // registro ha agganciato «Paradis des fleurs» a «Contatti senza azienda
+    // (HubSpot)» — un contenitore con 288 contatti dentro, in cui le tre parole
+    // comparivano sparse — e noi ci abbiamo scritto sopra «fornitore abituale».
+    // Il fornitore vero è rimasto fuori dall'anagrafica.
+    // Perché succede e come si controlla: src/lib/aggancio-fornitore.ts.
+    if (match.esito === 'agganciata') {
+      const suo = (match.match?.nome ?? '').trim()
+      if (!agganciaAffidabile(nome, suo)) {
+        return {
+          ok: false,
+          esito: 'ambiguo',
+          messaggio: `Il registro ha agganciato «${nome}» a «${suo}», che è un'altra azienda: non ho scritto niente. Da collegare a mano dalla pagina Match del registro.`,
+        }
       }
     }
 

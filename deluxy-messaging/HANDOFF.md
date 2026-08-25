@@ -1,5 +1,58 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (pomeriggio 2) — il fornitore pagato finiva sull'anagrafica sbagliata
+
+Domanda dell'utente: «salvi le informazioni dei fornitori dalle richieste di
+pagamento, e le aggiorni in anagrafiche?». Contato invece di risposto a memoria —
+ed è saltato fuori un errore in produzione.
+
+### Che cosa è arrivato davvero in Anagrafiche: 5 fornitori su 17
+
+- **11** pagati il 24/08 **prima** che il gancio esistesse: mai mandati.
+- **5** creati il 25/08 nell'istante del «Pagata» (`statoFornitore: abituale`,
+  IBAN solo col checksum ok).
+- **1** — «Paradis des fleurs» — **finito sull'anagrafica sbagliata**. 👇
+
+### 🔴 L'errore, letto nel registro delle modifiche di Anagrafiche
+
+```
+RichiestaMatch  25/08 11:10  «nome:Paradis des fleurs» → agganciata (media)
+                             → «Contatti senza azienda (HubSpot)»
+Modifica        25/08 11:10  statoFornitore: «» → «abituale»  [origine: customer-service]
+```
+
+⚠️⚠️ **Perché**: la ricerca del registro pretende che **ogni parola** compaia in
+**almeno un campo**, compresi i **contatti collegati**. Quel contenitore ne ha
+**288**: «paradis» in uno, «des» in sei, «fleurs» in un altro. Combacia. Ed
+essendo l'**unico** risultato, il registro lo promuoveva ad «agganciata».
+
+Danno doppio: il fioraio vero **non è in anagrafica**, e un record che non è
+un'azienda risulta nostro **fornitore abituale**.
+
+⚠️⚠️ Sono due errori sovrapposti, e li conosciamo tutti e due: **la regola larga
+di una ricerca riusata per AFFERMARE**, e **«un solo risultato» scambiato per
+certezza** — la stessa cosa chiusa stamattina sul collegamento dell'ordine.
+
+### La correzione, dai due lati
+
+- **Qui** (`src/lib/aggancio-fornitore.ts`, agganciato in `registro-fornitori.ts`):
+  un «agganciata» si accetta solo se **il nome regge il confronto**. Passa lo
+  stesso nome, lo stesso nome con altra punteggiatura («S.R.L.S.» / «srls») e il
+  più corto contenuto **per intero e in sequenza** nell'altro («Ketty Flowers» →
+  «Ketty Flowers · PORTO CERVO», che è il caso per cui il match esiste). Non
+  passa «Battistella fioreria srl» ↔ «Fioreria Battistella»: stesse parole in
+  ordine diverso è una somiglianza, e a unirle è una persona.
+  ⚠️ Il nome corto deve avere sostanza (due parole, sei caratteri), o
+  un'anagrafica generica come «Fiori» si aggancerebbe a mezzo registro.
+  Prova: `npx tsx scripts/prova-aggancio-fornitore.mts` (13 casi).
+- **Nel registro** (commit `5494b526` di `deluxy-anagrafiche`, deployato): il
+  risultato unico diventa «agganciata» solo se `nomeAffine()`, altrimenti torna
+  fra i **candidati**. Provato sui dati veri coi 17 nomi
+  (`npx tsx scripts/prova-match-nome.mts`): «Paradis des fleurs» ora è
+  `candidati`, «RIGUTTO ELENA» resta agganciata a «Il Giardino Di Rigutto
+  Elena» — che è giusto, evita il doppione.
+
+
 ## 25/08/2026 (pomeriggio) — «Paga fornitore» perdeva l'ordine per strada
 
 Segnalato dall'utente aprendo

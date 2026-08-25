@@ -413,6 +413,35 @@ torna indietro, e da uno più indietro non si salta. E togliendo il segno
 «pagata» l'ordine **non** torna indietro — era forse stato spostato a mano da
 qualcuno, e disfare un clic non deve cancellare la decisione di una persona.
 
+### Il fornitore pagato entra nel registro Anagrafiche
+
+Premendo «Pagata», oltre alla riconciliazione e all'avviso, quel fornitore viene
+**segnalato al registro Anagrafiche** (`statoFornitore: abituale`, più telefono
+ed email se l'ordine li ha, e l'**IBAN solo se il checksum torna**). Qui non
+resta nessuna copia dell'anagrafica: il registro è il proprietario, noi gli
+diciamo quello che abbiamo osservato.
+
+⚠️ Prima di scrivere si chiede **chi è** (`GET /partners/match`), perché il POST
+aggancia per nome+città esatti e la città del fornitore non la sappiamo (quella
+dell'ordine è la città di **consegna**: dedurla scriverebbe un dato inventato).
+
+⚠️⚠️ **E la risposta del registro non si prende sulla parola.** Il 25/08/2026 il
+match ha risposto «agganciata» mandandoci su **«Contatti senza azienda
+(HubSpot)»** — un contenitore con 288 contatti dentro, in cui le parole di
+«Paradis des fleurs» comparivano sparse — e quel record si è preso un
+«fornitore abituale» che non gli appartiene, mentre il fioraio vero è rimasto
+fuori dall'anagrafica. Ora si confronta **come si chiama** il record agganciato
+(`src/lib/aggancio-fornitore.ts`): se non è lo stesso nome **non si scrive**, e
+la richiesta resta nella pagina Match del registro, dove sceglie una persona.
+
+⚠️ Vale per il caso vero in tutti e due i versi: «Ketty Flowers» **si aggancia**
+a «Ketty Flowers · PORTO CERVO» (è la ragione per cui il match esiste), ma
+«Battistella fioreria srl» e «Fioreria Battistella» **no** — stesse parole in
+ordine diverso è una somiglianza, non un'identità, e a unirle è una persona.
+
+⚠️ Best-effort: se il registro non risponde, il pagamento si salva lo stesso e
+l'esito torna a schermo. Un contorno non fa fallire la cosa che conta.
+
 ### Avvisare chi abbiamo pagato — da solo
 
 Sulle righe pagate c'è **Avvisa**: copia un messaggio pronto per il fornitore.
