@@ -456,6 +456,19 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 
 ## FATTO
 
+- **⭐ 25/08 — Operatività → Disponibilità, e 366 fasce dei valet recuperate.** Deploy `delivery-a3aj4dwxe`.
+  - Il dato c'era e non si vedeva: le fasce dei partner sono **113.191 righe** (`PartnerDaySlot`) senza una schermata, quelle dei valet solo scheda per scheda. Nuova pagina `/availability-board` (ADMIN/OPERATION/PM) + `GET /availability/day?date=`: partner e valet affiancati, con le loro fasce. Risponde in **0,78 s**.
+  - **Tre fonti, in ordine dalla più specifica**: fasce del giorno → eccezione del giorno → orario settimanale. La pagina dichiara sempre **da dove viene la risposta**: «quel giorno ha detto 10-12» non è «di solito il martedì apre alle 9». E chi non ha nessuna fonte è **«non indicata»**, non «chiuso» — non sapere se lavora e sapere che non lavora sono cose diverse.
+  - **VERIFICA DELL'IMPORT** (richiesta esplicita): partner **113.191 = 113.191, perfetto**. Valet **5.501 nel legacy, 5.007 importate**: ⭐ mancavano **366 fasce**, per `@@unique([valetId, date])` — una disponibilità sola al giorno, mentre nel legacy un valet ne ha fino a **sei**. Stessa trappola già vista su `PartnerDayException`. Vincolo allargato alla fascia (migrazione `20260825000000`), 366 recuperate → **5.373 in tabella**. I **169 doppioni veri** del legacy (righe identiche) non si ricopiano.
+  - ⚠️ Allargando il vincolo si è dovuto cambiare il salvataggio dalla pagina del valet: ora **cancella e riscrive** il giorno. Un upsert su una chiave che comprende l'orario avrebbe lasciato la fascia vecchia accanto alla nuova.
+  - Oggi 25/08: 37 partner disponibili su 180 (32 dichiarati per oggi, 142 senza indicazione) · 33 valet su 61.
+
+- **⭐ 25/08 — Il margine passato a Orders, e Orders dice che può essere negativo.**
+  - **9.130 ordini su 9.210** hanno ricevuto `costoConsegna` e `feeConsegna` (103.258 € e 28.768 €). Gli **80 falliti** avevano importi **negativi** — su 108 consegne il minus supera la paga (#61177: paga 7,20 €, minus −142) — e Orders li ha rifiutati, giustamente. Lo script ora applica il **pavimento a zero** (come già fa il calcolo degli stipendi) e **salta gli ordini già a posto**, così un rilancio costa quanto quello che manca davvero.
+  - 🔴 **Da rilanciare** per gli 80: `node scripts/spingi-margini-a-orders.mjs --scrivi`.
+  - **Lato Orders**: ⭐ il margine **può essere negativo** e ora lo dice — nel dettaglio ordine scrive **PERDITA** a lettere oltre al rosso, perché un meno davanti a un numero, in una tabella di numeri, si perde. Dichiarato anche nella funzione, nell'API e nel PATCH. ⚠️ Da non confondere con gli **ingredienti**, che negativi non possono essere: sono importi pagati, e sotto zero il PATCH li rifiuta. È il risultato che può andare in rosso, non le cose che ci entrano.
+  - ⚠️ Il dettaglio ordine calcolava il margine a mano (`totale − costoFornitore`): il **terzo** calcolo diverso nello stesso progetto, e ignorava il costo della consegna — usciva sempre più alto del vero. Ora usa `margineOrdine()`.
+
 - **🔴⭐ 24/08 (sera, 3) — «SI BLOCCA TUTTA L'APP»: tre cause, tutte trovate misurando.** Deploy `delivery-lgwelmg1s`.
   1. **Lo Storico fatture rispondeva 3,2 MB.** `GET /invoices?archived=true` portava le 559 fatture **con dentro tutte le 9.811 righe**. La rete se la cavava; a piantarsi era il browser. Le righe ora si chiedono aprendo il dettaglio (`GET /invoices/:id/lines`). **3,2 MB → 370 KB.**
   2. **`Delivery` non aveva NESSUN indice** — 61.405 righe. Il solo conto per la paginazione costava **1.888 ms** a ogni apertura. Aggiunti `deletedAt+date`, `partnerId+date`, `valetId+date`, `status`, `invoiced`, `paymentStatus`, `realOrderNumber`. **1.888 ms → 26 ms.**
