@@ -38,6 +38,19 @@ destra):
   consegnato** (giorno e fascia oraria) oltre alla data dell'ordine. Su schermo
   stretto le colonne si impilano; il selettore sparisce sotto i 700px.
 
+**Lo stato del Customer Service e il margine, subito nell'elenco.** Su ogni
+ordine (in tutt'e due le viste) compare la pill **«CS: <stato>»** — come il
+Customer Service sta lavorando l'ordine (Da iniziare, Ricerca fornitore, In
+pagamento, In comunicazione, Attesa consegna, Gestito) — accanto alla pipeline
+di Orders, da cui è **distinta**: la prima dice *come lo evadiamo*, la seconda
+*a che punto è nel registro*. Per gli ordini **chiusi** dal Customer Service
+(stato «Gestito») si vede anche il **margine, in euro e in percentuale** (chip
+verde se positivo, rosso se negativo; la % è sul lordo = margine ÷ totale). Un
+ordine chiuso ma senza il costo del fornitore mostra **«margine n/d»**, non uno
+zero che sembrerebbe «nessun margine». Lo stato arriva dal Customer Service e il
+costo pure (è lui che lo concorda col fornitore): Orders li riceve e qui li
+mostra.
+
 **Filtro per anno.** Fra i filtri c'è **l'anno dell'ordine** (solo gli anni in
 cui c'è davvero almeno un ordine: 2020…2026, non un elenco inventato).
 Cambia l'elenco *e* i due numeri in cima — quanti ordini e quanto valgono — che è

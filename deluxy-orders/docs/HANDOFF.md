@@ -124,22 +124,20 @@ lavorando» (`gestito`, `da_gestire`, `in_pagamento`, `ricerca_fornitore`,
 - **Pagina ordine**: scheda **«Customer Service — lavorazione»** con la pill
   colorata, chi e quando, sopra la pipeline «Stato» e **distinta** da essa.
 
-⚠️ **È METÀ del giro, per scelta (regola 4).** Orders *riceve*; il **push** dal
-Customer Service (deluxy-messaging → PATCH `csGestione`) **NON** è stato scritto
-qui, perché quella cartella la stava modificando un'altra sessione. Finché il CS
-non chiama il PATCH, la scheda resta nascosta. La chiave `deluxy-messaggi` in
-Orders **è già di scrittura** (usata oggi 10:42), quindi il canale è pronto: al
-CS manca solo aggiungere `csGestione` alla chiamata che già fa
-(`comunicaCostoAOrders` in `src/lib/orders.ts`).
+✅ **Il giro è COMPLETO (aggiornato in serata).** Il **push** lato Customer
+Service è stato scritto e deployato subito dopo (commit CS `6df84313`):
+`comunicaStatoAOrders` in `deluxy-messaging/src/lib/orders.ts`, agganciato a
+`POST /api/ordini/[id]/gestione` (il cambio stato dell'operatore). Quando un
+operatore cambia stato, Orders lo riceve. ⚠️ Copre l'azione manuale, **non
+ancora** le transizioni automatiche (pagamenti/riconciliazione/cron rimborsi).
 
-⚠️ **IL MARGINE È A SECCO, NON ROTTO.** Misurato il 24/08: su **tutti** gli
-ordini del Customer Service quelli con un `fornitoreCosto` registrato sono
-**0**. Il margine in Orders (`totale − costoFornitore`) compare solo quando un
-costo atterra; il push del costo (`comunicaCostoAOrders`) esiste e la chiave può
-scrivere, ma **nessuno registra ancora il costo del fornitore in CS**. Quindi i
-margini vuoti sono **mancanza d'input**, non un bug: non c'è niente da
-«sistemare» in Orders. Verificato su #2791 (Flowers, 85 €): in CS è `gestito`
-(Federica, 10:22) ma senza fornitore né costo → margine legittimamente «—».
+✅ **IL MARGINE È VIVO (non era rotto, ed è alimentato).** La foto «0 ordini con
+costo» era MATTUTINA: a fine 24/08 gli ordini con `costoFornitore` da
+`customer-service` sono **8** (CS e Orders coincidono), e **#2791 ha margine
+35 €** (85 − 50, «civico 95»). Il push del **costo** (`comunicaCostoAOrders`,
+scritto nella «sera 3» del CS) è vivo: il margine compare dove l'operatore
+registra il costo. Lezione: una conta istantanea di un contatore che si riempie
+durante il giorno è una foto, non una sentenza.
 
 ⚠️ **Le colonne si sono aggiunte con un `ALTER TABLE … ADD COLUMN IF NOT
 EXISTS`, NON con `prisma db push`**: il push avrebbe tentato anche il drop delle
@@ -150,6 +148,17 @@ rigenera il client coi campi nuovi.
 **Verificato** (dev locale, codice nuovo): API con blocco `customerService`,
 pagina con la scheda, `tsc --noEmit` pulito. #2791 seminato col suo valore vero
 via SQL (nessun evento, storia intatta): idempotente col futuro push del CS.
+
+**Nell'ELENCO (home `/`, 24/08 sera):** lo stato del Customer Service si vede
+**subito** su ogni ordine — pill «CS: <stato>» in entrambe le viste (colonne per
+brand ed elenco) — e per gli ordini **chiusi** (`csGestione = gestito`) compare
+il **margine in € e %** (chip verde/rosso; % sul lordo = margine/totale). Chiuso
+senza costo ⇒ «margine n/d» (non zero). Helper `PillLavorazioneCs` e
+`MargineChiuso` in `src/app/page.tsx`; usano `etichettaLavorazioneCs`. ⚠️ Le
+query dell'elenco usano `include` (non `select`), quindi `csGestione`/
+`costoFornitore` arrivano già senza toccarle. Verificato in locale: 12 pill CS e
+6 chip margine nella colonna Flowers, #2791 → «CS: Gestito» + «margine 35,00 € ·
+41%».
 
 
 ## 23/08/2026 — La quota del fornitore si può chiedere da fuori

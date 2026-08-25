@@ -14,6 +14,7 @@ import { linkRicerca } from "@/lib/fornitori";
 import { ordinali } from "@/lib/repeater";
 import { URGENZE } from "@/lib/urgenza";
 import { SegnoCanale, PillRepeater, TagLuoghi, PillUrgenza, PillNuovo } from "@/components/Provenienza";
+import { etichettaLavorazioneCs } from "@/lib/customer-service";
 import { daQuando, daQuandoLeggibile } from "@/lib/sessione";
 import { anniConOrdini } from "@/lib/analisi";
 import { sincronizza, segnaOrdiniVisti } from "./actions";
@@ -366,6 +367,14 @@ export default async function ElencoOrdini({
                           <span className="stato-shopify">{pagamentoLeggibile(o.financialStatus) ?? "—"}</span>
                         </div>
                       )}
+                      {/* Stato del Customer Service (come stanno lavorando
+                          l'ordine) e, per i chiusi, il margine in € e %. */}
+                      {o.csGestione && !o.annullatoIl && (
+                        <div className="riga-provenienza">
+                          <PillLavorazioneCs codice={o.csGestione} />
+                          <MargineChiuso csGestione={o.csGestione} totale={o.totale} costo={o.costoFornitore} />
+                        </div>
+                      )}
                       <div className="card-cliente">
                         {o.clienteNome ?? o.spedizioneNome ?? "—"}
                         {o.citta ? ` · ${o.citta}` : ""}
@@ -498,6 +507,8 @@ export default async function ElencoOrdini({
                           {o.problemaGestito ? "✓ Rimborso parziale" : "⚠ Rimborso parziale"}
                         </span>
                       )}
+                      {/* Stato del Customer Service, subito nell'elenco */}
+                      {!o.annullatoIl && <PillLavorazioneCs codice={o.csGestione} />}
                       <div className="cella-sub cella-brand">
                         <span className="brand-dot" />
                         {o.brand}
@@ -518,7 +529,15 @@ export default async function ElencoOrdini({
                       <TagLuoghi ordine={o} compatto />
                       <PillRepeater ordinale={ordinaliOrdini.get(o.id)} />
                     </td>
-                    <td className="cella-num">{euro(o.totale, o.valuta)}</td>
+                    <td className="cella-num">
+                      {euro(o.totale, o.valuta)}
+                      {/* Margine dei soli ordini CHIUSI dal Customer Service */}
+                      {o.csGestione === "gestito" && (
+                        <div className="cella-sub" style={{ marginTop: 4 }}>
+                          <MargineChiuso csGestione={o.csGestione} totale={o.totale} costo={o.costoFornitore} />
+                        </div>
+                      )}
+                    </td>
                     <td>
                       {o.annullatoIl ? (
                         <span className="badge-annullato">
@@ -581,5 +600,55 @@ export default async function ElencoOrdini({
         </>
       ))}
     </main>
+  );
+}
+
+// Lo stato di lavorazione del Customer Service, su ogni ordine dell'elenco.
+// `null` (nessuno stato comunicato) non mostra niente. Il prefisso «CS» lo
+// distingue dalla pipeline di Orders, che è un'altra cosa.
+function PillLavorazioneCs({ codice }: { codice: string | null | undefined }) {
+  const cs = etichettaLavorazioneCs(codice);
+  if (!cs) return null;
+  return (
+    <span className="pill-stato" style={{ color: cs.colore }} title={`Customer Service — ${cs.spiega}`}>
+      <span className="dot" style={{ background: cs.colore }} />
+      CS: {cs.nome}
+    </span>
+  );
+}
+
+// Il margine degli ordini CHIUSI dal Customer Service (`gestito`), in valore e
+// in %. Solo per i chiusi: su un ordine ancora aperto il margine è prematuro.
+// `margine %` è sul lordo (margine / totale). Chiuso ma senza costo del
+// fornitore ⇒ «n/d», non zero: uno zero sembrerebbe «margine nullo».
+function MargineChiuso({
+  csGestione,
+  totale,
+  costo,
+}: {
+  csGestione: string | null | undefined;
+  totale: number;
+  costo: number | null;
+}) {
+  if (csGestione !== "gestito") return null;
+  if (costo == null) {
+    return (
+      <span className="badge neutro" title="Ordine chiuso ma senza costo del fornitore: il margine non è calcolabile">
+        margine n/d
+      </span>
+    );
+  }
+  const valore = +(totale - costo).toFixed(2);
+  const pct = totale > 0 ? Math.round((valore / totale) * 100) : null;
+  const colore = valore >= 0 ? "var(--green)" : "var(--red)";
+  return (
+    <span
+      className="badge"
+      style={{ color: colore }}
+      title="Margine sul lordo (IVA e spedizione incluse): totale − costo del fornitore"
+    >
+      <span className="dot" style={{ background: colore }} />
+      margine {euro(valore)}{pct != null ? ` · ${pct}%` : ""}
+    </span>
   );
 }
