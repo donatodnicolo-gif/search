@@ -477,7 +477,9 @@ export function RichiediPagamento() {
       // sembrava un rimborso, o perché sull'ordine c'era già un altro
       // fornitore) quello va detto ancora di più: vuol dire che quella riga
       // aspetta una persona nella pagina Riconciliazione.
-      const ric = (d as { riconciliato?: { fatto: boolean; messaggio: string } }).riconciliato
+      const ric = (
+        d as { riconciliato?: { fatto: boolean; verdetto?: string; messaggio: string } }
+      ).riconciliato
       setAvviso(
         !pagata
           ? 'Tolto il segno «pagata».'
@@ -491,7 +493,14 @@ export function RichiediPagamento() {
                 : av && av.errore && !assenzaNormale(av.errore)
                   ? `Registrata. ⚠️ L'avviso NON e' partito: ${av.errore}`
                   : 'Segnata come pagata.',
-              ric && ric.fatto
+              // ⚠️⚠️ «GIÀ A POSTO» NON È UN GUASTO, e mostrarlo col triangolo lo
+              // faceva sembrare tale: «⚠️ L'ordine NON l'ho aggiornato: #2798 è
+              // già a posto» dice due cose opposte nella stessa riga, e vince la
+              // forma — chi legge va a cercare un problema che non c'è. Un
+              // allarme su un esito normale è lo stesso difetto del bollino «non
+              // avvisato» corretto ieri: se compare quando va tutto bene, si
+              // smette di guardarlo.
+              ric && (ric.fatto || ric.verdetto === 'gia-registrato')
                 ? `✓ ${ric.messaggio}`
                 : ric && ric.messaggio
                   ? `⚠️ L'ordine NON l'ho aggiornato: ${ric.messaggio} Guarda in Riconciliazione.`
@@ -605,7 +614,7 @@ export function RichiediPagamento() {
         richiesta?: Richiesta
         motivoIban?: string
         invio?: { ok: boolean; messaggio: string } | null
-        riconciliato?: { fatto: boolean; messaggio: string } | null
+        riconciliato?: { fatto: boolean; verdetto?: string; messaggio: string } | null
         errore?: string
       }
       if (!res.ok) {
@@ -621,9 +630,13 @@ export function RichiediPagamento() {
       // quando il nome da pagare somiglia a quello del cliente (un rimborso).
       // Tacerlo lascerebbe credere che la catena sia a posto — e l'ordine
       // resterebbe senza fornitore proprio mentre lo si lavora.
-      if (d.riconciliato && !d.riconciliato.fatto && d.riconciliato.messaggio) {
+      // ⚠️ Stessa regola qui: un ordine che sapeva già chi lo prepara non è un
+      // problema da segnalare in rosso — è il caso normale quando si paga un
+      // fornitore già registrato, cioè quasi sempre.
+      const giaAPosto = d.riconciliato?.verdetto === 'gia-registrato'
+      if (d.riconciliato && !d.riconciliato.fatto && !giaAPosto && d.riconciliato.messaggio) {
         setErrore(`⚠️ L'ordine non ha imparato chi lo prepara: ${d.riconciliato.messaggio}`)
-      } else if (d.riconciliato?.fatto) {
+      } else if (d.riconciliato?.fatto || giaAPosto) {
         setAvviso((a) => `${a} ✓ ${d.riconciliato!.messaggio}`)
       }
       if (d.motivoIban) setIbanNota(d.motivoIban)
