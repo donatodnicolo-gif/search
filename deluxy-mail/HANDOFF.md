@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **24 agosto 2026**.
+> Documento di ripartenza. Aggiornato: **25 agosto 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -23,23 +23,27 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
-### Dove siamo (24 agosto 2026)
+### Dove siamo (25 agosto 2026)
 
-**Fotografia verificata oggi, 24 agosto 2026** (giornata: sette correzioni nate da
-segnalazioni a schermo — vedi §9, «Lotto del 21-24/08»):
+**Fotografia verificata oggi, 25 agosto 2026 alle 12:30** (giornata: la **mail aperta
+rifatta**, prima su telefono e poi in gerarchia sul desktop — vedi §9):
 
 - **Codice**: niente in sospeso in `deluxy-mail/`, tutto pushato su `origin/scout-ui`
-  (verificato **sul contenuto**, non sullo SHA). ⚠️ In questi giorni **altre sessioni**
-  hanno lavorato sulla stessa cartella (preventivi fornitori registrati da AI Mail,
-  rotte per Scout): `git log -- deluxy-mail` prima di dare per scontato cosa c'è.
-- **Produzione**: deploy `dpl_75XpRkF6JJfL3DyFSKChmMPZJcWv` delle **10:45**, `Ready`, sullo
-  stesso commit del codice locale.
-- **Salute**: `/api/health` → `{"ok":true,"database":true,"scrivibile":true}` in **0,63 s**,
+  (verificato **sul contenuto**, non sullo SHA). Ultimo commit `158094d7`, che tocca
+  **solo il manuale**; l'ultimo che cambia l'app è `9c560ae3` (le quattro azioni + «⋯ Altro»).
+  ⚠️ In questi giorni **altre sessioni** hanno lavorato sulla stessa cartella (preventivi
+  fornitori registrati da AI Mail, rotte per Scout): `git log -- deluxy-mail` prima di dare
+  per scontato cosa c'è.
+- **Produzione allineata**: deploy `dpl_B3V1954YMMAVKdvHCF2baKwMQDgK` delle **09:20**,
+  `Ready`, cioè esattamente `9c560ae3` — il commit successivo è di sola documentazione,
+  quindi il codice online è quello di adesso.
+- **Salute**: `/api/health` → `{"ok":true,"database":true,"scrivibile":true}` in **0,61 s**,
   `X-Vercel-Id: fra1::fra1` — funzioni a Francoforte, accanto al database.
 - **Database**: cluster condiviso `zegbztfxisqeowngvgvh`, schema `mail` (dal 19/08).
-  Le migrazioni di questi giorni sono passate: `migrate-prod` da 98 a **102 statement**
-  (`Attivita.note/noteAutore/noteIl`, `Bozza.allegatiGruppo`).
-
+  `migrate-prod` è a **102 statement** (`Attivita.note/noteAutore/noteIl`,
+  `Bozza.allegatiGruppo`).
+- 🔎 **Da guardare a schermo, sul telefono vero**: la barra fissa in basso, il foglio
+  «⋯ Altro» e che «Delega Renè» si apra **sopra** la barra e non dentro.
 
 - ⚠️ **Il push non pubblica**: il deploy è manuale —
   `npx vercel --prod --cwd C:/Users/nicol/scoutwt/deluxy-mail`, da lanciare come
@@ -48,7 +52,18 @@ segnalazioni a schermo — vedi §9, «Lotto del 21-24/08»):
 
 **Cronologia dei lavori:** le voci di §7 sono della sessione del 23 luglio (dalla
 più recente); i lavori dal **26 luglio a oggi** stanno in §9, con la data fra
-parentesi. Del **17 ago pomeriggio**, tutti LIVE (dal più recente): **il negozio
+parentesi. Di **oggi 25 ago**: la **mail aperta rifatta** — su telefono la barra fissa in
+stile Apple Mail, sul desktop prima una barra sola e poi la **gerarchia** (Rispondi ·
+Inoltra · Archivia · Cestina in vista, il resto dietro «⋯ Altro»), perché quindici comandi
+tutti uguali restano rumore comunque li si impili. Il **24 ago**: i **link delle mail** si
+aprono in una scheda nuova anche quando hanno `target="_self"` (Trustpilot lasciava un
+rettangolo grigio), la **chiave di «Commerciale»** si può finalmente salvare (una lista di
+app riscritta a mano accanto a quella vera), e il **lotto del 21-24/08** — attività
+annotabili, «Da fare su questa mail», bozze che mostrano il testo e **conservano gli
+allegati** (salvarle li buttava via), comandi sopra la mail, luoghi e orari che non si
+perdono più nei riassunti (misurato 0/4 → 4/4) e gli **appuntamenti con data certa in agenda
+da soli**. Il **18-19 ago** il **trasloco del database** sul cluster condiviso. Del
+**17 ago pomeriggio**, tutti LIVE (dal più recente): **il negozio
 dell'ordine lo decide la mail** (`daMail` + `brand` come enum: «Trova fornitore»
 cercava l'ordine 2725 su `deluxy.it` invece che su Deluxy Flowers); **«→ App» in
 testa** alla mail; **mail trascinabili sul menu** (sezioni, Posta, Archivio, Spam,
