@@ -254,7 +254,7 @@ interface Summary {
               @for (o of summary()?.ordini ?? []; track o.saleRef) {
                 <tr class="riga-ordine" [class.riga-anomala]="o.consegnePagate > 1 || o.anomalie > 0"
                     (click)="apriChiudi(o.saleRef)">
-                  <td colspan="2" class="mono ordine-id">
+                  <td colspan="3" class="mono ordine-id">
                     <span class="freccia">{{ aperto(o.saleRef) ? '▾' : '▸' }}</span>
                     {{ o.saleRef }}
                   </td>
