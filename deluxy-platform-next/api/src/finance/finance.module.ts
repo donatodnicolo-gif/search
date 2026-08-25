@@ -45,7 +45,7 @@
 //   feePercent         = guadagnoNetto / valoreVendite   (netto su netto: l'utente)
 //   feePercentContract = Partner.commissionPercent
 //   commissioneIncassi = prezzoPubblico x 3%
-//   costoConsegna      = paga del valet + plus/minus
+//   costoConsegna      = paga del valet + plus/minus, ma ZERO se `payable` e' false
 //   margineTotale      = guadagnoNetto - costoConsegna - commissioneIncassi
 //
 // ⚠️ L'IVA **non si sottrae due volte**: il guadagno netto l'ha gia' tolta. La
@@ -343,7 +343,14 @@ export class FinanceService {
     // ⚠️ Netto su lordo darebbe una percentuale piu' bassa del vero e nessuno
     // saprebbe di quale delle due sta guardando: l'utente la vuole sul NETTO.
     const feePercent = saleValue > 0 && haValorePartner ? (takingsNet / saleValue) * 100 : 0;
-    const deliveryCost = (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0);
+    // ⚠️ Se la consegna non e' pagabile, il suo costo e' ZERO: l'importo resta
+    // scritto sulla riga (serve a sapere quanto sarebbe valsa) ma non si paga.
+    // Segnalato dall'utente il 25/08/2026. Misurato: 817 vendite a buon fine
+    // hanno `payable = false` e un importo scritto lo stesso, per **10.463,15 €**
+    // che la pagina contava come costo — su tutte le consegne sono 1.280 per
+    // 16.071,10 €. Sono i giri in cui una sola consegna porta la paga e le altre
+    // no, cioe' proprio le regole carnet.
+    const deliveryCost = d.payable === false ? 0 : (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0);
     const incassiCommission = saleValue * INCASSI;
     const totalMargin = takingsNet - deliveryCost - incassiCommission;
     const feeContract = d.partner?.commissionPercent ?? 0;
