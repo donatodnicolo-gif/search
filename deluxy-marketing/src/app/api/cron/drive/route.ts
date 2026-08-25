@@ -28,7 +28,15 @@ import { sincronizzaDrive } from "@/lib/drive";
 // dal punto in cui era (`ripartiDa`): una cartella grande non si indicizza in
 // un colpo, e farsi uccidere a metà è peggio che fermarsi con ordine.
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// ⚠️ **300, non 60 come gli altri cron, e il motivo è misurato.** Il budget
+// interno della sync (`DRIVE_SYNC_BUDGET_MS`, 45 s) copre solo la VISITA —
+// l'elenco dei file via API — e si ferma per tempo lasciando `ripartiDa`. La
+// SCRITTURA sul database (659 documenti, 341 aggiornati alla prova del 25/08)
+// sta **fuori** da quel budget: una passata reale ha impiegato 68 s in totale.
+// Con 60 la funzione verrebbe uccisa proprio nella fase che non sa riprendere,
+// lasciando la corsa `in_corso` per sempre. Qui il tempo costa poco (gira una
+// volta al giorno, di notte) e il rischio dell'altro verso costa molto.
+export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
   const segreto = (process.env.CRON_SECRET || "").trim();
