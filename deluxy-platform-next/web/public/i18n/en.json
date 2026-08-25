@@ -927,6 +927,12 @@
       "annullate": "· {{n}} are sales in this period but CANCELLED",
       "fuoriPeriodo": "· {{n}} are sales, but outside the chosen period",
       "nonVendite": "· {{n}} are not sales (delivery only, hourly, warehouse, corporate)"
+    },
+    "piuPaghe": "{{n}} orders are paid on more than one delivery: by the rule a round is paid once, so the cost shown is the real one, not the one due.",
+    "ordini": {
+      "titolo": "Orders in this period ({{n}})",
+      "consegne": "Deliveries",
+      "piuPagate": "{{n}} paid"
     }
   },
   "stub": {

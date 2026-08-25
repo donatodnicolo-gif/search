@@ -927,6 +927,12 @@
       "annullate": "· {{n}} sono vendite del periodo ma ANNULLATE",
       "fuoriPeriodo": "· {{n}} sono vendite, ma fuori dal periodo scelto",
       "nonVendite": "· {{n}} non sono vendite (sola consegna, a ora, magazzino, aziendale)"
+    },
+    "piuPaghe": "{{n}} ordini risultano pagati su più di una consegna: per la regola il giro si paga una volta sola, quindi il costo mostrato è quello vero, non quello dovuto.",
+    "ordini": {
+      "titolo": "Ordini del periodo ({{n}})",
+      "consegne": "Consegne",
+      "piuPagate": "{{n}} pagate"
     }
   },
   "stub": {

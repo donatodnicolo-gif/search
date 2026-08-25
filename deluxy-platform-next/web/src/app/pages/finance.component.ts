@@ -40,6 +40,18 @@ interface CorrispettivoRow {
   anomalia: 'partner_oltre_pubblico' | 'venduto_a_zero' | 'valore_partner_mancante' | null;
 }
 
+/** Il riepilogo di un ordine: importi che stanno a monte delle sue consegne. */
+interface RecapOrdine {
+  saleRef: string;
+  consegne: number;
+  saleValue: number;
+  deliveryFee: number;
+  deliveryCost: number;
+  partnerPrice: number;
+  takings: number;
+  consegnePagate: number;
+}
+
 interface Summary {
   deliveries: number;
   /** Consegne a buon fine del periodo che non sono vendite: restano fuori. */
@@ -61,6 +73,10 @@ interface Summary {
   incassiCommission: number;
   totalMargin: number;
   totalMarginPercent: number;
+  /** Gli ordini del periodo, col loro riepilogo. */
+  ordini: RecapOrdine[];
+  /** Ordini in cui risulta pagata piu' di una consegna. */
+  ordiniConPiuPaghe: number;
 }
 
 /**
@@ -135,6 +151,13 @@ interface Summary {
         @if (s.excluded > 0) { {{ 'finance.excluded' | translate:{ n: s.excluded } }} }
       </p>
     }
+    <!-- Un ordine si paga una volta: se ne risultano due, la regola non e' stata
+         applicata e il costo a schermo e' quello vero, non quello dovuto. -->
+    @if (!loading() && summary(); as s) {
+      @if (s.ordiniConPiuPaghe > 0) {
+        <p class="avviso">{{ 'finance.piuPaghe' | translate:{ n: s.ordiniConPiuPaghe } }}</p>
+      }
+    }
     <!-- Le righe sbagliate si contano in cima: nasconderle farebbe quadrare un
          totale che non quadra nella realta'. -->
     @if (!loading() && summary(); as s) {
@@ -184,6 +207,50 @@ interface Summary {
           }
         </div>
       } @else {
+        <!-- Gli importi dell'ordine stanno SOPRA le sue consegne: il valore
+             pagato dal cliente, le spese di consegna e il costo del giro sono
+             dell'ordine, e ripeterli su ogni riga li conterebbe due volte. -->
+        @if (summary()?.ordini; as ordini) {
+          @if (ordini.length && ordini.length <= 40) {
+            <div class="card ordini">
+              <h2>{{ 'finance.ordini.titolo' | translate:{ n: ordini.length } }}</h2>
+              <table class="fin recap">
+                <thead>
+                  <tr>
+                    <th>{{ 'finance.c.sale' | translate }}</th>
+                    <th class="num">{{ 'finance.ordini.consegne' | translate }}</th>
+                    <th class="num">{{ 'finance.c.publicPrice' | translate }}</th>
+                    <th class="num">{{ 'finance.c.deliveryFee' | translate }}</th>
+                    <th class="num">{{ 'finance.c.saleValue' | translate }}</th>
+                    <th class="num">{{ 'finance.c.partnerPrice' | translate }}</th>
+                    <th class="num">{{ 'finance.c.takings' | translate }}</th>
+                    <th class="num">{{ 'finance.c.deliveryCost' | translate }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (o of ordini; track o.saleRef) {
+                    <tr [class.riga-anomala]="o.consegnePagate > 1">
+                      <td class="mono">{{ o.saleRef }}</td>
+                      <td class="num">{{ o.consegne }}</td>
+                      <td class="num">{{ euro(o.saleValue) }}</td>
+                      <td class="num">{{ euro(o.deliveryFee) }}</td>
+                      <td class="num">{{ euro(o.saleValue + o.deliveryFee) }}</td>
+                      <td class="num">{{ euro(o.partnerPrice) }}</td>
+                      <td class="num">{{ euro(o.takings) }}</td>
+                      <td class="num">
+                        {{ euro(o.deliveryCost) }}
+                        @if (o.consegnePagate > 1) {
+                          <span class="tag-anomalia">{{ 'finance.ordini.piuPagate' | translate:{ n: o.consegnePagate } }}</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        }
+
         <div class="card table-wrap">
           <table class="fin">
             <thead>
@@ -315,6 +382,9 @@ interface Summary {
       .assumption { margin-top: 12px; font-size: 12px; color: var(--text-tertiary); font-style: italic; }
       .error-card { padding: 14px 16px; border-radius: var(--radius-m); background: rgba(215,0,21,0.08); color: var(--red); }
       .state-card { padding: 32px; color: var(--text-secondary); }
+      .ordini { padding: 16px 18px; margin-bottom: 14px; overflow-x: auto; }
+      .ordini h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+      .ordini .recap { width: 100%; }
       .altrove { margin: 12px 0 0; font-size: 13px; color: var(--text-primary); }
       .altrove .motivi { display: block; margin-top: 6px; }
       .altrove .motivi span { display: block; color: var(--text-secondary); }

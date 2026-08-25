@@ -185,6 +185,43 @@ interface CorrispettivoRow {
   anomalia: Anomalia;
 }
 
+/**
+ * Il riepilogo di un ORDINE, sopra le sue consegne.
+ *
+ * ⭐ Deciso dall'utente il 25/08/2026: «valore dell'ordine e spese di consegna
+ * sono a monte, quindi vanno messe in un recap sopra le altre consegne
+ * correlate» e «il costo consegna dovrebbe essere solo uno, secondo la regola
+ * da applicare».
+ *
+ * Sono tre importi che appartengono all'ORDINE e non alla singola consegna, e
+ * sommarli riga per riga li conta due, tre, dieci volte:
+ *  - il valore pagato dal cliente;
+ *  - le spese di consegna che ha pagato;
+ *  - il costo della consegna, che per la regola carnet si paga UNA volta sola
+ *    per giro, non una per destinazione.
+ */
+interface RecapOrdine {
+  /** L'id della vendita: e' la chiave che tiene insieme le consegne. */
+  saleRef: string;
+  consegne: number;
+  /** Somma dei prezzi pagati dal cliente sulle consegne dell'ordine. */
+  saleValue: number;
+  /** Spese di consegna dell'ordine: contate UNA volta. */
+  deliveryFee: number;
+  /** Costo della consegna dell'ordine: per la regola, uno solo. */
+  deliveryCost: number;
+  /** Quanto e' andato ai partner, in tutto. */
+  partnerPrice: number;
+  /** Il guadagno lordo dell'ordine. */
+  takings: number;
+  /**
+   * ⚠️ Quante consegne dell'ordine risultano pagate. Se sono piu' di una la
+   * regola carnet non e' stata applicata, e il costo qui sopra e' la somma di
+   * cio' che si e' pagato davvero, non di cio' che si sarebbe dovuto pagare.
+   */
+  consegnePagate: number;
+}
+
 @Injectable()
 export class FinanceService {
   constructor(private readonly prisma: PrismaService) {}
@@ -288,6 +325,40 @@ export class FinanceService {
   }
 
   /**
+   * Raggruppa le righe per ordine e ne fa il riepilogo.
+   *
+   * ⚠️ Le consegne senza un id vendita restano da sole, ognuna nel suo gruppo:
+   * metterle insieme sotto una chiave vuota le farebbe sembrare un ordine solo
+   * da centinaia di destinazioni — ed e' lo stesso errore del segnaposto
+   * `legacyOrderId = 0`, che nel database tiene insieme 10.272 consegne che non
+   * hanno niente a che vedere fra loro.
+   */
+  private recap(rows: CorrispettivoRow[]): RecapOrdine[] {
+    const gruppi = new Map<string, CorrispettivoRow[]>();
+    for (const r of rows) {
+      const k = r.saleRef ?? `consegna-${r.deliveryCode}`;
+      if (!gruppi.has(k)) gruppi.set(k, []);
+      gruppi.get(k)!.push(r);
+    }
+    return [...gruppi.entries()].map(([saleRef, g]) => ({
+      saleRef,
+      consegne: g.length,
+      saleValue: round2(g.reduce((s, r) => s + r.publicPrice, 0)),
+      // ⚠️ UNA volta sola: le spese di consegna sono dell'ordine. Si prende il
+      // valore piu' alto fra le consegne del gruppo — nell'import ogni consegna
+      // di un ordine riceve lo stesso importo, e dove manca vale zero.
+      deliveryFee: round2(Math.max(0, ...g.map((r) => r.deliveryFee))),
+      // ⚠️ Idem per il costo: per la regola carnet si paga un giro, non una
+      // consegna per destinazione. Qui si somma quello che risulta PAGATO
+      // davvero, e `consegnePagate` dice se sono piu' di uno.
+      deliveryCost: round2(g.reduce((s, r) => s + r.deliveryCost, 0)),
+      partnerPrice: round2(g.reduce((s, r) => s + r.partnerPrice, 0)),
+      takings: round2(g.reduce((s, r) => s + r.takings, 0)),
+      consegnePagate: g.filter((r) => r.deliveryCost > 0).length,
+    })).sort((a, b) => b.saleValue - a.saleValue);
+  }
+
+  /**
    * Totali del periodo (riga «Totale» + tab Margini).
    *
    * ⚠️ Somma le STESSE righe che la tabella mostra, filtri compresi: un totale
@@ -326,7 +397,12 @@ export class FinanceService {
       ? await this.doveSono(from, to, opzioni)
       : null;
     const sum = (f: (r: CorrispettivoRow) => number) => rows.reduce((s, r) => s + f(r), 0);
-    const saleValue = sum((r) => r.saleValue);
+    // ⚠️ Le spese di consegna si contano PER ORDINE, non per riga: sommandole
+    // riga per riga, un ordine con tre destinazioni le conta tre volte.
+    const ordini = this.recap(rows);
+    const deliveryFee = round2(ordini.reduce((s, o) => s + o.deliveryFee, 0));
+    const publicPrice = round2(sum((r) => r.publicPrice));
+    const saleValue = round2(publicPrice + deliveryFee);
     const takings = sum((r) => r.takings);
     const totalMargin = sum((r) => r.totalMargin);
     return {
@@ -337,9 +413,13 @@ export class FinanceService {
       anomalie: rows.filter((r) => r.anomalia).length,
       /** Se la ricerca non trova niente: dove sta quello che si cercava. */
       altrove,
-      publicPrice: round2(sum((r) => r.publicPrice)),
-      deliveryFee: round2(sum((r) => r.deliveryFee)),
-      saleValue: round2(saleValue),
+      publicPrice,
+      deliveryFee,
+      saleValue,
+      /** Gli ordini del periodo, col loro riepilogo. */
+      ordini,
+      /** Ordini in cui risulta pagata piu' di una consegna: regola non applicata. */
+      ordiniConPiuPaghe: ordini.filter((o) => o.consegnePagate > 1).length,
       partnerPrice: round2(sum((r) => r.partnerPrice)),
       takings: round2(takings),
       takingsNet: round2(sum((r) => r.takingsNet)),
