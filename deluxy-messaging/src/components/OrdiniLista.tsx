@@ -340,16 +340,33 @@ function BollinoNuovo({ sottoITuoiOcchi = false }: { sottoITuoiOcchi?: boolean }
 //
 // Fuori restano solo quelli impossibili: niente numero, niente WhatsApp e
 // niente telefonata; niente email, niente mail.
-type CanaleContatto = {
+type CanaleBase = {
   chiave: string
   nome: string
   lingua: string
   linguaDa: string
-  /** WhatsApp e telefono: un link da aprire. */
-  url?: string
-  /** Email: la bozza che riempie il pop-up di posta (niente `mailto:`). */
-  mail?: BozzaMail
 }
+/**
+ * ⚠️⚠️ DUE FORME, E IL COMPILATORE LE TIENE SEPARATE.
+ *
+ * WhatsApp e telefono sono **un link da aprire**; l'email no: da quando il
+ * `mailto:` è stato tolto porta una **bozza** che apre il pop-up. Finché il tipo
+ * aveva `url?` e `mail?` tutti e due facoltativi, scrivere `href={c.url}` su un
+ * canale email compilava benissimo e a schermo diventava `href={undefined}` —
+ * un bottone che non fa niente, senza un errore da nessuna parte. È successo
+ * davvero (25/08/2026, riga della tabella).
+ *
+ * Con questa unione `url` e `mail` **non esistono** finché non si è detto di
+ * quale dei due casi si sta parlando (`'mail' in c`). Provato rimettendo lo
+ * sbaglio di prima:
+ *
+ *     error TS2339: Property 'url' does not exist on type 'CanaleContatto'.
+ *
+ * ⚠️ Non bastava marcarli facoltativi (`url?: string`): `href` accetta
+ * `string | undefined`, quindi `href={c.url}` compilava lo stesso e il bottone
+ * morto tornava. Il campo dev'essere **assente**, non facoltativo.
+ */
+type CanaleContatto = (CanaleBase & { url: string }) | (CanaleBase & { mail: BozzaMail })
 
 function canaliContatto(o: OrdineDto): CanaleContatto[] {
   const { lingua, da } = linguaCliente(o.paese, o.telefono, o.email)
@@ -468,6 +485,80 @@ function linkReclamo(o: OrdineDto): string {
  * «non succede nulla», segnalato dall'utente. Un comando che non lascia traccia
  * dove viene premuto è indistinguibile da un comando rotto.
  */
+/**
+ * I bottoni per parlare col cliente: uno per ogni canale che ha davvero.
+ *
+ * ⚠️⚠️ ESISTE PERCHÉ ERANO DUE COPIE, E UNA ERA ROTTA. La stessa fila di
+ * bottoni stava scritta in due punti — la scheda a bacheca e la riga della
+ * tabella — e quella della tabella rendeva **tutti** i canali come `<a
+ * href={c.url}>`. Ma l'email un `url` non ce l'ha: da quando il `mailto:` è
+ * stato tolto (apriva il programma di posta del computer e mandava la mail da
+ * un indirizzo personale, fuori dall'app) il canale email porta una BOZZA,
+ * `c.mail`, che apre il pop-up. Risultato: nella tabella «Email» era
+ * `<a href={undefined}>`, cioè **un bottone che non fa assolutamente niente**.
+ * Segnalato dall'utente il 25/08/2026: «clicco mail e non succede nulla».
+ *
+ * ⚠️ Un `<a>` senza `href` non dà nessun segnale: non si illumina, non si può
+ * raggiungere da tastiera, non dà errore. È il guasto più difficile da vedere —
+ * sembra che l'app abbia ignorato il clic, e chi lavora prova due volte e poi
+ * apre il programma di posta a mano.
+ *
+ * Ora il modo di disegnarli è UNO SOLO: un canale senza `url` non può più
+ * finire dentro un link.
+ */
+function BottoniContatto({
+  canali,
+  onMail,
+  onContattato,
+}: {
+  canali: CanaleContatto[]
+  onMail: (b: BozzaMail) => void
+  onContattato: () => void
+}) {
+  if (canali.length === 0) {
+    return (
+      <span
+        className="bottone secondario mini"
+        style={{ pointerEvents: 'none', opacity: 0.4 }}
+        title="Ordine senza telefono né email: non c'è modo di contattarlo"
+      >
+        Nessun recapito
+      </span>
+    )
+  }
+  return (
+    <>
+      {canali.map((c) =>
+        'mail' in c ? (
+          <button
+            key={c.chiave}
+            className="bottone secondario mini"
+            onClick={() => {
+              onMail(c.mail)
+              onContattato()
+            }}
+            title={spiegaContatto(c)}
+          >
+            {c.nome}
+          </button>
+        ) : (
+          <a
+            key={c.chiave}
+            className="bottone secondario mini"
+            href={c.url}
+            target={c.chiave === 'telefono' ? undefined : '_blank'}
+            rel="noopener noreferrer"
+            onClick={onContattato}
+            title={spiegaContatto(c)}
+          >
+            {c.nome}
+          </a>
+        )
+      )}
+    </>
+  )
+}
+
 function ComandoPresa({
   ordine,
   ioId,
@@ -1881,47 +1972,11 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                               il recapito del cliente, cioè la stessa cosa di
                               cui parlano i bottoni accanto. */}
                           <span className="gruppo">
-                            {(() => {
-                              const canali = canaliContatto(o)
-                              if (canali.length === 0) {
-                                return (
-                                  <span
-                                    className="bottone secondario mini"
-                                    style={{ pointerEvents: 'none', opacity: 0.4 }}
-                                    title="Ordine senza telefono né email: non c'è modo di contattarlo"
-                                  >
-                                    Nessun recapito
-                                  </span>
-                                )
-                              }
-                              return canali.map((c) =>
-                                c.mail ? (
-                                  <button
-                                    key={c.chiave}
-                                    className="bottone secondario mini"
-                                    onClick={() => {
-                                      setMail(c.mail!)
-                                      segna(o.id, 'comunicazione')
-                                    }}
-                                    title={spiegaContatto(c)}
-                                  >
-                                    {c.nome}
-                                  </button>
-                                ) : (
-                                  <a
-                                    key={c.chiave}
-                                    className="bottone secondario mini"
-                                    href={c.url}
-                                    target={c.chiave === 'telefono' ? undefined : '_blank'}
-                                    rel="noopener noreferrer"
-                                    onClick={() => segna(o.id, 'comunicazione')}
-                                    title={spiegaContatto(c)}
-                                  >
-                                    {c.nome}
-                                  </a>
-                                )
-                              )
-                            })()}
+                            <BottoniContatto
+                              canali={canaliContatto(o)}
+                              onMail={setMail}
+                              onContattato={() => segna(o.id, 'comunicazione')}
+                            />
                             {!o.contattoSalvato ? (
                               <button
                                 className="bottone secondario mini"
@@ -2169,33 +2224,11 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                         operatori={operatori}
                         onAzione={prendi}
                       />
-                      {(() => {
-                        const canali = canaliContatto(o)
-                        if (canali.length === 0) {
-                          return (
-                            <span
-                              className="bottone secondario mini"
-                              style={{ pointerEvents: 'none', opacity: 0.4 }}
-                              title="Ordine senza telefono né email: non c'è modo di contattarlo"
-                            >
-                              Nessun recapito
-                            </span>
-                          )
-                        }
-                        return canali.map((c) => (
-                          <a
-                            key={c.chiave}
-                            className="bottone secondario mini"
-                            href={c.url}
-                            target={c.chiave === 'telefono' ? undefined : '_blank'}
-                            rel="noopener noreferrer"
-                            onClick={() => segna(o.id, 'comunicazione')}
-                            title={spiegaContatto(c)}
-                          >
-                            {c.nome}
-                          </a>
-                        ))
-                      })()}
+                      <BottoniContatto
+                        canali={canaliContatto(o)}
+                        onMail={setMail}
+                        onContattato={() => segna(o.id, 'comunicazione')}
+                      />
                       <a
                         className="bottone secondario mini"
                         href={linkReclamo(o)}

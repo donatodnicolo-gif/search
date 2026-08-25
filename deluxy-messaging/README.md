@@ -413,6 +413,29 @@ torna indietro, e da uno più indietro non si salta. E togliendo il segno
 «pagata» l'ordine **non** torna indietro — era forse stato spostato a mano da
 qualcuno, e disfare un clic non deve cancellare la decisione di una persona.
 
+### ⚠️ «Email» nella riga della tabella non faceva niente (corretto il 25/08/2026)
+
+I bottoni per parlare col cliente (WhatsApp · Chiama · Email) stavano scritti in
+**due punti**: la scheda a bacheca e la riga della tabella. Quella della tabella
+disegnava **tutti** i canali come link — `<a href={c.url}>` — ma l'**email un
+`url` non ce l'ha**: da quando il `mailto:` è stato tolto (apriva il programma di
+posta del computer e mandava la mail da un indirizzo personale, fuori dall'app)
+il canale email porta una **bozza** che apre il pop-up.
+
+Risultato: nella tabella «Email» era `<a href={undefined}>`, cioè **un bottone
+che non faceva assolutamente niente**. ⚠️⚠️ E un link senza indirizzo non dà
+nessun segnale — non si illumina, non si raggiunge da tastiera, non scrive un
+errore: sembra che l'app abbia ignorato il clic.
+
+Ora i bottoni li disegna **una funzione sola** (`BottoniContatto`), e il tipo del
+canale è un'**unione**: `url` e `mail` non esistono finché non si è detto di
+quale dei due casi si parla. Lo stesso sbaglio adesso **non compila** — provato
+rimettendolo: `error TS2339: Property 'url' does not exist on type
+'CanaleContatto'`.
+
+⚠️ Non bastava marcarli facoltativi: `href` accetta `string | undefined`, quindi
+`href={c.url}` sarebbe passato lo stesso.
+
 ### Quanto lavoro gli abbiamo già dato
 
 Accanto a ogni fornitore — **nella lista di chi è in zona** (dove si sceglie a

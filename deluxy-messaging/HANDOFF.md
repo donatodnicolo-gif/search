@@ -1,5 +1,43 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (sera 2) — «clicco mail e non succede nulla»
+
+Segnalato dall'utente con lo screenshot della riga della tabella. Era vero, alla
+lettera: **quel bottone non faceva niente.**
+
+I bottoni per parlare col cliente stavano scritti in **due punti** — la scheda a
+bacheca e la riga della tabella — e quella della tabella disegnava **tutti** i
+canali come link, `<a href={c.url}>`. Ma l'**email un `url` non ce l'ha**: da
+quando il `mailto:` è stato tolto (apriva il programma di posta del computer e
+mandava la mail da un indirizzo personale, fuori dall'app) il canale email porta
+una **bozza** che apre il pop-up. Quindi in tabella «Email» era
+`<a href={undefined}>`.
+
+⚠️⚠️ **Un link senza indirizzo non dà nessun segnale**: non si illumina, non si
+raggiunge da tastiera, non scrive un errore in console. È il guasto più difficile
+da vedere — sembra che l'app abbia ignorato il clic, e chi lavora ci riprova due
+volte e poi apre la posta a mano (che è esattamente quello che il pop-up esiste
+per evitare: la mail deve uscire dalla casella aziendale e restare in Inbox).
+
+⚠️⚠️ **È la stessa forma del difetto di stamattina** con «Paga fornitore»: la
+stessa azione scritta in due posti, e uno dei due impara qualcosa che l'altro
+non sa. Qui la copia rimasta indietro non ha perso un dato: ha perso il gesto.
+
+**Corretto due volte**, perché una sola non bastava:
+
+1. i bottoni li disegna **una funzione sola** (`BottoniContatto`);
+2. il tipo del canale è un'**unione**: `url` e `mail` **non esistono** finché non
+   si è detto di quale caso si parla (`'mail' in c`). Provato rimettendo lo
+   sbaglio: `error TS2339: Property 'url' does not exist on type
+   'CanaleContatto'`.
+   ⚠️ Marcarli facoltativi NON bastava: `href` accetta `string | undefined`,
+   quindi `href={c.url}` compilava lo stesso e il bottone morto tornava. Il campo
+   dev'essere **assente**, non facoltativo.
+
+🔴 Da guardare a schermo: premi «Email» su una riga della tabella e deve aprirsi
+il pop-up «Scrivi al cliente».
+
+
 ## 25/08/2026 (sera) — quanto lavoro diamo a un fornitore, e dove sta
 
 Due domande dell'utente, tutte e due misurate prima di rispondere.
