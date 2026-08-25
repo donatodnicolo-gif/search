@@ -81,12 +81,64 @@ fi
 # L'app è una SPA: il testo runtime NON è nell'HTML statico. Uso il <title>,
 # che è statico e distingue Scout ("Deluxy Scout") dall'app fiorai
 # ("Trova Fiorai & Pasticcerie…").
-echo "→ verifica: $DOMINIO serve Scout?"
+#
+# ⚠️ Il <title> da solo NON basta, e il 25/08/2026 si è visto: un deploy fatto
+# pubblicando `dist-web` grezza (senza i due accorgimenti qui sopra) ha lasciato
+# in produzione le icone a quadratini, ogni link profondo a 404 e /api/health
+# giù — e questo controllo avrebbe detto «✓ OK», perché il titolo era giusto.
+# Il titolo dice CHI serve il dominio, non SE funziona. Quindi si controllano
+# anche le tre cose che i due accorgimenti esistono per garantire.
+echo "→ verifica: $DOMINIO serve Scout, ed è servito per intero?"
+GUAI=0
 HTML="$(curl -fsSL "$DOMINIO" || true)"
 if echo "$HTML" | grep -qi "<title>Deluxy Scout</title>"; then
-  echo "✓ OK: il dominio serve l'app Scout."
+  echo "  ✓ il dominio serve l'app Scout"
 else
-  echo "✗ ATTENZIONE: $DOMINIO NON serve Scout (title inatteso — possibile sovrascrittura)." >&2
-  echo "  Verifica che il progetto deluxy-scout non abbia ripreso l'integrazione Git col repo 'search'." >&2
+  echo "  ✗ $DOMINIO NON serve Scout (title inatteso — possibile sovrascrittura)." >&2
+  echo "    Verifica che il progetto deluxy-scout non abbia ripreso l'integrazione Git col repo 'search'." >&2
+  GUAI=1
+fi
+
+# ① Un link profondo: senza il rewrite della SPA risponde 404 e un F5 su una
+#    qualsiasi schermata porta a una pagina di errore.
+COD="$(curl -s -o /dev/null -w '%{http_code}' "$DOMINIO/oggi" || true)"
+if [ "$COD" = "200" ]; then
+  echo "  ✓ i link profondi rispondono (/oggi → 200)"
+else
+  echo "  ✗ /oggi → $COD: manca il rewrite della SPA (vercel.json non pubblicato)." >&2
+  GUAI=1
+fi
+
+# ② La sonda di salute: è quella che legge il Hub in «Stato servizi».
+SONDA="$(curl -s "$DOMINIO/api/health" || true)"
+if echo "$SONDA" | grep -q '"ok"'; then
+  echo "  ✓ /api/health risponde ($(echo "$SONDA" | head -c 60))"
+else
+  echo "  ✗ /api/health non risponde JSON: nel Hub Scout risulterà giù." >&2
+  GUAI=1
+fi
+
+# ③ Il font delle icone: se resta sotto assets/node_modules Vercel non lo
+#    pubblica e ogni icona diventa un quadratino. Si prende il primo .ttf
+#    davvero referenziato dal bundle e lo si chiede al dominio.
+TTF="$(grep -aoh '/assets/[^"]*.ttf' dist-web/_expo/static/js/web/*.js 2>/dev/null | head -1 || true)"
+if [ -n "$TTF" ]; then
+  COD="$(curl -s -o /dev/null -w '%{http_code}' "$DOMINIO$TTF" || true)"
+  TIPO="$(curl -s -o /dev/null -w '%{content_type}' "$DOMINIO$TTF" || true)"
+  case "$TIPO" in
+    font/*|application/font*|application/octet-stream)
+      echo "  ✓ il font delle icone è pubblicato ($TIPO)" ;;
+    *)
+      echo "  ✗ il font delle icone non arriva ($COD, $TIPO): icone a quadratini." >&2
+      echo "    Di solito significa che i .ttf sono rimasti sotto assets/node_modules." >&2
+      GUAI=1 ;;
+  esac
+else
+  echo "  · nessun .ttf referenziato dal bundle: niente da controllare"
+fi
+
+if [ "$GUAI" != "0" ]; then
+  echo "✗ ATTENZIONE: il deploy è uscito ma il sito NON è a posto (vedi sopra)." >&2
   exit 1
 fi
+echo "✓ OK: Scout è in produzione e servito per intero."
