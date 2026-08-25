@@ -5,6 +5,7 @@ import {
   cosaSappiamo,
   diMestiere,
   ibanAccorciato,
+  CORRISPONDENZA_VERA,
   type FornitoreTrovato,
 } from '@/lib/cerca-fornitore'
 
@@ -25,6 +26,21 @@ export function CercaFornitore({
 }) {
   const [q, setQ] = useState('')
   const [risultati, setRisultati] = useState<FornitoreTrovato[]>([])
+
+  /**
+   * A quale famiglia appartiene un risultato: uno che conosciamo, o uno preso
+   * da Google Maps che non abbiamo mai visto.
+   *
+   * ⚠️ È la STESSA condizione che in `punteggio()` manda i risultati di Maps in
+   * fondo (`fonti` = solo `maps`). Sono due facce di una regola sola — l'ordine
+   * e l'etichetta devono dire la stessa cosa, o l'elenco si contraddice.
+   */
+  const gruppoDi = (f: FornitoreTrovato): 'nostri' | 'maps' =>
+    f.fonti.length === 1 && f.fonti[0] === 'maps' ? 'maps' : 'nostri'
+
+  const nostri = risultati.filter((f) => gruppoDi(f) === 'nostri')
+  /** Quanti dei nostri corrispondono per davvero, non per un pezzo di parola. */
+  const quantiVeri = nostri.filter((f) => f.corrispondenza >= CORRISPONDENZA_VERA).length
   const [nota, setNota] = useState('')
   const [cerco, setCerco] = useState(false)
   const [fatto, setFatto] = useState(false)
@@ -175,11 +191,22 @@ export function CercaFornitore({
           partiti. */}
       {cerco ? <p className="cella-sub">Cerco…</p> : null}
 
+      {/* ⚠️⚠️ QUESTA RIGA DICEVA IL FALSO (segnalato il 25/08/2026). Diceva
+          sempre «il primo è quello che ci fa risparmiare di più», anche quando
+          in cima non c'era niente che c'entrasse: cercando «commercial garden»
+          il primo era «Studio BM Commercialisti». Ora si dice quanti
+          corrispondono DAVVERO, e se non corrisponde nessuno lo si dice invece
+          di vantare un primo posto che non vale niente. */}
       {!cerco && fatto && risultati.length > 0 ? (
-        <p className="cella-sub">
-          {risultati.length} che potrebbe{risultati.length === 1 ? '' : 'ro'} essere lui — il
-          primo è quello che ci fa risparmiare di più.
-        </p>
+        nostri.length > 0 ? (
+          <p className="cella-sub">
+            {nostri.length} fra i nostri
+            {quantiVeri > 0
+              ? ` — il primo è quello che ci fa risparmiare di più`
+              : ` — ma nessuno col nome che hai cercato: guarda bene prima di sceglierne uno`}
+            .
+          </p>
+        ) : null
       ) : null}
 
       {fatto && !cerco && risultati.length === 0 ? (
@@ -196,7 +223,25 @@ export function CercaFornitore({
       {risultati.length > 0 ? (
         <ul className="elenco-fornitori-trovati">
           {risultati.map((f, i) => (
-            <li key={`${f.nome}-${i}`}>
+            <li key={`${f.nome}-${i}`} data-gruppo={gruppoDi(f)}>
+              {/* ⚠️⚠️ LE DUE FAMIGLIE VANNO SEPARATE A SCHERMO, non solo
+                  ordinate. Prima erano un elenco unico e la differenza stava
+                  scritta in una nota SOTTO la lista: chi cercava un fornitore
+                  nuovo trovava in cima gente che non c'entrava e in fondo,
+                  senza stacco, l'unico risultato buono — «la ricerca è
+                  confusa, in particolare se va cercato tramite Google Maps».
+                  L'intestazione compare sulla PRIMA riga di ogni famiglia. */}
+              {i === 0 || gruppoDi(risultati[i - 1]) !== gruppoDi(f) ? (
+                <span className="testata-gruppo-fornitori">
+                  {gruppoDi(f) === 'nostri' ? (
+                    'Che conosciamo già'
+                  ) : (
+                    <>
+                      Da Google Maps — <strong>mai lavorato con loro</strong>, l’IBAN va chiesto
+                    </>
+                  )}
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="riga-fornitore-trovato"
@@ -295,10 +340,15 @@ export function CercaFornitore({
         </div>
       ) : null}
 
-      {chiestoMaps && !notaMaps ? (
+      {/* ⚠️ La nota che spiegava «sotto ai nostri ci sono quelli di Maps» non
+          serve più: adesso lo dice l'intestazione del gruppo, che sta DOVE
+          servono gli occhi. Resta il caso in cui Maps non ha trovato niente —
+          senza dirlo, chi ha premuto il bottone non sa se ha funzionato. */}
+      {chiestoMaps && !notaMaps && risultati.every((f) => gruppoDi(f) === 'nostri') ? (
         <p className="cella-sub">
-          Sotto ai nostri ci sono anche i risultati di Google Maps, marcati:{' '}
-          <strong>non ci abbiamo mai lavorato</strong>, e il loro IBAN va chiesto.
+          Su Google Maps non è uscito nessun altro nome per «{q.trim()}»
+          {zona.trim() ? ` a ${zona.trim()}` : ''}: prova a scriverlo diversamente, o cambia
+          zona.
         </p>
       ) : null}
       {notaMaps ? <p className="cella-sub">{notaMaps}</p> : null}

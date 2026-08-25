@@ -109,7 +109,21 @@ export function chiaveNome(v: string): string {
 }
 
 /**
- * Il nome (o la ragione sociale) contiene DAVVERO quello che si è cercato?
+ * La parola senza la vocale finale, per far combaciare i plurali italiani.
+ *
+ * ⚠️ «fiori» e «fiore» non sono uno il prefisso dell'altro — cambiano
+ * sull'ultima lettera — quindi il confronto per prefisso li mancava e cercare
+ * «fiori» non trovava «Fiore Blu». Si taglia UNA vocale sola, e solo da parole
+ * di almeno quattro lettere: su parole corte farebbe combaciare cose diverse.
+ * ⚠️ Non tocca «commercial» (finisce per consonante), quindi non riapre la
+ * porta a «commercialisti».
+ */
+function senzaVocaleFinale(p: string): string {
+  return p.length >= 4 && /[aeio]$/.test(p) ? p.slice(0, -1) : p
+}
+
+/**
+ * Quanto il nome contiene DAVVERO quello che si è cercato.
  *
  * ⚠️⚠️ Serve perché il registro Anagrafiche cerca anche dentro le NOTE e i
  * contatti. Misurato: cercando «rossi» rispondevano ANTONIO MARRAS, BRIONI e
@@ -122,6 +136,26 @@ export function chiaveNome(v: string): string {
  * pasticceria» deve trovare «Pasticceria Rossi», che ha le stesse parole in
  * ordine diverso. Le parole di una o due lettere si ignorano — «di», «e», «s»
  * non distinguono niente e taglierebbero fuori risultati buoni.
+ *
+ * ⚠️⚠️ NON TUTTE LE CORRISPONDENZE VALGONO UGUALE, e questo è il difetto
+ * segnalato dall'utente il 25/08/2026: cercando **«commercial garden»** in cima
+ * uscivano **«Studio BM Commercialisti»** e **«Studio Commercialista
+ * Pragmatika»**, perché `"commercialisti".includes("commercial")` è vero. Un
+ * pezzo di parola dentro un'altra parola NON è il nome che si sta cercando:
+ * «commercial» è una parola intera in «Commercial Garden Group» e un frammento
+ * in «commercialisti», e le due cose non possono pesare uguale.
+ *
+ * Tre gradi, e il terzo esiste apposta per non perdere niente:
+ *  · **parola intera** → 1, è lui;
+ *  · **quasi** (uno è prefisso dell'altro, al massimo due lettere di scarto) →
+ *    0,7: regge i plurali e le flessioni italiane («fiore»/«fiori»,
+ *    «garden»/«gardens») senza aprire la porta a «commercialisti»;
+ *  · **frammento** (dentro un'altra parola) → 0,15: **non si butta via**, ma
+ *    pesa così poco che finisce sotto a chiunque corrisponda davvero.
+ *
+ * Il terzo grado è una scelta, non una dimenticanza: escludere del tutto i
+ * frammenti farebbe sparire risultati buoni che nessuno saprebbe mancanti, ed è
+ * l'errore opposto — quello che fa smettere di usare la casella di ricerca.
  */
 export function paroleTrovate(
   f: { nome: string; ragioneSociale: string },
@@ -130,13 +164,51 @@ export function paroleTrovate(
   const parole = chiaveNome(cercato)
     .split(' ')
     .filter((p) => p.length >= 3)
-  const dove = `${chiaveNome(f.nome)} ${chiaveNome(f.ragioneSociale)}`
+  const testo = `${chiaveNome(f.nome)} ${chiaveNome(f.ragioneSociale)}`
   if (!parole.length) {
     // Ricerca di una o due lettere: non si esclude nessuno, ma non si finge
     // nemmeno una corrispondenza.
-    return chiaveNome(cercato) && dove.includes(chiaveNome(cercato)) ? 1 : 0
+    return chiaveNome(cercato) && testo.includes(chiaveNome(cercato)) ? 1 : 0
   }
-  return parole.filter((p) => dove.includes(p)).length
+  const suoi = testo.split(' ').filter(Boolean)
+  let punti = 0
+  for (const p of parole) {
+    let meglio = 0
+    for (const s of suoi) {
+      if (s === p) {
+        meglio = 1
+        break // meglio di così non si può: si passa alla parola dopo
+      }
+      const [corta, lunga] = s.length < p.length ? [s, p] : [p, s]
+      if (
+        (lunga.startsWith(corta) && lunga.length - corta.length <= 2) ||
+        senzaVocaleFinale(s) === senzaVocaleFinale(p)
+      ) {
+        meglio = Math.max(meglio, 0.7)
+      } else if (s.includes(p)) {
+        meglio = Math.max(meglio, 0.15)
+      }
+    }
+    punti += meglio
+  }
+  return punti
+}
+
+/**
+ * Almeno una parola corrisponde per davvero (parola intera o quasi)?
+ *
+ * ⚠️ Serve a dire «fra i nostri non c'è» senza mentire: con i soli frammenti
+ * l'elenco non è vuoto, ma non contiene niente che c'entri — ed è il caso in
+ * cui bisogna mandare la persona su Google Maps invece di lasciarla scegliere
+ * fra i commercialisti.
+ */
+export const CORRISPONDENZA_VERA = 0.7
+
+export function corrispondenzaVera(
+  f: { nome: string; ragioneSociale: string },
+  cercato: string
+): boolean {
+  return paroleTrovate(f, cercato) >= CORRISPONDENZA_VERA
 }
 
 /**

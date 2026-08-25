@@ -3594,6 +3594,29 @@ td .azioni-ordine {
   border-bottom: 1px solid var(--hairline);
 }
 
+/* ── Le due famiglie della ricerca fornitore ──
+   «Che conosciamo già» e «Da Google Maps» erano un elenco unico, e la
+   differenza stava in una nota SOTTO la lista: chi cercava un fornitore nuovo
+   trovava in cima gente che non c'entrava e in fondo, senza stacco, l'unico
+   risultato buono. L'intestazione sta dove servono gli occhi. */
+.testata-gruppo-fornitori {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 10px 0 4px;
+}
+
+/* Il gruppo di Maps si stacca anche con una linea: l'etichetta da sola, in una
+   lista lunga che si scorre, passa sopra la testa. */
+.elenco-fornitori-trovati li[data-gruppo='maps'] .testata-gruppo-fornitori {
+  border-top: 1px solid var(--hairline);
+  margin-top: 6px;
+  padding-top: 12px;
+}
+
 .elenco-fornitori-trovati {
   list-style: none;
   margin: 6px 0 0;
