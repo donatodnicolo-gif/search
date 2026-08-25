@@ -9,6 +9,53 @@
 // ⚠️ Questo file NON importa `db`: lo usa anche il modulo di ricerca dentro la
 // pagina Pagamenti, che è un componente client. Le query stanno nella rotta.
 
+// ── QUANTO LAVORO GLI ABBIAMO GIÀ DATO ──
+//
+// ⚠️⚠️ È la domanda che ci si fa **mentre si sceglie** a chi telefonare, ed è
+// anche quella con cui si tratta un prezzo: «gli abbiamo già dato tre ordini»
+// non è un dettaglio statistico, è la posizione da cui si parla. Il dato c'era
+// (il costo concordato sta sull'ordine) e non lo sommava nessuno.
+
+export type LavoroDato = {
+  /** Quanti ordini gli abbiamo affidato. */
+  ordini: number
+  /** La somma dei costi CONCORDATI e scritti. */
+  costo: number
+  /**
+   * Quanti di quegli ordini non hanno un costo scritto.
+   * ⚠️ Non valgono zero: valgono «non lo so», e si dicono — altrimenti il
+   * totale sembra tutto quello che gli abbiamo dato, e non lo è.
+   */
+  senzaCosto: number
+  /** Quando gli abbiamo affidato l'ultimo (ISO), se lo sappiamo. */
+  ultimoIl: string | null
+}
+
+const EURO = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+
+/**
+ * La riga da mostrare accanto a un fornitore: «3 ordini · 210 € dati».
+ *
+ * ⚠️ Se non gli abbiamo mai dato niente **si dice**, invece di lasciare il
+ * posto vuoto: «mai lavorato con lui» è un'informazione che cambia la
+ * telefonata, l'assenza di una riga no.
+ */
+export function riassuntoLavoro(l: LavoroDato | undefined): string {
+  if (!l || !l.ordini) return 'mai lavorato con lui'
+  const pezzi = [`${l.ordini} ordin${l.ordini === 1 ? 'e' : 'i'}`]
+  if (l.costo > 0) pezzi.push(`${EURO(l.costo)} dati`)
+  // ⚠️ Gli ordini senza costo si dicono SEMPRE che ce ne siano: un totale che
+  // tace quello che non sa vale meno di un totale che lo ammette.
+  if (l.senzaCosto > 0) {
+    pezzi.push(
+      l.senzaCosto === l.ordini
+        ? 'costo mai scritto'
+        : `${l.senzaCosto} senza costo`
+    )
+  }
+  return pezzi.join(' · ')
+}
+
 /** Da dove viene quello che sappiamo di lui. Cambia quanto ci si può fidare. */
 export type FonteFornitore = 'pagamento' | 'ordine' | 'registro' | 'maps'
 
@@ -32,6 +79,12 @@ export type FornitoreTrovato = {
   /** Quanti ordini gli abbiamo già dato, e quanto gli abbiamo dato l'ultima volta. */
   ordini: number
   ultimoCosto: number | null
+  /**
+   * Il conto vero di quanto lavoro gli abbiamo dato: viene da TUTTI i suoi
+   * ordini, non solo da quelli pescati dalla ricerca.
+   * ⚠️ `ordini` qui sopra conta quelli trovati adesso; questo conta la storia.
+   */
+  lavoro?: LavoroDato
   /** Quante volte l'abbiamo già pagato. */
   pagamenti: number
   fonti: FonteFornitore[]
@@ -365,7 +418,12 @@ export function cosaSappiamo(f: FornitoreTrovato): string {
   if (f.iban) pezzi.push(`IBAN ${ibanAccorciato(f.iban)}`)
   else if (f.ibanDiversi > 1) pezzi.push(`${f.ibanDiversi} IBAN diversi: scegli tu`)
   if (f.pagamenti) pezzi.push(`pagato ${f.pagamenti} volt${f.pagamenti === 1 ? 'a' : 'e'}`)
-  if (f.ordini) pezzi.push(`${f.ordini} ordin${f.ordini === 1 ? 'e' : 'i'}`)
+  // ⚠️ Quando sappiamo la storia intera si dice quella, non il conteggio dei
+  // risultati di questa ricerca: sono due numeri diversi e il secondo, da
+  // solo, si legge come «gli abbiamo dato un ordine» anche a chi ne ha avuti
+  // dieci.
+  if (f.lavoro?.ordini) pezzi.push(riassuntoLavoro(f.lavoro))
+  else if (f.ordini) pezzi.push(`${f.ordini} ordin${f.ordini === 1 ? 'e' : 'i'}`)
   if (f.ultimoCosto !== null && Number.isFinite(f.ultimoCosto)) {
     pezzi.push(
       `ultimo a ${f.ultimoCosto!.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}`

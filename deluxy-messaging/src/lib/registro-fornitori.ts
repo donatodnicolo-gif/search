@@ -1,6 +1,7 @@
 import { db } from './db'
 import { leggiImpostazioni } from './impostazioni'
 import { agganciaAffidabile } from './aggancio-fornitore'
+import { siglaProvincia } from './province'
 
 // IL FORNITORE PAGATO ENTRA NEL REGISTRO (24/08/2026, richiesta dell'utente).
 //
@@ -63,13 +64,25 @@ export async function segnalaFornitorePagatoAlRegistro(
   // altrimenti l'intestatario del conto. Sono spesso la stessa cosa dopo la
   // riconciliazione, ma quando differiscono l'ordine è più affidabile:
   // l'intestatario può essere la persona, non l'insegna.
-  let ordine: { fornitoreNome: string; fornitoreTelefono: string; fornitoreEmail: string } | null =
+  let ordine: {
+    fornitoreNome: string
+    fornitoreTelefono: string
+    fornitoreEmail: string
+    fornitoreCitta: string
+  } | null =
     null
   if (r.ordineNumero) {
     const numero = r.ordineNumero.replace('#', '')
     ordine = await db.ordine.findFirst({
       where: { numero: { in: [numero, `#${numero}`] } },
-      select: { fornitoreNome: true, fornitoreTelefono: true, fornitoreEmail: true },
+      select: {
+        fornitoreNome: true,
+        fornitoreTelefono: true,
+        fornitoreEmail: true,
+        // ⚠️ La città DEL FORNITORE (chi l'ha registrato l'ha scritta, o è
+        // arrivata dal registro): è quella che lo rende ritrovabile. Vedi sotto.
+        fornitoreCitta: true,
+      },
     })
   }
   const nome = (ordine?.fornitoreNome || r.intestatario || '').trim()
@@ -139,7 +152,32 @@ export async function segnalaFornitorePagatoAlRegistro(
       // («da evitare») il registro ignora questa riga, per sua regola.
       statoFornitore: 'abituale',
     }
-    if (match.esito === 'agganciata' && match.match?.citta) corpo.citta = match.match.citta
+    // ── DOVE STA, che è quello che lo rende ritrovabile ──
+    //
+    // ⚠️⚠️ Senza città, un fornitore nel registro **non tornerà mai indietro**:
+    // la lista «fornitori in zona» di un ordine nuovo filtra per provincia
+    // (`fornitoriInZona`, che ricava la sigla da `provincia` **o** dalla città),
+    // quindi chi non ha né l'una né l'altra è invisibile. Misurato il
+    // 25/08/2026: 15 fornitori nostri in anagrafica, tutti senza città — cioè
+    // gente che abbiamo già pagato e che al prossimo ordine in quella stessa
+    // provincia non verrebbe proposta a nessuno.
+    //
+    // ⚠️⚠️ E la città è quella del FORNITORE, presa dall'ordine dove l'ha scritta
+    // una persona o dove è arrivata dal registro: **non** la città di consegna.
+    // Sono due cose diverse — si consegna a Milano un mazzo preparato a Sesto —
+    // e dedurla scriverebbe un dato inventato dentro il golden record di tutti.
+    //
+    // ⚠️ La provincia si aggiunge solo se dalla città si ricava una sigla certa
+    // (`siglaProvincia`): «Firenze» → FI sì, un comune che non è capoluogo no.
+    // Meglio la sola città che una sigla indovinata.
+    const cittaDelRegistro = match.esito === 'agganciata' ? (match.match?.citta ?? '') : ''
+    const cittaNostra = (ordine?.fornitoreCitta ?? '').trim()
+    const citta = cittaDelRegistro || cittaNostra
+    if (citta) {
+      corpo.citta = citta
+      const sigla = siglaProvincia(citta)
+      if (sigla) corpo.provincia = sigla
+    }
     if (ordine?.fornitoreTelefono?.trim()) corpo.telefono = ordine.fornitoreTelefono.trim()
     if (ordine?.fornitoreEmail?.trim()) corpo.email = ordine.fornitoreEmail.trim()
     // L'IBAN entra solo verificato (checksum ok): nel golden record un IBAN

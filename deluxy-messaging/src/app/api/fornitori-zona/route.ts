@@ -6,6 +6,8 @@ import {
   mestierePerProdotto,
   type Mestiere,
 } from '@/lib/fornitori-zona'
+import { lavoroPerFornitore } from '@/lib/lavoro-fornitore'
+import { chiaveNome, type LavoroDato } from '@/lib/cerca-fornitore'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,6 +64,25 @@ export async function GET(req: NextRequest) {
   }
   if (esito.stato === 'errore') return NextResponse.json({ errore: esito.messaggio }, { status: 502 })
 
+  // ── QUANTO LAVORO ABBIAMO GIÀ DATO A OGNUNO ──
+  //
+  // ⚠️⚠️ È la lista da cui si sceglie a chi telefonare per QUESTO ordine, e
+  // fino a oggi diceva soltanto chi esiste in provincia. Ma fra due fiorai a
+  // due chilometri l'uno dall'altro non è lo stesso chiamare quello che ha
+  // già preparato tre ordini per noi e quello che non ci ha mai visto: cambia
+  // chi risponde, cambia il prezzo, cambia se ti fa il favore alle sette di
+  // sera. Il dato ce l'avevamo (il costo concordato è sull'ordine) e non lo
+  // sommava nessuno.
+  //
+  // ⚠️ Una query sola per tutta la lista, e un errore non fa fallire la
+  // pagina: senza il conto si sceglie lo stesso, senza l'elenco no.
+  let lavoro = new Map<string, LavoroDato>()
+  try {
+    lavoro = await lavoroPerFornitore()
+  } catch {
+    // si va avanti senza
+  }
+
   return NextResponse.json({
     provincia: esito.provincia,
     mestiere: mestiere ?? '',
@@ -81,6 +102,10 @@ export async function GET(req: NextRequest) {
       telefono: f.telefonoUtile,
       email: f.emailUtile,
       recapitoDa: f.recapitoDa,
+      // ⚠️ Si manda anche quando è vuoto: la schermata deve poter dire «mai
+      // lavorato con lui», che è un'informazione, invece di lasciare il posto
+      // vuoto, che non lo è.
+      lavoro: lavoro.get(chiaveNome(f.nome || f.ragioneSociale)) ?? null,
     })),
   })
 }

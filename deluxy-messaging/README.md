@@ -413,6 +413,48 @@ torna indietro, e da uno più indietro non si salta. E togliendo il segno
 «pagata» l'ordine **non** torna indietro — era forse stato spostato a mano da
 qualcuno, e disfare un clic non deve cancellare la decisione di una persona.
 
+### Quanto lavoro gli abbiamo già dato
+
+Accanto a ogni fornitore — **nella lista di chi è in zona** (dove si sceglie a
+chi telefonare) e **nella ricerca del fornitore** (dove si chiede il pagamento) —
+c'è una riga sola: `3 ordini · 210 € dati`, oppure **«mai lavorato con lui»**.
+
+⚠️⚠️ Non è una statistica: è la posizione da cui si parla. Fra due fiorai della
+stessa provincia non è lo stesso chiamare quello che ha già preparato tre ordini
+per noi e quello che non ci ha mai visto — cambia chi risponde, cambia il
+prezzo, cambia se ti fa il favore alle sette di sera. Il dato c'era da giorni (il
+costo concordato sta sull'ordine) e non lo sommava nessuno.
+
+⚠️ **Un ordine senza costo scritto non vale zero: vale «non lo so»**, e si dice
+(`3 ordini · 160 € dati · 1 senza costo`). Sommarlo come zero racconterebbe che
+a quel fornitore abbiamo dato meno di quello che gli abbiamo dato — e chi tratta
+un prezzo partirebbe da un numero più basso del vero.
+
+⚠️ Si conta **sugli ordini**, non sui pagamenti: l'ordine è il lavoro dato, il
+pagamento è la sua conseguenza (e può arrivare giorni dopo, o non arrivare).
+L'economia dell'ordine resta di Deluxy Orders: qui non si ricopia niente, si
+somma quello che quest'app già possiede — chi prepara e a quanto.
+
+⚠️ Una query aggregata sola per tutta la lista, non una per riga.
+
+### La città del fornitore: è quella che lo fa ritrovare
+
+⚠️⚠️ Senza città un fornitore **non torna più indietro**. La lista dei
+«fornitori in zona» filtra per provincia e ricava la sigla da `provincia`
+**oppure dalla città**: chi non ha né l'una né l'altra è invisibile. Misurato il
+25/08/2026: **15 fornitori nostri in anagrafica, tutti senza città** — gente che
+abbiamo già pagato e che al prossimo ordine in quella provincia non verrebbe
+proposta a nessuno.
+
+Da oggi, pagando un fornitore, al registro va anche la **sua** città (e la
+provincia, se dalla città si ricava una sigla certa: «Firenze» → FI sì, un
+comune che non è capoluogo no).
+
+⚠️⚠️ È la città **del fornitore**, presa dall'ordine dove l'ha scritta una
+persona o dove è arrivata dal registro: **non** la città di consegna. Si consegna
+a Milano un mazzo preparato a Sesto, e dedurla scriverebbe un dato inventato nel
+golden record di tutte le app.
+
 ### Il fornitore pagato entra nel registro Anagrafiche
 
 Premendo «Pagata», oltre alla riconciliazione e all'avviso, quel fornitore viene

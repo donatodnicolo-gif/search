@@ -1,5 +1,57 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (sera) — quanto lavoro diamo a un fornitore, e dove sta
+
+Due domande dell'utente, tutte e due misurate prima di rispondere.
+
+### «Tieni traccia del valore dei lavori dati?» — c'era per ordine, non per fornitore
+
+Il costo concordato sta sull'ordine da giorni; **nessuna schermata lo sommava**.
+Ora accanto a ogni fornitore c'è una riga: `3 ordini · 210 € dati`, o **«mai
+lavorato con lui»** — nella **lista dei fornitori in zona** (dove si sceglie a
+chi telefonare) e nella **ricerca del fornitore** (dove si chiede il pagamento).
+
+- ⚠️⚠️ **Un ordine senza costo non vale zero, vale «non lo so»**, e si dice
+  (`… · 1 senza costo`). Sommarlo come zero direbbe che a quel fornitore abbiamo
+  dato meno del vero, e chi tratta un prezzo partirebbe più in basso.
+- ⚠️ Si conta **sugli ordini** (il lavoro dato), non sui pagamenti (la
+  conseguenza). Nessuna copia dall'economia di Orders: si somma quello che
+  quest'app già possiede.
+- ⚠️ Una **query aggregata sola** per tutta la lista: la zona ne mostra decine.
+- ⚠️ Nella ricerca il conto **non** è il numero di ordini pescati dalla ricerca
+  (che guarda 200 ordini per parola): è la storia intera. Mostrare il primo per
+  il secondo direbbe «un ordine» di uno che ne ha avuti dieci.
+- Prova sui dati veri: `npx tsx scripts/prova-lavoro-fornitore.mts` — confronta
+  l'aggregato con gli ordini contati uno per uno (17 fornitori, **1.628 € dati
+  su 2.800 € venduti**, nessuna differenza).
+  ⚠️ `toLocaleString` con la valuta usa uno **spazio unificatore** (U+00A0): due
+  stringhe identiche a occhio non erano uguali, e la prova falliva mostrando la
+  stessa riga due volte.
+
+### «Ti salvi la provincia del fornitore?» — no, e si vedeva
+
+Contato: **0 dei 17 ordini con fornitore ha la città**, 0 ha l'id del registro,
+0 ha il telefono. Sono stati tutti registrati scrivendo il nome a mano.
+
+⚠️⚠️ La conseguenza è precisa: `fornitoriInZona` ricava la sigla della provincia
+da `provincia` **o dalla città**, quindi i **15 fornitori nostri in anagrafica,
+tutti senza città, non compariranno MAI** fra i «fornitori in zona» di un ordine
+nuovo. Li abbiamo pagati, e alla prossima consegna in quella stessa provincia
+non li propone nessuno.
+
+Fatto: pagando, al registro va anche la **sua** città e la **provincia** quando
+dalla città si ricava una sigla certa. ⚠️ È la città del FORNITORE, non quella di
+consegna (si consegna a Milano un mazzo preparato a Sesto). E sotto il campo
+«Città» del riquadro «chi prepara quest'ordine» ora c'è scritto **perché**
+serve — il campo c'era già, e lo saltavano tutti.
+
+🔴 **Resta aperto**: per i 15 già in anagrafica la città non ce l'abbiamo, e non
+si inventa. Si riempirà al prossimo ordine in cui qualcuno la scrive. Se serve
+prima, la strada onesta è cercarli su Google Maps per nome e prendere
+l'indirizzo da lì (a mano, guardando: un nome generico pesca il negozio
+sbagliato).
+
+
 ## 25/08/2026 (pomeriggio 2) — il fornitore pagato finiva sull'anagrafica sbagliata
 
 Domanda dell'utente: «salvi le informazioni dei fornitori dalle richieste di

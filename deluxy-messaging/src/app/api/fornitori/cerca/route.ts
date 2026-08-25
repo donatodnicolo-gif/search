@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { partnerAttivi } from '@/lib/anagrafiche'
 import { cercaSuMaps } from '@/lib/maps-fornitori'
+import { lavoroPerFornitore } from '@/lib/lavoro-fornitore'
 import {
   chiaveNome,
   fornitoreVuoto,
@@ -277,5 +278,26 @@ export async function GET(req: NextRequest) {
     [...conPunteggio.filter((p) => nomeCorrisponde(p, q)), ...luoghiMaps],
     dove
   ).slice(0, conMaps ? 24 : 12)
+
+  // ── QUANTO LAVORO GLI ABBIAMO GIÀ DATO ──
+  //
+  // ⚠️⚠️ Si attacca ALLA FINE, sui pochi risultati che restano, e con una query
+  // sola per tutti: è la storia intera del fornitore, non il conteggio degli
+  // ordini che questa ricerca ha pescato. I due numeri sono diversi — la
+  // ricerca guarda 200 ordini per parola — e mostrare il secondo spacciandolo
+  // per il primo direbbe «un ordine» di uno che ne ha avuti dieci.
+  //
+  // ⚠️ Un errore qui non fa fallire la ricerca: senza il conto si sceglie lo
+  // stesso, senza la ricerca no.
+  try {
+    const lavoro = await lavoroPerFornitore()
+    for (const f of fornitori) {
+      const l = lavoro.get(chiaveNome(f.nome)) ?? lavoro.get(chiaveNome(f.ragioneSociale))
+      if (l) f.lavoro = l
+    }
+  } catch {
+    // si va avanti senza
+  }
+
   return NextResponse.json({ fornitori, nota, notaMaps, parole })
 }

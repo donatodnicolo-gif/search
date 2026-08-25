@@ -262,6 +262,18 @@ export function FornitoreOrdine({
             <label className="campo">
               <span>Città</span>
               <input value={citta} onChange={(e) => setCitta(e.target.value)} placeholder="Firenze" />
+              {/* ⚠️⚠️ SERVE PIÙ DI QUANTO SEMBRI, e per questo si dice a chi
+                  compila. Senza città, questo fornitore nel registro non torna
+                  più indietro: la lista dei «fornitori in zona» di un ordine
+                  nuovo filtra per provincia, e chi non ha né provincia né città
+                  è invisibile. Misurato il 25/08/2026: 15 fornitori nostri in
+                  anagrafica, tutti senza città — gente già pagata che al
+                  prossimo ordine in quella stessa provincia non verrebbe
+                  proposta a nessuno. Un campo saltato per fretta costa una
+                  ricerca da capo fra un mese. */}
+              <span className="cella-sub">
+                Serve a ritrovarlo: al prossimo ordine in quella provincia lo proponiamo da soli.
+              </span>
             </label>
             <label className="campo">
               <span>

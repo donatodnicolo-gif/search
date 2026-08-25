@@ -18,6 +18,7 @@ import {
 } from '@/lib/richieste-fornitore'
 import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
 import { linkPagamentoOrdine } from '@/lib/link-ordine'
+import { riassuntoLavoro, type LavoroDato } from '@/lib/cerca-fornitore'
 import type { BozzaMail } from './ComponiMail'
 
 // Il dettaglio di un ordine, che si apre cliccando la sua scheda.
@@ -44,6 +45,8 @@ type FornitoreZona = {
   email: string
   /** Se il recapito è di una persona e non dell'insegna, si dice chi. */
   recapitoDa: string
+  /** Quanti ordini gli abbiamo già dato e per quanto: `null` = nessuno. */
+  lavoro: LavoroDato | null
 }
 
 type Riga = {
@@ -1497,6 +1500,23 @@ export function DettaglioOrdine({
                           <div className="cella-sub">
                             {[fz.categoria, fz.citta, fz.stato].filter(Boolean).join(' · ')}
                             {fz.recapitoDa ? ` · recapito di ${fz.recapitoDa}` : ''}
+                          </div>
+                          {/* ── QUANTO LAVORO GLI ABBIAMO GIÀ DATO ──
+                              ⚠️⚠️ Fra due fiorai della stessa provincia non è
+                              lo stesso chiamare quello che ha già preparato tre
+                              ordini per noi e quello che non ci ha mai visto:
+                              cambia chi risponde, cambia il prezzo, cambia se ti
+                              fa il favore alle sette di sera.
+                              ⚠️ Quando non gli abbiamo mai dato niente si DICE
+                              («mai lavorato con lui»): il posto lasciato vuoto
+                              non è un'informazione, quella riga sì. */}
+                          <div
+                            className="cella-sub"
+                            style={{
+                              color: fz.lavoro?.ordini ? 'var(--green)' : 'var(--text-tertiary)',
+                            }}
+                          >
+                            {riassuntoLavoro(fz.lavoro ?? undefined)}
                           </div>
                           {/* ── QUELLO CHE GIÀ SAPPIAMO DI LUI, SU QUEST'ORDINE ──
                               ⚠️⚠️ Si segna nell'istante in cui si apre la chat,
