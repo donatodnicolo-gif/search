@@ -89,7 +89,9 @@
 >    sviluppo locale, ed è **lo script standalone** `npm run sync-drive` l'unico
 >    legato al disco — è quello che era stato lanciato il 17/08, ed è da lì che
 >    nasceva l'equivoco. **Mancava soltanto il cron**, e adesso c'è:
->    `/api/cron/drive`, ogni giorno alle 06:10 UTC.
+>    `/api/cron/drive`, ogni giorno alle 06:10 UTC — e dalla sera del 25/08,
+>    dopo la sync, **rielabora in scheda grafica** le analisi nuove (2 per giro):
+>    vedi la prima sezione di FATTO.
 >    Provato davvero, non dedotto: chiamata all'endpoint con la sua chiave →
 >    `radice: "drive:1VENQ…"` (cioè **l'API**, non il disco), 659 documenti, 5
 >    nuovi, 1 analisi, `interrotta: false`. In produzione l'endpoint esiste e
@@ -333,6 +335,75 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐⭐ LE ANALISI DIVENTANO SCHEDE GRAFICHE — verdetto, KPI, findings e il bottone ANALISI sulle campagne (25/08/2026, sera)
+
+**La richiesta dell'utente**: le analisi che arrivano su Drive presentate
+nell'app in modo chiaro e grafico, rielaborate — non testo; un pulsante
+**ANALISI** sopra ogni campagna e una sezione dedicata.
+
+**Com'è fatto.**
+
+- **La scheda** (`src/lib/scheda-analisi.ts`): l'AI legge il documento COMPLETO
+  da Drive e lo rielabora in un JSON vincolato da schema — verdetto
+  rosso/giallo/verde, frase-verdetto, 8 KPI col loro VERSO (buona o cattiva
+  notizia), findings con priorità P0/P1/P2, azioni proposte, **campagna per
+  campagna** con verdetto e nota, cosa il documento dichiara di non coprire.
+  Salvata in `Analisi.scheda` con `verdetto`, `elaborataIl` ed `elaborataCon`
+  (fornitore/modello: una rilettura senza firma non si giudica). Colonne
+  aggiunte con ALTER mirati (`scripts/aggiungi-scheda-analisi.mjs`), mai db push.
+- **Il testo completo si legge DAVVERO, anche da Vercel**: `DocumentoDrive.idDrive`
+  (nuova colonna) viene scritto dalla sync via API — prima l'app indicizzava i
+  file **senza poterli mai leggere**: `voce.id` arrivava e veniva buttato via.
+  `testoDocumento()` in `drive.ts`: disco locale se c'è, altrimenti
+  `files/{id}?alt=media` con la chiave API. Provato: 659 id riempiti in un giro,
+  download del documento vero via API → 200, 28.644 caratteri.
+- **Chi elabora**: il cron di Drive, dopo la sync (2 per giro, ~30-60 s l'una,
+  solo .md/.txt — un xlsx non si manda a un modello come stringa); e il bottone
+  **«Elabora la scheda» / «Rielabora»** su `/analisi/[id]` (server action, il
+  documento su Drive può cambiare e il modello anche).
+- **La sezione** (`/analisi`): le ultime schede come **card colorate dal
+  verdetto** sopra la tabella (frase-verdetto, conteggio KPI/findings/P0);
+  in tabella il verdetto comanda sull'esito quando c'è.
+- **La pagina scheda** (`/analisi/[id]`): hero col verdetto grande, griglia KPI
+  (rosso = cattiva notizia, verde = buona — il colore è il VERSO, non il segno),
+  findings ordinati per priorità con barra e pillola, «Campagna per campagna»
+  coi semafori e i link, azioni proposte dal documento, «Cosa NON copre».
+  Il documento resta la fonte: link a Drive sempre a vista.
+- **Il bottone ANALISI** sulla scheda campagna: apre l'analisi più recente che
+  la NOMINA (pallino col verdetto della campagna, nota nel tooltip); se nessuna
+  la nomina, l'ultima del suo brand+canale (e il tooltip lo dice). Se non c'è
+  niente di utile il bottone NON compare: uno che apre una pagina a caso
+  insegna a non premerlo.
+
+**L'aggancio dei nomi, due lezioni pagate in prova.**
+
+1. I documenti ABBREVIANO («WORLD-ENG» per «[Deluxyflowers] - WORLD - ENG»):
+   il confronto esatto agganciava 2 campagne su 9. Ora è normalizzato (solo
+   lettere e cifre, contenimento in entrambi i versi, mai sotto le 6 lettere)
+   e **filtrato su brand+canale dell'analisi** — «Brand protection» citata in
+   un'analisi Flowers non deve combaciare con quelle di Gifts e Cake.
+2. ⚠️ **L'ambiguo NON si aggancia** (cercare non è affermare): «VENDITE»
+   combacia per contenimento con NOVE campagne Meta — ma una si chiama proprio
+   così, e **l'uguaglianza esatta vince sul contenimento**. Se i candidati
+   restano più d'uno, niente link: il chip resta grigio.
+   Dopo le due correzioni: 9 nomi citati su 9 agganciati giusti.
+
+⚠️ **Trappola nuova, pagata in prova**: le structured outputs di Claude
+**rifiutano `maxItems`** sugli array (400 « property 'maxItems' is not
+supported»). I tetti stanno nelle istruzioni, lo schema tiene forma e cataloghi.
+
+**Verificato davvero**, locale e produzione: cron end-to-end → `{"elaborate":2,"fallite":[]}`
+— l'Analisi Meta Gifts (verdetto **ROSSO**, 8 KPI, 14 findings di cui 8 P0, 3
+campagne) e l'Analisi Google Ads Flowers depositata oggi pomeriggio (**ROSSO**
+per esecuzione ferma, ROAS 6,33 in ripresa, 6 campagne). Pagine lette dal DOM
+in produzione: scheda ✓, card in elenco ✓, bottone ANALISI su VENDITE ✓ e
+sulla WORLD-ENG ✓ (VENDITE rossa dall'analisi Meta, WORLD-ENG gialla da quella
+Google: i due versi dell'aggancio). Build e deploy `ig98fj1fh`.
+
+👉 **Da guardare con gli occhi** (regola «verifica utente»): aprire
+https://deluxy-marketing.vercel.app/analisi e una scheda, dire se la forma va.
+
 
 ### ⭐⭐ L'ANALISI DI OGGI HA CONTESTATO L'APP, E AVEVA RAGIONE — su Meta lo stato restava congelato su ENABLED (25/08/2026)
 

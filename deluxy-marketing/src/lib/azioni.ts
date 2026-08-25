@@ -18,6 +18,7 @@ import { prisma } from "./db";
 import { accodaOperazione } from "./operazioni";
 import { BRANDS, STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, STATI_CAMPAGNA_NOSTRI, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
+import { elaboraAnalisi } from "./scheda-analisi";
 import { risolviLocalita } from "./geo-target";
 // Statico e non `await import()` come il resto di guardrail: serve dentro le
 // query, non dentro il corpo delle funzioni. `guardrail.ts` non importa nulla,
@@ -485,6 +486,31 @@ export async function ripristinaLegameShopify(campagnaId: string) {
   if (!campagnaId) return;
   await prisma.legameCampagnaShopify.deleteMany({ where: { campagnaId } });
   revalidatePath(`/campagne/${campagnaId}`);
+}
+
+// ---------- Scheda delle analisi ----------
+
+// Il bottone «Elabora la scheda» su /analisi/[id]: legge il documento da
+// Drive, lo passa all'AI e salva la scheda strutturata. Rilanciarlo su
+// un'analisi già elaborata la RIFÀ — è voluto: il documento su Drive può
+// essere cambiato, e il modello anche.
+export async function elaboraSchedaAnalisi(fd: FormData) {
+  const id = String(fd.get("id") ?? "");
+  if (!id) return;
+  const esito = await elaboraAnalisi(id);
+  await registra({
+    autore: "utente",
+    tipo: "sync",
+    entita: "analisi",
+    entitaId: id,
+    titolo: esito.ok ? "Scheda dell'analisi elaborata" : "Elaborazione della scheda FALLITA",
+    dettaglio: esito.ok
+      ? `verdetto ${esito.verdetto} · ${esito.kpi} KPI · ${esito.findings} findings · ${esito.campagne} campagne citate`
+      : esito.errore,
+  });
+  revalidatePath(`/analisi/${id}`);
+  revalidatePath("/analisi");
+  redirect(`/analisi/${id}${esito.ok ? "" : `?scheda=fallita&errore=${encodeURIComponent(esito.errore.slice(0, 200))}`}`);
 }
 
 // ---------- Drive ----------

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sincronizzaDrive } from "@/lib/drive";
+import { elaboraNonElaborate } from "@/lib/scheda-analisi";
 
 // GET /api/cron/drive — l'indice della cartella ADV, riallineato da solo.
 //
@@ -51,6 +52,16 @@ export async function GET(req: NextRequest) {
   }
 
   const esito = await sincronizzaDrive();
+
+  // Dopo l'indice, la LETTURA: le analisi nuove si rielaborano in scheda
+  // (verdetto, KPI, findings) così la mattina si aprono già grafiche.
+  // Due per giro, non di più: ogni elaborazione è una chiamata AI da ~30-60 s
+  // e questa funzione ha un tetto — le altre le prende il giro di domani.
+  const schede = await elaboraNonElaborate(2).catch((e) => ({
+    elaborate: 0,
+    fallite: [{ titolo: "(elaborazione)", errore: String(e).slice(0, 160) }],
+  }));
+
   if (esito.errore) {
     return NextResponse.json(
       { errore: esito.errore, radice: esito.radice, trovati: esito.trovati },
@@ -69,6 +80,7 @@ export async function GET(req: NextRequest) {
       // tempo e riprenderà. Va detto, o un indice a metà si legge come completo
       // — che è esattamente l'errore del censimento troncato.
       interrotta: esito.interrotta,
+      schede,
     },
     { status: 200 },
   );

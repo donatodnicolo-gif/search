@@ -28,6 +28,7 @@ import { RecapModifiche } from "@/components/RecapModifiche";
 import { Scadenza } from "@/components/Scadenza";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { Sidebar } from "@/components/Sidebar";
+import { COLORE_VERDETTO, ultimaAnalisiPerCampagna } from "@/lib/scheda-analisi";
 import { parametriPeriodo, periodoApp } from "@/lib/periodo-condiviso";
 import { TabellaGruppi } from "@/components/TabellaGruppi";
 import { VenditeCampagna } from "@/components/VenditeCampagna";
@@ -246,6 +247,11 @@ export default async function SchedaCampagna({
     citta: cittaDaTesto(c.nome),
     gruppi: gruppiPerCampagna.get(c.id) ?? [],
   }));
+
+  // L'ANALISI più recente che parla di questa campagna: alimenta il bottone
+  // in testata. `null` = niente bottone — uno che apre una pagina a caso
+  // insegna a non premerlo.
+  const analisiCampagna = await ultimaAnalisiPerCampagna(campagna);
 
   // I gruppi della campagna: la media di campagna qui sopra può nascondere un
   // gruppo che rende il doppio e uno che brucia. Vanno guardati separati.
@@ -482,6 +488,37 @@ export default async function SchedaCampagna({
                 raro va raggiungibile in un click, non messo sulla strada di
                 quelli frequenti. Sulle campagne censite da Google il bottone
                 non compare proprio: un brief non ce l'hanno. */}
+            {/* ⚠️ ANALISI, per primo: è il giudizio più recente di un lettore
+                ESTERNO su questa campagna (le analisi depositate su Drive,
+                rielaborate in scheda). Il pallino porta il verdetto — di
+                questa campagna quando l'analisi la nomina, dell'analisi intera
+                quando parla solo del suo mondo — e il testo sotto il mouse
+                dice cosa ha detto. Se nessuna analisi elaborata la riguarda,
+                il bottone non c'è: un bottone che apre una pagina a caso
+                insegna a non premerlo. */}
+            {analisiCampagna && (
+              <a
+                className="btn"
+                href={`/analisi/${analisiCampagna.id}`}
+                title={
+                  analisiCampagna.perCampagna
+                    ? `${analisiCampagna.titolo} — su questa campagna: ${analisiCampagna.perCampagna.nota}`
+                    : `${analisiCampagna.titolo} (l'analisi non nomina questa campagna: verdetto dell'insieme)`
+                }
+                style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+              >
+                <span
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    background: COLORE_VERDETTO[analisiCampagna.perCampagna?.verdetto ?? analisiCampagna.verdetto],
+                    flexShrink: 0,
+                  }}
+                />
+                ANALISI
+              </a>
+            )}
             <BriefDiLancio campagnaId={campagna.id} />
             <a className="btn" href={`/azioni/nuova?campagna=${campagna.id}&brand=${campagna.brand}`}>Nuova azione sulla campagna</a>
           </div>

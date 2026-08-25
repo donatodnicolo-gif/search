@@ -1,4 +1,5 @@
 import { Badge } from "@/components/Badge";
+import { COLORE_VERDETTO, ETICHETTA_VERDETTO, schedaDi, type VerdettoScheda } from "@/lib/scheda-analisi";
 import { BottoneSync } from "@/components/BottoneSync";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
@@ -33,6 +34,15 @@ export default async function PaginaAnalisi({
     orderBy: { dataAnalisi: "desc" },
     include: { _count: { select: { azioni: true } } },
   });
+
+  // Le ultime SCHEDE: le analisi già rielaborate, da aprire con un colpo
+  // d'occhio — il verdetto è un colore prima che una parola. Stanno sopra la
+  // tabella perché sono la risposta alla domanda con cui si apre la pagina:
+  // «com'è andata l'ultima lettura?».
+  const conScheda = analisi
+    .map((a) => ({ a, s: schedaDi(a) }))
+    .filter((x): x is { a: (typeof analisi)[number]; s: NonNullable<ReturnType<typeof schedaDi>> } => x.s != null)
+    .slice(0, 6);
 
   return (
     <div className="layout">
@@ -77,6 +87,47 @@ export default async function PaginaAnalisi({
           <button className="btn small" type="submit">Filtra</button>
         </form>
 
+        {conScheda.length > 0 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            {conScheda.map(({ a, s }) => (
+              <a
+                key={a.id}
+                href={`/analisi/${a.id}`}
+                className="scheda"
+                style={{
+                  display: "block",
+                  textDecoration: "none",
+                  color: "inherit",
+                  borderTop: `3px solid ${COLORE_VERDETTO[s.verdetto]}`,
+                  marginBottom: 0,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <Badge testo={ETICHETTA_VERDETTO[s.verdetto]} colore={COLORE_VERDETTO[s.verdetto]} />
+                  <Badge testo={ETICHETTA_BRAND[a.brand] ?? a.brand} colore={COLORE_BRAND[a.brand] ?? "var(--text-tertiary)"} />
+                  <span className="cella-sub" style={{ marginLeft: "auto" }}>{formattaData(a.dataAnalisi)}</span>
+                </div>
+                <div className="cella-nome" style={{ whiteSpace: "normal", marginBottom: 4 }}>{a.titolo}</div>
+                <div className="cella-sub" style={{ whiteSpace: "normal" }}>{s.titolo}</div>
+                <div className="cella-sub" style={{ marginTop: 8 }}>
+                  {s.kpi.length} numeri · {s.findings.length} findings
+                  {s.findings.some((f) => f.priorita === "P0")
+                    ? ` · ${s.findings.filter((f) => f.priorita === "P0").length} P0`
+                    : ""}
+                  {" · "}{s.campagne.length} campagne
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+
         {analisi.length === 0 ? (
           <div className="vuoto">Nessuna analisi trovata con questi filtri.</div>
         ) : (
@@ -107,7 +158,12 @@ export default async function PaginaAnalisi({
                       <Badge testo={ETICHETTA_BRAND[an.brand] ?? an.brand} colore={COLORE_BRAND[an.brand] ?? "var(--text-tertiary)"} />
                     </td>
                     <td>
-                      {an.esito ? (
+                      {an.verdetto ? (
+                        <Badge
+                          testo={ETICHETTA_VERDETTO[an.verdetto as VerdettoScheda] ?? an.verdetto}
+                          colore={COLORE_VERDETTO[an.verdetto as VerdettoScheda] ?? "var(--text-tertiary)"}
+                        />
+                      ) : an.esito ? (
                         <Badge testo={ETICHETTA_ESITO[an.esito] ?? an.esito} colore={COLORE_ESITO[an.esito] ?? "var(--text-tertiary)"} />
                       ) : (
                         <span className="cella-muta">—</span>

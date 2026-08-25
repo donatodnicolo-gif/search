@@ -37,6 +37,15 @@ model Analisi {
   sintesi      String
   // ok | attenzione | critico — il "semaforo" dell'analisi
   esito        String?
+  // La SCHEDA: il JSON strutturato che l'AI estrae dal documento completo
+  // (verdetto, KPI, findings con priorità, azioni proposte, campagne citate).
+  // È quello che /analisi/[id] rende in forma grafica. Forma: lib/scheda-analisi.
+  scheda       String?
+  // rosso | giallo | verde — denormalizzato dalla scheda: gli elenchi filtrano qui.
+  verdetto     String?
+  elaborataIl  DateTime?
+  // "anthropic/claude-opus-5": una scheda senza firma non si giudica.
+  elaborataCon String?
   // Percorso del documento completo dentro "ADV DELUXY SRL" (relativo alla cartella)
   fileDrive    String?
   dataAnalisi  DateTime @default(now())
@@ -313,6 +322,10 @@ model DocumentoDrive {
   // definitivi | analisi | piani | audit | archivio | pubblici | creativita | seo | altro
   categoria       String   @default("altro")
   dimensione      Int      @default(0)
+  // L'id del file su Google Drive, scritto dalla sync via API. ⚠️ Senza,
+  // il CONTENUTO non si può scaricare da Vercel: il percorso non basta,
+  // l'API di Drive vuole l'id. La sync locale (G:) lo lascia com'è.
+  idDrive         String?
   modificatoIl    DateTime
   sincronizzatoIl DateTime @default(now())
 

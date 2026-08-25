@@ -113,6 +113,9 @@ type Trovato = {
   categoria: string;
   dimensione: number;
   modificatoIl: Date;
+  // Presente solo nella passata via API: la passata locale non lo sa, e non
+  // deve cancellarlo — vedi la nota in applica().
+  idDrive?: string;
 };
 
 // ---------- Il pezzo comune: dal risultato della passata al database ----------
@@ -126,7 +129,7 @@ async function applica(
   esito: EsitoSync
 ) {
   const indice = await prisma.documentoDrive.findMany({
-    select: { id: true, percorso: true, dimensione: true, modificatoIl: true },
+    select: { id: true, percorso: true, dimensione: true, modificatoIl: true, idDrive: true },
   });
   const perPercorso = new Map(indice.map((d) => [d.percorso, d]));
 
@@ -137,7 +140,12 @@ async function applica(
     if (!esistente) nuovi.push(t);
     else if (
       esistente.dimensione !== t.dimensione ||
-      esistente.modificatoIl.getTime() !== t.modificatoIl.getTime()
+      esistente.modificatoIl.getTime() !== t.modificatoIl.getTime() ||
+      // ⚠️ Il RIEMPIMENTO dell'id: i file indicizzati prima che l'id esistesse
+      // (o da una passata locale) non risulterebbero mai "cambiati", e senza
+      // id il loro contenuto non si può scaricare via API. Una passata API che
+      // conosce l'id di un file che non ce l'ha lo scrive.
+      (t.idDrive != null && esistente.idDrive !== t.idDrive)
     ) {
       cambiati.push(t);
     }
@@ -156,9 +164,13 @@ async function applica(
   // Gli aggiornamenti restano uno per file, ma sono solo quelli davvero
   // cambiati: in un giorno normale sono una manciata, non 669.
   for (const t of cambiati) {
+    // ⚠️ `idDrive` si scrive solo quando la passata lo SA (via API): la
+    // passata locale non lo conosce, e uno spread che lo mandasse undefined
+    // andrebbe bene — ma esplicitarlo protegge da un futuro `null`.
+    const { idDrive, ...resto } = t;
     await prisma.documentoDrive.update({
       where: { percorso: t.percorso },
-      data: { ...t, sincronizzatoIl: new Date() },
+      data: { ...resto, ...(idDrive != null ? { idDrive } : {}), sincronizzatoIl: new Date() },
     });
   }
   esito.aggiornati = cambiati.length;
@@ -464,6 +476,7 @@ export async function sincronizzaDriveApi(idRadice: string): Promise<EsitoSync> 
         categoria,
         dimensione: voce.size ? Number(voce.size) : 0,
         modificatoIl: voce.modifiedTime ? new Date(voce.modifiedTime) : new Date(),
+        idDrive: voce.id,
       });
     }
   }
@@ -495,4 +508,60 @@ export async function sincronizzaDriveApi(idRadice: string): Promise<EsitoSync> 
 
   await chiudiCorsa(corsa.id, esito);
   return esito;
+}
+
+// ---------- Leggere il CONTENUTO di un documento indicizzato ----------
+
+export type TestoDocumento =
+  | { ok: true; testo: string; fonte: "disco" | "api" }
+  | { ok: false; errore: string };
+
+/**
+ * Il testo completo di un documento della cartella ADV, dato il suo percorso
+ * relativo (`DocumentoDrive.percorso` / `Analisi.fileDrive`).
+ *
+ * Due strade, nell'ordine: il disco locale se la cartella è montata (il PC
+ * dell'utente con Drive per Desktop), altrimenti l'API di Drive con l'id del
+ * file — che è il motivo per cui `idDrive` esiste. Su Vercel c'è solo la
+ * seconda, e prima del 25/08/2026 non c'era nessuna: l'app indicizzava i
+ * documenti senza poterli mai leggere.
+ */
+export async function testoDocumento(percorso: string): Promise<TestoDocumento> {
+  const locale = await cartellaLocaleSeCe();
+  if (locale) {
+    try {
+      const testo = await fs.readFile(path.join(locale, ...percorso.split("/")), "utf8");
+      return { ok: true, testo, fonte: "disco" };
+    } catch {
+      // Il file può non esserci in locale (sync di Drive per Desktop indietro):
+      // si prova l'API, non si conclude niente dal buco.
+    }
+  }
+
+  const doc = await prisma.documentoDrive
+    .findUnique({ where: { percorso }, select: { idDrive: true } })
+    .catch(() => null);
+  if (!doc?.idDrive) {
+    return {
+      ok: false,
+      errore:
+        "Il documento non ha ancora l'id di Drive nell'indice: serve una passata della sync via API (dal 25/08 lo scrive). Senza id il contenuto non si può scaricare.",
+    };
+  }
+  const apiKey = await driveApiKey();
+  if (!apiKey) {
+    return { ok: false, errore: "Manca la chiave API di Google Drive (Impostazioni o GOOGLE_DRIVE_API_KEY)." };
+  }
+  try {
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${doc.idDrive}?alt=media&key=${encodeURIComponent(apiKey)}`,
+      { cache: "no-store", signal: AbortSignal.timeout(20_000) }
+    );
+    if (!r.ok) {
+      return { ok: false, errore: `Drive ha risposto ${r.status} scaricando il file (la cartella dev'essere condivisa "chiunque abbia il link").` };
+    }
+    return { ok: true, testo: await r.text(), fonte: "api" };
+  } catch (e) {
+    return { ok: false, errore: `Download da Drive fallito: ${String(e).slice(0, 160)}` };
+  }
 }
