@@ -362,6 +362,7 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
                   <>
                     <strong style={{ color: perdita ? "var(--red)" : "var(--green)" }}>
                       {euro(m.valore)}
+                      {m.pct != null && <span style={{ marginLeft: 6, fontSize: 13, fontWeight: 600 }}>· {Math.round(m.pct)}%</span>}
                       {perdita && <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 700 }}>PERDITA</span>}
                     </strong>
                     <div className="cella-muta">{m.nota}</div>

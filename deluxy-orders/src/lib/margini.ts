@@ -1,5 +1,6 @@
 import { prisma, SCHEMA } from "./db";
 import { ESONIMI } from "./luoghi";
+import { ALIQUOTA_IVA } from "./controllo";
 
 // MARGINI — quanto resta di un ordine dopo aver pagato il fornitore.
 //
@@ -15,11 +16,15 @@ import { ESONIMI } from "./luoghi";
 //     un'ipotesi, si chiama così, e serve a due cose: dare un ordine di
 //     grandezza sul venduto non ancora misurato e far vedere di quanto la
 //     realtà si scosta dall'accordo;
-//  3. **il lordo è lordo.** `Ordine.totale` è il totale Shopify: IVA e
-//     spedizione incluse. L'aliquota non sta sull'ordine (fiori e torte non
-//     hanno la stessa), quindi qui non si scorpora niente e il margine è
-//     «margine sul lordo». Scriverlo è meno elegante che inventare un'aliquota,
-//     ed è l'unico modo di non sbagliare i conti di qualcun altro.
+//  3. **il margine è al NETTO IVA.** `Ordine.totale` è il totale Shopify (IVA e
+//     spedizione incluse); il margine reale non è profitto finché non se ne
+//     toglie l'IVA, che è un giro-partita per lo Stato. Si SCORPORA (÷ 1,22), non
+//     si sottrae il 22%. ⚠️ Scelta dell'utente (24/08/2026): aliquota UNICA 22%
+//     su tutto — anche fiori e torte, che in Italia sarebbero di norma al 10% (è
+//     stato avvisato e ha deciso così). L'aliquota vive in `controllo.ALIQUOTA_IVA`,
+//     un posto solo: il giorno che serve per categoria, si cambia lì. La **%**
+//     del margine NON cambia con lo scorporo (l'IVA colpisce ricavo e costo alla
+//     stessa aliquota): cambia solo il valore in euro.
 //
 // Annullati e rimborsati per intero stanno fuori, come in Analisi: un ordine
 // annullato non ha margine, ha solo un costo se è stato pagato comunque.
@@ -49,8 +54,8 @@ const ZERO: Misure = {
 };
 
 export type Margine = Misure & {
-  margine: number; // misurato: lordo degli ordini con costo − costo
-  pctMargine: number; // in % di quel lordo
+  margine: number; // misurato, AL NETTO IVA: (lordo degli ordini con costo − costo) ÷ 1,22
+  pctMargine: number; // margine reale in % (invariante allo scorporo: = margineLordo/lordoConCosto)
   coperturaOrdini: number; // % di ordini validi che hanno un costo
   coperturaLordo: number; // % di venduto valido coperto dalla misura
   costoMedioPct: number; // quanto paghiamo, in % del valore dell'ordine
@@ -58,15 +63,21 @@ export type Margine = Misure & {
 };
 
 export function calcola(m: Misure, quota: number): Margine {
-  const margine = m.lordoConCosto - m.costo;
+  const iva = 1 + ALIQUOTA_IVA / 100;
+  // Il margine è al NETTO IVA (scorporo ÷ 1,22): stessa regola di margineOrdine,
+  // qui applicata alla somma. La % NON cambia con lo scorporo (IVA colpisce
+  // ricavo e costo uguale) — cambia solo il valore in euro.
+  const margineLordo = m.lordoConCosto - m.costo;
+  const margine = Math.round((margineLordo / iva) * 100) / 100;
   return {
     ...m,
     margine,
-    pctMargine: m.lordoConCosto > 0.005 ? (margine / m.lordoConCosto) * 100 : 0,
+    pctMargine: m.lordoConCosto > 0.005 ? (margineLordo / m.lordoConCosto) * 100 : 0,
     coperturaOrdini: m.ordiniValidi ? (m.ordiniConCosto / m.ordiniValidi) * 100 : 0,
     coperturaLordo: m.lordoValido > 0.005 ? (m.lordoConCosto / m.lordoValido) * 100 : 0,
     costoMedioPct: m.lordoConCosto > 0.005 ? (m.costo / m.lordoConCosto) * 100 : 0,
-    margineAtteso: m.lordoValido * (1 - quota / 100),
+    // Anche l'atteso è netto IVA, così misurato e atteso sono confrontabili.
+    margineAtteso: Math.round((m.lordoValido * (1 - quota / 100)) / iva * 100) / 100,
   };
 }
 

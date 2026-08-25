@@ -252,6 +252,9 @@ export function serializzaOrdine(
 ) {
   const tipoCliente = tipologie?.get(chiaveCliente(o));
   const ordinale = ordinali?.get(o.id) ?? null;
+  // Il margine si calcola UNA volta (è la regola §7.4, in `margineOrdine`): qui
+  // si legge, non si rifà. Include il valore netto IVA, la % e la nota.
+  const mrg = margineOrdine(o);
   return {
     id: o.id,
     brand: o.brand,
@@ -323,7 +326,7 @@ export function serializzaOrdine(
     consegnata: o.consegnataIl
       ? { il: o.consegnataIl.toISOString(), da: o.consegnataDa || null }
       : null,
-    margine: margineOrdine(o),
+    margine: mrg,
     biglietto: o.biglietto,
     spedizione: {
       nome: o.spedizioneNome,
@@ -435,9 +438,10 @@ export function serializzaOrdine(
       // ordine venduto sotto costo esiste, e il numero va mostrato com'e' —
       // non filtrato via, non portato a zero, non trattato come un errore.
       // `null` e' un'altra cosa ancora: vuol dire che non lo sappiamo.
-      margine: margineOrdine(o).valore,
-      margineParziale: margineOrdine(o).parziale,
-      margineNota: margineOrdine(o).nota,
+      margine: mrg.valore,
+      marginePct: mrg.pct, // margine reale in % (netto IVA / imponibile)
+      margineParziale: mrg.parziale,
+      margineNota: mrg.nota,
       // Gli ingredienti che arrivano dalla piattaforma consegne: chi legge il
       // margine deve poter vedere di che cosa e' fatto.
       costoConsegna: o.costoConsegna,

@@ -44,12 +44,15 @@ Customer Service sta lavorando l'ordine (Da iniziare, Ricerca fornitore, In
 pagamento, In comunicazione, Attesa consegna, Gestito) — accanto alla pipeline
 di Orders, da cui è **distinta**: la prima dice *come lo evadiamo*, la seconda
 *a che punto è nel registro*. Per gli ordini **chiusi** dal Customer Service
-(stato «Gestito») si vede anche il **margine, in euro e in percentuale** (chip
-verde se positivo, rosso se negativo; la % è sul lordo = margine ÷ totale). Un
-ordine chiuso ma senza il costo del fornitore mostra **«margine n/d»**, non uno
-zero che sembrerebbe «nessun margine». Lo stato arriva dal Customer Service e il
-costo pure (è lui che lo concorda col fornitore): Orders li riceve e qui li
-mostra.
+(stato «Gestito») si vede anche il **margine reale, in euro e in percentuale**
+(chip verde se positivo, rosso se negativo). Il valore è **al netto dell'IVA**:
+alla differenza fra prezzo e costo si toglie l'IVA (scorporo ÷ 1,22), perché
+l'IVA non è profitto. La **percentuale** invece non cambia con lo scorporo
+(l'IVA colpisce ricavo e costo uguale): è il margine sul ricavo netto, cioè
+`(totale − costo) ÷ totale`. Un ordine chiuso ma senza il costo del fornitore
+mostra **«margine n/d»**, non uno zero che sembrerebbe «nessun margine». Lo
+stato arriva dal Customer Service e il costo pure (è lui che lo concorda col
+fornitore): Orders li riceve e qui li mostra.
 
 **Filtro per anno.** Fra i filtri c'è **l'anno dell'ordine** (solo gli anni in
 cui c'è davvero almeno un ordine: 2020…2026, non un elenco inventato).
@@ -397,10 +400,15 @@ Flowers 44,1% · cakedesign.me 45,6%.
 pagato più del 60%, ordinati per **quanto ci sono costati in più**, non per
 percentuale: il 90% su un ordine da 30 € pesa meno del 70% su uno da 900 €.
 
-**Il lordo è lordo.** `totale` è il totale Shopify, IVA e spedizione incluse.
-L'aliquota non sta sull'ordine (fiori e torte non hanno la stessa), quindi qui non
-si scorpora niente e questo è un margine **sul lordo**. Chi deve fare il conto
-netto lo scorpora e lo dichiara.
+**Il margine è al netto dell'IVA.** `totale` è il totale Shopify (IVA e
+spedizione incluse), ma il margine reale non è profitto finché non se ne toglie
+l'IVA: si **scorpora** (÷ 1,22), non si sottrae il 22%. ⚠️ Su richiesta
+dell'utente (24/08/2026) si usa **un'aliquota unica del 22% su tutto** — anche
+fiori e torte, che in Italia sarebbero di norma al 10% (scelta consapevole, dopo
+averlo segnalato). La **percentuale** del margine non cambia con lo scorporo
+(l'IVA colpisce ricavo e costo alla stessa aliquota): cambia solo il valore in
+euro. Se un giorno serve l'aliquota per categoria, si cambia in un posto solo
+(`controllo.ALIQUOTA_IVA`).
 
 ### Controllo (`/controllo`)
 I soldi di ogni ordine: **quello che il cliente ha pagato** e **quello che abbiamo

@@ -6,6 +6,7 @@ import {
   GESTIONI_INCASSO,
   INCASSATI,
   STATI_INCASSO,
+  margineOrdine,
   numeroOrdine,
   quotaFornitore,
   valutaQuota,
@@ -111,6 +112,12 @@ export default async function Controllo({
         costoFornitore: true,
         costoFornitoreNome: true,
         costoDa: true,
+        // Servono a margineOrdine() per il margine reale (netto IVA) e il caso
+        // della consegna nostra — così anche qui il conto è quello unico.
+        costoConsegna: true,
+        feeConsegna: true,
+        evasione: true,
+        consegnataDa: true,
       },
     }),
     prisma.ordine.count({ where: { ...dove, ...(stato ? { statoIncasso: stato } : {}) } }),
@@ -480,9 +487,20 @@ export default async function Controllo({
                       />
                     )}
                   </td>
-                  <td className="cella-num" style={{ color: o.costoFornitore != null ? (o.totale - o.costoFornitore >= 0 ? "var(--green)" : "var(--red)") : undefined }}>
-                    {o.costoFornitore != null ? euro(o.totale - o.costoFornitore) : "—"}
-                  </td>
+                  {(() => {
+                    // Il margine REALE (netto IVA), dalla funzione unica: niente
+                    // conto a mano qui (era il calcolo inline che dava il lordo).
+                    const m = margineOrdine(o);
+                    return (
+                      <td
+                        className="cella-num"
+                        style={{ color: m.valore != null ? (m.valore >= 0 ? "var(--green)" : "var(--red)") : undefined }}
+                        title={m.valore != null ? m.nota : undefined}
+                      >
+                        {m.valore != null ? euro(m.valore) : "—"}
+                      </td>
+                    );
+                  })()}
                   <td>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
                       <span className="pill-stato" style={{ color: st.colore }} title={st.spiega}>

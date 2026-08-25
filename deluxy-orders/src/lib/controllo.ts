@@ -163,6 +163,16 @@ export async function quotaFornitorePer(
  * PATCH li rifiuta sotto zero. È il RISULTATO che può andare in rosso, non le
  * cose che ci entrano.
  */
+// L'aliquota IVA scorporata dal margine, in percentuale. È il MARGINE REALE:
+// la differenza fra prezzo e costi è IVA-inclusa, e l'IVA non è profitto.
+//
+// ⚠️ Scelta dell'utente (24/08/2026): UNA sola aliquota, **22% su tutto** — anche
+// fiori e torte, che in Italia sarebbero di norma al 10%. Gliel'ho segnalato
+// (il margine reale su fiori/torte risulta più basso del vero) e ha scelto così
+// consapevolmente. Se un giorno serve l'aliquota per categoria, il posto è QUI:
+// margineOrdine è l'unico che scorpora, tutto il resto legge da lui.
+export const ALIQUOTA_IVA = 22;
+
 export function margineOrdine(o: {
   totale: number;
   costoFornitore: number | null;
@@ -170,24 +180,33 @@ export function margineOrdine(o: {
   feeConsegna: number | null;
   evasione: string;
   consegnataDa: string;
-}): { valore: number | null; parziale: boolean; nota: string } {
+}): { valore: number | null; pct: number | null; parziale: boolean; nota: string } {
   if (o.costoFornitore == null) {
-    return { valore: null, parziale: false, nota: "manca il costo del fornitore" };
+    return { valore: null, pct: null, parziale: false, nota: "manca il costo del fornitore" };
   }
-  let valore = o.totale - o.costoFornitore;
+  let lordo = o.totale - o.costoFornitore;
   let parziale = false;
   let nota = "totale − costo fornitore";
   const consegnaNostra = o.evasione === "piattaforma" && o.consegnataDa !== "fornitore";
   if (consegnaNostra) {
     if (o.costoConsegna != null) {
-      valore = valore - o.costoConsegna + (o.feeConsegna ?? 0);
+      lordo = lordo - o.costoConsegna + (o.feeConsegna ?? 0);
       nota = "totale − costo fornitore − costo consegna + fee";
     } else {
       parziale = true;
       nota = "senza il costo della consegna (la piattaforma non lo espone ancora)";
     }
   }
-  return { valore: Math.round(valore * 100) / 100, parziale, nota };
+  // ⚠️ Il MARGINE REALE è al NETTO dell'IVA. «Togliere il 22%» da un importo
+  // IVA-incluso è uno SCORPORO (÷ 1,22), NON un −22% (× 0,78): il netto di 122
+  // è 100, non 95,16. Qui `lordo` è la differenza IVA-inclusa; il netto è ÷1,22.
+  const valore = Math.round((lordo / (1 + ALIQUOTA_IVA / 100)) * 100) / 100;
+  // La % è il margine sul ricavo NETTO (margine netto ÷ imponibile). L'IVA
+  // colpisce ricavo e costo alla stessa aliquota, quindi il rapporto NON cambia
+  // con lo scorporo: equivale a `lordo / totale`. Cambia il valore in euro, non
+  // la percentuale.
+  const pct = o.totale > 0.005 ? Math.round((lordo / o.totale) * 1000) / 10 : null;
+  return { valore, pct, parziale, nota: `${nota} · al netto IVA ${ALIQUOTA_IVA}%` };
 }
 
 export async function salvaQuotaFornitore(quota: number): Promise<void> {

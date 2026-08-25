@@ -6,6 +6,38 @@ Deluxy). Serve a far ripartire una finestra nuova senza contesto: prima lo
 stato, poi le **trappole già pagate** — quelle valgono più dell'elenco delle
 funzioni.
 
+## 25/08/2026 — Il margine è al NETTO IVA (scorporo 22%, un posto solo)
+
+Su richiesta dell'utente: il **margine reale** si calcola **al netto dell'IVA**.
+«Togliere il 22%» da un importo IVA-incluso è uno **scorporo** (÷ 1,22), non un
+−22% (× 0,78). Applicato **una sola volta**, in `margineOrdine()`
+(`src/lib/controllo.ts`, costante `ALIQUOTA_IVA = 22`): API, scheda ordine,
+elenco e `/margini` lo ereditano.
+
+- **`margineOrdine` ora torna anche `pct`** (margine reale in %). La % **non
+  cambia** con lo scorporo — l'IVA colpisce ricavo e costo alla stessa aliquota,
+  quindi resta `(totale − costo)/totale`; cambia solo il valore in euro. #2791:
+  85 − 50 = 35 lordo → **28,69 € netto · 41%** (verificato in produzione via API
+  e in lista).
+- **Un posto solo, davvero**: ho ritrovato e instradato su `margineOrdine` gli
+  ULTIMI due calcoli inline — il mio `MargineChiuso` in `page.tsx` (l'avevo
+  aggiunto ieri a mano: era il 4° calcolo, l'errore che il commit «l'API
+  calcolava il margine a mano» aveva già pagato) e la colonna del `/controllo`
+  (`totale − costoFornitore` lordo). Serializzazione: una sola chiamata
+  (`const mrg`), non tre; l'API espone `controllo.marginePct`.
+- **`/margini` (aggregato)**: `calcola()` scorpora `margine` e `margineAtteso`;
+  `pctMargine` invariato. Aggiornata la nota storica che diceva «non si scorpora
+  niente perché fiori e torte hanno aliquote diverse».
+
+⚠️⚠️ **DECISIONE ESPLICITA DELL'UTENTE — aliquota UNICA 22% su tutto.** Il codice
+diceva (a ragione) di NON scorporare un'aliquota unica perché **fiori e torte in
+Italia sono di norma al 10%**, non 22%. L'ho segnalato all'utente (il margine
+reale su fiori/torte risulta più basso del vero): ha scelto **22% su tutto**,
+consapevolmente. Se un giorno serve l'aliquota per categoria/brand, il punto è
+`ALIQUOTA_IVA` in `controllo.ts` — l'unico che scorpora. I **ricavi**
+(`/api/v1/ricavi`) restano **lordi** apposta: la regola è sul margine, non sul
+venduto.
+
 ## 24/08/2026 sera — Il giro dell'ordine entra in Orders (Standard §7.4)
 
 Quattro pezzi nuovi, costruiti insieme al canale app-to-app della piattaforma:
@@ -152,12 +184,13 @@ via SQL (nessun evento, storia intatta): idempotente col futuro push del CS.
 **Nell'ELENCO (home `/`, 24/08 sera):** lo stato del Customer Service si vede
 **subito** su ogni ordine — pill «CS: <stato>» in entrambe le viste (colonne per
 brand ed elenco) — e per gli ordini **chiusi** (`csGestione = gestito`) compare
-il **margine in € e %** (chip verde/rosso; % sul lordo = margine/totale). Chiuso
-senza costo ⇒ «margine n/d» (non zero). Helper `PillLavorazioneCs` e
-`MargineChiuso` in `src/app/page.tsx`; usano `etichettaLavorazioneCs`. ⚠️ Le
-query dell'elenco usano `include` (non `select`), quindi `csGestione`/
-`costoFornitore` arrivano già senza toccarle. Verificato in locale: 12 pill CS e
-6 chip margine nella colonna Flowers, #2791 → «CS: Gestito» + «margine 35,00 € ·
+il **margine reale in € e %** (chip verde/rosso; **netto IVA** dal 25/08 — vedi
+sezione in cima; la % è `(totale − costo)/totale`, invariante allo scorporo).
+Chiuso senza costo ⇒ «margine n/d» (non zero). Helper `PillLavorazioneCs` e
+`MargineChiuso` in `src/app/page.tsx`; il margine lo fa `margineOrdine()` (non
+più a mano). ⚠️ Le query dell'elenco usano `include` (non `select`), quindi
+`csGestione`/`costoFornitore` e i campi consegna arrivano già senza toccarle.
+Verificato in locale: 12 pill CS e 6 chip margine nella colonna Flowers, #2791 → «CS: Gestito» + «margine 28,69 € ·
 41%».
 
 

@@ -15,6 +15,7 @@ import { ordinali } from "@/lib/repeater";
 import { URGENZE } from "@/lib/urgenza";
 import { SegnoCanale, PillRepeater, TagLuoghi, PillUrgenza, PillNuovo } from "@/components/Provenienza";
 import { etichettaLavorazioneCs } from "@/lib/customer-service";
+import { margineOrdine } from "@/lib/controllo";
 import { daQuando, daQuandoLeggibile } from "@/lib/sessione";
 import { anniConOrdini } from "@/lib/analisi";
 import { sincronizza, segnaOrdiniVisti } from "./actions";
@@ -372,7 +373,7 @@ export default async function ElencoOrdini({
                       {o.csGestione && !o.annullatoIl && (
                         <div className="riga-provenienza">
                           <PillLavorazioneCs codice={o.csGestione} />
-                          <MargineChiuso csGestione={o.csGestione} totale={o.totale} costo={o.costoFornitore} />
+                          <MargineChiuso ordine={o} />
                         </div>
                       )}
                       <div className="card-cliente">
@@ -534,7 +535,7 @@ export default async function ElencoOrdini({
                       {/* Margine dei soli ordini CHIUSI dal Customer Service */}
                       {o.csGestione === "gestito" && (
                         <div className="cella-sub" style={{ marginTop: 4 }}>
-                          <MargineChiuso csGestione={o.csGestione} totale={o.totale} costo={o.costoFornitore} />
+                          <MargineChiuso ordine={o} />
                         </div>
                       )}
                     </td>
@@ -619,36 +620,40 @@ function PillLavorazioneCs({ codice }: { codice: string | null | undefined }) {
 
 // Il margine degli ordini CHIUSI dal Customer Service (`gestito`), in valore e
 // in %. Solo per i chiusi: su un ordine ancora aperto il margine è prematuro.
-// `margine %` è sul lordo (margine / totale). Chiuso ma senza costo del
-// fornitore ⇒ «n/d», non zero: uno zero sembrerebbe «margine nullo».
+//
+// ⚠️ Il conto lo fa `margineOrdine()` (la regola §7.4, un posto solo): margine
+// REALE al netto IVA 22%, con la % e il caso della consegna nostra già dentro.
+// Qui NON si rifà a mano — è l'errore che il commit «l'API calcolava il margine
+// a mano» aveva già pagato. Chiuso ma senza costo ⇒ «n/d», non zero.
 function MargineChiuso({
-  csGestione,
-  totale,
-  costo,
+  ordine,
 }: {
-  csGestione: string | null | undefined;
-  totale: number;
-  costo: number | null;
+  ordine: {
+    csGestione: string;
+    totale: number;
+    costoFornitore: number | null;
+    costoConsegna: number | null;
+    feeConsegna: number | null;
+    evasione: string;
+    consegnataDa: string;
+  };
 }) {
-  if (csGestione !== "gestito") return null;
-  if (costo == null) {
+  if (ordine.csGestione !== "gestito") return null;
+  const m = margineOrdine(ordine);
+  if (m.valore == null) {
     return (
       <span className="badge neutro" title="Ordine chiuso ma senza costo del fornitore: il margine non è calcolabile">
         margine n/d
       </span>
     );
   }
-  const valore = +(totale - costo).toFixed(2);
-  const pct = totale > 0 ? Math.round((valore / totale) * 100) : null;
-  const colore = valore >= 0 ? "var(--green)" : "var(--red)";
+  const perdita = m.valore < 0;
+  const colore = perdita ? "var(--red)" : "var(--green)";
   return (
-    <span
-      className="badge"
-      style={{ color: colore }}
-      title="Margine sul lordo (IVA e spedizione incluse): totale − costo del fornitore"
-    >
+    <span className="badge" style={{ color: colore }} title={`Margine reale — ${m.nota}`}>
       <span className="dot" style={{ background: colore }} />
-      margine {euro(valore)}{pct != null ? ` · ${pct}%` : ""}
+      margine {euro(m.valore)}{m.pct != null ? ` · ${Math.round(m.pct)}%` : ""}
+      {perdita ? " · perdita" : ""}{m.parziale ? " · parziale" : ""}
     </span>
   );
 }
