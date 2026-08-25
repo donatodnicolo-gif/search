@@ -147,19 +147,52 @@ export async function leggiStatoCampagneMeta(
   const stati = new Map<string, { stato: string; budget: number | null; obiettivo: string | null }>();
   if (!t) return { stati, errore: "META_ACCESS_TOKEN non impostato" };
 
-  const params = new URLSearchParams({
-    fields: "id,name,status,effective_status,daily_budget,objective",
-    limit: "500",
-    access_token: t,
-  });
+  // ⚠️⚠️ **LE ARCHIVIATE VANNO CHIESTE, o non arrivano.** Il nodo /campaigns
+  // di default restituisce solo ACTIVE e PAUSED: una campagna archiviata
+  // semplicemente **non compare**, e chi legge la risposta come «l'elenco
+  // completo» non ha modo di distinguere «archiviata» da «non esiste».
+  //
+  // Caso reale (25/08/2026): «INTERESSE - [Festa della Mamma] - LANDING PAGE»
+  // era rimasta ENABLED nell'app perché Meta non la nominava più — e finiva
+  // nel file RISULTATI depositato su Drive, che dichiara di elencare solo le
+  // campagne accese. Chiedere anche le archiviate risolve il problema **alla
+  // radice**, invece di dedurre uno stato da un silenzio: il dato ce l'ha Meta,
+  // bastava domandarlo.
+  const CON_ARCHIVIATE = JSON.stringify([
+    {
+      field: "effective_status",
+      operator: "IN",
+      value: ["ACTIVE", "PAUSED", "ARCHIVED", "IN_PROCESS", "WITH_ISSUES", "CAMPAIGN_PAUSED", "DELETED"],
+    },
+  ]);
+  const parametri = (conFiltro: boolean) => {
+    const q = new URLSearchParams({
+      fields: "id,name,status,effective_status,daily_budget,objective",
+      limit: "500",
+      access_token: t,
+    });
+    if (conFiltro) q.set("filtering", CON_ARCHIVIATE);
+    return q;
+  };
 
   try {
-    let url = `${BASE}/act_${idAccount.replace(/^act_/, "")}/campaigns?${params.toString()}`;
+    // ⚠️ Con ripiego: se Meta rifiuta il filtro (i valori ammessi cambiano fra
+    // versioni della Graph API), si riparte senza — meglio l'elenco di prima
+    // che nessun elenco. Un miglioramento non deve poter spegnere la sync.
+    let conFiltro = true;
+    let url = `${BASE}/act_${idAccount.replace(/^act_/, "")}/campaigns?${parametri(true).toString()}`;
     let pagine = 0;
     while (url && pagine < 20) {
       const risposta = await fetch(url, { cache: "no-store" });
       const corpo = await risposta.json();
       if (!risposta.ok || corpo.error) {
+        if (conFiltro) {
+          conFiltro = false;
+          stati.clear();
+          url = `${BASE}/act_${idAccount.replace(/^act_/, "")}/campaigns?${parametri(false).toString()}`;
+          pagine = 0;
+          continue;
+        }
         return { stati, errore: corpo.error?.message ?? `Meta ha risposto ${risposta.status}` };
       }
       for (const c of corpo.data ?? []) {
