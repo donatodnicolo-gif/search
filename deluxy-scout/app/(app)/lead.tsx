@@ -17,11 +17,13 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { Tabella, dataBreve, type ColonnaTabella } from '@/components/Tabella';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { LeadCard } from '@/components/LeadCard';
@@ -31,6 +33,7 @@ import { urlMessaggioAiMail } from '@/lib/aimail';
 import { fetchCorpoMail, importaRichiesteDaMail } from '@/lib/mail';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { analizzaMessaggioLead } from '@/lib/lead-parse';
+import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
 import type { FonteLead, Lead } from '@/types';
 
 const FONTI: { valore: FonteLead; label: string }[] = [
@@ -165,6 +168,128 @@ export default function LeadWeb() {
 
   const infoDaLeggere = daLeggere ? analizzaMessaggioLead(daLeggere.nome, daLeggere.messaggio) : null;
 
+  // Da 900px in su la coda è una TABELLA (le schede restano sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
+  const colonne: ColonnaTabella<Lead>[] = [
+    {
+      chiave: 'persona',
+      label: 'Chi',
+      flex: 0.9,
+      valore: (l) => analizzaMessaggioLead(l.nome, l.messaggio).persona || l.nome,
+      cella: (l) => (
+        <Text style={styles.tabNome} numberOfLines={2}>
+          {analizzaMessaggioLead(l.nome, l.messaggio).persona || l.nome}
+        </Text>
+      ),
+    },
+    {
+      chiave: 'contatto',
+      label: 'Contatti',
+      flex: 0.9,
+      valore: (l) => {
+        const i = analizzaMessaggioLead(l.nome, l.messaggio);
+        return i.email || i.telefono || l.contatto || null;
+      },
+      cella: (l) => {
+        const i = analizzaMessaggioLead(l.nome, l.messaggio);
+        const email = i.email || (l.contatto?.includes('@') ? l.contatto : null);
+        return (
+          <View style={{ gap: 1 }}>
+            {email ? (
+              <Pressable onPress={(e: any) => { e?.stopPropagation?.(); Linking.openURL(`mailto:${email}`); }}>
+                <Text style={styles.tabContatto} numberOfLines={1}>{email}</Text>
+              </Pressable>
+            ) : null}
+            {i.telefono ? (
+              <Pressable onPress={(e: any) => { e?.stopPropagation?.(); Linking.openURL(`tel:${i.telefono!.replace(/\s+/g, '')}`); }}>
+                <Text style={styles.tabContatto} numberOfLines={1}>{i.telefono}</Text>
+              </Pressable>
+            ) : null}
+            {!email && !i.telefono ? <Text style={styles.tabMuto}>—</Text> : null}
+          </View>
+        );
+      },
+    },
+    {
+      chiave: 'messaggio',
+      label: 'Richiesta',
+      flex: 1.6,
+      righe: 2,
+      valore: (l) => analizzaMessaggioLead(l.nome, l.messaggio).testo || l.messaggio || null,
+    },
+    { chiave: 'fonte', label: 'Fonte', width: 84, valore: (l) => l.fonte ?? null },
+    {
+      chiave: 'quando',
+      label: 'Arrivata',
+      width: 82,
+      destra: true,
+      numerica: true,
+      valore: (l) => l.created_at,
+      cella: (l) => {
+        const eta = (Date.now() - new Date(l.created_at).getTime()) / 86_400_000;
+        const ritardo = l.stato === 'nuovo' && eta >= GIORNI_RISPOSTA_LEAD;
+        return (
+          <Text style={[styles.tabData, ritardo && styles.tabRitardo]}>
+            {dataBreve(l.created_at)}
+          </Text>
+        );
+      },
+    },
+    {
+      chiave: 'azioni',
+      label: '',
+      width: 210,
+      fissa: true,
+      valore: () => null,
+      cella: (l) => (
+        <View style={styles.tabAzioni}>
+          {l.stato === 'nuovo' ? (
+            <>
+              <Pressable
+                style={styles.tabBtn}
+                onPress={(e: any) => { e?.stopPropagation?.(); setDaQualificare(l); }}
+              >
+                <Text style={styles.tabBtnTxt}>Qualifica</Text>
+              </Pressable>
+              <Pressable
+                style={styles.tabBtnGhost}
+                onPress={(e: any) => { e?.stopPropagation?.(); scarta(l); }}
+              >
+                <Text style={styles.tabBtnGhostTxt}>Scarta</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable
+              style={styles.tabBtnGhost}
+              onPress={(e: any) => { e?.stopPropagation?.(); router.push('/(app)/trattative'); }}
+            >
+              <Text style={styles.tabBtnGhostTxt}>Trattative</Text>
+            </Pressable>
+          )}
+          {l.mail_ref ? (
+            <Pressable
+              hitSlop={6}
+              onPress={(e: any) => { e?.stopPropagation?.(); Linking.openURL(urlMessaggioAiMail(l.mail_ref!)); }}
+              accessibilityLabel="Apri in AI Mail"
+              {...({ title: 'Apri in AI Mail' } as any)}
+            >
+              <Ionicons name="mail-open-outline" size={16} color={colors.grigio} />
+            </Pressable>
+          ) : null}
+          <Pressable
+            hitSlop={6}
+            onPress={(e: any) => { e?.stopPropagation?.(); elimina(l); }}
+            accessibilityLabel="Elimina la richiesta"
+            {...({ title: 'Elimina' } as any)}
+          >
+            <Ionicons name="trash-outline" size={16} color={colors.errore} />
+          </Pressable>
+        </View>
+      ),
+    },
+  ];
+
   return (
     <View style={styles.container}>
       <View style={[styles.head, contenutoCentrato]}>
@@ -189,9 +314,10 @@ export default function LeadWeb() {
       </View>
 
       <FlatList
-        data={dati}
-        keyExtractor={(l) => l.id}
-        contentContainerStyle={[styles.list, contenutoCentrato]}
+        // In tabella la FlatList riceve UNA riga con l'intera coda.
+        data={aTabella ? (dati.length ? [dati] : []) : dati}
+        keyExtractor={(l: any) => (aTabella ? 'tabella' : (l as Lead).id)}
+        contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
           <EmptyState
@@ -202,19 +328,36 @@ export default function LeadWeb() {
           />
         }
         renderItem={({ item }) => {
+          if (aTabella) {
+            return (
+              <Tabella
+                righe={item as Lead[]}
+                colonne={colonne}
+                chiaveRiga={(l) => l.id}
+                ordineIniziale={{ campo: 'quando', verso: 'desc' }}
+                // La riga apre la mail, ma solo se c'è davvero qualcosa da
+                // leggere (stessa regola delle schede).
+                onRiga={(l) => {
+                  if (l.messaggio || l.mail_ref || l.mail_id) apriMessaggio(l);
+                }}
+                labelRiga={(l) => `Leggi la richiesta di ${analizzaMessaggioLead(l.nome, l.messaggio).persona || l.nome}`}
+              />
+            );
+          }
+          const lead = item as Lead;
           // La scheda intera apre la mail, ma solo se c'è davvero qualcosa da
           // leggere: le richieste inserite a mano non hanno mail, e un pop-up
           // vuoto è peggio di un clic che non fa niente.
-          const leggibile = !!(item.messaggio || item.mail_ref || item.mail_id);
+          const leggibile = !!(lead.messaggio || lead.mail_ref || lead.mail_id);
           return (
             <LeadCard
-              lead={item}
-              onApri={leggibile ? () => apriMessaggio(item) : undefined}
-              onQualifica={() => setDaQualificare(item)}
-              onScarta={() => scarta(item)}
+              lead={lead}
+              onApri={leggibile ? () => apriMessaggio(lead) : undefined}
+              onQualifica={() => setDaQualificare(lead)}
+              onScarta={() => scarta(lead)}
               onVediTrattativa={() => router.push('/(app)/trattative')}
-              onApriAiMail={item.mail_ref ? () => Linking.openURL(urlMessaggioAiMail(item.mail_ref!)) : undefined}
-              onElimina={() => elimina(item)}
+              onApriAiMail={lead.mail_ref ? () => Linking.openURL(urlMessaggioAiMail(lead.mail_ref!)) : undefined}
+              onElimina={() => elimina(lead)}
             />
           );
         }}
@@ -352,6 +495,16 @@ function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
+  tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabContatto: { color: colors.testo, fontSize: 12.5 },
+  tabMuto: { color: colors.grigio, fontSize: 12.5 },
+  tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  tabRitardo: { color: colors.errore, fontWeight: '700' },
+  tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end' },
+  tabBtn: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  tabBtnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 12 },
+  tabBtnGhost: { borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  tabBtnGhostTxt: { color: colors.testo, fontWeight: '700', fontSize: 12 },
   head: { padding: spacing.md, gap: spacing.sm },
   btnImporta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingVertical: 9 },
   btnImportaTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },

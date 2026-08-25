@@ -4,9 +4,10 @@
 // Selezionati da chiamare — e, se era solo un risultato Google, diventa in quel
 // momento un target vero intestato a chi l'ha preso (assicuraPlace).
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing } from '@/lib/theme';
+import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing, contenutoLargo } from '@/lib/theme';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { AddressSearch } from '@/components/AddressSearch';
 import { EmptyState, StatusBadge } from '@/components/ui';
 import type { StatoAffiliazione } from '@/types';
@@ -140,6 +141,90 @@ export function RicercaAffiliazioni({
   );
   const nascostiAttivi = risultati.length - visibili.length;
 
+  // Da 900px in su i risultati sono una TABELLA (le schede restano sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
+  const colonneRisultati: ColonnaTabella<Place>[] = [
+    {
+      chiave: 'nome',
+      label: 'Negozio',
+      flex: 1.2,
+      valore: (p) => p.nome,
+      cella: (p) => (
+        <Text style={styles.tabNome} numberOfLines={2}>
+          {p.nome}
+        </Text>
+      ),
+    },
+    { chiave: 'indirizzo', label: 'Indirizzo', flex: 1.2, righe: 2, valore: (p) => p.indirizzo ?? null },
+    {
+      chiave: 'km',
+      label: 'Distanza',
+      width: 78,
+      destra: true,
+      numerica: true,
+      valore: (p) => (centro ? distanzaKm(centro, { lat: p.lat, lng: p.lng }) : null),
+      cella: (p) => {
+        const km = centro ? distanzaKm(centro, { lat: p.lat, lng: p.lng }) : null;
+        return <Text style={styles.tabMeta}>{km != null ? `${km.toFixed(1)} km` : '—'}</Text>;
+      },
+    },
+    { chiave: 'categoria', label: 'Categoria', width: 110, valore: (p) => p.categoria ?? null },
+    {
+      chiave: 'rating',
+      label: 'Google',
+      width: 110,
+      destra: true,
+      numerica: true,
+      valore: (p) => p.google_rating ?? null,
+      cella: (p) => (
+        <Text style={styles.tabMeta}>
+          {p.google_rating ? `★ ${p.google_rating}${p.google_reviews ? ` · ${p.google_reviews}` : ''}` : '—'}
+        </Text>
+      ),
+    },
+    {
+      chiave: 'registro',
+      label: 'Registro',
+      width: 110,
+      valore: (p) => p.anagrafiche_stato ?? null,
+      cella: (p) =>
+        p.anagrafiche_stato && p.anagrafiche_stato in labelAffiliazione ? (
+          <StatusBadge
+            small
+            label={labelAffiliazione[p.anagrafiche_stato as StatoAffiliazione]}
+            colore={coloreAffiliazione[p.anagrafiche_stato as StatoAffiliazione]}
+          />
+        ) : (
+          <Text style={styles.tabMeta}>—</Text>
+        ),
+    },
+    {
+      chiave: 'seleziona',
+      label: '',
+      width: 132,
+      fissa: true,
+      valore: () => null,
+      cella: (p) => {
+        const preso = presi.has(p.id) || p.starred;
+        return (
+          <Pressable
+            style={[styles.btn, preso && styles.btnOn]}
+            disabled={preso}
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              prendi(p);
+            }}
+            accessibilityLabel={preso ? 'Già selezionato' : 'Seleziona da contattare'}
+          >
+            <Ionicons name={preso ? 'star' : 'star-outline'} size={16} color={preso ? colors.bianco : colors.navy} />
+            <Text style={[styles.btnTxt, preso && styles.btnTxtOn]}>{preso ? 'Selezionato' : 'Seleziona'}</Text>
+          </Pressable>
+        );
+      },
+    },
+  ];
+
   return (
     <View style={styles.container}>
       <View style={styles.head}>
@@ -236,6 +321,15 @@ export function RicercaAffiliazioni({
               : 'Ho cercato in tutta la città: prova un altro punto di partenza o cambia cosa cercare.'
           }
         />
+      ) : aTabella ? (
+        <ScrollView contentContainerStyle={[styles.lista, contenutoLargo]}>
+          <Tabella
+            righe={visibili}
+            colonne={colonneRisultati}
+            chiaveRiga={(p) => p.id}
+            ordineIniziale={{ campo: 'km', verso: 'asc' }}
+          />
+        </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.lista}>
           {visibili.map((p) => {
@@ -323,6 +417,8 @@ const styles = StyleSheet.create({
   },
   nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   meta: { color: colors.testoSoft, fontSize: 12.5, marginTop: 1 },
+  tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabMeta: { color: colors.testoSoft, fontSize: 12.5, fontVariant: ['tabular-nums'] },
   btn: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 8 },
   btnOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   btnTxt: { color: colors.navy, fontWeight: '700', fontSize: 12.5 },
