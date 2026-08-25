@@ -57,7 +57,7 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 24 agosto 2026 (architettura); corpo del 21 agosto 2026
+**Ultimo aggiornamento:** 25 agosto 2026 (Finanza: ambito dei corrispettivi); architettura del 24 agosto; corpo del 21 agosto 2026
 **Branch di produzione:** `main` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
 
@@ -455,6 +455,15 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 - **Sync ordini:** [INTEGRAZIONE-WOOCOMMERCE-SYNC.md](INTEGRAZIONE-WOOCOMMERCE-SYNC.md).
 
 ## FATTO
+
+- **⭐ 25/08 (sera) — I CORRISPETTIVI SONO SOLO LE VENDITE, e il margine del mese cambia di 8.209 €.** Deploy `delivery-pnsg78tov`, provato in produzione.
+  - Regola decisa dall'utente: la Finanza guarda **solo i servizi di tipo VENDITA** (`ServiceType.pricingModel = 'VENDITA'`). ⚠️ È il servizio del **partner** (`Delivery.serviceType`), non quello del valet (`valetServiceId`): sullo stesso record convivono due tassonomie, ed è la trappola già pagata sulle paghe.
+  - **Perché non è un dettaglio**: le formule della pagina descrivono una vendita — incassiamo dal cliente finale e **paghiamo** il partner (`corrispettivo = valore vendite − prezzo partner`, `incasso partner = prezzo partner − fee+IVA`). Su un servizio di **sola consegna** (Prezzo Fisso, a Ora, Magazzino, Aziendale) il denaro va nel verso **opposto**: il partner è il **cliente** e la consegna gli viene **fatturata**. Il suo prezzo veniva quindi sottratto come se fosse un costo nostro.
+  - **Misurato in produzione, agosto 2026**: 154 vendite contro 558 consegne a buon fine. Margine totale del mese **711,01 € prima → 8.920,24 € ora**: le 404 non-vendite pesavano **−8.209,23 €** che non erano un costo. Valore vendite 19.219,17 → 17.700,89 €.
+  - Sull'intero archivio: delle **53.868** consegne a buon fine sono vendite **12.247 (22,7%)** — Prezzo Fisso 34.939, a Ora 6.447, Aziendale 144, Magazzino 91 (`scripts/conta-corrispettivi-per-servizio.mjs`, non scrive niente).
+  - Il filtro vale per le **righe e per i totali** (riga Totale e tab Margini guardano lo stesso insieme della tabella). La pagina **dichiara quante consegne restano fuori** nel periodo, come già fa col tetto delle righe. Nuova colonna **Servizio** fra Categoria e Partner, anche nel CSV: il criterio si vede invece di doverlo ricordare. `?soloVendite=false` resta per le controprove, la pagina non lo usa.
+  - **Prova a runtime** (`/finance/corrispettivi` e `/finance/summary` con token admin): 154 righe, servizi presenti *Vendita Deluxy 150* e *Vendita con Pagamento alla Consegna 4*, `excluded: 404`, e la somma delle righe combacia col totale al centesimo. Con `soloVendite=false` tornano 558 righe e dieci servizi diversi.
+  - 🔴 **Scoperto misurando: due terzi del «Valore vendite» oggi valgono zero.** `Delivery.deliveryPrice` («Consegna prezzo») è **null su tutte le 61.836 consegne** — nel `delivery` legacy quella colonna **non esiste**, perché lì la consegna prezzo sta sulla **vendita** (`totalShippingAmount` delle sei tabelle di vendita Shopify, mai importate). E il prezzo pubblico arriva dal prodotto, ma solo **6.328 prodotti su 22.952** hanno `publicPrice > 0`. Finché manca il legame Vendita↔Consegna il Valore vendite è **sottostimato**, e con lui ogni margine che ne discende. Per l'architettura dei dati quel pezzo è di **Orders**.
 
 - **⭐ 25/08 — Operatività → Disponibilità, e 366 fasce dei valet recuperate.** Deploy `delivery-a3aj4dwxe`.
   - Il dato c'era e non si vedeva: le fasce dei partner sono **113.191 righe** (`PartnerDaySlot`) senza una schermata, quelle dei valet solo scheda per scheda. Nuova pagina `/availability-board` (ADMIN/OPERATION/PM) + `GET /availability/day?date=`: partner e valet affiancati, con le loro fasce. Risponde in **0,78 s**.
