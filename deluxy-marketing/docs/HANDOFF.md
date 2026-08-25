@@ -34,13 +34,22 @@
 >    editoriale: una campagna **mondiale in inglese** che atterra su un indirizzo
 >    italiano (`/en/pages/fiori-in-consegna-oggi`). «Non è più rotta» e «è quella
 >    giusta» sono due cose diverse.
-> 4. **Cake, e QUALE tetto** — ri-misurata la spesa di agosto: **1.435,85 €**
->    (Google 918,03 + Meta 517,82). ⚠️ E il tetto ha **due numeri diversi**: la
->    copia locale `BudgetMensile` (scritta il 23/07) dice **1.272,73 €**, il
->    `advConsentito` letto da Budgets diceva **310 €**. Non è un dettaglio: fra
->    i due c'è la differenza fra «Cake sfora di poco» e «Cake viaggia a quattro
->    volte il suo tetto». Da decidere quale comanda **prima** di toccare i budget
->    — e la copia locale, se non comanda, va tolta di mezzo (Standard §7).
+> 4. ⚠️⚠️ **NON ERA CAKE: era GIFTS.** Il «310 € consentiti contro 1.324 € spesi»
+>    scritto qui ieri **era sbagliato**, e indicava il brand sbagliato. Letto il
+>    25/08 dalla pagina `/budget` in produzione (che legge `advConsentito` vivo
+>    da Budgets — **è quello il tetto che comanda, confermato dall'utente**):
+>    · **Deluxy.it / Gifts — 3.028 € consentiti, 3.903 € spesi: 129 % del tetto,
+>      GIÀ OLTRE.** È qui che serve guardare.
+>    · **Deluxyflowers.com — 5.150 € consentiti, 4.260 € spesi (83 %)**, ma di
+>      questo passo si arriva a **5.282 €**: sfora a fine mese.
+>    · **Cakedesign.me — 2.242 € consentiti, 1.438 € spesi: 64 %, dentro**, con
+>      804 € che restano. La spesa (1.435,85 € contati sul database) era giusta;
+>      il tetto no.
+>    ⚠️ Da dove veniva l'errore: si erano confrontati numeri di **fonti diverse**
+>    senza dirlo — la copia locale `BudgetMensile` (ferma al 23/07) e un
+>    `advConsentito` letto male. La copia locale **non comanda**: la pagina la
+>    mostra già come «vecchia copia importata dal Monitoraggio, tenuta solo come
+>    archivio». Resta da toglierla di torno — e da guardare **Gifts**.
 > 5. 🆕 **I dati personali sono ancora NEL DATABASE.** Lo schema Prisma e il
 >    codice non hanno più `cliente` né `email` dal 24/08 — ma le **colonne
 >    fisiche ci sono ancora**, con **8.152 nomi** e **6.486 email** dentro
