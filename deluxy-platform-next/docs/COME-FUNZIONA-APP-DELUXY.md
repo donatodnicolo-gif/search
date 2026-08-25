@@ -305,24 +305,37 @@ Misurato sui dati veri il 25/08: delle **53.868** consegne a buon fine (`deliver
 >
 > ✅ **RISOLTO IL 25/08/2026, su decisione dell'utente: «Prezzo partner» non era il prezzo del partner.** Misurato il 25/08 sulle 12.247 vendite: `Delivery.price` vale il **12,5%** del valore dei prodotti, e per otto dei dodici partner più attivi la sua quota coincide **alla prima cifra decimale** con la fee% dichiarata del partner (CLIVATI 1969 17,0% su fee 17%; Cannavò 20,0% su 20%; Martesana 17,0% su 17%; Stefanelli 18,0% su 18%…). È cioè la **quota trattenuta da Deluxy**, non ciò che paghiamo al partner — ed è esattamente così che la legge già la **Fatturazione** (`invoices.module.ts`, `prezzoConsegna`: `dovutoAlPartner = valore prodotti − quota`, verificata sui dati veri). Con la lettura della Finanza il corrispettivo dell'archivio è **1.058.782 €** (Deluxy terrebbe l'87% del venduto); con quella della Fatturazione la nostra quota è **161.555 €** e ai partner ne dobbiamo **1.136.005 €**. L'utente ha deciso: vale la lettura della Fatturazione. **Le formule sono state riscritte.**
 
-**Le formule dei Corrispettivi, dal 25/08/2026:**
+⭐⭐ **E poche ore dopo una seconda correzione, dai numeri dell'utente: il valore dato al partner NON si calcola, è SCRITTO.** Sta in `Delivery.productValue` (colonna 56 del `delivery` legacy, importata dal primo giorno e mai letta da questa pagina). *«Per il 62395 al partner abbiamo dato 70 €»* — e `productValue` di #62395 vale esattamente 70. Lo calcolavo per sottrazione invece di leggerlo.
+
+E il **guadagno** è la differenza col prezzo pubblico, **al netto IVA**: #63013 → pubblico 135, al partner 80, differenza 55, e 55 ÷ 1,22 = **45,08** — i «45» dell'utente. È la stessa scelta già fatta in Deluxy Orders (margine sempre al netto IVA).
+
+**Prova decisiva su 8.850 vendite**: `Delivery.price` è la fee di contratto calcolata su **`productValue`**, non sul prezzo pubblico — combacia con la fee% del partner entro un decimo di punto nel **92,6%** dei casi, contro il 62,6% usando il prezzo delle righe. Resta a schermo come **Quota a listino**, accanto al guadagno vero.
+
+**Le formule dei Corrispettivi, dal 25/08/2026 (sera):**
 
 | Colonna | Formula |
 |---|---|
-| Venduto | somma( prezzo della riga di consegna × quantità ) |
+| Prezzo pubblico | somma( prezzo della riga di consegna × quantità ) |
 | Consegna prezzo | `Delivery.deliveryPrice` — qui sempre 0, ed è normale |
-| Valore vendite | Venduto + Consegna prezzo |
-| **Corrispettivo (a noi)** | `Delivery.price` + plus/minus — **quello che tratteniamo** |
-| **Dovuto al partner** | Valore vendite − Corrispettivo |
-| Fee % reale | Corrispettivo / Valore vendite |
-| Fee % contratto | `Partner.commissionPercent` — se diverge dalla reale, la cella si accende |
-| Corrispettivo +IVA | Corrispettivo × 1,22 |
-| IVA | Corrispettivo × 22% |
+| Valore vendite | Prezzo pubblico + Consegna prezzo |
+| **Dato al partner** | `Delivery.productValue` — **si legge, non si deduce** |
+| **Guadagno lordo** | Valore vendite − Dato al partner |
+| **Guadagno netto IVA** | Guadagno lordo ÷ 1,22 — **il guadagno vero** |
+| IVA | Guadagno lordo − Guadagno netto |
+| Quota a listino | `Delivery.price` + plus/minus — quello che sarebbe spettato |
+| Guadagno % | Guadagno lordo / Valore vendite |
+| Fee % contratto | `Partner.commissionPercent` — se diverge, la cella si accende |
 | Commissione incassi | Valore vendite × 3% |
 | Costo consegna | paga del valet + plus/minus |
-| Margine totale | Corrispettivo − Costo consegna − IVA − Commissione incassi |
+| Margine totale | Guadagno netto IVA − Costo consegna − Commissione incassi |
 
-Sono sparite tre colonne perché erano **lo stesso numero sotto nomi diversi**: con questa lettura «primo margine» e «fee value» valgono entrambi il corrispettivo, e «incasso partner» vale il dovuto al partner.
+⚠️ **L'IVA non si sottrae due volte**: il guadagno netto l'ha già tolta, e la colonna IVA c'è per mostrarla.
+
+⚠️ **Dove `productValue` manca (418 vendite) la cella dice «—» e la riga è marcata**: mettendoci zero il partner risulterebbe non aver preso niente e il guadagno sarebbe tutto nostro. Vale [[feedback-punteggi-senza-dati]]: una variabile senza dati si esclude, non vale zero.
+
+**Agosto 2026, verificato in produzione**: pubblico 18.170,30 € · al partner 13.608,96 € · guadagno lordo 4.556,34 € (25,1%) · netto IVA 3.734,77 € · paghe valet 2.969,00 € · **margine totale +220,67 €**.
+
+Sono sparite quattro colonne perché erano **lo stesso numero sotto nomi diversi**: «primo margine», «fee value», «incasso partner» e «corrispettivo +IVA».
 
 ⚠️ Il venduto ora si legge dalla **riga di consegna** (`DeliveryProduct.price`), non dal catalogo: il catalogo intanto cambia, e un prodotto riprezzato riscriverebbe la storia di consegne già fatte. Prima si leggeva da lì e dava 1.220.337 € contro 1.297.560 € — il quarto calcolo diverso dello stesso numero dentro lo stesso progetto. Ora la fonte è una sola, la stessa della Fatturazione.
 
