@@ -297,6 +297,48 @@ correzione del 06/08 è sembrata completa perché nessuno poteva rileggere il
 risultato. Un difetto che scrive su un sistema esterno ha **due** rimedi, e il
 secondo si dimentica sempre.
 
+### ⭐⭐ NEL PONTE C'È LO STORICO DA INIZIO AGOSTO E LO STATO ATTUALE (25/08/2026, 09:18)
+
+**Scritti davvero, verificati rileggendo la cartella da Drive** — non «il codice
+c'è», ma i file ci sono:
+
+| file | contenuto |
+| --- | --- |
+| `APPEND 00.2 App-Azioni 2026-08-25 0918.md` (40 KB) | **97 voci** dal 01/08 |
+| `RISULTATI App Gifts 2026-08-25 0918.md` (6 KB) | 32 righe |
+| `RISULTATI App Flowers …` (4 KB) | 16 righe |
+| `RISULTATI App Cake …` (3 KB) | 14 righe |
+
+- L'APPEND comprende anche le **NON eseguite**: un annuncio rifiutato da Google
+  è un fatto che il progetto di brand deve conoscere, non un non-evento. La
+  riga lo dice — `NON ESEGUITA — Error: …DUPLICATE_ASSET…` — invece di lasciare
+  un «—» che sembra un dato mancante.
+- I RISULTATI seguono il **§3**: una riga per campagna **ENABLED** per finestra
+  (7gg e 30gg chiuse a ieri), solo numeri e **note fattuali**, nessun giudizio.
+  Un rapporto che non si può calcolare è **`n.d.`**, non zero. Una campagna
+  attiva senza dati nella finestra c'è lo stesso, con la nota: «non compare» e
+  «ha speso zero» sono due cose diverse.
+
+⚠️⚠️ **IL DIFETTO TROVATO DALL'ANTEPRIMA, prima che i file nascessero.** Metà
+delle campagne Cake si chiamano `[Cakedesign] | Sales | ITA`, e il carattere
+`|` dentro una cella **spezza la tabella Markdown**: il file sarebbe arrivato al
+custode con la spesa sotto «Stato» e il ROAS sotto «Valore», e **nessuno se ne
+sarebbe accorto** leggendo il sorgente. Ora le celle sono protette (`cella()`),
+e la prova conta le colonne riga per riga: 14 righe su 14 con le stesse 13
+colonne. **È esattamente il motivo per cui l'anteprima esiste**: il ponte è
+append-only, un file sbagliato non si corregge — si può solo affiancare.
+
+Cron: `/api/cron/ponte` ogni sera 22:40 (log azioni) · `/api/cron/risultati` il
+**lunedì** (snapshot KPI, come chiede il modello). Più i bottoni «Deposita il log
+azioni ora» e «Deposita lo stato attuale» in `/impostazioni`, che usano **le
+stesse funzioni dei cron**, non copie.
+
+🔴 **Restano fuori dal ponte**: **§4 SEGNALAZIONE** (il vaso giusto per le tre
+negative generiche invece che esatte — ⚠️ e **l'app non sa togliere una
+negativa**: non esiste quell'operazione, quindi è materia da segnalare, non da
+riparare), **§5 RICHIESTA**, **§6 LANCIO** (obbligatorio a ogni campagna creata,
+e l'app le crea).
+
 ### ⭐⭐ L'APP DEPOSITA SU DRIVE QUELLO CHE HA FATTO (24-25/08/2026)
 
 Il ponte era aperto e non ci passava niente. Adesso c'è **`lib/ponte-drive.ts`**,
