@@ -930,9 +930,10 @@
     },
     "piuPaghe": "{{n}} ordini risultano pagati su più di una consegna: per la regola il giro si paga una volta sola, quindi il costo mostrato è quello vero, non quello dovuto.",
     "ordini": {
-      "titolo": "Ordini del periodo ({{n}})",
+      "titolo": "Ordini con più consegne ({{n}})",
       "consegne": "Consegne",
-      "piuPagate": "{{n}} pagate"
+      "piuPagate": "{{n}} pagate",
+      "nota": "Qui gli importi che stanno a monte — valore pagato dal cliente, spese di consegna, costo del giro — contati una volta per ordine. Gli altri {{n}} ordini hanno una consegna sola e stanno solo nell'elenco qui sotto."
     }
   },
   "stub": {

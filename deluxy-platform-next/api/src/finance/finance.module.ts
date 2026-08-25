@@ -214,6 +214,17 @@ interface RecapOrdine {
   partnerPrice: number;
   /** Il guadagno lordo dell'ordine. */
   takings: number;
+  takingsNet: number;
+  feeContract: number;
+  feePercent: number;
+  vat: number;
+  incassiCommission: number;
+  totalMargin: number;
+  totalMarginPercent: number;
+  /** Righe non attendibili dentro l'ordine. */
+  anomalie: number;
+  /** Le consegne dell'ordine: la riga si apre e le mostra. */
+  righe: CorrispettivoRow[];
   /**
    * ⚠️ Quante consegne dell'ordine risultano pagate. Se sono piu' di una la
    * regola carnet non e' stata applicata, e il costo qui sopra e' la somma di
@@ -340,22 +351,40 @@ export class FinanceService {
       if (!gruppi.has(k)) gruppi.set(k, []);
       gruppi.get(k)!.push(r);
     }
-    return [...gruppi.entries()].map(([saleRef, g]) => ({
+    return [...gruppi.entries()].map(([saleRef, g]) => {
+      const publicPrice = round2(g.reduce((s, r) => s + r.publicPrice, 0));
+      // ⚠️ UNA volta sola: le spese di consegna sono dell'ordine.
+      const deliveryFee = round2(Math.max(0, ...g.map((r) => r.deliveryFee)));
+      const valore = round2(publicPrice + deliveryFee);
+      const takings = round2(g.reduce((s, r) => s + r.takings, 0));
+      const takingsNet = round2(g.reduce((s, r) => s + r.takingsNet, 0));
+      const deliveryCost = round2(g.reduce((s, r) => s + r.deliveryCost, 0));
+      const incassiCommission = round2(valore * INCASSI);
+      return {
       saleRef,
       consegne: g.length,
-      saleValue: round2(g.reduce((s, r) => s + r.publicPrice, 0)),
-      // ⚠️ UNA volta sola: le spese di consegna sono dell'ordine. Si prende il
-      // valore piu' alto fra le consegne del gruppo — nell'import ogni consegna
-      // di un ordine riceve lo stesso importo, e dove manca vale zero.
-      deliveryFee: round2(Math.max(0, ...g.map((r) => r.deliveryFee))),
-      // ⚠️ Idem per il costo: per la regola carnet si paga un giro, non una
-      // consegna per destinazione. Qui si somma quello che risulta PAGATO
-      // davvero, e `consegnePagate` dice se sono piu' di uno.
-      deliveryCost: round2(g.reduce((s, r) => s + r.deliveryCost, 0)),
+      saleValue: publicPrice,
+      // Il valore piu' alto fra le consegne del gruppo: nell'import ogni
+      // consegna di un ordine riceve lo stesso importo, e dove manca vale zero.
+      deliveryFee,
+      // ⚠️ Per la regola carnet il giro si paga una volta, non una per
+      // destinazione. Qui si somma quello che risulta PAGATO davvero, e
+      // `consegnePagate` dice se sono piu' di uno.
+      deliveryCost,
       partnerPrice: round2(g.reduce((s, r) => s + r.partnerPrice, 0)),
-      takings: round2(g.reduce((s, r) => s + r.takings, 0)),
+      takings,
+      takingsNet,
+      feeContract: round2(g.reduce((s, r) => s + r.feeContract, 0)),
+      feePercent: valore > 0 ? round2((takingsNet / valore) * 100) : 0,
+      vat: round2(takings - takingsNet),
+      incassiCommission,
+      totalMargin: round2(takingsNet - deliveryCost - incassiCommission),
+      totalMarginPercent: valore > 0 ? round2(((takingsNet - deliveryCost - incassiCommission) / valore) * 100) : 0,
+      anomalie: g.filter((r) => r.anomalia).length,
       consegnePagate: g.filter((r) => r.deliveryCost > 0).length,
-    })).sort((a, b) => b.saleValue - a.saleValue);
+      righe: g,
+    };
+    }).sort((a, b) => b.saleValue - a.saleValue);
   }
 
   /**
@@ -519,7 +548,12 @@ export class FinanceService {
     return {
       deliveryId: d.id,
       deliveryCode: d.code,
-      saleRef: d.legacySaleId ?? (d.legacyOrderId != null ? String(d.legacyOrderId) : null) ?? d.ddtNumber ?? null,
+      // ⚠️ ZERO NON E' UN RIFERIMENTO. `legacyOrderId = 0` e' il segnaposto di
+      // chi un ordine non ce l'ha, e sotto quel valore stanno 10.272 consegne:
+      // lasciarlo passare qui faceva comparire nel riepilogo un «ordine 0» con
+      // 23 consegne che non hanno niente in comune. Lo stesso vale per una
+      // stringa vuota o per uno zero scritto come testo.
+      saleRef: riferimentoVendita(d),
       status: d.status,
       date: d.date,
       product: productLabel,
@@ -547,6 +581,23 @@ export class FinanceService {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * Il riferimento della vendita, fra i tre campi in cui la piattaforma lo tiene.
+ *
+ * ⚠️ Scarta lo ZERO e il vuoto: sono segnaposto, non identificatori. Un
+ * identificatore che vale zero su meta' tabella non identifica niente, e
+ * raggruppare per lui mette insieme consegne estranee.
+ */
+function riferimentoVendita(d: any): string | null {
+  const buono = (v: unknown) => {
+    if (v == null) return null;
+    const t = String(v).trim();
+    if (!t || t === '0') return null;
+    return t;
+  };
+  return buono(d.legacySaleId) ?? buono(d.legacyOrderId) ?? buono(d.ddtNumber) ?? null;
 }
 
 @ApiTags('finance')

@@ -1,0 +1,1934 @@
+[
+ {
+  "id": "cmt5zwinf0joti6sokiszvd20",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwipu0k16i6sotjv1w618",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwkwt0l9ni6soeskh4ra6",
+  "valetSalary": 6.27,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwnw70naxi6so4g2hgdrj",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwojd0nwki6soabltn5hr",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwozv0nx6i6so726dkk05",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwp010nydi6so76jb51s5",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwp0w0o3pi6soxvymcqes",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwr4o0p4ti6sodgtdsao8",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwr5e0p99i6somzsmg82c",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": -0.21,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwwjv0sqoi6sozftddi2r",
+  "valetSalary": 10,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zw9e00dt0i6sojgag6peq",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zw9x90e1bi6so9ibgj9iv",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zw9xu0e4si6sohta21x68",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zw9y80e6ji6sobf4l5io3",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zw9yh0e7wi6sozixjsiud",
+  "valetSalary": 6.26,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zw9yh0e80i6socc609utf",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zw9yi0e81i6soplierxfo",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zw9yi0e82i6sotdv6wfd1",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwaia0efgi6so63dw60k4",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwaio0eh4i6so3vfhm3y1",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwazs0eufi6so5y2j6kn3",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwazu0euki6so54jg5mqy",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwbl50f5ki6soj5v8g6l0",
+  "valetSalary": 7.92,
+  "valetAdditionalPrice": -4.92,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwbm00faji6sodz4af1gy",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwbm10fari6somlugskxr",
+  "valetSalary": 0,
+  "valetAdditionalPrice": 3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwbmb0fcci6sohg2mp92q",
+  "valetSalary": 8.34,
+  "valetAdditionalPrice": -5.34,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwbm60fbni6so1zi6iif8",
+  "valetSalary": 6.96,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwbmf0fd4i6soyaovsi10",
+  "valetSalary": 6.62,
+  "valetAdditionalPrice": -3.32,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwc4s0ffli6sosdib6xvw",
+  "valetSalary": 6.9,
+  "valetAdditionalPrice": -3.9,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwc560fi4i6soc7q3o2a3",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwc5c0fiti6soaeiopnc3",
+  "valetSalary": 6.61,
+  "valetAdditionalPrice": -3.61,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwc5j0fjzi6sou9xvgf7m",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwc680fo9i6sok1c29iqi",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt60002c0iryi63c8w6a5gha",
+  "valetSalary": 27.98,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt6000290irui63clehtx8tk",
+  "valetSalary": 27.09,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt60002a0irwi63c9y569r66",
+  "valetSalary": 25.62,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt60002b0irxi63cq3av3c0n",
+  "valetSalary": 21.41,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwc6w0fs7i6so9puxnh9g",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwc6y0fsmi6sojrh9nsw6",
+  "valetSalary": 7.71,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwcsy0g13i6soy6upsvph",
+  "valetSalary": 7.71,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwcsy0g14i6soamdc9epg",
+  "valetSalary": 7.71,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwcsz0g15i6so9q1h0bdm",
+  "valetSalary": 7.71,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwcsz0g16i6sou44pkemc",
+  "valetSalary": 7.71,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwcsz0g18i6socx41m6po",
+  "valetSalary": 7.71,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwcsz0g19i6soeo3vtgpi",
+  "valetSalary": 7.71,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwct00g1bi6so9er5d5of",
+  "valetSalary": 7.71,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwct00g1ci6so64i20ty7",
+  "valetSalary": 7.71,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwc710ft5i6sos12r5rdp",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwcrp0fu7i6soojxeqmka",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwcsx0g0ti6somce2ny21",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwct00g1gi6soo63p5dx0",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwct70g2ki6soylg4jr2f",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwdd20g7ui6soo9q29e5k",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwdda0g94i6soapd8u10k",
+  "valetSalary": 6.39,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwddf0g9yi6so9s2au7xd",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwddt0gc8i6sov1crcp9u",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwddu0gcfi6so1a4cphmh",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwde00gdhi6so518gztpt",
+  "valetSalary": 8.77,
+  "valetAdditionalPrice": -5.77,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwdeb0gf4i6so2pn0r6sc",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwdea0gf2i6sovypnsmus",
+  "valetSalary": 9.31,
+  "valetAdditionalPrice": -6.31,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwdez0gjfi6sosibw4z3d",
+  "valetSalary": 8.83,
+  "valetAdditionalPrice": -5.83,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwwiy0slti6so6whmosz1",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwwjq0sppi6soscvm2azb",
+  "valetSalary": 15.87,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwe2m0grsi6so80gov1fy",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwe3x0gxci6sooqbktea0",
+  "valetSalary": 6.03,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwek60h01i6sohwvkh3o0",
+  "valetSalary": 7.08,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zweki0h1si6soj79cf0e7",
+  "valetSalary": 6.66,
+  "valetAdditionalPrice": -3.66,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwekr0h2ki6sokkrl77kb",
+  "valetSalary": 6.39,
+  "valetAdditionalPrice": -3.39,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zweky0h3qi6soorre4lp0",
+  "valetSalary": 6.76,
+  "valetAdditionalPrice": -3.76,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwel60h53i6soio61o4et",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwel50h51i6sob34nh8ao",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwel90h5ki6so3cm94bza",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwela0h5ti6sobrotrjz4",
+  "valetSalary": 6.22,
+  "valetAdditionalPrice": -3.22,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwell0h7ji6soi4jumsfm",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwf4w0hg3i6sog1iiaj4c",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwfnt0hqwi6sohkphj1dz",
+  "valetSalary": 8.19,
+  "valetAdditionalPrice": 3.31,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwfnu0hr3i6sojjrw7k6q",
+  "valetSalary": 6.01,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwfpd0hz3i6solr9yhsuy",
+  "valetSalary": 6.27,
+  "valetAdditionalPrice": -3.27,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwhfs0izxi6soz8wuux3u",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwfqa0i4ei6sofrgsqj80",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwgc40i57i6so8w67mmnd",
+  "valetSalary": 11.46,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwgw30ikhi6soq4sca88n",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwgy70ivei6sorrcmycw9",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwhff0ixri6soewvithyk",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwhfl0iyqi6soscewfdv1",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwhfr0izri6sovtj2aq4g",
+  "valetSalary": 9.44,
+  "valetAdditionalPrice": -6.44,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwhz00jaki6so901154i2",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwhz90jcdi6sokn4143vx",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwhza0jcji6soh739sy3h",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwhzp0jesi6soena8sjw4",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwr570p83i6so6fatwiay",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zynv8009zi63cq26qmkhj",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwtkq0qnli6sor5to0yh4",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwtkv0qo6i6sonvw1n1x4",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwio60jsvi6sojzts53cb",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwiol0juyi6sou9jb9y9d",
+  "valetSalary": 6.57,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwipl0jzxi6sogie08gcy",
+  "valetSalary": 15.13,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwipl0k00i6soaq5ovcx5",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwj8q0k37i6solw39pckh",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwj8v0k3vi6sobd914gdd",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwjaz0kg2i6sojglriod8",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -1.95,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwjsx0kgoi6so005plt1e",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwjt70khqi6soawnl9noj",
+  "valetSalary": 6.01,
+  "valetAdditionalPrice": -3.01,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwky50lh8i6soe7fsjltd",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwkyf0liii6sokn5d2q99",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwkyz0llhi6so060skdcr",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwmmx0mdli6sosb4orm70",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwm1n0mc2i6so671e3kkd",
+  "valetSalary": 6.5,
+  "valetAdditionalPrice": -3.5,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwm1r0mcei6sony07c74e",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwmna0mfmi6soqqmxhn7a",
+  "valetSalary": 9.54,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwmnn0mhhi6so3gdiwjs0",
+  "valetSalary": 6.09,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwnvp0n7pi6so8rqa2xff",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwn900mrui6soc9akzzje",
+  "valetSalary": 7,
+  "valetAdditionalPrice": -4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwn9f0mu7i6soos2nj0nc",
+  "valetSalary": 9.58,
+  "valetAdditionalPrice": -6.58,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwnas0n2ui6sohn2fg06g",
+  "valetSalary": 6.05,
+  "valetAdditionalPrice": -3.05,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwnay0n3yi6sod0q6annu",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwnb60n59i6soz571qr56",
+  "valetSalary": 6.07,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwnvh0n68i6sol7owx96c",
+  "valetSalary": 6.18,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwnvx0n90i6so8hjdjthb",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwnw10n9ri6so075rvnl8",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwnwb0nbsi6sofolzir40",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwnwg0nc6i6sotqpzkvlb",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwnwz0nfhi6soa7u8gfhj",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwohy0nobi6sogd1ex3t5",
+  "valetSalary": 7,
+  "valetAdditionalPrice": -4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwoi10nosi6soimtbe1vm",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwoio0ns2i6soic7ffff2",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwpwe0odli6so57urip21",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwoiz0nu6i6sojdwgu3km",
+  "valetSalary": 10.86,
+  "valetAdditionalPrice": -7.86,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwoj60nv9i6so2vuvk64a",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwojc0nwfi6so6a3zufyv",
+  "valetSalary": 7,
+  "valetAdditionalPrice": -4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwojd0nwii6so93ip3q1r",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwp040nyti6sowjurisdi",
+  "valetSalary": 6.49,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwp0f0o0ui6sop5wrjlau",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwp0s0o31i6sow16ircvu",
+  "valetSalary": 7,
+  "valetAdditionalPrice": -4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwp0v0o3li6sovgkyn6iq",
+  "valetSalary": 6.05,
+  "valetAdditionalPrice": -3.05,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwp1c0o5ui6sovt6m2s00",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwp110o4oi6sosepiqst9",
+  "valetSalary": 6.58,
+  "valetAdditionalPrice": -3.58,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwp1l0o76i6so20l7hmsf",
+  "valetSalary": 6.56,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwp250oa5i6sox7zvdlz0",
+  "valetSalary": 6.28,
+  "valetAdditionalPrice": -3.28,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwpwa0ocui6sooe2ldew7",
+  "valetSalary": 6.12,
+  "valetAdditionalPrice": -3.12,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwpwk0oegi6soniu15qv8",
+  "valetSalary": 8.23,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqh60oqli6soukh78bbn",
+  "valetSalary": 6.02,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqgz0opbi6soco3uw102",
+  "valetSalary": 6.09,
+  "valetAdditionalPrice": -3.09,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqh70oqqi6so12mbk3c2",
+  "valetSalary": 9.65,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqha0orei6soxpl13qru",
+  "valetSalary": 6.26,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqhm0ot7i6soqbk7a8gn",
+  "valetSalary": 10.46,
+  "valetAdditionalPrice": -7.46,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqhy0ov1i6soxgj4bw79",
+  "valetSalary": 6.64,
+  "valetAdditionalPrice": -3.62,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqhz0ov3i6soal9vywkc",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqia0owzi6so0db2msja",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqid0ox9i6sou1cl65d8",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqid0oxci6soiq0m3d0b",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqjd0p0si6soc5a6u2e6",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqje0p0wi6sogh4rrmbb",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwr4r0p5ci6sov3bbdg5z",
+  "valetSalary": 9.11,
+  "valetAdditionalPrice": -6.11,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwr530p79i6soe2nbqvxf",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwr5h0p9ui6som522gchf",
+  "valetSalary": 7.51,
+  "valetAdditionalPrice": -4.51,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwrpq0pgwi6sou7rvgmhx",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwrr20poci6sonjyqfp3r",
+  "valetSalary": 0,
+  "valetAdditionalPrice": 3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwrrm0prki6sob41osoel",
+  "valetSalary": 11.21,
+  "valetAdditionalPrice": -6.71,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsac0pvfi6so0wbuj7n6",
+  "valetSalary": 7,
+  "valetAdditionalPrice": -4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsa60puli6soahjkuneu",
+  "valetSalary": 0,
+  "valetAdditionalPrice": 3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsad0pvli6so3610ezjo",
+  "valetSalary": 6.6,
+  "valetAdditionalPrice": -3.6,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsai0pwki6songhtdz5z",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsbc0q1ji6sonsa752qq",
+  "valetSalary": 0,
+  "valetAdditionalPrice": 3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsbd0q1qi6somghznvbt",
+  "valetSalary": 6.19,
+  "valetAdditionalPrice": -3.19,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu590r2si6so7f8r64a0",
+  "valetSalary": 10.8,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsce0q7qi6so9pngy7qp",
+  "valetSalary": 6.49,
+  "valetAdditionalPrice": -3.49,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsu60q9ei6sok1benj5n",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsuh0qbci6socl3i5oys",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsun0qc9i6sov1ijuz2j",
+  "valetSalary": 6.45,
+  "valetAdditionalPrice": -3.45,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsuw0qe0i6so42jza8no",
+  "valetSalary": 6.93,
+  "valetAdditionalPrice": -3.47,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsvq0qici6so7oybcnpt",
+  "valetSalary": 7.28,
+  "valetAdditionalPrice": -4.28,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsvk0qhgi6so30vm3odd",
+  "valetSalary": 6.88,
+  "valetAdditionalPrice": -3.88,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwsw40qjbi6soplr1ndyc",
+  "valetSalary": 7,
+  "valetAdditionalPrice": -4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwswb0qkbi6sozxldiolz",
+  "valetSalary": 6.31,
+  "valetAdditionalPrice": 10.69,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwtkh0qn4i6soonli3qep",
+  "valetSalary": 6.31,
+  "valetAdditionalPrice": 10.69,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwwk20srmi6sokzrbdsrx",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwswc0qkli6sotjgvflpr",
+  "valetSalary": 7,
+  "valetAdditionalPrice": -4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwtkx0qoai6soh83luq41",
+  "valetSalary": 7.52,
+  "valetAdditionalPrice": -4.52,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu510r1vi6sokluvsud9",
+  "valetSalary": 0,
+  "valetAdditionalPrice": 10,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwtnl0qzai6sokoiomj0q",
+  "valetSalary": 0,
+  "valetAdditionalPrice": 3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu5n0r4hi6sooigfzz3l",
+  "valetSalary": 7,
+  "valetAdditionalPrice": -4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu610r5yi6sofochfl9v",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu670r6ti6soszjf48wv",
+  "valetSalary": 12.61,
+  "valetAdditionalPrice": -10,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu670r6wi6soj7mcxcbo",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu6c0r7ki6sogo81l1vj",
+  "valetSalary": 58.4,
+  "valetAdditionalPrice": -55.4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu760rc7i6sow4opbt9t",
+  "valetSalary": 7.22,
+  "valetAdditionalPrice": -4.22,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu7d0rdci6so26vjlrbg",
+  "valetSalary": 32.46,
+  "valetAdditionalPrice": -29.46,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu7f0rdoi6so00a7rpcy",
+  "valetSalary": 7.03,
+  "valetAdditionalPrice": -4.03,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu7f0rdmi6so2voq4e75",
+  "valetSalary": 11.61,
+  "valetAdditionalPrice": -8.61,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwu7g0rdsi6sox86duteu",
+  "valetSalary": 7.14,
+  "valetAdditionalPrice": -4.14,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwuqy0rf5i6sobevhdnwz",
+  "valetSalary": 7,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwur40rfqi6sorq4fkfhw",
+  "valetSalary": 12.48,
+  "valetAdditionalPrice": 0.52,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwurq0rizi6soy7mz5743",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwuru0rjqi6so2lep4o8u",
+  "valetSalary": 25.5,
+  "valetAdditionalPrice": -22.5,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwus90rm7i6so3tp7fqbf",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwusb0rmji6so69wb2lh9",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwusp0ropi6sohbtdfkp1",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwusu0rpji6sor8dsmb1c",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwut10rqli6so5lktyuwd",
+  "valetSalary": 7,
+  "valetAdditionalPrice": -4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwut10rqqi6soeexr0o05",
+  "valetSalary": 7.19,
+  "valetAdditionalPrice": -4.19,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwut40rr6i6so4ugvjqv4",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvb40rt1i6soxsnv3tgl",
+  "valetSalary": 6.81,
+  "valetAdditionalPrice": -3.81,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvb80rtui6sohsffkkxz",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvb90rtyi6soo46xtsyp",
+  "valetSalary": 7,
+  "valetAdditionalPrice": -4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvbg0rv9i6solow0oerz",
+  "valetSalary": 15.82,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvbg0rvbi6so7nw3yasl",
+  "valetSalary": 13.26,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvbh0rvdi6sol7h50g5o",
+  "valetSalary": 6.05,
+  "valetAdditionalPrice": -3.05,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvbl0rw3i6so48yys2nv",
+  "valetSalary": 15.25,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvbm0rw7i6sojykxhfa8",
+  "valetSalary": 18.11,
+  "valetAdditionalPrice": -15.11,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvbp0rwni6so8nzsgzps",
+  "valetSalary": 7,
+  "valetAdditionalPrice": -4,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvuw0s60i6soxad7ab8d",
+  "valetSalary": 7.18,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvvc0s8pi6soer0gps3d",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyntu007yi63cpbrp8t5d",
+  "valetSalary": 6.15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwwjw0sqpi6sogf3d6d56",
+  "valetSalary": 6.14,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyntf0075i63c9cc8omea",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 5.3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvvp0saxi6son35dung4",
+  "valetSalary": 9.87,
+  "valetAdditionalPrice": -6.87,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvwh0sfji6so8yjpkbf7",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvww0si6i6souoiszueh",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwvwz0simi6so1g9k7l68",
+  "valetSalary": 7.37,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zynsn005vi63c20rmmd3v",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzjyw0dizi63ccu33tr5d",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyppj00koi63ckfypl6a5",
+  "valetSalary": 6.75,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zypsi00qni63c9twldf40",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zypsj00qoi63c1vkr5f9y",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyqsx00u0i63cln9pnqid",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zys85015qi63cguuotvik",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyvcx022hi63c04r4n697",
+  "valetSalary": 6.34,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": "cmt5zektl0000i6x0mufax554"
+ },
+ {
+  "id": "cmt5zyxz202vvi63crs9pnxqt",
+  "valetSalary": 7.61,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyzqb03q6i63cnw6ccrdm",
+  "valetSalary": 7.46,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyzqc03q9i63ch406n9gz",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz0ic03xvi63cjtq8s5b1",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz1su04wxi63cped9c1fv",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz1sv04wyi63cd40j2hyr",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -1.5,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz3k505rai63cz9fds6f0",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 1.8,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz4bz064ri63crmlemqzj",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz5r606n4i63cc011tnph",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz6ij06yui63c34peefp6",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz6kc0793i63co9u142x7",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz7vf081pi63ccwcv0b9l",
+  "valetSalary": 12.31,
+  "valetAdditionalPrice": -9.31,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz7uw07zyi63cg6hz39ps",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -2,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz8je08eoi63cdzelwai5",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz8jl08fui63cs5p8tfur",
+  "valetSalary": 6.28,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz94g08hki63c6qd9c9lo",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz94h08hqi63cfpov07rj",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz94i08hui63c3za3404c",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz9pq08xni63cbssq9i8e",
+  "valetSalary": 6.86,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zza9g09b4i63cbm9sg8jx",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zza9g09b5i63cgkqwat0h",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzaai09h6i63cubfdp3jv",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzc7u0agai63ccr3ykvij",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzav809q1i63cy5s0ptk8",
+  "valetSalary": 7.31,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzavk09rzi63cuzjgg3wu",
+  "valetSalary": 7.56,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzbgw0aawi63c8bhcxg5b",
+  "valetSalary": 12.5,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzc7p0afni63cgva9zuwt",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzc8g0ak4i63c3o8f4duk",
+  "valetSalary": 15.17,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzc9v0asbi63ceal5pkv7",
+  "valetSalary": 7.58,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzehr0bv9i63cqmg5s6ri",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzfi50c8bi63cjdoxdh45",
+  "valetSalary": 8,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzgm90ck5i63c9pgt5czt",
+  "valetSalary": 10.12,
+  "valetAdditionalPrice": 4.88,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzhkr0ct8i63c6a0hnrvu",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzho40d24i63cs0u54y7l",
+  "valetSalary": 25.36,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzliq0dzsi63cxi8k3ql7",
+  "valetSalary": 8,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzlj90e0ki63cab8k426s",
+  "valetSalary": 6.07,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzljo0e13i63c3w80ulor",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 7.5,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzljr0e18i63c0lw798m5",
+  "valetSalary": 6.07,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzmtj0ehdi63c8lwcopzl",
+  "valetSalary": 24.45,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzmtk0ehgi63clb0bt9ld",
+  "valetSalary": 24.43,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zznx30eqti63cbn37dmrr",
+  "valetSalary": 7.35,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzo370f0zi63c2ax0clap",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzszv0giri63ccf6cxsxl",
+  "valetSalary": 6.46,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzszw0giti63chl848lur",
+  "valetSalary": 6.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzt0d0gk8i63c2uim17du",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zztr90glsi63csy6q2nh1",
+  "valetSalary": 14.75,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zztrt0gmti63cfdq7qbft",
+  "valetSalary": 7.53,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzuwy0h4gi63cznke6tdf",
+  "valetSalary": 7.89,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzuwy0h4ei63czx12dsxt",
+  "valetSalary": 7.56,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzuwy0h4fi63cxv33jgd1",
+  "valetSalary": 7.28,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzuxn0h5ri63cfvb3ohy8",
+  "valetSalary": 14.37,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzuyw0h7fi63cpznpnlef",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzuzt0h94i63cqbruj4q0",
+  "valetSalary": 92.78,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzv050habi63cgx5dw3e2",
+  "valetSalary": 6.72,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzw4z0hhxi63cp7p79s9f",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzw5l0hiti63c17wecy1l",
+  "valetSalary": 25.64,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzw5p0hiyi63cnrp2qu6x",
+  "valetSalary": 22.16,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzw5r0hj6i63clf7x9ax6",
+  "valetSalary": 16.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzw8a0howi63crq10139d",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzw8h0hpmi63cfsvtbbjo",
+  "valetSalary": 26.52,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzw8i0hpqi63c7b8lsltr",
+  "valetSalary": 24.42,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzw8i0hpni63c8onbzhe2",
+  "valetSalary": 23.29,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzw8t0hqhi63cqhu1dd05",
+  "valetSalary": 16.59,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzx3d0htsi63c65ri6vo3",
+  "valetSalary": 15.15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzx4o0hwji63cd4mc1asn",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzx4w0hwui63cba4ndlcr",
+  "valetSalary": 7.25,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzynb0i9mi63cyko2ued5",
+  "valetSalary": 14.31,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzyn80i9hi63c7yvgg4k3",
+  "valetSalary": 38.42,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzynf0i9ti63c6wna0g22",
+  "valetSalary": 29.17,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzynp0iaoi63ckyjm2rm8",
+  "valetSalary": 7.72,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzynl0iaci63cit80vnak",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzyqd0iemi63c5eob1sz3",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzzxs0ikui63cktlksneu",
+  "valetSalary": 7.42,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzzxv0il0i63c32535aej",
+  "valetSalary": 8.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt6000190iqni63cd9x4na52",
+  "valetSalary": 18.79,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zwqhd0orti6sosvx5fthu",
+  "valetSalary": 6,
+  "valetAdditionalPrice": -3,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyqsh00t2i63c1oka2kqt",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyqt100udi63cycovgfq5",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyxz002vti63cfxlnnpyx",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyz2b03bdi63csxd86b3c",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyz2c03bei63c402uf3ts",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyzos03ipi63cwi5wsq6j",
+  "valetSalary": 8,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyzos03imi63cgtdqjk48",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyzp003jyi63c9nabbkv6",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyzph03mai63c7cefp8mp",
+  "valetSalary": 6.59,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyzpo03n8i63cna1oscnl",
+  "valetSalary": 6.01,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyzpd03lqi63c3ktle6c0",
+  "valetSalary": 6,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyzqf03qwi63c9aff78ta",
+  "valetSalary": 15,
+  "valetAdditionalPrice": -8.75,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zyzqr03sci63cyfhwn4bl",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz0hw03vii63ct1524g0o",
+  "valetSalary": 15,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zz2ta058zi63cd4z5uiu4",
+  "valetSalary": 7.2,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzylr0i7li63crqu53moo",
+  "valetSalary": 14.26,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ },
+ {
+  "id": "cmt5zzymh0i8ji63cy51h8068",
+  "valetSalary": 14.98,
+  "valetAdditionalPrice": 0,
+  "valetDeliveryRuleId": null
+ }
+]

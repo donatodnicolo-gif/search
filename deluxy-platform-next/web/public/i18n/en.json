@@ -930,9 +930,10 @@
     },
     "piuPaghe": "{{n}} orders are paid on more than one delivery: by the rule a round is paid once, so the cost shown is the real one, not the one due.",
     "ordini": {
-      "titolo": "Orders in this period ({{n}})",
+      "titolo": "Orders with several deliveries ({{n}})",
       "consegne": "Deliveries",
-      "piuPagate": "{{n}} paid"
+      "piuPagate": "{{n}} paid",
+      "nota": "Here the upstream amounts — customer price, shipping, round cost — counted once per order. The other {{n}} orders have a single delivery and appear only in the list below."
     }
   },
   "stub": {

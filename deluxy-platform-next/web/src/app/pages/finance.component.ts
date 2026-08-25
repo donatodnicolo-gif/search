@@ -49,7 +49,17 @@ interface RecapOrdine {
   deliveryCost: number;
   partnerPrice: number;
   takings: number;
+  takingsNet: number;
+  feeContract: number;
+  feePercent: number;
+  vat: number;
+  incassiCommission: number;
+  totalMargin: number;
+  totalMarginPercent: number;
+  anomalie: number;
   consegnePagate: number;
+  /** Le consegne dell'ordine: la riga si apre e le mostra. */
+  righe: CorrispettivoRow[];
 }
 
 interface Summary {
@@ -207,50 +217,6 @@ interface Summary {
           }
         </div>
       } @else {
-        <!-- Gli importi dell'ordine stanno SOPRA le sue consegne: il valore
-             pagato dal cliente, le spese di consegna e il costo del giro sono
-             dell'ordine, e ripeterli su ogni riga li conterebbe due volte. -->
-        @if (summary()?.ordini; as ordini) {
-          @if (ordini.length && ordini.length <= 40) {
-            <div class="card ordini">
-              <h2>{{ 'finance.ordini.titolo' | translate:{ n: ordini.length } }}</h2>
-              <table class="fin recap">
-                <thead>
-                  <tr>
-                    <th>{{ 'finance.c.sale' | translate }}</th>
-                    <th class="num">{{ 'finance.ordini.consegne' | translate }}</th>
-                    <th class="num">{{ 'finance.c.publicPrice' | translate }}</th>
-                    <th class="num">{{ 'finance.c.deliveryFee' | translate }}</th>
-                    <th class="num">{{ 'finance.c.saleValue' | translate }}</th>
-                    <th class="num">{{ 'finance.c.partnerPrice' | translate }}</th>
-                    <th class="num">{{ 'finance.c.takings' | translate }}</th>
-                    <th class="num">{{ 'finance.c.deliveryCost' | translate }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (o of ordini; track o.saleRef) {
-                    <tr [class.riga-anomala]="o.consegnePagate > 1">
-                      <td class="mono">{{ o.saleRef }}</td>
-                      <td class="num">{{ o.consegne }}</td>
-                      <td class="num">{{ euro(o.saleValue) }}</td>
-                      <td class="num">{{ euro(o.deliveryFee) }}</td>
-                      <td class="num">{{ euro(o.saleValue + o.deliveryFee) }}</td>
-                      <td class="num">{{ euro(o.partnerPrice) }}</td>
-                      <td class="num">{{ euro(o.takings) }}</td>
-                      <td class="num">
-                        {{ euro(o.deliveryCost) }}
-                        @if (o.consegnePagate > 1) {
-                          <span class="tag-anomalia">{{ 'finance.ordini.piuPagate' | translate:{ n: o.consegnePagate } }}</span>
-                        }
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
-        }
-
         <div class="card table-wrap">
           <table class="fin">
             <thead>
@@ -280,10 +246,44 @@ interface Summary {
               </tr>
             </thead>
             <tbody>
-              @for (r of rows(); track r.deliveryId) {
-                <tr [class.riga-anomala]="r.anomalia">
+              <!-- Una riga per ORDINE: gli importi che stanno a monte — quello
+                   che ha pagato il cliente, le spese di consegna, il costo del
+                   giro — si contano una volta sola qui. Si apre per vedere le
+                   sue consegne, anche quando e' una sola: chi guarda non deve
+                   ricordarsi che due viste hanno regole diverse. -->
+              @for (o of summary()?.ordini ?? []; track o.saleRef) {
+                <tr class="riga-ordine" [class.riga-anomala]="o.consegnePagate > 1 || o.anomalie > 0"
+                    (click)="apriChiudi(o.saleRef)">
+                  <td colspan="2" class="mono ordine-id">
+                    <span class="freccia">{{ aperto(o.saleRef) ? '▾' : '▸' }}</span>
+                    {{ o.saleRef }}
+                  </td>
+                  <td colspan="4">{{ 'finance.ordini.consegne' | translate }}: {{ o.consegne }}
+                    @if (o.consegnePagate > 1) {
+                      <span class="tag-anomalia">{{ 'finance.ordini.piuPagate' | translate:{ n: o.consegnePagate } }}</span>
+                    }
+                  </td>
+                  <td>—</td>
+                  <td class="num">{{ euro(o.saleValue) }}</td>
+                  <td class="num">{{ euro(o.deliveryFee) }}</td>
+                  <td class="num">{{ euro(o.saleValue + o.deliveryFee) }}</td>
+                  <td class="num">{{ euro(o.partnerPrice) }}</td>
+                  <td class="num">{{ euro(o.takings) }}</td>
+                  <td class="num">{{ euro(o.takingsNet) }}</td>
+                  <td class="num">{{ o.feePercent | number: '1.0-1' }}%</td>
+                  <td class="num"></td>
+                  <td class="num contratto">{{ euro(o.feeContract) }}</td>
+                  <td class="num">{{ euro(o.deliveryCost) }}</td>
+                  <td class="num">{{ euro(o.vat) }}</td>
+                  <td class="num">{{ euro(o.incassiCommission) }}</td>
+                  <td class="num" [class.neg]="o.totalMargin < 0">{{ euro(o.totalMargin) }}</td>
+                  <td class="num">{{ o.totalMarginPercent | number: '1.0-2' }}%</td>
+                </tr>
+                @if (aperto(o.saleRef)) {
+                  @for (r of o.righe; track r.deliveryId) {
+                    <tr class="riga-consegna" [class.riga-anomala]="r.anomalia">
                   <td><span class="pill">{{ r.status }}</span></td>
-                  <td class="mono">{{ r.saleRef ?? '—' }}</td>
+                  <td class="mono"></td>
                   <td class="mono">#{{ r.deliveryCode }}
                     @if (r.anomalia) {
                       <span class="tag-anomalia">{{ 'finance.anomalia.' + r.anomalia | translate }}</span>
@@ -313,7 +313,9 @@ interface Summary {
                   <td class="num">{{ euro(r.incassiCommission) }}</td>
                   <td class="num" [class.neg]="r.totalMargin < 0">{{ euro(r.totalMargin) }}</td>
                   <td class="num">{{ r.totalMarginPercent | number: '1.0-2' }}%</td>
-                </tr>
+                    </tr>
+                  }
+                }
               }
             </tbody>
             @if (summary(); as s) {
@@ -382,8 +384,14 @@ interface Summary {
       .assumption { margin-top: 12px; font-size: 12px; color: var(--text-tertiary); font-style: italic; }
       .error-card { padding: 14px 16px; border-radius: var(--radius-m); background: rgba(215,0,21,0.08); color: var(--red); }
       .state-card { padding: 32px; color: var(--text-secondary); }
+      .riga-ordine { cursor: pointer; background: rgba(0,0,0,0.025); font-weight: 550; }
+      .riga-ordine:hover { background: rgba(0,0,0,0.05); }
+      .riga-ordine .freccia { display: inline-block; width: 14px; color: var(--text-secondary); }
+      .riga-ordine .ordine-id { font-weight: 600; }
+      .riga-consegna td:first-child { border-left: 2px solid rgba(0,0,0,0.08); }
       .ordini { padding: 16px 18px; margin-bottom: 14px; overflow-x: auto; }
-      .ordini h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+      .ordini-nota { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); }
+      .ordini h2 { margin: 0 0 6px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
       .ordini .recap { width: 100%; }
       .altrove { margin: 12px 0 0; font-size: 13px; color: var(--text-primary); }
       .altrove .motivi { display: block; margin-top: 6px; }
@@ -476,6 +484,26 @@ export class FinanceComponent {
 
   euro(v: number): string {
     return `${v.toFixed(2)} €`;
+  }
+
+  /** Quali ordini sono aperti. */
+  private readonly espansi = signal<Set<string>>(new Set());
+
+  aperto(saleRef: string): boolean {
+    return this.espansi().has(saleRef);
+  }
+
+  /**
+   * Apre o chiude un ordine.
+   *
+   * ⚠️ Il Set si RICREA a ogni giro invece di essere mutato: un signal che
+   * riceve lo stesso oggetto non notifica, e la tabella resterebbe ferma
+   * mentre lo stato e' gia' cambiato.
+   */
+  apriChiudi(saleRef: string): void {
+    const s = new Set(this.espansi());
+    if (s.has(saleRef)) s.delete(saleRef); else s.add(saleRef);
+    this.espansi.set(s);
   }
 
   /**

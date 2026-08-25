@@ -21,9 +21,19 @@
 //         `valetAdditionalPrice`.
 //
 //  B) ValetDeliveryRule (carnet lato valet, 7). Per i valet che hanno una
-//     regola, si cercano i gruppi di consegne sulla STESSA VENDITA e si guarda
-//     se le consegne oltre la prima portano il plus dello scaglione invece
-//     della paga intera.
+//     regola, si cercano i GIRI e si guarda se le consegne oltre quella che
+//     porta il viaggio prendono il plus dello scaglione invece della paga
+//     intera.
+//
+//     ⭐ Un giro e' «stesso DDT + stesso valet + stesso GIORNO» (l'utente,
+//     25/08/2026). Prima raggruppavo per `legacyOrderId`, e sbagliavo due volte:
+//     quel campo vale **0 su 10.272 consegne** — il segnaposto di chi un ordine
+//     non ce l'ha — e ignora il giorno, mentre uno stesso DDT puo' avere uscite
+//     in date diverse (il 5612 ne ha il 10, il 20 e il 21 settembre: tre
+//     trasferte, non un giro).
+//
+//     ⚠️ E la paga del giro la porta la consegna PIU' PAGATA, non la prima per
+//     numero: sul DDT 7222 la prima e' pagata −0,19 € e la seconda 70,01.
 //
 // ⚠️ Il confronto sugli importi e' un INDIZIO, non una prova: un plus di −18 €
 // puo' essere gia' dentro un prezzo concordato. Dove non si puo' concludere, lo
@@ -131,28 +141,40 @@ try {
     if (!valetIds.length) { console.log(`| ${r.name} | (nessun valet) | ${r._count.deliveries} | — | — | — |`); continue; }
     // gruppi di consegne dello stesso valet sulla stessa vendita
     const d = await db.delivery.findMany({
-      where: { deletedAt: null, valetId: { in: valetIds }, legacyOrderId: { not: null, gt: 0 } },
-      select: { code: true, valetId: true, legacyOrderId: true, valetSalary: true, valetAdditionalPrice: true, payable: true },
+      where: { deletedAt: null, status: { not: 'cancelled' }, valetId: { in: valetIds }, ddtNumber: { not: null } },
+      select: { code: true, date: true, valetId: true, ddtNumber: true, valetSalary: true, valetAdditionalPrice: true, payable: true },
     });
     const gruppi = new Map();
-    for (const x of d) { const k = `${x.valetId}|${x.legacyOrderId}`; if (!gruppi.has(k)) gruppi.set(k, []); gruppi.get(k).push(x); }
+    for (const x of d) {
+      const ddt = String(x.ddtNumber).trim();
+      if (!ddt || ddt === '0') continue;    // segnaposto, non un documento
+      const k = `${x.valetId}|${ddt}|${x.date.toISOString().slice(0, 10)}`;
+      if (!gruppi.has(k)) gruppi.set(k, []);
+      gruppi.get(k).push(x);
+    }
     const multi = [...gruppi.values()].filter((g) => g.length > 1);
     let altre = 0, giuste = 0, piene = 0;
     for (const g of multi) {
       const plus = scaglioni(r.tiers, g.length);
       if (plus === null) continue;
-      const ordinate = [...g].sort((a, b) => a.code - b.code);
-      for (const x of ordinate.slice(1)) {       // la prima porta la paga, le altre il plus
+      const pagaDi = (x) => (x.valetSalary ?? 0) + (x.valetAdditionalPrice ?? 0);
+      const ordinate = [...g].sort((a, b) => pagaDi(b) - pagaDi(a) || a.code - b.code);
+      for (const x of ordinate.slice(1)) {       // la piu' pagata porta il viaggio, le altre il plus
         altre++;
         const paga = (x.valetSalary ?? 0) + (x.valetAdditionalPrice ?? 0);
-        if (Math.abs(paga - plus) < 0.011 || paga === 0) giuste++;
+        // ⚠️ Va bene anche pagare MENO del plus: la regola mette un tetto al
+        // ritiro in piu', non un minimo garantito. Contare come «non applicata»
+        // una consegna pagata 2 € dove il plus e' 3 accusava righe gia' a posto
+        // — ed e' lo stesso metro sbagliato che lo script di applicazione non
+        // usa, tanto che i due strumenti davano numeri diversi sugli stessi dati.
+        if (paga <= plus + 0.011) giuste++;
         else { piene++; if (esempiPieni.length < 10) esempiPieni.push({ regola: r.name, code: x.code, paga, atteso: plus, quante: g.length }); }
       }
     }
     totAltre += altre; totGiuste += giuste; totPiene += piene;
     console.log(`| ${r.name} | ${valetIds.length} | ${r._count.deliveries} | ${multi.length} | ${giuste} (${pc(giuste, altre)}) | ${piene} (${pc(piene, altre)}) |`);
   }
-  console.log(`\nconsegne «oltre la prima» su una vendita multipla: ${totAltre}`);
+  console.log(`\nconsegne «oltre quella che porta il viaggio», sullo stesso DDT e nello stesso giorno: ${totAltre}`);
   console.log(`  col plus dello scaglione (o a zero): ${totGiuste} (${pc(totGiuste, totAltre)})`);
   console.log(`  🔴 con la paga PIENA, cioe' la regola non applicata: ${totPiene} (${pc(totPiene, totAltre)})`);
   if (esempiPieni.length) {
