@@ -86,6 +86,18 @@ async function syncCrm(admin: any, token: string) {
   } while (after);
 
   // Trattative (deals) con l'azienda associata.
+  // ⚠️ La linea si PRESERVA quando HubSpot non ce l'ha: la copia locale può
+  // essere stata arricchita dall'app (assegnazione della linea a deal che su
+  // HubSpot hanno `deluxy_linea` vuota, 24/08/2026), e prima l'upsert la
+  // riazzerava a null ogni notte. Un valore NON nullo di HubSpot vince sempre:
+  // la casa del dato resta HubSpot, qui si tiene solo ciò che lui non sa.
+  const { data: lineeLocali } = await admin
+    .from('hubspot_deals')
+    .select('hubspot_id, linea')
+    .not('linea', 'is', null);
+  const lineaLocale = new Map<string, string>(
+    (lineeLocali ?? []).map((r: any) => [String(r.hubspot_id), r.linea as string]),
+  );
   after = undefined;
   let nDeal = 0;
   do {
@@ -100,7 +112,7 @@ async function syncCrm(admin: any, token: string) {
         nome: d.properties?.dealname ?? null,
         fase: fase || null,
         valore: d.properties?.amount ? Number(d.properties.amount) : null,
-        linea: d.properties?.deluxy_linea || null,
+        linea: d.properties?.deluxy_linea || lineaLocale.get(String(d.id)) || null,
         aperta: !['closedwon', 'closedlost'].includes(fase),
         synced_at: now,
       };
