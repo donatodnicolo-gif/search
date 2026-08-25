@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **24/08/2026** (sera, dopo il reincollo su tutti e tre i conti). Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **25/08/2026** (dopo il reincollo di `esegui.js` e con la WORLD-ENG che eroga). Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 >
@@ -19,19 +19,28 @@
 >    ✅ **FATTO SU TUTTI E TRE I CONTI il 24/08** (Flowers 17:14 · Cake 17:55 ·
 >    Gifts 18:12): **92.731 parole escluse** censite su 131 campagne, e
 >    **3 censimenti completi su 3**. Vedi la sezione in FATTO.
->    ⚠️ **E non è detto che `esegui.js` sia aggiornato**: la consegna `negative`
->    prova che **`tutto.js`** è quello nuovo, ma le operazioni le applica un
->    lavoro `esegui` **schedulato a parte** (ogni ora, ~:09). Sono due copie
->    diverse dello stesso file: una può essere nuova e l'altra vecchia. Lo si
->    saprà alla prima `lista_negative`, `localita` o `estensione` messa in coda.
+>    ✅ **ANCHE `esegui.js` REINCOLLATO SU TUTTI E TRE** (25/08, dichiarato
+>    dall'utente). Restava l'ultima copia scoperta: le operazioni le applica un
+>    lavoro `esegui` **schedulato a parte** (ogni ora, ~:09), che è un file
+>    diverso da `tutto.js` — una poteva essere nuova e l'altra vecchia.
+>    ⚠️ **Prova ancora da fare, e non è pigrizia**: `lista_negative`, `localita`
+>    ed `estensione` **non sono MAI state messe in coda** (verificato sul DB il
+>    25/08: zero righe di quei tre tipi, da sempre). Finché non se ne accoda una,
+>    l'app non ha modo di dire se quel giro le sa eseguire — lo script non
+>    dichiara la sua versione. Che `esegui` giri è invece certo: le ultime
+>    `budget` e `pausa_gruppo` sono state applicate il 24/08 alle 21:04.
 > 2. **Il doppione dell'annuncio** sulla WORLD-ENG: due RSA identici nel gruppo
 >    «Luxury Flower Delivery - Worldwide» (creati il 21 alle 22:17 e il 23 alle
 >    11:05, stessi testi). Vanno tolti a mano in Google Ads — l'app non sa
 >    mettere in pausa un annuncio. Da oggi non può più succedere.
-> 3. **La landing della WORLD-ENG**:
->    `deluxyflowers.com/en/pages/fiori-in-consegna-oggi`, già rifiutata una
->    volta per `DESTINATION_NOT_WORKING`, e per una campagna mondiale in inglese
->    resta comunque una scelta da rivedere.
+> 3. **La landing della WORLD-ENG** — ✅ il rifiuto tecnico è rientrato:
+>    `deluxyflowers.com/en/pages/fiori-in-consegna-oggi` era stata rifiutata per
+>    `DESTINATION_NOT_WORKING`, ma la campagna adesso **eroga e converte**
+>    (misurato il 25/08: 3 giorni, 37,46 € spesi, 37 clic, 2 conversioni,
+>    222,66 € di ricavi — ROAS 5,9×). ⚠️ **Resta però la domanda editoriale**,
+>    che il funzionare non risolve: una campagna **mondiale in inglese** che
+>    atterra su una pagina il cui indirizzo è in italiano è comunque una scelta
+>    da rivedere. «Non è più rotta» e «è quella giusta» sono due cose diverse.
 > 4. **Cake**: 310 € di ADV consentiti in agosto contro 1.324 € già spesi. O il
 >    numero regge e Cake viaggia a quattro volte il suo tetto, o è la previsione
 >    di vendita in Budgets che va guardata.
@@ -245,6 +254,38 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ✅ LA WORLD-ENG EROGA E CONVERTE, e la catena regge tutta (25/08/2026)
+
+La campagna che il 17/08 **non nasceva** — bulk upload rifiutato per «Missing
+value in EU political ads», e l'app che diceva «eseguita» — adesso è viva.
+Contato sul database il 25/08:
+
+| | |
+| --- | --- |
+| stato nell'app | `attiva` |
+| stato su Google | **`ENABLED`** |
+| `idEsterno` | **24147855987** — Google l'ha censita, quindi esiste davvero |
+| dati | 3 giorni (23→25/08) |
+| spesa · clic · conversioni | **37,46 €** · 37 · 2 |
+| ricavi | **222,66 €** → ROAS **5,9×** |
+| struttura | 9 località · 15 keyword |
+
+⭐ **La verifica si è chiusa da sola, ed è il punto.** Il rilevatore delle
+campagne «non confermate» (`lib/campagne-non-confermate.ts`) incrocia i giri di
+anagrafica con `idEsterno`/`statoPiattaforma`: appena Google ha nominato la
+campagna, l'avviso è sparito senza che nessuno lo togliesse a mano. Oggi le
+**campagne lanciate e non confermate sono 0**. Un avviso che si spegne da solo
+quando il fatto cambia è l'unico che si può lasciare acceso senza che diventi
+rumore.
+
+**Stato della coda al 25/08**: 96 eseguite · 7 annullate · **1 fallita** · **0 in
+attesa, 0 approvate ferme**. L'unica fallita è nota ed è del 21/08: il secondo
+annuncio sulla WORLD-ENG, respinto da Google con `DUPLICATE_ASSET` («Assets are
+duplicated across operations», headline 9) — è il tentativo di doppione, non un
+guasto dell'app.
+
+
 
 ### ⭐⭐⭐ 92.731 PAROLE ESCLUSE, e il censimento ha trovato il residuo di un difetto chiuso il 06/08
 
