@@ -199,8 +199,15 @@ funzioni Vercel non hanno un disco che resta. `Certificato.dati` non va mai lett
 in una query di elenco — solo nella rotta di download, che verifica prima chi
 chiede (proprietario o admin).
 
-**Quattro cose da non rompere:**
+**Cinque cose da non rompere:**
 
+0. **L'orologio grande è ancorato al SERVER, non al computer di chi guarda**
+   (25/08/2026): un PC con l'ora di sistema sbagliata mostrava le 08:32 alle
+   09:30, proprio sopra «Timbra entrata» — mentre le timbrature si scrivono
+   con l'ora del server. `Orologio` riceve `oraServer` dalla pagina, misura lo
+   scarto UNA volta al montaggio e mostra «ora del PC + scarto»; oltre i 3
+   minuti di scarto lo dichiara sotto l'orologio. Non tornare a `new Date()`
+   puro: sembrerebbe uguale su ogni macchina sana e mentirebbe su quelle rotte.
 1. **Il fuso**: il server è in UTC, si timbra in Italia. Ogni timbratura salva il
    `giorno` già calcolato su `Europe/Rome`; senza, un turno serale finisce nel
    giorno prima. Le conversioni stanno in `cartellino.ts`.

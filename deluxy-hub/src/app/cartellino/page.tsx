@@ -146,7 +146,7 @@ export default async function CartellinoPage({
       <div className="section-label">Oggi</div>
       <div className="card timbra-box">
         <div>
-          <Orologio />
+          <Orologio oraServer={adesso.getTime()} />
           <div className="timbra-giorno">{dataEstesa(adesso)}</div>
           <div className="timbra-stato">
             {stato.aperto ? (
