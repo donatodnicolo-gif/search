@@ -11,12 +11,12 @@
 // il loro lavoro e la palla è passata a Vendita. ⚠️ Sono nascoste, NON
 // cancellate: i record di `visits` alimentano Storico, Dashboard e Team.
 import { useCallback, useMemo, useState } from 'react';
-import { RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, SectionList, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place, Visit } from '@/types';
 import { canonizzaLinee } from '@/types';
-import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import {
   fetchAllVisits,
   fetchDaCompletare,
@@ -30,6 +30,7 @@ import {
 import { COLORE_VISITA, LABEL_VISITA } from '@/lib/statoVisita';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CardElenco } from '@/components/CardElenco';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniContatto } from '@/components/AzioniContatto';
 import { VisitaModal } from '@/components/VisitaModal';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
@@ -60,6 +61,9 @@ type Riga =
 
 export default function Visite() {
   const router = useRouter();
+  // Da 900px in su le due sezioni sono TABELLE (le schede restano sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
   const [visite, setVisite] = useState<Visit[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const [bozze, setBozze] = useState<Place[]>([]);
@@ -154,12 +158,101 @@ export default function Visite() {
     );
   }
 
+  // In tabella ogni sezione diventa UNA riga che contiene tutte le sue: la
+  // SectionList tiene testate, refresh e stato vuoto, la griglia la fa Tabella.
+  const sezioniVista = useMemo(
+    () => (aTabella ? sezioni.map((s) => ({ ...s, data: [s.data] as unknown as Riga[] })) : sezioni),
+    [aTabella, sezioni],
+  );
+
+  const colonneBozze: ColonnaTabella<Place>[] = [
+    {
+      chiave: 'nome',
+      label: 'Negozio',
+      flex: 1.2,
+      valore: (p) => p.nome,
+      cella: (p) => (
+        <Text style={styles.tabNome} numberOfLines={2}>
+          {p.nome}
+        </Text>
+      ),
+    },
+    { chiave: 'indirizzo', label: 'Indirizzo', flex: 1, valore: (p) => p.indirizzo ?? null },
+    {
+      chiave: 'linee',
+      label: 'Linee ipotizzate',
+      flex: 0.9,
+      righe: 2,
+      valore: (p) =>
+        canonizzaLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : [])).join(', ') || null,
+    },
+    {
+      chiave: 'stato',
+      label: 'Stato',
+      width: 120,
+      fissa: true,
+      valore: () => null,
+      cella: () => <StatusBadge small label="Da completare" colore={COLORE_VISITA.da_finire} />,
+    },
+  ];
+
+  const colonneVisite: ColonnaTabella<Riga & { tipo: 'visita' }>[] = [
+    {
+      chiave: 'negozio',
+      label: 'Negozio',
+      flex: 1.1,
+      valore: (r) => r.place?.nome ?? 'Negozio',
+      cella: (r) => (
+        <Text style={styles.tabNome} numberOfLines={2}>
+          {r.place?.nome ?? 'Negozio'}
+        </Text>
+      ),
+    },
+    {
+      chiave: 'quando',
+      label: 'Quando',
+      width: 78,
+      destra: true,
+      numerica: true,
+      valore: (r) => r.visita.data,
+      cella: (r) => <Text style={styles.tabData}>{quando(r.visita.data)}</Text>,
+    },
+    { chiave: 'passo', label: 'Prossimo passo', flex: 1, righe: 2, valore: (r) => r.visita.next_step ?? null },
+    {
+      chiave: 'motivi',
+      label: 'Motivi',
+      flex: 0.9,
+      righe: 2,
+      valore: (r) =>
+        (r.visita.motivi?.length ? r.visita.motivi : r.visita.linea_proposta ? [r.visita.linea_proposta] : []).join(', ') || null,
+    },
+    {
+      chiave: 'esito',
+      label: 'Esito',
+      width: 122,
+      valore: (r) => r.visita.esito ?? null,
+      cella: (r) =>
+        r.visita.esito ? (
+          <StatusBadge
+            small
+            label={LABEL_ESITO[r.visita.esito] ?? r.visita.esito}
+            colore={COLORE_ESITO[r.visita.esito] ?? colors.grigio}
+          />
+        ) : (
+          <Text style={styles.tabData}>—</Text>
+        ),
+    },
+    { chiave: 'nota', label: 'Note', flex: 1, righe: 2, valore: (r) => r.visita.note_post_meeting ?? null },
+  ];
+
   return (
     <View style={styles.container}>
       <SectionList
-        sections={sezioni}
-        keyExtractor={(r) => (r.tipo === 'bozza' ? 'b' + r.place.id : 'v' + r.visita.id)}
-        contentContainerStyle={[styles.list, contenutoCentrato]}
+        sections={sezioniVista}
+        keyExtractor={(r: any, i) =>
+          Array.isArray(r) ? `tab-${i}` : r.tipo === 'bozza' ? 'b' + r.place.id : 'v' + r.visita.id
+        }
+        contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
         stickySectionHeadersEnabled={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListHeaderComponent={
@@ -177,6 +270,40 @@ export default function Visite() {
         }
         renderSectionHeader={({ section }) => <Text style={styles.sezione}>{section.title.toUpperCase()}</Text>}
         renderItem={({ item }) => {
+          // Vista tabella: l'item è l'INTERA sezione. Le due sezioni sono
+          // omogenee, quindi il tipo del primo dice il tipo di tutti.
+          if (Array.isArray(item)) {
+            const righe = item as Riga[];
+            if (!righe.length) return null;
+            if (righe[0].tipo === 'bozza') {
+              const bozzeRighe = righe.map((r) => (r as Riga & { tipo: 'bozza' }).place);
+              return (
+                <Tabella
+                  righe={bozzeRighe}
+                  colonne={colonneBozze}
+                  chiaveRiga={(p) => p.id}
+                  ordineIniziale={{ campo: 'nome', verso: 'asc' }}
+                  onRiga={(p) => setDaCompletare(p)}
+                  labelRiga={(p) => `Completa la visita da ${p.nome}`}
+                  azioni={(p) => azioniPotenziale(p, { bozza: true })}
+                  larghezzaAzioni={278}
+                />
+              );
+            }
+            const visiteRighe = righe as (Riga & { tipo: 'visita' })[];
+            return (
+              <Tabella
+                righe={visiteRighe}
+                colonne={colonneVisite}
+                chiaveRiga={(r) => r.visita.id}
+                ordineIniziale={{ campo: 'quando', verso: 'desc' }}
+                onRiga={(r) => router.push(`/(app)/attivita/${r.visita.place_id}`)}
+                labelRiga={(r) => `Apri la scheda di ${r.place?.nome ?? 'negozio'}`}
+                azioni={(r) => (r.place ? azioniPotenziale(r.place) : null)}
+                larghezzaAzioni={278}
+              />
+            );
+          }
           if (item.tipo === 'bozza') {
             const p = item.place;
             return (
@@ -246,4 +373,6 @@ const styles = StyleSheet.create({
   headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
   sezione: { color: colors.testoSoft, fontSize: 11.5, fontWeight: '800', letterSpacing: 0.4, marginTop: spacing.sm, marginBottom: 4 },
   nota: { color: colors.grigio, fontSize: 12.5, fontStyle: 'italic' },
+  tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabData: { color: colors.testoSoft, fontSize: 12.5, fontVariant: ['tabular-nums'] },
 });

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import type { Place } from '@/types';
 import { canonizzaLinee, LABEL_MOMENTO } from '@/types';
-import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { aggiornaNascosto } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
@@ -19,6 +19,7 @@ import { VisitaModal } from '@/components/VisitaModal';
 import { IconaAzione } from '@/components/AzioniRiga';
 import { AzioniContatto } from '@/components/AzioniContatto';
 import { CardElenco } from '@/components/CardElenco';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { PianificaVisitaModal } from '@/components/PianificaVisitaModal';
 import { IscriviSequenzaModal } from '@/components/IscriviSequenzaModal';
 import { COLORE_VISITA, LABEL_VISITA, giorniDaOggi, giornoBreve, statoVisita, type StatoVisita } from '@/lib/statoVisita';
@@ -180,12 +181,117 @@ export default function Lista() {
   const chipLivelli = livelliVista ?? LIVELLI;
   const mostraChip = chipLivelli.length > 1;
 
+  // Da 900px in su l'elenco è una TABELLA (le schede restano sul telefono).
+  const { width: schermo } = useWindowDimensions();
+  const aTabella = schermo >= 900;
+
+  // Le stesse azioni della scheda, per la riga di tabella: scritte una volta.
+  const azioniDi = (place: Place) => {
+    const quandoPrevista = giornoBreve(place.visita_pianificata);
+    return (
+      <AzioniContatto
+        place={place}
+        recapito={recapiti.get(place.id)}
+        onVisita={() => setVisitaPlace(place)}
+        onMail={() => setMailPlace(place)}
+        onSequenza={() => setSequenzaPlace(place)}
+        onTrattativa={(p) =>
+          router.push(`/(app)/trattative?nuovoPer=${p.id}&nuovoNome=${encodeURIComponent(p.nome)}`)
+        }
+      >
+        <IconaAzione
+          nome="calendar-outline"
+          attiva
+          evidenza={Boolean(place.visita_pianificata)}
+          label={quandoPrevista ? `Visita prevista ${quandoPrevista} — cambia` : 'Pianifica la visita'}
+          onPress={() => setPianificaPlace(place)}
+        />
+        <IconaAzione nome="eye-off-outline" attiva label="Rimuovi target (nascondi)" onPress={() => nascondi(place)} />
+      </AzioniContatto>
+    );
+  };
+
+  const colonne: ColonnaTabella<Place>[] = [
+    {
+      chiave: 'nome',
+      label: 'Negozio',
+      flex: 1.2,
+      valore: (p) => p.nome,
+      cella: (p) => {
+        const v = statoVisita(p, conBozza.has(p.id), visitati.has(p.id));
+        return (
+          <View style={styles.tabNomeRiga}>
+            {/* Il semaforo della visita, che nelle schede è il riquadro
+                dell'icona: qui è un pallino prima del nome. */}
+            <View
+              style={[styles.tabSemaforo, { backgroundColor: COLORE_VISITA[v] }]}
+              {...({ title: LABEL_VISITA[v] } as any)}
+            />
+            <Text style={styles.tabNome} numberOfLines={2}>
+              {p.nome}
+            </Text>
+          </View>
+        );
+      },
+    },
+    { chiave: 'indirizzo', label: 'Indirizzo', flex: 1, righe: 2, valore: (p) => p.indirizzo ?? null },
+    {
+      chiave: 'linee',
+      label: 'Linee',
+      flex: 0.8,
+      righe: 2,
+      valore: (p) =>
+        canonizzaLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : [])).join(', ') || null,
+    },
+    {
+      chiave: 'stato',
+      label: 'Stato',
+      width: 150,
+      valore: (p) => RANK[p.priorita] ?? 9,
+      cella: (p) => {
+        const liv = livelloPlace(p);
+        return (
+          <View style={styles.tabBadges}>
+            <StatusBadge small label={LABEL_LIVELLO[liv]} colore={coloreLivello(liv)} />
+            {ePerso(p) ? <StatusBadge small label={LABEL_PERSO} colore={COLORE_PERSO} /> : null}
+            {aRischio(p) ? <StatusBadge small label={LABEL_A_RISCHIO} colore={COLORE_A_RISCHIO} /> : null}
+            {p.livello_rapporto ? (
+              <StatusBadge small label={LABEL_MOMENTO[p.livello_rapporto]} colore={colors.blue} />
+            ) : null}
+            <PriorityBadge priorita={p.priorita} small />
+          </View>
+        );
+      },
+    },
+    {
+      chiave: 'prevista',
+      label: 'Visita',
+      width: 86,
+      destra: true,
+      numerica: true,
+      valore: (p) => p.visita_pianificata ?? null,
+      cella: (p) => {
+        const q = giornoBreve(p.visita_pianificata);
+        const fra = giorniDaOggi(p.visita_pianificata);
+        if (!q) return <Text style={styles.tabData}>—</Text>;
+        return (
+          <Text style={[styles.tabData, fra !== null && fra < 0 && styles.pianificataTardi]} numberOfLines={2}>
+            {q}
+            {fra === 0 ? ' · oggi' : fra !== null && fra < 0 ? ` · −${-fra} g` : ''}
+          </Text>
+        );
+      },
+    },
+  ];
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={dati}
-        keyExtractor={(p) => p.id}
-        contentContainerStyle={[styles.list, contenutoCentrato]}
+        // In tabella la FlatList riceve UNA riga che contiene l'intero elenco:
+        // testata, refresh e stato vuoto restano suoi, la griglia la fa Tabella.
+        data={aTabella ? (dati.length ? [dati] : []) : dati}
+        keyExtractor={(p: any) => (aTabella ? 'tabella' : (p as Place).id)}
+        contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={ricarica} />}
         // Intro, chip e filtri scorrono INSIEME alla lista: da fissi occupavano
         // mezzo schermo e ai negozi restava una finestrella alta pochi pixel.
@@ -254,23 +360,36 @@ export default function Lista() {
             />
           )
         }
-        renderItem={({ item }) => (
-          <Riga
-            place={item}
-            livello={livelloPlace(item)}
-            visita={statoVisita(item, conBozza.has(item.id), visitati.has(item.id))}
-            recapito={recapiti.get(item.id)}
-            onPress={() => router.push(`/(app)/attivita/${item.id}`)}
-            onNascondi={() => nascondi(item)}
-            onVisita={() => setVisitaPlace(item)}
-            onPianifica={() => setPianificaPlace(item)}
-            onMail={() => setMailPlace(item)}
-            onSequenza={() => setSequenzaPlace(item)}
-            onTrattativa={(p) =>
-              router.push(`/(app)/trattative?nuovoPer=${p.id}&nuovoNome=${encodeURIComponent(p.nome)}`)
-            }
-          />
-        )}
+        renderItem={({ item }) =>
+          aTabella ? (
+            <Tabella
+              righe={item as Place[]}
+              colonne={colonne}
+              chiaveRiga={(p) => p.id}
+              ordineIniziale={{ campo: 'stato', verso: 'asc' }}
+              onRiga={(p) => router.push(`/(app)/attivita/${p.id}`)}
+              labelRiga={(p) => `Apri la scheda di ${p.nome}`}
+              azioni={azioniDi}
+              larghezzaAzioni={374}
+            />
+          ) : (
+            <Riga
+              place={item as Place}
+              livello={livelloPlace(item)}
+              visita={statoVisita(item, conBozza.has(item.id), visitati.has(item.id))}
+              recapito={recapiti.get(item.id)}
+              onPress={() => router.push(`/(app)/attivita/${item.id}`)}
+              onNascondi={() => nascondi(item)}
+              onVisita={() => setVisitaPlace(item)}
+              onPianifica={() => setPianificaPlace(item)}
+              onMail={() => setMailPlace(item)}
+              onSequenza={() => setSequenzaPlace(item)}
+              onTrattativa={(p) =>
+                router.push(`/(app)/trattative?nuovoPer=${p.id}&nuovoNome=${encodeURIComponent(p.nome)}`)
+              }
+            />
+          )
+        }
       />
       {/* Dalla vista Lead il + crea un lead, non un selezionato: altrimenti il
           negozio appena inserito nascerebbe "mai contattato" e sparirebbe
@@ -494,6 +613,11 @@ const styles = StyleSheet.create({
   inserito: { fontSize: 12, color: colors.grigio, fontWeight: '600' },
   pianificata: { fontSize: 12.5, color: colors.testo, fontWeight: '700' },
   pianificataTardi: { color: colors.errore },
+  tabNomeRiga: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tabSemaforo: { width: 8, height: 8, borderRadius: 4 },
+  tabNome: { flex: 1, minWidth: 0, color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   fab: {
     position: 'absolute',
     right: spacing.lg,

@@ -19,15 +19,16 @@
 // fonte di verità delle anagrafiche è una sola. La copia in Scout nasce solo
 // quando qualcuno preme «Prendi in carico», e resta collegata (anagrafiche_id).
 import { useCallback, useState } from 'react';
-import { Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { fetchSegnalatiDaApp, type PartnerRegistro } from '@/lib/anagrafiche';
 import { fetchAnagraficheIdPresi, importaDalRegistro } from '@/lib/db';
 import { geocodeIndirizzo } from '@/lib/geocode';
 import { avvisa } from '@/lib/dialoghi';
 import { CardElenco } from '@/components/CardElenco';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { COLORE_VISITA, LABEL_VISITA } from '@/lib/statoVisita';
@@ -48,6 +49,10 @@ const DA_DOVE: Record<string, string> = {
 
 export function SegnalazioniCS() {
   const router = useRouter();
+  // Da 900px in su l'elenco è una TABELLA (richiesta utente 25/08/2026: le
+  // schede restano solo sul telefono) — lo stesso confine delle Trattative.
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
   const [partner, setPartner] = useState<PartnerRegistro[]>([]);
   const [presi, setPresi] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -120,10 +125,91 @@ export function SegnalazioniCS() {
 
   const daPrendere = partner.filter((p) => !presi.has(p.id));
 
+  // Le stesse quattro azioni in tutti e due i vestiti (scheda e tabella):
+  // scritte una volta, o divergono al primo ritocco.
+  const azioniDi = (p: PartnerRegistro) => {
+    const preso = presi.has(p.id);
+    return (
+      <AzioniRiga>
+        <IconaAzione
+          nome="call-outline"
+          attiva={Boolean(p.telefono)}
+          label={p.telefono ? 'Chiama' : 'Nessun telefono nel registro'}
+          onPress={() => p.telefono && Linking.openURL(`tel:${p.telefono}`)}
+        />
+        <IconaAzione
+          nome="logo-whatsapp"
+          attiva={Boolean(p.telefono)}
+          label={p.telefono ? 'WhatsApp' : 'Nessun telefono nel registro'}
+          onPress={() => p.telefono && Linking.openURL(`https://wa.me/${p.telefono!.replace(/[^0-9]/g, '')}`)}
+        />
+        <IconaAzione
+          nome="mail-outline"
+          attiva={Boolean(p.email)}
+          label={p.email ? 'Email' : 'Nessuna mail nel registro'}
+          onPress={() => p.email && Linking.openURL(`mailto:${p.email}`)}
+        />
+        <IconaAzione
+          nome={preso ? 'checkmark-done-outline' : 'download-outline'}
+          attiva={!preso && inCorso !== p.id}
+          evidenza={preso}
+          label={preso ? 'Già fra i tuoi Selezionati' : 'Prendi in carico'}
+          onPress={() => prendiInCarico(p)}
+        />
+      </AzioniRiga>
+    );
+  };
+
+  const colonne: ColonnaTabella<PartnerRegistro>[] = [
+    {
+      chiave: 'nome',
+      label: 'Nome',
+      flex: 1.4,
+      valore: (p) => p.nome,
+      cella: (p) => (
+        <Text style={styles.tabNome} numberOfLines={2}>
+          {p.nome}
+        </Text>
+      ),
+    },
+    {
+      chiave: 'dove',
+      label: 'Dove',
+      flex: 0.8,
+      valore: (p) => [p.citta, p.provincia].filter(Boolean).join(' · ') || null,
+    },
+    { chiave: 'categoria', label: 'Categoria', width: 110, valore: (p) => p.categoria ?? null },
+    {
+      chiave: 'linee',
+      label: 'Linee',
+      flex: 0.7,
+      valore: (p) => (p.interessi?.length ? p.interessi.join(', ') : null),
+    },
+    {
+      chiave: 'fonte',
+      label: 'Da dove',
+      flex: 1.1,
+      righe: 2,
+      valore: (p) => DA_DOVE[p.fonte ?? ''] ?? 'Segnalato da un’altra app',
+    },
+    {
+      chiave: 'stato',
+      label: 'Stato',
+      width: 110,
+      valore: (p) => (presi.has(p.id) ? 1 : 0),
+      cella: (p) =>
+        presi.has(p.id) ? (
+          <StatusBadge small label="Già in lista" colore={COLORE_VISITA.fatta} />
+        ) : (
+          <StatusBadge small label="Da prendere" colore={colors.oro} />
+        ),
+    },
+  ];
+
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.list, contenutoCentrato]}
+      contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
     >
       {errore ? (
@@ -153,70 +239,53 @@ export function SegnalazioniCS() {
         />
       ) : null}
 
-      {partner.map((p) => {
-        const preso = presi.has(p.id);
-        const dove = [p.citta, p.provincia].filter(Boolean).join(' · ');
-        return (
-          <CardElenco
-            key={p.id}
-            icona={p.categoria === 'PASTICCERIA' ? 'cafe-outline' : 'flower-outline'}
-            // Rosso: nessuno c'è ancora andato. È lo stesso semaforo delle
-            // altre liste (lib/statoVisita.ts).
-            coloreIcona={preso ? undefined : COLORE_VISITA.da_fare}
-            titoloIcona={preso ? undefined : LABEL_VISITA.da_fare}
-            nome={p.nome}
-            meta={[dove, p.categoria].filter(Boolean).join(' — ') || null}
-            tag={p.interessi ?? []}
-            badge={
-              preso ? (
-                <StatusBadge small label="Già in lista" colore={COLORE_VISITA.fatta} />
-              ) : (
-                <StatusBadge small label="Da prendere" colore={colors.oro} />
-              )
-            }
-            extra={
-              <Text style={styles.fonte} numberOfLines={1}>
-                <Ionicons
-                  name={p.fonte === 'customer-service' ? 'cash-outline' : 'cube-outline'}
-                  size={11}
-                  color={colors.grigio}
-                />{' '}
-                {DA_DOVE[p.fonte ?? ''] ?? 'Segnalato da un’altra app'}
-                {p.stato ? ` · nel registro è «${p.stato}»` : ''}
-              </Text>
-            }
-            azioni={
-              <AzioniRiga>
-                <IconaAzione
-                  nome="call-outline"
-                  attiva={Boolean(p.telefono)}
-                  label={p.telefono ? 'Chiama' : 'Nessun telefono nel registro'}
-                  onPress={() => p.telefono && Linking.openURL(`tel:${p.telefono}`)}
-                />
-                <IconaAzione
-                  nome="logo-whatsapp"
-                  attiva={Boolean(p.telefono)}
-                  label={p.telefono ? 'WhatsApp' : 'Nessun telefono nel registro'}
-                  onPress={() => p.telefono && Linking.openURL(`https://wa.me/${p.telefono!.replace(/[^0-9]/g, '')}`)}
-                />
-                <IconaAzione
-                  nome="mail-outline"
-                  attiva={Boolean(p.email)}
-                  label={p.email ? 'Email' : 'Nessuna mail nel registro'}
-                  onPress={() => p.email && Linking.openURL(`mailto:${p.email}`)}
-                />
-                <IconaAzione
-                  nome={preso ? 'checkmark-done-outline' : 'download-outline'}
-                  attiva={!preso && inCorso !== p.id}
-                  evidenza={preso}
-                  label={preso ? 'Già fra i tuoi Selezionati' : 'Prendi in carico'}
-                  onPress={() => prendiInCarico(p)}
-                />
-              </AzioniRiga>
-            }
-          />
-        );
-      })}
+      {aTabella && partner.length ? (
+        <Tabella
+          righe={partner}
+          colonne={colonne}
+          chiaveRiga={(p) => p.id}
+          ordineIniziale={{ campo: 'nome', verso: 'asc' }}
+          azioni={azioniDi}
+          larghezzaAzioni={186}
+        />
+      ) : (
+        partner.map((p) => {
+          const preso = presi.has(p.id);
+          const dove = [p.citta, p.provincia].filter(Boolean).join(' · ');
+          return (
+            <CardElenco
+              key={p.id}
+              icona={p.categoria === 'PASTICCERIA' ? 'cafe-outline' : 'flower-outline'}
+              // Rosso: nessuno c'è ancora andato. È lo stesso semaforo delle
+              // altre liste (lib/statoVisita.ts).
+              coloreIcona={preso ? undefined : COLORE_VISITA.da_fare}
+              titoloIcona={preso ? undefined : LABEL_VISITA.da_fare}
+              nome={p.nome}
+              meta={[dove, p.categoria].filter(Boolean).join(' — ') || null}
+              tag={p.interessi ?? []}
+              badge={
+                preso ? (
+                  <StatusBadge small label="Già in lista" colore={COLORE_VISITA.fatta} />
+                ) : (
+                  <StatusBadge small label="Da prendere" colore={colors.oro} />
+                )
+              }
+              extra={
+                <Text style={styles.fonte} numberOfLines={1}>
+                  <Ionicons
+                    name={p.fonte === 'customer-service' ? 'cash-outline' : 'cube-outline'}
+                    size={11}
+                    color={colors.grigio}
+                  />{' '}
+                  {DA_DOVE[p.fonte ?? ''] ?? 'Segnalato da un’altra app'}
+                  {p.stato ? ` · nel registro è «${p.stato}»` : ''}
+                </Text>
+              }
+              azioni={azioniDi(p)}
+            />
+          );
+        })
+      )}
 
       {daPrendere.length ? (
         <Text style={styles.conteggio}>
@@ -250,5 +319,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   fonte: { fontSize: 12, color: colors.grigio, fontWeight: '600' },
+  tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   conteggio: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'center', marginTop: spacing.sm },
 });

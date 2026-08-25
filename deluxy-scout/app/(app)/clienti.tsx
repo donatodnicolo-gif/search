@@ -1,10 +1,10 @@
 // Sezione "Clienti": i negozi già acquisiti — clienti in Scout (stato "cliente")
 // o partner attivi nel registro Anagrafiche. Filtri per zona e interessi.
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { fetchClienti, type Cliente } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
@@ -12,10 +12,14 @@ import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { commutaSet, GruppoFiltro } from '@/components/GruppoFiltro';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
 import { CardElenco } from '@/components/CardElenco';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 
 export default function Clienti() {
   const router = useRouter();
+  // Da 900px in su l'elenco è una TABELLA (le schede restano sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
   const [clienti, setClienti] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -110,12 +114,96 @@ export default function Clienti() {
     });
   }
 
+  // Le stesse azioni rapide nei due vestiti (scheda e tabella): scritte una
+  // volta. Durante la scelta multipla spariscono in tutti e due.
+  const azioniDi = (item: Cliente) => (
+    <AzioniRiga>
+      <IconaAzione
+        nome="call-outline"
+        attiva={Boolean(item.telefono)}
+        label="Chiama"
+        onPress={() => item.telefono && Linking.openURL(`tel:${item.telefono}`)}
+      />
+      <IconaAzione
+        nome="logo-whatsapp"
+        attiva={Boolean(item.telefono)}
+        label="WhatsApp"
+        onPress={() => item.telefono && Linking.openURL(`https://wa.me/${item.telefono.replace(/[^0-9]/g, '')}`)}
+      />
+      <IconaAzione nome="mail-outline" attiva label="Scrivi una mail" onPress={() => setMailPlace({ id: item.id, nome: item.nome })} />
+      <IconaAzione nome="walk-outline" attiva label="Visita" onPress={() => router.push(`/(app)/visita/${item.id}`)} />
+      <IconaAzione
+        nome="briefcase-outline"
+        attiva
+        label="Nuova trattativa"
+        onPress={() =>
+          router.push(`/(app)/trattative?nuovoPer=${item.id}&nuovoNome=${encodeURIComponent(item.nome)}`)
+        }
+      />
+    </AzioniRiga>
+  );
+
+  // Le colonne della vista tabella. In scelta multipla la prima è la casella.
+  const colonne: ColonnaTabella<Cliente>[] = [
+    ...(inScelta
+      ? [
+          {
+            chiave: 'scelta',
+            label: '',
+            width: 36,
+            fissa: true,
+            valore: () => null,
+            cella: (c: Cliente) => (
+              <Ionicons
+                name={scelti?.has(c.id) ? 'checkbox' : 'square-outline'}
+                size={20}
+                color={scelti?.has(c.id) ? colors.ink : colors.grigio}
+              />
+            ),
+          } as ColonnaTabella<Cliente>,
+        ]
+      : []),
+    {
+      chiave: 'nome',
+      label: 'Nome',
+      flex: 1.3,
+      valore: (c) => c.nome,
+      cella: (c) => (
+        <Text style={styles.tabNome} numberOfLines={2}>
+          {c.nome}
+        </Text>
+      ),
+    },
+    {
+      chiave: 'zona',
+      label: 'Zona',
+      flex: 0.9,
+      valore: (c) => [c.zona, c.categoria].filter(Boolean).join(' · ') || c.indirizzo || null,
+    },
+    { chiave: 'account', label: 'Account', flex: 0.7, valore: (c) => c.account ?? null },
+    { chiave: 'linee', label: 'Linee', flex: 0.9, righe: 2, valore: (c) => (c.linee.length ? c.linee.join(', ') : null) },
+    {
+      chiave: 'stato',
+      label: 'Stato',
+      width: 110,
+      valore: (c) => (c.cliente_scout ? 2 : 0) + (c.partner_registro ? 1 : 0),
+      cella: (c) => (
+        <View style={styles.tabBadges}>
+          {c.cliente_scout ? <StatusBadge small label="Cliente" colore={colors.successo} /> : null}
+          {c.partner_registro ? <StatusBadge small label="Partner" colore={colors.blue} /> : null}
+        </View>
+      ),
+    },
+  ];
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={dati}
-        keyExtractor={(c) => c.id}
-        contentContainerStyle={[styles.list, contenutoCentrato, inScelta && styles.listConBarra]}
+        // In tabella la FlatList riceve UNA riga che contiene l'intero elenco:
+        // testata, refresh e stato vuoto restano suoi, la griglia la fa Tabella.
+        data={aTabella ? (dati.length ? [dati] : []) : dati}
+        keyExtractor={(c: any) => (aTabella ? 'tabella' : (c as Cliente).id)}
+        contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato, inScelta && styles.listConBarra]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         // Testata dentro lo scorrimento: da fissa occupava mezzo schermo e ai
         // clienti restava una finestrella. Elemento e non funzione, se no la
@@ -204,76 +292,47 @@ export default function Clienti() {
             />
           )
         }
-        renderItem={({ item }) => (
-          // Stessa scheda dei Prospect: la forma sta in components/CardElenco.tsx.
-          <CardElenco
-            selezionabile={inScelta}
-            selezionato={scelti?.has(item.id)}
-            nome={item.nome}
-            meta={[item.zona, item.categoria].filter(Boolean).join(' · ') || item.indirizzo || '—'}
-            account={item.account ?? null}
-            tag={item.linee}
-            // In modalità scelta il tap spunta invece di aprire: aprire la
-            // scheda a metà selezione la farebbe perdere.
-            onPress={() => (inScelta ? spunta(item.id) : router.push(`/(app)/attivita/${item.id}`))}
-            badge={
-              <>
-                {item.cliente_scout ? <StatusBadge small label="Cliente" colore={colors.successo} /> : null}
-                {item.partner_registro ? <StatusBadge small label="Partner" colore={colors.blue} /> : null}
-              </>
-            }
-            azioni={
-              /* Azioni rapide: le stesse della scheda, a portata di lista.
-                 Durante la scelta multipla spariscono: un tap su «chiama»
-                 mentre si stanno spuntando venti clienti è solo un modo per
-                 uscire dalla schermata per sbaglio. */
-              inScelta ? null : (
-              <AzioniRiga>
-                <IconaAzione
-                  nome="call-outline"
-                  attiva={Boolean(item.telefono)}
-                  label="Chiama"
-                  onPress={() => item.telefono && Linking.openURL(`tel:${item.telefono}`)}
-                />
-                <IconaAzione
-                  nome="logo-whatsapp"
-                  attiva={Boolean(item.telefono)}
-                  label="WhatsApp"
-                  onPress={() => item.telefono && Linking.openURL(`https://wa.me/${item.telefono.replace(/[^0-9]/g, '')}`)}
-                />
-                {/* La mail parte dall'app con uno script della libreria: si
-                    sceglie il testo, si rivedono i destinatari e si conferma.
-                    Prima apriva il client di posta esterno con un mailto. */}
-                <IconaAzione
-                  nome="mail-outline"
-                  attiva
-                  label="Scrivi una mail"
-                  onPress={() => setMailPlace({ id: item.id, nome: item.nome })}
-                />
-                <IconaAzione
-                  nome="walk-outline"
-                  attiva
-                  label="Visita"
-                  onPress={() => router.push(`/(app)/visita/${item.id}`)}
-                />
-                {/* Apre le Trattative col form già pronto su questo cliente:
-                    su un cliente acquisito la trattativa nuova è l'azione che
-                    serve più spesso. */}
-                <IconaAzione
-                  nome="briefcase-outline"
-                  attiva
-                  label="Nuova trattativa"
-                  onPress={() =>
-                    router.push(
-                      `/(app)/trattative?nuovoPer=${item.id}&nuovoNome=${encodeURIComponent(item.nome)}`,
-                    )
-                  }
-                />
-              </AzioniRiga>
-              )
-            }
-          />
-        )}
+        renderItem={({ item }) =>
+          aTabella ? (
+            <Tabella
+              righe={item as Cliente[]}
+              colonne={colonne}
+              chiaveRiga={(c) => c.id}
+              ordineIniziale={{ campo: 'nome', verso: 'asc' }}
+              // In modalità scelta il tap spunta invece di aprire: aprire la
+              // scheda a metà selezione la farebbe perdere.
+              onRiga={(c) => (inScelta ? spunta(c.id) : router.push(`/(app)/attivita/${c.id}`))}
+              labelRiga={(c) => (inScelta ? `Scegli ${c.nome}` : `Apri la scheda di ${c.nome}`)}
+              azioni={inScelta ? undefined : azioniDi}
+              larghezzaAzioni={230}
+            />
+          ) : (
+            // Stessa scheda dei Prospect: la forma sta in components/CardElenco.tsx.
+            <CardElenco
+              selezionabile={inScelta}
+              selezionato={scelti?.has(item.id)}
+              nome={(item as Cliente).nome}
+              meta={[item.zona, item.categoria].filter(Boolean).join(' · ') || item.indirizzo || '—'}
+              account={item.account ?? null}
+              tag={item.linee}
+              // In modalità scelta il tap spunta invece di aprire: aprire la
+              // scheda a metà selezione la farebbe perdere.
+              onPress={() => (inScelta ? spunta(item.id) : router.push(`/(app)/attivita/${item.id}`))}
+              badge={
+                <>
+                  {item.cliente_scout ? <StatusBadge small label="Cliente" colore={colors.successo} /> : null}
+                  {item.partner_registro ? <StatusBadge small label="Partner" colore={colors.blue} /> : null}
+                </>
+              }
+              azioni={
+                /* Durante la scelta multipla le azioni spariscono: un tap su
+                   «chiama» mentre si spunta è solo un modo per uscire per
+                   sbaglio dalla schermata. */
+                inScelta ? null : azioniDi(item as Cliente)
+              }
+            />
+          )
+        }
       />
 
       {/* Barra della scelta multipla: sta in fondo, sopra la lista, e resta
@@ -388,6 +447,8 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
   chipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, gap: spacing.sm },
+  tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabBadges: { gap: 4, alignItems: 'flex-start' },
   // Spazio in fondo quando c'è la barra galleggiante: senza, coprirebbe
   // l'ultimo cliente — che è proprio quello che si sta cercando di spuntare.
   listConBarra: { paddingBottom: 88 },

@@ -1,0 +1,187 @@
+// La TABELLA generica degli elenchi su schermo largo (DS §Tabelle).
+//
+// Nasce dalla richiesta utente del 25/08/2026: «al posto di schede così ci
+// siano tabelle per una visualizzazione ottimale desktop, le schede solo su
+// mobile». La prima era TabellaTrattative, scritta a mano; alla seconda
+// schermata il copione si ripeteva uguale — intestazioni 12px ordinabili,
+// hover leggero, «—» nelle celle vuote, numeri a destra con tabular-nums —
+// e dieci copie divergono al primo ritocco. Qui sta la FORMA, una volta;
+// le colonne le dichiara la schermata.
+//
+// Il confine largo/stretto NON si decide qui: la schermata sceglie (di regola
+// `useWindowDimensions().width >= 900`, lo stesso confine del drawer) e sotto
+// tiene le sue schede. La tabella non ha una versione mobile: sotto i 900px
+// semplicemente non si monta.
+import { ReactNode, useMemo } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, radius, shadow, spacing } from '@/lib/theme';
+import { frecciaOrdine, ordinaRighe, useOrdinamento, type Ordine } from '@/lib/ordinamento';
+
+export interface ColonnaTabella<T> {
+  /** Identifica la colonna per l'ordinamento. */
+  chiave: string;
+  label: string;
+  /** Larghezza: o flessibile (`flex`) o fissa (`width`). Default flex: 1. */
+  flex?: number;
+  width?: number;
+  /** Allineata a destra (numeri, date, importi). */
+  destra?: boolean;
+  /** Ordinamento di partenza decrescente (colonne di numeri/date). */
+  numerica?: boolean;
+  /** Colonna non ordinabile (es. una colonna di soli badge eterogenei). */
+  fissa?: boolean;
+  /** Il valore su cui si ordina — e, senza `cella`, quello che si mostra. */
+  valore: (r: T) => unknown;
+  /** Render della cella quando il testo semplice non basta (badge, due righe…). */
+  cella?: (r: T) => ReactNode;
+  /** numberOfLines del testo di default (1 se non detto). */
+  righe?: number;
+}
+
+/**
+ * @param azioni  Cerchietti in fondo alla riga (AzioniRiga/IconaAzione): non è
+ *                una colonna ordinabile, e i suoi press NON aprono la riga —
+ *                IconaAzione ferma già l'evento da sé.
+ * @param labelRiga  Cosa fa il tap sulla riga, per il lettore di schermo.
+ */
+export function Tabella<T>({
+  righe,
+  colonne,
+  chiaveRiga,
+  ordineIniziale,
+  onRiga,
+  labelRiga,
+  azioni,
+  larghezzaAzioni,
+}: {
+  righe: T[];
+  colonne: ColonnaTabella<T>[];
+  chiaveRiga: (r: T) => string;
+  ordineIniziale: Ordine<string>;
+  onRiga?: (r: T) => void;
+  labelRiga?: (r: T) => string;
+  azioni?: (r: T) => ReactNode;
+  /** Larghezza riservata alla colonna azioni (default: si adatta al contenuto). */
+  larghezzaAzioni?: number;
+}) {
+  const numeriche = useMemo(
+    () => colonne.filter((c) => c.numerica).map((c) => c.chiave),
+    [colonne],
+  );
+  const { ordine, ordinaPer } = useOrdinamento<string>(ordineIniziale, numeriche);
+  const mappa = useMemo(() => new Map(colonne.map((c) => [c.chiave, c])), [colonne]);
+  const ordinate = useMemo(
+    () => ordinaRighe(righe, ordine, (r, c) => mappa.get(c)?.valore(r) ?? null),
+    [righe, ordine, mappa],
+  );
+
+  const stileCol = (c: ColonnaTabella<T>) =>
+    c.width !== undefined
+      ? { width: c.width, ...(c.destra ? stiliDestra : null) }
+      : { flex: c.flex ?? 1, minWidth: 0 as const, ...(c.destra ? stiliDestra : null) };
+
+  return (
+    <View style={styles.card}>
+      <View style={[styles.riga, styles.intesta]}>
+        {colonne.map((c) => (
+          <Pressable
+            key={c.chiave}
+            style={stileCol(c)}
+            disabled={c.fissa}
+            onPress={() => ordinaPer(c.chiave)}
+          >
+            <Text style={[styles.th, c.destra && styles.thDestra, ordine.campo === c.chiave && styles.thOn]}>
+              {c.label}
+              {c.fissa ? '' : frecciaOrdine(ordine, c.chiave)}
+            </Text>
+          </Pressable>
+        ))}
+        {azioni ? <View style={larghezzaAzioni ? { width: larghezzaAzioni } : null} /> : null}
+        {onRiga ? <View style={{ width: 16 }} /> : null}
+      </View>
+      {ordinate.map((r) => (
+        <Pressable
+          key={chiaveRiga(r)}
+          style={({ hovered }: any) => [styles.riga, hovered && onRiga && styles.rigaHover]}
+          onPress={onRiga ? () => onRiga(r) : undefined}
+          disabled={!onRiga}
+          accessibilityRole={onRiga ? 'button' : undefined}
+          accessibilityLabel={onRiga ? labelRiga?.(r) : undefined}
+        >
+          {colonne.map((c) => {
+            if (c.cella) {
+              return (
+                <View key={c.chiave} style={stileCol(c)}>
+                  {c.cella(r)}
+                </View>
+              );
+            }
+            const v = c.valore(r);
+            const testo = v === null || v === undefined || v === '' ? '—' : String(v);
+            return (
+              <Text
+                key={c.chiave}
+                style={[styles.cella, c.destra && styles.cellaDestra, stileCol(c)]}
+                numberOfLines={c.righe ?? 1}
+              >
+                {testo}
+              </Text>
+            );
+          })}
+          {azioni ? (
+            <View style={[styles.azioni, larghezzaAzioni ? { width: larghezzaAzioni } : null]}>
+              {azioni(r)}
+            </View>
+          ) : null}
+          {onRiga ? <Ionicons name="chevron-forward" size={15} color={colors.grigio} /> : null}
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+/** gg/mm/aa compatto per le colonne data — «—» quando manca o non è una data. */
+export function dataBreve(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+/** Importo in colonna: ⚠️ l'it-IT non raggruppa le 4 cifre senza
+ *  useGrouping:'always' — «1500» in una colonna di soldi si legge male. */
+export function importoBreve(v: number | null | undefined): string {
+  if (v === null || v === undefined) return '—';
+  return `€ ${v.toLocaleString('it-IT', { useGrouping: 'always' } as unknown as Intl.NumberFormatOptions)}`;
+}
+
+const stiliDestra = { alignItems: 'flex-end' as const };
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: colors.bianco,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    overflow: 'hidden',
+    ...shadow.card,
+  },
+  riga: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+  },
+  intesta: { backgroundColor: colors.sfondo, paddingVertical: 8 },
+  rigaHover: { backgroundColor: 'rgba(120,120,128,0.05)' },
+  th: { color: colors.grigio, fontSize: 12, fontWeight: '500' },
+  thDestra: { textAlign: 'right' },
+  thOn: { color: colors.testo, fontWeight: '700' },
+  cella: { color: colors.testo, fontSize: 13, lineHeight: 17 },
+  cellaDestra: { textAlign: 'right', fontVariant: ['tabular-nums'] },
+  azioni: { alignItems: 'flex-end' },
+});
