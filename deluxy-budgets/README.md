@@ -78,24 +78,33 @@ buco dei sei mesi di Deluxy.it è rimasto invisibile per settimane proprio per q
 responsabili potranno scrivere direttamente è un passo successivo, da fare col permesso giusto e non
 di corsa.
 
-## Dove siamo (24/08/2026) — leggere questo per primo
+## Dove siamo (rimisurato il 25/08/2026) — leggere questo per primo
 
-Il conto economico a budget, come lo mostrano `/dashboard` e `/pl` (livello **Raggiungibile**):
+Il conto economico a budget, come lo mostrano `/dashboard` e `/pl` (livello **Raggiungibile**),
+letto interrogando le stesse funzioni delle pagine:
 
 | voce | |
 | --- | ---: |
-| Ricavi | **1.101.929 €** |
-| └ dalle maison (le genera la pubblicità online) | 601.929 € |
+| Ricavi | **1.281.851 €** |
+| └ dalle maison (le genera la pubblicità online) | 781.851 € |
 | └ dal team commerciale (lo porta il lavoro del team) | 500.000 € |
-| Costo del venduto | − 708.320 € |
-| Margine lordo | **393.609 € (35,7%)** |
-| Pubblicità | − 196.491 € |
+| Costo del venduto | − 612.920 € |
+| Margine lordo | **668.931 € (52,2%)** |
+| Pubblicità | − 237.597 € |
 | Personale | − 218.877 € |
-| Struttura | − 106.929 € |
-| **EBITDA** | **− 128.688 €** |
+| Struttura | − 107.548 € |
+| **EBITDA** | **+ 104.908 € (8,2%)** |
 
-La **quota D2C** è **27,8%, misurata** sui mesi chiusi, e la decidono tutte e tre le pagine da un
-posto solo (`quotaDeluxyAnno()`).
+La **quota D2C** è **50,9%** ed è la **media pesata sul venduto dei margini per brand misurati da
+Orders** — deluxy.it 54,3% (139 ordini, 6,2% del lordo), Flowers 43,8% (151 ordini, 15,8%),
+CakeDesign 45,2% (59 ordini, 12,7%). La decidono tutte le pagine da un posto solo
+(`quotaDeluxyAnno()`).
+
+⚠️ **Questo numero si muove da solo, ed è voluto**: cresce con le riconciliazioni del Customer
+Service, quindi il conto economico a budget cambia senza che nessuno tocchi il budget. In una
+giornata è passato da 50,1% a **50,9%** (EBITDA 98.946 → **104.908 €**). Prima di leggere uno
+scostamento, guardare **quale fonte** la pagina dichiara in testata: margini di Orders → regola unica
+(40%) → misura di banca (27,8%) → stima. La tabella qui sopra vale con la prima.
 
 **Cambiato il 23–24/08:** i ricavi sono **due fonti sommate** (prima solo le maison); i **costi di
 struttura** vengono dal consuntivo (prima valevano zero); **B2B ed Experience non fanno pubblicità**;
@@ -125,8 +134,9 @@ Budgets **emette le sue chiavi API** con scope e revoca.
 3. 🔴 **Nessuna linea è collegata alle voci di Finance** (solo «Affiliazioni» combacia per nome
    identico): sui mesi chiusi il consuntivo delle altre resta **«n.d.»**, che non è zero. Il
    collegamento non si indovina — «Consegne Corporate» è «Consegne»? — e si scrive in `/commerciale`.
-4. 🔴 **`/api/v1` espone solo letture**: una chiave con scope `scrittura` si emette già ma non ha
-   niente da scrivere. Da decidere quali dati le altre app devono poter cambiare.
+4. ⚠️ **La prima scrittura su `/api/v1` esiste dal 24/08**: `POST /api/v1/persone` — un'app con
+   chiave a scope scrittura **propone** una persona al roster. Resta da decidere **cos'altro** le
+   altre app devono poter cambiare: oggi tutto il resto è in sola lettura.
 5. 🔴 **`LINEE_API_KEY` manca anche in produzione**: `/commerciale` mostra «fallback locale» e non
    confronta con l'elenco delle linee vive di Scout.
 6. ⚠️ **`BUDGETS_API_KEY` è ancora valida in lettura** per non rompere Marketing. Quando Marketing
@@ -1054,9 +1064,10 @@ npm run dev               # http://localhost:3080
 
 ### Produzione: come si pubblica e dove gira
 
-- **Ultima pubblicazione**: 17/08/2026, commit `f04e37f0` (costi ricorrenti + `senzaRegola`).
-  Verificato dopo il deploy: `/api/health` → `{"ok":true,"database":true}`, header `fra1::fra1`, e la
-  rotta `/ricorrenti` compare nel build di Vercel. ⚠️ Dal fuori non si distingue una pagina che non
+- **Ultima pubblicazione**: 25/08/2026 alle 10:44, commit `35a3be1e` (la proposta di una persona
+  già presente completa i campi vuoti). Ricontrollato lo stesso giorno alle 12:30: `/api/health` →
+  `{"ok":true,"database":true}`, header `fra1::fra1`, alias allineato al deploy di quel commit.
+  ⚠️ Dal fuori non si distingue una pagina che non
   esiste da una che esiste: il middleware manda **tutto** a `/login` con un 307, quindi «307 → /login»
   non è la prova che una rotta nuova sia andata su. La prova è il log di build
   (`npx vercel inspect <url-del-deploy> --logs`, sezione «Route (app)»).
@@ -1377,7 +1388,7 @@ clienti, invio e lista proposte, spese ADV con % per mese personalizzabili, impo
 scenari/premi/costi, **consuntivo D2C dal registro ordini** (Orders `/api/v1/ricavi`: venduto per
 maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `budgets`, `APP_URL_BUDGETS`),
 **pubblicata su Vercel** ([deluxy-budgets.vercel.app](https://deluxy-budgets.vercel.app), Postgres/Supabase + password),
-**costi ricorrenti** (`/ricorrenti`: canoni, abbonamenti e noleggi in fila per regolarità, con proiezione annua e «forse cessati»).
+**costi ricorrenti** (`/ricorrenti`: canoni, abbonamenti e noleggi in fila per regolarità, con proiezione annua e «forse cessati»), **flag «Budget» sulla persona** (chi risponde di un numero e lo proporrà).
 
 **MANCA**:
 - **Anno unico 2026**: nessun selettore d'anno; il pluriennale 2027-30 (già nei file pubblicati) non è caricato.
