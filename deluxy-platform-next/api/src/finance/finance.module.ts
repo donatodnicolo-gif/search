@@ -93,16 +93,25 @@ import { PrismaService } from '../prisma/prisma.service';
 /** IVA applicata al corrispettivo (22%). */
 const VAT = 0.22;
 /**
- * La commissione di incasso quando NON si sa come ha pagato il cliente.
+ * La commissione di incasso quando NON si sa come ha pagato il cliente: ZERO.
  *
  * ⚠️ Era il 3% per tutti, e non voleva dire niente: incassare costa quanto
  * chiede il gestore, e il gestore dipende dal metodo di pagamento e dal piano
- * del negozio. Ora le tariffe vere stanno in `CommissioneIncasso` — con la loro
- * fonte e un flag `confermata`, perche' sono state CERCATE e non lette da un
- * contratto. Questo 3% resta solo per gli ordini di cui non conosciamo il
- * metodo, ed e' dichiarato a schermo come stima.
+ * del negozio. Le tariffe vere stanno in `CommissioneIncasso`, ognuna con la
+ * sua fonte e un flag `confermata`.
+ *
+ * ⭐ E dove il metodo non si conosce si mette ZERO, non il 3% (l'utente,
+ * 25/08/2026): «sconosciuto potrebbe essere contanti o bonifico». Gli ordini
+ * senza gateway sono per lo piu' vecchi o entrati a mano, cioe' proprio quelli
+ * che non passano da un gestore — e attribuire loro una commissione era
+ * inventare un costo. Sull'archivio erano 1.893 ordini e 6.554 € di costo che
+ * non esiste.
+ *
+ * ⚠️ Il rischio opposto e' dichiarato: se qualcuno di quei 1.893 fosse stato
+ * pagato con carta, il suo costo ora manca. La pagina li conta e lo dice —
+ * meglio un buco visibile che un numero inventato.
  */
-const INCASSI = 0.03;
+const INCASSI = 0;
 /**
  * Gli stati che NON entrano nei corrispettivi.
  *
@@ -480,7 +489,7 @@ export class FinanceService {
       const tar = this.tariffa(tariffe, gateway, brand);
       const incassiCommission = tar
         ? round2((valore * tar.percentuale) / 100 + tar.fissa)
-        : round2(valore * INCASSI);
+        : round2(valore * INCASSI);   // metodo sconosciuto: zero, e si dichiara
       return {
       saleRef,
       consegne: g.length,

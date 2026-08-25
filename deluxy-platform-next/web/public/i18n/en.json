@@ -942,7 +942,7 @@
       "vuoto": "No order in this margin band, in the chosen period."
     },
     "apriConsegna": "Open the delivery in a new tab",
-    "commissioniStimate": "The collection fee of {{n}} orders is an ESTIMATE: either we do not know how the customer paid (3% applied), or the provider rate is not yet confirmed by an invoice of ours."
+    "commissioniStimate": "The collection fee of {{n}} orders is not confirmed: either we do not know how the customer paid — then it counts as ZERO, most likely cash or bank transfer — or the provider rate is not yet confirmed by an invoice of ours."
   },
   "stub": {
     "caption": "Section coming soon to the new platform.",
