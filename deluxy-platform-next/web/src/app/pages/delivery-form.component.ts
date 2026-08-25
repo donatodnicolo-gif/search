@@ -31,6 +31,8 @@ import {
 
 interface ProductRow {
   productId: string;
+  /** La variante scelta (es. la taglia M): il prezzo giusto dipende da lei. */
+  productVariantId: string | null;
   quantity: number | null;
   flexiblePrice: boolean;
   price: number | null;
@@ -260,13 +262,25 @@ interface ProductRow {
               <input class="field num qty" type="number" min="1" [placeholder]="'deliveryForm.placeholder.qty' | translate" [(ngModel)]="row.quantity" [name]="'qty' + $index" />
               <button type="button" class="icon-btn" (click)="removeProduct($index)" [title]="'deliveryForm.order.remove' | translate">✕</button>
             </div>
+            <!-- La variante non è un dettaglio: la Cappelliera base fa 110, la M
+                 ne fa 215 — senza sceglierla la consegna nasce col prezzo sbagliato. -->
+            @if (productVariants(row.productId).length) {
+              <div class="prod-variant">
+                <select class="field" [(ngModel)]="row.productVariantId" (ngModelChange)="onVariantChange(row)" [name]="'pvar' + $index">
+                  <option [ngValue]="null">{{ 'deliveryForm.order.noVariant' | translate }}</option>
+                  @for (v of productVariants(row.productId); track v.id) {
+                    <option [ngValue]="v.id">{{ v.name }}{{ v.price != null ? ' — ' + v.price + ' €' : '' }}</option>
+                  }
+                </select>
+              </div>
+            }
             <div class="prod-bottom">
               <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.flexiblePrice" (change)="onFlexToggle(row)" [name]="'pflex' + $index" /><span>{{ 'deliveryForm.order.flexiblePrice' | translate }}</span></label>
               @if (row.flexiblePrice) {
                 <span class="price-lbl">{{ 'deliveryForm.order.priceEuro' | translate }}</span>
                 <input class="field num price-in" type="number" step="0.01" [(ngModel)]="row.price" [name]="'pprice' + $index" />
               } @else {
-                <span class="price-static">{{ 'deliveryForm.order.priceLabel' | translate }} <strong>{{ productPrice(row.productId) != null ? (productPrice(row.productId) + ' €') : '—' }}</strong></span>
+                <span class="price-static">{{ 'deliveryForm.order.priceLabel' | translate }} <strong>{{ rowPrice(row) != null ? (rowPrice(row) + ' €') : '—' }}</strong></span>
               }
             </div>
           </div>
@@ -403,6 +417,7 @@ interface ProductRow {
       .prod-row { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; margin-bottom: 10px; align-items: center; }
       .prod-item { border: 1px solid var(--hairline); border-radius: var(--radius-m); padding: 12px 14px; margin-bottom: 10px; }
       .prod-top { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; }
+      .prod-variant { margin-top: 8px; max-width: 320px; }
       .prod-bottom { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
       .price-static { font-size: 13.5px; color: var(--text-secondary); }
       .price-lbl { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
@@ -713,6 +728,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     const products = (d['products'] as any[]) ?? [];
     this.productRows = products.map((p) => ({
       productId: p.productId ?? p.product?.id ?? '',
+      productVariantId: p.productVariantId ?? null,
       quantity: p.quantity ?? 1,
       price: p.price ?? null,
       flexiblePrice: !!p.flexiblePrice,
@@ -989,7 +1005,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     return mancante ? [mancante, ...lista] : lista;
   });
 
-  addProduct(): void { this.productRows.push({ productId: '', quantity: 1, flexiblePrice: false, price: null }); }
+  addProduct(): void { this.productRows.push({ productId: '', productVariantId: null, quantity: 1, flexiblePrice: false, price: null }); }
   removeProduct(i: number): void { this.productRows.splice(i, 1); }
 
   /** Prezzo base del prodotto selezionato. */
@@ -997,14 +1013,36 @@ export class DeliveryFormComponent implements AfterViewInit {
     return this.products().find((p) => p.id === productId)?.price ?? null;
   }
 
-  /** Al cambio prodotto, se il prezzo è flessibile precompila con il prezzo base. */
-  onProductChange(row: ProductRow): void {
-    if (row.flexiblePrice && row.price == null) row.price = this.productPrice(row.productId);
+  /** Le varianti attive del prodotto selezionato (vuoto = niente tendina). */
+  productVariants(productId: string) {
+    return (this.products().find((p) => p.id === productId)?.variants ?? [])
+      .filter((v) => v.active !== false);
   }
 
-  /** Attivando "prezzo flessibile" precompila con il prezzo base del prodotto. */
+  /**
+   * Il prezzo della riga: della VARIANTE se scelta, del prodotto altrimenti.
+   * La Cappelliera base fa 110 ma la M ne fa 215: mostrare il base con la M
+   * scelta farebbe firmare un prezzo sbagliato.
+   */
+  rowPrice(row: ProductRow): number | null {
+    const v = this.productVariants(row.productId).find((x) => x.id === row.productVariantId);
+    return v?.price ?? this.productPrice(row.productId);
+  }
+
+  /** Al cambio prodotto la variante si azzera: era di un altro prodotto. */
+  onProductChange(row: ProductRow): void {
+    row.productVariantId = null;
+    if (row.flexiblePrice && row.price == null) row.price = this.rowPrice(row);
+  }
+
+  /** Al cambio variante, il prezzo flessibile non ancora toccato segue lei. */
+  onVariantChange(row: ProductRow): void {
+    if (row.flexiblePrice && row.price == null) row.price = this.rowPrice(row);
+  }
+
+  /** Attivando "prezzo flessibile" precompila col prezzo di riga (variante compresa). */
   onFlexToggle(row: ProductRow): void {
-    if (row.flexiblePrice && row.price == null) row.price = this.productPrice(row.productId);
+    if (row.flexiblePrice && row.price == null) row.price = this.rowPrice(row);
   }
 
   /** Orari proponibili per il ritiro: mezz'ora in mezz'ora, 00:00–23:30.
@@ -1106,6 +1144,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       .filter((r) => r.productId)
       .map((r) => ({
         productId: r.productId,
+        productVariantId: r.productVariantId ?? undefined,
         quantity: r.quantity ?? 1,
         flexiblePrice: r.flexiblePrice,
         price: r.flexiblePrice && r.price != null ? Number(r.price) : undefined,

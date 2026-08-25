@@ -63,6 +63,7 @@ export class SalesService {
    */
   async create(body: {
     productId: string;
+    productVariantId?: string;
     provinceId: string;
     brand?: string;
     customerId?: string;
@@ -79,6 +80,18 @@ export class SalesService {
       where: { id: body.productId },
     });
     if (!product) throw new NotFoundException('Prodotto non trovato');
+
+    // La VARIANTE dell'ordine (es. la taglia M). Deve appartenere al prodotto:
+    // una variante di un altro prodotto e' un errore del chiamante, non un
+    // dettaglio da ignorare in silenzio.
+    const variante = body.productVariantId
+      ? await this.prisma.productVariant.findFirst({
+          where: { id: body.productVariantId, productId: product.id },
+        })
+      : null;
+    if (body.productVariantId && !variante) {
+      throw new NotFoundException('Variante non trovata per questo prodotto');
+    }
 
     const quando = body.deliveryDate ? new Date(body.deliveryDate) : new Date();
     const scelto = await this.scegliPartner(product, body.provinceId, quando, []);
@@ -103,12 +116,17 @@ export class SalesService {
     return this.prisma.sale.create({
       data: {
         productId: product.id,
+        // Fotografia della variante: id + nome, come per il prodotto.
+        productVariantId: variante?.id ?? null,
+        variantName: variante?.name ?? null,
         provinceId: body.provinceId,
         partnerId: scelto?.partnerId ?? null,
         assignmentReason: scelto?.motivo ?? null,
         customerId: body.customerId,
         brand: body.brand ?? 'DELUXY',
-        amount: product.price ?? 0,
+        // La Cappelliera base fa 110 ma la M ne fa 215: se c'e' la variante,
+        // il valore della vendita e' il SUO listino, non quello del base.
+        amount: variante?.price ?? product.price ?? 0,
         discountPercent: sconto?.discountPercent ?? 0,
         status: scelto ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
         source: body.source ?? 'app',
@@ -140,6 +158,7 @@ export class SalesService {
     provinceCode?: string;
     provinceId?: string;
     productId?: string;
+    productVariantId?: string;
     productSku?: string;
     brand?: string;
     customerId?: string;
@@ -159,11 +178,26 @@ export class SalesService {
     });
     if (gia) return { creata: false, motivo: 'ordine gia ricevuto', vendita: gia };
 
-    const prodotto = body.productId
+    // ⚠️ Lo SKU di un ordine e' quasi sempre quello della VARIANTE (es.
+    // MQLSWA-2 = Cappelliera taglia M): se fra i prodotti non c'e', si cerca
+    // fra le varianti e si tiene ANCHE la variante — perdere quale taglia e'
+    // stata ordinata fa sbagliare tutti i prezzi a valle.
+    let variantId = body.productVariantId ?? null;
+    let prodotto = body.productId
       ? await this.prisma.product.findUnique({ where: { id: body.productId } })
       : body.productSku
         ? await this.prisma.product.findFirst({ where: { sku: body.productSku } })
         : null;
+    if (!prodotto && body.productSku) {
+      const variante = await this.prisma.productVariant.findFirst({
+        where: { sku: body.productSku },
+        include: { product: true },
+      });
+      if (variante) {
+        prodotto = variante.product;
+        variantId = variante.id;
+      }
+    }
     if (!prodotto) throw new NotFoundException('Prodotto non trovato (per id o SKU)');
 
     const provincia = body.provinceId
@@ -178,6 +212,7 @@ export class SalesService {
     const vendita = await this.create({
       ...body,
       productId: prodotto.id,
+      productVariantId: variantId ?? undefined,
       provinceId: provincia.id,
     });
     return { creata: true, vendita };
@@ -197,7 +232,10 @@ export class SalesService {
       );
     }
 
-    const consegna = await this.creaConsegna(vendita);
+    const variante = vendita.productVariantId
+      ? await this.prisma.productVariant.findUnique({ where: { id: vendita.productVariantId } })
+      : null;
+    const consegna = await this.creaConsegna(vendita, variante);
     const aggiornata = await this.prisma.sale.update({
       where: { id },
       data: { status: SaleStatus.ACCETTATA, deliveryId: consegna?.id ?? null },
@@ -418,21 +456,28 @@ export class SalesService {
    * accettata senza consegna, e detto, che una consegna con un destinatario
    * inventato.
    */
-  private async creaConsegna(vendita: {
-    id: string;
-    partnerId: string | null;
-    customerId: string | null;
-    recipientFirstName: string | null;
-    recipientLastName: string | null;
-    recipientAddress: string | null;
-    recipientPhone: string | null;
-    deliveryDate: Date | null;
-    serviceTypeId: string | null;
-    amount: number;
-    discountPercent?: number;
-    externalOrderId?: string | null;
-    source?: string;
-  }) {
+  private async creaConsegna(
+    vendita: {
+      id: string;
+      partnerId: string | null;
+      customerId: string | null;
+      recipientFirstName: string | null;
+      recipientLastName: string | null;
+      recipientAddress: string | null;
+      recipientPhone: string | null;
+      deliveryDate: Date | null;
+      serviceTypeId: string | null;
+      amount: number;
+      discountPercent?: number;
+      externalOrderId?: string | null;
+      source?: string;
+      productId?: string | null;
+      productVariantId?: string | null;
+      variantName?: string | null;
+      product?: { name: string; sku: string | null; publicPrice: number | null } | null;
+    },
+    variante?: { id: string; name: string; price: number | null; publicPrice: number | null } | null,
+  ) {
     if (!vendita.partnerId || !vendita.serviceTypeId || !vendita.deliveryDate) return null;
     if (!vendita.recipientFirstName || !vendita.recipientLastName || !vendita.recipientAddress) {
       return null;
@@ -477,6 +522,26 @@ export class SalesService {
         productValue: datoAlPartner,
         ddtNumber: numeroDdt,
         legacySaleId: vendita.externalOrderId ?? null,
+        // ⭐ LA RIGA PRODOTTO, che prima non veniva scritta affatto: la consegna
+        // nasceva senza dire COSA andava consegnato («Nessun prodotto» a
+        // schermo), e la Finanza leggeva un venduto a zero. E' la fotografia
+        // del giorno, variante compresa: la Cappelliera M non e' la Cappelliera.
+        products: vendita.productId
+          ? {
+              create: [{
+                productId: vendita.productId,
+                productName: vendita.product?.name ?? null,
+                productSku: vendita.product?.sku ?? null,
+                productVariantId: vendita.productVariantId ?? null,
+                variantName: vendita.variantName ?? variante?.name ?? null,
+                quantity: 1,
+                // Il prezzo di riga e' il PUBBLICO (cosi' lo legge la Finanza):
+                // della variante se c'e', del prodotto altrimenti. Se nessuno
+                // dei due lo dichiara resta vuoto — non si inventa.
+                price: variante?.publicPrice ?? vendita.product?.publicPrice ?? null,
+              }],
+            }
+          : undefined,
       },
       select: { id: true, code: true, date: true },
     });
@@ -506,6 +571,7 @@ export class SalesController {
     @Body()
     body: {
       productId: string;
+      productVariantId?: string;
       provinceId: string;
       brand?: string;
       customerId?: string;
@@ -535,6 +601,7 @@ export class SalesController {
       provinceCode?: string;
       provinceId?: string;
       productId?: string;
+      productVariantId?: string;
       productSku?: string;
       brand?: string;
       customerId?: string;

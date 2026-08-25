@@ -174,6 +174,8 @@ export interface Product {
   price?: number;
   sku?: string;
   partner?: { id: string; insegna: string } | null;
+  /** Le taglie/varianti: senza, una consegna per la «M» nasce col prodotto base. */
+  variants?: { id: string; name: string; price?: number | null; publicPrice?: number | null; active?: boolean }[];
 }
 
 export interface Customer {

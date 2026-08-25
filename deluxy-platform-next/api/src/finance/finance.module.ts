@@ -200,6 +200,12 @@ interface CorrispettivoRow {
   partner: string;
   /** Prezzo pubblico: somma dei prezzi scritti sulle righe di consegna. */
   publicPrice: number;
+  /**
+   * `true` = almeno una riga non aveva il prezzo scritto e si e' usato il
+   * pubblico della VARIANTE (listino di oggi, non fotografia di quel giorno).
+   * Va detto a schermo: un ripiego silenzioso sembrerebbe un dato misurato.
+   */
+  vendutoStimato: boolean;
   deliveryFee: number;
   saleValue: number;
   /** Quello che abbiamo dato al partner: `Delivery.productValue`, scritto. */
@@ -260,6 +266,8 @@ interface RecapOrdine {
   consegne: number;
   /** Somma dei prezzi pagati dal cliente sulle consegne dell'ordine. */
   saleValue: number;
+  /** Almeno una riga senza prezzo scritto, stimata dal listino della variante. */
+  vendutoStimato: boolean;
   /** Spese di consegna dell'ordine: contate UNA volta. */
   deliveryFee: number;
   /** Costo della consegna dell'ordine: per la regola, uno solo. */
@@ -396,6 +404,9 @@ export class FinanceService {
         products: {
           include: {
             product: { select: { name: true, category: { select: { name: true } } } },
+            // Per il ripiego dichiarato dove il prezzo di riga manca: il
+            // pubblico della VARIANTE venduta (es. Cappelliera M: 300).
+            productVariant: { select: { name: true, publicPrice: true } },
           },
         },
       },
@@ -494,6 +505,9 @@ export class FinanceService {
       saleRef,
       consegne: g.length,
       saleValue: publicPrice,
+      // Almeno una consegna del giro ha il venduto stimato dalla variante
+      // (listino di oggi, non fotografia): il totale va letto sapendolo.
+      vendutoStimato: g.some((r) => r.vendutoStimato),
       // Il valore piu' alto fra le consegne del gruppo: nell'import ogni
       // consegna di un ordine riceve lo stesso importo, e dove manca vale zero.
       deliveryFee,
@@ -650,7 +664,23 @@ export class FinanceService {
   private computeRow(d: any): CorrispettivoRow {
     const lines: any[] = d.products ?? [];
     // Il prezzo pubblico e' la fotografia di quel giorno, non il catalogo di oggi.
-    const publicPrice = lines.reduce((s, l) => s + (l.price ?? 0) * (l.quantity ?? 1), 0);
+    // ⚠️ RIPIEGO DICHIARATO (deciso dall'utente il 25/08): dove la riga non ha
+    // un prezzo scritto ma punta a una VARIANTE, si usa il pubblico della
+    // variante — 212 righe stavano cosi' (es. Cappelliera M: riga vuota,
+    // variante 300) e contavano ZERO venduto. `vendutoStimato` lo dice a
+    // schermo: e' il listino di oggi, non la fotografia di quel giorno.
+    const prezzoRiga = (l: any): { v: number; stimato: boolean } =>
+      l.price != null
+        ? { v: l.price, stimato: false }
+        : l.productVariant?.publicPrice != null
+          ? { v: l.productVariant.publicPrice, stimato: true }
+          : { v: 0, stimato: false };
+    let vendutoStimato = false;
+    const publicPrice = lines.reduce((s, l) => {
+      const { v, stimato } = prezzoRiga(l);
+      if (stimato) vendutoStimato = true;
+      return s + v * (l.quantity ?? 1);
+    }, 0);
     const deliveryFee = d.deliveryPrice ?? 0;
     const saleValue = publicPrice + deliveryFee;
     // ⚠️ SI LEGGE, non si calcola. E il vuoto resta vuoto: dove `productValue`
@@ -711,6 +741,7 @@ export class FinanceService {
       service: d.serviceType?.name ?? '—',
       partner: d.partner?.insegna ?? '—',
       publicPrice: round2(publicPrice),
+      vendutoStimato,
       deliveryFee: round2(deliveryFee),
       saleValue: round2(saleValue),
       partnerPrice: round2(partnerPrice),
@@ -728,9 +759,10 @@ export class FinanceService {
       paymentGateway: d.paymentGateway ?? null,
       paymentBrand: d.paymentBrand ?? null,
       prodotti: lines.map((l) => ({
-        nome: String(l.product?.name ?? l.productName ?? '?'),
+        nome: String(l.product?.name ?? l.productName ?? '?')
+          + (l.variantName || l.productVariant?.name ? ` (${l.variantName ?? l.productVariant?.name})` : ''),
         quantita: l.quantity ?? 1,
-        prezzo: round2(l.price ?? 0),
+        prezzo: round2(prezzoRiga(l).v),
       })),
     };
   }

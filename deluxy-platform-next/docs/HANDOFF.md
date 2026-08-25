@@ -158,6 +158,33 @@ specchiati in Orders; il connettore Shopify diretto risulta scollegato). Ora
 pillola e il prezzo giusto (`price` della riga → variante → prodotto base).
 `productValue` 215 = il listino della variante venduta: torna tutto.
 
+### La VARIANTE entra dappertutto (25/08 sera, su richiesta dell'utente)
+
+Tre buchi chiusi in un colpo (migrazione `20260825210000_vendita_con_variante`,
+applicata al cluster con `scripts/applica-migrazione-variante.mjs`):
+
+1. **Il giro Orders → vendita → consegna non perde più la taglia.** `Sale` ha
+   ora `productVariantId` + `variantName` (fotografia, FK SetNull);
+   l'`orders-sync` teneva l'indice SKU→prodotto e BUTTAVA la variante pur
+   avendola riconosciuta — ora la conserva e la passa all'`ingest` (che sa
+   anche risolvere da solo uno SKU di variante). `Sale.amount` = listino della
+   variante se c'è. E `creaConsegna` ora scrive **la riga prodotto che prima
+   non scriveva affatto**: una consegna nata da una vendita accettata diceva
+   «Nessun prodotto» e valeva zero in Finanza. La riga porta prodotto, variante
+   e il prezzo PUBBLICO fotografato (variante → prodotto → vuoto, mai inventato).
+2. **Il form consegna ha la tendina della variante** (solo per prodotti che ne
+   hanno): il prezzo mostrato/precompilato è quello della variante scelta, al
+   cambio prodotto la variante si azzera, e `productVariantId` viaggia nel DTO
+   (aggiunto a `DeliveryProductDto`; `fotografaProdotti` lo gestiva già).
+3. **Finanza e Fatturazione: ripiego DICHIARATO sulla variante.** Dove la riga
+   non ha un prezzo scritto ma punta a una variante, vale il suo `publicPrice`
+   (le 212 righe tipo la 62637 non contano più zero; su 881 vendite senza
+   prezzo, 274 si spiegano così, ~39.200 €). Il ripiego NON è silenzioso:
+   `vendutoStimato` sulla riga e sul recap d'ordine, «≈» dorato col tooltip
+   accanto al venduto — è il listino di OGGI, non la fotografia di quel giorno.
+   Stessa regola nel `dovuto al partner` della Fatturazione (3 select + il
+   batch, tipo aggiornato).
+
 **Resta da fare qui**: creazione/modifica dei modelli SMS da UI (l'API `POST
 /sms-templates` c'è); creazione provincia da UI; la prima corsa AUTOMATICA del
 cron è stanotte alle 4:30 italiane (quella a mano è già andata); riconnettere

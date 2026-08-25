@@ -823,6 +823,7 @@ model ProductVariant {
   merchandisingId String?
   product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   deliveryProducts DeliveryProduct[]
+  sales        Sale[]
 }
 
 // Associazione prodotto <-> partner aggiuntivo (PRODUCTS PARTNER)
@@ -1511,6 +1512,12 @@ model Sale {
   productName     String?
   productSku      String?
   product         Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  /// Variante scelta nell'ordine (es. la taglia M): senza, un ordine per la
+  /// Cappelliera M entrava come «Cappelliera» e basta e i prezzi non tornavano.
+  /// Fotografia come productName: il nome resta anche se la variante sparisce.
+  productVariantId String?
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  variantName      String?
   partnerId       String? // partner assegnato dallo smistamento
   partner         Partner?  @relation(fields: [partnerId], references: [id])
   customerId      String?

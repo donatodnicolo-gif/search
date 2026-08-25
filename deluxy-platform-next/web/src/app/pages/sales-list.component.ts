@@ -16,6 +16,7 @@ interface Sale {
   externalOrderId?: string | null;
   source: string;
   product?: { id: string; name: string } | null;
+  variantName?: string | null;
   partner?: { id: string; insegna: string } | null;
   province?: { id: string; code: string; name: string } | null;
   assignmentReason?: string | null;
@@ -128,7 +129,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                   </span>
                 </td>
                 <td class="mono">{{ s.brand }}</td>
-                <td>{{ s.product?.name ?? '—' }}</td>
+                <td>{{ s.product?.name ?? '—' }}@if (s.variantName) { <span class="muted">({{ s.variantName }})</span> }</td>
                 <td class="mono">{{ s.province?.code ?? '—' }}</td>
                 <td>{{ s.partner?.insegna ?? ('sales.noPartner' | translate) }}
                   @if (s.assignmentReason) {

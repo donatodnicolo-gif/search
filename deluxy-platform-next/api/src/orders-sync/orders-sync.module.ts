@@ -337,15 +337,18 @@ export class OrdersSyncService {
     // entravano 16: 129 finivano in «prodotto sconosciuto» pur essendo tutti
     // in catalogo. Le varianti con SKU sono 18.375, i prodotti 20.287: si
     // guardano entrambi, prima il prodotto e poi la variante.
-    const prodotti = new Map(
+    // L'indice porta ANCHE la variante: riconoscere «MQLSWA-2» come Cappelliera
+    // e poi buttare via la taglia M faceva nascere vendite col prodotto base e
+    // i prezzi sbagliati a valle (base 110, la M vale 215).
+    const prodotti = new Map<string, { productId: string; variantId: string | null }>(
       (await this.prisma.product.findMany({ where: { NOT: { sku: null } }, select: { id: true, sku: true } }))
-        .map((p) => [p.sku!.trim().toUpperCase(), p.id]),
+        .map((p) => [p.sku!.trim().toUpperCase(), { productId: p.id, variantId: null }]),
     );
     for (const v of await this.prisma.productVariant.findMany({
-      where: { NOT: { sku: null } }, select: { sku: true, productId: true },
+      where: { NOT: { sku: null } }, select: { id: true, sku: true, productId: true },
     })) {
       const k = v.sku!.trim().toUpperCase();
-      if (!prodotti.has(k)) prodotti.set(k, v.productId);
+      if (!prodotti.has(k)) prodotti.set(k, { productId: v.productId, variantId: v.id });
     }
 
     const conteggio: Record<Esito, number> = {
@@ -389,7 +392,8 @@ export class OrdersSyncService {
             source: 'deluxy-orders',
             externalOrderId: o.id,
             provinceId: province.get(codice)!,
-            productId: prodotti.get(sku)!,
+            productId: prodotti.get(sku)!.productId,
+            productVariantId: prodotti.get(sku)!.variantId ?? undefined,
             brand: o.brand ?? undefined,
             ...this.destinatario(o),
             deliveryDate: o.consegna?.data ? `${o.consegna.data}T00:00:00.000Z` : undefined,

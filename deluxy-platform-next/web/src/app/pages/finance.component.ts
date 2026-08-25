@@ -45,6 +45,8 @@ interface RecapOrdine {
   saleRef: string;
   consegne: number;
   saleValue: number;
+  /** Venduto stimato dal listino della variante (riga senza prezzo scritto). */
+  vendutoStimato?: boolean;
   deliveryFee: number;
   deliveryCost: number;
   partnerPrice: number;
@@ -279,7 +281,7 @@ interface Summary {
                     }
                   </td>
                   <td>—</td>
-                  <td class="num">{{ euro(o.saleValue + o.deliveryFee) }}</td>
+                  <td class="num">{{ euro(o.saleValue + o.deliveryFee) }}@if (o.vendutoStimato) {<span class="stimato" [title]="'finance.vendutoStimatoHint' | translate">≈</span>}</td>
                   <td class="num">{{ euro(o.deliveryFee) }}</td>
                   <td class="num">{{ euro(o.partnerPrice) }}</td>
                   <td class="num">{{ euro(o.takings) }}</td>
@@ -383,6 +385,8 @@ interface Summary {
       .avviso.ambito { color: var(--text-secondary); font-weight: 500; }
       /* Una riga sbagliata resta leggibile: si segnala, non si cancella. */
       .riga-anomala { background: rgba(215, 0, 21, 0.05); }
+      /* Venduto stimato dal listino della variante: il tilde lo dice, il title spiega. */
+      .stimato { margin-left: 3px; color: var(--gold-strong, #a07f2c); font-weight: 600; cursor: help; }
       .tag-anomalia { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
         background: rgba(215, 0, 21, 0.12); color: var(--red); font-size: 11px; font-weight: 600; }
       .contratto { color: var(--text-secondary); }

@@ -17,6 +17,11 @@ export class DeliveryProductDto {
   @IsString()
   productId: string;
 
+  @ApiPropertyOptional({ description: 'Variante scelta (es. la taglia): la fotografia la conserva' })
+  @IsOptional()
+  @IsString()
+  productVariantId?: string;
+
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @IsInt()

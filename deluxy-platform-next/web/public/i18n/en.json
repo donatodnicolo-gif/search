@@ -868,6 +868,7 @@
   "finance": {
     "title": "Finance",
     "caption": "Company takings and margins — sales services only",
+    "vendutoStimatoHint": "Estimated: the delivery line has no written price, so the variant's public list price (today's, not the sale day's) is used.",
     "from": "From",
     "to": "To",
     "export": "Export",
@@ -1067,6 +1068,7 @@
     "order": {
       "noProducts": "No product added.",
       "generic": "generic",
+      "noVariant": "No variant (base product)",
       "remove": "Remove",
       "flexiblePrice": "Flexible price",
       "priceEuro": "Price (€)",
