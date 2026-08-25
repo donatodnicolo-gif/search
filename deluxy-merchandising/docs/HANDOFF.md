@@ -1,6 +1,6 @@
 # Handoff — Deluxy Merchandising
 
-Stato al 24/08/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato al 25/08/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 Le voci sono in ordine di data: **le ultime stanno in fondo a FATTO**, appena sopra «COME AVVIARE».
 
 ## 24/08/2026 — Audit architettura: il seed non può più svuotare la produzione
@@ -535,6 +535,12 @@ porta **3120**. Design system Deluxy v1.0.
   - ⭐ **Lezione riusabile: quando si smonta una regola sbagliata, si cercano tutte le sue copie.** Quella sul percorso automatico non ha nessuno che la guarda — un bottone che sbaglia lo si vede subito, un cron che salta in silenzio dura **due settimane**. Il segnale c'era e diceva la verità («0 mandate a Shopify»), ma un esito che è solo un numero non si legge come un allarme.
   - ⚠️ **Da qui in avanti il cron delle 05:20 scrive davvero su `deluxy.it`** per quelle tre collezioni: è quello che `spingiSuShopify = true` prometteva, ma non era mai successo. La prossima corsa di «Rotazione Fiori» è dovuta il **24/08**.
 
+- ✅ **25/08/2026 — la rotazione scrive davvero sul sito: verificato sul negozio.** L'handoff del 21/08 chiudeva con «la prossima corsa di *Rotazione Fiori* è dovuta il 24/08»: è arrivata, e stavolta ha scritto.
+  - **Contato sul database**: «Rotazione Fiori» ha girato il **24/08 alle 07:20** con esito **«3 collezioni, 3 mandate a Shopify»** — contro le **«0 mandate»** mute del 17/08.
+  - ⭐ **Controprova sul negozio vero, non sullo specchio dell'app**: interrogata «Fiori» (`gid://shopify/Collection/404145766654`) col connettore Shopify, il sito mostra **le stesse cinque righe nello stesso ordine** che ha l'app — MAXI Cesto Rose Rosse · Sunflowers Balloon · Monet - Giardino a Giverny · Cappelliera Girasoli · Bouquet - Odissea — con `sortOrder: MANUAL`. Il 21/08 su «Rose» sito e app concordavano su **2 righe su 5**. Il record dell'esito l'abbiamo scritto noi: da solo sarebbe stato un silenzio, non una conferma.
+  - **Fotografia del 25/08**: 4.610 prodotti (**1.100 attivi, tutti ancora senza costo**), 343 collezioni, **7.067 righe di venduto**, **area di consegna compilata sul 76%** (era 22% quando il riempimento leggeva i parametri sbagliati), 0 linee, 0 tipologie. Il cron dei 15 minuti regge da otto giorni (import alle 12:15, 12:01, 11:45, 11:30, tutti `ok`/`automatico`). `GET /api/v1/prodotti` risponde **401** senza chiave in produzione.
+  - ⚠️ **Le API prodotti non sono ancora state esercitate su dati veri**: tutti e 4.610 i prodotti hanno `origine = "merchandising"`, quindi dalla piattaforma non è mai arrivato niente e il ramo POST resta provato solo in sviluppo.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
@@ -568,6 +574,13 @@ collezioni, 6.821 righe di venduto, 3 negozi collegati e verificati.
 - ~~il nostro SEO non arriva al negozio~~ → `spingiSeoSuShopify` in [azioni-seo.ts](../src/lib/azioni-seo.ts);
 - ~~collezioni pubblicate senza prodotti~~ → **1 su 343** (erano 70);
 - ~~il venduto si aggiorna solo a mano~~ → cron delle 05:00, vedi la voce del 10/08.
+
+> **Ricontato sul database il 25/08/2026** — la lista qui sotto regge nella sostanza, ma i numeri
+> del punto 1 sono cambiati: gli attivi sono **1.100** (non 1.024) e **restano tutti senza costo**,
+> quindi il punto è più grande di prima, non più piccolo. Confermati anche **0 linee** e **0
+> tipologie**. ✅ Nel frattempo si sono chiusi due punti che qui non comparivano: la **rotazione
+> scrive davvero su Shopify** (verificato sul negozio il 25/08, collezione «Fiori» identica riga per
+> riga) e l'**area di consegna** è passata dal 22% al **76%** delle righe di venduto.
 
 **Aperti davvero al 10/08/2026**
 1. **Costi di produzione: 1.024 prodotti attivi su 1.024 non ne hanno uno.** È l'unico punto rimasto che avvelena tutto il resto: `/costi` non ha niente da confrontare col target, le griglie non mostrano marginalità, ogni prodotto composto esce con margine non calcolabile. C'è già l'export CSV con gli stessi filtri della pagina, pensato per compilarlo in foglio di calcolo — **manca il reimport del CSV compilato**, che oggi non esiste.
