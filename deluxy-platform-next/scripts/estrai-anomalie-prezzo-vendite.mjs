@@ -1,11 +1,15 @@
 // ============================================================
 // Estrazione degli ERRORI DI PREZZO sulle vendite
 // ------------------------------------------------------------
-// Chiesta dall'utente il 25/08/2026, dopo aver stabilito che su una consegna di
-// VENDITA `Delivery.price` e' la quota che TRATTENIAMO noi e non cio' che
-// paghiamo al partner: le righe che non tornano sono errori di inserimento del
-// prezzo, e vanno tirate fuori tutte — «tutto quello che e' stato inserito,
-// anche quello che risulta dall'ordine Shopify».
+// Chiesta dall'utente il 25/08/2026: «tutto quello che e' stato inserito, anche
+// quello che risulta dall'ordine Shopify».
+//
+// ⭐ Allineato la sera stessa al modello vero, quello che usa anche la pagina:
+//   prezzo pubblico = somma( DeliveryProduct.price x quantita )
+//   dato al partner = Delivery.productValue     <- SCRITTO, non dedotto
+//   guadagno lordo  = pubblico - dato al partner
+//   guadagno netto  = lordo / 1,22
+//   quota a listino = Delivery.price + plus/minus  (la fee di contratto)
 //
 // Tira fuori, per ogni consegna di vendita andata a buon fine che non torna:
 //   - TUTTO quello che e' stato inserito a mano sulla consegna (prezzo, plus e
@@ -100,7 +104,7 @@ try {
       serviceType: { pricingModel: 'VENDITA' } },
     select: {
       code: true, legacyId: true, date: true, status: true,
-      price: true, additionalPrice: true, deliveryPrice: true,
+      price: true, additionalPrice: true, deliveryPrice: true, productValue: true,
       valetSalary: true, valetAdditionalPrice: true,
       isFlexiblePrice: true, flexiblePrice: true, hours: true,
       shop: true, legacySaleId: true, legacyOrderId: true, realOrderNumber: true,
@@ -158,6 +162,11 @@ try {
 
   const valutate = consegne.map((d) => {
     const venduto = r2(d.products.reduce((s, l) => s + (l.price ?? 0) * (l.quantity ?? 1), 0));
+    // ⚠️ SI LEGGE. Il vuoto resta vuoto: con zero il partner risulterebbe non
+    // aver preso niente e il guadagno sarebbe tutto nostro.
+    const alPartner = (d.productValue ?? 0) > 0 ? r2(d.productValue) : null;
+    const guadagno = alPartner != null ? r2(venduto - alPartner) : null;
+    const guadagnoNetto = guadagno != null ? r2(guadagno / 1.22) : null;
     const trattenuto = r2(Math.max(0, (d.price ?? 0) + (d.additionalPrice ?? 0)));
     const catalogo = r2(d.products.reduce(
       (s, l) => s + ((l.product?.publicPrice ?? l.product?.price ?? 0) * (l.quantity ?? 1)), 0));
@@ -169,30 +178,33 @@ try {
     // di ordini che a zero non erano.
     const totOrdine = n(o?.total) ?? n(o?.totalPrice) ?? li.totale;
     const feeContratto = d.partner?.commissionPercent ?? 0;
-    // ⚠️ «Niente trattenuto» e' un'anomalia SOLO se il partner una fee ce l'ha.
-    // Con la fee a 0% non abbiamo trattenuto niente perche' non si doveva
-    // trattenere niente: e' una scelta commerciale. Delle 3.003 vendite senza
-    // quota, 2.880 sono di partner a fee zero e solo 123 sono un dato mancante:
-    // accusarle tutte avrebbe segnalato 2.880 righe sane.
     const scarto = totOrdine != null && venduto > 0 ? r2(totOrdine - venduto) : null;
     // Solo controlli INTERNI, che si reggono da soli. Lo scarto Shopify e'
     // informazione, non verdetto (vedi SOGLIA_SCARTO qui sopra).
-    const scostaDaContratto = feeContratto > 0 && venduto > 0 && trattenuto > 0
-      && Math.abs((trattenuto / venduto) * 100 - feeContratto) > 5;
-    const anomalia = venduto <= 0 ? 'venduto a zero'
-      : trattenuto > venduto ? 'trattenuto oltre il venduto'
-        : trattenuto <= 0 && feeContratto > 0 ? 'niente trattenuto (il partner ha una fee)'
-          : scostaDaContratto ? 'fee incassata lontana dal contratto'
+    //
+    // ⚠️ Un guadagno a ZERO non e' un'anomalia: con un partner a fee 0% e' una
+    // scelta commerciale. Delle 3.003 vendite senza quota, 2.880 erano proprio
+    // questo — accusarle tutte avrebbe segnalato righe sane.
+    const guadagnoPc = guadagno != null && venduto > 0 ? (guadagno / venduto) * 100 : null;
+    const scostaDaContratto = feeContratto > 0 && guadagnoPc != null && guadagno > 0
+      && Math.abs(guadagnoPc - feeContratto) > 5;
+    const anomalia = venduto <= 0 ? 'prezzo pubblico a zero'
+      : alPartner == null ? 'manca il valore dato al partner'
+        : alPartner > venduto ? 'al partner piu\' del pubblico'
+          : scostaDaContratto ? 'guadagno lontano dalla fee di contratto'
             : null;
-    return { d, venduto, trattenuto, catalogo, anomalia, o, li, totOrdine, scarto,
-      feeReale: venduto > 0 ? r2((trattenuto / venduto) * 100) : null };
+    return { d, venduto, alPartner, guadagno, guadagnoNetto, trattenuto, catalogo,
+      anomalia, o, li, totOrdine, scarto,
+      feeReale: guadagnoPc != null ? r2(guadagnoPc) : null };
   });
   const scelte = TUTTE ? valutate : valutate.filter((x) => x.anomalia);
 
   // ---- 2) unione + CSV -----------------------------------------------------
   const testa = [
     'consegna', 'data', 'stato', 'partner', 'fee contratto %', 'servizio', 'anomalia',
-    'venduto (righe consegna)', 'trattenuto (Delivery.price+plus)', 'fee reale %',
+    'prezzo pubblico (righe consegna)', 'DATO AL PARTNER (productValue)',
+    'guadagno lordo', 'guadagno netto IVA', 'guadagno %',
+    'quota a listino (Delivery.price+plus)',
     'valore a catalogo oggi', 'Delivery.price', 'plus/minus', 'consegna prezzo',
     'paga valet', 'plus/minus valet', 'prezzo flessibile', 'flexiblePrice', 'ore',
     'righe prodotto', 'dettaglio righe (nome | q | prezzo riga | prezzo catalogo | prezzo pubblico)',
@@ -218,7 +230,8 @@ try {
       d.code, d.date.toISOString().slice(0, 10), d.status,
       d.partner?.insegna ?? '', d.partner?.commissionPercent ?? '', d.serviceType?.name ?? '',
       x.anomalia ?? '',
-      x.venduto, x.trattenuto, x.feeReale ?? '',
+      x.venduto, x.alPartner ?? '', x.guadagno ?? '', x.guadagnoNetto ?? '', x.feeReale ?? '',
+      x.trattenuto,
       x.catalogo, d.price ?? '', d.additionalPrice ?? '', d.deliveryPrice ?? '',
       d.valetSalary ?? '', d.valetAdditionalPrice ?? '',
       d.isFlexiblePrice ? 'si' : '', d.flexiblePrice ?? '', d.hours ?? '',
