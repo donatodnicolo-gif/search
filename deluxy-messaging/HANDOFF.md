@@ -77,6 +77,37 @@ torna, telefono/email **se l'ordine li ha** — oggi sono vuoti su tutti e 17).
 Restano qui gli ordini assegnati e le condizioni di pagamento: ognuno scrive
 quello che possiede.
 
+### E adesso finiscono anche in Scout (25/08, ore 15)
+
+Verificato: i fornitori che entrano nel registro pagandoli **non comparivano**
+in «Segnalazioni CS» di [Deluxy Scout](https://deluxy-scout.vercel.app) — la
+schermata chiedeva al registro la sola fonte `deluxy-suppliers`, e i nostri
+hanno `fonte: customer-service`. Misurato: 14 contro 43.
+
+Aggiunta la seconda fonte (commit `72a1743d`, deployato): chi va a visitarli
+vede ora anche i fornitori che hanno **già lavorato per noi e sono stati
+pagati**, con l'etichetta che li distingue. Sono i contatti più caldi che
+abbiamo, ed erano gli unici a non arrivare a nessuno.
+
+⚠️ Se la Edge Function `anagrafiche` deployata su Supabase è più vecchia del
+parametro `fonte`, l'elenco dei nostri **resta vuoto e dichiarato incompleto**
+(non si finge zero): si risolve con `supabase functions deploy anagrafiche`.
+
+### 🔴 MANCA: quanto lavoro abbiamo dato a un fornitore
+
+Il valore c'è **per ordine** (`Ordine.fornitoreCosto`, il costo concordato, e
+`RichiestaPagamento.importo`; il costo va anche a Orders per il margine), ma
+**nessuna schermata somma per fornitore** — e ad Anagrafiche va solo chi è
+(nome, stato, IBAN), nessun volume.
+
+Contato a mano il 25/08: **17 fornitori, un ordine a testa, 1.628 € dati contro
+2.800 € venduti**. Nessuno si ripete ancora.
+
+⚠️ Dove andrebbe: l'aggregazione è **sugli ordini** e l'economia dell'ordine è di
+Orders; qui c'è «chi lo prepara». Il punto in cui servirebbe davvero è la
+**scelta del fornitore**, accanto al nome: «gli abbiamo già dato N ordini per
+X €» — la domanda che questo manuale dichiarava di non saper rispondere.
+
 ## 25/08/2026 (pomeriggio) — «Paga fornitore» perdeva l'ordine per strada
 
 Segnalato dall'utente aprendo
