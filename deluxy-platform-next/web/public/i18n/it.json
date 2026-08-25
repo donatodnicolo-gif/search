@@ -913,13 +913,19 @@
     "lastMonth": "Mese scorso",
     "year": "Anno",
     "capped": "Mostrate {{n}} righe: il periodo scelto ne contiene di piu'. Stringi le date o filtra, o i totali non corrispondono all'elenco.",
-    "onlySales": "Corrispettivi: solo le consegne con un servizio di tipo Vendita.",
+    "onlySales": "Corrispettivi: solo le consegne con un servizio di tipo Vendita, escluse le annullate.",
     "excluded": "Nel periodo ce ne sono altre {{n}} con altri servizi (sola consegna, a ora, magazzino, aziendale): non sono vendite e restano fuori dai conti.",
     "anomalie": "{{n}} righe non sono attendibili e sono marcate in tabella: i totali le comprendono così come sono.",
     "anomalia": {
       "partner_oltre_pubblico": "al partner più del pubblico",
       "venduto_a_zero": "prezzo pubblico a zero",
       "valore_partner_mancante": "manca il valore al partner"
+    },
+    "altrove": {
+      "intro": "Ma {{n}} consegne corrispondono a quello che hai cercato:",
+      "annullate": "· {{n}} sono vendite del periodo ma ANNULLATE",
+      "fuoriPeriodo": "· {{n}} sono vendite, ma fuori dal periodo scelto",
+      "nonVendite": "· {{n}} non sono vendite (sola consegna, a ora, magazzino, aziendale)"
     }
   },
   "stub": {

@@ -44,6 +44,8 @@ interface Summary {
   excluded: number;
   /** Righe col prezzo sbagliato all'origine. */
   anomalie: number;
+  /** Quando la ricerca non trova niente: dove sta quello che si cercava. */
+  altrove: { totale: number; annullate: number; fuoriPeriodo: number; nonVendite: number } | null;
   publicPrice: number;
   deliveryFee: number;
   saleValue: number;
@@ -164,7 +166,21 @@ interface Summary {
       }
     } @else {
       @if (rows().length === 0) {
-        <div class="card state-card">{{ 'finance.empty' | translate }}</div>
+        <div class="card state-card">
+          {{ 'finance.empty' | translate }}
+          <!-- «Non c'e'» e «non e' ancora arrivata qui» sono cose diverse, e
+               chi cerca un numero d'ordine merita di sapere quale delle due. -->
+          @if (summary()?.altrove; as a) {
+            <p class="altrove">
+              {{ 'finance.altrove.intro' | translate:{ n: a.totale } }}
+              <span class="motivi">
+                @if (a.annullate) { <span>{{ 'finance.altrove.annullate' | translate:{ n: a.annullate } }}</span> }
+                @if (a.fuoriPeriodo) { <span>{{ 'finance.altrove.fuoriPeriodo' | translate:{ n: a.fuoriPeriodo } }}</span> }
+                @if (a.nonVendite) { <span>{{ 'finance.altrove.nonVendite' | translate:{ n: a.nonVendite } }}</span> }
+              </span>
+            </p>
+          }
+        </div>
       } @else {
         <div class="card table-wrap">
           <table class="fin">
@@ -295,6 +311,9 @@ interface Summary {
       .assumption { margin-top: 12px; font-size: 12px; color: var(--text-tertiary); font-style: italic; }
       .error-card { padding: 14px 16px; border-radius: var(--radius-m); background: rgba(215,0,21,0.08); color: var(--red); }
       .state-card { padding: 32px; color: var(--text-secondary); }
+      .altrove { margin: 12px 0 0; font-size: 13px; color: var(--text-primary); }
+      .altrove .motivi { display: block; margin-top: 6px; }
+      .altrove .motivi span { display: block; color: var(--text-secondary); }
     `,
   ],
 })

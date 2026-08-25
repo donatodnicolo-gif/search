@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { JwtUser } from '../common/decorators';
+import { tariffaAllaData } from '../common/tariffe-valet';
 import {
   ActivityType,
   DeliveryStatus,
@@ -767,12 +768,18 @@ export class DeliveriesService {
     const valet = await this.prisma.valet.findUnique({ where: { id: valetId } });
     if (!valet) throw new BadRequestException('Valet inesistente');
 
-    // Paga del valet dal matching salario/servizio (stesso pricingModel)
-    const valetService = await this.prisma.valetService.findUnique({
-      where: {
-        valetId_serviceTypeId: { valetId, serviceTypeId: delivery.serviceTypeId },
-      },
+    // Paga del valet dal listino, preso ALLA DATA della consegna.
+    //
+    // ⚠️ Dal 25/08/2026 un valet puo' avere piu' righe per lo stesso servizio,
+    // una per periodo: la tariffa cambia nel tempo (SERGIO DE ROSA e' passato da
+    // 7,20 a 8,00 €) e prendere sempre quella di oggi vorrebbe dire pagare una
+    // consegna vecchia con un listino che allora non esisteva. Per questo non
+    // c'e' piu' un `findUnique` su (valet, servizio): quella chiave non e' piu'
+    // unica, ed e' giusto cosi'.
+    const tariffe = await this.prisma.valetService.findMany({
+      where: { valetId, serviceTypeId: delivery.serviceTypeId },
     });
+    const valetService = tariffaAllaData(tariffe, delivery.date ?? new Date());
     const valetSalary =
       valetService != null
         ? valetService.salary * (delivery.hours ?? 1)

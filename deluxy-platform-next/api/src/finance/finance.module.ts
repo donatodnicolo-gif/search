@@ -95,19 +95,28 @@ const VAT = 0.22;
 /** Commissione incassi (3% del valore vendite). */
 const INCASSI = 0.03;
 /**
- * Gli stati che portano ricavo.
+ * Gli stati che NON entrano nei corrispettivi.
  *
- * ⚠️ Qui c'era `delivered_time_approved`, che in banca dati NON ESISTE: gli
- * stati veri sono `delivered_time_to_approve` (in attesa del via libera) e
- * `approved` (approvata). Un valore che non combacia con nessuna riga non da'
- * errore, toglie in silenzio: 550 consegne approvate restavano fuori dai conti
- * della Finanza. È la stessa grafia sbagliata trovata in Fatturazione e negli
- * Stipendi.
+ * ⭐ 25/08/2026, deciso dall'utente: «metti tutti gli stati a parte quelle
+ * cancelled». Prima era una lista di ammessi (`delivered`, `approved`) e
+ * teneva fuori tutto il resto — comprese le vendite gia' assegnate, accettate o
+ * appena create. Cercando l'ordine 12792 la pagina rispondeva «Nessuna vendita
+ * nel periodo» mentre quella vendita aveva tre consegne del 25/08: erano
+ * `assigned`, `accepted` e `cancelled`.
  *
- * `delivered_time_to_approve` resta FUORI: l'orario non e' ancora approvato, e
- * finche' non lo e' il ricavo non e' fermo.
+ * ⚠️ Una lista di AMMESSI e una di ESCLUSI invecchiano in modo opposto: la
+ * prima dimentica gli stati nuovi (e li toglie in silenzio), la seconda li
+ * include per difetto. Qui la seconda e' quella giusta — l'unico stato che non
+ * porta ricavo e' quello annullato.
+ *
+ * Effetto misurato: le vendite dell'archivio passano da 12.247 a 12.951 (+704);
+ * agosto 2026 da 154 a 372 righe.
+ *
+ * Storia utile: qui c'era anche `delivered_time_approved`, che in banca dati
+ * NON ESISTE — un valore che non combacia con nessuna riga non da' errore,
+ * toglie in silenzio, e teneva fuori 550 consegne approvate.
  */
-const REVENUE_STATUSES = ['delivered', 'approved'];
+const STATI_ESCLUSI = ['cancelled'];
 
 /**
  * Il `pricingModel` dei servizi di VENDITA (`ServiceType.pricingModel`).
@@ -245,7 +254,7 @@ export class FinanceService {
     const deliveries = await this.prisma.delivery.findMany({
       where: {
         deletedAt: null,
-        status: { in: REVENUE_STATUSES },
+        status: { notIn: STATI_ESCLUSI },
         ...this.dateWhere(from, to),
         ...this.ambito(opzioni.soloVendite ?? true),
         ...this.filtri(opzioni),
@@ -291,13 +300,22 @@ export class FinanceService {
       ? await this.prisma.delivery.count({
           where: {
             deletedAt: null,
-            status: { in: REVENUE_STATUSES },
+            status: { notIn: STATI_ESCLUSI },
             ...this.dateWhere(from, to),
             serviceType: { pricingModel: { not: MODELLO_VENDITA } },
             ...this.filtri(opzioni),
           },
         })
       : 0;
+    // ⚠️ «Nessuna vendita nel periodo» non e' una risposta quando la vendita
+    // ESISTE. Cercando 12792 la pagina diceva cosi', ma quell'ordine ha tre
+    // consegne del 25/08, tutte di vendita e tutte nel periodo: erano
+    // `assigned`, `accepted` e `cancelled`, cioe' non ancora consegnate. La
+    // pagina fa bene a non contarle — il ricavo non e' fermo — e fa male a non
+    // dirlo: chi cerca resta a chiedersi se il dato manca o se e' rotto.
+    const altrove = opzioni.cerca?.trim() && rows.length === 0
+      ? await this.doveSono(from, to, opzioni)
+      : null;
     const sum = (f: (r: CorrispettivoRow) => number) => rows.reduce((s, r) => s + f(r), 0);
     const saleValue = sum((r) => r.saleValue);
     const takings = sum((r) => r.takings);
@@ -308,6 +326,8 @@ export class FinanceService {
       excluded: escluse,
       /** Righe non attendibili: si contano, non si nascondono. */
       anomalie: rows.filter((r) => r.anomalia).length,
+      /** Se la ricerca non trova niente: dove sta quello che si cercava. */
+      altrove,
       publicPrice: round2(sum((r) => r.publicPrice)),
       deliveryFee: round2(sum((r) => r.deliveryFee)),
       saleValue: round2(saleValue),
@@ -322,6 +342,41 @@ export class FinanceService {
       totalMargin: round2(totalMargin),
       totalMarginPercent: saleValue > 0 ? round2((totalMargin / saleValue) * 100) : 0,
     };
+  }
+
+  /**
+   * Quando la ricerca non trova niente, dove sono finite le consegne che
+   * corrispondono lo stesso.
+   *
+   * Tre motivi, in ordine di quanto sono facili da fraintendere:
+   *  - ci sono ma sono ANNULLATE (l'unico stato che non porta ricavo);
+   *  - ci sono ma sono FUORI dal periodo scelto;
+   *  - ci sono ma non sono vendite (fuori dall'ambito della pagina).
+   */
+  private async doveSono(
+    from: string | undefined,
+    to: string | undefined,
+    opzioni: { partnerId?: string; cerca?: string },
+  ) {
+    const testo = this.filtri(opzioni);
+    const vivo = { deletedAt: null };
+    const [annullate, fuoriPeriodo, nonVendite] = await Promise.all([
+      this.prisma.delivery.count({
+        where: { ...vivo, ...testo, ...this.dateWhere(from, to),
+          serviceType: { pricingModel: MODELLO_VENDITA },
+          status: { in: STATI_ESCLUSI } },
+      }),
+      this.prisma.delivery.count({
+        where: { ...vivo, ...testo, serviceType: { pricingModel: MODELLO_VENDITA },
+          status: { notIn: STATI_ESCLUSI },
+          NOT: this.dateWhere(from, to) },
+      }),
+      this.prisma.delivery.count({
+        where: { ...vivo, ...testo, serviceType: { pricingModel: { not: MODELLO_VENDITA } } },
+      }),
+    ]);
+    const totale = annullate + fuoriPeriodo + nonVendite;
+    return totale ? { totale, annullate, fuoriPeriodo, nonVendite } : null;
   }
 
   private computeRow(d: any): CorrispettivoRow {

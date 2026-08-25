@@ -913,13 +913,19 @@
     "lastMonth": "Last month",
     "year": "Year",
     "capped": "Showing {{n}} rows: the chosen period holds more. Narrow the dates or filter, or the totals will not match the list.",
-    "onlySales": "Takings: only deliveries whose service is of type Sale.",
+    "onlySales": "Takings: only deliveries whose service is of type Sale, cancelled ones excluded.",
     "excluded": "This period has {{n}} more with other services (delivery only, hourly, warehouse, corporate): they are not sales and stay out of the figures.",
     "anomalie": "{{n}} rows are not reliable and are flagged in the table: the totals include them as they are.",
     "anomalia": {
       "partner_oltre_pubblico": "partner got more than public",
       "venduto_a_zero": "public price is zero",
       "valore_partner_mancante": "partner value missing"
+    },
+    "altrove": {
+      "intro": "But {{n}} deliveries match what you searched for:",
+      "annullate": "· {{n}} are sales in this period but CANCELLED",
+      "fuoriPeriodo": "· {{n}} are sales, but outside the chosen period",
+      "nonVendite": "· {{n}} are not sales (delivery only, hourly, warehouse, corporate)"
     }
   },
   "stub": {

@@ -516,6 +516,24 @@ model ValetProvince {
 }
 
 // Servizi con salario per valet (matching per pricingModel con PartnerService)
+/// Il listino del valet per un servizio, CON LA SUA STORIA.
+///
+/// ⭐ 25/08/2026: prima c'era una riga sola per coppia valet+servizio, cioe' la
+/// tariffa di OGGI e basta. Verificare una paga del 2024 contro quella riga
+/// significa confrontarla con un listino che allora non esisteva: SERGIO DE
+/// ROSA ha oggi «Consegna Standard» a 8,00 €, ma nel 2024 l'importo ricorrente
+/// e' 7,20 € (781 volte) e nel 2025 ancora (916), e diventa 8,00 solo nel 2026.
+/// Il risultato erano 4.120 consegne «non spiegate», di cui **3.260 pagavano
+/// semplicemente la tariffa di allora**.
+///
+/// Ora una coppia valet+servizio puo' avere piu' righe, ognuna col suo periodo.
+/// `validFrom` nullo = «da sempre»; `validTo` nullo = «ancora in vigore».
+///
+/// ⚠️ Il vincolo unique comprende `validFrom` proprio per permettere la storia:
+/// tenerlo su (valetId, serviceTypeId) e' una regola di business piu' stretta
+/// della realta', e una regola cosi' non da' errore — cancella in silenzio.
+/// E' la stessa lezione delle fasce dei valet, dove un unique troppo stretto
+/// aveva fatto perdere 366 disponibilita' durante l'import.
 model ValetService {
   id            String      @id @default(cuid())
   /// id nel database originario MySQL: serve a ricollegare expertServiceId delle consegne
@@ -525,10 +543,21 @@ model ValetService {
   salary        Float
   salaryPerItem Float? // per i servizi magazzino (salario a pezzo)
   extraKmPrice  Float? // Extra KM/€
+  /// Da quando vale questa tariffa (null = da sempre).
+  validFrom     DateTime?
+  /// Fino a quando (null = ancora in vigore).
+  validTo       DateTime?
+  /// Da dove viene la riga: `listino` (tariffa corrente, inserita o importata)
+  /// oppure `dedotta` (ricostruita dagli importi davvero pagati).
+  ///
+  /// ⚠️ Serve a non far passare una ricostruzione per un documento: una
+  /// tariffa dedotta dai pagamenti spiega la storia, non la certifica.
+  origine       String      @default("listino")
   valet         Valet       @relation(fields: [valetId], references: [id], onDelete: Cascade)
   serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
 
-  @@unique([valetId, serviceTypeId])
+  @@unique([valetId, serviceTypeId, validFrom])
+  @@index([valetId, serviceTypeId, validFrom])
 }
 
 // Disponibilita' del valet per DATA specifica (impostata dal valet dal calendario):
