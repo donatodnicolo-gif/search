@@ -14,3 +14,6 @@ deluxy-scout/*.log
 # Dati del database legacy (clienti reali): mai committati
 deluxy-platform-next/legacy/*
 !deluxy-platform-next/legacy/README.md
+
+# deluxy-calendario vive nel SUO repo (github.com/donatodnicolo-gif/deluxy-calendario): qui si ignora
+/deluxy-calendario/
