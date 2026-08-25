@@ -1240,11 +1240,20 @@ Il bottone **Spam** sta sia nella riga dell'elenco sia **dentro la conversazione
 la spazzatura la si riconosce leggendola, e chi doveva chiudere il thread, ritrovare la
 riga e centrare un'icona quasi sempre non lo faceva.
 
-Il mittente entra fra quelli ignorati e la conversazione va **in archivio** (non nel
-cestino: non si cancella niente). ⚠️ Si salva l'**indirizzo esatto**, mai il dominio — da
-uno spam `@gmail.com` sparirebbe in silenzio ogni cliente che scrive da Gmail. ⚠️ Solo
-sulla **posta**: l'elenco dei mittenti ignorati lo leggono soltanto le rotte email, e su
-WhatsApp o Instagram il blocco si fa da Meta.
+Il mittente entra fra quelli ignorati e la conversazione va **nel cestino**: non compare
+più né in arrivo né in archivio. ⚠️⚠️ E le prossime mail di quel mittente **nascono già nel
+cestino** e non risalgono: prima ogni mail nuova ripescava la conversazione (giusto per un
+cliente, sbagliato per uno spam, che sarebbe tornato su a ogni invio).
+
+⚠️⚠️ **Il cestino si svuota dopo 30 giorni**, quindi da spam a mail perduta ci sono trenta
+giorni: è la differenza col comportamento di prima, quando restava in archivio per sempre.
+Per questo la conferma nomina l'**indirizzo esatto** che sta per essere bloccato — è
+l'unico momento in cui ci si può accorgere che è un cliente vero — e per questo si salva
+l'indirizzo, **mai il dominio**: da uno spam `@gmail.com` sparirebbe ogni cliente che
+scrive da Gmail.
+
+⚠️ Solo sulla **posta**: l'elenco dei mittenti ignorati lo leggono soltanto le rotte email,
+e su WhatsApp o Instagram il blocco si fa da Meta.
 
 ## Chi si occupa di un ordine
 

@@ -32,10 +32,17 @@ export async function POST() {
 
   for (const c of conversazioni) {
     // Prima l'elenco dei mittenti: se va ignorata non serve cercarle un marchio.
-    if (!c.archiviata && daIgnorare(c.idEsterno, ignorati)) {
+    // ⚠️⚠️ Dal 25/08/2026 un mittente ignorato va nel CESTINO, non in archivio.
+    // ⚠️ La condizione NON guarda più `!c.archiviata`: una conversazione già
+    // archiviata di un mittente ignorato sarebbe rimasta in archivio per sempre,
+    // che è proprio il mucchio che si voleva svuotare. Chi è già nel cestino qui
+    // non arriva nemmeno — la query sopra filtra `eliminataIl: null` — quindi la
+    // data di eliminazione non si rimette a oggi ogni volta (rinviando in eterno
+    // lo svuotamento dei 30 giorni).
+    if (daIgnorare(c.idEsterno, ignorati)) {
       await db.conversazione.update({
         where: { id: c.id },
-        data: { archiviata: true, nonLetti: 0 },
+        data: { eliminataIl: new Date(), archiviata: false, nonLetti: 0 },
       })
       archiviate++
       continue

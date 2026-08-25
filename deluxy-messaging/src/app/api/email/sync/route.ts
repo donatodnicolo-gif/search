@@ -40,9 +40,11 @@ export async function POST() {
         // dei tre siti arrivano tutte sulla stessa casella, e senza questo
         // finiscono tutte nella colonna della casella che le ha ricevute.
         const sito = await smistaMailPerSito(m.oggetto, m.testo)
-        // Mittente in elenco: la mail entra GIÀ ARCHIVIATA e non conta fra i non
-        // letti. Non si scarta — resta cercabile in archivio — ma non occupa il
-        // posto di un cliente che aspetta.
+        // ⚠️⚠️ Mittente in elenco: la mail entra DIRETTAMENTE NEL CESTINO (dal
+        // 25/08/2026; prima entrava «già archiviata» e l'archivio si riempiva di
+        // spazzatura sotto gli occhi di tutti). Non risale nemmeno quando ne
+        // arriva una nuova: vedi `eliminataIl` qui sotto, o lo spam tornerebbe
+        // su a ogni invio. Si svuota dopo 30 giorni, come il resto del cestino.
         const ignorare = daIgnorare(m.da, ignorati)
 
         const conversazione = await db.conversazione.upsert({
@@ -53,12 +55,14 @@ export async function POST() {
             ultimoTesto: m.oggetto || m.testo.slice(0, 120),
             ultimoMessaggioIl: m.data,
             nonLetti: ignorare ? undefined : { increment: 1 },
-            archiviata: ignorare ? true : false,
+            archiviata: false,
             // Il marchio si scrive solo se lo sappiamo: un null non deve
             // cancellare quello trovato prima da un altro messaggio.
             ...(sito.negozioId ? { negozioId: sito.negozioId } : {}),
             ...(sito.ordineNumero ? { ordineNumero: sito.ordineNumero } : {}),
-            eliminataIl: null,
+            // ⚠️ Una mail nuova ripesca dal cestino chi ci era finito per mano
+            // nostra — ma NON un mittente ignorato.
+            eliminataIl: ignorare ? new Date() : null,
           },
           create: {
             canale: 'email',
@@ -70,7 +74,8 @@ export async function POST() {
             negozioId: sito.negozioId,
             ordineNumero: sito.ordineNumero,
             nonLetti: ignorare ? 0 : 1,
-            archiviata: ignorare,
+            archiviata: false,
+            eliminataIl: ignorare ? new Date() : null,
           },
         })
 

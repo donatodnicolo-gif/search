@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { pezziDiTesto, ripulisciTestoEmail } from '@/lib/testo-email'
 import { inserisciScript } from '@/lib/script-testo'
 import { urlScriviAiMail } from '@/lib/ai-mail'
+import { linkOrdine } from '@/lib/link-ordine'
 import { NuovaMail } from './NuovaMail'
 import { CollegaOrdine } from './CollegaOrdine'
 import { RiassuntoChat } from './RiassuntoChat'
@@ -1148,8 +1149,8 @@ export function Inbox({
     // senza una via d'uscita visibile non lo usa nessuno.
     if (
       !window.confirm(
-        `Le prossime mail da ${c.idEsterno} entreranno già archiviate, e questa va in archivio adesso.\n\n` +
-          'Non si cancella niente e si può togliere dalla pagina Caselle. Procedo?'
+        `Le prossime mail da ${c.idEsterno} finiranno DIRETTAMENTE NEL CESTINO, e questa ci va adesso: non compare più né in arrivo né in archivio.\n\n` +
+          'Il cestino si svuota dopo 30 giorni: da lì in poi quelle mail si perdono davvero. Si disfa dalla pagina Caselle. Procedo?'
       )
     ) {
       return
@@ -1164,11 +1165,13 @@ export function Inbox({
         return
       }
       togliDallElenco(id)
-      setQuanteArchiviate((n) => n + 1)
+      // ⚠️ Cresce il conto del CESTINO, non dell'archivio: alzando il numero
+      // sbagliato si manderebbe a cercare la conversazione dove non è.
+      setQuanteNelCestino((n) => n + 1)
       setErroreInvio(
         dati.giaCera
-          ? `${c.idEsterno} era già fra i mittenti ignorati: la conversazione è archiviata.`
-          : `${c.idEsterno} non arriverà più in posta in arrivo.`
+          ? `${c.idEsterno} era già fra i mittenti ignorati: la conversazione è nel cestino.`
+          : `${c.idEsterno} non comparirà più: questa e le prossime vanno nel cestino.`
       )
     } catch {
       setErroreInvio('Segnalazione non riuscita: problema di rete.')
@@ -1678,7 +1681,7 @@ export function Inbox({
           {!archivio && !cestino && c.canale === 'email' ? (
             <button
               aria-label="Segnala come spam"
-              title={`Segnala come spam: le prossime mail da ${c.idEsterno} entreranno già archiviate`}
+              title={`Segnala come spam: questa e le prossime mail da ${c.idEsterno} vanno nel cestino, e non si vedono più`}
               onClick={(e) => {
                 e.stopPropagation()
                 segnalaSpam(c.id)
@@ -1992,11 +1995,26 @@ export function Inbox({
                   </span>
                 ) : null}
                 {/* Il numero dell'ordine: è quello che ha deciso il marchio di
-                    questa conversazione, e chi risponde lo cerca comunque. */}
+                    questa conversazione, e chi risponde lo cerca comunque.
+                    ⚠️⚠️ E CI SI CLICCA SOPRA, in una scheda nuova. Era un
+                    cartellino muto: chi rispondeva a «did they arrive?» doveva
+                    aprire un'altra scheda a mano, cercare il numero e ritrovare
+                    la chat — tre gesti per una domanda che si risponde
+                    guardando l'ordine. In una scheda NUOVA di proposito: la
+                    conversazione resta aperta dov'era, con la bozza dentro.
+                    ⚠️ Il link lo costruisce linkOrdine(), che tiene il
+                    cancelletto: senza, «#2797» pescherebbe anche «#12797» e
+                    invece di aprirsi la scheda si aprirebbe un elenco. */}
                 {selezionata.ordineNumero ? (
-                  <span className="badge" title="L'ordine di cui parla questa conversazione">
-                    {selezionata.ordineNumero}
-                  </span>
+                  <a
+                    className="badge"
+                    href={linkOrdine(selezionata.ordineNumero)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`Apri ${selezionata.ordineNumero} in una scheda nuova`}
+                  >
+                    {selezionata.ordineNumero} ↗
+                  </a>
                 ) : null}
                 {/* In che lingua ci ha scritto: è il dato che decide in che
                     lingua gli si risponde, e va visto senza doverlo dedurre

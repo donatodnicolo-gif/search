@@ -1,5 +1,39 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (sera 6) — lo spam va nel cestino, e l'ordine si apre in una scheda nuova
+
+**«Cliccando spam deve essere proprio spam e non apparire mai più»** (utente).
+Prima non era così: il mittente entrava nell'elenco degli ignorati, la
+conversazione andava **in archivio** e le mail successive entravano «già
+archiviate». Cioè restavano sotto gli occhi di tutti — 58 conversazioni
+archiviate, quasi tutte spazzatura.
+
+Adesso: la conversazione va nel **cestino**, e le prossime mail di quel mittente
+**nascono già nel cestino**.
+
+- ⚠️⚠️ **Il punto che non si vedeva**: nel cron della posta c'era
+  `eliminataIl: null` su ogni mail nuova — «chi scrive di nuovo non sa che
+  l'avevamo buttata». Giusto per un cliente, **sbagliatissimo per uno spam**:
+  sarebbe risalito dal cestino a ogni invio, e «non apparire mai più» sarebbe
+  durato fino alla mail dopo. Ora i mittenti ignorati non risalgono.
+- ⚠️ In `email/rismista` la condizione era `!c.archiviata`: chi era già in
+  archivio non veniva più toccato e ci sarebbe rimasto per sempre — cioè proprio
+  il mucchio da svuotare.
+- ⚠️⚠️ **La conseguenza da dire, ed è scritta in tutti e due i posti** (la
+  conferma dello spam e la pagina Caselle): il cestino si svuota dopo **30
+  giorni**, quindi ora una regola larga (`@gmail.com`, `info`) **può far perdere
+  davvero** la mail di un cliente. Prima restava in archivio per sempre.
+- ⚠️ Il contatore che cresce nella schermata è quello del **cestino**, non
+  dell'archivio: alzare il numero sbagliato manda a cercare dove non è.
+
+**Il numero d'ordine nella testata della chat è un link** e apre l'ordine in una
+**scheda nuova**. Era un cartellino muto: chi rispondeva a «did they arrive?»
+apriva un'altra scheda a mano, cercava il numero, tornava indietro. ⚠️ Scheda
+nuova di proposito — la conversazione resta aperta con la bozza dentro — e il
+link lo costruisce `linkOrdine()`, che tiene il cancelletto: senza, «#2797»
+pescherebbe anche «#12797» e si aprirebbe un elenco invece della scheda.
+
+
 ## 🔴 DA DECIDERE — scalare gli esiti dei reclami a valet e partner
 
 Domanda dell'utente (25/08/2026): «dobbiamo comunicare gli esiti all'app di

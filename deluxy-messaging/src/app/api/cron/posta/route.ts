@@ -59,9 +59,20 @@ export async function GET(req: NextRequest) {
         // dei tre siti arrivano tutte sulla stessa casella, e senza questo
         // finiscono tutte nella colonna della casella che le ha ricevute.
         const sito = await smistaMailPerSito(m.oggetto, m.testo)
-        // Mittente in elenco: la mail entra GIÀ ARCHIVIATA e non conta fra i non
-        // letti. Non si scarta — resta cercabile in archivio — ma non occupa il
-        // posto di un cliente che aspetta.
+        // ⚠️⚠️ Mittente in elenco: la mail entra DIRETTAMENTE NEL CESTINO e non
+        // conta fra i non letti. Prima entrava «già archiviata», e l'archivio
+        // era diventato il posto dove si accumulava la spazzatura sotto gli
+        // occhi di tutti. Chiesto dall'utente il 25/08/2026: «cliccando spam
+        // deve essere proprio spam e non apparire mai più».
+        //
+        // ⚠️⚠️ E NON RISALE DAL CESTINO. Qui sotto `eliminataIl: null` riporta in
+        // inbox una conversazione buttata quando arriva una mail nuova — giusto
+        // per un cliente, sbagliatissimo per uno spam: sarebbe tornato su a ogni
+        // invio, cioè «non apparire mai più» durava fino alla mail dopo.
+        //
+        // ⚠️ Il cestino si svuota dopo 30 giorni (`/api/cron/cestino`): una
+        // regola larga in /caselle adesso può far perdere davvero una mail. È
+        // scritto là dove si scrivono le regole.
         const ignorare = daIgnorare(m.da, ignorati)
 
         const conversazione = await db.conversazione.upsert({
@@ -72,14 +83,16 @@ export async function GET(req: NextRequest) {
             ultimoTesto: m.oggetto || m.testo.slice(0, 120),
             ultimoMessaggioIl: m.data,
             nonLetti: ignorare ? undefined : { increment: 1 },
-            archiviata: ignorare ? true : false,
+            archiviata: false,
             // Il marchio si scrive solo se lo sappiamo: un null non deve
             // cancellare quello trovato prima da un altro messaggio.
             ...(sito.negozioId ? { negozioId: sito.negozioId } : {}),
             ...(sito.ordineNumero ? { ordineNumero: sito.ordineNumero } : {}),
             // Una mail nuova riporta la conversazione in inbox anche se era nel
             // cestino: chi scrive di nuovo non sa che l'avevamo buttata.
-            eliminataIl: null,
+            // ⚠️⚠️ Tranne i mittenti ignorati: quelli tornano nel cestino, o lo
+            // spam risalirebbe a ogni invio.
+            eliminataIl: ignorare ? new Date() : null,
           },
           create: {
             canale: 'email',
@@ -91,7 +104,8 @@ export async function GET(req: NextRequest) {
             negozioId: sito.negozioId,
             ordineNumero: sito.ordineNumero,
             nonLetti: ignorare ? 0 : 1,
-            archiviata: ignorare,
+            archiviata: false,
+            eliminataIl: ignorare ? new Date() : null,
           },
         })
         await db.messaggio.create({

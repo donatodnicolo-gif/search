@@ -216,10 +216,21 @@ export default async function PaginaCaselle() {
       <div className="card" style={{ marginTop: 18 }}>
         <h2 style={{ marginTop: 0 }}>Mittenti da ignorare</h2>
         <p className="descrizione">
-          Le mail di questi mittenti entrano <strong>già archiviate</strong> e non contano fra i non
-          letti: restano cercabili nell&apos;archivio, ma non occupano il posto di un cliente che
-          aspetta. Non si cancella niente, e non si indovina niente: valgono solo i mittenti scritti
-          qui.
+          Le mail di questi mittenti finiscono <strong>direttamente nel cestino</strong>: non
+          compaiono né in arrivo né in archivio, e non contano fra i non letti. Non si indovina
+          niente — valgono solo i mittenti scritti qui.
+        </p>
+        {/* ⚠️⚠️ LA CONSEGUENZA VA DETTA DOVE SI SCRIVE LA REGOLA, non solo dove
+            si preme «spam». Prima le mail ignorate restavano in archivio per
+            sempre; dal 25/08/2026 vanno nel cestino, che si svuota dopo 30
+            giorni. Una regola larga («tiktok», «@gmail.com») adesso può far
+            perdere davvero la mail di un cliente — chi la scrive deve saperlo
+            mentre la scrive. */}
+        <p className="descrizione" style={{ color: 'var(--red)' }}>
+          ⚠️ Il cestino si svuota dopo <strong>30 giorni</strong>: passati quelli, quelle mail si
+          perdono davvero. Per questo una riga larga come <code>@gmail.com</code> o{' '}
+          <code>info</code> va pensata due volte: farebbe sparire anche i clienti che scrivono da
+          lì.
         </p>
         <form action={salvaMittentiIgnoratiAction}>
           <label className="campo">

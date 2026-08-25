@@ -24,9 +24,17 @@ type Params = { params: Promise<{ id: string }> }
  * Le regole larghe restano una scelta consapevole, da fare in `/caselle`
  * guardando l'elenco intero.
  *
- * ⚠️ E NON SI CANCELLA NIENTE: la conversazione va in **archivio**, non nel
- * cestino. Un mittente segnalato per sbaglio si ritrova cercando; una
- * conversazione cancellata no.
+ * ⚠️⚠️ DAL 25/08/2026 VA NEL **CESTINO**, non in archivio (chiesto
+ * dall'utente: «cliccando spam deve essere proprio spam e non apparire mai
+ * più»). In archivio ci restava sotto gli occhi — 58 conversazioni, quasi tutte
+ * spazzatura — e ogni mail nuova dello stesso mittente ne rimetteva una lì.
+ *
+ * ⚠️ Il cestino NON è una cancellazione immediata: si può riaprire e ripescare
+ * per **30 giorni**, poi il cron `/api/cron/cestino` cancella davvero. È la
+ * differenza col vecchio comportamento e va detta a chi preme: uno spam messo
+ * per sbaglio su un cliente vero, se nessuno se ne accorge in un mese, si
+ * perde. Per questo la conferma nomina l'indirizzo esatto e dice dove si
+ * disfa.
  */
 export async function POST(_req: NextRequest, { params }: Params) {
   const { id } = await params
@@ -71,8 +79,16 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
   await db.conversazione.update({
     where: { id },
-    data: { archiviata: true, nonLetti: 0, daRileggere: false },
+    data: {
+      // ⚠️ Nel cestino, e NON archiviata: se un domani qualcuno la ripesca deve
+      // tornare in posta in arrivo, dove la si guarda, non in un archivio dove
+      // resterebbe invisibile come prima.
+      eliminataIl: new Date(),
+      archiviata: false,
+      nonLetti: 0,
+      daRileggere: false,
+    },
   })
 
-  return NextResponse.json({ mittente, giaCera, archiviata: true })
+  return NextResponse.json({ mittente, giaCera, cestinata: true })
 }
