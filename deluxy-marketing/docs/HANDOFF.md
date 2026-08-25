@@ -377,6 +377,12 @@ nell'app in modo chiaro e grafico, rielaborate — non testo; un pulsante
   solo .md/.txt — un xlsx non si manda a un modello come stringa); e il bottone
   **«Elabora la scheda» / «Rielabora»** su `/analisi/[id]` (server action, il
   documento su Drive può cambiare e il modello anche).
+- **Audit e analisi restano DISTINTI** (domanda dell'utente, 25/08 sera): la
+  tabella è una (`Analisi`) ma `tipo` li separa — /audit è la griglia di stato
+  per brand×tematica (si nutre dell'esito, che l'elaborazione riempie quando
+  manca), /analisi lo storico. Le card dicono il TIPO, e le istruzioni AI sanno
+  che su un audit i findings sono i CONTROLLI FALLITI e il verdetto è lo stato
+  dell'ACCOUNT, non delle vendite (`b09f71f8`).
 - **La sezione** (`/analisi`): le ultime schede come **card colorate dal
   verdetto** sopra la tabella (frase-verdetto, conteggio KPI/findings/P0);
   in tabella il verdetto comanda sull'esito quando c'è.
