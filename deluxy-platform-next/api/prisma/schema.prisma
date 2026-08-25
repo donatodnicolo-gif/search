@@ -159,7 +159,6 @@ model Province {
   sales             Sale[]
   deliveries        Delivery[]
   priorityLists     PriorityList[]
-  categoryProvinces CategoryProvince[]
 }
 
 model City {
@@ -600,8 +599,6 @@ model Category {
   archivedAt       DateTime?
   products         Product[]
   discounts        CategoryDiscount[] // sconto % per provincia
-  /// Dove questa categoria si vende. Vuoto = ovunque.
-  province         CategoryProvince[]
   fields           CategoryField[] // campi testuali extra per i prodotti della categoria
   partnerCategories PartnerCategory[]
   priorityLists    PriorityList[]
@@ -618,25 +615,6 @@ model CategoryField {
 }
 
 // Sconto % per categoria e provincia -> genera prodotti scontati automatici
-/// In quali province si vende una categoria di prodotti.
-///
-/// ⚠️ Non e' lo SCONTO per provincia (`CategoryDiscount`, che dice quanto
-/// costa dove): questo dice DOVE si vende affatto. Nel legacy sono 29 righe su
-/// poche categorie — le altre non hanno righe, e per quelle vale «ovunque».
-/// Confondere «nessuna riga» con «da nessuna parte» spegnerebbe un catalogo.
-model CategoryProvince {
-  id         String   @id @default(cuid())
-  legacyId   Int?     @unique
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  provinceId String
-  province   Province @relation(fields: [provinceId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-
-  @@unique([categoryId, provinceId])
-  @@index([provinceId])
-}
-
 model CategoryDiscount {
   id              String   @id @default(cuid())
   categoryId      String
