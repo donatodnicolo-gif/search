@@ -1,15 +1,19 @@
 // Sezione "Nascosti": attività segnate "non interessanti". Si possono ripristinare.
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, radius, shadow, spacing } from '@/lib/theme';
+import { colors, radius, shadow, spacing, contenutoLargo } from '@/lib/theme';
 import { EmptyState } from '@/components/ui';
 import { LineaIcon } from '@/components/LineaIcon';
 import { aggiornaNascosto, fetchNascosti } from '@/lib/db';
 import { PriorityBadge } from '@/components/PriorityBadge';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 
 export default function Nascosti() {
+  // Da 900px in su l'elenco è una TABELLA (le schede restano sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
   const [dati, setDati] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,9 +49,10 @@ export default function Nascosti() {
         </Text>
       </View>
       <FlatList
-        data={dati}
-        keyExtractor={(p) => p.id}
-        contentContainerStyle={styles.list}
+        // In tabella la FlatList riceve UNA riga con l'intero elenco.
+        data={aTabella ? (dati.length ? [dati] : []) : dati}
+        keyExtractor={(p: any) => (aTabella ? 'tabella' : (p as Place).id)}
+        contentContainerStyle={[styles.list, aTabella && contenutoLargo]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
           <EmptyState
@@ -57,27 +62,82 @@ export default function Nascosti() {
             loading={loading}
           />
         }
-        renderItem={({ item: p }) => (
-          <View style={styles.card}>
-            <View style={styles.icona}>
-              <LineaIcon linea={p.linea_ipotizzata} size={22} color={colors.navy} />
-            </View>
-            <View style={styles.info}>
-              <View style={styles.titoloRow}>
-                <PriorityBadge priorita={p.priorita} small />
-                <Text numberOfLines={3} style={styles.nome}>
-                  {p.nome}
-                </Text>
-              </View>
-              <Text style={styles.meta} numberOfLines={1}>
-                {[p.linea_ipotizzata, p.indirizzo].filter(Boolean).join(' · ') || '—'}
-              </Text>
-            </View>
-            <Pressable style={styles.btn} onPress={() => ripristina(p)}>
-              <Text style={styles.btnTxt}>Ripristina</Text>
-            </Pressable>
-          </View>
-        )}
+        renderItem={({ item }) =>
+          aTabella ? (
+            <Tabella
+              righe={item as Place[]}
+              colonne={
+                [
+                  {
+                    chiave: 'nome',
+                    label: 'Negozio',
+                    flex: 1.2,
+                    valore: (p) => p.nome,
+                    cella: (p) => (
+                      <Text style={styles.tabNome} numberOfLines={2}>
+                        {p.nome}
+                      </Text>
+                    ),
+                  },
+                  { chiave: 'linea', label: 'Linea', flex: 0.6, valore: (p) => p.linea_ipotizzata ?? null },
+                  { chiave: 'indirizzo', label: 'Indirizzo', flex: 1, valore: (p) => p.indirizzo ?? null },
+                  {
+                    chiave: 'priorita',
+                    label: 'Priorità',
+                    width: 70,
+                    valore: (p) => p.priorita,
+                    cella: (p) => <PriorityBadge priorita={p.priorita} small />,
+                  },
+                  {
+                    chiave: 'azione',
+                    label: '',
+                    width: 110,
+                    fissa: true,
+                    valore: () => null,
+                    cella: (p) => (
+                      <Pressable
+                        style={styles.btn}
+                        onPress={(e: any) => {
+                          e?.stopPropagation?.();
+                          ripristina(p);
+                        }}
+                      >
+                        <Text style={styles.btnTxt}>Ripristina</Text>
+                      </Pressable>
+                    ),
+                  },
+                ] as ColonnaTabella<Place>[]
+              }
+              chiaveRiga={(p) => p.id}
+              ordineIniziale={{ campo: 'nome', verso: 'asc' }}
+            />
+          ) : (
+            (() => {
+              const p = item as Place;
+              return (
+                <View style={styles.card}>
+                  <View style={styles.icona}>
+                    <LineaIcon linea={p.linea_ipotizzata} size={22} color={colors.navy} />
+                  </View>
+                  <View style={styles.info}>
+                    <View style={styles.titoloRow}>
+                      <PriorityBadge priorita={p.priorita} small />
+                      <Text numberOfLines={3} style={styles.nome}>
+                        {p.nome}
+                      </Text>
+                    </View>
+                    <Text style={styles.meta} numberOfLines={1}>
+                      {[p.linea_ipotizzata, p.indirizzo].filter(Boolean).join(' · ') || '—'}
+                    </Text>
+                  </View>
+                  <Pressable style={styles.btn} onPress={() => ripristina(p)}>
+                    <Text style={styles.btnTxt}>Ripristina</Text>
+                  </Pressable>
+                </View>
+              );
+            })()
+          )
+        }
       />
     </View>
   );
@@ -108,6 +168,7 @@ const styles = StyleSheet.create({
   info: { flex: 1, gap: 3 },
   titoloRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   nome: { flexShrink: 1, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },
+  tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   meta: { color: colors.testoSoft, fontSize: 13 },
   btn: {
     backgroundColor: colors.fill,

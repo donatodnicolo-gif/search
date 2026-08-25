@@ -1,9 +1,10 @@
 // Rubrica: tutti i contatti registrati nell'app, condivisi con HubSpot.
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, coloreStato, labelStato, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, coloreStato, labelStato, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import type { StatoPlace } from '@/types';
 import { ContoRighe, EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { PercorsoCliente } from '@/components/PercorsoCliente';
@@ -15,6 +16,9 @@ import { commutaSet, GruppoFiltro } from '@/components/GruppoFiltro';
 
 export default function Rubrica() {
   const router = useRouter();
+  // Da 900px in su l'elenco è una TABELLA (le schede restano sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
   const [contatti, setContatti] = useState<ContattoConLuogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -112,12 +116,125 @@ export default function Rubrica() {
     }
   }
 
+  const colonne: ColonnaTabella<ContattoConLuogo>[] = [
+    {
+      chiave: 'nome',
+      label: 'Contatto',
+      flex: 1,
+      valore: (c) => c.nome,
+      cella: (c) => (
+        <Text style={[styles.tabNome, c.archiviato && styles.tabArchiviato]} numberOfLines={2}>
+          {c.nome} {c.is_decisore ? <Ionicons name="star" size={12} color={colors.oro} /> : null}
+        </Text>
+      ),
+    },
+    { chiave: 'ruolo', label: 'Ruolo', flex: 0.7, valore: (c) => c.ruolo ?? null },
+    {
+      chiave: 'negozio',
+      label: 'Negozio',
+      flex: 1,
+      valore: (c) => c.place_nome ?? null,
+      cella: (c) =>
+        c.place_nome ? (
+          <Pressable
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              router.push(`/(app)/attivita/${c.place_id}`);
+            }}
+          >
+            <Text style={styles.tabNegozio} numberOfLines={2}>
+              {c.place_nome}
+            </Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.tabMuto}>—</Text>
+        ),
+    },
+    { chiave: 'linea', label: 'Linea', flex: 0.6, valore: (c) => c.place_linea ?? null },
+    {
+      chiave: 'telefono',
+      label: 'Telefono',
+      width: 120,
+      valore: (c) => c.telefono ?? null,
+      cella: (c) =>
+        c.telefono ? (
+          <Pressable
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              Linking.openURL(`tel:${c.telefono}`);
+            }}
+          >
+            <Text style={styles.tabContatto} numberOfLines={1}>
+              {c.telefono}
+            </Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.tabMuto}>—</Text>
+        ),
+    },
+    {
+      chiave: 'email',
+      label: 'Email',
+      flex: 0.9,
+      valore: (c) => c.email ?? null,
+      cella: (c) =>
+        c.email ? (
+          <Pressable
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              Linking.openURL(`mailto:${c.email}`);
+            }}
+          >
+            <Text style={styles.tabContatto} numberOfLines={1}>
+              {c.email}
+            </Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.tabMuto}>—</Text>
+        ),
+    },
+    {
+      chiave: 'registro',
+      label: 'Registro',
+      width: 96,
+      valore: (c) => (c.place_nel_registro ? 1 : 0),
+      cella: (c) => (
+        <StatusBadge
+          small
+          label={c.place_nel_registro ? 'Sincronizzato' : 'Non nel registro'}
+          colore={c.place_nel_registro ? colors.successo : colors.grigio}
+        />
+      ),
+    },
+    {
+      chiave: 'archivia',
+      label: '',
+      width: 40,
+      fissa: true,
+      valore: () => null,
+      cella: (c) => (
+        <Pressable
+          hitSlop={8}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            archivia(c);
+          }}
+          accessibilityLabel={c.archiviato ? 'Ripristina contatto' : 'Archivia contatto'}
+          {...({ title: c.archiviato ? 'Ripristina' : 'Archivia' } as any)}
+        >
+          <Ionicons name={c.archiviato ? 'arrow-undo-outline' : 'archive-outline'} size={16} color={colors.grigio} />
+        </Pressable>
+      ),
+    },
+  ];
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={dati}
-        keyExtractor={(c) => c.id}
-        contentContainerStyle={[styles.list, contenutoCentrato]}
+        // In tabella la FlatList riceve UNA riga con l'intero elenco.
+        data={aTabella ? (dati.length ? [dati] : []) : dati}
+        keyExtractor={(c: any) => (aTabella ? 'tabella' : (c as ContattoConLuogo).id)}
+        contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         // Intro, ricerca e filtri scorrono con la lista: da fissi lasciavano
         // ai contatti pochi pixel. Elemento e non funzione, se no la ricerca
@@ -218,13 +335,22 @@ export default function Rubrica() {
             />
           )
         }
-        renderItem={({ item }) => (
-          <Contatto
-            contatto={item}
-            onOpenPlace={() => router.push(`/(app)/attivita/${item.place_id}`)}
-            onArchivia={() => archivia(item)}
-          />
-        )}
+        renderItem={({ item }) =>
+          aTabella ? (
+            <Tabella
+              righe={item as ContattoConLuogo[]}
+              colonne={colonne}
+              chiaveRiga={(c) => c.id}
+              ordineIniziale={{ campo: 'nome', verso: 'asc' }}
+            />
+          ) : (
+            <Contatto
+              contatto={item as ContattoConLuogo}
+              onOpenPlace={() => router.push(`/(app)/attivita/${item.place_id}`)}
+              onArchivia={() => archivia(item)}
+            />
+          )
+        }
       />
     </View>
   );
@@ -321,6 +447,11 @@ function Contatto({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
+  tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabArchiviato: { color: colors.grigio, textDecorationLine: 'line-through' },
+  tabNegozio: { color: colors.testo, fontSize: 13, textDecorationLine: 'underline' },
+  tabContatto: { color: colors.testo, fontSize: 12.5 },
+  tabMuto: { color: colors.grigio, fontSize: 12.5 },
   head: {
     backgroundColor: colors.sfondo,
     borderBottomWidth: 1,

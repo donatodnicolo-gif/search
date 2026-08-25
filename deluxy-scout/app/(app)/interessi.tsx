@@ -11,16 +11,17 @@
 // cose, e sommare le colonne di questa pagina non deve dare il totale dei
 // negozi.
 import { useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { Place } from '@/types';
 import { canonizzaLinee } from '@/types';
-import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { usePlaces } from '@/lib/usePlaces';
 import { coloreLivello, inLavorazione, LABEL_LIVELLO, livelloDi, type Livello } from '@/lib/livelli';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { CardElenco } from '@/components/CardElenco';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniContatto } from '@/components/AzioniContatto';
 import { IconaAzione } from '@/components/AzioniRiga';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
@@ -37,6 +38,9 @@ type PerLivello = Record<Colonna, Place[]>;
 
 export default function Interessi() {
   const router = useRouter();
+  // Da 900px in su l'elenco della casella aperta è una TABELLA.
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
   const { places, conContatto, contattati, inTrattativa, nonFatturano, conBozza, visitati, recapiti, loading, ricarica } = usePlaces();
   // Le stesse finestre delle altre liste: chi apre un negozio da qui deve
   // poterci fare le stesse cose, non tornare in un'altra sezione per agire.
@@ -101,13 +105,64 @@ export default function Interessi() {
     setLivelloAperto(livello);
   }
 
+  // Le stesse azioni delle schede, per la riga di tabella.
+  const azioniDi = (p: Place) => {
+    const quando = giornoBreve(p.visita_pianificata);
+    return (
+      <AzioniContatto
+        place={p}
+        recapito={recapiti.get(p.id)}
+        onVisita={() => setVisitaPlace(p)}
+        onMail={(x) => setMailPlace(x as Place)}
+        onTrattativa={(x) =>
+          router.push(`/(app)/trattative?nuovoPer=${x.id}&nuovoNome=${encodeURIComponent(x.nome)}`)
+        }
+      >
+        <IconaAzione
+          nome="calendar-outline"
+          attiva
+          evidenza={Boolean(p.visita_pianificata)}
+          label={quando ? `Visita prevista ${quando} — cambia` : 'Pianifica la visita'}
+          onPress={() => setPianificaPlace(p)}
+        />
+      </AzioniContatto>
+    );
+  };
+
+  const colonneElenco: ColonnaTabella<Place>[] = [
+    {
+      chiave: 'nome',
+      label: 'Negozio',
+      flex: 1.2,
+      valore: (p) => p.nome,
+      cella: (p) => {
+        const v = statoVisita(p, conBozza.has(p.id), visitati.has(p.id));
+        return (
+          <View style={styles.tabNomeRiga}>
+            <View style={[styles.tabSemaforo, { backgroundColor: COLORE_VISITA[v] }]} {...({ title: LABEL_VISITA[v] } as any)} />
+            <Text style={styles.tabNome} numberOfLines={2}>
+              {p.nome}
+            </Text>
+          </View>
+        );
+      },
+    },
+    {
+      chiave: 'zona',
+      label: 'Zona',
+      flex: 1,
+      valore: (p) => [p.zona, p.categoria].filter(Boolean).join(' · ') || p.indirizzo || null,
+    },
+    { chiave: 'account', label: 'Account', flex: 0.7, valore: (p) => p.anagrafiche_account ?? null },
+  ];
+
   return (
     // Le finestre stanno FUORI dallo scorrimento: dentro, un pop-up si
     // muoverebbe con la pagina invece di restare al centro dello schermo.
     <View style={styles.container}>
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.list, contenutoCentrato]}
+      contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={ricarica} />}
     >
       <View style={styles.headerScroll}>
@@ -171,47 +226,37 @@ export default function Interessi() {
                 <Text style={styles.elencoTitolo}>
                   {LABEL_LIVELLO[livelloAperto]} · {g.linea} ({elencoAperto.length})
                 </Text>
-                {elencoAperto.map((p) => {
-                  const visita = statoVisita(p, conBozza.has(p.id), visitati.has(p.id));
-                  const quando = giornoBreve(p.visita_pianificata);
-                  return (
-                    <CardElenco
-                      key={p.id}
-                      coloreIcona={COLORE_VISITA[visita]}
-                      titoloIcona={LABEL_VISITA[visita]}
-                      nome={p.nome}
-                      meta={[p.zona, p.categoria].filter(Boolean).join(' · ') || p.indirizzo}
-                      account={p.anagrafiche_account ?? null}
-                      onPress={() => router.push(`/(app)/attivita/${p.id}`)}
-                      azioni={
-                        // Le stesse azioni delle altre liste
-                        // (components/AzioniContatto.tsx): da qui si vede dove
-                        // sta il lavoro di una linea, e chi lo vede deve poterlo
-                        // fare subito invece di annotarsi il nome e cambiare
-                        // sezione.
-                        <AzioniContatto
-                          place={p}
-                          recapito={recapiti.get(p.id)}
-                          onVisita={() => setVisitaPlace(p)}
-                          onMail={(x) => setMailPlace(x as Place)}
-                          onTrattativa={(x) =>
-                            router.push(
-                              `/(app)/trattative?nuovoPer=${x.id}&nuovoNome=${encodeURIComponent(x.nome)}`,
-                            )
-                          }
-                        >
-                          <IconaAzione
-                            nome="calendar-outline"
-                            attiva
-                            evidenza={Boolean(p.visita_pianificata)}
-                            label={quando ? `Visita prevista ${quando} — cambia` : 'Pianifica la visita'}
-                            onPress={() => setPianificaPlace(p)}
-                          />
-                        </AzioniContatto>
-                      }
-                    />
-                  );
-                })}
+                {aTabella ? (
+                  <Tabella
+                    righe={elencoAperto}
+                    colonne={colonneElenco}
+                    chiaveRiga={(p) => p.id}
+                    ordineIniziale={{ campo: 'nome', verso: 'asc' }}
+                    onRiga={(p) => router.push(`/(app)/attivita/${p.id}`)}
+                    labelRiga={(p) => `Apri la scheda di ${p.nome}`}
+                    azioni={azioniDi}
+                    larghezzaAzioni={326}
+                  />
+                ) : (
+                  elencoAperto.map((p) => {
+                    const visita = statoVisita(p, conBozza.has(p.id), visitati.has(p.id));
+                    return (
+                      <CardElenco
+                        key={p.id}
+                        coloreIcona={COLORE_VISITA[visita]}
+                        titoloIcona={LABEL_VISITA[visita]}
+                        nome={p.nome}
+                        meta={[p.zona, p.categoria].filter(Boolean).join(' · ') || p.indirizzo}
+                        account={p.anagrafiche_account ?? null}
+                        onPress={() => router.push(`/(app)/attivita/${p.id}`)}
+                        // Le stesse azioni delle altre liste: da qui si vede
+                        // dove sta il lavoro di una linea, e chi lo vede deve
+                        // poterlo fare subito.
+                        azioni={azioniDi(p)}
+                      />
+                    );
+                  })
+                )}
               </View>
             ) : null}
           </View>
@@ -282,6 +327,9 @@ const styles = StyleSheet.create({
   cellaTxt: { color: colors.testoSoft, fontSize: 10.5, fontWeight: '700', flexShrink: 1 },
   cellaTxtOn: { color: colors.testo },
   elenco: { gap: spacing.sm, marginTop: 2 },
+  tabNomeRiga: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tabSemaforo: { width: 8, height: 8, borderRadius: 4 },
+  tabNome: { flex: 1, minWidth: 0, color: colors.navy, fontWeight: '700', fontSize: 14 },
   elencoTitolo: {
     color: colors.testoSoft,
     fontSize: 11,
