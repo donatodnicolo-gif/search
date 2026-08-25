@@ -29,11 +29,25 @@
 > 3. **La landing della WORLD-ENG** — la campagna eroga e converte: 3 giorni,
 >    **37,46 € spesi, 37 clic, 2 conversioni, 222,66 € di ricavi, ROAS 5,94×**
 >    (23/08: 16,83 € → 135 € · 24/08: 16,89 € → 87,66 € · 25/08 a metà giornata:
->    3,74 €, 7 clic, 0 conversioni). ⚠️ Il **budget è 15 €/g**, non i 35 con cui
->    era nata: chi l'ha abbassato non l'ha scritto qui. E resta la domanda
->    editoriale: una campagna **mondiale in inglese** che atterra su un indirizzo
->    italiano (`/en/pages/fiori-in-consegna-oggi`). «Non è più rotta» e «è quella
->    giusta» sono due cose diverse.
+>    3,74 €, 7 clic, 0 conversioni). Resta la domanda **editoriale**: una
+>    campagna **mondiale in inglese** che atterra su un indirizzo italiano
+>    (`/en/pages/fiori-in-consegna-oggi`). «Non è più rotta» e «è quella giusta»
+>    sono due cose diverse.
+>    ✅ **Il budget a 15 €/g è stato deciso DALL'APP, ed è tracciato tre volte.**
+>    (Qui il 25/08 era stato scritto «chi l'ha abbassato non l'ha scritto da
+>    nessuna parte»: **falso**, ed era stato guardato solo
+>    `Campagna.budgetGiornaliero` — vedi la trappola in fondo.) La storia vera:
+>    operazione `budget` `{"budget":15}` messa in coda dall'**utente** il 19/08
+>    alle 10:04 (`prima` = «35 €/g»), **approvata** il 21/08 alle 05:55 insieme ad
+>    altre sei, **eseguita** dallo script il 21/08 alle 06:17:10 con esito
+>    «budget 35 → 15 €/g (confermato rileggendo)». C'è in `OperazioneAdv`, in
+>    `Modifica` e nel `RegistroEvento`, **con tanto di avviso del change
+>    control** al momento dell'accodamento («Budget oltre il 30% in un colpo…»).
+>    ⚠️ **Ma resta un doppione**: una **seconda** operazione `budget` identica era
+>    stata accodata 2 secondi dopo (10:04:26) ed è stata approvata ed eseguita
+>    anche lei — «budget 15 → 15 €/g», un colpo a vuoto. È lo stesso schema del
+>    doppione dell'annuncio del punto 2: **il doppio invio non è un caso isolato**,
+>    e nessuna delle due volte l'app ha detto «questa è uguale a quella di prima».
 > 4. ⚠️⚠️ **NON ERA CAKE: era GIFTS.** Il «310 € consentiti contro 1.324 € spesi»
 >    scritto qui ieri **era sbagliato**, e indicava il brand sbagliato. Letto il
 >    25/08 dalla pagina `/budget` in produzione (che legge `advConsentito` vivo
@@ -64,6 +78,27 @@
 >    `drive.apikey` (39). Chiunque legga quella tabella li legge. Vanno spostati
 >    (`scripts/segreti-fuori-dal-db.mjs`) **e ruotati**, perché sono già stati
 >    in chiaro.
+> 7. 🆕 **L'indice di Drive gira SOLO a mano, e da QUESTO PC.** `sync-drive` legge
+>    `G:\Il mio Drive\ADV DELUXY SRL`, cioè un percorso che **su Vercel non
+>    esiste**: non c'è nessun cron che possa farlo. Conseguenza misurata il
+>    25/08: l'ultima sync era del **17/08 alle 08:31** (lanciata a mano), il
+>    documento più recente che l'app conosceva era del **07/08**, e la tabella
+>    `Analisi` si fermava al **04/08** — mentre su Drive, negli otto giorni in
+>    mezzo, erano stati depositati 13 file veri. **Riallineato oggi**
+>    (`npm run sync-drive`): 655 documenti, +11 nuovi, **88 analisi** (+2).
+>    ⚠️ Finché resta così, «l'app non ha analisi recenti» non vuol dire «non ne
+>    sono state depositate»: vuol dire **che nessuno ha lanciato la sync**. Serve
+>    o l'OAuth di Drive già configurato (`drive.oauth_refresh` c'è) usato da un
+>    cron, o un promemoria a schermo che dica **da quanti giorni** l'indice è fermo.
+
+> ⚠️ Una nota su come si legge un handoff: due affermazioni di questa testata
+> sono state scritte il 25/08 e **smentite dai dati lo stesso giorno** — «il tetto
+> sforato è di Cake» (era di Gifts) e «il budget l'ha abbassato qualcuno senza
+> scriverlo» (l'aveva deciso l'utente dall'app, tracciato tre volte). In tutti e
+> due i casi l'errore è lo stesso: **si era guardato in UN posto solo** — una
+> copia locale invece della fonte, una colonna di stato invece dello storico. La
+> regola: prima di scrivere «non risulta», dire **dove** si è guardato.
+
 >
 > ✅ **Sano, ricontato oggi**: coda **0 in attesa · 0 approvate · 96 eseguite ·
 > 7 annullate · 1 fallita**; **0 consegne non-ok** in 10 giorni; ordini da
