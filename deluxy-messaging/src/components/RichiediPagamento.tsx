@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { CercaFornitore } from './CercaFornitore'
 import { ibanAccorciato, type FornitoreTrovato } from '@/lib/cerca-fornitore'
 import { calcolaMargine, frasiMargine, pct } from '@/lib/margine'
@@ -159,6 +159,29 @@ export function RichiediPagamento() {
   // rimanda. Senza l'evidenziazione il link porterebbe in cima a un elenco in
   // cui la riga giusta è la centoquarantesima.
   const [richiestaDaUrl, setRichiestaDaUrl] = useState('')
+  /**
+   * La riga da portare a schermo, UNA VOLTA SOLA.
+   *
+   * ⚠️⚠️ Prima era una funzione scritta dentro il JSX
+   * (`ref={(el) => el?.scrollIntoView(...)}`), e faceva un danno vero:
+   * React vede una funzione NUOVA a ogni render, quindi stacca e riattacca il
+   * ref — cioè richiama `scrollIntoView` **a ogni tasto premuto**, in qualunque
+   * campo. Chi scriveva nel modulo si vedeva la pagina saltare in basso e
+   * perdeva il fuoco. Segnalato dall'utente, ed è un difetto che avevo
+   * introdotto io.
+   *
+   * ⚠️ Il ref è un oggetto stabile e lo scorrimento sta in un effetto che
+   * guarda SOLO l'id: succede quando cambia quello, non quando cambia il modulo.
+   */
+  const rigaCercata = useRef<HTMLTableRowElement | null>(null)
+  const giaPortata = useRef('')
+
+  useEffect(() => {
+    if (!richiestaDaUrl || giaPortata.current === richiestaDaUrl) return
+    if (!rigaCercata.current) return
+    giaPortata.current = richiestaDaUrl
+    rigaCercata.current.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [richiestaDaUrl, richieste])
 
   // Arrivando dal bottone "Richiedi pagamento" di un ordine, i campi si
   // precompilano da soli con numero, cliente e importo.
@@ -862,17 +885,32 @@ export function RichiediPagamento() {
               fornitori la prima volta non li conosciamo, e un modulo che non
               lascia pagare un fioraio nuovo non si usa. */}
           {intestatario.trim() && !intestatarioScelto.trim() ? (
-            <p className="cella-sub" style={{ color: 'var(--red)', marginTop: -4 }}>
-              «{intestatario.trim()}» l&apos;hai scritto a mano. Cercalo qui sopra e toccalo, oppure{' '}
+            <div className="serve-scelta">
+              {/* ⚠️⚠️ Il messaggio di prima diceva «cercalo qui sopra e toccalo»:
+                  «qui sopra» non è un posto, e chi legge non sa **cosa** deve
+                  fare né **perché**. Segnalato dall'utente. Adesso dice il nome
+                  del campo, che cosa succede toccando un risultato, e a che cosa
+                  serve — perché la ragione è la parte che convince a farlo
+                  invece di cercare la scorciatoia. */}
+              <strong>Da dove viene «{intestatario.trim()}»?</strong>
+              <p>
+                Scrivere il nome non basta: serve sapere <em>chi</em> stiamo pagando. Usa la
+                casella <strong>«Cerca il fornitore»</strong> qui sopra — cerca fra quelli che
+                abbiamo già pagato, fra i partner del registro e su Google Maps — e{' '}
+                <strong>tocca il risultato giusto</strong>: compila nome e IBAN da solo, se ce li
+                abbiamo.
+              </p>
+              <p>
+                Se è la prima volta che lo paghiamo e nella ricerca non c&apos;è, dillo qui:
+              </p>
               <button
                 type="button"
                 className="btn btn-secondario small"
                 onClick={() => setIntestatarioScelto(intestatario)}
-                title="Lo cerchiamo, non c’è: è la prima volta che lo paghiamo"
               >
-                è un fornitore nuovo
+                È un fornitore nuovo, l&apos;ho cercato
               </button>
-            </p>
+            </div>
           ) : null}
           <div style={{ display: 'flex', gap: 10 }}>
             <label className="campo" style={{ flex: 1 }}>
@@ -1207,14 +1245,7 @@ export function RichiediPagamento() {
                   className={[r.pagataIl ? 'riga-pagata' : '', r.id === richiestaDaUrl ? 'riga-cercata' : '']
                     .filter(Boolean)
                     .join(' ')}
-                  // ⚠️ Si porta a schermo da sola: su un telefono la riga può
-                  // essere sotto venti schermate, e un'evidenziazione che non si
-                  // vede non evidenzia niente.
-                  ref={
-                    r.id === richiestaDaUrl
-                      ? (el) => el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-                      : undefined
-                  }
+                  ref={r.id === richiestaDaUrl ? rigaCercata : undefined}
                 >
                   {/* ⚠️ OGNI CELLA SI COPIA TOCCANDOLA. Il caso vero: un IBAN di
                       ventisette caratteri va incollato nel portale della banca.

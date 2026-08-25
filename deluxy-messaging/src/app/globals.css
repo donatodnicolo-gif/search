@@ -4564,3 +4564,32 @@ td .azioni-ordine {
 }
 
 .riga-cercata > td:first-child { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+
+/* «Da dove viene questo nome?» — il riquadro che chiede di SCEGLIERE il
+   fornitore invece di scriverlo.
+   ⚠️ Non e' un errore rosso pieno: e' una richiesta, e un rettangolo rosso su un
+   modulo che si sta ancora compilando fa credere di aver gia' sbagliato. */
+.serve-scelta {
+  border: 1px solid var(--hairline-strong);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.serve-scelta strong { font-size: 14px; }
+
+.serve-scelta p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  /* ⚠️ Testo pieno e non --text-secondary: misurato, su questo velo il grigio
+     dava 4,26:1 — sotto la soglia di 4,5 per il testo normale. E questo non e
+     una didascalia: e la riga che spiega che cosa fare, va letta. */
+  color: var(--text);
+}
+
+.serve-scelta button { align-self: flex-start; margin-top: 2px; }
