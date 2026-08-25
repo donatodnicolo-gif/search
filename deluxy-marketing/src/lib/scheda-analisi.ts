@@ -202,7 +202,7 @@ export async function elaboraAnalisi(analisiId: string): Promise<EsitoElaborazio
       documento: testo,
     },
     schema: SCHEMA_SCHEDA,
-    massimoToken: 8000,
+    massimoToken: 12000,
   });
   if (!risposta.ok) return { ok: false, errore: risposta.errore };
 
@@ -249,17 +249,49 @@ export async function elaboraNonElaborate(limite = 2): Promise<{
   elaborate: number;
   fallite: { titolo: string; errore: string }[];
 }> {
-  const daFare = await prisma.analisi.findMany({
-    where: {
-      scheda: null,
-      fileDrive: { not: null },
-      // Solo testo: un .xlsx non si manda a un modello come stringa.
-      OR: [{ fileDrive: { endsWith: ".md" } }, { fileDrive: { endsWith: ".txt" } }],
-    },
-    orderBy: { dataAnalisi: "desc" },
-    take: limite,
-    select: { id: true, titolo: true },
+  // ⚠️ MANCANTI e INVECCHIATE nella STESSA coda, ordinata per data dell'analisi.
+  //
+  // Prima le mancanti avevano precedenza assoluta — e con 80 analisi vecchie
+  // mai elaborate, una scheda RECENTE invecchiata (il documento ridepositato
+  // sullo stesso percorso: successo il 25/08, +20 minuti e +1.037 byte) non
+  // sarebbe stata ripresa per settimane, restando a raccontare la versione di
+  // prima in silenzio. La data dell'analisi decide: l'ultima lettura è quella
+  // che si guarda, l'arretrato di luglio può aspettare il giro dopo.
+  const [senzaScheda, giaElaborate] = await Promise.all([
+    prisma.analisi.findMany({
+      where: {
+        scheda: null,
+        fileDrive: { not: null },
+        // Solo testo: un .xlsx non si manda a un modello come stringa.
+        OR: [{ fileDrive: { endsWith: ".md" } }, { fileDrive: { endsWith: ".txt" } }],
+      },
+      orderBy: { dataAnalisi: "desc" },
+      take: 30,
+      select: { id: true, titolo: true, dataAnalisi: true },
+    }),
+    prisma.analisi.findMany({
+      where: { scheda: { not: null }, elaborataIl: { not: null }, fileDrive: { not: null } },
+      orderBy: { dataAnalisi: "desc" },
+      take: 30,
+      select: { id: true, titolo: true, dataAnalisi: true, fileDrive: true, elaborataIl: true },
+    }),
+  ]);
+
+  // Una scheda è INVECCHIATA se il documento è stato modificato DOPO
+  // l'elaborazione: `modificatoIl` dell'indice contro `elaborataIl`.
+  const documenti = await prisma.documentoDrive.findMany({
+    where: { percorso: { in: giaElaborate.map((a) => a.fileDrive!) } },
+    select: { percorso: true, modificatoIl: true },
   });
+  const modifica = new Map(documenti.map((d) => [d.percorso, d.modificatoIl]));
+  const invecchiate = giaElaborate.filter((a) => {
+    const mod = modifica.get(a.fileDrive!);
+    return mod != null && a.elaborataIl != null && mod > a.elaborataIl;
+  });
+
+  const daFare = [...senzaScheda, ...invecchiate]
+    .sort((a, b) => b.dataAnalisi.getTime() - a.dataAnalisi.getTime())
+    .slice(0, limite);
 
   let elaborate = 0;
   const fallite: { titolo: string; errore: string }[] = [];

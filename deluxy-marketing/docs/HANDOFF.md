@@ -338,6 +338,21 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ### ⭐⭐⭐ LE ANALISI DIVENTANO SCHEDE GRAFICHE — verdetto, KPI, findings e il bottone ANALISI sulle campagne (25/08/2026, sera)
 
+> **Aggiornamento della stessa sera — la scheda INVECCHIATA si riprende da
+> sola.** Flowers ha ridepositato l'analisi Google Ads **sullo stesso percorso**
+> venti minuti dopo l'elaborazione (15.202 → 16.239 byte): la scheda raccontava
+> la versione di prima, in silenzio. Ora la coda del cron mette **mancanti e
+> invecchiate insieme** (invecchiata = `modificatoIl` del documento più giovane
+> di `elaborataIl`), ordinate per DATA DELL'ANALISI — prima la precedenza
+> assoluta alle mancanti avrebbe fatto passare l'arretrato di luglio davanti a
+> una scheda fresca e sbagliata. Alzato anche il respiro della risposta AI
+> (8.000 → 12.000 token): la Google Cake del 02/08 falliva con «JSON
+> illeggibile» perché la risposta veniva TRONCATA a metà — uno schema vincolato
+> non protegge dal tetto dei token. Riprovato: la Flowers rielaborata racconta
+> la versione delle 15:45 (15 findings, 8 P0, «claim vietati ancora live») e
+> le schede sono **4 su 4, 0 fallite**. Deploy `6wmgb4sum`.
+
+
 **La richiesta dell'utente**: le analisi che arrivano su Drive presentate
 nell'app in modo chiaro e grafico, rielaborate — non testo; un pulsante
 **ANALISI** sopra ogni campagna e una sezione dedicata.
