@@ -1,0 +1,164 @@
+// Deluxy Acquisti — schema dati
+//
+// Centralizza in un unico posto:
+//  1. le RICHIESTE DI ACQUISTO (chi chiede cosa) con il loro flusso di
+//     approvazione: inviata → approvata/rifiutata → convertita in acquisto;
+//  2. gli ACQUISTI veri e propri (ordini/fatture verso i fornitori);
+//  3. le MOVIMENTAZIONI FINANZIARIE collegate a ogni acquisto (acconti, saldi,
+//     pagamenti, note di credito), con importi, scadenze e stato.
+//
+// La UI è protetta da una password unica del team (come le altre app Deluxy).
+// Le altre app dell'ecosistema leggono/scrivono via API con chiave (x-api-key).
+// Le persone sono identificate dall'email (la stessa del Deluxy Hub).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Postgres condiviso delle app Deluxy (stesso cluster di hub/anagrafiche),
+  // schema "acquisti". Per rigenerare il .env locale:
+  //   npm run db:condiviso -- <percorso-env-di-un-altra-app>
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Richiesta di acquisto: la domanda "vorrei comprare X". Nasce da una persona,
+// passa dall'approvazione di un responsabile e, se approvata, diventa un
+// Acquisto (relazione 1-a-1 con `acquisto`).
+model RichiestaAcquisto {
+  id               String    @id @default(cuid())
+  // Progressivo leggibile per parlarne ("richiesta #42").
+  numero           Int       @unique @default(autoincrement())
+
+  richiedenteEmail String
+  richiedenteNome  String?
+
+  titolo           String
+  descrizione      String?
+  categoria        String? // vedi src/lib/categorie.ts
+  fornitoreSuggerito String?
+  importoStimato   Float?
+  valuta           String    @default("EUR")
+  // bassa | media | alta | urgente — vedi src/lib/priorita.ts
+  priorita         String    @default("media")
+  dataNecessita    DateTime? // "mi serve entro il…"
+
+  // inviata | approvata | rifiutata | convertita | annullata — src/lib/stati.ts
+  stato            String    @default("inviata")
+
+  // Chi ha deciso (approvato/rifiutato) e quando.
+  approvatoreEmail String?
+  approvatoreNome  String?
+  decisoIl         DateTime?
+  notaDecisione    String?
+
+  // Acquisto generato dalla conversione (se approvata e convertita).
+  acquisto         Acquisto? @relation(fields: [acquistoId], references: [id])
+  acquistoId       String?   @unique
+
+  tag              String[]  @default([])
+  extra            Json? // metadati liberi (es. app di origine)
+
+  creataIl         DateTime  @default(now())
+  aggiornataIl     DateTime  @updatedAt
+
+  @@index([stato])
+  @@index([richiedenteEmail])
+  @@index([categoria])
+  @@index([creataIl])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Acquisto: l'ordine/fattura verso un fornitore. Può nascere da una richiesta
+// approvata (`richiesta`) o essere registrato direttamente.
+model Acquisto {
+  id            String   @id @default(cuid())
+  numero        Int      @unique @default(autoincrement())
+
+  descrizione   String
+  categoria     String?
+
+  // Fornitore: nome sempre presente; partita IVA e id anagrafiche facoltativi.
+  // La fonte di verità delle anagrafiche resta deluxy-anagrafiche: qui teniamo
+  // il nome denormalizzato + un eventuale riferimento.
+  fornitoreNome String
+  fornitorePiva String?
+  fornitoreId   String? // riferimento opzionale a deluxy-anagrafiche
+
+  imponibile    Float    @default(0)
+  iva           Float    @default(0)
+  totale        Float    @default(0)
+  valuta        String   @default("EUR")
+
+  // ordinato | ricevuto | pagato_parziale | pagato | annullato — src/lib/stati.ts
+  stato         String   @default("ordinato")
+
+  numeroFattura String?
+  dataFattura   DateTime?
+  dataOrdine    DateTime  @default(now())
+  dataConsegnaPrevista DateTime?
+  dataConsegna  DateTime?
+
+  creatoDa      String? // email/nome di chi ha registrato
+  note          String?
+  tag           String[]  @default([])
+  extra         Json?
+
+  richiesta     RichiestaAcquisto? // lato inverso della relazione 1-a-1
+  movimenti     MovimentoFinanziario[]
+
+  creatoIl      DateTime @default(now())
+  aggiornatoIl  DateTime @updatedAt
+
+  @@index([stato])
+  @@index([fornitoreNome])
+  @@index([categoria])
+  @@index([dataOrdine])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Movimentazione finanziaria: un movimento di denaro legato a un acquisto.
+// La somma dei movimenti "eseguiti" rispetto al totale dell'acquisto dice
+// quanto resta da pagare.
+model MovimentoFinanziario {
+  id          String   @id @default(cuid())
+  acquisto    Acquisto @relation(fields: [acquistoId], references: [id], onDelete: Cascade)
+  acquistoId  String
+
+  // acconto | saldo | pagamento | nota_credito | rimborso — src/lib/stati.ts
+  tipo        String   @default("pagamento")
+  importo     Float
+  valuta      String   @default("EUR")
+  // previsto (pianificato/da pagare) | eseguito (già movimentato)
+  stato       String   @default("eseguito")
+  metodo      String? // bonifico | sepa | carta | contanti | altro
+  riferimento String? // CRO/IBAN/nota di pagamento
+
+  data        DateTime @default(now()) // data valuta/esecuzione
+  scadenza    DateTime? // per i movimenti "previsti"
+  note        String?
+  creatoDa    String?
+
+  creatoIl    DateTime @default(now())
+
+  @@index([acquistoId])
+  @@index([tipo])
+  @@index([stato])
+  @@index([data])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chiavi API delle app client. La chiave in chiaro non viene mai salvata:
+// si conserva solo lo SHA-256 (vedi scripts/crea-chiave.mjs).
+model ApiKey {
+  id        String    @id @default(cuid())
+  nome      String    @unique // app client: deluxy-platform, deluxy-budgets, ...
+  hash      String    @unique // sha256 esadecimale della chiave
+  scrittura Boolean   @default(false) // true = può creare/modificare
+  attiva    Boolean   @default(true)
+  creataIl  DateTime  @default(now())
+  ultimoUso DateTime?
+}
