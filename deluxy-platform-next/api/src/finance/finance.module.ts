@@ -23,6 +23,29 @@
 // il CLIENTE e la consegna gli viene FATTURATA. Sommarle insieme non fa un
 // totale piu' grande, fa un totale sbagliato.
 //
+// La "consegna prezzo" vale ZERO qui, ed e' NORMALE (l'utente, 25/08/2026): nel
+// valore vendite conta il valore del PRODOTTO. `Delivery.deliveryPrice` e' null
+// su tutte le 61.836 consegne perche' nel `delivery` legacy quella colonna non
+// esiste — e' un addendo che qui non c'e', non un dato perso.
+//
+// 🔴 APERTO, e cambierebbe tutti i numeri di questa pagina: `Delivery.price`
+// ("prezzo partner") su una VENDITA e' quasi certamente la QUOTA TRATTENUTA DA
+// NOI, non cio' che paghiamo al partner. Misurato il 25/08 sulle 12.247
+// vendite: vale il 12,5% del valore dei prodotti, e per otto dei dodici partner
+// piu' attivi la sua quota coincide alla prima cifra decimale con la fee%
+// dichiarata del partner. La Fatturazione lo legge gia' cosi'
+// (`invoices.module.ts`, `prezzoConsegna`: dovutoAlPartner = valore prodotti -
+// quota). Con la lettura di QUESTO file il corrispettivo dell'archivio e'
+// 1.058.782 EUR — Deluxy terrebbe l'87% del venduto; con quella della
+// Fatturazione la nostra quota e' 161.555 EUR. Non corretto qui: riscrivere le
+// formule e' una decisione, non una correzione di sintassi. Vedi HANDOFF.
+//
+// ⚠️ E il valore del prodotto qui si legge dal CATALOGO
+// (`Product.publicPrice ?? Product.price`), mentre la Fatturazione lo legge dalla
+// RIGA di consegna (`DeliveryProduct.price`, la fotografia di quel giorno):
+// 1.220.337 contro 1.297.560 EUR sull'archivio. E' il quarto calcolo diverso
+// dello stesso numero dentro lo stesso progetto.
+//
 // Nota residua: nel nuovo ambiente la riga e' per CONSEGNA (con i suoi prodotti
 // aggregati per il prezzo pubblico), non ancora per vendita: manca il legame
 // Vendita<->Consegna. IVA e commissione incassi sono costanti qui sotto
