@@ -88,8 +88,19 @@ export async function depositaRisultati(
     a: fine,
   }));
 
+  // ⚠️ **Senza `idEsterno` non è un fatto di piattaforma, è un residuo.**
+  // `statoPiattaforma` dovrebbe dire «così l'ho letta sulla piattaforma» — ma
+  // una campagna che la piattaforma non ha mai nominato non ha un id, e il suo
+  // ENABLED viene da un import vecchio che creava le campagne per NOME. Il
+  // 25/08/2026 erano due, gemelle di campagne vere col brand appiccicato al
+  // nome («[Continuativa] ATC (Cake)»): finivano nel file per il custode come
+  // accese, a zero spesa e «(id non noto)», e `[Continuativa] ATC` compariva
+  // **due volte** — una vera con la sua spesa e una fantasma a zero.
+  //
+  // Non si cancellano: qui si smette solo di dichiararle accese, che è ciò che
+  // questo file promette di non fare.
   const campagne = await prisma.campagna.findMany({
-    where: { statoPiattaforma: "ENABLED" },
+    where: { statoPiattaforma: "ENABLED", idEsterno: { not: null } },
     select: { id: true, nome: true, brand: true, canale: true, idEsterno: true, statoPiattaforma: true },
   });
   if (campagne.length === 0) return { ok: false, errore: "Nessuna campagna attiva da riportare." };
