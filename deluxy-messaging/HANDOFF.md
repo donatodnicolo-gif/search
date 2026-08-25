@@ -4260,6 +4260,37 @@ locale, altrimenti nulla si decifra.
 > (`node scripts/conta.mjs`, solo pieno/vuoto, mai i valori). I canali li collega
 > **l'utente, non una sessione**: prima di scrivere «manca X», **ricontarlo**.
 
+**RICONTATO IL 25/08/2026, ore 13** (`node scripts/conta.mjs` sul database di
+produzione, più `Chargeback`, `RichiestaPagamento`, `NotaDiario`,
+`VoceGlossario`). Fra parentesi il 21/08:
+
+- **Ordini: 1.356** (1.305), **505 da gestire** (494), **395 senza data di
+  consegna** (383). **17 hanno un fornitore scritto**: è il giro nato in questi
+  due giorni, e prima erano zero.
+- **Conversazioni: 618** (564) e **3.540 messaggi** — email **425**, WhatsApp
+  **138**, widget **36**, Instagram **19**, **Messenger 0** (invariato: nessuna
+  riga `facebook` in `PaginaMeta`). **7 non lette**, **78 prese in carico** (50).
+- **Richieste di pagamento: 17**, **tutte e 17 collegate a un ordine** — il campo
+  che fino al 24/08 era sempre vuoto adesso è pieno su tutte. **17 segnate
+  pagate**, e **ZERO inviate a chi approva**: `partnerUrl` e `partnerApiKey`
+  sono ancora vuote, quindi **FINANCE non vede niente di tutto questo**. ⚠️ È il
+  buco più grosso rimasto: qui si registra un'uscita di denaro che l'app dei
+  pagamenti non conosce.
+- 🔴 **CHARGEBACK: le due contestazioni sono ANCORA da rispondere.** `#12726`
+  (99,94 €) e `#1741` (103,34 €), scadenza prove **4 settembre 2026**, `prove
+  inviate: mai` e **bozza di risposta VUOTA su tutte e due**. Restano **10
+  giorni**. Delle 13, ora **11 sono perse** (una in più: quella «in esame» del
+  21/08 è finita anche lei fra le perse — cioè aspettare è costato un'altra
+  contestazione).
+- **Reclami: 5, tutti aperti** (erano 1). La strada per aprirne uno si trova:
+  quella domanda del 21/08 ha risposta.
+- **Rimborsi «richiesto»: 4** (erano 2), fermi in attesa di una decisione.
+- **Diario di lavoro: 3 note** (erano 0). **Glossario: 17 voci** (13 travasate + 4).
+- **`apreSulSito` ancora `false`** su tutti e tre i siti — invariato dal 17/08.
+- **Utenti: 4**, e `diagnostica@deluxy.local` è ancora lì.
+- **Chiavi vuote**: `partnerUrl`, `searchUrl`, `waBusinessAccountId`,
+  `widgetTitolo`/`widgetMessaggio`, `shopifyToken` (giusto).
+
 **Ricontato il 21/08/2026** (`node scripts/conta.mjs`, più le tabelle
 `Chargeback`, `NotaDiario` e `PaginaMeta`):
 
