@@ -430,6 +430,11 @@ export function serializzaOrdine(
       // `parziale` dice che il numero c'e' ma manca un ingrediente della
       // consegna nostra, e `nota` dice quale: un margine incompleto che si
       // spaccia per completo e' peggio di un margine mancante.
+      //
+      // ⚠️ PER CHI LEGGE QUESTO CAMPO: `margine` PUO' ESSERE NEGATIVO. Un
+      // ordine venduto sotto costo esiste, e il numero va mostrato com'e' —
+      // non filtrato via, non portato a zero, non trattato come un errore.
+      // `null` e' un'altra cosa ancora: vuol dire che non lo sappiamo.
       margine: margineOrdine(o).valore,
       margineParziale: margineOrdine(o).parziale,
       margineNota: margineOrdine(o).nota,

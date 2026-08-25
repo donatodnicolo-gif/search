@@ -202,6 +202,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Stesso tetto di `costoFornitore`: un importo assurdo arrivato da
     // un'altra app finisce nei margini, e li' un numero sbagliato non si
     // riconosce — sembra un ordine andato male.
+    //
+    // ⚠️ Sotto zero si rifiuta perche' questi sono COSTI PAGATI, e un costo
+    // negativo vorrebbe dire che il valet paga noi. Il MARGINE invece puo'
+    // benissimo essere negativo: e' il risultato, non un ingrediente. Chi
+    // manda questi numeri li porti a zero prima (come fa la piattaforma
+    // consegne, dove un minus in busta non trasforma il valet in debitore).
     if (!Number.isFinite(n) || n < 0 || n > 100000) {
       return erroreApi(400, `${campo} non e' un importo valido (fra 0 e 100.000)`);
     }

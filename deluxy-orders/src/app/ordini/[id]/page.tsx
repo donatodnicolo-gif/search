@@ -13,7 +13,7 @@ import { linkRicerca, brandPerRicerca } from "@/lib/fornitori";
 import { cambiaStato, toggleEtichetta, aggiornaClassificazione, segnaProblemaGestito } from "@/app/actions";
 import { registraCosto, azzeraCosto, chiediLinkPagamento } from "@/app/controllo/actions";
 import { LinkPagamento } from "@/components/LinkPagamento";
-import { GESTIONI_INCASSO, STATI_INCASSO, quotaFornitore, valutaQuota } from "@/lib/controllo";
+import { GESTIONI_INCASSO, STATI_INCASSO, margineOrdine, quotaFornitore, valutaQuota } from "@/lib/controllo";
 import { ordinali } from "@/lib/repeater";
 import { canale } from "@/lib/marketing";
 import { etichettaLavorazioneCs } from "@/lib/customer-service";
@@ -332,16 +332,53 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
               )}
             </dd>
           </div>
+          {/* IL MARGINE, E PUO' ESSERE NEGATIVO.
+              Un ordine venduto sotto costo esiste: capita con uno sconto
+              spinto, un fornitore piu' caro del previsto o una consegna
+              costata piu' del margine. Un margine negativo NON e' un errore da
+              nascondere ne' da azzerare — e' il motivo per cui si guarda
+              questa pagina. Qui si scrive «perdita» a lettere, oltre al colore:
+              un meno davanti a un numero, in una tabella di numeri, si perde.
+
+              ATTENZIONE: il conto lo fa margineOrdine(), non questa pagina. Fino a ora
+              qui c'era (totale meno costoFornitore) scritto a mano — il TERZO
+              calcolo diverso nello stesso progetto — e ignorava il costo della
+              consegna nostra: il margine usciva sempre piu' alto del vero. */}
           <div className="campo">
             <dt>Margine</dt>
             <dd>
-              {ordine.costoFornitore != null ? (
-                <strong style={{ color: ordine.totale - ordine.costoFornitore >= 0 ? "var(--green)" : "var(--red)" }}>
-                  {euro(ordine.totale - ordine.costoFornitore)}
-                </strong>
-              ) : (
-                <span className="tag-vuoto">—</span>
-              )}
+              {(() => {
+                const m = margineOrdine(ordine);
+                if (m.valore == null) {
+                  return (
+                    <>
+                      <span className="tag-vuoto">non calcolabile</span>
+                      <div className="cella-muta">{m.nota}</div>
+                    </>
+                  );
+                }
+                const perdita = m.valore < 0;
+                return (
+                  <>
+                    <strong style={{ color: perdita ? "var(--red)" : "var(--green)" }}>
+                      {euro(m.valore)}
+                      {perdita && <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 700 }}>PERDITA</span>}
+                    </strong>
+                    <div className="cella-muta">{m.nota}</div>
+                    {m.parziale && (
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--red)" }}>
+                        parziale: manca un ingrediente, il vero e&apos; piu&apos; basso di cosi&apos;
+                      </div>
+                    )}
+                    {ordine.costoConsegna != null && (
+                      <div className="cella-muta">
+                        consegna nostra: costo {euro(ordine.costoConsegna)}
+                        {ordine.feeConsegna != null && ordine.feeConsegna > 0 && <> · fee {euro(ordine.feeConsegna)}</>}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               <div className="cella-muta">sul lordo, IVA e spedizione incluse</div>
             </dd>
           </div>

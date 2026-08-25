@@ -150,6 +150,18 @@ export async function quotaFornitorePer(
  * `null` = non calcolabile (manca il costo del fornitore): mai zero, mai un
  * numero finto. `parziale` dice che manca un ingrediente della consegna
  * nostra: il numero c'è ma non è tutto.
+ *
+ * ⚠️ IL VALORE PUÒ ESSERE NEGATIVO, ed è giusto così. Un ordine venduto sotto
+ * costo esiste: uno sconto spinto, un fornitore più caro del previsto, una
+ * consegna costata più del margine. Non si azzera e non si nasconde — un
+ * margine negativo è esattamente l'informazione per cui questo conto esiste.
+ * Chi lo mostra deve dire «perdita» a lettere: un meno davanti a un numero, in
+ * una tabella di numeri, si perde.
+ *
+ * ⚠️ Da non confondere con gli INGREDIENTI, che negativi non possono essere:
+ * `costoFornitore`, `costoConsegna` e `feeConsegna` sono importi pagati, e il
+ * PATCH li rifiuta sotto zero. È il RISULTATO che può andare in rosso, non le
+ * cose che ci entrano.
  */
 export function margineOrdine(o: {
   totale: number;
