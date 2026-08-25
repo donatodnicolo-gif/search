@@ -240,9 +240,8 @@ interface Summary {
                 <th>{{ 'finance.c.category' | translate }}</th>
                 <th>{{ 'finance.c.service' | translate }}</th>
                 <th>{{ 'finance.c.partner' | translate }}</th>
-                <th class="num">{{ 'finance.c.publicPrice' | translate }}</th>
-                <th class="num">{{ 'finance.c.deliveryFee' | translate }}</th>
                 <th class="num">{{ 'finance.c.saleValue' | translate }}</th>
+                <th class="num">{{ 'finance.c.deliveryFee' | translate }}</th>
                 <th class="num">{{ 'finance.c.partnerPrice' | translate }}</th>
                 <th class="num">{{ 'finance.c.takings' | translate }}</th>
                 <th class="num">{{ 'finance.c.takingsNet' | translate }}</th>
@@ -275,9 +274,8 @@ interface Summary {
                     }
                   </td>
                   <td>—</td>
-                  <td class="num">{{ euro(o.saleValue) }}</td>
-                  <td class="num">{{ euro(o.deliveryFee) }}</td>
                   <td class="num">{{ euro(o.saleValue + o.deliveryFee) }}</td>
+                  <td class="num">{{ euro(o.deliveryFee) }}</td>
                   <td class="num">{{ euro(o.partnerPrice) }}</td>
                   <td class="num">{{ euro(o.takings) }}</td>
                   <td class="num">{{ euro(o.takingsNet) }}</td>
@@ -295,7 +293,9 @@ interface Summary {
                     <tr class="riga-consegna" [class.riga-anomala]="r.anomalia">
                   <td><span class="pill">{{ r.status }}</span></td>
                   <td class="mono"></td>
-                  <td class="mono">#{{ r.deliveryCode }}
+                  <td class="mono">
+                    <a class="link-consegna" [href]="'/deliveries/' + r.deliveryId" target="_blank" rel="noopener"
+                       [title]="'finance.apriConsegna' | translate">#{{ r.deliveryCode }}</a>
                     @if (r.anomalia) {
                       <span class="tag-anomalia">{{ 'finance.anomalia.' + r.anomalia | translate }}</span>
                     }
@@ -305,7 +305,6 @@ interface Summary {
                   <td>{{ r.category ?? '—' }}</td>
                   <td>{{ r.service }}</td>
                   <td>{{ r.partner }}</td>
-                  <td class="num"></td>
                   <td class="num"></td>
                   <td class="num"></td>
                   <!-- Letto dalla consegna, non dedotto: dove manca si dichiara. -->
@@ -333,9 +332,8 @@ interface Summary {
               <tfoot>
                 <tr class="totals">
                   <td colspan="8">{{ 'finance.total' | translate }}</td>
-                  <td class="num">{{ euro(s.publicPrice) }}</td>
-                  <td class="num">{{ euro(s.deliveryFee) }}</td>
                   <td class="num">{{ euro(s.saleValue) }}</td>
+                  <td class="num">{{ euro(s.deliveryFee) }}</td>
                   <td class="num">{{ euro(s.partnerPrice) }}</td>
                   <td class="num">{{ euro(s.takings) }}</td>
                   <td class="num">{{ euro(s.takingsNet) }}</td>
@@ -400,6 +398,8 @@ interface Summary {
       .riga-ordine .freccia { display: inline-block; width: 14px; color: var(--text-secondary); }
       .riga-ordine .ordine-id { font-weight: 600; }
       .riga-consegna td:first-child { border-left: 2px solid rgba(0,0,0,0.08); }
+      .link-consegna { color: var(--text-primary); text-decoration: none; border-bottom: 1px solid rgba(0,0,0,0.25); }
+      .link-consegna:hover { color: var(--gold-strong, #B8963E); border-bottom-color: currentColor; }
       .ordini { padding: 16px 18px; margin-bottom: 14px; overflow-x: auto; }
       .ordini-nota { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); }
       .ordini h2 { margin: 0 0 6px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
@@ -547,8 +547,8 @@ export class FinanceComponent {
     const t = (k: string) => this.translate.instant(k);
     const head = [
       t('finance.c.status'), t('finance.c.sale'), t('finance.c.delivery'), t('finance.c.date'), t('finance.c.product'),
-      t('finance.c.category'), t('finance.c.service'), t('finance.c.partner'), t('finance.c.publicPrice'), t('finance.c.deliveryFee'),
-      t('finance.c.saleValue'), t('finance.c.partnerPrice'), t('finance.c.takings'), t('finance.c.takingsNet'),
+      t('finance.c.category'), t('finance.c.service'), t('finance.c.partner'), t('finance.c.saleValue'), t('finance.c.deliveryFee'),
+      t('finance.c.partnerPrice'), t('finance.c.takings'), t('finance.c.takingsNet'),
       t('finance.c.feePercent'), t('finance.c.feePercentContract'), t('finance.c.feeContract'), t('finance.c.deliveryCost'),
       t('finance.c.vat'), t('finance.c.incassiCommission'), t('finance.c.totalMargin'),
       t('finance.c.totalMarginPercent'), t('finance.c.anomalia'),
@@ -556,7 +556,7 @@ export class FinanceComponent {
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const rows = this.rows().map((r) => [
       r.status, r.saleRef ?? '', `#${r.deliveryCode}`, r.date.slice(0, 10), r.product, r.category ?? '', r.service, r.partner,
-      r.publicPrice.toFixed(2), r.deliveryFee.toFixed(2), r.saleValue.toFixed(2),
+      r.saleValue.toFixed(2), r.deliveryFee.toFixed(2),
       r.anomalia === 'valore_partner_mancante' ? '' : r.partnerPrice.toFixed(2),
       r.takings.toFixed(2), r.takingsNet.toFixed(2),
       r.feePercent.toFixed(1), r.feePercentContract.toFixed(1), r.feeContract.toFixed(2),

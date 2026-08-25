@@ -873,7 +873,7 @@
     "export": "Export",
     "empty": "No sales in this period.",
     "total": "Total",
-    "assumption": "The value given to the partner is recorded on the delivery, not derived. Profit = sales value − value given to the partner, shown gross and net of VAT (÷1.22). \"Recorded fee\" is the commission written on the delivery: if it differs from the profit, something is worth a look.",
+    "assumption": "Each row is an ORDER: the sales value includes the shipping paid by the customer, and profit, collection fee and margin are computed from it. The value given to the partner is recorded on the delivery, not derived; profit = sales value − value given to the partner, gross and net of VAT (÷1.22). \"Recorded fee\" is the commission written on the delivery: if it differs from the profit, something is worth a look.",
     "tab": {
       "corrispettivi": "Takings",
       "margini": "Margins"
@@ -940,7 +940,8 @@
       "minimo": "Minimal margin (≤5%)",
       "basso": "Low margin (≤15%)",
       "vuoto": "No order in this margin band, in the chosen period."
-    }
+    },
+    "apriConsegna": "Open the delivery in a new tab"
   },
   "stub": {
     "caption": "Section coming soon to the new platform.",
