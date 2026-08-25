@@ -26,6 +26,8 @@ export interface PartnerRegistro {
   ultimaVisita: string | null;
   note: string | null;
   contatti: ContattoRegistro[];
+  /** Quale app l ha scritto nel registro: serve a dire da dove arriva. */
+  fonte?: string;
 }
 
 async function chiama<T>(body: unknown): Promise<T> {
@@ -125,15 +127,51 @@ export async function sincronizzaNegozioRegistro(dati: {
  * vedeva nessuno: si leggeva il registro solo per cercare la corrispondenza di
  * un negozio che si aveva già.
  *
+ * ⚠️⚠️ **Le fonti sono più d'una, dal 25/08/2026.** La schermata si chiama
+ * «Segnalazioni CS» e il Customer Service non ci compariva: quando si paga un
+ * fornitore, quel fioraio entra nel registro con `fonte: customer-service`, e
+ * qui si chiedeva solo `deluxy-suppliers`. Sono i contatti più caldi che
+ * abbiamo — gli abbiamo già dato lavoro e li abbiamo già pagati — ed erano gli
+ * unici a non arrivare a chi va a visitarli.
+ *
+ * ⚠️ Si chiede **una fonte per volta** e si uniscono qui: la Edge Function
+ * passa un `fonte` solo, e cambiarla vorrebbe dire rideployarla.
+ *
  * ⚠️ Richiede la Edge Function `anagrafiche` aggiornata (parametro `fonte`).
  * Finché non è deployata, il registro ignora il filtro e tornerebbero partner
  * di tutte le fonti: per questo si ricontrolla anche qui.
  */
-export async function fetchSegnalatiDaApp(fonte: string): Promise<{
+export async function fetchSegnalatiDaApp(fonti: string | string[]): Promise<{
   partner: PartnerRegistro[];
   /** true = l'elenco può essere incompleto (vedi il ripiego qui sotto). */
   parziale: boolean;
   /** Quanti ne esistono in tutto, quando si riesce a saperlo. */
+  totali: number | null;
+}> {
+  const elenco = Array.isArray(fonti) ? fonti : [fonti];
+  const risposte = await Promise.all(elenco.map((f) => segnalatiDiUnaFonte(f)));
+  // ⚠️ Deduplica per id: la stessa azienda può essere stata scritta da due app
+  // (l'app fornitori la trova, il Customer Service la paga) e mostrarla due
+  // volte farebbe credere a due negozi.
+  const visti = new Set<string>();
+  const partner: PartnerRegistro[] = [];
+  for (const r of risposte) {
+    for (const p of r.partner) {
+      if (visti.has(p.id)) continue;
+      visti.add(p.id);
+      partner.push(p);
+    }
+  }
+  partner.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+  const totali = risposte.every((r) => r.totali !== null)
+    ? risposte.reduce((s, r) => s + (r.totali ?? 0), 0)
+    : null;
+  return { partner, parziale: risposte.some((r) => r.parziale), totali };
+}
+
+async function segnalatiDiUnaFonte(fonte: string): Promise<{
+  partner: PartnerRegistro[];
+  parziale: boolean;
   totali: number | null;
 }> {
   type Riga = PartnerRegistro & { fonte?: string };
@@ -158,18 +196,24 @@ export async function fetchSegnalatiDaApp(fonte: string): Promise<{
   // ne ha di più, quelli in fondo NON si vedono. Per questo torna
   // `parziale: true`: un elenco incompleto che si spaccia per completo è
   // peggio di un elenco vuoto.
+  //
+  // ⚠️⚠️ Per il Customer Service questo ripiego **non può funzionare affatto**:
+  // i fornitori che entrano pagando nascono con categoria `ALTRO` (dal nome di
+  // un intestatario di conto non si deduce un mestiere, e inventarlo sarebbe
+  // peggio). Quindi non si finge: elenco vuoto e `parziale: true`, che dice
+  // «non lo so», invece di zero che dice «non ce ne sono».
   const CATEGORIE = ['FIORISTA', 'PASTICCERIA'];
-  const risposte = await Promise.all(
+  const perCategoria = await Promise.all(
     CATEGORIE.map((categoria) => cerca({ categoria, stato: 'prospect' }).catch(() => ({ dati: [], totale: 0 }))),
   );
   const trovati: Riga[] = [];
   let parziale = false;
-  for (const risposta of risposte) {
+  for (const risposta of perCategoria) {
     const righe = risposta.dati ?? [];
     if ((risposta.totale ?? 0) > righe.length) parziale = true;
     trovati.push(...righe.filter((p) => p.fonte === fonte));
   }
-  return { partner: trovati, parziale, totali: null };
+  return { partner: trovati, parziale: true, totali: null };
 }
 
 /**

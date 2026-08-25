@@ -218,6 +218,39 @@ deluxy-scout/
 └── __tests__/                 # test logica
 ```
 
+## Segnalazioni CS (rotta `/segnalati`, scheda dentro Affiliazioni)
+
+Le aziende che **un'altra app** ha già trovato, lette **live** dal registro
+Anagrafiche (nessuna copia: la copia in Scout nasce solo premendo «Prendi in
+carico», e resta collegata con `anagrafiche_id`).
+
+Le fonti sono **due**, e si vedono sulla riga:
+
+| fonte nel registro | chi sono | come si leggono |
+|---|---|---|
+| `deluxy-suppliers` | fioristi e pasticcerie cercati dall'app fornitori | prospect con interesse «Affiliazioni», categoria FIORISTA/PASTICCERIA |
+| `customer-service` | **fornitori che hanno già preparato un ordine e sono stati pagati** | entrano nel registro premendo «Pagata» in Customer Service |
+
+⚠️⚠️ **I secondi mancavano**, in una schermata che si chiama «Segnalazioni CS»:
+si chiedeva la sola fonte `deluxy-suppliers`. Sono i contatti più caldi che
+abbiamo — non un negozio trovato su una mappa, ma uno che ha già lavorato per
+noi — ed erano gli unici a non arrivare a chi va a visitarli. Aggiunti il
+25/08/2026.
+
+⚠️ Si chiede **una fonte per volta** e si uniscono nell'app (`fetchSegnalatiDaApp`
+accetta una lista): la Edge Function `anagrafiche` passa un `fonte` solo.
+
+⚠️ Se la Edge Function deployata è più vecchia del parametro `fonte`, il registro
+ignora il filtro: l'app se ne accorge (tornano righe di altre fonti) e lo **dice
+a schermo**, invece di mostrare un elenco a caso. Per i fornitori del Customer
+Service il ripiego per categoria non può funzionare — nascono come `ALTRO`,
+perché dal nome dell'intestatario di un conto non si deduce un mestiere — quindi
+lì l'elenco resta vuoto e dichiarato incompleto. Si risolve con:
+
+```bash
+supabase functions deploy anagrafiche
+```
+
 ## Regole di prodotto (invarianti)
 
 1. La mappa mostra **tutte** le attività; i filtri sono opzionali e servono al giro.

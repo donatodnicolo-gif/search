@@ -1,5 +1,11 @@
 // Segnalazioni CS — i potenziali che **un'altra app** ha già trovato.
 //
+// ⚠️⚠️ Dal 25/08/2026 le fonti sono DUE: l'app fornitori (che li cerca) e il
+// Customer Service (che li ha già fatti lavorare e pagati). I secondi erano
+// gli unici a non arrivare qui, in una schermata che si chiama «Segnalazioni
+// CS» — e sono i piu' caldi: non un negozio trovato su una mappa, ma uno che
+// ha gia' preparato un ordine per noi.
+//
 // ⚠️ Il nome della voce di menu è cambiato (era «Segnalati · Fornitori»), la
 // rotta no: resta `/segnalati`, così i link già in giro continuano a valere.
 //
@@ -26,9 +32,19 @@ import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { COLORE_VISITA, LABEL_VISITA } from '@/lib/statoVisita';
 
-/** L'app che li segnala. Oggi una sola; il giorno che diventano due, questa
- *  schermata cambia solo qui. */
-const FONTE = 'deluxy-suppliers';
+/** Le app che segnalano, e come si chiamano a schermo.
+ *
+ * ⚠️⚠️ Il Customer Service è stato aggiunto il 25/08/2026: la schermata si
+ * chiama «Segnalazioni CS» e i suoi non ci comparivano. Sono i contatti più
+ * caldi che abbiamo — un fioraio che ha già preparato un ordine per noi e che
+ * abbiamo già pagato — e finivano nel registro senza che chi va a visitarli lo
+ * sapesse. */
+const FONTI = ['deluxy-suppliers', 'customer-service'] as const;
+
+const DA_DOVE: Record<string, string> = {
+  'deluxy-suppliers': 'Segnalato dall’app fornitori',
+  'customer-service': 'Ha già preparato un ordine, ed è stato pagato',
+};
 
 export function SegnalazioniCS() {
   const router = useRouter();
@@ -47,7 +63,7 @@ export function SegnalazioniCS() {
     setErrore(null);
     try {
       const [r, ids] = await Promise.all([
-        fetchSegnalatiDaApp(FONTE),
+        fetchSegnalatiDaApp([...FONTI]),
         fetchAnagraficheIdPresi().catch(() => new Set<string>()),
       ]);
       setPartner(r.partner);
@@ -123,8 +139,8 @@ export function SegnalazioniCS() {
         <Text style={styles.avviso}>
           <Ionicons name="information-circle-outline" size={13} color={colors.testo} /> Elenco possibilmente
           incompleto: il registro sta rispondendo senza il filtro per fonte, quindi si vedono solo i primi
-          fioristi e pasticcerie in ordine alfabetico. Si risolve rilanciando il deploy della funzione
-          `anagrafiche`.
+          fioristi e pasticcerie in ordine alfabetico — e i fornitori pagati dal Customer Service non si
+          vedono affatto. Si risolve rilanciando il deploy della funzione `anagrafiche`.
         </Text>
       ) : null}
 
@@ -133,7 +149,7 @@ export function SegnalazioniCS() {
           loading={false}
           icona="cube-outline"
           titolo="Nessuna segnalazione"
-          aiuto="Quando l'app fornitori trova un fiorista o una pasticceria nuova, compare qui. Se sei sicuro che ce ne siano, controlla che la funzione `anagrafiche` sia aggiornata: il filtro per fonte è arrivato dopo."
+          aiuto="Compare qui chi trova l'app fornitori e chi il Customer Service ha già fatto lavorare e pagato. Se sei sicuro che ce ne siano, controlla che la funzione `anagrafiche` sia aggiornata: il filtro per fonte è arrivato dopo."
         />
       ) : null}
 
@@ -160,7 +176,12 @@ export function SegnalazioniCS() {
             }
             extra={
               <Text style={styles.fonte} numberOfLines={1}>
-                <Ionicons name="cube-outline" size={11} color={colors.grigio} /> Segnalato dall’app fornitori
+                <Ionicons
+                  name={p.fonte === 'customer-service' ? 'cash-outline' : 'cube-outline'}
+                  size={11}
+                  color={colors.grigio}
+                />{' '}
+                {DA_DOVE[p.fonte ?? ''] ?? 'Segnalato da un’altra app'}
                 {p.stato ? ` · nel registro è «${p.stato}»` : ''}
               </Text>
             }
