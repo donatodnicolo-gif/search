@@ -359,6 +359,21 @@ calcolata **in background** e appare un attimo dopo (prima invece la prima apert
 ogni mail restava bloccata sulla chiamata di traduzione). Tutte le letture della pagina
 girano in parallelo, non una dopo l'altra.
 
+## 6-bis. La barra delle azioni sulla mail aperta
+
+Sulla mail aperta restano in vista le quattro azioni d'uso continuo — **Rispondi**,
+**Inoltra**, **Archivia**, **Cestina** — più **«⋯ Altro»**, che contiene tutto il
+resto: Rispondi a tutti, Delega Renè, Aggancia, Segna letto/non letto, Spam, le
+Scorciatoie e «Sposta in sezione». Niente è stato tolto: è cambiato solo quante
+cose gridano contemporaneamente.
+
+Sul **desktop** la barra sta in alto, su una riga insieme alla navigazione
+(← Posta in arrivo · Precedente · Successiva), e resta **appiccicata** mentre
+scorri: i comandi sono sempre a portata di mano. Su **telefono** la barra è
+**fissa in basso**, a portata di pollice, e scorre di lato; «⋯ Altro» si apre
+come un foglio sopra la barra. Le lettere-scorciatoia (R, I, E, Canc) compaiono
+solo dove c'è una tastiera.
+
 ## 6a-bis. Mandare una mail a un'app Deluxy
 
 Una mail spesso non va risposta: va **passata a un'altra app** — un partner da creare in
