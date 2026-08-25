@@ -1719,3 +1719,37 @@ mark.ricerca-hit {
 @media (hover: none) and (pointer: coarse) {
   .btn kbd.tasto, .tasti-aiuto, .solo-tastiera { display: none; }
 }
+
+/* ============================================================
+   LA MAIL APERTA, SUL DESKTOP (25/08/2026)
+   Il problema era la CORNICE: quattro file di comandi impilate —
+   navigazione, due righe di azioni, la striscia della
+   conversazione — e la mail cominciava a metà schermo. In stile
+   Apple: UNA barra strumenti sola, appiccicata in alto, con la
+   navigazione a sinistra e tutte le azioni a seguire. Nessuna
+   azione tolta: si stringe la cornice, non il numero.
+   ⚠️ Niente backdrop-filter qui: dentro la barra ci sono i
+   dialoghi position:fixed (Delega Renè, Aggancia) e un filtro
+   sull'antenato diventerebbe il loro containing block. Lo sfondo
+   è la stessa tinta della pagina (--bg): la barra si fonde col
+   fondo e si vede solo il filetto quando ci scorre sotto la mail.
+   ============================================================ */
+@media (min-width: 701px) {
+  .testa-mail {
+    position: sticky; top: 0; z-index: 30;
+    background: var(--bg);
+    align-items: center; justify-content: flex-start;
+    gap: 8px 14px;
+    margin: 0 0 12px; padding: 10px 2px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  /* La navigazione è un gruppo a sé: il filetto la separa dalle azioni. */
+  .testa-mail .naviga-testa {
+    flex: none;
+    padding-right: 14px;
+    border-right: 1px solid var(--hairline-strong);
+  }
+  /* Le azioni riempiono il resto della riga invece di andare a capo da sole
+     (il width:100% di default le spingeva SEMPRE su una riga nuova). */
+  .testa-mail .azioni-messaggio { width: auto; flex: 1 1 560px; gap: 6px 10px; }
+}

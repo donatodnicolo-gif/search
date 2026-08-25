@@ -190,7 +190,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
   return (
     <>
-      <div className="page-head">
+      <div className="page-head testa-mail">
         <div className="naviga-testa">
           <Link href="/" className="btn secondary small">
             ← Posta in arrivo
@@ -219,7 +219,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           sottile (i moduli si aprono a richiesta nei dialoghi di pagina), e il
           dettaglio della conversazione (riassunto, elenco messaggi, stacca) è
           SOTTO la mail: prima si legge, poi si guarda il contesto. */}
-      <div className="card tight" style={{ padding: '8px 14px', marginBottom: 14 }}>
+      <div className="card tight" style={{ padding: '6px 12px', marginBottom: 10 }}>
         <div className="riga-azioni" style={{ marginTop: 0 }}>
           <span className="muted" style={{ fontSize: 12.5 }}>
             {conversazione.length > 1
