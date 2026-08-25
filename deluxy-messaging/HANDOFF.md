@@ -1,5 +1,32 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (sera 5) — «ci sono domande aperte?» si vede dalla pagina, e l'esito pure
+
+Due richieste dell'utente su `/reclami`.
+
+**Il riquadro «Domande aperte»** in cima: quante ne aspettano una risposta e su
+quanti reclami (il primo numero è il lavoro, il secondo quante persone andare a
+cercare). ⚠️⚠️ Contato su **tutto l'archivio**, non sui filtri: una domanda su un
+reclamo chiuso aspetta lo stesso, e un numero che cambia coi filtri non serve a
+decidere. ⚠️ **Zero si scrive** («Nessuna domanda aperta»): un riquadro che
+sparisce non è una risposta. ⚠️ È **cliccabile** e filtra sugli stessi reclami
+che dichiara — numero e filtro nascono dalla stessa lista, così non possono
+divergere.
+
+**L'esito nella riga.** Sotto lo stato ora si legge come è andata a finire.
+⚠️⚠️ Stato ed esito sono due cose diverse: il primo dice *a che punto è*, il
+secondo *come è finita*. In un elenco di chiusi «Risolto» da solo non dice se
+abbiamo rimborsato 250 € o scritto una mail di scuse — e il campo c'era, si
+leggeva solo aprendo i reclami uno per uno. ⚠️ Su un reclamo non più aperto senza
+esito scritto compare **«esito non scritto»** in rosso.
+
+⚠️ E nel filo una domanda con risposta dice **chi ha risposto**, non solo
+«risposta».
+
+Contato in produzione mentre lo facevo: **1 domanda aperta** (qualcuno il filo lo
+sta già usando) e **3 reclami su 6 con l'esito scritto**.
+
+
 ## 25/08/2026 (sera 4) — le note del diario hanno un seguito
 
 Chiesto dall'utente su `/diario`: «metti "completato" per le note, o consenti di

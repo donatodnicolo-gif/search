@@ -1671,6 +1671,39 @@ Attenzione, oltre Critico). Così un solo reclamo grave ancora aperto accende gi
 sempre visibile da cosa nasce il numero. Per il quadro completo — feedback, orari e altre
 variabili — c'è la **pagella** qui sotto.
 
+### Ci sono domande aperte? Si vede dalla pagina
+
+In cima a `/reclami` c'è il riquadro **Domande aperte**: quante domande del filo
+aspettano una risposta, e **su quanti reclami**. Il primo numero è il lavoro, il
+secondo dice quante persone bisogna andare a cercare.
+
+⚠️⚠️ Si conta su **tutto l'archivio**, non su quello che i filtri stanno
+mostrando: una domanda su un reclamo «chiuso» aspetta lo stesso, e un numero che
+cambia insieme ai filtri non serve a decidere se c'è qualcosa da sbloccare.
+
+⚠️ **Zero si scrive** («Nessuna domanda aperta»), non si nasconde: un riquadro
+che sparisce non è una risposta.
+
+Il riquadro è **cliccabile**: filtra l'elenco sugli stessi reclami che dichiara —
+un numero che non porta da nessuna parte costringe a rifare a mano il filtro che
+descrive. Sulla riga resta il bollino con quante ne aspettano su quel reclamo.
+
+### L'esito: come è andata a finire
+
+Nella colonna **Stato**, sotto lo stato, ora si legge l'**esito** del reclamo —
+«rimborso spedizione», «buono da 25 €», «riordino a nostro carico».
+
+⚠️⚠️ Stato ed esito sono due cose diverse: il primo dice **a che punto è**, il
+secondo **come è andata a finire**. In un elenco di reclami chiusi «Risolto» da
+solo non dice se abbiamo rimborsato 250 € o scritto una mail di scuse — e quel
+campo esisteva, si leggeva solo aprendo il reclamo uno per uno.
+
+⚠️ Su un reclamo non più aperto **senza esito scritto** compare «esito non
+scritto» in rosso: è una cosa che fra un mese non ricostruisce più nessuno.
+
+⚠️ E nel filo, una domanda a cui si è risposto dice **chi ha risposto**
+(«risposta da Federica»), non solo «risposta».
+
 ### Il filo di domande e risposte, e i soldi dell'ordine
 
 Aprendo un reclamo (bottone **Apri** sulla riga) sotto il modulo ci sono due

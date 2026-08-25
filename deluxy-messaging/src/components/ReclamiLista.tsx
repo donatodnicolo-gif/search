@@ -11,6 +11,7 @@ import {
   nomeColpa,
   nomeGravita,
   coloreGravita,
+  reclamoAperto,
 } from '@/lib/reclami'
 
 type Reclamo = {
@@ -85,6 +86,10 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
   const [perStato, setPerStato] = useState<Record<string, number>>({})
   /** Quante domande del filo aspettano ancora una risposta, per reclamo. */
   const [domandeAperte, setDomandeAperte] = useState<Record<string, number>>({})
+  /** Il conto su TUTTO l'archivio: quante domande, e su quanti reclami. */
+  const [domandeTotali, setDomandeTotali] = useState({ domande: 0, reclami: 0 })
+  /** '' tutti · 'aperte' solo i reclami con una domanda senza risposta. */
+  const [filtroDomande, setFiltroDomande] = useState('')
   const [caricato, setCaricato] = useState(false)
   const [casistiche, setCasistiche] = useState<Casistica[]>([])
   const [valet, setValet] = useState<Valet[]>([])
@@ -110,22 +115,25 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
       if (filtroStato) p.set('stato', filtroStato)
       if (filtroColpa) p.set('colpa', filtroColpa)
       if (filtroGravita) p.set('gravita', filtroGravita)
+      if (filtroDomande) p.set('domande', filtroDomande)
       const res = await fetch('/api/reclami?' + p.toString())
       if (!res.ok) return
       const d = (await res.json()) as {
         reclami: Reclamo[]
         perStato: Record<string, number>
         domandeAperte?: Record<string, number>
+        domandeAperteTotali?: { domande: number; reclami: number }
       }
       setReclami(d.reclami)
       setPerStato(d.perStato)
       setDomandeAperte(d.domandeAperte ?? {})
+      setDomandeTotali(d.domandeAperteTotali ?? { domande: 0, reclami: 0 })
     } catch {
       // rete assente
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, filtroStato, filtroColpa, filtroGravita])
+  }, [qCercata, filtroStato, filtroColpa, filtroGravita, filtroDomande])
 
   useEffect(() => {
     const t = setTimeout(() => setQCercata(q.trim()), 300)
@@ -345,7 +353,7 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
     await carica()
   }
 
-  const filtriAttivi = !!(qCercata || filtroColpa || filtroGravita || filtroStato !== 'aperti')
+  const filtriAttivi = !!(qCercata || filtroColpa || filtroGravita || filtroDomande || filtroStato !== 'aperti')
   const totaleTutti = Object.values(perStato).reduce((s, n) => s + n, 0)
   const aperti = (perStato['aperto'] ?? 0) + (perStato['in_lavorazione'] ?? 0)
 
@@ -387,6 +395,47 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
           </div>
           <div className="kpi-etichetta">Da lavorare</div>
         </div>
+        {/* ── LE DOMANDE CHE ASPETTANO UNA RISPOSTA ──
+            ⚠️⚠️ Sta in cima e non dentro le schede perché è l'unica cosa della
+            pagina che si sblocca **andando a cercare una persona**: un reclamo
+            fermo su una domanda non è fermo per pigrizia. Senza questo numero
+            bisognerebbe aprire i reclami uno per uno per scoprirlo.
+            ⚠️ Si conta su TUTTO l'archivio, non sui filtri: una domanda su un
+            reclamo chiuso aspetta lo stesso.
+            ⚠️ Ed è cliccabile: un numero che non porta da nessuna parte
+            costringe a rifare a mano il filtro che descrive. */}
+        <button
+          type="button"
+          className="kpi"
+          onClick={() => setFiltroDomande(filtroDomande === 'aperte' ? '' : 'aperte')}
+          style={{
+            cursor: 'pointer',
+            textAlign: 'inherit',
+            font: 'inherit',
+            border: filtroDomande === 'aperte' ? '1px solid var(--red)' : undefined,
+          }}
+          title={
+            domandeTotali.domande
+              ? 'Mostra solo i reclami con una domanda senza risposta'
+              : 'Nessuna domanda in sospeso'
+          }
+        >
+          <div
+            className="kpi-valore"
+            style={{ color: domandeTotali.domande ? 'var(--red)' : undefined }}
+          >
+            {domandeTotali.domande}
+          </div>
+          <div className="kpi-etichetta">
+            {/* ⚠️ Zero si scrive, non si nasconde: «nessuna domanda aperta» è
+                una risposta, un riquadro che sparisce non lo è. */}
+            {domandeTotali.domande === 0
+              ? 'Nessuna domanda aperta'
+              : `Domande aperte · su ${domandeTotali.reclami} ${
+                  domandeTotali.reclami === 1 ? 'reclamo' : 'reclami'
+                }`}
+          </div>
+        </button>
         <div className="kpi">
           <div className="kpi-valore" style={{ color: '#248a3d' }}>
             {perStato['risolto'] ?? 0}
@@ -649,6 +698,7 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
               setFiltroStato('aperti')
               setFiltroColpa('')
               setFiltroGravita('')
+              setFiltroDomande('')
             }}
           >
             Azzera
@@ -742,6 +792,25 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
                         </option>
                       ))}
                     </select>
+                    {/* ── CHE ESITO GLI È STATO DATO ──
+                        ⚠️⚠️ Lo stato dice a che punto è, l'esito dice COME È
+                        ANDATA A FINIRE — «rimborso spedizione», «riordino a
+                        nostro carico» — e sono due cose diverse. Il campo
+                        esisteva e si leggeva solo aprendo il reclamo: in un
+                        elenco di reclami chiusi, «Risolto» da solo non dice se
+                        abbiamo rimborsato 250 € o scritto una mail di scuse.
+                        ⚠️ E quando manca si DICE, invece di lasciare il posto
+                        vuoto: un reclamo chiuso senza esito scritto è una cosa
+                        che nessuno può più ricostruire. */}
+                    {r.esito ? (
+                      <div className="cella-sub" style={{ maxWidth: 200 }} title={r.esito}>
+                        {r.esito.length > 60 ? r.esito.slice(0, 60) + '…' : r.esito}
+                      </div>
+                    ) : !reclamoAperto(r.stato) ? (
+                      <div className="cella-sub" style={{ color: 'var(--red)' }}>
+                        esito non scritto
+                      </div>
+                    ) : null}
                   </td>
                   <td className="cella-muta" style={{ whiteSpace: 'nowrap' }}>
                     {dataBreve(r.creatoIl)}

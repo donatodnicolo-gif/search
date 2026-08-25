@@ -98,6 +98,8 @@ export function FiloReclamo({ reclamoId }: { reclamoId: string }) {
   const risposte = new Set(messaggi.map((m) => m.rispostaA).filter(Boolean))
   const aperte = messaggi.filter((m) => m.domanda && !risposte.has(m.id))
   const perDomanda = (id: string) => messaggi.filter((m) => m.rispostaA === id)
+  /** Chi ha risposto per primo a quella domanda: è l'esito, in una parola. */
+  const chiHaRisposto = (id: string) => perDomanda(id)[0]?.autoreNome ?? ''
 
   return (
     <div className="card" style={{ padding: 12, marginTop: 16 }}>
@@ -138,7 +140,13 @@ export function FiloReclamo({ reclamoId }: { reclamoId: string }) {
                         color: risposte.has(m.id) ? 'var(--green)' : 'var(--red)',
                       }}
                     >
-                      {risposte.has(m.id) ? 'risposta' : 'domanda aperta'}
+                      {/* ⚠️ Non basta dire «risposta»: chi legge vuole sapere
+                          CHE ESITO ha avuto la domanda — chi ha risposto e
+                          quando. «Risposta» da solo lascia da aprire il filo per
+                          scoprire una cosa che sta due righe sotto. */}
+                      {risposte.has(m.id)
+                        ? `risposta${chiHaRisposto(m.id) ? ' da ' + chiHaRisposto(m.id) : ''}`
+                        : 'domanda aperta'}
                     </span>
                   ) : null}
                 </div>

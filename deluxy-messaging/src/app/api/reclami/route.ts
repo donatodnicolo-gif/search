@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
   const stato = (p.get('stato') ?? '').trim()
   const colpa = (p.get('colpa') ?? '').trim()
   const gravita = (p.get('gravita') ?? '').trim()
+  /** 'aperte' = solo i reclami che hanno almeno una domanda senza risposta. */
+  const domande = (p.get('domande') ?? '').trim()
 
   const dove: Prisma.ReclamoWhereInput = {}
   // `aperti` = tutto ciò che non è ancora chiuso/risolto: la vista di lavoro.
@@ -40,6 +42,28 @@ export async function GET(req: NextRequest) {
       { descrizione: testo },
     ]
   }
+
+  // ── LE DOMANDE APERTE, SU TUTTO L'ARCHIVIO ──
+  //
+  // ⚠️⚠️ Si contano su TUTTI i reclami e non su quelli filtrati, come i
+  // conteggi per stato qui sotto: una domanda che aspetta risposta su un
+  // reclamo «chiuso» aspetta lo stesso, e un numero che cambia insieme ai
+  // filtri non si può usare per decidere se c'è qualcosa da sbloccare.
+  //
+  // ⚠️ Due query piccole invece di caricare tutti i messaggi: le domande, e gli
+  // id di quelle a cui qualcuno ha già risposto.
+  const [domandeTutte, risposteTutte] = await Promise.all([
+    db.messaggioReclamo.findMany({ where: { domanda: true }, select: { id: true, reclamoId: true } }),
+    db.messaggioReclamo.findMany({ where: { NOT: { rispostaA: '' } }, select: { rispostaA: true } }),
+  ])
+  const rispostoA = new Set(risposteTutte.map((r) => r.rispostaA))
+  const domandeSenzaRisposta = domandeTutte.filter((d) => !rispostoA.has(d.id))
+  const reclamiConDomande = [...new Set(domandeSenzaRisposta.map((d) => d.reclamoId))]
+
+  // ⚠️ Il filtro NON è un altro modo di contare: restringe l'elenco agli stessi
+  // reclami che il numero in cima dichiara. Se i due divergessero, il numero
+  // smetterebbe di voler dire qualcosa.
+  if (domande === 'aperte') dove.id = { in: reclamiConDomande }
 
   const [reclami, totale, conteggi] = await Promise.all([
     db.reclamo.findMany({ where: dove, orderBy: { creatoIl: 'desc' }, take: 300 }),
@@ -72,7 +96,18 @@ export async function GET(req: NextRequest) {
     domandeAperte[m.reclamoId] = (domandeAperte[m.reclamoId] ?? 0) + 1
   }
 
-  return NextResponse.json({ reclami, totale, perStato, domandeAperte })
+  return NextResponse.json({
+    reclami,
+    totale,
+    perStato,
+    domandeAperte,
+    // Quante domande aspettano una risposta, e su quanti reclami: il primo
+    // numero è il lavoro, il secondo è quante persone bisogna andare a cercare.
+    domandeAperteTotali: {
+      domande: domandeSenzaRisposta.length,
+      reclami: reclamiConDomande.length,
+    },
+  })
 }
 
 // Crea o aggiorna un reclamo. Il cambio di stato passa da qui o dalla rotta
