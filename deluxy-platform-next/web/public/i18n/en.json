@@ -40,7 +40,8 @@
     "disponibilita": "Availability",
     "province": "Provinces & cities",
     "utentiRuoli": "Users & roles",
-    "impostazioni": "Settings"
+    "impostazioni": "Settings",
+    "disponibilitaGiorno": "Availability"
   },
   "users": {
     "title": "Users",
@@ -1752,6 +1753,30 @@
       "delivery": "Delivery",
       "valet": "Valet",
       "status": "Status"
+    }
+  },
+  "availability": {
+    "title": "Availability",
+    "caption": "Who is working today: partners and valets, with their time windows.",
+    "partner": "Partners",
+    "valet": "Valets",
+    "search": "Search",
+    "searchPh": "Partner or valet name",
+    "onlyOpen": "Only those available",
+    "closed": "closed",
+    "none": "Nobody matches these filters.",
+    "noSource": "not stated",
+    "declared": "{{n}} stated something for this day",
+    "unknown": "{{n}} with no information",
+    "origin": {
+      "giorno": "this day",
+      "eccezione": "exception",
+      "settimanale": "usual",
+      "non-indicata": "—",
+      "giornoHint": "Stated their windows for this exact day.",
+      "eccezioneHint": "Closure or special hours marked for this day.",
+      "settimanaleHint": "Nothing stated for this day: these are the usual hours for this weekday.",
+      "non-indicataHint": "No source says anything: we do not know whether they work. That is not the same as knowing they do not."
     }
   }
 }

@@ -47,6 +47,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       { label: 'nav.calendario', path: '/calendar', icon: 'calendar', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
       { label: 'nav.attivita', path: '/activities', icon: 'clock', roles: ['ADMIN', 'OPERATION', 'VALET'] },
       { label: 'nav.vendite', path: '/sales', icon: 'cart', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+      { label: 'nav.disponibilitaGiorno', path: '/availability-board', icon: 'calendar', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
     ],
   },
   {

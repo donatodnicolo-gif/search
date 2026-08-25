@@ -62,7 +62,10 @@ while (perOrderId.size < LIMITE) {
   const b = await res.json();
   for (const o of b.ordini ?? []) {
     const k = numeroShopify(o.orderId);
-    if (k) perOrderId.set(k, { id: o.id, numero: o.numero });
+    if (k) perOrderId.set(k, {
+      id: o.id, numero: o.numero,
+      gia: { costoConsegna: o.controllo?.costoConsegna ?? null, feeConsegna: o.controllo?.feeConsegna ?? null },
+    });
   }
   process.stdout.write('.');
   if (!b.ordini?.length || pagina >= (b.pagine ?? 1)) break;
@@ -95,13 +98,23 @@ for (const d of dd) {
   per.set(k, c);
 }
 
+// ⚠️ Mai sotto zero. Su 108 consegne il minus supera la paga (una ha 7,20 EUR
+// di paga e un minus di −142) e su 75 supera il prezzo del partner: il conto
+// usciva negativo, e Orders lo rifiutava — giustamente, perche' un costo
+// negativo vorrebbe dire che il valet paga noi. E' lo stesso pavimento che il
+// calcolo degli stipendi applica gia': un minus non trasforma nessuno in
+// debitore.
+const maiSottoZero = (n) => Math.max(0, Math.round(n * 100) / 100);
+
 const voci = [...per.entries()].map(([k, c]) => ({
   ordersId: perOrderId.get(k).id,
   numero: perOrderId.get(k).numero,
   consegne: c.consegne,
   senzaFee: c.senzaFee,
-  costoConsegna: Math.round(c.costoConsegna * 100) / 100,
-  feeConsegna: Math.round(c.feeConsegna * 100) / 100,
+  costoConsegna: maiSottoZero(c.costoConsegna),
+  feeConsegna: maiSottoZero(c.feeConsegna),
+  /// Quello che Orders ha gia' scritto: se combacia, l'ordine si salta.
+  giaScritto: perOrderId.get(k).gia,
 }));
 
 const totCosto = voci.reduce((s, v) => s + v.costoConsegna, 0);
@@ -115,8 +128,17 @@ console.log(`  ordini con almeno una consegna il cui partner non ha Fee%: ${voci
 if (!SCRIVI) { await db.$disconnect(); process.exit(0); }
 
 let scritti = 0;
+let saltati = 0;
 const errori = [];
 for (const v of voci) {
+  // Gia' scritto con gli stessi numeri: rimandarlo sarebbe solo tempo. Cosi' un
+  // rilancio dopo un'interruzione costa quanto quello che manca davvero.
+  if (v.giaScritto
+      && v.giaScritto.costoConsegna === v.costoConsegna
+      && v.giaScritto.feeConsegna === v.feeConsegna) {
+    saltati++;
+    continue;
+  }
   try {
     const res = await fetch(`${url}/api/v1/ordini/${v.ordersId}`, {
       method: 'PATCH',
@@ -137,7 +159,7 @@ for (const v of voci) {
     errori.push(`${v.numero}: ${e.message}`);
   }
 }
-console.log(`\r  Ordini aggiornati: ${scritti.toLocaleString('it-IT')} su ${voci.length.toLocaleString('it-IT')}          `);
+console.log(`\r  Ordini aggiornati: ${scritti.toLocaleString('it-IT')} · gia' a posto: ${saltati.toLocaleString('it-IT')} · su ${voci.length.toLocaleString('it-IT')}          `);
 if (errori.length) {
   console.log(`  Errori: ${errori.length}`);
   for (const e of errori.slice(0, 5)) console.log('    ' + e);

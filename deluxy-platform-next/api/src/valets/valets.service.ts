@@ -161,10 +161,19 @@ export class ValetsService {
       timeTo: available ? (body.timeTo || null) : null,
       note: body.note || null,
     };
-    const row = await this.prisma.valetAvailability.upsert({
-      where: { valetId_date: { valetId, date } },
-      update: data,
-      create: { valetId, date, ...data },
+    // ⚠️ La chiave unica adesso comprende la FASCIA, non solo il giorno: un
+    // valet puo' dichiarare piu' finestre nello stesso giorno (nel legacy ne
+    // ha fino a sei), e il vincolo stretto ne aveva perse 325 all'import.
+    //
+    // Ma questo modulo salva UNA disponibilita' per giorno — e' il modo in cui
+    // il valet la scrive dalla sua pagina. Quindi si cancella quello che c'era
+    // per quel giorno e si scrive la nuova: un upsert su una chiave che
+    // comprende l'orario lascerebbe in piedi la fascia vecchia accanto alla
+    // nuova, e il valet si ritroverebbe disponibile in un orario che ha appena
+    // cambiato.
+    await this.prisma.valetAvailability.deleteMany({ where: { valetId, date } });
+    const row = await this.prisma.valetAvailability.create({
+      data: { valetId, date, ...data },
     });
     return { date: row.date.toISOString().slice(0, 10), ...data };
   }

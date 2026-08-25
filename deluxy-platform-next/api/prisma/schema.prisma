@@ -561,7 +561,14 @@ model ValetAvailability {
   note      String?
   valet     Valet    @relation(fields: [valetId], references: [id], onDelete: Cascade)
 
-  @@unique([valetId, date])
+  // ⚠️ La chiave comprende la FASCIA, non solo il giorno.
+  //
+  // Con `@@unique([valetId, date])` un valet poteva avere una disponibilita'
+  // sola al giorno, e nel legacy ne ha fino a sei: 325 fasce distinte non sono
+  // mai entrate — chi guardava vedeva «disponibile 16:00-18:00» dove in realta'
+  // c'era anche «12:00-18:00». È lo stesso vincolo troppo stretto che aveva gia'
+  // fatto perdere le finestre dei partner in `PartnerDayException`.
+  @@unique([valetId, date, timeFrom, timeTo])
 }
 
 // ------------------------------------------------------------

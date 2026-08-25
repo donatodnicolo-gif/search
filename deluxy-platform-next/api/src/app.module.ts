@@ -24,6 +24,7 @@ import { SavedViewsModule } from './saved-views/saved-views.module';
 import { CalculationsModule } from './calculations/calculations.module';
 import { SalariesModule } from './salaries/salaries.module';
 import { ReceiptsModule } from './receipts/receipts.module';
+import { AvailabilityModule } from './availability/availability.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { SalesModule } from './sales/sales.module';
 import { MerchandisingSyncModule } from './merchandising-sync/merchandising-sync.module';
@@ -53,6 +54,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     SalariesModule,
     ReceiptsModule,
     InvoicesModule,
+    AvailabilityModule,
     PaymentsModule,
     DeliveryRulesModule,
     SmsTemplatesModule,

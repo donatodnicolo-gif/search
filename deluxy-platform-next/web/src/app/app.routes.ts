@@ -388,6 +388,13 @@ export const routes: Routes = [
       },
       // ---- Attività (ritiri e consegne della giornata) ----
       {
+        path: 'availability-board',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+        loadComponent: () =>
+          import('./pages/availability-board.component').then((m) => m.AvailabilityBoardComponent),
+      },
+      {
         path: 'activities',
         canActivate: [roleGuard],
         data: { roles: ['ADMIN', 'OPERATION', 'VALET'] },
