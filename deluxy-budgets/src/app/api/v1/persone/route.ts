@@ -43,17 +43,39 @@ export async function POST(req: NextRequest) {
   const anno = Number.isInteger(corpo.anno) ? Number(corpo.anno) : ANNO_CORRENTE;
   const prova = corpo.prova === true;
 
-  // Già nel roster? Non si tocca: chi possiede il dato fonde, chi propone
-  // non sovrascrive. (Riconoscimento per nome normalizzato.)
+  // Già nel roster? La riga NON si sovrascrive (chi possiede il dato fonde),
+  // ma la proposta può COMPLETARE i campi ancora vuoti — ruolo e team — che
+  // vuoti non sono una scelta, sono un buco. Cosa è stato completato si
+  // dichiara nella risposta.
   const esistenti = await prisma.dipendente.findMany({
     where: { year: anno },
-    select: { id: true, nome: true },
+    select: { id: true, nome: true, ruolo: true, teamId: true },
   });
   const chiaveNome = normalizza(nome);
   const doppione = esistenti.find((e) => normalizza(e.nome) === chiaveNome);
   if (doppione) {
+    const completamenti: { ruolo?: string; teamId?: string } = {};
+    const completati: string[] = [];
+    const ruoloProposto = (corpo.ruolo ?? "").trim();
+    if (!doppione.ruolo && ruoloProposto) {
+      completamenti.ruolo = ruoloProposto;
+      completati.push("ruolo");
+    }
+    const teamProposto = (corpo.team ?? "").trim();
+    if (!doppione.teamId && teamProposto) {
+      const team = await prisma.team.findFirst({
+        where: { nome: { equals: teamProposto, mode: "insensitive" } },
+      });
+      if (team) {
+        completamenti.teamId = team.id;
+        completati.push("team");
+      }
+    }
+    if (!prova && completati.length > 0) {
+      await prisma.dipendente.update({ where: { id: doppione.id }, data: completamenti });
+    }
     return NextResponse.json(
-      { creata: false, motivo: "gia_presente", id: doppione.id, anno },
+      { creata: false, motivo: "gia_presente", id: doppione.id, anno, completati },
       { headers: { "Cache-Control": "no-store" } },
     );
   }
