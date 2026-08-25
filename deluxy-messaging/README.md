@@ -1324,6 +1324,33 @@ vorrebbe dire, prima o poi, attaccare la nota all'ordine sbagliato.
 comunque farebbe sparire una frase appena scritta **proprio quando il salvataggio e'
 fallito**, cioe' nell'unico momento in cui serviva ancora.
 
+### Il seguito di una nota: il filo
+
+⚠️⚠️ Una nota da sola racconta metà storia. Il caso vero è: «richiamare il
+cliente domani» → «richiamato, vuole il biglietto riscritto» → «riscritto». Tre
+righe sulla stessa cosa: scritte separate diventano **tre cose da fare**, e chi
+legge il diario non sa che le ultime due chiudono la prima.
+
+Sotto ogni riga c'è **Aggiungi seguito**: la riga nuova **cita** quella e le si
+mette sotto, rientrata. Un seguito è una **nota come le altre** — si spunta, ha
+un autore, e **eredita l'ordine e la chat** della capofila: cercando quel numero
+si trova tutto il filo, non metà.
+
+⚠️ **Un solo livello.** Il seguito di un seguito si aggancia alla capofila: un
+albero profondo dentro una lista di cose da fare non si legge più.
+
+⚠️⚠️ **Una capofila completata con un seguito ancora aperto RESTA fra le
+aperte**, e a schermo c'è scritto perché («questa riga è completata, ma il suo
+seguito no»). Senza questa regola, spuntando la prima riga di un filo si
+farebbero sparire dalla vista di lavoro le cose che restano da fare — in
+silenzio, che è il modo peggiore di perderle. È provato:
+`scripts/prova-seguito-diario.mts`.
+
+⚠️ Il filo si vede anche **dentro l'ordine e dentro la chat** (lì piatto: il
+contesto c'è già), e il numeretto delle note in sospeso su una conversazione
+**conta anche i seguiti aperti**.
+
+
 ## Fare un ordine per il cliente
 
 **Menu → Nuovo ordine**, oppure il bottone **«Nuovo ordine ↗»** dentro la conversazione:

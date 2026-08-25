@@ -22,7 +22,20 @@ export type NotaDiario = {
   fattaIl: string | null
   autoreNome: string
   fattaDaNome: string
+  /** L'id della nota che questa riga cita ('' = riga a sé). */
+  rispostaA?: string
   creatoIl: string
+}
+
+/**
+ * Capofila e seguiti in una lista sola, dalla più recente.
+ *
+ * ⚠️ Serve alle viste già dentro un contesto (un ordine, una chat): lì il
+ * rientro non aggiunge niente, ma **lasciar fuori i seguiti** farebbe sparire
+ * righe vere senza un errore da nessuna parte.
+ */
+export function insieme(note: NotaDiario[], seguiti?: NotaDiario[]): NotaDiario[] {
+  return [...note, ...(seguiti ?? [])].sort((a, b) => b.creatoIl.localeCompare(a.creatoIl))
 }
 
 function quando(iso: string): string {
@@ -60,6 +73,12 @@ function consegnaBreve(iso: string | null): string {
 
 export function Diario() {
   const [note, setNote] = useState<NotaDiario[]>([])
+  /** I seguiti di tutte le note a schermo, da appendere sotto la loro capofila. */
+  const [seguiti, setSeguiti] = useState<NotaDiario[]>([])
+  /** Su quale nota si sta scrivendo un seguito ('' = nessuna). */
+  const [scrivoSu, setScrivoSu] = useState('')
+  /** Il testo del seguito, per nota: chi ne apre due non perde il primo. */
+  const [seguito, setSeguito] = useState<Record<string, string>>({})
   const [aperte, setAperte] = useState(0)
   const [stato, setStato] = useState<'aperte' | 'fatte' | 'tutte'>('aperte')
   const [q, setQ] = useState('')
@@ -76,8 +95,13 @@ export function Diario() {
     if (q.trim()) p.set('q', q.trim())
     const res = await fetch('/api/diario?' + p.toString())
     if (!res.ok) return
-    const d = (await res.json()) as { note: NotaDiario[]; aperte: number }
+    const d = (await res.json()) as {
+      note: NotaDiario[]
+      seguiti?: NotaDiario[]
+      aperte: number
+    }
     setNote(d.note)
+    setSeguiti(d.seguiti ?? [])
     setAperte(d.aperte)
     setCaricato(true)
   }, [stato, q])
@@ -112,6 +136,38 @@ export function Diario() {
     setTesto('')
     await carica()
   }
+
+  /**
+   * Scrive il SEGUITO di una nota: una riga nuova che cita quella.
+   *
+   * ⚠️ Il seguito è una nota come le altre — si spunta, porta l'ordine, ha un
+   * autore — e non un commento: il caso vero è «richiamare il cliente domani» →
+   * «richiamato, vuole il biglietto riscritto» → «riscritto», e le ultime due
+   * righe sono cose fatte, non note a margine della prima.
+   */
+  async function aggiungiSeguito(capofila: NotaDiario) {
+    const riga = (seguito[capofila.id] ?? '').trim()
+    if (!riga) return
+    setErrore('')
+    const res = await fetch('/api/diario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ testo: riga, rispostaA: capofila.id }),
+    })
+    if (!res.ok) {
+      const d = (await res.json().catch(() => ({}))) as { errore?: string }
+      setErrore(d.errore || 'Seguito non salvato.')
+      return
+    }
+    // ⚠️ Si svuota solo dopo il sì del server: svuotare prima vorrebbe dire far
+    // sparire quello che uno ha scritto proprio quando la rete non c'era.
+    setSeguito((s) => ({ ...s, [capofila.id]: '' }))
+    setScrivoSu('')
+    await carica()
+  }
+
+  /** I seguiti di una nota, nell'ordine in cui sono stati scritti. */
+  const seguitiDi = (id: string) => seguiti.filter((s) => s.rispostaA === id)
 
   async function segna(n: NotaDiario, fatta: boolean) {
     await fetch(`/api/diario/${n.id}`, {
@@ -279,11 +335,90 @@ export function Diario() {
                     {[
                       n.autoreNome ? `scritta da ${n.autoreNome}` : '',
                       quando(n.creatoIl),
-                      n.fatta && n.fattaDaNome ? `fatta da ${n.fattaDaNome}` : '',
+                      n.fatta && n.fattaDaNome ? `completata da ${n.fattaDaNome}` : '',
+                      n.fatta && !n.fattaDaNome ? 'completata' : '',
                     ]
                       .filter(Boolean)
                       .join(' · ')}
                   </div>
+
+                  {/* ── IL FILO DELLA NOTA ──
+                      ⚠️⚠️ Un seguito è una NOTA, non un commento: si spunta,
+                      porta l'ordine, ha un autore. Il caso vero è «richiamare il
+                      cliente domani» → «richiamato, vuole il biglietto
+                      riscritto» → «riscritto»: tre righe sulla stessa cosa, che
+                      separate diventano tre cose da fare e non si capisce più
+                      che le ultime due chiudono la prima. */}
+                  {seguitiDi(n.id).map((s) => (
+                    <div key={s.id} className={`seguito-diario${s.fatta ? ' fatta' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={s.fatta}
+                        onChange={(e) => void segna(s, e.target.checked)}
+                        aria-label={s.fatta ? 'Riapri il seguito' : 'Segna fatto il seguito'}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div>{s.testo}</div>
+                        <div className="cella-sub">
+                          {[
+                            s.autoreNome ? `scritta da ${s.autoreNome}` : '',
+                            quando(s.creatoIl),
+                            s.fatta && s.fattaDaNome ? `completata da ${s.fattaDaNome}` : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </div>
+                      </div>
+                      <button className="bottone secondario mini" onClick={() => void cancella(s)}>
+                        Cancella
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* ⚠️ Una capofila già completata con un seguito ancora aperto
+                      resta nella vista di lavoro: altrimenti spuntando la prima
+                      riga si farebbero sparire in silenzio le cose che restano
+                      da fare. Qui si dice PERCHÉ è ancora lì. */}
+                  {n.fatta && seguitiDi(n.id).some((s) => !s.fatta) ? (
+                    <div className="cella-sub" style={{ color: 'var(--red)' }}>
+                      Questa riga è completata, ma il suo seguito no.
+                    </div>
+                  ) : null}
+
+                  {scrivoSu === n.id ? (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                      <input
+                        value={seguito[n.id] ?? ''}
+                        onChange={(e) => setSeguito((s) => ({ ...s, [n.id]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void aggiungiSeguito(n)
+                          if (e.key === 'Escape') setScrivoSu('')
+                        }}
+                        placeholder="Che cosa è successo dopo"
+                        aria-label="Scrivi il seguito di questa nota"
+                        autoFocus
+                      />
+                      <button
+                        className="bottone secondario mini"
+                        onClick={() => void aggiungiSeguito(n)}
+                        disabled={!(seguito[n.id] ?? '').trim()}
+                      >
+                        Aggiungi
+                      </button>
+                      <button className="bottone secondario mini" onClick={() => setScrivoSu('')}>
+                        Annulla
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="bottone secondario mini"
+                      style={{ marginTop: 6 }}
+                      onClick={() => setScrivoSu(n.id)}
+                      title="Aggiungi una riga che continua questa"
+                    >
+                      Aggiungi seguito
+                    </button>
+                  )}
                 </div>
                 <button className="bottone secondario mini" onClick={() => void cancella(n)}>
                   Cancella

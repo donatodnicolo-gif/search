@@ -4624,3 +4624,23 @@ td .azioni-ordine {
 .filo-reclamo { list-style: none; margin: 8px 0 12px; padding: 0; }
 .filo-reclamo > li { padding: 8px 0; border-top: 1px solid var(--hairline, rgba(0,0,0,.08)); }
 .filo-reclamo > li:first-child { border-top: none; }
+
+/* ── IL SEGUITO DI UNA NOTA DEL DIARIO ──
+   ⚠️ Rientrato e con la stanghetta a sinistra: si deve vedere a colpo d'occhio
+   che quella riga parla della nota sopra, non che è una cosa da fare in più.
+   Senza il rientro, un filo di tre righe si legge come tre impegni. */
+.seguito-diario {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--hairline);
+}
+
+/* Fatto: si legge ancora, ma non compete con quello che resta da fare — stessa
+   regola della riga capofila. */
+.seguito-diario.fatta > div {
+  opacity: 0.55;
+  text-decoration: line-through;
+}

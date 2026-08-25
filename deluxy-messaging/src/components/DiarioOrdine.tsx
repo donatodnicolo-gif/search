@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import type { NotaDiario } from './Diario'
+import { insieme, type NotaDiario } from './Diario'
 
 // Le righe di diario di UN ordine, dentro il pannello dell'ordine.
 //
@@ -20,8 +20,13 @@ export function DiarioOrdine({ numero }: { numero: string }) {
     const p = new URLSearchParams({ ordine: numero, stato: 'tutte' })
     const res = await fetch('/api/diario?' + p.toString())
     if (!res.ok) return
-    const d = (await res.json()) as { note: NotaDiario[] }
-    setNote(d.note)
+    // ⚠️⚠️ CAPOFILA **E** SEGUITI. Dal 25/08/2026 una nota può avere un filo, e
+    // la rotta li tiene separati (`note` = le capofila, `seguiti` = le righe che
+    // le citano). Qui si rimettono insieme: questa vista è già dentro un ordine
+    // — il contesto non manca — e leggerne solo metà vorrebbe dire che una riga
+    // scritta dal Diario qui **sparisce**, senza che niente dia errore.
+    const d = (await res.json()) as { note: NotaDiario[]; seguiti?: NotaDiario[] }
+    setNote(insieme(d.note, d.seguiti))
     setCaricato(true)
   }, [numero])
 

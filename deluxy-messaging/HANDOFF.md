@@ -1,5 +1,42 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (sera 4) — le note del diario hanno un seguito
+
+Chiesto dall'utente su `/diario`: «metti "completato" per le note, o consenti di
+aggiungere un thread a una nota già esistente che la cita».
+
+⚠️ **«Completato» c'era già**: ogni riga ha la sua casella e, spuntata, resta
+scritto chi l'ha chiusa. L'ho reso solo più esplicito a parole («completata da
+Tizio» invece di «fatta da»). Il pezzo che mancava è il **filo**, ed è quello
+che ho fatto.
+
+**Il seguito** (`NotaDiario.rispostaA`, campo nuovo). Sotto ogni riga c'è
+*Aggiungi seguito*: la riga nuova cita quella e le si mette sotto, rientrata.
+
+- ⚠️⚠️ Un seguito è una **nota**, non un commento: si spunta, ha un autore, ed
+  **eredita ordine e conversazione** della capofila — altrimenti cercando quel
+  numero d'ordine si troverebbe metà della storia.
+- ⚠️⚠️ **Una capofila completata con un seguito aperto resta fra le aperte**, e
+  a schermo si dice perché. Senza, spuntando la prima riga di un filo si
+  farebbero sparire in silenzio le cose che restano da fare. È il caso che la
+  prova verifica per primo.
+- ⚠️ Un solo livello: il seguito di un seguito si aggancia alla capofila.
+- ⚠️ La rotta risponde `{ note, seguiti }` **separati**, e un seguito non compare
+  mai come riga a sé: da solo — «richiamato, vuole il biglietto riscritto» — non
+  si capisce di chi parli.
+- ⚠️⚠️ **Trappola evitata per un soffio**: `DiarioOrdine` e `DiarioConversazione`
+  leggevano solo `d.note`. Con la rotta nuova un seguito **sarebbe sparito** da
+  quelle due viste senza nessun errore, e il numeretto delle note in sospeso su
+  una chat avrebbe detto «zero» con del lavoro ancora aperto. Ora usano
+  `insieme(note, seguiti)`.
+
+Provato sui dati veri (`npx tsx scripts/prova-seguito-diario.mts`, 8 casi):
+crea capofila e seguito, verifica che il seguito non compaia da solo, che
+spuntando la capofila il filo resti in vista, e che con tutto chiuso esca dalle
+aperte e si ritrovi fra le completate. Cancella **solo le righe che ha creato
+lei**, per id. Schema con `prisma db push` (campo additivo).
+
+
 ## 25/08/2026 (sera 3) — un reclamo adesso ha un filo, e dice quanto vale l'ordine
 
 Chiesto dall'utente su `/reclami?apri=cmt8q1opb000njv04q4vvyhzk`: «consenti di

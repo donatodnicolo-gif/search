@@ -1314,12 +1314,27 @@ model NotaDiario {
   autoreId     String    @default("")
   autoreNome   String    @default("")
   fattaDaNome  String    @default("")
+  /**
+   * IL SEGUITO DI UN'ALTRA NOTA: l'id di quella che questa riga cita.
+   * '' = riga a sé.
+   *
+   * ⚠️⚠️ Un seguito è una NOTA, non un commento: si segna fatta, porta un
+   * ordine, ha un autore. Il caso vero è «richiamare il cliente domani» →
+   * «richiamato, vuole il biglietto riscritto» → «riscritto». Tre righe che
+   * parlano della stessa cosa: separate diventano tre cose da fare, e chi
+   * legge il diario non sa che le ultime due chiudono la prima.
+   *
+   * ⚠️ Un solo livello: un seguito di un seguito si aggancia alla capofila.
+   * Un albero profondo in una lista di cose da fare non si legge più.
+   */
+  rispostaA    String    @default("")
   creatoIl     DateTime  @default(now())
   aggiornatoIl DateTime  @updatedAt
 
   @@index([ordineNumero])
   @@index([conversazioneId])
   @@index([fatta, creatoIl])
+  @@index([rispostaA])
 }
 
 // Gli ordini creati DA QUI, al telefono col cliente (`/nuovo-ordine`).

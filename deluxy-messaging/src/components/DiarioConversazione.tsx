@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import type { NotaDiario } from './Diario'
+import { insieme, type NotaDiario } from './Diario'
 
 // Le righe di diario di UNA CONVERSAZIONE, dentro il thread.
 //
@@ -41,10 +41,19 @@ export function DiarioConversazione({
     const p = new URLSearchParams({ conversazione: conversazioneId, stato: 'tutte' })
     const res = await fetch('/api/diario?' + p.toString())
     if (!res.ok) return
-    const d = (await res.json()) as { note: NotaDiario[] }
-    setNote(d.note)
+    // ⚠️⚠️ CAPOFILA **E** SEGUITI. Dal 25/08/2026 una nota può avere un filo, e
+    // la rotta li tiene separati (`note` = le capofila, `seguiti` = le righe che
+    // le citano). Qui si rimettono insieme: questa vista è già dentro un ordine
+    // — il contesto non manca — e leggerne solo metà vorrebbe dire che una riga
+    // scritta dal Diario qui **sparisce**, senza che niente dia errore.
+    const d = (await res.json()) as { note: NotaDiario[]; seguiti?: NotaDiario[] }
+    const tutte = insieme(d.note, d.seguiti)
+    setNote(tutte)
     setCaricato(true)
-    onCambiato?.(d.note.filter((n) => !n.fatta).length)
+    // ⚠️ Il numeretto conta ANCHE i seguiti aperti: un seguito è una cosa da
+    // fare come le altre, e non contarlo direbbe «zero» su una chat che ha
+    // ancora qualcosa in sospeso.
+    onCambiato?.(tutte.filter((n) => !n.fatta).length)
   }, [conversazioneId, onCambiato])
 
   useEffect(() => {
