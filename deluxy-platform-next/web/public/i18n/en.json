@@ -873,7 +873,7 @@
     "export": "Export",
     "empty": "No sales in this period.",
     "total": "Total",
-    "assumption": "Formulas verified on the real app (fee = fee% × partner price; +22% VAT; 3% collection fee). One row per sale delivery: the Sale↔Delivery link is still missing.",
+    "assumption": "On a sale the customer pays Deluxy, Deluxy keeps its share and owes the rest to the partner. Same formulas as Invoicing. Sold value read from the delivery line, 22% VAT on the takings, 3% collection fee.",
     "tab": {
       "corrispettivi": "Takings",
       "margini": "Margins"
@@ -885,23 +885,21 @@
       "product": "Product",
       "category": "Category",
       "partner": "Partner",
-      "publicPrice": "Public price",
+      "publicPrice": "Sold",
       "deliveryFee": "Delivery price",
-      "saleValue": "Sale value",
-      "partnerPrice": "Partner price",
-      "feePercent": "Fee %",
-      "feeValue": "Fee value",
-      "feeWithVat": "Fee+VAT",
+      "saleValue": "Sales value",
+      "partnerPrice": "Owed to partner",
+      "feePercent": "Actual fee %",
+      "feeWithVat": "Takings +VAT",
       "deliveryCost": "Delivery cost",
-      "firstMargin": "First margin",
-      "firstMarginPercent": "First margin %",
-      "takings": "Takings",
+      "takings": "Takings (ours)",
       "vat": "VAT",
       "incassiCommission": "Collection commission",
       "totalMargin": "Total margin",
       "totalMarginPercent": "Total margin %",
-      "partnerPayout": "Partner payout",
-      "service": "Service"
+      "service": "Service",
+      "feePercentContract": "Contract fee %",
+      "anomalia": "Anomaly"
     },
     "m": {
       "deliveries": "Deliveries"
@@ -915,7 +913,13 @@
     "year": "Year",
     "capped": "Showing {{n}} rows: the chosen period holds more. Narrow the dates or filter, or the totals will not match the list.",
     "onlySales": "Takings: only deliveries whose service is of type Sale.",
-    "excluded": "This period has {{n}} more with other services (delivery only, hourly, warehouse, corporate): they are not sales and stay out of the figures."
+    "excluded": "This period has {{n}} more with other services (delivery only, hourly, warehouse, corporate): they are not sales and stay out of the figures.",
+    "anomalie": "{{n}} rows have a wrong price at the source and are flagged in the table: the totals include them as they are.",
+    "anomalia": {
+      "quota_oltre_venduto": "kept > sold",
+      "venduto_a_zero": "sold is zero",
+      "quota_a_zero": "nothing kept"
+    }
   },
   "stub": {
     "caption": "Section coming soon to the new platform.",

@@ -28,3 +28,6 @@ Thumbs.db
 .idea/
 scripts/_prezzo.mjs
 scripts/_paga.mjs
+
+# Estrazioni di dati veri: non si committano
+anomalie-prezzo-vendite.csv

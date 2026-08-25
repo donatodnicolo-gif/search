@@ -873,7 +873,7 @@
     "export": "Esporta",
     "empty": "Nessuna vendita nel periodo.",
     "total": "Totale",
-    "assumption": "Formule verificate sull'app reale (fee = fee% × prezzo partner; +IVA 22%; commissione incassi 3%). Riga per consegna di vendita: manca ancora il legame Vendita↔Consegna.",
+    "assumption": "Su una vendita il cliente paga Deluxy, Deluxy trattiene la sua quota e deve il resto al partner. Le stesse formule della Fatturazione. Venduto letto dalla riga di consegna, IVA 22% sul corrispettivo, commissione incassi 3%.",
     "tab": {
       "corrispettivi": "Corrispettivi",
       "margini": "Margini"
@@ -885,23 +885,21 @@
       "product": "Prodotto",
       "category": "Categoria",
       "partner": "Partner",
-      "publicPrice": "Prezzo pubblico",
+      "publicPrice": "Venduto",
       "deliveryFee": "Consegna prezzo",
       "saleValue": "Valore vendite",
-      "partnerPrice": "Prezzo partner",
-      "feePercent": "Fee %",
-      "feeValue": "Fee value",
-      "feeWithVat": "Fee+IVA",
+      "partnerPrice": "Dovuto al partner",
+      "feePercent": "Fee % reale",
+      "feeWithVat": "Corrispettivo +IVA",
       "deliveryCost": "Costo consegna",
-      "firstMargin": "Primo margine",
-      "firstMarginPercent": "Primo margine %",
-      "takings": "Corrispettivo",
+      "takings": "Corrispettivo (a noi)",
       "vat": "IVA",
       "incassiCommission": "Commissione incassi",
       "totalMargin": "Margine totale",
       "totalMarginPercent": "Margine totale %",
-      "partnerPayout": "Incasso partner",
-      "service": "Servizio"
+      "service": "Servizio",
+      "feePercentContract": "Fee % contratto",
+      "anomalia": "Anomalia"
     },
     "m": {
       "deliveries": "Consegne"
@@ -915,7 +913,13 @@
     "year": "Anno",
     "capped": "Mostrate {{n}} righe: il periodo scelto ne contiene di piu'. Stringi le date o filtra, o i totali non corrispondono all'elenco.",
     "onlySales": "Corrispettivi: solo le consegne con un servizio di tipo Vendita.",
-    "excluded": "Nel periodo ce ne sono altre {{n}} con altri servizi (sola consegna, a ora, magazzino, aziendale): non sono vendite e restano fuori dai conti."
+    "excluded": "Nel periodo ce ne sono altre {{n}} con altri servizi (sola consegna, a ora, magazzino, aziendale): non sono vendite e restano fuori dai conti.",
+    "anomalie": "{{n}} righe hanno un prezzo sbagliato all'origine e sono marcate in tabella: i totali le comprendono così come sono.",
+    "anomalia": {
+      "quota_oltre_venduto": "trattenuto > venduto",
+      "venduto_a_zero": "venduto a zero",
+      "quota_a_zero": "niente trattenuto"
+    }
   },
   "stub": {
     "caption": "Sezione in arrivo sulla nuova piattaforma.",

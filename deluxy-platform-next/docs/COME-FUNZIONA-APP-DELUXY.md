@@ -303,9 +303,34 @@ Misurato sui dati veri il 25/08: delle **53.868** consegne a buon fine (`deliver
 
 > ℹ️ **La «Consegna prezzo» a zero è normale** (confermato dall'utente il 25/08/2026): nel Valore vendite conta il **valore del prodotto**. `Delivery.deliveryPrice` è infatti null su tutte le 61.836 consegne, e nel `delivery` legacy quella colonna non esiste nemmeno — non è un dato perso, è un addendo che qui non c'è.
 >
-> 🔴 **Aperto invece, e grosso: la colonna «Prezzo partner» quasi certamente non è il prezzo del partner.** Misurato il 25/08 sulle 12.247 vendite: `Delivery.price` vale il **12,5%** del valore dei prodotti, e per otto dei dodici partner più attivi la sua quota coincide **alla prima cifra decimale** con la fee% dichiarata del partner (CLIVATI 1969 17,0% su fee 17%; Cannavò 20,0% su 20%; Martesana 17,0% su 17%; Stefanelli 18,0% su 18%…). È cioè la **quota trattenuta da Deluxy**, non ciò che paghiamo al partner — ed è esattamente così che la legge già la **Fatturazione** (`invoices.module.ts`, `prezzoConsegna`: `dovutoAlPartner = valore prodotti − quota`, verificata sui dati veri). Con la lettura della Finanza il corrispettivo dell'archivio è **1.058.782 €** (Deluxy terrebbe l'87% del venduto); con quella della Fatturazione la nostra quota è **161.555 €** e ai partner ne dobbiamo **1.136.005 €**. Le due letture non possono essere entrambe vere, e la seconda è quella che regge. **Serve la decisione prima di riscrivere le formule.**
->
-> ⚠️ Terzo punto, minore ma della stessa famiglia: la Finanza legge il valore del prodotto dal **catalogo** (`Product.publicPrice ?? Product.price`), la Fatturazione dalla **riga di consegna** (`DeliveryProduct.price`, la fotografia di quel giorno). Sull'archivio danno 1.220.337 € contro 1.297.560 €. La riga di consegna è la fonte giusta — il catalogo intanto cambia — e per 9.114 vendite su 12.247 il catalogo ripiega su `Product.price` perché il prezzo pubblico manca.
+> ✅ **RISOLTO IL 25/08/2026, su decisione dell'utente: «Prezzo partner» non era il prezzo del partner.** Misurato il 25/08 sulle 12.247 vendite: `Delivery.price` vale il **12,5%** del valore dei prodotti, e per otto dei dodici partner più attivi la sua quota coincide **alla prima cifra decimale** con la fee% dichiarata del partner (CLIVATI 1969 17,0% su fee 17%; Cannavò 20,0% su 20%; Martesana 17,0% su 17%; Stefanelli 18,0% su 18%…). È cioè la **quota trattenuta da Deluxy**, non ciò che paghiamo al partner — ed è esattamente così che la legge già la **Fatturazione** (`invoices.module.ts`, `prezzoConsegna`: `dovutoAlPartner = valore prodotti − quota`, verificata sui dati veri). Con la lettura della Finanza il corrispettivo dell'archivio è **1.058.782 €** (Deluxy terrebbe l'87% del venduto); con quella della Fatturazione la nostra quota è **161.555 €** e ai partner ne dobbiamo **1.136.005 €**. L'utente ha deciso: vale la lettura della Fatturazione. **Le formule sono state riscritte.**
+
+**Le formule dei Corrispettivi, dal 25/08/2026:**
+
+| Colonna | Formula |
+|---|---|
+| Venduto | somma( prezzo della riga di consegna × quantità ) |
+| Consegna prezzo | `Delivery.deliveryPrice` — qui sempre 0, ed è normale |
+| Valore vendite | Venduto + Consegna prezzo |
+| **Corrispettivo (a noi)** | `Delivery.price` + plus/minus — **quello che tratteniamo** |
+| **Dovuto al partner** | Valore vendite − Corrispettivo |
+| Fee % reale | Corrispettivo / Valore vendite |
+| Fee % contratto | `Partner.commissionPercent` — se diverge dalla reale, la cella si accende |
+| Corrispettivo +IVA | Corrispettivo × 1,22 |
+| IVA | Corrispettivo × 22% |
+| Commissione incassi | Valore vendite × 3% |
+| Costo consegna | paga del valet + plus/minus |
+| Margine totale | Corrispettivo − Costo consegna − IVA − Commissione incassi |
+
+Sono sparite tre colonne perché erano **lo stesso numero sotto nomi diversi**: con questa lettura «primo margine» e «fee value» valgono entrambi il corrispettivo, e «incasso partner» vale il dovuto al partner.
+
+⚠️ Il venduto ora si legge dalla **riga di consegna** (`DeliveryProduct.price`), non dal catalogo: il catalogo intanto cambia, e un prodotto riprezzato riscriverebbe la storia di consegne già fatte. Prima si leggeva da lì e dava 1.220.337 € contro 1.297.560 € — il quarto calcolo diverso dello stesso numero dentro lo stesso progetto. Ora la fonte è una sola, la stessa della Fatturazione.
+
+**Le righe col prezzo sbagliato si mostrano, non si nascondono.** La tabella le marca col motivo e il totale le comprende così come sono: **796** hanno il venduto a zero, **123** non hanno trattenuto niente pur avendo il partner una fee, **33** hanno trattenuto più del venduto. In più **1.677** hanno una fee incassata lontana più di 5 punti dal contratto — quelle sono da guardare, non necessariamente sbagliate.
+
+⚠️ **«Niente trattenuto» non è un'anomalia se il partner ha la fee a 0%**: delle 3.003 vendite senza quota, **2.880** sono di partner a fee zero (una scelta commerciale) e solo **123** sono un dato mancante, per 2.206 € di quota. È la stessa distinzione che la Fatturazione aveva già dovuto imparare.
+
+ℹ️ **Il prezzo di Shopify non serve a giudicare**: su Shopify c'è il prezzo **pubblico**, che è un'altra cosa dal prezzo del prodotto concordato col partner (l'utente, 25/08). Misurato: il totale dell'ordine coincide col venduto solo nell'**1,6%** dei casi, allo stesso modo in tutte le tabelle di vendita — un criterio che «sbaglia» ovunque uguale non sta misurando quel che sembra. I dati dell'ordine restano disponibili come **riferimento** nell'estrazione `scripts/estrai-anomalie-prezzo-vendite.mjs`, che non scrive niente e produce un CSV con tutto ciò che è stato inserito sulla consegna più ciò che risulta dall'ordine.
 
 ### 3.9 Setup
 

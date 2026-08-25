@@ -2,54 +2,65 @@
 // Finanza (sezione riservata agli admin abilitati)
 // ------------------------------------------------------------
 // Replica la schermata Finanza (/finanza) dell'app reale, §3.8 del manuale
-// COME-FUNZIONA-APP-DELUXY.md. Le FORMULE sono quelle verificate sull'app reale
-// (21/07, sessione admin) e documentate nel manuale:
-//   valoreVendite      = prezzoPubblico + consegnaPrezzo
-//   feeValue           = (Partner.commissionPercent/100) x prezzoPartner
-//   feeConIva          = feeValue x 1.22
-//   primoMargine       = valoreVendite - prezzoPartner + feeValue
-//   corrispettivo      = valoreVendite - prezzoPartner
-//   iva                = corrispettivo x 22%
-//   commissioneIncassi = valoreVendite x 3%
-//   margineTotale      = primoMargine - costoConsegna - iva - commissioneIncassi
-//   incassoPartner     = prezzoPartner - feeConIva
+// COME-FUNZIONA-APP-DELUXY.md.
 //
 // AMBITO (25/08/2026, deciso dall'utente): i CORRISPETTIVI riguardano SOLO i
-// servizi di tipo VENDITA. Le formule qui sopra descrivono una vendita: noi
-// incassiamo dal cliente finale (prezzo pubblico + consegna) e PAGHIAMO il
-// partner (`corrispettivo = valoreVendite - prezzoPartner`, `incassoPartner =
-// prezzoPartner - feeConIva`). Su un servizio di sola consegna (PREZZO_FISSO,
-// A_ORA, MAGAZZINO, CORPORATE) il verso del denaro e' l'opposto: il partner e'
-// il CLIENTE e la consegna gli viene FATTURATA. Sommarle insieme non fa un
-// totale piu' grande, fa un totale sbagliato.
+// servizi di tipo VENDITA. Su un servizio di sola consegna (PREZZO_FISSO,
+// A_ORA, MAGAZZINO, CORPORATE) il denaro va nel verso opposto — il partner e'
+// il CLIENTE e la consegna gli viene FATTURATA — e le formule di qui sotto non
+// significherebbero niente. Sommarle insieme non fa un totale piu' grande, fa
+// un totale sbagliato.
 //
-// La "consegna prezzo" vale ZERO qui, ed e' NORMALE (l'utente, 25/08/2026): nel
+// ⭐ FORMULE RISCRITTE IL 25/08/2026, e prima erano capovolte.
+// -----------------------------------------------------------
+// `Delivery.price` su una VENDITA e' la QUOTA CHE TRATTENIAMO NOI, non cio' che
+// paghiamo al partner. Misurato sulle 12.247 vendite: vale il 12,5% del valore
+// dei prodotti, e su 8.470 righe **5.221 (il 62%)** hanno quella quota identica
+// **entro un decimo di punto** alla fee% dichiarata del partner; solo 159
+// (l'1,9%) superano meta' del venduto, cioe' sono anche solo compatibili con la
+// lettura vecchia. Esempio deciso dall'utente: bouquet da 410 €, quota 73,80 €
+// (= 18%, la fee di Arte e Fiori Firenze) → **al fioraio dobbiamo 336,20 €**,
+// non 73,80.
+//
+// E' la stessa lettura della Fatturazione (`invoices.module.ts`,
+// `prezzoConsegna`: «nei servizi di VENDITA il denaro va nell'altro verso: il
+// cliente paga Deluxy, Deluxy trattiene la sua percentuale e deve il resto al
+// partner»), gia' verificata sui dati veri. Ora i due moduli dicono lo stesso
+// numero sugli stessi ordini.
+//
+//   venduto            = somma( DeliveryProduct.price x quantita )
+//   consegnaPrezzo     = Delivery.deliveryPrice        (qui sempre 0, vedi sotto)
+//   valoreVendite      = venduto + consegnaPrezzo
+//   corrispettivo      = Delivery.price + additionalPrice   <- QUELLO CHE RESTA A NOI
+//   dovutoAlPartner    = valoreVendite - corrispettivo
+//   feePercent         = corrispettivo / valoreVendite       (la fee VERA, dai soldi)
+//   feePercentContract = Partner.commissionPercent           (quella in anagrafica)
+//   corrispettivoConIva= corrispettivo x 1.22
+//   iva                = corrispettivo x 22%
+//   commissioneIncassi = valoreVendite x 3%
+//   costoConsegna      = paga del valet + plus/minus
+//   margineTotale      = corrispettivo - costoConsegna - iva - commissioneIncassi
+//
+// ⚠️ Il venduto si legge dalla RIGA DI CONSEGNA (`DeliveryProduct.price`, la
+// fotografia di quel giorno), non dal catalogo: il catalogo intanto cambia, e
+// un prodotto riprezzato riscriverebbe la storia di consegne gia' fatte. Prima
+// si leggeva da li' (`Product.publicPrice ?? Product.price`) e dava 1.220.337 €
+// contro 1.297.560 € — il quarto calcolo diverso dello stesso numero dentro lo
+// stesso progetto. Ora la fonte e' una sola, la stessa della Fatturazione.
+//
+// ⚠️ Tre colonne sono sparite perche' erano lo STESSO numero sotto nomi
+// diversi: con questa lettura «primo margine» e «fee value» valgono entrambi il
+// corrispettivo, e «incasso partner» vale il dovuto al partner. Ripetere un
+// numero sotto piu' intestazioni non aggiunge informazione, aggiunge occasioni
+// di leggerlo male.
+//
+// La "consegna prezzo" vale ZERO, ed e' NORMALE (l'utente, 25/08/2026): nel
 // valore vendite conta il valore del PRODOTTO. `Delivery.deliveryPrice` e' null
 // su tutte le 61.836 consegne perche' nel `delivery` legacy quella colonna non
 // esiste — e' un addendo che qui non c'e', non un dato perso.
 //
-// 🔴 APERTO, e cambierebbe tutti i numeri di questa pagina: `Delivery.price`
-// ("prezzo partner") su una VENDITA e' quasi certamente la QUOTA TRATTENUTA DA
-// NOI, non cio' che paghiamo al partner. Misurato il 25/08 sulle 12.247
-// vendite: vale il 12,5% del valore dei prodotti, e per otto dei dodici partner
-// piu' attivi la sua quota coincide alla prima cifra decimale con la fee%
-// dichiarata del partner. La Fatturazione lo legge gia' cosi'
-// (`invoices.module.ts`, `prezzoConsegna`: dovutoAlPartner = valore prodotti -
-// quota). Con la lettura di QUESTO file il corrispettivo dell'archivio e'
-// 1.058.782 EUR — Deluxy terrebbe l'87% del venduto; con quella della
-// Fatturazione la nostra quota e' 161.555 EUR. Non corretto qui: riscrivere le
-// formule e' una decisione, non una correzione di sintassi. Vedi HANDOFF.
-//
-// ⚠️ E il valore del prodotto qui si legge dal CATALOGO
-// (`Product.publicPrice ?? Product.price`), mentre la Fatturazione lo legge dalla
-// RIGA di consegna (`DeliveryProduct.price`, la fotografia di quel giorno):
-// 1.220.337 contro 1.297.560 EUR sull'archivio. E' il quarto calcolo diverso
-// dello stesso numero dentro lo stesso progetto.
-//
-// Nota residua: nel nuovo ambiente la riga e' per CONSEGNA (con i suoi prodotti
-// aggregati per il prezzo pubblico), non ancora per vendita: manca il legame
-// Vendita<->Consegna. IVA e commissione incassi sono costanti qui sotto
-// (candidate a diventare impostazioni admin).
+// IVA e commissione incassi sono costanti qui sotto (candidate a diventare
+// impostazioni admin).
 // ============================================================
 import {
   Controller,
@@ -65,11 +76,10 @@ import { Role } from '../common/enums';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** IVA applicata a fee e corrispettivo (22%). */
+/** IVA applicata al corrispettivo (22%). */
 const VAT = 0.22;
 /** Commissione incassi (3% del valore vendite). */
 const INCASSI = 0.03;
-/** Stati consegna che concorrono ai corrispettivi (consegne a buon fine). */
 /**
  * Gli stati che portano ricavo.
  *
@@ -95,6 +105,16 @@ const REVENUE_STATUSES = ['delivered', 'approved'];
  */
 const MODELLO_VENDITA = 'VENDITA';
 
+/**
+ * Perche' una riga non e' attendibile.
+ *
+ * ⚠️ Una riga sbagliata non si nasconde e non si aggiusta da sola: si mostra
+ * col motivo. Sono errori di inserimento del prezzo (l'utente, 25/08/2026) e
+ * vanno corretti alla fonte — `scripts/estrai-anomalie-prezzo-vendite.mjs` li
+ * tira fuori tutti, col confronto contro l'ordine Shopify.
+ */
+type Anomalia = 'quota_oltre_venduto' | 'venduto_a_zero' | 'quota_a_zero' | null;
+
 interface CorrispettivoRow {
   deliveryId: string;
   deliveryCode: number;
@@ -105,22 +125,25 @@ interface CorrispettivoRow {
   /** Il servizio del partner: e' cio' per cui la riga e' qui (sempre di VENDITA). */
   service: string;
   partner: string;
+  /** Somma dei prezzi scritti sulle righe di consegna. */
   publicPrice: number;
   deliveryFee: number;
   saleValue: number;
+  /** Quello che resta a noi: `Delivery.price` + plus/minus. */
+  takings: number;
+  /** Quello che dobbiamo al partner: valore vendite - corrispettivo. */
   partnerPrice: number;
+  /** La fee vera, ricavata dagli importi. */
   feePercent: number;
-  feeValue: number;
+  /** La fee scritta in anagrafica: se diverge da quella vera, si vede. */
+  feePercentContract: number;
   feeWithVat: number;
   deliveryCost: number;
-  firstMargin: number;
-  firstMarginPercent: number;
-  takings: number;
   vat: number;
   incassiCommission: number;
   totalMargin: number;
   totalMarginPercent: number;
-  partnerPayout: number;
+  anomalia: Anomalia;
 }
 
 @Injectable()
@@ -214,14 +237,7 @@ export class FinanceService {
         serviceType: { select: { name: true, pricingModel: true } },
         products: {
           include: {
-            product: {
-              select: {
-                name: true,
-                price: true,
-                publicPrice: true,
-                category: { select: { name: true } },
-              },
-            },
+            product: { select: { name: true, category: { select: { name: true } } } },
           },
         },
       },
@@ -261,54 +277,69 @@ export class FinanceService {
       : 0;
     const sum = (f: (r: CorrispettivoRow) => number) => rows.reduce((s, r) => s + f(r), 0);
     const saleValue = sum((r) => r.saleValue);
+    const takings = sum((r) => r.takings);
     const totalMargin = sum((r) => r.totalMargin);
-    const firstMargin = sum((r) => r.firstMargin);
     return {
       deliveries: rows.length,
       /** Consegne a buon fine del periodo che NON sono vendite (fuori ambito). */
       excluded: escluse,
+      /** Righe col prezzo sbagliato in origine: si contano, non si nascondono. */
+      anomalie: rows.filter((r) => r.anomalia).length,
       publicPrice: round2(sum((r) => r.publicPrice)),
       deliveryFee: round2(sum((r) => r.deliveryFee)),
       saleValue: round2(saleValue),
+      takings: round2(takings),
       partnerPrice: round2(sum((r) => r.partnerPrice)),
-      feeValue: round2(sum((r) => r.feeValue)),
+      feePercent: saleValue > 0 ? round2((takings / saleValue) * 100) : 0,
       feeWithVat: round2(sum((r) => r.feeWithVat)),
       deliveryCost: round2(sum((r) => r.deliveryCost)),
-      firstMargin: round2(firstMargin),
-      firstMarginPercent: saleValue > 0 ? round2((firstMargin / saleValue) * 100) : 0,
-      takings: round2(sum((r) => r.takings)),
       vat: round2(sum((r) => r.vat)),
       incassiCommission: round2(sum((r) => r.incassiCommission)),
       totalMargin: round2(totalMargin),
       totalMarginPercent: saleValue > 0 ? round2((totalMargin / saleValue) * 100) : 0,
-      partnerPayout: round2(sum((r) => r.partnerPayout)),
     };
   }
 
   private computeRow(d: any): CorrispettivoRow {
     const lines: any[] = d.products ?? [];
-    const publicPrice = lines.reduce(
-      (s, l) => s + (l.product.publicPrice ?? l.product.price ?? 0) * (l.quantity ?? 1),
-      0,
-    );
+    // Il venduto e' la fotografia di quel giorno, non il catalogo di oggi.
+    const publicPrice = lines.reduce((s, l) => s + (l.price ?? 0) * (l.quantity ?? 1), 0);
     const deliveryFee = d.deliveryPrice ?? 0;
     const saleValue = publicPrice + deliveryFee;
-    const partnerPrice = (d.price ?? 0) + (d.additionalPrice ?? 0);
-    const feePercent = d.partner?.commissionPercent ?? 0;
-    const feeValue = (feePercent / 100) * partnerPrice;
-    const feeWithVat = feeValue * (1 + VAT);
+    // Quello che resta a noi. Uno sconto non puo' portarlo sotto zero: e' la
+    // stessa regola della Fatturazione (`mai_negativo`).
+    const takings = Math.max(0, (d.price ?? 0) + (d.additionalPrice ?? 0));
+    const partnerPrice = Math.max(0, saleValue - takings);
+    const feePercent = saleValue > 0 ? (takings / saleValue) * 100 : 0;
+    const feeWithVat = takings * (1 + VAT);
     const deliveryCost = (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0);
-    const firstMargin = saleValue - partnerPrice + feeValue;
-    const takings = saleValue - partnerPrice;
     const vat = takings * VAT;
     const incassiCommission = saleValue * INCASSI;
-    const totalMargin = firstMargin - deliveryCost - vat - incassiCommission;
-    const partnerPayout = partnerPrice - feeWithVat;
-    const first = lines[0]?.product;
-    const productLabel = first
+    const totalMargin = takings - deliveryCost - vat - incassiCommission;
+    const feeContract = d.partner?.commissionPercent ?? 0;
+    // ⚠️ In ordine: la prima rende la riga impossibile (tratteniamo piu' di
+    // quanto e' stato venduto), le altre due dicono che manca un pezzo.
+    //
+    // ⚠️⚠️ «Niente trattenuto» e' un'anomalia SOLO se il partner una fee ce
+    // l'ha. Con la fee a 0% non abbiamo trattenuto niente perche' non si doveva
+    // trattenere niente: e' una scelta commerciale, non un buco. Misurato il
+    // 25/08: delle 3.003 vendite senza quota, **2.880** sono di partner a fee
+    // zero e solo **123** sono un dato mancante (2.206 € di quota). Segnalarle
+    // tutte avrebbe accusato 2.880 righe sane — e' la stessa distinzione che la
+    // Fatturazione aveva gia' dovuto imparare.
+    const anomalia: Anomalia =
+      saleValue <= 0
+        ? 'venduto_a_zero'
+        : takings > saleValue
+          ? 'quota_oltre_venduto'
+          : takings <= 0 && feeContract > 0
+            ? 'quota_a_zero'
+            : null;
+    const first = lines[0];
+    const productLabel = lines.length
       ? lines.length > 1
-        ? `${first.name} +${lines.length - 1}`
-        : first.name
+        ? `${first?.product?.name ?? first?.productName ?? '—'} +${lines.length - 1}`
+        : (first?.product?.name ?? first?.productName ?? '—')
       : '—';
     return {
       deliveryId: d.id,
@@ -316,25 +347,23 @@ export class FinanceService {
       status: d.status,
       date: d.date,
       product: productLabel,
-      category: first?.category?.name ?? null,
+      category: first?.product?.category?.name ?? null,
       service: d.serviceType?.name ?? '—',
       partner: d.partner?.insegna ?? '—',
       publicPrice: round2(publicPrice),
       deliveryFee: round2(deliveryFee),
       saleValue: round2(saleValue),
+      takings: round2(takings),
       partnerPrice: round2(partnerPrice),
       feePercent: round2(feePercent),
-      feeValue: round2(feeValue),
+      feePercentContract: round2(feeContract),
       feeWithVat: round2(feeWithVat),
       deliveryCost: round2(deliveryCost),
-      firstMargin: round2(firstMargin),
-      firstMarginPercent: saleValue > 0 ? round2((firstMargin / saleValue) * 100) : 0,
-      takings: round2(takings),
       vat: round2(vat),
       incassiCommission: round2(incassiCommission),
       totalMargin: round2(totalMargin),
       totalMarginPercent: saleValue > 0 ? round2((totalMargin / saleValue) * 100) : 0,
-      partnerPayout: round2(partnerPayout),
+      anomalia,
     };
   }
 }
