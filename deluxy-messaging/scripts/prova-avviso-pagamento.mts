@@ -42,5 +42,39 @@ prova('e il nome c e sempre', magro.includes('A: Tizio'))
 const conCausale = testoAvviso({ chi: 'X', importo: 10, valuta: 'EUR', ordine: '#1', causale: 'acconto', da: '' })
 prova('una causale DIVERSA dall ordine si scrive', conCausale.includes('Causale: acconto'))
 
+
+// ══════════════════════════════════════════════════════════════════════════
+// L IBAN E IL LINK
+// ⚠️ L IBAN si scrive PER INTERO: negli elenchi a schermo si mostrano le ultime
+// quattro apposta, ma qui il senso del messaggio e poter pagare DAL TELEFONO
+// senza aprire l app — un IBAN a meta costringe ad aprirla lo stesso.
+// ══════════════════════════════════════════════════════════════════════════
+console.log('\n══ COME SI PAGA, NEL MESSAGGIO ══')
+{
+  const conIban = testoAvviso({ chi: 'X', importo: 80, valuta: 'EUR', ordine: '#2785', causale: '', da: '',
+    metodo: 'iban', iban: 'IT60X0542811101000000123456', link: 'https://esempio/pagamenti?richiesta=abc' })
+  console.log(conIban.split('\n').map(r => '    | ' + r).join('\n'))
+  prova('l IBAN c e per intero', conIban.includes('IT60X0542811101000000123456'))
+  prova('  e non accorciato', !conIban.includes('…'))
+  prova('il link porta su QUELLA riga', conIban.includes('?richiesta=abc'))
+}
+{
+  const conLink = testoAvviso({ chi: 'X', importo: 40, valuta: 'EUR', ordine: '', causale: 'acconto', da: '',
+    metodo: 'link', riferimento: 'https://pay.esempio/abc' })
+  prova('su metodo «link» si scrive il link di pagamento', conLink.includes('Link di pagamento: https://pay.esempio/abc'))
+  prova('  e NON compare un IBAN vuoto', !conLink.includes('IBAN'))
+  // ⚠️ Senza APP_URL il link non si inventa: si dice a parole dove andare.
+  prova('senza link si dice dove andare a parole', conLink.includes('Customer Service → Pagamenti'))
+}
+{
+  const paypal = testoAvviso({ chi: 'X', importo: 10, valuta: 'EUR', ordine: '', causale: '', da: '',
+    metodo: 'paypal', riferimento: 'tizio@esempio.it' })
+  prova('PayPal si scrive come PayPal', paypal.includes('PayPal: tizio@esempio.it'))
+}
+{
+  const nudo = testoAvviso({ chi: 'X', importo: 10, valuta: 'EUR', ordine: '', causale: '', da: '', metodo: 'iban' })
+  prova('metodo iban ma IBAN mancante: nessuna riga vuota', !nudo.includes('IBAN'))
+  prova('  e il messaggio resta leggibile', nudo.split('\n').filter(r => r === '').length <= 2)
+}
 console.log(male === 0 ? '\nTutto a posto.' : `\n${male} SBAGLIATI.`)
 process.exit(male === 0 ? 0 : 1)

@@ -4554,3 +4554,13 @@ td .azioni-ordine {
 }
 
 .marchio-scelta input { margin: 0; }
+
+/* La riga aperta dal link dell'avviso WhatsApp.
+   ⚠️ Con duecento richieste, mandare sulla pagina e basta vuol dire farla
+   cercare — e cercare su un telefono e' la cosa che si rimanda. */
+.riga-cercata > td {
+  background: var(--gold-soft, #F5EDDC);
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+
+.riga-cercata > td:first-child { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }

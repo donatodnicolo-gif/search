@@ -59,6 +59,12 @@ export function testoAvviso(d: {
   ordine: string
   causale: string
   da: string
+  /** Come si paga: l'IBAN, o il link/PayPal/accordo per gli altri metodi. */
+  metodo?: string
+  iban?: string
+  riferimento?: string
+  /** L'indirizzo che apre QUESTA riga nella pagina Pagamenti. */
+  link?: string
 }): string {
   const soldi = d.importo
     ? d.importo.toLocaleString('it-IT', { style: 'currency', currency: d.valuta || 'EUR' })
@@ -79,14 +85,45 @@ export function testoAvviso(d: {
     d.causale && !causaleRidondante(d.causale, d.ordine) ? `Causale: ${d.causale}` : '',
     d.da ? `Chiesto da: ${d.da}` : '',
   ].filter(Boolean)
+
+  // ── COME SI PAGA ──
+  //
+  // ⚠️⚠️ L'IBAN si scrive PER INTERO, non accorciato. Negli elenchi a schermo si
+  // mostrano le ultime quattro cifre apposta — un elenco di IBAN completi è una
+  // cosa che si finisce per fotografare — ma qui il senso del messaggio è
+  // esattamente **poter pagare dal telefono senza aprire l'app**: un IBAN a metà
+  // costringe ad aprirla lo stesso, e allora tanto vale non metterlo.
+  //
+  // ⚠️ Sugli altri metodi l'IBAN non c'è e non deve comparire vuoto: si scrive
+  // quello che serve davvero a pagare — il link, l'indirizzo PayPal, o la frase
+  // di come ci si è accordati.
+  const comePagare =
+    d.metodo === 'iban'
+      ? d.iban
+        ? [`IBAN: ${d.iban}`]
+        : []
+      : d.riferimento
+        ? [
+            d.metodo === 'link'
+              ? `Link di pagamento: ${d.riferimento}`
+              : d.metodo === 'paypal'
+                ? `PayPal: ${d.riferimento}`
+                : `Come pagare: ${d.riferimento}`,
+          ]
+        : []
   return [
     'Nuovo pagamento da fare.',
     '',
     ...campi,
+    // Una riga vuota solo se c'è qualcosa da separare.
+    ...(comePagare.length ? ['', ...comePagare] : []),
     '',
-    // ⚠️ Il link c'è perché un avviso senza «dove vado a farlo» costa comunque
-    // due minuti di ricerca, e due minuti su un telefono si rimandano.
-    'Lo trovi in Customer Service → Pagamenti.',
+    // ⚠️⚠️ Il link porta su QUELLA riga, non sulla pagina: con duecento
+    // richieste, «lo trovi in Pagamenti» vuol dire cercarla, e cercare su un
+    // telefono è la cosa che si rimanda. Se l'indirizzo pubblico dell'app non è
+    // configurato si scrive comunque dove andare — meglio un'indicazione che
+    // niente.
+    d.link ? `Aprilo qui: ${d.link}` : 'Lo trovi in Customer Service → Pagamenti.',
   ].join('\n')
 }
 
@@ -109,10 +146,17 @@ export async function avvisaPagamentoDaFare(richiestaId: string): Promise<EsitoA
       ordineNumero: true,
       causale: true,
       pagataDaNome: true,
+      metodo: true,
+      iban: true,
+      riferimentoPagamento: true,
     },
   })
   if (!r) return { mandato: false, messaggio: 'Richiesta non trovata.' }
 
+  // ⚠️ L'indirizzo pubblico viene da `APP_URL` (su Vercel c'è). Senza, il link
+  // resta vuoto e il messaggio dice dove andare a parole: costruirne uno con
+  // `localhost` dentro sarebbe peggio che non metterlo.
+  const base = (process.env.APP_URL ?? '').replace(/\/+$/, '')
   const testo = testoAvviso({
     chi: r.intestatario,
     importo: r.importo,
@@ -120,6 +164,10 @@ export async function avvisaPagamentoDaFare(richiestaId: string): Promise<EsitoA
     ordine: r.ordineNumero,
     causale: r.causale,
     da: r.pagataDaNome,
+    metodo: r.metodo,
+    iban: r.iban,
+    riferimento: r.riferimentoPagamento,
+    link: base ? `${base}/pagamenti?richiesta=${richiestaId}` : '',
   })
 
   try {

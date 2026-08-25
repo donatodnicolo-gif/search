@@ -135,6 +135,8 @@ export async function POST(req: NextRequest) {
     iban: esitoIban.normalizzato,
     riferimento,
     intestatario: (c.intestatario ?? '').trim(),
+    causale: (c.causale ?? '').trim(),
+    ordineNumero: (c.ordineNumero ?? '').trim(),
   })
   if (manca) return NextResponse.json({ errore: manca }, { status: 400 })
 

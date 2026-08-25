@@ -140,11 +140,18 @@ export function RichiediPagamento() {
   // Il numero d'ordine che arriva dal bottone «Paga»: è più affidabile del
   // numero letto nella causale, perché non è stato scritto a mano da nessuno.
   const [ordineDaUrl, setOrdineDaUrl] = useState('')
+  // ⚠️⚠️ LA RIGA APERTA DAL LINK DELL'AVVISO WhatsApp. Il messaggio dice «aprilo
+  // qui» e porta su QUESTA riga: con duecento richieste, mandare sulla pagina e
+  // basta vuol dire farla cercare — e cercare su un telefono è la cosa che si
+  // rimanda. Senza l'evidenziazione il link porterebbe in cima a un elenco in
+  // cui la riga giusta è la centoquarantesima.
+  const [richiestaDaUrl, setRichiestaDaUrl] = useState('')
 
   // Arrivando dal bottone "Richiedi pagamento" di un ordine, i campi si
   // precompilano da soli con numero, cliente e importo.
   useEffect(() => {
     const p = new URLSearchParams(window.location.search)
+    setRichiestaDaUrl((p.get('richiesta') ?? '').trim())
     const ordine = p.get('ordine')
     if (!ordine) return
     setCausale(`Ordine ${ordine}`)
@@ -485,7 +492,14 @@ export function RichiediPagamento() {
 
   /** Correggere una riga salvata. */
   async function modifica(id: string) {
-    const manca = cosaManca({ metodo, iban, riferimento, intestatario })
+    const manca = cosaManca({
+      metodo,
+      iban,
+      riferimento,
+      intestatario,
+      causale,
+      ordineNumero: ordineScelto?.numero || ordineNumero,
+    })
     if (manca) {
       setErrore(manca)
       return
@@ -907,8 +921,22 @@ export function RichiediPagamento() {
             <button
               className="btn"
               onClick={() => (modificoId ? void modifica(modificoId) : void salva())}
-              disabled={!!cosaManca({ metodo, iban, riferimento, intestatario })}
-              title={cosaManca({ metodo, iban, riferimento, intestatario }) || undefined}
+              disabled={!!cosaManca({
+      metodo,
+      iban,
+      riferimento,
+      intestatario,
+      causale,
+      ordineNumero: ordineScelto?.numero || ordineNumero,
+    })}
+              title={cosaManca({
+      metodo,
+      iban,
+      riferimento,
+      intestatario,
+      causale,
+      ordineNumero: ordineScelto?.numero || ordineNumero,
+    }) || undefined}
             >
               {modificoId ? 'Salva la correzione' : 'Salva la richiesta'}
             </button>
@@ -1107,7 +1135,20 @@ export function RichiediPagamento() {
             </thead>
             <tbody>
               {richieste.map((r) => (
-                <tr key={r.id} className={r.pagataIl ? 'riga-pagata' : ''}>
+                <tr
+                  key={r.id}
+                  className={[r.pagataIl ? 'riga-pagata' : '', r.id === richiestaDaUrl ? 'riga-cercata' : '']
+                    .filter(Boolean)
+                    .join(' ')}
+                  // ⚠️ Si porta a schermo da sola: su un telefono la riga può
+                  // essere sotto venti schermate, e un'evidenziazione che non si
+                  // vede non evidenzia niente.
+                  ref={
+                    r.id === richiestaDaUrl
+                      ? (el) => el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                      : undefined
+                  }
+                >
                   {/* ⚠️ OGNI CELLA SI COPIA TOCCANDOLA. Il caso vero: un IBAN di
                       ventisette caratteri va incollato nel portale della banca.
                       Selezionarlo col dito su un telefono — trascinare le due

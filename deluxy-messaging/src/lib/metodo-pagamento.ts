@@ -53,13 +53,51 @@ export function metodoValido(m: string): m is Metodo {
  * la frase non dice niente a nessuno. L'unica cosa che serve **sempre** è a chi
  * stiamo dando i soldi.
  */
+/**
+ * ⚠️⚠️ IL NUMERO D'ORDINE SCRITTO NELLA CAUSALE, quando l'ordine non è collegato.
+ *
+ * È il caso vero da cui nasce questa funzione: una riga con causale
+ * «Ordine #2791» e `ordineNumero` **vuoto**. Chi l'ha scritta era convinta di
+ * aver collegato l'ordine — il numero era lì, davanti — ma scrivere un numero in
+ * un campo di testo non collega niente: niente valore, niente margine, e
+ * l'ordine non sa chi lo prepara.
+ *
+ * ⚠️ Almeno tre cifre: sotto quella soglia si aggancerebbe a un «x2» o a una
+ * data scritta nella causale, e bloccherebbe salvataggi legittimi.
+ */
+export function ordineNominatoNellaCausale(causale: string): string {
+  const m = (causale ?? '').match(/#?\s?(\d{3,})/)
+  return m ? `#${m[1]}` : ''
+}
+
 export function cosaManca(d: {
   metodo: string
   iban: string
   riferimento: string
   intestatario: string
+  /** La causale e l'ordine collegato: servono alla regola qui sotto. */
+  causale?: string
+  ordineNumero?: string
 }): string {
   if (!d.intestatario.trim()) return 'Serve almeno il nome di chi va pagato.'
+  // ⚠️⚠️ UN PAGAMENTO CHE PARLA DI UN ORDINE DEVE AVERE QUELL'ORDINE COLLEGATO.
+  //
+  // Chiesto esplicitamente dall'utente il 25/08/2026 («rendi obbligatorio»), e
+  // il motivo è tutta la catena che ne dipende: con l'ordine collegato,
+  // l'intestatario diventa da solo il fornitore di quell'ordine, il costo va a
+  // Deluxy Orders e il margine si calcola. Senza, il pagamento resta un fatto
+  // isolato — e su una riga vera è già successo: causale «Ordine #2791»,
+  // nessun ordine collegato, e l'ordine che non sapeva chi lo preparava.
+  //
+  // ⚠️ Si blocca solo quando la causale NOMINA un ordine: un pagamento che con
+  // gli ordini non c'entra (un canone, un rimborso spese) resta libero. La
+  // regola non è «serve sempre un ordine», è «se ne parli, collegalo».
+  if (!(d.ordineNumero ?? '').trim()) {
+    const nominato = ordineNominatoNellaCausale(d.causale ?? '')
+    if (nominato) {
+      return `La causale parla dell’ordine ${nominato} ma l’ordine non è collegato: scegli ${nominato} nel campo «Ordine». Serve a registrare chi lo prepara e a calcolare il margine.`
+    }
+  }
   if (d.metodo === 'iban' && !d.iban.trim()) return 'Serve l’IBAN.'
   if (d.metodo !== 'iban' && !d.riferimento.trim()) {
     return d.metodo === 'link'
