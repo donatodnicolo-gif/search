@@ -26,7 +26,7 @@ numero quando cambia la formula:
   lordo»** — mentre `calcola()` scorpora dal 25/08 (l'handoff dava la nota per
   aggiornata: era stata corretta quella nel **modulo**, non quella **a schermo**).
 
-**Fatto** (commit `d4a1b7e0`… vedi git log, LIVE):
+**Fatto** (commit `d9beaf13`, LIVE):
 - `margineOrdine()` torna anche **`imponibile`** (totale ÷ 1,22): la base esce
   dalla funzione unica, nessuna pagina se la ricalcola;
 - scheda ordine: «· 40% **dell'imponibile**» + riga «la percentuale è
