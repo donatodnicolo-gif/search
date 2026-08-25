@@ -11,10 +11,11 @@
 // mail sbagliata a venti clienti non si richiama indietro, e un automatismo che
 // sbaglia lo fa su tutta la lista prima che qualcuno se ne accorga.
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { doveLaTrovi, fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
@@ -221,10 +222,77 @@ export default function Sequenze() {
     }
   }
 
+  // Da 900px in su la coda è una TABELLA (le schede restano sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
+  const colonneCoda: ColonnaTabella<InCoda>[] = [
+    {
+      chiave: 'negozio',
+      label: 'Negozio',
+      flex: 1.1,
+      valore: (c) => c.placeNome,
+      cella: (c) => (
+        <Text style={styles.tabNome} numberOfLines={2}>
+          {c.placeNome}
+        </Text>
+      ),
+    },
+    {
+      chiave: 'passo',
+      label: 'Sequenza e passo',
+      flex: 1.4,
+      righe: 2,
+      valore: (c) => `${c.sequenza.nome} · passo ${c.passo.ordine} · «${etichettaPasso(c.passo)}»`,
+    },
+    {
+      chiave: 'quando',
+      label: 'Quando',
+      width: 110,
+      destra: true,
+      numerica: true,
+      valore: (c) => c.ritardo,
+      cella: (c) =>
+        c.ritardo > 0 ? (
+          <Text style={styles.tabRitardo}>in ritardo di {c.ritardo} g</Text>
+        ) : (
+          <Text style={styles.tabOggi}>oggi</Text>
+        ),
+    },
+    {
+      chiave: 'azioni',
+      label: '',
+      width: 230,
+      fissa: true,
+      valore: () => null,
+      cella: (c) => (
+        <View style={styles.tabAzioni}>
+          <Pressable
+            style={styles.btnSec}
+            onPress={(e: any) => { e?.stopPropagation?.(); ferma(c); }}
+            disabled={inCorso === c.iscrizione.id}
+          >
+            <Text style={styles.btnSecTxt}>Ferma</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.btnPri, inCorso === c.iscrizione.id && styles.off]}
+            onPress={(e: any) => { e?.stopPropagation?.(); mandaPasso(c); }}
+            disabled={inCorso === c.iscrizione.id}
+          >
+            {inCorso === c.iscrizione.id ? (
+              <ActivityIndicator color={colors.bianco} size="small" />
+            ) : (
+              <Text style={styles.btnPriTxt}>Controlla e manda</Text>
+            )}
+          </Pressable>
+        </View>
+      ),
+    },
+  ];
+
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.list, contenutoCentrato]}
+      contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
     >
       <View style={styles.headerScroll}>
@@ -244,7 +312,15 @@ export default function Sequenze() {
           Niente da mandare oggi. Quando la data di un passo arriva, il negozio compare qui.
         </Text>
       ) : null}
-      {coda.map((c) => (
+      {aTabella && coda.length ? (
+        <Tabella
+          righe={coda}
+          colonne={colonneCoda}
+          chiaveRiga={(c) => c.iscrizione.id}
+          ordineIniziale={{ campo: 'quando', verso: 'desc' }}
+        />
+      ) : null}
+      {aTabella ? null : coda.map((c) => (
         <View key={c.iscrizione.id} style={[styles.card, c.ritardo > 0 && styles.cardTardi]}>
           <View style={styles.cardTesta}>
             <Text style={styles.cardNome} numberOfLines={2}>{c.placeNome}</Text>
@@ -546,6 +622,10 @@ const styles = StyleSheet.create({
   headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md },
   errore: { color: colors.errore, fontWeight: '600', fontSize: 13, backgroundColor: colors.bianco, borderRadius: radius.md, padding: spacing.md },
   titoloSez: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', marginTop: spacing.md },
+  tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabRitardo: { color: colors.errore, fontWeight: '700', fontSize: 12.5, textAlign: 'right' },
+  tabOggi: { color: colors.successo, fontWeight: '700', fontSize: 12.5, textAlign: 'right' },
+  tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end' },
   vuotoRiga: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
   card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 6 },
   // In ritardo: si vede prima di leggere. Una sequenza dimenticata da dieci

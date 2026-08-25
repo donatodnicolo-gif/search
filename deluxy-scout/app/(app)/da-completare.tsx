@@ -2,12 +2,13 @@
 // 1) Da ricontattare — negozi la cui ultima visita chiede un seguito
 //    (interessato → recap entro 3 giorni, da richiamare → entro 7).
 // 2) Da completare — visite segnate sul campo ma senza contatto/note.
-import { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, SectionList, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place } from '@/types';
-import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { EmptyState, StatusBadge } from '@/components/ui';
 import { LineaIcon } from '@/components/LineaIcon';
 import {
@@ -126,6 +127,122 @@ export default function DaCompletare() {
       : []),
   ];
 
+  // Da 900px in su ogni sezione è una TABELLA (le righe-scheda sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
+  const sezioniVista = aTabella
+    ? sezioni.map((s) => ({ ...s, data: [s.data] as unknown as Riga[] }))
+    : sezioni;
+
+  const colonneRichiami: ColonnaTabella<Richiamo>[] = [
+    {
+      chiave: 'nome',
+      label: 'Negozio',
+      flex: 1.1,
+      valore: (r) => r.place.nome,
+      cella: (r) => (
+        <View style={styles.tabNomeRiga}>
+          <PriorityBadge priorita={r.place.priorita} small />
+          <Text style={styles.tabNome} numberOfLines={2}>
+            {r.place.nome}
+          </Text>
+        </View>
+      ),
+    },
+    {
+      chiave: 'cosa',
+      label: 'Cosa fare',
+      flex: 1,
+      righe: 2,
+      valore: (r) => LABEL_ESITO[r.visita.esito ?? ''] ?? 'Da ricontattare',
+    },
+    {
+      chiave: 'quando',
+      label: 'Visita',
+      width: 96,
+      destra: true,
+      numerica: true,
+      valore: (r) => r.giorni,
+      cella: (r) => (
+        <Text style={[styles.tabData, r.inRitardo && styles.tabRitardo]}>
+          {r.giorni === 0 ? 'oggi' : r.giorni === 1 ? 'ieri' : `${r.giorni} g fa`}
+          {r.inRitardo ? ' · ritardo' : ''}
+        </Text>
+      ),
+    },
+    { chiave: 'nota', label: 'Note', flex: 1, righe: 2, valore: (r) => r.visita.note_post_meeting ?? null },
+    {
+      chiave: 'chiudi',
+      label: '',
+      width: 36,
+      fissa: true,
+      valore: () => null,
+      cella: (r) => (
+        <Pressable
+          hitSlop={10}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            chiudi(r);
+          }}
+          accessibilityLabel={`Chiudi il richiamo di ${r.place.nome}`}
+          {...({ title: 'Chiudi il richiamo' } as any)}
+        >
+          <Ionicons name="close" size={18} color={colors.grigio} />
+        </Pressable>
+      ),
+    },
+  ];
+
+  const colonneFollowup: ColonnaTabella<TrattativaConLuogo>[] = [
+    {
+      chiave: 'nome',
+      label: 'Negozio',
+      flex: 1.2,
+      valore: (d) => d.place_nome ?? d.linea ?? 'Trattativa',
+      cella: (d) => (
+        <Text style={styles.tabNome} numberOfLines={2}>
+          {d.place_nome ?? d.linea ?? 'Trattativa'}
+        </Text>
+      ),
+    },
+    { chiave: 'owner', label: 'Assegnato a', flex: 0.8, valore: (d) => d.owner_nome ?? 'Non attribuito' },
+    {
+      chiave: 'scadenza',
+      label: 'Scadenza',
+      flex: 0.9,
+      destra: true,
+      numerica: true,
+      valore: (d) => d.scadenza ?? null,
+      cella: (d) => {
+        const sc = scadenzaInfo(d.scadenza);
+        return (
+          <Text style={[styles.tabData, sc.ritardo && styles.tabRitardo]} numberOfLines={2}>
+            {sc.data ? `${sc.data} · ${sc.txt}` : sc.txt}
+          </Text>
+        );
+      },
+    },
+  ];
+
+  const colonneCompleta: ColonnaTabella<Place>[] = [
+    {
+      chiave: 'nome',
+      label: 'Negozio',
+      flex: 1.1,
+      valore: (p) => p.nome,
+      cella: (p) => (
+        <View style={styles.tabNomeRiga}>
+          <PriorityBadge priorita={p.priorita} small />
+          <Text style={styles.tabNome} numberOfLines={2}>
+            {p.nome}
+          </Text>
+        </View>
+      ),
+    },
+    { chiave: 'linea', label: 'Linea', flex: 0.6, valore: (p) => p.linea_ipotizzata ?? null },
+    { chiave: 'indirizzo', label: 'Indirizzo', flex: 1, valore: (p) => p.indirizzo ?? null },
+  ];
+
   return (
     <View style={styles.container}>
       <View style={styles.head}>
@@ -134,11 +251,17 @@ export default function DaCompletare() {
         </Text>
       </View>
       <SectionList
-        sections={sezioni}
-        keyExtractor={(r) =>
-          r.tipo === 'richiamo' ? `r-${r.richiamo.place.id}` : r.tipo === 'followup' ? `f-${r.deal.id}` : `c-${r.place.id}`
+        sections={sezioniVista}
+        keyExtractor={(r: any, i) =>
+          Array.isArray(r)
+            ? `tab-${i}`
+            : r.tipo === 'richiamo'
+              ? `r-${r.richiamo.place.id}`
+              : r.tipo === 'followup'
+                ? `f-${r.deal.id}`
+                : `c-${r.place.id}`
         }
-        contentContainerStyle={[styles.list, contenutoCentrato]}
+        contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
         stickySectionHeadersEnabled={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
@@ -150,8 +273,47 @@ export default function DaCompletare() {
           />
         }
         renderSectionHeader={({ section }) => <Text style={styles.sezione}>{section.title}</Text>}
-        renderItem={({ item }) =>
-          item.tipo === 'richiamo' ? (
+        renderItem={({ item }) => {
+          // Vista tabella: l'item è l'INTERA sezione, omogenea per tipo.
+          if (Array.isArray(item)) {
+            const righe = item as Riga[];
+            if (!righe.length) return null;
+            if (righe[0].tipo === 'richiamo') {
+              return (
+                <Tabella
+                  righe={righe.map((r) => (r as Riga & { tipo: 'richiamo' }).richiamo)}
+                  colonne={colonneRichiami}
+                  chiaveRiga={(r) => r.place.id}
+                  ordineIniziale={{ campo: 'quando', verso: 'desc' }}
+                  onRiga={(r) => router.push(`/(app)/attivita/${r.place.id}`)}
+                  labelRiga={(r) => `Apri la scheda di ${r.place.nome}`}
+                />
+              );
+            }
+            if (righe[0].tipo === 'followup') {
+              return (
+                <Tabella
+                  righe={righe.map((r) => (r as Riga & { tipo: 'followup' }).deal)}
+                  colonne={colonneFollowup}
+                  chiaveRiga={(d) => d.id}
+                  ordineIniziale={{ campo: 'scadenza', verso: 'asc' }}
+                  onRiga={(d) => d.place_id && router.push(`/(app)/attivita/${d.place_id}`)}
+                  labelRiga={(d) => `Apri la scheda di ${d.place_nome ?? 'negozio'}`}
+                />
+              );
+            }
+            return (
+              <Tabella
+                righe={righe.map((r) => (r as Riga & { tipo: 'completa' }).place)}
+                colonne={colonneCompleta}
+                chiaveRiga={(p) => p.id}
+                ordineIniziale={{ campo: 'nome', verso: 'asc' }}
+                onRiga={(p) => setSel(p)}
+                labelRiga={(p) => `Completa la visita da ${p.nome}`}
+              />
+            );
+          }
+          return item.tipo === 'richiamo' ? (
             <RigaRichiamo
               r={item.richiamo}
               onPress={() => router.push(`/(app)/attivita/${item.richiamo.place.id}`)}
@@ -164,8 +326,8 @@ export default function DaCompletare() {
             />
           ) : (
             <RigaCompleta p={item.place} onPress={() => setSel(item.place)} />
-          )
-        }
+          );
+        }}
       />
       <VisitaModal
         place={sel}
@@ -286,6 +448,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   sub: { color: colors.testoSoft, fontSize: 13 },
+  tabNomeRiga: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tabNome: { flex: 1, minWidth: 0, color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  tabRitardo: { color: colors.errore, fontWeight: '700' },
   list: { padding: spacing.md, gap: 10 },
   sezione: {
     color: colors.testoSoft,

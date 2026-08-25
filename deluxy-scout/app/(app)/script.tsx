@@ -2,11 +2,12 @@
 // team riusa. Da qui si creano/modificano i modelli e si parte per l'invio a più
 // contatti. I segnaposto {nome} e {negozio} vengono personalizzati per ciascuno.
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Foglio } from '@/components/Foglio';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
@@ -70,6 +71,60 @@ export default function Script() {
     );
   }
 
+  // Da 900px in su la libreria è una TABELLA (le schede restano sul telefono).
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
+  const colonne: ColonnaTabella<ScriptEmail>[] = [
+    {
+      chiave: 'tipo',
+      label: 'Tipo',
+      width: 110,
+      valore: (s) => LABEL_TIPO[s.tipo],
+      cella: (s) => <StatusBadge small label={LABEL_TIPO[s.tipo]} colore={COLORE_TIPO[s.tipo]} />,
+    },
+    {
+      chiave: 'titolo',
+      label: 'Titolo',
+      flex: 1,
+      valore: (s) => s.titolo,
+      cella: (s) => (
+        <Text style={styles.tabTitolo} numberOfLines={2}>
+          {s.titolo}
+        </Text>
+      ),
+    },
+    { chiave: 'oggetto', label: 'Oggetto', flex: 1, valore: (s) => s.oggetto ?? null },
+    { chiave: 'corpo', label: 'Testo', flex: 1.4, righe: 2, valore: (s) => testoSemplice(s.corpo) },
+    {
+      chiave: 'azioni',
+      label: '',
+      width: 224,
+      fissa: true,
+      valore: () => null,
+      cella: (s) => {
+        const mio = s.owner === uid || admin;
+        return (
+          <View style={styles.tabAzioni}>
+            <Pressable style={styles.btnInvia} onPress={(e: any) => { e?.stopPropagation?.(); router.push(`/(app)/invio/${s.id}`); }}>
+              <Ionicons name="paper-plane-outline" size={14} color={colors.bianco} />
+              <Text style={styles.btnInviaTxt}>Invia</Text>
+            </Pressable>
+            {mio ? (
+              <>
+                <Pressable style={styles.btnSec} onPress={(e: any) => { e?.stopPropagation?.(); setEditor(s); }}>
+                  <Text style={styles.btnSecTxt}>Modifica</Text>
+                </Pressable>
+                <Pressable style={styles.btnSec} onPress={(e: any) => { e?.stopPropagation?.(); elimina(s); }}>
+                  <Text style={[styles.btnSecTxt, { color: colors.errore }]}>Elimina</Text>
+                </Pressable>
+              </>
+            ) : null}
+          </View>
+        );
+      },
+    },
+  ];
+
   return (
     <View style={styles.container}>
       <View style={styles.head}>
@@ -86,9 +141,10 @@ export default function Script() {
       </View>
 
       <FlatList
-        data={dati}
-        keyExtractor={(s) => s.id}
-        contentContainerStyle={[styles.list, contenutoCentrato]}
+        // In tabella la FlatList riceve UNA riga con l'intera libreria.
+        data={aTabella ? (dati.length ? [dati] : []) : dati}
+        keyExtractor={(s: any) => (aTabella ? 'tabella' : (s as ScriptEmail).id)}
+        contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
           <EmptyState
@@ -101,26 +157,37 @@ export default function Script() {
           />
         }
         renderItem={({ item }) => {
-          const mio = item.owner === uid || admin;
+          if (aTabella) {
+            return (
+              <Tabella
+                righe={item as ScriptEmail[]}
+                colonne={colonne}
+                chiaveRiga={(s) => s.id}
+                ordineIniziale={{ campo: 'titolo', verso: 'asc' }}
+              />
+            );
+          }
+          const s = item as ScriptEmail;
+          const mio = s.owner === uid || admin;
           return (
             <View style={styles.card}>
               <View style={styles.cardHead}>
-                <StatusBadge small label={LABEL_TIPO[item.tipo]} colore={COLORE_TIPO[item.tipo]} />
-                <Text style={styles.titolo} numberOfLines={1}>{item.titolo}</Text>
+                <StatusBadge small label={LABEL_TIPO[s.tipo]} colore={COLORE_TIPO[s.tipo]} />
+                <Text style={styles.titolo} numberOfLines={1}>{s.titolo}</Text>
               </View>
-              {item.oggetto ? <Text style={styles.oggetto} numberOfLines={1}>Oggetto: {item.oggetto}</Text> : null}
-              <Text style={styles.corpo} numberOfLines={3}>{testoSemplice(item.corpo)}</Text>
+              {s.oggetto ? <Text style={styles.oggetto} numberOfLines={1}>Oggetto: {s.oggetto}</Text> : null}
+              <Text style={styles.corpo} numberOfLines={3}>{testoSemplice(s.corpo)}</Text>
               <View style={styles.azioni}>
-                <Pressable style={styles.btnInvia} onPress={() => router.push(`/(app)/invio/${item.id}`)}>
+                <Pressable style={styles.btnInvia} onPress={() => router.push(`/(app)/invio/${s.id}`)}>
                   <Ionicons name="paper-plane-outline" size={15} color={colors.bianco} />
                   <Text style={styles.btnInviaTxt}>Invia</Text>
                 </Pressable>
                 {mio ? (
                   <>
-                    <Pressable style={styles.btnSec} onPress={() => setEditor(item)}>
+                    <Pressable style={styles.btnSec} onPress={() => setEditor(s)}>
                       <Text style={styles.btnSecTxt}>Modifica</Text>
                     </Pressable>
-                    <Pressable style={styles.btnSec} onPress={() => elimina(item)}>
+                    <Pressable style={styles.btnSec} onPress={() => elimina(s)}>
                       <Text style={[styles.btnSecTxt, { color: colors.errore }]}>Elimina</Text>
                     </Pressable>
                   </>
@@ -226,6 +293,8 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 6 },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   titolo: { flex: 1, fontSize: 15, fontWeight: '800', color: colors.navy },
+  tabTitolo: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'flex-end' },
   oggetto: { color: colors.testoSoft, fontSize: 13, fontWeight: '600' },
   corpo: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
   azioni: { flexDirection: 'row', gap: 8, marginTop: 4, flexWrap: 'wrap' },
