@@ -1,10 +1,88 @@
 # Handoff — Deluxy Orders
 
-Stato al **24/08/2026** (sezione qui sotto; la fotografia contata è del 17/08,
-il corpo del documento del 30/07). Aggiornare a ogni tappa (regole di lavoro
-Deluxy). Serve a far ripartire una finestra nuova senza contesto: prima lo
-stato, poi le **trappole già pagate** — quelle valgono più dell'elenco delle
-funzioni.
+Stato al **25/08/2026 (pomeriggio)** (sezione qui sotto; il corpo del documento
+è del 30/07). Aggiornare a ogni tappa (regole di lavoro Deluxy). Serve a far
+ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
+già pagate** — quelle valgono più dell'elenco delle funzioni.
+
+## 25/08/2026 (pomeriggio) — DOVE SI È FERMATO IL GIRO, e chi comanda quando le due strade si incrociano
+
+**Contato adesso sul database di produzione** (non ricordato): **14.402** ordini,
+15 nelle ultime 24 h, **405** con un costo (finance 249 · causale 140 ·
+**customer-service 16**). Produzione viva, `/api/health` risponde `ok`.
+
+**✅ Il percorso A è VIVO e sta lavorando** — è la notizia nuova, e nessun
+documento la diceva: **9 ordini `fornitore_diretto`**, di cui **8 col costo dal
+Customer Service**, tutti fra la sera del 24/08 e il 25/08. Il Customer Service
+trova il fornitore in chat, registra il costo, e il margine si calcola.
+
+**🔴 Il percorso della piattaforma è partito e si è fermato a metà, e adesso si
+sa DOVE.** Guardando la piattaforma (schema `platform`, stesso cluster) le
+vendite con `source = deluxy-orders` sono **66** e stanno tutte così:
+
+| stato vendita | quante | partner assegnato |
+|---|---|---|
+| `da_gestire` | 43 | nessuno |
+| `proposta` | 23 | sì, ma nessuna risposta |
+| `accettata` | **0** | — |
+
+Tutte create in **un batch solo il 24/08 fra le 9:49 e le 9:54** (il suo
+`orders-sync` lanciato a mano), e **mai più toccate**. Da qui discende tutto il
+resto: **0 costi da `piattaforma`**, **0 consegne**, cursore `piattaforma.ritiroDa`
+fermo al 24/08 09:54. **Il ritiro di Orders non ha nessun difetto: non ha nulla
+da ritirare.** Si sblocca **dalla piattaforma** (far accettare le proposte, o
+proporre le 43 senza partner), non da qui.
+
+**⭐ TROVATO UN ORDINE SU DUE STRADE, e la regola che mancava.** Delle 66 vendite,
+65 corrispondono a ordini con `evasione='piattaforma'` e **una no**: **#2790**
+(Flowers, 85 €). La sua storia, per esteso: 9:31 importato → 13:30 «smistato
+dalla piattaforma» → 15:50 il CS lo mette `in_pagamento` → 15:59 il CS registra
+50 € di costo (Ratschiller Erika). Il CS **se l'è ripreso in chat** e l'ordine
+oggi è `fornitore_diretto`, mentre sulla piattaforma la sua vendita è ancora lì,
+`da_gestire`.
+
+Il codice del ritiro, com'era, **avrebbe riscritto `fornitore_diretto` con
+`piattaforma`** al primo aggiornamento di quella vendita: controllava solo
+`evasione !== "piattaforma"`. Il costo era protetto («la mano batte il ritiro»),
+l'evasione no. **Corretto** (`src/lib/piattaforma.ts`): se il CS ha già deciso
+`fornitore_diretto`, il ritiro **non tocca il campo**, conta il caso in
+`esito.conflitti` e scrive una riga nella storia dell'ordine («Conflitto di
+strada: …», una sola per stato della vendita — il cursore rilegge le stesse
+vendite a ogni sovrapposizione e una storia di righe identiche non la legge
+nessuno).
+
+**✅ E adesso il giro SI VEDE, senza aprire il database.** Nuova scheda in
+**Impostazioni → «Il giro dell'ordine (piattaforma consegne)»** che **conta** a
+ogni apertura: smistati dalla piattaforma · **col costo tornato indietro** (in
+rosso se è 0 mentre gli smistati non lo sono) · consegnati · evasi da fornitore
+diretto (e quanti col costo) · **ordini su due strade** · data dell'ultima
+notizia dalla piattaforma. Oggi legge: **65 · 0 · 0 · 9 (8 col costo) · 0 ·
+24 ago 26**, con l'avviso «il giro è partito e si è fermato a metà».
+
+⭐⭐ **LA TRAPPOLA PAGATA QUI, e vale per tutte le app**: l'esito del ritiro
+esisteva solo dentro la **risposta JSON del cron**, che non apre nessuno. Per un
+mese i documenti hanno continuato a dire «fino ad allora il ritiro legge un
+elenco vuoto» mentre aveva già smistato **65 ordini**. *Un numero che non ha una
+schermata non è misurato: è ricordato.* La scheda nuova non può invecchiare
+perché non racconta cos'è successo — conta cosa c'è.
+
+**⚠️ Restano fermi, e non sono novità:**
+- **`QuotaRegola` è VUOTA (0 righe)**: `/api/v1/quota-fornitore` risponde sempre
+  col default 60% e la cascata provincia+categoria → provincia → default non ha
+  niente su cui cascare. La UI di gestione non esiste, si popola via SQL.
+- **`smistamento` è vuoto su tutti i 14.402 ordini**: nessuno è mai stato
+  riservato al CS, quindi l'interruttore di governo non ha mai governato niente.
+- **`csGestione` sta su 12 ordini** (8 `in_pagamento`, 4 `gestito`), e **3 dei 4
+  chiusi non hanno il costo** → dicono «margine n/d». Il campione è minuscolo.
+- **Da fare sulla piattaforma (non qui)**: il suo `orders-sync` dovrebbe
+  **saltare** gli ordini già `fornitore_diretto`, altrimenti continuerà a
+  crearne, di vendite orfane come quella di #2790.
+
+**Verificato prima del commit**: `tsc --noEmit` pulito, `next build` completo,
+app avviata in locale (`next start`) e scheda letta nel DOM coi numeri veri.
+⚠️ `prisma generate` fallisce con `EPERM` se un'altra sessione tiene un
+`next dev` aperto sulla cartella: si costruisce con `npx next build` (lo schema
+non è cambiato).
 
 ## 25/08/2026 — Il margine è al NETTO IVA (scorporo 22%, un posto solo)
 

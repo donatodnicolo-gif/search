@@ -9,6 +9,7 @@ import {
 } from "@/app/actions";
 import { configurazione, riepilogoFeedback } from "@/lib/feedback";
 import { configurazioneFinance, riepilogoMovimenti } from "@/lib/movimenti";
+import { riepilogoPiattaforma } from "@/lib/piattaforma";
 import { quotaFornitore } from "@/lib/controllo";
 import { importaMovimentiBanca, adottaDaFinance, abbinaPerNumero, salvaQuota } from "@/app/controllo/actions";
 import { creaChiaveApi, rigeneraChiaveApi, eliminaChiaveApi } from "./chiavi-actions";
@@ -23,7 +24,7 @@ export default async function Impostazioni({
   searchParams: Promise<Record<string, string>>;
 }) {
   const sp = await searchParams;
-  const [negozi, stati, etichette, chiavi, feedback, movimenti, quota, conCosto] = await Promise.all([
+  const [negozi, stati, etichette, chiavi, feedback, movimenti, quota, conCosto, giro] = await Promise.all([
     prisma.negozioShopify.findMany({ orderBy: { brand: "asc" } }),
     statiOrdinati(),
     prisma.etichetta.findMany({ orderBy: { nome: "asc" } }),
@@ -32,6 +33,7 @@ export default async function Impostazioni({
     riepilogoMovimenti(),
     quotaFornitore(),
     prisma.ordine.count({ where: { costoFornitore: { not: null } } }),
+    riepilogoPiattaforma(),
   ]);
   const csConfigurato = configurazione() != null;
   const financeConfigurato = configurazioneFinance() != null;
@@ -149,6 +151,82 @@ export default async function Impostazioni({
                 <input type="checkbox" name="completo" /> rileggi tutto dall&apos;inizio
               </label>
             </form>
+          </>
+        )}
+      </div>
+
+      {/* ---------- Il giro dell'ordine: la piattaforma consegne ---------- */}
+      {/* Il ritiro dalla piattaforma scriveva il suo esito SOLO nel JSON del
+          cron, che non legge nessuno: per un mese i documenti hanno continuato
+          a dire «legge un elenco vuoto» mentre aveva già smistato 65 ordini.
+          Qui i numeri si CONTANO sul registro a ogni apertura della pagina. */}
+      <div className="scheda">
+        <div className="scheda-titolo">Il giro dell&apos;ordine (piattaforma consegne)</div>
+        <p className="testo-guida">
+          Un ordine può essere evaso per due strade: il <strong>fornitore diretto</strong> (il Customer
+          Service lo trova in chat e consegna lui) oppure la <strong>piattaforma consegne</strong>, che lo
+          smista a un partner e ne rimanda indietro il costo quando il partner accetta. Il costo del
+          fornitore è metà del margine: finché non torna, l&apos;ordine resta senza margine.
+        </p>
+
+        {!giro.configurata ? (
+          <p className="testo-guida" style={{ marginTop: 10 }}>
+            Non configurata: servono <code className="inline">PLATFORM_URL</code> e{" "}
+            <code className="inline">PLATFORM_API_KEY</code> (la chiave si genera nella piattaforma con{" "}
+            <code className="inline">api/scripts/crea-chiave-app.mjs</code>).
+          </p>
+        ) : (
+          <>
+            <div className="kpi-riga" style={{ marginTop: 12 }}>
+              <div className="kpi">
+                <div className="kpi-valore">{giro.evasiPiattaforma.toLocaleString("it-IT")}</div>
+                <div className="kpi-etichetta">Smistati dalla piattaforma</div>
+              </div>
+              <div className="kpi">
+                {/* Zero qui, con degli smistati, vuol dire che nessun partner ha
+                    ancora accettato: il giro è partito e si è fermato a metà. */}
+                <div
+                  className="kpi-valore"
+                  style={giro.evasiPiattaforma > 0 && giro.costoDaPiattaforma === 0 ? { color: "var(--rosso, #B3261E)" } : undefined}
+                >
+                  {giro.costoDaPiattaforma.toLocaleString("it-IT")}
+                </div>
+                <div className="kpi-etichetta">…col costo tornato indietro</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">{giro.consegnati.toLocaleString("it-IT")}</div>
+                <div className="kpi-etichetta">Consegnati (dalla piattaforma)</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">
+                  {giro.fornitoreDiretto.toLocaleString("it-IT")}
+                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                    {" "}/ {giro.fornitoreDirettoConCosto.toLocaleString("it-IT")} col costo
+                  </span>
+                </div>
+                <div className="kpi-etichetta">Evasi da fornitore diretto</div>
+              </div>
+              <div className="kpi">
+                <div
+                  className="kpi-valore"
+                  style={giro.conflitti > 0 ? { color: "var(--rosso, #B3261E)" } : undefined}
+                >
+                  {giro.conflitti.toLocaleString("it-IT")}
+                </div>
+                <div className="kpi-etichetta">Ordini su due strade</div>
+              </div>
+            </div>
+            <p className="testo-guida">
+              {giro.ultimoAggiornamentoVendite
+                ? `Ultima notizia dalla piattaforma: ${dataBreve(giro.ultimoAggiornamentoVendite)} (il ritiro gira a ogni sincronizzazione e riparte da lì).`
+                : "La piattaforma non ha ancora mandato nessuna vendita: finché il suo smistamento non pesca gli ordini, qui non arriva niente — e non è un errore."}{" "}
+              {giro.evasiPiattaforma > 0 && giro.costoDaPiattaforma === 0
+                ? "⚠ Il giro è partito e si è fermato a metà: gli ordini sono stati smistati, ma nessun partner ha ancora accettato, quindi il costo (e con lui il margine) non è mai tornato indietro. Si sblocca dalla piattaforma, non da qui. "
+                : ""}
+              {giro.conflitti > 0
+                ? "⚠ Ci sono ordini che la piattaforma ha in mano e che il Customer Service ha comunque evaso per fornitore diretto: l'evasione resta al Customer Service (la mano batte il ritiro) e il conflitto è scritto nella storia dell'ordine."
+                : ""}
+            </p>
           </>
         )}
       </div>

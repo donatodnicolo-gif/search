@@ -51,11 +51,20 @@ export type EsitoRitiro = {
   evasioniSegnate: number;
   costiAdottati: number;
   consegnateSegnate: number;
+  /** Vendite della piattaforma su ordini che il Customer Service ha gia' evaso
+   *  per fornitore diretto: il ritiro non le scrive, le DICHIARA. */
+  conflitti: number;
   errore?: string;
 };
 
 export async function ritiraVenditePiattaforma(): Promise<EsitoRitiro> {
-  const esito: EsitoRitiro = { lette: 0, evasioniSegnate: 0, costiAdottati: 0, consegnateSegnate: 0 };
+  const esito: EsitoRitiro = {
+    lette: 0,
+    evasioniSegnate: 0,
+    costiAdottati: 0,
+    consegnateSegnate: 0,
+    conflitti: 0,
+  };
   const conf = configurazionePiattaforma();
   if (!conf) {
     esito.errore =
@@ -109,9 +118,22 @@ export async function ritiraVenditePiattaforma(): Promise<EsitoRitiro> {
 
         // EVASIONE: l'ordine è in mano alla piattaforma. Un'annullata torna
         // libera ("") solo se era stata marcata piattaforma e non c'è altro.
+        //
+        // ⚠️ ECCEZIONE — la mano batte il ritiro, come per il costo: se il
+        // Customer Service ha già deciso `fornitore_diretto` (percorso A, il
+        // fornitore consegna lui), il ritiro NON riscrive il campo. Succede per
+        // davvero: la piattaforma pesca un ordine e poi il CS se lo riprende in
+        // chat (caso #2790, 24/08/2026: vendita `da_gestire` ferma sulla
+        // piattaforma, lavorazione e costo decisi dal CS tre ore dopo). Un
+        // ordine su due strade non è un dettaglio: si DICHIARA.
         if (v.vendita.stato !== "annullata" && ordine.evasione !== "piattaforma") {
-          dati.evasione = "piattaforma";
-          esito.evasioniSegnate++;
+          if (ordine.evasione === "fornitore_diretto") {
+            esito.conflitti++;
+            await annotaConflitto(ordine.id, v.vendita.stato, v.vendita.partner?.insegna ?? null);
+          } else {
+            dati.evasione = "piattaforma";
+            esito.evasioniSegnate++;
+          }
         }
 
         // COSTO: si adotta SOLO quando il partner ha accettato, e solo se qui
@@ -165,4 +187,59 @@ export async function ritiraVenditePiattaforma(): Promise<EsitoRitiro> {
   }
 
   return esito;
+}
+
+/**
+ * Scrive nella storia dell'ordine che la piattaforma ha una vendita su un
+ * ordine già evaso per fornitore diretto dal Customer Service. Una riga sola
+ * per stato della vendita: il ritiro rilegge le stesse vendite a ogni
+ * sovrapposizione del cursore, e una storia piena di righe identiche non la
+ * legge nessuno.
+ */
+async function annotaConflitto(ordineId: string, statoVendita: string, insegna: string | null) {
+  const descrizione = `Conflitto di strada: la piattaforma ha una vendita (${statoVendita}${insegna ? ` → ${insegna}` : ""}) su un ordine già evaso per fornitore diretto. L'evasione resta al Customer Service.`;
+  const gia = await prisma.eventoOrdine.findFirst({ where: { ordineId, descrizione } });
+  if (gia) return;
+  await prisma.eventoOrdine.create({
+    data: { ordineId, tipo: "sync", descrizione, autore: "piattaforma" },
+  });
+}
+
+/**
+ * QUANTO È VIVO IL GIRO, misurato adesso sul registro — non ricordato.
+ *
+ * L'esito del ritiro vive solo nella risposta JSON del cron, che non legge
+ * nessuno: per un mese l'handoff ha continuato a dire «il ritiro legge un
+ * elenco vuoto» mentre aveva già pescato 65 ordini. Questi numeri si contano
+ * sugli ordini, così la pagina non può invecchiare.
+ */
+export async function riepilogoPiattaforma() {
+  const [
+    evasiPiattaforma,
+    costoDaPiattaforma,
+    consegnati,
+    fornitoreDiretto,
+    fornitoreDirettoConCosto,
+    conflitti,
+    cursore,
+  ] = await Promise.all([
+    prisma.ordine.count({ where: { evasione: "piattaforma" } }),
+    prisma.ordine.count({ where: { costoDa: "piattaforma" } }),
+    prisma.ordine.count({ where: { consegnataIl: { not: null } } }),
+    prisma.ordine.count({ where: { evasione: "fornitore_diretto" } }),
+    prisma.ordine.count({ where: { evasione: "fornitore_diretto", costoFornitore: { not: null } } }),
+    prisma.eventoOrdine.count({ where: { descrizione: { startsWith: "Conflitto di strada" } } }),
+    prisma.impostazione.findUnique({ where: { chiave: CHIAVE_CURSORE } }),
+  ]);
+  const da = cursore?.valore ? new Date(cursore.valore) : null;
+  return {
+    configurata: configurazionePiattaforma() != null,
+    evasiPiattaforma,
+    costoDaPiattaforma,
+    consegnati,
+    fornitoreDiretto,
+    fornitoreDirettoConCosto,
+    conflitti,
+    ultimoAggiornamentoVendite: da && !Number.isNaN(da.getTime()) ? da : null,
+  };
 }

@@ -781,6 +781,30 @@ deciso e **quando**.
   manda il costo del fornitore. Un vocabolario nuovo aggiunto di là non sparisce
   qui: uno stato che Orders non conosce si mostra comunque, reso leggibile.
 
+### Le due strade dell'evasione, e chi comanda quando si incrociano (25/08/2026)
+Un ordine si evade per **una** di due strade, e il registro tiene il conto di
+quale:
+
+- **Fornitore diretto** (`evasione = fornitore_diretto`): il Customer Service
+  trova il fioraio o la pasticceria in chat e consegna lui. Lo propone il CS via
+  `PATCH /api/v1/ordini/:id`, insieme al costo.
+- **Piattaforma consegne** (`evasione = piattaforma`): la piattaforma pesca
+  l'ordine, lo smista a un partner e — **quando il partner accetta** — rimanda
+  indietro il costo, e poi la consegna. Questa parola la scrive **solo** il
+  ritiro (`src/lib/piattaforma.ts`), mai il Customer Service: due mani sullo
+  stesso campo con la stessa parola sono un conflitto che non si vede.
+
+⚠️ **Le due strade si incrociano davvero.** Può succedere che la piattaforma
+abbia già in mano un ordine e che il Customer Service se lo *riprenda* in chat
+(caso #2790 del 24/08/2026: vendita ferma sulla piattaforma alle 9:54,
+lavorazione e costo decisi dal CS tre ore dopo). In quel caso **la mano batte il
+ritiro**, come già succede per il costo: il ritiro **non** riscrive
+`fornitore_diretto` con `piattaforma`, e lascia una riga nella **storia
+dell'ordine** («Conflitto di strada: la piattaforma ha una vendita … su un
+ordine già evaso per fornitore diretto»). I conflitti si contano in
+Impostazioni, sotto «Ordini su due strade»: non è un errore da nascondere, è una
+cosa che qualcuno deve guardare.
+
 ### Split per brand e per categoria
 Ogni lista si può guardare **per singolo negozio** e **per categoria di prodotto**,
 e i due tagli funzionano in modo diverso apposta:
@@ -1053,6 +1077,17 @@ sposta» di colonna. Filtro per brand.
 - **Storia**: ogni import e ogni riclassificazione, con autore e data.
 
 ### Impostazioni (`/impostazioni`)
+- **Il giro dell'ordine (piattaforma consegne)** (25/08/2026): quanto è vivo il
+  giro, **contato adesso sul registro** e non ricordato — ordini smistati dalla
+  piattaforma, quanti hanno avuto il **costo di ritorno** (è metà del margine:
+  se questo numero è zero mentre gli smistati non lo sono, il giro è partito e
+  si è **fermato a metà**, e lo dice in rosso), quanti sono **consegnati**,
+  quanti sono stati evasi da **fornitore diretto** (e di questi quanti hanno il
+  costo), quanti sono gli **ordini su due strade**. In fondo, la data
+  dell'ultima notizia arrivata dalla piattaforma. ⚠️ Questa scheda esiste
+  perché l'esito del ritiro viveva **solo** nel JSON del cron, che non legge
+  nessuno: per un mese i documenti hanno continuato a dire «il ritiro legge un
+  elenco vuoto» mentre aveva già smistato 65 ordini.
 - **Negozi Shopify**: aggiunta/rimozione, attiva/sospendi, tipo di
   autenticazione, ultima sync e **colore del brand** (quello con cui l'ordine
   si riconosce a colpo d'occhio in elenco e colonne). Pulsante «Sincronizza ora».
