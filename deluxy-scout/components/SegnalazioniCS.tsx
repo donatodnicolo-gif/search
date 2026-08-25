@@ -28,7 +28,7 @@ import { fetchAnagraficheIdPresi, importaDalRegistro } from '@/lib/db';
 import { geocodeIndirizzo } from '@/lib/geocode';
 import { avvisa } from '@/lib/dialoghi';
 import { CardElenco } from '@/components/CardElenco';
-import { Tabella, type ColonnaTabella } from '@/components/Tabella';
+import { Tabella, dataBreve, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { COLORE_VISITA, LABEL_VISITA } from '@/lib/statoVisita';
@@ -193,6 +193,19 @@ export function SegnalazioniCS() {
       valore: (p) => DA_DOVE[p.fonte ?? ''] ?? 'Segnalato da un’altra app',
     },
     {
+      // QUANDO è stato segnalato = quando è entrato nel registro (`creatoIl`).
+      // ⚠️ Per i 15 fornitori del Customer Service riversati il 25/08/2026 la
+      // data è quella del riversamento, non del pagamento: il registro non
+      // sapeva di loro prima.
+      chiave: 'segnalato',
+      label: 'Segnalato',
+      width: 82,
+      destra: true,
+      numerica: true,
+      valore: (p) => p.creatoIl ?? null,
+      cella: (p) => <Text style={styles.tabData}>{dataBreve(p.creatoIl)}</Text>,
+    },
+    {
       chiave: 'stato',
       label: 'Stato',
       width: 110,
@@ -244,7 +257,8 @@ export function SegnalazioniCS() {
           righe={partner}
           colonne={colonne}
           chiaveRiga={(p) => p.id}
-          ordineIniziale={{ campo: 'nome', verso: 'asc' }}
+          // Le segnalazioni più fresche in cima: è una coda, non una rubrica.
+          ordineIniziale={{ campo: 'segnalato', verso: 'desc' }}
           azioni={azioniDi}
           larghezzaAzioni={186}
         />
@@ -278,6 +292,7 @@ export function SegnalazioniCS() {
                     color={colors.grigio}
                   />{' '}
                   {DA_DOVE[p.fonte ?? ''] ?? 'Segnalato da un’altra app'}
+                  {p.creatoIl ? ` · il ${dataBreve(p.creatoIl)}` : ''}
                   {p.stato ? ` · nel registro è «${p.stato}»` : ''}
                 </Text>
               }
@@ -320,5 +335,6 @@ const styles = StyleSheet.create({
   },
   fonte: { fontSize: 12, color: colors.grigio, fontWeight: '600' },
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   conteggio: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'center', marginTop: spacing.sm },
 });

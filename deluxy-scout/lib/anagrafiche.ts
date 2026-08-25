@@ -28,6 +28,9 @@ export interface PartnerRegistro {
   contatti: ContattoRegistro[];
   /** Quale app l ha scritto nel registro: serve a dire da dove arriva. */
   fonte?: string;
+  /** Quando è entrato nel registro (ISO): per le segnalazioni è LA data della
+   *  segnalazione. Il registro lo manda già (`creatoIl`), qui si dichiara. */
+  creatoIl?: string | null;
 }
 
 async function chiama<T>(body: unknown): Promise<T> {
