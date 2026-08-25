@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { STATI_CAMPAGNA_NOSTRI } from "./dominio";
 import { deduciTipoConversione, salvaMetriche, type RigaMetrica } from "./ingest-metriche";
 import { leggiMetricheMeta, leggiStatoCampagneMeta, metaConfigurato } from "./meta";
 import { registra } from "./registro";
@@ -26,6 +27,8 @@ export type EsitoAccountMeta = {
   metriche: number;
   campagneNuove: number;
   senzaAcquisti: number;
+  /** Quante campagne hanno cambiato stato/budget FUORI dalla finestra delle insights. */
+  statiAllineati: number;
   errore: string | null;
 };
 
@@ -99,7 +102,7 @@ export async function eseguiSyncMeta(
     if (lettura.errore && lettura.righe.length === 0) {
       risultati.push({
         account: a.idEsterno, nome: a.nome, righe: 0, metriche: 0,
-        campagneNuove: 0, senzaAcquisti: 0, errore: lettura.errore,
+        campagneNuove: 0, senzaAcquisti: 0, statiAllineati: 0, errore: lettura.errore,
       });
       await prisma.ricezioneDati.create({
         data: {
@@ -130,6 +133,28 @@ export async function eseguiSyncMeta(
     });
     await deduciTipoConversione(esito.campagneToccate);
 
+    // ⚠️⚠️ **LO STATO VALE PER TUTTE, NON SOLO PER QUELLE CHE HANNO SPESO.**
+    //
+    // Qui sopra lo stato viaggia attaccato alle righe delle *insights*, cioè
+    // solo alle campagne che hanno erogato nella finestra. Una campagna messa
+    // in pausa esce dalle insights dopo pochi giorni — e da quel momento il suo
+    // `statoPiattaforma` **restava congelato all'ultimo valore visto**, cioè
+    // ENABLED, per sempre. La mappa `stati` la verità ce l'aveva (il nodo
+    // /campaigns le riporta tutte, in pausa comprese): veniva buttata via.
+    //
+    // Il danno non era teorico. Il 25/08/2026 il file `RISULTATI App Gifts`
+    // depositato su Drive per il custode — che dichiara «solo campagne che la
+    // piattaforma riporta ENABLED» — elencava come accese **DEF ATC** (in pausa
+    // dall'11/08, ultimo aggiornamento dello stato 18/08) e **INTERESSE -
+    // [Festa della Mamma]** (ultima metrica 07/05, stato fermo dal 06/08).
+    // L'analisi Meta dello stesso giorno l'ha rilevato come incongruenza I4.
+    //
+    // ⚠️ Si aggiornano SOLO le campagne che Meta nomina. Un'assenza dalla
+    // risposta non diventa «spenta»: è la stessa regola delle negative, e il
+    // motivo è lo stesso — dedurre uno stato da un silenzio è come dedurlo da
+    // una credenziale.
+    const allineate = await allineaStatiMeta(stati);
+
     await prisma.ricezioneDati.create({
       data: {
         fonte: "meta_ads",
@@ -154,11 +179,13 @@ export async function eseguiSyncMeta(
       metriche: esito.metricheSalvate,
       campagneNuove: esito.campagneCreate,
       senzaAcquisti: lettura.senzaAcquisti,
+      statiAllineati: allineate,
       errore: lettura.errore,
     });
   }
 
   const totMetriche = risultati.reduce((s, r) => s + r.metriche, 0);
+  const totAllineati = risultati.reduce((s, r) => s + r.statiAllineati, 0);
   const conErrore = risultati.filter((r) => r.errore);
 
   await registra({
@@ -168,6 +195,9 @@ export async function eseguiSyncMeta(
     titolo: `Sync Meta (${dal} → ${al})`,
     dettaglio:
       `${totMetriche} giorni-campagna su ${risultati.length} account` +
+      (totAllineati > 0
+        ? ` · ${totAllineati} campagne allineate di stato fuori dalla finestra`
+        : "") +
       (conErrore.length ? ` · ${conErrore.length} in errore: ${conErrore[0].errore}` : ""),
   });
 
@@ -183,4 +213,60 @@ export async function eseguiSyncMeta(
       ? "Alcune righe non hanno acquisti (omni_purchase): quelle campagne ottimizzano un evento a monte, il ROAS non le descrive."
       : undefined,
   };
+}
+
+/**
+ * Allinea stato, budget e obiettivo di TUTTE le campagne Meta che l'app
+ * conosce e che Meta ha nominato — comprese quelle che nella finestra delle
+ * insights non compaiono perché non hanno speso.
+ *
+ * Restituisce quante ne ha cambiate: serve a poterlo dire, invece di lasciare
+ * che una correzione lavori in silenzio.
+ *
+ * ⚠️ `stato` è il GIUDIZIO nostro e si aggiorna solo se non è uno degli stati
+ * nostri (`defunta`, `in_lancio`, `bozza`): «defunta» decisa a mano non deve
+ * tornare «in_pausa» al giro dopo. `statoPiattaforma` invece è il fatto, e si
+ * scrive sempre — è la stessa regola di `ingest-metriche`.
+ */
+async function allineaStatiMeta(
+  stati: Map<string, { stato: string; budget: number | null; obiettivo: string | null }>
+): Promise<number> {
+  if (stati.size === 0) return 0;
+
+  const conosciute = await prisma.campagna.findMany({
+    where: { canale: "meta_ads", idEsterno: { in: [...stati.keys()] } },
+    select: {
+      id: true,
+      idEsterno: true,
+      stato: true,
+      statoPiattaforma: true,
+      budgetGiornaliero: true,
+      obiettivo: true,
+    },
+  });
+
+  let cambiate = 0;
+  for (const c of conosciute) {
+    const s = c.idEsterno ? stati.get(c.idEsterno) : undefined;
+    if (!s) continue;
+
+    const piattaforma = s.stato === "attiva" ? "ENABLED" : "PAUSED";
+    const suoNostro = (STATI_CAMPAGNA_NOSTRI as readonly string[]).includes(c.stato);
+
+    const dati: {
+      stato?: string;
+      statoPiattaforma?: string;
+      budgetGiornaliero?: number;
+      obiettivo?: string;
+    } = {};
+    if (piattaforma !== c.statoPiattaforma) dati.statoPiattaforma = piattaforma;
+    if (!suoNostro && s.stato !== c.stato) dati.stato = s.stato;
+    if (s.budget != null && s.budget !== c.budgetGiornaliero) dati.budgetGiornaliero = s.budget;
+    if (s.obiettivo && s.obiettivo !== c.obiettivo) dati.obiettivo = s.obiettivo;
+
+    if (Object.keys(dati).length === 0) continue;
+    await prisma.campagna.update({ where: { id: c.id }, data: dati });
+    cambiate++;
+  }
+  return cambiate;
 }
