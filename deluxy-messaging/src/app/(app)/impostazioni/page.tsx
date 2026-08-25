@@ -6,7 +6,7 @@ import { redirectUri } from '@/lib/google'
 import { statoGoogle } from '@/lib/contatti'
 import { lingueLette } from '@/lib/lingua-testo'
 import { TESTO_DI_RISERVA } from '@/lib/primo-contatto'
-import { salvaImpostazioni } from './actions'
+import { salvaECollegaGoogle, salvaImpostazioni } from './actions'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
 import { CampoSegreto } from '@/components/CampoSegreto'
 
@@ -207,17 +207,23 @@ export default async function PaginaImpostazioni({
               ) : (
                 <span className="badge rosso">non collegato</span>
               )}
-              {/* Link, non submit: prima salva le credenziali, poi collega. */}
-              <a
+{/* ⚠️⚠️ SUBMIT, non link. Era un link, e chi incollava un Client
+                  Secret nuovo e lo premeva se ne andava dalla pagina buttando
+                  via quello che aveva appena scritto: Google continuava a
+                  rispondere «invalid_client» col segreto vecchio, e sembrava un
+                  problema di Google. Succedeva davvero.
+                  ⚠️ In React 19 la FormData nasce dal FORM, non dal bottone:
+                  `formAction` su un submit manda tutti i campi del modulo a
+                  un'altra azione — qui quella che salva e poi collega. */}
+              <button
+                type="submit"
+                formAction={salvaECollegaGoogle}
                 className="bottone secondario"
-                href="/api/google/connetti"
-                aria-disabled={!googleCredenziali}
-                style={
-                  googleCredenziali ? undefined : { pointerEvents: 'none', opacity: 0.4 }
-                }
+                disabled={!googleCredenziali}
+                title="Salva quello che hai scritto qui sopra, poi apre il consenso di Google"
               >
-                {google.configurato ? 'Ricollega Google' : 'Collega Google'}
-              </a>
+                {google.configurato ? 'Salva e ricollega Google' : 'Salva e collega Google'}
+              </button>
             </div>
             {/* Il motivo con le parole di Google, più la causa che spiega quasi
                 tutti questi casi. Senza, «non collegato» è un vicolo cieco: non

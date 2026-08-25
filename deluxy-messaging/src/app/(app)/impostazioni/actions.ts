@@ -45,7 +45,31 @@ const IN_CHIARO = [
   'openaiModelloRisposte',
 ]
 
+/**
+ * ⚠️⚠️ SALVA E POI COLLEGA, in un gesto solo.
+ *
+ * Il bottone «Ricollega Google» era un LINK: chi incollava un Client Secret
+ * nuovo e lo premeva se ne andava dalla pagina **buttando via quello che aveva
+ * appena scritto**, e Google continuava a rispondere `invalid_client` col
+ * segreto vecchio. Successo davvero, e due volte di fila.
+ *
+ * Il codice lo sapeva — c'era scritto «prima salva le credenziali, poi collega»
+ * in un commento. Ma una regola sull'ORDINE dei gesti che vive in un commento
+ * non la può conoscere chi ha il modulo davanti: o la sa il bottone, o non la sa
+ * nessuno.
+ */
+export async function salvaECollegaGoogle(formData: FormData) {
+  await scriviTutto(formData)
+  redirect('/api/google/connetti')
+}
+
 export async function salvaImpostazioni(formData: FormData) {
+  await scriviTutto(formData)
+  redirect('/impostazioni?salvato=1')
+}
+
+/** Scrive tutto quello che il modulo porta. Non reindirizza: decide chi chiama. */
+async function scriviTutto(formData: FormData) {
   for (const chiave of IN_CHIARO) {
     const v = formData.get(chiave)
     if (typeof v === 'string') await salvaImpostazione(chiave, v.trim())
@@ -89,6 +113,4 @@ export async function salvaImpostazioni(formData: FormData) {
     const testo = formData.get('primoContattoTesto')
     if (typeof testo === 'string') await salvaImpostazione('primoContattoTesto', testo.trim())
   }
-
-  redirect('/impostazioni?salvato=1')
 }
