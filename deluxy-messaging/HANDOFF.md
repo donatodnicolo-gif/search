@@ -1,5 +1,84 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 — la catena ordine→fornitore→pagamento chiusa, e il glossario per più marchi
+
+Otto commit, tutti deployati. In fondo alla giornata la catena regge da sola:
+si chiede a un fornitore, lui accetta, l'ordine sa chi lo prepara, il pagamento
+lo trova già scritto, il costo arriva a Orders e il margine si calcola.
+
+### Le proposte ai fornitori (`cb883e9a`)
+
+Il bottone WhatsApp apriva la chat col messaggio pronto e **non restava traccia
+di niente**: non si sapeva a chi si era già chiesto, un collega richiedeva allo
+stesso fornitore, e chi rispondeva sì andava registrato a mano altrove. Ora ogni
+proposta lascia una riga (`RichiestaFornitore`), e la scheda ordine è una coda
+con memoria.
+
+- ⚠️⚠️ Si segna **nell'istante in cui si apre la chat**, non con un secondo
+  bottone «ho chiesto»: quel gesto non lo fa nessuno. Si segna anche se il
+  messaggio non parte — «gli ho chiesto e non ricordo» costa una telefonata,
+  «non gli ho chiesto e credevo di sì» costa l'ordine.
+- L'ordine dell'elenco **è** la decisione: prima chi non è stato chiesto, poi chi
+  è in attesa, in fondo chi ha già risposto. Chi ha detto NO non si richiama ma
+  **non sparisce**.
+- «Ha detto sì» scrive chi prepara l'ordine e manda il costo a Orders.
+
+### L'ordine è OBBLIGATORIO su un pagamento che lo nomina (`7ddfbd21`)
+
+La regola non è «serve sempre un ordine» — un canone o un rimborso spese non
+c'entrano — è **«se ne parli, collegalo»**: causale che nomina un numero + campo
+Ordine vuoto = non si salva. È il caso visto in produzione (causale «Ordine
+#2791», ordine vuoto). ⚠️ Almeno **tre cifre**, o «acconto 50%» bloccherebbe.
+
+E si blocca anche il caso opposto (`bcb2ea91`): **pagare uno per un ordine che ne
+ha un altro**. ⚠️ NON si blocca un rimborso al cliente né un ordine fuori dai 60
+giorni.
+
+### L'avviso WhatsApp dei pagamenti da fare (`d9c30176`, `7ddfbd21`)
+
+A ogni richiesta salvata parte un WhatsApp con chi, quanto, l'ordine, **l'IBAN
+per intero** (o link/PayPal/accordo secondo il metodo) e il link a **quella**
+riga (`/pagamenti?richiesta=<id>`, che la evidenzia e la porta a schermo).
+
+- ⚠️ Il numero sta in Impostazioni (`avvisoPagamentiNumero`), non nel codice.
+- ⚠️⚠️ Parte dal numero **da cui quella persona ha scritto più di recente**, e
+  oggi è **FLowers +1 555-336-2009** — quasi certamente il numero di prova di
+  Meta, che è esente dalla finestra di 24 ore. Su un numero vero il limite
+  tornerebbe a valere. 🔴 Da decidere se fissarlo su un numero italiano.
+- ⚠️ Due difetti trovati **provando davvero**: le righe vuote sparivano
+  (`filter(Boolean)` non distingue «campo assente» da «riga vuota»), e la causale
+  ripeteva l'ordine («Ordine #2785» vs «#2785»).
+
+### Il glossario vale per PIÙ marchi (`b1f1d7c6`, `65fabd1f`)
+
+`VoceGlossario.negoziIds` è una lista, scelta con caselle invece che con un menu.
+⚠️⚠️ **Lista vuota = vale per TUTTI**, non per nessuno. Il vincolo di unicità su
+(termine, marchio) è caduto: il doppione lo impedisce il codice controllando la
+**sovrapposizione** dei marchi. 13 voci travasate, rilette dopo.
+🔴 La vecchia colonna `negozioId` è **congelata** e va tolta dopo qualche giorno.
+
+### La ricevuta si tira fuori da dove serve (`9016e6f4`, `7966746b`, `d9c30176`)
+
+Graffetta 📎 nella tabella pagamenti **e** nelle bacheche ordini, accanto a
+«pagato». ⚠️ Le prime tre ricevute vere si chiamavano tutte
+`incollata-2026-08-24.png`: scaricando, un nome generato da noi non si tiene, si
+ricostruisce da ordine e intestatario.
+
+### Preparare un brand nuovo — 🔴 DA FARE PRIMA DEL QUARTO MARCHIO
+
+Documento completo nell'artifact **«Aggiungere un brand»** (galleria
+claude.ai/code/artifacts). In sintesi: l'app è già plurale (12 tabelle col
+marchio, nessun legame nel codice), ma **tre punti vanno chiusi prima**:
+
+1. ⚠️⚠️ **Un marchio nuovo che si chiama «Deluxy qualcosa» viene inghiottito da
+   Deluxy.** Riprodotto: «Deluxy Chocolate» → dedotto `deluxy.it` → combacia col
+   marchio esistente. I suoi ordini finirebbero nella colonna sbagliata, **senza
+   errori**. Da chiudere: la deduzione non deve valere come prova di identità.
+2. L'app conosce **due mestieri** (fiorai, pasticcerie): il mestiere va reso un
+   campo del marchio invece di una deduzione dal nome.
+3. Resta **un marchio scritto per nome** nel codice (`src/lib/aiuto-whatsapp.ts`).
+
+
 ## 24/08/2026 (sera 6) — il fornitore pagato entra da solo nel registro anagrafiche
 
 Premendo «Pagata», oltre alla riconciliazione e all'avviso, parte un terzo
