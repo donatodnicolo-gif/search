@@ -297,7 +297,44 @@ correzione del 06/08 è sembrata completa perché nessuno poteva rileggere il
 risultato. Un difetto che scrive su un sistema esterno ha **due** rimedi, e il
 secondo si dimentica sempre.
 
-### 🔴 IL PONTE SU DRIVE È COSTRUITO E NON COLLEGATO A NIENTE (24/08/2026)
+### ⭐ IL PONTE SU DRIVE È APERTO — tre errori in fila, e nessuno era quello che sembrava (24/08/2026, sera)
+
+Stato finale: `via: "utente"`, collegato come **deluxy.delivery@gmail.com**,
+cartella OUT trovata, `errore: null`. Per arrivarci sono caduti tre ostacoli,
+e **ognuno dava un messaggio che indicava la cosa sbagliata**:
+
+1. **«Client is unauthorized to retrieve access tokens using this method»** —
+   sembrava un problema di credenziali OAuth. Era il campo **«Agisci per conto
+   di»**, compilato con `deluxy.delivery@gmail.com`: è la cosa naturale da
+   provare, ma l'**impersonazione esiste solo su un dominio Workspace**, dove un
+   amministratore autorizza la delega. Su un Gmail non c'è nessun
+   amministratore, e Google risponde così. ⚠️ E finché quel campo è compilato
+   l'app tenta **sempre** quella strada, anche dopo un consenso OAuth valido.
+2. **«Non trovo la cartella "ads"»** — sembrava un problema di percorso o di
+   condivisione. Era l'**ambito**: si chiedeva `drive.file`, che dà accesso ai
+   soli file **che l'app ha creato lei**. La cartella `ads` esiste da prima ed è
+   di una persona: con quell'ambito l'app non la vedeva nemmeno. Passati a
+   `drive` pieno. Era stato giusto partire dal minimo — adesso è **misurato**
+   che non regge, e sta scritto nel codice perché nessuno ci riprovi.
+3. **«Collegato» senza dire come chi** — mancava l'ambito `email`: senza, la
+   chiamata a `userinfo` non risponde e l'app non sa con quale account scrive.
+
+⚠️⚠️ **E il difetto che è costato più tempo di tutti e tre: un esito negativo
+vestito da conferma.** La cornice degli esiti era sempre verde, con la spunta —
+anche su «Scrittura NON riuscita» e «Collegamento non riuscito». **La forma
+diceva *fatto*, il testo diceva *non fatto*, e la forma vince**: il collegamento
+è stato rifatto due volte credendo che funzionasse. Ora i fallimenti hanno
+cornice rossa e una ✕ (`ESITI_NEGATIVI` in `/impostazioni`, `.conferma.esito-no`).
+*Un messaggio d'errore che nessuno legge come errore non è un messaggio d'errore.*
+
+🔴 **RESTA IL PEZZO PRINCIPALE, ed è quello di prima**: il ponte è **aperto**, ma
+**l'app continua a non depositare niente**. `scriviInOut()` ha ancora un solo
+chiamante, il bottone «Prova scrittura». Serve il formato dei quattro file da
+`ads/Definitivi/MODELLO Ponte App Azioni.md` §2-5 — che né l'account di servizio
+né la chiave API riescono a leggere. Da chiedere all'utente, o condividere quel
+documento con `app-deluxy@deluxy.iam.gserviceaccount.com`.
+
+### 🔴 Com'era prima: il ponte costruito e non collegato a niente (24/08/2026)
 
 Segnalato: *«su Drive l'app non ha messo nessun file su quello che è stato
 fatto»*. **Vero, e non è un guasto.** Verificato chiedendo direttamente a Google
