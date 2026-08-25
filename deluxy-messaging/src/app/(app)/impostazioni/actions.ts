@@ -113,4 +113,14 @@ async function scriviTutto(formData: FormData) {
     const testo = formData.get('primoContattoTesto')
     if (typeof testo === 'string') await salvaImpostazione('primoContattoTesto', testo.trim())
   }
+
+  // ── Fuori turno risponde l'AI ──
+  //
+  // ⚠️⚠️ Stesso meccanismo del primo contatto, e qui pesa ancora di più: è
+  // l'interruttore di un'app che scrive ai clienti da sola, di notte. Senza il
+  // segnale di sezione una casella non spuntata non arriverebbe nella form, e la
+  // funzione una volta accesa non si potrebbe più spegnere.
+  if (formData.get('sezioneAiFuoriTurno') === '1') {
+    await salvaImpostazione('aiFuoriTurnoAttivo', formData.get('aiFuoriTurnoAttivo') ? 'si' : '')
+  }
 }

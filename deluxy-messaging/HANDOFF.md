@@ -1,5 +1,57 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (sera 7) — fuori turno risponde l'AI, e se non sa chiede su WhatsApp
+
+Chiesto dall'utente: «quando non c'è nessuno sul cs attivo come operatore tutte
+le risposte vengono fornite dall'AI e in caso di dubbi come rispondere chiede
+informazioni a +393498853209».
+
+🟡 **È FATTO MA È SPENTO**: l'interruttore sta in **Impostazioni → Fuori turno
+risponde l'AI** e va acceso a mano. Una funzione che parla ai clienti da sola non
+si accende con un deploy.
+
+**Come funziona.** Cron ogni 10 minuti (`/api/cron/ai-fuori-turno`) →
+`giroAiFuoriTurno()` in `src/lib/ai-fuori-turno.ts`. Se non c'è nessuno in turno,
+prende le conversazioni non lette e non prese in carico e usa
+`suggerisciRisposta` (le stesse risposte pronte e le stesse istruzioni CS AI del
+bottone che usa l'operatore).
+
+⚠️⚠️ **Il dubbio è la parte importante.** L'AI sceglie fra gli script e può dire
+«nessuno adatto»: lì al cliente **non si scrive niente** e nasce una
+`DomandaAiuto` con `utenteNome: 'AI fuori turno'`, mandata su WhatsApp
+all'amministratore — che è già il numero **+39 349 885 3209** (era il default di
+`aiuto-whatsapp.ts`, non l'ho dovuto aggiungere) e si cambia da Impostazioni.
+L'amministratore risponde dal telefono citando il messaggio o col codice.
+
+**Le quattro serrature**: interruttore spento di suo · solo fuori turno · solo su
+chat non prese e con l'ultimo messaggio del cliente · massimo 3 risposte
+automatiche per conversazione.
+
+⚠️⚠️ **L'ora è quella di ROMA**, non del server: il cron gira in UTC e d'estate
+alle 09:30 italiane segnerebbe le 07:30 — «non c'è nessuno» a turno appena
+cominciato, e l'AI si metterebbe a rispondere sopra a chi lavora. E a mezzanotte
+e mezza in UTC è ancora ieri, cioè la griglia sbagliata. `adessoARoma()` lo
+calcola con `Intl`, ed è la prima cosa che la prova verifica (è la trappola
+[«Oggi» calcolato sul server], già costata altrove).
+
+⚠️ La risposta si vede in chat come **«AI (fuori turno)»** e la conversazione
+resta **da leggere**: ha tamponato, non ha chiuso. Un invio fallito si registra
+con l'errore invece di sparire.
+
+**Provato**: `npx tsx scripts/prova-ai-fuori-turno.mts` (8 casi) — l'ora di Roma
+nei due sensi, e la coerenza del giro con lo stato vero. Poi il giro vero in
+modalità **prova** (accendendo l'interruttore per un istante e rimettendolo
+subito): «nessuna conversazione che aspetta una risposta» — al momento le non
+lette sono **0**. La prova non manda mai niente a nessuno, di proposito.
+
+🔴 **Da fare prima di accenderlo davvero**:
+1. controllare che la griglia dei **Turni** sia vera (oggi ci sono 4 fasce
+   scritte): se è vuota o sbagliata, «fuori turno» vale sempre;
+2. lanciare `POST /api/ai-fuori-turno?prova=1` in un momento con chat non lette
+   e leggere riga per riga cosa risponderebbe;
+3. solo dopo, accendere l'interruttore.
+
+
 ## 25/08/2026 (sera 6) — lo spam va nel cestino, e l'ordine si apre in una scheda nuova
 
 **«Cliccando spam deve essere proprio spam e non apparire mai più»** (utente).

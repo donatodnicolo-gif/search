@@ -45,6 +45,7 @@ export default async function PaginaImpostazioni({
     'lingueLette',
     'traduzioneAuto',
     'primoContattoAttivo',
+    'aiFuoriTurnoAttivo',
     'primoContattoTesto',
     'partnerUrl',
     'partnerApiKey',
@@ -437,6 +438,45 @@ export default async function PaginaImpostazioni({
               ⚠️ Parte <strong>in italiano per tutti</strong>: la lingua del cliente si conosce
               solo dopo aver letto il suo messaggio, e su una frase sola il riconoscimento sbaglia
               spesso.
+            </p>
+          </div>
+
+          {/* ── FUORI TURNO RISPONDE L'AI ──
+              ⚠️⚠️ È l'unica funzione dell'app che parla ai clienti senza che una
+              persona abbia premuto, e per questo l'interruttore è qui, spento di
+              suo, con scritto accanto che cosa succede quando non sa rispondere.
+              Un'automazione che manda messaggi ai clienti senza un posto dove
+              spegnerla non si accende. */}
+          <div className="card">
+            <h2>Fuori turno risponde l&apos;AI</h2>
+            <p className="descrizione">
+              Quando <strong>non c&apos;è nessuno in turno</strong> (griglia dei Turni, ora
+              italiana), ogni dieci minuti l&apos;app guarda le conversazioni non lette che
+              nessuno ha preso e risponde da sola, scegliendo fra le{' '}
+              <strong>risposte pronte</strong> attive. Non inventa: se nessuna è adatta,{' '}
+              <strong>non scrive al cliente</strong> e manda la domanda su WhatsApp
+              all&apos;amministratore, che può rispondere dal telefono.
+            </p>
+            <p className="descrizione">
+              ⚠️ Non parte se qualcuno è in turno, se la conversazione è già presa in carico, se
+              l&apos;ultimo messaggio è già nostro, o dopo <strong>tre</strong> risposte
+              automatiche sulla stessa chat: a quel punto non serve più velocità, serve una
+              persona. Le chat restano <strong>da leggere</strong> anche dopo la risposta
+              automatica.
+            </p>
+            <input type="hidden" name="sezioneAiFuoriTurno" value="1" />
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <input
+                type="checkbox"
+                name="aiFuoriTurnoAttivo"
+                defaultChecked={config.aiFuoriTurnoAttivo === 'si'}
+              />
+              <span>Rispondi da solo quando non c&apos;è nessuno in turno</span>
+            </label>
+            <p className="descrizione" style={{ marginTop: 0, marginBottom: 0 }}>
+              ⚠️ Prima di accenderlo conviene guardarlo lavorare a vuoto:{' '}
+              <code>POST /api/ai-fuori-turno?prova=1</code> fa tutto il giro e dice cosa
+              risponderebbe, <strong>senza mandare niente a nessuno</strong>.
             </p>
           </div>
 

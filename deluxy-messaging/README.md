@@ -1255,6 +1255,49 @@ scrive da Gmail.
 ⚠️ Solo sulla **posta**: l'elenco dei mittenti ignorati lo leggono soltanto le rotte email,
 e su WhatsApp o Instagram il blocco si fa da Meta.
 
+## Fuori turno risponde l'AI (e se non sa, chiede)
+
+Quando **non c'è nessuno in turno**, ogni dieci minuti l'app guarda le
+conversazioni non lette che nessuno ha preso in carico e **risponde da sola**,
+scegliendo fra le **risposte pronte** attive. Si accende in
+**Impostazioni → Fuori turno risponde l'AI**, ed è **spenta di suo**.
+
+⚠️⚠️ **Se non sa cosa dire, non lo inventa.** L'AI sceglie fra gli script: può
+rispondere «nessuno adatto», ed è il momento in cui l'app **non sa**. Lì al
+cliente non si scrive niente e parte una domanda su **WhatsApp
+all'amministratore** (+39 349 885 3209, cambiabile in Impostazioni), a cui si
+risponde dal telefono citando il messaggio o scrivendo il codice. È la ragione
+per cui questa funzione può stare accesa di notte.
+
+**Le quattro serrature**, e vanno lasciate:
+
+1. l'**interruttore** in Impostazioni, spento di suo: una cosa che parla ai
+   clienti non si accende con un deploy;
+2. solo **fuori turno** — se c'è anche una sola persona in servizio non parte:
+   due risposte diverse allo stesso cliente sono peggio di una tardiva;
+3. solo su conversazioni **non prese in carico** e dove l'**ultimo messaggio è
+   del cliente**;
+4. massimo **tre** risposte automatiche per conversazione: se il cliente continua
+   a scrivere, il problema non è la velocità — serve una persona.
+
+⚠️⚠️ **L'ora è quella di ROMA, non del server.** I turni si scrivono «09:00 –
+18:00» e il cron gira in UTC: d'estate alle 09:30 italiane il server segna le
+07:30, direbbe «non c'è nessuno» a turno appena iniziato e si metterebbe a
+rispondere sopra a chi lavora. E a mezzanotte e mezza in UTC è ancora il giorno
+prima, cioè si guarderebbe la griglia di ieri.
+
+⚠️ La risposta automatica **si vede in chat** col nome «AI (fuori turno)», e la
+conversazione resta **da leggere**: l'AI ha tamponato, non ha chiuso.
+
+⚠️ Un invio fallito si registra lo stesso, con l'errore: una risposta che non è
+partita deve vedersi, non sparire.
+
+⚠️ **Prima di accenderla** conviene guardarla lavorare a vuoto:
+`POST /api/ai-fuori-turno?prova=1` fa tutto il giro e dice, riga per riga, cosa
+risponderebbe — **senza mandare niente a nessuno**. Vale anche dopo ogni modifica
+agli script.
+
+
 ## Chi si occupa di un ordine
 
 Come per le conversazioni: gli operatori sono tre e la bacheca è una sola. Senza un
