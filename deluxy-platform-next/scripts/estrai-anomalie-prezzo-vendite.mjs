@@ -9,7 +9,14 @@
 //   dato al partner = Delivery.productValue     <- SCRITTO, non dedotto
 //   guadagno lordo  = pubblico - dato al partner
 //   guadagno netto  = lordo / 1,22
+//   costo consegna  = paga del valet + plus/minus   <- c'era, mancava dal conto
+//   commissione     = pubblico x 3%
+//   MARGINE         = guadagno netto - costo consegna - commissione
 //   quota a listino = Delivery.price + plus/minus  (la fee di contratto)
+//
+// ⚠️ Il costo di consegna cambia il segno di parecchie righe: #62395 ha 15 € di
+// guadagno lordo e 77,45 € di paga valet. Un guadagno senza il costo di
+// portarlo a destinazione non e' un margine, e' meta' del conto.
 //
 // Tira fuori, per ogni consegna di vendita andata a buon fine che non torna:
 //   - TUTTO quello che e' stato inserito a mano sulla consegna (prezzo, plus e
@@ -167,6 +174,9 @@ try {
     const alPartner = (d.productValue ?? 0) > 0 ? r2(d.productValue) : null;
     const guadagno = alPartner != null ? r2(venduto - alPartner) : null;
     const guadagnoNetto = guadagno != null ? r2(guadagno / 1.22) : null;
+    const costoConsegna = r2((d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0));
+    const commissione = r2(venduto * 0.03);
+    const margine = guadagnoNetto != null ? r2(guadagnoNetto - costoConsegna - commissione) : null;
     const trattenuto = r2(Math.max(0, (d.price ?? 0) + (d.additionalPrice ?? 0)));
     const catalogo = r2(d.products.reduce(
       (s, l) => s + ((l.product?.publicPrice ?? l.product?.price ?? 0) * (l.quantity ?? 1)), 0));
@@ -193,8 +203,8 @@ try {
         : alPartner > venduto ? 'al partner piu\' del pubblico'
           : scostaDaContratto ? 'guadagno lontano dalla fee di contratto'
             : null;
-    return { d, venduto, alPartner, guadagno, guadagnoNetto, trattenuto, catalogo,
-      anomalia, o, li, totOrdine, scarto,
+    return { d, venduto, alPartner, guadagno, guadagnoNetto, costoConsegna, commissione,
+      margine, trattenuto, catalogo, anomalia, o, li, totOrdine, scarto,
       feeReale: guadagnoPc != null ? r2(guadagnoPc) : null };
   });
   const scelte = TUTTE ? valutate : valutate.filter((x) => x.anomalia);
@@ -204,6 +214,7 @@ try {
     'consegna', 'data', 'stato', 'partner', 'fee contratto %', 'servizio', 'anomalia',
     'prezzo pubblico (righe consegna)', 'DATO AL PARTNER (productValue)',
     'guadagno lordo', 'guadagno netto IVA', 'guadagno %',
+    'costo consegna (paga valet)', 'commissione incassi 3%', 'MARGINE',
     'quota a listino (Delivery.price+plus)',
     'valore a catalogo oggi', 'Delivery.price', 'plus/minus', 'consegna prezzo',
     'paga valet', 'plus/minus valet', 'prezzo flessibile', 'flexiblePrice', 'ore',
@@ -231,6 +242,7 @@ try {
       d.partner?.insegna ?? '', d.partner?.commissionPercent ?? '', d.serviceType?.name ?? '',
       x.anomalia ?? '',
       x.venduto, x.alPartner ?? '', x.guadagno ?? '', x.guadagnoNetto ?? '', x.feeReale ?? '',
+      x.costoConsegna, x.commissione, x.margine ?? '',
       x.trattenuto,
       x.catalogo, d.price ?? '', d.additionalPrice ?? '', d.deliveryPrice ?? '',
       d.valetSalary ?? '', d.valetAdditionalPrice ?? '',
@@ -258,6 +270,16 @@ try {
   for (const [k, v] of Object.entries(perTipo).sort((a, b) => b[1] - a[1])) {
     console.log(`  ${k.padEnd(30)} ${String(v).padStart(6)}  ${((v / valutate.length) * 100).toFixed(1)}%`);
   }
+  const conMargine = valutate.filter((x) => x.margine != null);
+  const somma = (f) => conMargine.reduce((s, x) => s + f(x), 0);
+  const e2 = (n) => n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  console.log(`\nsu ${conMargine.length} vendite con tutti i dati:`);
+  console.log(`  guadagno netto IVA .... ${e2(somma((x) => x.guadagnoNetto))}`);
+  console.log(`  costo consegna ........ ${e2(somma((x) => x.costoConsegna))}`);
+  console.log(`  commissione incassi ... ${e2(somma((x) => x.commissione))}`);
+  console.log(`  MARGINE ............... ${e2(somma((x) => x.margine))}`);
+  console.log(`  vendite col margine in perdita: ${conMargine.filter((x) => x.margine < 0).length}`);
+
   console.log(`\nrighe nel CSV: ${scelte.length}${TUTTE ? ' (tutte)' : ' (solo le anomale)'}`);
   console.log(`ordine Shopify ritrovato (riferimento, non verdetto): ${trovati} su ${scelte.length}`);
   console.log(`di cui col totale diverso dal venduto: ${scostati} — atteso: su Shopify c'e' il`);
