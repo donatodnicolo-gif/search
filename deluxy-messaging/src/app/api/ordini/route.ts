@@ -342,14 +342,30 @@ export async function GET(req: NextRequest) {
   // sapeva.
   //
   // ⚠️ UNA query per tutta la pagina, non una per ordine.
-  const pagati = new Map<string, { quando: Date; quanto: number }>()
+  // ⚠️ Si porta anche la RICEVUTA: chi guarda la bacheca deve poterla tirare
+  // fuori senza passare dalla pagina Pagamenti e cercare la riga giusta. È la
+  // prova di un bonifico, e una prova che si raggiunge in tre schermate si
+  // finisce per ricaricarla invece di cercarla.
+  const pagati = new Map<
+    string,
+    { quando: Date; quanto: number; ricevutaId: string; ricevutaNome: string }
+  >()
   try {
     const righe = await db.richiestaPagamento.findMany({
       where: {
         pagataIl: { not: null },
         ordineNumero: { in: ordini.map((o) => o.numero).filter(Boolean) },
       },
-      select: { ordineNumero: true, pagataIl: true, importo: true },
+      select: {
+        id: true,
+        ordineNumero: true,
+        pagataIl: true,
+        importo: true,
+        // ⚠️ Il NOME, non i byte: quelli sono il file in base64, e portarseli
+        // dietro per ogni riga della bacheca vorrebbe dire una pagina che non
+        // arriva su un telefono.
+        ricevutaNome: true,
+      },
       orderBy: { pagataIl: 'desc' },
     })
     for (const r of righe) {
@@ -357,7 +373,12 @@ export async function GET(req: NextRequest) {
       // ⚠️ Il PIÙ RECENTE: di un ordine pagato in due tranche interessa
       // l'ultima, che è quella che dice «da quando è a posto».
       if (!pagati.has(r.ordineNumero)) {
-        pagati.set(r.ordineNumero, { quando: r.pagataIl, quanto: r.importo })
+        pagati.set(r.ordineNumero, {
+          quando: r.pagataIl,
+          quanto: r.importo,
+          ricevutaId: r.ricevutaNome ? r.id : '',
+          ricevutaNome: r.ricevutaNome,
+        })
       }
     }
   } catch {
@@ -376,6 +397,9 @@ export async function GET(req: NextRequest) {
       messaggi: messaggiPerOrdine.get(o.id) ?? null,
       pagatoIl: pagati.get(o.numero)?.quando?.toISOString() ?? null,
       pagatoQuanto: pagati.get(o.numero)?.quanto ?? 0,
+      // Vuoto = quel pagamento non ha una ricevuta allegata.
+      ricevutaId: pagati.get(o.numero)?.ricevutaId ?? '',
+      ricevutaNome: pagati.get(o.numero)?.ricevutaNome ?? '',
     })),
     totale, // quanti corrispondono in tutto (la lista è tagliata a 200)
     // Chi sta guardando: senza, il bollino «preso da» non saprebbe dire se

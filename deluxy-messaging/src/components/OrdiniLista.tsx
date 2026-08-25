@@ -93,6 +93,9 @@ type OrdineDto = {
   /** Quando risulta pagato (dalla richiesta di pagamento), e quanto. */
   pagatoIl?: string | null
   pagatoQuanto?: number
+  /** La ricevuta del pagamento, quando c'è: si scarica dalla graffetta. */
+  ricevutaId?: string
+  ricevutaNome?: string
   /** Rischio frode secondo Shopify: NONE | LOW | MEDIUM | HIGH, e cosa consiglia. */
   rischioLivello: string
   rischioRaccomandazione: string
@@ -1649,6 +1652,28 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                             >
                               pagato
                             </span>
+                          ) : null}
+                          {/* ⚠️ LA GRAFFETTA, accanto a «pagato». La prova del
+                              bonifico stava solo nella pagina Pagamenti, e per
+                              tirarla fuori — davanti a un fornitore che dice di
+                              non aver ricevuto niente — bisognava cambiare
+                              schermata e ritrovare la riga giusta fra duecento.
+                              Chi deve mostrarla ha l'ordine davanti, non la
+                              tabella dei pagamenti.
+                              ⚠️ `stopPropagation`: la riga apre la scheda
+                              dell'ordine, e senza questo scaricare aprirebbe
+                              anche il pannello. */}
+                          {o.ricevutaId ? (
+                            <a
+                              className="badge"
+                              href={`/api/pagamenti/${o.ricevutaId}/ricevuta`}
+                              download
+                              onClick={(e) => e.stopPropagation()}
+                              title={`Scarica la ricevuta: ${o.ricevutaNome}`}
+                              aria-label={`Scarica la ricevuta: ${o.ricevutaNome}`}
+                            >
+                              📎
+                            </a>
                           ) : null}
                           {o.fornitoreNome ? (
                             <span

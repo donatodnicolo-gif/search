@@ -7,6 +7,7 @@ import { riconciliaDaPagamento, type EsitoRiconciliazione } from '@/lib/riconcil
 import { utenteCorrente } from '@/lib/sessione'
 import { chiaveFornitore } from '@/lib/richieste-fornitore'
 import { sembraIlCliente } from '@/lib/riconciliazione'
+import { avvisaPagamentoDaFare } from '@/lib/avviso-pagamento-da-fare'
 
 export const dynamic = 'force-dynamic'
 
@@ -265,6 +266,25 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── L AVVISO A CHI FA I BONIFICI ──
+  //
+  // ⚠️ Chiesto dall utente: ogni volta che arriva un pagamento da fare, un
+  // messaggio WhatsApp. Non e un messaggio verso un fornitore o un cliente: e
+  // un avviso a NOI, sul telefono di chi i bonifici li fa davvero.
+  //
+  // ⚠️⚠️ Funziona solo dentro la finestra di 24 ore di WhatsApp, e l esito si
+  // RESTITUISCE: un avviso che fallisce in silenzio e peggio di nessun avviso,
+  // perche si smette di guardare la pagina credendo che il telefono squilli.
+  //
+  // ⚠️ Un errore qui non fa fallire il salvataggio: la richiesta e la cosa che
+  // conta.
+  let avvisoInterno: { mandato: boolean; messaggio: string } | null = null
+  try {
+    avvisoInterno = await avvisaPagamentoDaFare(richiesta.id)
+  } catch {
+    avvisoInterno = null
+  }
+
   // Inoltro a Deluxy Partner, che approva e paga. Un fallimento qui non annulla
   // il salvataggio: la richiesta resta e si può rimandare.
   let invio: { ok: boolean; messaggio: string } | null = null
@@ -319,6 +339,7 @@ export async function POST(req: NextRequest) {
     // sull'ordine (c era gia un altro nome, o quel nome e del cliente) chi ha
     // salvato deve saperlo adesso, non scoprirlo fra tre giorni.
     riconciliato,
+    avvisoInterno,
   })
 }
 
