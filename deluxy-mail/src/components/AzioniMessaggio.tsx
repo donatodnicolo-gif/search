@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -28,6 +28,16 @@ type Props = {
   mittente: string
 }
 
+/**
+ * Le azioni sulla mail aperta, con una GERARCHIA.
+ *
+ * ⚠️ Prima erano quindici comandi tutti uguali, in fila («veramente troppo
+ * incasinato», 25/08/2026) — e comprimere non bastava: quindici pillole
+ * identiche restano quindici pillole. In vista restano le quattro cose che si
+ * fanno di continuo — Rispondi, Inoltra, Archivia, Cestina — e TUTTO il resto
+ * sta dietro «⋯ Altro», a un clic: nessuna azione tolta (regola di casa),
+ * cambia solo quante ne gridano contemporaneamente.
+ */
 export function AzioniMessaggio({
   id,
   letto,
@@ -57,7 +67,26 @@ export function AzioniMessaggio({
   const [inCorso, startTransition] = useTransition()
   const router = useRouter()
 
-  // La mail è già nella sezione SPAM? (allora niente bottone "Spam": c'è già
+  // Il menù «⋯ Altro»: si chiude cliccando fuori o con Esc.
+  const [menu, setMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menu) return
+    const giu = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false)
+    }
+    const tasto = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenu(false)
+    }
+    document.addEventListener('mousedown', giu)
+    document.addEventListener('keydown', tasto)
+    return () => {
+      document.removeEventListener('mousedown', giu)
+      document.removeEventListener('keydown', tasto)
+    }
+  }, [menu])
+
+  // La mail è già nella sezione SPAM? (allora niente voce "Spam": c'è già
   // "Non è spam" nella pagina).
   const giaInSpam = sezioni.find((s) => s.id === sezioneId)?.nome === 'SPAM'
 
@@ -70,10 +99,8 @@ export function AzioniMessaggio({
 
   return (
     <div className="azioni-messaggio">
-      {/* Gruppo 1: rispondere / inoltrare / delegare.
-          La lettera stampata sul bottone È la scorciatoia: scritte solo
-          nell'elenco che si apre col «?», le trovava soltanto chi già sapeva
-          che esistevano. Su schermo stretto spariscono (niente tastiera). */}
+      {/* IN VISTA: le quattro azioni d'uso continuo. La lettera stampata sul
+          bottone È la scorciatoia (su touch sparisce: niente tastiera). */}
       <div className="azioni-gruppo">
         <Link
           href={`/messaggio/${id}/scrivi?modo=rispondi`}
@@ -83,83 +110,12 @@ export function AzioniMessaggio({
           Rispondi <kbd className="tasto">R</kbd>
         </Link>
         <Link
-          href={`/messaggio/${id}/scrivi?modo=tutti`}
-          className="btn secondary small"
-          title="Rispondi a tutti (tasto T, oppure A)"
-        >
-          Rispondi a tutti <kbd className="tasto">T</kbd>
-        </Link>
-        <Link
           href={`/messaggio/${id}/scrivi?modo=inoltra`}
           className="btn secondary small"
           title="Inoltra (tasto I, oppure F)"
         >
           Inoltra <kbd className="tasto">I</kbd>
         </Link>
-        <DelegaReneBottone id={id} variante="bottone" />
-        <DelegaReneDialog />
-        <button
-          type="button"
-          className="azione-riga tasti-aiuto"
-          title="Tutte le scorciatoie da tastiera (anche col tasto ?)"
-          onClick={apriScorciatoie}
-        >
-          ⌨ Scorciatoie
-        </button>
-      </div>
-
-      <span className="azioni-sep" />
-
-      {/* Gruppo 2: organizzare (sezione, aggancia altre mail) */}
-      <div className="azioni-gruppo">
-        <select
-          value={sezioneId ?? ''}
-          disabled={inCorso}
-          onChange={(e) =>
-            // La sezione d'arrivo può chiamare un'app Deluxy: la proposta si
-            // apre qui, oppure l'invio automatico è già partito.
-            esegui(async () => {
-              dopoSpostamento(id, await spostaInSezione(id, e.target.value || null))
-            })
-          }
-          style={{ width: 'auto', minWidth: 150, padding: '7px 11px', fontSize: 13 }}
-        >
-          <option value="">Nessuna sezione</option>
-          {sezioni.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.nome}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="btn secondary small"
-          title="Unisci un'altra mail a questa conversazione"
-          onClick={() =>
-            window.dispatchEvent(new CustomEvent('aimail:aggancia', { detail: { messaggioId: id } }))
-          }
-        >
-          ⚭ Aggancia
-        </button>
-        <AgganciaDialog />
-      </div>
-
-      <span className="azioni-sep" />
-
-      {/* Gruppo 3: stato e cestino */}
-      <div className="azioni-gruppo">
-        <button
-          className="btn secondary small"
-          disabled={inCorso}
-          onClick={() =>
-            esegui(async () => {
-              setELetta(!eLetta)
-              await segnaLetto(id, !eLetta)
-            })
-          }
-        >
-          {eLetta ? 'Segna non letto' : 'Segna letto'}
-        </button>
 
         {!archiviato && !chiediSempre && (
           <button
@@ -168,10 +124,8 @@ export function AzioniMessaggio({
             title="Togli dalla posta in arrivo, resta negli Archiviati (tasto E)"
             onClick={() =>
               // Archivia subito (SENZA refresh, così la domanda resta), poi
-              // chiedi se per sempre restando qui.
-              // Archivia TUTTA la conversazione: la pagina mostra il thread,
-              // e in elenco una riga è un thread — archiviarne una sola la
-              // farebbe ricomparire col messaggio precedente.
+              // chiedi se per sempre restando qui. Archivia TUTTA la
+              // conversazione: in elenco una riga è un thread.
               startTransition(async () => {
                 await archiviaThreadSenzaAggiornare(id)
                 setChiediSempre(true)
@@ -183,9 +137,7 @@ export function AzioniMessaggio({
         )}
 
         {/* ⚠️ L'archivio non è una porta a senso unico: archiviata la mail, al
-            posto di «Archivia» compare il modo di tornare indietro. Prima
-            spariva e basta (segnalato: «dice che è in archivio ma non trovo il
-            modo di togliere da archivio»). */}
+            posto di «Archivia» compare il modo di tornare indietro. */}
         {archiviato && (
           <button
             className="btn secondary small"
@@ -208,8 +160,6 @@ export function AzioniMessaggio({
           disabled={inCorso}
           title="Sposta nel cestino e apri la mail successiva, la mail resta sul server (tasto Canc)"
           onClick={() =>
-            // Come il tasto Canc: cestinata questa si apre la successiva,
-            // invece di rimandare all'elenco a ricominciare da capo.
             startTransition(async () => {
               const r = await smaltisciEProssimo(id, 'cestina')
               router.push(r.prossimo ? `/messaggio/${r.prossimo}` : '/')
@@ -218,26 +168,122 @@ export function AzioniMessaggio({
         >
           Cestina <kbd className="tasto">Canc</kbd>
         </button>
+      </div>
 
-        {!giaInSpam && (
-          <button
-            className="btn secondary small"
-            disabled={inCorso}
-            title="Sposta nello SPAM (posta indesiderata)"
-            onClick={() =>
-              esegui(async () => {
-                await segnalaSpamThread(id)
-                router.push('/')
-              })
-            }
-          >
-            Spam
-          </button>
+      {/* TUTTO IL RESTO, dietro «⋯ Altro». */}
+      <div className="azioni-gruppo menu-ancora" ref={menuRef}>
+        <button
+          type="button"
+          className="btn secondary small"
+          aria-haspopup="menu"
+          aria-expanded={menu}
+          title="Le altre azioni: rispondi a tutti, delega, sezione, aggancia, spam…"
+          onClick={() => setMenu((v) => !v)}
+        >
+          ⋯ Altro
+        </button>
+
+        {menu && (
+          <div className="menu-azioni" role="menu">
+            <Link
+              href={`/messaggio/${id}/scrivi?modo=tutti`}
+              className="menu-voce"
+              role="menuitem"
+              onClick={() => setMenu(false)}
+            >
+              Rispondi a tutti <kbd className="tasto">T</kbd>
+            </Link>
+            <span onClick={() => setMenu(false)}>
+              <DelegaReneBottone id={id} variante="bottone" />
+            </span>
+            <button
+              type="button"
+              className="menu-voce"
+              role="menuitem"
+              onClick={() => {
+                setMenu(false)
+                window.dispatchEvent(
+                  new CustomEvent('aimail:aggancia', { detail: { messaggioId: id } })
+                )
+              }}
+            >
+              ⚭ Aggancia un’altra mail
+            </button>
+            <button
+              type="button"
+              className="menu-voce"
+              role="menuitem"
+              disabled={inCorso}
+              onClick={() => {
+                setMenu(false)
+                esegui(async () => {
+                  setELetta(!eLetta)
+                  await segnaLetto(id, !eLetta)
+                })
+              }}
+            >
+              {eLetta ? 'Segna non letto' : 'Segna letto'}
+            </button>
+            {!giaInSpam && (
+              <button
+                type="button"
+                className="menu-voce"
+                role="menuitem"
+                disabled={inCorso}
+                onClick={() => {
+                  setMenu(false)
+                  esegui(async () => {
+                    await segnalaSpamThread(id)
+                    router.push('/')
+                  })
+                }}
+              >
+                Segna come spam
+              </button>
+            )}
+            <button
+              type="button"
+              className="menu-voce tasti-aiuto"
+              role="menuitem"
+              onClick={() => {
+                setMenu(false)
+                apriScorciatoie()
+              }}
+            >
+              ⌨ Scorciatoie da tastiera
+            </button>
+
+            <div className="menu-etichetta">Sposta in sezione</div>
+            <select
+              value={sezioneId ?? ''}
+              disabled={inCorso}
+              onChange={(e) => {
+                setMenu(false)
+                // La sezione d'arrivo può chiamare un'app Deluxy: la proposta
+                // si apre qui, oppure l'invio automatico è già partito.
+                esegui(async () => {
+                  dopoSpostamento(id, await spostaInSezione(id, e.target.value || null))
+                })
+              }}
+            >
+              <option value="">Nessuna sezione</option>
+              {sezioni.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nome}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
 
-      {/* Gruppo 4 (a destra): compare SOLO dopo aver archiviato, per chiedere se
-          l'archiviazione vale per sempre (crea la regola sul mittente). */}
+      {/* I dialoghi stanno FUORI dal menù: devono restare montati anche quando
+          il menù si chiude, o l'evento che li apre non troverebbe nessuno. */}
+      <DelegaReneDialog />
+      <AgganciaDialog />
+
+      {/* Compare SOLO dopo aver archiviato, per chiedere se l'archiviazione
+          vale per sempre (crea la regola sul mittente). */}
       {chiediSempre && (
         <div className="azioni-gruppo azioni-fine">
           <span style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 320 }}>

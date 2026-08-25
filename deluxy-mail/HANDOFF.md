@@ -490,6 +490,19 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 
 ## 9. Problemi noti / gotchas
 
+- **«Veramente troppo incasinato» → gerarchia, non compressione (25 ago)** — dopo la barra
+  unica il rumore restava: **quindici comandi tutti uguali sono quindici pillole**, comunque
+  le impili. Rifatta `AzioniMessaggio` con una gerarchia: in vista **Rispondi · Inoltra ·
+  Archivia · Cestina** (le quattro d'uso continuo), tutto il resto dietro **«⋯ Altro»** —
+  Rispondi a tutti, Delega Renè, Aggancia, Segna letto, Spam, Scorciatoie, Sposta in sezione.
+  Nessuna azione tolta ([[feedback-non-togliere-azioni]]): cambia quante gridano insieme.
+  ⚠️ Sul desktop il menù è un pannellino `absolute` sotto il bottone (la barra lì non ha
+  overflow); **su telefono la barra fissa scorre in orizzontale e un absolute verrebbe
+  TAGLIATO dall'overflow**: lì il menù è un foglio `position:fixed` sopra la barra, stile
+  foglio azioni iOS — il fixed non viene tosato dall'overflow dell'antenato.
+  ⚠️ I dialoghi (Delega Renè, Aggancia) stanno FUORI dal menù: devono restare montati anche
+  a menù chiuso, o l'evento che li apre non troverebbe nessuno.
+
 - **La mail aperta su telefono era un impilamento (24 ago)** — «da mobile l'app è un
   disastro»: tre file di bottoni che a schermo stretto andavano a capo su sei-sette righe,
   e la mail cominciava sotto la piega. Rifatta in stile Apple Mail (blocco CSS in coda a
