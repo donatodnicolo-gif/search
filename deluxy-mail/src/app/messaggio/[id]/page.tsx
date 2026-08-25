@@ -669,6 +669,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
       {/* I dialoghi di nome e aggancio: li aprono i bottoni della riga sottile. */}
       <NomeThreadDialog />
       <AgganciaDialog />
+      {/* Su telefono la barra delle azioni è fissa in basso: senza questo
+          spazio coprirebbe l ultima card della pagina. Sul desktop è alto zero. */}
+      <div className="fondo-mobile" aria-hidden="true" />
     </>
   )
 }

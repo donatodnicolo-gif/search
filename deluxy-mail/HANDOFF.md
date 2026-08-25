@@ -490,6 +490,22 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 
 ## 9. Problemi noti / gotchas
 
+- **La mail aperta su telefono era un impilamento (24 ago)** — «da mobile l'app è un
+  disastro»: tre file di bottoni che a schermo stretto andavano a capo su sei-sette righe,
+  e la mail cominciava sotto la piega. Rifatta in stile Apple Mail (blocco CSS in coda a
+  `globals.css`, commentato): **azioni in una barra fissa in basso** che scorre di lato —
+  tutte, nessuna tolta ([[feedback-non-togliere-azioni]]) — righe di comandi che scorrono
+  in orizzontale, testa di navigazione sticky col vetro, bersagli 40px, campi a 16px (sotto,
+  iOS zooma da solo), suggerimenti di tastiera nascosti su `hover:none` (non sulla
+  larghezza: un iPad largo resta touch).
+  ⚠️ **Niente `backdrop-filter` sulla barra fissa**: dentro ci sono dialoghi
+  `position:fixed` (Delega Renè, Aggancia) e un filtro sull'antenato diventa il loro
+  containing block — il dialogo si aprirebbe DENTRO la barra. E lo sfondo sta
+  sull'ELEMENTO, non su un `::before` assoluto: il background di un contenitore che
+  scorre non scorre via, lo pseudo-elemento sì.
+  ⚠️ Verifica a schermo dall'utente richiesta ([[feedback-verifica-utente]]): il telefono
+  vero non ce l'ho.
+
 - **«Leggi recensione» lasciava un rettangolo grigio (24 ago)** — nella mail di Trustpilot
   il bottone ha **`target="_self"`** (misurato sull'HTML nel database), che **vince** sul
   `<base target="_blank">` dell'involucro: il clic navigava l'**iframe** verso

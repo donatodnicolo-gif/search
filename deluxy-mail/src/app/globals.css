@@ -1638,3 +1638,84 @@ mark.ricerca-hit {
 
 /* La nota di chi segue l attivita, distinta dalla descrizione di cosa fare. */
 .nota-riga { border-left: 2px solid var(--hairline-strong); padding-left: 8px; margin: 4px 0; }
+
+/* ============================================================
+   LA MAIL APERTA, SU TELEFONO (24/08/2026)
+   Il problema era l'IMPILAMENTO: tre file di bottoni che a schermo
+   stretto vanno a capo e diventano sei-sette righe — la mail
+   cominciava sotto la piega. La cura, in stile Apple Mail:
+   · le AZIONI stanno in una barra FISSA IN BASSO, a portata di
+     pollice, che scorre di lato — TUTTE le azioni, nessuna tolta
+     (regola di casa: si stringe la cornice, non il numero);
+   · le altre righe di comandi scorrono in orizzontale invece di
+     impilarsi;
+   · i suggerimenti da tastiera spariscono dove la tastiera non
+     c'è (media hover:none, non la larghezza: un iPad largo resta
+     touch);
+   · bersagli da 40px e campi a 16px (sotto, iOS zooma da solo).
+   ⚠️ NIENTE backdrop-filter sulla barra: dentro ci sono i dialoghi
+   (Delega Renè, Aggancia) che usano position:fixed, e un filtro
+   sull'antenato diventa il loro containing block — il dialogo si
+   aprirebbe DENTRO la barra. Sfondo quasi pieno e via.
+   ============================================================ */
+@media (max-width: 700px) {
+  /* La testa di navigazione resta a portata di mano mentre si scorre. */
+  .naviga-testa {
+    position: sticky; top: 8px; z-index: 30;
+    width: fit-content; max-width: 100%;
+    padding: 6px; border-radius: var(--radius-pill);
+    background: rgba(245, 245, 247, 0.85);
+    backdrop-filter: blur(14px) saturate(1.6);
+    -webkit-backdrop-filter: blur(14px) saturate(1.6);
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+  }
+  .naviga-testa::-webkit-scrollbar { display: none; }
+
+  /* La barra delle azioni: fissa in basso, una riga che scorre. */
+  .azioni-messaggio {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 35;
+    margin: 0;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    flex-wrap: nowrap; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    border-top: 1px solid var(--hairline-strong);
+    /* Sfondo sull'ELEMENTO, non su un ::before: il background di un
+       contenitore che scorre non scorre via col contenuto. */
+    background: rgba(255, 255, 255, 0.97);
+    scrollbar-width: none;
+  }
+  .azioni-messaggio::-webkit-scrollbar { display: none; }
+  .azioni-messaggio .azioni-gruppo { flex-wrap: nowrap; flex: none; }
+  .azioni-messaggio .btn,
+  .azioni-messaggio .azione-riga,
+  .azioni-messaggio select {
+    flex: none; white-space: nowrap;
+    min-height: 40px;
+  }
+  .azioni-messaggio .btn { font-size: 14px; padding-inline: 14px; }
+
+  /* Lo spazio che la barra fissa occupa in fondo alla pagina. */
+  .fondo-mobile { height: calc(72px + env(safe-area-inset-bottom)); }
+  /* Il + di «nuova mail» sale sopra la barra, non ci finisce sotto. */
+  body:has(.azioni-messaggio) .fab { bottom: calc(88px + env(safe-area-inset-bottom)); }
+
+  /* Le righe di comandi scorrono di lato invece di andare a capo. */
+  .riga-azioni, .conv-azioni {
+    flex-wrap: nowrap; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding-bottom: 2px;
+  }
+  .riga-azioni::-webkit-scrollbar, .conv-azioni::-webkit-scrollbar { display: none; }
+  .riga-azioni > *, .conv-azioni > * { flex: none; white-space: nowrap; }
+
+  .mail-subject { font-size: 19px; line-height: 1.25; }
+
+  /* iOS zooma sui campi sotto i 16px: qui non deve zoomare niente. */
+  input, select, textarea { font-size: 16px; }
+}
+
+/* Dove non c'è una tastiera, i suoi suggerimenti sono rumore. */
+@media (hover: none) and (pointer: coarse) {
+  .btn kbd.tasto, .tasti-aiuto, .solo-tastiera { display: none; }
+}

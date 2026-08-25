@@ -155,8 +155,12 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
         <div style={{ minWidth: 0 }}>
           <div className="conv-oggetto">{oggetto}</div>
           <div className="conv-sotto">
-            {righe.length} messaggi · <kbd>j</kbd>/<kbd>k</kbd> per muoverti, <kbd>Invio</kbd> per
-            aprire, <kbd>r</kbd> per rispondere · <kbd>?</kbd> tutte le scorciatoie
+            {righe.length} messaggi
+            {/* Su touch la frase sparisce: j/k e Invio non esistono senza tastiera. */}
+            <span className="solo-tastiera">
+              {' '}· <kbd>j</kbd>/<kbd>k</kbd> per muoverti, <kbd>Invio</kbd> per aprire, <kbd>r</kbd> per
+              rispondere · <kbd>?</kbd> tutte le scorciatoie
+            </span>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
