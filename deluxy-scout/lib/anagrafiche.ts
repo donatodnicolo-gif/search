@@ -31,6 +31,10 @@ export interface PartnerRegistro {
   /** Quando è entrato nel registro (ISO): per le segnalazioni è LA data della
    *  segnalazione. Il registro lo manda già (`creatoIl`), qui si dichiara. */
   creatoIl?: string | null;
+  /** Il rapporto di fornitura: da_provare | abituale | da_evitare.
+   *  Vuoto = non è un nostro fornitore. Lo scrive la riconciliazione del
+   *  Customer Service quando un fornitore viene pagato. */
+  statoFornitore?: string | null;
 }
 
 async function chiama<T>(body: unknown): Promise<T> {
@@ -217,6 +221,58 @@ async function segnalatiDiUnaFonte(fonte: string): Promise<{
     trovati.push(...righe.filter((p) => p.fonte === fonte));
   }
   return { partner: trovati, parziale: true, totali: null };
+}
+
+/** Gli stati di fornitura del registro, nell'ordine in cui ha senso leggerli. */
+export const STATI_FORNITORE = ['abituale', 'da_provare', 'da_evitare'] as const;
+
+/**
+ * I NOSTRI FORNITORI, letti live dal registro: i partner con uno
+ * `statoFornitore` (da_provare | abituale | da_evitare). Lo stato lo scrive la
+ * riconciliazione del Customer Service quando un fornitore prepara un ordine e
+ * viene pagato — sono rapporti già in piedi, non prospezione.
+ *
+ * ⚠️ Il registro filtra per UN valore alla volta (`statoFornitore=`), quindi si
+ * chiede tre volte e si unisce qui — lo stesso giro delle fonti in
+ * `fetchSegnalatiDaApp`. E come là, se la Edge Function deployata è più vecchia
+ * del parametro il registro lo ignora e torna partner qualsiasi: si verifica
+ * che TUTTE le righe abbiano lo stato chiesto, altrimenti `parziale: true` —
+ * meglio dire «non lo so» che spacciare l'elenco sbagliato per quello vero.
+ */
+export async function fetchFornitori(): Promise<{
+  partner: PartnerRegistro[];
+  parziale: boolean;
+}> {
+  const risposte = await Promise.all(
+    STATI_FORNITORE.map(async (stato) => {
+      try {
+        const r = await chiama<{ dati?: PartnerRegistro[]; totale?: number }>({
+          action: 'cerca',
+          statoFornitore: stato,
+          perPage: 50,
+        });
+        const dati = r.dati ?? [];
+        const miei = dati.filter((p) => p.statoFornitore === stato);
+        // Filtro applicato davvero solo se sono TUTTI dello stato chiesto.
+        if (dati.length && miei.length !== dati.length) return { partner: [], parziale: true };
+        // Oltre le 50 righe servirebbero le pagine: finché non serve, si dice.
+        return { partner: miei, parziale: (r.totale ?? miei.length) > miei.length };
+      } catch {
+        return { partner: [], parziale: true };
+      }
+    }),
+  );
+  const visti = new Set<string>();
+  const partner: PartnerRegistro[] = [];
+  for (const r of risposte) {
+    for (const p of r.partner) {
+      if (visti.has(p.id)) continue;
+      visti.add(p.id);
+      partner.push(p);
+    }
+  }
+  partner.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+  return { partner, parziale: risposte.some((r) => r.parziale) };
 }
 
 /**

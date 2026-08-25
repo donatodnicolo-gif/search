@@ -56,6 +56,10 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       { name: 'lista-lead', route: 'lista', params: { vista: 'lead' }, label: 'Lead', icon: 'send-outline' },
       { name: 'lista-prospect', route: 'lista', params: { vista: 'prospect' }, label: 'Prospect', icon: 'people-outline' },
       { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
+      // I partner con un rapporto di fornitura nel registro (li scrive il CS
+      // quando li paga): hanno già lavorato per noi, sono i più caldi da
+      // affiliare. Non è un livello del funnel: si legge live da Anagrafiche.
+      { name: 'fornitori', label: 'Fornitori', icon: 'cube-outline' },
       // Clienti che comprano ancora ma peggiorano: la finestra in cui si può
       // ancora fare qualcosa, prima che diventino dormienti.
       { name: 'lista-a-rischio', route: 'lista', params: { vista: 'a-rischio' }, label: 'A rischio', icon: 'warning-outline' },
@@ -402,6 +406,7 @@ export default function AppLayout() {
         <Drawer.Screen name="sequenze" options={{ title: 'Sequenze' }} />
         <Drawer.Screen name="preventivi" options={{ title: 'Preventivi fornitori' }} />
         <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
+        <Drawer.Screen name="fornitori" options={{ title: 'Fornitori' }} />
         <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni · Copertura' }} />
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard' }} />

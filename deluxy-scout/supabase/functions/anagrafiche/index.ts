@@ -185,6 +185,11 @@ Deno.serve(async (req) => {
       // i fioristi e le pasticcerie trovati dall'app fornitori). Senza questo
       // filtro l'unico modo di trovarli era scaricare tutti i 600+ prospect.
       if (body.fonte) p.set('fonte', String(body.fonte));
+      // `statoFornitore` = il rapporto di fornitura (da_provare | abituale |
+      // da_evitare): serve alla vista Fornitori. Come per `fonte`, il client
+      // verifica che il filtro sia stato applicato davvero — una funzione
+      // vecchia lo ignorerebbe in silenzio.
+      if (body.statoFornitore) p.set('statoFornitore', String(body.statoFornitore));
       if (body.page) p.set('page', String(body.page));
       p.set('perPage', String(Math.min(Number(body.perPage ?? 10), 50)));
       path = `/api/v1/partners?${p.toString()}`;
