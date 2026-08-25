@@ -1,6 +1,13 @@
 # Deluxy Scout — Stato del progetto & Handoff
 
-Ultimo aggiornamento: **20 luglio 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+Ultimo aggiornamento: **24 agosto 2026**. Questo documento permette a un altro agente di riprendere il progetto senza contesto pregresso.
+
+> 🆕 **Fatto il 24 ago 2026** (branch `scout-ui`, commit `99463af7`, migr. `0068`) — audit architettura:
+> - **Il cron HubSpot torna vivo**: `sync-hubspot-crm` era morto in silenzio dal 23/08 (la correzione d'auth su `hubspot-match` rifiutava la sua vecchia anon key con 401 ogni notte, e nessuno lo vedeva). La `0068` lo rifà con la chiave d'ingresso letta da `chiavi_app._ingresso`, come il cron delle Richieste Web. Verificare al mattino dopo che `hubspot_sync_at` sui places si muova di nuovo.
+> - **`scripts/allinea-supabase.mjs` legge migrazioni e funzioni DALLA CARTELLA** (migrazioni ≥ 0045, tutte le cartelle di `supabase/functions/` tranne `_shared`): l'elenco a mano aveva già saltato la 0066 e lasciato 10 funzioni su 21 mai ripubblicate. `SENZA_JWT` ora include anche `linee`, `hubspot-sync`, `calendario-ics` (erano GIÀ pubbliche al gateway: rideployarle senza flag le avrebbe rotte). ⚠️ Corollario nuovo: **ogni migrazione ≥ 0045 dev'essere idempotente**, perché viene rilanciata a ogni giro.
+> - **L'import da Anagrafiche non copia più i referenti dei clienti attivi** (`import-anagrafiche.mjs`): sapere CHI è cliente serve (Copertura e Affiliazioni ci vivono sopra), tenerne la rubrica no — vive nel registro. I contatti già copiati restano; non se ne aggiungono più.
+> - `hubspot-sync`: controllo dei segreti spostato DOPO l'auth; `linee`: confronto della chiave a tempo costante (`uguali` ora esportata da `_shared/chiaveIn.ts`).
+> - Verificato e lasciato com'è: l'upsert verso Anagrafiche manda `stato`/`interessi` ma il registro li **blocca dal merge** (proposte in revisione: è il canale previsto). Restano aperti: bucket `vetrine` pubblico (per chiuderlo servono URL firmati nel client RN) e la anon key nella storia git della 0009 (pubblica per progettazione).
 
 > 🆕 **Fatto il 20 lug 2026** (branch `scout-ui`, commit `be96532`):
 > - **Restyling UX completo al Deluxy Design System** su tutte le 20+ schermate. Nuovo **kit condiviso `components/ui.tsx`**: `PageIntro` (caption grigia che spiega ogni sezione), `EmptyState` (icona in quadratino gold-soft + frase d'aiuto + azione), `StatusBadge` (pillola dot + tinta 10% + testo colorato — il pattern badge DS), `Btn` a pillola, `tinta()`. **Da usare per ogni UI futura.**
@@ -83,7 +90,7 @@ App mobile React Native (Expo Router, TypeScript) per la prospezione commerciale
 - **Identità visiva**: icona, adaptive icon (Android), splash e favicon brandizzate navy/oro (pin di mappa oro) — generate da SVG con `scripts/gen-icons.mjs` (dep dev `sharp`), collegate in `app.config.ts`. In `assets/`.
 - **Rifiniture**: ricerca testuale nella lista target (nome/indirizzo/zona/categoria); dettaglio visita con foto vetrina (tap su una visita nello storico della scheda); **export CSV** di attività e visite dalla schermata Profilo (BOM UTF-8, condivisione via `expo-sharing`). Bundle a 1276 moduli.
 - **Build EAS Android**: progetto **@deluxyoff/deluxy-scout** (projectId `81ab09df-c772-4c2b-b860-c590df0ec789`, owner `deluxyoff`). Primo **APK preview** generato con successo. Variabili Supabase nel profilo `preview` di `eas.json`. Fix necessario per SDK 52: plugin `expo-build-properties` con `android.kotlinVersion: '1.9.25'` (il default 1.9.24 rompeva `expo-modules-core:compileReleaseKotlin` per mismatch col Compose Compiler 1.5.15). Owner impostato in `app.config.ts` (`owner: 'deluxyoff'`, `extra.eas.projectId`). La build si lancia con `EXPO_TOKEN` (personal access token Expo) in modo non-interattivo: `npx eas-cli build -p android --profile preview --non-interactive --no-wait`.
-- **Supabase** — org "Deluxy" (free), progetto **deluxy-scout**:
+- **Supabase** — org "Deluxy" (piano Pro, verificato 18/08/2026: 7 giorni di backup giornalieri), progetto **deluxy-scout**:
   - Project ref: **`fdsziebgkljfsugqqbqd`** · URL: **`https://fdsziebgkljfsugqqbqd.supabase.co`**
   - Migrazioni applicate e verificate (schema + RLS + seed): 9 linee (3 standby con `attiva_bool=false`), 20 `category_rules`, RLS attivo su tutte le tabelle, storage bucket `vetrine`. Accenti UTF-8 corretti.
   - Anon (publishable) key già in `deluxy-scout/.env`.
