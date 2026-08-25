@@ -56,7 +56,7 @@ const ZERO: Misure = {
 export type Margine = Misure & {
   margine: number; // misurato, AL NETTO IVA: (lordo degli ordini con costo − costo) ÷ 1,22
   imponibileConCosto: number; // il venduto misurato AL NETTO IVA: è la base di pctMargine
-  pctMargine: number; // margine reale in % (invariante allo scorporo: = margineLordo/lordoConCosto)
+  pctMargine: number; // margine NETTO in % del venduto LORDO misurato (= margine/lordoConCosto)
   coperturaOrdini: number; // % di ordini validi che hanno un costo
   coperturaLordo: number; // % di venduto valido coperto dalla misura
   costoMedioPct: number; // quanto paghiamo, in % del valore dell'ordine
@@ -77,7 +77,10 @@ export function calcola(m: Misure, quota: number): Margine {
     // margine netto va letto accanto al venduto NETTO, non accanto al lordo —
     // altrimenti i due numeri non tornano e chi guarda ha ragione.
     imponibileConCosto: Math.round((m.lordoConCosto / iva) * 100) / 100,
-    pctMargine: m.lordoConCosto > 0.005 ? (margineLordo / m.lordoConCosto) * 100 : 0,
+    // Stessa regola della scheda ordine (decisione utente 25/08/2026): margine
+    // NETTO sul venduto LORDO. Non è (100 − quota): l'atteso si scorpora con
+    // margineAttesoPct().
+    pctMargine: m.lordoConCosto > 0.005 ? (margine / m.lordoConCosto) * 100 : 0,
     coperturaOrdini: m.ordiniValidi ? (m.ordiniConCosto / m.ordiniValidi) * 100 : 0,
     coperturaLordo: m.lordoValido > 0.005 ? (m.lordoConCosto / m.lordoValido) * 100 : 0,
     costoMedioPct: m.lordoConCosto > 0.005 ? (m.costo / m.lordoConCosto) * 100 : 0,

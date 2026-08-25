@@ -47,10 +47,10 @@ di Orders, da cui è **distinta**: la prima dice *come lo evadiamo*, la seconda
 (stato «Gestito») si vede anche il **margine reale, in euro e in percentuale**
 (chip verde se positivo, rosso se negativo). Il valore è **al netto dell'IVA**:
 alla differenza fra prezzo e costo si toglie l'IVA (scorporo ÷ 1,22), perché
-l'IVA non è profitto. La **percentuale** invece non cambia con lo scorporo
-(l'IVA colpisce ricavo e costo uguale): è il margine sul ricavo netto, cioè
-`(totale − costo) ÷ totale`. Un ordine chiuso ma senza il costo del fornitore
-mostra **«margine n/d»**, non uno zero che sembrerebbe «nessun margine». Lo
+l'IVA non è profitto. La **percentuale** è quel margine netto rapportato al
+**totale pagato dal cliente** (`margine ÷ totale`): 81,97 € su un ordine da
+250 € sono il **32,8%**, e con la quota del 60% l'atteso non è 40% ma 32,8%
+(vedi `/margini`). Un ordine chiuso ma senza il costo del fornitore mostra **«margine n/d»**, non uno zero che sembrerebbe «nessun margine». Lo
 stato arriva dal Customer Service e il costo pure (è lui che lo concorda col
 fornitore): Orders li riceve e qui li mostra.
 
@@ -410,17 +410,22 @@ averlo segnalato). La **percentuale** del margine non cambia con lo scorporo
 euro. Se un giorno serve l'aliquota per categoria, si cambia in un posto solo
 (`controllo.ALIQUOTA_IVA`).
 
-⚠️ **Le due basi non si mescolano, e le schermate lo dicono (25/08/2026).** Il
-valore in euro è **netto**, il totale dell'ordine è **lordo**: chi legge
-«81,97 € · 40%» accanto a un ordine da 250 € fa la divisione con il numero che
-ha davanti, ottiene 32,8% e conclude — con ragione — che il conto non torna.
-Il 40% è `81,97 ÷ 204,92`, cioè il margine netto sull'**imponibile**, che prima
-non compariva da nessuna parte. Adesso la base è scritta accanto al numero:
-sulla scheda dell'ordine «· 40% dell'imponibile» più la riga «la percentuale è
-sull'imponibile (204,92 €), non sul totale lordo (250,00 €)»; in `/margini` il
-KPI dice «su 4.151,72 € imponibili (5.065,10 € lordi)»; nell'elenco e in
-`/controllo` sta nel suggerimento del chip. `margineOrdine()` torna
-l'`imponibile` apposta, così nessuna pagina se lo ricalcola per conto suo.
+⚠️ **La percentuale è sul totale che il cliente ha pagato (scelta dell'utente,
+25/08/2026).** Valore e percentuale hanno **basi diverse apposta**: il valore è
+netto IVA, la base è il **lordo incassato**. Un ordine da 250 € con 150 € di
+costo fa **81,97 € · 32,8%** — 81,97 su 250, non su 204,92 (l'imponibile). Si
+legge «di ogni 100 € incassati me ne restano 32,80, IVA e fornitore pagati»: è
+il conto che chi guarda la schermata rifà a mente, e ora torna.
+
+Due conseguenze da non dimenticare:
+- **L'atteso non è più `100 − quota`.** Con la quota del 60% non è 40% ma
+  **32,8%** (40 ÷ 1,22). La soglia sta in `margineAttesoPct(quota)` — un posto
+  solo, come l'aliquota — e con quella sono colorati i numeri di `/margini`:
+  senza scorporare anche la soglia, ogni margine risulterebbe sotto le attese e
+  sarebbe rosso a torto.
+- **`costo fornitore %` e `margine %` non fanno 100 fra loro**: il costo è lordo
+  su lordo (60%), il margine è netto su lordo (32,8%). Non è un errore di somma,
+  è la differenza fra le due basi.
 
 ### Controllo (`/controllo`)
 I soldi di ogni ordine: **quello che il cliente ha pagato** e **quello che abbiamo

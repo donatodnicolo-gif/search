@@ -28,7 +28,7 @@ import {
   perDimensione,
   sopraQuota,
 } from "@/lib/margini";
-import { ALIQUOTA_IVA, quotaFornitore } from "@/lib/controllo";
+import { ALIQUOTA_IVA, margineAttesoPct, quotaFornitore } from "@/lib/controllo";
 
 export const dynamic = "force-dynamic";
 
@@ -64,9 +64,11 @@ function etichetta(dimensione: string, valore: string): string {
 }
 
 function coloreMargine(p: number, quota: number): string {
-  // Il verso «buono» è quello dell'accordo: se paghiamo la quota attesa, il
-  // margine è 100 − quota. Sopra è bene, sotto è male, e il colore lo dice.
-  const atteso = 100 - quota;
+  // Il verso «buono» è quello dell'accordo. ⚠️ La soglia si SCORPORA come il
+  // margine (margineAttesoPct): le percentuali qui sono margine NETTO su venduto
+  // LORDO, quindi con quota 60% l'atteso è 32,8%, non 40%. Confrontare un netto
+  // con una soglia lorda dipingerebbe di rosso tutto quanto, a torto.
+  const atteso = margineAttesoPct(quota);
   if (p >= atteso - 0.5) return "var(--green)";
   if (p >= atteso - 10) return "var(--gold-strong)";
   return "var(--red)";
@@ -242,19 +244,19 @@ export default async function Margini({
           <div className="kpi-valore" style={{ color: k.margine >= 0 ? "var(--green)" : "var(--red)" }}>
             {euro(k.margine)}
           </div>
-          {/* Il margine è netto e il venduto è lordo: accostarli senza dirlo fa
-              sembrare sbagliata una percentuale giusta. Qui si dichiarano
-              tutt'e due, nell'ordine in cui il conto si fa. */}
+          {/* Il margine è netto e il venduto è lordo: si dichiarano tutt'e due,
+              con davanti la BASE della percentuale (il lordo incassato), così il
+              conto del KPI accanto si rifà a occhio. */}
           <div className="testo-guida">
-            su {euro(k.imponibileConCosto)} imponibili ({euro(k.lordoConCosto)} lordi)
+            su {euro(k.lordoConCosto)} incassati ({euro(k.imponibileConCosto)} imponibili)
           </div>
         </div>
-        <div className="kpi kpi-analisi" title="Margine netto in percentuale del venduto misurato al netto IVA. Non cambia con lo scorporo (l'IVA colpisce ricavo e costo alla stessa aliquota), quindi vale anche lordo su lordo. Con la quota attesa dovrebbe stare intorno a 100 − quota.">
-          <div className="kpi-etichetta">Margine %</div>
+        <div className="kpi kpi-analisi" title="Margine NETTO in percentuale del venduto LORDO: di quello che il cliente ha pagato, quanto resta dopo il fornitore e dopo l'IVA. Con la quota attesa dovrebbe stare intorno a (100 − quota) ÷ 1,22.">
+          <div className="kpi-etichetta">Margine % (netto sul venduto)</div>
           <div className="kpi-valore" style={{ color: coloreMargine(k.pctMargine, quota) }}>
             {pct(k.pctMargine)}
           </div>
-          <div className="testo-guida">atteso {pct(100 - quota, 0)} con la quota del {quota}%</div>
+          <div className="testo-guida">atteso {pct(margineAttesoPct(quota))} con la quota del {quota}%</div>
         </div>
         <div className="kpi kpi-analisi" title="Quanto abbiamo pagato al fornitore in percentuale del valore dell'ordine.">
           <div className="kpi-etichetta">Costo fornitore</div>
@@ -432,11 +434,14 @@ export default async function Margini({
         con <strong>aliquota unica</strong> anche se fiori e torte in Italia sarebbero di norma al 10%: su quelli il
         margine reale è più alto di quanto si legge qui.
         <br />
-        ⚠️ <strong>I due numeri hanno basi diverse, e vanno letti così.</strong> La percentuale è il margine netto
-        sull&apos;<strong>imponibile</strong>, non sul totale lordo: un ordine da 250 € con 150 € di costo fa 81,97 €
-        di margine e <strong>40%</strong> — che è 81,97 su 204,92 (l&apos;imponibile), non 81,97 su 250. La
-        percentuale non cambia con lo scorporo (l&apos;IVA colpisce ricavo e costo alla stessa aliquota): cambia solo
-        il valore in euro.
+        <strong>La percentuale è il margine netto su quello che il cliente ha pagato</strong> (scelta dell&apos;utente,
+        25/08/2026): un ordine da 250 € con 150 € di costo fa 81,97 € di margine e <strong>32,8%</strong> —
+        81,97 su 250, non su 204,92. Si legge «di ogni 100 € incassati me ne restano 32,80, IVA e fornitore pagati».
+        <br />
+        ⚠️ <strong>Con questa base il margine atteso NON è 100 − quota.</strong> Con la quota del {quota}% l&apos;atteso
+        è {pct(margineAttesoPct(quota))} (cioè {pct(100 - quota, 0)} ÷ {(1 + ALIQUOTA_IVA / 100).toLocaleString("it-IT")}),
+        ed è la soglia con cui sono colorati i numeri qui sopra. Per lo stesso motivo <em>costo fornitore %</em> e{" "}
+        <em>margine %</em> non fanno 100 fra loro: il costo è lordo, il margine è netto.
       </p>
     </main>
   );

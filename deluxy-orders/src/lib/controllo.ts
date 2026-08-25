@@ -173,6 +173,18 @@ export async function quotaFornitorePer(
 // margineOrdine è l'unico che scorpora, tutto il resto legge da lui.
 export const ALIQUOTA_IVA = 22;
 
+/**
+ * La percentuale di margine che ci si ASPETTA pagando la quota di riferimento,
+ * sulla stessa base delle percentuali mostrate (margine netto ÷ totale lordo).
+ *
+ * Con quota 60% non è 40%: è 40 ÷ 1,22 = 32,8%. Senza questo scorporo ogni
+ * margine risulterebbe «sotto le attese» e sarebbe rosso a torto — la soglia va
+ * portata sulla base del numero che deve giudicare, non viceversa.
+ */
+export function margineAttesoPct(quota: number): number {
+  return (100 - quota) / (1 + ALIQUOTA_IVA / 100);
+}
+
 export function margineOrdine(o: {
   totale: number;
   costoFornitore: number | null;
@@ -212,17 +224,17 @@ export function margineOrdine(o: {
   // IVA-incluso è uno SCORPORO (÷ 1,22), NON un −22% (× 0,78): il netto di 122
   // è 100, non 95,16. Qui `lordo` è la differenza IVA-inclusa; il netto è ÷1,22.
   const valore = Math.round((lordo / (1 + ALIQUOTA_IVA / 100)) * 100) / 100;
-  // La % è il margine sul ricavo NETTO (margine netto ÷ imponibile). L'IVA
-  // colpisce ricavo e costo alla stessa aliquota, quindi il rapporto NON cambia
-  // con lo scorporo: equivale a `lordo / totale`. Cambia il valore in euro, non
-  // la percentuale.
+  // ⚠️⚠️ LA PERCENTUALE È IL MARGINE NETTO SUL TOTALE PAGATO DAL CLIENTE
+  // (decisione dell'utente, 25/08/2026): `valore / totale`, cioè 81,97 su 250
+  // = 32,8% — NON 81,97 su 204,92 (l'imponibile) = 40%.
   //
-  // ⚠️ MA LE DUE BASI NON VANNO MESCOLATE A SCHERMO: 81,97 € di margine netto
-  // NON sono il 40% di 250 € (sono il 40% di 204,92 €, l'imponibile). Chi mostra
-  // valore e percentuale insieme deve mostrare anche la base, o chi legge divide
-  // per il totale che ha davanti e conclude — con ragione — che il conto è
-  // sbagliato. Per questo `imponibile` esce di qui.
-  const pct = o.totale > 0.005 ? Math.round((lordo / o.totale) * 1000) / 10 : null;
+  // È la lettura di chi guarda la schermata: «di quello che ho incassato, tanto
+  // mi resta». Le due basi sono diverse apposta — margine netto, incasso lordo —
+  // e la conseguenza va detta invece di essere nascosta: **la % NON è più
+  // 100 − quota**. Con la quota fornitore al 60%, l'atteso non è 40% ma
+  // 40 ÷ 1,22 = **32,8%**, e chi confronta il margine con la quota deve
+  // scorporare la soglia allo stesso modo (vedi `margineAttesoPct`).
+  const pct = o.totale > 0.005 ? Math.round((valore / o.totale) * 1000) / 10 : null;
   return { valore, pct, imponibile, parziale, nota: `${nota} · al netto IVA ${ALIQUOTA_IVA}%` };
 }
 

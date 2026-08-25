@@ -1,9 +1,46 @@
 # Handoff — Deluxy Orders
 
-Stato al **25/08/2026 (pomeriggio 2)** (sezione qui sotto; il corpo del documento
+Stato al **25/08/2026 (pomeriggio 3)** (sezione qui sotto; il corpo del documento
 è del 30/07). Aggiornare a ogni tappa (regole di lavoro Deluxy). Serve a far
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
+
+## 25/08/2026 (pomeriggio 3) — La percentuale è il margine netto SUL TOTALE PAGATO (32,8%, non 40%)
+
+**Decisione dell'utente**, dopo la sua domanda «81,97 su 250 non fa 40%»: la
+percentuale del margine si calcola **sul totale che il cliente ha pagato**, non
+sull'imponibile. Un ordine da 250 € con 150 € di costo fa **81,97 € · 32,8%**.
+Si legge «di ogni 100 € incassati me ne restano 32,80, IVA e fornitore pagati».
+
+Le due basi restano diverse **apposta** (valore netto, base lorda) — ed è la
+lettura di chi guarda lo schermo: il conto si rifà a mente con i due numeri che
+si vedono. La regola sta in **un posto solo**, `margineOrdine()` in
+`controllo.ts`: `pct = valore / totale`.
+
+⚠️⚠️ **LA CONSEGUENZA CHE NON SI PUÒ DIMENTICARE: l'atteso non è più
+`100 − quota`.** Con la quota fornitore al 60% l'atteso non è 40% ma
+**40 ÷ 1,22 = 32,8%**. Se si scorpora il margine e NON la soglia, ogni numero
+risulta «sotto le attese» e `/margini` diventa rosso a torto. La soglia ha ora
+la sua funzione, accanto all'aliquota: **`margineAttesoPct(quota)`** in
+`controllo.ts` — usata dal colore e dalla scritta «atteso 32,8% con la quota del
+60%», e citata sulla scheda dell'ordine.
+
+⚠️ **Secondo effetto, dichiarato a schermo invece che scoperto**: `costo
+fornitore %` e `margine %` **non fanno 100 fra loro** (44,0% + 45,9% ≠ 100). Il
+costo è lordo su lordo, il margine è netto su lordo. È scritto nella nota in
+fondo a `/margini`, perché è esattamente il tipo di scarto che fa pensare a un
+errore di somma.
+
+**Toccato**: `margineOrdine.pct` e `margineAttesoPct` (nuova) in
+`src/lib/controllo.ts`; `calcola().pctMargine` in `src/lib/margini.ts`;
+`coloreMargine` + KPI + nota in `/margini`; scheda ordine («· 32,8% del totale»
+e la riga che nomina base e atteso); suggerimenti di elenco e `/controllo`;
+`marginePct` nelle API (stessa base, commentata).
+
+**Verificato**: `tsc` pulito, `next build`, pagine lette nel DOM col build di
+produzione — #2798 «81,97 € · 32,8% del totale»; `/margini` **2.365,57 € su
+5.152,15 € incassati** e **45,9%** (che è esattamente 2.365,57 ÷ 5.152,15),
+atteso 32,8%.
 
 ## 25/08/2026 (pomeriggio 2) — «81,97 su 250 non fa 40%»: aveva ragione lui, e due didascalie mentivano
 

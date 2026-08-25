@@ -439,7 +439,11 @@ export function serializzaOrdine(
       // non filtrato via, non portato a zero, non trattato come un errore.
       // `null` e' un'altra cosa ancora: vuol dire che non lo sappiamo.
       margine: mrg.valore,
-      marginePct: mrg.pct, // margine reale in % (netto IVA / imponibile)
+      // ⚠️ DAL 25/08/2026 la base è il TOTALE PAGATO DAL CLIENTE (lordo):
+      // `marginePct = margine netto ÷ totale`. Un ordine da 250 € con 150 € di
+      // costo dà margine 81,97 € e marginePct 32,8 — non 40. Chi confronta con
+      // la quota fornitore deve scorporare la soglia (margineAttesoPct).
+      marginePct: mrg.pct,
       margineParziale: mrg.parziale,
       margineNota: mrg.nota,
       // Gli ingredienti che arrivano dalla piattaforma consegne: chi legge il
