@@ -46,14 +46,6 @@ export function metodoValido(m: string): m is Metodo {
 }
 
 /**
- * Che cosa deve esserci perché la richiesta abbia senso.
- *
- * ⚠️ Non è la stessa cosa per tutti i metodi, e fingere che lo sia porta a
- * salvare righe vuote: un bonifico senza IBAN non è pagabile, un «altro» senza
- * la frase non dice niente a nessuno. L'unica cosa che serve **sempre** è a chi
- * stiamo dando i soldi.
- */
-/**
  * ⚠️⚠️ IL NUMERO D'ORDINE SCRITTO NELLA CAUSALE, quando l'ordine non è collegato.
  *
  * È il caso vero da cui nasce questa funzione: una riga con causale
@@ -70,6 +62,14 @@ export function ordineNominatoNellaCausale(causale: string): string {
   return m ? `#${m[1]}` : ''
 }
 
+/**
+ * Che cosa deve esserci perché la richiesta abbia senso.
+ *
+ * ⚠️ Non è la stessa cosa per tutti i metodi, e fingere che lo sia porta a
+ * salvare righe vuote: un bonifico senza IBAN non è pagabile, un «altro» senza
+ * la frase non dice niente a nessuno. L'unica cosa che serve **sempre** è a chi
+ * stiamo dando i soldi.
+ */
 export function cosaManca(d: {
   metodo: string
   iban: string
@@ -78,8 +78,37 @@ export function cosaManca(d: {
   /** La causale e l'ordine collegato: servono alla regola qui sotto. */
   causale?: string
   ordineNumero?: string
+  /**
+   * Il nome che è stato SCELTO dalla ricerca (o dichiarato nuovo apposta).
+   * Vuoto = digitato a mano e mai confermato.
+   */
+  intestatarioScelto?: string
 }): string {
   if (!d.intestatario.trim()) return 'Serve almeno il nome di chi va pagato.'
+
+  // ⚠️⚠️ IL FORNITORE VA SCELTO, NON SCRITTO.
+  //
+  // Segnalato dall'utente guardando la sua schermata: nel campo c'era scritto
+  // **«p»**. Un campo di testo obbligatorio si soddisfa con una lettera, e da lì
+  // in poi tutto funziona — la richiesta si salva, il fornitore «p» finisce
+  // sull'ordine, e il bonifico parte verso un nome che non è un nome.
+  //
+  // ⚠️ NON si vietano i nomi corti: sarebbe una regola sull'aspetto, e ci sono
+  // insegne di due lettere. Si chiede da DOVE viene il nome — dalla ricerca
+  // (nostri, registro, Google Maps) oppure dichiarato nuovo apposta.
+  //
+  // ⚠️ E la strada per chi è nuovo resta aperta: la maggior parte dei fornitori
+  // la prima volta non li conosciamo, e un modulo che non lascia pagare un
+  // fioraio nuovo non lo usa nessuno — si torna a fare i bonifici fuori
+  // dall'app, che è il problema da cui si è partiti.
+  //
+  // ⚠️ Il controllo vive QUI e non nella rotta: «da dove viene il nome» è un
+  // fatto della schermata, e il server non può saperlo. Chiude lo sbaglio di chi
+  // compila, non è un cancello contro chi chiama l'API a mano.
+  if (d.intestatarioScelto !== undefined && !d.intestatarioScelto.trim()) {
+    return `«${d.intestatario.trim()}» l’hai scritto a mano: cercalo qui sopra e toccalo, oppure premi «è un fornitore nuovo».`
+  }
+
   // ⚠️⚠️ UN PAGAMENTO CHE PARLA DI UN ORDINE DEVE AVERE QUELL'ORDINE COLLEGATO.
   //
   // Chiesto esplicitamente dall'utente il 25/08/2026 («rendi obbligatorio»), e

@@ -95,6 +95,19 @@ export function RichiediPagamento() {
   // Il nome del fornitore che arriva dal bottone «Paga» di un ordine: fa
   // partire la ricerca da sola, perché chi arriva qui vuole pagare LUI.
   const [fornitoreDaOrdine, setFornitoreDaOrdine] = useState('')
+  /**
+   * Il nome dell'intestatario che è stato SCELTO, non digitato.
+   *
+   * ⚠️⚠️ Segnalato dall'utente guardando la sua schermata: nel campo c'era
+   * scritto **«p»**. Un campo di testo obbligatorio si soddisfa con una lettera,
+   * e da lì in poi tutto funziona — la richiesta si salva, il fornitore «p»
+   * finisce sull'ordine, e il bonifico parte verso un nome che non è un nome.
+   *
+   * ⚠️ Non basta vietare i nomi corti: il punto è che il fornitore va **scelto**
+   * — dai nostri, dal registro, o da Google Maps — oppure dichiarato nuovo
+   * apposta. Scriverlo e basta è il gesto che salta il controllo.
+   */
+  const [intestatarioScelto, setIntestatarioScelto] = useState('')
   // ⚠️ QUANTO HA PAGATO IL CLIENTE, che è un'altra cosa dall'importo qui sotto:
   // quello è quanto diamo al fornitore. La differenza fra i due è tutto il
   // guadagno di quell'ordine, e finora nessuno la vedeva.
@@ -173,6 +186,10 @@ export function RichiediPagamento() {
     if (fornitore) {
       setIntestatario(fornitore)
       setFornitoreDaOrdine(fornitore)
+      // ⚠️ Arrivando dal bottone «Paga» di un ordine il fornitore è già stato
+      // scelto una volta — su quell'ordine — e richiederlo di nuovo sarebbe
+      // chiedere due volte la stessa cosa.
+      setIntestatarioScelto(fornitore)
     }
     // ⚠️ Si tiene da parte QUANTO VALE L'ORDINE, anche quando l'importo del
     // modulo diventa il costo del fornitore: senza, la percentuale di margine
@@ -321,6 +338,7 @@ export function RichiediPagamento() {
    */
   function usaFornitore(f: FornitoreTrovato) {
     setIntestatario(f.ragioneSociale || f.nome)
+    setIntestatarioScelto(f.ragioneSociale || f.nome)
     if (f.iban) {
       setIban(f.iban)
       setIbanNota('')
@@ -499,6 +517,7 @@ export function RichiediPagamento() {
       intestatario,
       causale,
       ordineNumero: ordineScelto?.numero || ordineNumero,
+      intestatarioScelto,
     })
     if (manca) {
       setErrore(manca)
@@ -530,6 +549,7 @@ export function RichiediPagamento() {
       setIban('')
       setRiferimento('')
       setIntestatario('')
+      setIntestatarioScelto('')
       setImporto('')
       setCausale('')
       setOrdineNumero('')
@@ -610,6 +630,7 @@ export function RichiediPagamento() {
       setIban('')
       setRiferimento('')
       setIntestatario('')
+      setIntestatarioScelto('')
       setImporto('')
       setCausale('')
       setOrdineNumero('')
@@ -806,10 +827,40 @@ export function RichiediPagamento() {
             <span>Intestatario del conto</span>
             <input
               value={intestatario}
-              onChange={(e) => setIntestatario(e.target.value)}
+              onChange={(e) => {
+                setIntestatario(e.target.value)
+                // ⚠️ Toccando il campo a mano il nome smette di essere «scelto»:
+                // altrimenti si sceglie un fornitore, si riscrive il nome sopra,
+                // e resta marcato come verificato quando non lo è più.
+                if (e.target.value.trim() !== intestatarioScelto.trim()) {
+                  setIntestatarioScelto('')
+                }
+              }}
               placeholder="Mario Rossi"
             />
           </label>
+          {/* ── IL FORNITORE VA SCELTO, NON SCRITTO ──
+              ⚠️⚠️ Nel campo c'era scritto «p». Un campo obbligatorio si soddisfa
+              con una lettera, e da lì in poi tutto funziona: la richiesta si
+              salva, il fornitore «p» finisce sull'ordine, e il bonifico parte
+              verso un nome che non è un nome.
+              ⚠️ Non si vietano i nomi corti — si chiede da DOVE viene il nome.
+              E resta la strada per chi è nuovo davvero: la maggior parte dei
+              fornitori la prima volta non li conosciamo, e un modulo che non
+              lascia pagare un fioraio nuovo non si usa. */}
+          {intestatario.trim() && !intestatarioScelto.trim() ? (
+            <p className="cella-sub" style={{ color: 'var(--red)', marginTop: -4 }}>
+              «{intestatario.trim()}» l&apos;hai scritto a mano. Cercalo qui sopra e toccalo, oppure{' '}
+              <button
+                type="button"
+                className="btn btn-secondario small"
+                onClick={() => setIntestatarioScelto(intestatario)}
+                title="Lo cerchiamo, non c’è: è la prima volta che lo paghiamo"
+              >
+                è un fornitore nuovo
+              </button>
+            </p>
+          ) : null}
           <div style={{ display: 'flex', gap: 10 }}>
             <label className="campo" style={{ flex: 1 }}>
               <span>Importo</span>
@@ -928,6 +979,7 @@ export function RichiediPagamento() {
       intestatario,
       causale,
       ordineNumero: ordineScelto?.numero || ordineNumero,
+      intestatarioScelto,
     })}
               title={cosaManca({
       metodo,
@@ -936,6 +988,7 @@ export function RichiediPagamento() {
       intestatario,
       causale,
       ordineNumero: ordineScelto?.numero || ordineNumero,
+      intestatarioScelto,
     }) || undefined}
             >
               {modificoId ? 'Salva la correzione' : 'Salva la richiesta'}
@@ -948,6 +1001,7 @@ export function RichiediPagamento() {
                   setIban('')
                   setRiferimento('')
                   setIntestatario('')
+      setIntestatarioScelto('')
                   setImporto('')
                   setCausale('')
                   setOrdineNumero('')
