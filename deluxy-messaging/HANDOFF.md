@@ -1,5 +1,38 @@
 # Handoff — Deluxy Customer Service
 
+## 🔴 DA DECIDERE — scalare gli esiti dei reclami a valet e partner
+
+Domanda dell'utente (25/08/2026): «dobbiamo comunicare gli esiti all'app di
+delivery così che possa scalarli ai valet o ai partner nel caso di loro colpe».
+**Contato prima di rispondere**, e oggi la catena non può funzionare:
+
+| dov'è il buco | misura |
+|---|---|
+| **Chi ha colpa non è mai indicato** | 6 reclami su 6 hanno `colpaId` e `colpaNome` **vuoti**: si sa il *tipo* (3 partner · 2 valet · 1 azienda), non *chi*. |
+| **I registri valet sono vuoti** | 0 valet nel registro locale del CS, **0** in Anagrafiche (dove esiste già `Valet.platformId`, il ponte alla piattaforma). |
+| **L'esito è testo libero** | «Rimborsa spedizione e buono da 25€ **(da scalare a maurizio)**» — il «da scalare a chi» oggi è una frase dentro una nota. |
+| **La piattaforma non ha le penali** | `Salary.cashDeductions` sono i **contanti incassati alla consegna**, non una trattenuta per colpa: riusarla mischierebbe due cose e il totale non direbbe più cosa contiene. |
+
+**Il giro proposto** (Standard §7: ogni dato ha una casa sola — il reclamo è del
+CS, il compenso del valet è della piattaforma, il denaro esce da Transactions):
+
+1. **CS**: sul reclamo la colpa diventa *chi* (id vero) e l'esito diventa
+   `addebito { importo, aChi, motivo }`. Senza un numero non si scala niente.
+2. **Ponte identità**: il valet del CS si aggancia ad Anagrafiche, che ha già
+   `platformId`. È il primo lavoro: senza, la piattaforma non sa di chi parliamo.
+3. **CS → piattaforma**: `POST /addebiti` idempotente su `reclamoId` — ⚠️ un
+   addebito applicato due volte è denaro tolto due volte a una persona.
+4. **Piattaforma**: l'addebito resta **proposto** finché una persona non lo
+   approva, poi diventa una **riga a parte** sul prossimo stipendio (mai su uno
+   già firmato o pagato) o sulla prossima fattura al partner.
+5. **Ritorno**: la piattaforma dice quando è stato scalato e il reclamo lo
+   mostra. Senza il ritorno, «scalato» sarebbe dedotto e non misurato.
+
+⚠️ **Colpa ≠ addebito**: non tutte le colpe si scalano. Deve deciderlo una
+persona, e il valet deve poter contestare (la piattaforma ha già i `claims` sugli
+stipendi).
+
+
 ## 25/08/2026 (sera 5) — «ci sono domande aperte?» si vede dalla pagina, e l'esito pure
 
 Due richieste dell'utente su `/reclami`.
