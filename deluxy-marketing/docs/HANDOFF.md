@@ -320,6 +320,66 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐ L'ANALISI DI OGGI HA CONTESTATO L'APP, E AVEVA RAGIONE — su Meta lo stato restava congelato su ENABLED (25/08/2026)
+
+L'`Analisi Meta Gifts` depositata su Drive il 25/08 alle 13:57 elenca 7
+incongruenze fra documenti. La **I4** riguarda questa app:
+
+> «`RISULTATI App Gifts 2026-08-25 0918` elenca DEF ATC e «INTERESSE - [Festa
+> della Mamma] - LANDING PAGE» come **ENABLED**, mentre Ads Manager le dà «Non
+> attivo/a» alle 12:00 dello stesso giorno.»
+
+**Verificata sul database: vera.** E dietro c'erano **tre difetti in fila**,
+tutti corretti, deployati e riprovati in produzione.
+
+**1. Lo stato viaggiava attaccato alle INSIGHTS** (`src/lib/sync-meta.ts`).
+La sync leggeva gli stati da `/campaigns` — che le riporta tutte, in pausa
+comprese — e poi li applicava **solo alle campagne presenti nelle righe delle
+insights**, cioè solo a quelle che avevano speso nella finestra. Una campagna
+messa in pausa esce dalle insights dopo pochi giorni, e da lì il suo
+`statoPiattaforma` **restava all'ultimo valore visto per sempre**: DEF ATC in
+pausa dall'11/08 con lo stato fermo al 18/08. **La verità l'app ce l'aveva e la
+buttava via.** Adesso gli stati si applicano a tutte le campagne che Meta
+nomina, con la regola di sempre (`statoPiattaforma` è il fatto e si scrive
+sempre; `stato` è il nostro giudizio e non si sovrascrive se è uno dei
+nostri), e **quante ne allinea finisce nel registro**.
+
+**2. Le archiviate su Meta vanno CHIESTE** (`src/lib/meta.ts`). Dopo la prima
+correzione DEF ATC si è spenta, la «Festa della Mamma» **no**: Meta non la
+nominava più, e la regola prudente («un'assenza non diventa spenta») la lasciava
+accesa. Giusto come principio, sbagliato come risultato — perché il silenzio si
+poteva **togliere di mezzo domandando**: il nodo `/campaigns` di default
+restituisce solo ACTIVE e PAUSED, e con `filtering` su `effective_status` le
+archiviate arrivano. Con ripiego: se Meta rifiuta il filtro si riparte senza —
+un miglioramento non deve poter spegnere la sync.
+
+**3. Due campagne FANTASMA nel file per il custode** (`src/lib/ponte-risultati.ts`).
+Su Cake due righe non hanno **mai** avuto un `idEsterno`: vengono da un import
+vecchio che creava le campagne per NOME, e sono gemelle di campagne vere col
+brand appiccicato («[Continuativa] ATC (Cake)»). Nessuna sync può aggiornarle,
+quindi il loro ENABLED è eterno — e nel `RISULTATI App Cake` del 25/08
+comparivano entrambe come accese a zero spesa, con `[Continuativa] ATC` che
+risultava **due volte**: una vera con 451,66 € e una fantasma a zero. Adesso il
+ponte non dichiara accesa una campagna senza id. **Non si cancella niente**: si
+smette solo di affermare una cosa che il file promette di non affermare.
+
+**Provato in produzione, non dedotto**: due sync Meta vere dopo i deploy →
+`statiAllineati` 2+1+5 al primo giro e 1 al secondo; DEF ATC → **PAUSED**, Festa
+della Mamma → **PAUSED**; le campagne Meta che l'app dice accese sono passate da
+**10 a 8**, e le 8 coincidono con quelle dichiarate dall'analisi.
+
+⚠️ **Le due righe fantasma restano nel database** (marcate `defunta` da noi,
+`statoPiattaforma` ENABLED, senza id): non le tocco senza mandato. Vanno
+guardate insieme — sono duplicati, non campagne.
+
+⭐ **La lezione più larga**: questa incongruenza l'ha trovata **un lettore
+esterno che confrontava il file dell'app con la sua fonte**. L'app da sola non
+poteva accorgersene, perché il suo dato e il suo file dicevano la stessa cosa —
+[[trappola-confronto-con-il-proprio-specchio]] in azione. Le analisi depositate
+su Drive non sono solo output: sono **il controllo esterno di questa app**, e
+vanno lette.
+
+
 ### ✅ LO SCRIPT DICE CHI È — e i tre tipi mai provati smettono di essere un mistero (25/08/2026)
 
 **Il problema, detto bene.** Su Google non esegue l'app: esegue una **copia di
