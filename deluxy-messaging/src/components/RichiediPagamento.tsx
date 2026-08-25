@@ -1098,6 +1098,7 @@ export function RichiediPagamento() {
                 <th className="num">Importo</th>
                 <th className="num">Margine</th>
                 <th>Ordine</th>
+                <th>Chi prepara</th>
                 <th>Causale</th>
                 <th>Verifica</th>
                 <th>Stato</th>
@@ -1187,6 +1188,41 @@ export function RichiediPagamento() {
                       '—'
                     )}
                   </td>
+                  {/* ── CHI PREPARA L'ORDINE ──
+                      ⚠️⚠️ Il nome dell'intestatario e quello di chi prepara
+                      l'ordine sono quasi sempre la stessa persona, ma NON per
+                      forza: si paga anche un rimborso a un cliente, o si salda
+                      un fornitore diverso da quello registrato. Metterli
+                      affiancati è l'unico modo per accorgersene a colpo
+                      d'occhio, invece di aprire l'ordine uno per uno.
+                      ⚠️ Vuoto NON è un dettaglio: vuol dire che l'ordine non sa
+                      chi lo prepara, cioè che davanti a un reclamo non si sa a
+                      chi telefonare. Si scrive in rosso. */}
+                  <td className="cella-muta">
+                    {r.fornitoreOrdine ? (
+                      <span
+                        title={
+                          r.fornitoreOrdine.trim() === r.intestatario.trim()
+                            ? 'È lo stesso a cui va il pagamento'
+                            : `⚠️ Il pagamento va a ${r.intestatario}, ma l'ordine risulta preparato da ${r.fornitoreOrdine}`
+                        }
+                        style={{
+                          color:
+                            r.fornitoreOrdine.trim() === r.intestatario.trim()
+                              ? undefined
+                              : 'var(--red)',
+                        }}
+                      >
+                        {r.fornitoreOrdine}
+                      </span>
+                    ) : r.ordineNumero ? (
+                      <span className="cella-sub" style={{ color: 'var(--red)' }}>
+                        non lo sa
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <CellaCopiabile testo={r.causale} className="cella-muta" />
                   <td>
                     {/* ⚠️ Su un metodo che non è un bonifico non c'è niente da
@@ -1242,9 +1278,18 @@ export function RichiediPagamento() {
                         style={{ marginLeft: 4 }}
                         href={`/api/pagamenti/${r.id}/ricevuta`}
                         download
-                        title={`Scarica ${r.ricevutaNome}`}
+                        title={`Scarica la ricevuta: ${r.ricevutaNome}`}
+                        aria-label={`Scarica la ricevuta: ${r.ricevutaNome}`}
                       >
-                        ricevuta ↓
+                        {/* ⚠️ Una graffetta e non la parola «ricevuta»: in una
+                            riga che ha già tre bollini di stato, un'etichetta in
+                            più si legge come un altro stato invece che come una
+                            cosa da cliccare. La graffetta dice «qui c'è un
+                            allegato» senza aggiungere una parola da leggere.
+                            ⚠️ Il nome del file resta nel titolo e in
+                            aria-label: chi usa un lettore di schermo, e chi
+                            passa col mouse, deve sapere che cosa scarica. */}
+                        📎
                       </a>
                     ) : null}
                     {/* ── AVVISARE CHI ABBIAMO PAGATO ──

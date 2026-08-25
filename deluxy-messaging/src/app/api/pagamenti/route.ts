@@ -5,6 +5,8 @@ import { cosaManca, metodoValido } from '@/lib/metodo-pagamento'
 import { inviaRichiestaPagamento } from '@/lib/partner'
 import { riconciliaDaPagamento, type EsitoRiconciliazione } from '@/lib/riconcilia'
 import { utenteCorrente } from '@/lib/sessione'
+import { chiaveFornitore } from '@/lib/richieste-fornitore'
+import { sembraIlCliente } from '@/lib/riconciliazione'
 
 export const dynamic = 'force-dynamic'
 
@@ -134,6 +136,48 @@ export async function POST(req: NextRequest) {
     intestatario: (c.intestatario ?? '').trim(),
   })
   if (manca) return NextResponse.json({ errore: manca }, { status: 400 })
+
+  // ── PAGARE UNO PER UN ORDINE CHE NE HA UN ALTRO ──
+  //
+  // ⚠️⚠️ Questo si BLOCCA, e non è la stessa cosa che «l'ordine impara chi lo
+  // prepara» (che succede più sotto, da solo). È il caso in cui i due nomi si
+  // contraddicono: l'ordine dice che l'ha preparato Tizio, e la richiesta chiede
+  // di pagare Caio. Uno dei due è sbagliato, e lasciando salvare si sceglie il
+  // peggiore dei modi di scoprirlo — cioè mai: il bonifico parte, il margine
+  // dell'ordine resta calcolato su un costo che non c'entra, e Tizio richiama
+  // fra due settimane chiedendo perché non è stato pagato.
+  //
+  // ⚠️ NON si blocca un rimborso al cliente: quello ha per forza un nome diverso
+  // da quello del fornitore, ed è legittimo. Vedi `sembraIlCliente`, che è lo
+  // stesso controllo della riconciliazione.
+  //
+  // ⚠️ E non si blocca se l'ordine non ce l'abbiamo (più vecchio di 60 giorni):
+  // lì non possiamo confrontare niente, e impedire di pagare un ordine vecchio
+  // sarebbe un danno vero per proteggere da un sospetto che non abbiamo.
+  const numeroChiesto = (c.ordineNumero ?? '').trim()
+  const intestatarioChiesto = (c.intestatario ?? '').trim()
+  if (numeroChiesto) {
+    const senzaCancelletto = numeroChiesto.replace('#', '')
+    const o = await db.ordine.findFirst({
+      where: { numero: { in: [senzaCancelletto, `#${senzaCancelletto}`] } },
+      select: { numero: true, clienteNome: true, fornitoreNome: true },
+    })
+    if (
+      o &&
+      o.fornitoreNome &&
+      chiaveFornitore(o.fornitoreNome) !== chiaveFornitore(intestatarioChiesto) &&
+      !sembraIlCliente(intestatarioChiesto, o.clienteNome)
+    ) {
+      return NextResponse.json(
+        {
+          errore:
+            `${o.numero} risulta preparato da «${o.fornitoreNome}», ma stai chiedendo di pagare «${intestatarioChiesto}». ` +
+            'Uno dei due è sbagliato: correggi il fornitore sull’ordine, oppure il nome qui.',
+        },
+        { status: 409 }
+      )
+    }
+  }
 
   // Un IBAN che non supera il checksum si può salvare lo stesso (magari va
   // completato a mano), ma resta marcato come non valido: mai spacciarlo per buono.
