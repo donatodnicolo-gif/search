@@ -69,6 +69,21 @@ interface Summary {
       <div class="head-actions">
         <label class="date-fld"><span>{{ 'finance.from' | translate }}</span><input class="field" type="date" [(ngModel)]="from" (ngModelChange)="reload()" name="from" /></label>
         <label class="date-fld"><span>{{ 'finance.to' | translate }}</span><input class="field" type="date" [(ngModel)]="to" (ngModelChange)="reload()" name="to" /></label>
+        <label class="date-fld cerca"><span>{{ 'finance.search' | translate }}</span>
+          <input class="field" type="search" name="cerca" [(ngModel)]="cerca" (ngModelChange)="cercaCambiata()"
+                 [placeholder]="'finance.searchPh' | translate" />
+        </label>
+        <label class="date-fld"><span>{{ 'finance.partner' | translate }}</span>
+          <select class="field" name="partnerId" [(ngModel)]="partnerId" (ngModelChange)="reload()">
+            <option value="">{{ 'finance.allPartners' | translate }}</option>
+            @for (x of partners(); track x.id) { <option [value]="x.id">{{ x.insegna }}</option> }
+          </select>
+        </label>
+        <div class="quick">
+          <button type="button" class="quick-tab" (click)="periodo(0)">{{ 'finance.thisMonth' | translate }}</button>
+          <button type="button" class="quick-tab" (click)="periodo(-1)">{{ 'finance.lastMonth' | translate }}</button>
+          <button type="button" class="quick-tab" (click)="periodo(-12)">{{ 'finance.year' | translate }}</button>
+        </div>
         @if (tab() === 'corrispettivi') {
           <button class="btn btn-ghost" [disabled]="!rows().length" (click)="exportCsv()">{{ 'finance.export' | translate }}</button>
         }
@@ -80,6 +95,11 @@ interface Summary {
       <button class="tab" [class.on]="tab() === 'margini'" (click)="tab.set('margini')">{{ 'finance.tab.margini' | translate }}</button>
     </div>
 
+    <!-- Il tetto va DETTO. Una tabella tagliata in silenzio fa sommare a occhio
+         una parte credendola il tutto, e i numeri restano tutti plausibili. -->
+    @if (!loading() && rows().length >= 2000) {
+      <p class="avviso">{{ 'finance.capped' | translate:{ n: rows().length } }}</p>
+    }
     @if (loading()) {
       <div class="card state-card">{{ 'common.loading' | translate }}</div>
     } @else if (error()) {
@@ -203,6 +223,11 @@ interface Summary {
       .stat .v.neg { color: var(--red); }
       .stat .pct { font-size: 12px; color: var(--text-secondary); }
       .table-wrap { overflow-x: auto; }
+      .date-fld.cerca { flex: 1 1 200px; min-width: 180px; }
+      .quick { display: inline-flex; background: var(--fill, #f5f5f7); border-radius: 980px; padding: 2px; align-self: flex-end; }
+      .quick-tab { border: 0; background: none; border-radius: 980px; padding: 6px 12px; font-size: 12.5px; font-weight: 550; font-family: inherit; color: var(--text-secondary); cursor: pointer; }
+      .quick-tab:hover { background: #fff; color: var(--text); }
+      .avviso { margin: 0 0 12px; font-size: 13px; font-weight: 550; color: var(--gold-strong, #B8963E); }
       table.fin { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
       table.fin th, table.fin td { padding: 7px 9px; border-bottom: 1px solid var(--hairline); text-align: left; }
       table.fin th { color: var(--text-tertiary); font-weight: 500; font-size: 11px; }
@@ -229,8 +254,45 @@ export class FinanceComponent {
   readonly error = signal<string | null>(null);
   from = '';
   to = '';
+  cerca = '';
+  partnerId = '';
+  readonly partners = signal<{ id: string; insegna: string }[]>([]);
+  /** La ricerca aspetta una pausa: una chiamata per pausa, non per tasto. */
+  private attesa?: ReturnType<typeof setTimeout>;
 
   constructor() {
+    this.reload();
+    this.http.get<{ id: string; insegna: string }[]>(`${this.api}/partners`).subscribe({
+      next: (d) => this.partners.set((d ?? []).map((x) => ({ id: x.id, insegna: x.insegna }))),
+      error: () => {},
+    });
+  }
+
+  cercaCambiata(): void {
+    clearTimeout(this.attesa);
+    this.attesa = setTimeout(() => this.reload(), 350);
+  }
+
+  /**
+   * Periodo rapido. `0` = mese in corso, `-1` = mese scorso, `-12` = ultimo anno.
+   *
+   * ⚠️ I confini si calcolano in ora locale: costruendoli in UTC, il primo del
+   * mese alle 00:00 italiane a Greenwich e' ancora l'ultimo del mese prima, e
+   * il periodo comincerebbe un giorno troppo presto.
+   */
+  periodo(scarto: number): void {
+    const oggi = new Date();
+    const g = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (scarto === -12) {
+      const da = new Date(oggi); da.setFullYear(da.getFullYear() - 1);
+      this.from = g(da); this.to = g(oggi);
+    } else {
+      const primo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto, 1);
+      const ultimo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto + 1, 0);
+      this.from = g(primo);
+      this.to = g(scarto === 0 ? oggi : ultimo);
+    }
     this.reload();
   }
 
@@ -238,6 +300,8 @@ export class FinanceComponent {
     let p = new HttpParams();
     if (this.from) p = p.set('from', this.from);
     if (this.to) p = p.set('to', this.to);
+    if (this.partnerId) p = p.set('partnerId', this.partnerId);
+    if (this.cerca.trim()) p = p.set('cerca', this.cerca.trim());
     return p;
   }
 

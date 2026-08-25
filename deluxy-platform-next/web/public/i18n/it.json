@@ -904,7 +904,15 @@
     },
     "m": {
       "deliveries": "Consegne"
-    }
+    },
+    "search": "Cerca",
+    "searchPh": "N. ordine, consegna, destinatario o partner",
+    "partner": "Partner",
+    "allPartners": "Tutti i partner",
+    "thisMonth": "Mese",
+    "lastMonth": "Mese scorso",
+    "year": "Anno",
+    "capped": "Mostrate {{n}} righe: il periodo scelto ne contiene di piu'. Stringi le date o filtra, o i totali non corrispondono all'elenco."
   },
   "stub": {
     "caption": "Sezione in arrivo sulla nuova piattaforma.",
