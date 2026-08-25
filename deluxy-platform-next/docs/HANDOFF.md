@@ -124,9 +124,19 @@ NON è andato nessun 215: solo costoConsegna 17,20 e feeConsegna 8,60
    `POST /provinces/:id/cities`). L'API dei modelli ora include l'insegna del
    partner, o un modello del partner sarebbe indistinguibile da uno globale.
 
+**Verificato live dopo il deploy** (non dedotto): la rotta cron senza segreto
+risponde **401 JSON** (prima un percorso /api inesistente dava la pagina Angular
+in 200); **lanciata a mano col Bearer** ha letto 14.018 ordini e risposto
+`scritti: 0, saltati: 9210, errori: []` — tutto già allineato dalla spinta, che
+è il comportamento voluto ogni notte; l'esito sta in `marginiUltimaCorsa`
+(17:53 UTC). E con token admin: le righe della Disponibilità portano `citta`
+(21 su 241 la dichiarano), la consegna 62637 espone productValue 215 /
+deliveryPrice 25 e i log col nome («Fabio Fioriavanti»), /sms-templates dà 36
+modelli (29 di partner, con insegna), /provinces 107 province e 46 città.
+
 **Resta da fare qui**: creazione/modifica dei modelli SMS da UI (l'API `POST
-/sms-templates` c'è); creazione provincia da UI; verificare la prima corsa vera
-del cron (stanotte alle 4:30 italiane) leggendo `marginiUltimaCorsa`.
+/sms-templates` c'è); creazione provincia da UI; la prima corsa AUTOMATICA del
+cron è stanotte alle 4:30 italiane (quella a mano è già andata).
 
 ## 25/08/2026 — Artista Locale ritira nella città di consegna (e i km sopra 50 non si credono)
 
