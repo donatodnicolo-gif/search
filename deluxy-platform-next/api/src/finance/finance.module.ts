@@ -425,15 +425,21 @@ export class FinanceService {
     const altrove = opzioni.cerca?.trim() && rows.length === 0
       ? await this.doveSono(from, to, opzioni)
       : null;
-    const sum = (f: (r: CorrispettivoRow) => number) => rows.reduce((s, r) => s + f(r), 0);
-    // ⚠️ Le spese di consegna si contano PER ORDINE, non per riga: sommandole
-    // riga per riga, un ordine con tre destinazioni le conta tre volte.
+    // ⚠️ IL TOTALE SOMMA GLI ORDINI, perche' e' quello che la tabella mostra.
+    //
+    // Prima sommava le CONSEGNE, e due voci non tornavano: le spese di consegna
+    // sono dell'ordine (una riga per destinazione le contava piu' volte) e la
+    // commissione incassi si calcola sul valore dell'ordine, non su quello di
+    // ciascuna consegna. Il risultato era un piede di tabella che non era la
+    // somma di cio' che si leggeva sopra — la cosa piu' facile da sbagliare e la
+    // piu' difficile da accorgersene, perche' tutti i numeri restano plausibili.
     const ordini = this.recap(rows);
-    const deliveryFee = round2(ordini.reduce((s, o) => s + o.deliveryFee, 0));
-    const publicPrice = round2(sum((r) => r.publicPrice));
+    const sum = (f: (o: RecapOrdine) => number) => round2(ordini.reduce((s, o) => s + f(o), 0));
+    const publicPrice = sum((o) => o.saleValue);
+    const deliveryFee = sum((o) => o.deliveryFee);
     const saleValue = round2(publicPrice + deliveryFee);
-    const takings = sum((r) => r.takings);
-    const totalMargin = sum((r) => r.totalMargin);
+    const takings = sum((o) => o.takings);
+    const totalMargin = sum((o) => o.totalMargin);
     return {
       deliveries: rows.length,
       /** Consegne a buon fine del periodo che NON sono vendite (fuori ambito). */
@@ -445,19 +451,21 @@ export class FinanceService {
       publicPrice,
       deliveryFee,
       saleValue,
-      /** Gli ordini del periodo, col loro riepilogo. */
+      /** Gli ordini del periodo, col loro riepilogo: sono le righe della tabella. */
       ordini,
+      /** Quanti ordini: il conteggio delle righe di primo livello. */
+      ordiniTotali: ordini.length,
       /** Ordini in cui risulta pagata piu' di una consegna: regola non applicata. */
       ordiniConPiuPaghe: ordini.filter((o) => o.consegnePagate > 1).length,
-      partnerPrice: round2(sum((r) => r.partnerPrice)),
-      takings: round2(takings),
-      takingsNet: round2(sum((r) => r.takingsNet)),
-      feeContract: round2(sum((r) => r.feeContract)),
-      feePercent: saleValue > 0 ? round2((sum((r) => r.takingsNet) / saleValue) * 100) : 0,
-      deliveryCost: round2(sum((r) => r.deliveryCost)),
-      vat: round2(sum((r) => r.vat)),
-      incassiCommission: round2(sum((r) => r.incassiCommission)),
-      totalMargin: round2(totalMargin),
+      partnerPrice: sum((o) => o.partnerPrice),
+      takings,
+      takingsNet: sum((o) => o.takingsNet),
+      feeContract: sum((o) => o.feeContract),
+      feePercent: saleValue > 0 ? round2((sum((o) => o.takingsNet) / saleValue) * 100) : 0,
+      deliveryCost: sum((o) => o.deliveryCost),
+      vat: sum((o) => o.vat),
+      incassiCommission: sum((o) => o.incassiCommission),
+      totalMargin,
       totalMarginPercent: saleValue > 0 ? round2((totalMargin / saleValue) * 100) : 0,
     };
   }
