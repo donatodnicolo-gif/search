@@ -57,9 +57,76 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 25 agosto 2026 (Finanza: ambito dei corrispettivi); architettura del 24 agosto; corpo del 21 agosto 2026
+**Ultimo aggiornamento:** 25 agosto 2026, sera (margini a Orders OGNI NOTTE + sei schermate); architettura del 24 agosto; corpo del 21 agosto 2026
 **Branch di produzione:** `main` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+## 25/08/2026 (sera) — I margini vanno a Orders OGNI NOTTE, e sei schermate sistemate
+
+**Spinta completa eseguita** (`scripts/spingi-margini-a-orders.mjs --scrivi`):
+14.018 ordini letti da Orders, **9.210 con ingredienti** (11.004 consegne),
+**188 aggiornati** e 9.022 già a posto, zero errori — dentro ci sono anche gli
+80 che il pavimento a zero ha sbloccato. Totali: **87.546,04 €** di costo
+consegna e **29.468,29 €** di fee.
+
+**Il cron notturno** (`vercel.json`: `30 2 * * *` → `GET /api/v1/cron/margini`):
+
+- `OrdersSyncService.spingiMargini` allineato allo script: **pavimento a zero**
+  (Orders rifiuta i costi negativi, giustamente), **salto dei già scritti**
+  (ogni PATCH lascia una riga nella storia dell'ordine: rimandare novemila
+  numeri identici ogni notte renderebbe illeggibile la cronologia), e opzione
+  `tutti: true` che scorre TUTTE le pagine di Orders (il tetto a 5.000 resta
+  per le chiamate a mano).
+- Rotta `CronMarginiController` (`orders-sync.module.ts`): `@Public()` ma il
+  **controllo di `CRON_SECRET` è la prima riga** (Vercel manda
+  `Authorization: Bearer <CRON_SECRET>` da solo se la env esiste — impostata in
+  production e preview con `scripts/imposta-cron-secret.mjs`, che non la stampa
+  mai; copia di verifica in `%TEMP%\deluxy-cron-secret.txt`, da cancellare).
+  Senza env la rotta è chiusa per tutti, non aperta per tutti.
+- L'esito di ogni corsa si deposita in **`AppSetting.marginiUltimaCorsa`**
+  (data + conteggi + errori): un esito che vive solo nel JSON del cron non lo
+  legge nessuno. `maxDuration: 300` in `vercel.json` perché la lettura completa
+  di Orders (70+ pagine) non muoia a metà.
+
+**Il «215 comunicato a margini» spiegato** (consegna 62637, ordine #12739):
+il 215 è **`Delivery.productValue`** — il valore prodotti scritto sulla
+consegna, importato dal legacy — e infatti la quota trattenuta è 43 € = **20%
+esatto** (fee Fioravanti) di 215. Il 110 a schermo era il prezzo di **catalogo**
+(la riga di consegna ha `price` null e la tabella ripiegava sul catalogo); su
+Shopify la variante M è stata venduta a 300 € (totale ordine 325 €). A Orders
+NON è andato nessun 215: solo costoConsegna 17,20 e feeConsegna 8,60
+(verificato nel `controllo` dell'ordine). Tre prezzi diversi, tre significati.
+
+**Schermate** (richieste dell'utente, stessa sera):
+
+1. **Dettaglio consegna**: bottone **Modifica** (la rotta `/deliveries/:id/edit`
+   esisteva già senza un modo per arrivarci) e i campi economici che mancavano —
+   **Valore prodotti** (il 215 di cui sopra), **Prezzo consegna**, **Plus/minus
+   valet** — visibili a tutti tranne il partner.
+2. **Storico consegna**: le 17.680 righe importate dicevano solo «legacy#15957».
+   Il legacy registrava CHI e QUANDO, non che cosa (la tabella
+   `delivery-updates` ha solo id/deliveryId/userId/createdAt): ora l'API allega
+   il **nome dell'utente** e la riga dice «Consegna aggiornata — Nome Cognome»,
+   col rimando legacy in piccolo. I log sono ordinati per data.
+3. **/sales**: CSS rimesso sui token del design system (tab, badge, conteggi;
+   tolto un `·` orfano nella colonna ordine).
+4. **/delivery-rules**: CSS idem — plus/minus colorati (verde/rosso), pillole,
+   bottoni-icona con area di clic decente; la lineetta fra P e V è una
+   DISTANZA, non un segno.
+5. **/availability-board**: **filtro per città** (tendina con le città delle
+   anagrafiche caricate, senza doppioni di maiuscole) — l'API ora manda `citta`
+   su ogni riga (partner e valet hanno `city` dal legacy); la città compare
+   accanto al nome, e quando il filtro è attivo la pagina DICHIARA che chi non
+   ha la città in anagrafica resta fuori.
+6. **/sms-templates e /provinces non sono più stub**: pagine vere sui dati già
+   in banca (31+ modelli SMS per brand con filtri; 107 province con le città
+   espandibili, ricerca anche per città, e l'aggiunta di una città via
+   `POST /provinces/:id/cities`). L'API dei modelli ora include l'insegna del
+   partner, o un modello del partner sarebbe indistinguibile da uno globale.
+
+**Resta da fare qui**: creazione/modifica dei modelli SMS da UI (l'API `POST
+/sms-templates` c'è); creazione provincia da UI; verificare la prima corsa vera
+del cron (stanotte alle 4:30 italiane) leggendo `marginiUltimaCorsa`.
 
 ## 25/08/2026 — Artista Locale ritira nella città di consegna (e i km sopra 50 non si credono)
 

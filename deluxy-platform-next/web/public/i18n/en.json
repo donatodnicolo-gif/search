@@ -1579,7 +1579,10 @@
     "distance": "Distance",
     "price": "Price",
     "additionalPrice": "Plus / minus",
+    "productValue": "Product value",
+    "deliveryPrice": "Delivery price",
     "valetSalary": "Valet salary",
+    "valetAdditionalPrice": "Valet plus / minus",
     "intercom": "Intercom",
     "phone": "Phone",
     "email": "Email",
@@ -1596,8 +1599,10 @@
     "personalization": "Personalization",
     "internalNotes": "Internal notes",
     "noLogs": "No history events.",
+    "logUpdated": "Delivery updated",
     "act": {
       "print": "Print",
+      "edit": "Edit",
       "maps": "Maps",
       "share": "Share",
       "deliveredLink": "Delivery link",
@@ -1793,6 +1798,39 @@
       "status": "Status"
     }
   },
+  "smsTemplates": {
+    "title": "SMS templates",
+    "caption": "{{n}} templates, per brand: the texts sent when a delivery changes state.",
+    "brand": "Brand",
+    "allBrands": "All brands",
+    "search": "Search",
+    "searchPh": "Name, text or trigger",
+    "global": "Global",
+    "empty": "No template matches these filters.",
+    "col": {
+      "brand": "Brand",
+      "trigger": "Trigger",
+      "name": "Name",
+      "text": "Text",
+      "partner": "Partner",
+      "status": "Status"
+    }
+  },
+  "provinces": {
+    "title": "Provinces and cities",
+    "caption": "{{n}} provinces with their cities: the basis of dispatching.",
+    "search": "Search",
+    "searchPh": "Province, code or city",
+    "empty": "No province matches these filters.",
+    "noCities": "No city recorded for this province.",
+    "addCity": "Add city",
+    "addCityPh": "City name",
+    "col": {
+      "code": "Code",
+      "name": "Province",
+      "cities": "Cities"
+    }
+  },
   "availability": {
     "title": "Availability",
     "caption": "Who is working today: partners and valets, with their time windows.",
@@ -1800,6 +1838,9 @@
     "valet": "Valets",
     "search": "Search",
     "searchPh": "Partner or valet name",
+    "city": "City",
+    "allCities": "All cities",
+    "cityHint": "Records without a city in the registry are excluded by this filter.",
     "onlyOpen": "Only those available",
     "closed": "closed",
     "none": "Nobody matches these filters.",

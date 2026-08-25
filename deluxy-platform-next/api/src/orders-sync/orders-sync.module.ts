@@ -2,13 +2,15 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Injectable,
   Logger,
   Module,
   Post,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Roles } from '../common/decorators';
+import { Public, Roles } from '../common/decorators';
 import { Role, SaleStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { SalesModule, SalesService } from '../sales/sales.module';
@@ -130,6 +132,8 @@ export class OrdersSyncService {
       applica?: boolean;
       da?: string;
       limite?: number;
+      /** Scorre TUTTI gli ordini di Orders, senza tetto: è la corsa notturna. */
+      tutti?: boolean;
       /**
        * Solo questi ordini (numero Shopify, la coda del gid). Serve quando si
        * corregge un pugno di consegne e non ha senso riscrivere gli ingredienti
@@ -148,23 +152,41 @@ export class OrdersSyncService {
 
     // 1) Gli ordini che Orders conosce, per poter tradurre il numero Shopify
     //    nel suo id interno. Senza questa traduzione non si potrebbe scrivere.
-    const perOrderId = new Map<string, { id: string; numero?: string | null }>();
+    //    `gia` è quello che Orders ha già in pancia: se combacia, non si
+    //    rimanda — la storia dell'ordine non va riempita di righe identiche.
+    const perOrderId = new Map<string, {
+      id: string;
+      numero?: string | null;
+      gia: { costoConsegna: number | null; feeConsegna: number | null };
+    }>();
     const soloQuesti = opzioni.soloOrdiniShopify?.length ? new Set(opzioni.soloOrdiniShopify) : null;
     let pagina = 1;
-    // Col filtro mirato il tetto non c'entra: si scorre finché non si trovano
-    // tutti quelli chiesti (o finiscono le pagine).
-    const limite = soloQuesti ? Number.MAX_SAFE_INTEGER : Math.min(5000, Math.max(1, opzioni.limite ?? 2000));
+    // Col filtro mirato (o con `tutti`) il tetto non c'entra: si scorre finché
+    // non si trovano tutti quelli chiesti, o finiscono le pagine.
+    const limite = soloQuesti || opzioni.tutti
+      ? Number.MAX_SAFE_INTEGER
+      : Math.min(5000, Math.max(1, opzioni.limite ?? 2000));
     while (perOrderId.size < limite) {
       const q = new URLSearchParams({ page: String(pagina), limit: '200' });
       if (opzioni.da) q.set('da', opzioni.da);
       const res = await fetch(`${url}/api/v1/ordini?${q}`, { headers: { 'x-api-key': chiave } });
       if (!res.ok) return { ok: false, messaggio: `Orders risponde HTTP ${res.status} leggendo la pagina ${pagina}.` };
-      const body = (await res.json()) as { ordini?: { id: string; orderId?: string | null; numero?: string | null }[]; pagine?: number };
+      const body = (await res.json()) as {
+        ordini?: {
+          id: string; orderId?: string | null; numero?: string | null;
+          controllo?: { costoConsegna?: number | null; feeConsegna?: number | null } | null;
+        }[];
+        pagine?: number;
+      };
       for (const o of body.ordini ?? []) {
         const k = OrdersSyncService.numeroShopify(o.orderId);
         if (!k) continue;
         if (soloQuesti && !soloQuesti.has(k)) continue;
-        perOrderId.set(k, { id: o.id, numero: o.numero });
+        perOrderId.set(k, {
+          id: o.id,
+          numero: o.numero,
+          gia: { costoConsegna: o.controllo?.costoConsegna ?? null, feeConsegna: o.controllo?.feeConsegna ?? null },
+        });
       }
       if (soloQuesti && perOrderId.size >= soloQuesti.size) break;
       if (!body.ordini?.length || pagina >= (body.pagine ?? 1)) break;
@@ -200,16 +222,22 @@ export class OrdersSyncService {
       per.set(k, c);
     }
 
+    // ⚠️ Mai sotto zero: su alcune consegne il minus della rettifica supera la
+    // paga e il conto esce negativo. Orders lo rifiuta — giustamente: un costo
+    // negativo direbbe che il valet paga noi. Stesso pavimento degli stipendi.
+    const maiSottoZero = (n: number) => Math.max(0, Math.round(n * 100) / 100);
+
     const voci = [...per.entries()].map(([orderId, c]) => ({
       orderId,
       ordersId: perOrderId.get(orderId)!.id,
       numero: perOrderId.get(orderId)!.numero ?? null,
       consegne: c.consegne,
-      costoConsegna: Math.round(c.costoConsegna * 100) / 100,
-      feeConsegna: Math.round(c.feeConsegna * 100) / 100,
+      costoConsegna: maiSottoZero(c.costoConsegna),
+      feeConsegna: maiSottoZero(c.feeConsegna),
       /// Quante consegne dell'ordine hanno un partner senza Fee% impostata: la
       /// fee di quelle vale 0, e dirlo evita di leggere un totale come completo.
       senzaFee: c.senzaFee,
+      giaScritto: perOrderId.get(orderId)!.gia,
     }));
 
     const totali = {
@@ -226,8 +254,15 @@ export class OrdersSyncService {
     }
 
     let scritti = 0;
+    let saltati = 0;
     const errori: { numero: string | null; messaggio: string }[] = [];
     for (const v of voci) {
+      // Orders ha già questi numeri: rimandarli aggiungerebbe solo una riga
+      // identica alla storia dell'ordine, ogni notte. Si scrive quel che cambia.
+      if (v.giaScritto.costoConsegna === v.costoConsegna && v.giaScritto.feeConsegna === v.feeConsegna) {
+        saltati++;
+        continue;
+      }
       try {
         const res = await fetch(`${url}/api/v1/ordini/${v.ordersId}`, {
           method: 'PATCH',
@@ -247,8 +282,18 @@ export class OrdersSyncService {
         errori.push({ numero: v.numero, messaggio: (err as Error).message });
       }
     }
-    this.logger.log(`Margini: ingredienti mandati a Orders per ${scritti} ordini`);
-    return { ok: errori.length === 0, totali, scritti, errori: errori.slice(0, 10) };
+    this.logger.log(`Margini: ingredienti mandati a Orders per ${scritti} ordini (${saltati} già a posto)`);
+
+    const esito = { ok: errori.length === 0, totali, scritti, saltati, errori: errori.slice(0, 10) };
+    // L'esito di una corsa notturna non deve vivere solo nel JSON che nessuno
+    // apre: si deposita in AppSetting, dove un occhio (o un'altra query) lo
+    // ritrova con data e conteggi.
+    await this.prisma.appSetting.upsert({
+      where: { key: 'marginiUltimaCorsa' },
+      update: { value: JSON.stringify({ quando: new Date().toISOString(), ...esito }) },
+      create: { key: 'marginiUltimaCorsa', value: JSON.stringify({ quando: new Date().toISOString(), ...esito }) },
+    });
+    return esito;
   }
 
   async sincronizza(opzioni: {
@@ -476,9 +521,33 @@ export class OrdersSyncController {
   }
 }
 
+/**
+ * La corsa NOTTURNA dei margini, invocata dal cron di Vercel (vercel.json).
+ *
+ * Vercel chiama questa rotta con `Authorization: Bearer <CRON_SECRET>` (lo fa
+ * da solo, se la variabile d'ambiente esiste). ⚠️ Il controllo del segreto è la
+ * PRIMA cosa che succede: nessun ramo può rispondere prima dell'identità
+ * (trappola già pagata: «l'auth dopo lo smistamento»). Senza CRON_SECRET
+ * configurato la rotta è chiusa per tutti, non aperta per tutti.
+ */
+@ApiTags('cron')
+@Controller('cron')
+export class CronMarginiController {
+  constructor(private readonly service: OrdersSyncService) {}
+
+  @Get('margini')
+  @Public() // fuori dal JWT utente: l'identità è il segreto del cron, verificato qui sotto
+  @ApiOperation({ summary: 'Corsa notturna: manda a Orders gli ingredienti del margine di TUTTI gli ordini' })
+  async margini(@Headers('authorization') authorization?: string) {
+    const segreto = process.env.CRON_SECRET ?? '';
+    if (!segreto || authorization !== `Bearer ${segreto}`) throw new UnauthorizedException();
+    return this.service.spingiMargini({ applica: true, tutti: true });
+  }
+}
+
 @Module({
   imports: [SalesModule, SettingsModule],
-  controllers: [OrdersSyncController],
+  controllers: [OrdersSyncController, CronMarginiController],
   providers: [OrdersSyncService],
   exports: [OrdersSyncService],
 })

@@ -18,14 +18,19 @@ export class SmsTemplatesService {
 
   /** Il partner (se abilitato) vede i template globali + i propri. */
   async findAll(user: JwtUser) {
+    // L'insegna serve alla colonna «Partner» della pagina: senza, un modello
+    // del partner sarebbe indistinguibile da uno globale.
+    const include = { partner: { select: { id: true, insegna: true } } };
     if (user.role === Role.PARTNER) {
       return this.prisma.smsTemplate.findMany({
         where: { OR: [{ partnerId: null }, { partnerId: user.partnerId ?? '-' }] },
         orderBy: [{ brand: 'asc' }, { trigger: 'asc' }],
+        include,
       });
     }
     return this.prisma.smsTemplate.findMany({
       orderBy: [{ brand: 'asc' }, { trigger: 'asc' }],
+      include,
     });
   }
 

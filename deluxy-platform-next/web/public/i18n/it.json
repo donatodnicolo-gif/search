@@ -1579,7 +1579,10 @@
     "distance": "Distanza",
     "price": "Prezzo",
     "additionalPrice": "Plus / minus",
+    "productValue": "Valore prodotti",
+    "deliveryPrice": "Prezzo consegna",
     "valetSalary": "Salario valet",
+    "valetAdditionalPrice": "Plus / minus valet",
     "intercom": "Citofono",
     "phone": "Telefono",
     "email": "Email",
@@ -1596,8 +1599,10 @@
     "personalization": "Personalizzazione",
     "internalNotes": "Note interne",
     "noLogs": "Nessun evento nello storico.",
+    "logUpdated": "Consegna aggiornata",
     "act": {
       "print": "Stampa",
+      "edit": "Modifica",
       "maps": "Maps",
       "share": "Condividi",
       "deliveredLink": "Link consegna",
@@ -1793,6 +1798,39 @@
       "status": "Stato"
     }
   },
+  "smsTemplates": {
+    "title": "Modelli SMS",
+    "caption": "{{n}} modelli, per brand: i testi che partono al cambiare di stato di una consegna.",
+    "brand": "Brand",
+    "allBrands": "Tutti i brand",
+    "search": "Cerca",
+    "searchPh": "Nome, testo o evento",
+    "global": "Globale",
+    "empty": "Nessun modello con questi filtri.",
+    "col": {
+      "brand": "Brand",
+      "trigger": "Evento",
+      "name": "Nome",
+      "text": "Testo",
+      "partner": "Partner",
+      "status": "Stato"
+    }
+  },
+  "provinces": {
+    "title": "Province e città",
+    "caption": "{{n}} province con le loro città: sono la base dello smistamento.",
+    "search": "Cerca",
+    "searchPh": "Provincia, sigla o città",
+    "empty": "Nessuna provincia con questi filtri.",
+    "noCities": "Nessuna città registrata per questa provincia.",
+    "addCity": "Aggiungi città",
+    "addCityPh": "Nome della città",
+    "col": {
+      "code": "Sigla",
+      "name": "Provincia",
+      "cities": "Città"
+    }
+  },
   "availability": {
     "title": "Disponibilità",
     "caption": "Chi lavora oggi: partner e valet, con le loro fasce.",
@@ -1800,6 +1838,9 @@
     "valet": "Valet",
     "search": "Cerca",
     "searchPh": "Nome partner o valet",
+    "city": "Città",
+    "allCities": "Tutte le città",
+    "cityHint": "Chi non dichiara la città nell'anagrafica resta fuori dal filtro.",
     "onlyOpen": "Solo chi è disponibile",
     "closed": "chiuso",
     "none": "Nessuno con questi filtri.",

@@ -401,11 +401,25 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/activities-list.component').then((m) => m.ActivitiesListComponent),
       },
+      // ---- Modelli SMS (dal database, import legacy) ----
+      {
+        path: 'sms-templates',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
+        loadComponent: () =>
+          import('./pages/sms-templates-list.component').then((m) => m.SmsTemplatesListComponent),
+      },
+      // ---- Province e città (dal database, import legacy) ----
+      {
+        path: 'provinces',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+        loadComponent: () =>
+          import('./pages/provinces-list.component').then((m) => m.ProvincesListComponent),
+      },
       // ---- Route stub: sezioni in migrazione ----
       ...[
-        { path: 'sms-templates', title: 'Modelli SMS', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
         { path: 'availability', title: 'Disponibilita', roles: ['VALET'] },
-        { path: 'provinces', title: 'Province e citta', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       ].map((stub) => ({
         path: stub.path,
         canActivate: [roleGuard],

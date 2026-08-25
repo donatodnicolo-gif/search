@@ -8,7 +8,7 @@ import { AuthService } from '../core/auth.service';
 import { Province, ValetRef } from '../core/models';
 import { detectProvince } from '../core/province.util';
 
-interface DeliveryLog { id: string; type: string; message: string; createdAt: string; }
+interface DeliveryLog { id: string; type: string; message: string; createdAt: string; userName?: string | null; }
 interface DeliveryProductRow {
   id: string;
   quantity: number;
@@ -54,6 +54,8 @@ interface DeliveryDetail {
   deluxyDelivery?: boolean;
   price?: number;
   additionalPrice?: number;
+  productValue?: number;
+  deliveryPrice?: number;
   valetSalary?: number;
   valetAdditionalPrice?: number;
   distanceKm?: number;
@@ -86,6 +88,9 @@ interface DeliveryDetail {
         <div class="actions-bar">
           <button type="button" class="act" (click)="print()">{{ 'deliveryDetail.act.print' | translate }}</button>
           <button type="button" class="act" [disabled]="!mapsUrl(d)" (click)="openMaps(d)">{{ 'deliveryDetail.act.maps' | translate }}</button>
+          @if (canEdit()) {
+            <a class="act" [routerLink]="['/deliveries', d.id, 'edit']">{{ 'deliveryDetail.act.edit' | translate }}</a>
+          }
           @if (canManage()) {
             <button type="button" class="act" (click)="share(d)">{{ 'deliveryDetail.act.share' | translate }}</button>
             <button type="button" class="act" (click)="deliveredLink(d)">{{ 'deliveryDetail.act.deliveredLink' | translate }}</button>
@@ -137,7 +142,14 @@ interface DeliveryDetail {
             @if (!isPartner()) {
               <dt>{{ 'deliveryDetail.price' | translate }}</dt><dd>{{ d.price != null ? d.price + ' €' : '—' }}</dd>
               <dt>{{ 'deliveryDetail.additionalPrice' | translate }}</dt><dd>{{ d.additionalPrice != null ? d.additionalPrice + ' €' : '—' }}</dd>
+              <!-- Valore prodotti: quello scritto SULLA CONSEGNA (accordo col
+                   partner), che non è il prezzo di catalogo né quello pubblico
+                   Shopify. Senza questa riga il 215 di una vendita sembrava
+                   uscito dal nulla accanto a un catalogo che dice 110. -->
+              <dt>{{ 'deliveryDetail.productValue' | translate }}</dt><dd>{{ d.productValue != null ? d.productValue + ' €' : '—' }}</dd>
+              <dt>{{ 'deliveryDetail.deliveryPrice' | translate }}</dt><dd>{{ d.deliveryPrice != null ? d.deliveryPrice + ' €' : '—' }}</dd>
               <dt>{{ 'deliveryDetail.valetSalary' | translate }}</dt><dd>{{ d.valetSalary != null ? d.valetSalary + ' €' : '—' }}</dd>
+              <dt>{{ 'deliveryDetail.valetAdditionalPrice' | translate }}</dt><dd>{{ d.valetAdditionalPrice != null ? d.valetAdditionalPrice + ' €' : '—' }}</dd>
             }
           </dl>
         </section>
@@ -268,7 +280,18 @@ interface DeliveryDetail {
                 @for (l of d.logs; track l.id) {
                   <li>
                     <span class="log-date">{{ l.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
-                    <span class="log-msg">{{ l.message }}</span>
+                    <span class="log-msg">
+                      <!-- Le righe importate dicono solo «legacy#15957»: il vecchio
+                           sistema registrava chi e quando, non che cosa. Meglio
+                           dirlo in chiaro che mostrare il rimando nudo. -->
+                      @if (l.type === 'legacy_update') {
+                        {{ 'deliveryDetail.logUpdated' | translate }}
+                        <span class="log-ref">{{ l.message }}</span>
+                      } @else {
+                        {{ l.message }}
+                      }
+                      @if (l.userName) { <span class="log-user">— {{ l.userName }}</span> }
+                    </span>
                   </li>
                 }
               </ul>
@@ -358,6 +381,8 @@ interface DeliveryDetail {
       .logs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
       .logs li { display: flex; gap: 12px; font-size: 13px; }
       .log-date { color: var(--text-tertiary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .log-user { color: var(--text-secondary); }
+      .log-ref { color: var(--text-tertiary); font-size: 11.5px; font-variant-numeric: tabular-nums; }
       .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 980px; padding: 3px 12px; font-size: 12.5px; font-weight: 550; background: var(--fill); color: var(--text-secondary); }
       .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-tertiary); }
       .dot.s-created { background: var(--red); }
@@ -422,6 +447,11 @@ export class DeliveryDetailComponent {
   canManage(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION';
+  }
+  /** Modifica: la rotta ammette anche il partner (l'API applica le sue regole). */
+  canEdit(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION' || r === 'PARTNER';
   }
   canSeeLogs(): boolean { return this.canManage(); }
 

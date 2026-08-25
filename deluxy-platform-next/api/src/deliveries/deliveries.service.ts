@@ -358,10 +358,27 @@ export class DeliveriesService {
   async findOne(id: string, user: JwtUser) {
     const delivery = await this.prisma.delivery.findFirst({
       where: { id, ...this.roleFilter(user) },
-      include: { ...DELIVERY_INCLUDE, activities: true, logs: true },
+      include: { ...DELIVERY_INCLUDE, activities: true, logs: { orderBy: { createdAt: 'asc' } } },
     });
     if (!delivery) throw new NotFoundException('Consegna non trovata');
-    return this.hideInternalNotes(delivery, user);
+
+    // Lo storico porta solo lo userId, e per le 17.680 righe importate il
+    // messaggio è un rimando («legacy#15957») che non dice niente: il legacy
+    // registrava CHI ha toccato la consegna e QUANDO, non che cosa ha fatto.
+    // Il nome dell'utente è l'unica informazione vera che abbiamo: si allega.
+    const idUtenti = [...new Set(delivery.logs.map((l) => l.userId).filter(Boolean))] as string[];
+    const utenti = idUtenti.length
+      ? new Map((await this.prisma.user.findMany({
+          where: { id: { in: idUtenti } },
+          select: { id: true, firstName: true, lastName: true },
+        })).map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]))
+      : new Map<string, string>();
+    const logs = delivery.logs.map((l) => ({
+      ...l,
+      userName: l.userId ? utenti.get(l.userId) ?? null : null,
+    }));
+
+    return this.hideInternalNotes({ ...delivery, logs }, user);
   }
 
 

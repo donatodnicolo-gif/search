@@ -96,7 +96,11 @@ interface DeliveryRule {
                 </td>
                 <td>{{ r.serviceType?.name ?? '—' }}</td>
                 <td class="nowrap">
-                  <span class="muted">P</span> {{ money(r.partnerBillingAdjustment) }} · <span class="muted">V</span> {{ money(r.valetPayAdjustment) }}
+                  <span class="muted">P</span>
+                  <span class="adj" [class.up]="r.partnerBillingAdjustment > 0" [class.down]="r.partnerBillingAdjustment < 0">{{ money(r.partnerBillingAdjustment) }}</span>
+                  <span class="sep"></span>
+                  <span class="muted">V</span>
+                  <span class="adj" [class.up]="r.valetPayAdjustment > 0" [class.down]="r.valetPayAdjustment < 0">{{ money(r.valetPayAdjustment) }}</span>
                 </td>
                 <td>{{ r.partners.length || '—' }}</td>
                 <td>
@@ -125,16 +129,33 @@ interface DeliveryRule {
   `,
   styles: [
     `
-      .pill { display: inline-block; padding: 2px 9px; margin-right: 4px; border-radius: var(--radius-pill); background: var(--fill); font-size: 12px; font-weight: 600; }
+      .table-wrap { overflow-x: auto; }
+      td { vertical-align: middle; }
+      .strong { font-weight: 550; letter-spacing: -0.01em; }
+      .pill {
+        display: inline-flex; align-items: center; padding: 3px 11px; margin: 1px 4px 1px 0;
+        border-radius: 980px; background: var(--fill); color: var(--text-secondary);
+        font-size: 12px; font-weight: 550; font-variant-numeric: tabular-nums; white-space: nowrap;
+      }
       .nowrap { white-space: nowrap; }
-      .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: var(--radius-pill); font-size: 12px; font-weight: 600; }
-      .badge .dot { width: 7px; height: 7px; border-radius: 50%; }
-      .badge-on { background: rgba(36, 138, 61, 0.12); color: var(--green); } .badge-on .dot { background: var(--green); }
+      .adj { font-variant-numeric: tabular-nums; font-weight: 550; }
+      .adj.up { color: var(--green); }
+      .adj.down { color: var(--red, #d70015); }
+      /* Fra i due gruppi P/V la lineetta è una DISTANZA, non un segno. */
+      .sep { display: inline-block; width: 10px; }
+      .badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 980px; font-size: 12.5px; font-weight: 550; white-space: nowrap; }
+      .badge .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+      .badge-on { background: rgba(36, 138, 61, 0.1); color: var(--green); } .badge-on .dot { background: var(--green); }
       .badge-off { background: var(--fill); color: var(--text-secondary); } .badge-off .dot { background: var(--text-tertiary); }
-      .btn-icon { border: none; background: none; cursor: pointer; font-size: 15px; padding: 4px 7px; border-radius: var(--radius-s); color: var(--text-secondary); }
+      .btn-icon {
+        appearance: none; border: 1px solid transparent; background: none; cursor: pointer;
+        font-size: 14px; line-height: 1; padding: 7px 9px; border-radius: 980px; color: var(--text-secondary);
+        transition: background 0.15s ease, color 0.15s ease;
+      }
       .btn-icon:hover { background: var(--fill); color: var(--text); }
-      .btn-icon.danger:hover { color: var(--red); }
-      .error-card { padding: 14px 16px; border-radius: var(--radius-m); background: rgba(215,0,21,0.08); color: var(--red); }
+      .btn-icon.danger:hover { background: rgba(215, 0, 21, 0.08); color: var(--red, #d70015); }
+      .error-card { padding: 14px 16px; border-radius: var(--radius-m, 10px); background: rgba(215, 0, 21, 0.06); border: 1px solid rgba(215, 0, 21, 0.15); color: var(--red, #d70015); }
+      .state-card .muted { display: block; margin-top: 4px; color: var(--text-tertiary); font-size: 13.5px; }
     `,
   ],
 })

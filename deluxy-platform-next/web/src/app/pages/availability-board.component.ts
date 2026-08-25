@@ -13,6 +13,8 @@ interface Riga {
   aperto: boolean;
   fasce: Fascia[];
   origine: Origine;
+  /** Città dell'anagrafica; null quando non dichiarata. */
+  citta?: string | null;
 }
 interface Gruppo {
   righe: Riga[];
@@ -59,10 +61,22 @@ interface Giornata { data: string; partner: Gruppo; valet: Gruppo }
         <span>{{ 'availability.search' | translate }}</span>
         <input class="field" type="search" [(ngModel)]="cerca" [placeholder]="'availability.searchPh' | translate" />
       </label>
+      <label class="f">
+        <span>{{ 'availability.city' | translate }}</span>
+        <select class="field" [(ngModel)]="citta">
+          <option value="">{{ 'availability.allCities' | translate }}</option>
+          @for (c of cittaDisponibili(); track c) { <option [value]="c">{{ c }}</option> }
+        </select>
+      </label>
       <label class="f interruttore">
         <input type="checkbox" [(ngModel)]="soloDisponibili" />
         <span>{{ 'availability.onlyOpen' | translate }}</span>
       </label>
+      <!-- Chi non dichiara la città sparisce dal filtro: va DETTO, o il conteggio
+           filtrato sembra un buco di disponibilità invece che un buco anagrafico. -->
+      @if (citta) {
+        <span class="nota-citta">{{ 'availability.cityHint' | translate }}</span>
+      }
     </div>
 
     @if (caricando()) { <div class="card state-card">{{ 'common.loading' | translate }}</div> }
@@ -90,7 +104,9 @@ interface Giornata { data: string; partner: Gruppo; valet: Gruppo }
               @for (r of filtra(g.g.righe); track r.id) {
                 <li [class.chiuso]="!r.aperto">
                   <span class="pallino" [class.on]="r.aperto" [class.ignoto]="r.origine === 'non-indicata'"></span>
-                  <span class="nome">{{ r.nome }}</span>
+                  <span class="nome">{{ r.nome }}
+                    @if (r.citta) { <span class="citta">{{ r.citta }}</span> }
+                  </span>
                   <span class="fasce">
                     @if (r.origine === 'non-indicata') {
                       <em class="grigio">{{ 'availability.noSource' | translate }}</em>
@@ -153,6 +169,8 @@ interface Giornata { data: string; partner: Gruppo; valet: Gruppo }
       .pallino.on { background: #248A3D; }
       .pallino.ignoto { background: #C7C7CC; }
       .nome { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .citta { font-weight: 400; font-size: 12px; color: var(--text-tertiary); margin-left: 6px; }
+      .nota-citta { font-size: 12px; color: var(--text-tertiary); padding-bottom: 10px; }
       .fasce { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; font-variant-numeric: tabular-nums; }
       .fascia { background: var(--fill, #f5f5f7); border-radius: 6px; padding: 1px 7px; }
       .origine { font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--gold-strong, #B8963E); cursor: help; white-space: nowrap; }
@@ -172,6 +190,23 @@ export class AvailabilityBoardComponent {
   giorno = this.oggi();
   cerca = '';
   soloDisponibili = false;
+  citta = '';
+
+  /**
+   * Le città fra cui scegliere: quelle dichiarate nelle anagrafiche caricate,
+   * partner e valet insieme, senza doppioni di maiuscole («Roma» e «ROMA»
+   * sono la stessa scelta — vince la grafia vista per prima).
+   */
+  readonly cittaDisponibili = computed(() => {
+    const d = this.dati();
+    if (!d) return [] as string[];
+    const viste = new Map<string, string>();
+    for (const r of [...d.partner.righe, ...d.valet.righe]) {
+      const c = (r.citta ?? '').trim();
+      if (c && !viste.has(c.toLowerCase())) viste.set(c.toLowerCase(), c);
+    }
+    return [...viste.values()].sort((a, b) => a.localeCompare(b, 'it'));
+  });
 
   /**
    * Oggi e domani in ora locale, non UTC.
@@ -193,8 +228,11 @@ export class AvailabilityBoardComponent {
 
   filtra(righe: Riga[]): Riga[] {
     const t = this.cerca.trim().toLowerCase();
+    const c = this.citta.trim().toLowerCase();
     return righe.filter((r) =>
-      (!this.soloDisponibili || r.aperto) && (!t || r.nome.toLowerCase().includes(t)),
+      (!this.soloDisponibili || r.aperto)
+      && (!t || r.nome.toLowerCase().includes(t))
+      && (!c || (r.citta ?? '').trim().toLowerCase() === c),
     );
   }
 

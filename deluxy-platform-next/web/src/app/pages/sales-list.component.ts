@@ -127,7 +127,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                     <i class="dot"></i>{{ etichetta(s.status) }}
                   </span>
                 </td>
-                <td class="mono">{{ s.brand }} <span class="muted">{{ s.externalOrderId ? '·' : '' }}</span></td>
+                <td class="mono">{{ s.brand }}</td>
                 <td>{{ s.product?.name ?? '—' }}</td>
                 <td class="mono">{{ s.province?.code ?? '—' }}</td>
                 <td>{{ s.partner?.insegna ?? ('sales.noPartner' | translate) }}
@@ -158,37 +158,55 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
   styles: [
     `
       .head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-      .sync { padding: 14px 16px; margin-bottom: 14px; }
-      .sync .titolo { font-weight: 600; margin: 0 0 8px; }
-      .sync .ko { color: var(--danger); margin: 0; }
+      .sync { padding: 16px 18px; margin-bottom: 16px; }
+      .sync .titolo { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; margin: 0 0 10px; }
+      .sync .ko { color: var(--danger, #d70015); margin: 0; font-size: 13.5px; }
+      .sync .hint { margin: 10px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
       .conti { display: flex; flex-wrap: wrap; gap: 8px; }
       .conto {
-        font-size: 13px; padding: 4px 10px; border-radius: 999px;
-        background: var(--surface-2, #f5f5f7); border: 1px solid var(--hairline, #e5e5ea);
+        font-size: 13px; padding: 4px 12px; border-radius: 980px; color: var(--text-secondary);
+        background: var(--fill); border: 1px solid transparent;
       }
-      .conto.buono { background: color-mix(in srgb, #248A3D 12%, transparent); border-color: color-mix(in srgb, #248A3D 30%, transparent); }
+      .conto strong { color: var(--text); font-variant-numeric: tabular-nums; }
+      .conto.buono {
+        background: color-mix(in srgb, var(--green) 10%, transparent);
+        border-color: color-mix(in srgb, var(--green) 25%, transparent);
+        color: var(--green);
+      }
+      .conto.buono strong { color: var(--green); }
       .esempi { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--text-secondary); }
-      .tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+      .tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
       .tab {
-        border: 1px solid var(--hairline, #e5e5ea); background: #fff; border-radius: 999px;
-        padding: 6px 14px; cursor: pointer; font-size: 14px; display: inline-flex; gap: 8px; align-items: center;
+        appearance: none; font: inherit; font-size: 13.5px; font-weight: 550;
+        border: 1px solid var(--hairline); background: var(--surface); color: var(--text);
+        border-radius: 980px; padding: 7px 15px; cursor: pointer;
+        display: inline-flex; gap: 8px; align-items: center;
+        transition: background 0.15s ease, border-color 0.15s ease;
       }
-      .tab.on { background: #111; color: #fff; border-color: #111; }
-      .tab .pill { font-size: 12px; opacity: .7; }
+      .tab:hover { background: var(--fill); }
+      .tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+      .tab .pill {
+        font-size: 11.5px; font-variant-numeric: tabular-nums; line-height: 1;
+        padding: 3px 7px; border-radius: 980px; background: var(--fill);
+      }
+      .tab.on .pill { background: rgba(255, 255, 255, 0.18); }
       .badge {
-        display: inline-flex; align-items: center; gap: 6px; font-size: 13px;
-        padding: 3px 10px; border-radius: 999px;
-        background: color-mix(in srgb, var(--c) 12%, transparent); color: var(--c);
+        display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 550;
+        padding: 3px 11px; border-radius: 980px; white-space: nowrap;
+        background: color-mix(in srgb, var(--c) 11%, transparent); color: var(--c);
       }
-      .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
-      .azioni { display: flex; gap: 6px; justify-content: flex-end; }
-      .btn.mini { padding: 4px 12px; font-size: 13px; }
-      .vuoto { padding: 28px; text-align: center; color: var(--text-secondary); }
-      .esito { margin-top: 10px; color: var(--danger); }
-      .esito.ok { color: #248A3D; }
-      .motivo { display: block; font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
-      .num { text-align: right; }
+      .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); flex: none; }
+      .table-wrap { overflow-x: auto; }
+      .table td { vertical-align: middle; }
+      .azioni { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+      .btn.mini { padding: 4px 12px; font-size: 12.5px; }
+      .vuoto { padding: 40px 28px; text-align: center; color: var(--text-secondary); font-size: 14px; }
+      .esito { margin-top: 10px; color: var(--danger, #d70015); font-size: 13.5px; }
+      .esito.ok { color: var(--green); }
+      .motivo { display: block; font-size: 11px; color: var(--text-tertiary); margin-top: 2px; max-width: 260px; }
+      .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
       .mono { font-variant-numeric: tabular-nums; }
+      .muted { color: var(--text-tertiary); }
     `,
   ],
 })

@@ -22,6 +22,12 @@ type Riga = {
    * secondo per il primo.
    */
   origine: 'giorno' | 'eccezione' | 'settimanale' | 'non-indicata';
+  /**
+   * La citta' dell'anagrafica (campo `city`, importato dal legacy), per il
+   * filtro a schermo. `null` quando l'anagrafica non la dichiara: chi filtra
+   * per citta' deve sapere che quelle righe restano fuori.
+   */
+  citta: string | null;
 };
 
 @Injectable()
@@ -59,7 +65,7 @@ export class AvailabilityService {
       await Promise.all([
         this.prisma.partner.findMany({
           where: { active: true },
-          select: { id: true, insegna: true },
+          select: { id: true, insegna: true, city: true },
           orderBy: { insegna: 'asc' },
         }),
         this.prisma.partnerDaySlot.findMany({
@@ -76,7 +82,7 @@ export class AvailabilityService {
         }),
         this.prisma.valet.findMany({
           where: { active: true, placeholder: false },
-          select: { id: true, firstName: true, lastName: true },
+          select: { id: true, firstName: true, lastName: true, city: true },
           orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
         }),
         this.prisma.valetAvailability.findMany({
@@ -118,15 +124,16 @@ export class AvailabilityService {
     };
 
     const righePartner: Riga[] = partners.map((p) => {
+      const base = { id: p.id, nome: p.insegna, citta: p.city ?? null };
       const s = slotPer.get(p.id);
       if (s?.length) {
         const { aperto, fasce } = daFasce(s);
-        return { id: p.id, nome: p.insegna, aperto, fasce, origine: 'giorno' as const };
+        return { ...base, aperto, fasce, origine: 'giorno' as const };
       }
       const e = eccPer.get(p.id);
       if (e) {
         return {
-          id: p.id, nome: p.insegna,
+          ...base,
           aperto: !e.closed,
           fasce: e.closed ? [] : [{ dalle: e.openTime, alle: e.closeTime }],
           origine: 'eccezione' as const,
@@ -135,7 +142,7 @@ export class AvailabilityService {
       const w = settPPer.get(p.id);
       if (w) {
         return {
-          id: p.id, nome: p.insegna,
+          ...base,
           aperto: !w.closed,
           fasce: w.closed ? [] : [{ dalle: w.openTime, alle: w.closeTime }],
           origine: 'settimanale' as const,
@@ -144,26 +151,27 @@ export class AvailabilityService {
       // ⚠️ Nessuna fonte parla: NON si scrive «chiuso». Non sapere se lavora e
       // sapere che non lavora sono cose diverse, e confonderle fa scartare un
       // partner che magari era libero.
-      return { id: p.id, nome: p.insegna, aperto: false, fasce: [], origine: 'non-indicata' as const };
+      return { ...base, aperto: false, fasce: [], origine: 'non-indicata' as const };
     });
 
     const righeValet: Riga[] = valets.map((v) => {
       const nome = `${v.lastName ?? ''} ${v.firstName ?? ''}`.trim() || '—';
+      const base = { id: v.id, nome, citta: v.city ?? null };
       const d = dispPer.get(v.id);
       if (d?.length) {
         const { aperto, fasce } = daFasce(d);
-        return { id: v.id, nome, aperto, fasce, origine: 'giorno' as const };
+        return { ...base, aperto, fasce, origine: 'giorno' as const };
       }
       const w = settVPer.get(v.id);
       if (w) {
         return {
-          id: v.id, nome,
+          ...base,
           aperto: !w.closed,
           fasce: w.closed ? [] : [{ dalle: w.openTime, alle: w.closeTime }],
           origine: 'settimanale' as const,
         };
       }
-      return { id: v.id, nome, aperto: false, fasce: [], origine: 'non-indicata' as const };
+      return { ...base, aperto: false, fasce: [], origine: 'non-indicata' as const };
     });
 
     const conta = (r: Riga[]) => ({
