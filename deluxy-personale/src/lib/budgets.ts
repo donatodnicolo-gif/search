@@ -45,6 +45,7 @@ export async function proponiPersonaABudgets(persona: {
       motivo?: string;
       anno?: number;
       avvisi?: string[];
+      completati?: string[];
       errore?: string;
     };
 
@@ -56,7 +57,15 @@ export async function proponiPersonaABudgets(persona: {
       };
     }
     if (risposta.ok && dati.motivo === "gia_presente") {
-      return { ok: true, messaggio: `In Budgets c'è già una persona con questo nome (roster ${dati.anno ?? ""}): non è stata toccata.` };
+      // Ricongiunta lato Budgets: la riga esistente non si sovrascrive, ma i
+      // suoi campi VUOTI si completano con la proposta (e si dice quali).
+      return {
+        ok: true,
+        messaggio:
+          dati.completati && dati.completati.length > 0
+            ? `In Budgets c'era già (roster ${dati.anno ?? ""}): ricongiunta — completati i campi vuoti (${dati.completati.join(", ")}), il resto non si tocca.`
+            : `In Budgets c'è già una persona con questo nome (roster ${dati.anno ?? ""}): aveva già tutto, non è stata toccata.`,
+      };
     }
     return {
       ok: false,

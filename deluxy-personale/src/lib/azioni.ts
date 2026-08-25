@@ -7,7 +7,13 @@ import { authAttiva, leggiSessione, SESSION_COOKIE } from "./auth";
 import { prisma } from "./db";
 import { isAdmin } from "./ruoli";
 import { parseData, parseImporto } from "./formato";
-import { QUALIFICHE, FREQUENZE_ATTIVITA, MOTIVI_COMPENSO, TIPI_CONTRATTO } from "./organico";
+import {
+  QUALIFICHE,
+  FREQUENZE_ATTIVITA,
+  MOTIVI_COMPENSO,
+  normalizzaNome,
+  TIPI_CONTRATTO,
+} from "./organico";
 import { proponiPersonaABudgets } from "./budgets";
 
 // Tutte le scritture dell'app passano da qui. Regole:
@@ -110,6 +116,21 @@ export async function creaMansione(fd: FormData): Promise<void> {
   redirect("/funzioni");
 }
 
+export async function aggiornaMansione(fd: FormData): Promise<void> {
+  const negato = await richiediAdmin();
+  if (negato) conErrore("/funzioni", negato);
+  const id = testo(fd, "id");
+  const nome = testo(fd, "nome");
+  if (!id || !nome) conErrore("/funzioni", "Il nome della mansione è obbligatorio.");
+  try {
+    await prisma.mansione.update({ where: { id }, data: { nome, descrizione: testo(fd, "descrizione") } });
+  } catch {
+    conErrore("/funzioni", `In questa funzione esiste già la mansione «${nome}».`);
+  }
+  revalidatePath("/funzioni");
+  redirect("/funzioni");
+}
+
 export async function eliminaMansione(fd: FormData): Promise<void> {
   const negato = await richiediAdmin();
   if (negato) conErrore("/funzioni", negato);
@@ -147,6 +168,25 @@ export async function creaAttivita(fd: FormData): Promise<void> {
       dettaglio: testo(fd, "dettaglio"),
       frequenza: valida,
       ordine: (ultime._max.ordine ?? 0) + 1,
+    },
+  });
+  revalidatePath("/funzioni");
+  redirect("/funzioni");
+}
+
+export async function aggiornaAttivita(fd: FormData): Promise<void> {
+  const negato = await richiediAdmin();
+  if (negato) conErrore("/funzioni", negato);
+  const id = testo(fd, "id");
+  const nome = testo(fd, "nome");
+  if (!id || !nome) conErrore("/funzioni", "Il nome dell'attività è obbligatorio.");
+  const frequenza = testo(fd, "frequenza");
+  await prisma.attivitaMansione.update({
+    where: { id },
+    data: {
+      nome,
+      dettaglio: testo(fd, "dettaglio"),
+      frequenza: (FREQUENZE_ATTIVITA as readonly string[]).includes(frequenza) ? frequenza : "",
     },
   });
   revalidatePath("/funzioni");
@@ -198,10 +238,32 @@ async function creaCicloOrganigramma(personaId: string, responsabileId: string |
   return false;
 }
 
+// I campi anagrafici che viaggiano nel giro di decisione sull'omonimia
+// (redirect con query string: niente si perde, niente si riscrive).
+const CAMPI_PERSONA = ["nome", "ruolo", "email", "telefono", "sede", "funzioneId", "responsabileId", "dataAssunzione", "note"] as const;
+
 export async function creaPersona(fd: FormData): Promise<void> {
   const negato = await richiediAdmin();
   if (negato) conErrore("/persone/nuova", negato);
   const dati = datiPersonaDaForm(fd, "/persone/nuova");
+
+  // Un'omonima esistente non si duplica in silenzio: si torna al form con la
+  // proposta — aggiorna/ricongiungi la scheda che c'è, oppure crea comunque
+  // (forza=1) se è davvero un'altra persona con lo stesso nome.
+  if (fd.get("forza") !== "1") {
+    const tutte = await prisma.persona.findMany({ select: { id: true, nome: true } });
+    const chiave = normalizzaNome(dati.nome);
+    const omonima = tutte.find((p) => normalizzaNome(p.nome) === chiave);
+    if (omonima) {
+      const parametri = new URLSearchParams({ doppione: omonima.id });
+      for (const campo of CAMPI_PERSONA) {
+        const valore = testo(fd, campo);
+        if (valore) parametri.set(campo, valore);
+      }
+      redirect(`/persone/nuova?${parametri.toString()}`);
+    }
+  }
+
   const persona = await prisma.persona.create({ data: dati, include: { funzione: true } });
   revalidatePath("/");
 
@@ -251,6 +313,47 @@ export async function impostaResponsabile(fd: FormData): Promise<void> {
   revalidatePath("/");
   revalidatePath(`/persone/${personaId}`);
   redirect("/organigramma");
+}
+
+// RICONGIUNGIMENTO: i dati scritti nel form della persona nuova finiscono
+// sulla scheda dell'omonima già esistente, invece di generare un doppione.
+// Si aggiornano SOLO i campi compilati (un campo lasciato vuoto non cancella
+// niente); se la scheda era cessata, torna attiva — ricongiungere vuol dire
+// che la persona è qui.
+export async function ricongiungiPersona(fd: FormData): Promise<void> {
+  const negato = await richiediAdmin();
+  if (negato) conErrore("/persone/nuova", negato);
+  const id = testo(fd, "id");
+  if (!id) conErrore("/persone/nuova", "Scheda da ricongiungere non indicata.");
+  const percorso = `/persone/${id}`;
+
+  const aggiornamenti: Record<string, unknown> = {};
+  for (const campo of ["ruolo", "email", "telefono", "sede", "note"] as const) {
+    const valore = testo(fd, campo);
+    if (valore) aggiornamenti[campo] = campo === "email" ? valore.toLowerCase() : valore;
+  }
+  const funzioneId = testo(fd, "funzioneId");
+  if (funzioneId) aggiornamenti.funzioneId = funzioneId;
+  const responsabileId = testo(fd, "responsabileId");
+  if (responsabileId) {
+    if (responsabileId === id || (await creaCicloOrganigramma(id, responsabileId))) {
+      conErrore(percorso, "Così l'organigramma girerebbe in cerchio: scegli un altro responsabile.");
+    }
+    aggiornamenti.responsabileId = responsabileId;
+  }
+  const dataAssunzione = testo(fd, "dataAssunzione") ? parseData(testo(fd, "dataAssunzione")) : null;
+  if (dataAssunzione) aggiornamenti.dataAssunzione = dataAssunzione;
+
+  await prisma.persona.update({
+    where: { id },
+    data: { ...aggiornamenti, stato: "attivo", dataCessazione: null },
+  });
+  revalidatePath(percorso);
+  revalidatePath("/");
+  revalidatePath("/organigramma");
+  redirect(
+    `${percorso}?nota=${encodeURIComponent("Ricongiunta: i dati compilati sono finiti su questa scheda, nessun doppione creato.")}`,
+  );
 }
 
 export async function cessaPersona(fd: FormData): Promise<void> {
@@ -308,6 +411,27 @@ export async function creaAttivitaPersona(fd: FormData): Promise<void> {
       dettaglio: testo(fd, "dettaglio"),
       frequenza: (FREQUENZE_ATTIVITA as readonly string[]).includes(frequenza) ? frequenza : "",
       ordine: (ultime._max.ordine ?? 0) + 1,
+    },
+  });
+  revalidatePath(percorso);
+  redirect(percorso);
+}
+
+export async function aggiornaAttivitaPersona(fd: FormData): Promise<void> {
+  const personaId = testo(fd, "personaId");
+  const percorso = `/persone/${personaId}`;
+  const negato = await richiediAdmin();
+  if (negato) conErrore(percorso, negato);
+  const id = testo(fd, "id");
+  const nome = testo(fd, "nome");
+  if (!id || !nome) conErrore(percorso, "Il nome dell'attività è obbligatorio.");
+  const frequenza = testo(fd, "frequenza");
+  await prisma.attivitaPersona.update({
+    where: { id },
+    data: {
+      nome,
+      dettaglio: testo(fd, "dettaglio"),
+      frequenza: (FREQUENZE_ATTIVITA as readonly string[]).includes(frequenza) ? frequenza : "",
     },
   });
   revalidatePath(percorso);

@@ -16,6 +16,7 @@ import {
   TIPI_CONTRATTO,
 } from "@/lib/organico";
 import {
+  aggiornaAttivitaPersona,
   aggiornaPersona,
   assegnaMansione,
   cessaPersona,
@@ -311,13 +312,44 @@ export default async function SchedaPersona({
                 <span>{a.nome}</span>
                 {a.dettaglio && <span style={{ color: "var(--text-secondary)" }}>— {a.dettaglio}</span>}
                 {a.frequenza && <span className="attivita-freq">({a.frequenza})</span>}
-                <FormConferma
-                  azione={eliminaAttivitaPersona}
-                  conferma={`Eliminare «${a.nome}» dal mansionario di ${persona.nome}?`}
-                  campi={{ id: a.id, personaId: persona.id }}
-                  etichetta="×"
-                  classe="btn ghost mini"
-                />
+                <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, alignItems: "center" }}>
+                  <details className="modifica-inline">
+                    <summary>✎</summary>
+                    <form action={aggiornaAttivitaPersona} className="form-inline">
+                      <input type="hidden" name="id" value={a.id} />
+                      <input type="hidden" name="personaId" value={persona.id} />
+                      <div className="campo">
+                        <label>Attività *</label>
+                        <input type="text" name="nome" required defaultValue={a.nome} />
+                      </div>
+                      <div className="campo" style={{ flex: 2 }}>
+                        <label>Dettaglio</label>
+                        <input type="text" name="dettaglio" defaultValue={a.dettaglio} />
+                      </div>
+                      <div className="campo" style={{ maxWidth: 160 }}>
+                        <label>Frequenza</label>
+                        <select name="frequenza" defaultValue={a.frequenza}>
+                          <option value="">— non indicata —</option>
+                          {FREQUENZE_ATTIVITA.map((fr) => (
+                            <option key={fr} value={fr}>
+                              {fr}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <button className="btn ghost mini" type="submit">
+                        Salva
+                      </button>
+                    </form>
+                  </details>
+                  <FormConferma
+                    azione={eliminaAttivitaPersona}
+                    conferma={`Eliminare «${a.nome}» dal mansionario di ${persona.nome}?`}
+                    campi={{ id: a.id, personaId: persona.id }}
+                    etichetta="×"
+                    classe="chip-x"
+                  />
+                </span>
               </div>
             ))}
           </div>

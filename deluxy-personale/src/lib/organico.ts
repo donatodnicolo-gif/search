@@ -1,5 +1,16 @@
 import type { Compenso, Inquadramento } from "@prisma/client";
 
+// La stessa normalizzazione con cui Hub e import riconoscono le persone:
+// minuscole, senza accenti, spazi compressi. Vive qui e in nessun altro posto.
+export function normalizzaNome(nome: string): string {
+  return (nome ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // Vocabolario e regole di lettura dell'organico. Le regole di calcolo stanno
 // QUI e in nessun'altra pagina: due pagine che si calcolano lo stesso numero
 // per conto loro prima o poi danno due numeri (lezione di Budgets).
