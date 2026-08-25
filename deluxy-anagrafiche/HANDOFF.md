@@ -48,6 +48,19 @@ correzione**: «Battistella fioreria srl» non trova «Fioreria Battistella» pe
 «srl» non compare da nessuna parte — quindi risponde «nessuna» e chi chiama
 creerebbe un quasi-doppione.
 
+**✅ E il dato scritto per sbaglio è stato tolto** (25/08, ore 14):
+`npx tsx scripts/ripara-aggancio-sbagliato.mts --scrivi` ha rimesso a vuoto lo
+`statoFornitore` del contenitore «Contatti senza azienda (HubSpot)», lasciando
+la riga nello storico delle modifiche — una correzione silenziosa è
+indistinguibile da un altro errore. Poi il Customer Service ha ripassato i suoi
+17 pagamenti: **9 anagrafiche create, 6 aggiornate**, i fornitori «abituali»
+sono passati da 5 a **15**, e «RIGUTTO ELENA» si è agganciata al record che
+c'era già («Il Giardino Di Rigutto Elena») invece di creare un doppione.
+
+🔴 **Due aspettano una persona nella pagina Match**: «Paradis des fleurs» (che
+ora torna correttamente fra i candidati) e «Battistella fioreria srl», che
+somiglia a «Fioreria Battistella».
+
 ## 1. Cos'è, in una riga
 
 Registro **centralizzato** delle anagrafiche partner/prospect B2B Deluxy: la **fonte di

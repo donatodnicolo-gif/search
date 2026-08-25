@@ -53,6 +53,30 @@ certezza** — la stessa cosa chiusa stamattina sul collegamento dell'ordine.
   Elena» — che è giusto, evita il doppione.
 
 
+### ✅ E i dati sono stati rimessi a posto (25/08, ore 14)
+
+Correggere il codice non basta: il difetto **aveva già scritto**.
+
+- **Tolto** lo `statoFornitore: abituale` dal contenitore «Contatti senza
+  azienda (HubSpot)», con la riga nello storico delle modifiche del registro
+  (`deluxy-anagrafiche/scripts/ripara-aggancio-sbagliato.mts`). Una correzione
+  silenziosa è indistinguibile da un altro errore.
+- **Ripassati tutti i 17 pagamenti**
+  (`npx tsx scripts/recupera-fornitori-in-anagrafica.mts --scrivi`, di default
+  non scrive): **9 creati, 6 aggiornati, 1 lasciato, 1 ambiguo**.
+- I fornitori «abituali» nel registro sono passati da **5 (uno dei quali
+  sbagliato) a 15**. «RIGUTTO ELENA» è finito sul record che esisteva già
+  («Il Giardino Di Rigutto Elena»): il doppione non è nato.
+- ⚠️ **Due restano fuori, e apposta**: «Battistella fioreria srl» (in registro
+  c'è «Fioreria Battistella» — la unisce una persona) e «Paradis des fleurs»
+  (ora torna «candidati», e la richiesta è nella **pagina Match** del registro).
+  🔴 Sono due gesti da fare a mano su <https://deluxy-anagrafiche.vercel.app>.
+
+⚠️ Al registro va solo **chi è** (nome, stato di fornitore, IBAN se il checksum
+torna, telefono/email **se l'ordine li ha** — oggi sono vuoti su tutti e 17).
+Restano qui gli ordini assegnati e le condizioni di pagamento: ognuno scrive
+quello che possiede.
+
 ## 25/08/2026 (pomeriggio) — «Paga fornitore» perdeva l'ordine per strada
 
 Segnalato dall'utente aprendo
