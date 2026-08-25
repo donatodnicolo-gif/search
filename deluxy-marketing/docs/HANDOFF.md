@@ -297,6 +297,45 @@ correzione del 06/08 è sembrata completa perché nessuno poteva rileggere il
 risultato. Un difetto che scrive su un sistema esterno ha **due** rimedi, e il
 secondo si dimentica sempre.
 
+### ⭐⭐ L'APP DEPOSITA SU DRIVE QUELLO CHE HA FATTO (24-25/08/2026)
+
+Il ponte era aperto e non ci passava niente. Adesso c'è **`lib/ponte-drive.ts`**,
+che compone l'**APPEND 00.2 App-Azioni** nel formato del **§2 di
+`ads/Definitivi/MODELLO Ponte App Azioni.md`** — non inventato: letto su Drive
+con le credenziali dell'app appena collegate. ⚠️ Il modello prevede **sei** tipi
+di file, non quattro come diceva il `_LEGGIMI`: c'è anche **§6 LANCIO**,
+obbligatorio lo stesso giorno di ogni campagna creata.
+
+Una riga per operazione eseguita: canale, brand, campagna con id, stato PRIMA →
+DOPO, autorizzazione, esito. Tre scelte dichiarate:
+- **Nell'esito va la CONFERMA INDIPENDENTE**, non la parola dello script. Il
+  modello chiede «esito verifica immediata», ma è proprio la verifica immediata
+  che il 23/08 ha dichiarato un dubbio su venti negative tutte a posto.
+- **L'autorizzazione si dice com'è**: nell'app è l'approvazione in coda, con nome
+  e data. Non si scrive «briefing [data]» se un briefing non c'era.
+- **Il segno «già depositato» si sposta solo dopo una scrittura riuscita**, o un
+  errore di rete farebbe sparire quelle operazioni dal ponte per sempre.
+
+Cron serale **22:40 di Roma** (`/api/cron/ponte`) più il bottone **«Deposita il
+log azioni ora»** in `/impostazioni`, che usa **la stessa funzione del cron**, non
+una copia. E un'**anteprima** (`{ anteprima: true }`): il ponte è append-only,
+un file sbagliato non si corregge — si può solo affiancare, quindi il testo si
+legge prima che nasca.
+
+🔴 **QUELLO CHE ANCORA NON VA NEL PONTE**, per non crederlo completo:
+- **il passato**: il primo giro parte da 24 ore fa (scelta dichiarata nel codice —
+  un APPEND con dentro un mese non lo consolida nessuno);
+- **le operazioni FALLITE**: solo le `eseguita` entrano, e ce n'è una ferma dal
+  21/08 (`nuovo_annuncio`, `DUPLICATE_ASSET`);
+- **il censimento delle 92.731 parole escluse**: non è un'azione;
+- **le tre negative generiche invece che esatte** (residuo del difetto del 06/08):
+  è materia da **§4 SEGNALAZIONE**, non costruita;
+- **§3 RISULTATI**, **§5 RICHIESTA**, **§6 LANCIO**: non costruiti. Il più urgente
+  è **LANCIO**, che il modello marca obbligatorio e l'app le campagne le crea.
+
+⚠️ **Al 25/08 mattina nella cartella OUT non c'è ancora nulla**: il codice è in
+produzione, ma il primo file nasce col bottone o col cron delle 22:40.
+
 ### ⭐ IL PONTE SU DRIVE È APERTO — tre errori in fila, e nessuno era quello che sembrava (24/08/2026, sera)
 
 Stato finale: `via: "utente"`, collegato come **deluxy.delivery@gmail.com**,
