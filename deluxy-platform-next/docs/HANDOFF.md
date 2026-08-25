@@ -134,6 +134,44 @@ partner: `extraKm` è **0 su tutte** le 2.568 consegne e `price > 0` solo su **3
 (150 € in tutto), quindi il supplemento chilometrico non ha mai fatturato nulla.
 
 
+### Le paghe fuori scala: ricalcolo dal centro città (25/08/2026)
+
+Corretti i ritiri, restano **27 consegne** con la paga nata dalla distanza
+sbagliata: da 58,67 a 600,75 €, contro i **15-37 €** che gli stessi valet
+prendono nello stesso giorno. Script
+`api/scripts/ricalcola-paghe-artista-locale.mjs` (simula di default, backup JSON
+prima di scrivere).
+
+**Come si ricalcola** (scelte dell'utente):
+- **distanza dal CENTRO della città di consegna** all'indirizzo del
+  destinatario. ⚠️ **In linea d'aria**: `googleMapsApiKey` nelle impostazioni
+  della piattaforma è **vuota**, quindi né geocodifica né distanze stradali. In
+  città la strada è tipicamente il 20-30% in più.
+- **tariffa «Consegna Standard» del valet**:
+  `salary + extraKmPrice × max(0, km − minimumKmIncluded)` — lo stesso conto di
+  `calculations.fixedPrice` nel ramo "in città".
+
+🔴 **Il difetto a monte resta aperto**: il servizio vero di queste consegne,
+**«Vendita Deluxy», NON ha una tariffa configurata** per nessuno dei 10 valet
+coinvolti (hanno solo «Consegna Standard» e «Servizio a Ora»). Finché resta
+così, ogni consegna di quel tipo nasce senza una regola di paga.
+
+**Esito della simulazione** (27 consegne, 7 città, 10 valet): **9.606,00 € →
+396,78 €**; le 18 **pagabili** passano da 5.538,97 € a 254,29 €. Distanze dal
+centro fra 0,1 e 15,1 km — tutte urbane. Esempio, la consegna che ha aperto il
+caso: **41967**, Roma, 3,6 km dal centro, **600,75 € → 15,00 €** (Fatima
+Hmamly: base 15 €, 0 €/km).
+
+⚠️ **NON ancora applicato**: il comando di scrittura è stato bloccato dal
+classificatore dei permessi della sessione. Si rilancia con `--applica`.
+
+⚠️ **Ricaduta su Deluxy Orders**: il `costoConsegna` che Orders ha ricevuto
+nasce da `valetSalary`, quindi dopo il ricalcolo va rispinto
+(`spingiMargini`). Esempio: l'ordine **#9099** (172 €) porta oggi **618,51 €**
+di costo consegna, che sono la 41967 (600,75 €, sbagliata) più la 41969
+(17,76 €, giusta): dopo il ricalcolo diventano **32,76 €**.
+
+
 ## 🟢 STATO PRODUZIONE — 21/08/2026: l'app è TORNATA SU dopo 26 giorni
 
 **`https://deluxy-delivery.vercel.app` funziona.** Deploy `delivery-85ynuuzl0` del 21/08, aliasato.
