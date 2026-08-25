@@ -294,25 +294,25 @@ interface Summary {
                   <td>{{ r.category ?? '—' }}</td>
                   <td>{{ r.service }}</td>
                   <td>{{ r.partner }}</td>
-                  <td class="num">{{ euro(r.publicPrice) }}</td>
-                  <td class="num">{{ euro(r.deliveryFee) }}</td>
-                  <td class="num">{{ euro(r.saleValue) }}</td>
+                  <td class="num"></td>
+                  <td class="num"></td>
+                  <td class="num"></td>
                   <!-- Letto dalla consegna, non dedotto: dove manca si dichiara. -->
                   <td class="num">
                     @if (r.anomalia === 'valore_partner_mancante') { — } @else { {{ euro(r.partnerPrice) }} }
                   </td>
-                  <td class="num">{{ euro(r.takings) }}</td>
-                  <td class="num" [class.neg]="r.takingsNet < 0">{{ euro(r.takingsNet) }}</td>
+                  <td class="num"></td>
+                  <td class="num"></td>
                   <!-- La percentuale vera e quella di contratto affiancate: se non
                        combaciano si vede senza doverlo cercare. -->
-                  <td class="num" [class.diverge]="scostaDalContratto(r)">{{ r.feePercent | number: '1.0-1' }}%</td>
+                  <td class="num"></td>
                   <td class="num contratto">{{ r.feePercentContract | number: '1.0-1' }}%</td>
                   <td class="num contratto">{{ euro(r.feeContract) }}</td>
                   <td class="num">{{ euro(r.deliveryCost) }}</td>
-                  <td class="num">{{ euro(r.vat) }}</td>
-                  <td class="num">{{ euro(r.incassiCommission) }}</td>
-                  <td class="num" [class.neg]="r.totalMargin < 0">{{ euro(r.totalMargin) }}</td>
-                  <td class="num">{{ r.totalMarginPercent | number: '1.0-2' }}%</td>
+                  <td class="num"></td>
+                  <td class="num"></td>
+                  <td class="num"></td>
+                  <td class="num"></td>
                     </tr>
                   }
                 }

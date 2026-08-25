@@ -183,6 +183,11 @@ interface CorrispettivoRow {
   totalMargin: number;
   totalMarginPercent: number;
   anomalia: Anomalia;
+  /**
+   * Le righe prodotto, come impronta: servono a capire se due consegne dello
+   * stesso ordine portano LO STESSO prodotto o due prodotti diversi.
+   */
+  prodotti: { nome: string; quantita: number; prezzo: number }[];
 }
 
 /**
@@ -352,12 +357,42 @@ export class FinanceService {
       gruppi.get(k)!.push(r);
     }
     return [...gruppi.entries()].map(([saleRef, g]) => {
-      const publicPrice = round2(g.reduce((s, r) => s + r.publicPrice, 0));
+      // ⭐⭐ QUANTO HA PAGATO IL CLIENTE, e non e' la somma delle consegne.
+      //
+      // Deciso dall'utente il 25/08/2026 sull'ordine 2696: un solo prodotto
+      // («Dolci Abbracci», 210 €) a un solo destinatario, spezzato su DUE
+      // partner — l'orsacchiotto a Fao Schwarz, la cappelliera a Cannavo'. Il
+      // prezzo del prodotto sta scritto su tutte e due le consegne, quindi
+      // sommandole la pagina diceva **420 €** dove il cliente ne ha pagati 210.
+      //
+      // La regola: un prodotto si conta UNA volta per ordine. Due consegne che
+      // portano la stessa riga (stesso prodotto, stessa quantita', stesso
+      // prezzo) sono due pezzi dello stesso acquisto; due righe diverse sono
+      // due acquisti e si sommano.
+      //
+      // ⚠️ E il guadagno viene di conseguenza: pagato dal cliente meno la somma
+      // dei valori dati ai partner — 210 − (35,12 + 100) = 74,88 €, non 284,88.
+      const viste = new Set<string>();
+      let publicPrice = 0;
+      for (const r of g) {
+        for (const pr of r.prodotti) {
+          const impronta = [pr.nome, pr.quantita, pr.prezzo].join("|");
+          if (viste.has(impronta)) continue;
+          viste.add(impronta);
+          publicPrice += pr.prezzo * pr.quantita;
+        }
+      }
+      publicPrice = round2(publicPrice);
       // ⚠️ UNA volta sola: le spese di consegna sono dell'ordine.
       const deliveryFee = round2(Math.max(0, ...g.map((r) => r.deliveryFee)));
       const valore = round2(publicPrice + deliveryFee);
-      const takings = round2(g.reduce((s, r) => s + r.takings, 0));
-      const takingsNet = round2(g.reduce((s, r) => s + r.takingsNet, 0));
+      const partnerPrice = round2(g.reduce((s, r) => s + r.partnerPrice, 0));
+      // Il guadagno e' la differenza fra quello che ha pagato il cliente e la
+      // somma di quanto e' andato ai partner. Non si sommano i guadagni delle
+      // singole consegne: ciascuno era calcolato su un prezzo ripetuto.
+      const takings = round2(valore - partnerPrice);
+      const takingsNet = round2(takings / (1 + VAT));
+      // Il costo del giro e' la somma dei costi delle singole consegne.
       const deliveryCost = round2(g.reduce((s, r) => s + r.deliveryCost, 0));
       const incassiCommission = round2(valore * INCASSI);
       return {
@@ -371,7 +406,7 @@ export class FinanceService {
       // destinazione. Qui si somma quello che risulta PAGATO davvero, e
       // `consegnePagate` dice se sono piu' di uno.
       deliveryCost,
-      partnerPrice: round2(g.reduce((s, r) => s + r.partnerPrice, 0)),
+      partnerPrice,
       takings,
       takingsNet,
       feeContract: round2(g.reduce((s, r) => s + r.feeContract, 0)),
@@ -583,6 +618,11 @@ export class FinanceService {
       totalMargin: round2(totalMargin),
       totalMarginPercent: saleValue > 0 ? round2((totalMargin / saleValue) * 100) : 0,
       anomalia,
+      prodotti: lines.map((l) => ({
+        nome: String(l.product?.name ?? l.productName ?? '?'),
+        quantita: l.quantity ?? 1,
+        prezzo: round2(l.price ?? 0),
+      })),
     };
   }
 }
