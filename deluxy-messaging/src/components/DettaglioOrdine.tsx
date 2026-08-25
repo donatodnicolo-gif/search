@@ -49,6 +49,15 @@ type FornitoreZona = {
   lavoro: LavoroDato | null
 }
 
+/** Un fornitore che risulta dai nostri ordini (non dal registro). */
+type NostroFornitoreDto = {
+  nome: string
+  lavoro: LavoroDato
+  citta: string[]
+  province: string[]
+  ultimoOrdine: string
+}
+
 type Riga = {
   titolo: string
   variante: string
@@ -295,6 +304,9 @@ export function DettaglioOrdine({
   const [zona, setZona] = useState<FornitoreZona[]>([])
   const [zonaProvincia, setZonaProvincia] = useState('')
   const [zonaNota, setZonaNota] = useState('')
+  /** I fornitori che risultano dai NOSTRI ordini: si vedono anche se il
+   *  registro non sa dove stiano. */
+  const [nostri, setNostri] = useState<NostroFornitoreDto[]>([])
   // ⚠️ «Dai a lui» sulla riga di un fornitore in zona: il modulo qui sopra si
   // apre già pieno. Senza, chi ha appena telefonato dovrebbe ricopiare a mano
   // nome, città e telefono che ha davanti agli occhi — e non lo farebbe.
@@ -567,6 +579,9 @@ export function DettaglioOrdine({
     let vivo = true
     ;(async () => {
       const p = new URLSearchParams({ provincia, negozio: ordine.negozioNome })
+      // ⚠️ La città serve a mettere in cima chi ha GIÀ consegnato lì: è il
+      // segnale più forte che abbiamo su chi può farlo di nuovo.
+      if (spedizione?.citta) p.set('citta', spedizione.citta)
       if (mestiere) p.set('mestiere', mestiere)
       // ⚠️ Il PRODOTTO: su «Deluxy», che vende di tutto, il negozio non dice il
       // mestiere e l'elenco mostrava pasticcerie e fiorai insieme.
@@ -579,6 +594,7 @@ export function DettaglioOrdine({
       const res = await fetch('/api/fornitori-zona?' + p.toString())
       const d = (await res.json().catch(() => ({}))) as {
         fornitori?: FornitoreZona[]
+        nostri?: NostroFornitoreDto[]
         provincia?: string
         mestiere?: string
         daDove?: string
@@ -587,6 +603,7 @@ export function DettaglioOrdine({
       }
       if (!vivo) return
       setZona(d.fornitori ?? [])
+      setNostri(d.nostri ?? [])
       setZonaProvincia(d.provincia ?? '')
       setZonaMestiere(d.mestiere ?? '')
       setZonaDaDove(d.daDove ?? '')
@@ -1444,6 +1461,41 @@ export function DettaglioOrdine({
                     Né il negozio né il nome del prodotto dicono che mestiere serve, quindi ci
                     sono tutti: se sai già di che si tratta, restringi qui sopra.
                   </p>
+                ) : null}
+                {/* ── CHI HA GIÀ PREPARATO ORDINI PER NOI ──
+                    ⚠️⚠️ Sta QUI, sotto l'elenco del registro, e si vede anche
+                    quando quello è vuoto. Segnalato dall'utente su #2798: «non
+                    vedo passiflora tra i fornitori», mentre Passiflora
+                    quell'ordine l'aveva preparato — nel registro non ha né città
+                    né categoria (come tutti i fornitori entrati pagandoli),
+                    quindi per l'elenco in zona non esiste.
+                    ⚠️ Le città scritte accanto sono quelle di CONSEGNA, non
+                    l'indirizzo del fornitore: dove abbia il negozio non lo
+                    sappiamo, e non lo si scrive come se lo sapessimo. */}
+                {zonaCaricata && nostri.length > 0 ? (
+                  <div style={{ marginTop: 14 }}>
+                    <div className="cella-nome" style={{ marginBottom: 4 }}>
+                      Hanno già preparato ordini per noi
+                    </div>
+                    <p className="cella-sub" style={{ marginTop: 0 }}>
+                      Dai nostri ordini, non dal registro: in cima chi ha già consegnato in questa
+                      zona.
+                    </p>
+                    <ul className="elenco-nostri-fornitori">
+                      {nostri.slice(0, 6).map((f) => (
+                        <li key={f.nome}>
+                          <span className="cella-nome">{f.nome}</span>{' '}
+                          <span className="cella-sub">{riassuntoLavoro(f.lavoro)}</span>
+                          {f.citta.length ? (
+                            <span className="cella-sub">
+                              {' '}
+                              · consegne a {f.citta.slice(0, 3).join(', ')}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
                 {!zonaCaricata ? (
                   <p className="descrizione">Cerco…</p>

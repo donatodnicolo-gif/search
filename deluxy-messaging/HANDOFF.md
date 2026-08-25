@@ -1,5 +1,45 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (sera 8) — «non vedo Passiflora fra i fornitori» (ordine #2798)
+
+Segnalato dall'utente. Aveva ragione, e i motivi erano **tre**, tutti silenziosi.
+
+1. **Nel registro Passiflora non ha né città né provincia** — come tutti e 15 i
+   fornitori entrati pagandoli — e l'elenco «fornitori in zona» filtra per
+   provincia: chi non ce l'ha è invisibile.
+2. **Ha `categoria: ALTRO`**, e quell'elenco tiene solo FIORISTA e PASTICCERIA.
+   Anche con la provincia, sarebbe rimasto fuori.
+3. ⚠️⚠️ **Quella consegna non è nemmeno in Italia.** #2798 va a **Mijas
+   (Málaga)** e l'indirizzo dice «MA», che in Italia **non è una provincia**. La
+   schermata scriveva «Nessun fornitore censito in provincia di MA»: si legge
+   come «non ne abbiamo», mentre la verità è «qui non so cercare».
+
+**Cosa è cambiato**
+
+- **«Hanno già preparato ordini per noi»**: una sezione nuova nella scheda
+  dell'ordine, letta dai **nostri ordini** e non dal registro, che si vede
+  **anche quando l'elenco in zona è vuoto**. In cima chi ha già consegnato in
+  **quella città**, poi in quella provincia, poi chi ha lavorato di più.
+  ⚠️ Le città scritte accanto sono quelle di **consegna**, non l'indirizzo del
+  fornitore: dove abbia il negozio continuiamo a non saperlo, e non si scrive
+  come se lo sapessimo. Nel registro non finisce niente.
+- **Provincia non italiana**: si dice, invece di dire «non ne abbiamo».
+- **La categoria adesso parte** verso il registro quando è un fatto: chi ha
+  preparato per **FLowers** è FIORISTA, per **Cake** è PASTICCERIA. ⚠️ Non è una
+  deduzione dal nome — «Vecchio Maurizio» non dice niente — è il negozio
+  dell'ordine che ha davvero preparato. Su «Deluxy», che vende di tutto, non si
+  manda niente: meglio ALTRO che una categoria sbagliata.
+
+**Provato sui dati veri**: `npx tsx scripts/prova-nostri-fornitori.mts` — sui 18
+fornitori che risultano dai nostri ordini, per la consegna di #2798 il **primo
+della lista è Passiflora**, cioè proprio chi quell'ordine l'ha preparato. E
+`siglaProvincia('MA')` è vuota, mentre «MS» e «Firenze» si riconoscono.
+
+🔴 **Resta**: i 15 già in anagrafica hanno ancora categoria ALTRO e nessuna
+città. La categoria si potrebbe ripassare (sappiamo da che negozio veniva
+l'ordine di ognuno); la città no, quella non ce l'abbiamo.
+
+
 ## 25/08/2026 (sera 7) — fuori turno risponde l'AI, e se non sa chiede su WhatsApp
 
 Chiesto dall'utente: «quando non c'è nessuno sul cs attivo come operatore tutte

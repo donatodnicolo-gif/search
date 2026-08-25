@@ -3824,6 +3824,9 @@ td .azioni-ordine {
   margin-bottom: 8px;
 }
 
+/* ⚠️ È un <button>: serve per aprirla col Tab e con Invio. Un bottone però
+   arriva col suo carattere, il suo bordo e il testo centrato — si riportano a
+   quelli della bolla, o la chat si sfalda. */
 .conversazione-ordine .battuta {
   padding: 7px 10px;
   border-radius: var(--radius-m);
@@ -3831,6 +3834,29 @@ td .azioni-ordine {
   white-space: pre-wrap;
   word-break: break-word;
   background: var(--fill);
+  font-family: inherit;
+  text-align: left;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: block;
+  width: fit-content;
+  transition: border-color 0.12s ease;
+}
+
+.conversazione-ordine .battuta:hover {
+  border-color: var(--hairline-strong);
+}
+
+.conversazione-ordine .battuta:focus-visible {
+  outline: none;
+  border-color: var(--blue);
+}
+
+/* Una mail arrivata senza corpo: si dice, invece di lasciare il vuoto — che
+   somiglia troppo a un guasto. */
+.conversazione-ordine .battuta .senza-testo {
+  opacity: 0.55;
+  font-style: italic;
 }
 
 /* Le nostre risposte a destra, come in chat: si legge chi ha detto cosa senza
@@ -3858,6 +3884,36 @@ td .azioni-ordine {
   font-size: 11px;
   opacity: 0.6;
   margin-top: 3px;
+}
+
+/* ---- Il messaggio aperto per intero (pop-up dalla scheda dell'ordine) ---- */
+
+.pannello.mail-aperta {
+  width: min(680px, 100%);
+}
+
+.mail-aperta-corpo {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 14px;
+  line-height: 1.55;
+  /* Una mail lunga non deve allungare la finestra oltre lo schermo: scorre
+     dentro il suo riquadro, e la testata con oggetto e mittente resta ferma. */
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 12px 14px;
+  background: var(--fill);
+  border-radius: var(--radius-m);
+}
+
+.mail-aperta-corpo.vuoto {
+  margin: 0;
+}
+
+.mail-aperta-piede {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
 }
 
 .conversazione-ordine .rispondi {
@@ -4644,3 +4700,10 @@ td .azioni-ordine {
   opacity: 0.55;
   text-decoration: line-through;
 }
+
+/* «Hanno già preparato ordini per noi», sotto i fornitori in zona.
+   ⚠️ Righe fitte e senza pallini: è un elenco di nomi da leggere in due secondi
+   mentre si decide a chi telefonare, non una lista puntata da studiare. */
+.elenco-nostri-fornitori { list-style: none; margin: 6px 0 0; padding: 0; }
+.elenco-nostri-fornitori li { padding: 4px 0; border-top: 1px solid var(--hairline); }
+.elenco-nostri-fornitori li:first-child { border-top: none; }

@@ -7,6 +7,8 @@ import {
   type Mestiere,
 } from '@/lib/fornitori-zona'
 import { lavoroPerFornitore } from '@/lib/lavoro-fornitore'
+import { nostriFornitori, ordinaPerConsegna } from '@/lib/nostri-fornitori'
+import { siglaProvincia } from '@/lib/province'
 import { chiaveNome, type LavoroDato } from '@/lib/cerca-fornitore'
 
 export const dynamic = 'force-dynamic'
@@ -18,17 +20,31 @@ export const dynamic = 'force-dynamic'
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams
   const provincia = (p.get('provincia') ?? '').trim()
+  /** La città di consegna: serve a mettere in cima chi ha già consegnato lì. */
+  const citta = (p.get('citta') ?? '').trim()
   const negozio = (p.get('negozio') ?? '').trim()
   const mestiereChiesto = (p.get('mestiere') ?? '').trim()
   // Il nome del prodotto dell'ordine: serve quando il negozio non dice il
   // mestiere («Deluxy» vende di tutto).
   const prodotto = (p.get('prodotto') ?? '').trim()
 
+  // ── CHI HA GIÀ PREPARATO ORDINI PER NOI ──
+  //
+  // ⚠️⚠️ Si legge dai NOSTRI ordini e si manda SEMPRE, anche quando l'elenco del
+  // registro è vuoto o la provincia non è italiana. Segnalato dall'utente su
+  // #2798: «non vedo passiflora fra i fornitori», mentre Passiflora quell'ordine
+  // l'aveva preparato. Nel registro non ha né città né categoria — come tutti i
+  // fornitori entrati pagandoli — quindi per l'elenco in zona non esiste.
+  // Una lista che promette «prima quelli con cui lavoriamo già» e non li mostra
+  // è peggio di una lista vuota.
+  const nostri = ordinaPerConsegna(await nostriFornitori().catch(() => []), citta, provincia)
+
   if (!provincia) {
     // Senza provincia non si indovina: un elenco «nazionale» proporrebbe
     // fornitori a 400 km e la lista smetterebbe di voler dire qualcosa.
     return NextResponse.json({
       fornitori: [],
+      nostri,
       provincia: '',
       nota: 'Provincia di consegna non nota.',
     })
@@ -54,6 +70,22 @@ export async function GET(req: NextRequest) {
     mestiereChiesto === 'pasticceria' || mestiereChiesto === 'fioraio'
       ? mestiereChiesto
       : (mestierePerNegozio(negozio) ?? daProdotto)
+
+  // ⚠️⚠️ La provincia potrebbe non essere italiana. Su #2798 la consegna è a
+  // **Mijas (Málaga)** e l'indirizzo dice «MA»: che in Italia non è una
+  // provincia. L'elenco per provincia è uno strumento italiano, e dirlo è
+  // diverso dal dire «nessun fornitore censito in provincia di MA» — che si
+  // legge come «non ne abbiamo», mentre la verità è «qui non so cercare».
+  if (!siglaProvincia(provincia)) {
+    return NextResponse.json({
+      fornitori: [],
+      nostri,
+      provincia,
+      mestiere: mestiere ?? '',
+      daDove: '',
+      nota: `«${provincia}» non è una provincia italiana: l'elenco per zona vale solo in Italia. Qui sotto ci sono i fornitori che hanno già preparato ordini per noi.`,
+    })
+  }
 
   const esito = await fornitoriInZona(provincia, mestiere)
   if (esito.stato === 'non-configurato') {
@@ -84,6 +116,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
+    nostri,
     provincia: esito.provincia,
     mestiere: mestiere ?? '',
     // ⚠️ Da DOVE viene il filtro, così la schermata può dirlo: un elenco

@@ -2,6 +2,7 @@ import { db } from './db'
 import { leggiImpostazioni } from './impostazioni'
 import { agganciaAffidabile } from './aggancio-fornitore'
 import { siglaProvincia } from './province'
+import { mestierePerNegozio } from './fornitori-zona'
 
 // IL FORNITORE PAGATO ENTRA NEL REGISTRO (24/08/2026, richiesta dell'utente).
 //
@@ -69,6 +70,7 @@ export async function segnalaFornitorePagatoAlRegistro(
     fornitoreTelefono: string
     fornitoreEmail: string
     fornitoreCitta: string
+    negozioNome: string
   } | null =
     null
   if (r.ordineNumero) {
@@ -82,6 +84,8 @@ export async function segnalaFornitorePagatoAlRegistro(
         // ⚠️ La città DEL FORNITORE (chi l'ha registrato l'ha scritta, o è
         // arrivata dal registro): è quella che lo rende ritrovabile. Vedi sotto.
         fornitoreCitta: true,
+        // Il negozio dell'ordine: dice il MESTIERE del fornitore (vedi sotto).
+        negozioNome: true,
       },
     })
   }
@@ -178,6 +182,22 @@ export async function segnalaFornitorePagatoAlRegistro(
       const sigla = siglaProvincia(citta)
       if (sigla) corpo.provincia = sigla
     }
+
+    // ── CHE MESTIERE FA, quando lo sappiamo per fatto ──
+    //
+    // ⚠️⚠️ Senza categoria un fornitore è **invisibile** nell'elenco «fornitori
+    // in zona», che tiene solo FIORISTA e PASTICCERIA. Segnalato dall'utente il
+    // 25/08/2026 su #2798: Passiflora aveva preparato quell'ordine e non
+    // compariva — era `categoria: ALTRO` come tutti quelli entrati pagandoli.
+    //
+    // ⚠️ Non è una deduzione dal nome (da «Vecchio Maurizio» non si ricava un
+    // mestiere, e inventarlo sarebbe peggio): è il NEGOZIO dell'ordine che ha
+    // preparato. Chi ha fatto un bouquet per FLowers è un fioraio, chi ha fatto
+    // una torta per Cake è una pasticceria — l'ha fatto davvero, non lo
+    // supponiamo. Su «Deluxy», che vende di tutto, il mestiere non si sa e la
+    // categoria non si manda: meglio ALTRO che una categoria sbagliata.
+    const mestiere = ordine?.negozioNome ? mestierePerNegozio(ordine.negozioNome) : null
+    if (mestiere) corpo.categoria = mestiere === 'fioraio' ? 'FIORISTA' : 'PASTICCERIA'
     if (ordine?.fornitoreTelefono?.trim()) corpo.telefono = ordine.fornitoreTelefono.trim()
     if (ordine?.fornitoreEmail?.trim()) corpo.email = ordine.fornitoreEmail.trim()
     // L'IBAN entra solo verificato (checksum ok): nel golden record un IBAN
