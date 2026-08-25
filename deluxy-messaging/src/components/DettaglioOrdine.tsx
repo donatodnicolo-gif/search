@@ -17,6 +17,7 @@ import {
   type Chiesto,
 } from '@/lib/richieste-fornitore'
 import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
+import { linkPagamentoOrdine } from '@/lib/link-ordine'
 import type { BozzaMail } from './ComponiMail'
 
 // Il dettaglio di un ordine, che si apre cliccando la sua scheda.
@@ -1261,7 +1262,7 @@ export function DettaglioOrdine({
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
                 <a
                   className="btn btn-secondario small"
-                  href={`/pagamenti?ordine=${encodeURIComponent(ordine.numero)}&cliente=${encodeURIComponent(ordine.clienteNome)}&importo=${ordine.totale || ''}`}
+                  href={linkPagamentoOrdine(ordine)}
                 >
                   Paga fornitore
                 </a>

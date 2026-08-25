@@ -18,6 +18,7 @@ import {
   ORE_APPENA_ARRIVATO,
 } from '@/lib/cliente-valore'
 import { linkOrdineShopify } from '@/lib/link-shopify'
+import { linkPagamentoOrdine } from '@/lib/link-ordine'
 import { segnaliOrdine } from '@/lib/segnali-ordine'
 import { fornitoreAtteso } from '@/lib/fornitore-ordine'
 import { DettaglioOrdine } from './DettaglioOrdine'
@@ -412,22 +413,12 @@ function spiegaContatto(c: { chiave: string; nome: string; lingua: string; lingu
   return `Scrivi al cliente su ${c.nome}, in ${nomeLingua(c.lingua)} (${perche}). Il messaggio non parte da solo: lo rileggi prima.`
 }
 
-/** Pagina Pagamenti già impostata su questo ordine. */
+/** Pagina Pagamenti già impostata su questo ordine.
+ *  ⚠️ Il link lo costruisce `linkPagamentoOrdine()`, uno solo per tutta l'app:
+ *  qui e sulla scheda dell'ordine erano due copie diverse, e quella della scheda
+ *  perdeva per strada fornitore e costo concordato. */
 function linkPagamento(o: OrdineDto): string {
-  const p = new URLSearchParams({
-    ordine: o.numero,
-    cliente: o.clienteNome,
-    importo: String(o.totale || ''),
-  })
-  // ⚠️ CHI VA PAGATO È IL FORNITORE, non il cliente. Finora la pagina si apriva
-  // con l'importo del venduto e l'intestatario vuoto: si ricopiava a mano il
-  // nome di chi ha preparato l'ordine — quando ci si ricordava chi fosse — e si
-  // rischiava di chiedere il pagamento della cifra sbagliata.
-  if (o.fornitoreNome) {
-    p.set('fornitore', o.fornitoreNome)
-    if (typeof o.fornitoreCosto === 'number') p.set('costo', String(o.fornitoreCosto))
-  }
-  return `/pagamenti?${p.toString()}`
+  return linkPagamentoOrdine(o)
 }
 
 /**

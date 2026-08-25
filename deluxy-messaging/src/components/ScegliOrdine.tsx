@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { riconosciOrdine } from '@/lib/link-ordine'
 
 // L'ordine a cui una richiesta di pagamento si riferisce.
 //
@@ -34,6 +35,8 @@ export function ScegliOrdine({
   onScelto,
   onTolto,
   cercaDa,
+  idCercato,
+  negozioCercato,
 }: {
   /** Il numero già collegato, se c'è. */
   numero: string
@@ -44,6 +47,21 @@ export function ScegliOrdine({
    * ⚠️ Si CERCA da solo, ma non si collega da solo: vedi sotto.
    */
   cercaDa?: string
+  /**
+   * L'id dell'ordine da cui si arriva, quando chi ha aperto la pagina lo sapeva
+   * già (il bottone «Paga fornitore»).
+   * ⚠️⚠️ È la differenza fra CERCARE e RICONOSCERE: col numero da solo «2792»
+   * torna anche «#12792» e il collegamento automatico si ferma — giustamente,
+   * perché sceglierne uno vorrebbe dire calcolare il margine sull'ordine
+   * sbagliato. Con l'id non c'è niente da indovinare.
+   */
+  idCercato?: string
+  /**
+   * Il negozio dell'ordine di partenza: vale quando l'id non c'è (archivio) e
+   * disambigua lo stesso — «#1733» esiste su Cake e su Deluxy, ma non due volte
+   * sullo stesso negozio.
+   */
+  negozioCercato?: string
 }) {
   const [q, setQ] = useState('')
   const [trovati, setTrovati] = useState<OrdineTrovato[]>([])
@@ -90,12 +108,23 @@ export function ScegliOrdine({
     if (!n || n.length < 3 || numero || giaProvato.current === n) return
     giaProvato.current = n
     void cerca(n).then((o) => {
-      if (o.length === 1) {
-        setScelto(o[0])
-        onScelto(o[0])
+      // ⚠️⚠️ L'ORDINE DELLE TRE PROVE È LA REGOLA.
+      //
+      //   1. l'id → è QUELL'ordine, non uno che gli somiglia;
+      //   2. numero esatto + negozio → identifica lo stesso, senza l'id;
+      //   3. un solo risultato → come prima.
+      //
+      // Le prime due esistono perché il caso vero non era «non si trova»: era
+      // «se ne trovano due» (#2792 di FLowers e #12792 di Deluxy, misurati il
+      // 25/08), e chi era partito dalla scheda di uno dei due si trovava il
+      // campo vuoto — dopo aver già detto all'app di quale ordine parlava.
+      const scelta = riconosciOrdine(o, n, idCercato, negozioCercato)
+      if (scelta) {
+        setScelto(scelta)
+        onScelto(scelta)
       }
     })
-  }, [cercaDa, numero, cerca, onScelto])
+  }, [cercaDa, numero, cerca, onScelto, idCercato, negozioCercato])
 
   if (numero && scelto) {
     return (

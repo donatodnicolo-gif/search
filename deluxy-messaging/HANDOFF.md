@@ -1,5 +1,65 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (pomeriggio) — «Paga fornitore» perdeva l'ordine per strada
+
+Segnalato dall'utente aprendo
+`/pagamenti?ordine=%232792&cliente=Darya+Byelikova&importo=135`: **il campo
+«Ordine» era vuoto**, pur essendo partiti dalla scheda di quell'ordine.
+
+⚠️⚠️ **Non era la ricerca a non funzionare: era il link a non dire QUALE ordine.**
+Portava il numero e basta, e il numero non è un'identità. Misurato sui dati veri:
+cercando «2792» tornano **due** ordini — **#2792** (FLowers, Darya Byelikova,
+135 €) e **#12792** (Deluxy, Sophia Moein, 64 €). Davanti a due, la regola «si
+collega da solo solo se il risultato è UNO» si ferma — **e fa bene**: scegliere a
+caso vorrebbe dire calcolare il margine sul valore di un altro ordine. Ma chi
+aveva premuto «Paga fornitore» quell'ordine l'aveva già indicato, e si ritrovava
+a doverlo ricercare a mano.
+
+Ora il link porta **id e negozio** (`linkPagamentoOrdine()` in
+`src/lib/link-ordine.ts`) e dall'altra parte non si cerca più: si **riconosce**
+(`riconosciOrdine()`, tre prove in quest'ordine — **id** → **numero esatto +
+negozio** → **un solo risultato**).
+
+- ⚠️ La terza prova resta l'ultima, e se nessuna dice sì il campo **resta vuoto
+  apposta**: collegare l'ordine sbagliato non dà nessun errore, dà un margine
+  sbagliato e un bonifico intestato a chi ha preparato un'altra consegna. Provato
+  anche il caso cattivo: un id che non è in elenco **non fa ripiegare** sul
+  somigliante.
+- ⚠️ La prova del numero + negozio serve agli ordini **d'archivio**, che un id
+  nostro non ce l'hanno.
+- ⚠️⚠️ **Trovato per strada**: i due bottoni «Paga fornitore» erano **due copie
+  diverse**. Quello dell'elenco portava fornitore e costo concordato, quello
+  della **scheda no** — quindi proprio dalla scheda dell'ordine (dove si vede chi
+  lo prepara) si ribattevano a mano nome e cifra. Adesso il link lo costruisce
+  una funzione sola.
+- La prova gira sui **dati veri**: `npx tsx scripts/prova-paga-fornitore.mts`
+  (14 casi). Se un domani «2792» tornasse un ordine solo, il caso non sarebbe più
+  riproducibile e **la prova lo dice** invece di passare in silenzio.
+
+### I tre commit di stamattina, che l'handoff non aveva ancora
+
+Sono usciti **dopo** la sezione qui sotto (che si ferma a `7ddfbd21`):
+
+- **`01c98ce1` — il fornitore va SCELTO, non scritto.** Nella schermata vera
+  l'intestatario del conto era **«p»**: un campo di testo obbligatorio si
+  soddisfa con una lettera, e da lì in poi tutto «funziona» — la richiesta si
+  salva, «p» finisce sull'ordine come fornitore, il bonifico parte verso un nome
+  che non è un nome. ⚠️ Non si vietano i nomi corti (esistono insegne di due
+  lettere): si chiede **da dove viene** il nome — dalla ricerca (i nostri, il
+  registro, Google Maps) o dichiarato nuovo apposta. ⚠️ Il controllo sta nella
+  **schermata**, non nella rotta: «da dove viene» è un fatto dell'interfaccia.
+- **`11c2bbb8` — «già a posto» non è un guasto.** Il messaggio verde diceva
+  «⚠️ L'ordine NON l'ho aggiornato: #2798 è già a posto». Due cose opposte nella
+  stessa riga, e **vince la forma**: si andava a cercare un problema che non
+  c'era. Ora `gia-registrato` conta come esito buono (spunta verde). Stesso
+  difetto del bollino «non avvisato» di ieri.
+- **`5b7ec51a` — la pagina non salta più mentre si scrive.** Difetto
+  introdotto il 24/08 con l'evidenziazione della riga: `ref` scritto come arrow
+  **inline nel JSX** → React lo stacca e riattacca a ogni render → `scrollIntoView`
+  **a ogni tasto premuto**, in qualunque campo. Ora il ref è stabile e lo
+  scorrimento sta in un effetto che guarda solo l'id della riga.
+
+
 ## 25/08/2026 — la catena ordine→fornitore→pagamento chiusa, e il glossario per più marchi
 
 Otto commit, tutti deployati. In fondo alla giornata la catena regge da sola:

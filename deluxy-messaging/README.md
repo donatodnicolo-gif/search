@@ -327,6 +327,27 @@ solo se il risultato è UNO.** Lo stesso numero esiste su più negozi («#1733»
 sia di Cake sia di Deluxy): sceglierne uno a caso vorrebbe dire mostrare il
 margine calcolato sul valore di un altro ordine.
 
+⚠️⚠️ **Arrivando dal bottone «Paga fornitore», però, non si cerca: si
+riconosce.** Il link porta l'**id** dell'ordine e il **negozio**, non solo il
+numero — e con l'id non c'è niente da indovinare. Prima portava il numero da
+solo, e succedeva questo (segnalato dall'utente il 25/08/2026 su
+`/pagamenti?ordine=%232792…`): cercando «2792» tornano **#2792 di FLowers** e
+**#12792 di Deluxy**, due risultati, quindi la regola di sopra si fermava e il
+campo **restava vuoto** — a chi era partito da quell'ordine sembrava che l'app
+avesse dimenticato quello che aveva appena fatto.
+
+Le prove, in quest'ordine: **id** → **numero esatto + negozio** (vale per gli
+ordini d'archivio, che un id nostro non ce l'hanno) → **un solo risultato**. Se
+nessuna dice sì, il campo resta vuoto **apposta**: meglio farlo scegliere a una
+persona che collegare l'ordine sbagliato, che non dà nessun errore e dà un
+margine calcolato sul valore di un altro.
+
+⚠️ Lo stesso link lo costruiscono ora **tutti e due** i bottoni «Paga
+fornitore», quello dell'elenco e quello della scheda (`linkPagamentoOrdine()`,
+una funzione sola): erano due copie diverse, e quella della scheda **perdeva per
+strada il fornitore e il costo concordato** — cioè proprio chi va pagato e
+quanto, che dalla scheda si ribattevano a mano.
+
 ### La riga si lavora: copia, modifica, pagata
 
 ⚠️ **Ogni cella si copia toccando il testo.** Il caso vero: un IBAN di ventisette

@@ -153,6 +153,13 @@ export function RichiediPagamento() {
   // Il numero d'ordine che arriva dal bottone «Paga»: è più affidabile del
   // numero letto nella causale, perché non è stato scritto a mano da nessuno.
   const [ordineDaUrl, setOrdineDaUrl] = useState('')
+  // ⚠️⚠️ L'IDENTITÀ dell'ordine da cui si arriva, non solo il suo numero.
+  // Il numero da solo non basta a riconoscerlo: «2792» combacia anche con
+  // «#12792» di un altro negozio, e davanti a due risultati il collegamento
+  // automatico si fermava — lasciando vuoto un campo che chi ha premuto
+  // «Paga fornitore» aveva di fatto già compilato.
+  const [ordineIdDaUrl, setOrdineIdDaUrl] = useState('')
+  const [negozioDaUrl, setNegozioDaUrl] = useState('')
   // ⚠️⚠️ LA RIGA APERTA DAL LINK DELL'AVVISO WhatsApp. Il messaggio dice «aprilo
   // qui» e porta su QUESTA riga: con duecento richieste, mandare sulla pagina e
   // basta vuol dire farla cercare — e cercare su un telefono è la cosa che si
@@ -195,6 +202,8 @@ export function RichiediPagamento() {
     // bottone «Paga» il numero lo sappiamo già con certezza, mentre la causale
     // è testo che qualcuno può aver riscritto.
     setOrdineDaUrl(ordine)
+    setOrdineIdDaUrl((p.get('ordineId') ?? '').trim())
+    setNegozioDaUrl((p.get('negozio') ?? '').trim())
     const cliente = p.get('cliente')
 
     // ⚠️⚠️ CHI VA PAGATO È IL FORNITORE, NON IL CLIENTE.
@@ -941,6 +950,8 @@ export function RichiediPagamento() {
           <ScegliOrdine
             numero={ordineScelto?.numero ?? ''}
             cercaDa={ordineDaUrl || causale}
+            idCercato={ordineIdDaUrl}
+            negozioCercato={negozioDaUrl}
             onScelto={(o) => {
               setOrdineScelto(o)
               setOrdineNumero(o.numero)
