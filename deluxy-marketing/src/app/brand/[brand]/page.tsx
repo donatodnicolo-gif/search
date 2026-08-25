@@ -32,6 +32,7 @@ import {
 import { breakEvenRoas } from "@/lib/guardrail";
 import { PRESET_PERIODO, variazione } from "@/lib/periodo";
 import { periodoApp } from "@/lib/periodo-condiviso";
+import { COLORE_VERDETTO, schedaDi, type VerdettoScheda } from "@/lib/scheda-analisi";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +70,7 @@ export default async function PaginaBrand({
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
 
-  const [ora, prima, anno, aperte, scadute, analisi, campagne, metrichePeriodo, alertAperti, pubblici, landing, canali] =
+  const [ora, prima, anno, aperte, scadute, analisi, letture, campagne, metrichePeriodo, alertAperti, pubblici, landing, canali] =
     await Promise.all([
       numeriBrand(brand, periodo.corrente),
       numeriBrand(brand, periodo.precedente),
@@ -81,6 +82,15 @@ export default async function PaginaBrand({
       }),
       prisma.azione.count({ where: { brand, stato: { in: STATI_AZIONE_APERTI }, scadenza: { lt: oggi } } }),
       prisma.analisi.findMany({ where: { brand }, orderBy: { dataAnalisi: "desc" }, take: 6 }),
+      // Le LETTURE: le analisi già rielaborate in scheda, da aprire dalla
+      // testata col loro verdetto. Sono la risposta a «cosa dicono di questo
+      // brand le ultime letture?» prima ancora di guardare i numeri.
+      prisma.analisi.findMany({
+        where: { brand, scheda: { not: null } },
+        orderBy: { dataAnalisi: "desc" },
+        take: 3,
+        select: { id: true, titolo: true, verdetto: true, dataAnalisi: true, scheda: true },
+      }),
       prisma.campagna.findMany({
         // Solo quelle che girano: una scheda brand serve a decidere su oggi, e
         // un elenco pieno di campagne spente del 2025 nasconde le tre che
@@ -181,7 +191,44 @@ export default async function PaginaBrand({
               brand <b>{be.toFixed(2)}×</b> (margine {Math.round((1 / be) * 100)}%).
             </p>
           </div>
-          <a className="btn" href={`/analisi/nuova?brand=${brand}`}>Deposita analisi</a>
+          {/* ⚠️ LE LETTURE DISPONIBILI, in alto a destra (richiesta utente,
+              25/08 sera): le analisi già rielaborate in scheda, ognuna col
+              pallino del SUO verdetto e la frase-verdetto sotto il mouse.
+              L'etichetta è il titolo senza la data davanti — la data sta
+              accanto, e ripeterla è rumore. Se non c'è nessuna scheda il
+              blocco sparisce: resta solo «Deposita analisi». */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+            {letture.length > 0 && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {letture.map((l) => {
+                  const sch = schedaDi(l);
+                  const verdetto = (l.verdetto ?? "giallo") as VerdettoScheda;
+                  return (
+                    <a
+                      key={l.id}
+                      className="btn small btn-secondario"
+                      href={`/analisi/${l.id}`}
+                      title={sch?.titolo ?? l.titolo}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 7 }}
+                    >
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: COLORE_VERDETTO[verdetto] ?? "var(--text-tertiary)",
+                          flexShrink: 0,
+                        }}
+                      />
+                      {l.titolo.replace(/^\s*\d{4}-\d{2}-\d{2}\s*[-–—]\s*/, "")}
+                      <span className="cella-sub">{formattaData(l.dataAnalisi)}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+            <a className="btn" href={`/analisi/nuova?brand=${brand}`}>Deposita analisi</a>
+          </div>
         </div>
 
         <VisteSalvate pagina="brand" base={`/brand/${brand}`} parametri={sp} />

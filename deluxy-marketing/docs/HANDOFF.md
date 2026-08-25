@@ -391,6 +391,10 @@ nell'app in modo chiaro e grafico, rielaborate — non testo; un pulsante
   findings ordinati per priorità con barra e pillola, «Campagna per campagna»
   coi semafori e i link, azioni proposte dal documento, «Cosa NON copre».
   Il documento resta la fonte: link a Drive sempre a vista.
+- **Le letture in testata al BRAND** (richiesta utente, 25/08 sera): su
+  `/brand/[brand]`, in alto a destra accanto a «Deposita analisi», le analisi
+  già rielaborate del brand come bottoni col pallino del verdetto e la
+  frase-verdetto nel tooltip. Se non c'è nessuna scheda, il blocco sparisce.
 - **Il bottone ANALISI** sulla scheda campagna: apre l'analisi più recente che
   la NOMINA (pallino col verdetto della campagna, nota nel tooltip); se nessuna
   la nomina, l'ultima del suo brand+canale (e il tooltip lo dice). Se non c'è
