@@ -39,7 +39,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (client instanceof NextResponse) return client;
   const { id } = await params;
 
-  const esiste = await prisma.ordine.findUnique({ where: { id }, select: { id: true } });
+  // `commissioneDa` serve alla guardia piu' sotto: il reale batte la stima.
+  const esiste = await prisma.ordine.findUnique({ where: { id }, select: { id: true, commissioneDa: true } });
   if (!esiste) return erroreApi(404, "Ordine non trovato");
 
   let body: Record<string, unknown>;
@@ -235,6 +236,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // ── L'INCASSO (27/08): metodo di pagamento e commissione stimata ──
   // La commissione e' un costo (mai negativa); il metodo e' testo corto.
+  // ⚠️ IL REALE BATTE LA STIMA: se la commissione e' stata letta dalle
+  // transazioni Shopify ('shopify'), la stima della piattaforma non la
+  // sovrascrive — stesso principio del costo del fornitore deciso a mano.
+  if ("commissioneIncassi" in body && esiste.commissioneDa === "shopify") {
+    delete (body as Record<string, unknown>).commissioneIncassi;
+  }
   if ("commissioneIncassi" in body) {
     const grezzo = body.commissioneIncassi;
     if (grezzo === null || grezzo === "") data.commissioneIncassi = null;

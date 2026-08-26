@@ -28,6 +28,9 @@ export type OrdineNormalizzato = {
   totale: number;
   valuta: string;
   financialStatus: string | null;
+  /** La commissione d'incasso REALE sommata dalle transazioni riuscite.
+   *  null = Shopify non la sa (gateway esterno): NON e' zero. */
+  commissioneIncassi: number | null;
   fulfillmentStatus: string | null;
   annullatoIl: Date | null;
   motivoAnnullamento: string | null;
@@ -94,6 +97,24 @@ query Ordini($cursor: String, $q: String) {
         tags
         customAttributes { key value }
         paymentGatewayNames
+        # La COMMISSIONE D'INCASSO REALE, per transazione. Shopify Payments la
+        # espone al centesimo (percentuale + fissa, e cambia per ORDINE: la
+        # stessa giornata ha 1,8% e 3,6% a seconda della carta); i gateway
+        # esterni (PayPal) qui non hanno fee — per quelli resta la stima.
+        # ⚠️ Le fee arrivano nella VALUTA DI PRESENTAZIONE, non in quella del
+        # negozio: un ordine pagato in dinari algerini (#2797: 13.500 DZD =
+        # 87,05 EUR) porta fee per 789,48 DZD, che sommate come euro farebbero
+        # una commissione del 907%. Si chiedono entrambi gli importi della
+        # transazione per ricavare il cambio e convertire.
+        transactions(first: 10) {
+          kind
+          status
+          amountSet {
+            shopMoney { amount currencyCode }
+            presentmentMoney { amount currencyCode }
+          }
+          fees { amount { amount currencyCode } }
+        }
         # Da dove è arrivato l'ordine. sourceName è il canale tecnico (web,
         # shopify_draft_order, pos); la firstVisit del customerJourneySummary è
         # la PRIMA visita del percorso che ha portato all'acquisto, con gli utm
@@ -172,6 +193,15 @@ type OrderNode = {
   tags: string[];
   customAttributes: Attributo[] | null;
   paymentGatewayNames: string[];
+  transactions?: {
+    kind: string;
+    status: string;
+    amountSet?: {
+      shopMoney?: { amount?: string | null; currencyCode?: string | null } | null;
+      presentmentMoney?: { amount?: string | null; currencyCode?: string | null } | null;
+    } | null;
+    fees?: { amount?: { amount?: string | null; currencyCode?: string | null } | null }[] | null;
+  }[] | null;
   sourceName: string | null;
   customerJourneySummary: {
     firstVisit: {
@@ -448,6 +478,58 @@ function proprietaRiga(attributi: Attributo[] | null): string | null {
 //  - `onPagina` = se passata, riceve ogni pagina appena arriva e la funzione
 //    NON accumula nulla in memoria (indispensabile per gli import storici da
 //    decine di migliaia di ordini). Senza callback torna l'elenco completo.
+/** Le transazioni come le manda l'API, per il calcolo della commissione. */
+export type TransazioneShopify = {
+  kind: string;
+  status: string;
+  amountSet?: {
+    shopMoney?: { amount?: string | null; currencyCode?: string | null } | null;
+    presentmentMoney?: { amount?: string | null; currencyCode?: string | null } | null;
+  } | null;
+  fees?: { amount?: { amount?: string | null; currencyCode?: string | null } | null }[] | null;
+};
+
+/**
+ * La COMMISSIONE D'INCASSO REALE di un ordine, sommando le fee delle
+ * transazioni d'incasso riuscite (SALE e CAPTURE).
+ *
+ * ⚠️ Le fee arrivano nella VALUTA DI PRESENTAZIONE, non in quella del negozio:
+ * #2797 (13.500 DZD = 87,05 EUR) portava 789,48 DZD di fee, che sommate come
+ * euro facevano una commissione del 907%. Si convertono col cambio implicito
+ * della transazione stessa (importo negozio ÷ importo presentato); se il
+ * cambio non si ricava, la fee si SCARTA — meglio «non nota» che sbagliata di
+ * dieci volte. Nessuna fee trovata => null, NON zero: per i gateway esterni
+ * (PayPal) Shopify non la conosce, e uno zero direbbe «incassare e' gratis».
+ */
+export function commissioneDaTransazioni(
+  transazioni: TransazioneShopify[] | null | undefined,
+): number | null {
+  let somma = 0;
+  let trovata = false;
+  for (const t of transazioni ?? []) {
+    if (t.status !== "SUCCESS" || (t.kind !== "SALE" && t.kind !== "CAPTURE")) continue;
+    const negozio = t.amountSet?.shopMoney;
+    const presentata = t.amountSet?.presentmentMoney;
+    for (const f of t.fees ?? []) {
+      let v = Number(f?.amount?.amount);
+      if (!Number.isFinite(v) || v <= 0) continue;
+      const valutaFee = f?.amount?.currencyCode ?? null;
+      if (valutaFee && negozio?.currencyCode && valutaFee !== negozio.currencyCode) {
+        const sopra = Number(negozio?.amount);
+        const sotto = Number(presentata?.amount);
+        if (
+          presentata?.currencyCode !== valutaFee ||
+          !Number.isFinite(sopra) || !Number.isFinite(sotto) || sotto <= 0
+        ) continue;
+        v = v * (sopra / sotto);
+      }
+      somma += v;
+      trovata = true;
+    }
+  }
+  return trovata ? Math.round(somma * 100) / 100 : null;
+}
+
 export async function scaricaOrdini(
   dominio: string,
   token: string,
@@ -502,6 +584,11 @@ export async function scaricaOrdini(
         totale: parseFloat(n.totalPriceSet?.shopMoney?.amount ?? "0") || 0,
         valuta: n.totalPriceSet?.shopMoney?.currencyCode ?? "EUR",
         financialStatus: n.displayFinancialStatus ?? null,
+        // Solo le transazioni d'INCASSO andate a buon fine: SALE e CAPTURE.
+        // Un ordine puo' averne piu' d'una (pagamenti divisi): si sommano.
+        // Nessuna fee su nessuna transazione => null, non zero: per PayPal
+        // Shopify non la conosce, e uno zero direbbe «incassare e' gratis».
+        commissioneIncassi: commissioneDaTransazioni(n.transactions),
         fulfillmentStatus: n.displayFulfillmentStatus ?? null,
         annullatoIl: n.cancelledAt ? new Date(n.cancelledAt) : null,
         motivoAnnullamento: n.cancelReason ?? null,

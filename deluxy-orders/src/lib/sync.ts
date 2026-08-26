@@ -137,6 +137,12 @@ function datiShopify(brand: string, o: OrdineNormalizzato, categoriaPredefinita?
     valuta: o.valuta,
     financialStatus: o.financialStatus,
     fulfillmentStatus: o.fulfillmentStatus,
+    // La commissione d'incasso REALE (Shopify Payments): quando Shopify la sa,
+    // si scrive e si firma 'shopify'. Quando NON la sa (PayPal, contante) non
+    // si tocca niente: la stima della piattaforma, se c'e', resta.
+    ...(o.commissioneIncassi != null
+      ? { commissioneIncassi: o.commissioneIncassi, commissioneDa: "shopify" }
+      : {}),
     annullatoIl: o.annullatoIl,
     motivoAnnullamento: o.motivoAnnullamento,
     chiusoIl: o.chiusoIl,
@@ -222,6 +228,8 @@ async function salvaBloccoOrdini(
       rischioRaccomandazione: true,
       rischioMotivi: true,
       gateway: true,
+      commissioneIncassi: true,
+      commissioneDa: true,
       clienteNome: true,
       clienteEmail: true,
       clienteTelefono: true,
@@ -372,6 +380,8 @@ type OrdineSalvato = {
   valuta: string;
   financialStatus: string | null;
   fulfillmentStatus: string | null;
+  commissioneIncassi: number | null;
+  commissioneDa: string;
   annullatoIl: Date | null;
   motivoAnnullamento: string | null;
   chiusoIl: Date | null;
@@ -430,6 +440,12 @@ function cambiato(e: OrdineSalvato, o: OrdineNormalizzato, brand: string): boole
   // freschi. Resta comunque salvato quando l'ordine si aggiorna per altri
   // motivi, perché fa parte dei campi scritti.
   if (e.gateway !== o.gateway) return true;
+  // La fee reale entra nel confronto solo quando Shopify la dichiara: se non
+  // la sa (PayPal), il campo locale puo' contenere la stima della piattaforma
+  // e confrontarlo con null riscriverebbe mezzo archivio a ogni giro.
+  if (o.commissioneIncassi != null) {
+    if (e.commissioneIncassi == null || Math.abs(e.commissioneIncassi - o.commissioneIncassi) > 0.005) return true;
+  }
   if (e.clienteNome !== o.clienteNome) return true;
   if (e.clienteEmail !== o.clienteEmail) return true;
   if (e.clienteTelefono !== o.clienteTelefono) return true;

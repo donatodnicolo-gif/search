@@ -432,6 +432,31 @@ piattaforma non ha questo ordine»). ⚠️ Il campo è **obbligatorio** nella f
 di `margineOrdine()`: se fosse opzionale, un chiamante distratto compilerebbe
 lo stesso e ricadrebbe in silenzio sul conto vecchio.
 
+**La commissione d'incasso è REALE dove Shopify la sa (26/08/2026, decisione
+dell'utente: «basati su Shopify»).** Le transazioni Shopify Payments espongono
+la fee al centesimo — e cambia **per ordine**: 1,8% o 1,9% secondo il negozio,
+**3,6%** per le carte internazionali, più il 2% di cambio sulle valute estere.
+Qualunque tabella di tariffe stimata sbaglia; il dato vero no.
+
+- La **sincronizzazione** legge le fee delle transazioni riuscite (SALE e
+  CAPTURE) e le scrive su `commissioneIncassi` con firma
+  `commissioneDa='shopify'`. Il conto sta in un posto solo:
+  `commissioneDaTransazioni()` in `src/lib/shopify.ts`.
+- ⚠️ **Le fee arrivano nella valuta di presentazione**, non in quella del
+  negozio: #2797 (13.500 DZD = 87,05 €) portava 789,48 DZD di fee, che lette
+  come euro facevano una commissione del **907%**. Si convertono col cambio
+  implicito della transazione (importo negozio ÷ importo presentato); se il
+  cambio non si ricava, la fee si scarta — meglio «non nota» che sbagliata di
+  dieci volte. Corretto: 5,09 € (5,85%: carta internazionale + cambio).
+- ⚠️ **Il reale batte la stima**: una commissione firmata `shopify` non si
+  sovrascrive — il PATCH della piattaforma la ignora, come il costo del
+  fornitore deciso a mano.
+- **PayPal e contante restano fuori**: Shopify non conosce le fee dei gateway
+  esterni (nessuna fee ⇒ `null`, mai zero). Per PayPal vale ancora la stima
+  della piattaforma; il contante è zero per definizione.
+- Lo storico si allinea con `npx tsx scripts/backfill-commissioni-incasso.mts`
+  (simula di default, `--applica` per scrivere).
+
 ⚠️ **La commissione d'incasso si detrae SEMPRE dal margine (26/08/2026,
 decisione dell'utente).** Nel numero della piattaforma è già dentro; nel
 **ripiego del registro** si sottrae qui, dopo lo scorporo IVA (è un costo

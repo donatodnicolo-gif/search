@@ -545,6 +545,11 @@ model Ordine {
   // (zero per il contante). Il contante NON tocca il margine: e' cassa.
   metodoIncasso      String?
   commissioneIncassi Float?
+  // Chi ha scritto la commissione: 'shopify' = fee REALE letta dalle
+  // transazioni (Shopify Payments la espone al centesimo, e cambia per ordine:
+  // 1,8% o 3,6% a seconda della carta); 'piattaforma' = stima dalla tariffa.
+  // ⚠️ IL REALE BATTE LA STIMA: una commissione 'shopify' non si sovrascrive.
+  commissioneDa      String  @default("")
 
   noteInterne      String?
   ultimaClassifica DateTime? // ultima modifica manuale della classificazione
