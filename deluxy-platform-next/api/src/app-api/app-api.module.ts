@@ -244,7 +244,7 @@ export class AppApiService {
         valetSalary: true,
         valetAdditionalPrice: true,
         serviceType: { select: { pricingModel: true } },
-        valet: { select: { id: true, hasVat: true, withholdingPercent: true } },
+        valet: { select: { id: true, firstName: true, lastName: true, hasVat: true, withholdingPercent: true } },
       },
     });
 
@@ -252,6 +252,20 @@ export class AppApiService {
     const vuoto = (): Conto => ({ consegne: 0, paga: 0, ritenute: 0, costo: 0, nonPagabili: 0 });
     const mesi: Conto[] = Array.from({ length: 12 }, vuoto);
     const perShop = new Map<string, Conto>();
+    // ⭐ IL DETTAGLIO PER VALET, e perché serve a chi legge (27/08/2026).
+    //
+    // Deluxy Budgets ha scoperto un doppio conteggio che da qui non è
+    // visibile: **alcuni valet sono dipendenti a libro paga** (Renato Cassoli,
+    // Eleonora Mannini), quindi il loro costo sta già nella riga «personale»
+    // del conto economico, presa dall'anagrafica Dipendenti. Sommarci anche la
+    // paga per consegna li conta due volte.
+    //
+    // ⚠️ **La piattaforma non sa chi è a libro paga, e non deve saperlo**: qui
+    // un valet è un valet, e il roster degli stipendi vive in Budgets. Quindi
+    // non si filtra niente — si manda il dettaglio **per persona e per mese**,
+    // e chi possiede il dato decide chi togliere. È la stessa regola di sempre:
+    // ogni dato lo decide chi ce l'ha in casa.
+    const perValet = new Map<string, { id: string; nome: string; hasVat: boolean; mesi: Conto[] }>();
     const tot = vuoto();
     const senzaPiva = new Set<string>();
     const conPiva = new Set<string>();
@@ -298,6 +312,25 @@ export class AppApiService {
       // tenendo come etichetta la grafia più frequente.
       const shop = canonico(d.shop);
       const s = perShop.get(shop) ?? vuoto();
+      const idValet = d.valet?.id ?? '(senza valet)';
+      let pv = perValet.get(idValet);
+      if (!pv) {
+        pv = {
+          id: idValet,
+          nome: `${d.valet?.lastName ?? ''} ${d.valet?.firstName ?? ''}`.trim() || '(senza nome)',
+          hasVat: d.valet?.hasVat ?? false,
+          mesi: Array.from({ length: 12 }, vuoto),
+        };
+        perValet.set(idValet, pv);
+      }
+      const cv = pv.mesi[mese];
+      if (cv) {
+        cv.consegne++;
+        cv.paga += paga;
+        cv.ritenute += ritenuta;
+        cv.costo += paga + ritenuta;
+        if (d.payable === false) cv.nonPagabili++;
+      }
       for (const c of [mesi[mese], s, tot]) {
         if (!c) continue;
         c.consegne++;
@@ -337,6 +370,29 @@ export class AppApiService {
       // che si veda.
       perShop: [...perShop.entries()]
         .map(([shop, c]) => ({ shop, ...tondo(c) }))
+        .sort((x, y) => y.costo - x.costo),
+      // Per persona e per mese: chi legge può togliere i valet che paga già
+      // come dipendenti, senza che questa app debba sapere chi sono.
+      perValet: [...perValet.values()]
+        .map((v) => {
+          const totale = v.mesi.reduce(
+            (a, c) => ({
+              consegne: a.consegne + c.consegne,
+              paga: a.paga + c.paga,
+              ritenute: a.ritenute + c.ritenute,
+              costo: a.costo + c.costo,
+              nonPagabili: a.nonPagabili + c.nonPagabili,
+            }),
+            vuoto(),
+          );
+          return {
+            id: v.id,
+            nome: v.nome,
+            partitaIva: v.hasVat,
+            ...tondo(totale),
+            mesi: v.mesi.map((c, i) => ({ mese: i + 1, ...tondo(c) })),
+          };
+        })
         .sort((x, y) => y.costo - x.costo),
     };
   }
