@@ -805,7 +805,13 @@ export async function fetchVisitePlace(placeId: string): Promise<Visit[]> {
 }
 
 export async function fetchDealPlace(placeId: string): Promise<Deal[]> {
-  const { data, error } = await supabase.from('deals').select('*').eq('place_id', placeId);
+  // ⚠️ Le ANNULLATE non contano (migr. 0072): sono state messe da parte, e
+  // farle comparire fra le trattative del negozio le rimetterebbe nei conti.
+  const { data, error } = await supabase
+    .from('deals')
+    .select('*')
+    .eq('place_id', placeId)
+    .is('annullata_il', null);
   if (error) throw error;
   return (data ?? []) as Deal[];
 }
@@ -817,7 +823,8 @@ export async function fetchAllVisits(): Promise<Visit[]> {
 }
 
 export async function fetchAllDeals(): Promise<Deal[]> {
-  const { data, error } = await supabase.from('deals').select('*');
+  // Come sopra: le annullate non entrano nei conti di nessuna schermata.
+  const { data, error } = await supabase.from('deals').select('*').is('annullata_il', null);
   if (error) throw error;
   return (data ?? []) as Deal[];
 }
@@ -1184,6 +1191,45 @@ export async function aggiornaDeal(
 export async function eliminaDeal(id: string): Promise<void> {
   const { error } = await supabase.from('deals').delete().eq('id', id);
   if (error) throw error;
+}
+
+/**
+ * ANNULLA una trattativa: è quello che fa il cestino dal 26/08/2026, su
+ * richiesta dell'utente («aggiungi a tipo trattative anche "Annullate" dove
+ * metti quelle cancellate con cestino»).
+ *
+ * Non è una cancellazione: la riga resta, esce dai conti e va nella sua vista,
+ * da dove si può rimettere a posto. Una trattativa aperta per sbaglio è
+ * comunque un fatto — qualcuno l'ha aperta — e farla sparire toglie anche la
+ * possibilità di accorgersi che capita spesso.
+ *
+ * ⚠️ La UPDATE che la RLS non fa passare non è un errore: torna zero righe.
+ * Senza questo controllo la schermata direbbe «fatto» su un annullamento mai
+ * avvenuto, e la trattativa ricomparirebbe al ricaricamento.
+ */
+export async function annullaDeal(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('deals')
+    .update({ annullata_il: new Date().toISOString() })
+    .eq('id', id)
+    .select('id');
+  if (error) throw error;
+  if (!data?.length) {
+    throw new Error('Trattativa non annullata: la scrittura è stata rifiutata (non è tua e ha già un proprietario).');
+  }
+}
+
+/** La rimette in gioco: torna nella vista della sua fase. */
+export async function ripristinaDeal(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('deals')
+    .update({ annullata_il: null })
+    .eq('id', id)
+    .select('id');
+  if (error) throw error;
+  if (!data?.length) {
+    throw new Error('Trattativa non ripristinata: la scrittura è stata rifiutata.');
+  }
 }
 
 /** Crea una trattativa a mano (poi sincronizzabile su HubSpot col valore). */
@@ -1971,7 +2017,10 @@ export async function fetchPlaceIdInTrattativa(): Promise<Set<string>> {
   const { data, error } = await supabase
     .from('deals')
     .select('place_id, fase')
-    .not('fase', 'in', '("closedwon","closedlost")');
+    .not('fase', 'in', '("closedwon","closedlost")')
+    // …e nemmeno le annullate (migr. 0072): una trattativa messa da parte non
+    // rende «prospect» un negozio.
+    .is('annullata_il', null);
   if (error) throw error;
   return new Set((data ?? []).map((r: any) => r.place_id).filter(Boolean) as string[]);
 }

@@ -20,7 +20,9 @@ import { TabellaTrattative } from '@/components/TabellaTrattative';
 import {
   aggiornaDeal,
   cercaPlaces,
+  annullaDeal,
   eliminaDeal,
+  ripristinaDeal,
   creaOrdineDaDeal,
   fetchContatti,
   fetchTutteTrattative,
@@ -62,14 +64,23 @@ const FASI: DealStage[] = [
  * punti del percorso, sono la fine.
  */
 const FASI_APERTE: DealStage[] = ['appointmentscheduled', 'decisionmakerboughtin', 'contractsent'];
-type VistaTrattative = 'aperte' | 'vinte' | 'perse';
+type VistaTrattative = 'aperte' | 'vinte' | 'perse' | 'annullate';
 const VISTE: { v: VistaTrattative; label: string }[] = [
   { v: 'aperte', label: 'Aperte' },
   { v: 'vinte', label: 'Vinte' },
   { v: 'perse', label: 'Perse' },
+  // Quelle messe da parte col cestino: aperte per sbaglio, o non più valide.
+  // Non sono cancellate — da qui si rimettono in gioco.
+  { v: 'annullate', label: 'Annullate' },
 ];
-function faseDellaVista(f: DealStage): VistaTrattative {
-  return f === 'closedwon' ? 'vinte' : f === 'closedlost' ? 'perse' : 'aperte';
+/**
+ * In quale vista sta una trattativa. ⚠️ L'annullamento viene PRIMA della fase:
+ * una trattativa annullata non è più «aperta», e lasciarla anche lì la
+ * farebbe contare due volte.
+ */
+function vistaDi(d: { fase: DealStage; annullata_il?: string | null }): VistaTrattative {
+  if (d.annullata_il) return 'annullate';
+  return d.fase === 'closedwon' ? 'vinte' : d.fase === 'closedlost' ? 'perse' : 'aperte';
 }
 
 function isoOggiTratt(): string {
@@ -162,14 +173,14 @@ export default function Trattative() {
   // Quante ce n'è in ciascuna delle tre viste: il numero sta sul sopra-menù,
   // così «Vinte (0)» si vede prima di cliccarci e nessuno pensa a un guasto.
   const conteggi = useMemo(() => {
-    const c: Record<VistaTrattative, number> = { aperte: 0, vinte: 0, perse: 0 };
-    for (const d of deals) c[faseDellaVista(d.fase)]++;
+    const c: Record<VistaTrattative, number> = { aperte: 0, vinte: 0, perse: 0, annullate: 0 };
+    for (const d of deals) c[vistaDi(d)]++;
     return c;
   }, [deals]);
 
   // I sotto-stati di «Aperte», solo quelli che esistono davvero.
   const fasiApertePresenti = useMemo<DealStage[]>(() => {
-    const set = new Set(deals.filter((d) => faseDellaVista(d.fase) === 'aperte').map((d) => d.fase));
+    const set = new Set(deals.filter((d) => vistaDi(d) === 'aperte').map((d) => d.fase));
     return FASI_APERTE.filter((f) => set.has(f));
   }, [deals]);
 
@@ -191,7 +202,7 @@ export default function Trattative() {
     return deals.filter((d) => {
       // Prima il sopra-menù: aperte / vinte / perse. Poi, dentro le aperte,
       // l'eventuale sotto-stato.
-      if (faseDellaVista(d.fase) !== vista) return false;
+      if (vistaDi(d) !== vista) return false;
       if (vista === 'aperte' && faseFiltro !== 'tutte' && d.fase !== faseFiltro) return false;
       if (!passaFiltroCitta(d.place_zona, cittaFiltro)) return false;
       if (accountFiltro && (d.place_account ?? '') !== accountFiltro) return false;
@@ -234,21 +245,53 @@ export default function Trattative() {
    * Elimina una trattativa dall'elenco, con la domanda prima: è irreversibile.
    * Stessa azione che c'è in fondo alla scheda — qui si trova senza aprirla.
    */
+  /**
+   * Il cestino ANNULLA, non cancella (26/08/2026, richiesta dell'utente).
+   * La trattativa esce dai conti e va in «Annullate», da dove si rimette in
+   * gioco. Cancellarla davvero resta possibile da lì.
+   */
   function chiediEliminaDeal(d: TrattativaConLuogo) {
     conferma(
-      'Eliminare la trattativa?',
-      `${d.place_nome ?? 'Trattativa'}${d.titolo ? ` · ${d.titolo}` : ''}. L’operazione non si può annullare.`,
+      'Annullare la trattativa?',
+      `${d.place_nome ?? 'Trattativa'}${d.titolo ? ` · ${d.titolo}` : ''}. Esce dai conti e va in «Annullate»: da lì puoi rimetterla in gioco.`,
+      async () => {
+        try {
+          await annullaDeal(d.id);
+          await carica();
+        } catch (e) {
+          // L'errore si dice: un annullamento che non è avvenuto e non lo
+          // dichiara fa credere che sia sparita, e la si ritrova domani.
+          avvisa('Non è stata annullata', (e as Error)?.message ?? 'Riprova.');
+        }
+      },
+      { testoConferma: 'Annulla la trattativa', distruttivo: true },
+    );
+  }
+
+  /** La rimette in gioco: torna nella vista della sua fase. */
+  async function ripristina(d: TrattativaConLuogo) {
+    try {
+      await ripristinaDeal(d.id);
+      await carica();
+    } catch (e) {
+      avvisa('Non è stata ripristinata', (e as Error)?.message ?? 'Riprova.');
+    }
+  }
+
+  /** La cancellazione VERA: solo da «Annullate», e con la domanda. */
+  function chiediCancellaDeal(d: TrattativaConLuogo) {
+    conferma(
+      'Cancellare per sempre?',
+      `${d.place_nome ?? 'Trattativa'}${d.titolo ? ` · ${d.titolo}` : ''}. Questa non si può disfare: sparisce dal database.`,
       async () => {
         try {
           await eliminaDeal(d.id);
           await carica();
         } catch (e) {
-          // L'errore si dice: un'eliminazione che non è avvenuta e non lo
-          // dichiara fa credere che sia sparita, e la si ritrova domani.
-          avvisa('Non è stata eliminata', (e as Error)?.message ?? 'Riprova.');
+          avvisa('Non è stata cancellata', (e as Error)?.message ?? 'Riprova.');
         }
       },
-      { testoConferma: 'Elimina', distruttivo: true },
+      { testoConferma: 'Cancella', distruttivo: true },
     );
   }
 
@@ -404,6 +447,8 @@ export default function Trattative() {
                 onApri={setEditDeal}
                 onNegozio={(id) => router.push(`/(app)/attivita/${id}`)}
                 onElimina={chiediEliminaDeal}
+                onRipristina={ripristina}
+                onCancella={chiediCancellaDeal}
               />
             </View>
           )}
@@ -437,7 +482,13 @@ export default function Trattative() {
           );
         }}
         renderItem={({ item }) => (
-          <RigaDeal deal={item} onEdit={() => setEditDeal(item)} onElimina={() => chiediEliminaDeal(item)} />
+          <RigaDeal
+            deal={item}
+            onEdit={() => setEditDeal(item)}
+            onElimina={() => chiediEliminaDeal(item)}
+            onRipristina={() => ripristina(item)}
+            onCancella={() => chiediCancellaDeal(item)}
+          />
         )}
       />
       )}
@@ -535,12 +586,17 @@ function RigaDeal({
   deal,
   onEdit,
   onElimina,
+  onRipristina,
+  onCancella,
 }: {
   deal: TrattativaConLuogo;
   onEdit: () => void;
   onElimina: () => void;
+  onRipristina?: () => void;
+  onCancella?: () => void;
 }) {
   const suoDiScout = deal.origine !== 'hubspot' && deal.origine !== 'anagrafiche';
+  const annullata = Boolean(deal.annullata_il);
   const lineaTxt = deal.linee?.length ? deal.linee.join(', ') : deal.linea;
   const titolo = deal.titolo ?? lineaTxt ?? 'Trattativa';
   // Tipologia di interesse (linee Deluxy) come tag, quando distinta dal titolo.
@@ -557,7 +613,36 @@ function RigaDeal({
         ) : (
           <Text style={styles.dealValoreVuoto}>+ valore €</Text>
         )}
-        {suoDiScout ? (
+        {/* Su una annullata il cestino non serve più: servono le due strade
+            che restano — rimetterla in gioco o cancellarla davvero. */}
+        {suoDiScout && annullata ? (
+          <>
+            <Pressable
+              hitSlop={8}
+              style={{ marginLeft: 8 }}
+              onPress={(e: any) => {
+                e?.stopPropagation?.();
+                onRipristina?.();
+              }}
+              accessibilityLabel="Rimetti in gioco la trattativa"
+              {...({ title: 'Rimettila in gioco' } as any)}
+            >
+              <Ionicons name="arrow-undo-outline" size={16} color={colors.navy} />
+            </Pressable>
+            <Pressable
+              hitSlop={8}
+              style={{ marginLeft: 6 }}
+              onPress={(e: any) => {
+                e?.stopPropagation?.();
+                onCancella?.();
+              }}
+              accessibilityLabel="Cancella per sempre la trattativa"
+              {...({ title: 'Cancella per sempre' } as any)}
+            >
+              <Ionicons name="close-circle-outline" size={16} color={colors.errore} />
+            </Pressable>
+          </>
+        ) : suoDiScout ? (
           <Pressable
             hitSlop={8}
             style={{ marginLeft: 8 }}
@@ -567,8 +652,8 @@ function RigaDeal({
               e?.stopPropagation?.();
               onElimina();
             }}
-            accessibilityLabel="Elimina la trattativa"
-            {...({ title: 'Elimina la trattativa' } as any)}
+            accessibilityLabel="Annulla la trattativa"
+            {...({ title: 'Annulla la trattativa (va in «Annullate»)' } as any)}
           >
             <Ionicons name="trash-outline" size={16} color={colors.errore} />
           </Pressable>

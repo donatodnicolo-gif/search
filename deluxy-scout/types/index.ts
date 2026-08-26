@@ -350,6 +350,16 @@ export interface Deal {
   motivo_perso?: MotivoPerso | null; // perché è persa → strategia di ripresa
   riprendere_il?: string | null; // quando ricompare in Home (YYYY-MM-DD)
   chiusa_il?: string | null; // quando è stata vinta/persa
+  /**
+   * Quando è stata ANNULLATA col cestino (migr. 0072). NULL = viva.
+   *
+   * ⚠️ Non è una fase: le cinque fasi sono quelle che viaggiano verso HubSpot,
+   * e «annullata» è un fatto amministrativo — una trattativa aperta per
+   * sbaglio. Esce dai conti e va nella sua vista, da dove si può rimettere a
+   * posto: cancellarla del tutto toglierebbe anche la possibilità di
+   * accorgersi che si sbaglia spesso.
+   */
+  annullata_il?: string | null;
 }
 
 // I 3 canali di acquisizione (+ altro): territorio, telefono, web.

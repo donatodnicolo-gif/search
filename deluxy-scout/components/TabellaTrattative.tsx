@@ -34,15 +34,21 @@ export function TabellaTrattative({
   onApri,
   onNegozio,
   onElimina,
+  onRipristina,
+  onCancella,
 }: {
   righe: TrattativaConLuogo[];
   /** L'ordine della pipeline: la colonna Fase si ordina per posizione, non per alfabeto. */
   ordineFasi: readonly DealStage[];
   onApri: (d: TrattativaConLuogo) => void;
   onNegozio: (placeId: string) => void;
-  /** Elimina la trattativa (con la domanda: la fa il chiamante). Solo su
+  /** Annulla la trattativa (con la domanda: la fa il chiamante). Solo su
    *  quelle nate in Scout: le altre tornerebbero al primo sync. */
   onElimina?: (d: TrattativaConLuogo) => void;
+  /** Rimette in gioco una annullata. */
+  onRipristina?: (d: TrattativaConLuogo) => void;
+  /** La cancella per sempre: solo dalle annullate. */
+  onCancella?: (d: TrattativaConLuogo) => void;
 }) {
   // Default: valore più alto in cima — in una colonna di soldi si guarda chi
   // conta di più (regola di lib/ordinamento, come Copertura e Affiliazioni).
@@ -140,14 +146,43 @@ export function TabellaTrattative({
                 la scheda e scorrendo in fondo — e un comando fuori dalla prima
                 schermata è un comando che non si trova. Solo sulle trattative
                 di Scout: HubSpot e registro tornerebbero al primo sync. */}
-            {onElimina && d.origine !== 'hubspot' && d.origine !== 'anagrafiche' ? (
+            {d.annullata_il && d.origine !== 'hubspot' && d.origine !== 'anagrafiche' ? (
+              <>
+                {onRipristina ? (
+                  <Pressable
+                    hitSlop={8}
+                    onPress={(e: any) => {
+                      e?.stopPropagation?.();
+                      onRipristina(d);
+                    }}
+                    accessibilityLabel={`Rimetti in gioco la trattativa di ${d.place_nome ?? 'negozio'}`}
+                    {...({ title: 'Rimettila in gioco' } as any)}
+                  >
+                    <Ionicons name="arrow-undo-outline" size={15} color={colors.navy} />
+                  </Pressable>
+                ) : null}
+                {onCancella ? (
+                  <Pressable
+                    hitSlop={8}
+                    onPress={(e: any) => {
+                      e?.stopPropagation?.();
+                      onCancella(d);
+                    }}
+                    accessibilityLabel={`Cancella per sempre la trattativa di ${d.place_nome ?? 'negozio'}`}
+                    {...({ title: 'Cancella per sempre' } as any)}
+                  >
+                    <Ionicons name="close-circle-outline" size={15} color={colors.errore} />
+                  </Pressable>
+                ) : null}
+              </>
+            ) : onElimina && d.origine !== 'hubspot' && d.origine !== 'anagrafiche' ? (
               <Pressable
                 hitSlop={8}
                 onPress={(e: any) => {
                   e?.stopPropagation?.();
                   onElimina(d);
                 }}
-                accessibilityLabel={`Elimina la trattativa di ${d.place_nome ?? 'negozio'}`}
+                accessibilityLabel={`Annulla la trattativa di ${d.place_nome ?? "negozio"}`}
                 {...({ title: 'Elimina la trattativa' } as any)}
               >
                 <Ionicons name="trash-outline" size={15} color={colors.errore} />
