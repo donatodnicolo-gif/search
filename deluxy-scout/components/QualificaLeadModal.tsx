@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '@/lib/theme';
 import { Foglio } from '@/components/Foglio';
 import { cercaPlaces, creaPlaceDaRichiesta, qualificaLead, type PlaceLite } from '@/lib/db';
-import type { EsitoRegistro } from '@/lib/anagrafiche';
+import { estraiAnagrafica, type DatiEstratti, type EsitoRegistro } from '@/lib/anagrafiche';
 import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import type { Lead } from '@/types';
 
@@ -39,6 +39,50 @@ export function QualificaLeadModal({
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * ⭐ L'AI LEGGE LA RICHIESTA E COMPILA I CAMPI (26/08/2026, richiesta
+   * dell'utente: «usa l'ai per capire esattamente come compilare tutti i
+   * campi»).
+   *
+   * Nasce da un caso vero: creando il negozio dalla qualifica, nel registro
+   * Anagrafiche finiva una scheda muta — nome della persona, niente città,
+   * niente indirizzo, niente categoria — mentre tutto era scritto dentro il
+   * messaggio.
+   *
+   * ⚠️ I campi si MOSTRANO e si possono correggere prima di scrivere: un
+   * modello che riempie una scheda senza che nessuno guardi è il modo più
+   * veloce di sporcare il registro. E `fonte` dice se li ha letti l'AI o le
+   * regole fisse, perché cambia quanto ci si può fidare.
+   */
+  const [dati, setDati] = useState<DatiEstratti | null>(null);
+  const [fonteDati, setFonteDati] = useState<'ai' | 'regole' | null>(null);
+  const [avvisoDati, setAvvisoDati] = useState<string | null>(null);
+  const [leggendo, setLeggendo] = useState(false);
+
+  useEffect(() => {
+    const testo = (lead.messaggio ?? '').trim();
+    if (!testo) return;
+    let vivo = true;
+    setLeggendo(true);
+    estraiAnagrafica(testo, lead.contatto ?? null, null)
+      .then((r) => {
+        if (!vivo) return;
+        setDati(r.dati);
+        setFonteDati(r.fonte);
+        setAvvisoDati(r.avviso ?? null);
+        // Se il messaggio dice il nome dell'azienda, si cerca QUELLO: è la
+        // cosa che ha più probabilità di essere già nel CRM.
+        if (r.dati.ragioneSociale && info.daModuloSito) setRicerca(r.dati.ragioneSociale);
+      })
+      .catch((e) => vivo && setAvvisoDati(String(e?.message ?? e)))
+      .finally(() => vivo && setLeggendo(false));
+    return () => {
+      vivo = false;
+    };
+    // Una volta sola, all'apertura: il testo della richiesta non cambia.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
@@ -84,7 +128,13 @@ export function QualificaLeadModal({
     setSalvando(true);
     setErrore(null);
     try {
-      const posto = await creaPlaceDaRichiesta(nome);
+      // Il negozio nasce già con quello che la richiesta diceva: da qui i campi
+      // arrivano al registro Anagrafiche, che senza restava con una scheda muta.
+      const posto = await creaPlaceDaRichiesta(nome, {
+        zona: dati?.citta ?? null,
+        indirizzo: dati?.indirizzo ?? null,
+        categoria: dati?.categoria ?? null,
+      });
       const { registro } = await qualificaLead(lead, posto.id, conContatto);
       onFatto(registro);
     } catch (e: any) {
@@ -117,6 +167,50 @@ export function QualificaLeadModal({
           <Text style={styles.riepilogoTesto} numberOfLines={3}>{info.testo}</Text>
         ) : null}
       </View>
+
+      {/* QUELLO CHE LA RICHIESTA DICE, letto e messo in chiaro: si corregge
+          qui, prima che finisca nel registro. */}
+      {leggendo ? (
+        <Text style={styles.stato}>Leggo la richiesta per compilare la scheda…</Text>
+      ) : dati ? (
+        <View style={styles.scheda}>
+          <Text style={styles.schedaTitolo}>
+            {fonteDati === 'ai' ? 'Letto dalla richiesta' : 'Letto dalla richiesta (regole fisse)'}
+          </Text>
+          {(
+            [
+              ['Azienda', dati.ragioneSociale, (v: string) => setDati({ ...dati, ragioneSociale: v })],
+              ['Città', dati.citta, (v: string) => setDati({ ...dati, citta: v })],
+              ['Indirizzo', dati.indirizzo, (v: string) => setDati({ ...dati, indirizzo: v })],
+              ['Categoria', dati.categoria, (v: string) => setDati({ ...dati, categoria: v.toUpperCase() })],
+            ] as [string, string | null, (v: string) => void][]
+          ).map(([label, valore, cambia]) => (
+            <View key={label} style={styles.schedaRiga}>
+              <Text style={styles.schedaLabel}>{label}</Text>
+              <TextInput
+                style={styles.schedaInput}
+                value={valore ?? ''}
+                onChangeText={cambia}
+                placeholder="non indicato"
+                placeholderTextColor={colors.grigio}
+              />
+            </View>
+          ))}
+          {dati.referente?.nome || dati.referente?.email ? (
+            <Text style={styles.schedaNota} numberOfLines={1}>
+              Referente: {[dati.referente.nome, dati.referente.email, dati.referente.telefono].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
+          {/* ⚠️ Quello che NON c'era scritto si dichiara: un campo vuoto è
+              un'informazione, un campo riempito a caso è un danno. */}
+          {dati.mancanti?.length ? (
+            <Text style={styles.schedaNota}>Non c’era scritto: {dati.mancanti.join(', ')}.</Text>
+          ) : null}
+          {avvisoDati ? <Text style={styles.schedaNota}>{avvisoDati}</Text> : null}
+        </View>
+      ) : avvisoDati ? (
+        <Text style={styles.schedaNota}>{avvisoDati}</Text>
+      ) : null}
 
       <TextInput
         style={styles.input}
@@ -215,5 +309,11 @@ const styles = StyleSheet.create({
   },
   creaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
   stato: { color: colors.testoSoft, fontSize: 13 },
+  scheda: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, padding: 10, gap: 6 },
+  schedaTitolo: { color: colors.testoSoft, fontWeight: '700', fontSize: 11.5, textTransform: 'uppercase', letterSpacing: 0.4 },
+  schedaRiga: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  schedaLabel: { color: colors.testoSoft, fontSize: 12.5, width: 78 },
+  schedaInput: { flex: 1, borderBottomWidth: 1, borderBottomColor: colors.hairline, color: colors.testo, fontSize: 13.5, paddingVertical: 3 },
+  schedaNota: { color: colors.testoSoft, fontSize: 12, lineHeight: 17 },
   errore: { color: colors.errore, fontSize: 13, fontWeight: '700' },
 });

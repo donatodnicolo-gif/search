@@ -381,7 +381,10 @@ export async function assicuraNegozioNelRegistro(
  * in carico» e l'auto-qualifica delle Edge Function. La posizione si mette poi
  * dalla scheda.
  */
-export async function creaPlaceDaRichiesta(nome: string): Promise<Place> {
+export async function creaPlaceDaRichiesta(
+  nome: string,
+  dati?: { zona?: string | null; indirizzo?: string | null; categoria?: string | null },
+): Promise<Place> {
   const pulito = nome.trim();
   if (!pulito) throw new Error('Serve un nome per creare il negozio.');
   const { data: u } = await supabase.auth.getUser();
@@ -392,6 +395,12 @@ export async function creaPlaceDaRichiesta(nome: string): Promise<Place> {
       lat: 0,
       lng: 0,
       stato: 'da_visitare',
+      // Quello che la richiesta diceva: città, indirizzo e categoria arrivano
+      // dalla lettura del messaggio (AI o regole) e passano di qui al registro
+      // Anagrafiche, che li vuole per non tenere una scheda muta.
+      zona: dati?.zona?.trim() || null,
+      indirizzo: dati?.indirizzo?.trim() || null,
+      categoria: dati?.categoria?.trim() || null,
       // Chi l'ha creato può anche cancellarlo (policy di delete, migr. 0054):
       // un negozio nato per sbaglio da qui dev'essere disfacibile da qui.
       creato_da: u.user?.id ?? null,

@@ -366,6 +366,56 @@ export async function cercaAnagrafica(
   return { partner: esatto ?? dati[0], esatto: Boolean(esatto) };
 }
 
+/** I campi che l'AI riesce a leggere in una richiesta (null = non c'è scritto). */
+export interface DatiEstratti {
+  ragioneSociale: string | null;
+  citta: string | null;
+  indirizzo: string | null;
+  categoria: string | null;
+  referente: { nome: string | null; email: string | null; telefono: string | null; ruolo: string | null };
+  richiesta: string | null;
+  /** Cosa NON è stato trovato: si mostra, non si nasconde. */
+  mancanti: string[];
+}
+
+/**
+ * Legge una richiesta e ne tira fuori i campi dell'anagrafica (26/08/2026,
+ * richiesta dell'utente: «usa l'ai per capire esattamente come compilare tutti
+ * i campi»).
+ *
+ * ⚠️ **Non deduce**: il modello riempie un campo solo se il dato è scritto nel
+ * testo, altrimenti torna null — e l'app mostra comunque i campi a chi
+ * qualifica, prima di scriverli nel registro. Un indirizzo inventato nel
+ * registro delle anagrafiche B2B ci resta.
+ *
+ * ⚠️ `fonte` dice COME sono stati letti: `ai` col modello, `regole` col ripiego
+ * (le etichette del modulo Shopify) quando la chiave AI non c'è o non risponde.
+ * Non è un dettaglio tecnico: cambia quanto ci si può fidare.
+ */
+export async function estraiAnagrafica(
+  testo: string,
+  mittente?: string | null,
+  oggetto?: string | null,
+): Promise<{ dati: DatiEstratti; fonte: 'ai' | 'regole'; avviso?: string }> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/estrai-anagrafica`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ testo, mittente: mittente ?? null, oggetto: oggetto ?? null }),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || payload?.ok === false) {
+    throw new Error(payload?.errore ?? 'Lettura della richiesta non riuscita.');
+  }
+  return { dati: payload.dati as DatiEstratti, fonte: payload.fonte ?? 'regole', avviso: payload.avviso };
+}
+
 /**
  * Cerca nel registro per nome, e torna un ELENCO (non una corrispondenza).
  *
