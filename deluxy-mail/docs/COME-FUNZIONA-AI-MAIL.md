@@ -476,6 +476,16 @@ si legge passandoci sopra. Premendolo si arriva alla scheda «Risposte dalle app
 dove c'è il racconto completo con i dati inviati. Serve a non rifare due volte lo stesso
 invio: prima l'esito stava solo in fondo alla pagina, e chi non scorreva non lo vedeva.
 
+**Chi si finge uno di noi.** Se una mail arriva da fuori ma nel nome del mittente mostra
+un indirizzo **nostro** (per esempio «nicolo.donato@deluxy.it» scritto da un dominio
+giapponese), la mail te lo dice: è la frode del capo, e il riquadro rosso ti chiede «è
+spam?». Come per i marchi noti, la prima volta decidi tu; da lì in poi quel tipo di caso
+va in SPAM da solo. ⚠️ Vale anche per chi ci ha già scritto — chi prepara questa truffa
+spesso manda prima una mail innocua, per farsi conoscere. Il controllo è volutamente
+stretto: scatta solo quando il nome è **soltanto** un nostro indirizzo, così le mail dei
+servizi che scrivono per conto nostro (il form del sito, Asana, Shopify) non vengono
+toccate.
+
 **Il lavoro e il fornitore si scelgono da un elenco.** In «Registra il preventivo», «Per
 quale lavoro» apre l'elenco dei **lavori aperti** in Commerciale: si scrive per filtrarli e
 si sceglie: così parte anche il riferimento esatto del lavoro, e due lavori con lo stesso

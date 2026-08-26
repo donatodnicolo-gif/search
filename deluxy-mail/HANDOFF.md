@@ -23,6 +23,39 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 14) — chi si finge UNO DI NOI
+
+Segnalato su una mail vera del 4/08 rimasta in posta: nome mostrato
+**«nicolo.donato@deluxy.it»**, indirizzo vero **kei@kenic.co.jp**, oggetto «Commissioni».
+È la **frode del capo**, e nessuna regola la prendeva: `casoMarchio` guarda i marchi noti
+(Shopify, PayPal, INPS…), non **noi**.
+
+⭐⭐ **La larghezza della regola l'hanno decisa i dati, non il buon senso.** La prima
+formulazione — «il nome mostrato cita un nostro dominio» — in produzione prende **14**
+mail: 2 truffe, **11 il nostro form** (`landing.deluxy.it` da info@commercialedeluxy.com)
+e **1 Asana** che scrive per conto di una collega («gaia.pati@deluxy.it tramite Asana»).
+Dodici su quattordici sarebbero state posta buona marcata spam. Quindi la regola è
+**stretta**: il nome dev'essere un indirizzo di un nostro dominio **e nient'altro** —
+niente spazi. «landing.deluxy.it» non ha la chiocciola, «… tramite Asana» ha degli spazi.
+**Provata eseguendo il codice vero** su **693** mail candidate della produzione: ne marca
+**2**, esattamente le due truffe (l'altra è del 6/07, da miyazaki-catv.ne.jp).
+⚠️ Il prezzo della prudenza: «Nicolò Donato» come solo NOME, senza indirizzo, non viene
+riconosciuto — servirebbe l'elenco delle persone (Personale) e un omonimo vero finirebbe
+in spam. Resta all'AI.
+
+⚠️⚠️ **È l'unica casistica che SCAVALCA la lista bianca.** `valutaSpam` di solito chiude
+il discorso per chi ti ha già scritto; qui no, e la ragione è nel modo in cui la truffa
+funziona: chi prepara una frode del capo manda prima una mail innocua, proprio per
+diventare «contatto noto».
+
+Come per i marchi **non sposta niente da sola**: propone («Sì, è spam» / «No»), e una
+volta approvata la casistica le successive uguali vanno in SPAM da sole. Le tre schermate
+che la usano (sync, mail aperta, decisione) ora passano da un punto unico,
+**`casoMittente`** — ⚠️ chi aggiunge una casistica la metta lì, o le tre vanno fuori
+sincrono. La mail del 4/08 mostrerà il riquadro riaprendola: la regola si ricalcola anche
+sulla posta vecchia.
+
+---
 ### 26/08 (sera 13) — lavoro e fornitore si SCELGONO, non si ricordano
 
 Due richieste sulla stessa schermata («Registra il preventivo»): il fornitore cercato fra
