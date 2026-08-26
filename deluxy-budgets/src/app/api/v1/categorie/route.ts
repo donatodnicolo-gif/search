@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { chiave } from "@/lib/chiavi";
+import { autentica } from "@/lib/api-auth";
 
 // GET /api/v1/categorie — le CATEGORIE DI COSTO per le altre app Deluxy.
 //
@@ -22,19 +22,17 @@ import { chiave } from "@/lib/chiavi";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const attesa = await chiave("BUDGETS_API_KEY");
-  if (!attesa) {
-    return NextResponse.json(
-      { errore: "BUDGETS_API_KEY non configurata su questa app: l'API è disattivata." },
-      { status: 503 }
-    );
-  }
-  // Ripulita dai caratteri invisibili: un BOM incollato nell'header fa fallire
-  // la richiesta con un errore che non nomina nemmeno la chiave.
-  const inviata = (req.headers.get("x-api-key") ?? "").replace(new RegExp("[\u200B-\u200D\uFEFF\u00A0]", "g"), "").trim();
-  if (!inviata || inviata !== attesa.trim()) {
-    return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
-  }
+  // ⚠️ **Questa rotta si riscriveva l'auth a mano** (difetto trovato e chiuso
+  // il 27/08/2026): confrontava solo `BUDGETS_API_KEY` e ignorava le chiavi
+  // emesse da Configurazione → Chiavi. Conseguenza: una chiave emessa e valida
+  // prendeva **401 qui** e 200 su `maison`, `team` e `categorie/proponi`; la
+  // **revoca non revocava** e l'`ultimoUso` non si aggiornava. Non era una
+  // scelta: la rotta è del 31/07, `api-auth.ts` del 24/08, e nessuno l'ha
+  // migrata. ⭐ È esattamente il guaio per cui `autentica()` sta in un file
+  // solo — *una rotta che si riscrive l'auth è una rotta che prima o poi
+  // dimentica un pezzo* — e questa se n'era dimenticata due.
+  const client = await autentica(req);
+  if (client instanceof NextResponse) return client;
 
   const conRegole = req.nextUrl.searchParams.get("regole") === "1";
   const categorie = await prisma.categoriaCosto.findMany({

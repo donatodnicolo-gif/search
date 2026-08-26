@@ -20,7 +20,18 @@ export async function PUT(req: Request) {
   // La ripartizione mensile è facoltativa. Se c'è deve avere dodici valori e
   // sommare all'annuo: una ripartizione che non torna col totale è un errore da
   // fermare qui, non da scoprire in una tabella fra sei mesi.
-  let mesi: string | null = null;
+  // ⚠️⚠️ **ASSENTE NON È VUOTO** (difetto trovato e chiuso il 27/08/2026).
+  // Questa voce la scrivono DUE form diversi con payload parziali: l'editor
+  // manda `importo` + `mesi` (mai `nota`), la proposta manda `importo` +
+  // `nota` (mai `mesi`). Finché l'assenza diventava `null`, **correggere
+  // l'importo cancellava la ripartizione mensile** — e non era un caso di
+  // bordo, era il gesto più frequente della pagina. Ora un campo che non
+  // arriva resta `undefined`, che Prisma **non scrive**: si tocca solo quello
+  // che si è mandato. È la stessa regola già imparata su `PATCH
+  // /api/commerciale`, dove salvare i margini cancellava i collegamenti a
+  // Finance.
+  let mesi: string | null | undefined = undefined;
+  if (b?.mesi === null) mesi = null; // mandare esplicitamente null = «togli la ripartizione»
   if (Array.isArray(b?.mesi) && b.mesi.length === 12) {
     const v = b.mesi.map((x: unknown) => numero(x) ?? 0);
     const somma = v.reduce((s: number, x: number) => s + x, 0);
@@ -33,10 +44,15 @@ export async function PUT(req: Request) {
     mesi = JSON.stringify(v);
   }
 
-  const nota = typeof b?.nota === "string" && b.nota.trim() ? b.nota.trim() : null;
+  const nota =
+    b?.nota === undefined
+      ? undefined
+      : typeof b.nota === "string" && b.nota.trim()
+        ? b.nota.trim()
+        : null;
   await prisma.voceBilancio.upsert({
     where: { anno_codice: { anno, codice } },
-    create: { anno, codice, importo, mesi, nota },
+    create: { anno, codice, importo, mesi: mesi ?? null, nota: nota ?? null },
     update: { importo, mesi, nota },
   });
   return NextResponse.json({ ok: true });

@@ -985,6 +985,32 @@ export default async function ConsuntivoPage({
                 sa distinguere un valet da un fioraio.{" "}
                 <strong>⚠️ Questa riga sola è di competenza, non di cassa</strong> — sono le consegne fatte nel periodo,
                 pagate o no: confrontandola con l&apos;estratto conto non la ritrovi, ed è giusto così.{" "}
+                {consegne.giaNelPersonale.length > 0 && (
+                  <>
+                    Da quel costo sono stati <strong>tolti {eur(consegne.toltoPerchePersonale)}</strong> di{" "}
+                    {consegne.giaNelPersonale.map((v, i) => (
+                      <span key={v.nome}>
+                        {i > 0 ? ", " : ""}
+                        <strong>{v.nome}</strong>
+                      </span>
+                    ))}
+                    : {consegne.giaNelPersonale.length === 1 ? "è" : "sono"} a libro paga, quindi{" "}
+                    {consegne.giaNelPersonale.length === 1 ? "il suo costo sta" : "i loro costi stanno"} già nella riga
+                    del personale — contarli anche qui{" "}
+                    {consegne.giaNelPersonale.length === 1 ? "lo pagherebbe" : "li pagherebbe"} due volte.{" "}
+                    <em>
+                      L&apos;abbinamento è per nome: se qui compare qualcuno che non è un dipendente, è un omonimo e
+                      il suo costo sta sparendo dal conto.
+                    </em>{" "}
+                  </>
+                )}
+              </>
+            )}
+            {!costiConsegne.ok && (
+              <>
+                <strong>⚠️ Il costo delle consegne dalla piattaforma non è arrivato</strong> ({costiConsegne.errore}):
+                questa riga è quindi ancora la sola <strong>categoria di banca</strong>, che delle consegne vede meno
+                di un terzo. Il costo per servizi qui sopra è <strong>sottostimato</strong>, e non di poco.{" "}
               </>
             )}
             {consegne && !consegne.sostituita && (

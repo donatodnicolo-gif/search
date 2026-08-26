@@ -24,6 +24,11 @@ type Riga = {
   // si consuntivano mese per mese). Meglio una casella vuota di uno zero che
   // sembra un dato.
   cons?: (c: ConsuntivoPeriodo) => number | null;
+  // Il budget dei mesi chiusi quando LO SI SA ma il consuntivo no: e il caso
+  // del team commerciale, il cui budget e scritto ma il cui fatturato Finance
+  // non sa distinguere. Senza questo, quel budget spariva dalla colonna pur
+  // restando dentro il totale, e il totale non era la somma delle sue righe.
+  soloBudget?: () => number | null;
 };
 
 const RIGHE_FISSE: Riga[] = [
@@ -147,6 +152,16 @@ export default async function ContoEconomico({
           perMese: [],
         };
 
+  // ⚠️ **Il budget del team commerciale dei mesi chiusi** (176.000 € sul 2026).
+  // Serviva perché la colonna «Budget» del totale lo conteneva già —
+  // `contoEconomicoMensile` somma le linee dentro `ricavi` — mentre la riga che
+  // avrebbe dovuto mostrarlo diceva «—»: il totale non era la somma delle sue
+  // righe, e la differenza non compariva da nessuna parte.
+  const commercialeChiusi = mesiChiusi.reduce(
+    (s, m) => s + dati.linee.reduce((a, l) => a + (l.mesi[m - 1] ?? 0), 0),
+    0
+  );
+
   const pls = LIVELLI.map((l) => contoEconomico(dati, l.key, undefined, qD2C));
   const plScelto = pls.find((p) => p.livello === livello)!;
 
@@ -217,6 +232,10 @@ export default async function ContoEconomico({
           : `${dati.linee.length} linee di vendita`,
       valore: (pl: PL) => pl.ricaviCommerciale,
       cons: () => null,
+      // Il budget di questi mesi **si sa**, ed è il consuntivo che non si sa:
+      // mostrarli con lo stesso «—» faceva sparire 176.000 € dalla colonna del
+      // budget lasciandoli dentro il totale.
+      soloBudget: () => commercialeChiusi,
     },
     ...RIGHE_FISSE.map((r) => {
       if (r.label === "Costi di struttura") return { ...r, nota: notaStruttura(dati.struttura) };
@@ -376,6 +395,28 @@ export default async function ContoEconomico({
                     {cons && budgetChiusi && (() => {
                       const c = r.cons ? r.cons(cons) : null;
                       const b = r.cons ? r.cons(budgetChiusi) : null;
+                      // ⚠️ Una voce può avere il budget e NON il consuntivo: il
+                      // budget del team commerciale i mesi chiusi ce l'hanno, il
+                      // suo consuntivo no (Finance fattura tutto insieme e non
+                      // sa dire cosa ha portato un commerciale). Prima bastava
+                      // che uno dei due mancasse per spegnere tutte e tre le
+                      // celle — e quel budget spariva dalla vista pur restando
+                      // dentro il totale.
+                      const soloB = r.soloBudget ? r.soloBudget() : null;
+                      if (c === null && soloB !== null) {
+                        return (
+                          <>
+                            <td className="num muted" title="Finance fattura tutto insieme: quanto ha portato il team commerciale non si sa distinguere. Il suo consuntivo è dentro le righe B2B ed Eventi.">
+                              n.d.
+                            </td>
+                            <td className="num muted">
+                              {eur(soloB)}
+                              {quota(soloB, budgetChiusi.ricavi)}
+                            </td>
+                            <td className="num muted">—</td>
+                          </>
+                        );
+                      }
                       if (c === null || b === null) {
                         return (
                           <>

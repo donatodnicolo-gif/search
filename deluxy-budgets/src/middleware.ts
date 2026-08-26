@@ -57,6 +57,28 @@ export async function middleware(req: NextRequest) {
       );
     }
 
+    // ⚠️⚠️ **APPROVARE E CONSOLIDARE NON SONO «MANDARE LA PROPRIA PROPOSTA»**
+    // (buco trovato e chiuso il 27/08/2026 da una revisione ostile). Il
+    // permesso qui sopra è per prefisso, e `/api/proposte/decisione` comincia
+    // per `/api/proposte/`: passava. Bastavano due clic — «Approva», poi
+    // «Consolida» — perché un utente entrato dal Hub con un ruolo qualsiasi
+    // diverso da admin riscrivesse il budget pubblicato di una maison
+    // (`budgetEntry.upsert`), e per giunta su una proposta **non sua**.
+    //
+    // ⭐ La lezione è quella di sempre in quest'app: **un permesso dato per
+    // prefisso concede anche le rotte che nasceranno domani sotto quel
+    // prefisso.** Le eccezioni si scrivono per intero, non per iniziale.
+    const SOLO_ADMIN = ["/api/proposte/decisione"];
+    if (SOLO_ADMIN.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+      return NextResponse.json(
+        {
+          error:
+            "La decisione su una proposta è dell'amministratore: con questo profilo si manda la propria proposta, non si approva.",
+        },
+        { status: 403 }
+      );
+    }
+
     const permesso = APERTE_A_TUTTI.some((p) => pathname === p || pathname.startsWith(`${p}/`));
     if (permesso) return NextResponse.next();
     // Non un errore: si viene portati dove si può stare.

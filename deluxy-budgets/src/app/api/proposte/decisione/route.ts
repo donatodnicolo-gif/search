@@ -2,6 +2,30 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { FONTI, nomeFonte } from "@/lib/calc";
 
+import { cookies } from "next/headers";
+import { leggiSessione } from "@/lib/sessione";
+import { SESSION_COOKIE } from "@/lib/auth";
+
+// ⚠️ **La serratura sta in due posti di proposito.** Il middleware la chiude
+// per primo, ma una rotta che si affida solo a lui è una rotta che diventa
+// pubblica il giorno che qualcuno tocca un elenco di prefissi. Qui il
+// controllo è sul **ruolo**, dentro la rotta che scrive nel budget.
+//
+// ⚠️ La password di team (sessione assente ma cookie valido) resta ammessa:
+// è la via di riserva dichiarata, e chi entra da lì ha pieni poteri.
+async function soloAdmin(): Promise<Response | null> {
+  const jar = await cookies();
+  const sessione = await leggiSessione(jar.get(SESSION_COOKIE)?.value);
+  if (sessione && sessione.ruolo !== "admin") {
+    return NextResponse.json(
+      { error: "Solo un amministratore può approvare o consolidare una proposta." },
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
+
 // La risposta dell'admin a una proposta di budget, e — se approvata — il
 // passaggio nel budget ufficiale.
 //
@@ -13,6 +37,8 @@ import { FONTI, nomeFonte } from "@/lib/calc";
 const STATI = ["INVIATA", "APPROVATA", "RESPINTA"];
 
 export async function PATCH(req: Request) {
+  const vietato = await soloAdmin();
+  if (vietato) return vietato;
   const b = await req.json().catch(() => null);
   const id = String(b?.id ?? "");
   const stato = String(b?.stato ?? "");
@@ -37,6 +63,8 @@ export async function PATCH(req: Request) {
 // Sovrascrive quello che c'era — ed è il motivo per cui è un gesto separato,
 // esplicito, e lascia traccia sulla proposta.
 export async function POST(req: Request) {
+  const vietato = await soloAdmin();
+  if (vietato) return vietato;
   const b = await req.json().catch(() => null);
   const id = String(b?.id ?? "");
   const canale = String(b?.canale ?? "");

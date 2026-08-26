@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { meseChiuso } from "@/lib/periodo";
 
 const COLORI = ["blue", "purple", "green", "gold", "orange", "neutral"];
 
@@ -25,17 +26,35 @@ export async function PUT(req: Request) {
   // intervallo invece di un momento.
   const adesso = new Date();
 
+  // ⚠️ **Il blocco dei mesi chiusi viveva solo nel form** (difetto trovato e
+  // chiuso il 27/08/2026). Un input disabilitato è una cortesia verso chi
+  // guarda la pagina, non un controllo: una scheda rimasta aperta a cavallo
+  // del cambio mese rispedisce il mese chiuso e lo riscrive — e su un mese
+  // chiuso quella quota non è più una decisione, è la misura di quello che è
+  // uscito. Le rotte gemelle di Spese e Commerciale si difendono così da
+  // settimane, e **dichiarano cosa hanno scartato**: un «ok» secco su una
+  // richiesta accolta a metà è il modo più veloce per credere di aver salvato.
+  //
+  // ⚠️ Nota per chi passa di qui: lo split dei mesi chiusi esce anche
+  // dall'API verso Marketing (/api/v1/maison), che lo legge grezzo senza la
+  // maschera che invece la pagina applica. Finché quella resta così, una
+  // scrittura sporca qui si vede là, non qui.
+  const mesiChiusiIgnorati: number[] = [];
   for (const v of voci) {
     const piattaformaId = String(v?.piattaformaId ?? "");
     const month = Number(v?.month);
     if (!piattaformaId || month < 1 || month > 12) continue;
+    if (meseChiuso(year, month)) {
+      if (!mesiChiusiIgnorati.includes(month)) mesiChiusiIgnorati.push(month);
+      continue;
+    }
     await prisma.piattaformaSplit.upsert({
       where: { year_piattaformaId_month_ambito: { year, piattaformaId, month, ambito } },
       update: { percent: percent(v.percent), aggiornatoIl: adesso },
       create: { year, piattaformaId, month, ambito, percent: percent(v.percent), aggiornatoIl: adesso },
     });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, mesiChiusiIgnorati });
 }
 
 export async function POST(req: Request) {
