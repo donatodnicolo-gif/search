@@ -336,6 +336,25 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐ «Non vedo più stoppare white-gloves» — era l'etichetta, non la proposta (26/08/2026)
+
+La proposta c'era (riconciliazione PARZIALE, giusta) ma la rimozione «per
+descrizione» non ha `testo` e il bottone stampava **«undefined»**: invisibile
+agli occhi che cercavano «White-glove». Corretti (1) l'etichetta — «Rimuovi
+sitelink con descrizione …» — e (2) il riconoscimento dell'eseguita per
+SOTTOINSIEME sui `rimuovi_estensione`: la proposta {descrizione} e l'eseguita
+{titolo+descrizione} sono la stessa rimozione, e ora la scheda dice «già
+eseguita» invece di riproporla. Chiarito anche l'equivoco: il sitelink dello
+screenshot è «White FLOWERS» (peonie bianche, Francia-FR) — fiori, non guanti:
+non è il claim vietato. ⚠️ Restano invece ENABLED i **titoli/descrizioni RSA
+«White-Gloves»** su ITALIAN-ENG e Francia-FR: sono dentro gli ANNUNCI, l'app
+non li sa mettere in pausa — F13(b), da interfaccia. E lo scalino #51 ora ha
+il bottone: **Budget a 28,20** su Francia-FR (il +20% è la regola di casa, doc
+11 — insegnato alla mappa: uno scalino senza importo nel documento si mappa
+col passo prudente della banda 20-30%). ⭐ **La #50 è FATTA**: budget ITA
+28,75→34,50 eseguito alle 06:17, confermato rileggendo.
+
+
 ### ⭐ LA FREQUENZA SULLE CAMPAGNE META (26/08/2026)
 
 Richiesta utente: la frequenza nei KPI subito visibili. ⚠️ La frequenza è un

@@ -111,9 +111,23 @@ export default async function SchedaAnalisi({
       const pronta = operazioneDaProposta(proposta, aggancio.canale);
       if (!pronta) return [];
       const parametri = pronta.parametri ? JSON.stringify(pronta.parametri) : null;
-      const uguale = codaViva.find(
-        (o) => o.tipo === pronta.tipo && o.campagnaId === aggancio.id && (o.parametri ?? null) === parametri
-      );
+      const uguale = codaViva.find((o) => {
+        if (o.tipo !== pronta.tipo || o.campagnaId !== aggancio.id) return false;
+        if ((o.parametri ?? null) === parametri) return true;
+        // ⚠️ Per le rimozioni il confronto è per SOTTOINSIEME: la proposta
+        // «per descrizione» e l'operazione eseguita «titolo + descrizione»
+        // sono la stessa rimozione — il claim è quello. Senza questo, il
+        // bottone riproponeva una rimozione già fatta.
+        if (pronta.tipo === "rimuovi_estensione" && o.parametri && pronta.parametri) {
+          try {
+            const suoi = JSON.parse(o.parametri) as Record<string, unknown>;
+            return Object.entries(pronta.parametri).every(
+              ([k, v]) => String(suoi[k] ?? "").trim().toLowerCase() === String(v ?? "").trim().toLowerCase()
+            );
+          } catch { return false; }
+        }
+        return false;
+      });
       return [{
         k,
         pronta,

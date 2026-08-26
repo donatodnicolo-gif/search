@@ -220,7 +220,11 @@ Regole, nell'ordine in cui contano:
    documento ("+20% da 28,75") È mappabile: il conto è del documento, non tuo.
    Tipi e parametri (parametriJson è una stringa JSON):
      · pausa_campagna / attiva_campagna → parametriJson null
-     · budget → {"budget": <euro al giorno, numero>}
+     · budget → {"budget": <euro al giorno, numero>}. Se l'azione chiede uno
+       SCALINO/aumento di budget SENZA dare l'importo ma il documento dà il
+       budget ATTUALE, mappa il +20%: è lo scalino ordinario del change
+       control di casa (doc 11, banda 20-30%, si prende il passo prudente) —
+       il conto viene dalla regola, non è inventato. Arrotonda ai 10 centesimi.
      · negativa → {"testo":"...","corrispondenza":"exact|phrase|broad"}
      · nuova_keyword → {"testo":"...","corrispondenza":"exact|phrase|broad"}
      · estensione → {"tipo":"sitelink","testo":"...","url":"..."} oppure
@@ -649,7 +653,12 @@ export function descriviOperazione(pronta: OperazionePronta): string {
     case "negativa": return `Escludi «${p.testo}» (${p.corrispondenza})`;
     case "nuova_keyword": return `Aggiungi keyword «${p.testo}»`;
     case "estensione": return `Aggiungi ${p.tipo} «${p.testo}»`;
-    case "rimuovi_estensione": return `Rimuovi ${p.tipo} «${p.testo}»`;
+    case "rimuovi_estensione":
+      // La rimozione può mirare alla DESCRIZIONE (il claim sta lì, il titolo
+      // non si sa): l'etichetta lo dice, invece di stampare «undefined».
+      return p.testo
+        ? `Rimuovi ${p.tipo} «${p.testo}»`
+        : `Rimuovi ${p.tipo} con descrizione «${p.descrizione}»`;
     default: return pronta.tipo;
   }
 }
