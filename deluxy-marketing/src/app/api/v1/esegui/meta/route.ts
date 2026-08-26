@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { autentica, erroreApi } from "@/lib/api-auth";
+import { autentica } from "@/lib/api-auth";
 import { eseguiOperazioniMeta, metaPuoScrivere } from "@/lib/meta-scrittura";
 
 // L'esecuzione delle operazioni Meta già approvate.
@@ -16,8 +16,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
+  // ⚠️ `autentica` NON restituisce mai null: torna il cliente O la NextResponse
+  // d'errore. Il vecchio `if (!cliente)` era sempre falso e la rotta era di
+  // fatto PUBBLICA — trovato dalla revisione del 26/08, con la scrittura Meta
+  // ormai accesa. Il controllo giusto è quello di tutte le altre rotte v1.
   const cliente = await autentica(req);
-  if (!cliente) return erroreApi(401, "Chiave API mancante o non valida");
+  if (cliente instanceof NextResponse) return cliente;
   const stato = await metaPuoScrivere();
   return NextResponse.json({
     puoScrivere: stato.puo,
@@ -27,8 +31,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const cliente = await autentica(req);
-  if (!cliente) return erroreApi(401, "Chiave API mancante o non valida");
+  // Stesso guard vero del GET — e in più la SCRITTURA: questo POST spende
+  // soldi veri su Meta, una chiave di sola lettura non deve poterlo chiamare.
+  const cliente = await autentica(req, { scrittura: true });
+  if (cliente instanceof NextResponse) return cliente;
   const esito = await eseguiOperazioniMeta({ limite: 10 });
   return NextResponse.json({
     ...esito,

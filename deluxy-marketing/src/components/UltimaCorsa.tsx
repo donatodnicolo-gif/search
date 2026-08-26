@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { ETICHETTA_CANALE } from "@/lib/dominio";
+import { ETICHETTA_CANALE, formattaDataOra } from "@/lib/dominio";
 
 // QUANDO SI SONO FATTI VIVI I CONNETTORI, uno per uno.
 //
@@ -105,7 +105,7 @@ export async function UltimaCorsa() {
                       <>
                         {q!.testo}
                         <div className="cella-sub" style={{ color: "var(--text-tertiary)" }}>
-                          {r.u.quando.toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}
+                          {formattaDataOra(r.u.quando)}
                         </div>
                       </>
                     ) : (

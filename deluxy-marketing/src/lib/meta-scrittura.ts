@@ -183,14 +183,28 @@ export async function cambiaStatoMeta(
   const letto = await rileggi(idEsterno, "status,effective_status");
   const ora = letto ? String(letto.status ?? "") : null;
   const davvero = letto ? String(letto.effective_status ?? "") : null;
+
+  // ⚠️ Se la rilettura DICE che lo stato non è cambiato, l'operazione è
+  // FALLITA — non «riuscita con una nota». Prima qui tornava riuscita:true
+  // con l'ATTENZIONE solo nel testo, e `riferisci` scriveva nel DB
+  // «in pausa» su una campagna che su Meta continuava a spendere: la forma
+  // diceva fatto, il testo diceva non fatto, e la forma vince (trovato
+  // dalla revisione del 26/08). La rilettura mancata resta un «non lo so»,
+  // non un fallimento.
+  if (ora != null && ora !== stato) {
+    return {
+      riuscita: false,
+      dettaglio:
+        `Meta ha ACCETTATO la richiesta ${cosa} → ${stato}, ma rileggendo lo stato è ancora ${ora}: ` +
+        "non la segno eseguita — comanda quello che si rilegge, non la POST. Da riprovare guardando l'account.",
+    };
+  }
   const nota =
     ora == null
       ? " (non ho potuto rileggere per confermare)"
-      : ora === stato
-        ? davvero && davvero !== stato
-          ? ` (confermato rileggendo, ma Meta lo dà come ${davvero}: c'è qualcosa sopra che lo tiene fermo)`
-          : " (confermato rileggendo)"
-        : ` - ATTENZIONE: rileggendo, Meta lo riporta ancora come ${ora}`;
+      : davvero && davvero !== stato
+        ? ` (confermato rileggendo, ma Meta lo dà come ${davvero}: c'è qualcosa sopra che lo tiene fermo)`
+        : " (confermato rileggendo)";
 
   return {
     riuscita: true,
@@ -609,11 +623,22 @@ export async function eseguiOperazioniMeta(opzioni: { limite?: number } = {}) {
   for (const op of operazioni) {
     // ⚠️ Senza id di piattaforma non si tocca niente: cercare «la campagna che
     // si chiama così» su Meta significa poter colpire un omonimo di un altro
-    // account. Meglio fermarsi e dirlo. Il LANCIO è l'eccezione per natura —
-    // la campagna non esiste ancora, quindi l'id non può esserci: lì serve
+    // account. Meglio fermarsi e DIRLO SULLA RIGA: prima qui c'era solo
+    // `saltate++`, e l'operazione restava «approvata» per sempre senza che
+    // nessuno vedesse il motivo — e `idEsterno` sta sull'operazione dal
+    // momento dell'accodamento, quindi non sarebbe mai guarita da sola.
+    // Fallita col motivo è la verità: si riaccoda dalla campagna, che
+    // intanto avrà il suo id. Il LANCIO è l'eccezione per natura — la
+    // campagna non esiste ancora, quindi l'id non può esserci: lì serve
     // invece l'ACCOUNT su cui crearla.
     if (!op.idEsterno && op.tipo !== "lancio_campagna") {
       saltate++;
+      const registrato = await riferisci(
+        op.id,
+        false,
+        "manca l'id di piattaforma sull'operazione: senza, su Meta si rischia di colpire un omonimo. Riaccodare dalla scheda campagna (che ora ha il suo idEsterno)."
+      );
+      if (!registrato) break;
       continue;
     }
     if (!(OPERAZIONI_META as readonly string[]).includes(op.tipo)) {
@@ -623,21 +648,36 @@ export async function eseguiOperazioniMeta(opzioni: { limite?: number } = {}) {
       continue;
     }
 
+    // ⚠️ I parametri si leggono DENTRO una guardia: un JSON malformato (edit
+    // a mano sul DB condiviso, migrazione) senza try/catch faceva esplodere
+    // l'intera funzione PRIMA di `riferisci` — l'operazione velenosa restava
+    // «approvata», e con l'ordinamento `approvataIl asc` tornava in testa a
+    // ogni giro bloccando per sempre tutta la coda Meta. Fallita col motivo:
+    // esce dalla coda e si vede.
+    let parametri: Record<string, unknown> | null = null;
+    let parametriRotti = false;
+    try {
+      parametri = JSON.parse(op.parametri ?? "{}") as Record<string, unknown>;
+    } catch {
+      parametriRotti = true;
+    }
+
     let esito: EsitoScrittura;
-    if (op.tipo === "lancio_campagna") {
+    if (parametriRotti) {
+      esito = { riuscita: false, dettaglio: "parametri illeggibili (non sono JSON): correggere la riga e riaccodare" };
+    } else if (op.tipo === "lancio_campagna") {
       // L'account sull'operazione è l'id del conto Meta (lo scrive
       // `accodaOperazione` dal registro AccountAdv): senza, non si sa DOVE
       // creare la campagna, e indovinare è il modo di crearla altrove.
       esito = op.account
-        ? await lancioMeta(op.account, JSON.parse(op.parametri ?? "{}") as ParametriLancioMeta)
+        ? await lancioMeta(op.account, parametri as ParametriLancioMeta)
         : { riuscita: false, dettaglio: "manca l'account Meta sull'operazione: non so su quale conto creare la campagna" };
     } else if (op.tipo === "pausa_campagna") esito = await cambiaStatoMeta(op.idEsterno!, false, "campagna");
     else if (op.tipo === "attiva_campagna") esito = await cambiaStatoMeta(op.idEsterno!, true, "campagna");
     else if (op.tipo === "pausa_gruppo") esito = await cambiaStatoMeta(op.idEsterno!, false, "gruppo");
     else if (op.tipo === "attiva_gruppo") esito = await cambiaStatoMeta(op.idEsterno!, true, "gruppo");
     else {
-      const p = op.parametri ? (JSON.parse(op.parametri) as { budget?: number }) : {};
-      esito = await budgetMeta(op.idEsterno!, Number(p.budget));
+      esito = await budgetMeta(op.idEsterno!, Number((parametri as { budget?: number }).budget));
     }
 
     if (esito.riuscita) eseguite++;

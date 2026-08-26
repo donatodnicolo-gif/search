@@ -544,7 +544,10 @@ export async function accodaAzioneScheda(fd: FormData) {
   }
   const campagna = await prisma.campagna.findUnique({
     where: { id: aggancio.id },
-    select: { id: true, nome: true, canale: true, account: true },
+    // ⚠️ `idEsterno` DEVE viaggiare con l'operazione: l'esecutore Meta senza
+    // id non tocca niente (giusto) e prima lo lasciava «approvata» in
+    // silenzio — un'op nata da qui senza idEsterno non partiva mai.
+    select: { id: true, nome: true, canale: true, account: true, idEsterno: true },
   });
   if (!campagna) return;
 
@@ -558,6 +561,7 @@ export async function accodaAzioneScheda(fd: FormData) {
       tipo: pronta.tipo,
       canale: campagna.canale,
       account: campagna.account,
+      idEsterno: campagna.idEsterno,
       bersaglio: campagna.nome,
       parametri: pronta.parametri ? JSON.stringify(pronta.parametri) : null,
       motivo: `Dall'analisi «${analisi.titolo}»${azione.codice ? ` (${azione.codice})` : ""}: ${azione.testo.slice(0, 300)}`,
@@ -2894,12 +2898,22 @@ export async function giudicaTermine(scelta: string, fd: FormData) {
     termine.campagna.incidenti.length > 0
       ? `Incidente ${termine.campagna.incidenti[0].codice} APERTO su questa campagna: finché non è chiuso, quello che si misura è sporcato dal guasto.`
       : null;
+  // ⚠️ La corrispondenza VIAGGIA con la negativa: senza, lo script ripiega su
+  // GENERICA e l'esclusione spegne più ricerche del chiesto — il difetto
+  // esatta→generica già pagato il 06/08 e chiuso negli altri due punti di
+  // accodamento (vedi il commento lungo in creaOperazioneKeyword). Regola
+  // identica: si eredita la corrispondenza con cui la ricerca è stata
+  // intercettata (la colonna c'è, su TermineRicerca), e se non si sa: esatta,
+  // che è quella che sbaglia meno.
+  const corrNegativa = ["exact", "phrase", "broad"].includes((termine.corrispondenza ?? "").toLowerCase())
+    ? termine.corrispondenza!.toLowerCase()
+    : "exact";
   const op = await accodaOperazione({
     data: {
       tipo: "negativa",
       canale: termine.campagna.canale,
       bersaglio: termine.campagna.nome,
-      parametri: JSON.stringify({ testo: termine.testo }),
+      parametri: JSON.stringify({ testo: termine.testo, corrispondenza: corrNegativa }),
       motivo: `Termine di ricerca senza resa: ${(termine.spesa ?? 0).toFixed(2)} € spesi, ${termine.conversioni ?? 0} conversioni`,
       avvisi: avvisiTermine,
       livello: "L0",

@@ -1,6 +1,7 @@
 import { chiediAllAi } from "./ai";
 import { prisma } from "./db";
 import { testoDocumento } from "./drive";
+import { giornoRoma } from "./fuso";
 
 // La SCHEDA di un'analisi: il documento di Drive rielaborato in una forma
 // che una pagina può RENDERE, non solo mostrare.
@@ -685,7 +686,11 @@ export async function noteAnalisiPerCampagna(campagna: {
 // stesso doppione — trovato in produzione al primo giro («superata da» sé
 // stessa, stesso titolo). Due righe dello stesso giorno sono la stessa
 // stagione: nessuna delle due è storia dell'altra.
-const giornoDi = (d: Date) => d.toISOString().slice(0, 10);
+// ⚠️⚠️ E il giorno è quello di ROMA (lib/fuso.ts), non l'UTC di toISOString:
+// due depositi della stessa notte italiana a cavallo delle 2:00 estive
+// cadevano in giorni UTC diversi, e il caso «superata dal suo doppione»
+// rientrava dalla finestra.
+const giornoDi = (d: Date) => giornoRoma(d);
 
 /** Per ogni analisi superata: chi la supera. In un giro solo, per gli elenchi. */
 export async function mappaAnalisiStoriche(): Promise<
@@ -715,14 +720,18 @@ export async function analisiCheSupera(a: {
   canale: string | null;
   dataAnalisi: Date;
 }): Promise<{ id: string; titolo: string; dataAnalisi: Date } | null> {
-  // Dal primo istante del GIORNO DOPO: chi è dello stesso giorno non supera.
-  const g = a.dataAnalisi;
-  const giornoDopo = new Date(Date.UTC(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate() + 1));
-  return prisma.analisi.findFirst({
-    where: { brand: a.brand, canale: a.canale, dataAnalisi: { gte: giornoDopo }, id: { not: a.id } },
+  // Si prendono le più recenti per timestamp e si filtra sul GIORNO DI ROMA
+  // in memoria: il confine del giorno italiano non si scrive in una WHERE
+  // senza portarsi dietro l'ora legale — meglio poche righe in più e il
+  // confronto fatto con lo stesso metro di `giornoDi`.
+  const candidate = await prisma.analisi.findMany({
+    where: { brand: a.brand, canale: a.canale, dataAnalisi: { gt: a.dataAnalisi }, id: { not: a.id } },
     orderBy: { dataAnalisi: "desc" },
+    take: 8,
     select: { id: true, titolo: true, dataAnalisi: true },
   });
+  const mio = giornoDi(a.dataAnalisi);
+  return candidate.find((c) => giornoDi(c.dataAnalisi) > mio) ?? null;
 }
 
 // ───── Le azioni della scheda che si possono METTERE IN CODA ─────
@@ -969,7 +978,12 @@ export async function riconciliaAnalisi(analisiId: string): Promise<
         indice,
         codice: a.codice,
         testo: a.testo,
-        operazioneProposta: a.operazione,
+        // ⚠️ PRIMA la forma attuale `operazioni[]` (una per campagna, dal
+        // 26/08), POI il legacy singolare come ripiego: qui viaggiava solo
+        // `a.operazione`, che sulle schede nuove è vuoto — il riconciliatore
+        // riceveva le azioni multi-campagna SENZA le proposte tradotte e
+        // doveva indovinare il legame dal solo testo.
+        operazioniProposte: a.operazioni ?? (a.operazione ? [a.operazione] : null),
       })),
       operazioni: operazioni.map((o) => ({
         id: o.id,

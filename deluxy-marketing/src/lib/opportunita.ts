@@ -1,3 +1,4 @@
+import { formattaDataOra } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
 import type { GruppoConNumeri } from "@/lib/gruppi";
 
@@ -323,7 +324,10 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
   if (d.inBlackoutFino && d.inBlackoutFino > new Date()) {
     lista.push({
       chiave: "blackout",
-      titolo: `Non toccare fino al ${d.inBlackoutFino.toLocaleString("it-IT")}`,
+      // ⚠️ formattaDataOra, non toLocaleString nudo: su Vercel (UTC) la
+      // SCADENZA DEL BLACKOUT usciva 2 ore prima del vero — e si toccava la
+      // campagna dentro la finestra che l'avviso esiste per proteggere.
+      titolo: `Non toccare fino al ${formattaDataOra(d.inBlackoutFino)}`,
       perche:
         `C'è stata una modifica da meno di 72 ore: i dati di questa finestra non valgono come giudizio (doc 10 §1.4). ` +
         `Le voci qui sopra restano valide, ma si eseguono dopo.`,

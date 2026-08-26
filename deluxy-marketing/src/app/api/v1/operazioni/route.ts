@@ -81,7 +81,20 @@ export async function GET(req: NextRequest) {
       campagna: o.campagnaId ? nomeCampagna.get(o.campagnaId) ?? null : null,
       bersaglio: o.bersaglio,
       idEsterno: o.idEsterno,
-      parametri: o.parametri ? JSON.parse(o.parametri) : {},
+      // ⚠️ Parse GUARDATO: questo GET è l'unico canale da cui TUTTE le copie
+      // dello script ricevono lavoro. Senza la guardia, una sola riga con
+      // parametri malformati (edit a mano sul DB condiviso) mandava in 500
+      // l'intera consegna: nessuno script, su nessun account, riceveva più
+      // niente — e il sintomo era solo «app non raggiungibile» nel log dentro
+      // Google Ads. Con {} lo script fallisce QUELLA operazione con un esito
+      // chiaro, e il resto della coda continua a camminare.
+      parametri: (() => {
+        try {
+          return o.parametri ? JSON.parse(o.parametri) : {};
+        } catch {
+          return {};
+        }
+      })(),
       livello: o.livello,
     })),
   });

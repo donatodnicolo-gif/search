@@ -80,3 +80,35 @@ export function confiniMeseRoma(anno: number, mese: number): { inizio: Date; fin
     fine: mezzanotteRoma(mese === 12 ? anno + 1 : anno, mese === 12 ? 1 : mese + 1, 1),
   };
 }
+
+/**
+ * L'orologio ITALIANO di un istante: data di calendario, ora, e giorno della
+ * settimana (0=domenica … 6=sabato) come li vive chi lavora — non il server.
+ * Nato per guardrail (slot del lunedì, avviso weekend), che usava getDay()
+ * e getHours() del runtime, cioè UTC su Vercel.
+ */
+export function orologioRoma(istante: Date): {
+  anno: number; mese: number; giorno: number; ora: number; minuti: number; giornoSettimana: number;
+} {
+  const r = leggiARoma(istante);
+  // Il giorno della settimana della DATA italiana: la stessa data letta come
+  // UTC ha lo stesso weekday, senza altri giri di fuso.
+  const giornoSettimana = new Date(Date.UTC(r.anno, r.mese - 1, r.giorno)).getUTCDay();
+  return { anno: r.anno, mese: r.mese, giorno: r.giorno, ora: r.ora, minuti: r.minuti, giornoSettimana };
+}
+
+/** Il giorno di calendario ITALIANO, come stringa ordinabile "YYYY-MM-DD". */
+export function giornoRoma(istante: Date): string {
+  const r = leggiARoma(istante);
+  return `${r.anno}-${String(r.mese).padStart(2, "0")}-${String(r.giorno).padStart(2, "0")}`;
+}
+
+/**
+ * L'istante esatto di un ORARIO italiano di quel giorno (es. le 9:30).
+ * Doppio giro di scarto come in `mezzanotteRoma`, per le notti del cambio d'ora.
+ */
+export function orarioRoma(anno: number, mese: number, giorno: number, ora: number, minuti: number): Date {
+  const ipotesi = new Date(Date.UTC(anno, mese - 1, giorno, ora, minuti, 0));
+  const primo = new Date(ipotesi.getTime() - scartoRoma(ipotesi) * 60_000);
+  return new Date(ipotesi.getTime() - scartoRoma(primo) * 60_000);
+}

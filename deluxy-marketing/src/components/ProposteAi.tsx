@@ -1,6 +1,6 @@
 import { Badge } from "@/components/Badge";
 import { accettaProposta, adattaProposta, chiediProposteAi, portaIdealeQui, portaIdealiQui, scartaProposta } from "@/lib/azioni";
-import { formattaEuro, testoKeywordPulito } from "@/lib/dominio";
+import { formattaDataOra, formattaEuro, testoKeywordPulito } from "@/lib/dominio";
 import { ContaSelezionate, SelezionaTutte } from "@/components/SelezioneRighe";
 import { cittaDiNome, perAltraCitta } from "@/lib/nuova-campagna";
 import {
@@ -68,7 +68,7 @@ export async function ProposteAi({
         coda un&apos;operazione, che resta da approvare come tutte le altre. Le parole con troppi pochi
         clic non vengono nemmeno mandate all&apos;AI — su quelle la risposta è «aspetta», e la decide
         il codice, non un parere.
-        {ultima && <> Ultimo giro: {ultima.toLocaleString("it-IT")}.</>}
+        {ultima && <> Ultimo giro: {formattaDataOra(ultima)}.</>}
       </p>
 
       <form action={chiediProposteAi.bind(null, campagna.id)} style={{ marginBottom: 14 }}>

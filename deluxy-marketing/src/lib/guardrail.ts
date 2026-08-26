@@ -1,6 +1,10 @@
 // Le regole numeriche dei Definitivi, tradotte in funzioni.
 // Fonti: doc 4 (setup), doc 8.1 (apprendimento Meta), doc 10 (metodologia,
 // pacing, se/allora), doc 11 (traino, livelli L0-L3, alert A1-A5), 00.3/00.5.
+// ⚠️ Unico import: lib/fuso.ts, che è una foglia (importa solo Intl) — il
+// «guardrail non importa nulla» citato in azioni.ts resta vero nello spirito:
+// nessun rischio di ciclo.
+import { orarioRoma, orologioRoma } from "./fuso";
 
 export type MetricaGiorno = {
   data: Date;
@@ -291,7 +295,10 @@ export function validaModifica(opts: {
     }
   }
   if (traino) {
-    const giorno = adesso.getDay(); // 0 dom, 5 ven, 6 sab
+    // ⚠️ Il giorno della settimana di ROMA, non del server: su Vercel (UTC)
+    // un lunedì 00:30 italiano risultava ancora domenica e l'avviso weekend
+    // scattava a torto.
+    const giorno = orologioRoma(adesso).giornoSettimana; // 0 dom, 5 ven, 6 sab
     if (giorno === 0 || giorno === 5 || giorno === 6) {
       avvisi.push(
         "Campagna TRAINO toccata tra venerdì e domenica: se va storto il weekend è quando fa il fatturato e non c'è nessuno a rimediare (doc 11 §3.4)."
@@ -316,13 +323,15 @@ export function validaModifica(opts: {
 
 // ---------- Rotazione creativa (doc 8.3) ----------
 // Prossimo slot del lunedì e finestre di freeze stagionale.
+// ⚠️ Tutto in ORA DI ROMA (lib/fuso.ts): il doc 8.3 dice «lunedì 9:30» come
+// lo vive chi lavora. Prima si usavano setHours/getDay del runtime — UTC su
+// Vercel — e lo slot cadeva alle 11:30 italiane, con il lunedì notte contato
+// come domenica.
 export function prossimoSlotLunedi(da: Date = new Date()): Date {
-  const d = new Date(da);
-  d.setHours(9, 30, 0, 0);
-  const giorno = d.getDay();
-  const avanti = giorno === 1 && da.getHours() < 10 ? 0 : ((8 - giorno) % 7) || 7;
-  d.setDate(d.getDate() + avanti);
-  return d;
+  const r = orologioRoma(da);
+  const avanti = r.giornoSettimana === 1 && r.ora < 10 ? 0 : ((8 - r.giornoSettimana) % 7) || 7;
+  const bersaglio = new Date(Date.UTC(r.anno, r.mese - 1, r.giorno + avanti));
+  return orarioRoma(bersaglio.getUTCFullYear(), bersaglio.getUTCMonth() + 1, bersaglio.getUTCDate(), 9, 30);
 }
 
 // Freeze Ferragosto (doc 8.3): lanci fermi dal giovedì 13/8 a fine W5 (23/8).

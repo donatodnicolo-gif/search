@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
-import { testoKeywordPulito } from "@/lib/dominio";
+import { formattaDataOra, testoKeywordPulito } from "@/lib/dominio";
+import { accodaOperazione } from "@/lib/operazioni";
 import { registra } from "@/lib/registro";
 
 // POST /api/v1/operazioni/:id/esito — lo script riferisce com'è andata.
@@ -144,7 +145,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         await prisma.azione.create({
           data: {
             titolo: `Verifica +${ore}h dopo "${operazione.tipo}" su ${campagna.nome}`,
-            descrizione: `Operazione eseguita sulla piattaforma il ${new Date().toLocaleString("it-IT")}. Controllare erogazione, costo per conversione e che non siano scattati alert.`,
+            // ⚠️ `formattaDataOra` e non toLocaleString nudo: su Vercel il
+            // runtime è UTC e l'ora usciva indietro di 2 ore — e questa viene
+            // PERSISTITA nella descrizione, per sempre.
+            descrizione: `Operazione eseguita sulla piattaforma il ${formattaDataOra(new Date())}. Controllare erogazione, costo per conversione e che non siano scattati alert.`,
             brand: campagna.brand,
             canale: campagna.canale,
             priorita: ore === 24 ? "alta" : "media",
@@ -232,7 +236,13 @@ async function proponiAccensione(
       : null,
   ].filter(Boolean).join(" · ");
 
-  const op = await prisma.operazioneAdv.create({
+  // ⚠️ Dal punto unico (`accodaOperazione`), NON da prisma diretto: questo era
+  // il dodicesimo punto di creazione e l'unico a scavalcarlo — quindi senza
+  // l'avviso «la copia dello script non sa eseguire attiva_campagna» e, se
+  // `campagna.account` è null (campagna appena creata dall'app), con l'account
+  // vuoto: il difetto storico delle operazioni saltate in silenzio, reintrodotto.
+  // accodaOperazione riempie l'account dal brand quando manca.
+  const op = await accodaOperazione({
     data: {
       tipo: "attiva_campagna",
       canale: campagna.canale ?? "google_ads",

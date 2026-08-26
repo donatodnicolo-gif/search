@@ -336,6 +336,64 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐⭐ REVISIONE DEL CODICE: 10 DIFETTI TROVATI E CORRETTI (26/08/2026 notte)
+
+Caccia agli errori su tutto `src/` (8 angoli di ricerca + verifica
+indipendente, tutti CONFIRMED). In ordine di gravità:
+
+1. 🔴🔴 **`/api/v1/esegui/meta` era PUBBLICA.** `autentica()` non restituisce
+   mai null (torna il cliente O la NextResponse d'errore), ma il guard era
+   `if (!cliente)` — sempre falso. Chiunque senza chiave poteva fare POST e
+   far partire l'esecuzione delle operazioni Meta approvate, con la
+   scrittura ormai accesa; e mancava anche `{ scrittura: true }`, quindi una
+   chiave di sola lettura bastava. **Hotfix deployato subito** e provato:
+   401 senza chiave. Era l'unica rotta v1 col guard sbagliato.
+2. **`cambiaStatoMeta` diceva «riuscita» anche smentita dalla rilettura**:
+   l'ATTENZIONE finiva solo nel testo, l'op veniva marcata eseguita e il DB
+   scriveva «in pausa» su una campagna che su Meta spendeva ancora. Ora
+   rilettura discordante = operazione FALLITA (la rilettura mancata resta
+   un «non lo so», non un fallimento).
+3. **La negativa da /termini nasceva GENERICA**: `giudicaTermine` non
+   passava la corrispondenza e lo script ripiega su broad — il difetto
+   esatta→generica del 06/08, ancora aperto nel terzo punto di accodamento.
+   Ora eredita la corrispondenza del termine (colonna che c'era già), default esatta.
+4. **Un `parametri` malformato bloccava TUTTA la coda Meta**: JSON.parse
+   senza guardia in `eseguiOperazioniMeta` → eccezione prima di `riferisci`,
+   op sempre in testa (approvataIl asc), giro morto per sempre. Ora parse
+   guardato → op fallita col motivo, la coda cammina.
+5. **Una riga malformata spegneva la consegna a TUTTI gli script Google**:
+   JSON.parse nudo nel GET /api/v1/operazioni → 500 sull'intera consegna.
+   Ora parse guardato riga per riga ({} → lo script fallisce QUELLA op con
+   esito chiaro e il resto continua).
+6. **Le op Meta nate dalle schede analisi non partivano MAI**:
+   `accodaAzioneScheda` non selezionava `idEsterno` e l'esecutore le saltava
+   in silenzio, lasciandole «approvate» per sempre. Ora l'id viaggia con
+   l'operazione E le saltate senza id diventano FALLITE col motivo scritto
+   (l'id sta sull'op dall'accodamento: non sarebbero mai guarite da sole).
+7. **La riconciliazione era cieca sulle azioni multi-campagna**: passava
+   all'AI solo il legacy `operazione` singolare, vuoto sulle schede dal
+   26/08. Ora passa `operazioni[]` col singolare come ripiego.
+8. **Quattro ore in UTC a schermo (e una nel DB)**: la scadenza del
+   blackout («Non toccare fino al…»), l'esito operazione PERSISTITO nella
+   descrizione dell'azione di verifica, l'ultimo giro delle proposte AI e la
+   freschezza dei connettori — tutte 2 ore indietro d'estate. Ora
+   `formattaDataOra` ovunque.
+9. **Slot del lunedì e giorno-settimana calcolati in UTC**: lo slot 9:30
+   del doc 8.3 cadeva alle 11:30 di Roma e il lunedì notte era «domenica»
+   (avviso weekend a torto); e `giornoDi` delle analisi storiche usava il
+   giorno UTC (il «superata dal suo doppione» rientrava a cavallo delle
+   2:00). Nuovi helper in **lib/fuso.ts** (`orologioRoma`, `giornoRoma`,
+   `orarioRoma`) usati da guardrail e scheda-analisi.
+10. **`proponiAccensione` scavalcava il punto unico**: `prisma.create`
+    diretto invece di `accodaOperazione` → niente avviso versione-script e
+    account potenzialmente vuoto (il difetto storico delle 32/32). Era il
+    dodicesimo punto di creazione e l'unico fuori dal collo di bottiglia.
+
+Verificato: tsc+build puliti, deploy, POST senza chiave → 401, GET
+operazioni con chiave → 200. ⚠️ Nota di metodo: il n.1 esisteva perché
+UNA rotta su quindici aveva un guard diverso dalle altre — il pattern
+giusto era a un file di distanza.
+
 ### ⭐ LE ANALISI VECCHIE SI SEGNANO «STORICHE» DA SOLE (26/08/2026 sera)
 
 Richiesta utente: un'analisi del 02/08 accanto a quella del 25/08 si legge
