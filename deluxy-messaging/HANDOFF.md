@@ -1,5 +1,29 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 — via l account Diagnostica, e i Turni stanno sulla settimana corrente
+
+**Eliminato ** (ruolo operatore, creato il 26/07). Contate
+prima le tracce in tutte e tredici le tabelle che possono riferirsi a un utente:
+**zero ovunque**, tranne un turno del lunedi 09-18.
+
+⚠️⚠️ Il turno e stato tolto per PRIMO: la riga porta il nome **copiato**, quindi
+cancellando solo l utente il lunedi sarebbe rimasto in griglia intestato a
+«Diagnostica» — e l AI fuori turno avrebbe taciuto tutti i lunedi per un
+operatore che non esiste. Cancellato per id, mai con un filtro largo.
+Utenti rimasti: **3**.
+
+**I Turni si aprono sulla settimana corrente** (prima: sulla regola di sempre), e
+ci restano: un controllo al minuto sposta la vista quando cambia la settimana.
+⚠️ Si sposta solo chi stava guardando la settimana che era corrente un attimo
+prima — chi e andato apposta sulla prossima non se la vede cambiare sotto le
+mani. ⚠️ E quando non si e sulla corrente c e il bollino «settimana passata /
+futura»: una griglia mezza vuota di tre settimane fa si legge come «non c e
+nessuno in servizio».
+
+🔴 Dopo la cancellazione la regola copre **21 ore su 168** (venerdi e weekend):
+martedi, mercoledi e giovedi non sono scritti da nessuna parte, e la prova
+dell AI fuori turno continua a fallire apposta.
+
 ## 25/08/2026 (sera 9) — lo stato «In App»: quali ordini li sta gestendo la piattaforma
 
 Chiesto dall'utente: «parla con l'app deluxy delivery per capire quali ordini

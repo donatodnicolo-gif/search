@@ -51,8 +51,23 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
   const [salvando, setSalvando] = useState(false)
   const [chi, setChi] = useState('')
 
+  // ⚠️⚠️ SI APRE SULLA SETTIMANA CORRENTE, non sulla regola. Chiesto
+  // dall'utente il 26/08/2026: «tieni aggiornato alla settimana corrente
+  // sempre». Chi apre i Turni vuole sapere **chi c'è questa settimana** — la
+  // regola di sempre è un passo indietro, non il punto di partenza, e a
+  // guardarla si scambia per l'orario vero di questi giorni.
+  //
   // `null` = la regola di sempre. Altrimenti il lunedì della settimana guardata.
-  const [lunedi, setLunedi] = useState<Date | null>(null)
+  const [lunedi, setLunedi] = useState<Date | null>(() => lunediDi(new Date()))
+  /**
+   * Il lunedì di ADESSO, ricontrollato ogni minuto.
+   *
+   * ⚠️⚠️ Serve perché questa pagina resta aperta per giorni su un computer del
+   * servizio clienti. Senza, sabato notte la settimana mostrata smette di essere
+   * quella corrente e lunedì mattina si scrivono i turni **sulla settimana
+   * passata** — che non serve a nessuno, e non dà nessun errore.
+   */
+  const [lunediDiAdesso, setLunediDiAdesso] = useState(() => lunediDi(new Date()))
   const dal = lunedi ? giornoIso(lunedi) : ''
 
   const carica = useCallback(async () => {
@@ -72,6 +87,26 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
   useEffect(() => {
     if (amministratore) void carica()
   }, [carica, amministratore])
+
+  // ── RESTARE SULLA SETTIMANA CORRENTE ──
+  //
+  // ⚠️ Si sposta SOLO chi stava guardando la settimana che era corrente fino a
+  // un attimo fa: se qualcuno è andato apposta a vedere la prossima, o la
+  // regola di sempre, la pagina non gliela cambia sotto le mani. Una schermata
+  // che salta mentre ci lavori è peggio di una ferma.
+  useEffect(() => {
+    const t = setInterval(() => {
+      const nuovo = lunediDi(new Date())
+      setLunediDiAdesso((vecchio) => {
+        if (giornoIso(nuovo) === giornoIso(vecchio)) return vecchio
+        setLunedi((mostrato) =>
+          mostrato && giornoIso(mostrato) === giornoIso(vecchio) ? nuovo : mostrato
+        )
+        return nuovo
+      })
+    }, 60_000)
+    return () => clearInterval(t)
+  }, [])
 
   async function chiama(metodo: 'POST' | 'PATCH' | 'DELETE', corpo?: object, query = '') {
     setSalvando(true)
@@ -249,10 +284,18 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
         >
           ›
         </button>
-        {lunedi && giornoIso(lunedi) !== giornoIso(lunediDi(new Date())) ? (
-          <button className="bottone secondario mini" onClick={() => setLunedi(lunediDi(new Date()))}>
-            Questa settimana
-          </button>
+        {/* ⚠️ Si dice DOVE si è quando non si è sulla settimana corrente: senza,
+            una griglia mezza vuota di tre settimane fa si legge come «non c'è
+            nessuno in servizio». */}
+        {lunedi && giornoIso(lunedi) !== giornoIso(lunediDiAdesso) ? (
+          <>
+            <span className="badge" style={{ color: 'var(--oro)' }}>
+              {lunedi < lunediDiAdesso ? 'settimana passata' : 'settimana futura'}
+            </span>
+            <button className="bottone secondario mini" onClick={() => setLunedi(lunediDiAdesso)}>
+              Questa settimana
+            </button>
+          </>
         ) : null}
       </div>
 
