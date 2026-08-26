@@ -45,11 +45,13 @@ type Props = {
     al?: string
     allegati?: string
     dove?: string
+    /** Le parole del secondo giro: restringono i risultati del primo. */
+    q2?: string
   }>
 }
 
 export default async function PostaInArrivo({ searchParams }: Props) {
-  const { sezione, stato, p, vista, q: qGrezzo, da, a, dal, al, allegati, dove } = await searchParams
+  const { sezione, stato, p, vista, q: qGrezzo, q2: q2Grezzo, da, a, dal, al, allegati, dove } = await searchParams
   const q = (qGrezzo ?? '').trim()
   // Le CONDIZIONI di ricerca (chi, a chi, quando, con allegati, dove cercare).
   // ⚠️ Bastano da sole: «tutto quello che mi ha mandato Martina a settembre»
@@ -61,8 +63,12 @@ export default async function PostaInArrivo({ searchParams }: Props) {
     al: (al ?? '').trim(),
     allegati: allegati === '1',
     dove: (dove ?? '').trim(),
+    // ⚠️ Le parole del SECONDO giro. Stanno nelle condizioni (non accanto a `q`)
+    // perché è così che si tolgono: hanno la loro ✕ fra i badge, come «da» o
+    // «dal». Una ricerca ristretta che non si sa allargare è una trappola.
+    q2: (q2Grezzo ?? '').trim(),
   }
-  const conCondizioni = Boolean(cond.da || cond.a || cond.dal || cond.al || cond.allegati)
+  const conCondizioni = Boolean(cond.da || cond.a || cond.dal || cond.al || cond.allegati || cond.q2)
   const ricerca = q.length >= 2 || conCondizioni
   const u = await richiediUtente()
   // Multi-account: la casella scelta (null = tutte). Filtra la posta in arrivo.
@@ -194,7 +200,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
           </h1>
           <p className="page-caption">
             {ricerca
-              ? `Risultati per «${q}» — ricevute e inviate.`
+              ? `Risultati per «${q}»${cond.q2 ? ` che contengono anche «${cond.q2}»` : ''} — ricevute e inviate.`
               : sezioneAttiva
                 ? sezioneAttiva.descrizione
                 : vistaAI
@@ -206,7 +212,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
           <div style={{ marginTop: 12, maxWidth: 460 }}>
             <RicercaMail iniziale={q} />
             <CondizioniRicerca
-              valori={{ q, da: cond.da, a: cond.a, dal: cond.dal, al: cond.al, allegati: allegati, dove: cond.dove, sezione }}
+              valori={{ q, q2: cond.q2, da: cond.da, a: cond.a, dal: cond.dal, al: cond.al, allegati: allegati, dove: cond.dove, sezione }}
               sezioni={sezioniPerSposta}
             />
             {/* In ricerca: il server IMAP cerca anche nella posta mai scaricata

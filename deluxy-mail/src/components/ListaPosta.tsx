@@ -66,7 +66,7 @@ type Props = {
   q: string
   ricerca: boolean
   /** Le condizioni di ricerca (chi, a chi, periodo, allegati, dove cercare). */
-  cond?: { da: string; a: string; dal: string; al: string; allegati: boolean; dove: string }
+  cond?: { da: string; a: string; dal: string; al: string; allegati: boolean; dove: string; q2?: string }
   sezione?: string
   idsSezione: string[]
   /** L'id della sezione SPAM, se esiste: serve a escluderla senza sottoquery. */
@@ -123,20 +123,33 @@ export async function ListaPosta({
   // Dove cercare le PAROLE. Di default ovunque; con «cerca in» si stringe —
   // cercare «ordine» solo nell'oggetto è un'altra domanda che cercarlo nel
   // testo di tutte le mail, e finora non si poteva fare.
-  const campiParole = {
-    oggetto: [{ oggetto: { contains: q, mode: 'insensitive' as const } }],
+  const campiPer = (termine: string) => ({
+    oggetto: [{ oggetto: { contains: termine, mode: 'insensitive' as const } }],
     corpo: [
-      { corpoTesto: { contains: q, mode: 'insensitive' as const } },
-      { corpoTradotto: { contains: q, mode: 'insensitive' as const } },
+      { corpoTesto: { contains: termine, mode: 'insensitive' as const } },
+      { corpoTradotto: { contains: termine, mode: 'insensitive' as const } },
     ],
     persone: [
-      { mittente: { contains: q, mode: 'insensitive' as const } },
-      { mittenteNome: { contains: q, mode: 'insensitive' as const } },
-      { destinatari: { contains: q, mode: 'insensitive' as const } },
+      { mittente: { contains: termine, mode: 'insensitive' as const } },
+      { mittenteNome: { contains: termine, mode: 'insensitive' as const } },
+      { destinatari: { contains: termine, mode: 'insensitive' as const } },
     ],
-  }
-  const dove = cond?.dove as keyof typeof campiParole | undefined
+  })
+  const campiParole = campiPer(q)
+  const dove = cond?.dove as keyof ReturnType<typeof campiPer> | undefined
   const orParole = dove && campiParole[dove] ? campiParole[dove] : [...campiParole.oggetto, ...campiParole.persone, ...campiParole.corpo]
+
+  // ⚠️ «CERCA DENTRO I RISULTATI»: le parole del secondo giro, nella stessa
+  // forma e con lo stesso «cerca in», sommate in AND. Gira sul DATABASE, non
+  // sulle righe a schermo: i risultati sono una pagina di un elenco più
+  // lungo, e setacciare solo quello che si vede darebbe un conto sbagliato
+  // (si troverebbe «niente» mentre le mail ci sono, più avanti nell'elenco).
+  const q2 = (cond?.q2 ?? '').trim()
+  const campiParole2 = campiPer(q2)
+  const orParole2 =
+    dove && campiParole2[dove]
+      ? campiParole2[dove]
+      : [...campiParole2.oggetto, ...campiParole2.persone, ...campiParole2.corpo]
 
   // ⚠️ Le condizioni si sommano in AND fra loro e con le parole: «da Martina»
   // E «a settembre» E «con allegati». Ognuna può stare anche da sola — senza
@@ -144,6 +157,7 @@ export async function ListaPosta({
   // settembre» è una domanda completa.
   const eCondizioni = [
     ...(q.length >= 2 ? [{ OR: orParole }] : []),
+    ...(q2.length >= 2 ? [{ OR: orParole2 }] : []),
     ...(cond?.da ? [{ OR: [
       { mittente: { contains: cond.da, mode: 'insensitive' as const } },
       { mittenteNome: { contains: cond.da, mode: 'insensitive' as const } },

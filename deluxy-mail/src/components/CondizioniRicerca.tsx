@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 
 export type Condizioni = {
   q?: string
+  /** Le parole del SECONDO giro: restringono i risultati del primo. */
+  q2?: string
   da?: string
   a?: string
   dal?: string
@@ -28,6 +30,7 @@ export type Condizioni = {
  * condizione.
  */
 const ETICHETTE: Record<string, string> = {
+  q2: 'anche',
   da: 'da',
   a: 'a',
   dal: 'dal',
@@ -36,7 +39,7 @@ const ETICHETTE: Record<string, string> = {
   dove: 'cerca in',
 }
 
-export type CampoCondizione = 'da' | 'a' | 'periodo' | 'allegati' | 'dove' | 'sezione'
+export type CampoCondizione = 'q2' | 'da' | 'a' | 'periodo' | 'allegati' | 'dove' | 'sezione'
 
 export function CondizioniRicerca({
   valori,
@@ -46,7 +49,7 @@ export function CondizioniRicerca({
   /** Quali condizioni ha senso mostrare QUI. Negli inviati il mittente sei
    *  sempre tu; nelle bozze non ci sono né allegati né sezioni. Mostrare campi
    *  che non filtrano niente è peggio che non averli. */
-  campi = ['da', 'a', 'periodo', 'allegati', 'dove', 'sezione'],
+  campi = ['q2', 'da', 'a', 'periodo', 'allegati', 'dove', 'sezione'],
 }: {
   valori: Condizioni
   sezioni?: { id: string; nome: string }[]
@@ -101,6 +104,26 @@ export function CondizioniRicerca({
       {aperto && (
         <div className="card tight" style={{ padding: 14, marginTop: 8 }}>
           <div className="form-grid">
+            {mostra('q2') && (
+              <div className="full">
+                <label className="field-label">Cerca dentro i risultati</label>
+                <input
+                  type="text"
+                  value={c.q2 ?? ''}
+                  onChange={(e) => setC({ ...c, q2: e.target.value })}
+                  placeholder="altre parole che devono esserci"
+                />
+                {/* ⚠️ È un filtro VERO, non una setacciatura di quello che
+                    si vede: gira sul database in AND con le parole del
+                    campo grande. Filtrare solo le righe a schermo darebbe
+                    un conto sbagliato — i risultati sono una pagina di un
+                    elenco più lungo. */}
+                <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                  Restringe i risultati del campo qui sopra: restano solo le mail che
+                  contengono <strong>anche</strong> queste parole (stesso «cerca in»).
+                </div>
+              </div>
+            )}
             {mostra('da') && (
               <div>
                 <label className="field-label">Da (mittente)</label>
