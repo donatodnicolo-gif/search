@@ -21,6 +21,20 @@ export type RicaviBrand = {
   lordo: number;
   mesi: number[]; // 12 valori, IVA e spedizione incluse
   ordiniMese: number[];
+  // L'economia della vendita che la piattaforma scrive sugli ordini (26/08):
+  // fee incassate dai partner come commissioni (lorde) e primo margine
+  // ((pagato − valore prodotti) ÷ 1,22, quindi netto IVA). Somme sui SOLI
+  // ordini che hanno il dato: la copertura viaggia accanto, e zero ordini col
+  // dato è «n.d.», non zero. Opzionali perché l'Orders in produzione potrebbe
+  // essere una versione senza questi campi.
+  fee?: number;
+  primoMargine?: number;
+  ordiniConEconomia?: number;
+  lordoConEconomia?: number;
+  feeMese?: number[];
+  primoMargineMese?: number[];
+  conEconomiaMese?: number[];
+  lordoConEconomiaMese?: number[];
 };
 
 export type Ricavi = {

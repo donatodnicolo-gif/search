@@ -4,6 +4,25 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### 26/08/2026: il consuntivo per maison coi numeri di Orders (vendite lorde, fee, primo margine)
+
+«per maison per il consuntivo prendi da orders: le vendite lorde degli ordini, le fee incassate dai
+partners come commissioni, la differenza tra pagato e valore dei prodotti a cui togliere iva che
+dovresti trovare come primo margine». In `/consuntivo`, nuova sezione **«Maison per maison:
+l'economia della vendita (da Orders)»**: per ogni maison le **vendite lorde** (totale Shopify, IVA
+inclusa), le **fee dai partner** (commissioni lorde registrate sulle consegne) e il **primo margine**
+(pagato − valore prodotti, già ÷ 1,22: netto IVA). Tre basi diverse, dichiarate nella nota sotto la
+tabella.
+
+I numeri li scrive la **piattaforma consegne** sugli ordini di Orders (schema del 26/08:
+`primoMargine`, `feeVendita`) e Budgets li **legge** da `/api/v1/ricavi`, esteso oggi con le somme
+per brand/mese e la **copertura** (`ordiniConEconomia`, `lordoConEconomia`). ⚠️ **Alla nascita la
+copertura è ZERO** su tutti i brand — la piattaforma manda l'economia dal suo giro (cron notturno) —
+quindi fee e primo margine si leggono **«n.d.», non zero**, con la copertura riga per riga
+(«X ordini su Y · Z% del lordo»). La riga ecommerce del P&L **non è stata toccata**: sostituire la
+stima con questi numeri è il passo successivo, da fare quando la copertura è reale (e va
+*sostituita, non affiancata*, come dice la pagina).
+
 ### E dal pomeriggio: i margini PER BRAND, misurati (24/08/2026)
 
 «orders dovrebbe avere le % di margine di ogni brand per gli ordini». Non le aveva — la quota era unica

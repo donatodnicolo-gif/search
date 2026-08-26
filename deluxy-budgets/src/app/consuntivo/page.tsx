@@ -4,7 +4,7 @@ import { fetchConsuntivo, fetchSpeseBanca } from "@/lib/finance";
 import { caricaCategorie, ricostruisci } from "@/lib/cfo";
 import { eur, MESI, pct } from "@/lib/format";
 import { normalizzaNome } from "@/lib/scout";
-import { fetchRicaviD2C } from "@/lib/orders";
+import { abbinaMaison, fetchRicaviD2C } from "@/lib/orders";
 import { fatturatoDaVenduto, raggruppa, sommaMesi } from "@/lib/venduto";
 import { misuraQuota } from "@/lib/quota";
 import { ricavoD2C, ricavoDeiMesi, MARGINE_FORNITORI } from "@/lib/ricavo-d2c";
@@ -168,6 +168,35 @@ export default async function ConsuntivoPage({
   const vendutoPeriodo = sommaMesi(vend.mese, mesiPeriodo);
   const d2cPeriodo = sommaMesi(d2cMese, mesiPeriodo);
   const d2cPrecPeriodo = sommaMesi(d2cPrecMese, mesiRif);
+
+  // ---- L'economia della vendita, maison per maison, dai numeri di Orders ----
+  // Decisione del 26/08/2026: per il consuntivo delle maison si prendono da
+  // Orders le vendite lorde, le **fee incassate dai partner** come commissioni
+  // e il **primo margine** (pagato − valore prodotti, già ÷ 1,22: netto IVA).
+  // Sono i numeri che la piattaforma consegne scrive sugli ordini: qui si
+  // leggono e basta, col contratto dati. Le somme valgono sui SOLI ordini a cui
+  // l'economia è stata scritta, quindi la copertura si dichiara riga per riga —
+  // e una maison senza nessun ordine col dato mostra «n.d.», non zero.
+  const sommaEco = (arr: number[] | undefined) => (arr ? sommaMesi(arr, mesiPeriodo) : null);
+  const economiaMaison = d2c.ok
+    ? d2c.dati.brand.map((b) => {
+        const slug = abbinaMaison(b.brand, dati.maisons);
+        return {
+          brand: b.brand,
+          nome: dati.maisons.find((m) => m.slug === slug)?.nome ?? b.brand,
+          abbinata: slug !== null,
+          ordini: sommaMesi(b.ordiniMese, mesiPeriodo),
+          lordo: sommaMesi(b.mesi, mesiPeriodo),
+          fee: sommaEco(b.feeMese),
+          primoMargine: sommaEco(b.primoMargineMese),
+          conEconomia: sommaEco(b.conEconomiaMese) ?? 0,
+          lordoConEconomia: sommaEco(b.lordoConEconomiaMese) ?? 0,
+        };
+      })
+    : [];
+  // `feeMese` assente = l'Orders in produzione è una versione senza l'economia:
+  // un avviso diverso da «nessun ordine col dato», e la pagina li distingue.
+  const economiaEsposta = d2c.ok && d2c.dati.brand.some((b) => Array.isArray(b.feeMese));
 
   // Variazione percentuale. Con una base a zero la percentuale non esiste (non
   // è "+100%", è "da zero"): si restituisce null e la colonna mostra "—".
@@ -1081,6 +1110,96 @@ export default async function ConsuntivoPage({
               </>
             )}
           </div>
+
+          <h2 className="section-title">Maison per maison: l&apos;economia della vendita (da Orders)</h2>
+          {!d2c.ok ? (
+            <div className="card">
+              <p className="page-caption" style={{ margin: 0 }}>
+                {d2c.configurato ? "Orders non disponibile" : "Collega l'app Orders"}: {d2c.errore}
+              </p>
+            </div>
+          ) : !economiaEsposta ? (
+            <div className="card" style={{ borderColor: "var(--orange)" }}>
+              <p className="page-caption" style={{ margin: 0 }}>
+                L&apos;Orders in produzione non espone ancora l&apos;economia della vendita su{" "}
+                <code>/api/v1/ricavi</code>: va deployata la versione del 26/08. Le vendite lorde qui sotto
+                arrivano lo stesso; fee e primo margine restano «n.d.» finché la rotta nuova non è live.
+              </p>
+            </div>
+          ) : null}
+          {d2c.ok && (
+            <>
+              <div className="card tight">
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Maison</th>
+                        <th className="num">Ordini</th>
+                        <th className="num">Vendite lorde</th>
+                        <th className="num">Fee dai partner</th>
+                        <th className="num">Primo margine</th>
+                        <th className="num">Copertura</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {economiaMaison.map((r) => {
+                        const misurata = economiaEsposta && r.conEconomia > 0;
+                        return (
+                          <tr key={r.brand}>
+                            <td style={{ fontWeight: 600 }}>
+                              {r.nome}
+                              {!r.abbinata && (
+                                <span className="muted" style={{ fontWeight: 400 }}> · negozio senza maison</span>
+                              )}
+                            </td>
+                            <td className="num">{r.ordini}</td>
+                            <td className="num">{eur(r.lordo)}</td>
+                            <td className="num" style={{ fontWeight: 600 }}>
+                              {misurata ? eur(r.fee ?? 0) : <span className="muted">n.d.</span>}
+                            </td>
+                            <td className="num" style={{ fontWeight: 600 }}>
+                              {misurata ? eur(r.primoMargine ?? 0) : <span className="muted">n.d.</span>}
+                            </td>
+                            <td className="num muted" style={{ fontSize: 12.5 }}>
+                              {misurata
+                                ? `${r.conEconomia} ordini su ${r.ordini} · ${r.lordo > 0 ? Math.round((r.lordoConEconomia / r.lordo) * 100) : 0}% del lordo`
+                                : "nessun ordine col dato"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="tot">
+                        <td>Totale</td>
+                        <td className="num">{economiaMaison.reduce((s, r) => s + r.ordini, 0)}</td>
+                        <td className="num">{eur(economiaMaison.reduce((s, r) => s + r.lordo, 0))}</td>
+                        <td className="num">
+                          {economiaMaison.some((r) => r.conEconomia > 0)
+                            ? eur(economiaMaison.reduce((s, r) => s + (r.fee ?? 0), 0))
+                            : <span className="muted">n.d.</span>}
+                        </td>
+                        <td className="num">
+                          {economiaMaison.some((r) => r.conEconomia > 0)
+                            ? eur(economiaMaison.reduce((s, r) => s + (r.primoMargine ?? 0), 0))
+                            : <span className="muted">n.d.</span>}
+                        </td>
+                        <td />
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p className="page-caption" style={{ marginTop: 12 }}>
+                I tre numeri arrivano da <strong>Orders</strong>, dove la piattaforma consegne scrive l&apos;economia
+                di ogni ordine: le <strong>vendite lorde</strong> sono il totale Shopify (IVA e spedizione incluse),
+                le <strong>fee dai partner</strong> sono le commissioni registrate sulle consegne (lorde), il{" "}
+                <strong>primo margine</strong> è pagato − valore dei prodotti, già <strong>al netto IVA</strong> (÷ 1,22):
+                tre basi diverse, dichiarate perché le percentuali fra colonne non tornano a occhio. Fee e primo
+                margine sono somme sui <strong>soli ordini col dato</strong> — la copertura è nella colonna accanto —
+                e «n.d.» vuol dire che il dato non c&apos;è, non che vale zero.
+              </p>
+            </>
+          )}
         </>
       )}
     </>
