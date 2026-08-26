@@ -810,7 +810,7 @@ const AZIONI: AzioneApp[] = [
       if (citati.length !== 1 || dati.brand === citati[0]) return dati
       return { ...dati, brand: citati[0] }
     },
-    // Il modello può sbagliare NEGOZIO fra i tre: normalizzare almeno la forma
+    // Il modello può sbagliare NEGOZIO fra i quattro: normalizzare almeno la forma
     // (maiuscole, https://, www., barra finale) evita di cercare «Deluxy.it/».
     normalizza(dati) {
       const grezzo = String(dati.brand ?? '')
@@ -884,7 +884,7 @@ const AZIONI: AzioneApp[] = [
             }
           if (status === 404) {
             // ⚠️ Un «non trovato» che non dice DOVE ha cercato non è
-            // diagnosticabile: il caso normale è il negozio sbagliato fra i tre
+            // diagnosticabile: il caso normale è il negozio sbagliato fra i quattro
             // (i numeri d'ordine sono per negozio). Si dice il negozio, gli
             // altri possibili, e — se l'app li manda — gli ultimi ordini veri di
             // quel negozio, che smentiscono subito l'ipotesi.

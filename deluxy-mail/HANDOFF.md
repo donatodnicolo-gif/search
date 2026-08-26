@@ -38,6 +38,13 @@ Due lavori che NON erano ancora scritti qui (i commit non hanno toccato i docume
    toccarlo**, ed è merito del confronto sul **dominio intero**: dentro
    «business.deluxy.it» il pezzo «deluxy.it» è preceduto da un punto, che il confine
    `[^a-z0-9.-]` esclude.
+   ⚠️ **Due limiti misurati** (provata la regex con node, 26/08): il confronto sul
+   dominio intero **non riconosce i prefissi** — `www.deluxyflowers.com` o
+   `shop.deluxy.it` in una mail NON contano come negozio citato (il punto davanti li
+   esclude, ed è lo stesso meccanismo che salva `business.deluxy.it`); e se la mail
+   ne cita **due**, `daMail` si tira indietro apposta e resta la scelta del modello.
+   In entrambi i casi il rimedio è già a schermo: il negozio è una tendina, e il 404
+   dice cosa ha provato.
 2. **`POST /api/v1/invia`: `x-utente` accetta anche l'email di una CASELLA** (`1a0c4b1f`).
    Il caso vero: la piattaforma manda i recap «da `amministrazione@deluxy.it`», che è un
    *account*, non un utente di login → prima **404**, e — peggio — quando passava,
@@ -223,7 +230,7 @@ Chiesto dall'utente sulla schermata di «Commerciale — Apri trattativa», che 
 ---
 ### Dove siamo (26 agosto 2026)
 
-**Fotografia verificata oggi, 26 agosto 2026 alle 17:30** (giornata: sette commit —
+**Fotografia verificata oggi, 26 agosto 2026 alle 17:30** (giornata: sette commit di lavoro, piu questo di handoff —
 il lotto «riassunto che lavora», la casella di risposta, la trattativa, il quarto
 negozio e l'API; tutti descritti qui sopra):
 
@@ -234,8 +241,11 @@ negozio e l'API; tutti descritti qui sopra):
 - ⚠️ **Trovata e chiusa una discrepanza**: il deploy delle **14:26:18** era partito
   **80 secondi PRIMA** dell'ultimo commit (`1a0c4b1f`, 14:27:38), quindi l'API che
   accetta una casella in `x-utente` **non era online** pur essendo pushata — il
-  classico «pushato ≠ pubblicato». Ripubblicato alle **17:31**
-  (`migrate-prod` 102/102, alias aggiornato): ora la produzione contiene tutto.
+  classico «pushato ≠ pubblicato». Ripubblicato alle **17:28:32**
+  (`dpl_2zeaCWmcGnr7wGESRzEWVK8reLPu`, `migrate-prod` 102/102, alias aggiornato)
+  **dalla cartella allineata a `1a0c4b1f` con working tree pulito** — questa è la
+  prova che vale, non l'orario: ⚠️ il codice cambiato è lato server e **non si può
+  verificare dal bundle** (vedi la trappola «verificare un deploy dal bundle»).
   **Regola**: dopo l'ultimo commit della giornata si rifà il deploy, o si confronta
   l'ora del commit con `created` del deploy — la data del deploy da sola non dice
   quale codice c'è dentro.
@@ -251,7 +261,8 @@ negozio e l'API; tutti descritti qui sopra):
 **Ricontrollo del 25/08 alle 12:55 — guardando il DATABASE di produzione, non solo
 l'app.** Fino ad allora la fotografia si fermava a `/api/health` e al deploy; leggere le
 tabelle ha corretto **quattro** voci dei punti aperti (dettaglio sotto, punti 1-bis, 2, 4, 6).
-Quello che si vede in produzione adesso:
+Quello che si vedeva in produzione il 25/08 alle 12:55 (NON di oggi: i numeri
+qui sotto sono di ieri):
 
 | | |
 |---|---|
@@ -276,7 +287,7 @@ scaricata e analizzata **due volte** a ogni giro. Da confermare con l'utente se 
 
 **Cronologia dei lavori:** le voci di §7 sono della sessione del 23 luglio (dalla
 più recente); i lavori dal **26 luglio a oggi** stanno in §9, con la data fra
-parentesi. Di **oggi 25 ago**: la **mail aperta rifatta** — su telefono la barra fissa in
+parentesi. Il **25 ago**: la **mail aperta rifatta** — su telefono la barra fissa in
 stile Apple Mail, sul desktop prima una barra sola e poi la **gerarchia** (Rispondi ·
 Inoltra · Archivia · Cestina in vista, il resto dietro «⋯ Altro»), perché quindici comandi
 tutti uguali restano rumore comunque li si impili. Il **24 ago**: i **link delle mail** si
@@ -335,13 +346,13 @@ l'apertura di una mail resa veloce (vedi punto 1 qui sotto).
 
 #### Punti aperti (in ordine di cosa sblocca cosa)
 
-1. **Verificare la velocità** dopo lo spostamento delle funzioni a **dub1**
-   (Dublino, accanto al database): era la causa principale della lentezza
-   — le funzioni giravano a Washington. La **configurazione è confermata**
-   (17/08: `X-Vercel-Id: fra1::dub1::…`, health in 0,4 s), resta il giudizio a
-   mano sull'apertura di una mail. Se è ancora lenta, il prossimo indiziato sono
-   le **due ondate di query** della pagina del messaggio: la seconda aspetta la
-   prima e ora si possono fondere.
+1. **Verificare la velocità**: le funzioni devono stare accanto al database, ed è la
+   causa già pagata due volte (a luglio giravano a **Washington**). ⚠️ **La region è
+   cambiata col trasloco del 19/08**: non più `dub1` (Dublino, accanto al vecchio
+   progetto) ma **`fra1`** (Francoforte, accanto al cluster condiviso) — misurato oggi:
+   `X-Vercel-Id: fra1::fra1`, health in 0,56 s. Resta il giudizio a mano sull'apertura
+   di una mail: se è ancora lenta, il prossimo indiziato sono le **due ondate di query**
+   della pagina del messaggio — la seconda aspetta la prima e si possono fondere.
 1-bis. ✅ **Migrazione del vincolo UID: VERIFICATA sul database** (17/08, letto da
    `pg_indexes`): esiste `Messaggio_accountId_direzione_uid_key`, il vecchio
    `Messaggio_accountId_uid_key` non c'è più.

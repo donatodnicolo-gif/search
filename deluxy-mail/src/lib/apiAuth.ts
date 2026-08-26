@@ -63,7 +63,7 @@ export async function autenticaApi(req: Request): Promise<Autenticato> {
   })
   if (u) return { ok: true, utenteId: u.id, email: u.email }
 
-  // ⭐ 27/08: `x-utente` puo' essere anche l'email di una CASELLA (Account).
+  // ⭐ 26/08: `x-utente` puo' essere anche l'email di una CASELLA (Account).
   // Il caso vero: la piattaforma consegne manda i recap «da
   // amministrazione@deluxy.it», che e' un account collegato all'utente di
   // Nicolo' — non un utente di login. Prima rispondeva «nessun utente», e per
