@@ -76,3 +76,29 @@ export function etichettaLavorazioneCs(codice: string | null | undefined): Stato
     spiega: "Stato di lavorazione del Customer Service.",
   };
 }
+
+/**
+ * Il link per aprire QUESTO ordine nel Customer Service (deluxy-messaging).
+ *
+ * Va sull'archivio (`/ordini-globali`), non sulla lista di lavoro: là ci sono
+ * anche i gestiti e i rimborsati, che dalla lista di lavoro spariscono apposta
+ * — e chi arriva da qui cerca un ordine preciso, non la giornata.
+ *
+ * ⚠️ È una RICERCA, non un identificativo. Il Customer Service ha i suoi id, che
+ * qui non conosciamo (e non si vanno a leggere dal suo database: ogni dato ha
+ * una casa sola). Si passa il numero col cancelletto — `#12649`, non `12649` —
+ * perché la ricerca là fa `contains`: senza il cancelletto «2792» pescherebbe
+ * anche «#12792». Resta un caso che il link non può chiudere: **lo stesso numero
+ * può esistere su più negozi**, quindi chi arriva deve guardare il brand della
+ * riga. Il bottone lo dice.
+ *
+ * `null` quando `MESSAGGI_URL` non è impostata: meglio nessun bottone che un
+ * bottone che porta a un indirizzo vuoto.
+ */
+export function linkCustomerService(numero: string): string | null {
+  const base = (process.env.MESSAGGI_URL ?? "").trim().replace(/\/$/, "");
+  const n = (numero ?? "").trim();
+  if (!base || !n) return null;
+  const q = n.startsWith("#") ? n : `#${n}`;
+  return `${base}/ordini-globali?q=${encodeURIComponent(q)}`;
+}

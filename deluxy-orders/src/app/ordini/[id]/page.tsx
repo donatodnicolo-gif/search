@@ -14,6 +14,7 @@ import { cambiaStato, toggleEtichetta, aggiornaClassificazione, segnaProblemaGes
 import { registraCosto, azzeraCosto, chiediLinkPagamento } from "@/app/controllo/actions";
 import { LinkPagamento } from "@/components/LinkPagamento";
 import { ALIQUOTA_IVA, GESTIONI_INCASSO, STATI_INCASSO, margineAttesoPct, margineOrdine, quotaFornitore, valutaQuota } from "@/lib/controllo";
+import { linkCustomerService } from "@/lib/customer-service";
 import { ordinali } from "@/lib/repeater";
 import { canale } from "@/lib/marketing";
 import { etichettaLavorazioneCs } from "@/lib/customer-service";
@@ -63,6 +64,10 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
   // decisore dell'evasione). `null` finché il CS non l'ha comunicato: allora la
   // scheda non si mostra affatto.
   const csLav = etichettaLavorazioneCs(ordine.csGestione);
+  // Il collegamento al Customer Service c'è SEMPRE, non solo quando il CS ha già
+  // comunicato una lavorazione: il motivo per andare là è spesso proprio che qui
+  // non risulta niente.
+  const urlCs = linkCustomerService(ordine.numero);
 
   return (
     <main className="main">
@@ -93,6 +98,20 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
           <Link className="btn btn-secondario" href={`/ordini/${ordine.id}/fornitori`}>
             Fornitori vicini qui
           </Link>
+          {/* Il Customer Service: là c'è la conversazione col cliente, il
+              fornitore contattato, i pagamenti e i reclami — tutto quello che
+              qui si vede solo come esito. */}
+          {urlCs && (
+            <a
+              className="btn btn-secondario"
+              href={urlCs}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Apre il Customer Service cercando ${ordine.numero}. È una ricerca, non un collegamento diretto: lo stesso numero può esistere su più negozi, quindi controlla che la riga sia di ${ordine.brand}.`}
+            >
+              Apri nel Customer Service
+            </a>
+          )}
           {/* L'ordine originale su Shopify, per tutto ciò che qui non si replica */}
           {urlShopify && (
             <a className="btn btn-secondario" href={urlShopify} target="_blank" rel="noopener noreferrer">

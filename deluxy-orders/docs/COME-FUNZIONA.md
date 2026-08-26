@@ -1093,6 +1093,27 @@ sposta» di colonna. Filtro per brand.
 - **Dati Shopify**: pagamento, evasione, gateway, cliente, spedizione, righe.
 - **Storia**: ogni import e ogni riclassificazione, con autore e data.
 
+### Aprire lo stesso ordine nel Customer Service (25/08/2026)
+Sulla scheda dell'ordine, accanto a «Cerca fornitore» e «Apri su Shopify», c'è
+**«Apri nel Customer Service»**: porta all'archivio ordini di deluxy-messaging
+(`/ordini-globali`) già filtrato su quel numero. Si va sull'**archivio** e non
+sulla lista di lavoro perché là ci sono anche i gestiti e i rimborsati, che
+dalla lista di lavoro spariscono apposta — e chi arriva da qui cerca un ordine
+preciso, non la giornata.
+
+- **Il bottone c'è sempre**, anche quando la scheda «Customer Service —
+  lavorazione» non compare: il motivo per andare là è spesso proprio che qui non
+  risulta nulla.
+- ⚠️ **È una ricerca, non un identificativo.** Gli id del Customer Service qui
+  non si conoscono, e non si vanno a leggere dal suo database (ogni dato ha una
+  casa sola). Si passa il numero **col cancelletto** — `#12649`, non `12649` —
+  perché la ricerca là fa `contains`: senza, «2792» pescherebbe anche «#12792».
+  Resta un caso che il link non chiude: **lo stesso numero può esistere su più
+  negozi**, quindi il suggerimento del bottone dice di controllare il brand
+  della riga.
+- Se `MESSAGGI_URL` non è impostata il bottone **non compare**: meglio nessun
+  bottone che uno che porta a un indirizzo vuoto.
+
 ### Impostazioni (`/impostazioni`)
 - **Il giro dell'ordine (piattaforma consegne)** (25/08/2026): quanto è vivo il
   giro, **contato adesso sul registro** e non ricordato — ordini smistati dalla
