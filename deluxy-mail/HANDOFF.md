@@ -102,9 +102,11 @@ quella «sbagliata»). Il «Rispondi» prendeva `messaggio.account` — la casel
   (`accountCopia`) — la spedizione invece parte dalla casella scelta. Confonderli
   avrebbe fatto cercare l'allegato nella casella sbagliata.
 - Verifica: `tsc` e build puliti; la regola provata su 6 casi (quello segnalato, la
-  copia giusta, indirizzata a entrambe, alias di terzi, uscita, maiuscole). NON provato
-  l'invio vero end-to-end (serve la casella): da guardare che il prossimo «Rispondi» su
-  quella mail dica «Nicolo <nicolo.donato@deluxy.it>».
+  copia giusta, indirizzata a entrambe, alias di terzi, uscita, maiuscole).
+  ✅ **CONFERMATA A SCHERMO DALL'UTENTE il 26/08 sera**: sul «Rispondi» di quella mail
+  compare **nicolo.donato@deluxy.it**, non più cs@. Era l'unica prova che valeva: la
+  regola tocca quattro strade (pagina Rispondi, `inviaMessaggio`, `inviaBozza`, inviti)
+  e nessuna si poteva provare da qui senza la casella.
 
 ---
 ### 26/08 — il lotto «riassunto che lavora» + lo storico ripiegato anche in HTML
@@ -253,9 +255,10 @@ negozio e l'API; tutti descritti qui sopra):
   **0,56 s**, `X-Vercel-Id: fra1::fra1` — funzioni a Francoforte, accanto al database.
 - **Database**: cluster condiviso `zegbztfxisqeowngvgvh`, schema `mail` (dal 19/08).
   `migrate-prod` **102/102** applicati nel deploy di stasera.
-- 🔎 **Restano da guardare a schermo** (non ho né telefono né casella): la barra fissa
-  su iPhone e il foglio «⋯ Altro»; che il prossimo «Rispondi» sulla mail di Carolin dica
-  **nicolo.donato@deluxy.it** e non cs@; la riga «Contatto» piena e la fase proposta in
+- ✅ **Confermato a schermo dall'utente (26/08 sera)**: il «Rispondi» sulla mail di
+  Carolin dice **nicolo.donato@deluxy.it**, non cs@ — la casella di risposta è quella
+  INDIRIZZATA. Restano da guardare (non ho né telefono né casella): la barra fissa su
+  iPhone e il foglio «⋯ Altro»; la riga «Contatto» piena e la fase proposta in
   «Apri trattativa».
 
 **Ricontrollo del 25/08 alle 12:55 — guardando il DATABASE di produzione, non solo
