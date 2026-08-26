@@ -133,6 +133,7 @@ import {
   azioneDi,
   regolaAppPerMail,
   chiaveDiAzione,
+  lavoriApertiCommerciale,
   type AzioneDescritta,
   type EsitoAzione,
 } from './appDeluxy'
@@ -3095,6 +3096,43 @@ export async function cercaPartnerAnagrafiche(
   await uid() // solo utenti loggati
   const { cercaPartner } = await import('./anagrafiche')
   return (await cercaPartner(q)).map(({ id, nome, stato, citta, categoria }) => ({ id, nome, stato, citta, categoria }))
+}
+
+/**
+ * Una voce di un CAMPO RICERCABILE del dialogo APP: quel che finisce scritto
+ * nel campo, più l'identità e i dati che si porta dietro.
+ */
+export type VoceCampo = { valore: string; nota?: string; id?: string; email?: string }
+
+/** I lavori APERTI di Commerciale, per il campo «Per quale lavoro». */
+export async function vociLavoriApp(): Promise<VoceCampo[]> {
+  await uid() // solo utenti loggati
+  const azione = azioneDi('commerciale.preventivo')
+  if (!azione) return []
+  const chiave = chiaveDiAzione(azione, await leggiChiaviApp())
+  const lavori = await lavoriApertiCommerciale(chiave)
+  return lavori.map((l) => ({ valore: l.titolo, id: l.id, nota: l.cliente ?? undefined }))
+}
+
+/**
+ * Le aziende ATTIVE di Anagrafiche che assomigliano a quel che si sta
+ * scrivendo, per il campo «Fornitore». ⚠️ Fornitori E partner: chi ci
+ * fornisce davvero si riconosce dalla nota («fornitore: abituale»), ma non
+ * si nasconde il resto — un'azienda può diventare fornitore oggi.
+ */
+export async function vociAnagraficheApp(q: string): Promise<VoceCampo[]> {
+  await uid()
+  const { cercaAziendeAttive } = await import('./anagrafiche')
+  const trovate = await cercaAziendeAttive(q)
+  return trovate.map((a) => ({
+    valore: a.nome,
+    id: a.id,
+    email: a.email ?? undefined,
+    nota:
+      [a.categoria, a.citta, a.statoFornitore ? `fornitore: ${a.statoFornitore}` : '']
+        .filter(Boolean)
+        .join(' · ') || undefined,
+  }))
 }
 
 /** Associa un'email a un'azienda esistente in Anagrafiche. */

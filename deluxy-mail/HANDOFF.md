@@ -270,8 +270,11 @@ attraversato typecheck, build, la mia rilettura e il deploy.
    entrata `amministrazione@deluxy.it`, quella dei recap della piattaforma) e lo storico
    della cartella Inviata è indietro su **sei**. La tabella del 25/08 era stata riletta
    come stato di oggi — [[trappola-riassunto-handoff-invecchiato]].
-2. `CRON_SECRET` nel §3: il codice legge `CRON_TOKEN || CRON_SECRET` e l'errore dice
-   «CRON_TOKEN non configurato». Nel `.env` vero la variabile è `CRON_TOKEN`.
+2. `CRON_SECRET` nel §3: il codice legge `CRON_TOKEN || CRON_SECRET`. ⚠️ **La mia
+   correzione era a metà**: nel `.env` locale c'è `CRON_TOKEN`, ma su **Vercel** la
+   variabile si chiama `CRON_SECRET` (verificato con `vercel env ls` la sera stessa).
+   Sono veri tutti e due, in posti diversi — ed è il RIPIEGO a tenere in piedi il cron
+   di produzione.
 3. Due righe del §9 dicevano ancora «su Vercel **Hobby** il cron gira ~1 volta al giorno,
    la pianificazione `*/5` è ignorata»: superato dal 25/08 (il progetto sta sull'org
    Deluxy, e il cron è **misurato** sulla griglia dei 5 minuti).
@@ -893,7 +896,7 @@ npm run dev               # Next su http://localhost:3070
 - `DATABASE_URL` (pooler pgbouncer 6543), `DIRECT_URL` (5432).
 - `OPENAI_API_KEY` (chiave `sk-proj-…`), `OPENAI_MODEL` (`gpt-4o-mini`).
 - `APP_SECRET` (firma cookie sessione, HMAC).
-- `APP_PASSWORD` (legacy), **`CRON_TOKEN`** (cron `/api/sync`). ⚠️ Il codice accetta anche `CRON_SECRET` come ripiego, ma il nome vero — quello nel `.env` e nel messaggio di errore — è `CRON_TOKEN`.
+- `APP_PASSWORD` (legacy), il token del cron `/api/sync`. ⚠️⚠️ **Il nome è DIVERSO nei due posti, e vanno bene entrambi**: il codice legge `process.env.CRON_TOKEN || process.env.CRON_SECRET`; nel `.env` locale c'è **`CRON_TOKEN`**, su **Vercel** (verificato con `vercel env ls` il 26/08 sera) c'è **`CRON_SECRET`**. In produzione funziona quindi per il **ripiego**, non per il nome principale — e il messaggio d'errore dice «CRON_TOKEN non configurato», che là sarebbe fuorviante. Se un giorno si toglie il ripiego dal codice, il cron di produzione si ferma.
 - **APP DELUXY** (pannello verso le altre app): le chiavi si inseriscono ora **dall'app** in **Impostazioni App** (`/impostazioni-app`, solo admin) — vengono **cifrate** (AES-256-GCM come le password IMAP) e salvate come `Impostazione` globale (`app.anagrafiche.key`/`app.finance.key`/`app.fornitori.key`). In alternativa restano le env `ANAGRAFICHE_API_KEY` / `FINANCE_API_KEY` / `FORNITORI_PASSWORD` su Vercel: il resolver `leggiChiaviApp()` in `lib/chiaviApp.ts` legge **prima il DB cifrato, poi l'env**. Le chiavi non tornano mai al browser (la UI mostra solo *se* è impostata). Chiavi: Anagrafiche = **scrittura** (`npm run chiave -- deluxy-mail --scrittura`), Finance = `api.verificheKey`, Fornitori = password admin di search-deluxy (azione «Trova fornitore» → `GET /api/fornitori?brand&number`, header `x-app-password`/`x-app-user`). Opzionali gli URL `ANAGRAFICHE_URL` / `FINANCE_URL` / `FORNITORI_URL` (non segreti). **Senza chiave la carta dell'app è "da collegare"** e l'invio è bloccato. Le azioni ricevono la chiave via `ctx.chiave` (non leggono più `process.env` direttamente).
 - ⚠️ `TZ` è **riservato** su Vercel: il fuso è forzato nel codice (vedi §9).
 

@@ -2,7 +2,15 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { proponiPerApp, eseguiInvioApp, cercaPartnerAnagrafiche, type PropostaApp } from '@/lib/actions'
+import {
+  proponiPerApp,
+  eseguiInvioApp,
+  cercaPartnerAnagrafiche,
+  vociLavoriApp,
+  vociAnagraficheApp,
+  type PropostaApp,
+  type VoceCampo,
+} from '@/lib/actions'
 import type { AzioneDescritta, CampoAzione } from '@/lib/appDeluxy'
 import { ChiudiModale, useChiudiConEsc } from './ChiudiModale'
 
@@ -55,6 +63,122 @@ function ValoreAnnidato({ valore }: { valore: unknown }) {
 }
 
 /**
+ * Un campo che si compila CERCANDO invece che a memoria: i lavori aperti di
+ * Commerciale, le aziende attive di Anagrafiche.
+ *
+ * ⚠️ Resta un `input` di testo con una `datalist`: la ricerca **suggerisce**,
+ * non obbliga. Un lavoro appena nato, o un fornitore che nel registro non c'è
+ * ancora, devono essere scrivibili lo stesso — o la scorciatoia diventa un
+ * cancello.
+ * ⚠️ Scegliendo una voce si scrive anche la sua IDENTITÀ (`campoId`) e, dove
+ * previsto, la sua email: due lavori aperti possono chiamarsi uguale, e col
+ * solo nome Commerciale risponde «corrisponde a 2 lavori: serve lavoroId».
+ * L'id si scrive SOLO su una voce scelta davvero (confronto esatto sul nome).
+ */
+function CampoConRicerca({
+  campo,
+  valore,
+  scriviMolti,
+}: {
+  campo: CampoAzione
+  valore: string
+  scriviMolti: (patch: Record<string, unknown>) => void
+}) {
+  const [voci, setVoci] = useState<VoceCampo[]>([])
+  const [cercando, setCercando] = useState(false)
+  const idLista = `voci-${campo.nome}`
+
+  // I LAVORI si chiedono una volta sola all'apertura: sono pochi e non
+  // dipendono da quel che si scrive.
+  useEffect(() => {
+    if (campo.ricerca !== 'lavori') return
+    let vivo = true
+    setCercando(true)
+    vociLavoriApp()
+      .then((v) => {
+        if (vivo) setVoci(v)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (vivo) setCercando(false)
+      })
+    return () => {
+      vivo = false
+    }
+  }, [campo.ricerca])
+
+  // Le AZIENDE si cercano mentre si scrive, con un respiro di 300ms: una
+  // chiamata per tasto sarebbe una chiamata sprecata su nove.
+  useEffect(() => {
+    if (campo.ricerca !== 'anagrafiche') return
+    const testo = valore.trim()
+    if (testo.length < 2) {
+      setVoci([])
+      return
+    }
+    let vivo = true
+    setCercando(true)
+    const t = setTimeout(() => {
+      vociAnagraficheApp(testo)
+        .then((v) => {
+          if (vivo) setVoci(v)
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (vivo) setCercando(false)
+        })
+    }, 300)
+    return () => {
+      vivo = false
+      clearTimeout(t)
+    }
+  }, [valore, campo.ricerca])
+
+  const scrivi = (testo: string) => {
+    const scelta = voci.find((v) => v.valore.trim().toLowerCase() === testo.trim().toLowerCase())
+    const patch: Record<string, unknown> = { [campo.nome]: testo === '' ? null : testo }
+    // L'id vale solo per la voce scelta: cambiando il testo a mano, decade.
+    if (campo.campoId) patch[campo.campoId] = scelta?.id ?? undefined
+    // ⚠️ L'email si scrive solo QUANDO si sceglie: se il testo non combacia con
+    // nessuna voce non si cancella quella che c'era (il codice può averla messa
+    // dal mittente), e resta comunque nella sua riga, visibile e correggibile.
+    if (campo.campoEmail && scelta?.email) patch[campo.campoEmail] = scelta.email
+    scriviMolti(patch)
+  }
+
+  return (
+    <>
+      <input
+        type="text"
+        list={idLista}
+        value={valore}
+        onChange={(e) => scrivi(e.target.value)}
+        placeholder={campo.ricerca === 'lavori' ? 'scegli o scrivi il lavoro' : 'scrivi due lettere e scegli'}
+      />
+      <datalist id={idLista}>
+        {voci.map((v) => (
+          <option key={`${v.id ?? ''}-${v.valore}`} value={v.valore}>
+            {v.nota}
+          </option>
+        ))}
+      </datalist>
+      {/* Quel che l'elenco NON dice va detto: un campo che sembra una tendina e
+          resta vuoto fa credere che non ci sia niente da scegliere. */}
+      {campo.ricerca === 'lavori' && !cercando && voci.length === 0 && (
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          Nessun lavoro aperto da Commerciale (o app non collegata): scrivilo a mano.
+        </div>
+      )}
+      {campo.ricerca === 'anagrafiche' && !cercando && valore.trim().length >= 2 && voci.length === 0 && (
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          Nessuna azienda attiva con questo nome in Anagrafiche: puoi scriverlo lo stesso.
+        </div>
+      )}
+    </>
+  )
+}
+
+/**
  * La TABELLA con cui si controllano i dati prima di mandarli all'app: una riga
  * per voce, con l'etichetta a sinistra e il valore modificabile a destra.
  *
@@ -97,6 +221,23 @@ function FormAzione({
     // Campo svuotato = null (è così che il registro capisce "non lo so"),
     // non stringa vuota.
     onJson(JSON.stringify({ ...valori, [nome]: valore === '' ? null : valore }, null, 2))
+  }
+
+  /**
+   * Più chiavi in un colpo solo: scegliendo una voce da un campo ricercabile
+   * si scrivono insieme il nome, l'id e (dove previsto) l'email.
+   * ⚠️ Non si può fare con tre `scrivi` di fila: ognuno riparte da `valori`,
+   * che è la fotografia di PRIMA, e i primi due si perderebbero.
+   * `undefined` toglie la chiave (l'id decade se il testo non combacia più),
+   * stringa vuota = `null` (è così che il registro capisce «non lo so»).
+   */
+  const scriviMolti = (patch: Record<string, unknown>) => {
+    const nuovo: Record<string, unknown> = { ...valori }
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === undefined) delete nuovo[k]
+      else nuovo[k] = v === '' ? null : v
+    }
+    onJson(JSON.stringify(nuovo, null, 2))
   }
 
   /** Un elenco di parole si scrive separato da virgole, e torna un array:
@@ -249,6 +390,8 @@ function FormAzione({
                 <td>
                   {annidato ? (
                     <ValoreAnnidato valore={v} />
+                  ) : campo?.ricerca ? (
+                    <CampoConRicerca campo={campo} valore={valore} scriviMolti={scriviMolti} />
                   ) : tipo === 'lungo' ? (
                     <textarea value={valore} onChange={(e) => scrivi(chiave, e.target.value)} rows={2} />
                   ) : tipo === 'scelta' ? (

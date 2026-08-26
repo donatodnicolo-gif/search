@@ -37,6 +37,7 @@ type PartnerApi = {
   id: string
   nome: string
   stato?: string | null
+  statoFornitore?: string | null
   citta?: string | null
   categoria?: string | null
   email?: string | null
@@ -82,6 +83,31 @@ export async function partnerPerEmail(email: string): Promise<PartnerTrovato | n
       (x.contatti || []).some((c) => (c.email || '').toLowerCase() === e)
   )
   return p ? { id: p.id, nome: p.nome, stato: p.stato ?? null, citta: p.citta ?? null, categoria: p.categoria ?? null, link: linkPartner(p.id) } : null
+}
+
+/**
+ * Le aziende ATTIVE che assomigliano a quel che si sta scrivendo, per i campi
+ * ricercabili del dialogo APP (es. «Fornitore» del preventivo).
+ * ⚠️ L'API di Anagrafiche di suo restituisce **solo le attive** (`attivo` va
+ * chiesto esplicitamente per avere tutto): qui va bene così — un fornitore
+ * archiviato non è un fornitore a cui mandare un lavoro. Chi ci fornisce
+ * davvero si riconosce da `statoFornitore` (segnalato / da_provare /
+ * abituale / da_evitare), che torna insieme al resto e si vede in elenco.
+ */
+export async function cercaAziendeAttive(
+  q: string
+): Promise<{ id: string; nome: string; citta: string | null; categoria: string | null; statoFornitore: string | null; email: string | null }[]> {
+  const testo = q.trim()
+  if (testo.length < 2) return []
+  const dati = await getPartners(`q=${encodeURIComponent(testo)}&perPage=12`)
+  return dati.map((p) => ({
+    id: p.id,
+    nome: p.nome,
+    citta: p.citta ?? null,
+    categoria: p.categoria ?? null,
+    statoFornitore: p.statoFornitore ?? null,
+    email: p.email ?? (p.contatti ?? []).map((c) => c.email).find((e) => Boolean(e)) ?? null,
+  }))
 }
 
 /** Ricerca libera per la UI di associazione (per nome, città, ecc.). */

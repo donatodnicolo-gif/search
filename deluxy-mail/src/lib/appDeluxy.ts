@@ -247,6 +247,20 @@ export type CampoAzione = {
   obbligatorio?: boolean
   /** Solo per `tipo: 'scelta'`: i valori ammessi, in un menù a tendina. */
   opzioni?: { valore: string; etichetta: string }[]
+  /**
+   * Il campo si compila da una RICERCA invece che a memoria:
+   * `anagrafiche` cerca fra le aziende ATTIVE del registro (fornitori
+   * compresi), `lavori` fra i lavori aperti di Commerciale.
+   * ⚠️ Resta un campo di TESTO: la ricerca suggerisce, non obbliga — un
+   * nome che nell'elenco non c'è dev'essere ancora scrivibile, o la
+   * scorciatoia diventa un cancello.
+   */
+  ricerca?: 'anagrafiche' | 'lavori'
+  /** Dove scrivere l'ID della voce scelta: l'identità, non il nome (due
+   *  lavori possono chiamarsi uguale, e allora il nome non basta). */
+  campoId?: string
+  /** Dove scrivere l'email della voce scelta, quando ne ha una. */
+  campoEmail?: string
 }
 
 /**
@@ -1283,8 +1297,22 @@ const AZIONI: AzioneApp[] = [
     guida:
       'La mail è la RISPOSTA DI UN FORNITORE a cui avevamo chiesto un prezzo. lavoro = per quale lavoro è il preventivo, come lo chiama la mail (es. «allestimento vetrine», «torte per l’inaugurazione»): Scout lo riconosce fra i suoi lavori aperti. ⚠️ ATTENZIONE, nello stesso scambio possono esserci DUE aziende diverse: il CLIENTE (chi chiede un servizio a Deluxy, e a cui NOI mandiamo un prezzo) e il FORNITORE (chi fa il servizio per noi, e che manda il prezzo A NOI). Qui conta solo il fornitore. fornitore = il nome dell’azienda che manda il prezzo A NOI — MAI il cliente, e mai Deluxy. importo = il prezzo che il FORNITORE ha scritto a noi, in euro, SOLO se scritto (numero, senza simboli e senza IVA se è indicata a parte): ⚠️ NON è il totale che noi abbiamo quotato al cliente — se nello scambio (o nel riassunto) compare un «totale complessivo» verso il cliente, quello NON è il prezzo del fornitore; se il fornitore non ha ancora dato un prezzo lascia null, non inventarlo e non metterlo a zero. tempi = i tempi di consegna come li scrive lui (es. «10 giorni»). note = condizioni che contano (validità dell’offerta, minimi, trasporto escluso), in una frase.',
     campi: [
-      { nome: 'lavoro', etichetta: 'Per quale lavoro', obbligatorio: true, aiuto: 'Scout lo cerca fra i lavori aperti.' },
-      { nome: 'fornitore', etichetta: 'Fornitore', obbligatorio: true, aiuto: 'Chi manda il prezzo A NOI, non il cliente che lo ha chiesto.' },
+      {
+        nome: 'lavoro',
+        etichetta: 'Per quale lavoro',
+        obbligatorio: true,
+        ricerca: 'lavori',
+        campoId: 'lavoroId',
+        aiuto: 'Scegli fra i lavori aperti in Commerciale, o scrivilo: Scout lo cerca comunque.',
+      },
+      {
+        nome: 'fornitore',
+        etichetta: 'Fornitore',
+        obbligatorio: true,
+        ricerca: 'anagrafiche',
+        campoEmail: 'fornitoreEmail',
+        aiuto: 'Chi manda il prezzo A NOI, non il cliente che lo ha chiesto. Si cerca fra le aziende attive di Anagrafiche.',
+      },
       {
         // ⚠️ Prima quest'indirizzo partiva verso Scout SENZA vedersi: era
         // `ctx.controparte`, cioè la prima azienda esterna dello scambio — che
@@ -1368,6 +1396,10 @@ const AZIONI: AzioneApp[] = [
       const body: Record<string, unknown> = {
         azione: 'registra',
         lavoro,
+        // ⚠️ L'id del lavoro quando lo si è SCELTO dall'elenco: due lavori
+        // aperti possono chiamarsi uguale, e allora il nome non basta —
+        // Commerciale risponderebbe «corrisponde a 2 lavori: serve lavoroId».
+        lavoroId: typeof dati.lavoroId === 'string' && dati.lavoroId.trim() ? dati.lavoroId.trim() : undefined,
         fornitore,
         importo,
         tempi: dati.tempi || undefined,
@@ -1420,6 +1452,41 @@ const AZIONI: AzioneApp[] = [
 
 export function tutteLeAzioni(): AzioneApp[] {
   return AZIONI
+}
+
+/**
+ * I LAVORI APERTI di Commerciale, per il campo ricercabile «Per quale
+ * lavoro». La Edge `preventivi` ha già l'azione `lavori`: la si chiede una
+ * volta all'apertura del dialogo, invece di scoprirli dall'errore 404.
+ * ⚠️ In caso di guaio torna un elenco VUOTO, non un errore: il campo resta
+  * scrivibile a mano e il dialogo non si blocca per una tendina.
+ */
+export async function lavoriApertiCommerciale(
+  chiave: string
+): Promise<{ id: string; titolo: string; cliente: string | null }[]> {
+  if (!chiave) return []
+  try {
+    const res = await fetch(`${COMMERCIALE_URL}/preventivi`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': chiave },
+      body: JSON.stringify({ azione: 'lavori' }),
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) return []
+    const body = (await res.json().catch(() => null)) as { lavori?: unknown } | null
+    const lavori = Array.isArray(body?.lavori) ? body!.lavori! : []
+    return lavori
+      .map((x) => {
+        const o = (x ?? {}) as Record<string, unknown>
+        const titolo = typeof o.titolo === 'string' ? o.titolo : ''
+        const id = typeof o.id === 'string' ? o.id : ''
+        const cliente = typeof o.cliente === 'string' ? o.cliente : null
+        return titolo ? { id, titolo, cliente } : null
+      })
+      .filter((x): x is { id: string; titolo: string; cliente: string | null } => x !== null)
+  } catch {
+    return []
+  }
 }
 
 export function azioneDi(id: string): AzioneApp | undefined {
