@@ -262,6 +262,17 @@ interface TariffaIncasso {
   confermata: boolean;
 }
 
+/** Quello che il cliente ha pagato online, dalla cache di Orders. */
+interface ClientePagato {
+  prodotti: number;
+  consegna: number;
+  totale: number;
+  ordersId: string | null;
+  brand: string | null;
+  /** Il numero umano ("#12731"): a schermo si legge lui, non il gid. */
+  numero: string | null;
+}
+
 interface RecapOrdine {
   /** L'id della vendita: e' la chiave che tiene insieme le consegne. */
   saleRef: string;
@@ -270,6 +281,12 @@ interface RecapOrdine {
   saleValue: number;
   /** true = venduto e consegna vengono dall'ordine Shopify (pagato dal cliente). */
   fonteCliente: boolean;
+  /** La pagina dell'ordine in Deluxy Orders (che ha anche il bottone Shopify). */
+  ordersLink: string | null;
+  /** Il brand dell'ordine ("deluxy.it", …), dalla cache. */
+  brand: string | null;
+  /** Il numero umano dell'ordine ("#12731"), dalla cache. */
+  numeroOrdine: string | null;
   /** Almeno una riga senza prezzo scritto, stimata dal listino della variante. */
   vendutoStimato: boolean;
   /** Spese di consegna dell'ordine: contate UNA volta. */
@@ -387,7 +404,7 @@ export class FinanceService {
   async corrispettivi(
     from?: string,
     to?: string,
-    opzioni: { partnerId?: string; cerca?: string; limite?: number; soloVendite?: boolean; margine?: string } = {},
+    opzioni: { partnerId?: string; cerca?: string; limite?: number; soloVendite?: boolean; margine?: string; brand?: string } = {},
   ): Promise<CorrispettivoRow[]> {
     const deliveries = await this.prisma.delivery.findMany({
       where: {
@@ -416,7 +433,19 @@ export class FinanceService {
       },
       orderBy: { date: 'desc' },
     });
-    const rows = deliveries.map((d) => this.computeRow(d));
+    let rows = deliveries.map((d) => this.computeRow(d));
+    // Il BRAND sta sull'ordine (cache di Orders), non sulla consegna: si
+    // filtra per numero d'ordine. Le consegne senza ordine restano fuori dal
+    // filtro — chi filtra per brand cerca ordini di quel brand.
+    if (opzioni.brand) {
+      const del = new Set(
+        (await this.prisma.ordineCliente.findMany({
+          where: { brand: opzioni.brand },
+          select: { orderId: true },
+        })).map((x) => x.orderId),
+      );
+      rows = rows.filter((r) => r.realOrderNumber && del.has(r.realOrderNumber));
+    }
     // ⚠️ Il filtro sul margine si applica agli ORDINI, e le consegne seguono i
     // loro: tenere una consegna il cui ordine e' fuori fascia farebbe un elenco
     // che non corrisponde ne' ai totali ne' alle righe d'ordine.
@@ -457,18 +486,29 @@ export class FinanceService {
    */
   private async clientePagato(rows: CorrispettivoRow[]) {
     const numeri = [...new Set(rows.map((r) => r.realOrderNumber).filter(Boolean))] as string[];
-    if (!numeri.length) return new Map<string, { prodotti: number; consegna: number; totale: number }>();
+    if (!numeri.length) return new Map<string, ClientePagato>();
     const righe = await this.prisma.ordineCliente.findMany({
       where: { orderId: { in: numeri } },
-      select: { orderId: true, prodotti: true, consegna: true, totale: true },
+      select: { orderId: true, ordersId: true, brand: true, numero: true, prodotti: true, consegna: true, totale: true },
     });
-    return new Map(righe.map((r) => [r.orderId, { prodotti: r.prodotti, consegna: r.consegna, totale: r.totale }]));
+    return new Map<string, ClientePagato>(righe.map((r) => [r.orderId, {
+      prodotti: r.prodotti, consegna: r.consegna, totale: r.totale,
+      ordersId: r.ordersId, brand: r.brand, numero: r.numero,
+    }]));
+  }
+
+  /** L'indirizzo pubblico di Deluxy Orders (Impostazioni), per i link alle sue pagine. */
+  private async ordersBase(): Promise<string | null> {
+    const r = await this.prisma.appSetting.findUnique({ where: { key: 'ordersUrl' } });
+    const v = r?.value?.trim().replace(/\/+$/, '');
+    return v || null;
   }
 
   private recap(
     rows: CorrispettivoRow[],
     tariffe: TariffaIncasso[] = [],
-    cliente: Map<string, { prodotti: number; consegna: number; totale: number }> = new Map(),
+    cliente: Map<string, ClientePagato> = new Map(),
+    ordersBase: string | null = null,
   ): RecapOrdine[] {
     const gruppi = new Map<string, CorrispettivoRow[]>();
     for (const r of rows) {
@@ -541,6 +581,14 @@ export class FinanceService {
       saleValue: publicPrice,
       /// Il venduto viene dall'ordine Shopify (pagato dal cliente), non dalle righe.
       fonteCliente,
+      // Il link porta alla pagina dell'ordine in Deluxy Orders: e' lei che
+      // conosce il dominio Shopify del brand, e il bottone verso l'admin ce
+      // l'ha gia'.
+      ordersLink: pagato?.ordersId && ordersBase ? `${ordersBase}/ordini/${pagato.ordersId}` : null,
+      brand: pagato?.brand ?? null,
+      // Il numero umano dell'ordine ("#12731"): a schermo si legge lui, non
+      // il gid Shopify da 14 cifre che ora fa da chiave di gruppo.
+      numeroOrdine: pagato?.numero ?? null,
       // Almeno una consegna del giro ha il venduto stimato dalla variante
       // (listino di oggi, non fotografia): il totale va letto sapendolo.
       // Se la fonte e' il cliente la stima non c'entra piu'.
@@ -583,7 +631,7 @@ export class FinanceService {
   async summary(
     from?: string,
     to?: string,
-    opzioni: { partnerId?: string; cerca?: string; soloVendite?: boolean; margine?: string } = {},
+    opzioni: { partnerId?: string; cerca?: string; soloVendite?: boolean; margine?: string; brand?: string } = {},
   ) {
     const soloVendite = opzioni.soloVendite ?? true;
     const rows = await this.corrispettivi(from, to, { ...opzioni, limite: 5000 });
@@ -618,7 +666,13 @@ export class FinanceService {
     // ciascuna consegna. Il risultato era un piede di tabella che non era la
     // somma di cio' che si leggeva sopra — la cosa piu' facile da sbagliare e la
     // piu' difficile da accorgersene, perche' tutti i numeri restano plausibili.
-    const ordini = this.perFascia(this.recap(rows, await this.tariffe(), await this.clientePagato(rows)), opzioni.margine);
+    const ordini = this.perFascia(
+      this.recap(rows, await this.tariffe(), await this.clientePagato(rows), await this.ordersBase()),
+      opzioni.margine,
+    );
+    // I brand fra cui filtrare: quelli visti nella cache degli ordini.
+    const brands = (await this.prisma.ordineCliente.groupBy({ by: ['brand'], where: { brand: { not: null } } }))
+      .map((b) => b.brand as string).sort();
     const sum = (f: (o: RecapOrdine) => number) => round2(ordini.reduce((s, o) => s + f(o), 0));
     const publicPrice = sum((o) => o.saleValue);
     const deliveryFee = sum((o) => o.deliveryFee);
@@ -638,6 +692,8 @@ export class FinanceService {
       saleValue,
       /** Gli ordini del periodo, col loro riepilogo: sono le righe della tabella. */
       ordini,
+      /** I brand noti (dalla cache degli ordini): le opzioni del filtro Brand. */
+      brands,
       /** Quanti ordini: il conteggio delle righe di primo livello. */
       ordiniTotali: ordini.length,
       /** Ordini in cui risulta pagata piu' di una consegna: regola non applicata. */
@@ -834,7 +890,11 @@ function riferimentoVendita(d: any): string | null {
     if (!t || t === '0') return null;
     return t;
   };
-  return buono(d.legacySaleId) ?? buono(d.legacyOrderId) ?? buono(d.ddtNumber) ?? null;
+  // ⚠️ PRIMA il numero d'ordine Shopify: e' l'identita' vera dell'ordine.
+  // Su alcune vendite `legacySaleId` porta un codice di transazione
+  // (081000831922…) diverso per ogni consegna DELLO STESSO ordine: mettendolo
+  // per primo, l'ordine #12801 usciva spezzato in due righe con id illeggibili.
+  return buono(d.realOrderNumber) ?? buono(d.legacySaleId) ?? buono(d.legacyOrderId) ?? buono(d.ddtNumber) ?? null;
 }
 
 @ApiTags('finance')
@@ -883,6 +943,7 @@ export class FinanceController {
     @Query('limite') limite?: string,
     @Query('soloVendite') soloVendite?: string,
     @Query('margine') margine?: string,
+    @Query('brand') brand?: string,
   ) {
     this.assertAdmin(user);
     return this.financeService.corrispettivi(from, to, {
@@ -891,6 +952,7 @@ export class FinanceController {
       limite: limite ? Number(limite) : undefined,
       soloVendite: this.soloVendite(soloVendite),
       margine,
+      brand,
     });
   }
 
@@ -910,6 +972,7 @@ export class FinanceController {
     @Query('cerca') cerca?: string,
     @Query('soloVendite') soloVendite?: string,
     @Query('margine') margine?: string,
+    @Query('brand') brand?: string,
   ) {
     this.assertAdmin(user);
     return this.financeService.summary(from, to, {
@@ -917,6 +980,7 @@ export class FinanceController {
       cerca,
       soloVendite: this.soloVendite(soloVendite),
       margine,
+      brand,
     });
   }
 }

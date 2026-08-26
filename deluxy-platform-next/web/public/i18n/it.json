@@ -873,6 +873,7 @@
       "apri": "Apri il dettaglio dell'ordine",
       "titolo": "Ordine {{ref}}",
       "chiudi": "Chiudi",
+      "apriOrdine": "Apri l'ordine",
       "consegne": "Le consegne dell'ordine ({{n}})"
     },
     "filtri": {
@@ -880,6 +881,8 @@
       "togli": "Togli questo filtro",
       "azzera": "Azzera tutti"
     },
+    "brand": "Brand",
+    "allBrands": "Tutti i brand",
     "from": "Dal",
     "to": "Al",
     "export": "Esporta",
@@ -898,6 +901,7 @@
       "category": "Categoria",
       "partner": "Partner",
       "publicPrice": "Venduto",
+      "valoreProdotti": "Valore prodotti",
       "deliveryFee": "Consegna prezzo",
       "saleValue": "Valore vendite",
       "partnerPrice": "Dato al partner",

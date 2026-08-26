@@ -47,6 +47,11 @@ interface RecapOrdine {
   saleValue: number;
   /** Venduto stimato dal listino della variante (riga senza prezzo scritto). */
   vendutoStimato?: boolean;
+  /** La pagina dell'ordine in Deluxy Orders (che ha anche il bottone Shopify). */
+  ordersLink?: string | null;
+  brand?: string | null;
+  /** Il numero umano dell'ordine ("#12731"): a schermo si legge lui. */
+  numeroOrdine?: string | null;
   deliveryFee: number;
   deliveryCost: number;
   partnerPrice: number;
@@ -66,6 +71,8 @@ interface RecapOrdine {
 
 interface Summary {
   deliveries: number;
+  /** I brand noti (dalla cache degli ordini): le opzioni del filtro Brand. */
+  brands?: string[];
   /** Consegne a buon fine del periodo che non sono vendite: restano fuori. */
   excluded: number;
   /** Righe col prezzo sbagliato all'origine. */
@@ -139,6 +146,12 @@ interface Summary {
           <select class="field" name="partnerId" [(ngModel)]="partnerId" (ngModelChange)="reload()">
             <option value="">{{ 'finance.allPartners' | translate }}</option>
             @for (x of partners(); track x.id) { <option [value]="x.id">{{ x.insegna }}</option> }
+          </select>
+        </label>
+        <label class="date-fld"><span>{{ 'finance.brand' | translate }}</span>
+          <select class="field" name="brand" [(ngModel)]="brand" (ngModelChange)="reload()">
+            <option value="">{{ 'finance.allBrands' | translate }}</option>
+            @for (b of summary()?.brands ?? []; track b) { <option [value]="b">{{ b }}</option> }
           </select>
         </label>
         <div class="quick">
@@ -263,8 +276,9 @@ interface Summary {
                 <th>{{ 'finance.c.category' | translate }}</th>
                 <th>{{ 'finance.c.service' | translate }}</th>
                 <th>{{ 'finance.c.partner' | translate }}</th>
-                <th class="num">{{ 'finance.c.saleValue' | translate }}</th>
+                <th class="num">{{ 'finance.c.valoreProdotti' | translate }}</th>
                 <th class="num">{{ 'finance.c.deliveryFee' | translate }}</th>
+                <th class="num">{{ 'finance.c.saleValue' | translate }}</th>
                 <th class="num">{{ 'finance.c.partnerPrice' | translate }}</th>
                 <th class="num">{{ 'finance.c.takings' | translate }}</th>
                 <th class="num">{{ 'finance.c.takingsNet' | translate }}</th>
@@ -293,7 +307,7 @@ interface Summary {
                          dettaglio dell'ordine (stopPropagation, o farebbe
                          entrambe le cose insieme). -->
                     <button type="button" class="link-id" (click)="apriDettaglio(o, $event)"
-                            [title]="'finance.dettaglio.apri' | translate">{{ o.saleRef }}</button>
+                            [title]="'finance.dettaglio.apri' | translate">{{ o.numeroOrdine || o.saleRef }}</button>
                   </td>
                   <td colspan="4">{{ 'finance.ordini.consegne' | translate }}: {{ o.consegne }}
                     @if (o.consegnePagate > 1) {
@@ -301,8 +315,12 @@ interface Summary {
                     }
                   </td>
                   <td>—</td>
-                  <td class="num">{{ euro(o.saleValue + o.deliveryFee) }}@if (o.vendutoStimato) {<span class="stimato" [title]="'finance.vendutoStimatoHint' | translate">≈</span>}</td>
+                  <!-- Valore prodotti · Consegna · Valore vendite: prima gli
+                       addendi, poi la somma — quello che il cliente ha pagato
+                       su Shopify si legge senza fare i conti a mente. -->
+                  <td class="num">{{ euro(o.saleValue) }}@if (o.vendutoStimato) {<span class="stimato" [title]="'finance.vendutoStimatoHint' | translate">≈</span>}</td>
                   <td class="num">{{ euro(o.deliveryFee) }}</td>
+                  <td class="num">{{ euro(o.saleValue + o.deliveryFee) }}</td>
                   <td class="num">{{ euro(o.partnerPrice) }}</td>
                   <td class="num">{{ euro(o.takings) }}</td>
                   <td class="num">{{ euro(o.takingsNet) }}</td>
@@ -334,6 +352,7 @@ interface Summary {
                   <td>{{ r.partner }}</td>
                   <td class="num"></td>
                   <td class="num"></td>
+                  <td class="num"></td>
                   <!-- Letto dalla consegna, non dedotto: dove manca si dichiara. -->
                   <td class="num">
                     @if (r.anomalia === 'valore_partner_mancante') { — } @else { {{ euro(r.partnerPrice) }} }
@@ -359,8 +378,9 @@ interface Summary {
               <tfoot>
                 <tr class="totals">
                   <td colspan="8">{{ 'finance.total' | translate }}</td>
-                  <td class="num">{{ euro(s.saleValue) }}</td>
+                  <td class="num">{{ euro(s.publicPrice) }}</td>
                   <td class="num">{{ euro(s.deliveryFee) }}</td>
+                  <td class="num">{{ euro(s.saleValue) }}</td>
                   <td class="num">{{ euro(s.partnerPrice) }}</td>
                   <td class="num">{{ euro(s.takings) }}</td>
                   <td class="num">{{ euro(s.takingsNet) }}</td>
@@ -387,8 +407,17 @@ interface Summary {
       <div class="overlay" (click)="chiudiDettaglio()"></div>
       <div class="dialog card" (click)="$event.stopPropagation()">
         <header class="dlg-head">
-          <h2 class="mono">{{ 'finance.dettaglio.titolo' | translate: { ref: o.saleRef } }}</h2>
-          <button type="button" class="icon-btn" (click)="chiudiDettaglio()" [title]="'finance.dettaglio.chiudi' | translate">✕</button>
+          <h2 class="mono">{{ 'finance.dettaglio.titolo' | translate: { ref: (o.numeroOrdine || o.saleRef) } }}
+            @if (o.brand) { <span class="dlg-brand">{{ o.brand }}</span> }
+          </h2>
+          <div class="dlg-azioni">
+            <!-- La pagina dell'ordine in Deluxy Orders: e' lei che conosce il
+                 negozio Shopify del brand, e il bottone verso l'admin ce l'ha. -->
+            @if (o.ordersLink) {
+              <a class="btn-ordine" [href]="o.ordersLink" target="_blank" rel="noopener">{{ 'finance.dettaglio.apriOrdine' | translate }} ↗</a>
+            }
+            <button type="button" class="icon-btn" (click)="chiudiDettaglio()" [title]="'finance.dettaglio.chiudi' | translate">✕</button>
+          </div>
         </header>
         <dl class="dlg-dati">
           <dt>{{ 'finance.c.saleValue' | translate }}</dt>
@@ -464,8 +493,11 @@ interface Summary {
       .link-id:hover { text-decoration: underline; }
       .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.28); z-index: 50; }
       .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51; width: min(560px, 94vw); max-height: 84vh; overflow-y: auto; padding: 22px 26px; }
-      .dlg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+      .dlg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; }
       .dlg-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+      .dlg-brand { margin-left: 8px; font-size: 12px; font-weight: 550; color: var(--text-secondary); background: var(--fill); border-radius: 980px; padding: 3px 10px; }
+      .dlg-azioni { display: flex; align-items: center; gap: 8px; }
+      .btn-ordine { font-size: 12.5px; font-weight: 550; padding: 6px 14px; border-radius: 980px; background: var(--ink, #1d1d1f); color: #fff; text-decoration: none; white-space: nowrap; }
       .icon-btn { appearance: none; border: 1px solid transparent; background: none; cursor: pointer; font-size: 14px; line-height: 1; padding: 7px 9px; border-radius: 980px; color: var(--text-secondary); }
       .icon-btn:hover { background: var(--fill); color: var(--text); }
       .dlg-dati { display: grid; grid-template-columns: minmax(140px, 42%) 1fr; gap: 7px 14px; margin: 0 0 16px; font-size: 13.5px; }
@@ -525,6 +557,8 @@ export class FinanceComponent {
   to = '';
   cerca = '';
   partnerId = '';
+  /** Il brand scelto ('' = tutti): vive sull'ordine, dalla cache di Orders. */
+  brand = '';
   /** La fascia di margine scelta: '' = tutte. */
   margine = '';
   readonly partners = signal<{ id: string; insegna: string }[]>([]);
@@ -562,6 +596,7 @@ export class FinanceComponent {
       const p = this.partners().find((x) => x.id === this.partnerId);
       f.push({ tipo: 'partner', testo: p?.insegna ?? this.partnerId });
     }
+    if (this.brand) f.push({ tipo: 'brand', testo: this.brand });
     if (this.margine) {
       f.push({ tipo: 'margine', testo: this.translate.instant('finance.margine.' + this.margine) });
     }
@@ -576,12 +611,13 @@ export class FinanceComponent {
     if (tipo === 'periodo') { this.from = ''; this.to = ''; }
     if (tipo === 'cerca') this.cerca = '';
     if (tipo === 'partner') this.partnerId = '';
+    if (tipo === 'brand') this.brand = '';
     if (tipo === 'margine') this.margine = '';
     this.reload();
   }
 
   azzeraFiltri(): void {
-    this.from = ''; this.to = ''; this.cerca = ''; this.partnerId = ''; this.margine = '';
+    this.from = ''; this.to = ''; this.cerca = ''; this.partnerId = ''; this.brand = ''; this.margine = '';
     this.reload();
   }
 
@@ -602,8 +638,9 @@ export class FinanceComponent {
     const g = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     if (scarto === -12) {
-      const da = new Date(oggi); da.setFullYear(da.getFullYear() - 1);
-      this.from = g(da); this.to = g(oggi);
+      // «Anno» = ANNO CORRENTE, dal 1° gennaio a oggi (l'utente, 26/08):
+      // gli ultimi 12 mesi mischiavano due esercizi.
+      this.from = `${oggi.getFullYear()}-01-01`; this.to = g(oggi);
     } else {
       const primo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto, 1);
       const ultimo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto + 1, 0);
@@ -618,6 +655,7 @@ export class FinanceComponent {
     if (this.from) p = p.set('from', this.from);
     if (this.to) p = p.set('to', this.to);
     if (this.partnerId) p = p.set('partnerId', this.partnerId);
+    if (this.brand) p = p.set('brand', this.brand);
     if (this.cerca.trim()) p = p.set('cerca', this.cerca.trim());
     if (this.margine) p = p.set('margine', this.margine);
     return p;

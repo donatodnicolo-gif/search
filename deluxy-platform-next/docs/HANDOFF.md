@@ -275,6 +275,26 @@ Quattro regole dell'utente, tutte dentro:
 Il 12731 passa da **−4,78 €** (venduto 35 = concordato Cannavo) a ricavo vero
 60 € (45 prodotto + 15 consegna) → margine ≈ **+16 €**.
 
+### 26/08 (sera, 2) — Colonna Valore prodotti, filtro Brand, link a Orders, id leggibili
+
+- **Colonna «Valore prodotti»** in Finanza (i prodotti pagati su Shopify, es.
+  45 €), prima di «Consegna prezzo» e «Valore vendite» (la somma): prima gli
+  addendi, poi il totale. Il «≈» della stima sta sul valore prodotti.
+- **Filtro Brand** (tendina + chip): il brand vive sull'ordine, dalla cache
+  `OrdineCliente` (colonne nuove `ordersId` + `brand`, migrazione
+  `20260826120000`; backfill rifatto su 14.020 ordini). Le consegne senza
+  ordine restano fuori dal filtro, ed è giusto così.
+- **Pop-up: bottone «Apri l'ordine»** → la pagina dell'ordine in Deluxy Orders
+  (`{ordersUrl}/ordini/{ordersId}`): il link DIRETTO all'admin Shopify richiede
+  il dominio del negozio, che possiede Orders — la sua pagina ce l'ha già; per
+  esporlo nell'API di Orders serve un ritocco in QUELLA app (altra sessione).
+- **Id vendita leggibili**: su alcune vendite `legacySaleId` porta un codice di
+  transazione (081000831922…) diverso per ogni consegna dello stesso ordine —
+  il #12801 usciva spezzato in DUE righe. Ora il raggruppamento preferisce il
+  **numero d'ordine Shopify** (`realOrderNumber`) e a schermo si mostra il
+  numero umano dalla cache («#12801»).
+- **«Anno» nei filtri = anno corrente** (dal 1° gennaio), non ultimi 12 mesi.
+
 **Resta da fare qui**: creazione/modifica dei modelli SMS da UI (l'API `POST
 /sms-templates` c'è); creazione provincia da UI; la prima corsa AUTOMATICA del
 cron è stanotte alle 4:30 italiane (quella a mano è già andata); riconnettere

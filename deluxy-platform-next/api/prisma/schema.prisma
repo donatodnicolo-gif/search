@@ -1218,6 +1218,11 @@ model OrdineCliente {
   id           String   @id @default(cuid())
   /// Numero Shopify nudo (la coda del gid): lo stesso di Delivery.realOrderNumber.
   orderId      String   @unique
+  /// L'id dell'ordine DENTRO Deluxy Orders: serve a linkare la sua pagina
+  /// (che ha anche il bottone verso l'admin Shopify — il dominio lo sa lei).
+  ordersId     String?
+  /// Il brand dell'ordine ("deluxy.it", …): e' il filtro Brand della Finanza.
+  brand        String?
   /// Il numero umano ("#12731"), per leggersi negli elenchi.
   numero       String?
   /// Somma delle righe pagate dal cliente (prezzo x quantita).

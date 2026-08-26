@@ -33,7 +33,7 @@ while (true) {
     const k = numeroShopify(o.orderId);
     if (!k || o.totale == null || !o.righe?.length) continue;
     const prodotti = Math.round(o.righe.reduce((s, r) => s + (r.prezzo ?? 0) * (r.quantita ?? 1), 0) * 100) / 100;
-    economia.push({ orderId: k, numero: o.numero ?? null, prodotti,
+    economia.push({ orderId: k, ordersId: o.id ?? null, brand: o.brand ?? null, numero: o.numero ?? null, prodotti,
       consegna: Math.max(0, Math.round((o.totale - prodotti) * 100) / 100), totale: o.totale });
   }
   process.stdout.write('.');
@@ -46,16 +46,16 @@ let scritti = 0;
 for (let i = 0; i < economia.length; i += 500) {
   const blocco = economia.slice(i, i + 500);
   const valori = blocco
-    .map((_, j) => `($${j * 5 + 1}::text, $${j * 5 + 2}::text, $${j * 5 + 3}::float8, $${j * 5 + 4}::float8, $${j * 5 + 5}::float8)`)
+    .map((_, j) => `($${j * 7 + 1}::text, $${j * 7 + 2}::text, $${j * 7 + 3}::text, $${j * 7 + 4}::text, $${j * 7 + 5}::float8, $${j * 7 + 6}::float8, $${j * 7 + 7}::float8)`)
     .join(',');
-  const parametri = blocco.flatMap((e) => [e.orderId, e.numero, e.prodotti, e.consegna, e.totale]);
+  const parametri = blocco.flatMap((e) => [e.orderId, e.ordersId, e.brand, e.numero, e.prodotti, e.consegna, e.totale]);
   await db.$executeRawUnsafe(
-    `INSERT INTO platform."OrdineCliente" ("id", "orderId", "numero", "prodotti", "consegna", "totale", "aggiornatoIl")
-     SELECT gen_random_uuid(), v.o, v.n, v.p, v.c, v.t, now()
-     FROM (VALUES ${valori}) AS v(o, n, p, c, t)
+    `INSERT INTO platform."OrdineCliente" ("id", "orderId", "ordersId", "brand", "numero", "prodotti", "consegna", "totale", "aggiornatoIl")
+     SELECT gen_random_uuid(), v.o, v.oi, v.b, v.n, v.p, v.c, v.t, now()
+     FROM (VALUES ${valori}) AS v(o, oi, b, n, p, c, t)
      ON CONFLICT ("orderId") DO UPDATE
-     SET "numero" = EXCLUDED."numero", "prodotti" = EXCLUDED."prodotti",
-         "consegna" = EXCLUDED."consegna", "totale" = EXCLUDED."totale", "aggiornatoIl" = now()`,
+     SET "ordersId" = EXCLUDED."ordersId", "brand" = EXCLUDED."brand", "numero" = EXCLUDED."numero",
+         "prodotti" = EXCLUDED."prodotti", "consegna" = EXCLUDED."consegna", "totale" = EXCLUDED."totale", "aggiornatoIl" = now()`,
     ...parametri,
   );
   scritti += blocco.length;

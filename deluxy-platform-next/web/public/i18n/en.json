@@ -873,6 +873,7 @@
       "apri": "Open the order detail",
       "titolo": "Order {{ref}}",
       "chiudi": "Close",
+      "apriOrdine": "Open the order",
       "consegne": "The order's deliveries ({{n}})"
     },
     "filtri": {
@@ -880,6 +881,8 @@
       "togli": "Remove this filter",
       "azzera": "Clear all"
     },
+    "brand": "Brand",
+    "allBrands": "All brands",
     "from": "From",
     "to": "To",
     "export": "Export",
@@ -898,6 +901,7 @@
       "category": "Category",
       "partner": "Partner",
       "publicPrice": "Sold",
+      "valoreProdotti": "Product value",
       "deliveryFee": "Delivery price",
       "saleValue": "Sales value",
       "partnerPrice": "Given to partner",
