@@ -1,7 +1,9 @@
 // Edge Function `lead` (Deno): intake dei LEAD WEB da fuori (form del sito,
-// AI Mail, automazioni). Il lead entra nella coda di qualificazione di Scout
-// (tabella `leads`, stato "nuovo"): NON crea trattative da solo — la qualifica
-// la fa una persona dalla sezione Lead web (docs/VISIONE-COMMERCIALE.md).
+// AI Mail, automazioni). Il lead entra in `leads` e — dal 25/08/2026, richiesta
+// utente — la TRATTATIVA nasce da sola (`_shared/autoqualifica.ts`): sul
+// contatto di rubrica se chi scrive è già noto, altrimenti creando negozio e
+// contatto dai dati ricevuti. Se l'auto-qualifica fallisce resta «nuovo» in
+// coda e lo qualifica una persona, come prima.
 //
 // Auth: header `x-api-key: <COMMERCIALE_API_KEY>` (stessa chiave dell'endpoint
 // `trattativa`). Deploy con --no-verify-jwt (l'auth è la chiave, non un JWT).
@@ -11,6 +13,7 @@
 //   → 201 { ok, id }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { chiaveIngressoValida, clientAdmin } from '../_shared/chiaveIn.ts';
+import { autoQualificaLead } from '../_shared/autoqualifica.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -60,11 +63,23 @@ Deno.serve(async (req) => {
     const { data, error } = await admin
       .from('leads')
       .insert({ nome, contatto, fonte, messaggio })
-      .select('id')
+      .select('id, nome, contatto, messaggio')
       .single();
     if (error) return json({ error: error.message }, 500);
 
-    return json({ ok: true, id: data.id, messaggio: `Lead «${nome}» in coda di qualificazione.` }, 201);
+    // AUTO-QUALIFICA (25/08/2026): la trattativa nasce subito — sul contatto
+    // di rubrica se chi scrive è già noto, altrimenti creando negozio e
+    // contatto dai dati ricevuti. Best-effort: se fallisce, il lead resta
+    // «nuovo» in coda e lo qualifica una persona.
+    const q = await autoQualificaLead(admin, data as never);
+    const dettaglio =
+      q.esito === 'agganciato'
+        ? 'Trattativa creata sul contatto già in rubrica.'
+        : q.esito === 'creato'
+          ? 'Trattativa creata, con negozio e contatto nuovi.'
+          : 'In coda di qualificazione.';
+
+    return json({ ok: true, id: (data as { id: string }).id, esito: q.esito, messaggio: `Lead «${nome}»: ${dettaglio}` }, 201);
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }

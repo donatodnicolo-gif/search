@@ -11,6 +11,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { chiaveHub } from '../_shared/chiavi.ts';
 import { chiaveIngressoValida } from '../_shared/chiaveIn.ts';
+import { autoQualificaLead } from '../_shared/autoqualifica.ts';
 
 const BASE = Deno.env.get('MAIL_URL') ?? 'https://deluxy-mail.vercel.app';
 
@@ -241,6 +242,9 @@ Deno.serve(async (req) => {
       const ids = inArrivo.map((m) => m.messageId).filter(Boolean);
 
       let importati = 0;
+      let agganciati = 0; // trattativa su un contatto già in rubrica
+      let creati = 0; // negozio+contatto creati dai dati della richiesta
+      let nonQualificati = 0; // restati «nuovi» in coda (auto-qualifica fallita)
       if (ids.length) {
         const { data: gia } = await admin.from('leads').select('mail_id').in('mail_id', ids);
         const noti = new Set((gia ?? []).map((r: any) => r.mail_id));
@@ -258,9 +262,19 @@ Deno.serve(async (req) => {
             mail_ref: m.id ?? null,
           }));
         if (nuovi.length) {
-          const { error } = await admin.from('leads').insert(nuovi);
+          const { data: inseriti, error } = await admin.from('leads').insert(nuovi).select('id, nome, contatto, messaggio');
           if (error) return json({ ok: false, errore: error.message }, 500);
           importati = nuovi.length;
+          // AUTO-QUALIFICA (25/08/2026): la trattativa nasce qui, non aspetta
+          // una persona — agganciata al contatto se è in rubrica, altrimenti
+          // creando negozio e contatto dai dati della richiesta. Best-effort:
+          // chi fallisce resta «nuovo» in coda, come prima.
+          for (const l of inseriti ?? []) {
+            const r = await autoQualificaLead(admin, l as any);
+            if (r.esito === 'agganciato') agganciati++;
+            else if (r.esito === 'creato') creati++;
+            else nonQualificati++;
+          }
         }
       }
 
@@ -273,6 +287,11 @@ Deno.serve(async (req) => {
         casella,
         lette: ricevute.length,
         importate: importati,
+        // L'auto-qualifica si DICHIARA: trattative nate, su chi, e quante
+        // richieste sono rimaste in coda per una persona.
+        trattativeAgganciate: agganciati,
+        trattativeConNegozioNuovo: creati,
+        rimasteInCoda: nonQualificati,
         scartate: scartateAuto.length + scartateInterne.length,
         automatiche: scartateAuto.length,
         interne: scartateInterne.length,

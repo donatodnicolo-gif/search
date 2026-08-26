@@ -76,7 +76,8 @@ export default function LeadWeb() {
     if (importando) return;
     setImportando(true);
     try {
-      const { lette, importate, scartate, automatiche, interne, mittentiScartati } = await importaRichiesteDaMail();
+      const { lette, importate, scartate, automatiche, interne, mittentiScartati, trattativeAgganciate, trattativeConNegozioNuovo, rimasteInCoda } =
+        await importaRichiesteDaMail();
       await carica();
       // ⚠️ Il taglio si DICHIARA. Un import che dice «0 nuove» dopo aver letto
       // 30 mail sembra un guasto; e un filtro silenzioso che un giorno taglia
@@ -93,10 +94,23 @@ export default function LeadWeb() {
             mittentiScartati.length ? ` Da: ${mittentiScartati.join(', ')}.` : ''
           }`
         : '';
+      // L'auto-qualifica si racconta: quante trattative sono nate da sole, su
+      // chi, e quante richieste aspettano ancora una persona.
+      const notaTrattative = importate
+        ? [
+            trattativeAgganciate ? `${trattativeAgganciate} su contatti già in rubrica` : '',
+            trattativeConNegozioNuovo ? `${trattativeConNegozioNuovo} con negozio e contatto nuovi` : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        : '';
+      const nate = trattativeAgganciate + trattativeConNegozioNuovo;
       avvisa(
         importate ? 'Richieste importate' : 'Nessuna nuova richiesta',
         (importate
-          ? `${importate} nuove richieste dalla casella commerciale (su ${lette} mail lette).`
+          ? `${importate} nuove richieste dalla casella commerciale (su ${lette} mail lette).` +
+            (nate ? `\n\nTrattative create in automatico: ${nate}${notaTrattative ? ` (${notaTrattative})` : ''}.` : '') +
+            (rimasteInCoda ? `\n${rimasteInCoda} rimaste in coda da qualificare a mano.` : '')
           : `Nessuna mail nuova da importare: le ${lette} lette erano già in elenco o non sono richieste.`) + notaScarto,
       );
     } catch (e: any) {

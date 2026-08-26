@@ -73,6 +73,12 @@ export interface EsitoImportRichieste {
   interne: number;
   /** Gli indirizzi scartati (max 8): servono a vedere se il filtro taglia troppo. */
   mittentiScartati: string[];
+  /** Auto-qualifica (25/08/2026): trattative nate su un contatto già in rubrica. */
+  trattativeAgganciate: number;
+  /** Trattative nate creando negozio e contatto dai dati della richiesta. */
+  trattativeConNegozioNuovo: number;
+  /** Richieste rimaste «nuove» in coda: le qualifica una persona. */
+  rimasteInCoda: number;
 }
 
 export async function importaRichiesteDaMail(limite = 50): Promise<EsitoImportRichieste> {
@@ -99,6 +105,9 @@ export async function importaRichiesteDaMail(limite = 50): Promise<EsitoImportRi
     automatiche: Number(payload.automatiche ?? 0),
     interne: Number(payload.interne ?? 0),
     mittentiScartati: Array.isArray(payload.mittentiScartati) ? payload.mittentiScartati.map(String) : [],
+    trattativeAgganciate: Number(payload.trattativeAgganciate ?? 0),
+    trattativeConNegozioNuovo: Number(payload.trattativeConNegozioNuovo ?? 0),
+    rimasteInCoda: Number(payload.rimasteInCoda ?? 0),
   };
 }
 
