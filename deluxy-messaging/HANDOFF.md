@@ -2,7 +2,7 @@
 
 ## 26/08/2026 — via l account Diagnostica, e i Turni stanno sulla settimana corrente
 
-**Eliminato ** (ruolo operatore, creato il 26/07). Contate
+**Eliminato l’account `diagnostica@deluxy.local`** (ruolo operatore, creato il 26/07/2026). Contate
 prima le tracce in tutte e tredici le tabelle che possono riferirsi a un utente:
 **zero ovunque**, tranne un turno del lunedi 09-18.
 
