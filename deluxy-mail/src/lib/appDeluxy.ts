@@ -919,7 +919,7 @@ const AZIONI: AzioneApp[] = [
     descrizione: 'Apre una nuova trattativa nel CRM commerciale per il negozio.',
     colore: 'green',
     guida:
-      'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = la linea commerciale (es. Affiliazioni, Consegne, Eventi) se citata, altrimenti null. valoreAtteso = il totale se è scritto; se un totale non c’è ma nello scambio ci sono PREZZI e QUANTITÀ scritti, CALCOLA la stima (es. coffee break 18 €/persona × 45 persone = 810) usando SOLO numeri scritti — mai inventare i numeri di partenza; se non c’è niente da cui calcolare, null. fase = deducila dallo scambio scegliendo fra i valori ammessi: hanno appena chiesto = "primo contatto"; si discute di dettagli e condizioni = "in trattativa"; abbiamo GIÀ mandato il preventivo/proposta = "preventivo"; hanno accettato = "chiusa vinta"; hanno rifiutato = "chiusa persa"; se non è chiaro, null. scadenza = data del follow-up (AAAA-MM-GG) se c’è. nextAction = la prossima azione da fare, in una frase. contattoEmail = lascialo null: lo mette il codice.',
+      'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = la linea commerciale (es. Affiliazioni, Consegne, Eventi) se citata, altrimenti null. valoreAtteso = il totale se è scritto (se ti è dato il RIASSUNTO della conversazione, le sue «Cifre e prezzi» sono importi copiati dalle mail: il «totale complessivo» che c’è lì è scritto a tutti gli effetti); se un totale non c’è ma nello scambio ci sono PREZZI e QUANTITÀ scritti, CALCOLA la stima (es. coffee break 18 €/persona × 45 persone = 810) usando SOLO numeri scritti — mai inventare i numeri di partenza; se non c’è niente da cui calcolare, null. fase = deducila dallo scambio scegliendo fra i valori ammessi: hanno appena chiesto = "primo contatto"; si discute di dettagli e condizioni = "in trattativa"; abbiamo GIÀ mandato il preventivo/proposta = "preventivo"; hanno accettato = "chiusa vinta"; hanno rifiutato = "chiusa persa"; se non è chiaro, null. scadenza = data del follow-up (AAAA-MM-GG) se c’è. nextAction = la prossima azione da fare, in una frase. contattoEmail = l’email della PERSONA DI RIFERIMENTO del negozio, se è scritta da qualche parte nello scambio — anche dentro il testo di una mail interna («ho sentito la referente Roberta Sireno, roberta.sireno@havi.com»); MAI un indirizzo di un nostro dominio (quelli siamo noi), mai inventata; se non c’è, null e la mette il codice.',
     campi: [
       { nome: 'negozio', etichetta: 'Negozio', obbligatorio: true, aiuto: 'Commerciale lo cerca fra i suoi negozi.' },
       {
@@ -959,7 +959,10 @@ const AZIONI: AzioneApp[] = [
       required: ['negozio', 'contattoEmail', 'linea', 'valoreAtteso', 'fase', 'scadenza', 'nextAction'],
       properties: {
         negozio: { type: 'string', description: 'Nome del negozio/attività della trattativa.' },
-        contattoEmail: { type: ['string', 'null'], description: 'Lascia null: lo mette il codice.' },
+        contattoEmail: {
+          type: ['string', 'null'],
+          description: 'Email del referente del negozio se è scritta nello scambio; mai un nostro indirizzo. Altrimenti null: la mette il codice.',
+        },
         linea: { type: ['string', 'null'], description: 'Linea commerciale (es. Affiliazioni).' },
         valoreAtteso: {
           type: ['number', 'null'],
@@ -974,12 +977,24 @@ const AZIONI: AzioneApp[] = [
         nextAction: { type: ['string', 'null'], description: 'Prossima azione da fare.' },
       },
     },
-    // L'email del contatto la sa il CODICE (è l'indirizzo della controparte),
-    // non il modello: si scrive prima del dialogo, così si VEDE nella tabella
-    // e resta correggibile.
+    // L'email del contatto la sa il CODICE quando la controparte è certa — ma
+    // non sempre lo è: l'azione nasce spesso da una mail INTERNA (la richiesta
+    // girata da un collega), dove mittente e destinatari sono tutti nostri e
+    // l'unico posto in cui l'indirizzo del cliente compare è il TESTO («ho
+    // sentito la referente Roberta Sireno, roberta.sireno@havi.com»). Ordine:
+    // (1) l'indirizzo letto nello scambio, se non è uno dei nostri; (2) la
+    // controparte calcolata dal codice; (3) niente.
+    // ⚠️ Il filtro sui nostri domini non è pignoleria: su una mail interna il
+    // primo indirizzo che si incontra è quello di un COLLEGA, e registrarlo
+    // come contatto del cliente sporcherebbe il CRM di Scout.
     normalizza(dati, ctx) {
-      const gia = typeof dati.contattoEmail === 'string' && dati.contattoEmail.includes('@')
-      return gia ? dati : { ...dati, contattoEmail: ctx.controparte ?? null }
+      const scritta =
+        typeof dati.contattoEmail === 'string' && dati.contattoEmail.includes('@')
+          ? dati.contattoEmail.trim().toLowerCase()
+          : null
+      const nostra = scritta ? (ctx.nostriDomini ?? []).includes(scritta.split('@')[1] ?? '') : false
+      const buona = (scritta && !nostra ? scritta : null) ?? ctx.controparte ?? null
+      return dati.contattoEmail === buona ? dati : { ...dati, contattoEmail: buona }
     },
     async esegui(dati, ctx) {
       const negozio = typeof dati.negozio === 'string' ? dati.negozio.trim() : ''

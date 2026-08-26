@@ -29,6 +29,7 @@ function ValoreAnnidato({ valore }: { valore: unknown }) {
   if (oggetti) {
     const colonne = [...new Set(oggetti.flatMap((o) => Object.keys(o)))]
     return (
+      <div className="sotto-tabella-wrap">
       <table className="sotto-tabella">
         <thead>
           <tr>
@@ -47,6 +48,7 @@ function ValoreAnnidato({ valore }: { valore: unknown }) {
           ))}
         </tbody>
       </table>
+      </div>
     )
   }
   return <pre className="valore-json">{JSON.stringify(valore, null, 2)}</pre>

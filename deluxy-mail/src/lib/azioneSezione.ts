@@ -95,6 +95,38 @@ export function controparteDi(
   return null
 }
 
+/**
+ * La controparte quando la SINGOLA mail non la dice: l'azione può nascere da
+ * un messaggio INTERNO — una richiesta girata fra colleghi, che è il caso
+ * tipico delle azioni proposte dal riassunto — dove mittente e destinatari
+ * sono tutti nostri e `controparteDi` non ha niente da restituire. Allora si
+ * guarda l'intero scambio.
+ *
+ * ⚠️ Solo se lo scambio ha UN dominio esterno solo. Un thread che tiene
+ * dentro il cliente E il fornitore ha due controparti, e prenderne una «la
+ * più recente» vorrebbe dire scrivere il contatto del fornitore sulla
+ * trattativa del cliente: un indirizzo è un'identità, e un'identità sbagliata
+ * è peggio di un campo vuoto.
+ */
+export function controparteDelThread(
+  messaggi: { mittente: string; destinatari: string; data: Date }[],
+  nostri: string[]
+): string | null {
+  const trovati: { indirizzo: string; quando: number }[] = []
+  for (const m of messaggi) {
+    const indirizzi = `${m.mittente}, ${m.destinatari}`.match(/[^s<>,;"]+@[^s<>,;"]+/g) ?? []
+    for (const a of indirizzi) {
+      const d = dominioDi(a)
+      if (d && !nostri.includes(d)) trovati.push({ indirizzo: a.toLowerCase(), quando: m.data.getTime() })
+    }
+  }
+  if (trovati.length === 0) return null
+  if (new Set(trovati.map((t) => dominioDi(t.indirizzo))).size !== 1) return null
+  // Fra più indirizzi dello STESSO dominio vince il più recente: è la persona
+  // con cui si sta parlando adesso.
+  return trovati.sort((a, b) => b.quando - a.quando)[0].indirizzo
+}
+
 export type EsitoAzioneSezione = {
   ok: boolean
   messaggio: string

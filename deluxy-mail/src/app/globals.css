@@ -1451,7 +1451,12 @@ mark.ricerca-hit {
    Al posto del JSON grezzo: etichetta a sinistra, valore modificabile a
    destra. Una riga per voce, così l'occhio scorre in verticale e si vede in
    un colpo cosa l'AI ha trovato e cosa ha lasciato in bianco. */
-.tabella-dati { width: 100%; border-collapse: collapse; }
+/* ⚠️ `table-layout: fixed` non è un vezzo: senza, la larghezza delle colonne
+   la decide il CONTENUTO, e l'aiuto sotto l'etichetta è una frase lunga. La
+   colonna delle etichette si allargava fino a contenerla, la tabella sfondava
+   il dialogo e il modulo si leggeva scorrendo di lato (26/08/2026). Con
+   `fixed` comanda il 38% dichiarato qui sotto, e il testo va a capo. */
+.tabella-dati { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .tabella-dati th[scope='row'] {
   /* La colonna delle etichette non deve ballare da una riga all'altra, ma
      nemmeno mangiarsi lo spazio del valore su uno schermo stretto. */
@@ -1460,12 +1465,24 @@ mark.ricerca-hit {
   font-size: 12.5px; font-weight: 500; color: var(--text-secondary);
   padding: 10px 14px 10px 0;
   border-top: 1px solid var(--hairline);
+  /* ⚠️⚠️ Le righe che seguono SPENGONO il `th` globale, scritto per le
+     intestazioni di COLONNA delle tabelle-elenco (riga sola, appiccicata in
+     cima, sfondo pieno). Qui il `th` è l'intestazione di una RIGA dentro un
+     dialogo: `nowrap` teneva l'aiuto tutto su una riga — la causa vera dello
+     sfondamento —, `sticky` fa galleggiare le etichette sul modulo mentre
+     scorre, e il bordo sotto raddoppia la riga di separazione. */
+  white-space: normal;
+  position: static;
+  background: transparent;
+  border-bottom: none;
+  overflow-wrap: anywhere;
 }
 .tabella-dati tr:first-child th[scope='row'],
 .tabella-dati tr:first-child td { border-top: none; }
 .tabella-dati td {
   padding: 6px 0; vertical-align: top;
   border-top: 1px solid var(--hairline);
+  border-bottom: none;
 }
 .tabella-dati th .req { color: var(--red); }
 /* L'aiuto sotto l'etichetta, non accanto: accanto allargherebbe la colonna. */
@@ -1476,11 +1493,21 @@ mark.ricerca-hit {
 /* Un campo vuoto non è un errore: «non indicato» è spesso la risposta giusta
    (l'AI non deve inventare). Il segnaposto lo dice senza gridare. */
 .tabella-dati input::placeholder, .tabella-dati textarea::placeholder { color: var(--text-tertiary); }
-.tabella-dati input, .tabella-dati select, .tabella-dati textarea { font-size: 13.5px; padding: 7px 10px; }
+/* Il campo occupa la sua colonna: con la larghezza naturale (~180px, la
+   `size` di un input) restava un rettangolino in mezzo al vuoto, e un
+   indirizzo email o una frase non ci stavano dentro. */
+.tabella-dati input, .tabella-dati select, .tabella-dati textarea {
+  font-size: 13.5px; padding: 7px 10px;
+  width: 100%; max-width: 100%;
+}
 
 /* Un valore annidato (le righe di una proforma): si LEGGE qui, si corregge dal
    JSON. Prima era una riga di JSON in mezzo alle altre. */
+/* Dentro una cella stretta una tabella annidata sfonderebbe a sua volta:
+   scorre nel SUO contenitore, senza trascinarsi dietro il dialogo. */
+.sotto-tabella-wrap { overflow-x: auto; }
 .sotto-tabella { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.sotto-tabella th { position: static; background: transparent; white-space: nowrap; }
 .sotto-tabella th {
   text-align: left; font-weight: 500; color: var(--text-tertiary);
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;

@@ -15,6 +15,7 @@ import { accountAttivoId } from './accountAttivo'
 import {
   azioneDiSezione,
   controparteDi,
+  controparteDelThread,
   eseguiAzioneSezioneOra,
   modoValido as modoAzioneSezione,
   nostriDomini,
@@ -111,6 +112,7 @@ import {
   preparaRispostaDelegata,
   preparaEventoDelegato,
   riassumiThreadOra,
+  riassuntoInTesto,
   rispondiSuThreadOra,
   scaricaStorico,
   sincronizzaUtente,
@@ -4156,9 +4158,17 @@ export async function proponiPerApp(
     // non indicato» su un thread in cui il prezzo c'era (26/08/2026). Le
     // ultime mail dello scambio entrano nel prompt come contesto; se il thread
     // non si legge, si prepara come prima, dalla sola mail.
+    // ⚠️ Lo scambio intero serve a TRE cose: le mail precedenti come contesto,
+    // il riassunto già fatto, e la controparte quando la singola mail non la
+    // dice. Si legge una volta sola.
+    let thread: Messaggio[] = []
+    try {
+      thread = await messaggiThread(utenteId, messaggioId)
+    } catch {
+      thread = []
+    }
     let conversazione: string | undefined
     try {
-      const thread = await messaggiThread(utenteId, messaggioId)
       conversazione = thread
         .filter((t) => t.id !== messaggioId)
         .slice(-8)
@@ -4174,11 +4184,39 @@ export async function proponiPerApp(
     } catch {
       conversazione = undefined
     }
+
+    // ⚠️ Il RIASSUNTO già salvato di questa conversazione, se c'è: le sue
+    // «Cifre e prezzi» sono importi COPIATI dalle mail, con la mail di
+    // provenienza — lavoro già fatto e già controllato. Senza, «Valore atteso»
+    // usciva «non indicato» su un thread il cui riassunto, due centimetri più
+    // in alto nella stessa schermata, diceva «Totale complessivo: 3.651,00 €
+    // + IVA» (26/08/2026): quello che l'app ha già estratto deve tornare
+    // buono per l'azione, non restare a guardare.
+    let riassunto: string | undefined
+    try {
+      if (thread.length > 0) {
+        const salvato = await db.riassuntoThread.findUnique({
+          where: { utenteId_chiave: { utenteId, chiave: chiaveThread(thread) } },
+          select: { riassunto: true },
+        })
+        if (salvato) riassunto = riassuntoInTesto(JSON.parse(salvato.riassunto))
+      }
+    } catch {
+      riassunto = undefined
+    }
+
+    // La controparte: prima dalla mail (mittente e destinatari, scartati i
+    // nostri domini); se la mail è INTERNA — la richiesta girata da un
+    // collega, che è da dove nascono quasi sempre le azioni proposte dal
+    // riassunto — la si cerca in tutto lo scambio, e solo se è una sola.
+    const controparte = controparteDi(m, nostri) ?? controparteDelThread(thread, nostri)
+
     const estratti = await estraiDatiAzione({
       messaggio: m,
-      controparte: controparteDi(m, nostri),
+      controparte,
       nostriDomini: nostri,
       conversazione,
+      riassunto,
       nomeAzione: `${azione.app} — ${azione.nome}`,
       guida: azione.guida,
       schema: azione.schema,
@@ -4198,7 +4236,7 @@ export async function proponiPerApp(
       dati = azione.normalizza(dati, {
         chiave: '',
         nostriDomini: nostri,
-        controparte: controparteDi(m, nostri),
+        controparte,
         messaggioId,
       })
     }

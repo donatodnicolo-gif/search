@@ -440,12 +440,23 @@ nell'app di destinazione. Se Commerciale risponde «negozio non trovato», si co
 campo nella tabella e si riconferma, senza uscire dalla mail.
 
 **La trattativa porta con sé il contatto, la stima e la fase.** Nella tabella di «Apri
-trattativa» c'è la riga **Contatto (email)** — la mette il codice, dall'indirizzo di chi
-scrive — e Scout lo aggancia al negozio (o lo crea con lui): la prossima mail della
-stessa persona si ritrova in rubrica invece di generare un doppione. Il **valore
+trattativa» c'è la riga **Contatto (email)**, e Scout lo aggancia al negozio (o lo crea
+con lui): la prossima mail della stessa persona si ritrova in rubrica invece di generare
+un doppione. L'indirizzo si prende, in quest'ordine: quello **scritto nello scambio**
+(anche in mezzo al testo di una mail interna — «ho sentito la referente Roberta Sireno,
+roberta.sireno@havi.com»), altrimenti quello della **controparte** che il codice ricava
+dagli indirizzi. Un nostro indirizzo non viene mai messo come contatto del cliente: su
+una richiesta girata da un collega il primo indirizzo che si incontra è quello del
+collega. Se lo scambio ha **due** controparti diverse (il cliente e il fornitore nella
+stessa conversazione) e nessuna è scritta come referente, la riga resta vuota apposta: un
+indirizzo sbagliato in un CRM è peggio di un campo da riempire a mano. Il **valore
 atteso**, se un totale non è scritto, è la **stima calcolata dai prezzi e quantità dello
 scambio** (18 €/persona × 45 persone): i numeri di partenza sono sempre quelli scritti,
-mai inventati — ed essendo una stima, va controllata prima di confermare. La **fase** è
+mai inventati — ed essendo una stima, va controllata prima di confermare. ⭐ Se la
+conversazione ha già il suo **riassunto**, le sue «Cifre e prezzi» entrano nella
+preparazione dei dati: il «totale complessivo» che si legge nel riassunto è lo stesso che
+compare qui, e non c'è più il caso — visto il 26/08/2026 — di un «non indicato» a due
+centimetri da un totale già estratto nella stessa schermata. La **fase** è
 una tendina con gli stati veri di Scout (Primo contatto · In trattativa · Preventivo
 inviato · Chiusa vinta · Chiusa persa), e l'AI la propone leggendo lo scambio.
 

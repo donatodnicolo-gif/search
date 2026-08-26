@@ -23,6 +23,77 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 4) — il dialogo che scorreva di lato, e i due campi vuoti che l'app sapeva già
+
+Tre segnalazioni dell'utente sulla stessa schermata («Commerciale — Apri trattativa»
+aperta dalle azioni del riassunto, mail `cmta99r7b…`, thread HAVI/catering del 3 settembre):
+«sistema css», «non capisco come mai non è indicata mail», «anche il valore atteso lo hai
+già stimato». Sono tre sintomi di due guasti diversi, e nessuno dei due era dove sembrava.
+
+1. ⚠️⚠️ **Il modulo sfondava il dialogo: colpa di una regola GLOBALE ereditata.**
+   In `globals.css` il selettore `th` (scritto per le intestazioni di COLONNA delle
+   tabelle-elenco) porta `white-space: nowrap` + `position: sticky` + sfondo pieno.
+   `.tabella-dati th[scope='row']` ridefiniva testo, bordo e allineamento — **ma non
+   `white-space`**. E in questa tabella il `th` non è un'etichetta corta: contiene anche
+   l'**aiuto** del campo, che è una frase. Su una riga sola quella frase diventava la
+   larghezza minima della colonna, la tabella non poteva più stare nel dialogo, e
+   `.modal` ha `overflow-y: auto` — che per la regola CSS del «visible con un asse non
+   visible» rende **automatico anche l'overflow-x**. Risultato: barra di scorrimento
+   orizzontale, etichette spinte fuori a sinistra, campi schiacciati a destra.
+   **Misurato nel browser** su una pagina d'anteprima temporanea con i campi veri
+   (poi cancellata), rimettendo le vecchie regole con uno `<style>` e togliendolo:
+   | | com'era | corretto |
+   |---|---|---|
+   | colonna etichette | **541 px** | 190 px |
+   | tabella | **716 px** | 499 px |
+   | dialogo (visibile / contenuto) | 558 / **738** | 543 / **543** |
+   Correzioni: `table-layout: fixed` (così comanda il 38% dichiarato, non il contenuto),
+   `white-space: normal` + `position: static` + niente sfondo e bordo-sotto sul `th` di
+   riga, campi a `width: 100%` (prima erano il rettangolino da ~180px della `size`
+   naturale di un input, in mezzo al vuoto), e la tabella annidata dei valori dentro un
+   contenitore che scorre da solo. Provato anche a 375px: 310/310, etichette impilate.
+   ⚠️ **La lezione**: una regola di elemento (`th`, `td`, `table`) scritta per un uso
+   entra anche dove non è stata pensata, e la si spegne dove NON serve — il selettore più
+   specifico deve ridefinire tutto quello che gli dà fastidio, non solo quello che si vede.
+
+2. 🔴 **«Contatto (email)» vuoto: l'azione nasceva da una mail INTERNA.**
+   Diagnosi fatta **sul database di produzione**, non a occhio. L'azione proposta dal
+   riassunto porta il msgId della mail **che ha i dati** — qui `cmruiy1jk…` del 21/07:
+   `martina.calia@deluxy.it → nicolo.donato@deluxy.it, eleonora.mannini@deluxy.it`.
+   Tutti nostri: `controparteDi` (primo indirizzo fuori dai nostri domini) non aveva
+   **niente** da restituire, e la guida al modello diceva «contattoEmail = lascialo null:
+   lo mette il codice». Il codice non poteva, il modello non doveva → campo vuoto.
+   E l'indirizzo c'era, scritto nel testo: «Dopo essermi confrontata con la referente
+   Roberta Sireno (3282270254, roberta.sireno@havi.com)».
+   Ora: (a) la guida **permette** al modello di riportare l'email del referente **se è
+   scritta** nello scambio, e gli vieta i nostri domini; (b) `normalizza` sceglie in
+   ordine — indirizzo scritto non nostro → controparte calcolata → niente; (c) nuova
+   `controparteDelThread` cerca la controparte in **tutto lo scambio** quando la singola
+   mail è interna, ⚠️ **solo se il thread ha UN dominio esterno solo**: questa
+   conversazione ne ha due (havi.com e bioqitchen.it, cliente e fornitore nello stesso
+   thread agganciato a mano) e «il più recente» avrebbe scritto il **fornitore** come
+   contatto del cliente. Un indirizzo è un'identità: meglio vuoto.
+
+3. 🔴 **«Valore atteso» vuoto mentre il riassunto, nella stessa schermata, diceva il
+   totale.** Il riassunto salvato di quel thread ha le «Cifre e prezzi» già estratte —
+   *Totale complessivo: 3.651,00 € + IVA* (con la mail di provenienza) — ma
+   `proponiPerApp` ricominciava da capo dai testi grezzi, tagliati (6.000 caratteri la
+   mail aperta, 1.200 per ognuna delle ultime 8 del thread). Ora il **riassunto salvato
+   entra nel prompt** dell'estrazione (`estraiDatiAzione({ riassunto })`, testo prodotto
+   da `riassuntoInTesto`, ora esportata), dichiarato per quello che è: importi **copiati**
+   dalle mail, non dedotti. È lo stesso principio del costo consegna della piattaforma —
+   *l'ingrediente che l'app ha già estratto deve ricomporre il piatto*, non restare a
+   guardare. Come effetto collaterale `messaggiThread` si legge **una volta sola** (prima
+   serviva solo alla conversazione, ora anche a riassunto e controparte).
+
+Verifica: `tsc` pulito e `npm run build` pulito (esiti letti direttamente, non in pipe);
+il CSS misurato nel browser (tabella sopra) a 1280 e a 375 px.
+⚠️ **NON provato a schermo**: che il modello riempia davvero Contatto e Valore atteso su
+questa conversazione — dipende da una chiamata a OpenAI con la sessione dell'utente. È la
+prima cosa da guardare riaprendo «Apri trattativa» su quel thread: le due righe piene, e
+il totale 3.651,00.
+
+---
 ### 26/08 (sera 3) — il quarto negozio dei Fornitori, e l'API che accetta una casella
 
 Due lavori che NON erano ancora scritti qui (i commit non hanno toccato i documenti):

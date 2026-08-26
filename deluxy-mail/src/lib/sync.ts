@@ -1978,7 +1978,7 @@ function contaPartecipanti(messaggi: Messaggio[]): number {
  */
 /** Il riassunto salvato reso in testo, da dare all'AI come punto di partenza
  *  per l'aggiornamento incrementale. */
-function riassuntoInTesto(v: AnalisiThreadVista): string {
+export function riassuntoInTesto(v: AnalisiThreadVista): string {
   const parti = v.parti.map((p) => `- ${p.chi}: ${p.punto}`).join('\n')
   const sospesi = v.inSospeso.map((s) => `- ${s.cosa}${s.chi ? ` (da ${s.chi})` : ''}`).join('\n')
   // ⚠️ Anche le cifre: nell'aggiornamento incrementale l'AI riparte da questo

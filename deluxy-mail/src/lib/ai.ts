@@ -732,6 +732,14 @@ export async function estraiDatiAzione(opts: {
    * si prende SOLO se scritto — ma ora «scritto» vale su tutto lo scambio.
    */
   conversazione?: string
+  /**
+   * Il RIASSUNTO già salvato della conversazione, reso in testo. ⚠️ Non è un
+   * doppione della conversazione: è lavoro già fatto e già controllato — le
+   * «Cifre e prezzi» sono numeri COPIATI dalle mail, con la mail di
+   * provenienza. Senza, «Valore atteso» usciva «non indicato» mentre il
+   * riassunto a schermo, nella stessa pagina, diceva il totale (26/08/2026).
+   */
+  riassunto?: string
   nomeAzione: string
   guida: string
   schema: Record<string, unknown>
@@ -772,6 +780,15 @@ ${opts.messaggio.corpoTesto.slice(0, 6000)}
 Usala per completare i dati che la mail qui sopra non ripete (un prezzo detto due mail fa, un recapito in calce a un'altra mail). Un valore si prende SOLO se scritto, mai dedotto; se lo stesso dato compare più volte vale il più recente.
 ${opts.conversazione}
 --- FINE CONVERSAZIONE ---`
+            : ''
+        }${
+          opts.riassunto
+            ? `
+
+--- RIASSUNTO GIÀ FATTO DI QUESTA CONVERSAZIONE (prodotto dall'app, fidato) ---
+Le voci di «Cifre e prezzi» sono importi COPIATI dalle mail dello scambio, non dedotti: valgono come scritti, e puoi usarli per compilare i campi che la mail qui sopra non ripete.
+${opts.riassunto}
+--- FINE RIASSUNTO ---`
             : ''
         }`,
       },
