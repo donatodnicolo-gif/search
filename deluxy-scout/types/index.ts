@@ -467,7 +467,16 @@ export interface RichiestaPagamento {
 export type CanaleRichiesta = 'mail' | 'telefono' | 'whatsapp' | 'di_persona' | 'web' | 'altro';
 /** L'etichetta di budget (decisione 26/08): digitale in origine vs ricorrenti. */
 export type TipologiaRichiesta = 'maison' | 'b2b';
-export type StatoRichiestaCliente = 'nuova' | 'concordata' | 'fatturata' | 'persa';
+/**
+ * Il giro della richiesta, che dal 26/08 sera ha il passo che gli mancava:
+ * `preventivo_inviato` — il prezzo è uscito e si aspetta la risposta. Senza,
+ * una richiesta con un preventivo fuori era indistinguibile da una ancora da
+ * guardare, e nessuno sapeva su quale sollecitare.
+ */
+export type StatoRichiestaCliente = 'nuova' | 'preventivo_inviato' | 'concordata' | 'fatturata' | 'persa';
+
+/** Chi ha scritto la richiesta: a mano, dalla posta, o un'altra app. */
+export type OrigineRichiesta = 'commerciale' | 'scout-mail' | 'app-delivery' | 'api';
 
 /**
  * La richiesta SALTUARIA di un cliente che c'è già: una fornitura una tantum,
@@ -493,6 +502,18 @@ export interface RichiestaCliente {
   nota: string | null;
   proforma_numero: string | null;
   proforma_url: string | null;
+  /** I due documenti di FINANCE: prima il preventivo, poi la fattura. Solo il
+   *  riferimento — numero e link — mai una copia degli importi. */
+  preventivo_numero?: string | null;
+  preventivo_url?: string | null;
+  fattura_numero?: string | null;
+  fattura_url?: string | null;
+  /** Da dove è arrivata: a mano, dalla posta commerciale, da un'altra app. */
+  origine?: OrigineRichiesta | string | null;
+  /** Il messaggio in AI Mail, per rileggere la richiesta con le parole del cliente. */
+  mail_ref?: string | null;
+  /** L'id nell'app che l'ha mandata: rende l'ingresso ripetibile senza doppioni. */
+  riferimento_esterno?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -508,9 +529,17 @@ export const LABEL_CANALE_RICHIESTA: Record<CanaleRichiesta, string> = {
 
 export const LABEL_STATO_RICHIESTA: Record<StatoRichiestaCliente, string> = {
   nuova: 'Da lavorare',
+  preventivo_inviato: 'Preventivo inviato',
   concordata: 'Prezzo concordato',
   fatturata: 'Fatturata',
   persa: 'Persa',
+};
+
+export const LABEL_ORIGINE_RICHIESTA: Record<OrigineRichiesta, string> = {
+  commerciale: 'Scritta a mano',
+  'scout-mail': 'Dalla posta commerciale',
+  'app-delivery': 'Dall’app consegne',
+  api: 'Da un’altra app',
 };
 
 export interface Profilo {

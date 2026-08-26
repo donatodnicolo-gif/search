@@ -63,6 +63,9 @@ const LABEL_TIPOLOGIA: Record<TipologiaRichiesta, string> = {
 };
 const COLORE_STATO: Record<StatoRichiestaCliente, string> = {
   nuova: colors.oro,
+  // Il preventivo è FUORI: la palla è del cliente, e si vede a colpo d'occhio
+  // che non è più roba da lavorare ma da sollecitare.
+  preventivo_inviato: colors.blue,
   concordata: colors.blue,
   fatturata: colors.successo,
   persa: colors.grigio,
@@ -312,7 +315,7 @@ export default function RichiesteClienti() {
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
       >
         <View style={styles.headerScroll}>
-          <PageIntro testo="Le richieste una tantum dei clienti che abbiamo già: una fornitura, un catering, un evento. Si scrivono qui — non aprono una trattativa, perché si evadono alle condizioni note — e da qui si chiede il documento a FINANCE, che resta il posto dove il risultato si misura." />
+          <PageIntro testo="Il canale dei clienti che abbiamo già: una fornitura, un catering, un evento. Le richieste arrivano da sole dalla posta commerciale e dall'app consegne, oppure si scrivono qui — non aprono una trattativa, perché si evadono alle condizioni note. Qui si prezzano e si finalizzano: il documento lo emette FINANCE, che resta il posto dove il risultato si misura." />
         </View>
 
         {chiuse.length ? (

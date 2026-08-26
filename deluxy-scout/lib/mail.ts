@@ -79,6 +79,9 @@ export interface EsitoImportRichieste {
   trattativeConNegozioNuovo: number;
   /** Richieste rimaste «nuove» in coda: le qualifica una persona. */
   rimasteInCoda: number;
+  /** Regola del binario (26/08): mail di chi è GIÀ cliente → richiesta da
+   *  prezzare in «Richieste Clienti», non una trattativa. */
+  richiesteCliente: number;
   /** Registro Anagrafiche (26/08/2026): anagrafiche NATE con questo import. */
   anagraficheCreate: number;
   /** Anagrafiche che nel registro c'erano già: niente da creare. */
@@ -114,6 +117,7 @@ export async function importaRichiesteDaMail(limite = 50): Promise<EsitoImportRi
     trattativeAgganciate: Number(payload.trattativeAgganciate ?? 0),
     trattativeConNegozioNuovo: Number(payload.trattativeConNegozioNuovo ?? 0),
     rimasteInCoda: Number(payload.rimasteInCoda ?? 0),
+    richiesteCliente: Number(payload.richiesteCliente ?? 0),
     anagraficheCreate: Number(payload.anagraficheCreate ?? 0),
     anagraficheGiaPresenti: Number(payload.anagraficheGiaPresenti ?? 0),
     anagraficheNonScritte: Number(payload.anagraficheNonScritte ?? 0),

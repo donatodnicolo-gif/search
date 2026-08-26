@@ -119,6 +119,7 @@ export default function LeadWeb() {
         trattativeAgganciate,
         trattativeConNegozioNuovo,
         rimasteInCoda,
+        richiesteCliente,
         anagraficheCreate,
         anagraficheGiaPresenti,
         anagraficheNonScritte,
@@ -165,6 +166,13 @@ export default function LeadWeb() {
         (importate
           ? `${importate} nuove richieste dalla casella commerciale (su ${lette} mail lette).` +
             (nate ? `\n\nTrattative create in automatico: ${nate}${notaTrattative ? ` (${notaTrattative})` : ''}.` : '') +
+            // La regola del binario, detta a chi importa: quelle di un cliente
+            // non sono trattative e non stanno qui — sono lavoro da prezzare,
+            // e vanno cercate in un'altra schermata. Se non lo si dice, chi
+            // guarda pensa che si siano perse.
+            (richiesteCliente
+              ? `\n${richiesteCliente} ${richiesteCliente === 1 ? 'era di un cliente' : 'erano di clienti'}: ${richiesteCliente === 1 ? 'è finita' : 'sono finite'} in «Richieste Clienti» da prezzare, senza aprire una trattativa.`
+              : '') +
             (notaRegistro ? `\nRegistro Anagrafiche: ${notaRegistro}.` : '') +
             (anagraficheNonScritte
               ? `\n⚠️ ${anagraficheNonScritte} ${anagraficheNonScritte === 1 ? 'negozio non è entrato' : 'negozi non sono entrati'} nel registro Anagrafiche: ${anagraficheNonScritte === 1 ? 'resta' : 'restano'} solo in Scout.`

@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     const { data, error } = await admin
       .from('leads')
       .insert({ nome, contatto, fonte, messaggio })
-      .select('id, nome, contatto, messaggio')
+      .select('id, nome, contatto, messaggio, mail_ref')
       .single();
     if (error) return json({ error: error.message }, 500);
 
@@ -77,7 +77,11 @@ Deno.serve(async (req) => {
         ? 'Trattativa creata sul contatto già in rubrica.'
         : q.esito === 'creato'
           ? 'Trattativa creata, con negozio e contatto nuovi.'
-          : 'In coda di qualificazione.';
+          : // Regola del binario: da un cliente non nasce una trattativa, nasce
+            // una richiesta da prezzare e finalizzare (canale Richieste Clienti).
+            q.esito === 'richiesta_cliente'
+            ? `«${q.cliente}» è già cliente: registrata come richiesta da prezzare, senza aprire una trattativa.`
+            : 'In coda di qualificazione.';
     // L'esito del registro Anagrafiche si DICHIARA: chi chiama questa API
     // (form del sito, AI Mail, automazioni) deve poter sapere se l'azienda è
     // finita anche nel registro o è rimasta solo qui dentro.

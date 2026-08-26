@@ -245,6 +245,7 @@ Deno.serve(async (req) => {
       let agganciati = 0; // trattativa su un contatto già in rubrica
       let creati = 0; // negozio+contatto creati dai dati della richiesta
       let nonQualificati = 0; // restati «nuovi» in coda (auto-qualifica fallita)
+      let richiesteCliente = 0; // da un cliente: richiesta da prezzare, non trattativa
       let anagraficheCreate = 0; // nate adesso nel registro Anagrafiche
       let anagraficheGiaPresenti = 0; // c'erano già di là
       let anagraficheNonScritte = 0; // il registro non le ha prese (motivo nei log)
@@ -265,7 +266,7 @@ Deno.serve(async (req) => {
             mail_ref: m.id ?? null,
           }));
         if (nuovi.length) {
-          const { data: inseriti, error } = await admin.from('leads').insert(nuovi).select('id, nome, contatto, messaggio');
+          const { data: inseriti, error } = await admin.from('leads').insert(nuovi).select('id, nome, contatto, messaggio, mail_ref');
           if (error) return json({ ok: false, errore: error.message }, 500);
           importati = nuovi.length;
           // AUTO-QUALIFICA (25/08/2026): la trattativa nasce qui, non aspetta
@@ -276,6 +277,9 @@ Deno.serve(async (req) => {
             const r = await autoQualificaLead(admin, l as any);
             if (r.esito === 'agganciato') agganciati++;
             else if (r.esito === 'creato') creati++;
+            // Regola del binario: chi è già cliente non apre una trattativa —
+            // la sua richiesta va prezzata e finalizzata (Richieste Clienti).
+            else if (r.esito === 'richiesta_cliente') richiesteCliente++;
             else nonQualificati++;
             // Il registro Anagrafiche: quante anagrafiche sono NATE adesso,
             // quante c'erano già, e quante non sono state scritte. Un conto
@@ -303,6 +307,10 @@ Deno.serve(async (req) => {
         // richieste sono rimaste in coda per una persona.
         trattativeAgganciate: agganciati,
         trattativeConNegozioNuovo: creati,
+        // Le richieste di chi è già cliente: non sono pipeline, sono lavoro da
+        // prezzare. Si contano a parte perché sommarle alle trattative
+        // rifarebbe l'errore che la regola del binario esiste per evitare.
+        richiesteCliente,
         rimasteInCoda: nonQualificati,
         // Il registro Anagrafiche: si dichiara come tutto il resto.
         anagraficheCreate,

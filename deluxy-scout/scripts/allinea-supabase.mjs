@@ -104,6 +104,11 @@ const SENZA_JWT = new Set([
   'partner',
   'lead',
   'trattativa',
+  // La porta delle richieste dei clienti da un'altra app (piattaforma
+  // consegne): l'auth è la chiave d'ingresso, non un JWT di utente Scout —
+  // chi chiama è un server, non una persona. Senza `--no-verify-jwt` il
+  // gateway rifiuterebbe la chiamata prima di arrivare al codice.
+  'richiesta-cliente',
   'preventivi',
   'hubspot-match',
   'mail',

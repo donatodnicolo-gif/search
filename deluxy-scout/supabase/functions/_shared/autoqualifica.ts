@@ -30,7 +30,68 @@ const GIORNI_FOLLOWUP_LEAD = 3; // stessa cadenza web di lib/cadenze.ts
 export type EsitoAutoQualifica =
   | { esito: 'agganciato'; dealId: string; placeId: string; registro?: EsitoRegistro }
   | { esito: 'creato'; dealId: string; placeId: string; registro?: EsitoRegistro }
+  /** Chi ha scritto è già CLIENTE: niente trattativa, è una richiesta da prezzare. */
+  | { esito: 'richiesta_cliente'; richiestaId: string; placeId: string; cliente: string; registro?: EsitoRegistro }
   | { esito: 'saltato'; motivo: string };
+
+/**
+ * La richiesta di un cliente che c'è già: nasce in `richieste_cliente`, non in
+ * `deals`. Nessun importo — il prezzo si fa dopo, ed è proprio il lavoro che
+ * quella schermata esiste per raccogliere: si prezza e si finalizza col
+ * documento di FINANCE.
+ *
+ * Senza padrone (`owner: null`): la vede tutta la squadra e se la prende chi
+ * può, come le trattative nate da sole.
+ */
+async function richiestaDiUnCliente(
+  admin: Admin,
+  lead: { id: string; nome: string; contatto: string | null; messaggio: string | null; mail_ref?: string | null },
+  posto: { id: string; nome: string },
+  chi: { persona: string; email: string | null; telefono: string | null },
+): Promise<EsitoAutoQualifica> {
+  const descrizione = (lead.messaggio ?? '').trim().slice(0, 500) || `Richiesta di ${chi.persona}`;
+  const { data: richiesta, error } = await admin
+    .from('richieste_cliente')
+    .insert({
+      owner: null,
+      place_id: posto.id,
+      // ⚠️ Il nome del NEGOZIO, non della persona: è quello che andrà a FINANCE
+      // per intestare il documento, e il documento si intesta all'azienda.
+      cliente: posto.nome,
+      descrizione,
+      canale: 'mail',
+      origine: 'scout-mail',
+      // Idempotenza: la stessa richiesta web non deve entrare due volte se il
+      // cron rilegge la mail o se qualcuno rilancia l'import.
+      riferimento_esterno: lead.id,
+      mail_ref: lead.mail_ref ?? null,
+      nota: chi.email || chi.telefono ? `Ha scritto ${chi.persona} (${chi.email ?? chi.telefono})` : null,
+    })
+    .select('id')
+    .single();
+  if (error || !richiesta) return { esito: 'saltato', motivo: error?.message ?? 'richiesta non creata' };
+  await admin
+    .from('leads')
+    .update({
+      stato: 'qualificato',
+      place_id: posto.id,
+      richiesta_cliente_id: (richiesta as { id: string }).id,
+      lavorato_il: new Date().toISOString(),
+    })
+    .eq('id', lead.id);
+  // Anche un cliente dev'essere nel registro Anagrafiche: che lo sia già è
+  // probabile, non certo — e «probabile» non è una verifica.
+  const registro = await assicuraNegozioNelRegistro(admin, posto.id, [
+    { nome: chi.persona, email: chi.email, telefono: chi.telefono, ruolo: null },
+  ]);
+  return {
+    esito: 'richiesta_cliente',
+    richiestaId: (richiesta as { id: string }).id,
+    placeId: posto.id,
+    cliente: posto.nome,
+    registro,
+  };
+}
 
 /** Estrae persona/email/telefono dal testo della richiesta. */
 function estrai(nome: string, contatto: string | null, messaggio: string | null) {
@@ -85,6 +146,28 @@ export async function autoQualificaLead(
             (telLead.length >= 8 && cifre(c.telefono) === telLead)),
       );
       placeId = match?.place_id ?? null;
+    }
+
+    // 1-bis) ⭐ LA REGOLA DEL BINARIO (26/08/2026 sera, decisione dell'utente).
+    //    Se chi scrive è di un negozio che è GIÀ CLIENTE, questa non è una
+    //    trattativa: è una richiesta saltuaria da prezzare e finalizzare. Farne
+    //    una trattativa riempiva la pipeline di evasioni e faceva valere due
+    //    volte la stessa vendita (una volta come pipeline, una come incasso).
+    //    Va in «Richieste Clienti», che è il canale dei ricorrenti.
+    //
+    //    ⚠️ «Cliente» sono due cose, e valgono entrambe: lo stato di Scout
+    //    (`stato = 'cliente'`) e quello del registro Anagrafiche
+    //    (`anagrafiche_stato = 'attivo'`), che è la fonte di verità del rapporto
+    //    e può saperlo prima di noi.
+    if (placeId) {
+      const { data: posto } = await admin
+        .from('places')
+        .select('id, nome, stato, anagrafiche_stato')
+        .eq('id', placeId)
+        .maybeSingle();
+      if (posto && (posto.stato === 'cliente' || posto.anagrafiche_stato === 'attivo')) {
+        return await richiestaDiUnCliente(admin, lead, posto, { persona, email, telefono });
+      }
     }
 
     // 2) Nessun match: si crea il negozio dai dati ricevuti. Senza indirizzo
