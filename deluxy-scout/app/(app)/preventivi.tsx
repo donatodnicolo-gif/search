@@ -7,7 +7,7 @@
 // La schermata è fatta per la domanda vera — «quanto ci costa, e da chi?» —
 // quindi ogni lavoro mostra i suoi preventivi affiancati, col più basso in
 // evidenza e la differenza rispetto a lui.
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -16,8 +16,8 @@ import { avvisa, conferma } from '@/lib/dialoghi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CampoData } from '@/components/CampoData';
 import { urlMessaggioAiMail } from '@/lib/aimail';
-import { cercaPlaces, type PlaceLite } from '@/lib/db';
-import { LINEE_ATTIVE } from '@/types';
+import { cercaPlaces, fetchDealPlace, type PlaceLite } from '@/lib/db';
+import { LINEE_ATTIVE, type Deal } from '@/types';
 import {
   aggiornaLavoro,
   aggiungiPreventivo,
@@ -135,13 +135,44 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
   const [serveEntro, setServeEntro] = useState('');
   const [cliente, setCliente] = useState<PlaceLite | null>(null);
   const [salvo, setSalvo] = useState(false);
+  // Le trattative APERTE del cliente scelto: è fra quelle che si sceglie.
+  // Le chiuse non si propongono — un costo su una vendita già finita non ha
+  // un prezzo da fare.
+  const [trattative, setTrattative] = useState<Deal[]>([]);
+  const [caricoDeal, setCaricoDeal] = useState(false);
+  const [dealId, setDealId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDealId(null);
+    if (!cliente) {
+      setTrattative([]);
+      return;
+    }
+    let vivo = true;
+    setCaricoDeal(true);
+    fetchDealPlace(cliente.id)
+      .then((d) => {
+        if (!vivo) return;
+        const aperte = d.filter((x) => x.fase !== 'closedwon' && x.fase !== 'closedlost');
+        setTrattative(aperte);
+        // Una sola trattativa aperta: è quella, e chiedere sarebbe un clic
+        // per una scelta che non c'è.
+        if (aperte.length === 1) setDealId(aperte[0].id);
+      })
+      .catch(() => vivo && setTrattative([]))
+      .finally(() => vivo && setCaricoDeal(false));
+    return () => {
+      vivo = false;
+    };
+  }, [cliente]);
 
   async function salva() {
-    if (!titolo.trim()) return;
+    if (!titolo.trim() || !dealId) return;
     setSalvo(true);
     try {
       await creaLavoro({
         titolo,
+        dealId,
         descrizione,
         placeId: cliente?.id ?? null,
         linea,
@@ -152,6 +183,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
       setLinea(null);
       setServeEntro('');
       setCliente(null);
+      setDealId(null);
       setApri(false);
       await onFatto();
     } catch (e: any) {
@@ -185,6 +217,36 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
       <Text style={styles.label}>Chi l&apos;ha chiesto</Text>
       <CercaNegozio scelto={cliente} onScegli={setCliente} placeholder="Cerca il cliente…" />
 
+      {/* ⚠️ LA TRATTATIVA È OBBLIGATORIA. Un preventivo fornitore è quanto ci
+          COSTA un lavoro, e serve a fare il prezzo di una vendita: senza la
+          trattativa a cui appartiene è un numero senza destinazione, e il
+          margine non si può calcolare. */}
+      <Text style={styles.label}>Per quale trattativa *</Text>
+      {!cliente ? (
+        <Text style={styles.aiuto}>Scegli prima il cliente: le trattative sono le sue.</Text>
+      ) : caricoDeal ? (
+        <Text style={styles.aiuto}>Cerco le trattative di {cliente.nome}…</Text>
+      ) : trattative.length === 0 ? (
+        <Text style={styles.aiuto}>
+          {cliente.nome} non ha trattative aperte. Aprine una in Trattative, poi torna qui: il preventivo
+          serve a fare il prezzo di quella vendita.
+        </Text>
+      ) : (
+        <View style={styles.chips}>
+          {trattative.map((d) => (
+            <Pressable
+              key={d.id}
+              onPress={() => setDealId(dealId === d.id ? null : d.id)}
+              style={[styles.chip, dealId === d.id && styles.chipOn]}
+            >
+              <Text style={[styles.chipTxt, dealId === d.id && styles.chipTxtOn]} numberOfLines={1}>
+                {d.oggetto || d.linee?.join(', ') || d.linea || 'Trattativa'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       <Text style={styles.label}>Linea</Text>
       <View style={styles.chips}>
         {LINEE_ATTIVE.map((l) => (
@@ -214,7 +276,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
         <Pressable style={styles.btnSec} onPress={() => setApri(false)} disabled={salvo}>
           <Text style={styles.btnSecTxt}>Annulla</Text>
         </Pressable>
-        <Pressable style={[styles.btnPri, (!titolo.trim() || salvo) && styles.off]} onPress={salva} disabled={!titolo.trim() || salvo}>
+        <Pressable style={[styles.btnPri, (!titolo.trim() || !dealId || salvo) && styles.off]} onPress={salva} disabled={!titolo.trim() || !dealId || salvo}>
           {salvo ? <ActivityIndicator color={colors.bianco} size="small" /> : <Text style={styles.btnPriTxt}>Crea il lavoro</Text>}
         </Pressable>
       </View>
@@ -263,6 +325,17 @@ function SchedaLavoro({
             .filter(Boolean)
             .join(' · ') || 'Nessun cliente collegato'}
         </Text>
+
+        {/* ⚠️ Ogni preventivo appartiene a una trattativa: è quella che dice per
+            quale vendita stiamo facendo il prezzo. I lavori nati prima di
+            questa regola (26/08/2026) non ce l'hanno, e invece di far finta di
+            niente lo si dichiara — un costo senza vendita non fa margine. */}
+        {!lavoro.deal_id ? (
+          <Text style={styles.avvisoTrattativa}>
+            <Ionicons name="warning-outline" size={12} color={colors.errore} /> Nessuna trattativa collegata: si
+            ricrea il lavoro dalla trattativa giusta, o non si sa per quale vendita è questo costo.
+          </Text>
+        ) : null}
 
         {/* Il riassunto che serve prima di aprire: quanto costa e quanti mancano. */}
         <Text style={styles.riassunto}>
@@ -537,6 +610,10 @@ const styles = StyleSheet.create({
   form: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 6 },
   formTitolo: { color: colors.navy, fontWeight: '800', fontSize: 16 },
   label: { color: colors.navy, fontWeight: '700', fontSize: 13, marginTop: spacing.sm },
+  // Spiega perché un campo è vuoto o cosa manca: si legge come una frase, non
+  // come un errore.
+  aiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18, marginTop: 4 },
+  avvisoTrattativa: { color: colors.errore, fontSize: 12, lineHeight: 17, marginTop: 4 },
   input: {
     backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md,
     paddingHorizontal: spacing.md, paddingVertical: 10, fontSize: 14, color: colors.testo,

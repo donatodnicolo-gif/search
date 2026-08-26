@@ -84,19 +84,32 @@ export async function fetchLavori(): Promise<LavoroConPreventivi[]> {
   })) as LavoroConPreventivi[];
 }
 
+/**
+ * ⚠️ LA TRATTATIVA È OBBLIGATORIA (26/08/2026, richiesta dell'utente: «tutti i
+ * preventivi devono essere collegati a delle trattative»).
+ *
+ * Il motivo non è formale: un preventivo fornitore è quanto ci COSTA un lavoro,
+ * e serve a decidere il prezzo di una vendita. Senza la trattativa a cui
+ * appartiene resta un numero senza destinazione — non si sa per chi lo si è
+ * chiesto né se quel lavoro l'abbiamo poi venduto, e il margine non si può
+ * fare. `deal_id` esisteva già sulla tabella, ma nessuno lo riempiva.
+ */
 export async function creaLavoro(l: {
   titolo: string;
+  dealId: string;
   descrizione?: string | null;
   placeId?: string | null;
   linea?: string | null;
   serveEntro?: string | null;
 }): Promise<Lavoro> {
+  if (!l.dealId) throw new Error('Serve la trattativa: un preventivo senza trattativa non si sa per chi è.');
   const { data, error } = await supabase
     .from('lavori')
     .insert({
       titolo: l.titolo.trim(),
       descrizione: l.descrizione?.trim() || null,
       place_id: l.placeId || null,
+      deal_id: l.dealId,
       linea: l.linea || null,
       serve_entro: l.serveEntro || null,
     })
@@ -104,6 +117,12 @@ export async function creaLavoro(l: {
     .single();
   if (error) throw error;
   return data as Lavoro;
+}
+
+/** Collega a una trattativa un lavoro che era nato senza (o cambia la sua). */
+export async function collegaLavoroATrattativa(id: string, dealId: string): Promise<void> {
+  const { error } = await supabase.from('lavori').update({ deal_id: dealId }).eq('id', id);
+  if (error) throw error;
 }
 
 export async function aggiornaLavoro(id: string, patch: Partial<Pick<Lavoro, 'stato' | 'note' | 'serve_entro'>>): Promise<void> {
