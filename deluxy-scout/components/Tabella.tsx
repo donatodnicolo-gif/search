@@ -54,6 +54,7 @@ export function Tabella<T>({
   labelRiga,
   azioni,
   larghezzaAzioni,
+  totali,
 }: {
   righe: T[];
   colonne: ColonnaTabella<T>[];
@@ -64,6 +65,15 @@ export function Tabella<T>({
   azioni?: (r: T) => ReactNode;
   /** Larghezza riservata alla colonna azioni (default: si adatta al contenuto). */
   larghezzaAzioni?: number;
+  /**
+   * I TOTALI in fondo, incolonnati sotto le loro colonne (26/08/2026).
+   *
+   * Riceve le righe **mostrate** (già filtrate) e torna, per chiave di colonna,
+   * il testo da scrivere in fondo. ⚠️ Le righe sono quelle a schermo: un totale
+   * che somma anche ciò che il filtro ha tolto direbbe un numero che non
+   * corrisponde a niente di visibile.
+   */
+  totali?: (righe: T[]) => Record<string, string | null | undefined>;
 }) {
   const numeriche = useMemo(
     () => colonne.filter((c) => c.numerica).map((c) => c.chiave),
@@ -137,6 +147,27 @@ export function Tabella<T>({
           {onRiga ? <Ionicons name="chevron-forward" size={15} color={colors.grigio} /> : null}
         </Pressable>
       ))}
+      {/* I totali: stessa griglia delle righe — stessi `stileCol`, stessi
+          spazi finali — o finirebbero sotto la colonna sbagliata, che è il
+          modo più veloce di far leggere un numero per un altro. */}
+      {totali && ordinate.length ? (
+        <View style={[styles.riga, styles.rigaTotali]}>
+          {colonne.map((c) => {
+            const v = totali(ordinate)[c.chiave];
+            return (
+              <Text
+                key={c.chiave}
+                style={[styles.cella, styles.cellaTotale, c.destra && styles.cellaDestra, stileCol(c)]}
+                numberOfLines={1}
+              >
+                {v ?? ''}
+              </Text>
+            );
+          })}
+          {azioni ? <View style={larghezzaAzioni ? { width: larghezzaAzioni } : null} /> : null}
+          {onRiga ? <View style={{ width: 16 }} /> : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -183,5 +214,9 @@ const styles = StyleSheet.create({
   thOn: { color: colors.testo, fontWeight: '700' },
   cella: { color: colors.testo, fontSize: 13, lineHeight: 17 },
   cellaDestra: { textAlign: 'right', fontVariant: ['tabular-nums'] },
+  // La riga dei totali: chiusa da una linea più marcata e senza il bordo
+  // sotto, così si legge come la fine dell'elenco e non come un'altra riga.
+  rigaTotali: { backgroundColor: colors.sfondo, borderBottomWidth: 0, borderTopWidth: 1, borderTopColor: colors.grigioChiaro },
+  cellaTotale: { color: colors.testo, fontWeight: '800', fontSize: 13 },
   azioni: { alignItems: 'flex-end' },
 });

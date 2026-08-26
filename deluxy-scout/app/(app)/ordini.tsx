@@ -11,6 +11,7 @@ import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
 import { chiediFatturaPerOrdine } from '@/lib/partner';
+import { costiPerTrattativa, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
 
@@ -33,6 +34,8 @@ function dataIt(iso: string): string {
 export default function Ordini() {
   const router = useRouter();
   const [ordini, setOrdini] = useState<OrdineConLuogo[]>([]);
+  /** I lavori da preventivare: da qui esce il COSTO di ogni ordine. */
+  const [lavori, setLavori] = useState<LavoroConPreventivi[]>([]);
   const [loading, setLoading] = useState(true);
   const [statoFiltro, setStatoFiltro] = useState<string | null>(null);
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
@@ -44,7 +47,12 @@ export default function Ordini() {
   const carica = useCallback(async () => {
     setLoading(true);
     try {
-      setOrdini(await fetchOrdini());
+      // I lavori servono al COSTO di ogni ordine (preventivi fornitore). Col
+      // suo `catch`: se la tabella non risponde, gli ordini si vedono lo
+      // stesso e il costo resta «—».
+      const [ord, lav] = await Promise.all([fetchOrdini(), fetchLavori().catch(() => [])]);
+      setOrdini(ord);
+      setLavori(lav);
     } finally {
       setLoading(false);
     }
@@ -83,6 +91,23 @@ export default function Ordini() {
   const { width } = useWindowDimensions();
   const aTabella = width >= 900;
 
+  /**
+   * Quanto ci costa ciascun ordine: dai lavori collegati alla sua trattativa
+   * (preventivo SCELTO se c'è, altrimenti il più basso ricevuto).
+   *
+   * ⚠️ Un ordine senza preventivi non entra nella mappa, e il margine resta
+   * «—»: contarlo a costo zero darebbe un margine pari al prezzo pieno.
+   */
+  const costi = useMemo(() => costiPerTrattativa(lavori), [lavori]);
+  const margineDi = useCallback(
+    (o: OrdineConLuogo): number | null => {
+      const c = o.deal_id ? costi.get(o.deal_id) : null;
+      if (!c || o.valore == null) return null;
+      return Math.round((o.valore - c.costo) * 100) / 100;
+    },
+    [costi],
+  );
+
   const colonne: ColonnaTabella<OrdineConLuogo>[] = [
     {
       chiave: 'cliente',
@@ -116,7 +141,61 @@ export default function Ordini() {
       ),
     },
     { chiave: 'linea', label: 'Linea', flex: 0.7, valore: (o) => o.linea ?? null },
-    { chiave: 'canale', label: 'Canale', width: 80, valore: (o) => o.canale ?? null },
+    { chiave: 'canale', label: 'Canale', width: 68, valore: (o) => o.canale ?? null },
+    /**
+     * QUANTO CI COSTA, accanto a quanto lo vendiamo (richiesta dell'utente).
+     * Il fornitore e il suo preventivo vengono dai lavori collegati alla
+     * trattativa: quello SCELTO se c'è, altrimenti il più basso ricevuto.
+     */
+    {
+      chiave: 'fornitore',
+      label: 'Fornitore',
+      flex: 0.8,
+      valore: (o) => costi.get(o.deal_id ?? '')?.fornitore ?? null,
+    },
+    {
+      chiave: 'costo',
+      label: 'Preventivo',
+      width: 104,
+      destra: true,
+      numerica: true,
+      valore: (o) => costi.get(o.deal_id ?? '')?.costo ?? null,
+      cella: (o) => {
+        const c = costi.get(o.deal_id ?? '');
+        if (!c) return <Text style={styles.tabData}>—</Text>;
+        return (
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.tabValore}>{importoBreve(c.costo)}</Text>
+            {/* ⚠️ «Scelto» o «il più basso» non sono la stessa cosa: il primo
+                è una decisione presa, il secondo una stima che può cambiare. */}
+            <Text style={styles.tabStima}>{c.definitivo ? 'scelto' : 'il più basso'}</Text>
+          </View>
+        );
+      },
+    },
+    {
+      chiave: 'margine',
+      label: 'Margine',
+      width: 112,
+      destra: true,
+      numerica: true,
+      valore: (o) => margineDi(o),
+      cella: (o) => {
+        const m = margineDi(o);
+        // ⚠️ Senza preventivo il margine NON è il prezzo pieno: è sconosciuto.
+        // Scriverlo sarebbe il numero più ottimista e più falso che c'è.
+        if (m === null) return <Text style={styles.tabData}>—</Text>;
+        const perc = o.valore ? Math.round((m / o.valore) * 100) : null;
+        return (
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.tabValore, m < 0 && styles.margineNegativo]}>{importoBreve(m)}</Text>
+            {perc !== null ? (
+              <Text style={[styles.tabStima, m < 0 && styles.margineNegativo]}>{perc}%</Text>
+            ) : null}
+          </View>
+        );
+      },
+    },
     {
       chiave: 'valore',
       label: 'Valore',
@@ -358,6 +437,30 @@ export default function Ordini() {
               ordineIniziale={{ campo: 'quando', verso: 'desc' }}
               onRiga={(o) => o.place_id && router.push(`/(app)/attivita/${o.place_id}`)}
               labelRiga={(o) => `Apri la scheda di ${o.place_nome ?? o.cliente}`}
+              /**
+               * I totali in fondo (richiesta dell'utente). Sono quelli delle
+               * righe A SCHERMO: cambiando filtro cambiano, e devono — un
+               * totale che somma anche ciò che è filtrato via non corrisponde
+               * a niente di visibile.
+               *
+               * ⚠️ Preventivo e margine sommano SOLO gli ordini che un
+               * preventivo ce l'hanno, e il conto lo dice («su 3 di 4»):
+               * senza, il margine totale sembrerebbe riferito a tutto
+               * l'elenco quando riguarda solo una parte.
+               */
+              totali={(righe) => {
+                const conCosto = righe.filter((o) => o.deal_id && costi.has(o.deal_id));
+                const valore = righe.reduce((s, o) => s + (o.valore ?? 0), 0);
+                const costo = conCosto.reduce((s, o) => s + (costi.get(o.deal_id!)?.costo ?? 0), 0);
+                const margine = conCosto.reduce((s, o) => s + (margineDi(o) ?? 0), 0);
+                return {
+                  cliente: `Totale · ${righe.length} ordini`,
+                  valore: importoBreve(valore),
+                  fornitore: conCosto.length ? `su ${conCosto.length} di ${righe.length}` : 'nessun preventivo',
+                  costo: conCosto.length ? importoBreve(costo) : '—',
+                  margine: conCosto.length ? importoBreve(margine) : '—',
+                };
+              }}
             />
           ) : (
             (() => {
@@ -377,6 +480,19 @@ export default function Ordini() {
                     {o.linea ? <Text style={styles.meta}>{o.linea}</Text> : null}
                     <Text style={styles.meta}>{dataIt(o.created_at)}</Text>
                   </View>
+                  {/* Il costo e il margine anche sul telefono: senza, da qui
+                      si vedrebbe solo quanto si incassa e mai quanto resta. */}
+                  {(() => {
+                    const c = o.deal_id ? costi.get(o.deal_id) : null;
+                    const m = margineDi(o);
+                    if (!c) return null;
+                    return (
+                      <Text style={styles.meta} numberOfLines={2}>
+                        {c.fornitore} · {importoBreve(c.costo)} ({c.definitivo ? 'scelto' : 'il più basso'})
+                        {m !== null ? ` · margine ${importoBreve(m)}` : ''}
+                      </Text>
+                    );
+                  })()}
                   {/* Il documento sta con le informazioni, non fra i comandi. */}
                   {o.fattura_numero || o.proforma_numero ? (
                     <Pressable
@@ -503,6 +619,8 @@ const styles = StyleSheet.create({
   descr: { color: colors.testoSoft, fontSize: 12.5, fontStyle: 'italic', marginTop: 1 },
   valore: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabStima: { color: colors.grigio, fontSize: 10.5 },
+  margineNegativo: { color: colors.errore },
   tabValore: { color: colors.testo, fontWeight: '700', fontSize: 13.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap', rowGap: 4 },

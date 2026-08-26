@@ -119,6 +119,63 @@ export async function creaLavoro(l: {
   return data as Lavoro;
 }
 
+/**
+ * ⭐ QUANTO CI COSTA UNA TRATTATIVA, per metterlo accanto a quanto la vendiamo
+ * (26/08/2026, richiesta dell'utente sugli Ordini: «aggiungi fornitore e
+ * miglior preventivo… calcola il margine»).
+ *
+ * Per ogni trattativa (`deal_id`) si guardano i lavori collegati e, dentro
+ * ognuno, i suoi preventivi:
+ *   · se un preventivo è stato **SCELTO**, è quello — è una decisione presa,
+ *     e vince su qualunque numero più basso arrivato dopo;
+ *   · altrimenti si prende il **più basso fra quelli ricevuti**, ed è una
+ *     stima: il fornitore non è ancora stato scelto.
+ * I lavori di una stessa trattativa si SOMMANO: due lavori sono due costi.
+ *
+ * ⚠️ Chi non ha nessun preventivo ricevuto NON vale zero: torna `null`, e a
+ * schermo diventa «—». Un costo assente contato come zero farebbe un margine
+ * pari al prezzo pieno — il numero più ottimista e più falso che ci sia.
+ */
+export interface CostoTrattativa {
+  /** Somma dei preventivi (scelti se ci sono, altrimenti i più bassi). */
+  costo: number;
+  /** true = sono tutte scelte definitive; false = è una stima. */
+  definitivo: boolean;
+  /** Chi lo fa: il nome, o «N fornitori» quando i lavori sono più d'uno. */
+  fornitore: string;
+  /** Quanti lavori hanno concorso al costo. */
+  lavori: number;
+}
+
+export function costiPerTrattativa(lavori: LavoroConPreventivi[]): Map<string, CostoTrattativa> {
+  const perDeal = new Map<string, CostoTrattativa>();
+  for (const l of lavori) {
+    if (!l.deal_id) continue;
+    const scelto = l.preventivi.find((p) => p.stato === 'scelto' && p.importo != null);
+    const candidati = l.preventivi.filter((p) => p.importo != null && p.stato !== 'scartato');
+    const migliore =
+      scelto ??
+      candidati.reduce<Preventivo | null>((min, p) => (!min || (p.importo ?? 0) < (min.importo ?? 0) ? p : min), null);
+    if (!migliore || migliore.importo == null) continue;
+    const gia = perDeal.get(l.deal_id);
+    if (!gia) {
+      perDeal.set(l.deal_id, {
+        costo: migliore.importo,
+        definitivo: Boolean(scelto),
+        fornitore: migliore.fornitore,
+        lavori: 1,
+      });
+      continue;
+    }
+    gia.costo += migliore.importo;
+    // Basta un lavoro ancora da decidere perché il totale sia una stima.
+    gia.definitivo = gia.definitivo && Boolean(scelto);
+    gia.lavori += 1;
+    if (gia.fornitore !== migliore.fornitore) gia.fornitore = `${gia.lavori} fornitori`;
+  }
+  return perDeal;
+}
+
 /** Collega a una trattativa un lavoro che era nato senza (o cambia la sua). */
 export async function collegaLavoroATrattativa(id: string, dealId: string): Promise<void> {
   const { error } = await supabase.from('lavori').update({ deal_id: dealId }).eq('id', id);
