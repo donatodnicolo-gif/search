@@ -382,6 +382,20 @@ della piattaforma, dichiarato come tale — il `margine` di Orders resta il suo.
   niente formule duplicate che poi divergono. `spingiMargini` la usa: cinque
   campi nel PATCH, salto-se-identici esteso a tutti e cinque; il cron
   notturno aggiorna tutto da solo. CRON_SECRET ruotato.
+- ⚠️ **Il primo valore si chiama `primoMargine`** (l'utente): colonna
+  rinominata in Orders con RENAME (dati preservati). 🔥 Nel farlo Orders è
+  rimasto per qualche minuto con la colonna rinominata sotto un deploy vecchio
+  → 500 sull'elenco ordini: MAI rinominare una colonna prima del deploy che
+  la usa. Rimesso in piedi col redeploy immediato.
+- ⚠️ **La PRIMA trasmissione non sta nei 300 s del cron** (9.200 ordini da
+  scrivere): rotta admin `GET /finance/economia-vendite` + script
+  `scripts/spingi-economia-a-orders.mjs` che chiede l'economia alla
+  piattaforma DEPLOYATA (stesse formule) e fa i PATCH da locale, ripetibile
+  (salta gli identici). Prova a vuoto: 9.017 ordini con economia — primo
+  margine 492.127,89 €, fee 140.383,94 €, margine finale 533.034,78 €.
+- ⚠️ **Query raw: schema SEMPRE qualificato** (`platform."Tabella"`): sul
+  pooler in transaction mode la search_path non è garantita —
+  `"OrdineCliente"` nudo dava 42P01 solo in produzione.
 
 **Resta da fare qui**: caricamento consegne via AI (la chiave in Impostazioni
 c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
