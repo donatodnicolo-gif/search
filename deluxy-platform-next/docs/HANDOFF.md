@@ -405,7 +405,7 @@ per interrogare Shopify direttamente.
 ### 27/08 (notte, 6) — Le regole APPLICATE alle consegne esistenti
 
 Chiesto dall utente («applica tutte le regole alle consegne caricate»),
-script  (prova a secco + backup):
+script applica-regole-alle-consegne.mjs (prova a secco + backup):
 - **Regole VALET materializzate su 29.528 consegne** (valetDeliveryRuleId dal
   valet assegnato; il conteggio le usava gia come ripiego, ora stanno sul
   record).
