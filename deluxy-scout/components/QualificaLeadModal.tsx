@@ -9,7 +9,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '@/lib/theme';
 import { Foglio } from '@/components/Foglio';
-import { cercaPlaces, qualificaLead, type PlaceLite } from '@/lib/db';
+import { cercaPlaces, creaPlaceDaRichiesta, qualificaLead, type PlaceLite } from '@/lib/db';
 import type { EsitoRegistro } from '@/lib/anagrafiche';
 import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import type { Lead } from '@/types';
@@ -69,7 +69,36 @@ export function QualificaLeadModal({
     }
   }
 
+  /**
+   * Il negozio che non c'è: si crea da qui, e la trattativa nasce su di lui.
+   *
+   * ⚠️ Segnalato dall'utente il 26/08/2026: «qualifica non crea, vedo ancora
+   * solo la possibilità di ricerca». Era il caso più frequente — una richiesta
+   * dal modulo del sito porta il nome di una persona che nel CRM non esiste:
+   * cercarla non la trova, e senza questo bottone la richiesta restava ferma.
+   */
+  async function creaEQualifica() {
+    if (salvando) return;
+    const nome = daCreare;
+    if (!nome) return;
+    setSalvando(true);
+    setErrore(null);
+    try {
+      const posto = await creaPlaceDaRichiesta(nome);
+      const { registro } = await qualificaLead(lead, posto.id, conContatto);
+      onFatto(registro);
+    } catch (e: any) {
+      setErrore(e?.message ?? 'Non è stato possibile creare il negozio');
+      setSalvando(false);
+    }
+  }
+
   const chi = info.persona || lead.nome;
+  // Che nome avrebbe il negozio nuovo: quello che si sta cercando, se si sta
+  // cercando qualcosa; altrimenti la persona che ci ha scritto — che è ciò che
+  // di lei sappiamo. ⚠️ Mai il mittente robot del modulo Shopify: creare
+  // «Business Deluxy (Shopify)» come negozio sarebbe una scheda finta.
+  const daCreare = ricerca.trim() || (info.daModuloSito ? info.persona || '' : lead.nome).trim();
 
   return (
     <Foglio
@@ -114,13 +143,25 @@ export function QualificaLeadModal({
               {ricerca.trim() ? `Nessun negozio per «${ricerca.trim()}»` : 'Nessun negozio in elenco'}
             </Text>
             <Text style={styles.vuotoTesto}>
-              Le trattative si agganciano a un negozio del territorio. Se questa è la richiesta di un
-              privato (un ordine, un catering personale), non ha un negozio: si gestisce dal Customer
-              Service, e qui si scarta.
+              Se è un cliente nuovo, crealo qui sotto. Se invece è la richiesta di un privato (un
+              ordine, un catering personale), non ha un negozio: si gestisce dal Customer Service, e
+              qui si scarta.
             </Text>
           </View>
         ) : null}
       </ScrollView>
+
+      {/* IL NEGOZIO CHE NON C'È. Sta sempre a schermo, non solo quando la
+          ricerca è vuota: chi qualifica spesso vede degli omonimi che non sono
+          il suo, e deve poter dire «nessuno di questi, è nuovo». */}
+      {daCreare ? (
+        <Pressable style={[styles.crea, salvando && { opacity: 0.5 }]} onPress={creaEQualifica} disabled={salvando}>
+          <Ionicons name="add-circle-outline" size={16} color={colors.bianco} />
+          <Text style={styles.creaTxt} numberOfLines={1}>
+            Crea «{daCreare}» e apri la trattativa
+          </Text>
+        </Pressable>
+      ) : null}
       {salvando ? <Text style={styles.stato}>Apro la trattativa…</Text> : null}
       {errore ? <Text style={styles.errore}>{errore}</Text> : null}
     </Foglio>
@@ -162,6 +203,17 @@ const styles = StyleSheet.create({
   vuoto: { padding: 12, gap: 4 },
   vuotoTitolo: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
   vuotoTesto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
+  crea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.testo,
+    borderRadius: 999,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+  },
+  creaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
   stato: { color: colors.testoSoft, fontSize: 13 },
   errore: { color: colors.errore, fontSize: 13, fontWeight: '700' },
 });

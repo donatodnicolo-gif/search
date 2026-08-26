@@ -361,6 +361,41 @@ export async function assicuraNegozioNelRegistro(
   return sincronizzaPlaceRegistro(placeId, { contatti, ...(citta !== undefined ? { citta } : {}) });
 }
 
+/**
+ * Il negozio che NON C'È: si crea qui, dalla richiesta.
+ *
+ * ⚠️ Segnalato dall'utente il 26/08/2026 sera guardando la finestra di
+ * qualifica: «qualifica non crea, vedo ancora solo la possibilità di ricerca».
+ * Aveva ragione, ed era il caso più frequente: una richiesta dal modulo del
+ * sito porta il nome di una PERSONA che nel CRM non c'è ancora — cercarla non
+ * la trova, e senza un modo per crearla la richiesta restava lì.
+ *
+ * Nasce a **0,0**: senza indirizzo non c'è niente da geocodificare, e meglio un
+ * lead senza posizione che un lead perso — la stessa scelta che fanno «Prendi
+ * in carico» e l'auto-qualifica delle Edge Function. La posizione si mette poi
+ * dalla scheda.
+ */
+export async function creaPlaceDaRichiesta(nome: string): Promise<Place> {
+  const pulito = nome.trim();
+  if (!pulito) throw new Error('Serve un nome per creare il negozio.');
+  const { data: u } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('places')
+    .insert({
+      nome: pulito,
+      lat: 0,
+      lng: 0,
+      stato: 'da_visitare',
+      // Chi l'ha creato può anche cancellarlo (policy di delete, migr. 0054):
+      // un negozio nato per sbaglio da qui dev'essere disfacibile da qui.
+      creato_da: u.user?.id ?? null,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Place;
+}
+
 /** Crea un nuovo target sul territorio (scoperto in mobilità). */
 export async function inserisciPlace(p: {
   nome: string;
