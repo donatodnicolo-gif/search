@@ -192,51 +192,76 @@ export function margineOrdine(o: {
   feeConsegna: number | null;
   evasione: string;
   consegnataDa: string;
+  /** Il margine gia' fatto dalla piattaforma consegne. Se c'e', VINCE.
+   *  ⚠️ OBBLIGATORIO apposta: se fosse opzionale ogni chiamante che si scorda
+   *  di passarlo compilerebbe lo stesso e ricadrebbe in silenzio sul conto del
+   *  registro — cioe' il difetto che questa modifica serve a togliere. Cosi'
+   *  invece e' il compilatore a trovare i punti da aggiornare. */
+  margineFinale: number | null;
 }): {
   valore: number | null;
   pct: number | null;
-  /** Il ricavo NETTO dell'ordine (totale ÷ 1,22): è la BASE su cui è calcolata
-   *  `pct`. Torna da qui perché chi mostra la percentuale deve poter dire
-   *  accanto a quale numero vale — un 40% letto accanto al totale lordo sembra
-   *  sbagliato, e chi legge ha ragione a dirlo. */
+  /** Il ricavo NETTO dell'ordine (totale / 1,22). */
   imponibile: number;
   parziale: boolean;
+  /** `piattaforma` = numero ricevuto gia' fatto; `registro` = calcolato qui. */
+  fonte: "piattaforma" | "registro";
   nota: string;
 } {
   const imponibile = Math.round((o.totale / (1 + ALIQUOTA_IVA / 100)) * 100) / 100;
+  const percento = (v: number) => (o.totale > 0.005 ? Math.round((v / o.totale) * 1000) / 10 : null);
+
+  // ⚠️⚠️ IL MARGINE DELL'ORDINE E' QUELLO CHE MANDA LA PIATTAFORMA CONSEGNE
+  // (decisione dell'utente, 26/08/2026). Non e' un ingrediente: e' il SUO conto,
+  // e comprende cose che qui non si sanno —
+  //   primo margine = (pagato dal cliente - valore prodotti dato al partner) / 1,22
+  //   + fee della vendita - costo del valet - commissione d'incasso
+  // Il pezzo che qui manca e' il primo: il VALORE DATO AL PARTNER sta scritto
+  // sulla consegna (`Delivery.productValue`), non nel registro. Rifacendo il
+  // conto con `costoFornitore` uscivano numeri diversi e piu' alti — #12805:
+  // 81,97 EUR qui contro 52,88 veri; #12802: 163,93 contro 69,49 — perche' al
+  // posto del valore al partner c'era un campo spesso VUOTO: 410 ordini su
+  // 14.411 hanno un costoFornitore, 10.053 hanno il margine della piattaforma.
+  if (o.margineFinale != null) {
+    return {
+      valore: Math.round(o.margineFinale * 100) / 100,
+      pct: percento(o.margineFinale),
+      imponibile,
+      parziale: false,
+      fonte: "piattaforma",
+      nota: "margine della piattaforma consegne (primo margine + fee - consegna - commissione d'incasso, gia' al netto IVA)",
+    };
+  }
+
+  // RIPIEGO — solo per gli ordini che la piattaforma non conosce: qui il costo
+  // del fornitore e' l'unica cosa che si ha, e il conto vale quello che vale.
   if (o.costoFornitore == null) {
-    return { valore: null, pct: null, imponibile, parziale: false, nota: "manca il costo del fornitore" };
+    return { valore: null, pct: null, imponibile, parziale: false, fonte: "registro", nota: "manca il costo del fornitore" };
   }
   let lordo = o.totale - o.costoFornitore;
   let parziale = false;
-  let nota = "totale − costo fornitore";
+  let nota = "totale - costo fornitore";
   const consegnaNostra = o.evasione === "piattaforma" && o.consegnataDa !== "fornitore";
   if (consegnaNostra) {
     if (o.costoConsegna != null) {
       lordo = lordo - o.costoConsegna + (o.feeConsegna ?? 0);
-      nota = "totale − costo fornitore − costo consegna + fee";
+      nota = "totale - costo fornitore - costo consegna + fee";
     } else {
       parziale = true;
       nota = "senza il costo della consegna (la piattaforma non lo espone ancora)";
     }
   }
-  // ⚠️ Il MARGINE REALE è al NETTO dell'IVA. «Togliere il 22%» da un importo
-  // IVA-incluso è uno SCORPORO (÷ 1,22), NON un −22% (× 0,78): il netto di 122
-  // è 100, non 95,16. Qui `lordo` è la differenza IVA-inclusa; il netto è ÷1,22.
   const valore = Math.round((lordo / (1 + ALIQUOTA_IVA / 100)) * 100) / 100;
-  // ⚠️⚠️ LA PERCENTUALE È IL MARGINE NETTO SUL TOTALE PAGATO DAL CLIENTE
-  // (decisione dell'utente, 25/08/2026): `valore / totale`, cioè 81,97 su 250
-  // = 32,8% — NON 81,97 su 204,92 (l'imponibile) = 40%.
-  //
-  // È la lettura di chi guarda la schermata: «di quello che ho incassato, tanto
-  // mi resta». Le due basi sono diverse apposta — margine netto, incasso lordo —
-  // e la conseguenza va detta invece di essere nascosta: **la % NON è più
-  // 100 − quota**. Con la quota fornitore al 60%, l'atteso non è 40% ma
-  // 40 ÷ 1,22 = **32,8%**, e chi confronta il margine con la quota deve
-  // scorporare la soglia allo stesso modo (vedi `margineAttesoPct`).
-  const pct = o.totale > 0.005 ? Math.round((valore / o.totale) * 1000) / 10 : null;
-  return { valore, pct, imponibile, parziale, nota: `${nota} · al netto IVA ${ALIQUOTA_IVA}%` };
+  return {
+    valore,
+    pct: percento(valore),
+    imponibile,
+    parziale,
+    fonte: "registro",
+    nota: `${nota} · al netto IVA ${ALIQUOTA_IVA}% · conto del registro: la piattaforma non ha questo ordine`,
+  };
 }
+
 
 export async function salvaQuotaFornitore(quota: number): Promise<void> {
   const v = Math.min(99, Math.max(1, Math.round(quota)));

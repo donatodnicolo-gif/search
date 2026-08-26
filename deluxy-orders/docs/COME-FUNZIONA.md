@@ -410,6 +410,28 @@ averlo segnalato). La **percentuale** del margine non cambia con lo scorporo
 euro. Se un giorno serve l'aliquota per categoria, si cambia in un posto solo
 (`controllo.ALIQUOTA_IVA`).
 
+**⚠️ IL MARGINE DELL'ORDINE LO CALCOLA LA PIATTAFORMA CONSEGNE (26/08/2026).**
+Dove c'è, Orders mostra `margineFinale` — il conto della piattaforma, non il
+proprio:
+
+    primo margine = (pagato dal cliente − valore prodotti dato al partner) ÷ 1,22
+    margine finale = primo margine + fee della vendita − costo del valet
+                     − commissione d'incasso
+
+Il pezzo che Orders **non può sapere** è il primo: il *valore dato al partner*
+sta scritto sulla consegna (`Delivery.productValue`), non nel registro.
+Rifacendo il conto con `costoFornitore` uscivano numeri più alti — **#12805:
+81,97 € contro 52,88 € veri**, **#12802: 163,93 € contro 69,49 €** — perché al
+posto del valore al partner c'era un campo spesso vuoto: **410 ordini su 14.411
+hanno un `costoFornitore`, 10.053 hanno il margine della piattaforma**.
+
+Il calcolo del registro resta come **ripiego**, solo per gli ordini che la
+piattaforma non conosce, e la nota sotto il numero dice sempre da dove viene
+(«margine della piattaforma consegne» oppure «conto del registro: la
+piattaforma non ha questo ordine»). ⚠️ Il campo è **obbligatorio** nella firma
+di `margineOrdine()`: se fosse opzionale, un chiamante distratto compilerebbe
+lo stesso e ricadrebbe in silenzio sul conto vecchio.
+
 ⚠️ **La percentuale è sul totale che il cliente ha pagato (scelta dell'utente,
 25/08/2026).** Valore e percentuale hanno **basi diverse apposta**: il valore è
 netto IVA, la base è il **lordo incassato**. Un ordine da 250 € con 150 € di
