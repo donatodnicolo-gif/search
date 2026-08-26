@@ -402,6 +402,26 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### 26/08 (sera, 10) — Il canale Business entra nella cache dei pagati
+
+Dalla 62955 (chiesta dall'utente): la vendita era un **draft order Business
+da 240 € PAGATO via PayPal** (BusinessSales 1054), ma la Finanza vedeva 180 —
+il recupero dei prezzi flessibili aveva sovrascritto il PUBBLICO col valore
+partner, e per gli ordini fuori dal registro di Orders la riga era l'unica
+fonte del venduto. Margine dichiarato −6,47 €, margine vero +40,67 €.
+
+Rimedio strutturale invece della correzione riga per riga: **gli ordini
+Business pagati entrano in `OrdineCliente`** (brand «Business», prodotti =
+totale, consegna 0, `ordersId` NULL) — 8 ordini inseriti da `tabella-9`
+(1001, 1003, 1012, 1037, 1048, 1049, 1051, 1054; ON CONFLICT DO NOTHING, la
+corsa notturna non li tocca perché Orders non li ha). Da lì il venduto arriva
+dalla fonte cliente per TUTTO il gruppo — decisivo per il 1012, che ha DUE
+consegne (140,60+84 di righe contro 460 pagati: correggere le righe una a una
+avrebbe sbagliato il totale). Verificati live: 1054 → 240/margine 40,67;
+1012 → 460/margine 191,86 (2 consegne); 1003 → 341,60/margine 260,66.
+Il filtro Brand della Finanza ora mostra anche «Business».
+Sulla 62955 anche la riga è stata riportata a 240 (log `prezzo-corretto`).
+
 ### 26/08 (sera, 9) — 62810 annullata, e il deploy da git RUBAVA l'alias
 
 - **62810 annullata** (deciso dall'utente: non deve stare nei margini): era
