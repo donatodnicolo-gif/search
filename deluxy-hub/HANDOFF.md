@@ -1,7 +1,7 @@
 # Deluxy Hub — Handoff per ripartire
 
 > Documento per una nuova sessione (anche altro account Claude) che riprende il
-> lavoro sul portale. Aggiornato: **24 agosto 2026**.
+> lavoro sul portale. Aggiornato: **26 agosto 2026**.
 > Leggi anche [README.md](README.md) (dettagli completi) e la memoria del progetto.
 
 > ⚠️ **La cartella di lavoro è `C:\Users\nicol\scoutwt\deluxy-hub` (branch
@@ -41,17 +41,21 @@ del progetto è **una sessione per cartella**.
 |---|---|
 | URL | https://deluxy-hub.vercel.app |
 | Email admin | `deluxy.delivery@gmail.com` |
-| Password admin | `deluxy2026` — **TEMPORANEA, in chiaro in `.env`** |
+| Password admin | **cambiata dall'utente** — quella temporanea di un tempo (`deluxy2026`) **non vale più** (verificato contro l'hash a database il 26/08/2026) |
 
-🔴 **Prima cosa da fare/ricordare**: cambiare la password dell'admin dal portale
-(barra in alto → il proprio nome → Cambia password). Finché non è cambiata, resta
-quella qui sopra, leggibile nel file `.env` locale.
+✅ La password temporanea è stata cambiata: la conosce solo l'utente. Se serve
+entrare per una verifica, **non** provare a recuperarla — si crea un utente di
+prova via Prisma (ruolo `commerciale`, password usa-e-getta) e **si cancella a
+fine verifica** (la cascata porta via il suo cartellino). Nessun recupero
+password autonomo: le password le reimposta un admin da `/utenti`.
 
 ---
 
-## 3. Le 16 app del portale
+## 3. Le 19 app del portale (18 visibili in produzione)
 
-Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
+Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`). **Fondo** è a
+catalogo ma in produzione **non compare**: ha solo il ripiego `localhost:3180`
+e senza `APP_URL_FONDO` la tessera sparisce (regola generale qui sotto).
 
 | App (etichetta) | URL | Chi la vede | Note |
 |---|---|---|---|
@@ -62,12 +66,15 @@ Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 | Calendario | `https://deluxy-calendario.vercel.app` | solo admin | default nel codice, override con `APP_URL_CALENDARIO` (dev 3110), **`sso: true`** |
 | Commerciale Scout | `https://deluxy-scout.vercel.app` | admin, commerciale | export web Expo |
 | Consegne | `https://deluxy-delivery.vercel.app` | solo admin | |
+| CRM | `https://deluxy-crm.vercel.app` | admin, commerciale | il libro dei clienti D2C, override `APP_URL_CRM`, **`sso: true`** |
 | Finance | `https://deluxy-partner.vercel.app` | admin, partner | id interno = `partner`, **`sso: true`** |
+| Fondo | `APP_URL_FONDO` (dev 3180) | solo admin | **nascosta in produzione**: manca `APP_URL_FONDO` (l'app non è pubblicata) |
 | Maison | `https://deluxy-os.base44.app/` | tutti i ruoli | Deluxy OS su base44 |
 | Marketing | `https://deluxy-marketing.vercel.app` | solo admin | default nel codice, override con `APP_URL_MARKETING` |
 | Merchandising | `https://deluxy-merchandising.vercel.app` | admin, commerciale | default nel codice, override con `APP_URL_MERCHANDISING` |
 | Customer Service | `https://deluxy-messaging.vercel.app` | admin, commerciale | id interno = `messaggi` (era "Messaggi": è cambiato solo il `nome`), override `APP_URL_MESSAGGI` |
 | Ordini | `https://deluxy-orders.vercel.app` | solo admin | default nel codice, override con `APP_URL_ORDERS` |
+| Personale | `https://deluxy-personale.vercel.app` | solo admin (dentro ci sono gli stipendi) | override `APP_URL_PERSONALE` (impostata in prod il 24/08), **`sso: true`** |
 | Ricerca fornitori | `https://search-deluxy.vercel.app` | admin, commerciale | id interno = `search` |
 | Scripts | `https://deluxy-scripts.vercel.app` | solo admin | i testi pronti da mandare ai clienti, override `APP_URL_SCRIPTS`, **`sso: true`** |
 | Transactions | `https://deluxy-transactions.vercel.app` | solo admin | autorizza i pagamenti; chi firma va aggiunto dentro l'app |
@@ -122,6 +129,8 @@ Dato salvato: `Utente.appAbilitate String[]` (id delle app), vedi
 | [`src/lib/cartellino-actions.ts`](src/lib/cartellino-actions.ts) | timbra, registra giornata, chiedi assenza, carica certificato, approva/respingi |
 | [`src/lib/dispositivo.ts`](src/lib/dispositivo.ts) · [`solo-desktop.ts`](src/lib/solo-desktop.ts) | riconoscimento telefono/tablet e guardia `richiediDesktop()` |
 | [`src/app/cartellino`](src/app/cartellino) | il proprio cartellino, `gestione` (admin), `certificato/[id]` (download), `solo-desktop` (spiegazione) |
+| [`src/app/api/presenze/route.ts`](src/app/api/presenze/route.ts) | `GET /api/presenze?mese=YYYY-MM` — il cartellino del mese per le altre app (vedi §5-ter, in fondo) |
+| [`scripts/emetti-token.mjs`](scripts/emetti-token.mjs) | emette un token di servizio da riga di comando (stessa cosa di `/chiavi` → Token di servizio) |
 
 ---
 
@@ -219,9 +228,28 @@ chiede (proprietario o admin).
    riga del giorno e si fa il gesto opposto, altrimenti due click aprono due turni.
 4. **Un turno aperto di un giorno passato vale zero minuti**, non le ore fino ad
    adesso (`minutiLavorati(..., null)`).
+5. **La timbratura arretrata pretende la motivazione (26/08/2026)**: si può
+   registrare a mano un giorno passato, ma se `giorno < oggi` la server action
+   rifiuta senza `note` (`errore=motivo-arretrata`). Il form (`FormGiornata.tsx`,
+   client) anticipa la regola col `required` dinamico, ma la difesa vera sta in
+   `registraGiornata`. Le motivazioni delle righe a mano ora si **vedono**
+   (`Giornata.motivi` in `presenze.ts`): nel proprio mese, nella gestione admin
+   e nel rapporto email — l'obbligo serve a chi controlla, non al database.
 
 Il limite del corpo delle server action è alzato a 6 MB in `next.config.ts`:
 il default è 1 MB e un certificato scansionato lo supera.
+
+**Il cartellino del mese si legge anche via API (26/08/2026, commit
+`c59c2834`, live)**: `GET /api/presenze?mese=YYYY-MM[&nota=…]` risponde
+`{ riepilogo, rapporto: { oggetto, testo, html } }` — il rapporto è già pronto
+da spedire. Nata per **deluxy-personale**, che da lì manda il rapporto al
+commercialista per le buste paga; il Hub resta il **proprietario** di
+timbrature e assenze, qui si legge soltanto. I numeri escono dalle **stesse
+funzioni** della schermata di gestione e dell'email (`riepilogoMese` +
+`rapportoPresenze` in `presenze.ts`): non duplicare quel conto. Auth: token di
+servizio (`x-api-key`/`Bearer`) come `/api/chiavi`; un token limitato per
+progetti deve comprendere **`personale`**. Un token si emette da `/chiavi` o
+con `node scripts/emetti-token.mjs <nome-app> [progetti]`.
 
 ## 5-quater. Squadre e persone in `/utenti` (24 agosto 2026)
 
@@ -298,11 +326,16 @@ aggiorna la voce `BUDGETS_API_KEY` in `/chiavi` — le vecchie emesse mai usate
   girare a Francoforte, accanto al database (vedi trappola 6 in §7). Non togliere.
   (Il classificatore di permessi può bloccarlo: se succede, chiedi conferma
   all'utente o fallo lanciare a lui.)
-- **Env di produzione già impostate** (10): `DATABASE_URL`, `DIRECT_URL`,
-  `HUB_SESSION_SECRET`, `APP_URL_MAIL`, `APP_URL_MAISON`, `APP_URL_ANAGRAFICHE`,
-  `APP_URL_CONSEGNE`, `APP_URL_SCOUT`, `APP_URL_PARTNER`, `APP_URL_SEARCH`.
-  Sono `Encrypted`/`[SENSITIVE]`: non si rileggono dalla CLI. Le copie locali
-  stanno in `deluxy-hub/.env`.
+- **Env di produzione impostate** (14, misurate con `vercel env ls production`
+  il 26/08/2026): `DATABASE_URL`, `DIRECT_URL`, `HUB_SESSION_SECRET`,
+  `HUB_SSO_SECRET`, `HUB_KEYS_TOKEN`, `APP_URL_MAIL`, `APP_URL_MAISON`,
+  `APP_URL_ANAGRAFICHE`, `APP_URL_PARTNER`, `APP_URL_SEARCH`,
+  `APP_URL_MARKETING`, `APP_URL_ORDERS`, `APP_URL_TRANSACTIONS`,
+  `APP_URL_PERSONALE`. Sono `Sensitive`: non si rileggono dalla CLI
+  (`vercel env pull` dà `[SENSITIVE]`). Le copie locali stanno in
+  `deluxy-hub/.env`. Le app senza `APP_URL_*` in prod usano il default di
+  produzione scritto nel codice (§3); **manca `APP_URL_FONDO`**, quindi Fondo
+  non compare.
 
 ### Database
 Postgres **Supabase**, lo stesso progetto di `deluxy-partner`, ma nello **schema
@@ -355,7 +388,7 @@ npm run dev            # http://localhost:3050
 
 ## 9. Cosa manca / prossimi passi possibili
 
-- **Cambiare la password admin** (vedi §2).
+- ✅ ~~Cambiare la password admin~~ — fatta (vedi §2).
 - **SSO su Finance**: il 26/07/2026 `HUB_SSO_SECRET` è stato impostato su **Hub** e
   **Tasks** (SSO attivo), ma **non** su `deluxy-partner`: aprendo Finance dal Hub
   il token non si apre e Partner chiede il suo login, come prima. Per accenderlo
@@ -375,8 +408,9 @@ npm run dev            # http://localhost:3050
 - **Nessun recupero password autonomo**: lo reimposta un admin da `/utenti`.
 - **Creare gli utenti veri** del team da `/utenti` (finora esiste solo l'admin).
   Dal 24/08 la pagina mostra squadre e persone lette da Budgets con «Crea
-  account» precompilato (§5-quater) — ma serve prima la `BUDGETS_API_KEY`, che
-  in produzione **manca ancora**.
+  account» precompilato (§5-quater); la chiave di Budgets **c'è** dalla stessa
+  mattina (incollata in cassaforte alle ~12:15, vedi §5-quater): la sezione è
+  viva anche in produzione.
 - **`deluxy-acquisti` non è nel catalogo**: l'app esiste nel repo (porta 3100) ma
   non ha una tessera in `apps.ts` né un `APP_URL_ACQUISTI`, quindi dal portale non
   si raggiunge. Da aggiungere quando avrà un URL pubblico.
@@ -433,9 +467,10 @@ npm run dev            # http://localhost:3050
 ## 11. Riferimento dettagliato: funzioni, "API", dati
 
 > Il Hub **non è una REST API**: è un'app Next.js con **server action** (mutazioni)
-> e **middleware** (protezione). La "superficie API" sono le server action più il
-> contratto del cookie di sessione. Non consuma API esterne; le app che linka
-> hanno le proprie (es. l'API a chiave di `deluxy-anagrafiche`).
+> e **middleware** (protezione). La "superficie API" sono le server action, il
+> contratto del cookie di sessione e due rotte a token di servizio:
+> `GET /api/chiavi` (cassaforte, §9-bis) e `GET /api/presenze` (cartellino,
+> §5-ter). Consuma una sola API esterna: `GET /api/v1/team` di Budgets (§5-quater).
 
 ### 11.1 Modello dati (Prisma — `prisma/schema.prisma`)
 
@@ -550,9 +585,11 @@ descrizione}`; `isRuolo(x)` type-guard. Elenco chiuso: aggiungere un ruolo qui.
 
 ### 11.10 Stato prodotto in una riga
 
-Portale **live** con **16 app** catalogate (§3), login a database, permessi
-app-per-utente immediati, gestione utenti admin, cassaforte dei segreti con API a
-token, pagina Stato servizi, cartellino presenze/ferie/malattia (solo da computer).
+Portale **live** con **19 app** catalogate (18 visibili in produzione, §3), login
+a database, permessi app-per-utente immediati, gestione utenti admin, cassaforte
+dei segreti con API a token, pagina Stato servizi, cartellino
+presenze/ferie/malattia (solo da computer) leggibile anche via
+`GET /api/presenze`, organico da Budgets in `/utenti`.
 Manca: cambio password admin di default, SSO su Finance, posta SMTP non
 configurata, recupero password autonomo, popolamento degli utenti reali, l'app **Acquisti**
 non ancora nel catalogo (vedi §9).

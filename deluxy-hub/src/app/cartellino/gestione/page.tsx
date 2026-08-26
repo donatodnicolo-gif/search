@@ -245,7 +245,10 @@ export default async function GestioneCartellinoPage({
                                 </span>
                               ))}
                               {g.conManuali && (
-                                <span className="nota-riga">righe inserite a mano</span>
+                                <span className="nota-riga">
+                                  righe inserite a mano
+                                  {g.motivi.length > 0 && `: ${g.motivi.join("; ")}`}
+                                </span>
                               )}
                             </span>
                             <span style={{ fontVariantNumeric: "tabular-nums" }}>

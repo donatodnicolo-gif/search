@@ -77,8 +77,12 @@ export async function registraGiornata(fd: FormData) {
   const inizio = istanteInItalia(giorno, entrata);
   if (!inizio) redirect("/cartellino?errore=orari");
 
+  const oggi = giornoDi(new Date());
   // Non si registra una giornata nel futuro: sarebbe una previsione, non una presenza.
-  if (giorno > giornoDi(new Date())) redirect("/cartellino?errore=futuro");
+  if (giorno > oggi) redirect("/cartellino?errore=futuro");
+  // Timbratura arretrata (giorno già passato): la motivazione è obbligatoria —
+  // chi controlla il cartellino deve trovare il perché accanto alla dichiarazione.
+  if (giorno < oggi && !note) redirect("/cartellino?errore=motivo-arretrata");
 
   const fine = uscita ? istanteInItalia(giorno, uscita) : null;
   if (uscita && !fine) redirect("/cartellino?errore=orari");

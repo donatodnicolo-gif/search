@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FormGiornata } from "./FormGiornata";
 import { Orologio } from "./Orologio";
 import { prisma } from "@/lib/db";
 import { richiediSessione } from "@/lib/sessione-server";
@@ -6,7 +7,6 @@ import { richiediDesktop } from "@/lib/solo-desktop";
 import {
   annullaRichiesta,
   caricaCertificato,
-  registraGiornata,
   richiediAssenza,
   timbra,
 } from "@/lib/cartellino-actions";
@@ -49,6 +49,7 @@ const MESSAGGI_ERRORE: Record<string, string> = {
   orari: "Orari non validi: usa il formato 09:00.",
   "ordine-orari": "L'uscita deve venire dopo l'entrata.",
   futuro: "Non si registra una giornata che non è ancora arrivata.",
+  "motivo-arretrata": "Per una giornata passata la motivazione è obbligatoria.",
   tipo: "Tipo di assenza non valido.",
   date: "Date non valide.",
   "ordine-date": "Il giorno finale viene prima di quello iniziale.",
@@ -195,29 +196,10 @@ export default async function CartellinoPage({
         <summary>Registra una giornata a mano (dimenticanza, fuori sede)</summary>
         <p className="nota">
           Resta segnata come inserita a mano: chi controlla il cartellino vede la differenza
-          fra una timbratura e una dichiarazione.
+          fra una timbratura e una dichiarazione. Per un <strong>giorno passato</strong> la
+          motivazione è obbligatoria.
         </p>
-        <form action={registraGiornata} className="griglia-form">
-          <label className="campo">
-            <span>Giorno</span>
-            <input type="date" name="giorno" defaultValue={oggi} max={oggi} required />
-          </label>
-          <label className="campo">
-            <span>Entrata</span>
-            <input type="time" name="entrata" required />
-          </label>
-          <label className="campo">
-            <span>Uscita (vuoto = turno aperto)</span>
-            <input type="time" name="uscita" />
-          </label>
-          <label className="campo campo-largo">
-            <span>Motivo</span>
-            <input name="note" placeholder="Dimenticato di timbrare, cliente in sede…" />
-          </label>
-          <button type="submit" className="btn">
-            Registra giornata
-          </button>
-        </form>
+        <FormGiornata oggi={oggi} />
       </details>
 
       {/* ---------- Mese ---------- */}
@@ -248,12 +230,20 @@ export default async function CartellinoPage({
             <tbody>
               {giorni.map(([g, righe]) => {
                 const calcolo = minutiLavorati(righe, g === oggi ? adesso : null);
+                const motiviManuali = [
+                  ...new Set(
+                    righe.filter((r) => r.origine === "manuale" && r.note).map((r) => r.note),
+                  ),
+                ];
                 return (
                   <tr key={g}>
                     <td style={{ whiteSpace: "nowrap" }}>
                       {dataEstesa(righe[0].istante)}
                       {righe.some((r) => r.origine === "manuale") && (
-                        <div className="nota-riga">contiene righe inserite a mano</div>
+                        <div className="nota-riga">
+                          contiene righe inserite a mano
+                          {motiviManuali.length > 0 && `: ${motiviManuali.join("; ")}`}
+                        </div>
                       )}
                     </td>
                     <td>

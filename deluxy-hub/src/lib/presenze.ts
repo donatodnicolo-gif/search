@@ -30,6 +30,9 @@ export type Giornata = {
   aperto: boolean;
   turni: Turno[];
   conManuali: boolean; // almeno una riga inserita a mano, non timbrata
+  // Le motivazioni delle righe a mano (obbligatorie per i giorni passati):
+  // l'obbligo serve a chi controlla, quindi vanno mostrate, non solo salvate.
+  motivi: string[];
 };
 
 export type AssenzaRiga = {
@@ -109,6 +112,11 @@ export async function riepilogoMese(mese: string, adesso: Date = new Date()): Pr
           aperto: calcolo.aperto,
           turni: turniDelGiorno(marcature),
           conManuali: marcature.some((m) => m.origine === "manuale"),
+          motivi: [
+            ...new Set(
+              marcature.filter((m) => m.origine === "manuale" && m.note).map((m) => m.note),
+            ),
+          ],
         };
       });
 
@@ -214,7 +222,9 @@ export function rapportoPresenze(
     for (const g of [...p.giornate].reverse()) {
       righeTesto.push(
         `  ${dataBreve(g.data)}  ${turniInRiga(g)}  ${ore(g.minuti)}` +
-          (g.conManuali ? "  [righe inserite a mano]" : "") +
+          (g.conManuali
+            ? `  [righe inserite a mano${g.motivi.length ? `: ${g.motivi.join("; ")}` : ""}]`
+            : "") +
           (g.aperto ? "  [turno aperto]" : ""),
       );
     }
@@ -277,7 +287,9 @@ export function rapportoPresenze(
             (g) => `<tr>
             <td ${td}>${esc(dataBreve(g.data))}${
               g.conManuali
-                ? '<br><span style="color:#8e8e93;font-size:11.5px">righe inserite a mano</span>'
+                ? `<br><span style="color:#8e8e93;font-size:11.5px">righe inserite a mano${
+                    g.motivi.length ? `: ${esc(g.motivi.join("; "))}` : ""
+                  }</span>`
                 : ""
             }</td>
             <td ${td}>${esc(turniInRiga(g))}</td>

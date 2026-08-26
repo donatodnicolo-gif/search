@@ -156,8 +156,10 @@ Cosa ci si fa:
   click ravvicinati non aprono due turni.
 - **Registrare una giornata a mano** (dimenticanza, cliente in sede): resta
   marcata `origine: "manuale"`, e nel riepilogo del mese si legge «contiene righe
-  inserite a mano». Una timbratura non si modifica e non si cancella: le
-  correzioni si aggiungono.
+  inserite a mano», con le motivazioni accanto. Si può registrare anche un
+  **giorno passato** (timbratura arretrata), ma allora la **motivazione è
+  obbligatoria** — la pretende la server action, non solo il form. Una
+  timbratura non si modifica e non si cancella: le correzioni si aggiungono.
 - **Chiedere ferie, permessi e trasferte**: nascono `in-attesa` e le decide un
   admin da `/cartellino/gestione`, con una nota che chi ha chiesto rivede sul
   proprio cartellino. Finché nessuno ha risposto si possono ritirare.
