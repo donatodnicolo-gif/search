@@ -456,10 +456,13 @@ export function serializzaOrdine(
       primoMargine: o.primoMargine,
       feeVendita: o.feeVendita,
       margineFinale: o.margineFinale,
-      // L'incasso come lo conosce la piattaforma: metodo di pagamento e
-      // commissione stimata dalla tariffa (zero per il contante).
+      // L'INCASSO. Il metodo arriva dalla piattaforma; la commissione dal
+      // 26/08 e' NOSTRA: 'shopify' = fee reale dalle transazioni, 'tariffa' =
+      // listino TariffaIncasso. Chi legge deve sapere quanto fidarsi, quindi
+      // la firma esce insieme al numero.
       metodoIncasso: o.metodoIncasso,
       commissioneIncassi: o.commissioneIncassi,
+      commissioneDa: o.commissioneDa || null,
       nota: o.controlloNota,
     },
     // Lo stato di LAVORAZIONE secondo il Customer Service (deluxy-messaging), che
