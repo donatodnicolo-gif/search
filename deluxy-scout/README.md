@@ -403,3 +403,76 @@ in mano.
 
 Il nome del **negozio** non si tocca da qui: appartiene alla sua scheda, e
 riscriverlo sull'ordine farebbe due nomi diversi per la stessa attività.
+
+## Correzioni del 27/08/2026 (revisione ostile)
+
+Passata di correzione su tutta l'app. Il metodo conta quanto il risultato:
+ogni difetto è stato prima **cercato** leggendo il codice, poi **sottoposto a
+un revisore ostile** con il mandato di demolirlo — non di confermarlo — e
+corretto solo se sopravviveva. Tre segnalazioni sono cadute lì, e non sono
+state toccate:
+
+| Accusa caduta | Perché era falsa |
+| --- | --- |
+| Il clic sulla «×» risale al Pressable genitore | `react-native-web` ferma la propagazione da sé; la prova sta nell'app (il foglio che non si chiude toccandolo si regge su quel meccanismo) |
+| `upsert_partner` manda `nome: null` e cancella il nome | Il registro lo rifiuta con un 400 esplicito, e nessun chiamante può produrlo (`places.nome` è NOT NULL) |
+| `richieste_cliente.owner on delete cascade` fa sparire le richieste | Le FK NO ACTION di visite/trattative/ordini bloccano prima la cancellazione dell'utente |
+| Il `google_place_id` perso unendo due doppioni | L'indice unico impone comunque che uno dei due resti libero: il «rimedio» spostava il problema, non lo toglieva |
+
+### Le due regole che erano ricopiate, e sbagliate
+
+**Gli importi.** «1.500,50» era letto in cinque schermate con cinque copie
+della stessa riga, e tre erano sbagliate in due direzioni opposte: Pagamenti
+teneva il punto per decimale (una richiesta di pagamento da 1.500 € partiva al
+cliente per **1,50 €**; un incasso registrato così lasciava la richiesta
+«parziale»; «1.500,50» dava 0 e **azzerava** un incasso già scritto),
+Trattative toglieva punto e virgola (**×10 o ×100**, e bastava riaprire e
+salvare, perché il campo si precompila col numero del database), Preventivi
+buttava il prezzo in silenzio se non era un numero puro. Ora sta in
+[lib/importi.ts](lib/importi.ts), con i test. **Chi non capisce non inventa:
+torna `null`, non `0`.**
+
+**I giorni.** `toISOString().slice(0,10)` non è oggi: è oggi a Greenwich. Fra
+mezzanotte e le due il chip «Oggi» scriveva **ieri**. Ora sta in
+[lib/giorni.ts](lib/giorni.ts).
+
+### Cosa spariva senza dirlo
+
+- **Le trattative annullate** rientravano da sette porte su otto: il cestino
+  non cambia la fase. La cestinata gonfiava la pipeline e — la più grave —
+  faceva risultare il negozio «già in pipeline», togliendolo **sia** dalla coda
+  richiami **sia** da «visite da lavorare»: usciva da entrambe le liste e non lo
+  lavorava più nessuno.
+- **Il tetto delle mille righe, quarta volta**: rubrica, recapiti e id già presi
+  dal registro. I recapiti non avevano nemmeno l'ordinamento, quindi i bottoni
+  Chiama/WhatsApp erano spenti **a caso** — impossibile da riprodurre.
+- **La coda offline duplicava le visite**: se falliva l'ultimo passo (sync
+  HubSpot) ripartiva tutto, e `inserisciVisita` non è idempotente. Una copia e
+  una foto in più a ogni tentativo, in silenzio.
+- **La ricerca negozi moriva su una virgola**: dentro un `or()` PostgREST la
+  virgola separa le condizioni. «Rossi, Milano» dava 400 e il typeahead mostrava
+  zero negozi senza dire niente — e chi non trova, crea un doppione. Il termine
+  spesso non lo digita una persona: lo precompila un nome di mittente.
+- **Le sequenze** sceglievano il passo per posizione: cancellandone uno, chi era
+  a metà ne saltava uno e chi era in fondo restava «attiva» per sempre.
+- **Il filtro città** prendeva per Milano «MILANO MARITTIMA» (Ravenna) e per
+  Roma «ROMANO DI LOMBARDIA». Non è un'etichetta: filtra le basi dei KPI.
+
+### Le due cose serie
+
+**L'azione `corpo` della Edge `mail`** leggeva da una cassetta *personale* con
+un id preso dal client e mai confrontato con niente: qualunque utente Scout
+autenticato poteva farsi dare il testo di **qualsiasi** messaggio di quella
+cassetta, anche mai importato e anche della posta inviata. Ora si legge prima
+dalla **propria** cassetta — che è anche quella in cui la ricerca ha trovato
+l'id, e prima non coincidevano — e da quella comune solo per un messaggio che
+Scout ha davvero importato.
+
+**`scripts/azzera-target.sql`** cancella in produzione, e il suo predicato
+«nessuna traccia di lavoro» era quello di luglio: non conosceva
+`contatti_avviati`, `sequenza_iscrizioni` e `bozze_visita`, tutte in cascade su
+`places`. Un negozio a cui era già partita una mail di sequenza veniva
+cancellato insieme alla sua storia, **irreversibilmente**. E la «prova a vuoto»
+prescritta prima del delete usava lo stesso predicato: confermava il numero
+sbagliato ed era muta proprio sul danno. Ora il conteggio dichiara quanto
+lavoro sparirebbe, e su quelle tre righe deve leggere **zero**.
