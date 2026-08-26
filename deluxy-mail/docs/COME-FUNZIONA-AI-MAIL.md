@@ -460,6 +460,13 @@ centimetri da un totale già estratto nella stessa schermata. La **fase** è
 una tendina con gli stati veri di Scout (Primo contatto · In trattativa · Preventivo
 inviato · Chiusa vinta · Chiusa persa), e l'AI la propone leggendo lo scambio.
 
+**Se un'app è già stata usata su una mail, si vede subito.** In testa alla mail, accanto a
+«→ App», compare un pallino per ogni azione già richiamata da quel messaggio: verde con la
+spunta se è riuscita, grigio se non è stata mandata, rosso se ha dato errore — e il motivo
+si legge passandoci sopra. Premendolo si arriva alla scheda «Risposte dalle app» in fondo,
+dove c'è il racconto completo con i dati inviati. Serve a non rifare due volte lo stesso
+invio: prima l'esito stava solo in fondo alla pagina, e chi non scorreva non lo vedeva.
+
 **Registra il preventivo: il fornitore è chi manda il prezzo A NOI.** In una conversazione
 possono esserci due aziende diverse — il cliente che ci chiede un prezzo e il fornitore che
 ce lo fa — e la tabella ora lo dice: «Fornitore» è chi manda il prezzo a noi, mai il

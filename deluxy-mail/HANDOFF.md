@@ -23,6 +23,30 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 11) — «se un'app è stata usata specificalo»
+
+Chiesto guardando una mail aperta: si vede **«→ App»** e nient'altro, mentre il racconto
+degli invii («Risposte dalle app») sta **in fondo alla pagina**, sotto il corpo e sotto la
+conversazione. Chi non scorre fin lì non sa che il lavoro è già stato fatto — e lo rifà.
+È la stessa famiglia di [[trappola-comando-fuori-dalla-prima-schermata]], al contrario:
+non un comando che non si trova, ma un **esito** che non si trova.
+
+Ora accanto a «→ App» c'è un **pallino per ogni azione già richiamata da quella mail**,
+col tentativo **più recente** (`inviiApp` arriva ordinato dal più nuovo: vince il primo
+che si incontra per ogni `azioneId`), e il pallino porta alla scheda in fondo
+(`#risposte-app`).
+⚠️ **Dice anche quando è andata MALE**: verde «✓ Commerciale · Registra il preventivo»,
+grigio «· non mandato», rosso «· errore». *Usata* e *riuscita* non sono la stessa cosa, e
+un tentativo fallito nascosto fa rifare il lavoro credendo di farlo la prima volta — il
+motivo per esteso è nel `title` del pallino.
+
+⚠️ **Nota sul deploy**: il primo tentativo è tornato `{"status":"error","message":"Not
+authorized"}` con **exit 1**, e il secondo è andato. Se non si guarda l'esito del comando
+si racconta come pubblicato qualcosa che non lo è
+([[trappola-esito-comando-in-pipe]] è la parente stretta). Pubblicato davvero:
+`deluxy-mail-mtbclw8sb`, Ready.
+
+---
 ### 26/08 (sera 10) — il fornitore che era il cliente, e l'importo dell'ordine
 
 Aperta «Registra il preventivo» dal riquadro, l'utente vede: **Fornitore = HAVI** (che è
