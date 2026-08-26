@@ -47,10 +47,13 @@ export function avviaTabelleASchede(): void {
   const ripassa = () => {
     if (richiesto) return;
     richiesto = true;
-    requestAnimationFrame(() => {
+    // setTimeout, NON requestAnimationFrame: in un tab non a schermo i rAF
+    // non scattano e le tabelle resterebbero senza etichette fino al ritorno
+    // in primo piano (trappola già pagata nel QA col pannello in background).
+    setTimeout(() => {
       richiesto = false;
       etichettaTutte();
-    });
+    }, 0);
   };
   new MutationObserver(ripassa).observe(document.body, {
     childList: true,

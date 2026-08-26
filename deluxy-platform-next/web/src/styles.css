@@ -234,52 +234,54 @@ input.field {
    .table-wrap senza toccare le singole pagine.
    ============================================================ */
 @media (max-width: 800px) {
+  /* !important deliberato: gli stili scoped dei componenti (td[_ngcontent])
+     arrivano DOPO questo foglio e a parità di specificità vincerebbero
+     (nowrap, padding 12/16, text-align): questo blocco è il livello di
+     override mobile e deve vincere lui. */
   /* Il contenitore smette di essere una card: le card sono le righe. */
   .table-wrap,
   .card.table-wrap {
-    overflow-x: visible;
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
+    overflow-x: visible !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
   }
   .table-wrap table,
   .table-wrap tbody,
   .table-wrap tr,
   .table-wrap td {
-    display: block;
-    width: 100%;
+    display: block !important;
+    width: 100% !important;
   }
   .table-wrap thead {
-    display: none;
+    display: none !important;
   }
   .table-wrap tbody tr {
-    background: var(--surface);
-    border: 1px solid var(--hairline);
-    border-radius: var(--radius-m);
-    box-shadow: var(--shadow-card);
-    margin: 0 0 10px;
-    padding: 4px 14px;
-  }
-  .table-wrap tbody tr:hover {
-    background: var(--surface);
+    background: var(--surface) !important;
+    border: 1px solid var(--hairline) !important;
+    border-radius: var(--radius-m) !important;
+    box-shadow: var(--shadow-card) !important;
+    margin: 0 0 10px !important;
+    padding: 4px 14px !important;
   }
   /* Cella = riga etichetta/valore della scheda. */
   .table-wrap td {
-    display: flex;
+    display: flex !important;
     justify-content: space-between;
     align-items: baseline;
     flex-wrap: wrap;
     gap: 4px 12px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--hairline);
-    white-space: normal;
-    text-align: right;
+    padding: 8px 0 !important;
+    border-bottom: 1px solid var(--hairline) !important;
+    white-space: normal !important;
+    text-align: right !important;
     overflow-wrap: anywhere;
+    max-width: none !important;
   }
   .table-wrap tr:last-child td,
   .table-wrap td:last-child {
-    border-bottom: none;
+    border-bottom: none !important;
   }
   .table-wrap td::before {
     content: attr(data-label);
@@ -297,13 +299,13 @@ input.field {
   }
   .table-wrap td[data-label=''],
   .table-wrap td:not([data-label]) {
-    display: block;
-    text-align: left;
+    display: block !important;
+    text-align: left !important;
   }
   /* Le sotto-tabelle dentro una riga espansa restano schede annidate,
      senza doppio bordo. */
   .table-wrap table table tr {
-    box-shadow: none;
+    box-shadow: none !important;
   }
 
   /* Intestazioni di pagina e paginazione: a capo, senza overflow. */

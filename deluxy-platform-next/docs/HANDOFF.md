@@ -418,7 +418,11 @@ Meccanismo GLOBALE, nessuna delle ~27 liste riscritta:
   legge i `<th>` gia renderizzati (quindi GIA TRADOTTI, senza lo span
   dell ordinamento) e scrive `data-label` su ogni `td` della colonna;
   MutationObserver su childList (scrivere un attributo non lo risveglia:
-  niente cicli) con ripasso in requestAnimationFrame.
+  niente cicli) con ripasso in setTimeout — NON requestAnimationFrame, che in
+  un tab non a schermo non scatta mai (trappola del QA in background). ⚠️ Il
+  blocco CSS mobile usa !important di proposito: gli stili scoped dei
+  componenti arrivano dopo styles.css e a parità di specificità vincerebbero
+  (misurato: nowrap e padding del componente sopravvivevano).
 - Le `table.mini` dei dettagli restano tabelle (chiave/valore, gia strette).
 
 ### ⭐ 27/08 (notte, 12) — La RITENUTA entra nel costo consegna (Finanza + Orders)
