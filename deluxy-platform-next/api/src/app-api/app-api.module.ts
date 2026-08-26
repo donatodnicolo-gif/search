@@ -298,22 +298,27 @@ export class AppApiService {
     const conPiva = new Set<string>();
 
     let nonConsegnateTenute = 0;
-    let nonConsegnateScartate = 0;
+    // Resta a zero da quando **tutte** le non consegnate si pagano (27/08 sera).
+    // Si tiene perché chi legge la risposta non deve indovinare se lo zero vuol
+    // dire «nessuna scartata» o «campo sparito».
+    const nonConsegnateScartate = 0;
 
     for (const d of consegne) {
-      // ⭐ UNA CONSEGNA NON ANDATA SI PAGA SOLO SE IL SERVIZIO È A ORA
-      // (decisione dell'utente del 27/08, caso 62372: l'ora è stata lavorata
-      // comunque). È la stessa regola di `nonConsegnataPagabile` negli
-      // stipendi. ⚠️ Lì il modello di prezzo si prende prima dal LISTINO del
-      // valet e solo dopo dal servizio della consegna; qui si guarda il
-      // servizio, perché scegliere il listino vuol dire rifare mezza logica
-      // degli stipendi e due copie della stessa regola divergono sempre. La
-      // differenza vive solo sulle non consegnate — nel 2026 sono 194 righe per
-      // 1.311 € — e il conto qui sotto la dichiara invece di nasconderla.
-      if (d.status === 'not_delivered' && d.serviceType?.pricingModel !== 'A_ORA') {
-        nonConsegnateScartate++;
-        continue;
-      }
+      // ⭐⭐ **ANCHE LE NON CONSEGNATE SI PAGANO** (decisione dell'utente del
+      // 27/08/2026 sera, che allarga quella del mattino). Per qualche ora qui
+      // e negli stipendi valeva la regola stretta — si pagava solo il servizio
+      // A ORA, perché «l'ora è stata lavorata» — e teneva fuori 184 consegne
+      // per 1.201 € sul 2026. Ora entrano tutte: il valet il viaggio l'ha
+      // fatto comunque, e una consegna non riuscita non è colpa sua.
+      //
+      // ⚠️ Non si toglie il ramo, si dichiara: `nonConsegnateTenute` dice
+      // quante non consegnate sono dentro questo costo. Un numero che nessuno
+      // conta è un numero che il giorno che la regola cambia di nuovo non si
+      // riesce a confrontare con quello di prima.
+      //
+      // ⚠️ Annullate e invalidate restano fuori, e non da qui: le esclude il
+      // filtro sugli stati della query. Una consegna non riuscita è un viaggio
+      // fatto; una annullata è un viaggio mai partito.
       if (d.status === 'not_delivered') nonConsegnateTenute++;
       const paga =
         d.payable === false

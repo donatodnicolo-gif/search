@@ -115,17 +115,31 @@ export function giriPerDdt(
 }
 
 /**
- * ⭐ 27/08 (deciso dall'utente, caso 62372): una consegna NON CONSEGNATA resta
- * pagabile SOLO se il servizio del VALET e' a ora — l'ora e' stata lavorata
- * anche se la consegna non e' andata. Le altre non consegnate restano fuori.
+ * ⭐⭐ 27/08/2026 (SECONDA decisione dell'utente, la stessa giornata): **ANCHE
+ * LE NON CONSEGNATE SI PAGANO**, tutte, non solo quelle a ora.
+ *
+ * La mattina la regola era: una consegna non andata si paga solo se il
+ * servizio del valet e' A ORA (caso 62372, «l'ora e' stata lavorata»). La sera
+ * l'utente l'ha allargata — «ANCHE LE NON CONSEGNATE SI PAGANO» — e ha
+ * ragione sul merito: il valet il viaggio l'ha fatto comunque, e se la
+ * consegna non e' andata a buon fine non e' colpa sua. Non pagarla vorrebbe
+ * dire far pagare a lui un tentativo che gli abbiamo chiesto noi.
+ *
+ * ⚠️ La funzione resta, e non e' un residuo: e' il punto unico in cui la
+ * regola vive. La usano gli stipendi (due volte), il recap del valet e — con
+ * la stessa forma — il costo consegne pubblicato a Budgets. Cambiarla qui le
+ * cambia tutte; cancellarla farebbe rinascere la regola sparsa in quattro
+ * posti, che e' come ci si e' arrivati la prima volta.
+ *
+ * ⚠️ Restano fuori dagli stipendi le consegne **annullate** e **invalidate**:
+ * quelle non sono un viaggio non riuscito, sono un viaggio mai fatto. Il
+ * filtro e' altrove (`DA_PAGARE.status`), e li' non si tocca niente.
  */
 export function nonConsegnataPagabile(
-  d: { status?: string | null; serviceType?: { pricingModel?: string | null } | null },
-  listino: ListinoValet,
+  _d: { status?: string | null; serviceType?: { pricingModel?: string | null } | null },
+  _listino: ListinoValet,
 ): boolean {
-  if (d.status !== 'not_delivered') return true;
-  const modello = listino?.serviceType?.pricingModel ?? d.serviceType?.pricingModel ?? '';
-  return modello === 'A_ORA';
+  return true;
 }
 
 export type RegolaPaga = {
