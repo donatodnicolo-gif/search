@@ -85,6 +85,69 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### ⭐⭐⭐ 26/08/2026 (sera, 5) — LE RICEVUTE FIRMATE SI POSSONO LEGGERE, e dicono la verità
+
+Chiesto dall'utente («ricontrolla tutto il database per capire il vero valore
+di Omini»). ⭐ **La scoperta di metodo**: i PDF delle ricevute del legacy sono
+**scaricabili** — l'URL sta in `legacy/tabelle/expert-receipts.csv`
+(`toReceipt`, host `app.deluxy.it`) e `pdftotext -layout` (già installato in
+`/mingw64/bin`) li legge. **302 ricevute** con documento. Non serve piu'
+dedurre: si legge.
+
+**① La formula della ricevuta, verificata su 8 documenti veri** (Omini, i due
+Kurihara, e altri cinque): dato `T` = la paga scritta sulle consegne del
+periodo,
+```
+rimborso spese  = quota di T (non imponibile)
+netto compenso  = T − rimborso
+corrispettivo lordo = netto ÷ 0,8      (gross-up)
+ritenuta 20% del lordo = netto × 25%   ← la versa Deluxy, in piu'
+Totale bonifico = netto + rimborso = T (il valet riceve il pieno)
+```
+👉 **La forma della formula nel nostro codice è GIUSTA** (`paga × (1 − %) ×
+25%`): quello che sbaglia è solo la percentuale.
+
+**② Omini: il vero valore è 20%, non 0.** La sua ricevuta n. 9 del 04/07/2025
+dice: somma lorda 207,83 · rimborso 41,57 · ritenuta 41,57 · netto 166,26 ·
+bonifico 207,83. E le sue consegne dal 01/06 al 04/07/2025 sommano
+**esattamente 207,83 €** — quindi la paga scritta sulle consegne È il bonifico,
+e la quota di rimborso è **41,57 / 207,83 = 20,0%**. Col nostro 0% calcoliamo
+51,96 € invece di 41,57: **+25%**. Nel legacy il suo `holdingPercentage` è
+**NULL** (come per 223 valet su 285), non uno zero.
+🔴 Decisione: portare a 20% i valet il cui legacy dice NULL? Effetto sulla
+stima: la ritenuta del gruppo «0%» passa da **14.986,90 € a 11.989,52 €**.
+
+**③ ⚠️ Ma la % della scheda NON è quella applicata davvero.** Misurato sulle
+ricevute: Yoshio Kurihara (scheda 60) ha rimborsi al **20,7% · 44,0% · 67,9%**
+su tre ricevute; Kiyomi Kurihara (scheda 50) al **67,6% e 60,4%**. Il legacy
+applicava le spese VERE del periodo, la scheda è solo un default. Quindi
+qualunque numero mettiamo resta una **stima dichiarata**, non il vero.
+
+**④ Allineata la spinta all'ambito della Finanza** (chiesto: «allinea tutto»):
+`spingiMargini` e i due script filtrano ora `pricingModel = VENDITA`. Erano 43
+consegne per 706,23 € che andavano a Orders senza entrare nel margine.
+
+**⑤ Approvate TUTTE le ore rimaste**: 425 consegne (non 420 — cinque avevano
+`approvedTimingStatus` NULL e **sfuggivano al filtro `NOT = '1'`**, perche' in
+SQL un NULL non soddisfa una disuguaglianza), **7.185,88 €**. In `approved`
+adesso 1.258; zero rimaste in attesa. ⚠️ 176 erano gia' `paymentStatus = paid`:
+non rientrano negli stipendi (la query li esclude), quindi nessun doppio
+pagamento.
+
+**⑥ 🔴 Il PLUS sopra i 5 € e le EXTRA-URBANE: la domanda non è ancora
+rispondibile con i flag.** `extraOutOfCity` e `extraKm` sono **ZERO su tutte le
+54.578 consegne a buon fine** — mai popolati: rispondere «non ci sono casi
+extra-urbani» sarebbe leggere un campo vuoto come una risposta. L'unico segnale
+vero è `distanceKm` (valorizzato su 26.792): **87 vendite oltre 15 km con plus
+> 5 €**, e fra queste ce ne sono con **paga 0,00 e il plus che È la paga della
+trasferta** — #36775 (46,54 km, plus 48,00), #36415 (44,16 km, plus 44,00),
+#35394 (53,32 km, plus 47,00), #36405 (52,21 km, plus 40,00). Togliere il plus
+sopra i 5 € le farebbe costare **zero**: lo stesso errore appena corretto col
+minus. Regola NON applicata, in attesa della decisione.
+Numeri per decidere: 672 vendite con plus > 5 € per **12.651,10 €**; togliendo
+solo la parte eccedente i 5 € il costo cala di 9.291,10 €, togliendo il plus
+intero di 12.651,10 €.
+
 ### ⭐ 26/08/2026 (sera, 4) — Il NULL travestito da 0%, e il canale Scout non c'è
 
 Verifiche chieste dall'utente, tutte misurate sul database di produzione.
