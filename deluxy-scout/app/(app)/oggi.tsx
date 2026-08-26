@@ -27,6 +27,7 @@ import {
   type TrattativaConLuogo,
 } from '@/lib/db';
 import { daRicontattare, placeIdConTrattativaAperta, type Richiamo } from '@/lib/metrics';
+import { giorniDaOggi } from '@/lib/statoVisita';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
 import type { Lead } from '@/types';
 import { avvisa, conferma } from '@/lib/dialoghi';
@@ -53,8 +54,10 @@ type RigaDettaglio = { id: string; nome: string; meta: string; valore?: string; 
  * scelti nessuno, sono il magazzino. Quelli scelti da una persona erano **28**.
  * Un giro di un giorno non è 803 negozi, e un numero che nessuno può fare non è
  * un obiettivo: è rumore che fa smettere di guardare la Home.
+ *
+ * (Il tetto di 10 è morto il 25/08/2026 insieme al riempimento automatico:
+ * ora il giro è SOLO ciò che è stato pianificato per il giorno.)
  */
-const TETTO_GIRO = 10;
 
 const LABEL_ESITO: Record<string, string> = {
   interessato: 'Interessato',
@@ -274,28 +277,25 @@ export default function Oggi() {
   }, [dettaglio, visite7g, chiamate7g, aperteMie, nomiPlace]);
 
   /**
-   * Il giro di oggi, in ordine di diritto a starci:
-   *   1. chi ha una visita **pianificata** per oggi (o in ritardo): è un impegno
-   *      preso, e non si taglia mai — anche se sono più del tetto;
-   *   2. chi è stato **scelto da una persona** (`creato_da`), cioè la ⭐ messa a
-   *      mano o il negozio creato sul posto;
-   *   3. il resto per priorità, fino al tetto.
-   * Quello che resta fuori non sparisce: sta sulla Mappa, e la nota sotto al
-   * titolo dice quanti sono. Un taglio taciuto si legge come «non c'è altro».
+   * Il giro di oggi: SOLO chi ha una visita **pianificata** per oggi o nei
+   * giorni scorsi mai chiusa (impegno preso e saltato: sparirlo in silenzio
+   * nasconderebbe il buco).
+   *
+   * ⚠️ Prima la sezione si RIEMPIVA DA SOLA col magazzino degli stellati
+   * (scelti a mano, poi per priorità, fino a un tetto di 10): ogni mattina
+   * compariva «un giro» che nessuno aveva deciso — un giro vecchio, sempre
+   * uguale (segnalato dall'utente il 25/08/2026). I giri sono del GIORNO: se
+   * oggi non è stato impostato come giorno di giro, qui non c'è niente, e la
+   * sezione non si monta. Gli stellati non spariscono: stanno sulla Mappa e
+   * nei Selezionati, e il giro si imposta da lì con «Pianifica la visita».
    */
-  const giroOggi = useMemo(() => {
-    const impegni = giro.filter((p) => p.visita_pianificata && p.visita_pianificata <= oggi);
-    const restanti = giro.filter((p) => !(p.visita_pianificata && p.visita_pianificata <= oggi));
-    const peso = (p: Place) => (p.creato_da ? 0 : 1);
-    const perPriorita = { P1: 0, P2: 1, P3: 2 } as Record<string, number>;
-    restanti.sort(
-      (a, b) =>
-        peso(a) - peso(b) ||
-        (perPriorita[a.priorita] ?? 9) - (perPriorita[b.priorita] ?? 9) ||
-        a.nome.localeCompare(b.nome),
-    );
-    return [...impegni, ...restanti.slice(0, Math.max(0, TETTO_GIRO - impegni.length))];
-  }, [giro, oggi]);
+  const giroOggi = useMemo(
+    () =>
+      giro
+        .filter((p) => p.visita_pianificata && p.visita_pianificata <= oggi)
+        .sort((a, b) => (a.visita_pianificata! < b.visita_pianificata! ? -1 : 1)),
+    [giro, oggi],
+  );
 
   const richiamiOrdinati = useMemo(
     () => [...richiami].sort((a, b) => Number(b.inRitardo) - Number(a.inRitardo) || b.giorni - a.giorni),
@@ -397,28 +397,39 @@ export default function Oggi() {
         })}
       </Canale>
 
-      {/* 1a. TERRITORIO — il giro di oggi */}
-      <Canale
-        icona="walk-outline"
-        titolo="Territorio — il giro di oggi"
-        conteggio={giroOggi.length}
-        nota={
-          giro.length > giroOggi.length
-            ? `${giroOggi.length} di ${giro.length} selezionati — gli altri restano sulla Mappa`
-            : undefined
-        }
-        cta={giro.length ? 'Apri la Mappa e parti' : 'Scopri negozi sulla Mappa'}
-        onCta={() => router.push('/(app)/mappa')}
-        vuoto={loading ? 'Caricamento…' : 'Nessuna tappa selezionata: scegli i negozi con la ⭐ dalla Mappa.'}
-      >
-        {giroOggi.slice(0, 5).map((p) => (
-          <Pressable key={p.id} style={styles.riga} onPress={() => router.push(`/(app)/attivita/${p.id}`)}>
-            <Ionicons name="storefront-outline" size={16} color={colors.navy} />
-            <Text numberOfLines={3} style={styles.rigaTitolo}>{p.nome}</Text>
-            <Text style={styles.rigaMeta} numberOfLines={1}>{p.zona ?? p.indirizzo ?? ''}</Text>
-          </Pressable>
-        ))}
-      </Canale>
+      {/* 1a. TERRITORIO — il giro di oggi. SOLO se oggi è un giorno di giro
+          (una visita pianificata per oggi, o una dei giorni scorsi mai
+          chiusa): senza, la sezione non si monta — prima si riempiva da sola
+          col magazzino degli stellati e ogni mattina mostrava un giro vecchio
+          che nessuno aveva deciso. */}
+      {giroOggi.length ? (
+        <Canale
+          icona="walk-outline"
+          titolo="Territorio — il giro di oggi"
+          conteggio={giroOggi.length}
+          nota={giro.length ? `${giro.length} selezionati sulla Mappa: il giro si pianifica da lì` : undefined}
+          cta="Apri la Mappa e parti"
+          onCta={() => router.push('/(app)/mappa')}
+          vuoto=""
+        >
+          {giroOggi.slice(0, 8).map((p) => {
+            const fra = giorniDaOggi(p.visita_pianificata);
+            const inRitardo = fra !== null && fra < 0;
+            return (
+              <Pressable key={p.id} style={styles.riga} onPress={() => router.push(`/(app)/attivita/${p.id}`)}>
+                <Ionicons name="storefront-outline" size={16} color={inRitardo ? colors.errore : colors.navy} />
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={3} style={styles.rigaTitolo}>{p.nome}</Text>
+                  <Text style={styles.rigaSotto} numberOfLines={1}>{p.zona ?? p.indirizzo ?? ''}</Text>
+                </View>
+                <Text style={[styles.rigaMeta, inRitardo && styles.ritardo]}>
+                  {inRitardo ? `saltata · ${-fra!} g fa` : 'oggi'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </Canale>
+      ) : null}
 
       {/* 1b. TELEFONO — chi chiamo oggi */}
       <Canale
