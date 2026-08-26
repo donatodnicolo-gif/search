@@ -583,10 +583,32 @@ consegna», e sulla scheda in bacheca compare il bollino verde **pagato**.
 ⚠️ Segnalato dall'utente: un ordine col bonifico già fatto continuava a dire «In
 pagamento», cioè lo stato di quando lo si *stava* pagando.
 
-⚠️ **Solo in avanti**, e solo da `in_pagamento`: da uno stato più avanti non si
-torna indietro, e da uno più indietro non si salta. E togliendo il segno
-«pagata» l'ordine **non** torna indietro — era forse stato spostato a mano da
-qualcuno, e disfare un clic non deve cancellare la decisione di una persona.
+⚠️ **Da qualunque stato indietro**, non solo da «in pagamento»: da iniziare,
+ricerca fornitore, in pagamento, **comunicazione con cliente**. Chiesto
+dall'utente il 26/08/2026 — «se è pagato in automatico metti in attesa di
+consegna» — sull'ordine #2799: pagato il 25/08, il giorno dopo diceva ancora
+«Comunicazione con cliente». Quello stato l'app **se lo scrive da sola** quando
+qualcuno preme WhatsApp, Email o Chiama: bastava una telefonata al cliente perché
+il pagamento non spostasse più niente.
+
+⚠️ **Solo in avanti.** Restano fermi **«attesa consegna»** (è la destinazione),
+**«gestito»** (è la fine: un automatismo non riapre un ordine che una persona ha
+chiuso) e **«In App»** (non dice a che punto siamo, dice che se ne sta occupando
+la piattaforma consegne — scriverci sopra toglierebbe dalla bacheca l'unico
+segnale che dice «non cercare un fornitore a mano»).
+
+⚠️ E togliendo il segno «pagata» l'ordine **non** torna indietro — era forse
+stato spostato a mano da qualcuno, e disfare un clic non deve cancellare la
+decisione di una persona.
+
+⚠️ Lo spostamento porta anche **il nome di chi ha premuto «Pagata»**: l'etichetta
+a schermo dice «segnato da …», e lasciarci il nome di chi aveva messo lo stato
+precedente con la data di adesso racconterebbe una cosa mai successa.
+
+⚠️ **Gli ordini pagati PRIMA di questa regola non si sistemano da soli**: li ha
+allineati una volta sola `scripts/allinea-pagati-attesa-consegna.mjs` (5 ordini
+il 26/08/2026 — #2778, #2780, #2783, #2785, #2799). Lo script si rilancia senza
+argomenti per vedere se ne sono rimasti indietro altri.
 
 ### ⚠️ «Email» nella riga della tabella non faceva niente (corretto il 25/08/2026)
 

@@ -172,6 +172,31 @@ export function stessaIdentita(intestatario: string, nomeRegistro: string): bool
  */
 export const STATI_IMPOSSIBILI_SE_PAGATO = ['da_gestire', 'ricerca_fornitore', 'comunicazione']
 
+/**
+ * Gli stati da cui un ordine ESCE DA SOLO quando il fornitore risulta pagato,
+ * per finire in «attesa consegna».
+ *
+ * Chiesto dall'utente il 26/08/2026: «se è pagato in automatico metti in attesa
+ * di consegna». Prima si spostavano solo quelli in `in_pagamento`, e bastava che
+ * qualcuno avesse scritto al cliente — l'app scrive `comunicazione` da sé quando
+ * si preme WhatsApp, Email o Chiama — perché il pagamento non spostasse più
+ * niente: l'ordine #2799, pagato il 25/08, era ancora «Comunicazione con
+ * cliente» il giorno dopo.
+ *
+ * ⚠️ `attesa_consegna` non c'è perché è la destinazione. `gestito` non c'è
+ * perché è la FINE: riaprirlo vorrebbe dire rimettere in bacheca un ordine che
+ * qualcuno aveva chiuso, e disfare con un automatismo la decisione di una
+ * persona è il verso sbagliato.
+ *
+ * ⚠️⚠️ `in_app` non c'è, e non è una dimenticanza: quello stato non dice a che
+ * punto siamo, dice CHI se ne sta occupando — la piattaforma consegne, che l'ha
+ * proposto a un partner. Scriverci sopra «attesa consegna» toglierebbe dalla
+ * bacheca l'unico segnale che dice «non cercare un fornitore a mano», e la
+ * sincronizzazione lo rimetterebbe `in_app` al giro dopo: un'altalena che non
+ * aggiunge niente.
+ */
+export const STATI_DA_SPOSTARE_SE_PAGATO = [...STATI_IMPOSSIBILI_SE_PAGATO, 'in_pagamento']
+
 export function decidi(d: DaRiconciliare): Riga {
   const o = d.ordine
   const margine =

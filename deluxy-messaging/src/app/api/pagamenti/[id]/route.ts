@@ -4,6 +4,7 @@ import { utenteCorrente } from '@/lib/sessione'
 import { verificaIban } from '@/lib/iban'
 import { avvisaFornitorePagato } from '@/lib/avvisa-pagamento'
 import { riconciliaDaPagamento, type EsitoRiconciliazione } from '@/lib/riconcilia'
+import { STATI_DA_SPOSTARE_SE_PAGATO } from '@/lib/riconciliazione'
 import {
   segnalaFornitorePagatoAlRegistro,
   type EsitoRegistroFornitore,
@@ -103,19 +104,45 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     // dire «In pagamento», cioè lo stato di quando lo si stava pagando. Quel
     // passo è finito, e il successivo nel loro flusso è «attesa consegna».
     //
-    // ⚠️ SOLO da `in_pagamento`, e quindi solo in avanti. Da uno stato più
-    // avanti non si torna indietro, e da uno più indietro non si salta: se
-    // l'ordine è ancora «da gestire» vuol dire che è successo qualcosa di
-    // diverso da quello che crediamo, e indovinare peggiorerebbe le cose.
+    // ⚠️⚠️ NON SOLO da `in_pagamento`. Chiesto dall'utente il 26/08/2026 — «se è
+    // pagato in automatico metti in attesa di consegna» — su un ordine reale,
+    // #2799: pagato il 25/08, il giorno dopo diceva ancora «Comunicazione con
+    // cliente». Quello stato l'app se lo scrive DA SOLA quando qualcuno preme
+    // WhatsApp, Email o Chiama: bastava una telefonata al cliente perché il
+    // pagamento non spostasse più niente, e l'ordine restasse in bacheca a
+    // chiedere lavoro a un collega su una cosa già chiusa.
+    //
+    // Gli stati sono in `STATI_DA_SPOSTARE_SE_PAGATO`: da iniziare, ricerca
+    // fornitore, in pagamento, comunicazione. Restano fuori `attesa_consegna`
+    // (è la destinazione), `gestito` (è la fine: un automatismo non riapre un
+    // ordine che una persona ha chiuso) e `in_app` (dice CHI se ne occupa — la
+    // piattaforma consegne — non a che punto siamo).
     //
     // ⚠️ Togliendo il segno «pagata» l'ordine NON torna indietro: era già stato
     // spostato a mano da qualcuno, forse, e riportarlo a «in pagamento»
     // cancellerebbe una decisione di una persona per disfare un clic.
+    //
+    // ⚠️ Il NUMERO com'è scritto e senza cancelletto: le richieste di pagamento
+    // lo salvano con il `#`, gli ordini pure — ma un giorno che così non fosse,
+    // un confronto esatto smetterebbe di trovare l'ordine SENZA dirlo a nessuno.
     if (pagata.ordineNumero) {
       try {
+        const nudo = pagata.ordineNumero.replace('#', '')
         await db.ordine.updateMany({
-          where: { numero: pagata.ordineNumero, gestione: 'in_pagamento' },
-          data: { gestione: 'attesa_consegna', gestioneIl: new Date() },
+          where: {
+            numero: { in: [nudo, `#${nudo}`] },
+            gestione: { in: STATI_DA_SPOSTARE_SE_PAGATO },
+          },
+          // ⚠️ Anche CHI: l'etichetta a schermo dice «segnato da …», e lasciarci
+          // il nome di chi aveva messo lo stato di prima con la data di adesso
+          // racconterebbe una cosa mai successa. L'ha causato chi ha premuto
+          // «Pagata».
+          data: {
+            gestione: 'attesa_consegna',
+            gestioneIl: new Date(),
+            gestioneDaId: io.id,
+            gestioneDaNome: io.nome,
+          },
         })
       } catch {
         // lo stato è un contorno: il pagamento resta registrato

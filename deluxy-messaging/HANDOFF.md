@@ -1,5 +1,57 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (12) — pagato = «attesa consegna», da solo (e i 5 rimasti indietro)
+
+Chiesto dall'utente su un ordine vero, **#2799** (Mya Mouzon, 250 €): «se è
+pagato in automatico metti in attesa di consegna». Sulla scheda si vedeva il
+bollino verde **pagato** e, accanto, lo stato **«Comunicazione con cliente»**.
+
+**Perché succedeva.** L'automatismo del 24/08 spostava l'ordine **solo** da
+`in_pagamento`. Ma `comunicazione` **l'app se lo scrive da sola** quando qualcuno
+preme WhatsApp, Email o Chiama: bastava una telefonata al cliente dopo aver
+chiesto il pagamento perché lo stato uscisse da `in_pagamento` e il pagamento non
+spostasse più niente. #2799 è esattamente questo: pagato il 25/08 alle 13:48,
+ancora «Comunicazione con cliente» il 26.
+
+**Adesso** si sposta da tutti e quattro gli stati indietro — da iniziare, ricerca
+fornitore, in pagamento, comunicazione — elencati in
+`STATI_DA_SPOSTARE_SE_PAGATO` (`src/lib/riconciliazione.ts`), accanto ai già
+esistenti `STATI_IMPOSSIBILI_SE_PAGATO` che usa il bottone a mano della
+Riconciliazione.
+
+⚠️ **Tre stati restano fermi, di proposito:**
+- `attesa_consegna` è la destinazione;
+- `gestito` è la **fine**: un automatismo non riapre un ordine che una persona ha
+  chiuso;
+- `in_app` **non dice a che punto siamo, dice CHI se ne sta occupando** (la
+  piattaforma consegne, che l'ha proposto a un partner). Scriverci sopra «attesa
+  consegna» toglierebbe dalla bacheca l'unico segnale che dice «non cercare un
+  fornitore a mano» — e la sincronizzazione lo rimetterebbe `in_app` al giro
+  dopo: un'altalena che non aggiunge niente.
+
+⚠️ Lo spostamento scrive anche **`gestioneDaNome`**: l'etichetta dice «segnato da
+…», e lasciare il nome di chi aveva messo lo stato di prima con la data di adesso
+racconta una cosa mai successa.
+
+⚠️ Il confronto sul numero adesso prova **entrambe le forme** (`2799` e `#2799`):
+oggi le richieste di pagamento lo salvano tutte col cancelletto — **verificato: 20
+su 20** — ma un confronto esatto che smette di trovare l'ordine non lo direbbe a
+nessuno.
+
+⚠️⚠️ **CORREGGERE IL CODICE NON CORREGGE QUELLO CHE IL CODICE VECCHIO HA GIÀ
+SCRITTO.** Misurati sul database: **20 richieste pagate**, e **5 ordini rimasti
+indietro** — #2778, #2780, #2783 (in pagamento), #2785 (da iniziare), #2799
+(comunicazione), tutti FLowers. Allineati una volta sola con
+`scripts/allinea-pagati-attesa-consegna.mjs --scrivi` (senza `--scrivi` dice solo
+cosa farebbe), attribuendo lo spostamento a **chi aveva pagato**. Ricontato dopo:
+**20 pagati = 11 attesa consegna + 9 gestito, zero fermi prima**.
+
+⚠️ Perché 4 dei 5 erano del 24/08: l'automatismo è nato quel giorno
+(`308b7c97`) e quei pagamenti erano stati segnati **prima** del rilascio. Non era
+rotto, era **troppo stretto**.
+
+Verifica: `npx tsc --noEmit` esito 0, `npm run build` esito 0.
+
 ## 26/08/2026 (11) — Bozze: «Tutte» di partenza, e dopo 7 giorni si annullano
 
 Due richieste dell'utente sulla sezione appena messa in cima a «Nuovo ordine».
