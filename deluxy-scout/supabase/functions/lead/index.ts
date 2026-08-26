@@ -78,8 +78,32 @@ Deno.serve(async (req) => {
         : q.esito === 'creato'
           ? 'Trattativa creata, con negozio e contatto nuovi.'
           : 'In coda di qualificazione.';
+    // L'esito del registro Anagrafiche si DICHIARA: chi chiama questa API
+    // (form del sito, AI Mail, automazioni) deve poter sapere se l'azienda è
+    // finita anche nel registro o è rimasta solo qui dentro.
+    const r = 'registro' in q ? q.registro : undefined;
+    const perIlRegistro = !r
+      ? ''
+      : r.esito === 'creato'
+        ? ' Anagrafica creata nel registro.'
+        : r.esito === 'merged'
+          ? ' Anagrafica già nel registro, aggiornata.'
+          : r.esito === 'gia_presente'
+            ? ' Anagrafica già nel registro.'
+            : r.ok
+              ? ' Scrittura accettata dal registro.'
+              : ` ⚠️ Registro Anagrafiche non aggiornato (${r.reason ?? 'motivo sconosciuto'}).`;
 
-    return json({ ok: true, id: (data as { id: string }).id, esito: q.esito, messaggio: `Lead «${nome}»: ${dettaglio}` }, 201);
+    return json(
+      {
+        ok: true,
+        id: (data as { id: string }).id,
+        esito: q.esito,
+        registro: r ?? null,
+        messaggio: `Lead «${nome}»: ${dettaglio}${perIlRegistro}`,
+      },
+      201,
+    );
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }

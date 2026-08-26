@@ -253,6 +253,21 @@ supabase functions deploy anagrafiche
 
 ## Richieste Web: qualificare crea anche l'anagrafica (26/08/2026)
 
+Vale per **tutte e due le qualifiche**, che dal 25/08 sono due:
+
+- **a mano**, dal bottone «Qualifica» (`lib/db.ts` → `qualificaLead`);
+- **da sola**, appena la richiesta arriva dalle Edge `lead` e `mail`
+  (`supabase/functions/_shared/autoqualifica.ts`). Lì il registro lo scrive il
+  server (`_shared/registro.ts`), con la stessa regola in tre passi, e i conti
+  tornano indietro nella risposta: `anagraficheCreate`, `anagraficheGiaPresenti`,
+  `anagraficheNonScritte` — che l'app mostra dopo «Importa da commerciale@».
+
+⚠️ Nell'auto-qualifica, quando chi scrive **non** è già in rubrica, il negozio
+nasce dai dati della richiesta e si chiama come la **persona** («Marco Banzi»):
+quell'anagrafica entra nel registro con quel nome. È la conseguenza voluta di
+«crea il lead anche in Anagrafiche», ma va saputa — il registro tiene le
+AZIENDE B2B, e i privati stanno in `Consumer`.
+
 Qualificare una richiesta (`/lead` → **Qualifica** → «A quale negozio
 appartiene?») fa tre cose, non più una:
 

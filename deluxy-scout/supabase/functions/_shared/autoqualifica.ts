@@ -23,11 +23,13 @@
 // deno-lint-ignore no-explicit-any
 type Admin = any;
 
+import { assicuraNegozioNelRegistro, type EsitoRegistro } from './registro.ts';
+
 const GIORNI_FOLLOWUP_LEAD = 3; // stessa cadenza web di lib/cadenze.ts
 
 export type EsitoAutoQualifica =
-  | { esito: 'agganciato'; dealId: string; placeId: string }
-  | { esito: 'creato'; dealId: string; placeId: string }
+  | { esito: 'agganciato'; dealId: string; placeId: string; registro?: EsitoRegistro }
+  | { esito: 'creato'; dealId: string; placeId: string; registro?: EsitoRegistro }
   | { esito: 'saltato'; motivo: string };
 
 /** Estrae persona/email/telefono dal testo della richiesta. */
@@ -152,7 +154,20 @@ export async function autoQualificaLead(
       })
       .eq('id', lead.id);
 
-    return { esito: creato ? 'creato' : 'agganciato', dealId: (deal as any).id as string, placeId: placeId! };
+    // 5) E IL NEGOZIO ENTRA NEL REGISTRO ANAGRAFICHE, se non c'è già — col
+    //    referente che ci ha scritto. Una richiesta qualificata è un'azienda
+    //    con cui stiamo trattando: fino a ieri restava solo dentro Scout, e il
+    //    registro delle anagrafiche B2B non ne sapeva niente. Stessa regola
+    //    della qualifica a mano (`assicuraNegozioNelRegistro`, lib/db.ts).
+    //
+    //    Best-effort e per ultimo: la trattativa è già salvata, e un registro
+    //    irraggiungibile non deve farla perdere. L'esito però torna a chi ha
+    //    chiamato — che lo scrive nella sua risposta — invece di sparire.
+    const registro = await assicuraNegozioNelRegistro(admin, placeId!, [
+      { nome: persona || lead.nome, email, telefono, ruolo: null },
+    ]);
+
+    return { esito: creato ? 'creato' : 'agganciato', dealId: (deal as any).id as string, placeId: placeId!, registro };
   } catch (e) {
     return { esito: 'saltato', motivo: String((e as any)?.message ?? e) };
   }

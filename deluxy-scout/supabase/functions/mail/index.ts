@@ -245,6 +245,9 @@ Deno.serve(async (req) => {
       let agganciati = 0; // trattativa su un contatto già in rubrica
       let creati = 0; // negozio+contatto creati dai dati della richiesta
       let nonQualificati = 0; // restati «nuovi» in coda (auto-qualifica fallita)
+      let anagraficheCreate = 0; // nate adesso nel registro Anagrafiche
+      let anagraficheGiaPresenti = 0; // c'erano già di là
+      let anagraficheNonScritte = 0; // il registro non le ha prese (motivo nei log)
       if (ids.length) {
         const { data: gia } = await admin.from('leads').select('mail_id').in('mail_id', ids);
         const noti = new Set((gia ?? []).map((r: any) => r.mail_id));
@@ -274,6 +277,15 @@ Deno.serve(async (req) => {
             if (r.esito === 'agganciato') agganciati++;
             else if (r.esito === 'creato') creati++;
             else nonQualificati++;
+            // Il registro Anagrafiche: quante anagrafiche sono NATE adesso,
+            // quante c'erano già, e quante non sono state scritte. Un conto
+            // che non si tiene è un esito che vive solo dentro una funzione.
+            const reg = 'registro' in r ? r.registro : undefined;
+            if (reg) {
+              if (!reg.ok) anagraficheNonScritte++;
+              else if (reg.esito === 'creato') anagraficheCreate++;
+              else anagraficheGiaPresenti++;
+            }
           }
         }
       }
@@ -292,6 +304,10 @@ Deno.serve(async (req) => {
         trattativeAgganciate: agganciati,
         trattativeConNegozioNuovo: creati,
         rimasteInCoda: nonQualificati,
+        // Il registro Anagrafiche: si dichiara come tutto il resto.
+        anagraficheCreate,
+        anagraficheGiaPresenti,
+        anagraficheNonScritte,
         scartate: scartateAuto.length + scartateInterne.length,
         automatiche: scartateAuto.length,
         interne: scartateInterne.length,

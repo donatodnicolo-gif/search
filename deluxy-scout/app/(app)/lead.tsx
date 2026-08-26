@@ -109,8 +109,20 @@ export default function LeadWeb() {
     if (importando) return;
     setImportando(true);
     try {
-      const { lette, importate, scartate, automatiche, interne, mittentiScartati, trattativeAgganciate, trattativeConNegozioNuovo, rimasteInCoda } =
-        await importaRichiesteDaMail();
+      const {
+        lette,
+        importate,
+        scartate,
+        automatiche,
+        interne,
+        mittentiScartati,
+        trattativeAgganciate,
+        trattativeConNegozioNuovo,
+        rimasteInCoda,
+        anagraficheCreate,
+        anagraficheGiaPresenti,
+        anagraficheNonScritte,
+      } = await importaRichiesteDaMail();
       await carica();
       // ⚠️ Il taglio si DICHIARA. Un import che dice «0 nuove» dopo aver letto
       // 30 mail sembra un guasto; e un filtro silenzioso che un giorno taglia
@@ -138,11 +150,25 @@ export default function LeadWeb() {
             .join(' · ')
         : '';
       const nate = trattativeAgganciate + trattativeConNegozioNuovo;
+      // Il registro Anagrafiche: quante anagrafiche sono nate, quante c'erano
+      // già, e — soprattutto — quante NON sono state scritte. L'ultimo numero
+      // è quello che conta: quei negozi restano solo in Scout, e chi domani li
+      // cerca nel registro non li trova.
+      const notaRegistro = [
+        anagraficheCreate ? `${anagraficheCreate} ${anagraficheCreate === 1 ? 'creata' : 'create'}` : '',
+        anagraficheGiaPresenti ? `${anagraficheGiaPresenti} già presenti` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
       avvisa(
         importate ? 'Richieste importate' : 'Nessuna nuova richiesta',
         (importate
           ? `${importate} nuove richieste dalla casella commerciale (su ${lette} mail lette).` +
             (nate ? `\n\nTrattative create in automatico: ${nate}${notaTrattative ? ` (${notaTrattative})` : ''}.` : '') +
+            (notaRegistro ? `\nRegistro Anagrafiche: ${notaRegistro}.` : '') +
+            (anagraficheNonScritte
+              ? `\n⚠️ ${anagraficheNonScritte} ${anagraficheNonScritte === 1 ? 'negozio non è entrato' : 'negozi non sono entrati'} nel registro Anagrafiche: ${anagraficheNonScritte === 1 ? 'resta' : 'restano'} solo in Scout.`
+              : '') +
             (rimasteInCoda ? `\n${rimasteInCoda} rimaste in coda da qualificare a mano.` : '')
           : `Nessuna mail nuova da importare: le ${lette} lette erano già in elenco o non sono richieste.`) + notaScarto,
       );
