@@ -1167,6 +1167,111 @@ const AZIONI: AzioneApp[] = [
     },
   },
   {
+    id: 'commerciale.richiestaCliente',
+    app: 'Commerciale',
+    nome: 'Apri richiesta cliente',
+    scrive: true,
+    // ⚠️ LA REGOLA DEL BINARIO (decisione dell'utente, 26/08/2026). Un cliente
+    // che abbiamo GIÀ e chiede una fornitura una tantum NON apre una
+    // trattativa: si evade alle condizioni note, e metterla in pipeline
+    // farebbe valere due volte la stessa vendita — una come trattativa e una
+    // come incasso. Va in «Richieste Clienti», dove si prezza e si trasforma
+    // in ordine. La trattativa resta per ciò che va NEGOZIATO.
+    dalRiassunto:
+      'un cliente che Deluxy ha GIÀ chiede una fornitura una tantum — un catering, delle composizioni, delle consegne per una data — alle condizioni che conosce, senza niente da negoziare. Se invece è un contatto NUOVO, oppure c’è un prezzo o un contratto da discutere, vale «Apri trattativa» e non questa.',
+    descrizione: 'Registra la richiesta saltuaria di un cliente esistente nel CRM commerciale.',
+    colore: 'green',
+    guida:
+      'La mail è la richiesta di un CLIENTE che abbiamo già. cliente = il nome dell’AZIENDA che chiede (non della persona che scrive). descrizione = cosa chiede, con le sue parole, in una o due righe. importo = il prezzo SOLO se è scritto, o calcolabile da prezzi e quantità scritti (mai inventato): se non c’è, null — si scrive dopo, quando lo si concorda. serveEntro = il giorno per cui serve, AAAA-MM-GG, solo se la mail lo dice; se il giorno è scritto senza anno, prendi l’anno dalla data della mail. nota = quello che serve ricordare (referente, vincoli, condizioni), se c’è.',
+    campi: [
+      {
+        nome: 'cliente',
+        etichetta: 'Cliente',
+        obbligatorio: true,
+        aiuto: 'Il nome dell’azienda: Commerciale lo cerca fra i suoi negozi e, se lo riconosce, aggancia la scheda.',
+      },
+      { nome: 'descrizione', etichetta: 'Cosa chiede', obbligatorio: true },
+      {
+        nome: 'importo',
+        etichetta: 'Importo concordato',
+        tipo: 'numero',
+        aiuto: 'Facoltativo: si lascia vuoto se il prezzo non è ancora stato fatto. Zero non vuol dire «non lo so».',
+      },
+      { nome: 'serveEntro', etichetta: 'Serve entro', tipo: 'data', aiuto: 'Solo se la mail lo dice.' },
+      { nome: 'nota', etichetta: 'Nota' },
+    ],
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['cliente', 'descrizione', 'importo', 'serveEntro', 'nota'],
+      properties: {
+        cliente: { type: 'string', description: 'Nome dell’azienda che chiede (non della persona).' },
+        descrizione: { type: 'string', description: 'Cosa chiede, con le parole del cliente.' },
+        importo: {
+          type: ['number', 'null'],
+          description: 'Prezzo scritto, o calcolato solo da numeri scritti; altrimenti null.',
+        },
+        serveEntro: { type: ['string', 'null'], description: 'Giorno per cui serve, AAAA-MM-GG, solo se scritto.' },
+        nota: { type: ['string', 'null'], description: 'Cosa serve ricordare: referente, vincoli, condizioni.' },
+      },
+    },
+    async esegui(dati, ctx) {
+      const cliente = typeof dati.cliente === 'string' ? dati.cliente.trim() : ''
+      if (!cliente) return { ok: false, messaggio: 'Manca il nome del cliente.' }
+      const descrizione = typeof dati.descrizione === 'string' ? dati.descrizione.trim() : ''
+      if (!descrizione) return { ok: false, messaggio: 'Manca cosa chiede il cliente.' }
+      // Stesso controllo della trattativa: un importo battuto a mano che non è
+      // un numero non si lascia cadere in silenzio — si dice.
+      const importo = numeroDaTesto(dati.importo)
+      if (!importo.ok) {
+        return { ok: false, messaggio: `«${importo.testo}» non è un importo: scrivi solo il numero, o lascia vuoto.` }
+      }
+      const serveEntro =
+        typeof dati.serveEntro === 'string' &&
+        dati.serveEntro.length === 10 &&
+        !Number.isNaN(Date.parse(dati.serveEntro))
+          ? dati.serveEntro
+          : undefined
+      return chiama(
+        `${COMMERCIALE_URL}/richiesta-cliente`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': ctx.chiave },
+          body: JSON.stringify({
+            cliente,
+            descrizione,
+            importo: importo.valore ?? undefined,
+            serveEntro,
+            nota: typeof dati.nota === 'string' && dati.nota.trim() ? dati.nota.trim() : undefined,
+            canale: 'mail',
+            origine: 'ai-mail',
+            // ⚠️ L'id di QUESTA mail: di là c'è un indice unico su
+            // (origine, riferimentoEsterno), quindi mandare due volte la stessa
+            // mail non fa due richieste — e il commerciale non prezza due volte
+            // lo stesso lavoro.
+            riferimentoEsterno: ctx.messaggioId ?? undefined,
+          }),
+        },
+        (status, risposta) => {
+          const o = risposta && typeof risposta === 'object' ? (risposta as Record<string, unknown>) : {}
+          if (status === 200 && o.gia_presente) {
+            return { ok: true, messaggio: `La richiesta di «${cliente}» era già stata registrata da questa mail.` }
+          }
+          if (status === 200 || status === 201) {
+            // Il messaggio di Commerciale dice anche se la scheda del negozio è
+            // stata riconosciuta: si mostra il suo, non uno generico.
+            const nota = typeof o.messaggio === 'string' ? o.messaggio : `Richiesta registrata per «${cliente}».`
+            return { ok: true, messaggio: nota }
+          }
+          if (status === 401 || status === 403) {
+            return { ok: false, messaggio: 'Chiave Commerciale non valida: controllala in Impostazioni App.' }
+          }
+          return { ok: false, messaggio: testoErrore(risposta, `Commerciale ha risposto ${status}.`) }
+        }
+      )
+    },
+  },
+  {
     id: 'commerciale.preventivo',
     app: 'Commerciale',
     nome: 'Registra il preventivo',
