@@ -85,6 +85,55 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### ⭐ 26/08/2026 (sera, 4) — Il NULL travestito da 0%, e il canale Scout non c'è
+
+Verifiche chieste dall'utente, tutte misurate sul database di produzione.
+
+**① La ritenuta vale SOLO per i servizi VENDITA** — confermato dall'utente come
+regola. In `FinanceService` è già così (`ambito()` filtra
+`pricingModel = VENDITA`). ⚠️ Residuo misurato: `spingiMargini` NON filtra per
+tipo di servizio — somma tutte le consegne agganciate a un ordine Shopify.
+Sono **43 consegne non-vendita per 706,23 €** (contro 102.395,81 € di vendite):
+l'ingrediente pubblicato a Orders comprende quei 706 € che il margine della
+Finanza non conta. Piccolo, ma è la stessa classe di difetto già pagata.
+
+**② «Omini ha lo 0% in scheda?» — NO: nel legacy ha NULL.** Verificato riga per
+riga contro `legacy/tabelle/expert.csv` (colonna `holdingPercentage`):
+
+- Stefano Omini, legacyId 149: qui `withholdingPercent = 0`, nel legacy
+  **`NULL`** — non uno zero.
+- Nel legacy: **223 su 285** valet hanno NULL, 44 hanno 50,00, 17 hanno 60,00 e
+  **uno solo** ha un vero `0.00`.
+- L'import è **fedele** (268 valet su 269 combaciano, zero divergenze): il
+  problema non è la copia, è che **il vuoto è diventato uno zero** — e uno zero
+  in questa formula è il caso PIÙ severo (rimborso 0% ⇒ ritenuta 25% piena).
+- Quanto pesa, nell'ambito VENDITA: **2.725,33 €** di ritenuta vengono da valet
+  a 0% (su 10.901,32 € di paghe), contro 5.043,66 € da quelli con la % vera. Se
+  quei NULL valessero 50% scenderebbero a ~1.363 €.
+- 🔴 **Decisione dell'utente**: che cosa vale un `holdingPercentage` vuoto —
+  «nessun rimborso» (e allora lo 0 è giusto) o «scheda non compilata» (e allora
+  il conto va sospeso o portato al valore di listino). Vale
+  [[feedback-punteggi-senza-dati]]: una variabile senza dati si esclude, non
+  vale zero.
+
+**③ Le 420 che restano in attesa NON sono un residuo storico**: 412 hanno
+`approvedTimingStatus = 3` (in attesa) e 8 hanno 0; **275 sono del 2025 ma 145
+del 2026**, e la più recente è del **22/08/2026** — lavoro vivo. Quasi tutte
+sono Stefano Omini sul servizio «Servizio Ora con Approvazione» dei BASARA
+(Washington e Corso Italia), 2,5-3 h, 25-30 € a consegna, **7.080,88 €** in
+tutto. 384 su 420 hanno le ore dichiarate. Sono consegne che aspettano
+davvero un via libera: toccarle sarebbe un'altra cosa dalle 283.
+
+**④ Il canale Scout NON è configurato** (verificato in due posti, non dedotto):
+in `AppSetting` c'è `lineeUrl` ma **`lineeApiKey` è assente**, e fra le env di
+Vercel non c'è nessuna `LINEE_API_KEY`. Quindi `GET /quotes/linee` cade sempre
+sul ripiego e la home del partner dichiara «Collegamento a Deluxy Scout non
+configurato: elenco di riserva» con le **9 linee master scritte nel codice**
+(`LINEE_RISERVA` in `quotes.module.ts`). Assenti anche **`whatsappNumero`** e
+**`aiApiKey`** (quest'ultima era data per presente: non c'è). Vanno incollate
+da **Impostazioni → Canale partner**; il travaso automatico del segreto è già
+stato bloccato dal classificatore, quindi lo fa l'utente.
+
 ### ⭐⭐ 26/08/2026 (sera, 3) — Il MINUS è un debito del valet, e le 283 sono approvate
 
 Due decisioni dell'utente, eseguite. Commit `a6115e15`, deploy
