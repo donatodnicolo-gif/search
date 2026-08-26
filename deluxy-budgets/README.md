@@ -142,8 +142,8 @@ di corsa.
 
 ## Dove siamo (rimisurato il 26/08/2026, sera) — leggere questo per primo
 
-Il conto economico a budget, come lo mostrano `/dashboard` e `/pl` (livello **Raggiungibile**),
-letto interrogando le stesse funzioni delle pagine:
+Il conto economico a budget, come lo mostra `/pl` (livello **Raggiungibile**; `/dashboard` è un
+redirect lì dal 24/08), letto interrogando le stesse funzioni della pagina:
 
 | voce | |
 | --- | ---: |
@@ -160,7 +160,7 @@ letto interrogando le stesse funzioni delle pagine:
 La **quota D2C** è **per maison** (26/08): deluxy.it **40,9%**, Flowers **36,2%**, CakeDesign
 **35,7%** (media pesata 39,3%) — è la **presa misurata dall'economia della vendita** ((fee + primo
 margine) ÷ lordo coperto, dati che la piattaforma scrive sugli ordini di Orders, copertura 91–97%
-per brand, 3.595 ordini su 3.839). La decidono tutte le pagine da un posto solo
+per brand: deluxy.it 97%, Flowers 96%, CakeDesign 91% — 3.595 ordini col dato). La decidono tutte le pagine da un posto solo
 (`quotaDeluxyAnno()`, campo `perMaison`).
 
 **Consuntivo dei mesi chiusi (Gen–Lug)**, con la riga ecommerce misurata: ricavi **442.739 €**, di
@@ -169,10 +169,38 @@ cui D2C **236.654 €** (primo margine 181.531 + fee 55.123, su 3.314 ordini di 
 
 ⚠️ **Questo numero si muove da solo, ed è voluto**: si affina a ogni giro della piattaforma sugli
 ordini. Nella sola giornata del 26/08 la quota media è passata da 50,9% (margini riconciliati) a
-**39,5%** (economia misurata) e l'EBITDA a budget da +104.766 a **+10.652 €**: non è il business
+**39,3%** (economia misurata) e l'EBITDA a budget da +104.766 a **+9.316 €**: non è il business
 peggiorato, è il numero vero al posto di uno su base diversa (i margini riconciliati non scontano
 l'IVA). Prima di leggere uno scostamento, guardare **quale fonte** la pagina dichiara in testata:
 economia di Orders → margini di Orders → regola unica (40%) → misura di banca → stima.
+
+⚠️⚠️ **E si muove anche nel giro di poche ore, quindi le sezioni datate qui sopra non vanno lette
+come numeri di oggi**: la sezione del pomeriggio dice 39,5% e +10.652 €, questa tabella (sera) dice
+**39,3% e +9.316 €** — stessa misura, più ordini coperti. **Vale la tabella qui sopra**, ed è vera
+finché la si rimisura: sono due minuti (vedi «Come si rimisura» sotto). Stessa cosa per la **copertura**: gli ordini col dato
+crescono a ogni giro della piattaforma, quindi il 91–97% di stasera è una fotografia, non un censimento.
+
+
+### Come si rimisura (due minuti, e va fatto prima di credere alla tabella)
+
+Da `deluxy-budgets/`, con uno script temporaneo e `npx tsx@4 --env-file=.env tuoscript.mts`:
+
+```ts
+import { caricaAnno, contoEconomico, ANNO_CORRENTE } from "./src/lib/calc";
+import { quotaDeluxyAnno } from "./src/lib/quota";
+
+const dati = await caricaAnno(ANNO_CORRENTE);
+const quota = await quotaDeluxyAnno(dati.year, dati.maisons); // NON dati.anno
+const pl = contoEconomico(dati, "raggiungibile", undefined, quota); // la Quota INTERA
+```
+
+⚠️ **Si passa la `Quota` intera, non `quota.percentuale / 100`.** Da quando le quote sono **per
+maison** (26/08 pomeriggio), passare il numero applica la media a tutti i brand invece della quota di
+ciascuno: escono **+14.378 € di EBITDA invece di +9.316 €** — plausibili, diversi dall'handoff, e chi
+li ottiene conclude che l'handoff sia vecchio. È il modo esatto in cui `src/app/pl/page.tsx` chiama
+il motore (`qD2C = quotaDeluxy`), ed è per questo che va copiato da lì e non riscritto a memoria.
+⚠️ Il campo è `percentuale` (non `valore`) e l'anno è `dati.year` (non `dati.anno`): un campo che
+non esiste **non dà errore**, diventa `undefined` e i conti escono lo stesso, sbagliati.
 
 **Cambiato il 23–24/08:** i ricavi sono **due fonti sommate** (prima solo le maison); i **costi di
 struttura** vengono dal consuntivo (prima valevano zero); **B2B ed Experience non fanno pubblicità**;
