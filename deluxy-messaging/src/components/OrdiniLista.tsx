@@ -97,6 +97,13 @@ type OrdineDto = {
   /** La ricevuta del pagamento, quando c'è: si scarica dalla graffetta. */
   ricevutaId?: string
   ricevutaNome?: string
+  /**
+   * La richiesta di pagamento ancora APERTA su quest'ordine ('' = nessuna).
+   * ⚠️ È quella che spegne il bottone «Paga»: vedi `BottonePaga`.
+   */
+  pagamentoApertoId?: string
+  pagamentoApertoQuanto?: number
+  pagamentoApertoA?: string
   /** Rischio frode secondo Shopify: NONE | LOW | MEDIUM | HIGH, e cosa consiglia. */
   rischioLivello: string
   rischioRaccomandazione: string
@@ -428,6 +435,61 @@ function spiegaContatto(c: { chiave: string; nome: string; lingua: string; lingu
     return `Chiama il cliente. Parla in ${nomeLingua(c.lingua)} (${perche}).`
   }
   return `Scrivi al cliente su ${c.nome}, in ${nomeLingua(c.lingua)} (${perche}). Il messaggio non parte da solo: lo rileggi prima.`
+}
+
+/**
+ * «Paga fornitore» — e SPENTO quando una richiesta è già aperta.
+ *
+ * ⚠️⚠️ Chiesto dall'utente il 26/08/2026. Premendolo una seconda volta si
+ * apriva il modulo vuoto e nasceva una richiesta gemella: due righe per lo
+ * stesso ordine, due avvisi a chi paga, e nessuna delle due che dice che
+ * l'altra esiste. È il modo in cui si finisce per pagare due volte lo stesso
+ * fornitore — e non lo scopre nessuno, perché ognuna delle due sembra giusta.
+ *
+ * ⚠️ Spento NON vuol dire nascosto: resta lì, grigio, e **dice perché** e a chi.
+ * Un bottone che sparisce fa credere che la funzione non ci sia; uno grigio che
+ * spiega manda a guardare la richiesta che c'è già.
+ *
+ * ⚠️ Blocca solo se la richiesta è ancora **da pagare**. Una già pagata non
+ * blocca niente: su un ordine può esserci un secondo fornitore (i fiori e la
+ * torta), e vietarlo sarebbe vietare un caso vero.
+ */
+function BottonePaga({
+  ordine,
+  etichetta,
+  onVai,
+}: {
+  ordine: OrdineDto
+  etichetta: string
+  onVai: () => void
+}) {
+  if (ordine.pagamentoApertoId) {
+    const quanto = ordine.pagamentoApertoQuanto
+      ? ordine.pagamentoApertoQuanto.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
+      : ''
+    return (
+      <a
+        className="bottone secondario mini"
+        style={{ opacity: 0.5 }}
+        href={`/pagamenti?richiesta=${encodeURIComponent(ordine.pagamentoApertoId)}`}
+        title={`C'è già una richiesta di pagamento aperta su ${ordine.numero}${
+          ordine.pagamentoApertoA ? ` per ${ordine.pagamentoApertoA}` : ''
+        }${quanto ? ` di ${quanto}` : ''}: aprila invece di farne un'altra.`}
+      >
+        Già in pagamento
+      </a>
+    )
+  }
+  return (
+    <a
+      className="bottone secondario mini"
+      href={linkPagamento(ordine)}
+      onClick={onVai}
+      title="Chiedi il pagamento del fornitore per questo ordine"
+    >
+      {etichetta}
+    </a>
+  )
 }
 
 /** Pagina Pagamenti già impostata su questo ordine.
@@ -2016,14 +2078,11 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                             >
                               Rimborso
                             </a>
-                            <a
-                              className="bottone secondario mini"
-                              href={linkPagamento(o)}
-                              onClick={() => segna(o.id, 'in_pagamento')}
-                              title="Paga fornitore: chiedi il pagamento del fornitore per questo ordine"
-                            >
-                              Paga
-                            </a>
+                            <BottonePaga
+                              ordine={o}
+                              etichetta="Paga"
+                              onVai={() => segna(o.id, 'in_pagamento')}
+                            />
                           </span>
 
                           {/* ── 4. Lasciar detto ── */}
@@ -2245,14 +2304,11 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                       </a>
                       {/* I soldi vicini ai soldi: «Paga» accanto a «Rimborso»,
                           non attaccato al menu «Assegna a…». */}
-                      <a
-                        className="bottone secondario mini"
-                        href={linkPagamento(o)}
-                        onClick={() => segna(o.id, 'in_pagamento')}
-                        title="Chiedi il pagamento del fornitore per questo ordine"
-                      >
-                        Paga fornitore
-                      </a>
+                      <BottonePaga
+                        ordine={o}
+                        etichetta="Paga fornitore"
+                        onVai={() => segna(o.id, 'in_pagamento')}
+                      />
                       {o.gestione === 'gestito' ? (
                         <button
                           className="bottone secondario mini"

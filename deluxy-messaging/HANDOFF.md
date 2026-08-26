@@ -1,5 +1,36 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (2) — «Paga fornitore» si spegne se una richiesta è già aperta
+
+Chiesto dall'utente. ⚠️⚠️ Il danno che evita: premendolo una seconda volta
+nasceva una richiesta **gemella** — due righe per lo stesso ordine, due avvisi a
+chi paga, e nessuna delle due che dice che l'altra esiste. È il modo in cui si
+paga due volte lo stesso fornitore, e non se ne accorge nessuno: ognuna delle due
+sembra giusta.
+
+⚠️⚠️ **La guardia sta in due posti**, e servono tutti e due:
+
+- il **bottone spento** — riga della tabella, scheda a bacheca e scheda
+  dell'ordine: tre punti, un componente solo (`BottonePaga`);
+- il **controllo nella rotta**: un link già aperto in un'altra scheda, un doppio
+  invio o un ritorno indietro del browser arrivano al POST **senza passare dal
+  bottone**. Risponde 409 e dice **quale** richiesta c'è già.
+
+⚠️ Spento non vuol dire nascosto: diventa **«Già in pagamento»** e **porta** alla
+richiesta che c'è. Un bottone che sparisce fa credere che la funzione non ci sia.
+
+⚠️ Blocca solo se la richiesta è ancora **da pagare**. Una già pagata non blocca:
+su un ordine può esserci un **secondo fornitore** (i fiori e la torta), e vietarlo
+sarebbe vietare un caso vero.
+
+⚠️⚠️ Si cerca in **tutte e due le forme del numero**: in tabella le richieste
+vecchie stanno senza cancelletto e le nuove con, e cercandone una sola la guardia
+non troverebbe il doppione — cioè non farebbe niente, in silenzio.
+
+Provato: `npx tsx scripts/prova-paga-doppio.mts` (5 casi). Misurato: c'è **1
+richiesta aperta** adesso (#2801, Petali e Sogni, 80 €), quindi su quell'ordine
+il bottone è già grigio.
+
 ## 26/08/2026 — via l account Diagnostica, e i Turni stanno sulla settimana corrente
 
 **Eliminato l’account `diagnostica@deluxy.local`** (ruolo operatore, creato il 26/07/2026). Contate

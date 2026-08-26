@@ -182,6 +182,47 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── C'È GIÀ UNA RICHIESTA APERTA SU QUESTO ORDINE? ──
+  //
+  // ⚠️⚠️ Chiesto dall'utente il 26/08/2026: «se c'è già un pagamento aperto per
+  // un ordine inibisci la possibilità di cliccare di nuovo su Paga». Il bottone
+  // spento è la porta d'ingresso; questa è la serratura. Un link già aperto in
+  // un'altra scheda, un doppio invio, un ritorno indietro del browser: tutte
+  // strade che arrivano qui senza passare dal bottone, e ognuna creerebbe una
+  // richiesta gemella — due righe per lo stesso ordine, due avvisi a chi paga,
+  // e nessuna delle due che dice che l'altra esiste.
+  //
+  // ⚠️ Blocca solo se la richiesta è ancora DA PAGARE. Una già pagata non
+  // impedisce niente: su un ordine può esserci un secondo fornitore (i fiori e
+  // la torta), e vietarlo sarebbe vietare un caso vero.
+  if (numeroChiesto) {
+    // ⚠️⚠️ Si cerca in TUTTE E DUE le forme del numero: in tabella le richieste
+    // vecchie stanno senza cancelletto e le nuove con. Cercando una forma sola,
+    // la guardia non troverebbe la richiesta aperta e lascerebbe passare il
+    // doppione — cioè non farebbe niente, senza dare errore.
+    const senzaCanc = numeroChiesto.replace(/^#+/, '')
+    const aperta = await db.richiestaPagamento.findFirst({
+      where: { ordineNumero: { in: [senzaCanc, `#${senzaCanc}`] }, pagataIl: null },
+      orderBy: { creatoIl: 'desc' },
+      select: { id: true, intestatario: true, importo: true, creatoIl: true },
+    })
+    if (aperta) {
+      const quando = aperta.creatoIl.toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })
+      return NextResponse.json(
+        {
+          errore:
+            `Su ${numeroChiesto} c'è già una richiesta di pagamento aperta` +
+            `${aperta.intestatario ? ` per ${aperta.intestatario}` : ''}` +
+            `${aperta.importo ? ` di ${aperta.importo.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}` : ''}` +
+            `, del ${quando}. Aprila invece di farne un'altra: se il pagamento è già uscito, segnala «Pagata».`,
+          richiestaAperta: aperta.id,
+        },
+        { status: 409 }
+      )
+    }
+  }
+
+
   // Un IBAN che non supera il checksum si può salvare lo stesso (magari va
   // completato a mano), ma resta marcato come non valido: mai spacciarlo per buono.
   const richiesta = await db.richiestaPagamento.create({

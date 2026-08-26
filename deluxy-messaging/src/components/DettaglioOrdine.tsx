@@ -104,6 +104,10 @@ type OrdineDettaglio = {
   appPartner?: string
   appCostoPartner?: number | null
   appInterrottoIl?: string | null
+  /** La richiesta di pagamento ancora aperta su quest'ordine ('' = nessuna). */
+  pagamentoApertoId?: string
+  pagamentoApertoA?: string
+  pagamentoApertoQuanto?: number
   clienteTipo: string
   clienteTipoDa: string
   /** A chi abbiamo dato l'ordine da preparare. */
@@ -1354,12 +1358,30 @@ export function DettaglioOrdine({
                   giusto — ma devono esserci TUTTE, altrimenti spostarle è
                   togliere funzioni. */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                <a
-                  className="btn btn-secondario small"
-                  href={linkPagamentoOrdine(ordine)}
-                >
-                  Paga fornitore
-                </a>
+                {/* ⚠️⚠️ SPENTO se una richiesta è già aperta su quest'ordine.
+                    Premendolo di nuovo nasceva una richiesta gemella: due righe
+                    per lo stesso ordine, due avvisi a chi paga, e nessuna delle
+                    due che dice che l'altra esiste — cioè il modo in cui si
+                    paga due volte lo stesso fornitore.
+                    ⚠️ Spento, non nascosto: resta lì e porta ALLA richiesta che
+                    c'è già. Un bottone che sparisce fa credere che la funzione
+                    non ci sia. */}
+                {ordine.pagamentoApertoId ? (
+                  <a
+                    className="btn btn-secondario small"
+                    style={{ opacity: 0.5 }}
+                    href={`/pagamenti?richiesta=${encodeURIComponent(ordine.pagamentoApertoId)}`}
+                    title={`C'è già una richiesta aperta${
+                      ordine.pagamentoApertoA ? ` per ${ordine.pagamentoApertoA}` : ''
+                    }: aprila invece di farne un'altra.`}
+                  >
+                    Già in pagamento
+                  </a>
+                ) : (
+                  <a className="btn btn-secondario small" href={linkPagamentoOrdine(ordine)}>
+                    Paga fornitore
+                  </a>
+                )}
                 {/* La scheda del cliente: conversazioni, storico e reclami in un
                     posto solo. La chiave e email o telefono, mai il nome. */}
                 <a

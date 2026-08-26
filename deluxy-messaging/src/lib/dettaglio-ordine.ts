@@ -62,6 +62,10 @@ export type OrdineDettaglioDto = {
   appPartner: string
   appCostoPartner: number | null
   appInterrottoIl: string | null
+  /** La richiesta di pagamento ancora aperta su quest'ordine ('' = nessuna). */
+  pagamentoApertoId: string
+  pagamentoApertoA: string
+  pagamentoApertoQuanto: number
   clienteTipo: string
   clienteTipoDa: string
   /** A chi abbiamo dato l'ordine da preparare. Vedi `fornitore-ordine.ts`. */
@@ -109,6 +113,22 @@ export type DettaglioOrdinePayload = {
 export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdinePayload | null> {
   const ordine = await db.ordine.findUnique({ where: { id } })
   if (!ordine) return null
+  // ⚠️⚠️ La richiesta di pagamento ancora APERTA su quest'ordine: serve a
+  // spegnere il bottone «Paga fornitore» invece di lasciar nascere una seconda
+  // richiesta gemella. Si cerca in tutte e due le forme del numero — in tabella
+  // le vecchie stanno senza cancelletto e le nuove con — perché cercandone una
+  // sola la guardia non troverebbe niente e non farebbe niente, in silenzio.
+  const senzaCancelletto = (ordine.numero ?? '').replace(/^#+/, '')
+  const aperta = senzaCancelletto
+    ? await db.richiestaPagamento.findFirst({
+        where: {
+          ordineNumero: { in: [senzaCancelletto, `#${senzaCancelletto}`] },
+          pagataIl: null,
+        },
+        orderBy: { creatoIl: 'desc' },
+        select: { id: true, intestatario: true, importo: true },
+      })
+    : null
   // ⚠️ In parallelo con le righe, non dopo: sono due chiamate a Orders e messe
   // in fila raddoppierebbero l'attesa di chi apre una scheda.
   const quota = await leggiQuotaFornitore(ordine.totale)
@@ -158,6 +178,11 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       appPartner: ordine.appPartner ?? '',
       appCostoPartner: ordine.appCostoPartner ?? null,
       appInterrottoIl: ordine.appInterrottoIl ? ordine.appInterrottoIl.toISOString() : null,
+      // ⚠️ La richiesta ancora DA PAGARE su quest'ordine: spegne il bottone
+      // «Paga fornitore». Una già pagata non blocca (secondo fornitore).
+      pagamentoApertoId: aperta?.id ?? '',
+      pagamentoApertoA: aperta?.intestatario ?? '',
+      pagamentoApertoQuanto: aperta?.importo ?? 0,
       clienteTipo: ordine.clienteTipo,
       clienteTipoDa: ordine.clienteTipoDa,
       fornitoreNome: ordine.fornitoreNome,
@@ -264,6 +289,9 @@ export async function dettaglioOrdineArchivio(
         appPartner: '',
         appCostoPartner: null,
         appInterrottoIl: null,
+        pagamentoApertoId: '',
+        pagamentoApertoA: '',
+        pagamentoApertoQuanto: 0,
         // ⚠️ L'ARCHIVIO STORICO non ha questi campi: quegli ordini vivono solo
         // in Orders, e qui in casa non esiste una riga su cui scrivere. Il
         // riquadro del fornitore non si mostra (vedi DettaglioOrdine), invece

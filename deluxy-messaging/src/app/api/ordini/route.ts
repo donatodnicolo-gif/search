@@ -386,6 +386,36 @@ export async function GET(req: NextRequest) {
     // contorno, e una pagina che non si apre è molto peggio.
   }
 
+  // ── LE RICHIESTE DI PAGAMENTO ANCORA APERTE ──
+  //
+  // ⚠️⚠️ Serve a **spegnere il bottone «Paga fornitore»** su un ordine che ha
+  // già una richiesta in piedi. Senza, premerlo una seconda volta apre il
+  // modulo vuoto e nasce una richiesta gemella: due righe per lo stesso ordine,
+  // due avvisi a chi paga, e nessuno dei due dice che l'altro esiste. È il modo
+  // in cui si paga due volte lo stesso fornitore.
+  //
+  // ⚠️ «Aperta» = **non ancora pagata**. Una già pagata non blocca niente: su un
+  // ordine può esserci un secondo fornitore (i fiori e la torta), e vietarlo
+  // sarebbe vietare un caso vero.
+  const aperti = new Map<string, { id: string; importo: number; a: string }>()
+  try {
+    const righe = await db.richiestaPagamento.findMany({
+      where: {
+        pagataIl: null,
+        ordineNumero: { in: ordini.map((o) => o.numero).filter(Boolean) },
+      },
+      select: { id: true, ordineNumero: true, importo: true, intestatario: true },
+      orderBy: { creatoIl: 'desc' },
+    })
+    for (const r of righe) {
+      if (!aperti.has(r.ordineNumero)) {
+        aperti.set(r.ordineNumero, { id: r.id, importo: r.importo, a: r.intestatario })
+      }
+    }
+  } catch {
+    // Come sopra: senza questi bollini la bacheca si apre lo stesso.
+  }
+
   const messaggiPerOrdine = await ordiniConMessaggi(
     ordini.map((o) => ({ id: o.id, numero: o.numero, email: o.email, telefono: o.telefono }))
   )
@@ -400,6 +430,11 @@ export async function GET(req: NextRequest) {
       // Vuoto = quel pagamento non ha una ricevuta allegata.
       ricevutaId: pagati.get(o.numero)?.ricevutaId ?? '',
       ricevutaNome: pagati.get(o.numero)?.ricevutaNome ?? '',
+      // La richiesta di pagamento ancora aperta su quest'ordine, se c'è: il
+      // bottone «Paga fornitore» si spegne e porta a lei.
+      pagamentoApertoId: aperti.get(o.numero)?.id ?? '',
+      pagamentoApertoQuanto: aperti.get(o.numero)?.importo ?? 0,
+      pagamentoApertoA: aperti.get(o.numero)?.a ?? '',
     })),
     totale, // quanti corrispondono in tutto (la lista è tagliata a 200)
     // Chi sta guardando: senza, il bollino «preso da» non saprebbe dire se

@@ -348,6 +348,29 @@ una funzione sola): erano due copie diverse, e quella della scheda **perdeva per
 strada il fornitore e il costo concordato** — cioè proprio chi va pagato e
 quanto, che dalla scheda si ribattevano a mano.
 
+### Un ordine, una richiesta di pagamento alla volta
+
+Se su un ordine c e gia una richiesta **ancora da pagare**, il bottone
+«Paga fornitore» e **spento**: diventa «Gia in pagamento» e porta a quella
+richiesta.
+
+⚠️⚠️ Premendolo di nuovo nasceva una richiesta **gemella**: due righe per lo
+stesso ordine, due avvisi a chi paga, e nessuna delle due che dice che l altra
+esiste. E il modo in cui si paga due volte lo stesso fornitore — e non se ne
+accorge nessuno, perche ognuna delle due sembra giusta.
+
+⚠️ La guardia sta in **due posti**: il bottone (la porta) e il controllo nella
+rotta (la serratura). Un link gia aperto in un altra scheda, un doppio invio o
+un ritorno indietro del browser arrivano al salvataggio senza passare dal
+bottone: li risponde 409 e dice **quale** richiesta c e gia.
+
+⚠️ Blocca solo se la richiesta e ancora **da pagare**. Una gia pagata non blocca
+niente: su un ordine puo esserci un **secondo fornitore** (i fiori e la torta), e
+vietarlo sarebbe vietare un caso vero.
+
+⚠️ Spento non vuol dire nascosto: un bottone che sparisce fa credere che la
+funzione non ci sia.
+
 ### La riga si lavora: copia, modifica, pagata
 
 ⚠️ **Ogni cella si copia toccando il testo.** Il caso vero: un IBAN di ventisette
