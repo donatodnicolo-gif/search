@@ -54,8 +54,41 @@ export function totaliProForma(righe: RigaLike[]): {
   return { imponibile, iva, totale: imponibile + iva, perAliquota };
 }
 
-export function rifProForma(p: { numero: number; anno: number }): string {
-  return `PF ${p.numero}/${p.anno}`;
+/**
+ * Il riferimento del documento. **PV per i preventivi, PF per le pro-forma**:
+ * due serie separate, perché sono due documenti diversi e chi li riceve deve
+ * poterli citare senza ambiguità (PV 1/2026 e PF 1/2026 possono coesistere).
+ *
+ * ⚠️ Il `tipo` è facoltativo di proposito: tutte le chiamate scritte prima del
+ * 26/08/2026 passano un oggetto che non ce l'ha, e per loro la risposta giusta
+ * resta «PF» — sono pro-forma.
+ */
+export function rifProForma(p: { numero: number; anno: number; tipo?: string | null }): string {
+  return `${p.tipo === "preventivo" ? "PV" : "PF"} ${p.numero}/${p.anno}`;
+}
+
+/** Come si chiama il documento, in italiano, dove va scritto per esteso. */
+export function nomeDocumento(tipo?: string | null): string {
+  return tipo === "preventivo" ? "preventivo" : "pro-forma";
+}
+
+/**
+ * Stati del preventivo. Ha i due che la pro-forma non ha — `accettata` e
+ * `rifiutata` — perché un'offerta la chiude il CLIENTE, non noi: senza quei
+ * due, un preventivo accettato e uno ancora fuori si sarebbero somigliati.
+ */
+export const STATI_PREVENTIVO: Record<string, { label: string; badge: string }> = {
+  bozza: { label: "Bozza", badge: "neutral" },
+  inviata: { label: "Inviato", badge: "blue" },
+  accettata: { label: "Accettato", badge: "green" },
+  rifiutata: { label: "Rifiutato", badge: "red" },
+  fatturata: { label: "Fatturato", badge: "green" },
+  annullata: { label: "Annullato", badge: "red" },
+};
+
+/** Le etichette giuste per il tipo di documento. */
+export function statiDi(tipo?: string | null): Record<string, { label: string; badge: string }> {
+  return tipo === "preventivo" ? STATI_PREVENTIVO : STATI_PF;
 }
 
 // Testo standard dell'email di accompagnamento (modificabile prima dell'invio).

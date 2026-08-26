@@ -3,19 +3,33 @@ import { prisma } from "@/lib/db";
 import { chiaveApiValida, appOrigine, ipRichiesta } from "@/lib/apiauth";
 import { totaliProForma, rifProForma } from "@/lib/proforma";
 
-// API pubblica: pro-forma per gli altri progetti Deluxy.
+// API pubblica: i documenti che precedono la fattura, per gli altri progetti
+// Deluxy. Sono DUE, distinti da `tipo` (26/08/2026):
+//   · `proforma`   — la richiesta di pagamento (PF n/anno), come da sempre;
+//   · `preventivo` — l'offerta al cliente (PV n/anno), che il cliente accetta
+//     o rifiuta. È l'anello che mancava alla catena preventivo → proforma →
+//     fattura, e il motivo per cui Scout può finalizzare una richiesta cliente.
 //
-//   GET  /api/proforma?id=<id>            dettaglio di una pro-forma
-//   GET  /api/proforma?numero=1/2026      idem, per riferimento PF
-//   GET  /api/proforma?partner=<nome|id>  elenco pro-forma del partner (&stato=... facoltativo)
-//   POST /api/proforma                    crea una pro-forma (in bozza)
-//        body JSON: { "partner": "<nome o id>", "righe": [{ "descrizione", "prezzoUnitario",
-//                     "quantita"?, "aliquotaIva"? }], "data"?, "scadenza"?, "oggetto"?, "note"? }
-//   PATCH /api/proforma                   conferma il PAGAMENTO di una pro-forma
-//        body JSON: { "id" | "numero": "1/2026", "fatturaNumero"? }
-//        → stato "fatturata" (è il passaggio che scatta al ricevimento del saldo);
-//          idempotente: se già fatturata risponde 200 con "avviso";
-//          422 se annullata (prima va riportata in bozza dall'app).
+// ⚠️ Chi non nomina il tipo continua a parlare di pro-forma: senza `tipo` si
+// crea, si cerca e si conferma una pro-forma esattamente come prima.
+//
+//   GET  /api/proforma?id=<id>            dettaglio di un documento
+//   GET  /api/proforma?numero=PV 1/2026   idem, per riferimento (PV/PF; senza
+//                                         prefisso vale `tipo`, default PF)
+//   GET  /api/proforma?partner=<nome|id>  elenco del partner — TUTTI i tipi
+//                                         (&stato=… e &tipo=… facoltativi)
+//   POST /api/proforma                    crea un documento (in bozza)
+//        body JSON: { "partner": "<nome o id>", "tipo"?: "preventivo",
+//                     "righe": [{ "descrizione", "prezzoUnitario", "quantita"?,
+//                     "aliquotaIva"? }], "data"?, "scadenza"?, "validoFino"?,
+//                     "oggetto"?, "note"? }
+//   PATCH /api/proforma                   chiude il documento
+//        body JSON: { "id" | "numero": "PV 1/2026", "stato"?, "fatturaNumero"? }
+//        · senza `stato` → conferma il PAGAMENTO: stato "fatturata";
+//        · `stato: "accettata" | "rifiutata"` → l'esito di un PREVENTIVO
+//          (422 su una pro-forma: non si accetta una richiesta di pagamento);
+//        idempotente: ripetere l'esito risponde 200 con "avviso";
+//        422 se annullata (prima va riportata in bozza dall'app).
 //   Header: X-API-Key: <chiave>   (la stessa di /api/verifiche)
 //   Header: X-App: <nome-app>     (facoltativo, per lo storico)
 //
@@ -32,6 +46,9 @@ function pubblica(p: ProFormaConRighe) {
   const tot = totaliProForma(p.righe);
   return {
     id: p.id,
+    // `proforma` | `preventivo`: stesso documento, due nomi e due numerazioni
+    // (PF/PV). Chi legge deve sapere quale dei due ha in mano.
+    tipo: p.tipo,
     riferimento: rifProForma(p),
     numero: p.numero,
     anno: p.anno,
@@ -42,6 +59,8 @@ function pubblica(p: ProFormaConRighe) {
     note: p.note,
     stato: p.stato,
     inviataIl: p.inviataIl?.toISOString() ?? null,
+    validoFino: p.validoFino?.toISOString().slice(0, 10) ?? null,
+    accettatoIl: p.accettatoIl?.toISOString() ?? null,
     fatturaNumero: p.fatturaNumero,
     righe: p.righe
       .sort((a, b) => a.ordine - b.ordine)
@@ -57,6 +76,24 @@ function pubblica(p: ProFormaConRighe) {
     totale: tot.totale,
     url: `https://deluxy-partner.vercel.app/proforma/${p.id}`,
   };
+}
+
+/**
+ * Da «PV 1/2026», «PF 1/2026» o «1/2026» alla chiave del documento.
+ *
+ * ⚠️ Il PREFISSO comanda sul parametro `tipo`: chi cita «PV 3/2026» sta
+ * parlando di un preventivo anche se ha dimenticato di dirlo. Senza prefisso e
+ * senza `tipo` si intende una pro-forma — è ciò che significava quel numero
+ * prima che i documenti diventassero due, e le integrazioni scritte allora
+ * devono continuare a funzionare.
+ */
+function riferimento(numero: string, tipoParam?: string | null): { tipo: string; anno: number; numero: number } | null {
+  const grezzo = numero.trim();
+  const prefisso = /^PV\b/i.test(grezzo) ? "preventivo" : /^PF\b/i.test(grezzo) ? "proforma" : null;
+  const m = grezzo.replace(/^(PV|PF)\s*/i, "").match(/^(\d+)\s*\/\s*(\d{4})$/);
+  if (!m) return null;
+  const tipo = prefisso ?? (tipoParam?.trim() === "preventivo" ? "preventivo" : "proforma");
+  return { tipo, anno: parseInt(m[2]), numero: parseInt(m[1]) };
 }
 
 async function trovaPartner(rif: string) {
@@ -106,18 +143,18 @@ export async function GET(req: NextRequest) {
     if (id) {
       pf = await prisma.proForma.findUnique({ where: { id }, include: { partner: true, righe: true } });
     } else if (numero) {
-      const m = numero.replace(/^PF\s*/i, "").match(/^(\d+)\s*\/\s*(\d{4})$/);
-      if (!m) {
-        return NextResponse.json({ errore: "Formato 'numero' non valido: usare n/anno, es. 1/2026." }, { status: 400 });
+      const rif = riferimento(numero, sp.get("tipo"));
+      if (!rif) {
+        return NextResponse.json({ errore: "Formato 'numero' non valido: usare n/anno, es. PV 1/2026 o PF 1/2026." }, { status: 400 });
       }
       pf = await prisma.proForma.findUnique({
-        where: { anno_numero: { anno: parseInt(m[2]), numero: parseInt(m[1]) } },
+        where: { tipo_anno_numero: rif },
         include: { partner: true, righe: true },
       });
     }
     if (!pf) {
       await log(req, query, "non_trovato");
-      return NextResponse.json({ errore: "Pro-forma non trovata." }, { status: 404 });
+      return NextResponse.json({ errore: "Documento non trovato." }, { status: 404 });
     }
     await log(req, query, "trovato", `${rifProForma(pf)} ${pf.stato}`, pf.partner);
     return NextResponse.json(pubblica(pf));
@@ -131,13 +168,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ errore: "Partner non trovato.", candidati }, { status: 404 });
     }
     const stato = sp.get("stato")?.trim() || undefined;
+    // `tipo` assente = TUTTI i documenti del partner. Filtrare di default sulle
+    // sole pro-forma nasconderebbe i preventivi a chi chiede «cosa gli abbiamo
+    // mandato», che è la domanda vera; chi vuole solo una serie lo dice.
+    const tipo = sp.get("tipo")?.trim() || undefined;
     const proforme = await prisma.proForma.findMany({
-      where: { partnerId: partner.id, ...(stato ? { stato } : {}) },
+      where: { partnerId: partner.id, ...(stato ? { stato } : {}), ...(tipo ? { tipo } : {}) },
       include: { partner: true, righe: true },
       orderBy: [{ anno: "desc" }, { numero: "desc" }],
     });
-    await log(req, query, "trovato", `${proforme.length} pro-forma`, partner);
-    return NextResponse.json({ partner: { id: partner.id, nome: partner.nome }, proforme: proforme.map(pubblica) });
+    await log(req, query, "trovato", `${proforme.length} documenti`, partner);
+    return NextResponse.json({
+      partner: { id: partner.id, nome: partner.nome },
+      // `documenti` è il nome giusto ora che sono due; `proforme` resta perché
+      // c'è già chi lo legge, e toglierlo romperebbe quelle integrazioni.
+      documenti: proforme.map(pubblica),
+      proforme: proforme.map(pubblica),
+    });
   }
 
   return NextResponse.json({ errore: "Parametro 'id', 'numero' o 'partner' obbligatorio." }, { status: 400 });
@@ -151,8 +198,10 @@ export async function POST(req: NextRequest) {
 
   let body: {
     partner?: string;
+    tipo?: string;
     data?: string;
     scadenza?: string;
+    validoFino?: string;
     oggetto?: string;
     note?: string;
     righe?: { descrizione?: string; quantita?: number; prezzoUnitario?: number; aliquotaIva?: number }[];
@@ -197,19 +246,28 @@ export async function POST(req: NextRequest) {
   const data = parseData(body.data) ?? new Date();
   const anno = data.getUTCFullYear();
 
-  // numerazione progressiva per anno; in caso di collisione (creazioni
-  // concorrenti sul vincolo unico anno+numero) si ritenta una volta
+  // Che documento si sta creando. Senza `tipo` è una pro-forma: è ciò che
+  // questa API ha sempre creato, e le integrazioni scritte prima del 26/08/2026
+  // non sanno che esista una scelta.
+  const tipo = body.tipo?.trim() === "preventivo" ? "preventivo" : "proforma";
+
+  // numerazione progressiva per anno **e per tipo** (PV 1/2026 e PF 1/2026
+  // convivono); in caso di collisione fra creazioni concorrenti si ritenta.
   let creata;
   for (let tentativo = 0; ; tentativo++) {
-    const ultimo = await prisma.proForma.aggregate({ where: { anno }, _max: { numero: true } });
+    const ultimo = await prisma.proForma.aggregate({ where: { anno, tipo }, _max: { numero: true } });
     try {
       creata = await prisma.proForma.create({
         data: {
+          tipo,
           numero: (ultimo._max.numero ?? 0) + 1,
           anno,
           partnerId: partner.id,
           data,
           scadenza: parseData(body.scadenza),
+          // La validità è del preventivo: un'offerta senza scadenza non si può
+          // sollecitare, e non ha senso su una richiesta di pagamento.
+          validoFino: tipo === "preventivo" ? parseData(body.validoFino) : null,
           oggetto: body.oggetto?.trim() || null,
           note: body.note?.trim() || null,
           righe: { create: righe },
@@ -222,7 +280,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await log(req, `proforma per ${partner.nome}`, "trovato", `creata ${rifProForma(creata)} (${righe.length} righe)`, partner);
+  await log(req, `${tipo} per ${partner.nome}`, "trovato", `creato ${rifProForma(creata)} (${righe.length} righe)`, partner);
   return NextResponse.json(pubblica(creata), { status: 201 });
 }
 
@@ -235,7 +293,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
   }
 
-  let body: { id?: string; numero?: string; fatturaNumero?: string };
+  let body: { id?: string; numero?: string; tipo?: string; fatturaNumero?: string; stato?: string };
   try {
     body = await req.json();
   } catch {
@@ -244,7 +302,17 @@ export async function PATCH(req: NextRequest) {
 
   const id = body.id?.trim();
   const numero = body.numero?.trim();
-  const query = `conferma pagamento ${id ?? numero ?? "(vuota)"}`;
+  // ⭐ 26/08/2026 — un PREVENTIVO lo chiude il cliente, non noi: `accettata` e
+  // `rifiutata` sono i due esiti che una pro-forma non ha. Senza `stato` la
+  // PATCH fa quello che ha sempre fatto (conferma del pagamento → fatturata).
+  const richiesto = body.stato?.trim();
+  if (richiesto && !["accettata", "rifiutata", "fatturata"].includes(richiesto)) {
+    return NextResponse.json(
+      { errore: "Campo 'stato' ammesso solo con: accettata, rifiutata, fatturata." },
+      { status: 400 }
+    );
+  }
+  const query = `${richiesto ?? "conferma pagamento"} ${id ?? numero ?? "(vuota)"}`;
   if (!id && !numero) {
     return NextResponse.json({ errore: "Campo 'id' o 'numero' (es. 1/2026) obbligatorio." }, { status: 400 });
   }
@@ -253,18 +321,53 @@ export async function PATCH(req: NextRequest) {
   if (id) {
     pf = await prisma.proForma.findUnique({ where: { id }, include: { partner: true, righe: true } });
   } else if (numero) {
-    const m = numero.replace(/^PF\s*/i, "").match(/^(\d+)\s*\/\s*(\d{4})$/);
-    if (!m) {
-      return NextResponse.json({ errore: "Formato 'numero' non valido: usare n/anno, es. 1/2026." }, { status: 400 });
+    const rif = riferimento(numero, body.tipo);
+    if (!rif) {
+      return NextResponse.json({ errore: "Formato 'numero' non valido: usare n/anno, es. PV 1/2026 o PF 1/2026." }, { status: 400 });
     }
     pf = await prisma.proForma.findUnique({
-      where: { anno_numero: { anno: parseInt(m[2]), numero: parseInt(m[1]) } },
+      where: { tipo_anno_numero: rif },
       include: { partner: true, righe: true },
     });
   }
   if (!pf) {
     await log(req, query, "non_trovato");
-    return NextResponse.json({ errore: "Pro-forma non trovata." }, { status: 404 });
+    return NextResponse.json({ errore: "Documento non trovato." }, { status: 404 });
+  }
+
+  // ── Il preventivo accettato o rifiutato ───────────────────────────────────
+  if (richiesto === "accettata" || richiesto === "rifiutata") {
+    if (pf.tipo !== "preventivo") {
+      return NextResponse.json(
+        { errore: "Solo un preventivo si accetta o si rifiuta: questa è una pro-forma." },
+        { status: 422 }
+      );
+    }
+    // Idempotente come la conferma di pagamento: ridirlo non riscrive niente.
+    if (pf.stato === richiesto) {
+      await log(req, query, "trovato", `${rifProForma(pf)} già ${richiesto}`, pf.partner);
+      return NextResponse.json({ ...pubblica(pf), avviso: `Preventivo già ${richiesto} in precedenza.` });
+    }
+    // ⚠️ Un preventivo già FATTURATO non torna indietro da un'API: il lavoro è
+    // stato fatto e il documento è a valle. Si corregge dall'app, dove chi lo
+    // fa vede cosa sta disfacendo.
+    if (pf.stato === "fatturata") {
+      return NextResponse.json(
+        { errore: "Preventivo già fatturato: l'esito non si cambia da fuori." },
+        { status: 422 }
+      );
+    }
+    const esito = await prisma.proForma.update({
+      where: { id: pf.id },
+      data: {
+        stato: richiesto,
+        accettatoIl: richiesto === "accettata" ? new Date() : null,
+        annullataIl: null,
+      },
+      include: { partner: true, righe: true },
+    });
+    await log(req, query, "trovato", `${rifProForma(esito)} → ${richiesto}`, esito.partner);
+    return NextResponse.json(pubblica(esito));
   }
 
   // Idempotente: una seconda conferma non riscrive nulla e non è un errore.

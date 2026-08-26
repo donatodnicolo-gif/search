@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
-import { totaliProForma, rifProForma, STATI_PF } from "@/lib/proforma";
+import { totaliProForma, rifProForma, statiDi } from "@/lib/proforma";
 import { ThSort, ordina } from "@/components/ThSort";
 
 export const dynamic = "force-dynamic";
@@ -10,16 +10,25 @@ export const dynamic = "force-dynamic";
 export default async function ProFormaListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; stato?: string; partnerId?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ anno?: string; tipo?: string; stato?: string; partnerId?: string; sort?: string; dir?: string }>;
 }) {
   const sp = await searchParams;
   const anno = sp.anno ? parseInt(sp.anno) : ANNO_CORRENTE;
+  // Due documenti, una schermata sola: `tipo` sceglie quale serie si guarda.
+  // Il default resta la pro-forma, che è ciò che questa pagina ha sempre
+  // mostrato. ⚠️ Mescolarle avrebbe fatto leggere stati sbagliati: «accettato»
+  // e «rifiutato» sono del preventivo, la pro-forma non li conosce e sarebbero
+  // stati mostrati tutti come «Bozza».
+  const tipo = sp.tipo === "preventivo" ? "preventivo" : "proforma";
+  const preventivi = tipo === "preventivo";
+  const STATI = statiDi(tipo);
 
   const [partners, proformeRaw] = await Promise.all([
     prisma.partner.findMany({ orderBy: { nome: "asc" } }),
     prisma.proForma.findMany({
       where: {
         anno,
+        tipo,
         ...(sp.stato ? { stato: sp.stato } : {}),
         ...(sp.partnerId ? { partnerId: sp.partnerId } : {}),
       },
@@ -49,13 +58,25 @@ export default async function ProFormaListPage({
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Pro-forma</h1>
+          <h1 className="page-title">{preventivi ? "Preventivi" : "Pro-forma"}</h1>
           <p className="page-caption">
-            Fatture pro-forma da inviare ai partner: alla conferma diventano fattura, altrimenti si annullano.
+            {preventivi
+              ? "Le offerte mandate ai clienti: le accettano o le rifiutano loro, e quelle accettate diventano fattura."
+              : "Fatture pro-forma da inviare ai partner: alla conferma diventano fattura, altrimenti si annullano."}
           </p>
+          {/* Le due serie sono documenti diversi con numerazioni diverse (PV/PF):
+              si passa dall'una all'altra da qui, invece di conoscere l'indirizzo. */}
+          <div className="filters" style={{ marginTop: 8, gap: 8 }}>
+            <Link href="/proforma" className={`btn small ${preventivi ? "secondary" : "primary"}`}>Pro-forma</Link>
+            <Link href="/proforma?tipo=preventivo" className={`btn small ${preventivi ? "primary" : "secondary"}`}>Preventivi</Link>
+          </div>
         </div>
         <div className="page-actions">
-          <Link href="/proforma/nuova" className="btn primary">+ Nuova pro-forma</Link>
+          {/* Il preventivo lo apre chi vende, di norma da Scout (Richieste
+              Clienti): qui si guarda e si chiude. Un «+ Nuovo preventivo»
+              scollegato dalla richiesta creerebbe documenti che nessuna
+              richiesta conosce. */}
+          {!preventivi ? <Link href="/proforma/nuova" className="btn primary">+ Nuova pro-forma</Link> : null}
         </div>
       </div>
 
@@ -63,7 +84,7 @@ export default async function ProFormaListPage({
         <div className="kpi">
           <div className="kpi-label">Emesse nel {anno}</div>
           <div className="kpi-value">{euro(attive.reduce((a, p) => a + p.totali.totale, 0))}</div>
-          <div className="kpi-sub">{attive.length} pro-forma (escluse annullate)</div>
+          <div className="kpi-sub">{attive.length} {preventivi ? "preventivi" : "pro-forma"} (esclusi gli annullati)</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Inviate, in attesa di esito</div>
@@ -83,7 +104,7 @@ export default async function ProFormaListPage({
         <form className="filters" method="get">
           <select name="stato" defaultValue={sp.stato ?? ""}>
             <option value="">Tutti gli stati</option>
-            {Object.entries(STATI_PF).map(([k, v]) => (
+            {Object.entries(STATI).map(([k, v]) => (
               <option key={k} value={k}>{v.label}</option>
             ))}
           </select>
@@ -92,6 +113,9 @@ export default async function ProFormaListPage({
             {partners.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
           </select>
           <input type="hidden" name="anno" value={anno} />
+          {/* Senza questo, filtrare i preventivi riportava alle pro-forma: il
+              form GET manda solo i campi che ha. */}
+          {preventivi ? <input type="hidden" name="tipo" value="preventivo" /> : null}
           <button className="btn secondary small" type="submit">Filtra</button>
         </form>
       </div>
@@ -100,9 +124,11 @@ export default async function ProFormaListPage({
         {proforme.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">◎</div>
-            <div className="empty-title">Nessuna pro-forma</div>
+            <div className="empty-title">{preventivi ? "Nessun preventivo" : "Nessuna pro-forma"}</div>
             <div className="empty-text">
-              Crea la prima con &laquo;+ Nuova pro-forma&raquo;: la prepari, la invii al partner e ne segui l&apos;esito da qui.
+              {preventivi
+                ? "I preventivi nascono dalle richieste dei clienti in Scout («Richieste Clienti»): da lì si chiede il preventivo, e qui se ne segue l’esito."
+                : "Crea la prima con «+ Nuova pro-forma»: la prepari, la invii al partner e ne segui l’esito da qui."}
             </div>
           </div>
         ) : (
@@ -122,7 +148,7 @@ export default async function ProFormaListPage({
               </thead>
               <tbody>
                 {proforme.map((p) => {
-                  const st = STATI_PF[p.stato] ?? STATI_PF.bozza;
+                  const st = STATI[p.stato] ?? STATI.bozza;
                   return (
                     <tr key={p.id}>
                       <td>

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { CHIAVI, leggiImpostazioni } from "@/lib/impostazioni";
-import { totaliProForma, importoRiga, rifProForma, STATI_PF } from "@/lib/proforma";
+import { totaliProForma, importoRiga, rifProForma, statiDi } from "@/lib/proforma";
 import { cambiaStatoProForma, deleteProForma } from "@/lib/proforma-actions";
 import { StampaButton } from "@/components/StampaButton";
 
@@ -30,8 +30,13 @@ export default async function ProFormaDetail({
   if (!pf) notFound();
 
   const tot = totaliProForma(pf.righe);
-  const st = STATI_PF[pf.stato] ?? STATI_PF.bozza;
+  const st = statiDi(pf.tipo)[pf.stato] ?? statiDi(pf.tipo).bozza;
   const rif = rifProForma(pf);
+  // Lo stesso documento con due nomi: qui si decide come si chiama, in
+  // intestazione e nel testo di legge. ⚠️ Un preventivo NON può portare la
+  // formula della pro-forma («non costituisce fattura ai sensi dell'art. 21»):
+  // è un'offerta, non un documento fiscale mancato.
+  const preventivo = pf.tipo === "preventivo";
 
   const intestazione = imp[CHIAVI.aziendaIntestazione] || "Deluxy";
   const indirizzo = imp[CHIAVI.aziendaIndirizzo] || "";
@@ -42,10 +47,14 @@ export default async function ProFormaDetail({
     <>
       <div className="page-head no-print">
         <div>
-          <Link href="/proforma" className="btn secondary small" style={{ marginBottom: 10 }}>
-            ← Tutte le pro-forma
+          <Link
+            href={preventivo ? "/proforma?tipo=preventivo" : "/proforma"}
+            className="btn secondary small"
+            style={{ marginBottom: 10 }}
+          >
+            ← {preventivo ? "Tutti i preventivi" : "Tutte le pro-forma"}
           </Link>
-          <h1 className="page-title">Pro-forma {rif}</h1>
+          <h1 className="page-title">{preventivo ? "Preventivo" : "Pro-forma"} {rif}</h1>
           <p className="page-caption">
             {pf.partner.nome} · {euro(tot.totale)} IVA inclusa
             {pf.inviataIl ? ` · inviata il ${dataIt(pf.inviataIl)}${pf.inviataA ? ` a ${pf.inviataA}` : ""}` : ""}
@@ -90,7 +99,7 @@ export default async function ProFormaDetail({
             {contatti && <div className="docpf-mittente">{contatti}</div>}
           </div>
           <div className="docpf-titolo">
-            <div className="docpf-tipo">Fattura pro-forma</div>
+            <div className="docpf-tipo">{preventivo ? "Preventivo" : "Fattura pro-forma"}</div>
             <div className="docpf-numero">{rif}</div>
             <div className="docpf-data">del {dataIt(pf.data)}</div>
           </div>
@@ -140,11 +149,24 @@ export default async function ProFormaDetail({
             {pf.scadenza && (
               <p><span className="docpf-label">Termine di pagamento</span> {dataIt(pf.scadenza)}</p>
             )}
+            {preventivo && pf.validoFino && (
+              <p><span className="docpf-label">Offerta valida fino al</span> {dataIt(pf.validoFino)}</p>
+            )}
             {pf.note && <p style={{ whiteSpace: "pre-wrap" }}>{pf.note}</p>}
             <p className="docpf-disclaimer">
-              Il presente documento è una fattura pro-forma emessa a solo scopo informativo: non costituisce
-              fattura ai sensi dell&apos;art. 21 del DPR 633/72, non è valida ai fini della detrazione IVA e non
-              è titolo per la registrazione contabile. La fattura definitiva sarà emessa al ricevimento del pagamento.
+              {preventivo ? (
+                <>
+                  Il presente preventivo è un&apos;offerta commerciale e non costituisce fattura: i prezzi sono
+                  al netto dell&apos;IVA di legge, indicata nel riepilogo. All&apos;accettazione seguirà il documento
+                  di pagamento e, a saldo ricevuto, la fattura definitiva.
+                </>
+              ) : (
+                <>
+                  Il presente documento è una fattura pro-forma emessa a solo scopo informativo: non costituisce
+                  fattura ai sensi dell&apos;art. 21 del DPR 633/72, non è valida ai fini della detrazione IVA e non
+                  è titolo per la registrazione contabile. La fattura definitiva sarà emessa al ricevimento del pagamento.
+                </>
+              )}
             </p>
           </div>
           <div className="docpf-totali">
