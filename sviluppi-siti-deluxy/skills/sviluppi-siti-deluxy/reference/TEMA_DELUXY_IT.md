@@ -1,7 +1,9 @@
 # Mappa tecnica — tema deluxy.it
 
-Negozio: `deluxygifts.myshopify.com`. Temi (al 10/7/2026): live "Live" (MAIN)
-`203369513290`, sviluppo "Version to work on" (UNPUBLISHED) `203573428554`.
+Negozio: `deluxygifts.myshopify.com`. Temi (al 26/8/2026): live "Live" (MAIN)
+`204735971658`, sviluppo "Version to work on" (UNPUBLISHED) `204745769290`.
+**Gli id cambiano a ogni giro di backup/publish: rileggerli sempre con `themes(first:30)`
+prima di scrivere** (quelli del 10/7 — 203369513290/203573428554 — non esistono più).
 Esistono ~20 temi di backup e un tema "ai developmet - do not touch it": **non toccarli**,
 verifica sempre id e role prima di scrivere.
 
@@ -48,6 +50,32 @@ ma molto codice morto/commentato e nessun uso del fuso orario italiano prima del
 `snippets/product-delivery-date.liquid`:
 - clamp `__dlxMin` prima di `$(".product-calendar").calendar({`: `start = max(start, minData)`
   con cutoff 20:00 + lead time `prodotto.consegna`; protezione da `start` NaN.
+
+## Province coperte e locale russo (bug risolto il 26/8/2026)
+
+La whitelist delle province coperte è lo **shop metafield `custom.default_provinces`**
+(`list.single_line_text_field`, valore primario `["ITALY-ROMA(RM)","ITALY-MILAN(MI)",…]`,
+9 voci con LODI). `layout/theme.liquid` la interpola in uno script inline e la parsa con
+la regex `/ITALY-(.*)\((\w+)\)/` → `localStorage.default_provinces`. Due gate la usano:
+il listener di `addToCartButtonManual` (pagina prodotto) e `submitButtonHandler` (modal
+indirizzo): se la lista è vuota, aprono `noProductsModal` per QUALSIASI indirizzo.
+
+**Il bug**: i metafield sono traducibili da Translate & Adapt. Il 7/2/2026 era stata
+registrata una traduzione RUSSA in cirillico («ИТАЛИЯ-МИЛАН(МИ)», 4 codici su 9 in
+cirillico): la regex non combaciava mai → lista vuota → sul locale `/ru` nessun cliente
+superava la verifica di consegna, nemmeno per Milano (verificato con replay del codice
+reale: parse it 9/9, en 9/9, ru 0/9). **Fix applicato**: `translationsRemove` della
+traduzione ru del metafield (gid://shopify/Metafield/53650775671114) → il russo ricade
+sul valore primario; verificato live 9/9 il 26/8. Vecchio valore RU (per eventuale
+rollback) nella memoria del progetto.
+
+**Regole**: (1) MAI tradurre `custom.default_provinces` in Translate & Adapt; (2) resta
+da applicare sul tema dev la blindatura del parse in `theme.liquid` (regex `/-(.*)\((\w+)\)/`
+senza prefisso obbligato + se `provincesArray.length < provinceItems.length` ripiego sui
+codici `['RM','MI','FI','PV','BG','MB','VA','CO','LO']` con `console.warn`) — la scrittura
+via connector è stata bloccata dai permessi il 26/8; (3) attenzione: la whitelist include
+LODI ma le zone di spedizione Shopify NON hanno una tariffa per Lodi → chi è di Lodi passa
+il check e al checkout non trova corrieri.
 
 ## Insidie specifiche
 
