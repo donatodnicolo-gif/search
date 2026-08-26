@@ -336,6 +336,22 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐ FINDINGS E AZIONI IN UNA COLONNA SOLA (26/08/2026)
+
+Richiesta utente: le due colonne della scheda analisi — «Cosa ha trovato» a
+sinistra, «Cosa propone» a destra — erano la stessa storia raccontata due
+volte (F16 dice che le enhanced conversions sono rotte, la #19 dice di
+aggiustarle). Ora è **una sezione sola a tutta larghezza**: la diagnosi sopra,
+la cura annidata sotto — ogni azione si attacca al finding che la CITA
+(aggancio per codice, con il confine dopo il numero: «#1» non combacia dentro
+«#17») — con stato riconciliato, link → operazione e bottone «Metti in coda»
+al loro posto. Le azioni che nessun finding cita stanno in fondo alla stessa
+colonna («Altre azioni proposte»), non in un'altra. La riconciliazione
+(data + bottone) sta nella testata della sezione. Verificato dal DOM in
+produzione: la #17 Parziale col suo esito è annidata dentro il finding dei
+claim vietati.
+
+
 ### ⭐⭐⭐ LA RICONCILIAZIONE: cosa risulta FATTO di quello che i report chiedono (26/08/2026 mattina)
 
 **Prima, il fatto**: la rimozione v2 del sitelink vietato è andata — esito

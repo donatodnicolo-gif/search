@@ -111,6 +111,90 @@ export default async function SchedaAnalisi({
     return { pronta, aggancio, inCoda };
   };
 
+  // ═══ UNA COLONNA SOLA (richiesta utente, 26/08): findings e azioni sono la
+  // stessa storia raccontata due volte — F16 dice che le enhanced conversions
+  // sono rotte, la #19 dice di aggiustarle. Ogni azione si attacca al finding
+  // che la CITA (il codice «#17» compare nel testo del finding); le azioni che
+  // nessun finding cita restano in un blocco a parte. L'aggancio esige un
+  // confine dopo il codice: «#1» non deve combaciare dentro «#17».
+  const azioniDelFinding = new Map<number, number[]>();
+  const azioniAttaccate = new Set<number>();
+  if (scheda) {
+    for (let ai = 0; ai < scheda.azioni.length; ai++) {
+      const cod = scheda.azioni[ai].codice?.trim();
+      if (!cod || cod.length < 2) continue;
+      const re = new RegExp(cod.replace(/[.*+?^${}()|[\]\\]/g, "\\  const aperte = analisi.azioni.filter((a) => STATI_AZIONE_APERTI.includes(a.stato)).length;") + "(?![0-9A-Za-z])");
+      for (let fi = 0; fi < scheda.findings.length; fi++) {
+        const f = scheda.findings[fi];
+        if (re.test(f.titolo + " " + f.dettaglio)) {
+          azioniDelFinding.set(fi, [...(azioniDelFinding.get(fi) ?? []), ai]);
+          azioniAttaccate.add(ai);
+          break;
+        }
+      }
+    }
+  }
+  const azioniRestanti = scheda ? scheda.azioni.map((_, i) => i).filter((i) => !azioniAttaccate.has(i)) : [];
+
+  // La riga di UN'azione proposta: pillola, testo, stato riconciliato, bottone.
+  // È una funzione perché vive in due posti — sotto il finding che la cita e
+  // nel blocco delle azioni senza finding.
+  const rigaAzione = (indice: number) => {
+    const az = scheda!.azioni[indice];
+    const ex = eseguibile(indice);
+    const st = statoAzione(indice);
+    return (
+      <div key={indice} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+        <Badge testo={az.codice ? `${az.priorita} ${az.codice}` : az.priorita} colore={COLORE_PRIORITA[az.priorita]} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13, whiteSpace: "normal" }}>
+            {az.testo}
+            {st && (
+              <span style={{ marginLeft: 8, display: "inline-flex", gap: 6, alignItems: "center" }}>
+                <Badge testo={ETICHETTA_STATO_RICONCILIATO[st.stato]} colore={COLORE_STATO_RICONCILIATO[st.stato]} />
+              </span>
+            )}
+          </div>
+          {st?.nota && (
+            <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 2 }}>
+              {st.nota}
+              {st.operazioni.map((oid) => (
+                <a key={oid} href={`/operazioni#op-${oid}`} style={{ marginLeft: 6, color: "var(--blue)" }} title="Apri l'operazione nella coda">
+                  → operazione
+                </a>
+              ))}
+            </div>
+          )}
+          {az.quando && <div className="cella-sub">entro {az.quando}</div>}
+          {/* Il bottone c'è SOLO quando la proposta dell'AI passa la revisione
+              del codice e la campagna è agganciata senza ambiguità. Mette in
+              coda DA APPROVARE: la catena resta app → coda → approvazione →
+              script, come per le PropostaAi. */}
+          {ex && !ex.inCoda && !["fatta", "in_corso"].includes(st?.stato ?? "") && (
+            <form action={accodaAzioneScheda} style={{ marginTop: 6 }}>
+              <input type="hidden" name="analisi" value={analisi.id} />
+              <input type="hidden" name="indice" value={indice} />
+              <button
+                className="btn small btn-secondario"
+                type="submit"
+                title={`Nasce «da approvare» su /operazioni, per ${ex.aggancio.nome}: niente parte senza il tuo ok`}
+              >
+                Metti in coda: {descriviOperazione(ex.pronta)} →
+              </button>
+            </form>
+          )}
+          {ex && ex.inCoda && (
+            <div style={{ marginTop: 6 }}>
+              <a className="tag-neutro" href="/operazioni" style={{ textDecoration: "none" }}>
+                ✓ già in coda — vai ad approvarla
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const aperte = analisi.azioni.filter((a) => STATI_AZIONE_APERTI.includes(a.stato)).length;
   const categoria = categoriaCampagna(`${analisi.titolo} ${analisi.fileDrive ?? ""}`);
   const coloreVerdetto = scheda ? COLORE_VERDETTO[scheda.verdetto] : null;
@@ -241,48 +325,100 @@ export default async function SchedaAnalisi({
               </div>
             )}
 
-            <div className="due-colonne">
-              <div>
-                {/* I findings, i più gravi in cima: la barra a sinistra e la
-                    pillola dicono la priorità prima che si legga una parola. */}
-                <section className="scheda">
-                  <div className="scheda-titolo">Cosa ha trovato ({scheda.findings.length})</div>
-                  {scheda.findings.length === 0 ? (
-                    <div className="vuoto-mini">Il documento non elenca findings.</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {[...scheda.findings]
-                        .sort((a, b) => a.priorita.localeCompare(b.priorita))
-                        .map((f, i) => (
+            {/* ═══ UNA COLONNA SOLA: il finding e l'azione che ne discende
+                stanno insieme — la diagnosi sopra, la cura sotto, lo stato
+                riconciliato accanto. La testata porta la riconciliazione. */}
+            <section className="scheda">
+              <div className="scheda-titolo" style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                <span>Cosa ha trovato — e cosa fare ({scheda.findings.length})</span>
+                <span className="cella-sub" style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+                  {analisi.riconciliataIl
+                    ? `riconciliato con la coda ${formattaDataOra(analisi.riconciliataIl)}`
+                    : "non ancora riconciliato con la coda"}
+                </span>
+                <form action={riconciliaSchedaAnalisi} style={{ marginLeft: "auto" }}>
+                  <input type="hidden" name="id" value={analisi.id} />
+                  <button
+                    className="btn small btn-secondario"
+                    type="submit"
+                    title="Incrocia le azioni del report con la coda operazioni: cosa risulta fatto, in corso, fallito"
+                  >
+                    Riconcilia adesso
+                  </button>
+                </form>
+              </div>
+              {scheda.findings.length === 0 ? (
+                <div className="vuoto-mini">Il documento non elenca findings.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {scheda.findings
+                    .map((f, fi) => ({ f, fi }))
+                    .sort((x, y) => x.f.priorita.localeCompare(y.f.priorita))
+                    .map(({ f, fi }) => (
+                      <div
+                        key={fi}
+                        style={{
+                          borderLeft: `3px solid ${COLORE_PRIORITA[f.priorita]}`,
+                          paddingLeft: 12,
+                          paddingTop: 2,
+                          paddingBottom: 2,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                          <Badge testo={f.priorita} colore={COLORE_PRIORITA[f.priorita]} />
+                          <b style={{ fontSize: 13.5 }}>{f.titolo}</b>
+                        </div>
+                        <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 4 }}>
+                          {f.dettaglio}
+                        </div>
+                        {f.campagne.length > 0 && (
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                            {f.campagne.map((n) => (
+                              <ChipCampagna key={n} nome={n} />
+                            ))}
+                          </div>
+                        )}
+                        {/* Le azioni che questo finding CITA: la cura sotto la
+                            diagnosi, con un filo di rientro e il fondo appena
+                            diverso perché si veda dove finisce l'una e comincia
+                            l'altra. */}
+                        {(azioniDelFinding.get(fi) ?? []).length > 0 && (
                           <div
-                            key={i}
                             style={{
-                              borderLeft: `3px solid ${COLORE_PRIORITA[f.priorita]}`,
-                              paddingLeft: 12,
-                              paddingTop: 2,
-                              paddingBottom: 2,
+                              marginTop: 8,
+                              padding: "8px 10px",
+                              background: "var(--fill-quaternary, rgba(0,0,0,.03))",
+                              borderRadius: 8,
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 8,
                             }}
                           >
-                            <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                              <Badge testo={f.priorita} colore={COLORE_PRIORITA[f.priorita]} />
-                              <b style={{ fontSize: 13.5 }}>{f.titolo}</b>
-                            </div>
-                            <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 4 }}>
-                              {f.dettaglio}
-                            </div>
-                            {f.campagne.length > 0 && (
-                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-                                {f.campagne.map((n) => (
-                                  <ChipCampagna key={n} nome={n} />
-                                ))}
-                              </div>
-                            )}
+                            {(azioniDelFinding.get(fi) ?? []).map((ai) => rigaAzione(ai))}
                           </div>
-                        ))}
-                    </div>
-                  )}
-                </section>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              )}
+              {/* Le azioni che NESSUN finding cita: in fondo alla stessa
+                  colonna, non in un'altra — è la richiesta. */}
+              {azioniRestanti.length > 0 && (
+                <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--separator, rgba(0,0,0,.08))" }}>
+                  <div className="cella-sub" style={{ marginBottom: 8 }}>
+                    Altre azioni proposte dal documento, non legate a un finding qui sopra ({azioniRestanti.length})
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {azioniRestanti
+                      .sort((x, y) => scheda.azioni[x].priorita.localeCompare(scheda.azioni[y].priorita))
+                      .map((ai) => rigaAzione(ai))}
+                  </div>
+                </div>
+              )}
+            </section>
 
+            <div className="due-colonne">
+              <div>
                 {/* Le campagne, ognuna col SUO semaforo: è la riga che il
                     bottone ANALISI della scheda campagna mostra come tooltip,
                     qui per esteso e cliccabile. */}
@@ -363,112 +499,6 @@ export default async function SchedaAnalisi({
                   <div className="scheda-titolo">In breve</div>
                   <div className="sintesi-testo">{scheda.sintesi}</div>
                 </section>
-
-                {/* Le azioni che il DOCUMENTO propone: non sono ancora azioni
-                    dell'app — diventarlo è un click, ma è un click di una
-                    persona. */}
-                {scheda.azioni.length > 0 && (
-                  <section className="scheda">
-                    <div className="scheda-titolo" style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-                      <span>Cosa propone il documento</span>
-                      <span className="cella-sub" style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
-                        {analisi.riconciliataIl
-                          ? `riconciliato con la coda ${formattaDataOra(analisi.riconciliataIl)}`
-                          : "non ancora riconciliato con la coda"}
-                      </span>
-                      <form action={riconciliaSchedaAnalisi} style={{ marginLeft: "auto" }}>
-                        <input type="hidden" name="id" value={analisi.id} />
-                        <button
-                          className="btn small btn-secondario"
-                          type="submit"
-                          title="Incrocia le azioni del report con la coda operazioni: cosa risulta fatto, in corso, fallito"
-                        >
-                          Riconcilia adesso
-                        </button>
-                      </form>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {scheda.azioni
-                        .map((a, indice) => ({ a, indice }))
-                        .sort((x, y) => x.a.priorita.localeCompare(y.a.priorita))
-                        .map(({ a, indice }) => {
-                          const ex = eseguibile(indice);
-                          return (
-                            <div key={indice} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                              <Badge testo={a.codice ? `${a.priorita} ${a.codice}` : a.priorita} colore={COLORE_PRIORITA[a.priorita]} />
-                              <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 13, whiteSpace: "normal" }}>
-                                  {a.testo}
-                                  {/* Lo stato RICONCILIATO: cosa risulta dalla
-                                      coda. «Fatta» cita l'esito vero; un'azione
-                                      fatta a mano in interfaccia resta «da
-                                      fare» finché un censimento non la mostra. */}
-                                  {(() => {
-                                    const st = statoAzione(indice);
-                                    if (!st) return null;
-                                    return (
-                                      <span style={{ marginLeft: 8, display: "inline-flex", gap: 6, alignItems: "center" }}>
-                                        <Badge
-                                          testo={ETICHETTA_STATO_RICONCILIATO[st.stato]}
-                                          colore={COLORE_STATO_RICONCILIATO[st.stato]}
-                                        />
-                                      </span>
-                                    );
-                                  })()}
-                                </div>
-                                {(() => {
-                                  const st = statoAzione(indice);
-                                  if (!st?.nota) return null;
-                                  return (
-                                    <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 2 }}>
-                                      {st.nota}
-                                      {st.operazioni.map((oid) => (
-                                        <a
-                                          key={oid}
-                                          href={`/operazioni#op-${oid}`}
-                                          style={{ marginLeft: 6, color: "var(--blue)" }}
-                                          title="Apri l'operazione nella coda"
-                                        >
-                                          → operazione
-                                        </a>
-                                      ))}
-                                    </div>
-                                  );
-                                })()}
-                                {a.quando && <div className="cella-sub">entro {a.quando}</div>}
-                                {/* ⚠️ Il bottone c'è SOLO quando la proposta
-                                    dell'AI passa la revisione del codice e la
-                                    campagna è agganciata senza ambiguità.
-                                    Mette in coda DA APPROVARE — la catena
-                                    resta app → coda → approvazione → script,
-                                    come per le PropostaAi. */}
-                                {ex && !ex.inCoda && !["fatta", "in_corso"].includes(statoAzione(indice)?.stato ?? "") && (
-                                  <form action={accodaAzioneScheda} style={{ marginTop: 6 }}>
-                                    <input type="hidden" name="analisi" value={analisi.id} />
-                                    <input type="hidden" name="indice" value={indice} />
-                                    <button
-                                      className="btn small btn-secondario"
-                                      type="submit"
-                                      title={`Nasce «da approvare» su /operazioni, per ${ex.aggancio.nome}: niente parte senza il tuo ok`}
-                                    >
-                                      Metti in coda: {descriviOperazione(ex.pronta)} →
-                                    </button>
-                                  </form>
-                                )}
-                                {ex && ex.inCoda && (
-                                  <div style={{ marginTop: 6 }}>
-                                    <a className="tag-neutro" href="/operazioni" style={{ textDecoration: "none" }}>
-                                      ✓ già in coda — vai ad approvarla
-                                    </a>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </section>
-                )}
 
                 {scheda.nonCoperto.length > 0 && (
                   <section className="scheda">
