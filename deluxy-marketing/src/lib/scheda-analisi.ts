@@ -218,7 +218,9 @@ Regole, nell'ordine in cui contano:
    parametri esatti; le campagne che il documento nomina senza dare i testi o i
    numeri NON si mappano. Un aumento di budget con la percentuale e la base nel
    documento ("+20% da 28,75") È mappabile: il conto è del documento, non tuo.
-   Tipi e parametri (parametriJson è una stringa JSON):
+   Se il documento dà una FORBICE esplicita («da 10 a 12-13 €/g»), mappa
+   l'estremo BASSO della forbice: è il passo prudente, e il numero è del
+   documento. Tipi e parametri (parametriJson è una stringa JSON):
      · pausa_campagna / attiva_campagna → parametriJson null
      · budget → {"budget": <euro al giorno, numero>}. Se l'azione chiede uno
        SCALINO/aumento di budget SENZA dare l'importo ma il documento dà il
@@ -237,7 +239,12 @@ Regole, nell'ordine in cui contano:
    Tutto il resto (creativi, annunci, pubblici, ad set Meta, tracciamento,
    ristrutturazioni) NON si mappa: operazione = null. MAI inventare un numero
    o un testo che il documento non dà: meglio null di un parametro plausibile.
-10. Scrivi conciso: la scheda si legge in un minuto, il documento resta su Drive.`;
+10. LA SCHEDA SI LEGGE SENZA IL DOCUMENTO. Ogni sigla interna (M-N4, A9-cr,
+   #26, «doc 6 §4.5»…) va SPIEGATA in parole nel testo dell'azione la prima
+   volta che compare: «dopo M-N4» non dice niente a chi guarda la pagina —
+   «dopo il consolidamento del retargeting (M-N4)» sì. Il campo "quando" è
+   una DATA o una condizione in parole semplici, mai una sigla nuda.
+11. Scrivi conciso: la scheda si legge in un minuto, il documento resta su Drive.`;
 
 export type EsitoElaborazione =
   | { ok: true; verdetto: VerdettoScheda; kpi: number; findings: number; campagne: number }

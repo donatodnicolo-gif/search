@@ -19,6 +19,12 @@ export default async function NuovaAzione({
   searchParams: Promise<{ analisi?: string; campagna?: string; brand?: string }>;
 }) {
   const { analisi: analisiId, campagna: campagnaId, brand } = await searchParams;
+  // Chi arriva DA una campagna ha già detto brand e canale: il modulo li
+  // precompila dalla campagna, non li richiede (segnalato: il canale
+  // arrivava vuoto anche col link della campagna Meta).
+  const campagnaScelta = campagnaId
+    ? await prisma.campagna.findUnique({ where: { id: campagnaId }, select: { brand: true, canale: true } })
+    : null;
   const [analisi, campagne] = await Promise.all([
     analisiId ? prisma.analisi.findUnique({ where: { id: analisiId } }) : null,
     prisma.campagna.findMany({ where: { stato: { notIn: [...STATI_CAMPAGNA_IGNORATE] } }, orderBy: { creataIl: "desc" }, select: { id: true, nome: true } }),
@@ -49,7 +55,7 @@ export default async function NuovaAzione({
             </div>
             <div className="campo-modulo">
               <label>Brand</label>
-              <select name="brand" defaultValue={brand ?? analisi?.brand ?? "cross"}>
+              <select name="brand" defaultValue={brand ?? campagnaScelta?.brand ?? analisi?.brand ?? "cross"}>
                 {BRANDS.map((b) => (
                   <option key={b} value={b}>{ETICHETTA_BRAND[b]}</option>
                 ))}
@@ -57,7 +63,7 @@ export default async function NuovaAzione({
             </div>
             <div className="campo-modulo">
               <label>Canale</label>
-              <select name="canale" defaultValue={analisi?.canale ?? ""}>
+              <select name="canale" defaultValue={campagnaScelta?.canale ?? analisi?.canale ?? ""}>
                 <option value="">—</option>
                 {CANALI.map((c) => (
                   <option key={c} value={c}>{ETICHETTA_CANALE[c]}</option>

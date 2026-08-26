@@ -244,7 +244,14 @@ export default async function SchedaAnalisi({
               ))}
             </div>
           )}
-          {az.quando && <div className="cella-sub">entro {az.quando}</div>}
+          {az.quando && (
+            <div className="cella-sub">
+              {/* «entro» ha senso davanti a una scadenza; davanti a una
+                  condizione («dopo il consolidamento…») diventa «entro dopo»,
+                  che non è italiano. Si sceglie il prefisso dal contenuto. */}
+              {/d|subito|oggi|domani|entro|scadut/i.test(az.quando) ? `entro ${az.quando}` : `quando: ${az.quando}`}
+            </div>
+          )}
           {/* UNA RIGA PER PROPOSTA — un'azione su quattro campagne sono
               quattro bottoni, ognuno col suo destino: da accodare, già in
               coda, o già eseguita (e allora niente bottone: il doppio invio
