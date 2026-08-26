@@ -460,7 +460,14 @@ centimetri da un totale già estratto nella stessa schermata. La **fase** è
 una tendina con gli stati veri di Scout (Primo contatto · In trattativa · Preventivo
 inviato · Chiusa vinta · Chiusa persa), e l'AI la propone leggendo lo scambio.
 
-**I bottoni «Si può fare da qui» non spariscono più.** Le azioni che il riassunto propone
+**I bottoni «Si può fare da qui» non spariscono più.** Se un aggiornamento del riassunto
+propone una sola azione, le altre già proposte **restano**: un giro che ne nomina una non
+è un giudizio sulle altre. E la trattativa si può aprire anche quando lo scambio è già
+avanti — preventivo mandato, condizioni discusse: una trattativa a buon punto è quella che
+conta di più avere nel CRM. Se il riassunto non te la propone, il tasto **«→ App»** in
+testa alla mail apre lo stesso dialogo scegliendo l'azione a mano.
+
+ Le azioni che il riassunto propone
 restano anche quando lo si rigenera: prima venivano tenute solo quelle dell'ultimo giro,
 e un aggiornamento su due mail nuove le cancellava tutte. Spariscono per un motivo solo —
 quando l'azione è stata **davvero eseguita** su una mail di quella conversazione.

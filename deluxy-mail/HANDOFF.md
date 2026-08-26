@@ -23,6 +23,34 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 8) — il silenzio PARZIALE, e una trattativa avanti che nessuno registrava
+
+Un'ora dopo la correzione della sera 7, l'utente rigenera col tasto «Profondo» e chiede:
+«perché non si può aprire anche la trattativa?». Nel riquadro era comparsa **una sola**
+azione, «Registra il preventivo». Due difetti, uno mio di un'ora prima.
+
+1. **La correzione della sera 7 copriva solo il silenzio TOTALE.** La regola era
+   `azioniVista.length ? azioniVista : precedenti`: le azioni di prima si tenevano solo
+   se il giro nuovo non ne nominava **nessuna**. Ma il caso comune è il **silenzio
+   parziale** — ne propone una, e le altre spariscono lo stesso. ⭐ Lezione: quando si
+   difende un elenco dalla perdita, il caso da coprire non è «vuoto contro pieno» ma
+   **ogni voce per conto suo**. Ora le nuove si SOMMANO alle precedenti non ripetute
+   (sempre max 2, sempre tolte quelle con un invio riuscito in `InvioApp`).
+2. **La regola che decide quando proporre la trattativa era scritta al contrario del
+   valore.** Diceva «si sta aprendo un'opportunità commerciale **nuova**»: su uno scambio
+   in cui il preventivo è già partito e si discutono le condizioni, il modello la
+   scartava — «non è più nuova». Ma una trattativa **avanti** è più importante da avere
+   nel CRM, non meno: è quella che sta per diventare fatturato. La regola ora copre anche
+   la trattativa **in corso e non ancora registrata** in Commerciale, e dice
+   esplicitamente che una già avanzata vale ANCHE di più. Resta escluso il caso opposto
+   (siamo NOI a chiedere un prezzo a un fornitore).
+
+⚠️ **Da guardare a schermo**: rigenerando col «Profondo» devono comparire **entrambi** i
+bottoni. Se il modello continuasse a proporne uno solo, l'altro si raggiunge sempre col
+tasto **«→ App»** in testa alla mail, che apre lo stesso dialogo scegliendo l'azione a
+mano — il riassunto è una scorciatoia, non l'unica strada.
+
+---
 ### 26/08 (sera 7) — «non ho più il richiamo alle app?»: una porta che si chiudeva da sola
 
 Segnalato dall'utente guardando il riquadro del riassunto: i bottoni «Si può fare da qui»
