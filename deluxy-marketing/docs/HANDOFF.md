@@ -336,6 +336,28 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐ LE ANALISI VECCHIE SI SEGNANO «STORICHE» DA SOLE (26/08/2026 sera)
+
+Richiesta utente: un'analisi del 02/08 accanto a quella del 25/08 si legge
+come attuale, e non lo è. Ora è **uno stato DERIVATO, mai scritto in
+tabella** (`mappaAnalisiStoriche` / `analisiCheSupera` in
+`lib/scheda-analisi.ts`): un'analisi è storica se ne esiste una
+**strettamente più recente** sullo stesso **brand+canale** — depositata la
+nuova, le vecchie diventano storiche da sole; due dello stesso giorno
+restano entrambe attuali (sceglierne una a caso sarebbe peggio). Un flag
+salvato sarebbe invecchiato: stessa famiglia del riassunto d'handoff.
+
+- **/analisi**: pillola «Storica» sulle card (che si smorzano a opacità
+  0.72, leggibili ma non in competizione con l'attuale) e nella colonna
+  Data della tabella; il title dice CHI la supera e di quando.
+  ⚠️ Il calcolo gira su TUTTA la tabella, non sull'elenco filtrato: col
+  filtro «solo audit» chi supera potrebbe non essere in pagina, e una
+  storica sembrerebbe attuale solo perché il suo successore è filtrato via.
+- **/analisi/[id]**: banner NEUTRO in testa (grigio, non allarmato — una
+  storica non è un errore): «del …, su questo mondo c'è un'analisi più
+  recente del …: [titolo] →» con link. I findings restano tutti leggibili:
+  raccontano com'era allora, non com'è adesso.
+
 ### ⭐⭐ RIFINITURA UX/UI TRASVERSALE (26/08/2026 sera)
 
 Richiesta utente («migliora UX e UI di tutta l'app»). Interventi che valgono

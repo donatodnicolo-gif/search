@@ -19,7 +19,7 @@ import {
   STATI_AZIONE_APERTI,
 } from "@/lib/dominio";
 import { categoriaCampagna, iconaCanale } from "@/lib/salute";
-import { COLORE_PRIORITA, COLORE_RISPOSTA, COLORE_STATO_RICONCILIATO, COLORE_VERDETTO, descriviOperazione, ETICHETTA_RISPOSTA, ETICHETTA_STATO_RICONCILIATO, ETICHETTA_VERDETTO, mappaCampagneCitate, operazioneDaProposta, proposteDi, riconciliazioneDi, risposteDi, schedaDi } from "@/lib/scheda-analisi";
+import { analisiCheSupera, COLORE_PRIORITA, COLORE_RISPOSTA, COLORE_STATO_RICONCILIATO, COLORE_VERDETTO, descriviOperazione, ETICHETTA_RISPOSTA, ETICHETTA_STATO_RICONCILIATO, ETICHETTA_VERDETTO, mappaCampagneCitate, operazioneDaProposta, proposteDi, riconciliazioneDi, risposteDi, schedaDi } from "@/lib/scheda-analisi";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +51,10 @@ export default async function SchedaAnalisi({
   if (!analisi) notFound();
 
   const scheda = schedaDi(analisi);
+  // STORICA? Derivato, mai scritto: c'è un'analisi più recente sullo stesso
+  // brand+canale. Chi apre questa pagina deve saperlo PRIMA di leggere i
+  // findings come guida — sono la storia del mondo, non il suo presente.
+  const superataDa = await analisiCheSupera(analisi);
   // Cosa risulta FATTO di quello che il report chiede, incrociato con la coda
   // dall'AI (cron dopo ogni giro, o il bottone «Riconcilia adesso»).
   const riconciliazione = riconciliazioneDi(analisi);
@@ -350,6 +354,25 @@ export default async function SchedaAnalisi({
       <Sidebar attiva="analisi" brandAttivo={analisi.brand} canaleAttivo={analisi.canale ?? undefined} />
       <main className="main">
         <a className="ritorno" href="/analisi">← Analisi</a>
+
+        {/* Neutro, non allarmato: una storica non è un errore — è un
+            documento vero del suo tempo, superato da uno più recente. */}
+        {superataDa && (
+          <div
+            className="nota-info"
+            style={{ background: "var(--fill)", borderColor: "var(--hairline-strong)" }}
+          >
+            <span className="nota-icona" style={{ color: "var(--text-tertiary)" }}>◷</span>
+            <span>
+              <b>Analisi storica</b> — del {formattaData(analisi.dataAnalisi)}. Su questo mondo
+              c&apos;è un&apos;analisi più recente, del <b>{formattaData(superataDa.dataAnalisi)}</b>:{" "}
+              <a href={`/analisi/${superataDa.id}`} style={{ color: "var(--blue)" }}>
+                {superataDa.titolo} →
+              </a>
+              {" "}Questa resta come storia: i suoi findings raccontano com&apos;era allora, non com&apos;è adesso.
+            </span>
+          </div>
+        )}
 
         {sp.coda === "fallita" && (
           <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>

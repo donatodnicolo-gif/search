@@ -1,5 +1,5 @@
 import { Badge } from "@/components/Badge";
-import { COLORE_VERDETTO, ETICHETTA_VERDETTO, schedaDi, type VerdettoScheda } from "@/lib/scheda-analisi";
+import { COLORE_VERDETTO, ETICHETTA_VERDETTO, mappaAnalisiStoriche, schedaDi, type VerdettoScheda } from "@/lib/scheda-analisi";
 import { BottoneSync } from "@/components/BottoneSync";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
@@ -43,6 +43,24 @@ export default async function PaginaAnalisi({
     .map((a) => ({ a, s: schedaDi(a) }))
     .filter((x): x is { a: (typeof analisi)[number]; s: NonNullable<ReturnType<typeof schedaDi>> } => x.s != null)
     .slice(0, 6);
+
+  // Le STORICHE: superate da un'analisi più recente sullo stesso brand+canale.
+  // ⚠️ Si calcola su TUTTA la tabella, non sull'elenco filtrato: col filtro
+  // «solo audit» la più recente potrebbe non essere in pagina, e una storica
+  // sembrerebbe attuale solo perché chi la supera è stato filtrato via.
+  const storiche = await mappaAnalisiStoriche();
+  const pillolaStorica = (id: string) => {
+    const capo = storiche.get(id);
+    if (!capo) return null;
+    return (
+      <span
+        className="tag-neutro"
+        title={`Superata da «${capo.titolo}» del ${formattaData(capo.dataAnalisi)}: questa resta come storia, non come guida`}
+      >
+        Storica
+      </span>
+    );
+  };
 
   return (
     <div className="layout">
@@ -110,6 +128,9 @@ export default async function PaginaAnalisi({
                   // Il verdetto resta — ma come pallino, non come cornice.
                   borderTop: `3px solid ${COLORE_BRAND[a.brand] ?? "var(--text-tertiary)"}`,
                   marginBottom: 0,
+                  // La storica resta leggibile ma non compete con l'attuale:
+                  // è la storia del mondo, non la sua guida.
+                  ...(storiche.has(a.id) ? { opacity: 0.72 } : {}),
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
@@ -123,6 +144,7 @@ export default async function PaginaAnalisi({
                     <span className="tag-neutro">{ETICHETTA_CANALE[a.canale] ?? a.canale}</span>
                   )}
                   <span className="tag-neutro">{ETICHETTA_TIPO_ANALISI[a.tipo] ?? a.tipo}</span>
+                  {pillolaStorica(a.id)}
                   <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <span
                       title={`Verdetto: ${ETICHETTA_VERDETTO[s.verdetto]}`}
@@ -169,7 +191,10 @@ export default async function PaginaAnalisi({
               <tbody>
                 {analisi.map((an) => (
                   <tr key={an.id}>
-                    <td className="cella-muta">{formattaData(an.dataAnalisi)}</td>
+                    <td className="cella-muta">
+                      {formattaData(an.dataAnalisi)}
+                      {storiche.has(an.id) && <div style={{ marginTop: 3 }}>{pillolaStorica(an.id)}</div>}
+                    </td>
                     <td>
                       <a href={`/analisi/${an.id}`}>
                         <div className="cella-nome">{an.titolo}</div>

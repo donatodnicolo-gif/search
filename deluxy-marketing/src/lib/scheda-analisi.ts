@@ -668,6 +668,52 @@ export async function noteAnalisiPerCampagna(campagna: {
   return righe;
 }
 
+// ───── Le analisi STORICHE: superate da una più recente sullo stesso mondo ─────
+//
+// «Storica» è uno stato DERIVATO, mai scritto in tabella: appena si deposita
+// l'analisi nuova le vecchie diventano storiche da sole, e se la nuova venisse
+// tolta tornerebbero attuali. Un flag salvato invecchierebbe — è la stessa
+// famiglia del riassunto d'handoff che resta indietro.
+//
+// Il «mondo» è brand+canale (stessa chiave dell'aggancio alle campagne).
+// Solo una data STRETTAMENTE più recente supera: due analisi dello stesso
+// giorno sono entrambe attuali — sceglierne una a caso sarebbe peggio.
+
+/** Per ogni analisi superata: chi la supera. In un giro solo, per gli elenchi. */
+export async function mappaAnalisiStoriche(): Promise<
+  Map<string, { id: string; titolo: string; dataAnalisi: Date }>
+> {
+  const tutte = await prisma.analisi.findMany({
+    select: { id: true, brand: true, canale: true, dataAnalisi: true, titolo: true },
+  });
+  const chiave = (a: { brand: string; canale: string | null }) => `${a.brand}|${a.canale ?? "-"}`;
+  const capofila = new Map<string, { id: string; titolo: string; dataAnalisi: Date }>();
+  for (const a of tutte) {
+    const c = capofila.get(chiave(a));
+    if (!c || a.dataAnalisi > c.dataAnalisi) capofila.set(chiave(a), { id: a.id, titolo: a.titolo, dataAnalisi: a.dataAnalisi });
+  }
+  const storiche = new Map<string, { id: string; titolo: string; dataAnalisi: Date }>();
+  for (const a of tutte) {
+    const capo = capofila.get(chiave(a))!;
+    if (capo.id !== a.id && capo.dataAnalisi > a.dataAnalisi) storiche.set(a.id, capo);
+  }
+  return storiche;
+}
+
+/** La singola: l'analisi più recente che supera QUESTA, o null se è attuale. */
+export async function analisiCheSupera(a: {
+  id: string;
+  brand: string;
+  canale: string | null;
+  dataAnalisi: Date;
+}): Promise<{ id: string; titolo: string; dataAnalisi: Date } | null> {
+  return prisma.analisi.findFirst({
+    where: { brand: a.brand, canale: a.canale, dataAnalisi: { gt: a.dataAnalisi }, id: { not: a.id } },
+    orderBy: { dataAnalisi: "desc" },
+    select: { id: true, titolo: true, dataAnalisi: true },
+  });
+}
+
 // ───── Le azioni della scheda che si possono METTERE IN CODA ─────
 //
 // L'AI propone la traduzione azione→operazione; qui il codice la RIVEDE:
