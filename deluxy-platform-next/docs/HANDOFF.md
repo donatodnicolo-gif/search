@@ -185,6 +185,65 @@ applicata al cluster con `scripts/applica-migrazione-variante.mjs`):
    Stessa regola nel `dovuto al partner` della Fatturazione (3 select + il
    batch, tipo aggiornato).
 
+### 26/08 — La fee registrata entra nel MARGINE, il recupero si estende, e l'id vendita apre il pop-up
+
+1. **Margine totale = guadagno netto + fee registrata (netta IVA) − costi**
+   (deciso dall'utente): il partner riceve il valore prodotti MENO la quota
+   (così calcola già la Fatturazione), quindi il margine che ignorava la quota
+   sottostimava — sulla 62637 di 43 € lordi. Cambiato in `computeRow`, nel
+   `recap` (il summary somma i recap) e nel testo «assumption» della pagina.
+   ⚠️ Per coerenza `creaConsegna` ora scrive `productValue = amount` (il valore
+   prodotti INTERO, come le consegne importate: 62637 → 215/43), non più
+   `amount − quota`: con la nuova formula avrebbe contato la quota due volte.
+2. **Ripiego esteso di un gradino**: prezzo riga → pubblico VARIANTE → pubblico
+   PRODOTTO → prezzo base (Finanza e Fatturazione, sempre col «≈» dichiarato).
+   Le 201 vendite non recuperabili dalla variante (tutte 2024-2025, fiorai
+   vecchio stile: «Bouquet Rose Rosa €70» base 70) ora contano il loro venduto;
+   198 su 201 hanno un prezzo a catalogo.
+3. **L'id della vendita in Finanza è cliccabile**: apre un POP-UP col dettaglio
+   dell'ordine (economia completa + elenco consegne con link), overlay e clic
+   fermato; il click sull'id NON apre/chiude le righe (stopPropagation).
+
+⭐ **Caso 62510 spiegato** (dall'utente: «prezzo 200 ma valore prodotti 680»):
+ordine Shopify #12717 su misura da **1.000 €** («3 bouquet rose rosse», riga
+senza SKU); 680 = valore concordato col fiorista scritto sulla consegna (la
+quota 149,60 è il 22% esatto), 200 = prezzo del prodotto SEGNAPOSTO «Bouquet»
+rimasto di default sulla riga. La Finanza la segnala giustamente («partner
+oltre pubblico»); il dato da correggere a mano è il prezzo di riga (1.000).
+
+### ⭐⭐ 26/08 — I PREZZI FLESSIBILI recuperati dal legacy (3.851 righe, in produzione)
+
+Scoperto DALL'UTENTE guardando il form del vecchio sistema: il prezzo vero di
+una consegna «su misura» sta in **`delivery.flexiblePrice`**, un JSON per
+prodotto (`[{"product":{"id":18625,"flexiblePrice":"680",…}}]`) che l'import
+non aveva mai letto — la riga nuova restava col prezzo del SEGNAPOSTO (62510:
+«Bouquet» 200 dove il concordato era 680; su Shopify il cliente aveva pagato
+1.000, ordine #12717 senza SKU: quel numero vive in Orders, qui non arriva).
+
+Script `api/scripts/recupera-prezzi-flessibili.mjs` (simula di default,
+`--applica` scrive col backup in `scripts/backup-prezzi-flessibili.json`).
+⚠️ **Due difese nate dalla PRIMA simulazione**: il JSON vale solo se il flag
+`isFlexiblePrice` era ACCESO (12.288 JSON col flag spento sono avanzi, e
+avrebbero riscritto 5.385 prezzi — tra cui 95 → 0), e un prezzo ≤ 0 non si
+scrive mai (239 scartati: lo zero è il default di un campo mai compilato).
+**Applicato**: 16.409 consegne col JSON → 4.403 voci valide → **3.851 righe
+aggiornate** (3.837 correzioni di prezzi già scritti: 532.872 → 367.187 €),
+con riga di registro sulla consegna dove un prezzo scritto è cambiato.
+
+### 26/08 — Finanza e form: le richieste della sera
+
+- **Margine = guadagno netto + fee registrata (netta IVA) − costi** (vedi
+  sezione sopra); l'ordine 12731 resta giustamente negativo: bouquet 35 €,
+  consegna fallita dal fiorista, RICONSEGNA del Magazzino a 9,59 € di valet
+  contro 7 € di quota — la perdita è vera.
+- **Ripiego esteso**: prezzo riga → variante → pubblico prodotto → base.
+- **Id vendita cliccabile in Finanza** → pop-up col dettaglio dell'ordine.
+- **Chip dei filtri attivi in Finanza** (periodo, ricerca, partner, fascia)
+  con la ✕ per toglierli uno a uno e «Azzera tutti».
+- **Form consegna**: il flag «Codice di consegna richiesto» sta in alto a
+  destra come nell'app attuale; la freccia indietro (form E dettaglio) torna
+  alla schermata PRECEDENTE (history), non a un indirizzo fisso.
+
 **Resta da fare qui**: creazione/modifica dei modelli SMS da UI (l'API `POST
 /sms-templates` c'è); creazione provincia da UI; la prima corsa AUTOMATICA del
 cron è stanotte alle 4:30 italiane (quella a mano è già andata); riconnettere

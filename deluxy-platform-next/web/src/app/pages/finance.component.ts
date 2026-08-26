@@ -168,6 +168,22 @@ interface Summary {
       <button class="tab" [class.on]="tab() === 'margini'" (click)="tab.set('margini')">{{ 'finance.tab.margini' | translate }}</button>
     </div>
 
+    <!-- I filtri attivi si VEDONO e si tolgono da qui: un filtro dimenticato
+         fa leggere una parte credendola il tutto. -->
+    @if (filtriAttivi().length) {
+      <div class="chips">
+        <span class="chips-label">{{ 'finance.filtri.attivi' | translate }}</span>
+        @for (f of filtriAttivi(); track f.tipo) {
+          <button type="button" class="chip" (click)="togliFiltro(f.tipo)" [title]="'finance.filtri.togli' | translate">
+            {{ f.testo }} <span class="x">✕</span>
+          </button>
+        }
+        @if (filtriAttivi().length > 1) {
+          <button type="button" class="chip azzera" (click)="azzeraFiltri()">{{ 'finance.filtri.azzera' | translate }}</button>
+        }
+      </div>
+    }
+
     <!-- L'ambito va DETTO, per la stessa ragione del tetto qui sotto: la pagina
          non mostra tutte le consegne del periodo, mostra le vendite. -->
     @if (!loading() && summary(); as s) {
@@ -273,7 +289,11 @@ interface Summary {
                     (click)="apriChiudi(o.saleRef)">
                   <td colspan="3" class="mono ordine-id">
                     <span class="freccia">{{ aperto(o.saleRef) ? '▾' : '▸' }}</span>
-                    {{ o.saleRef }}
+                    <!-- Il click sull'ID non apre le righe: apre il POP-UP col
+                         dettaglio dell'ordine (stopPropagation, o farebbe
+                         entrambe le cose insieme). -->
+                    <button type="button" class="link-id" (click)="apriDettaglio(o, $event)"
+                            [title]="'finance.dettaglio.apri' | translate">{{ o.saleRef }}</button>
                   </td>
                   <td colspan="4">{{ 'finance.ordini.consegne' | translate }}: {{ o.consegne }}
                     @if (o.consegnePagate > 1) {
@@ -360,6 +380,47 @@ interface Summary {
         <p class="assumption">{{ 'finance.assumption' | translate }}</p>
       }
     }
+
+    <!-- Pop-up del dettaglio ordine: velo sopra e clic fermato (la finestra
+         dentro la finestra è una trappola già pagata). -->
+    @if (dettaglio(); as o) {
+      <div class="overlay" (click)="chiudiDettaglio()"></div>
+      <div class="dialog card" (click)="$event.stopPropagation()">
+        <header class="dlg-head">
+          <h2 class="mono">{{ 'finance.dettaglio.titolo' | translate: { ref: o.saleRef } }}</h2>
+          <button type="button" class="icon-btn" (click)="chiudiDettaglio()" [title]="'finance.dettaglio.chiudi' | translate">✕</button>
+        </header>
+        <dl class="dlg-dati">
+          <dt>{{ 'finance.c.saleValue' | translate }}</dt>
+          <dd>{{ euro(o.saleValue + o.deliveryFee) }}
+            @if (o.vendutoStimato) { <span class="stimato" [title]="'finance.vendutoStimatoHint' | translate">≈</span> }</dd>
+          <dt>{{ 'finance.c.deliveryFee' | translate }}</dt><dd>{{ euro(o.deliveryFee) }}</dd>
+          <dt>{{ 'finance.c.partnerPrice' | translate }}</dt><dd>{{ euro(o.partnerPrice) }}</dd>
+          <dt>{{ 'finance.c.takings' | translate }}</dt><dd>{{ euro(o.takings) }}</dd>
+          <dt>{{ 'finance.c.takingsNet' | translate }}</dt><dd>{{ euro(o.takingsNet) }}</dd>
+          <dt>{{ 'finance.c.feeContract' | translate }}</dt><dd>{{ euro(o.feeContract) }}</dd>
+          <dt>{{ 'finance.c.deliveryCost' | translate }}</dt><dd>{{ euro(o.deliveryCost) }}</dd>
+          <dt>{{ 'finance.c.vat' | translate }}</dt><dd>{{ euro(o.vat) }}</dd>
+          <dt>{{ 'finance.c.incassiCommission' | translate }}</dt><dd>{{ euro(o.incassiCommission) }}</dd>
+          <dt>{{ 'finance.c.totalMargin' | translate }}</dt>
+          <dd class="forte" [class.neg]="o.totalMargin < 0">{{ euro(o.totalMargin) }}
+            <span class="pct">{{ o.totalMarginPercent | number: '1.0-2' }}%</span></dd>
+        </dl>
+        <h3 class="dlg-sub">{{ 'finance.dettaglio.consegne' | translate: { n: o.consegne } }}</h3>
+        <ul class="dlg-consegne">
+          @for (r of o.righe; track r.deliveryId) {
+            <li>
+              <a class="link-consegna" [href]="'/deliveries/' + r.deliveryId" target="_blank" rel="noopener">#{{ r.deliveryCode }}</a>
+              <span class="pill">{{ r.status }}</span>
+              <span class="dlg-data">{{ r.date | date: 'd/M/yy' }}</span>
+              <span class="dlg-prod">{{ r.product }}</span>
+              <span class="muted">{{ r.partner }}</span>
+              @if (r.anomalia) { <span class="tag-anomalia">{{ 'finance.anomalia.' + r.anomalia | translate }}</span> }
+            </li>
+          }
+        </ul>
+      </div>
+    }
   `,
   styles: [
     `
@@ -387,6 +448,37 @@ interface Summary {
       .riga-anomala { background: rgba(215, 0, 21, 0.05); }
       /* Venduto stimato dal listino della variante: il tilde lo dice, il title spiega. */
       .stimato { margin-left: 3px; color: var(--gold-strong, #a07f2c); font-weight: 600; cursor: help; }
+      .chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -6px 0 14px; }
+      .chips-label { font-size: 12px; color: var(--text-tertiary); }
+      .chip {
+        appearance: none; font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
+        border-radius: 980px; border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text);
+      }
+      .chip:hover { background: var(--fill); }
+      .chip .x { color: var(--text-tertiary); font-size: 11px; }
+      .chip:hover .x { color: var(--red); }
+      .chip.azzera { border-color: transparent; background: var(--fill); color: var(--text-secondary); }
+      /* L'id della vendita è cliccabile: apre il pop-up del dettaglio. */
+      .link-id { appearance: none; border: 0; background: none; font: inherit; color: var(--blue, #0071e3); cursor: pointer; padding: 0; }
+      .link-id:hover { text-decoration: underline; }
+      .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.28); z-index: 50; }
+      .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51; width: min(560px, 94vw); max-height: 84vh; overflow-y: auto; padding: 22px 26px; }
+      .dlg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+      .dlg-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+      .icon-btn { appearance: none; border: 1px solid transparent; background: none; cursor: pointer; font-size: 14px; line-height: 1; padding: 7px 9px; border-radius: 980px; color: var(--text-secondary); }
+      .icon-btn:hover { background: var(--fill); color: var(--text); }
+      .dlg-dati { display: grid; grid-template-columns: minmax(140px, 42%) 1fr; gap: 7px 14px; margin: 0 0 16px; font-size: 13.5px; }
+      .dlg-dati dt { color: var(--text-tertiary); }
+      .dlg-dati dd { margin: 0; font-variant-numeric: tabular-nums; }
+      .dlg-dati .forte { font-weight: 650; }
+      .dlg-dati .neg { color: var(--red); }
+      .dlg-dati .pct { margin-left: 6px; font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+      .dlg-sub { margin: 0 0 8px; font-size: 13.5px; font-weight: 600; }
+      .dlg-consegne { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+      .dlg-consegne li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--hairline); }
+      .dlg-data { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+      .dlg-prod { overflow: hidden; text-overflow: ellipsis; }
       .tag-anomalia { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
         background: rgba(215, 0, 21, 0.12); color: var(--red); font-size: 11px; font-weight: 600; }
       .contratto { color: var(--text-secondary); }
@@ -456,6 +548,40 @@ export class FinanceComponent {
    */
   fascia(quale: string): void {
     this.margine = this.margine === quale ? '' : quale;
+    this.reload();
+  }
+
+  /** I filtri attivi, come chip: periodo, ricerca, partner, fascia di margine. */
+  filtriAttivi(): { tipo: string; testo: string }[] {
+    const f: { tipo: string; testo: string }[] = [];
+    if (this.from || this.to) {
+      f.push({ tipo: 'periodo', testo: `${this.formatta(this.from)} → ${this.formatta(this.to)}` });
+    }
+    if (this.cerca.trim()) f.push({ tipo: 'cerca', testo: `«${this.cerca.trim()}»` });
+    if (this.partnerId) {
+      const p = this.partners().find((x) => x.id === this.partnerId);
+      f.push({ tipo: 'partner', testo: p?.insegna ?? this.partnerId });
+    }
+    if (this.margine) {
+      f.push({ tipo: 'margine', testo: this.translate.instant('finance.margine.' + this.margine) });
+    }
+    return f;
+  }
+
+  private formatta(iso: string): string {
+    return iso ? iso.split('-').reverse().join('/') : '…';
+  }
+
+  togliFiltro(tipo: string): void {
+    if (tipo === 'periodo') { this.from = ''; this.to = ''; }
+    if (tipo === 'cerca') this.cerca = '';
+    if (tipo === 'partner') this.partnerId = '';
+    if (tipo === 'margine') this.margine = '';
+    this.reload();
+  }
+
+  azzeraFiltri(): void {
+    this.from = ''; this.to = ''; this.cerca = ''; this.partnerId = ''; this.margine = '';
     this.reload();
   }
 
@@ -540,6 +666,17 @@ export class FinanceComponent {
     if (s.has(saleRef)) s.delete(saleRef); else s.add(saleRef);
     this.espansi.set(s);
   }
+
+  /** Il pop-up col dettaglio dell'ordine, aperto dal click sull'id. */
+  readonly dettaglio = signal<RecapOrdine | null>(null);
+
+  apriDettaglio(o: RecapOrdine, ev: Event): void {
+    // Senza stopPropagation il click arriverebbe anche alla riga, che
+    // aprirebbe/chiuderebbe le consegne insieme al pop-up.
+    ev.stopPropagation();
+    this.dettaglio.set(o);
+  }
+  chiudiDettaglio(): void { this.dettaglio.set(null); }
 
   /**
    * La fee incassata si discosta da quella di contratto?

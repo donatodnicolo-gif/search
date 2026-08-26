@@ -485,19 +485,18 @@ export class SalesService {
 
     // ⭐ L'ECONOMIA DELLA VENDITA, che prima non veniva scritta affatto.
     //
-    // Su una vendita il cliente paga `amount`, noi tratteniamo la nostra quota e
-    // il resto e' del partner:
-    //   quotaNostra    = amount x discountPercent%      -> `Delivery.price`
-    //   datoAlPartner  = amount - quotaNostra           -> `Delivery.productValue`
+    // Su una vendita il cliente paga il pubblico, e col partner vale:
+    //   quotaNostra   = amount x discountPercent%   -> `Delivery.price`
+    //   valoreProdotti = amount                     -> `Delivery.productValue`
+    //   al partner spetta valoreProdotti − quota (cosi' lo calcola la
+    //   Fatturazione: «dovuto = valore prodotti − trattenuto»).
     //
-    // ⚠️ Prima qui c'era `price: vendita.amount`, cioe' l'INTERO importo della
-    // vendita nel campo che invece contiene la sola quota trattenuta — e
-    // `productValue` restava vuoto. Una consegna nata cosi' avrebbe detto alla
-    // Finanza che ci teniamo tutto e che al partner non spetta niente. E' lo
-    // stesso equivoco che il 25/08/2026 ha fatto risultare Deluxy padrona
-    // dell'87% del venduto sull'intero archivio.
+    // ⚠️ E' la STESSA convenzione delle consegne importate (62637: productValue
+    // 215, quota 43): fino al 26/08 qui si scriveva `productValue = amount −
+    // quota`, che sembrava giusto ma contava la quota DUE volte adesso che il
+    // margine della Finanza somma anche la fee registrata.
     const quotaNostra = arrotonda((vendita.amount * (vendita.discountPercent ?? 0)) / 100);
-    const datoAlPartner = arrotonda(Math.max(0, vendita.amount - quotaNostra));
+    const valoreProdotti = arrotonda(vendita.amount);
 
     // ⭐ LA REGOLA DEL DDT. Su una vendita la consegna viaggia col documento di
     // trasporto, e il suo numero e' il riferimento della vendita: nei dati veri
@@ -519,7 +518,7 @@ export class SalesService {
         recipientAddress: vendita.recipientAddress,
         recipientPhone: vendita.recipientPhone,
         price: quotaNostra,
-        productValue: datoAlPartner,
+        productValue: valoreProdotti,
         ddtNumber: numeroDdt,
         legacySaleId: vendita.externalOrderId ?? null,
         // ⭐ LA RIGA PRODOTTO, che prima non veniva scritta affatto: la consegna

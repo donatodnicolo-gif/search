@@ -868,13 +868,24 @@
   "finance": {
     "title": "Finanza",
     "caption": "Corrispettivi e margini dell'azienda — solo servizi di vendita",
-    "vendutoStimatoHint": "Venduto stimato: la riga di consegna non ha un prezzo scritto, vale il listino pubblico della variante (di oggi, non del giorno della vendita).",
+    "vendutoStimatoHint": "Venduto stimato: la riga di consegna non ha un prezzo scritto, vale il listino (variante o prodotto) di oggi, non del giorno della vendita.",
+    "dettaglio": {
+      "apri": "Apri il dettaglio dell'ordine",
+      "titolo": "Ordine {{ref}}",
+      "chiudi": "Chiudi",
+      "consegne": "Le consegne dell'ordine ({{n}})"
+    },
+    "filtri": {
+      "attivi": "Filtri attivi:",
+      "togli": "Togli questo filtro",
+      "azzera": "Azzera tutti"
+    },
     "from": "Dal",
     "to": "Al",
     "export": "Esporta",
     "empty": "Nessuna vendita nel periodo.",
     "total": "Totale",
-    "assumption": "Ogni riga e' un ORDINE: il valore vendite comprende la consegna pagata dal cliente, e da li' si calcolano guadagno, commissione e margine. Il valore dato al partner e' scritto sulla consegna, non calcolato; guadagno = valore vendite − dato al partner, lordo e al netto IVA (÷1,22). «Fee registrata» e' la commissione scritta sulla consegna: se si scosta dal guadagno, c'e' qualcosa da guardare.",
+    "assumption": "Ogni riga e' un ORDINE: il valore vendite comprende la consegna pagata dal cliente, e da li' si calcolano guadagno, commissione e margine. Il valore prodotti e' scritto sulla consegna, non calcolato; guadagno = valore vendite − valore prodotti, lordo e al netto IVA (÷1,22). «Fee registrata» e' la quota scritta sulla consegna: il partner riceve il valore prodotti MENO la quota, quindi il margine totale la somma (netta IVA) al guadagno. Il segno ≈ indica un venduto stimato dal listino (variante o prodotto) dove la riga non ha un prezzo scritto.",
     "tab": {
       "corrispettivi": "Corrispettivi",
       "margini": "Margini"

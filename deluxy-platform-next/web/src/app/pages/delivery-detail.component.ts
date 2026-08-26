@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
-import { DatePipe } from '@angular/common';
+import { DatePipe, Location } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
@@ -83,7 +83,9 @@ interface DeliveryDetail {
   imports: [RouterLink, DatePipe, TranslatePipe],
   template: `
     <div class="form-head">
-      <a routerLink="/deliveries" class="back">← {{ 'deliveries.title' | translate }}</a>
+      <!-- Torna da dove si e' arrivati (lista filtrata, Finanza…): un
+           indirizzo fisso butterebbe via il punto di partenza. -->
+      <a href="javascript:void(0)" class="back" (click)="indietro()">← {{ 'deliveries.title' | translate }}</a>
       @if (delivery(); as d) {
         <div class="title-row">
           <h1>{{ 'deliveryDetail.title' | translate: { code: d.code } }}</h1>
@@ -431,6 +433,14 @@ export class DeliveryDetailComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
   private readonly translate = inject(TranslateService);
+  private readonly location = inject(Location);
+  private readonly router = inject(Router);
+
+  /** Torna da dove si e' arrivati; se la storia e' vuota (link diretto), alla lista. */
+  indietro(): void {
+    if (history.length > 1) this.location.back();
+    else this.router.navigate(['/deliveries']);
+  }
 
   readonly delivery = signal<DeliveryDetail | null>(null);
   readonly loading = signal(true);

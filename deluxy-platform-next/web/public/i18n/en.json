@@ -868,13 +868,24 @@
   "finance": {
     "title": "Finance",
     "caption": "Company takings and margins — sales services only",
-    "vendutoStimatoHint": "Estimated: the delivery line has no written price, so the variant's public list price (today's, not the sale day's) is used.",
+    "vendutoStimatoHint": "Estimated: the delivery line has no written price, so today's list price (variant or product) is used, not the sale day's.",
+    "dettaglio": {
+      "apri": "Open the order detail",
+      "titolo": "Order {{ref}}",
+      "chiudi": "Close",
+      "consegne": "The order's deliveries ({{n}})"
+    },
+    "filtri": {
+      "attivi": "Active filters:",
+      "togli": "Remove this filter",
+      "azzera": "Clear all"
+    },
     "from": "From",
     "to": "To",
     "export": "Export",
     "empty": "No sales in this period.",
     "total": "Total",
-    "assumption": "Each row is an ORDER: the sales value includes the shipping paid by the customer, and profit, collection fee and margin are computed from it. The value given to the partner is recorded on the delivery, not derived; profit = sales value − value given to the partner, gross and net of VAT (÷1.22). \"Recorded fee\" is the commission written on the delivery: if it differs from the profit, something is worth a look.",
+    "assumption": "Each row is an ORDER: the sales value includes the shipping paid by the customer, and profit, collection fee and margin are computed from it. The product value is recorded on the delivery, not derived; profit = sales value − product value, gross and net of VAT (÷1.22). \"Recorded fee\" is the quota written on the delivery: the partner receives the product value MINUS the quota, so the total margin adds it (net of VAT) to the profit. The ≈ sign marks a sales value estimated from the price list (variant or product) where the line has no written price.",
     "tab": {
       "corrispettivi": "Takings",
       "margini": "Margins"

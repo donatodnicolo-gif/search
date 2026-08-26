@@ -79,7 +79,12 @@ export type ConsegnaDaPrezzare = {
   extraKm?: number | null;
   extraOutOfCity?: boolean | null;
   serviceType?: { pricingModel?: string | null; basePrice?: number | null; perPiecePrice?: number | null; minHours?: number | null } | null;
-  products?: { quantity?: number | null; price?: number | null; productVariant?: { publicPrice?: number | null } | null }[];
+  products?: {
+    quantity?: number | null;
+    price?: number | null;
+    productVariant?: { publicPrice?: number | null } | null;
+    product?: { publicPrice?: number | null; price?: number | null } | null;
+  }[];
 };
 /**
  * La regola carnet applicata alla consegna (`Delivery.deliveryRuleId`).
@@ -130,12 +135,13 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
   // Lo sconto non puo' far pagare al partner meno di zero.
   const mai_negativo = (n: number) => Math.max(0, arrotonda(n));
 
-  // ⚠️ Dove il prezzo di riga manca ma la riga punta a una VARIANTE, vale il
-  // pubblico della variante (stessa regola della Finanza, decisa dall'utente
-  // il 25/08): senza, il venduto usciva zero e al partner non risultava dovuto
-  // niente. E' il listino di oggi, non la fotografia di quel giorno.
+  // ⚠️ Dove il prezzo di riga manca si scala di un gradino alla volta —
+  // pubblico della VARIANTE, pubblico del PRODOTTO, prezzo base (stessa regola
+  // della Finanza, decisa dall'utente il 25-26/08): senza, il venduto usciva
+  // zero e al partner non risultava dovuto niente. E' il listino di oggi, non
+  // la fotografia di quel giorno.
   const valoreProdotti = (d.products ?? []).reduce(
-    (s, p) => s + (p.price ?? p.productVariant?.publicPrice ?? 0) * (p.quantity ?? 1), 0,
+    (s, p) => s + (p.price ?? p.productVariant?.publicPrice ?? p.product?.publicPrice ?? p.product?.price ?? 0) * (p.quantity ?? 1), 0,
   );
   const vendita = (d.serviceType?.pricingModel ?? '') === 'VENDITA';
   /**
@@ -350,14 +356,23 @@ export class InvoicesService {
     const serveProdotti = deliveries
       .filter((d) => DA_PRODOTTI.includes(d.serviceType?.pricingModel ?? ''))
       .map((d) => d.id);
-    const prodotti = new Map<string, { quantity: number; price: number | null; productVariant: { publicPrice: number | null } | null }[]>();
+    const prodotti = new Map<string, {
+      quantity: number;
+      price: number | null;
+      productVariant: { publicPrice: number | null } | null;
+      product: { publicPrice: number | null; price: number | null } | null;
+    }[]>();
     for (let i = 0; i < serveProdotti.length; i += 2000) {
       for (const p of await this.prisma.deliveryProduct.findMany({
         where: { deliveryId: { in: serveProdotti.slice(i, i + 2000) } },
-        select: { deliveryId: true, quantity: true, price: true, productVariant: { select: { publicPrice: true } } },
+        select: {
+          deliveryId: true, quantity: true, price: true,
+          productVariant: { select: { publicPrice: true } },
+          product: { select: { publicPrice: true, price: true } },
+        },
       })) {
         const arr = prodotti.get(p.deliveryId) ?? [];
-        arr.push({ quantity: p.quantity, price: p.price, productVariant: p.productVariant });
+        arr.push({ quantity: p.quantity, price: p.price, productVariant: p.productVariant, product: p.product });
         prodotti.set(p.deliveryId, arr);
       }
     }
@@ -545,7 +560,7 @@ export class InvoicesService {
         // non dice dove abita nessuno.
         province: { select: { code: true } },
         serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
-        products: { select: { quantity: true, price: true, productVariant: { select: { publicPrice: true } } } },
+        products: { select: { quantity: true, price: true, productVariant: { select: { publicPrice: true } }, product: { select: { publicPrice: true, price: true } } } },
         deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
       },
       orderBy: { date: 'asc' },
@@ -787,7 +802,7 @@ export class InvoicesService {
         recipientFirstName: true, recipientLastName: true, recipientAddress: true,
         serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
         deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
-        products: { select: { quantity: true, price: true, productVariant: { select: { publicPrice: true } } } },
+        products: { select: { quantity: true, price: true, productVariant: { select: { publicPrice: true } }, product: { select: { publicPrice: true, price: true } } } },
       },
       orderBy: { date: 'desc' },
       take: 500,
@@ -877,7 +892,7 @@ export class InvoicesService {
         serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
         // La regola carnet: sconto sulla fattura, o «non fatturare affatto».
         deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
-        products: { select: { quantity: true, price: true, productVariant: { select: { publicPrice: true } } } },
+        products: { select: { quantity: true, price: true, productVariant: { select: { publicPrice: true } }, product: { select: { publicPrice: true, price: true } } } },
       },
       orderBy: { date: 'asc' },
     });

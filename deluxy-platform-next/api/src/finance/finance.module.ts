@@ -403,9 +403,9 @@ export class FinanceService {
         serviceType: { select: { name: true, pricingModel: true } },
         products: {
           include: {
-            product: { select: { name: true, category: { select: { name: true } } } },
-            // Per il ripiego dichiarato dove il prezzo di riga manca: il
-            // pubblico della VARIANTE venduta (es. Cappelliera M: 300).
+            // `price`/`publicPrice` del prodotto servono al ripiego dichiarato
+            // dove il prezzo di riga manca (variante → pubblico → base).
+            product: { select: { name: true, price: true, publicPrice: true, category: { select: { name: true } } } },
             productVariant: { select: { name: true, publicPrice: true } },
           },
         },
@@ -522,8 +522,10 @@ export class FinanceService {
       feePercent: valore > 0 ? round2((takingsNet / valore) * 100) : 0,
       vat: round2(takings - takingsNet),
       incassiCommission,
-      totalMargin: round2(takingsNet - deliveryCost - incassiCommission),
-      totalMarginPercent: valore > 0 ? round2(((takingsNet - deliveryCost - incassiCommission) / valore) * 100) : 0,
+      // La fee registrata e' ricavo e nel margine ci va (26/08), netta IVA
+      // come il guadagno: la somma delle quote del giro, divisa per 1,22.
+      totalMargin: round2(takingsNet + g.reduce((s, r) => s + r.feeContract, 0) / (1 + VAT) - deliveryCost - incassiCommission),
+      totalMarginPercent: valore > 0 ? round2(((takingsNet + g.reduce((s, r) => s + r.feeContract, 0) / (1 + VAT) - deliveryCost - incassiCommission) / valore) * 100) : 0,
       anomalie: g.filter((r) => r.anomalia).length,
       gateway,
       commissioneConfermata: tar ? tar.confermata : false,
@@ -664,17 +666,20 @@ export class FinanceService {
   private computeRow(d: any): CorrispettivoRow {
     const lines: any[] = d.products ?? [];
     // Il prezzo pubblico e' la fotografia di quel giorno, non il catalogo di oggi.
-    // ⚠️ RIPIEGO DICHIARATO (deciso dall'utente il 25/08): dove la riga non ha
-    // un prezzo scritto ma punta a una VARIANTE, si usa il pubblico della
-    // variante — 212 righe stavano cosi' (es. Cappelliera M: riga vuota,
-    // variante 300) e contavano ZERO venduto. `vendutoStimato` lo dice a
+    // ⚠️ RIPIEGO DICHIARATO (deciso dall'utente il 25-26/08): dove la riga non
+    // ha un prezzo scritto si scala di un gradino alla volta — pubblico della
+    // VARIANTE, poi pubblico del PRODOTTO, poi il suo prezzo base (che per i
+    // fiorai vecchio stile E' il prezzo di vendita: «Bouquet Rose Rosa €70»,
+    // base 70). Cosi' si recupera tutto il recuperabile: 201 vendite contavano
+    // ZERO venduto pur avendo il prezzo a catalogo. `vendutoStimato` lo dice a
     // schermo: e' il listino di oggi, non la fotografia di quel giorno.
-    const prezzoRiga = (l: any): { v: number; stimato: boolean } =>
-      l.price != null
-        ? { v: l.price, stimato: false }
-        : l.productVariant?.publicPrice != null
-          ? { v: l.productVariant.publicPrice, stimato: true }
-          : { v: 0, stimato: false };
+    const prezzoRiga = (l: any): { v: number; stimato: boolean } => {
+      if (l.price != null) return { v: l.price, stimato: false };
+      const stima = l.productVariant?.publicPrice
+        ?? l.product?.publicPrice
+        ?? l.product?.price;
+      return stima != null ? { v: stima, stimato: true } : { v: 0, stimato: false };
+    };
     let vendutoStimato = false;
     const publicPrice = lines.reduce((s, l) => {
       const { v, stimato } = prezzoRiga(l);
@@ -705,7 +710,13 @@ export class FinanceService {
     // no, cioe' proprio le regole carnet.
     const deliveryCost = d.payable === false ? 0 : (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0);
     const incassiCommission = saleValue * INCASSI;
-    const totalMargin = takingsNet - deliveryCost - incassiCommission;
+    // ⭐ LA FEE REGISTRATA E' RICAVO, e nel margine ci va (deciso dall'utente
+    // il 26/08): il partner non riceve il valore prodotti intero ma quel
+    // valore MENO la quota (cosi' la legge anche la Fatturazione: «dovuto =
+    // valore prodotti − trattenuto»). Il margine che la ignorava sottostimava
+    // di 43 € proprio la consegna 62637. Al netto IVA, come il guadagno.
+    const feeContractNet = feeContractAmount / (1 + VAT);
+    const totalMargin = takingsNet + feeContractNet - deliveryCost - incassiCommission;
     const feeContract = d.partner?.commissionPercent ?? 0;
     // ⚠️ Le tre cose che rendono la riga non attendibile, in ordine di gravita'.
     // Un guadagno a zero NON e' fra queste: con un partner a fee 0% e' una

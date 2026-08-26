@@ -1,4 +1,5 @@
 import { HttpClient } from '@angular/common/http';
+import { Location } from '@angular/common';
 import {
   AfterViewInit,
   Component,
@@ -45,10 +46,19 @@ interface ProductRow {
   template: `
     <div class="form-head">
       <div>
-        <a routerLink="/deliveries" class="back">← {{ 'deliveryForm.backToDeliveries' | translate }}</a>
+        <!-- La freccia torna alla schermata PRECEDENTE (dettaglio, lista
+             filtrata…), non a un indirizzo fisso: chi arriva dal dettaglio
+             deve ritrovarlo. -->
+        <a href="javascript:void(0)" class="back" (click)="indietro()">← {{ 'deliveryForm.backToDeliveries' | translate }}</a>
         <h1>{{ (editId() ? 'deliveryForm.editTitle' : 'deliveryForm.title') | translate }}</h1>
         <p class="page-caption">{{ 'deliveryForm.caption' | translate }}</p>
       </div>
+      <!-- Il codice di consegna e' un flag di testa, in alto a destra: come
+           nell'app attuale, non sepolto in fondo alla documentazione. -->
+      <label class="toggle testa-flag">
+        <input type="checkbox" [(ngModel)]="model.deliveryCodeRequired" />
+        <span>{{ 'deliveryForm.field.deliveryCodeRequired' | translate }}</span>
+      </label>
     </div>
 
     <form (ngSubmit)="submit()" class="form-grid">
@@ -351,7 +361,6 @@ interface ProductRow {
           <textarea class="field" rows="2" name="personalizeSaleNotes" [(ngModel)]="model.personalizeSaleNotes"></textarea></label>
         <label class="fld span-2 mt"><span>{{ 'deliveryForm.field.internalNotes' | translate }} <em>{{ 'deliveryForm.field.internalNotesRoles' | translate }}</em></span>
           <textarea class="field" rows="2" name="internalNotes" [(ngModel)]="model.internalNotes"></textarea></label>
-        <label class="toggle mt"><input type="checkbox" name="deliveryCodeRequired" [(ngModel)]="model.deliveryCodeRequired" /><span>{{ 'deliveryForm.field.deliveryCodeRequired' | translate }}</span></label>
       </section>
 
       @if (justSaved()) { <div class="ok-card card">{{ 'deliveryForm.savedNotice.pre' | translate }} <strong>{{ 'deliveryForm.savedNotice.create' | translate }}</strong> {{ 'deliveryForm.savedNotice.or' | translate }} <strong>{{ 'common.duplicate' | translate }}</strong> {{ 'deliveryForm.savedNotice.post' | translate }}</div> }
@@ -370,8 +379,9 @@ interface ProductRow {
   `,
   styles: [
     `
-      .form-head { margin-bottom: 24px; }
-      .back { font-size: 13px; color: var(--text-secondary); }
+      .form-head { margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+      .testa-flag { margin-top: 6px; white-space: nowrap; }
+      .back { font-size: 13px; color: var(--text-secondary); cursor: pointer; }
       .back:hover { color: var(--text); }
       h1 { margin: 6px 0 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
@@ -443,6 +453,13 @@ export class DeliveryFormComponent implements AfterViewInit {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly location = inject(Location);
+
+  /** Torna da dove si e' arrivati; se la storia e' vuota (link diretto), alla lista. */
+  indietro(): void {
+    if (history.length > 1) this.location.back();
+    else this.router.navigate(['/deliveries']);
+  }
   private readonly translate = inject(TranslateService);
   private readonly zone = inject(NgZone);
 
