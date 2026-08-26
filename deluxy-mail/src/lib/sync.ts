@@ -2119,7 +2119,16 @@ export async function riassumiThreadOra(
     } catch {
       /* storico non leggibile: si preferisce riproporre che nascondere */
     }
-    const azioniTenute = (azioniVista.length ? azioniVista : (vistaPrecedente?.azioni ?? []))
+    // ⚠️ Le nuove per PRIME, poi quelle di prima che questo giro non ha
+    // ripetuto: un giro che ne nomina UNA non è un giudizio sulle altre.
+    // «Registra il preventivo» proposta da sola faceva sparire «Apri
+    // trattativa», che restava sensata (segnalato dall'utente il 26/08/2026
+    // subito dopo la prima correzione, che teneva le vecchie solo quando il
+    // giro nuovo era muto del tutto: il silenzio PARZIALE è il caso comune).
+    const precedentiNonRipetute = (vistaPrecedente?.azioni ?? []).filter(
+      (a) => !azioniVista.some((n) => n.azioneId === a.azioneId)
+    )
+    const azioniTenute = [...azioniVista, ...precedentiNonRipetute]
       .filter((a) => idValidi.has(a.azioneId) && !fatte.has(a.azioneId))
       .slice(0, 2)
     const cifreVista = (analisi.cifre ?? [])

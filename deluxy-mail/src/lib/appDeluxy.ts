@@ -915,7 +915,7 @@ const AZIONI: AzioneApp[] = [
     // dialogo, sua conferma.
     dopo: { azioneId: 'anagrafiche.partner', invito: 'Registra anche chi ce lo chiede in Anagrafiche' },
     dalRiassunto:
-      'qualcuno CHIEDE un preventivo o un servizio a Deluxy, o si sta aprendo un’opportunità commerciale nuova con un negozio/attività (non quando siamo noi a chiedere un prezzo a un fornitore)',
+      'qualcuno CHIEDE un preventivo o un servizio a Deluxy, oppure è in corso con un negozio/attività una trattativa commerciale che non risulta già registrata in Commerciale — vale ANCHE se è già avanzata (preventivo mandato, condizioni discusse, date fissate): una trattativa avanti è più importante da registrare, non meno. Non vale quando siamo NOI a chiedere un prezzo a un fornitore.',
     descrizione: 'Apre una nuova trattativa nel CRM commerciale per il negozio.',
     colore: 'green',
     guida:
