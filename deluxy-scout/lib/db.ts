@@ -1371,9 +1371,18 @@ export async function creaOrdineDaDeal(deal: {
   if (error) throw error;
 }
 
+/**
+ * Modifica un ordine. ⚠️ È una PATCH: si mandano solo i campi toccati.
+ *
+ * Un form che rimanda tutti i campi che conosce cancella in silenzio quelli
+ * che non mostra — è già successo altrove, e da fuori sembra che il dato non
+ * sia mai stato scritto.
+ */
 export async function aggiornaOrdine(
   id: string,
-  patch: Partial<Pick<Ordine, 'stato' | 'incassato_il' | 'valore' | 'descrizione'>>,
+  patch: Partial<
+    Pick<Ordine, 'stato' | 'incassato_il' | 'valore' | 'descrizione' | 'cliente' | 'linea' | 'canale'>
+  >,
 ): Promise<void> {
   const { error } = await supabase.from('ordini').update(patch).eq('id', id);
   if (error) throw error;

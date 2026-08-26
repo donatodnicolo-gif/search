@@ -14,6 +14,7 @@ import { chiediFatturaPerOrdine } from '@/lib/partner';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
+import { CANALI, LINEE_ATTIVE } from '@/types';
 
 const STATI: { valore: OrdineConLuogo['stato']; label: string; colore: string }[] = [
   { valore: 'da_incassare', label: 'Da incassare', colore: '#B7791F' },
@@ -43,6 +44,22 @@ export default function Ordini() {
   /** L'ordine per cui si sta scegliendo la percentuale dell'acconto. */
   const [accontoPer, setAccontoPer] = useState<OrdineConLuogo | null>(null);
   const [percentuale, setPercentuale] = useState(30);
+  /**
+   * ⭐ MODIFICA DELL'ORDINE (26/08/2026, richiesta dell'utente: «consenti
+   * modifica degli ordini»).
+   *
+   * Fin qui di un ordine si poteva cambiare solo lo STATO: un valore sbagliato
+   * o una descrizione da correggere obbligavano ad annullarlo e rifarlo — e un
+   * ordine annullato resta nell'elenco a dire una cosa che non è successa.
+   */
+  const [modificaPer, setModificaPer] = useState<OrdineConLuogo | null>(null);
+  const [bozza, setBozza] = useState<{
+    cliente: string;
+    descrizione: string;
+    valore: string;
+    linea: string | null;
+    canale: string | null;
+  } | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -252,8 +269,16 @@ export default function Ordini() {
               <Pressable style={styles.btn} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'incassato'); }}>
                 <Text style={styles.btnTxt}>Incassato</Text>
               </Pressable>
-              {/* Annullare è raro e distruttivo: un'icona, non un bottone che
-                  compete con le azioni di tutti i giorni. */}
+              {/* Correggere e annullare sono icone: si usano di rado e non
+                  devono rubare spazio alle azioni di tutti i giorni. */}
+              <Pressable
+                hitSlop={8}
+                onPress={(e: any) => { e?.stopPropagation?.(); apriModifica(o); }}
+                accessibilityLabel="Modifica l'ordine"
+                {...({ title: "Modifica l'ordine" } as any)}
+              >
+                <Ionicons name="create-outline" size={16} color={colors.grigio} />
+              </Pressable>
               <Pressable
                 hitSlop={8}
                 onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'annullato'); }}
@@ -264,9 +289,21 @@ export default function Ordini() {
               </Pressable>
             </>
           ) : (
-            <Pressable style={styles.btnMini} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'da_incassare'); }}>
-              <Text style={styles.btnMiniTxt}>Da incassare</Text>
-            </Pressable>
+            <>
+              <Pressable style={styles.btnMini} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'da_incassare'); }}>
+                <Text style={styles.btnMiniTxt}>Da incassare</Text>
+              </Pressable>
+              {/* ⚠️ Anche un ordine incassato o annullato si corregge: un nome
+                  sbagliato resta sbagliato nei conti dell'anno. */}
+              <Pressable
+                hitSlop={8}
+                onPress={(e: any) => { e?.stopPropagation?.(); apriModifica(o); }}
+                accessibilityLabel="Modifica l'ordine"
+                {...({ title: "Modifica l'ordine" } as any)}
+              >
+                <Ionicons name="create-outline" size={16} color={colors.grigio} />
+              </Pressable>
+            </>
           )}
         </View>
       ),
@@ -373,6 +410,87 @@ export default function Ordini() {
     } finally {
       setInCorso(null);
     }
+  }
+
+  /** Apre il foglio di modifica con i valori di adesso già dentro. */
+  function apriModifica(o: OrdineConLuogo) {
+    setModificaPer(o);
+    setBozza({
+      cliente: o.cliente ?? '',
+      descrizione: o.descrizione ?? '',
+      // ⚠️ La virgola italiana: si scrive «1.250,50», non «1250.50».
+      valore: o.valore != null ? String(o.valore).replace('.', ',') : '',
+      linea: o.linea ?? null,
+      canale: o.canale ?? null,
+    });
+  }
+
+  /**
+   * Salva le modifiche. ⚠️ Si mandano SOLO i campi davvero cambiati: una PATCH
+   * completa riscriverebbe anche quelli che nessuno ha toccato, e basta un
+   * campo non mostrato nel form per cancellarlo in silenzio.
+   */
+  async function salvaModifica() {
+    if (!modificaPer || !bozza) return;
+    const nome = bozza.cliente.trim();
+    if (!nome) {
+      avvisa('Manca il cliente', "Un ordine senza il nome di chi compra non si ritrova più: scrivi chi è.");
+      return;
+    }
+    // «1.250,50» → 1250.5. Se il campo è vuoto il valore torna sconosciuto
+    // (null), che NON è zero: zero direbbe «venduto a niente».
+    const grezzo = bozza.valore.trim().replace(/\./g, '').replace(',', '.');
+    const valore = grezzo === '' ? null : Number(grezzo);
+    if (valore !== null && (!Number.isFinite(valore) || valore < 0)) {
+      avvisa('Valore non valido', `«${bozza.valore}» non è un importo. Scrivilo come 1.250,50.`);
+      return;
+    }
+    const patch: Parameters<typeof aggiornaOrdine>[1] = {};
+    if (nome !== (modificaPer.cliente ?? '')) patch.cliente = nome;
+    const descr = bozza.descrizione.trim() || null;
+    if (descr !== (modificaPer.descrizione ?? null)) patch.descrizione = descr;
+    if (valore !== (modificaPer.valore ?? null)) patch.valore = valore;
+    if ((bozza.linea ?? null) !== (modificaPer.linea ?? null)) patch.linea = bozza.linea;
+    if ((bozza.canale ?? null) !== (modificaPer.canale ?? null))
+      patch.canale = bozza.canale as OrdineConLuogo['canale'];
+    if (!Object.keys(patch).length) {
+      setModificaPer(null);
+      setBozza(null);
+      return;
+    }
+
+    const salva = async () => {
+      setInCorso(modificaPer.id);
+      try {
+        await aggiornaOrdine(modificaPer.id, patch);
+        setModificaPer(null);
+        setBozza(null);
+        await carica();
+      } catch (e: any) {
+        avvisa('Non è stato salvato', e?.message ?? 'Riprova.');
+      } finally {
+        setInCorso(null);
+      }
+    };
+
+    /**
+     * ⚠️ IL DOCUMENTO GIÀ EMESSO NON SI CORREGGE DA SOLO. Se cambia il valore
+     * di un ordine che ha già una fattura (o una pro-forma) su FINANCE, quel
+     * documento resta con l'importo vecchio: la modifica qui NON arriva di là.
+     * Non si vieta — vietare spinge solo a rifare l'ordine da capo — ma si
+     * dice, perché il documento è quello che il cliente ha in mano.
+     */
+    const doc = modificaPer.fattura_numero || modificaPer.proforma_numero;
+    if (doc && patch.valore !== undefined) {
+      conferma(
+        'Il documento resta com’è',
+        `${doc} su FINANCE tiene l'importo vecchio (${importoBreve(modificaPer.valore)}): questa modifica non arriva di là. Va corretto anche lì, o i due numeri diranno cose diverse.`,
+        salva,
+        { testoConferma: 'Salvo lo stesso' },
+      );
+      return;
+    }
+    await salva();
   }
 
   async function cambiaStato(o: OrdineConLuogo, stato: OrdineConLuogo['stato']) {
@@ -526,14 +644,22 @@ export default function Ordini() {
                           <Ionicons name="checkmark-circle-outline" size={15} color={colors.bianco} />
                           <Text style={styles.btnTxt}>Incassato</Text>
                         </Pressable>
+                        <Pressable style={styles.btnGhost} onPress={() => apriModifica(o)}>
+                          <Text style={styles.btnGhostTxt}>Modifica</Text>
+                        </Pressable>
                         <Pressable style={styles.btnGhost} onPress={() => cambiaStato(o, 'annullato')}>
                           <Text style={styles.btnGhostTxt}>Annulla</Text>
                         </Pressable>
                       </>
                     ) : (
-                      <Pressable style={styles.btnGhost} onPress={() => cambiaStato(o, 'da_incassare')}>
-                        <Text style={styles.btnGhostTxt}>Riporta a «da incassare»</Text>
-                      </Pressable>
+                      <>
+                        <Pressable style={styles.btnGhost} onPress={() => cambiaStato(o, 'da_incassare')}>
+                          <Text style={styles.btnGhostTxt}>Riporta a «da incassare»</Text>
+                        </Pressable>
+                        <Pressable style={styles.btnGhost} onPress={() => apriModifica(o)}>
+                          <Text style={styles.btnGhostTxt}>Modifica</Text>
+                        </Pressable>
+                      </>
                     )}
                   </View>
                 </View>
@@ -542,6 +668,97 @@ export default function Ordini() {
           )
         }
       />
+
+      {/* MODIFICA DELL'ORDINE: si correggono i campi che l'ordine ha davvero —
+          chi compra, cos'è, quanto vale, linea e canale. Lo STATO non sta qui:
+          ha i suoi bottoni, e mescolarlo a un form lo farebbe cambiare per
+          sbaglio insieme a una correzione di battitura. */}
+      {modificaPer && bozza ? (
+        <Foglio
+          titolo="Modifica l'ordine"
+          sottotitolo={`Creato il ${dataIt(modificaPer.created_at)} · ${labelStatoOrdine[modificaPer.stato]}`}
+          bloccaSfondo
+          onClose={() => {
+            setModificaPer(null);
+            setBozza(null);
+          }}
+        >
+          <Text style={styles.campoLabel}>Cliente *</Text>
+          <TextInput
+            style={styles.campo}
+            value={bozza.cliente}
+            onChangeText={(v) => setBozza({ ...bozza, cliente: v })}
+            placeholder="Chi compra"
+            placeholderTextColor={colors.grigio}
+          />
+          {/* ⚠️ Il nome del NEGOZIO non si tocca da qui: appartiene alla sua
+              scheda, e riscriverlo sull'ordine farebbe due nomi diversi per la
+              stessa attività. Qui si corregge solo come si chiama sull'ordine. */}
+          {modificaPer.place_nome ? (
+            <Text style={styles.campoAiuto}>
+              Negozio collegato: {modificaPer.place_nome} — si cambia dalla sua scheda, non da qui.
+            </Text>
+          ) : null}
+
+          <Text style={styles.campoLabel}>Descrizione</Text>
+          <TextInput
+            style={[styles.campo, styles.campoAlto]}
+            value={bozza.descrizione}
+            onChangeText={(v) => setBozza({ ...bozza, descrizione: v })}
+            placeholder="Cosa comprende l'ordine"
+            placeholderTextColor={colors.grigio}
+            multiline
+          />
+
+          <Text style={styles.campoLabel}>Valore</Text>
+          <TextInput
+            style={styles.campo}
+            value={bozza.valore}
+            onChangeText={(v) => setBozza({ ...bozza, valore: v })}
+            placeholder="es. 1.250,50"
+            placeholderTextColor={colors.grigio}
+            inputMode="decimal"
+          />
+          <Text style={styles.campoAiuto}>
+            Lasciandolo vuoto il valore torna sconosciuto (non zero). Il margine si ricalcola da solo sul
+            preventivo del fornitore.
+          </Text>
+
+          <Text style={styles.campoLabel}>Linea</Text>
+          <View style={styles.chipsForm}>
+            {LINEE_ATTIVE.map((l) => (
+              <Pressable
+                key={l}
+                style={[styles.chip, bozza.linea === l && styles.chipOn]}
+                onPress={() => setBozza({ ...bozza, linea: bozza.linea === l ? null : l })}
+              >
+                <Text style={[styles.chipTxt, bozza.linea === l && styles.chipTxtOn]}>{l}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.campoLabel}>Canale</Text>
+          <View style={styles.chipsForm}>
+            {CANALI.map((c) => (
+              <Pressable
+                key={c.valore}
+                style={[styles.chip, bozza.canale === c.valore && styles.chipOn]}
+                onPress={() => setBozza({ ...bozza, canale: bozza.canale === c.valore ? null : c.valore })}
+              >
+                <Text style={[styles.chipTxt, bozza.canale === c.valore && styles.chipTxtOn]}>{c.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable
+            style={[styles.btn, styles.btnLargo, inCorso === modificaPer.id && { opacity: 0.5 }]}
+            disabled={inCorso === modificaPer.id}
+            onPress={salvaModifica}
+          >
+            <Text style={styles.btnTxt}>{inCorso === modificaPer.id ? 'Salvo…' : 'Salva le modifiche'}</Text>
+          </Pressable>
+        </Foglio>
+      ) : null}
 
       {/* Quanto acconto: le percentuali che si usano davvero, più il campo
           libero. Sotto, l'importo calcolato — perché è quello che il cliente
@@ -637,6 +854,12 @@ const styles = StyleSheet.create({
   percInput: { width: 70, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 8, color: colors.testo, fontSize: 14, textAlign: 'center' },
   percCalcolo: { color: colors.testoSoft, fontSize: 13, marginTop: 4 },
   btnLargo: { marginTop: 8, paddingVertical: 12 },
+  // Il form di modifica dentro il foglio (DS §Campi).
+  campoLabel: { color: colors.navy, fontWeight: '700', fontSize: 13, marginTop: spacing.sm },
+  campo: { borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, backgroundColor: colors.bianco, paddingHorizontal: 12, paddingVertical: 9, color: colors.testo, fontSize: 14, marginTop: 4 },
+  campoAlto: { minHeight: 64, textAlignVertical: 'top' },
+  campoAiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18, marginTop: 4 },
+  chipsForm: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   meta: { color: colors.testoSoft, fontSize: 12 },
   // Sul telefono i bottoni vanno a capo invece di stringersi: quattro azioni

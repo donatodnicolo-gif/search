@@ -374,3 +374,32 @@ Nell'elenco delle vendite da collegare non compaiono le finite (trattative
 chiuse, richieste perse/annullate/fatturate) né le richieste **già diventate
 ordine**: quelle si scelgono dal loro ordine, o lo stesso lavoro comparirebbe
 due volte con due nomi diversi.
+
+## Ordini: si correggono (26/08/2026)
+
+Di un ordine si poteva cambiare solo lo **stato**: un valore sbagliato o una
+descrizione da correggere obbligavano ad **annullarlo e rifarlo** — e un ordine
+annullato resta nell'elenco a dire una cosa che non è successa.
+
+Adesso l'icona ✎ (o «Modifica» sul telefono) apre un foglio con i campi che
+l'ordine ha davvero: **cliente, descrizione, valore, linea, canale**. Tre
+scelte deliberate:
+
+- **Lo stato non sta nel form.** Ha i suoi bottoni (Fattura · Acconto ·
+  Incassato · Annulla): dentro un form cambierebbe per sbaglio insieme a una
+  correzione di battitura.
+- **Si salva solo ciò che è cambiato.** La `PATCH` si costruisce confrontando
+  campo per campo — un form che rimanda tutto riscrive anche quello che nessuno
+  ha toccato, e cancella in silenzio ciò che non mostra.
+- **Il valore vuoto torna sconosciuto (`null`), non zero.** Zero direbbe
+  «venduto a niente», ed entrerebbe nei totali.
+
+⚠️ **Il documento già emesso non si corregge da solo.** Cambiando il valore di
+un ordine che ha già una fattura o una pro-forma su FINANCE, quel documento
+resta con l'importo vecchio: la modifica **non arriva di là**. Non è vietato —
+vietare spinge solo a rifare l'ordine da capo — ma prima di salvare l'app lo
+dice con il numero del documento in chiaro, perché è quello che il cliente ha
+in mano.
+
+Il nome del **negozio** non si tocca da qui: appartiene alla sua scheda, e
+riscriverlo sull'ordine farebbe due nomi diversi per la stessa attività.
