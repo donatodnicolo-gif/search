@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -164,6 +165,11 @@ export class DeliveriesService {
     'senderLastName',
     'ddtNumber',
     'notes',
+    // Le altre grafie del numero d'ordine: sono TESTO, quindi il `contains` va.
+    // Il numero della consegna (`code`) e' un Int e ha un ramo suo, sotto.
+    'realOrderNumber',
+    'legacySaleId',
+    'identifier',
     'partner.insegna',
     'valet.firstName',
     'valet.lastName',
@@ -240,6 +246,30 @@ export class DeliveriesService {
     }
 
     const search = textSearch(query.q, DeliveriesService.SEARCH_FIELDS);
+    // ⭐⭐ IL NUMERO DELLA CONSEGNA (26/08/2026). Fino a ieri cercare «62637»
+    // — il numero che l'app stampa dappertutto e manda perfino nelle notifiche
+    // — rispondeva 200 con ZERO righe: `code` e' un `Int` e `textSearch` sa
+    // fare solo `contains`, quindi non poteva starci. Un vuoto che sembra una
+    // risposta: chi cerca conclude che la consegna non esiste.
+    //
+    // ⚠️ Il ramo numerico deve stare FUORI da `textSearch`: `contains` +
+    // `mode: 'insensitive'` su un Int alza `PrismaClientValidationError` a
+    // runtime, e il TypeScript NON lo ferma perche' `scope` e' `any` (quindi
+    // typecheck e build passerebbero, e la lista morirebbe in produzione al
+    // primo carattere). Provato davvero, non dedotto.
+    //
+    // ⚠️ Solo cifre pure e al massimo nove: `code` e' un Int32 e un id ordine
+    // Shopify (12-13 cifre) lo sfonderebbe. Quelli restano coperti dai campi di
+    // TESTO qui sopra (`realOrderNumber`, `legacySaleId`), col loro `contains`.
+    //
+    // Il `push` resta DENTRO l'OR della ricerca, che e' sempre in AND con lo
+    // scope di ruolo: un partner che digita il numero di una consegna altrui
+    // continua a non vedere niente.
+    const termine = (query.q ?? '').trim();
+    if (search && /^\d{1,9}$/.test(termine)) {
+      const n = Number(termine);
+      (search['OR'] as unknown[]).push({ code: n }, { legacyOrderId: n });
+    }
     const where = search ? { AND: [scope, search] } : scope;
     const { skip, take, page, pageSize } = paginate(query);
 
@@ -792,10 +822,33 @@ export class DeliveriesService {
    * lo stato a "delivered" e registra chi ha ritirato. Idempotente.
    */
   async confirmDeliveredByToken(token: string, receivedBy?: string) {
-    const delivery = await this.prisma.delivery.findFirst({ where: { trackingToken: token } });
+    // ⚠️ Anche il soft-delete: una consegna cancellata non si conferma.
+    const delivery = await this.prisma.delivery.findFirst({
+      where: { trackingToken: token, deletedAt: null },
+    });
     if (!delivery) throw new NotFoundException('Consegna non trovata');
-    if (delivery.status === 'delivered' || delivery.status === 'delivered_time_approved') {
+    // Già consegnata (o con le ore approvate): il link è idempotente e risponde ok.
+    if (delivery.status === DeliveryStatus.DELIVERED || delivery.status === DeliveryStatus.APPROVED) {
       return { esito: 'gia_consegnata', code: delivery.code };
+    }
+    // ⭐⭐ E QUI SI FERMA (26/08/2026). Prima la guardia nominava
+    // `delivered_time_approved`, uno stato che in banca dati non esiste: quindi
+    // NON copriva nessuno degli stati chiusi veri, e il link pubblico — che non
+    // ha login, non scade e non si consuma — riportava a «consegnata» qualunque
+    // consegna. Misurato: 3.791 consegne non consegnate hanno un token vivo, fra
+    // cui **1.149 ANNULLATE**, 8 invalidate e 520 non consegnate. Una annullata
+    // riportata a `delivered` rientra nei corrispettivi (la Finanza smette di
+    // escluderla) E nello stipendio del valet: ricavo inventato da una parte,
+    // paga non dovuta dall'altra, senza che parta nessuna notifica.
+    // I token non sono teorici: gli 890 delle approvate arrivano dai vecchi
+    // «DELIVERED LINK» del legacy, già nelle chat dei valet.
+    // La lista degli stati chiusi sta in UN SOLO POSTO, cosi' il prossimo stato
+    // nuovo e' coperto senza che nessuno se ne ricordi.
+    if (DELIVERY_CLOSED_STATUSES.includes(delivery.status)) {
+      throw new ConflictException(
+        'Questa consegna è chiusa e non si può confermare dal link: '
+        + 'chiedi all’ufficio di riaprirla.',
+      );
     }
     await this.prisma.delivery.update({
       where: { id: delivery.id },

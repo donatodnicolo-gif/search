@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { DELIVERY_CLOSED_STATUSES } from '../core/models';
 
 interface PublicTracking {
   code: number;
@@ -55,6 +56,10 @@ interface PublicTracking {
 
           @if (done() || d.status === 'delivered' || d.status === 'approved') {
             <div class="ok">{{ 'confirmDelivery.done' | translate }}</div>
+          } @else if (chiusa(d.status)) {
+            <!-- Consegna annullata, non consegnata o invalidata: il link non la riapre.
+                 Senza questo ramo la pagina offriva un bottone che il server rifiuta. -->
+            <div class="err">{{ 'confirmDelivery.closed' | translate }}</div>
           } @else {
             <div class="form">
               <label>{{ 'confirmDelivery.receivedBy' | translate }}</label>
@@ -113,6 +118,16 @@ export class ConfirmDeliveryComponent {
   readonly formError = signal<string | null>(null);
   receivedBy = '';
   private token = '';
+
+  /**
+   * La consegna è in uno stato CHIUSO diverso da «consegnata»: annullata, non
+   * consegnata, non accettata, invalidata. Il link pubblico non deve poterla
+   * riaprire — e la pagina non deve nemmeno offrire il bottone, o si finisce a
+   * premere un tasto che il server rifiuta senza dire perché.
+   */
+  chiusa(status: string): boolean {
+    return DELIVERY_CLOSED_STATUSES.includes(status);
+  }
 
   constructor() {
     this.token = this.route.snapshot.paramMap.get('token') ?? '';

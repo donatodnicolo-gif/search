@@ -1768,7 +1768,8 @@
     "receivedBy": "Received by",
     "receivedByPlaceholder": "Name of who received it",
     "confirm": "Confirm delivery",
-    "done": "Delivery confirmed ✓ Thank you."
+    "done": "Delivery confirmed ✓ Thank you.",
+    "closed": "This delivery is closed (cancelled, not delivered or not accepted): it cannot be confirmed from this link. Please contact the office."
   },
   "tracking": {
     "title": "Delivery #{{code}}",

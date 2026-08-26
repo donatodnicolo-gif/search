@@ -1768,7 +1768,8 @@
     "receivedBy": "Chi ha ritirato",
     "receivedByPlaceholder": "Nome e cognome di chi ha ricevuto",
     "confirm": "Conferma consegna",
-    "done": "Consegna confermata ✓ Grazie."
+    "done": "Consegna confermata ✓ Grazie.",
+    "closed": "Questa consegna è chiusa (annullata, non consegnata o non accettata): dal link non si può confermare. Scrivi all’ufficio."
   },
   "tracking": {
     "title": "Consegna #{{code}}",

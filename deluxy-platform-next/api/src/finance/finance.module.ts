@@ -379,9 +379,18 @@ export class FinanceService {
     if (opzioni.partnerId) w.partnerId = opzioni.partnerId;
     const t = opzioni.cerca?.trim();
     if (t) {
+      // ⚠️ `code` e `legacyOrderId` sono Int32 (PostgreSQL `INT4`). Con
+      // `Number.isInteger` e basta, cercare un id ordine Shopify — 12-13 cifre,
+      // cioe' PROPRIO il caso d'uso di questa pagina — mandava a Prisma un
+      // numero che non ci sta, e la query moriva:
+      //   ConversionError: Unable to fit integer value '13367589863749' into an INT4
+      // Non e' un ragionamento: e' l'errore riprodotto sul database vero il
+      // 26/08/2026. Il risultato era una pagina Finanza in 500, mentre i numeri
+      // lunghi hanno gia' la loro strada nei campi di TESTO qui sotto.
       const n = Number(t);
+      const dentroInt32 = Number.isInteger(n) && Math.abs(n) <= 2_147_483_647;
       w.OR = [
-        ...(Number.isInteger(n) ? [{ code: n }, { legacyOrderId: n }] : []),
+        ...(dentroInt32 ? [{ code: n }, { legacyOrderId: n }] : []),
         { realOrderNumber: { contains: t, mode: 'insensitive' } },
         { legacySaleId: { contains: t, mode: 'insensitive' } },
         { recipientLastName: { contains: t, mode: 'insensitive' } },

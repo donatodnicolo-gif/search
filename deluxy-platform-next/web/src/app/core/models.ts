@@ -258,3 +258,20 @@ export const DELIVERY_STATUS_LABELS: Record<string, string> = {
   approved: 'Approvata',
   invalidated: "Annullata d'ufficio",
 };
+
+/**
+ * Stati «chiusi»: la consegna non è più operativa, è storia.
+ *
+ * ⚠️ È il gemello di `DELIVERY_CLOSED_STATUSES` in `api/src/common/enums.ts`,
+ * che resta la fonte: il browser non può importare dal server. Chi tocca l'una
+ * tocchi anche l'altra — se divergono, la pagina pubblica offre un bottone che
+ * il server rifiuta, e chi lo preme non capisce perché.
+ */
+export const DELIVERY_CLOSED_STATUSES: string[] = [
+  'delivered',
+  'not_delivered',
+  'cancelled',
+  'not_accepted',
+  'approved',
+  'invalidated',
+];
