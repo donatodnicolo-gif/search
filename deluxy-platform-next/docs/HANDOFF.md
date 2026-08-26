@@ -402,6 +402,24 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### 26/08 (sera, 9) — 62810 annullata, e il deploy da git RUBAVA l'alias
+
+- **62810 annullata** (deciso dall'utente: non deve stare nei margini): era
+  `created` del 15/08 (Gruè, Macarons, 43 €), nessun ordine in Orders da
+  correggere (il suo `realOrderNumber` non è nel registro), stato →
+  `cancelled` + riga di log. La Finanza esclude `cancelled` ovunque
+  (`STATI_ESCLUSI`), quindi sparisce da sola; rispinta a vuoto: «da scrivere 0».
+- 🔥 **TRAPPOLA SCOPERTA: i push su GitHub facevano partire deploy AUTOMATICI
+  di Production** per il progetto `delivery` (build da git, 34s, SENZA l'API
+  funzionante) che si prendevano l'alias deluxy-delivery.vercel.app: la rotta
+  `/finance/economia-vendite` rispondeva 404 in produzione pur essendo
+  deployata dalla CLI mezz'ora prima. Rimedio: `"git": {"deploymentEnabled":
+  false}` in `vercel.json` — la produzione di questo progetto si pubblica
+  SOLO dalla CLI (`npx vercel deploy --prod --yes --scope deluxy --project
+  delivery` dalla radice del repo). Se l'API dà 404 su rotte che esistono nel
+  codice: guardare `npx vercel ls delivery` e cercare deploy Production non
+  fatti da te.
+
 ### 26/08 (sera, 8) — Il DDT viaggia col suo BRAND, e i controlli 62504 / #12649
 
 - **`Delivery.ddtBrand`** (migrazione `20260826200000_ddt_brand`): con più
