@@ -248,7 +248,21 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
             onClick={() => setChi(o.id)}
           >
             {o.nome}
-            {giorniAperti(o.id) ? ` · ${giorniAperti(o.id)}g` : ''}
+            {/* ⚠️⚠️ QUANDO LA REGOLA È VUOTA SI DICE, invece di non scrivere
+                niente. Segnalato dall'utente il 26/08/2026 guardando Riccardo:
+                «perché per riccardo non indica i giorni lavorativi?». Il numero
+                conta i giorni della REGOLA, e la sua era vuota — i suoi orari
+                esistevano solo come eccezioni di quella settimana, che lunedì
+                sarebbero sparite. L'assenza del numero diceva la verità e non
+                si vedeva: adesso c'è scritta.
+                ⚠️ E vale per l'AI fuori turno: la copertura si calcola sulla
+                REGOLA, quindi un orario scritto solo dentro una settimana per
+                lei non esiste. */}
+            {giorniAperti(o.id) ? (
+              ` · ${giorniAperti(o.id)}g`
+            ) : (
+              <span style={{ opacity: 0.75 }}> · nessun orario fisso</span>
+            )}
           </button>
         ))}
       </div>
