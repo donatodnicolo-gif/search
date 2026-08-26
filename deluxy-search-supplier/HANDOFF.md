@@ -737,6 +737,25 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    dello script inline OK. **Non collaudato su Google vero** (serve login): da provare su una
    ricerca reale — anche il layout della barra filtri col select nuovo (desktop e mobile).
 
+53. **La ricerca per indirizzo è collegata a Maps** (26/08, chiesto dall'utente sullo screenshot
+   di Limassol): il campo «Indirizzo o zona di partenza» ora **suggerisce da Google Maps mentre
+   si scrive** (Places Autocomplete, `types:['geocode']` = indirizzi e località, niente attività).
+   - La libreria Google si carica al **primo focus** sul campo (prima si caricava solo alla prima
+     ricerca); senza chiave in cassaforte niente suggerimenti, tutto come prima.
+   - **Scegliendo un suggerimento la ricerca parte da sola** e `run()` salta la geocodifica:
+     `place_changed` salva `addrAutoGeo {text, geo}` col nuovo helper `geoDaResult(r)` (estratto
+     da `geocode()`: Geocoder e PlaceResult hanno la stessa forma). Se poi l'operatore modifica
+     il testo a mano, il confronto col `text` fallisce e si torna alla geocodifica normale.
+   - ⚠️ **Enter col menu dei suggerimenti aperto sceglie il suggerimento, non lancia la
+     ricerca**: la guardia `pacAperto()` controlla i `.pac-container` visibili con almeno un
+     `.pac-item`. Un Enter senza suggerimento scelto (place senza geometry) fa la geocodifica
+     di prima. Costo: la widget Autocomplete gestisce da sola le sessioni di fatturazione.
+   Verificato in locale (5511, Google finto): opzioni della widget, suggerimento scelto →
+   campo riempito + geo salvata + run() partita, place senza geometry ignorato, Enter con
+   menu aperto che NON lancia run() e con menu chiuso sì, geoDaResult su un risultato
+   Limassol/CY (provincia assente → vuota, non inventata). Console pulita, sintassi OK.
+   **Non collaudato su Google vero** (serve login): da provare scrivendo «limassol» nel campo.
+
 ## Cose in sospeso
 
 - **Fornitore che Google non fa uscire** (era «La Mimosa» #2734, poi «Manfredini Fiori» #2756):

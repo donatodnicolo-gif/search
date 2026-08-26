@@ -182,6 +182,16 @@ L'app è richiamabile da un bottone/link di qualsiasi altra app; i parametri si 
   (`dataset.registry`) restano sempre visibili. Due gruppi gemelli sincroni: form
   (`#waFilter`,`#openFilter`) e sopra i risultati (`#waFilterResults`,`#openFilterResults`), via
   `setWaFiltro`/`setOpenFiltro`. Pillole in `.wchip` (non prendono i listener di `.chip`).
+- **Suggerimenti indirizzo da Google Maps** (26/08): il campo `#address` ha il **Places
+  Autocomplete** (`attivaAutocompleteIndirizzo`, `types:['geocode']`, fields
+  formatted_address/geometry/address_components). La libreria Google si carica al **primo focus**
+  sul campo (`loadGoogle` sulla chiave di cassaforte; senza chiave niente suggerimenti).
+  Scegliendo un suggerimento la ricerca **parte da sola** e `run()` **salta la geocodifica**
+  (`addrAutoGeo {text, geo}`; helper condiviso `geoDaResult(r)` estratto da `geocode`).
+  Enter col menu suggerimenti aperto NON lancia `run()` (`pacAperto()` guarda i
+  `.pac-container` visibili): sceglie il suggerimento, e ci pensa `place_changed`.
+  Un Enter senza suggerimento scelto (place senza geometry) → geocodifica normale di prima.
+  Costo: la widget gestisce da sola le sessioni di fatturazione Autocomplete di Google.
 - **Ordinamento a scelta dell'operatore** (26/08): select «Ordina per» nel form (`#sort`) +
   gemello sopra i risultati (`#sortResults`, riempito copiando le option, sincrono nei due
   versi, scelta salvata in `localStorage.sortPref`). Valori: `dist` (predefinito), `rating`,

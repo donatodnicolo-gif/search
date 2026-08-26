@@ -1870,22 +1870,58 @@ function loadGoogle(key){
 }
 
 /* ------------------ geocoding ------------------ */
+// Estrae città/provincia/paese da un risultato Google (Geocoder o PlaceResult dell'Autocomplete:
+// hanno la stessa forma). Città e provincia servono al controllo nel registro anagrafiche.
+function geoDaResult(r){
+  const comp = t => ((r.address_components||[]).find(c=>c.types.includes(t))||{});
+  const cc = comp('country').short_name || 'IT';
+  const city = comp('locality').long_name || comp('postal_town').long_name || comp('administrative_area_level_3').long_name || '';
+  const prov = comp('administrative_area_level_2');
+  return { location: r.geometry.location, country: cc,
+           city, provShort: prov.short_name || '', provLong: prov.long_name || '' };
+}
 function geocode(address){
   return new Promise((resolve,reject)=>{
     new google.maps.Geocoder().geocode({address}, (res,status)=>{
-      if(status==='OK' && res[0]){
-        const comp = t => (res[0].address_components.find(c=>c.types.includes(t))||{});
-        const cc = comp('country').short_name || 'IT';
-        // città e provincia della zona: servono per il controllo nel registro anagrafiche
-        const city = comp('locality').long_name || comp('postal_town').long_name || comp('administrative_area_level_3').long_name || '';
-        const prov = comp('administrative_area_level_2');
-        resolve({ location: res[0].geometry.location, country: cc,
-                  city, provShort: prov.short_name || '', provLong: prov.long_name || '' });
-      }
+      if(status==='OK' && res[0]) resolve(geoDaResult(res[0]));
       else reject(new Error('Indirizzo non trovato. Prova a essere più specifico (via, città).'));
     });
   });
 }
+
+/* ------------------ suggerimenti indirizzo da Google Maps (Places Autocomplete) ------------------ */
+// Il campo «Indirizzo o zona di partenza» suggerisce da Google Maps mentre si scrive (26/08).
+// La libreria si carica al primo focus sul campo (serve la chiave in cassaforte); scegliendo un
+// suggerimento la ricerca PARTE DA SOLA e la geocodifica è già fatta (il geocode di run() viene
+// saltato). Costo: la widget Autocomplete usa le sessioni di fatturazione di Google da sola.
+let addrAuto = null;      // widget attiva (una sola volta)
+let addrAutoGeo = null;   // { text, geo } dell'ultimo suggerimento scelto: run() lo riusa
+function attivaAutocompleteIndirizzo(){
+  if(addrAuto || !(window.google && google.maps && google.maps.places)) return;
+  const inp = $('#address');
+  addrAuto = new google.maps.places.Autocomplete(inp, {
+    types: ['geocode'],   // indirizzi e località (niente attività: quelle le cerca la ricerca)
+    fields: ['formatted_address','geometry','address_components']
+  });
+  addrAuto.addListener('place_changed', ()=>{
+    const p = addrAuto.getPlace();
+    // Enter senza scegliere un suggerimento: nessuna geometry → si va di geocodifica normale
+    if(!p || !p.geometry || !p.geometry.location) return;
+    if(p.formatted_address) inp.value = p.formatted_address;
+    addrAutoGeo = { text: inp.value.trim(), geo: geoDaResult(p) };
+    run();
+  });
+}
+// col menu dei suggerimenti aperto, Enter sceglie il suggerimento: non deve lanciare run()
+function pacAperto(){
+  return [...document.querySelectorAll('.pac-container')]
+    .some(el => el.offsetParent !== null && el.style.display !== 'none' && el.querySelector('.pac-item'));
+}
+$('#address').addEventListener('focus', ()=>{
+  const key = (CONFIG.googleKey||'').trim();
+  if(!key) return;   // senza chiave niente suggerimenti (comportamento di prima)
+  loadGoogle(key).then(attivaAutocompleteIndirizzo).catch(()=>{});   // gli errori li dirà run()
+});
 
 /* ------------------ registro anagrafiche (partner / prospect già nostri) ------------------ */
 const ANAG_URL_DEFAULT = 'https://deluxy-anagrafiche.vercel.app';   // registro online: raggiungibile anche da mobile
@@ -3725,7 +3761,7 @@ $('#resetSearch').addEventListener('click', resetSearch);
 
 /* ------------------ flusso principale ------------------ */
 $('#go').addEventListener('click', run);
-$('#address').addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
+$('#address').addEventListener('keydown', e=>{ if(e.key==='Enter' && !pacAperto()) run(); });
 
 async function run(){
   const key = (CONFIG.googleKey||'').trim();
@@ -3749,7 +3785,8 @@ async function run(){
     await loadGoogle(key);
 
     setStatus('Cerco l\'indirizzo…');
-    const geo = await geocode(address);
+    // se l'indirizzo è un suggerimento scelto dall'Autocomplete la geocodifica è già fatta
+    const geo = (addrAutoGeo && addrAutoGeo.text === address) ? addrAutoGeo.geo : await geocode(address);
     lastGeo = geo;
     const origin = geo.location;
     currentLang = COUNTRY_LANG[geo.country] || 'it';
