@@ -1147,11 +1147,19 @@ export function testoRisposteMd(
   );
   righe.push("");
   righe.push(
-    "⚠️ Come leggerle (per i progetti di analisi): **accolta** → verificarne " +
-      "l'esecuzione al prossimo giro; **respinta** → NON riproporla senza fatti " +
-      "nuovi, e se la si ripropone dire perché la risposta non regge più; " +
-      "**rimandata** → ripresentarla alla data detta nella nota. Le azioni senza " +
-      "risposta sono ancora in esame: proporle di nuovo è lecito."
+    // ⚠️ Regola rivista il 26/08 sera su richiesta utente: le risposte NON
+    // sono decisioni da obbedire — il progetto le verifica sui dati e
+    // risponde con la sua opinione. Stesso testo nelle ISTRUZIONI dei
+    // progetti su Drive (ads/Definitivi), aggiornate nello stesso giro.
+    "⚠️ Come leggerle (per i progetti di analisi): le risposte NON sono " +
+      "decisioni — sono la POSIZIONE dell'utente, da VERIFICARE sui dati e a cui " +
+      "rispondere con un'OPINIONE motivata (concordo/dissento, coi numeri) nel " +
+      "report successivo. **Accolta** → verificarne esecuzione ed EFFETTO, e se i " +
+      "risultati contraddicono l'attesa scriverlo; **respinta** → non è un veto: " +
+      "si riverifica coi dati di oggi, se i numeri la smentiscono si RIPROPONE " +
+      "dicendo quali, se le danno ragione lo si scrive; **rimandata** → alla data " +
+      "detta nella nota, o prima se aspettare costa (dichiarando quanto). Le " +
+      "azioni senza risposta sono ancora in esame: proporle di nuovo è lecito."
   );
   righe.push("");
   righe.push("| Azione | Proposta | Risposta | Nota dell'utente | Quando |");

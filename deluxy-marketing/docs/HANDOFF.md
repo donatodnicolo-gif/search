@@ -336,6 +336,26 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐ LE RISPOSTE SI VERIFICANO, NON SI OBBEDISCONO (26/08/2026 notte)
+
+Direttiva utente: le risposte date in app alle azioni proposte
+(accolta/respinta/rimandata) **non sono decisioni** — i progetti di analisi
+le VERIFICANO sui dati e rispondono con la loro OPINIONE motivata
+(concordo/dissento, coi numeri). Una respinta smentita dai dati si
+RIPROPONE dichiarando quali numeri la contraddicono; un'accolta si verifica
+in esecuzione ED effetto; una rimandata si può anticipare se aspettare
+costa. Cambiato in DUE posti, con lo stesso testo:
+- il «Come leggerle» che l'app scrive in ogni `RISPOSTE App [Brand] …md`
+  (`testoRisposteMd` in `lib/scheda-analisi.ts`), deployato;
+- le **5 ISTRUZIONI dei progetti su Drive** (`ads/Definitivi/ISTRUZIONI -
+  *.md`): i 3 brand (via il «RESPINTA → NON riproporla»), il **Custode**
+  (che diceva l'OPPOSTO: «sono DECISIONI… vigilare che i progetti le
+  rispettino» — ora vigila che i progetti le verifichino e dichiarino
+  l'opinione, e segnala sia la respinta riproposta senza numeri sia il
+  report che OBBEDISCE senza verificare), e App Azioni (frase descrittiva).
+  ⚠️ **I blocchi vanno RE-INCOLLATI nei progetti Claude** (file rimandati
+  all'utente in chat, marca di versione «26-08 sera» nel titolo).
+
 ### ⭐⭐⭐ REVISIONE DEL CODICE: 10 DIFETTI TROVATI E CORRETTI (26/08/2026 notte)
 
 Caccia agli errori su tutto `src/` (8 angoli di ricerca + verifica
