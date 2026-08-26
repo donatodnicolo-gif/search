@@ -200,7 +200,7 @@ export class LoginComponent {
       // dall'utente il 27/08); gli altri sulle consegne come sempre.
       next: () =>
         this.router.navigate([
-          this.auth.user()?.role === 'PARTNER' ? '/quotes' : '/deliveries',
+          this.auth.user()?.role === 'PARTNER' ? '/home' : '/deliveries',
         ]),
       error: (err) => {
         this.loading.set(false);

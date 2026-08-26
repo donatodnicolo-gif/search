@@ -41,6 +41,25 @@ export interface LineaCommerciale {
   sottolinee: { id: string; nome: string; icona: string | null; pitch: string | null }[];
 }
 
+/**
+ * Ripiego quando Scout non è collegato: le 9 linee master, gli stessi nomi
+ * canonici del fallback di Anagrafiche (`src/lib/interessi.ts`). Serve a non
+ * lasciare il partner davanti a una vetrina vuota — ma la risposta porta
+ * `fonte: 'riserva'` e la pagina LO DICHIARA: un catalogo di riserva mostrato
+ * come fosse quello vivo farebbe chiedere servizi che magari non offriamo più.
+ */
+const LINEE_RISERVA: LineaCommerciale[] = [
+  'Affiliazioni',
+  'Clientelling',
+  'Concierge',
+  'Consegne',
+  'Eventi & Catering',
+  'Food Supplier',
+  'Gifting',
+  'Magazzino',
+  'Re-seller',
+].map((nome) => ({ id: `riserva-${nome}`, nome, icona: null, pitch: null, sottolinee: [] }));
+
 @Injectable()
 export class QuotesService {
   constructor(
@@ -59,28 +78,38 @@ export class QuotesService {
    * la risposta LO DICE (`configurato`/`errore`) invece di fingere un
    * catalogo vuoto.
    */
-  async linee(): Promise<{ linee: LineaCommerciale[]; configurato: boolean; errore?: string }> {
+  async linee(): Promise<{
+    linee: LineaCommerciale[];
+    fonte: 'scout' | 'riserva';
+    configurato: boolean;
+    errore?: string;
+  }> {
     const adesso = Date.now();
     if (this.lineeCache && this.lineeCache.scadenza > adesso) {
-      return { linee: this.lineeCache.linee, configurato: true };
+      return { linee: this.lineeCache.linee, fonte: 'scout', configurato: true };
     }
     const url = (await this.settings.get('lineeUrl')) ?? process.env.LINEE_URL ?? '';
     const chiave = (await this.settings.get('lineeApiKey')) ?? process.env.LINEE_API_KEY ?? '';
+    const riserva = (errore: string) => ({
+      linee: LINEE_RISERVA,
+      fonte: 'riserva' as const,
+      configurato: Boolean(url && chiave),
+      errore,
+    });
     if (!url || !chiave) {
-      return { linee: [], configurato: false, errore: 'Collegamento a Scout (linee commerciali) non configurato.' };
+      return riserva('Collegamento a Deluxy Scout non configurato: elenco di riserva.');
     }
     try {
       const sep = url.includes('?') ? '&' : '?';
       const res = await fetch(`${url}${sep}soloAttive=1`, { headers: { 'x-api-key': chiave } });
-      if (!res.ok) {
-        return { linee: [], configurato: true, errore: `Scout risponde HTTP ${res.status}.` };
-      }
+      if (!res.ok) return riserva(`Scout risponde HTTP ${res.status}: elenco di riserva.`);
       const body = (await res.json()) as { linee?: LineaCommerciale[] };
       const linee = body.linee ?? [];
+      if (!linee.length) return riserva('Scout non ha restituito linee: elenco di riserva.');
       this.lineeCache = { linee, scadenza: adesso + 10 * 60 * 1000 };
-      return { linee, configurato: true };
+      return { linee, fonte: 'scout', configurato: true };
     } catch (err) {
-      return { linee: [], configurato: true, errore: `Scout non raggiungibile: ${(err as Error).message}` };
+      return riserva(`Scout non raggiungibile (${(err as Error).message}): elenco di riserva.`);
     }
   }
 

@@ -68,7 +68,15 @@ export const routes: Routes = [
             (m) => m.RecurringServicesComponent,
           ),
       },
-      // ---- Preventivi: vetrina servizi + richieste dei partner ----
+      // ---- La casa del partner: la vetrina dei servizi richiedibili ----
+      {
+        path: 'home',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PARTNER'], title: 'Servizi Deluxy' },
+        loadComponent: () =>
+          import('./pages/partner-home.component').then((m) => m.PartnerHomeComponent),
+      },
+      // ---- Preventivi: il form e le richieste ----
       {
         path: 'quotes',
         canActivate: [roleGuard],

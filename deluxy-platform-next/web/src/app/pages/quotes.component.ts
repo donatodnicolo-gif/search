@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
@@ -47,7 +48,7 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
 @Component({
   selector: 'app-quotes',
   standalone: true,
-  imports: [FormsModule, DatePipe, TranslatePipe],
+  imports: [FormsModule, DatePipe, RouterLink, TranslatePipe],
   template: `
     <div class="page-header">
       <div>
@@ -64,9 +65,7 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
           </a>
         }
         @if (isPartner()) {
-          <button class="btn btn-primary" (click)="apriForm()">
-            {{ 'quotes.new' | translate }}
-          </button>
+          <a class="btn btn-secondary" routerLink="/home">{{ 'partnerHome.backToServices' | translate }}</a>
         }
       </div>
     </div>
@@ -74,43 +73,9 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
     @if (banner(); as b) { <div class="ok-card card">{{ b }}</div> }
     @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
-    <!-- ============ VETRINA (partner): le linee commerciali di Scout ============ -->
-    @if (isPartner()) {
-      @if (linee().length) {
-        <h2 class="sez">{{ 'quotes.lineeTitle' | translate }}</h2>
-        <p class="sez-sub">{{ 'quotes.lineeSub' | translate }}</p>
-        <div class="linee">
-          @for (l of linee(); track l.id) {
-            <div class="card linea">
-              <div class="linea-head">
-                @if (l.icona) { <span class="linea-icona">{{ l.icona }}</span> }
-                <span class="linea-nome">{{ l.nome }}</span>
-              </div>
-              @if (l.pitch) { <p class="linea-pitch">{{ l.pitch }}</p> }
-              @if (l.sottolinee.length) {
-                <div class="chips">
-                  @for (s of l.sottolinee; track s.id) {
-                    <span class="chip" [title]="s.pitch ?? ''">{{ s.icona }} {{ s.nome }}</span>
-                  }
-                </div>
-              }
-              <div class="linea-azioni">
-                <button class="btn btn-secondary" (click)="richiediLinea(l)">
-                  {{ 'quotes.askQuote' | translate }}
-                </button>
-              </div>
-            </div>
-          }
-        </div>
-      } @else if (lineeErrore()) {
-        <!-- La vetrina manca e la pagina lo DICE: un catalogo vuoto e muto
-             sembrerebbe «nessun servizio». -->
-        <div class="card state-card">{{ lineeErrore() }}</div>
-      }
-    }
 
-    <!-- ============ FORM (partner) ============ -->
-    @if (isPartner() && showForm()) {
+    <!-- ============ FORM (partner): è la pagina, non un pannello nascosto ============ -->
+    @if (isPartner()) {
       <section class="card gen" id="form-preventivo">
         <h2 class="gen-title">{{ 'quotes.form.title' | translate }}</h2>
         <div class="grid">
@@ -272,16 +237,6 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
       .btn-wa:hover { background: #1fb857; }
       .btn-wa svg { width: 18px; height: 18px; }
       .sez { font-size: 20px; margin: 18px 0 2px; }
-      .sez-sub { margin: 0 0 12px; color: var(--text-secondary); font-size: 13.5px; }
-      .linee { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 22px; }
-      .linea { padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
-      .linea-head { display: flex; align-items: center; gap: 8px; }
-      .linea-icona { font-size: 22px; }
-      .linea-nome { font-weight: 600; font-size: 15px; }
-      .linea-pitch { margin: 0; color: var(--text-secondary); font-size: 13px; }
-      .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-      .chip { background: var(--fill); border-radius: 980px; padding: 3px 10px; font-size: 12px; }
-      .linea-azioni { margin-top: auto; padding-top: 6px; }
       .gen { padding: 20px 22px; margin-bottom: 18px; }
       .gen-title { margin: 0 0 14px; font-size: 18px; }
       .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 16px; }
@@ -334,10 +289,10 @@ export class QuotesComponent {
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly requests = signal<QuoteRequest[]>([]);
   readonly linee = signal<Linea[]>([]);
-  readonly lineeErrore = signal<string | null>(null);
   readonly whatsapp = signal<string | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
@@ -345,7 +300,6 @@ export class QuotesComponent {
   readonly saving = signal(false);
   readonly newError = signal<string | null>(null);
   readonly replyError = signal<string | null>(null);
-  readonly showForm = signal(false);
   readonly fotoAperta = signal<string | null>(null);
   readonly rispostaPer = signal<QuoteRequest | null>(null);
 
@@ -363,15 +317,12 @@ export class QuotesComponent {
       `${environment.apiUrl}/settings/public`,
     ).subscribe((s) => this.whatsapp.set(s.whatsappNumero || null));
     if (this.isPartner()) {
-      this.http.get<{ linee: Linea[]; configurato: boolean; errore?: string }>(
-        `${environment.apiUrl}/quotes/linee`,
-      ).subscribe({
-        next: (d) => {
-          this.linee.set(d.linee);
-          if (!d.linee.length) this.lineeErrore.set(d.errore ?? null);
-        },
-        error: () => this.lineeErrore.set(this.translate.instant('common.loadError')),
-      });
+      // Le linee servono alla tendina del form.
+      this.http.get<{ linee: Linea[] }>(`${environment.apiUrl}/quotes/linee`)
+        .subscribe({ next: (d) => this.linee.set(d.linee), error: () => this.linee.set([]) });
+      // Arrivando da una tessera della home il servizio è già scelto.
+      const linea = this.route.snapshot.queryParamMap.get('linea');
+      if (linea) this.draft.linea = linea;
     }
   }
 
@@ -399,16 +350,6 @@ export class QuotesComponent {
     const raw = (r.partner?.phone ?? '').replace(/[^\d+]/g, '');
     const num = raw.startsWith('+') ? raw.slice(1) : raw.startsWith('00') ? raw.slice(2) : raw.length === 10 ? `39${raw}` : raw;
     return `https://wa.me/${num}`;
-  }
-
-  apriForm(): void {
-    this.showForm.set(true);
-    setTimeout(() => document.getElementById('form-preventivo')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  }
-
-  richiediLinea(l: Linea): void {
-    this.draft.linea = l.nome;
-    this.apriForm();
   }
 
   /** La foto si comprime NEL BROWSER (max 1280 px, JPEG): in banca va un data URL piccolo. */
@@ -452,7 +393,6 @@ export class QuotesComponent {
     this.http.post(`${environment.apiUrl}/quotes`, body).subscribe({
       next: () => {
         this.saving.set(false);
-        this.showForm.set(false);
         this.draft = { linea: '', description: '', people: null, city: '', requestedFor: '', photo: '' };
         this.banner.set(this.translate.instant('quotes.form.done'));
         this.load();

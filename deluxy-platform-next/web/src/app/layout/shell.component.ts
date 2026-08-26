@@ -43,6 +43,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: 'nav.section.operativita',
     items: [
+      { label: 'nav.serviziDeluxy', path: '/home', icon: 'store', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
       { label: 'nav.consegne', path: '/deliveries', icon: 'box', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
       { label: 'nav.serviziRicorrenti', path: '/recurring-services', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.calendario', path: '/calendar', icon: 'calendar', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
@@ -201,7 +202,13 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         position: sticky;
         top: 0;
         height: 100vh;
-        overflow-y: auto;
+        /* ⚠️ NIENTE overflow qui: un contenitore con overflow diverso da
+           visible RITAGLIA i figli posizionati, e il pannello della
+           campanella (in fondo alla sidebar) veniva tagliato. Scorre il solo
+           elenco delle voci. E z-index perché il pannello, uscendo, passa
+           sopra il contenuto (le intestazioni sticky delle tabelle hanno
+           z-index 1). */
+        z-index: 30;
       }
       .brand {
         display: flex;
@@ -254,6 +261,8 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       }
       nav {
         flex: 1;
+        overflow-y: auto;
+        min-height: 0; /* senza questo un figlio flex non scorre: cresce */
       }
       .nav-section {
         font-size: 11px;
@@ -303,6 +312,9 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         margin-top: 12px;
         padding: 10px;
         border-top: 1px solid var(--hairline);
+        /* Ancora del pannello notifiche nel drawer mobile: lì la campanella
+           non ha spazio a destra e il pannello si allarga su questa riga. */
+        position: relative;
       }
       .avatar {
         width: 32px;

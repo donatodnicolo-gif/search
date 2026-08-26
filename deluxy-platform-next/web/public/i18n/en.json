@@ -44,7 +44,18 @@
     "disponibilitaGiorno": "Availability",
     "regoleValet": "Valet rules",
     "serviziRicorrenti": "Recurring services",
-    "preventivi": "Quotes"
+    "preventivi": "Quotes",
+    "serviziDeluxy": "Deluxy services"
+  },
+  "partnerHome": {
+    "eyebrow": "Deluxy Luxury Delivery",
+    "hello": "Welcome, {{nome}}",
+    "sub": "Every Deluxy service, one request away: pick what you need and we'll come back with a tailored quote.",
+    "cta": "Request a quote",
+    "servicesEyebrow": "Our services",
+    "requestsEyebrow": "In progress",
+    "seeAll": "See all",
+    "backToServices": "All services"
   },
   "quotes": {
     "title": "Quotes",
@@ -53,9 +64,11 @@
     "whatsapp": "Message us on WhatsApp",
     "waGreeting": "Good morning, this is {{nome}}. I have a request for Deluxy.",
     "new": "Request a quote",
-    "lineeTitle": "Deluxy services",
-    "lineeSub": "The lines you can request: pick one or freely describe what you need.",
+    "lineeTitle": "What do you need?",
+    "lineeSub": "Pick the service you want to request: the quote form opens already set up.",
     "askQuote": "Request a quote",
+    "freeRequest": "Something else",
+    "freeRequestSub": "It doesn't fit any category: tell us what you need.",
     "mineTitle": "Your requests",
     "emptyMine": "No requests yet: start from the services above or from the “Request a quote” button.",
     "empty": "No quote requests.",

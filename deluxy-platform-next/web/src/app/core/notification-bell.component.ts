@@ -98,12 +98,16 @@ import { NotificationsService, Notification } from './notifications.service';
         line-height: 18px;
         text-align: center;
       }
+      /* La campanella vive in fondo alla SIDEBAR (larga 250px, 68px se
+         collassata): ancorare il pannello a destra lo mandava fuori dallo
+         schermo a sinistra. Si apre verso DESTRA, sopra il contenuto. */
       .panel {
         position: absolute;
         bottom: calc(100% + 10px);
-        right: 0;
+        left: 0;
+        right: auto;
         width: 340px;
-        max-width: 88vw;
+        max-width: calc(100vw - 24px);
         background: var(--surface);
         border: 1px solid var(--hairline);
         border-radius: var(--radius-l);
@@ -156,6 +160,16 @@ import { NotificationsService, Notification } from './notifications.service';
       .item-title { font-size: 13px; font-weight: 600; color: var(--text); }
       .item-body { font-size: 13px; color: var(--text-secondary); }
       .item-time { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+      /* Nel drawer mobile non c'è spazio a destra della campanella (il menu è
+         largo 264px e lei sta in fondo): il pannello lascia l'ancoraggio al
+         bottone e si allarga quanto la riga utente, che è larga quanto il
+         drawer. La .user-box è position:relative nella shell.
+         ⚠️ Niente backtick nei commenti: chiudono il template degli stili. */
+      @media (max-width: 800px) {
+        .bell-wrap { position: static; }
+        .panel { left: 0; right: 0; width: auto; max-width: none; }
+      }
     `,
   ],
 })

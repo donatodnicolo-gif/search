@@ -44,7 +44,18 @@
     "disponibilitaGiorno": "Disponibilità",
     "regoleValet": "Regole valet",
     "serviziRicorrenti": "Servizi ricorrenti",
-    "preventivi": "Preventivi"
+    "preventivi": "Preventivi",
+    "serviziDeluxy": "Servizi Deluxy"
+  },
+  "partnerHome": {
+    "eyebrow": "Deluxy Luxury Delivery",
+    "hello": "Benvenuto, {{nome}}",
+    "sub": "Ogni servizio Deluxy a portata di richiesta: scegli quello che ti serve e ti rispondiamo con un preventivo su misura.",
+    "cta": "Richiedi un preventivo",
+    "servicesEyebrow": "I nostri servizi",
+    "requestsEyebrow": "In corso",
+    "seeAll": "Vedi tutte",
+    "backToServices": "Tutti i servizi"
   },
   "quotes": {
     "title": "Preventivi",
@@ -53,9 +64,11 @@
     "whatsapp": "Scrivici su WhatsApp",
     "waGreeting": "Buongiorno, sono {{nome}}. Avrei una richiesta per Deluxy.",
     "new": "Richiedi un preventivo",
-    "lineeTitle": "I servizi Deluxy",
-    "lineeSub": "Le linee che puoi richiedere: scegli una linea o descrivi liberamente che cosa ti serve.",
+    "lineeTitle": "Che cosa ti serve?",
+    "lineeSub": "Scegli il servizio che vuoi richiedere: si apre il form del preventivo già impostato.",
     "askQuote": "Richiedi preventivo",
+    "freeRequest": "Altra richiesta",
+    "freeRequestSub": "Non rientra in nessuna categoria: scrivici che cosa ti serve.",
     "mineTitle": "Le tue richieste",
     "emptyMine": "Nessuna richiesta ancora: parti dai servizi qui sopra o dal bottone «Richiedi un preventivo».",
     "empty": "Nessuna richiesta di preventivo.",
