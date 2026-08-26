@@ -632,7 +632,20 @@ export default function SchedaAttivita() {
           />
           <AzioneRapida icona="checkbox-outline" label="Task" onPress={() => { setTaskInModifica(null); setTaskAperto(true); }} />
           <AzioneRapida icona="person-add-outline" label="Contatto" onPress={() => router.push(`/(app)/contatto/${place.id}`)} />
-          <AzioneRapida icona="briefcase-outline" label="Trattativa" onPress={() => router.push('/(app)/trattative')} />
+          {/* ⚠️ Corretto il 26/08/2026: portava all'ELENCO di tutte le
+              trattative, senza dire a chi apparteneva la scheda da cui si
+              arrivava — e chi voleva aprirne una per QUESTO negozio doveva
+              ricercarlo. Ora apre il form già intestato, come fa Clienti. */}
+          <AzioneRapida
+            icona="briefcase-outline"
+            label="Trattativa"
+            onPress={() =>
+              router.push({
+                pathname: '/(app)/trattative',
+                params: { nuovoPer: place.id, nuovoNome: place.nome },
+              })
+            }
+          />
           <AzioneRapida
             icona="navigate-outline"
             label="Naviga"
