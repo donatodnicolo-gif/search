@@ -402,6 +402,26 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### 27/08 (notte, 4) — Le tre conferme eseguite, e il git-deploy STACCATO davvero
+
+- **Velazquez divisa**: la 22820 (300 rose) e diventata DUE consegne — 22820
+  → #5336 e la nuova **#63042** → #5337 (150 rose, 1.500 al partner e 225 di
+  quota ciascuna; la paga valet resta sulla 22820). Verificate live: 2.410 di
+  venduto e ~39-40% di margine ciascuna.
+- **Tulipani #33381**: riga 120 → 3 EUR/cad (refuso confermato), agganciata a
+  #7311 (135 pagati, margine 35,3%). ⚠️ La **#42770** (agganciata a #9323 su
+  conferma: ordine registrato DOPO la consegna) non ha il valore partner
+  scritto: margine 81,97% GONFIO, riga marcata come dato mancante.
+- **Finanza parte dal MESE CORRENTE di default** (prima caricava tutto lo
+  storico a ogni apertura).
+- 🔥 Il flag git.deploymentEnabled nel vercel.json NON bastava (nuova
+  Production da git dopo il push): **repo git SCOLLEGATO dal progetto** con
+  vercel git disconnect — ora deploya SOLO la CLI.
+- **Budgets non va aggiornata**: legge il consuntivo LIVE da Orders con cache
+  di 60 s (RIVALIDA=60 in src/lib/cache.ts) — i numeri nuovi sono gia i suoi.
+- Totali dopo tutto: 10.053 ordini con economia · primo margine 518.692,28 ·
+  fee 162.910,44 · margine finale **569.036,41 EUR**.
+
 ### 26/08 (notte, 3) — I mostruosi sciolti col CLIENTE, invalidate fuori
 
 - **#20600 / #4685 confermato dall'utente**: riga Champagne 10.000 → 1.000

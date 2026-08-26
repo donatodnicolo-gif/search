@@ -645,7 +645,9 @@ export class FinanceComponent {
   private attesa?: ReturnType<typeof setTimeout>;
 
   constructor() {
-    this.reload();
+    // Di default si parte dal MESE CORRENTE (deciso dall'utente 27/08):
+    // senza periodo la pagina caricava TUTTO lo storico a ogni apertura.
+    this.periodo(0);
     this.http.get<{ id: string; insegna: string }[]>(`${this.api}/partners`).subscribe({
       next: (d) => this.partners.set((d ?? []).map((x) => ({ id: x.id, insegna: x.insegna }))),
       error: () => {},

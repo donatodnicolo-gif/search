@@ -31,3 +31,6 @@ scripts/_paga.mjs
 
 # Estrazioni di dati veri: non si committano
 anomalie-prezzo-vendite.csv
+
+.vercel
+.env*
