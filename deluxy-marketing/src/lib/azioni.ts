@@ -639,7 +639,10 @@ export async function rispondiAzioneScheda(fd: FormData) {
       (esitoDrive.ok ? `depositata su Drive (${nomeFile})` : `⚠️ deposito su Drive FALLITO: ${esitoDrive.errore}`),
   });
   revalidatePath(`/analisi/${analisiId}`);
-  redirect(`/analisi/${analisiId}${esitoDrive.ok ? "" : `?coda=fallita&errore=${encodeURIComponent(`Risposta salvata nell'app, ma il deposito su Drive è fallito: ${(esitoDrive.errore ?? "").slice(0, 160)}`)}`}`);
+  // ⚠️ Si riatterra SULL'AZIONE, non in cima: dopo la risposta la pagina si
+  // ricarica, e senza l'ancora chi sta rispondendo a dieci proposte riparte
+  // ogni volta dallo scroll zero (segnalato dall'utente, 26/08).
+  redirect(`/analisi/${analisiId}${esitoDrive.ok ? "" : `?coda=fallita&errore=${encodeURIComponent(`Risposta salvata nell'app, ma il deposito su Drive è fallito: ${(esitoDrive.errore ?? "").slice(0, 160)}`)}`}#az-${indice}`);
 }
 
 // ---------- Drive ----------

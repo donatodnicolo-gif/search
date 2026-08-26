@@ -99,7 +99,7 @@ export default async function SchedaAnalisi({
           stato: { in: ["in_attesa", "approvata", "eseguita"] },
           campagnaId: { in: [...agganci.values()].map((x) => x.id) },
         },
-        select: { id: true, tipo: true, campagnaId: true, parametri: true, stato: true },
+        select: { id: true, tipo: true, campagnaId: true, parametri: true, stato: true, esito: true, eseguitaIl: true },
       })
     : [];
   // Le proposte di UN'azione, riviste dal codice: una per campagna citata.
@@ -134,6 +134,8 @@ export default async function SchedaAnalisi({
         aggancio,
         inCoda: uguale?.stato === "in_attesa" || uguale?.stato === "approvata",
         eseguitaId: uguale?.stato === "eseguita" ? uguale.id : null,
+        eseguitaEsito: uguale?.stato === "eseguita" ? uguale.esito : null,
+        eseguitaIl: uguale?.stato === "eseguita" ? uguale.eseguitaIl : null,
       }];
     });
   };
@@ -182,15 +184,36 @@ export default async function SchedaAnalisi({
     const az = scheda!.azioni[indice];
     const pronte = propostePronte(indice);
     const st = statoAzione(indice);
+    // ⚠️ STESSO ESITO, STESSA VESTE (domanda utente, 26/08). Lo stato può
+    // arrivare da DUE strade: la riconciliazione AI (periodica) o il
+    // confronto vivo con la coda (parametri identici, a ogni caricamento).
+    // Un'operazione eseguita DOPO l'ultima riconciliazione mostrava solo un
+    // tag piccolo mentre la gemella riconciliata aveva pillola e nota: due
+    // vesti per lo stesso fatto. Se la riconciliazione non è ancora passata,
+    // lo stato si deduce dalla coda e si veste UGUALE — la riconciliazione,
+    // al giro dopo, lo conferma con la nota più ricca.
+    const eseguiteVive = pronte.filter((x) => x.eseguitaId);
+    const statoVivo =
+      !st && pronte.length > 0 && eseguiteVive.length > 0
+        ? eseguiteVive.length === pronte.length
+          ? ("fatta" as const)
+          : ("parziale" as const)
+        : null;
     return (
-      <div key={indice} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+      <div key={indice} id={`az-${indice}`} style={{ display: "flex", gap: 8, alignItems: "baseline", scrollMarginTop: 80 }}>
         <Badge testo={az.codice ? `${az.priorita} ${az.codice}` : az.priorita} colore={COLORE_PRIORITA[az.priorita]} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13, whiteSpace: "normal" }}>
             {az.testo}
-            {st && (
-              <span style={{ marginLeft: 8, display: "inline-flex", gap: 6, alignItems: "center" }}>
-                <Badge testo={ETICHETTA_STATO_RICONCILIATO[st.stato]} colore={COLORE_STATO_RICONCILIATO[st.stato]} />
+            {(st || statoVivo) && (
+              <span
+                style={{ marginLeft: 8, display: "inline-flex", gap: 6, alignItems: "center" }}
+                title={statoVivo ? "Dedotto dalla coda operazioni (parametri identici): la riconciliazione AI lo confermerà al prossimo giro" : undefined}
+              >
+                <Badge
+                  testo={ETICHETTA_STATO_RICONCILIATO[(st?.stato ?? statoVivo)!]}
+                  colore={COLORE_STATO_RICONCILIATO[(st?.stato ?? statoVivo)!]}
+                />
               </span>
             )}
           </div>
@@ -201,6 +224,23 @@ export default async function SchedaAnalisi({
                 <a key={oid} href={`/operazioni#op-${oid}`} style={{ marginLeft: 6, color: "var(--blue)" }} title="Apri l'operazione nella coda">
                   → operazione
                 </a>
+              ))}
+            </div>
+          )}
+          {/* La nota dello stato VIVO: l'esito vero dell'operazione, come la
+              scriverebbe la riconciliazione — perché lo stesso fatto non deve
+              cambiare faccia a seconda di chi l'ha visto per primo. */}
+          {!st && statoVivo && (
+            <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 2 }}>
+              {eseguiteVive.map((x) => (
+                <span key={x.k}>
+                  {descriviOperazione(x.pronta)} — eseguita
+                  {x.eseguitaIl ? ` il ${formattaDataOra(x.eseguitaIl)}` : ""}
+                  {x.eseguitaEsito ? `: ${x.eseguitaEsito.slice(0, 140)}` : ""}
+                  <a href={`/operazioni#op-${x.eseguitaId}`} style={{ marginLeft: 6, color: "var(--blue)" }} title="Apri l'operazione nella coda">
+                    → operazione
+                  </a>{" "}
+                </span>
               ))}
             </div>
           )}
@@ -252,10 +292,10 @@ export default async function SchedaAnalisi({
               </div>
             );
           })()}
-          {pronte.length > 0 && !["fatta"].includes(st?.stato ?? "") && (
+          {pronte.length > 0 && !["fatta"].includes(st?.stato ?? "") && statoVivo !== "fatta" && (
             <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
               {pronte.map((ex) =>
-                ex.eseguitaId ? (
+                ex.eseguitaId && statoVivo ? null : ex.eseguitaId ? (
                   <a
                     key={ex.k}
                     className="tag-neutro"
