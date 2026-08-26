@@ -534,6 +534,49 @@ export class FinanceService {
     return v || null;
   }
 
+  /**
+   * L'ECONOMIA DELLE VENDITE per ordine Shopify, con LE STESSE formule della
+   * pagina Finanza (computeRow + recap: niente doppioni che poi divergono).
+   * Serve alla spinta verso Orders (deciso dall'utente il 26/08): per ogni
+   * ordine si trasmettono guadagno netto IVA (pagato − valore prodotti ÷
+   * 1,22), la quota registrata lorda e il margine finale.
+   */
+  async economiaVendite(): Promise<Map<string, { guadagnoVendita: number; feeVendita: number; margineFinale: number }>> {
+    const corporate = await this.idVenditeDaCorporate();
+    const deliveries = await this.prisma.delivery.findMany({
+      where: {
+        deletedAt: null,
+        status: { notIn: STATI_ESCLUSI },
+        realOrderNumber: { not: null },
+        ...(corporate.length ? { id: { notIn: corporate } } : {}),
+        ...this.ambito(true),
+      },
+      include: {
+        partner: { select: { insegna: true, commissionPercent: true } },
+        serviceType: { select: { name: true, pricingModel: true } },
+        products: {
+          include: {
+            product: { select: { name: true, price: true, publicPrice: true, category: { select: { name: true } } } },
+            productVariant: { select: { name: true, publicPrice: true } },
+          },
+        },
+      },
+    });
+    const rows = deliveries.map((d) => this.computeRow(d));
+    const ordini = this.recap(rows, await this.tariffe(), await this.clientePagato(rows));
+    const mappa = new Map<string, { guadagnoVendita: number; feeVendita: number; margineFinale: number }>();
+    for (const o of ordini) {
+      const numero = o.righe.map((r) => r.realOrderNumber).find(Boolean);
+      if (!numero) continue;
+      mappa.set(numero, {
+        guadagnoVendita: o.takingsNet,
+        feeVendita: o.feeContract,
+        margineFinale: o.totalMargin,
+      });
+    }
+    return mappa;
+  }
+
   private recap(
     rows: CorrispettivoRow[],
     tariffe: TariffaIncasso[] = [],
@@ -1056,5 +1099,6 @@ export class FinanceController {
   imports: [PrismaModule],
   controllers: [FinanceController],
   providers: [FinanceService],
+  exports: [FinanceService],
 })
 export class FinanceModule {}

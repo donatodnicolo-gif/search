@@ -365,6 +365,24 @@ Il 12731 passa da **−4,78 €** (venduto 35 = concordato Cannavo) a ricavo ver
   in Anagrafiche (o FINANCE, che di quel record è la fonte, non li spinge).
   Le differenze importabili oggi: referente, indirizzo, stato finanziario.
 
+### ⭐⭐ 26/08 (sera, 6) — A Orders va anche l'ECONOMIA della vendita, già fatta
+
+Deciso dall'utente: per ogni ordine si trasmettono a Orders **tre numeri già
+calcolati** — `guadagnoVendita` (pagato − valore prodotti, ÷1,22),
+`feeVendita` (la quota registrata, lorda) e `margineFinale` (guadagno + fee −
+costo consegna − commissione incassi). Non sono ingredienti: sono il conto
+della piattaforma, dichiarato come tale — il `margine` di Orders resta il suo.
+
+- **Orders** (commit `ad8ad45a` su scout-ui, colonne aggiunte con `ALTER …
+  IF NOT EXISTS` come da sua regola di casa, NON `db push`): tre campi su
+  `Ordine`, PATCH che li accetta (negativi ammessi sui RISULTATI, mai sulla
+  quota; null azzera), `controllo` che li espone.
+- **Piattaforma**: `FinanceService.economiaVendite()` — LE STESSE funzioni
+  della pagina Finanza (computeRow + recap, corporate escluso, cache cliente):
+  niente formule duplicate che poi divergono. `spingiMargini` la usa: cinque
+  campi nel PATCH, salto-se-identici esteso a tutti e cinque; il cron
+  notturno aggiorna tutto da solo. CRON_SECRET ruotato.
+
 **Resta da fare qui**: caricamento consegne via AI (la chiave in Impostazioni
 c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify

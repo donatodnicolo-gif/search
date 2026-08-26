@@ -17,6 +17,7 @@ import { SalesModule, SalesService } from '../sales/sales.module';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
 import { ValetsModule } from '../valets/valets.module';
 import { ValetsService } from '../valets/valets.service';
+import { FinanceModule, FinanceService } from '../finance/finance.module';
 
 /** Un ordine come lo espone Deluxy Orders (solo i campi che servono qui). */
 type OrdineOrders = {
@@ -59,6 +60,7 @@ export class OrdersSyncService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly sales: SalesService,
+    private readonly finance: FinanceService,
   ) {}
 
   private async config() {
@@ -191,7 +193,10 @@ export class OrdersSyncService {
     const perOrderId = new Map<string, {
       id: string;
       numero?: string | null;
-      gia: { costoConsegna: number | null; feeConsegna: number | null };
+      gia: {
+        costoConsegna: number | null; feeConsegna: number | null;
+        guadagnoVendita: number | null; feeVendita: number | null; margineFinale: number | null;
+      };
     }>();
     const soloQuesti = opzioni.soloOrdiniShopify?.length ? new Set(opzioni.soloOrdiniShopify) : null;
     const economia: { orderId: string; ordersId: string | null; brand: string | null; numero: string | null; prodotti: number; consegna: number; totale: number }[] = [];
@@ -212,7 +217,10 @@ export class OrdersSyncService {
           brand?: string | null;
           totale?: number | null;
           righe?: { prezzo?: number | null; quantita?: number | null }[] | null;
-          controllo?: { costoConsegna?: number | null; feeConsegna?: number | null } | null;
+          controllo?: {
+            costoConsegna?: number | null; feeConsegna?: number | null;
+            guadagnoVendita?: number | null; feeVendita?: number | null; margineFinale?: number | null;
+          } | null;
         }[];
         pagine?: number;
       };
@@ -239,7 +247,13 @@ export class OrdersSyncService {
         perOrderId.set(k, {
           id: o.id,
           numero: o.numero,
-          gia: { costoConsegna: o.controllo?.costoConsegna ?? null, feeConsegna: o.controllo?.feeConsegna ?? null },
+          gia: {
+            costoConsegna: o.controllo?.costoConsegna ?? null,
+            feeConsegna: o.controllo?.feeConsegna ?? null,
+            guadagnoVendita: o.controllo?.guadagnoVendita ?? null,
+            feeVendita: o.controllo?.feeVendita ?? null,
+            margineFinale: o.controllo?.margineFinale ?? null,
+          },
         });
       }
       if (soloQuesti && perOrderId.size >= soloQuesti.size) break;
@@ -282,18 +296,32 @@ export class OrdersSyncService {
     // negativo direbbe che il valet paga noi. Stesso pavimento degli stipendi.
     const maiSottoZero = (n: number) => Math.max(0, Math.round(n * 100) / 100);
 
-    const voci = [...per.entries()].map(([orderId, c]) => ({
-      orderId,
-      ordersId: perOrderId.get(orderId)!.id,
-      numero: perOrderId.get(orderId)!.numero ?? null,
-      consegne: c.consegne,
-      costoConsegna: maiSottoZero(c.costoConsegna),
-      feeConsegna: maiSottoZero(c.feeConsegna),
-      /// Quante consegne dell'ordine hanno un partner senza Fee% impostata: la
-      /// fee di quelle vale 0, e dirlo evita di leggere un totale come completo.
-      senzaFee: c.senzaFee,
-      giaScritto: perOrderId.get(orderId)!.gia,
-    }));
+    // L'ECONOMIA DELLA VENDITA, con le stesse formule della pagina Finanza
+    // (guadagno netto IVA, quota registrata, margine finale): si manda gia'
+    // fatta, su decisione dell'utente del 26/08. Null dove l'ordine non e' una
+    // vendita nostra: null in PATCH azzera, e un ordine uscito dall'ambito
+    // (annullato, diventato corporate) non resta con numeri vecchi addosso.
+    const economiaVendite = await this.finance.economiaVendite();
+    const tondo = (n: number) => Math.round(n * 100) / 100;
+
+    const voci = [...per.entries()].map(([orderId, c]) => {
+      const eco = economiaVendite.get(orderId) ?? null;
+      return {
+        orderId,
+        ordersId: perOrderId.get(orderId)!.id,
+        numero: perOrderId.get(orderId)!.numero ?? null,
+        consegne: c.consegne,
+        costoConsegna: maiSottoZero(c.costoConsegna),
+        feeConsegna: maiSottoZero(c.feeConsegna),
+        guadagnoVendita: eco ? tondo(eco.guadagnoVendita) : null,
+        feeVendita: eco ? maiSottoZero(eco.feeVendita) : null,
+        margineFinale: eco ? tondo(eco.margineFinale) : null,
+        /// Quante consegne dell'ordine hanno un partner senza Fee% impostata: la
+        /// fee di quelle vale 0, e dirlo evita di leggere un totale come completo.
+        senzaFee: c.senzaFee,
+        giaScritto: perOrderId.get(orderId)!.gia,
+      };
+    });
 
     const totali = {
       ordiniConosciutiDaOrders: perOrderId.size,
@@ -314,7 +342,13 @@ export class OrdersSyncService {
     for (const v of voci) {
       // Orders ha già questi numeri: rimandarli aggiungerebbe solo una riga
       // identica alla storia dell'ordine, ogni notte. Si scrive quel che cambia.
-      if (v.giaScritto.costoConsegna === v.costoConsegna && v.giaScritto.feeConsegna === v.feeConsegna) {
+      if (
+        v.giaScritto.costoConsegna === v.costoConsegna
+        && v.giaScritto.feeConsegna === v.feeConsegna
+        && v.giaScritto.guadagnoVendita === v.guadagnoVendita
+        && v.giaScritto.feeVendita === v.feeVendita
+        && v.giaScritto.margineFinale === v.margineFinale
+      ) {
         saltati++;
         continue;
       }
@@ -322,7 +356,13 @@ export class OrdersSyncService {
         const res = await fetch(`${url}/api/v1/ordini/${v.ordersId}`, {
           method: 'PATCH',
           headers: { 'x-api-key': chiave, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ costoConsegna: v.costoConsegna, feeConsegna: v.feeConsegna }),
+          body: JSON.stringify({
+            costoConsegna: v.costoConsegna,
+            feeConsegna: v.feeConsegna,
+            guadagnoVendita: v.guadagnoVendita,
+            feeVendita: v.feeVendita,
+            margineFinale: v.margineFinale,
+          }),
         });
         if (!res.ok) {
           const t = await res.text().catch(() => '');
@@ -611,7 +651,7 @@ export class CronMarginiController {
 }
 
 @Module({
-  imports: [SalesModule, SettingsModule, ValetsModule],
+  imports: [SalesModule, SettingsModule, ValetsModule, FinanceModule],
   controllers: [OrdersSyncController, CronMarginiController],
   providers: [OrdersSyncService],
   exports: [OrdersSyncService],
