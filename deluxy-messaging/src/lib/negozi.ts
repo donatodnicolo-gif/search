@@ -24,6 +24,13 @@ import { db } from './db'
 export function brandRicercaDaNegozio(nome: string, dominio: string, brandRicerca = ''): string {
   if (brandRicerca.trim()) return brandRicerca.trim()
   const t = `${nome} ${dominio}`.toLowerCase()
+  // ⚠️⚠️ BUSINESS PRIMA DI DELUXY, e non è pignoleria: «business.deluxy.it»
+  // contiene «deluxy», quindi con l'ordine di prima il quarto negozio veniva
+  // cercato come **deluxy.it** — il negozio regali. Nessun errore: l'ordine
+  // semplicemente non si trovava, o peggio se ne trovava un altro con lo stesso
+  // numero. Una regola scritta su tre valori non dice «non lo so» quando i
+  // valori diventano quattro: dice il terzo.
+  if (/business/.test(t)) return 'business.deluxy.it'
   if (/flower|fior/.test(t)) return 'deluxyflowers.com'
   if (/cake|pasticc|torta/.test(t)) return 'cakedesign.me'
   if (/deluxy/.test(t)) return 'deluxy.it'
@@ -39,12 +46,16 @@ export function linkRicercaFornitori(brandRicerca: string, numero: string): stri
 
 /**
  * Sigla del negozio davanti al nome in rubrica: FL (Flowers), CK (Cake),
- * DL (Deluxy). Si deduce da nome+dominio; "Deluxy Flowers" → FL, perché il
- * marchio più specifico vince su "deluxy".
+ * BS (Business, il B2B), DL (Deluxy). Si deduce da nome+dominio; "Deluxy
+ * Flowers" → FL, perché il marchio più specifico vince su "deluxy" — ed è la
+ * stessa ragione per cui "business.deluxy.it" si prova **prima** di "deluxy":
+ * altrimenti il quarto negozio porterebbe la sigla del terzo e in rubrica i due
+ * marchi sarebbero indistinguibili.
  */
 export function prefissoDaNegozio(nome: string, dominio: string, prefisso = ''): string {
   if (prefisso.trim()) return prefisso.trim().toUpperCase()
   const t = `${nome} ${dominio}`.toLowerCase()
+  if (/business/.test(t)) return 'BS'
   if (/flower|fior/.test(t)) return 'FL'
   if (/cake|pasticc|torta/.test(t)) return 'CK'
   if (/deluxy/.test(t)) return 'DL'

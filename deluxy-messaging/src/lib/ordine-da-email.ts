@@ -12,6 +12,10 @@
 //     deduzione dal testo: è una RICERCA in una tabella che arriva da Shopify.
 //     Misurato il 30/07/2026: 981 ordini, **zero numeri ripetuti** fra i siti
 //     (Deluxy 12121–12684, Cake 1623–1742, Flowers 2318–2614).
+//     ⚠️⚠️ Quella misura vale su TRE negozi. Col quarto (business.deluxy.it,
+//     26/08/2026) i numeri bassi possono ricadere sulle stesse fasce di Cake e
+//     Flowers: per questo il numero decide **solo se pesca un ordine solo**. Se
+//     ne pesca due, il numero non è un'identità e si scende al passo 2.
 //  2. **Il tag fra parentesi quadre**, solo se combacia con l'identità di UN
 //     solo negozio (`[cakedesign]` → dominio `cakedesign-5921.myshopify.com`).
 //     Se combacia con due o con nessuno non si assegna niente: meglio «senza
@@ -81,11 +85,20 @@ export async function smistaMailPerSito(
 ): Promise<EsitoSmistamento> {
   const numero = numeroOrdineDa(oggetto) || numeroOrdineDa(testo.slice(0, 4000))
   if (numero) {
-    const ordine = await db.ordine.findFirst({
+    // ⚠️⚠️ DUE, non uno: con `findFirst` un numero presente su due negozi
+    // tornava il primo che capitava — e la mail finiva nella colonna dell'altro
+    // marchio, senza che niente lo segnalasse. Finché i negozi erano tre i
+    // numeri non si sovrapponevano; il quarto toglie quella garanzia, e una
+    // garanzia scaduta è peggio di una che non c'è mai stata, perché il codice
+    // che ci si appoggiava non cambia faccia.
+    const ordini = await db.ordine.findMany({
       where: { numero },
       select: { negozioId: true },
+      take: 2,
     })
-    if (ordine) return { ordineNumero: numero, negozioId: ordine.negozioId, come: 'ordine' }
+    if (ordini.length === 1) {
+      return { ordineNumero: numero, negozioId: ordini[0].negozioId, come: 'ordine' }
+    }
   }
 
   const tag = tagSitoDa(oggetto)
