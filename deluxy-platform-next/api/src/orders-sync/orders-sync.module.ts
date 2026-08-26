@@ -281,6 +281,13 @@ export class OrdersSyncService {
       where: {
         deletedAt: null,
         realOrderNumber: { in: [...perOrderId.keys()] },
+        // ⭐ STESSO AMBITO DELLA FINANZA (26/08, allineamento chiesto
+        // dall'utente): il margine si calcola sui servizi di VENDITA, e gli
+        // ingredienti pubblicati devono venire dalle STESSE consegne. Senza
+        // questo filtro entravano anche 43 consegne a ora / a prezzo fisso
+        // agganciate a un ordine Shopify (706,23 €) che il margine della
+        // Finanza non conta: l'ingrediente non ricomponeva il piatto.
+        serviceType: { pricingModel: 'VENDITA' },
       },
       select: {
         code: true, realOrderNumber: true, status: true,

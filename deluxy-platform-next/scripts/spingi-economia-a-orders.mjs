@@ -95,7 +95,9 @@ console.log(` ${perOrderId.size.toLocaleString('it-IT')} ordini.`);
 
 // ── 3) gli ingredienti (come la spinta margini di sempre) ───────────────────
 const dd = await db.delivery.findMany({
-  where: { deletedAt: null, realOrderNumber: { in: [...perOrderId.keys()] } },
+  // ⭐ 26/08: stesso ambito della Finanza — solo i servizi di VENDITA, o gli
+  // ingredienti pubblicati non ricompongono il margine.
+  where: { deletedAt: null, realOrderNumber: { in: [...perOrderId.keys()] }, serviceType: { pricingModel: 'VENDITA' } },
   select: {
     realOrderNumber: true, valetSalary: true, valetAdditionalPrice: true,
     price: true, additionalPrice: true,

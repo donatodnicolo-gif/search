@@ -75,7 +75,9 @@ console.log(` ${perOrderId.size.toLocaleString('it-IT')} ordini.`);
 
 // 2) Le consegne che portano un numero d'ordine conosciuto.
 const dd = await db.delivery.findMany({
-  where: { deletedAt: null, realOrderNumber: { in: [...perOrderId.keys()] } },
+  // ⭐ 26/08: stesso ambito della Finanza — solo i servizi di VENDITA, o gli
+  // ingredienti pubblicati non ricompongono il margine.
+  where: { deletedAt: null, realOrderNumber: { in: [...perOrderId.keys()] }, serviceType: { pricingModel: 'VENDITA' } },
   select: {
     realOrderNumber: true, valetSalary: true, valetAdditionalPrice: true,
     price: true, additionalPrice: true,
