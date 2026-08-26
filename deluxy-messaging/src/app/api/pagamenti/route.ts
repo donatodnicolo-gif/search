@@ -8,6 +8,10 @@ import { utenteCorrente } from '@/lib/sessione'
 import { chiaveFornitore } from '@/lib/richieste-fornitore'
 import { sembraIlCliente } from '@/lib/riconciliazione'
 import { avvisaPagamentoDaFare } from '@/lib/avviso-pagamento-da-fare'
+import {
+  segnalaFornitorePagatoAlRegistro,
+  type EsitoRegistroFornitore,
+} from '@/lib/registro-fornitori'
 
 export const dynamic = 'force-dynamic'
 
@@ -328,6 +332,31 @@ export async function POST(req: NextRequest) {
     avvisoInterno = null
   }
 
+  // ── IL FORNITORE ENTRA NEL REGISTRO ANAGRAFICHE, GIÀ AL SALVATAGGIO ──
+  //
+  // Chiesto dall'utente il 25/08/2026. Prima partiva solo premendo «Pagata», e
+  // fra il salvataggio e il bonifico possono passare giorni: in quei giorni il
+  // fornitore **non esiste per nessun'altra app del gruppo**, chi lo cerca in
+  // anagrafica non lo trova e lo ricrea a mano — ed è così che nascono i
+  // doppioni che poi qualcuno deve unire.
+  //
+  // ⚠️ LA DIVISIONE DEI DATI, che è il punto: al registro va **chi è** (nome,
+  // recapiti, stato di fornitore); **qui restano** gli ordini che gli abbiamo
+  // assegnato (`Ordine.fornitoreNome` e le `RichiestaFornitore`) e le
+  // condizioni di pagamento (`RichiestaPagamento`: metodo, IBAN, intestatario).
+  // Il registro non tiene lo storico dei nostri ordini e noi non teniamo una
+  // copia dell'anagrafica: ognuno scrive quello che possiede.
+  //
+  // ⚠️ Best-effort, come i due contorni qui sopra: la richiesta è la cosa che
+  // conta, e perderla perché il registro non risponde sarebbe il peggiore dei
+  // due errori. L'esito si RESTITUISCE, così se non entra si vede.
+  let registro: EsitoRegistroFornitore | null = null
+  try {
+    registro = await segnalaFornitorePagatoAlRegistro(richiesta.id, false)
+  } catch {
+    registro = null
+  }
+
   // Inoltro a Deluxy Partner, che approva e paga. Un fallimento qui non annulla
   // il salvataggio: la richiesta resta e si può rimandare.
   let invio: { ok: boolean; messaggio: string } | null = null
@@ -383,6 +412,11 @@ export async function POST(req: NextRequest) {
     // salvato deve saperlo adesso, non scoprirlo fra tre giorni.
     riconciliato,
     avvisoInterno,
+    // ⚠️ Anche questo si dice: se il registro non l'ha preso — perché il nome
+    // somiglia a più anagrafiche, o perché la chiave non è configurata — chi ha
+    // salvato deve saperlo, o si dà per scontato che l'anagrafica ci sia e la
+    // si cerca invano dall'altra app.
+    registro,
   })
 }
 

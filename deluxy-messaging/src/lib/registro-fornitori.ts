@@ -44,7 +44,22 @@ export type EsitoRegistroFornitore = {
 }
 
 export async function segnalaFornitorePagatoAlRegistro(
-  richiestaId: string
+  richiestaId: string,
+  /**
+   * Pretendere che il pagamento sia già stato fatto.
+   *
+   * ⚠️ Dal 25/08/2026 il fornitore entra nel registro **quando si salva la
+   * richiesta**, non solo quando si paga (chiesto dall'utente). Il motivo è che
+   * fra il salvataggio e il bonifico possono passare giorni, e in quei giorni
+   * il fornitore non esiste per nessun'altra app del gruppo: chi lo cerca in
+   * anagrafica non lo trova e lo ricrea a mano, ed è così che nascono i
+   * doppioni che poi qualcuno deve unire.
+   *
+   * Resta `true` per il vecchio richiamo dal «Pagata»: quella chiamata è
+   * comunque utile, perché a quel punto l'IBAN è stato usato per davvero.
+   * L'operazione è un upsert-merge, quindi chiamarla due volte non duplica.
+   */
+  pretendiPagata = true
 ): Promise<EsitoRegistroFornitore> {
   const r = await db.richiestaPagamento.findUnique({
     where: { id: richiestaId },
@@ -57,8 +72,11 @@ export async function segnalaFornitorePagatoAlRegistro(
       pagataIl: true,
     },
   })
-  if (!r?.pagataIl) {
-    return { ok: false, esito: 'errore', messaggio: 'Richiesta non trovata o non pagata.' }
+  if (!r) {
+    return { ok: false, esito: 'errore', messaggio: 'Richiesta non trovata.' }
+  }
+  if (pretendiPagata && !r.pagataIl) {
+    return { ok: false, esito: 'errore', messaggio: 'Richiesta non ancora pagata.' }
   }
 
   // Il nome migliore che abbiamo: il fornitore scritto sull'ordine (se c'è),
@@ -151,9 +169,11 @@ export async function segnalaFornitorePagatoAlRegistro(
       nome: match.esito === 'agganciata' && match.match?.nome ? match.match.nome : nome,
       sistema: 'customer-service',
       asOf: new Date().toISOString(),
-      // L'abbiamo pagato: è un fornitore del nostro giro. «abituale» è il
-      // valore vero fra quelli del catalogo; se il team l'ha bocciato
-      // («da evitare») il registro ignora questa riga, per sua regola.
+      // Gli abbiamo dato un ordine e stiamo per pagarlo: è un fornitore del
+      // nostro giro. «abituale» è il valore vero fra quelli del catalogo; se il
+      // team l'ha bocciato («da evitare») il registro ignora questa riga, per
+      // sua regola — quindi anticipare la scrittura al salvataggio non può
+      // riabilitare un fornitore che qualcuno aveva escluso.
       statoFornitore: 'abituale',
     }
     // ── DOVE STA, che è quello che lo rende ritrovabile ──
