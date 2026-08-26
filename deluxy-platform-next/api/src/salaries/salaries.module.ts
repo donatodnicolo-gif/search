@@ -370,7 +370,13 @@ export class SalariesService {
     if (user.role === Role.VALET && user.valetId !== valetId) {
       throw new NotFoundException('Valet non trovato');
     }
+    // ⭐ 26/08: il DETTAGLIO mostra tutte le consegne del periodo, non solo le
+    // pagabili — quelle col flag «non pagabile» e le A ORA in attesa di
+    // approvazione compaiono MARCATE (e non contate nei totali), come in
+    // Fatturazione: una riga esclusa si vede col motivo, non sparisce.
     const where: any = { ...SalariesService.DA_PAGARE, valetId };
+    delete where.payable;
+    where.status = { in: ['delivered', 'approved', 'delivered_time_to_approve'] };
     const data: any = {};
     if (dal) data.gte = new Date(dal);
     if (al) data.lte = new Date(al);
@@ -379,7 +385,7 @@ export class SalariesService {
     const deliveries = await this.prisma.delivery.findMany({
       where,
       select: {
-        id: true, code: true, date: true, status: true, valetServiceId: true, valetId: true,
+        id: true, code: true, date: true, status: true, valetServiceId: true, valetId: true, payable: true,
         valetSalary: true, valetAdditionalPrice: true, hours: true, extraKm: true,
         paymentOnDelivery: true, paymentAmount: true,
         recipientAddress: true,
@@ -398,6 +404,11 @@ export class SalariesService {
       // Anche nel dettaglio l'arretrato non si mostra: sarebbe un elenco di
       // consegne del 2021 in mezzo al lavoro di oggi.
       deliveries: deliveries.filter((d) => {
+        // Le marcate (non pagabili, in attesa di approvazione) restano solo se
+        // recenti: il passato escluso e' arretrato ordinato, non lavoro aperto.
+        if ((d as any).payable === false || d.status === 'delivered_time_to_approve') {
+          return d.date >= SOGLIA_ARRETRATO;
+        }
         const c = pagaConsegna(
           d as any,
           scegliListinoValet(d as any, listini.perId, listini.perValet),
@@ -407,13 +418,24 @@ export class SalariesService {
         );
         return c || (d as any).deliveryRule?.toPay === false || d.date >= SOGLIA_ARRETRATO;
       }).map((d) => {
-        const calcolo = pagaConsegna(
+        // Consegna col flag «non pagabile» o A ORA in attesa di approvazione:
+        // niente paga calcolata — la riga si mostra marcata, non si conta.
+        const nonPagabile = (d as any).payable === false;
+        const daApprovare = d.status === 'delivered_time_to_approve';
+        const calcolo = nonPagabile || daApprovare ? null : pagaConsegna(
         d as any,
         scegliListinoValet(d as any, listini.perId, listini.perValet),
         (d as any).deliveryRule ?? null,
         (d as any).valetDeliveryRule ?? null,
         (d as any)._count?.pickups ?? 0,
       );
+        // Il plus/minus che la paga ha dentro: quello scritto sulla consegna
+        // piu' l'aggiustamento della regola carnet e lo scaglione ritiri.
+        const plusMinus = calcolo
+          ? Math.round(((d.valetAdditionalPrice ?? 0)
+              + ((d as any).deliveryRule?.valetPayAdjustment ?? 0)
+              + plusRitiri((d as any).valetDeliveryRule ?? null, (d as any)._count?.pickups ?? 0)) * 100) / 100
+          : 0;
         return {
           id: d.id, code: d.code, date: d.date, status: d.status,
           address: d.recipientAddress,
@@ -421,10 +443,13 @@ export class SalariesService {
           service: d.serviceType?.name ?? '—',
           cash: d.paymentOnDelivery ? (d.paymentAmount ?? 0) : 0,
           amount: calcolo?.amount ?? null,
+          plusMinus,
           origine: calcolo?.origine ?? null,
           /// Esclusa da una regola carnet, non per un dato mancante.
           esclusaDaRegola: d.deliveryRule?.toPay === false,
           regola: d.deliveryRule?.toPay === false ? d.deliveryRule?.name ?? null : null,
+          nonPagabile,
+          daApprovare,
         };
       }),
       troncato: deliveries.length === 500,
@@ -445,7 +470,11 @@ export class SalariesService {
     const dettaglio = await this.pendingDetail(user, valetId, dal, al);
     const pagabili = dettaglio.deliveries.filter((d) => d.amount != null && !d.esclusaDaRegola);
     const lordo = arrotonda2(pagabili.reduce((s, d) => s + (d.amount ?? 0), 0));
-    const contanti = arrotonda2(dettaglio.deliveries.reduce((s, d) => s + d.cash, 0));
+    // I contanti delle righe marcate (non pagabili / da approvare) non entrano
+    // nel conto: quelle consegne non fanno parte del denaro di questo recap.
+    const contanti = arrotonda2(dettaglio.deliveries
+      .filter((d) => !(d as any).nonPagabile && !(d as any).daApprovare)
+      .reduce((s, d) => s + d.cash, 0));
     return {
       valet,
       periodo: { dal: dal ?? null, al: al ?? null },
@@ -477,7 +506,7 @@ export class SalariesService {
         <td class="mono">${e(x.orario ?? '—')}</td>
         <td class="indirizzo">${e(x.address ?? '—')}</td>
         <td class="muted">${e(x.service)}</td>
-        <td class="muted">${x.esclusaDaRegola ? `No (${e(x.regola ?? 'regola')})` : x.amount != null ? 'S&igrave;' : 'No'}</td>
+        <td class="muted">${(x as any).daApprovare ? 'In attesa di approvazione' : (x as any).nonPagabile ? 'No (non pagabile)' : x.esclusaDaRegola ? `No (${e(x.regola ?? 'regola')})` : x.amount != null ? 'S&igrave;' : 'No'}</td>
         <td class="num">${x.cash ? eur(x.cash) : '—'}</td>
         <td class="num">${x.amount != null ? eur(x.amount) : '—'}</td>
       </tr>`).join('');

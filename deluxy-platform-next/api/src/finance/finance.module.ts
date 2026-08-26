@@ -155,14 +155,15 @@ const MODELLO_VENDITA = 'VENDITA';
  * uno da 40 che ne rende 5 hanno lo stesso problema, e in valore assoluto
  * sembrerebbero due cose diverse.
  *
- * ⚠️ Le fasce partono tutte da zero e si contengono a vicenda — «entro il 15%»
- * comprende «entro il 5%» — perche' e' cosi' che si legge la domanda «quali
- * ordini rendono poco». Chi vuole solo la corona esterna filtra due volte.
+ * ⚠️ Le fasce si CONTENGONO a vicenda, sottoinsiemi compresi: «minimo» (entro
+ * il 5%) comprende anche il margine negativo, «basso» (entro il 15%) comprende
+ * minimo e negativo — perche' e' cosi' che si legge la domanda «quali ordini
+ * rendono poco». Chi vuole solo la corona esterna filtra due volte.
  */
 const FASCE_MARGINE: Record<string, (percentuale: number) => boolean> = {
   negativo: (p) => p < 0,
-  minimo: (p) => p >= 0 && p <= 5,
-  basso: (p) => p >= 0 && p <= 15,
+  minimo: (p) => p <= 5,
+  basso: (p) => p <= 15,
 };
 
 /**
@@ -1046,7 +1047,7 @@ export class FinanceController {
   @ApiQuery({
     name: 'margine',
     required: false,
-    description: 'Fascia di margine dell ordine: negativo | minimo (entro 5%) | basso (entro 15%)',
+    description: 'Fascia di margine dell ordine: negativo | minimo (entro 5%, negativo compreso) | basso (entro 15%, minimo e negativo compresi)',
   })
   corrispettivi(
     @CurrentUser() user: JwtUser,

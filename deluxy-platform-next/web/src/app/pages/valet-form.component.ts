@@ -203,9 +203,21 @@ interface ValetServiceRow {
           <span class="group-label">{{ 'valetForm.groups.vehicle' | translate }}</span>
           <div class="chips">
             @for (v of vehicles; track v) {
-              <button type="button" class="chip" [class.on]="model.vehicle === v" (click)="model.vehicle = v">{{ ('enums.vehicle.' + v) | translate }}</button>
+              <button type="button" class="chip" [class.on]="hasVehicle(v)" (click)="toggleVehicle(v)">{{ ('enums.vehicle.' + v) | translate }}</button>
             }
           </div>
+          @if (selectedVehicles().length) {
+            <div class="sub-block">
+              @for (v of selectedVehicles(); track v) {
+                <label class="field-inline">
+                  <span class="sub-hint">{{ ('enums.vehicle.' + v) | translate }}</span>
+                  <input class="field" type="text" [name]="'vehicleModel-' + v"
+                    [ngModel]="vehicleModels[v] || ''" (ngModelChange)="vehicleModels[v] = $event"
+                    [placeholder]="'valetForm.vehicleModelPh' | translate" />
+                </label>
+              }
+            </div>
+          }
         </div>
 
         <div class="setup-group">
@@ -259,6 +271,9 @@ interface ValetServiceRow {
       textarea.field { resize: vertical; font-family: inherit; width: 100%; }
       .muted { color: var(--text-tertiary); font-size: 14px; margin: 0; }
       .sub-block { margin-top: 14px; padding: 16px; background: var(--fill); border-radius: var(--radius-m); }
+      .field-inline { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+      .field-inline .sub-hint { margin-bottom: 0; min-width: 110px; }
+      .field-inline .field { flex: 1; }
       .sub-hint { display: block; font-size: 12.5px; color: var(--text-tertiary); margin-bottom: 8px; }
       .chips { display: flex; flex-wrap: wrap; gap: 8px; }
       .chip { appearance: none; border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 14px; font-size: 13px; font-family: inherit; color: var(--text); cursor: pointer; transition: all 0.15s var(--ease); }
@@ -334,6 +349,23 @@ export class ValetFormComponent {
   readonly salaryFrequencies = Object.entries(SALARY_FREQUENCY_LABELS);
   readonly vehicles = VEHICLE_OPTIONS;
 
+  /** Modello scritto per ciascun mezzo scelto (persistito come JSON in `vehicleModels`). */
+  vehicleModels: Record<string, string> = {};
+
+  selectedVehicles(): string[] {
+    return this.vehicles.filter((v) => this.hasVehicle(v));
+  }
+
+  // Il campo `vehicle` porta anche piu' mezzi, separati da virgola («Auto, Moto/Scooter»).
+  hasVehicle(v: string): boolean {
+    return (this.model.vehicle || '').split(',').map((s) => s.trim()).includes(v);
+  }
+  toggleVehicle(v: string) {
+    const attivi = (this.model.vehicle || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const scelti = attivi.includes(v) ? attivi.filter((x) => x !== v) : [...attivi, v];
+    this.model.vehicle = this.vehicles.filter((x) => scelti.includes(x)).join(', ');
+  }
+
   serviceRows: ValetServiceRow[] = [];
 
   model = {
@@ -391,6 +423,9 @@ export class ValetFormComponent {
       if (key === 'birthDate' && typeof val === 'string') m[key] = val.slice(0, 10);
       else m[key] = val;
     }
+    // Modelli dei mezzi: arrivano come stringa JSON {"Auto":"Fiat Panda",...}
+    try { this.vehicleModels = JSON.parse(v['vehicleModels'] ?? '{}') ?? {}; }
+    catch { this.vehicleModels = {}; }
     // Province di competenza (relazione ValetProvince)
     this.selectedProvinces.clear();
     for (const vp of (v['provinces'] as any[]) ?? []) {
@@ -489,6 +524,15 @@ export class ValetFormComponent {
     // In modifica invio sempre le collezioni, anche vuote, altrimenti
     // svuotarle non le cancellerebbe (l'API scrive solo le chiavi presenti).
     const isEdit = !!this.editId();
+    // Modelli dei mezzi: solo per i mezzi ancora selezionati e con testo.
+    const modelliMezzo: Record<string, string> = {};
+    for (const veicolo of this.selectedVehicles()) {
+      const testo = (this.vehicleModels[veicolo] || '').trim();
+      if (testo) modelliMezzo[veicolo] = testo;
+    }
+    if (Object.keys(modelliMezzo).length || isEdit) payload['vehicleModels'] = JSON.stringify(modelliMezzo);
+    // Deselezionare tutti i mezzi in modifica deve svuotare il campo.
+    if (isEdit && !m.vehicle.trim()) payload['vehicle'] = '';
     if (this.selectedProvinces.size || isEdit) payload['provinceIds'] = [...this.selectedProvinces];
     // Se il valet non è più team leader, le liste vanno azzerate.
     const tlProv = m.isTeamLeader ? [...this.tlProvinces] : [];

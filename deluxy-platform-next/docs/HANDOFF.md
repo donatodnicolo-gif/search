@@ -402,6 +402,47 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### 26/08 (sera, 7) — Censimento import, mezzi dei valet, Finanza ordinabile, stipendi completi
+
+**Censimento del database legacy** (chiesto dall'utente: «tabelle non ancora
+importate»). `stato-importazione.mjs` era rimasto indietro: le liste di
+priorità, gli orari (113.191 fasce partner — guardava `partnerDayException`,
+modello sbagliato), `tabella-89` (partner E valet: 1.609+430 ≈ 2.035) e gli
+sconti/SMS risultavano mancanti ma sono dentro. Parziali VERI: `tabella-83`
+(componenti super-prodotti, 20 righe → 2 in banca) e `delivery-product`
+(59.141/62.800 — mancano: 3.306 righe ORFANE con `deliveryId` NULL nel CSV,
+~350 righe di consegne che l'import scartò per «senza data/partner», 2 di
+consegne cancellate). Non importate con contenuto: `delivery-complaint` (422
+reclami testuali su consegne), `partner-reminder` (1.083), `expert-vehicle`
+(fatto, vedi sotto), `team-leader-province` (già coperta), `tabella-76` (377
+prodotti↔collezioni Shopify), `email-template` (13), `expert-contracts` (2 —
+l'utente: è una FUNZIONE, mandare il contratto al valet quando viene creato;
+da costruire, non da importare).
+
+- **Mezzi dei valet importati** (`importa-mezzi-e-team-leader.mjs`, con
+  backup): 249 valet col mezzo dal legacy (`expert-vehicle` × `tabella-90`);
+  20 hanno PIÙ mezzi → `Valet.vehicle` ora è multiplo (a virgole), chips a
+  selezione multipla nel form, lista e dettaglio traducono voce per voce.
+  Evoluzione chiesta dall'utente: per ogni mezzo scelto un campo testo per il
+  **modello** (`Valet.vehicleModels` JSON, migrazione
+  `20260826170000_modelli_mezzo_valet`, DTO passante, dettaglio «Auto (Fiat
+  Panda)»). Le province da team leader del legacy risultavano GIÀ tutte in
+  `teamLeaderProvinces` (26/26 coperti: prova a secco «da unire 0»).
+- **Finanza**: tabella ordinabile per colonna (ordina gli ORDINI raggruppati;
+  numeri dal più grande, testi dall'inizio, numero d'ordine confrontato da
+  numero). Fasce di margine A SOTTOINSIEMI: minimo (≤5%) comprende il
+  negativo, basso (≤15%) comprende entrambi (prima `p >= 0` le escludeva).
+- **Stipendi, dettaglio «da pagare»**: ① rispetta il periodo filtrato (prima
+  ignorava dal/al: con «questo mese» mostrava anche il passato); ② colonne
+  nuove — id consegna `#code` cliccabile in nuova tab, **Plus/minus**
+  (consegna + regola carnet + scaglione ritiri), **Totale consegna**;
+  ③ mostra TUTTE le consegne del periodo: le `payable=false` (5.207 storiche,
+  332 da luglio) e le A ORA in `delivered_time_to_approve` (532, quasi tutte
+  «Servizio Ora con Approvazione») compaiono MARCATE («Non pagabile (flag)» /
+  «Da approvare») e NON contate — i totali di lista e recap non cambiano; i
+  contanti delle marcate restano fuori dal netto. Verificato sui dati: i
+  servizi a ora approvati erano GIÀ dentro (5.572 righe pendenti A_ORA).
+
 ## 25/08/2026 — Artista Locale ritira nella città di consegna (e i km sopra 50 non si credono)
 
 **Da dove nasce**: guardando i margini in Deluxy Orders è saltato fuori l'ordine

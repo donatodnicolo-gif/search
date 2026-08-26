@@ -533,7 +533,9 @@ model Valet {
   teamLeaderProvinces String?
   teamLeaderPartners  String?
   teamLeaderExcludedPartners String? // partner esclusi dallo scope del team leader
-  vehicle             String? // mezzo: Auto | Bicicletta | Furgone | Moto/Scooter
+  vehicle             String? // mezzi (anche piu' d'uno, separati da virgola): Auto | Bicicletta | Furgone | Moto/Scooter
+  /// Modello per ciascun mezzo scelto, JSON {"Auto":"Fiat Panda",...}
+  vehicleModels       String?
   withholdingPercent  Float             @default(0) // % ritenuta rimborso
   // Stipendio
   salaryFrequency     String            @default("monthly") // monthly | weekly

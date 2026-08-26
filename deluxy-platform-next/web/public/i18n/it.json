@@ -541,11 +541,18 @@
       "capped": "Mostrate le prime 500 consegne del valet.",
       "byRule": "Escluse da regola",
       "byRuleRow": "da regola",
-      "backlog": "{{n}} consegne piu' vecchie del {{d}} non hanno una paga ricavabile e sono fuori dall'elenco: sono account interni di chi consegnava di persona agli inizi. Restano in banca dati."
+      "backlog": "{{n}} consegne piu' vecchie del {{d}} non hanno una paga ricavabile e sono fuori dall'elenco: sono account interni di chi consegnava di persona agli inizi. Restano in banca dati.",
+      "toApprove": "Da approvare",
+      "toApproveHint": "Servizio a ora in attesa di approvazione: la paga si conta dopo il via libera",
+      "notPayable": "Non pagabile (flag)",
+      "notPayableHint": "La consegna ha il flag «non pagabile»: si mostra ma non entra nei totali"
     },
     "line": {
       "date": "Data",
-      "amount": "Paga"
+      "amount": "Totale consegna",
+      "delivery": "Consegna",
+      "plusMinus": "Plus/minus",
+      "openDelivery": "Apri la consegna"
     }
   },
   "receipts": {
@@ -1351,7 +1358,8 @@
     "editTitle": "Modifica valet",
     "columns": {
       "service": "Servizio"
-    }
+    },
+    "vehicleModelPh": "Modello (es. Fiat Panda)"
   },
   "productForm": {
     "backToProducts": "Prodotti",

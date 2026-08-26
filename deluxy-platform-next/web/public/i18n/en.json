@@ -541,11 +541,18 @@
       "capped": "Showing the valet's first 500 deliveries.",
       "byRule": "Excluded by rule",
       "byRuleRow": "by rule",
-      "backlog": "{{n}} deliveries older than {{d}} have no derivable pay and are out of the list: they are internal accounts from the early days. They stay in the database."
+      "backlog": "{{n}} deliveries older than {{d}} have no derivable pay and are out of the list: they are internal accounts from the early days. They stay in the database.",
+      "toApprove": "To approve",
+      "toApproveHint": "Hourly service awaiting approval: the pay counts after the go-ahead",
+      "notPayable": "Not payable (flag)",
+      "notPayableHint": "The delivery is flagged as not payable: shown but not counted in totals"
     },
     "line": {
       "date": "Date",
-      "amount": "Pay"
+      "amount": "Delivery total",
+      "delivery": "Delivery",
+      "plusMinus": "Plus/minus",
+      "openDelivery": "Open the delivery"
     }
   },
   "receipts": {
@@ -1351,7 +1358,8 @@
     "editTitle": "Edit valet",
     "columns": {
       "service": "Service"
-    }
+    },
+    "vehicleModelPh": "Model (e.g. Fiat Panda)"
   },
   "productForm": {
     "backToProducts": "Products",

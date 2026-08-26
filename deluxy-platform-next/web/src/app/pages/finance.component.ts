@@ -1,6 +1,6 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
@@ -272,29 +272,32 @@ interface Summary {
         <div class="card table-wrap">
           <table class="fin">
             <thead>
+              <!-- Le colonne ordinano gli ORDINI (le righe raggruppate): un
+                   click ordina, il secondo inverte. Stato e n. consegna vivono
+                   sulle righe interne e non hanno un ordine sensato qui. -->
               <tr>
                 <th>{{ 'finance.c.status' | translate }}</th>
-                <th>{{ 'finance.c.sale' | translate }}</th>
+                <th class="sortable" (click)="ordinaPer('ordine')">{{ 'finance.c.sale' | translate }}<span class="sort-ind">{{ indicatore('ordine') }}</span></th>
                 <th>{{ 'finance.c.delivery' | translate }}</th>
-                <th>{{ 'finance.c.date' | translate }}</th>
-                <th>{{ 'finance.c.product' | translate }}</th>
-                <th>{{ 'finance.c.category' | translate }}</th>
-                <th>{{ 'finance.c.service' | translate }}</th>
-                <th>{{ 'finance.c.partner' | translate }}</th>
-                <th class="num">{{ 'finance.c.saleValue' | translate }}</th>
-                <th class="num">{{ 'finance.c.valoreProdotti' | translate }}</th>
-                <th class="num">{{ 'finance.c.deliveryFee' | translate }}</th>
-                <th class="num">{{ 'finance.c.partnerPrice' | translate }}</th>
-                <th class="num">{{ 'finance.c.takings' | translate }}</th>
-                <th class="num">{{ 'finance.c.takingsNet' | translate }}</th>
-                <th class="num">{{ 'finance.c.feePercent' | translate }}</th>
+                <th class="sortable" (click)="ordinaPer('data')">{{ 'finance.c.date' | translate }}<span class="sort-ind">{{ indicatore('data') }}</span></th>
+                <th class="sortable" (click)="ordinaPer('prodotto')">{{ 'finance.c.product' | translate }}<span class="sort-ind">{{ indicatore('prodotto') }}</span></th>
+                <th class="sortable" (click)="ordinaPer('categoria')">{{ 'finance.c.category' | translate }}<span class="sort-ind">{{ indicatore('categoria') }}</span></th>
+                <th class="sortable" (click)="ordinaPer('servizio')">{{ 'finance.c.service' | translate }}<span class="sort-ind">{{ indicatore('servizio') }}</span></th>
+                <th class="sortable" (click)="ordinaPer('partner')">{{ 'finance.c.partner' | translate }}<span class="sort-ind">{{ indicatore('partner') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('valoreVendite')">{{ 'finance.c.saleValue' | translate }}<span class="sort-ind">{{ indicatore('valoreVendite') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('saleValue')">{{ 'finance.c.valoreProdotti' | translate }}<span class="sort-ind">{{ indicatore('saleValue') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('deliveryFee')">{{ 'finance.c.deliveryFee' | translate }}<span class="sort-ind">{{ indicatore('deliveryFee') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('partnerPrice')">{{ 'finance.c.partnerPrice' | translate }}<span class="sort-ind">{{ indicatore('partnerPrice') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('takings')">{{ 'finance.c.takings' | translate }}<span class="sort-ind">{{ indicatore('takings') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('takingsNet')">{{ 'finance.c.takingsNet' | translate }}<span class="sort-ind">{{ indicatore('takingsNet') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('feePercent')">{{ 'finance.c.feePercent' | translate }}<span class="sort-ind">{{ indicatore('feePercent') }}</span></th>
                 <th class="num">{{ 'finance.c.feePercentContract' | translate }}</th>
-                <th class="num">{{ 'finance.c.feeContract' | translate }}</th>
-                <th class="num">{{ 'finance.c.deliveryCost' | translate }}</th>
-                <th class="num">{{ 'finance.c.vat' | translate }}</th>
-                <th class="num">{{ 'finance.c.incassiCommission' | translate }}</th>
-                <th class="num">{{ 'finance.c.totalMargin' | translate }}</th>
-                <th class="num">{{ 'finance.c.totalMarginPercent' | translate }}</th>
+                <th class="num sortable" (click)="ordinaPer('feeContract')">{{ 'finance.c.feeContract' | translate }}<span class="sort-ind">{{ indicatore('feeContract') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('deliveryCost')">{{ 'finance.c.deliveryCost' | translate }}<span class="sort-ind">{{ indicatore('deliveryCost') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('vat')">{{ 'finance.c.vat' | translate }}<span class="sort-ind">{{ indicatore('vat') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('incassiCommission')">{{ 'finance.c.incassiCommission' | translate }}<span class="sort-ind">{{ indicatore('incassiCommission') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('totalMargin')">{{ 'finance.c.totalMargin' | translate }}<span class="sort-ind">{{ indicatore('totalMargin') }}</span></th>
+                <th class="num sortable" (click)="ordinaPer('totalMarginPercent')">{{ 'finance.c.totalMarginPercent' | translate }}<span class="sort-ind">{{ indicatore('totalMarginPercent') }}</span></th>
               </tr>
             </thead>
             <tbody>
@@ -303,7 +306,7 @@ interface Summary {
                    giro — si contano una volta sola qui. Si apre per vedere le
                    sue consegne, anche quando e' una sola: chi guarda non deve
                    ricordarsi che due viste hanno regole diverse. -->
-              @for (o of summary()?.ordini ?? []; track o.saleRef) {
+              @for (o of ordiniVisti(); track o.saleRef) {
                 <tr class="riga-ordine" [class.riga-anomala]="o.consegnePagate > 1 || o.anomalie > 0"
                     (click)="apriChiudi(o.saleRef)">
                   <td colspan="3" class="mono ordine-id">
@@ -532,6 +535,9 @@ interface Summary {
       table.fin { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
       table.fin th, table.fin td { padding: 7px 9px; border-bottom: 1px solid var(--hairline); text-align: left; }
       table.fin th { color: var(--text-tertiary); font-weight: 500; font-size: 11px; }
+      table.fin th.sortable { cursor: pointer; user-select: none; }
+      table.fin th.sortable:hover { color: var(--text); }
+      .sort-ind { font-size: 10px; }
       table.fin .num { text-align: right; font-variant-numeric: tabular-nums; }
       table.fin .mono { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
       table.fin .neg { color: var(--red); }
@@ -565,6 +571,61 @@ export class FinanceComponent {
   readonly tab = signal<'corrispettivi' | 'margini'>('corrispettivi');
   readonly rows = signal<CorrispettivoRow[]>([]);
   readonly summary = signal<Summary | null>(null);
+
+  /** Ordinamento della tabella ordini: colonna scelta e verso (1 = ↑). */
+  readonly ordinaCol = signal<string | null>(null);
+  readonly ordinaVerso = signal<1 | -1>(1);
+  /** Colonne che ordinano per testo o data: il primo click parte dall'inizio, i numeri dal piu' grande. */
+  private static readonly COLONNE_TESTO = new Set(['prodotto', 'categoria', 'servizio', 'partner', 'data']);
+
+  ordinaPer(col: string): void {
+    if (this.ordinaCol() === col) {
+      this.ordinaVerso.set(this.ordinaVerso() === 1 ? -1 : 1);
+      return;
+    }
+    this.ordinaCol.set(col);
+    this.ordinaVerso.set(FinanceComponent.COLONNE_TESTO.has(col) ? 1 : -1);
+  }
+
+  indicatore(col: string): string {
+    if (this.ordinaCol() !== col) return '';
+    return this.ordinaVerso() === 1 ? ' ↑' : ' ↓';
+  }
+
+  /** Il valore con cui un ordine si confronta nella colonna scelta. */
+  private valorePerColonna(o: RecapOrdine, col: string): string | number {
+    switch (col) {
+      // Il numero d'ordine si confronta da numero, non da testo: «#9» < «#12731».
+      case 'ordine': {
+        const n = (o.numeroOrdine ?? o.saleRef).replace(/\D+/g, '');
+        return n ? Number(n) : 0;
+      }
+      case 'data':
+        return o.righe.reduce((min, r) => (r.date && (!min || r.date < min) ? r.date : min), '');
+      case 'prodotto': return o.righe[0]?.product ?? '';
+      case 'categoria': return o.righe[0]?.category ?? '';
+      case 'servizio': return o.righe[0]?.service ?? '';
+      case 'partner': return o.righe[0]?.partner ?? '';
+      case 'valoreVendite': return o.saleValue + o.deliveryFee;
+      default: return (o as unknown as Record<string, number>)[col] ?? 0;
+    }
+  }
+
+  /** Gli ordini del riepilogo, nell'ordine scelto dalle colonne. */
+  readonly ordiniVisti = computed(() => {
+    const lista = this.summary()?.ordini ?? [];
+    const col = this.ordinaCol();
+    if (!col) return lista;
+    const verso = this.ordinaVerso();
+    return [...lista].sort((a, b) => {
+      const va = this.valorePerColonna(a, col);
+      const vb = this.valorePerColonna(b, col);
+      const esito = typeof va === 'string' || typeof vb === 'string'
+        ? String(va).localeCompare(String(vb), 'it')
+        : (va as number) - (vb as number);
+      return esito * verso;
+    });
+  });
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   from = '';

@@ -113,10 +113,15 @@ export class CreateValetDto {
   @IsString({ each: true })
   teamLeaderExcludedPartnerIds?: string[];
 
-  @ApiPropertyOptional({ description: 'Mezzo (Auto, Bicicletta, Furgone, Moto/Scooter)' })
+  @ApiPropertyOptional({ description: 'Mezzi, anche piu\' d\'uno separati da virgola (Auto, Bicicletta, Furgone, Moto/Scooter)' })
   @IsOptional()
   @IsString()
   vehicle?: string;
+
+  @ApiPropertyOptional({ description: 'Modello per ciascun mezzo, JSON {"Auto":"Fiat Panda",...}' })
+  @IsOptional()
+  @IsString()
+  vehicleModels?: string;
 
   @ApiPropertyOptional({ default: 0, description: '% ritenuta rimborso' })
   @IsOptional()

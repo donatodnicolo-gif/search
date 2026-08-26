@@ -26,11 +26,17 @@ interface Pending {
 interface PendingDelivery {
   id: string; code: number; date: string; status: string;
   address?: string | null; service: string; cash: number;
+  /** Plus/minus dentro la paga: quello della consegna + regola carnet + scaglione ritiri. */
+  plusMinus?: number;
   /** null = non pagabile: nessuna paga, nessun listino, o regola «non pagare». */
   amount: number | null;
   origine: 'consegna' | 'listino' | null;
   esclusaDaRegola: boolean;
   regola?: string | null;
+  /** Flag «non pagabile» sulla consegna: si mostra marcata, non si conta. */
+  nonPagabile?: boolean;
+  /** A ora in attesa di approvazione: si mostra, la paga arriva dopo il via libera. */
+  daApprovare?: boolean;
 }
 
 interface Salary {
@@ -250,21 +256,34 @@ const NEXT: Record<string, { next: string; key: string }> = {
                     @else {
                       <table class="sub">
                         <thead><tr>
+                          <th>{{ 'salaries.line.delivery' | translate }}</th>
                           <th>{{ 'salaries.line.date' | translate }}</th>
                           <th>{{ 'salaries.pending.service' | translate }}</th>
                           <th>{{ 'salaries.pending.address' | translate }}</th>
                           <th class="num">{{ 'salaries.col.cash' | translate }}</th>
+                          <th class="num">{{ 'salaries.line.plusMinus' | translate }}</th>
                           <th class="num">{{ 'salaries.line.amount' | translate }}</th>
                         </tr></thead>
                         <tbody>
                           @for (d of pendingDetail(); track d.id) {
                             <tr>
+                              <td class="mono">
+                                <a class="link-btn" [href]="'/deliveries/' + d.id" target="_blank" rel="noopener"
+                                   [title]="'salaries.line.openDelivery' | translate">#{{ d.code }}</a>
+                              </td>
                               <td>{{ d.date | date: 'dd/MM/yy' }}</td>
                               <td class="muted">{{ d.service }}</td>
                               <td class="muted">{{ d.address || '—' }}</td>
                               <td class="num">{{ d.cash ? ('−' + (d.cash | number: '1.2-2') + ' €') : '—' }}</td>
+                              <td class="num" [class.rosso]="(d.plusMinus ?? 0) < 0">
+                                @if (d.plusMinus) { {{ (d.plusMinus > 0 ? '+' : '') + (d.plusMinus | number: '1.2-2') }} € } @else { — }
+                              </td>
                               <td class="num">
-                                @if (d.esclusaDaRegola) {
+                                @if (d.daApprovare) {
+                                  <span class="regola" [title]="'salaries.pending.toApproveHint' | translate">{{ 'salaries.pending.toApprove' | translate }}</span>
+                                } @else if (d.nonPagabile) {
+                                  <span class="muted" [title]="'salaries.pending.notPayableHint' | translate">{{ 'salaries.pending.notPayable' | translate }}</span>
+                                } @else if (d.esclusaDaRegola) {
                                   <span class="regola" [title]="d.regola || ''">{{ 'salaries.pending.byRuleRow' | translate }}</span>
                                 } @else if (d.amount === null) {
                                   <span class="rosso" [title]="'salaries.pending.unpaidRow' | translate">{{ 'salaries.pending.noPay' | translate }}</span>
@@ -656,8 +675,13 @@ export class SalariesListComponent {
     this.pendingOpen.set(r.valetId);
     this.pendingDetail.set([]);
     this.pendingDetailLoading.set(true);
+    // Il dettaglio rispetta il periodo filtrato: senza dal/al mostrerebbe
+    // TUTTO l'arretrato anche con «questo mese» selezionato.
+    const filtri: Record<string, string> = {};
+    if (this.dal) filtri['dal'] = this.dal;
+    if (this.al) filtri['al'] = this.al;
     this.http.get<{ deliveries: PendingDelivery[]; troncato: boolean }>(
-      `${environment.apiUrl}/salaries/pending/${r.valetId}`,
+      `${environment.apiUrl}/salaries/pending/${r.valetId}`, { params: filtri },
     ).subscribe({
       next: (d) => {
         this.pendingDetail.set(d.deliveries ?? []);

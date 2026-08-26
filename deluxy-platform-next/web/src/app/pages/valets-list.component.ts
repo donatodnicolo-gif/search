@@ -68,7 +68,7 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
                     <span class="pill pill-neutral">{{ vp.province.code }}</span>
                   } @empty { <span class="muted">—</span> }
                 </td>
-                <td>{{ v.vehicle ? (('enums.vehicle.' + v.vehicle) | translate) : '—' }}</td>
+                <td>{{ vehicleLabel(v.vehicle) }}</td>
                 <td>
                   @if (v.isTeamLeader) { <span class="pill s-tl">{{ 'valets.col.teamLeader' | translate }}</span> }
                   @else { <span class="muted">—</span> }
@@ -132,6 +132,13 @@ export class ValetsListComponent {
   private readonly translate = inject(TranslateService);
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+
+  /** `vehicle` porta anche piu' mezzi separati da virgola: si traduce voce per voce. */
+  vehicleLabel(vehicle: string | null | undefined): string {
+    const voci = (vehicle || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (!voci.length) return '—';
+    return voci.map((v) => this.translate.instant('enums.vehicle.' + v)).join(', ');
+  }
 
   /** Il click sulla riga apre sempre il dettaglio. */
   openDetail(v: Valet): void {

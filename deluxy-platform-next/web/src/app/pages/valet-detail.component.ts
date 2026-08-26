@@ -29,6 +29,7 @@ interface ValetDetail {
   teamLeaderPartners?: string;
   teamLeaderExcludedPartners?: string;
   vehicle?: string;
+  vehicleModels?: string;
   notifyByEmail?: boolean;
   notifyByWhatsapp?: boolean;
   notes?: string;
@@ -114,7 +115,7 @@ interface ValetDetail {
             <h2>{{ 'valetForm.groups.vehicle' | translate }}</h2>
             <dl>
               <dt>{{ 'valets.col.vehicle' | translate }}</dt>
-              <dd>{{ v.vehicle ? ('enums.vehicle.' + v.vehicle | translate) : '—' }}</dd>
+              <dd>{{ vehicleLabel(v.vehicle, v.vehicleModels) }}</dd>
               <dt>{{ 'valetForm.fields.notifyByEmail' | translate }}</dt>
               <dd>{{ (v.notifyByEmail ? 'common.yes' : 'common.no') | translate }}</dd>
               <dt>{{ 'valetForm.fields.notifyByWhatsapp' | translate }}</dt>
@@ -232,6 +233,20 @@ export class ValetDetailComponent {
   readonly valet = signal<ValetDetail | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+
+  /**
+   * `vehicle` porta anche piu' mezzi separati da virgola: si traduce voce per
+   * voce, e se in `vehicleModels` (JSON) c'e' il modello lo si mostra accanto.
+   */
+  vehicleLabel(vehicle: string | null | undefined, modelsJson?: string | null): string {
+    const voci = (vehicle || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (!voci.length) return '—';
+    let modelli: Record<string, string> = {};
+    try { modelli = JSON.parse(modelsJson || '{}') ?? {}; } catch { modelli = {}; }
+    return voci
+      .map((v) => this.translate.instant('enums.vehicle.' + v) + (modelli[v] ? ` (${modelli[v]})` : ''))
+      .join(', ');
+  }
 
   /** Anagrafiche di supporto per risolvere gli id delle liste team leader. */
   private readonly provinces = signal<Province[]>([]);
