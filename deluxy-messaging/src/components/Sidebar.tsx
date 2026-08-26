@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect } from 'react'
+import { decidiPallini, type Visto } from '@/lib/pallini'
+import { useCallback, useEffect, useState } from 'react'
 
 // Menu laterale (stesso impianto di Deluxy Orders). È un client component per
 // evidenziare la voce attiva e per richiudersi da solo su mobile.
@@ -138,6 +139,8 @@ export function Sidebar({
     },
   ]
 
+  const novita = usaPallini(path)
+
   // La voce attiva è quella il cui href è il prefisso PIÙ LUNGO del percorso:
   // così su /reclami/casistiche si accende "Casistiche", non "Reclami".
   const tutteLeVoci = gruppi.flatMap((g) => g.voci)
@@ -160,6 +163,16 @@ export function Sidebar({
               <Link key={v.href} href={v.href} className={`sb-item${attiva ? ' attiva' : ''}`}>
                 <span className="sb-icona">{v.icona}</span>
                 <span className="sb-nome">{v.nome}</span>
+                {/* ⚠️ Il pallino sta in FONDO alla riga, non davanti al nome: le
+                    voci sono ventotto e devono restare allineate: un segno che
+                    entra ed esce a sinistra le farebbe ballare tutte. */}
+                {novita.has(v.href) ? (
+                  <span
+                    className="sb-pallino"
+                    title="È arrivato qualcosa di nuovo da quando l'hai guardata"
+                    aria-label="novità"
+                  />
+                ) : null}
               </Link>
             )
           })}
@@ -357,3 +370,84 @@ const iconaImpostazioni = (
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
 )
+
+
+// ── IL PALLINO GIALLO: «qui è arrivato qualcosa» ──
+//
+// ⚠️⚠️ Chiesto dall'utente il 27/08/2026: «metti un pallino giallo se arriva
+// qualcosa di nuovo: esempio in Inbox un messaggio nuovo o in ordini aperti un
+// nuovo ordine». È il fratello lento dei riquadri in basso a destra: quelli
+// dicono cosa è appena successo e spariscono dopo nove secondi, questo **resta
+// finché non sei andato a guardare**. Un richiamo e un segnalibro.
+//
+// ⚠️⚠️ NON SI CONFRONTANO OROLOGI. Il server dice, per ogni sezione, la data
+// della cosa più recente **che c'è**; qui ci si ricorda **l'ultima già vista** e
+// si accende il pallino se le due sono diverse. Se invece si segnasse «visto» con
+// `Date.now()` del browser, un computer avanti di un minuto avrebbe il pallino
+// sempre acceso e uno indietro non l'avrebbe mai.
+//
+// ⚠️ «Visto» è una cosa del browser di quella persona, e sta in `localStorage`:
+// tenerlo sul server vorrebbe dire una tabella in più per un pallino, e
+// «l'ho guardato io» non è un fatto dell'azienda.
+const CHIAVE_VISTO = 'messaggi-sezioni-viste'
+const RESPIRO = 60000
+
+function usaPallini(path: string): Set<string> {
+  const [accesi, setAccesi] = useState<Set<string>>(new Set())
+
+  const guarda = useCallback(async () => {
+    try {
+      const res = await fetch('/api/novita/sezioni', { cache: 'no-store' })
+      // ⚠️ Sessione scaduta: la rotta non risponde 401 ma un 307 verso /login
+      // che `fetch` segue da solo, tornando HTML con stato 200. Si guardano il
+      // redirect e il tipo di contenuto, o si continuerebbe a bussare.
+      const ct = res.headers.get('content-type') ?? ''
+      if (!res.ok || res.redirected || !ct.includes('application/json')) return
+      const d = (await res.json()) as { sezioni: Record<string, string> }
+      // ⚠️ Il segnalibro sta nel browser di quella persona: «l'ho guardato io»
+      // non è un fatto dell'azienda, e tenerlo sul server vorrebbe dire una
+      // tabella in più per un pallino.
+      let visto: Visto = {}
+      let mai = false
+      try {
+        const grezzo = localStorage.getItem(CHIAVE_VISTO)
+        if (grezzo) visto = JSON.parse(grezzo) as Visto
+        else mai = true
+      } catch {
+        // finestra privata o dati bloccati: si fa come la prima volta, cioè
+        // niente pallini. Meglio muti che tutti accesi.
+        mai = true
+      }
+      // La regola sta in `src/lib/pallini.ts`, che si prova con dei casi.
+      const esito = decidiPallini(d.sezioni, visto, path, mai)
+      try {
+        localStorage.setItem(CHIAVE_VISTO, JSON.stringify(esito.visto))
+      } catch {
+        // niente da ricordare: i pallini valgono per questa pagina e basta
+      }
+      setAccesi(new Set(esito.accesi))
+    } catch {
+      // rete assente: i pallini restano come stanno
+    }
+  }, [path])
+
+  useEffect(() => {
+    // ⚠️ Si guarda a ogni cambio di pagina, non solo a tempo: entrando in una
+    // sezione il suo pallino deve spegnersi subito, non dopo un minuto.
+    void guarda()
+    const t = setInterval(() => {
+      // Scheda nascosta: non si chiede niente. Al ritorno si chiede subito.
+      if (!document.hidden) void guarda()
+    }, RESPIRO)
+    const alRitorno = () => {
+      if (!document.hidden) void guarda()
+    }
+    document.addEventListener('visibilitychange', alRitorno)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', alRitorno)
+    }
+  }, [guarda])
+
+  return accesi
+}

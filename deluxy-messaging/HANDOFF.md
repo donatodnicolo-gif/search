@@ -1,5 +1,94 @@
 # Handoff — Deluxy Customer Service
 
+## 27/08/2026 (1) — la risposta automatica dell'AI si governa dall'INBOX, e il pallino giallo sul menu
+
+Due richieste dell'utente.
+
+### «Porta la possibilità di rispondere automaticamente tramite AI qui»
+
+Il motore c'era dal 25/08 (`src/lib/ai-fuori-turno.ts`) ed era fatto bene —
+quattro serrature, il dubbio che diventa una domanda su WhatsApp invece di
+un'invenzione. Ma viveva in due posti che dall'inbox non si vedono: un
+interruttore in fondo a **Impostazioni** e un **cron ogni dieci minuti**.
+
+⚠️⚠️ **Risultato, misurato il 26/08: spento da sempre, ZERO risposte mandate su
+1.070 messaggi usciti** — e nessuno che potesse accorgersene, perché l'esito di
+ogni giro finiva **solo nel JSON della chiamata**. Un interruttore che sta dove
+non si lavora è un interruttore che nessuno tocca; uno di cui non si vede lo
+stato è peggio che non averlo, perché si crede di essere coperti quando non lo si è.
+
+Adesso, nella barra dell'inbox accanto a «Suono» e «Avvisi», c'è **«AI accesa» /
+«AI spenta»** — e il bottone diventa **oro pieno** quando è accesa. Aprendolo:
+
+- **com'è messa**: accesa o spenta, **chi è in turno adesso** (in turno l'AI non
+  risponde: è la regola, non un guasto), **quante conversazioni aspettano**,
+  **quante risposte pronte** ha da cui attingere (a zero non parte: non inventa),
+  e **l'ultimo giro** con data ed esito;
+- **«Prova (non manda niente)»**: fa tutto il giro e mostra riga per riga cosa
+  risponderebbe e a chi. È la cosa che mancava per potersi fidare;
+- **«Accendi»/«Spegni»** e **«Rispondi adesso»**, solo per gli amministratori.
+
+⚠️⚠️ **L'esito del giro adesso SI SCRIVE** (`aiFuoriTurnoUltimo` e
+`aiFuoriTurnoEsito`): era l'unico modo per accorgersi che non stava girando.
+⚠️ Il giro che si ferma perché **spenta** non scrive l'esito: se lo scrivesse a
+ogni giro, l'ultima riga vera — quella dell'ultima volta che ha davvero risposto
+— sparirebbe dopo dieci minuti.
+⚠️⚠️ **Accendere e far partire un giro vero sono da AMMINISTRATORE** (prima la
+rotta non chiedeva niente a nessuno): sono i due gesti che fanno arrivare un
+messaggio a un cliente senza che una persona l'abbia letto. La **prova** invece
+la può fare chiunque sia dentro, e non manda niente.
+⚠️ Le conferme dicono **cosa succede**, non «sei sicuro?»: «da adesso un cliente
+può ricevere una risposta che nessuno in azienda ha letto prima».
+
+### «Metti un pallino giallo se arriva qualcosa di nuovo»
+
+Un pallino oro in fondo alla voce del menu — Inbox, Ordini aperti, Chiamate,
+Preventivi, Diario, Pagamenti, Reclami, Rimborsi, Chargeback — quando in quella
+sezione è arrivato qualcosa **da quando l'hai guardata**.
+
+⚠️ È il **fratello lento** dei riquadri in basso a destra: quelli dicono cosa è
+appena successo e spariscono dopo nove secondi, questo **resta finché non vai a
+guardare**. Un richiamo e un segnalibro.
+
+⚠️⚠️ **Non si confrontano orologi.** Il server dice, per sezione, la data della
+cosa più recente **che c'è**; il browser si ricorda **l'ultima già vista** e
+accende il pallino se le due sono diverse. Segnando «visto» con `Date.now()` del
+browser, un computer avanti di un minuto avrebbe il pallino sempre acceso e uno
+indietro non l'avrebbe mai.
+
+⚠️⚠️ **La prima volta non si accende niente**: da un browser nuovo si troverebbero
+nove pallini accesi insieme, che non vogliono dire «è arrivato qualcosa» ma «non
+ti conosco» — e un segnale che parte sbagliato non lo si guarda più.
+⚠️ **Stando sulla pagina il pallino non si accende** e il segnalibro avanza da
+solo: la si sta guardando adesso.
+⚠️ Il segnalibro sta in `localStorage`: «l'ho guardato io» non è un fatto
+dell'azienda, e tenerlo sul server vorrebbe dire una tabella in più per un pallino.
+⚠️ La regola sta in **`src/lib/pallini.ts`** (pura, senza `db`): la barra
+laterale è un componente del browser, e importare `novita.ts` ci avrebbe tirato
+dentro Prisma.
+
+### Verifica
+
+- **`npx tsx scripts/prova-pallini.mts` — 14 prove, tutte passate**, comprese le
+  due che contano: la prima volta non accende niente, e sulla pagina che si sta
+  guardando nemmeno.
+- **Sui dati veri**: `ultimoPerSezione()` risponde in **742 ms** con le nove date
+  (Chiamate e Preventivi vuote, perché nessuno le ha ancora usate);
+  `statoAiFuoriTurno()` dice `acceso: false`, nessuno in turno, 0 in attesa, 31
+  risposte pronte.
+- **Nel browser**, su una pagina d'anteprima temporanea (ora cancellata):
+  ⚠️ **difetto trovato e corretto** — il pannello, allineato al bordo **destro**
+  del bottone, cominciava a **x = −159**: un terzo fuori dalla finestra, perché
+  il bottone sta in una colonna larga 340px sul lato sinistro. Ora è allineato a
+  sinistra e **tenuto dentro lo schermo**: a 1280 sta a x=173, a **375 è largo
+  351 e non fa scorrere la pagina di lato**. E **non si sposta né si taglia
+  scorrendo l'elenco** (è `position: fixed`: la barra dell'inbox vive dentro un
+  contenitore con `overflow-y: auto`, che ritaglia i figli assoluti su tutti e
+  due gli assi).
+  Il pallino: 8px, oro `rgb(184,150,62)`, 12px dal bordo della voce.
+
+`npx tsc --noEmit` esito 0, `npm run build` esito 0.
+
 ## 26/08/2026 (18) — il «/» vale anche IN MEZZO alla riga, e togliendolo si chiude
 
 Due segnalazioni dell'utente sul calendario di poche ore prima, tutte e due vere.

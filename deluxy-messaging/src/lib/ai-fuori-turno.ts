@@ -1,5 +1,5 @@
 import { db } from './db'
-import { leggiImpostazioni } from './impostazioni'
+import { leggiImpostazioni, salvaImpostazione } from './impostazioni'
 import { inviaSulCanale } from './invio'
 import { suggerisciRisposta } from './ai'
 import { linguaDelTesto } from './lingua-testo'
@@ -152,12 +152,74 @@ export async function copertura(): Promise<{ ore: number; fasce: number; scopert
  * scrivere a nessun cliente. È il modo in cui questa funzione va provata la
  * prima volta, e resta il modo di controllarla dopo un cambio.
  */
+/** Dove si scrive com'è andato l'ultimo giro. */
+export const CHIAVE_ULTIMO = 'aiFuoriTurnoUltimo'
+export const CHIAVE_ESITO = 'aiFuoriTurnoEsito'
+
+/** Una riga sola che dice cosa ha fatto il giro: è quella che si legge in inbox. */
+export function riassumiGiro(e: EsitoGiro): string {
+  if (e.fermo) return e.fermo
+  const pezzi = [
+    e.risposte ? `${e.risposte} risposte` : '',
+    e.domande ? `${e.domande} domande all'amministratore` : '',
+    e.saltate ? `${e.saltate} saltate` : '',
+  ].filter(Boolean)
+  return pezzi.length ? pezzi.join(' · ') : 'Niente da fare.'
+}
+
+/**
+ * Com'è messa adesso la risposta automatica.
+ *
+ * ⚠️⚠️ Esiste perché fino al 27/08/2026 questa funzione era **invisibile**: il
+ * cron girava 144 volte al giorno e il suo esito viveva **solo nel JSON della
+ * chiamata**, che non guardava nessuno. Un automatismo che nessuno può guardare
+ * non è acceso né spento: è una speranza.
+ */
+export async function statoAiFuoriTurno(): Promise<{
+  acceso: boolean
+  inTurno: string[]
+  ultimo: string
+  esito: string
+  inAttesa: number
+  script: number
+}> {
+  const conf = await leggiImpostazioni(['aiFuoriTurnoAttivo', CHIAVE_ULTIMO, CHIAVE_ESITO])
+  const limite = new Date(Date.now() - ORE_UTILI * 3600 * 1000)
+  const [inTurno, inAttesa, script] = await Promise.all([
+    chiEInTurno(),
+    // Le stesse condizioni del giro vero: il numero a schermo deve essere
+    // quello su cui l'AI lavorerebbe, non un conteggio che gli somiglia.
+    db.conversazione.count({
+      where: {
+        canale: { in: CANALI },
+        archiviata: false,
+        eliminataIl: null,
+        presaDaId: '',
+        nonLetti: { gt: 0 },
+        ultimoMessaggioIl: { gte: limite },
+      },
+    }),
+    db.script.count({ where: { attivo: true } }),
+  ])
+  return {
+    acceso: conf.aiFuoriTurnoAttivo === 'si',
+    inTurno,
+    ultimo: conf[CHIAVE_ULTIMO] ?? '',
+    esito: conf[CHIAVE_ESITO] ?? '',
+    inAttesa,
+    script,
+  }
+}
+
 export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<EsitoGiro> {
   const vuoto: EsitoGiro = { fermo: '', inTurno: [], risposte: 0, domande: 0, saltate: 0, righe: [] }
 
   const conf = await leggiImpostazioni(['aiFuoriTurnoAttivo'])
   if (conf.aiFuoriTurnoAttivo !== 'si') {
-    return { ...vuoto, fermo: 'Le risposte automatiche fuori turno sono spente (Impostazioni).' }
+    // ⚠️ Spenta NON si scrive nell'esito: se ne scrivesse uno a ogni giro,
+    // l'ultima riga vera — quella dell'ultima volta che ha davvero risposto —
+    // sparirebbe dopo dieci minuti.
+    return { ...vuoto, fermo: 'Le risposte automatiche fuori turno sono spente.' }
   }
 
   const inTurno = await chiEInTurno()
@@ -330,5 +392,27 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
     // una chat che sparisce dai non letti è una chat che nessuno rilegge.
   }
 
+  await segnaGiro(esito, opz.prova)
   return esito
+}
+
+/**
+ * L'esito del giro si SCRIVE.
+ *
+ * ⚠️⚠️ Prima non si scriveva da nessuna parte: il cron girava ogni dieci minuti
+ * e quello che aveva fatto restava nel JSON della risposta, che non legge
+ * nessuno. Così non c'era modo di sapere se stesse funzionando — né di
+ * accorgersi che era **spento da sempre**, che è esattamente quello che era.
+ *
+ * ⚠️ La prova non lo scrive: un giro a vuoto non è quello che è successo ai
+ * clienti, e sovrascrivendolo si perderebbe l'ultima cosa vera.
+ */
+async function segnaGiro(esito: EsitoGiro, prova?: boolean) {
+  if (prova) return
+  try {
+    await salvaImpostazione(CHIAVE_ULTIMO, new Date().toISOString())
+    await salvaImpostazione(CHIAVE_ESITO, riassumiGiro(esito))
+  } catch {
+    // l'esito è un contorno: se non si scrive, il giro vale comunque
+  }
 }

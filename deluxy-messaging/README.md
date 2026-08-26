@@ -585,6 +585,45 @@ su un ordine rimborsato, le note restano aperte: lì la decisione non è di una
 persona, e una nota come «richiamare il cliente per il rimborso» verrebbe chiusa
 proprio nel momento in cui serve.
 
+## Far rispondere l'AI, dall'inbox
+
+Nella barra dell'inbox, accanto a «Suono» e «Avvisi», c'è **«AI accesa» / «AI
+spenta»**: quando è accesa il bottone è **oro pieno**, così si vede attraversando
+la stanza. Aprendolo si trova:
+
+- **com'è messa adesso**: chi è in turno (⚠️ se c'è qualcuno in turno l'AI **non**
+  risponde: è la regola), quante conversazioni aspettano, quante risposte pronte
+  ha da cui attingere, e **l'ultimo giro** con data ed esito;
+- **«Prova (non manda niente)»**: fa tutto il giro e mostra riga per riga cosa
+  risponderebbe e a chi;
+- **«Accendi»/«Spegni»** e **«Rispondi adesso»** — solo per gli amministratori.
+
+⚠️⚠️ **Quando risponde**: solo **fuori turno**, solo sulle conversazioni che **non
+ha preso nessuno**, solo se l'ultimo messaggio è del cliente ed è di meno di 20
+ore, e al massimo **3 volte** sulla stessa conversazione. Se non sa cosa dire
+**non inventa**: apre una domanda all'amministratore su WhatsApp e non scrive al
+cliente.
+
+⚠️ **Accendere è da amministratore.** È l'unico punto dell'app in cui un cliente
+riceve un messaggio che nessuno ha letto: non è una preferenza di chi lavora.
+
+⚠️ La conversazione a cui ha risposto l'AI **resta da leggere**: ha tamponato,
+non ha chiuso. E il messaggio nel filo porta il nome **«AI (fuori turno)»**.
+
+## Il pallino giallo sul menu
+
+Sulle voci del menu compare un **pallino oro** quando in quella sezione è
+arrivato qualcosa **da quando l'hai guardata**: Inbox, Ordini aperti, Chiamate,
+Preventivi, Diario, Pagamenti, Reclami, Rimborsi, Chargeback.
+
+⚠️ È il fratello lento degli avvisi in basso a destra: quelli spariscono da soli
+dopo nove secondi, **il pallino resta finché non vai a guardare**.
+
+⚠️ **Entrando nella sezione si spegne**, e finché ci stai sopra non si riaccende.
+⚠️ **La prima volta non si accende niente**: da un browser nuovo si accenderebbero
+tutti insieme, e vorrebbe dire «non ti conosco», non «è arrivato qualcosa».
+⚠️ È una cosa **del tuo browser**: da un altro computer riparte da zero.
+
 ## Gli avvisi in basso a destra
 
 Su **ogni pagina** dell'app, in basso a destra, compare un riquadro quando

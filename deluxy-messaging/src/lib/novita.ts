@@ -356,3 +356,79 @@ export async function novitaDa(
 
   return { adesso: adesso.toISOString(), novita, troncato }
 }
+
+
+// ── IL PALLINO GIALLO SULLE VOCI DEL MENU ──
+//
+// ⚠️⚠️ Chiesto dall'utente il 27/08/2026: «metti un pallino giallo se arriva
+// qualcosa di nuovo: esempio in Inbox un messaggio nuovo o in ordini aperti un
+// nuovo ordine». I riquadri in basso a destra dicono cosa è appena successo e
+// poi spariscono; il pallino resta finché non sei andato a guardare. Sono due
+// cose diverse: uno è un richiamo, l'altro è un segnalibro.
+//
+// ⚠️⚠️ QUI NON SI CONFRONTANO OROLOGI. Il server dice, per ogni sezione, **la
+// data della cosa più recente che c'è**; il browser si ricorda **l'ultima che ha
+// già visto** e accende il pallino se le due sono diverse. Nessuno chiede mai
+// «che ore sono» a nessuno: se lo si facesse, il computer avanti di un minuto
+// avrebbe il pallino sempre acceso e quello indietro mai
+// (`trappola-periodi-fuso-server`).
+
+/** Le sezioni che possono ricevere qualcosa di nuovo, e la voce di menu che le mostra. */
+export const SEZIONI_CON_NOVITA = [
+  '/inbox',
+  '/ordini',
+  '/chiamate',
+  '/preventivi',
+  '/diario',
+  '/pagamenti',
+  '/reclami',
+  '/rimborsi',
+  '/chargeback',
+] as const
+
+/**
+ * Per ogni sezione, la data della cosa più recente. Stringa vuota = non c'è
+ * niente.
+ *
+ * ⚠️ Una query per sezione, ma sono `findFirst` con `take 1` su tabelle piccole:
+ * la più grande è `Messaggio` (3.700 righe). Il conto vero non si fa: al pallino
+ * non serve sapere QUANTE sono, serve sapere se ce n'è una più nuova dell'ultima
+ * vista — e un `count` costerebbe di più senza dire di più.
+ */
+export async function ultimoPerSezione(): Promise<Record<string, string>> {
+  const quando = (d: { creatoIl: Date } | null) => (d ? d.creatoIl.toISOString() : '')
+  const [messaggio, ordine, chiamata, preventivo, nota, pagamento, reclamo, rimborso, disputa] =
+    await Promise.all([
+      // ⚠️ Solo i messaggi IN ARRIVO: il pallino dice «è arrivato qualcosa», e
+      // accenderlo per la risposta che hai appena mandato tu è il modo di
+      // insegnare a ignorarlo.
+      db.messaggio.findFirst({
+        where: { direzione: 'in', tipo: { not: 'nota' }, conversazione: { eliminataIl: null } },
+        orderBy: { creatoIl: 'desc' },
+        select: { creatoIl: true },
+      }),
+      db.ordine.findFirst({
+        where: { annullatoIl: null },
+        orderBy: { creatoIl: 'desc' },
+        select: { creatoIl: true },
+      }),
+      db.chiamata.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
+      db.preventivo.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
+      db.notaDiario.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
+      db.richiestaPagamento.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
+      db.reclamo.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
+      db.rimborso.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
+      db.chargeback.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
+    ])
+  return {
+    '/inbox': quando(messaggio),
+    '/ordini': quando(ordine),
+    '/chiamate': quando(chiamata),
+    '/preventivi': quando(preventivo),
+    '/diario': quando(nota),
+    '/pagamenti': quando(pagamento),
+    '/reclami': quando(reclamo),
+    '/rimborsi': quando(rimborso),
+    '/chargeback': quando(disputa),
+  }
+}

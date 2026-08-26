@@ -5410,3 +5410,93 @@ td .azioni-ordine {
 .modifica-riga > div:first-child {
   min-width: 220px;
 }
+
+/* ── «RISPONDE L'AI»: il riquadro nell'inbox ──
+   ⚠️ Il bottone cambia FACCIA quando è accesa, non solo scritta: è l'unica cosa
+   dell'app che parla ai clienti da sola, e «acceso» dev'essere una cosa che si
+   vede attraversando la stanza. Oro, come tutti i segnali di quest'app. */
+button.ai-accesa {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #fff;
+}
+button.ai-accesa:hover {
+  background: var(--gold-strong);
+  color: #fff;
+}
+
+.pannello-ai {
+  /* ⚠️⚠️ FIXED e non absolute: la barra dell'inbox sta dentro una colonna con
+     `overflow-y: auto`, e un contenitore che scorre RITAGLIA i figli assoluti su
+     tutti e due gli assi — il pannello (420px) sarebbe stato tagliato dalla
+     colonna (~340px), e sembra un problema di z-index senza esserlo. `top` e
+     `right` li scrive il componente misurando il bottone. */
+  position: fixed;
+  z-index: 45;
+  width: min(420px, calc(100vw - 24px));
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-float);
+  /* ⚠️ Un tetto e lo scorrimento: la prova può tornare dieci righe, e senza
+     questo il riquadro esce dallo schermo verso il basso — cioè proprio la
+     parte che si voleva leggere. */
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+}
+
+.pannello-ai-testa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.pannello-ai-righe {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.pannello-ai-righe li {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.pannello-ai-righe li:last-child {
+  border-bottom: none;
+}
+
+.pannello-ai-azioni {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.pannello-ai-esito {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  font-size: 12.5px;
+}
+
+
+/* ── IL PALLINO «è arrivato qualcosa» ──
+   ⚠️ Oro pieno: è lo stesso colore con cui tutta l'app dice «questo aspetta te».
+   Piccolo e in fondo alla riga — deve farsi notare scorrendo il menu con la coda
+   dell'occhio, non competere col nome della voce. */
+.sb-pallino {
+  margin-left: auto;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  /* Un alone chiaro: sulla voce attiva, che ha lo sfondo pieno, un pallino
+     senza stacco si confonde con il testo. */
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}

@@ -15,6 +15,7 @@ import { NOMI_ORIGINE } from '@/lib/provenienza'
 // impostazioni (cioè il database), e qui siamo in un componente client.
 import { applica, type Refuso } from '@/lib/refusi'
 import { nuoviDaAvvisare } from '@/lib/avvisi'
+import { AiFuoriTurno } from './AiFuoriTurno'
 
 // L'inbox unificata: elenco conversazioni a sinistra, thread a destra.
 // Si aggiorna da sola con un polling leggero (le nuove conversazioni e i
@@ -450,6 +451,7 @@ export function Inbox({
   brandNoti = [],
   ioId = '',
   ioNome = '',
+  amministratore = false,
 }: {
   conversazioniIniziali: ConversazioneDto[]
   /** I marchi che POSSONO ricevere (numeri WhatsApp e account Meta collegati):
@@ -459,6 +461,12 @@ export function Inbox({
   /** Chi sta guardando l'inbox: serve a dire «io» invece di ripetere il suo nome. */
   ioId?: string
   ioNome?: string
+  /**
+   * ⚠️ Serve al riquadro «Risponde l'AI»: accendere una funzione che scrive ai
+   * clienti da sola è da amministratore, e un bottone che c'è ma risponde «non
+   * puoi» sembra un guasto. La prova invece la può fare chiunque.
+   */
+  amministratore?: boolean
 }) {
   const [conversazioni, setConversazioni] = useState(conversazioniIniziali)
   // `?c=<id>`: la schermata «Oggi» manda qui su una conversazione precisa. Senza,
@@ -1826,6 +1834,12 @@ export function Inbox({
           >
             {avvisi ? 'Avvisi' : 'Avvisi off'}
           </button>
+          {/* ⚠️⚠️ QUI e non in Impostazioni: l'interruttore delle risposte
+              automatiche stava in fondo a una pagina di configurazione, e il
+              risultato — misurato — era che non l'aveva acceso mai nessuno e
+              nessuno sapeva che esistesse. Un interruttore sta dove si lavora,
+              e dice da solo com'è messo. */}
+          <AiFuoriTurno amministratore={amministratore} />
           <button
             className="bottone secondario mini"
             onClick={() => setVista(vista === 'colonne' ? 'elenco' : 'colonne')}

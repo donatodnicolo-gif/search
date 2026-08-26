@@ -59,6 +59,7 @@ export default async function PaginaInbox() {
       brandNoti={brandNoti}
       ioId={io?.id ?? ''}
       ioNome={io?.nome ?? ''}
+      amministratore={io?.ruolo === 'admin'}
     />
   )
 }
