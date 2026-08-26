@@ -154,6 +154,12 @@ export async function aggiungiPasso(
   if (error) throw error;
 }
 
+/**
+ * Toglie un passo. ⚠️ Le iscrizioni in corso NON si spostano: da quando il
+ * passo si sceglie per `ordine` e non per posizione (`fetchCoda`), togliere una
+ * riga non fa più saltare un colpo a chi è già partito — semplicemente quel
+ * passo non toccherà a nessuno.
+ */
 export async function rimuoviPasso(passoId: string): Promise<void> {
   const { error } = await supabase.from('sequenza_passi').delete().eq('id', passoId);
   if (error) throw error;
@@ -226,6 +232,38 @@ export async function riprendiIscrizione(id: string): Promise<void> {
 // ─── La coda ─────────────────────────────────────────────────────────────────
 
 /**
+ * Gli ORDINI dei passi già partiti davvero, per iscrizione.
+ *
+ * ⚠️ «Partito davvero» vuol dire una riga di `sequenza_invii` con almeno un
+ * invio riuscito e senza errore: un tentativo fallito non fa avanzare la
+ * sequenza, o il negozio salterebbe un colpo senza che nessuno se ne accorga.
+ */
+async function invatiPerIscrizione(iscrizioni: string[]): Promise<Map<string, Set<number>>> {
+  const out = new Map<string, Set<number>>();
+  if (!iscrizioni.length) return out;
+  const { data, error } = await supabase
+    .from('sequenza_invii')
+    .select('iscrizione_id, passo_ordine, inviate, errore')
+    .in('iscrizione_id', iscrizioni);
+  if (error) throw error;
+  for (const r of (data ?? []) as any[]) {
+    if (r.errore || !r.inviate) continue;
+    if (!out.has(r.iscrizione_id)) out.set(r.iscrizione_id, new Set<number>());
+    out.get(r.iscrizione_id)!.add(r.passo_ordine);
+  }
+  return out;
+}
+
+/** Chiude un'iscrizione che non ha più passi da mandare. */
+async function chiudiIscrizioneFinita(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('sequenza_iscrizioni')
+    .update({ stato: 'finita', prossimo_il: null, motivo: 'Tutti i passi sono stati mandati' })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/**
  * Cosa è pronto a partire: le iscrizioni attive la cui data è arrivata (o
  * passata). Include il ritardo, perché una sequenza dimenticata da dieci giorni
  * va guardata prima di una di oggi.
@@ -248,13 +286,30 @@ export async function fetchCoda(): Promise<InCoda[]> {
   const passiPerSequenza = new Map<string, PassoSequenza[]>();
   for (const sid of sequenzeId) passiPerSequenza.set(sid, await fetchPassi(sid));
 
+  // ⚠️ QUALE PASSO TOCCA: si guarda cosa è GIÀ PARTITO, non quanti ne sono
+  // partiti (corretto il 27/08/2026). Prima il passo si sceglieva per posizione
+  // — `passi[passi_fatti]` — ma `passi_fatti` è un contatore storico e i passi
+  // si possono cancellare: togliendo il secondo di tre, chi ne aveva ricevuto
+  // uno riceveva il TERZO saltando quello di mezzo, e chi ne aveva ricevuti due
+  // trovava `undefined`, spariva dalla coda e restava «attiva» per sempre — né
+  // finita né ripartibile. La verità sta in `sequenza_invii`, che registra
+  // l'ORDINE di ogni passo davvero mandato.
+  const inviati = await invatiPerIscrizione(righe.map((r) => r.id));
+
   const out: InCoda[] = [];
   for (const r of righe) {
     const sequenza = r.sequenze as Sequenza;
     if (!sequenza?.attiva) continue; // sequenza spenta: non deve partire niente
     const passi = passiPerSequenza.get(r.sequenza_id) ?? [];
-    const passo = passi[r.passi_fatti];
-    if (!passo) continue; // finita: la chiude `segnaInviato`
+    const gia = inviati.get(r.id) ?? new Set<number>();
+    const passo = passi.find((p) => !gia.has(p.ordine));
+    if (!passo) {
+      // Non c'è più niente da mandare: la si CHIUDE qui, invece di lasciarla
+      // sospesa. Prima questo ramo era un `continue` muto e l'iscrizione
+      // restava «attiva» con una data di partenza che non sarebbe mai arrivata.
+      await chiudiIscrizioneFinita(r.id);
+      continue;
+    }
     const giorni = Math.round(
       (Date.parse(oggi) - Date.parse(r.prossimo_il)) / 86400000,
     );
@@ -337,7 +392,11 @@ export async function segnaInviato(
 
   const passi = await fetchPassi(c.sequenza.id);
   const fatti = c.iscrizione.passi_fatti + 1;
-  const prossimo = passi[fatti];
+  // Come nella coda: il prossimo è il primo passo che non è ancora partito,
+  // non «quello dopo, contando». `c.passo.ordine` è appena stato registrato
+  // sopra, quindi è già dentro l'insieme.
+  const gia = (await invatiPerIscrizione([c.iscrizione.id])).get(c.iscrizione.id) ?? new Set<number>();
+  const prossimo = passi.find((p) => !gia.has(p.ordine));
   const { error } = await supabase
     .from('sequenza_iscrizioni')
     .update({

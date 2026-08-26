@@ -7,6 +7,7 @@ import { syncVisita } from '@/lib/hubspot';
 import { notificaArchiviazioneReferente, sincronizzaNegozioRegistro, trovaAnagraficaGiaPresente, type EsitoRegistro } from '@/lib/anagrafiche';
 import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import { GIORNI_FOLLOWUP_DEAL, GIORNI_FOLLOWUP_LEAD, traGiorni } from '@/lib/cadenze';
+import { pulisciTermine } from '@/lib/ricerca';
 
 /** Contatto arricchito con nome/indirizzo/linea del negozio (per la Rubrica globale). */
 export interface ContattoConLuogo extends Contact {
@@ -760,6 +761,38 @@ async function idPaginati(tabella: string): Promise<Set<string>> {
   return ids;
 }
 
+/**
+ * TUTTE le righe di una tabella, a blocchi (27/08/2026).
+ *
+ * ⚠️ La trappola del tetto a 1000 righe è già stata pagata tre volte in questo
+ * file, e ogni volta è stata chiusa solo dove faceva male: `idPaginati` e
+ * `contattiPaginati` paginano, ma tre letture piene erano rimaste indietro —
+ * la rubrica intera, i recapiti dei negozi e gli id già presi dal registro.
+ * PostgREST non protesta: risponde 200 con le prime mille righe, e il resto
+ * semplicemente non esiste. Qui la paginazione è generica, così la prossima
+ * lettura piena non deve ricordarsi di niente.
+ *
+ * @param colonne  la `select` da fare (le stesse colonne che servono a chi legge)
+ * @param ordine   colonna di ordinamento: serve a rendere i blocchi STABILI —
+ *                 senza, due blocchi possono ripetere e saltare righe.
+ */
+async function tutteLeRighe<T = any>(tabella: string, colonne: string, ordine: string): Promise<T[]> {
+  const BLOCCO = 1000;
+  const righe: T[] = [];
+  for (let da = 0; ; da += BLOCCO) {
+    const { data, error } = await supabase
+      .from(tabella)
+      .select(colonne)
+      .order(ordine)
+      .range(da, da + BLOCCO - 1);
+    if (error) throw error;
+    const blocco = (data ?? []) as T[];
+    righe.push(...blocco);
+    if (blocco.length < BLOCCO) break;
+  }
+  return righe;
+}
+
 /** Marca un contatto HubSpot come "non pertinente" per questo negozio (non riproporlo). */
 export async function scartaContatto(placeId: string, hubspotContactId: string): Promise<void> {
   const { error } = await supabase
@@ -919,11 +952,15 @@ export async function aggiornaNomeProfilo(id: string, nome: string): Promise<voi
 
 /** Tutti i contatti registrati, col negozio di appartenenza (Rubrica globale). */
 export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
-  const { data, error } = await supabase
-    .from('contacts')
-    .select('*, places(nome, indirizzo, linea_ipotizzata, stato, zona, hubspot_deal_aperta, anagrafiche_id)')
-    .order('nome');
-  if (error) throw error;
+  // ⚠️ PAGINATA: la rubrica è sopra le mille righe. Senza, PostgREST ne
+  // restituiva 1000 in ordine di nome — le persone in fondo all'alfabeto
+  // sparivano dalla Rubrica e, peggio, non entravano nelle liste dei
+  // destinatari di sequenze e invii: a quelle la mail non partiva mai.
+  const data = await tutteLeRighe<any>(
+    'contacts',
+    '*, places(nome, indirizzo, linea_ipotizzata, stato, zona, hubspot_deal_aperta, anagrafiche_id)',
+    'nome',
+  );
   return (data ?? []).map((r: any) => ({
     ...r,
     place_nome: r.places?.nome ?? null,
@@ -988,8 +1025,23 @@ interface RegPlace {
  * Ogni riga è arricchita con la **tipologia** e lo **stato registro** del negozio
  * corrispondente (match per negozio Scout → azienda HubSpot → nome normalizzato).
  * Dedup: vince Scout, poi HubSpot, poi registro; niente doppioni per negozio.
+ *
+ * ⚠️ LE ANNULLATE SONO FUORI, salvo chiederle (27/08/2026). Il cestino delle
+ * trattative non cambia la `fase` — «annullata» è un fatto amministrativo e sta
+ * in una colonna sua (migr. 0072) — quindi una trattativa cestinata resta
+ * `appointmentscheduled` per chiunque guardi solo la fase. Questa funzione le
+ * restituiva sempre, e SETTE consumatori su otto non le rifiltravano: la
+ * cestinata continuava a gonfiare la pipeline della Dashboard, a comparire fra
+ * le «trattative da muovere» di Oggi, a disegnare il suo follow-up sul
+ * Calendario, e — la più grave — a far risultare il negozio «già in pipeline»,
+ * togliendolo sia dalla coda richiami sia da «visite da lavorare»: il negozio
+ * usciva da tutte e due le liste operative e non lo lavorava più nessuno.
+ * L'unica schermata che le vuole è Trattative, per la sua vista «Annullate»:
+ * quella chiede `includiAnnullate`, le altre non devono ricordarsi di niente.
  */
-export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
+export async function fetchTutteTrattative(
+  { includiAnnullate = false }: { includiAnnullate?: boolean } = {},
+): Promise<TrattativaConLuogo[]> {
   // Registro Anagrafiche (schedati) — per arricchire tipologia/stato e come fonte 3.
   const { data: reg } = await supabase
     .from('places')
@@ -1025,7 +1077,9 @@ export async function fetchTutteTrattative(): Promise<TrattativaConLuogo[]> {
   };
 
   // 1. Trattative native Scout.
-  const { data: scout, error } = await supabase.from('deals').select('*, places(nome, zona, anagrafiche_account)');
+  let qDeals = supabase.from('deals').select('*, places(nome, zona, anagrafiche_account)');
+  if (!includiAnnullate) qDeals = qDeals.is('annullata_il', null);
+  const { data: scout, error } = await qDeals;
   if (error) throw error;
   const scoutRows: TrattativaConLuogo[] = (scout ?? []).map((r: any) =>
     arricchisci(
@@ -1155,7 +1209,15 @@ export interface PlaceLite {
 
 /** Cerca negozi per nome/indirizzo (per collegare la trattativa a un contatto/negozio). */
 export async function cercaPlaces(term: string, limit = 20): Promise<PlaceLite[]> {
-  const q = term.trim();
+  // ⚠️ IL TERMINE SI RIPULISCE PRIMA (27/08/2026). Dentro un `or(...)` di
+  // PostgREST la virgola separa le condizioni e il `%` è il jolly di `ilike`:
+  // `supabase-js` non mette virgolette attorno ai valori, li interpola e basta.
+  // Cercando «Rossi, Milano» la query tornava 400 e il typeahead mostrava zero
+  // negozi SENZA dire niente — e chi cerca, non trovando, creava un doppione.
+  // Non è un caso di laboratorio: il termine spesso non lo digita una persona,
+  // lo precompila il nome di un mittente («Cognome, Nome») o la ragione sociale
+  // letta dall'AI («Fiori S.r.l., Milano»).
+  const q = pulisciTermine(term);
   let query = supabase.from('places').select('id, nome, indirizzo, zona').order('nome').limit(limit);
   if (q) query = query.or(`nome.ilike.%${q}%,indirizzo.ilike.%${q}%`);
   const { data, error } = await query;
@@ -2127,9 +2189,12 @@ export async function importaDalRegistro(p: {
 
 /** Gli id del registro già presi in carico: servono a non riproporli. */
 export async function fetchAnagraficheIdPresi(): Promise<Set<string>> {
-  const { data, error } = await supabase.from('places').select('anagrafiche_id').not('anagrafiche_id', 'is', null);
-  if (error) throw error;
-  return new Set((data ?? []).map((r: any) => r.anagrafiche_id).filter(Boolean) as string[]);
+  // ⚠️ PAGINATA: i negozi agganciati al registro erano 1.051 il 26/08 — undici
+  // in più del tetto. I 51 esclusi si ripresentavano come «da prendere in
+  // carico» pur essendo già dentro, e siccome non c'era ordinamento cambiavano
+  // a ogni caricamento.
+  const data = await tutteLeRighe<any>('places', 'anagrafiche_id', 'id');
+  return new Set(data.map((r: any) => r.anagrafiche_id).filter(Boolean) as string[]);
 }
 
 /** Prossimo passo commerciale suggerito dall'esito (per la visita rapida). */
@@ -2443,10 +2508,16 @@ export interface RecapitoPlace {
  * Fra più referenti vince chi **decide**, poi chi ha un recapito.
  */
 export async function fetchRecapitiPlace(): Promise<Map<string, RecapitoPlace>> {
-  const { data, error } = await supabase
-    .from('contacts')
-    .select('place_id, telefono, email, is_decisore, archiviato');
-  if (error) throw error;
+  // ⚠️ PAGINATA, e ordinata: senza `range()` tornavano 1000 righe su una
+  // rubrica più grande, e senza `order` il taglio non era nemmeno lo stesso da
+  // una volta all'altra. Il risultato era il peggiore possibile: i bottoni
+  // Chiama/WhatsApp/Email spenti su negozi che il recapito ce l'hanno, e spenti
+  // a caso — accesi ora, spenti fra un minuto, impossibile da riprodurre.
+  const data = await tutteLeRighe<any>(
+    'contacts',
+    'place_id, telefono, email, is_decisore, archiviato',
+    'id',
+  );
   const out = new Map<string, RecapitoPlace>();
   for (const c of (data ?? []) as any[]) {
     if (!c.place_id || c.archiviato) continue;

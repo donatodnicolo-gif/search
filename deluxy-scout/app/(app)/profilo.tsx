@@ -85,7 +85,17 @@ export default function Profilo() {
     setSync(true);
     try {
       const r = await flushCoda();
-      avvisa('Sincronizzazione', `Inviate ${r.synced} visite. In coda: ${r.rimasti}.`);
+      // ⚠️ Se la coda è ferma si dice PERCHÉ: «in coda: 1» ripetuto ogni volta
+      // è un numero che non scende e non spiega niente.
+      avvisa(
+        'Sincronizzazione',
+        [
+          `Inviate ${r.synced} visite. In coda: ${r.rimasti}.`,
+          r.bloccata ? `La prima non passa: ${r.bloccata}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
+      );
     } catch (e: any) {
       avvisa('Errore sync', e?.message ?? 'Riprova quando sei online.');
     } finally {

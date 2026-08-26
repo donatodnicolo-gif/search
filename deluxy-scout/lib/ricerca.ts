@@ -81,7 +81,7 @@ const PER_FONTE = 6;
  * raggruppano. Un termine che le contiene romperebbe la query — o peggio, la
  * cambierebbe. Si tolgono, insieme al `%` che è il jolly di `ilike`.
  */
-function pulisci(term: string): string {
+export function pulisciTermine(term: string): string {
   return term.trim().replace(/[,()%\\]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
@@ -101,7 +101,7 @@ async function prova<T>(p: PromiseLike<{ data: T[] | null; error: unknown }>): P
  * Sotto i 2 caratteri non cerca: con una lettera sola tornerebbe mezza app.
  */
 export async function cercaOvunque(term: string): Promise<Risultato[]> {
-  const q = pulisci(term);
+  const q = pulisciTermine(term);
   if (q.length < 2) return [];
   const like = `%${q}%`;
 

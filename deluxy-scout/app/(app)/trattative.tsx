@@ -145,7 +145,7 @@ export default function Trattative() {
   const carica = useCallback(async () => {
     setLoading(true);
     try {
-      setDeals(await fetchTutteTrattative());
+      setDeals(await fetchTutteTrattative({ includiAnnullate: true }));
     } finally {
       setLoading(false);
     }
@@ -158,7 +158,7 @@ export default function Trattative() {
     if (!env.hubspotSyncUrl()) return;
     try {
       const { aggiornati } = await aggiornaValoriTrattative();
-      if (aggiornati > 0) setDeals(await fetchTutteTrattative());
+      if (aggiornati > 0) setDeals(await fetchTutteTrattative({ includiAnnullate: true }));
     } catch {
       /* la lista locale resta valida; si riprova al prossimo accesso */
     }

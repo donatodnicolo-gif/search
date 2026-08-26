@@ -604,4 +604,7 @@ export interface QueuedVisit {
   fotoLocalUri: string | null;
   createdAt: string;
   retries: number;
+  /** Perché l'ultimo tentativo non è passato. Un elemento che non riesce non si
+   *  butta — dentro c'è una visita vera — ma non deve nemmeno restare muto. */
+  ultimoErrore?: string | null;
 }

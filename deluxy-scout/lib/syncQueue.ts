@@ -56,6 +56,9 @@ export async function isOnline(): Promise<boolean> {
 interface FlushResult {
   synced: number;
   rimasti: number;
+  /** Perché la coda è ferma, se lo è: un numero che non scende senza una
+   *  ragione a schermo è un guasto che nessuno vede. */
+  bloccata?: string | null;
 }
 
 /**
@@ -85,7 +88,13 @@ export async function flushCoda(): Promise<FlushResult> {
       }
       // Errore generico: incrementa i retry; se supera il massimo, sposta in coda
       // (in fondo) per non bloccare le altre, ma resta segnalata.
+      //
+      // ⚠️ Non si butta MAI: dentro c'è una visita vera, scritta sul posto da
+      // una persona. Ma non deve restare muta: il motivo si conserva, così chi
+      // guarda la coda legge perché è ferma invece di vedere un numero che non
+      // scende (lo racconta `bloccata` qui sotto).
       item.retries += 1;
+      item.ultimoErrore = e instanceof Error ? e.message : String(e ?? 'errore sconosciuto');
       if (item.retries >= MAX_RETRY) {
         coda = [...coda.slice(1), item];
       }
@@ -94,7 +103,7 @@ export async function flushCoda(): Promise<FlushResult> {
     }
   }
 
-  return { synced, rimasti: coda.length };
+  return { synced, rimasti: coda.length, bloccata: coda[0]?.ultimoErrore ?? null };
 }
 
 async function processaUno(item: QueuedVisit): Promise<void> {
@@ -114,8 +123,23 @@ async function processaUno(item: QueuedVisit): Promise<void> {
 
   // 4. sync HubSpot (solo se configurata). Se non c'è, la visita resta su Supabase
   //    con hubspot_synced=false: verrà sincronizzata quando la Edge Function esiste.
+  //
+  // ⚠️ QUI NON SI LANCIA (corretto il 27/08/2026). `inserisciVisita` non è
+  // idempotente — è una `insert` secca, `visits` non ha nessuna chiave
+  // naturale — e la foto prende un nome nuovo a ogni giro. Se questo ultimo
+  // passo falliva (un 500 della Edge, un token HubSpot scaduto), l'errore
+  // risaliva, l'elemento restava in coda e al flush successivo l'INTERA
+  // sequenza ripartiva: una copia della visita e un file in più a ogni
+  // tentativo, in silenzio — il profilo diceva solo «Inviate 0 visite. In
+  // coda: 1». La visita su Supabase c'è già: se HubSpot non risponde resta
+  // `hubspot_synced=false` e si risincronizza dopo, esattamente come fa il
+  // percorso online (lib/db.ts, `inserisciVisita`).
   if (env.hubspotSyncUrl()) {
-    await syncVisita(visita.id);
+    try {
+      await syncVisita(visita.id);
+    } catch {
+      /* la visita è salva: il CRM si allinea al prossimo giro */
+    }
   }
 }
 

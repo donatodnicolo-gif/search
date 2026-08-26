@@ -182,6 +182,8 @@ export function costiPerOrdine(
 /** Come sopra, ma indicizzato per `deal:<id>` / `richiesta:<id>` / `ordine:<id>`. */
 export function costiPerChiave(lavori: LavoroConPreventivi[]): Map<string, CostoTrattativa> {
   const perDeal = new Map<string, CostoTrattativa>();
+  /** I fornitori DISTINTI di ogni vendita: l'etichetta li conta, non i lavori. */
+  const nomi = new Map<string, Set<string>>();
   for (const l of lavori) {
     const chiave = l.ordine_id
       ? `ordine:${l.ordine_id}`
@@ -199,6 +201,7 @@ export function costiPerChiave(lavori: LavoroConPreventivi[]): Map<string, Costo
     if (!migliore || migliore.importo == null) continue;
     const gia = perDeal.get(chiave);
     if (!gia) {
+      nomi.set(chiave, new Set(migliore.fornitore ? [migliore.fornitore] : []));
       perDeal.set(chiave, {
         costo: migliore.importo,
         definitivo: Boolean(scelto),
@@ -211,7 +214,15 @@ export function costiPerChiave(lavori: LavoroConPreventivi[]): Map<string, Costo
     // Basta un lavoro ancora da decidere perché il totale sia una stima.
     gia.definitivo = gia.definitivo && Boolean(scelto);
     gia.lavori += 1;
-    if (gia.fornitore !== migliore.fornitore) gia.fornitore = `${gia.lavori} fornitori`;
+    // ⚠️ «N fornitori» conta i FORNITORI, non i lavori (corretto il 27/08/2026).
+    // Prima l'etichetta si componeva con `gia.lavori`, e per giunta dopo la
+    // prima divergenza il confronto restava vero per sempre: tre lavori con due
+    // fornitori — o anche con lo stesso fornitore ripetuto — dicevano «3
+    // fornitori». Nella colonna Fornitore degli Ordini si leggeva un numero
+    // falso.
+    if (migliore.fornitore) nomi.get(chiave)!.add(migliore.fornitore);
+    const distinti = nomi.get(chiave)!;
+    gia.fornitore = distinti.size <= 1 ? [...distinti][0] ?? null : `${distinti.size} fornitori`;
   }
   return perDeal;
 }

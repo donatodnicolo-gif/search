@@ -216,16 +216,34 @@ async function segnalatiDiUnaFonte(fonte: string): Promise<{
     chiama<{ dati?: Riga[]; totale?: number }>({ action: 'cerca', perPage: 50, ...extra });
 
   // Strada buona: il registro filtra per fonte e torna solo quelli giusti.
-  const r = await cerca({ fonte });
+  //
+  // ⚠️ UNA FONTE CHE SBAGLIA NON DEVE SPEGNERE LE ALTRE (27/08/2026). `chiama`
+  // lancia su 401/500, e questa riga era nuda dentro un `Promise.all`: bastava
+  // che il registro rifiutasse la chiave su UNA fonte perché la schermata
+  // mostrasse solo la banda rossa e zero righe — buttando via anche le decine
+  // di partner dell'altra fonte, che avevano risposto benissimo. La funzione
+  // gemella `fetchFornitori` faceva già la cosa giusta.
+  let r: { dati?: Riga[]; totale?: number };
+  try {
+    r = await cerca({ fonte });
+  } catch {
+    return { partner: [], parziale: true, totali: null };
+  }
   const dati = r.dati ?? [];
   const miei = dati.filter((p) => p.fonte === fonte);
-  // Se sono TUTTI della fonte chiesta, il filtro è stato applicato davvero.
-  // Se tornano anche partner di altre fonti, la Edge Function è quella vecchia
-  // (il parametro `fonte` è arrivato dopo) e ha semplicemente ignorato il
-  // filtro: quello che ha risposto non vuol dire niente.
-  if (dati.length && miei.length === dati.length) {
+  // ⚠️ ZERO RIGHE È UNA RISPOSTA, non un guasto (27/08/2026). Prima la guardia
+  // chiedeva `dati.length &&`, quindi una fonte che semplicemente non ha
+  // ancora nessun partner cadeva nel ripiego e tornava `parziale: true`: la
+  // schermata annunciava «il registro sta rispondendo senza il filtro per
+  // fonte… si risolve rilanciando il deploy», una diagnosi falsa su un filtro
+  // che aveva funzionato. E siccome «parziale» è un OR fra le fonti, bastava
+  // quella vuota per marcare incompleto tutto l'elenco.
+  if (!dati.length || miei.length === dati.length) {
     return { partner: miei, parziale: false, totali: r.totale ?? miei.length };
   }
+  // Se tornano anche partner di ALTRE fonti, il filtro è stato ignorato: la
+  // Edge Function è quella vecchia (il parametro `fonte` è arrivato dopo), e
+  // quello che ha risposto non vuol dire niente. Si passa al ripiego.
 
   // Ripiego, finché la funzione non è rideployata: si chiede per categoria —
   // uno dei pochi filtri che la versione vecchia passa — e si scarta il resto

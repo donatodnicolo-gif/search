@@ -80,3 +80,30 @@ describe('costiPerChiave — più lavori sulla stessa vendita si sommano', () =>
     expect(m.has('richiesta:R1')).toBe(false);
   });
 });
+
+describe('l\'etichetta del fornitore conta i FORNITORI, non i lavori', () => {
+  it('due fornitori su tre lavori sono «2 fornitori»', () => {
+    // ⚠️ Prima si componeva col numero di lavori, e dopo la prima differenza il
+    // confronto restava vero per sempre: usciva «3 fornitori» con due veri.
+    const l = (chi: string, imp: number) =>
+      ({
+        id: `l-${chi}-${imp}`,
+        deal_id: 'D1',
+        preventivi: [{ id: `p${imp}`, fornitore: chi, importo: imp, stato: 'ricevuto', created_at: '2026-08-26T10:00:00Z' }],
+      }) as unknown as LavoroConPreventivi;
+    const m = costiPerChiave([l('A', 10), l('A', 20), l('B', 30)]);
+    expect(m.get('deal:D1')?.fornitore).toBe('2 fornitori');
+    expect(m.get('deal:D1')?.lavori).toBe(3);
+    expect(m.get('deal:D1')?.costo).toBe(60);
+  });
+
+  it('lo stesso fornitore su tre lavori resta il suo nome', () => {
+    const l = (imp: number) =>
+      ({
+        id: `l${imp}`,
+        deal_id: 'D2',
+        preventivi: [{ id: `p${imp}`, fornitore: 'Rossi', importo: imp, stato: 'ricevuto', created_at: '2026-08-26T10:00:00Z' }],
+      }) as unknown as LavoroConPreventivi;
+    expect(costiPerChiave([l(10), l(20), l(30)]).get('deal:D2')?.fornitore).toBe('Rossi');
+  });
+});
