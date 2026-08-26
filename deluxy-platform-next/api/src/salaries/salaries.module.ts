@@ -10,11 +10,19 @@ import {
   Patch,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { Response as RispostaHttp } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { PaymentStatus, PaymentType, Role, SalaryDocumentType, SalaryStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsModule, SettingsService } from '../settings/settings.module';
+
+/** Due decimali: gli importi si scrivono come si leggono. */
+function arrotonda2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
 
 /**
  * Quanto spetta al valet per una consegna, secondo il TIPO DI SERVIZIO.
@@ -205,7 +213,10 @@ export function pagaConsegna(
 
 @Injectable()
 export class SalariesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
 
   findAll(user: JwtUser, archived = false, filtri: {
     valetId?: string; stato?: string; dal?: string; al?: string; cerca?: string;
@@ -372,6 +383,7 @@ export class SalariesService {
         valetSalary: true, valetAdditionalPrice: true, hours: true, extraKm: true,
         paymentOnDelivery: true, paymentAmount: true,
         recipientAddress: true,
+        deliveryTimeFrom: true, deliveryTimeTo: true,
         serviceType: { select: { name: true, pricingModel: true, minHours: true } },
         // Le due regole che toccano la paga, e i ritiri del giro per gli scaglioni.
         deliveryRule: { select: { name: true, valetPayAdjustment: true, toPay: true } },
@@ -405,6 +417,7 @@ export class SalariesService {
         return {
           id: d.id, code: d.code, date: d.date, status: d.status,
           address: d.recipientAddress,
+          orario: d.deliveryTimeFrom ? `${d.deliveryTimeFrom}${d.deliveryTimeTo ? '–' + d.deliveryTimeTo : ''}` : null,
           service: d.serviceType?.name ?? '—',
           cash: d.paymentOnDelivery ? (d.paymentAmount ?? 0) : 0,
           amount: calcolo?.amount ?? null,
@@ -416,6 +429,144 @@ export class SalariesService {
       }),
       troncato: deliveries.length === 500,
     };
+  }
+
+  /**
+   * Il recap del periodo per un VALET: come quello dei partner in
+   * Fatturazione, ma sull'altro verso del denaro — le consegne da pagare, coi
+   * contanti trattenuti e il netto. Stampabile e mandabile via AI Mail.
+   */
+  async recap(user: JwtUser, valetId: string, dal?: string, al?: string) {
+    const valet = await this.prisma.valet.findUnique({
+      where: { id: valetId },
+      select: { id: true, firstName: true, lastName: true, email: true, hasVat: true, city: true },
+    });
+    if (!valet) throw new NotFoundException('Valet non trovato');
+    const dettaglio = await this.pendingDetail(user, valetId, dal, al);
+    const pagabili = dettaglio.deliveries.filter((d) => d.amount != null && !d.esclusaDaRegola);
+    const lordo = arrotonda2(pagabili.reduce((s, d) => s + (d.amount ?? 0), 0));
+    const contanti = arrotonda2(dettaglio.deliveries.reduce((s, d) => s + d.cash, 0));
+    return {
+      valet,
+      periodo: { dal: dal ?? null, al: al ?? null },
+      righe: dettaglio.deliveries,
+      troncato: dettaglio.troncato,
+      totali: {
+        consegne: pagabili.length,
+        nonPagabili: dettaglio.deliveries.length - pagabili.length,
+        lordo,
+        contanti,
+        netto: arrotonda2(lordo - contanti),
+      },
+    };
+  }
+
+  /** Il recap del valet in HTML: una pagina sola, stampabile e leggibile in mail. */
+  recapHtml(r: Awaited<ReturnType<SalariesService['recap']>>): string {
+    const e = (v: unknown) => String(v ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const eur = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' &euro;';
+    const gg = (d: Date | string) => new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date(d));
+    const nome = `${r.valet.lastName} ${r.valet.firstName}`.trim();
+    const periodo = [r.periodo.dal, r.periodo.al].filter(Boolean).map((x) => gg(x!)).join(' &rarr; ') || 'tutto il lavoro in attesa';
+
+    const righe = r.righe.map((x) => `
+      <tr${x.amount != null && !x.esclusaDaRegola ? '' : ' class="esclusa"'}>
+        <td class="mono">${gg(x.date)}</td>
+        <td class="mono num">#${x.code}</td>
+        <td class="mono">${e(x.orario ?? '—')}</td>
+        <td class="indirizzo">${e(x.address ?? '—')}</td>
+        <td class="muted">${e(x.service)}</td>
+        <td class="muted">${x.esclusaDaRegola ? `No (${e(x.regola ?? 'regola')})` : x.amount != null ? 'S&igrave;' : 'No'}</td>
+        <td class="num">${x.cash ? eur(x.cash) : '—'}</td>
+        <td class="num">${x.amount != null ? eur(x.amount) : '—'}</td>
+      </tr>`).join('');
+
+    return `<!doctype html>
+<html lang="it"><head><meta charset="utf-8">
+<title>Recap paghe — ${e(nome)}</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; padding: 32px; background: #F5F5F7; color: #1d1d1f;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .foglio { max-width: 820px; margin: 0 auto; background: #fff; border-radius: 14px;
+    padding: 36px 40px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  h1 { margin: 0 0 2px; font-size: 24px; font-weight: 600; letter-spacing: -.025em; }
+  .periodo { color: #6e6e73; margin: 0 0 24px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11.5px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .04em; color: #6e6e73; padding: 6px 8px; border-bottom: 1px solid #e5e5ea; }
+  td { padding: 7px 8px; border-bottom: 1px solid #f2f2f4; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .muted { color: #6e6e73; }
+  .indirizzo { max-width: 240px; font-size: 12.5px; }
+  .esclusa td { color: #a1a1a6; }
+  .totali { margin-top: 10px; width: auto; margin-left: auto; min-width: 280px; }
+  .totali td { border: 0; padding: 4px 8px; }
+  .totali .finale td { border-top: 1px solid #1d1d1f; padding-top: 8px; font-weight: 600; font-size: 16px; }
+  .nota { margin-top: 26px; font-size: 12px; color: #6e6e73; }
+  @media print { body { background: #fff; padding: 0; } .foglio { box-shadow: none; border-radius: 0; } }
+</style></head>
+<body><div class="foglio">
+  <h1>Recap paghe &mdash; ${e(nome)}</h1>
+  <p class="periodo">${periodo}</p>
+  <table>
+    <thead><tr>
+      <th>Data</th><th class="num">Consegna</th><th>Orario</th><th>Indirizzo</th><th>Servizio</th><th>Pagabile</th><th class="num">Contanti</th><th class="num">Paga</th>
+    </tr></thead>
+    <tbody>${righe || '<tr><td colspan="8" class="muted">Nessuna consegna nel periodo.</td></tr>'}</tbody>
+  </table>
+  <table class="totali">
+    <tr><td>${r.totali.consegne} consegne &mdash; lordo</td><td class="num">${eur(r.totali.lordo)}</td></tr>
+    <tr><td>Contanti incassati alla consegna</td><td class="num">&minus;${eur(r.totali.contanti)}</td></tr>
+    <tr class="finale"><td>Netto</td><td class="num">${eur(r.totali.netto)}</td></tr>
+  </table>
+  ${r.totali.nonPagabili ? `<p class="nota">${r.totali.nonPagabili} ${r.totali.nonPagabili === 1 ? 'consegna non &egrave; pagabile' : 'consegne non sono pagabili'} (senza tariffa, o esclusa da una regola carnet): restano in elenco, marcate.</p>` : ''}
+  ${r.troncato ? '<p class="nota">Elenco troncato alle prime 500 consegne del periodo.</p>' : ''}
+  <p class="nota">Documento di riepilogo, non &egrave; un cedolino. I nominativi dei destinatari non compaiono.</p>
+</div></body></html>`;
+  }
+
+  /** Manda il recap paghe al valet, via AI Mail (stesso canale del recap partner). */
+  async inviaRecap(user: JwtUser, valetId: string, dal?: string, al?: string, aManuale?: string) {
+    const r = await this.recap(user, valetId, dal, al);
+    const destinatario = (aManuale ?? r.valet.email ?? '').trim();
+    if (!destinatario) {
+      throw new BadRequestException('Il valet non ha una email in anagrafica: aggiungila, o indicane una qui.');
+    }
+    if (!r.righe.length) {
+      throw new BadRequestException('Niente da mandare: nessuna consegna nel periodo.');
+    }
+    const url = ((await this.settings.get('mailUrl')) ?? process.env.MAIL_URL ?? 'https://deluxy-mail.vercel.app').replace(/\/+$/, '');
+    const chiave = (await this.settings.get('mailApiKey')) ?? process.env.MAIL_API_KEY ?? '';
+    const utente = (await this.settings.get('mailUtente')) ?? process.env.MAIL_UTENTE ?? '';
+    if (!chiave || !utente) {
+      const manca = [!chiave && 'chiave', !utente && 'casella'].filter(Boolean).join(' e ');
+      throw new BadRequestException(
+        `Invio non configurato: manca la ${manca} di AI Mail (Configurazione → Impostazioni). Il recap si può comunque scaricare.`,
+      );
+    }
+    let res: Response;
+    try {
+      res = await fetch(`${url}/api/v1/invia`, {
+        method: 'POST',
+        headers: { 'x-api-key': chiave, 'x-utente': utente, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          a: destinatario,
+          oggetto: `Recap paghe — ${r.valet.lastName} ${r.valet.firstName}`,
+          corpo: this.recapHtml(r),
+        }),
+        signal: AbortSignal.timeout(45_000),
+      });
+    } catch {
+      throw new BadRequestException('AI Mail non risponde: la mail non è partita.');
+    }
+    const corpo = (await res.json().catch(() => null)) as { ok?: boolean; messaggio?: string } | null;
+    if (!res.ok || !corpo?.ok) {
+      throw new BadRequestException(corpo?.messaggio ?? `AI Mail risponde ${res.status}.`);
+    }
+    return { ok: true, a: destinatario, righe: r.righe.length, netto: r.totali.netto };
   }
 
   /**
@@ -704,6 +855,37 @@ export class SalariesController {
     return this.salariesService.pendingDetail(user, valetId, dal, al);
   }
 
+  @Get('recap/:valetId')
+  @ApiOperation({ summary: 'Il recap paghe del periodo per un valet (JSON, o HTML con formato=html)' })
+  @ApiQuery({ name: 'dal', required: false })
+  @ApiQuery({ name: 'al', required: false })
+  @ApiQuery({ name: 'formato', required: false, description: 'html per il documento stampabile' })
+  async recap(
+    @CurrentUser() user: JwtUser,
+    @Param('valetId') valetId: string,
+    @Query('dal') dal: string | undefined,
+    @Query('al') al: string | undefined,
+    @Query('formato') formato: string | undefined,
+    @Res({ passthrough: true }) res: RispostaHttp,
+  ) {
+    const dati = await this.salariesService.recap(user, valetId, dal, al);
+    if (formato !== 'html') return dati;
+    // Si apre nel browser invece di scaricarsi: si guarda prima di mandarlo.
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return this.salariesService.recapHtml(dati);
+  }
+
+  @Post('recap/:valetId/invia')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Manda il recap paghe al valet, via AI Mail' })
+  inviaRecap(
+    @CurrentUser() user: JwtUser,
+    @Param('valetId') valetId: string,
+    @Body() body: { dal?: string; al?: string; a?: string },
+  ) {
+    return this.salariesService.inviaRecap(user, valetId, body?.dal, body?.al, body?.a);
+  }
+
 
   @Post('generate')
   @Roles(Role.ADMIN, Role.OPERATION)
@@ -730,6 +912,7 @@ export class SalariesController {
 }
 
 @Module({
+  imports: [SettingsModule],
   controllers: [SalariesController],
   providers: [SalariesService],
 })

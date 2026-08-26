@@ -460,11 +460,17 @@ export class DeliveryDetailComponent {
     const d = this.delivery();
     return d ? detectProvince(d.recipientAddress, this.provinces()) : null;
   });
-  /** Solo i valet che hanno abilitata quella provincia. */
+  /**
+   * Solo i valet ATTIVI (niente sospesi, niente segnaposto dell'import) che
+   * hanno abilitata la provincia della consegna. Senza provincia riconosciuta
+   * restano gli attivi, e il pannello lo dichiara col tag «provincia non
+   * riconosciuta».
+   */
   readonly assignValets = computed(() => {
+    const attivi = this.valets().filter((v) => v.active !== false && v.placeholder !== true);
     const prov = this.assignProvince();
-    if (!prov) return this.valets();
-    return this.valets().filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code));
+    if (!prov) return attivi;
+    return attivi.filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code));
   });
 
   /**

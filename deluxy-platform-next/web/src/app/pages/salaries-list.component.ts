@@ -97,6 +97,14 @@ const NEXT: Record<string, { next: string; key: string }> = {
     <!-- I filtri vanno al server: filtrare nel browser dopo aver scaricato
          tutto regge finche' gli stipendi sono pochi, non oltre. -->
     <div class="filtri card">
+      <!-- I periodi che si usano davvero, a un click: il mese e il mese scorso. -->
+      <div class="f">
+        <span>{{ 'salaries.filter.period' | translate }}</span>
+        <div class="quick">
+          <button type="button" class="quick-tab" (click)="periodoRapido(0)">{{ 'salaries.filter.thisMonth' | translate }}</button>
+          <button type="button" class="quick-tab" (click)="periodoRapido(-1)">{{ 'salaries.filter.lastMonth' | translate }}</button>
+        </div>
+      </div>
       <label class="f cerca">
         <span>{{ 'salaries.filter.search' | translate }}</span>
         <input class="field" type="search" [(ngModel)]="cerca" (ngModelChange)="filtroCambiato()"
@@ -222,7 +230,15 @@ const NEXT: Record<string, { next: string; key: string }> = {
                   <button class="link-btn" (click)="togglePendingDetail(r)">
                     {{ (pendingOpen() === r.valetId ? 'salaries.action.hideDetail' : 'salaries.action.detail') | translate }}
                   </button>
+                  <!-- Il recap come nell'app attuale: si scarica (e si stampa),
+                       o parte via AI Mail al valet. -->
+                  <button class="link-btn" [disabled]="recapInCorso() === r.valetId" (click)="scaricaRecap(r)">
+                    {{ 'salaries.pending.recap' | translate }}
+                  </button>
                   @if (canManage()) {
+                    <button class="link-btn" [disabled]="recapInCorso() === r.valetId" (click)="inviaRecap(r)">
+                      {{ (recapInCorso() === r.valetId ? 'common.saving' : 'salaries.pending.sendRecap') | translate }}
+                    </button>
                     <button class="link-btn" (click)="pagaTutto(r)">{{ 'salaries.pending.payAll' | translate }}</button>
                   }
                 </td>
@@ -353,6 +369,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .head-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .filtri { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; padding: 14px 18px; margin-bottom: 12px; }
       .filtri .f { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+      .quick { display: inline-flex; background: var(--fill, #f5f5f7); border-radius: 980px; padding: 2px; }
+      .quick-tab { border: 0; background: none; border-radius: 980px; padding: 6px 14px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text-secondary); cursor: pointer; }
+      .quick-tab:hover { color: var(--text); }
       .filtri .f.cerca { flex: 1 1 220px; }
       .filtri .f > span { font-size: 12px; color: var(--text-secondary); }
       .filtri .interruttore { flex-direction: row; align-items: center; gap: 7px; min-width: 0; padding-bottom: 8px; }
@@ -556,6 +575,68 @@ export class SalariesListComponent {
   }
 
   /** Un filtro e' cambiato: si ricarica dopo una pausa, non a ogni tasto. */
+  /** Il mese a un click: `0` = in corso (fino a oggi), `-1` = scorso, in ora locale. */
+  periodoRapido(scarto: number): void {
+    const oggi = new Date();
+    const g = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const primo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto, 1);
+    const ultimo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto + 1, 0);
+    this.dal = g(primo);
+    this.al = g(scarto === 0 ? oggi : ultimo);
+    this.filtroCambiato();
+  }
+
+  readonly recapInCorso = signal<string | null>(null);
+
+  /**
+   * Scarica il recap paghe del periodo in tabella (r.from → r.to).
+   * Passa dall'HttpClient: l'API vuole il token, e una scheda aperta a mano
+   * non se lo porta dietro — uscirebbe un 401 travestito da pagina vuota.
+   */
+  scaricaRecap(r: Pending): void {
+    this.error.set(null);
+    this.recapInCorso.set(r.valetId);
+    this.http.get(`${environment.apiUrl}/salaries/recap/${r.valetId}`, {
+      params: { dal: r.from.slice(0, 10), al: r.to.slice(0, 10), formato: 'html' }, responseType: 'text',
+    }).subscribe({
+      next: (html) => {
+        this.recapInCorso.set(null);
+        const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `recap-paghe-${r.valet.lastName}-${r.from.slice(0, 10)}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (e) => {
+        this.recapInCorso.set(null);
+        this.error.set(e?.error?.message ?? 'Recap non riuscito');
+      },
+    });
+  }
+
+  /** Manda il recap al valet: conferma ogni volta, col nome scritto. */
+  inviaRecap(r: Pending): void {
+    const nome = `${r.valet.lastName} ${r.valet.firstName}`;
+    if (!confirm(this.translate.instant('salaries.pending.sendConfirm', { valet: nome }))) return;
+    this.error.set(null);
+    this.recapInCorso.set(r.valetId);
+    this.http.post<{ a: string; righe: number }>(
+      `${environment.apiUrl}/salaries/recap/${r.valetId}/invia`,
+      { dal: r.from.slice(0, 10), al: r.to.slice(0, 10) },
+    ).subscribe({
+      next: (esito) => {
+        this.recapInCorso.set(null);
+        this.banner.set(this.translate.instant('salaries.pending.sent', { a: esito.a, n: esito.righe }));
+      },
+      error: (e) => {
+        this.recapInCorso.set(null);
+        this.error.set(e?.error?.message ?? 'Invio non riuscito');
+      },
+    });
+  }
+
   filtroCambiato(): void {
     this.cercaPending.set(this.cerca);
     clearTimeout(this.attesa);

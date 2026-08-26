@@ -116,6 +116,11 @@
       "test": "Test connection",
       "hint": "A key with WRITE access is required: read-only shows differences but cannot link anything."
     },
+    "ai": {
+      "title": "Artificial intelligence",
+      "key": "AI key (Anthropic)",
+      "hint": "Enables loading deliveries via AI: paste a free text (email, message) and the extraction fills the form. Secret key, server-side only."
+    },
     "orders": {
       "title": "Deluxy Orders (Shopify orders)",
       "url": "Orders address",
@@ -502,6 +507,9 @@
     "filter": {
       "search": "Search",
       "searchPh": "Valet first or last name",
+      "period": "Period",
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
       "from": "From",
       "to": "To",
       "allStatuses": "All statuses",
@@ -514,6 +522,10 @@
       "unpaid": "No pay",
       "service": "Service",
       "address": "Address",
+      "recap": "Recap",
+      "sendRecap": "Send recap",
+      "sendConfirm": "Send the pay recap to {{valet}} by email?",
+      "sent": "Recap sent to {{a}} ({{n}} deliveries) ✓",
       "payAll": "Pay",
       "listino": "rate card",
       "noPay": "not payable",

@@ -164,6 +164,9 @@ export interface ValetRef {
   firstName: string;
   lastName: string;
   hasVat?: boolean;
+  active?: boolean;
+  /** Account segnaposto dell'import: non è una persona da proporre. */
+  placeholder?: boolean;
   salaryFrequency?: string; // monthly | weekly
   provinces?: { province: Province }[];
 }

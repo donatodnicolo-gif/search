@@ -322,10 +322,34 @@ Il 12731 passa da **−4,78 €** (venduto 35 = concordato Cannavo) a ricavo ver
   d'import: è il catalogo d'origine. Correggere il listino della variante è
   una decisione di business (Merchandising/catalogo), non un recupero.
 
-**Resta da fare qui**: creazione/modifica dei modelli SMS da UI (l'API `POST
-/sms-templates` c'è); creazione provincia da UI; la prima corsa AUTOMATICA del
-cron è stanotte alle 4:30 italiane (quella a mano è già andata); riconnettere
-il connettore Shopify se si vuole interrogare Shopify direttamente.
+### 26/08 (sera, 4) — Stipendi col recap, valet attivi, regola dei 90 giorni
+
+- **Stipendi**: tab rapidi «Questo mese / Mese scorso»; per ogni valet in «Da
+  pagare» il **recap del periodo** si scarica (HTML stampabile, stesso stile
+  del recap partner: data, orario, indirizzo, servizio, pagabile o no,
+  contanti, paga) e si **manda via AI Mail** (`GET/POST /salaries/recap/…`).
+- **Assegna valet**: il pannello propone SOLO valet attivi (61 su 286 in
+  banca) e con la provincia della consegna abilitata; niente sospesi né
+  segnaposto dell'import.
+- **Regola dei 90 giorni** (nel cron notturno): un valet che non si collega
+  per 90+ giorni passa `active = false`. `User.lastLoginAt` nasce ORA
+  (migrazione `20260826150000`, scritto a ogni login riuscito): il conto parte
+  dai PROSSIMI 90 giorni per tutti — nessuno può spegnersi prima del
+  24/11/2026, chi non entra mai conta dalla nascita del campo. Esito nel
+  ritorno del cron (`valetFermi`).
+- **Impostazioni**: campo «Chiave AI (Anthropic)» (`aiApiKey`, segreta lato
+  server). 🔜 il caricamento consegne via AI (testo libero → form compilato)
+  è il prossimo passo: la chiave lo abilita, la funzione non c'è ancora.
+- **Recap fatture**: vedi sera 3 — orari, indirizzi (su decisione dell'utente:
+  prima erano esclusi per privacy), plus/minus e «fatturabile» per riga.
+
+**Resta da fare qui**: caricamento consegne via AI (la chiave c'è);
+import ricevute dal legacy (`expert-receipts.csv`) per /receipts; dati
+fiscali/bancari da Anagrafiche nella scheda partner (caso Beyond); capire i
+«reclami» su /payments e il loro posto nello storico; Google Places sulla
+ricerca città di /provinces; creazione modelli SMS e province da UI; prima
+corsa AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore
+Shopify per interrogare Shopify direttamente.
 
 ## 25/08/2026 — Artista Locale ritira nella città di consegna (e i km sopra 50 non si credono)
 

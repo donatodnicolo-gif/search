@@ -46,6 +46,10 @@ export const SETTING_KEYS = [
   'mailUrl',
   'mailApiKey',
   'mailUtente',
+  // Chiave Anthropic (SEGRETA, solo lato server): abilita il caricamento
+  // delle consegne via AI — si incolla un testo libero (mail, WhatsApp) e
+  // l'estrazione compila il form.
+  'aiApiKey',
 ] as const;
 
 @Injectable()

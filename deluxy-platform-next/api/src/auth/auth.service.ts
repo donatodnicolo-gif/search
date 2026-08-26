@@ -37,6 +37,12 @@ export class AuthService {
       throw new UnauthorizedException('Credenziali non valide');
     }
 
+    // L'ultimo accesso si REGISTRA: e' la base della regola «un valet fermo da
+    // 90 giorni passa inattivo» (corsa notturna). Fuori dal percorso critico:
+    // se la scrittura fallisce, il login non deve fallire con lei.
+    this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+      .catch(() => undefined);
+
     const payload = {
       sub: user.id,
       email: user.email,

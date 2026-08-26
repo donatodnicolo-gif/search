@@ -132,6 +132,20 @@ interface GeocodeResult {
           }
         </div>
 
+        <!-- Chiave AI (Anthropic): abilita il caricamento delle consegne via
+             AI. Segreta, usata SOLO lato server. -->
+        <h3 class="sotto-titolo">{{ 'settings.ai.title' | translate }}</h3>
+        <label class="fld"><span>{{ 'settings.ai.key' | translate }}</span>
+          <div class="key-row">
+            <input class="field mono" [type]="showAiKey() ? 'text' : 'password'" name="aiApiKey"
+                   [(ngModel)]="model.aiApiKey" autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="sk-ant-…" />
+            <button type="button" class="btn btn-secondary" (click)="showAiKey.set(!showAiKey())">
+              {{ (showAiKey() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
+            </button>
+          </div>
+        </label>
+        <p class="hint">{{ 'settings.ai.hint' | translate }}</p>
+
         <div class="actions">
           <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save()">
             {{ saving() ? ('common.saving' | translate) : ('common.save' | translate) }}
@@ -208,6 +222,7 @@ export class SettingsComponent {
     anagraficheUrl: '', anagraficheApiKey: '',
     ordersUrl: '', ordersApiKey: '',
     mailUrl: '', mailApiKey: '', mailUtente: '',
+    aiApiKey: '',
   };
 
   readonly showAnagraficheKey = signal(false);
@@ -215,6 +230,7 @@ export class SettingsComponent {
   readonly esitoAnagrafiche = signal<{ esito: string; messaggio: string } | null>(null);
   readonly showOrdersKey = signal(false);
   readonly showMailKey = signal(false);
+  readonly showAiKey = signal(false);
   readonly provandoOrders = signal(false);
   readonly esitoOrders = signal<{ esito: string; messaggio: string } | null>(null);
 

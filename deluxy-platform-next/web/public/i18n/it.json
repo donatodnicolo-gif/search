@@ -116,6 +116,11 @@
       "test": "Prova connessione",
       "hint": "Serve una chiave con la SCRITTURA: con la sola lettura si vedono le differenze ma non si può collegare nulla."
     },
+    "ai": {
+      "title": "Intelligenza artificiale",
+      "key": "Chiave AI (Anthropic)",
+      "hint": "Abilita il caricamento delle consegne via AI: si incolla un testo libero (mail, messaggio) e l'estrazione compila il form. Chiave segreta, usata solo lato server."
+    },
     "orders": {
       "title": "Deluxy Orders (ordini Shopify)",
       "url": "Indirizzo di Orders",
@@ -502,6 +507,9 @@
     "filter": {
       "search": "Cerca",
       "searchPh": "Nome o cognome del valet",
+      "period": "Periodo",
+      "thisMonth": "Questo mese",
+      "lastMonth": "Mese scorso",
       "from": "Dal",
       "to": "Al",
       "allStatuses": "Tutti gli stati",
@@ -514,6 +522,10 @@
       "unpaid": "Senza paga",
       "service": "Servizio",
       "address": "Indirizzo",
+      "recap": "Recap",
+      "sendRecap": "Invia recap",
+      "sendConfirm": "Mandare il recap paghe a {{valet}} via mail?",
+      "sent": "Recap inviato a {{a}} ({{n}} consegne) ✓",
       "payAll": "Paga",
       "listino": "listino",
       "noPay": "non pagabile",

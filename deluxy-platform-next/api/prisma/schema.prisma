@@ -35,6 +35,9 @@ model User {
   lastName     String
   role         String
   isSupport    Boolean  @default(false)
+  /// Quando è entrato l'ultima volta: base della regola «valet fermo 90 giorni
+  /// → inattivo». Null = mai registrato (il campo esiste dal 26/08/2026).
+  lastLoginAt  DateTime?
   // Stato dell'ACCESSO (separato dall'operatività dell'anagrafica):
   //  invited   -> creato, non ha ancora scelto la password (non può entrare)
   //  active    -> può accedere

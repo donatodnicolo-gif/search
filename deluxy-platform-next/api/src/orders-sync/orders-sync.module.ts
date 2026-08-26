@@ -15,6 +15,8 @@ import { Role, SaleStatus } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { SalesModule, SalesService } from '../sales/sales.module';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
+import { ValetsModule } from '../valets/valets.module';
+import { ValetsService } from '../valets/valets.service';
 
 /** Un ordine come lo espone Deluxy Orders (solo i campi che servono qui). */
 type OrdineOrders = {
@@ -590,20 +592,26 @@ export class OrdersSyncController {
 @ApiTags('cron')
 @Controller('cron')
 export class CronMarginiController {
-  constructor(private readonly service: OrdersSyncService) {}
+  constructor(
+    private readonly service: OrdersSyncService,
+    private readonly valets: ValetsService,
+  ) {}
 
   @Get('margini')
   @Public() // fuori dal JWT utente: l'identità è il segreto del cron, verificato qui sotto
-  @ApiOperation({ summary: 'Corsa notturna: manda a Orders gli ingredienti del margine di TUTTI gli ordini' })
+  @ApiOperation({ summary: 'Corsa notturna: margini a Orders, cache ordini, valet fermi da 90 giorni' })
   async margini(@Headers('authorization') authorization?: string) {
     const segreto = process.env.CRON_SECRET ?? '';
     if (!segreto || authorization !== `Bearer ${segreto}`) throw new UnauthorizedException();
-    return this.service.spingiMargini({ applica: true, tutti: true });
+    const margini = await this.service.spingiMargini({ applica: true, tutti: true });
+    // La regola dei 90 giorni: un valet che non si collega passa inattivo.
+    const valetFermi = await this.valets.disattivaFermi();
+    return { ...margini, valetFermi };
   }
 }
 
 @Module({
-  imports: [SalesModule, SettingsModule],
+  imports: [SalesModule, SettingsModule, ValetsModule],
   controllers: [OrdersSyncController, CronMarginiController],
   providers: [OrdersSyncService],
   exports: [OrdersSyncService],

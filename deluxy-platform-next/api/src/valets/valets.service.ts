@@ -28,6 +28,45 @@ export class ValetsService {
     });
   }
 
+  /**
+   * REGOLA DEI 90 GIORNI (decisa dall'utente il 26/08): un valet che non si
+   * collega per piu' di 90 giorni passa in stato inattivo. Gira ogni notte
+   * dalla corsa del cron.
+   *
+   * ⚠️ Il conto parte dai PROSSIMI 90 giorni (l'utente): `lastLoginAt` esiste
+   * dal 26/08/2026, e un null dice «mai registrato», non «mai entrato». Chi
+   * non ha un accesso registrato conta dalla NASCITA del campo: nessuno puo'
+   * spegnersi prima del 24/11/2026, e da li' in poi la regola vale per tutti.
+   */
+  async disattivaFermi(giorni = 90): Promise<{ disattivati: number; nomi: string[] }> {
+    const soglia = new Date(Date.now() - giorni * 86_400_000);
+    const nascitaCampo = new Date('2026-08-26T00:00:00.000Z');
+    const fermi = await this.prisma.valet.findMany({
+      where: {
+        active: true,
+        placeholder: false,
+        OR: [
+          { user: { is: { lastLoginAt: { not: null, lt: soglia } } } },
+          // Mai entrato da quando si registra: fermo dalla nascita del campo.
+          ...(nascitaCampo < soglia
+            ? [
+                { user: { is: { lastLoginAt: null } } },
+                { user: null },
+              ]
+            : []),
+        ],
+      },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    if (fermi.length) {
+      await this.prisma.valet.updateMany({
+        where: { id: { in: fermi.map((v) => v.id) } },
+        data: { active: false },
+      });
+    }
+    return { disattivati: fermi.length, nomi: fermi.map((v) => `${v.lastName} ${v.firstName}`) };
+  }
+
   async findOne(id: string, user?: JwtUser) {
     if (user?.role === Role.VALET && user.valetId !== id) {
       throw new ForbiddenException('Accesso non consentito');
