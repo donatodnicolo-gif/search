@@ -152,15 +152,15 @@ export default function Ordini() {
         <View style={styles.tabAzioni}>
           {o.stato === 'da_incassare' ? (
             <>
-              {/* CHIUDI ORDINE: il lavoro è finito, si chiede la fattura a
+              {/* FATTURA: il lavoro è finito, si chiede il documento a
                   FINANCE. Non è «incassato» — i soldi arrivano dopo. */}
               {!o.fattura_numero ? (
                 <Pressable
                   style={[styles.btnMini, inCorso === o.id && { opacity: 0.5 }]}
                   disabled={inCorso === o.id}
-                  onPress={(e: any) => { e?.stopPropagation?.(); chiudiOrdine(o); }}
+                  onPress={(e: any) => { e?.stopPropagation?.(); chiediFattura(o); }}
                 >
-                  <Text style={styles.btnMiniTxt}>{inCorso === o.id ? 'Chiedo…' : 'Chiudi'}</Text>
+                  <Text style={styles.btnMiniTxt}>{inCorso === o.id ? 'Chiedo…' : 'Fattura'}</Text>
                 </Pressable>
               ) : null}
               <Pressable
@@ -202,22 +202,24 @@ export default function Ordini() {
    * là vuol dire «andata a fattura». Il riferimento resta sull'ordine: senza,
    * domani nessuno sa quale fattura è quella di questo lavoro.
    *
-   * ⚠️ Chiudere NON è incassare: i soldi arrivano dopo, e «Incassato» resta un
-   * gesto a parte. Confonderli farebbe risultare pagato ciò che è solo fatto.
+   * ⚠️ Fatturare NON è incassare: i soldi arrivano dopo, e «Incassato» resta
+   * un gesto a parte. Confonderli farebbe risultare pagato ciò che è solo
+   * fatturato. Il bottone si chiama «Fattura» (26/08 sera, richiesta
+   * dell'utente: prima diceva «Chiudi», che non diceva cosa succedeva).
    */
-  async function chiudiOrdine(o: OrdineConLuogo) {
+  async function chiediFattura(o: OrdineConLuogo) {
     if (inCorso) return;
     if (!o.valore) {
-      avvisa('Manca il valore', 'Un ordine senza importo non si fattura: scrivi quanto vale, poi lo si chiude.');
+      avvisa('Manca il valore', 'Un ordine senza importo non si fattura: scrivi quanto vale, poi si emette il documento.');
       return;
     }
     conferma(
-      'Chiudere l’ordine?',
+      'Emettere la fattura?',
       `${o.cliente} · ${importoBreve(o.valore)}.\n\n${
         o.proforma_numero
           ? `La pro-forma ${o.proforma_numero} passa a fatturata su FINANCE.`
           : 'Nasce la pro-forma su FINANCE e viene subito confermata (fatturata).'
-      }\n\nL’incasso resta un gesto a parte: chiudere non vuol dire pagato.`,
+      }\n\nL’incasso resta un gesto a parte: fatturato non vuol dire pagato.`,
       async () => {
         setInCorso(o.id);
         try {
@@ -234,16 +236,16 @@ export default function Ordini() {
             fatturaUrl: doc.url,
           });
           await carica();
-          avvisa('Ordine chiuso', `${doc.riferimento} è fatturata su Deluxy Partner.`);
+          avvisa('Fattura emessa', `${doc.riferimento} è fatturata su Deluxy Partner. L’incasso resta da segnare qui.`);
         } catch (e: any) {
           // ⚠️ Il messaggio di FINANCE si mostra INTERO: se il cliente là non
           // c'è dice «Partner non trovato» coi candidati, cioè cosa manca e dove.
-          avvisa('Non è stato chiuso', e?.message ?? 'Riprova.');
+          avvisa('Fattura non emessa', e?.message ?? 'Riprova.');
         } finally {
           setInCorso(null);
         }
       },
-      { testoConferma: 'Chiudi e fattura' },
+      { testoConferma: 'Emetti la fattura' },
     );
   }
 
@@ -396,9 +398,9 @@ export default function Ordini() {
                           <Pressable
                             style={[styles.btnGhost, inCorso === o.id && { opacity: 0.5 }]}
                             disabled={inCorso === o.id}
-                            onPress={() => chiudiOrdine(o)}
+                            onPress={() => chiediFattura(o)}
                           >
-                            <Text style={styles.btnGhostTxt}>{inCorso === o.id ? 'Chiedo…' : 'Chiudi ordine'}</Text>
+                            <Text style={styles.btnGhostTxt}>{inCorso === o.id ? 'Chiedo…' : 'Fattura'}</Text>
                           </Pressable>
                         ) : null}
                         <Pressable style={styles.btnGhost} onPress={() => chiediAcconto(o)}>
