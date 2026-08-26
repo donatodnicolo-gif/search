@@ -91,12 +91,27 @@ il check e al checkout non trova corrieri.
   dall'header esce `2026-undefined-9`, e Shopify accetta e salva `Data_Consegna` rotta.
   Fix: un carattere nei config (cart r.3345, product r.3445, en/ru identici).
 - **Doppio fail-open al checkout**: `fnCheckDelivery` legge `$("#DeliveryDate")` che
-  NON esiste (il campo vero è `#DeliveryDate_def`) → il controllo data non scatta mai;
-  se il ready muore (valore legacy tipo "mer 26 ago 2026" o "undefined" in
-  `delivery_date_val`) passa anche senza fascia, la tendina resta quella statica con
-  tutte le 15 option e nessun POST di `Data_Consegna` parte. I bottoni express saltano
-  comunque `fnCheckDelivery`. Nessuna validazione server degli attributi (accetta
-  fasce passate e date malformate via /cart/update.js).
+  NON esiste (il campo vero è `#DeliveryDate_def`, che peraltro ha `name="checkIn"`:
+  la data arriva all'ordine SOLO dal POST JS a /cart/update.js, mai dal submit del
+  form) → il ramo DATA non scatta mai (`undefined == ""` è false). ⚠️ Riverificato
+  ostile sul live 26/8 sera: `fnCheckDelivery` è morta A METÀ — il ramo FASCIA è
+  vivo (`#ddlFasciaOraria` esiste, prima option "") e dal bottone principale la
+  fascia vuota BLOCCA davvero il submit; «passa senza fascia» vale SOLO dagli
+  express (`<shopify-accelerated-checkout-cart>`: Shop Pay/PayPal/GPay vanno
+  dritti al wallet, nessuno script del tema li intercetta). Se il ready muore
+  (valore legacy tipo "mer 26 ago 2026" o "undefined" in `delivery_date_val`,
+  entrambi i ready senza try) la tendina resta quella statica con tutte le 15
+  option e nessun POST di `Data_Consegna` parte — dal bottone principale serve
+  comunque scegliere una fascia (anche passata). Nessuna validazione server degli
+  attributi (accetta fasce passate e date malformate via /cart/update.js; la
+  sanitizzazione dell'header rimuove solo le date SCADUTE, non le malformate —
+  `new Date('') < oggi` è false).
+  **Impatto vendite (verificato): ZERO ordini persi per costruzione** (fail-open
+  = lascia comprare) e ZERO ordini web sporchi osservati (42/42 con data ISO in
+  18 giorni: il POST on-ready mette l'attributo prima che l'utente clicchi
+  qualsiasi bottone, express compresi). Il rischio è latente/operativo, non di
+  fatturato. ⚠️ Un fix ingenuo che punta il guard a `#DeliveryDate_def` lo
+  trasformerebbe in un blocco NUOVO: quello sì potrebbe costare vendite.
 - **Il funnel web salva la data**: su 80 ordini reali (9-26/8) i 42 `web` hanno TUTTI
   `Data_Consegna` ISO + fascia HH-HH regolari; i 34 senza attributi sono TUTTI draft
   dello staff (9 senza data da nessuna parte). Il dato mancante è un problema del
