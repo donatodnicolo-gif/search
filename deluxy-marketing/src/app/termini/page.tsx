@@ -128,7 +128,7 @@ export default async function PaginaTermini({
           <div className="kpi">
             <div className="kpi-valore">{formattaEuro(spesaTot)}</div>
             <div className="kpi-etichetta">
-              Spesa · resa {resaTot != null ? `${resaTot.toFixed(2)}×` : "—"}
+              Spesa · resa {resaTot != null ? `${resaTot.toFixed(2).replace(".", ",")}×` : "—"}
             </div>
           </div>
           <div className="kpi">
@@ -300,9 +300,9 @@ export default async function PaginaTermini({
                         <td
                           className="num"
                           style={{ color: r == null ? "var(--text-tertiary)" : r >= be ? "var(--green)" : "var(--red)" }}
-                          title={`Break-even di ${t.campagna.brand}: ${be.toFixed(2)}×`}
+                          title={`Break-even di ${t.campagna.brand}: ${be.toFixed(2).replace(".", ",")}×`}
                         >
-                          {r != null ? `${r.toFixed(2)}×` : "—"}
+                          {r != null ? `${r.toFixed(2).replace(".", ",")}×` : "—"}
                         </td>
                         <td>
                           <form className="pill-scelta" style={{ gap: 4 }}>

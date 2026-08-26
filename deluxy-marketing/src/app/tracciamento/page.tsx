@@ -147,7 +147,7 @@ export default async function Tracciamento({
                       <td className="num">{formattaNumero(c.ordiniAttribuiti)}</td>
                       <td className="num">{formattaEuro(c.valoreAttribuito)}</td>
                       <td className="num" style={{ fontWeight: 600 }}>
-                        {c.roasReale != null ? `${c.roasReale.toFixed(2)}×` : "—"}
+                        {c.roasReale != null ? `${c.roasReale.toFixed(2).replace(".", ",")}×` : "—"}
                       </td>
                     </tr>
                     <tr>
@@ -158,16 +158,16 @@ export default async function Tracciamento({
                       <td className="num">{formattaNumero(Math.round(c.conversioniDichiarate))}</td>
                       <td className="num">{formattaEuro(c.valoreDichiarato)}</td>
                       <td className="num" style={{ fontWeight: 600 }}>
-                        {c.roasDichiarato != null ? `${c.roasDichiarato.toFixed(2)}×` : "—"}
+                        {c.roasDichiarato != null ? `${c.roasDichiarato.toFixed(2).replace(".", ",")}×` : "—"}
                       </td>
                     </tr>
                     <tr>
                       <td className="cella-muta">Distanza fra le due</td>
                       <td className="num cella-muta">
-                        {c.rapportoOrdini != null ? `${c.rapportoOrdini.toFixed(2)}×` : "—"}
+                        {c.rapportoOrdini != null ? `${c.rapportoOrdini.toFixed(2).replace(".", ",")}×` : "—"}
                       </td>
                       <td className="num cella-muta">
-                        {c.rapportoValore != null ? `${c.rapportoValore.toFixed(2)}×` : "—"}
+                        {c.rapportoValore != null ? `${c.rapportoValore.toFixed(2).replace(".", ",")}×` : "—"}
                       </td>
                       <td className="num cella-muta">spesa {formattaEuro(c.spesa)}</td>
                     </tr>

@@ -130,7 +130,7 @@ export async function OggiCampagna({
           <div className="kpi-etichetta">
             Conversioni di oggi · incasso
             {(riga?.ricavi ?? 0) > 0 && spesaOggi > 0 && (
-              <> · resa {((riga!.ricavi ?? 0) / spesaOggi).toFixed(1)}×</>
+              <> · resa {((riga!.ricavi ?? 0) / spesaOggi).toFixed(1).replace(".", ",")}×</>
             )}
             {(riga?.conversioni ?? 0) === 0 && <> — Google le consolida nelle ore dopo</>}
           </div>

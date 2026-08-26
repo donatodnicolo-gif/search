@@ -38,12 +38,12 @@ export function saluteCampagna(
     };
   }
   if (roas >= target) {
-    return { etichetta: "Performa", colore: "var(--green)", spiega: `ROAS ${roas.toFixed(1)}× sopra il target del brand (${target.toFixed(1)}× = 1,5× break-even)` };
+    return { etichetta: "Performa", colore: "var(--green)", spiega: `ROAS ${roas.toFixed(1).replace(".", ",")}× sopra il target del brand (${target.toFixed(1).replace(".", ",")}× = 1,5× break-even)` };
   }
   if (roas >= be) {
-    return { etichetta: "Nella media", colore: "var(--blue)", spiega: `ROAS ${roas.toFixed(1)}×: sopra il break-even del brand (${be.toFixed(1)}×) ma sotto il target (${target.toFixed(1)}×)` };
+    return { etichetta: "Nella media", colore: "var(--blue)", spiega: `ROAS ${roas.toFixed(1).replace(".", ",")}×: sopra il break-even del brand (${be.toFixed(1).replace(".", ",")}×) ma sotto il target (${target.toFixed(1).replace(".", ",")}×)` };
   }
-  return { etichetta: "Critica", colore: "var(--red)", spiega: `ROAS ${roas.toFixed(1)}× sotto il break-even del brand (${be.toFixed(1)}× = 1/margine, doc 10 §11)` };
+  return { etichetta: "Critica", colore: "var(--red)", spiega: `ROAS ${roas.toFixed(1).replace(".", ",")}× sotto il break-even del brand (${be.toFixed(1).replace(".", ",")}× = 1/margine, doc 10 §11)` };
 }
 
 // Categoria merceologica dedotta da nome campagna e landing → icona a tema.
@@ -112,7 +112,7 @@ export function giudizioKeyword(incasso: number, spesa: number): GiudizioKeyword
     return {
       etichetta: "Da scalare",
       colore: "var(--green)",
-      spiega: `Resa ${resa.toFixed(1)}×, molto sopra il target di 4×: alzare le offerte e presidiare la quota impressioni, è qui che c'è margine da prendere.`,
+      spiega: `Resa ${resa.toFixed(1).replace(".", ",")}×, molto sopra il target di 4×: alzare le offerte e presidiare la quota impressioni, è qui che c'è margine da prendere.`,
       consiglio: "vincente",
     };
   }
@@ -120,7 +120,7 @@ export function giudizioKeyword(incasso: number, spesa: number): GiudizioKeyword
     return {
       etichetta: "Buona",
       colore: "var(--green)",
-      spiega: `Resa ${resa.toFixed(1)}×: sopra il target di 4×. Tenerla attiva e proteggerla dalle variazioni di budget.`,
+      spiega: `Resa ${resa.toFixed(1).replace(".", ",")}×: sopra il target di 4×. Tenerla attiva e proteggerla dalle variazioni di budget.`,
       consiglio: "vincente",
     };
   }
@@ -128,7 +128,7 @@ export function giudizioKeyword(incasso: number, spesa: number): GiudizioKeyword
     return {
       etichetta: "Nella media",
       colore: "var(--blue)",
-      spiega: `Resa ${resa.toFixed(1)}×: sopra il break-even ma sotto il target. Migliorare pertinenza dell'annuncio e landing prima di toccare le offerte.`,
+      spiega: `Resa ${resa.toFixed(1).replace(".", ",")}×: sopra il break-even ma sotto il target. Migliorare pertinenza dell'annuncio e landing prima di toccare le offerte.`,
       consiglio: "attiva",
     };
   }
@@ -136,14 +136,14 @@ export function giudizioKeyword(incasso: number, spesa: number): GiudizioKeyword
     return {
       etichetta: "Marginale",
       colore: "var(--orange)",
-      spiega: `Resa ${resa.toFixed(1)}×: intorno al pareggio, non produce margine. Abbassare le offerte, restringere la corrispondenza o mettere in pausa.`,
+      spiega: `Resa ${resa.toFixed(1).replace(".", ",")}×: intorno al pareggio, non produce margine. Abbassare le offerte, restringere la corrispondenza o mettere in pausa.`,
       consiglio: "da_valutare",
     };
   }
   return {
     etichetta: "In perdita",
     colore: "var(--red)",
-    spiega: `Resa ${resa.toFixed(1)}×: incassa meno di quanto costa. Va fermata, salvo che serva come ricerca di volume dichiarata.`,
+    spiega: `Resa ${resa.toFixed(1).replace(".", ",")}×: incassa meno di quanto costa. Va fermata, salvo che serva come ricerca di volume dichiarata.`,
     consiglio: spesa >= 100 ? "esclusa" : "in_pausa",
   };
 }

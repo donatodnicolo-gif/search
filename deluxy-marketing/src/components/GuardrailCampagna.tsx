@@ -244,7 +244,7 @@ export async function GuardrailCampagna({
           </div>
           <div className="kpi">
             <div className="kpi-valore" style={{ fontSize: 20 }}>
-              {reale ? `${reale.min.toFixed(1)}-${reale.max.toFixed(1)}×` : "—"}
+              {reale ? `${reale.min.toFixed(1)}-${reale.max.toFixed(1).replace(".", ",")}×` : "—"}
             </div>
             <div className="kpi-etichetta" title="Doc 10 §3: le piattaforme sovrastimano 1,3-1,6× — il reale è il 60-75% del dichiarato">
               ROAS reale stimato (60-75% del dichiarato)

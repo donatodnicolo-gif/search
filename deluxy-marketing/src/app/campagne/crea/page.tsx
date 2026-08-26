@@ -193,7 +193,7 @@ export default async function CreaCampagna({
               <div className="kpi-riga">
                 <div className="kpi"><div className="kpi-etichetta">Campagne esaminate</div><div className="kpi-valore">{proposta.campagneEsaminate}</div></div>
                 <div className="kpi"><div className="kpi-etichetta">Spesa già fatta</div><div className="kpi-valore">{formattaEuro(proposta.spesaEsaminata)}</div></div>
-                <div className="kpi"><div className="kpi-etichetta">Break-even {ETICHETTA_BRAND[proposta.brand]}</div><div className="kpi-valore">{proposta.breakEven.toFixed(2)}×</div></div>
+                <div className="kpi"><div className="kpi-etichetta">Break-even {ETICHETTA_BRAND[proposta.brand]}</div><div className="kpi-valore">{proposta.breakEven.toFixed(2).replace(".", ",")}×</div></div>
                 <div className="kpi"><div className="kpi-etichetta">Keyword proposte</div><div className="kpi-valore">{proposta.keyword.length}</div></div>
               </div>
               {proposta.avvertenze.map((a, i) => (
@@ -221,7 +221,7 @@ export default async function CreaCampagna({
                             {k.testo}{" "}
                             {k.riscritta && <span className="tag-neutro">riscritta</span>}
                           </td>
-                          <td className="num"><b>{k.roas?.toFixed(1)}×</b></td>
+                          <td className="num"><b>{k.roas?.toFixed(1).replace(".", ",")}×</b></td>
                           <td className="num">{formattaEuro(k.spesa)}</td>
                           <td className="num">{formattaNumero(k.clic)}</td>
                           <td className="cella-sub">{k.daCampagna}</td>
@@ -243,7 +243,7 @@ export default async function CreaCampagna({
                       {proposta.sitelink.map((s, i) => (
                         <tr key={i}>
                           <td className="cella-nome">{s.testo}</td>
-                          <td className="num"><b>{s.roas?.toFixed(1)}×</b></td>
+                          <td className="num"><b>{s.roas?.toFixed(1).replace(".", ",")}×</b></td>
                           <td className="num">{formattaNumero(s.clic)}</td>
                         </tr>
                       ))}

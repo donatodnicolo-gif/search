@@ -48,7 +48,7 @@ export function candidataTraino(
   const roas = spesa30 > 0 ? ricavi30 / spesa30 : null;
   const quotaSpesa = spesaAccount30 > 0 ? spesa30 / spesaAccount30 : 0;
   if (roas != null && roas >= 1.5 * breakEvenRoas(brand) && quotaSpesa >= 0.15) {
-    return { candidata: true, motivo: `ROAS ${roas.toFixed(1)}× ≥ 1,5× break-even con il ${Math.round(quotaSpesa * 100)}% della spesa (soglia 15%)` };
+    return { candidata: true, motivo: `ROAS ${roas.toFixed(1).replace(".", ",")}× ≥ 1,5× break-even con il ${Math.round(quotaSpesa * 100)}% della spesa (soglia 15%)` };
   }
   return { candidata: false, motivo: null };
 }
@@ -93,7 +93,7 @@ export function valutaAlert(metriche: MetricaGiorno[], traino: boolean): AlertRi
   const spesa30 = somma(ultimi30, "spesa");
   const roas30 = spesa30 > 0 ? somma(ultimi30, "ricavi") / spesa30 : null;
   if (roas3 != null && roas30 != null && roas30 > 0 && spesa3 > 0 && roas3 < roas30 * 0.5) {
-    esiti.push({ tipo: "A3", livello: "arancio", messaggio: `Redditività: ROAS 3gg ${roas3.toFixed(1)}× sotto la metà del ROAS 30gg (${roas30.toFixed(1)}×)` });
+    esiti.push({ tipo: "A3", livello: "arancio", messaggio: `Redditività: ROAS 3gg ${roas3.toFixed(1).replace(".", ",")}× sotto la metà del ROAS 30gg (${roas30.toFixed(1).replace(".", ",")}×)` });
   }
 
   // A5 — segnali deboli: CTR −30% o CPM ×2 vs 7gg. Solo annotare (doc 11:

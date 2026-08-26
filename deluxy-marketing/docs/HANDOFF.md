@@ -336,6 +336,34 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐ RIFINITURA UX/UI TRASVERSALE (26/08/2026 sera)
+
+Richiesta utente («migliora UX e UI di tutta l'app»). Interventi che valgono
+su OGNI pagina, tutti dal design system — niente redesign, si chiudono gli
+scarti fra l'app e il DS:
+
+- **Focus ORO sui campi** (DS §Campi input): bordo `gold` + anello
+  `gold-soft` su input/select/textarea di moduli e filtri. Prima il focus
+  era un grigio appena percettibile.
+- **Focus-visible dappertutto** (DS principio 4): bottoni, pillole, voci di
+  sidebar, card cliccabili, matite, selettori — outline oro 2px. Prima chi
+  navigava con la tastiera attraversava la pagina alla cieca (solo
+  radio-carte e chip l'avevano).
+- **Ancoraggi liberati dalla topbar**: `[id] { scroll-margin-top: 84px }` +
+  scroll morbido. L'app vive di #ancore (op-…, #termini, #annunci) e il
+  salto atterrava con la testata coperta dalla barra sticky.
+- **Telefono**: padding pagina 22/14 (era 40/24 anche a 390px), titoli 24px,
+  e su puntatore «coarse» i bottoni small crescono a bersaglio da pollice —
+  le azioni restano TUTTE, si allarga il bersaglio (regola di casa).
+- **Scrollbar sottili** su tabelle/board/sidebar/modali, `::selection` oro,
+  `prefers-reduced-motion` rispettato, `.btn` active a scale(0.97) e
+  disabled 0.55 come da DS.
+- ⭐ **La virgola dei moltiplicatori**: 105 punti in 36 file stampavano
+  «3.35×» col PUNTO accanto a euro it-IT con la virgola. Rimpiazzo
+  meccanico `toFixed(N)}×` → `toFixed(N).replace(".", ",")}×` (script
+  split/join, niente regex — la trappola dei patch-script è nota), contati
+  prima (105) e dopo (0).
+
 ### ⭐⭐ LE ANALISI SI VEDONO DALL'ELENCO E LA LORO STORIA SULLA CAMPAGNA (26/08/2026 pomeriggio)
 
 Richiesta utente («dove vedo le analisi che sono state fatte? mettile

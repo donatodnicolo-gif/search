@@ -236,7 +236,7 @@ export async function chiediProposte(campagna: {
       campagna: campagna.nome,
       brand: campagna.brand,
       breakEvenRoas: be,
-      spiegaBreakEven: `Sopra ${be.toFixed(2)}× di resa (incasso ÷ spesa) la campagna guadagna, sotto perde.`,
+      spiegaBreakEven: `Sopra ${be.toFixed(2).replace(".", ",")}× di resa (incasso ÷ spesa) la campagna guadagna, sotto perde.`,
       righe: da.map((r) => ({
         tipo: r.tipo,
         testo: r.testo,

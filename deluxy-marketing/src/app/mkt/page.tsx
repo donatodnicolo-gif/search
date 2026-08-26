@@ -165,7 +165,7 @@ export default async function PaginaMkt({
         const s = spesaMkt(r);
         return s && s > 0 && r.vendite != null ? r.vendite / s : null;
       },
-      formato: (n) => (n == null ? "—" : `${n.toFixed(1)}×`),
+      formato: (n) => (n == null ? "—" : `${n.toFixed(1).replace(".", ",")}×`),
     },
   ];
 
@@ -349,7 +349,7 @@ export default async function PaginaMkt({
                                 key={`${c.chiave}-${i}`}
                                 valore={calcolaRos(b.ora)}
                                 prima={calcolaRos(b.prima)}
-                                formato={(n) => (n == null ? "—" : `${n.toFixed(1)}×`)}
+                                formato={(n) => (n == null ? "—" : `${n.toFixed(1).replace(".", ",")}×`)}
                                 tipo={c.tipo}
                               />
                             );

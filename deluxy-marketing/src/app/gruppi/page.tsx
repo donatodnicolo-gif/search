@@ -113,7 +113,7 @@ export default async function PaginaGruppi({
             <div className="kpi-etichetta">Conversioni</div>
           </div>
           <div className="kpi">
-            <div className="kpi-valore">{roasTotale != null ? `${roasTotale.toFixed(2)}×` : "—"}</div>
+            <div className="kpi-valore">{roasTotale != null ? `${roasTotale.toFixed(2).replace(".", ",")}×` : "—"}</div>
             <div className="kpi-etichetta">ROAS complessivo</div>
           </div>
         </div>

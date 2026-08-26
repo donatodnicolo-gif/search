@@ -63,7 +63,7 @@ export async function VenditeCampagna({
               {v.attribuite.scontrinoMedio != null &&
                 cifra(formattaEuro(v.attribuite.scontrinoMedio), "scontrino")}
               {kpi.ros != null &&
-                cifra(`${kpi.ros.toFixed(2)}×`, `ROS (be ${be.toFixed(2)}×)`, kpi.ros >= be ? "var(--green)" : "var(--red)")}
+                cifra(`${kpi.ros.toFixed(2).replace(".", ",")}×`, `ROS (be ${be.toFixed(2).replace(".", ",")}×)`, kpi.ros >= be ? "var(--green)" : "var(--red)")}
               {kpi.costoCliente != null && cifra(formattaEuro(kpi.costoCliente), "per cliente nuovo")}
               {kpi.costoConversione != null && cifra(formattaEuro(kpi.costoConversione), "per ordine")}
             </span>
@@ -100,11 +100,11 @@ export async function VenditeCampagna({
                 className="kpi-valore"
                 style={kpi.ros != null ? { color: kpi.ros >= be ? "var(--green)" : "var(--red)" } : undefined}
               >
-                {kpi.ros != null ? `${kpi.ros.toFixed(2)}×` : "—"}
+                {kpi.ros != null ? `${kpi.ros.toFixed(2).replace(".", ",")}×` : "—"}
               </div>
               <div className="kpi-etichetta">
                 ROS reale: venduto Shopify ÷ spesa ({formattaEuro(v.spesa)}). Break-even {campagna.brand}:{" "}
-                {be.toFixed(2)}×
+                {be.toFixed(2).replace(".", ",")}×
               </div>
             </div>
             <div className="kpi">
@@ -201,11 +201,11 @@ export async function VenditeCampagna({
                   className="kpi-valore"
                   style={stima.ros != null ? { color: stima.ros >= be ? "var(--green)" : "var(--red)" } : undefined}
                 >
-                  {stima.ros != null ? `${stima.ros.toFixed(2)}×` : "—"}
+                  {stima.ros != null ? `${stima.ros.toFixed(2).replace(".", ",")}×` : "—"}
                 </div>
                 <div className="kpi-etichetta">
                   {stima.scontrinoMedio != null
-                    ? `ROS stimato di cassa: scontrino medio ${formattaEuro(stima.scontrinoMedio)} × conversioni ÷ spesa. Break-even ${be.toFixed(2)}×`
+                    ? `ROS stimato di cassa: scontrino medio ${formattaEuro(stima.scontrinoMedio)} × conversioni ÷ spesa. Break-even ${be.toFixed(2).replace(".", ",")}×`
                     : "ROS stimato: manca uno scontrino medio su cui appoggiarlo"}
                 </div>
               </div>

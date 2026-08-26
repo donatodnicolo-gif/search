@@ -288,7 +288,7 @@ export default async function Dashboard({
           </div>
           <div className="kpi">
             <div className="kpi-valore" style={ros != null ? { color: ros >= 5 ? "var(--green)" : ros >= 3 ? "var(--text)" : "var(--red)" } : undefined}>
-              {ros != null ? `${ros.toFixed(1)}×` : "—"}
+              {ros != null ? `${ros.toFixed(1).replace(".", ",")}×` : "—"}
             </div>
             <div className="kpi-etichetta">
               {canaliMuti.length > 0 ? "ROS parziale: manca " + canaliMuti.map((c) => (c === "meta_ads" ? "Meta" : "Google")).join(" e ") : "ROS del periodo (vendite ÷ spesa ADV)"}
@@ -329,7 +329,7 @@ export default async function Dashboard({
             return (
               <a className="kpi" key={scope} href={`/mkt?scope=${scope}`}>
                 <div className="kpi-valore" style={r?.ros != null ? { color: r.ros >= 5 ? "var(--green)" : r.ros >= 3 ? "var(--text)" : "var(--red)" } : undefined}>
-                  {r?.ros != null ? `${r.ros.toFixed(1)}×` : "—"}
+                  {r?.ros != null ? `${r.ros.toFixed(1).replace(".", ",")}×` : "—"}
                 </div>
                 <div className="kpi-etichetta">
                   {etichetta}

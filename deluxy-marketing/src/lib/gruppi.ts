@@ -166,20 +166,20 @@ export function letturaRoas(
   const be = breakEvenRoas(brand);
   if (roas >= be * 1.5) {
     return {
-      testo: `${roas.toFixed(2)}×`,
+      testo: `${roas.toFixed(2).replace(".", ",")}×`,
       colore: "var(--green)",
       spiega: `Sopra il target (1,5× il break-even di ${be.toFixed(2)})`,
     };
   }
   if (roas >= be) {
     return {
-      testo: `${roas.toFixed(2)}×`,
+      testo: `${roas.toFixed(2).replace(".", ",")}×`,
       colore: "var(--blue)",
       spiega: `Sopra il break-even del brand (${be.toFixed(2)}), sotto il target di ${(be * 1.5).toFixed(2)}`,
     };
   }
   return {
-    testo: `${roas.toFixed(2)}×`,
+    testo: `${roas.toFixed(2).replace(".", ",")}×`,
     colore: "var(--red)",
     spiega: `Sotto il break-even del brand (${be.toFixed(2)}): a questo ritmo il gruppo perde`,
   };

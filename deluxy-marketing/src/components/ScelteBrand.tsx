@@ -88,11 +88,11 @@ export async function ScelteBrand({ periodo }: { periodo: Periodo }) {
               style={{ color: m != null ? (m >= be ? "var(--green)" : "var(--orange)") : "var(--text-tertiary)" }}
               title={
                 o.totale
-                  ? `Vendite ÷ spesa pubblicitaria di tutti i brand. Confrontato col break-even più severo dei tre (${be.toFixed(2)}× di Gifts)`
-                  : `Vendite ÷ spesa. Break-even di questo brand: ${be.toFixed(2)}×`
+                  ? `Vendite ÷ spesa pubblicitaria di tutti i brand. Confrontato col break-even più severo dei tre (${be.toFixed(2).replace(".", ",")}× di Gifts)`
+                  : `Vendite ÷ spesa. Break-even di questo brand: ${be.toFixed(2).replace(".", ",")}×`
               }
             >
-              {m != null ? `${m.toFixed(1)}×` : "—"}
+              {m != null ? `${m.toFixed(1).replace(".", ",")}×` : "—"}
               <i>MER</i>
             </div>
             <div className="card-brand-numeri">

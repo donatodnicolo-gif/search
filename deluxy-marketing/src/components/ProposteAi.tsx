@@ -232,7 +232,7 @@ export async function ProposteAi({
                     </td>
                     <td className="num">{formattaEuro(m.spesa)}</td>
                     <td className="num" style={{ fontWeight: 600 }}>
-                      {m.resa != null ? `${m.resa.toFixed(2)}×` : "—"}
+                      {m.resa != null ? `${m.resa.toFixed(2).replace(".", ",")}×` : "—"}
                     </td>
                     <td className="cella-muta" style={{ maxWidth: 340, whiteSpace: "normal" }}>{m.motivo}</td>
                     <td>

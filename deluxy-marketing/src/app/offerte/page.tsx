@@ -188,7 +188,7 @@ export default async function PaginaOfferte({
               </div>
               <div className="kpi">
                 <div className="kpi-valore">
-                  {spesaAdv > 0 ? `${(ricavoAdvTotale / spesaAdv).toFixed(1)}×` : "—"}
+                  {spesaAdv > 0 ? `${(ricavoAdvTotale / spesaAdv).toFixed(1).replace(".", ",")}×` : "—"}
                 </div>
                 <div className="kpi-etichetta">Ritorno sul pagato</div>
               </div>

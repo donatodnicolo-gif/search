@@ -147,7 +147,7 @@ ${regoleDiBrand(brand).map((r) => `- ${r}`).join("\n") || "- nessuna regola spec
 
 ATTENZIONE all'obiettivo: "vendite" conta gli acquisti e il ROAS si legge davvero; "contatti" è per i lead B2B, dove il valore conversione è simbolico e il ROAS NON va usato come giudizio. Non scegliere "vendite" per una campagna che raccoglie richieste.
 
-Il break-even di questo brand è ${breakEvenRoas(brand).toFixed(2)}×: un budget che non permette abbastanza clic per imparare è sprecato.`,
+Il break-even di questo brand è ${breakEvenRoas(brand).toFixed(2).replace(".", ",")}×: un budget che non permette abbastanza clic per imparare è sprecato.`,
     dati: {
       richiestaDellUtente: descrizione,
       brand,

@@ -656,7 +656,7 @@ export default async function SchedaCampagna({
                     : "Meta non ha risposto (o la campagna non ha erogato nel periodo)"
                 }
               >
-                {frequenzaMeta ? `${frequenzaMeta.frequenza.toFixed(1)}×` : "—"}
+                {frequenzaMeta ? `${frequenzaMeta.frequenza.toFixed(1).replace(".", ",")}×` : "—"}
               </div>
               <div className="kpi-etichetta">
                 Frequenza{frequenzaMeta ? ` · ${formattaNumero(frequenzaMeta.copertura)} persone` : ""}
@@ -714,7 +714,7 @@ export default async function SchedaCampagna({
             <div className="kpi-etichetta">Click</div>
           </div>
           <div className="kpi">
-            <div className="kpi-valore">{r != null ? `${r.toFixed(1)}×` : "—"}</div>
+            <div className="kpi-valore">{r != null ? `${r.toFixed(1).replace(".", ",")}×` : "—"}</div>
             <div className="kpi-etichetta">ROAS</div>
           </div>
           {/* Il budget sta fra i numeri perché è quello che si guarda insieme

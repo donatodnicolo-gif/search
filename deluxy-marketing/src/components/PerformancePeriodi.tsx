@@ -150,7 +150,7 @@ export async function PerformancePeriodi({
                   className="num"
                   style={{ fontWeight: 600, color: c.resa == null ? undefined : c.resa >= 3 ? "var(--green)" : c.resa < 1 ? "var(--red)" : undefined }}
                 >
-                  {c.resa != null ? `${c.resa.toFixed(1)}×` : "—"}
+                  {c.resa != null ? `${c.resa.toFixed(1).replace(".", ",")}×` : "—"}
                 </td>
                 {conFrequenza && (() => {
                   const fq = frequenze.get(c.chiave);
@@ -163,7 +163,7 @@ export async function PerformancePeriodi({
                       }}
                       title={fq ? `${formattaNumero(fq.copertura)} persone raggiunte` : "Meta non ha risposto per questa finestra"}
                     >
-                      {fq ? `${fq.frequenza.toFixed(1)}×` : "—"}
+                      {fq ? `${fq.frequenza.toFixed(1).replace(".", ",")}×` : "—"}
                     </td>
                   );
                 })()}

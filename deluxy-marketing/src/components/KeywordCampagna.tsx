@@ -272,8 +272,8 @@ export async function KeywordCampagna({
         ricerche che nessuno avrebbe scelto.
         {resaTotale != null && (
           <>
-            {" "}Nel complesso queste keyword rendono <b>{resaTotale.toFixed(2)}×</b> (break-even{" "}
-            {be.toFixed(2)}×).
+            {" "}Nel complesso queste keyword rendono <b>{resaTotale.toFixed(2).replace(".", ",")}×</b> (break-even{" "}
+            {be.toFixed(2).replace(".", ",")}×).
           </>
         )}
       </p>
@@ -345,7 +345,7 @@ export async function KeywordCampagna({
                   <td className="num cella-muta">{formattaNumero(k.conversioni)}</td>
                   <td className="num">{formattaEuro(k.incasso)}</td>
                   <td className="num" style={{ color: colore, fontWeight: 600 }}>
-                    {resa != null ? `${resa.toFixed(2)}×` : "—"}
+                    {resa != null ? `${resa.toFixed(2).replace(".", ",")}×` : "—"}
                   </td>
                   <td className="num cella-muta">
                     {/* Il punteggio di qualità non è un voto estetico: sotto 5
@@ -439,7 +439,7 @@ export async function KeywordCampagna({
         {nomiCompatibili.length > 1 && (
           <> (nomi riconosciuti: {nomiCompatibili.map((n) => `«${n}»`).join(", ")})</>
         )}
-        . La resa è colorata sul break-even di {brand} ({be.toFixed(2)}×); il punteggio di qualità è
+        . La resa è colorata sul break-even di {brand} ({be.toFixed(2).replace(".", ",")}×); il punteggio di qualità è
         in rosso sotto 5, dove si paga di più per la stessa posizione.
         Da <a href="/keywords" style={{ color: "var(--blue)" }}>Keywords</a> si mettono in pausa o si
         escludono, passando dalla coda approvata.

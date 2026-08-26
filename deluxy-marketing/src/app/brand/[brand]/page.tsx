@@ -189,7 +189,7 @@ export default async function PaginaBrand({
             </h1>
             <p className="page-sub">
               {periodo.corrente.etichetta} · pubblicità e vendite nello stesso posto. Break-even del
-              brand <b>{be.toFixed(2)}×</b> (margine {Math.round((1 / be) * 100)}%).
+              brand <b>{be.toFixed(2).replace(".", ",")}×</b> (margine {Math.round((1 / be) * 100)}%).
             </p>
           </div>
           {/* ⚠️ LE LETTURE DISPONIBILI, in alto a destra (richiesta utente,
@@ -320,7 +320,7 @@ export default async function PaginaBrand({
                                   : "var(--red)",
                           }}
                         >
-                          {c.roas != null ? `${c.roas.toFixed(2)}×` : "—"}
+                          {c.roas != null ? `${c.roas.toFixed(2).replace(".", ",")}×` : "—"}
                         </td>
                         <td className="num cella-muta">{c.conversioni.toFixed(0)}</td>
                         <td className="num cella-muta">{c.cpa != null ? formattaEuro(c.cpa) : "—"}</td>
@@ -350,7 +350,7 @@ export default async function PaginaBrand({
                 può superare le vendite Shopify vere del periodo ({formattaEuro(ora.venditeTotali)}).
                 Le vendite Shopify <b>non si sanno spezzare per canale</b> — l&apos;UTM c&apos;è su una
                 minoranza di ordini — quindi il MER resta un numero di brand e questa tabella non
-                finge di poterlo dividere. Il ROAS è colorato sul break-even di {ETICHETTA_BRAND[brand]} ({be.toFixed(2)}×).
+                finge di poterlo dividere. Il ROAS è colorato sul break-even di {ETICHETTA_BRAND[brand]} ({be.toFixed(2).replace(".", ",")}×).
               </p>
             </>
           )}
@@ -373,7 +373,7 @@ export default async function PaginaBrand({
           </div>
           <div className="kpi">
             <div className="kpi-valore" style={merOra != null ? { color: merOra >= be ? "var(--green)" : "var(--orange)" } : undefined}>
-              {merOra != null ? `${merOra.toFixed(2)}×` : "—"}
+              {merOra != null ? `${merOra.toFixed(2).replace(".", ",")}×` : "—"}
             </div>
             <div className="kpi-etichetta">
               MER — tutte le vendite / tutta la spesa · Δ <Delta ora={merOra ?? 0} prima={merPrima ?? 0} />
@@ -381,11 +381,11 @@ export default async function PaginaBrand({
           </div>
           <div className="kpi">
             <div className="kpi-valore" style={roasOra != null ? { color: roasOra >= be ? "var(--green)" : "var(--red)" } : undefined}>
-              {roasOra != null ? `${roasOra.toFixed(2)}×` : "—"}
+              {roasOra != null ? `${roasOra.toFixed(2).replace(".", ",")}×` : "—"}
             </div>
             <div className="kpi-etichetta">
               ROAS dichiarato · reale stimato{" "}
-              {roasOra != null ? `${(roasOra * 0.6).toFixed(1)}–${(roasOra * 0.75).toFixed(1)}×` : "—"}
+              {roasOra != null ? `${(roasOra * 0.6).toFixed(1)}–${(roasOra * 0.75).toFixed(1).replace(".", ",")}×` : "—"}
             </div>
           </div>
           <div className="kpi">
@@ -407,7 +407,7 @@ export default async function PaginaBrand({
           <div className="nota-info">
             <span className="nota-icona">◈</span>
             <span>
-              <b>La piattaforma si attribuisce {scost.toFixed(1)}× le vendite tracciate da Shopify</b>{" "}
+              <b>La piattaforma si attribuisce {scost.toFixed(1).replace(".", ",")}× le vendite tracciate da Shopify</b>{" "}
               ({formattaEuro(ora.ricaviPiattaforma)} dichiarati contro {formattaEuro(ora.venditeDaCampagne)} veri).
               È il normale scarto fra last-click e view-through: per decidere usa il MER e le vendite
               Shopify, non il ROAS dichiarato (doc 10 §3).
@@ -529,7 +529,7 @@ export default async function PaginaBrand({
                                 {lead ? "n/d" : ric > 0 ? formattaEuro(ric) : "—"}
                               </td>
                               <td className="num" style={{ fontWeight: 600, color: lead ? "var(--text-tertiary)" : r != null ? (r >= be ? "var(--green)" : "var(--red)") : undefined }}>
-                                {lead ? "n/d" : r != null ? `${r.toFixed(1)}×` : "—"}
+                                {lead ? "n/d" : r != null ? `${r.toFixed(1).replace(".", ",")}×` : "—"}
                               </td>
                             </tr>
                           );

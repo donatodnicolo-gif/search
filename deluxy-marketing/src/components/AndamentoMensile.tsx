@@ -103,7 +103,7 @@ export function AndamentoMensile({
               <span className="num">{formattaNumero(m.tot.click)}</span>
               <span className="num">{formattaNumero(m.tot.conversioni)}</span>
               <span className="num">{formattaEuro(m.tot.ricavi)}</span>
-              <span className="num">{r != null ? `${r.toFixed(1)}×` : "—"}</span>
+              <span className="num">{r != null ? `${r.toFixed(1).replace(".", ",")}×` : "—"}</span>
             </summary>
 
             <div className="mese-giorni">
@@ -119,7 +119,7 @@ export function AndamentoMensile({
                     <span className="num">{formattaNumero(g.click)}</span>
                     <span className="num">{formattaNumero(g.conversioni)}</span>
                     <span className="num">{formattaEuro(g.ricavi)}</span>
-                    <span className="num">{rg != null ? `${rg.toFixed(1)}×` : "—"}</span>
+                    <span className="num">{rg != null ? `${rg.toFixed(1).replace(".", ",")}×` : "—"}</span>
                   </div>
                 );
               })}

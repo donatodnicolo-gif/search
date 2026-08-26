@@ -102,7 +102,7 @@ export async function SegmentiCampagna({ campagnaId, brand }: { campagnaId: stri
                           </td>
                           <td className="num cella-muta">{formattaNumero(r.conversioni)}</td>
                           <td className="num" style={{ color: colore, fontWeight: 600 }}>
-                            {resa != null ? `${resa.toFixed(2)}×` : "—"}
+                            {resa != null ? `${resa.toFixed(2).replace(".", ",")}×` : "—"}
                           </td>
                         </tr>
                       );
@@ -115,7 +115,7 @@ export async function SegmentiCampagna({ campagnaId, brand }: { campagnaId: stri
         })}
       </div>
       <p className="cella-sub" style={{ marginTop: 10, whiteSpace: "normal" }}>
-        Se un dispositivo o un giorno stanno sotto il break-even di {brand} ({be.toFixed(2)}×) mentre
+        Se un dispositivo o un giorno stanno sotto il break-even di {brand} ({be.toFixed(2).replace(".", ",")}×) mentre
         un altro sta sopra, la media di campagna li nasconde entrambi: è lì che si guadagna
         spostando, non tagliando.
       </p>

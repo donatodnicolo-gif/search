@@ -140,7 +140,13 @@ a { color: inherit; text-decoration: none; }
   transition: background 160ms var(--ease), border-color 160ms var(--ease);
 }
 .filtri input[type="search"] { flex: 1 1 220px; min-width: 180px; }
-.filtri input[type="search"]:focus, .filtri select:focus { background: var(--surface); border-color: var(--hairline-strong); }
+/* Focus ORO, come dice il design system (§Campi input): bordo gold + anello
+   gold-soft. Prima era un grigio appena percettibile: chi compila un modulo
+   lungo perdeva il segno di dove stava scrivendo. */
+.filtri input[type="search"]:focus, .filtri select:focus {
+  background: var(--surface); border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
+}
 .filtri select { cursor: pointer; }
 
 /* ---------- Bottoni ---------- */
@@ -152,8 +158,8 @@ a { color: inherit; text-decoration: none; }
   transition: background 160ms var(--ease), transform 160ms var(--ease);
 }
 .btn:hover { background: var(--ink-hover); }
-.btn:active { transform: scale(0.98); }
-.btn:disabled { opacity: .5; cursor: default; }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 .btn-secondario { background: var(--fill); color: var(--text); }
 .btn-secondario:hover { background: var(--fill-hover); }
 .btn.small { padding: 5px 12px; font-size: 12.5px; }
@@ -203,7 +209,10 @@ tbody tr:hover { background: var(--fill); }
   border-radius: var(--radius-m); padding: 9px 12px; outline: none;
   transition: background 160ms var(--ease), border-color 160ms var(--ease); resize: vertical;
 }
-.campo-modulo input:focus, .campo-modulo select:focus, .campo-modulo textarea:focus { background: var(--surface); border-color: var(--hairline-strong); }
+.campo-modulo input:focus, .campo-modulo select:focus, .campo-modulo textarea:focus {
+  background: var(--surface); border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
+}
 .azioni-modulo { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
 .avviso-errore {
   padding: 10px 14px; margin-bottom: 14px;
@@ -1176,4 +1185,90 @@ tbody tr:hover { background: var(--fill); }
   border: 1px dashed rgba(184, 150, 62, .55);
   color: var(--gold-strong, #8a6f2e);
   font-size: .88em; font-style: italic; white-space: nowrap;
+}
+
+/* ============================================================= */
+/* ====== Rifinitura UX/UI trasversale (26/08/2026) ============ */
+/* Interventi dal design system che valgono su OGNI pagina:      */
+/* focus visibile, ancoraggi sotto la topbar, touch, motion.     */
+/* ============================================================= */
+
+/* --- Il focus si vede, ovunque (DS, principio 4) ---
+   Radio-carte e chip l'avevano già; bottoni, link, pillole e selettori no:
+   chi naviga con la tastiera attraversava la pagina alla cieca. Oro come
+   sui campi: un solo linguaggio per «sei qui». */
+.btn:focus-visible,
+.pill-opt:focus-visible,
+.sb-item:focus-visible,
+.toggle-sidebar:focus-visible,
+.matita:focus-visible,
+.modale-chiudi:focus-visible,
+.selettore-stato:focus-visible,
+.kw-porta-apri:focus-visible,
+.link-come-testo:focus-visible,
+.ritorno:focus-visible,
+.tag-link:focus-visible,
+.card-campagna:focus-visible,
+.board-card:focus-visible,
+.card-brand:focus-visible {
+  outline: 2px solid var(--gold); outline-offset: 2px;
+}
+
+/* --- Gli ancoraggi non finiscono più sotto la topbar sticky ---
+   L'app vive di #ancore (op-…, #termini, #annunci, #elenco): il salto
+   atterrava con la testata coperta dalla barra fissa e il primo elemento
+   mezzo nascosto — sembrava che il link avesse sbagliato punto. */
+[id] { scroll-margin-top: 84px; }
+html { scroll-behavior: smooth; }
+
+/* --- Link di ritorno e URL: l'affordance del sottolineato --- */
+.ritorno:hover { text-decoration: underline; }
+
+/* --- Selezione del testo nel colore di casa --- */
+::selection { background: rgba(184, 150, 62, 0.22); }
+
+/* --- Scrollbar sottili dove si scorre dentro la pagina ---
+   Le barre di sistema spesse spezzavano le card; qui diventano un filo
+   che compare solo dove serve. */
+.tabella-wrap, .board, .sidebar, .modale-elenco, .modale-tradotto, .codice-blocco {
+  scrollbar-width: thin;
+  scrollbar-color: var(--fill-active) transparent;
+}
+.tabella-wrap::-webkit-scrollbar, .board::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar, .modale-elenco::-webkit-scrollbar,
+.modale-tradotto::-webkit-scrollbar, .codice-blocco::-webkit-scrollbar {
+  width: 8px; height: 8px;
+}
+.tabella-wrap::-webkit-scrollbar-thumb, .board::-webkit-scrollbar-thumb,
+.sidebar::-webkit-scrollbar-thumb, .modale-elenco::-webkit-scrollbar-thumb,
+.modale-tradotto::-webkit-scrollbar-thumb, .codice-blocco::-webkit-scrollbar-thumb {
+  background: var(--fill-active); border-radius: 999px;
+}
+
+/* --- Telefono: pagina che respira e dita che ci stanno ---
+   Il padding desktop (40px) su uno schermo da 390px mangiava un quinto
+   della larghezza; e i bottoni «small» da 5px di padding erano bersagli
+   da mouse, non da pollice. Le azioni restano TUTTE: si allarga il
+   bersaglio, non si toglie il bottone. */
+@media (max-width: 800px) {
+  .main { padding: 22px 14px 48px; }
+  .page-title { font-size: 24px; }
+  .scheda { padding: 18px 16px; }
+  .kpi { padding: 13px 14px; }
+  .kpi-valore { font-size: 22px; }
+}
+@media (pointer: coarse) {
+  .btn.small { padding: 8px 14px; font-size: 13px; }
+  .pill-opt { padding: 6px 13px; }
+  .selettore-stato { padding-top: 6px; padding-bottom: 6px; }
+}
+
+/* --- Chi chiede meno movimento, lo ottiene davvero --- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

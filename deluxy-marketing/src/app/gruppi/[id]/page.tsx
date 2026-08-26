@@ -1313,7 +1313,7 @@ export default async function SchedaGruppo({
                               style={{ color: g.colore, fontWeight: 600 }}
                               title={g.spiega}
                             >
-                              {n.spesa > 0 ? `${(n.incasso / n.spesa).toFixed(2)}×` : "—"}
+                              {n.spesa > 0 ? `${(n.incasso / n.spesa).toFixed(2).replace(".", ",")}×` : "—"}
                             </td>
                             <td className="num cella-muta">{k.punteggioQualita ?? "—"}</td>
                             <td>
@@ -1564,8 +1564,8 @@ export default async function SchedaGruppo({
                               r >= be * 1.5 ? "var(--green)" :
                               r >= be ? "var(--blue)" : "var(--red)";
                             return (
-                              <td className="num" style={{ color: colore, fontWeight: r != null ? 600 : undefined }} title={r != null ? `Break-even del brand: ${be.toFixed(2)}×` : undefined}>
-                                {r != null ? `${r.toFixed(2)}×` : "—"}
+                              <td className="num" style={{ color: colore, fontWeight: r != null ? 600 : undefined }} title={r != null ? `Break-even del brand: ${be.toFixed(2).replace(".", ",")}×` : undefined}>
+                                {r != null ? `${r.toFixed(2).replace(".", ",")}×` : "—"}
                               </td>
                             );
                           })()}

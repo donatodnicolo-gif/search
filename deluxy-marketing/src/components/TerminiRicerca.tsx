@@ -411,7 +411,7 @@ export async function TerminiRicerca({
                   <td className="num cella-muta">{formattaNumero(t.conversioni)}</td>
                   <td className="num">{formattaEuro(ricavi)}</td>
                   <td className="num" style={{ color: colore, fontWeight: 600 }}>
-                    {resa != null ? `${resa.toFixed(2)}×` : "—"}
+                    {resa != null ? `${resa.toFixed(2).replace(".", ",")}×` : "—"}
                   </td>
                   <td>
                     {t.stato === "nuovo" ? (
@@ -508,7 +508,7 @@ export async function TerminiRicerca({
 
       <p className="cella-sub" style={{ marginTop: 10, whiteSpace: "normal" }}>
         &quot;Escludi&quot; non tocca Google: mette in coda una <b>negativa</b> sulla campagna, da approvare
-        in Operazioni. La resa è colorata sul break-even di {brand} ({be.toFixed(2)}×).
+        in Operazioni. La resa è colorata sul break-even di {brand} ({be.toFixed(2).replace(".", ",")}×).
         {base && (
           <>
             {" "}Le colonne si ordinano cliccandole. L&apos;elenco resta comunque quello dei{" "}

@@ -378,7 +378,7 @@ export default async function Estensioni({
                           className="num"
                           style={{ fontWeight: 600, color: resa == null ? undefined : resa >= 3 ? "var(--green)" : resa < 1 ? "var(--red)" : undefined }}
                         >
-                          {resa != null ? `${resa.toFixed(1)}×` : "—"}
+                          {resa != null ? `${resa.toFixed(1).replace(".", ",")}×` : "—"}
                         </td>
                       </tr>
                     );

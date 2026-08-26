@@ -393,7 +393,7 @@ export default async function PaginaKeywords({
             <div className="kpi-etichetta">Spesa</div>
           </div>
           <div className="kpi">
-            <div className="kpi-valore">{totSpesa > 0 ? `${(totIncasso / totSpesa).toFixed(1)}×` : "—"}</div>
+            <div className="kpi-valore">{totSpesa > 0 ? `${(totIncasso / totSpesa).toFixed(1).replace(".", ",")}×` : "—"}</div>
             <div className="kpi-etichetta">Resa complessiva</div>
           </div>
         </div>
@@ -474,7 +474,7 @@ export default async function PaginaKeywords({
                   <span className="tessera-conta">{del.length} keyword</span>
                 </span>
                 <span className="tessera-resa">
-                  <b>{spesa > 0 ? `${(incasso / spesa).toFixed(1)}×` : "—"}</b>
+                  <b>{spesa > 0 ? `${(incasso / spesa).toFixed(1).replace(".", ",")}×` : "—"}</b>
                   <i>{formattaEuro(incasso)}</i>
                 </span>
               </a>
@@ -507,7 +507,7 @@ export default async function PaginaKeywords({
                 {cat.nome} ({del.length})
                 <span style={{ marginLeft: "auto", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
                   {formattaEuro(incassoCat)} incasso · {formattaEuro(spesaCat)} spesa ·{" "}
-                  {spesaCat > 0 ? `${(incassoCat / spesaCat).toFixed(1)}×` : "—"}
+                  {spesaCat > 0 ? `${(incassoCat / spesaCat).toFixed(1).replace(".", ",")}×` : "—"}
                 </span>
                 <a className="btn small btn-secondario" href={link({ tema: null })}>Chiudi</a>
               </div>
@@ -657,7 +657,7 @@ export default async function PaginaKeywords({
                         </td>
                         <td className="num cella-muta">{formattaEuro(k.spesa)}</td>
                         <td className="num" style={k.resa != null && k.resa < 1 && k.spesa > 30 ? { color: "var(--red)", fontWeight: 600 } : undefined}>
-                          {k.resa != null ? `${k.resa.toFixed(1)}×` : "—"}
+                          {k.resa != null ? `${k.resa.toFixed(1).replace(".", ",")}×` : "—"}
                         </td>
                       </tr>
                       );

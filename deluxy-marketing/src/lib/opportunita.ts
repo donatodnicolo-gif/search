@@ -120,7 +120,7 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
       chiave: "sotto-break-even",
       titolo: `Riportare "${d.campagna.nome}" sopra il break-even`,
       perche:
-        `ROAS 30 giorni ${roas30.toFixed(2)}× contro un break-even di ${be.toFixed(2)}× per ${d.campagna.brand}: ` +
+        `ROAS 30 giorni ${roas30.toFixed(2).replace(".", ",")}× contro un break-even di ${be.toFixed(2).replace(".", ",")}× per ${d.campagna.brand}: ` +
         `su ${spesa30.toFixed(0)} € spesi la campagna sta perdendo. Prima le keyword e i gruppi peggiori, poi il budget.`,
       priorita: "alta",
     });
@@ -136,7 +136,7 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
         titolo: `Decidere che fare del gruppo "${g.nome}"`,
         perche:
           `Si prende il ${Math.round(quota * 100)}% della spesa della campagna (${g.spesa.toFixed(0)} €) e rende ` +
-          `${g.roas.toFixed(2)}× contro un break-even di ${be.toFixed(2)}×. Da lì si può metterlo in pausa passando dalla coda approvata.`,
+          `${g.roas.toFixed(2).replace(".", ",")}× contro un break-even di ${be.toFixed(2).replace(".", ",")}×. Da lì si può metterlo in pausa passando dalla coda approvata.`,
         priorita: "alta",
         dove: `/gruppi/${g.id}`,
       });
@@ -146,7 +146,7 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
         chiave: `gruppo-vincente-${g.id}`,
         titolo: `Dare più spazio al gruppo "${g.nome}"`,
         perche:
-          `${g.roas.toFixed(2)}× su ${g.spesa.toFixed(0)} € spesi, sopra il target di ${(be * 1.5).toFixed(2)}×. ` +
+          `${g.roas.toFixed(2).replace(".", ",")}× su ${g.spesa.toFixed(0)} € spesi, sopra il target di ${(be * 1.5).toFixed(2).replace(".", ",")}×. ` +
           `Vale la pena guardare se è limitato dal budget della campagna prima di alzare la spesa altrove.`,
         priorita: "media",
         dove: `/gruppi/${g.id}`,
@@ -231,7 +231,7 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
         perche:
           `Il ${Math.round(d.copertura.persaBudget * 100)}% delle ricerche buone non ci vede perché il budget finisce ` +
           `(quota impressioni ${Math.round(d.copertura.quota * 100)}%). Questa è l'unica situazione in cui alzare il budget ` +
-          `porta davvero altro volume${roas30 != null && roas30 >= be ? `, e qui la campagna rende ${roas30.toFixed(2)}× sopra il pari` : ""}.`,
+          `porta davvero altro volume${roas30 != null && roas30 >= be ? `, e qui la campagna rende ${roas30.toFixed(2).replace(".", ",")}× sopra il pari` : ""}.`,
         priorita: roas30 != null && roas30 >= be ? "alta" : "media",
       });
     }
@@ -278,8 +278,8 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
         chiave: `segmento-${s.tipo}-${s.valore}`,
         titolo: `Guardare ${ETICHETTA_SEGMENTO[s.valore] ?? s.valore} su "${d.campagna.nome}"`,
         perche:
-          `Si prende il ${Math.round(quota * 100)}% della spesa (${spesa.toFixed(0)} €) e rende ${resa.toFixed(2)}×, ` +
-          `molto sotto il break-even di ${be.toFixed(2)}×. Un correttivo di offerta su questo taglio vale quanto una keyword esclusa.`,
+          `Si prende il ${Math.round(quota * 100)}% della spesa (${spesa.toFixed(0)} €) e rende ${resa.toFixed(2).replace(".", ",")}×, ` +
+          `molto sotto il break-even di ${be.toFixed(2).replace(".", ",")}×. Un correttivo di offerta su questo taglio vale quanto una keyword esclusa.`,
         priorita: "media",
       });
     }

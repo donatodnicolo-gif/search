@@ -93,8 +93,8 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
 
         {/* ——— quanto rende ——— */}
         <td className="num" style={{ borderLeft: BORDO, fontWeight: 700 }}>
-          {r.ros != null ? `${r.ros.toFixed(1)}×` : "—"}
-          {r.rosPiano != null && <div className="cella-sub">obiettivo {r.rosPiano.toFixed(1)}×</div>}
+          {r.ros != null ? `${r.ros.toFixed(1).replace(".", ",")}×` : "—"}
+          {r.rosPiano != null && <div className="cella-sub">obiettivo {r.rosPiano.toFixed(1).replace(".", ",")}×</div>}
         </td>
         {/* Il ROS dice quante VOLTE torna l'euro speso; questo dice quanti EURO
             restano. Sono due domande diverse, e la seconda è quella che si

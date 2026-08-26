@@ -279,7 +279,7 @@ export async function propostaCampagna(opzioni: {
   }
   if (keyword.length === 0) {
     avvertenze.push(
-      `Nessuna keyword di «${categoria}» ha superato il break-even di ${brand} (${breakEven.toFixed(2)}×) con almeno ${MIN_CLIC_KEYWORD} clic e ${MIN_SPESA_KEYWORD} € di spesa. Non è un errore: vuol dire che su questa categoria non abbiamo ancora niente di provato.`
+      `Nessuna keyword di «${categoria}» ha superato il break-even di ${brand} (${breakEven.toFixed(2).replace(".", ",")}×) con almeno ${MIN_CLIC_KEYWORD} clic e ${MIN_SPESA_KEYWORD} € di spesa. Non è un errore: vuol dire che su questa categoria non abbiamo ancora niente di provato.`
     );
   }
 

@@ -192,7 +192,7 @@ function leggi(
     return {
       esito: "sovrastima",
       testo:
-        `La piattaforma si attribuisce ${rapportoValore.toFixed(1)}× il valore che Shopify le riconosce. ` +
+        `La piattaforma si attribuisce ${rapportoValore.toFixed(1).replace(".", ",")}× il valore che Shopify le riconosce. ` +
         `Una parte è fisiologica (finestre di attribuzione, view-through, più dispositivi), ma sopra il doppio ` +
         `conviene decidere quale numero si usa per giudicare — e usare sempre quello.`,
     };
@@ -202,14 +202,14 @@ function leggi(
       esito: "sottostima",
       testo:
         `La piattaforma si attribuisce meno della metà di quello che Shopify le riconosce ` +
-        `(${rapportoValore.toFixed(2)}×): sta ottimizzando su un segnale più povero della realtà, e quindi ` +
+        `(${rapportoValore.toFixed(2).replace(".", ",")}×): sta ottimizzando su un segnale più povero della realtà, e quindi ` +
         `sta imparando peggio di quanto potrebbe.`,
     };
   }
   return {
     esito: "ok",
     testo:
-      `Le due campane si somigliano (${rapportoValore.toFixed(2)}× sul valore): scarto dentro il fisiologico ` +
+      `Le due campane si somigliano (${rapportoValore.toFixed(2).replace(".", ",")}× sul valore): scarto dentro il fisiologico ` +
       `delle finestre di attribuzione.`,
   };
 }

@@ -471,7 +471,7 @@ export default async function PaginaCampagne({
                             </span>
                             <span>
                               <b style={r != null ? { color: salute.colore } : undefined}>
-                                {r != null ? `${r.toFixed(1)}×` : "—"}
+                                {r != null ? `${r.toFixed(1).replace(".", ",")}×` : "—"}
                               </b>
                               <i>ROAS</i>
                             </span>
@@ -558,7 +558,7 @@ export default async function PaginaCampagne({
                         <td className="cella-muta">{ETICHETTA_BRAND[c.brand] ?? c.brand}</td>
                         <td className="num">{sp > 0 ? formattaEuro(sp) : "—"}</td>
                         <td className="num">{ri > 0 ? formattaEuro(ri) : "—"}</td>
-                        <td className="num">{r != null ? `${r.toFixed(1)}×` : "—"}</td>
+                        <td className="num">{r != null ? `${r.toFixed(1).replace(".", ",")}×` : "—"}</td>
                         <td className="cella-muta">{ultimo ? formattaData(ultimo) : "mai partita"}</td>
                       </tr>
                     );

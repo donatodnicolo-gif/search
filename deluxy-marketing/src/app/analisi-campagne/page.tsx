@@ -232,10 +232,10 @@ export default async function AnalisiCampagne({
                 </div>
               </div>
               <div className="kpi">
-                <div className="kpi-valore">{roasOra != null ? `${roasOra.toFixed(2)}×` : "—"}</div>
+                <div className="kpi-valore">{roasOra != null ? `${roasOra.toFixed(2).replace(".", ",")}×` : "—"}</div>
                 <div className="kpi-etichetta">
-                  ROAS{brand ? ` · break-even ${breakEvenRoas(brand).toFixed(1)}×` : ""} · reale stimato{" "}
-                  {roasOra != null ? `${(roasOra * 0.6).toFixed(1)}–${(roasOra * 0.75).toFixed(1)}×` : "—"}
+                  ROAS{brand ? ` · break-even ${breakEvenRoas(brand).toFixed(1).replace(".", ",")}×` : ""} · reale stimato{" "}
+                  {roasOra != null ? `${(roasOra * 0.6).toFixed(1)}–${(roasOra * 0.75).toFixed(1).replace(".", ",")}×` : "—"}
                 </div>
               </div>
               <div className="kpi">
@@ -293,7 +293,7 @@ export default async function AnalisiCampagne({
                       <>
                         La pubblicità pesa il <b>{(atteso.incidenzaAdv * 100).toFixed(1)}%</b> sul venduto;
                         con un margine del {Math.round(atteso.margineUsato * 100)}% il pareggio arriva a{" "}
-                        <b>{atteso.pareggio.toFixed(2)}×</b> di ritorno.{" "}
+                        <b>{atteso.pareggio.toFixed(2).replace(".", ",")}×</b> di ritorno.{" "}
                       </>
                     )}
                     <b>Non è un utile.</b> È il margine lordo di prodotto meno la pubblicità: sotto non
@@ -331,9 +331,9 @@ export default async function AnalisiCampagne({
                             <td>{formattaEuro(r.spesa)}</td>
                             <td>{formattaEuro(r.ricavi)}</td>
                             <td style={{ fontWeight: 600, color: ro != null ? (ro >= be ? "var(--green)" : "var(--red)") : undefined }}>
-                              {ro != null ? `${ro.toFixed(2)}×` : "—"}
+                              {ro != null ? `${ro.toFixed(2).replace(".", ",")}×` : "—"}
                             </td>
-                            <td className="cella-muta">{be.toFixed(1)}×</td>
+                            <td className="cella-muta">{be.toFixed(1).replace(".", ",")}×</td>
                             <td>{Math.round(r.conversioni)}</td>
                             <td>{formattaEuro(cpa(r))}</td>
                             <td><Delta ora={r.ricavi} prima={prima.perBrand.get(b)?.ricavi ?? 0} /></td>
@@ -378,7 +378,7 @@ export default async function AnalisiCampagne({
                           <td>{formattaEuro(r.spesa)}</td>
                           <td>{formattaEuro(r.ricavi)}</td>
                           <td style={{ fontWeight: 600, color: r.tipoConversione === "lead" ? "var(--text-tertiary)" : ro != null ? (ro >= breakEvenRoas(r.brand) ? "var(--green)" : "var(--red)") : undefined }}>
-                            {r.tipoConversione === "lead" ? "n/d" : ro != null ? `${ro.toFixed(2)}×` : "—"}
+                            {r.tipoConversione === "lead" ? "n/d" : ro != null ? `${ro.toFixed(2).replace(".", ",")}×` : "—"}
                           </td>
                           <td>{Math.round(r.conversioni)}</td>
                           <td>{formattaEuro(cpa(r))}</td>

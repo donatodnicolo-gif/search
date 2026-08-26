@@ -399,7 +399,7 @@ export function TestiAnnuncio({
                   {incasso > 0 && (
                     <span style={{ color: "var(--green)", fontWeight: 600 }}>
                       → {formattaEuro(incasso)}
-                      {resa != null && ` · ${resa.toFixed(1)}×`}
+                      {resa != null && ` · ${resa.toFixed(1).replace(".", ",")}×`}
                     </span>
                   )}
                   {/* ⚠️ DI CHE PERIODO SONO. Questi numeri hanno la finestra
