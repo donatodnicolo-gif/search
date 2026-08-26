@@ -402,6 +402,23 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### 27/08 (notte, 6) — Le regole APPLICATE alle consegne esistenti
+
+Chiesto dall utente («applica tutte le regole alle consegne caricate»),
+script  (prova a secco + backup):
+- **Regole VALET materializzate su 29.528 consegne** (valetDeliveryRuleId dal
+  valet assegnato; il conteggio le usava gia come ripiego, ora stanno sul
+  record).
+- **Regole CARNET agganciate a 4.242 consegne** con match COMPLETO (partner +
+  periodo + orario + modello servizio + giorno ammesso in entrambe le letture
+  della maschera bit; km non usato: la consegna non porta una distanza
+  affidabile). **926 ambigue** (piu regole combaciano) NON toccate.
+- Effetto sul pendente: lordo totale 331.568,27 → **325.380,32** (−6.188:
+  1.406 consegne risultano coperte da carnet con toPay=false — «escluse da
+  regola», visibili e contate a parte, non nascoste); agosto: 13 valet,
+  4.873,18 lordo, 30 escluse.
+- Voce di menu «Regole valet» → /valet-rules (pagina in sola lettura).
+
 ### ⭐⭐ 27/08 (notte, 5) — LA REGOLA DEL GIRO negli stipendi, e le REGOLE VALET a schermo
 
 - **La regola del giro** (decisa dall utente, dalla tabella REGOLE VALET del
