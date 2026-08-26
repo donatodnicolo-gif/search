@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { lanciaCampagna } from "@/lib/azioni";
 import { proponiBriefCampagna } from "@/lib/azioni-brief";
 import { BRANDS, ETICHETTA_BRAND } from "@/lib/dominio";
+import { ModuloLancioMeta } from "./modulo-meta";
 
 export const dynamic = "force-dynamic";
 // ⚠️ Una server action che chiama il modello vuole `maxDuration` sulla pagina
@@ -53,6 +54,13 @@ export default async function CreaCampagna({
   // marchio sbagliato — un errore che si scopre solo quando è già su Google.
   const seguendo = (BRANDS as readonly string[]).includes(sp.brand ?? "");
   const brand = seguendo ? sp.brand! : "gifts";
+  // ⚠️ Il canale NON è un filtro: cambia il modulo intero. Google chiede
+  // keyword e RSA, Meta chiede pubblico, posizionamenti ed evento del pixel —
+  // presentare l'uno per l'altro fa raccogliere dati che la piattaforma non
+  // sa nemmeno ricevere.
+  const meta = sp.canale === "meta";
+  const linkCanale = (c: string) =>
+    `/campagne/lancia?${new URLSearchParams({ ...(sp.brand ? { brand: sp.brand } : {}), ...(c === "meta" ? { canale: "meta" } : {}) }).toString()}`;
 
   return (
     <div className="layout">
@@ -66,10 +74,22 @@ export default async function CreaCampagna({
               {seguendo && <span className="titolo-brand"> · {ETICHETTA_BRAND[brand]}</span>}
             </h1>
             <p className="page-sub">
-              Si prepara qui, si approva in Operazioni, la crea lo script — e nasce <b>in pausa</b>:
-              l&apos;accensione resta un gesto manuale dopo la checklist 4.1 (mai lanciare al buio).
+              {meta ? (
+                <>Si prepara qui, si approva in Operazioni, la crea <b>l&apos;app</b> via Graph API —
+                campagna e ad set nascono <b>in pausa</b>, l&apos;annuncio si monta in Ads Manager.</>
+              ) : (
+                <>Si prepara qui, si approva in Operazioni, la crea lo script — e nasce <b>in pausa</b>:
+                l&apos;accensione resta un gesto manuale dopo la checklist 4.1 (mai lanciare al buio).</>
+              )}
             </p>
           </div>
+        </div>
+
+        {/* Il canale si sceglie PRIMA di compilare: i due moduli non hanno
+            un campo in comune oltre a nome, marchio e budget. */}
+        <div className="pill-scelta" style={{ marginBottom: 16 }}>
+          <a className={`pill-opt${meta ? "" : " attuale"}`} href={linkCanale("google")}>Google Ads</a>
+          <a className={`pill-opt${meta ? " attuale" : ""}`} href={linkCanale("meta")}>Meta · Facebook e Instagram</a>
         </div>
 
         {sp.errore && (
@@ -79,6 +99,42 @@ export default async function CreaCampagna({
           </div>
         )}
 
+        {meta ? (
+          <>
+            <ModuloLancioMeta brand={brand} tornaBrand={sp.brand} />
+
+            {/* ⚠️ La stessa distinzione che regge il modulo Google: che cosa
+                arriva davvero sulla piattaforma e che cosa resta a mano. Su
+                Meta cambia anche CHI esegue: non lo script, l'app. */}
+            <div className="nota-info">
+              <span className="nota-icona">◈</span>
+              <span>
+                <b>Che cosa arriva su Meta, e come.</b> Ad approvazione data, <b>l&apos;app</b> crea
+                via Graph API la <b>campagna</b> (obiettivo, categoria speciale, budget se
+                Advantage/CBO) e l&apos;<b>ad set</b> (località, età, genere, posizionamenti,
+                ottimizzazione con l&apos;evento del pixel, budget se ABO) — tutti e due
+                <b> IN PAUSA</b>, e l&apos;esito si rilegge da Meta, non si presume. Le città dette
+                per nome le traduce l&apos;app chiedendo a Meta: un nome ambiguo non si indovina,
+                si elenca nell&apos;esito. <b>L&apos;annuncio non nasce da qui</b> (serve un media che
+                l&apos;app non possiede) e i <b>pubblici personalizzati</b> restano promemoria:
+                si completano in Ads Manager prima dell&apos;accensione, con la checklist 4.1.
+                ⚠️ La scrittura su Meta resta <b>spenta</b> finché il token non ha
+                `ads_management` e l&apos;interruttore `META_SCRITTURA` non è acceso: un lancio
+                approvato con la scrittura spenta resta in coda, e la coda dice perché.
+              </span>
+            </div>
+
+            <div className="nota-info">
+              <span className="nota-icona">◈</span>
+              <span>
+                Il copy del brief passa dal lint dei documenti 7.2/7.3 <b>prima</b> di entrare in
+                coda, come su Google: parole vietate per il brand bloccano l&apos;accodamento con il
+                suggerimento di sostituzione.
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
         {/* Il pannello sta FUORI dal <form>: un <form> dentro un altro non è
             HTML valido, e il bottone «Compila con l'AI» finirebbe per essere
             un submit del modulo grande. Scrive nei campi per nome. */}
@@ -338,6 +394,8 @@ export default async function CreaCampagna({
             dell&apos;emozione: l&apos;urgenza è affidabilità del servizio, non corsa.
           </span>
         </div>
+          </>
+        )}
       </main>
     </div>
   );

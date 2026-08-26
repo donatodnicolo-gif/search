@@ -2459,6 +2459,175 @@ export async function lanciaCampagna(fd: FormData) {
   redirect("/operazioni");
 }
 
+// Il gemello Meta di `lanciaCampagna` — e NON è una variante: è un altro
+// modulo, perché Meta è un'altra piattaforma. Niente keyword, niente RSA,
+// niente corrispondenze: c'è l'obiettivo ODAX, il livello del budget
+// (campagna/CBO o ad set/ABO), il pubblico (geo, età, genere, Advantage+),
+// i posizionamenti e l'evento del pixel. Esegue L'APP via Graph API
+// (lib/meta-scrittura.ts), non uno script — dietro la stessa catena:
+// coda → approvazione a mano → esecuzione → esito riletto.
+export async function lanciaCampagnaMeta(fd: FormData) {
+  const nome = testo(fd, "nome");
+  const brand = testo(fd, "brand") ?? "gifts";
+  const budget = numeroDa(fd, "budget");
+  const tornaBrand = testo(fd, "tornaBrand");
+  const indietro = (messaggio: string) =>
+    `/campagne/lancia?canale=meta&errore=${encodeURIComponent(messaggio)}${tornaBrand ? `&brand=${encodeURIComponent(tornaBrand)}` : ""}`;
+  if (!nome || !budget || budget <= 0) {
+    redirect(indietro("Servono almeno nome e budget giornaliero"));
+  }
+
+  const obiettivoTipo = testo(fd, "obiettivoTipo") ?? "vendite";
+  const strategia = testo(fd, "strategia") ?? "volume";
+  const importoCap = numeroDa(fd, "importoCap");
+  const roasMinimo = numeroDa(fd, "roasMinimo");
+  if ((strategia === "costo_cap" || strategia === "bid_cap") && (!importoCap || importoCap <= 0)) {
+    redirect(indietro("Con «costo per risultato» o «limite d'offerta» serve l'importo in €"));
+  }
+  if (strategia === "roas_min" && (!roasMinimo || roasMinimo <= 0)) {
+    redirect(indietro("Con «ROAS minimo» serve la soglia (es. 3,4)"));
+  }
+
+  // ——— Il pubblico: Meta VUOLE almeno una località, o rifiuta l'ad set ———
+  const paesi = [
+    ...fd.getAll("paesi").map((v) => String(v).trim().toUpperCase()),
+    ...(testo(fd, "paesiAltri") ?? "").split(",").map((v) => v.trim().toUpperCase()),
+  ].filter((v) => /^[A-Z]{2}$/.test(v));
+  const cittaRifiutate: string[] = [];
+  const citta = (testo(fd, "citta") ?? "")
+    .split(/\r?\n/)
+    .map((r) => r.trim())
+    .filter(Boolean)
+    .map((r) => {
+      const [n, raggio] = r.split("|").map((x) => x.trim());
+      const km = raggio ? Number(raggio.replace(",", ".").replace(/km$/i, "").trim()) : null;
+      if (raggio && (km == null || isNaN(km) || km <= 0)) cittaRifiutate.push(r);
+      // Una riga di sole cifre è già la chiave di Meta, non un nome da cercare.
+      return /^\d+$/.test(n)
+        ? { nome: n, chiave: n, raggioKm: km && km > 0 ? km : null }
+        : { nome: n, chiave: null, raggioKm: km && km > 0 ? km : null };
+    });
+  if (cittaRifiutate.length > 0) {
+    redirect(indietro(`Raggio non capito su: ${cittaRifiutate.join(" · ")} — si scrive «Milano | 25»`));
+  }
+  if (paesi.length === 0 && citta.length === 0) {
+    redirect(indietro("Meta vuole almeno una località: spunta un paese o scrivi una città"));
+  }
+
+  const etaMin = numeroDa(fd, "etaMin") ?? 18;
+  const etaMax = numeroDa(fd, "etaMax") ?? 65;
+  if (etaMin < 18 || etaMax > 65 || etaMin > etaMax) {
+    redirect(indietro("Età: da 18 a 65 (65 vale «65 e oltre»), e il minimo non può superare il massimo"));
+  }
+
+  // ——— Il creativo: si registra e si linta, ma NON parte col lancio ———
+  const testi = (testo(fd, "testi") ?? "").split(/\r?\n/).map((r) => r.trim()).filter(Boolean);
+  const titolo = testo(fd, "titolo");
+  const descrizione = testo(fd, "descrizione");
+  const { lintCopy } = await import("./copy-lint");
+  const problemi: string[] = [];
+  for (const t of [...testi, ...(titolo ? [titolo] : []), ...(descrizione ? [descrizione] : [])]) {
+    for (const v of lintCopy(t, brand)) {
+      if (v.tipo === "vietato") {
+        problemi.push(`"${v.parola}" in «${t.slice(0, 40)}»: ${v.motivo}${v.sostituzione ? ` → ${v.sostituzione}` : ""}`);
+      }
+    }
+  }
+  if (problemi.length > 0) {
+    redirect(indietro(`Copy bloccato dal lint 7.2/7.3 — ${problemi[0]}${problemi.length > 1 ? ` (e altre ${problemi.length - 1})` : ""}`));
+  }
+
+  const inizio = dataDa(fd, "inizio");
+  const fine = dataDa(fd, "fine");
+  if (inizio && fine && fine <= inizio) {
+    redirect(indietro("La fine della programmazione viene prima dell'inizio"));
+  }
+
+  const livelloBudget = testo(fd, "livelloBudget") === "adset" ? "adset" : "campagna";
+  const posScelta = testo(fd, "posizionamentiTipo") ?? "auto";
+  const posizionamenti =
+    posScelta === "manuali"
+      ? fd.getAll("posizionamenti").map((v) => String(v)).filter(Boolean)
+      : null;
+  if (posScelta === "manuali" && (!posizionamenti || posizionamenti.length === 0)) {
+    redirect(indietro("Posizionamenti manuali senza nessuna piattaforma spuntata: o spunti, o lasci gli automatici"));
+  }
+  const advantage = testo(fd, "advantage") != null;
+  const eventoConversione = testo(fd, "eventoConversione");
+  const pubbliciNota = testo(fd, "pubblici");
+
+  const campagna = await prisma.campagna.create({
+    data: {
+      nome,
+      brand,
+      canale: "meta_ads",
+      stato: "bozza",
+      budgetGiornaliero: budget,
+      obiettivo: ETICHETTA_OBIETTIVO[obiettivoTipo] ?? obiettivoTipo,
+      tipoConversione: CONVERSIONE_DI_OBIETTIVO[obiettivoTipo] ?? null,
+      note:
+        "Creata dall'app: in coda per il lancio su Meta (campagna + ad set, nascono IN PAUSA). " +
+        `Budget ${livelloBudget === "campagna" ? "sulla campagna (Advantage/CBO)" : "sull'ad set (ABO)"}. ` +
+        (citta.some((c) => !c.chiave)
+          ? "Le città dette per nome le traduce l'app quando esegue, chiedendo a Meta: se un nome è ambiguo non sceglie e lo scrive nell'esito. "
+          : "") +
+        ((obiettivoTipo === "vendite" || obiettivoTipo === "contatti") && !testo(fd, "pixelId")
+          ? "Il pixel lo cerca l'app sull'account al momento del lancio (se ce n'è più d'uno si ferma e lo dice). "
+          : "") +
+        "L'ANNUNCIO NON NASCE DA QUI: il creativo (media compreso) si monta in Ads Manager — il copy scritto nel modulo resta nei parametri dell'operazione come brief. " +
+        (pubbliciNota ? "Pubblici personalizzati/lookalike: solo promemoria, si applicano a mano. " : "") +
+        "La checklist 4.1 va fatta prima di accenderla.",
+    },
+  });
+
+  const op = await accodaOperazione({
+    data: {
+      tipo: "lancio_campagna",
+      canale: "meta_ads",
+      bersaglio: nome,
+      parametri: JSON.stringify({
+        nome,
+        obiettivoTipo,
+        budget,
+        livelloBudget,
+        strategia,
+        importoCap,
+        roasMinimo,
+        categoriaSpeciale: testo(fd, "categoriaSpeciale") ?? "nessuna",
+        nomeAdSet: testo(fd, "nomeAdSet"),
+        paesi,
+        citta,
+        etaMin,
+        etaMax,
+        genere: testo(fd, "genere") ?? "tutti",
+        advantage,
+        posizionamenti,
+        eventoConversione,
+        pixelId: testo(fd, "pixelId"),
+        inizio: inizio ? inizio.toISOString() : null,
+        fine: fine ? fine.toISOString() : null,
+        // Non eseguiti dal lancio: restano qui da brief, per chi monta
+        // l'annuncio e applica i pubblici in Ads Manager.
+        pubbliciNota,
+        creativo: { testi, titolo, descrizione, cta: testo(fd, "cta"), url: testo(fd, "finalUrl") },
+      }),
+      motivo: testo(fd, "motivo"),
+      livello: "L2",
+      prima: "assente",
+      campagnaId: campagna.id,
+    },
+  });
+  await registra({
+    autore: "utente", tipo: "creazione", entita: "operazione", entitaId: op.id,
+    titolo: `In coda (da approvare): lancio campagna Meta "${nome}"`,
+    dettaglio:
+      `${ETICHETTA_OBIETTIVO[obiettivoTipo] ?? obiettivoTipo} · ${budget} €/g ${livelloBudget === "campagna" ? "CBO" : "ABO"}` +
+      ` · ${paesi.length} paesi + ${citta.length} città · età ${etaMin}-${etaMax}` +
+      ` — l'annuncio si monta a mano in Ads Manager`,
+  });
+  redirect("/operazioni");
+}
+
 // ---------- Gruppi di annunci ----------
 // Lo stato del gruppo nell'app è una scelta dell'utente (come per le keyword):
 // l'import non lo tocca mai, tiene il suo in statoPiattaforma.

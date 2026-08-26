@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **25/08/2026 (pomeriggio)**. Una finestra Claude nuova deve poter
+> Stato al **26/08/2026 (pomeriggio)**. Una finestra Claude nuova deve poter
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
@@ -335,6 +335,54 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐⭐ IL LANCIO CAMPAGNA HA IL SUO MODULO META (26/08/2026 pomeriggio)
+
+Richiesta utente: su `/campagne/lancia` il modulo era SOLO Google (keyword,
+RSA, corrispondenze) anche per chi voleva lanciare su Meta. Adesso la pagina
+ha **due moduli separati**, scelti con le pill in testa (`?canale=meta`),
+perché le due piattaforme non hanno un campo in comune oltre a nome, marchio
+e budget:
+
+- **Il modulo Meta segue la struttura di Meta**: obiettivo **ODAX**
+  (Vendite/Contatti/Traffico/Notorietà — «Interazioni» manca APPOSTA:
+  ottimizza su un post che al lancio non esiste ancora), categoria speciale
+  (Meta la pretende anche da vuota), **livello del budget** (campagna/CBO o
+  ad set/ABO — la trappola classica di Meta), strategia d'offerta
+  (volume/cost cap/bid cap/ROAS minimo coi loro importi), pubblico (paesi
+  ISO, città con raggio, età 18-65, genere, **Advantage+ audience** — la
+  dichiarazione che la Graph API oggi pretende su ogni ad set nuovo),
+  posizionamenti (automatici o manuali per piattaforma), evento del pixel
+  (Acquisto/Carrello; su Contatti è Lead), e il **creativo come BRIEF**.
+- **Esegue L'APP, non uno script**: nuovo tipo `lancio_campagna` in
+  `OPERAZIONI_META` (`lib/meta-scrittura.ts`, `lancioMeta()`): crea campagna
+  + ad set via Graph API, **tutti e due IN PAUSA**, e rilegge per confermare.
+  Le città dette per nome le traduce chiedendo a Meta (`adgeolocation`):
+  un nome ambiguo NON si sceglie, si elenca nell'esito (la regola di Como).
+  Il **pixel** se non indicato lo cerca sull'account: se ce n'è più d'uno si
+  ferma e li elenca — col pixel sbagliato conteresti le conversioni di un
+  altro sito. ⚠️ **Esito PARZIALE possibile**: campagna nata e ad set no →
+  operazione FALLITA (qualcuno deve guardare) ma `idEsterno` agganciato lo
+  stesso alla campagna dell'app, sennò resterebbe orfana su Meta; l'esito
+  dice di NON rimettere in coda lo stesso lancio (ne nascerebbe una seconda).
+- **Cosa NON fa, dichiarato in pagina**: l'annuncio (serve un media che
+  l'app non possiede — il copy passa dal lint 7.2/7.3 e resta nei parametri
+  come brief), i pubblici personalizzati/lookalike (solo promemoria). E la
+  scrittura resta **spenta** finché il token non ha `ads_management` +
+  `META_SCRITTURA=attiva`: un lancio approvato con la scrittura spenta resta
+  in coda, e `eseguiOperazioniMeta` dice perché.
+- Server action `lanciaCampagnaMeta` in `lib/azioni.ts`: stesse regole del
+  gemello Google (lint che blocca le vietate, brand che torna indietro con
+  l'errore, `accodaOperazione` → L2 da approvare, registro eventi).
+  Validazioni Meta-native: almeno una località (Meta rifiuta un ad set senza
+  geo), cap obbligatorio con cost/bid cap, ROAS di soglia con la strategia
+  omonima, età 18-65.
+
+Verificato: `tsc` pulito, build ok, deploy `m1k445ptw` e **provato in
+produzione nei due versi** (il tab Meta mostra il modulo nuovo, il tab
+Google resta identico, brief AI compreso). ⚠️ Non ancora provato con la
+scrittura accesa: `ads_management` manca da prima, il primo lancio vero
+dirà se la Graph API accetta i campi così come sono scritti.
 
 ### ⭐⭐ LA DECISIONE SUI CLAIM, e pausa_annuncio (26/08/2026)
 

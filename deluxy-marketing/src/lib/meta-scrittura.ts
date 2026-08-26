@@ -88,9 +88,22 @@ export const OPERAZIONI_META = [
   "pausa_gruppo", // su Meta è l'ad set
   "attiva_gruppo",
   "budget",
+  // Il lancio: campagna + ad set, tutti e due IN PAUSA. L'annuncio no — vuole
+  // un'immagine o un video, e l'app non possiede media: si monta in Ads Manager.
+  "lancio_campagna",
 ] as const;
 
-export type EsitoScrittura = { riuscita: boolean; dettaglio: string; prima?: string; dopo?: string };
+export type EsitoScrittura = {
+  riuscita: boolean;
+  dettaglio: string;
+  prima?: string;
+  dopo?: string;
+  // L'id della campagna appena creata su Meta (solo per `lancio_campagna`).
+  // Viaggia anche quando `riuscita` è falso: se la campagna è nata e l'ad set
+  // no, l'id esiste lo stesso e perderlo vorrebbe dire una campagna orfana che
+  // nessuna sync sa più agganciare.
+  idCreato?: string;
+};
 
 /** Una POST alla Graph API, con l'errore riportato per quello che dice. */
 async function scrivi(percorso: string, campi: Record<string, string>): Promise<EsitoScrittura> {
@@ -224,6 +237,331 @@ export async function budgetMeta(idEsterno: string, euroAlGiorno: number): Promi
   };
 }
 
+// ---------------------------------------------------------------------------
+// IL LANCIO DI UNA CAMPAGNA NUOVA — la parte di Meta che su Google fa lo script.
+//
+// Su Meta la struttura è a TRE livelli e nessuno coincide con Google:
+//   campagna  → l'obiettivo (ODAX: OUTCOME_*), la categoria speciale, e il
+//               budget SE è Advantage (CBO);
+//   ad set    → il pubblico (geo, età, genere), i posizionamenti,
+//               l'ottimizzazione col suo evento pixel, e il budget se è ABO;
+//   annuncio  → il creativo. QUI NON SI CREA: vuole un media (image_hash o
+//               video) che l'app non possiede. Dirlo è meglio che fingere.
+//
+// Tutto nasce IN PAUSA — stessa regola del lancio Google: l'accensione resta
+// un gesto manuale dopo la checklist 4.1.
+// ---------------------------------------------------------------------------
+
+/** Una GET alla Graph API. `null` = non ho potuto chiedere, non «vuoto». */
+async function leggiMeta(percorso: string, campi: Record<string, string>): Promise<Record<string, unknown> | null> {
+  const t = token();
+  if (!t) return null;
+  const qs = new URLSearchParams({ ...campi, access_token: t });
+  try {
+    const r = await fetch(`${BASE}/${percorso}?${qs.toString()}`, { cache: "no-store" });
+    const dati = (await r.json()) as Record<string, unknown> & { error?: unknown };
+    if (dati.error) return null;
+    return dati;
+  } catch {
+    return null;
+  }
+}
+
+// Come li dice il form → come li vuole Meta. Manca «interazioni» apposta:
+// OUTCOME_ENGAGEMENT ottimizza su un post che al lancio non esiste ancora
+// (l'annuncio si monta dopo), quindi offrirlo prometterebbe una cosa che
+// questo percorso non sa mantenere.
+const OBIETTIVO_ODAX: Record<string, string> = {
+  vendite: "OUTCOME_SALES",
+  contatti: "OUTCOME_LEADS",
+  traffico: "OUTCOME_TRAFFIC",
+  notorieta: "OUTCOME_AWARENESS",
+};
+
+const CATEGORIA_SPECIALE: Record<string, string[]> = {
+  nessuna: [],
+  credito: ["CREDIT"],
+  lavoro: ["EMPLOYMENT"],
+  abitazioni: ["HOUSING"],
+  tematiche_sociali: ["ISSUES_ELECTIONS_POLITICS"],
+};
+
+const STRATEGIA_META: Record<string, string> = {
+  volume: "LOWEST_COST_WITHOUT_CAP",
+  costo_cap: "COST_CAP",
+  bid_cap: "LOWEST_COST_WITH_BID_CAP",
+  roas_min: "LOWEST_COST_WITH_MIN_ROAS",
+};
+
+export type ParametriLancioMeta = {
+  nome: string;
+  obiettivoTipo: string; // vendite | contatti | traffico | notorieta
+  budget: number; // €/giorno
+  livelloBudget: "campagna" | "adset"; // CBO o ABO
+  strategia: string; // volume | costo_cap | bid_cap | roas_min
+  importoCap?: number | null; // € per costo_cap / bid_cap
+  roasMinimo?: number | null; // per roas_min (es. 3.4)
+  categoriaSpeciale?: string | null;
+  nomeAdSet?: string | null;
+  paesi?: string[]; // ISO-2
+  citta?: { nome: string; raggioKm?: number | null; chiave?: string | null }[];
+  etaMin?: number | null;
+  etaMax?: number | null;
+  genere?: string | null; // tutti | donne | uomini
+  advantage?: boolean; // Advantage+ audience
+  posizionamenti?: string[] | null; // vuoto/assente = automatici (Advantage+)
+  eventoConversione?: string | null; // acquisto | carrello | lead
+  pixelId?: string | null; // se vuoto lo cerca l'app sull'account
+  inizio?: string | null; // ISO
+  fine?: string | null; // ISO
+};
+
+/**
+ * Trova il pixel dell'account quando serve e non è stato indicato.
+ *
+ * ⚠️ Si sceglie SOLO se è uno: con due pixel «prendo il primo» vorrebbe dire
+ * contare le conversioni di un altro sito — stessa regola delle località
+ * ambigue dello script Google (Como è una città e una provincia).
+ */
+async function pixelDellAccount(idAccount: string): Promise<{ id?: string; motivo?: string }> {
+  const r = await leggiMeta(`act_${idAccount.replace(/^act_/, "")}/adspixels`, { fields: "id,name" });
+  if (!r) return { motivo: "non sono riuscito a chiedere i pixel dell'account" };
+  const lista = (r.data as { id: string; name?: string }[] | undefined) ?? [];
+  if (lista.length === 1) return { id: lista[0].id };
+  if (lista.length === 0) return { motivo: "sull'account non c'è nessun pixel" };
+  return {
+    motivo:
+      `sull'account ci sono ${lista.length} pixel (${lista.map((p) => `${p.name ?? "?"} · ${p.id}`).join(", ")}): ` +
+      "non scelgo io — rilancia indicando l'id nel campo Pixel del modulo",
+  };
+}
+
+/**
+ * Una città detta per nome → la chiave numerica che Meta vuole nel targeting.
+ * Stessa regola dello script Google: un nome che dà più risultati non si
+ * indovina, si elenca — e chi ha chiesto riscrive il nome esatto o la chiave.
+ */
+async function risolviCittaMeta(nome: string): Promise<{ chiave?: string; ambigue?: string[] }> {
+  const r = await leggiMeta("search", {
+    type: "adgeolocation",
+    location_types: '["city"]',
+    q: nome,
+    limit: "10",
+  });
+  const lista =
+    (r?.data as { key: string; name: string; region?: string; country_name?: string }[] | undefined) ?? [];
+  if (lista.length === 0) return { ambigue: [] };
+  const norma = (s: string) =>
+    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const esatte = lista.filter((c) => norma(c.name) === norma(nome));
+  if (esatte.length === 1) return { chiave: esatte[0].key };
+  if (lista.length === 1) return { chiave: lista[0].key };
+  return {
+    ambigue: (esatte.length > 1 ? esatte : lista).map(
+      (c) => `${c.name} (${[c.region, c.country_name].filter(Boolean).join(", ")}) → chiave ${c.key}`
+    ),
+  };
+}
+
+/**
+ * Crea campagna + ad set su Meta, tutti e due IN PAUSA.
+ *
+ * ⚠️ L'esito può essere PARZIALE: se la campagna nasce e l'ad set no,
+ * `riuscita` è falso (qualcuno deve guardarci) ma `idCreato` viaggia lo
+ * stesso — la campagna su Meta ESISTE, e va agganciata, non dimenticata.
+ * Rimettere in coda la stessa operazione la duplicherebbe: si sistema l'ad
+ * set a mano, o si accoda un lancio nuovo dopo aver spento il primo.
+ */
+export async function lancioMeta(idAccount: string, p: ParametriLancioMeta): Promise<EsitoScrittura> {
+  const conto = `act_${idAccount.replace(/^act_/, "")}`;
+  const odax = OBIETTIVO_ODAX[p.obiettivoTipo];
+  if (!odax) {
+    return { riuscita: false, dettaglio: `obiettivo «${p.obiettivoTipo}» sconosciuto: su Meta so lanciare ${Object.keys(OBIETTIVO_ODAX).join(", ")}` };
+  }
+  if (!(p.budget > 0)) return { riuscita: false, dettaglio: `budget non valido: ${p.budget}` };
+
+  const cbo = p.livelloBudget !== "adset";
+  const centesimi = Math.round(p.budget * 100);
+  const strategia = STRATEGIA_META[p.strategia] ?? "LOWEST_COST_WITHOUT_CAP";
+  const capCentesimi =
+    (p.strategia === "costo_cap" || p.strategia === "bid_cap") && p.importoCap && p.importoCap > 0
+      ? Math.round(p.importoCap * 100)
+      : null;
+  if ((p.strategia === "costo_cap" || p.strategia === "bid_cap") && !capCentesimi) {
+    return { riuscita: false, dettaglio: `la strategia «${p.strategia}» vuole un importo in €: non c'è` };
+  }
+  if (p.strategia === "roas_min" && !(p.roasMinimo && p.roasMinimo > 0)) {
+    return { riuscita: false, dettaglio: "la strategia «ROAS minimo» vuole il ROAS di soglia: non c'è" };
+  }
+
+  // ——— 1. La campagna ———
+  const campiCampagna: Record<string, string> = {
+    name: p.nome,
+    objective: odax,
+    status: "PAUSED",
+    buying_type: "AUCTION",
+    // ⚠️ Obbligatorio anche da vuoto: senza, Meta rifiuta la creazione.
+    special_ad_categories: JSON.stringify(CATEGORIA_SPECIALE[p.categoriaSpeciale ?? "nessuna"] ?? []),
+  };
+  if (cbo) {
+    campiCampagna.daily_budget = String(centesimi);
+    campiCampagna.bid_strategy = strategia;
+  }
+  const t = token();
+  if (!t) return { riuscita: false, dettaglio: "token assente" };
+  let idCampagna: string;
+  try {
+    const r = await fetch(`${BASE}/${conto}/campaigns`, {
+      method: "POST",
+      body: new URLSearchParams({ ...campiCampagna, access_token: t }),
+      cache: "no-store",
+    });
+    const dati = (await r.json()) as { id?: string; error?: { message?: string } };
+    if (dati.error || !dati.id) {
+      return { riuscita: false, dettaglio: `Meta ha rifiutato la campagna: ${dati.error?.message ?? "nessun id in risposta"}` };
+    }
+    idCampagna = dati.id;
+  } catch (e) {
+    return { riuscita: false, dettaglio: `chiamata fallita creando la campagna: ${String(e)}` };
+  }
+
+  // Da qui in poi la campagna ESISTE: ogni ritorno porta il suo id.
+  const parziale = (motivo: string): EsitoScrittura => ({
+    riuscita: false,
+    idCreato: idCampagna,
+    dettaglio:
+      `PARZIALE — campagna creata su Meta (id ${idCampagna}, IN PAUSA) ma ad set NON creato: ${motivo}. ` +
+      "Non rimettere in coda questo lancio (nascerebbe una seconda campagna): l'ad set si completa in Ads Manager.",
+  });
+
+  // ——— 2. Il pubblico (targeting) ———
+  const note: string[] = [];
+  const geo: { countries?: string[]; cities?: { key: string; radius?: number; distance_unit?: string }[] } = {};
+  if (p.paesi && p.paesi.length > 0) geo.countries = p.paesi;
+  const ambigue: string[] = [];
+  const nonTrovate: string[] = [];
+  for (const c of p.citta ?? []) {
+    let chiave = c.chiave?.trim() || null;
+    if (!chiave) {
+      const esito = await risolviCittaMeta(c.nome);
+      if (esito.chiave) chiave = esito.chiave;
+      else if (esito.ambigue && esito.ambigue.length > 0) {
+        ambigue.push(`«${c.nome}»: ${esito.ambigue.join(" · ")}`);
+        continue;
+      } else {
+        nonTrovate.push(c.nome);
+        continue;
+      }
+    }
+    geo.cities = geo.cities ?? [];
+    geo.cities.push(
+      c.raggioKm && c.raggioKm > 0
+        ? { key: chiave, radius: c.raggioKm, distance_unit: "kilometer" }
+        : { key: chiave }
+    );
+  }
+  if (ambigue.length > 0) note.push(`città AMBIGUE, non incluse (riscrivi il nome esatto o incolla la chiave): ${ambigue.join(" — ")}`);
+  if (nonTrovate.length > 0) note.push(`città che Meta non trova, non incluse: ${nonTrovate.join(", ")}`);
+  if (!geo.countries && (!geo.cities || geo.cities.length === 0)) {
+    return parziale(`senza nemmeno una località valida Meta non accetta un ad set${note.length > 0 ? ` (${note.join("; ")})` : ""}`);
+  }
+
+  const targeting: Record<string, unknown> = {
+    geo_locations: geo,
+    // ⚠️ Dichiarazione OBBLIGATORIA sulle versioni recenti della Graph API:
+    // un ad set nuovo senza `targeting_automation` viene rifiutato.
+    targeting_automation: { advantage_audience: p.advantage === false ? 0 : 1 },
+  };
+  if (p.etaMin) targeting.age_min = p.etaMin;
+  if (p.etaMax) targeting.age_max = p.etaMax;
+  if (p.genere === "uomini") targeting.genders = [1];
+  else if (p.genere === "donne") targeting.genders = [2];
+  if (p.posizionamenti && p.posizionamenti.length > 0) {
+    targeting.publisher_platforms = p.posizionamenti;
+  }
+
+  // ——— 3. Ottimizzazione: che risultato compra l'asta ———
+  let optimization = "LINK_CLICKS";
+  let promotedObject: Record<string, string> | null = null;
+  if (p.obiettivoTipo === "vendite" || p.obiettivoTipo === "contatti") {
+    optimization = "OFFSITE_CONVERSIONS";
+    let pixel = p.pixelId?.trim() || null;
+    if (!pixel) {
+      const trovato = await pixelDellAccount(idAccount);
+      if (!trovato.id) return parziale(`serve il pixel per ottimizzare sulle conversioni e ${trovato.motivo}`);
+      pixel = trovato.id;
+      note.push(`pixel trovato dall'app sull'account: ${pixel}`);
+    }
+    promotedObject = {
+      pixel_id: pixel,
+      custom_event_type:
+        p.obiettivoTipo === "contatti" ? "LEAD" : p.eventoConversione === "carrello" ? "ADD_TO_CART" : "PURCHASE",
+    };
+  } else if (p.obiettivoTipo === "notorieta") {
+    optimization = "REACH";
+  }
+
+  // ——— 4. L'ad set ———
+  const campiAdSet: Record<string, string> = {
+    name: p.nomeAdSet?.trim() || `${p.nome} — pubblico 1`,
+    campaign_id: idCampagna,
+    status: "PAUSED",
+    optimization_goal: optimization,
+    billing_event: "IMPRESSIONS",
+    targeting: JSON.stringify(targeting),
+  };
+  if (!cbo) {
+    campiAdSet.daily_budget = String(centesimi);
+    campiAdSet.bid_strategy = strategia;
+  }
+  if (capCentesimi) campiAdSet.bid_amount = String(capCentesimi);
+  if (p.strategia === "roas_min" && p.roasMinimo) {
+    // Meta vuole il ROAS di soglia moltiplicato per 10.000 (3,4× → 34000).
+    campiAdSet.bid_constraints = JSON.stringify({ roas_average_floor: Math.round(p.roasMinimo * 10000) });
+  }
+  if (promotedObject) campiAdSet.promoted_object = JSON.stringify(promotedObject);
+  if (p.inizio) campiAdSet.start_time = p.inizio;
+  if (p.fine) campiAdSet.end_time = p.fine;
+
+  let idAdSet: string;
+  try {
+    const r = await fetch(`${BASE}/${conto}/adsets`, {
+      method: "POST",
+      body: new URLSearchParams({ ...campiAdSet, access_token: t }),
+      cache: "no-store",
+    });
+    const dati = (await r.json()) as { id?: string; error?: { message?: string; error_user_msg?: string } };
+    if (dati.error || !dati.id) {
+      return parziale(`Meta ha rifiutato l'ad set: ${dati.error?.error_user_msg ?? dati.error?.message ?? "nessun id in risposta"}`);
+    }
+    idAdSet = dati.id;
+  } catch (e) {
+    return parziale(`chiamata fallita creando l'ad set: ${String(e)}`);
+  }
+
+  // Rilettura indipendente: «la POST è passata» e «su Meta adesso c'è» sono
+  // due frasi diverse — stessa regola di budgetMeta.
+  const riletta = await rileggi(idCampagna, "name,status,objective");
+  const conferma =
+    riletta == null
+      ? " (non ho potuto rileggere per confermare)"
+      : String(riletta.status) === "PAUSED"
+        ? " (confermato rileggendo: in pausa)"
+        : ` - ATTENZIONE: rileggendo, lo stato è ${String(riletta.status)}`;
+
+  return {
+    riuscita: true,
+    idCreato: idCampagna,
+    dettaglio:
+      `campagna ${idCampagna} + ad set ${idAdSet} creati su Meta, tutti e due IN PAUSA${conferma}. ` +
+      `Ottimizzazione ${optimization}${promotedObject ? ` su ${promotedObject.custom_event_type} (pixel ${promotedObject.pixel_id})` : ""}, ` +
+      `budget ${p.budget.toFixed(2)} €/g ${cbo ? "sulla campagna (Advantage/CBO)" : "sull'ad set (ABO)"}. ` +
+      `L'ANNUNCIO NON C'È ANCORA: il creativo si monta in Ads Manager prima dell'accensione.` +
+      (note.length > 0 ? ` Note: ${note.join(" · ")}.` : ""),
+    dopo: "creata in pausa",
+  };
+}
+
 /**
  * Esegue le operazioni Meta **già approvate a mano**, una alla volta.
  *
@@ -267,8 +605,10 @@ export async function eseguiOperazioniMeta(opzioni: { limite?: number } = {}) {
   for (const op of operazioni) {
     // ⚠️ Senza id di piattaforma non si tocca niente: cercare «la campagna che
     // si chiama così» su Meta significa poter colpire un omonimo di un altro
-    // account. Meglio fermarsi e dirlo.
-    if (!op.idEsterno) {
+    // account. Meglio fermarsi e dirlo. Il LANCIO è l'eccezione per natura —
+    // la campagna non esiste ancora, quindi l'id non può esserci: lì serve
+    // invece l'ACCOUNT su cui crearla.
+    if (!op.idEsterno && op.tipo !== "lancio_campagna") {
       saltate++;
       continue;
     }
@@ -280,20 +620,27 @@ export async function eseguiOperazioniMeta(opzioni: { limite?: number } = {}) {
     }
 
     let esito: EsitoScrittura;
-    if (op.tipo === "pausa_campagna") esito = await cambiaStatoMeta(op.idEsterno, false, "campagna");
-    else if (op.tipo === "attiva_campagna") esito = await cambiaStatoMeta(op.idEsterno, true, "campagna");
-    else if (op.tipo === "pausa_gruppo") esito = await cambiaStatoMeta(op.idEsterno, false, "gruppo");
-    else if (op.tipo === "attiva_gruppo") esito = await cambiaStatoMeta(op.idEsterno, true, "gruppo");
+    if (op.tipo === "lancio_campagna") {
+      // L'account sull'operazione è l'id del conto Meta (lo scrive
+      // `accodaOperazione` dal registro AccountAdv): senza, non si sa DOVE
+      // creare la campagna, e indovinare è il modo di crearla altrove.
+      esito = op.account
+        ? await lancioMeta(op.account, JSON.parse(op.parametri ?? "{}") as ParametriLancioMeta)
+        : { riuscita: false, dettaglio: "manca l'account Meta sull'operazione: non so su quale conto creare la campagna" };
+    } else if (op.tipo === "pausa_campagna") esito = await cambiaStatoMeta(op.idEsterno!, false, "campagna");
+    else if (op.tipo === "attiva_campagna") esito = await cambiaStatoMeta(op.idEsterno!, true, "campagna");
+    else if (op.tipo === "pausa_gruppo") esito = await cambiaStatoMeta(op.idEsterno!, false, "gruppo");
+    else if (op.tipo === "attiva_gruppo") esito = await cambiaStatoMeta(op.idEsterno!, true, "gruppo");
     else {
       const p = op.parametri ? (JSON.parse(op.parametri) as { budget?: number }) : {};
-      esito = await budgetMeta(op.idEsterno, Number(p.budget));
+      esito = await budgetMeta(op.idEsterno!, Number(p.budget));
     }
 
     if (esito.riuscita) eseguite++;
     else fallite++;
     // Se l'app non registra l'esito ci si ferma: è la stessa regola dello
     // script Google, e per lo stesso motivo.
-    const registrato = await riferisci(op.id, esito.riuscita, esito.dettaglio, esito.dopo);
+    const registrato = await riferisci(op.id, esito.riuscita, esito.dettaglio, esito.dopo, esito.idCreato);
     if (!registrato) break;
   }
 
@@ -307,7 +654,7 @@ export async function eseguiOperazioniMeta(opzioni: { limite?: number } = {}) {
  * un'operazione eseguita su Meta sarebbe invisibile al change control, e la
  * campagna risulterebbe «mai toccata» il giorno dopo.
  */
-async function riferisci(id: string, riuscita: boolean, dettaglio: string, dopo?: string) {
+async function riferisci(id: string, riuscita: boolean, dettaglio: string, dopo?: string, idCreato?: string) {
   const { prisma } = await import("./db");
   try {
     const op = await prisma.operazioneAdv.update({
@@ -318,6 +665,16 @@ async function riferisci(id: string, riuscita: boolean, dettaglio: string, dopo?
         esito: dopo ? `${dettaglio} (${dopo})` : dettaglio,
       },
     });
+    // Il lancio: la campagna dell'app aggancia l'id appena nato su Meta.
+    // ⚠️ ANCHE quando l'esito è «fallita»: nel caso parziale (campagna creata,
+    // ad set no) la campagna su Meta esiste comunque — senza id resterebbe
+    // orfana, invisibile a sync e rilevatore delle non confermate.
+    if (op.tipo === "lancio_campagna" && idCreato && op.campagnaId) {
+      await prisma.campagna.update({
+        where: { id: op.campagnaId },
+        data: { idEsterno: idCreato, stato: "in_pausa", statoPiattaforma: "PAUSED" },
+      });
+    }
     if (riuscita && op.campagnaId) {
       await prisma.modifica.create({
         data: {
