@@ -182,3 +182,46 @@ input.field {
   margin-top: 4px;
 }
 .pac-item { padding: 6px 12px; font-size: 13px; cursor: pointer; }
+
+/* Tabelle dentro .table-wrap: il vestito canonico (quello della lista
+   consegne), UNA volta per tutte. Prima /sales, /activities, /delivery-rules,
+   /sms-templates e /provinces avevano tabelle NUDE: ogni pagina si stilava la
+   sua, e chi non lo faceva restava col default del browser. Gli stili di
+   componente piu' specifici continuano a vincere. */
+.table-wrap {
+  overflow-x: auto;
+}
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.table-wrap th,
+.table-wrap td {
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline);
+  white-space: nowrap;
+}
+.table-wrap th {
+  font-weight: 500;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.table-wrap th.num,
+.table-wrap td.num {
+  text-align: right;
+}
+.table-wrap tbody tr {
+  transition: background 0.14s ease;
+}
+.table-wrap tbody tr:hover {
+  background: rgba(120, 120, 128, 0.05);
+}
+.table-wrap tr:last-child td {
+  border-bottom: none;
+}

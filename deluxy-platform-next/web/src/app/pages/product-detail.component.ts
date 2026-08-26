@@ -1,4 +1,5 @@
 import { HttpClient } from '@angular/common/http';
+import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -8,6 +9,8 @@ import { PRODUCT_PLATFORMS } from '../core/models';
 interface ProductDetail {
   id: string;
   name: string;
+  /** La data ORIGINALE del legacy, non quella dell'import. */
+  createdAt?: string | null;
   sku?: string | null;
   type?: string | null;
   price?: number | null;
@@ -40,7 +43,7 @@ interface ProductDetail {
 @Component({
   selector: 'app-product-detail',
   standalone: true,
-  imports: [RouterLink, TranslatePipe],
+  imports: [RouterLink, TranslatePipe, DatePipe],
   template: `
     <div class="form-head">
       <a routerLink="/products" class="back">← {{ 'products.title' | translate }}</a>
@@ -84,6 +87,8 @@ interface ProductDetail {
               <dd>{{ p.publicPrice != null ? p.publicPrice + ' €' : '—' }}</dd>
               <dt>{{ 'productForm.field.prepDays' | translate }}</dt>
               <dd>{{ p.prepDays != null ? p.prepDays : '—' }}</dd>
+              <!-- La data e' quella ORIGINALE del legacy (2020-…), non l'import. -->
+              <dt>{{ 'products.createdAt' | translate }}</dt><dd>{{ p.createdAt ? (p.createdAt | date: 'dd/MM/yyyy') : '—' }}</dd>
               <dt>{{ 'productForm.field.shortDesc' | translate }}</dt><dd>{{ p.shortDesc || '—' }}</dd>
               <dt>{{ 'productForm.field.description' | translate }}</dt>
               <dd class="pre">{{ p.description || '—' }}</dd>

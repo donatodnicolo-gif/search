@@ -689,6 +689,7 @@
   "products": {
     "title": "Products",
     "caption": "products in the catalog.",
+    "createdAt": "Created on",
     "searchPlaceholder": "Search…",
     "add": "Add product",
     "loading": "Loading…",

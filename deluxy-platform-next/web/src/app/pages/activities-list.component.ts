@@ -141,15 +141,30 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .quick-tab { border: 0; background: none; border-radius: 980px; padding: 6px 14px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text-secondary); cursor: pointer; }
       .quick-tab.active { background: #fff; color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
       .avviso { margin: 0 0 12px; font-size: 13px; color: var(--gold-strong, #B8963E); font-weight: 550; }
-      .tipo { font-size: 12.5px; font-weight: 600; letter-spacing: .02em; }
-      .tipo.ritiro { color: var(--text-secondary); }
-      .ora { margin-left: 6px; color: var(--text-secondary); }
-      .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--c) 12%, transparent); color: var(--c); }
-      .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
-      .azioni { text-align: right; }
-      .act { background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline; }
-      .state-card { padding: 28px; text-align: center; display: flex; flex-direction: column; gap: 6px; }
+      .table-wrap { overflow-x: auto; }
+      td { vertical-align: middle; }
+      /* Ritiro e consegna si distinguono a colpo d'occhio: pillola, non solo testo. */
+      .tipo {
+        display: inline-flex; align-items: center; padding: 3px 11px; border-radius: 980px;
+        font-size: 12px; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap;
+        background: rgba(0, 113, 227, 0.1); color: var(--blue, #0071e3);
+      }
+      .tipo.ritiro { background: var(--fill); color: var(--text-secondary); }
+      .ora { margin-left: 6px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+      .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 550; padding: 3px 11px; border-radius: 980px; white-space: nowrap; background: color-mix(in srgb, var(--c) 11%, transparent); color: var(--c); }
+      .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); flex: none; }
+      .azioni { text-align: right; white-space: nowrap; }
+      .act {
+        appearance: none; font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer;
+        padding: 5px 14px; border-radius: 980px; border: 1px solid var(--hairline); background: var(--surface); color: var(--text);
+        transition: background 0.15s ease;
+      }
+      .act:hover { background: var(--fill); }
+      .act:disabled { opacity: 0.45; cursor: default; }
+      .state-card { padding: 40px 28px; text-align: center; display: flex; flex-direction: column; gap: 6px; }
+      .state-card .muted { color: var(--text-tertiary); font-size: 13.5px; }
       .mono { font-variant-numeric: tabular-nums; }
+      .error-card { padding: 14px 16px; border-radius: var(--radius-m, 10px); background: rgba(215, 0, 21, 0.06); border: 1px solid rgba(215, 0, 21, 0.15); color: var(--red, #d70015); }
     `,
   ],
 })

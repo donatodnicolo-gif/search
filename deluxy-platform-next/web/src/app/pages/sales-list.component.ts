@@ -197,8 +197,18 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
         background: color-mix(in srgb, var(--c) 11%, transparent); color: var(--c);
       }
       .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); flex: none; }
+      /* La tabella non aveva NESSUNO stile (nessuna regola globale la copre):
+         stesso vestito della lista consegne. */
       .table-wrap { overflow-x: auto; }
+      .table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+      .table th, .table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
+      .table th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; position: sticky; top: 0; background: var(--surface); }
+      .table th.num, .table td.num { text-align: right; }
+      .table tbody tr { transition: background 0.14s ease; }
+      .table tbody tr:hover { background: rgba(120, 120, 128, 0.05); }
+      .table tr:last-child td { border-bottom: none; }
       .table td { vertical-align: middle; }
+      .table td:nth-child(3) { white-space: normal; min-width: 220px; }
       .azioni { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
       .btn.mini { padding: 4px 12px; font-size: 12.5px; }
       .vuoto { padding: 40px 28px; text-align: center; color: var(--text-secondary); font-size: 14px; }

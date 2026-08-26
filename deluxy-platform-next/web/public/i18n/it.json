@@ -689,6 +689,7 @@
   "products": {
     "title": "Prodotti",
     "caption": "prodotti a catalogo.",
+    "createdAt": "Creato il",
     "searchPlaceholder": "Cerca…",
     "add": "Aggiungi prodotto",
     "loading": "Caricamento…",

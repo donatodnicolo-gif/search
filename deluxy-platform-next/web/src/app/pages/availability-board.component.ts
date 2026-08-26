@@ -61,13 +61,23 @@ interface Giornata { data: string; partner: Gruppo; valet: Gruppo }
         <span>{{ 'availability.search' | translate }}</span>
         <input class="field" type="search" [(ngModel)]="cerca" [placeholder]="'availability.searchPh' | translate" />
       </label>
-      <label class="f">
+      <div class="f">
         <span>{{ 'availability.city' | translate }}</span>
-        <select class="field" [(ngModel)]="citta">
-          <option value="">{{ 'availability.allCities' | translate }}</option>
-          @for (c of cittaDisponibili(); track c) { <option [value]="c">{{ c }}</option> }
-        </select>
-      </label>
+        <!-- Le città più presenti sono TAB da cliccare; la tendina resta per
+             le altre. Ripremendo il tab si torna a «tutte». -->
+        <div class="citta-tabs">
+          <div class="quick">
+            @for (c of cittaVeloci(); track c.nome) {
+              <button type="button" class="quick-tab" [class.active]="citta.toLowerCase() === c.nome.toLowerCase()"
+                      (click)="scegliCitta(c.nome)">{{ c.nome }}</button>
+            }
+          </div>
+          <select class="field citta-sel" [(ngModel)]="citta">
+            <option value="">{{ 'availability.allCities' | translate }}</option>
+            @for (c of cittaDisponibili(); track c) { <option [value]="c">{{ c }}</option> }
+          </select>
+        </div>
+      </div>
       <label class="f interruttore">
         <input type="checkbox" [(ngModel)]="soloDisponibili" />
         <span>{{ 'availability.onlyOpen' | translate }}</span>
@@ -170,6 +180,8 @@ interface Giornata { data: string; partner: Gruppo; valet: Gruppo }
       .pallino.ignoto { background: #C7C7CC; }
       .nome { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .citta { font-weight: 400; font-size: 12px; color: var(--text-tertiary); margin-left: 6px; }
+      .citta-tabs { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .citta-sel { max-width: 170px; }
       .nota-citta { font-size: 12px; color: var(--text-tertiary); padding-bottom: 10px; }
       .fasce { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; font-variant-numeric: tabular-nums; }
       .fascia { background: var(--fill, #f5f5f7); border-radius: 6px; padding: 1px 7px; }
@@ -189,8 +201,29 @@ export class AvailabilityBoardComponent {
 
   giorno = this.oggi();
   cerca = '';
-  soloDisponibili = false;
+  /** Acceso di DEFAULT (l'utente, 26/08): la domanda tipica è «chi c'è oggi?». */
+  soloDisponibili = true;
   citta = '';
+
+  /** Le città più presenti, come tab veloci: un click, non una tendina. */
+  readonly cittaVeloci = computed(() => {
+    const conta = new Map<string, { nome: string; n: number }>();
+    const d = this.dati();
+    if (!d) return [] as { nome: string; n: number }[];
+    for (const r of [...d.partner.righe, ...d.valet.righe]) {
+      const c = (r.citta ?? '').trim();
+      if (!c) continue;
+      const k = c.toLowerCase();
+      const v = conta.get(k) ?? { nome: c, n: 0 };
+      v.n++;
+      conta.set(k, v);
+    }
+    return [...conta.values()].sort((a, b) => b.n - a.n).slice(0, 6);
+  });
+
+  scegliCitta(nome: string): void {
+    this.citta = this.citta.toLowerCase() === nome.toLowerCase() ? '' : nome;
+  }
 
   /**
    * Le città fra cui scegliere: quelle dichiarate nelle anagrafiche caricate,

@@ -553,11 +553,11 @@ export class InvoicesService {
         id: true, code: true, date: true, serviceTypeId: true,
         price: true, additionalPrice: true, hours: true,
         distanceKm: true, extraKm: true, extraOutOfCity: true,
-        // ⚠️ Nome, cognome e INDIRIZZO del destinatario non si leggono
-        // nemmeno: il recap esce dall'azienda, e un dato che non entra in
-        // memoria non puo' finire per sbaglio nel documento. Per orientarsi
-        // basta la PROVINCIA, che sta gia' sulla consegna (c'e' sul 99,5%) e
-        // non dice dove abita nessuno.
+        deliveryTimeFrom: true, deliveryTimeTo: true,
+        // L'INDIRIZZO del destinatario entra nel recap su decisione
+        // dell'utente (26/08): al partner serve per riconoscere la consegna.
+        // Nome e cognome restano fuori.
+        recipientAddress: true,
         province: { select: { code: true } },
         serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
         products: { select: { quantity: true, price: true, productVariant: { select: { publicPrice: true } }, product: { select: { publicPrice: true, price: true } } } },
@@ -573,19 +573,33 @@ export class InvoicesService {
 
     const righe: {
       code: number; date: Date; provincia: string | null;
-      service: string; amount: number; venduto: number; dovuto: number;
+      service: string; orario: string | null; indirizzo: string | null;
+      plusMinus: number; fatturabile: boolean;
+      amount: number; venduto: number; dovuto: number;
     }[] = [];
     let escluse = 0;
     for (const d of deliveries) {
       const c = prezzoConsegna(d as any, listini.get(d.serviceTypeId) ?? null, (d as any).deliveryRule ?? null);
-      // Fuori dal recap quello che non entra in fattura: il partner non deve
-      // leggere righe che poi non trova sul documento.
-      if (!c) { escluse++; continue; }
-      righe.push({
+      const base = {
         code: d.code,
         date: d.date,
         provincia: d.province?.code ?? null,
         service: d.serviceType?.name ?? '—',
+        orario: d.deliveryTimeFrom ? `${d.deliveryTimeFrom}${d.deliveryTimeTo ? '–' + d.deliveryTimeTo : ''}` : null,
+        indirizzo: d.recipientAddress ?? null,
+        plusMinus: d.additionalPrice ?? 0,
+      };
+      // Le consegne senza tariffa (o che una regola carnet dice di non
+      // fatturare) ora si VEDONO, marcate «non fatturabile»: prima erano solo
+      // un conteggio in nota, e il partner non sapeva QUALI fossero.
+      if (!c) {
+        escluse++;
+        righe.push({ ...base, fatturabile: false, amount: 0, venduto: 0, dovuto: 0 });
+        continue;
+      }
+      righe.push({
+        ...base,
+        fatturabile: true,
         amount: c.amount,
         venduto: c.venduto,
         dovuto: c.dovutoAlPartner,
@@ -607,7 +621,7 @@ export class InvoicesService {
       righe,
       escluse,
       totali: {
-        deliveriesCount: righe.length,
+        deliveriesCount: righe.filter((r) => r.fatturabile).length,
         netAmount,
         vatRate: IVA,
         vatAmount: Math.round((conIva(netAmount) - netAmount) * 100) / 100,
@@ -633,12 +647,16 @@ export class InvoicesService {
       .toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
 
     const righe = r.righe.map((x) => `
-      <tr>
+      <tr${x.fatturabile ? '' : ' class="esclusa"'}>
         <td class="mono">${gg(x.date)}</td>
         <td class="mono num">#${x.code}</td>
+        <td class="mono">${e(x.orario ?? '—')}</td>
+        <td class="indirizzo">${e(x.indirizzo ?? '—')}</td>
         <td class="muted">${e(x.provincia ?? '')}</td>
         <td class="muted">${e(x.service)}</td>
-        <td class="num">${eur(x.amount)}</td>
+        <td class="num">${x.plusMinus ? eur(x.plusMinus) : '—'}</td>
+        <td class="muted">${x.fatturabile ? 'S&igrave;' : 'No'}</td>
+        <td class="num">${x.fatturabile ? eur(x.amount) : '—'}</td>
       </tr>`).join('');
 
     const blocchoVendite = r.totali.venduto > 0 ? `
@@ -672,6 +690,8 @@ export class InvoicesService {
   .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .muted { color: #6e6e73; }
+  .indirizzo { max-width: 220px; font-size: 12.5px; }
+  .esclusa td { color: #a1a1a6; }
   .totali { margin-top: 4px; width: auto; margin-left: auto; min-width: 280px; }
   .totali td { border: 0; padding: 4px 8px; }
   .totali td.num { font-variant-numeric: tabular-nums; }
@@ -690,9 +710,9 @@ export class InvoicesService {
 
   <table>
     <thead><tr>
-      <th>Data</th><th class="num">Consegna</th><th>Prov.</th><th>Servizio</th><th class="num">Importo</th>
+      <th>Data</th><th class="num">Consegna</th><th>Orario</th><th>Indirizzo</th><th>Prov.</th><th>Servizio</th><th class="num">Plus/minus</th><th>Fatturabile</th><th class="num">Importo</th>
     </tr></thead>
-    <tbody>${righe || '<tr><td colspan="5" class="muted">Nessuna consegna da fatturare in questo mese.</td></tr>'}</tbody>
+    <tbody>${righe || '<tr><td colspan="9" class="muted">Nessuna consegna da fatturare in questo mese.</td></tr>'}</tbody>
   </table>
 
   <table class="totali">
@@ -703,8 +723,8 @@ export class InvoicesService {
 
   ${blocchoVendite}
 
-  ${r.escluse ? `<p class="nota">${r.escluse} ${r.escluse === 1 ? 'consegna &egrave; esclusa' : 'consegne sono escluse'} da questo recap: non hanno una tariffa applicabile, oppure una regola carnet prevede di non fatturarle.</p>` : ''}
-  <p class="nota">Documento di riepilogo, non &egrave; una fattura. Ogni consegna &egrave; identificata dal suo numero: i dati dei destinatari non compaiono.</p>
+  ${r.escluse ? `<p class="nota">${r.escluse} ${r.escluse === 1 ? 'consegna &egrave; marcata «non fatturabile»' : 'consegne sono marcate «non fatturabili»'}: non hanno una tariffa applicabile, oppure una regola carnet prevede di non fatturarle.</p>` : ''}
+  <p class="nota">Documento di riepilogo, non &egrave; una fattura. I nominativi dei destinatari non compaiono.</p>
 </div></body></html>`;
   }
 
