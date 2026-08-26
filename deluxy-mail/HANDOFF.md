@@ -23,6 +23,93 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (notte) — CACCIA AI DIFETTI: 30 candidati, 20 confermati, 10 caduti
+
+Chiesto dall'utente: «correggi tutti gli errori di codice dell'app; prima di dire che è
+un errore, sottoponi l'errore a un agente ostile». Metodo: **quattro cercatori** in
+parallelo (sync+spam, actions+auth, integrazioni, pagine+componenti), poi **quattro agenti
+ostili**, uno per lotto, col mandato di **smontare** ogni candidato. Corretti solo i
+sopravvissuti. Commit `d8d14ee6`, deploy `deluxy-mail-5v2phhvaj`.
+
+⭐⭐⭐ **Il metodo ha ripagato più della caccia.** Dieci accuse su trenta sono cadute, e
+**due erano capovolte**:
+- «la finestra rapida spedisce dalla casella sbagliata» → **no**: `inviaMessaggio`
+  ricalcola la casella da sé. Sbagliata era l'**etichetta**, e sbagliato il calcolo di chi
+  togliere dal «rispondi a tutti» — che è il difetto vero, e più sottile.
+- «Anagrafiche butta stato e interessi» → **no**: il driver di prima parte esiste, la
+  chiave ce l'ha (verificato in produzione) e i cataloghi coincidono. Il difetto vero era
+  un altro: quattro di quegli otto stati, dal 31/07, in Anagrafiche sono **livelli**, e il
+  nostro controllo «non applicato» guardava la colonna sbagliata dando un falso allarme.
+E un ostile ha **corretto la correzione**: il filtro anti-spam va scritto NULL-safe
+(`OR: [{sezioneId: null}, {not: spam}]`), perché un `not` secco in SQL scarta anche le
+righe senza sezione — misurato, i contatti noti sarebbero crollati da 372 a 1.
+
+**I venti corretti**, per famiglia:
+
+*I soldi.* `numeroDaTesto` toglieva **sempre** i punti: «1250.50» → **125050**, «0.5» → 5,
+«12.75 €» → 1275, e a valle nessuno se ne accorgeva (Scout e Finance controllano solo che
+sia finito e positivo). Ora il decimale si riconosce dalla forma; 18 casi provati
+eseguendo il codice vero.
+
+*La posta che spariva.* (1) La retention dello SPAM guardava la data di **spedizione**: il
+71% dei messaggi entra già più vecchio di 90 giorni, quindi marcare come spam una mail
+vecchia la cancellava **per sempre entro cinque minuti**, senza cestino e senza tetto —
+1.648 messaggi erano a un clic. Ora guarda `creatoIl`, con tetto, e l'esito si stampa.
+(2) Una regola **senza condizioni** con la spunta «applica anche ai messaggi già presenti»
+archiviava e segnava lette **tutte** le mail in arrivo (15.010): il colpo retroattivo ora
+non parte. (3) «Archivia sempre da questo mittente» su una mail interna archiviava anche
+**1.584** mail che avevi mandato tu: mancava `direzione: 'entrata'`.
+
+*Lo spam.* Chi aveva già una mail in SPAM diventava «contatto noto» alla seconda e da lì
+era immune (33 casi causali misurati, 15 sarebbero stati trattati diversamente).
+
+*La casella sbagliata.* La finestra rapida (1.601 mail: col «rispondi a tutti» ti mettevi
+in Cc te stesso) e l'API `/api/v1/invia`, che mandava «da Nicolò» partendo da
+`amministrazione@` — deterministico, silenzioso, con risposta `ok: true`.
+
+*Sicurezza.* L'OAuth di Drive senza controllo admin (il consenso è dell'**app**: un
+qualunque utente loggato poteva puntare il Drive aziendale sul proprio) e senza `state`;
+**nove rotte `/api`** che verificavano solo la firma del cookie e quindi non vedevano un
+utente **disattivato** — e una di quelle svuota il cestino per sempre; `/api/invito`, un
+**GET che scriveva**, aperto dagli scanner di posta che registravano risposte mai date.
+
+*Il resto.* Un'entità HTML malformata che fermava per sempre lo scarico di una casella (la
+guardia esisteva già in `citato.ts`, non era mai arrivata a `imap.ts`); `/s+/g` che
+cancellava le «s» da 29 anteprime di bozza su 30; «Trattativa aperta» detto anche quando
+Scout rispondeva «ne ha già una» (e il bottone spariva dal riassunto per un lavoro mai
+fatto); «Verifica partner» che mostrava due campi su venti; l'email del fornitore svuotata
+a mano che si ririempiva; il calendario che perdeva le cancellazioni fallite; gli uid
+chiesti e non tornati che sparivano senza contarsi; otto avvisi di **fallimento** mostrati
+nella cornice **verde** col ✓.
+
+⚠️ **Non corretti di proposito**, e la ragione è nei dati:
+- **quattro frasi antispam italiane** («eredità», «criptovalute», «rendimento garantito»,
+  «guadagnare … facili») sono morte per un `\b` dopo una vocale accentata: vero, ma su
+  34.929 messaggi il costo misurato è **zero**, e riaccenderle metterebbe due punti in più
+  a 8 mail legittime di Revolut. Va misurato prima di toccarlo.
+- **il marcatore «Da:»** che ripiega la citazione: su 3.195 tagli veri il falso positivo è
+  **uno solo** (una notifica UPS), e il testo non è perso, è ripiegato. Irrigidirlo
+  metterebbe a rischio 3.194 tagli giusti.
+- **il quarto negozio** `business.deluxy.it`: **non dimostrabile da qui** (la
+  configurazione sta in una cassaforte KV che non possiamo leggere). ⚠️ Ma un ostile ha
+  trovato, in `deluxy-search-supplier`, che un salvataggio qualsiasi delle Impostazioni
+  riscrive l'elenco dei negozi con i **tre** noti: se un quarto negozio è mai stato
+  collegato, quel codice lo cancella. **È un'altra app e un altro repo** (`search`, su
+  `main`): va guardato là.
+
+⚠️ **Un difetto più profondo, lasciato aperto perché la correzione butta fuori tutti**: il
+cookie di sessione è `userId + HMAC(userId)` — **niente scadenza, niente versione**.
+Cambiare la password non invalida le sessioni, il logout cancella solo il cookie locale, e
+un token copiato vale per sempre. La correzione (firmare anche un pezzo dell'hash della
+password e una scadenza) è giusta ma fa rientrare tutti al primo deploy: **è una decisione
+dell'utente**, non mia.
+
+Verifica: `tsc` e `npm run build` puliti; `numeroDaTesto` e le funzioni pure provate
+eseguendo il codice vero; i numeri delle misure vengono dal database di **produzione in
+sola lettura**. ⚠️ Non provato a schermo: il giro OAuth di Drive, la pagina di conferma
+dell'invito, e le nove rotte con un utente disattivato (in produzione non ce n'è).
+
+---
 ### 26/08 (sera 14) — chi si finge UNO DI NOI
 
 Segnalato su una mail vera del 4/08 rimasta in posta: nome mostrato
