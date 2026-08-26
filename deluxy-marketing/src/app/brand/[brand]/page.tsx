@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { BudgetCampagneBrand } from "@/components/BudgetCampagneBrand";
+import { BudgetQuestoMese } from "@/components/BudgetQuestoMese";
 import { Badge } from "@/components/Badge";
 import { VisteSalvate } from "@/components/VisteSalvate";
 import { destinazionePredefinita } from "@/lib/viste";
@@ -255,6 +256,11 @@ export default async function PaginaBrand({
             cifre vivevano in due app diverse (i budget su Google e Meta, il
             tetto in Budgets), quindi nessuno le confrontava mai — e la domanda
             se la faceva la fattura. */}
+        {/* IL MESE IN UNA RIGA: consentito da Budgets, speso, resta,
+            proiezione — la stessa tabella di /budget, solo questo brand.
+            Sopra il dettaglio campagna per campagna, che la spiega. */}
+        <BudgetQuestoMese anno={oggi.getFullYear()} soloSito={brand} />
+
         <BudgetCampagneBrand brand={brand} />
 
         {/* Canale per canale: la media di brand nasconde chi tiene su la

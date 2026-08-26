@@ -23,7 +23,15 @@ import { ETICHETTA_SITO, formattaEuro, MESI_IT, SITI } from "@/lib/dominio";
 //     TETTO giornaliero e non una spesa: serve a stimare dove si arriva.
 const GIORNI = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
 
-export async function BudgetQuestoMese({ anno }: { anno: number }) {
+export async function BudgetQuestoMese({
+  anno,
+  soloSito,
+}: {
+  anno: number;
+  // Un brand solo: è la stessa tabella di /budget, richiamata sulla dashboard
+  // di brand (richiesta utente, 26/08) — la riga sua, senza il totale.
+  soloSito?: string;
+}) {
   // ⚠️ In ora di Roma, non del server (su Vercel è UTC): vedi `lib/fuso.ts`.
   const adesso = new Date();
   const oggi = oggiRoma();
@@ -56,7 +64,7 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
     spesoPerBrand.set(b, (spesoPerBrand.get(b) ?? 0) + (s._sum.spesa ?? 0));
   }
 
-  const righe = SITI.map((sito) => {
+  const righe = (soloSito ? SITI.filter((x) => x === soloSito) : [...SITI]).map((sito) => {
     const accese = campagne.filter((c) => c.brand === sito && c.statoPiattaforma === "ENABLED");
     const conBudget = accese.filter((c) => c.budgetGiornaliero != null);
     const alGiorno = conBudget.reduce((s, c) => s + (c.budgetGiornaliero ?? 0), 0);
@@ -214,7 +222,7 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
                 </tr>
               );
             })}
-            <tr className="riga-forte">
+            {!soloSito && (<tr className="riga-forte">
               <td className="cella-nome">Tutti</td>
               <td className="num">{totali.consentito != null ? formattaEuro(totali.consentito) : "—"}</td>
               <td className="num">{formattaEuro(totali.speso)}</td>
@@ -227,7 +235,7 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
               <td className="num cella-muta">
                 {formattaEuro(righe.reduce((s, r) => s + r.alGiorno, 0))}
               </td>
-            </tr>
+            </tr>)}
           </tbody>
         </table>
       </div>
