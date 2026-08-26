@@ -460,6 +460,12 @@ centimetri da un totale già estratto nella stessa schermata. La **fase** è
 una tendina con gli stati veri di Scout (Primo contatto · In trattativa · Preventivo
 inviato · Chiusa vinta · Chiusa persa), e l'AI la propone leggendo lo scambio.
 
+**«Altra azione…»: l'elenco completo è sempre a un clic.** Sotto i bottoni che il
+riassunto propone c'è **＋ Altra azione…**, che apre lo stesso dialogo con **tutte** le app
+collegate e ti fa scegliere. Serve perché i bottoni proposti li decide l'AI, e l'AI può
+non nominare quello che ti serve: la sua proposta è una scorciatoia, non l'elenco di ciò
+che si può fare.
+
 **I bottoni «Si può fare da qui» non spariscono più.** Se un aggiornamento del riassunto
 propone una sola azione, le altre già proposte **restano**: un giro che ne nomina una non
 è un giudizio sulle altre. E la trattativa si può aprire anche quando lo scambio è già

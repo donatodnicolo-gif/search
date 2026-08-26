@@ -23,6 +23,31 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 9) — «Altra azione…»: la porta che non dipende dal modello
+
+Terza segnalazione di fila sullo stesso punto — «non vedo la possibilità di aprire una
+trattativa» — dopo due correzioni che avevano provato a convincere il modello (tenere le
+azioni precedenti, poi sommarle; e allargare la regola `dalRiassunto`). Non bastava, e la
+ragione è strutturale: **quei bottoni li propone l'AI, e l'AI può tacere**. Su questo
+scambio propone «Registra il preventivo» e non «Apri trattativa», e ogni giro è una
+scommessa nuova.
+
+⭐⭐ **La lezione**: un elenco suggerito è una **scorciatoia**; accanto ci vuole sempre
+l'**accesso completo**, o la scorciatoia diventa un cancello. Vale ovunque ci sia un
+«ecco cosa puoi fare» scelto da un modello.
+
+Ora la sezione «Si può fare da qui» **c'è sempre** (anche senza azioni proposte) e
+finisce con **«＋ Altra azione…»**, che apre lo stesso dialogo con la **lista di tutte le
+app collegate**. ⚠️ Salta di proposito le regole APP DELUXY (`scegli: true` nell'evento
+`aimail:app`, gestito in `InvioAppDialog`): chi preme quel tasto ha già deciso di
+scegliere lui, e una regola che lo dirottasse altrove gli toglierebbe la scelta.
+
+Verifica: `tsc` e build puliti; la stringa del bottone è nel chunk costruito
+(`.next/static/chunks/app/messaggio/[id]/page-*.js`). ⚠️ **Non** verificata dal bundle
+servito: il nome del chunk è con hash e la pagina sta dietro il login, quindi da qui non
+si può pescare — vale la regola solita (deploy dopo il commit, cartella pulita).
+
+---
 ### 26/08 (sera 8) — il silenzio PARZIALE, e una trattativa avanti che nessuno registrava
 
 Un'ora dopo la correzione della sera 7, l'utente rigenera col tasto «Profondo» e chiede:
