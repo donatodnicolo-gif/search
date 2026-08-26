@@ -336,6 +336,31 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐⭐ LE RISPOSTE ALLE PROPOSTE — il canale di RITORNO verso i progetti di analisi (26/08/2026)
+
+Richiesta utente: poter RISPONDERE alle azioni proposte, così che la prossima
+analisi le esamini. Il giro ora è chiuso nei due versi:
+
+- **Nell'app**: su ogni azione della scheda c'è «Rispondi alla proposta» —
+  Accogli / Respingi / Rimanda + nota. La risposta si salva su `Analisi.risposte`
+  (colonna nuova, ALTER) e si DEPOSITA SUBITO su Drive in
+  `adsApp AzioniOUT - dall'app` come `RISPOSTE App [Brand] [data ora].md` —
+  stato COMPLETO delle risposte a quell'analisi, gli omonimi precedenti sono
+  superati (lo dice il file stesso). Se Drive fallisce, la risposta resta
+  nell'app e l'errore si vede: si rideposita alla risposta dopo.
+- **Nei progetti di analisi**: le ISTRUZIONI su Drive sono state aggiornate
+  NELLO STESSO GESTO (sezione «RISPOSTE DELL'UTENTE ALLE AZIONI» dentro il
+  blocco da incollare): ADV Flowers/Cake/Gifts, Custode, App Azioni. La regola:
+  ACCOLTA → verificarne l'esecuzione e riportare l'esito; RESPINTA → non
+  riproporre senza fatti nuovi dichiarati; RIMANDATA → alla data della nota.
+  Scritto anche l'`APPEND 00.2 App-Azioni … RISPOSTE.md` per il registro del
+  custode. ⚠️ **L'utente deve RE-INCOLLARE i blocchi nei progetti Claude.**
+
+Verificato dal DOM in produzione: 13 «Rispondi alla proposta» (una per azione),
+i tre bottoni presenti. Il deposito usa `scriviInOut`, la stessa strada già
+viva di RISULTATI e APPEND.
+
+
 ### ⭐ FINDINGS E AZIONI IN UNA COLONNA SOLA (26/08/2026)
 
 Richiesta utente: le due colonne della scheda analisi — «Cosa ha trovato» a

@@ -3,7 +3,7 @@ import { Badge } from "@/components/Badge";
 import { Icona } from "@/components/Icona";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
-import { accodaAzioneScheda, elaboraSchedaAnalisi, riconciliaSchedaAnalisi } from "@/lib/azioni";
+import { accodaAzioneScheda, elaboraSchedaAnalisi, riconciliaSchedaAnalisi, rispondiAzioneScheda } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
   COLORE_BRAND,
@@ -19,7 +19,7 @@ import {
   STATI_AZIONE_APERTI,
 } from "@/lib/dominio";
 import { categoriaCampagna, iconaCanale } from "@/lib/salute";
-import { COLORE_PRIORITA, COLORE_STATO_RICONCILIATO, COLORE_VERDETTO, descriviOperazione, ETICHETTA_STATO_RICONCILIATO, ETICHETTA_VERDETTO, mappaCampagneCitate, operazioneDaProposta, proposteDi, riconciliazioneDi, schedaDi } from "@/lib/scheda-analisi";
+import { COLORE_PRIORITA, COLORE_RISPOSTA, COLORE_STATO_RICONCILIATO, COLORE_VERDETTO, descriviOperazione, ETICHETTA_RISPOSTA, ETICHETTA_STATO_RICONCILIATO, ETICHETTA_VERDETTO, mappaCampagneCitate, operazioneDaProposta, proposteDi, riconciliazioneDi, risposteDi, schedaDi } from "@/lib/scheda-analisi";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +54,9 @@ export default async function SchedaAnalisi({
   // Cosa risulta FATTO di quello che il report chiede, incrociato con la coda
   // dall'AI (cron dopo ogni giro, o il bottone «Riconcilia adesso»).
   const riconciliazione = riconciliazioneDi(analisi);
+  // Le risposte dell'utente alle azioni: la voce che torna ai progetti di
+  // analisi via Drive. Qui si mostrano e si danno.
+  const risposte = risposteDi(analisi);
   const statoAzione = (indice: number) => riconciliazione?.azioni.find((a) => a.indice === indice) ?? null;
 
   // Le campagne che la scheda nomina, agganciate a quelle vere. I documenti
@@ -192,6 +195,49 @@ export default async function SchedaAnalisi({
               quattro bottoni, ognuno col suo destino: da accodare, già in
               coda, o già eseguita (e allora niente bottone: il doppio invio
               con un giorno di ritardo resta un doppio invio). */}
+          {/* LA RISPOSTA dell'utente: accolta/respinta/rimandata + nota.
+              Finisce su Drive nello stesso giro, così la prossima analisi la
+              esamina — respinta non si ripropone senza fatti nuovi. */}
+          {(() => {
+            const risp = risposte[String(indice)];
+            return (
+              <div style={{ marginTop: 6 }}>
+                {risp && (
+                  <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginRight: 8 }}>
+                    <Badge testo={ETICHETTA_RISPOSTA[risp.r]} colore={COLORE_RISPOSTA[risp.r]} />
+                    {risp.nota && <span className="cella-sub" style={{ whiteSpace: "normal" }}>{risp.nota}</span>}
+                  </span>
+                )}
+                <details style={{ display: "inline-block" }}>
+                  <summary className="cella-sub" style={{ cursor: "pointer", listStyle: "none", color: "var(--blue)" }}>
+                    {risp ? "cambia risposta" : "Rispondi alla proposta"}
+                  </summary>
+                  <form
+                    action={rispondiAzioneScheda}
+                    style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}
+                  >
+                    <input type="hidden" name="analisi" value={analisi.id} />
+                    <input type="hidden" name="indice" value={indice} />
+                    <input
+                      name="nota"
+                      placeholder="Nota per la prossima analisi (facoltativa)"
+                      defaultValue={risp?.nota ?? ""}
+                      style={{ minWidth: 260, fontSize: 12.5 }}
+                    />
+                    <button className="btn small btn-secondario" type="submit" name="r" value="accolta" style={{ color: "var(--green)" }}>
+                      Accogli
+                    </button>
+                    <button className="btn small btn-secondario" type="submit" name="r" value="respinta" style={{ color: "var(--red)" }}>
+                      Respingi
+                    </button>
+                    <button className="btn small btn-secondario" type="submit" name="r" value="rimandata" style={{ color: "var(--orange)" }} title="Di' nella nota quando ripresentarla">
+                      Rimanda
+                    </button>
+                  </form>
+                </details>
+              </div>
+            );
+          })()}
           {pronte.length > 0 && !["fatta"].includes(st?.stato ?? "") && (
             <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
               {pronte.map((ex) =>

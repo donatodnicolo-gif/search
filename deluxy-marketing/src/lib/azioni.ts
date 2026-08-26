@@ -18,7 +18,7 @@ import { prisma } from "./db";
 import { accodaOperazione } from "./operazioni";
 import { BRANDS, STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, STATI_CAMPAGNA_NOSTRI, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
-import { elaboraAnalisi, mappaCampagneCitate, operazioneDaProposta, proposteDi, riconciliaAnalisi, schedaDi } from "./scheda-analisi";
+import { elaboraAnalisi, mappaCampagneCitate, operazioneDaProposta, proposteDi, riconciliaAnalisi, risposteDi, schedaDi, testoRisposteMd, type RispostaAzione } from "./scheda-analisi";
 import { risolviLocalita } from "./geo-target";
 // Statico e non `await import()` come il resto di guardrail: serve dentro le
 // query, non dentro il corpo delle funzioni. `guardrail.ts` non importa nulla,
@@ -595,6 +595,51 @@ export async function riconciliaSchedaAnalisi(fd: FormData) {
   });
   revalidatePath(`/analisi/${id}`);
   redirect(`/analisi/${id}${esito.ok ? "" : `?coda=fallita&errore=${encodeURIComponent(esito.errore.slice(0, 200))}`}`);
+}
+
+// La RISPOSTA dell'utente a un'azione proposta: si salva sull'analisi e si
+// DEPOSITA su Drive nello stesso giro, perché la prossima analisi la esamini.
+// Il deposito porta lo stato COMPLETO delle risposte (un file solo basta), e
+// se Drive non è raggiungibile la risposta resta comunque salvata nell'app —
+// si rideposita alla risposta successiva, e l'esito lo dice.
+export async function rispondiAzioneScheda(fd: FormData) {
+  const analisiId = String(fd.get("analisi") ?? "");
+  const indice = Number(fd.get("indice"));
+  const r = String(fd.get("r") ?? "");
+  const nota = String(fd.get("nota") ?? "").trim() || null;
+  if (!analisiId || !Number.isInteger(indice) || indice < 0) return;
+  if (!["accolta", "respinta", "rimandata"].includes(r)) return;
+
+  const analisi = await prisma.analisi.findUnique({ where: { id: analisiId } });
+  if (!analisi) return;
+  const scheda = schedaDi(analisi);
+  if (!scheda || !scheda.azioni[indice]) return;
+
+  const risposte = risposteDi(analisi);
+  risposte[String(indice)] = { r: r as RispostaAzione["r"], nota, quando: new Date().toISOString() };
+  await prisma.analisi.update({ where: { id: analisiId }, data: { risposte: JSON.stringify(risposte) } });
+
+  // Il deposito su Drive: OUT - dall'app, come RISULTATI e APPEND. Il nome
+  // porta data e ora perché la cartella è append-only; il contenuto dice che
+  // i file omonimi precedenti sono superati.
+  const brandNome = analisi.brand === "gifts" ? "Gifts" : analisi.brand === "cake" ? "Cake" : analisi.brand === "flowers" ? "Flowers" : "Cross";
+  const adesso = new Date();
+  const ts = `${adesso.toISOString().slice(0, 10)} ${String(adesso.getUTCHours() + 2).padStart(2, "0")}${String(adesso.getUTCMinutes()).padStart(2, "0")}`;
+  const nomeFile = `RISPOSTE App ${brandNome} ${ts}.md`;
+  const esitoDrive = await scriviInOut(nomeFile, testoRisposteMd(analisi, scheda, risposte));
+
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "analisi",
+    entitaId: analisiId,
+    titolo: `Risposta all'azione ${scheda.azioni[indice].codice ?? `n.${indice}`}: ${r}`,
+    dettaglio:
+      (nota ? `${nota} · ` : "") +
+      (esitoDrive.ok ? `depositata su Drive (${nomeFile})` : `⚠️ deposito su Drive FALLITO: ${esitoDrive.errore}`),
+  });
+  revalidatePath(`/analisi/${analisiId}`);
+  redirect(`/analisi/${analisiId}${esitoDrive.ok ? "" : `?coda=fallita&errore=${encodeURIComponent(`Risposta salvata nell'app, ma il deposito su Drive è fallito: ${(esitoDrive.errore ?? "").slice(0, 160)}`)}`}`);
 }
 
 // ---------- Drive ----------

@@ -852,6 +852,86 @@ export async function riconciliaRecenti(limite = 2): Promise<{ riconciliate: num
   return { riconciliate, fallite };
 }
 
+// ───── LE RISPOSTE: il canale di RITORNO verso i progetti di analisi ─────
+//
+// ⚠️ PERCHÉ (26/08/2026, richiesta utente). Le analisi propongono azioni;
+// l'utente ne accoglie alcune e ne respinge altre — ma il rifiuto restava
+// nella sua testa, e l'analisi successiva riproponeva le stesse cose. La
+// risposta si scrive QUI e si DEPOSITA su Drive (ads\App Azioni\OUT -
+// dall'app, come RISULTATI e APPEND): i progetti di analisi la leggono prima
+// di scrivere il report nuovo — accolta si verifica, respinta non si
+// ripropone senza fatti nuovi, rimandata torna alla sua data.
+
+export type RispostaAzione = {
+  /** accolta | respinta | rimandata */
+  r: "accolta" | "respinta" | "rimandata";
+  nota: string | null;
+  quando: string; // ISO
+};
+export type Risposte = Record<string, RispostaAzione>;
+
+export function risposteDi(analisi: { risposte: string | null }): Risposte {
+  if (!analisi.risposte) return {};
+  try {
+    const r = JSON.parse(analisi.risposte) as Risposte;
+    return r && typeof r === "object" ? r : {};
+  } catch {
+    return {};
+  }
+}
+
+export const COLORE_RISPOSTA: Record<RispostaAzione["r"], string> = {
+  accolta: "var(--green)",
+  respinta: "var(--red)",
+  rimandata: "var(--orange)",
+};
+export const ETICHETTA_RISPOSTA: Record<RispostaAzione["r"], string> = {
+  accolta: "Accolta",
+  respinta: "Respinta",
+  rimandata: "Rimandata",
+};
+
+/**
+ * Il file .md delle risposte, per la cartella OUT su Drive. Contiene TUTTE le
+ * risposte correnti dell'analisi (non solo l'ultima): chi legge un file solo
+ * ha il quadro intero, e i file precedenti diventano storia senza ambiguità.
+ */
+export function testoRisposteMd(
+  analisi: { titolo: string; brand: string; fileDrive: string | null },
+  scheda: Scheda,
+  risposte: Risposte
+): string {
+  const righe: string[] = [];
+  righe.push(`# RISPOSTE App — ${analisi.titolo}`);
+  righe.push("");
+  righe.push(
+    `Fonte: le risposte dell'utente alle AZIONI PROPOSTE dall'analisi, date nell'app ` +
+      `(deluxy-marketing.vercel.app). Documento analizzato: ${analisi.fileDrive ?? "—"}.`
+  );
+  righe.push("");
+  righe.push(
+    "⚠️ Come leggerle (per i progetti di analisi): **accolta** → verificarne " +
+      "l'esecuzione al prossimo giro; **respinta** → NON riproporla senza fatti " +
+      "nuovi, e se la si ripropone dire perché la risposta non regge più; " +
+      "**rimandata** → ripresentarla alla data detta nella nota. Le azioni senza " +
+      "risposta sono ancora in esame: proporle di nuovo è lecito."
+  );
+  righe.push("");
+  righe.push("| Azione | Proposta | Risposta | Nota dell'utente | Quando |");
+  righe.push("|---|---|---|---|---|");
+  const pulisci = (t: string) => t.replace(/\|/g, "/").replace(/\s+/g, " ").trim();
+  for (const [indice, r] of Object.entries(risposte)) {
+    const az = scheda.azioni[Number(indice)];
+    if (!az) continue;
+    righe.push(
+      `| ${az.codice ?? `az.${indice}`} | ${pulisci(az.testo).slice(0, 160)} | **${ETICHETTA_RISPOSTA[r.r].toUpperCase()}** | ${r.nota ? pulisci(r.nota).slice(0, 200) : "—"} | ${r.quando.slice(0, 16).replace("T", " ")} |`
+    );
+  }
+  righe.push("");
+  righe.push("*File scritto dall'app alla risposta dell'utente: è lo stato COMPLETO delle risposte a questa analisi (i file precedenti con lo stesso titolo sono superati).*");
+  return righe.join("\n");
+}
+
 export const COLORE_STATO_RICONCILIATO: Record<StatoAzioneRiconciliata, string> = {
   fatta: "var(--green)",
   in_corso: "var(--blue)",

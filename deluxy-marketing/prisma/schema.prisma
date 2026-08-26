@@ -48,6 +48,10 @@ model Analisi {
   // guardando la coda delle operazioni (id, stato, esito). La produce l'AI
   // incrociando scheda e OperazioneAdv; si rinfresca perche' la coda cambia.
   riconciliazione  String?
+  // Le RISPOSTE dell'utente alle azioni proposte (JSON per indice): accolta,
+  // respinta o rimandata, con la nota. Depositate su Drive perche' la
+  // prossima analisi le esamini — e' il canale di ritorno verso i progetti.
+  risposte         String?
   riconciliataIl   DateTime?
   // "anthropic/claude-opus-5": una scheda senza firma non si giudica.
   elaborataCon String?
