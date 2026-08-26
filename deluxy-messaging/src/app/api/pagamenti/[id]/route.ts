@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
 import { verificaIban } from '@/lib/iban'
 import { avvisaFornitorePagato } from '@/lib/avvisa-pagamento'
+import { comunicaStatoAOrders } from '@/lib/orders'
 import { riconciliaDaPagamento, type EsitoRiconciliazione } from '@/lib/riconcilia'
 import { STATI_DA_SPOSTARE_SE_PAGATO } from '@/lib/riconciliazione'
 import {
@@ -128,22 +129,59 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (pagata.ordineNumero) {
       try {
         const nudo = pagata.ordineNumero.replace('#', '')
-        await db.ordine.updateMany({
+        // ⚠️ Si LEGGONO prima: `updateMany` non torna le righe toccate, e senza
+        // il numero e il gid non si può dire a Orders che cosa è cambiato.
+        const daSpostare = await db.ordine.findMany({
           where: {
             numero: { in: [nudo, `#${nudo}`] },
             gestione: { in: STATI_DA_SPOSTARE_SE_PAGATO },
           },
-          // ⚠️ Anche CHI: l'etichetta a schermo dice «segnato da …», e lasciarci
-          // il nome di chi aveva messo lo stato di prima con la data di adesso
-          // racconterebbe una cosa mai successa. L'ha causato chi ha premuto
-          // «Pagata».
-          data: {
-            gestione: 'attesa_consegna',
-            gestioneIl: new Date(),
-            gestioneDaId: io.id,
-            gestioneDaNome: io.nome,
-          },
+          select: { id: true, numero: true, shopifyId: true },
         })
+        // ⚠️⚠️ SE IL NUMERO NON È UN'IDENTITÀ, NON SI TOCCA NIENTE. La richiesta
+        // di pagamento porta solo il NUMERO dell'ordine — non il negozio, non
+        // l'id — e lo stesso numero può appartenere a due ordini di due negozi
+        // diversi. Spostarli entrambi vorrebbe dire il falso su uno; sceglierne
+        // uno vorrebbe dire indovinare quale. Si lascia il lavoro a una persona,
+        // che ha il bottone «Allinea lo stato» nella Riconciliazione.
+        // Contati il 26/08/2026 su 1.371 ordini e 3 negozi: **zero** numeri
+        // ripetuti — ma in Deluxy Orders, che di negozi ne ha quattro, #2799
+        // esiste già su più di uno.
+        const ordiniPerNumero = await db.ordine.count({ where: { numero: { in: [nudo, `#${nudo}`] } } })
+        const quando = new Date()
+        if (ordiniPerNumero > 1) {
+          // niente: due ordini con lo stesso numero non si distinguono da qui
+        } else if (daSpostare.length) {
+          await db.ordine.updateMany({
+            where: { id: { in: daSpostare.map((o) => o.id) } },
+            // ⚠️ Anche CHI: l'etichetta a schermo dice «segnato da …», e
+            // lasciarci il nome di chi aveva messo lo stato di prima con la data
+            // di adesso racconterebbe una cosa mai successa. L'ha causato chi ha
+            // premuto «Pagata».
+            data: {
+              gestione: 'attesa_consegna',
+              gestioneIl: quando,
+              gestioneDaId: io.id,
+              gestioneDaNome: io.nome,
+            },
+          })
+          // ── E LO SA ANCHE ORDERS ──
+          //
+          // ⚠️⚠️ Uno stato che cambia SOLO QUI è uno stato che le altre app non
+          // vedono: il Customer Service è il decisore dell'evasione (Standard
+          // §7.2) e Orders mostra `csGestione` accanto alla sua pipeline. Il
+          // cambio a mano glielo diceva già; questo, che avviene da solo, no —
+          // e in Orders l'ordine sarebbe rimasto «in pagamento» finché qualcuno
+          // non lo toccava a mano. Un automatismo che aggiorna una schermata
+          // sola è peggio di nessun automatismo: due app dicono due cose e
+          // nessuno sa quale vale.
+          //
+          // ⚠️ Best-effort, come nel cambio a mano: se Orders non risponde il
+          // pagamento resta registrato e lo stato resta cambiato qui.
+          for (const o of daSpostare) {
+            await comunicaStatoAOrders(o.numero, o.shopifyId, 'attesa_consegna', io.nome, quando)
+          }
+        }
       } catch {
         // lo stato è un contorno: il pagamento resta registrato
       }

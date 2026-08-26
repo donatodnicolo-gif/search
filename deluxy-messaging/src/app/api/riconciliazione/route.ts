@@ -10,6 +10,7 @@ import {
   type DaRiconciliare,
 } from '@/lib/riconciliazione'
 import { riconciliaDaPagamento } from '@/lib/riconcilia'
+import { comunicaStatoAOrders } from '@/lib/orders'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -228,15 +229,20 @@ export async function POST(req: NextRequest) {
     // ⚠️ `attesa_consegna` e non uno stato più avanti: il pagamento al
     // fornitore è partito, la consegna al cliente no — dire «consegnato»
     // sarebbe una bugia sulla bacheca di tutti.
+    const quando = new Date()
     await db.ordine.update({
       where: { id: ordine.id },
       data: {
         gestione: 'attesa_consegna',
-        gestioneIl: new Date(),
+        gestioneIl: quando,
         gestioneDaId: io.id,
         gestioneDaNome: io.nome,
       },
     })
+    // ⚠️ Anche a Orders, come il cambio di stato a mano: uno stato che cambia
+    // solo qui lascia l'ordine fermo allo stato vecchio nel registro che leggono
+    // le altre app. Best-effort: se Orders non risponde, qui è cambiato lo stesso.
+    await comunicaStatoAOrders(ordine.numero, ordine.shopifyId, 'attesa_consegna', io.nome, quando)
     return NextResponse.json({ ok: true, nuovoStato: 'attesa_consegna' })
   }
 

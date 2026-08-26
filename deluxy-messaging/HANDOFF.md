@@ -50,6 +50,29 @@ cosa farebbe), attribuendo lo spostamento a **chi aveva pagato**. Ricontato dopo
 (`308b7c97`) e quei pagamenti erano stati segnati **prima** del rilascio. Non era
 rotto, era **troppo stretto**.
 
+⚠️⚠️ **E LO SA ANCHE ORDERS.** Il buco che l'handoff del 24/08 lasciava aperto
+(«resta da agganciare il push alle transizioni AUTOMATICHE») era proprio questo:
+lo stato cambiato da solo restava **dentro casa nostra**, e in Deluxy Orders
+l'ordine continuava a risultare «in pagamento» finché qualcuno non lo toccava a
+mano. Un automatismo che aggiorna una schermata sola è peggio di nessun
+automatismo: due app dicono due cose e nessuno sa quale vale. Adesso
+`comunicaStatoAOrders` parte **sia** dallo spostamento automatico dei Pagamenti
+**sia** dal bottone «Allinea lo stato» della Riconciliazione, che pure scriveva
+solo qui.
+
+⚠️ Anche i **5 già allineati** l'hanno detto a Orders, con
+`npx tsx scripts/allinea-orders-attesa-consegna.mts`: **5 OK su 5** (26/08).
+
+⚠️⚠️ **IL NUMERO NON È UN'IDENTITÀ, e qui è l'unica cosa che abbiamo.** La
+`RichiestaPagamento` porta `ordineNumero` e basta: non il negozio, non l'id. Se
+quel numero appartiene a **più di un ordine** adesso non si sposta **niente** —
+spostarli entrambi direbbe il falso su uno, sceglierne uno sarebbe indovinare — e
+il lavoro resta a una persona col bottone della Riconciliazione. **Contati il
+26/08 su 1.371 ordini e 3 negozi: ZERO numeri ripetuti.** Ma non è teoria: in
+Orders, che di negozi ne ha **quattro** da ieri, `#2799` **esiste già su più di
+uno** (l'API risponde «esiste su più negozi: non so quale mostrare»). Il giorno
+che business.deluxy.it entra anche qui, la guardia serve.
+
 Verifica: `npx tsc --noEmit` esito 0, `npm run build` esito 0.
 
 ## 26/08/2026 (11) — Bozze: «Tutte» di partenza, e dopo 7 giorni si annullano

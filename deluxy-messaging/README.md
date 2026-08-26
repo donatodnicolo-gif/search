@@ -605,6 +605,17 @@ decisione di una persona.
 a schermo dice «segnato da …», e lasciarci il nome di chi aveva messo lo stato
 precedente con la data di adesso racconterebbe una cosa mai successa.
 
+⚠️ **Lo sa anche Deluxy Orders**: lo spostamento automatico manda `csGestione`
+a Orders come fa il cambio di stato a mano (e da oggi lo manda anche il bottone
+«Allinea lo stato» della Riconciliazione, che prima scriveva solo qui). Uno stato
+che cambia in una schermata sola fa dire due cose diverse a due app.
+
+⚠️⚠️ **Se quel numero d'ordine appartiene a più ordini, non si sposta niente.**
+La richiesta di pagamento porta solo il **numero** — non il negozio, non l'id — e
+due negozi possono avere lo stesso numero: spostarli entrambi direbbe il falso su
+uno, sceglierne uno sarebbe indovinare. In quel caso resta il bottone **«Allinea
+lo stato»** nella Riconciliazione, dove è una persona a guardare quale.
+
 ⚠️ **Gli ordini pagati PRIMA di questa regola non si sistemano da soli**: li ha
 allineati una volta sola `scripts/allinea-pagati-attesa-consegna.mjs` (5 ordini
 il 26/08/2026 — #2778, #2780, #2783, #2785, #2799). Lo script si rilancia senza
