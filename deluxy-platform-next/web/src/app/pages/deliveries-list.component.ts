@@ -483,7 +483,9 @@ const SERVICE_ICONS: Record<string, string> = {
       .status-dot.s-in_delivery { background: var(--purple); }             /* In consegna: viola */
       .status-dot.s-cancellation_requested { background: #5ac8fa; }        /* Richiedi annullamento: azzurro */
       .status-dot.s-delivered,
-      .status-dot.s-delivered_time_approved { background: var(--green); }  /* Consegnata: verde */
+      .status-dot.s-approved { background: var(--green); }                  /* Consegnata e approvata: verde */
+      .status-dot.s-delivered_time_to_approve { background: #ff9500; }      /* Ore da approvare: arancio */
+      .status-dot.s-invalidated { background: #8a8a8e; }                    /* Annullata d.ufficio: grigio */
 
       /* Legenda colori stato */
       .legend {
@@ -766,7 +768,7 @@ const SERVICE_ICONS: Record<string, string> = {
         color: var(--purple);
       }
       .s-delivered,
-      .s-delivered_time_approved {
+      .s-approved {
         background: rgba(36, 138, 61, 0.12);
         color: var(--green);
       }
@@ -1000,8 +1002,8 @@ export class DeliveriesListComponent {
     { cls: 's-accepted', statuses: ['accepted'] },
     { cls: 's-in_delivery', statuses: ['in_delivery'] },
     { cls: 's-cancellation_requested', statuses: ['cancellation_requested'] },
-    { cls: 's-delivered', statuses: ['delivered', 'delivered_time_approved'] },
-    { cls: 's-archived', statuses: ['not_delivered', 'not_accepted', 'cancelled', 'delivered_time_not_approved'] },
+    { cls: 's-delivered', statuses: ['delivered', 'approved'] },
+    { cls: 's-archived', statuses: ['not_delivered', 'not_accepted', 'cancelled', 'invalidated'] },
   ];
 
   /**

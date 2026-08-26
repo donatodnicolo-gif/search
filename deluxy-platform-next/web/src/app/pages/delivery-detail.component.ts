@@ -414,7 +414,7 @@ interface DeliveryDetail {
       .dot.s-accepted { background: var(--blue); }
       .dot.s-in_delivery { background: var(--purple); }
       .dot.s-cancellation_requested { background: #5ac8fa; }
-      .dot.s-delivered, .dot.s-delivered_time_approved { background: var(--green); }
+      .dot.s-delivered, .dot.s-approved { background: var(--green); }
       .state-card { padding: 32px; color: var(--text-secondary); }
       .state-card.error { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); }
       @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }

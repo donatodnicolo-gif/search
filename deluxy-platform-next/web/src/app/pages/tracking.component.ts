@@ -97,7 +97,7 @@ interface PublicTracking {
       .dot.s-in_preparation { background: #ff9500; }
       .dot.s-accepted { background: var(--blue); }
       .dot.s-in_delivery { background: var(--purple); }
-      .dot.s-delivered, .dot.s-delivered_time_approved { background: var(--green); }
+      .dot.s-delivered, .dot.s-approved { background: var(--green); }
       .logs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
       .logs li { display: flex; gap: 12px; font-size: 13px; }
       .log-date { color: var(--text-tertiary); font-variant-numeric: tabular-nums; white-space: nowrap; }

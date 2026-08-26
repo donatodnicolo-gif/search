@@ -46,9 +46,14 @@ export enum DeliveryStatus {
   CANCELLED = 'cancelled',
   CANCELLATION_REQUESTED = 'cancellation_requested',
   NOT_ACCEPTED = 'not_accepted',
-  // Solo per servizi a ora:
-  DELIVERED_TIME_APPROVED = 'delivered_time_approved',
-  DELIVERED_TIME_NOT_APPROVED = 'delivered_time_not_approved',
+  // ⚠️ Qui c'erano `delivered_time_approved` e `delivered_time_not_approved`:
+  // due stati che in banca dati NON ESISTONO e non sono mai esistiti (misurato
+  // il 26/08/2026 su tutte le 61.837 consegne: zero righe). Erano peggio che
+  // inutili, perche' `@IsEnum(DeliveryStatus)` li ACCETTAVA in scrittura e il
+  // menu «cambia stato» li proponeva: un operatore che ne sceglieva uno
+  // portava la consegna in uno stato che nessun conto conosce — e lo stipendio,
+  // che paga solo `delivered | approved | not_delivered`, smetteva di vederla.
+  // Gli stati veri delle ore sono i due qui sotto.
   // --- stati che esistevano nel database originario e qui mancavano ---
   /** Consegnata, ore ancora DA approvare (708 consegne nel legacy). */
   DELIVERED_TIME_TO_APPROVE = 'delivered_time_to_approve',
@@ -73,8 +78,6 @@ export const DELIVERY_CLOSED_STATUSES: string[] = [
   DeliveryStatus.NOT_DELIVERED,
   DeliveryStatus.CANCELLED,
   DeliveryStatus.NOT_ACCEPTED,
-  DeliveryStatus.DELIVERED_TIME_APPROVED,
-  DeliveryStatus.DELIVERED_TIME_NOT_APPROVED,
   DeliveryStatus.APPROVED,
   DeliveryStatus.INVALIDATED,
 ];

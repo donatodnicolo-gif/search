@@ -247,6 +247,14 @@ export const DELIVERY_STATUS_LABELS: Record<string, string> = {
   cancelled: 'Annullata',
   cancellation_requested: 'Cancellazione richiesta',
   not_accepted: 'Non accettata',
-  delivered_time_approved: 'Consegnata (orario approvato)',
-  delivered_time_not_approved: 'Consegnata (orario da approvare)',
+  // ⚠️ Qui c'erano `delivered_time_approved` e `delivered_time_not_approved`:
+  // due stati che in banca dati NON ESISTONO (zero righe su 61.837), mentre
+  // mancavano i due VERI — `approved` (1.258 consegne) e `invalidated` (230).
+  // Questa mappa non serve solo a scrivere l'etichetta: da lei nascono la
+  // tendina del filtro e il menu «cambia stato» (`statusKeys` in
+  // deliveries-list). Quindi l'elenco proponeva due stati che non trovano mai
+  // niente e ne nascondeva due che valgono 1.488 consegne vere.
+  delivered_time_to_approve: 'Consegnata (ore da approvare)',
+  approved: 'Approvata',
+  invalidated: "Annullata d'ufficio",
 };

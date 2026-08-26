@@ -89,7 +89,9 @@
       "status": "Status",
       "actions": "Actions"
     },
-    "action": { "reply": "Reply" },
+    "action": {
+      "reply": "Reply"
+    },
     "form": {
       "title": "Quote request",
       "linea": "Service of interest",
@@ -333,8 +335,9 @@
       "cancelled": "Cancelled",
       "cancellation_requested": "Cancellation requested",
       "not_accepted": "Not accepted",
-      "delivered_time_approved": "Delivered (time approved)",
-      "delivered_time_not_approved": "Delivered (time pending approval)"
+      "delivered_time_to_approve": "Delivered (hours to approve)",
+      "approved": "Approved",
+      "invalidated": "Voided"
     }
   },
   "calendar": {

@@ -89,7 +89,9 @@
       "status": "Stato",
       "actions": "Azioni"
     },
-    "action": { "reply": "Rispondi" },
+    "action": {
+      "reply": "Rispondi"
+    },
     "form": {
       "title": "Richiesta di preventivo",
       "linea": "Servizio d'interesse",
@@ -333,8 +335,9 @@
       "cancelled": "Annullata",
       "cancellation_requested": "Cancellazione richiesta",
       "not_accepted": "Non accettata",
-      "delivered_time_approved": "Consegnata (orario approvato)",
-      "delivered_time_not_approved": "Consegnata (orario da approvare)"
+      "delivered_time_to_approve": "Consegnata (ore da approvare)",
+      "approved": "Approvata",
+      "invalidated": "Annullata d'ufficio"
     }
   },
   "calendar": {

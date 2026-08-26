@@ -43,11 +43,12 @@ const STATUS_COLOR: Record<string, string> = {
   in_delivery: '#af52de',
   cancellation_requested: '#5ac8fa',
   delivered: '#248a3d',
-  delivered_time_approved: '#248a3d',
+  approved: '#248a3d',
+  delivered_time_to_approve: '#ff9500',
   not_delivered: '#8a8a8e',
   not_accepted: '#8a8a8e',
   cancelled: '#8a8a8e',
-  delivered_time_not_approved: '#8a8a8e',
+  invalidated: '#8a8a8e',
 };
 
 // Caricamento opzionale del clusterer (degrada a marker singoli se non disponibile).

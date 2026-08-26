@@ -27,7 +27,7 @@ interface Cell { ymd: string; day: number; inMonth: boolean; isToday: boolean; c
 const STATUS_COLOR: Record<string, string> = {
   created: '#d70015', assigned: '#e6b800', in_preparation: '#ff9500', accepted: '#007aff',
   in_delivery: '#af52de', cancellation_requested: '#5ac8fa', delivered: '#248a3d',
-  delivered_time_approved: '#248a3d',
+  approved: '#248a3d', delivered_time_to_approve: '#ff9500', invalidated: '#8a8a8e',
 };
 
 /**

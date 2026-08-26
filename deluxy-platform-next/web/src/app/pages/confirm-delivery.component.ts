@@ -53,7 +53,7 @@ interface PublicTracking {
             @if (d.partner) { <dt>{{ 'deliveries.col.partner' | translate }}</dt><dd>{{ d.partner }}</dd> }
           </dl>
 
-          @if (done() || d.status === 'delivered' || d.status === 'delivered_time_approved') {
+          @if (done() || d.status === 'delivered' || d.status === 'approved') {
             <div class="ok">{{ 'confirmDelivery.done' | translate }}</div>
           } @else {
             <div class="form">
@@ -92,7 +92,7 @@ interface PublicTracking {
       .dot.s-in_preparation { background: #ff9500; }
       .dot.s-accepted { background: var(--blue); }
       .dot.s-in_delivery { background: var(--purple); }
-      .dot.s-delivered, .dot.s-delivered_time_approved { background: var(--green); }
+      .dot.s-delivered, .dot.s-approved { background: var(--green); }
       .form { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; }
       .form label { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
       .form .btn { margin-top: 8px; align-self: flex-start; }
