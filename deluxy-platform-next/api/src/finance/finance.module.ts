@@ -458,6 +458,7 @@ export class FinanceService {
       // deduce cio' che e' gia' scritto, ed e' l'errore appena corretto.
       include: {
         partner: { select: { insegna: true, commissionPercent: true } },
+        valet: { select: { hasVat: true, withholdingPercent: true } },
         serviceType: { select: { name: true, pricingModel: true } },
         products: {
           include: {
@@ -560,6 +561,7 @@ export class FinanceService {
       },
       include: {
         partner: { select: { insegna: true, commissionPercent: true } },
+        valet: { select: { hasVat: true, withholdingPercent: true } },
         serviceType: { select: { name: true, pricingModel: true } },
         products: {
           include: {
@@ -930,7 +932,17 @@ export class FinanceService {
     // dal valet come minus sulla paga (es. #31675: minus −1.237,60 su una paga
     // di 15) — un «costo negativo» che GONFIAVA il margine dell'ordine di
     // quell'importo. Il contante e' cassa, non un ricavo della consegna.
-    const deliveryCost = d.payable === false ? 0 : Math.max(0, (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0));
+    const pagaValet = d.payable === false ? 0 : Math.max(0, (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0));
+    // ⭐ 27/08 (deciso dall'utente): per i valet SENZA P.IVA la paga e' il
+    // NETTO che ricevono — sopra, Deluxy versa la RITENUTA D'ACCONTO, che e'
+    // un costo vero della consegna. Formula dalla ricevuta reale: la quota %
+    // di rimborso della scheda non e' imponibile, il resto si grossa a lordo
+    // (÷0,8) e la ritenuta e' il 20% del lordo = compensoNetto × 25%.
+    // Per le P.IVA non si aggiunge nulla (fatturano, le tasse sono loro).
+    const ritenutaStimata = pagaValet > 0 && d.valet && d.valet.hasVat === false
+      ? round2(pagaValet * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25)
+      : 0;
+    const deliveryCost = round2(pagaValet + ritenutaStimata);
     const incassiCommission = saleValue * INCASSI;
     // ⭐ LA FEE REGISTRATA E' RICAVO, e nel margine ci va (deciso dall'utente
     // il 26/08): il partner non riceve il valore prodotti intero ma quel

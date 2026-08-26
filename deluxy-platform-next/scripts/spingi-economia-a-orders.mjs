@@ -100,13 +100,20 @@ const dd = await db.delivery.findMany({
     realOrderNumber: true, valetSalary: true, valetAdditionalPrice: true,
     price: true, additionalPrice: true,
     partner: { select: { commissionPercent: true } },
+    valet: { select: { hasVat: true, withholdingPercent: true } },
   },
 });
 const per = new Map();
 for (const d of dd) {
   const k = d.realOrderNumber;
   const c = per.get(k) ?? { costoConsegna: 0, feeConsegna: 0 };
-  c.costoConsegna += (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0);
+  // La paga dei senza P.IVA e' il loro netto: sopra c'e' la ritenuta
+  // d'acconto (paga x (1 - % rimborso) x 25%), costo vero della consegna.
+  const paga = Math.max(0, (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0));
+  const ritenuta = paga > 0 && d.valet && d.valet.hasVat === false
+    ? paga * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25
+    : 0;
+  c.costoConsegna += paga + ritenuta;
   const pp = (d.price ?? 0) + (d.additionalPrice ?? 0);
   const fee = d.partner?.commissionPercent ?? 0;
   if (fee > 0) c.feeConsegna += (fee / 100) * pp;

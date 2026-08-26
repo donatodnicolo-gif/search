@@ -280,6 +280,7 @@ export class OrdersSyncService {
         valetSalary: true, valetAdditionalPrice: true,
         price: true, additionalPrice: true,
         partner: { select: { commissionPercent: true } },
+        valet: { select: { hasVat: true, withholdingPercent: true } },
       },
     });
 
@@ -290,7 +291,15 @@ export class OrdersSyncService {
       const k = d.realOrderNumber!;
       const c = per.get(k) ?? { costoConsegna: 0, feeConsegna: 0, consegne: 0, senzaFee: 0 };
       c.consegne++;
-      c.costoConsegna += (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0);
+      // ⭐ 27/08 (deciso dall'utente): la paga di un valet SENZA P.IVA e' il
+      // suo NETTO — sopra, Deluxy versa la ritenuta d'acconto: costo vero
+      // della consegna, che a Orders va COMPRESO. Formula dalla ricevuta:
+      // ritenuta = paga × (1 − % rimborso) × 25%. Con P.IVA niente da aggiungere.
+      const paga = Math.max(0, (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0));
+      const ritenuta = paga > 0 && d.valet && d.valet.hasVat === false
+        ? paga * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25
+        : 0;
+      c.costoConsegna += paga + ritenuta;
       const prezzoPartner = (d.price ?? 0) + (d.additionalPrice ?? 0);
       const feePercent = d.partner?.commissionPercent ?? 0;
       if (feePercent > 0) c.feeConsegna += (feePercent / 100) * prezzoPartner;

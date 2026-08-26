@@ -402,6 +402,18 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### ⭐ 27/08 (notte, 12) — La RITENUTA entra nel costo consegna (Finanza + Orders)
+
+Deciso dall utente: la ritenuta d acconto dei valet SENZA P.IVA e un costo
+vero della consegna — la paga scritta e il loro NETTO, sopra Deluxy versa
+ritenuta = paga × (1 − % rimborso della scheda) × 25% (formula dalla
+ricevuta reale; con P.IVA niente da aggiungere). Applicata in TRE punti:
+computeRow della Finanza (costoConsegna = paga + ritenutaStimata),
+spingiMargini (il costoConsegna che va a Orders) e lo script locale di
+spinta. Solo vendite in Finanza per ambito; misurata sulle vendite:
+7.808 EUR storici (13,7% delle paghe dei senza P.IVA), 2.753 nel 2026.
+Rispinta a Orders in corso (idempotente).
+
 ### ⭐⭐ 27/08 (notte, 11) — I SERVIZI RICORRENTI, e il costo che non stimavamo
 
 - **Servizi ricorrenti** (chiesto dall utente): modello RecurringService
