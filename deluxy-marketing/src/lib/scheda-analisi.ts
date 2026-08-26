@@ -273,8 +273,40 @@ export async function elaboraAnalisi(analisiId: string): Promise<EsitoElaborazio
   const tagliato = doc.testo.length > LIMITE;
   const testo = tagliato ? doc.testo.slice(0, LIMITE) : doc.testo;
 
+  // ⚠️ IL CENSIMENTO ASSET ENTRA NEL PAYLOAD (26/08/2026). Il documento
+  // spesso indica un claim su più campagne SENZA dare i titoli esatti («6
+  // sitelink same-day su 4 campagne») — e la mappa, vincolata a non
+  // inventare, produceva un'operazione sola. I titoli veri l'app li ha già:
+  // il censimento che arriva da Google. Si passano all'AI, che traduce il
+  // claim in operazioni per campagna usando titoli REALI, non inventati.
+  // Solo Google (le estensioni sono sue) e solo per i brand veri.
+  let assetCensiti: { campagna: string; tipo: string; testo: string }[] = [];
+  if (analisi.brand !== "cross" && (analisi.canale == null || analisi.canale === "google_ads")) {
+    const campagneAccese = await prisma.campagna.findMany({
+      where: { brand: analisi.brand, canale: "google_ads", statoPiattaforma: "ENABLED" },
+      select: { nome: true },
+    });
+    assetCensiti = (
+      await prisma.copyAnnuncio.findMany({
+        where: {
+          brand: analisi.brand,
+          tipo: { in: ["sitelink", "callout"] },
+          statoPiattaforma: "ENABLED",
+          campagna: { in: campagneAccese.map((c) => c.nome) },
+        },
+        select: { campagna: true, tipo: true, testo: true },
+        take: 80,
+      })
+    ).map((a) => ({ campagna: a.campagna, tipo: a.tipo, testo: a.testo }));
+  }
+
   const risposta = await chiediAllAi({
-    istruzioni: ISTRUZIONI + (tagliato ? "\n\nATTENZIONE: il documento è stato TRONCATO a 120.000 caratteri: dillo nella sintesi." : ""),
+    istruzioni:
+      ISTRUZIONI +
+      (assetCensiti.length > 0
+        ? "\n\nNOTA su assetCensiti: è il censimento VERO degli asset attivi (sitelink e callout letti da Google dall'app, per campagna). Quando il documento chiede di rimuovere un claim su più campagne SENZA dare i titoli esatti, traduci in operazioni rimuovi_estensione per campagna usando i titoli del censimento — SOLO dove il titolo corrisponde chiaramente al claim (es. same-day → «Consegna Oggi», «Delivery Today»). Il censimento è settimanale e può essere indietro: un asset appena rimosso può ancora comparirci — mappalo lo stesso, il dedupe dell'app lo riconosce."
+        : "") +
+      (tagliato ? "\n\nATTENZIONE: il documento è stato TRONCATO a 120.000 caratteri: dillo nella sintesi." : ""),
     dati: {
       titolo: analisi.titolo,
       tipo: analisi.tipo,
@@ -282,6 +314,7 @@ export async function elaboraAnalisi(analisiId: string): Promise<EsitoElaborazio
       canale: analisi.canale,
       dataAnalisi: analisi.dataAnalisi,
       documento: testo,
+      ...(assetCensiti.length > 0 ? { assetCensiti } : {}),
     },
     schema: SCHEMA_SCHEDA,
     massimoToken: 12000,

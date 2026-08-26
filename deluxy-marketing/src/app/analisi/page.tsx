@@ -110,11 +110,15 @@ export default async function PaginaAnalisi({
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                  {/* L'ordine dice il senso dei colori: il SEMAFORO è il
+                      verdetto della lettura, il pallino colorato è il BRAND
+                      (i suoi colori di sempre), poi la PIATTAFORMA e il tipo
+                      in grigio neutro. */}
                   <Badge testo={ETICHETTA_VERDETTO[s.verdetto]} colore={COLORE_VERDETTO[s.verdetto]} />
                   <Badge testo={ETICHETTA_BRAND[a.brand] ?? a.brand} colore={COLORE_BRAND[a.brand] ?? "var(--text-tertiary)"} />
-                  {/* Il TIPO distingue un audit da un'analisi: senza, due card
-                      identiche raccontano due mestieri diversi — l'audit dice
-                      «com'è messo l'account», l'analisi «com'è andata». */}
+                  {a.canale && (
+                    <span className="tag-neutro">{ETICHETTA_CANALE[a.canale] ?? a.canale}</span>
+                  )}
                   <span className="tag-neutro">{ETICHETTA_TIPO_ANALISI[a.tipo] ?? a.tipo}</span>
                   <span className="cella-sub" style={{ marginLeft: "auto" }}>{formattaData(a.dataAnalisi)}</span>
                 </div>

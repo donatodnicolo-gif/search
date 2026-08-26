@@ -35,6 +35,20 @@ function daNonImportare(percorso: string, nome: string): boolean {
 // Il tipo si legge dal nome del file, che nella cartella ADV è una convenzione
 // stabile ("Audit Google Ads Gifts — 9 luglio"). Se non lo dice, resta
 // "analisi" generica: meglio generica che classificata a caso.
+// Il CANALE dal nome del file: «Analisi Meta Gifts» è Meta, «Analisi Google
+// Ads Flowers» è Google. Prima restava vuoto, e le card dell'elenco non
+// potevano dire su quale piattaforma l'analisi parla — che è la prima cosa
+// che si vuole sapere (richiesta utente, 26/08/2026).
+export function canaleAnalisiDa(nome: string): string | null {
+  const t = nome.toLowerCase();
+  if (/\bmeta\b|facebook|instagram/.test(t)) return "meta_ads";
+  if (/google|\bads\b|adwords/.test(t)) return "google_ads";
+  if (/tiktok/.test(t)) return "tiktok";
+  if (/klaviyo|email/.test(t)) return "email";
+  if (/landing|sito|seo/.test(t)) return "sito";
+  return null;
+}
+
 export function tipoAnalisiDa(nome: string, categoria: string): string {
   const t = nome.toLowerCase();
   if (/report\s*settiman/.test(t)) return "report_settimanale";
@@ -111,6 +125,7 @@ export async function importaAnalisiDaDrive(
       data: {
         titolo: d.nome.replace(/\.[^.]+$/, ""),
         tipo: tipoAnalisiDa(d.nome, d.categoria),
+        canale: canaleAnalisiDa(d.nome),
         brand: brandAnalisi(d.brand),
         sintesi:
           sintesi ??

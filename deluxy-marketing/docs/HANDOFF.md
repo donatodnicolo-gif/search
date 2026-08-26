@@ -336,6 +336,29 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐ LA MAPPA LEGGE ANCHE IL CENSIMENTO — e le card dicono la piattaforma (26/08/2026)
+
+Due osservazioni utente. «Mi propone una sola azione, non per tutte le
+campagne»: la mappa era vincolata al documento, e il documento dice «6
+sitelink same-day su 4 campagne» SENZA i titoli — che l'app però ha già, nel
+censimento asset di Google. Ora `elaboraAnalisi` passa all'AI `assetCensiti`
+(sitelink e callout ENABLED su campagne ENABLED del brand, max 80) con la
+regola: tradurre il claim in operazioni per campagna usando i titoli VERI del
+censimento, mai inventare. Rielaborata la Flowers: la #17 è passata da 1 a
+**4 operazioni** — descrizione «White-glove» su ENG (la forma giusta),
+«Consegna Oggi» su ENG e Brand protection, «Delivery Today» su ENG — coi nomi
+campagna COMPLETI (dal censimento), aggancio perfetto. Verificato dal DOM: 4
+bottoni sotto F13.
+
+«Che senso hanno i colori? indica anche la piattaforma»: sulle card di
+/analisi l'ordine ora dice il senso — semaforo = verdetto della lettura,
+pallino colorato = brand (i suoi colori di sempre), poi PIATTAFORMA (Google
+Ads / Meta Ads) e tipo in grigio. Il canale mancava perché l'import non lo
+deduceva dal nome del file: ora `canaleAnalisiDa()` lo scrive all'import, e
+il backfill ha riempito **52 righe su 59** (le 7 senza canale non lo dicono
+nel titolo, e non si inventa).
+
+
 ### ⭐⭐⭐ LE RISPOSTE ALLE PROPOSTE — il canale di RITORNO verso i progetti di analisi (26/08/2026)
 
 Richiesta utente: poter RISPONDERE alle azioni proposte, così che la prossima
