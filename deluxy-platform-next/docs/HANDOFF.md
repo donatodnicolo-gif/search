@@ -85,6 +85,30 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### ⭐ 26/08/2026 (sera, 7) — Il plus che era RIMBORSO KM torna a essere paga base
+
+L'utente, guardando le 144 consegne finite a costo zero: «sembrano casi in cui
+il plus è stato usato per il rimborso km: sistema la paga base come da
+funzionamento attuale e azzera il plus».
+
+⭐ **Verificato prima di toccare, e l'ipotesi ha retto**: dove il valet ha un
+`extraOutOfCityPrice` in scheda, il plus **combacia con km × prezzo** — 22 casi
+entro 50 centesimi e altri 18 entro 3 € (#36415: 44,16 km e plus 44,00 con
+1 €/km; #35419: 31,94 km e plus 32,00). Il plus **era** il rimborso km, scritto
+nella casella sbagliata. La formula è il ramo `!inCity` di
+`CalculationsService.fixedPrice`: `extraOutOfCityPrice × distanceKm`.
+
+- `api/scripts/paga-da-plus-km.mjs` (prova a secco, backup, riga di registro):
+  **64 consegne riscritte** — `valetSalary` = km × tariffa,
+  `valetAdditionalPrice` = 0. Quello che il valet prende passa da 1.072,76 a
+  **884,60 €** (−188,16).
+- ⚠️ **78 saltate, e dette una per una**: 30 senza `distanceKm`, 33 col valet
+  senza prezzo fuori città in scheda, **15 già PAGATE al valet** — quelle non si
+  riscrivono alle spalle di chi ha incassato.
+- Dopo la correzione il costo consegna dell'ambito vendita è **90.052,88 €** e
+  restano **80** vendite a costo zero con un plus > 5 € non recuperato: sono le
+  saltate di sopra. Per chiuderle servono la distanza o la tariffa del valet.
+
 ### ⭐⭐ 26/08/2026 (sera, 6) — Il PLUS sopra i 5 € è un rimborso di acquisti, e Omini al 50%
 
 **① Regola dell'utente**: «il plus spesso sono rimborsi dati al valet perché ha
