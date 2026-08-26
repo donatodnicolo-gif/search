@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
       mansionario: { orderBy: { ordine: "asc" } },
       inquadramenti: true,
       compensi: true,
+      benefit: { include: { tipo: true }, orderBy: { creatoIl: "asc" } },
     },
     orderBy: { nome: "asc" },
   });
@@ -71,6 +72,16 @@ export async function GET(req: NextRequest) {
         nome: a.nome,
         dettaglio: a.dettaglio || null,
         frequenza: a.frequenza || null,
+      })),
+      // I benefit assegnati (buoni pasto, cellulare, auto…). Il valore
+      // mensile è retribuzione in natura: esce solo con ?compensi=1.
+      benefit: x.benefit.map((b) => ({
+        tipo: b.tipo.nome,
+        dettaglio: b.dettaglio || null,
+        dal: b.dal?.toISOString().slice(0, 10) ?? null,
+        ...(conCompensi
+          ? { valoreMensile: b.valoreMensile != null ? Number(b.valoreMensile) : null }
+          : {}),
       })),
       inquadramento: inquadramento
         ? {

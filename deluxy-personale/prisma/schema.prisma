@@ -94,6 +94,7 @@ model Persona {
   mansionario     AttivitaPersona[]
   inquadramenti   Inquadramento[]
   compensi        Compenso[]
+  benefit         BenefitPersona[]
   funzioniGuidate Funzione[]      @relation("ResponsabileFunzione")
 
   creatoIl     DateTime @default(now())
@@ -180,6 +181,39 @@ model Compenso {
   creatoIl      DateTime @default(now())
 
   @@index([personaId, decorrenza])
+}
+
+// Catalogo dei benefit aziendali: il vocabolario lo governa l'amministratore
+// (i quattro di base — buoni pasto, cellulare, PC, auto — nascono con un
+// click dalla pagina /benefit; gli altri si aggiungono da lì).
+model TipoBenefit {
+  id           String           @id @default(cuid())
+  nome         String           @unique
+  descrizione  String           @default("")
+  ordine       Int              @default(0)
+  attivo       Boolean          @default(true)
+  assegnazioni BenefitPersona[]
+  creatoIl     DateTime         @default(now())
+
+  @@index([ordine])
+}
+
+// Benefit in mano a una persona: quale, con che dettaglio, da quando.
+// Il valore mensile si DICHIARA se lo si conosce (mai dedotto) e chi non
+// ce l'ha resta dichiaratamente fuori dai totali.
+model BenefitPersona {
+  id            String      @id @default(cuid())
+  personaId     String
+  persona       Persona     @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  tipoId        String
+  tipo          TipoBenefit @relation(fields: [tipoId], references: [id])
+  dettaglio     String      @default("") // es. "8 €/giorno", "iPhone 14", targa dell'auto…
+  valoreMensile Decimal?    @db.Decimal(12, 2) // dichiarato, mai dedotto
+  dal           DateTime?   @db.Date
+  creatoIl      DateTime    @default(now())
+
+  @@index([personaId])
+  @@index([tipoId])
 }
 
 // Chiavi API delle app client (Hub, Budgets, …). La chiave in chiaro non viene

@@ -62,6 +62,16 @@ export function nomeMotivoCompenso(chiave: string): string {
   return MOTIVI_COMPENSO.find((m) => m.chiave === chiave)?.nome ?? (chiave || "—");
 }
 
+// I quattro benefit con cui si parte (pagina /benefit, bottone «Crea i tipi
+// di base»). Sono un seme, non un limite: l'amministratore aggiunge da lì
+// tutti i tipi che vuole.
+export const TIPI_BENEFIT_BASE = [
+  { nome: "Buoni pasto", descrizione: "Ticket giornalieri: nel dettaglio il valore del singolo buono" },
+  { nome: "Cellulare aziendale", descrizione: "Telefono e/o SIM: nel dettaglio il modello o il numero" },
+  { nome: "PC aziendale", descrizione: "Computer di lavoro: nel dettaglio il modello" },
+  { nome: "Auto aziendale", descrizione: "Vettura a uso promiscuo o di servizio: nel dettaglio modello e targa" },
+] as const;
+
 // La riga "corrente" di una storia è quella con la decorrenza più recente NON
 // futura: una variazione già registrata con decorrenza al mese prossimo non è
 // ancora vera oggi. Se esistono solo righe future, non c'è un corrente.

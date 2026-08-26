@@ -17,7 +17,9 @@ import {
 } from "@/lib/organico";
 import {
   aggiornaAttivitaPersona,
+  aggiornaBenefitPersona,
   aggiornaPersona,
+  assegnaBenefit,
   assegnaMansione,
   cessaPersona,
   creaAttivitaPersona,
@@ -28,6 +30,7 @@ import {
   eliminaInquadramento,
   riattivaPersona,
   rimuoviAssegnazione,
+  rimuoviBenefit,
   segnaPrincipale,
 } from "@/lib/azioni";
 import { FormConferma } from "@/components/FormConferma";
@@ -63,14 +66,16 @@ export default async function SchedaPersona({
       },
       inquadramenti: { orderBy: { decorrenza: "desc" } },
       compensi: { orderBy: { decorrenza: "desc" } },
+      benefit: { include: { tipo: true }, orderBy: { creatoIl: "asc" } },
     },
   });
   if (!persona) notFound();
 
-  const [funzioni, colleghi, mansioniTutte] = await Promise.all([
+  const [funzioni, colleghi, mansioniTutte, tipiBenefit] = await Promise.all([
     prisma.funzione.findMany({ where: { attiva: true }, orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
     prisma.persona.findMany({ where: { stato: "attivo", NOT: { id } }, orderBy: { nome: "asc" } }),
     prisma.mansione.findMany({ where: { attiva: true }, include: { funzione: true }, orderBy: { nome: "asc" } }),
+    prisma.tipoBenefit.findMany({ where: { attivo: true }, orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
   ]);
 
   const inquadramento = inquadramentoCorrente(persona.inquadramenti);
@@ -703,6 +708,118 @@ export default async function SchedaPersona({
             </button>
           </div>
         </form>
+      </div>
+
+      {/* ---------- Benefit ---------- */}
+      <div className="card">
+        <div className="card-testa">
+          <div>
+            <h2 className="card-titolo">Benefit</h2>
+            <p className="card-sub">
+              Cosa ha in mano {persona.nome.split(" ")[0]}: buoni pasto, cellulare, PC, auto… Il
+              quadro di tutti sta in <a href="/benefit" style={{ textDecoration: "underline" }}>Benefit</a>,
+              dove si aggiungono anche i tipi nuovi.
+            </p>
+          </div>
+        </div>
+
+        {persona.benefit.length === 0 ? (
+          <p style={{ fontSize: 13.5, color: "var(--text-tertiary)", marginBottom: 14 }}>
+            Nessun benefit assegnato.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+            {persona.benefit.map((b) => (
+              <div key={b.id} className="riga-chiave">
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={{ fontWeight: 550, fontSize: 14 }}>{b.tipo.nome}</div>
+                  <div className="sotto-nome">
+                    {[
+                      b.dettaglio,
+                      b.valoreMensile != null ? `${euro(Number(b.valoreMensile))}/mese` : null,
+                      b.dal ? `dal ${dataIt(b.dal)}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "senza dettaglio"}
+                  </div>
+                </div>
+                <details className="modifica-inline">
+                  <summary>✎</summary>
+                  <form action={aggiornaBenefitPersona} className="form-inline">
+                    <input type="hidden" name="id" value={b.id} />
+                    <input type="hidden" name="personaId" value={persona.id} />
+                    <div className="campo" style={{ flex: 2 }}>
+                      <label>Dettaglio</label>
+                      <input type="text" name="dettaglio" defaultValue={b.dettaglio} />
+                    </div>
+                    <div className="campo" style={{ maxWidth: 160 }}>
+                      <label>Valore mensile €</label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        name="valoreMensile"
+                        defaultValue={b.valoreMensile != null ? numero(Number(b.valoreMensile)) : ""}
+                      />
+                    </div>
+                    <div className="campo" style={{ maxWidth: 170 }}>
+                      <label>Dal</label>
+                      <input type="date" name="dal" defaultValue={dataInput(b.dal)} />
+                    </div>
+                    <button className="btn ghost mini" type="submit">
+                      Salva
+                    </button>
+                  </form>
+                </details>
+                <FormConferma
+                  azione={rimuoviBenefit}
+                  conferma={`Togliere il benefit «${b.tipo.nome}» a ${persona.nome}?`}
+                  campi={{ id: b.id, personaId: persona.id }}
+                  etichetta="Togli"
+                  classe="btn pericolo mini"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tipiBenefit.length > 0 ? (
+          <form action={assegnaBenefit} className="form-inline">
+            <input type="hidden" name="personaId" value={persona.id} />
+            <div className="campo">
+              <label>Assegna un benefit</label>
+              <select name="tipoId" required defaultValue="">
+                <option value="" disabled>
+                  Scegli…
+                </option>
+                {tipiBenefit.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="campo" style={{ flex: 2 }}>
+              <label>Dettaglio</label>
+              <input type="text" name="dettaglio" placeholder="Es. 8 €/giorno, iPhone 14, targa…" />
+            </div>
+            <div className="campo" style={{ maxWidth: 160 }}>
+              <label>Valore mensile € (se noto)</label>
+              <input type="text" inputMode="decimal" name="valoreMensile" placeholder="Es. 160" />
+            </div>
+            <div className="campo" style={{ maxWidth: 170 }}>
+              <label>Dal</label>
+              <input type="date" name="dal" />
+            </div>
+            <button className="btn" type="submit">
+              Assegna
+            </button>
+          </form>
+        ) : (
+          <p style={{ fontSize: 13, color: "var(--text-tertiary)" }}>
+            Non esistono ancora tipi di benefit: si creano nella pagina{" "}
+            <a href="/benefit" style={{ textDecoration: "underline" }}>Benefit</a>.
+          </p>
+        )}
       </div>
 
       {/* ---------- Cessazione ---------- */}

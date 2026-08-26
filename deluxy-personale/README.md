@@ -49,6 +49,16 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
   (niente più suffisso «da precisare»); chi vuole la forma legale precisa
   sceglie indeterminato/determinato/apprendistato. L'organigramma marca con
   «dal gg/mm» chi ha il contratto che decorre in futuro.
+- ✅ **Benefit per persona (26/08)**: pagina **/benefit** con la tabella
+  persone attive × tipi di benefit (spunta, dettaglio, valore mensile, «dal»,
+  rimozione al volo) e i totali che dichiarano quanti benefit hanno il valore.
+  Il VOCABOLARIO dei tipi lo governa l'amministratore dalla stessa pagina:
+  i quattro di base (buoni pasto, cellulare, PC, auto aziendale) nascono con
+  un click, gli altri si aggiungono a piacere; un tipo assegnato a qualcuno
+  non si elimina. L'assegnazione si fa anche dalla scheda della persona
+  (card «Benefit», con matita per modificare dettaglio/valore/data). Il
+  valore mensile si DICHIARA (mai dedotto) e via `/api/v1/persone` esce
+  l'elenco dei benefit — il valore solo con `?compensi=1`, come gli stipendi.
 - ✅ **Le tre uscite del roster sono CESSATE** (verificato sul vivo il 26/08):
   Andrea Bellazzi al 30/06, **Carine Turchiello al 31/07** (data reale scelta
   dall'utente: un mese DOPO la scadenza 30/06 dedotta dal roster — conferma
@@ -127,7 +137,8 @@ resta solo lo SHA-256, il valore si vede una volta sola. CORS aperto su
 - `GET /api/health` — pubblico: `{ ok, app, database }` con `SELECT 1` vero.
 - `GET /api/v1/team[?compensi=1]` — funzioni come squadre + persone, stesso
   formato del `/api/v1/team` di Budgets (il Hub lo sa già leggere).
-- `GET /api/v1/persone[?stato=attivo|cessato|tutti][&compensi=1]` — schede complete.
+- `GET /api/v1/persone[?stato=attivo|cessato|tutti][&compensi=1]` — schede
+  complete, benefit compresi (il loro valore mensile solo con `compensi=1`).
 - `GET /api/v1/funzioni` — funzioni → mansioni → attività, con chi le copre.
 - `GET /api/v1/organigramma` — albero dei riporti.
 

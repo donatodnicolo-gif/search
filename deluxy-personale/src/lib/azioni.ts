@@ -12,6 +12,7 @@ import {
   FREQUENZE_ATTIVITA,
   MOTIVI_COMPENSO,
   normalizzaNome,
+  TIPI_BENEFIT_BASE,
   TIPI_CONTRATTO,
 } from "./organico";
 import { proponiPersonaABudgets } from "./budgets";
@@ -660,5 +661,121 @@ export async function eliminaCompenso(fd: FormData): Promise<void> {
   await prisma.compenso.delete({ where: { id: testo(fd, "id") } });
   revalidatePath(percorso);
   revalidatePath("/stipendi");
+  redirect(percorso);
+}
+
+// ---------- Benefit ----------
+// Il VOCABOLARIO dei benefit (buoni pasto, cellulare, auto…) lo governa
+// l'amministratore dalla pagina /benefit; l'assegnazione a una persona si fa
+// sia da lì sia dalla sua scheda (campo `torna`, come per le mansioni).
+
+export async function creaTipoBenefit(fd: FormData): Promise<void> {
+  const negato = await richiediAdmin();
+  if (negato) conErrore("/benefit", negato);
+  const nome = testo(fd, "nome");
+  if (!nome) conErrore("/benefit", "Il nome del benefit è obbligatorio.");
+  const ultime = await prisma.tipoBenefit.aggregate({ _max: { ordine: true } });
+  try {
+    await prisma.tipoBenefit.create({
+      data: { nome, descrizione: testo(fd, "descrizione"), ordine: (ultime._max.ordine ?? 0) + 1 },
+    });
+  } catch {
+    conErrore("/benefit", `Esiste già un benefit che si chiama «${nome}».`);
+  }
+  revalidatePath("/benefit");
+  redirect("/benefit");
+}
+
+// I quattro di partenza, con un click: crea solo quelli che ancora mancano
+// (per nome), quindi rilanciarlo non duplica niente.
+export async function creaTipiBenefitBase(): Promise<void> {
+  const negato = await richiediAdmin();
+  if (negato) conErrore("/benefit", negato);
+  const esistenti = await prisma.tipoBenefit.findMany({ select: { nome: true } });
+  const gia = new Set(esistenti.map((t) => normalizzaNome(t.nome)));
+  const nuovi = TIPI_BENEFIT_BASE.filter((t) => !gia.has(normalizzaNome(t.nome)));
+  const ultime = await prisma.tipoBenefit.aggregate({ _max: { ordine: true } });
+  let ordine = ultime._max.ordine ?? 0;
+  if (nuovi.length > 0) {
+    await prisma.tipoBenefit.createMany({
+      data: nuovi.map((t) => ({ nome: t.nome, descrizione: t.descrizione, ordine: ++ordine })),
+    });
+  }
+  revalidatePath("/benefit");
+  redirect(
+    `/benefit?nota=${encodeURIComponent(
+      nuovi.length > 0
+        ? `Creati ${nuovi.length} tipi di base: ${nuovi.map((t) => t.nome).join(", ")}.`
+        : "I tipi di base esistono già tutti.",
+    )}`,
+  );
+}
+
+export async function eliminaTipoBenefit(fd: FormData): Promise<void> {
+  const negato = await richiediAdmin();
+  if (negato) conErrore("/benefit", negato);
+  const id = testo(fd, "id");
+  const assegnati = await prisma.benefitPersona.count({ where: { tipoId: id } });
+  if (assegnati > 0) {
+    conErrore(
+      "/benefit",
+      `Questo benefit è assegnato a ${assegnati} person${assegnati === 1 ? "a" : "e"}: togli prima le assegnazioni.`,
+    );
+  }
+  await prisma.tipoBenefit.delete({ where: { id } });
+  revalidatePath("/benefit");
+  redirect("/benefit");
+}
+
+function datiBenefitDaForm(fd: FormData, percorso: string) {
+  const dettaglio = testo(fd, "dettaglio");
+  const valoreTesto = testo(fd, "valoreMensile");
+  const valoreMensile = valoreTesto ? parseImporto(valoreTesto) : null;
+  if (valoreTesto && (valoreMensile == null || valoreMensile <= 0)) {
+    conErrore(percorso, "Il valore mensile non è un importo valido (es. 160 o 160,50).");
+  }
+  const dal = testo(fd, "dal") ? parseData(testo(fd, "dal")) : null;
+  if (testo(fd, "dal") && !dal) conErrore(percorso, "La data «dal» non è una data valida.");
+  return { dettaglio, valoreMensile, dal };
+}
+
+export async function assegnaBenefit(fd: FormData): Promise<void> {
+  const personaId = testo(fd, "personaId");
+  const percorso = testo(fd, "torna") || `/persone/${personaId}`;
+  const negato = await richiediAdmin();
+  if (negato) conErrore(percorso, negato);
+  if (!personaId) conErrore(percorso, "Scegli la persona a cui assegnare il benefit.");
+  const tipoId = testo(fd, "tipoId");
+  if (!tipoId) conErrore(percorso, "Scegli quale benefit assegnare.");
+  await prisma.benefitPersona.create({
+    data: { personaId, tipoId, ...datiBenefitDaForm(fd, percorso) },
+  });
+  revalidatePath(`/persone/${personaId}`);
+  revalidatePath("/benefit");
+  redirect(percorso);
+}
+
+export async function aggiornaBenefitPersona(fd: FormData): Promise<void> {
+  const personaId = testo(fd, "personaId");
+  const percorso = testo(fd, "torna") || `/persone/${personaId}`;
+  const negato = await richiediAdmin();
+  if (negato) conErrore(percorso, negato);
+  await prisma.benefitPersona.update({
+    where: { id: testo(fd, "id") },
+    data: datiBenefitDaForm(fd, percorso),
+  });
+  revalidatePath(`/persone/${personaId}`);
+  revalidatePath("/benefit");
+  redirect(percorso);
+}
+
+export async function rimuoviBenefit(fd: FormData): Promise<void> {
+  const personaId = testo(fd, "personaId");
+  const percorso = testo(fd, "torna") || `/persone/${personaId}`;
+  const negato = await richiediAdmin();
+  if (negato) conErrore(percorso, negato);
+  await prisma.benefitPersona.delete({ where: { id: testo(fd, "id") } });
+  revalidatePath(`/persone/${personaId}`);
+  revalidatePath("/benefit");
   redirect(percorso);
 }
