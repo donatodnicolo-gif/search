@@ -44,10 +44,20 @@ export class ReceiptsService {
   findAll(user: JwtUser, signed?: boolean) {
     const where: any = {};
     if (typeof signed === 'boolean') where.signed = signed;
-    if (user.role === Role.VALET) where.salary = { valetId: user.valetId ?? '-' };
+    // ⚠️ Le 350 ricevute importate dal legacy NON hanno uno stipendio: il
+    // valet sta sulla ricevuta stessa (`Receipt.valetId`). Cercarlo solo
+    // attraverso lo stipendio le faceva sembrare di nessuno — e al valet non
+    // uscivano proprio.
+    if (user.role === Role.VALET) {
+      where.OR = [
+        { salary: { valetId: user.valetId ?? '-' } },
+        { valetId: user.valetId ?? '-' },
+      ];
+    }
     return this.prisma.receipt.findMany({
       where,
       include: {
+        valet: { select: { id: true, firstName: true, lastName: true } },
         salary: {
           include: { valet: { select: { id: true, firstName: true, lastName: true } } },
         },

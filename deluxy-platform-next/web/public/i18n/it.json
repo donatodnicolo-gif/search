@@ -308,6 +308,10 @@
   "payments": {
     "title": "Pagamenti",
     "caption": "Rimborsi e reclami dei valet (es. rimborso Area C). Il valet li richiede, admin/operation approvano e pagano.",
+    "tab": {
+      "correnti": "Aperti",
+      "storico": "Storico (dal legacy)"
+    },
     "allValets": "Tutti i valet",
     "new": "Nuova richiesta",
     "empty": "Nessuna richiesta.",
@@ -563,7 +567,8 @@
     "paidOk": "Stipendio pagato ✓",
     "tab": {
       "pending": "Da firmare",
-      "signed": "Firmate"
+      "signed": "Firmate",
+      "storiche": "Storiche (dal legacy)"
     },
     "col": {
       "valet": "Valet",

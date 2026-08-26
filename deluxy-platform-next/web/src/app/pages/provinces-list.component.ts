@@ -1,8 +1,11 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, NgZone, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { loadGoogleMaps } from '../core/google-maps';
+
+declare const google: any;
 
 interface City { id: string; name: string; }
 interface Province { id: string; code: string; name: string; cities: City[]; }
@@ -146,6 +149,41 @@ export class ProvincesListComponent {
   toggle(id: string): void {
     this.aperta.set(this.aperta() === id ? null : id);
     this.nuovaCitta = '';
+    // Google Places sul campo città (se la chiave browser è configurata):
+    // suggerisce le città vere invece di lasciare scrivere a mano.
+    if (this.aperta()) setTimeout(() => this.agganciaPlaces(), 0);
+  }
+
+  private readonly zone = inject(NgZone);
+  private placesPronto = false;
+
+  private async agganciaPlaces(): Promise<void> {
+    try {
+      if (!this.placesPronto) {
+        const cfg = await new Promise<{ googleMapsBrowserKey: string | null }>((ris, no) =>
+          this.http.get<{ googleMapsBrowserKey: string | null }>(`${environment.apiUrl}/settings/public`).subscribe({ next: ris, error: no }));
+        if (!cfg?.googleMapsBrowserKey) return; // senza chiave si scrive a mano, come prima
+        await loadGoogleMaps(cfg.googleMapsBrowserKey);
+        this.placesPronto = true;
+      }
+      const input = document.querySelector<HTMLInputElement>('.aggiungi input');
+      if (!input || (input as any).dataset['places'] === '1') return;
+      (input as any).dataset['places'] = '1';
+      const ac = new google.maps.places.Autocomplete(input, {
+        types: ['(cities)'],
+        componentRestrictions: { country: 'it' },
+        fields: ['name', 'address_components'],
+      });
+      ac.addListener('place_changed', () => {
+        const posto = ac.getPlace();
+        const nome = posto?.name
+          ?? posto?.address_components?.find((c: any) => c.types?.includes('locality'))?.long_name
+          ?? input.value;
+        // Il listener di Maps corre fuori da Angular: senza zone.run il
+        // modello cambierebbe senza che la pagina se ne accorga.
+        this.zone.run(() => { this.nuovaCitta = String(nome ?? '').trim(); });
+      });
+    } catch { /* niente Places: il campo resta un normale testo */ }
   }
 
   constructor() { this.carica(); }

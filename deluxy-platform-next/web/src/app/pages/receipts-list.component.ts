@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
@@ -10,8 +10,16 @@ interface Receipt {
   id: string;
   number?: string;
   fileUrl?: string;
+  /** Secondo documento del legacy (`fromReceipt`). */
+  fileUrlFrom?: string | null;
   signed: boolean;
   signedAt?: string;
+  createdAt?: string;
+  /** Importo e stato del legacy (paid | pending), sulle ricevute importate. */
+  amount?: number | null;
+  status?: string | null;
+  /** Il valet della RICEVUTA: le 350 importate non hanno uno stipendio. */
+  valet?: { firstName: string; lastName: string } | null;
   salary?: {
     id: string;
     periodStart: string;
@@ -19,14 +27,14 @@ interface Receipt {
     documentType: string;
     status: string;
     valet?: { firstName: string; lastName: string };
-  };
+  } | null;
 }
 
 /** Ricevute generate dall'invio degli stipendi: il valet le ricarica firmate per l'approvazione. */
 @Component({
   selector: 'app-receipts-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, TranslatePipe],
+  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe],
   template: `
     <div class="page-header">
       <div>
@@ -38,6 +46,9 @@ interface Receipt {
     <div class="tabs">
       <button class="tab" [class.on]="view() === 'pending'" (click)="setView('pending')">{{ 'receipts.tab.pending' | translate }}</button>
       <button class="tab" [class.on]="view() === 'signed'" (click)="setView('signed')">{{ 'receipts.tab.signed' | translate }}</button>
+      <!-- Le 350 del legacy: documenti storici col loro valet e importo, senza
+           uno stipendio del nuovo giro a cui agganciarsi. -->
+      <button class="tab" [class.on]="view() === 'storiche'" (click)="setView('storiche')">{{ 'receipts.tab.storiche' | translate }}</button>
     </div>
 
     @if (banner(); as b) { <div class="ok-card card">{{ b }}</div> }
@@ -59,20 +70,38 @@ interface Receipt {
             </tr>
           </thead>
           <tbody>
-            @for (r of receipts(); track r.id) {
+            @for (r of visibili(); track r.id) {
               <tr>
-                <td class="strong">{{ r.salary?.valet?.lastName }} {{ r.salary?.valet?.firstName }}</td>
-                <td class="muted">{{ r.salary?.periodStart | date: 'dd/MM/yy' }} – {{ r.salary?.periodEnd | date: 'dd/MM/yy' }}</td>
-                <td>{{ r.number || '—' }}</td>
-                <td>{{ ('salaries.doc.' + r.salary?.documentType) | translate }}</td>
+                <!-- Il valet sta sullo stipendio per le nuove, sulla RICEVUTA
+                     per le 350 importate dal legacy. -->
+                <td class="strong">{{ (r.salary?.valet ?? r.valet)?.lastName }} {{ (r.salary?.valet ?? r.valet)?.firstName }}</td>
+                <td class="muted">
+                  @if (r.salary) { {{ r.salary.periodStart | date: 'dd/MM/yy' }} – {{ r.salary.periodEnd | date: 'dd/MM/yy' }} }
+                  @else { {{ r.createdAt | date: 'dd/MM/yy' }} }
+                </td>
+                <td>{{ r.number || (r.amount != null ? ((r.amount | number: '1.2-2') + ' €') : '—') }}</td>
                 <td>
-                  <span class="badge" [style.--c]="r.signed ? '#248A3D' : '#C04C00'"><span class="dot"></span>{{ (r.signed ? 'receipts.signed' : 'receipts.toSign') | translate }}</span>
+                  @if (r.salary) { {{ ('salaries.doc.' + r.salary.documentType) | translate }} }
+                  @else { <span class="muted">{{ r.status || 'legacy' }}</span> }
+                </td>
+                <td>
+                  @if (!r.salary) {
+                    <!-- Storica: lo stato è quello del legacy (paid/pending),
+                         non «da firmare» — non aspetta nessuna firma. -->
+                    <span class="badge" [style.--c]="r.status === 'paid' ? '#248A3D' : '#6e6e73'"><span class="dot"></span>{{ r.status === 'paid' ? ('receipts.paid' | translate) : (r.status || '—') }}</span>
+                  } @else {
+                    <span class="badge" [style.--c]="r.signed ? '#248A3D' : '#C04C00'"><span class="dot"></span>{{ (r.signed ? 'receipts.signed' : 'receipts.toSign') | translate }}</span>
+                  }
                 </td>
                 <td>
                   @if (r.fileUrl) { <a [href]="fileHref(r)" target="_blank" rel="noopener">{{ 'receipts.open' | translate }}</a> } @else { <span class="muted">—</span> }
+                  @if (r.fileUrlFrom) { · <a [href]="r.fileUrlFrom" target="_blank" rel="noopener">2</a> }
                 </td>
                 <td class="row-actions">
-                  @if (!r.signed) {
+                  <!-- Le storiche sono documenti chiusi: niente flusso firma. -->
+                  @if (!r.salary) {
+                    <span class="muted">—</span>
+                  } @else if (!r.signed) {
                     @if (signFor() === r.id) {
                       <div class="sign-box">
                         <label class="file-pick">
@@ -97,7 +126,7 @@ interface Receipt {
                 </td>
               </tr>
             }
-            @if (!receipts().length) { <tr><td colspan="7" class="muted empty">{{ 'receipts.empty' | translate }}</td></tr> }
+            @if (!visibili().length) { <tr><td colspan="7" class="muted empty">{{ 'receipts.empty' | translate }}</td></tr> }
           </tbody>
         </table>
       </div>
@@ -153,7 +182,15 @@ export class ReceiptsListComponent {
   readonly error = signal<string | null>(null);
   readonly banner = signal<string | null>(null);
   readonly busy = signal<string | null>(null);
-  readonly view = signal<'pending' | 'signed'>('pending');
+  readonly view = signal<'pending' | 'signed' | 'storiche'>('pending');
+
+  /** Le righe della vista: le storiche (import, senza stipendio) stanno da sole. */
+  readonly visibili = computed(() => {
+    const v = this.view();
+    return this.receipts().filter((r) =>
+      v === 'storiche' ? !r.salary : r.salary && (v === 'signed' ? r.signed : !r.signed),
+    );
+  });
   readonly signFor = signal<string | null>(null);
   readonly pickedName = signal<string | null>(null);
   fileUrl = '';
@@ -169,17 +206,17 @@ export class ReceiptsListComponent {
     return url.startsWith('/uploads') ? this.apiOrigin + url : url;
   }
 
-  setView(v: 'pending' | 'signed'): void {
+  setView(v: 'pending' | 'signed' | 'storiche'): void {
     if (this.view() === v) return;
     this.view.set(v);
     this.closeSign();
-    this.load();
   }
 
   private load(): void {
     this.loading.set(true);
-    const signed = this.view() === 'signed';
-    this.http.get<Receipt[]>(`${environment.apiUrl}/receipts`, { params: { signed: String(signed) } }).subscribe({
+    // Si scarica TUTTO e si filtra qui: le viste sono tre e le righe poche
+    // (350 storiche + gli stipendi del giro nuovo).
+    this.http.get<Receipt[]>(`${environment.apiUrl}/receipts`).subscribe({
       next: (d) => { this.receipts.set(d); this.loading.set(false); },
       error: () => { this.loading.set(false); this.error.set(this.translate.instant('common.loadError')); },
     });

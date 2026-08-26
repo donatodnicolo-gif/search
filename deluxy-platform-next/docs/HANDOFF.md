@@ -343,13 +343,32 @@ Il 12731 passa da **−4,78 €** (venduto 35 = concordato Cannavo) a ricavo ver
 - **Recap fatture**: vedi sera 3 — orari, indirizzi (su decisione dell'utente:
   prima erano esclusi per privacy), plus/minus e «fatturabile» per riga.
 
-**Resta da fare qui**: caricamento consegne via AI (la chiave c'è);
-import ricevute dal legacy (`expert-receipts.csv`) per /receipts; dati
-fiscali/bancari da Anagrafiche nella scheda partner (caso Beyond); capire i
-«reclami» su /payments e il loro posto nello storico; Google Places sulla
-ricerca città di /provinces; creazione modelli SMS e province da UI; prima
-corsa AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore
-Shopify per interrogare Shopify direttamente.
+### 26/08 (sera, 5) — Ricevute visibili, pagamenti in due viste, Places sulle città
+
+- **/receipts**: le ricevute del legacy erano GIÀ in banca (350) ma la pagina
+  le mostrava senza valet (cercava solo quello dello stipendio, che per le
+  importate è nullo). Ora l'API manda anche il valet della ricevuta, il valet
+  vede le proprie per entrambe le strade, e c'è la vista **«Storiche (dal
+  legacy)»**: documenti chiusi con importo e stato del legacy, senza flusso
+  firma. Secondo file (`fileUrlFrom`) linkato accanto al primo.
+- **/payments**: i rimborsi/reclami valet stanno qui PER DISEGNO (eredi delle
+  `refund-requests` del legacy) e lo storico era già importato (679): ora due
+  viste, **Aperti** e **Storico (dal legacy)**. ⚠️ Corretto anche il filtro
+  valet: era un `computed` su una proprietà ngModel — non reagiva mai.
+- **/provinces**: il campo «Aggiungi città» ha **Google Places** (tipo città,
+  Italia) quando la chiave browser è configurata; senza chiave resta testo
+  libero, come prima.
+- ⭐ **Caso Beyond (142 RESTAURANT) chiuso con una misura**: il partner È
+  collegato al record giusto di Anagrafiche (BEYOND 142 SRL, P.IVA
+  12222354657, fonte deluxy-partner), ma **IBAN, PEC e SDI sono vuoti ANCHE
+  nel registro** — non c'è niente da importare finché qualcuno non li carica
+  in Anagrafiche (o FINANCE, che di quel record è la fonte, non li spinge).
+  Le differenze importabili oggi: referente, indirizzo, stato finanziario.
+
+**Resta da fare qui**: caricamento consegne via AI (la chiave in Impostazioni
+c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
+AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
+per interrogare Shopify direttamente.
 
 ## 25/08/2026 — Artista Locale ritira nella città di consegna (e i km sopra 50 non si credono)
 

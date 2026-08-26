@@ -308,6 +308,10 @@
   "payments": {
     "title": "Payments",
     "caption": "Valet reimbursements and claims (e.g. Area C reimbursement). The valet requests them, admin/operation approve and pay.",
+    "tab": {
+      "correnti": "Open",
+      "storico": "Historical (from legacy)"
+    },
     "allValets": "All valets",
     "new": "New request",
     "empty": "No requests.",
@@ -563,7 +567,8 @@
     "paidOk": "Salary paid ✓",
     "tab": {
       "pending": "To sign",
-      "signed": "Signed"
+      "signed": "Signed",
+      "storiche": "Historical (from legacy)"
     },
     "col": {
       "valet": "Valet",

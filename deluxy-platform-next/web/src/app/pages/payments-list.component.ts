@@ -14,6 +14,9 @@ interface Payment {
   amount: number;
   description?: string | null;
   status: string;
+  /** Presente sui 679 rimborsi/reclami importati dal legacy: sono lo STORICO. */
+  legacyId?: number | null;
+  createdAt?: string;
   valet?: { id: string; firstName: string; lastName: string };
 }
 
@@ -78,6 +81,13 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
     @if (banner(); as b) { <div class="ok-card card">{{ b }}</div> }
     @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
+    <!-- Il lavoro di oggi e lo storico del legacy stanno in due viste: 679
+         righe importate sopra le richieste aperte le seppellirebbero. -->
+    <div class="tabs">
+      <button class="tab" [class.on]="vista() === 'correnti'" (click)="vista.set('correnti')">{{ 'payments.tab.correnti' | translate }}</button>
+      <button class="tab" [class.on]="vista() === 'storico'" (click)="vista.set('storico')">{{ 'payments.tab.storico' | translate }}</button>
+    </div>
+
     @if (loading()) { <div class="card state-card">{{ 'common.loading' | translate }}</div> }
     @else {
       <div class="card table-wrap">
@@ -120,6 +130,9 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
     `
       .page-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 22px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
+      .tabs { display: flex; gap: 4px; margin: 0 0 14px; border-bottom: 1px solid var(--hairline); }
+      .tab { border: none; background: none; padding: 8px 14px; font-size: 14px; font-weight: 550; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; }
+      .tab.on { color: var(--text); border-bottom-color: var(--ink); }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; max-width: 640px; }
       .head-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .head-actions .btn { text-decoration: none; }
@@ -171,9 +184,20 @@ export class PaymentsListComponent {
   readonly newError = signal<string | null>(null);
   draft = { valetId: '', type: 'REIMBURSEMENT', amount: null as number | null, description: '' };
 
-  readonly filtered = computed(() =>
-    this.valetFilter ? this.payments().filter((p) => p.valetId === this.valetFilter) : this.payments(),
-  );
+  /** Vista corrente: le richieste del giro nuovo, o lo storico del legacy. */
+  readonly vista = signal<'correnti' | 'storico'>('correnti');
+
+  /**
+   * Metodo e non computed: `valetFilter` è una proprietà ngModel, non un
+   * segnale — dentro un computed il cambio non veniva mai visto.
+   */
+  filtered(): Payment[] {
+    const perValet = this.valetFilter
+      ? this.payments().filter((p) => p.valetId === this.valetFilter)
+      : this.payments();
+    const storico = this.vista() === 'storico';
+    return perValet.filter((p) => (p.legacyId != null) === storico);
+  }
 
   canManage(): boolean {
     const r = this.auth.user()?.role;
