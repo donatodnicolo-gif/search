@@ -34,7 +34,7 @@ export async function tokenApiConfigurato(): Promise<{ token: string; fonte: 'ap
 }
 
 export type Autenticato =
-  | { ok: true; utenteId: string; email: string }
+  | { ok: true; utenteId: string; email: string; accountEmail?: string }
   | { ok: false; errore: string; status: number }
 
 export async function autenticaApi(req: Request): Promise<Autenticato> {
@@ -61,9 +61,21 @@ export async function autenticaApi(req: Request): Promise<Autenticato> {
     where: { email: { equals: emailUtente, mode: 'insensitive' }, attivo: true },
     select: { id: true, email: true },
   })
-  if (!u) {
-    return { ok: false, errore: `Nessun utente AI Mail attivo con email ${emailUtente}.`, status: 404 }
+  if (u) return { ok: true, utenteId: u.id, email: u.email }
+
+  // ⭐ 27/08: `x-utente` puo' essere anche l'email di una CASELLA (Account).
+  // Il caso vero: la piattaforma consegne manda i recap «da
+  // amministrazione@deluxy.it», che e' un account collegato all'utente di
+  // Nicolo' — non un utente di login. Prima rispondeva «nessun utente», e per
+  // giunta l'invio senza account esplicito partiva dalla PRIMA casella
+  // dell'utente, non da quella chiesta.
+  const account = await db.account.findFirst({
+    where: { email: { equals: emailUtente, mode: 'insensitive' }, attivo: true },
+    select: { utenteId: true, email: true, utente: { select: { email: true, attivo: true } } },
+  })
+  if (account?.utente?.attivo) {
+    return { ok: true, utenteId: account.utenteId, email: account.utente.email, accountEmail: account.email }
   }
 
-  return { ok: true, utenteId: u.id, email: u.email }
+  return { ok: false, errore: `Nessun utente o casella AI Mail attiva con email ${emailUtente}.`, status: 404 }
 }

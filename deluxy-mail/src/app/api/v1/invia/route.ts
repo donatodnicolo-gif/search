@@ -28,12 +28,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, errore: 'Corpo della richiesta non è JSON valido.' }, { status: 400 })
   }
 
+  // Se `x-utente` era l'email di una CASELLA (non di un utente), la mail
+  // parte proprio da quella casella — non dalla prima dell'utente.
   const esito = await inviaMailApi(auth.utenteId, {
     a: body.a ?? '',
     cc: body.cc,
     oggetto: body.oggetto ?? '',
     corpo: body.corpo ?? '',
     corpoHtml: body.corpoHtml ?? body.html,
-  })
+  }, auth.accountEmail)
   return NextResponse.json(esito, { status: esito.ok ? 200 : 400 })
 }

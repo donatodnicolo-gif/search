@@ -2747,7 +2747,11 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
  */
 export async function inviaMailApi(
   utenteId: string,
-  dati: { a: string; cc?: string; oggetto: string; corpo: string; corpoHtml?: string }
+  dati: { a: string; cc?: string; oggetto: string; corpo: string; corpoHtml?: string },
+  // ⭐ 27/08: la CASELLA da cui partire, quando il chiamante la indica (per
+  // `x-utente` = email di un account, es. amministrazione@deluxy.it). Senza,
+  // resta la prima casella dell'utente, come sempre.
+  accountEmail?: string
 ): Promise<{ ok: boolean; messaggio: string }> {
   try {
     const a = (dati.a ?? '').trim()
@@ -2765,8 +2769,12 @@ export async function inviaMailApi(
     if (!a) return { ok: false, messaggio: 'Manca il destinatario (a).' }
     if (!corpo && !html) return { ok: false, messaggio: 'Il messaggio (corpo) è vuoto.' }
 
-    const account = await db.account.findFirst({ where: { utenteId } })
-    if (!account) return { ok: false, messaggio: 'Nessuna casella collegata per questo utente.' }
+    const account = await db.account.findFirst({
+      where: accountEmail
+        ? { utenteId, email: { equals: accountEmail, mode: 'insensitive' }, attivo: true }
+        : { utenteId },
+    })
+    if (!account) return { ok: false, messaggio: accountEmail ? `Nessuna casella ${accountEmail} per questo utente.` : 'Nessuna casella collegata per questo utente.' }
 
     const daInviare: DaInviare = { a, cc: dati.cc, oggetto, corpo, corpoHtml: html || undefined, inRispostaA: null }
     const { raw, messageId } = await spedisci(account, daInviare)
