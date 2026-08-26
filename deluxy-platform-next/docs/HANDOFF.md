@@ -402,6 +402,29 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### ⭐⭐ 26/08 (notte) — 1.726 consegne ORFANE riagganciate ai loro ordini
+
+Dal caso 62779 («il cliente ha pagato 82 ma Finanza dice 48»): la consegna
+nata dall'ordine era stata ANNULLATA e rifatta a mano senza l'aggancio — la
+Finanza leggeva le righe invece del pagato. L'utente ha chiesto di cercare
+TUTTA la classe: 2.361 consegne di vendita vive senza `realOrderNumber`.
+
+`scripts/riaggancia-vendite-orfane.mjs` — un gruppo (stesso DDT) si aggancia
+solo se passa TRE prove: **numero** (DDT = numero d'ordine, esatto), **data**
+(ordine max 2 giorni dopo la prima consegna, consegna entro 45 giorni),
+**valore** (righe ≤ pagato ×1,2). Se resta più di un ordine possibile NON si
+tocca. Esito: **1.425 gruppi / 1.726 consegne agganciate, ZERO ambigui**;
+81 gruppi scartati con motivo (30 senza ordine, 28 data che non torna, 23
+valore che non torna — quelli vanno guardati a mano prima o poi). Backup in
+`legacy/backup-riaggancio-vendite-2026-08-26.json`.
+
+Effetto sui numeri (rispinta completa a Orders, 1.425 ordini aggiornati):
+ordini con economia 9.001 → **10.032**; primo margine totale 489.929 →
+**515.970 €**; fee 140.395 → **162.098 €**; margine finale 530.830 →
+**565.836 €**. Il venduto di quei gruppi ora è il PAGATO del cliente, non la
+foto delle righe. Prima ancora: 62779 riagganciata a #12765 (82 €, margine
+22 €) e 62810 annullata.
+
 ### 26/08 (sera, 10) — Il canale Business entra nella cache dei pagati
 
 Dalla 62955 (chiesta dall'utente): la vendita era un **draft order Business
