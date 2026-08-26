@@ -46,6 +46,9 @@ export default async function PaginaImpostazioni({
     'traduzioneAuto',
     'primoContattoAttivo',
     'aiFuoriTurnoAttivo',
+    'piattaformaUrl',
+    'piattaformaApiKey',
+    'piattaformaSyncEsito',
     'primoContattoTesto',
     'partnerUrl',
     'partnerApiKey',
@@ -478,6 +481,41 @@ export default async function PaginaImpostazioni({
               <code>POST /api/ai-fuori-turno?prova=1</code> fa tutto il giro e dice cosa
               risponderebbe, <strong>senza mandare niente a nessuno</strong>.
             </p>
+          </div>
+
+          {/* ── LA PIATTAFORMA CONSEGNE ──
+              ⚠️ Serve a sapere quali ordini sta gestendo lei: senza, si cerca un
+              fornitore a mano su un ordine già proposto a un partner. */}
+          <div className="card">
+            <h2>Piattaforma consegne</h2>
+            <p className="descrizione">
+              Con la chiave, ogni quarto d&apos;ora l&apos;app chiede alla piattaforma
+              (app.deluxy.it) quali ordini ha in mano: quelli <strong>proposti</strong> o{' '}
+              <strong>accettati</strong> da un partner passano nello stato <strong>«In App»</strong>
+              , e quando la proposta decade tornano dov&apos;erano. La chiave si crea di là con{' '}
+              <code>node api/scripts/crea-chiave-app.mjs</code> — è di sola lettura.
+            </p>
+            <label className="campo">
+              <span>Indirizzo</span>
+              <input
+                name="piattaformaUrl"
+                defaultValue={config.piattaformaUrl}
+                placeholder="https://deluxy-delivery.vercel.app"
+              />
+            </label>
+            <label className="campo">
+              <span>Chiave app</span>
+              <input
+                name="piattaformaApiKey"
+                defaultValue={config.piattaformaApiKey}
+                placeholder="incolla qui la chiave"
+              />
+            </label>
+            {config.piattaformaSyncEsito ? (
+              <p className="descrizione" style={{ marginBottom: 0 }}>
+                Ultimo giro: {config.piattaformaSyncEsito}
+              </p>
+            ) : null}
           </div>
 
           <div className="card">

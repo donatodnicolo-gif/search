@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/ai-fuori-turno",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/piattaforma",
+      "schedule": "12,27,42,57 * * * *"
     }
   ]
 }

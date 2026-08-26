@@ -120,6 +120,14 @@ async function scriviTutto(formData: FormData) {
   // l'interruttore di un'app che scrive ai clienti da sola, di notte. Senza il
   // segnale di sezione una casella non spuntata non arriverebbe nella form, e la
   // funzione una volta accesa non si potrebbe più spegnere.
+  // ── Piattaforma consegne ──
+  // ⚠️ Campi normali (non caselle): si salvano solo se arrivano, come le altre
+  // chiavi. Un campo assente non deve cancellare quello che c'era.
+  for (const chiave of ['piattaformaUrl', 'piattaformaApiKey']) {
+    const v = formData.get(chiave)
+    if (typeof v === 'string') await salvaImpostazione(chiave, v.trim())
+  }
+
   if (formData.get('sezioneAiFuoriTurno') === '1') {
     await salvaImpostazione('aiFuoriTurnoAttivo', formData.get('aiFuoriTurnoAttivo') ? 'si' : '')
   }

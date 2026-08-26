@@ -1298,6 +1298,61 @@ risponderebbe — **senza mandare niente a nessuno**. Vale anche dopo ogni modif
 agli script.
 
 
+## «In App»: gli ordini che sta gestendo la piattaforma consegne
+
+Quando la piattaforma (app.deluxy.it) **propone un ordine a un partner in
+automatico**, qui non si sapeva: si cercava un fioraio a mano su un ordine già
+proposto a qualcun altro. Ora quell'ordine passa nello stato **«In App»** e sulla
+scheda si legge chi lo sta trattando.
+
+**Come lo sappiamo.** Ogni quarto d'ora si chiede alla piattaforma
+`GET /api/v1/app/vendite?source=deluxy-orders&aggiornateDa=…`: **una chiamata a
+giro**, non una per ordine. Il canale è quello app-to-app (chiave `x-api-key`,
+sola lettura): di là non si scrive niente.
+
+⚠️⚠️ **Il ponte fra le due app è l'id che l'ordine ha in Deluxy Orders**
+(`Ordine.ordersId`), non il numero e non il gid Shopify: nella piattaforma la
+vendita porta `externalOrderId = <id in Orders>`. Chiedendo con «#2798» non si
+troverebbe mai niente — e sembrerebbe che in app non ci sia mai nessuno.
+
+**Gli stati della vendita**, come li scrive la piattaforma: `da_gestire` ·
+`proposta` · `accettata` · `non_accettata` · `annullata`. Diventano «In App»
+**solo `proposta` e `accettata`**: `da_gestire` vuol dire che di là la vendita
+esiste ma non è ancora stata offerta a nessuno, e fermare il nostro lavoro lì
+sarebbe fermarlo per niente.
+
+**Le tre regole della sincronizzazione**, che tengono insieme le due app senza
+che nessuna comandi sull'altra:
+
+1. un ordine **che abbiamo chiuso** (`Gestito`) non si tocca;
+2. un ordine **interrotto a mano** non torna «In App» da solo — altrimenti la
+   decisione di una persona durerebbe fino al giro dopo;
+3. quando la proposta **decade** (non accettata, annullata) l'ordine **torna dov'era
+   prima**, non a «Da iniziare»: ricominciare da capo un lavoro già a metà è il
+   modo di perderlo. ⚠️⚠️ Ed è il momento da non mancare: se restasse «In App»,
+   quell'ordine non lo lavorerebbe più nessuno — noi lo crediamo dell'app, l'app
+   l'ha lasciato andare.
+
+### Interrompere: «lo facciamo noi»
+
+Sulla scheda, accanto allo stato, c'è **Interrompi**. Fa due cose:
+
+1. riporta la lavorazione dov'era e segna che ha deciso una persona (così la
+   sincronizzazione non se lo riprende);
+2. dice a **Deluxy Orders** di non smistarlo più in automatico — senza, al giro
+   dopo la piattaforma se lo riprenderebbe.
+
+⚠️⚠️ **Quello che NON può fare**: annullare una proposta **già aperta** dentro la
+piattaforma. Il suo canale app-to-app è di sola lettura, e scrivere nel suo
+database da qui sarebbe esattamente ciò che lo Standard vieta. Se un partner sta
+guardando quella proposta, va annullata di là — e chi preme **lo legge nel
+messaggio**, invece di scoprirlo quando il partner si presenta a ritirare.
+
+⚠️ La chiave si crea nella piattaforma (`node api/scripts/crea-chiave-app.mjs`) e
+si incolla in **Impostazioni → Piattaforma consegne**. Senza, la colonna «In App»
+resta vuota e la sincronizzazione lo dice, invece di fallire in silenzio.
+
+
 ## Chi si occupa di un ordine
 
 Come per le conversazioni: gli operatori sono tre e la bacheca è una sola. Senza un

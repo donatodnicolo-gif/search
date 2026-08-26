@@ -1,5 +1,67 @@
 # Handoff — Deluxy Customer Service
 
+## 25/08/2026 (sera 9) — lo stato «In App»: quali ordini li sta gestendo la piattaforma
+
+Chiesto dall'utente: «parla con l'app deluxy delivery per capire quali ordini
+sono proposti in automatico tramite app e genera un nuovo stato "In App" per
+questi con possibilità di interrompere però la gestione dell'ordine dall'app».
+
+### Cosa ho trovato parlandoci (letto nel suo codice, e provato sul vivo)
+
+La piattaforma ha già un **canale app-to-app** (Standard §4.3), di sola lettura,
+con chiave `x-api-key`:
+
+    GET /api/v1/app/vendite?source=deluxy-orders&aggiornateDa=<ISO>&limit=200
+    GET /api/v1/app/vendite/by-ref/deluxy-orders/<idOrdineInOrders>
+
+✅ **È vivo**: su `https://deluxy-delivery.vercel.app` risponde **401** senza
+chiave (e una rotta inventata **404**, quindi quel 401 vuol dire qualcosa). Su
+`app.deluxy.it` invece è 404: l'indirizzo buono è il primo.
+
+Gli stati della vendita là dentro: `da_gestire` · `proposta` · `accettata` ·
+`non_accettata` · `annullata`. **«Proposta» è l'automatico che ci interessa.**
+
+⚠️⚠️ **Il ponte è l'id di ORDERS** (`Sale.externalOrderId`), non il numero né il
+gid Shopify. Non lo tenevamo: aggiunto `Ordine.ordersId`, che la sync con Orders
+riempie da sé. 🔴 Oggi è vuoto su tutti e 1.362 gli ordini: si riempie al
+prossimo giro del cron ordini, e gli ordini più vecchi della finestra di sync non
+lo avranno mai — quelli non saranno agganciabili.
+
+### Cosa ho fatto
+
+- **Stato «In App»** in `GESTIONI`, fuori dai `PASSI` come «Comunicazione»: lo
+  scrive la sincronizzazione, non una persona.
+- **Sync ogni 15 minuti** (`/api/cron/piattaforma`): una chiamata a giro. Tre
+  regole — non tocca i `Gestito`, non riprende gli interrotti a mano, e quando la
+  proposta **decade riporta l'ordine dov'era** (non a «Da iniziare»).
+  ⚠️⚠️ Quest'ultima è quella che non si può sbagliare: se «non accettata»
+  restasse «In App», quell'ordine non lo lavorerebbe più nessuno — noi lo
+  crediamo dell'app, l'app l'ha lasciato andare.
+- **Copia a breve scadenza** sull'ordine (`appStato`, `appPartner`,
+  `appCostoPartner`, `appAggiornatoIl`) più `appGestionePrima` e
+  `appInterrottoIl`: la verità resta di là.
+- **Interrompi** sulla scheda: riporta la lavorazione dov'era, segna la decisione
+  della persona e dice a **Orders** di non smistarlo più in automatico.
+  ⚠️⚠️ **Non annulla la proposta già aperta** — il canale è di sola lettura — e
+  lo **scrive nel messaggio**: «nella piattaforma la proposta a X risulta ancora
+  aperta, va annullata di là». Prometterlo e non farlo sarebbe peggio del bottone.
+- ⚠️ Diviso `piattaforma-stati.ts` (solo parole) da `piattaforma.ts` (rete e
+  chiavi): importando il secondo in un componente client il build falliva con
+  «Reading from "node:crypto" is not handled by plugins» — un errore che non
+  nomina il colpevole.
+
+**Provato**: `npx tsx scripts/prova-piattaforma.mts` (12 casi) — il vocabolario
+degli stati, «In App» nel nostro, il ponte, e la rotta viva che chiede la chiave.
+
+🔴 **DUE COSE PRIMA CHE FUNZIONI DAVVERO**
+
+1. **La chiave**: `node api/scripts/crea-chiave-app.mjs` nella piattaforma, poi
+   incollarla in Impostazioni → Piattaforma consegne. Da questa sessione non si
+   poteva fare: il `DATABASE_URL` della piattaforma qui è un segnaposto.
+2. **Annullare una proposta dalla nostra parte** vorrebbe dire una rotta di
+   scrittura sulla piattaforma. Va scritta là, e quella cartella ha la regola
+   «una sola sessione per volta».
+
 ## 25/08/2026 (sera 9) — la mail si apre in un pop-up, e quelle solo-HTML arrivavano VUOTE
 
 Chiesto dall'utente: «al click apri la mail con un popup», sulla scheda

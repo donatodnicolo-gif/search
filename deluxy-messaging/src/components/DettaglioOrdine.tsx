@@ -18,6 +18,7 @@ import {
 } from '@/lib/richieste-fornitore'
 import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
 import { linkPagamentoOrdine } from '@/lib/link-ordine'
+import { nomeStatoVendita } from '@/lib/piattaforma-stati'
 import { riassuntoLavoro, type LavoroDato } from '@/lib/cerca-fornitore'
 import type { BozzaMail } from './ComponiMail'
 
@@ -98,6 +99,11 @@ type OrdineDettaglio = {
   statoColore: string
   note: string
   gestione: string
+  /** Quello che dice la piattaforma consegne (copia, vedi lo schema). */
+  appStato?: string
+  appPartner?: string
+  appCostoPartner?: number | null
+  appInterrottoIl?: string | null
   clienteTipo: string
   clienteTipoDa: string
   /** A chi abbiamo dato l'ordine da preparare. */
@@ -304,6 +310,8 @@ export function DettaglioOrdine({
   const [zona, setZona] = useState<FornitoreZona[]>([])
   const [zonaProvincia, setZonaProvincia] = useState('')
   const [zonaNota, setZonaNota] = useState('')
+  const [interrompendo, setInterrompendo] = useState(false)
+  const [esitoInterruzione, setEsitoInterruzione] = useState('')
   /** I fornitori che risultano dai NOSTRI ordini: si vedono anche se il
    *  registro non sa dove stiano. */
   const [nostri, setNostri] = useState<NostroFornitoreDto[]>([])
@@ -432,6 +440,30 @@ export function DettaglioOrdine({
   }
 
   /** Segna l'ordine gestito (o lo riapre) senza chiudere il pannello. */
+  /**
+   * «Questo lo facciamo noi»: l'ordine esce dalle mani della piattaforma.
+   *
+   * ⚠️ L'esito si MOSTRA per intero, compreso quello che non è riuscito: se la
+   * proposta di là è ancora aperta, o se a Orders non siamo riusciti a dirlo,
+   * chi ha premuto deve saperlo adesso — non scoprirlo domani con un partner
+   * che si presenta a ritirare.
+   */
+  async function interrompiApp() {
+    if (!ordine?.id || interrompendo) return
+    setInterrompendo(true)
+    setEsitoInterruzione('')
+    try {
+      const res = await fetch(`/api/ordini/${ordine.id}/interrompi-app`, { method: 'POST' })
+      const d = (await res.json().catch(() => ({}))) as { messaggio?: string }
+      setEsitoInterruzione(d.messaggio || 'Interruzione non riuscita.')
+      await carica()
+    } catch {
+      setEsitoInterruzione('Interruzione non riuscita: problema di rete.')
+    } finally {
+      setInterrompendo(false)
+    }
+  }
+
   async function cambiaGestione(gestione: string) {
     if (!ordine?.id) return
     setErrore('')
@@ -1273,6 +1305,48 @@ export function DettaglioOrdine({
                   </>
                 ) : null}
               </dl>
+
+              {/* ── LA PIATTAFORMA STA GESTENDO QUESTO ORDINE ──
+                  ⚠️⚠️ Si vede PRIMA delle azioni, non in fondo: chi apre la
+                  scheda per cercare un fornitore deve accorgersene prima di
+                  cominciare, non dopo aver telefonato a qualcuno.
+                  ⚠️ E c'è la via d'uscita accanto: uno stato che dice «se ne
+                  occupa un altro» senza un modo di riprenderselo si aggira
+                  lavorando di nascosto, che è il contrario di quello che serve. */}
+              {ordine.gestione === 'in_app' || ordine.appStato ? (
+                <div className="card" style={{ padding: 10, marginTop: 12 }}>
+                  <div className="cella-nome">
+                    Se ne sta occupando la piattaforma consegne
+                    {ordine.appPartner ? ` — ${ordine.appPartner}` : ''}
+                  </div>
+                  <div className="cella-sub">
+                    {nomeStatoVendita(ordine.appStato ?? '')}
+                    {typeof ordine.appCostoPartner === 'number' && ordine.appCostoPartner > 0
+                      ? ` · al partner ${ordine.appCostoPartner.toLocaleString('it-IT', {
+                          style: 'currency',
+                          currency: 'EUR',
+                        })}`
+                      : ''}
+                    {ordine.appInterrottoIl ? ' · interrotta da noi' : ''}
+                  </div>
+                  {!ordine.appInterrottoIl ? (
+                    <button
+                      className="btn btn-secondario small"
+                      style={{ marginTop: 8 }}
+                      disabled={interrompendo}
+                      onClick={() => void interrompiApp()}
+                      title="L'ordine torna a noi e Orders non lo smisterà più in automatico"
+                    >
+                      {interrompendo ? 'Interrompo…' : 'Interrompi: lo facciamo noi'}
+                    </button>
+                  ) : null}
+                  {esitoInterruzione ? (
+                    <p className="cella-sub" style={{ marginTop: 6 }}>
+                      {esitoInterruzione}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
 
               {/* TUTTE le azioni dell'ordine stanno qui. Sulla scheda ne sono
                   rimaste due (Contatta e Gestito): le altre occupavano 97px per

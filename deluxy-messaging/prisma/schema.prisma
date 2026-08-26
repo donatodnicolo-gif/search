@@ -341,6 +341,16 @@ model Ordine {
   negozio        NegozioShopify @relation(fields: [negozioId], references: [id], onDelete: Cascade)
   negozioNome    String   @default("") // denormalizzato per la lista
   shopifyId      String // gid Shopify dell'ordine (unico per negozio, non globale)
+  /**
+   * L'id che questo ordine ha in DELUXY ORDERS.
+   *
+   * ⚠️⚠️ È il PONTE verso la piattaforma consegne: là la vendita porta
+   * `externalOrderId = <id in Orders>`, non il numero e non il gid Shopify.
+   * Senza questo campo, per sapere se un ordine è «in app» bisognerebbe
+   * chiedere a Orders una volta per ordine — e chiedere col numero non
+   * troverebbe niente, facendo sembrare che in app non ci sia mai nessuno.
+   */
+  ordersId       String   @default("")
   numero         String   @default("") // es. #1042
   data           DateTime @default(now())
   totale         Float    @default(0)
@@ -481,6 +491,39 @@ model Ordine {
   fornitoreDaNome String  @default("")
   fornitoreIl    DateTime?
 
+  // ── QUELLO CHE DICE LA PIATTAFORMA CONSEGNE (copia, non verità) ──
+  //
+  // ⚠️⚠️ Questi campi sono una COPIA a breve scadenza di uno stato che vive
+  // nella piattaforma consegne (Standard §7: «cache TTL breve sì, tabelle-copia
+  // no»). La verità sta là e si rilegge; qui serve a far vedere in elenco che di
+  // quell'ordine si sta occupando l'app, senza chiedere a lei una volta per
+  // riga. Se qui e là divergono, ha ragione lei.
+  //
+  // ⚠️ `appStato` sono i suoi stati, scritti come li scrive lei:
+  // da_gestire · proposta · accettata · non_accettata · annullata.
+  appVenditaId    String    @default("")
+  appStato        String    @default("")
+  appPartner      String    @default("")
+  appCostoPartner Float?
+  appAggiornatoIl DateTime?
+  /**
+   * Dov'era la lavorazione PRIMA che l'ordine passasse in app.
+   *
+   * ⚠️ Serve a tornare indietro senza perdere niente: interrompendo la gestione
+   * dall'app, o quando la proposta non viene accettata, l'ordine deve ritrovare
+   * il punto in cui l'avevamo lasciato — non ripartire da «Da iniziare» come se
+   * nessuno ci avesse mai lavorato.
+   */
+  appGestionePrima String   @default("")
+  /**
+   * Quando una persona ha detto «questo lo facciamo noi».
+   *
+   * ⚠️⚠️ Vale come un NO alla sincronizzazione: senza, il giro successivo
+   * rimetterebbe l'ordine «In App» e la decisione della persona durerebbe dieci
+   * minuti. Si toglie riportandolo in automatico.
+   */
+  appInterrottoIl DateTime?
+
   // ── Chi se ne sta occupando ──
   //
   // Distinto da `gestioneDaId`, che dice chi ha toccato lo STATO per ultimo:
@@ -511,6 +554,7 @@ model Ordine {
   creatoIl       DateTime @default(now())
 
   @@unique([negozioId, shopifyId]) // dedup per-negozio: il gid è unico solo lì
+  @@index([ordersId])
   @@index([data])
   // «Quanti ordini abbiamo dato a questo fornitore, e quanto gli abbiamo dato?»
   // è la domanda per cui il campo esiste: senza indice, con 1.300 ordini si

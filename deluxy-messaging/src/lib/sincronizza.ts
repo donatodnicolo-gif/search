@@ -121,6 +121,10 @@ export async function sincronizzaOrdini(
       // il nome del NEGOZIO, non il brand grezzo: Orders chiama lo stesso
       // negozio ora "Flowers" ora "deluxyflowers.com", qui dev'essere uno solo
       negozioNome: negozio.nome,
+      // ⚠️ L'id che l'ordine ha in Orders: è il ponte verso la piattaforma
+      // consegne, che lo usa come `externalOrderId`. Si scrive qui perché è
+      // l'unico momento in cui ce l'abbiamo in mano senza chiederlo.
+      ordersId: o.id,
       numero: o.numero,
       data: new Date(o.data),
       totale: o.totale,

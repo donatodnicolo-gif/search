@@ -11,6 +11,16 @@ export const GESTIONI = [
   { chiave: 'ricerca_fornitore', nome: 'Ricerca fornitore', colore: '#8944ab' },
   { chiave: 'in_pagamento', nome: 'In pagamento', colore: '#c93400' },
   { chiave: 'attesa_consegna', nome: 'Attesa consegna', colore: '#b8963e' },
+  // ⚠️⚠️ «IN APP» NON È UN PASSO NOSTRO: dice che di quell'ordine si sta
+  // occupando la **piattaforma consegne** (app.deluxy.it), che l'ha proposto a
+  // un partner in automatico. Lo scrive la sincronizzazione, non una persona —
+  // per questo sta fuori da `PASSI`, come `comunicazione`.
+  //
+  // ⚠️ Sapere che un ordine è «in app» cambia il lavoro: non si cerca un
+  // fornitore a mano, non si chiama nessuno. E quando invece si vuole fare a
+  // mano, si INTERROMPE (bottone sulla scheda), altrimenti si lavora in due
+  // sullo stesso ordine senza saperlo.
+  { chiave: 'in_app', nome: 'In App', colore: '#5856d6' },
   // ⚠️ `comunicazione` NON si toglie anche se non è fra i quattro passi: lo
   // scrive da sola l'app quando scrivi al cliente (WhatsApp, Email, Chiama), e
   // toglierlo dal vocabolario farebbe comparire uno stato senza nome sugli
@@ -29,8 +39,9 @@ export const GESTIONI = [
  * Sta accanto alla fila, staccato, con la spunta e il verde: si vede che è
  * un'altra cosa.
  *
- * Fuori resta anche `comunicazione`: lo scrive l'app da sé quando si scrive al
- * cliente, non lo sceglie nessuno.
+ * Fuori restano anche `comunicazione` — lo scrive l'app da sé quando si scrive
+ * al cliente — e `in_app`, che lo scrive la sincronizzazione con la piattaforma
+ * consegne: nessuno dei due lo sceglie una persona.
  */
 export const PASSI = ['da_gestire', 'ricerca_fornitore', 'in_pagamento', 'attesa_consegna'] as const
 

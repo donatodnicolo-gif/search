@@ -57,6 +57,11 @@ export type OrdineDettaglioDto = {
   statoColore: string
   note: string
   gestione: string
+  /** Quello che dice la piattaforma consegne: copia a breve scadenza. */
+  appStato: string
+  appPartner: string
+  appCostoPartner: number | null
+  appInterrottoIl: string | null
   clienteTipo: string
   clienteTipoDa: string
   /** A chi abbiamo dato l'ordine da preparare. Vedi `fornitore-ordine.ts`. */
@@ -147,6 +152,12 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       statoColore: ordine.statoColore,
       note: ordine.note,
       gestione: ordine.gestione,
+      // ⚠️ Si mandano SEMPRE, anche vuoti: la scheda deve poter distinguere
+      // «se ne occupa la piattaforma» da «non ne sappiamo niente».
+      appStato: ordine.appStato ?? '',
+      appPartner: ordine.appPartner ?? '',
+      appCostoPartner: ordine.appCostoPartner ?? null,
+      appInterrottoIl: ordine.appInterrottoIl ? ordine.appInterrottoIl.toISOString() : null,
       clienteTipo: ordine.clienteTipo,
       clienteTipoDa: ordine.clienteTipoDa,
       fornitoreNome: ordine.fornitoreNome,
@@ -247,6 +258,12 @@ export async function dettaglioOrdineArchivio(
         // su uno dell'archivio non esiste, e inventargli un «da gestire»
         // vorrebbe dire mettere in coda un ordine di due anni fa.
         gestione: '',
+        // Un ordine d'archivio non l'abbiamo in casa: della piattaforma non
+        // sappiamo niente, e si tace invece di scrivere «non in app».
+        appStato: '',
+        appPartner: '',
+        appCostoPartner: null,
+        appInterrottoIl: null,
         // ⚠️ L'ARCHIVIO STORICO non ha questi campi: quegli ordini vivono solo
         // in Orders, e qui in casa non esiste una riga su cui scrivere. Il
         // riquadro del fornitore non si mostra (vedi DettaglioOrdine), invece
