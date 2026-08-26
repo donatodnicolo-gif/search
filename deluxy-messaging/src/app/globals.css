@@ -5001,3 +5001,36 @@ td .azioni-ordine {
     gap: 12px;
   }
 }
+
+/* ── SUL TELEFONO I BOTTONI SI STRINGONO, NON SI TOLGONO ──────────────────────
+   ⚠️⚠️ MISURATO a 375px: una scheda della bacheca è alta **518px** — su uno
+   schermo da 812 se ne vede UNA per volta, e la bacheca serve proprio a
+   scorrerle. Dei 518, **370 sono comandi**: i passi (132) e le azioni (238),
+   che sul computer stanno in fila e sul telefono si impilano.
+
+   ⚠️ Si stringe la CORNICE, non si riduce il numero: un comando tolto per fare
+   spazio è un comando che qualcuno continuerà a fare a mano. L'imbottitura
+   laterale scende da 14 a 10px — l'altezza dei bottoni resta **40px**, che è il
+   bersaglio del pollice e non si tocca — così ne entrano di più per riga e le
+   righe diventano meno.
+
+   ⚠️ Lo stacco FRA i gruppi resta più largo dello spazio DENTRO un gruppo
+   (6px contro 6+12): il separatore qui è una distanza, non un segno, e se le
+   due distanze diventano uguali il raggruppamento non lo vede più nessuno. */
+@media (max-width: 700px) {
+  .bottone.mini,
+  .scheda-ordine .azioni-ordine .bottone.mini,
+  .btn.small {
+    padding: 9px 10px;
+  }
+  .scheda-ordine .azioni-ordine {
+    gap: 6px;
+  }
+  .azioni-ordine .gruppo {
+    row-gap: 6px;
+  }
+  .passi-ordine {
+    gap: 5px;
+    margin: 6px 0 4px;
+  }
+}
