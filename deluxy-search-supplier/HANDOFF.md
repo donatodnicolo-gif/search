@@ -32,7 +32,8 @@ solo dove siamo e come si lavora.
   Se manca: `git -C C:/Users/nicol/scoutwt worktree add <dir> main`.
 - Anteprima locale SENZA Node: server PowerShell `C:/Users/nicol/scoutwt/.claude/serve.ps1`
   (parametri `-Root <cartella app> -Port 5511`); config `search-main` nel launch.json di
-  `deluxy-platform-next/.claude/`. In locale le `/api/*` puntano alla produzione
+  **`C:\Users\nicol\app\.claude\launch.json`** (⚠️ file riscritto da altre sessioni: se la voce
+  manca, riaggiungerla preservando le altre). In locale le `/api/*` puntano alla produzione
   (`API_BASE` in index.html); la lock screen si aggira da console nascondendo `#lockScreen`.
 - Verifica sempre su https://search-deluxy.vercel.app dopo il push (`curl | grep <marker>`).
 - ⚠️ **«Deploy in ~1 minuto» non è garantito: il 17/08 sera la coda ha messo ~30 minuti.**
@@ -756,8 +757,34 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    Limassol/CY (provincia assente → vuota, non inventata). Console pulita, sintassi OK.
    **Non collaudato su Google vero** (serve login): da provare scrivendo «limassol» nel campo.
 
+54. **Quarto negozio: business.deluxy.it** (26/08, commit `5ebbde85` — punto scritto a posteriori
+   il 26/08 sera: il commit originale aveva aggiornato solo AI_SPEC §6, non questo handoff).
+   Integrato il negozio B2B «Business Deluxy» (`90bfeb-f5.myshopify.com`): riga in `SHOP_BRAND`
+   di `api/oauth.js`, opzione nel menu brand di `index.html`, `KNOWN_BRANDS`; dal 26/08 sera anche
+   `BRAND_BY_SHOP` di `api/webhook.js` ha tutti e 4 i negozi (prima c'era solo deluxyflowers: un
+   webhook creato senza `?brand=` avrebbe salvato l'ordine sotto `order:sconosciuto:<num>`).
+   Tre lezioni ⚠️⚠️ (dettagli in AI_SPEC §6):
+   - **il brand NON si deduce dal dominio**: senza la riga in `SHOP_BRAND` l'OAuth riesce ma salva
+     in cassaforte il nome tecnico `90bfeb-f5.myshopify.com` → ogni ordine risponde «brand non
+     trovato» con la configurazione GIÀ fatta (il pezzo c'è, è il nome che non combacia);
+   - **la categoria NON si deduce dal marchio**: business vende fiori, torte e catering insieme →
+     il front-end accende ENTRAMBE le categorie, spegne l'operatore guardando l'ordine;
+   - **né dai titoli dei prodotti**: provata la regola ovvia sui 250 prodotti veri del catalogo:
+     74% di risposte giuste, 50 dolci non riconosciuti (le torte si chiamano «Giulio»,
+     «Alexander»; «Bouquet - Dolce Vita» finiva fra i dolci) — una regola che sbaglia 1 volta su
+     4, applicata in silenzio, è peggio di nessuna regola.
+   🔴 **Il negozio NON è ancora collegato**: mancano il webhook «Creazione ordine» su Shopify
+   (verso `/api/webhook?brand=business.deluxy.it`) e l'OAuth (§8). Finché mancano entrambi, ogni
+   suo ordine risponde «ordine non trovato» — sembra un ordine inesistente, invece è il negozio
+   non collegato. NB commerciale (decisione 26/08, memoria «architettura commerciale»): il sito
+   business «resta spento», quindi il collegamento non è urgente.
+
 ## Cose in sospeso
 
+- 🔴 **Collegare business.deluxy.it** (punto 54): webhook «Creazione ordine» su Shopify verso
+  `/api/webhook?brand=business.deluxy.it` + OAuth (§8). Non urgente: per la decisione commerciale
+  del 26/08 il sito business resta spento — ma finché manca, i suoi ordini rispondono
+  «ordine non trovato».
 - **Fornitore che Google non fa uscire** (era «La Mimosa» #2734, poi «Manfredini Fiori» #2756):
   dal 19/08 ci sono tutti e tre i rimedi previsti — paginazione fino a 60 (punto 40), estensione
   del raggio che ora **aggiunge** invece di sostituire (punto 49) e il campo **«Aggiungi negozio

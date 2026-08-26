@@ -21,7 +21,9 @@
 
 const BRAND_BY_SHOP = {
   'fb72b1-2.myshopify.com': 'deluxyflowers.com',
-  // aggiungeremo qui gli altri due negozi (dominio .myshopify.com : brand)
+  'deluxygifts.myshopify.com': 'deluxy.it',
+  'cakedesign-5921.myshopify.com': 'cakedesign.me',
+  '90bfeb-f5.myshopify.com': 'business.deluxy.it',
 };
 
 async function kvSet(key, value, ttlSeconds) {
