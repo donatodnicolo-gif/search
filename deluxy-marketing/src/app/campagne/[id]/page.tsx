@@ -28,7 +28,7 @@ import { RecapModifiche } from "@/components/RecapModifiche";
 import { Scadenza } from "@/components/Scadenza";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { Sidebar } from "@/components/Sidebar";
-import { COLORE_VERDETTO, ultimaAnalisiPerCampagna } from "@/lib/scheda-analisi";
+import { COLORE_PRIORITA, COLORE_VERDETTO, ETICHETTA_VERDETTO, noteAnalisiPerCampagna, ultimaAnalisiPerCampagna } from "@/lib/scheda-analisi";
 import { frequenzeMeta } from "@/lib/meta";
 import { parametriPeriodo, periodoApp } from "@/lib/periodo-condiviso";
 import { TabellaGruppi } from "@/components/TabellaGruppi";
@@ -253,6 +253,9 @@ export default async function SchedaCampagna({
   // in testata. `null` = niente bottone — uno che apre una pagina a caso
   // insegna a non premerlo.
   const analisiCampagna = await ultimaAnalisiPerCampagna(campagna);
+  // E la STORIA: tutte le note che le analisi hanno scritto su di lei, con
+  // la data — la sezione «Che cosa dicono le analisi» qui sotto.
+  const noteAnalisi = await noteAnalisiPerCampagna(campagna);
 
   // La FREQUENZA del periodo scelto, per le campagne Meta (richiesta utente,
   // 26/08): impressioni ÷ persone raggiunte, chiesta viva a Meta perché è un
@@ -849,6 +852,70 @@ export default async function SchedaCampagna({
           campagnaId={campagna.id}
           metaIdEsterno={campagna.canale === "meta_ads" ? campagna.idEsterno : null}
         />
+
+        {/* ——— Che cosa dicono le ANALISI di questa campagna, nel tempo ———
+            Non solo l'ultima (quella sta nel bottone in testata): la STORIA
+            dei giudizi esterni, con la data — perché «l'analisi l'aveva già
+            detto» si può dire solo se si vede QUANDO l'ha detto. Solo le
+            analisi che la NOMINANO: niente sintesi generiche ripetute. */}
+        {noteAnalisi.length > 0 && (
+          <section className="scheda">
+            <div className="scheda-titolo">Che cosa dicono le analisi ({noteAnalisi.length})</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {noteAnalisi.map((na) => (
+                <div
+                  key={na.analisiId}
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "flex-start",
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    background: "var(--fill)",
+                    borderLeft: `3px solid ${COLORE_VERDETTO[na.verdetto]}`,
+                  }}
+                >
+                  <div style={{ flexShrink: 0, minWidth: 92 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{formattaData(na.dataAnalisi)}</div>
+                    <span className="tag-salute" style={{ color: COLORE_VERDETTO[na.verdetto] }}>
+                      <span className="dot" />
+                      {ETICHETTA_VERDETTO[na.verdetto]}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {na.nota ? (
+                      <div style={{ fontSize: 13.5, lineHeight: 1.45 }}>{na.nota}</div>
+                    ) : (
+                      <div className="cella-sub" style={{ whiteSpace: "normal" }}>
+                        L&apos;analisi non ha una nota di sintesi su questa campagna, ma la cita nei rilievi qui sotto.
+                      </div>
+                    )}
+                    {na.findings.length > 0 && (
+                      <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                        {na.findings.map((f, i) => (
+                          <div key={i} style={{ fontSize: 12.5, lineHeight: 1.4 }} title={f.dettaglio}>
+                            <span
+                              className="tag-salute"
+                              style={{ color: COLORE_PRIORITA[f.priorita], marginRight: 6 }}
+                            >
+                              <span className="dot" />
+                              {f.priorita}
+                            </span>
+                            <b>{f.titolo}</b>
+                            <span className="cella-muta"> — {f.dettaglio.length > 180 ? `${f.dettaglio.slice(0, 180)}…` : f.dettaglio}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <a href={`/analisi/${na.analisiId}`} className="cella-sub" style={{ color: "var(--blue)", display: "inline-block", marginTop: 6 }}>
+                      Apri la scheda: {na.titolo} →
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ——— Valutazione: prima si capisce, poi si decide, infine si agisce.
             I gruppi stanno qui in cima perché sono il primo taglio che spiega

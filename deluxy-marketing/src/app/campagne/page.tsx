@@ -22,6 +22,7 @@ import {
   formattaData,
 } from "@/lib/dominio";
 import { formattaQuota, letturaBudget, usoBudget } from "@/lib/budget-usato";
+import { COLORE_VERDETTO, mappaAnalisiPerCampagne } from "@/lib/scheda-analisi";
 import { nomeCampagna } from "@/lib/gruppi";
 import { categoriaCampagna, iconaCanale, saluteCampagna } from "@/lib/salute";
 import { COLORE_CLASSE, ETICHETTA_CLASSE } from "@/lib/dominio";
@@ -113,6 +114,12 @@ export default async function PaginaCampagne({
 
   const brands = ORDINE_BRAND.filter((b) => campagne.some((c) => c.brand === b));
 
+  // Il verdetto dell'ANALISI più recente per ogni card, in un giro solo —
+  // vale per tutti i canali, Meta compreso. Il pallino sulla card è uno
+  // sguardo; la scheda intera si apre dal bottone ANALISI della campagna o
+  // dalla pagina /analisi (il bottone in testata, coi filtri di adesso).
+  const analisiDelle = await mappaAnalisiPerCampagne(campagne);
+
   return (
     <div className="layout">
       <AncoraggioHash />
@@ -129,44 +136,50 @@ export default async function PaginaCampagne({
               nella media, in apprendimento o critica.
             </p>
           </div>
+          {/* Le ANALISI depositate su Drive, elaborate in schede: il posto
+              dove si vedono TUTTE è /analisi — il bottone porta con sé i
+              filtri di adesso (brand e canale, Meta compreso). Il pallino
+              sulle card qui sotto è il verdetto della più recente. */}
+          <a
+            className="btn btn-secondario"
+            href={`/analisi${(() => {
+              const q2 = new URLSearchParams({ ...(brand ? { brand } : {}), ...(canale ? { canale } : {}) }).toString();
+              return q2 ? `?${q2}` : "";
+            })()}`}
+          >
+            Analisi
+          </a>
           <a className="btn btn-secondario" href="/campagne/nuova">Censisci esistente</a>
           {/* ⚠️ Il brand che si sta guardando viaggia col link: chi arriva qui
               filtrando Flowers si aspetta di creare una campagna Flowers, e il
               modulo ripartiva sempre da «gifts». Un valore predefinito
               sbagliato che nessuno rilegge è un errore che si scopre quando la
-              campagna è già su Google. */}
-          <a className="btn btn-secondario" href={`/campagne/lancia${brand ? `?brand=${brand}` : ""}`}>
+              campagna è già su Google. E dal 26/08 viaggia anche il CANALE:
+              chi filtra Meta atterra sul modulo Meta, non su quello Google. */}
+          <a
+            className="btn btn-secondario"
+            href={`/campagne/lancia${(() => {
+              const q2 = new URLSearchParams({ ...(brand ? { brand } : {}), ...(canale === "meta_ads" ? { canale: "meta" } : {}) }).toString();
+              return q2 ? `?${q2}` : "";
+            })()}`}
+          >
             Crea campagna
           </a>
           <a className="btn" href="/campagne/crea">Crea da ciò che funziona</a>
-          {/* ⚠️ Non un link travestito: il modulo di lancio è di Google
-              (keyword e negative, che su Meta non esistono) e creare campagne
-              non è fra le operazioni del motore Meta. Un bottone che portasse
-              al modulo Google prometterebbe una cosa e ne farebbe un'altra:
-              questo dice che non si può ancora, e la nota sotto dice come si
-              fa oggi. */}
-          {canale === "meta_ads" && (
-            <button
-              className="btn"
-              disabled
-              title="Il modulo di lancio scrive keyword e negative, che su Meta non esistono. Come si fa oggi è scritto qui sotto."
-            >
-              Lancia su Meta Ads — non ancora
-            </button>
-          )}
         </div>
 
         {canale === "meta_ads" && (
           <div className="nota-info">
             <span className="nota-icona">◈</span>
             <span>
-              <b>Su Meta le campagne non si lanciano da qui, per ora.</b> Il modulo «Lancia» è
-              fatto per Google: scrive keyword e negative, che su Meta non esistono. E creare una
-              campagna non è fra le operazioni che il motore Meta sa eseguire (pausa, riattiva,
-              budget) — motore che oggi è comunque spento, in attesa di{" "}
-              <code>ads_management</code>. Una campagna Meta si lancia da Ads Manager e qui si{" "}
-              <a href="/campagne/nuova" style={{ color: "var(--blue)" }}>censisce</a>: così entra
-              nei numeri, nel guardrail e nella coda per pausa, riattiva e budget.
+              <b>Dal 26/08 le campagne Meta si lanciano da qui.</b> «Crea campagna» apre il
+              modulo Meta (obiettivo ODAX, budget CBO/ABO, pubblico, posizionamenti, pixel):
+              si approva in Operazioni e l&apos;app crea campagna e ad set <b>in pausa</b> via
+              Graph API — l&apos;<b>annuncio</b> si monta in Ads Manager, perché vuole un media
+              che l&apos;app non possiede. ⚠️ Finché il token non ha <code>ads_management</code> e
+              l&apos;interruttore <code>META_SCRITTURA</code> non è acceso, un lancio approvato
+              resta in coda col motivo scritto. Una campagna nata in Ads Manager si{" "}
+              <a href="/campagne/nuova" style={{ color: "var(--blue)" }}>censisce</a> come prima.
             </span>
           </div>
         )}
@@ -355,6 +368,29 @@ export default async function PaginaCampagne({
                               <span className="dot" />
                               {salute.etichetta}
                             </span>
+                            {/* Il verdetto dell'ANALISI più recente che parla
+                                di questa campagna (o del suo brand+canale).
+                                È uno span e non un link: la card è già un <a>,
+                                e un <a> dentro un <a> non è HTML — la scheda
+                                si apre dal bottone ANALISI della campagna. */}
+                            {(() => {
+                              const an = analisiDelle.get(c.id);
+                              if (!an) return null;
+                              return (
+                                <span
+                                  className="tag-salute"
+                                  style={{ color: COLORE_VERDETTO[an.verdetto] }}
+                                  title={
+                                    an.nominata
+                                      ? `${an.titolo} — su questa campagna${an.nota ? `: ${an.nota}` : ""}`
+                                      : `${an.titolo} — l'analisi non nomina questa campagna: verdetto dell'insieme`
+                                  }
+                                >
+                                  <span className="dot" />
+                                  analisi
+                                </span>
+                              );
+                            })()}
                             <span className="tag-neutro">{categoria.nome}</span>
                             {c.classe !== "standard" && (
                               <span className="tag-salute" style={{ color: COLORE_CLASSE[c.classe] }} title={c.classe === "traino" ? "Campagna protetta (doc 11): modifiche solo con change control" : "Campagna sperimentale"}>

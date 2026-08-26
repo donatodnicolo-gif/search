@@ -336,6 +336,32 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐ LE ANALISI SI VEDONO DALL'ELENCO E LA LORO STORIA SULLA CAMPAGNA (26/08/2026 pomeriggio)
+
+Richiesta utente («dove vedo le analisi che sono state fatte? mettile
+visibili anche su canale Meta»), in tre pezzi:
+
+- **/campagne**: bottone **Analisi** in testata (porta i filtri correnti,
+  brand e canale, Meta compreso → `/analisi?brand=…&canale=…`) e su ogni
+  card il **pallino del verdetto** dell'analisi più recente che parla della
+  campagna (`mappaAnalisiPerCampagne` in `lib/scheda-analisi.ts`: le analisi
+  si caricano UNA volta, il confronto dei nomi gira in memoria — cento query
+  sarebbero state la strada sbagliata). È uno span, non un link: la card è
+  già un `<a>`, e la scheda si apre dal bottone ANALISI della campagna.
+- **/campagne/[id]**: sezione **«Che cosa dicono le analisi»** — la STORIA
+  dei giudizi, non solo l'ultimo: per ogni analisi che NOMINA la campagna,
+  data, verdetto colorato (bordo sinistro), nota della voce campagna,
+  findings che la citano con la pillola P0/P1/P2, link alla scheda
+  (`noteAnalisiPerCampagna`). Solo le analisi che la nominano: il ripiego
+  «verdetto dell'insieme» ripetuto per ogni campagna del brand sarebbe
+  rumore, e resta al bottone in testata.
+- **Tolto il falso «Lancia su Meta Ads — non ancora»**: il bottone disabilitato
+  e la nota «su Meta non si lancia da qui» erano veri fino a stamattina e
+  falsi dal deploy del modulo Meta. Ora «Crea campagna» porta anche il
+  CANALE (filtro Meta → modulo Meta) e la nota dice come funziona davvero.
+  ⚠️ È la trappola del riassunto che invecchia, pagata in casa: la pagina
+  accanto al modulo nuovo continuava a negare che esistesse.
+
 ### ⭐⭐⭐ IL LANCIO CAMPAGNA HA IL SUO MODULO META (26/08/2026 pomeriggio)
 
 Richiesta utente: su `/campagne/lancia` il modulo era SOLO Google (keyword,

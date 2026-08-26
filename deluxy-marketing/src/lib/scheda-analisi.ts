@@ -551,6 +551,123 @@ export async function ultimaAnalisiPerCampagna(campagna: {
   return { id: prima.id, verdetto: s.verdetto, dataAnalisi: prima.dataAnalisi, titolo: prima.titolo, perCampagna: null };
 }
 
+/**
+ * Il verdetto d'analisi per OGNI campagna di un elenco, in un giro solo.
+ *
+ * È `ultimaAnalisiPerCampagna` pensata per la pagina /campagne: là una query
+ * per card sarebbero cento query, qui le analisi si caricano UNA volta e il
+ * confronto dei nomi gira in memoria. Stesse regole della gemella: prima la
+ * scheda che NOMINA la campagna (lì c'è la nota specifica), altrimenti
+ * l'ultima analisi di brand+canale — che parla comunque del suo mondo — e
+ * vale per OGNI canale, Meta compreso: le schede Meta esistono dal 25/08.
+ */
+export async function mappaAnalisiPerCampagne(
+  campagne: { id: string; nome: string; nomeVisibile?: string | null; brand: string; canale: string }[]
+): Promise<
+  Map<string, { analisiId: string; verdetto: VerdettoScheda; titolo: string; dataAnalisi: Date; nota: string | null; nominata: boolean }>
+> {
+  const esito = new Map<
+    string,
+    { analisiId: string; verdetto: VerdettoScheda; titolo: string; dataAnalisi: Date; nota: string | null; nominata: boolean }
+  >();
+  if (campagne.length === 0) return esito;
+  const recenti = await prisma.analisi.findMany({
+    where: { scheda: { not: null } },
+    orderBy: { dataAnalisi: "desc" },
+    take: 40,
+    select: { id: true, titolo: true, dataAnalisi: true, scheda: true, brand: true, canale: true },
+  });
+  if (recenti.length === 0) return esito;
+  // La scheda si rilegge una volta per analisi, non una per campagna.
+  const lette = recenti
+    .map((a) => ({ a, s: schedaDi(a) }))
+    .filter((x): x is { a: (typeof recenti)[number]; s: Scheda } => x.s != null);
+
+  for (const c of campagne) {
+    const nomi = [c.nome, c.nomeVisibile ?? ""].filter(Boolean);
+    const compatibili = lette.filter(
+      ({ a }) => (a.brand === c.brand || a.brand === "cross") && (a.canale === c.canale || a.canale == null)
+    );
+    const nominata = compatibili.find(({ s }) => s.campagne.some((v) => nomi.some((n) => combacia(v.nome, n))));
+    if (nominata) {
+      const voce = nominata.s.campagne.find((v) => nomi.some((n) => combacia(v.nome, n)))!;
+      esito.set(c.id, {
+        analisiId: nominata.a.id,
+        verdetto: voce.verdetto ?? nominata.s.verdetto,
+        titolo: nominata.a.titolo,
+        dataAnalisi: nominata.a.dataAnalisi,
+        nota: voce.nota ?? null,
+        nominata: true,
+      });
+    } else if (compatibili.length > 0) {
+      const prima = compatibili[0];
+      esito.set(c.id, {
+        analisiId: prima.a.id,
+        verdetto: prima.s.verdetto,
+        titolo: prima.a.titolo,
+        dataAnalisi: prima.a.dataAnalisi,
+        nota: null,
+        nominata: false,
+      });
+    }
+  }
+  return esito;
+}
+
+/**
+ * TUTTE le note che le analisi hanno scritto su una campagna, con la loro
+ * data — non solo l'ultima. È la storia dei giudizi esterni: la nota della
+ * voce «campagne» della scheda, più i findings che la citano per nome.
+ *
+ * Solo le analisi che la NOMINANO: il ripiego «verdetto dell'insieme» qui
+ * non entra — una sezione che ripetesse la stessa sintesi generica per ogni
+ * campagna del brand sarebbe rumore, non storia.
+ */
+export async function noteAnalisiPerCampagna(campagna: {
+  nome: string;
+  nomeVisibile?: string | null;
+  brand: string;
+  canale: string;
+}): Promise<
+  {
+    analisiId: string;
+    titolo: string;
+    dataAnalisi: Date;
+    verdetto: VerdettoScheda;
+    nota: string;
+    findings: { priorita: "P0" | "P1" | "P2"; titolo: string; dettaglio: string }[];
+  }[]
+> {
+  const recenti = await prisma.analisi.findMany({
+    where: {
+      scheda: { not: null },
+      brand: { in: [campagna.brand, "cross"] },
+      OR: [{ canale: campagna.canale }, { canale: null }],
+    },
+    orderBy: { dataAnalisi: "desc" },
+    take: 12,
+    select: { id: true, titolo: true, dataAnalisi: true, scheda: true },
+  });
+  const nomi = [campagna.nome, campagna.nomeVisibile ?? ""].filter(Boolean);
+  const righe: Awaited<ReturnType<typeof noteAnalisiPerCampagna>> = [];
+  for (const a of recenti) {
+    const s = schedaDi(a);
+    if (!s) continue;
+    const voce = s.campagne.find((v) => nomi.some((n) => combacia(v.nome, n)));
+    const findings = s.findings.filter((f) => f.campagne.some((cit) => nomi.some((n) => combacia(cit, n))));
+    if (!voce && findings.length === 0) continue;
+    righe.push({
+      analisiId: a.id,
+      titolo: a.titolo,
+      dataAnalisi: a.dataAnalisi,
+      verdetto: voce?.verdetto ?? s.verdetto,
+      nota: voce?.nota ?? "",
+      findings: findings.map((f) => ({ priorita: f.priorita, titolo: f.titolo, dettaglio: f.dettaglio })),
+    });
+  }
+  return righe;
+}
+
 // ───── Le azioni della scheda che si possono METTERE IN CODA ─────
 //
 // L'AI propone la traduzione azione→operazione; qui il codice la RIVEDE:
