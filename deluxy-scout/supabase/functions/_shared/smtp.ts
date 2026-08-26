@@ -73,7 +73,14 @@ function componiFrom(email: string, mittente?: string | null): string {
   const nome = (mittente ?? '').trim();
   if (!nome) return email;
   if (nome.toLowerCase() === email.toLowerCase()) return email;
-  if (/^[^@s]+@[^@s]+.[^@s]+$/.test(nome)) return nome; // già un indirizzo
+  // ⚠️ I BACKSLASH ERANO STATI MANGIATI: `[^@s]` invece di `[^@\s]`, e il punto
+  // non escapato. Effetto doppio e opposto — «vendite@rossi.it» NON veniva
+  // riconosciuto come indirizzo (innocuo: finiva virgolettato), ma un nome che
+  // contiene una «@» e nessuna «s», tipo «Fatture @ Milano», passava per un
+  // indirizzo e finiva nudo nel campo From: mail rifiutata dal server. È
+  // esattamente il guasto «from address is not a valid email» già corretto una
+  // volta. La forma giusta è quella del gemello in invio-email/index.ts.
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nome)) return nome; // già un indirizzo
   // Nome fra virgolette, indirizzo fra parentesi angolari (RFC 5322).
   return `"${nome.replace(/"/g, '')}" <${email}>`;
 }

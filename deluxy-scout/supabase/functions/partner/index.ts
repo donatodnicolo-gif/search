@@ -105,7 +105,17 @@ Deno.serve(async (req) => {
     // Un registro non aggiornato può mandare un livello al posto dello stato:
     // in quel caso il valore vecchio diventa il livello, e lo stato è quello
     // che c'era sempre stato sotto (un «a rischio» è un cliente, non un perso).
-    const daStato = Boolean(statoRegistro && MOMENTI.has(statoRegistro));
+    //
+    // ⚠️ AMBIGUO SOLO SE È AMBIGUO DAVVERO (27/08/2026). `attivo` sta in
+    // ENTRAMBI gli insiemi — è uno stato del registro e anche un momento del
+    // contatto — e prima vinceva sempre il ramo «è un livello»: `attivo`
+    // finiva in `STATO_DA_LIVELLO`, che non ce l'ha, e usciva `undefined`.
+    // Risultato: una notifica `stato:'attivo'`, cioè «questo è un cliente»,
+    // non scriveva NESSUNO stato. Un valore che è uno stato valido si legge
+    // come stato; il ripiego sul livello resta per gli altri.
+    const daStato = Boolean(
+      statoRegistro && MOMENTI.has(statoRegistro) && !STATI.has(statoRegistro),
+    );
     // Uno stato che non conosciamo non viene tradotto a caso: si ignora.
     const stato = daStato
       ? STATO_DA_LIVELLO[statoRegistro!]
@@ -129,12 +139,24 @@ Deno.serve(async (req) => {
 
     // Campi che il registro possiede davvero. `anagrafiche_stato` è la sua
     // parola; `stato_affiliazione` è la copia su cui lavora Scout.
+    //
+    // ⚠️ I CAMPI VUOTI NON SI MANDANO IN AGGIORNAMENTO (27/08/2026). `testo()`
+    // torna `null`, non `undefined`, quindi queste quattro chiavi finivano
+    // SEMPRE nell'oggetto — e lo stesso oggetto veniva usato anche nell'UPDATE
+    // di un negozio che esiste già. Una notifica con i soli campi obbligatori
+    // — che il contratto in testa a questo file dichiara legittima —
+    // AZZERAVA in silenzio indirizzo, zona, categoria e account di un negozio
+    // che li aveva. Verso una scheda che esiste, `null` non vuol dire «non lo
+    // so»: vuol dire «cancellalo». È la stessa regola già scritta in
+    // `_shared/registro.ts` per la direzione opposta.
+    const soloSeC =
+      (chiave: string, v: string | null) => (v == null ? {} : { [chiave]: v });
     const comuni: Record<string, unknown> = {
       nome,
-      indirizzo: testo(body.indirizzo),
-      zona: testo(body.citta, 120),
-      categoria: testo(body.categoria, 80),
-      anagrafiche_account: testo(body.account, 120),
+      ...soloSeC('indirizzo', testo(body.indirizzo)),
+      ...soloSeC('zona', testo(body.citta, 120)),
+      ...soloSeC('categoria', testo(body.categoria, 80)),
+      ...soloSeC('anagrafiche_account', testo(body.account, 120)),
       ...(stato ? { anagrafiche_stato: stato, stato_affiliazione: stato, stato: PIPELINE[stato] } : {}),
       // Si scrive anche quando è null: togliere il momento è un'informazione
       // quanto metterlo — vuol dire che quella conversazione è chiusa.

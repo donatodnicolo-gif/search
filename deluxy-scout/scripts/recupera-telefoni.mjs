@@ -33,17 +33,28 @@ const lit = (v) => (v == null ? 'null' : `$q$${String(v)}$q$`);
 //   cellulare = 10 cifre che iniziano per 3 · fisso = inizia per 0, 8-11 cifre.
 // Ritorna { mobile, fisso } (dial-safe: solo cifre; il display li mostra così).
 function estraiTelefoni(testo) {
-  if (!testo) return { mobile: null, fisso: null };
-  const mobili = [], fissi = [];
+  if (!testo) return { mobile: null, fisso: null, scartati: [] };
+  const mobili = [], fissi = [], scartati = [];
   // Sequenze con eventuale +39, gruppi di cifre separati da spazi/punti/trattini/slash.
   const re = /(?:\+?39[\s.]?)?(?:\d[\d\s.\-/]{6,14}\d)/g;
   for (const m of testo.matchAll(re)) {
-    let n = m[0].replace(/[^\d]/g, '').replace(/^0039/, '').replace(/^39(?=3\d{9}$)/, '');
+    // ⚠️ IL «+39» DAVANTI A UN FISSO (corretto il 27/08/2026). Lo strip del
+    // prefisso copriva `0039` e il `39` dei soli CELLULARI: «Tel. +39 055
+    // 216760» diventava `39055216760`, che non è né un cellulare né un fisso,
+    // e il numero veniva buttato in silenzio — il partner restava «senza
+    // telefono». Peggio: se accanto c'era un fax scritto senza prefisso,
+    // veniva scritto in rubrica IL FAX al posto del numero buono. Misurato sui
+    // dati veri: fissi romani scritti proprio così, «+39 06 …».
+    let n = m[0]
+      .replace(/[^\d]/g, '')
+      .replace(/^0039/, '')
+      .replace(/^39(?=3\d{9}$|0\d{7,10}$)/, '');
     if (/^3\d{9}$/.test(n)) mobili.push(n); // cellulare valido (10 cifre)
     else if (/^0\d{7,10}$/.test(n)) fissi.push(n); // fisso valido
+    else scartati.push(m[0].trim()); // non riconosciuto: si DICE, non si nasconde
   }
   const fmtMob = (n) => (n ? n.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3') : null);
-  return { mobile: fmtMob(mobili[0] ?? null), fisso: fissi[0] ?? null };
+  return { mobile: fmtMob(mobili[0] ?? null), fisso: fissi[0] ?? null, scartati };
 }
 
 // 1. Affiliazioni Scout SENZA telefono in rubrica (per anagrafiche_id).
@@ -70,17 +81,28 @@ for (let pagina = 1; ; pagina++) {
 // 3. Per quelle senza telefono, prova a estrarlo dal raw.
 const daInserire = [];
 let conMobile = 0, conFisso = 0;
+const nonLetti = [];
 for (const p of partners) {
   if (!senzaSet.has(p.id)) continue;
   const raw = p.contattiRaw || (p.contatti ?? []).map((c) => `${c.ruolo ?? ''} ${c.nome ?? ''} ${c.telefono ?? ''}`).join('\n');
-  const { mobile, fisso } = estraiTelefoni(raw);
+  const { mobile, fisso, scartati } = estraiTelefoni(raw);
   const tel = mobile ?? fisso;
-  if (!tel) continue;
+  if (!tel) {
+    // Un numero che c'era e non si è saputo leggere non sparisce in silenzio:
+    // senza questo elenco, il prossimo buco resterebbe invisibile come questo.
+    if (scartati.length) nonLetti.push({ nome: p.nome, testi: scartati });
+    continue;
+  }
   if (mobile) conMobile++; else conFisso++;
   daInserire.push({ aid: p.id, tel, tipo: mobile ? 'cellulare' : 'fisso' });
 }
 
 console.log(`Numeri recuperati dal testo: ${daInserire.length}  (cellulari ${conMobile}, fissi ${conFisso})`);
+if (nonLetti.length) {
+  console.log(`
+Numeri TROVATI NEL TESTO ma non riconosciuti: ${nonLetti.length} partner. Esempi:`);
+  for (const x of nonLetti.slice(0, 8)) console.log(`  ${x.nome}: ${x.testi.join(' | ')}`);
+}
 console.log('Esempi:');
 for (const d of daInserire.slice(0, 8)) {
   const nome = partners.find((p) => p.id === d.aid)?.nome;

@@ -25,6 +25,7 @@
 //   supabase secrets set COMMERCIALE_API_KEY=... --project-ref fdsziebgkljfsugqqbqd
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { chiaveIngressoValida, clientAdmin } from '../_shared/chiaveIn.ts';
+import { pulisciFiltro } from '../_shared/filtro.ts';
 
 const APP_URL = (Deno.env.get('SCOUT_WEB_URL') ?? 'https://deluxy-scout.vercel.app').replace(/\/$/, '');
 
@@ -107,12 +108,25 @@ Deno.serve(async (req) => {
 
     // 1. Trova il negozio per nome. Prima il match esatto normalizzato, poi
     //    "contiene": un solo candidato = si procede, più di uno = si chiede.
-    const primaParola = negozio.split(/\s+/)[0] ?? negozio;
-    const { data: candidati } = await admin
+    // ⚠️ Il nome si RIPULISCE prima di finire nel filtro, e l'errore si LEGGE.
+    // Con «Fiorami, Milano» il filtro si spezzava, PostgREST rispondeva 400 e
+    // `candidati ?? []` trasformava il guasto in «nessun candidato»: il negozio
+    // che c'era veniva dichiarato inesistente e, siccome senza candidati
+    // l'unica strada offerta è «crealo», nasceva un doppione. Un errore di
+    // ricerca non deve mai somigliare a una risposta.
+    const cercabile = pulisciFiltro(negozio);
+    const primaParola = cercabile.split(/\s+/)[0] ?? cercabile;
+    const { data: candidati, error: erroreRicerca } = await admin
       .from('places')
       .select('id, nome, zona, stato')
-      .or(`nome.ilike.%${negozio}%,nome.ilike.${primaParola}%`)
+      .or(`nome.ilike.%${cercabile}%,nome.ilike.${primaParola}%`)
       .limit(25);
+    if (erroreRicerca) {
+      return json(
+        { error: `Ricerca del negozio non riuscita: ${erroreRicerca.message}` },
+        500,
+      );
+    }
 
     const lista = candidati ?? [];
     const target = normNome(negozio);

@@ -108,20 +108,60 @@ Deno.serve(async (req) => {
     if (body.azione === 'corpo') {
       const idMail = String(body.id ?? '').trim();
       if (!idMail) return json({ ok: false, errore: 'Manca l’id del messaggio.' }, 400);
-      const { data: rigaL } = await admin
-        .from('impostazioni')
-        .select('valore')
-        .eq('chiave', 'mail.casella_lettura')
-        .maybeSingle();
-      const { data: rigaC } = await admin
-        .from('impostazioni')
-        .select('valore')
-        .eq('chiave', 'mail.casella_richieste')
-        .maybeSingle();
-      const dove = (rigaL?.valore ?? '').trim() || (rigaC?.valore ?? '').trim() || email || '';
-      const r = await fetch(`${BASE}/api/v1/messaggi?corpo=${encodeURIComponent(idMail)}`, {
-        headers: { 'x-api-key': key, 'x-utente': dove },
-      });
+
+      // ⚠️ PRIMA LA PROPRIA CASSETTA, POI — SOLO SE IMPORTATA — QUELLA COMUNE
+      // (27/08/2026).
+      //
+      // Qui si leggeva sempre e solo dalla cassetta di lettura configurata, che
+      // — come dice il commento più sotto — è la cassetta PERSONALE di una
+      // persona, perché commerciale@ è un alias. E l'id arrivava dal client
+      // senza essere confrontato con niente: un qualunque utente Scout
+      // autenticato poteva farsi dare il testo di QUALSIASI messaggio di quella
+      // cassetta, anche mai importato e anche della posta inviata, bastava
+      // conoscerne l'identificativo.
+      //
+      // Due strade, e nessuna delle due si fida del client:
+      //  1. la propria cassetta — sempre lecita, è la posta di chi chiama, e
+      //     serve alla ricerca «cerca fra le mie mail» (che prima leggeva da
+      //     una cassetta diversa da quella in cui aveva cercato);
+      //  2. la cassetta comune — solo se quel messaggio Scout l'ha già
+      //     importato, cioè esiste come `mail_ref` di un lead, di una richiesta
+      //     cliente o di un preventivo. È il caso per cui il ramo esiste:
+      //     rileggere una richiesta presa in carico.
+      const leggiDa = async (casella: string) =>
+        await fetch(`${BASE}/api/v1/messaggi?corpo=${encodeURIComponent(idMail)}`, {
+          headers: { 'x-api-key': key, 'x-utente': casella },
+        });
+
+      const importato = await (async () => {
+        for (const tabella of ['leads', 'richieste_cliente', 'preventivi'] as const) {
+          const { data } = await admin.from(tabella).select('id').eq('mail_ref', idMail).limit(1);
+          if ((data ?? []).length) return true;
+        }
+        return false;
+      })();
+      // 1. La propria cassetta. `email` viene dal token, mai dal client.
+      let r = email ? await leggiDa(email) : null;
+
+      // 2. Quella comune, solo per un messaggio già importato.
+      if ((!r || r.status === 404) && importato) {
+        const { data: rigaL } = await admin
+          .from('impostazioni')
+          .select('valore')
+          .eq('chiave', 'mail.casella_lettura')
+          .maybeSingle();
+        const { data: rigaC } = await admin
+          .from('impostazioni')
+          .select('valore')
+          .eq('chiave', 'mail.casella_richieste')
+          .maybeSingle();
+        const dove = (rigaL?.valore ?? '').trim() || (rigaC?.valore ?? '').trim() || email || '';
+        if (dove && dove !== email) r = await leggiDa(dove);
+      }
+
+      if (!r) {
+        return json({ ok: false, errore: 'Nessuna casella da cui leggere.' }, 400);
+      }
       const txt = await r.text();
       if (!r.ok) {
         return json(
@@ -129,7 +169,9 @@ Deno.serve(async (req) => {
             ok: false,
             errore:
               r.status === 404
-                ? 'Il testo non è disponibile: la mail non è (più) in quella casella, oppure AI Mail non è aggiornata.'
+                ? importato
+                  ? 'Il testo non è disponibile: la mail non è (più) in quella casella, oppure AI Mail non è aggiornata.'
+                  : 'Il testo non è nella tua casella. Di una mail che Scout non ha ancora importato si legge solo la posta propria.'
                 : `AI Mail ${r.status}`,
           },
           502,

@@ -271,7 +271,13 @@ export function RicercaAffiliazioni({
             on={raggio === null}
             onPress={() => {
               setRaggio(null);
-              if (centro) cerca(centro, null, cosa);
+              // ⚠️ `cercato` come su tutti gli altri chip (corretto il
+              // 27/08/2026). Qui la guardia era solo `centro`, e siccome
+              // scegliere un indirizzo mette apposta `cercato = false` — la
+              // scoperta costa chiamate a Google — toccare «Tutta la città»
+              // anche solo per confermare il raggio faceva partire da sola la
+              // ricerca più cara della schermata, quella su 12 km.
+              if (centro && cercato) cerca(centro, null, cosa);
             }}
           />
           {RAGGI.map((r) => (

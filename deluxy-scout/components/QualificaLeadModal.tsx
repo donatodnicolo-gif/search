@@ -148,7 +148,16 @@ export function QualificaLeadModal({
   // cercando qualcosa; altrimenti la persona che ci ha scritto — che è ciò che
   // di lei sappiamo. ⚠️ Mai il mittente robot del modulo Shopify: creare
   // «Business Deluxy (Shopify)» come negozio sarebbe una scheda finta.
-  const daCreare = ricerca.trim() || (info.daModuloSito ? info.persona || '' : lead.nome).trim();
+  // ⚠️ L'AZIENDA SCRITTA NEL CAMPO VINCE (corretto il 27/08/2026). Il campo
+  // «Azienda» è modificabile apposta — è lì perché chi qualifica corregga
+  // quello che l'AI ha letto — ma il suo valore non arrivava da nessuna parte:
+  // il negozio nasceva col contenuto della casella di RICERCA, che per una
+  // richiesta non arrivata dal modulo del sito parte col nome della PERSONA.
+  // Si correggeva «Fiori Rossi Srl» e si creava un negozio intestato a chi
+  // aveva scritto la mail — e quel nome sbagliato veniva poi propagato ad
+  // Anagrafiche, dove resta.
+  const daCreare =
+    (dati?.ragioneSociale?.trim() || ricerca.trim() || (info.daModuloSito ? info.persona || '' : lead.nome)).trim();
 
   return (
     <Foglio

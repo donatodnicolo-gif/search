@@ -204,12 +204,36 @@ Deno.serve(async (req) => {
     const raw: string = keyOpenAI
       ? aiData.choices?.[0]?.message?.content ?? '{}'
       : aiData.content?.[0]?.text ?? '{}';
-    let parsed: Record<string, any> = {};
+    // ⚠️ ANCHE IL SECONDO TENTATIVO PUÒ FALLIRE (27/08/2026). Il `JSON.parse`
+    // di ripiego stava dentro il `catch` del primo, quindi non era più coperto
+    // da niente: con una risposta troncata a metà — graffe non bilanciate — la
+    // regex trovava un blocco, il parse lanciava, l'eccezione risaliva fino in
+    // fondo e la funzione rispondeva 500. Cioè saltava proprio il ripiego «a
+    // regole» che questo file promette in testa: «senza nessuna chiave la
+    // funzione NON fallisce». Un'estrazione che non riesce deve degradare, non
+    // rompere la qualifica.
+    let parsed: Record<string, any> | null = null;
     try {
       parsed = JSON.parse(raw);
     } catch {
-      const m = raw.match(/\{[\s\S]*\}/);
-      parsed = m ? JSON.parse(m[0]) : {};
+      try {
+        const m = raw.match(/\{[\s\S]*\}/);
+        parsed = m ? JSON.parse(m[0]) : null;
+      } catch {
+        parsed = null;
+      }
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      // Non si finge di aver letto: si torna il ripiego dichiarato, e si dice
+      // che l'AI ha risposto in un modo che non si è potuto leggere. Un
+      // `fonte: 'ai'` con tutti i campi vuoti sarebbe la bugia peggiore —
+      // «l'ho letta e non c'era niente» invece di «non l'ho potuta leggere».
+      return json({
+        ok: true,
+        fonte: 'regole',
+        dati: aRegole(testo, mittente),
+        avviso: "L'AI ha risposto in un formato non leggibile: campi letti con le regole fisse.",
+      });
     }
 
     const pulisci = (v: unknown): string | null => {

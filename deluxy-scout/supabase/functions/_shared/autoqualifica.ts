@@ -24,6 +24,7 @@
 type Admin = any;
 
 import { assicuraNegozioNelRegistro, type EsitoRegistro } from './registro.ts';
+import { emailValida } from './filtro.ts';
 
 const GIORNI_FOLLOWUP_LEAD = 3; // stessa cadenza web di lib/cadenze.ts
 
@@ -131,18 +132,50 @@ export async function autoQualificaLead(
     //    telefono (ultime 9 cifre). La rubrica è piccola: si confronta qui,
     //    dove si può normalizzare, invece di inventare un LIKE che non regge
     //    gli spazi. Gli archiviati non contano: sono usciti di scena.
+    //
+    // ⚠️ CORRETTO IL 27/08/2026, due difetti misurati sul progetto vero:
+    //  · «la rubrica è piccola» non è più vero: `contacts` ha 1.907 righe, di
+    //    cui 1.213 con telefono, e PostgREST ne restituisce al massimo 1.000
+    //    (`max_rows`) senza dire niente. Il ramo «tutti quelli che hanno un
+    //    telefono» chiedeva 1.213 righe, ne riceveva mille in ordine di heap, e
+    //    il contatto giusto poteva restare fuori: nasceva un negozio nuovo a
+    //    0,0 invece dell'aggancio, la regola del binario non scattava, e quel
+    //    negozio non lo ripescava nemmeno la Riconciliazione (esclude lat/lng
+    //    a zero). Ora si chiede al server SOLO quello che serve;
+    //  · l'email finiva cruda dentro l'`or()`: un contatto scritto
+    //    «info@tizio.it, tel 333» spezzava il filtro (400 PGRST100), l'errore
+    //    non veniva letto e il risultato era di nuovo un doppione silenzioso.
     let placeId: string | null = null;
-    if (email || telefono) {
-      const { data: contatti } = await admin
-        .from('contacts')
-        .select('place_id, email, telefono, archiviato')
-        .or([email ? `email.ilike.${email}` : null, telefono ? 'telefono.not.is.null' : null].filter(Boolean).join(','));
-      const telLead = cifre(telefono);
-      const match = (contatti ?? []).find(
+    const telLead = cifre(telefono);
+    const emailPulita = emailValida(email);
+    if (emailPulita || telLead.length >= 8) {
+      const candidati: any[] = [];
+      if (emailPulita) {
+        // Filtro separato: il valore non passa dal parser di `or=`.
+        const { data, error } = await admin
+          .from('contacts')
+          .select('place_id, email, telefono, archiviato')
+          .ilike('email', emailPulita)
+          .limit(50);
+        if (error) throw error;
+        candidati.push(...(data ?? []));
+      }
+      if (telLead.length >= 8) {
+        // Le ultime 9 cifre bastano a distinguere un numero italiano, e il
+        // confronto esatto lo rifà comunque il codice qui sotto.
+        const { data, error } = await admin
+          .from('contacts')
+          .select('place_id, email, telefono, archiviato')
+          .ilike('telefono', `%${telLead.slice(-9)}%`)
+          .limit(50);
+        if (error) throw error;
+        candidati.push(...(data ?? []));
+      }
+      const match = candidati.find(
         (c: any) =>
           !c.archiviato &&
           c.place_id &&
-          ((email && String(c.email ?? '').toLowerCase() === email) ||
+          ((emailPulita && String(c.email ?? '').toLowerCase() === emailPulita.toLowerCase()) ||
             (telLead.length >= 8 && cifre(c.telefono) === telLead)),
       );
       placeId = match?.place_id ?? null;

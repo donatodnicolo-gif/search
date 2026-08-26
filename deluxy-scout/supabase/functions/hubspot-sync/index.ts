@@ -287,13 +287,24 @@ class HubSpot {
     // NB: `industry` è un ENUM HubSpot a valori fissi (RETAIL, APPAREL_FASHION…):
     // inviare il nostro settore italiano (es. "FIORISTA") dà 400 INVALID_OPTION e
     // fa fallire tutto il sync. Il settore vive già in `deluxy_linea` (custom, libera).
-    const properties = {
+    //
+    // ⚠️ QUELLO CHE NON SAPPIAMO NON SI MANDA (27/08/2026). Prima c'era
+    // `city: place.zona ?? 'Milano'` e `address: place.indirizzo ?? ''`: un
+    // negozio senza zona — e in Scout la zona è vuota su più della metà,
+    // perché la scoperta Google e l'auto-qualifica non la scrivono — entrava
+    // su HubSpot come «Milano» anche se stava a Roma. Un dato falso scritto in
+    // un sistema ESTERNO, dove poi resta e nessuno sa più da dove venga; e
+    // siccome il ri-sync manda lo stesso oggetto in PATCH, riscriveva «Milano»
+    // sopra una città corretta a mano. Stessa cosa per `address: ''`, che in
+    // PATCH cancella l'indirizzo che c'era.
+    // Una proprietà OMESSA, invece, in PATCH lascia il valore com'è.
+    const properties: Record<string, unknown> = {
       name: place.nome,
-      address: place.indirizzo ?? '',
-      city: place.zona ?? 'Milano',
       deluxy_priorita: place.priorita,
-      deluxy_linea: place.linea_ipotizzata ?? '',
     };
+    if (place.indirizzo) properties.address = place.indirizzo;
+    if (place.zona) properties.city = place.zona;
+    if (place.linea_ipotizzata) properties.deluxy_linea = place.linea_ipotizzata;
     if (place.hubspot_company_id) {
       await this.req(`/crm/v3/objects/companies/${place.hubspot_company_id}`, {
         method: 'PATCH',
