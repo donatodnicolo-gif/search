@@ -196,15 +196,31 @@ export function valutaSpam(
   m: { oggetto: string; corpoTesto: string; mittente: string; mittenteNome: string | null },
   ctx: { contattoNoto: boolean; dominioProprio: boolean; contattoAI: boolean; nostriDomini?: string[] }
 ): EsitoSpam {
-  // ⚠️ Si calcola PRIMA della lista bianca, ed è l'unica cosa che la scavalca:
-  // fingersi uno di NOI non è mai legittimo, nemmeno da un indirizzo che ci ha
-  // già scritto — anzi, chi prepara una frode del capo spesso scrive prima una
-  // mail innocua, proprio per diventare «contatto noto».
+  // ⚠️⚠️ SI FINGE UNO DI NOI: non è un indizio, è la prova. Livello ALTO da
+  // solo, quindi la mail va in SPAM **senza chiedere niente** — deciso
+  // dall'utente il 26/08/2026 guardando il caso vero: «la regola che le faccia
+  // finire sempre in spam è: si presenta col nostro indirizzo ma non è quella
+  // persona». Non esiste un motivo buono per scrivere da fuori mettendo come
+  // nome un indirizzo nostro, e i dati lo confermano: su 693 mail candidate
+  // della produzione ne prende 2, ed erano due truffe.
+  // ⚠️ Si calcola PRIMA della lista bianca, e la scavalca: chi prepara una
+  // frode del capo spesso manda prima una mail innocua, proprio per diventare
+  // «contatto noto» — la lista bianca sarebbe la sua porta d'ingresso.
+  // ⚠️ La casistica si tiene lo stesso (`caso`): serve alla mail ARRIVATA
+  //    PRIMA di questa regola, che è già in posta e mostra il riquadro.
   const fintoInterno = casoFintoInterno(m.mittente, m.mittenteNome, ctx.nostriDomini ?? [])
+  if (fintoInterno) {
+    return {
+      livello: 'alto',
+      punteggio: 9,
+      motivi: [fintoInterno.descrizione],
+      caso: fintoInterno,
+    }
+  }
 
   // Whitelist: chi conosci non è mai spam. Chiude subito il discorso.
   if (ctx.contattoNoto || ctx.dominioProprio || ctx.contattoAI) {
-    return { livello: 'basso', punteggio: 0, motivi: [], caso: fintoInterno }
+    return { livello: 'basso', punteggio: 0, motivi: [] }
   }
 
   const testo = `${m.oggetto}\n${m.corpoTesto}`
@@ -247,7 +263,7 @@ export function valutaSpam(
   // ⚠️ La casistica NON dà punti: la si approva la prima volta e poi si applica
   // da sola. Sommarla al punteggio vorrebbe dire spostare la mail comunque, e
   // l'approvazione diventerebbe una domanda a cose fatte.
-  const caso = fintoInterno ?? casoMarchio(m.mittente, m.mittenteNome)
+  const caso = casoMarchio(m.mittente, m.mittenteNome)
 
   // Mittente sconosciuto: segnale debole, da solo non basta.
   punti += 1
