@@ -460,6 +460,15 @@ centimetri da un totale già estratto nella stessa schermata. La **fase** è
 una tendina con gli stati veri di Scout (Primo contatto · In trattativa · Preventivo
 inviato · Chiusa vinta · Chiusa persa), e l'AI la propone leggendo lo scambio.
 
+**Cercare dentro i risultati.** Sotto la casella di ricerca, aprendo «Condizioni di
+ricerca», il primo campo è **Cerca dentro i risultati**: ci si scrivono altre parole, e
+restano solo le mail che contengono **anche** quelle. Vale lo stesso «cerca le parole in»
+del termine principale (ovunque, solo nell'oggetto, solo nel testo, solo fra le persone).
+Non è un setaccio su quello che vedi a schermo: la seconda parola viene cercata su tutta
+la posta, quindi il conto è quello vero. Come le altre condizioni resta nell'indirizzo —
+la ricerca ristretta si può ricaricare o tenere fra i preferiti — e si toglie con la ✕ sul
+suo badge in alto.
+
 **Se un'app è già stata usata su una mail, si vede subito.** In testa alla mail, accanto a
 «→ App», compare un pallino per ogni azione già richiamata da quel messaggio: verde con la
 spunta se è riuscita, grigio se non è stata mandata, rosso se ha dato errore — e il motivo

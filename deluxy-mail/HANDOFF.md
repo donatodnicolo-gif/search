@@ -23,6 +23,31 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 12) — «Cerca dentro i risultati»
+
+Chiesto dall'utente: un campo di testo per cercare **dentro i risultati** del primo.
+È il **primo** campo delle «Condizioni di ricerca», va nell'indirizzo come le altre
+(`?q2=…`), ha la sua **✕** fra i badge in alto (⚠️ una ricerca ristretta che non si sa
+allargare è una trappola) e rispetta lo stesso «cerca le parole in» del primo termine.
+
+⚠️⚠️ **Filtra sul DATABASE, non sulle righe a schermo.** La tentazione era setacciare la
+lista già caricata: sarebbe stato più semplice e **sbagliato**, perché i risultati sono
+una **pagina** di un elenco più lungo — si sarebbe letto «nessun risultato» mentre le mail
+c'erano, più avanti nell'elenco ([[trappola-censimento-troncato]]).
+Misurato in sola lettura sulla produzione: «spuma» **75** mail, «spuma» + «prezzo» **8**,
+«spuma» + una parola inesistente **0**; «catering» **674**, «catering» + «havi» **51**.
+
+Dettagli:
+- Compare **solo nella posta**: `/inviata` e `/bozze` passano una loro lista di `campi`
+  al componente, e lì la query non leggerebbe `q2` — un campo che si vede e non filtra è
+  peggio di un campo che non c'è. Se serve anche là, va aggiunto **prima** al `where` di
+  quelle pagine.
+- ⚠️ **Comportamento preesistente da sapere**: riscrivendo nel campo grande, `RicercaMail`
+  ricostruisce l'indirizzo da zero (`?q=…`) e **perde tutte le condizioni**, q2 compreso.
+  Non è silenzioso (i badge spariscono e la didascalia cambia), ma è il primo posto dove
+  guardare se qualcuno dice «ho perso il filtro».
+
+---
 ### 26/08 (sera 11) — «se un'app è stata usata specificalo»
 
 Chiesto guardando una mail aperta: si vede **«→ App»** e nient'altro, mentre il racconto
