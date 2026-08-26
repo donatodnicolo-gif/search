@@ -303,12 +303,24 @@ Chiesto dall'utente sulla schermata di «Commerciale — Apri trattativa», che 
 ---
 ### Dove siamo (26 agosto 2026)
 
-**Fotografia verificata oggi, 26 agosto 2026 alle 17:30** (giornata: sette commit di lavoro, piu questo di handoff —
-il lotto «riassunto che lavora», la casella di risposta, la trattativa, il quarto
-negozio e l'API; tutti descritti qui sopra):
+**Fotografia verificata oggi, 26 agosto 2026 alle 18:25** (giornata: **dodici** commit su
+`deluxy-mail/` — contati con `git log --since=2026-08-26 -- deluxy-mail`, documentazione
+compresa; di questi otto cambiano il comportamento. In ordine: la tabella al posto del
+JSON, la domanda dal riassunto, il lotto «riassunto che lavora», la casella di risposta,
+la trattativa, il quarto negozio, l'API con la casella, e il dialogo che non scorre più
+di lato):
 
 - **Codice**: niente in sospeso in `deluxy-mail/`, tutto pushato su `origin/scout-ui`
-  (verificato **sul contenuto**, non sullo SHA). Ultimo commit `1a0c4b1f`.
+  (verificato **sul contenuto**, non sullo SHA: `git diff HEAD origin/scout-ui -- deluxy-mail`
+  è vuoto). Ultimo commit `d5d034a5`.
+- **Pubblicato**: deploy delle **18:19** dopo l'ultimo commit (`deluxy-mail-nujakz7db`,
+  Ready), dalla cartella con working tree pulito. ⭐ Stavolta una parte è verificabile
+  **dal bundle**, perché è CSS: nel foglio servito dall'alias
+  (`/_next/static/css/ea70c383eb692088.css`) c'è
+  `.tabella-dati{…;table-layout:fixed}` e `th[scope=row]{…white-space:normal;position:static…}`
+  — le regole nuove, non quelle di prima. Il resto (estrazione, controparte) è lato
+  server e resta invisibile al bundle: per quello vale la regola solita, deploy DOPO
+  l'ultimo commit da cartella pulita.
   ⚠️ **Altre sessioni** lavorano sulla stessa cartella: `git log -- deluxy-mail` prima
   di dare per scontato cosa c'è.
 - ⚠️ **Trovata e chiusa una discrepanza**: il deploy delle **14:26:18** era partito
