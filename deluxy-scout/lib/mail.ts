@@ -143,6 +143,55 @@ export async function fetchCorpoMail(id: string): Promise<{ testo: string; ogget
   return { testo: String(payload.messaggio?.testo ?? ''), oggetto: payload.messaggio?.oggetto ?? null };
 }
 
+/** Una mail della propria casella, come la mostra un elenco. */
+export interface MiaMail {
+  id: string;
+  da: string;
+  email: string | null;
+  oggetto: string | null;
+  data: string | null;
+  anteprima: string | null;
+  direzione?: string | null;
+}
+
+/**
+ * Cerca fra le mail della PROPRIA casella (richiesta dell'utente, 26/08/2026).
+ *
+ * ⚠️ La casella è sempre quella di chi chiama: la decide la Edge dal token, non
+ * il client. Non si può leggere la posta di un collega passando un indirizzo.
+ *
+ * `q` vuoto = le ultime arrivate. Serve a chi scrive una richiesta cliente e
+ * quella richiesta è arrivata per posta: invece di ricopiarla, la si pesca.
+ */
+export async function cercaNellaMiaCasella(q: string, limite = 25): Promise<MiaMail[]> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/mail`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ azione: 'casella', q, limite }),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || payload?.ok === false) {
+    throw new Error(payload?.errore ?? 'Non è stato possibile leggere la casella.');
+  }
+  const righe: any[] = Array.isArray(payload?.messaggi) ? payload.messaggi : [];
+  return righe.map((m) => ({
+    id: String(m.id ?? ''),
+    da: String(m.da ?? m.email ?? 'Sconosciuto'),
+    email: m.email ?? null,
+    oggetto: m.oggetto ?? null,
+    data: m.data ?? null,
+    anteprima: m.anteprima ?? null,
+    direzione: m.direzione ?? null,
+  }));
+}
+
 export interface CasellaMail {
   email: string;
   nome: string | null;

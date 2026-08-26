@@ -367,6 +367,20 @@ export async function cercaAnagrafica(
 }
 
 /**
+ * Cerca nel registro per nome, e torna un ELENCO (non una corrispondenza).
+ *
+ * Serve ai selettori: chi sceglie un fornitore per un preventivo deve vedere i
+ * candidati e decidere lui. ⚠️ Non si usa per AFFERMARE un'identità — per
+ * quello c'è `trovaAnagraficaGiaPresente`, che accetta solo l'omonimo unico.
+ */
+export async function cercaNelRegistro(q: string, max = 12): Promise<PartnerRegistro[]> {
+  const testo = q.trim();
+  if (testo.length < 2) return [];
+  const r = await chiama<{ dati?: PartnerRegistro[] }>({ action: 'cerca', q: testo, perPage: Math.min(max, 50) });
+  return (r.dati ?? []).slice(0, max);
+}
+
+/**
  * «Questo negozio è GIÀ nel registro?» — la domanda che si fa PRIMA di crearlo.
  *
  * Non è `cercaAnagrafica`: quella serve a proporre una corrispondenza a un

@@ -139,6 +139,10 @@ export async function aggiungiPreventivo(p: {
   lavoroId: string;
   fornitore: string;
   fornitorePlaceId?: string | null;
+  /** L'id nel registro Anagrafiche: è lui che dice DI CHI si parla. */
+  fornitoreAnagraficheId?: string | null;
+  /** L'indirizzo a cui è stato chiesto il prezzo, se lo sappiamo. */
+  fornitoreEmail?: string | null;
   importo?: number | null;
   tempi?: string | null;
   note?: string | null;
@@ -147,6 +151,8 @@ export async function aggiungiPreventivo(p: {
     lavoro_id: p.lavoroId,
     fornitore: p.fornitore.trim(),
     fornitore_place_id: p.fornitorePlaceId || null,
+    fornitore_anagrafiche_id: p.fornitoreAnagraficheId || null,
+    fornitore_email: p.fornitoreEmail?.trim() || null,
     importo: p.importo ?? null,
     tempi: p.tempi?.trim() || null,
     note: p.note?.trim() || null,

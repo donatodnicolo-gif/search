@@ -18,6 +18,7 @@ import { CampoData } from '@/components/CampoData';
 import { urlMessaggioAiMail } from '@/lib/aimail';
 import { cercaPlaces, fetchTutteTrattative, type PlaceLite, type TrattativaConLuogo } from '@/lib/db';
 import { LINEE_ATTIVE } from '@/types';
+import { cercaNelRegistro, fetchFornitori, type PartnerRegistro } from '@/lib/anagrafiche';
 import {
   aggiornaLavoro,
   aggiungiPreventivo,
@@ -534,8 +535,68 @@ function NuovoPreventivo({ lavoroId, onFatto }: { lavoroId: string; onFatto: () 
   const [importo, setImporto] = useState('');
   const [tempi, setTempi] = useState('');
   const [salvo, setSalvo] = useState(false);
+  /**
+   * ⭐ IL FORNITORE DAL REGISTRO (26/08/2026, richiesta dell'utente: «metti
+   * anche richiesta di chi è il fornitore con possibilità di ricerca in
+   * anagrafiche tra i fornitori»).
+   *
+   * Prima si cercava solo fra i negozi di Scout, o si scriveva un nome libero.
+   * Ma il nome non è un'identità: «Rossi Fiori» scritto in due modi sono due
+   * fornitori diversi per chiunque provi a contare quanto spendiamo da lui.
+   * Qui si sceglie dal registro Anagrafiche — che è la casa delle aziende — e
+   * si tiene il suo id.
+   *
+   * ⚠️ Si parte dai FORNITORI (chi ha già lavorato per noi: `statoFornitore`
+   * nel registro, lo scrive il Customer Service quando li paga). Se lì non
+   * c'è, si cerca in tutto il registro e lo si dichiara — un fornitore nuovo
+   * esiste prima di essere marcato tale.
+   */
+  const [fornitoriRegistro, setFornitoriRegistro] = useState<PartnerRegistro[]>([]);
+  const [caricoFornitori, setCaricoFornitori] = useState(true);
+  const [cercaForn, setCercaForn] = useState('');
+  const [altriDalRegistro, setAltriDalRegistro] = useState<PartnerRegistro[]>([]);
+  const [daRegistro, setDaRegistro] = useState<PartnerRegistro | null>(null);
 
-  const nome = fornitore?.nome ?? nomeLibero.trim();
+  useEffect(() => {
+    let vivo = true;
+    fetchFornitori()
+      .then((r) => vivo && setFornitoriRegistro(r.partner))
+      .catch(() => vivo && setFornitoriRegistro([]))
+      .finally(() => vivo && setCaricoFornitori(false));
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const fornitoriTrovati = useMemo(() => {
+    const q = cercaForn.trim().toLowerCase();
+    if (!q) return fornitoriRegistro.slice(0, 8);
+    return fornitoriRegistro
+      .filter((p) => [p.nome, p.citta, p.categoria].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)))
+      .slice(0, 8);
+  }, [fornitoriRegistro, cercaForn]);
+
+  // Se fra i fornitori non c'è, si guarda in TUTTO il registro (con un fiato
+  // di attesa, per non chiamare a ogni lettera).
+  useEffect(() => {
+    const q = cercaForn.trim();
+    if (q.length < 2 || fornitoriTrovati.length) {
+      setAltriDalRegistro([]);
+      return;
+    }
+    let vivo = true;
+    const t = setTimeout(() => {
+      cercaNelRegistro(q, 8)
+        .then((r) => vivo && setAltriDalRegistro(r))
+        .catch(() => vivo && setAltriDalRegistro([]));
+    }, 300);
+    return () => {
+      vivo = false;
+      clearTimeout(t);
+    };
+  }, [cercaForn, fornitoriTrovati.length]);
+
+  const nome = daRegistro?.nome ?? fornitore?.nome ?? nomeLibero.trim();
 
   async function salva() {
     if (!nome) return;
@@ -548,10 +609,14 @@ function NuovoPreventivo({ lavoroId, onFatto }: { lavoroId: string; onFatto: () 
         lavoroId,
         fornitore: nome,
         fornitorePlaceId: fornitore?.id ?? null,
+        fornitoreAnagraficheId: daRegistro?.id ?? null,
+        fornitoreEmail: daRegistro?.email ?? null,
         importo: importo.trim() && !Number.isNaN(n) ? n : null,
         tempi,
       });
       setFornitore(null);
+      setDaRegistro(null);
+      setCercaForn('');
       setNomeLibero('');
       setImporto('');
       setTempi('');
@@ -566,16 +631,82 @@ function NuovoPreventivo({ lavoroId, onFatto }: { lavoroId: string; onFatto: () 
   return (
     <View style={styles.aggiungi}>
       <Text style={styles.aggiungiTitolo}>Aggiungi un preventivo</Text>
-      <CercaNegozio scelto={fornitore} onScegli={setFornitore} placeholder="Cerca il fornitore in Scout…" />
-      {!fornitore ? (
-        <TextInput
-          style={styles.input}
-          value={nomeLibero}
-          onChangeText={setNomeLibero}
-          placeholder="…oppure scrivi il nome, se non è in Scout"
-          placeholderTextColor={colors.grigio}
-        />
-      ) : null}
+
+      {/* CHI È IL FORNITORE — prima di tutto: un prezzo senza il nome di chi
+          l'ha fatto non si può confrontare né richiamare. */}
+      <Text style={styles.label}>Chi fa il prezzo *</Text>
+      {daRegistro ? (
+        <Pressable style={styles.dealScelta} onPress={() => setDaRegistro(null)}>
+          <Ionicons name="business-outline" size={16} color={colors.goldStrong} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.dealSceltaNome} numberOfLines={1}>{daRegistro.nome}</Text>
+            <Text style={styles.aiuto} numberOfLines={1}>
+              {[daRegistro.citta, daRegistro.email, daRegistro.statoFornitore ? `fornitore ${daRegistro.statoFornitore.replace('_', ' ')}` : null]
+                .filter(Boolean)
+                .join(' · ') || 'Dal registro Anagrafiche'}
+            </Text>
+          </View>
+          <Ionicons name="swap-horizontal" size={18} color={colors.oro} />
+        </Pressable>
+      ) : (
+        <>
+          <TextInput
+            style={styles.input}
+            value={cercaForn}
+            onChangeText={setCercaForn}
+            placeholder={caricoFornitori ? 'Carico i fornitori dal registro…' : 'Cerca il fornitore in Anagrafiche…'}
+            placeholderTextColor={colors.grigio}
+            autoCapitalize="none"
+          />
+          <View style={{ gap: 6, marginTop: 6 }}>
+            {fornitoriTrovati.map((p) => (
+              <Pressable key={p.id} style={styles.dealRiga} onPress={() => setDaRegistro(p)}>
+                <Ionicons name="business-outline" size={15} color={colors.navy} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.dealRigaNome} numberOfLines={1}>{p.nome}</Text>
+                  <Text style={styles.aiuto} numberOfLines={1}>
+                    {[p.citta, p.categoria].filter(Boolean).join(' · ') || 'Fornitore nel registro'}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+            {/* Fuori dai fornitori: si dice, perché è un'informazione — quello
+                che si sta scegliendo non ha (ancora) lavorato per noi. */}
+            {altriDalRegistro.length ? (
+              <>
+                <Text style={styles.aiuto}>Non è ancora fra i fornitori, ma è nel registro:</Text>
+                {altriDalRegistro.map((p) => (
+                  <Pressable key={p.id} style={styles.dealRiga} onPress={() => setDaRegistro(p)}>
+                    <Ionicons name="business-outline" size={15} color={colors.grigio} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.dealRigaNome} numberOfLines={1}>{p.nome}</Text>
+                      <Text style={styles.aiuto} numberOfLines={1}>
+                        {[p.citta, p.categoria].filter(Boolean).join(' · ') || 'Nel registro Anagrafiche'}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </>
+            ) : null}
+            {cercaForn.trim().length >= 2 && !fornitoriTrovati.length && !altriDalRegistro.length ? (
+              <Text style={styles.aiuto}>
+                Nessuno nel registro per «{cercaForn.trim()}». Cercalo fra i negozi di Scout, o scrivi il nome
+                qui sotto.
+              </Text>
+            ) : null}
+          </View>
+          <CercaNegozio scelto={fornitore} onScegli={setFornitore} placeholder="…oppure cercalo fra i negozi di Scout" />
+          {!fornitore ? (
+            <TextInput
+              style={styles.input}
+              value={nomeLibero}
+              onChangeText={setNomeLibero}
+              placeholder="…oppure scrivi il nome, se non è da nessuna parte"
+              placeholderTextColor={colors.grigio}
+            />
+          ) : null}
+        </>
+      )}
       <View style={styles.riga2}>
         <TextInput
           style={[styles.input, { flex: 1 }]}

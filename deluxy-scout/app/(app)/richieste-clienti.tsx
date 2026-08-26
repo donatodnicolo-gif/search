@@ -49,7 +49,7 @@ import {
   type PlaceLite,
 } from '@/lib/db';
 import { creaPreventivoDaRichiesta, creaProformaDaRichiesta, esitoPreventivo } from '@/lib/partner';
-import { importaRichiesteDaMail } from '@/lib/mail';
+import { cercaNellaMiaCasella, fetchCorpoMail, importaRichiesteDaMail, type MiaMail } from '@/lib/mail';
 import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import { urlMessaggioAiMail } from '@/lib/aimail';
 import {
@@ -596,6 +596,8 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
   const [mailInCoda, setMailInCoda] = useState<Lead[]>([]);
   const [daMail, setDaMail] = useState<Lead | null>(null);
   const [elencoMail, setElencoMail] = useState(false);
+  /** La mail della propria casella da cui nasce la richiesta, se c'è. */
+  const [mailScelta, setMailScelta] = useState<MiaMail | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -606,6 +608,60 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
       vivo = false;
     };
   }, []);
+
+  /**
+   * ⭐ LA PROPRIA CASELLA (26/08/2026, richiesta dell'utente: «dai la
+   * possibilità all'utente di ricercare tra le proprie mail quelle della
+   * propria casella mail»).
+   *
+   * Le mail in coda sono solo quelle arrivate a commerciale@ e già importate.
+   * Ma una richiesta può essere arrivata sulla posta personale di chi la sta
+   * scrivendo — e allora la si cerca lì, invece di ricopiarla a mano.
+   *
+   * ⚠️ La casella è sempre la propria: la decide la Edge dal token.
+   */
+  const [cercaMail, setCercaMail] = useState('');
+  const [mieMail, setMieMail] = useState<MiaMail[]>([]);
+  const [cercandoMail, setCercandoMail] = useState(false);
+  const [erroreMail, setErroreMail] = useState<string | null>(null);
+
+  async function cercaNellaCasella() {
+    if (cercandoMail) return;
+    setCercandoMail(true);
+    setErroreMail(null);
+    try {
+      setMieMail(await cercaNellaMiaCasella(cercaMail.trim(), 25));
+    } catch (e: any) {
+      setMieMail([]);
+      setErroreMail(e?.message ?? 'Casella non raggiungibile.');
+    } finally {
+      setCercandoMail(false);
+    }
+  }
+
+  /** Riempie il form con una mail della propria casella. */
+  async function prendiDaMiaMail(m: MiaMail) {
+    setDaMail(null);
+    setElencoMail(false);
+    setCanale('mail');
+    setMailScelta(m);
+    if (!nota.trim()) setNota(`Ha scritto ${[m.da, m.email].filter(Boolean).join(' · ')}`);
+    if (!cliente.trim()) {
+      setCliente(m.da);
+      setRicerca(m.da);
+    }
+    // Il testo INTERO, non l'anteprima: è quello che si legge nella scheda, e
+    // due righe di anteprima non dicono cosa il cliente ha chiesto.
+    if (!descrizione.trim()) {
+      setDescrizione((m.anteprima ?? '').trim().slice(0, 500));
+      try {
+        const { testo } = await fetchCorpoMail(m.id);
+        if (testo.trim()) setDescrizione(testo.trim().slice(0, 500));
+      } catch {
+        /* resta l'anteprima: meglio di niente, ed è dichiarata dall'origine */
+      }
+    }
+  }
 
   /** Riempie il form con quello che il cliente ha scritto. */
   function prendiDaMail(l: Lead) {
@@ -662,8 +718,9 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
         nota: nota.trim() || null,
         // Se arriva da una mail, la richiesta se lo ricorda: il link per
         // rileggerla e l'id, che impedisce di prenderla una seconda volta.
-        mail_ref: daMail?.mail_ref ?? null,
-        origine: daMail ? 'scout-mail' : 'commerciale',
+        // Vale sia per la coda delle Richieste Web sia per la propria casella.
+        mail_ref: daMail?.mail_ref ?? mailScelta?.id ?? null,
+        origine: daMail || mailScelta ? 'scout-mail' : 'commerciale',
         riferimento_esterno: daMail?.id ?? null,
       });
       // E la mail esce dalla coda, ricordando cosa ha generato. Best-effort:
@@ -712,16 +769,81 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
               <Ionicons name="close-circle-outline" size={18} color={colors.grigio} />
             </Pressable>
           </View>
-        ) : mailInCoda.length ? (
-          <>
-            <Pressable style={styles.btnDaMail} onPress={() => setElencoMail((v) => !v)}>
-              <Ionicons name="mail-outline" size={15} color={colors.navy} />
-              <Text style={styles.btnDaMailTxt}>
-                {elencoMail
-                  ? 'Chiudi l’elenco'
-                  : `Prendila da una mail in coda (${mailInCoda.length})`}
+        ) : mailScelta ? (
+          <View style={styles.mailPresa}>
+            <Ionicons name="mail-open-outline" size={15} color={colors.navy} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.mailPresaNome} numberOfLines={1}>
+                Dalla tua casella · {mailScelta.da}
               </Text>
+              <Text style={styles.mailPresaNota} numberOfLines={1}>
+                {mailScelta.oggetto || 'Senza oggetto'}
+              </Text>
+            </View>
+            <Pressable
+              hitSlop={8}
+              onPress={() => Linking.openURL(urlMessaggioAiMail(mailScelta.id))}
+              accessibilityLabel="Apri la mail in AI Mail"
+            >
+              <Ionicons name="open-outline" size={17} color={colors.navy} />
             </Pressable>
+            <Pressable hitSlop={8} onPress={() => setMailScelta(null)} accessibilityLabel="Non prenderla dalla mail">
+              <Ionicons name="close-circle-outline" size={18} color={colors.grigio} />
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            {mailInCoda.length ? (
+              <Pressable style={styles.btnDaMail} onPress={() => setElencoMail((v) => !v)}>
+                <Ionicons name="mail-outline" size={15} color={colors.navy} />
+                <Text style={styles.btnDaMailTxt}>
+                  {elencoMail ? 'Chiudi l’elenco' : `Prendila da una mail in coda (${mailInCoda.length})`}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {/* …e la propria casella: una richiesta può essere arrivata sulla
+                posta personale di chi la sta scrivendo. */}
+            <View style={styles.riga2}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                value={cercaMail}
+                onChangeText={setCercaMail}
+                placeholder="Cerca nelle tue mail (oggetto, mittente, testo)…"
+                placeholderTextColor={colors.grigio}
+                autoCapitalize="none"
+                onSubmitEditing={cercaNellaCasella}
+                returnKeyType="search"
+              />
+              <Pressable
+                style={[styles.btnDaMail, { paddingHorizontal: 14 }, cercandoMail && { opacity: 0.5 }]}
+                disabled={cercandoMail}
+                onPress={cercaNellaCasella}
+              >
+                <Ionicons name="search-outline" size={15} color={colors.navy} />
+                <Text style={styles.btnDaMailTxt}>{cercandoMail ? 'Cerco…' : 'Cerca'}</Text>
+              </Pressable>
+            </View>
+            {erroreMail ? <Text style={styles.nota}>{erroreMail}</Text> : null}
+            {mieMail.length ? (
+              <View style={{ gap: 6 }}>
+                {mieMail.slice(0, 12).map((m) => (
+                  <Pressable key={m.id} style={styles.risultato} onPress={() => prendiDaMiaMail(m)}>
+                    <Ionicons name="mail-outline" size={15} color={colors.navy} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.risultatoNome} numberOfLines={1}>
+                        {m.da}
+                        {m.oggetto ? ` · ${m.oggetto}` : ''}
+                      </Text>
+                      <Text style={styles.risultatoInd} numberOfLines={1}>
+                        {(m.anteprima ?? '').slice(0, 90) || 'Nessuna anteprima'}
+                      </Text>
+                    </View>
+                    <Text style={styles.risultatoInd}>{dataBreve(m.data)}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
             {elencoMail ? (
               <View style={{ gap: 6 }}>
                 {mailInCoda.slice(0, 12).map((l) => {
@@ -745,7 +867,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
               </View>
             ) : null}
           </>
-        ) : null}
+        )}
 
         <Text style={styles.campoLabel}>Cliente</Text>
         {scelto ? (
@@ -905,6 +1027,7 @@ const styles = StyleSheet.create({
   mailPresa: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.fill, borderRadius: radius.md, padding: 10 },
   mailPresaNome: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
   mailPresaNota: { color: colors.testoSoft, fontSize: 12 },
+  riga2: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   filtro: {
     flexDirection: 'row',
     alignItems: 'center',

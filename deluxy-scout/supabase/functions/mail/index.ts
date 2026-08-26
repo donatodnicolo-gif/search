@@ -325,6 +325,39 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── LA PROPRIA CASELLA: cerca fra le mie mail ────────────────────────────
+    // Richiesta dell'utente (26/08/2026): «dai la possibilità all'utente di
+    // ricercare tra le proprie mail quelle della propria casella».
+    //
+    // ⚠️ La casella è SEMPRE quella di chi chiama — `x-utente` è l'email presa
+    // dal suo token, non un parametro. Farla scegliere dal chiamante vorrebbe
+    // dire lasciar leggere la posta di un collega.
+    if (body.azione === 'casella') {
+      if (!email) return json({ ok: false, errore: 'Non autenticato' }, 401);
+      const q = String(body.q ?? '').trim();
+      const limite = Math.min(Math.max(Number(body.limite ?? 25) || 25, 1), 100);
+      const p = new URLSearchParams({ casella: '1', limite: String(limite) });
+      if (q) p.set('q', q);
+      if (body.giorni) p.set('da', new Date(Date.now() - Number(body.giorni) * 86_400_000).toISOString());
+      const r = await fetch(`${BASE}/api/v1/messaggi?${p.toString()}`, {
+        headers: { 'x-api-key': key, 'x-utente': email },
+      });
+      const txt = await r.text();
+      if (!r.ok) {
+        return json(
+          {
+            ok: false,
+            errore:
+              r.status === 404
+                ? `La casella ${email} non è collegata ad AI Mail: si collega da lì.`
+                : `AI Mail ${r.status}: ${txt.slice(0, 200)}`,
+          },
+          502,
+        );
+      }
+      return new Response(txt, { status: 200, headers: { 'Content-Type': 'application/json', ...cors } });
+    }
+
     if (body.azione !== 'messaggi') return json({ ok: false, errore: `Azione sconosciuta: ${body.azione}` }, 400);
     // Da qui in poi serve l'utente: la casella da leggere è la sua.
     if (!email) return json({ ok: false, errore: 'Non autenticato' }, 401);
