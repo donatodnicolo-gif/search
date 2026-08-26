@@ -64,6 +64,11 @@ export type ContestoAzione = {
   chiave: string
   nostriDomini?: string[]
   controparte?: string | null
+  /** Il mittente della mail da cui si prepara l'azione, grezzo («Nome
+   *  <a@b.it>»). ⚠️ Serve a distinguere una mail ARRIVATA da una NOSTRA:
+   *  «chi manda il prezzo lo dice l'indirizzo» vale solo se la mail è
+   *  arrivata — su una che abbiamo scritto noi, quell'indirizzo siamo noi. */
+  mittente?: string
   /** L'id INTERNO di questo messaggio, quello che apre `/messaggio/<id>`.
    *  Serve alle azioni che scrivono un dato in un'altra app e vogliono
    *  lasciarci il rimando alla mail da cui viene: un numero che compare in
@@ -1171,10 +1176,21 @@ const AZIONI: AzioneApp[] = [
     descrizione: 'Segna in Scout il prezzo che un fornitore ha mandato per un lavoro aperto.',
     colore: 'green',
     guida:
-      'La mail è la RISPOSTA DI UN FORNITORE a cui avevamo chiesto un prezzo. lavoro = per quale lavoro è il preventivo, come lo chiama la mail (es. «allestimento vetrine», «torte per l’inaugurazione»): Scout lo riconosce fra i suoi lavori aperti. fornitore = il nome dell’azienda che manda il prezzo. importo = il prezzo in euro, SOLO se scritto (numero, senza simboli e senza IVA se è indicata a parte): se il fornitore non ha ancora dato un prezzo lascia null, non inventarlo e non metterlo a zero. tempi = i tempi di consegna come li scrive lui (es. «10 giorni»). note = condizioni che contano (validità dell’offerta, minimi, trasporto escluso), in una frase.',
+      'La mail è la RISPOSTA DI UN FORNITORE a cui avevamo chiesto un prezzo. lavoro = per quale lavoro è il preventivo, come lo chiama la mail (es. «allestimento vetrine», «torte per l’inaugurazione»): Scout lo riconosce fra i suoi lavori aperti. ⚠️ ATTENZIONE, nello stesso scambio possono esserci DUE aziende diverse: il CLIENTE (chi chiede un servizio a Deluxy, e a cui NOI mandiamo un prezzo) e il FORNITORE (chi fa il servizio per noi, e che manda il prezzo A NOI). Qui conta solo il fornitore. fornitore = il nome dell’azienda che manda il prezzo A NOI — MAI il cliente, e mai Deluxy. importo = il prezzo che il FORNITORE ha scritto a noi, in euro, SOLO se scritto (numero, senza simboli e senza IVA se è indicata a parte): ⚠️ NON è il totale che noi abbiamo quotato al cliente — se nello scambio (o nel riassunto) compare un «totale complessivo» verso il cliente, quello NON è il prezzo del fornitore; se il fornitore non ha ancora dato un prezzo lascia null, non inventarlo e non metterlo a zero. tempi = i tempi di consegna come li scrive lui (es. «10 giorni»). note = condizioni che contano (validità dell’offerta, minimi, trasporto escluso), in una frase.',
     campi: [
       { nome: 'lavoro', etichetta: 'Per quale lavoro', obbligatorio: true, aiuto: 'Scout lo cerca fra i lavori aperti.' },
-      { nome: 'fornitore', etichetta: 'Fornitore', obbligatorio: true },
+      { nome: 'fornitore', etichetta: 'Fornitore', obbligatorio: true, aiuto: 'Chi manda il prezzo A NOI, non il cliente che lo ha chiesto.' },
+      {
+        // ⚠️ Prima quest'indirizzo partiva verso Scout SENZA vedersi: era
+        // `ctx.controparte`, cioè la prima azienda esterna dello scambio — che
+        // in un thread dove ci sono sia il cliente sia il fornitore può
+        // benissimo essere il CLIENTE. Ora si vede e si corregge, e lo riempie
+        // il codice solo quando è CERTO (la mail è arrivata da là).
+        nome: 'fornitoreEmail',
+        etichetta: 'Email del fornitore',
+        tipo: 'email',
+        aiuto: 'La riempie il codice se il prezzo è arrivato da quell’indirizzo. Vuoto = non si manda.',
+      },
       { nome: 'importo', etichetta: 'Importo (€)', tipo: 'numero', aiuto: 'Vuoto = prezzo non ancora arrivato.' },
       { nome: 'tempi', etichetta: 'Tempi' },
       { nome: 'note', etichetta: 'Condizioni', tipo: 'lungo' },
@@ -1185,22 +1201,53 @@ const AZIONI: AzioneApp[] = [
       required: ['lavoro', 'fornitore', 'importo', 'tempi', 'note'],
       properties: {
         lavoro: { type: 'string', description: 'Il lavoro a cui si riferisce il prezzo.' },
-        fornitore: { type: 'string', description: 'Nome dell’azienda che manda il preventivo.' },
-        importo: { type: ['number', 'null'], description: 'Prezzo in euro, solo se scritto.' },
+        fornitore: { type: 'string', description: 'Nome dell’azienda che manda il preventivo A NOI: mai il cliente che ci ha chiesto un prezzo, mai Deluxy.' },
+        importo: { type: ['number', 'null'], description: 'Prezzo che il FORNITORE ha scritto a noi, in euro, solo se scritto. Mai il totale quotato al cliente.' },
         tempi: { type: ['string', 'null'], description: 'Tempi di consegna, come li scrive il fornitore.' },
         note: { type: ['string', 'null'], description: 'Condizioni che contano, in una frase.' },
       },
     },
-    // Chi manda il prezzo lo dice l'indirizzo, non il modello: il nome scritto
-    // in fondo alla mail può essere la persona, la sede o niente. Il codice sa
-    // con certezza da dove è arrivata, quindi quel campo lo riempie lui —
-    // prima del dialogo, così l'utente lo vede e può ancora cambiarlo.
-    daMail(dati, mail) {
-      const nome = String(mail.mittente ?? '').replace(/<[^>]*>/, '').replace(/["']/g, '').trim()
-      return {
-        ...dati,
-        fornitore: typeof dati.fornitore === 'string' && dati.fornitore.trim() ? dati.fornitore : nome || dati.fornitore,
-      }
+    // ⚠️⚠️ Qui NON si riempie piu' il fornitore col mittente della mail.
+    // «Chi manda il prezzo lo dice l'indirizzo» vale solo se la mail e'
+    // ARRIVATA, e questa azione si prepara spessissimo da una mail NOSTRA (il
+    // riassunto punta alla mail che porta il dato, che puo' essere quella con
+    // cui abbiamo mandato il prezzo al CLIENTE): li' dentro il mittente siamo
+    // noi, e ci saremmo registrati come fornitori di noi stessi.
+    // La decisione e' passata a `normalizza`, che ha il contesto: i nostri
+    // domini e il mittente insieme.
+    normalizza(dati, ctx) {
+      const nostri = ctx.nostriDomini ?? []
+      const dom = (e: string) => (e.includes('@') ? e.split('@')[1].toLowerCase() : '')
+      // Il mittente grezzo puo' essere «Nome <a@b.it>»: si prende quel che sta
+      // dentro le parentesi SENZA regex (una regex scritta da fuori perde i
+      // backslash: e' gia' successo oggi).
+      const grezzo = String(ctx.mittente ?? '')
+      const dentro =
+        grezzo.includes('<') && grezzo.includes('>')
+          ? grezzo.slice(grezzo.indexOf('<') + 1, grezzo.indexOf('>'))
+          : grezzo
+      const indirizzo = dentro.trim().toLowerCase()
+      const daFuori = Boolean(dom(indirizzo)) && !nostri.includes(dom(indirizzo))
+
+      const d: Record<string, unknown> = { ...dati }
+      // Il NOME: se il modello ha scritto un NOSTRO indirizzo (o niente) e la
+      // mail e' arrivata da fuori, vale il mittente. Se ha scritto altro non si
+      // tocca: il codice non sa distinguere il cliente dal fornitore, e la riga
+      // e' li' da correggere prima di confermare.
+      const scritto = typeof d.fornitore === 'string' ? d.fornitore.trim() : ''
+      const scrittoSiamoNoi = Boolean(dom(scritto)) && nostri.includes(dom(scritto))
+      if ((!scritto || scrittoSiamoNoi) && daFuori) d.fornitore = indirizzo
+      else if (scrittoSiamoNoi) d.fornitore = ''
+
+      // L'EMAIL: solo se e' certa, cioe' se il prezzo e' arrivato da li'.
+      const emailScritta =
+        typeof d.fornitoreEmail === 'string' && d.fornitoreEmail.includes('@')
+          ? d.fornitoreEmail.trim().toLowerCase()
+          : null
+      if (emailScritta && !nostri.includes(dom(emailScritta))) d.fornitoreEmail = emailScritta
+      else if (daFuori) d.fornitoreEmail = indirizzo
+      else d.fornitoreEmail = null
+      return d
     },
     async esegui(dati, ctx) {
       const lavoro = typeof dati.lavoro === 'string' ? dati.lavoro.trim() : ''
@@ -1220,8 +1267,14 @@ const AZIONI: AzioneApp[] = [
         importo,
         tempi: dati.tempi || undefined,
         note: dati.note || undefined,
-        // L'indirizzo vero della controparte lo ha già risolto il codice.
-        fornitoreEmail: ctx.controparte || undefined,
+        // ⚠️ L'indirizzo che si VEDE nella tabella, non `ctx.controparte`: in
+        // un thread con cliente E fornitore la controparte può essere il
+        // CLIENTE, e finiva scritta in Scout come email del fornitore senza
+        // che nessuno la vedesse mai.
+        fornitoreEmail:
+          typeof dati.fornitoreEmail === 'string' && dati.fornitoreEmail.includes('@')
+            ? dati.fornitoreEmail.trim()
+            : undefined,
         // Il rimando alla mail: senza, in Scout resta un numero senza storia.
         mailRef: ctx.messaggioId || undefined,
       }

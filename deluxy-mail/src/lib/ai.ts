@@ -787,6 +787,7 @@ ${opts.conversazione}
 
 --- RIASSUNTO GIÀ FATTO DI QUESTA CONVERSAZIONE (prodotto dall'app, fidato) ---
 Le voci di «Cifre e prezzi» sono importi COPIATI dalle mail dello scambio, non dedotti: valgono come scritti, e puoi usarli per compilare i campi che la mail qui sopra non ripete.
+⚠️ Il riassunto copre TUTTA la conversazione, e in una conversazione possono esserci due lati: il CLIENTE (a cui mandiamo un prezzo) e il FORNITORE (che manda un prezzo a noi). Prendi solo le voci che appartengono davvero all’azione da preparare: un «totale complessivo» verso il cliente NON è il prezzo di un fornitore, e viceversa.
 ${opts.riassunto}
 --- FINE RIASSUNTO ---`
             : ''

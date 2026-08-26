@@ -226,7 +226,7 @@ export async function eseguiAzioneSezioneOra(opts: {
   // modello, e va applicato subito: qui non c'è nessuno a controllare a schermo.
   dati = azione.daMail?.(dati, m) ?? dati
 
-  const ctx = { utenteEmail, chiave, nostriDomini: nostri, controparte, messaggioId: m.id }
+  const ctx = { utenteEmail, chiave, nostriDomini: nostri, controparte, mittente: m.mittente, messaggioId: m.id }
 
   // Prima la correzione (quel che il codice SA vince su quel che il modello ha
   // scritto), poi il controllo: se dice di no non si manda niente — ma lo si

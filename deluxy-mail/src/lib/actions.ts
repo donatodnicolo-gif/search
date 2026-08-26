@@ -4237,6 +4237,7 @@ export async function proponiPerApp(
         chiave: '',
         nostriDomini: nostri,
         controparte,
+        mittente: m.mittente,
         messaggioId,
       })
     }
@@ -4377,6 +4378,7 @@ export async function eseguiInvioApp(
     chiave,
     nostriDomini: nostri,
     controparte: controparteDi(m, nostri),
+    mittente: m.mittente,
     messaggioId: m.id,
   }
 
