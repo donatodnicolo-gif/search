@@ -85,7 +85,49 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
-### 🔥 26/08/2026 (sera, 9) — «Mai mandare un null»: la spinta stava per cancellare roba di Orders
+### 🔴 CORREZIONE (26/08, sera 10) — Orders si difendeva da solo: NON stavamo per cancellargli niente
+
+La sezione «sera, 9» qui sotto dice che la spinta stava per **cancellare** la
+`commissioneIncassi` di 68 ordini e che il cron l'avrebbe fatto stanotte.
+**È FALSO, ed è stato scritto senza guardare il codice di Orders.** Guardato
+dopo (`scoutwt/deluxy-orders/src/app/api/v1/ordini/[id]/route.ts:242`):
+
+```
+if ("commissioneIncassi" in body && (esiste.commissioneDa === "shopify" || esiste.commissioneDa === "tariffa"))
+  delete body.commissioneIncassi;      // «IL REALE BATTE LA STIMA»
+```
+
+Orders **scarta** la commissione che arriva da noi ogni volta che ha la sua
+firma. Misurato su tutti i suoi ordini: **10.083 firmati `shopify`** (fee vera
+sommata dalle transazioni) e **3.772 `tariffa`** (suo listino) — e i 68 in
+questione stanno tutti lì dentro. Il nostro null non sarebbe mai entrato.
+
+**Che cosa succedeva davvero**: la piattaforma mandava un campo che Orders
+buttava, quindi alla corsa dopo la differenza c'era ancora — e i 68 ordini si
+riscrivevano **ogni notte, per sempre**, aggiungendo una riga inutile alla
+storia di ciascuno. Un ciclo a vuoto, non una perdita di dati. La correzione
+(«non si manda mai un null») lo chiude lo stesso ed è giusta come regola, ma il
+danno evitato era **rumore, non cancellazione**.
+
+⭐ La lezione, che è la stessa di sempre: **prima di dire che un'altra app
+perderà un dato, si legge il codice dell'altra app**. Qui la guardia c'era, ed
+era pure documentata.
+
+### 💶 Chi calcola la commissione d'incasso: ORDERS (verificato 26/08)
+
+- **`commissioneDa = 'shopify'`** (10.083 ordini): la fee VERA, sommata dalle
+  transazioni Shopify riuscite — `commissioneDaTransazioni()` in
+  `src/lib/shopify.ts`, che converte la valuta di presentazione (una fee in DZD
+  sommata come euro dava il 907% su #2797) e **scarta** la fee se il cambio non
+  si ricava: meglio «non nota» che sbagliata di dieci volte.
+- **`commissioneDa = 'tariffa'`** (3.772): il listino di Orders, applicato in
+  SQL in `src/lib/controllo.ts:107`.
+- La piattaforma **la legge** (cache `OrdineCliente`, colonne `commissioneIncassi`
+  e `commissioneDa`) e la usa nel proprio margine: il reale batte il listino, il
+  listino batte la stima. Quello che la piattaforma manda a Orders su quel campo
+  viene ignorato — ed è giusto così: il dato è suo.
+
+### 🔥 26/08/2026 (sera, 9) — «Mai mandare un null» ⚠️ CORRETTA SOPRA: il danno era rumore, non cancellazione
 
 Chiedendosi se fosse rimasto qualcosa da mandare, la prova a vuoto diceva
 ancora **68 ordini da scrivere**. Non era rumore: su quei 68 l'unico campo
