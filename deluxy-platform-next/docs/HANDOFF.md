@@ -85,6 +85,31 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### 🔥 26/08/2026 (sera, 9) — «Mai mandare un null»: la spinta stava per cancellare roba di Orders
+
+Chiedendosi se fosse rimasto qualcosa da mandare, la prova a vuoto diceva
+ancora **68 ordini da scrivere**. Non era rumore: su quei 68 l'unico campo
+diverso era **`commissioneIncassi`**, dove **Orders ha un valore e la
+piattaforma dice `null`** (sono ordini per cui la Finanza non produce economia).
+
+Il PATCH mandava tutti e sette i campi, nulli compresi — e per Orders **il null
+è un azzeramento**. Quella commissione però è **la fee VERA che legge LUI dalle
+transazioni Shopify** (`commissioneDa = 'shopify'`), la stessa che poi la
+piattaforma si rilegge per il proprio margine: mandandogli null gliel'avremmo
+cancellata, e il **cron delle 02:30 l'avrebbe fatto stanotte**.
+
+⭐ **La regola, adesso scritta in tutti e due i posti**: un `null` qui vuol dire
+«non ho niente da dire su questo campo», non «azzeralo». Il PATCH contiene solo
+i campi che la piattaforma SA e che sono diversi da quelli già scritti; se non
+resta niente, l'ordine si salta. È **la trappola del form parziale vista dal
+lato di chi scrive** — e vale ogni volta che un'app scrive su un'altra.
+
+Corretto in `OrdersSyncService.spingiMargini` (il cron) e in
+`scripts/spingi-economia-a-orders.mjs`. Typecheck pulito, deploy
+`delivery-fohg49obm` Ready sull'alias. **Prova a vuoto adesso: «da scrivere:
+0»** — Orders ha esattamente quello che la piattaforma ha da dire, e stanotte
+il cron non toccherà niente.
+
 ### ⭐⭐ 26/08/2026 (sera, 8) — I nuovi costi sono A ORDERS, e chi calcola il margine
 
 **Il margine finale: la piattaforma lo manda e Orders lo USA** (chiesto
