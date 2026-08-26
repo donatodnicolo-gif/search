@@ -1245,12 +1245,23 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
     poi?.()
     // aggiornamento ottimistico: il pallino cambia subito
     setOrdini((prec) => prec.map((o) => (o.id === id ? { ...o, gestione } : o)))
+    setAvviso('')
     try {
-      await fetch(`/api/ordini/${id}/gestione`, {
+      const res = await fetch(`/api/ordini/${id}/gestione`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gestione }),
       })
+      // ⚠️ La risposta si legge: prima si buttava via, e con lei l'unica cosa
+      // che dice quante note del diario sono state chiuse insieme all'ordine.
+      const d = (await res.json().catch(() => ({}))) as { noteChiuse?: number }
+      if (d.noteChiuse) {
+        setAvviso(
+          d.noteChiuse === 1
+            ? 'Chiusa anche 1 nota del diario di quest’ordine.'
+            : `Chiuse anche ${d.noteChiuse} note del diario di quest’ordine.`
+        )
+      }
       await carica()
     } catch {
       setErrore('Stato non salvato: problema di rete.')

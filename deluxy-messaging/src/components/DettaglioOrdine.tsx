@@ -585,6 +585,7 @@ export function DettaglioOrdine({
   async function cambiaGestione(gestione: string) {
     if (!ordine?.id) return
     setErrore('')
+    setNoteChiuse(0)
     // Il pallino cambia subito, poi si conferma col server.
     setOrdine((prec) => (prec ? { ...prec, gestione } : prec))
     try {
@@ -596,12 +597,29 @@ export function DettaglioOrdine({
       if (!res.ok) {
         setErrore('Stato non salvato.')
         await carica()
+      } else {
+        // ⚠️⚠️ Mettendo «Gestito» le note del diario di quest'ordine si chiudono
+        // da sole: qui sotto c'è l'elenco di quelle note, e se non lo si fa
+        // rileggere continua a mostrarle da fare — cioè il contrario di quello
+        // che è appena successo. Una schermata così fa premere il bottone una
+        // seconda volta.
+        const d = (await res.json().catch(() => ({}))) as { noteChiuse?: number }
+        if (d.noteChiuse) {
+          setNoteChiuse(d.noteChiuse)
+          setRileggiDiario((n) => n + 1)
+        }
       }
     } catch {
       setErrore('Stato non salvato: problema di rete.')
       await carica()
     }
   }
+
+  // ⚠️ Quante note del diario si sono chiuse insieme all'ordine, e un contatore
+  // che fa rileggere l'elenco qui sotto. Righe che spariscono senza lasciare un
+  // numero fanno credere di essersi perse.
+  const [noteChiuse, setNoteChiuse] = useState(0)
+  const [rileggiDiario, setRileggiDiario] = useState(0)
 
   async function copia(testo: string, quale: string) {
     try {
@@ -1853,7 +1871,17 @@ export function DettaglioOrdine({
                   ⚠️ Solo sugli ordini che abbiamo in casa: su uno
                   dell'archivio la riga si scriverebbe e non si ritroverebbe
                   più. */}
-              {soloArchivio ? null : <DiarioOrdine numero={ordine.numero} />}
+              {noteChiuse ? (
+                <p className="avviso-ok" style={{ marginTop: 12 }}>
+                  {noteChiuse === 1
+                    ? 'Chiusa 1 nota del diario: l’ordine è gestito.'
+                    : `Chiuse ${noteChiuse} note del diario: l’ordine è gestito.`}{' '}
+                  Se una restava da fare, riaprila qui sotto.
+                </p>
+              ) : null}
+              {soloArchivio ? null : (
+                <DiarioOrdine numero={ordine.numero} rileggiA={rileggiDiario} />
+              )}
               </div>
             </div>
 

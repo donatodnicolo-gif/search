@@ -1,5 +1,88 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (15) — l'ordine gestito si porta dietro le sue note del diario
+
+Chiesto dall'utente: «quando un ordine viene messo come gestito chiudi le note
+associate».
+
+⚠️⚠️ Il diario è **la lista di quello che resta da fare**. Una riga che parla di
+un ordine finito non resta da fare, ma finora restava lì, mescolata a quelle
+vere: due o tre righe così e l'elenco si smette di leggere — che è il modo in cui
+una nota importante passa inosservata.
+
+**Adesso**, premendo «Gestito» (dalla bacheca o dalla scheda), tutte le note
+**ancora aperte** di quell'ordine si chiudono, con il **nome di chi ha premuto**
+e la data. La funzione è `chiudiNoteDellOrdine()` in
+`src/lib/diario-chiusura.ts`.
+
+⚠️ **Sta in un file suo e non in `src/lib/diario.ts`**: quello è fatto di
+funzioni pure e deve poter essere importato ovunque. Bastava aggiungerci `db` per
+tirarsi dietro il client Prisma in un bundle del browser, con un errore che parla
+di webpack e non nomina mai la causa.
+
+⚠️ **Tutte e due le forme del numero** (`2799` e `#2799`): in tabella stanno col
+cancelletto, a mano si scrivono senza. Cercandone una sola non si chiuderebbe
+niente **senza dare errore**.
+
+⚠️ **Il `fatta: false` sta nel `where` della SCRITTURA**, non in una lettura
+fatta prima: fra le due query lo stato può cambiare, e riscrivere
+`fattaIl`/`fattaDaNome` su una nota che qualcuno ha appena chiuso cancellerebbe
+il suo nome dal registro. (Stessa lezione della sezione 13.)
+
+⚠️⚠️ **NON ESISTE IL CONTRARIO, ED È VOLUTO.** Riaprendo un ordine le note **non
+si riaprono**: potrebbero essere state fatte davvero, e riaprirle vorrebbe dire
+rimettere in lista cose finite — cioè disfare con un automatismo la spunta di una
+persona. Si riapre a mano dal diario, dove il bottone c'è.
+
+⚠️ **Lo dice.** La bacheca scrive «Chiuse N note del diario di quest'ordine», la
+scheda lo scrive **sopra l'elenco delle note** e **rilegge l'elenco**
+(`DiarioOrdine` ha una prop `rileggiA`): senza, si spuntava «Gestito», le note
+erano chiuse nel database e a schermo continuavano a risultare da fare — una
+schermata che mostra il contrario di quello che è appena successo fa premere il
+bottone una seconda volta. E righe che spariscono senza lasciare un numero fanno
+credere di essersi perse.
+
+⚠️ **Non l'ho agganciato al cron dei rimborsi** (`sincronizza.ts`, che mette
+`gestito` sugli ordini rimborsati). Lì «gestito» lo decide l'app, non una
+persona, e una nota tipo «richiamare il cliente per il rimborso» verrebbe chiusa
+**proprio nel momento in cui serve**. Se lo si vuole, è una riga — ma va deciso,
+non dedotto.
+
+### Il già scritto: 2 note su ordini già gestiti, e solo UNA andava chiusa
+
+`scripts/chiudi-note-ordini-gestiti.mjs` (senza argomenti = prova, `--scrivi`
+applica). Misurato: **26 note aperte con un ordine**, di cui **2 su ordini già
+gestiti**.
+
+⚠️⚠️ **Ma non erano lo stesso caso, e la differenza è la DATA.**
+- **#1807** — nota del 25/08, ordine gestito il **26/08**: è esattamente quello
+  che il codice nuovo avrebbe chiuso. **Chiusa.**
+- **#1741** — nota del 25/08, ordine gestito il **5/08**: la nota è stata scritta
+  **venti giorni DOPO** la chiusura dell'ordine. Non è un residuo del codice
+  vecchio: è qualcuno che ha voluto lasciare una cosa da fare su un ordine già
+  chiuso. Chiuderla sarebbe stato cancellare la decisione di una persona
+  spacciandola per una correzione. **Lasciata aperta.** (⚠️ E #1741 è anche uno
+  dei due chargeback in scadenza il 4/09.)
+
+Lo script porta dentro questa regola: chiude **solo** le note scritte **prima**
+di `gestioneIl`, e stampa in chiaro quelle che lascia aperte e perché. Se
+`gestioneIl` manca, non indovina: lascia stare.
+
+### Verifica
+
+`npx tsx scripts/prova-chiusura-note.mts` — 9 prove sul database vero con righe
+finte su un ordine inesistente (#999999), cancellate per ID alla fine. Tutte
+passate, comprese quelle che contano:
+- chiude sia `#999999` sia `999999`;
+- una nota **già fatta non viene riscritta** (nome e data di chi l'aveva chiusa
+  restano suoi);
+- una nota di un **altro** ordine resta aperta;
+- rilanciandola non chiude niente;
+- ⚠️ **con numero vuoto non tocca NIENTE** — sarebbe stata la peggiore: avrebbe
+  chiuso in un colpo tutte le note senza ordine.
+
+`npx tsc --noEmit` esito 0, `npm run build` esito 0.
+
 ## 26/08/2026 (14) — i riquadri in basso a destra: l'app dice cosa sta succedendo
 
 Chiesto dall'utente: «genera un pop-up in basso a destra ogni volta che viene

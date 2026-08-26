@@ -10,7 +10,23 @@ import { insieme, type NotaDiario } from './Diario'
 // «pagamento su cs, concordato cambio fiori con mittente». Qui la nota si legge
 // dove si lavora l'ordine, e si scrive senza ripetere il numero.
 
-export function DiarioOrdine({ numero }: { numero: string }) {
+export function DiarioOrdine({
+  numero,
+  rileggiA = 0,
+}: {
+  numero: string
+  /**
+   * Un contatore che cambia quando fuori è successo qualcosa che tocca queste
+   * note — oggi: l'ordine è stato messo «Gestito» e le note si sono chiuse.
+   *
+   * ⚠️ Senza, l'elenco qui dentro restava quello di prima: si spuntava
+   * «Gestito», le note erano chiuse nel database, e a schermo continuavano a
+   * risultare da fare finché non si ricaricava la pagina. Una schermata che
+   * mostra il contrario di quello che è appena successo fa premere il bottone
+   * una seconda volta.
+   */
+  rileggiA?: number
+}) {
   const [note, setNote] = useState<NotaDiario[]>([])
   const [testo, setTesto] = useState('')
   const [caricato, setCaricato] = useState(false)
@@ -32,7 +48,7 @@ export function DiarioOrdine({ numero }: { numero: string }) {
 
   useEffect(() => {
     void carica()
-  }, [carica])
+  }, [carica, rileggiA])
 
   async function aggiungi() {
     const riga = testo.trim()

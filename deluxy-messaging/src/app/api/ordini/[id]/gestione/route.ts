@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { gestioneValida } from '@/lib/gestione'
+import { CHIUSURA, gestioneValida } from '@/lib/gestione'
+import { chiudiNoteDellOrdine } from '@/lib/diario-chiusura'
 import { utenteCorrente } from '@/lib/sessione'
 import { comunicaStatoAOrders } from '@/lib/orders'
 
@@ -36,6 +37,27 @@ export async function POST(req: NextRequest, { params }: Params) {
     },
   })
 
+  // ── LE NOTE DEL DIARIO SI CHIUDONO DA SOLE ──
+  //
+  // ⚠️⚠️ Chiesto dall'utente il 26/08/2026: «quando un ordine viene messo come
+  // gestito chiudi le note associate». Il diario è la lista di quello che resta
+  // da fare, e una riga che parla di un ordine finito non resta da fare: finora
+  // però restava lì, mescolata a quelle vere. Due o tre righe così e l'elenco si
+  // smette di leggere — che è il modo in cui una nota importante passa
+  // inosservata.
+  //
+  // ⚠️ Solo verso `gestito`, e solo quelle ancora aperte. Riportando l'ordine
+  // indietro le note NON si riaprono: potrebbero essere state fatte davvero, e
+  // riaprirle disferebbe con un automatismo la spunta di una persona.
+  //
+  // ⚠️ Il numero e non l'id, perché è quello che la nota porta scritto — e si
+  // provano tutte e due le forme (`2799` e `#2799`).
+  //
+  // ⚠️ Quante ne ha chiuse torna al client, che lo dice: righe che spariscono da
+  // un elenco senza lasciare un numero fanno credere di non essere mai esistite.
+  const noteChiuse =
+    gestione === CHIUSURA ? await chiudiNoteDellOrdine(ordine.numero, utente?.nome ?? '') : 0
+
   // ── LO SI COMUNICA A ORDERS ──
   //
   // ⚠️ Il Customer Service è il decisore dell'evasione (§7.2): lo stato di
@@ -56,6 +78,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   return NextResponse.json({
     ordine,
+    noteChiuse,
     orders: versoOrders.ok ? { ok: true } : { ok: false, messaggio: versoOrders.messaggio },
   })
 }

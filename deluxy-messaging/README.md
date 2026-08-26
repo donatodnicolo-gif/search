@@ -500,6 +500,31 @@ una funzione sola): erano due copie diverse, e quella della scheda **perdeva per
 strada il fornitore e il costo concordato** — cioè proprio chi va pagato e
 quanto, che dalla scheda si ribattevano a mano.
 
+## L'ordine gestito chiude le sue note del diario
+
+Premendo **«Gestito»** su un ordine — dalla bacheca o dalla scheda — tutte le
+**note del diario ancora aperte** di quell'ordine si chiudono da sole, con il
+nome di chi ha premuto e la data. Quante ne ha chiuse **lo dice a schermo**, e
+nella scheda l'elenco delle note si aggiorna subito.
+
+⚠️⚠️ **Perché**: il diario è la lista di quello che resta da fare, e una riga che
+parla di un ordine finito non resta da fare. Restandoci, si mescola a quelle vere
+— e due o tre righe così bastano perché l'elenco si smetta di leggere, che è il
+modo in cui una nota importante passa inosservata.
+
+⚠️ **Il contrario non succede**: riportando l'ordine indietro le note **non si
+riaprono**. Potevano essere state fatte davvero, e riaprirle vorrebbe dire
+rimettere in lista cose finite — cioè disfare con un automatismo la spunta di una
+persona. Se una nota serviva ancora, si **riapre a mano** dal diario.
+
+⚠️ **Chiudere non è cancellare**: la nota resta nel diario, fra le «fatte», con
+chi l'ha chiusa e quando.
+
+⚠️ **Il cron dei rimborsi non le chiude.** Quando l'app mette «gestito» da sola
+su un ordine rimborsato, le note restano aperte: lì la decisione non è di una
+persona, e una nota come «richiamare il cliente per il rimborso» verrebbe chiusa
+proprio nel momento in cui serve.
+
 ## Gli avvisi in basso a destra
 
 Su **ogni pagina** dell'app, in basso a destra, compare un riquadro quando
