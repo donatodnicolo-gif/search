@@ -1101,7 +1101,6 @@
       "flexiblePrice": "Flexible price",
       "flexiblePriceDetail": "Flexible price details",
       "flexiblePricePlaceholder": "E.g. from 20 to 50 €",
-      "flexiblePriceLegacy": "from the legacy system — the price applies on the product lines above",
       "hours": "Hours (hourly service)"
     },
     "savedNotice": {
