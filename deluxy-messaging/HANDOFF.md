@@ -1,5 +1,43 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (7) — il QUARTO negozio: business.deluxy.it non è deluxy.it
+
+Chiesto dall'utente: «dobbiamo integrare business.deluxy.it» — il negozio **B2B**
+(`90bfeb-f5.myshopify.com`, «Business Deluxy»).
+
+⚠️⚠️ **Il problema non era aggiungere una riga.** Finché i negozi erano tre, le
+regole scritte a mano davano la risposta giusta *per costruzione*: «se contiene
+deluxy allora è deluxy.it». «business.deluxy.it» **contiene** «deluxy» — quindi
+il quarto negozio veniva siglato **DL** in rubrica e cercato come **deluxy.it**
+in Ricerca fornitori: scambiato per il negozio regali, senza un errore a schermo.
+Una regola scritta su tre valori non dice «non lo so» quando i valori diventano
+quattro: **dice il terzo**.
+
+- `brandRicercaDaNegozio()` e `prefissoDaNegozio()`: «business» si prova **prima**
+  di «deluxy», come già faceva «Deluxy Flowers» col marchio più specifico. Sigla
+  nuova: **BS**.
+
+⚠️⚠️ **E una garanzia è scaduta.** `smistaMailPerSito()` decideva il marchio di
+una mail dal numero d'ordine con un `findFirst`, appoggiandosi a una misura del
+30/07: «981 ordini, zero numeri ripetuti fra i siti». Quella misura vale su
+**tre** negozi; col quarto i numeri bassi possono ricadere sulle fasce di Cake
+(1623–1742) e Flowers (2318–2614), e `findFirst` avrebbe restituito il primo che
+capita — la mail nella colonna dell'altro marchio, in silenzio. Ora il numero
+decide **solo se pesca un ordine solo**; se ne pesca due si scende al tag.
+
+Una garanzia scaduta è peggio di una che non c'è mai stata: il codice che ci si
+appoggiava non cambia faccia.
+
+**Provato**: `npx tsx scripts/prova-quarto-negozio.mts` — 13 casi sui quattro
+negozi. ⚠️ La prova ha corretto **me**: davo per scontato che il tag `[deluxy]`
+pescasse i regali, e invece torna **null** da sempre, perché combacia col dominio
+dei regali **e** col brand dei fiori. Ambiguo = nessun marchio, per scelta; il
+quarto negozio non peggiora quel caso.
+
+🔴 **Gli ordini business non arrivano ancora**: la riga in Deluxy Orders esiste ma
+è **spenta** finché non si verifica che l'app Shopify sia installata su quel
+negozio (vedi l'handoff di Orders). Queste regole sono pronte per quando arriva.
+
 ## 26/08/2026 (6) — i comandi si TROVANO, e il link di riconsegna non si perde
 
 Due cose viste dall'utente sulla scheda di **#1798**.

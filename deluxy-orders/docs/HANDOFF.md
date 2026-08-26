@@ -5,6 +5,62 @@ Stato al **26/08/2026** (sezione qui sotto; il corpo del documento
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
 
+## 26/08/2026 (2) — il QUARTO negozio: business.deluxy.it, creato ma ancora SPENTO
+
+Chiesto dall'utente: «dobbiamo integrare business.deluxy.it».
+
+**Cos'è**: `90bfeb-f5.myshopify.com`, «Business Deluxy», IT/EUR, Shopify Payments
+attivo, 250+ prodotti a catalogo (B2B Colazione/Break/Lunch/Aperitivo, Boutique
+Activation, regali personalizzabili, più fiori, torte e vini presi dagli altri
+marchi). È il negozio **B2B**, e fino a oggi non esisteva per nessuna app del
+gruppo: niente margine, niente consegna, niente Customer Service, niente CRM.
+
+**Fatto**: creata la riga `NegozioShopify` `business.deluxy.it` →
+`90bfeb-f5.myshopify.com`, colore `#0a84ff`, `brandRicerca =
+business.deluxy.it`, `categoriaPredefinita = null` (vende tre cose insieme:
+dedurre la categoria dal negozio scriverebbe «fiori» su una torta).
+
+⚠️ **Client ID/Secret copiati dalla riga di deluxy.it, non scritti a mano**: i
+tre negozi condividono **una sola app** della Dev Dashboard (misurato: 3 negozi,
+1 solo `clientId`), quindi lo stesso Client ID/Secret vale anche per il quarto —
+**purché l'app sia installata anche su quel negozio**.
+
+🔴 **MANCA, ed è l'unico passo che non posso fare io**: verificare che l'app sia
+installata su `90bfeb-f5.myshopify.com`. In Impostazioni → Negozi c'è il tasto di
+verifica: se risponde col nome dello shop, si mette `attivo = true` e alla
+prossima sync gli ordini entrano.
+
+⚠️⚠️ **La riga nasce SPENTA di proposito.** Accesa, ogni giro del cron proverebbe
+a coniare un token e — se l'app non è installata là — lascerebbe un errore a ogni
+corsa, in mezzo a quelli veri. Un errore che si ripete ogni notte smette di
+essere letto, e si porta dietro anche quelli che contano.
+
+⚠️ Ho provato a coniare il token di prova da uno script per rispondere subito:
+**bloccato dal classificatore di sicurezza** (manda Client ID e Secret a un host
+esterno). Non l'ho aggirato — la stessa verifica la fa l'app, da dentro.
+
+**Quando si accende, attenzione alla finestra**: `eseguiSyncOrdini(giorni)` di
+default guarda 90 giorni indietro; `null` = tutto lo storico. Per un negozio
+nuovo il primo import va deciso, non subìto.
+
+**Il resto del giro** (fatto negli altri repo, stessa giornata):
+
+- **Customer Service**: `business` si prova PRIMA di `deluxy` nelle regole di
+  marchio — «business.deluxy.it» contiene «deluxy», quindi il quarto negozio
+  veniva siglato **DL** e cercato come **deluxy.it**. Sigla nuova: **BS**. E lo
+  smistamento delle mail per numero d'ordine ora pretende **un solo** ordine: la
+  garanzia «zero numeri ripetuti fra i siti» era misurata su TRE negozi.
+- **Ricerca fornitori** (repo search, su `main`): mappa `SHOP_BRAND` +
+  `KNOWN_BRANDS` + opzione nel menu. La categoria per questo negozio **non si
+  deduce**: si accendono fiorai *e* pasticcerie.
+- **AI Mail**: `business.deluxy.it` nell'enum dei negozi.
+- **Budgets e Merchandising: nessuna modifica, verificato.** Merchandising ricava
+  i brand dal venduto (`distinct` su `Vendita.canale`), Budgets elenca a parte i
+  brand senza maison invece di sommarli di nascosto. Il quarto negozio comparirà
+  da solo, e in Budgets comparirà come **brand senza maison**: decidere se
+  «Business» è una maison sua o parte di Deluxy.it è una scelta di business, non
+  una deduzione.
+
 ## 26/08/2026 — `/api/v1/ricavi` espone l'economia della vendita (fee + primo margine), per il consuntivo di Budgets
 
 **Richiesta dell'utente** (a Budgets): «per maison per il consuntivo prendi da
