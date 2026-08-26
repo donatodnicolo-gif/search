@@ -122,6 +122,12 @@ export async function POST(req: NextRequest) {
     riferimentoPagamento?: string
     // false = salva soltanto, senza mandarla a Partner
     inviaAPartner?: boolean
+    /**
+     * «Sì, so che su quest'ordine c'è già una richiesta aperta, falla lo stesso.»
+     * ⚠️ Lo manda solo la pagina, dopo aver mostrato QUALE richiesta c'è e per
+     * chi: una conferma che non dice cosa si sta confermando non è una conferma.
+     */
+    confermaDoppio?: boolean
   }
 
   // ⚠️⚠️ NON TUTTI I FORNITORI SI PAGANO CON UN BONIFICO. Chi manda un link,
@@ -199,6 +205,18 @@ export async function POST(req: NextRequest) {
   // ⚠️ Blocca solo se la richiesta è ancora DA PAGARE. Una già pagata non
   // impedisce niente: su un ordine può esserci un secondo fornitore (i fiori e
   // la torta), e vietarlo sarebbe vietare un caso vero.
+  //
+  // ⚠️⚠️ E NON È PIÙ UN DIVIETO, È UNA DOMANDA. Chiesto dall'utente il
+  // 26/08/2026: «consenti di emettere due pagamenti sullo stesso ordine ma
+  // chiedi prima conferma». Il caso vero esiste anche con la prima richiesta
+  // ancora aperta — il fioraio e il pasticcere sullo stesso ordine, un acconto e
+  // un saldo — e un divieto secco costringeva a segnare «pagata» una richiesta
+  // che pagata non era, pur di poterne fare l'altra: cioè a scrivere il falso
+  // sul registro dei soldi usciti.
+  //
+  // Chi passa `confermaDoppio` ha già letto a schermo che l'altra c'è, chi è
+  // arrivato qui da un doppio invio o da un ritorno indietro del browser no — e
+  // per quello la serratura resta: senza la conferma, 409.
   if (numeroChiesto) {
     // ⚠️⚠️ Si cerca in TUTTE E DUE le forme del numero: in tabella le richieste
     // vecchie stanno senza cancelletto e le nuove con. Cercando una forma sola,
@@ -210,7 +228,7 @@ export async function POST(req: NextRequest) {
       orderBy: { creatoIl: 'desc' },
       select: { id: true, intestatario: true, importo: true, creatoIl: true },
     })
-    if (aperta) {
+    if (aperta && !c.confermaDoppio) {
       const quando = aperta.creatoIl.toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })
       return NextResponse.json(
         {
@@ -218,8 +236,14 @@ export async function POST(req: NextRequest) {
             `Su ${numeroChiesto} c'è già una richiesta di pagamento aperta` +
             `${aperta.intestatario ? ` per ${aperta.intestatario}` : ''}` +
             `${aperta.importo ? ` di ${aperta.importo.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}` : ''}` +
-            `, del ${quando}. Aprila invece di farne un'altra: se il pagamento è già uscito, segnala «Pagata».`,
+            `, del ${quando}. Se è la stessa cosa, apri quella invece di farne un'altra — e se il ` +
+            `pagamento è già uscito, segnala «Pagata». Se invece su quest'ordine ci sono due ` +
+            `fornitori (o un acconto e un saldo), conferma e la faccio.`,
           richiestaAperta: aperta.id,
+          // ⚠️ La bandiera che dice al client «questa non è una porta chiusa, è
+          // una domanda»: senza, la pagina mostrerebbe un errore rosso e basta,
+          // e la seconda richiesta resterebbe impossibile come prima.
+          doppioPossibile: true,
         },
         { status: 409 }
       )

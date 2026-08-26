@@ -99,6 +99,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
     const pagata = await db.richiestaPagamento.update({ where: { id }, data: dati })
 
+    // ⚠️ L'ESITO NON RESTA MUTO. Un automatismo che sposta l'ordine — o che
+    // decide di NON spostarlo — e non lo dice a chi ha premuto il bottone è un
+    // esito che vive solo nel codice: chi guarda non può distinguere «spostato»
+    // da «non l'ho toccato». Questi due valori tornano al client e la pagina
+    // Pagamenti li scrive.
+    let statoOrdine: '' | 'attesa_consegna' | 'numero-ambiguo' = ''
+    let versoOrders = ''
+
     // ── L'ORDINE ESCE DA «IN PAGAMENTO» ──
     //
     // ⚠️ Segnalato dall'utente: un ordine con il pagamento fatto continuava a
@@ -150,10 +158,22 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         const ordiniPerNumero = await db.ordine.count({ where: { numero: { in: [nudo, `#${nudo}`] } } })
         const quando = new Date()
         if (ordiniPerNumero > 1) {
-          // niente: due ordini con lo stesso numero non si distinguono da qui
+          // ⚠️ Non si tocca niente, MA LO SI DICE: un salto silenzioso è
+          // indistinguibile da uno spostamento riuscito.
+          statoOrdine = 'numero-ambiguo'
         } else if (daSpostare.length) {
-          await db.ordine.updateMany({
-            where: { id: { in: daSpostare.map((o) => o.id) } },
+          // ⚠️⚠️ IL FILTRO DI STATO STA ANCHE QUI, non solo nella lettura sopra.
+          // Fra la lettura e la scrittura passano due query, e in quel momento lo
+          // stato può cambiare: il cron della piattaforma gira ogni 15 minuti, il
+          // cron degli ordini quattro volte l'ora e può scrivere `gestito` sui
+          // rimborsati, e un collega può premere «Gestito» dalla bacheca. Con il
+          // solo `id` nel `where`, questa riga riaprirebbe un ordine appena
+          // chiuso da una persona — esattamente ciò che la regola vieta.
+          const spostati = await db.ordine.updateMany({
+            where: {
+              id: { in: daSpostare.map((o) => o.id) },
+              gestione: { in: STATI_DA_SPOSTARE_SE_PAGATO },
+            },
             // ⚠️ Anche CHI: l'etichetta a schermo dice «segnato da …», e
             // lasciarci il nome di chi aveva messo lo stato di prima con la data
             // di adesso racconterebbe una cosa mai successa. L'ha causato chi ha
@@ -178,8 +198,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           //
           // ⚠️ Best-effort, come nel cambio a mano: se Orders non risponde il
           // pagamento resta registrato e lo stato resta cambiato qui.
-          for (const o of daSpostare) {
-            await comunicaStatoAOrders(o.numero, o.shopifyId, 'attesa_consegna', io.nome, quando)
+          // ⚠️ Solo se la riga è stata toccata DAVVERO: se nel frattempo lo
+          // stato era cambiato, `updateMany` non scrive e dire a Orders «attesa
+          // consegna» significherebbe mandargli uno stato che qui non esiste.
+          if (spostati.count > 0) {
+            for (const o of daSpostare) {
+              const e = await comunicaStatoAOrders(o.numero, o.shopifyId, 'attesa_consegna', io.nome, quando)
+              if (!e.ok) versoOrders = e.messaggio
+            }
+            statoOrdine = 'attesa_consegna'
           }
         }
       } catch {
@@ -272,7 +299,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       }
     }
 
-    return NextResponse.json({ richiesta: { ...pagata, ...conAvviso }, avviso, riconciliato, registro })
+    return NextResponse.json({
+      richiesta: { ...pagata, ...conAvviso },
+      avviso,
+      riconciliato,
+      registro,
+      // ⚠️ Cos'è successo all'ORDINE: la pagina lo scrive. '' = non c'era un
+      // ordine collegato, o era già avanti.
+      ordine: { stato: statoOrdine, orders: versoOrders },
+    })
   }
 
   // ── CORREGGERE ──

@@ -500,21 +500,43 @@ una funzione sola): erano due copie diverse, e quella della scheda **perdeva per
 strada il fornitore e il costo concordato** — cioè proprio chi va pagato e
 quanto, che dalla scheda si ribattevano a mano.
 
-### Un ordine, una richiesta di pagamento alla volta
+### Due pagamenti sullo stesso ordine: si può, ma te lo chiede
 
-Se su un ordine c e gia una richiesta **ancora da pagare**, il bottone
-«Paga fornitore» e **spento**: diventa «Gia in pagamento» e porta a quella
-richiesta.
+Se su un ordine c'è già una richiesta **ancora da pagare**, il bottone «Paga
+fornitore» resta **acceso** e porta il segno **⚠️**. Premendolo si apre il
+modulo dei Pagamenti, che in cima mostra un riquadro con **quale** richiesta
+c'è già — per chi, di quanto, di che giorno — e un bottone **«Vedi quella che
+c'è»**. Al momento di salvare, la domanda: **«Sì, è un secondo pagamento:
+falla»** oppure **«No, apri quella che c'è»**.
 
-⚠️⚠️ Premendolo di nuovo nasceva una richiesta **gemella**: due righe per lo
-stesso ordine, due avvisi a chi paga, e nessuna delle due che dice che l altra
-esiste. E il modo in cui si paga due volte lo stesso fornitore — e non se ne
-accorge nessuno, perche ognuna delle due sembra giusta.
+⚠️⚠️ **Perché non è più un divieto.** Chiesto dall'utente il 26/08/2026:
+«consenti di emettere due pagamenti sullo stesso ordine ma chiedi prima
+conferma». Il bottone spento vietava anche il caso vero — **due fornitori sullo
+stesso ordine** (i fiori e la torta), oppure **un acconto e un saldo** — e per
+aggirarlo bisognava segnare «pagata» una richiesta che pagata non era: cioè
+**scrivere il falso sul registro dei soldi usciti** pur di sbloccare un bottone.
+Un divieto che si aggira falsificando un dato è peggio del doppione che voleva
+impedire.
 
-⚠️ La guardia sta in **due posti**: il bottone (la porta) e il controllo nella
-rotta (la serratura). Un link gia aperto in un altra scheda, un doppio invio o
-un ritorno indietro del browser arrivano al salvataggio senza passare dal
-bottone: li risponde 409 e dice **quale** richiesta c e gia.
+⚠️⚠️ Quello che il divieto impediva resta vero: due richieste gemelle nate per
+sbaglio sono **due avvisi a chi paga e nessuna delle due che dice che l'altra
+esiste**. Per questo il segnale non è sparito, si è **spostato dove serve**: nel
+titolo del bottone, in cima al modulo dei Pagamenti, e nella domanda al
+salvataggio.
+
+⚠️ La **serratura resta sul server** (`POST /api/pagamenti`): senza il campo
+`confermaDoppio` risponde **409** e dice quale richiesta c'è già. Un link aperto
+in un'altra scheda, un doppio invio o un ritorno indietro del browser **non hanno
+letto nessun avviso**, e non devono passare.
+
+⚠️ **L'avviso in Pagamenti è vivo, non solo al ritorno dal bottone**: si accende
+appena il campo «Ordine» dice un numero che ha già una richiesta da pagare,
+anche scrivendolo a mano. Non compare mentre si **corregge** quella stessa riga:
+si starebbe avvisando di sé stessa.
+
+⚠️ Sulla **scheda dell'ordine** i bottoni sono **due** («Paga fornitore ⚠️» e
+«Richiesta aperta ↗»); nella bacheca uno solo. Nel pannello c'è spazio, e
+«dov'è quella che c'è già?» è una domanda che ci si fa con l'ordine davanti.
 
 ⚠️ Blocca solo se la richiesta e ancora **da pagare**. Una gia pagata non blocca
 niente: su un ordine puo esserci un **secondo fornitore** (i fiori e la torta), e

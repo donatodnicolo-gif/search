@@ -124,6 +124,19 @@ export function RichiediPagamento() {
   // il margine. ⚠️ Il campo esisteva in tabella ed era sempre vuoto.
   const [ordineNumero, setOrdineNumero] = useState('')
   const [ordineScelto, setOrdineScelto] = useState<OrdineTrovato | null>(null)
+  // ⚠️⚠️ LA SECONDA RICHIESTA SULLO STESSO ORDINE non è vietata, è CHIESTA.
+  // Chiesto dall'utente il 26/08/2026: «consenti di emettere due pagamenti sullo
+  // stesso ordine ma chiedi prima conferma». Qui sta la domanda in sospeso: il
+  // server ha risposto «ce n'è già una aperta», e finché questa non è vuota il
+  // modulo mostra il riquadro con le due strade — farla lo stesso, o aprire
+  // quella che c'è. Vuota = nessuna domanda in ballo.
+  // ⚠️ Non un `confirm()` del browser: quello non può mostrare PER CHI e DI
+  // QUANTO è la richiesta che c'è già, e una conferma che non dice cosa si sta
+  // confermando la si preme e basta.
+  const [doppioDaConfermare, setDoppioDaConfermare] = useState<{
+    id: string
+    testo: string
+  } | null>(null)
   // La riga che si sta correggendo, e la ricevuta che si sta caricando.
   const [modificoId, setModificoId] = useState('')
   const [ricevuta, setRicevuta] = useState<{
@@ -251,6 +264,29 @@ export function RichiediPagamento() {
             'del venduto, non quello da pagare. Registra chi lo prepara dalla scheda dell’ordine.'
     )
   }, [])
+
+  // ── L'AVVISO RESTA ACCESO ANCHE QUI ──
+  //
+  // ⚠️⚠️ Chiesto dall'utente il 26/08/2026: «mantieni l'alert attivo anche in
+  // pagamenti». Da quando il bottone dell'ordine non è più spento, chi arriva su
+  // questa pagina non ha più nessun segnale che una richiesta su quell'ordine
+  // esista già: il divieto era anche l'informazione, e togliendo il primo si
+  // perdeva la seconda. Questo riquadro sta sopra il modulo, si accende appena
+  // il campo «Ordine» dice un numero che ha già una richiesta DA PAGARE, e non
+  // impedisce niente — porta a quella che c'è.
+  //
+  // ⚠️ Solo quelle ancora da pagare: una già pagata non è un doppione in arrivo,
+  // e segnalarla vorrebbe dire un avviso su ogni ordine già lavorato.
+  // ⚠️ E non mentre si CORREGGE quella riga: si starebbe avvisando di sé stessa.
+  const numeroInCorso = (ordineScelto?.numero || ordineNumero || '').replace(/^#+/, '').trim()
+  const apertaSuQuestOrdine = numeroInCorso
+    ? richieste.find(
+        (r) =>
+          !r.pagataIl &&
+          r.id !== modificoId &&
+          r.ordineNumero.replace(/^#+/, '').trim() === numeroInCorso
+      )
+    : undefined
 
   const carica = useCallback(async () => {
     try {
@@ -621,9 +657,10 @@ export function RichiediPagamento() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  async function salva() {
+  async function salva(confermaDoppio = false) {
     setErrore('')
     setAvviso('')
+    setDoppioDaConfermare(null)
     try {
       const res = await fetch('/api/pagamenti', {
         method: 'POST',
@@ -640,6 +677,7 @@ export function RichiediPagamento() {
           // veniva mai mandato, quindi nessuna richiesta salvata sapeva a quale
           // ordine appartenesse.
           ordineNumero: ordineScelto?.numero || ordineNumero,
+          confermaDoppio,
         }),
       })
       const d = (await res.json().catch(() => ({}))) as {
@@ -648,8 +686,20 @@ export function RichiediPagamento() {
         invio?: { ok: boolean; messaggio: string } | null
         riconciliato?: { fatto: boolean; verdetto?: string; messaggio: string } | null
         errore?: string
+        richiestaAperta?: string
+        doppioPossibile?: boolean
       }
       if (!res.ok) {
+        // ⚠️ «C'è già una richiesta aperta» non è un errore: è una domanda. Si
+        // mostra il riquadro con le due strade invece della fascia rossa, che
+        // qui vorrebbe dire «non si può fare» — e non è vero.
+        if (res.status === 409 && d.doppioPossibile) {
+          setDoppioDaConfermare({
+            id: d.richiestaAperta ?? '',
+            testo: d.errore ?? '',
+          })
+          return
+        }
         setErrore(d.errore || 'Salvataggio non riuscito.')
         return
       }
@@ -738,6 +788,54 @@ export function RichiediPagamento() {
 
       {avviso ? <div className="avviso-ok">{avviso}</div> : null}
       {errore ? <div className="avviso-errore">{errore}</div> : null}
+
+      {/* ⚠️ L'avviso che prima era il bottone spento sull'ordine: qui non
+          impedisce niente, dice che c'è e porta a vederla. */}
+      {apertaSuQuestOrdine && !doppioDaConfermare ? (
+        <div className="avviso-errore" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span>
+            ⚠️ Su <strong>{apertaSuQuestOrdine.ordineNumero}</strong> c&apos;è già una richiesta{' '}
+            <strong>ancora da pagare</strong>
+            {apertaSuQuestOrdine.intestatario ? <> per {apertaSuQuestOrdine.intestatario}</> : null}
+            {apertaSuQuestOrdine.importo
+              ? <> di {apertaSuQuestOrdine.importo.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}</>
+              : null}
+            , del {new Date(apertaSuQuestOrdine.creatoIl).toLocaleDateString('it-IT')}. Puoi farne
+            una seconda — due fornitori sullo stesso ordine, o un acconto e un saldo — ma te lo
+            chiedo prima di salvare.
+          </span>
+          <a className="btn btn-secondario small" href={`/pagamenti?richiesta=${encodeURIComponent(apertaSuQuestOrdine.id)}`}>
+            Vedi quella che c&apos;è
+          </a>
+        </div>
+      ) : null}
+
+      {/* La domanda vera e propria, dopo aver premuto Salva. */}
+      {doppioDaConfermare ? (
+        <div className="avviso-errore" style={{ display: 'grid', gap: 10 }}>
+          <span>{doppioDaConfermare.testo}</span>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn small" onClick={() => void salva(true)}>
+              Sì, è un secondo pagamento: falla
+            </button>
+            {doppioDaConfermare.id ? (
+              <a
+                className="btn btn-secondario small"
+                href={`/pagamenti?richiesta=${encodeURIComponent(doppioDaConfermare.id)}`}
+              >
+                No, apri quella che c&apos;è
+              </a>
+            ) : null}
+            <button
+              type="button"
+              className="btn btn-secondario small"
+              onClick={() => setDoppioDaConfermare(null)}
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="griglia-impostazioni">
         {/* Lettura AI */}

@@ -1,5 +1,145 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (13) — due pagamenti sullo stesso ordine (con la domanda), e i buchi trovati da una revisione ostile
+
+### La richiesta dell'utente
+
+«Consenti di emettere due pagamenti sullo stesso ordine ma chiedi prima conferma
+che si voglia fare, e mantieni l'alert attivo anche in pagamenti.»
+
+Stamattina il bottone «Paga fornitore» era stato **spento** quando una richiesta
+era già aperta. ⚠️⚠️ **Il divieto secco vietava anche il caso vero**: due
+fornitori sullo stesso ordine (i fiori e la torta), o un acconto e un saldo. E
+per aggirarlo bisognava segnare **«pagata» una richiesta che pagata non era**,
+pur di sbloccare un bottone — cioè scrivere il falso sul registro dei soldi
+usciti. **Un divieto che si aggira falsificando un dato è peggio del doppione che
+voleva impedire.**
+
+Adesso: bottone **acceso col segno ⚠️** → modulo Pagamenti con il **riquadro in
+cima** (quale richiesta c'è, per chi, di quanto, di che giorno, e il bottone per
+aprirla) → al salvataggio la **domanda** «Sì, è un secondo pagamento: falla» /
+«No, apri quella che c'è» / «Annulla».
+
+⚠️ **La serratura resta sul server**: senza `confermaDoppio` la rotta risponde
+**409** con `doppioPossibile: true`. Un doppio invio o un ritorno indietro del
+browser non hanno letto nessun avviso e non passano.
+⚠️ **Non un `confirm()` del browser**: quello non può dire PER CHI e DI QUANTO è
+la richiesta che c'è già, e una conferma che non dice cosa si conferma la si
+preme e basta.
+⚠️ L'avviso in Pagamenti è **vivo**: si accende anche scrivendo il numero a mano,
+e **non** mentre si corregge quella stessa riga (si avviserebbe di sé stessa).
+
+### Quello che ha trovato la revisione ostile (e che è stato corretto)
+
+Due agenti ostili hanno riletto il lavoro della sezione (12). Tre difetti veri:
+
+⚠️⚠️ **1. Il filtro di stato c'era nella LETTURA e non nella SCRITTURA.** La
+`findMany` filtrava per `gestione`, la `updateMany` scriveva per solo `id`. Fra
+le due passano due query, e in quel momento lo stato può cambiare: il cron della
+piattaforma gira **ogni 15 minuti**, quello degli ordini **quattro volte l'ora** e
+può scrivere `gestito` sui rimborsati, e un collega può premere «Gestito» dalla
+bacheca. Con il solo `id` nel `where`, quella riga **riapriva un ordine appena
+chiuso da una persona** — esattamente l'invariante che la regola dichiara di
+proteggere. Il filtro ora sta in tutti e due i punti, e il push a Orders parte
+**solo se `updateMany` ha davvero toccato qualcosa** (`spostati.count > 0`):
+mandare a Orders uno stato che qui non è stato scritto sarebbe peggio del
+silenzio.
+
+⚠️⚠️ **2. Il salto era muto.** Il ramo «numero ambiguo» era vuoto: nessun log,
+nessun campo, nessun messaggio. E la pagina, dopo «Pagata», non nominava mai lo
+stato dell'ordine. Chi premeva non poteva distinguere **«spostato»** da **«non
+l'ho toccato»**. Ora la rotta torna `ordine: { stato, orders }` e il bottone
+«Allinea lo stato» della Riconciliazione **non dice più «stato allineato» e
+basta**: se Orders non l'ha preso, lo scrive.
+
+⚠️⚠️ **3. L'uscita di sicurezza indicata dal commento non esisteva.** Il codice
+diceva «si lascia il lavoro a una persona, che ha il bottone Allinea lo stato»,
+ma quel bottone accettava solo `STATI_IMPOSSIBILI_SE_PAGATO` (tre stati): su un
+ordine fermo in **`in_pagamento`** rispondeva **«Lo stato è già coerente col
+pagamento»** con status 400 — che è falso — e nell'elenco non compariva nemmeno
+(`statoDaAllineare`). Numero ambiguo + `in_pagamento` = **nessuna strada, né
+automatica né manuale**. Ora tutti e due usano `STATI_DA_SPOSTARE_SE_PAGATO`.
+
+### 🔴 Quello che la revisione ha trovato e NON è stato corretto
+
+Sono punti aperti veri, non rumore. In ordine di gravità:
+
+1. 🔴 **Il cron della piattaforma può riscrivere `attesa_consegna` → `in_app` e
+   non lo dice a Orders.** `sync-piattaforma.ts` non chiama mai
+   `comunicaStatoAOrders`; nemmeno `sincronizza.ts` quando scrive `gestito` sui
+   rimborsati. La divergenza CS↔Orders ha ancora **due porte**, e una si apre da
+   sola **quattro volte l'ora**.
+2. 🔴 **`maxDuration = 60` contro una catena più lunga.** Lo spostamento aggiunge
+   fino a **27 s** seriali di HTTP davanti a riconciliazione, avviso e registro
+   fornitori — e le due fetch di `registro-fornitori.ts` **non hanno timeout**.
+   Se si supera il minuto, `avvisoIl/avvisoCanale/avvisoEsito` non vengono
+   scritti e un secondo clic su «Pagata» **rimanda l'avviso al fornitore**.
+3. ⚠️ **Il bottone «Allinea lo stato» sceglie a caso su un numero ambiguo**:
+   `findFirst` **senza `orderBy`** nella rotta, e nell'elenco una `Map` in cui
+   **l'ultimo vince** — due tiri a caso con criteri diversi, quindi la schermata
+   può mostrare l'ordine A e il bottone aggiornare il B.
+4. ⚠️ **`gestioneDaId` ha smesso di voler dire «una persona»**: lo scrive anche
+   l'automatismo, e `sincronizza.ts` lo usa come «nessuno l'ha mai toccato a
+   mano». `daQuandoSiMisura` (KPI operatori) ora può essere datato da un
+   automatismo.
+5. ⚠️ **Due normalizzazioni del numero nella stessa funzione**: lo spostamento a
+   `attesa_consegna` prova `2799` e `#2799`, quello a `in_pagamento`
+   (`POST /api/pagamenti`) fa un confronto **esatto**. Una delle due smetterà di
+   trovare l'ordine senza dirlo.
+6. ⚠️ **Togliere il segno «pagata» non disfa la riconciliazione**: restano
+   `fornitoreNome`/`fornitoreCosto` sull'ordine e Orders non viene informato. Un
+   ordine può restare «attesa consegna, fornitore X, costo Y» senza più nessun
+   pagamento dietro. (Pre-esistente.)
+
+### 🔴 E i numeri che la seconda revisione ha contato sul database
+
+- **La sezione `MANCA` è invecchiata di nuovo** (è la quarta volta). Dice 1.356
+  ordini / 505 da gestire / 17 richieste di pagamento / 5 reclami / 3 note di
+  diario / 4 utenti con `diagnostica@` ancora presente. **Veri stasera**: 1.371 /
+  **99** / **22** / **6** / **29** / **3 utenti, diagnostica cancellato**.
+- ⚠️⚠️ **La riga più pericolosa**: «`partnerApiKey` e `partnerUrl` vuoti … *oggi
+  la tabella è comunque a 0 richieste*». **Falsa di 22 righe e 1.938 € segnati
+  come già pagati**, con `inviataIl = null` su tutte. È la frase che declassa il
+  buco a innocuo, e lo fa con un numero sbagliato di 22.
+- ⚠️ E la causa citata è sbagliata: `partnerUrl` **non blocca niente** (in
+  `src/lib/partner.ts` c'è un `BASE_DEFAULT`). Il gate vero è **`partnerApiKey`,
+  che non esiste proprio come riga** in `Impostazione`.
+- ⚠️⚠️ **I 417 ordini chiusi in blocco non sono scritti da nessuna parte.**
+  `scripts/segna-gestiti-da-piattaforma.mjs` ha portato **417** ordini da
+  `da_gestire` a `gestito` (backup in `scripts/backup-segna-gestiti-2026-08-26.json`).
+  È il salto **505 → 99**, il numero più vistoso del documento, e `grep "417"` su
+  questo file dava **zero occorrenze**. Chi legge «99 da gestire» crede che il CS
+  sia in pari: di quei 99, **74 non hanno data di consegna** e **9 ce l'hanno già
+  passata**.
+- ⚠️ **Errore di fatto nella sezione (4)**: «#1798 (370 €)». Sul database **#1798
+  = 170 €**; 370 è la **somma** di #1798 e #1777. Il conto sotto è giusto,
+  l'etichetta no — e `schema.prisma` scrive la cifra corretta: documento e codice
+  si contraddicono nello stesso repo.
+- ⚠️ **Il caso che ha fatto nascere l'unione ordini non è stato unito**:
+  `unitoA ≠ ''` = **0**. #1777 è ancora `in_pagamento` con una richiesta da 253 €
+  mai inviata, #1798 ancora `da_gestire` e senza fornitore. Il margine falso in
+  negativo (−43,44 €) è ancora lì.
+- ⚠️ **`aiFuoriTurnoAttivo` è VUOTA (spenta)** e i turni coprono **21 ore su
+  168, tutte di Federica**: 147 ore a settimana senza turno e senza il tampone
+  dell'AI, mentre il cron `ai-fuori-turno` gira ogni 10 minuti a vuoto. `MANCA`
+  elenca le chiavi vuote e **non cita `aiFuoriTurnoAttivo`**.
+- ⚠️ **`gestioneDaNome` ha sei grafie per tre persone** («Federica Zicchinella»
+  265 / «Federica ZIcchinella» 103, «Riccardo Cuccurello» 18 / «riccardo
+  cuccurullo» 119, «Nicolo Daniele Donato» 58 / «Admin Donato» 33). Le KPI si
+  salvano perché raggruppano per `fornitoreDaId`: qualunque conteggio futuro
+  fatto sul **nome** spaccherà ogni operatore in due.
+- ⚠️ **La KPI «margine per operatore» poggia su 16 ordini** (21 con
+  `fornitoreDaId` meno 5 automatici). Tre ordini bastano a ribaltare la classifica.
+- ⚠️ **920 ordini su 1.371 hanno `ordersId` vuoto**: per due terzi del registro
+  il ponte verso Orders non esiste. E `gestione = in_app` è a **0**: nessuna
+  chiave `piattaforma*` in `Impostazione`, quindi il cron `/api/cron/piattaforma`
+  gira **96 volte al giorno a vuoto**.
+- ⚠️ **32 proposte di glossario aperte** su 50, le più vecchie ferme dal 23/08.
+- ⚠️ Correzione a un numero della sezione (12): l'ultimo giro di sync era
+  **16:35:31 UTC** con «**0 nuovi**», non 16:20 con «1 nuovi».
+
+Verifica: `npx tsc --noEmit` esito 0, `npm run build` esito 0.
+
 ## 26/08/2026 (12) — pagato = «attesa consegna», da solo (e i 5 rimasti indietro)
 
 Chiesto dall'utente su un ordine vero, **#2799** (Mya Mouzon, 250 €): «se è
@@ -5421,6 +5561,53 @@ locale, altrimenti nulla si decifra.
 > database di produzione il **15/08/2026** e di nuovo il **17/08/2026 pomeriggio**
 > (`node scripts/conta.mjs`, solo pieno/vuoto, mai i valori). I canali li collega
 > **l'utente, non una sessione**: prima di scrivere «manca X», **ricontarlo**.
+
+**RICONTATO IL 26/08/2026, ore 18:45** (sul database di produzione, verificato
+due volte da una revisione ostile). ⚠️ Le righe qui sotto datate 25/08 sono
+**STORIA**: quasi ogni numero è cambiato in 36 ore.
+
+- **Ordini: 1.371.** Per stato: **gestito 1.259**, **da iniziare 99**, **attesa
+  consegna 11**, **in pagamento 2**, e **ZERO** `comunicazione`, **ZERO**
+  `ricerca_fornitore`, **ZERO** `in_app`. **402 senza data di consegna.**
+  ⚠️⚠️ **I «505 da gestire» non sono stati lavorati, sono stati CHIUSI IN
+  BLOCCO**: `scripts/segna-gestiti-da-piattaforma.mjs` ha portato **417** ordini
+  a `gestito` (backup `scripts/backup-segna-gestiti-2026-08-26.json`). Dei 99
+  che restano, **74 non hanno data di consegna** e **9 ce l'hanno già passata**.
+- **Conversazioni: 644** (email 440, WhatsApp 146, widget 38, Instagram 20,
+  **Messenger 0**), **3.725 messaggi**, **2 non lette**, **91 prese in carico**.
+- **Utenti: 3** — nicolo (admin), federica e riccardo (operatori). ✅
+  `diagnostica@deluxy.local` **cancellato**.
+- 🔴 **Richieste di pagamento: 22** (2.221 €), **20 pagate** (**1.938 €**), e
+  **ZERO inviate**: `inviataIl = null` su **tutte e 22**. ⚠️⚠️ La riga della
+  tabella «Cosa manca davvero» che dice «oggi la tabella è comunque a 0
+  richieste» **è falsa di 22 righe**. ⚠️ E la causa non è `partnerUrl` (in
+  `src/lib/partner.ts` c'è un `BASE_DEFAULT`): è **`partnerApiKey`, che non
+  esiste proprio come riga** in `Impostazione`.
+- 🔴 **Chargeback 13**: 11 perse (**2.257,66 €**), **2 da rispondere** — #1741
+  (103,34 €) e #12726 (99,94 €), scadenza **4/09/2026**, **prove mai inviate** e
+  **bozza a ZERO caratteri**. Restano **9 giorni**, invariato dal 25/08.
+- **Reclami: 6, tutti aperti** (uno di gravità 3, #12790). **Rimborsi
+  «richiesto»: 4** (325,83 €, i due più vecchi fermi dal 26 e 27 luglio).
+- **Note di diario: 29** (di cui **27 non fatte**). **Glossario: 17 voci** e
+  **50 proposte, 32 ancora aperte** (le più vecchie dal 23/08).
+- **21 ordini con un fornitore scritto**, tutti con `fornitoreDaId`. **0 ordini
+  uniti** (`unitoA` vuoto ovunque): il caso #1777/#1798 che ha fatto nascere la
+  funzione **non è stato unito**.
+- **Preventivi: 0 righe. Chiamate: 0 righe. RichiestaFornitore: 0. Attivita: 0.**
+  Tre funzioni consegnate oggi e non ancora usate da nessuno.
+  **OrdineCreato: 2**, tutti e due con bozza.
+- 🔴 **Turni: 5 righe = 21 ore su 168, tutte di Federica** (Riccardo e Nicolò
+  zero; martedì, mercoledì e giovedì non esistono). ⚠️ E
+  **`aiFuoriTurnoAttivo` è VUOTA**: 147 ore a settimana senza turno **e** senza
+  il tampone dell'AI, mentre il cron gira ogni 10 minuti a vuoto.
+- ⚠️ **920 ordini su 1.371 hanno `ordersId` vuoto**; nessuna chiave
+  `piattaforma*` in `Impostazione`, quindi `/api/cron/piattaforma` gira **96
+  volte al giorno a vuoto**.
+- ⚠️ **`gestioneDaNome`: sei grafie per tre persone.** Federica 265+103,
+  Riccardo 18+119, Nicolò 58+33. Qualunque conteggio futuro fatto sul **nome**
+  spacca ogni operatore in due.
+- **`apreSulSito` ancora `false`** su tutti e tre i siti — invariato dal 17/08.
+- Sync ordini: ultimo giro **26/08 16:35:31 UTC**, «ok: 34 ordini, 0 nuovi».
 
 **RICONTATO IL 25/08/2026, ore 13** (`node scripts/conta.mjs` sul database di
 produzione, più `Chargeback`, `RichiestaPagamento`, `NotaDiario`,

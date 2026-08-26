@@ -1717,16 +1717,40 @@ export function DettaglioOrdine({
                     c'è già. Un bottone che sparisce fa credere che la funzione
                     non ci sia. */}
                 {ordine.pagamentoApertoId ? (
-                  <a
-                    className="btn btn-secondario small"
-                    style={{ opacity: 0.5 }}
-                    href={`/pagamenti?richiesta=${encodeURIComponent(ordine.pagamentoApertoId)}`}
-                    title={`C'è già una richiesta aperta${
-                      ordine.pagamentoApertoA ? ` per ${ordine.pagamentoApertoA}` : ''
-                    }: aprila invece di farne un'altra.`}
-                  >
-                    Già in pagamento
-                  </a>
+                  // ⚠️⚠️ NON PIÙ SPENTO, e i bottoni sono DUE. Chiesto
+                  // dall'utente il 26/08/2026: «consenti di emettere due
+                  // pagamenti sullo stesso ordine ma chiedi prima conferma». Un
+                  // ordine può avere due fornitori — i fiori e la torta — o un
+                  // acconto e un saldo, e col bottone spento l'unico modo di
+                  // fare la seconda richiesta era segnare «pagata» la prima:
+                  // cioè scrivere il falso sul registro dei soldi usciti, pur di
+                  // sbloccare un bottone.
+                  // ⚠️ L'avviso non si perde: c'è il segno ⚠️, la pagina
+                  // Pagamenti lo riaccende in cima al modulo con nome e importo
+                  // di quella che c'è già, e la conferma la chiede il
+                  // salvataggio. Qui i bottoni sono due perché nel pannello c'è
+                  // spazio, e «dov'è quella che c'è già?» è una domanda che ci
+                  // si fa con l'ordine aperto davanti.
+                  <>
+                    <a
+                      className="btn btn-secondario small"
+                      href={linkPagamentoOrdine(ordine)}
+                      title={`⚠️ C'è già una richiesta aperta${
+                        ordine.pagamentoApertoA ? ` per ${ordine.pagamentoApertoA}` : ''
+                      }. Puoi farne una seconda (due fornitori, o acconto e saldo): te lo chiede prima di salvare.`}
+                    >
+                      Paga fornitore ⚠️
+                    </a>
+                    <a
+                      className="btn btn-secondario small"
+                      href={`/pagamenti?richiesta=${encodeURIComponent(ordine.pagamentoApertoId)}`}
+                      title={`Apri la richiesta di pagamento già aperta${
+                        ordine.pagamentoApertoA ? ` per ${ordine.pagamentoApertoA}` : ''
+                      }.`}
+                    >
+                      Richiesta aperta ↗
+                    </a>
+                  </>
                 ) : (
                   <a className="btn btn-secondario small" href={linkPagamentoOrdine(ordine)}>
                     Paga fornitore

@@ -93,7 +93,12 @@ export function Riconciliazione() {
         ...f,
         [r.richiestaId]:
           azione === 'allinea-stato'
-            ? 'stato allineato'
+            ? // ⚠️ Non «stato allineato» e basta: anche qui si manda il nuovo
+              // stato a Orders, e affermare un successo che non si è guardato è
+              // il modo di far credere che le due app dicano la stessa cosa.
+              d.orders && !d.orders.ok
+              ? `allineato qui, ma Orders non l'ha preso: ${d.orders.messaggio ?? ''}`
+              : 'stato allineato, e Orders lo sa'
             : d.orders && !d.orders.ok
               ? `registrato qui, ma Orders non l'ha preso: ${d.orders.messaggio ?? ''}`
               : 'registrato, e il costo è arrivato a Orders',

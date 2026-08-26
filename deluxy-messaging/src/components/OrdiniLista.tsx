@@ -484,17 +484,32 @@ function spiegaContatto(c: { chiave: string; nome: string; lingua: string; lingu
 }
 
 /**
- * «Paga fornitore» — e SPENTO quando una richiesta è già aperta.
+ * «Paga fornitore» — con l'AVVISO quando una richiesta è già aperta.
  *
- * ⚠️⚠️ Chiesto dall'utente il 26/08/2026. Premendolo una seconda volta si
- * apriva il modulo vuoto e nasceva una richiesta gemella: due righe per lo
- * stesso ordine, due avvisi a chi paga, e nessuna delle due che dice che
- * l'altra esiste. È il modo in cui si finisce per pagare due volte lo stesso
- * fornitore — e non lo scopre nessuno, perché ognuna delle due sembra giusta.
+ * ⚠️⚠️ Storia in due tappe, stesso giorno (26/08/2026).
  *
- * ⚠️ Spento NON vuol dire nascosto: resta lì, grigio, e **dice perché** e a chi.
- * Un bottone che sparisce fa credere che la funzione non ci sia; uno grigio che
- * spiega manda a guardare la richiesta che c'è già.
+ * Al mattino, chiesto dall'utente: spegnerlo. Premendolo una seconda volta
+ * nasceva una richiesta gemella — due righe per lo stesso ordine, due avvisi a
+ * chi paga, e nessuna delle due che dice che l'altra esiste: il modo in cui si
+ * paga due volte lo stesso fornitore senza che nessuno se ne accorga, perché
+ * ognuna delle due sembra giusta.
+ *
+ * La sera, sempre l'utente: «consenti di emettere due pagamenti sullo stesso
+ * ordine ma chiedi prima conferma». Il divieto secco vietava anche il caso
+ * vero — due fornitori sullo stesso ordine (i fiori e la torta), o un acconto e
+ * un saldo — e per aggirarlo bisognava segnare «pagata» una richiesta che
+ * pagata non era: cioè scrivere il falso sul registro dei soldi usciti pur di
+ * sbloccare un bottone. Un divieto che si aggira falsificando un dato è peggio
+ * del doppione che voleva impedire.
+ *
+ * ⚠️ Quindi il bottone è ACCESO e porta il segno ⚠️: l'informazione che c'è già
+ * una richiesta non si è persa, si è spostata dove serve — nel titolo qui, in
+ * cima al modulo dei Pagamenti (con nome e importo di quella aperta, e un
+ * bottone per aprirla), e nella domanda che compare premendo Salva.
+ *
+ * ⚠️ La serratura vera resta sul server (`POST /api/pagamenti`): senza la
+ * conferma esplicita risponde 409. Un doppio invio o un ritorno indietro del
+ * browser non hanno letto nessun avviso, e non devono passare.
  *
  * ⚠️ Blocca solo se la richiesta è ancora **da pagare**. Una già pagata non
  * blocca niente: su un ordine può esserci un secondo fornitore (i fiori e la
@@ -513,16 +528,26 @@ function BottonePaga({
     const quanto = ordine.pagamentoApertoQuanto
       ? ordine.pagamentoApertoQuanto.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
       : ''
+    // ⚠️⚠️ NON PIÙ SPENTO. Chiesto dall'utente il 26/08/2026: «consenti di
+    // emettere due pagamenti sullo stesso ordine ma chiedi prima conferma». Un
+    // ordine può avere due fornitori — i fiori e la torta — o un acconto e un
+    // saldo, e col bottone spento l'unico modo di fare la seconda richiesta era
+    // segnare «pagata» la prima: cioè scrivere il falso sul registro dei soldi
+    // usciti, pur di sbloccare un bottone.
+    //
+    // ⚠️ L'avviso però non si perde: il segno ⚠️ sta qui, e la pagina Pagamenti
+    // lo riaccende in cima al modulo con il nome e l'importo di quella che c'è
+    // già, e un bottone per aprirla. La conferma la chiede il salvataggio.
     return (
       <a
         className="bottone secondario mini"
-        style={{ opacity: 0.5 }}
-        href={`/pagamenti?richiesta=${encodeURIComponent(ordine.pagamentoApertoId)}`}
-        title={`C'è già una richiesta di pagamento aperta su ${ordine.numero}${
+        href={linkPagamento(ordine)}
+        onClick={onVai}
+        title={`⚠️ Su ${ordine.numero} c'è già una richiesta di pagamento aperta${
           ordine.pagamentoApertoA ? ` per ${ordine.pagamentoApertoA}` : ''
-        }${quanto ? ` di ${quanto}` : ''}: aprila invece di farne un'altra.`}
+        }${quanto ? ` di ${quanto}` : ''}. Puoi farne una seconda (due fornitori, o acconto e saldo): te lo chiede prima di salvare.`}
       >
-        Già in pagamento
+        {etichetta} ⚠️
       </a>
     )
   }

@@ -230,7 +230,10 @@ export function decidi(d: DaRiconciliare): Riga {
       frase: `${d.ordine.numero} è annullato: su un ordine annullato non si registra né fornitore né costo.`,
     }
   }
-  const statoDaAllineare = STATI_IMPOSSIBILI_SE_PAGATO.includes(d.ordine.gestione)
+  // ⚠️ Gli stessi quattro stati che sposta l'automatismo: con i tre di
+  // `STATI_IMPOSSIBILI_SE_PAGATO` il bottone non compariva nemmeno sugli ordini
+  // fermi in `in_pagamento`, che sono il caso più frequente.
+  const statoDaAllineare = STATI_DA_SPOSTARE_SE_PAGATO.includes(d.ordine.gestione)
 
   const stessoNome =
     !!d.ordine.fornitoreNome &&

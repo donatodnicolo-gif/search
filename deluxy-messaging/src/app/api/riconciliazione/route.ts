@@ -7,6 +7,7 @@ import {
   decidi,
   stessaIdentita,
   STATI_IMPOSSIBILI_SE_PAGATO,
+  STATI_DA_SPOSTARE_SE_PAGATO,
   type DaRiconciliare,
 } from '@/lib/riconciliazione'
 import { riconciliaDaPagamento } from '@/lib/riconcilia'
@@ -223,7 +224,12 @@ export async function POST(req: NextRequest) {
   if (!ordine) return NextResponse.json({ errore: 'Ordine non trovato.' }, { status: 404 })
 
   if (azione === 'allinea-stato') {
-    if (!STATI_IMPOSSIBILI_SE_PAGATO.includes(ordine.gestione)) {
+    // ⚠️ Gli STESSI stati dell'automatismo (`STATI_DA_SPOSTARE_SE_PAGATO`), non
+    // tre su quattro: un ordine fermo in `in_pagamento` col pagamento già fatto
+    // si sentiva rispondere «lo stato è già coerente col pagamento», che è falso
+    // — ed è proprio il caso in cui questo bottone è l'unica strada, perché
+    // l'automatismo non tocca i numeri d'ordine ambigui.
+    if (!STATI_DA_SPOSTARE_SE_PAGATO.includes(ordine.gestione)) {
       return NextResponse.json({ errore: 'Lo stato è già coerente col pagamento.' }, { status: 400 })
     }
     // ⚠️ `attesa_consegna` e non uno stato più avanti: il pagamento al
@@ -242,8 +248,18 @@ export async function POST(req: NextRequest) {
     // ⚠️ Anche a Orders, come il cambio di stato a mano: uno stato che cambia
     // solo qui lascia l'ordine fermo allo stato vecchio nel registro che leggono
     // le altre app. Best-effort: se Orders non risponde, qui è cambiato lo stesso.
-    await comunicaStatoAOrders(ordine.numero, ordine.shopifyId, 'attesa_consegna', io.nome, quando)
-    return NextResponse.json({ ok: true, nuovoStato: 'attesa_consegna' })
+    const versoOrders = await comunicaStatoAOrders(
+      ordine.numero,
+      ordine.shopifyId,
+      'attesa_consegna',
+      io.nome,
+      quando
+    )
+    return NextResponse.json({
+      ok: true,
+      nuovoStato: 'attesa_consegna',
+      orders: versoOrders.ok ? { ok: true } : { ok: false, messaggio: versoOrders.messaggio },
+    })
   }
 
   // ── REGISTRA IL FORNITORE ──
