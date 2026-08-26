@@ -402,6 +402,25 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### 26/08 (notte, 3) — I mostruosi sciolti col CLIENTE, invalidate fuori
+
+- **#20600 / #4685 confermato dall'utente**: riga Champagne 10.000 → 1.000
+  (refuso), agganciata all'ordine (2.000 pagati).
+- **Invalidate e rifiutate FUORI dai corrispettivi**: `STATI_ESCLUSI` ora
+  comprende `invalidated` e `not_accepted` (deciso dall'utente). Deployato,
+  rispinta: 34 ordini aggiornati (margine finale totale 567.064,42 €).
+- **ddt 5612 sciolto guardando gli ordini DELLO STESSO CLIENTE** (Al Suwaidi,
+  4 ordini): il Bouquet 750 (#24369) + macarons (#24371) + ritiro (#24323)
+  stanno nell'ordine **#5697 «Flowers» 1.000 € del 21/09/2024** (824 ≤ 1.000);
+  il #5612 (250 € del 10/09) tiene le sue due consegne del 10/09 (207 ≤ 250).
+- **ddt 5336 (Maryflor, 300 rose)**: il cliente Velazquez ha DUE ordini
+  gemelli PAGATI lo stesso giorno — #5336 (300 Rose Rosse) e #5337 (Queen
+  Roses 850 + 103 Luxury Roses 1.545), **4.820 € totali** per un'unica
+  consegna da 3.000 al partner. Il modello regge 1 consegna : 1 ordine —
+  PROPOSTA all'utente: dividere la consegna in due (valori spartiti) o
+  altra indicazione. IN ATTESA. Anche #33381 (tulipani 120 → 3 €/cad)
+  aspetta conferma del refuso.
+
 ### 26/08 (notte, 2) — Audit per CONSEGNA, Business chiuso, brand DDT obbligatorio
 
 - ⚠️ **Il gruppo per DDT univa consegne di ANNI diversi** (il ddt «1041» vive

@@ -134,7 +134,10 @@ const INCASSI = 0;
  * NON ESISTE — un valore che non combacia con nessuna riga non da' errore,
  * toglie in silenzio, e teneva fuori 550 consegne approvate.
  */
-const STATI_ESCLUSI = ['cancelled'];
+// Annullate, invalidate e rifiutate: fuori dai corrispettivi (deciso
+// dall'utente 26/08 — il ddt 4901 aveva 9 copie `invalidated` di una Sacher
+// vera che pesavano nei margini con paghe e valori).
+const STATI_ESCLUSI = ['cancelled', 'invalidated', 'not_accepted'];
 
 /**
  * Il `pricingModel` dei servizi di VENDITA (`ServiceType.pricingModel`).
