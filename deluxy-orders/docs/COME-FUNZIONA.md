@@ -1348,6 +1348,16 @@ Cosa entra e cosa no, dichiarato nella risposta invece che dato per scontato:
 I mesi sono mesi di calendario **italiani** (`Europe/Rome`): un ordine delle
 00:30 del 1° gennaio è di gennaio, non di dicembre.
 
+Dal **26/08/2026** la risposta porta anche **l'economia della vendita** che la
+piattaforma consegne scrive sugli ordini, per brand e per mese: le **fee
+incassate dai partner** come commissioni (`fee`, lorde) e il **primo margine**
+(`primoMargine` = pagato − valore prodotti, già ÷ 1,22 quindi **netto IVA** — a
+differenza del lordo, e le due basi si dichiarano). Sono somme sui **soli ordini
+che hanno il dato**: la copertura viaggia accanto (`ordiniConEconomia`,
+`lordoConEconomia`, anche mese per mese) perché chi legge deve poter dire
+«misurato su X ordini di Y», e zero ordini col dato si legge **n.d., non zero**.
+Il primo lettore è il consuntivo per maison di Budgets.
+
 Le **liste di clienti** escono con gli stessi criteri della UI: `/api/v1/liste`
 dà il catalogo con i conteggi (e le soglie, così chi legge sa cosa significano),
 `/api/v1/liste/:chiave` dà i clienti con segmento, tipologia, spesa e recency.

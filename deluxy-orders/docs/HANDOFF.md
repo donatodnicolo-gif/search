@@ -1,9 +1,37 @@
 # Handoff — Deluxy Orders
 
-Stato al **25/08/2026 (pomeriggio 3)** (sezione qui sotto; il corpo del documento
+Stato al **26/08/2026** (sezione qui sotto; il corpo del documento
 è del 30/07). Aggiornare a ogni tappa (regole di lavoro Deluxy). Serve a far
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
+
+## 26/08/2026 — `/api/v1/ricavi` espone l'economia della vendita (fee + primo margine), per il consuntivo di Budgets
+
+**Richiesta dell'utente** (a Budgets): «per maison per il consuntivo prendi da
+orders: le vendite lorde degli ordini, le fee incassate dai partners come
+commissioni, la differenza tra pagato e valore dei prodotti a cui togliere iva
+che dovresti trovare come primo margine». I dati ci sono da stamattina — i
+commit `ad8ad45a` e `6a1d3a56` (altra sessione) hanno aggiunto allo schema
+`primoMargine`, `feeVendita` e `margineFinale`, che la piattaforma consegne
+manda già calcolati via PATCH — ma nessuna rotta aggregata li esponeva.
+
+Ora `/api/v1/ricavi` risponde, per brand e per mese, anche con `fee` (somma
+delle commissioni incassate dai partner, lorde) e `primoMargine` (somma di
+(pagato − valore prodotti) ÷ 1,22, quindi **netto IVA**), con la **copertura
+dichiarata**: `ordiniConEconomia` e `lordoConEconomia`, totali e mese per mese.
+Somme sui **soli ordini col dato** — al momento della modifica la copertura era
+**ZERO su tutti e tre i brand** (2026: deluxy.it 2.536 ordini, Flowers 846,
+cakedesign.me 453, nessuno con l'economia scritta): la piattaforma la manda dal
+suo giro (cron notturno / sync manuale), quindi il primo numero vero arriva col
+primo giro dopo questo deploy. Chi legge zero ordini col dato deve mostrare
+**n.d., non zero**.
+
+⚠️ Le **basi sono tre e non tornano a occhio**: lordo IVA inclusa, fee lorde,
+primo margine netto IVA. Ogni consumatore le deve dichiarare (è la stessa
+lezione del 25/08 sulla percentuale senza base).
+
+**Verificato**: `tsc` pulito, `next build` ok; la query con `FILTER` provata sul
+database vero (è la stessa con cui è stata misurata la copertura).
 
 ## 25/08/2026 (pomeriggio 3) — La percentuale è il margine netto SUL TOTALE PAGATO (32,8%, non 40%)
 
