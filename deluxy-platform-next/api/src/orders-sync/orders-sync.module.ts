@@ -197,7 +197,7 @@ export class OrdersSyncService {
       numero?: string | null;
       gia: {
         costoConsegna: number | null; feeConsegna: number | null;
-        guadagnoVendita: number | null; feeVendita: number | null; margineFinale: number | null;
+        primoMargine: number | null; feeVendita: number | null; margineFinale: number | null;
       };
     }>();
     const soloQuesti = opzioni.soloOrdiniShopify?.length ? new Set(opzioni.soloOrdiniShopify) : null;
@@ -221,7 +221,7 @@ export class OrdersSyncService {
           righe?: { prezzo?: number | null; quantita?: number | null }[] | null;
           controllo?: {
             costoConsegna?: number | null; feeConsegna?: number | null;
-            guadagnoVendita?: number | null; feeVendita?: number | null; margineFinale?: number | null;
+            primoMargine?: number | null; feeVendita?: number | null; margineFinale?: number | null;
           } | null;
         }[];
         pagine?: number;
@@ -252,7 +252,7 @@ export class OrdersSyncService {
           gia: {
             costoConsegna: o.controllo?.costoConsegna ?? null,
             feeConsegna: o.controllo?.feeConsegna ?? null,
-            guadagnoVendita: o.controllo?.guadagnoVendita ?? null,
+            primoMargine: o.controllo?.primoMargine ?? null,
             feeVendita: o.controllo?.feeVendita ?? null,
             margineFinale: o.controllo?.margineFinale ?? null,
           },
@@ -315,7 +315,7 @@ export class OrdersSyncService {
         consegne: c.consegne,
         costoConsegna: maiSottoZero(c.costoConsegna),
         feeConsegna: maiSottoZero(c.feeConsegna),
-        guadagnoVendita: eco ? tondo(eco.guadagnoVendita) : null,
+        primoMargine: eco ? tondo(eco.primoMargine) : null,
         feeVendita: eco ? maiSottoZero(eco.feeVendita) : null,
         margineFinale: eco ? tondo(eco.margineFinale) : null,
         /// Quante consegne dell'ordine hanno un partner senza Fee% impostata: la
@@ -347,7 +347,7 @@ export class OrdersSyncService {
       if (
         v.giaScritto.costoConsegna === v.costoConsegna
         && v.giaScritto.feeConsegna === v.feeConsegna
-        && v.giaScritto.guadagnoVendita === v.guadagnoVendita
+        && v.giaScritto.primoMargine === v.primoMargine
         && v.giaScritto.feeVendita === v.feeVendita
         && v.giaScritto.margineFinale === v.margineFinale
       ) {
@@ -361,7 +361,7 @@ export class OrdersSyncService {
           body: JSON.stringify({
             costoConsegna: v.costoConsegna,
             feeConsegna: v.feeConsegna,
-            guadagnoVendita: v.guadagnoVendita,
+            primoMargine: v.primoMargine,
             feeVendita: v.feeVendita,
             margineFinale: v.margineFinale,
           }),

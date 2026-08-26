@@ -542,7 +542,7 @@ export class FinanceService {
    * ordine si trasmettono guadagno netto IVA (pagato − valore prodotti ÷
    * 1,22), la quota registrata lorda e il margine finale.
    */
-  async economiaVendite(): Promise<Map<string, { guadagnoVendita: number; feeVendita: number; margineFinale: number }>> {
+  async economiaVendite(): Promise<Map<string, { primoMargine: number; feeVendita: number; margineFinale: number }>> {
     const corporate = await this.idVenditeDaCorporate();
     const deliveries = await this.prisma.delivery.findMany({
       where: {
@@ -565,12 +565,12 @@ export class FinanceService {
     });
     const rows = deliveries.map((d) => this.computeRow(d));
     const ordini = this.recap(rows, await this.tariffe(), await this.clientePagato(rows));
-    const mappa = new Map<string, { guadagnoVendita: number; feeVendita: number; margineFinale: number }>();
+    const mappa = new Map<string, { primoMargine: number; feeVendita: number; margineFinale: number }>();
     for (const o of ordini) {
       const numero = o.righe.map((r) => r.realOrderNumber).find(Boolean);
       if (!numero) continue;
       mappa.set(numero, {
-        guadagnoVendita: o.takingsNet,
+        primoMargine: o.takingsNet,
         feeVendita: o.feeContract,
         margineFinale: o.totalMargin,
       });
