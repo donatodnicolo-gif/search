@@ -2451,3 +2451,16 @@ export async function collegaProformaARichiesta(id: string, numero: string, url:
     .eq('id', id);
   if (error) throw error;
 }
+
+/**
+ * Il PREVENTIVO emesso da FINANCE resta agganciato alla richiesta: numero e
+ * link, mai una copia degli importi. La richiesta passa a «preventivo inviato»
+ * — che è lo stato vero, e dice che la palla adesso è del cliente.
+ */
+export async function collegaPreventivoARichiesta(id: string, numero: string, url: string): Promise<void> {
+  const { error } = await supabase
+    .from('richieste_cliente')
+    .update({ preventivo_numero: numero, preventivo_url: url, stato: 'preventivo_inviato' })
+    .eq('id', id);
+  if (error) throw error;
+}

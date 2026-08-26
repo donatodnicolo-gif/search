@@ -45,8 +45,13 @@ Deno.serve(async (req) => {
         headers,
         body: JSON.stringify({
           partner: body.partner,
+          // ⭐ 26/08/2026 — i documenti di FINANCE sono DUE: `preventivo`
+          // (l'offerta che il cliente accetta) e `proforma` (la richiesta di
+          // pagamento). Senza `tipo` si crea una pro-forma, come sempre.
+          tipo: body.tipo === 'preventivo' ? 'preventivo' : undefined,
           oggetto: body.oggetto ?? undefined,
           scadenza: body.scadenza ?? undefined,
+          validoFino: body.validoFino ?? undefined,
           note: body.note ?? undefined,
           righe: body.righe,
         }),
@@ -59,6 +64,21 @@ Deno.serve(async (req) => {
           id: body.id ?? undefined,
           numero: body.numero ?? undefined,
           fatturaNumero: body.fatturaNumero ?? undefined,
+        }),
+      });
+    } else if (body.azione === 'esito_preventivo') {
+      // L'offerta la chiude il CLIENTE: accettata o rifiutata. È l'unico
+      // passaggio che Scout può fare su un preventivo — l'invio e l'annullo
+      // restano azioni di FINANCE, che possiede il documento.
+      const stato = body.stato === 'rifiutata' ? 'rifiutata' : 'accettata';
+      res = await fetch(`${BASE}/api/proforma`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          id: body.id ?? undefined,
+          numero: body.numero ?? undefined,
+          tipo: 'preventivo',
+          stato,
         }),
       });
     } else if (body.azione === 'riepilogo') {

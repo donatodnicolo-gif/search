@@ -64,6 +64,39 @@ export async function creaProformaDaRichiesta(r: {
   });
 }
 
+/**
+ * Il PREVENTIVO al cliente (26/08/2026): l'offerta che precede la pro-forma.
+ *
+ * Stesso ponte, documento diverso: FINANCE lo numera PV n/anno e lo tiene in
+ * bozza — l'invio al cliente resta un'azione di là, che è dove vive il
+ * documento. Qui si tiene solo il riferimento.
+ *
+ * ⚠️ L'importo che si scrive nella richiesta è quello che il cliente PAGA (IVA
+ * inclusa): al documento va l'imponibile, o l'IVA verrebbe aggiunta due volte.
+ */
+export async function creaPreventivoDaRichiesta(r: {
+  cliente: string;
+  importo: number;
+  causale?: string | null;
+  validoFino?: string | null;
+}): Promise<ProformaCreata> {
+  const descrizione = r.causale?.trim() || `Preventivo ${r.cliente}`;
+  const imponibile = Math.round((r.importo / 1.22) * 100) / 100;
+  return chiama<ProformaCreata>({
+    azione: 'crea',
+    tipo: 'preventivo',
+    partner: r.cliente,
+    oggetto: descrizione,
+    validoFino: r.validoFino ?? undefined,
+    righe: [{ descrizione, prezzoUnitario: imponibile, aliquotaIva: 22 }],
+  });
+}
+
+/** L'esito del preventivo: lo decide il cliente, non noi. */
+export async function esitoPreventivo(numero: string, stato: 'accettata' | 'rifiutata'): Promise<void> {
+  await chiama({ azione: 'esito_preventivo', numero, stato });
+}
+
 /** Conferma il pagamento della pro-forma collegata (→ stato "fatturata"). */
 export async function confermaPagamentoProforma(numero: string): Promise<void> {
   await chiama({ azione: 'conferma', numero });

@@ -39,13 +39,15 @@ import { avvisa, conferma } from '@/lib/dialoghi';
 import {
   aggiornaRichiestaCliente,
   cercaPlaces,
+  collegaPreventivoARichiesta,
   collegaProformaARichiesta,
   creaRichiestaCliente,
   eliminaRichiestaCliente,
   fetchRichiesteCliente,
   type PlaceLite,
 } from '@/lib/db';
-import { creaProformaDaRichiesta } from '@/lib/partner';
+import { creaPreventivoDaRichiesta, creaProformaDaRichiesta, esitoPreventivo } from '@/lib/partner';
+import { importaRichiesteDaMail } from '@/lib/mail';
 import {
   LABEL_CANALE_RICHIESTA,
   LABEL_STATO_RICHIESTA,
@@ -91,6 +93,7 @@ export default function RichiesteClienti() {
   // Di default si nascondono le chiuse: la schermata serve a lavorare, e un
   // elenco che cresce all'infinito smette di dire cosa c'è da fare.
   const [mostraChiuse, setMostraChiuse] = useState(false);
+  const [importando, setImportando] = useState(false);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -110,11 +113,108 @@ export default function RichiesteClienti() {
     }, [carica]),
   );
 
+  /**
+   * Legge la posta commerciale e ne tira fuori le richieste dei CLIENTI.
+   *
+   * È lo stesso import delle Richieste Web — una casella sola, un giro solo —
+   * ma il conto che interessa qui è l'altro: quante mail erano di clienti che
+   * abbiamo già e sono diventate richieste da prezzare invece di trattative
+   * (regola del binario). Le altre restano di là, e lo si dice: un import che
+   * non racconta dove sono finite le mail sembra averle perse.
+   */
+  async function importaDallaPosta() {
+    if (importando) return;
+    setImportando(true);
+    try {
+      const esito = await importaRichiesteDaMail();
+      await carica();
+      const nate = esito.richiesteCliente;
+      const altrove = esito.trattativeAgganciate + esito.trattativeConNegozioNuovo;
+      avvisa(
+        nate ? 'Richieste importate' : 'Nessuna richiesta di clienti',
+        [
+          nate
+            ? `${nate} ${nate === 1 ? 'richiesta è arrivata' : 'richieste sono arrivate'} qui, da clienti che abbiamo già.`
+            : `Nessuna delle ${esito.lette} mail lette era di un cliente già nostro.`,
+          altrove
+            ? `${altrove} ${altrove === 1 ? 'era di qualcuno di nuovo ed è diventata una trattativa' : 'erano di contatti nuovi e sono diventate trattative'}: le trovi in Richieste Web.`
+            : '',
+          esito.rimasteInCoda ? `${esito.rimasteInCoda} sono rimaste in coda da qualificare a mano.` : '',
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
+      );
+    } catch (e: any) {
+      avvisa('Importazione non riuscita', e?.message ?? 'Riprova più tardi.');
+    } finally {
+      setImportando(false);
+    }
+  }
+
   const chiuse = useMemo(() => righe.filter((r) => r.stato === 'fatturata' || r.stato === 'persa'), [righe]);
   const dati = useMemo(
     () => (mostraChiuse ? righe : righe.filter((r) => r.stato !== 'fatturata' && r.stato !== 'persa')),
     [righe, mostraChiuse],
   );
+
+  /**
+   * Chiede il PREVENTIVO a FINANCE: l'offerta da mandare al cliente, che poi
+   * l'accetta o la rifiuta. È il primo dei due documenti della catena
+   * (preventivo → pro-forma → fattura) decisa il 26/08/2026.
+   */
+  async function chiediPreventivo(r: RichiestaCliente) {
+    if (inCorso) return;
+    if (!r.importo) {
+      avvisa(
+        'Manca l’importo',
+        'Il preventivo è un prezzo: scrivi l’importo nella richiesta, poi lo si può chiedere a FINANCE.',
+      );
+      return;
+    }
+    conferma(
+      'Chiedere il preventivo a FINANCE?',
+      `Per «${r.cliente}», ${importoBreve(r.importo)} — ${r.descrizione}.\n\nNasce in bozza su Deluxy Partner: l’invio al cliente resta un’azione di FINANCE.`,
+      async () => {
+        setInCorso(r.id);
+        try {
+          const pv = await creaPreventivoDaRichiesta({
+            cliente: r.cliente,
+            importo: r.importo!,
+            causale: r.descrizione,
+            validoFino: r.serve_entro,
+          });
+          await collegaPreventivoARichiesta(r.id, pv.riferimento, pv.url);
+          await carica();
+          avvisa('Preventivo creato', `${pv.riferimento} è in bozza su Deluxy Partner.`);
+        } catch (e: any) {
+          // ⚠️ Il messaggio del servizio si mostra INTERO: se il cliente là non
+          // c'è, dice «Partner non trovato» e i candidati simili — cioè
+          // esattamente cosa manca e dove.
+          avvisa('Preventivo non creato', e?.message ?? 'Riprova.');
+        } finally {
+          setInCorso(null);
+        }
+      },
+      { testoConferma: 'Chiedi il preventivo' },
+    );
+  }
+
+  /** L'esito del preventivo: lo dice il cliente, noi lo registriamo di là. */
+  async function esitoDelPreventivo(r: RichiestaCliente, accettato: boolean) {
+    if (inCorso || !r.preventivo_numero) return;
+    setInCorso(r.id);
+    try {
+      await esitoPreventivo(r.preventivo_numero, accettato ? 'accettata' : 'rifiutata');
+      // Accettato = prezzo concordato, si può chiedere la fattura. Rifiutato =
+      // persa, e il perché si scrive nella nota.
+      await aggiornaRichiestaCliente(r.id, { stato: accettato ? 'concordata' : 'persa' });
+      await carica();
+    } catch (e: any) {
+      avvisa('Esito non registrato', e?.message ?? 'Riprova.');
+    } finally {
+      setInCorso(null);
+    }
+  }
 
   /**
    * Chiede il documento a FINANCE: nasce la pro-forma, e sulla richiesta resta
@@ -190,6 +290,58 @@ export default function RichiesteClienti() {
 
   const azioniDi = (r: RichiestaCliente) => (
     <View style={styles.azioni}>
+      {/* IL PREVENTIVO, prima della pro-forma: si chiede finché la richiesta è
+          da lavorare, e quando è fuori si registra l'esito che dà il cliente. */}
+      {r.preventivo_url ? (
+        <Pressable
+          style={styles.pfChip}
+          hitSlop={6}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            Linking.openURL(r.preventivo_url!);
+          }}
+          accessibilityLabel={`Apri ${r.preventivo_numero} su Deluxy Partner`}
+          {...({ title: 'Apri il preventivo su Deluxy Partner' } as any)}
+        >
+          <Ionicons name="document-outline" size={11} color={colors.goldStrong} />
+          <Text style={styles.pfChipTxt}>{r.preventivo_numero}</Text>
+        </Pressable>
+      ) : r.stato === 'nuova' ? (
+        <Pressable
+          style={[styles.btnGhost, inCorso === r.id && { opacity: 0.5 }]}
+          disabled={inCorso === r.id}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            chiediPreventivo(r);
+          }}
+        >
+          <Text style={styles.btnGhostTxt}>Chiedi il preventivo</Text>
+        </Pressable>
+      ) : null}
+      {r.stato === 'preventivo_inviato' ? (
+        <>
+          <Pressable
+            style={[styles.btn, inCorso === r.id && styles.btnOff]}
+            disabled={inCorso === r.id}
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              esitoDelPreventivo(r, true);
+            }}
+          >
+            <Text style={styles.btnTxt}>Accettato</Text>
+          </Pressable>
+          <Pressable
+            style={styles.btnGhost}
+            disabled={inCorso === r.id}
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              esitoDelPreventivo(r, false);
+            }}
+          >
+            <Text style={styles.btnGhostTxt}>Rifiutato</Text>
+          </Pressable>
+        </>
+      ) : null}
       {r.proforma_url ? (
         <Pressable
           style={styles.pfChip}
@@ -317,6 +469,22 @@ export default function RichiesteClienti() {
         <View style={styles.headerScroll}>
           <PageIntro testo="Il canale dei clienti che abbiamo già: una fornitura, un catering, un evento. Le richieste arrivano da sole dalla posta commerciale e dall'app consegne, oppure si scrivono qui — non aprono una trattativa, perché si evadono alle condizioni note. Qui si prezzano e si finalizzano: il documento lo emette FINANCE, che resta il posto dove il risultato si misura." />
         </View>
+
+        {/* IMPORTA DALLA POSTA (richiesta dell'utente, 26/08/2026). È lo stesso
+            giro delle Richieste Web — si legge commerciale@deluxy.it — ma qui
+            interessa l'altra metà: le mail di chi è GIÀ cliente non aprono una
+            trattativa, diventano richieste da prezzare. Il bottone sta anche
+            qui perché è qui che si va a cercarle. */}
+        <Pressable
+          style={[styles.btnImporta, importando && { opacity: 0.5 }]}
+          disabled={importando}
+          onPress={importaDallaPosta}
+        >
+          <Ionicons name="mail-outline" size={15} color={colors.navy} />
+          <Text style={styles.btnImportaTxt}>
+            {importando ? 'Leggo la posta…' : 'Importa dalla posta commerciale'}
+          </Text>
+        </Pressable>
 
         {chiuse.length ? (
           <Pressable style={styles.filtro} onPress={() => setMostraChiuse((v) => !v)}>
@@ -601,6 +769,19 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 96 },
   headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
+  btnImporta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    backgroundColor: colors.bianco,
+    borderRadius: radius.pill,
+    paddingVertical: 9,
+    marginBottom: spacing.sm,
+  },
+  btnImportaTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
   filtro: {
     flexDirection: 'row',
     alignItems: 'center',
