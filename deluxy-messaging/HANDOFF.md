@@ -1,5 +1,85 @@
 # Handoff — Deluxy Customer Service
 
+## 27/08/2026 (2) — il menu dice quanto lavoro c'è, non solo dove andare
+
+Chiesto dall'utente: «rivedi tutto il menù per ottimizzare il lavoro del customer
+service».
+
+### Cosa NON ho cambiato, e perché
+
+⚠️⚠️ **L'ordine delle voci era già ragionato, e le ragioni stanno scritte nel
+codice**: «Preventivi» prima di «Nuovo ordine» perché un preventivo è il momento
+in cui un ordine può nascere o non nascere; «Chiamate» subito sotto «Inbox»
+perché è l'altro canale in entrata e l'unico che si cancella da solo;
+«Riconciliazione» sotto «Pagamenti» perché ne è la conseguenza; «Turni» in cima
+solo per l'amministratore, che per l'operatore quel gruppo non esiste.
+**Riscrivere quell'ordine a gusto mio avrebbe buttato via ragioni nate dall'uso
+vero**, sostituendole con niente. Quindi l'ho lasciato.
+
+### Quello che al menu mancava davvero: il carico
+
+Ventotto voci che dicono **dove andare** e nessuna che dica **quanto c'è da
+fare**. Per sapere se l'inbox aspetta o se i reclami si stanno accumulando
+bisognava aprirli uno per uno.
+
+Adesso ogni voce porta **il numero** di quello che aspetta, con le stesse
+definizioni della schermata «Oggi». Misurato adesso: **Inbox 2 · Ordini aperti
+104 · Diario 25 · Pagamenti 2 · Reclami 6 · Rimborsi 4 · Chargeback 2** (Chiamate
+e Preventivi a zero, e infatti il numero non compare).
+
+⚠️⚠️ **NUMERO E PALLINO DICONO COSE DIVERSE, e servono tutti e due.** Il numero è
+*quanto lavoro c'è*, il pallino è *è arrivato qualcosa da quando hai guardato*.
+Una sezione può avere venti cose ferme da ieri (numero, niente pallino) o una
+novità che un collega ha già preso (pallino, niente numero): con un segnale solo,
+uno dei due casi diventa invisibile.
+
+⚠️⚠️ **I conteggi sono quelli di `dashboard.ts`, riga per riga.** Due modi di
+contare la stessa cosa nella stessa app producono due numeri diversi sullo stesso
+schermo, e a quel punto non si crede più a nessuno dei due.
+⚠️ **Un'eccezione, dichiarata**: i pagamenti. «Oggi» conta quelli non ancora
+mandati a chi approva (`inviataIl: null`), che oggi sono **tutti e 22** perché il
+collegamento a FINANCE non è configurato — un 22 fisso accanto alla voce sarebbe
+rumore permanente. Nel menu si conta quello che resta **da pagare**
+(`pagataIl: null`): **2**.
+
+⚠️ **Il numero è neutro, il rosso è riservato a chi ha una SCADENZA.** Quasi
+tutte le sezioni hanno un numero: se fossero tutti colorati non li guarderebbe
+più nessuno. Rosso solo le **contestazioni con le prove in scadenza entro sette
+giorni** — ⚠️ oggi 27/08 sono **ancora neutre**, perché la scadenza è il 4/09:
+diventeranno rosse il 28.
+
+### L'unica voce spostata
+
+**«Casistiche» da «Reclami» a «Configurazione».** Non è lavoro: è il **catalogo**
+dei tipi di reclamo con le azioni, e lo si tocca quando se ne aggiunge uno — cioè
+quasi mai. In mezzo al lavoro quotidiano una voce che non si apre mai non è
+neutra: **spinge più in basso quelle che si aprono ogni giorno**, e insegna a
+scorrere il gruppo invece di leggerlo.
+
+### Il costo, misurato
+
+⚠️ La chiamata che riempie il menu fa **diciannove query** (nove date, nove
+conteggi, più le contestazioni in scadenza) e gira **su ogni pagina, per ogni
+persona**: misurata, **1,2 s**. Per questo il giro è passato da 60 a **90
+secondi**: l'immediatezza ce l'hanno già i riquadri in basso a destra, che
+chiedono ogni 25 secondi una cosa molto più leggera. Qui basta essere aggiornati,
+non istantanei.
+
+### Verifica
+
+- **`npx tsx scripts/prova-pallini.mts` — 14 prove, tutte passate** (aggiornate
+  alla forma nuova).
+- **Sui dati veri**: `sezioniDelMenu()` in **1.222 ms**, con i nove numeri qui
+  sopra.
+- **Nel browser**, su una pagina d'anteprima temporanea (ora cancellata): il
+  numero compare **solo dove è maggiore di zero** (Chiamate a 0 non mostra
+  niente), quello delle contestazioni è **rosso** `rgb(215,0,21)` e gli altri
+  grigi, il pallino sta **dopo** il numero a 12px dal bordo, **l'altezza della
+  riga non cambia** (42px su tutte) e **nessun nome viene troncato** — nemmeno
+  «Ordini aperti» con «104» e il pallino accanto.
+
+`npx tsc --noEmit` esito 0, `npm run build` esito 0.
+
 ## 27/08/2026 (1) — la risposta automatica dell'AI si governa dall'INBOX, e il pallino giallo sul menu
 
 Due richieste dell'utente.

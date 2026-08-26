@@ -5500,3 +5500,32 @@ button.ai-accesa:hover {
      senza stacco si confonde con il testo. */
   box-shadow: 0 0 0 3px var(--gold-soft);
 }
+
+
+/* ── IL NUMERO SULLA VOCE: quanto lavoro c'è lì dentro ──
+   ⚠️ Neutro, non colorato: quasi tutte le sezioni ne hanno uno, e se fossero
+   tutti accesi di un colore non ne guarderebbe più nessuno. Il colore è
+   riservato a quello che ha una SCADENZA. */
+.sb-quanti {
+  margin-left: auto;
+  flex: none;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+/* ⚠️ Rosso solo dove il tempo scade da solo (le contestazioni): se sono rossi
+   tutti, non è rosso nessuno. */
+.sb-quanti.urgente {
+  background: rgba(215, 0, 21, 0.12);
+  color: var(--red);
+}
+/* Col numero accanto, il pallino non deve più spingersi da solo a destra. */
+.sb-quanti + .sb-pallino {
+  margin-left: 0;
+}

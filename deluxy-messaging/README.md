@@ -610,6 +610,23 @@ riceve un messaggio che nessuno ha letto: non è una preferenza di chi lavora.
 ⚠️ La conversazione a cui ha risposto l'AI **resta da leggere**: ha tamponato,
 non ha chiuso. E il messaggio nel filo porta il nome **«AI (fuori turno)»**.
 
+## Il menu: dove andare e quanto c'è da fare
+
+Ogni voce del menu porta **il numero di quello che aspetta** — Inbox (non lette),
+Ordini aperti, Chiamate da richiamare, Preventivi da preparare, Diario da fare,
+Pagamenti da pagare, Reclami aperti, Rimborsi chiesti, Contestazioni da
+rispondere. Se è zero, il numero non compare.
+
+⚠️ **I numeri sono gli stessi della schermata «Oggi»**: due modi di contare la
+stessa cosa nella stessa app fanno due numeri diversi sullo stesso schermo, e a
+quel punto non si crede più a nessuno dei due. **Un'eccezione**: nel menu i
+pagamenti contano quelli **da pagare**, mentre «Oggi» conta quelli non ancora
+mandati a chi approva.
+
+⚠️ **Il numero è grigio; il rosso è solo per quello che scade**: le contestazioni
+con le prove da mandare entro una settimana. Se fossero rossi tutti, non sarebbe
+rosso nessuno.
+
 ## Il pallino giallo sul menu
 
 Sulle voci del menu compare un **pallino oro** quando in quella sezione è

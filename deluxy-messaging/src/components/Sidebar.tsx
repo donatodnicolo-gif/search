@@ -96,7 +96,6 @@ export function Sidebar({
         // dall'altra parte: qui i soldi tornano indietro per decisione di una
         // banca, e c'è una scadenza per dire la nostra.
         { href: '/chargeback', nome: 'Chargeback', icona: iconaRimborso },
-        { href: '/reclami/casistiche', nome: 'Casistiche', icona: iconaCasistiche },
       ],
     },
     {
@@ -128,6 +127,13 @@ export function Sidebar({
     {
       titolo: 'Configurazione',
       voci: [
+        // ⚠️ «Casistiche» stava in «Reclami», in mezzo alle cose da fare. Ma non
+        // è lavoro: è il CATALOGO dei tipi di reclamo con le azioni da eseguire,
+        // e lo si tocca quando se ne aggiunge uno — cioè quasi mai. In mezzo al
+        // lavoro quotidiano una voce che non si apre mai non è neutra: sposta
+        // più in basso quelle che si aprono ogni giorno, e insegna a scorrere il
+        // gruppo invece di leggerlo.
+        { href: '/reclami/casistiche', nome: 'Casistiche', icona: iconaCasistiche },
         { href: '/utenti', nome: 'Utenti', icona: iconaUtenti },
         { href: '/negozi', nome: 'Negozi', icona: iconaNegozi },
         { href: '/numeri-whatsapp', nome: 'Numeri WhatsApp', icona: iconaChat },
@@ -139,7 +145,7 @@ export function Sidebar({
     },
   ]
 
-  const novita = usaPallini(path)
+  const { accesi, carichi } = usaPallini(path)
 
   // La voce attiva è quella il cui href è il prefisso PIÙ LUNGO del percorso:
   // così su /reclami/casistiche si accende "Casistiche", non "Reclami".
@@ -166,7 +172,26 @@ export function Sidebar({
                 {/* ⚠️ Il pallino sta in FONDO alla riga, non davanti al nome: le
                     voci sono ventotto e devono restare allineate: un segno che
                     entra ed esce a sinistra le farebbe ballare tutte. */}
-                {novita.has(v.href) ? (
+                {/* ⚠️⚠️ IL NUMERO E IL PALLINO DICONO COSE DIVERSE, e per questo
+                    ci sono tutti e due: il numero è **quanto lavoro c'è**, il
+                    pallino è **è arrivato qualcosa da quando hai guardato**. Una
+                    sezione può avere venti cose ferme da ieri (numero, niente
+                    pallino) o una novità che un collega ha già preso (pallino,
+                    niente numero): con un segnale solo, uno dei due casi
+                    sparisce. */}
+                {carichi[v.href]?.quanti ? (
+                  <span
+                    className={`sb-quanti${carichi[v.href]?.urgente ? ' urgente' : ''}`}
+                    title={
+                      carichi[v.href]?.urgente
+                        ? `${carichi[v.href]?.quanti} da fare, e qualcuna scade entro una settimana`
+                        : `${carichi[v.href]?.quanti} da fare`
+                    }
+                  >
+                    {carichi[v.href]!.quanti}
+                  </span>
+                ) : null}
+                {accesi.has(v.href) ? (
                   <span
                     className="sb-pallino"
                     title="È arrivato qualcosa di nuovo da quando l'hai guardata"
@@ -390,10 +415,18 @@ const iconaImpostazioni = (
 // tenerlo sul server vorrebbe dire una tabella in più per un pallino, e
 // «l'ho guardato io» non è un fatto dell'azienda.
 const CHIAVE_VISTO = 'messaggi-sezioni-viste'
-const RESPIRO = 60000
+// ⚠️ Novanta secondi e non sessanta: questa chiamata fa DICIANNOVE query (nove
+// date più nove conteggi più le contestazioni in scadenza) e gira su ogni
+// pagina, per ogni persona. Misurata: 1,2 s. L'immediatezza ce l'hanno già i
+// riquadri in basso a destra, che chiedono ogni 25 secondi una cosa molto più
+// leggera; qui basta essere aggiornati, non istantanei.
+const RESPIRO = 90000
 
-function usaPallini(path: string): Set<string> {
+type Carico = { ultimo: string; quanti: number; urgente: boolean }
+
+function usaPallini(path: string): { accesi: Set<string>; carichi: Record<string, Carico> } {
   const [accesi, setAccesi] = useState<Set<string>>(new Set())
+  const [carichi, setCarichi] = useState<Record<string, Carico>>({})
 
   const guarda = useCallback(async () => {
     try {
@@ -403,7 +436,8 @@ function usaPallini(path: string): Set<string> {
       // redirect e il tipo di contenuto, o si continuerebbe a bussare.
       const ct = res.headers.get('content-type') ?? ''
       if (!res.ok || res.redirected || !ct.includes('application/json')) return
-      const d = (await res.json()) as { sezioni: Record<string, string> }
+      const d = (await res.json()) as { sezioni: Record<string, Carico> }
+      setCarichi(d.sezioni)
       // ⚠️ Il segnalibro sta nel browser di quella persona: «l'ho guardato io»
       // non è un fatto dell'azienda, e tenerlo sul server vorrebbe dire una
       // tabella in più per un pallino.
@@ -449,5 +483,5 @@ function usaPallini(path: string): Set<string> {
     }
   }, [guarda])
 
-  return accesi
+  return { accesi, carichi }
 }

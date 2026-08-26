@@ -30,14 +30,15 @@ export type EsitoPallini = {
  * avrebbe il pallino sempre acceso e uno indietro non l'avrebbe mai.
  */
 export function decidiPallini(
-  sezioni: Record<string, string>,
+  sezioni: Record<string, { ultimo: string }>,
   visto: Visto,
   path: string,
   mai: boolean
 ): EsitoPallini {
   const accesi: string[] = []
   const nuovo: Visto = { ...visto }
-  for (const [href, quando] of Object.entries(sezioni)) {
+  for (const [href, s] of Object.entries(sezioni)) {
+    const quando = s?.ultimo ?? ''
     // Sezione vuota: non c'è niente da segnalare e niente da ricordare.
     if (!quando) continue
     // ⚠️⚠️ LA PRIMA VOLTA NON SI ACCENDE NIENTE. Senza questo, chi apre l'app da

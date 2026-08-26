@@ -386,49 +386,116 @@ export const SEZIONI_CON_NOVITA = [
   '/chargeback',
 ] as const
 
+export type SezioneMenu = {
+  /** La data della cosa più recente che c'è. Stringa vuota = non c'è niente. */
+  ultimo: string
+  /** Quanto lavoro aspetta in quella sezione. 0 = niente. */
+  quanti: number
+  /** Qualcosa lì dentro ha una scadenza vicina. */
+  urgente: boolean
+}
+
 /**
- * Per ogni sezione, la data della cosa più recente. Stringa vuota = non c'è
- * niente.
+ * Per ogni voce del menu: la data della cosa più recente e **quanto lavoro
+ * aspetta**.
  *
- * ⚠️ Una query per sezione, ma sono `findFirst` con `take 1` su tabelle piccole:
- * la più grande è `Messaggio` (3.700 righe). Il conto vero non si fa: al pallino
- * non serve sapere QUANTE sono, serve sapere se ce n'è una più nuova dell'ultima
- * vista — e un `count` costerebbe di più senza dire di più.
+ * ⚠️⚠️ I DUE NUMERI DICONO COSE DIVERSE, e servono tutti e due. Il **pallino**
+ * dice «è arrivato qualcosa da quando hai guardato»; il **numero** dice «quanto
+ * ce n'è da fare». Una sezione può avere venti cose da fare e nessuna novità
+ * (tutto vecchio, tutto fermo) o una novità sola e niente da fare (è arrivato un
+ * ordine e l'ha già preso un collega). Con un segnale solo, uno dei due casi
+ * diventa invisibile.
+ *
+ * ⚠️⚠️ I CONTEGGI SONO GLI STESSI DELLA SCHERMATA «OGGI» (`src/lib/dashboard.ts`),
+ * riga per riga. Due modi di contare la stessa cosa nella stessa app producono
+ * due numeri diversi sullo stesso schermo, e a quel punto non si crede più a
+ * nessuno dei due.
+ *
+ * ⚠️ L'unica eccezione, dichiarata: i **pagamenti**. «Oggi» conta quelli non
+ * ancora mandati a chi approva (`inviataIl: null`), che oggi sono TUTTI, perché
+ * il collegamento a FINANCE non è configurato — un 22 fisso accanto alla voce
+ * sarebbe rumore permanente. Qui si conta quello che resta **da pagare**
+ * (`pagataIl: null`), che è il lavoro vero di chi guarda il menu.
  */
-export async function ultimoPerSezione(): Promise<Record<string, string>> {
+export async function sezioniDelMenu(): Promise<Record<string, SezioneMenu>> {
   const quando = (d: { creatoIl: Date } | null) => (d ? d.creatoIl.toISOString() : '')
-  const [messaggio, ordine, chiamata, preventivo, nota, pagamento, reclamo, rimborso, disputa] =
-    await Promise.all([
-      // ⚠️ Solo i messaggi IN ARRIVO: il pallino dice «è arrivato qualcosa», e
-      // accenderlo per la risposta che hai appena mandato tu è il modo di
-      // insegnare a ignorarlo.
-      db.messaggio.findFirst({
-        where: { direzione: 'in', tipo: { not: 'nota' }, conversazione: { eliminataIl: null } },
-        orderBy: { creatoIl: 'desc' },
-        select: { creatoIl: true },
-      }),
-      db.ordine.findFirst({
-        where: { annullatoIl: null },
-        orderBy: { creatoIl: 'desc' },
-        select: { creatoIl: true },
-      }),
-      db.chiamata.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
-      db.preventivo.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
-      db.notaDiario.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
-      db.richiestaPagamento.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
-      db.reclamo.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
-      db.rimborso.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
-      db.chargeback.findFirst({ orderBy: { creatoIl: 'desc' }, select: { creatoIl: true } }),
-    ])
+  const recente = { orderBy: { creatoIl: 'desc' as const }, select: { creatoIl: true } }
+  // Una contestazione con la scadenza vicina non è «una in più»: è denaro che si
+  // perde da solo se nessuno risponde.
+  const fraSetteGiorni = new Date(Date.now() + 7 * 24 * 3600 * 1000)
+
+  const [
+    ultimoMessaggio,
+    inbox,
+    ultimoOrdine,
+    ordiniAperti,
+    ultimaChiamata,
+    chiamateDaFare,
+    ultimoPreventivo,
+    preventiviDaFare,
+    ultimaNota,
+    noteAperte,
+    ultimoPagamento,
+    pagamentiDaFare,
+    ultimoReclamo,
+    reclamiAperti,
+    ultimoRimborso,
+    rimborsiChiesti,
+    ultimaDisputa,
+    disputeAperte,
+    disputeUrgenti,
+  ] = await Promise.all([
+    // ⚠️ Solo i messaggi IN ARRIVO: il pallino dice «è arrivato qualcosa», e
+    // accenderlo per la risposta che hai appena mandato tu è il modo di
+    // insegnare a ignorarlo.
+    db.messaggio.findFirst({
+      where: { direzione: 'in', tipo: { not: 'nota' }, conversazione: { eliminataIl: null } },
+      ...recente,
+    }),
+    db.conversazione.count({
+      where: {
+        archiviata: false,
+        eliminataIl: null,
+        OR: [{ nonLetti: { gt: 0 } }, { daRileggere: true }],
+      },
+    }),
+    db.ordine.findFirst({ where: { annullatoIl: null }, ...recente }),
+    db.ordine.count({ where: { gestione: { not: 'gestito' } } }),
+    db.chiamata.findFirst(recente),
+    db.chiamata.count({ where: { richiamataIl: null } }),
+    db.preventivo.findFirst(recente),
+    db.preventivo.count({ where: { stato: 'da_fare' } }),
+    db.notaDiario.findFirst(recente),
+    db.notaDiario.count({ where: { fatta: false } }),
+    db.richiestaPagamento.findFirst(recente),
+    db.richiestaPagamento.count({ where: { pagataIl: null } }),
+    db.reclamo.findFirst(recente),
+    db.reclamo.count({ where: { stato: { in: ['aperto', 'in_lavorazione'] } } }),
+    db.rimborso.findFirst(recente),
+    db.rimborso.count({ where: { stato: 'richiesto' } }),
+    db.chargeback.findFirst(recente),
+    db.chargeback.count({ where: { stato: { in: ['needs_response', 'under_review'] } } }),
+    db.chargeback.count({
+      where: {
+        stato: { in: ['needs_response', 'under_review'] },
+        scadenzaProve: { not: null, lte: fraSetteGiorni },
+      },
+    }),
+  ])
+
   return {
-    '/inbox': quando(messaggio),
-    '/ordini': quando(ordine),
-    '/chiamate': quando(chiamata),
-    '/preventivi': quando(preventivo),
-    '/diario': quando(nota),
-    '/pagamenti': quando(pagamento),
-    '/reclami': quando(reclamo),
-    '/rimborsi': quando(rimborso),
-    '/chargeback': quando(disputa),
+    '/inbox': { ultimo: quando(ultimoMessaggio), quanti: inbox, urgente: false },
+    '/ordini': { ultimo: quando(ultimoOrdine), quanti: ordiniAperti, urgente: false },
+    '/chiamate': { ultimo: quando(ultimaChiamata), quanti: chiamateDaFare, urgente: false },
+    '/preventivi': { ultimo: quando(ultimoPreventivo), quanti: preventiviDaFare, urgente: false },
+    '/diario': { ultimo: quando(ultimaNota), quanti: noteAperte, urgente: false },
+    '/pagamenti': { ultimo: quando(ultimoPagamento), quanti: pagamentiDaFare, urgente: false },
+    '/reclami': { ultimo: quando(ultimoReclamo), quanti: reclamiAperti, urgente: false },
+    '/rimborsi': { ultimo: quando(ultimoRimborso), quanti: rimborsiChiesti, urgente: false },
+    '/chargeback': {
+      ultimo: quando(ultimaDisputa),
+      quanti: disputeAperte,
+      urgente: disputeUrgenti > 0,
+    },
   }
 }
