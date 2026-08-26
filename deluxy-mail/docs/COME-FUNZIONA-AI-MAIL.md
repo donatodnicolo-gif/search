@@ -460,6 +460,16 @@ centimetri da un totale già estratto nella stessa schermata. La **fase** è
 una tendina con gli stati veri di Scout (Primo contatto · In trattativa · Preventivo
 inviato · Chiusa vinta · Chiusa persa), e l'AI la propone leggendo lo scambio.
 
+**Registra il preventivo: il fornitore è chi manda il prezzo A NOI.** In una conversazione
+possono esserci due aziende diverse — il cliente che ci chiede un prezzo e il fornitore che
+ce lo fa — e la tabella ora lo dice: «Fornitore» è chi manda il prezzo a noi, mai il
+cliente, e l'**Email del fornitore** è una riga che si vede (prima partiva verso Scout
+senza comparire, e poteva essere quella del cliente). La riempie il codice solo quando è
+certa, cioè quando il prezzo è arrivato proprio da quell'indirizzo. ⚠️ L'importo da
+registrare è quello che **il fornitore ha scritto a noi**: il «totale complessivo» che
+compare nel riassunto può essere il prezzo quotato al cliente, che è un'altra cosa —
+controlla sempre la riga prima di confermare.
+
 **«Altra azione…»: l'elenco completo è sempre a un clic.** Sotto i bottoni che il
 riassunto propone c'è **＋ Altra azione…**, che apre lo stesso dialogo con **tutte** le app
 collegate e ti fa scegliere. Serve perché i bottoni proposti li decide l'AI, e l'AI può

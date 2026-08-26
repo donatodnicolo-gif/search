@@ -23,6 +23,42 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 10) — il fornitore che era il cliente, e l'importo dell'ordine
+
+Aperta «Registra il preventivo» dal riquadro, l'utente vede: **Fornitore = HAVI** (che è
+il CLIENTE: il fornitore è «Ilaria (Eventi)», bioqitchen.it) e **Importo = 3651**, cioè il
+**totale che NOI abbiamo quotato al cliente**, non il prezzo del fornitore. Tre cause, e
+una è mia di stamattina.
+
+1. 🔴 **`daMail` riempiva il fornitore col mittente della mail.** Il commento diceva «chi
+   manda il prezzo lo dice l'indirizzo»: vero **solo se la mail è ARRIVATA**. Questa
+   azione si prepara spessissimo da una mail **nostra** (il riassunto punta alla mail che
+   porta il dato, che può essere quella con cui abbiamo mandato il prezzo al cliente) — e
+   lì dentro il mittente **siamo noi**: ci saremmo registrati come fornitori di noi
+   stessi. È la **gemella** del guasto del contatto di stasera: *un'identità presa dal
+   mittente vale solo se si sa da che parte va la mail.* La decisione è passata a
+   `normalizza`, che ha `nostriDomini` e il nuovo **`ctx.mittente`**.
+2. 🔴 **`fornitoreEmail` partiva verso Scout senza vedersi**: era `ctx.controparte`, cioè
+   la prima azienda esterna dello scambio — in questo thread il **cliente**. Ora è un
+   **campo della tabella** («Email del fornitore»), riempito dal codice solo quando è
+   certo (la mail è arrivata da lì) e correggibile. [[trappola-vista-che-mostra-solo-il-previsto]]
+   al contrario: il campo c'era, ma solo nel corpo della richiesta.
+3. ⚠️ **Il riassunto che ho aggiunto stamattina mescola i due lati.** Serviva a non perdere
+   il totale sulla trattativa; sul preventivo lo stesso totale è la cifra **sbagliata**.
+   Ora il blocco del riassunto nel prompt dice che copre TUTTA la conversazione e che un
+   «totale complessivo» verso il cliente **non** è il prezzo di un fornitore; e la guida
+   dell'azione distingue esplicitamente cliente e fornitore.
+   ⚠️ Se ricapita, il passo successivo è **non passare il riassunto a tutte le azioni**:
+   un campo `usaRiassunto` sul catalogo, acceso solo dove serve.
+
+⚠️ Il **nome** «HAVI» il codice non può correggerlo: non sa distinguere il cliente dal
+fornitore, e infatti `normalizza` non lo tocca (interviene solo se il modello scrive un
+NOSTRO indirizzo). Lo corregge la guida — o la persona, dalla tabella.
+Verifica: `normalizza` provata **eseguendo il codice vero** su cinque casi (mail nostra
+col cliente scritto → non tocca il nome ma NON manda l'email; mail nostra con noi scritti
+→ svuota; mail del fornitore col modello muto → nome ed email dal mittente; ecc.).
+
+---
 ### 26/08 (sera 9) — «Altra azione…»: la porta che non dipende dal modello
 
 Terza segnalazione di fila sullo stesso punto — «non vedo la possibilità di aprire una
