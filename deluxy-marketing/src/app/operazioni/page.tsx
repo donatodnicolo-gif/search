@@ -269,7 +269,7 @@ export default async function PaginaOperazioni({
     ].filter(Boolean);
 
     return (
-      <li className="op-riga" key={o.id}>
+      <li id={`op-${o.id}`} className="op-riga" key={o.id}>
         {/* La casella raggiunge il form della barra con form=: dentro la riga
             ci sono gia i moduli di approva e annulla, e i form non si
             annidano. */}

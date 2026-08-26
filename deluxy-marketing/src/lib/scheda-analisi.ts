@@ -583,6 +583,252 @@ export function descriviOperazione(pronta: OperazionePronta): string {
   }
 }
 
+// ───── LA RICONCILIAZIONE: cosa risulta FATTO di quello che il report chiede ─────
+//
+// ⚠️ PERCHÉ (26/08/2026). Il report propone, la coda esegue — ma nessuno
+// richiudeva il cerchio: il sitelink vietato è stato rimosso DAVVERO (esito
+// «2 sitelink rimossi», 26/08 04:41) e la scheda continuava a proporlo come
+// se niente fosse. Un'azione fatta che resta scritta «da fare» insegna a non
+// leggere le azioni. L'incrocio lo fa l'AI perché il legame non è sempre
+// letterale: la #17 è stata tentata due volte con parametri diversi, e solo
+// la seconda è quella giusta — una JOIN non lo sa, un lettore sì.
+//
+// ⚠️ La riconciliazione dice quello che risulta DALLA CODA dell'app: un'azione
+// fatta a mano in interfaccia resta «da fare» finché un censimento non la
+// mostra. Meglio un «da fare» stantio che un «fatto» dedotto.
+
+export type StatoAzioneRiconciliata = "fatta" | "in_corso" | "fallita" | "parziale" | "da_fare";
+
+export type Riconciliazione = {
+  azioni: {
+    indice: number;
+    stato: StatoAzioneRiconciliata;
+    /** Gli id delle operazioni della coda che riguardano questa azione. */
+    operazioni: string[];
+    /** Una riga fattuale: cosa risulta, con esito e data quando ci sono. */
+    nota: string;
+  }[];
+};
+
+const SCHEMA_RICONCILIAZIONE: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  required: ["azioni"],
+  properties: {
+    azioni: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["indice", "stato", "operazioni", "nota"],
+        properties: {
+          indice: { type: "integer" },
+          stato: { type: "string", enum: ["fatta", "in_corso", "fallita", "parziale", "da_fare"] },
+          operazioni: { type: "array", items: { type: "string", maxLength: 40 } },
+          nota: { type: "string", maxLength: 240 },
+        },
+      },
+    },
+  },
+};
+
+const ISTRUZIONI_RICONCILIAZIONE = `Sei il revisore della coda operazioni di Deluxy Marketing. Ricevi le AZIONI
+proposte da un'analisi e le OPERAZIONI della coda (con stato ed esito) dello
+stesso mondo. Per OGNI azione dici cosa risulta fatto, in ITALIANO.
+
+Regole:
+1. Collega un'operazione a un'azione SOLO se l'intento combacia davvero
+   (stessa campagna o stesso oggetto, stesso scopo). Il legame può non essere
+   letterale: un'azione tentata due volte con parametri diversi è la stessa
+   azione. Nel dubbio, NON collegare.
+2. stato:
+   · "fatta" — almeno un'operazione ESEGUITA il cui esito conferma l'intento
+     dell'azione (leggi l'esito, non solo lo stato).
+   · "fallita" — l'ultimo tentativo è fallito e non ce n'è uno vivo in coda.
+   · "in_corso" — c'è un'operazione in_attesa o approvata che la copre.
+   · "parziale" — l'azione chiede più cose e solo alcune risultano eseguite.
+   · "da_fare" — nessuna operazione la riguarda. È lo stato di default.
+3. La nota è FATTUALE e cita l'esito e la data quando ci sono («2 sitelink
+   rimossi il 26/08»). Niente giudizi, niente promesse.
+4. "operazioni" contiene SOLO id presenti nell'elenco ricevuto.
+5. La coda è dell'app: un'azione fatta a mano in interfaccia resta "da_fare"
+   — non dedurre mai un fatto che la coda non mostra.`;
+
+/**
+ * Incrocia la scheda di un'analisi con la coda operazioni e salva il risultato.
+ */
+export async function riconciliaAnalisi(analisiId: string): Promise<
+  { ok: true; fatte: number; inCorso: number; fallite: number } | { ok: false; errore: string }
+> {
+  const analisi = await prisma.analisi.findUnique({ where: { id: analisiId } });
+  if (!analisi) return { ok: false, errore: "Analisi non trovata." };
+  const scheda = schedaDi(analisi);
+  if (!scheda) return { ok: false, errore: "Questa analisi non ha ancora una scheda." };
+  if (scheda.azioni.length === 0) return { ok: false, errore: "La scheda non ha azioni da riconciliare." };
+
+  // Le operazioni del suo mondo: quelle sulle campagne del brand, dalla
+  // vigilia dell'analisi in poi, più quelle il cui motivo la cita.
+  const dalGiorno = new Date(analisi.dataAnalisi.getTime() - 3 * 86_400_000);
+  const operazioni = await prisma.operazioneAdv.findMany({
+    where: {
+      creataIl: { gte: dalGiorno },
+      OR: [
+        { campagnaId: { in: (await prisma.campagna.findMany({
+            where: { brand: analisi.brand, ...(analisi.canale ? { canale: analisi.canale } : {}) },
+            select: { id: true },
+          })).map((c) => c.id) } },
+        { motivo: { contains: analisi.titolo } },
+      ],
+    },
+    orderBy: { creataIl: "desc" },
+    take: 80,
+    select: {
+      id: true, tipo: true, bersaglio: true, parametri: true, stato: true,
+      esito: true, motivo: true, creataIl: true, eseguitaIl: true,
+    },
+  });
+  if (operazioni.length === 0) {
+    // Niente coda = tutte da fare: non serve l'AI per dirlo, e si scrive
+    // comunque, così la pagina sa che la riconciliazione è stata fatta.
+    await prisma.analisi.update({
+      where: { id: analisi.id },
+      data: {
+        riconciliazione: JSON.stringify({ azioni: [] } satisfies Riconciliazione),
+        riconciliataIl: new Date(),
+      },
+    });
+    return { ok: true, fatte: 0, inCorso: 0, fallite: 0 };
+  }
+
+  const risposta = await chiediAllAi({
+    istruzioni: ISTRUZIONI_RICONCILIAZIONE,
+    dati: {
+      analisi: { titolo: analisi.titolo, data: analisi.dataAnalisi, brand: analisi.brand },
+      azioni: scheda.azioni.map((a, indice) => ({
+        indice,
+        codice: a.codice,
+        testo: a.testo,
+        operazioneProposta: a.operazione,
+      })),
+      operazioni: operazioni.map((o) => ({
+        id: o.id,
+        tipo: o.tipo,
+        bersaglio: o.bersaglio,
+        parametri: o.parametri,
+        stato: o.stato,
+        esito: o.esito ? o.esito.slice(0, 240) : null,
+        motivo: o.motivo ? o.motivo.slice(0, 160) : null,
+        creataIl: o.creataIl,
+        eseguitaIl: o.eseguitaIl,
+      })),
+    },
+    schema: SCHEMA_RICONCILIAZIONE,
+    massimoToken: 6000,
+  });
+  if (!risposta.ok) return { ok: false, errore: risposta.errore };
+
+  let ric: Riconciliazione;
+  try {
+    ric = JSON.parse(risposta.testo) as Riconciliazione;
+  } catch {
+    return { ok: false, errore: "L'AI ha risposto fuori schema." };
+  }
+  // La revisione del codice: indici nel range, id solo fra quelli veri,
+  // «da_fare» senza operazioni non si scrive (è il default, sarebbe rumore).
+  const idVeri = new Set(operazioni.map((o) => o.id));
+  ric.azioni = (ric.azioni ?? []).filter(
+    (a) =>
+      Number.isInteger(a.indice) &&
+      a.indice >= 0 &&
+      a.indice < scheda.azioni.length &&
+      ["fatta", "in_corso", "fallita", "parziale", "da_fare"].includes(a.stato)
+  );
+  for (const a of ric.azioni) a.operazioni = (a.operazioni ?? []).filter((id) => idVeri.has(id));
+  ric.azioni = ric.azioni.filter((a) => a.stato !== "da_fare" || a.operazioni.length > 0);
+
+  await prisma.analisi.update({
+    where: { id: analisi.id },
+    data: { riconciliazione: JSON.stringify(ric), riconciliataIl: new Date() },
+  });
+  return {
+    ok: true,
+    fatte: ric.azioni.filter((a) => a.stato === "fatta").length,
+    inCorso: ric.azioni.filter((a) => a.stato === "in_corso").length,
+    fallite: ric.azioni.filter((a) => a.stato === "fallita").length,
+  };
+}
+
+/** La riconciliazione parsata, o null. */
+export function riconciliazioneDi(analisi: {
+  riconciliazione: string | null;
+}): Riconciliazione | null {
+  if (!analisi.riconciliazione) return null;
+  try {
+    const r = JSON.parse(analisi.riconciliazione) as Riconciliazione;
+    return r && Array.isArray(r.azioni) ? r : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Riconcilia le schede recenti la cui coda è CAMBIATA dopo l'ultima
+ * riconciliazione (o mai riconciliate). Le chiama il cron dopo le schede.
+ */
+export async function riconciliaRecenti(limite = 2): Promise<{ riconciliate: number; fallite: string[] }> {
+  const candidate = await prisma.analisi.findMany({
+    where: { scheda: { not: null }, dataAnalisi: { gte: new Date(Date.now() - 14 * 86_400_000) } },
+    orderBy: { dataAnalisi: "desc" },
+    take: 10,
+    select: { id: true, titolo: true, brand: true, canale: true, riconciliataIl: true, dataAnalisi: true },
+  });
+  const daFare: typeof candidate = [];
+  for (const a of candidate) {
+    if (daFare.length >= limite) break;
+    if (!a.riconciliataIl) { daFare.push(a); continue; }
+    // La coda è cambiata dopo? Basta un'operazione del brand toccata dopo.
+    const cambiata = await prisma.operazioneAdv.findFirst({
+      where: {
+        creataIl: { gte: new Date(a.dataAnalisi.getTime() - 3 * 86_400_000) },
+        campagnaId: { in: (await prisma.campagna.findMany({
+            where: { brand: a.brand, ...(a.canale ? { canale: a.canale } : {}) },
+            select: { id: true },
+          })).map((c) => c.id) },
+        OR: [
+          { creataIl: { gt: a.riconciliataIl } },
+          { eseguitaIl: { gt: a.riconciliataIl } },
+          { approvataIl: { gt: a.riconciliataIl } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (cambiata) daFare.push(a);
+  }
+  let riconciliate = 0;
+  const fallite: string[] = [];
+  for (const a of daFare) {
+    const esito = await riconciliaAnalisi(a.id);
+    if (esito.ok) riconciliate++;
+    else fallite.push(`${a.titolo}: ${esito.errore}`);
+  }
+  return { riconciliate, fallite };
+}
+
+export const COLORE_STATO_RICONCILIATO: Record<StatoAzioneRiconciliata, string> = {
+  fatta: "var(--green)",
+  in_corso: "var(--blue)",
+  fallita: "var(--red)",
+  parziale: "var(--orange)",
+  da_fare: "var(--text-tertiary)",
+};
+export const ETICHETTA_STATO_RICONCILIATO: Record<StatoAzioneRiconciliata, string> = {
+  fatta: "✓ Fatta",
+  in_corso: "In coda",
+  fallita: "Fallita",
+  parziale: "Parziale",
+  da_fare: "Da fare",
+};
+
 export const COLORE_VERDETTO: Record<VerdettoScheda, string> = {
   rosso: "var(--red)",
   giallo: "var(--orange)",

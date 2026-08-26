@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sincronizzaDrive } from "@/lib/drive";
-import { elaboraNonElaborate } from "@/lib/scheda-analisi";
+import { elaboraNonElaborate, riconciliaRecenti } from "@/lib/scheda-analisi";
 
 // GET /api/cron/drive — l'indice della cartella ADV, riallineato da solo.
 //
@@ -62,6 +62,13 @@ export async function GET(req: NextRequest) {
     fallite: [{ titolo: "(elaborazione)", errore: String(e).slice(0, 160) }],
   }));
 
+  // E la RICONCILIAZIONE: cosa risulta fatto di quello che i report chiedono,
+  // incrociando la coda operazioni. Solo per le schede la cui coda è cambiata.
+  const riconciliazioni = await riconciliaRecenti(2).catch((e) => ({
+    riconciliate: 0,
+    fallite: [String(e).slice(0, 160)],
+  }));
+
   if (esito.errore) {
     return NextResponse.json(
       { errore: esito.errore, radice: esito.radice, trovati: esito.trovati },
@@ -81,6 +88,7 @@ export async function GET(req: NextRequest) {
       // — che è esattamente l'errore del censimento troncato.
       interrotta: esito.interrotta,
       schede,
+      riconciliazioni,
     },
     { status: 200 },
   );

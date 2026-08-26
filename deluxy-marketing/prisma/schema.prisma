@@ -44,6 +44,11 @@ model Analisi {
   // rosso | giallo | verde — denormalizzato dalla scheda: gli elenchi filtrano qui.
   verdetto     String?
   elaborataIl  DateTime?
+  // La RICONCILIAZIONE: per ogni azione della scheda, cosa risulta FATTO
+  // guardando la coda delle operazioni (id, stato, esito). La produce l'AI
+  // incrociando scheda e OperazioneAdv; si rinfresca perche' la coda cambia.
+  riconciliazione  String?
+  riconciliataIl   DateTime?
   // "anthropic/claude-opus-5": una scheda senza firma non si giudica.
   elaborataCon String?
   // Percorso del documento completo dentro "ADV DELUXY SRL" (relativo alla cartella)

@@ -336,6 +336,43 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐⭐ LA RICONCILIAZIONE: cosa risulta FATTO di quello che i report chiedono (26/08/2026 mattina)
+
+**Prima, il fatto**: la rimozione v2 del sitelink vietato è andata — esito
+«**2 sitelink rimossi** (campagna + gruppo "English")», 26/08 04:41: il claim
+era agganciato a DUE livelli e la ricerca su tre livelli li ha presi entrambi.
+E il conto si è ridichiarato da solo: versione **2026-08-26**.
+
+**Poi il buco che questo apriva**: il sitelink era stato rimosso davvero e la
+scheda continuava a proporlo come «da fare». Un'azione fatta che resta scritta
+da fare insegna a non leggere le azioni. Da qui la **riconciliazione**
+(richiesta utente): per ogni azione della scheda, **cosa risulta dalla coda** —
+fatta (con l'esito vero citato), in coda, fallita, parziale, da fare.
+
+- L'incrocio lo fa **l'AI** (`riconciliaAnalisi`): il legame azione↔operazione
+  non è sempre letterale — la #17 è stata tentata due volte con parametri
+  diversi, una JOIN non lo sa, un lettore sì. Il codice **riverifica**: indici
+  nel range, id solo fra le operazioni vere, «da_fare» senza operazioni non si
+  scrive (è il default, sarebbe rumore).
+- ⚠️ **La coda è dell'app**: un'azione fatta a mano in interfaccia resta «da
+  fare» finché un censimento non la mostra. Meglio un da-fare stantio che un
+  fatto dedotto.
+- **Chi la fa girare**: il cron dopo le schede (2 per giro, solo quelle la cui
+  coda è CAMBIATA dopo l'ultima riconciliazione) + il bottone «Riconcilia
+  adesso» sulla pagina. Colonne `riconciliazione`/`riconciliataIl` (ALTER).
+- **A schermo**: pillola di stato accanto a ogni azione (✓ Fatta verde, In
+  coda blu, Fallita rossa, Parziale arancio), la nota fattuale con l'esito, e
+  il link **→ operazione** che atterra sulla riga giusta di /operazioni (le
+  righe ora hanno l'àncora `op-<id>`). Se la riconciliazione dice fatta/in
+  corso, il bottone «Metti in coda» sparisce.
+
+**Provato**: 2 riconciliazioni passate (le Cake, 0 voci: coda vuota, giusto).
+🔴 **Poi la chiave Anthropic ha FINITO I CREDITI** («credit balance too low»):
+la riconciliazione di Flowers — quella col sitelink fatto — aspetta la
+ricarica (o il cambio fornitore in Impostazioni → AI). Il cron recupererà da
+solo; a schermo intanto si legge «non ancora riconciliato» col bottone.
+
+
 ### ⭐⭐ IL PRIMO GIRO VERO DI rimuovi_estensione HA FALLITO BENE — e la v2 cerca su tre livelli (26/08/2026 mattina)
 
 L'utente ha approvato la rimozione del sitelink vietato; lo script (reincollato,

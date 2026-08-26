@@ -3,7 +3,7 @@ import { Badge } from "@/components/Badge";
 import { Icona } from "@/components/Icona";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
-import { accodaAzioneScheda, elaboraSchedaAnalisi } from "@/lib/azioni";
+import { accodaAzioneScheda, elaboraSchedaAnalisi, riconciliaSchedaAnalisi } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
   COLORE_BRAND,
@@ -19,7 +19,7 @@ import {
   STATI_AZIONE_APERTI,
 } from "@/lib/dominio";
 import { categoriaCampagna, iconaCanale } from "@/lib/salute";
-import { COLORE_PRIORITA, COLORE_VERDETTO, descriviOperazione, ETICHETTA_VERDETTO, mappaCampagneCitate, operazioneDaAzione, schedaDi } from "@/lib/scheda-analisi";
+import { COLORE_PRIORITA, COLORE_STATO_RICONCILIATO, COLORE_VERDETTO, descriviOperazione, ETICHETTA_STATO_RICONCILIATO, ETICHETTA_VERDETTO, mappaCampagneCitate, operazioneDaAzione, riconciliazioneDi, schedaDi } from "@/lib/scheda-analisi";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +51,10 @@ export default async function SchedaAnalisi({
   if (!analisi) notFound();
 
   const scheda = schedaDi(analisi);
+  // Cosa risulta FATTO di quello che il report chiede, incrociato con la coda
+  // dall'AI (cron dopo ogni giro, o il bottone «Riconcilia adesso»).
+  const riconciliazione = riconciliazioneDi(analisi);
+  const statoAzione = (indice: number) => riconciliazione?.azioni.find((a) => a.indice === indice) ?? null;
 
   // Le campagne che la scheda nomina, agganciate a quelle vere. I documenti
   // abbreviano i nomi, quindi l'aggancio è normalizzato — e l'ambiguo NON si
@@ -365,7 +369,24 @@ export default async function SchedaAnalisi({
                     persona. */}
                 {scheda.azioni.length > 0 && (
                   <section className="scheda">
-                    <div className="scheda-titolo">Cosa propone il documento</div>
+                    <div className="scheda-titolo" style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                      <span>Cosa propone il documento</span>
+                      <span className="cella-sub" style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+                        {analisi.riconciliataIl
+                          ? `riconciliato con la coda ${formattaDataOra(analisi.riconciliataIl)}`
+                          : "non ancora riconciliato con la coda"}
+                      </span>
+                      <form action={riconciliaSchedaAnalisi} style={{ marginLeft: "auto" }}>
+                        <input type="hidden" name="id" value={analisi.id} />
+                        <button
+                          className="btn small btn-secondario"
+                          type="submit"
+                          title="Incrocia le azioni del report con la coda operazioni: cosa risulta fatto, in corso, fallito"
+                        >
+                          Riconcilia adesso
+                        </button>
+                      </form>
+                    </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {scheda.azioni
                         .map((a, indice) => ({ a, indice }))
@@ -376,7 +397,44 @@ export default async function SchedaAnalisi({
                             <div key={indice} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
                               <Badge testo={a.codice ? `${a.priorita} ${a.codice}` : a.priorita} colore={COLORE_PRIORITA[a.priorita]} />
                               <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 13, whiteSpace: "normal" }}>{a.testo}</div>
+                                <div style={{ fontSize: 13, whiteSpace: "normal" }}>
+                                  {a.testo}
+                                  {/* Lo stato RICONCILIATO: cosa risulta dalla
+                                      coda. «Fatta» cita l'esito vero; un'azione
+                                      fatta a mano in interfaccia resta «da
+                                      fare» finché un censimento non la mostra. */}
+                                  {(() => {
+                                    const st = statoAzione(indice);
+                                    if (!st) return null;
+                                    return (
+                                      <span style={{ marginLeft: 8, display: "inline-flex", gap: 6, alignItems: "center" }}>
+                                        <Badge
+                                          testo={ETICHETTA_STATO_RICONCILIATO[st.stato]}
+                                          colore={COLORE_STATO_RICONCILIATO[st.stato]}
+                                        />
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
+                                {(() => {
+                                  const st = statoAzione(indice);
+                                  if (!st?.nota) return null;
+                                  return (
+                                    <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 2 }}>
+                                      {st.nota}
+                                      {st.operazioni.map((oid) => (
+                                        <a
+                                          key={oid}
+                                          href={`/operazioni#op-${oid}`}
+                                          style={{ marginLeft: 6, color: "var(--blue)" }}
+                                          title="Apri l'operazione nella coda"
+                                        >
+                                          → operazione
+                                        </a>
+                                      ))}
+                                    </div>
+                                  );
+                                })()}
                                 {a.quando && <div className="cella-sub">entro {a.quando}</div>}
                                 {/* ⚠️ Il bottone c'è SOLO quando la proposta
                                     dell'AI passa la revisione del codice e la
@@ -384,7 +442,7 @@ export default async function SchedaAnalisi({
                                     Mette in coda DA APPROVARE — la catena
                                     resta app → coda → approvazione → script,
                                     come per le PropostaAi. */}
-                                {ex && !ex.inCoda && (
+                                {ex && !ex.inCoda && !["fatta", "in_corso"].includes(statoAzione(indice)?.stato ?? "") && (
                                   <form action={accodaAzioneScheda} style={{ marginTop: 6 }}>
                                     <input type="hidden" name="analisi" value={analisi.id} />
                                     <input type="hidden" name="indice" value={indice} />

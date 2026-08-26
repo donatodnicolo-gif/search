@@ -18,7 +18,7 @@ import { prisma } from "./db";
 import { accodaOperazione } from "./operazioni";
 import { BRANDS, STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, STATI_CAMPAGNA_NOSTRI, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
-import { elaboraAnalisi, mappaCampagneCitate, operazioneDaAzione, schedaDi } from "./scheda-analisi";
+import { elaboraAnalisi, mappaCampagneCitate, operazioneDaAzione, riconciliaAnalisi, schedaDi } from "./scheda-analisi";
 import { risolviLocalita } from "./geo-target";
 // Statico e non `await import()` come il resto di guardrail: serve dentro le
 // query, non dentro il corpo delle funzioni. `guardrail.ts` non importa nulla,
@@ -572,6 +572,25 @@ export async function accodaAzioneScheda(fd: FormData) {
   revalidatePath(`/analisi/${analisiId}`);
   revalidatePath("/operazioni");
   redirect(`/operazioni?torna=${encodeURIComponent(`/analisi/${analisiId}`)}`);
+}
+
+// Il bottone «Riconcilia adesso»: rifà l'incrocio scheda ↔ coda operazioni.
+export async function riconciliaSchedaAnalisi(fd: FormData) {
+  const id = String(fd.get("id") ?? "");
+  if (!id) return;
+  const esito = await riconciliaAnalisi(id);
+  await registra({
+    autore: "utente",
+    tipo: "sync",
+    entita: "analisi",
+    entitaId: id,
+    titolo: esito.ok ? "Azioni dell'analisi riconciliate con la coda" : "Riconciliazione FALLITA",
+    dettaglio: esito.ok
+      ? `${esito.fatte} fatte · ${esito.inCorso} in corso · ${esito.fallite} fallite`
+      : esito.errore,
+  });
+  revalidatePath(`/analisi/${id}`);
+  redirect(`/analisi/${id}${esito.ok ? "" : `?coda=fallita&errore=${encodeURIComponent(esito.errore.slice(0, 200))}`}`);
 }
 
 // ---------- Drive ----------
