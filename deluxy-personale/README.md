@@ -11,7 +11,7 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
 - Produzione: **https://deluxy-personale.vercel.app** (Vercel, region `fra1`)
 - UI: Deluxy Design System v1.0 (sidebar da gestionale, token in `src/app/tokens.css`)
 
-## Dove siamo (24/08/2026)
+## Dove siamo (26/08/2026)
 
 - ✅ App completa e in produzione: Persone (elenco + KPI), scheda persona
   (dati, mansioni, **mansionario personale**, storico inquadramenti, storico
@@ -41,27 +41,26 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
   come «decorre dal 01/09» (badge blu), non come «da inquadrare».
   Script `scripts/importa-da-budgets.mjs` (prova a vuoto di default, `scrivi`
   per applicare; idempotente: persone per nome normalizzato, contratti solo
-  per chi non ne ha). Monte RAL correnti: 176.150 € su 8 persone (3 decorrono
-  da settembre); il netto non viaggia mai.
+  per chi non ne ha). Il netto non viaggia mai. Dopo le tre cessazioni il
+  monte RAL correnti è **113.750 € su 5 persone** (8 attivi: Eva, Luca Salso
+  e Martina Calia decorrono dal 01/09, quindi oggi non contano nei correnti).
 - ✅ **I tipi di Budgets sono selezionabili** (24/08, richiesta dell'utente):
   «Dipendente» e «Consulente» sono tipi di prima classe del vocabolario
   (niente più suffisso «da precisare»); chi vuole la forma legale precisa
   sceglie indeterminato/determinato/apprendistato. L'organigramma marca con
   «dal gg/mm» chi ha il contratto che decorre in futuro.
-- ✅ **Cessato Andrea Bellazzi al 30/06/2026** (periodo dichiarato finito,
-  richiesta «mostra solo gli attivi»). 🔴 Restano da cessare **Carine
-  Turchiello (30/06)** e **Giada Lo Proto (31/05)**: il permesso di scrivere
-  quelle due cessazioni è stato negato dal classificatore — si fanno in due
-  click dalla loro scheda, form «Cessazione» (reversibile con «Riattiva»).
+- ✅ **Le tre uscite del roster sono CESSATE** (verificato sul vivo il 26/08):
+  Andrea Bellazzi al 30/06, **Carine Turchiello al 31/07** (data reale scelta
+  dall'utente: un mese DOPO la scadenza 30/06 dedotta dal roster — conferma
+  che la scadenza a budget è un indizio, non la data d'uscita), Giada Lo Proto
+  al 31/05. Fatte dal form «Cessazione» della scheda (reversibili con
+  «Riattiva»); i loro importi sono usciti dai totali di /stipendi.
 - 🔴 Da completare a mano: CCNL/livello/qualifica, i netti se li si vuole a
   registro, e i «riporta a» dell'organigramma (si montano dalla sua pagina).
-  ❓ **I mesi dichiarati sono anche il periodo del contratto** (24/08, terzo
+  **I mesi dichiarati sono anche il periodo del contratto** (24/08, terzo
   giro): chi finisce prima di dicembre ha la **scadenza** all'ultimo giorno
-  dell'ultimo mese — Bellazzi e Turchiello al 30/06, Lo Proto al 31/05, oggi
-  segnalati «scaduto» in cima a /inquadramenti. Chi arriva a dicembre resta
-  senza scadenza (lì finisce il roster, non per forza il contratto). Se i tre
-  «scaduti» sono usciti davvero, vanno cessati dalla loro scheda; finché sono
-  attivi, i loro importi restano nei totali di /stipendi.
+  dell'ultimo mese; chi arriva a dicembre resta senza scadenza (lì finisce il
+  roster, non per forza il contratto).
 
 ## Le regole che l'app rispetta
 
@@ -104,7 +103,8 @@ della sua email. Da qui il rapporto **parte via AI Mail** al commercialista
 per le buste paga (destinatario precompilabile con `COMMERCIALISTA_EMAIL`,
 nota libera in testa, anteprima del testo prima dell'invio; la copia resta
 negli «Inviati» della casella). Env: `HUB_URL`+`HUB_KEYS_TOKEN` (emesso),
-`MAIL_URL`+`MAIL_UTENTE` (impostati) e 🔴 **`MAIL_API_KEY` da incollare** — il
+`MAIL_URL`+`MAIL_UTENTE` (impostati) e 🔴 **`MAIL_API_KEY` da incollare**
+(verificato il 26/08: ancora assente dalle env di produzione) — il
 token esiste già in AI Mail (Impostazioni App → «Token API di AI Mail»):
 finché manca, la pagina mostra i cartellini e dichiara che l'invio è spento.
 
