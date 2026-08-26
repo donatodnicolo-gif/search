@@ -34,10 +34,18 @@ async function chiama<T>(body: unknown): Promise<T> {
   const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
     const dettaglio = payload?.errore ?? payload?.error ?? `HTTP ${res.status}`;
-    const candidati = Array.isArray(payload?.candidati) && payload.candidati.length
-      ? ` Partner simili nel registro: ${payload.candidati.join(', ')}.`
-      : '';
-    throw new Error(`${dettaglio}${candidati}`);
+    const simili = Array.isArray(payload?.candidati) ? payload.candidati : [];
+    // ⚠️ «Partner non trovato.» e basta non dice cosa fare, ed è quello che
+    // l'utente ha visto il 26/08/2026. Due casi diversi, due frasi diverse:
+    // se ci sono nomi simili è probabile che sia scritto in un altro modo; se
+    // non ce n'è nessuno, quel cliente in FINANCE non esiste ancora e va
+    // creato di là — è lui il padrone delle anagrafiche che fattura.
+    const coda = simili.length
+      ? ` In FINANCE ci sono nomi simili: ${simili.join(', ')} — probabilmente è scritto in un altro modo.`
+      : /non trovato/i.test(String(dettaglio))
+        ? ' Questo cliente in FINANCE non esiste ancora: va creato di là (o cambia il nome della richiesta con quello con cui è registrato), poi si riprova.'
+        : '';
+    throw new Error(`${dettaglio}${coda}`);
   }
   return payload as T;
 }

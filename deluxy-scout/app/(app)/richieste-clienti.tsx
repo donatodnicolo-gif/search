@@ -70,6 +70,30 @@ const LABEL_TIPOLOGIA: Record<TipologiaRichiesta, string> = {
   b2b: 'B2B (ricorrente)',
   maison: 'Maison (nuovo)',
 };
+/**
+ * ⭐ LE QUATTRO VISTE (26/08/2026, richiesta dell'utente: «indica anche lo
+ * stato — aperto, trasformato in ordine, perso, annullato (se cestino)»).
+ *
+ * Gli stati interni sono di più — una richiesta può essere nuova, col
+ * preventivo fuori, o col prezzo concordato — ma da fuori sono tutti la stessa
+ * cosa: **aperta**, cioè da lavorare. Le altre tre sono i modi in cui finisce.
+ */
+type VistaRichiesta = 'aperte' | 'in_ordine' | 'perse' | 'annullate';
+const VISTE_RICHIESTA: { v: VistaRichiesta; label: string }[] = [
+  { v: 'aperte', label: 'Aperte' },
+  { v: 'in_ordine', label: 'In ordine' },
+  { v: 'perse', label: 'Perse' },
+  { v: 'annullate', label: 'Annullate' },
+];
+function vistaDiRichiesta(s: StatoRichiestaCliente): VistaRichiesta {
+  if (s === 'annullata') return 'annullate';
+  if (s === 'persa') return 'perse';
+  // «fatturata» è un ordine arrivato in fondo: sta con gli ordini, non fra il
+  // lavoro da fare.
+  if (s === 'in_ordine' || s === 'fatturata') return 'in_ordine';
+  return 'aperte';
+}
+
 const COLORE_STATO: Record<StatoRichiestaCliente, string> = {
   nuova: colors.oro,
   // Il preventivo è FUORI: la palla è del cliente, e si vede a colpo d'occhio
@@ -79,6 +103,7 @@ const COLORE_STATO: Record<StatoRichiestaCliente, string> = {
   in_ordine: colors.successo,
   fatturata: colors.successo,
   persa: colors.grigio,
+  annullata: colors.grigio,
 };
 
 /** Legge un importo scritto all'italiana («1.500,50») senza inventare zeri. */
@@ -98,9 +123,8 @@ export default function RichiesteClienti() {
   const [errore, setErrore] = useState<string | null>(null);
   const [formAperto, setFormAperto] = useState(false);
   const [inCorso, setInCorso] = useState<string | null>(null);
-  // Di default si nascondono le chiuse: la schermata serve a lavorare, e un
-  // elenco che cresce all'infinito smette di dire cosa c'è da fare.
-  const [mostraChiuse, setMostraChiuse] = useState(false);
+  const [vista, setVista] = useState<VistaRichiesta>('aperte');
+  const [query, setQuery] = useState('');
   const [importando, setImportando] = useState(false);
   const router = useRouter();
 
@@ -160,11 +184,22 @@ export default function RichiesteClienti() {
     }
   }
 
-  const chiuse = useMemo(() => righe.filter((r) => r.stato === 'fatturata' || r.stato === 'persa'), [righe]);
-  const dati = useMemo(
-    () => (mostraChiuse ? righe : righe.filter((r) => r.stato !== 'fatturata' && r.stato !== 'persa')),
-    [righe, mostraChiuse],
-  );
+  const conteggi = useMemo(() => {
+    const c: Record<VistaRichiesta, number> = { aperte: 0, in_ordine: 0, perse: 0, annullate: 0 };
+    for (const r of righe) c[vistaDiRichiesta(r.stato)]++;
+    return c;
+  }, [righe]);
+
+  const dati = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return righe.filter((r) => {
+      if (vistaDiRichiesta(r.stato) !== vista) return false;
+      if (!q) return true;
+      return [r.cliente, r.descrizione, r.nota, r.proforma_numero, r.preventivo_numero]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    });
+  }, [righe, vista, query]);
 
   /**
    * Chiede il PREVENTIVO a FINANCE: l'offerta da mandare al cliente, che poi
@@ -363,93 +398,18 @@ export default function RichiesteClienti() {
     );
   }
 
+  /**
+   * TRE AZIONI, non nove (26/08/2026, richiesta dell'utente: «deve rimanere
+   * solo trasforma in ordine, persa e cestino»).
+   *
+   * Preventivo, esito del preventivo e fattura erano quattro bottoni in fila su
+   * ogni riga: una barra di comandi al posto di un elenco di lavoro. Il
+   * documento adesso lo chiede l'ORDINE — che è dove il denaro vive — e qui
+   * resta la sola decisione di chi guarda: la porto avanti, l'ho persa, o non
+   * doveva esistere.
+   */
   const azioniDi = (r: RichiestaCliente) => (
     <View style={styles.azioni}>
-      {/* IL PREVENTIVO, prima della pro-forma: si chiede finché la richiesta è
-          da lavorare, e quando è fuori si registra l'esito che dà il cliente. */}
-      {r.preventivo_url ? (
-        <Pressable
-          style={styles.pfChip}
-          hitSlop={6}
-          onPress={(e: any) => {
-            e?.stopPropagation?.();
-            Linking.openURL(r.preventivo_url!);
-          }}
-          accessibilityLabel={`Apri ${r.preventivo_numero} su Deluxy Partner`}
-          {...({ title: 'Apri il preventivo su Deluxy Partner' } as any)}
-        >
-          <Ionicons name="document-outline" size={11} color={colors.goldStrong} />
-          <Text style={styles.pfChipTxt}>{r.preventivo_numero}</Text>
-        </Pressable>
-      ) : r.stato === 'nuova' ? (
-        <Pressable
-          style={[styles.btnGhost, inCorso === r.id && { opacity: 0.5 }]}
-          disabled={inCorso === r.id}
-          onPress={(e: any) => {
-            e?.stopPropagation?.();
-            chiediPreventivo(r);
-          }}
-        >
-          <Text style={styles.btnGhostTxt}>Chiedi il preventivo</Text>
-        </Pressable>
-      ) : null}
-      {r.stato === 'preventivo_inviato' ? (
-        <>
-          <Pressable
-            style={[styles.btn, inCorso === r.id && styles.btnOff]}
-            disabled={inCorso === r.id}
-            onPress={(e: any) => {
-              e?.stopPropagation?.();
-              esitoDelPreventivo(r, true);
-            }}
-          >
-            <Text style={styles.btnTxt}>Accettato</Text>
-          </Pressable>
-          <Pressable
-            style={styles.btnGhost}
-            disabled={inCorso === r.id}
-            onPress={(e: any) => {
-              e?.stopPropagation?.();
-              esitoDelPreventivo(r, false);
-            }}
-          >
-            <Text style={styles.btnGhostTxt}>Rifiutato</Text>
-          </Pressable>
-        </>
-      ) : null}
-      {r.proforma_url ? (
-        <Pressable
-          style={styles.pfChip}
-          hitSlop={6}
-          onPress={(e: any) => {
-            e?.stopPropagation?.();
-            // URL esterno (deluxy-partner): si apre col browser, non col router.
-            Linking.openURL(r.proforma_url!);
-          }}
-          accessibilityLabel={`Apri ${r.proforma_numero} su Deluxy Partner`}
-          {...({ title: 'Apri il documento su Deluxy Partner' } as any)}
-        >
-          <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
-          <Text style={styles.pfChipTxt}>{r.proforma_numero}</Text>
-        </Pressable>
-      ) : r.stato !== 'persa' ? (
-        <Pressable
-          style={[styles.btn, (!r.importo || inCorso === r.id) && styles.btnOff]}
-          disabled={inCorso === r.id}
-          onPress={(e: any) => {
-            e?.stopPropagation?.();
-            chiediFattura(r);
-          }}
-        >
-          {inCorso === r.id ? (
-            <ActivityIndicator color={colors.bianco} size="small" />
-          ) : (
-            <Text style={styles.btnTxt}>Chiedi la fattura</Text>
-          )}
-        </Pressable>
-      ) : null}
-      {/* TRASFORMA IN ORDINE: da qui il lavoro passa dove si consegna e si
-          incassa. Compare quando il prezzo c'è — prima non c'è un ordine. */}
       {r.ordine_id ? (
         <Pressable
           style={styles.btnGhost}
@@ -458,9 +418,9 @@ export default function RichiesteClienti() {
             router.push('/(app)/ordini');
           }}
         >
-          <Text style={styles.btnGhostTxt}>Vedi l’ordine</Text>
+          <Text style={styles.btnGhostTxt}>Vedi l'ordine</Text>
         </Pressable>
-      ) : r.stato !== 'persa' && r.importo ? (
+      ) : r.stato !== 'persa' && r.stato !== 'annullata' ? (
         <Pressable
           style={[styles.btn, inCorso === r.id && styles.btnOff]}
           disabled={inCorso === r.id}
@@ -472,18 +432,7 @@ export default function RichiesteClienti() {
           <Text style={styles.btnTxt}>Trasforma in ordine</Text>
         </Pressable>
       ) : null}
-      {r.stato === 'concordata' ? (
-        <Pressable
-          style={styles.btnGhost}
-          onPress={(e: any) => {
-            e?.stopPropagation?.();
-            cambiaStato(r, 'fatturata');
-          }}
-        >
-          <Text style={styles.btnGhostTxt}>Incassata</Text>
-        </Pressable>
-      ) : null}
-      {r.stato === 'nuova' ? (
+      {r.stato !== 'persa' && r.stato !== 'annullata' && !r.ordine_id ? (
         <Pressable
           style={styles.btnGhost}
           onPress={(e: any) => {
@@ -494,17 +443,46 @@ export default function RichiesteClienti() {
           <Text style={styles.btnGhostTxt}>Persa</Text>
         </Pressable>
       ) : null}
-      <Pressable
-        hitSlop={8}
-        onPress={(e: any) => {
-          e?.stopPropagation?.();
-          elimina(r);
-        }}
-        accessibilityLabel="Elimina la richiesta"
-        {...({ title: 'Elimina' } as any)}
-      >
-        <Ionicons name="trash-outline" size={16} color={colors.errore} />
-      </Pressable>
+      {/* Il cestino ANNULLA (0076): la richiesta esce di scena ma resta, e da
+          «Annullate» si rimette in gioco. Cancellarla per sempre si può da lì. */}
+      {r.stato === 'annullata' ? (
+        <Pressable
+          hitSlop={8}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            cambiaStato(r, 'nuova');
+          }}
+          accessibilityLabel="Rimetti in gioco la richiesta"
+          {...({ title: 'Rimettila in gioco' } as any)}
+        >
+          <Ionicons name="arrow-undo-outline" size={16} color={colors.navy} />
+        </Pressable>
+      ) : (
+        <Pressable
+          hitSlop={8}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            cambiaStato(r, 'annullata');
+          }}
+          accessibilityLabel="Annulla la richiesta"
+          {...({ title: 'Annulla (va in «Annullate»)' } as any)}
+        >
+          <Ionicons name="trash-outline" size={16} color={colors.errore} />
+        </Pressable>
+      )}
+      {r.stato === 'annullata' ? (
+        <Pressable
+          hitSlop={8}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            elimina(r);
+          }}
+          accessibilityLabel="Cancella per sempre la richiesta"
+          {...({ title: 'Cancella per sempre' } as any)}
+        >
+          <Ionicons name="close-circle-outline" size={16} color={colors.errore} />
+        </Pressable>
+      ) : null}
     </View>
   );
 
@@ -566,7 +544,12 @@ export default function RichiesteClienti() {
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
       >
         <View style={styles.headerScroll}>
-          <PageIntro testo="Il canale dei clienti che abbiamo già: una fornitura, un catering, un evento. Le richieste arrivano da sole dalla posta commerciale e dall'app consegne, oppure si scrivono qui — non aprono una trattativa, perché si evadono alle condizioni note. Qui si prezzano e si finalizzano: il documento lo emette FINANCE, che resta il posto dove il risultato si misura." />
+          {/* ⚠️ Corta di proposito (26/08 sera, «sistema css»): tre righe di
+              testo denso a tutta larghezza spingevano l'elenco sotto la piega
+              e non erano allineate alla tabella. Il perché della schermata sta
+              nell'intestazione del file, non addosso a chi ci lavora ogni
+              giorno. */}
+          <PageIntro testo="Le richieste dei clienti che abbiamo già: arrivano dalla posta e dall'app consegne, o si scrivono qui. Si prezzano e si trasformano in ordine." />
         </View>
 
         {/* IMPORTA DALLA POSTA (richiesta dell'utente, 26/08/2026). È lo stesso
@@ -585,14 +568,31 @@ export default function RichiesteClienti() {
           </Text>
         </Pressable>
 
-        {chiuse.length ? (
-          <Pressable style={styles.filtro} onPress={() => setMostraChiuse((v) => !v)}>
-            <Ionicons name={mostraChiuse ? 'eye-off-outline' : 'eye-outline'} size={15} color={colors.testo} />
-            <Text style={styles.filtroTxt}>
-              {mostraChiuse ? 'Nascondi le chiuse' : `Mostra anche le chiuse (${chiuse.length})`}
-            </Text>
-          </Pressable>
-        ) : null}
+        {/* RICERCA E FILTRI (26/08 sera, richiesta dell'utente). Il conto sul
+            filtro serve a vedere «Perse (0)» prima di cliccarci: una lista
+            vuota senza il numero sembra un guasto. */}
+        <TextInput
+          style={styles.search}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Cerca per cliente, cosa chiede, nota…"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          clearButtonMode="while-editing"
+        />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRiga}>
+          {VISTE_RICHIESTA.map((v) => (
+            <Pressable
+              key={v.v}
+              style={[styles.chip, vista === v.v && styles.chipOn]}
+              onPress={() => setVista(v.v)}
+            >
+              <Text style={[styles.chipTxt, vista === v.v && styles.chipTxtOn]}>
+                {v.label} ({conteggi[v.v]})
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
 
         {errore ? (
           <Text style={styles.errore}>
@@ -1116,6 +1116,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   btnImportaTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
+  search: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, color: colors.testo, fontSize: 14 },
+  chipsRiga: { flexDirection: 'row', gap: 6, alignItems: 'center', paddingBottom: 2 },
   btnDaMail: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingVertical: 9 },
   btnDaMailTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
   mailPresa: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.fill, borderRadius: radius.md, padding: 10 },

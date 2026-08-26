@@ -49,6 +49,22 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     ],
   },
   {
+    // L'ordine è quello del funnel: prima le visite (il campo, dove nasce
+    // l'occasione), poi la trattativa, l'ordine e l'incasso.
+    titolo: 'Vendita',
+    voci: [
+      // ⚠️ «Potenziali» è passata sotto **Contatti** (26/08): qui restano solo
+      // i passi di una vendita in corso.
+      // ⭐ 26/08 sera: «Richieste Clienti» torna sotto Vendita, su richiesta.
+      // È una vendita a un cliente che c'è già: sta nel funnel, non fra le
+      // porte da cui arrivano i clienti NUOVI.
+      { name: 'richieste-clienti', label: 'Richieste Clienti', icon: 'reader-outline' },
+      { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
+      { name: 'ordini', label: 'Ordini', icon: 'receipt-outline' },
+      { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
+    ],
+  },
+  {
     // I livelli del rapporto (lib/livelli.ts), in ordine di funnel: selezionato
     // (scelto, mai toccato) → lead (gli abbiamo scritto o telefonato) →
     // prospect (c'è una persona in rubrica) → cliente. Dormienti e persi stanno
@@ -76,22 +92,6 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       // Le stesse persone, tagliate per linea di servizio invece che per
       // livello: «per il Gifting a che punto siamo?» non aveva un posto.
       { name: 'interessi', label: 'Per interesse', icon: 'pricetags-outline' },
-    ],
-  },
-  {
-    // L'ordine è quello del funnel: prima le visite (il campo, dove nasce
-    // l'occasione), poi la trattativa, l'ordine e l'incasso.
-    titolo: 'Vendita',
-    voci: [
-      // ⚠️ «Potenziali» è passata sotto **Contatti** (26/08): qui restano solo
-      // i passi di una vendita in corso.
-      // ⭐ 26/08 sera: «Richieste Clienti» torna sotto Vendita, su richiesta.
-      // È una vendita a un cliente che c'è già: sta nel funnel, non fra le
-      // porte da cui arrivano i clienti NUOVI.
-      { name: 'richieste-clienti', label: 'Richieste Clienti', icon: 'reader-outline' },
-      { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
-      { name: 'ordini', label: 'Ordini', icon: 'receipt-outline' },
-      { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
     ],
   },
   {

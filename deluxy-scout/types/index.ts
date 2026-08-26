@@ -498,7 +498,9 @@ export type StatoRichiestaCliente =
    *  «fatturata» — la fattura viene dopo — e non è più «concordata». */
   | 'in_ordine'
   | 'fatturata'
-  | 'persa';
+  | 'persa'
+  /** Messa da parte col cestino (migr. 0076): non è cancellata, è fuori gioco. */
+  | 'annullata';
 
 /** Chi ha scritto la richiesta: a mano, dalla posta, o un'altra app. */
 export type OrigineRichiesta = 'commerciale' | 'scout-mail' | 'app-delivery' | 'api';
@@ -559,6 +561,7 @@ export const LABEL_STATO_RICHIESTA: Record<StatoRichiestaCliente, string> = {
   preventivo_inviato: 'Preventivo inviato',
   concordata: 'Prezzo concordato',
   in_ordine: 'Diventata ordine',
+  annullata: 'Annullata',
   fatturata: 'Fatturata',
   persa: 'Persa',
 };
