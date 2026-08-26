@@ -28,6 +28,8 @@ type Riga = {
   ordiniCreati: number
   /** Il margine generato, letto da Deluxy Orders (netto IVA). */
   margine: number
+  /** Il venduto su cui quel margine è calcolato: la base della percentuale. */
+  vendutoMargine: number
   ordiniConMargine: number
   ordiniSenzaMargine: number
   giorniLavorati: number
@@ -47,7 +49,14 @@ type Esito = {
 // nessuno sa leggere. Si mostrano sotto la cifra del margine.
 type ChiaveMisura = Exclude<
   keyof Riga,
-  'utenteId' | 'nome' | 'ruolo' | 'uscito' | 'giorniLavorati' | 'ordiniConMargine' | 'ordiniSenzaMargine'
+  | 'utenteId'
+  | 'nome'
+  | 'ruolo'
+  | 'uscito'
+  | 'giorniLavorati'
+  | 'vendutoMargine'
+  | 'ordiniConMargine'
+  | 'ordiniSenzaMargine'
 >
 
 const COLONNE: { chiave: ChiaveMisura; nome: string; spiega: string }[] = [
@@ -94,7 +103,7 @@ const COLONNE: { chiave: ChiaveMisura; nome: string; spiega: string }[] = [
     chiave: 'margine',
     nome: 'Margine generato',
     spiega:
-      'La somma dei margini degli ordini a cui ha assegnato il fornitore nel periodo. Il margine è quello di Deluxy Orders, al netto IVA: qui si legge, non si rifà. Va a chi sceglie il fornitore, perché è lì che si decide il costo; le assegnazioni fatte dalla riconciliazione automatica non contano per nessuno. Gli ordini senza costo scritto non valgono zero e restano fuori dal totale.',
+      'La somma dei margini degli ordini a cui ha assegnato il fornitore nel periodo, e quanto fa in percentuale sul venduto di quegli stessi ordini. Il margine è quello di Deluxy Orders, al netto IVA, e la percentuale è sul TOTALE PAGATO dal cliente — la stessa base che si legge di là. Va a chi sceglie il fornitore, perché è lì che si decide il costo; le assegnazioni della riconciliazione automatica non contano per nessuno. Gli ordini senza costo scritto non valgono zero: restano fuori dal totale e dalla base.',
   },
 ]
 
@@ -433,6 +442,30 @@ export function OperatoriLista({ amministratore }: { amministratore: boolean }) 
                     {/* ⚠️ Gli ordini di cui NON si sa il margine si dicono
                         sotto la cifra: un totale che tace quello che non sa
                         vale meno di uno che lo ammette. */}
+                    {/* ── LA PERCENTUALE, E LA SUA BASE ──
+                        ⚠️⚠️ Chiesto dall'utente: il margine anche in % sul
+                        venduto. La base si scrive accanto («31% di 1.480 €»)
+                        perché una percentuale che non si può controllare
+                        sembra sbagliata anche quando è giusta — e perché la
+                        stessa cifra su venduti diversi è un lavoro diverso.
+                        ⚠️ La base è il venduto dei SOLI ordini di cui si
+                        conosce il margine: metterci anche quelli senza costo
+                        abbasserebbe la percentuale di una quota che non
+                        c'entra. Per questo gli ordini muti si contano a parte.
+                        ⚠️ È la stessa base che usa Deluxy Orders: il TOTALE
+                        PAGATO dal cliente, non l'imponibile. Con l'imponibile
+                        verrebbe un numero più bello e diverso da quello che si
+                        legge di là. */}
+                    {c.chiave === 'margine' && !alGiorno && r.vendutoMargine > 0 ? (
+                      <div className="cella-sub">
+                        {((r.margine / r.vendutoMargine) * 100).toFixed(1).replace('.', ',')}% di{' '}
+                        {r.vendutoMargine.toLocaleString('it-IT', {
+                          style: 'currency',
+                          currency: 'EUR',
+                          maximumFractionDigits: 0,
+                        })}
+                      </div>
+                    ) : null}
                     {c.chiave === 'margine' && r.ordiniSenzaMargine ? (
                       <div className="cella-sub">{r.ordiniSenzaMargine} senza costo</div>
                     ) : null}

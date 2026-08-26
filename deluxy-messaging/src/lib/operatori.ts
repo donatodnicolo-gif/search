@@ -39,6 +39,15 @@ export type RigaOperatore = {
    * contano a parte in `ordiniSenzaMargine`.
    */
   margine: number
+  /**
+   * Il venduto degli ordini su cui quel margine è calcolato: la BASE della
+   * percentuale.
+   *
+   * ⚠️⚠️ Sta accanto al margine e si mostra: una percentuale senza la sua base
+   * non si può controllare, e quella che non si può controllare sembra
+   * sbagliata anche quando è giusta.
+   */
+  vendutoMargine: number
   ordiniConMargine: number
   ordiniSenzaMargine: number
   /**
@@ -255,6 +264,7 @@ export async function misuraOperatori(
       linkPagamento: 0,
       ordiniCreati: 0,
       margine: 0,
+      vendutoMargine: 0,
       ordiniConMargine: 0,
       ordiniSenzaMargine: 0,
       giorniLavorati: 0,
@@ -324,6 +334,7 @@ export async function misuraOperatori(
       const riga = righe.get(r.utenteId)
       if (!riga) continue
       riga.margine = r.margine
+      riga.vendutoMargine = r.venduto
       riga.ordiniConMargine = r.ordini
       riga.ordiniSenzaMargine = r.senzaMargine
     }

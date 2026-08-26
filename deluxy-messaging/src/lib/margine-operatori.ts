@@ -31,6 +31,15 @@ export type MargineOperatore = {
   /** Su quanti ordini quel margine è stato calcolato. */
   ordini: number
   /**
+   * Il VENDUTO di quegli stessi ordini: è la base della percentuale.
+   *
+   * ⚠️⚠️ Senza la base, una percentuale non si può controllare — e un numero
+   * giusto che non si può controllare finisce per sembrare sbagliato. È il
+   * venduto dei SOLI ordini di cui si conosce il margine: mettere anche quelli
+   * senza costo abbasserebbe la percentuale di una quota che non c'entra.
+   */
+  venduto: number
+  /**
    * Ordini assegnati da lui di cui Orders NON sa dire il margine.
    *
    * ⚠️ Non valgono zero e non si sommano: valgono «non lo so». Sono gli ordini
@@ -94,7 +103,7 @@ export async function marginiPerOperatore(da: Date, a: Date): Promise<EsitoMargi
   const automatismi = { margine: 0, ordini: 0 }
   const per = new Map<string, MargineOperatore>()
   const riga = (id: string, nome: string) => {
-    const g = per.get(id) ?? { utenteId: id, nome: nome || 'Senza nome', margine: 0, ordini: 0, senzaMargine: 0 }
+    const g = per.get(id) ?? { utenteId: id, nome: nome || 'Senza nome', margine: 0, ordini: 0, venduto: 0, senzaMargine: 0 }
     per.set(id, g)
     return g
   }
@@ -127,6 +136,9 @@ export async function marginiPerOperatore(da: Date, a: Date): Promise<EsitoMargi
       if (s && typeof s.margine === 'number') {
         r.margine += s.margine
         r.ordini += 1
+        // ⚠️ Il venduto dello STESSO ordine: base e numeratore devono venire
+        // dalla stessa riga, o la percentuale confronta due insiemi diversi.
+        r.venduto += s.totale
       } else {
         r.senzaMargine += 1
       }
@@ -134,7 +146,11 @@ export async function marginiPerOperatore(da: Date, a: Date): Promise<EsitoMargi
   }
 
   const righe = [...per.values()]
-    .map((r) => ({ ...r, margine: Math.round(r.margine * 100) / 100 }))
+    .map((r) => ({
+      ...r,
+      margine: Math.round(r.margine * 100) / 100,
+      venduto: Math.round(r.venduto * 100) / 100,
+    }))
     .sort((x, y) => y.margine - x.margine)
 
   return {
