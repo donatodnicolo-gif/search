@@ -3,6 +3,7 @@ import { utenteCorrente } from '@/lib/sessione'
 import { Sidebar } from '@/components/Sidebar'
 import { ToggleSidebar, VeloMenu } from '@/components/ToggleSidebar'
 import { AiutoLaterale } from '@/components/AiutoLaterale'
+import { Novita } from '@/components/Novita'
 import { esci } from '../login/actions'
 
 export const dynamic = 'force-dynamic'
@@ -41,6 +42,14 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
           della finestra, e dentro un contenitore che scorre seguirebbe la
           pagina invece di restare dov'è. */}
       <AiutoLaterale />
+      {/* ⚠️⚠️ Gli avvisi stanno QUI, nel layout di tutte le pagine dietro al
+          login, e non nella schermata dei riassunti: chi lavora sta dentro una
+          conversazione o dentro un ordine, e avvisare solo chi è già sulla
+          pagina dei riassunti vuol dire non avvisare nessuno.
+          ⚠️ Fuori dal <div class="layout"> come la linguetta dell'aiuto: sono
+          fissi al bordo della finestra, e dentro un contenitore che scorre
+          seguirebbero la pagina invece di restare dove sono. */}
+      <Novita />
     </>
   )
 }

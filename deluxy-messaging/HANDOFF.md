@@ -1,5 +1,106 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (14) — i riquadri in basso a destra: l'app dice cosa sta succedendo
+
+Chiesto dall'utente: «genera un pop-up in basso a destra ogni volta che viene
+compiuta un'azione — esempio nuovo messaggio in inbox, nuovo ordine, ordine
+pagato — in modo tale che l'utente si accorga di ciò che succede nell'app».
+
+⚠️⚠️ Il problema vero: **quasi tutto quello che succede qui lo fa qualcun
+altro** — un cliente che scrive, Shopify che manda un ordine, un collega che
+paga un fornitore — e finché non si andava sulla pagina giusta non lo sapeva
+nessuno. Le pagine sono venti.
+
+**Otto tipi**, tutti con un dot del colore del tipo, il titolo, una riga di
+dettaglio e l'ora: **messaggio** in arrivo · **nuovo ordine** · **fornitore
+pagato** · **reclamo** · **rimborso chiesto** · **contestazione** ·
+**preventivo** · **chiamata**. Il riquadro è cliccabile e porta alla cosa
+(`/inbox?c=…`, `/ordini?apri=…`, `/pagamenti?richiesta=…`).
+
+### Le decisioni che contano
+
+⚠️⚠️ **NON C'È UNA TABELLA DEGLI EVENTI, ED È VOLUTO.** Le novità si **ricavano
+dai fatti già scritti** (`Messaggio.creatoIl`, `Ordine.creatoIl`,
+`RichiestaPagamento.pagataIl`…). Una tabella-copia sarebbe un secondo racconto
+della stessa cosa, che può divergere da quello vero, e andrebbe scritta in ogni
+punto del codice dove succede qualcosa — cioè in un punto che prima o poi
+qualcuno dimentica. Così invece **una novità non può esistere senza il fatto**.
+(Standard §7: ogni dato ha una casa sola.)
+⚠️ Il prezzo, detto: si vedono solo gli eventi che **lasciano una data su una
+riga**. «Il cliente ha pagato» non c'è, perché il passaggio di `statoPagamento`
+non lascia un timestamp suo — quello che si vede è l'ordine che **arriva**, che
+nella pratica è lo stesso momento. **«Ordine pagato» qui vuol dire pagato il
+FORNITORE**, e il riquadro lo scrive per esteso.
+
+⚠️⚠️ **IL SEGNAPOSTO È L'OROLOGIO DEL DATABASE** (`select now()`), restituito
+nella risposta e rimandato indietro alla chiamata dopo. Con `Date.now()` del
+browser, un computer avanti di un minuto **salterebbe** le novità di quel minuto
+e uno indietro **le ripeterebbe per sempre**. La finestra è chiusa in cima
+(`gt: da, lte: adesso`) con `adesso` letto **prima** delle query: una riga
+scritta mentre girano non si perde e non si ripete.
+
+⚠️⚠️ **LA PRIMA CHIAMATA NON MOSTRA NIENTE**, prende solo il segnaposto. Sparare
+le novità delle ultime ore a ogni ricarica insegna in due giorni che quei
+riquadri non vogliono dire niente.
+
+⚠️ **Le tre regole che li rendono sopportabili**: massimo **3** a schermo (2 sul
+telefono) e oltre **uno solo che li conta** («7 novità: 5 messaggi, 2 ordini»);
+**«Silenzia per un'ora»** (e mentre è in pausa resta una pillola che lo dice e li
+riaccende — un interruttore che scompare non lo ritrova nessuno); **niente
+passato**.
+
+⚠️ **Non doppia gli avvisi che c'erano già.** L'inbox ha già suono + notifica di
+sistema (`Inbox.tsx`, `avvisa()`) che partono **solo a scheda nascosta**. Questi
+fanno l'opposto: **si fermano** a scheda nascosta e parlano quando è davanti. E
+**sulla pagina dell'inbox i messaggi non li ripetono affatto** — lì la
+conversazione sale in cima da sola.
+
+⚠️ **Le cose fatte da te non te le racconta**: i pagamenti segnati da te e i
+rimborsi chiesti da te sono filtrati per nome. Verificato sui dati veri: «io 0 ·
+altri 2».
+
+⚠️ **Design system**: il componente è stato aggiunto prima al design system
+(**versione 1.1**, sezione «Avvisi (toast)») e poi usato qui, come vuole la
+regola.
+
+⚠️ Il modulo si chiama **`src/lib/novita.ts`, non `avvisi.ts`**: quel nome era
+già preso da un'altra cosa — la regola di CHI avvisare per i messaggi in inbox —
+e due moduli omonimi con due tipi `Avviso` diversi sono un import sbagliato che
+aspetta il momento. (Ci sono cascato: l'ho sovrascritto e ripreso da git.)
+
+### 🩸 Il difetto trovato provando, non leggendo
+
+⚠️⚠️ **SENZA SESSIONE LA ROTTA NON RISPONDE 401.** Provato sul server vero:
+`/api/novita` senza cookie risponde **307 verso `/login`**, perché il middleware
+la intercetta prima che la rotta esista. `fetch` segue il redirect da solo, e
+quello che torna è **la pagina di login: HTML, stato 200**. Cioè `res.ok` è
+**vero**, `res.json()` esplode, il `catch` se lo mangia — e il ciclo avrebbe
+continuato a bussare a una porta chiusa **ogni 25 secondi, per sempre**, senza
+che nessuno se ne accorgesse. Il controllo `res.status === 401` che avevo scritto
+**non sarebbe mai scattato**.
+Ora si guardano le tre cose che lo dicono davvero: `res.redirected`, il
+`content-type`, e il 401 (che resta giusto se un giorno la rotta uscisse dal
+middleware). **Misurato in pagina**: `{status: 200, ok: true, redirected: true,
+urlFinale: "/login", contentType: "text/html", siFerma: true}`.
+
+### Come è stato verificato
+
+- `npx tsx scripts/prova-novita.mts 24` — la libreria sui **dati veri**: 9 prove,
+  tutte passate (ordinamento, id unici, link, niente fuori dalla finestra, **il
+  giro dopo non ripete niente**, i pagamenti miei non li vedo io). Nelle ultime
+  24 ore: **10 messaggi + 10 ordini**, troncato.
+- **Misure nel browser** su una pagina d'anteprima temporanea (ora cancellata),
+  con i dati veri: a 1280×720 la pila sta a **16px** dai bordi, riquadri
+  **360×64** con 8px di distanza, la pillola del silenzio ancorata in basso;
+  a **375×812** i riquadri sono **351px** con margini 12 e **nessuno scorrimento
+  orizzontale**. `z-index 55`: sopra la pagina, sotto veli e finestre.
+- ⚠️ **Niente schermata**: il pannello del browser non era a schermo, quindi non
+  compone fotogrammi — le prove sono misure del DOM, non un'immagine. E per lo
+  stesso motivo il componente non chiedeva niente durante la prova: `document.hidden`
+  era **true**, cioè si stava comportando come deve.
+
+Verifica: `npx tsc --noEmit` esito 0, `npm run build` esito 0.
+
 ## 26/08/2026 (13) — due pagamenti sullo stesso ordine (con la domanda), e i buchi trovati da una revisione ostile
 
 ### La richiesta dell'utente

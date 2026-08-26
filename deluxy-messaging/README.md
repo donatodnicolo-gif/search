@@ -500,6 +500,50 @@ una funzione sola): erano due copie diverse, e quella della scheda **perdeva per
 strada il fornitore e il costo concordato** — cioè proprio chi va pagato e
 quanto, che dalla scheda si ribattevano a mano.
 
+## Gli avvisi in basso a destra
+
+Su **ogni pagina** dell'app, in basso a destra, compare un riquadro quando
+succede qualcosa: **è arrivato un messaggio**, **è entrato un ordine**, **un
+collega ha pagato un fornitore**, e poi reclami, rimborsi chiesti,
+contestazioni, preventivi, chiamate. Il riquadro si clicca e porta alla cosa di
+cui parla; la **×** lo chiude; sparisce da solo dopo nove secondi, e il conto si
+**ferma col mouse sopra**.
+
+⚠️⚠️ **Perché serve**: quasi tutto quello che succede qui lo fa **qualcun
+altro** — un cliente che scrive, Shopify che manda un ordine, un collega che
+paga — e finché non si andava sulla pagina giusta non lo sapeva nessuno. Le
+pagine sono venti.
+
+⚠️ **Massimo tre alla volta** (due sul telefono). Se ne arrivano di più, **uno
+solo che li conta**: «7 novità · 5 messaggi · 2 ordini». Una colonna di dieci
+riquadri copre la pagina e non la legge nessuno.
+
+⚠️ **Si zittiscono**: «🔕 Silenzia per un'ora», dentro la pila. Mentre sono in
+pausa resta una pillola che lo dice e che li riaccende — un interruttore che si
+spegne e scompare non lo ritrova nessuno.
+
+⚠️ **Non ripetono il passato**: aprendo o ricaricando una pagina non compare
+niente. Un avviso dice «è **appena** successo»; riproporre le novità di stamattina
+a ogni ricarica insegna in due giorni che quei riquadri non vogliono dire niente.
+
+⚠️ **Non ripetono neanche quello che hai fatto tu**: i pagamenti che hai segnato
+tu e i rimborsi che hai chiesto tu non ti tornano indietro come avviso.
+
+⚠️ **A scheda nascosta tacciono.** Di quello si occupa già l'inbox, con il suono
+e la notifica di sistema, che partono **solo** quando la scheda è dietro. I due
+non si sovrappongono mai. E **sulla pagina dell'inbox i messaggi non compaiono**:
+lì la conversazione sale in cima da sola, e un riquadro sopra la riga appena
+comparsa è rumore.
+
+⚠️⚠️ **«Ordine pagato» vuol dire pagato il FORNITORE.** Il momento in cui paga
+il *cliente* non lascia una data propria da nessuna parte — quello che si vede è
+l'ordine che **arriva**, che nella pratica è lo stesso istante (su Shopify si
+paga al checkout, e una bozza pagata dopo diventa un ordine nuovo).
+
+⚠️ **Non esiste una tabella degli avvisi**: si leggono dai fatti già scritti
+(`src/lib/novita.ts`). Un avviso non può esistere senza il fatto, e non c'è un
+secondo elenco che possa raccontare una storia diversa.
+
 ### Due pagamenti sullo stesso ordine: si può, ma te lo chiede
 
 Se su un ordine c'è già una richiesta **ancora da pagare**, il bottone «Paga
