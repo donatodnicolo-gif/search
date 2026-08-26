@@ -367,10 +367,14 @@ fatta (con l'esito vero citato), in coda, fallita, parziale, da fare.
   corso, il bottone «Metti in coda» sparisce.
 
 **Provato**: 2 riconciliazioni passate (le Cake, 0 voci: coda vuota, giusto).
-🔴 **Poi la chiave Anthropic ha FINITO I CREDITI** («credit balance too low»):
-la riconciliazione di Flowers — quella col sitelink fatto — aspetta la
-ricarica (o il cambio fornitore in Impostazioni → AI). Il cron recupererà da
-solo; a schermo intanto si legge «non ancora riconciliato» col bottone.
+✅ **Risolto in giornata**: la chiave era di un account senza crediti; l'utente
+ne ha messa una nuova in Impostazioni → AI (la vecchia …cAAA è da disattivare
+nella sua console, punto segreti). Al giro dopo: **12 schede**, **4
+riconciliate** — e la #17 di Flowers è uscita **PARZIALE**, non «fatta»: il
+sitelink è rimosso (2 agganci, op collegate entrambe, anche il primo tentativo
+fallito) ma la nota elenca cosa di F13 resta fuori — RSA «guanti bianchi»,
+titoli ITA, 6 same-day, refuso «gambo ungo». Più onesto di così non si può.
+Verificato dal DOM in produzione.
 
 
 ### ⭐⭐ IL PRIMO GIRO VERO DI rimuovi_estensione HA FALLITO BENE — e la v2 cerca su tre livelli (26/08/2026 mattina)
