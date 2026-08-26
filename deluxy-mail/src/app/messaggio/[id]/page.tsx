@@ -126,6 +126,16 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
   const azioniApp = descriviAzioni(chiaviApp)
 
+  // Quali app sono gia' state richiamate DA QUESTA MAIL: una voce per
+  // azione, col tentativo piu' RECENTE (`inviiApp` arriva ordinato dal piu'
+  // nuovo, quindi vince il primo che si incontra).
+  // ⚠️ Si dice anche quando e' andata MALE: «usata» e «riuscita» non sono la
+  // stessa cosa, e un tentativo fallito nascosto fa rifare il lavoro
+  // credendo di farlo la prima volta.
+  const perAzione = new Map<string, InvioAppRiga>()
+  for (const iv of inviiApp) if (!perAzione.has(iv.azioneId)) perAzione.set(iv.azioneId, iv)
+  const appUsate = [...perAzione.values()]
+
   // Traduzione: si usa quella già salvata. Se manca (mail in arrivo mai
   // controllata) e la traduzione automatica è attiva, si calcola dopo il render.
   const lingua = messaggio.lingua
@@ -342,6 +352,34 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
                 qui?»). È lo stesso rimedio della graffetta degli allegati: il
                 comando dove si guarda, la scheda resta dov'era per chi la usa. */}
             <BottoneApp id={messaggio.id} />
+
+            {/* ⚠️ SE UN'APP E' GIA' STATA USATA, lo si dice QUI. Il racconto
+                completo sta nella scheda «Risposte dalle app», ma quella e' in
+                fondo alla pagina, sotto il corpo e sotto la conversazione:
+                chi apre la mail e vede «→ App» non ha modo di sapere che il
+                lavoro e' gia' stato fatto, e lo rifa' (richiesta dell'utente,
+                26/08/2026). Il pallino porta giu' al dettaglio. */}
+            {appUsate.length > 0 && (
+              <a href="#risposte-app" className="app-usate" title="Vai alle risposte delle app, in fondo alla mail">
+                {appUsate.map((iv) => {
+                  const az = azioneDi(iv.azioneId)
+                  const riuscito = iv.esito === 'ok'
+                  const saltato = iv.esito === 'saltato'
+                  return (
+                    <span
+                      key={iv.azioneId}
+                      className={`badge ${riuscito ? 'green' : saltato ? 'neutral' : 'red'}`}
+                      title={iv.esitoTesto ?? undefined}
+                    >
+                      <span className="dot" />
+                      {riuscito ? '✓ ' : ''}
+                      {az ? `${az.app} · ${az.nome}` : iv.azioneId}
+                      {riuscito ? '' : saltato ? ' · non mandato' : ' · errore'}
+                    </span>
+                  )
+                })}
+              </a>
+            )}
           </div>
         </div>
 
@@ -614,7 +652,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
       <AppSuMessaggio messaggioId={messaggio.id} azioni={azioniApp} />
 
       {inviiApp.length > 0 && (
-        <div className="card">
+        <div className="card" id="risposte-app">
           <div className="mail-subject" style={{ fontSize: 18, marginBottom: 12 }}>
             Risposte dalle app
           </div>

@@ -1527,6 +1527,11 @@ mark.ricerca-hit {
   .tabella-dati td { padding: 0 0 10px; border-top: none; }
 }
 
+/* I pallini «app gia' usata» in testa alla mail: un gruppo che sta in riga
+   coi bottoni e porta alla scheda in fondo, senza vestirsi da link. */
+.app-usate { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; text-decoration: none; }
+.app-usate:hover { text-decoration: none; }
+
 /* ---------- Calendario ---------- */
 .cal-mese { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; min-width: 130px; text-align: center; }
 .cal-card { padding: 10px; }
