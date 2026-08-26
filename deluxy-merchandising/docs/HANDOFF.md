@@ -1,6 +1,6 @@
 # Handoff — Deluxy Merchandising
 
-Stato al 25/08/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato al 26/08/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 Le voci sono in ordine di data: **le ultime stanno in fondo a FATTO**, appena sopra «COME AVVIARE».
 
 ## 24/08/2026 — Audit architettura: il seed non può più svuotare la produzione
@@ -541,6 +541,13 @@ porta **3120**. Design system Deluxy v1.0.
   - **Fotografia del 25/08**: 4.610 prodotti (**1.100 attivi, tutti ancora senza costo**), 343 collezioni, **7.067 righe di venduto**, **area di consegna compilata sul 76%** (era 22% quando il riempimento leggeva i parametri sbagliati), 0 linee, 0 tipologie. Il cron dei 15 minuti regge da otto giorni (import alle 12:15, 12:01, 11:45, 11:30, tutti `ok`/`automatico`). `GET /api/v1/prodotti` risponde **401** senza chiave in produzione.
   - ⚠️ **Le API prodotti non sono ancora state esercitate su dati veri**: tutti e 4.610 i prodotti hanno `origine = "merchandising"`, quindi dalla piattaforma non è mai arrivato niente e il ramo POST resta provato solo in sviluppo.
 
+- 🔍 **26/08/2026 — ricontrollo dell'handoff contro il database: due righe dicevano il falso.** Nessun commit di codice oggi; è stata riverificata la parte che una sessione nuova prenderebbe per buona.
+  - ❌ **«`OPENAI_API_KEY` non è su Vercel, quindi il pulsante è disabilitato»** — la conclusione era falsa e **contraddiceva la lista «Già risolti» del 10/08** nello stesso documento. La chiave sta in **cassaforte** (`Impostazione`, è l'unica riga che contiene) e in produzione `/trend-ai` risponde **200 col pulsante acceso**. Riga corretta in STATO DEPLOY. ⚠️ Acceso ≠ provato: una lettura generata da un modello vero **non è ancora stata vista**.
+  - ❌ **«giacenze: tutte le varianti a 0»** — su **9.637 varianti ne hanno una 3** (44 pezzi in tutto, messi a mano). La sostanza del punto aperto regge, il numero assoluto no. Corretto al punto 6.
+  - ✅ **Confermati invariati**: 4.610 prodotti, **1.100 attivi e tutti e 1.100 senza costo**, 343 collezioni, **0 linee**, **0 tipologie**, **0 prodotti composti**, **0 unioni di riconciliazione**. `Torta Tisamisu Modena` è ancora `fase=in_vendita` e **non** esclusa dalle analisi (punto 5 aperto).
+  - 🟢 **Salute**: 7.083 righe di venduto, area di consegna al **76%**, import ogni 15 minuti con **zero fallimenti nelle ultime 36 ore** (ultimo alle 17:15), produzione su `fra1`, `GET /api/v1/prodotti` che risponde **401** senza chiave. Rotazioni in orario: «Fiori» settimanale ha girato il 24/08 (3 su 3 mandate), «Best Sellers» mensile l'11/08 — **nessuna delle due è in ritardo**.
+  - ⭐ **Perché è annotato**: questo documento avverte già che «metà dei punti aperti erano stati risolti e nessuno li aveva depennati». Il guasto simmetrico è **una riga che resta scritta dopo essere diventata falsa**, e nel caso della chiave OpenAI il documento si contraddiceva da solo in due punti distanti — chi legge lo STATO DEPLOY e non la lista dei risolti conclude che l'AI è spenta.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
@@ -554,7 +561,7 @@ npm run dev   # http://localhost:3120
 - **Pubblicata**: https://deluxy-merchandising.vercel.app (progetto Vercel `deluxy-merchandising`, Postgres condiviso Supabase schema `merchandising`).
 - **UI protetta da password** (`MERCHANDISING_APP_PASSWORD`, middleware + `/login`, cookie `mrc_session` = HMAC della password). Cambiando la password su Vercel **decadono tutte le sessioni** e serve un **nuovo deploy** perché il valore entri in vigore.
 - **Deploy del 26/07/2026 fatto** (`deluxy-merchandising-9zbwyzdqx`): password nuova attiva e verificata in produzione, `ORDERS_URL`/`ORDERS_API_KEY` operativi (il pulsante «Importa da Ordini» è abilitato online), pagine `/vendite`, `/classifiche`, `/riordini`, `/trend-ai` verificate sul sito. Nota: il primo tentativo di deploy è fallito con `fetch failed` (errore di rete lato upload), il secondo è andato — se ricapita, basta rilanciare.
-- `OPENAI_API_KEY` **non è su Vercel**: online `/trend-ai` mostra i numeri pronti ma il pulsante «Chiedi la lettura» resta disabilitato.
+- ⚠️ **Riga corretta il 26/08/2026 — diceva il falso.** Prima qui c'era scritto «`OPENAI_API_KEY` non è su Vercel: il pulsante *Chiedi la lettura* resta disabilitato», e contraddiceva la lista «Già risolti» del 10/08 che dava la chiave per presente. **Misurato oggi**: la chiave sta in cassaforte nella tabella `Impostazione` (l'unica riga che contiene) e in produzione `/trend-ai` risponde 200 col pulsante **acceso**. Resta vero che la chiave **non** è fra le variabili di Vercel — l'app la legge dalla cassaforte, con l'ambiente che avrebbe comunque la precedenza. ⚠️ «Acceso» non vuol dire «provato»: il testo generato da un modello vero non è ancora stato visto (vedi la voce del 26/07).
 - Lo schema del database è già allineato alle tabelle nuove (`prisma db push` eseguito sul Postgres condiviso il 26/07/2026).
 - CLI Vercel autenticata come `donatodnicolo-gif`.
 
@@ -588,7 +595,7 @@ collezioni, 6.821 righe di venduto, 3 negozi collegati e verificati.
 3. **Scope Shopify mancanti sui tre token**: niente `read_publications` (quindi «solo pubblicate» è finto: in Vetrina entrano anche le collezioni tecniche, si sospendono a mano) e niente `read_locales` (l'elenco delle otto lingue è fisso e dichiarato in pagina). I token **hanno** `read_products`, `write_products`, `read_translations`, `write_translations`. Si aggiungono nelle app Shopify, poi si ri-verifica in `/impostazioni` e si reimporta.
 4. **Funzioni mai usate su dati veri**: 0 tipologie di collezione, 0 prodotti composti, 0 unioni di riconciliazione (la pagina trova 12 gruppi con lo stesso nome). Le pagine sono state provate, i dati no — e la prima unione la fa una persona, di proposito.
 5. **Righe e collezioni di servizio in classifica**: `Torta Tisamisu Modena` (75 pz a 1 €) è ancora prima per quantità, e «Globo basis collection - Do not delete» / «Smart Products Filter Index - Do not delete» sono indici dei temi. Si tolgono archiviando/sospendendo a mano: filtrarle dal nome sarebbe indovinare.
-6. **Giacenze**: nessuna fonte di magazzino collegata, tutte le varianti a 0, quindi le ipotesi di ordinativo partono da «scorta ignota» e propongono la copertura piena.
+6. **Giacenze**: nessuna fonte di magazzino collegata. ⚠️ **Ricontato il 26/08/2026**: non è vero che siano «tutte a 0» — su **9.637 varianti ne hanno una 3** (Bouquet Ora Blu Medium 24 e Deluxe 8, Composizione Crepuscolo 12: **44 pezzi in tutto**, evidentemente messi a mano). Cambia poco nella sostanza — le ipotesi di ordinativo partono comunque da «scorta ignota» e propongono la copertura piena per tutto il resto — ma un numero scritto come assoluto e falso è il modo in cui una lista smette di essere creduta.
 7. **SSO Hub** non agganciato; **fornitori** locali, da valutare se collegarli al registro Anagrafiche; **immagini** solo via URL.
 
 <details>
