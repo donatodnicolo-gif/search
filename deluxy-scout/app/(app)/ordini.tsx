@@ -90,9 +90,28 @@ export default function Ordini() {
       flex: 1.2,
       valore: (o) => o.place_nome ?? o.cliente,
       cella: (o) => (
-        <View>
+        <View style={{ gap: 2 }}>
           <Text style={styles.tabNome} numberOfLines={2}>{o.place_nome ?? o.cliente}</Text>
           {o.descrizione ? <Text style={styles.descr} numberOfLines={1}>{o.descrizione}</Text> : null}
+          {/* ⚠️ Il documento sta QUI, sotto il nome, non fra le azioni: è
+              un'informazione sull'ordine, non un comando. Nella colonna delle
+              azioni rubava lo spazio ai bottoni e li mandava a capo. */}
+          {o.fattura_numero || o.proforma_numero ? (
+            <Pressable
+              style={styles.docChip}
+              hitSlop={6}
+              onPress={(e: any) => {
+                e?.stopPropagation?.();
+                const link = o.fattura_url || o.proforma_url;
+                if (link) Linking.openURL(link);
+              }}
+              accessibilityLabel="Apri il documento su Deluxy Partner"
+              {...({ title: 'Apri il documento su Deluxy Partner' } as any)}
+            >
+              <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
+              <Text style={styles.docChipTxt}>{o.fattura_numero || o.proforma_numero}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ),
     },
@@ -126,56 +145,48 @@ export default function Ordini() {
     {
       chiave: 'azioni',
       label: '',
-      width: 210,
+      width: 268,
       fissa: true,
       valore: () => null,
       cella: (o) => (
         <View style={styles.tabAzioni}>
-          {/* Il documento, quando c'è: si apre su FINANCE, dove vive. */}
-          {o.fattura_numero || o.proforma_numero ? (
-            <Pressable
-              style={styles.docChip}
-              hitSlop={6}
-              onPress={(e: any) => {
-                e?.stopPropagation?.();
-                const link = o.fattura_url || o.proforma_url;
-                if (link) Linking.openURL(link);
-              }}
-              accessibilityLabel="Apri il documento su Deluxy Partner"
-            >
-              <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
-              <Text style={styles.docChipTxt}>{o.fattura_numero || o.proforma_numero}</Text>
-            </Pressable>
-          ) : null}
           {o.stato === 'da_incassare' ? (
             <>
               {/* CHIUDI ORDINE: il lavoro è finito, si chiede la fattura a
                   FINANCE. Non è «incassato» — i soldi arrivano dopo. */}
               {!o.fattura_numero ? (
                 <Pressable
-                  style={[styles.btnGhost, inCorso === o.id && { opacity: 0.5 }]}
+                  style={[styles.btnMini, inCorso === o.id && { opacity: 0.5 }]}
                   disabled={inCorso === o.id}
                   onPress={(e: any) => { e?.stopPropagation?.(); chiudiOrdine(o); }}
                 >
-                  <Text style={styles.btnGhostTxt}>{inCorso === o.id ? 'Chiedo…' : 'Chiudi ordine'}</Text>
+                  <Text style={styles.btnMiniTxt}>{inCorso === o.id ? 'Chiedo…' : 'Chiudi'}</Text>
                 </Pressable>
               ) : null}
               <Pressable
-                style={styles.btnGhost}
+                style={styles.btnMini}
                 onPress={(e: any) => { e?.stopPropagation?.(); chiediAcconto(o); }}
+                {...({ title: 'Chiedi un acconto in percentuale' } as any)}
               >
-                <Text style={styles.btnGhostTxt}>Acconto %</Text>
+                <Text style={styles.btnMiniTxt}>Acconto</Text>
               </Pressable>
               <Pressable style={styles.btn} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'incassato'); }}>
                 <Text style={styles.btnTxt}>Incassato</Text>
               </Pressable>
-              <Pressable style={styles.btnGhost} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'annullato'); }}>
-                <Text style={styles.btnGhostTxt}>Annulla</Text>
+              {/* Annullare è raro e distruttivo: un'icona, non un bottone che
+                  compete con le azioni di tutti i giorni. */}
+              <Pressable
+                hitSlop={8}
+                onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'annullato'); }}
+                accessibilityLabel="Annulla l'ordine"
+                {...({ title: "Annulla l'ordine" } as any)}
+              >
+                <Ionicons name="close-circle-outline" size={16} color={colors.grigio} />
               </Pressable>
             </>
           ) : (
-            <Pressable style={styles.btnGhost} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'da_incassare'); }}>
-              <Text style={styles.btnGhostTxt}>Da incassare</Text>
+            <Pressable style={styles.btnMini} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'da_incassare'); }}>
+              <Text style={styles.btnMiniTxt}>Da incassare</Text>
             </Pressable>
           )}
         </View>
@@ -364,12 +375,38 @@ export default function Ordini() {
                     {o.linea ? <Text style={styles.meta}>{o.linea}</Text> : null}
                     <Text style={styles.meta}>{dataIt(o.created_at)}</Text>
                   </View>
+                  {/* Il documento sta con le informazioni, non fra i comandi. */}
+                  {o.fattura_numero || o.proforma_numero ? (
+                    <Pressable
+                      style={styles.docChip}
+                      onPress={() => {
+                        const link = o.fattura_url || o.proforma_url;
+                        if (link) Linking.openURL(link);
+                      }}
+                      accessibilityLabel="Apri il documento su Deluxy Partner"
+                    >
+                      <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
+                      <Text style={styles.docChipTxt}>{o.fattura_numero || o.proforma_numero}</Text>
+                    </Pressable>
+                  ) : null}
                   <View style={styles.azioni}>
                     {o.stato === 'da_incassare' ? (
                       <>
+                        {!o.fattura_numero ? (
+                          <Pressable
+                            style={[styles.btnGhost, inCorso === o.id && { opacity: 0.5 }]}
+                            disabled={inCorso === o.id}
+                            onPress={() => chiudiOrdine(o)}
+                          >
+                            <Text style={styles.btnGhostTxt}>{inCorso === o.id ? 'Chiedo…' : 'Chiudi ordine'}</Text>
+                          </Pressable>
+                        ) : null}
+                        <Pressable style={styles.btnGhost} onPress={() => chiediAcconto(o)}>
+                          <Text style={styles.btnGhostTxt}>Acconto %</Text>
+                        </Pressable>
                         <Pressable style={styles.btn} onPress={() => cambiaStato(o, 'incassato')}>
                           <Ionicons name="checkmark-circle-outline" size={15} color={colors.bianco} />
-                          <Text style={styles.btnTxt}>Segna incassato</Text>
+                          <Text style={styles.btnTxt}>Incassato</Text>
                         </Pressable>
                         <Pressable style={styles.btnGhost} onPress={() => cambiaStato(o, 'annullato')}>
                           <Text style={styles.btnGhostTxt}>Annulla</Text>
@@ -466,7 +503,10 @@ const styles = StyleSheet.create({
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   tabValore: { color: colors.testo, fontWeight: '700', fontSize: 13.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
-  tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end' },
+  tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap', rowGap: 4 },
+  // Bottoni piccoli per le azioni secondarie: stessa altezza, meno peso.
+  btnMini: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
+  btnMiniTxt: { color: colors.testo, fontWeight: '700', fontSize: 11.5 },
   docChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 3 },
   docChipTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 10.5 },
   percRow: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
@@ -479,7 +519,10 @@ const styles = StyleSheet.create({
   btnLargo: { marginTop: 8, paddingVertical: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   meta: { color: colors.testoSoft, fontSize: 12 },
-  azioni: { flexDirection: 'row', gap: 8 },
+  // Sul telefono i bottoni vanno a capo invece di stringersi: quattro azioni
+  // su una riga sola diventavano illeggibili.
+  azioni: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', rowGap: 6, alignItems: 'center' },
+  docChipCard: { alignSelf: 'flex-start' },
   btn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
   btnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 12.5 },
   btnGhost: { borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
