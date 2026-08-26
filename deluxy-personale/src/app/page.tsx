@@ -36,6 +36,7 @@ export default async function PaginaPersone({
         compensi: true,
         inquadramenti: true,
         assegnazioni: { include: { mansione: true } },
+        benefit: { include: { tipo: true }, orderBy: { creatoIl: "asc" } },
       },
       orderBy: { nome: "asc" },
     }),
@@ -198,6 +199,7 @@ export default async function PaginaPersone({
                 <th>Mansione principale</th>
                 <th>Contratto</th>
                 <th>Dal</th>
+                <th>Benefit</th>
                 <th className="num">RAL / compenso</th>
                 <th className="num">Costo azienda</th>
               </tr>
@@ -253,6 +255,20 @@ export default async function PaginaPersone({
                     )}
                   </td>
                   <td>{dataIt(p.dataAssunzione)}</td>
+                  <td>
+                    {p.benefit.length === 0 ? (
+                      <span className="cella-vuota">—</span>
+                    ) : (
+                      p.benefit.map((b) => (
+                        <div key={b.id} style={{ whiteSpace: "nowrap", fontSize: 13 }}>
+                          {b.tipo.nome}
+                          {b.dettaglio && (
+                            <span style={{ color: "var(--text-tertiary)" }}> · {b.dettaglio}</span>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </td>
                   <td className="num">
                     {compenso ? (
                       euro(Number(compenso.ral))

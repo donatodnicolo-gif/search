@@ -56,8 +56,9 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
   i quattro di base (buoni pasto, cellulare, PC, auto aziendale) nascono con
   un click, gli altri si aggiungono a piacere; un tipo assegnato a qualcuno
   non si elimina. L'assegnazione si fa anche dalla scheda della persona
-  (card «Benefit», con matita per modificare dettaglio/valore/data). Il
-  valore mensile si DICHIARA (mai dedotto) e via `/api/v1/persone` esce
+  (card «Benefit», con matita per modificare dettaglio/valore/data), e
+  l'elenco Persone ha la colonna Benefit (tipo · dettaglio, una riga l'uno).
+  Il valore mensile si DICHIARA (mai dedotto) e via `/api/v1/persone` esce
   l'elenco dei benefit — il valore solo con `?compensi=1`, come gli stipendi.
 - ✅ **Le tre uscite del roster sono CESSATE** (verificato sul vivo il 26/08):
   Andrea Bellazzi al 30/06, **Carine Turchiello al 31/07** (data reale scelta
