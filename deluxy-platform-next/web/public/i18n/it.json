@@ -554,7 +554,8 @@
       "nelGiro": "Nel giro (DDT {{ddt}})",
       "nelGiroHint": "Stesso valet, stesso giorno, stesso DDT: la paga sta sulla consegna principale del giro",
       "giroPrincipale": "giro di {{n}} ritiri",
-      "giroPrincipaleHint": "Paga del giro: una volta sola, con lo scaglione ritiri della regola valet"
+      "giroPrincipaleHint": "Paga del giro: una volta sola, con lo scaglione ritiri della regola valet",
+      "ricevuta": "Ricevuta"
     },
     "line": {
       "date": "Data",

@@ -246,6 +246,13 @@ const NEXT: Record<string, { next: string; key: string }> = {
                   <button class="link-btn" [disabled]="recapInCorso() === r.valetId" (click)="scaricaRecap(r)">
                     {{ 'salaries.pending.recap' | translate }}
                   </button>
+                  <!-- Solo senza P.IVA: la ricevuta di prestazione occasionale
+                       in stile legacy, da stampare e firmare. -->
+                  @if (!r.valet.hasVat) {
+                    <button class="link-btn" [disabled]="recapInCorso() === r.valetId" (click)="scaricaRicevuta(r)">
+                      {{ 'salaries.pending.ricevuta' | translate }}
+                    </button>
+                  }
                   @if (canManage()) {
                     <button class="link-btn" [disabled]="recapInCorso() === r.valetId" (click)="inviaRecap(r)">
                       {{ (recapInCorso() === r.valetId ? 'common.saving' : 'salaries.pending.sendRecap') | translate }}
@@ -629,6 +636,29 @@ export class SalariesListComponent {
    * Passa dall'HttpClient: l'API vuole il token, e una scheda aperta a mano
    * non se lo porta dietro — uscirebbe un 401 travestito da pagina vuota.
    */
+  /** La ricevuta legacy (senza P.IVA): si scarica, si stampa, si firma. */
+  scaricaRicevuta(r: Pending): void {
+    this.error.set(null);
+    this.recapInCorso.set(r.valetId);
+    this.http.get(`${environment.apiUrl}/salaries/ricevuta/${r.valetId}`, {
+      params: { dal: r.from.slice(0, 10), al: r.to.slice(0, 10) }, responseType: 'text',
+    }).subscribe({
+      next: (html) => {
+        this.recapInCorso.set(null);
+        const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ricevuta-${r.valet.lastName}-${r.from.slice(0, 10)}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (e) => {
+        this.recapInCorso.set(null);
+        this.error.set(e?.error?.message ?? 'Ricevuta non riuscita');
+      },
+    });
+  }
+
   scaricaRecap(r: Pending): void {
     this.error.set(null);
     this.recapInCorso.set(r.valetId);

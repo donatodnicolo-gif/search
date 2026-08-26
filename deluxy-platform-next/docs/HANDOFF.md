@@ -402,6 +402,20 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### 27/08 (notte, 10) — La ricevuta LEGACY-STYLE viaggia con il recap
+
+- **Il bollo lo applica il VALET** (corretta la nota nel recap).
+- **Ricevuta in stile legacy** (Nota con intestazione valet CF/indirizzo/nascita,
+  Spett.le Deluxy, somme, tabella, le tre dichiarazioni, firma): ricevutaHtml()
+  nel modulo stipendi, allegata IN FONDO alla mail del recap per i valet SENZA
+  P.IVA (page-break), scaricabile dal bottone «Ricevuta» in /salaries (solo
+  senza P.IVA) e da GET /salaries/ricevuta/:valetId. Verificata live su
+  Cassoli (CF, indirizzo e formula veri).
+- **«Correggi per tutti»**: misurato con allinea-stati — ZERO altre consegne
+  non-finali disallineate dall export legacy (la 62038 era indietro rispetto
+  al legacy VIVO, posteriore all export: per riallineare il resto serve un
+  export fresco). La regola a-ora-non-consegnata e gia globale.
+
 ### ⭐⭐ 27/08 (notte, 9) — LA RICEVUTA FISCALE vera, e l a ora si paga anche se non consegnata
 
 - **Formula della ricevuta (senza P.IVA) ricavata dalle ricevute FIRMATE del

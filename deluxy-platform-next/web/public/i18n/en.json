@@ -554,7 +554,8 @@
       "nelGiro": "In route (DDT {{ddt}})",
       "nelGiroHint": "Same valet, same day, same DDT: the pay sits on the main delivery of the route",
       "giroPrincipale": "route of {{n}} pickups",
-      "giroPrincipaleHint": "Route pay: once, with the pickup tier of the valet rule"
+      "giroPrincipaleHint": "Route pay: once, with the pickup tier of the valet rule",
+      "ricevuta": "Receipt"
     },
     "line": {
       "date": "Date",

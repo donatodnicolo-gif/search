@@ -549,7 +549,8 @@ export class SalariesService {
   async recap(user: JwtUser, valetId: string, dal?: string, al?: string) {
     const valet = await this.prisma.valet.findUnique({
       where: { id: valetId },
-      select: { id: true, firstName: true, lastName: true, email: true, hasVat: true, city: true, withholdingPercent: true },
+      select: { id: true, firstName: true, lastName: true, email: true, hasVat: true, city: true, withholdingPercent: true,
+        fiscalCode: true, address: true, birthPlace: true, birthDate: true },
     });
     if (!valet) throw new NotFoundException('Valet non trovato');
     const dettaglio = await this.pendingDetail(user, valetId, dal, al);
@@ -678,8 +679,8 @@ export class SalariesService {
     <tr><td>Netto compenso</td><td class="num">${eur((r as any).ricevuta.nettoCompenso)}</td></tr>
     <tr class="finale"><td>Totale bonifico (netto + rimborso)</td><td class="num">${eur((r as any).ricevuta.totaleBonifico)}</td></tr>
   </table>
-  ${(r as any).ricevuta.bollo ? '<p class="nota">Prestazione sopra i 77,47 &euro;: sulla ricevuta va la marca da bollo da 2,00 &euro;.</p>' : ''}
-  <p class="nota">La ritenuta d'acconto la versa Deluxy all'erario; i contanti gi&agrave; incassati si scalano dal bonifico.</p>` : ''}
+  ${(r as any).ricevuta.bollo ? '<p class="nota">Prestazione sopra i 77,47 &euro;: la marca da bollo da 2,00 &euro; <strong>la applica il valet</strong> sulla ricevuta.</p>' : ''}
+  <p class="nota">La ritenuta d'acconto la versa Deluxy all'erario; i contanti gi&agrave; incassati si scalano dal bonifico. In fondo a questa mail c'&egrave; la ricevuta da stampare e firmare.</p>` : ''}
   ${r.totali.nonPagabili ? `<p class="nota">${r.totali.nonPagabili} ${r.totali.nonPagabili === 1 ? 'consegna non &egrave; pagabile' : 'consegne non sono pagabili'} (senza tariffa, o esclusa da una regola carnet): restano in elenco, marcate.</p>` : ''}
   ${r.troncato ? '<p class="nota">Elenco troncato alle prime 500 consegne del periodo.</p>' : ''}
   <p class="nota">Documento di riepilogo, non &egrave; un cedolino. I nominativi dei destinatari non compaiono.</p>
@@ -687,6 +688,55 @@ export class SalariesService {
   }
 
   /** Manda il recap paghe al valet, via AI Mail (stesso canale del recap partner). */
+  /**
+   * La RICEVUTA di prestazione occasionale in stile legacy (senza P.IVA):
+   * stessa struttura dei PDF firmati dell'app attuale — intestazione del
+   * valet, «Spett.le Deluxy», la Nota con le somme, la tabella, le tre
+   * dichiarazioni e la firma. La marca da bollo LA APPLICA IL VALET.
+   */
+  ricevutaHtml(r: Awaited<ReturnType<SalariesService['recap']>>): string {
+    const ric = (r as any).ricevuta as {
+      percRimborso: number; rimborso: number; corrispettivoLordo: number;
+      ritenuta: number; nettoCompenso: number; totaleBonifico: number; bollo: boolean;
+    } | null;
+    if (!ric) return '';
+    const e = (v: unknown) => String(v ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const eur = (n: number) => '&euro; ' + n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const gg = (d: Date | string | null) => d ? new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(d)) : '';
+    const nome = `${r.valet.lastName} ${r.valet.firstName}`.trim();
+    const v = r.valet as any;
+    // I giorni di prestazione: le giornate distinte delle consegne pagate.
+    const giorni = new Set(r.righe.filter((x) => x.amount != null).map((x) => String(x.date).slice(0, 10))).size;
+    const oggi = gg(new Date());
+    return `
+<div class="ricevuta">
+  <p class="bollo-nota">(Marca da bollo di 2,00 euro, applicata dal valet, se prestazione superiore a euro 77,47)</p>
+  <p><strong>${e(nome)}</strong><br>${e(v.fiscalCode ?? '')}<br>${e(v.address ?? '')}<br>${e(v.birthPlace ?? '')}${v.birthDate ? '&nbsp;&nbsp;' + gg(v.birthDate) : ''}</p>
+  <p>Spett.le <strong>Deluxy</strong><br>Via Varesina 60<br>20156 Milano (MI)<br>P.IVA: 11453140961</p>
+  <p><strong>Nota del ${oggi}</strong>${r.periodo.dal || r.periodo.al ? ` &mdash; periodo ${[r.periodo.dal, r.periodo.al].filter(Boolean).map((x) => gg(x!)).join(' &rarr; ')}` : ''}</p>
+  <p>Il sottoscritto ${e(nome)} dichiara di ricevere la somma lorda di euro ${eur(ric.corrispettivoLordo)}.<br>
+  Di cui euro ${eur(ric.rimborso)} a titolo di rimborso spese per l&rsquo;attivit&agrave; occasionale di collaborazione.<br>
+  Per prestazioni per Deluxy per un totale di ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}.<br>
+  Al suddetto importo lordo andr&agrave; detratta la ritenuta d&rsquo;acconto (20%) pari a ${eur(ric.ritenuta)},
+  per un corrispettivo netto pagato pari a ${eur(ric.totaleBonifico)}.</p>
+  <table class="conti">
+    <tr><td>Corrispettivo lordo</td><td class="num">${eur(ric.corrispettivoLordo)}</td></tr>
+    <tr><td>Ritenuta d&rsquo;acconto</td><td class="num">${eur(ric.ritenuta)}</td></tr>
+    <tr><td>Importo Netto</td><td class="num">${eur(ric.nettoCompenso)}</td></tr>
+    <tr><td>Rimborsi</td><td class="num">${eur(ric.rimborso)}</td></tr>
+    <tr class="finale"><td>Totale Bonifico</td><td class="num">${eur(ric.totaleBonifico)}</td></tr>
+  </table>
+  <p><strong>DICHIARA INOLTRE</strong><br>sotto la propria responsabilit&agrave;:</p>
+  <ul>
+    <li>che la prestazione resa alla ditta ha carattere del tutto occasionale, non svolgendo il sottoscritto prestazione di lavoro autonomo con carattere di abitualit&agrave;;</li>
+    <li>di non avere fruito nell&rsquo;anno, ai fini contributivi, della franchigia di &euro; 5.000 prevista dall&rsquo;art. 44 del D.L. 30 settembre 2003, n. 269;</li>
+    <li>di non essere soggetto al regime Iva a norma dell&rsquo;ex art. 5, comma 2, D.P.R. 633/72.</li>
+  </ul>
+  <table class="firma"><tr><td>Data<br>${oggi}</td><td class="destra">In fede<br><br>____________________________<br>${e(nome)}</td></tr></table>
+</div>`;
+  }
+
   async inviaRecap(user: JwtUser, valetId: string, dal?: string, al?: string, aManuale?: string) {
     const r = await this.recap(user, valetId, dal, al);
     const destinatario = (aManuale ?? r.valet.email ?? '').trim();
@@ -713,7 +763,25 @@ export class SalariesService {
         body: JSON.stringify({
           a: destinatario,
           oggetto: `Recap paghe — ${r.valet.lastName} ${r.valet.firstName}`,
-          corpo: this.recapHtml(r),
+          // ⭐ 27/08: per i valet SENZA P.IVA in fondo alla mail c'e' la
+          // RICEVUTA in stile legacy, da stampare e firmare (il bollo lo
+          // applica il valet). Con P.IVA parte il solo recap.
+          corpo: (() => {
+            const base = this.recapHtml(r);
+            const ricevuta = this.ricevutaHtml(r);
+            if (!ricevuta) return base;
+            const stile = `<style>
+              .ricevuta { margin-top: 40px; padding-top: 24px; border-top: 2px solid #1d1d1f; page-break-before: always; }
+              .ricevuta .bollo-nota { font-size: 11px; color: #6e6e73; }
+              .ricevuta table.conti { margin: 14px 0; min-width: 320px; }
+              .ricevuta table.conti td { padding: 4px 10px; border-bottom: 1px solid #e5e5ea; }
+              .ricevuta table.conti .num { text-align: right; font-variant-numeric: tabular-nums; }
+              .ricevuta table.conti .finale td { font-weight: 650; border-bottom: 0; }
+              .ricevuta table.firma { width: 100%; margin-top: 28px; }
+              .ricevuta table.firma .destra { text-align: right; }
+            </style>`;
+            return base.replace('</div></body></html>', `${stile}${ricevuta}</div></body></html>`);
+          })(),
         }),
         signal: AbortSignal.timeout(45_000),
       });
@@ -1051,6 +1119,36 @@ export class SalariesController {
     @Query('al') al?: string,
   ) {
     return this.salariesService.pendingDetail(user, valetId, dal, al);
+  }
+
+  @Get('ricevuta/:valetId')
+  @ApiOperation({ summary: 'La ricevuta di prestazione occasionale (senza P.IVA) in stile legacy, HTML stampabile' })
+  @ApiQuery({ name: 'dal', required: false })
+  @ApiQuery({ name: 'al', required: false })
+  async ricevuta(
+    @CurrentUser() user: JwtUser,
+    @Param('valetId') valetId: string,
+    @Query('dal') dal: string | undefined,
+    @Query('al') al: string | undefined,
+    @Res({ passthrough: true }) res: RispostaHttp,
+  ) {
+    const dati = await this.salariesService.recap(user, valetId, dal, al);
+    const corpo = this.salariesService.ricevutaHtml(dati);
+    if (!corpo) throw new BadRequestException('Il valet ha la P.IVA: il suo documento e la pro-forma fattura, non la ricevuta.');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Ricevuta — ${dati.valet.lastName} ${dati.valet.firstName}</title>
+<style>
+  body { margin: 0; padding: 32px; background: #F5F5F7; color: #1d1d1f; font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .foglio { max-width: 760px; margin: 0 auto; background: #fff; border-radius: 14px; padding: 40px; }
+  .ricevuta .bollo-nota { font-size: 11px; color: #6e6e73; }
+  .ricevuta table.conti { margin: 14px 0; min-width: 320px; border-collapse: collapse; }
+  .ricevuta table.conti td { padding: 4px 10px; border-bottom: 1px solid #e5e5ea; }
+  .ricevuta table.conti .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ricevuta table.conti .finale td { font-weight: 650; border-bottom: 0; }
+  .ricevuta table.firma { width: 100%; margin-top: 36px; }
+  .ricevuta table.firma .destra { text-align: right; }
+  @media print { body { background: #fff; padding: 0; } .foglio { border-radius: 0; } }
+</style></head><body><div class="foglio">${corpo}</div></body></html>`;
   }
 
   @Get('recap/:valetId')
