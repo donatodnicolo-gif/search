@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **25 agosto 2026**.
+> Documento di ripartenza. Aggiornato: **26 agosto 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -22,6 +22,29 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre 12 app Deluxy, ognuna nel suo schema. Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
+
+### 26/08 (sera 3) — il quarto negozio dei Fornitori, e l'API che accetta una casella
+
+Due lavori che NON erano ancora scritti qui (i commit non hanno toccato i documenti):
+
+1. ⚠️⚠️ **`business.deluxy.it` mancava nell'elenco dei negozi** (`9e643dae`). E il guasto
+   non era «un valore in meno»: **un enum non risponde “non è nessuno di questi”, risponde
+   il più somigliante**. Finché `NEGOZI_FORNITORI` ne conteneva tre, una notifica d'ordine
+   di business.deluxy.it veniva classificata lo stesso come uno dei tre — nessun errore a
+   schermo, solo un ordine cercato sul negozio sbagliato (è la coda del caso del 17/08,
+   dove l'enum era stato la correzione). Ora i negozi sono **quattro** in un posto solo:
+   la tendina, l'enum dello schema, il controllo che scarta gli inventati e la guida al
+   modello. ⚠️ Il riconoscimento dal testo (`daMail`) ha retto il nome nuovo **senza
+   toccarlo**, ed è merito del confronto sul **dominio intero**: dentro
+   «business.deluxy.it» il pezzo «deluxy.it» è preceduto da un punto, che il confine
+   `[^a-z0-9.-]` esclude.
+2. **`POST /api/v1/invia`: `x-utente` accetta anche l'email di una CASELLA** (`1a0c4b1f`).
+   Il caso vero: la piattaforma manda i recap «da `amministrazione@deluxy.it`», che è un
+   *account*, non un utente di login → prima **404**, e — peggio — quando passava,
+   l'invio partiva dalla **prima** casella dell'utente. Ora la casella indicata vince.
+   ⚠️ Tocca `apiAuth.ts`, cioè l'autenticazione di TUTTE le rotte `/api/v1`: chi ci
+   rimette mano ricontrolli che un `x-utente` sconosciuto resti un rifiuto.
+
 
 ### 26/08 (sera 2) — trattativa: contatto in vista, valore STIMATO, fase con gli stati di Scout
 
@@ -198,30 +221,35 @@ Chiesto dall'utente sulla schermata di «Commerciale — Apri trattativa», che 
   un vicolo cieco.
 
 ---
-### Dove siamo (25 agosto 2026)
+### Dove siamo (26 agosto 2026)
 
-**Fotografia verificata oggi, 25 agosto 2026 alle 12:30** (giornata: la **mail aperta
-rifatta**, prima su telefono e poi in gerarchia sul desktop — vedi §9):
+**Fotografia verificata oggi, 26 agosto 2026 alle 17:30** (giornata: sette commit —
+il lotto «riassunto che lavora», la casella di risposta, la trattativa, il quarto
+negozio e l'API; tutti descritti qui sopra):
 
 - **Codice**: niente in sospeso in `deluxy-mail/`, tutto pushato su `origin/scout-ui`
-  (verificato **sul contenuto**, non sullo SHA). Ultimo commit `158094d7`, che tocca
-  **solo il manuale**; l'ultimo che cambia l'app è `9c560ae3` (le quattro azioni + «⋯ Altro»).
-  ⚠️ In questi giorni **altre sessioni** hanno lavorato sulla stessa cartella (preventivi
-  fornitori registrati da AI Mail, rotte per Scout): `git log -- deluxy-mail` prima di dare
-  per scontato cosa c'è.
-- **Produzione allineata**: deploy `dpl_B3V1954YMMAVKdvHCF2baKwMQDgK` delle **09:20**,
-  `Ready`, cioè esattamente `9c560ae3` — il commit successivo è di sola documentazione,
-  quindi il codice online è quello di adesso.
-- **Salute**: `/api/health` → `{"ok":true,"database":true,"scrivibile":true}` in **0,61 s**,
-  `X-Vercel-Id: fra1::fra1` — funzioni a Francoforte, accanto al database.
+  (verificato **sul contenuto**, non sullo SHA). Ultimo commit `1a0c4b1f`.
+  ⚠️ **Altre sessioni** lavorano sulla stessa cartella: `git log -- deluxy-mail` prima
+  di dare per scontato cosa c'è.
+- ⚠️ **Trovata e chiusa una discrepanza**: il deploy delle **14:26:18** era partito
+  **80 secondi PRIMA** dell'ultimo commit (`1a0c4b1f`, 14:27:38), quindi l'API che
+  accetta una casella in `x-utente` **non era online** pur essendo pushata — il
+  classico «pushato ≠ pubblicato». Ripubblicato alle **17:31**
+  (`migrate-prod` 102/102, alias aggiornato): ora la produzione contiene tutto.
+  **Regola**: dopo l'ultimo commit della giornata si rifà il deploy, o si confronta
+  l'ora del commit con `created` del deploy — la data del deploy da sola non dice
+  quale codice c'è dentro.
+- **Salute**: `/api/health` → `{"ok":true,"database":true,"scrivibile":true}` in
+  **0,56 s**, `X-Vercel-Id: fra1::fra1` — funzioni a Francoforte, accanto al database.
 - **Database**: cluster condiviso `zegbztfxisqeowngvgvh`, schema `mail` (dal 19/08).
-  `migrate-prod` è a **102 statement** (`Attivita.note/noteAutore/noteIl`,
-  `Bozza.allegatiGruppo`).
-- 🔎 **Da guardare a schermo, sul telefono vero**: la barra fissa in basso, il foglio
-  «⋯ Altro» e che «Delega Renè» si apra **sopra** la barra e non dentro.
+  `migrate-prod` **102/102** applicati nel deploy di stasera.
+- 🔎 **Restano da guardare a schermo** (non ho né telefono né casella): la barra fissa
+  su iPhone e il foglio «⋯ Altro»; che il prossimo «Rispondi» sulla mail di Carolin dica
+  **nicolo.donato@deluxy.it** e non cs@; la riga «Contatto» piena e la fase proposta in
+  «Apri trattativa».
 
-**Ricontrollo delle 12:55 — questa volta guardando il DATABASE di produzione, non solo
-l'app.** Fino a oggi la fotografia si fermava a `/api/health` e al deploy; leggere le
+**Ricontrollo del 25/08 alle 12:55 — guardando il DATABASE di produzione, non solo
+l'app.** Fino ad allora la fotografia si fermava a `/api/health` e al deploy; leggere le
 tabelle ha corretto **quattro** voci dei punti aperti (dettaglio sotto, punti 1-bis, 2, 4, 6).
 Quello che si vede in produzione adesso:
 
