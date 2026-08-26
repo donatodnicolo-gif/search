@@ -1,6 +1,6 @@
 # Deluxy Design System
 
-**Versione 1.0 — 14 luglio 2026**
+**Versione 1.1 — 26 agosto 2026** · *1.1: aggiunto il componente «Avvisi (toast)».*
 
 Il linguaggio visivo ufficiale di tutte le app Deluxy. Nato dal redesign di `deluxy-platform-next` (stile Apple), vale d'ora in poi per **ogni app esistente e nuova**: piattaforma web, Deluxy Scout, app fornitori, siti Shopify, landing page.
 
@@ -126,6 +126,45 @@ L'elevazione si dà con ombra + hairline, **mai** con bordi scuri o ombre dure.
 ### Badge di stato (pillole)
 - Pillola con **dot** colorato + testo, tinta di sfondo 9–12% + testo semantico pieno
 - Mappa stati Deluxy: da gestire=orange · in gestione/accettata=blue · in consegna=purple · consegnata=green · annullata/non consegnata=red · neutro=fill
+
+### Avvisi (toast)
+
+Il riquadro che compare **in basso a destra** quando succede qualcosa mentre
+guardi un'altra cosa: è arrivato un messaggio, è entrato un ordine, qualcuno ha
+pagato. Non è un errore e non è una conferma di un'azione tua — quelli restano
+dove sono (fascia in cima al modulo). Questo dice **cosa succede intorno**.
+
+- Posizione **fixed, basso a destra**, 16px dai bordi; su schermi < 640px occupa
+  la larghezza meno i margini e sta in basso. `z-index` **sotto** veli e
+  finestre modali: un avviso non deve mai coprire una decisione in corso.
+- Riquadro `surface` + `hairline` + `radius-m` + `shadow-float`, largo max 360px.
+- Dentro: **dot** colorato del tipo (stessa tavolozza dei badge) + **titolo** in
+  peso 600 a 13.5px + **una riga** di dettaglio in `text-secondary` a 12.5px +
+  l'ora a `text-tertiary`. Una riga sola di dettaglio, con ellissi: un avviso che
+  si legge in due secondi o non si legge.
+- **Cliccabile tutto**: porta alla cosa di cui parla. La **×** lo chiude senza
+  andare da nessuna parte.
+- Entrata: `translateY(8px)` + `opacity 0` → 0 in **180ms** con `--ease`.
+- Sparisce da solo dopo **~9 secondi**; il timer si **ferma col mouse sopra**.
+
+**Le tre regole che rendono i toast sopportabili** (senza queste diventano la
+prima cosa che si chiede di togliere):
+
+1. **Un tetto, e poi si riassume.** Massimo **3** a schermo (2 su telefono). Se
+   ne arrivano di più insieme, **uno solo** che li conta («7 novità: 5 messaggi,
+   2 ordini»). Una colonna di dieci riquadri non la legge nessuno e copre la
+   pagina.
+2. **Si possono zittire.** Un comando **«silenzia 1 ora»** dentro la pila, e
+   mentre è in pausa resta una pillola piccola che lo dice e che li riaccende. Un
+   avviso che non si può spegnere si impara a ignorare — e allora non avvisa più.
+3. **Mai ripetere il passato.** Al primo caricamento **non si mostra niente**: si
+   prende solo il segnaposto del «da adesso in poi». Un avviso deve dire *è
+   appena successo*, e riproporre le novità di ieri a ogni ricarica insegna che
+   non è vero.
+
+⚠️ Il segnaposto è **l'orologio del server**, restituito dalla risposta e
+rimandato indietro alla chiamata dopo: usando quello del browser, un computer
+avanti di un minuto salta gli avvisi e uno indietro li ripete.
 
 ### Navigazione (app gestionali)
 - Sidebar **chiara traslucida** (blur 24px, saturate 180%), larghezza ~250px, bordo destro hairline
