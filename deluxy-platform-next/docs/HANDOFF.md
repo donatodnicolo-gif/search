@@ -411,7 +411,7 @@ per interrogare Shopify direttamente.
   si gross-uppa con ritenuta d acconto 20% (lordo = netto/0,8); totale
   bonifico = netto + rimborso = TOTALE (la ritenuta la versa Deluxy in piu);
   marca da bollo 2 EUR sopra 77,47. Il recap ora ha il blocco «Ricevuta di
-  prestazione occasionale» per i valet senza P.IVA (campo  anche
+  prestazione occasionale» per i valet senza P.IVA (campo ricevuta anche
   nell API del recap). Con P.IVA resta la pro-forma.
 - **Non consegnata ma A ORA del valet = SI PAGA** (deciso dall utente, caso
   62372 Cassoli): DA_PAGARE include not_delivered, tenuto SOLO se il listino
