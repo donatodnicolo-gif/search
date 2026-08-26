@@ -69,11 +69,13 @@ traduzione ru del metafield (gid://shopify/Metafield/53650775671114) → il russ
 sul valore primario; verificato live 9/9 il 26/8. Vecchio valore RU (per eventuale
 rollback) nella memoria del progetto.
 
-**Regole**: (1) MAI tradurre `custom.default_provinces` in Translate & Adapt; (2) resta
-da applicare sul tema dev la blindatura del parse in `theme.liquid` (regex `/-(.*)\((\w+)\)/`
-senza prefisso obbligato + se `provincesArray.length < provinceItems.length` ripiego sui
-codici `['RM','MI','FI','PV','BG','MB','VA','CO','LO']` con `console.warn`) — la scrittura
-via connector è stata bloccata dai permessi il 26/8; (3) attenzione: la whitelist include
+**Regole**: (1) MAI tradurre `custom.default_provinces` in Translate & Adapt; (2) blindatura
+del parse APPLICATA il 26/8 sul tema dev «Version to work on» (`theme.liquid`, +784 byte):
+regex `/-(.*)\((\w+)\)/` senza prefisso obbligato + se `provincesArray.length <
+provinceItems.length` (parse rotto O parziale) ripiego sui codici
+`['RM','MI','FI','PV','BG','MB','VA','CO','LO']` con `console.warn` — testata in Node su
+valore primario (parse normale 9/9), traduzione cirillica e lista mista (ripiego 9 codici);
+va in produzione quando l'utente pubblica il tema dev; (3) attenzione: la whitelist include
 LODI ma le zone di spedizione Shopify NON hanno una tariffa per Lodi → chi è di Lodi passa
 il check e al checkout non trova corrieri.
 
