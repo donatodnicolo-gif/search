@@ -77,6 +77,17 @@ export async function nostriDomini(utenteId: string): Promise<string[]> {
   }
 }
 
+/** Gli indirizzi email dentro «mittente + destinatari» di una mail.
+ *  ⚠️ Una regex SOLA per tutti i chiamanti, e non per eleganza: la copia è
+ *  già costata un backslash mangiato (26/08/2026): scritta `[^s<>,;"]` invece
+ *  di `[^\s<>,;"]`, escludeva la LETTERA «s» al posto degli spazi, e
+ *  «roberta.sireno@havi.com» usciva «ireno@havi.com»: un indirizzo storpiato
+ *  che passa ogni controllo (ha la chiocciola, il dominio non è nostro) e
+ *  finirebbe scritto in un CRM. Né `tsc` né la build possono accorgersene:
+ *  è una regex valida. */
+function indirizziDi(m: { mittente: string; destinatari: string }): string[] {
+  return (`${m.mittente}, ${m.destinatari}`.match(/[^\s<>,;"]+@[^\s<>,;"]+/g) ?? []).map((a) => a.trim().toLowerCase())
+}
 /**
  * L'indirizzo dell'ALTRA azienda nello scambio: il primo fra mittente e
  * destinatari che non è su un nostro dominio. Su una mail che abbiamo mandato
@@ -87,10 +98,9 @@ export function controparteDi(
   m: { mittente: string; destinatari: string },
   nostri: string[]
 ): string | null {
-  const indirizzi = `${m.mittente}, ${m.destinatari}`.match(/[^\s<>,;"]+@[^\s<>,;"]+/g) ?? []
-  for (const a of indirizzi) {
+  for (const a of indirizziDi(m)) {
     const d = dominioDi(a)
-    if (d && !nostri.includes(d)) return a.toLowerCase()
+    if (d && !nostri.includes(d)) return a
   }
   return null
 }
@@ -114,10 +124,9 @@ export function controparteDelThread(
 ): string | null {
   const trovati: { indirizzo: string; quando: number }[] = []
   for (const m of messaggi) {
-    const indirizzi = `${m.mittente}, ${m.destinatari}`.match(/[^s<>,;"]+@[^s<>,;"]+/g) ?? []
-    for (const a of indirizzi) {
+    for (const a of indirizziDi(m)) {
       const d = dominioDi(a)
-      if (d && !nostri.includes(d)) trovati.push({ indirizzo: a.toLowerCase(), quando: m.data.getTime() })
+      if (d && !nostri.includes(d)) trovati.push({ indirizzo: a, quando: m.data.getTime() })
     }
   }
   if (trovati.length === 0) return null

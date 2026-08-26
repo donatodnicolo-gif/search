@@ -19,10 +19,65 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 
 - **URL produzione:** https://deluxy-mail.vercel.app
 - **Hosting:** Vercel (team `deluxy`, progetto `deluxy-mail`).
-- **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre 12 app Deluxy, ognuna nel suo schema. Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
+- **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre app Deluxy, ognuna nel suo schema (⚠️ **erano 12 il 19/08 e 14 il 21/08**: il numero cresce, non fidarsi di questa riga — si contano gli schemi). Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 5) — la revisione ostile del lotto «sera 4»: un backslash mangiato, e cinque righe di questo documento false
+
+Un agente-revisore mandato a **smentirmi** (lo chiede l'utente dopo ogni giornata piena:
+è la seconda volta, e ha ripagato di nuovo). Ha trovato **un guasto vero nel codice
+appena pubblicato** e cinque righe false qui dentro.
+
+🔴 **Il guasto: `controparteDelThread` aveva la regex col backslash mangiato.**
+Scritta `[^s<>,;"]` invece della classe che esclude gli spazi, escludeva la **lettera
+«s»**. Provata: `roberta.sireno@havi.com` usciva **`ireno@havi.com`**,
+`anna@sistemi.it` e `x@shop.it` **non uscivano affatto**, `ordini@business.deluxy.it`
+dava dominio **`bu`** — cioè un nostro indirizzo sarebbe passato per esterno. Peggio:
+la guardia «un solo dominio esterno» si calcola su quegli indirizzi, e un dominio che
+**sparisce** fa scendere il conto a uno, aprendo proprio il caso che la guardia doveva
+chiudere. ⚠️ **Né `tsc` né la build possono vederlo: è una regex valida.** È
+[[trappola-backslash-mangiato-nelle-patch]] per la seconda volta, e stavolta ha
+attraversato typecheck, build, la mia rilettura e il deploy.
+- **Danno vero: nessuno, misurato.** Live dalle 18:19 alle 18:50; `InvioApp` non ha
+  **nessun** invio in quella finestra (contato sul database di produzione), e
+  `controparteDelThread` ha **un solo chiamante**, `proponiPerApp`, che riempie la
+  tabella da confermare. Il ramo automatico (`eseguiAzioneSezioneOra`, quello che scrive
+  **senza** conferma) usa `controparteDi`, che non è mai stata rotta.
+- **Correzione**: la regex non l'ho riscritta, l'ho **tolta**. Ora c'è una funzione sola,
+  `indirizziDi`, usata da entrambe: il doppione era il difetto vero, il backslash solo
+  il modo in cui si è manifestato. Provata sui cinque casi che la rompevano e sui tre
+  scenari di thread (due domini esterni → `null`; un dominio solo → il più recente;
+  tutto interno → `null`), eseguendo il **codice vero preso dal file**, non una copia.
+- ⚠️ **Regola operativa** per chi scrive codice da qui: in questo ambiente una patch che
+  passa per la shell **perde un livello di backslash**. Se una regex ne contiene uno, non
+  riscriverla: **copiarla dal file** (è così che l'ho corretta) e poi **eseguirla** su
+  casi veri. Il commento di quella funzione ha perso il backslash altre due volte prima
+  che me ne accorgessi.
+
+**Righe di questo documento che erano false** (corrette in questo commit):
+1. «tutte e **8** le caselle» e «5 caselle su 8»: le caselle attive sono **nove** (è
+   entrata `amministrazione@deluxy.it`, quella dei recap della piattaforma) e lo storico
+   della cartella Inviata è indietro su **sei**. La tabella del 25/08 era stata riletta
+   come stato di oggi — [[trappola-riassunto-handoff-invecchiato]].
+2. `CRON_SECRET` nel §3: il codice legge `CRON_TOKEN || CRON_SECRET` e l'errore dice
+   «CRON_TOKEN non configurato». Nel `.env` vero la variabile è `CRON_TOKEN`.
+3. Due righe del §9 dicevano ancora «su Vercel **Hobby** il cron gira ~1 volta al giorno,
+   la pianificazione `*/5` è ignorata»: superato dal 25/08 (il progetto sta sull'org
+   Deluxy, e il cron è **misurato** sulla griglia dei 5 minuti).
+4. «lo stesso progetto delle **altre 12** app Deluxy»: erano 12 il 19/08 e 14 il 21/08.
+   Un numero che cresce non va congelato in una riga.
+5. «Il contatto si vede e si aggancia **SEMPRE**» (sezione sera 2): non sempre — è il
+   guasto della sera 4. Ora la correzione è scritta **nel punto** in cui sta la riga
+   vecchia, non solo duecento righe più in alto.
+
+⚠️ **Il revisore ha anche contestato cose che non erano errori**: che i punti aperti siano
+nove (sono nove NUMERI, ma 1-bis e il 6 sono chiusi con la spunta: gli aperti sono otto —
+ora è scritto lì) e che `/api/health` restituisca anche `"app":"deluxy-mail"` (vero, e
+irrilevante). Anche un revisore ostile va letto con la stessa diffidenza:
+[[trappola-non-lho-trovato-dove-ho-guardato]].
+
+---
 ### 26/08 (sera 4) — il dialogo che scorreva di lato, e i due campi vuoti che l'app sapeva già
 
 Tre segnalazioni dell'utente sulla stessa schermata («Commerciale — Apri trattativa»
@@ -128,7 +183,11 @@ Due lavori che NON erano ancora scritti qui (i commit non hanno toccato i docume
 
 Tre richieste dell'utente sulla schermata «Apri trattativa»:
 
-1. **Il contatto si vede e si aggancia SEMPRE.** Riga «Contatto (email)» nella tabella,
+1. **Il contatto si vede e si aggancia SEMPRE.** ⚠️ **Corretto la sera del 26/08 (sera 4):
+   NON sempre.** Se l'azione nasce da una mail INTERNA il codice non ha nessuna
+   controparte da mettere, e il campo resta vuoto; come è stato chiuso sta nella sezione
+   «sera 4». Quel che segue vale per una mail con una controparte esterna:
+   Riga «Contatto (email)» nella tabella,
    riempita dal CODICE (`normalizza` con `ctx.controparte`) — e ⚠️ `normalizza` ora gira
    **anche in `proponiPerApp`**, non solo all'invio: quello che il codice sa con certezza
    deve VEDERSI prima della conferma, non comparire a cose fatte (è idempotente, il
@@ -303,9 +362,13 @@ Chiesto dall'utente sulla schermata di «Commerciale — Apri trattativa», che 
 ---
 ### Dove siamo (26 agosto 2026)
 
-**Fotografia verificata oggi, 26 agosto 2026 alle 18:25** (giornata: **dodici** commit su
-`deluxy-mail/` — contati con `git log --since=2026-08-26 -- deluxy-mail`, documentazione
-compresa; di questi otto cambiano il comportamento. In ordine: la tabella al posto del
+**Fotografia verificata oggi, 26 agosto 2026 alle 18:55** (giornata: **quattordici**
+commit su `deluxy-mail/`, documentazione compresa e compreso quello che scrive questa
+riga; di questi **nove** cambiano il comportamento. ⚠️ Il comando va scritto così:
+`git log --oneline --after="2026-08-26T00:00:00" -- deluxy-mail` — con
+`--since=2026-08-26` e la data nuda git risponde **zero**, e la riga precedente diceva
+«dodici» proprio perché contava con un comando che non si riproduce, dimenticando per la
+seconda volta in un giorno il commit che stava scrivendo. In ordine: la tabella al posto del
 JSON, la domanda dal riassunto, il lotto «riassunto che lavora», la casella di risposta,
 la trattativa, il quarto negozio, l'API con la casella, e il dialogo che non scorre più
 di lato):
@@ -352,10 +415,10 @@ qui sotto sono di ieri):
 
 | | |
 |---|---|
-| Caselle attive | **8** (`commerciale@`, `cs@` ×2, `info@deluxyflowers.com`, `edoardo.`, `eleonora.`, `nicolo.`, `renato.`) |
+| Caselle attive (⚠️ dato del 25/08: dal 26/08 sono **9**, con `amministrazione@`) | **8** (`commerciale@`, `cs@` ×2, `info@deluxyflowers.com`, `edoardo.`, `eleonora.`, `nicolo.`, `renato.`) |
 | Utenti | **10** |
 | Messaggi | **31.575** (l'ultimo entrato alle 12:45) |
-| Ultimo giro del cron | **12:55:56–12:56:00**, tutte e 8 le caselle, **zero errori** |
+| Ultimo giro del cron | **12:55:56–12:56:00**, tutte le caselle di allora, **zero errori** |
 | Arretrato posta in arrivo | finito ovunque (`storicoFinito = true` × 8) |
 | Attività | 213, di cui **44 aperte** |
 | Iscrizioni alle notifiche push | 🔴 **1 sola**, su 10 utenti |
@@ -453,6 +516,10 @@ l'apertura di una mail resa veloce (vedi punto 1 qui sotto).
 
 #### Punti aperti (in ordine di cosa sblocca cosa)
 
+> ⚠️ I numeri arrivano a 9, ma gli **aperti sono otto**: 1-bis e il 6 sono chiusi (hanno
+> la spunta ✅) e restano qui perché dicono COME sono stati chiusi. Le notifiche push non
+> stanno in questa lista ma in «Se riprendi da qui», punto 2.
+
 1. **Verificare la velocità**: le funzioni devono stare accanto al database, ed è la
    causa già pagata due volte (a luglio giravano a **Washington**). ⚠️ **La region è
    cambiata col trasloco del 19/08**: non più `dub1` (Dublino, accanto al vecchio
@@ -491,10 +558,11 @@ l'apertura di una mail resa veloce (vedi punto 1 qui sotto).
    Se non si può spegnerlo subito, **rinominare lo schema `mail` in `mail_dismesso`**
    là dentro: l'errore diventa rumoroso invece che silenzioso.
 4. **Timeout del cron `/api/sync` a 300s** — molto ridimensionato (misurato il
-   25/08): l'arretrato della **posta in arrivo è finito su tutte e 8 le caselle**
+   25/08, **ricontato il 26/08 alle 18:45**): l'arretrato della **posta in arrivo è
+   finito su tutte e NOVE le caselle** (erano otto: è entrata `amministrazione@deluxy.it`)
    (`storicoFinito = true` ovunque) e nessun account ha un `ultimoErrore`; il giro
-   completo di 8 caselle sta in **~5 secondi**. Resta indietro solo lo storico
-   della cartella **Inviata**: `storicoInviataFinito = false` su **5 caselle su 8**
+   completo sta in **~5 secondi**. Resta indietro solo lo storico
+   della cartella **Inviata**: `storicoInviataFinito = false` su **6 caselle su 9**
    (commerciale, le due cs@, edoardo, nicolo). Il rischio del taglio a 300s vale
    ormai solo per quel recupero, non per il giro di tutti i giorni.
 5. **856 mail vecchie col testo sporco** (804 con `mailto:` incastrati, 56 col
@@ -615,7 +683,7 @@ npm run dev               # Next su http://localhost:3070
 - `DATABASE_URL` (pooler pgbouncer 6543), `DIRECT_URL` (5432).
 - `OPENAI_API_KEY` (chiave `sk-proj-…`), `OPENAI_MODEL` (`gpt-4o-mini`).
 - `APP_SECRET` (firma cookie sessione, HMAC).
-- `APP_PASSWORD` (legacy), `CRON_SECRET` (cron `/api/sync`).
+- `APP_PASSWORD` (legacy), **`CRON_TOKEN`** (cron `/api/sync`). ⚠️ Il codice accetta anche `CRON_SECRET` come ripiego, ma il nome vero — quello nel `.env` e nel messaggio di errore — è `CRON_TOKEN`.
 - **APP DELUXY** (pannello verso le altre app): le chiavi si inseriscono ora **dall'app** in **Impostazioni App** (`/impostazioni-app`, solo admin) — vengono **cifrate** (AES-256-GCM come le password IMAP) e salvate come `Impostazione` globale (`app.anagrafiche.key`/`app.finance.key`/`app.fornitori.key`). In alternativa restano le env `ANAGRAFICHE_API_KEY` / `FINANCE_API_KEY` / `FORNITORI_PASSWORD` su Vercel: il resolver `leggiChiaviApp()` in `lib/chiaviApp.ts` legge **prima il DB cifrato, poi l'env**. Le chiavi non tornano mai al browser (la UI mostra solo *se* è impostata). Chiavi: Anagrafiche = **scrittura** (`npm run chiave -- deluxy-mail --scrittura`), Finance = `api.verificheKey`, Fornitori = password admin di search-deluxy (azione «Trova fornitore» → `GET /api/fornitori?brand&number`, header `x-app-password`/`x-app-user`). Opzionali gli URL `ANAGRAFICHE_URL` / `FINANCE_URL` / `FORNITORI_URL` (non segreti). **Senza chiave la carta dell'app è "da collegare"** e l'invio è bloccato. Le azioni ricevono la chiave via `ctx.chiave` (non leggono più `process.env` direttamente).
 - ⚠️ `TZ` è **riservato** su Vercel: il fuso è forzato nel codice (vedi §9).
 
@@ -761,7 +829,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — pianificato `*/
 - **Attività doppie — RISOLTO (idempotenza + pulizia)** (23 lug): l'analisi cancella-e-ricrea le attività di una mail in **due passi non atomici**; da quando il lettore AI gira in sottofondo (3 mail/giro) può sovrapporsi a un'analisi scatenata dall'utente → entrambe cancellano e ricreano → doppioni. Ora `creaAttivitaUnica` (sync.ts) **salta la creazione se esiste già** un'attività identica e non fatta per lo stesso messaggio (stesso titolo) — usata sia dall'analisi AI sia dalle attività da regola. **Pulizia una-tantum** in `migrate-prod.mjs`: DELETE idempotente dei doppioni non-fatti (stessa `utenteId`+`titolo`+`messaggioId`/`contattoEmail`, tiene la più vecchia; non tocca le fatte). ⚠️ NON è un vero fix di concorrenza (due `findFirst` simultanei possono ancora passare entrambi): riduce drasticamente i casi e la pulizia periodica sana i rari residui; un lock DB vero servirebbe solo se ricomparissero.
 - **Calendario: doppio clic su un giorno → nuovo appuntamento** (23 lug): le celle da OGGI in poi (`chiave >= oggiIt`, confronto fra stringhe "YYYY-MM-DD") si aprono con **doppio clic** e precompilano il form «Nuovo appuntamento» su quella data. `CellaGiorno` (client) avvolge il contenuto reso lato server e, su doppio clic fuori da un evento/attività, lancia l'evento `aimail:nuovo-evento` con `{giorno}`; `NuovoEvento` lo ascolta, si apre, precompila (`key` sull'input date per rimontarlo) e scrolla in cima. I giorni passati non si aprono (cursore/hover solo sulle celle apribili). **Sidebar**: «Attività» spostata da Applicazioni a **Strumenti** (è materiale di lavoro sulla posta, non un'app a sé).
 - **Renè rispondeva in italiano a mail inglesi — RISOLTO in codice** (23 lug): la lingua veniva presa da `Messaggio.lingua`, che però lo riempie **solo la traduzione automatica** (`traduzioneAuto`): chi legge l'inglese la tiene spenta → campo **null** proprio sulle mail straniere → il prompt «usa la lingua della conversazione» e il modello, vedendo le NOSTRE risposte italiane nel thread, sceglieva italiano. Ora c'è **`lib/rilevaLingua.ts`**: riconoscimento deterministico (punteggio su parole comuni di it/en/fr/es/de/pt/nl, **nessuna chiamata AI, costo zero**) che scarta righe citate e intestazioni d'inoltro, così decide sul testo NUOVO. `linguaPerRisposta()` in sync.ts: usa `Messaggio.lingua` se c'è, altrimenti riconosce dall'**ultima mail RICEVUTA** del thread (mai dalle nostre uscite); usata da tutti e tre i punti in cui Renè scrive (delega, «Chiedi a Renè», esecuzione attività). Il prompt ora dichiara la lingua come **regola assoluta** che vince sul resto della conversazione. **Verificato 7/7** su casi reali, compreso «inglese con citazione italiana sotto» (la trappola esatta di questo caso). Lezione ribadita: quel che deve essere vero si applica nel codice, non si affida al prompt.
-- **Notifiche push: una per mail (non più una sola) + anti-doppione** (23 lug): `notificaNuoveMail` mandava **una sola notifica riepilogativa** anche per dieci mail («ne arriva solo una»). Ora manda **una notifica per ogni mail** (fino a 5, poi un «e altre N»), ciascuna con un **`tag` diverso** (il messageId) — il service worker usa `tag`+`renotify` così sul telefono si impilano invece di sostituirsi. Nuovo campo **`Messaggio.notificatoIl`** (+ migrazione idempotente): le mail già notificate non tornano, così cron e giro interattivo non le rimandano; la selezione non usa più `creatoIl >= da` ma `notificatoIl: null`. Ogni notifica apre direttamente `/messaggio/<id>`. ⚠️ **Causa di fondo del «non arrivano», NON di codice**: l'unico trigger è il cron `/api/sync`, e su **Vercel Hobby il cron gira ~1 volta al giorno** (la pianificazione `*/5` in vercel.json è ignorata sotto il giorno). Per notifiche tempestive serve un **cron esterno** (es. cron-job.org) che chiami `GET /api/sync?token=<CRON_SECRET>` ogni pochi minuti, oppure Vercel Pro. Il codice è pronto: appena il cron gira spesso, le notifiche arrivano puntuali e distinte.
+- **Notifiche push: una per mail (non più una sola) + anti-doppione** (23 lug): `notificaNuoveMail` mandava **una sola notifica riepilogativa** anche per dieci mail («ne arriva solo una»). Ora manda **una notifica per ogni mail** (fino a 5, poi un «e altre N»), ciascuna con un **`tag` diverso** (il messageId) — il service worker usa `tag`+`renotify` così sul telefono si impilano invece di sostituirsi. Nuovo campo **`Messaggio.notificatoIl`** (+ migrazione idempotente): le mail già notificate non tornano, così cron e giro interattivo non le rimandano; la selezione non usa più `creatoIl >= da` ma `notificatoIl: null`. Ogni notifica apre direttamente `/messaggio/<id>`. ⚠️ **SUPERATO il 25/08** (vedi «Se riprendi da qui», punto 2: il cron è misurato ogni 5 minuti, e l'ostacolo vero è che c'è UNA sola iscrizione su 10 utenti). Quel che si credeva allora: l'unico trigger è il cron `/api/sync`, e su **Vercel Hobby il cron gira ~1 volta al giorno** (la pianificazione `*/5` in vercel.json è ignorata sotto il giorno). Per notifiche tempestive serve un **cron esterno** (es. cron-job.org) che chiami `GET /api/sync?token=<CRON_SECRET>` ogni pochi minuti, oppure Vercel Pro. Il codice è pronto: appena il cron gira spesso, le notifiche arrivano puntuali e distinte.
 - **L'AI non parte più a ogni apertura della posta** (23 lug): il lettore automatico `AnalisiAIInbox` era montato su OGNI vista della posta in arrivo, quindi ogni apertura di «In arrivo» faceva comunque una chiamata a `/api/analizza-ai-inbox` (query DB sempre; OpenAI solo se c'era davvero da leggere). Ora gira **solo nella AI Inbox** e nelle **conversazioni AI+** (dove era già). Nessuna rilettura in loop: `analizzaMessaggioOra` marca `analizzatoIl` e `riassumiThreadOra` aggiorna `messaggiVisti`, quindi il costo AI scatta solo su contenuto nuovo — il problema era solo il numero di chiamate a vuoto, non un ciclo.
 - **«Scarica» di un allegato grande non faceva nulla — RISOLTO (streaming)** (23 lug): il download restituiva l'allegato **bufferizzato in memoria** (`new Response(new Uint8Array(buf))`), ma su Vercel una risposta bufferizzata non può superare **~4,5 MB**: un catalogo lo supera e il clic non produceva nulla. Ora, quando c'è la `parte` (il caso normale), `/api/allegato` **trasmette a flusso**: `scaricaParteStream` (imap.ts) tiene la connessione IMAP aperta e restituisce il Readable; la rotta lo avvolge in un `ReadableStream` web e chiude la connessione su `end`/`error`/`cancel`. A flusso il limite dei 4,5 MB non si applica. Resta la strada bufferizzata (per indice) come riserva quando la parte non è nota. ⚠️ **Nota aperta**: `/api/allegati-zip` («Scarica tutti») costruisce lo zip in memoria e lo restituisce bufferizzato → stesso tetto ~4,5 MB per archivi grandi; da convertire a flusso se serve.
 - **«Chiedi a Renè» dentro la scrittura + graffetta nella barra** (23 lug): mentre scrivi una risposta non c'era modo di farti aiutare (il «Delega Renè» sta fuori, prepara una bozza e ti sposta di pagina). Ora sopra l'editor c'è **«AI Chiedi a Renè di scrivere»**: digli cosa dire e il testo compare **nell'editor aperto** — nuova `testoRispostaRene` in sync.ts (riusa `scriviRisposta` con thread, stile, firma, istruzioni mirate e **lingua**) esposta dall'action `chiediARene`; nessuna bozza creata, nessuna navigazione. Se c'è già del testo scritto glielo si passa, così «rendila più formale» lavora su quello. ⚠️ L'editor prende il contenuto **una sola volta** (se no il cursore salterebbe a ogni tasto): per sostituirlo si rimonta con una `key` che cambia. Aggiunta anche la **graffetta 📎 accanto al link** nella barra: è una `<label>` legata al campo file degli allegati (`idAllegati`/`idInput`), quindi apre il selettore senza ref né stato in più.
@@ -817,7 +885,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — pianificato `*/
 - **Recap/mail ai destinatari indicati** (21 lug): se l'istruzione nomina i destinatari (persone/rubrica), Renè li mette in "a" invece del mittente originale. `scriviRisposta` risolve i nomi con la RUBRICA COMPLETA (`elencoContatti`, ~200) passata da `preparaRispostaDelegata`/`preparaEsecuzione`. In risposta: `a = testo.a || messaggio.mittente`.
 - **Firma Deluxy da form dedicato** (21 lug): in Impostazioni «La tua firma» — campi (nome, ruolo, reparto, email, telefono, sito) → `costruisciFirma` (`lib/firma.ts`) genera l'HTML col template Deluxy (logo + disclaimer) salvato in `Utente.firma`; i campi restano in `Utente.firmaDati` (JSON) per riaprire il form. Email/nome precompilati dall'utente al primo accesso. La firma NON si tocca più da `salvaImpostazioni`. `preparaRisposta`/scrittura: se la firma è HTML (`sembraHtml`) si usa così com'è e la risposta diventa HTML (l'editor la rende). Migrazione idempotente `firmaDati`.
 - **Renè AI: storico priorità + guida di gestione; Statistiche** (21 lug): in `/rene` — «Storico priorità» (`StoricoPriorita`): elenca le mail a cui hai dato una priorità con l'esito DEDOTTO dallo stato (risposto/attività/archiviata/cestinata/in sospeso), niente tabella di log. «Come gestire le richieste»: impostazione globale `guida_gestione` (CHIAVI, admin, `salvaGuidaGestione`) iniettata nell'analisi (`analizzaMessaggioOra` → `istruzioniAI`, via `contestoAI`), così le prossime mail simili si smistano/prioritizzano come indicato. Nuova pagina `/statistiche` (gruppo Gestione in sidebar): conteggi per priorità e per esito (derivati, cap 2000).
-- **Notifiche push sul telefono** (21 lug): Web Push. Modello `PushIscrizione` (endpoint/p256dh/auth per utente) + migrazione idempotente. `lib/push.ts` (web-push, VAPID) con `inviaPush`/`notificaNuoveMail`; service worker `public/sw.js` (push + notificationclick); componente client `NotifichePush` in Impostazioni (registra SW, chiede permesso, si iscrive, salva via `salvaIscrizionePush`/`rimuoviIscrizionePush`). Trigger: in `sincronizzaTutti` (il giro del CRON, cioè quando l'utente NON è sull'app) — se arriva posta nuova (entrata, non letta, non spam), una notifica riepilogativa. **Config Vercel richiesta**: `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` + `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (stesso valore pubblico). **Frequenza**: le notifiche partono quando gira il cron `/api/sync` — su Hobby 1/giorno; per il quasi-real-time serve un cron ESTERNO (es. cron-job.org) che pinga `/api/sync?token=CRON_SECRET` ogni ~5 min. Senza VAPID, l'invio è no-op.
+- **Notifiche push sul telefono** (21 lug): Web Push. Modello `PushIscrizione` (endpoint/p256dh/auth per utente) + migrazione idempotente. `lib/push.ts` (web-push, VAPID) con `inviaPush`/`notificaNuoveMail`; service worker `public/sw.js` (push + notificationclick); componente client `NotifichePush` in Impostazioni (registra SW, chiede permesso, si iscrive, salva via `salvaIscrizionePush`/`rimuoviIscrizionePush`). Trigger: in `sincronizzaTutti` (il giro del CRON, cioè quando l'utente NON è sull'app) — se arriva posta nuova (entrata, non letta, non spam), una notifica riepilogativa. **Config Vercel richiesta**: `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` + `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (stesso valore pubblico). **Frequenza** (⚠️ **superata il 25/08**: il cron gira ogni 5 minuti, misurato): le notifiche partono quando gira il cron `/api/sync` — si credeva su Hobby 1/giorno; per il quasi-real-time serve un cron ESTERNO (es. cron-job.org) che pinga `/api/sync?token=CRON_SECRET` ogni ~5 min. Senza VAPID, l'invio è no-op.
 - **Chiavi APP DELUXY dalla cassaforte di deluxy-hub** (21 lug): `leggiChiaviApp` (`lib/chiaviApp.ts`) ora ha TRE sorgenti in ordine: override locale (Impostazioni App, cifrato) → **hub** (`GET /api/chiavi?progetto=deluxy-mail`, header `X-Hub-Token`) → env. Si attiva mettendo su Vercel di AI Mail `HUB_KEYS_TOKEN` (lo stesso token del hub) ed eventualmente `HUB_URL` (default https://deluxy-hub.vercel.app); le chiavi vanno inserite nel hub (pagina `/chiavi`) sotto progetto **deluxy-mail** coi nomi env (`ANAGRAFICHE_API_KEY`/`FINANCE_API_KEY`/`FORNITORI_PASSWORD`). Senza token il hub è ignorato (comportamento invariato). `statoChiaviApp` espone anche `daHub` e la UI mostra "Presa dalla cassaforte di deluxy-hub".
 - **Target al tocco più grandi su mobile** (21 lug): sulle righe di posta le azioni (`.azione-riga`/`.archivia-def`) diventano chip da ≥40px ben distanziate e le iconcine risposta 40×40 (prima erano link/icone minuscole e attaccate → su mobile si toccava quella sbagliata). Solo `@media (max-width:700px)` in globals.css.
 - **Svuota cestino = cancella ANCHE dal server** (21 lug): `svuotaCestino` ora, oltre a togliere le righe dal DB, cancella i messaggi DAL SERVER IMAP (`eliminaDalServer` in imap.ts: `messageDelete` + expunge). Incoming dalla INBOX, outgoing dalla cartella Inviata. Solo UID reali (>0): le copie locali degli inviati hanno uid negativo e si saltano. **IRREVERSIBILE** — cambia il vecchio principio "non si cancella mai dal server". Errori di rete: le righe si tolgono comunque dall'app e si avvisa.
@@ -1059,7 +1127,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — pianificato `*/
   divide il progetto con la **piattaforma consegne**: misurato 566 MB, già oltre i
   500 MB del Free, quindi le due app rischiavano di andare in sola lettura insieme) e
   passa a **`zegbztfxisqeowngvgvh`** (eu-central-1, schema `mail`), il cluster delle
-  altre 12 app, che sta sull'org **Deluxy in piano Pro** — 8 GB, backup giornalieri.
+  altre app Deluxy (12 al 19/08, 14 al 21/08), che sta sull'org **Deluxy in piano Pro** — 8 GB, backup giornalieri.
   ⚠️ **Il piano NON si legge dal database**: le due istanze sono identiche (Micro,
   `max_connections=60`). Si legge dalla Management API col PAT in `deluxy-scout/.env`
   (`GET /v1/organizations/<id>` → `"plan":"pro"`) o dai backup, che sul Free non esistono.
