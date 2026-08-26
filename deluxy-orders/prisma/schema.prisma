@@ -532,11 +532,11 @@ model Ordine {
   // ── L'ECONOMIA DELLA VENDITA calcolata dalla PIATTAFORMA (26/08/2026) ──
   // Tre numeri che la piattaforma consegne manda gia' fatti, su decisione
   // dell'utente (non sono ingredienti: sono il SUO conto, dichiarato come tale):
-  //   guadagnoVendita  (pagato dal cliente − valore prodotti al partner) ÷ 1,22
+  //   primoMargine  (pagato dal cliente − valore prodotti al partner) ÷ 1,22
   //   feeVendita       la quota registrata sulla consegna (lorda), dove c'e'
   //   margineFinale    guadagno netto + fee − costo consegna − commissione incassi
-  // ⚠️ guadagnoVendita e margineFinale POSSONO essere negativi. Null = non noti.
-  guadagnoVendita Float?
+  // ⚠️ primoMargine e margineFinale POSSONO essere negativi. Null = non noti.
+  primoMargine Float?
   feeVendita      Float?
   margineFinale   Float?
 

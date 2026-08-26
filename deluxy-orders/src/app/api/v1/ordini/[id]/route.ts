@@ -215,10 +215,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // ── L'ECONOMIA DELLA VENDITA, gia' calcolata dalla piattaforma (26/08) ──
-  // guadagnoVendita e margineFinale sono RISULTATI e possono essere negativi
+  // primoMargine e margineFinale sono RISULTATI e possono essere negativi
   // (un ordine venduto sotto costo esiste); feeVendita e' un importo trattenuto
   // e sotto zero non ha senso. `null` azzera, come per gli ingredienti.
-  for (const campo of ["guadagnoVendita", "feeVendita", "margineFinale"] as const) {
+  for (const campo of ["primoMargine", "feeVendita", "margineFinale"] as const) {
     if (!(campo in body)) continue;
     const grezzo = body[campo];
     if (grezzo === null || grezzo === "") {
