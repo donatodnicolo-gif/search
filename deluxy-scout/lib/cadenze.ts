@@ -9,13 +9,18 @@
 // - Pipeline: nessuna trattativa senza prossima scadenza — se non la scegli,
 //   l'app ne mette una a GIORNI_FOLLOWUP_DEAL.
 
+import { isoTraGiorni } from '@/lib/giorni';
+
 export const GIORNI_RISPOSTA_LEAD = 2; // sul web chi tarda perde
 export const GIORNI_FOLLOWUP_LEAD = 3; // primo follow-up di un lead qualificato
 export const GIORNI_FOLLOWUP_DEAL = 7; // default per ogni trattativa nuova senza scadenza
 
-/** Data ISO (YYYY-MM-DD) a N giorni da oggi. */
+/**
+ * Data ISO (YYYY-MM-DD) a N giorni da oggi.
+ *
+ * ⚠️ In ora LOCALE (lib/giorni.ts): con toISOString, fra mezzanotte e le due,
+ * un richiamo 'fra 7 giorni' cadeva il sesto.
+ */
 export function traGiorni(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  return isoTraGiorni(n);
 }

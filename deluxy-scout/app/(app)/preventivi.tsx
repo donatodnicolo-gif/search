@@ -12,6 +12,7 @@ import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, Styl
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { leggiImporto } from '@/lib/importi';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CampoData } from '@/components/CampoData';
@@ -715,16 +716,25 @@ function NuovoPreventivo({ lavoroId, onFatto }: { lavoroId: string; onFatto: () 
     if (!nome) return;
     setSalvo(true);
     try {
-      // La virgola è come si scrivono i decimali qui: accettarla evita che
-      // «1.250,50» diventi un numero sbagliato o nessun numero.
-      const n = Number(importo.replace(/\./g, '').replace(',', '.'));
+      // ⚠️ IL PREZZO NON SI PERDE IN SILENZIO (27/08/2026). Prima, se il campo
+      // conteneva qualcosa di non numerico — «€ 1.250», «1250 euro», un prezzo
+      // incollato da WhatsApp — il conto dava NaN e il preventivo si salvava
+      // con importo `null`. Ma qui `null` ha già un significato preciso:
+      // «gliel'ho chiesto e non ha ancora risposto». Il preventivo spariva dal
+      // confronto col più basso e il margine dell'ordine restava «—», senza
+      // che niente dicesse che il prezzo era stato buttato.
+      const n = leggiImporto(importo);
+      if (importo.trim() && n == null) {
+        avvisa('Prezzo non capito', `«${importo}» non è un importo. Scrivilo come 1.250,50 — oppure lascia il campo vuoto se il fornitore non ha ancora risposto.`);
+        return;
+      }
       await aggiungiPreventivo({
         lavoroId,
         fornitore: nome,
         fornitorePlaceId: fornitore?.id ?? null,
         fornitoreAnagraficheId: daRegistro?.id ?? null,
         fornitoreEmail: daRegistro?.email ?? null,
-        importo: importo.trim() && !Number.isNaN(n) ? n : null,
+        importo: n,
         tempi,
       });
       setFornitore(null);

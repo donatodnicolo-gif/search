@@ -12,6 +12,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place, RichiestaCliente, RichiestaPagamento, Task, Visit } from '@/types';
 import type { ChiamataFatta, OrdineConLuogo } from '@/lib/db';
 import { colors, coloreProprita, labelFase, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { isoOggi } from '@/lib/giorni';
 import { useAuth } from '@/lib/auth';
 import {
   fetchOrdini,
@@ -39,9 +40,8 @@ import { RicercaGlobale } from '@/components/RicercaGlobale';
 const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 const GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
 
-function isoOggi(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+// isoOggi/isoTraGiorni stanno in lib/giorni.ts: in ora LOCALE. Con
+// toISOString, fra mezzanotte e le due, «oggi» era ieri.
 function isoGiorniFa(n: number): string {
   return new Date(Date.now() - n * 86400_000).toISOString();
 }

@@ -15,7 +15,7 @@
 // cliente là non c'è, il servizio risponde «Partner non trovato» con i
 // candidati simili. Quell'errore si mostra per intero invece di tradurlo in un
 // generico «non riuscito»: dice esattamente cosa manca e dove.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -31,6 +31,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { leggiImportoPositivo } from '@/lib/importi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { CampoData } from '@/components/CampoData';
@@ -106,13 +107,9 @@ const COLORE_STATO: Record<StatoRichiestaCliente, string> = {
   annullata: colors.grigio,
 };
 
-/** Legge un importo scritto all'italiana («1.500,50») senza inventare zeri. */
-function leggiImporto(v: string): number | null {
-  const s = v.trim().replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, '');
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
+/** La regola sta in lib/importi.ts, una volta sola e provata: era ricopiata in
+ *  cinque schermate, e in tre di quelle era sbagliata in due modi diversi. */
+const leggiImporto = leggiImportoPositivo;
 
 export default function RichiesteClienti() {
   // Da 900px in su l'elenco è una tabella (le schede restano sul telefono).
@@ -692,6 +689,9 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
   const [elencoMail, setElencoMail] = useState(false);
   /** La mail della propria casella da cui nasce la richiesta, se c'è. */
   const [mailScelta, setMailScelta] = useState<MiaMail | null>(null);
+  /** L'ultima mail di cui si è chiesto il corpo: la risposta che arriva dopo
+   *  averne scelta un'altra non deve più scrivere niente. */
+  const mailInCorso = useRef<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -739,6 +739,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
     setElencoMail(false);
     setCanale('mail');
     setMailScelta(m);
+    mailInCorso.current = m.id;
     if (!nota.trim()) setNota(`Ha scritto ${[m.da, m.email].filter(Boolean).join(' · ')}`);
     if (!cliente.trim()) {
       setCliente(m.da);
@@ -747,10 +748,20 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
     // Il testo INTERO, non l'anteprima: è quello che si legge nella scheda, e
     // due righe di anteprima non dicono cosa il cliente ha chiesto.
     if (!descrizione.trim()) {
-      setDescrizione((m.anteprima ?? '').trim().slice(0, 500));
+      const anteprima = (m.anteprima ?? '').trim().slice(0, 500);
+      setDescrizione(anteprima);
       try {
         const { testo } = await fetchCorpoMail(m.id);
-        if (testo.trim()) setDescrizione(testo.trim().slice(0, 500));
+        if (!testo.trim()) return;
+        // ⚠️ FRA LA RICHIESTA E LA RISPOSTA PASSA UN SECONDO, e in quel secondo
+        // l'utente può aver cominciato a correggere il testo — o aver scelto
+        // un'altra mail. Prima si riscriveva il campo senza guardare: quello
+        // che aveva appena digitato spariva, e sotto un'intestazione che
+        // diceva «mail 2» poteva restare il corpo della mail 1. Si scrive solo
+        // se questa è ancora la mail scelta E se nel campo c'è ancora
+        // esattamente l'anteprima che ci abbiamo messo NOI.
+        if (mailInCorso.current !== m.id) return;
+        setDescrizione((attuale) => (attuale === anteprima ? testo.trim().slice(0, 500) : attuale));
       } catch {
         /* resta l'anteprima: meglio di niente, ed è dichiarata dall'origine */
       }

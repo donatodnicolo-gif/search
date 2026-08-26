@@ -18,6 +18,9 @@ import { useFocusEffect } from 'expo-router';
 import { Foglio } from '@/components/Foglio';
 import type { RichiestaPagamento, StatoPagamento } from '@/types';
 import { colors, labelFase, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
+import { isoTraGiorni } from '@/lib/giorni';
+import { leggiImporto, scriviImporto } from '@/lib/importi';
+import { avvisa } from '@/lib/dialoghi';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import {
@@ -57,7 +60,10 @@ const ddmm = (iso: string | null) => (iso ? iso.slice(5).split('-').reverse().jo
 
 type RataForm = { key: number; etichetta: string; modo: 'valore' | 'percentuale'; valore: string; scadenza: string | null };
 function importoRata(r: RataForm, totale: number): number {
-  const v = Number((r.valore || '').replace(',', '.').replace(/[^\d.]/g, '')) || 0;
+  // ⚠️ Il punto italiano NON è un decimale: «1.500» sono millecinquecento
+  // (lib/importi.ts). Prima questa riga lo teneva per decimale e la rata
+  // partiva verso il cliente per 1,50 €.
+  const v = leggiImporto(r.valore) ?? 0;
   return r.modo === 'percentuale' ? Math.round((totale * v) / 100) : v;
 }
 
@@ -220,7 +226,15 @@ function RigaPagamento({
     onSalva();
   }
   async function salvaIncassato() {
-    const n = Number(incassato.replace(',', '.').replace(/[^\d.]/g, '')) || 0;
+    // ⚠️ Stessa trappola del punto: un incasso di «1.500» veniva registrato
+    // come 1,50 € e la richiesta restava «parziale» con 1.498,50 € che invece
+    // erano arrivati; «1.500,50» diventava 0 e AZZERAVA in silenzio un incasso
+    // parziale già scritto. Se il numero non si capisce, non si tocca niente.
+    const n = leggiImporto(incassato);
+    if (n == null) {
+      avvisa('Importo non capito', `«${incassato}» non è un importo. Scrivilo come 1.250,50.`);
+      return;
+    }
     const stato: StatoPagamento = n <= 0 ? r.stato : n >= r.importo ? 'pagata' : 'parziale';
     await aggiornaRichiestaPagamento(r.id, { importo_incassato: n, stato });
     await comunicaProforma(stato);
@@ -389,10 +403,13 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
   function seleziona(d: TrattativaConLuogo) {
     setScelta(d);
     setCliente(d.place_nome ?? '');
-    setImporto(d.valore_atteso != null ? String(d.valore_atteso) : '');
+    setImporto(scriviImporto(d.valore_atteso));
   }
 
-  const totaleImporto = Number(importo.replace(',', '.').replace(/[^\d.]/g, '')) || 0;
+  // ⚠️ La lettura è quella condivisa e provata (lib/importi.ts): «1.500» sono
+  // millecinquecento, non uno e cinquanta. Da qui esce l'importo che il
+  // cliente si vede chiedere sulla pro-forma.
+  const totaleImporto = leggiImporto(importo) ?? 0;
   const assegnato = rate.reduce((s, r) => s + importoRata(r, totaleImporto), 0);
   const valido = cliente.trim() && totaleImporto > 0;
 
@@ -623,11 +640,8 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
   );
 }
 
-function isoTraGiorni(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
+// isoTraGiorni sta in lib/giorni.ts: in ora LOCALE (con toISOString, fra
+// mezzanotte e le due, una scadenza «fra 7 giorni» cadeva il sesto).
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },

@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Foglio } from '@/components/Foglio';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { isoOggi, isoTraGiorni } from '@/lib/giorni';
+import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { TabellaTrattative } from '@/components/TabellaTrattative';
 import {
   aggiornaDeal,
@@ -86,16 +88,11 @@ function vistaDi(d: { fase: DealStage; annullata_il?: string | null }): VistaTra
   return d.fase === 'closedwon' ? 'vinte' : d.fase === 'closedlost' ? 'perse' : 'aperte';
 }
 
-function isoOggiTratt(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+// «Oggi» e «fra N giorni» stanno in lib/giorni.ts, in ora LOCALE: con
+// toISOString, fra mezzanotte e le due, la data era quella del giorno prima.
+const isoOggiTratt = isoOggi;
 
-// Data ISO (YYYY-MM-DD) a N giorni da oggi, e formattazione GG/MM/AAAA.
-function isoTraGiorni(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
+// Formattazione GG/MM/AAAA.
 function formattaData(iso: string): string {
   const [a, m, g] = iso.split('-');
   return `${g}/${m}/${a}`;
@@ -615,13 +612,11 @@ function RegistroBadge({ stato, partner }: { stato: string; partner?: boolean })
 }
 
 /** Scadenza passata su una trattativa ancora aperta. Confronto con la data
- *  LOCALE: isoOggiTratt() usa toISOString (UTC) e la sera in Italia direbbe
- *  «ieri» — qui si costruisce il giorno del calendario di chi guarda. */
+ *  LOCALE — il giorno del calendario di chi guarda, non quello di Greenwich
+ *  (lib/giorni.ts). */
 function scadutaDeal(deal: TrattativaConLuogo): boolean {
   if (!deal.scadenza || deal.fase === 'closedwon' || deal.fase === 'closedlost') return false;
-  const d = new Date();
-  const oggi = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return deal.scadenza < oggi;
+  return deal.scadenza < isoOggi();
 }
 
 /** Da quando è aperta la trattativa. Le righe che arrivano da HubSpot o dal
@@ -852,7 +847,7 @@ function TrattativaModal({
     deal ? canonizzaLinee(deal.linee?.length ? deal.linee : deal.linea ? [deal.linea] : []) : ['Consegne'],
   );
   const [fase, setFase] = useState<DealStage>((deal?.fase as DealStage) ?? 'appointmentscheduled');
-  const [valore, setValore] = useState(deal?.valore_atteso != null ? String(deal.valore_atteso) : '');
+  const [valore, setValore] = useState(scriviImporto(deal?.valore_atteso));
   const [nextAction, setNextAction] = useState(deal?.next_action ?? '');
   const [scadenza, setScadenza] = useState<string | null>(deal?.scadenza ?? null);
   const [oggetto, setOggetto] = useState(deal?.oggetto ?? '');
@@ -926,14 +921,20 @@ function TrattativaModal({
     setSalvando(true);
     setErrore(null);
     try {
-      const valNum = valore.trim() ? Number(valore.replace(/[^\d]/g, '')) : null;
+      // ⚠️ 27/08/2026: qui si toglievano punto e virgola, e il campo si riapre
+      // PRECOMPILATO col numero del database. Una trattativa da 1.500,50 €
+      // mostrava «1500.5» e bastava premere Salva — senza toccare il valore —
+      // per scriverci 15005: dieci volte tanto, poi cento, poi mille, e il
+      // numero gonfiato finiva in pipeline, nell'ordine della vinta e su
+      // HubSpot. Adesso la lettura è quella di lib/importi.ts, provata.
+      const valNum = leggiImporto(valore);
       const chiusa = fase === 'closedwon' || fase === 'closedlost';
       const eraChiusa = deal?.fase === 'closedwon' || deal?.fase === 'closedlost';
       const patch = {
         linea: linee[0] ?? null,
         linee,
         fase,
-        valore_atteso: valNum != null && isFinite(valNum) ? valNum : null,
+        valore_atteso: valNum,
         next_action: nextAction.trim() || null,
         scadenza,
         oggetto: oggetto.trim() || null,

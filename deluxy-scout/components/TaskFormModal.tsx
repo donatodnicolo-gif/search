@@ -17,6 +17,7 @@ import { colors, coloreProprita, radius, spacing } from '@/lib/theme';
 import { supabase } from '@/lib/supabase';
 import { aggiornaTask, fetchProfiles, inserisciTask, notificaAssegnazioneTask } from '@/lib/db';
 import { nomeVenditore } from '@/lib/metrics';
+import { isoTraGiorni } from '@/lib/giorni';
 
 // Etichette allineate al PriorityBadge ("P1 · Alta"…).
 const PRIORITA: { v: Priorita; label: string }[] = [
@@ -31,11 +32,10 @@ const SCAD: { label: string; giorni: number | null }[] = [
   { label: '+7 giorni', giorni: 7 },
 ];
 
-function isoTraGiorni(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
+// ⚠️ La data dei chip si calcola in ora LOCALE (lib/giorni.ts). Con
+// toISOString, fra la mezzanotte e le due, «Oggi» scriveva IERI — cioè un task
+// che nasceva già in ritardo — e «Domani» scriveva oggi. La schermata mostra
+// l'etichetta del chip, non la data: nessuno poteva accorgersene.
 
 export function TaskFormModal({
   task,

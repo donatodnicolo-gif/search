@@ -26,6 +26,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { leggiImportoPositivo } from '@/lib/importi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
@@ -40,13 +41,8 @@ import {
   type Fornitura,
 } from '@/lib/forniture';
 
-/** Legge un prezzo scritto all'italiana («1.500,50») senza inventare zeri. */
-function leggiPrezzo(v: string): number | null {
-  const s = v.trim().replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, '');
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
+/** La regola sta in lib/importi.ts, una volta sola e provata. */
+const leggiPrezzo = leggiImportoPositivo;
 
 export default function Forniture() {
   const { width } = useWindowDimensions();

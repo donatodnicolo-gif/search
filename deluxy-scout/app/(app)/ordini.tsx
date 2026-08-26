@@ -7,6 +7,7 @@ import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInp
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
@@ -419,7 +420,7 @@ export default function Ordini() {
       cliente: o.cliente ?? '',
       descrizione: o.descrizione ?? '',
       // ⚠️ La virgola italiana: si scrive «1.250,50», non «1250.50».
-      valore: o.valore != null ? String(o.valore).replace('.', ',') : '',
+      valore: scriviImporto(o.valore),
       linea: o.linea ?? null,
       canale: o.canale ?? null,
     });
@@ -437,11 +438,11 @@ export default function Ordini() {
       avvisa('Manca il cliente', "Un ordine senza il nome di chi compra non si ritrova più: scrivi chi è.");
       return;
     }
-    // «1.250,50» → 1250.5. Se il campo è vuoto il valore torna sconosciuto
-    // (null), che NON è zero: zero direbbe «venduto a niente».
-    const grezzo = bozza.valore.trim().replace(/\./g, '').replace(',', '.');
-    const valore = grezzo === '' ? null : Number(grezzo);
-    if (valore !== null && (!Number.isFinite(valore) || valore < 0)) {
+    // «1.250,50» → 1250.5 (lib/importi.ts). Se il campo è vuoto il valore
+    // torna sconosciuto (null), che NON è zero: zero direbbe «venduto a niente».
+    const vuoto = !bozza.valore.trim();
+    const valore = vuoto ? null : leggiImporto(bozza.valore);
+    if (!vuoto && (valore === null || valore < 0)) {
       avvisa('Valore non valido', `«${bozza.valore}» non è un importo. Scrivilo come 1.250,50.`);
       return;
     }
@@ -567,7 +568,16 @@ export default function Ordini() {
                * l'elenco quando riguarda solo una parte.
                */
               totali={(righe) => {
-                const conCosto = righe.filter((o) => costi.has(o.id));
+                // ⚠️ LA BASE È UNA SOLA (corretto il 27/08/2026). Prima bastava
+                // `costi.has(o.id)`, e un ordine col preventivo ma SENZA valore
+                // — caso che la modifica dell'ordine permette apposta —
+                // entrava nel conto: il suo costo si sommava per intero mentre
+                // il suo margine, sconosciuto, veniva contato zero. La riga dei
+                // totali smetteva di tornare con se stessa (Margine ≠ Valore −
+                // Preventivo) proprio dove il conto «su N di M» prometteva il
+                // contrario. Un margine sconosciuto non è un margine nullo:
+                // l'ordine esce dalla base, e il conto lo dichiara.
+                const conCosto = righe.filter((o) => costi.has(o.id) && o.valore != null);
                 const valore = righe.reduce((s, o) => s + (o.valore ?? 0), 0);
                 const costo = conCosto.reduce((s, o) => s + (costi.get(o.id)?.costo ?? 0), 0);
                 const margine = conCosto.reduce((s, o) => s + (margineDi(o) ?? 0), 0);
