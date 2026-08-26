@@ -421,6 +421,12 @@ per interrogare Shopify direttamente.
   (17 e 18/08, stesso partner) con productValue 80 € l'una = 160 € dati al
   partner. Takings 150−160 = −10 → IVA (takings−takingsNet) = −1,80. L'ordine
   è in perdita o il productValue andava diviso (75+75): decisione dell'utente.
+  ⭐ **Regola decisa (26/08 sera)**: se il pagato al partner SUPERA il valore
+  della vendita **l'IVA non si calcola** — takingsNet = takings (niente
+  scorporo), colonna IVA a zero, la perdita si legge intera. Applicata nei DUE
+  punti del conto (computeRow riga, recap ordine); `primoMargine` spinto a
+  Orders la eredita (economiaVendite riusa il recap). Ordini ricorretti su
+  Orders con `spingi-economia-a-orders.mjs` dopo il deploy.
 - **Orari a ora**: `approvedTimingStatus` decodificato (0 nessun giro, 3 in
   attesa, 1 approvato). 550 approvate: 549/550 con ore = orario dichiarato
   (unica storta #40843, già storta nel legacy). ⚠️ **283 consegne con orario

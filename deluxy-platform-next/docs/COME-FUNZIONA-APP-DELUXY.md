@@ -322,8 +322,8 @@ E il **guadagno** è la differenza col prezzo pubblico, **al netto IVA**: #63013
 | Valore vendite | Prezzo pubblico + Consegna prezzo |
 | **Dato al partner** | `Delivery.productValue` — **si legge, non si deduce** |
 | **Guadagno lordo** | Valore vendite − Dato al partner |
-| **Guadagno netto IVA** | Guadagno lordo ÷ 1,22 — **il guadagno vero** |
-| IVA | Guadagno lordo − Guadagno netto |
+| **Guadagno netto IVA** | Guadagno lordo ÷ 1,22 — **il guadagno vero**. **[26/08]** Se il guadagno lordo è **negativo** (dato al partner > valore vendite) **l'IVA non si calcola**: netto = lordo, la perdita si legge intera |
+| IVA | Guadagno lordo − Guadagno netto (zero quando il lordo è negativo) |
 | Quota a listino | `Delivery.price` + plus/minus — quello che sarebbe spettato |
 | Guadagno % | Guadagno lordo / Valore vendite |
 | Fee % contratto | `Partner.commissionPercent` — se diverge, la cella si accende |

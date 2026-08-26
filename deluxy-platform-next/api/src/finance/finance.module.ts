@@ -640,7 +640,10 @@ export class FinanceService {
       // somma di quanto e' andato ai partner. Non si sommano i guadagni delle
       // singole consegne: ciascuno era calcolato su un prezzo ripetuto.
       const takings = round2(valore - partnerPrice);
-      const takingsNet = round2(takings / (1 + VAT));
+      // ⚠️ Pagato al partner sopra il valore della vendita: niente scorporo
+      // IVA (deciso dall'utente 26/08) — la colonna IVA resta a zero e la
+      // perdita si legge intera.
+      const takingsNet = takings < 0 ? takings : round2(takings / (1 + VAT));
       // Il costo del giro e' la somma dei costi delle singole consegne.
       const deliveryCost = round2(g.reduce((s, r) => s + r.deliveryCost, 0));
       // ⚠️ LA COMMISSIONE E' DI UNA TRANSAZIONE, quindi si conta una volta per
@@ -883,7 +886,10 @@ export class FinanceService {
     const haValorePartner = (d.productValue ?? 0) > 0;
     const partnerPrice = d.productValue ?? 0;
     const takings = haValorePartner ? saleValue - partnerPrice : 0;
-    const takingsNet = takings / (1 + VAT);
+    // ⚠️ Se il pagato al partner SUPERA il valore della vendita non c'e' IVA
+    // da scorporare (deciso dall'utente 26/08): la perdita e' tutta perdita,
+    // non −10 di cui −1,80 «di IVA».
+    const takingsNet = takings < 0 ? takings : takings / (1 + VAT);
     // L'IVA e' quella gia' tolta dal guadagno: si mostra, non si risottrae.
     const vat = takings - takingsNet;
     const feeContractAmount = Math.max(0, (d.price ?? 0) + (d.additionalPrice ?? 0));
