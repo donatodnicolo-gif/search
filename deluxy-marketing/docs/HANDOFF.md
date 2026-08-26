@@ -357,6 +357,12 @@ salvato sarebbe invecchiato: stessa famiglia del riassunto d'handoff.
   storica non è un errore): «del …, su questo mondo c'è un'analisi più
   recente del …: [titolo] →» con link. I findings restano tutti leggibili:
   raccontano com'era allora, non com'è adesso.
+- ⚠️ **Trappola pagata al primo giro in produzione**: il confronto stretto
+  sui TIMESTAMP faceva risultare la 25/08 «superata da sé stessa» — una
+  RIDEPOSITATA in giornata crea due righe a poche ore di distanza, e il
+  doppione (senza scheda, invisibile fra le card) superava l'originale.
+  Si confronta il **GIORNO** (`giornoDi`), come la regola dichiarava:
+  due righe dello stesso giorno sono la stessa stagione.
 
 ### ⭐⭐ RIFINITURA UX/UI TRASVERSALE (26/08/2026 sera)
 

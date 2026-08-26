@@ -679,6 +679,14 @@ export async function noteAnalisiPerCampagna(campagna: {
 // Solo una data STRETTAMENTE più recente supera: due analisi dello stesso
 // giorno sono entrambe attuali — sceglierne una a caso sarebbe peggio.
 
+// ⚠️ Si confronta il GIORNO, non il timestamp. `dataAnalisi` porta anche
+// l'ora, e un'analisi RIDEPOSITATA in giornata crea due righe a poche ore di
+// distanza: col confronto stretto la scheda risultava «superata» dal suo
+// stesso doppione — trovato in produzione al primo giro («superata da» sé
+// stessa, stesso titolo). Due righe dello stesso giorno sono la stessa
+// stagione: nessuna delle due è storia dell'altra.
+const giornoDi = (d: Date) => d.toISOString().slice(0, 10);
+
 /** Per ogni analisi superata: chi la supera. In un giro solo, per gli elenchi. */
 export async function mappaAnalisiStoriche(): Promise<
   Map<string, { id: string; titolo: string; dataAnalisi: Date }>
@@ -695,7 +703,7 @@ export async function mappaAnalisiStoriche(): Promise<
   const storiche = new Map<string, { id: string; titolo: string; dataAnalisi: Date }>();
   for (const a of tutte) {
     const capo = capofila.get(chiave(a))!;
-    if (capo.id !== a.id && capo.dataAnalisi > a.dataAnalisi) storiche.set(a.id, capo);
+    if (capo.id !== a.id && giornoDi(capo.dataAnalisi) > giornoDi(a.dataAnalisi)) storiche.set(a.id, capo);
   }
   return storiche;
 }
@@ -707,8 +715,11 @@ export async function analisiCheSupera(a: {
   canale: string | null;
   dataAnalisi: Date;
 }): Promise<{ id: string; titolo: string; dataAnalisi: Date } | null> {
+  // Dal primo istante del GIORNO DOPO: chi è dello stesso giorno non supera.
+  const g = a.dataAnalisi;
+  const giornoDopo = new Date(Date.UTC(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate() + 1));
   return prisma.analisi.findFirst({
-    where: { brand: a.brand, canale: a.canale, dataAnalisi: { gt: a.dataAnalisi }, id: { not: a.id } },
+    where: { brand: a.brand, canale: a.canale, dataAnalisi: { gte: giornoDopo }, id: { not: a.id } },
     orderBy: { dataAnalisi: "desc" },
     select: { id: true, titolo: true, dataAnalisi: true },
   });
