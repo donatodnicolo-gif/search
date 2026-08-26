@@ -74,13 +74,24 @@ export type ContestoAzione = {
 /**
  * I NEGOZI di cui l'app Fornitori sa gli ordini.
  * ⚠️ Copia di servizio: il padrone è `BRANDS` in
- * `deluxy-search-supplier/api/order.js` (`deluxy.it`, `deluxyflowers.com`,
- * `cakedesign.me`). Serve a due cose: dire al modello fra quali valori scegliere
- * (enum nello schema) e SCARTARE nel codice quello che si inventa — un negozio
- * inesistente produce solo un «ordine non trovato» che non spiega niente.
- * Aggiungendo un negozio là, aggiungerlo anche qui.
+ * `deluxy-search-supplier/api/order.js` più i negozi in cassaforte
+ * (`config:v1.stores`). Serve a due cose: dire al modello fra quali valori
+ * scegliere (enum nello schema) e SCARTARE nel codice quello che si inventa —
+ * un negozio inesistente produce solo un «ordine non trovato» che non spiega
+ * niente. Aggiungendo un negozio là, aggiungerlo anche qui.
+ *
+ * ⚠️⚠️ Il 26/08/2026 il quarto: `business.deluxy.it` (il negozio B2B). Finché
+ * la lista ne aveva tre, una notifica di quel negozio veniva comunque
+ * classificata come **uno dei tre** — al modello si chiedeva di scegliere fra
+ * valori in cui la risposta giusta non c'era, e un enum non risponde «non è
+ * nessuno di questi»: risponde il più somigliante.
  */
-export const NEGOZI_FORNITORI = ['deluxy.it', 'deluxyflowers.com', 'cakedesign.me'] as const
+export const NEGOZI_FORNITORI = [
+  'deluxy.it',
+  'deluxyflowers.com',
+  'cakedesign.me',
+  'business.deluxy.it',
+] as const
 
 /** Il dominio di un indirizzo, minuscolo ('Mario <m@Chanel.com>' → 'chanel.com'). */
 export function dominioDi(indirizzo: string | null | undefined): string {
@@ -744,7 +755,7 @@ const AZIONI: AzioneApp[] = [
     descrizione: 'Trova i fioristi/pasticcerie più vicini alla consegna di un ordine.',
     colore: 'purple',
     guida:
-      'La mail è una notifica d’ordine di un negozio Shopify. brand = QUALE DEI TRE NEGOZI ha fatto l’ordine, e va scelto fra i valori ammessi: "deluxy.it", "deluxyflowers.com", "cakedesign.me". Si riconosce dall’indirizzo del NEGOZIO che ha mandato la notifica (es. "Deluxy Flowers <info@deluxyflowers.com>" → deluxyflowers.com), non dai link nel piè di pagina, che possono puntare a un altro sito. number = il numero d’ordine (solo le cifre, senza "#" o "Ordine"). Se uno dei due manca, lascialo vuoto: senza non si può cercare.',
+      'La mail è una notifica d’ordine di un negozio Shopify. brand = QUALE NEGOZIO ha fatto l’ordine, e va scelto fra i valori ammessi: "deluxy.it", "deluxyflowers.com", "cakedesign.me", "business.deluxy.it" (il negozio B2B: le sue notifiche arrivano da business.deluxy.it). Si riconosce dall’indirizzo del NEGOZIO che ha mandato la notifica (es. "Deluxy Flowers <info@deluxyflowers.com>" → deluxyflowers.com), non dai link nel piè di pagina, che possono puntare a un altro sito. number = il numero d’ordine (solo le cifre, senza "#" o "Ordine"). Se uno dei due manca, lascialo vuoto: senza non si può cercare.',
     campi: [
       // ⚠️ A tendina, non testo libero: è la stessa ragione dell'enum nello
       // schema. Un negozio scritto a mano («deluxy.it» per un ordine di Deluxy
