@@ -41,7 +41,8 @@
     "province": "Province e città",
     "utentiRuoli": "Utenti e ruoli",
     "impostazioni": "Impostazioni",
-    "disponibilitaGiorno": "Disponibilità"
+    "disponibilitaGiorno": "Disponibilità",
+    "regoleValet": "Regole valet"
   },
   "users": {
     "title": "Utenti",

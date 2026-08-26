@@ -76,6 +76,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       { label: 'nav.ricevute', path: '/receipts', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'VALET'] },
       { label: 'nav.pagamenti', path: '/payments', icon: 'wallet', roles: ['ADMIN', 'OPERATION', 'VALET'] },
       { label: 'nav.regoleCarnet', path: '/delivery-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      { label: 'nav.regoleValet', path: '/valet-rules', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.finanza', path: '/finance', icon: 'chart', roles: ['ADMIN'], supportOnly: true },
     ],
   },

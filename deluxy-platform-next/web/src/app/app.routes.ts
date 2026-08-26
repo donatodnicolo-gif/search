@@ -60,6 +60,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'valet-rules',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'], title: 'Regole valet' },
+        loadComponent: () =>
+          import('./pages/valet-rules.component').then(
+            (m) => m.ValetRulesComponent,
+          ),
+      },
+      {
         path: 'finance',
         canActivate: [roleGuard],
         data: { roles: ['ADMIN'], title: 'Finanza' },
