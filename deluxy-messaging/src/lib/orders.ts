@@ -517,9 +517,24 @@ export async function ordineDaOrders(
     // Il gid Shopify identifica l'ordine senza ambiguità: è la chiave su cui il
     // sync fa l'upsert. Solo se non ce l'abbiamo (ordini vecchi) si accetta
     // l'unico risultato col numero giusto.
-    const scelto =
-      (shopifyId ? perNumero.find((o) => o.orderId === shopifyId) : null) ??
-      (perNumero.length === 1 ? perNumero[0] : null)
+    //
+    // ⚠️⚠️ IL RIPIEGO VALE SOLO SE L'IDENTITÀ NON C'È. Prima le due righe erano
+    // in `??`, e `??` scatta anche quando il primo ramo è stato **provato e ha
+    // fallito**: chiamando con uno `shopifyId` che in questa pagina di risultati
+    // non c'è, si ricadeva sull'unico numero uguale e si tornava **un ordine di
+    // un altro negozio**, in silenzio. Misurato su Orders: `q=2705` dà 26
+    // candidati e la pagina si ferma a 20 — #2705/Flowers entra, #2705/deluxy.it
+    // no, ed esistono tutti e due. Chi chiedeva il secondo si prendeva il primo,
+    // col suo margine.
+    //
+    // ⚠️ Con lo `shopifyId` in mano, «non l'ho trovato» è la risposta giusta: la
+    // dà il ramo qui sotto e manda a controllare, invece di far scrivere il
+    // costo sull'ordine di qualcun altro.
+    const scelto = shopifyId
+      ? (perNumero.find((o) => o.orderId === shopifyId) ?? null)
+      : perNumero.length === 1
+        ? perNumero[0]
+        : null
 
     if (!scelto) {
       return {

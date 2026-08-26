@@ -10,6 +10,7 @@ import { lavoroPerFornitore } from '@/lib/lavoro-fornitore'
 import { nostriFornitori, ordinaPerConsegna } from '@/lib/nostri-fornitori'
 import { siglaProvincia } from '@/lib/province'
 import { chiaveNome, type LavoroDato } from '@/lib/cerca-fornitore'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,11 @@ export const dynamic = 'force-dynamic'
 // Passa di qui e non dal browser perché la chiave del registro non deve mai
 // uscire dal server (stessa regola di /api/partner).
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const p = req.nextUrl.searchParams
   const provincia = (p.get('provincia') ?? '').trim()
   /** La città di consegna: serve a mettere in cima chi ha già consegnato lì. */

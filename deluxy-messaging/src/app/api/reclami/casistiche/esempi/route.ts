@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,6 +62,11 @@ const ESEMPI = [
 // Aggiunge le casistiche di esempio SENZA duplicare quelle già presenti (match
 // sul nome). Torna quante ne ha aggiunte e quante saltate.
 export async function POST() {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const presenti = await db.casistaReclamo.findMany({ select: { nome: true } })
   const nomiPresenti = new Set(presenti.map((c) => c.nome.toLowerCase()))
   const daAggiungere = ESEMPI.filter((e) => !nomiPresenti.has(e.nome.toLowerCase()))

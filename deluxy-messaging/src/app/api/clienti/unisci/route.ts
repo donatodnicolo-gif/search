@@ -29,6 +29,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const principale = (req.nextUrl.searchParams.get('chiave') ?? '').trim()
   if (!principale) return NextResponse.json({ errore: 'Chiave mancante' }, { status: 400 })
   const separati = await separaCliente(principale)

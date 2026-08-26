@@ -486,6 +486,10 @@ export function Inbox({
   const [bozza, setBozza] = useState('')
   const [inviando, setInviando] = useState(false)
   const [erroreInvio, setErroreInvio] = useState('')
+  // ⚠️ Gli esiti RIUSCITI dei gesti sull'elenco (segnala spam, archivia): prima
+  // finivano in `erroreInvio`, cioè in un riquadro rosso, e una cosa andata bene
+  // si leggeva come un guasto.
+  const [esitoElenco, setEsitoElenco] = useState('')
   const fondoRef = useRef<HTMLDivElement>(null)
   const contenitoreRef = useRef<HTMLDivElement>(null)
   // Lingua e traduzione della conversazione aperta: le decide il server, che è
@@ -712,18 +716,39 @@ export function Inbox({
    * si traduce qui, all'apertura: è il momento in cui serve, ed è normale
    * aspettare un secondo.
    */
+  // ⚠️⚠️ LE CONVERSAZIONI SU CUI LA TRADUZIONE HA GIÀ FALLITO. Senza questo si
+  // formava un giro senza fine: la traduzione falliva → `setDaTradurre(false)` →
+  // quattro secondi dopo il polling del thread rileggeva `daTradurre` dal server,
+  // che lo ricalcola sui messaggi ancora senza traduzione e lo rimetteva a
+  // `true` → l'effetto ripartiva. Con la chiave OpenAI scaduta o il fornitore
+  // giù, **fino a dodici chiamate ogni quattro secondi** finché quella chat
+  // restava aperta, e la fascia dell'errore che appariva e spariva di continuo.
+  //
+  // ⚠️ Sta in un ref e non nello stato: non deve ridisegnare niente, e non deve
+  // far rinascere `traduciArrivati` — che è proprio ciò che rimetteva in moto il
+  // giro.
+  const traduzioniFallite = useRef<Set<string>>(new Set())
+
   const traduciArrivati = useCallback(
     async (id: string) => {
-      if (traducendo) return
+      if (traducendo || traduzioniFallite.current.has(id)) return
       setTraducendo(true)
       try {
         const res = await fetch(`/api/conversazioni/${id}/traduci`, { method: 'POST' })
         const d = (await res.json().catch(() => ({}))) as { tradotti?: number; errore?: string }
-        if (d.errore && !d.tradotti) setErroreInvio(`Traduzione: ${d.errore}`)
+        if (d.errore && !d.tradotti) {
+          setErroreInvio(`Traduzione: ${d.errore}`)
+          // ⚠️ Su questa conversazione non si riprova: se serve, si riapre la
+          // pagina. Riprovare ogni quattro secondi non risolve un errore del
+          // fornitore, lo moltiplica.
+          traduzioniFallite.current.add(id)
+        }
         if (d.tradotti) await caricaMessaggi(id)
         else setDaTradurre(false)
       } catch {
-        // rete assente: resta il testo originale, che è comunque leggibile
+        // rete assente: resta il testo originale, che è comunque leggibile — e
+        // non si riprova in giro, per lo stesso motivo di sopra.
+        traduzioniFallite.current.add(id)
       } finally {
         setTraducendo(false)
       }
@@ -900,7 +925,18 @@ export function Inbox({
         body: JSON.stringify({ testo: bozza.trim() }),
       })
       const dati = (await res.json().catch(() => ({}))) as { errore?: string }
-      if (!res.ok && dati.errore) setErroreInvio(dati.errore)
+      // ⚠️⚠️ Si svuota SOLO se è andata. Prima `setBozza('')` era incondizionato:
+      // se la risposta non era JSON — il 307 verso /login che `fetch` segue e
+      // che torna HTML con stato 200, o un 500 di Next — `dati` restava vuoto,
+      // non compariva nessun errore, **e il riquadro si svuotava lo stesso**.
+      // L'operatore vedeva la casella pulita e credeva di aver mandato.
+      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+        setErroreInvio(
+          dati.errore ||
+            'Non sono riuscito a mandarlo, e il testo è ancora qui: riprova, o ricarica la pagina se la sessione è scaduta.'
+        )
+        return
+      }
       setBozza('')
       await caricaMessaggi(selezionataId)
       await aggiornaConversazioni()
@@ -1166,6 +1202,7 @@ export function Inbox({
     if (inCorsoTogli) return
     setInCorsoTogli(true)
     try {
+      setEsitoElenco('')
       const res = await fetch(`/api/conversazioni/${id}/spam`, { method: 'POST' })
       const dati = (await res.json().catch(() => ({}))) as { errore?: string; giaCera?: boolean }
       if (!res.ok) {
@@ -1176,7 +1213,10 @@ export function Inbox({
       // ⚠️ Cresce il conto del CESTINO, non dell'archivio: alzando il numero
       // sbagliato si manderebbe a cercare la conversazione dove non è.
       setQuanteNelCestino((n) => n + 1)
-      setErroreInvio(
+      // ⚠️⚠️ Una cosa RIUSCITA non si scrive nel riquadro rosso. Finiva in
+      // `erroreInvio`, cioè dentro `avviso-errore`: una segnalazione andata a
+      // buon fine si leggeva come un guasto.
+      setEsitoElenco(
         dati.giaCera
           ? `${c.idEsterno} era già fra i mittenti ignorati: la conversazione è nel cestino.`
           : `${c.idEsterno} non comparirà più: questa e le prossime vanno nel cestino.`
@@ -1722,6 +1762,22 @@ export function Inbox({
 
   return (
     <>
+    {/* ⚠️⚠️ QUI, NON DENTRO IL THREAD. Il riquadro degli errori stava dentro il
+        ramo «c'è una conversazione aperta», ma archivia, elimina, spam e «da
+        leggere» hanno il bottone **su ogni riga dell'elenco** e si usano senza
+        aprire niente. E la vista di partenza è «colonne», dove il thread esiste
+        solo dentro una finestra: lì quegli errori non erano disegnati **mai**.
+        Si premeva, non succedeva niente, e non si sapeva perché. */}
+    {esitoElenco ? (
+      <div className="avviso-ok" style={{ margin: '0 0 8px' }}>
+        {esitoElenco}
+      </div>
+    ) : null}
+    {erroreInvio ? (
+      <div className="avviso-errore" style={{ margin: '0 0 8px' }}>
+        {erroreInvio}
+      </div>
+    ) : null}
     <div className={`inbox${aFinestra ? ' a-colonne' : ''}`}>
       <div className="elenco">
         <div className="barra-elenco">
@@ -2335,11 +2391,6 @@ export function Inbox({
               <div ref={fondoRef} />
             </div>
 
-            {erroreInvio ? (
-              <div className="avviso-errore" style={{ margin: '0 16px' }}>
-                {erroreInvio}
-              </div>
-            ) : null}
 
             {suggerimento ? (
               <div className="avviso-ok" style={{ margin: '0 16px' }}>

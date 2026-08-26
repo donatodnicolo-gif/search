@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { annotaSync, sincronizzaOrdini } from '@/lib/sincronizza'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -11,6 +12,11 @@ export const maxDuration = 60
 // Questo è il pulsante "Aggiorna" a mano; il giro automatico ogni 15 minuti è in
 // /api/cron/ordini. La logica è condivisa: src/lib/sincronizza.ts.
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const completo = req.nextUrl.searchParams.get('completo') === '1'
   try {
     // `contatti: false` NON è un'ottimizzazione: senza, questo pulsante scade.

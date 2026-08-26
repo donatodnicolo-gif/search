@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { componiIstruzioni, valeNellAmbito, valePerBrand } from '@/lib/cs-ai'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,11 @@ export const dynamic = 'force-dynamic'
 // arrivata, dove si è collocata e se un'altra la contraddice. Un'istruzione che
 // si crede attiva e non lo è, è peggio di un'istruzione che manca.
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const p = req.nextUrl.searchParams
   const contesto = p.get('contesto') === 'email' ? 'email' : 'chat'
   const negozioId = (p.get('negozioId') ?? '').trim()

@@ -170,6 +170,18 @@ export function Novita() {
     }
   }, [tetto])
 
+  // ⚠️⚠️ IL SILENZIO SCADE DA SOLO. Prima l'effetto qui sotto usciva subito e
+  // **non aveva niente che lo risvegliasse**: allo scadere dell'ora nessuna
+  // dipendenza cambiava, non c'era nessun timer, e gli avvisi restavano spenti
+  // fino a un ricaricamento della pagina. «Silenzia per un'ora» voleva dire «fino
+  // a quando ricarichi», che è una cosa diversa da quella scritta sul bottone.
+  useEffect(() => {
+    const manca = silenzioFinoA - Date.now()
+    if (manca <= 0) return
+    const t = setTimeout(() => setSilenzioFinoA(0), manca + 500)
+    return () => clearTimeout(t)
+  }, [silenzioFinoA])
+
   // ── IL GIRO DELLE CHIAMATE ──
   useEffect(() => {
     if (silenzioFinoA > Date.now()) return

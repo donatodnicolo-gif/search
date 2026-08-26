@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { googleAccessToken } from '@/lib/contatti'
 import { chiaveDi, mappaUnioni, possibiliDoppioni } from '@/lib/clienti-uniti'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,11 @@ export type ClienteDto = {
 }
 
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const p = req.nextUrl.searchParams
   const q = (p.get('q') ?? '').trim()
   const soloDaSalvare = p.get('rubrica') === 'no'

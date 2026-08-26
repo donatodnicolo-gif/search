@@ -15,6 +15,10 @@ export const dynamic = 'force-dynamic'
 // la sua decisione. I soldi li muove una persona (Shopify o banca) e poi si
 // segna "eseguito" — come per i pagamenti, nessuna app Deluxy paga da sola.
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const p = req.nextUrl.searchParams
   const q = (p.get('q') ?? '').trim()
   const stato = (p.get('stato') ?? '').trim()
@@ -141,8 +145,34 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  // ⚠️ Anche qui: gli altri gesti di questo file l'identità la chiedono, questo no.
+  const io = await utenteCorrente()
+  if (!io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const id = req.nextUrl.searchParams.get('id') ?? ''
   if (!id) return NextResponse.json({ errore: 'Serve l’id.' }, { status: 400 })
+
+  // ── UN RIMBORSO ESEGUITO NON SI CANCELLA ──
+  //
+  // ⚠️⚠️ `eseguito` vuol dire che il denaro è tornato al cliente **davvero**.
+  // Cancellare quella riga non toglie un errore: toglie la **traccia di
+  // un'uscita di denaro**, e per giunta libera capienza — il tetto «non si rende
+  // più di quanto si è incassato» si calcola sommando i rimborsi esistenti,
+  // quindi cancellandone uno da 250 € su un ordine da 250 € se ne può fare un
+  // altro totale, e del primo non resta niente.
+  //
+  // ⚠️ Le conversazioni hanno un cestino di 30 giorni proprio per questo. Il
+  // registro dei soldi resi non ce l'ha, quindi qui si dice di no.
+  const r = await db.rimborso.findUnique({ where: { id }, select: { stato: true } })
+  if (!r) return NextResponse.json({ errore: 'Rimborso non trovato.' }, { status: 404 })
+  if (r.stato === 'eseguito') {
+    return NextResponse.json(
+      {
+        errore:
+          'Questo rimborso risulta già ESEGUITO: il denaro è uscito, e la riga è la sola traccia che ne resta. Non si cancella. Se è sbagliato, cambiagli stato e scrivi nell’esito cos’è successo.',
+      },
+      { status: 409 }
+    )
+  }
   await db.rimborso.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

@@ -993,6 +993,12 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   const [vistoIl, setVistoIl] = useState('')
   const [avviso, setAvviso] = useState('')
   const [errore, setErrore] = useState('')
+  // ⚠️⚠️ La lettura è ANDATA A BUON FINE, oppure no. Senza distinguerlo, un
+  // elenco vuoto perché non si è riusciti a leggere si legge come «non c'è
+  // niente»: la pagina scriveva «Nessun ordine ancora» e mandava a premere
+  // «Aggiorna», e per giunta accendeva anche l'avviso «Google Contacts non è
+  // collegato» — due allarmi falsi da una causa sola.
+  const [letto, setLetto] = useState(true)
   // Quale ordine è aperto nel pannello di dettaglio ('' = nessuno).
   //
   // `?apri=<id>`: la schermata «Oggi» manda qui sull'ordine preciso, col
@@ -1074,7 +1080,11 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
       // Gli ordini con un rimborso vivo escono solo dalla lista di lavoro.
       if (!globale) p.set('rimborsi', 'nascondi')
       const res = await fetch('/api/ordini?' + p.toString())
-      if (!res.ok) return
+      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+        setLetto(false)
+        return
+      }
+      setLetto(true)
       const dati = (await res.json()) as {
         ordini: OrdineDto[]
         totale: number
@@ -1252,8 +1262,17 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gestione }),
       })
-      // ⚠️ La risposta si legge: prima si buttava via, e con lei l'unica cosa
-      // che dice quante note del diario sono state chiuse insieme all'ordine.
+      // ⚠️⚠️ Anche l'esito, non solo le note. `segna()` non guardava mai
+      // `res.ok`: il pallino era già cambiato a schermo (aggiornamento
+      // ottimistico) e il ritorno alla verità era delegato a `carica()`, che se
+      // fallisce a sua volta esce in silenzio. Con il server giù o la sessione
+      // morta, l'ordine restava scritto «Gestito» senza esserlo, e senza una
+      // parola. Il riquadro rosso c'era già, disegnato in cima alla pagina.
+      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+        setErrore('Lo stato non è stato salvato. Ricarica la pagina: quello che vedi potrebbe non essere quello che è scritto.')
+        await carica()
+        return
+      }
       const d = (await res.json().catch(() => ({}))) as { noteChiuse?: number }
       if (d.noteChiuse) {
         setAvviso(
@@ -1736,7 +1755,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         </div>
       ) : null}
 
-      {!googleCollegato && caricato ? (
+      {!googleCollegato && caricato && letto ? (
         <div className="avviso-errore">
           {googleErrore ? (
             <>
@@ -1763,7 +1782,14 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         <p style={{ color: 'var(--text-secondary)' }}>Carico…</p>
       ) : ordini.length === 0 ? (
         <div className="card">
-          {filtriAttivi ? (
+          {/* ⚠️ «Non ho letto» non è «non c'è niente»: dirlo come se l'elenco
+              fosse vuoto manda a premere un bottone che non serve. */}
+          {!letto ? (
+            <>
+              Non sono riuscito a leggere gli ordini. Ricarica la pagina — e se non torna, la
+              sessione potrebbe essere scaduta.
+            </>
+          ) : filtriAttivi ? (
             <>
               Nessun ordine corrisponde ai filtri. Prova con un altro testo o premi{' '}
               <strong>Azzera</strong>.

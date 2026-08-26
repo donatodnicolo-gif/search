@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { estraiPagamento } from '@/lib/ai'
 import { stringaPagamento } from '@/lib/iban'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -8,6 +9,11 @@ export const maxDuration = 60
 // Legge IBAN, intestatario e importo da un testo incollato o da un'immagine
 // caricata (schermata di una chat, foto di un bonifico).
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const corpo = (await req.json().catch(() => ({}))) as {
     testo?: string
     immagine?: { dati?: string; tipo?: string }

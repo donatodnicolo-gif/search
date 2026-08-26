@@ -15,7 +15,7 @@
 // ⚠️ Questo file NON importa `db`: lo usa anche la pagina, che è un componente
 // client.
 
-import { chiaveNome, nomeCorrisponde } from './cerca-fornitore'
+import { chiaveNome } from './cerca-fornitore'
 import { calcolaMargine, type EsitoMargine } from './margine'
 
 /** Un pagamento già fatto, con l'ordine a cui è collegato. */
@@ -235,9 +235,23 @@ export function decidi(d: DaRiconciliare): Riga {
   // fermi in `in_pagamento`, che sono il caso più frequente.
   const statoDaAllineare = STATI_DA_SPOSTARE_SE_PAGATO.includes(d.ordine.gestione)
 
-  const stessoNome =
-    !!d.ordine.fornitoreNome &&
-    nomeCorrisponde({ nome: d.ordine.fornitoreNome, ragioneSociale: '' }, d.intestatario)
+  // ⚠️⚠️ `stessaIdentita` E NON `nomeCorrisponde`. Quella è la regola di una
+  // CASELLA DI RICERCA — «basta una parola» — e qui non si cerca: si AFFERMA che
+  // il pagamento fatto a quel nome riguarda il fornitore già scritto
+  // sull'ordine, e da quell'affermazione parte una scrittura (`fornitoreCosto`)
+  // che finisce dentro il margine e viaggia fino a Deluxy Orders.
+  //
+  // Misurato sui 21 fornitori veri di questa tabella: con la regola larga, **28
+  // coppie su 420 (6,7%) di fornitori DIVERSI risultavano «lo stesso»** —
+  // «S.A.S. ELENA FLEURS» con «RIGUTTO ELENA» (combaciava «elena»), «LA PEONIA
+  // FIORI PIANTE» con «donna di fiori di Longo Michela» («fiori»), «Passiflora
+  // flower market» con «Goshà flowers». E non serve che qualcuno guardi: questa
+  // funzione parte **da sola** quando si preme «Pagata».
+  //
+  // ⚠️ La regola severa era già in questo file, con scritto sopra il motivo, ed
+  // era usata per il registro Anagrafiche. Semplicemente non era stata applicata
+  // qui. ([[trappola-cercare-non-e-affermare]])
+  const stessoNome = !!d.ordine.fornitoreNome && stessaIdentita(d.intestatario, d.ordine.fornitoreNome)
   if (stessoNome) {
     // Già a posto sul nome: resta da guardare il costo.
     if (d.ordine.fornitoreCosto === null) {

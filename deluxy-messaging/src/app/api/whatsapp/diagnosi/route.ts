@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { db } from '@/lib/db'
 import { numeriCollegati, tokenPerNumero } from '@/lib/numeri-whatsapp'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -37,6 +38,11 @@ async function chiedi(url: string, token: string) {
 }
 
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   // ⚠️ UN NUMERO PER VOLTA, se lo si chiede.
   //
   // Il controllo completo fa 4-5 chiamate a Meta PER NUMERO: con più numeri

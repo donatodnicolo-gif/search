@@ -75,6 +75,10 @@ async function admin() {
 }
 
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { errore } = await admin()
   if (errore) return errore
   return NextResponse.json(await leggiTurni(req.nextUrl.searchParams.get('dal') ?? undefined))
@@ -102,6 +106,10 @@ type Corpo = {
 }
 
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { io, errore } = await admin()
   if (errore) return errore
 
@@ -277,6 +285,10 @@ export async function POST(req: NextRequest) {
  * cancellarlo e rifarlo, che è il gesto che la pagina vuole togliere di mezzo.
  */
 export async function PATCH(req: NextRequest) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { errore } = await admin()
   if (errore) return errore
 
@@ -341,6 +353,10 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { errore } = await admin()
   if (errore) return errore
 

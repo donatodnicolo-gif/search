@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { leggiQuotaFornitore } from '@/lib/orders'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,11 @@ export const dynamic = 'force-dynamic'
 // Meglio nessun giudizio che un giudizio inventato accanto a una cifra che sta
 // per partire verso una banca.
 export async function GET() {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const q = await leggiQuotaFornitore()
   return NextResponse.json({
     quota: q?.quota ?? null,

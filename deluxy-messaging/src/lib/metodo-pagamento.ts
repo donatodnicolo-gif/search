@@ -56,10 +56,61 @@ export function metodoValido(m: string): m is Metodo {
  *
  * ⚠️ Almeno tre cifre: sotto quella soglia si aggancerebbe a un «x2» o a una
  * data scritta nella causale, e bloccherebbe salvataggi legittimi.
+ *
+ * ⚠️⚠️ MA TRE CIFRE NON BASTAVANO. La regola larga (`/#?\s?(\d{3,})/`, senza
+ * confini e senza tetto) leggeva un numero d'ordine dentro qualunque anno o
+ * fattura, e **bloccava il salvataggio** chiedendo di collegare un ordine che
+ * non esiste. Provato:
+ *
+ *   «Canone agosto 2026»  → #2026 → «la causale parla dell'ordine #2026…»
+ *   «Fattura 2026/114»    → #2026
+ *   IBAN incollato        → #0542811101000000123456
+ *
+ * Cioè il canone e il rimborso spese — i due casi che il commento qui sopra
+ * dice di voler lasciare liberi — non si salvavano.
+ *
+ * Adesso: **da 3 a 6 cifre** (i numeri d'ordine veri vanno da #1741 a #12819),
+ * **staccate** (`\b`) e **non attaccate a una barra o a un altro numero**, così
+ * «2026/114» e le date in cifre restano quello che sono. E un anno da solo si
+ * riconosce e si scarta: 2026 è un numero d'ordine possibile, ma «agosto 2026»
+ * no. Il numero preceduto dal **cancelletto** vince sempre: quello è scritto
+ * apposta.
  */
 export function ordineNominatoNellaCausale(causale: string): string {
-  const m = (causale ?? '').match(/#?\s?(\d{3,})/)
-  return m ? `#${m[1]}` : ''
+  const testo = (causale ?? '').trim()
+  if (!testo) return ''
+  // 1. Col cancelletto non c'è dubbio: è un ordine.
+  const conCanc = testo.match(/#\s?(\d{3,6})\b/)
+  if (conCanc) return `#${conCanc[1]}`
+  // 2. Senza cancelletto: numero staccato, 3-6 cifre, non dentro una data o una
+  //    frazione (né «/» né «-» né «.» attaccati) e non preceduto da una parola
+  //    che lo qualifica come altro (mese, anno, fattura…).
+  const senza = testo.match(/(^|[^\w/.-])(\d{3,6})(?![\w/.-])/)
+  if (!senza) return ''
+  const numero = senza[2]
+  // ⚠️ «agosto 2026», «anno 2026», «fattura 114»: la parola prima dice che quel
+  // numero non è un ordine. Senza questo, ogni causale con un anno si bloccava.
+  const prima = testo.slice(0, senza.index ?? 0).trim().toLowerCase()
+  const ultima = prima.split(/[^a-zà-ù]+/).filter(Boolean).pop() ?? ''
+  const NON_ORDINE = new Set([
+    'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio',
+    'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
+    'anno', 'fattura', 'fatture', 'ft', 'canone', 'mese', 'del', 'nel', 'iban',
+  ])
+  if (NON_ORDINE.has(ultima)) return ''
+  // ⚠️⚠️ UN ANNO DA SOLO NON È UN ORDINE. «Rimborso spese carburante 2026» non
+  // ha davanti una parola che lo qualifichi, ma 2026 lì è un anno. Quattro cifre
+  // fra 2020 e 2035, senza cancelletto e senza «ordine» davanti: si lascia stare.
+  //
+  // ⚠️ Sì, così si perde un ordine che si chiamasse davvero #2026 e fosse
+  // scritto senza cancelletto e senza la parola «ordine». **È lo sbaglio giusto
+  // da fare**: sbagliare in questo verso fa perdere un AVVISO, sbagliare
+  // nell'altro **blocca il salvataggio** e manda a cercare un ordine che non
+  // esiste. Il primo lo si scopre lavorando, il secondo ferma il lavoro.
+  const anno = Number(numero)
+  const parlaDiOrdini = /(^|[^a-z])ordin[ei]?([^a-z]|$)/i.test(prima)
+  if (numero.length === 4 && anno >= 2020 && anno <= 2035 && !parlaDiOrdini) return ''
+  return `#${numero}`
 }
 
 /**

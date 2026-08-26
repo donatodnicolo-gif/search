@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { partnerAttivi } from '@/lib/anagrafiche'
 import { calcolaPagella, type DatiSoggetto, type Voce } from '@/lib/punteggi'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,11 @@ export const dynamic = 'force-dynamic'
 //    se non risponde, almeno quelli su cui abbiamo già un dato — così la pagella
 //    non si svuota per un problema di rete.
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const tipo = (req.nextUrl.searchParams.get('tipo') ?? '').trim() // valet | partner | ''
 
   const [vociDb, valetDb, reclami, feedback, puntualita, manuali] = await Promise.all([

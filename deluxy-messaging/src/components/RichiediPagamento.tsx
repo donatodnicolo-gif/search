@@ -757,8 +757,35 @@ export function RichiediPagamento() {
   }
 
   async function elimina(id: string) {
-    await fetch('/api/pagamenti?id=' + encodeURIComponent(id), { method: 'DELETE' })
-    await carica()
+    // ⚠️⚠️ CANCELLA PER DAVVERO, e su una riga che può essere la traccia di un
+    // bonifico già uscito. In quest'app tutto ciò che è irreversibile chiede
+    // conferma (il diario, l'inbox, lo spam): qui non la chiedeva, e bastava un
+    // clic. La conferma dice COSA sparisce, non «sei sicuro?».
+    const r = richieste.find((x) => x.id === id)
+    const cosa = r
+      ? `${r.intestatario || 'senza intestatario'} · ${r.importo.toLocaleString('it-IT', { style: 'currency', currency: r.valuta || 'EUR' })}${r.ordineNumero ? ' · ordine ' + r.ordineNumero : ''}`
+      : 'questa richiesta'
+    const pagata = !!r?.pagataIl
+    if (
+      !window.confirm(
+        (pagata
+          ? '⚠️ Questa richiesta risulta GIÀ PAGATA: cancellarla toglie la traccia di soldi usciti davvero.\n\n'
+          : '') + `Cancello ${cosa}?\n\nNon si recupera.`
+      )
+    )
+      return
+    setErrore('')
+    try {
+      const res = await fetch('/api/pagamenti?id=' + encodeURIComponent(id), { method: 'DELETE' })
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { errore?: string }
+        setErrore(d.errore || 'Non sono riuscito a cancellarla.')
+        return
+      }
+      await carica()
+    } catch {
+      setErrore('Non sono riuscito a cancellarla: problema di rete.')
+    }
   }
 
   async function copia(testoDaCopiare: string, id: string) {

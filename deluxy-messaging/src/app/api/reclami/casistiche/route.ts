@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { gravitaValida } from '@/lib/reclami'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 // Le casistiche di reclamo: il catalogo dei tipi di problema, con le azioni
 // consigliate e la colpa tipica. Si configurano una volta e si riusano.
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const soloAttive = req.nextUrl.searchParams.get('attive') === '1'
   const casistiche = await db.casistaReclamo.findMany({
     where: soloAttive ? { attiva: true } : undefined,
@@ -16,6 +22,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const c = (await req.json().catch(() => ({}))) as {
     id?: string
     nome?: string
@@ -45,6 +56,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const id = req.nextUrl.searchParams.get('id') ?? ''
   if (!id) return NextResponse.json({ errore: 'Serve l’id.' }, { status: 400 })
   await db.casistaReclamo.delete({ where: { id } })

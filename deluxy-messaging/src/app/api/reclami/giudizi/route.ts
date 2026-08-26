@@ -5,6 +5,7 @@ import {
   giudizioAutomatico,
   riepilogaReclami,
 } from '@/lib/reclami'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,11 @@ export const dynamic = 'force-dynamic'
 // I nomi dei soggetti sono denormalizzati sul reclamo (colpaNome), quindi non
 // serve richiamare Anagrafiche per i partner.
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const tipo = (req.nextUrl.searchParams.get('tipo') ?? '').trim() // valet | partner | ''
 
   const [reclami, manuali] = await Promise.all([
@@ -67,6 +73,11 @@ export async function GET(req: NextRequest) {
 
 // Registra o aggiorna il giudizio MANUALE di un soggetto (upsert).
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const c = (await req.json().catch(() => ({}))) as {
     soggettoTipo?: string
     soggettoId?: string

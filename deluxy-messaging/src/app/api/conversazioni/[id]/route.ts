@@ -23,6 +23,10 @@ type Params = { params: Promise<{ id: string }> }
 // guarda i messaggi che abbiamo, e quello cancellato non c'è più. Il cestino
 // invece regge — la conversazione esiste, è solo da un'altra parte.
 export async function DELETE(req: NextRequest, { params }: Params) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { id } = await params
   const definitivo = req.nextUrl.searchParams.get('definitivo') === '1'
   const c = await db.conversazione.findUnique({

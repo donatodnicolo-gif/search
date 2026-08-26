@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,11 @@ export const dynamic = 'force-dynamic'
 // risponde «non trovato», che è vero. Meglio dirlo che far credere che il numero
 // sia sbagliato.
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const grezzo = (req.nextUrl.searchParams.get('numero') ?? '').trim()
   const cifre = grezzo.replace(/\D/g, '')
   if (!cifre) return NextResponse.json({ errore: 'Serve un numero d’ordine.' }, { status: 400 })

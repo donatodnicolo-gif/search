@@ -7,6 +7,7 @@ import {
   assaggio,
   FORMATI,
 } from '@/lib/documenti-ai'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 // L'estrazione da un PDF di cento pagine non è istantanea.
@@ -17,6 +18,11 @@ export const maxDuration = 60
 // con le altre app sono peso che non ripaga.
 
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const id = req.nextUrl.searchParams.get('id')
 
   // Con l'id si vuole leggere il documento intero; senza, l'elenco.
@@ -65,6 +71,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   let form: FormData
   try {
     form = await req.formData()
@@ -124,6 +135,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const id = req.nextUrl.searchParams.get('id') ?? ''
   if (!id) return NextResponse.json({ errore: 'Serve l’id.' }, { status: 400 })
 

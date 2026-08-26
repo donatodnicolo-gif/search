@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { schedaCliente } from '@/lib/scheda-cliente'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -29,6 +30,11 @@ Regole, in ordine di importanza:
 5. Se i dati sono troppo pochi per dire qualcosa di utile, scrivilo in una riga e basta.`
 
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { email, telefono } = (await req.json().catch(() => ({}))) as {
     email?: string
     telefono?: string

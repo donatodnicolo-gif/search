@@ -31,6 +31,7 @@ export function DiarioOrdine({
   const [note, setNote] = useState<NotaDiario[]>([])
   const [testo, setTesto] = useState('')
   const [caricato, setCaricato] = useState(false)
+  const [errore, setErrore] = useState('')
 
   const carica = useCallback(async () => {
     if (!numero) return
@@ -57,13 +58,28 @@ export function DiarioOrdine({
     // ⚠️ Il numero si passa dal contesto: qui la riga si scrive senza
     // ripeterlo — «da fare 16 luglio» — ed è così che la scriverebbe una
     // persona che ha l'ordine già davanti.
-    await fetch('/api/diario', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ testo: riga, ordineNumero: numero }),
-    })
-    setTesto('')
-    await carica()
+    // ⚠️⚠️ Si svuota SOLO dopo il sì del server. Prima si svuotava sempre: se il
+    // salvataggio non riusciva, la riga appena scritta spariva dal campo, non
+    // era da nessuna parte, e nessuno lo diceva. È la stessa regola che
+    // `Diario.tsx` ha scritta sopra la sua `aggiungi()` — questo file non la
+    // applicava.
+    setErrore('')
+    try {
+      const res = await fetch('/api/diario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testo: riga, ordineNumero: numero }),
+      })
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { errore?: string }
+        setErrore(d.errore || 'La nota non è stata salvata: il testo è ancora qui.')
+        return
+      }
+      setTesto('')
+      await carica()
+    } catch {
+      setErrore('La nota non è stata salvata: problema di rete. Il testo è ancora qui.')
+    }
   }
 
   async function segna(n: NotaDiario, fatta: boolean) {
@@ -108,6 +124,7 @@ export function DiarioOrdine({
         </ul>
       )}
 
+      {errore ? <p className="avviso-errore" style={{ marginBottom: 6 }}>{errore}</p> : null}
       <div style={{ display: 'flex', gap: 6 }}>
         <CampoRigaDiario
           value={testo}

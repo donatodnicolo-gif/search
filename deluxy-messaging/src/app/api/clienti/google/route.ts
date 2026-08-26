@@ -4,6 +4,7 @@ import { googleAccessToken, nomeContatto } from '@/lib/contatti'
 import { aggiornaContatto, cercaContattoPerTelefono, creaContatto } from '@/lib/google'
 import { prefissoDaNegozio } from '@/lib/negozi'
 import { ricostruisciCliente } from '@/lib/clienti-uniti'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,11 @@ export const dynamic = 'force-dynamic'
 // fastidio, un contatto cancellato per sbaglio è una perdita.
 
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const body = (await req.json().catch(() => ({}))) as { chiave?: string }
   const chiave = (body.chiave ?? '').trim()
   if (!chiave) return NextResponse.json({ errore: 'Chiave mancante' }, { status: 400 })

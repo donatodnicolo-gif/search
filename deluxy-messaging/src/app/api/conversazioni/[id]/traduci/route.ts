@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { traduciInItaliano, traduciVerso } from '@/lib/ai'
 import { daTradurre, linguaDelTesto, lingueLette } from '@/lib/lingua-testo'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -22,6 +23,11 @@ export const maxDuration = 60
 const TETTO = 12
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { id } = await params
   const body = (await req.json().catch(() => ({}))) as { verso?: string; testo?: string }
 

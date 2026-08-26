@@ -10,6 +10,10 @@ export const dynamic = 'force-dynamic'
 //   ?ordine=1741   solo le righe di quell'ordine
 //   ?q=            cerca nel testo
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const p = req.nextUrl.searchParams
   const stato = (p.get('stato') ?? 'aperte').trim()
   const ordine = (p.get('ordine') ?? '').trim()

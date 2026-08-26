@@ -84,6 +84,8 @@ export function Diario() {
   const [aperte, setAperte] = useState(0)
   const [stato, setStato] = useState<'aperte' | 'fatte' | 'tutte'>('aperte')
   const [q, setQ] = useState('')
+  /** Quello che si sta davvero cercando: `q` dopo che si è smesso di scrivere. */
+  const [qCercata, setQCercata] = useState('')
   const [testo, setTesto] = useState('')
   const campo = useRef<HTMLInputElement>(null)
   /** Gli ordini aperti da suggerire sopra il campo. */
@@ -105,19 +107,43 @@ export function Diario() {
 
   const carica = useCallback(async () => {
     const p = new URLSearchParams({ stato })
-    if (q.trim()) p.set('q', q.trim())
-    const res = await fetch('/api/diario?' + p.toString())
-    if (!res.ok) return
-    const d = (await res.json()) as {
-      note: NotaDiario[]
-      seguiti?: NotaDiario[]
-      aperte: number
+    if (qCercata.trim()) p.set('q', qCercata.trim())
+    // ⚠️⚠️ Senza `try/catch` e senza `finally`, una lettura fallita lasciava la
+    // pagina su «Carico…»: `setCaricato(true)` non veniva mai raggiunto e non
+    // compariva nessun errore. Col 307 verso /login `res.ok` è addirittura vero
+    // ed è `res.json()` a esplodere, quindi non bastava guardare lo stato.
+    try {
+      const res = await fetch('/api/diario?' + p.toString())
+      const ct = res.headers.get('content-type') ?? ''
+      if (!res.ok || res.redirected || !ct.includes('application/json')) {
+        setErrore('Non sono riuscito a leggere il diario. Ricarica la pagina.')
+        return
+      }
+      const d = (await res.json()) as {
+        note: NotaDiario[]
+        seguiti?: NotaDiario[]
+        aperte: number
+      }
+      setNote(d.note)
+      setSeguiti(d.seguiti ?? [])
+      setAperte(d.aperte)
+      setErrore('')
+    } catch {
+      setErrore('Non sono riuscito a leggere il diario: problema di rete.')
+    } finally {
+      setCaricato(true)
     }
-    setNote(d.note)
-    setSeguiti(d.seguiti ?? [])
-    setAperte(d.aperte)
-    setCaricato(true)
-  }, [stato, q])
+  }, [stato, qCercata])
+
+  // ⚠️⚠️ Si aspetta che uno smetta di scrivere. Prima `carica` dipendeva da `q`
+  // grezzo: scrivendo «biglietto» partivano otto richieste, senza `AbortController`
+  // e senza guardia di sequenza — e la risposta di «bigliett», arrivando per
+  // ultima, si sovrascriveva a quella di «biglietto». (La bacheca degli ordini
+  // questa attesa ce l'aveva già; il diario no.)
+  useEffect(() => {
+    const t = setTimeout(() => setQCercata(q), 300)
+    return () => clearTimeout(t)
+  }, [q])
 
   useEffect(() => {
     void carica()

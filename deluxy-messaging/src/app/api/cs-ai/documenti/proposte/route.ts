@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { ricavaIstruzioni, type Proposta } from '@/lib/ai'
 import { ambitoValido } from '@/lib/cs-ai'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 // Leggere trenta pagine e ricavarne delle regole richiede tempo al modello.
@@ -10,6 +11,11 @@ export const maxDuration = 120
 // POST → l'AI legge il documento e PROPONE delle istruzioni. Non ne salva
 // nessuna: le proposte tornano al browser e una persona sceglie.
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { documentoId } = (await req.json().catch(() => ({}))) as { documentoId?: string }
   if (!documentoId) return NextResponse.json({ errore: 'Serve l’id del documento.' }, { status: 400 })
 
@@ -44,6 +50,11 @@ export async function POST(req: NextRequest) {
 
 // PUT → salva le proposte che l'operatore ha scelto.
 export async function PUT(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { documentoId, proposte } = (await req.json().catch(() => ({}))) as {
     documentoId?: string
     proposte?: (Proposta & { ordine?: number })[]

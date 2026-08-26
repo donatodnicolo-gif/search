@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { smistaMailPerSito } from '@/lib/ordine-da-email'
 import { daIgnorare, elencoMittentiIgnorati } from '@/lib/mittenti-ignorati'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -18,6 +19,11 @@ export const maxDuration = 60
 // scritto a mano, non sposta le chat. Le mail dei mittenti ignorati vengono
 // archiviate, mai eliminate.
 export async function POST() {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const [conversazioni, ignorati] = await Promise.all([
     db.conversazione.findMany({
       where: { canale: 'email', eliminataIl: null },

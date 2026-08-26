@@ -8,6 +8,10 @@ export const dynamic = 'force-dynamic'
 // fiorista sull'ordine 2529». Nascono dalla schermata iniziale e da una
 // conversazione o un ordine, che è dove viene in mente di scriverli.
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const fatte = req.nextUrl.searchParams.get('fatte') === '1'
   const attivita = await db.attivita.findMany({
     where: { fatta: fatte },

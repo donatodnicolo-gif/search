@@ -17,6 +17,10 @@ export const dynamic = 'force-dynamic'
 
 // Le richieste di pagamento salvate.
 export async function GET() {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   // ⚠️⚠️ Si SCEGLIE cosa tornare, e i byte della ricevuta restano fuori.
   //
   // È il file in base64: senza questo `select`, ogni caricamento della pagina si
@@ -445,6 +449,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const id = req.nextUrl.searchParams.get('id') ?? ''
   if (!id) return NextResponse.json({ errore: 'Serve l’id.' }, { status: 400 })
   await db.richiestaPagamento.delete({ where: { id } })

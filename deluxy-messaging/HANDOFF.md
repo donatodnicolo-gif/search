@@ -1,5 +1,203 @@
 # Handoff — Deluxy Customer Service
 
+## 27/08/2026 (3) — caccia agli errori: 32 sospetti, 3 agenti ostili, 20 corretti
+
+Chiesto dall'utente: «correggi tutti gli errori di codice dell'app; prima di
+vedere che sia un errore sottoponi l'errore a un agente ostile».
+
+Tre agenti hanno cercato (rotte API, componenti React, librerie) e hanno prodotto
+**32 sospetti**. Altri tre, con l'incarico di **REFUTARE**, li hanno riletti sul
+codice vero e sul database. Ne sono caduti nove.
+
+### ⚠️ Quello che gli agenti ostili hanno SMONTATO (e che quindi NON ho toccato)
+
+- **«Il webhook Meta accetta chiunque»**: falso. `metaAppSecret` e `igAppSecret`
+  ci sono entrambi, la firma si verifica. Resta un `if` che fallisce in apertura
+  se un giorno fossero vuote — annotato, non cambiato.
+- **«Il passaggio a in_pagamento cerca il numero in una forma sola»**: vero come
+  codice, impossibile come scenario — **1.373 ordini su 1.373 col cancelletto,
+  22 richieste su 22 col cancelletto**, e il numero non arriva mai da un campo
+  libero.
+- **«L'avviso al fornitore non parte per via del numero»**: non parte, ma per un
+  altro motivo, dichiarato: **21 fornitori su 21 non hanno né telefono né email**.
+  Il messaggio che manda a compilarli è corretto.
+- **«Il conteggio delle note perde una riga»**: nessuna nota è scritta senza
+  cancelletto (28 su 28), e tutte le strade di scrittura normalizzano.
+- **«La percentuale di margine si vede solo in perdita»**: la condizione morta
+  c'è, ma il numero è comunque a schermo su ogni riga.
+- **«Il contatore "ordini nuovi" confronta due orologi»**: l'aritmetica
+  dell'accusa era sbagliata, e lo scarto misurato è ~1 s.
+- **«appCostoPartner non si aggiorna mai»**: il ramo accusato non è quello che
+  scrive.
+- **«La corsa fra due conversazioni mostra i messaggi di A sotto il nome di B»**:
+  si ripara da sola in 4 s e non sporca nessuna scrittura.
+- **«L'avviso anti-doppione mancante fa creare due pagamenti»**: falso, la
+  serratura è sul server (409).
+
+### 🔴 I difetti confermati e corretti
+
+**1. Settantuno rotte API non chiedevano CHI SEI.** Il cookie è
+`userId.firma(userId)`, dura 30 giorni e la verifica guarda **solo la firma**: un
+account cancellato continua a passare. Le **pagine** lo buttavano fuori (il
+layout rilegge l'utente dal database), le **API no** — e `GET /api/clienti`
+restituiva la rubrica completa dei clienti. Contate: 131 rotte, 22 esenti per
+disegno, **71 delle restanti 109 senza nessun controllo**, e nessuna con una
+difesa alternativa.
+Adesso ce l'hanno tutte. ⚠️ Per chi lavora **non cambia niente**: erano già
+dietro al middleware, che pretende un cookie firmato.
+⚠️⚠️ E dodici file avevano il controllo in **qualche** handler e non in tutti —
+`turni`, `glossario`, `pagamenti`, `rimborsi`… È il modo in cui un buco resta
+aperto proprio dove sembra chiuso: il file «ha l'autenticazione», e nessuno va a
+vedere in quale dei suoi tre handler.
+
+**2. Il costo del fornitore finiva sul fornitore sbagliato.** In
+`riconciliazione.ts` il confronto dei nomi usava `nomeCorrisponde`, che è la
+regola di una **casella di ricerca** («basta una parola»). Qui però non si cerca:
+si **afferma** che il pagamento riguarda quel fornitore, e da lì parte una
+scrittura che entra nel margine e viaggia fino a Deluxy Orders — **da sola**,
+premendo «Pagata». Misurato sui 21 fornitori veri: **28 coppie su 420 (6,7%) di
+fornitori diversi risultavano «lo stesso»** — «S.A.S. ELENA FLEURS» con «RIGUTTO
+ELENA», «LA PEONIA FIORI PIANTE» con «donna di fiori di Longo Michela»,
+«Passiflora flower market» con «Goshà flowers»; e un intestatario di **una
+lettera** combaciava con tutti.
+Adesso usa `stessaIdentita`, che in questo stesso file c'era già, con scritto
+sopra il motivo. **Provato**: le 6 corrispondenze false cadono tutte, le 3 vere
+reggono.
+
+**3. `ordineDaOrders` poteva rispondere con l'ordine di un altro negozio.** Il
+ripiego «se ce n'è uno solo prendi quello» era in `??`, e `??` scatta anche
+quando il primo ramo **è stato provato e ha fallito**: chiedendo un ordine col
+suo `shopifyId`, se quello non entrava nella pagina di 20 risultati si tornava
+l'omonimo di un altro negozio, in silenzio. (Misurato su Orders: `q=2705` dà 26
+candidati e la pagina si ferma a 20.) Ora, con l'id in mano, «non l'ho trovato» è
+la risposta.
+
+**4. Le ore di copertura dei turni si SOMMAVANO invece di unirsi.** Tre operatori
+lunedì-venerdì 09-18 davano «33 ore scoperte» quando sono **123**; con cinque
+usciva «**−57**». È il numero che una persona legge **prima di accendere** l'unica
+funzione che scrive ai clienti da sola, con la soglia rossa a 100: l'errore
+andava **sempre** verso «è sicuro accendere». Ora gli intervalli si uniscono per
+giorno. **8 prove**, compresa la griglia vera (21 ore su 168, invariata).
+
+**5. Quattro segreti stavano in chiaro** nella tabella `Impostazione` di un
+Postgres condiviso con altre tredici app: `igAppSecret` era in chiaro mentre
+`metaAppSecret`, nella stessa pagina e con lo stesso uso, era cifrato. Aggiunte
+a `CHIAVI_CIFRATE` (+ `shopifyClientSecret`, `googleMapsApiKey`,
+`piattaformaApiKey`).
+⚠️⚠️ **Cambiare l'elenco non cifra quello che è già scritto**, e leggere un
+valore in chiaro come se fosse cifrato avrebbe **spento la verifica delle firme
+dei webhook**. Perciò la lettura ora **riconosce la forma** di un valore cifrato:
+se non ce l'ha, è un valore vecchio e si restituisce com'è. Migrazione:
+`scripts/cifra-segreti-in-chiaro.mjs --scrivi` (idempotente, non stampa mai un
+valore). Trovati in chiaro: **2** — `igAppSecret` e `googleMapsApiKey`.
+
+**6. «Oggi» era il giorno del server, cioè UTC.** Misurato in diretta alle 00:42
+di Roma: la schermata «Oggi» mostrava le consegne di **ieri** e **8 ordini in
+ritardo invece di 3**. Ora `inizioOggi()` legge il giorno di **Roma**.
+
+**7. Un ordine annullato contava come lavoro da fare.** `gestione != gestito`
+senza `annullatoIl: null`: **104 «da fare», di cui 16 annullati** (15%), sia nel
+numero accanto alla voce di menu sia nella schermata «Oggi».
+
+**8. Il numero d'ordine letto nella causale bloccava salvataggi legittimi.** La
+regola era `/#?\s?(\d{3,})/`, senza confini: «Canone agosto 2026» diventava
+l'ordine **#2026** e la richiesta **non si salvava**, con un messaggio che mandava
+a cercare un ordine inesistente. Ora: cancelletto, oppure numero staccato di 3-6
+cifre, non dentro una data e non dopo una parola che lo qualifica (mese, anno,
+fattura…), e **un anno da solo non è un ordine**. ⚠️ Si sbaglia **per difetto**:
+perdere un avviso costa meno che bloccare il lavoro. **15 prove.**
+
+**9. Il filtro «non le mie» si applicava DOPO il taglio a dieci.** Con 12
+pagamenti di cui i 10 più recenti fatti da me, i 2 dei colleghi non si vedevano —
+e non si sarebbero visti **mai più**, perché il segnaposto è già oltre. Ora si
+filtra prima. Stessa cosa per i rimborsi.
+
+**10. Il pallino si accendeva per una cosa SPARITA.** Il confronto era
+`!==` («diverso»), non `>` («più recente»): le sezioni filtrano le righe
+cestinate e annullate, quindi cancellando la più recente la data **torna
+indietro** e il menu segnalava una novità che non c'era.
+
+**11. Cancellare un rimborso ESEGUITO, e una richiesta GIÀ PAGATA, con un clic.**
+Nessuna conferma, nessun controllo di stato, nessun cestino — mentre le
+conversazioni un cestino di 30 giorni ce l'hanno. E per i rimborsi c'era di
+peggio: il tetto «non rendere più di quanto incassato» si calcola sommando i
+rimborsi esistenti, quindi cancellandone uno da 250 € su un ordine da 250 € se ne
+poteva fare un altro totale. Adesso: **il server rifiuta** (409) su un rimborso
+eseguito e su una richiesta con `pagataIl`, e il client **chiede conferma
+dicendo cosa sparisce**.
+
+**12. La risposta al cliente spariva dal riquadro senza essere partita.**
+`setBozza('')` era incondizionato: se la risposta non era JSON — il 307 verso
+`/login` che `fetch` segue e che torna **HTML con stato 200** — non compariva
+nessun errore **e la casella si svuotava lo stesso**. Ora si svuota solo dopo il
+sì del server. Stessa correzione nel diario dell'ordine.
+
+**13. Nella vista di partenza, gli errori dei gesti sull'elenco non erano
+disegnati MAI.** Il riquadro rosso stava dentro il ramo «c'è una conversazione
+aperta», ma archivia, elimina, spam e «da leggere» hanno il bottone su ogni riga
+— e la vista di default è «colonne», dove il thread esiste solo in una finestra.
+Si premeva, non succedeva niente, e non si sapeva perché. Ora sta in cima.
+⚠️ E la segnalazione **riuscita** finiva nel riquadro **rosso**: adesso ha il suo
+verde.
+
+**14. La traduzione fallita si ripeteva ogni 4 secondi, per sempre.** Falliva →
+`daTradurre = false` → il polling del thread la rimetteva a `true` → si
+riprovava. Con la chiave OpenAI scaduta, **fino a dodici chiamate ogni quattro
+secondi** finché quella chat restava aperta. Ora le conversazioni su cui è già
+fallita non si riprovano.
+
+**15. «Silenzia per un'ora» voleva dire «finché non ricarichi».** Allo scadere
+non cambiava nessuna dipendenza e non c'era nessun timer: gli avvisi restavano
+spenti. Ora il silenzio scade da solo.
+
+**16. Il bottone diceva «AI spenta» anche quando non lo sapeva.** Se la lettura
+falliva, lo stato restava nullo e `?? false` faceva scrivere «spenta» —
+sull'unico interruttore che decide se l'app parla ai clienti da sola. Adesso dice
+**«AI: non lo so»** e riprova ogni minuto.
+
+**17. Un cambio di stato non salvato restava scritto a schermo.** `segna()` non
+guardava `res.ok`; ora lo dice, con il riquadro che era già lì.
+
+**18. «Nessun ordine ancora» quando la lettura era fallita** — con in più il
+falso allarme «Google Contacts non è collegato», due bugie da una causa sola.
+Ora la pagina distingue «vuoto» da «non ho letto».
+
+**19. Il diario restava su «Carico…» per sempre** su una lettura fallita, e la
+ricerca partiva a ogni tasto senza attesa né guardia di sequenza (otto richieste
+per «biglietto», con la più vecchia che poteva arrivare per ultima). Ora c'è
+l'attesa di 300 ms — la stessa che la bacheca degli ordini aveva già.
+
+**20. Una mail a un indirizzo con maiuscole apriva una SECONDA conversazione.**
+L'indirizzo è la **chiave** della conversazione; la posta in arrivo lo normalizza
+e la rotta gemella pure, solo `email/invia` no. Sono **35 ordini su 1.152 (3%)**
+ad avere l'email con maiuscole: al primo, la storia si sarebbe spezzata in due.
+
+### 🟡 Confermati e NON corretti (annotati apposta)
+
+- **`riconcilia.ts` sceglie il primo ordine con quel numero.** Latente: **zero
+  numeri omonimi su 1.373 ordini e 3 negozi**. Si accende il giorno che si
+  collega il quarto negozio — e la correzione giusta non è un `orderBy`, è
+  **salvare l'id dell'ordine sulla `RichiestaPagamento`**, che oggi butta via il
+  negozio scelto nel picker e tiene solo il numero.
+- **La sync della piattaforma non pagina** (200 per giro, segnaposto spostato
+  comunque). Oggi non gira: nessuna chiave configurata, 66 vendite in tutto. ⚠️ Da
+  sistemare **prima** di configurare la chiave: al primo giro leggerebbe le 200
+  **più vecchie** e salterebbe tutto il resto.
+- **`daRispondereEmail` è una differenza fra un `count` vero e una lista tagliata
+  a 200.** Il carico oggi è 3.
+
+### Verifica
+
+`npx tsc --noEmit` esito 0 · `npm run build` esito 0 · **sei suite di prove, tutte
+passate** (`prova-causale-e-oggi`, `prova-copertura-pallini`, `prova-pallini`,
+`prova-data-italiana`, `prova-correggi-riga`, `prova-chiusura-note`).
+
+⚠️ **Un errore mio, da ricordare.** Scrivendo una patch con un heredoc, il `\b`
+di una regex è diventato un **carattere di backspace vero** dentro il file: la
+regex non combaciava più e la funzione dava il risultato sbagliato **senza
+nessun errore**. Me ne sono accorto solo perché una prova falliva. Da allora ogni
+patch finisce con `grep -P '[\x00-\x08...]'` su `src/`: oggi è pulito.
+
 ## 27/08/2026 (2) — il menu dice quanto lavoro c'è, non solo dove andare
 
 Chiesto dall'utente: «rivedi tutto il menù per ottimizzare il lavoro del customer

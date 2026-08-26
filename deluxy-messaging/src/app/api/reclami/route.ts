@@ -7,6 +7,7 @@ import {
   gravitaValida,
   reclamoAperto,
 } from '@/lib/reclami'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,11 @@ export const dynamic = 'force-dynamic'
 //   colpa   valet | partner | azienda | cliente | nessuno
 //   gravita 1 | 2 | 3
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const p = req.nextUrl.searchParams
   const q = (p.get('q') ?? '').trim()
   const stato = (p.get('stato') ?? '').trim()
@@ -113,6 +119,11 @@ export async function GET(req: NextRequest) {
 // Crea o aggiorna un reclamo. Il cambio di stato passa da qui o dalla rotta
 // dedicata /api/reclami/[id]/stato.
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const c = (await req.json().catch(() => ({}))) as {
     id?: string
     ordineId?: string
@@ -171,6 +182,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const id = req.nextUrl.searchParams.get('id') ?? ''
   if (!id) return NextResponse.json({ errore: 'Serve l’id.' }, { status: 400 })
   await db.reclamo.delete({ where: { id } })

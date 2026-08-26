@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { colpaGiudicabile } from '@/lib/reclami'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 // Il valore di una voce MANUALE per un soggetto: la "variabile impostabile".
 // 0-100. Uno per (voce, soggetto): si aggiorna, non si accumula.
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const c = (await req.json().catch(() => ({}))) as {
     voceId?: string
     soggettoTipo?: string
@@ -52,6 +58,11 @@ export async function POST(req: NextRequest) {
 // Toglie il valore: la voce torna "nessun dato" e viene esclusa dalla media,
 // che è diverso da metterla a zero.
 export async function DELETE(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const p = req.nextUrl.searchParams
   const voceId = (p.get('voceId') ?? '').trim()
   const soggettoTipo = (p.get('soggettoTipo') ?? '').trim()

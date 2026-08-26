@@ -51,7 +51,13 @@ export function decidiPallini(
       nuovo[href] = quando
       continue
     }
-    if (nuovo[href] !== quando) accesi.push(href)
+    // ⚠️⚠️ «PIÙ RECENTE», non «diverso». Con `!==` il pallino si accendeva anche
+    // quando `ultimo` **tornava indietro**: le sezioni filtrano le righe
+    // cestinate (`eliminataIl`) e annullate (`annullatoIl`), quindi cancellando
+    // la cosa più recente la data precedente diventa quella corrente — e il
+    // menu segnalava come «novità» qualcosa che era **sparito**.
+    const gia = nuovo[href] ?? ''
+    if (quando > gia) accesi.push(href)
   }
   return { accesi, visto: nuovo }
 }

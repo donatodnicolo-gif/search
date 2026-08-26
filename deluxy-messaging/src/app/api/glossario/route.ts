@@ -158,6 +158,10 @@ async function chi() {
 
 // Il glossario, le proposte aperte e «come siamo fatti» (letto dalla config).
 export async function GET() {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { errore } = await chi()
   if (errore) return errore
   const [dati, sistema] = await Promise.all([leggiGlossario(), comeSiamoFatti()])
@@ -176,6 +180,10 @@ type Corpo = {
 
 
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { io, errore } = await chi()
   if (errore) return errore
   const c = (await req.json().catch(() => ({}))) as Corpo
@@ -332,6 +340,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { errore } = await chi()
   if (errore) return errore
   const id = req.nextUrl.searchParams.get('id') ?? ''

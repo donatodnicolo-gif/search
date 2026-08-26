@@ -275,8 +275,13 @@ export async function novitaDa(
     // ⚠️ Non a chi l'ha appena fatto: chi ha premuto «Pagata» sa benissimo di
     // aver pagato, e ricevere il riquadro di una cosa fatta da sé fa sembrare
     // gli avvisi rumore. Agli altri invece serve: è denaro uscito.
-    ...taglia(pagati)
-      .filter((r) => !miei(r.pagataDaNome))
+    // ⚠️⚠️ SI FILTRA PRIMA DI TAGLIARE. Prima era `taglia(...).filter(...)`:
+    // si prendevano le 10 più recenti e poi si scartavano le mie, quindi con 12
+    // pagamenti di cui i 10 più recenti fatti da me, i 2 dei colleghi non si
+    // vedevano — e non si sarebbero visti **mai più**, perché il segnaposto
+    // della chiamata dopo è già oltre. Filtrare prima costa niente: le righe
+    // lette sono le stesse.
+    ...taglia(pagati.filter((r) => !miei(r.pagataDaNome)))
       .map((r) => ({
         id: `pagamento:${r.id}`,
         tipo: 'pagamento',
@@ -301,8 +306,7 @@ export async function novitaDa(
       // ⚠️ Rosso solo il grave: se sono rossi tutti, non è rosso nessuno.
       gravita: (r.gravita >= 3 ? 'attenzione' : 'info') as Gravita,
     })),
-    ...taglia(rimborsi)
-      .filter((r) => !miei(r.richiestoDa))
+    ...taglia(rimborsi.filter((r) => !miei(r.richiestoDa)))
       .map((r) => ({
         id: `rimborso:${r.id}`,
         tipo: 'rimborso',
@@ -460,7 +464,12 @@ export async function sezioniDelMenu(): Promise<Record<string, SezioneMenu>> {
       },
     }),
     db.ordine.findFirst({ where: { annullatoIl: null }, ...recente }),
-    db.ordine.count({ where: { gestione: { not: 'gestito' } } }),
+    // ⚠️⚠️ `annullatoIl: null`: un ordine annullato non è lavoro che aspetta.
+    // Misurati: **104 ordini «non gestiti», di cui 16 annullati** — il 15% del
+    // numero accanto alla voce di menu era roba che nessuno deve toccare (lo
+    // dice lo schema stesso: «con annullatoIl non si lavora, né fornitore né
+    // pagamento»).
+    db.ordine.count({ where: { gestione: { not: 'gestito' }, annullatoIl: null } }),
     db.chiamata.findFirst(recente),
     db.chiamata.count({ where: { richiamataIl: null } }),
     db.preventivo.findFirst(recente),

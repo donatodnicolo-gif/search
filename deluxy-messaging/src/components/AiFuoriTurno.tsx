@@ -54,18 +54,39 @@ export function AiFuoriTurno({ amministratore }: { amministratore: boolean }) {
   const bottone = useRef<HTMLButtonElement | null>(null)
   const [dove, setDove] = useState<{ top: number; left: number } | null>(null)
 
+  // ⚠️⚠️ SE NON SI SA, NON SI DICE «SPENTA». Prima, quando la lettura falliva —
+  // e col 307 verso /login fallisce con `res.ok` **vero**, perché a esplodere è
+  // `res.json()` — lo stato restava `null` e `stato?.acceso ?? false` faceva
+  // scrivere sul bottone «AI spenta». Su un interruttore che decide se l'app
+  // parla ai clienti da sola, «non lo so» letto come «è spenta» è la bugia
+  // peggiore: si crede di essere fermi mentre si sta scrivendo.
+  const [nonLoSo, setNonLoSo] = useState(false)
+
   const leggi = useCallback(async () => {
     try {
       const res = await fetch('/api/ai-fuori-turno', { cache: 'no-store' })
-      if (!res.ok) return
+      const ct = res.headers.get('content-type') ?? ''
+      if (!res.ok || res.redirected || !ct.includes('application/json')) {
+        setNonLoSo(true)
+        return
+      }
       setStato((await res.json()) as Stato)
+      setNonLoSo(false)
     } catch {
-      // rete assente: il bottone resta com'era
+      setNonLoSo(true)
     }
   }, [])
 
+  // ⚠️ E si riprova. Prima si leggeva **una volta sola**, al montaggio: un
+  // inciampo all'apertura della pagina lasciava scritto «AI spenta» per tutta la
+  // sessione. Un minuto è abbastanza: questo stato lo cambia una persona, non un
+  // evento.
   useEffect(() => {
     void leggi()
+    const t = setInterval(() => {
+      if (!document.hidden) void leggi()
+    }, 60000)
+    return () => clearInterval(t)
   }, [leggi])
 
   async function accendi(acceso: boolean) {
@@ -174,7 +195,7 @@ export function AiFuoriTurno({ amministratore }: { amministratore: boolean }) {
             : 'Risposta automatica dell’AI'
         }
       >
-        {acceso ? 'AI accesa' : 'AI spenta'}
+        {stato ? (acceso ? 'AI accesa' : 'AI spenta') : nonLoSo ? 'AI: non lo so' : 'AI…'}
       </button>
 
       {aperto ? (
@@ -194,7 +215,11 @@ export function AiFuoriTurno({ amministratore }: { amministratore: boolean }) {
           </div>
 
           {!stato ? (
-            <p className="descrizione">Guardo com’è messa…</p>
+            <p className={nonLoSo ? 'avviso-errore' : 'descrizione'}>
+              {nonLoSo
+                ? 'Non riesco a leggere com’è messa: potrebbe essere accesa. Ricarica la pagina, e se non torna rientra dal login.'
+                : 'Guardo com’è messa…'}
+            </p>
           ) : (
             <>
               <p className="descrizione" style={{ marginTop: 0 }}>

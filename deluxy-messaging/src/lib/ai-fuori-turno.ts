@@ -141,8 +141,62 @@ export async function chiEInTurno(adesso = new Date()): Promise<string[]> {
  */
 export async function copertura(): Promise<{ ore: number; fasce: number; scoperte: number }> {
   const turni = await db.turnoSettimanale.findMany()
-  const ore = turni.reduce((s, t) => s + Math.max(0, inMinuti(t.alle) - inMinuti(t.dalle)) / 60, 0)
-  return { ore: Math.round(ore * 10) / 10, fasce: turni.length, scoperte: Math.round((168 - ore) * 10) / 10 }
+  return { ...oreCoperte(turni), fasce: turni.length }
+}
+
+/**
+ * Le ore davvero coperte: gli intervalli si **UNISCONO**, non si sommano.
+ *
+ * ⚠️⚠️ Prima era una somma di durate, e due operatori nella stessa fascia
+ * contavano due volte. Rifatti i conti: 3 operatori lunedì-venerdì 09-18
+ * davano «135 ore coperte, **33 scoperte**» quando le ore davvero scoperte sono
+ * **123**; con 5 operatori usciva «**−57** ore scoperte».
+ *
+ * ⚠️⚠️ E l'errore andava **sempre nella stessa direzione**: far sembrare la
+ * griglia più coperta di quanto sia. Questo numero è l'unica cosa che una
+ * persona legge **prima di accendere** l'unica funzione dell'app che scrive ai
+ * clienti da sola, e la soglia rossa scatta sopra le 100 ore scoperte: con tre
+ * operatori diceva 33 in nero invece di 123 in rosso.
+ *
+ * ⚠️ Le fasce si uniscono **per giorno**: due turni dello stesso giorno che si
+ * accavallano diventano uno solo; giorni diversi non si toccano mai.
+ */
+export function oreCoperte(
+  turni: { giorno: number; dalle: string; alle: string }[]
+): { ore: number; scoperte: number } {
+  const perGiorno = new Map<number, [number, number][]>()
+  for (const t of turni) {
+    const a = inMinuti(t.dalle)
+    const b = inMinuti(t.alle)
+    // Una fascia che finisce prima di cominciare non copre niente.
+    if (!(b > a)) continue
+    const elenco = perGiorno.get(t.giorno) ?? []
+    elenco.push([a, b])
+    perGiorno.set(t.giorno, elenco)
+  }
+  let minuti = 0
+  for (const fasce of perGiorno.values()) {
+    fasce.sort((x, y) => x[0] - y[0])
+    let [da, a] = fasce[0]
+    for (const [x, y] of fasce.slice(1)) {
+      // ⚠️ `<=` e non `<`: due fasce attaccate (09-12 e 12-18) sono una sola
+      // copertura continua, non due con un buco di zero minuti in mezzo.
+      if (x <= a) a = Math.max(a, y)
+      else {
+        minuti += a - da
+        da = x
+        a = y
+      }
+    }
+    minuti += a - da
+  }
+  const ore = minuti / 60
+  return {
+    ore: Math.round(ore * 10) / 10,
+    // ⚠️ Mai negativo: con una griglia strana, un numero sotto zero a schermo
+    // fa dubitare di tutta la pagina.
+    scoperte: Math.round(Math.max(0, 168 - ore) * 10) / 10,
+  }
 }
 
 /**

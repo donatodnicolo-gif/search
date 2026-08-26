@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { dettaglioOrdineArchivio } from '@/lib/dettaglio-ordine'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,11 @@ export const dynamic = 'force-dynamic'
 // esiste su più negozi — «#1733» c'è sia su Cake sia su Deluxy — e aprire
 // l'ordine di un altro marchio è peggio che non aprirne nessuno.
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const numero = (req.nextUrl.searchParams.get('numero') ?? '').trim()
   const orderId = (req.nextUrl.searchParams.get('orderId') ?? '').trim()
   if (!numero) return NextResponse.json({ errore: 'Ordine senza numero.' }, { status: 400 })

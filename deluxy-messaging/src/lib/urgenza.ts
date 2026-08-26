@@ -21,11 +21,31 @@
 
 export const GIORNI_ANCORA_CALDE = 3
 
-/** Mezzanotte di oggi: le date di consegna arrivano senza orario. */
+/**
+ * Mezzanotte di oggi **a Roma**: le date di consegna arrivano senza orario.
+ *
+ * ⚠️⚠️ NON `new Date()` + `setHours(0,0,0,0)`. Quel calcolo usa il fuso della
+ * macchina che lo esegue, e questa app gira su Vercel, **in UTC**. Fra
+ * mezzanotte e le due di Roma (una d'inverno) per il server è ancora **ieri**:
+ * misurato in diretta alle 00:42 di Roma, la schermata «Oggi» mostrava le
+ * consegne del giorno prima e **8 ordini in ritardo invece di 3**.
+ *
+ * ⚠️ Le date di consegna sono memorizzate a **mezzanotte UTC**, e quindi il
+ * confine giusto da confrontare con loro è la mezzanotte del giorno di Roma
+ * scritta in UTC: è quello che costruisce `Date.UTC(...)` qui sotto.
+ *
+ * Stessa cura che `ai-fuori-turno.ts` ha per i turni, e per lo stesso motivo:
+ * chi legge questi numeri vive in Italia.
+ */
 export function inizioOggi(): Date {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+  const pezzo = (t: string) => Number(p.find((x) => x.type === t)?.value ?? '0')
+  return new Date(Date.UTC(pezzo('year'), pezzo('month') - 1, pezzo('day')))
 }
 
 export function inizioDomani(): Date {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { conversazioniDellOrdine } from '@/lib/messaggi-ordine'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,11 @@ type Params = { params: Promise<{ id: string }> }
 // cliente) e, per ognuna, le ultime battute: chi guarda l'ordine deve poter
 // leggere cosa si sono detti senza cambiare pagina — e rispondere da lì.
 export async function GET(_req: NextRequest, { params }: Params) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { id } = await params
   const ordine = await db.ordine.findUnique({
     where: { id },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { inMarkdown, inHtml, nomeFile } from '@/lib/linee-guida'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +11,11 @@ export const dynamic = 'force-dynamic'
 //
 // ?formato=md|html   ?negozioId=<id>|tutti   ?spente=1 (include le disattivate)
 export async function GET(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const p = req.nextUrl.searchParams
   const formato = p.get('formato') === 'html' ? 'html' : 'md'
   const negozioId = (p.get('negozioId') ?? '').trim()

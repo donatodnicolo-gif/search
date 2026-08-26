@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { suggerisciRisposta } from '@/lib/ai'
 import { linguaDelTesto } from '@/lib/lingua-testo'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -9,6 +10,11 @@ export const maxDuration = 60
 // Dato il messaggio di un cliente, propone la risposta scegliendo fra gli
 // script attivi. Può rispondere "nessuno adatto": è un esito valido.
 export async function POST(req: NextRequest) {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { messaggio, conversazioneId, contesto, negozioId, ordineId } = (await req
     .json()
     .catch(() => ({}))) as {

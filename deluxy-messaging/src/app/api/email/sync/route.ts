@@ -5,6 +5,7 @@ import { registraChiamataDaMail } from '@/lib/chiamate'
 import { smistaMailPerSito } from '@/lib/ordine-da-email'
 import { daIgnorare, elencoMittentiIgnorati } from '@/lib/mittenti-ignorati'
 import { linguaDelTesto } from '@/lib/lingua-testo'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 // Lo scarico IMAP può richiedere qualche decina di secondi (più caselle).
@@ -13,6 +14,11 @@ export const maxDuration = 60
 // Scarica le mail recenti da TUTTE le caselle attive e le porta in inbox:
 // una conversazione per mittente, con l'esito riportato per casella.
 export async function POST() {
+  // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
+  // del cookie, non che l'utente esista ancora — e il cookie di un account
+  // cancellato resta firmato bene per trenta giorni.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const caselle = await caselleAttive()
   if (caselle.length === 0) {
     return NextResponse.json(

@@ -11,6 +11,10 @@ type Params = { params: Promise<{ id: string }> }
 
 // Messaggi di una conversazione. Aprire il thread azzera i non letti.
 export async function GET(_req: NextRequest, { params }: Params) {
+  // ⚠️ Chi sei: il middleware controlla la FIRMA del cookie, non che
+  // l'utente esista ancora.
+  const _io = await utenteCorrente()
+  if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { id } = await params
   const conversazione = await db.conversazione.findUnique({ where: { id } })
   if (!conversazione) return NextResponse.json({ errore: 'Conversazione non trovata' }, { status: 404 })
