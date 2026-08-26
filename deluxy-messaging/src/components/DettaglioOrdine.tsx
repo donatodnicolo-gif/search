@@ -108,6 +108,11 @@ type OrdineDettaglio = {
   pagamentoApertoId?: string
   pagamentoApertoA?: string
   pagamentoApertoQuanto?: number
+  /** L'ordine a cui questo è unito ('' = a sé), e gli ordini uniti a lui. */
+  unitoA?: string
+  unitoDaNome?: string
+  uniti?: { numero: string; totale: number }[]
+  totaleConUniti?: number
   clienteTipo: string
   clienteTipoDa: string
   /** A chi abbiamo dato l'ordine da preparare. */
@@ -266,6 +271,11 @@ type Spedizione = {
   paese: string
 }
 
+/** «370 €»: i soldi si scrivono come soldi, anche in una riga di servizio. */
+function euroBreve(n: number): string {
+  return n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+}
+
 export function DettaglioOrdine({
   ordineId = '',
   archivio,
@@ -315,6 +325,9 @@ export function DettaglioOrdine({
   const [zonaProvincia, setZonaProvincia] = useState('')
   const [zonaNota, setZonaNota] = useState('')
   const [interrompendo, setInterrompendo] = useState(false)
+  const [numeroDaUnire, setNumeroDaUnire] = useState('')
+  const [unendo, setUnendo] = useState(false)
+  const [esitoUnione, setEsitoUnione] = useState('')
   const [esitoInterruzione, setEsitoInterruzione] = useState('')
   /** I fornitori che risultano dai NOSTRI ordini: si vedono anche se il
    *  registro non sa dove stiano. */
@@ -465,6 +478,44 @@ export function DettaglioOrdine({
       setEsitoInterruzione('Interruzione non riuscita: problema di rete.')
     } finally {
       setInterrompendo(false)
+    }
+  }
+
+  /** Unisce un altro ordine a questo. L'esito si mostra per intero. */
+  async function unisci() {
+    if (!ordine?.id || unendo) return
+    setUnendo(true)
+    setEsitoUnione('')
+    try {
+      const res = await fetch(`/api/ordini/${ordine.id}/unisci`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero: numeroDaUnire.trim() }),
+      })
+      const d = (await res.json().catch(() => ({}))) as { messaggio?: string }
+      setEsitoUnione(d.messaggio || 'Unione non riuscita.')
+      if (res.ok) setNumeroDaUnire('')
+      await carica()
+    } catch {
+      setEsitoUnione('Unione non riuscita: problema di rete.')
+    } finally {
+      setUnendo(false)
+    }
+  }
+
+  async function disfa() {
+    if (!ordine?.id || unendo) return
+    setUnendo(true)
+    setEsitoUnione('')
+    try {
+      const res = await fetch(`/api/ordini/${ordine.id}/unisci`, { method: 'DELETE' })
+      const d = (await res.json().catch(() => ({}))) as { messaggio?: string }
+      setEsitoUnione(d.messaggio || 'Non sono riuscito a disfare.')
+      await carica()
+    } catch {
+      setEsitoUnione('Non sono riuscito a disfare: problema di rete.')
+    } finally {
+      setUnendo(false)
     }
   }
 
@@ -1309,6 +1360,79 @@ export function DettaglioOrdine({
                   </>
                 ) : null}
               </dl>
+
+              {/* ── DUE ORDINI, UNA VENDITA SOLA ──
+                  ⚠️⚠️ Il caso vero: lo stesso cliente paga la stessa torta con
+                  due ordini, e il fornitore finisce su uno solo col costo
+                  intero. Guardando quell'ordine da solo il margine risulta
+                  negativo — misurato su #1777: −43,44 €, mentre sui due insieme
+                  è positivo.
+                  ⚠️ L'unione è NOSTRA: in Deluxy Orders restano due ordini, ed è
+                  scritto qui sotto invece che lasciato scoprire. */}
+              {ordine.id ? (
+                <div className="card" style={{ padding: 10, marginTop: 12 }}>
+                  {ordine.unitoA ? (
+                    <>
+                      <div className="cella-nome">Unito a {ordine.unitoA}</div>
+                      <div className="cella-sub">
+                        Si lavora dalla scheda di {ordine.unitoA}: questo non compare più come
+                        ordine a sé.
+                        {ordine.unitoDaNome ? ` Unito da ${ordine.unitoDaNome}.` : ''}
+                      </div>
+                      <button
+                        className="btn btn-secondario small"
+                        style={{ marginTop: 8 }}
+                        disabled={unendo}
+                        onClick={() => void disfa()}
+                      >
+                        {unendo ? 'Disfo…' : 'Disfa l’unione'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="cella-nome">
+                        Ordini uniti a questo
+                        {ordine.uniti?.length ? ` · totale ${euroBreve(ordine.totaleConUniti ?? 0)}` : ''}
+                      </div>
+                      {ordine.uniti?.length ? (
+                        <ul className="cella-sub" style={{ margin: '4px 0 6px', paddingLeft: 18 }}>
+                          {ordine.uniti.map((u) => (
+                            <li key={u.numero}>
+                              {u.numero} · {euroBreve(u.totale)}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="cella-sub">
+                          Nessuno. Se lo stesso lavoro è stato pagato con due ordini, unisci qui il
+                          secondo: la bacheca ne mostrerà uno solo e il valore si somma.
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                        <input
+                          value={numeroDaUnire}
+                          onChange={(e) => setNumeroDaUnire(e.target.value)}
+                          placeholder="#1777"
+                          aria-label="Numero dell’ordine da unire a questo"
+                          style={{ maxWidth: 140 }}
+                        />
+                        <button
+                          className="btn btn-secondario small"
+                          disabled={!numeroDaUnire.trim() || unendo}
+                          onClick={() => void unisci()}
+                        >
+                          {unendo ? 'Unisco…' : 'Unisci a questo'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {esitoUnione ? (
+                    <p className="cella-sub" style={{ marginTop: 6 }}>
+                      {esitoUnione}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
 
               {/* ── LA PIATTAFORMA STA GESTENDO QUESTO ORDINE ──
                   ⚠️⚠️ Si vede PRIMA delle azioni, non in fondo: chi apre la

@@ -185,6 +185,15 @@ export async function GET(req: NextRequest) {
       : []
 
   const dove: Prisma.OrdineWhereInput = {}
+  // ⚠️⚠️ GLI ORDINI UNITI A UN ALTRO NON SONO UNA RIGA A SÉ. Due ordini che sono
+  // una vendita sola (acconto e saldo, o un'integrazione) darebbero due righe da
+  // lavorare, e chi le prende in mano non sa che sono la stessa torta: uno dei
+  // due resterebbe lì per sempre, oppure si telefonerebbe due volte allo stesso
+  // fornitore. Si vedono sulla scheda del principale.
+  //
+  // ⚠️ Ma NELLA RICERCA si trovano lo stesso: chi cerca «1777» quel numero
+  // l'ha letto da qualche parte e deve arrivarci.
+  if (!q) dove.unitoA = ''
   if (negozio) dove.negozioId = negozio
   // `ignoto` = gli ordini di cui Orders non sa dire il tipo di cliente: sono
   // quelli senza email, telefono né nome, e vale la pena poterli isolare.

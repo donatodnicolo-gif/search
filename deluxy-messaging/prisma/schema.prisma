@@ -351,6 +351,30 @@ model Ordine {
    * troverebbe niente, facendo sembrare che in app non ci sia mai nessuno.
    */
   ordersId       String   @default("")
+
+  // ── DUE ORDINI CHE SONO UNA VENDITA SOLA ──
+  //
+  // ⚠️⚠️ IL CASO VERO (26/08/2026, segnalato dall'utente): «ada hunca» ha pagato
+  // la stessa torta con DUE ordini — #1777 da 200 € e #1798 da 170 € — e il
+  // fornitore è stato registrato su uno solo, con il costo INTERO: 253 €. Su
+  // quell'ordine, da solo, il margine risulta **−43,44 €**; sui due insieme
+  // (370 € contro 253) è positivo. Senza unirli, il lavoro si conta due volte,
+  // il margine di uno è falso in negativo — e nelle KPI quel falso finisce
+  // addosso a un operatore.
+  //
+  // `unitoA` = il NUMERO dell'ordine principale ('' = ordine a sé). Il numero e
+  // non l'id perché è quello che si legge, si cerca e si scrive nelle causali —
+  // e perché un ordine unito resta leggibile anche se l'altro sparisse.
+  //
+  // ⚠️ Un solo livello: unendo B ad A, e poi C a B, C finisce su A. Una catena
+  // di ordini uniti non la ricostruisce nessuno.
+  //
+  // ⚠️⚠️ E RESTA UNA COSA NOSTRA: in Deluxy Orders quei due ordini restano due,
+  // ognuno col suo margine. Qui si dice «sono un lavoro solo», non si riscrive
+  // l'economia di un'altra app.
+  unitoA        String    @default("")
+  unitoIl       DateTime?
+  unitoDaNome   String    @default("")
   numero         String   @default("") // es. #1042
   data           DateTime @default(now())
   totale         Float    @default(0)
@@ -555,6 +579,7 @@ model Ordine {
 
   @@unique([negozioId, shopifyId]) // dedup per-negozio: il gid è unico solo lì
   @@index([ordersId])
+  @@index([unitoA])
   @@index([data])
   // «Quanti ordini abbiamo dato a questo fornitore, e quanto gli abbiamo dato?»
   // è la domanda per cui il campo esiste: senza indice, con 1.300 ordini si

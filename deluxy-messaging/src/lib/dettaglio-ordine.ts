@@ -1,4 +1,5 @@
 import { db } from './db'
+import { totaleConUniti } from './unione-ordini'
 import { brandRicercaDaNegozio } from './negozi'
 import {
   ordineDaOrders,
@@ -66,6 +67,12 @@ export type OrdineDettaglioDto = {
   pagamentoApertoId: string
   pagamentoApertoA: string
   pagamentoApertoQuanto: number
+  /** L'unione: a chi è unito questo, e chi è unito a lui. */
+  unitoA: string
+  unitoDaNome: string
+  uniti: { numero: string; totale: number }[]
+  /** Il totale suo più quello degli ordini uniti: è la base vera del margine. */
+  totaleConUniti: number
   clienteTipo: string
   clienteTipoDa: string
   /** A chi abbiamo dato l'ordine da preparare. Vedi `fornitore-ordine.ts`. */
@@ -118,6 +125,9 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
   // richiesta gemella. Si cerca in tutte e due le forme del numero — in tabella
   // le vecchie stanno senza cancelletto e le nuove con — perché cercandone una
   // sola la guardia non troverebbe niente e non farebbe niente, in silenzio.
+  // ⚠️ Gli ordini uniti a questo: servono al riquadro e al TOTALE su cui ha
+  // senso guardare il margine (il costo del fornitore è uno solo).
+  const insieme = await totaleConUniti(ordine.numero ?? '', ordine.totale ?? 0)
   const senzaCancelletto = (ordine.numero ?? '').replace(/^#+/, '')
   const aperta = senzaCancelletto
     ? await db.richiestaPagamento.findFirst({
@@ -183,6 +193,10 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       pagamentoApertoId: aperta?.id ?? '',
       pagamentoApertoA: aperta?.intestatario ?? '',
       pagamentoApertoQuanto: aperta?.importo ?? 0,
+      unitoA: ordine.unitoA ?? '',
+      unitoDaNome: ordine.unitoDaNome ?? '',
+      uniti: insieme.uniti,
+      totaleConUniti: insieme.totale,
       clienteTipo: ordine.clienteTipo,
       clienteTipoDa: ordine.clienteTipoDa,
       fornitoreNome: ordine.fornitoreNome,
@@ -292,6 +306,10 @@ export async function dettaglioOrdineArchivio(
         pagamentoApertoId: '',
         pagamentoApertoA: '',
         pagamentoApertoQuanto: 0,
+        unitoA: '',
+        unitoDaNome: '',
+        uniti: [],
+        totaleConUniti: 0,
         // ⚠️ L'ARCHIVIO STORICO non ha questi campi: quegli ordini vivono solo
         // in Orders, e qui in casa non esiste una riga su cui scrivere. Il
         // riquadro del fornitore non si mostra (vedi DettaglioOrdine), invece
