@@ -355,15 +355,15 @@ interface ProductRow {
           <label class="fld"><span>{{ 'deliveryForm.field.ddtNumber' | translate }}</span>
             <input class="field" name="ddtNumber" [(ngModel)]="model.ddtNumber" /></label>
           <!-- Con piu' brand lo stesso numero DDT esiste su negozi diversi:
-               senza il brand il numero non identifica la vendita. -->
-          <label class="fld"><span>{{ 'deliveryForm.field.ddtBrand' | translate }}</span>
-            <input class="field" name="ddtBrand" [(ngModel)]="model.ddtBrand" list="marchi-ddt" />
-            <datalist id="marchi-ddt">
-              <option value="deluxy.it"></option>
-              <option value="Flowers"></option>
-              <option value="cakedesign.me"></option>
-              <option value="Business"></option>
-            </datalist></label>
+               senza il brand il numero non identifica la vendita. Solo per le
+               VENDITE, e li' e' OBBLIGATORIO quando c'e' un numero DDT. -->
+          @if (isVendita()) {
+            <label class="fld"><span>{{ 'deliveryForm.field.ddtBrand' | translate }} *</span>
+              <select class="field" name="ddtBrand" [(ngModel)]="model.ddtBrand" [required]="!!model.ddtNumber.trim()">
+                <option value="">{{ 'deliveryForm.ddtBrandScegli' | translate }}</option>
+                @for (b of marchiDdt; track b) { <option [value]="b">{{ b }}</option> }
+              </select></label>
+          }
           <label class="fld"><span>{{ 'deliveryForm.field.ddtFile' | translate }}</span>
             <input class="field" name="ddtFile" [(ngModel)]="model.ddtFile" placeholder="https://…" /></label>
         </div>
@@ -589,6 +589,10 @@ export class DeliveryFormComponent implements AfterViewInit {
     return h && h > 0 ? h : 1;
   });
   readonly isHourly = computed(() => this.selectedService()?.pricingModel === 'A_ORA');
+  /** Il brand del DDT riguarda solo le VENDITE: il DDT li' e' il riferimento dell'ordine. */
+  readonly isVendita = computed(() => this.selectedService()?.pricingModel === 'VENDITA');
+  /** I brand fra cui scegliere (tendina, non testo libero). */
+  readonly marchiDdt = ['deluxy.it', 'Flowers', 'cakedesign.me', 'Business'];
 
   /** Al cambio servizio: aggiorna fasce, data minima e resetta stati non più validi. */
   onServiceChange(): void {
@@ -1135,6 +1139,11 @@ export class DeliveryFormComponent implements AfterViewInit {
     if (!m.deliveryTimeFrom) mancanti.push(this.translate.instant('deliveryForm.field.deliverySlot'));
     if (!m.recipientFirstName.trim()) mancanti.push(this.translate.instant('deliveryForm.field.recipientFirstName'));
     if (!m.recipientLastName.trim()) mancanti.push(this.translate.instant('deliveryForm.field.recipientLastName'));
+    // Su una VENDITA il DDT e' il riferimento dell'ordine e con piu' negozi il
+    // numero da solo non identifica: senza brand non si salva.
+    if (this.isVendita() && m.ddtNumber.trim() && !m.ddtBrand.trim()) {
+      mancanti.push(this.translate.instant('deliveryForm.field.ddtBrand'));
+    }
     if (mancanti.length) {
       this.error.set(this.translate.instant('deliveryForm.error.missing', { campi: mancanti.join(', ') }));
       // L'errore sta in fondo al form: senza questo, chi ha compilato in cima

@@ -1153,7 +1153,8 @@
       "hint": "Scrivi almeno 2 caratteri. Lascia vuoto per un destinatario nuovo.",
       "none": "Nessun cliente trovato.",
       "change": "Cambia"
-    }
+    },
+    "ddtBrandScegli": "Scegli il brand…"
   },
   "partnerForm": {
     "title": "Nuovo partner",

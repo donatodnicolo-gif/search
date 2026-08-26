@@ -402,6 +402,23 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### 26/08 (notte, 2) — Audit per CONSEGNA, Business chiuso, brand DDT obbligatorio
+
+- ⚠️ **Il gruppo per DDT univa consegne di ANNI diversi** (il ddt «1041» vive
+  nel 2024 Flowers, nel 2025 cakedesign e nel 2026 Business): 3 consegne
+  agganciate male dal giro di massa (audit sulla data della SINGOLA consegna),
+  sganciate. `audit-e-riaggancio-per-consegna.mjs`: 44 ordini Business pagati
+  in piu' nella cache (52 dei 54 hanno gid; 1007 e 1047 sono `pending` e
+  restano fuori), riaggancio PER CONSEGNA: **+67 agganciate, 0 ambigue**,
+  70 senza risposta (leftover manuali). Copertura brand DDT sulle vendite:
+  **12.751 su 12.967** (98,3%), 216 restano vuote (meglio di sbagliate).
+- **Form consegna**: il Brand del DDT e' una **tendina vera** (select, non
+  datalist trasparente), compare **solo per i servizi VENDITA**, ed e'
+  **OBBLIGATORIO quando c'e' un numero DDT** (validazione che nomina il campo).
+- 🔴 Da decidere (utente): le vendite `invalidated` (21) oggi ENTRANO nei
+  corrispettivi — solo `cancelled` e' escluso. Il caso ddt 4901: 1 Sacher vera
+  + 9 invalidate identiche, le 9 pesano nei margini con paghe e valori.
+
 ### ⭐⭐ 26/08 (notte) — 1.726 consegne ORFANE riagganciate ai loro ordini
 
 Dal caso 62779 («il cliente ha pagato 82 ma Finanza dice 48»): la consegna
