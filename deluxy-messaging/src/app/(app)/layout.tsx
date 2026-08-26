@@ -34,7 +34,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
         {/* ⚠️ Il ruolo serve al menu per non mostrare a un operatore le due voci
             che non può usare (Turni, Operatori): una voce che risponde «serve un
             amministratore» sembra un guasto dell'app, non una regola. */}
-        <Sidebar amministratore={utente.ruolo === 'admin'} />
+        <Sidebar amministratore={utente.ruolo === 'admin'} utente={utente.nome} />
         <main className="main">{children}</main>
       </div>
       {/* ⚠️ Fuori dal <div class="layout">: la linguetta è fissa sul bordo

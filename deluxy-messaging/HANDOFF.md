@@ -1,5 +1,69 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (9) — dal telefono: la pagina cominciava a y=712
+
+Chiesto dall'utente: «da mobile sistema la ux&ui».
+
+**Misurato** su 375×812 (schermo di un iPhone), pagina Chiamate — ma la barra, la
+testata e i contatori sono gli stessi su una dozzina di pagine:
+
+| | prima | dopo |
+|---|---|---|
+| barra in alto | 81 px | **56 px** |
+| testata (titolo + sottotitolo) | 205 px | 156 px |
+| contatori | 302 px | **76 px** |
+| **prima riga di lavoro a** | **y = 712** | **y = 396** |
+| altezza di una chiamata | 199 px | 140 px |
+| pagina intera | 1585 px | 1051 px |
+
+⚠️⚠️ **y=712 su uno schermo alto 812**: si apriva la pagina e non si vedeva
+niente di quello per cui la si era aperta. Si scorreva uno schermo intero di
+spiegazioni e riquadri prima del primo dato.
+
+**Cosa è cambiato, e perché così:**
+
+- **I contatori diventano una striscia che scorre di lato** (una riga invece di
+  tre). ⚠️ Vanno **a filo schermo** di proposito: il riquadro tagliato sul bordo
+  destro è quello che dice «continua» — senza, una striscia orizzontale sembra
+  un elenco che finisce lì. Vale per tutte le pagine con `.kpi-riga`.
+- **Titolo da 30 a 22px** (a 30px un titolo di due parole prendeva due righe) e
+  **margini della pagina da 32/24 a 16/14**.
+- ⚠️ **Il sottotitolo resta INTERO**, solo più piccolo: è la riga che dice cosa
+  fa la pagina, e a chi legge per la prima volta serve tutta. Si toglie spazio al
+  contorno, non al contenuto.
+- **Le righe delle chiamate**: numero e ora sulla stessa riga, «Correggi numero»
+  spostato dentro il pannello della notifica (è la via d'eccezione, e i suoi
+  133px mandavano i bottoni a capo). Su computer restano quattro colonne, e la
+  riga è **più bassa di prima** (61px).
+
+⚠️⚠️ **UN DIFETTO VERO, non solo spazio sprecato**: il pannello del menu era
+ancorato a `top: 63px`, il numero scritto a mano quando la barra era di una riga
+sola. Sul telefono il logo «Deluxy Customer Service» a 19px andava a capo **tre
+volte** e la barra diventava alta **81px**: il menu si apriva **18px sotto** il
+suo bordo, e la prima voce spariva dietro la striscia traslucida — a chi guarda
+il menu sembrava cominciare da «Inbox».
+
+Due rimedi, e servono tutti e due: **i due numeri diventano uno**
+(`--h-topbar`, usata dalla barra, dal pannello e dal `min-height` del layout —
+finché erano due valori scritti a mano in due punti del foglio potevano
+divergere, e sono divergiti); e sul telefono **la barra sta su una riga sola**
+(logo 15px senza andare a capo). Il nome di chi ha fatto l'accesso si è spostato
+**in fondo al menu** (`Sidebar` ora riceve `utente`): in 347px ci sta il nome
+dell'app *o* quello della persona, e il primo dice dove sei.
+
+⚠️ **Le finestre (scheda ordine)**: la griglia del dettaglio chiede colonne da
+almeno 300px, ma su uno schermo da 360px dentro il pop-up ne restavano 292 —
+**la scheda usciva dallo schermo di 8px**. Imbottitura ridotta e colonne che
+possono stringersi a 260.
+
+**Come è stato provato**: pagina temporanea sotto `/widget` (ramo pubblico) con
+il componente vero su dati finti, `resize_window` a 375×812 e a 1280×900, misure
+prese dal DOM. Il file è stato **cancellato** e non è nel commit.
+⚠️ **NON verificato a occhio**: il pannello del browser non era a schermo, quindi
+niente screenshot — i numeri vengono dal layout, che è composto (`body` alto
+1051px, non zero). Le altre pagine ereditano barra, testata e contatori ma non le
+ho aperte una per una: **serve un giro dell'utente dal telefono**.
+
 ## 26/08/2026 (8) — CHIAMATE: le telefonate diventano righe, e un promemoria
 
 Chiesto dall'utente: «crea una sezione chiamate dove registri le notifiche per

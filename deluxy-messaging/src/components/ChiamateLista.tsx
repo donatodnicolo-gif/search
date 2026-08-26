@@ -234,38 +234,29 @@ export function ChiamateLista() {
       ) : (
         <div className="card" style={{ padding: 0 }}>
           {chiamate.map((c) => (
-            <div
-              key={c.id}
-              style={{
-                display: 'flex',
-                gap: 12,
-                alignItems: 'flex-start',
-                padding: '10px 14px',
-                borderTop: '1px solid var(--hairline)',
-                flexWrap: 'wrap',
-              }}
-            >
-              <div style={{ minWidth: 110 }}>
-                <div className="cella-nome">{quandoBreve(c.quando)}</div>
-                <div className="cella-sub">{c.negozioNome || 'senza marchio'}</div>
+            <div key={c.id} className="chiamata">
+              {/* ⚠️ Ora e marchio sulla STESSA riga: sono due parole corte, e su
+                  un telefono ogni blocco che si prende una riga sua costa 20px
+                  moltiplicati per il numero di chiamate. */}
+              <div className="chiamata-quando">
+                <span>{quandoBreve(c.quando)}</span>
+                <span className="chiamata-marchio">{c.negozioNome || 'senza marchio'}</span>
               </div>
 
-              <div style={{ minWidth: 170 }}>
-                <div className="cella-nome">
-                  {c.numero ? (
-                    <a href={`tel:${c.numero}`}>{c.numero}</a>
-                  ) : (
-                    // ⚠️ Numero non riconosciuto: non si inventa. Si dice, e si
-                    // dà il modo di scriverlo leggendo la notifica qui accanto.
-                    <span style={{ color: 'var(--red)' }}>numero non riconosciuto</span>
-                  )}
-                </div>
+              <div className="chiamata-numero">
+                {c.numero ? (
+                  <a href={`tel:${c.numero}`}>{c.numero}</a>
+                ) : (
+                  // ⚠️ Numero non riconosciuto: non si inventa. Si dice, e si dà
+                  // il modo di scriverlo leggendo la notifica qui sotto.
+                  <span className="chiamata-senza-numero">numero non riconosciuto</span>
+                )}
                 {c.numeroChiamato ? (
-                  <div className="cella-sub">ha chiamato il {c.numeroChiamato}</div>
+                  <span className="cella-sub"> · ha chiamato il {c.numeroChiamato}</span>
                 ) : null}
               </div>
 
-              <div style={{ flex: 1, minWidth: 220 }}>
+              <div className="chiamata-chi">
                 <Riconoscimento c={c} />
                 {c.richiamataIl ? (
                   <div className="cella-sub" style={{ marginTop: 4 }}>
@@ -276,43 +267,41 @@ export function ChiamateLista() {
                 ) : null}
               </div>
 
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {c.ordineId ? (
-                  <a
-                    className="btn btn-secondario small"
-                    href={`/ordini?apri=${encodeURIComponent(c.ordineId)}`}
-                  >
-                    Apri l&apos;ordine
-                  </a>
-                ) : null}
-                <button
-                  className="btn btn-secondario small"
-                  onClick={() => setNotifica(notifica === c.id ? '' : c.id)}
-                  title="Il testo della notifica, come è arrivato"
-                >
-                  Notifica
-                </button>
-                <button
-                  className="btn btn-secondario small"
-                  onClick={() => {
-                    setNumeroDi(numeroDi === c.id ? '' : c.id)
-                    setTestoNumero(c.numero)
-                  }}
-                >
-                  Correggi numero
-                </button>
+              {/* ⚠️ «Richiamato» PRIMO e pieno: è l'unica cosa che si fa davvero
+                  su questa riga. Gli altri due sono contorno, e «Correggi
+                  numero» è finito dentro la notifica — è la via d'eccezione, e
+                  da telefono i suoi 133px mandavano i bottoni a capo. */}
+              <div className="chiamata-azioni">
                 {!c.richiamataIl ? (
                   <button className="btn small" onClick={() => setEsitoDi(esitoDi === c.id ? '' : c.id)}>
                     Richiamato
                   </button>
                 ) : null}
+                {c.ordineId ? (
+                  <a
+                    className="btn btn-secondario small"
+                    href={`/ordini?apri=${encodeURIComponent(c.ordineId)}`}
+                  >
+                    Ordine {c.ordineNumero}
+                  </a>
+                ) : null}
+                <button
+                  className="btn btn-secondario small"
+                  onClick={() => {
+                    setNotifica(notifica === c.id ? '' : c.id)
+                    setTestoNumero(c.numero)
+                    setNumeroDi('')
+                  }}
+                  title="Il testo della notifica, come è arrivato"
+                >
+                  Notifica
+                </button>
               </div>
 
               {esitoDi === c.id ? (
-                <div style={{ flexBasis: '100%', display: 'flex', gap: 6, marginTop: 6 }}>
+                <div className="chiamata-pannello">
                   <input
-                    style={{ flex: 1 }}
-                    placeholder="Com'è andata (facoltativo): «voleva spostare la consegna a sabato»"
+                    placeholder="Com'è andata (facoltativo)"
                     value={testoEsito}
                     onChange={(e) => setTestoEsito(e.target.value)}
                   />
@@ -322,39 +311,34 @@ export function ChiamateLista() {
                 </div>
               ) : null}
 
-              {numeroDi === c.id ? (
-                <div style={{ flexBasis: '100%', display: 'flex', gap: 6, marginTop: 6 }}>
-                  <input
-                    style={{ flex: 1 }}
-                    placeholder="+39 349 885 3209"
-                    value={testoNumero}
-                    onChange={(e) => setTestoNumero(e.target.value)}
-                  />
-                  <button className="btn small" onClick={() => void salvaNumero(c.id)}>
-                    Salva e riconosci
-                  </button>
-                </div>
-              ) : null}
-
               {notifica === c.id ? (
-                <div style={{ flexBasis: '100%', marginTop: 6 }}>
+                <div className="chiamata-pannello chiamata-notifica">
                   <div className="cella-sub">{c.oggetto}</div>
                   {/* ⚠️ Il testo della notifica si conserva e si mostra: il
                       riconoscimento del numero è un'interpretazione, e quando
-                      sbaglia l'unica difesa di chi guarda è leggere quello che
-                      è arrivato davvero. */}
-                  <pre
-                    style={{
-                      whiteSpace: 'pre-wrap',
-                      fontSize: 12,
-                      background: 'var(--surface-2, #f5f5f7)',
-                      padding: 8,
-                      borderRadius: 8,
-                      margin: '4px 0 0',
-                    }}
-                  >
-                    {c.testo || '(la notifica non aveva testo)'}
-                  </pre>
+                      sbaglia l'unica difesa di chi guarda è leggere quello che è
+                      arrivato davvero. */}
+                  <pre>{c.testo || '(la notifica non aveva testo)'}</pre>
+                  {numeroDi === c.id ? (
+                    <div className="chiamata-pannello">
+                      <input
+                        placeholder="+39 349 885 3209"
+                        value={testoNumero}
+                        onChange={(e) => setTestoNumero(e.target.value)}
+                      />
+                      <button className="btn small" onClick={() => void salvaNumero(c.id)}>
+                        Salva e riconosci
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="btn btn-secondario small"
+                      onClick={() => setNumeroDi(c.id)}
+                      style={{ marginTop: 8 }}
+                    >
+                      Il numero è sbagliato: correggilo
+                    </button>
+                  )}
                 </div>
               ) : null}
             </div>

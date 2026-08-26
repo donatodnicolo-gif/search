@@ -44,8 +44,55 @@ button {
 .topbar .logo .oro { color: var(--gold); }
 .topbar-azioni { display: flex; align-items: center; gap: 10px; }
 .topbar .utente { font-size: 13px; color: var(--text-secondary); }
+/* ── LA BARRA IN ALTO SUL TELEFONO, e il pannello che ci finiva sotto ─────────
+   ⚠️⚠️ IL DIFETTO, misurato a 375px il 26/08/2026: il logo «Deluxy Customer
+   Service» a 19px andava a capo **tre volte**, e la barra diventava alta 81px.
+   Il pannello del menu però è ancorato a 63px — il numero scritto a mano quando
+   la barra era di una riga sola — quindi si apriva **18px sotto** il bordo
+   della barra: la prima voce del menu («Turni», o «Oggi» per un operatore)
+   spariva dietro una striscia traslucida, e a chi guarda sembra che il menu
+   cominci da «Inbox».
 
-.layout { display: flex; align-items: flex-start; min-height: calc(100vh - 63px); }
+   Due rimedi, e servono tutti e due:
+
+   1. i due numeri diventano UNO (`--h-topbar`): finché erano due valori scritti
+      a mano in due punti diversi del foglio, potevano divergere — e sono
+      divergiti;
+   2. sul telefono la barra si tiene su **una riga sola**: logo a 15px senza
+      andare a capo, e il nome di chi ha fatto l'accesso spostato in fondo al
+      menu. In 347px ci sta il nome dell'app **o** il nome della persona: il
+      primo dice dove sei, e sta in alto. */
+:root {
+  --h-topbar: 63px;
+}
+
+.topbar {
+  min-height: var(--h-topbar);
+}
+
+@media (max-width: 700px) {
+  :root {
+    --h-topbar: 56px;
+  }
+
+  .topbar {
+    height: var(--h-topbar);
+    padding: 8px 14px;
+    gap: 10px;
+  }
+  .topbar .logo {
+    font-size: 15px;
+    white-space: nowrap;
+  }
+  /* Chi ha fatto l'accesso si legge in fondo al MENU (vedi Sidebar.tsx): qui
+     ruberebbe al nome dell'app lo spazio per stare su una riga. */
+  .topbar .utente {
+    display: none;
+  }
+}
+
+
+.layout { display: flex; align-items: flex-start; min-height: calc(100vh - var(--h-topbar)); }
 
 .sidebar {
   /* La transizione stava in un secondo blocco `.sidebar` venti righe più sotto:
@@ -130,7 +177,10 @@ button {
 
   .sidebar {
     position: fixed;
-    top: 63px; /* sotto la barra in alto, che resta visibile */
+    /* ⚠️ La variabile e non 63 scritto a mano: erano due numeri in due punti
+       del foglio, e sul telefono sono divergiti — barra alta 81px, pannello
+       ancorato a 63, prima voce del menu nascosta dietro la barra. */
+    top: var(--h-topbar); /* sotto la barra in alto, che resta visibile */
     left: 0;
     bottom: 0;
     z-index: 30;
@@ -1286,6 +1336,82 @@ button {
   font-variant-numeric: tabular-nums;
 }
 .kpi-etichetta { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TELEFONO: la testata e i contatori non devono mangiarsi lo schermo
+   ─────────────────────────────────────────────────────────────────────────────
+   ⚠️⚠️ MISURATO il 26/08/2026 su uno schermo da 375×812 (Chiamate, ma la
+   testata e i contatori sono gli stessi su una dozzina di pagine): barra in
+   alto 81px + testata 205px (titolo 44, sottotitolo 155) + contatori 302px +
+   32px di margine = **la prima riga di lavoro cominciava a y=712**. Su un
+   telefono alto 812px vuol dire aprire una pagina e non vedere NIENTE di quello
+   per cui la si è aperta: si scorre uno schermo intero di spiegazioni e
+   riquadri prima di incontrare il primo dato.
+
+   Tre cose, in ordine di quanto rendono:
+
+   1. i CONTATORI diventano una striscia che scorre di lato (una riga invece di
+      tre). ⚠️ Vanno a filo schermo di proposito — il riquadro tagliato sul
+      bordo destro è quello che dice «continua», e senza quello una striscia
+      orizzontale sembra un elenco che finisce lì;
+   2. il TITOLO scende da 30 a 22px: a 30px un titolo di due parole prende due
+      righe da 22px l'una;
+   3. il SOTTOTITOLO resta INTERO ma più piccolo. ⚠️ Non si taglia e non si
+      nasconde: è la riga che dice cosa fa la pagina e a chi legge per la prima
+      volta serve tutta. Si toglie spazio al contorno, non al contenuto. */
+@media (max-width: 700px) {
+  .main {
+    padding: 16px 14px 56px;
+  }
+
+  .page-title {
+    font-size: 22px;
+  }
+
+  .page-sub {
+    font-size: 13.5px;
+    margin-top: 4px;
+  }
+
+  .kpi-riga {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    /* A filo schermo: il riquadro tagliato a destra dice che si scorre. */
+    margin: 0 -14px 14px;
+    padding: 0 14px 4px;
+    scroll-snap-type: x proximity;
+    /* ⚠️ Senza, un elenco lungo di contatori fa comparire la barra di
+       scorrimento della PAGINA: si scorrerebbe di lato tutta la schermata. */
+    scrollbar-width: none;
+  }
+  .kpi-riga::-webkit-scrollbar {
+    display: none;
+  }
+
+  .kpi {
+    flex: 0 0 auto;
+    min-width: 118px;
+    /* ⚠️ Un tetto serve: certe etichette sono lunghe («Promesso e non ancora
+       uscito») e senza limite un solo riquadro occuperebbe tutto lo schermo,
+       nascondendo proprio i vicini che si vogliono confrontare. */
+    max-width: 62vw;
+    padding: 10px 12px;
+    scroll-snap-align: start;
+  }
+  .kpi-valore {
+    font-size: 20px;
+  }
+}
+
+/* I contatori sono anche BOTTONI (filtro per marchio in Chiamate): senza questo
+   un <button class="kpi"> eredita il carattere di sistema del browser e si
+   vede subito che è un'altra cosa, pur essendo lo stesso riquadro. */
+.kpi {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
 
 /* Ricerca in evidenza: pillola con lente e bottone */
 .ricerca {
@@ -4716,4 +4842,162 @@ td .azioni-ordine {
   outline: 2px solid var(--oro);
   outline-offset: 2px;
   transition: outline-color 0.4s ease;
+}
+
+/* ── LE RIGHE DELLE CHIAMATE ──────────────────────────────────────────────────
+   Su un computer sono quattro colonne (quando · numero · chi è · cosa faccio).
+   Su un telefono diventano quattro righe corte, e la differenza non è estetica:
+   ⚠️⚠️ MISURATO a 375px con la prima versione — ogni chiamata era alta **199px**,
+   cioè due chiamate e mezzo per schermata. Con blocchi da `min-width: 220px` in
+   una flex-wrap, ogni pezzo si prendeva una riga sua e i bottoni ne prendevano
+   due. Una lista di telefonate da richiamare si guarda scorrendo: se ogni voce
+   costa un quarto di schermo, non si scorre — si cerca. */
+.chiamata {
+  display: grid;
+  grid-template-columns: 128px 200px 1fr auto;
+  align-items: start;
+  gap: 10px 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--hairline);
+}
+.chiamata:first-child {
+  border-top: 0;
+}
+.chiamata-quando {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+.chiamata-marchio {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+.chiamata-numero {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.chiamata-senza-numero {
+  color: var(--red);
+}
+.chiamata-chi {
+  min-width: 0;
+}
+.chiamata-azioni {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+/* I pannelli (esito della richiamata, testo della notifica) stanno sotto e
+   prendono tutta la riga: sono un approfondimento, non una quinta colonna. */
+.chiamata-pannello {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.chiamata-pannello input {
+  flex: 1;
+  min-width: 0;
+}
+.chiamata-notifica {
+  display: block;
+}
+.chiamata-notifica pre {
+  white-space: pre-wrap;
+  font-size: 12px;
+  background: var(--surface-2, #f5f5f7);
+  padding: 8px;
+  border-radius: 8px;
+  margin: 4px 0 0;
+}
+
+@media (max-width: 700px) {
+  /* ⚠️ Numero e orario sulla STESSA riga (il numero a sinistra, grande: è quello
+     che si legge; l'ora e il marchio a destra, piccoli). Su una colonna sola
+     erano due righe da 20px per ogni chiamata — e in un elenco di telefonate da
+     richiamare quello che conta è quante ne stanno in una schermata. */
+  .chiamata {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'numero quando'
+      'chi chi'
+      'azioni azioni';
+    gap: 6px;
+    padding: 12px;
+  }
+  .chiamata-numero {
+    grid-area: numero;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .chiamata-quando {
+    grid-area: quando;
+    justify-self: end;
+    align-self: baseline;
+    color: var(--text-secondary);
+  }
+  .chiamata-chi {
+    grid-area: chi;
+  }
+  .chiamata-azioni {
+    grid-area: azioni;
+  }
+  /* Ora e marchio sulla stessa riga: due parole corte non meritano due righe. */
+  .chiamata-quando {
+    flex-direction: row;
+    gap: 6px;
+    align-items: baseline;
+  }
+  .chiamata-numero {
+    font-size: 15px;
+  }
+  /* ⚠️ I bottoni a sinistra, non a destra: allineati a destra su una colonna
+     sola finivano lontani dal pollice e sotto un testo allineato a sinistra —
+     due allineamenti diversi nella stessa riga si leggono come due blocchi
+     diversi. */
+  .chiamata-azioni {
+    justify-content: flex-start;
+  }
+  /* Il campo e il suo bottone vanno a capo insieme invece di stringersi: un
+     input largo 90px non si compila su un telefono. */
+  .chiamata-pannello {
+    flex-wrap: wrap;
+  }
+  .chiamata-pannello input {
+    flex: 1 1 100%;
+  }
+}
+
+/* Chi ha fatto l'accesso, in fondo al menu. Si vede solo sul telefono: sul
+   computer il nome sta nella barra in alto, e ripeterlo in due posti è rumore. */
+.sb-utente {
+  display: none;
+  margin-top: 18px;
+  padding: 10px 12px 0;
+  border-top: 1px solid var(--hairline);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+@media (max-width: 700px) {
+  .sb-utente {
+    display: block;
+  }
+}
+
+/* ── LE FINESTRE (scheda ordine, pop-up) SUL TELEFONO ─────────────────────────
+   ⚠️ Conto stretto: il velo lascia 8px per lato, la finestra ne prendeva 18 di
+   suo, e dentro la griglia del dettaglio chiede colonne da almeno 300px. Su uno
+   schermo da 360px restavano 292px per una colonna da 300: **la scheda usciva
+   dallo schermo di 8px**, cioè si scorreva di lato per leggere l'ultima parola
+   di ogni riga. Meno imbottitura e colonne che possono stringersi ancora un po':
+   la finestra sta dentro anche sui telefoni piccoli. */
+@media (max-width: 700px) {
+  .pannello {
+    padding: 12px;
+  }
+  .griglia-dettaglio {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+  }
 }

@@ -6,7 +6,23 @@ import { useEffect } from 'react'
 
 // Menu laterale (stesso impianto di Deluxy Orders). È un client component per
 // evidenziare la voce attiva e per richiudersi da solo su mobile.
-export function Sidebar({ amministratore = false }: { amministratore?: boolean }) {
+export function Sidebar({
+  amministratore = false,
+  utente = '',
+}: {
+  amministratore?: boolean
+  /**
+   * Chi ha fatto l'accesso. Si mostra SOLO sul telefono, in fondo al menu.
+   *
+   * ⚠️ Su uno schermo da 375px la barra in alto ha spazio per il nome dell'app
+   * O per il nome della persona, non per tutti e due: a 19px «Deluxy Customer
+   * Service» andava a capo tre volte e la barra diventava alta 81px — con il
+   * pannello del menu, ancorato a 63px, che ci finiva SOTTO. Il nome dell'app
+   * dice dove sei e resta in alto; chi sei si legge qui, dove si va comunque
+   * per spostarsi.
+   */
+  utente?: string
+}) {
   const path = usePathname()
 
   // Su mobile il menu è un pannello che copre la pagina: appena hai scelto dove
@@ -144,6 +160,7 @@ export function Sidebar({ amministratore = false }: { amministratore?: boolean }
           })}
         </div>
       ))}
+      {utente ? <div className="sb-utente">Accesso: {utente}</div> : null}
     </nav>
   )
 }
