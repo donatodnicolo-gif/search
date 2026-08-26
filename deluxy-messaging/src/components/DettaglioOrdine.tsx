@@ -326,6 +326,11 @@ export function DettaglioOrdine({
   const [zonaNota, setZonaNota] = useState('')
   const [interrompendo, setInterrompendo] = useState(false)
   const [numeroDaUnire, setNumeroDaUnire] = useState('')
+  const [importoRiconsegna, setImportoRiconsegna] = useState('')
+  const [motivoRiconsegna, setMotivoRiconsegna] = useState('')
+  const [riconsegnando, setRiconsegnando] = useState(false)
+  const [linkRiconsegna, setLinkRiconsegna] = useState('')
+  const [esitoRiconsegna, setEsitoRiconsegna] = useState('')
   const [unendo, setUnendo] = useState(false)
   const [esitoUnione, setEsitoUnione] = useState('')
   const [esitoInterruzione, setEsitoInterruzione] = useState('')
@@ -478,6 +483,45 @@ export function DettaglioOrdine({
       setEsitoInterruzione('Interruzione non riuscita: problema di rete.')
     } finally {
       setInterrompendo(false)
+    }
+  }
+
+  /**
+   * Prepara il link di pagamento per una riconsegna.
+   *
+   * ⚠️ L'importo si scrive a mano di proposito: una riconsegna costa quello che
+   * si è detto al cliente, e un prezzo di riserva finirebbe per essere il
+   * prezzo di tutti.
+   */
+  async function chiediRiconsegna() {
+    if (!ordine?.id || riconsegnando) return
+    setRiconsegnando(true)
+    setEsitoRiconsegna('')
+    setLinkRiconsegna('')
+    try {
+      const res = await fetch(`/api/ordini/${ordine.id}/riconsegna`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          importo: Number(importoRiconsegna.replace(',', '.')),
+          motivo: motivoRiconsegna.trim(),
+        }),
+      })
+      const d = (await res.json().catch(() => ({}))) as {
+        link?: string
+        nota?: string
+        errore?: string
+      }
+      if (!res.ok) {
+        setEsitoRiconsegna(d.errore || 'Non sono riuscito a creare la riconsegna.')
+        return
+      }
+      setLinkRiconsegna(d.link ?? '')
+      setEsitoRiconsegna(d.nota ?? '')
+    } catch {
+      setEsitoRiconsegna('Non sono riuscito a creare la riconsegna: problema di rete.')
+    } finally {
+      setRiconsegnando(false)
     }
   }
 
@@ -1360,6 +1404,77 @@ export function DettaglioOrdine({
                   </>
                 ) : null}
               </dl>
+
+              {/* ── RICONSEGNA ──
+                  ⚠️⚠️ Il caso vero: il valet arriva e il destinatario non c'è.
+                  Riportarlo costa, e finora bisognava aprire «Nuovo ordine» e
+                  ricopiare cliente, indirizzo e recapiti — tre minuti al
+                  telefono con un cliente già arrabbiato.
+                  ⚠️ È un ordine NUOVO e resta una BOZZA finché il cliente non
+                  paga: nessun incasso registrato che non sia vero. */}
+              {ordine.id ? (
+                <div className="card" style={{ padding: 10, marginTop: 12 }}>
+                  <div className="cella-nome">Riconsegna</div>
+                  <div className="cella-sub">
+                    Un link di pagamento da mandare al cliente per riportare {ordine.numero}:
+                    cliente e indirizzo sono già quelli di quest&apos;ordine.
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                    <input
+                      value={importoRiconsegna}
+                      onChange={(e) => setImportoRiconsegna(e.target.value)}
+                      placeholder="quanto costa"
+                      inputMode="decimal"
+                      aria-label="Quanto costa la riconsegna"
+                      style={{ maxWidth: 120 }}
+                    />
+                    <input
+                      value={motivoRiconsegna}
+                      onChange={(e) => setMotivoRiconsegna(e.target.value)}
+                      placeholder="destinatario assente"
+                      aria-label="Perché va riconsegnato"
+                      style={{ maxWidth: 220 }}
+                    />
+                    <button
+                      className="btn btn-secondario small"
+                      disabled={!importoRiconsegna.trim() || riconsegnando}
+                      onClick={() => void chiediRiconsegna()}
+                    >
+                      {riconsegnando ? 'Preparo…' : 'Crea il link'}
+                    </button>
+                  </div>
+                  {linkRiconsegna ? (
+                    <div style={{ marginTop: 8 }}>
+                      {/* ⚠️ Il link si COPIA e si apre, non si manda da solo:
+                          chi scrive al cliente sceglie il canale e le parole. */}
+                      <input readOnly value={linkRiconsegna} style={{ width: '100%' }} />
+                      <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                        <button
+                          className="btn btn-secondario small"
+                          onClick={() => void navigator.clipboard?.writeText(linkRiconsegna)}
+                        >
+                          Copia
+                        </button>
+                        {ordine.telefono ? (
+                          <a
+                            className="btn btn-secondario small"
+                            href={`https://wa.me/${ordine.telefono.replace(/[^\d]/g, '')}?text=${encodeURIComponent(linkRiconsegna)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            WhatsApp
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                  {esitoRiconsegna ? (
+                    <p className="cella-sub" style={{ marginTop: 6 }}>
+                      {esitoRiconsegna}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
 
               {/* ── DUE ORDINI, UNA VENDITA SOLA ──
                   ⚠️⚠️ Il caso vero: lo stesso cliente paga la stessa torta con
