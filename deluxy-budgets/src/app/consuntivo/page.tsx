@@ -2,6 +2,7 @@ import Link from "next/link";
 import { caricaAnno, contoEconomicoMensile, costoPersonaleMese, frazioneQuotaD2C } from "@/lib/calc";
 import { fetchConsuntivo, fetchSpeseBanca } from "@/lib/finance";
 import { caricaCategorie, ricostruisci } from "@/lib/cfo";
+import { fetchCostiConsegne, rigaBancaConsegne, sostituzioneConsegne } from "@/lib/consegne";
 import { eur, MESI, pct } from "@/lib/format";
 import { normalizzaNome } from "@/lib/scout";
 import { abbinaMaison, fetchRicaviD2C } from "@/lib/orders";
@@ -333,6 +334,25 @@ export default async function ConsuntivoPage({
     }
   }
   const vociServizi = [...serviziPerCategoria.entries()].sort((a, b) => b[1] - a[1]);
+
+  // ---- Le consegne: il costo lo dà la PIATTAFORMA, non la banca ----
+  //
+  // ⚠️ Si passa dalla stessa funzione che usa `caricaConsuntivo` per il P&L
+  // (`sostituzioneConsegne`). Questa pagina il conto dei costi se lo fa da sé —
+  // e ogni volta che una regola è stata scritta in due punti, i due numeri
+  // hanno finito per divergere. Qui la regola è una sola, chiamata due volte.
+  const costiConsegne = await fetchCostiConsegne(anno);
+  const righeBanca = spese.ok ? ricostruisci(spese.dati.controparti, categorie) : [];
+  const { delta: deltaConsegne, esposta: consegne } = sostituzioneConsegne(
+    costiConsegne,
+    rigaBancaConsegne(righeBanca)?.perMese ?? null,
+    mesiPeriodo
+  );
+  for (const m of mesiPeriodo) {
+    const i = m - 1;
+    costiMese.COGS[i] = (costiMese.COGS[i] ?? 0) + (deltaConsegne[i] ?? 0);
+  }
+  costi.COGS += mesiPeriodo.reduce((s, m) => s + (deltaConsegne[m - 1] ?? 0), 0);
 
   // ---- Quanto del periodo la banca copre DAVVERO ----
   // L'avviso sui dati parziali c'era solo per l'anno di confronto. Ma se si
@@ -949,6 +969,29 @@ export default async function ConsuntivoPage({
                 divisione per voce no: si sistemano dal{" "}
                 <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>, e la fotografia si rifà quando
                 Finance ripassa le regole.{" "}
+              </>
+            )}
+            {consegne && consegne.sostituita && (
+              <>
+                <strong>Il costo delle consegne non viene più dalla banca</strong>: lo dà la{" "}
+                <strong>piattaforma consegne</strong>, che è la sua casa —{" "}
+                <strong>{eur(consegne.conto.costo)}</strong> su{" "}
+                {consegne.conto.consegne.toLocaleString("it-IT")} consegne, di cui{" "}
+                <strong>{eur(consegne.conto.ritenute)}</strong> di <strong>ritenuta d&apos;acconto</strong> dei valet
+                senza partita IVA — la versa Deluxy all&apos;erario <em>in più</em> rispetto al bonifico, quindi è
+                costo, non una trattenuta. In banca la stessa voce ne vedeva <strong>{eur(consegne.inBanca)}</strong>,{" "}
+                {eur(consegne.differenza)} in meno: una regola di banca lavora sul <em>nome della controparte</em> e non
+                sa distinguere un valet da un fioraio.{" "}
+                <strong>⚠️ Questa riga sola è di competenza, non di cassa</strong> — sono le consegne fatte nel periodo,
+                pagate o no: confrontandola con l&apos;estratto conto non la ritrovi, ed è giusto così.{" "}
+              </>
+            )}
+            {consegne && !consegne.sostituita && (
+              <>
+                <strong>⚠️ Il costo delle consegne dalla piattaforma NON è entrato nel conto</strong>: la categoria di
+                banca che doveva sostituire non esiste più con quel nome, e sommarle avrebbe contato due volte gli
+                stessi bonifici. Vale {eur(consegne.conto.costo)} e resta fuori finché il nome non torna a posto nel{" "}
+                <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>.{" "}
               </>
             )}
             <strong>Sul «costo per servizi» attenzione al doppio conteggio</strong>: la quota che va ai partner è già

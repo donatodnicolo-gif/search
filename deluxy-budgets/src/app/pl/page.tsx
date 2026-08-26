@@ -131,6 +131,9 @@ export default async function ContoEconomico({
           ebitda: somma("ebitda"),
           nonCategorizzato: 0,
           senzaRegola: 0,
+          // Il budget non ha una riga consegne dalla piattaforma: e un fatto,
+          // non una previsione. Null = «qui non si applica», non «zero».
+          consegne: null,
           // Campi che descrivono le fonti del consuntivo: qui dentro c'è il
           // budget, che di fonti non ne ha.
           advMarketing: null,

@@ -140,7 +140,7 @@ buco dei sei mesi di Deluxy.it è rimasto invisibile per settimane proprio per q
 responsabili potranno scrivere direttamente è un passo successivo, da fare col permesso giusto e non
 di corsa.
 
-## Dove siamo (rimisurato il 26/08/2026, sera) — leggere questo per primo
+## Dove siamo (rimisurato il 26/08/2026, **notte**) — leggere questo per primo
 
 Il conto economico a budget, come lo mostra `/pl` (livello **Raggiungibile**; `/dashboard` è un
 redirect lì dal 24/08), letto interrogando le stesse funzioni della pagina:
@@ -152,34 +152,170 @@ redirect lì dal 24/08), letto interrogando le stesse funzioni della pagina:
 | └ dal team commerciale (lo porta il lavoro del team) | 500.000 € |
 | Costo del venduto | − 612.920 € |
 | Margine lordo | **573.519 € (48,3%)** |
-| Pubblicità | − 237.777 € |
+| Pubblicità | − 237.906 € |
 | Personale | − 218.877 € |
 | Struttura | − 107.548 € |
-| **EBITDA** | **+ 9.316 € (0,8%)** |
+| **EBITDA** | **+ 9.188 € (0,8%)** |
 
-La **quota D2C** è **per maison** (26/08): deluxy.it **40,9%**, Flowers **36,2%**, CakeDesign
-**35,7%** (media pesata 39,3%) — è la **presa misurata dall'economia della vendita** ((fee + primo
-margine) ÷ lordo coperto, dati che la piattaforma scrive sugli ordini di Orders, copertura 91–97%
-per brand: deluxy.it 97%, Flowers 96%, CakeDesign 91% — 3.595 ordini col dato). La decidono tutte le pagine da un posto solo
-(`quotaDeluxyAnno()`, campo `perMaison`).
+La **quota D2C** è **per maison**: deluxy.it **40,9%**, Flowers **36,2%**, CakeDesign **35,7%**
+(media pesata **39,3%**, etichetta «economia di Orders») — la **presa misurata dall'economia della
+vendita**, (fee + primo margine) ÷ lordo coperto, dai dati che la piattaforma consegne scrive sugli
+ordini di Orders. La decidono tutte le pagine da un posto solo (`quotaDeluxyAnno()`, campo
+`perMaison`).
 
-**Consuntivo dei mesi chiusi (Gen–Lug)**, con la riga ecommerce misurata: ricavi **442.739 €**, di
-cui D2C **236.654 €** (primo margine 181.531 + fee 55.123, su 3.314 ordini di 3.488; lordo scoperto
-12.737 €, dichiarato), **EBITDA 78.998 €**.
+**Consuntivo dei mesi chiusi (Gen–Lug)**, con la riga ecommerce misurata **e il costo delle consegne
+preso dalla piattaforma**: ricavi **442.739 €**, di cui D2C **236.654 €** (primo margine 181.531 +
+fee 55.123, su **3.314 ordini di 3.488**; lordo scoperto 12.737 €, dichiarato); costo del venduto
+**142.536 €**, margine lordo 300.203 €, ADV 100.350 €, personale 130.637 €, struttura 62.736 € →
+**EBITDA 6.479 €**.
+
+⚠️ **Era 78.998 € fino a stanotte, e non è peggiorata l azienda: si è smesso di guardare il costo
+delle consegne dalla finestra sbagliata** — la banca ne vedeva 29.561 € su 102.080 € veri. Sotto,
+«Il costo delle consegne viene dalla PIATTAFORMA».
+
+✅ **Cosa è stato riverificato la notte del 26/08, e cosa è cambiato.** Rimisurando con le funzioni
+delle pagine, **il consuntivo combacia all'euro** con la tabella della sera (ricavi 442.739, D2C
+236.654, EBITDA 78.998, copertura 3.314/3.488) e **la quota non si è mossa** (39,3%, 40,9/36,2/35,7).
+Si è mossa **una sola riga**: la **pubblicità, 237.777 → 237.906 €**, e con lei l'EBITDA
+**9.316 → 9.188 €**. Non è rumore di arrotondamento — è il monte pubblicitario che segue le vendite
+di agosto mentre crescono (`monte = vendite dell'anno ÷ ROS`, e sul mese in corso vale il maggiore
+fra venduto e budget). ⭐ **Quindi la riga che si muove da sola non è solo la quota: è anche l'ADV**,
+e per una ragione diversa.
+
+### 🔴 Il ROS è cambiato, e le quote ADV dei mesi chiusi sono rimaste indietro (26/08/2026, notte)
+
+Trovato rimisurando, e vale **12.472 €** di EBITDA. A database il ROS obiettivo dei brand **non è
+più quello scritto qui**:
+
+| Brand | ROS scritto nell'handoff | ROS a database il 26/08 | Monte pubblicitario oggi |
+| --- | --- | --- | ---: |
+| Deluxy.it | 7× (portato dal codice) | **6×** | 151.407 € |
+| CakeDesign.me | predefinito 6,5× | **4,5×** | 22.510 € |
+| Deluxyflowers.com | predefinito 6,5× | predefinito 6,5× | 51.737 € |
+
+Non risulta da nessuna scrittura dell'assistente: è una modifica fatta dalla pagina, cioè
+esattamente quello per cui il campo è stato messo a database. **Il guaio è la conseguenza.** Le
+quote dei mesi chiusi erano state riallineate il 23/08 con
+`scripts/allinea-quote-adv-chiuse.ts`, che scrive `quota = speso ÷ monte annuo × 100`. Abbassare il
+ROS **alza il monte** — e la quota salvata resta quella di prima, quindi sui mesi chiusi il P&L non
+mostra più quello che è uscito dalla banca, ma **quel numero riscalato**:
+
+| | |
+| --- | ---: |
+| Pubblicità che il P&L attribuisce a Gen–Lug | **87.618 €** |
+| Pubblicità davvero uscita in Gen–Lug (Marketing) | **75.147 €** |
+| **Attribuito in più a mesi già chiusi** | **+ 12.471 €** |
+
+⚠️ **E il riscontro che il 23/08 «chiudeva il cerchio» non regge più**: i tre negozi non sommano
+più 100,0% di quote, ma **Deluxy.it 105,0 · CakeDesign.me 121,0 · Deluxyflowers.com 100,0** — cioè
+l'ADV totale del P&L (237.906 €) supera il monte di tutti i brand messi insieme (225.654 €) di
+**12.252 €**. Il conto torna con la causa: 7÷6 = +16,7% di monte su 34,6 punti chiusi ≈ **5 punti**
+di eccesso su Deluxy.it, 6,5÷4,5 = +44,4% su 68,0 punti ≈ **21 punti** su CakeDesign — che sono
+esattamente i due sforamenti misurati. Flowers, che il ROS non l'ha toccato, sta ancora a 100,0.
+
+⭐ **La forma da riconoscere, ed è già in memoria come «la percentuale e la sua base»:** una
+percentuale *misurata* (speso ÷ monte) resta vera **solo finché la sua base non cambia**. Qui la base
+è il monte, il monte dipende dal ROS, e il ROS è un campo che si scrive da una pagina. Nessuno lo ha
+sbagliato: manca il ricalcolo. Due strade, ed è una decisione:
+1. **rilanciare l'allineamento** — `npx tsx@4 --env-file=.env scripts/allinea-quote-adv-chiuse.ts scrivi`
+   (senza `scrivi` è la prova a vuoto, già fatta: **17 quote da riscrivere**, ADV dei mesi chiusi
+   87.618 → 75.147 €, **EBITDA a budget +9.188 → ~+21.660 €**). Tocca solo i mesi chiusi, solo il
+   campo `percent`, solo dove Marketing ha una misura — B2B ed Experience restano com'è;
+2. **farlo fare all'app**: finché il riallineamento è uno script che qualcuno deve ricordarsi di
+   lanciare, cambiare il ROS continuerà a scollegare in silenzio le quote dei mesi chiusi. ⭐ *Un
+   numero derivato che si ricalcola a mano è un numero che prima o poi mente.*
 
 ⚠️ **Questo numero si muove da solo, ed è voluto**: si affina a ogni giro della piattaforma sugli
 ordini. Nella sola giornata del 26/08 la quota media è passata da 50,9% (margini riconciliati) a
-**39,3%** (economia misurata) e l'EBITDA a budget da +104.766 a **+9.316 €**: non è il business
+**39,3%** (economia misurata) e l'EBITDA a budget da +104.766 a **+9.188 €**: non è il business
 peggiorato, è il numero vero al posto di uno su base diversa (i margini riconciliati non scontano
 l'IVA). Prima di leggere uno scostamento, guardare **quale fonte** la pagina dichiara in testata:
 economia di Orders → margini di Orders → regola unica (40%) → misura di banca → stima.
 
 ⚠️⚠️ **E si muove anche nel giro di poche ore, quindi le sezioni datate qui sopra non vanno lette
-come numeri di oggi**: la sezione del pomeriggio dice 39,5% e +10.652 €, questa tabella (sera) dice
-**39,3% e +9.316 €** — stessa misura, più ordini coperti. **Vale la tabella qui sopra**, ed è vera
-finché la si rimisura: sono due minuti (vedi «Come si rimisura» sotto). Stessa cosa per la **copertura**: gli ordini col dato
-crescono a ogni giro della piattaforma, quindi il 91–97% di stasera è una fotografia, non un censimento.
+come numeri di oggi**: la sezione del pomeriggio dice 39,5% e +10.652 €, la sera diceva 39,3% e
++9.316 €, questa tabella (notte) dice **39,3% e +9.188 €**. **Vale la tabella qui sopra**, ed è vera
+finché la si rimisura: sono due minuti (vedi «Come si rimisura» sotto). Stessa cosa per la
+**copertura**: gli ordini col dato crescono a ogni giro della piattaforma, quindi il 91–97% della
+sera è una fotografia, non un censimento.
 
+
+### 💸 Il costo delle consegne viene dalla PIATTAFORMA, non dalla banca (26/08/2026, notte)
+
+Richiesta dell'utente: «per costi di servizi di consegne prendi i valori delle consegne da app
+delivery, comprese le aggiunte delle ritenute per quelli non in partita IVA», e subito dopo la
+precisazione che decide tutto: **«il costo delle consegne lo devi prendere però da app delivery»**.
+
+📌 **Il numero che giustifica il lavoro**, misurato su Gen–Lug 2026:
+
+| | |
+| --- | ---: |
+| «Consegne (valet e corrieri)» come la vedeva la **banca** | **29.561 €** |
+| le consegne **davvero fatte**, dalla piattaforma | **102.080 €** |
+| **quanto costo mancava al conto economico** | **+ 72.518 €** |
+
+Il conto economico vedeva **meno di un terzo** del costo delle consegne. E le tre spiegazioni
+comode sono state misurate una per una, perché una spiegazione plausibile non è una misura:
+
+- **non è cassa trattenuta dai valet**: il contante incassato alla consegna vale **4.366 €**;
+- **non è solo arretrato**: i 34.112 € non ancora pagati (2.775 consegne) sono un terzo del buco;
+- **il resto — circa 38.400 € — è uscito dal conto e sta in altre caselle.** Una regola di banca
+  lavora sul **nome della controparte** e non sa distinguere un valet da un fioraio. La piattaforma
+  sì: la consegna è roba sua.
+
+**Come si compone il costo**, con le tre decisioni che lo rendono diverso dalla paga sulla riga:
+
+```
+paga     = 0 se la consegna non è pagabile (regola carnet: nel giro paga una consegna sola),
+           altrimenti valetSalary + il PLUS FINO A 5 € — sopra è il rimborso di un acquisto,
+           non il prezzo del viaggio — e il MINUS non si sottrae mai (è contante trattenuto
+           dal valet: la consegna a noi è costata la paga piena)
+ritenuta = solo per i valet SENZA partita IVA: paga × (1 − % rimborso) × 25%
+costo    = paga + ritenuta
+```
+
+⭐ **La ritenuta è un costo IN PIÙ, non una trattenuta**, ed è la parte che l'utente ha chiesto per
+nome. Al valet senza P.IVA si bonifica la paga intera; il 20% sul corrispettivo lordo lo versa
+Deluxy all'erario per conto suo. Su Gen–Lug vale **6.830 €** (7.241 € sull'anno intero): chi legge
+solo la paga sottostima di quella cifra. Per questo paga e ritenuta viaggiano **separate** fin
+dall'API, invece di arrivare già sommate.
+
+⚠️⚠️ **CAMBIA LA BASE DI UNA RIGA SOLA, E VA DETTO.** Tutti gli altri costi di questa app sono
+**cassa** (quello che è uscito dal conto); questo è **competenza** — le consegne fatte nel periodo,
+pagate o no. Dentro Gen–Lug ci sono **34.112 € non ancora usciti**: un costo dell'anno e un debito,
+non un'uscita. Chi confronta questa riga con l'estratto conto non la ritrova, ed è giusto così — ma
+se non è scritto sembra un errore, e infatti la pagina lo scrive.
+
+⚠️ **Si sostituisce una riga sola, e se non la si trova non si fa niente.** Dal costo del venduto si
+toglie la categoria di banca «Consegne (valet e corrieri)» e ci si mette il conto della piattaforma:
+sommarli conterebbe due volte i bonifici ai valet che in banca ci sono, e sostituire l'intero COGS
+butterebbe via i fornitori degli eventi (23.141 €) e i materiali per gli ordini (4.753 €), che
+consegne non sono. Se qualcuno rinomina la categoria nel CFO il ritrovamento si spegne — e allora il
+conto **dichiara** di non aver sostituito nulla, invece di aggiungere un costo senza aver tolto
+quello vecchio (che sarebbe il doppio conteggio, proprio dove si stava cercando di essere precisi).
+
+🏛️ **Dalla piattaforma e non da Orders**, che pure ne tiene una copia per ordine (`costoConsegna`):
+quella copia è l'ingrediente del margine di Orders e copre i soli ordini D2C passati dalla
+piattaforma — **31.799 € sul 2026 contro 108.257 €** di consegne totali. La casa del numero è la
+piattaforma (Standard §7): prenderlo di sponda vuol dire prendere un quarto del costo credendolo
+tutto. Rotta: `GET /api/v1/app/costi-consegne?anno=`, con `PLATFORM_URL` + `PLATFORM_API_KEY`
+(chiave `deluxy-budgets`, sola lettura, creata sulla piattaforma con `crea-chiave-app.mjs`).
+
+⭐ **E la regola sta in un punto solo** — `sostituzioneConsegne()` in `src/lib/consegne.ts` — chiamata
+sia da `caricaConsuntivo` (che alimenta `/pl`) sia dalla pagina `/consuntivo`, che il conto dei costi
+se lo fa da sé. È la precauzione che questa app ha imparato a caro prezzo: ogni volta che una regola
+è stata scritta in due punti, i due numeri hanno finito per divergere, e lo stesso «EBITDA» è
+arrivato a valere tre cose diverse.
+
+📌 **Effetto sul consuntivo Gen–Lug**: costo del venduto **70.017 → 142.536 €**, EBITDA
+**78.998 → 6.479 €**. Verificato che la somma dei dodici mesi fa esattamente il totale del periodo,
+e che le due pagine dicono lo stesso numero.
+
+🔴 **Quello che resta da decidere.** Fra i ~38.400 € di consegne pagate e classificate altrove, una
+parte può stare in categorie che nel costo del venduto ci sono **già** — «Da classificare» vale
+12.563 € su Gen–Lug. Finché quei bonifici non hanno un nome, una fetta di consegne può essere
+contata due volte: non è misurabile da qui (in banca quei movimenti non dicono di essere consegne) e
+si chiude classificandoli nel CFO, non con una formula.
 
 ### Come si rimisura (due minuti, e va fatto prima di credere alla tabella)
 
@@ -246,8 +382,10 @@ Budgets **emette le sue chiavi API** con scope e revoca.
 
 ## Cosa fa (v1)
 
-- **L'app si apre sul Consuntivo**: `/` rimanda a `/consuntivo`, perché la domanda quotidiana è
-  «come sta andando davvero», non «cosa avevamo pianificato». Anche il login atterra lì.
+- **L'app si apre su «Da fare»**: `/` rimanda a `/da-fare` (revisione del 24/08/2026, verificato in
+  `src/app/page.tsx` il 26/08 sera) — la prima domanda è *cosa manca*. ⚠️ Fino al 26/08 questa riga
+  diceva ancora «`/` rimanda a `/consuntivo`», che era vero prima della revisione: una sezione
+  descrittiva invecchia anche quando la decisione è scritta trenta righe più su.
 - **Dashboard** (`/dashboard`): sintesi del conto economico 2026 sui 3 livelli + riepilogo per
   maison. Resta la prima voce della sidebar, non è più la home.
 - **P&L** (`/pl`): conto economico aziendale completo, con il **consuntivo dei mesi chiusi** nelle prime colonne (Gen → mese precedente a quello in corso) accanto al **budget degli stessi mesi** e allo scostamento. Il mese in corso NON entra: mezzo mese di ricavi contro un mese intero di stipendi darebbe un EBITDA più brutto del vero, e questa è la tabella dove si decide. Il confronto è col **pubblicato** (raggiungibile), non con lo sfidante. Premi e risultato netto restano vuoti nel consuntivo: si liquidano a fine anno al raggiungimento, non si consuntivano mese per mese. Nell **andamento mensile** c e una quarta pillola **Attuale**: i mesi chiusi mostrano il consuntivo (in grassetto), quelli che restano il budget pubblicato (in grigio), e la colonna Anno somma i due pezzi — a meta anno e la lettura che serve, «dato come e andata finora, dove si chiude». Il mese in corso sta gia fra i mesi a budget. Il calcolo del consuntivo sta in `src/lib/consuntivo.ts`, condiviso, così P&L e Consuntivo non possono contraddirsi (verificato: su Gen–Giu le due pagine coincidono voce per voce) — ricavi per canale, costo del venduto,
@@ -812,7 +950,9 @@ misura. Resta come **ripiego dichiarato** per gli anni in cui le vendite dei par
 
 > ⚠️ **Un mese senza vendite vendor caricate non è un mese senza partner.** Le vendite si inseriscono
 > a mano in Finance: un mese vuoto farebbe finire tutto l'incasso fra i «fornitori» e gli
-> attribuirebbe il 25%, cioè un ricavo che sembra misurato e invece è un foglio non inserito. Sotto
+> attribuirebbe il **35%** (`MARGINE_FORNITORI` in `src/lib/ricavo-d2c.ts`, letto il 26/08: qui
+> c'era scritto 25%, ed era il numero sbagliato), cioè un ricavo che sembra misurato e invece è un
+> foglio non inserito. Sotto
 > il **15%** del proprio incasso il mese si dichiara **non misurato** e resta fuori dai totali — nei
 > mesi pieni il venduto dei partner sta fra il 40% e il 60%. Oggi restano fuori **luglio 2026** e
 > **agosto, settembre, novembre, dicembre 2025**.
@@ -1164,9 +1304,18 @@ npm run dev               # http://localhost:3080
 
 ### Produzione: come si pubblica e dove gira
 
-- **Ultima pubblicazione**: 25/08/2026 alle 10:44, commit `35a3be1e` (la proposta di una persona
-  già presente completa i campi vuoti). Ricontrollato lo stesso giorno alle 12:30: `/api/health` →
-  `{"ok":true,"database":true}`, header `fra1::fra1`, alias allineato al deploy di quel commit.
+- **Ultima pubblicazione**: **26/08/2026 alle 23:17**, deploy `deluxy-budgets-dpu52ww77`, fatto da un
+  **working tree pulito sul commit `d876ca0d`** (il codice è quello di `f7952708`; sopra c'è solo
+  README). Verificato subito dopo: alias `deluxy-budgets.vercel.app` → quel deploy, `/api/health` →
+  `{"ok":true,"database":true}`, header `fra1::fra1`.
+  ⭐ **Perché è stato ripubblicato senza cambiare una riga di codice**: il deploy precedente (26/08
+  13:37) era attribuito a `f7952708` per **vicinanza temporale** (16 secondi dal commit), non
+  dimostrato — `vercel inspect` non riporta lo SHA per i deploy da CLI. E dal bundle non si poteva
+  dimostrare: quel commit tocca `src/app/pl/page.tsx`, che è un componente **server**, quindi il suo
+  codice non finisce in nessun chunk pubblico e la pagina sta dietro il login. ⚠️ **La tecnica dei
+  marcatori nel bundle funziona solo sul codice che arriva al browser**: per un componente server
+  l'unico modo di sapere da dove nasce la produzione è **ripubblicare da un albero che si è
+  controllato**.
   ⚠️ Dal fuori non si distingue una pagina che non
   esiste da una che esiste: il middleware manda **tutto** a `/login` con un 307, quindi «307 → /login»
   non è la prova che una rotta nuova sia andata su. La prova è il log di build
@@ -1182,7 +1331,8 @@ npm run dev               # http://localhost:3080
   `X-Vercel-Id: fra1::iad1::…` è sbagliato, `fra1::fra1::…` è giusto. Misurato (minimo su più
   giri, perché un giro solo misura il cold start): `/api/health` (una query) **696 → 166 ms**,
   `/login` **739 → 183 ms** — tre quarti del tempo era la distanza, non l'app.
-- **Variabili d'ambiente in produzione al 17/08/2026** (nove): `DATABASE_URL`, `DIRECT_URL`,
+- **Variabili d'ambiente in produzione, ricontate con `vercel env ls production` il 26/08/2026 sera:
+  sono DIECI** (`LINEE_API_KEY` aggiunta il 24/08): `DATABASE_URL`, `DIRECT_URL`, `LINEE_API_KEY`,
   `HUB_URL`, `BUDGETS_APP_PASSWORD`, `BUDGETS_API_KEY`, `FINANCE_API_KEY`, `ORDERS_URL`,
   `ORDERS_API_KEY`, `MARKETING_API_KEY` (quest'ultima dal 09/08). Nella cassaforte dell'app c'è
   `OPENAI_API_KEY`. **Mancano ancora `HUB_SSO_SECRET` e `APP_SECRET`**: finché manca il primo,
@@ -1467,7 +1617,7 @@ un a-capo); ricontrollato il 17/08/2026: c'è. Restano fuori `HUB_SSO_SECRET` e 
    Si chiude in Finance come sopra; qui il consuntivo ora lo dichiara.
 8. **Google Ads `956-137-8913`** non è censito in Marketing (1.305 € nel 2026).
 9. **`HUB_SSO_SECRET` e `APP_SECRET` mancano su Vercel** (ricontrollato con `vercel env ls
-   production` il 17/08/2026: le variabili sono nove, quelle due non ci sono): senza il primo
+   production` il **26/08/2026**: le variabili sono **dieci**, quelle due non ci sono): senza il primo
    l'accesso dal Hub non funziona e l'app chiede la password di team. Due cose da sapere prima di
    aggiungerle. (a) `HUB_SSO_SECRET`: in **locale** il valore di Budgets e quello del Hub
    **coincidono** (confrontate le impronte SHA-256 dei due `.env`, senza stamparli), ma quello che

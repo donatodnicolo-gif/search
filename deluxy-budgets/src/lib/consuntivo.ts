@@ -13,7 +13,13 @@
 //    personale, che è deterministico e non aspetta che i bonifici siano
 //    categorizzati;
 //  - **Marketing** per la spesa pubblicitaria, che è l'unica fonte dell'ADV:
-//    la banca vede l'addebito, Marketing vede la campagna (vedi marketing.ts).
+//    la banca vede l'addebito, Marketing vede la campagna (vedi marketing.ts);
+//  - la **piattaforma consegne** per il costo delle consegne (27/08/2026,
+//    richiesta dell'utente): sostituisce la categoria di banca «Consegne (valet
+//    e corrieri)», che ne vedeva meno di un terzo — 29.561 € contro 102.080 €
+//    su Gen–Lug 2026 — perché una classificazione per nome di controparte non
+//    sa distinguere un valet da un fioraio. Vedi consegne.ts, dove è scritto
+//    anche il prezzo del cambio: quella riga passa da CASSA a COMPETENZA.
 
 import { costoPersonaleMese, leggiVociFinance, type DatiAnno } from "./calc";
 import { caricaCategorie, categoriaDi, ricostruisci } from "./cfo";
@@ -25,6 +31,13 @@ import { economiaD2C, economiaDeiMesi } from "./economia-d2c";
 import { ricavoD2C, ricavoDeiMesi, MARGINE_FORNITORI } from "./ricavo-d2c";
 import { fetchSpesaAdv, type CoperturaAdv } from "./marketing";
 import { caricaRettifiche, effettoSu, type EffettoAnno } from "./competenza";
+import {
+  CATEGORIA_CONSEGNE_BANCA,
+  fetchCostiConsegne,
+  rigaBancaConsegne,
+  sostituzioneConsegne,
+  type SostituzioneConsegne,
+} from "./consegne";
 
 export const SLUG_D2C = "D2C";
 
@@ -56,6 +69,12 @@ export type ConsuntivoPeriodo = {
   margineLordo: number;
   ebitda: number;
   nonCategorizzato: number;
+  /**
+   * IL COSTO DELLE CONSEGNE dalla piattaforma, e cosa ha sostituito.
+   * `null` = la piattaforma non ha risposto e la riga è rimasta quella di
+   * banca: si dichiara, perché le due cifre non sono confrontabili.
+   */
+  consegne: SostituzioneConsegne | null;
   // Uscite che **nessuna regola** riconosce, dovunque siano finite: oggi quasi
   // tutte dentro la categoria «Da classificare», quindi già contate nei costi.
   // `nonCategorizzato` dice «non entrano nel conto economico», questo dice
@@ -114,6 +133,7 @@ export async function caricaConsuntivo(
   const vuoto: ConsuntivoPeriodo = {
     ok: false, mancanti: [], mesi, ricavi: 0, ricaviPerTipologia: {}, vendutoEcommerce: 0,
     cogs: 0, adv: 0, struttura: 0, personale: 0, margineLordo: 0, ebitda: 0, nonCategorizzato: 0, senzaRegola: 0,
+    consegne: null,
     advMarketing: null, advCopertura: null, advCompetenza: { dentro: 0, fuori: 0 },
     quota: QUOTA_STIMATA, pagatoAiPartner: 0, d2c: null, economia: null,
     competenza: null,
@@ -166,6 +186,14 @@ export async function caricaConsuntivo(
   // invece della percentuale decisa a tavolino. Se la banca copre meno mesi del
   // venduto la misura non si fa: dividere un semestre di pagamenti per un anno
   // di vendite darebbe una quota altissima e falsa.
+  // Il costo delle consegne dal suo proprietario. Best effort come le altre
+  // letture: se la piattaforma tace, la riga resta quella di banca e il conto
+  // lo dichiara invece di far sparire un costo.
+  const costiConsegne = await fetchCostiConsegne(dati.year);
+  if (!costiConsegne.ok) {
+    mancanti.push(`costo consegne dalla piattaforma (${costiConsegne.errore ?? "non risponde"})`);
+  }
+
   const ricostruito = spese.ok ? ricostruisci(spese.dati.controparti, categorie) : [];
   const partnerMese = Array(12).fill(0) as number[];
   for (const r of ricostruito) {
@@ -238,6 +266,33 @@ export async function caricaConsuntivo(
       else if (tp === "ADV") { adv += r.uscite; for (let i = 0; i < 12; i++) advMese[i] += r.perMese[i] ?? 0; }
       else if (tp === "STRUTTURA") { struttura += r.uscite; for (let i = 0; i < 12; i++) strutturaMese[i] += r.perMese[i] ?? 0; }
     }
+  }
+
+  // ---- Le consegne: il costo lo dà la piattaforma, non la banca ----
+  //
+  // ⚠️ **Si SOSTITUISCE una riga sola.** Dal costo del venduto si toglie la
+  // categoria di banca delle consegne e ci si mette il conto della piattaforma:
+  // sommarli conterebbe due volte i bonifici ai valet che in banca ci sono, e
+  // sostituire l'intero COGS butterebbe via i fornitori degli eventi e i
+  // materiali, che consegne non sono.
+  //
+  // ⚠️ **Se la categoria non si trova, non si sostituisce niente e si dice.**
+  // Il nome è scritto (`CATEGORIA_CONSEGNE_BANCA`): rinominarla nel CFO
+  // spegnerebbe il ritrovamento in silenzio, e un costo aggiunto senza aver
+  // tolto quello vecchio sarebbe contato due volte proprio dove si stava
+  // cercando di essere più precisi.
+  const rigaBanca = rigaBancaConsegne(ricostruito);
+  const { delta: deltaConsegne, esposta: consegneEsposte } = sostituzioneConsegne(
+    costiConsegne,
+    rigaBanca?.perMese ?? null,
+    mesi
+  );
+  for (const m of mesi) cogsMese[m - 1] = (cogsMese[m - 1] ?? 0) + (deltaConsegne[m - 1] ?? 0);
+  cogs += mesi.reduce((s, m) => s + (deltaConsegne[m - 1] ?? 0), 0);
+  if (costiConsegne.ok && !rigaBanca) {
+    mancanti.push(
+      `la categoria di banca «${CATEGORIA_CONSEGNE_BANCA}» non esiste: il costo delle consegne della piattaforma NON è entrato nel conto (sommarlo avrebbe contato due volte gli stessi bonifici)`
+    );
   }
 
   // Le voci di budget che hanno una corrispondenza in Finance: servono a
@@ -365,6 +420,7 @@ export async function caricaConsuntivo(
     ebitda,
     nonCategorizzato,
     senzaRegola,
+    consegne: consegneEsposte,
     advMarketing,
     advCopertura,
     advCompetenza: { dentro: advDentro, fuori: advFuori },
