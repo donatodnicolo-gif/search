@@ -84,7 +84,11 @@ export function TabellaTrattative({
           { c: 'valore' as const, label: 'Valore', stile: styles.colDx },
           { c: 'aperta' as const, label: 'Aperta', stile: styles.colData },
           { c: 'scadenza' as const, label: 'Scadenza', stile: styles.colData },
-          { c: 'azione' as const, label: 'Prossima azione', stile: styles.colLinea },
+          // ⚠️ , non : la cella sotto ha flex 1.2 e
+          // l'intestazione aveva flex 1. Due numeri diversi sulla stessa
+          // colonna = titoli spostati rispetto ai valori, e con loro tutto
+          // quello che veniva dopo. È il disallineamento che si vedeva.
+          { c: 'azione' as const, label: 'Prossima azione', stile: styles.colAzione },
         ]).map((h) => (
           <Pressable key={h.c} style={h.stile} onPress={() => ordinaPer(h.c)}>
             <Text style={[styles.th, ordine.campo === h.c && styles.thOn]}>
@@ -93,7 +97,9 @@ export function TabellaTrattative({
             </Text>
           </Pressable>
         ))}
-        <View style={{ width: 16 }} />
+        {/* Lo stesso spazio della cella delle azioni: se qui e là non
+            coincidono, i titoli non stanno sopra le loro colonne. */}
+        <View style={styles.colAzioni} />
       </View>
       {ordinate.map((d) => {
         // Titolo e linea sono DUE informazioni: il titolo è come si chiama la
@@ -147,6 +153,14 @@ export function TabellaTrattative({
             <Text style={styles.cellaData}>{dataBreve(d.created_at)}</Text>
             <Text style={[styles.cellaData, scaduta && styles.cellaScaduta]}>{dataBreve(d.scadenza)}</Text>
             <Text style={styles.cellaAzione} numberOfLines={2}>{d.next_action || '—'}</Text>
+            {/* ⚠️ LE AZIONI IN UNA CELLA A LARGHEZZA FISSA (26/08/2026).
+                Prima erano icone sciolte in fondo alla riga: ognuna aggiungeva
+                larghezza che l'INTESTAZIONE non aveva, e bastava una riga con
+                un'icona in più (quella dell'ordine) perché le colonne si
+                spostassero rispetto ai titoli. Righe diverse, allineamenti
+                diversi. Ora la cella c'è sempre e misura quanto lo spazio
+                lasciato in testa, piena o vuota che sia. */}
+            <View style={styles.colAzioni}>
             {/* TRASFORMA IN ORDINE: solo su una trattativa viva e con un valore
                 — senza importo non c'è un ordine da fare. */}
             {onOrdine && !d.annullata_il && d.fase !== 'closedlost' && d.valore_atteso ? (
@@ -209,6 +223,7 @@ export function TabellaTrattative({
               </Pressable>
             ) : null}
             <Ionicons name="chevron-forward" size={15} color={colors.grigio} />
+            </View>
           </Pressable>
         );
       })}
@@ -263,6 +278,11 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontVariant: ['tabular-nums'],
   },
+  // ⚠️ Stesso flex della cella: se cambia uno, va cambiato l'altro.
+  colAzione: { flex: 1.2, minWidth: 0 },
   cellaAzione: { flex: 1.2, minWidth: 0, color: colors.testoSoft, fontSize: 12.5, lineHeight: 16 },
+  // Le azioni: larghezza fissa e allineate a destra, così la riga finisce
+  // sempre nello stesso punto — con tre icone o con nessuna.
+  colAzioni: { width: 84, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   cellaScaduta: { color: colors.errore, fontWeight: '700' },
 });
