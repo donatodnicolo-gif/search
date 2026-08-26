@@ -125,6 +125,17 @@ su 10.123 ALLINEATI, zero diversi**. Costo consegna in Orders 89.220,39 € (la
 piattaforma dice 89.220,41: due centesimi di arrotondamento), margine finale su
 **10.053 ordini per 545.438,96 €**, primo margine 518.692,28, fee 162.910,44.
 
+✅ **Controprova sul flag «pagabile»** (chiesta dall'utente subito dopo):
+ricalcolato il costo di ogni ordine in DUE modi — con e senza le consegne
+`payable = false` — e confrontati tutti e due col numero che Orders tiene.
+**10.123 ordini su 10.123 combaciano col conto SENZA le non pagabili; ZERO
+combaciano con l'altro.** Le non pagabili agganciate a un ordine sono **843 per
+11.184,12 €** (es. #37638 ddt 8222, 7,20 €; #54334 ddt 11268, 19,28 €): quei
+soldi NON sono nel costo pubblicato, ed è giusto così — su un giro la paga la
+porta una consegna sola. Verificata anche la regola nel codice: la riga
+`payable === false ? 0` c'è in tutti e quattro i posti che scrivono il costo
+(`computeRow`, `spingiMargini`, i due script di spinta).
+
 ⚠️ **Nota di metodo**: l'API di Orders **ignora `?orderId=`** — risponde il
 primo ordine della lista come se il filtro non ci fosse. Un confronto fatto con
 quel parametro dice quello che vuoi sentirti dire: per cercare un ordine si
