@@ -14,7 +14,17 @@
 
 > ⚠️ **L'app si chiama FINANCE.** Dal 01/08/2026 è così che si presenta a schermo (titolo, sidebar, accesso). **Cartella, database, URL `deluxy-partner.vercel.app`, cookie `dp_session` e il `sistema: "deluxy-partner"` con cui il registro Anagrafiche riconosce chi scrive NON sono stati rinominati**: cambiarli scollegherebbe le altre app.
 
-## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24 e 25/08/2026)
+## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
+
+> ### 26/08/2026 — ricontrollo: 7.241,72 € di pagamenti ai partner fermi in Transactions
+>
+> Health 200. **Nessun commit su Finance dal 25/08** (l'ultimo di codice è `84578818` del 24/08): in produzione gira il lavoro del 24/08, deploy di 2 giorni. **I due cron girano** (Qonto 05:00, Ordini 05:30 del 26/08). `RichiestaVerifica` a **3.218** righe (+58 in un giorno).
+>
+> ⚠️ **Nessuno entra nell'app da due giorni** (ultimo accesso 24/08 13:01, ultima modifica 24/08 15:59) e infatti la contabilità è ferma agli stessi numeri del 25/08: **138 fatture aperte vere, 92 senza scadenza per 56.231,50 €**, 108 partner, **15 con IBAN**. Si muove solo ciò che portano i cron: 22.584 movimenti, ordini `incassato_gateway` da 1.752 a 1.762; **`da_riconciliare` fermi a 163 e `riconciliato` ancora zero**.
+>
+> 🔴 **Il punto che merita una decisione**: in `SaldoMensile` ci sono **9 richieste `in_attesa` + 1 `in_lotto`** mandate a deluxy-transactions e mai eseguite — **7.241,72 €** in tutto, importi letti uno per uno dal registro modifiche. La più vecchia è del **31/07: 26 giorni**. ANGOLO FIORITO 2.336,59 € (31/07); **FIORISTA TONINO 3.576,47 € su tre mesi** (6/2026 1.947,74 + 4/2026 942,42 + 5/2026 686,31, tutte chieste il 03/08); ADOLFO STEFANELLI 484,00 €; FAG TORINO FIORI 494,28 € (24/08); CHANTILLITTY 249,28 €; CAKELAB FIRENZE 85,48 € (24/08); AMIR 9,83 €; 142 RESTAURANT 5,79 € (`in_lotto`). **FINANCE ha fatto la sua parte** — chiedere è tutto ciò che può fare, il denaro esce solo da Transactions, ferma dal 3/08. ⚠️ Il difetto che resta **di qui** è che il mittente non se ne accorge: una richiesta sta «in attesa» per sempre e nessuna schermata dice «sono 26 giorni». Un'attesa senza scadenza non è un'attesa, è un buco: varrebbe un avviso sul saldo (e in dashboard) oltre i N giorni.
+>
+> ⚠️ **Dato di prova in produzione**: esiste il partner «Prova Claude SRL», con una richiesta di 12,34 € del 27/07. Da ripulire (§11: «ripulire sempre i dati di test dal DB di produzione»).
 
 > ### 25/08/2026 — ricontrollo: l'app è viva, e «fatture aperte» ha DUE definizioni
 >
