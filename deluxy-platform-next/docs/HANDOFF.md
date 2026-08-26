@@ -57,9 +57,33 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 25 agosto 2026, sera (margini a Orders OGNI NOTTE + sei schermate); architettura del 24 agosto; corpo del 21 agosto 2026
-**Branch di produzione:** `main` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
+**Ultimo aggiornamento:** 26 agosto 2026, sera (verifica live di sola lettura; il corpo più recente è la commissione d'incasso di Orders). ⚠️ Le sezioni intestate «27/08» descrivono lavoro del 26/08: per l'ordine vero guardare `git log`, non le intestazioni.
+**Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### ✅ Ricontrollato live il 26/08/2026 sera (~20:45) — solo lettura, nessuna modifica al codice
+
+Sessione di sola lettura (handoff → memoria). Misurato su
+`https://deluxy-delivery.vercel.app`, non dedotto:
+
+- Root **200**. `GET /api/v1/settings/public` e `GET /api/v1/provinces` →
+  **401 JSON** «Token mancante»: l'API Nest è **viva** (nell'avaria di
+  luglio-agosto quelle stesse rotte davano 500 `FUNCTION_INVOCATION_FAILED`).
+- ⚠️ **Il 401 su `/settings/public` NON è una regressione**: la rotta non ha
+  `@Public()` per scelta — vedi il commento in `settings.module.ts:55`
+  («pubblico per natura: esposto in /settings/public a chi è autenticato»).
+  Il nome inganna: la prossima sessione non ci apra sopra un caso.
+- 🔴 **`/api/health` risponde ancora 200 con la pagina Angular** (`text/html`):
+  il punto aperto resta identico, un controllo sul solo codice di stato
+  direbbe «sana».
+- ✅ **L'alias serve il bundle con la casa del partner**: marcatori trovati NEL
+  BUNDLE (`backToServices` in `chunk-5OML2YQW`/`chunk-6T2RQOJZ`, `hero-title`
+  e `wa.me` in `chunk-BU5JN6MU`). Nessun alias rubato in questo momento.
+  ⚠️ Nota di metodo: `main-*.js` è di 12 KB e NON contiene le rotte pigre —
+  i marcatori vanno cercati nei ~53 `chunk-*.js` che main elenca.
+- **Non verificati** (serviva un token admin, non usato): `lineeApiKey` e
+  `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
+
 
 ### La commissione d'incasso nella Finanza è quella di ORDERS (26/08/2026, sera)
 
