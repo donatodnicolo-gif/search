@@ -3,7 +3,7 @@ import { Badge } from "@/components/Badge";
 import { Icona } from "@/components/Icona";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
-import { elaboraSchedaAnalisi } from "@/lib/azioni";
+import { accodaAzioneScheda, elaboraSchedaAnalisi } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
   COLORE_BRAND,
@@ -19,7 +19,7 @@ import {
   STATI_AZIONE_APERTI,
 } from "@/lib/dominio";
 import { categoriaCampagna, iconaCanale } from "@/lib/salute";
-import { COLORE_PRIORITA, COLORE_VERDETTO, ETICHETTA_VERDETTO, mappaCampagneCitate, schedaDi } from "@/lib/scheda-analisi";
+import { COLORE_PRIORITA, COLORE_VERDETTO, descriviOperazione, ETICHETTA_VERDETTO, mappaCampagneCitate, operazioneDaAzione, schedaDi } from "@/lib/scheda-analisi";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +40,7 @@ export default async function SchedaAnalisi({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ scheda?: string; errore?: string }>;
+  searchParams: Promise<{ scheda?: string; coda?: string; errore?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -56,7 +56,13 @@ export default async function SchedaAnalisi({
   // abbreviano i nomi, quindi l'aggancio è normalizzato — e l'ambiguo NON si
   // aggancia: un chip grigio è meglio di un link alla campagna sbagliata.
   const nomiCitati = scheda
-    ? [...new Set([...scheda.campagne.map((c) => c.nome), ...scheda.findings.flatMap((f) => f.campagne)])]
+    ? [
+        ...new Set([
+          ...scheda.campagne.map((c) => c.nome),
+          ...scheda.findings.flatMap((f) => f.campagne),
+          ...scheda.azioni.map((a) => a.operazione?.campagna).filter((n): n is string => Boolean(n)),
+        ]),
+      ]
     : [];
   const agganci = await mappaCampagneCitate(nomiCitati, { brand: analisi.brand, canale: analisi.canale });
   const idCampagna = (nome: string) => agganci.get(nome)?.id ?? null;
@@ -74,6 +80,33 @@ export default async function SchedaAnalisi({
     );
   };
 
+  // Le azioni della scheda che si possono METTERE IN CODA: la mappa dell'AI
+  // rivista dal codice (tipo, parametri, canale della campagna) e l'aggancio
+  // non ambiguo. E se un'operazione IDENTICA è già in coda viva, il bottone
+  // diventa «già in coda»: il doppio invio è la trappola di stamattina.
+  const codaViva = scheda
+    ? await prisma.operazioneAdv.findMany({
+        where: {
+          stato: { in: ["in_attesa", "approvata"] },
+          campagnaId: { in: [...agganci.values()].map((x) => x.id) },
+        },
+        select: { tipo: true, campagnaId: true, parametri: true },
+      })
+    : [];
+  const eseguibile = (i: number) => {
+    const az = scheda!.azioni[i];
+    if (!az.operazione) return null;
+    const aggancio = agganci.get(az.operazione.campagna);
+    if (!aggancio) return null;
+    const pronta = operazioneDaAzione(az, aggancio.canale);
+    if (!pronta) return null;
+    const parametri = pronta.parametri ? JSON.stringify(pronta.parametri) : null;
+    const inCoda = codaViva.some(
+      (o) => o.tipo === pronta.tipo && o.campagnaId === aggancio.id && (o.parametri ?? null) === parametri
+    );
+    return { pronta, aggancio, inCoda };
+  };
+
   const aperte = analisi.azioni.filter((a) => STATI_AZIONE_APERTI.includes(a.stato)).length;
   const categoria = categoriaCampagna(`${analisi.titolo} ${analisi.fileDrive ?? ""}`);
   const coloreVerdetto = scheda ? COLORE_VERDETTO[scheda.verdetto] : null;
@@ -86,6 +119,15 @@ export default async function SchedaAnalisi({
       <Sidebar attiva="analisi" brandAttivo={analisi.brand} canaleAttivo={analisi.canale ?? undefined} />
       <main className="main">
         <a className="ritorno" href="/analisi">← Analisi</a>
+
+        {sp.coda === "fallita" && (
+          <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>
+            <span className="nota-icona" style={{ color: "var(--orange)" }}>⚠</span>
+            <span>
+              <b>Non messa in coda.</b> {sp.errore ?? ""}
+            </span>
+          </div>
+        )}
 
         {sp.scheda === "fallita" && (
           <div className="nota-info" style={{ borderColor: "rgba(215,0,21,.35)", background: "rgba(215,0,21,.05)" }}>
@@ -324,18 +366,48 @@ export default async function SchedaAnalisi({
                 {scheda.azioni.length > 0 && (
                   <section className="scheda">
                     <div className="scheda-titolo">Cosa propone il documento</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {[...scheda.azioni]
-                        .sort((a, b) => a.priorita.localeCompare(b.priorita))
-                        .map((a, i) => (
-                          <div key={i} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                            <Badge testo={a.codice ? `${a.priorita} ${a.codice}` : a.priorita} colore={COLORE_PRIORITA[a.priorita]} />
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: 13, whiteSpace: "normal" }}>{a.testo}</div>
-                              {a.quando && <div className="cella-sub">entro {a.quando}</div>}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {scheda.azioni
+                        .map((a, indice) => ({ a, indice }))
+                        .sort((x, y) => x.a.priorita.localeCompare(y.a.priorita))
+                        .map(({ a, indice }) => {
+                          const ex = eseguibile(indice);
+                          return (
+                            <div key={indice} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                              <Badge testo={a.codice ? `${a.priorita} ${a.codice}` : a.priorita} colore={COLORE_PRIORITA[a.priorita]} />
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: 13, whiteSpace: "normal" }}>{a.testo}</div>
+                                {a.quando && <div className="cella-sub">entro {a.quando}</div>}
+                                {/* ⚠️ Il bottone c'è SOLO quando la proposta
+                                    dell'AI passa la revisione del codice e la
+                                    campagna è agganciata senza ambiguità.
+                                    Mette in coda DA APPROVARE — la catena
+                                    resta app → coda → approvazione → script,
+                                    come per le PropostaAi. */}
+                                {ex && !ex.inCoda && (
+                                  <form action={accodaAzioneScheda} style={{ marginTop: 6 }}>
+                                    <input type="hidden" name="analisi" value={analisi.id} />
+                                    <input type="hidden" name="indice" value={indice} />
+                                    <button
+                                      className="btn small btn-secondario"
+                                      type="submit"
+                                      title={`Nasce «da approvare» su /operazioni, per ${ex.aggancio.nome}: niente parte senza il tuo ok`}
+                                    >
+                                      Metti in coda: {descriviOperazione(ex.pronta)} →
+                                    </button>
+                                  </form>
+                                )}
+                                {ex && ex.inCoda && (
+                                  <div style={{ marginTop: 6 }}>
+                                    <a className="tag-neutro" href="/operazioni" style={{ textDecoration: "none" }}>
+                                      ✓ già in coda — vai ad approvarla
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   </section>
                 )}

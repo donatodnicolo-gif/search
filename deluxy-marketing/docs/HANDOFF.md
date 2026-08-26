@@ -336,6 +336,42 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐⭐ LE AZIONI DEL REPORT SI METTONO IN CODA CON UN CLICK (26/08/2026, notte)
+
+Richiesta utente sulla scheda analisi: «riesci a mettere i link per eseguire le
+azioni che il report dice, se sono fattibili dentro l'app?». Fatto, con la
+stessa filosofia delle PropostaAi: **l'AI propone, non decide** — la catena
+resta app → coda → approvazione → script, nessuna scorciatoia.
+
+- **La mappa nasce nell'elaborazione**: ogni azione della scheda può portare
+  `operazione` (tipo + campagna citata + parametri JSON), SOLO se il documento
+  dà tutto. Tipi mappabili: pausa/attiva campagna, budget, negativa,
+  nuova_keyword, estensione, rimuovi_estensione. Creativi, pubblici, ad set
+  Meta, ristrutturazioni → `null`, restano testo.
+- **Il codice riverifica** (`operazioneDaAzione`): tipo nel catalogo del CANALE
+  della campagna (su Meta solo stato+budget), parametri con la forma giusta,
+  aggancio non ambiguo. La mappa dell'AI non è un permesso.
+- **Il bottone** «Metti in coda: …» compare solo quando tutto passa; crea
+  l'operazione **da approvare** su /operazioni col motivo che cita l'analisi.
+  ⭐ **Dedupe con la coda viva**: un'operazione identica già in
+  attesa/approvata → il bottone diventa «già in coda — vai ad approvarla»
+  (il doppio invio è la trappola del 25/08).
+- Provato in produzione sulla Google Flowers: 13 azioni, 2 mappate — #17
+  rimuovi_estensione «White-glove deliveries» (che risulta correttamente **già
+  in coda**, era quella accodata ieri) e #50 budget 34,5 €/g su ITALIAN-ITA
+  col bottone attivo. Meta Flowers: 7 azioni, 0 mappate — giusto: propone
+  lavoro su creativi e pubblici, che l'app non esegue.
+
+⭐⭐ **E il giro si è CHIUSO stanotte**: l'utente ha reincollato gli script su
+Flowers, e alle 03:33 il conto 825-518-1560 **si è dichiarato da solo** —
+versione `2026-08-25.2`, tutti i 16 tipi compreso `rimuovi_estensione`. Il
+meccanismo del 25/08 ha fatto il suo primo giro vero. Restano muti Gifts e
+Cake (copie ancora vecchie).
+
+Stanotte depositate e già in scheda anche: **Meta Flowers** (ROSSO, «prospecting
+morto, ROAS 0,84»), **Meta Cake** e **Google Cake** del 25/08. Schede totali: 7.
+
+
 ### ⭐ L'APP SA RIMUOVERE UN'ESTENSIONE — e la prima in coda è il claim vietato (25/08/2026, sera)
 
 F13 dell'analisi Flowers: il sitelink **«White-glove deliveries»** è un claim

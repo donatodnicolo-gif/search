@@ -18,7 +18,7 @@ import { prisma } from "./db";
 import { accodaOperazione } from "./operazioni";
 import { BRANDS, STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, STATI_CAMPAGNA_NOSTRI, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
-import { elaboraAnalisi } from "./scheda-analisi";
+import { elaboraAnalisi, mappaCampagneCitate, operazioneDaAzione, schedaDi } from "./scheda-analisi";
 import { risolviLocalita } from "./geo-target";
 // Statico e non `await import()` come il resto di guardrail: serve dentro le
 // query, non dentro il corpo delle funzioni. `guardrail.ts` non importa nulla,
@@ -511,6 +511,67 @@ export async function elaboraSchedaAnalisi(fd: FormData) {
   revalidatePath(`/analisi/${id}`);
   revalidatePath("/analisi");
   redirect(`/analisi/${id}${esito.ok ? "" : `?scheda=fallita&errore=${encodeURIComponent(esito.errore.slice(0, 200))}`}`);
+}
+
+// Il bottone «Metti in coda» su un'azione della scheda: la proposta dell'AI
+// diventa un'operazione DA APPROVARE — la stessa catena delle PropostaAi
+// (app → coda → approvazione → script), nessuna scorciatoia. Il codice
+// riverifica tutto: la mappa dell'AI non è un permesso.
+export async function accodaAzioneScheda(fd: FormData) {
+  const analisiId = String(fd.get("analisi") ?? "");
+  const indice = Number(fd.get("indice"));
+  if (!analisiId || !Number.isInteger(indice) || indice < 0) return;
+
+  const analisi = await prisma.analisi.findUnique({ where: { id: analisiId } });
+  if (!analisi) return;
+  const scheda = schedaDi(analisi);
+  const azione = scheda?.azioni[indice];
+  if (!scheda || !azione?.operazione) return;
+
+  // L'aggancio alla campagna VERA, con la regola di sempre: l'ambiguo non si
+  // aggancia. E il canale è quello della campagna, non dell'analisi.
+  const agganci = await mappaCampagneCitate([azione.operazione.campagna], {
+    brand: analisi.brand,
+    canale: analisi.canale,
+  });
+  const aggancio = agganci.get(azione.operazione.campagna);
+  if (!aggancio) {
+    redirect(`/analisi/${analisiId}?coda=fallita&errore=${encodeURIComponent(`Campagna «${azione.operazione.campagna}» non agganciabile senza ambiguità: si accoda da /operazioni a mano.`)}`);
+  }
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: aggancio.id },
+    select: { id: true, nome: true, canale: true, account: true },
+  });
+  if (!campagna) return;
+
+  const pronta = operazioneDaAzione(azione, campagna.canale);
+  if (!pronta) {
+    redirect(`/analisi/${analisiId}?coda=fallita&errore=${encodeURIComponent("Questa proposta non passa la revisione del codice: parametri incompleti o tipo non eseguibile sul canale.")}`);
+  }
+
+  const operazione = await accodaOperazione({
+    data: {
+      tipo: pronta.tipo,
+      canale: campagna.canale,
+      account: campagna.account,
+      bersaglio: campagna.nome,
+      parametri: pronta.parametri ? JSON.stringify(pronta.parametri) : null,
+      motivo: `Dall'analisi «${analisi.titolo}»${azione.codice ? ` (${azione.codice})` : ""}: ${azione.testo.slice(0, 300)}`,
+      campagnaId: campagna.id,
+      richiestaDa: "utente",
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: operazione.id,
+    titolo: `In coda dall'analisi: ${pronta.tipo} su ${campagna.nome}`,
+    dettaglio: operazione.motivo,
+  });
+  revalidatePath(`/analisi/${analisiId}`);
+  revalidatePath("/operazioni");
+  redirect(`/operazioni?torna=${encodeURIComponent(`/analisi/${analisiId}`)}`);
 }
 
 // ---------- Drive ----------

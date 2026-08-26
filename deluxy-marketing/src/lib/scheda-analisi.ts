@@ -48,6 +48,20 @@ export type Scheda = {
     testo: string;
     priorita: "P0" | "P1" | "P2";
     quando: string | null;
+    /**
+     * L'azione TRADOTTA in un'operazione che l'app sa mettere in coda, quando
+     * il documento dà tutto quello che serve (tipo, campagna, parametri).
+     * `null` = non eseguibile da qui (creativi, pubblici, ristrutturazioni…).
+     * L'AI PROPONE la traduzione: la catena resta app → coda → approvazione
+     * → script, come per le PropostaAi. Nessuna scorciatoia.
+     */
+    operazione: {
+      tipo: string;
+      /** Nome della campagna come CITATO nel documento (si aggancia dopo). */
+      campagna: string;
+      /** I parametri dell'operazione, come stringa JSON. */
+      parametriJson: string | null;
+    } | null;
   }[];
   campagne: {
     /** Nome ESATTO della campagna sulla piattaforma. */
@@ -101,12 +115,33 @@ const SCHEMA_SCHEDA: Record<string, unknown> = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["codice", "testo", "priorita", "quando"],
+        required: ["codice", "testo", "priorita", "quando", "operazione"],
         properties: {
           codice: { type: ["string", "null"], maxLength: 20 },
           testo: { type: "string", maxLength: 300 },
           priorita: { type: "string", enum: ["P0", "P1", "P2"] },
           quando: { type: ["string", "null"], maxLength: 40 },
+          operazione: {
+            type: ["object", "null"],
+            additionalProperties: false,
+            required: ["tipo", "campagna", "parametriJson"],
+            properties: {
+              tipo: {
+                type: "string",
+                enum: [
+                  "pausa_campagna",
+                  "attiva_campagna",
+                  "budget",
+                  "negativa",
+                  "nuova_keyword",
+                  "estensione",
+                  "rimuovi_estensione",
+                ],
+              },
+              campagna: { type: "string", maxLength: 120 },
+              parametriJson: { type: ["string", "null"], maxLength: 400 },
+            },
+          },
         },
       },
     },
@@ -156,7 +191,21 @@ Regole, nell'ordine in cui contano:
    CONTROLLI FALLITI, i KPI sono i conteggi e i punteggi che l'audit stesso
    dà (controlli passati/totali, score), e il verdetto è lo stato dell'ACCOUNT
    — non delle vendite. Un audit non giudica il ROAS: giudica la casa.
-9. Scrivi conciso: la scheda si legge in un minuto, il documento resta su Drive.`;
+9. OGNI azione può portare "operazione": la traduzione in un'operazione che
+   l'app sa mettere in coda. Mappala SOLO se il documento dà tutto — la
+   campagna e i parametri esatti. Tipi e parametri (parametriJson è una
+   stringa JSON):
+     · pausa_campagna / attiva_campagna → parametriJson null
+     · budget → {"budget": <euro al giorno, numero>}
+     · negativa → {"testo":"...","corrispondenza":"exact|phrase|broad"}
+     · nuova_keyword → {"testo":"...","corrispondenza":"exact|phrase|broad"}
+     · estensione → {"tipo":"sitelink","testo":"...","url":"..."} oppure
+       {"tipo":"callout","testo":"..."}
+     · rimuovi_estensione → {"tipo":"sitelink|callout|snippet","testo":"..."}
+   Tutto il resto (creativi, annunci, pubblici, ad set Meta, tracciamento,
+   ristrutturazioni) NON si mappa: operazione = null. MAI inventare un numero
+   o un testo che il documento non dà: meglio null di un parametro plausibile.
+10. Scrivi conciso: la scheda si legge in un minuto, il documento resta su Drive.`;
 
 export type EsitoElaborazione =
   | { ok: true; verdetto: VerdettoScheda; kpi: number; findings: number; campagne: number }
@@ -341,8 +390,8 @@ function combacia(citato: string, vero: string): boolean {
 export async function mappaCampagneCitate(
   nomi: string[],
   filtro: { brand: string; canale: string | null }
-): Promise<Map<string, { id: string; nome: string }>> {
-  const mappa = new Map<string, { id: string; nome: string }>();
+): Promise<Map<string, { id: string; nome: string; canale: string }>> {
+  const mappa = new Map<string, { id: string; nome: string; canale: string }>();
   if (nomi.length === 0) return mappa;
   // I candidati sono le campagne del mondo di cui l'analisi parla: senza il
   // filtro, «Brand protection» citata in un'analisi Flowers combacerebbe
@@ -352,7 +401,7 @@ export async function mappaCampagneCitate(
       ...(filtro.canale ? { canale: filtro.canale } : {}),
       ...(filtro.brand !== "cross" ? { brand: filtro.brand } : {}),
     },
-    select: { id: true, nome: true, nomeVisibile: true },
+    select: { id: true, nome: true, nomeVisibile: true, canale: true },
   });
   for (const citato of nomi) {
     // Due livelli: prima l'uguaglianza esatta (normalizzata), poi il
@@ -370,7 +419,7 @@ export async function mappaCampagneCitate(
         : candidate.filter(
             (c) => combacia(citato, c.nome) || (c.nomeVisibile ? combacia(citato, c.nomeVisibile) : false)
           );
-    if (trovate.length === 1) mappa.set(citato, { id: trovate[0].id, nome: trovate[0].nome });
+    if (trovate.length === 1) mappa.set(citato, { id: trovate[0].id, nome: trovate[0].nome, canale: trovate[0].canale });
   }
   return mappa;
 }
@@ -423,6 +472,101 @@ export async function ultimaAnalisiPerCampagna(campagna: {
   if (!prima) return null;
   const s = schedaDi(prima)!;
   return { id: prima.id, verdetto: s.verdetto, dataAnalisi: prima.dataAnalisi, titolo: prima.titolo, perCampagna: null };
+}
+
+// ───── Le azioni della scheda che si possono METTERE IN CODA ─────
+//
+// L'AI propone la traduzione azione→operazione; qui il codice la RIVEDE:
+// tipo nel catalogo, parametri con la forma giusta, e (a parte) campagna
+// agganciata senza ambiguità. Una proposta che non passa non è un errore a
+// schermo: è un'azione che resta solo testo, com'era prima.
+const TIPI_MAPPABILI_GOOGLE = new Set([
+  "pausa_campagna",
+  "attiva_campagna",
+  "budget",
+  "negativa",
+  "nuova_keyword",
+  "estensione",
+  "rimuovi_estensione",
+]);
+// Su Meta esegue l'app (non lo script): sa fare solo stato e budget.
+const TIPI_MAPPABILI_META = new Set(["pausa_campagna", "attiva_campagna", "budget"]);
+
+export type OperazionePronta = { tipo: string; parametri: Record<string, unknown> | null };
+
+/**
+ * La proposta dell'AI, rivista dal codice. `null` = non si mette in coda
+ * (tipo fuori catalogo, parametri malformati, o tipo non eseguibile sul
+ * canale della campagna).
+ */
+export function operazioneDaAzione(
+  azione: Scheda["azioni"][number],
+  canaleCampagna: string
+): OperazionePronta | null {
+  const op = azione.operazione;
+  if (!op) return null;
+  const catalogo = canaleCampagna === "meta_ads" ? TIPI_MAPPABILI_META : TIPI_MAPPABILI_GOOGLE;
+  if (!catalogo.has(op.tipo)) return null;
+
+  let par: Record<string, unknown> | null = null;
+  if (op.parametriJson) {
+    try {
+      const p = JSON.parse(op.parametriJson) as Record<string, unknown>;
+      if (p && typeof p === "object" && !Array.isArray(p)) par = p;
+    } catch {
+      return null;
+    }
+  }
+
+  const testoOk = (v: unknown) => typeof v === "string" && v.trim().length > 0;
+  switch (op.tipo) {
+    case "pausa_campagna":
+    case "attiva_campagna":
+      return { tipo: op.tipo, parametri: null };
+    case "budget": {
+      const b = Number(par?.budget);
+      return b > 0 && Number.isFinite(b) ? { tipo: op.tipo, parametri: { budget: b } } : null;
+    }
+    case "negativa":
+    case "nuova_keyword": {
+      if (!testoOk(par?.testo)) return null;
+      const corr = ["exact", "phrase", "broad"].includes(String(par?.corrispondenza))
+        ? String(par?.corrispondenza)
+        : "exact";
+      return { tipo: op.tipo, parametri: { testo: String(par!.testo).trim(), corrispondenza: corr } };
+    }
+    case "estensione": {
+      const t = String(par?.tipo ?? "");
+      if (t === "sitelink" && testoOk(par?.testo) && testoOk(par?.url))
+        return { tipo: op.tipo, parametri: { tipo: t, testo: String(par!.testo).trim(), url: String(par!.url).trim() } };
+      if (t === "callout" && testoOk(par?.testo))
+        return { tipo: op.tipo, parametri: { tipo: t, testo: String(par!.testo).trim() } };
+      return null;
+    }
+    case "rimuovi_estensione": {
+      const t = String(par?.tipo ?? "");
+      if (["sitelink", "callout", "snippet"].includes(t) && testoOk(par?.testo))
+        return { tipo: op.tipo, parametri: { tipo: t, testo: String(par!.testo).trim() } };
+      return null;
+    }
+    default:
+      return null;
+  }
+}
+
+/** Com'è descritta l'operazione sul bottone, prima di premere. */
+export function descriviOperazione(pronta: OperazionePronta): string {
+  const p = pronta.parametri ?? {};
+  switch (pronta.tipo) {
+    case "pausa_campagna": return "Metti in pausa la campagna";
+    case "attiva_campagna": return "Riattiva la campagna";
+    case "budget": return `Budget a ${p.budget} €/g`;
+    case "negativa": return `Escludi «${p.testo}» (${p.corrispondenza})`;
+    case "nuova_keyword": return `Aggiungi keyword «${p.testo}»`;
+    case "estensione": return `Aggiungi ${p.tipo} «${p.testo}»`;
+    case "rimuovi_estensione": return `Rimuovi ${p.tipo} «${p.testo}»`;
+    default: return pronta.tipo;
+  }
 }
 
 export const COLORE_VERDETTO: Record<VerdettoScheda, string> = {
