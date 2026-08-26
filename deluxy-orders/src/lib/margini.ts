@@ -43,6 +43,11 @@ const VALIDO = `("annullatoIl" IS NULL AND ("financialStatus" IS NULL OR "financ
 //
 // MARGINE: quello della piattaforma consegne quando c'e' (e' il suo conto, gia'
 // al netto IVA), altrimenti il ripiego del registro. NULL = non misurabile.
+// Nel ripiego la COMMISSIONE D'INCASSO si detrae SEMPRE (decisione utente
+// 26/08/2026), dopo lo scorporo — come fa la piattaforma nel suo numero, dove
+// e' gia' dentro. Se manca vale 0 qui (il valore combacia con margineOrdine,
+// che in quel caso dichiara il margine PARZIALE: la somma non puo' dirlo riga
+// per riga, la scheda si').
 const MARGINE = `COALESCE(
   "margineFinale",
   CASE WHEN "costoFornitore" IS NULL THEN NULL ELSE (
@@ -51,7 +56,7 @@ const MARGINE = `COALESCE(
            THEN COALESCE("costoConsegna", 0) ELSE 0 END
     + CASE WHEN "evasione" = 'piattaforma' AND "consegnataDa" <> 'fornitore'
            THEN COALESCE("feeConsegna", 0) ELSE 0 END
-  ) / ${1 + ALIQUOTA_IVA / 100} END)`;
+  ) / ${1 + ALIQUOTA_IVA / 100} - COALESCE("commissioneIncassi", 0) END)`;
 
 // COSTO DEL FORNITORE, per il confronto con la quota. Sugli ordini che la
 // piattaforma conosce non e' `costoFornitore` (quasi sempre vuoto) ma il valore

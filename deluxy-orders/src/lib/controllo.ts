@@ -185,6 +185,14 @@ export function margineAttesoPct(quota: number): number {
   return (100 - quota) / (1 + ALIQUOTA_IVA / 100);
 }
 
+/**
+ * Gateway che non costano nulla da incassare: contante alla consegna e
+ * bonifico. Tutto il resto (carte, PayPal, wallet) una commissione ce l'ha —
+ * e se il numero non c'e', il margine si dichiara parziale invece di fingere
+ * che incassare sia gratis.
+ */
+const GATEWAY_SENZA_COMMISSIONE = /cash|contrassegno|cod|manual|bank|deposit/i;
+
 export function margineOrdine(o: {
   totale: number;
   costoFornitore: number | null;
@@ -192,6 +200,13 @@ export function margineOrdine(o: {
   feeConsegna: number | null;
   evasione: string;
   consegnataDa: string;
+  /** La commissione d'incasso (tariffa del gateway; zero per il contante).
+   *  ⚠️ SI DETRAE SEMPRE dal margine (decisione utente 26/08/2026): nel numero
+   *  della piattaforma e' gia' dentro, nel ripiego si sottrae qui. */
+  commissioneIncassi: number | null;
+  /** Il gateway Shopify: serve a distinguere «commissione zero perche'
+   *  contante» da «commissione NON NOTA» quando il campo sopra e' vuoto. */
+  gateway: string | null;
   /** Il margine gia' fatto dalla piattaforma consegne. Se c'e', VINCE.
    *  ⚠️ OBBLIGATORIO apposta: se fosse opzionale ogni chiamante che si scorda
    *  di passarlo compilerebbe lo stesso e ricadrebbe in silenzio sul conto del
@@ -251,7 +266,23 @@ export function margineOrdine(o: {
       nota = "senza il costo della consegna (la piattaforma non lo espone ancora)";
     }
   }
-  const valore = Math.round((lordo / (1 + ALIQUOTA_IVA / 100)) * 100) / 100;
+  let valore = Math.round((lordo / (1 + ALIQUOTA_IVA / 100)) * 100) / 100;
+  // LA COMMISSIONE D'INCASSO SI DETRAE SEMPRE (come nel numero della
+  // piattaforma, dove e' gia' dentro). Si sottrae DOPO lo scorporo: e' un costo
+  // pieno, non un importo con dentro l'IVA da togliere — stessa scelta della
+  // piattaforma (margine = guadagno netto − consegna − commissione).
+  const commissione =
+    o.commissioneIncassi ??
+    (o.gateway && GATEWAY_SENZA_COMMISSIONE.test(o.gateway) ? 0 : null);
+  if (commissione != null) {
+    valore = Math.round((valore - commissione) * 100) / 100;
+    if (commissione > 0) nota = `${nota} − commissione d'incasso`;
+  } else {
+    // Non si finge che incassare sia gratis: il margine esce, ma dichiarato
+    // incompleto. Sparira' quando le tariffe d'incasso vivranno in Orders.
+    parziale = true;
+    nota = `${nota} · senza la commissione d'incasso`;
+  }
   return {
     valore,
     pct: percento(valore),

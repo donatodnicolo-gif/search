@@ -119,8 +119,11 @@ export default async function Controllo({
         evasione: true,
         consegnataDa: true,
         // Il margine gia' fatto dalla piattaforma: quando c'e' vince sul conto
-        // del registro (vedi margineOrdine).
+        // del registro (vedi margineOrdine). Commissione e gateway servono al
+        // ripiego: la commissione d'incasso si detrae SEMPRE.
         margineFinale: true,
+        commissioneIncassi: true,
+        gateway: true,
       },
     }),
     prisma.ordine.count({ where: { ...dove, ...(stato ? { statoIncasso: stato } : {}) } }),

@@ -638,6 +638,8 @@ function MargineChiuso({
     consegnataDa: string;
     /** Il margine della piattaforma consegne: se c'e', e' quello che si mostra. */
     margineFinale: number | null;
+    commissioneIncassi: number | null;
+    gateway: string | null;
   };
 }) {
   if (ordine.csGestione !== "gestito") return null;

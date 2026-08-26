@@ -432,6 +432,17 @@ piattaforma non ha questo ordine»). ⚠️ Il campo è **obbligatorio** nella f
 di `margineOrdine()`: se fosse opzionale, un chiamante distratto compilerebbe
 lo stesso e ricadrebbe in silenzio sul conto vecchio.
 
+⚠️ **La commissione d'incasso si detrae SEMPRE dal margine (26/08/2026,
+decisione dell'utente).** Nel numero della piattaforma è già dentro; nel
+**ripiego del registro** si sottrae qui, dopo lo scorporo IVA (è un costo
+pieno, come fa la piattaforma). Quando la commissione **non è nota** — l'ordine
+è pagato con carta o PayPal ma nessuno ha mandato la tariffa — il margine esce
+comunque ma **dichiarato parziale**: «senza la commissione d'incasso», mai
+fingere che incassare sia gratis. Il contante e il bonifico valgono zero per
+definizione (gateway `Cash on Delivery`, `manual`, `Bank Deposit`). Oggi i
+ripieghi sono 26, tutti carta/PayPal senza tariffa: spariranno quando le
+tariffe d'incasso vivranno in Orders.
+
 ⚠️ **Anche gli AGGREGATI leggono il margine della piattaforma (26/08/2026).**
 `/margini` non somma più `costoFornitore`: somma il **margine riga per riga**,
 con la stessa regola della scheda ordine — quello della piattaforma dove c'è, il
