@@ -278,6 +278,10 @@ interface ClientePagato {
   brand: string | null;
   /** Il numero umano ("#12731"): a schermo si legge lui, non il gid. */
   numero: string | null;
+  /** La commissione d'incasso come la sa ORDERS, il proprietario del dato:
+   *  'shopify' = fee reale della transazione, 'tariffa' = suo listino. */
+  commissioneIncassi: number | null;
+  commissioneDa: string;
 }
 
 interface RecapOrdine {
@@ -527,11 +531,12 @@ export class FinanceService {
     if (!numeri.length) return new Map<string, ClientePagato>();
     const righe = await this.prisma.ordineCliente.findMany({
       where: { orderId: { in: numeri } },
-      select: { orderId: true, ordersId: true, brand: true, numero: true, prodotti: true, consegna: true, totale: true },
+      select: { orderId: true, ordersId: true, brand: true, numero: true, prodotti: true, consegna: true, totale: true, commissioneIncassi: true, commissioneDa: true },
     });
     return new Map<string, ClientePagato>(righe.map((r) => [r.orderId, {
       prodotti: r.prodotti, consegna: r.consegna, totale: r.totale,
       ordersId: r.ordersId, brand: r.brand, numero: r.numero,
+      commissioneIncassi: r.commissioneIncassi, commissioneDa: r.commissioneDa,
     }]));
   }
 
@@ -664,7 +669,20 @@ export class FinanceService {
       const gateway = g.find((r) => r.paymentGateway)?.paymentGateway ?? null;
       const brand = g.find((r) => r.paymentBrand)?.paymentBrand ?? null;
       const tar = this.tariffa(tariffe, gateway, brand);
-      const incassiCommission = tar
+      // ⭐ LA COMMISSIONE E' DI ORDERS (deciso dall'utente il 26/08): dove lui
+      // la firma — 'shopify' e' la fee REALE della transazione (cambia per
+      // carta: 1,8% o 3,6%, piu' il cambio sulle valute estere), 'tariffa' il
+      // suo listino — si usa QUELLA. La tariffa qui sotto resta solo per gli
+      // ordini che Orders non ha ancora firmato: il reale batte il listino,
+      // il listino batte la stima. Prima la stima stava DENTRO margineFinale
+      // e i margini spinti a Orders erano piu' alti del vero di ~30.000 EUR.
+      const commissioneOrders =
+        pagato && (pagato.commissioneDa === 'shopify' || pagato.commissioneDa === 'tariffa')
+          ? pagato.commissioneIncassi
+          : null;
+      const incassiCommission = commissioneOrders != null
+        ? round2(commissioneOrders)
+        : tar
         ? round2((valore * tar.percentuale) / 100 + tar.fissa)
         : round2(valore * INCASSI);   // metodo sconosciuto: zero, e si dichiara
       return {

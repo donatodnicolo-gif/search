@@ -361,6 +361,30 @@ model Partner {
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   priorityEntries     PriorityEntry[]
+  quoteRequests       QuoteRequest[]
+}
+
+// ------------------------------------------------------------
+// Richieste di PREVENTIVO dei partner, dal loro accesso (es. «torta come in
+// foto per 30 persone, Cernobbio, 30 agosto»). La foto e' un data URL
+// compresso dal client (niente storage esterno: su serverless il disco
+// sparisce al redeploy — stessa ragione del problema noto delle ricevute).
+// L'ufficio risponde qui (reply) e/o su WhatsApp (numero nelle impostazioni).
+// stato: aperta | in_lavorazione | risposta
+// ------------------------------------------------------------
+model QuoteRequest {
+  id           String    @id @default(cuid())
+  partnerId    String
+  partner      Partner   @relation(fields: [partnerId], references: [id])
+  description  String
+  people       Int?
+  city         String?
+  requestedFor DateTime? // data di consegna desiderata
+  photo        String? // data URL (immagine compressa lato client)
+  status       String    @default("aperta")
+  reply        String? // risposta dell'ufficio, visibile al partner
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model PartnerProvince {
@@ -1280,6 +1304,11 @@ model OrdineCliente {
   /// Consegna pagata dal cliente: totale - prodotti, mai sotto zero.
   consegna     Float
   totale       Float
+  /// La COMMISSIONE D'INCASSO come la sa ORDERS (il proprietario, 26/08/2026):
+  /// 'shopify' = fee reale dalle transazioni, 'tariffa' = suo listino. La
+  /// Finanza la usa al posto della propria stima quando c'e' la firma.
+  commissioneIncassi Float?
+  commissioneDa      String  @default("")
   aggiornatoIl DateTime @updatedAt
 }
 

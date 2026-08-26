@@ -61,6 +61,26 @@
 **Branch di produzione:** `main` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
 
+### La commissione d'incasso nella Finanza è quella di ORDERS (26/08/2026, sera)
+
+La stima da tariffa dentro `margineFinale` valeva complessivamente **~30.314 €
+in più del vero** sui 10.053 ordini spinti: la fee reale di Shopify Payments
+(che Orders ora legge dalle transazioni: media 2,96%, con carte internazionali
+al 3,6% e cambio valuta) è più alta del listino piatto.
+
+- La cache `OrdineCliente` impara da Orders anche `commissioneIncassi` e
+  `commissioneDa` ('shopify' = fee reale, 'tariffa' = suo listino) — colonne
+  con ALTER IF NOT EXISTS, mappate nel ritiro di `spingiMargini`.
+- Nel `recap` (la formula unica della Finanza) la commissione firmata da Orders
+  **vince sulla stima**: il reale batte il listino, il listino batte la stima.
+  La tariffa locale resta solo per gli ordini che Orders non ha firmato.
+- ⚠️ Ricascati nella trappola del **backslash mangiato**: la patch ha perso i
+  `$` dei parametri SQL (`$1::text` → `1::text`, errore 42P18 su un parametro
+  ogni cinquecento righe). Riscritta la riga in concatenazione semplice, senza
+  dollari dentro i template.
+- Rilanciata la spinta completa (`tutti: true`): i `margineFinale` di tutto
+  l'archivio si ricalcolano con la commissione vera e ripartono verso Orders.
+
 ## 25/08/2026 (sera) — I margini vanno a Orders OGNI NOTTE, e sei schermate sistemate
 
 **Spinta completa eseguita** (`scripts/spingi-margini-a-orders.mjs --scrivi`):

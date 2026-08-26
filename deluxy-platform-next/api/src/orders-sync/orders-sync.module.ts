@@ -110,26 +110,28 @@ export class OrdersSyncService {
    * finirebbero dentro i 300 s della corsa notturna.
    */
   private async aggiornaOrdineCliente(
-    economia: { orderId: string; ordersId: string | null; brand: string | null; numero: string | null; prodotti: number; consegna: number; totale: number }[],
+    economia: { orderId: string; ordersId: string | null; brand: string | null; numero: string | null; prodotti: number; consegna: number; totale: number; commissioneIncassi: number | null; commissioneDa: string | null }[],
   ): Promise<number> {
     let scritti = 0;
     for (let i = 0; i < economia.length; i += 500) {
       const blocco = economia.slice(i, i + 500);
       // I cast servono: i parametri arrivano senza tipo e le colonne sono float8.
       const valori = blocco
-        .map((_, j) => `($${j * 7 + 1}::text, $${j * 7 + 2}::text, $${j * 7 + 3}::text, $${j * 7 + 4}::text, $${j * 7 + 5}::float8, $${j * 7 + 6}::float8, $${j * 7 + 7}::float8)`)
+        .map((_, j) => "(" + ["text","text","text","text","float8","float8","float8","float8","text"].map((tipo, k) => "$" + (j * 9 + k + 1) + "::" + tipo).join(", ") + ")")
         .join(',');
-      const parametri = blocco.flatMap((e) => [e.orderId, e.ordersId, e.brand, e.numero, e.prodotti, e.consegna, e.totale]);
+      const parametri = blocco.flatMap((e) => [e.orderId, e.ordersId, e.brand, e.numero, e.prodotti, e.consegna, e.totale, e.commissioneIncassi, e.commissioneDa ?? '']);
       // ⚠️ Schema QUALIFICATO: sul pooler (transaction mode) la search_path
       // non e' garantita e `"OrdineCliente"` nudo dava 42P01 in produzione.
       await this.prisma.$executeRawUnsafe(
-        `INSERT INTO platform."OrdineCliente" ("id", "orderId", "ordersId", "brand", "numero", "prodotti", "consegna", "totale", "aggiornatoIl")
-         SELECT gen_random_uuid(), v.o, v.oi, v.b, v.n, v.p, v.c, v.t, now()
-         FROM (VALUES ${valori}) AS v(o, oi, b, n, p, c, t)
+        `INSERT INTO platform."OrdineCliente" ("id", "orderId", "ordersId", "brand", "numero", "prodotti", "consegna", "totale", "commissioneIncassi", "commissioneDa", "aggiornatoIl")
+         SELECT gen_random_uuid(), v.o, v.oi, v.b, v.n, v.p, v.c, v.t, v.ci, v.cd, now()
+         FROM (VALUES ${valori}) AS v(o, oi, b, n, p, c, t, ci, cd)
          ON CONFLICT ("orderId") DO UPDATE
          SET "ordersId" = EXCLUDED."ordersId", "brand" = EXCLUDED."brand",
              "numero" = EXCLUDED."numero", "prodotti" = EXCLUDED."prodotti",
              "consegna" = EXCLUDED."consegna", "totale" = EXCLUDED."totale",
+             "commissioneIncassi" = EXCLUDED."commissioneIncassi",
+             "commissioneDa" = EXCLUDED."commissioneDa",
              "aggiornatoIl" = now()`,
         ...parametri,
       );
@@ -203,7 +205,7 @@ export class OrdersSyncService {
       };
     }>();
     const soloQuesti = opzioni.soloOrdiniShopify?.length ? new Set(opzioni.soloOrdiniShopify) : null;
-    const economia: { orderId: string; ordersId: string | null; brand: string | null; numero: string | null; prodotti: number; consegna: number; totale: number }[] = [];
+    const economia: { orderId: string; ordersId: string | null; brand: string | null; numero: string | null; prodotti: number; consegna: number; totale: number; commissioneIncassi: number | null; commissioneDa: string | null }[] = [];
     let pagina = 1;
     // Col filtro mirato (o con `tutti`) il tetto non c'entra: si scorre finché
     // non si trovano tutti quelli chiesti, o finiscono le pagine.
@@ -246,6 +248,11 @@ export class OrdersSyncService {
             prodotti,
             consegna: Math.max(0, Math.round((o.totale - prodotti) * 100) / 100),
             totale: o.totale,
+            // La commissione d'incasso del PROPRIETARIO (Orders): fee reale
+            // ('shopify') o suo listino ('tariffa'). La Finanza la preferisce
+            // alla propria stima — il reale batte il listino batte la stima.
+            commissioneIncassi: o.controllo?.commissioneIncassi ?? null,
+            commissioneDa: (o.controllo as { commissioneDa?: string | null } | null | undefined)?.commissioneDa ?? null,
           });
         }
         if (soloQuesti && !soloQuesti.has(k)) continue;
