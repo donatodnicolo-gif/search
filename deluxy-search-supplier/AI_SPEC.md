@@ -56,14 +56,17 @@ Oggetto JSON in KV alla chiave **`config:v1`**:
 | POST | `/api/webhook?brand=` | riceve ordine da Shopify (HTTPS diretto **o** envelope Google Pub/Sub) e lo salva in KV `order:{brand}:{num}` (TTL 60gg) |
 | GET | `/api/oauth?shop=&pass=` | avvia OAuth Shopify; il callback salva il token Admin del negozio in `config:v1.stores` |
 
-## 6. Negozi Shopify (3)
+## 6. Negozi Shopify (4)
 | brand (chiave app) | shop (.myshopify.com) | store handle admin |
 |---|---|---|
 | `deluxyflowers.com` | `fb72b1-2.myshopify.com` | fb72b1-2 |
 | `deluxy.it` | `deluxygifts.myshopify.com` | deluxygifts (negozio "DELUXY") |
 | `cakedesign.me` | `cakedesign-5921.myshopify.com` | cakedesign-5921 |
+| `business.deluxy.it` | `90bfeb-f5.myshopify.com` | 90bfeb-f5 (negozio "Business Deluxy", B2B) |
 
-- **Ordini NUOVI** → webhook nativo Shopify "Creazione ordine" (JSON) verso `.../api/webhook?brand=<brand>`. Già configurati sui 3 negozi.
+- **Ordini NUOVI** → webhook nativo Shopify "Creazione ordine" (JSON) verso `.../api/webhook?brand=<brand>`. Già configurati sui primi 3 negozi. ⚠️ **Su business.deluxy.it il webhook NON c'è ancora**: finché non si aggiunge, un ordine appena fatto non sta in KV e `/api/order` deve chiederlo all'Admin API — che funziona solo dopo l'OAuth (§8). Senza nessuno dei due, la risposta è «ordine non trovato», che sembra un ordine che non esiste.
+- ⚠️⚠️ **Il brand del quarto negozio non si deduce**: `api/oauth.js` ha la mappa `SHOP_BRAND`, e senza la riga per `90bfeb-f5.myshopify.com` il collegamento riesce lo stesso ma salva il negozio col nome tecnico (`90bfeb-f5.myshopify.com`) invece di `business.deluxy.it` — un nome che nessun'altra app pronuncia. La configurazione esisterebbe, e non combacerebbe.
+- ⚠️ **La categoria non si deduce dal marchio**, per questo negozio: vende fiori, torte e catering insieme. Il front-end accende **tutte e due** le categorie (fiorai + pasticcerie) e lascia scegliere all'operatore. Provata la deduzione dai titoli dei prodotti sui 250 veri del catalogo: 74% di risposte giuste, 50 dolci non riconosciuti (le torte si chiamano «Giulio», «Alexander»).
 - **Ordini PASSATI** → token Admin via OAuth (vedi §8), salvato in cassaforte; `/api/order` interroga l'Admin API.
 - ⚠️ **Il payload del webhook NON contiene le immagini dei prodotti.** Perciò `/api/order`, quando l'ordine arriva da KV **senza** `photoUrl`, lo **arricchisce** interrogando l'Admin API (`product { featuredImage { url } }`) e ri-salva l'ordine completo in KV (TTL 60gg). Se manca il token del negozio o il prodotto non ha immagine, risponde con `photoNote` che spiega il motivo (mostrato in `.deal`).
 

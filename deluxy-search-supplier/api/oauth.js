@@ -17,6 +17,13 @@ const SHOP_BRAND = {
   'fb72b1-2.myshopify.com': 'deluxyflowers.com',
   'deluxygifts.myshopify.com': 'deluxy.it',
   'cakedesign-5921.myshopify.com': 'cakedesign.me',
+  // Il negozio B2B (26/08/2026). Senza questa riga il collegamento riuscirebbe
+  // lo stesso, ma col brand sbagliato: sotto c'e' `SHOP_BRAND[shop] || shop`,
+  // quindi il negozio finirebbe in cassaforte come «90bfeb-f5.myshopify.com» —
+  // un nome che nessun'altra app pronuncia. Gli ordini di business
+  // risponderebbero «brand non trovato» e la causa sarebbe invisibile: la
+  // configurazione ESISTE, e' il nome a non combaciare.
+  '90bfeb-f5.myshopify.com': 'business.deluxy.it',
 };
 
 async function kv(cmd) {

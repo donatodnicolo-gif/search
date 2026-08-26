@@ -557,6 +557,7 @@
           <option value="deluxy.it">deluxy.it</option>
           <option value="deluxyflowers.com">deluxyflowers.com</option>
           <option value="cakedesign.me">cakedesign.me</option>
+          <option value="business.deluxy.it">business.deluxy.it</option>
         </select>
       </div>
       <div>
@@ -1085,7 +1086,7 @@ function eur(n){ return '€ ' + Number(n).toLocaleString('it-IT', {minimumFract
 
 /* ------------------ ACCESSO + CONFIG SUL SERVER ------------------ */
 const API_BASE = (location.hostname==='localhost'||location.hostname==='127.0.0.1') ? 'https://search-deluxy.vercel.app' : '';
-const KNOWN_BRANDS = ['deluxy.it','deluxyflowers.com','cakedesign.me'];
+const KNOWN_BRANDS = ['deluxy.it','deluxyflowers.com','cakedesign.me','business.deluxy.it'];
 let PASS = sessionStorage.getItem('pass') || '';
 let USER = sessionStorage.getItem('user') || '';
 let SESSION = sessionStorage.getItem('session') || '';   // handoff da un'altra app (link monouso)
@@ -2537,8 +2538,31 @@ function populateOrder(o){
     setTimeout(()=>{ const r=$('#results'); if(r) r.scrollIntoView({behavior:'smooth', block:'start'}); }, 350);
   }
 }
-// flowers/deluxy → Fiorai ; cake → Pasticcerie
+// flowers/deluxy → Fiorai ; cake → Pasticcerie ; business → tutte e due
+//
+// ⚠️⚠️ Col negozio B2B il marchio non basta piu': business.deluxy.it vende fiori,
+// torte e catering dallo stesso catalogo, quindi dedurre la categoria dal brand
+// vorrebbe dire cercare un FIORAIO per una torta — e l'operatore se ne accorge
+// solo leggendo i risultati, se se ne accorge.
+//
+// ⚠️⚠️ E DAL TITOLO DEL PRODOTTO NON SI DEDUCE. Provata la regola ovvia —
+// cercare «torta», «dolci», «macaron» nei titoli — sui 250 prodotti veri del
+// catalogo business: **74% di risposte giuste, 50 dolci non riconosciuti**. Le
+// torte si chiamano «Giulio», «Alexander», «Chibouste Mele»: nel nome la
+// categoria non c'e'. E dall'altro lato «Bouquet - Dolce Vita» e «MAXI Bouquet
+// Dolce Autunno» finivano fra i dolci. Una regola che sbaglia una volta su
+// quattro, applicata in silenzio, manda l'operatore dal fioraio per una torta.
+//
+// Quindi per il negozio B2B non si sceglie: si accendono TUTTE E DUE le
+// categorie. La ricerca gia' le gestisce insieme (il ciclo "for (const cat of
+// cats)"), e l'operatore spegne quella che non serve con un clic — partendo da
+// quello che vede nell'ordine, che e' l'unico che lo sa davvero.
 function setCategoryForBrand(brand){
+  if (brand === 'business.deluxy.it') {
+    cats.clear(); cats.add('fioraio'); cats.add('pasticceria');
+    document.querySelectorAll('.catbtns .chip').forEach(ch=> ch.classList.add('active'));
+    return;
+  }
   const want = (brand === 'cakedesign.me') ? 'pasticceria' : 'fioraio';
   cats.clear(); cats.add(want);
   document.querySelectorAll('.catbtns .chip').forEach(ch=> ch.classList.toggle('active', ch.dataset.cat===want));
