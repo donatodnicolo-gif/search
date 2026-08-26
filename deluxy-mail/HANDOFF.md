@@ -278,10 +278,31 @@ qui sotto sono di ieri):
 | Iscrizioni alle notifiche push | 🔴 **1 sola**, su 10 utenti |
 | Chiavi delle app Deluxy | tutte e 7 presenti (anagrafiche, calendario, commerciale, finance, fornitori, scripts, tasks) |
 
-⚠️ Due righe `Account` hanno la **stessa casella `cs@deluxy.it`** con lo stesso intervallo
-di UID (16917..25821), su due utenti diversi: è il funzionamento previsto del multi-utente
-(ognuno ha la sua copia della casella condivisa), ma vuol dire che quella posta viene
-scaricata e analizzata **due volte** a ogni giro. Da confermare con l'utente se è voluto.
+✅ **RISOLTO il 26/08 con l'utente: è VOLUTO.** Due righe `Account` per `cs@deluxy.it`,
+stesso intervallo di UID, su **due utenti di login diversi** — l'utente `cs@deluxy.it`
+(Customer Service) e l'admin `nicolo.donato@deluxy.it`. ⚠️ **Non c'entrano i computer**:
+un `Account` è una connessione IMAP salvata sul server e legata a un **utente**, non a un
+dispositivo — lo stesso utente da due PC usa **una riga sola**. Sono due perché sono due
+persone che devono vedere quella casella, ed è l'unico modo che il multi-utente ha di
+farlo (ogni tabella è filtrata per `utenteId`).
+
+**Misurato il 26/08** (perché non si tolga «per pulizia»): la copia di cs@ ha 6.473 mail,
+10 attività, 35 smistate, 237 non lette; quella di Nicolò 5.585 mail, **1.643 smistate in
+sezione**, 28 archiviate, 7 non lette. **5.310 sono la stessa mail in entrambe.** Togliere
+una delle due cancellerebbe lavoro vero (le 1.643 di Nicolò), non un doppione.
+
+⚠️ **Tre conseguenze da tenere a mente:**
+1. **Le azioni che toccano il SERVER sono condivise**: dal 5/08 cestino e spam fanno un
+   IMAP MOVE sulla casella vera. Se uno dei due cestina, la mail si sposta per **entrambi**
+   — ma la copia dell'altro resta «in posta» nel database, e aprendola l'impaginato e gli
+   allegati si cercano in INBOX mentre la mail sta nel Cestino. Le due copie hanno già
+   8 e 5 mail cestinate: il caso non è teorico.
+2. **Il lavoro di lettura è doppio**: la casella più grande dell'azienda viene scaricata
+   due volte a ogni giro del cron — e il cron è quello che va in **timeout a 300s**
+   (punto aperto 4). È il primo posto dove guardare se si vuole recuperare fiato.
+3. **Lo spazio è doppio** per 5.310 mail, e se si accendesse l'AI+ su quella casella
+   anche la spesa del modello sarebbe doppia (oggi `analizzatoIl` è nullo su entrambe:
+   nessuna analisi in corso lì).
 
 - ⚠️ **Il push non pubblica**: il deploy è manuale —
   `npx vercel --prod --cwd C:/Users/nicol/scoutwt/deluxy-mail`, da lanciare come
