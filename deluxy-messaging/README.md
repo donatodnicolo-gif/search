@@ -500,6 +500,31 @@ una funzione sola): erano due copie diverse, e quella della scheda **perdeva per
 strada il fornitore e il costo concordato** — cioè proprio chi va pagato e
 quanto, che dalla scheda si ribattevano a mano.
 
+## Correggere una riga del diario
+
+Ogni riga — capofila o **seguito** — ha il bottone **«Modifica»** accanto a
+«Cancella». Il campo prende il posto della riga; **Invio** salva, **Esc**
+annulla, e siccome è lo stesso campo del diario **«/» apre il calendario** anche
+mentre si corregge.
+
+⚠️ Prima una riga sbagliata si poteva solo **cancellare e riscrivere**: per un
+refuso si buttavano via chi l'aveva scritta, quando, il filo dei suoi seguiti e
+la spunta di chi l'aveva già chiusa.
+
+⚠️⚠️ **Il numero d'ordine in testa.** Aprendo la correzione, il numero torna in
+testa al testo:
+- se la riga **è già legata a un ordine**, cambiare quel numero la **sposta** e
+  toglierlo la **stacca**;
+- se la riga **non è legata a nessun ordine**, un numero in testa resta **testo**
+  e non lega niente. «100 rose da consegnare» comincia con tre cifre, e legarla
+  all'ordine #100 la farebbe sparire dalla vista in silenzio mentre si stava solo
+  correggendo un refuso.
+
+Sotto il campo c'è scritto quale dei due casi è.
+
+⚠️ **Un campo vuoto non si salva**: per far sparire una riga c'è «Cancella», che
+chiede conferma.
+
 ## «/» apre il calendario dentro la riga
 
 Nei campi del diario — quello principale, quello del **seguito** e quello dentro

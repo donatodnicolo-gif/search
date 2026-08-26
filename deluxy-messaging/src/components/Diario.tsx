@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { linkOrdine } from '@/lib/link-ordine'
+import { correggiRiga } from '@/lib/diario'
 import { CampoRigaDiario } from './CampoRigaDiario'
 
 // Il diario di lavoro: le righe che ci si scrive per ricordare cosa c'è da fare
@@ -89,6 +90,17 @@ export function Diario() {
   const [ordiniAperti, setOrdiniAperti] = useState<OrdineAperto[]>([])
   const [soloScoperti, setSoloScoperti] = useState(false)
   const [caricato, setCaricato] = useState(false)
+  // ⚠️⚠️ QUALE RIGA SI STA CORREGGENDO, e cosa c'è scritto nel campo mentre la
+  // si corregge. Chiesto dall'utente il 26/08/2026: «consenti la modifica di
+  // singole note». Prima una riga sbagliata si poteva solo **cancellare e
+  // riscrivere** — perdendo chi l'aveva scritta, quando, il filo dei suoi
+  // seguiti e la spunta di chi l'aveva già chiusa. Per un refuso.
+  //
+  // ⚠️ La bozza sta in una mappa per id e non in una variabile sola: aprendo una
+  // seconda riga in correzione, con una variabile sola il testo della prima
+  // sparirebbe senza dire niente.
+  const [modificoId, setModificoId] = useState('')
+  const [bozza, setBozza] = useState<Record<string, string>>({})
   const [errore, setErrore] = useState('')
 
   const carica = useCallback(async () => {
@@ -177,6 +189,67 @@ export function Diario() {
       body: JSON.stringify({ fatta }),
     })
     await carica()
+  }
+
+  function apriModifica(n: NotaDiario) {
+    // ⚠️ Il numero d'ordine torna IN TESTA al testo, com'era stato scritto: è
+    // così che si corregge una riga sbagliata di ordine — riscrivendo il numero
+    // davanti. Senza, il numero sarebbe l'unica cosa della riga che non si può
+    // toccare, e per cambiarlo bisognerebbe cancellare e rifare.
+    setBozza((b) => ({
+      ...b,
+      [n.id]: n.ordineNumero ? `${n.ordineNumero.replace('#', '')} ${n.testo}` : n.testo,
+    }))
+    setModificoId(n.id)
+  }
+
+  async function salvaModifica(n: NotaDiario) {
+    const grezzo = (bozza[n.id] ?? '').trim()
+    // ⚠️ Vuoto non si salva: la rotta lo ignorerebbe e la riga tornerebbe com'era
+    // — cioè sembrerebbe che il salvataggio non abbia funzionato. Cancellare una
+    // riga si fa col suo bottone, che chiede conferma.
+    if (!grezzo) return
+    setErrore('')
+    // ── IL NUMERO IN TESTA, MA SOLO SE CE L'AVEVA GIÀ ──
+    //
+    // ⚠️⚠️ Correggendo, il numero in testa vale come ordine **solo per le righe
+    // che un ordine ce l'hanno già** — cioè quelle in cui il numero l'ha messo
+    // lì `apriModifica`. Su quelle, cambiarlo sposta la riga e toglierlo la
+    // stacca: due gesti che prima si potevano fare solo cancellando e
+    // riscrivendo.
+    //
+    // ⚠️⚠️ Sulle righe SENZA ordine, invece, il numero in testa resta TESTO. È il
+    // caso che questa regola esiste per non rovinare: «100 rose da consegnare»
+    // comincia con tre cifre, e trattarle come un numero d'ordine farebbe
+    // sparire la riga dentro l'ordine #100 — **in silenzio**, mentre chi
+    // scriveva stava solo correggendo un refuso più avanti. Quando la riga
+    // NASCE quella scommessa si può fare (la si vede subito, ed è il modo in cui
+    // si scrive sul quaderno); su una riga già esistente e già letta da altri,
+    // no. Fra due sbagli si sceglie quello che si VEDE: chi voleva legarla e non
+    // ci riesce se ne accorge subito, perché il numero resta scritto e il badge
+    // dell'ordine non compare.
+    // ⚠️ La regola sta in libreria (`correggiRiga`) perché è la parte che si
+    // può sbagliare in silenzio: si prova con dei casi, senza aprire un browser.
+    // ⚠️ `ordineNumero: ''` è voluto e vuol dire «staccala»: non mandarlo
+    // affatto lascerebbe la riga attaccata a un ordine che dal testo è appena
+    // sparito.
+    const dati = correggiRiga(grezzo, !!n.ordineNumero)
+    try {
+      const res = await fetch(`/api/diario/${n.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dati),
+      })
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { errore?: string }
+        setErrore(d.errore || 'Modifica non salvata.')
+        return
+      }
+      setModificoId('')
+      await carica()
+    } catch {
+      setErrore('Modifica non salvata: problema di rete.')
+    }
   }
 
   async function cancella(n: NotaDiario) {
@@ -298,7 +371,12 @@ export function Diario() {
                   aria-label={n.fatta ? 'Riapri' : 'Segna fatta'}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div>
+                  {/* ⚠️ Mentre si corregge, la riga vecchia NON resta a schermo:
+                      si sta cambiando quella frase, e vederla due volte — vecchia
+                      sopra e nuova nel campo — fa dubitare di quale delle due
+                      varrà. Anche il numero d'ordine sparisce da qui, perché in
+                      correzione sta in testa al campo. */}
+                  <div style={{ display: modificoId === n.id ? 'none' : undefined }}>
                     {/* Il numero è un link: da una riga del diario si arriva
                         all'ordine, che è quello che si vuole fare dopo averla
                         letta. */}
@@ -326,6 +404,45 @@ export function Diario() {
                     ) : null}
                     <span>{n.testo}</span>
                   </div>
+                  {/* ⚠️ Il campo di correzione prende il posto della riga, non
+                      si apre sotto: si sta cambiando QUELLA frase, e vederla
+                      due volte — vecchia sopra e nuova sotto — fa dubitare di
+                      quale delle due varrà. */}
+                  {modificoId === n.id ? (
+                    <div className="modifica-riga">
+                      <CampoRigaDiario
+                        value={bozza[n.id] ?? ''}
+                        onChange={(v) => setBozza((b) => ({ ...b, [n.id]: v }))}
+                        onInvio={() => void salvaModifica(n)}
+                        onEsc={() => setModificoId('')}
+                        placeholder="Correggi la riga · «/» per il calendario"
+                        ariaLabel="Correggi questa nota"
+                        autoFocus
+                      />
+                      <button
+                        className="bottone mini"
+                        onClick={() => void salvaModifica(n)}
+                        disabled={!(bozza[n.id] ?? '').trim()}
+                      >
+                        Salva
+                      </button>
+                      <button className="bottone secondario mini" onClick={() => setModificoId('')}>
+                        Annulla
+                      </button>
+                    </div>
+                  ) : null}
+                  {/* ⚠️ Si dice a schermo, non nel codice: il numero in testa non
+                      è testo, è l'ordine su cui sta la riga. Chi lo cancella la
+                      stacca dall'ordine, chi ne scrive un altro la sposta — e
+                      senza questa riga se ne accorgerebbe solo dopo. */}
+                  {modificoId === n.id ? (
+                    <div className="cella-sub" style={{ marginTop: 4 }}>
+                      {n.ordineNumero
+                        ? "Il numero in testa è l'ordine su cui sta la riga: cambialo per spostarla, toglilo per staccarla."
+                        : 'Questa riga non è legata a un ordine, e un numero in testa resta testo.'}{' '}
+                      Invio salva, Esc annulla.
+                    </div>
+                  ) : null}
                   <div className="cella-sub">
                     {[
                       n.autoreNome ? `scritta da ${n.autoreNome}` : '',
@@ -353,7 +470,34 @@ export function Diario() {
                         aria-label={s.fatta ? 'Riapri il seguito' : 'Segna fatto il seguito'}
                       />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div>{s.testo}</div>
+                        {modificoId === s.id ? (
+                          <div className="modifica-riga" style={{ marginTop: 0 }}>
+                            <CampoRigaDiario
+                              value={bozza[s.id] ?? ''}
+                              onChange={(v) => setBozza((b) => ({ ...b, [s.id]: v }))}
+                              onInvio={() => void salvaModifica(s)}
+                              onEsc={() => setModificoId('')}
+                              placeholder="Correggi il seguito · «/» per il calendario"
+                              ariaLabel="Correggi questo seguito"
+                              autoFocus
+                            />
+                            <button
+                              className="bottone mini"
+                              onClick={() => void salvaModifica(s)}
+                              disabled={!(bozza[s.id] ?? '').trim()}
+                            >
+                              Salva
+                            </button>
+                            <button
+                              className="bottone secondario mini"
+                              onClick={() => setModificoId('')}
+                            >
+                              Annulla
+                            </button>
+                          </div>
+                        ) : (
+                          <div>{s.testo}</div>
+                        )}
                         <div className="cella-sub">
                           {[
                             s.autoreNome ? `scritta da ${s.autoreNome}` : '',
@@ -364,6 +508,13 @@ export function Diario() {
                             .join(' · ')}
                         </div>
                       </div>
+                      <button
+                        className="bottone secondario mini"
+                        onClick={() => apriModifica(s)}
+                        title="Correggi il testo di questo seguito"
+                      >
+                        Modifica
+                      </button>
                       <button className="bottone secondario mini" onClick={() => void cancella(s)}>
                         Cancella
                       </button>
@@ -413,9 +564,22 @@ export function Diario() {
                     </button>
                   )}
                 </div>
-                <button className="bottone secondario mini" onClick={() => void cancella(n)}>
-                  Cancella
-                </button>
+                {/* ⚠️ Correggere prima di cancellare: nove volte su dieci quello
+                    che serve è cambiare una parola, e finché c'era solo
+                    «Cancella» quello era l'unico modo — buttando via autore,
+                    data, filo dei seguiti e spunta. */}
+                <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                  <button
+                    className="bottone secondario mini"
+                    onClick={() => apriModifica(n)}
+                    title="Correggi il testo di questa riga"
+                  >
+                    Modifica
+                  </button>
+                  <button className="bottone secondario mini" onClick={() => void cancella(n)}>
+                    Cancella
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

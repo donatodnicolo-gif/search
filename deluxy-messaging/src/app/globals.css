@@ -5391,3 +5391,22 @@ td .azioni-ordine {
   color: var(--text-tertiary);
   text-align: center;
 }
+
+
+/* ── LA RIGA DEL DIARIO MENTRE LA SI CORREGGE ──
+   Campo + «Salva» + «Annulla». ⚠️ `flex-wrap`: la riga di un SEGUITO è già
+   rientrata e porta i suoi due bottoni a destra — su uno schermo stretto, senza
+   andare a capo, il campo si schiaccerebbe fino a non poterci più leggere quello
+   che si sta correggendo. */
+.modifica-riga {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 6px;
+}
+/* Il campo non scende sotto una larghezza in cui la frase si legge: sotto, va a
+   capo lui e i bottoni scendono sotto. */
+.modifica-riga > div:first-child {
+  min-width: 220px;
+}

@@ -1,5 +1,80 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (17) — le righe del diario si CORREGGONO
+
+Chiesto dall'utente: «consenti la modifica di singole note».
+
+⚠️ Prima una riga sbagliata si poteva solo **cancellare e riscrivere**: per un
+refuso si buttavano via **chi l'aveva scritta, quando, il filo dei suoi seguiti e
+la spunta di chi l'aveva già chiusa**. La rotta `PATCH /api/diario/[id]`
+accettava già `testo` e `ordineNumero`: mancava solo il modo di arrivarci.
+
+**Adesso**: bottone **«Modifica»** accanto a «Cancella», su **ogni riga** — sia
+le capofila sia i **seguiti**. Il campo prende il posto della riga (non si apre
+sotto: vedere la frase vecchia sopra e la nuova sotto fa dubitare di quale delle
+due varrà), con **Salva** e **Annulla**. Invio salva, Esc annulla. È lo stesso
+campo del diario, quindi **«/» apre il calendario** anche mentre si corregge.
+
+### La decisione difficile: il numero in testa
+
+Aprendo la correzione, il numero d'ordine **torna in testa al testo** — altrimenti
+sarebbe l'unica cosa della riga che non si può toccare. Ma trattarlo sempre da
+numero d'ordine sarebbe stato un difetto silenzioso.
+
+⚠️⚠️ **Il numero in testa comanda SOLO sulle righe che un ordine ce l'hanno già.**
+Lì, cambiarlo **sposta** la riga e toglierlo la **stacca** (`ordineNumero: ''`,
+mandato apposta: non mandarlo lascerebbe la riga attaccata a un ordine che dal
+testo è appena sparito).
+
+⚠️⚠️ **Sulle righe SENZA ordine il numero in testa resta TESTO.** È il caso che
+la regola esiste per non rovinare: **«100 rose da consegnare»** comincia con tre
+cifre, e trattarle da numero d'ordine farebbe **sparire la riga dentro l'ordine
+#100, in silenzio**, mentre chi scriveva stava correggendo un refuso più avanti.
+Quando la riga **nasce** quella scommessa si può fare — la si vede subito, ed è
+il modo in cui si scrive sul quaderno; su una riga già esistente e già letta da
+altri, no. **Fra due sbagli si sceglie quello che si VEDE**: chi voleva legarla e
+non ci riesce se ne accorge subito, perché il numero resta scritto e il badge
+dell'ordine non compare.
+
+⚠️ E **lo dice a schermo**, sotto il campo, con due frasi diverse a seconda che
+la riga un ordine ce l'abbia o no. Una regola che vive solo nel codice non è una
+regola: è una sorpresa.
+
+⚠️ La regola sta in **`correggiRiga()`** (`src/lib/diario.ts`, pura) e non dentro
+il componente: è la parte che si può sbagliare in silenzio, e da lì si prova con
+dei casi.
+
+⚠️ **Vuoto non si salva**: la rotta ignora un testo vuoto, quindi la riga
+tornerebbe com'era — cioè sembrerebbe che il salvataggio non abbia funzionato.
+Il bottone «Salva» è spento finché il campo è vuoto. Per far sparire una riga
+c'è «Cancella», che chiede conferma.
+
+⚠️ La bozza sta in una **mappa per id**, non in una variabile sola: aprendo una
+seconda riga in correzione, con una variabile sola il testo della prima sparirebbe
+senza dire niente.
+
+⚠️ CSS `.modifica-riga` con **`flex-wrap`**: la riga di un seguito è già
+rientrata e porta i suoi bottoni a destra — su uno schermo stretto, senza andare
+a capo, il campo si schiaccerebbe fino a non far più leggere quello che si sta
+correggendo.
+
+### Verifica
+
+`npx tsx scripts/prova-correggi-riga.mts` — **12 prove, tutte passate**. Le due
+che contano: **«100 rose da consegnare» su una riga senza ordine resta testo** (e
+non diventa l'ordine #100), e su una riga con ordine **togliere il numero
+restituisce `ordineNumero: ''`**, cioè la stacca davvero. Più: lo stesso numero
+pulisce il testo senza spostare niente, un numero diverso sposta, il cancelletto
+scritto a mano funziona uguale, e una riga fatta **solo** dal numero non resta
+vuota.
+
+`npx tsc --noEmit` esito 0, `npm run build` esito 0.
+
+⚠️ **Quello che NON ho potuto provare**: il giro completo a schermo. La pagina
+`/diario` sta dietro al login e da qui non ci si entra, quindi il salvataggio
+vero — clic su «Modifica», correggo, «Salva», la riga si aggiorna — **lo deve
+guardare l'utente**. Le regole sotto sono provate, il giro no.
+
 ## 26/08/2026 (16) — «/» apre il calendario dentro la riga del diario
 
 Chiesto dall'utente, con la barra già scritta nel campo del diario: «con lo "/"
