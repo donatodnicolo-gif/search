@@ -209,6 +209,27 @@ export type SostituzioneConsegne = {
  * restituisce **chi ha tolto e per quanto**, e le pagine lo scrivono, invece di
  * far sparire un costo in silenzio.
  */
+/**
+ * I VALET CHE SONO UNA PERSONA DEL ROSTER SOTTO UN ALTRO NOME.
+ *
+ * ⭐ **Confermato dall'utente, non dedotto** (27/08/2026) — stessa scelta e
+ * stessa ragione dell'abbinamento fra i brand di Marketing e le maison: qui
+ * nessuna regola automatica può arrivarci, e indovinare vorrebbe dire togliere
+ * dal conto il costo di una persona che non è quella.
+ *
+ * Il caso: a libro paga la persona si chiama **«Nicolò Donato»**, come valet è
+ * registrata **«ADonato Daniele»**. Nessun confronto per nome le mette insieme
+ * — «nicolo» non compare in «adonato daniele» — quindi le sue consegne
+ * sarebbero contate **oltre** al suo stipendio.
+ *
+ * Chiave: il nome del valet come lo scrive la piattaforma (senza distinzione di
+ * maiuscole). Valore: il nome nel roster degli stipendi. Aggiungere una riga
+ * qui è una **decisione**, e va presa con chi conosce le persone.
+ */
+export const VALET_A_LIBRO_PAGA: Record<string, string> = {
+  "adonato daniele": "Nicolò Donato",
+};
+
 export function valetGiaNelPersonale(
   costiConsegne: CostiConsegne,
   nomiRoster: string[]
@@ -220,10 +241,16 @@ export function valetGiaNelPersonale(
     .map((n) => norm(n).split(" ").filter((p) => p.length >= 3))
     .filter((p) => p.length >= 2);
 
+  // I nomi confermati a mano, normalizzati una volta sola.
+  const espliciti = new Set(Object.keys(VALET_A_LIBRO_PAGA).map((k) => norm(k)));
+
   const out: { id: string; nome: string; costo: number; mesi: number[] }[] = [];
   for (const v of costiConsegne.perValet) {
     const nv = norm(v.nome);
-    if (!pezziRoster.some((pezzi) => pezzi.every((p) => nv.includes(p)))) continue;
+    // Due strade: il nome che combacia col roster, oppure l'abbinamento
+    // dichiarato a mano. La seconda esiste perché la prima non può arrivarci.
+    const perNome = pezziRoster.some((pezzi) => pezzi.every((p) => nv.includes(p)));
+    if (!perNome && !espliciti.has(nv)) continue;
     const mesi = Array(12).fill(0) as number[];
     for (const m of v.mesi) if (m.mese >= 1 && m.mese <= 12) mesi[m.mese - 1] = m.costo;
     out.push({ id: v.id, nome: v.nome, costo: v.costo, mesi });
