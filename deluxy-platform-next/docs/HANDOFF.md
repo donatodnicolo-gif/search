@@ -305,9 +305,15 @@ Il 12731 passa da **−4,78 €** (venduto 35 = concordato Cannavo) a ricavo ver
   **BusinessSales**, fuori dal registro di Orders (45 ordini di vendita così):
   niente numero in cache → si mostrava il gid. Ora si ripiega su saleId/DDT
   della consegna se corto (≤ 8 caratteri): la 62955 esce come «1054».
-- **Corporate nei corrispettivi: MISURATO, è già fuori** — i servizi VENDITA
-  sono solo i cinque «Vendita*», zero consegne di vendita con servizio o
-  partner corporate. Se l'utente lo vede ancora, serve lo screenshot.
+- **Corporate nei corrispettivi — il criterio VERO (chiarito dall'utente)**:
+  non il servizio «Corporate» (già fuori per modello) né il canale Business
+  (che RESTA dentro), ma le vendite che sono la **gamba d'acquisto di un
+  ordine corporate**: la consegna corrispondente (`legacyCorrespondDeliveryId`)
+  è un servizio CORPORATE — es. 62307 «Vendita Deluxy» (brioches da MALI'A)
+  che corrisponde alla 62306 «ORDINE BRIOCHE» per Casati 14. Misurate: **110
+  consegne per 5.887,37 €**, legame a senso unico. Escluse per elenco di id
+  (`idVenditeDaCorporate`, query raw: il legame è per legacyId, non una
+  relazione), e DICHIARATE nell'avviso d'ambito (`escluseCorporate`).
 - **Indirizzi esteri: si possono inserire** — campo libero; senza provincia
   riconosciuta il form AVVISA e mostra tutti i partner invece di bloccare.
 - ⚠️ **Caso 62646 («4 Cioccolati» taglia 6 a 40 €)**: il prezzo partner NON

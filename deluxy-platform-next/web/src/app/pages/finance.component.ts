@@ -77,6 +77,8 @@ interface Summary {
   brands?: string[];
   /** Consegne a buon fine del periodo che non sono vendite: restano fuori. */
   excluded: number;
+  /** Vendite del canale corporate (Business), fuori dai corrispettivi D2C. */
+  escluseCorporate?: number;
   /** Righe col prezzo sbagliato all'origine. */
   anomalie: number;
   /** Quando la ricerca non trova niente: dove sta quello che si cercava. */
@@ -205,6 +207,7 @@ interface Summary {
       <p class="avviso ambito">
         {{ 'finance.onlySales' | translate }}
         @if (s.excluded > 0) { {{ 'finance.excluded' | translate:{ n: s.excluded } }} }
+        @if ((s.escluseCorporate ?? 0) > 0) { {{ 'finance.escluseCorporate' | translate:{ n: s.escluseCorporate } }} }
       </p>
     }
     <!-- Un ordine si paga una volta: se ne risultano due, la regola non e' stata

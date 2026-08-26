@@ -394,6 +394,29 @@ export class FinanceService {
   }
 
   /**
+   * Le vendite che sono la GAMBA D'ACQUISTO di un ordine corporate: la loro
+   * consegna corrispondente (`legacyCorrespondDeliveryId`) e' un servizio
+   * CORPORATE — es. 62307 «Vendita Deluxy» (brioches da MALI'A) che
+   * corrisponde alla 62306 «ORDINE BRIOCHE» per Casati 14. Non sono
+   * corrispettivi D2C e l'utente le vuole FUORI (26/08). Misurate: 110
+   * consegne per 5.887,37 € di valore prodotti. Il canale Business
+   * (`shop = BusinessSales`) invece RESTA dentro, sempre per sua decisione.
+   *
+   * ⚠️ Il legame e' per legacyId, non una relazione Prisma: gli id si
+   * raccolgono con una query e si escludono per elenco.
+   */
+  private async idVenditeDaCorporate(): Promise<string[]> {
+    const righe = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT d."id"
+      FROM "Delivery" d
+      JOIN "ServiceType" sv ON sv."id" = d."serviceTypeId" AND sv."pricingModel" = 'VENDITA'
+      JOIN "Delivery" c ON c."legacyId" = d."legacyCorrespondDeliveryId" AND c."deletedAt" IS NULL
+      JOIN "ServiceType" sc ON sc."id" = c."serviceTypeId" AND sc."pricingModel" = 'CORPORATE'
+      WHERE d."deletedAt" IS NULL`;
+    return righe.map((r) => r.id);
+  }
+
+  /**
    * Tiene gli ordini di una fascia di margine.
    *
    * Una fascia che non esiste non filtra niente: meglio mostrare tutto che
@@ -409,10 +432,14 @@ export class FinanceService {
     to?: string,
     opzioni: { partnerId?: string; cerca?: string; limite?: number; soloVendite?: boolean; margine?: string; brand?: string } = {},
   ): Promise<CorrispettivoRow[]> {
+    // Le gambe d'acquisto degli ordini corporate restano fuori (vedi
+    // idVenditeDaCorporate): si escludono per elenco di id.
+    const corporate = (opzioni.soloVendite ?? true) ? await this.idVenditeDaCorporate() : [];
     const deliveries = await this.prisma.delivery.findMany({
       where: {
         deletedAt: null,
         status: { notIn: STATI_ESCLUSI },
+        ...(corporate.length ? { id: { notIn: corporate } } : {}),
         ...this.dateWhere(from, to),
         ...this.ambito(opzioni.soloVendite ?? true),
         ...this.filtri(opzioni),
@@ -655,6 +682,19 @@ export class FinanceService {
           },
         })
       : 0;
+    // Le gambe d'acquisto degli ordini corporate tolte dall'ambito: si contano
+    // e si dichiarano, o l'esclusione sembrerebbe un buco nei dati.
+    const idCorporate = soloVendite ? await this.idVenditeDaCorporate() : [];
+    const escluseCorporate = idCorporate.length
+      ? await this.prisma.delivery.count({
+          where: {
+            id: { in: idCorporate },
+            status: { notIn: STATI_ESCLUSI },
+            ...this.dateWhere(from, to),
+            ...this.filtri(opzioni),
+          },
+        })
+      : 0;
     // ⚠️ «Nessuna vendita nel periodo» non e' una risposta quando la vendita
     // ESISTE. Cercando 12792 la pagina diceva cosi', ma quell'ordine ha tre
     // consegne del 25/08, tutte di vendita e tutte nel periodo: erano
@@ -689,6 +729,8 @@ export class FinanceService {
       deliveries: ordini.reduce((s, o) => s + o.consegne, 0),
       /** Consegne a buon fine del periodo che NON sono vendite (fuori ambito). */
       excluded: escluse,
+      /** Vendite del canale corporate (Business), fuori dai corrispettivi D2C. */
+      escluseCorporate,
       /** Righe non attendibili: si contano, non si nascondono. */
       anomalie: rows.filter((r) => r.anomalia).length,
       /** Se la ricerca non trova niente: dove sta quello che si cercava. */

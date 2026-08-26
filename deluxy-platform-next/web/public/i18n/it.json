@@ -883,6 +883,7 @@
     },
     "brand": "Brand",
     "allBrands": "Tutti i brand",
+    "escluseCorporate": "· {{n}} vendite legate a servizi corporate restano fuori.",
     "from": "Dal",
     "to": "Al",
     "export": "Esporta",
