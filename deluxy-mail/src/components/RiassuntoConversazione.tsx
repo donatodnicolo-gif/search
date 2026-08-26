@@ -3,6 +3,12 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { riassumiConversazione } from '@/lib/actions'
+import { ChiediConversazione } from './ChiediConversazione'
+
+/** Le domande che si fanno DOPO aver letto un riassunto. Sono generiche
+ *  apposta: valgono su qualunque scambio, e servono a far partire il gesto —
+ *  la domanda vera la si scrive dopo, quando si è visto che risponde. */
+const SUGGERIMENTI = ['Sai per quando?', 'Che prezzo hanno fatto?', 'Cosa aspettano da me?']
 
 // I riassunti nuovi hanno msgId (per il link "apri") e, in sospeso, "chi".
 // I vecchi possono avere inSospeso come semplici stringhe: si gestiscono entrambi.
@@ -210,6 +216,24 @@ export function RiassuntoConversazione({
               conversazione ne ha {messaggiOra}. Ripremi un livello qui sopra per rifarla.
             </div>
           )}
+
+          {/* ⚠️ La domanda nasce QUI, non in fondo alla pagina.
+              Un riassunto risponde a «di cosa si parla» e apre subito la
+              domanda dopo — «sai per quando?», «che prezzo hanno fatto?» — e
+              finché per farla bisognava scorrere fino in fondo alla mail (dove
+              «Chiedi a questa conversazione» c'era già), quella domanda
+              finiva rileggendosi le nove mail a mano.
+              ⚠️ Non è un doppione da togliere di là: là si arriva dopo aver
+              letto la mail, qui dopo aver letto il quadro — sono due momenti
+              diversi ([[feedback-non-togliere-azioni]]). */}
+          <div style={{ marginTop: 14, borderTop: '1px solid var(--hairline)', paddingTop: 12 }}>
+            <ChiediConversazione
+              messaggioId={messaggioId}
+              quante={messaggiOra ?? dati.messaggiVisti}
+              invito="Chiedi qualcosa su questo scambio — es. «Sai per quando?»"
+              suggerimenti={SUGGERIMENTI}
+            />
+          </div>
 
           <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>
             Su {dati.messaggiVisti} messaggi · {dati.partecipanti}{' '}

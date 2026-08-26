@@ -606,8 +606,14 @@ la ritrovi se decidi di pensarci dopo.
 > «shopify» ma non è di Shopify, ed è esattamente quello che sfruttano. La posta vera di
 > Shopify (`shopify.com`, `mail.shopify.com`) non viene toccata.
 
-**Chiedi a questa conversazione.** In fondo alla mail c'è **«AI Chiedi a questa
-conversazione»**: scrivi una domanda a parole — *«ci hanno mandato l'IBAN?»*, *«hanno
+**Chiedi a questa conversazione.** Si trova in due punti, perché la domanda nasce in due
+momenti: **in fondo alla mail** («AI Chiedi a questa conversazione»), quando hai letto il
+messaggio e ti accorgi che ti manca un dato; e **sotto il riassunto** («Chiedi qualcosa su
+questo scambio»), quando hai letto il quadro e vuoi il pezzo che il riassunto non dice —
+lì trovi anche tre domande pronte da premere: *«Sai per quando?»*, *«Che prezzo hanno
+fatto?»*, *«Cosa aspettano da me?»*.
+
+Scrivi una domanda a parole — *«ci hanno mandato l'IBAN?»*, *«hanno
 confermato per giovedì?»*, *«che prezzo avevano fatto a marzo?»* — e la risposta arriva
 lì, non in una bozza da mandare a qualcuno. Cerca **solo dentro quello scambio** e ti dice
 sempre **da dove viene**: le parole esatte della mail e il link per aprirla e controllare.

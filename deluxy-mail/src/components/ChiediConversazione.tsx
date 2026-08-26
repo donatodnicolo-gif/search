@@ -29,10 +29,20 @@ type Esito = {
 export function ChiediConversazione({
   messaggioId,
   quante,
+  invito,
+  suggerimenti,
 }: {
   messaggioId: string
   /** Quante mail ha la conversazione: cambia solo le parole. */
   quante: number
+  /** Le parole del bottone chiuso. Sotto il riassunto è un invito diverso da
+   *  quello in fondo alla mail: lì uno cerca un dato, qui ha appena letto il
+   *  quadro e gli manca un pezzo. */
+  invito?: string
+  /** Domande pronte, da premere invece di scriverle.
+   *  ⚠️ Non sono decorazione: davanti a un campo vuoto non viene in mente
+   *  niente, e la funzione resta inusata pur essendoci. */
+  suggerimenti?: string[]
 }) {
   const [aperto, setAperto] = useState(false)
   const [domanda, setDomanda] = useState('')
@@ -40,12 +50,25 @@ export function ChiediConversazione({
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, start] = useTransition()
 
-  const chiedi = () => {
-    if (!domanda.trim() || inCorso) return
+  const chiedi = (testo?: string) => {
+    const q = (testo ?? domanda).trim()
+    if (!q || inCorso) return
+    if (testo) setDomanda(testo)
     setErrore(null)
     setEsito(null)
     start(async () => {
-      const r = await chiediAllaConversazione(messaggioId, domanda)
+      // ⚠️ La chiamata al modello è già protetta lato server, ma `uid()` LANCIA
+      // quando la sessione è scaduta — e un'eccezione dentro una transizione
+      // non si vede come errore: fa morire la PAGINA («Application error»).
+      // Chi ha lasciato aperta la posta per un'ora e preme «Sai per quando?»
+      // perderebbe la schermata invece di leggere «rientra».
+      let r: Awaited<ReturnType<typeof chiediAllaConversazione>>
+      try {
+        r = await chiediAllaConversazione(messaggioId, q)
+      } catch (e) {
+        setErrore((e as Error)?.message || 'Non sono riuscito a leggere la conversazione.')
+        return
+      }
       if (!r.ok) {
         setErrore(r.messaggio || 'Non sono riuscito a leggere la conversazione.')
         return
@@ -76,7 +99,7 @@ export function ChiediConversazione({
   if (!aperto) {
     return (
       <button type="button" className="azione-riga" onClick={() => setAperto(true)}>
-        <span className="ai-toggle-mark">AI</span> Chiedi a {dove}
+        <span className="ai-toggle-mark">AI</span> {invito ?? `Chiedi a ${dove}`}
       </button>
     )
   }
@@ -100,7 +123,7 @@ export function ChiediConversazione({
               chiedi()
             }
           }}
-          placeholder="Es. ci hanno mandato l’IBAN? hanno confermato per giovedì?"
+          placeholder="Es. sai per quando? ci hanno mandato l’IBAN?"
           style={{ flex: 1, minWidth: 260 }}
           autoFocus
           maxLength={500}
@@ -108,7 +131,7 @@ export function ChiediConversazione({
         <button
           type="button"
           className="btn primary small"
-          onClick={chiedi}
+          onClick={() => chiedi()}
           disabled={inCorso || !domanda.trim()}
         >
           {inCorso ? 'Leggo…' : 'Chiedi'}
@@ -122,6 +145,24 @@ export function ChiediConversazione({
           Chiudi
         </button>
       </div>
+
+      {/* Domande pronte: si preme e parte. Davanti a un campo vuoto la domanda
+          giusta non viene in mente, e la funzione resta lì inusata. */}
+      {suggerimenti && suggerimenti.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+          {suggerimenti.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className="btn secondary small"
+              disabled={inCorso}
+              onClick={() => chiedi(s)}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       {errore && (
         <div style={{ fontSize: 13, color: 'var(--red)', marginTop: 10 }}>{errore}</div>

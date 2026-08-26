@@ -23,6 +23,33 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 25/08 sera 2 — dal riassunto si può fare una domanda
+
+Chiesto dall'utente: «partendo da un riassunto vorrei poter fare domande: esempio *Sai per
+quando?*».
+
+- **La funzione c'era già** (`ChiediConversazione`, 4/08): cerca la risposta **solo dentro
+  il thread** e la dà con la citazione esatta e la mail da cui viene. Era però montata
+  **in fondo alla mail aperta** — cioè lontanissima dal riassunto, che sta nella sezione
+  della conversazione più sotto. Chi leggeva il quadro e si accorgeva che gli mancava un
+  dato doveva scorrere via, o rileggersi le nove mail a mano.
+- Ora è **anche dentro la scheda del riassunto**, sotto «In sospeso». ⚠️ **Anche**, non
+  «spostata»: in fondo alla mail ci si arriva dopo aver letto il messaggio, qui dopo aver
+  letto il quadro — due momenti diversi ([[feedback-non-togliere-azioni]]).
+- **Tre domande pronte** da premere: «Sai per quando?», «Che prezzo hanno fatto?», «Cosa
+  aspettano da me?». Non sono decorazione: davanti a un campo vuoto la domanda giusta non
+  viene in mente, e una funzione che c'è ma non si usa vale come non averla.
+- 🔴 **Un guasto trovato provando**: la chiamata al modello è protetta lato server, ma
+  `uid()` **lancia** quando la sessione è scaduta — e un'eccezione dentro una transizione
+  React non si vede come errore, **fa morire la pagina** («Application error: a
+  server-side exception has occurred»). Chi lascia la posta aperta un'ora e preme una
+  domanda perdeva la schermata. Ora c'è il `try/catch` e si legge «Sessione scaduta:
+  rientra.» — verificato a schermo riproducendo il caso vero, non simulandolo.
+  ⚠️ **Lo stesso schema vale per gli altri chiamanti delle server action**: nessuno di
+  loro cattura, e `uid()` lancia sempre allo stesso modo. Qui è chiuso solo dove ho
+  lavorato.
+
+---
 ### 25/08 sera — i dati da confermare sono una TABELLA, non più il JSON
 
 Chiesto dall'utente sulla schermata di «Commerciale — Apri trattativa», che mostrava
