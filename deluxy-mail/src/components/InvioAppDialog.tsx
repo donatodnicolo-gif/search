@@ -325,14 +325,22 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
 
   useEffect(() => {
     const su = (e: Event) => {
-      const { messaggioId: id, azioneId } = (e as CustomEvent).detail as {
+      const { messaggioId: id, azioneId, scegli } = (e as CustomEvent).detail as {
         messaggioId: string
         azioneId?: string
+        /** Salta le regole e mostra subito l'elenco delle app: chi preme
+         *  «Altra azione…» ha già deciso di scegliere lui, e una regola
+         *  che lo dirotta su un'altra azione gli toglierebbe la scelta. */
+        scegli?: boolean
       }
       setMessaggioId(id)
       setProposta(null)
       setEsito(null)
       setComeJson(false)
+      if (scegli) {
+        setProposta({ ok: false, scegli: true, messaggio: 'Scegli l’azione da preparare su questa mail.' })
+        return
+      }
       prepara(id, azioneId)
     }
     window.addEventListener('aimail:app', su)

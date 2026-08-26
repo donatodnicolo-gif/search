@@ -263,7 +263,7 @@ export function RiassuntoConversazione({
               ⚠️ I dati si preparano dalla mail che li PORTA (msgId), non da
               quella che si sta guardando: il prezzo sta nella mail del
               fornitore anche se sei sull'ultima della conversazione. */}
-          {(dati.analisi.azioni ?? []).length > 0 && (
+          {(
             <div style={{ marginTop: 12 }}>
               <div style={{ fontWeight: 600 }}>Si può fare da qui</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
@@ -301,6 +301,31 @@ export function RiassuntoConversazione({
                     </div>
                   )
                 })}
+                {/* ⚠️⚠️ LA PORTA CHE NON DIPENDE DAL MODELLO. I bottoni qui
+                    sopra li propone l'AI, e l'AI può tacere: su questo
+                    scambio proponeva «Registra il preventivo» e NON «Apri
+                    trattativa», perché la giudicava non più «nuova» — e
+                    l'utente restava senza strada (26/08/2026, tre volte di
+                    seguito). Un elenco suggerito è una scorciatoia: accanto
+                    ci vuole sempre l'accesso completo, o la scorciatoia
+                    diventa un cancello.
+                    Apre lo stesso dialogo con la LISTA delle app, saltando le
+                    regole (`scegli: true`): qui l'utente ha già deciso di
+                    scegliere lui. */}
+                <div>
+                  <button
+                    type="button"
+                    className="azione-riga"
+                    title="Scegli tu l'azione fra tutte le app collegate"
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new CustomEvent('aimail:app', { detail: { messaggioId, scegli: true } })
+                      )
+                    }
+                  >
+                    ＋ Altra azione…
+                  </button>
+                </div>
               </div>
             </div>
           )}
