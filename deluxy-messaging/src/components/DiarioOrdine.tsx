@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { insieme, type NotaDiario } from './Diario'
+import { CampoRigaDiario } from './CampoRigaDiario'
 
 // Le righe di diario di UN ordine, dentro il pannello dell'ordine.
 //
@@ -108,18 +109,12 @@ export function DiarioOrdine({
       )}
 
       <div style={{ display: 'flex', gap: 6 }}>
-        <input
+        <CampoRigaDiario
           value={testo}
-          onChange={(e) => setTesto(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              void aggiungi()
-            }
-          }}
-          placeholder="da fare 16 luglio · sollecitare pagamento"
-          style={{ flex: 1 }}
-          aria-label="Aggiungi una nota al diario di questo ordine"
+          onChange={setTesto}
+          onInvio={() => void aggiungi()}
+          placeholder="da fare 16 luglio · «/» per il calendario"
+          ariaLabel="Aggiungi una nota al diario di questo ordine"
         />
         <button className="bottone secondario mini" onClick={() => void aggiungi()}>
           Aggiungi

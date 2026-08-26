@@ -500,6 +500,34 @@ una funzione sola): erano due copie diverse, e quella della scheda **perdeva per
 strada il fornitore e il costo concordato** — cioè proprio chi va pagato e
 quanto, che dalla scheda si ribattevano a mano.
 
+## «/» apre il calendario dentro la riga
+
+Nei campi del diario — quello principale, quello del **seguito** e quello dentro
+la **scheda dell'ordine** — scrivendo **`/`** si apre un calendarietto appeso al
+campo. Si sceglie un giorno e al posto della barra compare la data, scritta come
+la scriverebbe una persona: **«16 luglio»**, **«2 settembre»**.
+
+In cima ci sono tre scorciatoie: **Oggi · Domani · Dopodomani**.
+⚠️ Scrivono **la data**, non la parola: una riga che dice «chiamare domani» la si
+rilegge fra tre giorni e vuol dire un altro giorno. La parola invecchia, la data no.
+
+⚠️⚠️ **La barra apre solo dove è un comando**: a campo vuoto o **dopo uno
+spazio**, e solo se è appena stata scritta in fondo. **«27/08» non apre niente**,
+e nemmeno incollare un testo che contiene una barra: dentro una parola la barra è
+un carattere come un altro, e un pannello che salta fuori mentre si scrive una
+data in cifre darebbe fastidio proprio a chi il diario lo usa di più.
+
+⚠️ **La barra sparisce** quando si sceglie: era un comando, non testo. Chiudendo
+con **Esc** invece resta — chi voleva scrivere una barra ce l'ha.
+
+⚠️ Con il pannello aperto **Invio sceglie la data e non manda la riga**: nessuno
+deve rischiare di spedire una nota che finisce con «/». A pannello chiuso, Invio
+manda come sempre.
+
+Tastiera: **↑ ↓ ← →** per spostarsi (muovono il giorno, non il cursore nel
+testo), **Invio** per scegliere, **Esc** per chiudere. L'anno compare **solo se
+non è quello corrente**.
+
 ## L'ordine gestito chiude le sue note del diario
 
 Premendo **«Gestito»** su un ordine — dalla bacheca o dalla scheda — tutte le

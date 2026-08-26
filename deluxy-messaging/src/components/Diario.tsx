@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { linkOrdine } from '@/lib/link-ordine'
+import { CampoRigaDiario } from './CampoRigaDiario'
 
 // Il diario di lavoro: le righe che ci si scrive per ricordare cosa c'è da fare
 // su un ordine.
@@ -264,18 +265,12 @@ export function Diario() {
         <label className="campo">
           <span>Scrivi una riga — comincia col numero d&apos;ordine, se ce l&apos;ha</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              ref={campo}
+            <CampoRigaDiario
+              campoRef={campo}
               value={testo}
-              onChange={(e) => setTesto(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  void aggiungi()
-                }
-              }}
-              placeholder="12562 da fare 16 luglio · chiamare il fornitore di Bolzano"
-              style={{ flex: 1 }}
+              onChange={setTesto}
+              onInvio={() => void aggiungi()}
+              placeholder="12562 da fare 16 luglio · «/» per il calendario"
             />
             <button className="bottone" onClick={() => void aggiungi()} disabled={!testo.trim()}>
               Aggiungi
@@ -387,15 +382,13 @@ export function Diario() {
 
                   {scrivoSu === n.id ? (
                     <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                      <input
+                      <CampoRigaDiario
                         value={seguito[n.id] ?? ''}
-                        onChange={(e) => setSeguito((s) => ({ ...s, [n.id]: e.target.value }))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') void aggiungiSeguito(n)
-                          if (e.key === 'Escape') setScrivoSu('')
-                        }}
-                        placeholder="Che cosa è successo dopo"
-                        aria-label="Scrivi il seguito di questa nota"
+                        onChange={(v) => setSeguito((s) => ({ ...s, [n.id]: v }))}
+                        onInvio={() => void aggiungiSeguito(n)}
+                        onEsc={() => setScrivoSu('')}
+                        placeholder="Che cosa è successo dopo · «/» per il calendario"
+                        ariaLabel="Scrivi il seguito di questa nota"
                         autoFocus
                       />
                       <button

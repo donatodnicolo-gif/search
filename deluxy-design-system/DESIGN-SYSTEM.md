@@ -1,6 +1,6 @@
 # Deluxy Design System
 
-**Versione 1.1 — 26 agosto 2026** · *1.1: aggiunto il componente «Avvisi (toast)».*
+**Versione 1.2 — 26 agosto 2026** · *1.1: componente «Avvisi (toast)». 1.2: componente «Scelta data — il «/» dentro un campo».*
 
 Il linguaggio visivo ufficiale di tutte le app Deluxy. Nato dal redesign di `deluxy-platform-next` (stile Apple), vale d'ora in poi per **ogni app esistente e nuova**: piattaforma web, Deluxy Scout, app fornitori, siti Shopify, landing page.
 
@@ -165,6 +165,40 @@ prima cosa che si chiede di togliere):
 ⚠️ Il segnaposto è **l'orologio del server**, restituito dalla risposta e
 rimandato indietro alla chiamata dopo: usando quello del browser, un computer
 avanti di un minuto salta gli avvisi e uno indietro li ripete.
+
+### Scelta data — il «/» dentro un campo
+
+Un calendarietto **appeso al campo** che si apre scrivendo `/` dentro una riga di
+testo libero, e che al posto della barra scrive la data.
+
+⚠️⚠️ **La barra è un comando, non testo**: quando il comando va a buon fine
+**sparisce**, sostituita da quello che ha prodotto. Se resta, finisce nel dato —
+e in un campo che poi legge un'altra persona.
+
+⚠️⚠️ **Si apre solo dove la barra è un comando: a inizio di parola** (campo vuoto
+o dopo uno spazio) e **appena scritta in fondo**. Dentro una parola la barra è un
+carattere come un altro — 27/08, e/o, 16/20 — e aprire un pannello mentre
+qualcuno scrive una data in cifre è un dispetto proprio verso chi quel campo lo
+usa di più. Incollare un testo che contiene una barra non apre niente.
+
+- Pannello `surface` + `hairline` + `radius-m` + `shadow-float`, **268px**,
+  `position: absolute` sotto il campo (6px di stacco), mai una finestra al
+  centro: la riga si sta ancora scrivendo, e un velo fa perdere il punto.
+- `z-index` **sotto** veli e finestre modali.
+- In cima **tre scorciatoie** (Oggi · Domani · Dopodomani), poi il mese con
+  frecce ‹ ›, poi la griglia **lunedì per primo**.
+- **Oggi** in oro e in grassetto (è il punto da cui si conta); il giorno su cui è
+  fermo il cursore **pieno scuro** (è quello che Invio sceglierebbe); il passato
+  **smorzato ma cliccabile** — una riga di lavoro può parlare di ieri.
+- Tastiera: **↑↓←→** spostano il giorno (non il cursore nel testo), **Invio**
+  sceglie, **Esc** chiude lasciando la barra scritta. Un piede lo ricorda.
+- ⚠️ Con il pannello aperto, **Invio non manda il modulo**: sceglie la data. Chi
+  scrive non deve rischiare di spedire una riga che finisce con «/».
+
+⚠️ **La data si scrive come la scrive una persona** — «16 luglio», «2
+settembre» — senza zeri davanti, e **con l'anno solo se non è quello corrente**.
+E le scorciatoie scrivono **la data**, non la parola: «domani» in un testo
+invecchia di un giorno al giorno, la data no.
 
 ### Navigazione (app gestionali)
 - Sidebar **chiara traslucida** (blur 24px, saturate 180%), larghezza ~250px, bordo destro hairline

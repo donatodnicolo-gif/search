@@ -5289,3 +5289,105 @@ td .azioni-ordine {
     align-items: stretch;
   }
 }
+
+
+/* ── IL CALENDARIO CHE SI APRE COL «/» DENTRO UNA RIGA ──
+   Design system 1.2, «Scelta data (il «/» nei campi)». Sta appeso al campo, non
+   in mezzo allo schermo: la riga si sta ancora scrivendo, e una finestra al
+   centro fa perdere il punto in cui si era.
+   ⚠️ z-index 40: sopra la pagina, sotto i veli (60) e sotto i riquadri delle
+   novità (55) — che però stanno in basso a destra e non si incontrano mai. */
+.calendario-riga {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 268px;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-float);
+}
+/* ⚠️ Vicino al bordo destro si apre verso sinistra: appeso a un campo stretto in
+   fondo alla pagina, uscirebbe dallo schermo e la metà dei giorni sarebbe
+   irraggiungibile. */
+@media (max-width: 400px) {
+  .calendario-riga {
+    left: auto;
+    right: 0;
+    width: min(268px, calc(100vw - 32px));
+  }
+}
+
+.calendario-svelte {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.calendario-testa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: capitalize;
+}
+.calendario-freccia {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.calendario-freccia:hover { background: var(--fill); }
+
+.calendario-griglia {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.calendario-intestazione {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding-bottom: 2px;
+}
+.calendario-giorno {
+  height: 30px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.calendario-giorno:hover { background: var(--fill); }
+/* Oggi si riconosce senza leggere il numero: è il punto da cui si conta. */
+.calendario-giorno.oggi { color: var(--gold-strong); font-weight: 700; }
+/* Quello su cui è fermo il cursore delle frecce: pieno, perché è quello che
+   Invio sceglierebbe. */
+.calendario-giorno.scelto {
+  background: var(--ink);
+  color: #fff;
+}
+.calendario-giorno.passato { color: var(--text-tertiary); }
+.calendario-giorno.scelto.passato { color: #fff; }
+
+.calendario-piede {
+  margin-top: 8px;
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  text-align: center;
+}

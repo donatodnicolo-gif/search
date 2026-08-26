@@ -1,5 +1,87 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (16) — «/» apre il calendario dentro la riga del diario
+
+Chiesto dall'utente, con la barra già scritta nel campo del diario: «con lo "/"
+apre nella riga un calendario».
+
+⚠️ Nel codice non c'era **niente** che rispondesse alla barra nel diario: non era
+un guasto, era un gesto che non esisteva ancora. Ma la barra **è già una
+convenzione di quest'app** — nell'inbox, a riquadro vuoto, apre le risposte
+pronte — e le righe vere del quaderno hanno quasi tutte una data dentro
+(«12562 da fare 16 luglio», «per 27 agosto, loro per la torta»), scritta a mano
+ogni volta guardando un calendario da un'altra parte.
+
+**Dove**: `src/components/CampoRigaDiario.tsx` (campo + pannello),
+`src/lib/data-italiana.ts` (le regole, pure e provabili), CSS `.calendario-*`.
+Montato in **tutti e tre** i campi che scrivono una riga di diario: quello
+principale, quello del **seguito**, e quello dentro la **scheda dell'ordine**.
+
+### Le decisioni
+
+⚠️⚠️ **LA BARRA APRE SOLO DOVE È UN COMANDO**, e la regola è più stretta di
+quella dell'inbox perché qui si usa **in mezzo alla riga** (la data sta in fondo,
+dopo il numero e dopo la cosa da fare). `barraEComando()`: si apre solo se la
+barra è a **inizio di parola** (campo vuoto o dopo uno spazio) **ed è appena
+stata scritta in fondo**. Così **«27/08» non apre niente** — che è il caso che
+avrebbe reso la funzione un dispetto proprio per chi le date le scrive. Nemmeno
+incollare un testo che contiene una barra apre qualcosa.
+
+⚠️ **La barra sparisce quando il comando riesce**: al suo posto va la data. Se
+restasse, la riga direbbe «da fare / 27 agosto» e quella barra finirebbe nel
+quaderno di tutti. Chiudendo con **Esc** invece la barra **resta**: chi voleva
+davvero scrivere una barra ce l'ha.
+
+⚠️⚠️ **Col pannello aperto, Invio NON manda la riga**: sceglie la data. Senza
+questo si spedirebbe una nota che finisce con «/». (Verificato: vedi sotto.)
+
+⚠️ **La data si scrive come la scrive una persona**: «16 luglio», «2 settembre»
+— niente zeri davanti — e **l'anno solo se non è quello corrente**. A gennaio,
+«27 dicembre» senza anno sarebbe letto come fra undici mesi invece che un mese fa.
+
+⚠️⚠️ **Le scorciatoie scrivono la DATA, non la parola.** «Oggi» inserisce «26
+agosto», non «oggi»: una riga che dice «chiamare domani» la si rilegge fra tre
+giorni e vuol dire un altro giorno — la parola invecchia, la data no.
+
+⚠️ **Il giorno di partenza si decide APRENDO**, non nel primo disegno: `new
+Date()` durante il render girerebbe anche sul server (Francoforte, UTC) e alle 23
+di Roma sarebbe un altro giorno, con React che si lamenta della differenza.
+
+⚠️ Tastiera: **↑↓←→** muovono il giorno (non il cursore nel testo), **Invio**
+sceglie, **Esc** chiude. Un piedino nel pannello lo ricorda.
+
+⚠️ **Design system**: aggiunto prima come componente «Scelta data — il «/» dentro
+un campo» (**versione 1.2**), poi usato qui.
+
+### Verifica
+
+**`npx tsx scripts/prova-data-italiana.mts` — 24 prove, tutte passate.** Le due
+che contano: «27/» **non** è un comando, e «16 luglio» si scrive senza anno
+mentre «5 gennaio 2027» ce l'ha. Più il calendario: agosto 2026 comincia con 5
+caselle vuote (il 1° è sabato), febbraio 2028 ne ha 29, la **domenica sta in
+fondo** e non in testa.
+
+**Provato a mano nel browser** su una pagina d'anteprima temporanea (ora
+cancellata), digitando con tasti veri:
+- «chiamare il fornitore » + «/» → il pannello si apre, 268×345, sotto il campo,
+  mese «agosto 2026», oggi = 26;
+- **↓** porta al 3 e la testata passa a **«settembre 2026»** (il salto di mese
+  funziona), **Invio** scrive **«12562 da fare 3 settembre »** e chiude;
+- ⚠️ e in quel momento la riga **non è stata mandata**: Invio se l'è preso il
+  calendario, come deve;
+- **«27/08»** digitato di seguito: il pannello **non si apre**;
+- **Esc** chiude e lascia la barra; **Invio** a pannello chiuso manda la riga;
+- clic su un giorno → «per 15 agosto »; **«Oggi»** → «26 agosto »; **clic fuori**
+  chiude.
+
+⚠️ **Onestà sul metodo**: a metà prova il pannello del browser ha smesso di
+consegnare i tasti (non è un difetto dell'app — gli stessi tasti avevano appena
+funzionato). Gli ultimi rami — Esc, clic sul giorno, «Oggi», clic fuori — sono
+stati provati facendo partire **eventi veri sugli stessi handler** dalla console,
+non manipolando lo stato di React.
+
+`npx tsc --noEmit` esito 0, `npm run build` esito 0.
+
 ## 26/08/2026 (15) — l'ordine gestito si porta dietro le sue note del diario
 
 Chiesto dall'utente: «quando un ordine viene messo come gestito chiudi le note
