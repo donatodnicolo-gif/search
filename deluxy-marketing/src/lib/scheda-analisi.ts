@@ -201,7 +201,9 @@ Regole, nell'ordine in cui contano:
      · nuova_keyword → {"testo":"...","corrispondenza":"exact|phrase|broad"}
      · estensione → {"tipo":"sitelink","testo":"...","url":"..."} oppure
        {"tipo":"callout","testo":"..."}
-     · rimuovi_estensione → {"tipo":"sitelink|callout|snippet","testo":"..."}
+     · rimuovi_estensione → {"tipo":"sitelink|callout|snippet","testo":"..."} —
+       il testo e' il TITOLO del link; se il claim sta nella descrizione di un
+       sitelink, aggiungi "descrizione":"..." (e il testo solo se il documento lo da')
    Tutto il resto (creativi, annunci, pubblici, ad set Meta, tracciamento,
    ristrutturazioni) NON si mappa: operazione = null. MAI inventare un numero
    o un testo che il documento non dà: meglio null di un parametro plausibile.
@@ -545,9 +547,21 @@ export function operazioneDaAzione(
     }
     case "rimuovi_estensione": {
       const t = String(par?.tipo ?? "");
-      if (["sitelink", "callout", "snippet"].includes(t) && testoOk(par?.testo))
-        return { tipo: op.tipo, parametri: { tipo: t, testo: String(par!.testo).trim() } };
-      return null;
+      if (!["sitelink", "callout", "snippet"].includes(t)) return null;
+      // Il claim puo' stare nella DESCRIZIONE del sitelink, non nel titolo
+      // (caso vero del 26/08: il link si chiamava «How it Works»): basta uno
+      // dei due, e se ci sono entrambi lo script li esige entrambi.
+      const haTesto = testoOk(par?.testo);
+      const haDescr = t === "sitelink" && testoOk(par?.descrizione);
+      if (!haTesto && !haDescr) return null;
+      return {
+        tipo: op.tipo,
+        parametri: {
+          tipo: t,
+          ...(haTesto ? { testo: String(par!.testo).trim() } : {}),
+          ...(haDescr ? { descrizione: String(par!.descrizione).trim() } : {}),
+        },
+      };
     }
     default:
       return null;

@@ -336,6 +336,36 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐ IL PRIMO GIRO VERO DI rimuovi_estensione HA FALLITO BENE — e la v2 cerca su tre livelli (26/08/2026 mattina)
+
+L'utente ha approvato la rimozione del sitelink vietato; lo script (reincollato,
+dichiarato 2026-08-25.2) l'ha eseguita alle 06:19 ed è **fallita con l'errore
+giusto**: «non trovato sulla campagna… o è agganciato all'ACCOUNT o a un
+GRUPPO, o il testo è diverso». Erano vere TUTTE E DUE le ipotesi, e lo ha detto
+lo **xlsx dell'analisi** (foglio Asset & Sitelink, letto con la libreria xlsx):
+
+> `How it Works | White-glove deliveries | … | ENG › English | GRUPPO`
+
+**«White-glove deliveries» non è il titolo del sitelink: è la sua DESCRIZIONE.**
+Il link si chiama «How it Works» e sta sul **gruppo** «English», non sulla
+campagna. Sia F13 che la coda avevano usato la descrizione come nome.
+
+**La v2** (`VERSIONE_SCRIPT` → **2026-08-26**, copie rigenerate): cerca su
+**campagna → gruppi della campagna → account**; per i sitelink accetta il
+parametro **`descrizione`** (match dentro le due descrizioni) così si colpisce
+il claim senza sapere come si chiama il link e senza rimuovere un omonimo
+pulito; l'esito dice **da quale livello** ha tolto cosa, e la rimozione a
+livello account — che spegne l'estensione ovunque — viene dichiarata. Se il
+livello non permette la rimozione da script, lo dice invece di tacere.
+
+**In coda, da approvare** (`cmt9lbd4v…`): secondo tentativo con le coordinate
+giuste — `{tipo: sitelink, testo: "How it Works", descrizione: "White-glove
+deliveries"}` sulla ITALIAN-ENG. ⚠️ **Prima si reincolla la copia 2026-08-26**
+su Flowers (quella dichiarata sa il tipo ma cerca solo sulla campagna: fallirebbe
+uguale), poi si approva. La fallita delle 06:19 resta nello storico: è la prova
+che la catena riferisce anche i no.
+
+
 ### ⭐⭐⭐ LE AZIONI DEL REPORT SI METTONO IN CODA CON UN CLICK (26/08/2026, notte)
 
 Richiesta utente sulla scheda analisi: «riesci a mettere i link per eseguire le

@@ -173,7 +173,7 @@ var LAVORI_LETTURA = ["metriche", "gruppi", "keyword-giorni", "approvazioni", "d
 // LA DATA SI ALZA QUANDO CAMBIA COSA SO FARE, non a ogni ritocco: è la versione
 // delle CAPACITÀ, e serve a chi legge nell'app per capire se la copia incollata
 // è più vecchia dell'app. SO_ESEGUIRE va tenuto uguale ai tipi di applica().
-var VERSIONE_SCRIPT = "2026-08-25.2";
+var VERSIONE_SCRIPT = "2026-08-26";
 var SO_ESEGUIRE = [
   "pausa_campagna", "attiva_campagna", "budget", "negativa",
   "pausa_keyword", "attiva_keyword", "pausa_gruppo", "attiva_gruppo",
@@ -2892,82 +2892,115 @@ function creaEstensione(op, mira) {
 }
 
 /**
- * Stacca dalla campagna le estensioni con QUEL testo (sitelink per link text,
- * callout per testo, snippet per intestazione).
+ * Stacca le estensioni con QUEL testo, cercando su TRE livelli: la campagna,
+ * i suoi gruppi di annunci, e l'account.
  *
- * PERCHE' (25/08/2026): l'analisi Flowers ha trovato claim VIETATI ancora in
- * asta — un sitelink "White-glove deliveries" con 362 EUR di spesa in 30
- * giorni — e l'app sapeva solo AGGIUNGERE estensioni: per spegnerne una
- * bisognava entrare in Google Ads a mano. Un claim vietato che eroga e' un
- * problema legale, non solo di resa: la rimozione deve poter partire dalla
- * stessa coda con cui si e' approvato tutto il resto.
+ * PERCHE' LA VERSIONE 2 (26/08/2026): la v1 cercava solo a livello campagna,
+ * ed e' fallita sul primo caso vero — il sitelink del claim vietato stava sul
+ * GRUPPO "English" della ENG, non sulla campagna. E c'era un secondo inganno:
+ * "White-glove deliveries" non era il TESTO del link ma la sua DESCRIZIONE
+ * (il link si chiama "How it Works"). Per questo adesso:
+ *   · si cerca su campagna, gruppi della campagna e account, in quest'ordine;
+ *   · par.descrizione (facoltativo, solo sitelink) restringe il match a chi
+ *     ha quel testo in una delle due descrizioni — cosi' si puo' colpire il
+ *     claim senza sapere come si chiama il link, e senza rimuovere un
+ *     omonimo pulito su un'altra campagna.
  *
- * ATTENZIONE: si rimuovono TUTTE quelle col testo esatto (case-insensitive)
- * sulla campagna. E' l'intento vero — il claim deve sparire — e un testo che
- * combacia due volte e' lo stesso claim caricato due volte.
- *
- * ATTENZIONE: qui si vede solo il livello CAMPAGNA. Un'estensione agganciata
- * all'account o al gruppo non viene toccata, e se non si trova niente lo si
- * dice con questa possibilita' scritta nell'errore.
+ * ATTENZIONE: la rimozione a livello ACCOUNT stacca l'estensione da tutto
+ * l'account, non da una campagna sola. L'esito lo dice sempre, livello per
+ * livello: chi approva deve sapere cosa ha tolto e da dove.
  */
 function rimuoviEstensione(op, mira) {
   var par = op.parametri || {};
   var tipo = String(par.tipo || "").toLowerCase();
-  var testo = String(par.testo || "").trim();
+  var testo = String(par.testo || "").trim().toLowerCase();
+  var descrizione = String(par.descrizione || "").trim().toLowerCase();
   var campagna = mira.campagna;
   if (!campagna) throw new Error("Campagna non trovata per la rimozione");
-  if (!testo) throw new Error("Serve il testo dell'estensione da rimuovere");
+  if (!testo && !descrizione) throw new Error("Serve il testo dell'estensione da rimuovere (o la sua descrizione)");
+  if (tipo !== "sitelink" && tipo !== "callout" && tipo !== "snippet") {
+    throw new Error("Tipo di estensione non gestito: " + tipo + " (sitelink, callout, snippet)");
+  }
   if (typeof campagna.extensions !== "function") {
     throw new Error("Questa copia dello script non conosce le estensioni: va reincollata.");
   }
-  var ext = campagna.extensions();
 
-  function raccogli(iteratore, leggi) {
-    var trovate = [];
-    while (iteratore.hasNext()) {
-      var e = iteratore.next();
-      if (String(leggi(e) || "").trim().toLowerCase() === testo.toLowerCase()) trovate.push(e);
+  function testoDi(e) {
+    if (tipo === "sitelink") return e.getLinkText();
+    if (tipo === "callout") return e.getText();
+    return e.getHeader();
+  }
+  function descrizioniDi(e) {
+    if (tipo !== "sitelink") return "";
+    var d1 = typeof e.getDescription1 === "function" ? e.getDescription1() : "";
+    var d2 = typeof e.getDescription2 === "function" ? e.getDescription2() : "";
+    return (String(d1 || "") + " " + String(d2 || "")).toLowerCase();
+  }
+  function combacia(e) {
+    var t = String(testoDi(e) || "").trim().toLowerCase();
+    if (testo && t !== testo) return false;
+    if (descrizione && descrizioniDi(e).indexOf(descrizione) < 0) return false;
+    return true;
+  }
+  function iteratoreDi(contenitore) {
+    var ext = contenitore.extensions();
+    if (tipo === "sitelink") return ext.sitelinks().get();
+    if (tipo === "callout") return ext.callouts().get();
+    return ext.snippets().get();
+  }
+  function rimuoviDa(contenitore, e) {
+    if (tipo === "sitelink" && typeof contenitore.removeSitelink === "function") { contenitore.removeSitelink(e); return true; }
+    if (tipo === "callout" && typeof contenitore.removeCallout === "function") { contenitore.removeCallout(e); return true; }
+    if (tipo === "snippet" && typeof contenitore.removeSnippet === "function") { contenitore.removeSnippet(e); return true; }
+    return false;
+  }
+
+  // I tre livelli, nell'ordine in cui un'estensione di campagna ha senso:
+  // la campagna, i SUOI gruppi, l'account intero.
+  var livelli = [{ nome: "campagna", contenitore: campagna }];
+  var gruppiIt = campagna.adGroups().get();
+  while (gruppiIt.hasNext()) {
+    var g = gruppiIt.next();
+    livelli.push({ nome: 'gruppo "' + g.getName() + '"', contenitore: g });
+  }
+  livelli.push({ nome: "account", contenitore: AdsApp.currentAccount() });
+
+  var rimossi = [];
+  var irremovibili = [];
+  for (var i = 0; i < livelli.length; i++) {
+    var liv = livelli[i];
+    if (typeof liv.contenitore.extensions !== "function") continue;
+    var it;
+    try { it = iteratoreDi(liv.contenitore); } catch (e1) { continue; }
+    while (it.hasNext()) {
+      var est = it.next();
+      if (!combacia(est)) continue;
+      // ATTENZIONE all'account: staccare da li' spegne l'estensione OVUNQUE.
+      if (rimuoviDa(liv.contenitore, est)) {
+        rimossi.push(liv.nome + (tipo === "sitelink" ? ' ("' + testoDi(est) + '")' : ""));
+      } else {
+        irremovibili.push(liv.nome);
+      }
     }
-    return trovate;
   }
 
-  var daTogliere, togli, cosa;
-  if (tipo === "sitelink") {
-    daTogliere = raccogli(ext.sitelinks().get(), function (e) { return e.getLinkText(); });
-    togli = function (e) { campagna.removeSitelink(e); };
-    cosa = "sitelink";
-  } else if (tipo === "callout") {
-    daTogliere = raccogli(ext.callouts().get(), function (e) { return e.getText(); });
-    togli = function (e) { campagna.removeCallout(e); };
-    cosa = "callout";
-  } else if (tipo === "snippet") {
-    daTogliere = raccogli(ext.snippets().get(), function (e) { return e.getHeader(); });
-    togli = function (e) { campagna.removeSnippet(e); };
-    cosa = "snippet";
-  } else {
-    throw new Error("Tipo di estensione non gestito: " + tipo + " (sitelink, callout, snippet)");
-  }
-
-  if (daTogliere.length === 0) {
+  var cerca = (testo ? '"' + par.testo + '"' : "") +
+    (descrizione ? (testo ? " con descrizione " : "descrizione ") + '"' + par.descrizione + '"' : "");
+  if (rimossi.length === 0 && irremovibili.length === 0) {
     throw new Error(
-      cosa + " \"" + testo + "\" non trovato sulla campagna \"" + campagna.getName() + "\": " +
-      "o e' gia' stato tolto, o e' agganciato all'ACCOUNT o a un GRUPPO (questo script vede solo il livello campagna), o il testo e' diverso."
+      tipo + " " + cerca + " non trovato: cercato sulla campagna \"" + campagna.getName() + "\", " +
+      "sui suoi " + (livelli.length - 2) + " gruppi e sull'account. O e' gia' stato tolto, o il testo e' diverso " +
+      "(il TESTO e' il titolo del link, non la descrizione: per cercare nella descrizione usare il parametro descrizione)."
     );
   }
-  for (var i = 0; i < daTogliere.length; i++) togli(daTogliere[i]);
-
-  // Rilettura, come per le negative: la parola di chi ha scritto non basta.
-  var rimaste = raccogli(
-    tipo === "sitelink" ? ext.sitelinks().get() : tipo === "callout" ? ext.callouts().get() : ext.snippets().get(),
-    tipo === "sitelink" ? function (e) { return e.getLinkText(); } : tipo === "callout" ? function (e) { return e.getText(); } : function (e) { return e.getHeader(); }
-  );
-  var nota = rimaste.length === 0
-    ? " (confermato rileggendo: non c'e' piu')"
-    : " - ATTENZIONE: rileggendo ne risultano ancora " + rimaste.length + ". Puo' essere il ritardo di Google dentro la stessa esecuzione: ricontrollare al prossimo giro.";
+  if (rimossi.length === 0) {
+    throw new Error(tipo + " " + cerca + " trovato su " + irremovibili.join(", ") + " ma questo livello non permette la rimozione da script: da togliere in interfaccia.");
+  }
   return {
-    dettaglio: daTogliere.length + " " + cosa + " \"" + testo + "\" rimossi dalla campagna" + nota,
-    prima: testo + " (" + daTogliere.length + " agganci)",
-    dopo: "rimosso",
+    dettaglio: rimossi.length + " " + tipo + " rimossi (" + rimossi.join(", ") + ")" +
+      (irremovibili.length ? " - ATTENZIONE: trovato anche su " + irremovibili.join(", ") + ", dove lo script non puo' rimuovere" : ""),
+    prima: cerca,
+    dopo: "rimosso da: " + rimossi.join(", "),
   };
 }
 
