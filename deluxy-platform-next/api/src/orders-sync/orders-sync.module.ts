@@ -389,15 +389,28 @@ export class OrdersSyncService {
     for (const v of voci) {
       // Orders ha già questi numeri: rimandarli aggiungerebbe solo una riga
       // identica alla storia dell'ordine, ogni notte. Si scrive quel che cambia.
-      if (
-        v.giaScritto.costoConsegna === v.costoConsegna
-        && v.giaScritto.feeConsegna === v.feeConsegna
-        && v.giaScritto.primoMargine === v.primoMargine
-        && v.giaScritto.feeVendita === v.feeVendita
-        && v.giaScritto.margineFinale === v.margineFinale
-        && (v.giaScritto.metodoIncasso ?? null) === (v.metodoIncasso ?? null)
-        && v.giaScritto.commissioneIncassi === v.commissioneIncassi
-      ) {
+      // ⚠️ NON SI MANDA MAI UN `null` (26/08/2026): qui un null vuol dire «la
+      // piattaforma non ha niente da dire su questo campo», non «azzeralo».
+      // Orders tratta il null come azzeramento, quindi mandarlo cancella roba
+      // SUA: la `commissioneIncassi` di 68 ordini e' la fee VERA letta dalle
+      // transazioni Shopify, che possiede lui. Si manda solo cio' che si sa e
+      // che e' diverso da quello che ha gia'.
+      const corpo: Record<string, number | string> = {};
+      for (const [campo, valore] of [
+        ['costoConsegna', v.costoConsegna],
+        ['feeConsegna', v.feeConsegna],
+        ['primoMargine', v.primoMargine],
+        ['feeVendita', v.feeVendita],
+        ['margineFinale', v.margineFinale],
+        ['metodoIncasso', v.metodoIncasso],
+        ['commissioneIncassi', v.commissioneIncassi],
+      ] as [string, number | string | null | undefined][]) {
+        const gia = (v.giaScritto as Record<string, unknown>)[campo] ?? null;
+        if (valore != null && valore !== gia) corpo[campo] = valore;
+      }
+      // Orders ha già questi numeri: rimandarli aggiungerebbe solo una riga
+      // identica alla storia dell'ordine, ogni notte. Si scrive quel che cambia.
+      if (Object.keys(corpo).length === 0) {
         saltati++;
         continue;
       }
@@ -405,15 +418,7 @@ export class OrdersSyncService {
         const res = await fetch(`${url}/api/v1/ordini/${v.ordersId}`, {
           method: 'PATCH',
           headers: { 'x-api-key': chiave, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            costoConsegna: v.costoConsegna,
-            feeConsegna: v.feeConsegna,
-            primoMargine: v.primoMargine,
-            feeVendita: v.feeVendita,
-            margineFinale: v.margineFinale,
-            metodoIncasso: v.metodoIncasso,
-            commissioneIncassi: v.commissioneIncassi,
-          }),
+          body: JSON.stringify(corpo),
         });
         if (!res.ok) {
           const t = await res.text().catch(() => '');

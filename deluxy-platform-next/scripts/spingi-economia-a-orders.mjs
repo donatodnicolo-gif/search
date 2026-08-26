@@ -165,12 +165,21 @@ for (const [orderId, info] of perOrderId) {
     commissioneIncassi: eco ? zero(eco.commissioneIncassi) : null,
   });
 }
-const daScrivere = voci.filter((v) =>
-  v.gia.costoConsegna !== v.costoConsegna || v.gia.feeConsegna !== v.feeConsegna
-  || v.gia.primoMargine !== v.primoMargine || v.gia.feeVendita !== v.feeVendita
-  || v.gia.margineFinale !== v.margineFinale
-  || (v.gia.metodoIncasso ?? null) !== (v.metodoIncasso ?? null)
-  || v.gia.commissioneIncassi !== v.commissioneIncassi);
+// ⚠️ NON SI MANDA MAI UN `null` (26/08, dopo il caso dei 68 ordini): un campo
+// che qui vale null vuol dire «la piattaforma non ha niente da dire», NON
+// «azzeralo». Orders accetta il null come azzeramento, quindi mandarlo
+// cancellerebbe roba SUA — la `commissioneIncassi` di quei 68 e' la fee VERA
+// che Orders legge dalle transazioni Shopify, e ce l'ha lui, non noi. E' la
+// trappola del form parziale, dal lato di chi scrive.
+const CAMPI = ['costoConsegna', 'feeConsegna', 'primoMargine', 'feeVendita',
+  'margineFinale', 'metodoIncasso', 'commissioneIncassi'];
+const corpoDa = (v) => {
+  const corpo = {};
+  for (const c of CAMPI) if (v[c] != null && v[c] !== v.gia[c]) corpo[c] = v[c];
+  return corpo;
+};
+for (const v of voci) v.corpo = corpoDa(v);
+const daScrivere = voci.filter((v) => Object.keys(v.corpo).length > 0);
 console.log(`Ordini con qualcosa da dire: ${voci.length.toLocaleString('it-IT')} · da scrivere: ${daScrivere.length.toLocaleString('it-IT')}`);
 const conEco = voci.filter((v) => v.margineFinale != null);
 console.log(`  con economia: ${conEco.length.toLocaleString('it-IT')} · primo margine totale: ${eur(conEco.reduce((s, v) => s + v.primoMargine, 0))} · fee: ${eur(conEco.reduce((s, v) => s + v.feeVendita, 0))} · margine finale: ${eur(conEco.reduce((s, v) => s + v.margineFinale, 0))}`);
@@ -184,11 +193,7 @@ for (const v of daScrivere) {
     const res = await fetch(`${url}/api/v1/ordini/${v.ordersId}`, {
       method: 'PATCH',
       headers: { 'x-api-key': imp.ordersApiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        costoConsegna: v.costoConsegna, feeConsegna: v.feeConsegna,
-        primoMargine: v.primoMargine, feeVendita: v.feeVendita, margineFinale: v.margineFinale,
-        metodoIncasso: v.metodoIncasso, commissioneIncassi: v.commissioneIncassi,
-      }),
+      body: JSON.stringify(v.corpo),
     });
     if (!res.ok) {
       const t = await res.text().catch(() => '');
