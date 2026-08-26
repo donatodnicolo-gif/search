@@ -40,6 +40,8 @@ import {
   aggiornaRichiestaCliente,
   cercaPlaces,
   collegaPreventivoARichiesta,
+  fetchLeads,
+  leadDiventaRichiesta,
   collegaProformaARichiesta,
   creaRichiestaCliente,
   eliminaRichiestaCliente,
@@ -48,10 +50,13 @@ import {
 } from '@/lib/db';
 import { creaPreventivoDaRichiesta, creaProformaDaRichiesta, esitoPreventivo } from '@/lib/partner';
 import { importaRichiesteDaMail } from '@/lib/mail';
+import { analizzaMessaggioLead } from '@/lib/lead-parse';
+import { urlMessaggioAiMail } from '@/lib/aimail';
 import {
   LABEL_CANALE_RICHIESTA,
   LABEL_STATO_RICHIESTA,
   type CanaleRichiesta,
+  type Lead,
   type RichiestaCliente,
   type StatoRichiestaCliente,
   type TipologiaRichiesta,
@@ -576,6 +581,50 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
   const [nota, setNota] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  /**
+   * ⭐ LA RICHIESTA PRESA DALLA MAIL (26/08/2026, segnalato dall'utente:
+   * «manca possibilità di richiamare la richiesta dalla mail»).
+   *
+   * Le mail della casella commerciale sono già in coda — in Richieste Web —
+   * ma da qui non si potevano riprendere: chi scriveva a mano la richiesta di
+   * un cliente ricopiava quello che il cliente aveva già scritto, e la mail
+   * restava in coda a sembrare non lavorata.
+   *
+   * Si mostrano solo le richieste ancora «nuove»: quelle già lavorate hanno
+   * generato qualcosa, e riprenderle sarebbe farle contare due volte.
+   */
+  const [mailInCoda, setMailInCoda] = useState<Lead[]>([]);
+  const [daMail, setDaMail] = useState<Lead | null>(null);
+  const [elencoMail, setElencoMail] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    fetchLeads()
+      .then((l) => vivo && setMailInCoda(l.filter((x) => x.stato === 'nuovo')))
+      .catch(() => vivo && setMailInCoda([]));
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  /** Riempie il form con quello che il cliente ha scritto. */
+  function prendiDaMail(l: Lead) {
+    const info = analizzaMessaggioLead(l.nome, l.messaggio);
+    setDaMail(l);
+    setElencoMail(false);
+    setCanale('mail');
+    // ⚠️ Il testo pulito, non l'estratto grezzo della notifica: è quello che
+    // si legge nella scheda della richiesta, e dev'essere leggibile.
+    if (!descrizione.trim()) setDescrizione((info.testo || l.messaggio || '').trim().slice(0, 500));
+    // Il nome NON si sovrascrive se c'è già un cliente scelto: chi scrive è
+    // una persona, il cliente è l'azienda — e l'azienda vince.
+    if (!scelto && !cliente.trim()) {
+      setCliente(info.persona || l.nome);
+      setRicerca(info.persona || l.nome);
+    }
+    const chi = [info.persona || l.nome, info.email || l.contatto].filter(Boolean).join(' · ');
+    if (!nota.trim() && chi) setNota(`Ha scritto ${chi}`);
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -602,7 +651,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
     setSalvando(true);
     setErrore(null);
     try {
-      await creaRichiestaCliente({
+      const creata = await creaRichiestaCliente({
         place_id: scelto?.id ?? null,
         cliente: cliente.trim(),
         descrizione: descrizione.trim(),
@@ -611,7 +660,15 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
         tipologia,
         serve_entro: serveEntro,
         nota: nota.trim() || null,
+        // Se arriva da una mail, la richiesta se lo ricorda: il link per
+        // rileggerla e l'id, che impedisce di prenderla una seconda volta.
+        mail_ref: daMail?.mail_ref ?? null,
+        origine: daMail ? 'scout-mail' : 'commerciale',
+        riferimento_esterno: daMail?.id ?? null,
       });
+      // E la mail esce dalla coda, ricordando cosa ha generato. Best-effort:
+      // la richiesta è già salvata, ed è il pezzo che conta.
+      if (daMail) await leadDiventaRichiesta(daMail.id, creata.id, scelto?.id ?? null);
       onCreata();
     } catch (e: any) {
       setErrore(String(e?.message ?? e));
@@ -629,6 +686,67 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
       largo
     >
       <ScrollView contentContainerStyle={{ gap: spacing.sm, paddingBottom: 8 }}>
+        {/* ARRIVA DA UNA MAIL? Prima di scrivere a mano quello che il cliente
+            ha già scritto, si prende la sua mail dalla coda. */}
+        {daMail ? (
+          <View style={styles.mailPresa}>
+            <Ionicons name="mail-open-outline" size={15} color={colors.navy} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.mailPresaNome} numberOfLines={1}>
+                Dalla mail di {analizzaMessaggioLead(daMail.nome, daMail.messaggio).persona || daMail.nome}
+              </Text>
+              <Text style={styles.mailPresaNota} numberOfLines={1}>
+                Salvando, esce dalla coda delle Richieste Web
+              </Text>
+            </View>
+            {daMail.mail_ref ? (
+              <Pressable
+                hitSlop={8}
+                onPress={() => Linking.openURL(urlMessaggioAiMail(daMail.mail_ref!))}
+                accessibilityLabel="Apri la mail in AI Mail"
+              >
+                <Ionicons name="open-outline" size={17} color={colors.navy} />
+              </Pressable>
+            ) : null}
+            <Pressable hitSlop={8} onPress={() => setDaMail(null)} accessibilityLabel="Non prenderla dalla mail">
+              <Ionicons name="close-circle-outline" size={18} color={colors.grigio} />
+            </Pressable>
+          </View>
+        ) : mailInCoda.length ? (
+          <>
+            <Pressable style={styles.btnDaMail} onPress={() => setElencoMail((v) => !v)}>
+              <Ionicons name="mail-outline" size={15} color={colors.navy} />
+              <Text style={styles.btnDaMailTxt}>
+                {elencoMail
+                  ? 'Chiudi l’elenco'
+                  : `Prendila da una mail in coda (${mailInCoda.length})`}
+              </Text>
+            </Pressable>
+            {elencoMail ? (
+              <View style={{ gap: 6 }}>
+                {mailInCoda.slice(0, 12).map((l) => {
+                  const info = analizzaMessaggioLead(l.nome, l.messaggio);
+                  return (
+                    <Pressable key={l.id} style={styles.risultato} onPress={() => prendiDaMail(l)}>
+                      <Ionicons name="mail-outline" size={15} color={colors.navy} />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.risultatoNome} numberOfLines={1}>
+                          {info.persona || l.nome}
+                          {info.email ? ` · ${info.email}` : ''}
+                        </Text>
+                        <Text style={styles.risultatoInd} numberOfLines={1}>
+                          {(info.testo || l.messaggio || 'Nessun testo').slice(0, 90)}
+                        </Text>
+                      </View>
+                      <Text style={styles.risultatoInd}>{dataBreve(l.created_at)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+          </>
+        ) : null}
+
         <Text style={styles.campoLabel}>Cliente</Text>
         {scelto ? (
           <View style={styles.sceltoRiga}>
@@ -782,6 +900,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   btnImportaTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
+  btnDaMail: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingVertical: 9 },
+  btnDaMailTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
+  mailPresa: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.fill, borderRadius: radius.md, padding: 10 },
+  mailPresaNome: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
+  mailPresaNota: { color: colors.testoSoft, fontSize: 12 },
   filtro: {
     flexDirection: 'row',
     alignItems: 'center',

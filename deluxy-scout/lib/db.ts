@@ -2412,15 +2412,54 @@ export async function creaRichiestaCliente(r: {
   tipologia: RichiestaCliente['tipologia'];
   serve_entro: string | null;
   nota: string | null;
+  /** Da quale mail arriva (id del messaggio in AI Mail): per rileggerla. */
+  mail_ref?: string | null;
+  /** Chi l'ha scritta: `commerciale` a mano, `scout-mail` presa dalla posta. */
+  origine?: string | null;
+  /** L'id della richiesta web da cui nasce: impedisce di prenderla due volte. */
+  riferimento_esterno?: string | null;
 }): Promise<RichiestaCliente> {
   const { data: u } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('richieste_cliente')
-    .insert({ ...r, cliente: r.cliente.trim(), descrizione: r.descrizione.trim(), owner: u.user?.id })
+    .insert({
+      ...r,
+      cliente: r.cliente.trim(),
+      descrizione: r.descrizione.trim(),
+      origine: r.origine ?? 'commerciale',
+      owner: u.user?.id,
+    })
     .select('*')
     .single();
   if (error) throw error;
   return data as RichiestaCliente;
+}
+
+/**
+ * La richiesta web (mail) da cui è nata una richiesta cliente: si segna
+ * lavorata e si ricorda cosa ha generato.
+ *
+ * ⚠️ Segnalato dall'utente il 26/08/2026: «manca possibilità di richiamare la
+ * richiesta dalla mail». La mail era già in coda — in Richieste Web — ma da
+ * qui non si poteva riprendere, e chi scriveva a mano la richiesta di un
+ * cliente ricopiava a mano quello che il cliente aveva già scritto, lasciando
+ * la mail in coda a sembrare non lavorata.
+ *
+ * Best-effort: se questa scrittura non passa, la richiesta cliente è già
+ * salvata — è il pezzo che conta.
+ */
+export async function leadDiventaRichiesta(leadId: string, richiestaId: string, placeId: string | null): Promise<void> {
+  const { data: u } = await supabase.auth.getUser();
+  await supabase
+    .from('leads')
+    .update({
+      stato: 'qualificato',
+      richiesta_cliente_id: richiestaId,
+      place_id: placeId,
+      owner: u.user?.id ?? null,
+      lavorato_il: new Date().toISOString(),
+    })
+    .eq('id', leadId);
 }
 
 export async function aggiornaRichiestaCliente(

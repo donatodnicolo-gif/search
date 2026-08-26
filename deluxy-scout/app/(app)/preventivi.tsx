@@ -7,7 +7,7 @@
 // La schermata è fatta per la domanda vera — «quanto ci costa, e da chi?» —
 // quindi ogni lavoro mostra i suoi preventivi affiancati, col più basso in
 // evidenza e la differenza rispetto a lui.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -16,8 +16,8 @@ import { avvisa, conferma } from '@/lib/dialoghi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CampoData } from '@/components/CampoData';
 import { urlMessaggioAiMail } from '@/lib/aimail';
-import { cercaPlaces, fetchDealPlace, type PlaceLite } from '@/lib/db';
-import { LINEE_ATTIVE, type Deal } from '@/types';
+import { cercaPlaces, fetchTutteTrattative, type PlaceLite, type TrattativaConLuogo } from '@/lib/db';
+import { LINEE_ATTIVE } from '@/types';
 import {
   aggiornaLavoro,
   aggiungiPreventivo,
@@ -135,36 +135,52 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
   const [serveEntro, setServeEntro] = useState('');
   const [cliente, setCliente] = useState<PlaceLite | null>(null);
   const [salvo, setSalvo] = useState(false);
-  // Le trattative APERTE del cliente scelto: è fra quelle che si sceglie.
-  // Le chiuse non si propongono — un costo su una vendita già finita non ha
-  // un prezzo da fare.
-  const [trattative, setTrattative] = useState<Deal[]>([]);
-  const [caricoDeal, setCaricoDeal] = useState(false);
+  /**
+   * ⚠️ SI SCEGLIE LA TRATTATIVA, NON IL CLIENTE (corretto il 26/08/2026 dopo
+   * la segnalazione dell'utente: «ma non posso scegliere la trattativa»).
+   *
+   * La prima versione chiedeva prima il cliente e poi le SUE trattative: due
+   * passi, e un vicolo cieco quando il cliente non era ancora agganciato o non
+   * aveva trattative aperte — il campo restava lì a dire «scegli prima il
+   * cliente» e il bottone non partiva mai.
+   *
+   * Ora si cerca direttamente fra TUTTE le trattative aperte (per negozio,
+   * oggetto o linea) e il cliente lo porta la trattativa: è lei che sa a chi
+   * appartiene. Le chiuse non si propongono — su una vendita finita non c'è
+   * più un prezzo da fare.
+   */
+  const [trattative, setTrattative] = useState<TrattativaConLuogo[]>([]);
+  const [caricoDeal, setCaricoDeal] = useState(true);
   const [dealId, setDealId] = useState<string | null>(null);
+  const [cercaDeal, setCercaDeal] = useState('');
 
   useEffect(() => {
-    setDealId(null);
-    if (!cliente) {
-      setTrattative([]);
-      return;
-    }
     let vivo = true;
-    setCaricoDeal(true);
-    fetchDealPlace(cliente.id)
+    fetchTutteTrattative()
       .then((d) => {
         if (!vivo) return;
-        const aperte = d.filter((x) => x.fase !== 'closedwon' && x.fase !== 'closedlost');
-        setTrattative(aperte);
-        // Una sola trattativa aperta: è quella, e chiedere sarebbe un clic
-        // per una scelta che non c'è.
-        if (aperte.length === 1) setDealId(aperte[0].id);
+        setTrattative(d.filter((x) => x.fase !== 'closedwon' && x.fase !== 'closedlost'));
       })
       .catch(() => vivo && setTrattative([]))
       .finally(() => vivo && setCaricoDeal(false));
     return () => {
       vivo = false;
     };
-  }, [cliente]);
+  }, []);
+
+  const trattativeFiltrate = useMemo(() => {
+    const q = cercaDeal.trim().toLowerCase();
+    const base = q
+      ? trattative.filter((d) =>
+          [d.place_nome, d.titolo, d.oggetto, d.linea, ...(d.linee ?? [])]
+            .filter(Boolean)
+            .some((v) => String(v).toLowerCase().includes(q)),
+        )
+      : trattative;
+    return base.slice(0, 30);
+  }, [trattative, cercaDeal]);
+
+  const trattativaScelta = trattative.find((d) => d.id === dealId) ?? null;
 
   async function salva() {
     if (!titolo.trim() || !dealId) return;
@@ -214,37 +230,73 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
         placeholderTextColor={colors.grigio}
       />
 
-      <Text style={styles.label}>Chi l&apos;ha chiesto</Text>
-      <CercaNegozio scelto={cliente} onScegli={setCliente} placeholder="Cerca il cliente…" />
-
-      {/* ⚠️ LA TRATTATIVA È OBBLIGATORIA. Un preventivo fornitore è quanto ci
-          COSTA un lavoro, e serve a fare il prezzo di una vendita: senza la
-          trattativa a cui appartiene è un numero senza destinazione, e il
-          margine non si può calcolare. */}
+      {/* ⚠️ LA TRATTATIVA È OBBLIGATORIA, e si sceglie PER PRIMA. Un preventivo
+          fornitore è quanto ci COSTA un lavoro, e serve a fare il prezzo di una
+          vendita: senza la trattativa a cui appartiene è un numero senza
+          destinazione, e il margine non si può calcolare. Il cliente lo porta
+          lei — chiederlo prima era un passo in più e un vicolo cieco. */}
       <Text style={styles.label}>Per quale trattativa *</Text>
-      {!cliente ? (
-        <Text style={styles.aiuto}>Scegli prima il cliente: le trattative sono le sue.</Text>
+      {trattativaScelta ? (
+        <Pressable
+          style={styles.dealScelta}
+          onPress={() => {
+            setDealId(null);
+            setCliente(null);
+          }}
+        >
+          <Ionicons name="briefcase-outline" size={16} color={colors.goldStrong} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.dealSceltaNome} numberOfLines={1}>
+              {trattativaScelta.place_nome ?? 'Negozio'}
+            </Text>
+            <Text style={styles.aiuto} numberOfLines={1}>
+              {trattativaScelta.titolo || trattativaScelta.oggetto || trattativaScelta.linea || 'Trattativa'}
+            </Text>
+          </View>
+          <Ionicons name="swap-horizontal" size={18} color={colors.oro} />
+        </Pressable>
       ) : caricoDeal ? (
-        <Text style={styles.aiuto}>Cerco le trattative di {cliente.nome}…</Text>
+        <Text style={styles.aiuto}>Carico le trattative aperte…</Text>
       ) : trattative.length === 0 ? (
         <Text style={styles.aiuto}>
-          {cliente.nome} non ha trattative aperte. Aprine una in Trattative, poi torna qui: il preventivo
-          serve a fare il prezzo di quella vendita.
+          Non ci sono trattative aperte. Aprine una in Trattative, poi torna qui: il preventivo serve a fare
+          il prezzo di quella vendita.
         </Text>
       ) : (
-        <View style={styles.chips}>
-          {trattative.map((d) => (
-            <Pressable
-              key={d.id}
-              onPress={() => setDealId(dealId === d.id ? null : d.id)}
-              style={[styles.chip, dealId === d.id && styles.chipOn]}
-            >
-              <Text style={[styles.chipTxt, dealId === d.id && styles.chipTxtOn]} numberOfLines={1}>
-                {d.oggetto || d.linee?.join(', ') || d.linea || 'Trattativa'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <>
+          <TextInput
+            style={styles.input}
+            value={cercaDeal}
+            onChangeText={setCercaDeal}
+            placeholder="Cerca per negozio, oggetto o linea…"
+            placeholderTextColor={colors.grigio}
+            autoCapitalize="none"
+          />
+          <View style={{ gap: 6, marginTop: 6 }}>
+            {trattativeFiltrate.map((d) => (
+              <Pressable
+                key={d.id}
+                style={styles.dealRiga}
+                onPress={() => {
+                  setDealId(d.id);
+                  // Il cliente viene dalla trattativa: è lei che sa di chi è.
+                  if (d.place_id) setCliente({ id: d.place_id, nome: d.place_nome ?? '', indirizzo: null, zona: null });
+                }}
+              >
+                <Ionicons name="briefcase-outline" size={15} color={colors.navy} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.dealRigaNome} numberOfLines={1}>{d.place_nome ?? 'Senza negozio'}</Text>
+                  <Text style={styles.aiuto} numberOfLines={1}>
+                    {d.titolo || d.oggetto || (d.linee?.length ? d.linee.join(', ') : d.linea) || 'Trattativa'}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+            {!trattativeFiltrate.length ? (
+              <Text style={styles.aiuto}>Nessuna trattativa aperta per «{cercaDeal.trim()}».</Text>
+            ) : null}
+          </View>
+        </>
       )}
 
       <Text style={styles.label}>Linea</Text>
@@ -613,6 +665,10 @@ const styles = StyleSheet.create({
   // Spiega perché un campo è vuoto o cosa manca: si legge come una frase, non
   // come un errore.
   aiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18, marginTop: 4 },
+  dealScelta: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.goldSoft, borderRadius: radius.md, padding: 10, marginTop: 4 },
+  dealSceltaNome: { color: colors.testo, fontWeight: '800', fontSize: 14 },
+  dealRiga: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, padding: 10 },
+  dealRigaNome: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
   avvisoTrattativa: { color: colors.errore, fontSize: 12, lineHeight: 17, marginTop: 4 },
   input: {
     backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md,
