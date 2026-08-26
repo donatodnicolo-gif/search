@@ -77,6 +77,12 @@ type OrdineDto = {
    */
   messaggi: { quanti: number; nonLetti: number; conversazioneId: string } | null
   /**
+   * Se quel cliente ci ha TELEFONATO, e se qualcuno lo ha già richiamato.
+   * Le chiamate arrivano dalle notifiche del centralino (sezione Chiamate) e si
+   * attaccano all'ordine per numero di telefono.
+   */
+  chiamate: { quante: number; ultima: string; daRichiamare: number } | null
+  /**
    * Chi se ne sta occupando. ⚠️ Diverso da `gestioneDaNome`, che dice chi ha
    * toccato lo STATO per ultimo: quello è un fatto passato, questo è un impegno
    * che vale adesso.
@@ -290,6 +296,46 @@ function SegnoMessaggi({
       title={`${testo}: apri la conversazione`}
     >
       {dentro}
+    </a>
+  )
+}
+
+/**
+ * Il cliente di quest'ordine ha TELEFONATO.
+ *
+ * ⚠️⚠️ È in bacheca e non solo nella sezione Chiamate perché è
+ * un'informazione DELL'ORDINE: chi lo sta lavorando deve incontrarla mentre lo
+ * lavora. In un elenco a parte la vede solo chi era già andato a cercarla — e
+ * intanto si richiama un'ora dopo per dire una cosa che il cliente aveva già
+ * chiesto al telefono.
+ *
+ * ⚠️ Due stati diversi, e si distinguono: **da richiamare** (oro, come i
+ * messaggi non letti: c'è qualcuno che aspetta) e **già richiamato** (grigio: è
+ * successo, non è un compito).
+ */
+function SegnoChiamate({
+  chiamate,
+}: {
+  chiamate: { quante: number; ultima: string; daRichiamare: number } | null
+}) {
+  if (!chiamate?.quante) return null
+  const quando = new Date(chiamate.ultima).toLocaleString('it-IT', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const testo = chiamate.daRichiamare
+    ? `Ha chiamato (${quando}) e non è ancora stato richiamato`
+    : `Ha chiamato (${quando}), già richiamato`
+  return (
+    <a
+      className={`badge segno-messaggi apribile${chiamate.daRichiamare ? ' aspetta' : ''}`}
+      href="/chiamate"
+      onClick={(e) => e.stopPropagation()}
+      title={`${testo}: apri le chiamate`}
+    >
+      ☎ {chiamate.quante}
     </a>
   )
 }
@@ -1775,6 +1821,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                           {/* Il cliente ci ha scritto: in oro se aspetta ancora
                               una risposta. */}
                           <SegnoMessaggi messaggi={o.messaggi} />
+                          <SegnoChiamate chiamate={o.chiamate} />
                           {/* CHI LO PREPARA. ⚠️ Sta in lista e non solo nella
                               scheda: «a chi l'abbiamo dato?» è una domanda che
                               si fa scorrendo la bacheca, e un dato che vive

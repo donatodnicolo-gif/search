@@ -68,6 +68,19 @@ export default async function PaginaNegozi() {
                 <span>Dominio</span>
                 <input name="dominio" defaultValue={n.dominio} />
               </label>
+              {/* ⚠️ Il numero che squilla per questo marchio. Serve alle
+                  CHIAMATE: per chi non è ancora cliente non c'è nessun ordine da
+                  cui dedurre il brand, e il nostro numero chiamato è l'unica
+                  cosa che leghi quella telefonata a un marchio. Vuoto = le sue
+                  chiamate restano «senza marchio», che è una risposta. */}
+              <label className="campo">
+                <span>Numero di telefono del marchio (per le Chiamate)</span>
+                <input
+                  name="telefonoChiamate"
+                  defaultValue={n.telefonoChiamate}
+                  placeholder="vuoto = le chiamate restano senza marchio"
+                />
+              </label>
               {/* Il numero WhatsApp non si imposta piu qui: sta in Numeri WhatsApp,
                   perche i numeri sono piu di uno e ognuno ha il suo account.
                   Due posti per lo stesso dato = due verita che divergono. */}

@@ -31,6 +31,75 @@ Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Num
 (app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
 Inbox si vede il numero grezzo invece del nome del marchio.
 
+## Le chiamate: l'unico canale che si cancella da solo
+
+Il centralino manda una notifica a **chiamate@deluxy.it** per ogni telefonata
+ricevuta. Prima quelle mail non le leggeva nessuno: chi chiamava e non trovava
+risposta spariva, e il giorno dopo nessuno sapeva che avesse provato. Una mail
+resta in inbox finché qualcuno la apre; **una chiamata persa, se nessuno la
+registra, non è mai esistita**.
+
+La sezione **Chiamate** (in «Lavoro», sotto Inbox) le raccoglie. Ogni telefonata
+diventa una riga, e ogni riga ha una domanda sola: **richiamato o no**.
+
+⚠️⚠️ **Non entrano in Inbox, ed è voluto.** Una chiamata non è un messaggio: non
+c'è un testo da leggere né una risposta da scrivere. Messe in inbox sarebbero
+diventate una conversazione per ogni squillo — mittente il centralino, corpo che
+nessuno legge — e avrebbero riempito il canale delle risposte di roba a cui non
+si risponde. La casella si dichiara come «Chiamate» in **Caselle**, nel campo
+*A cosa serve*: la differenza non si vede dall'indirizzo.
+
+### Chi ha chiamato: tre risposte, non due
+
+Il numero si riconosce con la **stessa chiave del resto dell'app** — le ultime 9
+cifre, così un numero salvato con o senza prefisso è lo stesso. Mai per nome:
+gli omonimi esistono, e attaccare la telefonata di uno all'ordine di un altro
+vuol dire richiamare la persona sbagliata parlandole di una consegna che non ha
+mai ordinato.
+
+- **Ha un ordine aperto** → la chiamata si attacca a quell'ordine, e **si vede
+  sull'ordine**: bollino ☎ in bacheca (oro finché nessuno ha richiamato) e un
+  riquadro «Ha telefonato» nella scheda, sopra i messaggi.
+- **È un nostro cliente** → ha già comprato ma non ha ordini aperti: si richiama
+  sapendo chi è, e si vede il suo ultimo ordine.
+- **Non risulta nostro cliente** → si richiama lo stesso, ma la riga lo scrive in
+  rosso. ⚠️⚠️ Sapere chi **non** si ha davanti vale quanto sapere chi si ha: chi
+  richiama apre la bocca con «buongiorno, per il suo ordine» e si trova davanti
+  qualcuno che non ha mai comprato niente.
+
+⚠️ L'archivio di Orders si interroga con le 9 cifre, ma la risposta si
+**verifica**: quella ricerca guarda una dozzina di campi (indirizzo, note, cap…),
+quindi «trovato» non vuol dire «è il suo numero». Si tengono solo gli ordini il
+cui telefono ha davvero quelle cifre. Cercare non è affermare.
+
+### Il promemoria nasce insieme alla chiamata
+
+Ogni telefonata apre un **«Richiamare …»** fra i «Da fare» della schermata Oggi,
+con l'ordine collegato quando c'è. ⚠️⚠️ Nasce lì e non solo in Chiamate perché
+una riga in un elenco che nessuno ha il dovere di aprire è una chiamata persa
+scritta meglio. Segnando «Richiamato» si spunta **anche** il promemoria: due
+liste che dicono cose diverse sulla stessa telefonata sono peggio di una lista
+sola — si richiama due volte, e la seconda il cliente risponde che ne aveva già
+parlato con un collega.
+
+### Per marchio
+
+In cima ci sono le caselle **per marchio**, con quante restano da richiamare.
+Il marchio di una chiamata si sa in due modi: dall'ordine del chiamante, oppure
+dal **nostro numero che ha squillato** (si dichiara in *Negozi → Numero di
+telefono del marchio*). Quando non si sa, la chiamata sta in **«Senza marchio»**:
+⚠️ è una risposta, non un buco da tappare — metterla in un brand a caso
+significherebbe contarla lì.
+
+### Quando il numero non si capisce
+
+Il formato delle notifiche lo decide il centralino, non noi. Se il numero non si
+riconosce la riga **lo dice** («numero non riconosciuto») invece di inventarlo, e
+il bottone **Notifica** mostra il testo arrivato per intero: il riconoscimento è
+un'interpretazione, e quando sbaglia l'unica difesa di chi guarda è leggere
+quello che è arrivato davvero. Con **Correggi numero** si scrive quello giusto e
+il riconoscimento si rifà da capo.
+
 ## Chiedere aiuto senza uscire da dove sei
 
 Sul bordo destro di **ogni** pagina c'è la linguetta **Aiuto**. Si apre un pannello

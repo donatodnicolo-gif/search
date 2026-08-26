@@ -37,6 +37,17 @@ export type Casella = {
   smtpPort: number
   smtpSicuro: boolean
   ignoraCertTls: boolean
+  /**
+   * A cosa serve questa casella: `posta` (le mail entrano in inbox) oppure
+   * `chiamate` (notifiche del centralino, diventano righe in Chiamate).
+   *
+   * ⚠️⚠️ Senza questo campo le notifiche di `chiamate@deluxy.it` finirebbero
+   * in inbox: una conversazione per ogni telefonata, con un corpo che nessuno
+   * legge e un mittente che è il centralino, non il cliente.
+   */
+  tipo: string
+  /** Il marchio della casella: l'ultimo appiglio per dare un brand a una chiamata. */
+  negozioId: string | null
 }
 
 function decifraSicuro(v: string): string {
@@ -61,6 +72,8 @@ type RigaCasella = {
   smtpPort: number
   smtpSicuro: boolean
   ignoraCertTls: boolean
+  tipo: string
+  negozioId: string | null
 }
 
 function daRiga(r: RigaCasella): Casella {
@@ -76,7 +89,23 @@ export async function caselleAttive(): Promise<Casella[]> {
   return righe.map(daRiga).filter((c) => c.password)
 }
 
-/** Una casella per id; se manca, la predefinita (o la prima attiva). */
+/**
+ * Le caselle da cui si può SCRIVERE.
+ *
+ * ⚠️⚠️ Non tutte le caselle attive: quella delle chiamate riceve le notifiche
+ * del centralino e non è un indirizzo da cui parlare ai clienti. E il rischio
+ * non è teorico — l'elenco è ordinato per indirizzo, e `chiamate@deluxy.it`
+ * viene prima di `cs@deluxy.it`: senza questo filtro, il primo giorno in cui
+ * nessuna casella fosse predefinita, le risposte ai clienti sarebbero partite
+ * dall'indirizzo del centralino, e le loro risposte sarebbero finite dove
+ * nessuno le legge.
+ */
+export async function caselleDaCuiScrivere(): Promise<Casella[]> {
+  const attive = await caselleAttive()
+  return attive.filter((c) => c.tipo !== 'chiamate')
+}
+
+/** Una casella per id; se manca, la predefinita (o la prima da cui si scrive). */
 export async function casellaPerId(id: string): Promise<Casella | null> {
   if (id) {
     const r = await db.casellaEmail.findUnique({ where: { id } })
@@ -85,8 +114,8 @@ export async function casellaPerId(id: string): Promise<Casella | null> {
       if (c.password) return c
     }
   }
-  const attive = await caselleAttive()
-  return attive[0] ?? null
+  const scrivibili = await caselleDaCuiScrivere()
+  return scrivibili[0] ?? null
 }
 
 /** Salva o aggiorna una casella. Password vuota = non toccare. */
@@ -107,6 +136,8 @@ export async function salvaCasella(
     negozioId?: string
     /** La firma in coda alle mail di questa casella. */
     firma?: string
+    /** `posta` (default) o `chiamate`: vedi il campo `tipo` su Casella. */
+    tipo?: string
   }
 ): Promise<void> {
   const base = {
@@ -120,6 +151,10 @@ export async function salvaCasella(
     smtpSicuro: dati.smtpSicuro,
     negozioId: dati.negozioId?.trim() ? dati.negozioId.trim() : null,
     firma: (dati.firma ?? '').trim().slice(0, 600),
+    // ⚠️ Solo i due valori previsti: un `tipo` scritto storto («Chiamate»,
+    // «call») farebbe ricadere la casella nel ramo della posta normale, e le
+    // notifiche tornerebbero in inbox senza che nessuno abbia cambiato niente.
+    tipo: dati.tipo === 'chiamate' ? 'chiamate' : 'posta',
   }
   const conPassword = dati.password?.trim()
     ? { password: cifra(dati.password.trim()) }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { caselleAttive, scaricaEmail } from '@/lib/email'
+import { registraChiamataDaMail } from '@/lib/chiamate'
 import { smistaMailPerSito } from '@/lib/ordine-da-email'
 import { daIgnorare, elencoMittentiIgnorati } from '@/lib/mittenti-ignorati'
 import { linguaDelTesto } from '@/lib/lingua-testo'
@@ -34,6 +35,33 @@ export async function POST() {
   for (const casella of caselle) {
     try {
       const mail = await scaricaEmail(casella)
+
+      // ── LE NOTIFICHE DEL CENTRALINO NON SONO POSTA ──
+      //
+      // ⚠️⚠️ Una casella di tipo «chiamate» (chiamate@deluxy.it) porta avvisi di
+      // telefonate, non messaggi di clienti. Entrando in inbox diventerebbero
+      // una conversazione per ogni squillo — mittente il centralino, corpo che
+      // nessuno legge, e il canale delle risposte pieno di roba a cui non si
+      // risponde. Diventano righe in Chiamate, con il promemoria di richiamare.
+      if (casella.tipo === 'chiamate') {
+        let nuoveChiamate = 0
+        for (const m of [...mail].reverse()) {
+          const esito = await registraChiamataDaMail(m, {
+            id: casella.id,
+            negozioId: casella.negozioId,
+          })
+          if (esito.stato === 'nuova') nuoveChiamate++
+        }
+        risultati.push({
+          casella: casella.indirizzo,
+          ok: true,
+          nuove: nuoveChiamate,
+          ripescate: 0,
+          errore: '',
+        })
+        continue
+      }
+
       let nuove = 0
       let ripescate = 0
       // dalla più vecchia alla più recente, così l'ultima resta in cima

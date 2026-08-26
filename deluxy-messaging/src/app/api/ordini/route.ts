@@ -7,6 +7,7 @@ import { googleAccessToken } from '@/lib/contatti'
 import { brandRicercaDaNegozio } from '@/lib/negozi'
 import { ultimoImportOrders } from '@/lib/orders'
 import { ordiniConMessaggi } from '@/lib/messaggi-ordine'
+import { chiamateDegliOrdini } from '@/lib/chiamate'
 import { inizioDomani, inizioOggi, limiteCalde } from '@/lib/urgenza'
 
 export const dynamic = 'force-dynamic'
@@ -429,11 +430,24 @@ export async function GET(req: NextRequest) {
     ordini.map((o) => ({ id: o.id, numero: o.numero, email: o.email, telefono: o.telefono }))
   )
 
+  // ⚠️⚠️ CHI HA TELEFONATO SI VEDE IN BACHECA, non solo nella sezione Chiamate.
+  // Un cliente che chiama per il suo ordine è un'informazione DELL'ORDINE: se
+  // sta solo in un altro elenco, chi lavora quell'ordine non la incontra mai —
+  // e richiama un'ora dopo per dire una cosa che il cliente aveva già chiesto.
+  const chiamatePerOrdine = await chiamateDegliOrdini(ordini.map((o) => ({ id: o.id })))
+
   return NextResponse.json({
     // Se quel cliente ci ha scritto, e se aspetta ancora una risposta.
     ordini: ordini.map((o) => ({
       ...o,
       messaggi: messaggiPerOrdine.get(o.id) ?? null,
+      chiamate: chiamatePerOrdine.get(o.id)
+        ? {
+            quante: chiamatePerOrdine.get(o.id)!.quante,
+            ultima: chiamatePerOrdine.get(o.id)!.ultima.toISOString(),
+            daRichiamare: chiamatePerOrdine.get(o.id)!.daRichiamare,
+          }
+        : null,
       pagatoIl: pagati.get(o.numero)?.quando?.toISOString() ?? null,
       pagatoQuanto: pagati.get(o.numero)?.quanto ?? 0,
       // Vuoto = quel pagamento non ha una ricevuta allegata.

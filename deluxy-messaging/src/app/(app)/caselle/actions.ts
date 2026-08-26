@@ -24,8 +24,12 @@ export async function salvaCasellaAction(formData: FormData) {
     predefinita: formData.get('predefinita') === '1',
     negozioId: String(formData.get('negozioId') ?? ''),
     firma: String(formData.get('firma') ?? ''),
+    // `posta` o `chiamate`: una casella di notifiche del centralino non entra
+    // in inbox, diventa righe in Chiamate.
+    tipo: String(formData.get('tipo') ?? 'posta'),
   })
   revalidatePath('/caselle')
+  revalidatePath('/chiamate')
   // L'inbox raggruppa per marchio: cambiare la casella cambia le colonne.
   revalidatePath('/inbox')
 }

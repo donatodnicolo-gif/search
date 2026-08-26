@@ -115,6 +115,8 @@ type OrdineDettaglio = {
   totaleConUniti?: number
   riconsegnaLink?: string
   riconsegnaNumero?: string
+  /** Le telefonate di questo cliente per quest'ordine. */
+  chiamate?: { id: string; quando: string; numero: string; richiamataIl: string | null }[]
   clienteTipo: string
   clienteTipoDa: string
   /** A chi abbiamo dato l'ordine da preparare. */
@@ -1181,6 +1183,38 @@ export function DettaglioOrdine({
                 }
                 onCambiato={() => void carica()}
               />
+            ) : null}
+
+            {/* ── HA CHIAMATO ──
+                ⚠️⚠️ Sopra i messaggi, non sotto: una telefonata a cui nessuno ha
+                risposto è la cosa più urgente che ci sia su un ordine — il
+                cliente ha già provato a parlarci e non c'è riuscito. Le mail
+                aspettano, una chiamata persa no. */}
+            {ordine.chiamate && ordine.chiamate.length > 0 ? (
+              <div className="card" style={{ padding: 10 }}>
+                <div className="cella-nome">
+                  Ha telefonato{ordine.chiamate.length > 1 ? ` (${ordine.chiamate.length} volte)` : ''}
+                </div>
+                {ordine.chiamate.map((c) => (
+                  <div key={c.id} className="cella-sub" style={{ marginTop: 2 }}>
+                    {new Date(c.quando).toLocaleString('it-IT', {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                    {c.numero ? ` · ${c.numero}` : ''}
+                    {c.richiamataIl ? (
+                      ' · già richiamato'
+                    ) : (
+                      <strong style={{ color: 'var(--red)' }}> · da richiamare</strong>
+                    )}
+                  </div>
+                ))}
+                <a className="btn btn-secondario small" href="/chiamate" style={{ marginTop: 8 }}>
+                  Apri le chiamate
+                </a>
+              </div>
             ) : null}
 
             {ordine.id ? <MessaggiOrdine ordineId={ordine.id} /> : null}

@@ -5,6 +5,7 @@ import { smistaMailPerSito } from '@/lib/ordine-da-email'
 import { daIgnorare, elencoMittentiIgnorati } from '@/lib/mittenti-ignorati'
 import { risolutoreMarchio } from '@/lib/marchio-conversazione'
 import { linguaDelTesto } from '@/lib/lingua-testo'
+import { registraChiamataDaMail } from '@/lib/chiamate'
 
 // Scarica la posta da sola, ogni 5 minuti.
 //
@@ -48,6 +49,30 @@ export async function GET(req: NextRequest) {
       // posta a ogni giro vuol dire scaricare le stesse mail 288 volte al
       // giorno per trovarne una nuova.
       const mail = await scaricaEmail(casella, 2)
+
+      // ⚠️⚠️ ANCHE QUI, e questo è il ramo che conta davvero: la casella delle
+      // chiamate va letta dal CRON, non solo quando qualcuno preme «Scarica
+      // posta». Una chiamata registrata solo se un operatore clicca è una
+      // chiamata persa con un passaggio in più — e nel frattempo il cliente
+      // aspetta di essere richiamato senza che nessuno sappia che ha chiamato.
+      if (casella.tipo === 'chiamate') {
+        let nuoveChiamate = 0
+        for (const m of [...mail].reverse()) {
+          const esito = await registraChiamataDaMail(m, {
+            id: casella.id,
+            negozioId: casella.negozioId,
+          })
+          if (esito.stato === 'nuova') nuoveChiamate++
+        }
+        risultati.push({
+          casella: casella.indirizzo,
+          nuove: nuoveChiamate,
+          ripescate: 0,
+          errore: '',
+        })
+        continue
+      }
+
       let nuove = 0
       let ripescate = 0
       for (const m of [...mail].reverse()) {

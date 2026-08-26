@@ -1,5 +1,87 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (8) — CHIAMATE: le telefonate diventano righe, e un promemoria
+
+Chiesto dall'utente: «crea una sezione chiamate dove registri le notifiche per
+brand delle chiamate che vengono ricevute e apre un task per aprire la richiesta
+di richiamare il cliente. Le chiamate arriveranno ad una mail chiamate@deluxy.it.
+Riconosci automaticamente in caso il cliente se è relativo a un ordine e registra
+che ha chiamato anche visibilmente in ordini, altrimenti specifica che il
+contatto va richiamato e non si tratta di un attuale cliente».
+
+**Com'è fatto**: la casella `chiamate@deluxy.it` si dichiara di tipo **chiamate**
+(campo `CasellaEmail.tipo`, in *Caselle → A cosa serve*). Lo scarico IMAP è
+quello di sempre: quando la casella è di quel tipo, le mail **non** diventano
+conversazioni ma righe `Chiamata` — nel cron (`/api/cron/posta`, ogni 5 minuti) e
+nel bottone «Scarica posta» (`/api/email/sync`), tutti e due.
+
+⚠️⚠️ **Una chiamata non è una conversazione**: non c'è un testo da leggere né una
+risposta da scrivere. In inbox sarebbe stata una conversazione per ogni squillo,
+mittente il centralino, corpo che nessuno legge — il canale delle risposte pieno
+di roba a cui non si risponde.
+
+⚠️⚠️ **Il cron è il ramo che conta.** Registrare le chiamate solo quando qualcuno
+preme «Scarica posta» sarebbe una chiamata persa con un passaggio in più.
+
+**Riconoscimento**, con la chiave del resto dell'app (`cifreTelefono`, ultime 9
+cifre): ordine locale aperto → `ordine`; ordini nell'archivio di Orders →
+`cliente`; niente → `sconosciuto`, e la riga lo scrive **in rosso**.
+⚠️ Sapere chi NON si ha davanti vale quanto sapere chi si ha: chi richiama apre
+con «buongiorno, per il suo ordine».
+
+⚠️⚠️ **L'archivio si interroga ma la risposta si VERIFICA**: `/api/v1/ordini?q=`
+cerca in una dozzina di campi (indirizzo, note, cap…), quindi «trovato» non vuol
+dire «è il suo numero». Si tengono solo gli ordini il cui telefono ha davvero
+quelle 9 cifre. **Misurato** sugli ordini veri: **8 su 8** riconosciuti col loro
+numero, tre numeri inventati → `sconosciuto`. ⚠️ Un quarto numero «inventato»
+(`+393200000000`) risultava `cliente`: **non era un falso positivo**, quel numero
+esiste davvero sull'ordine #1634 — la prova sbagliata era la mia.
+
+**Il promemoria nasce insieme alla chiamata** (`Attivita` «Richiamare …», con
+l'ordine collegato) e si spunta da solo quando si segna «Richiamato».
+⚠️ Due liste che dicono cose diverse sulla stessa telefonata sono peggio di una
+lista sola: si richiama due volte, e la seconda il cliente dice che ne aveva già
+parlato con un collega.
+
+**Si vede negli ORDINI**: bollino ☎ in bacheca (oro finché nessuno ha
+richiamato, come i messaggi non letti) e riquadro «Ha telefonato» nella scheda,
+**sopra** i messaggi — una telefonata a cui nessuno ha risposto è la cosa più
+urgente che ci sia su un ordine.
+
+**Per marchio**: caselle in cima con quante restano da richiamare. Il marchio si
+sa dall'ordine del chiamante o dal **nostro numero che ha squillato**
+(`NegozioShopify.telefonoChiamate`, in *Negozi*). Quando non si sa: **«Senza
+marchio»**, che è una risposta.
+
+⚠️⚠️ **ONESTÀ SUL PARSER**: al 26/08 la casella è appena aperta e **non abbiamo
+ancora una notifica vera**. `scripts/prova-chiamate.mts` (12 casi) copre le forme
+comuni scritte a mano — non un campione misurato. Per questo il testo della
+notifica si conserva **intero** e si mostra col bottone «Notifica», il numero non
+riconosciuto si dichiara invece di essere inventato, e c'è «Correggi numero» che
+rifà il riconoscimento. **Quando arriva la prima notifica vera, incollarla nella
+prova e rimisurare.**
+
+⚠️ Una data assomiglia a un telefono: «26/08/2026» ridotto a cifre fa 26082026,
+otto cifre esatte. Senza il filtro su `/` e `:` ogni notifica avrebbe avuto un
+chiamante inventato — e credibile.
+
+**DUE DIFETTI TROVATI STRADA FACENDO, tutti e due silenziosi:**
+
+1. ⚠️⚠️ **Sospendere un negozio gli cancellava la configurazione.** Il bottone
+   «Sospendi» manda un form con dentro solo id, nome, dominio e attivo, e
+   `salvaNegozioAction` leggeva gli altri campi con `?? ''`: sigla in rubrica,
+   brand di Ricerca fornitori e `phone_number_id` di WhatsApp finivano a vuoto.
+   Ora un campo che non arriva **non si tocca**.
+2. ⚠️⚠️ **Le risposte ai clienti sarebbero potute partire da chiamate@**: le
+   caselle si ordinano per indirizzo e `chiamate@deluxy.it` viene prima di
+   `cs@deluxy.it`, quindi senza una predefinita il ripiego di `casellaPerId()`
+   avrebbe scelto quella. C'è `caselleDaCuiScrivere()`, che esclude le caselle
+   di tipo chiamate.
+
+🔴 **MANCA (serve l'utente)**: la casella `chiamate@deluxy.it` va **creata in
+Caselle** con la sua password e il tipo «Chiamate», e il centralino va puntato
+lì. Finché non c'è, la sezione resta vuota — correttamente.
+
 ## 26/08/2026 (7) — il QUARTO negozio: business.deluxy.it non è deluxy.it
 
 Chiesto dall'utente: «dobbiamo integrare business.deluxy.it» — il negozio **B2B**

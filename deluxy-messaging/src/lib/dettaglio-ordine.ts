@@ -76,6 +76,14 @@ export type OrdineDettaglioDto = {
   /** L'ultimo link di riconsegna già creato: si rivede aprendo la scheda. */
   riconsegnaLink: string
   riconsegnaNumero: string
+  /**
+   * Le telefonate di questo cliente per quest'ordine.
+   *
+   * ⚠️⚠️ Stanno sulla scheda perché sono parte della storia dell'ordine come i
+   * messaggi: senza, chi apre l'ordine non sa che il cliente ha già chiamato
+   * due volte, e glielo fa raccontare da capo.
+   */
+  chiamate: { id: string; quando: string; numero: string; richiamataIl: string | null }[]
   clienteTipo: string
   clienteTipoDa: string
   /** A chi abbiamo dato l'ordine da preparare. Vedi `fornitore-ordine.ts`. */
@@ -146,6 +154,13 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
   // in fila raddoppierebbero l'attesa di chi apre una scheda.
   const quota = await leggiQuotaFornitore(ordine.totale)
 
+  const chiamate = await db.chiamata.findMany({
+    where: { ordineId: ordine.id },
+    orderBy: { quando: 'desc' },
+    take: 20,
+    select: { id: true, quando: true, numero: true, richiamataIl: true },
+  })
+
   const negozio = await db.negozioShopify.findUnique({ where: { id: ordine.negozioId } })
   const brandRicerca = negozio
     ? brandRicercaDaNegozio(negozio.nome, negozio.dominio, negozio.brandRicerca)
@@ -202,6 +217,12 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       totaleConUniti: insieme.totale,
       riconsegnaLink: ordine.riconsegnaLink ?? '',
       riconsegnaNumero: ordine.riconsegnaNumero ?? '',
+      chiamate: chiamate.map((c) => ({
+        id: c.id,
+        quando: c.quando.toISOString(),
+        numero: c.numero,
+        richiamataIl: c.richiamataIl ? c.richiamataIl.toISOString() : null,
+      })),
       clienteTipo: ordine.clienteTipo,
       clienteTipoDa: ordine.clienteTipoDa,
       fornitoreNome: ordine.fornitoreNome,
@@ -317,6 +338,10 @@ export async function dettaglioOrdineArchivio(
         totaleConUniti: 0,
         riconsegnaLink: '',
         riconsegnaNumero: '',
+        // Le chiamate si attaccano a un ordine NOSTRO (per id): su uno
+        // dell'archivio quell'id non esiste, quindi l'elenco è vuoto — non
+        // «nessuno ha chiamato», ma «qui non lo si può sapere».
+        chiamate: [],
         // ⚠️ L'ARCHIVIO STORICO non ha questi campi: quegli ordini vivono solo
         // in Orders, e qui in casa non esiste una riga su cui scrivere. Il
         // riquadro del fornitore non si mostra (vedi DettaglioOrdine), invece

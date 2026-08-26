@@ -42,29 +42,36 @@ model Impostazione {
 //  - token: Admin API access token statico (shpat_…) di un'app legacy
 //  - clientId + clientSecret: app Dev Dashboard (client credentials grant)
 model NegozioShopify {
-  id           String   @id @default(cuid())
-  nome         String // etichetta leggibile, es. "Deluxy Flowers"
+  id               String   @id @default(cuid())
+  nome             String // etichetta leggibile, es. "Deluxy Flowers"
   // Sigla usata davanti al nome in rubrica: DL (Deluxy), FL (Flowers), CK (Cake).
   // Vuota = dedotta dal nome/dominio (vedi prefissoDaNegozio in src/lib/negozi.ts).
-  prefisso     String   @default("")
+  prefisso         String   @default("")
   // Il nome del brand come lo conosce l'app Ricerca fornitori (es. deluxyflowers.com):
   // serve al bottone "Fornitore" sotto ogni ordine. Vuoto = dedotto dal nome.
-  brandRicerca String   @default("")
-  dominio      String   @unique // es. fb72b1-2.myshopify.com
-  token        String   @default("") @db.Text // shpat_… cifrato (se app legacy)
-  clientId     String   @default("")
-  clientSecret String   @default("") @db.Text // cifrato (se app Dev Dashboard)
+  brandRicerca     String   @default("")
+  dominio          String   @unique // es. fb72b1-2.myshopify.com
+  token            String   @default("") @db.Text // shpat_… cifrato (se app legacy)
+  clientId         String   @default("")
+  clientSecret     String   @default("") @db.Text // cifrato (se app Dev Dashboard)
   // Il numero WhatsApp Business di questo brand: `phone_number_id` di Meta
   // (app Meta → WhatsApp → Configurazione API). Serve a sapere a QUALE marchio
   // ha scritto un cliente, e quindi con che tono rispondergli — le istruzioni
   // di CS AI sono per brand. Vuoto = questo brand non ha un suo WhatsApp.
-  waPhoneNumberId String @default("")
-  attivo       Boolean  @default(true)
-  creatoIl     DateTime @default(now())
+  waPhoneNumberId  String   @default("")
+  /// Il numero di telefono di questo marchio, quello che squilla quando un
+  /// cliente chiama. Solo cifre. Serve alle CHIAMATE: la notifica del
+  /// centralino dice quale nostro numero e stato chiamato, e per uno
+  /// sconosciuto — che non ha ordini da cui dedurre il marchio — e l unica
+  /// cosa che lo colleghi a un brand. Vuoto = questo marchio non ha un suo
+  /// numero, e le sue chiamate restano «senza marchio».
+  telefonoChiamate String   @default("")
+  attivo           Boolean  @default(true)
+  creatoIl         DateTime @default(now())
 
-  ordini       Ordine[]
-  istruzioniAI IstruzioneAI[]
-  documentiAI  DocumentoAI[]
+  ordini         Ordine[]
+  istruzioniAI   IstruzioneAI[]
+  documentiAI    DocumentoAI[]
   numeriWhatsApp NumeroWhatsApp[]
   pagineMeta     PaginaMeta[]
   caselleEmail   CasellaEmail[]
@@ -75,15 +82,15 @@ model NegozioShopify {
 // dell'assistenza — l'AI li legge per rispondere come rispondiamo noi, invece
 // di inventare un tono e dei contenuti suoi.
 model Script {
-  id        String   @id @default(cuid())
-  titolo    String
-  categoria String   @default("Generale")
-  testo     String   @db.Text
+  id           String   @id @default(cuid())
+  titolo       String
+  categoria    String   @default("Generale")
+  testo        String   @db.Text
   // Quando usarlo, a parole: serve all'AI per scegliere quello giusto.
-  quando    String   @default("") @db.Text
-  attivo    Boolean  @default(true)
-  usi       Int      @default(0) // quante volte è stato usato: i migliori emergono
-  creatoIl  DateTime @default(now())
+  quando       String   @default("") @db.Text
+  attivo       Boolean  @default(true)
+  usi          Int      @default(0) // quante volte è stato usato: i migliori emergono
+  creatoIl     DateTime @default(now())
   aggiornatoIl DateTime @updatedAt
 
   @@index([categoria])
@@ -93,54 +100,52 @@ model Script {
 // l'intestatario possono essere inseriti a mano o letti dall'AI da un
 // messaggio o da un'immagine (schermata, foto di un bonifico).
 model RichiestaPagamento {
-  id           String   @id @default(cuid())
-  iban         String
-  bic          String   @default("")
-  intestatario String
-  importo      Float    @default(0)
-  valuta       String   @default("EUR")
-  causale      String   @default("")
-  note         String   @default("") @db.Text
-  contatto     String   @default("") // come ricontattare chi ha chiesto il pagamento
-  linkConversazione String @default("") // il thread da cui nasce la richiesta
+  id                   String    @id @default(cuid())
+  iban                 String
+  bic                  String    @default("")
+  intestatario         String
+  importo              Float     @default(0)
+  valuta               String    @default("EUR")
+  causale              String    @default("")
+  note                 String    @default("") @db.Text
+  contatto             String    @default("") // come ricontattare chi ha chiesto il pagamento
+  linkConversazione    String    @default("") // il thread da cui nasce la richiesta
   // Invio al canale di pagamento. `riferimento` è la chiave di idempotenza
   // concordata: rimandare la stessa richiesta non la duplica.
-  riferimento  String   @unique @default(cuid())
-  inviataIl    DateTime?
-  partnerId    String   @default("")
-  partnerStato String   @default("") // in_attesa | approvata | rifiutata …
+  riferimento          String    @unique @default(cuid())
+  inviataIl            DateTime?
+  partnerId            String    @default("")
+  partnerStato         String    @default("") // in_attesa | approvata | rifiutata …
   // Da che canale è passata: `transactions` (il contratto: unica app da cui
   // esce denaro, richieste firmate) o `finance` (il ponte storico verso Deluxy
   // Partner, ripiego finché le variabili Transactions non sono impostate).
   // Vuoto = mai inviata. Serve a chiedere lo stato al canale giusto.
-  canale       String   @default("")
-  esitoInvio   String   @default("") @db.Text // errore dell'ultimo tentativo
+  canale               String    @default("")
+  esitoInvio           String    @default("") @db.Text // errore dell'ultimo tentativo
   // Esito della verifica formale dell'IBAN (checksum mod-97): non ci si fida
   // di quello che estrae l'AI, si controlla.
-  ibanValido   Boolean  @default(false)
-  ibanPaese    String   @default("")
+  ibanValido           Boolean   @default(false)
+  ibanPaese            String    @default("")
   // Da dove arriva: manuale | testo | immagine
-  origine      String   @default("manuale")
-  ordineNumero String   @default("") // se legata a un ordine
+  origine              String    @default("manuale")
+  ordineNumero         String    @default("") // se legata a un ordine
   /**
    * COME lo paghiamo: `iban` · `link` · `paypal` · `altro`.
-   *
    * ⚠️⚠️ Non tutti i fornitori si pagano con un bonifico. Chi manda un link di
    * pagamento, chi dà un indirizzo PayPal, chi si accorda a voce («mi paghi in
    * contanti alla consegna»). Finché l'unica forma prevista era l'IBAN, tutto
    * il resto **non si registrava affatto**: restava in una chat, e su
    * quell'ordine risultava che non avevamo pagato nessuno.
-   *
    * ⚠️ `iban` resta il caso di gran lunga più frequente, ed è l'unico che si
    * può verificare col codice di controllo: gli altri sono testo, e la verifica
    * non si finge (`ibanValido` resta falso, e non vuol dire «sbagliato»).
    */
-  metodo       String   @default("iban")
+  metodo               String    @default("iban")
   /**
    * Il riferimento quando NON è un IBAN: l'indirizzo del link, la mail PayPal,
    * la frase concordata. ⚠️ Testo libero di proposito: la varietà è il punto.
    */
-  riferimentoPagamento String @default("") @db.Text
+  riferimentoPagamento String    @default("") @db.Text
 
   // ── QUANDO È STATA PAGATA DAVVERO, e la prova ──
   //
@@ -150,29 +155,25 @@ model RichiestaPagamento {
   // fornitore che richiama per sapere se è stato pagato non c'era niente da
   // guardare.
   pagataIl     DateTime?
-  pagataDaNome String   @default("")
+  pagataDaNome String    @default("")
   /**
    * COME è uscito il denaro: `banca` · `contanti` · `compensazione` ·
    * `app` (da Deluxy Transactions) · `altro`. Vuoto = **non indicato**.
-   *
    * ⚠️⚠️ Un bonifico NON parte per forza da un'app nostra. Quasi sempre esce dal
    * portale della banca, a mano; a volte si paga in contanti alla consegna, o si
    * scala da quello che quel fornitore ci deve. Dare per scontato che passi da
    * Deluxy Transactions vuol dire costruire un registro che descrive un mondo
    * che non esiste — e che quindi nessuno tiene aggiornato.
-   *
    * ⚠️ È lo stesso fatto che nel resto dell'ecosistema si chiama
    * `pagatoCon: "fuori_app"` (vedi la rotta di notifica di Partner): là serve a
    * ricordare che **la prova del pagamento non ce l'ha l'app**. Qui la prova
    * c'è — è la ricevuta — ma resta importante sapere da dove è uscito.
-   *
    * ⚠️ Vuoto NON si riempie da soli: «non indicato» è una risposta, indovinare
    * il canale di un'uscita di denaro no.
    */
-  pagatoCon    String   @default("")
+  pagatoCon    String    @default("")
   /**
    * La ricevuta: immagine o PDF, tenuta come data URI.
-   *
    * ⚠️ Sta nel database e non in uno storage perché quest'app **non ha uno
    * storage**: gli allegati delle chat passano da Meta e non restano. Per
    * qualche centinaio di ricevute va bene; se diventano migliaia va spostata
@@ -180,9 +181,9 @@ model RichiestaPagamento {
    * ⚠️ Il tetto è ~1,5 MB: il corpo di una funzione serverless arriva a ~4,5 MB
    * e oltre non arriva nemmeno l'errore giusto.
    */
-  ricevutaDati String   @default("") @db.Text
-  ricevutaNome String   @default("")
-  ricevutaTipo String   @default("")
+  ricevutaDati String    @default("") @db.Text
+  ricevutaNome String    @default("")
+  ricevutaTipo String    @default("")
   // ── L'AVVISO AL FORNITORE ──
   //
   // Parte da solo quando si segna «pagata». ⚠️ Ma **non sempre riesce**, e la
@@ -196,9 +197,9 @@ model RichiestaPagamento {
   // se è stato pagato — cioè si è persa anche la telefonata che si voleva
   // evitare.
   avvisoIl     DateTime?
-  avvisoCanale String   @default("") // whatsapp | email
-  avvisoEsito  String   @default("") @db.Text // vuoto = riuscito
-  creatoIl     DateTime @default(now())
+  avvisoCanale String    @default("") // whatsapp | email
+  avvisoEsito  String    @default("") @db.Text // vuoto = riuscito
+  creatoIl     DateTime  @default(now())
 
   @@index([creatoIl])
   @@index([ordineNumero])
@@ -217,23 +218,23 @@ model RichiestaPagamento {
 // Le Impostazioni restano come RIPIEGO per il token: chi ha un solo utente di
 // sistema per tutti i numeri non deve ripeterlo qui.
 model NumeroWhatsApp {
-  id            String  @id @default(cuid())
-  nome          String  @default("") // etichetta leggibile, es. "Deluxy Flowers"
+  id             String   @id @default(cuid())
+  nome           String   @default("") // etichetta leggibile, es. "Deluxy Flowers"
   // `phone_number_id` di Meta: è la chiave con cui il webhook riconosce su
   // quale linea è arrivato un messaggio (Conversazione.numeroId).
-  phoneNumberId String  @unique
-  numeroVisibile String @default("") // +39 … , come lo vede il cliente
+  phoneNumberId  String   @unique
+  numeroVisibile String   @default("") // +39 … , come lo vede il cliente
   // L'ID del WhatsApp Business Account che possiede il numero: serve alla
   // diagnosi per chiedere a Meta se la nostra app è iscritta a quell'account.
-  wabaId        String  @default("")
+  wabaId         String   @default("")
   // Token dedicato a questo numero. Vuoto = si usa quello delle Impostazioni.
   // Cifrato come le password delle caselle: mai in chiaro in tabella.
-  token         String  @default("") @db.Text
+  token          String   @default("") @db.Text
   // Il marchio a cui appartiene: decide il tono e la firma delle risposte
   // (le istruzioni di CS AI sono per brand).
-  negozioId     String?
-  attivo        Boolean @default(true)
-  creatoIl      DateTime @default(now())
+  negozioId      String?
+  attivo         Boolean  @default(true)
+  creatoIl       DateTime @default(now())
 
   negozio NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
 
@@ -248,8 +249,8 @@ model NumeroWhatsApp {
 // marchio — e, peggio, si risponde dal token di un'altra pagina, quindi il
 // cliente vede arrivare un messaggio da un'azienda a cui non ha scritto.
 model PaginaMeta {
-  id        String @id @default(cuid())
-  canale    String // messenger | instagram
+  id               String    @id @default(cuid())
+  canale           String // messenger | instagram
   // ── Scadenza del token ──
   //
   // ⚠️ Il token dell'«Instagram API con login di Instagram» NASCE CON LA
@@ -263,25 +264,27 @@ model PaginaMeta {
   // restano vuoti ed è giusto così — è la strada migliore, non un ripiego.
   tokenScadeIl     DateTime?
   tokenRinnovatoIl DateTime?
-  /** Com'è andato l'ultimo tentativo di rinnovo: vuoto = mai provato. */
-  tokenEsito       String   @default("") @db.Text
+  /**
+   * Com'è andato l'ultimo tentativo di rinnovo: vuoto = mai provato.
+   */
+  tokenEsito       String    @default("") @db.Text
   // L'ID della Pagina (Messenger) o dell'account Instagram professionale.
   // È la chiave con cui il webhook riconosce il destinatario: sta in
   // `entry[].messaging[].recipient.id`, e finisce in Conversazione.numeroId.
-  idPagina  String
-  nome      String @default("") // etichetta leggibile, es. "Deluxy Flowers"
+  idPagina         String
+  nome             String    @default("") // etichetta leggibile, es. "Deluxy Flowers"
   // Come lo vede il cliente: @nomeutente per Instagram, nome della pagina per
   // Facebook. Serve solo a farsi riconoscere in Inbox.
-  riferimento String @default("")
+  riferimento      String    @default("")
   // Token di QUESTA pagina. Cifrato, mai in chiaro in tabella.
   // ⚠️ Qui il ripiego sul token generale è un ripiego vero, non un'equivalenza:
   // ogni Pagina Facebook ha il SUO Page Access Token, e usare quello di un'altra
   // pagina non manda il messaggio dalla pagina giusta — o fallisce, o parte dal
   // marchio sbagliato. Con più pagine, il token per pagina va messo.
-  token     String @default("") @db.Text
-  negozioId String?
-  attivo    Boolean @default(true)
-  creatoIl  DateTime @default(now())
+  token            String    @default("") @db.Text
+  negozioId        String?
+  attivo           Boolean   @default(true)
+  creatoIl         DateTime  @default(now())
 
   negozio NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
 
@@ -295,37 +298,47 @@ model PaginaMeta {
 // Parametri ufficiali register.it: IMAP pop.securemail.pro:993 SSL,
 // SMTP authsmtp.securemail.pro:465 SSL, utente = indirizzo completo.
 model CasellaEmail {
-  id           String   @id @default(cuid())
-  nome         String   @default("") // etichetta, es. "Servizio clienti"
-  indirizzo    String   @unique // es. cs@deluxy.it — è anche l'utente IMAP/SMTP
-  nomeMittente String   @default("Deluxy")
+  id            String   @id @default(cuid())
+  nome          String   @default("") // etichetta, es. "Servizio clienti"
+  indirizzo     String   @unique // es. cs@deluxy.it — è anche l'utente IMAP/SMTP
+  nomeMittente  String   @default("Deluxy")
   // La FIRMA di questa casella, in coda a ogni mail che parte da qui.
   //
   // ⚠️ Una firma sola per tutte le caselle non va: le tre voci sono diverse — il
   // maggiordomo di deluxy.it, l'atelier dei fiori, il complice di Cakedesign — e
   // firmare una mail della pasticceria «Servizio Clienti Deluxy, consegna in
   // guanti bianchi» è dire al cliente una cosa che per quel brand non esiste.
-  firma        String   @default("") @db.Text
-  password     String   @default("") @db.Text // cifrata
-  imapHost     String   @default("pop.securemail.pro")
-  imapPort     Int      @default(993)
-  smtpHost     String   @default("authsmtp.securemail.pro")
-  smtpPort     Int      @default(465)
+  firma         String   @default("") @db.Text
+  password      String   @default("") @db.Text // cifrata
+  imapHost      String   @default("pop.securemail.pro")
+  imapPort      Int      @default(993)
+  smtpHost      String   @default("authsmtp.securemail.pro")
+  smtpPort      Int      @default(465)
   // Alcuni provider usano STARTTLS su 587: allora la connessione parte in
   // chiaro e si cifra dopo (secure = false).
-  smtpSicuro   Boolean  @default(true)
+  smtpSicuro    Boolean  @default(true)
   // register.it presenta un certificato intestato a un altro dominio: la
   // connessione resta cifrata, si salta solo la verifica del NOME.
-  ignoraCertTls Boolean @default(true)
-  attiva       Boolean  @default(true)
-  predefinita  Boolean  @default(false) // da quale casella parte una mail nuova
+  ignoraCertTls Boolean  @default(true)
+  attiva        Boolean  @default(true)
+  /// A COSA SERVE questa casella:
+  ///   `posta`    = posta normale, le mail entrano in inbox come conversazioni;
+  ///   `chiamate` = notifiche del centralino, diventano righe in Chiamate.
+  ///
+  /// ⚠️⚠️ Serve un campo perché la differenza non si vede dall'indirizzo. Senza,
+  /// le notifiche di `chiamate@deluxy.it` finirebbero in inbox: una
+  /// conversazione per ogni telefonata, con un corpo che nessuno legge e un
+  /// mittente che è il centralino, non il cliente. Il canale delle risposte si
+  /// riempirebbe di roba a cui non si risponde.
+  tipo          String   @default("posta")
+  predefinita   Boolean  @default(false) // da quale casella parte una mail nuova
   // Il marchio della casella: è l'unico modo di sapere a chi ha scritto un
   // cliente via email. Una mail non porta con sé «il nostro numero» come fa
   // WhatsApp, quindi senza questo campo finisce «senza marchio» e nell'inbox a
   // colonne resta in un mucchio unico. Vuoto resta una risposta legittima: una
   // casella può servire tutti i marchi insieme.
-  negozioId    String?
-  creatoIl     DateTime @default(now())
+  negozioId     String?
+  creatoIl      DateTime @default(now())
 
   negozio NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
 
@@ -336,21 +349,20 @@ model CasellaEmail {
 // richiamare Shopify ogni volta e per ricordare se il contatto del cliente è
 // già stato salvato su Google Contacts (contattoSalvato/contattoEsito).
 model Ordine {
-  id             String   @id @default(cuid())
-  negozioId      String
-  negozio        NegozioShopify @relation(fields: [negozioId], references: [id], onDelete: Cascade)
-  negozioNome    String   @default("") // denormalizzato per la lista
-  shopifyId      String // gid Shopify dell'ordine (unico per negozio, non globale)
+  id          String         @id @default(cuid())
+  negozioId   String
+  negozio     NegozioShopify @relation(fields: [negozioId], references: [id], onDelete: Cascade)
+  negozioNome String         @default("") // denormalizzato per la lista
+  shopifyId   String // gid Shopify dell'ordine (unico per negozio, non globale)
   /**
    * L'id che questo ordine ha in DELUXY ORDERS.
-   *
    * ⚠️⚠️ È il PONTE verso la piattaforma consegne: là la vendita porta
    * `externalOrderId = <id in Orders>`, non il numero e non il gid Shopify.
    * Senza questo campo, per sapere se un ordine è «in app» bisognerebbe
    * chiedere a Orders una volta per ordine — e chiedere col numero non
    * troverebbe niente, facendo sembrare che in app non ci sia mai nessuno.
    */
-  ordersId       String   @default("")
+  ordersId    String         @default("")
 
   // ── DUE ORDINI CHE SONO UNA VENDITA SOLA ──
   //
@@ -373,8 +385,8 @@ model Ordine {
   // ognuno col suo margine. Qui si dice «sono un lavoro solo», non si riscrive
   // l'economia di un'altra app.
   /**
+   * /**
    * L'ultimo link di pagamento per una RICONSEGNA di quest'ordine.
-   *
    * ⚠️⚠️ Si tiene, e non è un vezzo: senza, chiudendo il pop-up il link
    * spariva e per riaverlo bisognava premere di nuovo «Crea il link» — cioè
    * creare una SECONDA bozza su Shopify per la stessa riconsegna. Due bozze
@@ -386,38 +398,38 @@ model Ordine {
   riconsegnaNumero String    @default("")
   riconsegnaIl     DateTime?
 
-  unitoA        String    @default("")
-  unitoIl       DateTime?
-  unitoDaNome   String    @default("")
-  numero         String   @default("") // es. #1042
-  data           DateTime @default(now())
-  totale         Float    @default(0)
-  valuta         String   @default("EUR")
-  statoPagamento String   @default("")
+  unitoA         String    @default("")
+  unitoIl        DateTime?
+  unitoDaNome    String    @default("")
+  numero         String    @default("") // es. #1042
+  data           DateTime  @default(now())
+  totale         Float     @default(0)
+  valuta         String    @default("EUR")
+  statoPagamento String    @default("")
   // GOVERNO del giro: "manuale" = questo ordine ce lo teniamo noi e lo
   // smistamento automatico della piattaforma lo salta; "" = può andare in
   // automatico. La verità sta su Orders (il registro che la piattaforma
   // legge): qui è il riflesso per la scheda, riscritto dalla sync.
-  smistamento    String   @default("")
+  smistamento    String    @default("")
   // ⚠️ ANNULLATO SU SHOPIFY. Orders esclude gli annullati dai suoi elenchi:
   // senza questo campo l'annullamento era INVISIBILE da qui — l'ordine copiato
   // restava «valido» per sempre, smistabile e pagabile. Lo valorizza la sync
   // leggendo `GET /api/v1/ordini?annullatiDa=` (audit 24/08/2026). Un ordine
   // con annullatoIl non si lavora: né fornitore, né pagamento.
   annullatoIl    DateTime?
-  clienteNome    String   @default("")
-  telefono       String   @default("")
-  email          String   @default("")
-  indirizzo      String   @default("") @db.Text
-  citta          String   @default("") // mostrata sulle card della vista a colonne
+  clienteNome    String    @default("")
+  telefono       String    @default("")
+  email          String    @default("")
+  indirizzo      String    @default("") @db.Text
+  citta          String    @default("") // mostrata sulle card della vista a colonne
   // Paese di spedizione (ISO 2 lettere, da Orders): decide in che LINGUA si
   // scrive al cliente (src/lib/lingua.ts). Vuoto = non si sa, e allora si
   // guarda il prefisso del telefono.
-  paese          String   @default("")
+  paese          String    @default("")
   // Consegna richiesta dal cliente e stato nella pipeline Deluxy: arrivano da
   // Orders e reggono il Calendario ordini.
   dataConsegna   DateTime?
-  fasciaConsegna String   @default("")
+  fasciaConsegna String    @default("")
 
   // ── Consegna spostata da noi ──
   //
@@ -431,15 +443,15 @@ model Ordine {
   // l'originale resta in `dataConsegnaOriginale` e a schermo si dice. Quando
   // Orders porta la stessa data (perché qualcuno l'ha sistemata alla fonte),
   // l'interruttore si spegne da solo: la deroga dura solo finché serve.
-  consegnaSpostata      Boolean   @default(false)
-  dataConsegnaOriginale DateTime?
-  fasciaConsegnaOriginale String  @default("")
-  consegnaSpostataDa    String    @default("")
-  consegnaSpostataIl    DateTime?
-  statoChiave    String   @default("")
-  statoNome      String   @default("")
-  statoColore    String   @default("")
-  note           String   @default("") @db.Text
+  consegnaSpostata        Boolean   @default(false)
+  dataConsegnaOriginale   DateTime?
+  fasciaConsegnaOriginale String    @default("")
+  consegnaSpostataDa      String    @default("")
+  consegnaSpostataIl      DateTime?
+  statoChiave             String    @default("")
+  statoNome               String    @default("")
+  statoColore             String    @default("")
+  note                    String    @default("") @db.Text
   // DA CHE TIPO DI CLIENTE ARRIVA L'ORDINE, letto da Deluxy Orders:
   // privato | azienda | horeca | eventi | rivenditore. Vuoto = Orders non sa
   // dirlo (ordine senza email, telefono né nome).
@@ -448,10 +460,10 @@ model Ordine {
   // mano con `TagCliente`, altrimenti dedotta dal nome dell'acquirente) e qui si
   // riscrive a ogni sync. Non modificarla da questa app: cambierebbe solo qui e
   // le due schermate si contraddirebbero.
-  clienteTipo    String   @default("")
+  clienteTipo             String    @default("")
   // "manuale" (deciso da un operatore in Orders) oppure "dedotta" (dal nome).
   // Serve a sapere quanto fidarsi: una deduzione si può smentire.
-  clienteTipoDa  String   @default("")
+  clienteTipoDa           String    @default("")
   // Quante volte quel cliente aveva già comprato PRIMA di questo ordine, e che
   // numero ha questo ordine per lui (1 = è il suo primo).
   //
@@ -460,8 +472,8 @@ model Ordine {
   // contando qui un cliente che compra ogni Natale risulterebbe nuovo ogni
   // volta. `null` = Orders non l'ha calcolato o non riconosce il cliente —
   // che è diverso da «è la prima volta», e non va mostrato come tale.
-  clienteOrdiniPrima Int?
-  clienteNumeroOrdine Int?
+  clienteOrdiniPrima      Int?
+  clienteNumeroOrdine     Int?
   // C'è una nota del cliente su questo ordine (dentro c'è il biglietto)?
   //
   // ⚠️ Si tiene solo il SÌ/NO, non il testo. Il testo lo mostra il dettaglio
@@ -469,14 +481,14 @@ model Ordine {
   // personali (indirizzi, telefoni) e duplicarli qui vorrebbe dire tenerne due
   // copie che possono divergere. Qui serve solo per accendere il simbolo in
   // lista senza interrogare Orders per ogni riga.
-  haBiglietto    Boolean  @default(false)
-  contattoSalvato Boolean @default(false) // salvato su Google Contacts
-  contattoEsito  String   @default("") // esito/errore dell'ultimo salvataggio
+  haBiglietto             Boolean   @default(false)
+  contattoSalvato         Boolean   @default(false) // salvato su Google Contacts
+  contattoEsito           String    @default("") // esito/errore dell'ultimo salvataggio
   // Come stiamo lavorando l'ordine QUI (nostro, distinto dallo stato della
   // pipeline di Orders in statoChiave): da_gestire | in_pagamento |
   // comunicazione | gestito. Lo scarico da Orders non lo tocca mai.
-  gestione       String   @default("da_gestire")
-  gestioneIl     DateTime?
+  gestione                String    @default("da_gestire")
+  gestioneIl              DateTime?
   // CHI ha cambiato lo stato l ultima volta. Il nome e denormalizzato apposta:
   // la lista lo mostra su ogni riga e un join per ottenere un nome sarebbe
   // sproporzionato; e se un giorno quell utente viene cancellato, resta scritto
@@ -484,8 +496,8 @@ model Ordine {
   //
   // Vuoto sui 950 ordini gia in tabella: parte da ora. Non si indovina a
   // posteriori - meglio non saperlo che attribuirlo alla persona sbagliata.
-  gestioneDaId   String   @default("")
-  gestioneDaNome String   @default("")
+  gestioneDaId            String    @default("")
+  gestioneDaNome          String    @default("")
 
   // ── A CHI ABBIAMO DATO L'ORDINE DA PREPARARE ──
   //
@@ -504,7 +516,7 @@ model Ordine {
   // ⚠️ Lo scarico da Orders NON tocca questi campi (l'upsert scrive solo
   // `comuni`, vedi `src/lib/sincronizza.ts`): sono nostri, come
   // `gestione` e `contattoSalvato`.
-  fornitoreNome  String   @default("")
+  fornitoreNome     String    @default("")
   /**
    * L'id nel registro Anagrafiche, quando il fornitore viene da lì.
    * ⚠️ Vuoto NON vuol dire «non censito», vuol dire «trovato fuori dal
@@ -512,22 +524,24 @@ model Ordine {
    * significato non registrare metà degli ordini — cioè non registrarne
    * nessuno, perché un archivio con dei buchi non lo guarda più nessuno.
    */
-  fornitoreId    String   @default("")
-  fornitoreCitta String   @default("")
-  fornitoreTelefono String @default("")
-  fornitoreEmail String   @default("")
+  fornitoreId       String    @default("")
+  fornitoreCitta    String    @default("")
+  fornitoreTelefono String    @default("")
+  fornitoreEmail    String    @default("")
   /**
    * Quanto gli diamo DAVVERO, concordato al telefono.
    * ⚠️ Diverso dalla «quota fornitore» indicativa (il 60% del venduto), che
    * vive in Deluxy Orders e resta una stima: qui va la cifra pattuita. `null` =
    * non ancora concordata, che è diverso da zero.
    */
-  fornitoreCosto Float?
-  fornitoreNota  String   @default("") @db.Text
-  /** Chi l'ha registrato e quando: la prima domanda quando qualcosa va storto. */
-  fornitoreDaId  String   @default("")
-  fornitoreDaNome String  @default("")
-  fornitoreIl    DateTime?
+  fornitoreCosto    Float?
+  fornitoreNota     String    @default("") @db.Text
+  /**
+   * Chi l'ha registrato e quando: la prima domanda quando qualcosa va storto.
+   */
+  fornitoreDaId     String    @default("")
+  fornitoreDaNome   String    @default("")
+  fornitoreIl       DateTime?
 
   // ── QUELLO CHE DICE LA PIATTAFORMA CONSEGNE (copia, non verità) ──
   //
@@ -539,28 +553,26 @@ model Ordine {
   //
   // ⚠️ `appStato` sono i suoi stati, scritti come li scrive lei:
   // da_gestire · proposta · accettata · non_accettata · annullata.
-  appVenditaId    String    @default("")
-  appStato        String    @default("")
-  appPartner      String    @default("")
-  appCostoPartner Float?
-  appAggiornatoIl DateTime?
+  appVenditaId     String    @default("")
+  appStato         String    @default("")
+  appPartner       String    @default("")
+  appCostoPartner  Float?
+  appAggiornatoIl  DateTime?
   /**
    * Dov'era la lavorazione PRIMA che l'ordine passasse in app.
-   *
    * ⚠️ Serve a tornare indietro senza perdere niente: interrompendo la gestione
    * dall'app, o quando la proposta non viene accettata, l'ordine deve ritrovare
    * il punto in cui l'avevamo lasciato — non ripartire da «Da iniziare» come se
    * nessuno ci avesse mai lavorato.
    */
-  appGestionePrima String   @default("")
+  appGestionePrima String    @default("")
   /**
    * Quando una persona ha detto «questo lo facciamo noi».
-   *
    * ⚠️⚠️ Vale come un NO alla sincronizzazione: senza, il giro successivo
    * rimetterebbe l'ordine «In App» e la decisione della persona durerebbe dieci
    * minuti. Si toglie riportandolo in automatico.
    */
-  appInterrottoIl DateTime?
+  appInterrottoIl  DateTime?
 
   // ── Chi se ne sta occupando ──
   //
@@ -583,13 +595,13 @@ model Ordine {
   // conosce (NONE | LOW | MEDIUM | HIGH); `rischioRaccomandazione` è cosa dice
   // di fare (ACCEPT | INVESTIGATE | CANCEL). Vuoti = non lo sappiamo, che non
   // vuol dire «nessun rischio».
-  rischioLivello String   @default("")
+  rischioLivello         String @default("")
   rischioRaccomandazione String @default("")
 
-  presaDaId      String   @default("")
-  presaDaNome    String   @default("")
-  presaIl        DateTime?
-  creatoIl       DateTime @default(now())
+  presaDaId   String    @default("")
+  presaDaNome String    @default("")
+  presaIl     DateTime?
+  creatoIl    DateTime  @default(now())
 
   @@unique([negozioId, shopifyId]) // dedup per-negozio: il gid è unico solo lì
   @@index([ordersId])
@@ -605,11 +617,11 @@ model Ordine {
 // persona sul canale: numero WhatsApp, PSID Messenger, IGSID Instagram o il
 // token segreto della sessione del widget.
 model Conversazione {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   canale            String // whatsapp | messenger | instagram | widget | email
   idEsterno         String
   // Solo email: la casella che ha ricevuto (da lì partono le risposte).
-  casellaId         String   @default("")
+  casellaId         String    @default("")
   // ⚠️ SU QUALE NOSTRO NUMERO È ARRIVATO il messaggio (WhatsApp): il
   // `phone_number_id` di Meta, più il numero leggibile per mostrarlo.
   //
@@ -624,8 +636,8 @@ model Conversazione {
   //    dei messaggi è il numero sbagliato.
   // Vuoto = arrivato prima di questa modifica, o canale che non ha un numero
   // nostro (widget, Messenger, Instagram).
-  numeroId          String   @default("")
-  numeroNostro      String   @default("")
+  numeroId          String    @default("")
+  numeroNostro      String    @default("")
   // ── Smistamento per sito, quando lo sappiamo con certezza ──
   //
   // Il marchio di una conversazione arriva di norma dall'account che ha ricevuto
@@ -638,14 +650,16 @@ model Conversazione {
   // deduzione dal testo. `negozioId` vince su tutto il resto.
   // Misurato il 30/07/2026: 981 ordini, **zero numeri ripetuti** fra i tre siti.
   negozioId         String?
-  /** Il numero dell'ordine di cui parla la conversazione, se lo sappiamo. */
-  ordineNumero      String   @default("")
-  nome              String   @default("")
+  /**
+   * Il numero dell'ordine di cui parla la conversazione, se lo sappiamo.
+   */
+  ordineNumero      String    @default("")
+  nome              String    @default("")
   // Il nome come sta nella NOSTRA rubrica Google (deluxy.delivery@gmail.com).
   // Tenuto separato da `nome`, che è quello scelto dal cliente sul suo profilo
   // WhatsApp: sono due cose diverse e nessuna delle due va sovrascritta.
   // «FL Mario Rossi #1042» dice chi è e con che ordine; «Nicolo» no.
-  nomeRubrica       String   @default("")
+  nomeRubrica       String    @default("")
   // Quando abbiamo guardato in rubrica. Serve a NON richiedere ogni ora i
   // numeri che non ci sono: la People API si paga in tempo, e un numero che
   // manca oggi manca anche fra un'ora.
@@ -665,34 +679,32 @@ model Conversazione {
   // cookie, niente storia salvata sul sito ospite. Chi clicca l'annuncio oggi e
   // scrive fra due giorni risulta «diretto», ed è giusto dirlo così invece di
   // costruirci sopra un tracciamento.
-  origine           String   @default("")
-  origineDettaglio  String   @default("")
-  paginaIngresso    String   @default("")
+  origine           String    @default("")
+  origineDettaglio  String    @default("")
+  paginaIngresso    String    @default("")
   // Il riassunto della conversazione fatto dall'AI, con quello che il cliente ha
   // detto su data, ora, luogo e prodotto. Si salva per non rifarlo a ogni
   // apertura; si aggiorna a richiesta.
-  riassunto         String   @default("") @db.Text
+  riassunto         String    @default("") @db.Text
   riassuntoIl       DateTime?
-  ultimoTesto       String   @default("") @db.Text
-  ultimoMessaggioIl DateTime @default(now())
-  nonLetti          Int      @default(0) // messaggi in arrivo non ancora letti dall'operatore
+  ultimoTesto       String    @default("") @db.Text
+  ultimoMessaggioIl DateTime  @default(now())
+  nonLetti          Int       @default(0) // messaggi in arrivo non ancora letti dall'operatore
   /**
    * «L'ho letta, ma ci devo tornare»: il gesto della posta, segnare di nuovo
    * come da leggere.
-   *
    * ⚠️⚠️ È un campo A PARTE e non un `nonLetti = 1` finto, per due motivi che
    * si sarebbero visti solo dopo:
-   *  · `nonLetti` è un CONTATORE che alzano i webhook. Rimetterlo a mano
-   *    direbbe «è arrivato un messaggio nuovo» quando non è arrivato niente, e
-   *    il numero sulla riga sarebbe una bugia;
-   *  · `src/lib/avvisi.ts` fa suonare l'app quando `nonLetti` CRESCE. Segnare
-   *    da leggere avrebbe fatto squillare un avviso a chi l'ha appena segnata.
-   *
+   * · `nonLetti` è un CONTATORE che alzano i webhook. Rimetterlo a mano
+   * direbbe «è arrivato un messaggio nuovo» quando non è arrivato niente, e
+   * il numero sulla riga sarebbe una bugia;
+   * · `src/lib/avvisi.ts` fa suonare l'app quando `nonLetti` CRESCE. Segnare
+   * da leggere avrebbe fatto squillare un avviso a chi l'ha appena segnata.
    * ⚠️ Lo spegne il clic che riapre la conversazione, non la rotta dei
    * messaggi: quella la richiama il polling ogni 4 secondi, e il segno sarebbe
    * durato meno di un battito di ciglia.
    */
-  daRileggere       Boolean  @default(false)
+  daRileggere       Boolean   @default(false)
   // ── CHI SE NE STA OCCUPANDO ──
   //
   // Gli operatori sono tre e l'inbox è una sola: finora chi ha fatto cosa
@@ -712,10 +724,10 @@ model Conversazione {
   // tolto resta scritto chi se ne stava occupando, invece di un id orfano.
   // Vuoto = nessuno l'ha presa, che è diverso da «presa da qualcuno che non
   // c'è più».
-  presaDaId         String   @default("")
-  presaDaNome       String   @default("")
+  presaDaId         String    @default("")
+  presaDaNome       String    @default("")
   presaIl           DateTime?
-  archiviata        Boolean  @default(false)
+  archiviata        Boolean   @default(false)
   // CESTINO: quando è stata buttata. `null` = non è nel cestino.
   //
   // ⚠️ Eliminare non cancella più subito. Una conversazione buttata per errore
@@ -725,7 +737,7 @@ model Conversazione {
   // davvero. Trenta giorni sono la finestra in cui un cliente riscrive «ma la
   // mia mail?», che è il momento in cui serve.
   eliminataIl       DateTime?
-  creatoIl          DateTime @default(now())
+  creatoIl          DateTime  @default(now())
 
   messaggi Messaggio[]
 
@@ -737,24 +749,24 @@ model Conversazione {
 }
 
 model Messaggio {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   conversazioneId String
   conversazione   Conversazione @relation(fields: [conversazioneId], references: [id], onDelete: Cascade)
   direzione       String // in (dal cliente) | out (dall'operatore)
-  oggetto         String   @default("") // solo email: l'oggetto del messaggio
-  testo           String   @db.Text
-  tipo            String   @default("testo") // testo | media | nota
-  idEsterno       String   @default("") // id Meta del messaggio: dedup webhook e aggiornamenti di stato
-  stato           String   @default("") // inviato | consegnato | letto | errore ("" per i messaggi in arrivo)
-  errore          String   @default("") // motivo se stato = errore
+  oggetto         String        @default("") // solo email: l'oggetto del messaggio
+  testo           String        @db.Text
+  tipo            String        @default("testo") // testo | media | nota
+  idEsterno       String        @default("") // id Meta del messaggio: dedup webhook e aggiornamenti di stato
+  stato           String        @default("") // inviato | consegnato | letto | errore ("" per i messaggi in arrivo)
+  errore          String        @default("") // motivo se stato = errore
   // CHI ha scritto, solo per i messaggi in USCITA. Il nome è copiato e non
   // collegato: le bolle della chat lo mostrano una per una, e un join per un
   // nome sarebbe sproporzionato — inoltre se quell'utente viene tolto resta
   // scritto chi aveva risposto al cliente invece di un id orfano.
   // Vuoto sui messaggi in arrivo (li scrive il cliente) e su quelli già in
   // archivio: parte da adesso, a posteriori non si indovina.
-  utenteId        String   @default("")
-  utenteNome      String   @default("")
+  utenteId        String        @default("")
+  utenteNome      String        @default("")
   // ── Allegati (WhatsApp) ──
   // Il file NON si copia da nessuna parte: Meta lo tiene e ce lo dà a richiesta
   // con questo id. Salvarne una copia vorrebbe dire uno storage nostro, con le
@@ -762,7 +774,7 @@ model Messaggio {
   // da ponte: chiede a Meta l'indirizzo e passa i byte, col token giusto.
   // ⚠️ In arrivo l'id resta valido finché Meta tiene il file (circa 30 giorni);
   // in uscita è quello che abbiamo caricato noi.
-  mediaId         String   @default("")
+  mediaId         String        @default("")
   // ── Allegati (Instagram e Messenger) ──
   //
   // ⚠️ QUI META NON DÀ UN ID, DÀ UN INDIRIZZO. Su WhatsApp arriva `image.id` e
@@ -779,17 +791,16 @@ model Messaggio {
   // dovuto chiedergliela di nuovo), ma la durata resta un limite dichiarato:
   // per tenerle davvero servirebbe uno storage nostro, e il download NON può
   // stare dentro il webhook — un webhook lento fa perdere messaggi.
-  mediaUrl        String   @default("") @db.Text
-  mimeType        String   @default("")
-  nomeFile        String   @default("") // solo documenti: come si chiamava
+  mediaUrl        String        @default("") @db.Text
+  mimeType        String        @default("")
+  nomeFile        String        @default("") // solo documenti: come si chiamava
   // ── Lingua e traduzione ──
   // `lingua` è il nome esteso ("inglese", "francese"…), riconosciuto IN CODICE
   // contando le parole comuni: nessuna chiamata, nessun costo, nessuna attesa.
   // Vuoto = testo troppo corto per decidere, e allora non si forza niente.
-  lingua          String   @default("")
+  lingua          String        @default("")
   /**
    * L'emoji con cui il cliente ha reagito a QUESTO messaggio («❤️», «👍»).
-   *
    * ⚠️ Sta sul messaggio a cui la reazione si riferisce, non su una riga sua:
    * su WhatsApp una reazione non è un messaggio, è un francobollo attaccato a
    * uno che c'è già. Tenerla come riga a parte dava «[reaction]» in mezzo al
@@ -797,12 +808,12 @@ model Messaggio {
    * ⚠️ Togliere la reazione arriva come un evento con l'emoji VUOTA: allora
    * questo campo torna vuoto. Non è un caso da ignorare, è l'annullamento.
    */
-  reazione        String   @default("")
+  reazione        String        @default("")
   // La traduzione in italiano di un messaggio ARRIVATO in una lingua che non
   // leggiamo. Si salva perché è costata una chiamata: riaprire la
   // conversazione non deve ricomprarla.
-  traduzione      String   @default("") @db.Text
-  creatoIl        DateTime @default(now())
+  traduzione      String        @default("") @db.Text
+  creatoIl        DateTime      @default(now())
 
   @@index([conversazioneId, creatoIl])
   @@index([idEsterno])
@@ -821,8 +832,8 @@ model Messaggio {
 // `Conversazione.numeroId`, così in Inbox si vede da quale sito è arrivato il
 // messaggio e la conversazione va nella colonna del marchio giusto.
 model WidgetSito {
-  id        String  @id @default(cuid())
-  slug      String  @unique // deluxy | flowers | cake | …
+  id            String   @id @default(cuid())
+  slug          String   @unique // deluxy | flowers | cake | …
   // IL CODICE DEL LINK PUBBLICO: /chat/<codice>.
   //
   // La stessa chat del widget, ma come pagina a sé — da mettere nella bio di
@@ -835,21 +846,21 @@ model WidgetSito {
   // Opzionale perché i siti creati prima non ce l'hanno: si riempie al primo
   // salvataggio o dallo script di allineamento. In Postgres più NULL non
   // rompono l'unicità, più stringhe vuote sì.
-  codice    String? @unique
-  nome      String  @default("") // come lo chiamiamo noi
-  dominio   String  @default("") // deluxy.it, cakedesign.me…
-  negozioId String?
+  codice        String?  @unique
+  nome          String   @default("") // come lo chiamiamo noi
+  dominio       String   @default("") // deluxy.it, cakedesign.me…
+  negozioId     String?
   // Aspetto: gli stessi valori che lo snippet mette negli attributi data-*.
-  tema      String  @default("chiaro")
-  accento   String  @default("") // #rrggbb, vuoto = quello del tema
-  posizione String  @default("destra")
-  etichetta String  @default("") // il testo accanto al bottone
+  tema          String   @default("chiaro")
+  accento       String   @default("") // #rrggbb, vuoto = quello del tema
+  posizione     String   @default("destra")
+  etichetta     String   @default("") // il testo accanto al bottone
   // Il selettore CSS di un elemento CHE C'E' GIA' sul sito (la voce «Live Chat»
   // del menu): cliccandolo si apre la nostra chat, senza toccare il tema.
-  selettoreApri String @default("")
+  selettoreApri String   @default("")
   // Il bottone flottante si puo' togliere: se la chat si apre dal menu, due
   // punti d'ingresso sono uno di troppo.
-  mostraBottone Boolean @default(true)
+  mostraBottone Boolean  @default(true)
   // ── Il link /chat/<codice> porta SUL SITO, con la chat già aperta ──
   //
   // Senza questo, il link è una chat a pagina intera su sfondo vuoto e la ×
@@ -865,7 +876,7 @@ model WidgetSito {
   // Verificato il 17/08/2026: **deluxyflowers.com sì, cakedesign.me sì,
   // deluxy.it NO**. Chi accende la spunta deve averlo controllato, e per questo
   // è una spunta e non una deduzione dal fatto che il dominio sia compilato.
-  apreSulSito   Boolean @default(false)
+  apreSulSito   Boolean  @default(false)
   // I LINK RAPIDI sotto il saluto: «Regali per oggi», «Torte nuziali»…
   //
   // Sono la risposta alla domanda del saluto («Come ti aiutiamo?»): il
@@ -875,13 +886,13 @@ model WidgetSito {
   // risposta scritta bene dieci minuti dopo.
   //
   // JSON: [{ "testo": "Regali per oggi", "url": "/collections/oggi" }]
-  linkRapidi    String  @default("") @db.Text
+  linkRapidi    String   @default("") @db.Text
   // Testi della chat: se vuoti valgono quelli generali delle Impostazioni.
-  titolo    String  @default("")
-  saluto    String  @default("") @db.Text
-  attivo    Boolean @default(true)
-  creatoIl  DateTime @default(now())
-  aggiornatoIl DateTime @updatedAt
+  titolo        String   @default("")
+  saluto        String   @default("") @db.Text
+  attivo        Boolean  @default(true)
+  creatoIl      DateTime @default(now())
+  aggiornatoIl  DateTime @updatedAt
 
   negozio NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
 
@@ -898,21 +909,21 @@ model WidgetSito {
 // Quando ci sarà la chiave di Deluxy Tasks queste vanno anche spinte là: è
 // scritto nell'handoff, non va dimenticato o diventano due registri.
 model Attivita {
-  id              String   @id @default(cuid())
-  testo           String   @db.Text
-  fatta           Boolean  @default(false)
+  id              String    @id @default(cuid())
+  testo           String    @db.Text
+  fatta           Boolean   @default(false)
   scadenza        DateTime?
   // A cosa si riferisce: si tiene l'id **e l'etichetta**, così il promemoria si
   // legge («ordine #2529») anche se quell'ordine non c'è più in tabella.
-  ordineId        String   @default("")
-  conversazioneId String   @default("")
-  riferimento     String   @default("")
+  ordineId        String    @default("")
+  conversazioneId String    @default("")
+  riferimento     String    @default("")
   // Chi l'ha scritta: con più operatori, «di chi è questo promemoria» è la prima
   // domanda. Copiato e non collegato, come su Messaggio.
-  utenteId        String   @default("")
-  utenteNome      String   @default("")
+  utenteId        String    @default("")
+  utenteNome      String    @default("")
   fattaIl         DateTime?
-  creatoIl        DateTime @default(now())
+  creatoIl        DateTime  @default(now())
 
   @@index([fatta, scadenza])
 }
@@ -957,55 +968,55 @@ model Valet {
 // eseguire e la colpa tipica. È il catalogo che l'operatore configura una volta
 // e riusa aprendo i reclami.
 model CasistaReclamo {
-  id          String   @id @default(cuid())
-  nome        String // es. "Consegna in ritardo"
-  descrizione String   @default("") @db.Text
+  id           String   @id @default(cuid())
+  nome         String // es. "Consegna in ritardo"
+  descrizione  String   @default("") @db.Text
   // A chi è di solito imputabile: valet | partner | azienda | cliente | nessuno.
   // È solo un default: sul singolo reclamo la colpa si può cambiare.
-  colpaTipica String   @default("")
+  colpaTipica  String   @default("")
   // Peso della casistica: 1 lieve, 2 media, 3 grave. Regge i giudizi.
-  gravita     Int      @default(2)
+  gravita      Int      @default(2)
   // Azioni consigliate da eseguire, una per riga.
-  azioni      String   @default("") @db.Text
-  attiva      Boolean  @default(true)
-  creatoIl    DateTime @default(now())
+  azioni       String   @default("") @db.Text
+  attiva       Boolean  @default(true)
+  creatoIl     DateTime @default(now())
   aggiornatoIl DateTime @updatedAt
 }
 
 // Un reclamo aperto su un ordine.
 model Reclamo {
-  id           String   @id @default(cuid())
+  id           String @id @default(cuid())
   // Ordine di riferimento: denormalizzato perché l'ordine può stare qui in
   // locale (ordineId valorizzato) oppure solo nell'archivio Orders.
-  ordineId     String   @default("")
-  ordineNumero String   @default("")
-  negozioNome  String   @default("")
-  clienteNome  String   @default("")
-  telefono     String   @default("")
-  email        String   @default("")
+  ordineId     String @default("")
+  ordineNumero String @default("")
+  negozioNome  String @default("")
+  clienteNome  String @default("")
+  telefono     String @default("")
+  email        String @default("")
 
   // Casistica: il tipo di problema. `casistica` è il nome denormalizzato.
-  casisticaId  String   @default("")
-  casistica    String   @default("")
+  casisticaId String @default("")
+  casistica   String @default("")
 
   // Di chi è la colpa: valet | partner | azienda | cliente | nessuno.
   // colpaId è l'id del valet (registro locale) o del partner (Anagrafiche);
   // colpaNome è denormalizzato perché il nome del partner vive nel registro.
-  colpaTipo    String   @default("nessuno")
-  colpaId      String   @default("")
-  colpaNome    String   @default("")
+  colpaTipo String @default("nessuno")
+  colpaId   String @default("")
+  colpaNome String @default("")
 
-  gravita      Int      @default(2) // 1 lieve, 2 media, 3 grave
-  descrizione  String   @default("") @db.Text
+  gravita     Int    @default(2) // 1 lieve, 2 media, 3 grave
+  descrizione String @default("") @db.Text
   // Azioni da eseguire per questo reclamo (partono dalla casistica, poi si
   // adattano). Una per riga.
-  azioni       String   @default("") @db.Text
-  stato        String   @default("aperto") // aperto | in_lavorazione | risolto | chiuso
-  esito        String   @default("") @db.Text // com'è andata a finire
+  azioni      String @default("") @db.Text
+  stato       String @default("aperto") // aperto | in_lavorazione | risolto | chiuso
+  esito       String @default("") @db.Text // com'è andata a finire
 
   risoltoIl    DateTime?
-  creatoIl     DateTime @default(now())
-  aggiornatoIl DateTime @updatedAt
+  creatoIl     DateTime  @default(now())
+  aggiornatoIl DateTime  @updatedAt
 
   @@index([stato])
   @@index([colpaTipo, colpaId])
@@ -1042,40 +1053,40 @@ model Giudizio {
 // Nasce quasi sempre da un reclamo (`reclamoId`), ma può stare in piedi da sola:
 // un cliente può chiedere il rimborso senza aver aperto una contestazione.
 model Rimborso {
-  id           String   @id @default(cuid())
+  id           String @id @default(cuid())
   // L'ordine: denormalizzato come per i reclami, perché l'ordine può vivere qui
   // in locale oppure solo nell'archivio di Deluxy Orders.
-  ordineId     String   @default("")
-  ordineNumero String   @default("")
-  negozioNome  String   @default("")
-  clienteNome  String   @default("")
-  telefono     String   @default("")
-  email        String   @default("")
+  ordineId     String @default("")
+  ordineNumero String @default("")
+  negozioNome  String @default("")
+  clienteNome  String @default("")
+  telefono     String @default("")
+  email        String @default("")
 
   // Quanto valeva l'ordine quando è stata fatta la richiesta: si congela qui
   // perché è il tetto su cui è stato deciso. Se domani l'ordine cambiasse, la
   // decisione presa resterebbe leggibile con i numeri di allora.
-  importoOrdine Float   @default(0)
-  importo      Float    @default(0) // quanto si chiede di rendere
-  valuta       String   @default("EUR")
+  importoOrdine Float  @default(0)
+  importo       Float  @default(0) // quanto si chiede di rendere
+  valuta        String @default("EUR")
   // totale | parziale — si ricava dagli importi, ma tenerlo scritto rende
   // leggibile l'elenco senza rifare il confronto a ogni riga.
-  tipo         String   @default("parziale")
+  tipo          String @default("parziale")
 
   // Perché. `motivo` è il testo libero; `reclamoId` lega la richiesta alla
   // contestazione da cui nasce, se c'è.
-  motivo       String   @default("") @db.Text
-  reclamoId    String   @default("")
+  motivo    String @default("") @db.Text
+  reclamoId String @default("")
 
   // richiesto | approvato | rifiutato | eseguito | annullato
-  stato        String   @default("richiesto")
-  richiestoDa  String   @default("") // chi l'ha chiesto (nome dell'operatore)
-  decisoDa     String   @default("") // chi ha approvato o rifiutato
-  decisoIl     DateTime?
+  stato       String    @default("richiesto")
+  richiestoDa String    @default("") // chi l'ha chiesto (nome dell'operatore)
+  decisoDa    String    @default("") // chi ha approvato o rifiutato
+  decisoIl    DateTime?
   // Come è finita davvero: "rimborsato su Shopify il 3/8", "bonifico del 5/8".
-  esito        String   @default("") @db.Text
-  eseguitoIl   DateTime?
-  note         String   @default("") @db.Text
+  esito       String    @default("") @db.Text
+  eseguitoIl  DateTime?
+  note        String    @default("") @db.Text
 
   creatoIl     DateTime @default(now())
   aggiornatoIl DateTime @updatedAt
@@ -1103,27 +1114,27 @@ model Rimborso {
 
 // Una voce della pagella: cosa si misura, per chi, da dove e quanto pesa.
 model VocePunteggio {
-  id          String   @id @default(cuid())
-  nome        String // es. "Feedback dei clienti", "Puntualità"
-  descrizione String   @default("") @db.Text
+  id           String   @id @default(cuid())
+  nome         String // es. "Feedback dei clienti", "Puntualità"
+  descrizione  String   @default("") @db.Text
   // A chi si applica: valet | partner | tutti
-  soggetto    String   @default("tutti")
+  soggetto     String   @default("tutti")
   // Da dove arriva il dato:
   //   reclami    → dai reclami imputati al soggetto (meno reclami = più punti)
   //   feedback   → dalla media dei voti in `Feedback`
   //   puntualita → dalla quota di consegne in orario in `Puntualita`
   //   manuale    → da un valore 0-100 messo a mano in `MetricaManuale`
-  fonte       String   @default("manuale")
+  fonte        String   @default("manuale")
   // Quanto pesa nella media (numero puro: contano i rapporti fra i pesi).
-  peso        Int      @default(1)
+  peso         Int      @default(1)
   // Significato DIVERSO per fonte (documentato in src/lib/punteggi.ts):
   //   reclami    → il punteggio-reclami che azzera la voce (es. 10)
   //   puntualita → i minuti di tolleranza entro cui si è "in orario" (es. 15)
   //   feedback   → non usata
   //   manuale    → non usata
-  soglia      Float    @default(10)
-  attiva      Boolean  @default(true)
-  creatoIl    DateTime @default(now())
+  soglia       Float    @default(10)
+  attiva       Boolean  @default(true)
+  creatoIl     DateTime @default(now())
   aggiornatoIl DateTime @updatedAt
 
   @@index([soggetto])
@@ -1157,16 +1168,16 @@ model Feedback {
 // configurabile sulla voce di punteggio (`soglia`): cambiandola, gli stessi dati
 // raccontano una storia diversa senza dover riscrivere nulla.
 model Puntualita {
-  id           String   @id @default(cuid())
-  valetId      String
-  valetNome    String   @default("")
-  ordineNumero String   @default("")
+  id            String    @id @default(cuid())
+  valetId       String
+  valetNome     String    @default("")
+  ordineNumero  String    @default("")
   // Quando era attesa e quando è arrivata davvero.
-  attesaIl     DateTime?
-  consegnataIl DateTime?
-  minutiRitardo Int     @default(0)
-  note         String   @default("") @db.Text
-  creatoIl     DateTime @default(now())
+  attesaIl      DateTime?
+  consegnataIl  DateTime?
+  minutiRitardo Int       @default(0)
+  note          String    @default("") @db.Text
+  creatoIl      DateTime  @default(now())
 
   @@index([valetId])
   @@index([creatoIl])
@@ -1220,21 +1231,21 @@ model ApiKey {
 // non ha deciso. Quello che si scrive qui si AGGIUNGE a quelli.
 // ─────────────────────────────────────────────────────────────────────────────
 model IstruzioneAI {
-  id        String   @id @default(cuid())
-  titolo    String
-  categoria String   @default("Generale") // Tono di voce, Firma, Reclami…
-  testo     String   @db.Text
+  id            String   @id @default(cuid())
+  titolo        String
+  categoria     String   @default("Generale") // Tono di voce, Firma, Reclami…
+  testo         String   @db.Text
   // Dove vale: tutti | chat | email. Alla chat e alla mail si scrive in modo
   // diverso — una chat è breve e immediata, una mail ha oggetto e firma.
-  ambito    String   @default("tutti")
+  ambito        String   @default("tutti")
   // Il BRAND per cui vale. Vuoto = tutti i brand. La holding ha più negozi
   // (Flowers, Cake Design, Gifts) e non parlano allo stesso modo: la firma dei
   // fiori non deve finire in una mail della pasticceria.
-  negozioId String?
+  negozioId     String?
   // Da quale documento caricato è stata ricavata. Vuoto = scritta a mano. Serve
   // a risalire: una regola di cui non si sa da dove viene non si può né
   // difendere davanti a un cliente né correggere quando la fonte cambia.
-  documentoId String?
+  documentoId   String?
   // Quale regola GENERALE questa regola di brand manda in pensione.
   //
   // ⚠️ Serve perché due regole che si contraddicono non si risolvono da sole nel
@@ -1245,10 +1256,10 @@ model IstruzioneAI {
   // scrive la regola di brand dice quale sostituisce, e quella non parte.
   sostituisceId String?
   // In che ordine finiscono nel prompt: le più importanti per prime.
-  ordine    Int      @default(0)
-  attiva    Boolean  @default(true)
-  creatoIl  DateTime @default(now())
-  aggiornatoIl DateTime @updatedAt
+  ordine        Int      @default(0)
+  attiva        Boolean  @default(true)
+  creatoIl      DateTime @default(now())
+  aggiornatoIl  DateTime @updatedAt
 
   negozio   NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
   documento DocumentoAI?    @relation(fields: [documentoId], references: [id], onDelete: SetNull)
@@ -1329,29 +1340,29 @@ model ClienteUnito {
 // nostro giro la riscrive ogni ora. Qui si tiene per poterle mostrare in
 // bacheca, contarle e legarle agli ordini — non per deciderne lo stato.
 model Chargeback {
-  id            String    @id // l'id di Shopify, che è già unico
-  negozioId     String    @default("")
-  negozioNome   String    @default("")
+  id              String    @id // l'id di Shopify, che è già unico
+  negozioId       String    @default("")
+  negozioNome     String    @default("")
   // L'ordine contestato: l'id numerico di Shopify e, quando lo troviamo fra i
   // nostri, il numero leggibile («#1741»).
-  ordineIdShopify String  @default("")
-  ordineNumero  String    @default("")
-  tipo          String    @default("") // chargeback | inquiry
-  importo       Float     @default(0)
-  valuta        String    @default("EUR")
-  motivo        String    @default("") // fraudulent, product_not_received…
-  codiceRete    String    @default("")
+  ordineIdShopify String    @default("")
+  ordineNumero    String    @default("")
+  tipo            String    @default("") // chargeback | inquiry
+  importo         Float     @default(0)
+  valuta          String    @default("EUR")
+  motivo          String    @default("") // fraudulent, product_not_received…
+  codiceRete      String    @default("")
   // needs_response | under_review | charge_refunded | accepted | won | lost
-  stato         String    @default("")
-  scadenzaProve DateTime?
-  proveInviateIl DateTime?
-  finalizzatoIl DateTime?
-  iniziatoIl    DateTime?
+  stato           String    @default("")
+  scadenzaProve   DateTime?
+  proveInviateIl  DateTime?
+  finalizzatoIl   DateTime?
+  iniziatoIl      DateTime?
   // La bozza di risposta scritta da noi, prima di mandarla a Shopify: si scrive
   // in più momenti e la si rilegge, come si fa con una mail importante.
-  bozzaRisposta String    @default("") @db.Text
-  aggiornatoIl  DateTime  @updatedAt
-  creatoIl      DateTime  @default(now())
+  bozzaRisposta   String    @default("") @db.Text
+  aggiornatoIl    DateTime  @updatedAt
+  creatoIl        DateTime  @default(now())
 
   @@index([stato])
   @@index([scadenzaProve])
@@ -1370,49 +1381,52 @@ model Chargeback {
 // casa. Una nota può anche non averlo — «chiamare il fornitore di Bolzano» è
 // lavoro lo stesso.
 model NotaDiario {
-  id           String    @id @default(cuid())
-  /** «#12562» o vuoto: la riga vale anche senza ordine. */
-  ordineNumero String    @default("")
+  id               String    @id @default(cuid())
+  /**
+   * «#12562» o vuoto: la riga vale anche senza ordine.
+   */
+  ordineNumero     String    @default("")
   /**
    * La conversazione da cui la nota è stata scritta, se è stata scritta da lì.
-   *
    * ⚠️ Una nota presa mentre si parla col cliente — «richiamare domani», «vuole
    * il biglietto scritto a mano» — nasce SEMPRE in una chat, e spesso quella
    * chat non ha ancora un ordine. Legandola solo al numero d'ordine, quelle
    * note finivano in un elenco in cui non si capiva più di chi parlassero.
    */
-  conversazioneId String  @default("")
+  conversazioneId  String    @default("")
   /**
    * ⚠️ Il nome o il numero di chi scriveva, COPIATO qui. Il diario si legge da
    * una pagina sua, che non carica le conversazioni: senza questa copia una
    * riga direbbe soltanto «da una chat». E se la conversazione finisce nel
    * cestino, la nota deve continuare a dire di chi parlava.
    */
-  conversazioneChi String @default("")
-  testo        String    @db.Text
-  /** Fatta o no: il diario è una lista di cose da fare, non un archivio. */
-  fatta        Boolean   @default(false)
-  fattaIl      DateTime?
-  /** Chi l'ha scritta e chi l'ha chiusa: con tre operatori è la prima domanda. */
-  autoreId     String    @default("")
-  autoreNome   String    @default("")
-  fattaDaNome  String    @default("")
+  conversazioneChi String    @default("")
+  testo            String    @db.Text
+  /**
+   * Fatta o no: il diario è una lista di cose da fare, non un archivio.
+   */
+  fatta            Boolean   @default(false)
+  fattaIl          DateTime?
+  /**
+   * Chi l'ha scritta e chi l'ha chiusa: con tre operatori è la prima domanda.
+   */
+  autoreId         String    @default("")
+  autoreNome       String    @default("")
+  fattaDaNome      String    @default("")
   /**
    * IL SEGUITO DI UN'ALTRA NOTA: l'id di quella che questa riga cita.
    * '' = riga a sé.
-   *
    * ⚠️⚠️ Un seguito è una NOTA, non un commento: si segna fatta, porta un
    * ordine, ha un autore. Il caso vero è «richiamare il cliente domani» →
    * «richiamato, vuole il biglietto riscritto» → «riscritto». Tre righe che
    * parlano della stessa cosa: separate diventano tre cose da fare, e chi
    * legge il diario non sa che le ultime due chiudono la prima.
-   *
    * ⚠️ Un solo livello: un seguito di un seguito si aggancia alla capofila.
    * Un albero profondo in una lista di cose da fare non si legge più.
    */
-  rispostaA    String    @default("")
-  creatoIl     DateTime  @default(now())
-  aggiornatoIl DateTime  @updatedAt
+  rispostaA        String    @default("")
+  creatoIl         DateTime  @default(now())
+  aggiornatoIl     DateTime  @updatedAt
 
   @@index([ordineNumero])
   @@index([conversazioneId])
@@ -1438,29 +1452,43 @@ model NotaDiario {
 // mostrato all'operatore lo farebbe ricominciare — col cliente che si ritrova
 // due ordini. Vedi il try/catch in `src/lib/nuovo-ordine.ts`.
 model OrdineCreato {
-  id            String   @id @default(cuid())
-  /** Chi l'ha fatto: è il motivo per cui questa tabella esiste. */
-  utenteId      String   @default("")
-  utenteNome    String   @default("")
-  negozioId     String   @default("")
-  negozioNome   String   @default("")
-  /** `link` (paga il cliente da Shopify) | `pagato` (i soldi c'erano già). */
-  pagamento     String   @default("link")
-  /** Con che mezzo, quando è `pagato`: bonifico, contanti, POS. */
-  mezzoPagamento String  @default("")
-  /** gid della bozza Shopify e il suo nome (#D123). */
-  bozzaId       String   @default("")
-  bozzaNome     String   @default("")
-  /** Il numero dell'ordine vero, quando la bozza è stata chiusa subito. */
-  ordineNumero  String   @default("")
-  /** Il totale che Shopify ha calcolato sulla bozza: quello vero, non il nostro. */
-  importo       Float    @default(0)
-  valuta        String   @default("EUR")
-  clienteNome   String   @default("")
-  clienteEmail  String   @default("")
-  /** Shopify ha spedito da solo la mail con l'invito (serve un indirizzo). */
-  invitoInviato Boolean  @default(false)
-  creatoIl      DateTime @default(now())
+  id             String   @id @default(cuid())
+  /**
+   * Chi l'ha fatto: è il motivo per cui questa tabella esiste.
+   */
+  utenteId       String   @default("")
+  utenteNome     String   @default("")
+  negozioId      String   @default("")
+  negozioNome    String   @default("")
+  /**
+   * `link` (paga il cliente da Shopify) | `pagato` (i soldi c'erano già).
+   */
+  pagamento      String   @default("link")
+  /**
+   * Con che mezzo, quando è `pagato`: bonifico, contanti, POS.
+   */
+  mezzoPagamento String   @default("")
+  /**
+   * gid della bozza Shopify e il suo nome (#D123).
+   */
+  bozzaId        String   @default("")
+  bozzaNome      String   @default("")
+  /**
+   * Il numero dell'ordine vero, quando la bozza è stata chiusa subito.
+   */
+  ordineNumero   String   @default("")
+  /**
+   * Il totale che Shopify ha calcolato sulla bozza: quello vero, non il nostro.
+   */
+  importo        Float    @default(0)
+  valuta         String   @default("EUR")
+  clienteNome    String   @default("")
+  clienteEmail   String   @default("")
+  /**
+   * Shopify ha spedito da solo la mail con l'invito (serve un indirizzo).
+   */
+  invitoInviato  Boolean  @default(false)
+  creatoIl       DateTime @default(now())
 
   @@index([creatoIl])
   @@index([utenteId, creatoIl])
@@ -1482,11 +1510,17 @@ model OrdineCreato {
 model TurnoSettimanale {
   id         String   @id @default(cuid())
   utenteId   String
-  /** Copiato qui per leggere la griglia senza join; il nome buono resta quello di `Utente`. */
+  /**
+   * Copiato qui per leggere la griglia senza join; il nome buono resta quello di `Utente`.
+   */
   utenteNome String   @default("")
-  /** 1 = lunedì … 7 = domenica (come le settimane ISO, e come le legge la gente). */
+  /**
+   * 1 = lunedì … 7 = domenica (come le settimane ISO, e come le legge la gente).
+   */
   giorno     Int
-  /** «09:00». Da «00:00» a «23:59»: il campo orario del browser non conosce le 24:00. */
+  /**
+   * «09:00». Da «00:00» a «23:59»: il campo orario del browser non conosce le 24:00.
+   */
   dalle      String
   alle       String
   creatoIl   DateTime @default(now())
@@ -1505,19 +1539,25 @@ model TurnoSettimanale {
 // `DateTime` il 25 agosto salvato a mezzanotte italiana torna indietro come
 // «24 agosto 22:00 UTC», e la riga comparirebbe sul giorno sbagliato.
 model EccezioneTurno {
-  id         String   @id @default(cuid())
-  utenteId   String
-  utenteNome String   @default("")
-  /** «2026-08-25». */
-  giorno     String
-  /** `riposo` (quel giorno non lavora) | `orario` (lavora, ma in un'altra fascia). */
-  tipo       String   @default("riposo")
-  dalle      String   @default("")
-  alle       String   @default("")
-  /** «ferie», «visita medica»: si legge nella griglia, ed è quasi sempre la domanda dopo. */
-  motivo     String   @default("")
-  creatoDaNome String @default("")
-  creatoIl   DateTime @default(now())
+  id           String   @id @default(cuid())
+  utenteId     String
+  utenteNome   String   @default("")
+  /**
+   * «2026-08-25».
+   */
+  giorno       String
+  /**
+   * `riposo` (quel giorno non lavora) | `orario` (lavora, ma in un'altra fascia).
+   */
+  tipo         String   @default("riposo")
+  dalle        String   @default("")
+  alle         String   @default("")
+  /**
+   * «ferie», «visita medica»: si legge nella griglia, ed è quasi sempre la domanda dopo.
+   */
+  motivo       String   @default("")
+  creatoDaNome String   @default("")
+  creatoIl     DateTime @default(now())
 
   @@unique([utenteId, giorno, dalle, alle])
   @@index([giorno])
@@ -1541,15 +1581,17 @@ model EccezioneTurno {
 // cambiano il glossario mente — ed è il modo più veloce per far smettere la
 // gente di fidarsene.
 model VoceGlossario {
-  id          String   @id @default(cuid())
-  /** «Consegna in giornata», «Cartoncino Cake»: come lo cercherebbe una persona. */
-  termine     String
-  definizione String   @db.Text
+  id              String   @id @default(cuid())
+  /**
+   * «Consegna in giornata», «Cartoncino Cake»: come lo cercherebbe una persona.
+   */
+  termine         String
+  definizione     String   @db.Text
   /**
    * `cliente` = si può dire a un cliente · `tecnico` = come funziona di dentro.
    * ⚠️ Serve a non leggere a un cliente una nota interna: sono due pubblici.
    */
-  categoria   String   @default("cliente")
+  categoria       String   @default("cliente")
   /**
    * ⚠️⚠️ SUPERATA da `negoziIds`. Non si legge e non si scrive più: resta come
    * fotografia di com'era prima del passaggio ai marchi multipli (24/08/2026),
@@ -1557,28 +1599,30 @@ model VoceGlossario {
    * giorno. **Poi va tolta**, perché una colonna che ha ancora dei valori e che
    * nessuno aggiorna è una bugia che aspetta il primo che la legge.
    */
-  negozioId   String   @default("")
+  negozioId       String   @default("")
   /**
    * I marchi a cui la voce vale. **Lista vuota = vale per tutti.**
-   *
    * ⚠️⚠️ Prima era UNO solo, e non bastava: una regola può valere per Cake e
    * FLowers ma non per Deluxy, e con un campo singolo l'unico modo era
    * scriverla due volte. Due copie della stessa frase divergono al primo che ne
    * corregge una — e nessuno si accorge che l'altra è rimasta indietro.
-   *
    * ⚠️ Il vincolo di unicità su (termine, negozioId) è caduto con questo
    * passaggio: due voci con lo stesso termine e marchi DIVERSI sono legittime.
    * Il doppione si impedisce nel codice, controllando la SOVRAPPOSIZIONE dei
    * marchi — che è più preciso di quel vincolo, e sa dire perché.
    */
-  negoziIds   String[] @default([])
-  /** `persona` (scritta a mano) | `ai` (nata da una proposta accettata). */
-  fonte       String   @default("persona")
-  /** La conversazione da cui è uscita, quando viene da una proposta. */
-  conversazioneId String @default("")
-  autoreNome  String   @default("")
-  creatoIl    DateTime @default(now())
-  aggiornatoIl DateTime @updatedAt
+  negoziIds       String[] @default([])
+  /**
+   * `persona` (scritta a mano) | `ai` (nata da una proposta accettata).
+   */
+  fonte           String   @default("persona")
+  /**
+   * La conversazione da cui è uscita, quando viene da una proposta.
+   */
+  conversazioneId String   @default("")
+  autoreNome      String   @default("")
+  creatoIl        DateTime @default(now())
+  aggiornatoIl    DateTime @updatedAt
 
   @@index([categoria])
   @@index([termine])
@@ -1594,50 +1638,56 @@ model VoceGlossario {
 // ⚠️ Ogni proposta porta la **conversazione da cui nasce**: senza la prova non
 // è una proposta, è un'opinione — e non si può controllare in dieci secondi.
 model PropostaGlossario {
-  id          String   @id @default(cuid())
-  /** `aggiunta` (manca) · `correzione` (c'è ma è sbagliata) · `avviso` (da sapere). */
-  tipo        String   @default("aggiunta")
-  /** La voce da correggere, per le correzioni. */
-  voceId      String   @default("")
-  termine     String
-  definizione String   @db.Text
-  categoria   String   @default("cliente")
-  /** Vuota = vale per tutti i marchi (come in `VoceGlossario`). */
-  negozioId   String   @default("")
-  /** Che cosa ha visto: è la prova, e si legge prima di accettare. */
-  perche      String   @default("") @db.Text
-  conversazioneId String @default("")
+  id                   String    @id @default(cuid())
+  /**
+   * `aggiunta` (manca) · `correzione` (c'è ma è sbagliata) · `avviso` (da sapere).
+   */
+  tipo                 String    @default("aggiunta")
+  /**
+   * La voce da correggere, per le correzioni.
+   */
+  voceId               String    @default("")
+  termine              String
+  definizione          String    @db.Text
+  categoria            String    @default("cliente")
+  /**
+   * Vuota = vale per tutti i marchi (come in `VoceGlossario`).
+   */
+  negozioId            String    @default("")
+  /**
+   * Che cosa ha visto: è la prova, e si legge prima di accettare.
+   */
+  perche               String    @default("") @db.Text
+  conversazioneId      String    @default("")
   /**
    * La domanda all'amministratore da cui nasce, quando viene da lì.
-   *
    * ⚠️ Una proposta deve avere UNA delle due prove — una conversazione o una
    * domanda — o non è una proposta, è un'opinione. Le domande che si ripetono
    * sono esattamente le voci che al glossario mancano.
    */
-  domandaId   String   @default("")
-  /** `aperta` | `accettata` | `scartata`. */
-  stato       String   @default("aperta")
-  decisaDaNome String  @default("")
-  decisaIl    DateTime?
+  domandaId            String    @default("")
+  /**
+   * `aperta` | `accettata` | `scartata`.
+   */
+  stato                String    @default("aperta")
+  decisaDaNome         String    @default("")
+  decisaIl             DateTime?
   /**
    * ⚠️⚠️ ACCETTATA DOPO AVERLA CORRETTA A MANO.
-   *
    * Serve a una domanda sola, ma è la domanda importante: **quanto spesso l'AI
    * ci prende?** Senza questo campo l'archivio direbbe «proposta dall'AI e
    * accettata» anche quando il testo è stato riscritto da capo — cioè
    * racconterebbe un'AI più precisa di quella che è, e nessuno saprebbe che il
    * prompt va cambiato.
-   *
    * ⚠️ `termine` e `definizione` restano **la proposta originale**: quello che
    * si è deciso di scrivere davvero sta qui accanto. Sovrascriverli avrebbe
    * cancellato la prova di che cosa aveva detto l'AI.
    */
-  corretta    Boolean  @default(false)
-  termineAccettato String @default("")
-  definizioneAccettata String @default("") @db.Text
+  corretta             Boolean   @default(false)
+  termineAccettato     String    @default("")
+  definizioneAccettata String    @default("") @db.Text
   /**
    * I marchi decisi accettando, quando diversi da quello proposto.
-   *
    * ⚠️⚠️ Serve perché il brand cambia il SENSO della voce, non la sua forma:
    * «la consegna è gratuita» è vera per un negozio e falsa per un altro, e
    * accettarla per tutti quando vale per uno solo mette in bocca agli operatori
@@ -1645,13 +1695,12 @@ model PropostaGlossario {
    * cambiamento è importante quanto una riscrittura del testo — quindi si
    * archivia come gli altri due, invece di sovrascrivere in silenzio quello che
    * aveva proposto l'AI.
-   *
    * ⚠️ Vuota ha DUE significati e vanno distinti guardando `corretta`: se
    * `corretta` è falso non è stato cambiato niente; se è vero, vuota vuol dire
    * «l'ho reso valido per tutti i marchi».
    */
-  negoziAccettati String[] @default([])
-  creatoIl    DateTime @default(now())
+  negoziAccettati      String[]  @default([])
+  creatoIl             DateTime  @default(now())
 
   @@index([stato, creatoIl])
 }
@@ -1668,49 +1717,54 @@ model PropostaGlossario {
 // manca nel glossario, negli script o nelle istruzioni dell'AI. Una domanda
 // risposta e buttata è una lezione persa.
 model DomandaAiuto {
-  id       String @id @default(cuid())
-  testo    String @db.Text
+  id    String @id @default(cuid())
+  testo String @db.Text
 
-  /** Dove si trovava chi ha chiesto: `/ordini`, `/inbox`… Registrata da sola. */
+  /**
+   * Dove si trovava chi ha chiesto: `/ordini`, `/inbox`… Registrata da sola.
+   */
   pagina          String @default("")
-  /** L'ordine di cui si parla, se ce n'è uno. Preso dall'indirizzo quando c'è. */
+  /**
+   * L'ordine di cui si parla, se ce n'è uno. Preso dall'indirizzo quando c'è.
+   */
   ordineNumero    String @default("")
-  /** La conversazione da cui è partita, quando parte dall'inbox. */
+  /**
+   * La conversazione da cui è partita, quando parte dall'inbox.
+   */
   conversazioneId String @default("")
 
   utenteId   String @default("")
   utenteNome String @default("")
 
-  /** `aperta` | `risposta`. */
-  stato          String @default("aperta")
-  risposta       String @default("") @db.Text
-  rispostaDaNome String @default("")
+  /**
+   * `aperta` | `risposta`.
+   */
+  stato          String    @default("aperta")
+  risposta       String    @default("") @db.Text
+  rispostaDaNome String    @default("")
   rispostaIl     DateTime?
   /**
    * L'avviso mandato su WhatsApp all'amministratore.
-   *
    * ⚠️⚠️ `avvisoEsito` va MOSTRATO a chi ha chiesto. Se la notifica non parte
    * — e fuori dalla finestra di 24h di WhatsApp non parte — chi ha scritto
    * crederebbe di aver avvisato qualcuno che invece non sa niente: e' peggio
    * che non avere la notifica del tutto.
    */
-  avvisoWaId  String @default("")
-  avvisoEsito String @default("") @db.Text
+  avvisoWaId     String    @default("")
+  avvisoEsito    String    @default("") @db.Text
   /**
    * Il codice corto («A7K2C») che va nell'avviso.
-   *
    * ⚠️ Serve a rispondere da WhatsApp senza dover citare il messaggio: chi
    * risponde dal telefono, in piedi, non usa «rispondi a questo messaggio».
    */
-  codice      String @default("")
+  codice         String    @default("")
   /**
    * Quando chi ha chiesto ha LETTO la risposta.
-   *
    * ⚠️ Serve al pallino sulla linguetta: senza, una risposta arrivata mentre
    * l'operatore era su un'altra pagina non lo raggiunge mai — e lui continua a
    * essere bloccato mentre l'amministratore lo dà per risolto.
    */
-  lettaIl DateTime?
+  lettaIl        DateTime?
 
   creatoIl DateTime @default(now())
 
@@ -1731,17 +1785,21 @@ model DomandaAiuto {
 // sapere che una riga è stata scritta dal telefono, in piedi, e non guardando
 // la schermata: cambia quanto ci si può appoggiare sopra.
 model MessaggioAiuto {
-  id        String @id @default(cuid())
+  id        String       @id @default(cuid())
   domandaId String
   domanda   DomandaAiuto @relation(fields: [domandaId], references: [id], onDelete: Cascade)
 
-  /** `operatore` (chi ha chiesto o un collega) | `admin`. */
-  autore     String @default("operatore")
-  autoreNome String @default("")
-  testo      String @db.Text
+  /**
+   * `operatore` (chi ha chiesto o un collega) | `admin`.
+   */
+  autore      String  @default("operatore")
+  autoreNome  String  @default("")
+  testo       String  @db.Text
   viaWhatsApp Boolean @default(false)
 
-  /** L'avviso mandato su WhatsApp per QUESTO messaggio, e com'è andata. */
+  /**
+   * L'avviso mandato su WhatsApp per QUESTO messaggio, e com'è andata.
+   */
   avvisoWaId  String @default("")
   avvisoEsito String @default("") @db.Text
 
@@ -1765,31 +1823,31 @@ model MessaggioAiuto {
 /// qualcuno risponde sì. Confondere le due cose vorrebbe dire dare per fatto un
 /// ordine che nessuno ha ancora accettato.
 model RichiestaFornitore {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   /// Il nostro ordine (`Ordine.id`).
   ordineId      String
-  ordineNumero  String   @default("")
+  ordineNumero  String    @default("")
   fornitoreNome String
   /// L'id nel registro Anagrafiche, quando il fornitore viene da lì.
-  fornitoreId   String   @default("")
-  telefono      String   @default("")
-  email         String   @default("")
+  fornitoreId   String    @default("")
+  telefono      String    @default("")
+  email         String    @default("")
   /// whatsapp · email · telefono (chiamato a voce).
-  canale        String   @default("whatsapp")
+  canale        String    @default("whatsapp")
   /// Il testo com'era quando è partito.
   ///
   /// ⚠️ Si archivia INTERO e non si ricalcola: la data di consegna o
   /// l'indirizzo possono cambiare dopo, e allora «cosa gli abbiamo chiesto»
   /// diventerebbe una domanda senza risposta — proprio quando serve, cioè
   /// davanti a un fornitore che dice «a me avevate detto un'altra cosa».
-  testo         String   @default("") @db.Text
-  chiestoIl     DateTime @default(now())
-  chiestoDaId   String   @default("")
-  chiestoDaNome String   @default("")
+  testo         String    @default("") @db.Text
+  chiestoIl     DateTime  @default(now())
+  chiestoDaId   String    @default("")
+  chiestoDaNome String    @default("")
   /// in_attesa · si · no
-  esito         String   @default("in_attesa")
+  esito         String    @default("in_attesa")
   rispostaIl    DateTime?
-  nota          String   @default("") @db.Text
+  nota          String    @default("") @db.Text
 
   @@index([ordineId, chiestoIl])
   @@index([fornitoreNome])
@@ -1809,21 +1867,99 @@ model RichiestaFornitore {
 /// resta visibile come tale: è la parte che aspetta qualcuno. Un filo di note
 /// tutte uguali nasconderebbe proprio quella.
 model MessaggioReclamo {
-  id        String @id @default(cuid())
-  reclamoId String
+  id         String   @id @default(cuid())
+  reclamoId  String
   /// Chi ha scritto. ⚠️ Il NOME si copia qui: il filo si legge senza caricare
   /// gli utenti, e chi scrive oggi può non essere più in squadra fra sei mesi —
   /// la riga deve continuare a dire di chi era.
-  autoreId   String @default("")
-  autoreNome String @default("")
-  testo      String @db.Text
+  autoreId   String   @default("")
+  autoreNome String   @default("")
+  testo      String   @db.Text
   /// true = è una domanda, e resta aperta finché non arriva una risposta.
-  domanda    Boolean @default(false)
+  domanda    Boolean  @default(false)
   /// L'id della domanda a cui questo messaggio risponde ('' = non risponde a
   /// niente, è una riga del filo).
-  rispostaA  String  @default("")
+  rispostaA  String   @default("")
   creatoIl   DateTime @default(now())
 
   @@index([reclamoId, creatoIl])
   @@index([rispostaA])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHIAMATE
+//
+// Il centralino manda una notifica a `chiamate@deluxy.it` per ogni telefonata
+// ricevuta. Prima quelle mail non le leggeva nessuno: chi chiamava e non
+// trovava risposta spariva, e il giorno dopo nessuno sapeva che avesse provato.
+//
+// ⚠️⚠️ UNA CHIAMATA NON È UNA CONVERSAZIONE. Non c'è un testo da leggere né una
+// risposta da scrivere: c'è una persona che voleva parlare e non ha parlato.
+// Perciò non entra in inbox (dove finirebbe in mezzo alle mail vere, con un
+// corpo che nessuno legge) ma in una sezione sua, dove l'unica domanda è
+// **richiamato o no**.
+//
+// ⚠️ Il TESTO della notifica si conserva per intero. Il riconoscimento del
+// numero è un'interpretazione — e quando sbaglia, l'unica difesa di chi guarda
+// è poter leggere quello che è arrivato davvero.
+// ─────────────────────────────────────────────────────────────────────────────
+model Chiamata {
+  id        String   @id @default(cuid())
+  /// Il Message-ID della mail di notifica: due giri dello scarico non devono
+  /// creare due chiamate. Vuoto = notifica senza id (allora vale l'ora).
+  idEsterno String   @default("")
+  casellaId String   @default("")
+  /// Quando è arrivata la chiamata = la data della notifica. ⚠️ Non `creatoIl`:
+  /// una notifica scaricata stasera per una chiamata di stamattina deve
+  /// risultare di stamattina, o l'elenco racconta l'ora sbagliata.
+  quando    DateTime
+
+  /// Il numero di chi ha chiamato, come sta scritto nella notifica.
+  numero         String @default("")
+  /// Le ultime 9 cifre: è la chiave con cui si riconosce una persona in tutta
+  /// l'app (vedi `cifreTelefono` in scheda-cliente.ts). Un numero salvato con o
+  /// senza prefisso è lo stesso numero.
+  cifre          String @default("")
+  /// Il NOSTRO numero che ha squillato, se la notifica lo dice: è l'unico modo
+  /// di attribuire a un marchio la chiamata di uno sconosciuto.
+  numeroChiamato String @default("")
+  chiamante      String @default("")
+  oggetto        String @default("")
+  testo          String @default("") @db.Text
+
+  /// Il marchio. Da un ordine riconosciuto, oppure dal numero chiamato
+  /// (`NegozioShopify.telefonoChiamate`). ⚠️ `null` resta una risposta
+  /// legittima: scrivere un marchio a caso su una chiamata è peggio che
+  /// lasciarla «senza marchio», perché poi qualcuno la conta.
+  negozioId String?
+
+  /// Che cosa abbiamo capito di chi ha chiamato:
+  ///   `ordine`      = c'è un ordine suo, ed è quello che sta qui sotto;
+  ///   `cliente`     = lo conosciamo (ha comprato in passato), ma nessun ordine
+  ///                   recente a cui attaccare la chiamata;
+  ///   `sconosciuto` = non risulta nostro cliente: va richiamato lo stesso, ma
+  ///                   chi lo fa deve saperlo prima di rispondere «buongiorno,
+  ///                   per il suo ordine».
+  esito        String @default("sconosciuto")
+  ordineId     String @default("")
+  ordineNumero String @default("")
+  clienteNome  String @default("")
+  email        String @default("")
+
+  /// Il promemoria aperto per richiamare (`Attivita`). Si tiene l'id per poter
+  /// spuntare l'uno quando si chiude l'altra: due liste che dicono cose diverse
+  /// sulla stessa telefonata sono peggio di una lista sola.
+  attivitaId String @default("")
+
+  richiamataIl     DateTime?
+  richiamataDaNome String    @default("")
+  esitoRichiamata  String    @default("") @db.Text
+
+  creatoIl DateTime @default(now())
+
+  @@index([quando])
+  @@index([cifre])
+  @@index([ordineId])
+  @@index([richiamataIl])
+  @@index([negozioId])
 }

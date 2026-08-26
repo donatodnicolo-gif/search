@@ -37,6 +37,7 @@ export default async function PaginaCaselle() {
           <div className="card" key={c.id}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <h2 style={{ margin: 0, flex: 1 }}>{c.nome || c.indirizzo}</h2>
+              {c.tipo === 'chiamate' ? <span className="badge">chiamate</span> : null}
               {c.predefinita ? <span className="badge verde">predefinita</span> : null}
               <span className={`badge${c.attiva ? ' verde' : ''}`}>
                 {c.attiva ? 'attiva' : 'sospesa'}
@@ -117,6 +118,21 @@ export default async function PaginaCaselle() {
                   ))}
                 </select>
               </label>
+              {/* ⚠️⚠️ A COSA SERVE questa casella. La differenza non si vede
+                  dall'indirizzo: le notifiche del centralino
+                  (chiamate@deluxy.it) sono mail come le altre, e senza questo
+                  campo finirebbero in inbox — una conversazione per ogni
+                  squillo, con un corpo che nessuno legge e per mittente il
+                  centralino invece del cliente. */}
+              <label className="campo">
+                <span>A cosa serve</span>
+                <select name="tipo" defaultValue={c.tipo}>
+                  <option value="posta">Posta: le mail entrano in inbox</option>
+                  <option value="chiamate">
+                    Chiamate: notifiche del centralino, vanno in Chiamate
+                  </option>
+                </select>
+              </label>
               <label
                 style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginBottom: 12 }}
               >
@@ -156,6 +172,15 @@ export default async function PaginaCaselle() {
             <label className="campo">
               <span>Password della casella</span>
               <input name="password" type="password" autoComplete="new-password" />
+            </label>
+            <label className="campo">
+              <span>A cosa serve</span>
+              <select name="tipo" defaultValue="posta">
+                <option value="posta">Posta: le mail entrano in inbox</option>
+                <option value="chiamate">
+                  Chiamate: notifiche del centralino, vanno in Chiamate
+                </option>
+              </select>
             </label>
             <div style={{ display: 'flex', gap: 10 }}>
               <label className="campo" style={{ flex: 2 }}>

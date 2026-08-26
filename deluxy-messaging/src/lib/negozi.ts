@@ -69,6 +69,15 @@ type DatiNegozio = {
   dominio: string
   /** phone_number_id del WhatsApp Business di questo brand (solo cifre). */
   waPhoneNumberId?: string
+  /**
+   * Il numero che squilla quando un cliente chiama questo marchio.
+   *
+   * ⚠️ Serve alle CHIAMATE: per chi non è ancora cliente non c'è nessun ordine
+   * da cui dedurre il brand, e il nostro numero chiamato è l'unica cosa che
+   * leghi quella telefonata a un marchio. Vuoto = le sue chiamate restano
+   * «senza marchio», che è una risposta e non un buco da tappare.
+   */
+  telefonoChiamate?: string
   attivo?: boolean // se undefined, non si tocca
 }
 
@@ -77,15 +86,29 @@ export async function salvaNegozio(id: string | null, dati: DatiNegozio): Promis
   const dominio = dati.dominio.trim().replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase()
   // Niente credenziali Shopify: quest'app non scarica ordini (vedi la regola in
   // testa al file). I campi storici sulla tabella non si toccano.
+  // ⚠️⚠️ UN CAMPO NON PASSATO NON SI TOCCA, e non è pignoleria: il bottone
+  // «Sospendi» manda un form con dentro solo id, nome, dominio e attivo. Con un
+  // `?? ''` su ogni campo, sospendere un negozio gli CANCELLAVA la sigla in
+  // rubrica, il brand di Ricerca fornitori e il phone_number_id di WhatsApp —
+  // in silenzio, e tornando a riattivarlo non si sarebbe capito cosa fosse
+  // successo. Da oggi si scrive solo quello che è arrivato davvero.
   const base = {
     nome: dati.nome.trim() || dominio,
-    prefisso: (dati.prefisso ?? '').trim().toUpperCase(),
-    brandRicerca: (dati.brandRicerca ?? '').trim(),
+    dominio,
+    ...(dati.prefisso === undefined ? {} : { prefisso: dati.prefisso.trim().toUpperCase() }),
+    ...(dati.brandRicerca === undefined ? {} : { brandRicerca: dati.brandRicerca.trim() }),
     // Il phone_number_id del WhatsApp Business di questo brand: solo cifre.
     // Serve a sapere a QUALE marchio ha scritto un cliente in inbox, e da
     // quale numero rispondergli.
-    waPhoneNumberId: (dati.waPhoneNumberId ?? '').replace(/\D/g, ''),
-    dominio,
+    ...(dati.waPhoneNumberId === undefined
+      ? {}
+      : { waPhoneNumberId: dati.waPhoneNumberId.replace(/\D/g, '') }),
+    // ⚠️ Solo cifre, come il numero WhatsApp: il confronto con quello che
+    // scrive il centralino avviene sulle ultime 9, e «+39 02 1234567» e
+    // «0212 34567» devono risultare lo stesso numero.
+    ...(dati.telefonoChiamate === undefined
+      ? {}
+      : { telefonoChiamate: dati.telefonoChiamate.replace(/\D/g, '') }),
     ...(dati.attivo === undefined ? {} : { attivo: dati.attivo }),
   }
 

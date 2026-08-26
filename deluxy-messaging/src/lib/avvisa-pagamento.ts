@@ -1,7 +1,7 @@
 import { db } from './db'
 import { inviaWhatsApp } from './meta'
 import { tokenPerNumero } from './numeri-whatsapp'
-import { caselleAttive, inviaEmail } from './email'
+import { caselleDaCuiScrivere, inviaEmail } from './email'
 import { messaggioPagato } from './metodo-pagamento'
 
 // AVVISARE IL FORNITORE CHE È STATO PAGATO, da soli.
@@ -102,7 +102,7 @@ export async function avvisaFornitorePagato(richiestaId: string): Promise<EsitoA
   // ── Email, se abbiamo un indirizzo ──
   if (c.email.includes('@')) {
     try {
-      const caselle = await caselleAttive()
+      const caselle = await caselleDaCuiScrivere()
       if (caselle.length) {
         await inviaEmail(
           caselle[0],
