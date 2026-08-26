@@ -224,6 +224,33 @@ export class AppApiService {
     }
 
     const consegne = await this.prisma.delivery.findMany({
+      // ⚠️ **COSA RESTA FUORI, misurato sul 2026 il 27/08 (domanda dell'utente:
+      // «ti sei assicurato che non entrino consegne annullate o invalidate?»).**
+      // Il filtro è **positivo** — si nominano gli stati che si pagano, non
+      // quelli che si scartano — quindi uno stato nuovo nasce ESCLUSO invece di
+      // entrare di straforo. Quello che tiene fuori, in euro:
+      //
+      //   cancelled                177 consegne · 1.916 €
+      //   assigned                  42 ·   610 €   (assegnata, non ancora fatta)
+      //   cancellation_requested     5 ·    78 €
+      //   accepted                   4 ·    77 €
+      //   in_delivery                2 ·    54 €
+      //   invalidated                2 ·     7 €
+      //   not_accepted               1 ·     7 €
+      //                          ─────────────────
+      //                                  2.750 €
+      //
+      // Sono gli stessi tre stati che pagano gli stipendi (`DA_PAGARE`), e
+      // `cancelled`/`invalidated`/`not_accepted` sono esattamente i tre che la
+      // Finanza esclude (`STATI_ESCLUSI`). Il soft-delete è escluso a parte:
+      // nel 2026 non ci sono consegne cancellate con un valet assegnato.
+      //
+      // ⚠️ **Una cosa la Finanza la esclude e questa rotta no**: le consegne che
+      // sono la *gamba d'acquisto* di un ordine corporate (110 in tutto lo
+      // storico, **86 nel 2026 per 639 €**). Là si escludono dai **ricavi** D2C,
+      // perché corrispettivi non sono; qui sono un **costo**, e il valet è stato
+      // pagato lo stesso. Restano dentro di proposito — ma è una decisione, non
+      // una svista, e sono 639 € se un giorno la si vuole rovesciare.
       where: {
         deletedAt: null,
         valetId: { not: null },
