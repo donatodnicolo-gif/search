@@ -38,6 +38,30 @@ import { prisma, SCHEMA } from "@/lib/db";
 // `lordoConEconomia`): chi legge deve poter dire «misurato su X ordini di Y»,
 // non spacciare la somma parziale per il totale. Zero ordini col dato = i campi
 // valgono 0 e la copertura lo dichiara: n.d., non zero.
+//
+// Dal 26/08/2026 (sera) viaggiano anche gli ALTRI DUE INGREDIENTI del margine,
+// perché il conto economico di Budgets li chiedeva e ricopiarseli sarebbe
+// vietato (Standard §7): il **costo della consegna** e la **commissione
+// d'incasso**, più il **margine finale** già fatto dalla piattaforma. Sono i
+// tre pezzi che ricompongono l'identità
+//
+//     margineFinale = (primoMargine + fee) − costoConsegna − commissioneIncassi
+//
+// ⚠️ **IL PADRONE DEL COSTO CONSEGNA NON È ORDERS, È LA PIATTAFORMA.** Qui
+// c'è la sua copia per ordine, che serve a ricomporre il margine di Orders e
+// copre i soli ordini D2C passati dalla piattaforma (31.799 € sul 2026 contro
+// 108.257 € di consegne totali). Chi costruisce un conto economico lo legge da
+// `GET /api/v1/app/costi-consegne` della piattaforma, non da qui: prenderlo
+// di sponda vuol dire prendere un quarto del costo credendolo tutto.
+//
+// ⚠️ **`costoConsegna` è la paga del valet CON DENTRO LA RITENUTA D'ACCONTO**
+// per chi non ha partita IVA (la piattaforma la calcola come
+// `paga × (1 − % rimborso) × 25%` e la versa lei all'erario: è costo vero, in
+// più rispetto al bonifico). Chi la somma a un'altra ritenuta la conta due
+// volte. Ogni somma porta la sua copertura — `ordiniConCosto`,
+// `ordiniConMargineFinale` — perché sono campi diversi con coperture diverse:
+// un ordine può avere il primo margine e non la consegna (l'ha portato il
+// fornitore), e leggere un totale come completo è il modo consueto di sbagliare.
 
 // La tabella si qualifica con lo schema (`SCHEMA` da db.ts): Prisma lo mette da
 // sé nelle query dei modelli ma NON in quelle grezze, e col pooler in modalità
@@ -55,6 +79,11 @@ type Riga = {
   primoMargine: number;
   conEconomia: number;
   lordoConEconomia: number;
+  costoConsegna: number;
+  conCosto: number;
+  commissioneIncassi: number;
+  margineFinale: number;
+  conMargineFinale: number;
 };
 
 export async function GET(req: NextRequest) {
@@ -83,7 +112,12 @@ export async function GET(req: NextRequest) {
               COALESCE(SUM("feeVendita"), 0)::float8 AS fee,
               COALESCE(SUM("primoMargine"), 0)::float8 AS "primoMargine",
               COUNT("primoMargine")::int AS "conEconomia",
-              COALESCE(SUM(totale) FILTER (WHERE "primoMargine" IS NOT NULL), 0)::float8 AS "lordoConEconomia"
+              COALESCE(SUM(totale) FILTER (WHERE "primoMargine" IS NOT NULL), 0)::float8 AS "lordoConEconomia",
+              COALESCE(SUM("costoConsegna"), 0)::float8 AS "costoConsegna",
+              COUNT("costoConsegna")::int AS "conCosto",
+              COALESCE(SUM("commissioneIncassi"), 0)::float8 AS "commissioneIncassi",
+              COALESCE(SUM("margineFinale"), 0)::float8 AS "margineFinale",
+              COUNT("margineFinale")::int AS "conMargineFinale"
          FROM "${SCHEMA}"."Ordine"
         WHERE data >= $1 AND data < $2
           ${brand ? "AND brand = $3" : ""}
@@ -114,6 +148,17 @@ export async function GET(req: NextRequest) {
     primoMargineMese: number[];
     conEconomiaMese: number[];
     lordoConEconomiaMese: number[];
+    // Gli altri due ingredienti e il margine già fatto, con le LORO coperture:
+    // non coincidono con quella dell'economia (un ordine consegnato dal
+    // fornitore non ha costo di consegna, e non è un costo mancante).
+    costoConsegna: number;
+    ordiniConCosto: number;
+    commissioneIncassi: number;
+    margineFinale: number;
+    ordiniConMargineFinale: number;
+    costoConsegnaMese: number[];
+    commissioneIncassiMese: number[];
+    margineFinaleMese: number[];
   };
   const perBrand = new Map<string, Brand>();
   const mesiTotali = Array(12).fill(0) as number[];
@@ -123,6 +168,11 @@ export async function GET(req: NextRequest) {
   let primoMargineTotale = 0;
   let conEconomiaTotale = 0;
   let lordoConEconomiaTotale = 0;
+  let costoConsegnaTotale = 0;
+  let conCostoTotale = 0;
+  let commissioneIncassiTotale = 0;
+  let margineFinaleTotale = 0;
+  let conMargineFinaleTotale = 0;
   for (const r of righe) {
     let b = perBrand.get(r.brand);
     if (!b) {
@@ -131,6 +181,10 @@ export async function GET(req: NextRequest) {
         fee: 0, primoMargine: 0, ordiniConEconomia: 0, lordoConEconomia: 0,
         feeMese: Array(12).fill(0), primoMargineMese: Array(12).fill(0),
         conEconomiaMese: Array(12).fill(0), lordoConEconomiaMese: Array(12).fill(0),
+        costoConsegna: 0, ordiniConCosto: 0, commissioneIncassi: 0,
+        margineFinale: 0, ordiniConMargineFinale: 0,
+        costoConsegnaMese: Array(12).fill(0), commissioneIncassiMese: Array(12).fill(0),
+        margineFinaleMese: Array(12).fill(0),
       };
       perBrand.set(r.brand, b);
     }
@@ -140,6 +194,14 @@ export async function GET(req: NextRequest) {
     b.primoMargineMese[r.mese - 1] = r.primoMargine;
     b.conEconomiaMese[r.mese - 1] = r.conEconomia;
     b.lordoConEconomiaMese[r.mese - 1] = r.lordoConEconomia;
+    b.costoConsegnaMese[r.mese - 1] = r.costoConsegna;
+    b.commissioneIncassiMese[r.mese - 1] = r.commissioneIncassi;
+    b.margineFinaleMese[r.mese - 1] = r.margineFinale;
+    b.costoConsegna += r.costoConsegna;
+    b.ordiniConCosto += r.conCosto;
+    b.commissioneIncassi += r.commissioneIncassi;
+    b.margineFinale += r.margineFinale;
+    b.ordiniConMargineFinale += r.conMargineFinale;
     b.ordini += r.ordini;
     b.lordo += r.lordo;
     b.fee += r.fee;
@@ -153,6 +215,11 @@ export async function GET(req: NextRequest) {
     primoMargineTotale += r.primoMargine;
     conEconomiaTotale += r.conEconomia;
     lordoConEconomiaTotale += r.lordoConEconomia;
+    costoConsegnaTotale += r.costoConsegna;
+    conCostoTotale += r.conCosto;
+    commissioneIncassiTotale += r.commissioneIncassi;
+    margineFinaleTotale += r.margineFinale;
+    conMargineFinaleTotale += r.conMargineFinale;
   }
 
   return NextResponse.json({
@@ -166,6 +233,10 @@ export async function GET(req: NextRequest) {
       // L'economia della vendita è il conto della piattaforma consegne,
       // scritto sull'ordine: fee lorde, primo margine già al netto IVA.
       economia: "fee = commissioni incassate dai partner (lorde); primoMargine = (pagato − valore prodotti) ÷ 1,22; somme sui soli ordini col dato, copertura in ordiniConEconomia/lordoConEconomia",
+      costoConsegna:
+        "paga del valet (salario + il plus fino a 5 €; il minus è contante trattenuto, non un minor costo) CON DENTRO la ritenuta d'acconto dei valet senza partita IVA — paga × (1 − % rimborso) × 25%, che Deluxy versa all'erario in più rispetto al bonifico. Copertura in ordiniConCosto: un ordine consegnato dal fornitore non ha costo di consegna, e non è un costo mancante.",
+      margineFinale:
+        "il conto già fatto dalla piattaforma: (primoMargine + fee) − costoConsegna − commissioneIncassi. Chi somma il costo consegna a questo lo conta due volte.",
     },
     brand: [...perBrand.values()].sort((x, y) => y.lordo - x.lordo),
     totali: {
@@ -176,6 +247,11 @@ export async function GET(req: NextRequest) {
       primoMargine: primoMargineTotale,
       ordiniConEconomia: conEconomiaTotale,
       lordoConEconomia: lordoConEconomiaTotale,
+      costoConsegna: costoConsegnaTotale,
+      ordiniConCosto: conCostoTotale,
+      commissioneIncassi: commissioneIncassiTotale,
+      margineFinale: margineFinaleTotale,
+      ordiniConMargineFinale: conMargineFinaleTotale,
     },
     esclusi: {
       annullati: { ordini: annullati._count._all, lordo: annullati._sum.totale ?? 0 },
