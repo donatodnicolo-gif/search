@@ -1175,6 +1175,26 @@ mano. Rilanciare l'import non crea doppioni (chiave negozio + id Shopify).
   (protetto da `CRON_SECRET`). Via API: `POST /api/v1/sync?giorni=90`
   (`giorni=tutto` per lo storico completo).
 
+## La finestra della sincronizzazione guarda l'ULTIMA MODIFICA (26/08/2026)
+La sync chiede a Shopify gli ordini **modificati** da una certa data
+(`updated_at:>=`), non quelli *creati*. Prima guardava la creazione, e questo
+lasciava fuori un caso preciso: **un ordine annullato molto tempo dopo essere
+stato creato non veniva mai riletto**. Il giro dei 15 minuti guarda 2 giorni,
+quello notturno 90: chi annulla a gennaio un ordine di ottobre restava «valido»
+per sempre nel registro.
+
+Non è teoria: su **388 annullati**, **75** sono arrivati oltre due giorni dopo
+l'ordine e **7 oltre i 90 giorni** — il record è un annullamento **1.043 giorni
+dopo**. Erano nel registro solo perché a un certo punto è stato fatto un import
+completo dello storico.
+
+Il costo è stato **misurato sui tre negozi veri** prima di cambiare: su una
+finestra di 7 giorni entrano **99 ordini invece di 87**, dodici in più — quelli
+creati prima e toccati dopo (pagamento, evasione, annullamento, tag). La sync
+riscrive solo ciò che è **davvero cambiato**, quindi rileggerli non fa danni:
+la prima passata col criterio nuovo ha aggiornato **4 ordini** e non ne ha
+creato nessuno.
+
 ## Gli stati che arrivano da Shopify
 Sono informativi: si importano e si mostrano, non si modificano da qui (la
 fonte resta Shopify). Sono tre cose diverse, da non confondere con lo **stato

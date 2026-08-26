@@ -455,7 +455,22 @@ export async function scaricaOrdini(
   maxPagine = 5000,
   onPagina?: (ordini: OrdineNormalizzato[], pagina: number) => Promise<void>,
 ): Promise<OrdineNormalizzato[]> {
-  const q = dal ? `created_at:>=${dal.toISOString().slice(0, 10)}` : undefined;
+  // ⚠️ La finestra guarda l'ULTIMA MODIFICA, non la data di creazione.
+  //
+  // Con `created_at` un ordine ANNULLATO molto dopo essere stato creato non
+  // veniva mai riletto: il giro dei 15 minuti guarda 2 giorni di creazione,
+  // quello notturno 90, e chi annulla a gennaio un ordine di ottobre restava
+  // «valido» per sempre nel registro. Non è teoria: su 388 annullati, 75 sono
+  // arrivati oltre 2 giorni dopo l'ordine e 7 oltre i 90 giorni — il record è
+  // un annullamento 1.043 giorni dopo. Erano nel registro solo grazie a un
+  // import completo dello storico.
+  //
+  // `updated_at` li prende tutti, perché un ordine annullato ieri ha
+  // `updatedAt` di ieri qualunque sia la sua data di creazione. Costo misurato
+  // sui tre negozi veri (finestra di 7 giorni): 99 ordini invece di 87, cioè
+  // 12 in più — quelli creati prima e toccati dopo. La sync riscrive solo ciò
+  // che è davvero cambiato, quindi rileggerli non fa danni.
+  const q = dal ? `updated_at:>=${dal.toISOString().slice(0, 10)}` : undefined;
   const out: OrdineNormalizzato[] = [];
   let cursor: string | null = null;
   for (let page = 0; page < maxPagine; page++) {
