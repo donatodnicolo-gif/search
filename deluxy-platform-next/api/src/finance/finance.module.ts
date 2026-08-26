@@ -406,12 +406,13 @@ export class FinanceService {
    * raccolgono con una query e si escludono per elenco.
    */
   private async idVenditeDaCorporate(): Promise<string[]> {
+    // ⚠️ Schema qualificato: sul pooler la search_path non e' garantita.
     const righe = await this.prisma.$queryRaw<{ id: string }[]>`
       SELECT d."id"
-      FROM "Delivery" d
-      JOIN "ServiceType" sv ON sv."id" = d."serviceTypeId" AND sv."pricingModel" = 'VENDITA'
-      JOIN "Delivery" c ON c."legacyId" = d."legacyCorrespondDeliveryId" AND c."deletedAt" IS NULL
-      JOIN "ServiceType" sc ON sc."id" = c."serviceTypeId" AND sc."pricingModel" = 'CORPORATE'
+      FROM platform."Delivery" d
+      JOIN platform."ServiceType" sv ON sv."id" = d."serviceTypeId" AND sv."pricingModel" = 'VENDITA'
+      JOIN platform."Delivery" c ON c."legacyId" = d."legacyCorrespondDeliveryId" AND c."deletedAt" IS NULL
+      JOIN platform."ServiceType" sc ON sc."id" = c."serviceTypeId" AND sc."pricingModel" = 'CORPORATE'
       WHERE d."deletedAt" IS NULL`;
     return righe.map((r) => r.id);
   }

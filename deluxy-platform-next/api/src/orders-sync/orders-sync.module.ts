@@ -119,8 +119,10 @@ export class OrdersSyncService {
         .map((_, j) => `($${j * 7 + 1}::text, $${j * 7 + 2}::text, $${j * 7 + 3}::text, $${j * 7 + 4}::text, $${j * 7 + 5}::float8, $${j * 7 + 6}::float8, $${j * 7 + 7}::float8)`)
         .join(',');
       const parametri = blocco.flatMap((e) => [e.orderId, e.ordersId, e.brand, e.numero, e.prodotti, e.consegna, e.totale]);
+      // ⚠️ Schema QUALIFICATO: sul pooler (transaction mode) la search_path
+      // non e' garantita e `"OrdineCliente"` nudo dava 42P01 in produzione.
       await this.prisma.$executeRawUnsafe(
-        `INSERT INTO "OrdineCliente" ("id", "orderId", "ordersId", "brand", "numero", "prodotti", "consegna", "totale", "aggiornatoIl")
+        `INSERT INTO platform."OrdineCliente" ("id", "orderId", "ordersId", "brand", "numero", "prodotti", "consegna", "totale", "aggiornatoIl")
          SELECT gen_random_uuid(), v.o, v.oi, v.b, v.n, v.p, v.c, v.t, now()
          FROM (VALUES ${valori}) AS v(o, oi, b, n, p, c, t)
          ON CONFLICT ("orderId") DO UPDATE
