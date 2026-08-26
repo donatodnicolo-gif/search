@@ -78,7 +78,7 @@ buco dei sei mesi di Deluxy.it è rimasto invisibile per settimane proprio per q
 responsabili potranno scrivere direttamente è un passo successivo, da fare col permesso giusto e non
 di corsa.
 
-## Dove siamo (rimisurato il 25/08/2026) — leggere questo per primo
+## Dove siamo (rimisurato il 26/08/2026) — leggere questo per primo
 
 Il conto economico a budget, come lo mostrano `/dashboard` e `/pl` (livello **Raggiungibile**),
 letto interrogando le stesse funzioni delle pagine:
@@ -90,14 +90,14 @@ letto interrogando le stesse funzioni delle pagine:
 | └ dal team commerciale (lo porta il lavoro del team) | 500.000 € |
 | Costo del venduto | − 612.920 € |
 | Margine lordo | **668.931 € (52,2%)** |
-| Pubblicità | − 237.597 € |
+| Pubblicità | − 237.739 € |
 | Personale | − 218.877 € |
 | Struttura | − 107.548 € |
-| **EBITDA** | **+ 104.908 € (8,2%)** |
+| **EBITDA** | **+ 104.766 € (8,2%)** |
 
 La **quota D2C** è **50,9%** ed è la **media pesata sul venduto dei margini per brand misurati da
-Orders** — deluxy.it 54,3% (139 ordini, 6,2% del lordo), Flowers 43,8% (151 ordini, 15,8%),
-CakeDesign 45,2% (59 ordini, 12,7%). La decidono tutte le pagine da un posto solo
+Orders** — deluxy.it 54,3% (139 ordini, 6,2% del lordo), Flowers 43,7% (153 ordini, 15,9%),
+CakeDesign 45,2% (59 ordini, 12,6%). La decidono tutte le pagine da un posto solo
 (`quotaDeluxyAnno()`).
 
 ⚠️ **Questo numero si muove da solo, ed è voluto**: cresce con le riconciliazioni del Customer
@@ -137,8 +137,12 @@ Budgets **emette le sue chiavi API** con scope e revoca.
 4. ⚠️ **La prima scrittura su `/api/v1` esiste dal 24/08**: `POST /api/v1/persone` — un'app con
    chiave a scope scrittura **propone** una persona al roster. Resta da decidere **cos'altro** le
    altre app devono poter cambiare: oggi tutto il resto è in sola lettura.
-5. 🔴 **`LINEE_API_KEY` manca anche in produzione**: `/commerciale` mostra «fallback locale» e non
-   confronta con l'elenco delle linee vive di Scout.
+5. ✅ ~~`LINEE_API_KEY` manca anche in produzione~~ — **risolto il 24/08**: la chiave stava
+   nell'`.env` di deluxy-anagrafiche (stessa Edge Function `linee`), copiata in locale e su Vercel
+   production, redeploy fatto. Verificato il 26/08 che la variabile c'è (`vercel env ls`). Restano
+   invece assenti **`HUB_SSO_SECRET` e `APP_SECRET`** (10 variabili in produzione): senza la prima
+   l'accesso dal Hub chiede la password di team; aggiungere la seconda cambia il segreto della
+   cassaforte → la `OPENAI_API_KEY` salvata va reincollata subito.
 6. ⚠️ **`BUDGETS_API_KEY` è ancora valida in lettura** per non rompere Marketing. Quando Marketing
    avrà la sua chiave emessa, quella condivisa si può togliere.
 7. ❓ **Affiliazioni è passata da 100.000 a 96.000 €** durante la sessione del 23/08 (agosto 4.000 →
