@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
+import { utenteCorrente } from '@/lib/sessione'
 import { db } from '@/lib/db'
 import { scaricaStorico, sincronizzaInviata, ripassaDimensioni } from '@/lib/sync'
 
@@ -20,8 +19,14 @@ export const maxDuration = 60
 const BLOCCO = 80 // messaggi vecchi per chiamata
 
 export async function POST(request: Request) {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value
-  const userId = await verificaSessione(token)
+  // ⚠️⚠️ `utenteCorrente()` e NON `verificaSessione()`: la firma del cookie dice
+  // solo «questo biglietto l'abbiamo emesso noi», non rilegge l'utente, quindi
+  // non si accorge che è stato DISATTIVATO. Il cookie dura 30 giorni e queste
+  // rotte fanno cose vere (allegati, riletture IMAP, una svuota il cestino PER
+  // SEMPRE): chi lascia l'azienda continuerebbe a usarle per un mese. Le
+  // pagine il controllo lo fanno già — è la trappola «auth riscritta dentro la
+  // rotta», qui moltiplicata per nove.
+  const userId = (await utenteCorrente())?.id ?? null
   if (!userId) {
     return NextResponse.json({ ok: false, messaggio: 'Sessione scaduta: rientra.' }, { status: 401 })
   }

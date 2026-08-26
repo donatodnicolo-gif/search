@@ -5,10 +5,14 @@ import { usePathname } from 'next/navigation'
 
 const CHIAVE = 'aimail:flash'
 
-/** Da chiamare PRIMA di navigare: l'avviso comparirà sulla pagina d'arrivo. */
-export function mettiFlash(messaggio: string) {
+/** Da chiamare PRIMA di navigare: l'avviso comparirà sulla pagina d'arrivo.
+ *  ⚠️ Prende il TONO come `mostraFlash`: prima non poteva riceverlo affatto,
+ *  e la lettura forzava 'ok' — così un fallimento che attraversava una
+ *  navigazione (es. «Cestina la conversazione», che poi torna in posta) era
+ *  verde col ✓ **per costruzione**, non per un argomento dimenticato. */
+export function mettiFlash(messaggio: string, tono: TonoFlash = 'ok') {
   try {
-    sessionStorage.setItem(CHIAVE, messaggio)
+    sessionStorage.setItem(CHIAVE, JSON.stringify({ messaggio, tono }))
   } catch {
     /* niente sessionStorage (privato?): si perde l'avviso, non è grave */
   }
@@ -44,8 +48,22 @@ export function Flash() {
       salvato = null
     }
     if (salvato) {
-      setMsg(salvato)
-      setTono('ok')
+      // La forma nuova è un oggetto {messaggio, tono}; la stringa secca
+      // resta valida (un avviso lasciato dalla versione di prima, o da
+      // codice che non è ancora passato al tono).
+      try {
+        const d = JSON.parse(salvato) as { messaggio?: string; tono?: TonoFlash }
+        if (d && typeof d.messaggio === 'string') {
+          setMsg(d.messaggio)
+          setTono(d.tono === 'errore' ? 'errore' : 'ok')
+        } else {
+          setMsg(salvato)
+          setTono('ok')
+        }
+      } catch {
+        setMsg(salvato)
+        setTono('ok')
+      }
     }
   }, [path])
 

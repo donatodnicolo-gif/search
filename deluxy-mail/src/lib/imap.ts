@@ -2,6 +2,7 @@ import { ImapFlow } from 'imapflow'
 import { simpleParser, type ParsedMail, type AddressObject } from 'mailparser'
 import type { Account } from '@prisma/client'
 import { decifra } from './crypto'
+import { sicuroDaCodice } from './citato'
 import { testoMigliore } from './htmlMail'
 
 export type MessaggioScaricato = {
@@ -112,8 +113,14 @@ export function testoLeggibile(testo: string | undefined, html: string | false |
     .replace(/<\/(p|div|tr|h[1-6]|li)>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
     // Entità: prima le numeriche (&#233; &#xE9;), poi quelle con nome.
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    // ⚠️⚠️ Non `String.fromCodePoint` nudo: LANCIA per i valori sopra 0x10FFFF,
+    // e questa funzione gira DENTRO il ciclo di scarico. Un'entità malformata
+    // in una sola mail promozionale (`&#1114112;`) fermava il cursore di quella
+    // casella: `ultimoErrore` scritto, `ultimoUid` fermo, e a ogni giro di cron
+    // si riprovava la stessa mail — la casella non riceveva più niente.
+    // La guardia esisteva già nel repo (`citato.ts`), qui non era mai arrivata.
+    .replace(/&#(\d{1,7});/g, (_, n) => sicuroDaCodice(parseInt(n, 10)))
+    .replace(/&#x([0-9a-f]{1,6});/gi, (_, n) => sicuroDaCodice(parseInt(n, 16)))
     // &Agrave; e &agrave; sono lettere diverse: si prova prima il nome esatto,
     // e solo se non c'è si ricade sulla versione minuscola.
     .replace(
@@ -814,6 +821,10 @@ export async function scaricaNuovi(
     const daScaricare = esistenti.filter((u) => !salvati.has(u)).slice(0, limite)
 
     const messaggi: MessaggioScaricato[] = []
+    // ⚠️ Gli uid che il server ha davvero RESTITUITO: non sono per forza
+    // quelli chiesti. Il FETCH può rispondere senza sorgente — messaggio
+    // espunto fra la ricerca e la lettura, o troppo grande e troncato.
+    const tornati = new Set<number>()
     if (daScaricare.length > 0) {
       for await (const msg of client.fetch(
         daScaricare.join(','),
@@ -821,6 +832,7 @@ export async function scaricaNuovi(
         { uid: true }
       )) {
         if (!msg.source) continue // senza sorgente non c'è nulla da leggere
+        tornati.add(msg.uid)
         messaggi.push(await converti(msg.uid, msg.source, Boolean(msg.flags?.has('\\Seen'))))
       }
     }
@@ -828,6 +840,19 @@ export async function scaricaNuovi(
     // Il cursore può salire fin dove ogni UID del server è coperto (già in DB
     // o scaricato in questo giro): al primo buco si ferma, così non si salta
     // nessuna mail.
+    // ⚠️⚠️ `coperti` resta costruito sugli uid CHIESTI, e la ragione è seria:
+    // un messaggio espunto dal server fra la ricerca e la lettura non tornerà
+    // MAI, e fermare lì il cursore pianterebbe la casella per sempre. Si va
+    // avanti — ma quello che si è saltato adesso si CONTA e si scrive, invece
+    // di sparire in silenzio come prima: un uid non tornato non viene riletto
+    // da nessun giro (né i nuovi, che stanno ormai sopra il cursore, né lo
+    // storico, che guarda solo sotto il più vecchio conosciuto), quindi è una
+    // mail persa. Persa e misurata è un’altra cosa da persa e ignorata: se il
+    // numero cresce, si sa dove guardare.
+    const saltati = daScaricare.filter((u) => !tornati.has(u))
+    if (saltati.length > 0) {
+      console.log(`[imap] ${saltati.length} uid chiesti e non tornati dal server: ${saltati.slice(0, 10).join(', ')}`)
+    }
     const coperti = new Set<number>([...salvati, ...daScaricare])
     let ultimoUid = ultimoUidCur
     for (const u of esistenti) {

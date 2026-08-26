@@ -1,5 +1,8 @@
+import { randomBytes } from 'node:crypto'
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { AMBITO_DRIVE, configDrive, indirizzoRitornoDrive, salvaConsensoDrive } from '@/lib/drive'
+import { utenteCorrente } from '@/lib/sessione'
 
 // Il giro del consenso per collegare Google Drive.
 //
@@ -22,6 +25,13 @@ import { AMBITO_DRIVE, configDrive, indirizzoRitornoDrive, salvaConsensoDrive } 
 
 export const dynamic = 'force-dynamic'
 
+// Il biglietto del giro: si scrive in un cookie all'andata e si ripresenta al
+// ritorno da Google. ⚠️ Senza, questa rotta accetta un `code` da CHIUNQUE:
+// basta un link in una mail (e questa è un'app di posta) aperto da un utente
+// già entrato, e il consenso salvato — che è dell'APP, non della persona —
+// diventa quello dell'account di chi ha mandato il link.
+const COOKIE_STATO = 'aimail_drive_state'
+
 function indirizzoRitorno(req: NextRequest): string {
   // ⚠️ Fonte unica: la stessa stringa che la pagina Impostazioni mostra da
   //    incollare in Google Console. Vedi `indirizzoRitornoDrive`.
@@ -36,6 +46,20 @@ function torna(req: NextRequest, esito: string, perche?: string): NextResponse {
 }
 
 export async function GET(req: NextRequest) {
+  // ⚠️⚠️ SOLO ADMIN. Il consenso che questa rotta salva NON è dell'utente che
+  // la apre: sono due righe di `Impostazione` globali, cioè il Drive DI TUTTA
+  // L'APP. Il middleware qui chiede solo una sessione valida, e la pagina
+  // Impostazioni nasconde il bottone ai non-admin — ma nascondere un bottone
+  // non è un cancello: l'indirizzo si digita. Le altre azioni sullo stesso
+  // bene (`salvaDriveAction`, le chiavi delle app, il token API) l'admin lo
+  // pretendono già.
+  // ⚠️ Non si usa `richiediAdmin()`: fa `redirect('/')` e chi arriva qui si
+  // ritroverebbe in posta senza sapere perché. Meglio tornare alla pagina da
+  // cui è partito, col motivo scritto.
+  const u = await utenteCorrente()
+  if (!u) return torna(req, 'no', 'Sessione scaduta: rientra e riprova.')
+  if (u.ruolo !== 'admin') return torna(req, 'no', 'Solo un amministratore può collegare Google Drive.')
+
   const o = await configDrive()
   if (!o.id || !o.segreto) return torna(req, 'manca')
 
@@ -57,10 +81,35 @@ export async function GET(req: NextRequest) {
     // token nuovo, quindi «ricollega» non ricollegherebbe niente.
     auth.searchParams.set('access_type', 'offline')
     auth.searchParams.set('prompt', 'consent')
-    return NextResponse.redirect(auth)
+    // Il biglietto: un numero a caso che torna indietro con Google e che solo
+    // questo browser ha in tasca.
+    const stato = randomBytes(24).toString('hex')
+    auth.searchParams.set('state', stato)
+    const vai = NextResponse.redirect(auth)
+    vai.cookies.set(COOKIE_STATO, stato, {
+      httpOnly: true,
+      secure: true,
+      // ⚠️ `lax` e non `strict`: il ritorno da Google è una navigazione che
+      // arriva da un altro sito, e con `strict` il cookie non verrebbe mandato
+      // — il giro fallirebbe sempre.
+      sameSite: 'lax',
+      path: '/api/interno/drive/oauth',
+      maxAge: 600,
+    })
+    return vai
   }
 
   // Passo 2 — il codice diventa permesso duraturo.
+  // ⚠️ Prima si controlla il biglietto: un `code` arrivato senza il cookie di
+  // questo browser non è un ritorno da Google, è qualcuno che ci manda un
+  // codice suo.
+  const barattolo = await cookies()
+  const atteso = barattolo.get(COOKIE_STATO)?.value ?? ''
+  const ricevuto = req.nextUrl.searchParams.get('state') ?? ''
+  if (!atteso || !ricevuto || atteso !== ricevuto) {
+    return torna(req, 'no', 'Il giro del consenso non combacia: riparti da «Collega Drive» su questa pagina.')
+  }
+
   try {
     const r = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -100,7 +149,10 @@ export async function GET(req: NextRequest) {
     }
 
     await salvaConsensoDrive(d.refresh_token, email)
-    return torna(req, 'ok')
+    // Il biglietto è servito: si brucia, così non vale una seconda volta.
+    const fatto = torna(req, 'ok')
+    fatto.cookies.delete(COOKIE_STATO)
+    return fatto
   } catch (e) {
     return torna(req, 'no', String(e))
   }

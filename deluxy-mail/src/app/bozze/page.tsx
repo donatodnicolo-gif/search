@@ -242,5 +242,11 @@ function RigaBozza({ bozza, allegati = 0 }: { bozza: BozzaConMessaggio; allegati
  */
 function anteprimaBozza(corpo: string): string {
   const testo = sembraHtml(corpo) ? htmlAPlain(corpo) : corpo
-  return ripulisciAnteprima(testo).replace(/s+/g, ' ').trim().slice(0, 160)
+  // ⚠️⚠️ Qui c'era `.replace(/s+/g, ' ')` — un backslash mangiato: al posto
+  // degli spazi cancellava la LETTERA «s» da ogni anteprima di bozza.
+  // Misurato sul database: 29 bozze su 30 storpiate («la spesa sostenuta» →
+  // «la  pe a  o tenuta»). La riparazione non è rimettere il backslash ma
+  // togliere la riga: gli spazi li collassa già `ripulisciAnteprima`, ed è
+  // esattamente per questo che quel `replace` non aveva altro da fare.
+  return ripulisciAnteprima(testo).trim().slice(0, 160)
 }

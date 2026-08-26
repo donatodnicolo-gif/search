@@ -28,6 +28,8 @@ export function PrioritaButtons({ id, priorita, prioritaDa, analizzato }: Props)
     // Ripremere il livello già attivo lo toglie: è il modo per tornare
     // indietro senza un pulsante "annulla" in più.
     const nuovo = scelta === codice ? null : codice
+    // Il valore di prima, per rimetterlo se l'azione non arriva mai.
+    const prima = scelta
     setScelta(nuovo)
     setStato(null)
 
@@ -39,6 +41,12 @@ export function PrioritaButtons({ id, priorita, prioritaDa, analizzato }: Props)
       } catch {
         // Se l'azione stessa fallisce (rete, timeout della funzione), non
         // restare muti: mostra un errore invece di "non succede nulla".
+        // ⚠️ E si rimette il bottone com'era: lasciarlo acceso accanto a un
+        // messaggio rosso mette a schermo due cose che si contraddicono.
+        // `router.refresh()` non basterebbe: riallinea l'albero del server ma
+        // non rimonta questo componente, e la dipendenza `[priorita]}` non
+        // cambia — quindi l'effetto che riallinea non rigira.
+        setScelta(prima)
         setStato({ ok: false, testo: 'Non è arrivata risposta: riprova fra poco.' })
       }
     })

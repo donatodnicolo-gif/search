@@ -28,15 +28,26 @@ export function AzioniTopThread({ messaggioId, quante }: { messaggioId: string; 
   const chiudi = () =>
     start(async () => {
       const esito = await cambiaThreadChiuso(messaggioId, true)
-      mostraFlash(esito.messaggio)
+      mostraFlash(esito.messaggio, esito.ok ? 'ok' : 'errore')
       if (esito.ok) setVia(true)
     })
 
   const cestina = () =>
     start(async () => {
-      setVia(true)
-      const esito = await cestinaThread(messaggioId)
-      mostraFlash(esito.messaggio)
+      // ⚠️ La riga se ne va DOPO l'esito, come fa `chiudi` qui sopra. Prima
+      // spariva subito: se `cestinaThread` falliva (succede — risponde
+      // «Conversazione non trovata» quando il thread non è più tuo) la
+      // conversazione restava in posta con le sue mail, ma dall'elenco era
+      // sparita e non tornava, perché qui non c'è un `router.refresh()`.
+      // ⚠️ Peggio ancora a sessione scaduta: `uid()` LANCIA, e allora la
+      // riga spariva **in silenzio**, senza nemmeno l'avviso.
+      try {
+        const esito = await cestinaThread(messaggioId)
+        mostraFlash(esito.messaggio, esito.ok ? 'ok' : 'errore')
+        if (esito.ok) setVia(true)
+      } catch {
+        mostraFlash('Non è arrivata risposta: la conversazione è ancora qui.', 'errore')
+      }
     })
 
   // Cestinare tocca molte mail in un colpo: si chiede conferma, dicendo quante.

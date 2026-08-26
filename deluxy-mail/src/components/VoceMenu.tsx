@@ -93,7 +93,7 @@ export function DropMail({
                   // anche far seguire la Posta indesiderata della casella, e
                   // sa già farlo per tutta la conversazione.
                   await spamDiTutti(ids)
-      mostraFlash(r.messaggio || `Spostate in ${label}.`)
+      mostraFlash(r.messaggio || `Spostate in ${label}.`, r.ok ? 'ok' : 'errore')
       router.refresh()
     })
   }

@@ -27,7 +27,7 @@ export function ChiudiTutteAttivita({ ids }: { ids: string[] }) {
     start(async () => {
       const r = await segnaAttivitaTutte(ids, true)
       setConferma(false)
-      mostraFlash(r.ok ? `${r.quante} cose da fare chiuse.` : 'Non è riuscito: riprova.')
+      mostraFlash(r.ok ? `${r.quante} cose da fare chiuse.` : 'Non è riuscito: riprova.', r.ok ? 'ok' : 'errore')
       router.refresh()
     })
 

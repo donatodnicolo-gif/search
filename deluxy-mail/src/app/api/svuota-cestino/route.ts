@@ -1,6 +1,5 @@
 import { NextResponse, after } from 'next/server'
-import { cookies } from 'next/headers'
-import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
+import { utenteCorrente } from '@/lib/sessione'
 import { eseguiSvuotaCestino, leggiStatoSvuota, prenotaSvuotaCestino } from '@/lib/cestino'
 
 // /api/svuota-cestino — svuota il cestino dell'utente loggato.
@@ -26,8 +25,14 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 async function utenteDellaSessione() {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value
-  return await verificaSessione(token)
+  // ⚠️⚠️ `utenteCorrente()` e NON `verificaSessione()`: la firma del cookie dice
+  // solo «questo biglietto l'abbiamo emesso noi», non rilegge l'utente, quindi
+  // non si accorge che è stato DISATTIVATO. Il cookie dura 30 giorni e queste
+  // rotte fanno cose vere (allegati, riletture IMAP, una svuota il cestino PER
+  // SEMPRE): chi lascia l'azienda continuerebbe a usarle per un mese. Le
+  // pagine il controllo lo fanno già — è la trappola «auth riscritta dentro la
+  // rotta», qui moltiplicata per nove.
+  return (await utenteCorrente())?.id ?? null
 }
 
 export async function POST() {

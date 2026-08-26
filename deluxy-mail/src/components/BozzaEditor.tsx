@@ -43,16 +43,23 @@ export function BozzaEditor({ bozza, destinatario, mittente }: Props) {
   function salva() {
     setStato(null)
     startTransition(async () => {
-      await salvaBozza(bozza.id, oggetto, corpo)
-      setStato('Bozza salvata.')
-      router.refresh()
+      const esito = await salvaBozza(bozza.id, oggetto, corpo)
+      setStato(esito.messaggio)
+      if (esito.ok) router.refresh()
     })
   }
 
   function invia() {
     setStato(null)
     startTransition(async () => {
-      await salvaBozza(bozza.id, oggetto, corpo)
+      // ⚠️ Se il salvataggio non ha preso, non si manda: `inviaBozza` rilegge il
+      // testo dal DATABASE, quindi partirebbe la versione vecchia.
+      const salvataggio = await salvaBozza(bozza.id, oggetto, corpo)
+      if (!salvataggio.ok) {
+        setStato(salvataggio.messaggio)
+        setConfermaInvio(false)
+        return
+      }
       const form = new FormData()
       for (const f of allegati) form.append('allegati', f)
       const esito = await inviaBozza(bozza.id, form)

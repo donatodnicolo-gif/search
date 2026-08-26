@@ -114,6 +114,21 @@ export function dominioDi(indirizzo: string | null | undefined): string {
 // richiesta con «Stato non valido» (gli interessi invece li accetta tutti, e
 // creeremmo linee fantasma).
 
+// ⚠️⚠️ QUATTRO di questi valori, in Anagrafiche, NON sono più stati: dal
+// 31/07/2026 sono **livelli** — un’altra colonna, che dice il *momento* del
+// rapporto invece del gradino del funnel. Anagrafiche li accetta lo stesso e
+// li sposta da sé nella colonna giusta (`partner-api.ts`), quindi mandarli
+// non è un errore e non si perde niente. Ma chi controlla se sono stati
+// applicati deve guardare `livello`, non `stato`: confrontandoli con `stato`
+// si annuncia un fallimento che non c’è.
+const LIVELLI_CONTATTO = new Set([
+  'in_contatto',
+  'in_attesa',
+  'da_ricontattare',
+  'non_interessato',
+  'a_rischio',
+])
+
 export const STATI_COMMERCIALI = [
   'prospect',
   'in_contatto',
@@ -214,6 +229,16 @@ export function etichettaDominio(dominio: string): string {
   return penultimo
 }
 
+/** Le caselle gratuite: da un dominio così non si ricava il nome di
+ *  un'azienda («Gmail» non è un fornitore). Serve a decidere quando il nome
+ *  dal dominio è un fatto utile e quando è rumore. */
+const GRATUITI = new Set([
+  'gmail.com', 'googlemail.com', 'outlook.com', 'outlook.it', 'hotmail.com', 'hotmail.it',
+  'live.com', 'live.it', 'yahoo.com', 'yahoo.it', 'icloud.com', 'me.com', 'aol.com',
+  'libero.it', 'virgilio.it', 'alice.it', 'tiscali.it', 'tin.it', 'fastwebnet.it',
+  'inwind.it', 'email.it', 'mail.com', 'gmx.com', 'gmx.net', 'proton.me', 'protonmail.com',
+])
+
 /** Il nome commerciale ricavato dal dominio: 'zimmermann.com' → 'Zimmermann'.
  *  È un fatto (sta nell'indirizzo), non un'invenzione: si usa solo quando il
  *  nome manca o è il nostro. */
@@ -281,7 +306,42 @@ export function numeroDaTesto(
 ): { ok: true; valore: number | null } | { ok: false; testo: string } {
   if (typeof grezzo === 'number' && Number.isFinite(grezzo)) return { ok: true, valore: grezzo }
   if (typeof grezzo !== 'string' || !grezzo.trim()) return { ok: true, valore: null }
-  const n = Number(grezzo.replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.'))
+  const pulito = grezzo.replace(/[€\s]/g, '')
+
+  // ⚠️⚠️ QUALE segno è il DECIMALE. Prima si toglievano SEMPRE tutti i punti,
+  // cioè si dava per scontato che un punto fosse le migliaia: «1250.50»
+  // diventava **125050**, «0.5» diventava **5**, «12.75 €» diventava **1275**.
+  // E a valle non se ne accorgeva nessuno — Scout e Finance controllano solo
+  // che sia un numero finito e positivo. Un errore di CENTO VOLTE su un
+  // importo entrava nel CRM in silenzio.
+  //
+  // La regola, in ordine:
+  //  - ci sono sia «,» sia «.» → comanda l'ULTIMO dei due, l'altro è le migliaia
+  //    («1.250,50» e «1,250.50» fanno tutti e due 1250,50);
+  //  - c'è solo la virgola → è il decimale (è come si scrive in italiano);
+  //  - c'è solo il punto → è decimale SOLO se compare una volta sola e le cifre
+  //    dopo non sono tre: «1250.50» e «0.5» sì, «1.250» e «1.234.567» no.
+  // ⚠️ Il caso che resta ambiguo è «2.500» scritto da un anglofono per 2,5:
+  //    lo leggiamo 2500, come prima. Non si può indovinare, e la lettura
+  //    italiana è quella giusta su questa posta.
+  const ultimaVirgola = pulito.lastIndexOf(',')
+  const ultimoPunto = pulito.lastIndexOf('.')
+  const quantiPunti = pulito.split('.').length - 1
+  const cifreDopoPunto = ultimoPunto >= 0 ? pulito.length - ultimoPunto - 1 : -1
+  const puntoDecimale =
+    ultimaVirgola < 0 && ultimoPunto >= 0 && quantiPunti === 1 && cifreDopoPunto !== 3
+  const posDecimale =
+    ultimaVirgola >= 0 && ultimoPunto >= 0
+      ? Math.max(ultimaVirgola, ultimoPunto)
+      : ultimaVirgola >= 0
+        ? ultimaVirgola
+        : puntoDecimale
+          ? ultimoPunto
+          : -1
+  const parteIntera = posDecimale >= 0 ? pulito.slice(0, posDecimale) : pulito
+  const parteDecimale = posDecimale >= 0 ? pulito.slice(posDecimale + 1) : ''
+  const senzaSeparatori = parteIntera.split('.').join('').split(',').join('')
+  const n = Number(parteDecimale ? `${senzaSeparatori}.${parteDecimale}` : senzaSeparatori)
   if (!Number.isFinite(n)) return { ok: false, testo: grezzo }
   return { ok: true, valore: n }
 }
@@ -616,6 +676,7 @@ const AZIONI: AzioneApp[] = [
             esito?: string
             applicati?: string[]
             stato?: string
+            livello?: string
             interessi?: string[]
           }
           const chi = [p.nome, dati.email].filter(Boolean).join(' · ') || String(dati.nome ?? '')
@@ -624,7 +685,13 @@ const AZIONI: AzioneApp[] = [
           // si DICE: sono i due campi che Anagrafiche tiene curati dal team, e
           // silenziosamente sembrerebbe che AI Mail non li mandi.
           const scartati: string[] = []
-          if (stato && p.stato && p.stato !== stato) scartati.push(`stato «${stato}» (è rimasto «${p.stato}»)`)
+          // ⚠️ Il confronto va fatto sulla colonna in cui il valore FINISCE:
+          // per i quattro che in Anagrafiche sono livelli, `stato` non cambia
+          // mai — e prima si annunciava «non applicato» un dato che era
+          // arrivato benissimo, solo in un’altra casella.
+          const arrivato = stato && LIVELLI_CONTATTO.has(stato) ? p.livello : p.stato
+          if (stato && arrivato && arrivato !== stato)
+            scartati.push(`stato «${stato}» (è rimasto «${arrivato}»)`)
           if (interessi.length && Array.isArray(p.interessi)) {
             const mancanti = interessi.filter((i) => !p.interessi!.includes(i))
             if (mancanti.length) scartati.push(`interessi ${mancanti.join(', ')}`)
@@ -750,9 +817,41 @@ const AZIONI: AzioneApp[] = [
         (status, risposta) => {
           if (status >= 200 && status < 300 && risposta && typeof risposta === 'object') {
             // La risposta è un quadro sintetico: la mostriamo com'è, riga per riga.
-            const righe = Object.entries(risposta as Record<string, unknown>)
-              .filter(([, v]) => v !== null && typeof v !== 'object')
-              .map(([k, v]) => `${k}: ${v}`)
+            // ⚠️⚠️ Prima qui c'era un filtro `typeof v !== 'object'`, e buttava via
+            // **proprio i due campi che contengono tutto**: la risposta di Finance
+            // ha `trovato`, `aggiornatoAl` (scalari) e `partner`/`situazione`
+            // (oggetti, con dentro nome, vendite, da incassare, da bonificare,
+            // residuo, fatture aperte). L'azione che promette «saldi, fatture»
+            // mostrava due righe: «trovato: true · aggiornatoAl: …». Inutile al 100%.
+            const corpo = (risposta ?? {}) as Record<string, unknown>
+            const part = (corpo.partner ?? {}) as Record<string, unknown>
+            const sit = (corpo.situazione ?? {}) as Record<string, unknown>
+            const soldi = (v: unknown): string | null =>
+              typeof v === 'number' && Number.isFinite(v)
+                ? v.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
+                : null
+            const voce = (etichetta: string, v: unknown): string | null => {
+              const t = soldi(v)
+              return t ? `${etichetta} ${t}` : null
+            }
+            const fatture = (sit.fattureAperte ?? {}) as Record<string, unknown>
+            const righe = [
+              typeof part.nome === 'string' ? part.nome : null,
+              typeof part.stato === 'string' ? `stato ${part.stato}` : null,
+              voce('vendite anno', sit.venditeYtd),
+              voce('da incassare', sit.daIncassare),
+              voce('da bonificare', sit.daBonificare),
+              voce('residuo', sit.residuo),
+              typeof fatture.numero === 'number'
+                ? `${fatture.numero} fatture aperte${soldi(fatture.scaduto) ? ` (scaduto ${soldi(fatture.scaduto)})` : ''}`
+                : null,
+              // Gli scalari di primo livello restano, ma dopo: se Finance
+              // aggiungesse un campo nuovo non si perde per strada.
+              ...Object.entries(corpo)
+                .filter(([k, v]) => k !== 'trovato' && v !== null && typeof v !== 'object')
+                .map(([k, v]) => `${k}: ${v}`),
+            ]
+              .filter((x): x is string => Boolean(x))
               .slice(0, 12)
             return {
               ok: true,
@@ -761,7 +860,28 @@ const AZIONI: AzioneApp[] = [
             }
           }
           if (status === 401 || status === 403) return { ok: false, messaggio: 'Chiave Finance non valida.' }
-          if (status === 404) return { ok: false, messaggio: 'Partner non trovato in Finance.' }
+          // ⚠️ Il 404 di Finance porta con sé `motivo` e i `candidati` (quando i
+          // partner che assomigliano sono più di uno). Rispondere «Partner non
+          // trovato» è FALSO — il partner c'è, ce ne sono due — e lascia l'utente
+          // a cercare il nome esatto a mano. Il meccanismo per farli scegliere
+          // esiste già ed è generico (`scelte` + `campoScelta`).
+          if (status === 404) {
+            const corpo = (risposta ?? {}) as Record<string, unknown>
+            const c = Array.isArray(corpo.candidati) ? corpo.candidati : []
+            const scelte = c
+              .map((x) => {
+                const o = (x ?? {}) as Record<string, unknown>
+                const nome = typeof o.nome === 'string' ? o.nome : ''
+                const id = typeof o.id === 'string' ? o.id : nome
+                return nome ? { valore: id, etichetta: nome } : null
+              })
+              .filter((x): x is { valore: string; etichetta: string } => x !== null)
+            return {
+              ok: false,
+              messaggio: testoErrore(risposta, 'Partner non trovato in Finance.'),
+              ...(scelte.length ? { scelte, campoScelta: 'partner' } : {}),
+            }
+          }
           return { ok: false, messaggio: testoErrore(risposta, `Finance ha risposto ${status}.`) }
         }
       )
@@ -1117,7 +1237,31 @@ const AZIONI: AzioneApp[] = [
             risposta && typeof risposta === 'object'
               ? ((risposta as Record<string, unknown>).link as string) ?? ((risposta as Record<string, unknown>).url as string) ?? undefined
               : undefined
-          if (status === 200 || status === 201) return { ok: true, messaggio: `Trattativa aperta per «${negozio}».`, link }
+          // ⚠️⚠️ 200 e 201 NON sono la stessa cosa. Commerciale risponde **200**
+          // con `gia_aperta: true` quando quel negozio ha già una trattativa non
+          // chiusa: in quel ramo la Edge **ritorna prima dell'inserimento**, quindi
+          // valore atteso, fase, scadenza e oggetto che l'utente ha appena
+          // controllato **si perdono in silenzio**. Il 201 è la creazione vera.
+          // Dire «Trattativa aperta» su un 200 non era solo una parola sbagliata:
+          // scriveva un `InvioApp` con esito «ok», e il riassunto toglie dai
+          // bottoni le azioni già riuscite — quindi il lavoro NON fatto spariva
+          // anche dalla strada per farlo.
+          const corpo = (risposta ?? {}) as Record<string, unknown>
+          const nomeVero =
+            typeof (corpo.place as Record<string, unknown> | undefined)?.nome === 'string'
+              ? ((corpo.place as Record<string, unknown>).nome as string)
+              : negozio
+          if (status === 200 && corpo.gia_aperta === true) {
+            return {
+              ok: false,
+              messaggio:
+                typeof corpo.messaggio === 'string' && corpo.messaggio
+                  ? `${corpo.messaggio} I dati di questa mail NON sono stati scritti sulla trattativa che c’è già: aprila e controllala.`
+                  : `«${nomeVero}» ha già una trattativa aperta: i dati di questa mail non sono stati scritti.`,
+              link,
+            }
+          }
+          if (status === 200 || status === 201) return { ok: true, messaggio: `Trattativa aperta per «${nomeVero}».`, link }
           if (status === 401 || status === 403)
             return { ok: false, messaggio: 'Chiave Commerciale non valida: controllala in Impostazioni App.' }
           if (status === 404) {
@@ -1369,7 +1513,16 @@ const AZIONI: AzioneApp[] = [
       // e' li' da correggere prima di confermare.
       const scritto = typeof d.fornitore === 'string' ? d.fornitore.trim() : ''
       const scrittoSiamoNoi = Boolean(dom(scritto)) && nostri.includes(dom(scritto))
-      if ((!scritto || scrittoSiamoNoi) && daFuori) d.fornitore = indirizzo
+      // ⚠️ Nel campo NOME va un NOME, non un indirizzo: prima qui finiva
+      // l'email intera, e in Commerciale nasceva un fornitore che si chiama
+      // «ordini@fioreriarossi.it». Dal dominio si ricava un nome vero
+      // («Fioreriarossi»), che è un fatto scritto nell'indirizzo, non
+      // un'invenzione — è quello che fa già l'azione delle Anagrafiche.
+      // ⚠️ Su una casella gratuita il nome del dominio non dice niente
+      // («Gmail» non è un fornitore): meglio lasciare vuoto e far scrivere.
+      const daIndirizzo = daFuori ? nomeDaDominio(dom(indirizzo)) : ''
+      const nomeUtile = GRATUITI.has(dom(indirizzo)) ? '' : daIndirizzo
+      if ((!scritto || scrittoSiamoNoi) && nomeUtile) d.fornitore = nomeUtile
       else if (scrittoSiamoNoi) d.fornitore = ''
 
       // L'EMAIL: solo se e' certa, cioe' se il prezzo e' arrivato da li'.
@@ -1377,9 +1530,21 @@ const AZIONI: AzioneApp[] = [
         typeof d.fornitoreEmail === 'string' && d.fornitoreEmail.includes('@')
           ? d.fornitoreEmail.trim().toLowerCase()
           : null
-      if (emailScritta && !nostri.includes(dom(emailScritta))) d.fornitoreEmail = emailScritta
-      else if (daFuori) d.fornitoreEmail = indirizzo
-      else d.fornitoreEmail = null
+      // ⚠️⚠️ «Mai compilato» e «SVUOTATO APPOSTA» non sono la stessa cosa, e
+      // questa funzione gira DUE volte: alla preparazione e di nuovo
+      // all'invio, sui dati corretti dall'utente. Prima il ramo del mittente
+      // riscattava anche al secondo giro: chi svuotava il campo — perché si
+      // era accorto che era il CLIENTE e non il fornitore — se lo ritrovava
+      // rimesso, e l'aiuto del campo («Vuoto = non si manda») diceva il falso.
+      // La chiave PRESENTE nei dati vuol dire «qualcuno ha già deciso»: si
+      // rispetta, anche quando la decisione è «vuoto».
+      const giaDeciso = 'fornitoreEmail' in d
+      if (emailScritta) {
+        // Un NOSTRO indirizzo non è mai il fornitore: si toglie.
+        d.fornitoreEmail = nostri.includes(dom(emailScritta)) ? null : emailScritta
+      } else if (!giaDeciso) {
+        d.fornitoreEmail = daFuori ? indirizzo : null
+      }
       return d
     },
     async esegui(dati, ctx) {

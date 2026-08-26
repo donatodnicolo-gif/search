@@ -34,7 +34,10 @@ export function ThreadAIToggle({
         mostraFlash(esito.messaggio)
         router.refresh()
       } else {
-        mostraFlash(esito.messaggio)
+        // ⚠️ Questo è il ramo del FALLIMENTO (c'è un `catch` sul database
+        // dietro `cambiaThreadAI`): senza il tono usciva col ✓ verde,
+        // identico al ramo riuscito due righe più su.
+        mostraFlash(esito.messaggio, 'errore')
       }
     })
 

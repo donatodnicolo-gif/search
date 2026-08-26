@@ -24,7 +24,7 @@ export function DecidiSpamRiga({ messaggioId }: { messaggioId: string }) {
   const decidi = (decisione: 'approva' | 'rifiuta') =>
     start(async () => {
       const r = await decidiSpamCaso(messaggioId, decisione)
-      mostraFlash(r.messaggio)
+      mostraFlash(r.messaggio, r.ok ? 'ok' : 'errore')
       router.refresh()
     })
 

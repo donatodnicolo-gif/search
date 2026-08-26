@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers'
 import JSZip from 'jszip'
-import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
+import { utenteCorrente } from '@/lib/sessione'
 import { db } from '@/lib/db'
 import { leggiTuttiAllegati } from '@/lib/imap'
 import { cartellaDiMessaggio } from '@/lib/cartelleServer'
@@ -23,8 +22,14 @@ function nomeSicuro(nome: string, indice: number): string {
 }
 
 export async function GET(req: Request) {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value
-  const userId = await verificaSessione(token)
+  // ⚠️⚠️ `utenteCorrente()` e NON `verificaSessione()`: la firma del cookie dice
+  // solo «questo biglietto l'abbiamo emesso noi», non rilegge l'utente, quindi
+  // non si accorge che è stato DISATTIVATO. Il cookie dura 30 giorni e queste
+  // rotte fanno cose vere (allegati, riletture IMAP, una svuota il cestino PER
+  // SEMPRE): chi lascia l'azienda continuerebbe a usarle per un mese. Le
+  // pagine il controllo lo fanno già — è la trappola «auth riscritta dentro la
+  // rotta», qui moltiplicata per nove.
+  const userId = (await utenteCorrente())?.id ?? null
   if (!userId) return new Response('Sessione scaduta', { status: 401 })
 
   const url = new URL(req.url)

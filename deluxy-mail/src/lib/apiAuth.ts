@@ -61,7 +61,19 @@ export async function autenticaApi(req: Request): Promise<Autenticato> {
     where: { email: { equals: emailUtente, mode: 'insensitive' }, attivo: true },
     select: { id: true, email: true },
   })
-  if (u) return { ok: true, utenteId: u.id, email: u.email }
+  if (u) {
+    // ⚠️⚠️ La stessa email può essere SIA un utente di login SIA una casella
+    // (qui `nicolo.donato@deluxy.it` e `cs@deluxy.it` lo sono tutte e due).
+    // Prima si usciva subito col solo utente, `accountEmail` restava vuoto, e
+    // chi chiedeva di mandare «da Nicolò» se la vedeva partire dalla PRIMA
+    // casella dell'utente — in ordine di indice `amministrazione@deluxy.it`.
+    // Deterministico, silenzioso, e con risposta `ok: true`.
+    const suaCasella = await db.account.findFirst({
+      where: { utenteId: u.id, email: { equals: emailUtente, mode: 'insensitive' }, attivo: true },
+      select: { email: true },
+    })
+    return { ok: true, utenteId: u.id, email: u.email, ...(suaCasella ? { accountEmail: suaCasella.email } : {}) }
+  }
 
   // ⭐ 26/08: `x-utente` puo' essere anche l'email di una CASELLA (Account).
   // Il caso vero: la piattaforma consegne manda i recap «da

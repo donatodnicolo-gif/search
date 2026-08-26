@@ -117,7 +117,12 @@ function decodificaEntita(s: string): string {
       .replace(/&apos;/gi, "'")
   )
 }
-function sicuroDaCodice(n: number): string {
+/** Un codice numerico → il carattere, senza far esplodere niente.
+ *  ⚠️ `String.fromCodePoint` LANCIA per qualunque valore sopra 0x10FFFF, e
+ *  un'entità malformata in una mail (`&#1114112;`) basta a fermare l'intero
+ *  scarico di quella casella. Esportata perché serviva anche a `imap.ts`,
+ *  dove la stessa decodifica era rimasta senza rete. */
+export function sicuroDaCodice(n: number): string {
   if (!Number.isFinite(n) || n <= 0 || n > 0x10ffff) return ' '
   try {
     return String.fromCodePoint(n)

@@ -60,7 +60,7 @@ export function NotaAttivita({
   function salva() {
     start(async () => {
       const r = await salvaNotaAttivita(id, testo)
-      mostraFlash(r.messaggio)
+      mostraFlash(r.messaggio, r.ok ? 'ok' : 'errore')
       // ⚠️ Si riparte da quello che ha scritto il SERVER (tagliato a 2000, senza
       // spazi ai bordi): se no a schermo resterebbe una versione che nel
       // database non esiste.

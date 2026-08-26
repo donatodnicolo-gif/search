@@ -146,7 +146,7 @@ export function AzioniMessaggio({
             onClick={() =>
               esegui(async () => {
                 const r = await disarchiviaThread(id)
-                mostraFlash(r.messaggio)
+                mostraFlash(r.messaggio, r.ok ? 'ok' : 'errore')
                 router.refresh()
               })
             }

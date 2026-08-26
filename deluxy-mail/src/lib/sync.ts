@@ -1169,6 +1169,20 @@ async function salvaMessaggi(opts: {
         utenteId,
         id: { not: messaggioId },
         OR: [{ mittente: msg.mittente }, { direzione: 'uscita', destinatari: { contains: msg.mittente } }],
+        // ⚠️⚠️ Le mail già finite in SPAM non fanno di uno spammer un
+        // «contatto noto». Senza questa riga bastava che la PRIMA mail finisse
+        // in spam perché la seconda trovasse `noti > 0`, e `valutaSpam` chiude
+        // subito il discorso su un contatto noto: il mittente diventava immune.
+        // Misurato: 33 mail successive a una in spam sono rimaste in posta per
+        // questo motivo, e 15 sarebbero state trattate diversamente.
+        // ⚠️⚠️ La forma è `OR` con `sezioneId: null` di proposito: in SQL
+        // `sezioneId <> X` è NULL per le righe SENZA sezione, che qui sono la
+        // maggioranza — un `not` secco le escluderebbe tutte e la lista bianca
+        // smetterebbe di funzionare, riempiendo la posta buona di falsi
+        // positivi. (Provato: con il `not` secco i noti crollano da 372 a 1.)
+        ...(spamSezioneId
+          ? { AND: [{ OR: [{ sezioneId: null }, { sezioneId: { not: spamSezioneId } }] }] }
+          : {}),
       },
     })
 
@@ -2286,9 +2300,19 @@ export async function sincronizzaTutti(): Promise<EsitoSync[]> {
   // sequenze girano su uno stato posta di un giro fa (una risposta arrivata
   // proprio ora la ferma al giro dopo) — accettabile rispetto a «mai».
   try {
-    await manutenzioneRetention()
-  } catch {
-    /* best-effort */
+    const pulizia = await manutenzioneRetention()
+    // ⚠️ L'esito NON si butta più. Questo giro CANCELLA posta per sempre, ogni
+    // cinque minuti, su tutti gli utenti: prima il numero finiva in un
+    // `try/catch` muto, e una cancellazione di massa non avrebbe lasciato
+    // nessuna traccia da nessuna parte — né una riga di log né un contatore.
+    // Un lavoro distruttivo che non si misura non è sorvegliato, è ricordato.
+    if (pulizia.archivioInCestino > 0 || pulizia.spamCancellati > 0) {
+      console.log(
+        `[retention] archivio nel cestino: ${pulizia.archivioInCestino} · spam cancellati: ${pulizia.spamCancellati}`
+      )
+    }
+  } catch (e) {
+    console.log('[retention] non riuscita:', e instanceof Error ? e.message : String(e))
   }
   try {
     const { processaSequenze } = await import('./sequenze')
@@ -2397,12 +2421,33 @@ export async function manutenzioneRetention(): Promise<{ archivioInCestino: numb
     }
   }
 
-  const spam = await db.messaggio.deleteMany({
-    where: {
-      sezione: { nome: 'SPAM' },
-      data: { lt: soglia(RETENZIONE.spamCancellaGiorni) },
-    },
-  })
+  // ⚠️⚠️ `creatoIl` (quando la mail è ENTRATA nell'app), non `data` (quando è
+  // stata SPEDITA). È la differenza fra «sta in spam da 90 giorni» e «è stata
+  // scritta più di 90 giorni fa», e qui la seconda lettura era una mina:
+  // il 71% dei messaggi entra nell'app già più vecchio di 90 giorni (storico
+  // scaricato, ricerche sul server), quindi **segnare come spam una mail
+  // vecchia la cancellava per sempre entro cinque minuti** — senza passare
+  // dal cestino, senza tetto, e senza guardare se l'aveva marcata una persona
+  // (oggi 101 dei 163 messaggi in SPAM sono `smistatoDa: manuale`).
+  // ⚠️ E niente la ripesca: `cercaEImporta` guarda INBOX e Inviata, non la
+  // cartella Spam del server.
+  // ⚠️ Il TETTO come il ramo qui sopra: una cancellazione senza limite, ogni
+  // cinque minuti, su tutti gli utenti, è troppo potere per un giro muto.
+  const daCancellare =
+    RETENZIONE.spamCancellaGiorni <= 0
+      ? []
+      : await db.messaggio.findMany({
+          where: {
+            sezione: { nome: 'SPAM' },
+            creatoIl: { lt: soglia(RETENZIONE.spamCancellaGiorni) },
+          },
+          select: { id: true },
+          take: TETTO,
+        })
+  const spam =
+    daCancellare.length > 0
+      ? await db.messaggio.deleteMany({ where: { id: { in: daCancellare.map((m) => m.id) } } })
+      : { count: 0 }
 
   return { archivioInCestino: daCestinare.length, spamCancellati: spam.count }
 }

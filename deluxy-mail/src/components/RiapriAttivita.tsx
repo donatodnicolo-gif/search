@@ -34,7 +34,7 @@ export function RiapriAttivita({ id }: { id: string }) {
             mostraFlash('Riaperta: è tornata fra le cose da fare.')
             router.refresh()
           } catch {
-            mostraFlash('Non è riuscito: riprova fra poco.')
+            mostraFlash('Non è riuscito: riprova fra poco.', 'errore')
           }
         })
       }

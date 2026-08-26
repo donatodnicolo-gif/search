@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { leggiScriptPronti } from '@/lib/actions'
 import { componiScript, type ScriptPronto } from '@/lib/scriptTesto'
 
@@ -33,10 +33,20 @@ export function TestiPronti({
   const [cerca, setCerca] = useState('')
   const [inCorso, start] = useTransition()
 
+  // Per quale destinatario abbiamo già chiesto i testi.
+  // ⚠️⚠️ Prima il freno era `script.length > 0`, e frenava SOLO se l'elenco
+  // tornava pieno: con Scripts non collegato (o senza testi accesi) la lista
+  // resta vuota, e siccome `destinatario` è il campo «A» in digitazione,
+  // partiva **una chiamata all'app Scripts per ogni tasto battuto** — con il
+  // riquadro che sfarfallava fra «Carico…» e «Nessun testo pronto».
+  const chiestoPer = useRef<string | null>(null)
+
   // I testi si chiedono solo quando si apre il riquadro: aprire la schermata di
   // scrittura non deve costare una chiamata a un'altra app.
   useEffect(() => {
-    if (!aperto || script.length > 0) return
+    if (!aperto) return
+    if (chiestoPer.current === destinatario) return
+    chiestoPer.current = destinatario
     start(async () => {
       const r = await leggiScriptPronti(destinatario)
       setAttivo(r.attivo)
@@ -46,7 +56,7 @@ export function TestiPronti({
         setValori((v) => ({ NOME: r.nomeProposto, NOME_CLIENTE: r.nomeProposto, ...v }))
       }
     })
-  }, [aperto, destinatario, script.length])
+  }, [aperto, destinatario])
 
   if (!aperto) {
     return (

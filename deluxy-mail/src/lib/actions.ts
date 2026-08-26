@@ -433,7 +433,12 @@ export async function archiviaDefinitivo(id: string): Promise<{ ok: boolean; mes
     }
 
     const arretrati = await db.messaggio.updateMany({
-      where: { utenteId, mittente: msg.mittente, archiviato: false },
+      // ⚠️ Solo la posta in ARRIVO. `registraInviato` scrive come `mittente` la
+    // TUA casella, quindi senza questo filtro «archivia sempre da questo
+    // mittente» su una mail interna archiviava anche le mail che hai MANDATO
+    // tu (misurate: 1.584 per un indirizzo, 890 per un altro) e le segnava
+    // lette. Il percorso gemello delle regole il filtro ce l’ha già.
+    where: { utenteId, direzione: 'entrata', mittente: msg.mittente, archiviato: false },
       data: { archiviato: true, letto: true },
     })
 
@@ -2124,14 +2129,22 @@ export async function eliminaAttivita(id: string) {
 
 // ---------- Bozze ----------
 
-export async function salvaBozza(id: string, oggetto: string, corpo: string) {
+/** ⚠️ Torna un esito: usciva in SILENZIO se la bozza non era (più) tua — per
+ *  esempio eliminata da un'altra scheda — e l'editor annunciava «Bozza
+ *  salvata.» lo stesso. Un valore mostrato e mai scritto. */
+export async function salvaBozza(
+  id: string,
+  oggetto: string,
+  corpo: string
+): Promise<{ ok: boolean; messaggio: string }> {
   const bozza = await db.bozza.findFirst({ where: { id, utenteId: await uid() } })
-  if (!bozza) return
+  if (!bozza) return { ok: false, messaggio: 'Bozza non trovata: forse è stata eliminata altrove.' }
   await db.bozza.update({
     where: { id },
     data: { oggetto, corpo, modificata: corpo !== bozza.corpoAI },
   })
   revalidatePath('/', 'layout')
+  return { ok: true, messaggio: 'Bozza salvata.' }
 }
 
 export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boolean; messaggio: string }> {
@@ -2487,10 +2500,29 @@ export async function preparaComposizione(
   // si cita il testo — la risposta parte comunque.
   if (!messaggio.corpoHtml) messaggio.corpoHtml = await htmlDiMessaggio(messaggio)
 
+  // ⚠️⚠️ La casella da cui si RISPONDE non è quella che ha scaricato la copia.
+  // Con più caselle collegate la stessa mail entra in più caselle, e la copia
+  // in archivio può appartenere a quella che era solo in copia. La pagina
+  // intera e `inviaMessaggio` usano già `accountPerRisposta`; questa finestra
+  // era rimasta indietro, e sbagliava DUE volte:
+  //  1. mostrava «Da: cs@deluxy.it» mentre la mail sarebbe partita (giusta)
+  //     da nicolo.donato@ — l’etichetta mentiva, non la spedizione;
+  //  2. peggio: `mioIndirizzo` serve a `preparaRisposta` per TOGLIERE te
+  //     stesso dai destinatari del «rispondi a tutti». Con l’indirizzo
+  //     sbagliato toglieva l’altro, e il tuo indirizzo di invio restava
+  //     dentro: ti auto-mettevi in Cc.
+  // Misurato in produzione: 1.601 mail in cui le due caselle sono diverse.
+  const caselleUtente = await db.account.findMany({
+    where: { utenteId, attivo: true },
+    select: { id: true, email: true, nome: true },
+  })
+  const casellaRisposta =
+    accountPerRisposta(messaggio, caselleUtente) ?? messaggio.account
+
   const iniziale = preparaRisposta({
     messaggio,
     modo,
-    mioIndirizzo: messaggio.account.email,
+    mioIndirizzo: casellaRisposta.email,
     firma: u.firma || undefined,
   })
 
@@ -2512,7 +2544,7 @@ export async function preparaComposizione(
   return {
     ok: true,
     modo,
-    da: `${messaggio.account.nome} <${messaggio.account.email}>`,
+    da: `${casellaRisposta.nome} <${casellaRisposta.email}>`,
     oggettoOriginale: messaggio.oggetto,
     iniziale,
     contatti,
@@ -2775,7 +2807,11 @@ export async function inviaMailApi(
     const account = await db.account.findFirst({
       where: accountEmail
         ? { utenteId, email: { equals: accountEmail, mode: 'insensitive' }, attivo: true }
-        : { utenteId },
+        // ⚠️ Ripiego: la casella più VECCHIA, e ATTIVA. Prima era `{ utenteId }`
+        // senza ordine né `attivo`, cioè «una qualsiasi»: la sceglieva un indice
+        // (in pratica la prima in ordine alfabetico) e poteva essere spenta.
+        : { utenteId, attivo: true },
+      orderBy: { creatoIl: 'asc' },
     })
     if (!account) return { ok: false, messaggio: accountEmail ? `Nessuna casella ${accountEmail} per questo utente.` : 'Nessuna casella collegata per questo utente.' }
 
@@ -3863,13 +3899,25 @@ export async function creaEvento(form: FormData): Promise<{ ok: boolean; messagg
   const serieId = date.length > 1 ? randomBytes(9).toString('base64url') : null
 
   const invitati = emailDaLista(testo(form, 'invitati'))
+  // ⚠️ `messaggioId` arriva dal form: si controlla che la mail sia TUA prima
+  // di legarcela. Non serve a leggere niente di altrui (aprendo il link si
+  // passa comunque dal controllo d'identità e si finisce su «non trovato»),
+  // ma un id di un altro lascerebbe un collegamento morto sul tuo calendario.
+  // È lo stesso controllo che `salvaMinuta` fa già, con la sua spiegazione.
+  const messaggioChiesto = opzionale(form, 'messaggioId')
+  const messaggioMio =
+    messaggioChiesto &&
+    (await db.messaggio.findFirst({ where: { id: messaggioChiesto, utenteId }, select: { id: true } }))
+      ? messaggioChiesto
+      : null
+
   const comune = {
     utenteId,
     titolo,
     descrizione: testo(form, 'descrizione'),
     luogo: testo(form, 'luogo'),
     giornataIntera,
-    messaggioId: opzionale(form, 'messaggioId'),
+    messaggioId: messaggioMio,
     invitati: invitati.join(', '),
     serieId,
     regola,
@@ -4989,6 +5037,18 @@ async function retrodataRegola(
     gruppoOr('oggetto', r.seOggetto),
     gruppoOr('corpoTesto', r.seContiene),
   ].filter(Boolean) as Prisma.MessaggioWhereInput[]
+
+  // ⚠️⚠️ NIENTE condizioni = NIENTE retrodata. Senza questa riga il `where`
+  // restava `{utenteId, entrata, non cestinato}`, cioè **tutta la posta in
+  // arrivo**: una regola salvata con la sola istruzione AI (che il form
+  // stesso invita a fare: «se lasci vuote le tre condizioni, vale per ogni
+  // messaggio») più la spunta «applica anche ai messaggi già presenti»
+  // archiviava e segnava lette 15.000 mail in un colpo, senza conferma,
+  // senza conteggio a schermo e senza un modo per disfarle.
+  // ⚠️ La regola resta valida per il FUTURO — una regola a tappeto ha senso:
+  // è solo il colpo retroattivo che non parte.
+  if (and.length === 0) return 0
+
 
   // Non sovrascrivere lo smistamento fatto a mano — ma includendo le mail
   // ANCORA da smistare (smistatoDa NULL): in SQL `NULL != 'manuale'` non è

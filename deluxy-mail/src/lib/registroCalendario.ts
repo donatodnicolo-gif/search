@@ -206,6 +206,7 @@ async function tiraDalRegistro(chiave: string): Promise<{ ricevuti: number; erro
       break
     }
 
+    let inciampo = false
     for (const ev of lotto.dati ?? []) {
       if (ev.ultimoAttore === SISTEMA) continue // eco delle nostre scritture
       if (!ev.idEsterno) continue
@@ -213,9 +214,16 @@ async function tiraDalRegistro(chiave: string): Promise<{ ricevuti: number; erro
         if (await applicaEvento(ev)) ricevuti++
       } catch {
         errori++
+        inciampo = true
       }
     }
 
+    // ⚠️ Il cursore avanza solo su un lotto andato TUTTO bene. Prima avanzava
+    // comunque: un evento che aveva lanciato (Calendario lo aveva spostato,
+    // noi non siamo riusciti a scriverlo) veniva **scavalcato per sempre**, e
+    // qui restava all’ora vecchia senza che nessuno lo sapesse. Fermandosi,
+    // il giro successivo ricomincia da quel punto e ritenta.
+    if (inciampo) break
     cursore = lotto.cursore ?? cursore
     if (!lotto.altre) break
   }
@@ -321,9 +329,17 @@ export async function allineaEventoOra(id: string, sparito = false): Promise<voi
   const impronte = await leggiImpronte().catch(() => ({}) as Record<string, string>)
 
   if (sparito) {
-    await archiviaNelRegistro(chiave, id)
-    delete impronte[id]
-    await salvaImpronte(impronte).catch(() => {})
+    // ⚠️⚠️ L'impronta si toglie SOLO se l'archiviazione è andata. Prima
+    // l'esito veniva scartato e il `delete` girava comunque: se Calendario
+    // non rispondeva (503, timeout), quell’id non era più fra le impronte,
+    // quindi il giro del cron non lo vedeva più come orfano e non ci
+    // riprovava MAI. Risultato: un appuntamento cancellato qui che resta
+    // per sempre nel calendario condiviso di tutti.
+    // Tenendo l’impronta, il cron lo ritrova fra gli orfani e ritenta.
+    if (await archiviaNelRegistro(chiave, id)) {
+      delete impronte[id]
+      await salvaImpronte(impronte).catch(() => {})
+    }
     return
   }
 
@@ -422,8 +438,23 @@ export async function sincronizzaEventiConRegistro(
       esistenti = new Set(orfani) // nel dubbio non si archivia niente
     }
     for (const id of orfani) {
-      if (!esistenti.has(id) && (await archiviaNelRegistro(chiave, id))) archiviati++
-      delete impronte[id]
+      if (esistenti.has(id)) {
+        // C'è ancora, è solo uscito dalla finestra dei giorni guardati:
+        // l'impronta non serve più e si toglie senza archiviare niente.
+        delete impronte[id]
+        continue
+      }
+      // ⚠️ Cancellato davvero: l'impronta se ne va SOLO se l'archiviazione
+      // nel registro è riuscita. Prima il `delete` stava fuori dall’`if`, e
+      // un guasto di Calendario bruciava la traccia: l’evento restava nel
+      // calendario condiviso e non c’era più niente per cui ritentare.
+      // ⚠️ Vale anche quando la lettura qui sopra è fallita: in quel caso
+      // `esistenti` contiene tutti gli orfani, quindi non si archivia e non
+      // si cancella nulla — che è il comportamento prudente voluto.
+      if (await archiviaNelRegistro(chiave, id)) {
+        archiviati++
+        delete impronte[id]
+      }
     }
   }
 

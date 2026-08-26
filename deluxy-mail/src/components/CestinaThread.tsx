@@ -21,8 +21,11 @@ export function CestinaThread({ messaggioId, quante }: { messaggioId: string; qu
   const cestina = () =>
     start(async () => {
       const esito = await cestinaThread(messaggioId)
-      mettiFlash(esito.messaggio)
-      router.push('/')
+      mettiFlash(esito.messaggio, esito.ok ? 'ok' : 'errore')
+      // ⚠️ Si torna in posta solo se la conversazione è DAVVERO nel cestino:
+      // prima si tornava sempre, e su un fallimento la mail restava aperta
+      // alle spalle con un ✓ verde in cima che diceva il contrario.
+      if (esito.ok) router.push('/')
     })
 
   // Con una mail sola la scritta «tutta la conversazione» sarebbe una bugia.
