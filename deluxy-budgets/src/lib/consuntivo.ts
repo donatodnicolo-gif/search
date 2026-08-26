@@ -21,6 +21,7 @@ import { fetchConsuntivo, fetchConsuntivoMensile, fetchSpeseBanca } from "./fina
 import { normalizzaNome } from "./scout";
 import { fatturatoDaVenduto, QUOTA_STIMATA, quotaMisurata, raggruppa, sommaMesi, type Quota } from "./venduto";
 import { fetchRicaviD2C } from "./orders";
+import { economiaD2C, economiaDeiMesi } from "./economia-d2c";
 import { ricavoD2C, ricavoDeiMesi, MARGINE_FORNITORI } from "./ricavo-d2c";
 import { fetchSpesaAdv, type CoperturaAdv } from "./marketing";
 import { caricaRettifiche, effettoSu, type EffettoAnno } from "./competenza";
@@ -82,6 +83,23 @@ export type ConsuntivoPeriodo = {
     percentualeFornitori: number;
     mesiNonCaricati: number[];
   } | null;
+  // Il ricavo ecommerce MISURATO (primo margine + fee scritti dalla piattaforma
+  // sugli ordini di Orders): dal 26/08/2026 è la PRIMA fonte della riga
+  // ecommerce, sui mesi in cui l'economia copre almeno metà del lordo. `null`
+  // quando nessun mese del periodo è misurato — allora vale la cascata di prima
+  // (fee vendor → quota) e la pagina lo dichiara. `lordoScoperto` è il venduto
+  // degli ordini senza dato nei mesi misurati: dichiarato, non stimato.
+  economia: {
+    ricavo: number;
+    fee: number;
+    primoMargine: number;
+    lordoCoperto: number;
+    lordoScoperto: number;
+    ordini: number;
+    ordiniConEconomia: number;
+    mesiMisurati: number[];
+    mesiNonMisurati: number[];
+  } | null;
   // Le rettifiche di competenza che toccano questo periodo: si dichiarano,
   // perche un totale corretto di nascosto e peggio di uno sbagliato in chiaro.
   competenza: EffettoAnno | null;
@@ -97,7 +115,7 @@ export async function caricaConsuntivo(
     ok: false, mancanti: [], mesi, ricavi: 0, ricaviPerTipologia: {}, vendutoEcommerce: 0,
     cogs: 0, adv: 0, struttura: 0, personale: 0, margineLordo: 0, ebitda: 0, nonCategorizzato: 0, senzaRegola: 0,
     advMarketing: null, advCopertura: null, advCompetenza: { dentro: 0, fuori: 0 },
-    quota: QUOTA_STIMATA, pagatoAiPartner: 0, d2c: null,
+    quota: QUOTA_STIMATA, pagatoAiPartner: 0, d2c: null, economia: null,
     competenza: null,
     perMese: [],
   };
@@ -162,13 +180,32 @@ export async function caricaConsuntivo(
   const quota =
     quotaMisurata(vendutoEcommerce, pagatoAiPartner, mesiConVenduto, mesiConBanca) ?? QUOTA_STIMATA;
 
-  // ---- Il ricavo dell'ecommerce: fee vere dai vendor + margine sui fornitori ----
-  // Sostituisce la quota unica dove i dati ci sono. La quota resta come ripiego
-  // dichiarato per gli anni in cui le vendite dei partner non sono caricate.
+  // ---- Il ricavo dell'ecommerce: misurato dove il dato c'è ----
+  // Decisione dell'utente (26/08/2026): la riga ecommerce è **primo margine +
+  // fee** dell'economia della vendita che la piattaforma scrive sugli ordini di
+  // Orders — sostituisce la stima, non la affianca. Vale sui mesi in cui
+  // l'economia copre almeno metà del lordo; per gli altri resta la cascata di
+  // prima (fee vendor da Finance → quota), dichiarata. Il lordo degli ordini
+  // senza dato nei mesi misurati NON entra: si dichiara (`economia.lordoScoperto`).
+  const econ = economiaD2C(ordini);
+  const econPeriodo = economiaDeiMesi(econ, mesi);
   const d2c = await ricavoD2C(dati.year, vend.mese);
   const d2cPeriodo = d2c.ok ? ricavoDeiMesi(d2c, mesi) : null;
   const daVendor = Boolean(d2cPeriodo && d2cPeriodo.fee > 0);
-  const ricavoEcommerce = daVendor ? d2cPeriodo!.ricavo : fatturatoDaVenduto(vendutoEcommerce, quota);
+  // Un solo array per il mese e per il totale: il totale è la somma dei mesi,
+  // così le due letture non possono divergere (è già successo con la quota).
+  const ricavoEcommerceMese = Array(12).fill(0) as number[];
+  for (let i = 0; i < 12; i++) {
+    const e = econ.mesi[i];
+    if (e.misurato) { ricavoEcommerceMese[i] = e.ricavo; continue; }
+    const riga = daVendor ? d2c.mesi.find((x) => x.mese === i + 1) : null;
+    ricavoEcommerceMese[i] = daVendor
+      ? (riga?.caricato ? riga.ricavo : 0)
+      : vend.ok
+        ? fatturatoDaVenduto(vend.mese[i] ?? 0, quota)
+        : 0;
+  }
+  const ricavoEcommerce = sommaMesi(ricavoEcommerceMese, mesi);
 
   const ricaviPerTipologia: Record<string, number> = {};
   for (const t of dati.tipologie) {
@@ -288,14 +325,9 @@ export async function caricaConsuntivo(
             .filter((t) => nomiMappati.has(normalizzaNome(t.tipologia)))
             .reduce((s, t) => s + t.imponibile, 0)
         : 0;
-    // Mese per mese vale la stessa regola del totale: fee vere dove il mese è
-    // caricato, quota di ripiego dove no.
-    const rigaD2C = daVendor ? d2c.mesi.find((x) => x.mese === m) : null;
-    const daEcommerce = daVendor
-      ? (rigaD2C?.caricato ? rigaD2C.ricavo : 0)
-      : vend.ok
-        ? fatturatoDaVenduto(vend.mese[m - 1] ?? 0, quota)
-        : 0;
+    // Mese per mese vale la stessa regola del totale: è lo stesso array
+    // (economia misurata → fee vendor → quota), non un secondo conto.
+    const daEcommerce = ricavoEcommerceMese[m - 1] ?? 0;
     const ricaviM = daFinance + daEcommerce + (ricaviRettificaMese[m - 1] ?? 0);
     const cogsM = cogsMese[m - 1] ?? 0;
     const advM = advMese[m - 1] ?? 0;
@@ -338,6 +370,19 @@ export async function caricaConsuntivo(
     advCompetenza: { dentro: advDentro, fuori: advFuori },
     quota,
     pagatoAiPartner,
+    economia: econ.esposta && econPeriodo.mesiMisurati.length > 0
+      ? {
+          ricavo: econPeriodo.ricavo,
+          fee: econPeriodo.fee,
+          primoMargine: econPeriodo.primoMargine,
+          lordoCoperto: econPeriodo.lordoCoperto,
+          lordoScoperto: econPeriodo.lordoScoperto,
+          ordini: econPeriodo.ordini,
+          ordiniConEconomia: econPeriodo.ordiniConEconomia,
+          mesiMisurati: econPeriodo.mesiMisurati,
+          mesiNonMisurati: econPeriodo.mesiNonMisurati,
+        }
+      : null,
     d2c: daVendor && d2cPeriodo
       ? {
           fee: d2cPeriodo.fee,

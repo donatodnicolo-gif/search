@@ -4,6 +4,37 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### 26/08/2026 (pomeriggio): la riga ecommerce è MISURATA, e il bilancio usa le quote PER BRAND
+
+Due decisioni dell'utente, nello stesso giro:
+
+1. **«sì» alla sostituzione nel consuntivo** — la riga ecommerce del consuntivo è **primo margine +
+   fee** degli ordini col dato (economia della vendita, da Orders), non più la stima. Il calcolo sta
+   in **`src/lib/economia-d2c.ts`** (un modulo solo per `/consuntivo` e `caricaConsuntivo`: due
+   pagine, un modo di contare): un mese è «misurato» se l'economia copre **almeno metà del lordo**
+   (`SOGLIA_MISURATO`), sotto resta la cascata di prima (fee vendor → quota), dichiarata. Il lordo
+   degli ordini senza dato **non entra e si dichiara** (`economia.lordoScoperto`), non si stima.
+   Sui mesi chiusi Gen–Lug (tutti misurati, copertura 93–98%): riga D2C **233.131 €** (PM 179.571 +
+   fee 53.561; il metodo precedente diceva 219.197), lordo scoperto 24.516 €, EBITDA consuntivo
+   **75.475 €**.
+
+2. **«adatta il calcolo del bilancio sulla base dei margini che conosci ora per brand e sulla base
+   dei budget di vendita dati per ogni brand maison»** — la quota D2C ora è **per maison**:
+   `Quota.perMaison` (slug → %), prima fonte della cascata è l'**economia di Orders** (presa =
+   (fee + primo margine) ÷ lordo coperto, per brand, usata se copre ≥ 50% del lordo dell'anno), poi
+   margini riconciliati → regola → banca → stima. `contoEconomico`/`contoEconomicoMensile` accettano
+   la `Quota` intera (`QuotaD2C`) e convertono il budget di ogni maison **con la quota del suo
+   brand** (`frazioneQuotaD2C`); aggiornati tutti i chiamanti (pl, consuntivo, da-fare, premi,
+   maison, margini — e `misuraPremi`, dove un obiettivo misurato con la media scatterebbe per il mix
+   dei brand e non per il lavoro di qualcuno).
+
+📌 **Effetto sul P&L a budget (Raggiungibile)**: quota media **50,9% → 39,5%** («economia di
+Orders»: deluxy.it 41,1%, Flowers 36,2%, CakeDesign 36,3%), ricavi **1.281.851 → 1.187.774 €**,
+margine lordo 574.855 € (48,4%), **EBITDA +104.766 → +10.652 € (0,9%)**. Il COGS non si muove: il
+D2C convertito è già margine (tipologia al 100%), quindi il calo dei ricavi va tutto sull'EBITDA.
+⭐ Non è un peggioramento del business: è la stessa azienda misurata con il numero vero invece che
+con i margini riconciliati (54,3/43,7/45,2), che sono su base lorda e non scontano l'IVA.
+
 ### 26/08/2026: il consuntivo per maison coi numeri di Orders (vendite lorde, fee, primo margine)
 
 «per maison per il consuntivo prendi da orders: le vendite lorde degli ordini, le fee incassate dai
@@ -100,33 +131,34 @@ buco dei sei mesi di Deluxy.it è rimasto invisibile per settimane proprio per q
 responsabili potranno scrivere direttamente è un passo successivo, da fare col permesso giusto e non
 di corsa.
 
-## Dove siamo (rimisurato il 26/08/2026) — leggere questo per primo
+## Dove siamo (rimisurato il 26/08/2026, sera) — leggere questo per primo
 
 Il conto economico a budget, come lo mostrano `/dashboard` e `/pl` (livello **Raggiungibile**),
 letto interrogando le stesse funzioni delle pagine:
 
 | voce | |
 | --- | ---: |
-| Ricavi | **1.281.851 €** |
-| └ dalle maison (le genera la pubblicità online) | 781.851 € |
+| Ricavi | **1.187.774 €** |
+| └ dalle maison (le genera la pubblicità online) | 687.774 € |
 | └ dal team commerciale (lo porta il lavoro del team) | 500.000 € |
 | Costo del venduto | − 612.920 € |
-| Margine lordo | **668.931 € (52,2%)** |
-| Pubblicità | − 237.739 € |
+| Margine lordo | **574.855 € (48,4%)** |
+| Pubblicità | − 237.777 € |
 | Personale | − 218.877 € |
 | Struttura | − 107.548 € |
-| **EBITDA** | **+ 104.766 € (8,2%)** |
+| **EBITDA** | **+ 10.652 € (0,9%)** |
 
-La **quota D2C** è **50,9%** ed è la **media pesata sul venduto dei margini per brand misurati da
-Orders** — deluxy.it 54,3% (139 ordini, 6,2% del lordo), Flowers 43,7% (153 ordini, 15,9%),
-CakeDesign 45,2% (59 ordini, 12,6%). La decidono tutte le pagine da un posto solo
-(`quotaDeluxyAnno()`).
+La **quota D2C** è **per maison** (26/08): deluxy.it **41,1%**, Flowers **36,2%**, CakeDesign
+**36,3%** (media pesata 39,5%) — è la **presa misurata dall'economia della vendita** ((fee + primo
+margine) ÷ lordo coperto, dati che la piattaforma scrive sugli ordini di Orders, copertura 91–96%
+per brand). La decidono tutte le pagine da un posto solo (`quotaDeluxyAnno()`, campo `perMaison`).
 
-⚠️ **Questo numero si muove da solo, ed è voluto**: cresce con le riconciliazioni del Customer
-Service, quindi il conto economico a budget cambia senza che nessuno tocchi il budget. In una
-giornata è passato da 50,1% a **50,9%** (EBITDA 98.946 → **104.908 €**). Prima di leggere uno
-scostamento, guardare **quale fonte** la pagina dichiara in testata: margini di Orders → regola unica
-(40%) → misura di banca (27,8%) → stima. La tabella qui sopra vale con la prima.
+⚠️ **Questo numero si muove da solo, ed è voluto**: si affina a ogni giro della piattaforma sugli
+ordini. Nella sola giornata del 26/08 la quota media è passata da 50,9% (margini riconciliati) a
+**39,5%** (economia misurata) e l'EBITDA a budget da +104.766 a **+10.652 €**: non è il business
+peggiorato, è il numero vero al posto di uno su base diversa (i margini riconciliati non scontano
+l'IVA). Prima di leggere uno scostamento, guardare **quale fonte** la pagina dichiara in testata:
+economia di Orders → margini di Orders → regola unica (40%) → misura di banca → stima.
 
 **Cambiato il 23–24/08:** i ricavi sono **due fonti sommate** (prima solo le maison); i **costi di
 struttura** vengono dal consuntivo (prima valevano zero); **B2B ed Experience non fanno pubblicità**;

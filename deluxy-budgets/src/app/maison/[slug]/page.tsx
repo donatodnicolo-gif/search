@@ -31,7 +31,7 @@ export default async function MaisonDetail({
   // Stessa quota di tutte le altre pagine: con il venduto vuoto `misuraQuota`
   // restituisce la **stima** (40%) invece della misura, e questa scheda diceva
   // un ricavo D2C diverso da quello del P&L per lo stesso brand.
-  const q = (await quotaDeluxyAnno(dati.year, dati.maisons)).percentuale / 100;
+  const q = await quotaDeluxyAnno(dati.year, dati.maisons);
   const pl = contoEconomico(dati, livello, maison.slug, q);
 
   // ---- Il consuntivo dei mesi già chiusi ----

@@ -17,7 +17,8 @@ import { caricaCategorie } from "./cfo";
 import { fetchSpeseBanca } from "./finance";
 import { caricaVenduto, QUOTA_STIMATA, quotaMisurata, sommaMesi, type Quota } from "./venduto";
 import { primoMeseAperto } from "./periodo";
-import { fetchMarginiBrand, fetchQuotaFornitore } from "./orders";
+import { abbinaMaison, fetchMarginiBrand, fetchQuotaFornitore, fetchRicaviD2C } from "./orders";
+import { SOGLIA_MISURATO } from "./economia-d2c";
 
 export type { Quota };
 
@@ -97,6 +98,50 @@ export async function quotaDeluxyAnno(
   anno: number,
   maisons: { slug: string; nome: string }[]
 ): Promise<Quota> {
+  // ---- 0. L'economia della vendita, misurata ordine per ordine (26/08/2026) ----
+  //
+  // Decisione dell'utente: «adatta il calcolo del bilancio sulla base dei
+  // margini che conosci ora per brand». La piattaforma consegne scrive su ogni
+  // ordine di Orders il **primo margine** ((pagato − prodotti) ÷ 1,22, netto
+  // IVA) e la **fee** incassata dal partner: la presa di un brand è
+  // (fee + primo margine) ÷ lordo coperto, e la quota di OGNI maison è quella
+  // del suo brand (`perMaison`) — la media pesata resta per chi vuole un numero
+  // solo e per le maison senza brand abbinato. È la stessa base del consuntivo,
+  // che dal 26/08 usa questi numeri: budget e consuntivo tornano confrontabili.
+  //
+  // Si usa solo se l'economia copre almeno metà del lordo dell'anno: sotto,
+  // si scende alla fonte successiva (i margini riconciliati), dichiarandolo.
+  const ricavi = await fetchRicaviD2C(anno);
+  if (ricavi.ok && ricavi.dati.brand.some((b) => typeof b.primoMargine === "number")) {
+    const lordoTot = ricavi.dati.brand.reduce((s, b) => s + b.lordo, 0);
+    const conDato = ricavi.dati.brand.filter((b) => (b.lordoConEconomia ?? 0) > 0);
+    const coperto = conDato.reduce((s, b) => s + (b.lordoConEconomia ?? 0), 0);
+    if (lordoTot > 0 && (coperto / lordoTot) * 100 >= SOGLIA_MISURATO) {
+      const perMaison: Record<string, number> = {};
+      let sommaPesata = 0;
+      let peso = 0;
+      const pezzi: string[] = [];
+      for (const b of conDato) {
+        const presa = (((b.fee ?? 0) + (b.primoMargine ?? 0)) / (b.lordoConEconomia ?? 1)) * 100;
+        const pct = Math.round(presa * 10) / 10;
+        const slug = abbinaMaison(b.brand, maisons);
+        if (slug) perMaison[slug] = pct;
+        sommaPesata += (b.lordoConEconomia ?? 0) * presa;
+        peso += b.lordoConEconomia ?? 0;
+        pezzi.push(
+          `${b.brand} ${pct}% (${b.ordiniConEconomia} ordini, ${Math.round(((b.lordoConEconomia ?? 0) / (b.lordo || 1)) * 100)}% del lordo)`
+        );
+      }
+      return {
+        percentuale: Math.round((sommaPesata / peso) * 10) / 10,
+        misurata: true,
+        perMaison,
+        spiegazione: `presa misurata dall'economia della vendita — primo margine (netto IVA) + fee, scritti dalla piattaforma sugli ordini di Orders: ${pezzi.join("; ")}`,
+        etichetta: "economia di Orders",
+      };
+    }
+  }
+
   // ---- 1. I margini per brand, misurati da Orders (24/08/2026: «orders
   // dovrebbe avere le % di margine di ogni brand per gli ordini») ----
   //

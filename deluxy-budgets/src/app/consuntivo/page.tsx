@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { caricaAnno, contoEconomicoMensile, costoPersonaleMese } from "@/lib/calc";
+import { caricaAnno, contoEconomicoMensile, costoPersonaleMese, frazioneQuotaD2C } from "@/lib/calc";
 import { fetchConsuntivo, fetchSpeseBanca } from "@/lib/finance";
 import { caricaCategorie, ricostruisci } from "@/lib/cfo";
 import { eur, MESI, pct } from "@/lib/format";
 import { normalizzaNome } from "@/lib/scout";
 import { abbinaMaison, fetchRicaviD2C } from "@/lib/orders";
+import { economiaD2C, economiaDeiMesi } from "@/lib/economia-d2c";
 import { fatturatoDaVenduto, raggruppa, sommaMesi } from "@/lib/venduto";
 import { misuraQuota } from "@/lib/quota";
 import { ricavoD2C, ricavoDeiMesi, MARGINE_FORNITORI } from "@/lib/ricavo-d2c";
@@ -145,12 +146,26 @@ export default async function ConsuntivoPage({
   ]);
   const daVendor = rd2c.ok && rd2c.totale.fee > 0;
   const daVendorPrec = rd2cPrec.ok && rd2cPrec.totale.fee > 0;
+  // ---- Dal 26/08/2026 la prima fonte è l'economia della vendita di Orders ----
+  // Decisione dell'utente: la riga ecommerce è **primo margine + fee** scritti
+  // dalla piattaforma sugli ordini — sostituisce la stima, non la affianca.
+  // Vale sui mesi in cui l'economia copre almeno metà del lordo; per gli altri
+  // resta la cascata di prima (fee vendor → quota), dichiarata. Stesso ordine
+  // di `caricaConsuntivo`: due pagine, un solo modo di contare.
+  const econ = economiaD2C(d2c);
+  const econPeriodo = economiaDeiMesi(econ, mesiPeriodo);
+  const econPrec = economiaD2C(d2cPrec);
+  const misurato = econPeriodo.mesiMisurati.length > 0;
   const d2cMese = vend.mese.map((v, i) => {
+    const e = econ.mesi[i];
+    if (e.misurato) return e.ricavo;
     const r = rd2c.mesi.find((x) => x.mese === i + 1);
     if (daVendor) return r?.caricato ? r.ricavo : 0;
     return fatturatoDaVenduto(v, quotaDeluxy);
   });
   const d2cPrecMese = vendPrec.mese.map((v, i) => {
+    const e = econPrec.mesi[i];
+    if (e.misurato) return e.ricavo;
     const r = rd2cPrec.mesi.find((x) => x.mese === i + 1);
     if (daVendorPrec) return r?.caricato ? r.ricavo : 0;
     return fatturatoDaVenduto(v, quotaPrec);
@@ -161,13 +176,14 @@ export default async function ConsuntivoPage({
   // diviso incasso — non la vecchia quota di banca: due numeri diversi accanto
   // allo stesso importo si contraddicono, e vince quello sbagliato.
   const incassoScelto = sceltiD2C.reduce((s, x) => s + x.incasso, 0);
-  const pctD2C =
-    dettaglioD2C && incassoScelto > 0
-      ? Math.round((dettaglioD2C.ricavo / incassoScelto) * 1000) / 10
-      : quotaDeluxy.percentuale;
   const vendutoPeriodo = sommaMesi(vend.mese, mesiPeriodo);
   const d2cPeriodo = sommaMesi(d2cMese, mesiPeriodo);
   const d2cPrecPeriodo = sommaMesi(d2cPrecMese, mesiRif);
+  const pctD2C = misurato
+    ? (vendutoPeriodo > 0 ? Math.round((d2cPeriodo / vendutoPeriodo) * 1000) / 10 : 0)
+    : dettaglioD2C && incassoScelto > 0
+      ? Math.round((dettaglioD2C.ricavo / incassoScelto) * 1000) / 10
+      : quotaDeluxy.percentuale;
 
   // ---- L'economia della vendita, maison per maison, dai numeri di Orders ----
   // Decisione del 26/08/2026: per il consuntivo delle maison si prendono da
@@ -209,20 +225,20 @@ export default async function ConsuntivoPage({
   // 100%, cioè al venduto lordo, e lo confronta con un consuntivo che è la sola
   // quota Deluxy. Fino al 23/08/2026 era così, e il budget di questa colonna
   // era gonfio di tutta la parte che ai partner è già stata girata.
-  const bm = contoEconomicoMensile(dati, "RAGGIUNGIBILE", quotaDeluxy.percentuale / 100);
+  const bm = contoEconomicoMensile(dati, "RAGGIUNGIBILE", quotaDeluxy);
   const B = (campo: keyof (typeof bm)[number]) => mesiRif.reduce((s, m) => s + bm[m - 1][campo], 0);
   // Il budget di una singola voce, sulla **stessa base del consuntivo**: sul D2C
   // il budget è scritto sul venduto (è così che si pianifica commercialmente) ma
   // a conto economico entra la quota, quindi qui va convertito — altrimenti la
   // riga «Ecommerce» confronta un prezzo di vendita con una provvigione.
-  const budgetVoce = (slug: string) => {
-    const lordo = dati.maisons.reduce(
-      (s, m) =>
-        s + mesiRif.reduce((a, mm) => a + (m.mesi.find((y) => y.month === mm)?.vendite[slug] ?? 0), 0),
-      0
-    );
-    return slug === SLUG_D2C ? lordo * (quotaDeluxy.percentuale / 100) : lordo;
-  };
+  const budgetVoce = (slug: string) =>
+    dati.maisons.reduce((s, m) => {
+      const lordo = mesiRif.reduce((a, mm) => a + (m.mesi.find((y) => y.month === mm)?.vendite[slug] ?? 0), 0);
+      // Sul D2C ogni maison si converte con la SUA quota (stessa regola di
+      // `contoEconomicoMensile`): la media al posto delle quote per brand
+      // farebbe divergere questa colonna dalle righe del P&L.
+      return s + (slug === SLUG_D2C ? lordo * frazioneQuotaD2C(quotaDeluxy, m.slug) : lordo);
+    }, 0);
 
   // Nomi Finance mappati a una voce di budget.
   const nomiMappati = new Set<string>();
@@ -261,7 +277,11 @@ export default async function ConsuntivoPage({
     // solo la quota che resta a Deluxy dopo i partner.
     if (t.slug === SLUG_D2C && d2c.ok) {
       consuntivo += d2cPeriodo;
-      collegati.push(`${pctD2C}% dell'incassato · ${d2c.dati.brand.length} negozi`);
+      collegati.push(
+        misurato
+          ? `primo margine + fee da Orders · ${pctD2C}% dell'incassato · ${d2c.dati.brand.length} negozi`
+          : `${pctD2C}% dell'incassato · ${d2c.dati.brand.length} negozi`
+      );
     }
     if (t.slug === SLUG_D2C && d2cPrec.ok) precedente += d2cPrecPeriodo;
     return {
@@ -1088,25 +1108,54 @@ export default async function ConsuntivoPage({
                     <div className="kpi-sub">prezzo pagato dai clienti, IVA inclusa</div>
                   </div>
                   <div className="kpi">
-                    <div className="kpi-label">Detrazioni dei partner (stima)</div>
+                    <div className="kpi-label">{misurato ? "Ai partner e IVA (misurato)" : "Detrazioni dei partner (stima)"}</div>
                     <div className="kpi-value">− {eur(vendutoPeriodo - d2cPeriodo)}</div>
-                    <div className="kpi-sub">{100 - quotaDeluxy.percentuale}% del venduto</div>
+                    <div className="kpi-sub">
+                      {misurato
+                        ? "valore prodotti, IVA e lordo senza il dato"
+                        : `${100 - quotaDeluxy.percentuale}% del venduto`}
+                    </div>
                   </div>
                   <div className="kpi">
-                    <div className="kpi-label">Fatturato Deluxy</div>
+                    <div className="kpi-label">Fatturato Deluxy{misurato ? " — misurato" : ""}</div>
                     <div className="kpi-value">{eur(d2cPeriodo)}</div>
                     <div className="kpi-sub">
-                      <strong>{quotaDeluxy.percentuale}%</strong> del venduto — è la riga ecommerce del conto economico
+                      {misurato
+                        ? <>
+                            <strong>primo margine + fee</strong> dagli ordini di Orders ({pctD2C}% dell&apos;incassato) —
+                            è la riga ecommerce del conto economico
+                          </>
+                        : <>
+                            <strong>{quotaDeluxy.percentuale}%</strong> del venduto — è la riga ecommerce del conto economico
+                          </>}
                     </div>
                   </div>
                 </div>
-                <p className="page-caption" style={{ marginTop: 12, marginBottom: 0 }}>
-                  Il <strong>{quotaDeluxy.percentuale}% è una stima</strong>, uguale per tutte le maison e per tutti i mesi:
-                  le detrazioni vere dei partner non sono ancora in nessuna app. Finché non ci sono, la riga ecommerce
-                  di questo conto economico è una stima e non un dato — e quando il dato arriverà va sostituita, non
-                  affiancata. Il venduto pieno, per maison e per mese, sta in{" "}
-                  <Link href="/venduto" style={{ color: "var(--blue)" }}>Venduto</Link>.
-                </p>
+                {misurato ? (
+                  <p className="page-caption" style={{ marginTop: 12, marginBottom: 0 }}>
+                    <strong>Dal 26/08/2026 la riga ecommerce è misurata, non stimata</strong>: primo margine
+                    ({eur(econPeriodo.primoMargine)}, già al netto IVA) + fee dai partner ({eur(econPeriodo.fee)}),
+                    scritti dalla piattaforma consegne su {econPeriodo.ordiniConEconomia} ordini su {econPeriodo.ordini}.
+                    Il lordo degli ordini <strong>senza il dato</strong> ({eur(econPeriodo.lordoScoperto)}) non entra nel
+                    ricavo: è dichiarato qui, non stimato.
+                    {econPeriodo.mesiNonMisurati.length > 0 && (
+                      <> ⚠️ {econPeriodo.mesiNonMisurati.length === 1 ? "Il mese" : "I mesi"}{" "}
+                      {econPeriodo.mesiNonMisurati.map((m) => MESI[m - 1]).join(", ")} {econPeriodo.mesiNonMisurati.length === 1 ? "ha" : "hanno"}{" "}
+                      l&apos;economia su meno di metà del lordo: {econPeriodo.mesiNonMisurati.length === 1 ? "resta" : "restano"} al
+                      metodo precedente ({daVendor ? "fee vendor da Finance" : `quota ${quotaDeluxy.percentuale}%`}).</>
+                    )}{" "}
+                    Il dettaglio per maison è nella tabella in fondo; il venduto pieno sta in{" "}
+                    <Link href="/venduto" style={{ color: "var(--blue)" }}>Venduto</Link>.
+                  </p>
+                ) : (
+                  <p className="page-caption" style={{ marginTop: 12, marginBottom: 0 }}>
+                    Il <strong>{quotaDeluxy.percentuale}% è una stima</strong>, uguale per tutte le maison e per tutti i mesi:
+                    l&apos;economia della vendita (primo margine + fee, da Orders) non copre nessun mese di questo periodo.
+                    Quando la piattaforma l&apos;avrà scritta, questa riga passa al misurato da sola. Il venduto pieno, per
+                    maison e per mese, sta in{" "}
+                    <Link href="/venduto" style={{ color: "var(--blue)" }}>Venduto</Link>.
+                  </p>
+                )}
               </>
             )}
           </div>

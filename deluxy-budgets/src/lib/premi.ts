@@ -1,4 +1,4 @@
-import { moltiplicatore, type DatiAnno, type Livello } from "./calc";
+import { frazioneQuotaD2C, moltiplicatore, type DatiAnno, type Livello, type QuotaD2C } from "./calc";
 
 // **I premi al raggiungimento**: a chi vanno, per cosa, e se il risultato c'è.
 //
@@ -29,7 +29,7 @@ const mesiDel = (p: { dal: number; al: number }) => {
 // entra la quota che resta a Deluxy, non il prezzo pieno. Un obiettivo scritto
 // sul venduto lordo e misurato sul netto (o viceversa) farebbe scattare o
 // mancare i premi per una ragione che non c'entra col lavoro di nessuno.
-function venditeMaison(dati: DatiAnno, slug: string | null, mesi: number[], molt: number, quotaD2C: number) {
+function venditeMaison(dati: DatiAnno, slug: string | null, mesi: number[], molt: number, quotaD2C: QuotaD2C) {
   return dati.maisons
     .filter((m) => (slug ? m.slug === slug : true))
     .reduce(
@@ -41,7 +41,10 @@ function venditeMaison(dati: DatiAnno, slug: string | null, mesi: number[], molt
             (a, x) =>
               a +
               Object.entries(x.vendite).reduce(
-                (b, [tip, v]) => b + v * molt * (tip === "D2C" ? quotaD2C : 1),
+                // La quota della SUA maison, come nel conto economico: un
+                // obiettivo misurato con la media scatterebbe (o mancherebbe)
+                // per il mix dei brand, non per il lavoro di qualcuno.
+                (b, [tip, v]) => b + v * molt * (tip === "D2C" ? frazioneQuotaD2C(quotaD2C, m.slug) : 1),
                 0
               ),
             0
@@ -65,7 +68,7 @@ export function misuraPremi(
   dati: DatiAnno,
   premi: Premio[],
   livello: Livello,
-  quotaD2C: number,
+  quotaD2C: QuotaD2C,
   ebitdaDelPeriodo: (mesi: number[]) => number,
   nomiTeam: Map<string, string>,
   nomiPersone: Map<string, string>

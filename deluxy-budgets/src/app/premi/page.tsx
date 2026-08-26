@@ -34,8 +34,8 @@ export default async function Premi({
   // Sull'anno intero si usa il conto economico vero, su un periodo parziale la
   // somma dei mesi — il P&L mensile ripartisce i costi in modo suo, e usarlo
   // anche sull'anno darebbe un numero diverso da quello mostrato in grande.
-  const mensile = contoEconomicoMensile(dati, livello, q.percentuale / 100);
-  const ebitdaAnno = contoEconomico(dati, livello, undefined, q.percentuale / 100).ebitda;
+  const mensile = contoEconomicoMensile(dati, livello, q);
+  const ebitdaAnno = contoEconomico(dati, livello, undefined, q).ebitda;
   const ebitdaDelPeriodo = (mesi: number[]) =>
     mesi.length === 12
       ? ebitdaAnno
@@ -45,7 +45,7 @@ export default async function Premi({
     dati,
     premi,
     livello,
-    q.percentuale / 100,
+    q,
     ebitdaDelPeriodo,
     new Map(team.map((t) => [t.id, t.nome])),
     new Map(persone.map((p) => [p.id, p.nome]))

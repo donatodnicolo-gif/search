@@ -85,7 +85,9 @@ export default async function ContoEconomico({
   // venduto vuoto e riceveva la stima del 40% senza accorgersene, qui c'era
   // quella vera. Lo stesso EBITDA valeva +333.731, −133.599 e −229.401 €.
   const quotaDeluxy = await quotaDeluxyAnno(dati.year, dati.maisons);
-  const qD2C = quotaDeluxy.percentuale / 100;
+  // La Quota intera, non la sola media: dal 26/08 il conto la applica maison
+  // per maison (`perMaison`), perché i brand non marginano uguale.
+  const qD2C = quotaDeluxy;
 
   // Il budget **degli stessi mesi**, altrimenti il consuntivo di sei mesi
   // finirebbe accanto a un budget di dodici e sembrerebbe un disastro. Ha la
@@ -130,6 +132,7 @@ export default async function ContoEconomico({
           quota: QUOTA_STIMATA,
           pagatoAiPartner: 0,
           d2c: null,
+          economia: null,
           competenza: null,
           perMese: [],
         };
@@ -256,6 +259,13 @@ export default async function ContoEconomico({
             EBITDA più brutto del vero. Il confronto è col <strong>budget degli stessi mesi</strong>, e
             col pubblicato — misurare i fatti contro lo scenario sfidante sarebbe scegliersi
             l&apos;asticella dopo il salto.
+            {cons?.economia && (
+              <>
+                {" "}Nel consuntivo la riga ecommerce è <strong>misurata</strong>: primo margine + fee
+                dagli ordini di Orders ({cons.economia.ordiniConEconomia} su {cons.economia.ordini};
+                il lordo senza dato, {eur(cons.economia.lordoScoperto)}, è dichiarato e non stimato).
+              </>
+            )}
           </p>
         </div>
         <div className="page-actions">

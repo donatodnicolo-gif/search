@@ -3,7 +3,7 @@
 // risultato operativo, ADV consentito, costo azienda delle persone) si calcola
 // qui a partire dai dati salvati a DB — mai memorizzato a mano.
 import { prisma } from "./db";
-import { caricaVenduto } from "./venduto";
+import { caricaVenduto, type Quota } from "./venduto";
 import { primoMeseAperto } from "./periodo";
 import { caricaStruttura, strutturaDelMese, type StrutturaConsuntivo } from "./struttura";
 
@@ -532,7 +532,19 @@ const SLUG_D2C = "D2C";
 // **venduto** — è così che si pianifica commercialmente — ma nel conto economico
 // entra alla stessa base del consuntivo, altrimenti «realizzato» e «scostamento»
 // confrontano due cose diverse. 1 = nessuna conversione, per chi non la passa.
-export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: string, quotaD2C = 1): PL {
+//
+// Dal 26/08/2026 accetta anche la `Quota` intera: i brand NON marginano uguale
+// (economia della vendita misurata da Orders), quindi il budget di ogni maison
+// si converte con la quota del SUO brand (`perMaison`), e la media resta il
+// ripiego per le maison senza quota propria. Un numero secco (frazione 0–1)
+// continua a valere per tutte, come prima.
+export type QuotaD2C = number | Quota;
+export function frazioneQuotaD2C(q: QuotaD2C, maisonSlug: string): number {
+  if (typeof q === "number") return q;
+  return (q.perMaison?.[maisonSlug] ?? q.percentuale) / 100;
+}
+
+export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: string, quotaD2C: QuotaD2C = 1): PL {
   const molt = moltiplicatore(dati, livello);
   const maisons = maisonSlug ? dati.maisons.filter((m) => m.slug === maisonSlug) : dati.maisons;
   const ids = maisons.map((m) => m.id);
@@ -564,12 +576,14 @@ export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: st
   // Ricavi e costo del venduto per tipologia: ogni servizio ha il suo margine,
   // quindi il COGS complessivo dipende dal mix di vendita, non da un'unica %.
   const ricaviPerServizio: Record<string, number> = {};
-  for (const t of tot) {
+  tot.forEach((t, i) => {
     for (const [slug, v] of Object.entries(t.perServizio)) {
-      const conversione = slug === SLUG_D2C ? quotaD2C : 1;
+      // La quota è quella della maison a cui il venduto appartiene: `tot` è
+      // costruito da `maisons` nello stesso ordine.
+      const conversione = slug === SLUG_D2C ? frazioneQuotaD2C(quotaD2C, maisons[i].slug) : 1;
       ricaviPerServizio[slug] = (ricaviPerServizio[slug] ?? 0) + v * molt * conversione;
     }
-  }
+  });
   // ---- I ricavi del **team commerciale** ----
   //
   // Sono una fonte **diversa** da quella delle maison, non una parte di essa
@@ -651,7 +665,7 @@ export type PLMese = {
 
 // P&L mese per mese: serve a vedere dove il risultato va sotto zero (i costi
 // fissi e il personale non seguono la stagionalità delle vendite).
-export function contoEconomicoMensile(dati: DatiAnno, livello: Livello, quotaD2C = 1): PLMese[] {
+export function contoEconomicoMensile(dati: DatiAnno, livello: Livello, quotaD2C: QuotaD2C = 1): PLMese[] {
   const molt = moltiplicatore(dati, livello);
   // Dalla configurazione i costi fissi erano **uguali tutti i mesi**; dal
   // consuntivo no, e non devono esserlo: un mese chiuso porta quello che è
@@ -672,7 +686,7 @@ export function contoEconomicoMensile(dati: DatiAnno, livello: Livello, quotaD2C
       const x = m.mesi.find((y) => y.month === month);
       if (!x) continue;
       for (const [slug, v] of Object.entries(x.vendite)) {
-        const r = v * molt * (slug === SLUG_D2C ? quotaD2C : 1);
+        const r = v * molt * (slug === SLUG_D2C ? frazioneQuotaD2C(quotaD2C, m.slug) : 1);
         ricavi += r;
         cogs += r * (1 - margineDi(dati, slug) / 100);
       }

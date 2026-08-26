@@ -1,4 +1,4 @@
-import { ANNO_CORRENTE, caricaAnno, totaliMaison } from "@/lib/calc";
+import { ANNO_CORRENTE, caricaAnno, frazioneQuotaD2C, totaliMaison } from "@/lib/calc";
 import { fetchMarginiBrand } from "@/lib/orders";
 import { eur, pct } from "@/lib/format";
 import { quotaDeluxyAnno } from "@/lib/quota";
@@ -12,11 +12,16 @@ export default async function Margini() {
   const margini = await fetchMarginiBrand(ANNO_CORRENTE);
 
   // **Venduto** a budget per tipologia: e il prezzo pieno pagato dal cliente,
-  // non quello che entra nel conto economico.
+  // non quello che entra nel conto economico. La quota si applica maison per
+  // maison (26/08: i brand non marginano uguale), qui come nel P&L.
+  const quotaAnno = await quotaDeluxyAnno(dati.year, dati.maisons);
   const venduto: Record<string, number> = {};
+  const ricaviPerMaison: Record<string, number> = {};
   for (const m of dati.maisons) {
     for (const [slug, v] of Object.entries(totaliMaison(m).perServizio)) {
       venduto[slug] = (venduto[slug] ?? 0) + v;
+      ricaviPerMaison[slug] =
+        (ricaviPerMaison[slug] ?? 0) + (slug === "D2C" ? v * frazioneQuotaD2C(quotaAnno, m.slug) : v);
     }
   }
 
@@ -32,9 +37,7 @@ export default async function Margini() {
   // ricavi contro i 1.101.929 del P&L, cioè 95.000 € di differenza sulla stessa
   // parola. È lo stesso guasto già trovato su `/dashboard` il 23/08/2026 — e si
   // ripresenta ogni volta che una pagina si calcola la quota per conto suo.
-  const q = (await quotaDeluxyAnno(dati.year, dati.maisons)).percentuale / 100;
-  const ricavi: Record<string, number> = {};
-  for (const [slug, v] of Object.entries(venduto)) ricavi[slug] = slug === "D2C" ? v * q : v;
+  const ricavi = ricaviPerMaison;
 
   return (
     <>

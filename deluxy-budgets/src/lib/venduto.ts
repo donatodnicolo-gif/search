@@ -36,6 +36,11 @@ export type Quota = {
   // «misurata», «stimata»): senza, le pagine scrivevano «misurata» anche
   // quando la quota era una regola letta dal proprietario.
   etichetta?: string;
+  // La quota di OGNI maison (slug → percentuale), quando la fonte la sa dire
+  // per brand (26/08/2026: i brand non marginano uguale, e il budget di una
+  // maison si converte con la SUA quota, non con la media). Assente = vale la
+  // sola `percentuale` per tutte.
+  perMaison?: Record<string, number>;
 };
 
 export const QUOTA_STIMATA: Quota = {

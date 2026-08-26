@@ -108,7 +108,7 @@ export default async function DaFare() {
   }
 
   // ---- Il quadro, per contesto (non è una voce da fare) ----
-  const pl = contoEconomico(dati, "RAGGIUNGIBILE", undefined, q.percentuale / 100);
+  const pl = contoEconomico(dati, "RAGGIUNGIBILE", undefined, q);
 
   const gravi = voci.filter((v) => v.grave);
   const normali = voci.filter((v) => !v.grave);
