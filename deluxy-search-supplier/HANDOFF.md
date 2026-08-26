@@ -798,9 +798,11 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
   Giardino a Giverny Medio-Grande») e verificare che il messaggio dica «un Bouquet … come da
   foto». Se un prodotto non ha tag utili, la strada è la tabella in ⚙️ Impostazioni
   («Fiori d'Arte = bouquet»), non toccare il `productType`: serve alle categorie del catalogo.
-- **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
-  pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
-  aggiunte come **test user** dell'app OAuth (vedi sotto).
+- **Utenze operative: ESISTONO** (visto in Impostazioni → «Utenze dell'app» il 26/08, screenshot
+  dell'utente): `riccardo.cuccurullo@deluxy.it` e `federica.zicchinella@deluxy.it`. La voce
+  «da creare» che stava qui era stantia. Resta da verificare che le due email siano anche
+  **test user** dell'app OAuth Google (vedi sotto) se usano «Salva in rubrica»; altre utenze
+  si aggiungono da lì.
 - **Bottone nelle altre app**: deciso il deep link, manca l'integrazione (in quale app?).
 - **Pulizia eventi Storico vecchi**: gli eventi «ricerca» salvati prima del fix (27/07) hanno il
   `negozio.nome` rotto (elemento invece dell'indirizzo). Offerto: pulizia una-tantum che li
