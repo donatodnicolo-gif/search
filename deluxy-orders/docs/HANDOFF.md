@@ -19,12 +19,14 @@ Ora `/api/v1/ricavi` risponde, per brand e per mese, anche con `fee` (somma
 delle commissioni incassate dai partner, lorde) e `primoMargine` (somma di
 (pagato − valore prodotti) ÷ 1,22, quindi **netto IVA**), con la **copertura
 dichiarata**: `ordiniConEconomia` e `lordoConEconomia`, totali e mese per mese.
-Somme sui **soli ordini col dato** — al momento della modifica la copertura era
-**ZERO su tutti e tre i brand** (2026: deluxy.it 2.536 ordini, Flowers 846,
-cakedesign.me 453, nessuno con l'economia scritta): la piattaforma la manda dal
-suo giro (cron notturno / sync manuale), quindi il primo numero vero arriva col
-primo giro dopo questo deploy. Chi legge zero ordini col dato deve mostrare
-**n.d., non zero**.
+Somme sui **soli ordini col dato**. Al momento della modifica la copertura era
+**ZERO su tutti e tre i brand**, ma il primo giro della piattaforma stava
+scrivendo proprio in quelle ore: fra due query a mezz'ora di distanza gli ordini
+col dato sono passati da 0 a 511 a 751 (deluxy.it/Flowers/cakedesign). ⚠️ È la
+[[trappola-verifica-rimandata-al-cron]] vista dal lato buono: una misura di
+copertura scattata durante il giro è una fotografia mossa — si dichiara l'ora, o
+si rimisura a giro finito. Chi legge zero ordini col dato deve mostrare **n.d.,
+non zero**.
 
 ⚠️ Le **basi sono tre e non tornano a occhio**: lordo IVA inclusa, fee lorde,
 primo margine netto IVA. Ogni consumatore le deve dichiarare (è la stessa

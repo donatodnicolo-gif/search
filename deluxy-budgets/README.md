@@ -16,12 +16,15 @@ tabella.
 
 I numeri li scrive la **piattaforma consegne** sugli ordini di Orders (schema del 26/08:
 `primoMargine`, `feeVendita`) e Budgets li **legge** da `/api/v1/ricavi`, esteso oggi con le somme
-per brand/mese e la **copertura** (`ordiniConEconomia`, `lordoConEconomia`). ⚠️ **Alla nascita la
-copertura è ZERO** su tutti i brand — la piattaforma manda l'economia dal suo giro (cron notturno) —
-quindi fee e primo margine si leggono **«n.d.», non zero**, con la copertura riga per riga
-(«X ordini su Y · Z% del lordo»). La riga ecommerce del P&L **non è stata toccata**: sostituire la
-stima con questi numeri è il passo successivo, da fare quando la copertura è reale (e va
-*sostituita, non affiancata*, come dice la pagina).
+per brand/mese e la **copertura** (`ordiniConEconomia`, `lordoConEconomia`), che si legge riga per
+riga («X ordini su Y · Z% del lordo») — e dove è zero si mostra **«n.d.», non zero**. ⚠️ Il primo
+giro della piattaforma stava scrivendo **mentre si deployava**: misurata zero alle 13, alle 14 la
+copertura cresceva a vista (511 → 751 ordini col dato fra due query). I primi numeri veri, sul
+lordo coperto: presa Deluxy (fee + primo margine) ≈ **39,9% deluxy.it · 34,0% Flowers · 27,5%
+CakeDesign** — sotto i margini riconciliati di Orders (54,3/43,7/45,2), ma su base diversa (netto
+IVA contro lordo, valore prodotti della piattaforma contro costo riconciliato in banca). La riga
+ecommerce del P&L **non è stata toccata**: sostituire la stima con questi numeri è il passo
+successivo, da fare a copertura assestata (e va *sostituita, non affiancata*, come dice la pagina).
 
 ### E dal pomeriggio: i margini PER BRAND, misurati (24/08/2026)
 
