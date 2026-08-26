@@ -28,6 +28,15 @@ Due decisioni dell'utente, nello stesso giro:
    maison, margini — e `misuraPremi`, dove un obiettivo misurato con la media scatterebbe per il mix
    dei brand e non per il lavoro di qualcuno).
 
+3. **«in tutte le casistiche per i mesi trascorsi va messo il consuntivo»** (sera, davanti
+   all'Andamento mensile) — nell'andamento mensile di `/pl` **i mesi chiusi mostrano il consuntivo
+   in TUTTE le viste**, non solo in «Attuale»: un fatto non cambia scegliendo uno scenario, e il
+   livello governa solo i mesi a venire (grassetto = successo, grigio = budget; «Attuale» ora
+   coincide col Raggiungibile). Anche il KPI «mesi in perdita» conta sulla serie mostrata. ⭐ E
+   sistemata una base sbagliata trovata rispondendo a una domanda dell'utente: nella tabella «sui 3
+   livelli» la colonna **Budget** della riga D2C sommava il venduto **lordo** senza quota, contro un
+   consuntivo che è la presa misurata — rosso per costruzione; ora entra con la quota per maison.
+
 📌 **Effetto sul P&L a budget (Raggiungibile)**: quota media **50,9% → 39,5%** («economia di
 Orders»: deluxy.it 41,1%, Flowers 36,2%, CakeDesign 36,3%), ricavi **1.281.851 → 1.187.774 €**,
 margine lordo 574.855 € (48,4%), **EBITDA +104.766 → +10.652 € (0,9%)**. Il COGS non si muove: il

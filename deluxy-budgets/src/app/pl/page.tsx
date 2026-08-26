@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  ANNO_CORRENTE, caricaAnno, contoEconomico, contoEconomicoMensile,
+  ANNO_CORRENTE, caricaAnno, contoEconomico, contoEconomicoMensile, frazioneQuotaD2C,
   LIVELLI, type DatiAnno, type Livello, type PL,
 } from "@/lib/calc";
 import { eur, MESI, pct } from "@/lib/format";
@@ -109,10 +109,17 @@ export default async function ContoEconomico({
           ricaviPerTipologia: Object.fromEntries(
             dati.tipologie.map((t) => [
               t.slug,
-              dati.maisons.reduce(
-                (s, m) => s + mesiChiusi.reduce((a, mm) => a + (m.mesi.find((y) => y.month === mm)?.vendite[t.slug] ?? 0), 0),
-                0
-              ),
+              dati.maisons.reduce((s, m) => {
+                const lordo = mesiChiusi.reduce(
+                  (a, mm) => a + (m.mesi.find((y) => y.month === mm)?.vendite[t.slug] ?? 0),
+                  0
+                );
+                // Sul D2C il budget entra alla stessa base del consuntivo: la
+                // quota della SUA maison, non il venduto lordo. Senza, la riga
+                // «Ricavi D2C» confrontava la presa misurata (da Orders) con un
+                // prezzo pieno, e lo scostamento era rosso per costruzione.
+                return s + (t.slug === "D2C" ? lordo * frazioneQuotaD2C(qD2C, m.slug) : lordo);
+              }, 0),
             ])
           ),
           vendutoEcommerce: 0,
@@ -228,21 +235,27 @@ export default async function ContoEconomico({
   ];
   const strutturaDaBanca = dati.struttura !== null;
   const mensile = contoEconomicoMensile(dati, livello, qD2C);
-  const mesiInPerdita = mensile.filter((m) => m.ebitda < 0).length;
 
-  // Vista «Attuale»: nell'andamento mensile i mesi chiusi mostrano quello che è
-  // successo davvero, quelli che restano il budget. Non è un ibrido per pigrizia
-  // — è la lettura che serve a metà anno: da qui in poi cosa ci aspetta, dato
-  // quello che è già andato come è andato. Ogni mese dice quale dei due è.
+  // Nell'andamento mensile **i mesi chiusi mostrano il consuntivo in TUTTE le
+  // viste** (26/08/2026, decisione dell'utente): quello che è successo non
+  // cambia scegliendo uno scenario, e un budget al posto di un fatto si legge
+  // come un fatto. Il livello governa solo i mesi a venire; «Attuale» resta
+  // come lettura di default (consuntivo + budget pubblicato) e da oggi coincide
+  // con «Raggiungibile». Ogni mese dice quale dei due è (grassetto = successo).
   const attuale = sp.vista === "attuale" && cons !== null;
+  const ibrida = cons !== null;
   const mensileVista = mensile.map((m) => {
-    const reale = attuale && cons ? cons.perMese.find((x) => x.month === m.month) : undefined;
+    const reale = cons ? cons.perMese.find((x) => x.month === m.month) : undefined;
     return reale
       ? { month: m.month, ricavi: reale.ricavi, cogs: reale.cogs, margineLordo: reale.margineLordo,
           adv: reale.adv, personale: reale.personale, costiFissi: reale.struttura, ebitda: reale.ebitda, reale: true }
       : { month: m.month, ricavi: m.ricavi, cogs: m.cogs, margineLordo: m.margineLordo,
           adv: m.adv, personale: m.personale, costiFissi: m.costiFissi, ebitda: m.ebitda, reale: false };
   });
+  // Il conteggio dei mesi in perdita guarda la stessa serie della tabella:
+  // contarli sul budget puro mentre sotto c'è il consuntivo direbbe un numero
+  // che nella pagina non si vede.
+  const mesiInPerdita = mensileVista.filter((m) => m.ebitda < 0).length;
   const linkMensile = (x: { livello?: string; vista?: string }) =>
     `/pl?livello=${x.livello ?? livello}${x.vista ? `&vista=${x.vista}` : ""}#mensile`;
 
@@ -458,12 +471,13 @@ export default async function ContoEconomico({
           ))}
         </div>
       </div>
-      {attuale && (
+      {ibrida && (
         <p className="page-caption" style={{ marginTop: -4, marginBottom: 10 }}>
-          <strong>Attuale</strong>: i mesi fino a {etichettaChiusi.replace("Gen–", "")} sono il{" "}
-          <strong>consuntivo</strong> — quello che è successo davvero — e sono in grassetto; da{" "}
-          {MESI[meseChiuso]} in poi è il <strong>budget pubblicato</strong>, in grigio. Il mese in corso è già
-          budget: è ancora aperto, e mezzo mese di ricavi contro un mese intero di stipendi non è un dato.
+          I mesi fino a {etichettaChiusi.replace("Gen–", "")} sono il <strong>consuntivo</strong> — quello
+          che è successo davvero — in grassetto e <strong>uguali in tutte le viste</strong>: un fatto non
+          cambia scegliendo uno scenario. Da {MESI[meseChiuso]} in poi è il <strong>budget del livello
+          scelto</strong>, in grigio («Attuale» = il pubblicato). Il mese in corso è già budget: è ancora
+          aperto, e mezzo mese di ricavi contro un mese intero di stipendi non è un dato.
         </p>
       )}
       <div className="card tight">
@@ -491,8 +505,8 @@ export default async function ContoEconomico({
                   <td style={{ whiteSpace: "nowrap" }}>{label}</td>
                   {mensileVista.map((m) => (
                     <td
-                      className={`num ${attuale && !m.reale ? "muted" : ""}`}
-                      style={{ fontWeight: attuale && m.reale ? 600 : 400 }}
+                      className={`num ${ibrida && !m.reale ? "muted" : ""}`}
+                      style={{ fontWeight: m.reale ? 600 : 400 }}
                       key={m.month}
                     >
                       {costo ? `− ${eur(get(m))}` : eur(get(m))}
@@ -508,7 +522,7 @@ export default async function ContoEconomico({
                 {mensileVista.map((m) => (
                   <td
                     className={`num ${m.ebitda >= 0 ? "pos" : "neg"}`}
-                    style={{ opacity: attuale && !m.reale ? 0.55 : 1 }}
+                    style={{ opacity: ibrida && !m.reale ? 0.55 : 1 }}
                     key={m.month}
                   >
                     {eur(m.ebitda)}
