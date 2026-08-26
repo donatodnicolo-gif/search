@@ -239,7 +239,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // ⚠️ IL REALE BATTE LA STIMA: se la commissione e' stata letta dalle
   // transazioni Shopify ('shopify'), la stima della piattaforma non la
   // sovrascrive — stesso principio del costo del fornitore deciso a mano.
-  if ("commissioneIncassi" in body && esiste.commissioneDa === "shopify") {
+  if ("commissioneIncassi" in body && (esiste.commissioneDa === "shopify" || esiste.commissioneDa === "tariffa")) {
     delete (body as Record<string, unknown>).commissioneIncassi;
   }
   if ("commissioneIncassi" in body) {

@@ -1,5 +1,5 @@
 import type { MovimentoBanca, Ordine } from "@prisma/client";
-import { prisma } from "./db";
+import { prisma, SCHEMA } from "./db";
 
 // CONTROLLO DEI SOLDI DI UN ORDINE — le due metà del margine.
 //
@@ -74,7 +74,7 @@ export function statoIncassoIniziale(categoriaPagamento: string, financialStatus
 // che nessuno deve lavorare. Questa funzione li porta al punto di partenza
 // giusto, e **solo dove nessuno ha ancora deciso niente** (nessun movimento
 // abbinato, stato ancora quello di default). Due UPDATE, non dodicimila.
-export async function normalizzaControllo(): Promise<{ gestioni: number; gateway: number }> {
+export async function normalizzaControllo(): Promise<{ gestioni: number; gateway: number; tariffe: number }> {
   const gestioni = await prisma.ordine.updateMany({
     where: {
       brand: BRAND_ORDINI_PARTNER,
@@ -93,7 +93,35 @@ export async function normalizzaControllo(): Promise<{ gestioni: number; gateway
     },
     data: { statoIncasso: "incassato_gateway" },
   });
-  return { gestioni: gestioni.count, gateway: gateway.count };
+  // ── LA COMMISSIONE D'INCASSO DA LISTINO, dove Shopify non sa la fee vera ──
+  //
+  // Due passate (prima il listino del NEGOZIO, poi quello generale), in SQL
+  // perche' e' un conto su migliaia di righe e perche' cosi' la formula vive in
+  // UN posto: margineOrdine legge il valore scritto, non lo rifa'.
+  // ⚠️ Non si tocca cio' che e' firmato 'shopify' (fee reale) ne' 'tariffa' gia'
+  // uguale; il match del gateway e' ESATTO, quindi i pagamenti misti
+  // («shopify_payments, paypal») restano fuori e il margine li dichiara parziali.
+  // Satispay e' gratis sotto i 10 €: il listino non sa dirlo, il CASE si'.
+  const tariffaSql = (filtroBrand: string) => `
+    UPDATE "${SCHEMA}"."Ordine" AS o
+    SET "commissioneIncassi" = calc.v, "commissioneDa" = 'tariffa'
+    FROM (
+      SELECT o2.id AS oid,
+             ROUND((CASE WHEN t.gateway = 'Satispay App' AND o2.totale < 10 THEN 0
+                         ELSE t.percentuale / 100.0 * o2.totale + t.fissa END)::numeric, 2)::float8 AS v
+      FROM "${SCHEMA}"."Ordine" o2
+      JOIN "${SCHEMA}"."TariffaIncasso" t ON t.attiva AND t.gateway = o2.gateway AND ${filtroBrand}
+      WHERE o2."commissioneDa" <> 'shopify'
+    ) calc
+    WHERE o.id = calc.oid
+      AND (o."commissioneIncassi" IS DISTINCT FROM calc.v OR o."commissioneDa" <> 'tariffa')`;
+  const tariffeBrand = await prisma.$executeRawUnsafe(tariffaSql(`t.brand = o2.brand`));
+  const tariffeTutti = await prisma.$executeRawUnsafe(
+    tariffaSql(`t.brand IS NULL AND NOT EXISTS (
+      SELECT 1 FROM "${SCHEMA}"."TariffaIncasso" t2
+      WHERE t2.attiva AND t2.gateway = o2.gateway AND t2.brand = o2.brand)`),
+  );
+  return { gestioni: gestioni.count, gateway: gateway.count, tariffe: tariffeBrand + tariffeTutti };
 }
 
 // Gli stati che valgono come «i soldi del cliente li abbiamo».

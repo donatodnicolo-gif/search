@@ -790,6 +790,25 @@ model QuotaRegola {
   @@unique([provincia, categoria])
 }
 
+// IL LISTINO DELLE COMMISSIONI D'INCASSO — la casa e' QUI (decisione utente
+// 26/08: «i costi di incasso li dovresti sapere tu»). Importato dal listino
+// della piattaforma; si applica SOLO dove Shopify non espone la fee reale
+// (PayPal, PostePay, Satispay): per Shopify Payments vince sempre la
+// transazione vera, che cambia per ordine. Si gestisce via SQL, come QuotaRegola.
+model TariffaIncasso {
+  id          String   @id @default(cuid())
+  gateway     String
+  brand       String? // null = vale per tutti i negozi; la riga col brand vince
+  percentuale Float    @default(0)
+  fissa       Float    @default(0)
+  confermata  Boolean  @default(false)
+  fonte       String?
+  note        String?
+  attiva      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+}
+
 model Impostazione {
   chiave       String   @id
   valore       String   @db.Text
