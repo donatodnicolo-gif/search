@@ -42,6 +42,8 @@ export interface LineaInteresse {
   id: string;
   nome: string;
   attiva_bool: boolean;
+  /** Compare fra i servizi richiedibili nella casa del partner (migr. 0071). */
+  in_vetrina: boolean;
   archiviata: boolean;
   parent_id: string | null;
   ordine: number;
@@ -54,7 +56,7 @@ export interface LineaInteresse {
 export async function fetchLineeInteresse(): Promise<LineaInteresse[]> {
   const { data, error } = await supabase
     .from('lines')
-    .select('id, nome, attiva_bool, archiviata, parent_id, ordine, icona, pitch')
+    .select('id, nome, attiva_bool, in_vetrina, archiviata, parent_id, ordine, icona, pitch')
     .eq('archiviata', false)
     .order('ordine')
     .order('nome');
@@ -86,6 +88,8 @@ export async function creaLinea(l: {
   icona?: string | null;
   pitch?: string | null;
   attiva_bool?: boolean;
+  /** Se compare fra i servizi richiedibili nella casa del partner. */
+  in_vetrina?: boolean;
 }): Promise<void> {
   const { error } = await supabase.from('lines').insert({
     nome: l.nome.trim(),
@@ -93,6 +97,7 @@ export async function creaLinea(l: {
     icona: l.icona ?? null,
     pitch: l.pitch ?? null,
     attiva_bool: l.attiva_bool ?? true,
+    in_vetrina: l.in_vetrina ?? true,
   });
   if (error) throw error;
 }
@@ -100,7 +105,7 @@ export async function creaLinea(l: {
 /** Modifica una linea/sottolinea (nome, icona, pitch, attiva, ordine). Solo admin. */
 export async function aggiornaLinea(
   id: string,
-  patch: Partial<Pick<LineaInteresse, 'nome' | 'icona' | 'pitch' | 'attiva_bool' | 'ordine'>>,
+  patch: Partial<Pick<LineaInteresse, 'nome' | 'icona' | 'pitch' | 'attiva_bool' | 'in_vetrina' | 'ordine'>>,
 ): Promise<void> {
   const { error } = await supabase.from('lines').update(patch).eq('id', id);
   if (error) throw error;

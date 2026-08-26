@@ -69,10 +69,29 @@ export default function LineeInteresse() {
     }
   }
 
+  /**
+   * ⭐ IL FLAG DELLA VETRINA (26/08/2026, richiesta dell'utente): quali linee
+   * compaiono fra i servizi richiedibili nella casa del partner
+   * (deluxy-delivery.vercel.app/home → «Che cosa ti serve?»).
+   *
+   * ⚠️ È una domanda DIVERSA da «attiva»: una linea può essere viva
+   * commercialmente e non andare in vetrina — «Magazzino» è un servizio
+   * interno. Spegnere `attiva` per toglierla da una pagina vorrebbe dire
+   * spegnerla anche sui negozi, nei filtri e nelle trattative.
+   */
+  async function toggleVetrina(l: LineaInteresse) {
+    try {
+      await aggiornaLinea(l.id, { in_vetrina: !l.in_vetrina });
+      carica();
+    } catch (e: any) {
+      avvisa('Errore', e?.message ?? 'Non aggiornata.');
+    }
+  }
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: 'Linee di interesse' }} />
-      <PageIntro testo="Scout è il master delle linee di interesse: qui le crei, modifichi o archivi, con le relative sottolinee. Le altre app Deluxy le leggono da qui." />
+      <PageIntro testo="Scout è il master delle linee di interesse: qui le crei, modifichi o archivi, con le relative sottolinee. Le altre app Deluxy le leggono da qui. Due flag, due domande diverse: «Attiva» dice se la linea è viva commercialmente, «In vetrina» se i partner possono chiederne un preventivo dalla loro casa (deluxy-delivery /home)." />
       <ScrollView contentContainerStyle={styles.list} refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}>
         {!loading && linee.length === 0 ? (
           <Text style={styles.vuoto}>Nessuna linea. Creane una col bottone in basso.</Text>
@@ -89,6 +108,20 @@ export default function LineeInteresse() {
               </View>
               <Pressable onPress={() => toggleAttiva(l)} hitSlop={6}>
                 <StatusBadge small label={l.attiva_bool ? 'Attiva' : 'Standby'} colore={l.attiva_bool ? colors.successo : colors.grigio} />
+              </Pressable>
+              {/* Il secondo flag: la vetrina del partner. Si tocca per
+                  accendere e spegnere, come «Attiva». */}
+              <Pressable
+                onPress={() => toggleVetrina(l)}
+                hitSlop={6}
+                accessibilityLabel={l.in_vetrina ? 'Togli dalla vetrina del partner' : 'Metti in vetrina dal partner'}
+                {...({ title: 'Compare fra i servizi richiedibili nella casa del partner' } as any)}
+              >
+                <StatusBadge
+                  small
+                  label={l.in_vetrina ? 'In vetrina' : 'Fuori vetrina'}
+                  colore={l.in_vetrina ? colors.goldStrong : colors.grigio}
+                />
               </Pressable>
               <Pressable style={styles.azioneBtn} hitSlop={6} onPress={() => setEditor({ modo: 'modifica', linea: l })} accessibilityLabel="Modifica linea">
                 <Ionicons name="create-outline" size={18} color={colors.testoSoft} />
@@ -141,6 +174,7 @@ function EditorModal({ editor, onClose, onSalvato }: { editor: Editor; onClose: 
   const [icona, setIcona] = useState(esistente?.icona ?? '');
   const [pitch, setPitch] = useState(esistente?.pitch ?? '');
   const [attiva, setAttiva] = useState(esistente?.attiva_bool ?? true);
+  const [inVetrina, setInVetrina] = useState(esistente?.in_vetrina ?? true);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -159,7 +193,7 @@ function EditorModal({ editor, onClose, onSalvato }: { editor: Editor; onClose: 
     setErrore(null);
     try {
       if (editor.modo === 'modifica') {
-        await aggiornaLinea(editor.linea.id, { nome: nome.trim(), icona: icona.trim() || null, pitch: pitch.trim() || null, attiva_bool: attiva });
+        await aggiornaLinea(editor.linea.id, { nome: nome.trim(), icona: icona.trim() || null, pitch: pitch.trim() || null, attiva_bool: attiva, in_vetrina: inVetrina });
       } else {
         await creaLinea({
           nome: nome.trim(),
@@ -167,6 +201,7 @@ function EditorModal({ editor, onClose, onSalvato }: { editor: Editor; onClose: 
           icona: icona.trim() || null,
           pitch: pitch.trim() || null,
           attiva_bool: attiva,
+          in_vetrina: inVetrina,
         });
       }
       onSalvato();
@@ -191,6 +226,19 @@ function EditorModal({ editor, onClose, onSalvato }: { editor: Editor; onClose: 
               <Text style={styles.attivaNota}>Se spenta è in standby: solo cross-sell, non proposta primaria.</Text>
             </View>
             <Switch value={attiva} onValueChange={setAttiva} trackColor={{ true: colors.ink }} />
+          </View>
+          {/* Il servizio richiedibile dal partner: è così che si crea un
+              servizio nuovo per la vetrina — si crea la linea e la si mette
+              in vetrina. Il pitch qui sopra è il testo che il partner legge. */}
+          <View style={styles.attivaRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.attivaTitolo}>In vetrina dal partner</Text>
+              <Text style={styles.attivaNota}>
+                Compare fra i servizi richiedibili nella casa del partner (deluxy-delivery /home): da lì può
+                chiederne un preventivo. Spegnila per i servizi interni.
+              </Text>
+            </View>
+            <Switch value={inVetrina} onValueChange={setInVetrina} trackColor={{ true: colors.goldStrong }} />
           </View>
           {errore ? <Text style={styles.errore}>{errore}</Text> : null}
           <Pressable style={[styles.salva, salvando && styles.salvaOff]} onPress={salva} disabled={salvando}>
