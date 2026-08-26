@@ -11,7 +11,7 @@ import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
 import { chiediFatturaPerOrdine } from '@/lib/partner';
-import { costiPerTrattativa, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
+import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
 
@@ -98,10 +98,10 @@ export default function Ordini() {
    * ⚠️ Un ordine senza preventivi non entra nella mappa, e il margine resta
    * «—»: contarlo a costo zero darebbe un margine pari al prezzo pieno.
    */
-  const costi = useMemo(() => costiPerTrattativa(lavori), [lavori]);
+  const costi = useMemo(() => costiPerOrdine(lavori, ordini), [lavori, ordini]);
   const margineDi = useCallback(
     (o: OrdineConLuogo): number | null => {
-      const c = o.deal_id ? costi.get(o.deal_id) : null;
+      const c = costi.get(o.id);
       if (!c || o.valore == null) return null;
       return Math.round((o.valore - c.costo) * 100) / 100;
     },
@@ -151,7 +151,7 @@ export default function Ordini() {
       chiave: 'fornitore',
       label: 'Fornitore',
       flex: 0.8,
-      valore: (o) => costi.get(o.deal_id ?? '')?.fornitore ?? null,
+      valore: (o) => costi.get(o.id)?.fornitore ?? null,
     },
     {
       chiave: 'costo',
@@ -159,9 +159,9 @@ export default function Ordini() {
       width: 104,
       destra: true,
       numerica: true,
-      valore: (o) => costi.get(o.deal_id ?? '')?.costo ?? null,
+      valore: (o) => costi.get(o.id)?.costo ?? null,
       cella: (o) => {
-        const c = costi.get(o.deal_id ?? '');
+        const c = costi.get(o.id);
         if (!c) return <Text style={styles.tabData}>—</Text>;
         return (
           <View style={{ alignItems: 'flex-end' }}>
@@ -449,9 +449,9 @@ export default function Ordini() {
                * l'elenco quando riguarda solo una parte.
                */
               totali={(righe) => {
-                const conCosto = righe.filter((o) => o.deal_id && costi.has(o.deal_id));
+                const conCosto = righe.filter((o) => costi.has(o.id));
                 const valore = righe.reduce((s, o) => s + (o.valore ?? 0), 0);
-                const costo = conCosto.reduce((s, o) => s + (costi.get(o.deal_id!)?.costo ?? 0), 0);
+                const costo = conCosto.reduce((s, o) => s + (costi.get(o.id)?.costo ?? 0), 0);
                 const margine = conCosto.reduce((s, o) => s + (margineDi(o) ?? 0), 0);
                 return {
                   cliente: `Totale · ${righe.length} ordini`,
@@ -483,7 +483,7 @@ export default function Ordini() {
                   {/* Il costo e il margine anche sul telefono: senza, da qui
                       si vedrebbe solo quanto si incassa e mai quanto resta. */}
                   {(() => {
-                    const c = o.deal_id ? costi.get(o.deal_id) : null;
+                    const c = costi.get(o.id);
                     const m = margineDi(o);
                     if (!c) return null;
                     return (

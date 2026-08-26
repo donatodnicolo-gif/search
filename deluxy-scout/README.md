@@ -340,3 +340,37 @@ inventarselo.
 4. `dealstage`: `appointmentscheduled`, `decisionmakerboughtin`, `contractsent`,
    `closedwon`, `closedlost`.
 5. Segreti solo in variabili d'ambiente / secret server; mai nel repo.
+
+## Preventivi fornitore: a quale vendita appartiene un costo (26/08/2026)
+
+Un preventivo fornitore è un **costo**, e un costo appartiene sempre a qualcosa
+che vendiamo. Fino a oggi quel qualcosa poteva essere solo una **trattativa**:
+chi riceveva una richiesta da un cliente già acquisito — il caso più frequente,
+e per la *regola del binario* non apre una trattativa — non aveva dove mettere
+il prezzo del fornitore, e il margine di quell'ordine restava «—».
+
+Da oggi il lavoro si aggancia a **una delle tre vendite** (migrazione `0077`,
+colonne `lavori.deal_id` / `richiesta_id` / `ordine_id`):
+
+| Vendita | Quando si sceglie | Cosa serve |
+| --- | --- | --- |
+| **Trattativa** | la vendita è ancora da conquistare | il costo serve a fare il prezzo |
+| **Richiesta cliente** | un cliente che c'è già chiede una fornitura | il costo serve a rispondergli |
+| **Ordine** | la vendita è chiusa | il lavoro adesso va comprato |
+
+Il vincolo `lavori_ha_una_vendita` lo impone al database, non solo alla
+schermata. È scritto `NOT VALID` di proposito: c'è **un** lavoro nato prima
+della regola, senza nessun legame, e non gli si inventa una vendita per far
+contento il database — la scheda lo dichiara in rosso e lo si sistema
+guardandolo.
+
+**Il margine di un ordine** (`costiPerOrdine`, colonna *Margine* in Ordini) si
+legge da tutte e tre le strade: prima il lavoro agganciato all'ordine, poi
+quello della sua trattativa, poi quello della sua richiesta. Un ordine **senza
+preventivi non entra** nella mappa e mostra «—»: contarlo a costo zero darebbe
+un margine pari al prezzo pieno.
+
+Nell'elenco delle vendite da collegare non compaiono le finite (trattative
+chiuse, richieste perse/annullate/fatturate) né le richieste **già diventate
+ordine**: quelle si scelgono dal loro ordine, o lo stesso lavoro comparirebbe
+due volte con due nomi diversi.

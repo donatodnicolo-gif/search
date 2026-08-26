@@ -16,7 +16,16 @@ import { avvisa, conferma } from '@/lib/dialoghi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CampoData } from '@/components/CampoData';
 import { urlMessaggioAiMail } from '@/lib/aimail';
-import { cercaPlaces, fetchTutteTrattative, type PlaceLite, type TrattativaConLuogo } from '@/lib/db';
+import {
+  cercaPlaces,
+  fetchOrdini,
+  fetchRichiesteCliente,
+  fetchTutteTrattative,
+  type OrdineConLuogo,
+  type PlaceLite,
+  type TrattativaConLuogo,
+} from '@/lib/db';
+import type { RichiestaCliente } from '@/types';
 import { LINEE_ATTIVE } from '@/types';
 import { cercaNelRegistro, fetchFornitori, type PartnerRegistro } from '@/lib/anagrafiche';
 import {
@@ -127,6 +136,38 @@ export default function Preventivi() {
   );
 }
 
+/**
+ * LE TRE VENDITE a cui un preventivo fornitore può appartenere (26/08/2026,
+ * richiesta dell'utente: «metti sia trattativa che richieste clienti che
+ * ordini»).
+ *
+ * Il preventivo è un COSTO, e un costo appartiene sempre a qualcosa che
+ * vendiamo — ma quel qualcosa non è per forza una trattativa:
+ *   · TRATTATIVA — la vendita da conquistare, il costo serve a fare il prezzo;
+ *   · RICHIESTA CLIENTE — un cliente che c'è già chiede una fornitura: è il
+ *     caso più frequente, e prima non aveva dove stare (regola del binario:
+ *     non apre una trattativa, quindi non poteva avere preventivi);
+ *   · ORDINE — la vendita è chiusa e adesso il lavoro va comprato.
+ *
+ * Le tre strade portano allo stesso margine, perché l'ordine nato da una
+ * trattativa o da una richiesta si riprende il costo di quella (`costiPerOrdine`).
+ */
+type TipoVendita = 'trattativa' | 'richiesta' | 'ordine';
+interface VenditaSceglibile {
+  tipo: TipoVendita;
+  id: string;
+  /** Chi compra: si mostra in grande, è la prima cosa che si cerca. */
+  cliente: string;
+  /** Di che lavoro si tratta, sotto al nome. */
+  dettaglio: string;
+  placeId: string | null;
+}
+const ETICHETTA_VENDITA: Record<TipoVendita, { label: string; icona: any; colore: string }> = {
+  trattativa: { label: 'Trattativa', icona: 'briefcase-outline', colore: colors.navy },
+  richiesta: { label: 'Richiesta', icona: 'chatbubble-ellipses-outline', colore: colors.goldStrong },
+  ordine: { label: 'Ordine', icona: 'receipt-outline', colore: '#2F7D46' },
+};
+
 /** Il form del nuovo lavoro: titolo obbligatorio, il resto aiuta e basta. */
 function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
   const [apri, setApri] = useState(false);
@@ -137,7 +178,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
   const [cliente, setCliente] = useState<PlaceLite | null>(null);
   const [salvo, setSalvo] = useState(false);
   /**
-   * ⚠️ SI SCEGLIE LA TRATTATIVA, NON IL CLIENTE (corretto il 26/08/2026 dopo
+   * ⚠️ SI SCEGLIE LA VENDITA, NON IL CLIENTE (corretto il 26/08/2026 dopo
    * la segnalazione dell'utente: «ma non posso scegliere la trattativa»).
    *
    * La prima versione chiedeva prima il cliente e poi le SUE trattative: due
@@ -145,51 +186,97 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
    * aveva trattative aperte — il campo restava lì a dire «scegli prima il
    * cliente» e il bottone non partiva mai.
    *
-   * Ora si cerca direttamente fra TUTTE le trattative aperte (per negozio,
-   * oggetto o linea) e il cliente lo porta la trattativa: è lei che sa a chi
-   * appartiene. Le chiuse non si propongono — su una vendita finita non c'è
-   * più un prezzo da fare.
+   * Ora si cerca direttamente fra tutte le vendite aperte — trattative,
+   * richieste clienti e ordini (richiesta dell'utente: «metti sia trattativa
+   * che richieste clienti che ordini») — e il cliente lo porta la vendita: è
+   * lei che sa a chi appartiene. Le finite non si propongono: su una vendita
+   * chiusa non c'è più un prezzo da fare.
    */
-  const [trattative, setTrattative] = useState<TrattativaConLuogo[]>([]);
+  const [vendite, setVendite] = useState<VenditaSceglibile[]>([]);
   const [caricoDeal, setCaricoDeal] = useState(true);
-  const [dealId, setDealId] = useState<string | null>(null);
+  const [venditaId, setVenditaId] = useState<string | null>(null);
   const [cercaDeal, setCercaDeal] = useState('');
+  /** Su quale delle tre fonti si sta cercando (null = tutte). */
+  const [soloTipo, setSoloTipo] = useState<TipoVendita | null>(null);
 
   useEffect(() => {
     let vivo = true;
-    fetchTutteTrattative()
-      .then((d) => {
+    // ⚠️ Ogni fonte ha il suo `catch`: se una tabella non risponde si sceglie
+    // fra le altre due, invece di restare senza nessuna vendita da collegare.
+    Promise.all([
+      fetchTutteTrattative().catch(() => [] as TrattativaConLuogo[]),
+      fetchRichiesteCliente().catch(() => [] as RichiestaCliente[]),
+      fetchOrdini().catch(() => [] as OrdineConLuogo[]),
+    ])
+      .then(([deals, richieste, ordini]) => {
         if (!vivo) return;
-        setTrattative(d.filter((x) => x.fase !== 'closedwon' && x.fase !== 'closedlost'));
+        const out: VenditaSceglibile[] = [];
+        // Le trattative CHIUSE non si propongono: su una vendita finita non
+        // c'è più un prezzo da fare (se è vinta, c'è il suo ordine qui sotto).
+        for (const d of deals) {
+          if (d.fase === 'closedwon' || d.fase === 'closedlost') continue;
+          out.push({
+            tipo: 'trattativa',
+            id: d.id,
+            cliente: d.place_nome ?? 'Senza negozio',
+            dettaglio: d.titolo || d.oggetto || (d.linee?.length ? d.linee.join(', ') : d.linea) || 'Trattativa',
+            placeId: d.place_id ?? null,
+          });
+        }
+        for (const r of richieste) {
+          // Fuori le finite (persa, annullata, fatturata) e quelle già
+          // diventate ordine: quelle si scelgono dal loro ORDINE, qui sotto,
+          // o lo stesso lavoro comparirebbe due volte con due nomi diversi.
+          if (r.stato === 'persa' || r.stato === 'annullata' || r.stato === 'fatturata' || r.stato === 'in_ordine')
+            continue;
+          out.push({
+            tipo: 'richiesta',
+            id: r.id,
+            cliente: r.cliente,
+            dettaglio: r.descrizione || 'Richiesta cliente',
+            placeId: r.place_id ?? null,
+          });
+        }
+        for (const o of ordini) {
+          if (o.stato === 'annullato') continue;
+          out.push({
+            tipo: 'ordine',
+            id: o.id,
+            cliente: o.place_nome ?? o.cliente,
+            dettaglio: o.descrizione || o.linea || 'Ordine',
+            placeId: o.place_id ?? null,
+          });
+        }
+        setVendite(out);
       })
-      .catch(() => vivo && setTrattative([]))
       .finally(() => vivo && setCaricoDeal(false));
     return () => {
       vivo = false;
     };
   }, []);
 
-  const trattativeFiltrate = useMemo(() => {
+  const venditeFiltrate = useMemo(() => {
     const q = cercaDeal.trim().toLowerCase();
-    const base = q
-      ? trattative.filter((d) =>
-          [d.place_nome, d.titolo, d.oggetto, d.linea, ...(d.linee ?? [])]
-            .filter(Boolean)
-            .some((v) => String(v).toLowerCase().includes(q)),
-        )
-      : trattative;
+    const base = vendite.filter(
+      (v) =>
+        (!soloTipo || v.tipo === soloTipo) &&
+        (!q || `${v.cliente} ${v.dettaglio}`.toLowerCase().includes(q)),
+    );
     return base.slice(0, 30);
-  }, [trattative, cercaDeal]);
+  }, [vendite, cercaDeal, soloTipo]);
 
-  const trattativaScelta = trattative.find((d) => d.id === dealId) ?? null;
+  const venditaScelta = vendite.find((v) => v.id === venditaId) ?? null;
 
   async function salva() {
-    if (!titolo.trim() || !dealId) return;
+    if (!titolo.trim() || !venditaScelta) return;
     setSalvo(true);
     try {
       await creaLavoro({
         titolo,
-        dealId,
+        // Il lavoro si aggancia alla vendita giusta, qualunque delle tre sia.
+        dealId: venditaScelta.tipo === 'trattativa' ? venditaScelta.id : undefined,
+        richiestaId: venditaScelta.tipo === 'richiesta' ? venditaScelta.id : undefined,
+        ordineId: venditaScelta.tipo === 'ordine' ? venditaScelta.id : undefined,
         descrizione,
         placeId: cliente?.id ?? null,
         linea,
@@ -200,7 +287,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
       setLinea(null);
       setServeEntro('');
       setCliente(null);
-      setDealId(null);
+      setVenditaId(null);
       setApri(false);
       await onFatto();
     } catch (e: any) {
@@ -231,70 +318,94 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
         placeholderTextColor={colors.grigio}
       />
 
-      {/* ⚠️ LA TRATTATIVA È OBBLIGATORIA, e si sceglie PER PRIMA. Un preventivo
+      {/* ⚠️ LA VENDITA È OBBLIGATORIA, e si sceglie PER PRIMA. Un preventivo
           fornitore è quanto ci COSTA un lavoro, e serve a fare il prezzo di una
-          vendita: senza la trattativa a cui appartiene è un numero senza
+          vendita: senza la vendita a cui appartiene è un numero senza
           destinazione, e il margine non si può calcolare. Il cliente lo porta
           lei — chiederlo prima era un passo in più e un vicolo cieco. */}
-      <Text style={styles.label}>Per quale trattativa *</Text>
-      {trattativaScelta ? (
+      <Text style={styles.label}>Per quale vendita *</Text>
+      {venditaScelta ? (
         <Pressable
           style={styles.dealScelta}
           onPress={() => {
-            setDealId(null);
+            setVenditaId(null);
             setCliente(null);
           }}
         >
-          <Ionicons name="briefcase-outline" size={16} color={colors.goldStrong} />
+          <Ionicons name={ETICHETTA_VENDITA[venditaScelta.tipo].icona} size={16} color={colors.goldStrong} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.dealSceltaNome} numberOfLines={1}>
-              {trattativaScelta.place_nome ?? 'Negozio'}
+              {venditaScelta.cliente}
             </Text>
             <Text style={styles.aiuto} numberOfLines={1}>
-              {trattativaScelta.titolo || trattativaScelta.oggetto || trattativaScelta.linea || 'Trattativa'}
+              {ETICHETTA_VENDITA[venditaScelta.tipo].label} · {venditaScelta.dettaglio}
             </Text>
           </View>
           <Ionicons name="swap-horizontal" size={18} color={colors.oro} />
         </Pressable>
       ) : caricoDeal ? (
-        <Text style={styles.aiuto}>Carico le trattative aperte…</Text>
-      ) : trattative.length === 0 ? (
+        <Text style={styles.aiuto}>Carico trattative, richieste clienti e ordini…</Text>
+      ) : vendite.length === 0 ? (
         <Text style={styles.aiuto}>
-          Non ci sono trattative aperte. Aprine una in Trattative, poi torna qui: il preventivo serve a fare
-          il prezzo di quella vendita.
+          Non c'è nessuna vendita aperta. Apri una trattativa, registra una richiesta cliente o chiudi un
+          ordine, poi torna qui: il preventivo serve a fare il prezzo di quella vendita.
         </Text>
       ) : (
         <>
+          {/* I tre filtri: l'elenco è uno, ma chi cerca sa già di che
+              tipo è la sua vendita e non deve scorrere le altre due. */}
+          <View style={styles.chips}>
+            <Pressable style={[styles.chip, !soloTipo && styles.chipOn]} onPress={() => setSoloTipo(null)}>
+              <Text style={[styles.chipTxt, !soloTipo && styles.chipTxtOn]}>Tutte</Text>
+            </Pressable>
+            {(Object.keys(ETICHETTA_VENDITA) as TipoVendita[]).map((t) => {
+              const quante = vendite.filter((v) => v.tipo === t).length;
+              return (
+                <Pressable
+                  key={t}
+                  style={[styles.chip, soloTipo === t && styles.chipOn]}
+                  onPress={() => setSoloTipo(soloTipo === t ? null : t)}
+                >
+                  <Text style={[styles.chipTxt, soloTipo === t && styles.chipTxtOn]}>
+                    {ETICHETTA_VENDITA[t].label} · {quante}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
           <TextInput
             style={styles.input}
             value={cercaDeal}
             onChangeText={setCercaDeal}
-            placeholder="Cerca per negozio, oggetto o linea…"
+            placeholder="Cerca per cliente, oggetto o linea…"
             placeholderTextColor={colors.grigio}
             autoCapitalize="none"
           />
           <View style={{ gap: 6, marginTop: 6 }}>
-            {trattativeFiltrate.map((d) => (
+            {venditeFiltrate.map((v) => (
               <Pressable
-                key={d.id}
+                key={`${v.tipo}:${v.id}`}
                 style={styles.dealRiga}
                 onPress={() => {
-                  setDealId(d.id);
-                  // Il cliente viene dalla trattativa: è lei che sa di chi è.
-                  if (d.place_id) setCliente({ id: d.place_id, nome: d.place_nome ?? '', indirizzo: null, zona: null });
+                  setVenditaId(v.id);
+                  // Il cliente viene dalla vendita: è lei che sa di chi è.
+                  if (v.placeId) setCliente({ id: v.placeId, nome: v.cliente, indirizzo: null, zona: null });
                 }}
               >
-                <Ionicons name="briefcase-outline" size={15} color={colors.navy} />
+                <Ionicons name={ETICHETTA_VENDITA[v.tipo].icona} size={15} color={ETICHETTA_VENDITA[v.tipo].colore} />
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.dealRigaNome} numberOfLines={1}>{d.place_nome ?? 'Senza negozio'}</Text>
+                  <Text style={styles.dealRigaNome} numberOfLines={1}>{v.cliente}</Text>
                   <Text style={styles.aiuto} numberOfLines={1}>
-                    {d.titolo || d.oggetto || (d.linee?.length ? d.linee.join(', ') : d.linea) || 'Trattativa'}
+                    {ETICHETTA_VENDITA[v.tipo].label} · {v.dettaglio}
                   </Text>
                 </View>
               </Pressable>
             ))}
-            {!trattativeFiltrate.length ? (
-              <Text style={styles.aiuto}>Nessuna trattativa aperta per «{cercaDeal.trim()}».</Text>
+            {!venditeFiltrate.length ? (
+              <Text style={styles.aiuto}>
+                Nessuna vendita {soloTipo ? `di tipo «${ETICHETTA_VENDITA[soloTipo].label}» ` : ''}
+                {cercaDeal.trim() ? `per «${cercaDeal.trim()}»` : 'da collegare'}.
+              </Text>
             ) : null}
           </View>
         </>
@@ -329,7 +440,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
         <Pressable style={styles.btnSec} onPress={() => setApri(false)} disabled={salvo}>
           <Text style={styles.btnSecTxt}>Annulla</Text>
         </Pressable>
-        <Pressable style={[styles.btnPri, (!titolo.trim() || !dealId || salvo) && styles.off]} onPress={salva} disabled={!titolo.trim() || !dealId || salvo}>
+        <Pressable style={[styles.btnPri, (!titolo.trim() || !venditaId || salvo) && styles.off]} onPress={salva} disabled={!titolo.trim() || !venditaId || salvo}>
           {salvo ? <ActivityIndicator color={colors.bianco} size="small" /> : <Text style={styles.btnPriTxt}>Crea il lavoro</Text>}
         </Pressable>
       </View>
@@ -379,14 +490,16 @@ function SchedaLavoro({
             .join(' · ') || 'Nessun cliente collegato'}
         </Text>
 
-        {/* ⚠️ Ogni preventivo appartiene a una trattativa: è quella che dice per
-            quale vendita stiamo facendo il prezzo. I lavori nati prima di
-            questa regola (26/08/2026) non ce l'hanno, e invece di far finta di
-            niente lo si dichiara — un costo senza vendita non fa margine. */}
-        {!lavoro.deal_id ? (
+        {/* ⚠️ Ogni preventivo appartiene a una vendita — trattativa, richiesta
+            cliente o ordine: è quella che dice per cosa stiamo facendo il
+            prezzo. I lavori nati prima di questa regola (26/08/2026) non ce
+            l'hanno, e invece di far finta di niente lo si dichiara — un costo
+            senza vendita non fa margine. */}
+        {!lavoro.deal_id && !lavoro.richiesta_id && !lavoro.ordine_id ? (
           <Text style={styles.avvisoTrattativa}>
-            <Ionicons name="warning-outline" size={12} color={colors.errore} /> Nessuna trattativa collegata: si
-            ricrea il lavoro dalla trattativa giusta, o non si sa per quale vendita è questo costo.
+            <Ionicons name="warning-outline" size={12} color={colors.errore} /> Nessuna vendita collegata: si
+            ricrea il lavoro dalla trattativa, dalla richiesta cliente o dall'ordine giusto, o non si sa per
+            quale vendita è questo costo.
           </Text>
         ) : null}
 

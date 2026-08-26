@@ -30,7 +30,10 @@ export interface Lavoro {
   titolo: string;
   descrizione: string | null;
   place_id: string | null;
+  /** La vendita a cui appartiene: una delle tre (migr. 0077). */
   deal_id: string | null;
+  richiesta_id?: string | null;
+  ordine_id?: string | null;
   linea: string | null;
   serve_entro: string | null;
   stato: StatoLavoro;
@@ -96,20 +99,27 @@ export async function fetchLavori(): Promise<LavoroConPreventivi[]> {
  */
 export async function creaLavoro(l: {
   titolo: string;
-  dealId: string;
+  /** La vendita a cui appartiene: UNA delle tre (migr. 0077). */
+  dealId?: string | null;
+  richiestaId?: string | null;
+  ordineId?: string | null;
   descrizione?: string | null;
   placeId?: string | null;
   linea?: string | null;
   serveEntro?: string | null;
 }): Promise<Lavoro> {
-  if (!l.dealId) throw new Error('Serve la trattativa: un preventivo senza trattativa non si sa per chi è.');
+  if (!l.dealId && !l.richiestaId && !l.ordineId) {
+    throw new Error('Serve la vendita a cui appartiene: una trattativa, una richiesta cliente o un ordine.');
+  }
   const { data, error } = await supabase
     .from('lavori')
     .insert({
       titolo: l.titolo.trim(),
       descrizione: l.descrizione?.trim() || null,
       place_id: l.placeId || null,
-      deal_id: l.dealId,
+      deal_id: l.dealId || null,
+      richiesta_id: l.richiestaId || null,
+      ordine_id: l.ordineId || null,
       linea: l.linea || null,
       serve_entro: l.serveEntro || null,
     })
@@ -147,19 +157,49 @@ export interface CostoTrattativa {
   lavori: number;
 }
 
-export function costiPerTrattativa(lavori: LavoroConPreventivi[]): Map<string, CostoTrattativa> {
+/**
+ * Il costo di ciascun ORDINE. Un lavoro può essere agganciato alla trattativa,
+ * alla richiesta cliente o direttamente all'ordine (migr. 0077): si guardano
+ * tutte e tre le strade, perché l'ordine è lo stesso da qualunque parte sia
+ * nato e il margine dev'essere quello.
+ */
+export function costiPerOrdine(
+  lavori: LavoroConPreventivi[],
+  ordini: { id: string; deal_id?: string | null; richiesta_id?: string | null }[],
+): Map<string, CostoTrattativa> {
+  const perChiave = costiPerChiave(lavori);
+  const out = new Map<string, CostoTrattativa>();
+  for (const o of ordini) {
+    const c =
+      perChiave.get(`ordine:${o.id}`) ??
+      (o.deal_id ? perChiave.get(`deal:${o.deal_id}`) : undefined) ??
+      (o.richiesta_id ? perChiave.get(`richiesta:${o.richiesta_id}`) : undefined);
+    if (c) out.set(o.id, c);
+  }
+  return out;
+}
+
+/** Come sopra, ma indicizzato per `deal:<id>` / `richiesta:<id>` / `ordine:<id>`. */
+export function costiPerChiave(lavori: LavoroConPreventivi[]): Map<string, CostoTrattativa> {
   const perDeal = new Map<string, CostoTrattativa>();
   for (const l of lavori) {
-    if (!l.deal_id) continue;
+    const chiave = l.ordine_id
+      ? `ordine:${l.ordine_id}`
+      : l.richiesta_id
+        ? `richiesta:${l.richiesta_id}`
+        : l.deal_id
+          ? `deal:${l.deal_id}`
+          : null;
+    if (!chiave) continue;
     const scelto = l.preventivi.find((p) => p.stato === 'scelto' && p.importo != null);
     const candidati = l.preventivi.filter((p) => p.importo != null && p.stato !== 'scartato');
     const migliore =
       scelto ??
       candidati.reduce<Preventivo | null>((min, p) => (!min || (p.importo ?? 0) < (min.importo ?? 0) ? p : min), null);
     if (!migliore || migliore.importo == null) continue;
-    const gia = perDeal.get(l.deal_id);
+    const gia = perDeal.get(chiave);
     if (!gia) {
-      perDeal.set(l.deal_id, {
+      perDeal.set(chiave, {
         costo: migliore.importo,
         definitivo: Boolean(scelto),
         fornitore: migliore.fornitore,
