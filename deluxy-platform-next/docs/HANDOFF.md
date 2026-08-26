@@ -85,6 +85,51 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### ⭐⭐ 26/08/2026 (sera, 8) — I nuovi costi sono A ORDERS, e chi calcola il margine
+
+**Il margine finale: la piattaforma lo manda e Orders lo USA** (chiesto
+dall'utente: «da nuova architettura dovrebbe calcolarlo Orders, ma chiedi per
+sicurezza»). Verificato **nel codice di Orders**, non dedotto —
+`scoutwt/deluxy-orders/src/lib/controllo.ts`, funzione `margineOrdine()`:
+
+```
+if (o.margineFinale != null) return { …, fonte: "piattaforma" }
+```
+
+Orders **non rifà il conto** quando il numero arriva: lo usa e ne dichiara la
+fonte. Il ripiego col `costoFornitore` (`fonte: "registro"`) vale solo per gli
+ordini che la piattaforma non conosce. Stessa regola tradotta in SQL in
+`src/lib/margini.ts` (`COALESCE("margineFinale", …)`), con l'avvertenza che le
+due implementazioni vanno toccate insieme.
+
+⭐ **Il perché è scritto lì e vale la pena saperlo**: a Orders manca il pezzo
+principale — il **valore dato al partner** sta su `Delivery.productValue`, non
+nel registro. Rifacendo il conto con `costoFornitore` uscivano numeri più alti
+e falsi (#12805: 81,97 € contro 52,88 veri; #12802: 163,93 contro 69,49), e
+solo 410 ordini su 14.411 hanno un `costoFornitore` contro 10.053 col margine
+della piattaforma. Quindi il margine ha **una casa sola**: il numero è uno, e
+lo calcola chi ha gli ingredienti.
+
+**🩸 Ma la prima spinta di stasera ha PEGGIORATO 684 ordini**, e il controllo
+l'ha preso. `scripts/spingi-economia-a-orders.mjs` **non leggeva `payable`** —
+il campo non era nemmeno nel `select` — quindi sommava il costo di TUTTE le
+consegne del giro, mentre la Finanza e `OrdersSyncService` azzerano quelle con
+`payable = false` (regola carnet: una sola consegna del giro porta la paga).
+Risultato: #12797 scritto a 55,38 € invece di 19,63. È **la trappola
+dell'ingrediente che non ricompone il piatto, ripagata sullo stesso file**:
+la regola era stata messa nel servizio e nella Finanza, non negli script.
+Corretto in entrambi gli script e rilanciata la spinta.
+
+**Esito finale, misurato rileggendo Orders pagina per pagina**: **10.123 ordini
+su 10.123 ALLINEATI, zero diversi**. Costo consegna in Orders 89.220,39 € (la
+piattaforma dice 89.220,41: due centesimi di arrotondamento), margine finale su
+**10.053 ordini per 545.438,96 €**, primo margine 518.692,28, fee 162.910,44.
+
+⚠️ **Nota di metodo**: l'API di Orders **ignora `?orderId=`** — risponde il
+primo ordine della lista come se il filtro non ci fosse. Un confronto fatto con
+quel parametro dice quello che vuoi sentirti dire: per cercare un ordine si
+scorrono le pagine (`?page=&limit=200`), come fa lo script di spinta.
+
 ### ⭐ 26/08/2026 (sera, 7) — Il plus che era RIMBORSO KM torna a essere paga base
 
 L'utente, guardando le 144 consegne finite a costo zero: «sembrano casi in cui
