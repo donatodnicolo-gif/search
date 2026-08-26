@@ -67,6 +67,8 @@ interface RecapOrdine {
   totalMarginPercent: number;
   anomalie: number;
   consegnePagate: number;
+  /** Più di una paga valet nello stesso giorno: solo allora è un'anomalia. */
+  piuPagheStessoGiorno?: boolean;
   /** Le consegne dell'ordine: la riga si apre e le mostra. */
   righe: CorrispettivoRow[];
 }
@@ -307,7 +309,7 @@ interface Summary {
                    sue consegne, anche quando e' una sola: chi guarda non deve
                    ricordarsi che due viste hanno regole diverse. -->
               @for (o of ordiniVisti(); track o.saleRef) {
-                <tr class="riga-ordine" [class.riga-anomala]="o.consegnePagate > 1 || o.anomalie > 0"
+                <tr class="riga-ordine" [class.riga-anomala]="o.piuPagheStessoGiorno || o.anomalie > 0"
                     (click)="apriChiudi(o.saleRef)">
                   <td colspan="3" class="mono ordine-id">
                     <span class="freccia">{{ aperto(o.saleRef) ? '▾' : '▸' }}</span>
@@ -318,7 +320,9 @@ interface Summary {
                             [title]="'finance.dettaglio.apri' | translate">{{ o.numeroOrdine || o.saleRef }}</button>
                   </td>
                   <td colspan="4">{{ 'finance.ordini.consegne' | translate }}: {{ o.consegne }}
-                    @if (o.consegnePagate > 1) {
+                    <!-- Piu' paghe = anomalia solo se NELLO STESSO GIORNO:
+                         lo stesso ordine su due giorni sono due viaggi. -->
+                    @if (o.piuPagheStessoGiorno) {
                       <span class="tag-anomalia">{{ 'finance.ordini.piuPagate' | translate:{ n: o.consegnePagate } }}</span>
                     }
                   </td>

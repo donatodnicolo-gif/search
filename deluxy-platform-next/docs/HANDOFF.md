@@ -426,7 +426,15 @@ per interrogare Shopify direttamente.
   scorporo), colonna IVA a zero, la perdita si legge intera. Applicata nei DUE
   punti del conto (computeRow riga, recap ordine); `primoMargine` spinto a
   Orders la eredita (economiaVendite riusa il recap). Ordini ricorretti su
-  Orders con `spingi-economia-a-orders.mjs` dopo il deploy.
+  Orders con `spingi-economia-a-orders.mjs` dopo il deploy (77 ordini,
+  primo margine totale 492.127,89 → 489.837,65 €).
+  ⭐ Sul #12649 l'utente ha poi deciso: **productValue = 42,50 € per ciascuna
+  delle due consegne** (62821/62822, era 80+80) — corretto in banca e rispinto.
+  ⭐ E la regola «il giro si paga una volta» (anomalia «più consegne pagate»)
+  **vale solo DENTRO LO STESSO GIORNO**: lo stesso ordine consegnato in due
+  giorni sono due viaggi e due paghe sono normali — `piuPagheStessoGiorno`
+  nel recap, tag e riga rossa in Finanza pilotati da lui, contatore
+  `ordiniConPiuPaghe` idem.
 - **Orari a ora**: `approvedTimingStatus` decodificato (0 nessun giro, 3 in
   attesa, 1 approvato). 550 approvate: 549/550 con ore = orario dichiarato
   (unica storta #40843, già storta nel legacy). ⚠️ **283 consegne con orario

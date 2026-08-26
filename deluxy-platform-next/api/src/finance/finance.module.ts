@@ -322,6 +322,8 @@ interface RecapOrdine {
    * cio' che si e' pagato davvero, non di cio' che si sarebbe dovuto pagare.
    */
   consegnePagate: number;
+  /// Piu' di una paga valet NELLO STESSO GIORNO: solo allora e' un'anomalia.
+  piuPagheStessoGiorno: boolean;
 }
 
 @Injectable()
@@ -699,6 +701,19 @@ export class FinanceService {
       gateway,
       commissioneConfermata: tar ? tar.confermata : false,
       consegnePagate: g.filter((r) => r.deliveryCost > 0).length,
+      // ⚠️ La regola «il giro si paga una volta» vale solo DENTRO LO STESSO
+      // GIORNO (deciso dall'utente 26/08): lo stesso ordine consegnato in due
+      // giorni sono due viaggi, e due paghe sono normali — #12649 (17 e 18/08)
+      // veniva segnato in anomalia a torto.
+      piuPagheStessoGiorno: (() => {
+        const perGiorno = new Map<string, number>();
+        for (const r of g) {
+          if (r.deliveryCost <= 0) continue;
+          const giorno = String(r.date ?? '').slice(0, 10);
+          perGiorno.set(giorno, (perGiorno.get(giorno) ?? 0) + 1);
+        }
+        return [...perGiorno.values()].some((n) => n > 1);
+      })(),
       righe: g,
     };
     }).sort((a, b) => b.saleValue - a.saleValue);
@@ -796,7 +811,8 @@ export class FinanceService {
       /** Quanti ordini: il conteggio delle righe di primo livello. */
       ordiniTotali: ordini.length,
       /** Ordini in cui risulta pagata piu' di una consegna: regola non applicata. */
-      ordiniConPiuPaghe: ordini.filter((o) => o.consegnePagate > 1).length,
+      // Solo i giri con piu' paghe NELLO STESSO GIORNO: giorni diversi = viaggi diversi.
+      ordiniConPiuPaghe: ordini.filter((o) => o.piuPagheStessoGiorno).length,
       /** Ordini la cui commissione di incasso e' una stima, non una tariffa confermata. */
       commissioniStimate: ordini.filter((o) => !o.commissioneConfermata).length,
       partnerPrice: sum((o) => o.partnerPrice),
