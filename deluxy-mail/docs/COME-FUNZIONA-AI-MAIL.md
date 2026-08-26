@@ -476,6 +476,15 @@ si legge passandoci sopra. Premendolo si arriva alla scheda «Risposte dalle app
 dove c'è il racconto completo con i dati inviati. Serve a non rifare due volte lo stesso
 invio: prima l'esito stava solo in fondo alla pagina, e chi non scorreva non lo vedeva.
 
+**Il lavoro e il fornitore si scelgono da un elenco.** In «Registra il preventivo», «Per
+quale lavoro» apre l'elenco dei **lavori aperti** in Commerciale: si scrive per filtrarli e
+si sceglie: così parte anche il riferimento esatto del lavoro, e due lavori con lo stesso
+nome non creano più ambiguità. «Fornitore» cerca fra le **aziende attive di Anagrafiche**
+mentre scrivi (bastano due lettere) e accanto a ogni nome mostra categoria, città e — se
+c'è — che tipo di fornitore è; scegliendone una arriva anche la sua email. ⚠️ Restano campi
+di testo: se il lavoro è appena nato o il fornitore non è ancora nel registro, lo scrivi lo
+stesso, ed è Scout a cercarlo per nome. Quando l'elenco è vuoto la schermata lo dice.
+
 **Registra il preventivo: il fornitore è chi manda il prezzo A NOI.** In una conversazione
 possono esserci due aziende diverse — il cliente che ci chiede un prezzo e il fornitore che
 ce lo fa — e la tabella ora lo dice: «Fornitore» è chi manda il prezzo a noi, mai il

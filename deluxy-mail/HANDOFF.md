@@ -23,6 +23,44 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 13) — lavoro e fornitore si SCELGONO, non si ricordano
+
+Due richieste sulla stessa schermata («Registra il preventivo»): il fornitore cercato fra
+i **fornitori e partner attivi di Anagrafiche**, e «Per quale lavoro» come **tendina
+ricercabile**.
+
+- **Meccanismo nuovo, buono per ogni azione**: `CampoAzione` ora può dichiarare
+  `ricerca: 'anagrafiche' | 'lavori'`, più `campoId` e `campoEmail`. Il dialogo rende
+  quel campo con un `input` + `datalist` (`CampoConRicerca`).
+- **Lavori**: la Edge `preventivi` aveva **già** l'azione `lavori` — l'elenco esisteva, ma
+  si scopriva solo dall'**errore 404**. Ora si chiede all'apertura del dialogo
+  (`lavoriApertiCommerciale` in `appDeluxy`, server action `vociLavoriApp`).
+  ⭐ Scegliendo una voce parte anche il **`lavoroId`**: due lavori aperti possono chiamarsi
+  uguale, e col solo nome Commerciale risponde «corrisponde a 2 lavori: serve lavoroId» —
+  è la stessa lezione di «HAVI» (sera 6), applicata **prima** di sbatterci contro.
+- **Fornitore**: cerca fra le aziende **attive** di Anagrafiche mentre si scrive (300ms di
+  respiro), e la scelta porta con sé l'**email**. In elenco si legge categoria · città ·
+  «fornitore: abituale» quando `statoFornitore` c'è: ⚠️ non si nascondono i non-fornitori,
+  perché un partner può diventare fornitore oggi.
+- ⚠️ **Restano campi di TESTO.** La `datalist` suggerisce, non obbliga: un lavoro appena
+  nato o un fornitore non ancora nel registro devono essere scrivibili lo stesso, o la
+  scorciatoia diventa un cancello (stessa regola di «＋ Altra azione…», sera 9). E quando
+  l'elenco è vuoto **lo si dice**, invece di lasciare una tendina muta.
+- ⚠️ `scriviMolti` è nato qui: tre `scrivi` di fila non funzionerebbero, perché ognuno
+  riparte da `valori`, che è la fotografia di PRIMA.
+
+**Chiavi verificate** (`Impostazione`, produzione): `app.anagrafiche.key` e
+`app.commerciale.key` ci sono entrambe, quindi le due ricerche hanno una chiave.
+⚠️ **Non provato a schermo**: le chiavi sono cifrate con `APP_SECRET` e da qui non si
+possono usare. Da guardare: che la tendina dei lavori si riempia e che scrivendo due
+lettere nel Fornitore compaiano le aziende.
+
+⚠️ **Corretta una riga di stasera**: `vercel env ls` dice che in produzione la variabile
+del cron si chiama **`CRON_SECRET`**, mentre in locale è `CRON_TOKEN`. La mia correzione
+di due ore prima («il nome vero è CRON_TOKEN») era vera solo per metà: il codice legge
+l'una **o** l'altra, ed è il ripiego a tenere in piedi la produzione.
+
+---
 ### 26/08 (sera 12) — «Cerca dentro i risultati»
 
 Chiesto dall'utente: un campo di testo per cercare **dentro i risultati** del primo.
