@@ -337,8 +337,24 @@ interface ProductRow {
         </div>
         <label class="toggle mt"><input type="checkbox" name="isFlexiblePrice" [(ngModel)]="model.isFlexiblePrice" /><span>{{ 'deliveryForm.pricing.flexiblePrice' | translate }}</span></label>
         @if (model.isFlexiblePrice) {
-          <label class="fld mt"><span>{{ 'deliveryForm.pricing.flexiblePriceDetail' | translate }}</span>
-            <input class="field" name="flexiblePrice" [(ngModel)]="model.flexiblePrice" [placeholder]="'deliveryForm.pricing.flexiblePricePlaceholder' | translate" /></label>
+          <!-- Il dettaglio del sistema originario e' un JSON: mostrato grezzo
+               non lo legge nessuno. Se si lascia leggere, si RENDE leggibile;
+               il valore vero ormai sta sulle righe prodotto qui sopra
+               (recuperato il 26/08 su 3.851 consegne). -->
+          @if (dettaglioFlex(); as voci) {
+            <div class="fld mt">
+              <span>{{ 'deliveryForm.pricing.flexiblePriceDetail' | translate }}</span>
+              <div class="flex-detail" [title]="model.flexiblePrice">
+                @for (v of voci; track $index) {
+                  <span class="pill-flex">{{ v.quantita }} × {{ v.prezzo }} €</span>
+                }
+                <span class="flex-nota">{{ 'deliveryForm.pricing.flexiblePriceLegacy' | translate }}</span>
+              </div>
+            </div>
+          } @else {
+            <label class="fld mt"><span>{{ 'deliveryForm.pricing.flexiblePriceDetail' | translate }}</span>
+              <input class="field" name="flexiblePrice" [(ngModel)]="model.flexiblePrice" [placeholder]="'deliveryForm.pricing.flexiblePricePlaceholder' | translate" /></label>
+          }
         }
         @if (isHourly()) {
           <label class="fld mt" style="max-width:200px"><span>{{ 'deliveryForm.pricing.hours' | translate }}</span>
@@ -428,6 +444,9 @@ interface ProductRow {
       .prod-item { border: 1px solid var(--hairline); border-radius: var(--radius-m); padding: 12px 14px; margin-bottom: 10px; }
       .prod-top { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; }
       .prod-variant { margin-top: 8px; max-width: 320px; }
+      .flex-detail { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+      .pill-flex { display: inline-flex; padding: 4px 12px; border-radius: 980px; background: var(--fill); font-size: 13px; font-weight: 550; font-variant-numeric: tabular-nums; }
+      .flex-nota { font-size: 12px; color: var(--text-tertiary); }
       .prod-bottom { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
       .price-static { font-size: 13.5px; color: var(--text-secondary); }
       .price-lbl { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
@@ -1041,6 +1060,23 @@ export class DeliveryFormComponent implements AfterViewInit {
   private unisciProdotti(base: Product[], extra: Product[]): Product[] {
     const visti = new Set(base.map((p) => p.id));
     return [...base, ...extra.filter((p) => !visti.has(p.id))];
+  }
+
+  /**
+   * Il «Dettaglio prezzo flessibile» del sistema originario, reso leggibile.
+   * Se non e' il JSON del legacy (testo libero) torna null e resta il campo.
+   */
+  dettaglioFlex(): { quantita: string; prezzo: string }[] | null {
+    const t = (this.model.flexiblePrice ?? '').trim();
+    if (!t.startsWith('[')) return null;
+    try {
+      const voci = JSON.parse(t);
+      if (!Array.isArray(voci) || !voci.length) return null;
+      const buone = voci
+        .filter((v) => v?.product?.flexiblePrice != null)
+        .map((v) => ({ quantita: String(v.product.quantity ?? 1), prezzo: String(v.product.flexiblePrice) }));
+      return buone.length ? buone : null;
+    } catch { return null; }
   }
   removeProduct(i: number): void { this.productRows.splice(i, 1); }
 

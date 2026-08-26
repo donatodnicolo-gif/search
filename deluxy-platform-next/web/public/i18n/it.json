@@ -1101,6 +1101,7 @@
       "flexiblePrice": "Prezzo flessibile",
       "flexiblePriceDetail": "Dettaglio prezzo flessibile",
       "flexiblePricePlaceholder": "Es. da 20 a 50 €",
+      "flexiblePriceLegacy": "dal sistema originario — il prezzo vale sulle righe prodotto qui sopra",
       "hours": "Ore (servizio a ora)"
     },
     "savedNotice": {
