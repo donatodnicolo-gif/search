@@ -48,8 +48,14 @@ il discorso per chi ti ha già scritto; qui no, e la ragione è nel modo in cui 
 funziona: chi prepara una frode del capo manda prima una mail innocua, proprio per
 diventare «contatto noto».
 
-Come per i marchi **non sposta niente da sola**: propone («Sì, è spam» / «No»), e una
-volta approvata la casistica le successive uguali vanno in SPAM da sole. Le tre schermate
+⭐ **Aggiornamento della sera stessa, deciso dall'utente dopo aver visto il riquadro**:
+questa casistica **non si chiede più**. «La regola che le faccia finire sempre in spam è:
+si presenta col nostro indirizzo ma non è quella persona.» Quindi non è più un `caso` da
+approvare ma **livello ALTO da solo**: al prossimo arrivo la mail va in SPAM **senza
+domande** (in `sync`, con `spam = true` il ramo della proposta non viene nemmeno
+guardato). ⚠️ La casistica resta scritta lo stesso, e serve: le mail arrivate **prima**
+della regola sono già in posta, e su quelle il riquadro con «Sì, è spam» è l'unica strada.
+Per il resto (marchi noti) la logica «propone una volta, poi automatico» non cambia. Le tre schermate
 che la usano (sync, mail aperta, decisione) ora passano da un punto unico,
 **`casoMittente`** — ⚠️ chi aggiunge una casistica la metta lì, o le tre vanno fuori
 sincrono. La mail del 4/08 mostrerà il riquadro riaprendola: la regola si ricalcola anche
