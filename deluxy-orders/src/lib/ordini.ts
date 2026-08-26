@@ -456,6 +456,10 @@ export function serializzaOrdine(
       primoMargine: o.primoMargine,
       feeVendita: o.feeVendita,
       margineFinale: o.margineFinale,
+      // L'incasso come lo conosce la piattaforma: metodo di pagamento e
+      // commissione stimata dalla tariffa (zero per il contante).
+      metodoIncasso: o.metodoIncasso,
+      commissioneIncassi: o.commissioneIncassi,
       nota: o.controlloNota,
     },
     // Lo stato di LAVORAZIONE secondo il Customer Service (deluxy-messaging), che

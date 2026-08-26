@@ -539,6 +539,12 @@ model Ordine {
   primoMargine Float?
   feeVendita      Float?
   margineFinale   Float?
+  // L'INCASSO, come lo conosce la piattaforma (27/08/2026): il metodo con cui
+  // il cliente ha pagato («shopify_payments», «paypal», «Cash on Delivery
+  // (COD)»…) e la commissione d'incasso stimata dalla tariffa del gateway
+  // (zero per il contante). Il contante NON tocca il margine: e' cassa.
+  metodoIncasso      String?
+  commissioneIncassi Float?
 
   noteInterne      String?
   ultimaClassifica DateTime? // ultima modifica manuale della classificazione

@@ -233,6 +233,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data[campo] = +n.toFixed(2);
   }
 
+  // ── L'INCASSO (27/08): metodo di pagamento e commissione stimata ──
+  // La commissione e' un costo (mai negativa); il metodo e' testo corto.
+  if ("commissioneIncassi" in body) {
+    const grezzo = body.commissioneIncassi;
+    if (grezzo === null || grezzo === "") data.commissioneIncassi = null;
+    else {
+      const n = Number(grezzo);
+      if (!Number.isFinite(n) || n < 0 || n > 100000) {
+        return erroreApi(400, "commissioneIncassi non e' un importo valido (fra 0 e 100.000)");
+      }
+      data.commissioneIncassi = +n.toFixed(2);
+    }
+  }
+  if ("metodoIncasso" in body) {
+    const grezzo = body.metodoIncasso;
+    if (grezzo === null || grezzo === "") data.metodoIncasso = null;
+    else if (typeof grezzo !== "string" || grezzo.length > 60) {
+      return erroreApi(400, "metodoIncasso deve essere un testo di al massimo 60 caratteri");
+    } else data.metodoIncasso = grezzo.trim();
+  }
+
   if ("classificazioni" in body) {
     data.classificazioni = body.classificazioni == null ? Prisma.DbNull : body.classificazioni;
   }
