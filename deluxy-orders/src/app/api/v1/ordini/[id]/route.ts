@@ -214,6 +214,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data[campo] = +n.toFixed(2);
   }
 
+  // ── L'ECONOMIA DELLA VENDITA, gia' calcolata dalla piattaforma (26/08) ──
+  // guadagnoVendita e margineFinale sono RISULTATI e possono essere negativi
+  // (un ordine venduto sotto costo esiste); feeVendita e' un importo trattenuto
+  // e sotto zero non ha senso. `null` azzera, come per gli ingredienti.
+  for (const campo of ["guadagnoVendita", "feeVendita", "margineFinale"] as const) {
+    if (!(campo in body)) continue;
+    const grezzo = body[campo];
+    if (grezzo === null || grezzo === "") {
+      data[campo] = null;
+      continue;
+    }
+    const n = Number(grezzo);
+    const minimo = campo === "feeVendita" ? 0 : -100000;
+    if (!Number.isFinite(n) || n < minimo || n > 100000) {
+      return erroreApi(400, `${campo} non e' un importo valido (fra ${minimo} e 100.000)`);
+    }
+    data[campo] = +n.toFixed(2);
+  }
+
   if ("classificazioni" in body) {
     data.classificazioni = body.classificazioni == null ? Prisma.DbNull : body.classificazioni;
   }

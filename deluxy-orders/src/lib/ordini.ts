@@ -450,6 +450,12 @@ export function serializzaOrdine(
       // margine deve poter vedere di che cosa e' fatto.
       costoConsegna: o.costoConsegna,
       feeConsegna: o.feeConsegna,
+      // L'economia della vendita calcolata dalla piattaforma consegne:
+      // guadagno netto IVA, quota registrata, margine finale. Numeri SUOI,
+      // dichiarati come tali — il nostro `margine` resta il conto di casa.
+      guadagnoVendita: o.guadagnoVendita,
+      feeVendita: o.feeVendita,
+      margineFinale: o.margineFinale,
       nota: o.controlloNota,
     },
     // Lo stato di LAVORAZIONE secondo il Customer Service (deluxy-messaging), che
