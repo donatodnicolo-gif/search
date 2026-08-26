@@ -243,6 +243,14 @@ con riga di registro sulla consegna dove un prezzo scritto è cambiato.
 - **Form consegna**: il flag «Codice di consegna richiesto» sta in alto a
   destra come nell'app attuale; la freccia indietro (form E dettaglio) torna
   alla schermata PRECEDENTE (history), non a un indirizzo fisso.
+- **Tendina prodotti in modifica**: carica i primi 500 su 21.887, e il
+  prodotto della consegna poteva non esserci — la selezione sembrava VUOTA pur
+  essendo scritta (62510). Ora si va a prendere per id e il catalogo si
+  unisce senza sostituire (commit `94e24310`).
+- **«Dettaglio prezzo flessibile» leggibile**: il JSON del legacy (che l'import
+  aveva copiato in `Delivery.flexiblePrice`) non si mostra più grezzo — pillole
+  «1 × 680 €» con la nota che il prezzo vale sulle righe prodotto; il testo
+  libero non-JSON tiene il campo modificabile (commit `ceca84c6`).
 
 **Resta da fare qui**: creazione/modifica dei modelli SMS da UI (l'API `POST
 /sms-templates` c'è); creazione provincia da UI; la prima corsa AUTOMATICA del
