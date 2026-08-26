@@ -81,6 +81,30 @@ al 3,6% e cambio valuta) è più alta del listino piatto.
 - Rilanciata la spinta completa (`tutti: true`): i `margineFinale` di tutto
   l'archivio si ricalcolano con la commissione vera e ripartono verso Orders.
 
+### L'ingrediente che non ricomponeva il piatto (26/08/2026, sera 2)
+
+Controllo di coerenza dopo la spinta: **794 ordini su 10.053** in cui
+`primoMargine + feeVendita − costoConsegna − commissioneIncassi` **non dava**
+`margineFinale`. Non erano dati sbagliati: era il `costoConsegna` **pubblicato**
+a essere diverso da quello **usato** dentro il margine.
+
+`spingiMargini` sommava la paga di TUTTE le consegne; la Finanza, nel suo
+margine, azzera quelle con `payable = false` (regola carnet: una sola consegna
+del giro porta la paga). Misurato: **767 ordini**, **12.745,87 €** di costo
+pubblicato che nel margine non c'era. Sul totale la spinta passa da
+**111.650,85 € a 99.689,05 €**.
+
+Allineato: `payable` entra nel `select` e la paga vale zero dove non è pagabile
+— la stessa formula della Finanza. ⭐ **La lezione**: quando si pubblicano gli
+INGREDIENTI accanto al piatto già fatto, i due devono ricomporsi. Un
+ingrediente che non torna è peggio di un ingrediente assente, perché chi legge
+non ha modo di accorgersene. Il controllo che l'ha trovato — ricomporre il
+margine dagli ingredienti e confrontarlo col numero mandato — vale la pena
+tenerlo come verifica ricorrente.
+
+⚠️ Il residuo dei **794** era concentrato sugli ordini a **più consegne**
+(782 su 794): è lì che il gruppo somma e le differenze si accumulano.
+
 ## 25/08/2026 (sera) — I margini vanno a Orders OGNI NOTTE, e sei schermate sistemate
 
 **Spinta completa eseguita** (`scripts/spingi-margini-a-orders.mjs --scrivi`):

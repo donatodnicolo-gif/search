@@ -284,7 +284,7 @@ export class OrdersSyncService {
       },
       select: {
         code: true, realOrderNumber: true, status: true,
-        valetSalary: true, valetAdditionalPrice: true,
+        valetSalary: true, valetAdditionalPrice: true, payable: true,
         price: true, additionalPrice: true,
         partner: { select: { commissionPercent: true } },
         valet: { select: { hasVat: true, withholdingPercent: true } },
@@ -302,7 +302,16 @@ export class OrdersSyncService {
       // suo NETTO — sopra, Deluxy versa la ritenuta d'acconto: costo vero
       // della consegna, che a Orders va COMPRESO. Formula dalla ricevuta:
       // ritenuta = paga × (1 − % rimborso) × 25%. Con P.IVA niente da aggiungere.
-      const paga = Math.max(0, (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0));
+      // ⚠️ Se la consegna NON e' pagabile il suo costo e' ZERO: l'importo resta
+      // scritto sulla riga (dice quanto sarebbe valsa) ma non si paga — e' la
+      // regola carnet, dove una sola consegna del giro porta la paga. La
+      // Finanza lo fa gia' nel suo margine; qui no, e l'ingrediente pubblicato
+      // a Orders era diverso da quello usato dentro margineFinale su 767
+      // ordini, per 12.745,87 EUR di costo che non esiste. Un ingrediente che
+      // non ricompone il piatto e' peggio di un ingrediente assente.
+      const paga = d.payable === false
+        ? 0
+        : Math.max(0, (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0));
       const ritenuta = paga > 0 && d.valet && d.valet.hasVat === false
         ? paga * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25
         : 0;
