@@ -1,4 +1,5 @@
 import { NuovoOrdine } from '@/components/NuovoOrdine'
+import { Bozze } from '@/components/Bozze'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,13 +17,19 @@ export default async function PaginaNuovoOrdine({
     return (Array.isArray(v) ? v[0] : v) ?? ''
   }
   return (
-    <NuovoOrdine
-      prefill={{
-        nome: uno('nome'),
-        email: uno('email'),
-        telefono: uno('telefono'),
-        negozioId: uno('negozio'),
-      }}
-    />
+    <>
+      <NuovoOrdine
+        prefill={{
+          nome: uno('nome'),
+          email: uno('email'),
+          telefono: uno('telefono'),
+          negozioId: uno('negozio'),
+        }}
+      />
+      {/* ⚠️ SOTTO il modulo, non in una pagina a parte: la domanda «quel link
+          l'hanno pagato?» viene a chi sta per farne un altro, ed e' li' che
+          deve trovare la risposta. */}
+      <Bozze />
+    </>
   )
 }

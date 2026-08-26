@@ -69,8 +69,13 @@ export function Sidebar({
     {
       titolo: 'Ordini',
       voci: [
-        // Il primo della sezione: e' l'unico che CREA un ordine invece di
-        // lavorarne uno che c'e' gia'.
+        // ⚠️ PRIMO del gruppo, prima ancora di «Nuovo ordine»: un preventivo e
+        // il momento in cui un ordine puo nascere o non nascere. Se sta in
+        // fondo lo si guarda quando ci si ricorda, e un prezzo chiesto e mai
+        // mandato non fa rumore — il cliente compra altrove, e basta.
+        { href: '/preventivi', nome: 'Preventivi', icona: iconaPreventivo },
+        // Subito dopo: e' quello che CREA un ordine senza passare da un
+        // preventivo, quando il prezzo e' gia' stato concordato a voce.
         { href: '/nuovo-ordine', nome: 'Nuovo ordine', icona: iconaArchivio },
         { href: '/ordini-globali', nome: 'Ordini globali', icona: iconaArchivio },
         { href: '/clienti', nome: 'Clienti', icona: iconaClienti },
@@ -247,6 +252,15 @@ const iconaPartner = (
 const iconaChat = (
   <svg {...T} strokeLinejoin="round">
     <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.9 8.9 0 0 1-3.2-.6L3 21l1.8-5.2a8 8 0 0 1-.8-3.5A8.4 8.4 0 0 1 12.5 4 8.4 8.4 0 0 1 21 11.5z" />
+  </svg>
+)
+const iconaPreventivo = (
+  // Un foglio con un prezzo: la richiesta prima che diventi ordine.
+  <svg {...T} strokeLinejoin="round">
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5" />
+    <path d="M9 13h6" />
+    <path d="M9 17h3" />
   </svg>
 )
 const iconaChiamate = (

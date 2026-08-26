@@ -386,6 +386,7 @@ model Ordine {
   // l'economia di un'altra app.
   /**
    * /**
+   * /**
    * L'ultimo link di pagamento per una RICONSEGNA di quest'ordine.
    * ⚠️⚠️ Si tiene, e non è un vezzo: senza, chiudendo il pop-up il link
    * spariva e per riaverlo bisognava premere di nuovo «Crea il link» — cioè
@@ -1962,4 +1963,99 @@ model Chiamata {
   @@index([ordineId])
   @@index([richiamataIl])
   @@index([negozioId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PREVENTIVI
+//
+// Un preventivo è una richiesta di prezzo che NON è ancora un ordine: «quanto
+// costa un bouquet di 100 rose consegnato a Como sabato?». Finché non c'è un
+// posto dove scriverla, quella domanda vive in una conversazione — e una
+// conversazione si archivia. Chi ha chiesto un prezzo e non ha avuto risposta
+// non lascia traccia da nessuna parte: non è un ordine perso, è un ordine che
+// non è mai stato contato.
+//
+// ⚠️⚠️ NON È UN REGISTRO ORDINI. L'ordine, quando nasce, nasce su Shopify e vive
+// in Deluxy Orders (regola in testa a `src/lib/negozi.ts`). Qui c'è la
+// RICHIESTA e la nostra risposta: quanto abbiamo detto, con che link, ed è
+// finita sì o no. Quando il cliente paga, l'ordine arriva dal giro normale e
+// questo preventivo si chiude — non diventa lui l'ordine.
+//
+// ⚠️ Il preventivo MANDATO è una bozza Shopify col link di pagamento: la stessa
+// strada del «Nuovo ordine» (`nuovo-ordine.ts`, `pagamento: 'link'`), perché una
+// bozza non è un incasso finché non la pagano. Qui si tiene il nome della bozza
+// e il link, che è quello che si rimanda al cliente se lo perde.
+//
+// ⚠️ Da non confondere con le «richieste di preventivo dei PARTNER» della
+// piattaforma consegne (`QuoteRequest` in deluxy-platform-next): quelle sono
+// aziende che chiedono un prezzo a noi dal loro accesso. Queste sono i clienti.
+// ─────────────────────────────────────────────────────────────────────────────
+model Preventivo {
+  id String @id @default(cuid())
+
+  /// Il marchio: è la colonna in cui il preventivo si legge, come in bacheca.
+  /// ⚠️ `null` = non si sa ancora — e resta una risposta legittima: chi scrive
+  /// «quanto costa una torta per 30 persone» a una casella che serve tutti i
+  /// marchi non ha ancora detto a quale brand sta parlando.
+  negozioId String?
+
+  clienteNome String @default("")
+  email       String @default("")
+  telefono    String @default("")
+  /// Le ultime 9 cifre del telefono: la stessa chiave con cui si riconosce una
+  /// persona in tutta l'app (chiamate, rubrica, scheda cliente).
+  cifre       String @default("")
+
+  /// Che cosa ha chiesto, **con parole sue**. ⚠️ Non un riassunto: chi prepara
+  /// il prezzo tre ore dopo deve poter leggere la domanda vera, non la sua
+  /// interpretazione di chi l'ha raccolta.
+  richiesta      String    @db.Text
+  occasione      String    @default("")
+  citta          String    @default("")
+  dataConsegna   DateTime?
+  fasciaConsegna String    @default("")
+
+  /// Da dove è arrivata la richiesta, e — quando si sa — la riga da cui nasce:
+  /// email | whatsapp | telefono | sito | manuale.
+  /// ⚠️ Il legame si tiene perché la prima domanda di chi riprende in mano un
+  /// preventivo è «cosa ci siamo detti»: senza, si ricomincia da capo col
+  /// cliente che ha già spiegato tutto.
+  origine         String @default("manuale")
+  conversazioneId String @default("")
+  chiamataId      String @default("")
+
+  /// `da_fare` (chiesto, nessuno ha ancora risposto) → `inviato` (prezzo dato)
+  /// → `accettato` | `rifiutato` | `scaduto`.
+  /// ⚠️ «scaduto» è uno stato e non un silenzio: un preventivo che nessuno
+  /// chiude resta aperto per sempre e sporca il conto di quanti ne stiamo
+  /// aspettando davvero.
+  stato String @default("da_fare")
+
+  /// Quanto abbiamo detto. 0 = non ancora quotato.
+  importo Float  @default(0)
+  valuta  String @default("EUR")
+
+  /// La bozza su Shopify e il suo link di pagamento: è il preventivo mandato.
+  bozzaNome     String @default("")
+  linkPagamento String @default("") @db.Text
+  /// Il numero dell'ordine vero, se il cliente ha pagato.
+  ordineNumero  String @default("")
+
+  /// Fino a quando vale il prezzo. ⚠️ Un prezzo senza scadenza si trasforma in
+  /// un impegno eterno: il cliente ripesca il link di marzo a novembre.
+  validoFinoAl DateTime?
+
+  seguitoDaId   String @default("")
+  seguitoDaNome String @default("")
+  note          String @default("") @db.Text
+
+  creatoIl     DateTime  @default(now())
+  inviatoIl    DateTime?
+  chiusoIl     DateTime?
+  chiusoDaNome String    @default("")
+
+  @@index([stato, creatoIl])
+  @@index([negozioId, stato])
+  @@index([cifre])
+  @@index([conversazioneId])
 }

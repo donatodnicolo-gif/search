@@ -31,6 +31,65 @@ Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Num
 (app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
 Inbox si vede il numero grezzo invece del nome del marchio.
 
+## I preventivi: la domanda che vale dei soldi
+
+«Quanto costa un bouquet di 100 rose consegnato a Como sabato?» non è un ordine e
+non è un reclamo: è una domanda che vale dei soldi. Finché non c'era un posto
+dove scriverla viveva dentro una conversazione — e una conversazione si archivia.
+Chi chiede un prezzo e non riceve risposta non lascia traccia da nessuna parte:
+**non è un ordine perso, è un ordine mai contato.**
+
+La sezione **Preventivi** (in «Ordini») li tiene a colonne per marchio, come la
+bacheca. Ogni scheda porta la richiesta **con le parole del cliente** — non un
+riassunto: chi prepara il prezzo tre ore dopo deve leggere la domanda vera, non
+l'interpretazione di chi l'ha raccolta.
+
+⚠️⚠️ **L'urgenza di un preventivo è DA QUANTO ASPETTA.** Non ha una data di
+consegna che lo renda urgente, quindi i più vecchi stanno in cima e oltre i tre
+giorni l'attesa si colora di rosso. Ordinandoli per «ultimo arrivato», come si fa
+con la posta, si seppelliscono proprio quelli che stanno marcendo.
+
+### Il giro
+
+1. **Da preparare** — la richiesta è arrivata, nessuno ha ancora risposto.
+2. **Prepara il prezzo** — importo, descrizione che vedrà il cliente, e per
+   quanti giorni vale. Ne esce una **bozza Shopify con link di pagamento**: la
+   stessa strada di «Nuovo ordine».
+3. **Inviato** — il link si copia e si manda (WhatsApp o come si preferisce).
+   ⚠️ Non parte da solo: un prezzo si accompagna, e un link secco a chi ha
+   chiesto «quanto verrebbe» sembra un preventivo fatto da una macchina.
+4. **Accettato / Rifiutato / Scaduto.** Quando il cliente paga, la bozza diventa
+   un ordine e arriva in bacheca dal giro normale: il preventivo si **chiude**,
+   non diventa lui l'ordine.
+
+⚠️ **Il marchio serve per mandare** (la bozza nasce dentro un negozio Shopify),
+ma non per ricevere: una richiesta può arrivare **senza marchio** e resta nella
+colonna «Senza marchio» finché qualcuno non sceglie a chi risponde.
+
+⚠️ **La validità in giorni** non è un dettaglio: un prezzo senza scadenza diventa
+un impegno eterno, e il cliente ripesca il link di marzo a novembre.
+
+⚠️ Il valore «in attesa di risposta» conta **solo i preventivi mandati**: quelli
+ancora da preparare non hanno un prezzo, e sommarli vorrebbe dire contare zero
+come se fosse un dato.
+
+## Le bozze mandate: pagate o no?
+
+Sotto il modulo di **Nuovo ordine** c'è **Bozze mandate**: tutti i link di
+pagamento creati da qui negli ultimi 60 giorni, con com'è finita.
+
+⚠️⚠️ **Lo stato lo dice Shopify, non noi**, ed è chiesto **adesso**: la bozza vive
+là, e l'unico che sa se è stata pagata è lui. Qui si scrive soltanto il **numero
+dell'ordine** nato dalla bozza, perché quel fatto non torna più indietro.
+
+⚠️⚠️ **«Non lo so» non diventa «non pagata».** Se Shopify non risponde per un
+negozio, quelle bozze escono come *stato non disponibile* e la pagina lo dice in
+cima; se una bozza è stata cancellata su Shopify si legge *non c'è più*. Dedurre
+lo stato dal silenzio è il modo di richiamare un cliente che ha già pagato.
+
+Da ogni riga si può **ricopiare il link** e rimandarlo: è il caso vero di chi lo
+ha perso fra i messaggi.
+
 ## Le chiamate: l'unico canale che si cancella da solo
 
 Il centralino manda una notifica a **chiamate@deluxy.it** per ogni telefonata

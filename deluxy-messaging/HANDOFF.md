@@ -1,5 +1,79 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (10) — PREVENTIVI e BOZZE: la parte di prima e la parte di dopo
+
+Due richieste dell'utente, e sono i due lati dello stesso momento — quando un
+ordine **può nascere o non nascere**.
+
+### Preventivi (`/preventivi`, in «Ordini», primo del gruppo)
+
+«Crea una sezione preventivi dove sono indicati tutti i preventivi che vengono
+richiesti per brand, simile a ordini aperti.»
+
+A colonne per marchio, come la bacheca. Ogni scheda: cliente, **la richiesta con
+le parole sue**, città e data volute, stato, da quanti giorni è ferma.
+
+⚠️⚠️ **Un preventivo non ha una data di consegna che lo renda urgente**: la sua
+urgenza è **da quanto aspetta**. I più vecchi stanno in cima e oltre i 3 giorni
+l'attesa si colora — ordinandoli per «ultimo arrivato», come si fa con la posta,
+si seppelliscono proprio quelli che stanno marcendo. Chi chiede un prezzo e non
+riceve risposta non lascia traccia: non è un ordine perso, è **un ordine mai
+contato**.
+
+Il giro: `da_fare` → «Prepara il prezzo» (importo, descrizione, giorni di
+validità) → crea la **bozza Shopify col link** (stessa strada di «Nuovo ordine»,
+`pagamento: 'link'`) → `inviato` → `accettato | rifiutato | scaduto`.
+
+⚠️ **Non è un registro ordini**: l'ordine nasce su Shopify e vive in Orders.
+Quando il cliente paga arriva in bacheca dal giro normale e il preventivo si
+**chiude** — non diventa lui l'ordine.
+⚠️ Il **marchio serve** per mandare: la bozza nasce dentro un negozio Shopify.
+Una richiesta può però arrivare **senza marchio** («quanto costa una torta per
+30 persone» a una casella che serve tutti): resta in «Senza marchio» e lo si
+sceglie dalla scheda.
+⚠️ Il link **non parte da solo**: un prezzo si accompagna.
+⚠️ **Validità in giorni** (7 di default): un prezzo senza scadenza diventa un
+impegno eterno — il cliente ripesca il link di marzo a novembre.
+⚠️ In KPI il «valore in attesa» conta **solo gli inviati**: sommare quelli da
+preparare, che non hanno prezzo, vorrebbe dire contare zero come se fosse un dato.
+
+⚠️ Da non confondere con `QuoteRequest` della **piattaforma consegne**: quelle
+sono richieste di preventivo dei **partner** dal loro accesso. Queste sono i
+clienti.
+
+### Bozze (dentro `/nuovo-ordine`, sotto il modulo)
+
+«Metti una sezione Bozze in Nuovo Ordine dove poter vedere lo stato delle bozze
+inviate (se sono state pagate e tramutate in ordine oppure no).»
+
+⚠️⚠️ **Lo stato non è nostro**: la bozza vive su Shopify, e l'unico che sa se è
+stata pagata è Shopify. Si **chiede** a ogni apertura (`draftOrder → status,
+order { name }, invoiceUrl`), negozio per negozio. L'unica cosa che si scrive è
+il **numero dell'ordine** nato dalla bozza, e solo perché quel fatto non torna
+più indietro.
+
+⚠️⚠️ **«Non lo so» non diventa «non pagata»**: se Shopify non risponde per un
+negozio, quelle bozze escono come **«stato non disponibile»** e la pagina lo
+scrive in rosso in cima. Dedurre lo stato dal silenzio è il modo di richiamare un
+cliente che ha già pagato. Stessa cosa per una bozza **cancellata** su Shopify:
+«non c'è più», che è diverso da «aperta».
+
+**Misurato**: in tabella ci sono **2 bozze** create da qui, tutte e due col link
+e **senza ordine** — #D5636 (140 €, oggi, Nicolò) e #D5627 (1,22 €, 24/08, CRM).
+⚠️ **La chiamata a Shopify NON è stata provata da qui**: la rotta sta dietro al
+login e uno script che manda client id e secret a Shopify è bloccato dal
+classificatore. La prova è aprire la pagina: se lo stato appare, funziona; se
+appare l'avviso rosso, il token di quel negozio non c'è.
+
+⚠️ La sezione sta **sotto il modulo** e non in una pagina sua: la domanda «quel
+link l'hanno pagato?» viene a chi sta per farne un altro.
+
+⚠️⚠️ **Trappola già vista, ricascata**: `PreventiviLista` (client) importava
+`nomeStato` da `preventivi.ts`, che importa `nuovo-ordine.ts` → `crypto.ts` →
+`node:crypto`: **build fallita** con un errore che parla di webpack e non nomina
+mai la causa. Rimedio identico a `piattaforma-stati.ts`: gli stati stanno in
+`preventivi-stati.ts`, che nel browser ci può stare.
+
 ## 26/08/2026 (9) — dal telefono: la pagina cominciava a y=712
 
 Chiesto dall'utente: «da mobile sistema la ux&ui».

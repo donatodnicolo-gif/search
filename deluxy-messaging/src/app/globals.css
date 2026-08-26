@@ -5034,3 +5034,57 @@ td .azioni-ordine {
     margin: 6px 0 4px;
   }
 }
+
+/* ── PREVENTIVI ───────────────────────────────────────────────────────────────
+   Le schede riusano `.scheda-ordine`: sono la stessa cosa vista un momento
+   prima, e dargli un aspetto diverso costringerebbe a impararle due volte. */
+
+/* Due campi in fila che sul telefono vanno a capo. ⚠️ Su 375px due campi
+   affiancati fanno due caselle da 150px: un indirizzo email non ci sta, e si
+   scrive alla cieca. */
+.campi-affiancati {
+  display: flex;
+  gap: 10px;
+}
+.campi-affiancati > .campo {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .campi-affiancati {
+    flex-wrap: wrap;
+  }
+  .campi-affiancati > .campo {
+    flex: 1 1 100%;
+  }
+}
+
+/* La richiesta, con le parole del cliente. ⚠️ Non si taglia a una riga: è
+   l'unica cosa che serve davvero a chi deve fare il prezzo. Al massimo si
+   scorre, ma dentro la scheda, senza allungarla all'infinito. */
+.preventivo-richiesta {
+  margin: 6px 0;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  max-height: 5.4em;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.preventivo-link {
+  margin-top: 6px;
+}
+.preventivo-link input {
+  width: 100%;
+  font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  background: var(--fill);
+}
+
+.preventivo-prezzo {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+}
