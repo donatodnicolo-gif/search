@@ -1,7 +1,10 @@
 // Edge Function `linee` (Deno): Scout è il MASTER delle linee di interesse.
 // Le altre app Deluxy leggono da qui l'albero delle linee (con sottolinee).
 //
-// Auth: header `x-api-key: <LINEE_API_KEY>` (chiave condivisa, secret server-side).
+// Auth: header `x-api-key`. Valgono DUE chiavi: il secret `LINEE_API_KEY` e la
+// chiave d'ingresso di Scout (`chiavi_app._ingresso`, quella di `lead` e
+// `trattativa`) — che a differenza di un secret di Supabase si puo' rileggere
+// dall'app per darla a un'altra app senza rigenerarla.
 // Sola lettura. GET/POST equivalenti; parametri opzionali:
 //   ?soloAttive=1  → esclude le linee/sottolinee in standby (attiva_bool=false)
 //   ?soloVetrina=1 → solo quelle offerte ai partner nella loro casa
@@ -14,7 +17,7 @@
 // Risposta: { linee: [{ id, nome, icona, attiva, inVetrina, ordine, pitch,
 //                       sottolinee: [...] }] }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { uguali } from '../_shared/chiaveIn.ts';
+import { chiaveIngressoValida, clientAdmin, uguali } from '../_shared/chiaveIn.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -40,11 +43,28 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
     const atteso = Deno.env.get('LINEE_API_KEY');
-    if (!atteso) return json({ error: 'LINEE_API_KEY non configurata sul master' }, 500);
     const key = req.headers.get('x-api-key') ?? req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-    // Confronto a tempo costante (audit 24/08/2026): `!==` esce alla prima
+    // Due chiavi valide, e non è generosità: `LINEE_API_KEY` è un secret di
+    // Supabase, e un secret **non si rilegge** — quando bisogna darlo a
+    // un'altra app o lo si è annotato da qualche parte, o si è costretti a
+    // rigenerarlo spegnendo le integrazioni che lo usavano. La chiave
+    // d'ingresso (`chiavi_app._ingresso`, generata da Profilo → Impostazioni)
+    // si rilegge dall'app, ed è già quella di `lead` e `trattativa`.
+    //
+    // ⚠️ Confronto a tempo costante (audit 24/08/2026): `!==` esce alla prima
     // differenza e su una chiave è misurabile da fuori.
-    if (!uguali(key ?? '', atteso)) return json({ error: 'Chiave API mancante o non valida (header x-api-key).' }, 401);
+    const colSecret = Boolean(atteso) && uguali(key ?? '', atteso!);
+    const colIngresso = colSecret ? false : (await chiaveIngressoValida(key, clientAdmin())).ok;
+    if (!colSecret && !colIngresso) {
+      return json(
+        {
+          error: atteso
+            ? 'Chiave API mancante o non valida (header x-api-key).'
+            : 'Chiave non valida: sul master non è impostata LINEE_API_KEY, quindi vale solo la chiave d’ingresso di Scout.',
+        },
+        401,
+      );
+    }
 
     const url = new URL(req.url);
     const soloAttive = url.searchParams.get('soloAttive') === '1' || url.searchParams.get('soloAttive') === 'true';
