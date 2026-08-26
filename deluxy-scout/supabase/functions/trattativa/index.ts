@@ -8,9 +8,17 @@
 // owner — la si assegna poi dall'app.
 //
 // POST /functions/v1/trattativa
-//   { azione: 'apri', negozio, linea?, valoreAtteso?, fase?, scadenza?, nextAction? }
+//   { azione: 'apri', negozio, linea?, valoreAtteso?, fase?, scadenza?, nextAction?,
+//     crea?, contattoEmail? }
 //   → 200 { ok, id, place: { id, nome }, link }
-//   → 404 { error, candidati: [{ id, nome, zona }] }  negozio non trovato/ambiguo
+//   → 404 { error, candidati: [{ id, nome, zona }], puoiCreare?: true }
+//
+// `crea: 'si'` (o true): se il negozio NON esiste, lo si crea come prospect —
+// stesso gesto dell'auto-qualifica dei lead (`_shared/autoqualifica.ts`):
+// place a lat/lng 0,0 e, se c'è `contattoEmail`, il contatto in rubrica, così
+// la prossima richiesta della stessa persona si aggancia invece di duplicare.
+// ⚠️ MAI implicito: senza `crea`, un nome scritto male deve dare 404, non un
+// doppione silenzioso nel CRM.
 //
 // Deploy:
 //   supabase functions deploy trattativa --project-ref fdsziebgkljfsugqqbqd
@@ -100,7 +108,43 @@ Deno.serve(async (req) => {
     const lista = candidati ?? [];
     const target = normNome(negozio);
     const esatti = lista.filter((p: any) => normNome(p.nome) === target);
-    const scelto = esatti.length === 1 ? esatti[0] : lista.length === 1 ? lista[0] : null;
+    let scelto = esatti.length === 1 ? esatti[0] : lista.length === 1 ? lista[0] : null;
+
+    // Il chiamante ha chiesto ESPLICITAMENTE di creare il prospect se manca
+    // (es. AI Mail: chi ci chiede un preventivo da fuori non è ancora nel CRM).
+    const crea = body.crea === true || body.crea === 'si';
+
+    if (!scelto && crea && lista.length === 0) {
+      // Come l'auto-qualifica dei lead: senza indirizzo non c'è niente da
+      // geocodificare, entra a 0,0 — meglio un prospect senza posizione che
+      // una trattativa persa.
+      const { data: nuovo, error: eNuovo } = await admin
+        .from('places')
+        .insert({ nome: negozio, lat: 0, lng: 0 })
+        .select('id, nome, zona, stato')
+        .single();
+      if (eNuovo || !nuovo) return json({ error: eNuovo?.message ?? 'Prospect non creato.' }, 500);
+      // Il contatto in rubrica, se il chiamante sa chi è: aggancia le prossime
+      // richieste della stessa persona invece di far nascere un doppione.
+      const contattoEmail = typeof body.contattoEmail === 'string' && body.contattoEmail.includes('@')
+        ? body.contattoEmail.trim().toLowerCase()
+        : null;
+      if (contattoEmail) {
+        await admin
+          .from('contacts')
+          .insert({
+            place_id: (nuovo as any).id,
+            nome: negozio,
+            ruolo: null,
+            email: contattoEmail,
+            telefono: null,
+            is_decisore: false,
+            hubspot_contact_id: null,
+          })
+          .then(() => {}, () => {});
+      }
+      scelto = nuovo as any;
+    }
 
     if (!scelto) {
       return json(
@@ -109,6 +153,9 @@ Deno.serve(async (req) => {
             ? `Più negozi corrispondono a «${negozio}»: apri la trattativa dall'app scegliendo quello giusto.`
             : `Nessun negozio corrispondente a «${negozio}» nel CRM commerciale.`,
           candidati: lista.slice(0, 8).map((p: any) => ({ id: p.id, nome: p.nome, zona: p.zona })),
+          // Solo quando non c'è NESSUN candidato: con dei candidati in lista la
+          // strada giusta è scegliere, non creare un quasi-doppione.
+          ...(lista.length === 0 ? { puoiCreare: true } : {}),
         },
         404,
       );
