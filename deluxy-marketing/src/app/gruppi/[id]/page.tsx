@@ -23,7 +23,7 @@ import { finestrePerKeyword } from "@/lib/finestre-keyword";
 import { estendiKeywordConAi } from "@/lib/azioni-estendi";
 import { campagnePerDialogo } from "@/lib/campagne-dialogo";
 import { attributiPortaKeyword } from "@/lib/porta-keyword";
-import { giudicabilita, LIVELLI_CHE_PESANO } from "@/lib/guardrail";
+import { breakEvenRoas, giudicabilita, LIVELLI_CHE_PESANO } from "@/lib/guardrail";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
@@ -1503,6 +1503,7 @@ export default async function SchedaGruppo({
                         <th className="num">Clic</th>
                         <th className="num">Conv.</th>
                         <th className="num">Ricavi</th>
+                        <th className="num">ROS</th>
                         <th>Intercettata da</th>
                         <th data-no-ordina>Azione</th>
                       </tr>
@@ -1549,6 +1550,25 @@ export default async function SchedaGruppo({
                           <td className="num">{formattaNumero(t.clic)}</td>
                           <td className="num">{formattaNumero(t.conversioni)}</td>
                           <td className="num">{formattaEuro(t.ricavi)}</td>
+                          {/* Il ROS della singola ricerca, coi colori del
+                              break-even di brand — la STESSA scala della
+                              tabella gemella sulla scheda campagna
+                              (TerminiRicerca): verde da 1,5× il BE, blu sopra
+                              il BE, rosso sotto. Due tabelle uguali con due
+                              scale diverse farebbero litigare i colori. */}
+                          {(() => {
+                            const r = calcolaRoas(t.ricavi, t.spesa);
+                            const be = breakEvenRoas(gruppo.campagna.brand);
+                            const colore =
+                              r == null ? undefined :
+                              r >= be * 1.5 ? "var(--green)" :
+                              r >= be ? "var(--blue)" : "var(--red)";
+                            return (
+                              <td className="num" style={{ color: colore, fontWeight: r != null ? 600 : undefined }} title={r != null ? `Break-even del brand: ${be.toFixed(2)}×` : undefined}>
+                                {r != null ? `${r.toFixed(2)}×` : "—"}
+                              </td>
+                            );
+                          })()}
                           <td className="cella-muta" style={{ maxWidth: 200 }}>
                             {t.keyword ?? "—"}
                             {t.keywordDiverse && t.keywordDiverse > 1 && (
