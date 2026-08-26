@@ -278,6 +278,19 @@ export type AzioneApp = {
    * lettura (verifica/trova) restano automatiche. (Revisione 14/08/2026.)
    */
   scrive?: boolean
+  /**
+   * QUANDO il riassunto di una conversazione deve proporre questa azione
+   * (es. «un fornitore ha comunicato un prezzo» → Registra il preventivo).
+   * Assente = il riassunto non la propone mai. La regola sta QUI, accanto
+   * all'azione, non nel prompt del riassunto: una casa sola.
+   */
+  dalRiassunto?: string
+  /**
+   * L'azione da PROPORRE dopo che questa è riuscita (es. aperta la trattativa,
+   * «registra anche il contatto in Anagrafiche»). È un invito, non un
+   * automatismo: apre lo stesso dialogo, con la sua conferma.
+   */
+  dopo?: { azioneId: string; invito: string }
   /** Guida per l'AI su come compilare i dati. */
   guida: string
   /**
@@ -354,6 +367,8 @@ const AZIONI: AzioneApp[] = [
     id: 'anagrafiche.partner',
     app: 'Anagrafiche',
     nome: 'Registra contatto',
+    dalRiassunto:
+      'nella conversazione compare un’azienda NUOVA con cui si sta iniziando a lavorare, con dati anagrafici (nome, recapiti) da registrare',
     scrive: true,
     descrizione: 'Crea o aggiorna il partner/prospect nel registro centralizzato.',
     colore: 'blue',
@@ -609,6 +624,8 @@ const AZIONI: AzioneApp[] = [
     app: 'Finance',
     nome: 'Crea proforma',
     scrive: true,
+    dalRiassunto:
+      'i servizi e gli importi sono stati CONCORDATI con un partner e si può passare a fatturare (non quando i prezzi sono ancora in discussione)',
     descrizione: 'Prepara una proforma per il partner in Deluxy Finance.',
     colore: 'gold',
     guida:
@@ -882,10 +899,16 @@ const AZIONI: AzioneApp[] = [
     app: 'Commerciale',
     nome: 'Apri trattativa',
     scrive: true,
+    // Chi ci chiede un preventivo di solito NON è ancora in Anagrafiche:
+    // aperta la trattativa, si propone di registrarlo — stessa mail, stesso
+    // dialogo, sua conferma.
+    dopo: { azioneId: 'anagrafiche.partner', invito: 'Registra anche chi ce lo chiede in Anagrafiche' },
+    dalRiassunto:
+      'qualcuno CHIEDE un preventivo o un servizio a Deluxy, o si sta aprendo un’opportunità commerciale nuova con un negozio/attività (non quando siamo noi a chiedere un prezzo a un fornitore)',
     descrizione: 'Apre una nuova trattativa nel CRM commerciale per il negozio.',
     colore: 'green',
     guida:
-      'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = la linea commerciale (es. Affiliazioni, Consegne, Eventi) se citata, altrimenti null. valoreAtteso = importo previsto SOLO se scritto (numero, senza simboli), altrimenti null. fase = fase della trattativa se chiara, altrimenti null (default lato app). scadenza = data del follow-up (AAAA-MM-GG) se c’è. nextAction = la prossima azione da fare, in una frase.',
+      'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = la linea commerciale (es. Affiliazioni, Consegne, Eventi) se citata, altrimenti null. valoreAtteso = importo previsto SOLO se scritto — nella mail o in una precedente della conversazione (es. il preventivo mandato: se ci sono più voci con un prezzo, la loro somma detta per esteso vale, un tuo calcolo no) — altrimenti null. fase = fase della trattativa se chiara, altrimenti null (default lato app). scadenza = data del follow-up (AAAA-MM-GG) se c’è. nextAction = la prossima azione da fare, in una frase.',
     campi: [
       { nome: 'negozio', etichetta: 'Negozio', obbligatorio: true, aiuto: 'Commerciale lo cerca fra i suoi negozi.' },
       { nome: 'linea', etichetta: 'Linea commerciale', aiuto: 'Es. Affiliazioni, Consegne, Eventi' },
@@ -920,6 +943,10 @@ const AZIONI: AzioneApp[] = [
       const body: Record<string, unknown> = {
         azione: 'apri',
         negozio,
+        // `crea` ci arriva SOLO dal bottone «Crea … e apri la trattativa» del
+        // dialogo (via campoScelta, come i candidati): mai di suo. L'email del
+        // contatto la sa il codice (ctx.controparte), non il modello.
+        ...(dati.crea === 'si' ? { crea: 'si', contattoEmail: ctx.controparte ?? undefined } : {}),
         linea: dati.linea || undefined,
         valoreAtteso: valore.valore ?? undefined,
         fase: dati.fase || undefined,
@@ -957,19 +984,33 @@ const AZIONI: AzioneApp[] = [
                   })
                   .filter((x): x is { valore: string; etichetta: string } => x !== null)
               : []
-            // ⚠️ Senza candidati il messaggio era un vicolo cieco: diceva che
-            // il negozio non c'è, non che si può correggere e riprovare da qui.
-            // E il nome quasi sempre non è sbagliato per caso — è DEDOTTO dal
-            // dominio del mittente (giorgio@lemonandpepper.com → «Lemon and
-            // Pepper»), che è una supposizione ragionevole ma non è come lo
-            // chiama il CRM. Dirlo evita di andare a cercare in Commerciale un
-            // negozio che lì si chiama in un altro modo.
+            // Con dei candidati si sceglie fra quelli. SENZA candidati non è
+            // quasi mai un nome scritto male: è una PROSPECT NUOVA che nel CRM
+            // non esiste ancora («Grazia Finoli» che chiede un preventivo da
+            // virgilio.it, 26/08/2026) — e allora la strada giusta non è
+            // «correggi il nome» ma «creala». Il bottone riusa il meccanismo
+            // dei candidati: mette crea='si' nei dati e rimanda; il codice
+            // allega l'email della controparte, così in Scout nasce anche il
+            // contatto e la prossima sua mail si aggancia invece di duplicare.
+            const puoiCreare =
+              risposta && typeof risposta === 'object' && (risposta as Record<string, unknown>).puoiCreare === true
             return {
               ok: false,
               messaggio: scelte.length
                 ? testoErrore(risposta, 'Negozio non trovato in Commerciale.')
-                : `${testoErrore(risposta, 'Negozio non trovato in Commerciale.')}\nSe la mail non lo nomina, il nome qui sopra è ricavato dal dominio di chi scrive: correggi «Negozio» con il nome che ha in Commerciale e riprova.`,
-              ...(scelte.length ? { scelte, campoScelta: 'negozio' } : {}),
+                : `${testoErrore(risposta, 'Negozio non trovato in Commerciale.')}\n${
+                    puoiCreare
+                      ? 'Se è un contatto nuovo, crealo col bottone qui sotto; se invece in Commerciale ha un altro nome, correggi «Negozio» e riprova.'
+                      : 'Se la mail non lo nomina, il nome qui sopra è ricavato dal dominio di chi scrive: correggi «Negozio» con il nome che ha in Commerciale e riprova.'
+                  }`,
+              ...(scelte.length
+                ? { scelte, campoScelta: 'negozio' }
+                : puoiCreare
+                  ? {
+                      scelte: [{ valore: 'si', etichetta: `＋ Crea «${negozio}» nel CRM e apri la trattativa` }],
+                      campoScelta: 'crea',
+                    }
+                  : {}),
             }
           }
           return { ok: false, messaggio: testoErrore(risposta, `Commerciale ha risposto ${status}.`) }
@@ -982,6 +1023,8 @@ const AZIONI: AzioneApp[] = [
     app: 'Commerciale',
     nome: 'Registra il preventivo',
     scrive: true,
+    dalRiassunto:
+      'un FORNITORE ha comunicato un prezzo (o condizioni) per un lavoro che gli avevamo chiesto, e quel prezzo non risulta già registrato',
     descrizione: 'Segna in Scout il prezzo che un fornitore ha mandato per un lavoro aperto.',
     colore: 'green',
     guida:
@@ -1094,12 +1137,14 @@ export type AzioneDescritta = {
   campi?: CampoAzione[]
   /** Mostra la ricerca dell'azienda già presente in Anagrafiche. */
   cercaAzienda?: boolean
+  /** L'azione da proporre a invio riuscito (una catena, non un automatismo). */
+  dopo?: { azioneId: string; invito: string }
 }
 
 /** Descrive le azioni per i client component. `configurata` = la chiave della
  *  sua app è presente (inserita nell'app o via env). */
 export function descriviAzioni(chiavi: ChiaviApp): AzioneDescritta[] {
-  return AZIONI.map(({ id, app, nome, descrizione, colore, campi, cercaAzienda }) => ({
+  return AZIONI.map(({ id, app, nome, descrizione, colore, campi, cercaAzienda, dopo }) => ({
     id,
     app,
     nome,
@@ -1107,7 +1152,19 @@ export function descriviAzioni(chiavi: ChiaviApp): AzioneDescritta[] {
     colore,
     campi,
     cercaAzienda,
+    dopo,
     configurata: chiaveDiAzione({ app } as AzioneApp, chiavi).length > 0,
+  }))
+}
+
+/** Le azioni che il RIASSUNTO di una conversazione può proporre, ognuna con la
+ *  regola di quando farlo (il campo `dalRiassunto` dell'azione). */
+export function azioniDalRiassunto(): { id: string; app: string; nome: string; quando: string }[] {
+  return AZIONI.filter((a) => a.dalRiassunto).map((a) => ({
+    id: a.id,
+    app: a.app,
+    nome: a.nome,
+    quando: a.dalRiassunto!,
   }))
 }
 

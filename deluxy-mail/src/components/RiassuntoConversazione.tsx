@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { riassumiConversazione } from '@/lib/actions'
+import type { AzioneDescritta } from '@/lib/appDeluxy'
 import { ChiediConversazione } from './ChiediConversazione'
 
 /** Le domande che si fanno DOPO aver letto un riassunto. Sono generiche
@@ -14,10 +15,18 @@ const SUGGERIMENTI = ['Sai per quando?', 'Che prezzo hanno fatto?', 'Cosa aspett
 // I vecchi possono avere inSospeso come semplici stringhe: si gestiscono entrambi.
 type Parte = { chi: string; punto: string; msgId?: string | null }
 type Sospeso = string | { cosa: string; chi?: string; msgId?: string | null }
+/** Un'azione app che il riassunto propone: «Apri trattativa» se qualcuno
+ *  chiede un preventivo, «Registra il preventivo» se un fornitore manda un
+ *  prezzo. `msgId` è la mail che PORTA i dati. */
+type AzioneProposta = { azioneId: string; perche: string; msgId?: string | null }
+/** Un prezzo o un valore dello scambio, con la mail in cui sta scritto. */
+type Cifra = { voce: string; valore: string; msgId?: string | null }
 type Analisi = {
   sintesi: string
   parti: Parte[]
   inSospeso: Sospeso[]
+  cifre?: Cifra[]
+  azioni?: AzioneProposta[]
   livello?: Livello
 }
 
@@ -67,9 +76,13 @@ export function RiassuntoConversazione({
   iniziale,
   messaggiOra,
   autoAggiorna = false,
+  azioniApp = [],
 }: {
   messaggioId: string
   iniziale: Salvato | null
+  /** Il catalogo delle azioni app (nome, colore, se collegata): serve a
+   *  vestire le azioni che il riassunto propone. */
+  azioniApp?: AzioneDescritta[]
   /** Quanti messaggi ha ORA la conversazione: se sono più di quelli su cui il
    *  riassunto è stato fatto, quel riassunto è vecchio e va detto. */
   messaggiOra?: number
@@ -178,6 +191,31 @@ export function RiassuntoConversazione({
             </div>
           )}
 
+          {/* LE CIFRE, ESPLICITE. «Ha fornito dettagli sul budget» e «ha
+              chiesto conferme sui costi» senza i numeri non dicono niente:
+              i prezzi sono la ragione per cui si rilegge uno scambio. Ogni
+              valore è copiato ESATTO dalla mail (mai dedotto) e porta il
+              link alla mail in cui sta scritto: un numero senza fonte non
+              si può verificare, quindi non si può usare. */}
+          {(dati.analisi.cifre ?? []).length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontWeight: 600 }}>Cifre e prezzi</div>
+              <table className="cifre-riassunto">
+                <tbody>
+                  {(dati.analisi.cifre ?? []).map((c, i) => (
+                    <tr key={i}>
+                      <td className="voce">{c.voce}</td>
+                      <td className="valore">
+                        {c.valore}
+                        <ApriMsg msgId={c.msgId} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {dati.analisi.inSospeso.length > 0 && (
             <div style={{ marginTop: 12 }}>
               <div style={{ fontWeight: 600 }}>In sospeso</div>
@@ -214,6 +252,56 @@ export function RiassuntoConversazione({
               </span>{' '}
               Questa lettura è stata fatta su {dati.messaggiVisti} messaggi, adesso la
               conversazione ne ha {messaggiOra}. Ripremi un livello qui sopra per rifarla.
+            </div>
+          )}
+
+          {/* LE AZIONI CHE QUESTA CONVERSAZIONE CHIAMA («Apri trattativa» se
+              qualcuno chiede un preventivo, «Registra il preventivo» se un
+              fornitore manda un prezzo). Il bottone apre lo STESSO dialogo di
+              sempre (`aimail:app`): l'AI prepara i dati e la persona conferma
+              — qui non parte niente da solo.
+              ⚠️ I dati si preparano dalla mail che li PORTA (msgId), non da
+              quella che si sta guardando: il prezzo sta nella mail del
+              fornitore anche se sei sull'ultima della conversazione. */}
+          {(dati.analisi.azioni ?? []).length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontWeight: 600 }}>Si può fare da qui</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+                {(dati.analisi.azioni ?? []).map((a) => {
+                  // L'azione va vestita dal catalogo: se non c'è più (o non è
+                  // stato passato), meglio niente che un bottone rotto.
+                  const az = azioniApp.find((x) => x.id === a.azioneId)
+                  if (!az) return null
+                  return (
+                    <div key={a.azioneId} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn secondary small"
+                        disabled={!az.configurata}
+                        title={
+                          az.configurata
+                            ? `${az.app} — ${az.descrizione} L’AI prepara i dati e confermi tu.`
+                            : `${az.app}: chiave non ancora inserita (Impostazioni → App Deluxy).`
+                        }
+                        onClick={() =>
+                          window.dispatchEvent(
+                            new CustomEvent('aimail:app', {
+                              detail: { messaggioId: a.msgId ?? messaggioId, azioneId: a.azioneId },
+                            })
+                          )
+                        }
+                      >
+                        <span className={`badge ${az.colore}`} style={{ marginRight: 6 }}>
+                          <span className="dot" />
+                          {az.app}
+                        </span>
+                        {az.nome}
+                      </button>
+                      <span className="muted" style={{ fontSize: 12.5 }}>{a.perche}</span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 

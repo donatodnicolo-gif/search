@@ -27,6 +27,7 @@ import { valutaSpam } from './spam'
 import { decisioniSpam } from './spamCasi'
 import { notificaNuoveMail } from './push'
 import { rilevaLingua } from './rilevaLingua'
+import { azioniDalRiassunto } from './appDeluxy'
 
 export type EsitoSync = {
   tipo: 'scarico' | 'storico'
@@ -1980,9 +1981,13 @@ function contaPartecipanti(messaggi: Messaggio[]): number {
 function riassuntoInTesto(v: AnalisiThreadVista): string {
   const parti = v.parti.map((p) => `- ${p.chi}: ${p.punto}`).join('\n')
   const sospesi = v.inSospeso.map((s) => `- ${s.cosa}${s.chi ? ` (da ${s.chi})` : ''}`).join('\n')
+  // ⚠️ Anche le cifre: nell'aggiornamento incrementale l'AI riparte da questo
+  // testo — un prezzo che non c'è qui sparirebbe dal riassunto aggiornato.
+  const cifre = (v.cifre ?? []).map((c) => `- ${c.voce}: ${c.valore}`).join('\n')
   return [
     v.sintesi,
     parti && `\nPer punti di vista:\n${parti}`,
+    cifre && `\nCifre e prezzi:\n${cifre}`,
     sospesi && `\nIn sospeso:\n${sospesi}`,
   ]
     .filter(Boolean)
@@ -2045,22 +2050,39 @@ export async function riassumiThreadOra(
   }))
 
   try {
+    // Le azioni proponibili dal riassunto («Apri trattativa» se chiedono un
+    // preventivo, «Registra il preventivo» se un fornitore manda un prezzo):
+    // il catalogo, con le regole, vive in appDeluxy.
+    const proponibili = azioniDalRiassunto()
     const analisi = await riassumiThread({
       messaggi: precedente ? conIndice.slice(daIndice) : conIndice,
       precedente,
       contestoAzienda: ctx.contestoAzienda,
       istruzioni: mirate,
       livello,
+      azioniProponibili: proponibili,
       oggi: new Date(),
     })
 
     // Gli indici [n] dell'AI diventano id di messaggio (per i link "apri").
     const idDa = (i: number): string | null =>
       Number.isInteger(i) && i >= 0 && i < messaggi.length ? messaggi[i].id : null
+    // ⚠️ Si tengono solo azioni del catalogo (lo schema le vincola già, ma un
+    // id fuori lista non deve poter arrivare a un bottone) e al massimo due.
+    const idValidi = new Set(proponibili.map((p) => p.id))
+    const azioniVista = (analisi.azioni ?? [])
+      .filter((a) => idValidi.has(a.azione))
+      .slice(0, 2)
+      .map((a) => ({ azioneId: a.azione, perche: a.perche, msgId: idDa(a.msgIdx) }))
+    const cifreVista = (analisi.cifre ?? [])
+      .filter((c) => c.voce.trim() && c.valore.trim())
+      .map((c) => ({ voce: c.voce, valore: c.valore, msgId: idDa(c.msgIdx) }))
     const vista: AnalisiThreadVista = {
       sintesi: analisi.sintesi,
       parti: analisi.parti.map((p) => ({ chi: p.chi, punto: p.punto, msgId: idDa(p.msgIdx) })),
       inSospeso: analisi.inSospeso.map((s) => ({ cosa: s.cosa, chi: s.chi, msgId: idDa(s.msgIdx) })),
+      ...(cifreVista.length ? { cifre: cifreVista } : {}),
+      ...(azioniVista.length ? { azioni: azioniVista } : {}),
       // Il livello resta scritto: riaprendo si sa se quello che si sta
       // guardando è la sintesi in due righe o il quadro completo.
       livello,

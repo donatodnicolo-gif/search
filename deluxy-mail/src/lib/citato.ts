@@ -156,6 +156,26 @@ export function ripulisciAnteprima(testo: string): string {
   return t
 }
 
+/**
+ * L'oggetto senza la scala di «Re: R: R: R:…».
+ *
+ * Ogni client rimanda la palla aggiungendo il SUO prefisso (Re:, R:, I:, Fwd:,
+ * AW:, SV:…) davanti a quelli già accumulati: all'ottavo giro l'oggetto vero
+ * sta in fondo a una fila di sigle che non dice niente. Qui, SOLO a schermo,
+ * la fila si accorcia a un «Re:» — il dato salvato non si tocca.
+ *
+ * ⚠️ Si interviene solo quando i prefissi sono ALMENO DUE: un «R: qualcosa»
+ * singolo può essere un oggetto vero (una sigla, un codice), e riscriverlo
+ * in «Re:» sarebbe dedurre — nel dubbio si lascia com'è.
+ */
+export function oggettoLeggibile(oggetto: string): string {
+  const prefissi = /^((re|r|fw|fwd|i|tr|aw|sv|vs|rif|res)\s*:\s*){2,}/i
+  const m = oggetto.match(prefissi)
+  if (!m) return oggetto
+  const resto = oggetto.slice(m[0].length).trim()
+  return resto ? `Re: ${resto}` : oggetto
+}
+
 /** L'anteprima di una riga: la prima parte di quello che è stato scritto
  *  davvero, senza la citazione, senza link e senza a-capo. */
 export function anteprimaPulita(testo: string, max = 140): string {

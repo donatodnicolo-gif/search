@@ -5,7 +5,7 @@ import { dataBreve, dataLunga, FUSO } from '@/lib/format'
 import { statoRisposta } from '@/lib/statoRisposta'
 import { NotaAttivita } from '@/components/NotaAttivita'
 import { CheckAttivita } from '@/components/CheckAttivita'
-import { anteprimaPulita } from '@/lib/citato'
+import { anteprimaPulita, oggettoLeggibile } from '@/lib/citato'
 import { ConversazioneStack } from '@/components/ConversazioneStack'
 import { BozzaEditor } from '@/components/BozzaEditor'
 import { AzioniMessaggio } from '@/components/AzioniMessaggio'
@@ -262,7 +262,12 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           una striscia che va a capo da sé. */}
       <div className="card">
         <div className="mail-head compatta">
-          <h1 className="mail-subject">{messaggio.oggetto}</h1>
+          {/* «Re: R: R: R: R: R: R: R: Richiesta catering» → «Re: Richiesta
+              catering»: la scala di prefissi si accorcia SOLO a schermo,
+              l'oggetto vero resta nel title (e ovunque nei dati). */}
+          <h1 className="mail-subject" title={messaggio.oggetto}>
+            {oggettoLeggibile(messaggio.oggetto)}
+          </h1>
           <div className="mail-meta una-riga" title={`da ${messaggio.mittente} · a ${messaggio.destinatari}`}>
             <Link
               href={`/rubrica/${encodeURIComponent(messaggio.mittente)}`}
@@ -528,6 +533,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
           <RiassuntoConversazione
             messaggioId={messaggio.id}
+            // Il catalogo delle azioni app: serve a dare nome, colore e stato
+            // di collegamento alle azioni che il riassunto propone.
+            azioniApp={azioniApp}
             // Quanti messaggi ha ORA: serve a dire in chiaro quando il
             // riassunto è vecchio (fatto su 10, adesso sono 17).
             messaggiOra={conversazione.length}

@@ -106,6 +106,7 @@ import {
   leggiQuadroContatto,
   idsThread,
   membriThread,
+  messaggiThread,
   preparaEsecuzione,
   preparaRispostaDelegata,
   preparaEventoDelegato,
@@ -4124,10 +4125,34 @@ export async function proponiPerApp(
     // scartando i nostri domini) e si passa già risolta: su una mail che
     // abbiamo mandato noi, il mittente siamo noi.
     const nostri = await nostriDomini(utenteId)
+    // La conversazione PRECEDENTE, compatta: il prezzo, il budget o i recapiti
+    // spesso non stanno nella mail aperta ma in una di prima — «Valore atteso:
+    // non indicato» su un thread in cui il prezzo c'era (26/08/2026). Le
+    // ultime mail dello scambio entrano nel prompt come contesto; se il thread
+    // non si legge, si prepara come prima, dalla sola mail.
+    let conversazione: string | undefined
+    try {
+      const thread = await messaggiThread(utenteId, messaggioId)
+      conversazione = thread
+        .filter((t) => t.id !== messaggioId)
+        .slice(-8)
+        .map(
+          (t) =>
+            `[${t.direzione === 'uscita' ? 'DA NOI' : t.mittenteNome || t.mittente}] ${t.data
+              .toISOString()
+              .slice(0, 16)
+              .replace('T', ' ')} — ${t.oggetto}\n${(t.corpoTradotto || t.corpoTesto).slice(0, 1200)}`
+        )
+        .join('\n\n---\n\n')
+      if (!conversazione.trim()) conversazione = undefined
+    } catch {
+      conversazione = undefined
+    }
     const estratti = await estraiDatiAzione({
       messaggio: m,
       controparte: controparteDi(m, nostri),
       nostriDomini: nostri,
+      conversazione,
       nomeAzione: `${azione.app} — ${azione.nome}`,
       guida: azione.guida,
       schema: azione.schema,
@@ -4138,13 +4163,14 @@ export async function proponiPerApp(
     // l'utente vede il valore giusto e resta libero di cambiarlo (all'invio
     // `normalizza` non tocca più quello che ha scritto lui).
     const dati = azione.daMail?.(estratti, m) ?? estratti
-    const { id, app, nome, descrizione, colore, campi, cercaAzienda } = azione
+    const { id, app, nome, descrizione, colore, campi, cercaAzienda, dopo } = azione
     return {
       ok: true,
       messaggio: 'Dati pronti: controllali e conferma.',
       // `campi`/`cercaAzienda` servono al dialogo per mostrare il FORM invece
-      // del JSON grezzo e, dove previsto, la ricerca dell'azienda.
-      azione: { id, app, nome, descrizione, colore, configurata, campi, cercaAzienda },
+      // del JSON grezzo e, dove previsto, la ricerca dell'azienda; `dopo` è
+      // l'azione da proporre a invio riuscito (la catena trattativa→contatto).
+      azione: { id, app, nome, descrizione, colore, configurata, campi, cercaAzienda, dopo },
       dati: JSON.stringify(dati, null, 2),
     }
   } catch (e) {

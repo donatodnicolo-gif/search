@@ -23,6 +23,65 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 — il lotto «riassunto che lavora» + lo storico ripiegato anche in HTML
+
+Cinque richieste dell'utente in sequenza, stessa giornata. In ordine:
+
+1. **Lo storico citato è ripiegato anche nella vista FORMATTATA** (`src/lib/citatoHtml.ts`
+   + `CorpoMessaggio`). `dividiCitato` copriva solo la vista testo, ma la predefinita è
+   l'iframe: il decimo messaggio arrivava coi nove precedenti srotolati. Ora la pagina
+   lavora sul DOM dentro l'iframe (stessa strada dei tasti rapidi: `allow-same-origin`,
+   niente script nella mail): trova l'inizio della citazione (contenitori noti +
+   marcatori «ha scritto:»/«wrote:»/«Da:»), nasconde da lì in giù, tasto «··· mostra i
+   messaggi precedenti». Stesse guardie del testo: inoltro puro o citazione corta → non
+   si tocca. Misurato in anteprima: 646px → **175px** da chiusa, riapribile.
+   ⚠️ **`onLoad` su un iframe `srcDoc` non è affidabile** (può scattare prima che React
+   agganci il gestore — qui non scattava affatto): il ripiego gira anche da un
+   `useEffect` idempotente con le stesse dipendenze dell'ascolto tasti.
+   ⚠️ Dopo il ripiego va chiamata `misura()`, o l'iframe resta alto quanto la mail intera.
+2. **L'oggetto non fa la scala**: «Re: R: R: R: R: R: R: R: …» → «Re: …»
+   (`oggettoLeggibile` in `citato.ts`, usato nell'h1 della mail aperta, originale nel
+   `title`). Solo con ALMENO due prefissi: un «R: sigla» singolo può essere un oggetto
+   vero e non si tocca.
+3. **Le cifre esplicite nel riassunto**: campo strutturato `cifre` nello
+   `SCHEMA_THREAD` (voce/valore/msgIdx), blocco «Cifre e prezzi» nella scheda con
+   «→ apri» sulla mail-fonte. Valore copiato ESATTO come scritto (mai dedotto), l'ultimo
+   se è cambiato (con la nota «prima 17 €»). ⚠️ Le cifre entrano anche in
+   `riassuntoInTesto`: l'aggiornamento incrementale riparte da quel testo, e un prezzo
+   assente lì sparirebbe dal riassunto aggiornato. Nato da: il riassunto Profondo diceva
+   «ha fornito dettagli sul budget» senza UN numero.
+4. **Il riassunto propone le azioni** («Si può fare da qui»): campo `azioni` nello
+   schema — enum costruito dal catalogo vero (`azioniDalRiassunto()` in `appDeluxy`, la
+   regola di quando proporre sta sul campo `dalRiassunto` di ogni azione: una casa
+   sola). Bottone → stesso dialogo `aimail:app`, ma su **msgId della mail che PORTA i
+   dati** (il prezzo si estrae dalla mail del fornitore, non da quella aperta). Max 2,
+   validate contro il catalogo anche al ritorno, «vuoto è la risposta giusta» nel prompt.
+5. **L'estrazione legge anche il THREAD** (`proponiPerApp` → `estraiDatiAzione` con
+   `conversazione`): il valore atteso usciva «non indicato» quando il prezzo stava due
+   mail prima. Ultime 8 mail del thread, 1.200 caratteri l'una, regola invariata: un
+   valore si prende SOLO se scritto, il più recente se ripetuto.
+6. **La catena trattativa→contatto**: campo `dopo` sull'azione
+   (`commerciale.trattativa` → `anagrafiche.partner`); a invio riuscito il dialogo
+   propone «→ Registra anche chi ce lo chiede in Anagrafiche». Invito, non automatismo.
+7. **«Nessun negozio corrispondente» non è più un vicolo cieco** quando i candidati sono
+   ZERO: non è un nome scritto male, è una **prospect nuova** («Grazia Finoli» da
+   virgilio.it). La Edge `trattativa` di Scout ora accetta `crea:'si'` +
+   `contattoEmail`: crea il place a 0,0 (stesso gesto dell'auto-qualifica dei lead) col
+   contatto in rubrica, e apre la trattativa; il 404 senza candidati torna
+   `puoiCreare:true` e AI Mail mostra «＋ Crea "…" nel CRM e apri la trattativa»
+   (riusa il meccanismo dei candidati: `campoScelta:'crea'`). MAI implicito: senza il
+   bottone, un nome sbagliato deve dare 404, non un doppione.
+   **Deploy Edge fatto** (`supabase functions deploy trattativa`, token da
+   `deluxy-scout/.env` SUPABASE_PAT). ⚠️ Verificato solo che la funzione risponda (401
+   su chiave finta): la forma nuova del 404 e la creazione vera restano da provare con
+   la chiave vera, dalla schermata.
+
+Verifica del lotto: `tsc` e `npm run build` puliti (esito letto direttamente); ripiego,
+cifre, azioni e dispatch dell'evento provati nel browser su una pagina d'anteprima
+temporanea, poi cancellata. NON provato a schermo: la catena `dopo` (serve un invio
+riuscito con la sessione vera) e il bottone «Crea» end-to-end.
+
+---
 ### 25/08 sera 2 — dal riassunto si può fare una domanda
 
 Chiesto dall'utente: «partendo da un riassunto vorrei poter fare domande: esempio *Sai per

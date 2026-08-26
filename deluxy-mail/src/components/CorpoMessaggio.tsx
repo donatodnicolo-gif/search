@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { leggiHtmlMessaggio } from '@/lib/actions'
 import { dividiCitato, senzaSegnapostoFile } from '@/lib/citato'
+import { ripiegaCitatoHtml } from '@/lib/citatoHtml'
 
 type Props = {
   /** HTML già sanitizzato lato server, o null se la mail è di solo testo. */
@@ -83,9 +84,28 @@ export function CorpoMessaggio({ html: htmlIniziale, testo, tradotto, lingua, ht
     if (corpo) setAltezza(Math.min(corpo.scrollHeight + 8, 5000))
   }
 
+  /** Al caricamento dell'iframe: prima si ripiega la conversazione riportata
+   *  (come già fa la vista testo con `dividiCitato`), POI si misura — così
+   *  l'altezza è quella della sola parte nuova, non dello storico intero. */
+  function alCaricamento() {
+    const doc = ref.current?.contentDocument
+    if (doc) ripiegaCitatoHtml(doc, misura)
+    misura()
+  }
+
   useEffect(() => {
     if (vista === 'html') misura()
   }, [vista])
+
+  // ⚠️ Anche da effetto, non solo da onLoad: con `srcDoc` il caricamento può
+  // scattare PRIMA che React abbia agganciato il gestore, e il ripiego non
+  // partirebbe mai. L'effetto rigira a ogni misura (stesse dipendenze
+  // dell'ascolto tasti qui sotto) e `ripiegaCitatoHtml` è idempotente.
+  useEffect(() => {
+    if (vista !== 'html') return
+    const doc = ref.current?.contentDocument
+    if (doc?.body) ripiegaCitatoHtml(doc, misura)
+  }, [vista, altezza, html])
 
   /**
    * I TASTI PREMUTI DENTRO LA MAIL ARRIVANO LO STESSO ALLA PAGINA.
@@ -212,7 +232,7 @@ export function CorpoMessaggio({ html: htmlIniziale, testo, tradotto, lingua, ht
           ref={ref}
           title="Contenuto del messaggio"
           srcDoc={documento}
-          onLoad={misura}
+          onLoad={alCaricamento}
           sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           style={{ width: '100%', height: altezza, border: 'none', display: 'block' }}
         />

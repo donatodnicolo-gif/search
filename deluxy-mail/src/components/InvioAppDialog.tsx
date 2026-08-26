@@ -518,6 +518,26 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
           </p>
         )}
 
+        {/* LA CATENA: aperta la trattativa, chi ce l'ha chiesta di solito non è
+            ancora in Anagrafiche — si propone il passo dopo, sulla STESSA mail.
+            È un invito, non un automatismo: apre questo stesso dialogo da capo,
+            con l'AI che prepara e la persona che conferma. */}
+        {esito?.ok && proposta?.azione?.dopo && messaggioId && (
+          <button
+            type="button"
+            className="btn secondary small"
+            style={{ marginTop: 10 }}
+            disabled={inCorso}
+            onClick={() => {
+              const dopo = proposta.azione!.dopo!
+              setEsito(null)
+              prepara(messaggioId, dopo.azioneId)
+            }}
+          >
+            → {proposta.azione.dopo.invito}
+          </button>
+        )}
+
         <div className="form-footer" style={{ marginTop: 14 }}>
           <button className="btn secondary" type="button" onClick={chiudi} disabled={inCorso}>
             {esito?.ok ? 'Chiudi' : 'Annulla'}

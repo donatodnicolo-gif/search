@@ -232,6 +232,24 @@ solo finché non ricarichi è una ricerca che rifarai a mano.
 In fondo al riassunto è scritto con quale livello è stato fatto, così due righe non
 sembrano un riassunto povero quando erano una lettura veloce.
 
+**Le cifre sono esplicite.** Sotto i punti di vista c'è **«Cifre e prezzi»**: ogni
+prezzo, importo o valore dello scambio, uno per riga, col link «→ apri» alla mail in cui
+sta scritto. «Ha fornito dettagli sul budget» senza il numero non dice niente: qui il
+numero c'è, copiato **esatto** dalla mail (mai dedotto né calcolato), e se un prezzo è
+cambiato durante lo scambio si vede l'ultimo con la nota di com'era prima.
+
+**Il riassunto propone le azioni.** Se la conversazione chiama una funzione delle app
+Deluxy — qualcuno ci chiede un preventivo → **Apri trattativa**; un fornitore ci manda un
+prezzo → **Registra il preventivo** — sotto «In sospeso» compare **«Si può fare da qui»**
+col bottone e il perché. Il bottone apre il solito dialogo di conferma: l'AI prepara i
+dati **dalla mail che li porta** (il prezzo si estrae dalla mail del fornitore, anche se
+stai guardando l'ultima), e non parte niente finché non confermi tu. Al massimo due
+proposte, e solo quando la conversazione lo chiede davvero.
+
+**Dal riassunto si fanno anche domande** («Chiedi qualcosa su questo scambio»), con tre
+domande pronte da premere: *«Sai per quando?»*, *«Che prezzo hanno fatto?»*, *«Cosa
+aspettano da me?»*.
+
 **Per rifarlo** basta ripremere un livello: quello attivo diventa **«↻ Profondo»**. E se
 nel frattempo sono arrivate altre mail, sopra compare **«Da aggiornare»** con il conto —
 «fatta su 10 messaggi, adesso sono 17» — perché un riassunto vecchio non è sbagliato, è
@@ -402,14 +420,26 @@ proforma — si leggono in una tabellina, e per correggerle c'è «Modifica come
 fondo, che mostra i dati nella forma con cui viaggiano davvero.
 
 **Da dove viene un valore, e perché a volte va corretto.** Quasi tutti i campi li ricava
-l'AI leggendo la mail; alcuni invece li mette il codice, perché li sa con certezza (il
-negozio di un ordine Shopify e il fornitore di un preventivo si leggono dagli indirizzi,
-non dal testo). Quando la mail **non nomina** l'azienda, l'AI ricade sul dominio di chi
-scrive: da `giorgio@lemonandpepper.com` esce «Lemon and Pepper». È una supposizione
-onesta, ma è il nome che si legge nell'indirizzo — non per forza quello con cui
-l'azienda è registrata nell'app di destinazione. Se Commerciale risponde «negozio non
-trovato», di solito è questo: si corregge il campo nella tabella e si riconferma, senza
-uscire dalla mail.
+l'AI leggendo la mail **e la conversazione precedente**: un prezzo detto due mail fa
+entra nel valore atteso della trattativa, senza che tu debba andarlo a ripescare. Alcuni
+campi invece li mette il codice, perché li sa con certezza (il negozio di un ordine
+Shopify e il fornitore di un preventivo si leggono dagli indirizzi, non dal testo).
+Quando la mail **non nomina** l'azienda, l'AI ricade sul dominio di chi scrive: da
+`giorgio@lemonandpepper.com` esce «Lemon and Pepper». È una supposizione onesta, ma è il
+nome che si legge nell'indirizzo — non per forza quello con cui l'azienda è registrata
+nell'app di destinazione. Se Commerciale risponde «negozio non trovato», si corregge il
+campo nella tabella e si riconferma, senza uscire dalla mail.
+
+**E se chi scrive nel CRM non c'è proprio?** Quando Commerciale non trova **nessun**
+candidato — una persona nuova che ci chiede un preventivo da un indirizzo privato — il
+dialogo offre **«＋ Crea "…" nel CRM e apri la trattativa»**: nasce il prospect in
+Commerciale, col **contatto** (l'email di chi scrive, messa dal codice), e la trattativa
+si apre subito. È sempre un bottone, mai un automatismo: un nome scritto male non deve
+creare un doppione da solo.
+
+**Dopo la trattativa, il contatto.** Aperta una trattativa, il dialogo propone **«→
+Registra anche chi ce lo chiede in Anagrafiche»**: chi ci chiede un preventivo di solito
+non è ancora nel registro. Stessa mail, stesso dialogo, la sua conferma.
 
 Le app non collegate si vedono lo stesso, spente: nasconderle farebbe pensare che non
 esistano. Le chiavi si mettono in Impostazioni → App Deluxy.
@@ -509,10 +539,16 @@ Tre cose che rendono la pila leggibile:
 - **Sulla riga chiusa non c'è l'oggetto** — in un thread è identico per tutti e non dice
   niente — ma la **prima riga scritta davvero**, senza la parte citata. È quello che
   permette di scorrere venti messaggi e capire dove guardare.
-- **Il testo citato è ripiegato**: la risposta mostra quello che ha scritto chi manda, e
-  la conversazione riportata sotto sta dietro «··· mostra il testo citato». Niente viene
-  buttato, e se non si riconosce una citazione **non si taglia niente**: nascondere per
-  sbaglio un pezzo di messaggio vero sarebbe peggio del disturbo.
+- **Il testo citato è ripiegato** — anche nella **versione formattata**, non solo in
+  quella di testo: la mail aperta mostra quello che ha scritto chi manda, e lo storico
+  riportato sotto sta dietro «··· mostra i messaggi precedenti», con una riga di stacco
+  quando lo si apre. Niente viene buttato, e se non si riconosce una citazione **non si
+  taglia niente**: nascondere per sbaglio un pezzo di messaggio vero sarebbe peggio del
+  disturbo (un inoltro puro, ad esempio, resta tutto in vista).
+- **L'oggetto non fa la scala**: «Re: R: R: R: R: R: R: R: Richiesta catering» si legge
+  «Re: Richiesta catering». Solo a schermo — l'oggetto vero resta nei dati e compare
+  passando il mouse sul titolo — e solo quando i prefissi accumulati sono almeno due: un
+  «R: qualcosa» singolo potrebbe essere un oggetto vero, e non si tocca.
 - **Si gira con la tastiera**: `j` e `k` per muoversi fra i messaggi, `Invio` per
   aprire e chiudere, `r` per rispondere a quello su cui sei. (Non mentre scrivi: dentro
   un campo di testo le lettere restano lettere.)
