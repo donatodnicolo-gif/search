@@ -695,6 +695,9 @@
         <select id="sort">
           <option value="dist" selected>Distanza</option>
           <option value="rating">Valutazione</option>
+          <option value="reviews">Numero recensioni</option>
+          <option value="wa">Con WhatsApp prima</option>
+          <option value="open">Aperti ora prima</option>
         </select>
       </div>
     </div>
@@ -766,6 +769,9 @@
             <button class="wchip active" data-rate="tutti" type="button">Tutte</button>
             <button class="wchip" data-rate="4plus" type="button">⭐ 4+ stelle</button>
           </div>
+          <label style="margin-left:auto; display:flex; align-items:center; gap:6px; margin-bottom:0; white-space:nowrap">Ordina
+            <select id="sortResults" style="width:auto"></select>
+          </label>
         </div>
         <!-- aggiungi un negozio che la ricerca non ha fatto uscire (per nome) -->
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px">
@@ -1810,6 +1816,22 @@ applySide();
   twin.addEventListener('change', ()=>{ sel.value = twin.value; localStorage.setItem('limitPref', sel.value); run(); });
 })();
 
+// Anche l'«Ordina per» scelto resta per le ricerche successive (localStorage, come il limite);
+// il gemello in cima ai risultati (#sortResults) RIORDINA le schede già trovate, senza nuove
+// chiamate a Google (applySort). NB: distanza/valutazione/recensioni decidono anche QUALI negozi
+// entrano nel taglio «Numero risultati» alla prossima ricerca; WhatsApp/apertura si conoscono
+// solo dopo i dettagli, quindi lì la pre-selezione resta per distanza.
+(function(){
+  const sel = $('#sort'), twin = $('#sortResults');
+  twin.innerHTML = sel.innerHTML;
+  const saved = localStorage.getItem('sortPref');
+  if(saved && [...sel.options].some(o=>o.value===saved)) sel.value = saved;
+  twin.value = sel.value;
+  const cambia = val=>{ sel.value = val; twin.value = val; localStorage.setItem('sortPref', val); applySort(); };
+  sel.addEventListener('change', ()=> cambia(sel.value));
+  twin.addEventListener('change', ()=> cambia(twin.value));
+})();
+
 // toggle categorie (solo le chip della ricerca: quelle dei Contatti hanno i loro listener)
 document.querySelectorAll('.catbtns .chip').forEach(ch => ch.addEventListener('click', () => {
   const c = ch.dataset.cat;
@@ -2763,6 +2785,35 @@ function applyFilters(){
   syncMapMarkers();   // i segnaposto seguono i filtri
   return shown;
 }
+
+// Ordina le schede GIÀ in pagina secondo la scelta dell'operatore (select «Ordina», form +
+// gemello sui risultati): riordina il DOM e basta — zero chiamate a Google. Le schede del
+// registro e quelle matchate partner/prospect restano SEMPRE in cima (scelta di prodotto del
+// 20/07), nell'ordine in cui sono; si ordinano le altre. Dopo il riordino i segnaposto e le
+// targhette #N si rinumerano da soli (syncMapMarkers scorre il DOM).
+function applySort(){
+  const cards = [...resultsEl.querySelectorAll('.shop')];
+  if(!cards.length) return;
+  const fisse  = cards.filter(c=> c.dataset.registry || c.dataset.regId);
+  const libere = cards.filter(c=> !(c.dataset.registry || c.dataset.regId));
+  const num = (v, se)=>{ const n = parseFloat(v); return isFinite(n) ? n : se; };
+  const distDi = c => num(c.dataset.dist, Infinity);   // senza distanza → in fondo
+  const CHIAVI = {
+    dist:    c => [distDi(c)],
+    rating:  c => [-num(c.dataset.rating, 0), distDi(c)],
+    reviews: c => [-num(c.dataset.reviews, 0), distDi(c)],
+    wa:      c => [c.dataset.wakind==='mobile' ? 0 : 1, distDi(c)],
+    open:    c => [c.dataset.open==='open' ? 0 : (c.dataset.open==='unknown' ? 1 : 2), distDi(c)],
+  };
+  const chiave = CHIAVI[$('#sort').value] || CHIAVI.dist;
+  libere.sort((a,b)=>{
+    const ka = chiave(a), kb = chiave(b);
+    for(let i=0;i<ka.length;i++){ if(ka[i]!==kb[i]) return ka[i]-kb[i]; }
+    return 0;
+  });
+  [...fisse, ...libere].forEach(c=> resultsEl.appendChild(c));
+  applyFilters();
+}
 // pillole gemelle (form di ricerca + cima ai risultati), sempre in sincrono
 function setWaFiltro(val){
   waFiltro = val;
@@ -3531,6 +3582,9 @@ function shopCard(d, cat, dist, pid){
   el.dataset.wakind = kind;
   el.dataset.open = (open===true) ? 'open' : (open===false) ? 'closed' : 'unknown';
   el.dataset.rating = d.rating || 0;
+  el.dataset.reviews = d.user_ratings_total || 0;
+  // distanza in metri per l'ordinamento (stradale se calcolata, altrimenti linea d'aria)
+  { const dm = dist && (dist.drive ?? dist.straight); if(dm!=null) el.dataset.dist = dm; }
   el.dataset.lang = shopLang;
   el.dataset.sid = pid || d.place_id || '';
   el.innerHTML = `
@@ -3771,8 +3825,12 @@ async function renderResults(found, geo, origin, service, opts){
   resetMap();
   mapPoints = [];
 
-  // ordina (linea d'aria) e limita
-  found.sort((a,b)=> sortBy==='rating' ? (b.rating-a.rating) : (a.dist-b.dist));
+  // ordina e limita: la scelta «Ordina per» decide anche QUALI negozi entrano nel taglio.
+  // WhatsApp/apertura non si conoscono prima dei dettagli → lì si pre-seleziona per distanza
+  // e l'ordine vero lo mette applySort() a fine render.
+  found.sort((a,b)=> sortBy==='rating'  ? (b.rating-a.rating)
+                   : sortBy==='reviews' ? ((b.place.user_ratings_total||0)-(a.place.user_ratings_total||0))
+                   : (a.dist-b.dist));
   found = found.slice(0, cap);
 
   // distanza STRADALE (in auto) dalla consegna: la calcolo per i selezionati e riordino
@@ -3791,7 +3849,7 @@ async function renderResults(found, geo, origin, service, opts){
   for(const f of found){
     const d = await details(service, f.place.place_id);
     if(!d) continue;
-    const card = shopCard(d, f.cat, { straight:f.dist, driveText:f.driveText, durText:f.durText }, f.place.place_id);
+    const card = shopCard(d, f.cat, { straight:f.dist, drive:f.driveDist, driveText:f.driveText, durText:f.durText }, f.place.place_id);
     resultsEl.appendChild(card);
     cards.push({card, website:d.website, pid:f.place.place_id});
     // punto per la mappa (posizione dai dettagli, ripiego sulla scheda della ricerca)
@@ -3853,7 +3911,7 @@ async function renderResults(found, geo, origin, service, opts){
       : ' · registro: nessun partner/prospect in zona';
   }
 
-  applyFilters();
+  applySort();   // ordina secondo la scelta dell'operatore e applica i filtri
   $('#resultTools').style.display = 'block';           // filtri + bottone mappa sopra i risultati
   $('#toggleMap').style.display = mapPoints.length ? '' : 'none';
   showExtendFooter(extended);                          // «estendi» anche in fondo alla lista

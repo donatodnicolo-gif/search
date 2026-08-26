@@ -182,6 +182,20 @@ L'app è richiamabile da un bottone/link di qualsiasi altra app; i parametri si 
   (`dataset.registry`) restano sempre visibili. Due gruppi gemelli sincroni: form
   (`#waFilter`,`#openFilter`) e sopra i risultati (`#waFilterResults`,`#openFilterResults`), via
   `setWaFiltro`/`setOpenFiltro`. Pillole in `.wchip` (non prendono i listener di `.chip`).
+- **Ordinamento a scelta dell'operatore** (26/08): select «Ordina per» nel form (`#sort`) +
+  gemello sopra i risultati (`#sortResults`, riempito copiando le option, sincrono nei due
+  versi, scelta salvata in `localStorage.sortPref`). Valori: `dist` (predefinito), `rating`,
+  `reviews` (numero recensioni), `wa` (con WhatsApp prima), `open` (aperti ora prima).
+  `applySort()` riordina le schede **già in pagina** spostando i nodi DOM (zero chiamate
+  Google) e poi chiama `applyFilters()`; `syncMapMarkers` scorre il DOM, quindi segnaposto e
+  targhette #N si rinumerano da soli. Le schede del registro e le matchate partner/prospect
+  (`dataset.registry`/`dataset.regId`) restano SEMPRE in cima nell'ordine loro. Dati per
+  l'ordinamento sul dataset della scheda: `rating`, `reviews` (`user_ratings_total`), `dist`
+  (metri, stradale se calcolata altrimenti linea d'aria; chi non ce l'ha va in fondo),
+  `wakind`, `open`; a parità decide sempre la distanza. In `renderResults` la scelta
+  dist/rating/reviews decide anche QUALI negozi entrano nel taglio «Numero risultati»
+  (pre-sort prima dello slice); per wa/open la pre-selezione resta per distanza (i dati
+  arrivano solo coi dettagli) e l'ordine vero lo mette `applySort()` a fine render.
 - **Mappa**: `#toggleMap` → `#mapWrap`/`#map`, Google Maps JS (già caricata). I punti si raccolgono
   in `mapPoints` nel loop dettagli (`d.geometry.location`); `buildMap` mette il segnaposto blu
   della consegna + i negozi numerati (InfoWindow + `focusCard`), `syncMapMarkers` segue i filtri,

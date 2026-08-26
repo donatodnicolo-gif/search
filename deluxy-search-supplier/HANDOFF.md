@@ -1,4 +1,4 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 24/08/2026)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 26/08/2026)
 
 > 🏛️ **ARCHITETTURA DEI DATI (OBBLIGATORIA, 24/08/2026)** — Standard Deluxy §7
 > (`C:\Users\nicol\scoutwt\deluxy-standard\STANDARD-DELUXY.md`). Il ruolo di
@@ -713,6 +713,29 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    Verificato nel browser con mappa e marker finti: numerazione e targhette con tutto visibile,
    dopo il filtro (3 su 5, numeri 1-2-3 contigui, targhette allineate), fitBounds sui soli visibili
    (4 punti invece di 6) e nessun fit a mappa chiusa.
+
+52. **Ordinamento dei risultati a scelta dell'operatore** (26/08, chiesto dall'utente): il select
+   «Ordina per» del form ora offre **Distanza / Valutazione / Numero recensioni / Con WhatsApp
+   prima / Aperti ora prima**, e sopra i risultati c'è il **gemello `#sortResults`** (accanto al
+   filtro stelle, pattern di `#limitResults`): cambiarlo **riordina le schede già trovate senza
+   nuove chiamate a Google** (`applySort()`: sposta i nodi DOM e richiama `applyFilters`;
+   `syncMapMarkers` scorre il DOM, quindi segnaposto e targhette #N si rinumerano da soli).
+   La scelta resta in `localStorage.sortPref` (come `limitPref`) e i due select sono sincroni.
+   - Le schede del **registro** e le **matchate partner/prospect** (`dataset.registry`/
+     `dataset.regId`) restano SEMPRE in cima, nel loro ordine (scelta di prodotto del 20/07):
+     si ordinano le altre.
+   - Dati nuovi sul dataset della scheda (`shopCard`): `reviews` (`user_ratings_total`) e `dist`
+     (metri, **stradale** se calcolata altrimenti linea d'aria — `drive` passato da
+     `renderResults`); chi non ha il dato va in fondo; a parità decide sempre la distanza.
+   - In `renderResults` la scelta dist/rating/**reviews** decide anche QUALI negozi entrano nel
+     taglio «Numero risultati» (pre-sort prima dello slice); per **wa/open** i dati si conoscono
+     solo dopo i dettagli → pre-selezione per distanza e ordine vero da `applySort()` a fine
+     render (che ha sostituito la chiamata diretta ad `applyFilters()`).
+   Verificato in locale (5511, dati finti): 5 ordinamenti con l'ordine atteso (compresi «senza
+   distanza in fondo» e pareggi risolti per distanza), scheda registro sempre in cima,
+   sincronizzazione form↔gemello nei due versi, `sortPref` salvato, console pulita, sintassi
+   dello script inline OK. **Non collaudato su Google vero** (serve login): da provare su una
+   ricerca reale — anche il layout della barra filtri col select nuovo (desktop e mobile).
 
 ## Cose in sospeso
 
