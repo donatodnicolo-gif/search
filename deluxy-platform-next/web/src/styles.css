@@ -225,3 +225,93 @@ input.field {
 .table-wrap tr:last-child td {
   border-bottom: none;
 }
+
+/* ============================================================
+   MOBILE: le tabelle diventano SCHEDE (stile Deluxy Scout).
+   Ogni riga è una card; l'etichetta di colonna arriva da
+   data-label, scritto dai <th> (già tradotti) in
+   app/core/tabelle-a-schede.ts. Vale per TUTTE le liste in
+   .table-wrap senza toccare le singole pagine.
+   ============================================================ */
+@media (max-width: 800px) {
+  /* Il contenitore smette di essere una card: le card sono le righe. */
+  .table-wrap,
+  .card.table-wrap {
+    overflow-x: visible;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .table-wrap table,
+  .table-wrap tbody,
+  .table-wrap tr,
+  .table-wrap td {
+    display: block;
+    width: 100%;
+  }
+  .table-wrap thead {
+    display: none;
+  }
+  .table-wrap tbody tr {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-m);
+    box-shadow: var(--shadow-card);
+    margin: 0 0 10px;
+    padding: 4px 14px;
+  }
+  .table-wrap tbody tr:hover {
+    background: var(--surface);
+  }
+  /* Cella = riga etichetta/valore della scheda. */
+  .table-wrap td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--hairline);
+    white-space: normal;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  .table-wrap tr:last-child td,
+  .table-wrap td:last-child {
+    border-bottom: none;
+  }
+  .table-wrap td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    text-align: left;
+  }
+  /* Cella senza colonna (colspan: righe espanse, sotto-tabelle):
+     niente etichetta, contenuto a tutta larghezza. */
+  .table-wrap td[data-label='']::before,
+  .table-wrap td:not([data-label])::before {
+    content: none;
+  }
+  .table-wrap td[data-label=''],
+  .table-wrap td:not([data-label]) {
+    display: block;
+    text-align: left;
+  }
+  /* Le sotto-tabelle dentro una riga espansa restano schede annidate,
+     senza doppio bordo. */
+  .table-wrap table table tr {
+    box-shadow: none;
+  }
+
+  /* Intestazioni di pagina e paginazione: a capo, senza overflow. */
+  .page-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .pager {
+    flex-wrap: wrap;
+  }
+}

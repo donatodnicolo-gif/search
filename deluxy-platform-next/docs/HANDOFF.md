@@ -402,6 +402,25 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### 27/08 — MOBILE: le tabelle diventano SCHEDE (stile Deluxy Scout)
+
+Chiesto dall utente («su mobile non usare tabelle ma schede come deluxy-scout»).
+Meccanismo GLOBALE, nessuna delle ~27 liste riscritta:
+
+- **CSS in `styles.css`** (media ≤800px, stesso breakpoint della shell): dentro
+  `.table-wrap` la thead sparisce, ogni `tr` e una card (superficie bianca,
+  hairline, radius, ombra), ogni `td` una riga etichetta/valore
+  (etichetta a sinistra da `td::before { content: attr(data-label) }`,
+  valore a destra). Il contenitore `.card.table-wrap` perde il vestito da card:
+  le card sono le righe. Celle con colspan (righe espanse, sotto-tabelle di
+  fatture/stipendi) = nessuna etichetta, contenuto a tutta larghezza.
+- **Etichette AUTO da `app/core/tabelle-a-schede.ts`** (avviato in `main.ts`):
+  legge i `<th>` gia renderizzati (quindi GIA TRADOTTI, senza lo span
+  dell ordinamento) e scrive `data-label` su ogni `td` della colonna;
+  MutationObserver su childList (scrivere un attributo non lo risveglia:
+  niente cicli) con ripasso in requestAnimationFrame.
+- Le `table.mini` dei dettagli restano tabelle (chiave/valore, gia strette).
+
 ### ⭐ 27/08 (notte, 12) — La RITENUTA entra nel costo consegna (Finanza + Orders)
 
 Deciso dall utente: la ritenuta d acconto dei valet SENZA P.IVA e un costo
