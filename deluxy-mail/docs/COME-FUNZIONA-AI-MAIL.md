@@ -439,6 +439,16 @@ nome che si legge nell'indirizzo — non per forza quello con cui l'azienda è r
 nell'app di destinazione. Se Commerciale risponde «negozio non trovato», si corregge il
 campo nella tabella e si riconferma, senza uscire dalla mail.
 
+**La trattativa porta con sé il contatto, la stima e la fase.** Nella tabella di «Apri
+trattativa» c'è la riga **Contatto (email)** — la mette il codice, dall'indirizzo di chi
+scrive — e Scout lo aggancia al negozio (o lo crea con lui): la prossima mail della
+stessa persona si ritrova in rubrica invece di generare un doppione. Il **valore
+atteso**, se un totale non è scritto, è la **stima calcolata dai prezzi e quantità dello
+scambio** (18 €/persona × 45 persone): i numeri di partenza sono sempre quelli scritti,
+mai inventati — ed essendo una stima, va controllata prima di confermare. La **fase** è
+una tendina con gli stati veri di Scout (Primo contatto · In trattativa · Preventivo
+inviato · Chiusa vinta · Chiusa persa), e l'AI la propone leggendo lo scambio.
+
 **E se chi scrive nel CRM non c'è proprio?** Quando Commerciale non trova **nessun**
 candidato — una persona nuova che ci chiede un preventivo da un indirizzo privato — il
 dialogo offre **«＋ Crea "…" nel CRM e apri la trattativa»**: nasce il prospect in

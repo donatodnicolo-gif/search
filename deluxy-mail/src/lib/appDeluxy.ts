@@ -908,27 +908,67 @@ const AZIONI: AzioneApp[] = [
     descrizione: 'Apre una nuova trattativa nel CRM commerciale per il negozio.',
     colore: 'green',
     guida:
-      'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = la linea commerciale (es. Affiliazioni, Consegne, Eventi) se citata, altrimenti null. valoreAtteso = importo previsto SOLO se scritto — nella mail o in una precedente della conversazione (es. il preventivo mandato: se ci sono più voci con un prezzo, la loro somma detta per esteso vale, un tuo calcolo no) — altrimenti null. fase = fase della trattativa se chiara, altrimenti null (default lato app). scadenza = data del follow-up (AAAA-MM-GG) se c’è. nextAction = la prossima azione da fare, in una frase.',
+      'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = la linea commerciale (es. Affiliazioni, Consegne, Eventi) se citata, altrimenti null. valoreAtteso = il totale se è scritto; se un totale non c’è ma nello scambio ci sono PREZZI e QUANTITÀ scritti, CALCOLA la stima (es. coffee break 18 €/persona × 45 persone = 810) usando SOLO numeri scritti — mai inventare i numeri di partenza; se non c’è niente da cui calcolare, null. fase = deducila dallo scambio scegliendo fra i valori ammessi: hanno appena chiesto = "primo contatto"; si discute di dettagli e condizioni = "in trattativa"; abbiamo GIÀ mandato il preventivo/proposta = "preventivo"; hanno accettato = "chiusa vinta"; hanno rifiutato = "chiusa persa"; se non è chiaro, null. scadenza = data del follow-up (AAAA-MM-GG) se c’è. nextAction = la prossima azione da fare, in una frase. contattoEmail = lascialo null: lo mette il codice.',
     campi: [
       { nome: 'negozio', etichetta: 'Negozio', obbligatorio: true, aiuto: 'Commerciale lo cerca fra i suoi negozi.' },
+      {
+        nome: 'contattoEmail',
+        etichetta: 'Contatto (email)',
+        tipo: 'email',
+        aiuto: 'Si aggancia al negozio in Scout (o si crea, se manca). Dopo l’invio si può registrare anche in Anagrafiche.',
+      },
       { nome: 'linea', etichetta: 'Linea commerciale', aiuto: 'Es. Affiliazioni, Consegne, Eventi' },
-      { nome: 'valoreAtteso', etichetta: 'Valore atteso (€)', tipo: 'numero', aiuto: 'Vuoto = non ancora quantificato.' },
-      { nome: 'fase', etichetta: 'Fase', aiuto: 'Vuoto = la decide Commerciale.' },
+      {
+        nome: 'valoreAtteso',
+        etichetta: 'Valore atteso (€)',
+        tipo: 'numero',
+        aiuto: 'Se non c’è un totale scritto, è la stima dai prezzi dello scambio: controllala.',
+      },
+      {
+        // ⚠️ Gli STATI VERI di Scout, a tendina: sono gli alias che la Edge
+        // `trattativa` traduce nell'enum `dealstage_t` (normalizzaFase). Un
+        // testo libero qui arrivava comunque, ma finiva sempre nel default.
+        nome: 'fase',
+        etichetta: 'Fase',
+        tipo: 'scelta',
+        opzioni: [
+          { valore: 'primo contatto', etichetta: 'Primo contatto' },
+          { valore: 'in trattativa', etichetta: 'In trattativa' },
+          { valore: 'preventivo', etichetta: 'Preventivo inviato' },
+          { valore: 'chiusa vinta', etichetta: 'Chiusa vinta' },
+          { valore: 'chiusa persa', etichetta: 'Chiusa persa' },
+        ],
+      },
       { nome: 'scadenza', etichetta: 'Follow-up', tipo: 'data' },
       { nome: 'nextAction', etichetta: 'Prossima azione', tipo: 'lungo' },
     ],
     schema: {
       type: 'object',
       additionalProperties: false,
-      required: ['negozio', 'linea', 'valoreAtteso', 'fase', 'scadenza', 'nextAction'],
+      required: ['negozio', 'contattoEmail', 'linea', 'valoreAtteso', 'fase', 'scadenza', 'nextAction'],
       properties: {
         negozio: { type: 'string', description: 'Nome del negozio/attività della trattativa.' },
+        contattoEmail: { type: ['string', 'null'], description: 'Lascia null: lo mette il codice.' },
         linea: { type: ['string', 'null'], description: 'Linea commerciale (es. Affiliazioni).' },
-        valoreAtteso: { type: ['number', 'null'], description: 'Valore previsto in euro, solo se scritto.' },
-        fase: { type: ['string', 'null'], description: 'Fase della trattativa, se chiara.' },
+        valoreAtteso: {
+          type: ['number', 'null'],
+          description: 'Totale scritto, o stima calcolata SOLO da prezzi e quantità scritti nello scambio.',
+        },
+        fase: {
+          type: ['string', 'null'],
+          enum: ['primo contatto', 'in trattativa', 'preventivo', 'chiusa vinta', 'chiusa persa', null],
+          description: 'La fase dedotta dallo scambio, fra i valori ammessi. null se non è chiara.',
+        },
         scadenza: { type: ['string', 'null'], description: 'Data follow-up AAAA-MM-GG.' },
         nextAction: { type: ['string', 'null'], description: 'Prossima azione da fare.' },
       },
+    },
+    // L'email del contatto la sa il CODICE (è l'indirizzo della controparte),
+    // non il modello: si scrive prima del dialogo, così si VEDE nella tabella
+    // e resta correggibile.
+    normalizza(dati, ctx) {
+      const gia = typeof dati.contattoEmail === 'string' && dati.contattoEmail.includes('@')
+      return gia ? dati : { ...dati, contattoEmail: ctx.controparte ?? null }
     },
     async esegui(dati, ctx) {
       const negozio = typeof dati.negozio === 'string' ? dati.negozio.trim() : ''
@@ -940,13 +980,19 @@ const AZIONI: AzioneApp[] = [
       const valore = numeroDaTesto(dati.valoreAtteso)
       if (!valore.ok)
         return { ok: false, messaggio: `«${valore.testo}» non è un importo: scrivi solo il numero, o lascia vuoto.` }
+      // Il contatto parte SEMPRE (Scout lo aggancia al negozio, o lo crea con
+      // lui): quello nella tabella se c'è, altrimenti la controparte nota al
+      // codice. `crea` invece ci arriva SOLO dal bottone «Crea … e apri la
+      // trattativa» (via campoScelta, come i candidati): mai di suo.
+      const contattoEmail =
+        (typeof dati.contattoEmail === 'string' && dati.contattoEmail.includes('@')
+          ? dati.contattoEmail.trim()
+          : null) ?? ctx.controparte ?? undefined
       const body: Record<string, unknown> = {
         azione: 'apri',
         negozio,
-        // `crea` ci arriva SOLO dal bottone «Crea … e apri la trattativa» del
-        // dialogo (via campoScelta, come i candidati): mai di suo. L'email del
-        // contatto la sa il codice (ctx.controparte), non il modello.
-        ...(dati.crea === 'si' ? { crea: 'si', contattoEmail: ctx.controparte ?? undefined } : {}),
+        contattoEmail,
+        ...(dati.crea === 'si' ? { crea: 'si' } : {}),
         linea: dati.linea || undefined,
         valoreAtteso: valore.valore ?? undefined,
         fase: dati.fase || undefined,

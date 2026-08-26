@@ -4180,7 +4180,20 @@ export async function proponiPerApp(
     // Correzione da ciò che la mail dice con certezza, PRIMA di mostrarla: così
     // l'utente vede il valore giusto e resta libero di cambiarlo (all'invio
     // `normalizza` non tocca più quello che ha scritto lui).
-    const dati = azione.daMail?.(estratti, m) ?? estratti
+    let dati = azione.daMail?.(estratti, m) ?? estratti
+    // Anche `normalizza` gira QUI, non solo all'invio: quello che il codice sa
+    // con certezza (l'email della controparte per il contatto) deve VEDERSI
+    // nella tabella prima della conferma, non comparire a cose fatte. È
+    // idempotente («interviene solo dove il campo è vuoto»), quindi il secondo
+    // giro all'invio non tocca ciò che l'utente ha corretto.
+    if (azione.normalizza) {
+      dati = azione.normalizza(dati, {
+        chiave: '',
+        nostriDomini: nostri,
+        controparte: controparteDi(m, nostri),
+        messaggioId,
+      })
+    }
     const { id, app, nome, descrizione, colore, campi, cercaAzienda, dopo } = azione
     return {
       ok: true,

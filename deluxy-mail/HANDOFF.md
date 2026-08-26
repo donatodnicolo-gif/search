@@ -23,6 +23,33 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 2) — trattativa: contatto in vista, valore STIMATO, fase con gli stati di Scout
+
+Tre richieste dell'utente sulla schermata «Apri trattativa»:
+
+1. **Il contatto si vede e si aggancia SEMPRE.** Riga «Contatto (email)» nella tabella,
+   riempita dal CODICE (`normalizza` con `ctx.controparte`) — e ⚠️ `normalizza` ora gira
+   **anche in `proponiPerApp`**, non solo all'invio: quello che il codice sa con certezza
+   deve VEDERSI prima della conferma, non comparire a cose fatte (è idempotente, il
+   secondo giro non tocca le correzioni dell'utente). La Edge `trattativa` di Scout
+   aggancia il contatto **anche sul negozio esistente** (prima solo col prospect nuovo):
+   upsert per email sul place, best-effort, e l'esito lo dice («Contatto … agganciato»).
+   Per Anagrafiche resta la catena `dopo` a invio riuscito. Edge **rideployata**.
+2. **Il valore atteso si può STIMARE.** La regola «solo se scritto un totale» lasciava
+   «non indicato» su uno scambio pieno di prezzi (18 €/persona × 45). L'utente l'ha
+   chiesto due volte → ora la guida permette il **calcolo da prezzi e quantità
+   SCRITTI** (mai inventare i numeri di partenza), e l'aiuto del campo dice che è una
+   stima da controllare.
+3. **La fase è una tendina con gli stati VERI di Scout**: primo contatto / in
+   trattativa / preventivo (inviato) / chiusa vinta / chiusa persa — sono gli alias che
+   `normalizzaFase` nella Edge traduce nell'enum `dealstage_t`; enum anche nello schema
+   AI, con la regola di deduzione dallo scambio (preventivo già mandato → «preventivo»).
+   Prima era testo libero: arrivava comunque, ma finiva sempre nel default.
+
+`tsc` e build puliti. Da provare a schermo sul prossimo «Apri trattativa»: la riga
+Contatto piena, la fase proposta, il valore stimato — e in Scout il contatto sul negozio.
+
+---
 ### 26/08 (sera) — si risponde dalla casella INDIRIZZATA, non da quella della copia
 
 Segnalato dall'utente: «faccio rispondi e mi esce cs@deluxy.it come mittente se la mail
