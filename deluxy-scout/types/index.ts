@@ -463,6 +463,56 @@ export interface RichiestaPagamento {
   proforma_url?: string | null; // link al documento su deluxy-partner
 }
 
+/** Come è arrivata la richiesta al commerciale (serve a lui, non al budget). */
+export type CanaleRichiesta = 'mail' | 'telefono' | 'whatsapp' | 'di_persona' | 'web' | 'altro';
+/** L'etichetta di budget (decisione 26/08): digitale in origine vs ricorrenti. */
+export type TipologiaRichiesta = 'maison' | 'b2b';
+export type StatoRichiestaCliente = 'nuova' | 'concordata' | 'fatturata' | 'persa';
+
+/**
+ * La richiesta SALTUARIA di un cliente che c'è già: una fornitura una tantum,
+ * un catering, un evento. Sta fuori dalla pipeline di proposito — si evade
+ * alle condizioni note, quindi non è una trattativa (regola del binario) — e
+ * non è un incasso: è ciò che viene PRIMA di chiedere il documento a FINANCE.
+ *
+ * ⚠️ Qui non si misura niente: il registro dei risultati è FINANCE. Di quel
+ * mondo si tiene solo il riferimento (numero e link della pro-forma).
+ */
+export interface RichiestaCliente {
+  id: string;
+  owner: string;
+  place_id: string | null;
+  cliente: string;
+  descrizione: string;
+  /** Facoltativo: si scrive la richiesta prima di sapere quanto costa. */
+  importo: number | null;
+  canale: CanaleRichiesta;
+  tipologia: TipologiaRichiesta;
+  stato: StatoRichiestaCliente;
+  serve_entro: string | null;
+  nota: string | null;
+  proforma_numero: string | null;
+  proforma_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const LABEL_CANALE_RICHIESTA: Record<CanaleRichiesta, string> = {
+  mail: 'Mail',
+  telefono: 'Telefono',
+  whatsapp: 'WhatsApp',
+  di_persona: 'Di persona',
+  web: 'Web',
+  altro: 'Altro',
+};
+
+export const LABEL_STATO_RICHIESTA: Record<StatoRichiestaCliente, string> = {
+  nuova: 'Da lavorare',
+  concordata: 'Prezzo concordato',
+  fatturata: 'Fatturata',
+  persa: 'Persa',
+};
+
 export interface Profilo {
   id: string;
   email: string | null;

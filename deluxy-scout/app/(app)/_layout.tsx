@@ -77,6 +77,10 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     titolo: 'Vendita',
     voci: [
       { name: 'visite', label: 'Potenziali', icon: 'walk-outline' },
+      // Le richieste una tantum dei clienti che ci sono già: stanno PRIMA della
+      // trattativa e fuori dalla pipeline (si evadono alle condizioni note), e
+      // da lì si chiede il documento a FINANCE.
+      { name: 'richieste-clienti', label: 'Richieste clienti', icon: 'reader-outline' },
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
       // Sta fra la trattativa e l'ordine perché è lì che serve: per fare un
       // prezzo al cliente bisogna prima sapere quanto ci costa.
@@ -407,6 +411,7 @@ export default function AppLayout() {
         <Drawer.Screen name="preventivi" options={{ title: 'Preventivi fornitori' }} />
         <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
         <Drawer.Screen name="fornitori" options={{ title: 'Fornitori' }} />
+        <Drawer.Screen name="richieste-clienti" options={{ title: 'Richieste clienti' }} />
         <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni · Copertura' }} />
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard' }} />

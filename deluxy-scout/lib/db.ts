@@ -1,6 +1,6 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
-import type { AffiliazioneRow, Contact, Deal, EsitoVisita, FonteLead, Lead, Linea, Ordine, Place, Profilo, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
+import type { AffiliazioneRow, Contact, Deal, EsitoVisita, FonteLead, Lead, Linea, Ordine, Place, Profilo, RichiestaCliente, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
 import { LINEE_ATTIVE, canonizzaLinee, statoDaEsito, statoRegistroDaAffiliazione } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
@@ -2234,4 +2234,74 @@ export async function fetchRecapitiPlace(): Promise<Map<string, RecapitoPlace>> 
     out.set(c.place_id, attuale);
   }
   return out;
+}
+
+// ── Richieste clienti (le saltuarie che arrivano al commerciale) ──────────────
+//
+// Stanno FUORI dalla pipeline di proposito: una richiesta che si evade alle
+// condizioni note non è una trattativa (regola del binario, 26/08/2026), e
+// metterla lì la farebbe contare due volte. Il registro dei risultati resta
+// FINANCE: qui si tiene il lavoro, e del documento solo il riferimento.
+
+export async function fetchRichiesteCliente(): Promise<RichiestaCliente[]> {
+  const { data, error } = await supabase
+    .from('richieste_cliente')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as RichiestaCliente[];
+}
+
+export async function creaRichiestaCliente(r: {
+  place_id: string | null;
+  cliente: string;
+  descrizione: string;
+  importo: number | null;
+  canale: RichiestaCliente['canale'];
+  tipologia: RichiestaCliente['tipologia'];
+  serve_entro: string | null;
+  nota: string | null;
+}): Promise<RichiestaCliente> {
+  const { data: u } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('richieste_cliente')
+    .insert({ ...r, cliente: r.cliente.trim(), descrizione: r.descrizione.trim(), owner: u.user?.id })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as RichiestaCliente;
+}
+
+export async function aggiornaRichiestaCliente(
+  id: string,
+  campi: Partial<Pick<RichiestaCliente, 'descrizione' | 'importo' | 'canale' | 'tipologia' | 'stato' | 'serve_entro' | 'nota'>>,
+): Promise<void> {
+  const { data, error } = await supabase.from('richieste_cliente').update(campi).eq('id', id).select('id');
+  if (error) throw error;
+  // Una UPDATE fermata dalla RLS non è un errore: torna zero righe. Senza
+  // questo controllo la schermata direbbe «fatto» su una modifica mai avvenuta.
+  if (!data?.length) {
+    throw new Error('Richiesta non aggiornata: la scrittura è stata rifiutata (non è tua e ha già un proprietario).');
+  }
+}
+
+export async function eliminaRichiestaCliente(id: string): Promise<void> {
+  const { data, error } = await supabase.from('richieste_cliente').delete().eq('id', id).select('id');
+  if (error) throw error;
+  if (!data?.length) throw new Error('Richiesta non eliminata: la cancellazione è stata rifiutata.');
+}
+
+/**
+ * Salva sulla richiesta il RIFERIMENTO alla pro-forma emessa in FINANCE, e la
+ * porta a «prezzo concordato» (il documento esiste, l'incasso no).
+ *
+ * ⚠️ Si salvano numero e link, non i suoi importi: la pro-forma vive di là, e
+ * una copia degli importi qui sarebbe un secondo numero per lo stesso fatto.
+ */
+export async function collegaProformaARichiesta(id: string, numero: string, url: string): Promise<void> {
+  const { error } = await supabase
+    .from('richieste_cliente')
+    .update({ proforma_numero: numero, proforma_url: url, stato: 'concordata' })
+    .eq('id', id);
+  if (error) throw error;
 }
