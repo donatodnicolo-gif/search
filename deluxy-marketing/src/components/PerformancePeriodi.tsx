@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { frequenzeMeta, type FrequenzaMeta } from "@/lib/meta";
 import { formattaEuro, formattaNumero, roas } from "@/lib/dominio";
 
 // Come sta andando, per finestre: 7 giorni · mese corrente · 30 giorni ·
@@ -38,12 +39,17 @@ function estremi(chiave: string): { da: Date; a: Date } {
 export async function PerformancePeriodi({
   campagnaId,
   gruppoId,
+  metaIdEsterno,
 }: {
   // Uno dei due: la campagna intera o un singolo gruppo di annunci. Le
   // metriche stanno in due tabelle diverse ma rispondono alla stessa
   // domanda, e la tabella che ne esce è la stessa.
   campagnaId?: string;
   gruppoId?: string;
+  // Per le campagne META: l'id di piattaforma. Accende la colonna FREQUENZA,
+  // chiesta viva a Meta per ogni finestra — è un numero di periodo (gente
+  // unica) e dalle righe giornaliere non si può ricavare.
+  metaIdEsterno?: string | null;
 }) {
   const inizioAnno = estremi("anno").da;
   const fine = estremi("7g").a;
@@ -65,6 +71,14 @@ export async function PerformancePeriodi({
       });
 
   if (tutte.length === 0) return null;
+
+  const frequenze: Map<string, FrequenzaMeta> = metaIdEsterno
+    ? await frequenzeMeta(
+        metaIdEsterno,
+        FINESTRE.map((f) => ({ chiave: f.chiave, ...estremi(f.chiave) }))
+      )
+    : new Map();
+  const conFrequenza = frequenze.size > 0;
 
   const confronto = FINESTRE.map((f) => {
     const e = estremi(f.chiave);
@@ -108,6 +122,14 @@ export async function PerformancePeriodi({
               <th className="num">Conv.</th>
               <th className="num">Click</th>
               <th className="num">ROAS</th>
+              {conFrequenza && (
+                <th
+                  className="num"
+                  title="Impressioni ÷ persone raggiunte nel periodo, letta da Meta: sopra 3 nel lusso i creativi si consumano, sopra 10 il pubblico è esaurito e ogni euro in più peggiora la fatigue"
+                >
+                  Frequenza
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -130,6 +152,21 @@ export async function PerformancePeriodi({
                 >
                   {c.resa != null ? `${c.resa.toFixed(1)}×` : "—"}
                 </td>
+                {conFrequenza && (() => {
+                  const fq = frequenze.get(c.chiave);
+                  return (
+                    <td
+                      className="num"
+                      style={{
+                        fontWeight: 600,
+                        color: fq == null ? undefined : fq.frequenza >= 10 ? "var(--red)" : fq.frequenza >= 3 ? "var(--orange)" : undefined,
+                      }}
+                      title={fq ? `${formattaNumero(fq.copertura)} persone raggiunte` : "Meta non ha risposto per questa finestra"}
+                    >
+                      {fq ? `${fq.frequenza.toFixed(1)}×` : "—"}
+                    </td>
+                  );
+                })()}
               </tr>
             ))}
           </tbody>

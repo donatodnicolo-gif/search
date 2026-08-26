@@ -29,6 +29,7 @@ import { Scadenza } from "@/components/Scadenza";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { Sidebar } from "@/components/Sidebar";
 import { COLORE_VERDETTO, ultimaAnalisiPerCampagna } from "@/lib/scheda-analisi";
+import { frequenzeMeta } from "@/lib/meta";
 import { parametriPeriodo, periodoApp } from "@/lib/periodo-condiviso";
 import { TabellaGruppi } from "@/components/TabellaGruppi";
 import { VenditeCampagna } from "@/components/VenditeCampagna";
@@ -252,6 +253,19 @@ export default async function SchedaCampagna({
   // in testata. `null` = niente bottone — uno che apre una pagina a caso
   // insegna a non premerlo.
   const analisiCampagna = await ultimaAnalisiPerCampagna(campagna);
+
+  // La FREQUENZA del periodo scelto, per le campagne Meta (richiesta utente,
+  // 26/08): impressioni ÷ persone raggiunte, chiesta viva a Meta perché è un
+  // numero di PERIODO — dalle righe giornaliere non si ricava (la copertura è
+  // gente unica). Se Meta non risponde il KPI dice «—» e la pagina vive.
+  const frequenzaMeta =
+    campagna.canale === "meta_ads" && campagna.idEsterno
+      ? (
+          await frequenzeMeta(campagna.idEsterno, [
+            { chiave: "periodo", da: periodo.corrente.da, a: periodo.corrente.a },
+          ])
+        ).get("periodo") ?? null
+      : null;
 
   // I gruppi della campagna: la media di campagna qui sopra può nascondere un
   // gruppo che rende il doppio e uno che brucia. Vanno guardati separati.
@@ -622,6 +636,30 @@ export default async function SchedaCampagna({
             <div className="kpi-valore">{ricavi > 0 ? formattaEuro(ricavi) : "—"}</div>
             <div className="kpi-etichetta">Ricavi attribuiti</div>
           </div>
+          {/* Solo Meta: la frequenza del periodo, col colore che dice quando
+              preoccuparsi — sopra 3 nel lusso i creativi si consumano, sopra
+              10 il pubblico è esaurito (il caso VENDITE: 16,2). */}
+          {campagna.canale === "meta_ads" && (
+            <div className="kpi">
+              <div
+                className="kpi-valore"
+                style={{
+                  color:
+                    frequenzaMeta == null ? undefined : frequenzaMeta.frequenza >= 10 ? "var(--red)" : frequenzaMeta.frequenza >= 3 ? "var(--orange)" : undefined,
+                }}
+                title={
+                  frequenzaMeta
+                    ? `Impressioni ÷ persone raggiunte nel periodo, letta da Meta. Sopra 3 nel lusso è fatigue, sopra 10 pubblico esaurito.`
+                    : "Meta non ha risposto (o la campagna non ha erogato nel periodo)"
+                }
+              >
+                {frequenzaMeta ? `${frequenzaMeta.frequenza.toFixed(1)}×` : "—"}
+              </div>
+              <div className="kpi-etichetta">
+                Frequenza{frequenzaMeta ? ` · ${formattaNumero(frequenzaMeta.copertura)} persone` : ""}
+              </div>
+            </div>
+          )}
           {/* Le conversioni dichiarate dalla piattaforma e gli ordini veri con
               l'UTM, AFFIANCATI e mai sommati: sommarli conterebbe due volte lo
               stesso acquisto. Contano cose diverse — la piattaforma include
@@ -807,7 +845,10 @@ export default async function SchedaCampagna({
 
         {/* Sotto «oggi», che è parziale per costruzione: le finestre su cui
             si decide davvero, tutte a confronto. */}
-        <PerformancePeriodi campagnaId={campagna.id} />
+        <PerformancePeriodi
+          campagnaId={campagna.id}
+          metaIdEsterno={campagna.canale === "meta_ads" ? campagna.idEsterno : null}
+        />
 
         {/* ——— Valutazione: prima si capisce, poi si decide, infine si agisce.
             I gruppi stanno qui in cima perché sono il primo taglio che spiega

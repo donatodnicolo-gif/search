@@ -213,3 +213,60 @@ export async function leggiStatoCampagneMeta(
 
   return { stati, errore: null };
 }
+
+// ───── LA FREQUENZA, che è un numero DI PERIODO ─────
+//
+// ⚠️ La frequenza (impressioni ÷ persone raggiunte) NON si ricava dalle righe
+// giornaliere che l'app già salva: la copertura è gente UNICA, e sommare i
+// giorni conta la stessa persona sette volte — la frequenza verrebbe ~1 anche
+// su un pubblico cotto a 16×, che è il caso vero trovato dall'analisi Meta
+// Gifts del 25/08 (freq 16,24 su VENDITE). La chiede l'unico che la sa: Meta,
+// per l'intervallo esatto. Una chiamata sola per tutte le finestre
+// (time_ranges), timeout corto, e se fallisce si mostra «—»: una pagina non
+// deve morire per un KPI.
+export type FrequenzaMeta = { frequenza: number; copertura: number; impressioni: number };
+
+export async function frequenzeMeta(
+  idCampagnaEsterno: string,
+  finestre: { chiave: string; da: Date; a: Date }[]
+): Promise<Map<string, FrequenzaMeta>> {
+  const esito = new Map<string, FrequenzaMeta>();
+  const t = token();
+  if (!t || finestre.length === 0) return esito;
+
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const ranges = finestre.map((f) => ({ since: iso(f.da), until: iso(f.a) }));
+  const params = new URLSearchParams({
+    fields: "reach,frequency,impressions",
+    time_ranges: JSON.stringify(ranges),
+    access_token: t,
+  });
+  try {
+    const r = await fetch(`${BASE}/${idCampagnaEsterno}/insights?${params.toString()}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!r.ok) return esito;
+    const corpo = (await r.json()) as {
+      data?: { reach?: string; frequency?: string; impressions?: string; date_start?: string; date_stop?: string }[];
+    };
+    for (const riga of corpo.data ?? []) {
+      // La riga si riabbina alla finestra per gli estremi che Meta rimanda.
+      const f = finestre.find(
+        (x) => iso(x.da) === riga.date_start && iso(x.a) === riga.date_stop
+      );
+      if (!f) continue;
+      const frequenza = Number(riga.frequency);
+      const copertura = Number(riga.reach);
+      if (!Number.isFinite(frequenza) || frequenza <= 0) continue;
+      esito.set(f.chiave, {
+        frequenza,
+        copertura: Number.isFinite(copertura) ? copertura : 0,
+        impressioni: Number(riga.impressions) || 0,
+      });
+    }
+  } catch {
+    // Meta lenta o giù: il KPI dirà «—», la pagina vive.
+  }
+  return esito;
+}

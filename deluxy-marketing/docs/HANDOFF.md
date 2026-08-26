@@ -336,6 +336,22 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐ LA FREQUENZA SULLE CAMPAGNE META (26/08/2026)
+
+Richiesta utente: la frequenza nei KPI subito visibili. ⚠️ La frequenza è un
+numero DI PERIODO (impressioni ÷ persone UNICHE raggiunte): dalle righe
+giornaliere non si ricava — sommare la copertura conta la stessa persona
+sette volte e darebbe ~1 anche su un pubblico cotto a 16×. La chiede l'unico
+che la sa: `frequenzeMeta()` interroga Meta viva, in UNA chiamata per tutte le
+finestre (time_ranges), timeout 6 s, e se Meta non risponde il KPI dice «—».
+Dove: KPI in testata alla scheda campagna (sul periodo scelto, con le persone
+raggiunte accanto) e colonna nella tabella «Come sta andando». Colori: ≥3
+arancio (fatigue nel lusso), ≥10 rosso (pubblico esaurito). Verificato in
+produzione: [Opera] ATC - VOLUME **17,9× su 9.492 persone** — peggio della
+VENDITE dell'analisi (14,3× su 2.764) — tutti e due rossi. Il KPI è nato già
+utile.
+
+
 ### ⭐⭐ LA MAPPA LEGGE ANCHE IL CENSIMENTO — e le card dicono la piattaforma (26/08/2026)
 
 Due osservazioni utente. «Mi propone una sola azione, non per tutte le
