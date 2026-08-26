@@ -253,6 +253,41 @@ export class DeliveryRulesService {
    * tipo servizio della regola se specificato. Le consegne annullate o non
    * accettate NON consumano il carnet.
    */
+  /**
+   * Le REGOLE VALET: il plus a scaglioni sul numero di RITIRI del giro
+   * (`[{operator: equal|moreThan, pickUps, plusSalary}]`), coi valet a cui
+   * ciascuna si applica. Importate dal legacy (tabella-34), finora invisibili.
+   */
+  async regoleValet() {
+    const regole = await this.prisma.valetDeliveryRule.findMany({
+      include: {
+        valets: { include: { valet: { select: { id: true, firstName: true, lastName: true, active: true } } } },
+        _count: { select: { deliveries: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    return regole.map((r) => {
+      let scaglioni: { operator?: string; pickUps?: string | number; plusSalary?: string | number }[] = [];
+      try { scaglioni = JSON.parse(r.tiers) ?? []; } catch { scaglioni = []; }
+      return {
+        id: r.id,
+        name: r.name,
+        active: r.active,
+        scaglioni: scaglioni.map((s) => ({
+          operatore: s.operator ?? 'equal',
+          ritiri: Number(s.pickUps ?? 0),
+          plus: Number(s.plusSalary ?? 0),
+        })),
+        valets: r.valets.map((x) => ({
+          id: x.valet.id,
+          nome: `${x.valet.firstName} ${x.valet.lastName}`.trim(),
+          attivo: x.valet.active,
+        })),
+        consegneCollegate: r._count.deliveries,
+      };
+    });
+  }
+
   async forPartner(partnerId: string) {
     const rules = await this.prisma.deliveryRule.findMany({
       where: { active: true, partners: { some: { partnerId } } },
@@ -339,6 +374,13 @@ export class DeliveryRulesController {
   @ApiOperation({ summary: 'Regole carnet di un partner con consegne rimaste' })
   forPartner(@Param('partnerId') partnerId: string) {
     return this.service.forPartner(partnerId);
+  }
+
+  // ⚠️ Prima di ':id', o «valet» verrebbe letto come un id di regola.
+  @Get('valet')
+  @ApiOperation({ summary: 'Le REGOLE VALET (plus a scaglioni sui ritiri del giro), coi valet assegnati' })
+  regoleValet() {
+    return this.service.regoleValet();
   }
 
   @Get(':id')

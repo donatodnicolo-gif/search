@@ -78,6 +78,10 @@ interface ProductRow {
           <label class="fld"><span>{{ 'deliveryForm.field.recipientAddress' | translate }} *</span>
             <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
             @if (addressProvince()) { <span class="slot-hint">{{ 'deliveryForm.hint.provinceDetected' | translate:{ code: addressProvince()?.code } }}</span> }
+            <!-- Un indirizzo ESTERO non e' un errore di provincia: la provincia
+                 semplicemente non si applica, e si dice con una nota, non con
+                 un avviso giallo. -->
+            @else if (indirizzoEstero()) { <span class="slot-hint">{{ 'deliveryForm.hint.foreignAddress' | translate }}</span> }
             @else if (model.recipientAddress) { <span class="slot-hint warn">{{ 'deliveryForm.hint.provinceUnknown' | translate }}</span> }
             @if (mapsMancante() && puoConfigurare()) {
               <span class="slot-hint warn">
@@ -505,6 +509,28 @@ export class DeliveryFormComponent implements AfterViewInit {
   readonly provinces = signal<Province[]>([]);
   /** Provincia rilevata dall'indirizzo destinatario (filtra partner/valet). */
   readonly addressProvince = signal<Province | null>(null);
+  /** Indirizzo fuori dall'Italia: la provincia non si applica (nota, non avviso). */
+  readonly indirizzoEstero = signal(false);
+
+  /** Nomi di paese che segnalano un indirizzo estero (ultima parte dell'indirizzo). */
+  private static readonly PAESI_ESTERI = [
+    'france', 'francia', 'germany', 'germania', 'deutschland', 'spain', 'spagna', 'espana',
+    'switzerland', 'svizzera', 'suisse', 'schweiz', 'austria', 'osterreich', 'belgium', 'belgio',
+    'belgique', 'netherlands', 'paesi bassi', 'nederland', 'olanda', 'luxembourg', 'lussemburgo',
+    'monaco', 'united kingdom', 'regno unito', 'england', 'portugal', 'portogallo', 'greece',
+    'grecia', 'croatia', 'croazia', 'slovenia', 'united states', 'stati uniti', 'usa',
+    'emirati arabi', 'united arab emirates', 'uae', 'dubai', 'qatar', 'saudi arabia',
+    'arabia saudita', 'china', 'cina', 'japan', 'giappone',
+  ];
+
+  private rilevaEstero(indirizzo: string): boolean {
+    const testo = (indirizzo ?? '').toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if (!testo.trim()) return false;
+    // Se l'indirizzo nomina l'Italia non e' estero, qualunque altra cosa dica.
+    if (/\bitali[ae]\b/.test(testo)) return false;
+    return DeliveryFormComponent.PAESI_ESTERI.some((p) => testo.includes(p));
+  }
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly justSaved = signal(false);
@@ -969,6 +995,7 @@ export class DeliveryFormComponent implements AfterViewInit {
    *  la conferma via Google Geocoding se in Impostazioni è salvata la chiave API. */
   onAddressChange(): void {
     this.addressProvince.set(this.detectProvince(this.model.recipientAddress));
+    this.indirizzoEstero.set(this.rilevaEstero(this.model.recipientAddress));
     this.syncSelections();
     this.scheduleGeocode();
   }
@@ -1196,6 +1223,10 @@ export class DeliveryFormComponent implements AfterViewInit {
     }
     for (const key of ['paymentAmount', 'price', 'additionalPrice', 'deliveryPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {
       const v = m[key];
+      // ⚠️ `hours` ha un minimo di 1 lato API, ma il legacy ha 0 su migliaia di
+      // consegne non a ora: mandarlo com'e' faceva fallire OGNI modifica di
+      // quelle consegne («hours must not be less than 1»). Si manda solo se ≥ 1.
+      if (key === 'hours' && (v == null || Number(v) < 1)) continue;
       if (v != null) payload[key] = Number(v);
     }
 

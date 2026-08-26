@@ -37,6 +37,11 @@ interface PendingDelivery {
   nonPagabile?: boolean;
   /** A ora in attesa di approvazione: si mostra, la paga arriva dopo il via libera. */
   daApprovare?: boolean;
+  /** Nel giro di un'altra consegna (stesso valet+giorno+DDT): paga sulla principale. */
+  nelGiro?: boolean;
+  giroDdt?: string | null;
+  /** Sulla principale: quanti ritiri conta il giro (scaglioni della regola valet). */
+  ritiriGiro?: number | null;
 }
 
 interface Salary {
@@ -279,7 +284,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
                                 @if (d.plusMinus) { {{ (d.plusMinus > 0 ? '+' : '') + (d.plusMinus | number: '1.2-2') }} € } @else { — }
                               </td>
                               <td class="num">
-                                @if (d.daApprovare) {
+                                @if (d.nelGiro) {
+                                  <span class="regola" [title]="'salaries.pending.nelGiroHint' | translate">{{ 'salaries.pending.nelGiro' | translate:{ ddt: d.giroDdt } }}</span>
+                                } @else if (d.daApprovare) {
                                   <span class="regola" [title]="'salaries.pending.toApproveHint' | translate">{{ 'salaries.pending.toApprove' | translate }}</span>
                                 } @else if (d.nonPagabile) {
                                   <span class="muted" [title]="'salaries.pending.notPayableHint' | translate">{{ 'salaries.pending.notPayable' | translate }}</span>
@@ -290,6 +297,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
                                 } @else {
                                   {{ d.amount | number: '1.2-2' }} €
                                   @if (d.origine === 'listino') { <span class="ric" [title]="'salaries.pending.fromListinoHint' | translate">{{ 'salaries.pending.listino' | translate }}</span> }
+                                  @if (d.ritiriGiro) { <span class="ric" [title]="'salaries.pending.giroPrincipaleHint' | translate">{{ 'salaries.pending.giroPrincipale' | translate:{ n: d.ritiriGiro } }}</span> }
                                 }
                               </td>
                             </tr>
@@ -477,7 +485,10 @@ export class SalariesListComponent {
     return this.pending().filter((r) =>
       (!this.soloPagabili || r.deliveriesCount > r.unpaidCount) &&
       (!t || `${r.valet.lastName} ${r.valet.firstName}`.toLowerCase().includes(t)),
-    );
+    )
+      // Dal lordo più alto: l'API restituisce i valet in ordine di incontro e
+      // chi ha poche consegne finiva in fondo «a caso» — sembrava mancare.
+      .sort((a, b) => b.netAmount - a.netAmount || `${a.valet.lastName}`.localeCompare(`${b.valet.lastName}`, 'it'));
   });
 
 
@@ -504,7 +515,9 @@ export class SalariesListComponent {
   }
 
   constructor() {
-    this.load();
+    // Di default si parte dal MESE CORRENTE (deciso dall'utente 27/08):
+    // senza periodo la pagina mostrava tutto l'arretrato di sempre.
+    this.periodoRapido(0);
     if (this.view() !== 'pending') this.caricaTotaliPending();
     if (this.canManage()) {
       this.http.get<ValetRef[]>(`${environment.apiUrl}/valets`).subscribe((d) => this.valets.set(d));

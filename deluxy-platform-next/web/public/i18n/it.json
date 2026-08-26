@@ -545,7 +545,11 @@
       "toApprove": "Da approvare",
       "toApproveHint": "Servizio a ora in attesa di approvazione: la paga si conta dopo il via libera",
       "notPayable": "Non pagabile (flag)",
-      "notPayableHint": "La consegna ha il flag «non pagabile»: si mostra ma non entra nei totali"
+      "notPayableHint": "La consegna ha il flag «non pagabile»: si mostra ma non entra nei totali",
+      "nelGiro": "Nel giro (DDT {{ddt}})",
+      "nelGiroHint": "Stesso valet, stesso giorno, stesso DDT: la paga sta sulla consegna principale del giro",
+      "giroPrincipale": "giro di {{n}} ritiri",
+      "giroPrincipaleHint": "Paga del giro: una volta sola, con lo scaglione ritiri della regola valet"
     },
     "line": {
       "date": "Data",
@@ -879,6 +883,15 @@
       "partners": "Estendi ai partner",
       "partnersHint": "Tieni premuto Ctrl/Cmd per selezionarne più di uno.",
       "partnerLocked": "questo partner resta sempre incluso"
+    },
+    "valet": {
+      "title": "Regole valet (ritiri del giro)",
+      "caption": "Il plus sulla paga in base al numero di ritiri dello stesso giro (stesso DDT, stesso giorno). Importate dal legacy.",
+      "tiers": "Scaglioni",
+      "appliesTo": "Si applica a",
+      "deliveries": "Consegne",
+      "equal": "{{n}} ritiri",
+      "moreThan": "più di {{n}} ritiri"
     }
   },
   "partnerDetail": {
@@ -1082,7 +1095,8 @@
       "noMapsKey": "Suggerimenti indirizzo non attivi: manca la chiave Google Maps.",
       "noMapsKeyLink": "Configurala in Impostazioni",
       "selectPartnerFirst": "Scegli prima il partner: i servizi dipendono dal suo listino.",
-      "noServicesForPartner": "Questo partner non ha servizi a listino: mostrati tutti."
+      "noServicesForPartner": "Questo partner non ha servizi a listino: mostrati tutti.",
+      "foreignAddress": "Indirizzo estero: la provincia non si applica — partner e valet non sono filtrati."
     },
     "timing": {
       "selectServiceFirst": "Seleziona prima un servizio per impostare la fascia di consegna.",

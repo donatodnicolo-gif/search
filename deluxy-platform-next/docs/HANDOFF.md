@@ -402,6 +402,30 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### ⭐⭐ 27/08 (notte, 5) — LA REGOLA DEL GIRO negli stipendi, e le REGOLE VALET a schermo
+
+- **La regola del giro** (decisa dall utente, dalla tabella REGOLE VALET del
+  legacy): consegne dello stesso valet, stesso GIORNO e stesso DDT sono UN
+  giro — si paga UNA volta (la consegna con la paga scritta piu alta) col
+  plus a scaglioni della regola valet sul numero di ritiri; le altre righe
+  sono «Nel giro (DDT x)» a zero. Applicata in pending, pendingDetail, recap
+  e GENERAZIONE stipendi (le nel-giro prendono una riga a 0, origin giro,
+  cosi non restano da pagare per sempre). Helper giriPerDdt + fallback
+  regoleValetAssegnate (la regola vale per il VALET via
+  ValetDeliveryRuleValet anche quando la consegna non la porta).
+  Verificato live sul #12701: Rimola agosto 196,64 → 125,07 (62393 nel giro,
+  62395 principale, giro di 2 ritiri).
+- **Le 7 REGOLE VALET sono a schermo** su /delivery-rules (GET
+  /delivery-rules/valet, PRIMA di :id): scaglioni leggibili, valet assegnati,
+  consegne collegate. E le regole carnet mostrano I NOMI dei partner nella
+  tabella iniziale, non un conteggio.
+- **/salaries parte dal mese corrente** di default; l elenco pendente e
+  ordinato per lordo (prima l API restituiva i valet in ordine di incontro e
+  Rimola/Cassoli sembravano assenti — c erano, in fondo).
+- Estero nel form: nota informativa al posto dell avviso di provincia; fix
+  «hours must not be less than 1» (il form rimandava hours 0 del legacy e
+  bloccava OGNI modifica di quelle consegne).
+
 ### 27/08 (notte, 4) — Le tre conferme eseguite, e il git-deploy STACCATO davvero
 
 - **Velazquez divisa**: la 22820 (300 rose) e diventata DUE consegne — 22820

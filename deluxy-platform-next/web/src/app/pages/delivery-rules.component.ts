@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
-import { TranslatePipe } from '@ngx-translate/core';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { DeliveryRuleFormComponent } from './delivery-rule-form.component';
 
@@ -15,6 +15,14 @@ interface ServiceTypeLite {
 }
 interface RulePartner {
   partner: PartnerLite;
+}
+interface RegolaValet {
+  id: string;
+  name: string;
+  active: boolean;
+  scaglioni: { operatore: string; ritiri: number; plus: number }[];
+  valets: { id: string; nome: string; attivo: boolean }[];
+  consegneCollegate: number;
 }
 interface DeliveryRule {
   id: string;
@@ -45,7 +53,7 @@ interface DeliveryRule {
 @Component({
   selector: 'app-delivery-rules',
   standalone: true,
-  imports: [TranslatePipe, DatePipe, DeliveryRuleFormComponent],
+  imports: [TranslatePipe, DatePipe, DecimalPipe, DeliveryRuleFormComponent],
   template: `
     <div class="page-header">
       <div>
@@ -102,7 +110,12 @@ interface DeliveryRule {
                   <span class="muted">V</span>
                   <span class="adj" [class.up]="r.valetPayAdjustment > 0" [class.down]="r.valetPayAdjustment < 0">{{ money(r.valetPayAdjustment) }}</span>
                 </td>
-                <td>{{ r.partners.length || '—' }}</td>
+                <!-- A CHI si applica, gia' in tabella: i nomi, non un conteggio. -->
+                <td class="applicata-a">
+                  @if (r.partners.length) {
+                    {{ nomiPartner(r) }}
+                  } @else { <span class="muted">—</span> }
+                </td>
                 <td>
                   <span class="badge" [class.badge-on]="r.active" [class.badge-off]="!r.active">
                     <span class="dot"></span>{{ (r.active ? 'common.active' : 'common.inactive') | translate }}
@@ -111,6 +124,45 @@ interface DeliveryRule {
                 <td class="nowrap">
                   <button class="btn-icon" (click)="openEdit(r)" [title]="'common.edit' | translate">✎</button>
                   <button class="btn-icon danger" (click)="remove(r)" [title]="'common.delete' | translate">🗑</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <!-- LE REGOLE VALET: il plus a scaglioni sui RITIRI del giro. Importate
+         dal legacy (tabella-34), finora invisibili nell'app. -->
+    @if (regoleValet().length) {
+      <div class="page-header mt-sezione">
+        <div>
+          <h2 class="titolo-sezione">{{ 'deliveryRules.valet.title' | translate }}</h2>
+          <p class="page-caption">{{ 'deliveryRules.valet.caption' | translate }}</p>
+        </div>
+      </div>
+      <div class="card table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{{ 'deliveryRules.col.name' | translate }}</th>
+              <th>{{ 'deliveryRules.valet.tiers' | translate }}</th>
+              <th>{{ 'deliveryRules.valet.appliesTo' | translate }}</th>
+              <th class="num">{{ 'deliveryRules.valet.deliveries' | translate }}</th>
+              <th>{{ 'deliveryRules.col.status' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of regoleValet(); track r.id) {
+              <tr>
+                <td class="strong">{{ r.name }}</td>
+                <td>{{ etichettaScaglioni(r) }}</td>
+                <td class="applicata-a">{{ nomiValet(r) }}</td>
+                <td class="num">{{ r.consegneCollegate | number }}</td>
+                <td>
+                  <span class="badge" [class.badge-on]="r.active" [class.badge-off]="!r.active">
+                    <span class="dot"></span>{{ (r.active ? 'common.active' : 'common.inactive') | translate }}
+                  </span>
                 </td>
               </tr>
             }
@@ -161,9 +213,30 @@ interface DeliveryRule {
 })
 export class DeliveryRulesComponent {
   private readonly http = inject(HttpClient);
+  private readonly translate = inject(TranslateService);
   private readonly api = environment.apiUrl;
 
   readonly rules = signal<DeliveryRule[]>([]);
+
+  /** I nomi dei partner a cui la regola si applica (i primi 4, poi «+N»). */
+  nomiPartner(r: DeliveryRule): string {
+    const nomi = r.partners.map((p) => p.partner.insegna);
+    return nomi.length <= 4 ? nomi.join(', ') : `${nomi.slice(0, 4).join(', ')} +${nomi.length - 4}`;
+  }
+
+  /** Le REGOLE VALET (plus a scaglioni sui ritiri del giro). */
+  readonly regoleValet = signal<RegolaValet[]>([]);
+
+  etichettaScaglioni(r: RegolaValet): string {
+    return r.scaglioni
+      .map((s) => `${s.operatore === 'moreThan' ? this.translate.instant('deliveryRules.valet.moreThan', { n: s.ritiri }) : this.translate.instant('deliveryRules.valet.equal', { n: s.ritiri })} → +${s.plus} €`)
+      .join(' · ');
+  }
+
+  nomiValet(r: RegolaValet): string {
+    const nomi = r.valets.map((v) => v.nome);
+    return nomi.length <= 4 ? nomi.join(', ') : `${nomi.slice(0, 4).join(', ')} +${nomi.length - 4}`;
+  }
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
 
@@ -172,6 +245,10 @@ export class DeliveryRulesComponent {
 
   constructor() {
     this.load();
+    this.http.get<RegolaValet[]>(`${this.api}/delivery-rules/valet`).subscribe({
+      next: (d) => this.regoleValet.set(d ?? []),
+      error: () => {},
+    });
   }
 
   private load(): void {

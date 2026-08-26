@@ -79,6 +79,41 @@ export type ConsegnaDaPagare = {
  */
 export const SOGLIA_ARRETRATO = new Date('2026-07-01T00:00:00.000Z');
 
+/**
+ * ⭐ LA REGOLA DEL GIRO (27/08, decisa dall'utente): consegne dello STESSO
+ * valet, nello STESSO giorno e con lo STESSO DDT sono UN giro solo — si paga
+ * UNA volta (la consegna principale) col plus a scaglioni della REGOLA VALET
+ * sul numero di ritiri del giro; le altre si mostrano «nel giro» e non si
+ * pagano. La principale e' quella con la paga scritta piu' alta: nel legacy
+ * la paga del giro stava su una consegna sola (il #12701 ne aveva due per
+ * lo stesso viaggio a Menaggio: 77,45 + 71,57 per un solo giro).
+ *
+ * Vale SOLO nello stesso giorno: lo stesso ordine consegnato in due giorni
+ * sono due viaggi (regola del 26/08).
+ */
+export function giriPerDdt(
+  deliveries: { id: string; valetId?: string | null; date: Date; ddtNumber?: string | null; valetSalary?: number | null; _count?: { pickups?: number } }[],
+): Map<string, { principale: boolean; ritiri: number; ddt: string }> {
+  const gruppi = new Map<string, typeof deliveries>();
+  for (const d of deliveries) {
+    const ddt = String(d.ddtNumber ?? '').trim();
+    if (!ddt || !d.valetId) continue;
+    const chiave = `${d.valetId}|${new Date(d.date).toISOString().slice(0, 10)}|${ddt}`;
+    const g = gruppi.get(chiave) ?? [];
+    g.push(d);
+    gruppi.set(chiave, g);
+  }
+  const esiti = new Map<string, { principale: boolean; ritiri: number; ddt: string }>();
+  for (const g of gruppi.values()) {
+    if (g.length < 2) continue;
+    const principale = [...g].sort((a, b) => (b.valetSalary ?? 0) - (a.valetSalary ?? 0))[0];
+    // Una consegna del giro = un ritiro, piu' gli eventuali ritiri extra registrati.
+    const ritiri = g.reduce((s, d) => s + Math.max(1, d._count?.pickups ?? 0), 0);
+    for (const d of g) esiti.set(d.id, { principale: d.id === principale.id, ritiri, ddt: String(d.ddtNumber ?? '').trim() });
+  }
+  return esiti;
+}
+
 export type RegolaPaga = {
 
   valetPayAdjustment?: number | null;
@@ -268,7 +303,7 @@ export class SalariesService {
     const deliveries = await this.prisma.delivery.findMany({
       where,
       select: {
-        id: true, valetId: true, valetServiceId: true, date: true,
+        id: true, valetId: true, valetServiceId: true, date: true, ddtNumber: true,
         valetSalary: true, valetAdditionalPrice: true, hours: true, extraKm: true,
         paymentOnDelivery: true, paymentAmount: true,
         serviceType: { select: { pricingModel: true, minHours: true } },
@@ -279,22 +314,40 @@ export class SalariesService {
       },
     });
     const listini = await this.listiniValet(deliveries);
+    // ⭐ La regola del giro: stesso valet + giorno + DDT = una paga sola.
+    const giri = giriPerDdt(deliveries as any);
+    const regoleAssegnate = await this.regoleValetAssegnate(deliveries.map((d) => d.valetId!).filter(Boolean));
 
     type Riga = {
       valetId: string; deliveriesCount: number; grossAmount: number; cashDeductions: number;
-      unpaidCount: number; ruleExcludedCount: number; fromListino: number; from: Date; to: Date;
+      unpaidCount: number; ruleExcludedCount: number; fromListino: number; nelGiroCount: number; from: Date; to: Date;
     };
     const per = new Map<string, Riga>();
     let arretrato = 0;
     for (const d of deliveries) {
       if (!d.valetId) continue;
-      const calcolo = pagaConsegna(
+      const giro = giri.get(d.id);
+      const calcolo = giro && !giro.principale ? null : pagaConsegna(
         d as any,
         scegliListinoValet(d as any, listini.perId, listini.perValet),
         (d as any).deliveryRule ?? null,
-        (d as any).valetDeliveryRule ?? null,
-        (d as any)._count?.pickups ?? 0,
+        (d as any).valetDeliveryRule ?? regoleAssegnate.get(d.valetId) ?? null,
+        giro?.ritiri ?? (d as any)._count?.pickups ?? 0,
       );
+      if (giro && !giro.principale) {
+        // Nel giro di un'altra consegna: si conta, non si paga.
+        const r0 = per.get(d.valetId) ?? {
+          valetId: d.valetId, deliveriesCount: 0, grossAmount: 0, cashDeductions: 0,
+          unpaidCount: 0, ruleExcludedCount: 0, fromListino: 0, nelGiroCount: 0, from: d.date, to: d.date,
+        };
+        r0.deliveriesCount++;
+        r0.nelGiroCount++;
+        if (d.paymentOnDelivery) r0.cashDeductions += d.paymentAmount ?? 0;
+        if (d.date < r0.from) r0.from = d.date;
+        if (d.date > r0.to) r0.to = d.date;
+        per.set(d.valetId, r0);
+        continue;
+      }
       // Buco di paga su una consegna vecchia: arretrato, non lavoro aperto.
       if (!calcolo && !((d as any).deliveryRule?.toPay === false) && d.date < SOGLIA_ARRETRATO) {
         arretrato++;
@@ -303,7 +356,7 @@ export class SalariesService {
       const r = per.get(d.valetId) ?? {
 
         valetId: d.valetId, deliveriesCount: 0, grossAmount: 0, cashDeductions: 0,
-        unpaidCount: 0, ruleExcludedCount: 0, fromListino: 0, from: d.date, to: d.date,
+        unpaidCount: 0, ruleExcludedCount: 0, fromListino: 0, nelGiroCount: 0, from: d.date, to: d.date,
       };
       r.deliveriesCount++;
       if (calcolo) {
@@ -385,7 +438,7 @@ export class SalariesService {
     const deliveries = await this.prisma.delivery.findMany({
       where,
       select: {
-        id: true, code: true, date: true, status: true, valetServiceId: true, valetId: true, payable: true,
+        id: true, code: true, date: true, status: true, valetServiceId: true, valetId: true, payable: true, ddtNumber: true,
         valetSalary: true, valetAdditionalPrice: true, hours: true, extraKm: true,
         paymentOnDelivery: true, paymentAmount: true,
         recipientAddress: true,
@@ -400,6 +453,9 @@ export class SalariesService {
       take: 500,
     });
     const listini = await this.listiniValet(deliveries);
+    // ⭐ La regola del giro (solo sulle righe pagabili e consegnate).
+    const giri = giriPerDdt(deliveries.filter((d) => d.payable !== false && d.status !== 'delivered_time_to_approve') as any);
+    const regoleAssegnate = await this.regoleValetAssegnate([valetId]);
     return {
       // Anche nel dettaglio l'arretrato non si mostra: sarebbe un elenco di
       // consegne del 2021 in mezzo al lavoro di oggi.
@@ -422,12 +478,14 @@ export class SalariesService {
         // niente paga calcolata — la riga si mostra marcata, non si conta.
         const nonPagabile = (d as any).payable === false;
         const daApprovare = d.status === 'delivered_time_to_approve';
-        const calcolo = nonPagabile || daApprovare ? null : pagaConsegna(
+        const giro = giri.get(d.id);
+        const nelGiro = !!giro && !giro.principale;
+        const calcolo = nonPagabile || daApprovare || nelGiro ? null : pagaConsegna(
         d as any,
         scegliListinoValet(d as any, listini.perId, listini.perValet),
         (d as any).deliveryRule ?? null,
-        (d as any).valetDeliveryRule ?? null,
-        (d as any)._count?.pickups ?? 0,
+        (d as any).valetDeliveryRule ?? regoleAssegnate.get(valetId) ?? null,
+        giro?.ritiri ?? (d as any)._count?.pickups ?? 0,
       );
         // Il plus/minus che la paga ha dentro: quello scritto sulla consegna
         // piu' l'aggiustamento della regola carnet e lo scaglione ritiri.
@@ -450,6 +508,11 @@ export class SalariesService {
           regola: d.deliveryRule?.toPay === false ? d.deliveryRule?.name ?? null : null,
           nonPagabile,
           daApprovare,
+          /// Nel giro di un'altra consegna (stesso valet+giorno+DDT): la paga
+          /// e' sulla principale, con lo scaglione ritiri della regola valet.
+          nelGiro,
+          giroDdt: nelGiro ? giro!.ddt : null,
+          ritiriGiro: giro?.principale ? giro.ritiri : null,
         };
       }),
       troncato: deliveries.length === 500,
@@ -506,7 +569,7 @@ export class SalariesService {
         <td class="mono">${e(x.orario ?? '—')}</td>
         <td class="indirizzo">${e(x.address ?? '—')}</td>
         <td class="muted">${e(x.service)}</td>
-        <td class="muted">${(x as any).daApprovare ? 'In attesa di approvazione' : (x as any).nonPagabile ? 'No (non pagabile)' : x.esclusaDaRegola ? `No (${e(x.regola ?? 'regola')})` : x.amount != null ? 'S&igrave;' : 'No'}</td>
+        <td class="muted">${(x as any).nelGiro ? `Nel giro (DDT ${e((x as any).giroDdt ?? '')})` : (x as any).daApprovare ? 'In attesa di approvazione' : (x as any).nonPagabile ? 'No (non pagabile)' : x.esclusaDaRegola ? `No (${e(x.regola ?? 'regola')})` : x.amount != null ? 'S&igrave;' : 'No'}</td>
         <td class="num">${x.cash ? eur(x.cash) : '—'}</td>
         <td class="num">${x.amount != null ? eur(x.amount) : '—'}</td>
       </tr>`).join('');
@@ -628,16 +691,33 @@ export class SalariesService {
     });
 
     const listini = await this.listiniValet(deliveries);
+    // ⭐ La regola del giro: una paga per (valet, giorno, DDT), scaglioni compresi.
+    const giri = giriPerDdt(deliveries as any);
+    const regoleAssegnate = await this.regoleValetAssegnate([valetId]);
 
     const lines: { deliveryId: string; date: Date; description: string | null; origin: string; amount: number }[] = [];
     const nonPagabili: { code: number; date: Date }[] = [];
     for (const d of deliveries) {
+      const giro = giri.get(d.id);
+      if (giro && !giro.principale) {
+        // Nel giro di un'altra consegna: la paga sta sulla principale. La riga
+        // a 0 la MARCA come pagata nel giro — senza, resterebbe «da pagare»
+        // per sempre e ricomparirebbe a ogni conteggio.
+        lines.push({
+          deliveryId: d.id,
+          date: d.date,
+          description: `#${d.code} — nel giro (DDT ${giro.ddt})`,
+          origin: 'giro',
+          amount: 0,
+        });
+        continue;
+      }
       const calcolo = pagaConsegna(
         d as any,
         scegliListinoValet(d as any, listini.perId, listini.perValet),
         (d as any).deliveryRule ?? null,
-        (d as any).valetDeliveryRule ?? null,
-        (d as any)._count?.pickups ?? 0,
+        (d as any).valetDeliveryRule ?? regoleAssegnate.get(valetId) ?? null,
+        giro?.ritiri ?? (d as any)._count?.pickups ?? 0,
       );
       if (!calcolo) {
         // Fuori dallo stipendio: una riga a 0 € direbbe al valet che quella
@@ -648,7 +728,7 @@ export class SalariesService {
       lines.push({
         deliveryId: d.id,
         date: d.date,
-        description: `#${d.code} ${d.recipientAddress ?? ''}`.trim(),
+        description: `#${d.code} ${d.recipientAddress ?? ''}${giro?.principale ? ` — giro di ${giro.ritiri} ritiri (DDT ${giro.ddt})` : ''}`.trim(),
         origin: calcolo.origine,
         amount: calcolo.amount,
       });
@@ -731,6 +811,22 @@ export class SalariesService {
    * NON da `serviceTypeId`. Unendo per `serviceTypeId` il listino non si
    * trovava mai: su 38.524 consegne da pagare il conto usciva 0 su 0.
    */
+  /**
+   * La REGOLA VALET assegnata per valet (ValetDeliveryRuleValet): serve quando
+   * la consegna non porta un `valetDeliveryRuleId` suo — le regole valgono per
+   * il valet, non per la singola consegna.
+   */
+  private async regoleValetAssegnate(valetIds: string[]): Promise<Map<string, { tiers: string; active: boolean }>> {
+    if (!valetIds.length) return new Map();
+    const righe = await this.prisma.valetDeliveryRuleValet.findMany({
+      where: { valetId: { in: [...new Set(valetIds)] }, valetDeliveryRule: { active: true } },
+      select: { valetId: true, valetDeliveryRule: { select: { tiers: true, active: true } } },
+    });
+    const per = new Map<string, { tiers: string; active: boolean }>();
+    for (const r of righe) if (!per.has(r.valetId)) per.set(r.valetId, r.valetDeliveryRule);
+    return per;
+  }
+
   private async listiniValet(deliveries: { valetServiceId: string | null; valetId?: string | null }[]) {
     const valetIds = [...new Set(deliveries.map((d) => d.valetId).filter(Boolean) as string[])];
     if (!valetIds.length) return { perId: new Map<string, any>(), perValet: new Map<string, any[]>() };

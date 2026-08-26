@@ -545,7 +545,11 @@
       "toApprove": "To approve",
       "toApproveHint": "Hourly service awaiting approval: the pay counts after the go-ahead",
       "notPayable": "Not payable (flag)",
-      "notPayableHint": "The delivery is flagged as not payable: shown but not counted in totals"
+      "notPayableHint": "The delivery is flagged as not payable: shown but not counted in totals",
+      "nelGiro": "In route (DDT {{ddt}})",
+      "nelGiroHint": "Same valet, same day, same DDT: the pay sits on the main delivery of the route",
+      "giroPrincipale": "route of {{n}} pickups",
+      "giroPrincipaleHint": "Route pay: once, with the pickup tier of the valet rule"
     },
     "line": {
       "date": "Date",
@@ -879,6 +883,15 @@
       "partners": "Extend to partners",
       "partnersHint": "Hold Ctrl/Cmd to select more than one.",
       "partnerLocked": "this partner stays always included"
+    },
+    "valet": {
+      "title": "Valet rules (route pickups)",
+      "caption": "Pay bonus by number of pickups in the same route (same DDT, same day). Imported from legacy.",
+      "tiers": "Tiers",
+      "appliesTo": "Applies to",
+      "deliveries": "Deliveries",
+      "equal": "{{n}} pickups",
+      "moreThan": "more than {{n}} pickups"
     }
   },
   "partnerDetail": {
@@ -1082,7 +1095,8 @@
       "noMapsKey": "Address suggestions are off: the Google Maps key is missing.",
       "noMapsKeyLink": "Set it in Settings",
       "selectPartnerFirst": "Pick the partner first: services depend on their price list.",
-      "noServicesForPartner": "This partner has no services on their price list: showing all."
+      "noServicesForPartner": "This partner has no services on their price list: showing all.",
+      "foreignAddress": "Foreign address: province does not apply — partners and valets are not filtered."
     },
     "timing": {
       "selectServiceFirst": "Select a service first to set the delivery time slot.",
