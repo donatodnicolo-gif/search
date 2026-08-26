@@ -13,6 +13,7 @@
 // cui questa pagina misura **il lavoro, non il merito**, e lo dice a schermo.
 
 import { db } from './db'
+import { marginiPerOperatore } from './margine-operatori'
 import { CHIUSURA } from './gestione'
 
 export type RigaOperatore = {
@@ -28,6 +29,18 @@ export type RigaOperatore = {
   messaggiInviati: number
   linkPagamento: number
   ordiniCreati: number
+  /**
+   * Il MARGINE generato: la somma dei margini degli ordini a cui LUI ha
+   * assegnato il fornitore, nel periodo.
+   *
+   * ⚠️⚠️ Letto da Deluxy Orders, non ricalcolato qui: è al netto IVA, e rifarlo
+   * come «totale − costo» darebbe un numero più alto e altrettanto credibile.
+   * ⚠️ Gli ordini di cui Orders non sa dire il margine non valgono zero: si
+   * contano a parte in `ordiniSenzaMargine`.
+   */
+  margine: number
+  ordiniConMargine: number
+  ordiniSenzaMargine: number
   /**
    * In quanti GIORNI DIVERSI ha fatto almeno una cosa, dentro il periodo.
    *
@@ -52,6 +65,8 @@ export type EsitoOperatori = {
    * «non ha fatto niente» quando la verità è «qui non si misurava ancora».
    */
   daQuando: { chiave: string; il: string | null }[]
+  /** Perché il totale dei margini potrebbe non essere completo. Vuota = a posto. */
+  notaMargini: string
 }
 
 /** Le colonne, con la firma nel database che le rende contabili. */
@@ -95,6 +110,12 @@ export const COLONNE = [
     nome: 'Ordini creati',
     spiega:
       'Tutti gli ordini creati al telefono, sia col link sia già pagati. Stessa data d’inizio: 21/08/2026.',
+  },
+  {
+    chiave: 'margine',
+    nome: 'Margine generato',
+    spiega:
+      'La somma dei margini degli ordini a cui ha assegnato il fornitore nel periodo. Il margine è quello di Deluxy Orders, al netto IVA: qui si legge, non si rifà. Si attribuisce a chi ha scelto il fornitore perché è lì che si decide il costo — e le assegnazioni fatte dalla riconciliazione automatica non contano per nessuno. Gli ordini senza costo scritto non valgono zero: si contano a parte.',
   },
 ] as const
 
@@ -233,6 +254,9 @@ export async function misuraOperatori(
       messaggiInviati: 0,
       linkPagamento: 0,
       ordiniCreati: 0,
+      margine: 0,
+      ordiniConMargine: 0,
+      ordiniSenzaMargine: 0,
       giorniLavorati: 0,
     }
     righe.set(id, nuova)
@@ -286,6 +310,27 @@ export async function misuraOperatori(
     if (r) r.giorniLavorati = s.size
   }
 
+  // ── IL MARGINE GENERATO ──
+  //
+  // ⚠️ Si chiede a Orders DOPO aver contato tutto il resto, e un suo silenzio
+  // non fa saltare la pagina: senza i margini le altre colonne valgono lo
+  // stesso, e una schermata che non si apre è molto peggio di una colonna a
+  // zero — purché la colonna dica che è a zero perché non lo sa.
+  let notaMargini = ''
+  try {
+    const m = await marginiPerOperatore(da, a)
+    notaMargini = m.nota
+    for (const r of m.righe) {
+      const riga = righe.get(r.utenteId)
+      if (!riga) continue
+      riga.margine = r.margine
+      riga.ordiniConMargine = r.ordini
+      riga.ordiniSenzaMargine = r.senzaMargine
+    }
+  } catch {
+    notaMargini = 'I margini non si sono potuti leggere da Deluxy Orders.'
+  }
+
   const elenco = [...righe.values()]
   // In cima chi ha fatto di più, e chi non ha fatto niente in fondo ma **c'è
   // lo stesso**: una riga a zero è un'informazione, una riga assente sembra un
@@ -297,6 +342,10 @@ export async function misuraOperatori(
     a: a.toISOString(),
     righe: elenco,
     daQuando: await daQuandoSiMisura(),
+    // ⚠️ Vuota quando è andato tutto bene. Se c'è, va MOSTRATA: dice che il
+    // totale dei margini è parziale, e un parziale che sembra completo è la
+    // cosa peggiore in una pagina di numeri.
+    notaMargini,
   }
 }
 

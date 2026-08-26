@@ -26,6 +26,10 @@ type Riga = {
   messaggiInviati: number
   linkPagamento: number
   ordiniCreati: number
+  /** Il margine generato, letto da Deluxy Orders (netto IVA). */
+  margine: number
+  ordiniConMargine: number
+  ordiniSenzaMargine: number
   giorniLavorati: number
 }
 
@@ -34,11 +38,16 @@ type Esito = {
   a: string
   righe: Riga[]
   daQuando: { chiave: string; il: string | null }[]
+  /** Perché il totale dei margini potrebbe non essere completo. */
+  notaMargini?: string
 }
 
+// ⚠️ `ordiniConMargine` e `ordiniSenzaMargine` NON sono colonne: sono il
+// contorno del margine, e messe in tabella sarebbero due colonne di numeri che
+// nessuno sa leggere. Si mostrano sotto la cifra del margine.
 type ChiaveMisura = Exclude<
   keyof Riga,
-  'utenteId' | 'nome' | 'ruolo' | 'uscito' | 'giorniLavorati'
+  'utenteId' | 'nome' | 'ruolo' | 'uscito' | 'giorniLavorati' | 'ordiniConMargine' | 'ordiniSenzaMargine'
 >
 
 const COLONNE: { chiave: ChiaveMisura; nome: string; spiega: string }[] = [
@@ -80,6 +89,12 @@ const COLONNE: { chiave: ChiaveMisura; nome: string; spiega: string }[] = [
     chiave: 'ordiniCreati',
     nome: 'Ordini creati',
     spiega: 'Tutti gli ordini creati al telefono: sia col link di pagamento, sia già pagati.',
+  },
+  {
+    chiave: 'margine',
+    nome: 'Margine generato',
+    spiega:
+      'La somma dei margini degli ordini a cui ha assegnato il fornitore nel periodo. Il margine è quello di Deluxy Orders, al netto IVA: qui si legge, non si rifà. Va a chi sceglie il fornitore, perché è lì che si decide il costo; le assegnazioni fatte dalla riconciliazione automatica non contano per nessuno. Gli ordini senza costo scritto non valgono zero e restano fuori dal totale.',
   },
 ]
 
@@ -263,11 +278,19 @@ export function OperatoriLista({ amministratore }: { amministratore: boolean }) 
    * ⚠️ Una cifra dopo la virgola e non due: «2,3 ordini al giorno» è una
    * media, e la seconda cifra darebbe una precisione che il dato non ha.
    */
-  function cella(valore: number, giornate: number) {
+  function cella(valore: number, giornate: number, euro = false) {
+    // ⚠️⚠️ Il margine è DENARO e va scritto come denaro: «81,97 €», non «81,97»
+    // in mezzo a colonne di conteggi. Un numero senza unità in una tabella di
+    // numeri si legge come «ordini», ed è la lettura sbagliata più facile.
+    const scrivi = (n: number) =>
+      euro
+        ? n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+        : n.toLocaleString('it-IT')
     if (!alGiorno) {
-      return valore === 0 ? <span className="cella-muta">—</span> : valore.toLocaleString('it-IT')
+      return valore === 0 ? <span className="cella-muta">—</span> : scrivi(valore)
     }
     if (!giornate || valore === 0) return <span className="cella-muta">—</span>
+    if (euro) return scrivi(valore / giornate)
     return (valore / giornate).toLocaleString('it-IT', {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
@@ -355,6 +378,16 @@ export function OperatoriLista({ amministratore }: { amministratore: boolean }) 
 
       {errore ? <div className="avviso-errore">{errore}</div> : null}
 
+      {/* ⚠️⚠️ Se il totale dei margini è parziale — perché nel periodo ci sono
+          più ordini del tetto, o perché Orders non ha risposto su qualcuno — si
+          DICE, sopra la tabella. Un parziale che sembra completo, in una pagina
+          di numeri con cui si giudicano delle persone, è la cosa peggiore. */}
+      {esito?.notaMargini ? (
+        <p className="cella-sub" style={{ color: 'var(--red)' }}>
+          ⚠️ {esito.notaMargini}
+        </p>
+      ) : null}
+
       <div className="tabella-wrap">
         <table>
           <thead>
@@ -396,7 +429,13 @@ export function OperatoriLista({ amministratore }: { amministratore: boolean }) 
                 </td>
                 {COLONNE.map((c) => (
                   <td key={c.chiave} className="cella-num">
-                    {cella(r[c.chiave] as number, r.giorniLavorati)}
+                    {cella(r[c.chiave] as number, r.giorniLavorati, c.chiave === 'margine')}
+                    {/* ⚠️ Gli ordini di cui NON si sa il margine si dicono
+                        sotto la cifra: un totale che tace quello che non sa
+                        vale meno di uno che lo ammette. */}
+                    {c.chiave === 'margine' && r.ordiniSenzaMargine ? (
+                      <div className="cella-sub">{r.ordiniSenzaMargine} senza costo</div>
+                    ) : null}
                   </td>
                 ))}
               </tr>
