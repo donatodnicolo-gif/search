@@ -354,6 +354,16 @@ interface ProductRow {
         <div class="grid-2">
           <label class="fld"><span>{{ 'deliveryForm.field.ddtNumber' | translate }}</span>
             <input class="field" name="ddtNumber" [(ngModel)]="model.ddtNumber" /></label>
+          <!-- Con piu' brand lo stesso numero DDT esiste su negozi diversi:
+               senza il brand il numero non identifica la vendita. -->
+          <label class="fld"><span>{{ 'deliveryForm.field.ddtBrand' | translate }}</span>
+            <input class="field" name="ddtBrand" [(ngModel)]="model.ddtBrand" list="marchi-ddt" />
+            <datalist id="marchi-ddt">
+              <option value="deluxy.it"></option>
+              <option value="Flowers"></option>
+              <option value="cakedesign.me"></option>
+              <option value="Business"></option>
+            </datalist></label>
           <label class="fld"><span>{{ 'deliveryForm.field.ddtFile' | translate }}</span>
             <input class="field" name="ddtFile" [(ngModel)]="model.ddtFile" placeholder="https://…" /></label>
         </div>
@@ -548,6 +558,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     flexiblePrice: '',
     hours: null as number | null,
     ddtNumber: '',
+    ddtBrand: '',
     ddtFile: '',
     notes: '',
     personalizeSaleNotes: '',
@@ -731,7 +742,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       'pickupTimeFrom', 'pickupTimeTo', 'valetId', 'status', 'paymentStatus', 'customerId',
       'recipientLastName', 'recipientFirstName', 'recipientIntercom', 'recipientPhone',
       'recipientEmail', 'senderLastName', 'senderFirstName', 'senderPhone', 'valetServiceId',
-      'smsPhoneNo', 'flexiblePrice', 'ddtNumber', 'ddtFile', 'notes', 'personalizeSaleNotes',
+      'smsPhoneNo', 'flexiblePrice', 'ddtNumber', 'ddtBrand', 'ddtFile', 'notes', 'personalizeSaleNotes',
       'internalNotes',
     ] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = d[key];
@@ -1156,7 +1167,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     for (const key of [
       'valetId', 'valetServiceId', 'status', 'customerId',
       'recipientIntercom', 'recipientPhone', 'recipientEmail',
-      'senderFirstName', 'senderLastName', 'senderPhone', 'smsPhoneNo', 'ddtNumber', 'ddtFile',
+      'senderFirstName', 'senderLastName', 'senderPhone', 'smsPhoneNo', 'ddtNumber', 'ddtBrand', 'ddtFile',
       'flexiblePrice', 'notes', 'personalizeSaleNotes', 'internalNotes',
     ] as const) {
       const v = m[key];

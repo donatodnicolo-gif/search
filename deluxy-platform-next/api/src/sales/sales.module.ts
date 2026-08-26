@@ -471,6 +471,7 @@ export class SalesService {
       discountPercent?: number;
       externalOrderId?: string | null;
       source?: string;
+      brand?: string | null;
       productId?: string | null;
       productVariantId?: string | null;
       variantName?: string | null;
@@ -520,6 +521,9 @@ export class SalesService {
         price: quotaNostra,
         productValue: valoreProdotti,
         ddtNumber: numeroDdt,
+        // Con piu' brand lo stesso numero DDT esiste su negozi diversi: il
+        // brand della vendita viaggia col documento, o il numero non identifica.
+        ddtBrand: numeroDdt ? (vendita.brand ?? null) : null,
         legacySaleId: vendita.externalOrderId ?? null,
         // ⭐ LA RIGA PRODOTTO, che prima non veniva scritta affatto: la consegna
         // nasceva senza dire COSA andava consegnato («Nessun prodotto» a

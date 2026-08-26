@@ -54,6 +54,7 @@ interface DeliveryDetail {
   notes?: string;
   internalNotes?: string;
   ddtNumber?: string;
+  ddtBrand?: string;
   ddtFile?: string;
   receipt?: string;
   receiverSign?: string;
@@ -222,7 +223,8 @@ interface DeliveryDetail {
         <section class="card block">
           <h2>{{ 'deliveryDetail.section.docs' | translate }}</h2>
           <dl>
-            <dt>{{ 'deliveryDetail.ddtNumber' | translate }}</dt><dd>{{ d.ddtNumber || '—' }}</dd>
+            <dt>{{ 'deliveryDetail.ddtNumber' | translate }}</dt>
+            <dd>{{ d.ddtNumber || '—' }} @if (d.ddtBrand) { <span class="pill">{{ d.ddtBrand }}</span> }</dd>
             <dt>{{ 'deliveryDetail.ddtFile' | translate }}</dt>
             <dd>
               @if (!d.ddtFile) { — }

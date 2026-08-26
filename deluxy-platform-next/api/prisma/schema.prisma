@@ -950,6 +950,10 @@ model Delivery {
   notes              String?
   internalNotes      String? // visibili solo ad admin/operation/valet
   ddtNumber          String?
+  /// Il BRAND a cui appartiene il numero DDT/riferimento della vendita:
+  /// con piu' negozi lo stesso numero esiste su brand diversi (il DDT «3749»
+  /// sta su 16 consegne di 8 partner), e il numero da solo non identifica.
+  ddtBrand           String?
   ddtFile            String? // file/URL del DDT
   // Distanza e extra (calcolo automatico ritiro -> consegna)
   distanceKm         Float?

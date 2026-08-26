@@ -402,6 +402,32 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### 26/08 (sera, 8) — Il DDT viaggia col suo BRAND, e i controlli 62504 / #12649
+
+- **`Delivery.ddtBrand`** (migrazione `20260826200000_ddt_brand`): con più
+  negozi lo stesso numero DDT esiste su brand diversi — il «3749» sta su 16
+  consegne di 8 partner — e il numero da solo non identifica la vendita.
+  Scritto alla nascita dalla vendita (`Sale.brand`, arriva da Orders), campo
+  nel form consegna (datalist: deluxy.it, Flowers, cakedesign.me, Business),
+  pillola nel dettaglio. Backfill `scripts/riempi-ddt-brand.mjs`: 10.991
+  consegne agganciate all'ordine pagato (8.724 deluxy.it, 1.568 Flowers, 699
+  cakedesign.me); 5.132 indeterminabili restano vuote.
+- **62504 verificata**: fedele al legacy al centesimo (VARIE 586 €, quota
+  105,48 = 18%, paga 52,37); NESSUN ordine Shopify da 586 € esiste (né sul
+  negozio, né in tutta la cache dei 4 brand): vendita fuori Shopify, saleId
+  vuoto fin dall'origine.
+- **#12649, «IVA negativa»**: non è un errore di formula — il cliente ha
+  pagato 150 € (1 ordine «Rome Breakfast») ma il giro ha DUE consegne
+  (17 e 18/08, stesso partner) con productValue 80 € l'una = 160 € dati al
+  partner. Takings 150−160 = −10 → IVA (takings−takingsNet) = −1,80. L'ordine
+  è in perdita o il productValue andava diviso (75+75): decisione dell'utente.
+- **Orari a ora**: `approvedTimingStatus` decodificato (0 nessun giro, 3 in
+  attesa, 1 approvato). 550 approvate: 549/550 con ore = orario dichiarato
+  (unica storta #40843, già storta nel legacy). ⚠️ **283 consegne con orario
+  APPROVATO ma stato fermo a `delivered_time_to_approve`** (tutte 2025, paghe
+  scritte per 6.747,34 €, non pagate): incoerenza ereditata tale e quale dal
+  legacy — avanzarle ad `approved` è una decisione dell'utente.
+
 ### 26/08 (sera, 7) — Censimento import, mezzi dei valet, Finanza ordinabile, stipendi completi
 
 **Censimento del database legacy** (chiesto dall'utente: «tabelle non ancora

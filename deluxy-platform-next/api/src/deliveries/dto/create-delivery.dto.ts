@@ -217,6 +217,11 @@ export class CreateDeliveryDto {
   @IsString()
   ddtNumber?: string;
 
+  @ApiPropertyOptional({ description: 'Brand a cui appartiene il DDT/riferimento (con piu\' negozi il numero da solo non identifica)' })
+  @IsOptional()
+  @IsString()
+  ddtBrand?: string;
+
   @ApiPropertyOptional({ description: 'Distanza ritiro->consegna in km (in prod: calcolo automatico via API mappe)' })
   @IsOptional()
   @IsNumber()

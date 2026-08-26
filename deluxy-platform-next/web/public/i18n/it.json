@@ -1061,7 +1061,8 @@
       "personalization": "Personalizzazione",
       "internalNotes": "Note interne",
       "internalNotesRoles": "(admin / operation / valet)",
-      "deliveryCodeRequired": "Codice di consegna richiesto"
+      "deliveryCodeRequired": "Codice di consegna richiesto",
+      "ddtBrand": "Brand del DDT"
     },
     "placeholder": {
       "selectService": "Seleziona servizio…",
