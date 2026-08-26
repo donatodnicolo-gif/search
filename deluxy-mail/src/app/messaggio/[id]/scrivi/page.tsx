@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
-import { modoValido, preparaRisposta, TITOLI } from '@/lib/rispondi'
+import { accountPerRisposta, modoValido, preparaRisposta, TITOLI } from '@/lib/rispondi'
 import { Composizione } from '@/components/Composizione'
 import { richiediUtente } from '@/lib/sessione'
 import { leggiSenzaTraduzione, lingueLetteDi } from '@/lib/lingue'
@@ -35,6 +35,16 @@ export default async function Scrivi({ params, searchParams }: Props) {
   })
   if (!messaggio) notFound()
 
+  // Da QUALE casella si risponde: quella a cui la mail era indirizzata, non
+  // quella che ha scaricato la copia (con più caselle possono differire — il
+  // «Da: cs@deluxy.it» su una mail mandata a nicolo.donato). La stessa regola
+  // la riapplica `inviaMessaggio` allo spedire: qui si mostra, là si fa.
+  const caselle = await db.account.findMany({
+    where: { utenteId: u.id, attivo: true },
+    select: { id: true, email: true, nome: true },
+  })
+  const daCasella = accountPerRisposta(messaggio, caselle) ?? messaggio.account
+
   // Riprendendo una bozza si riparte da com'era, non dai campi precompilati:
   // sarebbe come non averla mai salvata.
   const bozza = bozzaId
@@ -52,7 +62,9 @@ export default async function Scrivi({ params, searchParams }: Props) {
     : preparaRisposta({
         messaggio,
         modo,
-        mioIndirizzo: messaggio.account.email,
+        // L'indirizzo della casella SCELTA: serve anche a «rispondi a tutti»
+        // per non mettersi da soli fra i destinatari.
+        mioIndirizzo: daCasella.email,
         firma: u.firma || undefined,
       })
 
@@ -147,7 +159,7 @@ export default async function Scrivi({ params, searchParams }: Props) {
       <Composizione
         messaggioId={messaggio.id}
         modo={modo}
-        da={`${messaggio.account.nome} <${messaggio.account.email}>`}
+        da={`${daCasella.nome} <${daCasella.email}>`}
         iniziale={iniziale}
         tornaA={`/messaggio/${id}`}
         bozzaId={bozza?.id}

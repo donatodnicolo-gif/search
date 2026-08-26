@@ -95,6 +95,40 @@ function inoltratoHtml(messaggio: Messaggio): string {
 }
 
 /**
+ * DA QUALE CASELLA si risponde.
+ *
+ * ⚠️ Non è «quella che ha scaricato la copia». Con più caselle collegate la
+ * stessa mail arriva in più caselle (il destinatario diretto E chi era in
+ * copia), il thread la mostra UNA volta sola, e la copia che ti capita davanti
+ * può appartenere alla casella sbagliata: una mail mandata A
+ * nicolo.donato usciva col «Da: cs@deluxy.it», perché cs@ era in copia e la
+ * copia a schermo era la sua (segnalato il 26/08/2026).
+ *
+ * La regola: si risponde dall'indirizzo A CUI la mail era indirizzata.
+ * 1. la casella della copia, se compare fra i destinatari (ha ricevuto
+ *    direttamente: nessun motivo di cambiarla);
+ * 2. altrimenti la prima delle tue caselle che compare fra i destinatari;
+ * 3. altrimenti la casella della copia (meglio un mittente discutibile di un
+ *    invio che non parte).
+ * Su una mail USCITA non si tocca niente: l'hai mandata tu, da lì.
+ *
+ * Pura e condivisa: la usano la pagina «Rispondi» (per mostrare il Da giusto)
+ * e `inviaMessaggio` (per spedire davvero da quella casella) — se decidesse
+ * solo la pagina, l'invio partirebbe comunque dalla casella della copia.
+ */
+export function accountPerRisposta<T extends { id: string; email: string }>(
+  messaggio: { direzione: string; destinatari: string; accountId: string },
+  caselle: T[]
+): T | null {
+  const dellaCopia = caselle.find((c) => c.id === messaggio.accountId) ?? null
+  if (messaggio.direzione !== 'entrata') return dellaCopia
+  const dest = messaggio.destinatari.toLowerCase()
+  if (dellaCopia && dest.includes(dellaCopia.email.toLowerCase())) return dellaCopia
+  const indirizzata = caselle.find((c) => dest.includes(c.email.toLowerCase()))
+  return indirizzata ?? dellaCopia
+}
+
+/**
  * Prepara i campi della finestra di scrittura a partire dal messaggio e dal
  * modo scelto.
  *

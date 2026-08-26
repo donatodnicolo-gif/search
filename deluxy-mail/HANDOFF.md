@@ -23,6 +23,33 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera) — si risponde dalla casella INDIRIZZATA, non da quella della copia
+
+Segnalato dall'utente: «faccio rispondi e mi esce cs@deluxy.it come mittente se la mail
+originaria era a nicolo.donato». **Verificato sul database**: la risposta di Carolin del
+26/08 è indirizzata `a: nicolo.donato@deluxy.it` ma la copia in archivio appartiene alla
+casella **cs@** (cs@ era in copia nello scambio; con più caselle collegate la stessa mail
+entra in più caselle, il thread la mostra una volta e la copia a schermo può essere
+quella «sbagliata»). Il «Rispondi» prendeva `messaggio.account` — la casella della copia.
+
+- **Regola nuova, in un posto solo**: `accountPerRisposta` (`src/lib/rispondi.ts`, pura).
+  Si risponde dalla casella **a cui la mail era indirizzata**: (1) la casella della
+  copia se compare fra i destinatari, (2) altrimenti la prima delle tue caselle nei
+  destinatari, (3) altrimenti la casella della copia. Mail USCITA: mai toccare.
+- Applicata in **quattro** punti: la pagina «Rispondi» (Da a schermo + `mioIndirizzo`
+  del rispondi-a-tutti), **`inviaMessaggio`** (l'invio vero), **`inviaBozza`** (la bozza
+  AI è pur sempre una risposta) e la **risposta agli inviti calendario** (dove anche
+  l'identità nell'ICS deve combaciare col mittente).
+- ⚠️⚠️ **Due caselle, due ruoli** in `inviaMessaggio`: gli allegati di un inoltro si
+  ripescano per **`uid`**, e quel numero ha senso solo nella casella dove la copia vive
+  (`accountCopia`) — la spedizione invece parte dalla casella scelta. Confonderli
+  avrebbe fatto cercare l'allegato nella casella sbagliata.
+- Verifica: `tsc` e build puliti; la regola provata su 6 casi (quello segnalato, la
+  copia giusta, indirizzata a entrambe, alias di terzi, uscita, maiuscole). NON provato
+  l'invio vero end-to-end (serve la casella): da guardare che il prossimo «Rispondi» su
+  quella mail dica «Nicolo <nicolo.donato@deluxy.it>».
+
+---
 ### 26/08 — il lotto «riassunto che lavora» + lo storico ripiegato anche in HTML
 
 Cinque richieste dell'utente in sequenza, stessa giornata. In ordine:

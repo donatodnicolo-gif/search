@@ -377,6 +377,15 @@ calcolata **in background** e appare un attimo dopo (prima invece la prima apert
 ogni mail restava bloccata sulla chiamata di traduzione). Tutte le letture della pagina
 girano in parallelo, non una dopo l'altra.
 
+**Da quale casella parte la risposta.** Dall'indirizzo **a cui la mail era mandata**,
+non dalla casella che per prima ne ha scaricato una copia. Con più caselle collegate la
+stessa mail può entrare in due caselle (il destinatario diretto e chi era in copia): il
+thread la mostra una volta sola, e prima il «Da» seguiva la copia che ti capitava
+davanti — una mail mandata a `nicolo.donato` usciva col mittente `cs@deluxy.it`. Vale
+per «Rispondi», per le bozze dell'AI e per le risposte agli inviti di calendario. Se
+nessuna delle tue caselle è fra i destinatari (una mail girata da un alias), resta la
+casella della copia: meglio un mittente discutibile di un invio che non parte.
+
 ## 6-bis. La barra delle azioni sulla mail aperta
 
 Sulla mail aperta restano in vista le quattro azioni d'uso continuo — **Rispondi**,

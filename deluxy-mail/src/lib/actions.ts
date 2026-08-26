@@ -23,7 +23,7 @@ import { htmlDiMessaggio } from './htmlServer'
 import { sanitizzaHtml } from './sanitizzaHtml'
 import { leggiEventoProposto } from './eventoProposto'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
-import { preparaRisposta, modoValido, type Modo } from './rispondi'
+import { accountPerRisposta, preparaRisposta, modoValido, type Modo } from './rispondi'
 import { elencoContatti } from './contatti'
 import { htmlAPlain, sembraHtml, plainAHtml, immaginiInLineaComeAllegati } from './htmlMail'
 
@@ -2154,7 +2154,10 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
     })
     if (preso.count !== 1) return { ok: false, messaggio: 'Questa bozza è già stata inviata.' }
 
-    const account = bozza.messaggio.account
+    // Dalla casella a cui la mail era INDIRIZZATA, non da quella della copia:
+    // stessa regola di `inviaMessaggio` (una bozza è pur sempre una risposta).
+    const caselleBozza = await db.account.findMany({ where: { utenteId, attivo: true } })
+    const account = accountPerRisposta(bozza.messaggio, caselleBozza) ?? bozza.messaggio.account
     const { html, testo: testoPiano } = corpoDaForm(bozza.corpo)
     const allegati = form ? await leggiAllegati(form, utenteId) : []
     // ⚠️ E quelli CONSERVATI con la bozza: chi riprende una bozza e preme invia
@@ -2535,7 +2538,17 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     })
     if (!originale) return { ok: false, messaggio: 'Messaggio d’origine non trovato.' }
 
-    const account = originale.account
+    // ⚠️ DUE caselle, due ruoli. La casella DELLA COPIA (`originale.account`)
+    // serve a LEGGERE: gli allegati di un inoltro si ripescano per `uid`, e
+    // quel numero ha senso solo nella casella dove la copia vive. La casella
+    // DI INVIO è quella a cui la mail era INDIRIZZATA (`accountPerRisposta`,
+    // stessa regola della pagina «Rispondi»): con più caselle collegate la
+    // copia a schermo può appartenere a cs@ mentre la mail era per
+    // nicolo.donato, e senza questa distinzione la risposta partiva col
+    // mittente sbagliato (segnalato il 26/08/2026).
+    const accountCopia = originale.account
+    const caselle = await db.account.findMany({ where: { utenteId, attivo: true } })
+    const account = accountPerRisposta(originale, caselle) ?? accountCopia
     const inoltro = testo(form, 'modo') === 'inoltra'
 
     // Rispondendo a una mail straniera (in una lingua che non leggi): scritta in
@@ -2561,7 +2574,7 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     // li fermerebbe): si riprendono dalla casella IMAP qui sul server, come già
     // fanno il download e lo zip.
     const { avviso: avvisoAllegati, tutti: allegatiFinali, ripresi } = inoltro
-      ? await allegatiInoltrati(originale, account, allegati)
+      ? await allegatiInoltrati(originale, accountCopia, allegati)
       : { avviso: null as string | null, tutti: allegati, ripresi: 0 }
 
     const daInviare: DaInviare = {
@@ -3746,19 +3759,24 @@ export async function rispondiInvito(
     }
   }
 
-  const ics = rispostaIcs(invito, { nome: m.account.nome, email: m.account.email }, stato)
+  // Anche qui: si risponde dalla casella INVITATA, non da quella della copia.
+  // L'identità nell'ICS deve combaciare col mittente, o l'organizzatore vede
+  // rispondere un indirizzo che non aveva invitato.
+  const caselleInvito = await db.account.findMany({ where: { utenteId, attivo: true } })
+  const casellaInvito = accountPerRisposta(m, caselleInvito) ?? m.account
+  const ics = rispostaIcs(invito, { nome: casellaInvito.nome, email: casellaInvito.email }, stato)
   const parola = PAROLE_RISPOSTA[stato]
   const daInviare: DaInviare = {
     a: invito.organizzatoreEmail,
     oggetto: `${parola}: ${invito.titolo}`,
-    corpo: `${m.account.nome} ha risposto «${parola.toLowerCase()}» all’invito «${invito.titolo}».`,
+    corpo: `${casellaInvito.nome} ha risposto «${parola.toLowerCase()}» all’invito «${invito.titolo}».`,
     ics,
     inRispostaA: m.messageId,
   }
 
   try {
-    const { raw, messageId } = await spedisci(m.account, daInviare)
-    await registraInviato(utenteId, m.account, daInviare, raw, messageId, m.thread || m.messageId)
+    const { raw, messageId } = await spedisci(casellaInvito, daInviare)
+    await registraInviato(utenteId, casellaInvito, daInviare, raw, messageId, m.thread || m.messageId)
     // Accettare o rifiutare un invito È rispondere: l'invito non resta lì da
     // leggere. Stessa regola di risposte e inoltri.
     await segnaConversazioneGestita(utenteId, m.id, true)
