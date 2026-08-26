@@ -139,6 +139,14 @@ const nav: AreaNav[] = [
         items: [
           { href: "/da-fare", label: "Da fare", icon: icons.dashboard },
           { href: "/budget", label: "Budget", icon: icons.maison },
+          // ⭐ 27/08/2026, richiesta dell utente: «ho bisogno che da menu possa
+          // andare a vedere i costi del personale e dei relativi team». La
+          // revisione del 24/08 aveva ridotto la navigazione a quattro voci e
+          // spinto queste due dentro il hub /budget — ma il costo del personale
+          // e la seconda voce di spesa dell azienda, e cercarla dentro un altra
+          // pagina vuol dire non guardarla. Due voci, non venti.
+          { href: "/dipendenti", label: "Personale", icon: icons.dipendenti },
+          { href: "/team", label: "Team", icon: icons.team },
           { href: "/premi", label: "Target e premi", icon: icons.premi },
           { href: "/pl", label: "Conto economico", icon: icons.pl },
         ],

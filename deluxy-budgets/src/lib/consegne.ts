@@ -64,6 +64,23 @@ export type CostiConsegne = {
   /** Dodici caselle, indice 0 = gennaio. */
   mesi: ContoConsegne[];
   perShop: (ContoConsegne & { shop: string })[];
+  /**
+   * Il dettaglio **per persona e per mese**, che serve a togliere i valet che
+   * questa app paga già come **dipendenti**: il loro costo sta nella riga
+   * «personale», presa dall'anagrafica Dipendenti, e sommarci anche la paga per
+   * consegna li conta due volte. La piattaforma non sa chi è a libro paga — il
+   * roster vive qui — quindi manda tutto e la scelta la fa chi ha il dato.
+   */
+  perValet: {
+    id: string;
+    nome: string;
+    partitaIva: boolean;
+    consegne: number;
+    paga: number;
+    ritenute: number;
+    costo: number;
+    mesi: (ContoConsegne & { mese: number })[];
+  }[];
   regola: string;
 };
 
@@ -89,6 +106,7 @@ export async function fetchCostiConsegne(anno: number): Promise<CostiConsegne> {
     },
     mesi: Array.from({ length: 12 }, () => ({ ...VUOTO })),
     perShop: [],
+    perValet: [],
     regola: "",
   });
 
@@ -111,6 +129,7 @@ export async function fetchCostiConsegne(anno: number): Promise<CostiConsegne> {
       totali?: CostiConsegne["totali"];
       mesi?: (ContoConsegne & { mese: number })[];
       perShop?: CostiConsegne["perShop"];
+      perValet?: CostiConsegne["perValet"];
       regola?: string;
     };
     if (!d?.totali || !Array.isArray(d.mesi)) return vuoto("risposta senza totali");
@@ -123,6 +142,7 @@ export async function fetchCostiConsegne(anno: number): Promise<CostiConsegne> {
       totali: d.totali,
       mesi,
       perShop: d.perShop ?? [],
+      perValet: d.perValet ?? [],
       regola: d.regola ?? "",
     };
   } catch (e) {
@@ -167,24 +187,74 @@ export type SostituzioneConsegne = {
   /** false = categoria di banca non trovata: NON si è sostituito nulla. */
   sostituita: boolean;
   regola: string;
+  /** I valet che sono anche a libro paga: tolti dal costo, e detti per nome. */
+  giaNelPersonale: { nome: string; costo: number }[];
+  /** Quanto è stato tolto per non contarli due volte, sui mesi del periodo. */
+  toltoPerchePersonale: number;
 };
+
+/**
+ * CHI È GIÀ A LIBRO PAGA NON SI PAGA DUE VOLTE (27/08/2026, segnalato
+ * dall'utente: «mannini e cassoli vanno contati come dipendenti»).
+ *
+ * Alcuni valet sono **dipendenti**: il loro costo sta già nella riga
+ * «personale» del conto economico, che viene dall'anagrafica Dipendenti e non
+ * dalla banca. La paga per consegna che la piattaforma calcola su di loro è il
+ * costo *figurato* di quella consegna, non un secondo bonifico — sommarla
+ * significa pagarli due volte nel conto.
+ *
+ * ⚠️ **Il confronto è per NOME, e un nome non è un'identità**: si richiede che
+ * tutti i pezzi del nome nel roster (almeno due, di 3 lettere o più) compaiano
+ * nel nome del valet. Un omonimo la passerebbe: per questo la funzione
+ * restituisce **chi ha tolto e per quanto**, e le pagine lo scrivono, invece di
+ * far sparire un costo in silenzio.
+ */
+export function valetGiaNelPersonale(
+  costiConsegne: CostiConsegne,
+  nomiRoster: string[]
+): { id: string; nome: string; costo: number; mesi: number[] }[] {
+  const norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+     .replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const pezziRoster = nomiRoster
+    .map((n) => norm(n).split(" ").filter((p) => p.length >= 3))
+    .filter((p) => p.length >= 2);
+
+  const out: { id: string; nome: string; costo: number; mesi: number[] }[] = [];
+  for (const v of costiConsegne.perValet) {
+    const nv = norm(v.nome);
+    if (!pezziRoster.some((pezzi) => pezzi.every((p) => nv.includes(p)))) continue;
+    const mesi = Array(12).fill(0) as number[];
+    for (const m of v.mesi) if (m.mese >= 1 && m.mese <= 12) mesi[m.mese - 1] = m.costo;
+    out.push({ id: v.id, nome: v.nome, costo: v.costo, mesi });
+  }
+  return out;
+}
 
 export function sostituzioneConsegne(
   costiConsegne: CostiConsegne,
   rigaBancaPerMese: number[] | null,
-  mesi: number[]
+  mesi: number[],
+  nomiRoster: string[] = []
 ): { delta: number[]; esposta: SostituzioneConsegne | null } {
   const delta = Array(12).fill(0) as number[];
   if (!costiConsegne.ok) return { delta, esposta: null };
 
+  // Chi è a libro paga esce dal conto delle consegne, e si dichiara.
+  const giaNelPersonale = valetGiaNelPersonale(costiConsegne, nomiRoster);
+  const daTogliere = Array(12).fill(0) as number[];
+  for (const v of giaNelPersonale) for (let i = 0; i < 12; i++) daTogliere[i] += v.mesi[i] ?? 0;
+
   const conto = consegneDeiMesi(costiConsegne, mesi);
+  const scalato = mesi.reduce((s, m) => s + (daTogliere[m - 1] ?? 0), 0);
+  conto.costo -= scalato;
   let inBanca = 0;
   if (rigaBancaPerMese) {
     for (const m of mesi) {
       const i = m - 1;
       const dallaBanca = rigaBancaPerMese[i] ?? 0;
       inBanca += dallaBanca;
-      delta[i] = (costiConsegne.mesi[i]?.costo ?? 0) - dallaBanca;
+      delta[i] = (costiConsegne.mesi[i]?.costo ?? 0) - (daTogliere[i] ?? 0) - dallaBanca;
     }
   }
   return {
@@ -195,6 +265,8 @@ export function sostituzioneConsegne(
       differenza: rigaBancaPerMese ? conto.costo - inBanca : 0,
       sostituita: Boolean(rigaBancaPerMese),
       regola: costiConsegne.regola,
+      giaNelPersonale: giaNelPersonale.map((v) => ({ nome: v.nome, costo: v.costo })),
+      toltoPerchePersonale: scalato,
     },
   };
 }

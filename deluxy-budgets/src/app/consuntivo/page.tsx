@@ -346,7 +346,8 @@ export default async function ConsuntivoPage({
   const { delta: deltaConsegne, esposta: consegne } = sostituzioneConsegne(
     costiConsegne,
     rigaBancaConsegne(righeBanca)?.perMese ?? null,
-    mesiPeriodo
+    mesiPeriodo,
+    dati.persone.map((p) => p.nome)
   );
   for (const m of mesiPeriodo) {
     const i = m - 1;

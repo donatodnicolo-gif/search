@@ -329,15 +329,44 @@ export default async function ContoEconomico({
                     <th className="num">Scostamento</th>
                   </>
                 )}
+                {/* ⚠️ Le tre colonne dei livelli sono l ANNO INTERO, le due del
+                    consuntivo sono i mesi chiusi: senza il periodo scritto sopra,
+                    chi legge mette a confronto sette mesi e dodici e conclude che
+                    il budget e irraggiungibile. Domanda vera di un utente il
+                    27/08/2026: «ma raggiungibile cosa intendi? di che periodo
+                    parli?» — la risposta deve stare nella tabella, non altrove. */}
                 {LIVELLI.map((l) => (
-                  <th className="num" key={l.key}>{l.label}</th>
+                  <th className="num" key={l.key}>
+                    {l.label}
+                    <div className="muted" style={{ fontWeight: 400, fontSize: 11 }}>anno {dati.year}</div>
+                  </th>
                 ))}
-                <th className="num">% sui ricavi</th>
+
               </tr>
             </thead>
             <tbody>
               {RIGHE.map((r) => {
                 const forte = r.tipo === "totale" || r.tipo === "risultato";
+                // ⭐ 27/08/2026, richiesta dell'utente: «mi esprimi anche tutti i
+                // valori nelle tabelle in % dei ricavi?». Sotto ogni importo, in
+                // piccolo: è una **lettura** del numero sopra, non un secondo
+                // numero — della stessa dimensione competerebbe con l'importo e
+                // la riga diventerebbe illeggibile (stessa scelta già fatta per
+                // lo scostamento nella griglia mensile).
+                //
+                // ⚠️⚠️ **Ogni colonna usa LA SUA base.** Il consuntivo si divide
+                // per i ricavi del consuntivo, il budget dei mesi chiusi per i
+                // suoi, ogni livello per i ricavi di quel livello. Usare una base
+                // sola — quella del raggiungibile, che è l'anno intero — farebbe
+                // sembrare minuscolo un costo di sette mesi: è esattamente la
+                // trappola della percentuale senza la sua base, e qui le basi
+                // affiancate sono cinque.
+                const quota = (valore: number, ricavi: number) =>
+                  ricavi > 0 ? (
+                    <div className="muted" style={{ fontWeight: 400, fontSize: 11 }}>
+                      {pct((Math.abs(valore) / ricavi) * 100)}
+                    </div>
+                  ) : null;
                 return (
                   <tr key={r.label} className={r.tipo === "risultato" ? "tot" : undefined}>
                     <td style={{ fontWeight: forte ? 600 : 400 }}>
@@ -369,8 +398,12 @@ export default async function ContoEconomico({
                         <>
                           <td className="num" style={{ fontWeight: 600 }}>
                             {r.tipo === "costo" ? `− ${eur(c)}` : eur(c)}
+                            {quota(c, cons.ricavi)}
                           </td>
-                          <td className="num muted">{r.tipo === "costo" ? `− ${eur(b)}` : eur(b)}</td>
+                          <td className="num muted">
+                            {r.tipo === "costo" ? `− ${eur(b)}` : eur(b)}
+                            {quota(b, budgetChiusi.ricavi)}
+                          </td>
                           {perCostruzione ? (
                             <td
                               className="num muted"
@@ -392,12 +425,11 @@ export default async function ContoEconomico({
                       return (
                         <td className={`num ${cls}`} style={{ fontWeight: forte ? 600 : 400 }} key={pl.livello}>
                           {r.tipo === "costo" ? `− ${eur(v)}` : eur(v)}
+                          {quota(v, pl.ricavi)}
                         </td>
                       );
                     })}
-                    <td className="num muted">
-                      {plScelto.ricavi > 0 ? pct((r.valore(plScelto) / plScelto.ricavi) * 100) : "—"}
-                    </td>
+
                   </tr>
                 );
               })}

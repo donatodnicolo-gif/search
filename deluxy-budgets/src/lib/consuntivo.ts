@@ -285,7 +285,10 @@ export async function caricaConsuntivo(
   const { delta: deltaConsegne, esposta: consegneEsposte } = sostituzioneConsegne(
     costiConsegne,
     rigaBanca?.perMese ?? null,
-    mesi
+    mesi,
+    // Il roster degli stipendi: chi è qui dentro non si conta anche fra le
+    // consegne — il suo costo è già nella riga «personale».
+    dati.persone.map((p) => p.nome)
   );
   for (const m of mesi) cogsMese[m - 1] = (cogsMese[m - 1] ?? 0) + (deltaConsegne[m - 1] ?? 0);
   cogs += mesi.reduce((s, m) => s + (deltaConsegne[m - 1] ?? 0), 0);
