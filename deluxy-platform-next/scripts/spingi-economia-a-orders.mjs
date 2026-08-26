@@ -34,6 +34,19 @@ const numeroShopify = (v) => {
 };
 const eur = (n) => n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' EUR';
 
+// ⭐ 26/08: la parte del plus/minus che e' davvero COSTO della consegna.
+// Il MINUS e' contante trattenuto dal valet (un suo debito): non abbassa il
+// costo. Il PLUS sopra i 5 € e' quasi sempre il rimborso di qualcosa che il
+// valet ha comprato per conto nostro, non il prezzo del viaggio: fuori dai
+// margini. Fino a 5 € resta, perche' li' e' maggiorazione di paga.
+// Stessa regola di FinanceService.plusNelCosto: se divergono, l'ingrediente
+// pubblicato non ricompone piu' il margine.
+const plusNelCosto = (v) => {
+  const plus = v ?? 0;
+  if (plus <= 0) return 0;
+  return plus > 5 ? 0 : plus;
+};
+
 // ── credenziali: Orders da AppSetting, piattaforma via login admin ──────────
 const imp = Object.fromEntries(
   (await db.appSetting.findMany({ where: { key: { in: ['ordersUrl', 'ordersApiKey'] } } }))
@@ -113,7 +126,7 @@ for (const d of dd) {
   // d'acconto (paga x (1 - % rimborso) x 25%), costo vero della consegna.
   // ⭐ 26/08: il MINUS non abbassa il costo — e' contante trattenuto dal valet
   // (un suo debito) e incide solo su quanto gli paghiamo. Il PLUS invece si'.
-  const paga = Math.max(0, (d.valetSalary ?? 0) + Math.max(0, d.valetAdditionalPrice ?? 0));
+  const paga = Math.max(0, (d.valetSalary ?? 0) + plusNelCosto(d.valetAdditionalPrice));
   const ritenuta = paga > 0 && d.valet && d.valet.hasVat === false
     ? paga * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25
     : 0;

@@ -404,6 +404,29 @@ export class FinanceService {
   }
 
   /**
+   * La parte del plus/minus del valet che e' davvero COSTO DELLA CONSEGNA.
+   *
+   * Due decisioni dell'utente del 26/08/2026, misurate prima di applicarle:
+   *  - il **minus** non entra mai: e' il contante che il valet ha trattenuto,
+   *    cioe' un suo debito verso di noi. Incide su quanto gli paghiamo (lo
+   *    stipendio lo tiene), non su quanto la consegna e' costata.
+   *  - il **plus sopra i 5 €** non entra: quasi sempre e' il rimborso di
+   *    qualcosa che il valet ha comprato per conto nostro, non il prezzo del
+   *    viaggio. Fino a 5 € resta, perche' li' e' maggiorazione di paga.
+   *
+   * ⚠️ Chi tocca questa regola la tocchi QUI: la usano la Finanza e la spinta
+   * a Orders, e se le due divergono l'ingrediente pubblicato non ricompone il
+   * margine (difetto gia' pagato una volta).
+   */
+  static readonly PLUS_MASSIMO_NEL_COSTO = 5;
+
+  static plusNelCosto(valetAdditionalPrice?: number | null): number {
+    const plus = valetAdditionalPrice ?? 0;
+    if (plus <= 0) return 0;
+    return plus > FinanceService.PLUS_MASSIMO_NEL_COSTO ? 0 : plus;
+  }
+
+  /**
    * Le vendite che sono la GAMBA D'ACQUISTO di un ordine corporate: la loro
    * consegna corrispondente (`legacyCorrespondDeliveryId`) e' un servizio
    * CORPORATE — es. 62307 «Vendita Deluxy» (brioches da MALI'A) che
@@ -955,10 +978,15 @@ export class FinanceService {
     // costo negativo che GONFIAVA il margine, ma comunque sbagliato: 471
     // vendite risultavano costate 0 invece della paga vera (2.963,26 € di
     // costo che il margine non vedeva).
-    // Il PLUS invece resta: e' un costo in piu' che paghiamo davvero.
+    // ⭐ E IL PLUS SOPRA I 5 € NON E' UN COSTO DELLA CONSEGNA (deciso
+    // dall'utente il 26/08/2026): quasi sempre e' il RIMBORSO di qualcosa che
+    // il valet ha comprato per conto nostro — soldi che tornano indietro a lui,
+    // non il prezzo del viaggio. Il plus piccolo (fino a 5 €) resta: quello e'
+    // maggiorazione di paga vera.
+    const plusValet = FinanceService.plusNelCosto(d.valetAdditionalPrice);
     const pagaValet = d.payable === false
       ? 0
-      : Math.max(0, (d.valetSalary ?? 0) + Math.max(0, d.valetAdditionalPrice ?? 0));
+      : Math.max(0, (d.valetSalary ?? 0) + plusValet);
     // ⭐ 27/08 (deciso dall'utente): per i valet SENZA P.IVA la paga e' il
     // NETTO che ricevono — sopra, Deluxy versa la RITENUTA D'ACCONTO, che e'
     // un costo vero della consegna. Formula dalla ricevuta reale: la quota %

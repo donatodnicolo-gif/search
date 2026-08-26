@@ -316,15 +316,15 @@ export class OrdersSyncService {
       // a Orders era diverso da quello usato dentro margineFinale su 767
       // ordini, per 12.745,87 EUR di costo che non esiste. Un ingrediente che
       // non ricompone il piatto e' peggio di un ingrediente assente.
-      // ⭐ IL MINUS NON TOCCA IL COSTO (deciso dall'utente il 26/08/2026):
-      // il minus e' il CONTANTE che il valet ha trattenuto, cioe' un suo debito
-      // verso di noi; incide su quanto gli paghiamo, non su quanto la consegna
-      // e' costata. Il PLUS invece e' un costo in piu' e resta. Stessa riga in
-      // FinanceService.computeRow: se le due divergono, l'ingrediente
-      // pubblicato smette di ricomporre il margine.
+      // ⭐ Che cosa del plus/minus e' costo lo decide UNA funzione sola —
+      // `FinanceService.plusNelCosto` — perche' questa riga e quella della
+      // Finanza devono dire la stessa cosa: il minus e' contante trattenuto dal
+      // valet (un suo debito) e il plus sopra i 5 € e' il rimborso di un
+      // acquisto, non il prezzo del viaggio. Se le due divergono, l'ingrediente
+      // pubblicato smette di ricomporre il margine (difetto gia' pagato).
       const paga = d.payable === false
         ? 0
-        : Math.max(0, (d.valetSalary ?? 0) + Math.max(0, d.valetAdditionalPrice ?? 0));
+        : Math.max(0, (d.valetSalary ?? 0) + FinanceService.plusNelCosto(d.valetAdditionalPrice));
       const ritenuta = paga > 0 && d.valet && d.valet.hasVat === false
         ? paga * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25
         : 0;
