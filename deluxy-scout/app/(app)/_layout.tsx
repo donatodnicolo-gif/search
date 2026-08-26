@@ -32,7 +32,11 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     ],
   },
   {
-    // I 3 canali di acquisizione: territorio, telefono, web.
+    // I 4 canali da cui arriva il lavoro: territorio, telefono, web, e i
+    // clienti che ci sono già e richiedono ancora (26/08/2026). L'ultimo non
+    // porta clienti nuovi, ma porta VENDITE — ed è l'unico che nasce da un
+    // rapporto che abbiamo già: trattarlo come un canale è ciò che permette di
+    // vedere la RIPETIZIONE, che è il segnale per aprire il contratto.
     titolo: 'Canali',
     voci: [
       { name: 'mappa', label: 'Territorio · Mappa', icon: 'map-outline' },
@@ -43,6 +47,11 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       // leggeva. La rotta /province resta viva per i link già in giro.
       { name: 'affiliazioni', label: 'Affiliazioni · Copertura', icon: 'call-outline' },
       { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
+      // Il canale dei clienti che ci sono già: le loro richieste saltuarie si
+      // prezzano e si finalizzano qui (documento a FINANCE). Stava sotto
+      // «Vendita» dal 26/08 mattina: spostata qui la sera, su richiesta —
+      // una voce, una casa.
+      { name: 'richieste-clienti', label: 'Richieste Clienti', icon: 'reader-outline' },
     ],
   },
   {
@@ -77,10 +86,10 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     titolo: 'Vendita',
     voci: [
       { name: 'visite', label: 'Potenziali', icon: 'walk-outline' },
-      // Le richieste una tantum dei clienti che ci sono già: stanno PRIMA della
-      // trattativa e fuori dalla pipeline (si evadono alle condizioni note), e
-      // da lì si chiede il documento a FINANCE.
-      { name: 'richieste-clienti', label: 'Richieste clienti', icon: 'reader-outline' },
+      // ⚠️ «Richieste Clienti» sta sotto **Canali**: è la porta da cui entra il
+      // lavoro dei clienti ricorrenti, non un passo della pipeline (si evade
+      // alle condizioni note — regola del binario). Qui non si rimette, per
+      // non avere la stessa voce in due posti.
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
       // Sta fra la trattativa e l'ordine perché è lì che serve: per fare un
       // prezzo al cliente bisogna prima sapere quanto ci costa.
@@ -411,7 +420,7 @@ export default function AppLayout() {
         <Drawer.Screen name="preventivi" options={{ title: 'Preventivi fornitori' }} />
         <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
         <Drawer.Screen name="fornitori" options={{ title: 'Fornitori' }} />
-        <Drawer.Screen name="richieste-clienti" options={{ title: 'Richieste clienti' }} />
+        <Drawer.Screen name="richieste-clienti" options={{ title: 'Richieste Clienti' }} />
         <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni · Copertura' }} />
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard' }} />
