@@ -127,6 +127,25 @@ export async function chiEInTurno(adesso = new Date()): Promise<string[]> {
 }
 
 /**
+ * Quante ore alla settimana risultano coperte dalla griglia dei turni.
+ *
+ * ⚠️⚠️ SERVE A NON ACCENDERE UNA COSA CHE NON SI È CAPITA. Misurato il
+ * 25/08/2026: in griglia c'erano **4 fasce, tutte di sabato e domenica** — 12
+ * ore su 168. Accendendo le risposte automatiche in quel momento, l'AI avrebbe
+ * risposto ai clienti **per 156 ore a settimana**, lunedì mattina compreso,
+ * mentre le persone erano al lavoro: non perché qualcuno l'avesse deciso, ma
+ * perché il loro orario non era scritto da nessuna parte.
+ *
+ * Il numero si mostra accanto all'interruttore: chi accende deve vedere quante
+ * ore sta consegnando all'AI, non scoprirlo dai messaggi partiti.
+ */
+export async function copertura(): Promise<{ ore: number; fasce: number; scoperte: number }> {
+  const turni = await db.turnoSettimanale.findMany()
+  const ore = turni.reduce((s, t) => s + Math.max(0, inMinuti(t.alle) - inMinuti(t.dalle)) / 60, 0)
+  return { ore: Math.round(ore * 10) / 10, fasce: turni.length, scoperte: Math.round((168 - ore) * 10) / 10 }
+}
+
+/**
  * Il giro: legge le conversazioni lasciate a metà e risponde, o chiede aiuto.
  *
  * ⚠️ `prova: true` fa tutto tranne mandare: serve a guardarlo lavorare senza

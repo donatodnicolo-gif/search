@@ -6,6 +6,7 @@ import { redirectUri } from '@/lib/google'
 import { statoGoogle } from '@/lib/contatti'
 import { lingueLette } from '@/lib/lingua-testo'
 import { TESTO_DI_RISERVA } from '@/lib/primo-contatto'
+import { copertura } from '@/lib/ai-fuori-turno'
 import { salvaECollegaGoogle, salvaImpostazioni } from './actions'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
 import { CampoSegreto } from '@/components/CampoSegreto'
@@ -18,6 +19,10 @@ export default async function PaginaImpostazioni({
   searchParams: Promise<{ salvato?: string; okGoogle?: string; erroreGoogle?: string }>
 }) {
   const { salvato, okGoogle, erroreGoogle } = await searchParams
+  // ⚠️ Quante ore alla settimana la griglia dei turni lascia scoperte: è il
+  // numero che dice quanto lavoro si sta consegnando all'AI accendendo
+  // l'interruttore qui sotto. Vedi `copertura()`.
+  const oreTurni = await copertura()
   const config = await leggiImpostazioni([
     'waToken',
     'waPhoneNumberId',
@@ -466,6 +471,24 @@ export default async function PaginaImpostazioni({
               automatiche sulla stessa chat: a quel punto non serve più velocità, serve una
               persona. Le chat restano <strong>da leggere</strong> anche dopo la risposta
               automatica.
+            </p>
+            {/* ⚠️⚠️ IL NUMERO PRIMA DELL'INTERRUTTORE. Misurato il 25/08/2026:
+                in griglia c'erano 4 fasce, tutte di sabato e domenica — 12 ore
+                su 168. Acceso in quel momento, l'AI avrebbe risposto ai clienti
+                per 156 ore a settimana, lunedì mattina compreso: non perché
+                qualcuno l'avesse deciso, ma perché gli orari veri non erano
+                scritti. Chi accende deve vedere quante ore sta consegnando. */}
+            <p
+              className="descrizione"
+              style={{ color: oreTurni.scoperte > 100 ? 'var(--red)' : undefined }}
+            >
+              La griglia dei <a href="/turni" style={{ textDecoration: 'underline' }}>Turni</a> copre{' '}
+              <strong>{oreTurni.ore} ore</strong> su 168 ({oreTurni.fasce}{' '}
+              {oreTurni.fasce === 1 ? 'fascia' : 'fasce'}): acceso adesso, l&apos;AI risponderebbe
+              per <strong>{oreTurni.scoperte} ore a settimana</strong>.
+              {oreTurni.scoperte > 100
+                ? ' ⚠️ Sono quasi tutte: se le persone lavorano in orari che non sono scritti lì, l’AI risponderebbe sopra di loro.'
+                : ''}
             </p>
             <input type="hidden" name="sezioneAiFuoriTurno" value="1" />
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>

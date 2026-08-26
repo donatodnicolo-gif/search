@@ -8,7 +8,7 @@
 //   npx tsx scripts/prova-ai-fuori-turno.mts
 import 'dotenv/config'
 import { db } from '../src/lib/db'
-import { adessoARoma, chiEInTurno, giroAiFuoriTurno } from '../src/lib/ai-fuori-turno'
+import { adessoARoma, chiEInTurno, copertura, giroAiFuoriTurno } from '../src/lib/ai-fuori-turno'
 import { leggiImpostazioni } from '../src/lib/impostazioni'
 
 let male = 0
@@ -46,7 +46,16 @@ const conf = await leggiImpostazioni(['aiFuoriTurnoAttivo'])
 console.log(`   interruttore: ${conf.aiFuoriTurnoAttivo === 'si' ? 'ACCESO' : 'spento'}`)
 const inTurno = await chiEInTurno()
 console.log(`   in turno adesso: ${inTurno.length ? inTurno.join(', ') : 'nessuno'}`)
-console.log(`   turni scritti in griglia: ${await db.turnoSettimanale.count()}`)
+const cop = await copertura()
+console.log(`   turni in griglia: ${cop.fasce} fasce · ${cop.ore} ore coperte su 168`)
+// ⚠️⚠️ È il numero che decide se si può accendere: se la griglia copre poco,
+// «fuori turno» vale quasi sempre e l'AI risponderebbe anche mentre le persone
+// lavorano — solo perché il loro orario non è scritto lì.
+prova(
+  'la griglia copre almeno 40 ore a settimana',
+  cop.ore >= 40,
+  `${cop.ore} coperte · ${cop.scoperte} all'AI`
+)
 console.log(`   risposte pronte attive: ${await db.script.count({ where: { attivo: true } })}`)
 
 console.log('\n══ IL GIRO, SENZA MANDARE NIENTE ══')
