@@ -946,11 +946,19 @@ export class FinanceService {
     // che la pagina contava come costo — su tutte le consegne sono 1.280 per
     // 16.071,10 €. Sono i giri in cui una sola consegna porta la paga e le altre
     // no, cioe' proprio le regole carnet.
-    // ⚠️ MAI SOTTO ZERO (27/08): il legacy registrava il CONTANTE trattenuto
-    // dal valet come minus sulla paga (es. #31675: minus −1.237,60 su una paga
-    // di 15) — un «costo negativo» che GONFIAVA il margine dell'ordine di
-    // quell'importo. Il contante e' cassa, non un ricavo della consegna.
-    const pagaValet = d.payable === false ? 0 : Math.max(0, (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0));
+    // ⭐ IL MINUS NON TOCCA IL MARGINE (deciso dall'utente il 26/08/2026):
+    // il legacy registrava il CONTANTE trattenuto dal valet come minus sulla
+    // paga (es. #31675: minus −1.237,60 su una paga di 15). Quel minus e' un
+    // DEBITO del valet verso di noi e incide SOLO su quanto gli paghiamo
+    // (lo stipendio lo tiene, vedi salaries): la consegna a noi e' costata la
+    // paga piena. Prima il pavimento a zero lo azzerava del tutto — meglio del
+    // costo negativo che GONFIAVA il margine, ma comunque sbagliato: 471
+    // vendite risultavano costate 0 invece della paga vera (2.963,26 € di
+    // costo che il margine non vedeva).
+    // Il PLUS invece resta: e' un costo in piu' che paghiamo davvero.
+    const pagaValet = d.payable === false
+      ? 0
+      : Math.max(0, (d.valetSalary ?? 0) + Math.max(0, d.valetAdditionalPrice ?? 0));
     // ⭐ 27/08 (deciso dall'utente): per i valet SENZA P.IVA la paga e' il
     // NETTO che ricevono — sopra, Deluxy versa la RITENUTA D'ACCONTO, che e'
     // un costo vero della consegna. Formula dalla ricevuta reale: la quota %

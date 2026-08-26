@@ -109,7 +109,9 @@ for (const d of dd) {
   const c = per.get(k) ?? { costoConsegna: 0, feeConsegna: 0 };
   // La paga dei senza P.IVA e' il loro netto: sopra c'e' la ritenuta
   // d'acconto (paga x (1 - % rimborso) x 25%), costo vero della consegna.
-  const paga = Math.max(0, (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0));
+  // ⭐ 26/08: il MINUS non abbassa il costo — e' contante trattenuto dal valet
+  // (un suo debito) e incide solo su quanto gli paghiamo. Il PLUS invece si'.
+  const paga = Math.max(0, (d.valetSalary ?? 0) + Math.max(0, d.valetAdditionalPrice ?? 0));
   const ritenuta = paga > 0 && d.valet && d.valet.hasVat === false
     ? paga * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25
     : 0;

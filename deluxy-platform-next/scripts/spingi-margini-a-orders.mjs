@@ -90,7 +90,9 @@ for (const d of dd) {
   const k = d.realOrderNumber;
   const c = per.get(k) ?? { costoConsegna: 0, feeConsegna: 0, consegne: 0, senzaFee: 0 };
   c.consegne++;
-  c.costoConsegna += (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0);
+  // ⭐ 26/08: il MINUS e' contante trattenuto dal valet, un debito suo — non
+  // abbassa il costo della consegna. Il PLUS invece lo paghiamo davvero.
+  c.costoConsegna += (d.valetSalary ?? 0) + Math.max(0, d.valetAdditionalPrice ?? 0);
   const prezzoPartner = (d.price ?? 0) + (d.additionalPrice ?? 0);
   const fee = d.partner?.commissionPercent ?? 0;
   if (fee > 0) c.feeConsegna += (fee / 100) * prezzoPartner;
