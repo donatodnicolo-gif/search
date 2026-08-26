@@ -50,9 +50,11 @@ export function TabellaTrattative({
   /** La cancella per sempre: solo dalle annullate. */
   onCancella?: (d: TrattativaConLuogo) => void;
 }) {
-  // Default: valore più alto in cima — in una colonna di soldi si guarda chi
-  // conta di più (regola di lib/ordinamento, come Copertura e Affiliazioni).
-  const { ordine, ordinaPer } = useOrdinamento<Colonna>({ campo: 'valore', verso: 'desc' }, ['valore', 'fase']);
+  // Default: la più RECENTE in cima (richiesta dell'utente, 26/08/2026).
+  // Prima ordinava per valore, e con metà delle trattative senza importo la
+  // prima riga era una a caso: chi apre questa pagina vuole vedere l'ultima
+  // che ha aperto, non la più cara.
+  const { ordine, ordinaPer } = useOrdinamento<Colonna>({ campo: 'aperta', verso: 'desc' }, ['valore', 'fase']);
   const ordinate = useMemo(
     () =>
       ordinaRighe(righe, ordine, (d, c) => {

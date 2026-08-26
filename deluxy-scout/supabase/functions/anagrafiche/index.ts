@@ -115,15 +115,25 @@ Deno.serve(async (req) => {
         cliente: 'attivo',
         perso: 'non_interessato',
       };
+      // ⚠️⚠️ I CAMPI VUOTI NON SI MANDANO (corretto il 26/08/2026, dopo un 500
+      // in produzione). Nel registro `categoria` è NOT NULL con default
+      // «ALTRO»: il default vale se il campo è ASSENTE, non se arriva `null` —
+      // e mandarlo esplicito faceva rispondere «Argument `categoria` must not
+      // be null», cioè l'anagrafica non nasceva affatto.
+      //
+      // Vale anche per gli altri: `null` non vuol dire «non lo so», vuol dire
+      // «cancellalo». Su un'anagrafica che esiste già sarebbe stato peggio di
+      // un errore — le avremmo svuotato la città con una sincronizzazione.
       const payload: Record<string, unknown> = {
         sistema: 'scout',
         idEsterno: String(body.placeId ?? ''),
         nome: body.nome ?? null,
-        citta: body.citta ?? null,
-        indirizzo: body.indirizzo ?? null,
-        categoria: body.categoria ?? null,
         asOf: new Date().toISOString(),
       };
+      for (const campo of ['citta', 'indirizzo', 'categoria'] as const) {
+        const v = body[campo];
+        if (typeof v === 'string' && v.trim()) payload[campo] = v.trim();
+      }
       // Stato: se arriva lo stato "vero" di Anagrafiche (8 valori) si usa
       // direttamente; altrimenti si mappa dai 4 stati di pipeline di Scout.
       const STATI_REGISTRO = new Set([

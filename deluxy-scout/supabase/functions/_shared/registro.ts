@@ -100,15 +100,20 @@ export async function assicuraNegozioNelRegistro(
       /* lettura non riuscita: si scrive con la zona di Scout */
     }
 
+    // ⚠️⚠️ I campi vuoti NON si mandano: nel registro `categoria` è NOT NULL
+    // con default «ALTRO», e il default vale solo se il campo è ASSENTE.
+    // Mandare `null` faceva fallire la creazione con un 500 (visto in
+    // produzione il 26/08/2026). E su un'anagrafica esistente `null` non vuol
+    // dire «non lo so»: vuol dire «cancellalo».
     const payload: Record<string, unknown> = {
       sistema: 'scout',
       idEsterno: placeId,
       nome: p.nome,
-      citta,
-      indirizzo: p.indirizzo ?? null,
-      categoria: p.categoria ?? null,
       asOf: new Date().toISOString(),
     };
+    if (typeof citta === 'string' && citta.trim()) payload.citta = citta.trim();
+    if (typeof p.indirizzo === 'string' && p.indirizzo.trim()) payload.indirizzo = p.indirizzo.trim();
+    if (typeof p.categoria === 'string' && p.categoria.trim()) payload.categoria = p.categoria.trim();
     const puliti = (contatti ?? [])
       .map((c) => ({ nome: c.nome ?? null, email: c.email ?? null, telefono: c.telefono ?? null, ruolo: c.ruolo ?? null }))
       .filter((c) => c.nome || c.email || c.telefono);

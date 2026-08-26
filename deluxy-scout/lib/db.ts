@@ -5,6 +5,7 @@ import { LINEE_ATTIVE, canonizzaLinee, statoDaEsito, statoRegistroDaAffiliazione
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
 import { notificaArchiviazioneReferente, sincronizzaNegozioRegistro, trovaAnagraficaGiaPresente, type EsitoRegistro } from '@/lib/anagrafiche';
+import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import { GIORNI_FOLLOWUP_DEAL, GIORNI_FOLLOWUP_LEAD, traGiorni } from '@/lib/cadenze';
 
 /** Contatto arricchito con nome/indirizzo/linea del negozio (per la Rubrica globale). */
@@ -1436,15 +1437,21 @@ export async function qualificaLead(
   conContatto = false,
 ): Promise<{ deal: Deal; registro: EsitoRegistro }> {
   const { data: u } = await supabase.auth.getUser();
-  if (conContatto && lead.contatto) {
+  // Chi ci ha scritto DAVVERO: nome e recapito stanno dentro il messaggio, non
+  // nel mittente — che sulle notifiche del modulo Shopify è un robot.
+  const chi = analizzaMessaggioLead(lead.nome, lead.messaggio);
+  const nomePersona = chi.persona || (chi.daModuloSito ? '' : lead.nome);
+  const emailPersona = chi.email || (lead.contatto?.includes('@') ? lead.contatto : null);
+  const telPersona = chi.telefono || (lead.contatto && !lead.contatto.includes('@') ? lead.contatto : null);
+  if (conContatto && (nomePersona || emailPersona || telPersona)) {
     // Best-effort: se il contatto non si scrive, la trattativa si crea lo
     // stesso — è il pezzo che conta, e un errore qui non deve farla perdere.
     await inserisciContatto({
       place_id: placeId,
-      nome: lead.nome,
+      nome: nomePersona || emailPersona || telPersona,
       ruolo: null,
-      email: lead.contatto.includes('@') ? lead.contatto : null,
-      telefono: lead.contatto.includes('@') ? null : lead.contatto,
+      email: emailPersona,
+      telefono: telPersona,
       is_decisore: false,
       note: 'Arrivato dalle Richieste Web',
     } as never).catch(() => {});
@@ -1466,17 +1473,15 @@ export async function qualificaLead(
   if (error) throw error;
   // Il negozio va nel registro Anagrafiche, col referente che ci ha scritto.
   // Non `.catch(() => {})` come le altre chiamate: qui l'esito lo mostriamo.
+  // ⚠️⚠️ IL REFERENTE È LA PERSONA, NON IL ROBOT (corretto il 26/08/2026: nel
+  // registro stava per finire «Business Deluxy (Shopify)» con
+  // mailer@shopify.com, che è il mittente della notifica del modulo, non chi
+  // ci ha scritto). Nome e recapito veri li tira fuori `analizzaMessaggioLead`
+  // — lo stesso che usa la finestra di qualifica per mostrarli (qui sopra).
   const registro = await assicuraNegozioNelRegistro(
     placeId,
-    lead.contatto
-      ? [
-          {
-            nome: lead.nome,
-            email: lead.contatto.includes('@') ? lead.contatto : null,
-            telefono: lead.contatto.includes('@') ? null : lead.contatto,
-            ruolo: null,
-          },
-        ]
+    nomePersona || emailPersona || telPersona
+      ? [{ nome: nomePersona || null, email: emailPersona, telefono: telPersona, ruolo: null }]
       : undefined,
   );
   return { deal, registro };
