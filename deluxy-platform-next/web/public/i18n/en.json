@@ -43,7 +43,57 @@
     "impostazioni": "Settings",
     "disponibilitaGiorno": "Availability",
     "regoleValet": "Valet rules",
-    "serviziRicorrenti": "Recurring services"
+    "serviziRicorrenti": "Recurring services",
+    "preventivi": "Quotes"
+  },
+  "quotes": {
+    "title": "Quotes",
+    "captionPartner": "The Deluxy services you can request, a quote form, and a direct WhatsApp line for any question.",
+    "captionAdmin": "Partners' quote requests: handle them here (status and reply).",
+    "whatsapp": "Message us on WhatsApp",
+    "waGreeting": "Good morning, this is {{nome}}. I have a request for Deluxy.",
+    "new": "Request a quote",
+    "lineeTitle": "Deluxy services",
+    "lineeSub": "The lines you can request: pick one or freely describe what you need.",
+    "askQuote": "Request a quote",
+    "mineTitle": "Your requests",
+    "emptyMine": "No requests yet: start from the services above or from the “Request a quote” button.",
+    "empty": "No quote requests.",
+    "replyLabel": "Deluxy reply",
+    "replyPlaceholder": "The reply reaches the partner as a notification and stays on the request.",
+    "status": {
+      "aperta": "Open",
+      "in_lavorazione": "In progress",
+      "risposta": "Answered"
+    },
+    "col": {
+      "date": "Date",
+      "partner": "Partner",
+      "request": "Request",
+      "city": "City",
+      "forDate": "For",
+      "photo": "Photo",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "action": { "reply": "Reply" },
+    "form": {
+      "title": "Quote request",
+      "linea": "Service of interest",
+      "lineaNone": "— None in particular —",
+      "people": "People",
+      "city": "Delivery city",
+      "date": "Delivery date",
+      "description": "What you need",
+      "descPlaceholder": "E.g. a cake like the one in the photo, for 30 people",
+      "photo": "Attach a photo",
+      "photoChange": "Change photo",
+      "photoRemove": "Remove",
+      "photoError": "Unreadable image: try another file.",
+      "required": "The request description is required.",
+      "submit": "Send request",
+      "done": "Request sent: we'll get back to you as soon as possible (the reply arrives here and as a notification)."
+    }
   },
   "users": {
     "title": "Users",
@@ -122,6 +172,13 @@
       "title": "Artificial intelligence",
       "key": "AI key (Anthropic)",
       "hint": "Enables loading deliveries via AI: paste a free text (email, message) and the extraction fills the form. Secret key, server-side only."
+    },
+    "partnerChannel": {
+      "title": "Partner channel (WhatsApp & commercial lines)",
+      "whatsapp": "Deluxy WhatsApp number",
+      "lineeUrl": "Commercial lines URL (Scout)",
+      "lineeKey": "Commercial lines key",
+      "hint": "The number (international format without + or spaces, e.g. 393331234567) powers the partners' “Message us on WhatsApp”. Commercial lines come from Deluxy Scout, their master: they are the showcase of requestable services on the Quotes page."
     },
     "orders": {
       "title": "Deluxy Orders (Shopify orders)",

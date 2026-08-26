@@ -196,7 +196,12 @@ export class LoginComponent {
     this.loading.set(true);
     this.error.set(null);
     this.auth.login(this.email, this.password).subscribe({
-      next: () => this.router.navigate(['/deliveries']),
+      // Il PARTNER atterra sulla vetrina dei servizi richiedibili (deciso
+      // dall'utente il 27/08); gli altri sulle consegne come sempre.
+      next: () =>
+        this.router.navigate([
+          this.auth.user()?.role === 'PARTNER' ? '/quotes' : '/deliveries',
+        ]),
       error: (err) => {
         this.loading.set(false);
         this.error.set(

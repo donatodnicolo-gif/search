@@ -50,6 +50,15 @@ export const SETTING_KEYS = [
   // delle consegne via AI — si incolla un testo libero (mail, WhatsApp) e
   // l'estrazione compila il form.
   'aiApiKey',
+  // Numero WhatsApp di Deluxy per i PARTNER (domande, richieste, preventivi):
+  // formato internazionale senza + né spazi (es. 393331234567). E' un numero
+  // pubblico per natura: esposto in /settings/public a chi e' autenticato.
+  'whatsappNumero',
+  // LINEE COMMERCIALI: Scout ne e' il MASTER (edge function `linee`).
+  // La vetrina dei servizi richiedibili dal partner si legge da li', mai
+  // ricopiata (Standard §7: cache TTL breve si', tabelle-copia no).
+  'lineeUrl',
+  'lineeApiKey',
 ] as const;
 
 @Injectable()
@@ -279,8 +288,12 @@ export class SettingsController {
   @ApiOperation({ summary: 'Impostazioni pubbliche per il client (solo la chiave browser Maps)' })
   async publicSettings() {
     // La chiave browser è per natura pubblica (referrer-restricted): esposta a
-    // qualsiasi utente autenticato per caricare la mappa JS.
-    return { googleMapsBrowserKey: await this.service.get('googleMapsBrowserKey') };
+    // qualsiasi utente autenticato per caricare la mappa JS. Il numero
+    // WhatsApp serve al bottone «Scrivici» dei partner.
+    return {
+      googleMapsBrowserKey: await this.service.get('googleMapsBrowserKey'),
+      whatsappNumero: await this.service.get('whatsappNumero'),
+    };
   }
 }
 

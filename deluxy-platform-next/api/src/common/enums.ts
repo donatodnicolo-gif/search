@@ -187,6 +187,10 @@ export enum NotificationType {
   DELIVERY_DELIVERED = 'delivery_delivered',
   DELIVERY_NOT_DELIVERED = 'delivery_not_delivered',
   PARTNER_CONTRACT_EXPIRING = 'partner_contract_expiring',
+  // Richieste di preventivo dei partner: nuova richiesta (per l'ufficio)
+  // e risposta dell'ufficio (per il partner).
+  QUOTE_REQUEST = 'quote_request',
+  QUOTE_REPLY = 'quote_reply',
 }
 
 /**

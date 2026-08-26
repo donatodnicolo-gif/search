@@ -146,6 +146,28 @@ interface GeocodeResult {
         </label>
         <p class="hint">{{ 'settings.ai.hint' | translate }}</p>
 
+        <!-- Canale partner: WhatsApp di Deluxy + linee commerciali (master Scout) -->
+        <h3 class="sotto-titolo">{{ 'settings.partnerChannel.title' | translate }}</h3>
+        <label class="fld"><span>{{ 'settings.partnerChannel.whatsapp' | translate }}</span>
+          <input class="field mono" name="whatsappNumero" [(ngModel)]="model.whatsappNumero"
+                 autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="393331234567" />
+        </label>
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.partnerChannel.lineeUrl' | translate }}</span>
+          <input class="field mono" name="lineeUrl" [(ngModel)]="model.lineeUrl"
+                 autocomplete="new-password" data-lpignore="true" data-1p-ignore
+                 placeholder="https://…supabase.co/functions/v1/linee" />
+        </label>
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.partnerChannel.lineeKey' | translate }}</span>
+          <div class="key-row">
+            <input class="field mono" [type]="showLineeKey() ? 'text' : 'password'" name="lineeApiKey"
+                   [(ngModel)]="model.lineeApiKey" autocomplete="new-password" data-lpignore="true" data-1p-ignore />
+            <button type="button" class="btn btn-secondary" (click)="showLineeKey.set(!showLineeKey())">
+              {{ (showLineeKey() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
+            </button>
+          </div>
+        </label>
+        <p class="hint">{{ 'settings.partnerChannel.hint' | translate }}</p>
+
         <div class="actions">
           <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save()">
             {{ saving() ? ('common.saving' | translate) : ('common.save' | translate) }}
@@ -223,7 +245,10 @@ export class SettingsComponent {
     ordersUrl: '', ordersApiKey: '',
     mailUrl: '', mailApiKey: '', mailUtente: '',
     aiApiKey: '',
+    whatsappNumero: '', lineeUrl: '', lineeApiKey: '',
   };
+
+  readonly showLineeKey = signal(false);
 
   readonly showAnagraficheKey = signal(false);
   readonly provando = signal(false);
@@ -298,6 +323,13 @@ export class SettingsComponent {
         this.model.mailUtente = s['mailUtente'] ?? '';
         this.model.anagraficheUrl = s['anagraficheUrl'] ?? '';
         this.model.anagraficheApiKey = s['anagraficheApiKey'] ?? '';
+        // ⚠️ Ogni chiave del model VA caricata: il save manda tutto il model,
+        // e un campo mai caricato riparte da "" e cancella il valore salvato
+        // (aiApiKey lo faceva davvero: il campo c'era, il caricamento no).
+        this.model.aiApiKey = s['aiApiKey'] ?? '';
+        this.model.whatsappNumero = s['whatsappNumero'] ?? '';
+        this.model.lineeUrl = s['lineeUrl'] ?? '';
+        this.model.lineeApiKey = s['lineeApiKey'] ?? '';
       },
       error: () => this.error.set('Errore nel caricamento delle impostazioni'),
     });

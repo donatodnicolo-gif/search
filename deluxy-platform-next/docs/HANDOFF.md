@@ -422,6 +422,49 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### ⭐ 27/08 — PREVENTIVI: la vetrina dei servizi per i partner, il form e WhatsApp
+
+Chiesto dall utente (dall esempio WhatsApp della torta per 30 persone):
+nel loro accesso i partner devono poter CONTATTARCI su WhatsApp, chiedere
+PREVENTIVI con un form dedicato, e vedere all accesso la vetrina dei servizi
+richiedibili basata sulle LINEE COMMERCIALI che indica Scout (che ne e il
+master, edge function `linee`).
+
+- **Modello `QuoteRequest`** (migrazione `20260827160000`, applicata):
+  partner, descrizione, persone, citta, data desiderata, **foto come data URL
+  compressa DAL CLIENT** (canvas max 1280px JPEG — niente upload su disco: su
+  serverless sparisce, problema gia noto delle ricevute), stato
+  aperta/in_lavorazione/risposta, risposta dell ufficio.
+- **API `/quotes`**: GET (il partner vede le sue), POST (partner; admin con
+  partnerId — validazioni: descrizione obbligatoria, foto solo immagine e
+  ≤ ~800KB), PATCH stato+risposta (ufficio; una risposta scritta porta lo
+  stato a «risposta» da sola). **GET /quotes/linee** proxy verso Scout con
+  cache 10 min — dichiarata PRIMA di `:id` (trappola gia pagata). Notifiche:
+  nuova richiesta → admin+operation; risposta → utenti del partner.
+- **Pagina `/quotes` («Preventivi», menu Operativita, ruoli
+  ADMIN/OPERATION/PARTNER)**: per il partner vetrina delle linee (icona,
+  pitch, sottolinee a chip, «Richiedi preventivo» che precompila il form),
+  form (linea/persone/citta/data/descrizione/foto), elenco delle sue
+  richieste con la risposta evidenziata; bottone verde «Scrivici su
+  WhatsApp» (wa.me + saluto precompilato). Per l ufficio: tabella (su mobile
+  schede), pop-up Rispondi (stato+testo), link WhatsApp verso il partner.
+  ⭐ **Il PARTNER all accesso atterra su /quotes** (deciso dall utente):
+  la vetrina e la prima schermata; gli altri ruoli restano su /deliveries.
+- **Impostazioni → «Canale partner»**: `whatsappNumero` (esposto in
+  /settings/public), `lineeUrl` (gia impostato in produzione:
+  `https://fdsziebgkljfsugqqbqd.supabase.co/functions/v1/linee`),
+  `lineeApiKey` (🔴 DA INCOLLARE: e la stessa `LINEE_API_KEY` di
+  Anagrafiche/Budgets — sta nella cassaforte del Hub e nei .env locali di
+  `scoutwt/deluxy-anagrafiche`; il classificatore ha bloccato giustamente il
+  travaso automatico). Senza chiave la vetrina DICHIARA il collegamento
+  mancante, il resto della pagina funziona. 🔴 whatsappNumero da impostare.
+  ⚠️ Corretto un azzeramento silenzioso: `aiApiKey` stava nel model dei
+  settings ma non veniva mai CARICATA — ogni «Salva» l avrebbe cancellata
+  (trappola del form parziale).
+- **Provato end-to-end in produzione** (crea con foto → lista → risposta →
+  stato; 400 senza descrizione; vista partner simulata; mobile 375px senza
+  overflow) e la riga di prova cancellata.
+
 ### 27/08 — MOBILE: le tabelle diventano SCHEDE (stile Deluxy Scout)
 
 Chiesto dall utente («su mobile non usare tabelle ma schede come deluxy-scout»).

@@ -43,7 +43,57 @@
     "impostazioni": "Impostazioni",
     "disponibilitaGiorno": "Disponibilità",
     "regoleValet": "Regole valet",
-    "serviziRicorrenti": "Servizi ricorrenti"
+    "serviziRicorrenti": "Servizi ricorrenti",
+    "preventivi": "Preventivi"
+  },
+  "quotes": {
+    "title": "Preventivi",
+    "captionPartner": "I servizi Deluxy che puoi richiedere, un form per i preventivi e il filo diretto WhatsApp per ogni domanda.",
+    "captionAdmin": "Le richieste di preventivo dei partner: si lavorano da qui (stato e risposta).",
+    "whatsapp": "Scrivici su WhatsApp",
+    "waGreeting": "Buongiorno, sono {{nome}}. Avrei una richiesta per Deluxy.",
+    "new": "Richiedi un preventivo",
+    "lineeTitle": "I servizi Deluxy",
+    "lineeSub": "Le linee che puoi richiedere: scegli una linea o descrivi liberamente che cosa ti serve.",
+    "askQuote": "Richiedi preventivo",
+    "mineTitle": "Le tue richieste",
+    "emptyMine": "Nessuna richiesta ancora: parti dai servizi qui sopra o dal bottone «Richiedi un preventivo».",
+    "empty": "Nessuna richiesta di preventivo.",
+    "replyLabel": "Risposta Deluxy",
+    "replyPlaceholder": "La risposta arriva al partner come notifica e resta scritta sulla richiesta.",
+    "status": {
+      "aperta": "Aperta",
+      "in_lavorazione": "In lavorazione",
+      "risposta": "Risposta"
+    },
+    "col": {
+      "date": "Data",
+      "partner": "Partner",
+      "request": "Richiesta",
+      "city": "Città",
+      "forDate": "Per il",
+      "photo": "Foto",
+      "status": "Stato",
+      "actions": "Azioni"
+    },
+    "action": { "reply": "Rispondi" },
+    "form": {
+      "title": "Richiesta di preventivo",
+      "linea": "Servizio d'interesse",
+      "lineaNone": "— Nessuno in particolare —",
+      "people": "Persone",
+      "city": "Città di consegna",
+      "date": "Data di consegna",
+      "description": "Che cosa ti serve",
+      "descPlaceholder": "Es. una torta come in foto per 30 persone",
+      "photo": "Allega una foto",
+      "photoChange": "Cambia foto",
+      "photoRemove": "Togli",
+      "photoError": "Immagine non leggibile: riprova con un altro file.",
+      "required": "La descrizione della richiesta è obbligatoria.",
+      "submit": "Invia la richiesta",
+      "done": "Richiesta inviata: ti aggiorniamo prima possibile (la risposta arriva qui e come notifica)."
+    }
   },
   "users": {
     "title": "Utenti",
@@ -122,6 +172,13 @@
       "title": "Intelligenza artificiale",
       "key": "Chiave AI (Anthropic)",
       "hint": "Abilita il caricamento delle consegne via AI: si incolla un testo libero (mail, messaggio) e l'estrazione compila il form. Chiave segreta, usata solo lato server."
+    },
+    "partnerChannel": {
+      "title": "Canale partner (WhatsApp e linee commerciali)",
+      "whatsapp": "Numero WhatsApp Deluxy",
+      "lineeUrl": "Indirizzo linee commerciali (Scout)",
+      "lineeKey": "Chiave linee commerciali",
+      "hint": "Il numero (formato internazionale senza + né spazi, es. 393331234567) è il «Scrivici su WhatsApp» dei partner. Le linee commerciali arrivano da Deluxy Scout, che ne è il master: sono la vetrina dei servizi richiedibili nella pagina Preventivi."
     },
     "orders": {
       "title": "Deluxy Orders (ordini Shopify)",

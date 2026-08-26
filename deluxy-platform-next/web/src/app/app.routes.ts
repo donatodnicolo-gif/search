@@ -68,6 +68,14 @@ export const routes: Routes = [
             (m) => m.RecurringServicesComponent,
           ),
       },
+      // ---- Preventivi: vetrina servizi + richieste dei partner ----
+      {
+        path: 'quotes',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PARTNER'], title: 'Preventivi' },
+        loadComponent: () =>
+          import('./pages/quotes.component').then((m) => m.QuotesComponent),
+      },
       {
         path: 'valet-rules',
         canActivate: [roleGuard],
