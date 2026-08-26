@@ -446,6 +446,53 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### ⭐ 27/08 (2) — LA CASA DEL PARTNER: la vetrina all accesso, e Preventivi torna il form
+
+Deciso dall utente: all accesso il partner deve trovare «una cosa come il
+Hub, con dei bottoni per ogni tipologia di servizio che puo chiedere, sulla
+base delle nostre linee commerciali» — con un layout da lusso vero.
+
+- **Pagina `/home` (`partner-home.component.ts`)**, dove atterra il PARTNER
+  (login) e prima voce di menu «Servizi Deluxy»: copertina scura (gradiente
+  ink + alone dorato, filo d oro sul bordo alto, monogramma), «Benvenuto,
+  <INSEGNA>» (letta da `/partners/:id`, non il nome di battesimo), azioni
+  «Richiedi un preventivo» e WhatsApp; poi la griglia dei servizi — una
+  tessera per linea commerciale, **numerata 01…09**, icona che si accende
+  (riquadro hairline → ink con icona oro in hover), filo dorato che si stende
+  sul bordo, pitch e sottolinee a chip; infine le ultime richieste in corso.
+  La tessera porta a `/quotes?linea=<nome>`: il form si apre col servizio
+  gia scelto.
+- **`/quotes` torna quello che era**: il FORM COMPLETO sempre aperto (niente
+  piu bottone «mostra form»), l elenco delle proprie richieste con la
+  risposta, e per l ufficio la tabella con stato+risposta. In testa
+  «Tutti i servizi» per tornare alla vetrina.
+- **Ripiego DICHIARATO delle linee**: se Scout non risponde (o la chiave non
+  c e) l API restituisce le **9 linee master** con `fonte: 'riserva'` e la
+  pagina lo scrive sotto il titolo. Senza, la vetrina sarebbe muta.
+- ⚠️ **L icona di Scout e un nome Ionicons** («cube-outline»): stamparla
+  scriverebbe la stringa nel riquadro. Si riconosce per NOME DI LINEA (le 9
+  master) o per parola chiave nel nome Ionicons, altrimenti l iniziale.
+- 🐛 **CSS della campanella** (segnalato dall utente con uno screenshot): il
+  pannello notifiche era **tagliato** e usciva a sinistra. Due cause: la
+  sidebar aveva `overflow-y: auto` — e un contenitore con overflow ≠ visible
+  RITAGLIA i figli posizionati (lo scroll e passato al solo `nav`, con
+  `min-height: 0`, e la sidebar ha preso `z-index: 30` perche il pannello ora
+  esce sopra il contenuto) — e il pannello era ancorato a destra dentro una
+  sidebar di 250px: ora si apre verso destra e nel drawer mobile si allarga
+  sulla riga utente (`.user-box` e l ancora).
+- 🔥 **Trappola pagata**: un commento CSS con dei **backtick** dentro
+  `styles: [\`…\`]` chiude il template literal — Angular esce con
+  «Failed to resolve styles at position 0 to a string», che non nomina il
+  file. Nei commenti degli stili niente backtick.
+- 🔥 **L alias rubato da un deploy contemporaneo**: in questa cartella lavora
+  un altra sessione; il suo deploy, partito prima dei miei salvataggi e
+  finito dopo, si e preso `deluxy-delivery.vercel.app` e serviva un bundle
+  senza le mie modifiche. Riconosciuto cercando i marcatori NEL BUNDLE
+  (`backToServices`, `hero-title`), non guardando la data.
+- Provato in produzione: login del partner di prova → home (10 tessere,
+  numerate, insegna giusta) → tessera Gifting → form precompilato → invio
+  reale riuscito → riga di prova cancellata.
+
 ### ⭐ 27/08 — PREVENTIVI: la vetrina dei servizi per i partner, il form e WhatsApp
 
 Chiesto dall utente (dall esempio WhatsApp della torta per 30 persone):
