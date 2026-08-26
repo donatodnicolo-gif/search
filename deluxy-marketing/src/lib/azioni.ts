@@ -18,7 +18,7 @@ import { prisma } from "./db";
 import { accodaOperazione } from "./operazioni";
 import { BRANDS, STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, STATI_CAMPAGNA_NOSTRI, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
-import { elaboraAnalisi, mappaCampagneCitate, operazioneDaAzione, riconciliaAnalisi, schedaDi } from "./scheda-analisi";
+import { elaboraAnalisi, mappaCampagneCitate, operazioneDaProposta, proposteDi, riconciliaAnalisi, schedaDi } from "./scheda-analisi";
 import { risolviLocalita } from "./geo-target";
 // Statico e non `await import()` come il resto di guardrail: serve dentro le
 // query, non dentro il corpo delle funzioni. `guardrail.ts` non importa nulla,
@@ -520,23 +520,27 @@ export async function elaboraSchedaAnalisi(fd: FormData) {
 export async function accodaAzioneScheda(fd: FormData) {
   const analisiId = String(fd.get("analisi") ?? "");
   const indice = Number(fd.get("indice"));
+  // Quale delle proposte dell'azione: un'azione può tradursi in più
+  // operazioni (una per campagna), e il bottone dice quale.
+  const quale = Number(fd.get("op") ?? 0);
   if (!analisiId || !Number.isInteger(indice) || indice < 0) return;
 
   const analisi = await prisma.analisi.findUnique({ where: { id: analisiId } });
   if (!analisi) return;
   const scheda = schedaDi(analisi);
   const azione = scheda?.azioni[indice];
-  if (!scheda || !azione?.operazione) return;
+  const proposta = azione ? proposteDi(azione)[quale] : undefined;
+  if (!scheda || !azione || !proposta) return;
 
   // L'aggancio alla campagna VERA, con la regola di sempre: l'ambiguo non si
   // aggancia. E il canale è quello della campagna, non dell'analisi.
-  const agganci = await mappaCampagneCitate([azione.operazione.campagna], {
+  const agganci = await mappaCampagneCitate([proposta.campagna], {
     brand: analisi.brand,
     canale: analisi.canale,
   });
-  const aggancio = agganci.get(azione.operazione.campagna);
+  const aggancio = agganci.get(proposta.campagna);
   if (!aggancio) {
-    redirect(`/analisi/${analisiId}?coda=fallita&errore=${encodeURIComponent(`Campagna «${azione.operazione.campagna}» non agganciabile senza ambiguità: si accoda da /operazioni a mano.`)}`);
+    redirect(`/analisi/${analisiId}?coda=fallita&errore=${encodeURIComponent(`Campagna «${proposta.campagna}» non agganciabile senza ambiguità: si accoda da /operazioni a mano.`)}`);
   }
   const campagna = await prisma.campagna.findUnique({
     where: { id: aggancio.id },
@@ -544,7 +548,7 @@ export async function accodaAzioneScheda(fd: FormData) {
   });
   if (!campagna) return;
 
-  const pronta = operazioneDaAzione(azione, campagna.canale);
+  const pronta = operazioneDaProposta(proposta, campagna.canale);
   if (!pronta) {
     redirect(`/analisi/${analisiId}?coda=fallita&errore=${encodeURIComponent("Questa proposta non passa la revisione del codice: parametri incompleti o tipo non eseguibile sul canale.")}`);
   }

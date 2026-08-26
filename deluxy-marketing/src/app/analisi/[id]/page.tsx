@@ -19,7 +19,7 @@ import {
   STATI_AZIONE_APERTI,
 } from "@/lib/dominio";
 import { categoriaCampagna, iconaCanale } from "@/lib/salute";
-import { COLORE_PRIORITA, COLORE_STATO_RICONCILIATO, COLORE_VERDETTO, descriviOperazione, ETICHETTA_STATO_RICONCILIATO, ETICHETTA_VERDETTO, mappaCampagneCitate, operazioneDaAzione, riconciliazioneDi, schedaDi } from "@/lib/scheda-analisi";
+import { COLORE_PRIORITA, COLORE_STATO_RICONCILIATO, COLORE_VERDETTO, descriviOperazione, ETICHETTA_STATO_RICONCILIATO, ETICHETTA_VERDETTO, mappaCampagneCitate, operazioneDaProposta, proposteDi, riconciliazioneDi, schedaDi } from "@/lib/scheda-analisi";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +64,7 @@ export default async function SchedaAnalisi({
         ...new Set([
           ...scheda.campagne.map((c) => c.nome),
           ...scheda.findings.flatMap((f) => f.campagne),
-          ...scheda.azioni.map((a) => a.operazione?.campagna).filter((n): n is string => Boolean(n)),
+          ...scheda.azioni.flatMap((a) => proposteDi(a).map((o) => o.campagna)),
         ]),
       ]
     : [];
@@ -88,27 +88,37 @@ export default async function SchedaAnalisi({
   // rivista dal codice (tipo, parametri, canale della campagna) e l'aggancio
   // non ambiguo. E se un'operazione IDENTICA è già in coda viva, il bottone
   // diventa «già in coda»: il doppio invio è la trappola di stamattina.
+  // La coda comprende anche le ESEGUITE: un'operazione già fatta non deve
+  // ripresentarsi come bottone — è il doppio invio con un giorno di ritardo.
   const codaViva = scheda
     ? await prisma.operazioneAdv.findMany({
         where: {
-          stato: { in: ["in_attesa", "approvata"] },
+          stato: { in: ["in_attesa", "approvata", "eseguita"] },
           campagnaId: { in: [...agganci.values()].map((x) => x.id) },
         },
-        select: { tipo: true, campagnaId: true, parametri: true },
+        select: { id: true, tipo: true, campagnaId: true, parametri: true, stato: true },
       })
     : [];
-  const eseguibile = (i: number) => {
+  // Le proposte di UN'azione, riviste dal codice: una per campagna citata.
+  const propostePronte = (i: number) => {
     const az = scheda!.azioni[i];
-    if (!az.operazione) return null;
-    const aggancio = agganci.get(az.operazione.campagna);
-    if (!aggancio) return null;
-    const pronta = operazioneDaAzione(az, aggancio.canale);
-    if (!pronta) return null;
-    const parametri = pronta.parametri ? JSON.stringify(pronta.parametri) : null;
-    const inCoda = codaViva.some(
-      (o) => o.tipo === pronta.tipo && o.campagnaId === aggancio.id && (o.parametri ?? null) === parametri
-    );
-    return { pronta, aggancio, inCoda };
+    return proposteDi(az).flatMap((proposta, k) => {
+      const aggancio = agganci.get(proposta.campagna);
+      if (!aggancio) return [];
+      const pronta = operazioneDaProposta(proposta, aggancio.canale);
+      if (!pronta) return [];
+      const parametri = pronta.parametri ? JSON.stringify(pronta.parametri) : null;
+      const uguale = codaViva.find(
+        (o) => o.tipo === pronta.tipo && o.campagnaId === aggancio.id && (o.parametri ?? null) === parametri
+      );
+      return [{
+        k,
+        pronta,
+        aggancio,
+        inCoda: uguale?.stato === "in_attesa" || uguale?.stato === "approvata",
+        eseguitaId: uguale?.stato === "eseguita" ? uguale.id : null,
+      }];
+    });
   };
 
   // ═══ UNA COLONNA SOLA (richiesta utente, 26/08): findings e azioni sono la
@@ -121,9 +131,21 @@ export default async function SchedaAnalisi({
   const azioniAttaccate = new Set<number>();
   if (scheda) {
     for (let ai = 0; ai < scheda.azioni.length; ai++) {
-      const cod = scheda.azioni[ai].codice?.trim();
+      const az = scheda.azioni[ai];
+      // 1) La parola dell'AI, che ha scritto entrambi: `finding` è l'indice
+      // del finding a cui l'azione risponde. È il legame giusto anche quando
+      // il finding non cita il codice (F5 non nomina la #50, ma la #50 è la
+      // sua cura).
+      if (az.finding != null && Number.isInteger(az.finding) && az.finding >= 0 && az.finding < scheda.findings.length) {
+        azioniDelFinding.set(az.finding, [...(azioniDelFinding.get(az.finding) ?? []), ai]);
+        azioniAttaccate.add(ai);
+        continue;
+      }
+      // 2) Le schede vecchie non hanno `finding`: si ripiega sulla citazione
+      // del codice nel testo del finding, col confine dopo il numero.
+      const cod = az.codice?.trim();
       if (!cod || cod.length < 2) continue;
-      const re = new RegExp(cod.replace(/[.*+?^${}()|[\]\\]/g, "\\  const aperte = analisi.azioni.filter((a) => STATI_AZIONE_APERTI.includes(a.stato)).length;") + "(?![0-9A-Za-z])");
+      const re = new RegExp(cod.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![0-9A-Za-z])");
       for (let fi = 0; fi < scheda.findings.length; fi++) {
         const f = scheda.findings[fi];
         if (re.test(f.titolo + " " + f.dettaglio)) {
@@ -141,7 +163,7 @@ export default async function SchedaAnalisi({
   // nel blocco delle azioni senza finding.
   const rigaAzione = (indice: number) => {
     const az = scheda!.azioni[indice];
-    const ex = eseguibile(indice);
+    const pronte = propostePronte(indice);
     const st = statoAzione(indice);
     return (
       <div key={indice} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
@@ -166,28 +188,42 @@ export default async function SchedaAnalisi({
             </div>
           )}
           {az.quando && <div className="cella-sub">entro {az.quando}</div>}
-          {/* Il bottone c'è SOLO quando la proposta dell'AI passa la revisione
-              del codice e la campagna è agganciata senza ambiguità. Mette in
-              coda DA APPROVARE: la catena resta app → coda → approvazione →
-              script, come per le PropostaAi. */}
-          {ex && !ex.inCoda && !["fatta", "in_corso"].includes(st?.stato ?? "") && (
-            <form action={accodaAzioneScheda} style={{ marginTop: 6 }}>
-              <input type="hidden" name="analisi" value={analisi.id} />
-              <input type="hidden" name="indice" value={indice} />
-              <button
-                className="btn small btn-secondario"
-                type="submit"
-                title={`Nasce «da approvare» su /operazioni, per ${ex.aggancio.nome}: niente parte senza il tuo ok`}
-              >
-                Metti in coda: {descriviOperazione(ex.pronta)} →
-              </button>
-            </form>
-          )}
-          {ex && ex.inCoda && (
-            <div style={{ marginTop: 6 }}>
-              <a className="tag-neutro" href="/operazioni" style={{ textDecoration: "none" }}>
-                ✓ già in coda — vai ad approvarla
-              </a>
+          {/* UNA RIGA PER PROPOSTA — un'azione su quattro campagne sono
+              quattro bottoni, ognuno col suo destino: da accodare, già in
+              coda, o già eseguita (e allora niente bottone: il doppio invio
+              con un giorno di ritardo resta un doppio invio). */}
+          {pronte.length > 0 && !["fatta"].includes(st?.stato ?? "") && (
+            <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {pronte.map((ex) =>
+                ex.eseguitaId ? (
+                  <a
+                    key={ex.k}
+                    className="tag-neutro"
+                    href={`/operazioni#op-${ex.eseguitaId}`}
+                    style={{ textDecoration: "none", color: "var(--green)" }}
+                    title={`Già eseguita su ${ex.aggancio.nome}`}
+                  >
+                    ✓ {descriviOperazione(ex.pronta)} — già eseguita
+                  </a>
+                ) : ex.inCoda ? (
+                  <a key={ex.k} className="tag-neutro" href="/operazioni" style={{ textDecoration: "none" }}>
+                    ✓ già in coda — vai ad approvarla
+                  </a>
+                ) : (
+                  <form key={ex.k} action={accodaAzioneScheda} style={{ display: "inline" }}>
+                    <input type="hidden" name="analisi" value={analisi.id} />
+                    <input type="hidden" name="indice" value={indice} />
+                    <input type="hidden" name="op" value={ex.k} />
+                    <button
+                      className="btn small btn-secondario"
+                      type="submit"
+                      title={`Nasce «da approvare» su /operazioni, per ${ex.aggancio.nome}: niente parte senza il tuo ok`}
+                    >
+                      Metti in coda: {descriviOperazione(ex.pronta)} · {ex.aggancio.nome} →
+                    </button>
+                  </form>
+                )
+              )}
             </div>
           )}
         </div>

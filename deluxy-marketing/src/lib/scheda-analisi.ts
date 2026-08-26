@@ -49,17 +49,32 @@ export type Scheda = {
     priorita: "P0" | "P1" | "P2";
     quando: string | null;
     /**
-     * L'azione TRADOTTA in un'operazione che l'app sa mettere in coda, quando
-     * il documento dà tutto quello che serve (tipo, campagna, parametri).
-     * `null` = non eseguibile da qui (creativi, pubblici, ristrutturazioni…).
+     * L'azione TRADOTTA nelle operazioni che l'app sa mettere in coda — UNA
+     * PER CAMPAGNA: «togli il claim dalle 4 campagne» sono quattro operazioni,
+     * non una (lezione del 26/08: la mappa a operazione singola copriva una
+     * campagna sola e l'utente se n'è accorto). Vuoto = non eseguibile da qui.
      * L'AI PROPONE la traduzione: la catena resta app → coda → approvazione
      * → script, come per le PropostaAi. Nessuna scorciatoia.
      */
-    operazione: {
+    operazioni?: {
       tipo: string;
       /** Nome della campagna come CITATO nel documento (si aggancia dopo). */
       campagna: string;
       /** I parametri dell'operazione, come stringa JSON. */
+      parametriJson: string | null;
+    }[] | null;
+    /**
+     * L'INDICE del finding a cui questa azione risponde, `null` se nessuno.
+     * Prima il legame si deduceva dalla citazione del codice nel testo del
+     * finding — e la #50 (budget ITA) non compariva sotto F5 (ITA strozzata
+     * dal budget) perché F5 non la cita. Il legame lo sa chi ha scritto
+     * entrambi: l'AI, al momento dell'elaborazione.
+     */
+    finding?: number | null;
+    /** La forma vecchia, a operazione singola: le schede già salvate ce l'hanno. */
+    operazione?: {
+      tipo: string;
+      campagna: string;
       parametriJson: string | null;
     } | null;
   }[];
@@ -115,31 +130,35 @@ const SCHEMA_SCHEDA: Record<string, unknown> = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["codice", "testo", "priorita", "quando", "operazione"],
+        required: ["codice", "testo", "priorita", "quando", "operazioni", "finding"],
         properties: {
           codice: { type: ["string", "null"], maxLength: 20 },
           testo: { type: "string", maxLength: 300 },
           priorita: { type: "string", enum: ["P0", "P1", "P2"] },
           quando: { type: ["string", "null"], maxLength: 40 },
-          operazione: {
-            type: ["object", "null"],
-            additionalProperties: false,
-            required: ["tipo", "campagna", "parametriJson"],
-            properties: {
-              tipo: {
-                type: "string",
-                enum: [
-                  "pausa_campagna",
-                  "attiva_campagna",
-                  "budget",
-                  "negativa",
-                  "nuova_keyword",
-                  "estensione",
-                  "rimuovi_estensione",
-                ],
+          finding: { type: ["integer", "null"] },
+          operazioni: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["tipo", "campagna", "parametriJson"],
+              properties: {
+                tipo: {
+                  type: "string",
+                  enum: [
+                    "pausa_campagna",
+                    "attiva_campagna",
+                    "budget",
+                    "negativa",
+                    "nuova_keyword",
+                    "estensione",
+                    "rimuovi_estensione",
+                  ],
+                },
+                campagna: { type: "string", maxLength: 120 },
+                parametriJson: { type: ["string", "null"], maxLength: 400 },
               },
-              campagna: { type: "string", maxLength: 120 },
-              parametriJson: { type: ["string", "null"], maxLength: 400 },
             },
           },
         },
@@ -191,10 +210,15 @@ Regole, nell'ordine in cui contano:
    CONTROLLI FALLITI, i KPI sono i conteggi e i punteggi che l'audit stesso
    dà (controlli passati/totali, score), e il verdetto è lo stato dell'ACCOUNT
    — non delle vendite. Un audit non giudica il ROAS: giudica la casa.
-9. OGNI azione può portare "operazione": la traduzione in un'operazione che
-   l'app sa mettere in coda. Mappala SOLO se il documento dà tutto — la
-   campagna e i parametri esatti. Tipi e parametri (parametriJson è una
-   stringa JSON):
+9. OGNI azione porta "finding": l'INDICE (da 0) del finding di QUESTA scheda a
+   cui risponde, null se non risponde a un finding preciso. E porta
+   "operazioni": le traduzioni in operazioni che l'app sa mettere in coda —
+   **UNA PER CAMPAGNA**: se l'azione tocca quattro campagne sono quattro
+   operazioni. Mappa SOLO ciò per cui il documento dà tutto — la campagna e i
+   parametri esatti; le campagne che il documento nomina senza dare i testi o i
+   numeri NON si mappano. Un aumento di budget con la percentuale e la base nel
+   documento ("+20% da 28,75") È mappabile: il conto è del documento, non tuo.
+   Tipi e parametri (parametriJson è una stringa JSON):
      · pausa_campagna / attiva_campagna → parametriJson null
      · budget → {"budget": <euro al giorno, numero>}
      · negativa → {"testo":"...","corrispondenza":"exact|phrase|broad"}
@@ -202,8 +226,10 @@ Regole, nell'ordine in cui contano:
      · estensione → {"tipo":"sitelink","testo":"...","url":"..."} oppure
        {"tipo":"callout","testo":"..."}
      · rimuovi_estensione → {"tipo":"sitelink|callout|snippet","testo":"..."} —
-       il testo e' il TITOLO del link; se il claim sta nella descrizione di un
-       sitelink, aggiungi "descrizione":"..." (e il testo solo se il documento lo da')
+       ⚠️ il testo è il TITOLO del link, non quello che c'è scritto dentro: se
+       il documento identifica il claim dal CONTENUTO («sitelink White-glove»),
+       quasi sempre è la descrizione → usa {"tipo":"sitelink","descrizione":"..."}
+       SENZA testo, e lo script lo trova su campagna, gruppi e account
    Tutto il resto (creativi, annunci, pubblici, ad set Meta, tracciamento,
    ristrutturazioni) NON si mappa: operazione = null. MAI inventare un numero
    o un testo che il documento non dà: meglio null di un parametro plausibile.
@@ -284,6 +310,11 @@ export async function elaboraAnalisi(analisiId: string): Promise<EsitoElaborazio
       verdetto: scheda.verdetto,
       elaborataIl: new Date(),
       elaborataCon: `${risposta.fornitore}/${risposta.modello}`,
+      // ⚠️ La riconciliazione parla per INDICI di azione: una scheda nuova li
+      // rimescola, e una riconciliazione vecchia su indici nuovi direbbe il
+      // falso con l'aria di saperlo. Si azzera, il giro dopo la rifà.
+      riconciliazione: null,
+      riconciliataIl: null,
       ...(analisi.esito ? {} : { esito: ESITO_DA_VERDETTO[scheda.verdetto] }),
     },
   });
@@ -496,16 +527,23 @@ const TIPI_MAPPABILI_META = new Set(["pausa_campagna", "attiva_campagna", "budge
 
 export type OperazionePronta = { tipo: string; parametri: Record<string, unknown> | null };
 
+export type PropostaOperazione = { tipo: string; campagna: string; parametriJson: string | null };
+
+/** Le proposte di un'azione, qualunque sia l'età della scheda (singola o multipla). */
+export function proposteDi(azione: Scheda["azioni"][number]): PropostaOperazione[] {
+  if (azione.operazioni && azione.operazioni.length > 0) return azione.operazioni;
+  return azione.operazione ? [azione.operazione] : [];
+}
+
 /**
  * La proposta dell'AI, rivista dal codice. `null` = non si mette in coda
  * (tipo fuori catalogo, parametri malformati, o tipo non eseguibile sul
  * canale della campagna).
  */
-export function operazioneDaAzione(
-  azione: Scheda["azioni"][number],
+export function operazioneDaProposta(
+  op: PropostaOperazione | null | undefined,
   canaleCampagna: string
 ): OperazionePronta | null {
-  const op = azione.operazione;
   if (!op) return null;
   const catalogo = canaleCampagna === "meta_ads" ? TIPI_MAPPABILI_META : TIPI_MAPPABILI_GOOGLE;
   if (!catalogo.has(op.tipo)) return null;
