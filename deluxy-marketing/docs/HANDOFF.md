@@ -336,6 +336,28 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐ LA DECISIONE SUI CLAIM, e pausa_annuncio (26/08/2026)
+
+Direttiva utente: **same-day lecito ovunque** (consegna in giornata
+disponibile su tutti i siti — risposta RESPINTA sulla #17 depositata su
+Drive, operazione «Consegna Oggi» annullata); **white-gloves VIETATO su
+Flowers e Cake**. Ricognizione dal censimento: su Cake il claim è tutto in
+asset/campagne IN PAUSA (dormiente); su Flowers l'unico in onda è la **RSA di
+Brand protection** (779344865650, l'unica RSA dell'unico gruppo → serve
+ADD-BEFORE-PAUSE), il gruppo Mother's Day ENG è già in pausa e per quello di
+Francia-FR c'è una `pausa_gruppo` cautelativa in coda (`cmt9sb8fm…`). Nuovo
+tipo **`pausa_annuncio`** (script **2026-08-26.2**, copie rigenerate, da
+reincollare): trova la RSA per id e SI RIFIUTA se è l'unica attiva del gruppo
+— una pausa che spegne un gruppo non è una pausa. Decisione e stato veri
+scritti per il custode in `APPEND 00.3 App-Azioni 2026-08-26 1000
+DECISIONE-CLAIM.md`.
+
+Sequenza per chiudere Brand protection: (1) creare l'annuncio pulito dalla
+scheda campagna (CreaAnnuncioAi), approvare; (2) alla conferma di Google,
+accodare `pausa_annuncio` della RSA coi guanti. Poi il claim su Flowers è
+SOLO dormiente, come su Cake.
+
+
 ### ⭐ «Non vedo più stoppare white-gloves» — era l'etichetta, non la proposta (26/08/2026)
 
 La proposta c'era (riconciliazione PARZIALE, giusta) ma la rimozione «per

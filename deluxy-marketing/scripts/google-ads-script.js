@@ -173,11 +173,11 @@ var LAVORI_LETTURA = ["metriche", "gruppi", "keyword-giorni", "approvazioni", "d
 // LA DATA SI ALZA QUANDO CAMBIA COSA SO FARE, non a ogni ritocco: è la versione
 // delle CAPACITÀ, e serve a chi legge nell'app per capire se la copia incollata
 // è più vecchia dell'app. SO_ESEGUIRE va tenuto uguale ai tipi di applica().
-var VERSIONE_SCRIPT = "2026-08-26";
+var VERSIONE_SCRIPT = "2026-08-26.2";
 var SO_ESEGUIRE = [
   "pausa_campagna", "attiva_campagna", "budget", "negativa",
   "pausa_keyword", "attiva_keyword", "pausa_gruppo", "attiva_gruppo",
-  "estensione", "rimuovi_estensione", "localita", "lista_negative",
+  "estensione", "rimuovi_estensione", "pausa_annuncio", "localita", "lista_negative",
   "nuovo_annuncio", "nuova_keyword", "nuova_campagna", "completa_campagna"
 ];
 
@@ -2229,6 +2229,7 @@ function applica(op, mira, conto) {
 
   if (t === "estensione") return creaEstensione(op, mira);
   if (t === "rimuovi_estensione") return rimuoviEstensione(op, mira);
+  if (t === "pausa_annuncio") return pausaAnnuncio(op, mira);
   if (t === "localita") return cambiaLocalita(op, mira);
   if (t === "lista_negative") return applicaListaNegative(op, mira);
   if (t === "nuovo_annuncio") return creaAnnuncio(op, mira);
@@ -3002,6 +3003,49 @@ function rimuoviEstensione(op, mira) {
     prima: cerca,
     dopo: "rimosso da: " + rimossi.join(", "),
   };
+}
+
+/**
+ * Mette in PAUSA un singolo annuncio (RSA), trovato per id dentro la campagna.
+ *
+ * PERCHE' (26/08/2026): il claim "guanti bianchi" — vietato su Flowers e Cake
+ * per decisione dell'utente — vive DENTRO le RSA, e l'app sapeva creare
+ * annunci ma non fermarli: per spegnere un testo bisognava entrare in
+ * interfaccia. Regola add-before-pause: se l'annuncio da fermare e' l'unico
+ * ENABLED del suo gruppo, ci si RIFIUTA — si spegnerebbe il gruppo intero
+ * mascherandolo da pausa di un annuncio.
+ *
+ * parametri: { "idAnnuncio": "account:idGruppo:idAnnuncio" } (l'id che l'app
+ * conosce dal censimento copy), oppure { "idGruppo": "...", "idAnnuncio": "..." }.
+ */
+function pausaAnnuncio(op, mira) {
+  var par = op.parametri || {};
+  var grezzo = String(par.idAnnuncio || "").trim();
+  var pezzi = grezzo.split(":");
+  var idAnnuncio = Number(pezzi[pezzi.length - 1]);
+  var idGruppo = Number(par.idGruppo || (pezzi.length >= 2 ? pezzi[pezzi.length - 2] : NaN));
+  if (!idAnnuncio || !idGruppo) throw new Error("Servono idGruppo e idAnnuncio (o l'id completo account:gruppo:annuncio)");
+
+  var it = AdsApp.ads().withIds([[idGruppo, idAnnuncio]]).get();
+  if (!it.hasNext()) throw new Error("Annuncio " + idAnnuncio + " non trovato nel gruppo " + idGruppo + " di questo account");
+  var annuncio = it.next();
+
+  // add-before-pause: mai lasciare un gruppo attivo senza annunci.
+  var attivi = 0;
+  var altri = annuncio.getAdGroup().ads().withCondition("ad_group_ad.status = ENABLED").get();
+  while (altri.hasNext()) { altri.next(); attivi++; }
+  if (attivi <= 1 && annuncio.isEnabled()) {
+    throw new Error(
+      "E' l'UNICO annuncio attivo del gruppo \"" + annuncio.getAdGroup().getName() + "\": metterlo in pausa spegne il gruppo. " +
+      "Prima si crea l'annuncio sostitutivo (nuovo_annuncio), si aspetta la conferma, poi si pausa questo."
+    );
+  }
+
+  var era = annuncio.isEnabled() ? "attivo" : "gia' in pausa";
+  annuncio.pause();
+  var rilettura = AdsApp.ads().withIds([[idGruppo, idAnnuncio]]).get();
+  var dopo = rilettura.hasNext() && rilettura.next().isPaused() ? " (confermato rileggendo)" : " (non ho potuto confermare rileggendo: ricontrollare al prossimo giro)";
+  return { dettaglio: "annuncio " + idAnnuncio + " messo in pausa" + dopo, prima: era, dopo: "in pausa" };
 }
 
 function cambiaLocalita(op, mira) {

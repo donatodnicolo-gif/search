@@ -45,6 +45,7 @@ export const TIPI_ESEGUIBILI_OGGI = [
   "attiva_gruppo",
   "estensione",
   "rimuovi_estensione",
+  "pausa_annuncio",
   "localita",
   "lista_negative",
   "nuovo_annuncio",
