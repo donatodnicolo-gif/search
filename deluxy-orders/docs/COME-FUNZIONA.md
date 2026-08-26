@@ -432,6 +432,25 @@ piattaforma non ha questo ordine»). ⚠️ Il campo è **obbligatorio** nella f
 di `margineOrdine()`: se fosse opzionale, un chiamante distratto compilerebbe
 lo stesso e ricadrebbe in silenzio sul conto vecchio.
 
+⚠️ **Anche gli AGGREGATI leggono il margine della piattaforma (26/08/2026).**
+`/margini` non somma più `costoFornitore`: somma il **margine riga per riga**,
+con la stessa regola della scheda ordine — quello della piattaforma dove c'è, il
+ripiego del registro dove manca. Il costo del fornitore, per il confronto con la
+quota, si **ricava** dal primo margine (`valore al partner = totale −
+primoMargine × 1,22`), perché sugli ordini della piattaforma `costoFornitore` è
+quasi sempre vuoto.
+
+⚠️ **La regola è scritta due volte** — in `margineOrdine()` per la singola scheda
+e in SQL dentro `margini.ts` per gli aggregati, perché lì il conto gira su
+decine di migliaia di righe raggruppate e caricarle in memoria non è
+un'opzione. Toccandone una va toccata l'altra: il confronto sui dati veri
+(3.000 ordini a campione, JS contro SQL) deve restare a **zero differenze**.
+
+L'effetto è grosso, ed è tutto sulla **copertura**: luglio 2026 passa da 77
+ordini misurati su 453 (17%) a **430 su 453 (95%)**, e il margine da «38,9% su
+14.944 € di venduto» a **31,4% su 93.802 €**. Il primo numero non era sbagliato:
+era misurato su un sesto degli ordini.
+
 ⚠️ **La percentuale è sul totale che il cliente ha pagato (scelta dell'utente,
 25/08/2026).** Valore e percentuale hanno **basi diverse apposta**: il valore è
 netto IVA, la base è il **lordo incassato**. Un ordine da 250 € con 150 € di

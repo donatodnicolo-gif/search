@@ -33,11 +33,43 @@ const FUSO = "Europe/Rome";
 const RIMBORSI = "('REFUNDED','VOIDED')";
 const VALIDO = `("annullatoIl" IS NULL AND ("financialStatus" IS NULL OR "financialStatus" NOT IN ${RIMBORSI}))`;
 
+// ⚠️⚠️ QUESTE DUE ESPRESSIONI DEVONO DIRE LA STESSA COSA DI `margineOrdine()`
+// (src/lib/controllo.ts). Sono la sua traduzione in SQL, perche' qui il conto va
+// fatto su decine di migliaia di righe raggruppate per dimensione, e caricarle
+// tutte in memoria per passarle una a una alla funzione non e' un'opzione.
+// Due implementazioni della stessa regola divergono sempre: se si tocca
+// `margineOrdine`, si tocca anche qui — e si rilancia il confronto descritto in
+// fondo a questo file, che le mette a paragone sui dati veri.
+//
+// MARGINE: quello della piattaforma consegne quando c'e' (e' il suo conto, gia'
+// al netto IVA), altrimenti il ripiego del registro. NULL = non misurabile.
+const MARGINE = `COALESCE(
+  "margineFinale",
+  CASE WHEN "costoFornitore" IS NULL THEN NULL ELSE (
+    "totale" - "costoFornitore"
+    - CASE WHEN "evasione" = 'piattaforma' AND "consegnataDa" <> 'fornitore'
+           THEN COALESCE("costoConsegna", 0) ELSE 0 END
+    + CASE WHEN "evasione" = 'piattaforma' AND "consegnataDa" <> 'fornitore'
+           THEN COALESCE("feeConsegna", 0) ELSE 0 END
+  ) / ${1 + ALIQUOTA_IVA / 100} END)`;
+
+// COSTO DEL FORNITORE, per il confronto con la quota. Sugli ordini che la
+// piattaforma conosce non e' `costoFornitore` (quasi sempre vuoto) ma il valore
+// dato al partner, che si RICAVA dal primo margine:
+//   primoMargine = (totale - valoreAlPartner) / 1,22  =>  valoreAlPartner = totale - primoMargine x 1,22
+const COSTO = `COALESCE(
+  CASE WHEN "primoMargine" IS NOT NULL THEN "totale" - "primoMargine" * ${1 + ALIQUOTA_IVA / 100} END,
+  "costoFornitore")`;
+
 export type Misure = {
   ordiniValidi: number;
   lordoValido: number;
+  /** Ordini di cui si SA il margine (dalla piattaforma o dal ripiego). */
   ordiniConCosto: number;
+  /** Il venduto lordo di quegli ordini: e' la base delle percentuali. */
   lordoConCosto: number;
+  /** Il margine NETTO gia' sommato: non si ricalcola piu' qui. */
+  margineNetto: number;
   costo: number;
   sopraQuota: number;
   sottoQuota: number;
@@ -48,6 +80,7 @@ const ZERO: Misure = {
   lordoValido: 0,
   ordiniConCosto: 0,
   lordoConCosto: 0,
+  margineNetto: 0,
   costo: 0,
   sopraQuota: 0,
   sottoQuota: 0,
@@ -65,11 +98,12 @@ export type Margine = Misure & {
 
 export function calcola(m: Misure, quota: number): Margine {
   const iva = 1 + ALIQUOTA_IVA / 100;
-  // Il margine è al NETTO IVA (scorporo ÷ 1,22): stessa regola di margineOrdine,
-  // qui applicata alla somma. La % NON cambia con lo scorporo (IVA colpisce
-  // ricavo e costo uguale) — cambia solo il valore in euro.
-  const margineLordo = m.lordoConCosto - m.costo;
-  const margine = Math.round((margineLordo / iva) * 100) / 100;
+  // ⚠️ Il margine NON si ricalcola piu' qui: arriva gia' sommato da SQL, riga
+  // per riga, con la regola di `margineOrdine` (piattaforma dove c'e', ripiego
+  // dove manca). Sommare i lordi e scorporare alla fine darebbe un numero
+  // diverso, perche' gli ordini della piattaforma hanno gia' l'IVA tolta e
+  // dentro anche fee, costo del valet e commissione d'incasso.
+  const margine = Math.round(m.margineNetto * 100) / 100;
   return {
     ...m,
     margine,
@@ -95,15 +129,16 @@ export function calcola(m: Misure, quota: number): Margine {
 const MISURE = `
   COUNT(*) FILTER (WHERE valido)::int AS "ordiniValidi",
   COALESCE(SUM("totale") FILTER (WHERE valido), 0)::float8 AS "lordoValido",
-  COUNT(*) FILTER (WHERE valido AND "costoFornitore" IS NOT NULL)::int AS "ordiniConCosto",
-  COALESCE(SUM("totale") FILTER (WHERE valido AND "costoFornitore" IS NOT NULL), 0)::float8 AS "lordoConCosto",
-  COALESCE(SUM("costoFornitore") FILTER (WHERE valido), 0)::float8 AS "costo",
-  COUNT(*) FILTER (WHERE valido AND "costoFornitore" IS NOT NULL AND "costoFornitore" > "totale" * ($3::float8 / 100) + 0.005)::int AS "sopraQuota",
-  COUNT(*) FILTER (WHERE valido AND "costoFornitore" IS NOT NULL AND "costoFornitore" <= "totale" * ($3::float8 / 100) + 0.005)::int AS "sottoQuota"
+  COUNT(*) FILTER (WHERE valido AND margine IS NOT NULL)::int AS "ordiniConCosto",
+  COALESCE(SUM("totale") FILTER (WHERE valido AND margine IS NOT NULL), 0)::float8 AS "lordoConCosto",
+  COALESCE(SUM(margine) FILTER (WHERE valido), 0)::float8 AS "margineNetto",
+  COALESCE(SUM(costo) FILTER (WHERE valido AND margine IS NOT NULL), 0)::float8 AS "costo",
+  COUNT(*) FILTER (WHERE valido AND margine IS NOT NULL AND costo > "totale" * ($3::float8 / 100) + 0.005)::int AS "sopraQuota",
+  COUNT(*) FILTER (WHERE valido AND margine IS NOT NULL AND costo <= "totale" * ($3::float8 / 100) + 0.005)::int AS "sottoQuota"
 `;
 
 function base(brand: string | null): string {
-  return `SELECT *, ${VALIDO} AS valido
+  return `SELECT *, ${VALIDO} AS valido, ${MARGINE} AS margine, ${COSTO} AS costo
             FROM "${SCHEMA}"."Ordine"
            WHERE "data" >= $1 AND "data" < $2${brand ? ` AND "brand" = $4` : ""}`;
 }
