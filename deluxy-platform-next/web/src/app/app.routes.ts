@@ -60,6 +60,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'recurring-services',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'], title: 'Servizi ricorrenti' },
+        loadComponent: () =>
+          import('./pages/recurring-services.component').then(
+            (m) => m.RecurringServicesComponent,
+          ),
+      },
+      {
         path: 'valet-rules',
         canActivate: [roleGuard],
         data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'], title: 'Regole valet' },

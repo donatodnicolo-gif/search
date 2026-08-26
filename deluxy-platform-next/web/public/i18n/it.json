@@ -42,7 +42,8 @@
     "utentiRuoli": "Utenti e ruoli",
     "impostazioni": "Impostazioni",
     "disponibilitaGiorno": "Disponibilità",
-    "regoleValet": "Regole valet"
+    "regoleValet": "Regole valet",
+    "serviziRicorrenti": "Servizi ricorrenti"
   },
   "users": {
     "title": "Utenti",
@@ -1930,6 +1931,49 @@
       "eccezioneHint": "Chiusura o orario speciale segnato per questo giorno.",
       "settimanaleHint": "Non ha detto niente per questo giorno: è l'orario che tiene di solito in questo giorno della settimana.",
       "non-indicataHint": "Nessuna fonte dice niente: non sappiamo se lavora. Non è la stessa cosa che sapere che non lavora."
+    }
+  },
+  "recurring": {
+    "title": "Servizi ricorrenti",
+    "caption": "Il presidio che si ripete: si sceglie il giorno e la fascia (come gli orari di Google), il cron notturno genera la consegna del giorno, e alle consegne si applicano le regole del partner.",
+    "new": "+ Nuovo servizio ricorrente",
+    "generateToday": "Genera le consegne di oggi",
+    "emptyTitle": "Nessun servizio ricorrente",
+    "emptyHint": "Crea il primo con «Nuovo servizio ricorrente»: es. ogni lunedì 7–8 per un partner.",
+    "saved": "Servizio ricorrente creato: le consegne partiranno dalla prossima corsa notturna (o con «Genera le consegne di oggi»).",
+    "generated": "Generate {{n}} consegne ({{gia}} già esistenti, {{tot}} servizi di oggi).",
+    "pause": "Sospendi",
+    "resume": "Riattiva",
+    "deleteConfirm": "Eliminare «{{nome}}»? Le consegne già generate restano.",
+    "missing": "Campi mancanti: {{campi}}",
+    "c": {
+      "nome": "Servizio",
+      "partner": "Partner",
+      "service": "Tipo servizio",
+      "when": "Quando",
+      "valet": "Valet",
+      "generated": "Consegne",
+      "status": "Stato"
+    },
+    "f": {
+      "nome": "Nome",
+      "nomePh": "es. Presidio Chanel mattina",
+      "partner": "Partner",
+      "service": "Tipo servizio",
+      "valet": "Valet fisso",
+      "valetAuto": "Da assegnare volta per volta",
+      "days": "Giorni della settimana",
+      "from": "Dalle",
+      "to": "Alle",
+      "start": "Dal",
+      "end": "Fino al (vuoto = per sempre)",
+      "address": "Indirizzo di consegna/presidio",
+      "pickup": "Indirizzo di ritiro",
+      "price": "Prezzo partner (€)",
+      "salary": "Paga valet (€, vuoto = listino)",
+      "hours": "Ore (per servizi a ora)",
+      "note": "Note",
+      "rulesHint": "Alle consegne generate si applicano da sole le regole carnet del partner (periodo, orario e tipo di servizio combacianti)."
     }
   }
 }

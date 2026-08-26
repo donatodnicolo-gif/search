@@ -402,6 +402,26 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### ⭐⭐ 27/08 (notte, 11) — I SERVIZI RICORRENTI, e il costo che non stimavamo
+
+- **Servizi ricorrenti** (chiesto dall utente): modello RecurringService
+  (partner, tipo servizio, valet opzionale, GIORNI della settimana a maschera
+  lun..dom, fascia oraria, indirizzi, prezzo/paga/ore opzionali, dal/fino al,
+  attivo). Pagina /recurring-services nel menu («Servizi ricorrenti», sotto
+  Consegne) con bottone «+ Nuovo servizio ricorrente» (giorni a chips come
+  gli orari di Google) e «Genera le consegne di oggi». Il CRON notturno
+  genera la consegna del giorno (idempotente: coppia servizio+data), le
+  consegne nascono col log e con la REGOLA CARNET del partner gia applicata
+  (stesse prove di applica-regole). Provato end-to-end in produzione
+  (creazione → genera → idempotenza → pulizia della prova).
+- **Il costo NON stimato sui valet senza P.IVA: la RITENUTA D ACCONTO.**
+  La paga scritta e il NETTO che il valet riceve; Deluxy versa in piu la
+  ritenuta = compensoNetto × 25% (lordo = netto/0,8), dove compensoNetto =
+  paga × (1 − % rimborso della scheda). Misurato: paghe a buon fine dei
+  senza P.IVA 198.913 EUR → **ritenuta non stimata ~29.691 EUR (14,9%)**;
+  solo 2026: 7.781 su 61.059. NON ancora dentro costoConsegna/margini:
+  decisione utente in attesa.
+
 ### 27/08 (notte, 10) — La ricevuta LEGACY-STYLE viaggia con il recap
 
 - **Il bollo lo applica il VALET** (corretta la nota nel recap).

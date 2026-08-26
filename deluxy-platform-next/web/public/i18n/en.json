@@ -42,7 +42,8 @@
     "utentiRuoli": "Users & roles",
     "impostazioni": "Settings",
     "disponibilitaGiorno": "Availability",
-    "regoleValet": "Valet rules"
+    "regoleValet": "Valet rules",
+    "serviziRicorrenti": "Recurring services"
   },
   "users": {
     "title": "Users",
@@ -1930,6 +1931,49 @@
       "eccezioneHint": "Closure or special hours marked for this day.",
       "settimanaleHint": "Nothing stated for this day: these are the usual hours for this weekday.",
       "non-indicataHint": "No source says anything: we do not know whether they work. That is not the same as knowing they do not."
+    }
+  },
+  "recurring": {
+    "title": "Recurring services",
+    "caption": "The repeating service: pick days and time window (like Google opening hours); the nightly cron creates the day delivery, and partner rules apply.",
+    "new": "+ New recurring service",
+    "generateToday": "Generate today deliveries",
+    "emptyTitle": "No recurring services",
+    "emptyHint": "Create the first one: e.g. every Monday 7–8 for a partner.",
+    "saved": "Recurring service created: deliveries start from the next nightly run (or with Generate today).",
+    "generated": "Generated {{n}} deliveries ({{gia}} already existing, {{tot}} services today).",
+    "pause": "Pause",
+    "resume": "Resume",
+    "deleteConfirm": "Delete {{nome}}? Generated deliveries remain.",
+    "missing": "Missing fields: {{campi}}",
+    "c": {
+      "nome": "Service",
+      "partner": "Partner",
+      "service": "Service type",
+      "when": "When",
+      "valet": "Valet",
+      "generated": "Deliveries",
+      "status": "Status"
+    },
+    "f": {
+      "nome": "Name",
+      "nomePh": "e.g. Chanel morning duty",
+      "partner": "Partner",
+      "service": "Service type",
+      "valet": "Fixed valet",
+      "valetAuto": "Assign each time",
+      "days": "Days of week",
+      "from": "From",
+      "to": "To",
+      "start": "Start",
+      "end": "Until (empty = forever)",
+      "address": "Delivery/duty address",
+      "pickup": "Pickup address",
+      "price": "Partner price (€)",
+      "salary": "Valet pay (€, empty = price list)",
+      "hours": "Hours (hourly services)",
+      "note": "Notes",
+      "rulesHint": "Partner carnet rules apply automatically to generated deliveries (matching period, time and service type)."
     }
   }
 }

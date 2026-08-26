@@ -257,6 +257,7 @@ model ServiceType {
   active          Boolean          @default(true)
   partnerServices PartnerService[]
   valetServices   ValetService[]
+  recurringServices RecurringService[]
   deliveries      Delivery[]
   deliveryRules   DeliveryRule[]
 }
@@ -350,6 +351,7 @@ model Partner {
   daySlots            PartnerDaySlot[]
   products            Product[]
   deliveries          Delivery[]
+  recurringServices   RecurringService[]
   customers           Customer[]
   users               User[]
   smsTemplates        SmsTemplate[]
@@ -550,6 +552,7 @@ model Valet {
   provinces           ValetProvince[]
   services            ValetService[]
   deliveries          Delivery[]
+  recurringServices   RecurringService[]
   activities          Activity[]
   availabilities      ValetAvailability[]
   openingHours        ValetOpeningHour[]
@@ -887,6 +890,41 @@ model Customer {
 }
 
 // ------------------------------------------------------------
+// SERVIZI RICORRENTI (27/08): il presidio che si ripete — «ogni lunedi'
+// 7-8 per Chanel», «sabato e domenica 13-14». Un cron genera le consegne
+// del giorno; a ciascuna si applicano le regole carnet del partner.
+// `giorni` e' una maschera lun..dom ("1000000" = solo lunedi').
+// ------------------------------------------------------------
+model RecurringService {
+  id                 String       @id @default(cuid())
+  nome               String
+  partnerId          String
+  partner            Partner      @relation(fields: [partnerId], references: [id])
+  serviceTypeId      String
+  serviceType        ServiceType  @relation(fields: [serviceTypeId], references: [id])
+  valetId            String?
+  valet              Valet?       @relation(fields: [valetId], references: [id])
+  giorni             String // maschera lun..dom, es. "1000000"
+  timeFrom           String // "07:00"
+  timeTo             String // "08:00"
+  pickupAddress      String?
+  recipientFirstName String?
+  recipientLastName  String?
+  recipientAddress   String
+  price              Float? // prezzo al partner, se fisso
+  valetSalary        Float? // paga del valet, se fissa (senza, vale il listino)
+  hours              Float? // per i servizi a ora
+  dataInizio         DateTime
+  dataFine           DateTime?
+  attivo             Boolean      @default(true)
+  note               String?
+  ultimaGenerazione  DateTime?
+  deliveries         Delivery[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+// ------------------------------------------------------------
 // Consegne
 // status: created | assigned | in_preparation | accepted |
 //         in_delivery | delivered | not_delivered | cancelled |
@@ -949,6 +987,9 @@ model Delivery {
   // Note
   notes              String?
   internalNotes      String? // visibili solo ad admin/operation/valet
+  /// Nata da un SERVIZIO RICORRENTE: quale (e la coppia servizio+data non si rigenera).
+  recurringServiceId String?
+  recurringService   RecurringService? @relation(fields: [recurringServiceId], references: [id], onDelete: SetNull)
   ddtNumber          String?
   /// Il BRAND a cui appartiene il numero DDT/riferimento della vendita:
   /// con piu' negozi lo stesso numero esiste su brand diversi (il DDT «3749»

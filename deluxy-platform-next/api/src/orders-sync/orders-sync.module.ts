@@ -18,6 +18,7 @@ import { SettingsModule, SettingsService } from '../settings/settings.module';
 import { ValetsModule } from '../valets/valets.module';
 import { ValetsService } from '../valets/valets.service';
 import { FinanceModule, FinanceService } from '../finance/finance.module';
+import { RecurringModule, RecurringService_ } from '../recurring/recurring.module';
 
 /** Un ordine come lo espone Deluxy Orders (solo i campi che servono qui). */
 type OrdineOrders = {
@@ -647,6 +648,7 @@ export class CronMarginiController {
   constructor(
     private readonly service: OrdersSyncService,
     private readonly valets: ValetsService,
+    private readonly ricorrenti: RecurringService_,
   ) {}
 
   @Get('margini')
@@ -658,12 +660,15 @@ export class CronMarginiController {
     const margini = await this.service.spingiMargini({ applica: true, tutti: true });
     // La regola dei 90 giorni: un valet che non si collega passa inattivo.
     const valetFermi = await this.valets.disattivaFermi();
-    return { ...margini, valetFermi };
+    // ⭐ 27/08: la corsa notturna genera anche le consegne dei SERVIZI
+    // RICORRENTI di oggi (idempotente: la coppia servizio+data non si rigenera).
+    const ricorrenti = await this.ricorrenti.genera().catch((e) => ({ ok: false, errore: (e as Error).message }));
+    return { ...margini, valetFermi, ricorrenti };
   }
 }
 
 @Module({
-  imports: [SalesModule, SettingsModule, ValetsModule, FinanceModule],
+  imports: [SalesModule, SettingsModule, ValetsModule, FinanceModule, RecurringModule],
   controllers: [OrdersSyncController, CronMarginiController],
   providers: [OrdersSyncService],
   exports: [OrdersSyncService],
