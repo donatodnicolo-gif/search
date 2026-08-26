@@ -153,6 +153,72 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### 🐞 26/08/2026 (sera, 11) — Caccia agli errori, ogni candidato passato a un AGENTE OSTILE
+
+Metodo chiesto dall'utente: prima di trattare qualcosa come errore, sottoporlo
+a un agente incaricato di **demolirlo**. Ha funzionato meglio del previsto —
+due tesi su tre sono state ridimensionate o ribaltate, e gli agenti hanno
+trovato danni che non avevo visto.
+
+**Controlli meccanici, prima di tutto**: typecheck API, typecheck web e build di
+produzione erano **già puliti**. Nessun errore di compilazione: i difetti veri
+erano tutti di logica.
+
+**① Due stati FANTASMA proposti dal menu, due stati veri invisibili.**
+`delivered_time_approved` e `delivered_time_not_approved` non esistono in banca
+dati (zero righe su 61.837) mentre `approved` (1.258) e `invalidated` (230)
+non erano da nessuna parte nel frontend. ⭐ L'agente ostile ha **demolito la mia
+diagnosi** (le etichette vengono dall'i18n, non da `models.ts` — e quei file
+avevano lo stesso buco) e ha trovato il danno vero: `DELIVERY_STATUS_LABELS`
+genera anche il **menu cambia-stato**, e `@IsEnum(DeliveryStatus)` li accettava
+in scrittura. Un operatore poteva portare una consegna in uno stato che nessun
+conto conosce, e lo stipendio smetteva di vederla. Sistemati enum, stati chiusi,
+etichette, i18n it/en, pallini, colori di calendario e mappa. Commit `f1435191`.
+
+**② Il link pubblico «consegnata» riapriva le ANNULLATE.** La guardia di
+idempotenza nominava lo stato fantasma, quindi non copriva nessuno stato chiuso
+vero; il link non ha login, non scade, non si consuma. Misurato: **3.791
+consegne non consegnate hanno un token vivo**, di cui **1.149 annullate**. Una
+annullata riportata a `delivered` rientra nei corrispettivi E nella busta del
+valet, senza che parta una notifica. ⭐ L'agente ostile ha **demolito la mia
+stima del danno**: su `approved` costa ZERO (per paga e margini `delivered` e
+`approved` sono indistinguibili) — il denaro sta sulle annullate, che non avevo
+visto. Ora la guardia usa `DELIVERY_CLOSED_STATUSES` (un posto solo) e la
+query filtra anche il soft-delete; la pagina pubblica non offre più il bottone
+su una consegna chiusa.
+✅ **Provato in produzione in modo reversibile** sulla #42162 (invalidata): la
+rotta risponde **409** e la consegna resta intatta — stato, «ricevuta da» e
+numero di log identici.
+✅ **E il difetto non aveva ancora colpito**: zero conferme arrivate da quel
+ramo in tutta la storia (log `delivered` senza utente = 0).
+
+**③ Cercare una consegna PER NUMERO non funzionava.** `code` è un `Int` e la
+ricerca globale sa fare solo `contains`: digitare «62637» rispondeva **200 con
+zero righe** — un vuoto che sembra una risposta. ⚠️ E la correzione ingenua
+(mettere `code` fra i campi cercabili) **passa typecheck e build** e muore in
+produzione, perché lo `scope` è `any`: l'agente l'ha **eseguito** e ha ottenuto
+`PrismaClientValidationError`. Aggiunto un ramo di uguaglianza per le sole
+cifre pure fino a 9 (l'Int32 non regge un id Shopify), più i campi di testo che
+mancavano — `realOrderNumber`, `legacySaleId`, `identifier`. Il ramo resta
+dentro l'`OR` della ricerca, che è in `AND` con lo scope di ruolo: nessuno vede
+consegne altrui.
+
+**④ La Finanza andava in 500 cercando un id ordine Shopify** — trovato di
+rimbalzo dall'agente ③, e qui non serviva nessun agente: **riprodotto sul
+database vero**. `Number.isInteger` senza tetto mandava `13367589863749` su una
+colonna `INT4` → `ConversionError: Unable to fit integer value … into an INT4`.
+Ed è proprio il caso d'uso della pagina. Ora il ramo Int vale solo dentro
+l'intervallo Int32.
+
+Commit `7a96fe78`, deploy `delivery-d0lopw7n6` Ready. Typecheck api+web puliti,
+build web pulita.
+
+⚠️ **Restano da guardare** (visti, non ancora verificati): la lista consegne non
+filtra `deletedAt` e non c'è un middleware globale, quindi le consegne
+cancellate logicamente potrebbero comparire in elenco, nel calendario e nei
+conteggi; e la lista manda sempre `view=attive`, quindi una consegna chiusa non
+si trova nemmeno cercandola per numero finché non si cambia scheda.
+
 ### 🔴 CORREZIONE (26/08, sera 10) — Orders si difendeva da solo: NON stavamo per cancellargli niente
 
 La sezione «sera, 9» qui sotto dice che la spinta stava per **cancellare** la
