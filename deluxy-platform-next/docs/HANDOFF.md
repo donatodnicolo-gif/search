@@ -61,6 +61,74 @@
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
 
+### 💸 26/08/2026 (notte) — IL COSTO DELLE CONSEGNE ESCE DA QUI, e va nel conto economico
+
+Richiesta dell'utente su Deluxy Budgets: «per costi di servizi di consegne
+prendi i valori delle consegne da app delivery, comprese le aggiunte delle
+ritenute per quelli non in partita IVA» — e subito dopo la precisazione che
+decide tutto: **«il costo delle consegne lo devi prendere però da app
+delivery»**, non da Orders.
+
+**Rotta nuova, sola lettura**: `GET /api/v1/app/costi-consegne?anno=2026`
+(oppure `dal`/`al`), nel canale app-to-app già esistente — stesso guard
+`x-api-key`, nessuna rotta nasce senza chiave. Risponde con **totali, dodici
+mesi e la spaccatura per negozio**, e tiene **paga e ritenuta separate**:
+
+    paga     = 0 se la consegna non è pagabile (regola carnet), altrimenti
+               valetSalary + il plus FINO A 5 € (sopra è rimborso di acquisti;
+               il minus non si sottrae mai: è contante trattenuto dal valet)
+    ritenuta = solo per i valet SENZA P.IVA: paga × (1 − % rimborso) × 25%
+    costo    = paga + ritenuta
+
+⭐ **Perché Budgets deve leggerlo da qui e non dalla banca** — è il numero che
+giustifica tutto il lavoro. Misurato su **Gen–Lug 2026**: la categoria di banca
+«Consegne (valet e corrieri)» vale **29.561 €**; le consegne davvero fatte
+valgono **102.080 €**. Il conto economico vedeva **meno di un terzo** del costo
+delle consegne. E le tre spiegazioni comode sono tutte false o piccole:
+
+| ipotesi | misura |
+| --- | ---: |
+| è cassa trattenuta dai valet | **4.366 €** — no |
+| è solo arretrato non ancora pagato | **34.112 €** su 102.080 (2.775 consegne) |
+| il resto: pagato, ma classificato in altre caselle di banca | **~38.400 €** |
+
+Una classificazione di banca lavora sul **nome della controparte** e non sa
+distinguere un valet da un fioraio; la piattaforma sì, perché la consegna è
+roba sua. È lo stesso motivo per cui il margine è di Orders e la consegna è
+nostra: ogni dato ha una casa sola (Standard §7).
+
+📌 **2026 intero: 108.257 €** di costo consegne — paga **101.015 €** +
+**ritenute 7.241 €** — su 10.610 consegne, 43 valet senza P.IVA e 10 con
+P.IVA. Per negozio: senza negozio 82.795 €, ShopifySale 22.597 €, CakeSales
+1.953 €, FlowersSales 887 €, BusinessSales 24 €.
+
+⚠️ **Due trappole trovate scrivendo la rotta, e chiuse dentro la rotta.**
+
+1. **Lo stesso negozio scritto in due modi**: `ShopifySale` (6.338 consegne) e
+   `shopifysale` (1.258) sono lo stesso canale. Chi raggruppa per stringa
+   esatta ottiene due righe, ne legge una e **sottostima quel negozio di un
+   quinto**. Si raggruppa senza distinzione di maiuscole, con l'etichetta
+   canonica (non «la prima incontrata», che cambierebbe da sola aggiungendo una
+   riga).
+2. **La consegna non andata**: si paga solo se il servizio è **A ORA** (la
+   regola di `nonConsegnataPagabile` negli stipendi, caso 62372). Senza il
+   filtro entravano 194 righe per 1.311 €. ⚠️ Negli stipendi il modello di
+   prezzo si prende prima dal **listino del valet** e solo dopo dal servizio
+   della consegna; qui si guarda il servizio, perché scegliere il listino vuol
+   dire rifare mezza logica degli stipendi — e due copie della stessa regola
+   divergono sempre. La differenza vive solo sulle non consegnate, e la
+   risposta la **dichiara** (`nonConsegnateTenute` / `nonConsegnateScartate`).
+
+⚠️⚠️ **E il prezzo del cambio, che sta scritto in Budgets**: quella riga del
+conto economico passa da **cassa** a **competenza** — le consegne fatte nel
+periodo, pagate o no. Dentro Gen–Lug ci sono 34.112 € non ancora usciti dal
+conto: sono un costo dell'anno e un debito, non un'uscita. Chi confronta la
+riga con l'estratto conto non la ritrova, ed è giusto — ma se non è scritto
+sembra un errore.
+
+🔑 Chiave app **`deluxy-budgets`** creata (sola lettura, prefisso `dlxp_40B9…`)
+e messa in `PLATFORM_URL` + `PLATFORM_API_KEY` di Budgets.
+
 ### ✅ Ricontrollato live il 26/08/2026 sera (~20:45) — solo lettura, nessuna modifica al codice
 
 Sessione di sola lettura (handoff → memoria). Misurato su
