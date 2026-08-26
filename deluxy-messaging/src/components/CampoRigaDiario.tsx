@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   GIORNI_CORTI,
-  barraEComando,
+  posizioneBarraComando,
   caselleDelMese,
   inizioGiorno,
   nomeMese,
@@ -26,12 +26,20 @@ import {
 // non è testo, è un comando — e quando il comando va a buon fine **sparisce**,
 // sostituita da quello che ha prodotto.
 //
-// ⚠️⚠️ Ma qui la barra si usa **in mezzo alla riga**, non a campo vuoto: la data
-// sta in fondo, dopo il numero d'ordine e dopo la cosa da fare. Perciò la regola
-// è più stretta di quella dell'inbox e sta in `barraEComando()`: si apre solo se
-// la barra è a **inizio di parola** (campo vuoto o dopo uno spazio) ed è appena
-// stata scritta **in fondo**. Così «27/08» resta una data in cifre e non apre
-// niente, che è esattamente il caso che rovinerebbe la funzione.
+// ⚠️⚠️ Ma qui la barra si usa **dentro** la riga, non a campo vuoto: la regola è
+// più stretta di quella dell'inbox e sta in `posizioneBarraComando()` — vale a
+// **inizio di parola** (campo vuoto o dopo uno spazio) e **in qualunque punto**
+// della riga. Così «27/08» resta una data in cifre e non apre niente, che è
+// esattamente il caso che rovinerebbe la funzione.
+//
+// ⚠️ «In qualunque punto» è arrivato dopo, segnalato dall'utente: la prima
+// versione guardava solo la fine della riga, e **correggendo** una nota — che è
+// proprio il momento in cui una data si sostituisce, «chiamare ~~domani~~ / alle
+// 9!» — non si apriva mai.
+//
+// ⚠️ E tolta la barra, il calendario **si chiude**: sta lì per quella barra, e
+// un pannello che resta aperto dopo che il suo motivo è sparito copre la pagina
+// e basta.
 
 type Props = {
   value: string
@@ -68,8 +76,12 @@ export function CampoRigaDiario({
   // server, che sta a Francoforte in UTC — e alle 23 di Roma sarebbe un altro
   // giorno, con React che si lamenta della differenza.
   const [scelto, setScelto] = useState<Date | null>(null)
+  // ⚠️ DOVE sta la barra da sostituire. La data non va per forza in fondo:
+  // correggendo una riga la si mette in mezzo, al posto di «domani».
+  const [posizione, setPosizione] = useState(0)
 
-  const apri = () => {
+  const apri = (dove: number) => {
+    setPosizione(dove)
     setScelto(inizioGiorno(new Date()))
     setAperto(true)
   }
@@ -93,10 +105,31 @@ export function CampoRigaDiario({
    * «da fare / 27 agosto» — e quella barra finirebbe nel quaderno di tutti.
    */
   function metti(giorno: Date) {
-    const testo = value.endsWith('/') ? value.slice(0, -1) : value
-    onChange(`${testo}${scriviData(giorno)} `)
+    // ⚠️ Si sostituisce LA BARRA, dov'è: `value.endsWith('/')` valeva solo per
+    // la riga scritta da capo, e correggendo in mezzo avrebbe tagliato l'ultimo
+    // carattere della frase lasciando la barra dov'era.
+    const dove = value[posizione] === '/' ? posizione : value.lastIndexOf('/')
+    if (dove < 0) {
+      setAperto(false)
+      return
+    }
+    const data = scriviData(giorno)
+    const prima = value.slice(0, dove)
+    const dopo = value.slice(dove + 1)
+    // ⚠️ Lo spazio dopo la data solo se serve: in fondo alla riga aiuta a
+    // continuare a scrivere, ma davanti a « alle 9!» farebbe due spazi.
+    const stacco = dopo === '' || !dopo.startsWith(' ') ? ' ' : ''
+    const nuovo = prima + data + stacco + dopo
+    onChange(nuovo)
     setAperto(false)
-    input.current?.focus()
+    // ⚠️ Il cursore torna DOPO la data, non in fondo alla riga: correggendo in
+    // mezzo, ritrovarselo alla fine vuol dire ricercare a mano il punto in cui
+    // si stava scrivendo.
+    const fine = prima.length + data.length + stacco.length
+    requestAnimationFrame(() => {
+      input.current?.focus()
+      input.current?.setSelectionRange(fine, fine)
+    })
   }
 
   const oggi = inizioGiorno(new Date())
@@ -112,7 +145,28 @@ export function CampoRigaDiario({
           onChange(v)
           // La barra resta scritta finché non si sceglie: se si chiude senza
           // scegliere, chi voleva davvero una barra ce l'ha.
-          if (barraEComando(value, v)) apri()
+          const dove = posizioneBarraComando(value, v)
+          if (dove >= 0) {
+            apri(dove)
+            return
+          }
+          // ── TOLTA LA BARRA, IL CALENDARIO SI CHIUDE ──
+          //
+          // ⚠️⚠️ Segnalato dall'utente il 26/08/2026: cancellata la barra, il
+          // pannello restava aperto sopra la pagina. Sta lì **per quella
+          // barra**: sparita lei, non ha più un posto dove mettere la data —
+          // e scegliere un giorno non farebbe più niente di visibile.
+          //
+          // ⚠️ Il tasto qui non basta: scrivendo, il pannello si chiude già da
+          // `onKeyDown`, ma **Backspace e Canc non sono caratteri** e passavano
+          // oltre. Si guarda il testo, non il tasto: così valgono anche il
+          // taglia, il seleziona-tutto-e-cancella e l'annulla del browser.
+          //
+          // ⚠️ Si chiude anche se la barra è ancora nella riga ma **non è più
+          // dove era**: dopo una cancellazione in mezzo, la posizione salvata
+          // punterebbe a un altro carattere, e la data finirebbe in un punto che
+          // nessuno ha scelto.
+          if (aperto && v[posizione] !== '/') chiudi()
         }}
         onKeyDown={(e) => {
           if (aperto) {

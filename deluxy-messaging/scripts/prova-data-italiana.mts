@@ -6,7 +6,7 @@
 //
 //   npx tsx scripts/prova-data-italiana.mts
 import {
-  barraEComando,
+  posizioneBarraComando,
   caselleDelMese,
   nomeMese,
   piuGiorni,
@@ -20,17 +20,27 @@ function prova(nome: string, ok: boolean, extra = '') {
   console.log(`${ok ? '  ok ' : '  NO '} ${nome}${extra ? ' — ' + extra : ''}`)
 }
 
-console.log('=== QUANDO LA BARRA È UN COMANDO ===')
-prova('campo vuoto', barraEComando('', '/'))
-prova('dopo uno spazio', barraEComando('12562 da fare ', '12562 da fare /'))
-prova('NON dentro una data in cifre', !barraEComando('27', '27/'), '«27/08»')
-prova('NON dentro «e/o»', !barraEComando('e', 'e/'))
-prova('NON dopo una lettera', !barraEComando('ciao', 'ciao/'))
-prova('NON se la barra non è in fondo', !barraEComando('da fare', 'da /fare'))
-prova('NON incollando un testo con la barra', !barraEComando('', 'nota del 27/08'))
-prova('NON cancellando', !barraEComando('da fare /', 'da fare '))
-prova('NON due barre di fila', !barraEComando('da fare /', 'da fare //'))
-prova('NON se il testo prima è cambiato', !barraEComando('abc', 'abd/'))
+console.log('=== DOVE LA BARRA È UN COMANDO ===')
+const dove = (prima: string, dopo: string) => posizioneBarraComando(prima, dopo)
+prova('campo vuoto', dove('', '/') === 0)
+prova('dopo uno spazio, in fondo', dove('12562 da fare ', '12562 da fare /') === 14)
+// ⚠️⚠️ Il caso segnalato dall'utente mentre CORREGGEVA una nota: si seleziona
+// «domani» e si scrive «/» al suo posto, in MEZZO alla riga. La prima versione
+// guardava solo la fine del testo, e qui non si apriva mai.
+prova(
+  'al posto di una parola selezionata, IN MEZZO',
+  dove('chiamare domani alle 9!', 'chiamare / alle 9!') === 9,
+  String(dove('chiamare domani alle 9!', 'chiamare / alle 9!'))
+)
+prova('inserita in mezzo, senza selezione', dove('chiamare  alle 9', 'chiamare / alle 9') === 9)
+prova('NON dentro una data in cifre', dove('27', '27/') === -1, '«27/08»')
+prova('NON dentro «e/o»', dove('e', 'e/') === -1)
+prova('NON dopo una lettera', dove('ciao', 'ciao/') === -1)
+prova('NON attaccata a una parola, in mezzo', dove('chiamare domani', 'chiamare/ domani') === -1)
+prova('NON incollando un testo con la barra', dove('', 'nota del 27/08') === -1)
+prova('NON cancellando', dove('da fare /', 'da fare ') === -1)
+prova('NON due barre di fila', dove('da fare /', 'da fare //') === -1)
+prova('NON se il testo prima è cambiato', dove('abc', 'abd/') === -1)
 
 console.log('\n=== COME SI SCRIVE LA DATA ===')
 const oggi = new Date(2026, 7, 26) // 26 agosto 2026

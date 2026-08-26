@@ -537,10 +537,17 @@ In cima ci sono tre scorciatoie: **Oggi · Domani · Dopodomani**.
 rilegge fra tre giorni e vuol dire un altro giorno. La parola invecchia, la data no.
 
 ⚠️⚠️ **La barra apre solo dove è un comando**: a campo vuoto o **dopo uno
-spazio**, e solo se è appena stata scritta in fondo. **«27/08» non apre niente**,
-e nemmeno incollare un testo che contiene una barra: dentro una parola la barra è
+spazio**, e **in qualunque punto della riga**. **«27/08» non apre niente**, e
+nemmeno incollare un testo che contiene una barra: dentro una parola la barra è
 un carattere come un altro, e un pannello che salta fuori mentre si scrive una
 data in cifre darebbe fastidio proprio a chi il diario lo usa di più.
+
+⚠️ **Anche in mezzo alla riga**, non solo in fondo: correggendo una nota si
+seleziona «domani» e si scrive «/» al suo posto — la data va **lì**, e il cursore
+resta lì. In fondo si scrive quando la riga nasce, in mezzo quando la si corregge.
+
+⚠️ **Tolta la barra, il calendario si chiude**: sta lì per quella barra. Vale
+anche cancellandola con Backspace o Canc, tagliandola, o annullando con Ctrl+Z.
 
 ⚠️ **La barra sparisce** quando si sceglie: era un comando, non testo. Chiudendo
 con **Esc** invece resta — chi voleva scrivere una barra ce l'ha.

@@ -1,5 +1,74 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (18) — il «/» vale anche IN MEZZO alla riga, e togliendolo si chiude
+
+Due segnalazioni dell'utente sul calendario di poche ore prima, tutte e due vere.
+
+### 1. «sto provando a fare modifica ma non esce il calendario»
+
+Con lo schermo davanti: la riga era **«chiamare / alle 9!»** — cioè aveva
+selezionato «domani» e scritto «/» al suo posto, **in mezzo**. La mia regola
+guardava **solo la fine del campo** (`dopo.endsWith('/')`), quindi lì non si
+apriva mai.
+
+⚠️⚠️ **In fondo si scrive quando la riga NASCE; in mezzo quando la si
+CORREGGE.** Sono lo stesso gesto, e una regola che guarda solo la fine funziona
+mentre si scrive e **non funziona mai mentre si corregge** — che è esattamente il
+momento in cui una data si sostituisce. Il difetto è nato dal fatto che la
+funzione l'avevo pensata sul campo «scrivi una riga nuova» e poi riusata nel
+campo «correggi», senza rileggere la regola con quel secondo caso in mente.
+
+Adesso `posizioneBarraComando(prima, dopo)` torna **dove** sta la barra (o -1):
+confronta prefisso e suffisso comuni, quindi vale sia per una barra **inserita**
+sia per una scritta **al posto di una selezione**. Restano fuori le stesse cose
+di prima: «27/08», «e/o», e un testo incollato che contiene una barra.
+
+⚠️ E la data va **al posto della barra, dov'era**: `value.endsWith('/')` avrebbe
+tagliato l'ultimo carattere della frase lasciando la barra in mezzo. Lo spazio
+dopo la data si mette **solo se serve** (in fondo sì, davanti a « alle 9!» no,
+farebbe due spazi), e il **cursore torna dopo la data** — non in fondo alla riga,
+o correggendo in mezzo bisogna ricercare a mano il punto in cui si era.
+
+### 2. «tolto il "/" nascondi calendario»
+
+Cancellata la barra, il pannello restava aperto sopra la pagina. Sta lì **per
+quella barra**: sparita lei, non ha più un posto dove mettere la data.
+
+⚠️⚠️ **Il tasto non bastava.** Scrivendo, il pannello si chiudeva già da
+`onKeyDown` (`e.key.length === 1`), ma **Backspace e Canc non sono caratteri** e
+passavano oltre. Ora si guarda **il testo**, non il tasto: così valgono anche il
+taglia, il seleziona-tutto-e-cancella e l'annulla del browser.
+
+⚠️ Si chiude anche se la barra c'è ancora ma **non è più dov'era** (una
+cancellazione più a sinistra la sposta): la posizione salvata punterebbe a un
+altro carattere, e la data finirebbe in un punto che nessuno ha scelto.
+
+### Verifica
+
+**`npx tsx scripts/prova-data-italiana.mts` — 25 prove, tutte passate**, fra cui
+la nuova che descrive il caso segnalato: `dove('chiamare domani alle 9!',
+'chiamare / alle 9!') === 9`.
+
+**Provato nel browser** su una pagina d'anteprima temporanea (ora cancellata),
+partendo proprio da «chiamare domani alle 9!»:
+- «domani» sostituito da «/» → **il pannello si apre**;
+- scelto il 28 → **«chiamare 28 agosto alle 9!»**, un solo spazio, e il cursore
+  resta **a metà frase** (posizione 18), non in fondo;
+- barra scritta in fondo dopo uno spazio → si apre; **barra cancellata → si
+  chiude**;
+- barra in mezzo → si apre; **cancellata una lettera prima di lei → si chiude**.
+
+⚠️ **Un errore mio, per il prossimo che legge**: aggiornando il file di prova ho
+usato `s.slice(inizio, fine)` con `fine = indexOf(...)` che aveva risposto
+**-1** — e `slice(x, -1)` non vuol dire «fino alla fine», vuol dire «fino
+all'ultimo carattere escluso»: mi sono mangiato metà file di prova, e me ne sono
+accorto solo perché le prove stampate erano 12 invece di 25. Ripreso da git.
+**Il controllo di `indexOf` va fatto su tutti e due gli estremi**, ed è ora nello
+script.
+
+`npx tsc --noEmit` esito 0, `npm run build` esito 0.
+Design system portato a **1.3** (la regola della barra è cambiata: sta scritta lì).
+
 ## 26/08/2026 (17) — le righe del diario si CORREGGONO
 
 Chiesto dall'utente: «consenti la modifica di singole note».

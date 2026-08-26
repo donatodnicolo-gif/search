@@ -1,6 +1,6 @@
 # Deluxy Design System
 
-**Versione 1.2 — 26 agosto 2026** · *1.1: componente «Avvisi (toast)». 1.2: componente «Scelta data — il «/» dentro un campo».*
+**Versione 1.3 — 26 agosto 2026** · *1.1: componente «Avvisi (toast)». 1.2: componente «Scelta data — il «/» dentro un campo». 1.3: la barra vale in QUALUNQUE punto della riga (non solo in fondo) e togliendola il pannello si chiude.*
 
 Il linguaggio visivo ufficiale di tutte le app Deluxy. Nato dal redesign di `deluxy-platform-next` (stile Apple), vale d'ora in poi per **ogni app esistente e nuova**: piattaforma web, Deluxy Scout, app fornitori, siti Shopify, landing page.
 
@@ -175,11 +175,27 @@ testo libero, e che al posto della barra scrive la data.
 **sparisce**, sostituita da quello che ha prodotto. Se resta, finisce nel dato —
 e in un campo che poi legge un'altra persona.
 
-⚠️⚠️ **Si apre solo dove la barra è un comando: a inizio di parola** (campo vuoto
-o dopo uno spazio) e **appena scritta in fondo**. Dentro una parola la barra è un
-carattere come un altro — 27/08, e/o, 16/20 — e aprire un pannello mentre
-qualcuno scrive una data in cifre è un dispetto proprio verso chi quel campo lo
-usa di più. Incollare un testo che contiene una barra non apre niente.
+⚠️⚠️ **Si apre solo dove la barra è un comando: a inizio di parola** — campo
+vuoto o dopo uno spazio — **e in qualunque punto della riga**. Dentro una parola
+la barra è un carattere come un altro — 27/08, e/o, 16/20 — e aprire un pannello
+mentre qualcuno scrive una data in cifre è un dispetto proprio verso chi quel
+campo lo usa di più. Incollare un testo che contiene una barra non apre niente.
+
+⚠️⚠️ **In qualunque punto, non solo in fondo.** In fondo si scrive quando la riga
+**nasce**; in mezzo quando la si **corregge** — «chiamare ~~domani~~ / alle 9!» —
+e sono lo stesso gesto. Una regola che guarda solo la fine del campo funziona
+mentre si scrive e non funziona mai mentre si corregge, che è proprio il momento
+in cui una data si sostituisce. Vale anche per la barra scritta **al posto di
+qualcosa di selezionato**.
+
+⚠️⚠️ **Tolta la barra, il pannello si chiude.** Sta lì per quella barra: sparita
+lei, non ha più un posto dove mettere la data. E non basta guardare i tasti —
+**Backspace e Canc non sono caratteri**: si guarda il testo, così valgono anche
+il taglia, il seleziona-tutto-e-cancella e l'annulla del browser.
+
+⚠️ **La data va al posto della barra, dov'era**, non in fondo alla riga; e il
+cursore torna **dopo la data**, altrimenti correggendo in mezzo bisogna
+ricercare a mano il punto in cui si stava scrivendo.
 
 - Pannello `surface` + `hairline` + `radius-m` + `shadow-float`, **268px**,
   `position: absolute` sotto il campo (6px di stacco), mai una finestra al

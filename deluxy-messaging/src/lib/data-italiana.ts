@@ -91,20 +91,48 @@ export function piuGiorni(d: Date, n: number): Date {
 }
 
 /**
- * Il «/» apre il calendario, ma solo dove è un COMANDO.
+ * DOVE sta la barra appena scritta, se è un comando. `-1` = non lo è.
  *
  * ⚠️⚠️ Dentro una parola la barra è un carattere come un altro — «27/08»,
  * «e/o», «16/20» — e aprire un pannello mentre qualcuno sta scrivendo una data
- * in cifre sarebbe un dispetto. Quindi si apre solo se la barra è **a inizio di
- * parola**: campo vuoto, oppure preceduta da uno spazio.
+ * in cifre sarebbe un dispetto. Quindi vale solo **a inizio di parola**: campo
+ * vuoto, oppure preceduta da uno spazio.
  *
- * ⚠️ E solo se è stata appena SCRITTA IN FONDO: incollare un testo che contiene
- * una barra, o correggere in mezzo alla riga, non è un comando.
+ * ⚠️⚠️ MA IN QUALUNQUE PUNTO DELLA RIGA, non solo in fondo. Segnalato
+ * dall'utente il 26/08/2026 mentre correggeva una nota: «chiamare domani alle
+ * 9!» → si seleziona «domani», si scrive «/», e lì la data ci deve andare. La
+ * prima versione guardava solo la fine della riga, e correggendo — che è il
+ * momento in cui una data si sostituisce — non si apriva mai. In fondo si
+ * scrive quando la riga NASCE; in mezzo quando la si CORREGGE, e sono lo stesso
+ * gesto.
+ *
+ * Si confronta prima e dopo per prefisso e suffisso comuni: così vale sia per
+ * una barra **inserita** (niente selezionato) sia per una barra scritta **al
+ * posto di qualcosa** (una parola selezionata e sostituita) — che è esattamente
+ * il caso del racconto qui sopra.
+ *
+ * ⚠️ Quello che resta fuori: incollare un testo che contiene una barra. Il pezzo
+ * nuovo dev'essere **una barra e basta**.
  */
-export function barraEComando(prima: string, dopo: string): boolean {
-  if (dopo.length !== prima.length + 1) return false
-  if (!dopo.endsWith('/')) return false
-  if (dopo.slice(0, -1) !== prima) return false
-  const precedente = prima.slice(-1)
-  return precedente === '' || precedente === ' '
+export function posizioneBarraComando(prima: string, dopo: string): number {
+  if (!dopo.includes('/')) return -1
+  // Il prefisso in comune.
+  let i = 0
+  while (i < prima.length && i < dopo.length && prima[i] === dopo[i]) i++
+  // Il suffisso in comune, senza scavalcare il prefisso.
+  let j = 0
+  while (
+    j < prima.length - i &&
+    j < dopo.length - i &&
+    prima[prima.length - 1 - j] === dopo[dopo.length - 1 - j]
+  )
+    j++
+  // Quello che è cambiato, dalla parte del testo NUOVO.
+  const scritto = dopo.slice(i, dopo.length - j)
+  if (scritto !== '/') return -1
+  // ⚠️ Il carattere prima è quello del testo nuovo, non del vecchio: sostituendo
+  // una parola selezionata, quello vecchio sarebbe la prima lettera della parola
+  // sparita.
+  const precedente = i === 0 ? '' : dopo[i - 1]
+  return precedente === '' || precedente === ' ' ? i : -1
 }
