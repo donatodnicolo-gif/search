@@ -79,6 +79,34 @@ va in produzione quando l'utente pubblica il tema dev; (3) attenzione: la whitel
 LODI ma le zone di spedizione Shopify NON hanno una tariffa per Lodi → chi è di Lodi passa
 il check e al checkout non trova corrieri.
 
+## Verifiche ostili del 26/8/2026 (carrello/data, replay del codice live)
+
+- **Il filtro fasce funziona** (IT/EN/RU): `fnCheckDate` gira on-ready e on-change, ora
+  di Roma via Intl; a 16:08 restano 18-20 e 20-22, a 20:05 zero fasce + checkout
+  disabilitato. I calendari scrivono `delivery_date_val` in formato ITALIANO su ogni
+  locale ("Mer Agosto 26, 2026"), per questo il parser coi mesi italiani regge anche
+  su /en e /ru. Su /ru i messaggi di blocco sono rimasti in inglese.
+- **Trappola di aprile (bug attuale, tutti i locali)**: nei config dei calendari c'è
+  `'aprile'` MINUSCOLO contro la mappa parser `'Aprile'` → ogni data di aprile scelta
+  dall'header esce `2026-undefined-9`, e Shopify accetta e salva `Data_Consegna` rotta.
+  Fix: un carattere nei config (cart r.3345, product r.3445, en/ru identici).
+- **Doppio fail-open al checkout**: `fnCheckDelivery` legge `$("#DeliveryDate")` che
+  NON esiste (il campo vero è `#DeliveryDate_def`) → il controllo data non scatta mai;
+  se il ready muore (valore legacy tipo "mer 26 ago 2026" o "undefined" in
+  `delivery_date_val`) passa anche senza fascia, la tendina resta quella statica con
+  tutte le 15 option e nessun POST di `Data_Consegna` parte. I bottoni express saltano
+  comunque `fnCheckDelivery`. Nessuna validazione server degli attributi (accetta
+  fasce passate e date malformate via /cart/update.js).
+- **Il funnel web salva la data**: su 80 ordini reali (9-26/8) i 42 `web` hanno TUTTI
+  `Data_Consegna` ISO + fascia HH-HH regolari; i 34 senza attributi sono TUTTI draft
+  dello staff (9 senza data da nessuna parte). Il dato mancante è un problema del
+  canale manuale, non del sito.
+- **Rumore inerte**: `delivery_date_val_eng` viene scritto (anche "undefined") ma mai
+  letto; il campo `checkIn` (`2026-undefined-ago` con valori legacy) viene inviato ma
+  Shopify lo scarta — inquina solo `#max_del_date` in pagina.
+- **Cutoff 20:00 mai dichiarato all'utente**: esiste solo nel codice; nessun testo
+  «ordina entro le…» in carrello o scheda prodotto.
+
 ## Insidie specifiche
 
 - La `fnCheckDate` originale era un groviglio di `if (tmpHour > X && tmpHour < Y) $(...).remove()`
