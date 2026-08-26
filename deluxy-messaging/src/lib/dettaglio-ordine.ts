@@ -73,6 +73,9 @@ export type OrdineDettaglioDto = {
   uniti: { numero: string; totale: number }[]
   /** Il totale suo più quello degli ordini uniti: è la base vera del margine. */
   totaleConUniti: number
+  /** L'ultimo link di riconsegna già creato: si rivede aprendo la scheda. */
+  riconsegnaLink: string
+  riconsegnaNumero: string
   clienteTipo: string
   clienteTipoDa: string
   /** A chi abbiamo dato l'ordine da preparare. Vedi `fornitore-ordine.ts`. */
@@ -197,6 +200,8 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       unitoDaNome: ordine.unitoDaNome ?? '',
       uniti: insieme.uniti,
       totaleConUniti: insieme.totale,
+      riconsegnaLink: ordine.riconsegnaLink ?? '',
+      riconsegnaNumero: ordine.riconsegnaNumero ?? '',
       clienteTipo: ordine.clienteTipo,
       clienteTipoDa: ordine.clienteTipoDa,
       fornitoreNome: ordine.fornitoreNome,
@@ -310,6 +315,8 @@ export async function dettaglioOrdineArchivio(
         unitoDaNome: '',
         uniti: [],
         totaleConUniti: 0,
+        riconsegnaLink: '',
+        riconsegnaNumero: '',
         // ⚠️ L'ARCHIVIO STORICO non ha questi campi: quegli ordini vivono solo
         // in Orders, e qui in casa non esiste una riga su cui scrivere. Il
         // riquadro del fornitore non si mostra (vedi DettaglioOrdine), invece

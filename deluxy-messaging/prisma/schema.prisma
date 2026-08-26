@@ -372,6 +372,20 @@ model Ordine {
   // ⚠️⚠️ E RESTA UNA COSA NOSTRA: in Deluxy Orders quei due ordini restano due,
   // ognuno col suo margine. Qui si dice «sono un lavoro solo», non si riscrive
   // l'economia di un'altra app.
+  /**
+   * L'ultimo link di pagamento per una RICONSEGNA di quest'ordine.
+   *
+   * ⚠️⚠️ Si tiene, e non è un vezzo: senza, chiudendo il pop-up il link
+   * spariva e per riaverlo bisognava premere di nuovo «Crea il link» — cioè
+   * creare una SECONDA bozza su Shopify per la stessa riconsegna. Due bozze
+   * aperte sullo stesso cliente, e chi paga la sbagliata paga comunque.
+   * Chiesto dall'utente il 26/08/2026: «segna comunque un link all'apertura del
+   * pop-up».
+   */
+  riconsegnaLink   String    @default("")
+  riconsegnaNumero String    @default("")
+  riconsegnaIl     DateTime?
+
   unitoA        String    @default("")
   unitoIl       DateTime?
   unitoDaNome   String    @default("")

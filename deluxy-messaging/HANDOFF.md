@@ -1,5 +1,116 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (6) — i comandi si TROVANO, e il link di riconsegna non si perde
+
+Due cose viste dall'utente sulla scheda di **#1798**.
+
+**«Dove trovo il pulsante per unire ad un altro ordine?»** — c'era, ma stava in
+un riquadro più in basso, fuori dalla prima schermata. ⚠️⚠️ **Un comando che c'è
+ma non si trova, per chi lavora non esiste**: si continua a fare a mano la cosa
+che il bottone farebbe, e chi l'ha scritto crede che nessuno ne avesse bisogno.
+Ora in testa alla scheda, accanto a «Apri in Shopify», ci sono **«Unisci ordini»**
+e **«Riconsegna»**: portano al riquadro e lo **accendono** per un attimo (bordo
+oro, 1,6 s), così si capisce dove si è finiti invece di ritrovarsi a metà pagina.
+
+⚠️ L'elemento si cerca col `getElementById` **al momento del clic** invece di
+tenere un ref: un ref scritto come arrow dentro il JSX React lo stacca e
+riattacca a ogni render, ed è già costato una pagina che saltava a ogni tasto
+premuto.
+
+**«Segna comunque un link all'apertura del pop-up»** — il link della riconsegna
+adesso si **scrive sull'ordine** (`riconsegnaLink`, `riconsegnaNumero`,
+`riconsegnaIl`) e si rivede riaprendo la scheda.
+
+⚠️⚠️ Senza, chiudendo il pop-up il link spariva: per riaverlo si premeva di nuovo
+«Crea il link», cioè si creava una **seconda bozza su Shopify per la stessa
+riconsegna**. Due link in giro allo stesso cliente e nessuno che sappia quale ha
+pagato — e chi paga quella sbagliata ha pagato comunque. Ora il riquadro dice
+«c'è già un link di riconsegna (bozza #…): mandalo invece di farne un altro», con
+Copia e WhatsApp.
+
+Provato: typecheck e build.
+
+## 26/08/2026 (5) — il bottone «Riconsegna»: il link di pagamento pronto
+
+Chiesto dall'utente: «crea per ogni ordine un bottone Riconsegna con un link
+veloce di pagamento da mandare al cliente (esempio destinatario non c'era)».
+Sulla scheda: importo, motivo, «Crea il link» → link con Copia e WhatsApp.
+Rotta `POST /api/ordini/<id>/riconsegna`.
+
+⚠️⚠️ È un **ordine nuovo**, non una modifica di quello vecchio: il cliente paga
+una cosa in più e in Orders dev'essere un incasso in più. Toccare il totale
+dell'originale falsificherebbe la prima vendita.
+
+⚠️⚠️ Resta una **bozza** finché non paga (`pagamento: 'link'`): nessun incasso
+registrato che non sia vero. E il messaggio lo dice — «diventa un ordine quando
+il cliente paga» — perché chi legge «creato» crede di aver incassato.
+
+⚠️ **Nessun prezzo di riserva**: l'importo si scrive a mano. Una riconsegna costa
+quello che si è detto al cliente, e un default silenzioso finirebbe per essere il
+prezzo di tutti. ⚠️ L'indirizzo si chiede a **Orders**, che è chi lo possiede:
+mandare il valet dove stava scritto tre settimane fa sarebbe sbagliare due volte.
+Senza data: si concorda al telefono. ⚠️ Il titolo della riga dice **di quale**
+ordine è la riconsegna: fra un mese «Riconsegna 15 €» non si capisce più.
+
+⚠️ Il link si copia, **non parte da solo**: a un cliente che ha appena mancato una
+consegna non si manda un link secco.
+
+**MANCA**: la creazione vera scrive una bozza su Shopify a un cliente vero —
+quella si prova a mano, una volta, da una persona.
+
+## 26/08/2026 (4) — unire due ordini che sono una vendita sola
+
+Chiesto dall'utente su **#1798 (370 €)** e **#1777 (200 €)**, stessa cliente «ada
+hunca», stessa consegna: `src/lib/unione-ordini.ts`, riquadro nella scheda.
+
+⚠️⚠️ **È una cosa NOSTRA**: in Deluxy Orders quei due ordini restano **due**,
+ognuno col suo margine. Qui si dice «sono un lavoro solo», non si riscrive
+l'economia di un'altra app.
+
+🔴 **DECISIONE APERTA, non presa**: su #1777 il costo del fornitore (253 €) sta
+tutto su un ordine da 200 €, e in Orders quel margine è **−43,44 €** — che nella
+nuova KPI cade su Riccardo. Unire risolve **qui** ma non **lì**. Le due strade
+sono: (a) spezzare il costo in proporzione al venduto (136,76 / 116,24) e
+riscriverlo in Orders, oppure (b) far conoscere a Orders gli **ordini uniti**.
+Non toccato senza l'ok dell'utente: è economia di un'altra app.
+
+## 26/08/2026 (3) — nelle KPI il MARGINE per operatore, e in % sul venduto
+
+Chiesto dall'utente: «nelle kpis metti anche i margini che ogni operatore genera,
+prendi il margine da orders» → poi «mettilo in % sul venduto».
+`src/lib/margine-operatori.ts`. Ultimi 7 giorni: **Nicolò 463,12 € · 34,6% di
+1.340** · **Federica 382,91 € · 34,0% di 1.125** · **Riccardo 46,72 € · 9,9% di
+470**.
+
+⚠️⚠️ **La base si scrive accanto**: una percentuale che non si può controllare
+sembra sbagliata anche quando è giusta, e la stessa percentuale su 1.340 € o su
+470 € è un lavoro diverso.
+
+⚠️ Il margine si **legge** da Orders, non si ricalcola: è l'unico posto dove
+nasce (netto IVA, sul totale pagato). ⚠️ La base è il venduto dei **soli** ordini
+di cui si conosce il margine — quelli senza costo scritto restano fuori dal
+totale **e** dalla base, e si contano a parte. ⚠️ L'attribuzione va a un
+operatore solo se è un `Utente` vero; il resto finisce in «automatismi» invece di
+essere spalmato su qualcuno. ⚠️ Nessuna percentuale nella vista «al giorno»: una
+media giornaliera di percentuali non vuol dire niente.
+
+## 26/08/2026 (2b) — il fornitore entra in Anagrafiche già al SALVATAGGIO
+
+Chiesto dall'utente. Prima la scrittura al registro partiva **solo** premendo
+«Pagata».
+
+⚠️⚠️ Fra il salvataggio e il bonifico possono passare **giorni**, e in quei
+giorni il fornitore non esiste per nessun'altra app: chi lo cerca in anagrafica
+non lo trova e **lo ricrea a mano**. È così che nascono i doppioni.
+
+⚠️ **La divisione dei dati**: al registro va **chi è** (nome, recapiti, stato di
+fornitore); **qui** restano gli ordini che gli abbiamo dato e le condizioni di
+pagamento (metodo, IBAN, intestatario). Nessuno tiene una copia dell'altro
+(Standard Deluxy §7). ⚠️ Il richiamo dal «Pagata» **resta** — lì l'IBAN è stato
+usato davvero — e l'upsert-merge non duplica. ⚠️ Anticipare la scrittura non può
+**riabilitare** un fornitore escluso: se è «da evitare», il registro ignora la
+riga. ⚠️ Best-effort, ma l'esito si **restituisce**: se non entra si vede.
+
 ## 26/08/2026 (2) — «Paga fornitore» si spegne se una richiesta è già aperta
 
 Chiesto dall'utente. ⚠️⚠️ Il danno che evita: premendolo una seconda volta

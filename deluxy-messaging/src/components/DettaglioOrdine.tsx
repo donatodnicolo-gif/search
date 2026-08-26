@@ -113,6 +113,8 @@ type OrdineDettaglio = {
   unitoDaNome?: string
   uniti?: { numero: string; totale: number }[]
   totaleConUniti?: number
+  riconsegnaLink?: string
+  riconsegnaNumero?: string
   clienteTipo: string
   clienteTipoDa: string
   /** A chi abbiamo dato l'ordine da preparare. */
@@ -484,6 +486,21 @@ export function DettaglioOrdine({
     } finally {
       setInterrompendo(false)
     }
+  }
+
+  /**
+   * Porta al riquadro e lo accende per un attimo.
+   *
+   * ⚠️ L'elemento si cerca al momento del clic invece di tenere un ref: un ref
+   * scritto come arrow dentro il JSX React lo stacca e riattacca a ogni render,
+   * ed è già costato una pagina che saltava a ogni tasto premuto (24/08).
+   */
+  function vaiAlRiquadro(id: string) {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    el.classList.add('riquadro-acceso')
+    window.setTimeout(() => el.classList.remove('riquadro-acceso'), 1600)
   }
 
   /**
@@ -880,6 +897,31 @@ export function DettaglioOrdine({
               >
                 Apri in Shopify ↗
               </a>
+            ) : null}
+            {/* ── DOVE SI TROVANO ──
+                ⚠️⚠️ «Unisci» e «Riconsegna» stanno in due riquadri più in basso,
+                e chi apre la scheda non li vede: segnalato dall'utente, che li ha
+                cercati e non li ha trovati. Un comando che c'è ma non si trova,
+                per chi lavora non esiste. Qui in testa ci sono i due bottoni che
+                ci portano, e il riquadro si accende un attimo — così si capisce
+                dove si è finiti. */}
+            {ordine?.id ? (
+              <>
+                <button
+                  className="btn btn-secondario small"
+                  onClick={() => vaiAlRiquadro('riquadro-unione')}
+                  title="Unisci a questo un altro ordine che è la stessa vendita"
+                >
+                  Unisci ordini
+                </button>
+                <button
+                  className="btn btn-secondario small"
+                  onClick={() => vaiAlRiquadro('riquadro-riconsegna')}
+                  title="Crea il link di pagamento per una riconsegna"
+                >
+                  Riconsegna
+                </button>
+              </>
             ) : null}
             <button className="btn btn-secondario small" onClick={onChiudi}>
               Chiudi
@@ -1413,7 +1455,7 @@ export function DettaglioOrdine({
                   ⚠️ È un ordine NUOVO e resta una BOZZA finché il cliente non
                   paga: nessun incasso registrato che non sia vero. */}
               {ordine.id ? (
-                <div className="card" style={{ padding: 10, marginTop: 12 }}>
+                <div id="riquadro-riconsegna" className="card" style={{ padding: 10, marginTop: 12 }}>
                   <div className="cella-nome">Riconsegna</div>
                   <div className="cella-sub">
                     Un link di pagamento da mandare al cliente per riportare {ordine.numero}:
@@ -1443,6 +1485,41 @@ export function DettaglioOrdine({
                       {riconsegnando ? 'Preparo…' : 'Crea il link'}
                     </button>
                   </div>
+                  {/* ⚠️⚠️ IL LINK GIÀ CREATO SI RIVEDE APRENDO LA SCHEDA. Senza,
+                      chiudendo il pop-up spariva, e per riaverlo si premeva di
+                      nuovo «Crea il link»: una seconda bozza su Shopify per la
+                      stessa riconsegna, due link in giro allo stesso cliente e
+                      nessuno che sappia quale ha pagato. */}
+                  {!linkRiconsegna && ordine.riconsegnaLink ? (
+                    <div style={{ marginTop: 8 }}>
+                      <div className="cella-sub">
+                        C&apos;è già un link di riconsegna
+                        {ordine.riconsegnaNumero ? ` (bozza ${ordine.riconsegnaNumero})` : ''}:
+                        mandalo invece di farne un altro.
+                      </div>
+                      <input readOnly value={ordine.riconsegnaLink} style={{ width: '100%' }} />
+                      <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                        <button
+                          className="btn btn-secondario small"
+                          onClick={() =>
+                            void navigator.clipboard?.writeText(ordine.riconsegnaLink ?? '')
+                          }
+                        >
+                          Copia
+                        </button>
+                        {ordine.telefono ? (
+                          <a
+                            className="btn btn-secondario small"
+                            href={`https://wa.me/${ordine.telefono.replace(/[^\d]/g, '')}?text=${encodeURIComponent(ordine.riconsegnaLink ?? '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            WhatsApp
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                   {linkRiconsegna ? (
                     <div style={{ marginTop: 8 }}>
                       {/* ⚠️ Il link si COPIA e si apre, non si manda da solo:
@@ -1485,7 +1562,7 @@ export function DettaglioOrdine({
                   ⚠️ L'unione è NOSTRA: in Deluxy Orders restano due ordini, ed è
                   scritto qui sotto invece che lasciato scoprire. */}
               {ordine.id ? (
-                <div className="card" style={{ padding: 10, marginTop: 12 }}>
+                <div id="riquadro-unione" className="card" style={{ padding: 10, marginTop: 12 }}>
                   {ordine.unitoA ? (
                     <>
                       <div className="cella-nome">Unito a {ordine.unitoA}</div>

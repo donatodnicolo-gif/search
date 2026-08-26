@@ -100,6 +100,20 @@ export async function POST(req: NextRequest, { params }: Params) {
   })
 
   if (!esito.ok) return NextResponse.json({ errore: esito.errore }, { status: 502 })
+
+  // ⚠️⚠️ IL LINK SI SCRIVE SULL'ORDINE. Senza, chiudendo il pop-up spariva e per
+  // riaverlo bisognava premere di nuovo «Crea il link»: cioè una SECONDA bozza
+  // su Shopify per la stessa riconsegna, due link in giro allo stesso cliente e
+  // nessuno che sappia quale ha pagato.
+  await db.ordine.update({
+    where: { id },
+    data: {
+      riconsegnaLink: esito.linkPagamento,
+      riconsegnaNumero: esito.ordineNumero,
+      riconsegnaIl: new Date(),
+    },
+  })
+
   return NextResponse.json({
     ok: true,
     link: esito.linkPagamento,

@@ -4707,3 +4707,13 @@ td .azioni-ordine {
 .elenco-nostri-fornitori { list-style: none; margin: 6px 0 0; padding: 0; }
 .elenco-nostri-fornitori li { padding: 4px 0; border-top: 1px solid var(--hairline); }
 .elenco-nostri-fornitori li:first-child { border-top: none; }
+
+/* Il riquadro a cui si è appena stati portati.
+   ⚠️ Un lampo, non un colore fisso: serve a dire «è questo» a chi ha appena
+   premuto un bottone in cima e si è ritrovato più in basso. Restando acceso
+   diventerebbe un altro stato da interpretare. */
+.riquadro-acceso {
+  outline: 2px solid var(--oro);
+  outline-offset: 2px;
+  transition: outline-color 0.4s ease;
+}
