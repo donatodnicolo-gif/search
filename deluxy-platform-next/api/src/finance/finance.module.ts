@@ -548,7 +548,7 @@ export class FinanceService {
    * ordine si trasmettono guadagno netto IVA (pagato − valore prodotti ÷
    * 1,22), la quota registrata lorda e il margine finale.
    */
-  async economiaVendite(): Promise<Map<string, { venduto: number; primoMargine: number; feeVendita: number; margineFinale: number }>> {
+  async economiaVendite(): Promise<Map<string, { venduto: number; primoMargine: number; feeVendita: number; margineFinale: number; metodoIncasso: string | null; commissioneIncassi: number }>> {
     const corporate = await this.idVenditeDaCorporate();
     const deliveries = await this.prisma.delivery.findMany({
       where: {
@@ -571,7 +571,7 @@ export class FinanceService {
     });
     const rows = deliveries.map((d) => this.computeRow(d));
     const ordini = this.recap(rows, await this.tariffe(), await this.clientePagato(rows));
-    const mappa = new Map<string, { venduto: number; primoMargine: number; feeVendita: number; margineFinale: number }>();
+    const mappa = new Map<string, { venduto: number; primoMargine: number; feeVendita: number; margineFinale: number; metodoIncasso: string | null; commissioneIncassi: number }>();
     for (const o of ordini) {
       const numero = o.righe.map((r) => r.realOrderNumber).find(Boolean);
       if (!numero) continue;
@@ -582,6 +582,10 @@ export class FinanceService {
         primoMargine: o.takingsNet,
         feeVendita: o.feeContract,
         margineFinale: o.totalMargin,
+        // L'incasso (27/08): il metodo di pagamento del gruppo e la commissione
+        // stimata dalla tariffa del gateway (zero per il contante).
+        metodoIncasso: o.gateway ?? null,
+        commissioneIncassi: o.incassiCommission,
       });
     }
     return mappa;

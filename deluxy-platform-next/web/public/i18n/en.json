@@ -437,7 +437,11 @@
       "to": "To",
       "allStatuses": "All statuses",
       "clear": "Clear filters",
-      "onlyPriced": "Only partners with priceable deliveries"
+      "onlyPriced": "Only partners with priceable deliveries",
+      "quick": "Quick period",
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
+      "thisYear": "This year"
     },
     "status": {
       "DRAFT": "Draft",

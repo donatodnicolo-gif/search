@@ -402,6 +402,25 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### 27/08 (notte, 7) — L INCASSO va a Orders, il CS eredita i gestiti, contrassegni sgonfiati
+
+- **Orders conosce l INCASSO**: campi metodoIncasso e commissioneIncassi su
+  Ordine (ALTER IF NOT EXISTS, PATCH validato, controllo), spinti dalla
+  piattaforma per tutti i 10.053 ordini con economia (il contante ha
+  commissione ZERO e NON tocca il margine — e cassa). Contrassegno 700 EUR
+  registrato sulla 31714 (ordine #6838, COD confermato).
+- **Customer Service: 417 ordini segnati GESTITI** perche hanno gia una
+  consegna viva in piattaforma, con OPERATORE = chi ha creato la consegna
+  (Zicchinella, Cuccurullo, …); ponte ordersId risolto per tutti e 417 e
+  csGestione comunicato a Orders (script segna-gestiti-da-piattaforma.mjs
+  in deluxy-messaging, con backup).
+- **Contrassegni DUPLICATI sui giri**: il #12263 aveva 262 EUR scritti su TRE
+  consegne dello stesso ddt (786 di detrazioni contro 262 incassati); trovati
+  altri 6 giri uguali (3.055 EUR gonfiati). Corretti tutti: l importo resta su
+  UNA consegna del giro, log su tutte.
+- /salaries: filtro valet SOLO ATTIVI; recap paghe con colonne Paga (base),
+  Plus/minus e Totale.
+
 ### 27/08 (notte, 6) — Le regole APPLICATE alle consegne esistenti
 
 Chiesto dall utente («applica tutte le regole alle consegne caricate»),

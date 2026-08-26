@@ -198,6 +198,7 @@ export class OrdersSyncService {
       gia: {
         costoConsegna: number | null; feeConsegna: number | null;
         primoMargine: number | null; feeVendita: number | null; margineFinale: number | null;
+        metodoIncasso: string | null; commissioneIncassi: number | null;
       };
     }>();
     const soloQuesti = opzioni.soloOrdiniShopify?.length ? new Set(opzioni.soloOrdiniShopify) : null;
@@ -222,6 +223,7 @@ export class OrdersSyncService {
           controllo?: {
             costoConsegna?: number | null; feeConsegna?: number | null;
             primoMargine?: number | null; feeVendita?: number | null; margineFinale?: number | null;
+            metodoIncasso?: string | null; commissioneIncassi?: number | null;
           } | null;
         }[];
         pagine?: number;
@@ -255,6 +257,8 @@ export class OrdersSyncService {
             primoMargine: o.controllo?.primoMargine ?? null,
             feeVendita: o.controllo?.feeVendita ?? null,
             margineFinale: o.controllo?.margineFinale ?? null,
+            metodoIncasso: o.controllo?.metodoIncasso ?? null,
+            commissioneIncassi: o.controllo?.commissioneIncassi ?? null,
           },
         });
       }
@@ -318,6 +322,8 @@ export class OrdersSyncService {
         primoMargine: eco ? tondo(eco.primoMargine) : null,
         feeVendita: eco ? maiSottoZero(eco.feeVendita) : null,
         margineFinale: eco ? tondo(eco.margineFinale) : null,
+        metodoIncasso: eco ? (eco.metodoIncasso ?? null) : null,
+        commissioneIncassi: eco ? maiSottoZero(eco.commissioneIncassi) : null,
         /// Quante consegne dell'ordine hanno un partner senza Fee% impostata: la
         /// fee di quelle vale 0, e dirlo evita di leggere un totale come completo.
         senzaFee: c.senzaFee,
@@ -350,6 +356,8 @@ export class OrdersSyncService {
         && v.giaScritto.primoMargine === v.primoMargine
         && v.giaScritto.feeVendita === v.feeVendita
         && v.giaScritto.margineFinale === v.margineFinale
+        && (v.giaScritto.metodoIncasso ?? null) === (v.metodoIncasso ?? null)
+        && v.giaScritto.commissioneIncassi === v.commissioneIncassi
       ) {
         saltati++;
         continue;
@@ -364,6 +372,8 @@ export class OrdersSyncService {
             primoMargine: v.primoMargine,
             feeVendita: v.feeVendita,
             margineFinale: v.margineFinale,
+            metodoIncasso: v.metodoIncasso,
+            commissioneIncassi: v.commissioneIncassi,
           }),
         });
         if (!res.ok) {

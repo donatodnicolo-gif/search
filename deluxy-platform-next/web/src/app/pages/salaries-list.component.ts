@@ -520,7 +520,10 @@ export class SalariesListComponent {
     this.periodoRapido(0);
     if (this.view() !== 'pending') this.caricaTotaliPending();
     if (this.canManage()) {
-      this.http.get<ValetRef[]>(`${environment.apiUrl}/valets`).subscribe((d) => this.valets.set(d));
+      // Nel filtro solo i valet ATTIVI (deciso dall'utente 27/08): gli inattivi
+      // affollano la tendina senza avere lavoro da pagare.
+      this.http.get<ValetRef[]>(`${environment.apiUrl}/valets`).subscribe((d) =>
+        this.valets.set((d ?? []).filter((v) => v.active !== false)));
     }
   }
 

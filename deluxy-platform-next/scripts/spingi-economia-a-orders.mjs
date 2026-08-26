@@ -82,6 +82,8 @@ while (true) {
         primoMargine: o.controllo?.primoMargine ?? null,
         feeVendita: o.controllo?.feeVendita ?? null,
         margineFinale: o.controllo?.margineFinale ?? null,
+        metodoIncasso: o.controllo?.metodoIncasso ?? null,
+        commissioneIncassi: o.controllo?.commissioneIncassi ?? null,
       },
     });
   }
@@ -126,12 +128,16 @@ for (const [orderId, info] of perOrderId) {
     primoMargine: eco ? tondo(eco.primoMargine) : null,
     feeVendita: eco ? zero(eco.feeVendita) : null,
     margineFinale: eco ? tondo(eco.margineFinale) : null,
+    metodoIncasso: eco ? (eco.metodoIncasso ?? null) : null,
+    commissioneIncassi: eco ? zero(eco.commissioneIncassi) : null,
   });
 }
 const daScrivere = voci.filter((v) =>
   v.gia.costoConsegna !== v.costoConsegna || v.gia.feeConsegna !== v.feeConsegna
   || v.gia.primoMargine !== v.primoMargine || v.gia.feeVendita !== v.feeVendita
-  || v.gia.margineFinale !== v.margineFinale);
+  || v.gia.margineFinale !== v.margineFinale
+  || (v.gia.metodoIncasso ?? null) !== (v.metodoIncasso ?? null)
+  || v.gia.commissioneIncassi !== v.commissioneIncassi);
 console.log(`Ordini con qualcosa da dire: ${voci.length.toLocaleString('it-IT')} · da scrivere: ${daScrivere.length.toLocaleString('it-IT')}`);
 const conEco = voci.filter((v) => v.margineFinale != null);
 console.log(`  con economia: ${conEco.length.toLocaleString('it-IT')} · primo margine totale: ${eur(conEco.reduce((s, v) => s + v.primoMargine, 0))} · fee: ${eur(conEco.reduce((s, v) => s + v.feeVendita, 0))} · margine finale: ${eur(conEco.reduce((s, v) => s + v.margineFinale, 0))}`);
@@ -148,6 +154,7 @@ for (const v of daScrivere) {
       body: JSON.stringify({
         costoConsegna: v.costoConsegna, feeConsegna: v.feeConsegna,
         primoMargine: v.primoMargine, feeVendita: v.feeVendita, margineFinale: v.margineFinale,
+        metodoIncasso: v.metodoIncasso, commissioneIncassi: v.commissioneIncassi,
       }),
     });
     if (!res.ok) {

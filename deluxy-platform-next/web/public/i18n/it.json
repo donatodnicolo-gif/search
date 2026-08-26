@@ -437,7 +437,11 @@
       "to": "Al",
       "allStatuses": "Tutti gli stati",
       "clear": "Azzera filtri",
-      "onlyPriced": "Solo partner con consegne prezzabili"
+      "onlyPriced": "Solo partner con consegne prezzabili",
+      "quick": "Periodo rapido",
+      "thisMonth": "Mese in corso",
+      "lastMonth": "Mese scorso",
+      "thisYear": "Anno in corso"
     },
     "status": {
       "DRAFT": "Bozza",

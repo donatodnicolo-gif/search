@@ -80,7 +80,9 @@ const candidate = await db.delivery.findMany({
 });
 console.log(`REGOLE CARNET: ${regole.length} attive · consegne candidate (partner con regole, senza regola): ${candidate.length}`);
 
-const MODELLO = { 'prezzo fisso': 'PREZZO_FISSO', 'a ora': 'A_ORA' };
+// ⚠️ Il campo legacy dice fixedprice/hourlyrate, NON 'prezzo fisso'/'a ora'
+// (che stanno solo nel NOME): la prima versione non applicava mai il vincolo.
+const MODELLO = { fixedprice: 'PREZZO_FISSO', hourlyrate: 'A_ORA' };
 for (const d of candidate) {
   const combacianti = regole.filter((r) => {
     if (!r.partners.some((p) => p.partnerId === d.partnerId)) return false;

@@ -125,6 +125,14 @@ const NEXT: Record<string, { next: string; key: string }> = {
           </select>
         </label>
       }
+      <div class="f">
+        <span>{{ 'invoices.filter.quick' | translate }}</span>
+        <div class="quick-tabs">
+          <button type="button" class="quick-tab" (click)="periodoRapido(0)">{{ 'invoices.filter.thisMonth' | translate }}</button>
+          <button type="button" class="quick-tab" (click)="periodoRapido(-1)">{{ 'invoices.filter.lastMonth' | translate }}</button>
+          <button type="button" class="quick-tab" (click)="periodoRapido(-12)">{{ 'invoices.filter.thisYear' | translate }}</button>
+        </div>
+      </div>
       <label class="f">
         <span>{{ 'invoices.filter.from' | translate }}</span>
         <input class="field" type="date" [(ngModel)]="dal" (ngModelChange)="filtroCambiato()" />
@@ -401,6 +409,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
   `,
   styles: [
     `
+      .quick-tabs { display: inline-flex; background: var(--fill, #f5f5f7); border-radius: 980px; padding: 2px; }
+      .quick-tab { border: 0; background: none; border-radius: 980px; padding: 6px 14px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text-secondary); cursor: pointer; }
+      .quick-tab:hover { color: var(--text); }
       .page-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; max-width: 640px; }
@@ -540,8 +551,26 @@ export class InvoicesListComponent {
     return r === 'ADMIN' || r === 'OPERATION';
   }
 
+  /** Il periodo a un click: `0` = mese in corso (fino a oggi), `-1` = scorso, `-12` = anno in corso. */
+  periodoRapido(scarto: number): void {
+    const oggi = new Date();
+    const g = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (scarto === -12) {
+      this.dal = `${oggi.getFullYear()}-01-01`;
+      this.al = g(oggi);
+    } else {
+      const primo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto, 1);
+      const ultimo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto + 1, 0);
+      this.dal = g(primo);
+      this.al = g(scarto === 0 ? oggi : ultimo);
+    }
+    this.filtroCambiato();
+  }
+
   constructor() {
-    this.load();
+    // Di default si parte dal MESE IN CORSO (deciso dall'utente 27/08).
+    this.periodoRapido(0);
     // Il conto sulla linguetta deve esserci anche partendo da un'altra scheda.
     if (this.view() !== 'pending') this.caricaTotaliPending();
     if (this.canManage()) {

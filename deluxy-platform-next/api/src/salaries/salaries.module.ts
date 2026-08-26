@@ -571,7 +571,9 @@ export class SalariesService {
         <td class="muted">${e(x.service)}</td>
         <td class="muted">${(x as any).nelGiro ? `Nel giro (DDT ${e((x as any).giroDdt ?? '')})` : (x as any).daApprovare ? 'In attesa di approvazione' : (x as any).nonPagabile ? 'No (non pagabile)' : x.esclusaDaRegola ? `No (${e(x.regola ?? 'regola')})` : x.amount != null ? 'S&igrave;' : 'No'}</td>
         <td class="num">${x.cash ? eur(x.cash) : '—'}</td>
-        <td class="num">${x.amount != null ? eur(x.amount) : '—'}</td>
+        <td class="num">${x.amount != null ? eur(Math.round((x.amount - ((x as any).plusMinus ?? 0)) * 100) / 100) : '—'}</td>
+        <td class="num">${(x as any).plusMinus ? ((x as any).plusMinus > 0 ? '+' : '&minus;') + eur(Math.abs((x as any).plusMinus)) : '—'}</td>
+        <td class="num"><strong>${x.amount != null ? eur(x.amount) : '—'}</strong></td>
       </tr>`).join('');
 
     return `<!doctype html>
@@ -605,7 +607,7 @@ export class SalariesService {
   <p class="periodo">${periodo}</p>
   <table>
     <thead><tr>
-      <th>Data</th><th class="num">Consegna</th><th>Orario</th><th>Indirizzo</th><th>Servizio</th><th>Pagabile</th><th class="num">Contanti</th><th class="num">Paga</th>
+      <th>Data</th><th class="num">Consegna</th><th>Orario</th><th>Indirizzo</th><th>Servizio</th><th>Pagabile</th><th class="num">Contanti</th><th class="num">Paga</th><th class="num">Plus/minus</th><th class="num">Totale</th>
     </tr></thead>
     <tbody>${righe || '<tr><td colspan="8" class="muted">Nessuna consegna nel periodo.</td></tr>'}</tbody>
   </table>
