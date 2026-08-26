@@ -1067,6 +1067,16 @@ export class FinanceController {
     });
   }
 
+  @Get('economia-vendite')
+  @ApiOperation({
+    summary: "L'economia di ogni vendita per ordine Shopify (primo margine, fee, margine finale) — per la spinta verso Orders",
+  })
+  async economiaVendite(@CurrentUser() user: JwtUser) {
+    this.assertAdmin(user);
+    const mappa = await this.financeService.economiaVendite();
+    return Object.fromEntries(mappa);
+  }
+
   @Get('summary')
   @ApiOperation({ summary: 'Totali del periodo (solo admin)' })
   @ApiQuery({ name: 'from', required: false })
