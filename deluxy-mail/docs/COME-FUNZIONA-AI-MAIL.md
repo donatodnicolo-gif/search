@@ -460,6 +460,11 @@ centimetri da un totale già estratto nella stessa schermata. La **fase** è
 una tendina con gli stati veri di Scout (Primo contatto · In trattativa · Preventivo
 inviato · Chiusa vinta · Chiusa persa), e l'AI la propone leggendo lo scambio.
 
+**I bottoni «Si può fare da qui» non spariscono più.** Le azioni che il riassunto propone
+restano anche quando lo si rigenera: prima venivano tenute solo quelle dell'ultimo giro,
+e un aggiornamento su due mail nuove le cancellava tutte. Spariscono per un motivo solo —
+quando l'azione è stata **davvero eseguita** su una mail di quella conversazione.
+
 **Quando i negozi che corrispondono sono più di uno.** Commerciale risponde con l'elenco
 dei candidati e il dialogo li mostra come bottoni, con la **zona** accanto al nome
 («HAVI — DOWNERS GROVE», «HAVI — Arluno»): serve perché due posti possono chiamarsi

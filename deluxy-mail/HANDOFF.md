@@ -23,6 +23,39 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 7) — «non ho più il richiamo alle app?»: una porta che si chiudeva da sola
+
+Segnalato dall'utente guardando il riquadro del riassunto: i bottoni «Si può fare da qui»
+(Commerciale · Apri trattativa / Registra il preventivo) **non c'erano più**. Verificato
+sul database, non a occhio: il riassunto salvato di quel thread alle **15:59** aveva
+`azioni` con due voci, alle **16:42** (dopo una rigenerazione) aveva `azioni: undefined`
+— le cifre invece erano rimaste tutte e cinque.
+
+**Due cause sovrapposte, una già nota:**
+1. `riassuntoInTesto` — il testo da cui riparte l'**aggiornamento incrementale** — non
+   nominava le azioni. È **esattamente il buco già chiuso per le cifre** il 26/08 mattina
+   («un prezzo assente lì sparirebbe dal riassunto aggiornato»), lasciato aperto sul campo
+   nato lo stesso giorno: il modello, che in incrementale legge **solo le mail nuove**,
+   non poteva sapere che una trattativa era già stata proposta.
+2. Anche a monte, la vista teneva **solo** le azioni del giro appena fatto
+   (`...(azioniVista.length ? { azioni: azioniVista } : {})`): bastava un giro silenzioso
+   per perderle.
+
+**Correzione.** Le azioni entrano in `riassuntoInTesto`; se il giro nuovo non ne nomina
+si tengono quelle di prima; e la porta **si chiude quando il lavoro è fatto per davvero**,
+cioè quando `InvioApp` ha un invio **riuscito** di quell'azione su una mail del thread —
+la stessa idempotenza che usa già `eseguiAzioneSezioneOra`, non un'euristica.
+⭐ La regola generale, che vale anche altrove: **un'azione proposta è una PORTA, non un
+dato della conversazione.** Rigenerare un riassunto non è una ragione per far sparire un
+bottone; il silenzio di un modello che ha letto due mail su ventinove non è un giudizio.
+
+⚠️ **Il riassunto già salvato resta senza azioni**: la correzione vale da qui in avanti
+([[trappola-correzione-non-retroattiva]]). Rimettere a mano le due voci nel record
+avrebbe richiesto una **scrittura sul database di produzione**, che il guard di sicurezza
+ha rifiutato — e non l'ho forzata. Per rivederli basta rigenerare il riassunto
+(«Profondo» rilegge tutto il thread).
+
+---
 ### 26/08 (sera 6) — il nome non è un'identità: «HAVI» sono due, e la scelta non arrivava
 
 Provato a schermo dall'utente subito dopo il deploy della sera 4, con tre segnalazioni.
