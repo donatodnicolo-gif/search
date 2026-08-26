@@ -91,11 +91,21 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       // alle condizioni note — regola del binario). Qui non si rimette, per
       // non avere la stessa voce in due posti.
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
-      // Sta fra la trattativa e l'ordine perché è lì che serve: per fare un
-      // prezzo al cliente bisogna prima sapere quanto ci costa.
-      { name: 'preventivi', label: 'Preventivi fornitori', icon: 'calculator-outline' },
       { name: 'ordini', label: 'Ordini', icon: 'receipt-outline' },
       { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
+    ],
+  },
+  {
+    // ⭐ 26/08/2026 (richiesta dell'utente): quello che ci COSTA sta insieme,
+    // e prima degli strumenti. Sono due cose diverse e vicine: il PREVENTIVO è
+    // il prezzo di un lavoro chiesto oggi; la FORNITURA è quello che quel
+    // fornitore fa sempre — listino, tempi, minimi, zona. Prima i preventivi
+    // stavano dentro «Vendita», in mezzo al funnel, come se fossero un passo
+    // della trattativa: sono l'altra faccia, il costo.
+    titolo: 'Forniture',
+    voci: [
+      { name: 'preventivi', label: 'Preventivi fornitori', icon: 'calculator-outline' },
+      { name: 'forniture', label: 'Forniture', icon: 'cube-outline' },
     ],
   },
   {
@@ -222,7 +232,7 @@ function SezionePreferiti({
 // Le sezioni che si possono chiudere: quelle lunghe, dove il menu diventa una
 // colonna da scorrere. «Vendere oggi» e «Account» restano sempre aperte —
 // hanno due voci e chiuderle non guadagnerebbe niente.
-const SEZIONI_CHIUDIBILI = new Set(['Canali', 'Contatti', 'Vendita', 'Strumenti', 'Andamento']);
+const SEZIONI_CHIUDIBILI = new Set(['Canali', 'Contatti', 'Vendita', 'Forniture', 'Strumenti', 'Andamento']);
 
 function ContenutoDrawer({ admin, espansa = true, onToggle, ...props }: any) {
   // Quali sezioni sono chiuse. Parte tutto aperto: chi apre il menu la prima
@@ -418,6 +428,7 @@ export default function AppLayout() {
         <Drawer.Screen name="interessi" options={{ title: 'Per interesse' }} />
         <Drawer.Screen name="sequenze" options={{ title: 'Sequenze' }} />
         <Drawer.Screen name="preventivi" options={{ title: 'Preventivi fornitori' }} />
+        <Drawer.Screen name="forniture" options={{ title: 'Forniture' }} />
         <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
         <Drawer.Screen name="fornitori" options={{ title: 'Fornitori' }} />
         <Drawer.Screen name="richieste-clienti" options={{ title: 'Richieste Clienti' }} />
