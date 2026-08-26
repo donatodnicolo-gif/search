@@ -12,11 +12,15 @@
 // Vercel. È il motivo per cui la catena coda → approvazione a mano → esito
 // non è una formalità: è l'unica cosa che sta fra un errore e la spesa.
 //
-// STATO: **spento finché il permesso non c'è.** Oggi il token del Business
-// Manager ha `ads_read`; `ads_management` va chiesto su due fronti separati —
-// lo scope del token E il permesso sull'asset in Business Manager. Finché
-// manca, `metaPuoScrivere()` è falso e da qui non parte niente: non si prova
-// e basta, si dice che non si può.
+// STATO: **ACCESO, misurato il 26/08/2026** — la diagnosi in produzione
+// (`GET /api/v1/esegui/meta`) risponde `puoScrivere: true`: il token ha
+// `ads_management` e `META_SCRITTURA=attiva` c'è. Da qui in poi le operazioni
+// Meta APPROVATE si eseguono davvero. Il gate resta com'è (una variabile +
+// il permesso chiesto a Meta a ogni giro): se una delle due cose sparisce,
+// `metaPuoScrivere()` torna falso e si ferma tutto — non si prova e basta,
+// si dice che non si può. ⚠️ Qui prima c'era scritto «oggi il token ha solo
+// ads_read»: era vero quando fu scritto e falso poi — lo stato di un
+// collegamento si misura, non si ricopia da un commento.
 
 const VERSIONE = process.env.META_API_VERSION ?? "v21.0";
 const BASE = `https://graph.facebook.com/${VERSIONE}`;

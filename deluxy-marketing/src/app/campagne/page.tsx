@@ -176,9 +176,10 @@ export default async function PaginaCampagne({
               modulo Meta (obiettivo ODAX, budget CBO/ABO, pubblico, posizionamenti, pixel):
               si approva in Operazioni e l&apos;app crea campagna e ad set <b>in pausa</b> via
               Graph API — l&apos;<b>annuncio</b> si monta in Ads Manager, perché vuole un media
-              che l&apos;app non possiede. ⚠️ Finché il token non ha <code>ads_management</code> e
-              l&apos;interruttore <code>META_SCRITTURA</code> non è acceso, un lancio approvato
-              resta in coda col motivo scritto. Una campagna nata in Ads Manager si{" "}
+              che l&apos;app non possiede. ⚠️ Prima di ogni scrittura l&apos;app chiede a Meta il
+              permesso vero: se la scrittura risulta spenta (token senza{" "}
+              <code>ads_management</code> o interruttore <code>META_SCRITTURA</code> mancante),
+              un lancio approvato resta in coda col motivo scritto. Una campagna nata in Ads Manager si{" "}
               <a href="/campagne/nuova" style={{ color: "var(--blue)" }}>censisce</a> come prima.
             </span>
           </div>

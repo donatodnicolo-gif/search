@@ -406,9 +406,19 @@ e budget:
 
 Verificato: `tsc` pulito, build ok, deploy `m1k445ptw` e **provato in
 produzione nei due versi** (il tab Meta mostra il modulo nuovo, il tab
-Google resta identico, brief AI compreso). ⚠️ Non ancora provato con la
-scrittura accesa: `ads_management` manca da prima, il primo lancio vero
-dirà se la Graph API accetta i campi così come sono scritti.
+Google resta identico, brief AI compreso).
+
+⚠️⚠️ **CORREZIONE della sera stessa: la scrittura Meta è GIÀ ACCESA.**
+Qui (e nel commento di testa di `meta-scrittura.ts`) stava scritto
+«`ads_management` manca da prima»: **falso al momento della scrittura** —
+era la copia di un handoff invecchiato, non una misura. Misurato il 26/08
+sera con la diagnosi (`GET /api/v1/esegui/meta`, chiave locale):
+`puoScrivere: true`, token con `ads_management`, `META_SCRITTURA=attiva`
+già fra le env di produzione. Quindi: **un lancio Meta approvato viene
+ESEGUITO davvero** al primo giro di esecuzione (`POST /api/v1/esegui/meta`
+o il bottone in app — il cron NON c'è, ed è voluto: si veda il commento
+nella rotta). Resta vero che il primo lancio reale sarà la prova sul campo
+dei parametri Graph API.
 
 ### ⭐⭐ LA DECISIONE SUI CLAIM, e pausa_annuncio (26/08/2026)
 

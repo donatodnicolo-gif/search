@@ -118,9 +118,10 @@ export default async function CreaCampagna({
                 si elenca nell&apos;esito. <b>L&apos;annuncio non nasce da qui</b> (serve un media che
                 l&apos;app non possiede) e i <b>pubblici personalizzati</b> restano promemoria:
                 si completano in Ads Manager prima dell&apos;accensione, con la checklist 4.1.
-                ⚠️ La scrittura su Meta resta <b>spenta</b> finché il token non ha
-                `ads_management` e l&apos;interruttore `META_SCRITTURA` non è acceso: un lancio
-                approvato con la scrittura spenta resta in coda, e la coda dice perché.
+                ⚠️ Prima di scrivere, l&apos;app chiede a Meta il permesso vero (`ads_management`)
+                e controlla l&apos;interruttore `META_SCRITTURA`: se una delle due cose manca, il
+                lancio approvato resta in coda e la coda dice perché — quando ci sono, viene
+                eseguito davvero al primo giro di esecuzione.
               </span>
             </div>
 
