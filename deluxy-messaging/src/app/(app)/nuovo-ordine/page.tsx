@@ -18,6 +18,17 @@ export default async function PaginaNuovoOrdine({
   }
   return (
     <>
+      {/* ── LE BOZZE STANNO IN CIMA ──
+          ⚠️⚠️ Chiesto dall'utente: sotto il modulo non le vedeva nessuno. Il
+          modulo è lungo una schermata e mezza, e una sezione che arriva DOPO si
+          incontra solo se si scorre fino in fondo — cioè quando l'ordine nuovo
+          è già stato fatto e la domanda «quel link l'hanno pagato?» non se la
+          fa più nessuno.
+          ⚠️ In cima ma COMPATTA, e con un tetto d'altezza: se le bozze in
+          sospeso fossero venti spingerebbero il modulo fuori dallo schermo, e
+          avremmo spostato il problema invece di risolverlo. Quando non c'è
+          niente in sospeso resta una riga sola. */}
+      <Bozze />
       <NuovoOrdine
         prefill={{
           nome: uno('nome'),
@@ -26,10 +37,6 @@ export default async function PaginaNuovoOrdine({
           negozioId: uno('negozio'),
         }}
       />
-      {/* ⚠️ SOTTO il modulo, non in una pagina a parte: la domanda «quel link
-          l'hanno pagato?» viene a chi sta per farne un altro, ed e' li' che
-          deve trovare la risposta. */}
-      <Bozze />
     </>
   )
 }

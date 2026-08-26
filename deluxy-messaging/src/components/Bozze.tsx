@@ -121,19 +121,22 @@ export function Bozze() {
     ? bozze.filter((b) => b.stato !== 'pagata')
     : bozze
 
+  // ⚠️⚠️ IN CIMA ALLA PAGINA, quindi COMPATTA. Questa sezione sta sopra il
+  // modulo del nuovo ordine: ogni riga che si prende è una riga in meno di
+  // quello per cui la pagina esiste. Quando non c'è niente da incassare resta
+  // una riga sola, e la spiegazione lunga vive nel manuale — non qui, tutti i
+  // giorni, davanti a chi sa già cos'è.
+  const nienteInSospeso = caricato && daMostrare.length === 0
+
   return (
-    <section className="card" style={{ marginTop: 18 }}>
+    <section className="card bozze-riquadro">
       <div className="testa-riquadro">
         <h2 style={{ margin: 0, fontSize: 16 }}>Bozze mandate</h2>
         <span className="cella-sub">
-          {aperte} non pagate · {pagate} diventate ordini
+          {aperte} non pagate
+          {sospeso > 0 ? ` · ${soldi(sospeso)} in sospeso` : ''} · {pagate} diventate ordini
         </span>
       </div>
-      <p className="cella-sub" style={{ marginTop: 2 }}>
-        I link di pagamento creati da qui negli ultimi 60 giorni. Lo stato lo dice{' '}
-        <strong>Shopify</strong>, chiesto adesso: quando la bozza viene pagata diventa un ordine e
-        qui compare il suo numero.
-      </p>
 
       {errore ? <div className="avviso-errore">{errore}</div> : null}
 
@@ -147,7 +150,7 @@ export function Bozze() {
         </div>
       ) : null}
 
-      <div style={{ display: 'flex', gap: 8, margin: '10px 0', flexWrap: 'wrap' }}>
+      <div className="bozze-comandi">
         <button
           className={`btn ${soloAperte ? '' : 'btn-secondario'} small`}
           onClick={() => setSoloAperte(true)}
@@ -163,21 +166,21 @@ export function Bozze() {
         <button className="btn btn-secondario small" onClick={() => void carica()}>
           Richiedi lo stato
         </button>
-        {sospeso > 0 ? (
-          <span className="cella-sub" style={{ alignSelf: 'center' }}>
-            {soldi(sospeso)} in sospeso
-          </span>
-        ) : null}
       </div>
 
       {!caricato ? (
         <p className="colonna-vuota">Chiedo a Shopify…</p>
-      ) : daMostrare.length === 0 ? (
-        <p className="colonna-vuota">
-          {soloAperte ? 'Nessuna bozza in sospeso.' : 'Nessuna bozza negli ultimi 60 giorni.'}
+      ) : nienteInSospeso ? (
+        <p className="cella-sub" style={{ margin: 0 }}>
+          {soloAperte
+            ? 'Nessuna bozza in sospeso: tutti i link mandati sono stati pagati o chiusi.'
+            : 'Nessuna bozza mandata negli ultimi 60 giorni.'}
         </p>
       ) : (
-        <div>
+        // ⚠️ Un tetto d'altezza, non l'elenco intero: venti bozze in sospeso
+        // spingerebbero il modulo del nuovo ordine fuori dallo schermo — cioè il
+        // problema che si voleva risolvere, spostato di un posto.
+        <div className="bozze-elenco">
           {daMostrare.map((b) => (
             <div className="chiamata" key={b.id}>
               <div className="chiamata-numero">

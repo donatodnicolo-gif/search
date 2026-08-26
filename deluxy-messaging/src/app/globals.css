@@ -5088,3 +5088,45 @@ td .azioni-ordine {
   padding-top: 8px;
   border-top: 1px solid var(--hairline);
 }
+
+/* ── LE BOZZE MANDATE, in cima a «Nuovo ordine» ───────────────────────────────
+   ⚠️⚠️ Sta SOPRA il modulo (chiesto dall'utente: sotto non la vedeva nessuno,
+   perche' il modulo e' lungo una schermata e mezza e ci si arriva solo dopo aver
+   fatto l'ordine — quando la domanda «quel link l'hanno pagato?» non se la fa
+   piu' nessuno). Ma sopra il modulo ogni riga pesa: da qui il tetto d'altezza e
+   il riassunto in testa. */
+.bozze-riquadro {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+}
+
+.bozze-comandi {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+
+/* ⚠️ Il tetto e' su un'ALTEZZA, non su un numero di righe: tagliare a «prime 5»
+   nasconderebbe le altre senza dirlo, mentre una lista che scorre si vede che
+   continua. Circa tre bozze a vista: se ce ne sono venti si scorre qui dentro
+   invece di spingere il modulo fuori dallo schermo. */
+.bozze-elenco {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+@media (max-width: 700px) {
+  /* ⚠️⚠️ Sul telefono le righe si impilano e il riquadro diventava alto 447px:
+     il modulo del nuovo ordine cominciava a y=539 su uno schermo da 812, cioe'
+     il problema che questa sezione doveva risolvere, spostato di un posto. Il
+     tetto scende: si vede la prima bozza per intero e che ce n'e' dell'altra —
+     il resto si scorre qui dentro. */
+  .bozze-elenco {
+    max-height: 190px;
+  }
+  .bozze-riquadro {
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+}

@@ -41,7 +41,7 @@ preparare, che non hanno prezzo, vorrebbe dire contare zero come se fosse un dat
 sono richieste di preventivo dei **partner** dal loro accesso. Queste sono i
 clienti.
 
-### Bozze (dentro `/nuovo-ordine`, sotto il modulo)
+### Bozze (in cima a `/nuovo-ordine`, sopra il modulo)
 
 «Metti una sezione Bozze in Nuovo Ordine dove poter vedere lo stato delle bozze
 inviate (se sono state pagate e tramutate in ordine oppure no).»
@@ -65,8 +65,16 @@ login e uno script che manda client id e secret a Shopify è bloccato dal
 classificatore. La prova è aprire la pagina: se lo stato appare, funziona; se
 appare l'avviso rosso, il token di quel negozio non c'è.
 
-⚠️ La sezione sta **sotto il modulo** e non in una pagina sua: la domanda «quel
-link l'hanno pagato?» viene a chi sta per farne un altro.
+⚠️⚠️ La sezione sta **in cima alla pagina, sopra il modulo** (corretto lo stesso
+giorno su segnalazione dell'utente: messa sotto non la vedeva nessuno — il modulo
+è lungo una schermata e mezza, e ci si arriva solo dopo aver fatto l'ordine,
+quando la domanda «quel link l'hanno pagato?» non se la fa più nessuno).
+
+⚠️ Ma sopra il modulo **ogni riga pesa**: riquadro compatto, elenco con un
+**tetto d'altezza** (320px, 190 sul telefono) e una riga sola quando non c'è
+niente in sospeso. **Misurato a 375×812**: senza il tetto il riquadro era alto
+**447px** e il modulo cominciava a **y=539** — cioè il problema che la sezione
+doveva risolvere, spostato di un posto. Col tetto: **314px** e **y=406**.
 
 ⚠️⚠️ **Trappola già vista, ricascata**: `PreventiviLista` (client) importava
 `nomeStato` da `preventivi.ts`, che importa `nuovo-ordine.ts` → `crypto.ts` →

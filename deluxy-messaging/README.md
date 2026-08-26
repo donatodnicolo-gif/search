@@ -75,8 +75,15 @@ come se fosse un dato.
 
 ## Le bozze mandate: pagate o no?
 
-Sotto il modulo di **Nuovo ordine** c'è **Bozze mandate**: tutti i link di
+**In cima** alla pagina **Nuovo ordine** c'è **Bozze mandate**: tutti i link di
 pagamento creati da qui negli ultimi 60 giorni, con com'è finita.
+
+⚠️ Sta sopra il modulo e non sotto: il modulo è lungo una schermata e mezza, e
+una sezione che arriva dopo la si incontra solo quando l'ordine nuovo è già
+fatto — cioè quando la domanda «quel link l'hanno pagato?» non se la fa più
+nessuno. Ma sopra il modulo ogni riga pesa, quindi il riquadro è **compatto**,
+l'elenco ha un **tetto d'altezza** e quando non c'è niente in sospeso resta una
+riga sola.
 
 ⚠️⚠️ **Lo stato lo dice Shopify, non noi**, ed è chiesto **adesso**: la bozza vive
 là, e l'unico che sa se è stata pagata è lui. Qui si scrive soltanto il **numero
