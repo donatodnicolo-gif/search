@@ -9,11 +9,14 @@ import { useCallback, useMemo, useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import type { Place, Task, Visit } from '@/types';
-import type { ChiamataFatta } from '@/lib/db';
+import type { Place, RichiestaCliente, RichiestaPagamento, Task, Visit } from '@/types';
+import type { ChiamataFatta, OrdineConLuogo } from '@/lib/db';
 import { colors, coloreProprita, labelFase, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import {
+  fetchOrdini,
+  fetchRichiesteCliente,
+  fetchRichiestePagamento,
   fetchChiamateDal,
   fetchAllVisits,
   fetchLeads,
@@ -123,6 +126,20 @@ export default function Oggi() {
   const [chiamate7g, setChiamate7g] = useState<ChiamataFatta[]>([]);
   const [nomiPlace, setNomiPlace] = useState<Map<string, string>>(new Map());
   const [dettaglio, setDettaglio] = useState<null | 'visite' | 'chiamate' | 'trattative' | 'pipeline'>(null);
+  /**
+   * ⭐ LA SECONDA RIGA DEI NUMERI (26/08/2026, richiesta dell'utente): dopo la
+   * pipeline, il denaro che si muove davvero — preventivi fuori, ordini da
+   * incassare, pagamenti chiesti e fatturato.
+   *
+   * ⚠️ Sono QUATTRO cose diverse, e nessuna è l'altra: un preventivo è
+   * un'offerta che il cliente può rifiutare, un ordine è lavoro venduto ma non
+   * ancora pagato, un pagamento è una richiesta di soldi, il fatturato è ciò
+   * per cui il documento è stato emesso. Sommarle darebbe un numero che non
+   * vuol dire niente.
+   */
+  const [ordini, setOrdini] = useState<OrdineConLuogo[]>([]);
+  const [richiesteCliente, setRichiesteCliente] = useState<RichiestaCliente[]>([]);
+  const [richiestePagamento, setRichiestePagamento] = useState<RichiestaPagamento[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviando, setInviando] = useState(false);
 
@@ -131,7 +148,7 @@ export default function Oggi() {
     try {
       const uid = session?.user?.id;
       const settimanaFa = isoGiorniFa(7);
-      const [t, tr, places, visits, chiamate, prof, tuttiLead, ultimoContatto] = await Promise.all([
+      const [t, tr, places, visits, chiamate, prof, tuttiLead, ultimoContatto, ord, richC, richP] = await Promise.all([
         fetchTask(true),
         fetchTutteTrattative(),
         fetchPlaces(),
@@ -140,7 +157,16 @@ export default function Oggi() {
         uid ? fetchProfilo(uid) : Promise.resolve(null),
         fetchLeads().catch(() => []),
         fetchUltimoContattoPerPlace().catch(() => new Map<string, string>()),
+        // I tre elenchi del denaro. Ognuno col suo `catch`: una tabella non
+        // ancora migrata non deve far sparire la giornata — il numero resta a
+        // zero e il resto della schermata vive.
+        fetchOrdini().catch(() => []),
+        fetchRichiesteCliente().catch(() => []),
+        fetchRichiestePagamento().catch(() => []),
       ]);
+      setOrdini(ord);
+      setRichiesteCliente(richC);
+      setRichiestePagamento(richP);
       setLeadNuovi(tuttiLead.filter((l) => l.stato === 'nuovo'));
       setTasks(t.filter((x) => !x.completata));
       setTrattative(tr);
@@ -226,6 +252,42 @@ export default function Oggi() {
     [trattative, uid],
   );
   const pipeline = useMemo(() => aperteMie.reduce((s, d) => s + (d.valore_atteso ?? 0), 0), [aperteMie]);
+
+  /**
+   * I quattro numeri del denaro dopo la pipeline. Ognuno da una fonte sola, e
+   * dichiarata — non si sommano fra loro e non si sommano alla pipeline.
+   *
+   * ⚠️ «Fatturato» qui vuol dire: ordini per cui il documento è stato EMESSO
+   * (c'è il numero della fattura di FINANCE). Non è l'incassato — quello è
+   * «Ordini», che conta ciò che aspetta ancora i soldi — e non è il fatturato
+   * ufficiale dell'azienda, che vive in FINANCE ed è più largo di quello che
+   * passa da Scout.
+   */
+  const soldi = useMemo(() => {
+    const annoOra = new Date().getFullYear();
+    const dellAnno = (iso: string | null | undefined) =>
+      !!iso && new Date(iso).getFullYear() === annoOra;
+    return {
+      // Offerte fuori, in attesa di una risposta del cliente.
+      preventivi: richiesteCliente
+        .filter((r) => r.stato === 'preventivo_inviato')
+        .reduce((s, r) => s + (r.importo ?? 0), 0),
+      // Lavoro venduto che aspetta ancora i soldi.
+      ordini: ordini.filter((o) => o.stato === 'da_incassare').reduce((s, o) => s + (o.valore ?? 0), 0),
+      // Soldi chiesti e non ancora arrivati: il RESIDUO, non l'importo pieno —
+      // una richiesta incassata a metà è ancora aperta per la sua metà.
+      pagamenti: richiestePagamento
+        // ⚠️ Gli stati chiusi sono due — «pagata» e «annullata». Tutto il
+        // resto (inviata, in attesa, parziale, insoluta) è denaro che aspetta
+        // ancora, e va contato.
+        .filter((r) => r.stato !== 'pagata' && r.stato !== 'annullata')
+        .reduce((s, r) => s + Math.max(0, (r.importo ?? 0) - (r.importo_incassato ?? 0)), 0),
+      // Documento emesso, quest'anno.
+      fatturato: ordini
+        .filter((o) => o.fattura_numero && o.stato !== 'annullato' && dellAnno(o.created_at))
+        .reduce((s, o) => s + (o.valore ?? 0), 0),
+    };
+  }, [ordini, richiesteCliente, richiestePagamento]);
 
   // Le aperte in ordine di URGENZA, per la sezione in cima (richiesta utente
   // 25/08: «metti per prima cosa le trattative aperte»): prima chi ha la
@@ -352,6 +414,39 @@ export default function Oggi() {
         <Kpi label="Chiamate 7g" valore={String(chiamate7g.length)} icona="call-outline" onPress={() => setDettaglio('chiamate')} />
         <Kpi label="Trattative" valore={String(aperteMie.length)} icona="briefcase-outline" onPress={() => setDettaglio('trattative')} />
         <Kpi label="Pipeline" valore={euro(pipeline)} icona="trending-up-outline" stretta onPress={() => setDettaglio('pipeline')} />
+      </View>
+
+      {/* La seconda riga: il denaro DOPO la pipeline, diviso nei quattro
+          momenti che non vanno confusi. Ogni tessera porta dov'è il lavoro. */}
+      <View style={styles.kpiRow}>
+        <Kpi
+          label="Preventivi"
+          valore={euro(soldi.preventivi)}
+          icona="document-text-outline"
+          stretta
+          onPress={() => router.push({ pathname: '/(app)/richieste-clienti' } as never)}
+        />
+        <Kpi
+          label="Ordini"
+          valore={euro(soldi.ordini)}
+          icona="receipt-outline"
+          stretta
+          onPress={() => router.push('/(app)/ordini')}
+        />
+        <Kpi
+          label="Pagamenti"
+          valore={euro(soldi.pagamenti)}
+          icona="wallet-outline"
+          stretta
+          onPress={() => router.push('/(app)/pagamenti')}
+        />
+        <Kpi
+          label="Fatturato"
+          valore={euro(soldi.fatturato)}
+          icona="checkmark-done-outline"
+          stretta
+          onPress={() => router.push('/(app)/ordini')}
+        />
       </View>
 
       <DettaglioKpi
