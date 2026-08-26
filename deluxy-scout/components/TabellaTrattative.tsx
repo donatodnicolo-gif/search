@@ -33,12 +33,16 @@ export function TabellaTrattative({
   ordineFasi,
   onApri,
   onNegozio,
+  onElimina,
 }: {
   righe: TrattativaConLuogo[];
   /** L'ordine della pipeline: la colonna Fase si ordina per posizione, non per alfabeto. */
   ordineFasi: readonly DealStage[];
   onApri: (d: TrattativaConLuogo) => void;
   onNegozio: (placeId: string) => void;
+  /** Elimina la trattativa (con la domanda: la fa il chiamante). Solo su
+   *  quelle nate in Scout: le altre tornerebbero al primo sync. */
+  onElimina?: (d: TrattativaConLuogo) => void;
 }) {
   // Default: valore più alto in cima — in una colonna di soldi si guarda chi
   // conta di più (regola di lib/ordinamento, come Copertura e Affiliazioni).
@@ -132,6 +136,23 @@ export function TabellaTrattative({
             <Text style={styles.cellaData}>{dataBreve(d.created_at)}</Text>
             <Text style={[styles.cellaData, scaduta && styles.cellaScaduta]}>{dataBreve(d.scadenza)}</Text>
             <Text style={styles.cellaAzione} numberOfLines={2}>{d.next_action || '—'}</Text>
+            {/* Il cestino sulla riga: eliminare si poteva già, ma solo aprendo
+                la scheda e scorrendo in fondo — e un comando fuori dalla prima
+                schermata è un comando che non si trova. Solo sulle trattative
+                di Scout: HubSpot e registro tornerebbero al primo sync. */}
+            {onElimina && d.origine !== 'hubspot' && d.origine !== 'anagrafiche' ? (
+              <Pressable
+                hitSlop={8}
+                onPress={(e: any) => {
+                  e?.stopPropagation?.();
+                  onElimina(d);
+                }}
+                accessibilityLabel={`Elimina la trattativa di ${d.place_nome ?? 'negozio'}`}
+                {...({ title: 'Elimina la trattativa' } as any)}
+              >
+                <Ionicons name="trash-outline" size={15} color={colors.errore} />
+              </Pressable>
+            ) : null}
             <Ionicons name="chevron-forward" size={15} color={colors.grigio} />
           </Pressable>
         );

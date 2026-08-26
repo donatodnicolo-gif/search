@@ -30,11 +30,11 @@ import {
 } from '@/lib/db';
 import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } from '@/lib/hubspot';
 import { env } from '@/lib/env';
-import { CANALI, MOTIVI_PERSO, type CanaleTrattativa, type Contact, type DealStage, type MotivoPerso, type StatoAffiliazione } from '@/types';
+import { CANALI, MOTIVI_PERSO, canonizzaLinee, type CanaleTrattativa, type Contact, type DealStage, type MotivoPerso, type StatoAffiliazione } from '@/types';
 import { LineaSelector } from '@/components/LineaSelector';
 import { Card, EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
-import { conferma } from '@/lib/dialoghi';
+import { avvisa, conferma } from '@/lib/dialoghi';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 
 interface Sezione {
@@ -50,6 +50,27 @@ const FASI: DealStage[] = [
   'closedwon',
   'closedlost',
 ];
+
+/**
+ * ⭐ IL SOPRA-MENÙ (26/08/2026, richiesta dell'utente): **Aperte · Vinte ·
+ * Perse**. È la prima domanda che si fa chi apre questa schermata, e prima
+ * stava dentro un pannello dei filtri chiuso, mescolata alle fasi.
+ *
+ * Le fasi della pipeline — appuntamento fissato, decisore coinvolto, inviata —
+ * non sono allo stesso livello: sono **dentro** «Aperte», perché descrivono a
+ * che punto è una trattativa che è ancora in gioco. Vinta e persa non sono
+ * punti del percorso, sono la fine.
+ */
+const FASI_APERTE: DealStage[] = ['appointmentscheduled', 'decisionmakerboughtin', 'contractsent'];
+type VistaTrattative = 'aperte' | 'vinte' | 'perse';
+const VISTE: { v: VistaTrattative; label: string }[] = [
+  { v: 'aperte', label: 'Aperte' },
+  { v: 'vinte', label: 'Vinte' },
+  { v: 'perse', label: 'Perse' },
+];
+function faseDellaVista(f: DealStage): VistaTrattative {
+  return f === 'closedwon' ? 'vinte' : f === 'closedlost' ? 'perse' : 'aperte';
+}
 
 function isoOggiTratt(): string {
   return new Date().toISOString().slice(0, 10);
@@ -71,6 +92,9 @@ export default function Trattative() {
   const [deals, setDeals] = useState<TrattativaConLuogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  // Il sopra-menù: si parte dalle APERTE, che sono il lavoro. Vinte e perse si
+  // guardano quando si vuole guardarle.
+  const [vista, setVista] = useState<VistaTrattative>('aperte');
   const [faseFiltro, setFaseFiltro] = useState<DealStage | 'tutte'>('tutte');
   const [cittaFiltro, setCittaFiltro] = useState<string | null>(null);
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
@@ -135,10 +159,18 @@ export default function Trattative() {
     }, [carica, allineaDaHubspot]),
   );
 
-  // Stati presenti (per i chip filtro), nell'ordine della pipeline.
-  const fasiPresenti = useMemo<DealStage[]>(() => {
-    const set = new Set(deals.map((d) => d.fase));
-    return FASI.filter((f) => set.has(f));
+  // Quante ce n'è in ciascuna delle tre viste: il numero sta sul sopra-menù,
+  // così «Vinte (0)» si vede prima di cliccarci e nessuno pensa a un guasto.
+  const conteggi = useMemo(() => {
+    const c: Record<VistaTrattative, number> = { aperte: 0, vinte: 0, perse: 0 };
+    for (const d of deals) c[faseDellaVista(d.fase)]++;
+    return c;
+  }, [deals]);
+
+  // I sotto-stati di «Aperte», solo quelli che esistono davvero.
+  const fasiApertePresenti = useMemo<DealStage[]>(() => {
+    const set = new Set(deals.filter((d) => faseDellaVista(d.fase) === 'aperte').map((d) => d.fase));
+    return FASI_APERTE.filter((f) => set.has(f));
   }, [deals]);
 
   // Tipologie di interesse (linee) presenti fra le trattative.
@@ -157,7 +189,10 @@ export default function Trattative() {
   const filtrate = useMemo(() => {
     const q = query.trim().toLowerCase();
     return deals.filter((d) => {
-      if (faseFiltro !== 'tutte' && d.fase !== faseFiltro) return false;
+      // Prima il sopra-menù: aperte / vinte / perse. Poi, dentro le aperte,
+      // l'eventuale sotto-stato.
+      if (faseDellaVista(d.fase) !== vista) return false;
+      if (vista === 'aperte' && faseFiltro !== 'tutte' && d.fase !== faseFiltro) return false;
       if (!passaFiltroCitta(d.place_zona, cittaFiltro)) return false;
       if (accountFiltro && (d.place_account ?? '') !== accountFiltro) return false;
       if (lineaFiltro) {
@@ -169,7 +204,7 @@ export default function Trattative() {
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(q));
     });
-  }, [deals, query, faseFiltro, cittaFiltro, accountFiltro, lineaFiltro]);
+  }, [deals, query, vista, faseFiltro, cittaFiltro, accountFiltro, lineaFiltro]);
 
   const sezioni = useMemo<Sezione[]>(() => {
     const map = new Map<string, Sezione>();
@@ -195,6 +230,28 @@ export default function Trattative() {
   const nFiltriAttivi =
     (faseFiltro !== 'tutte' ? 1 : 0) +
     [cittaFiltro, lineaFiltro, accountFiltro].filter(Boolean).length;
+  /**
+   * Elimina una trattativa dall'elenco, con la domanda prima: è irreversibile.
+   * Stessa azione che c'è in fondo alla scheda — qui si trova senza aprirla.
+   */
+  function chiediEliminaDeal(d: TrattativaConLuogo) {
+    conferma(
+      'Eliminare la trattativa?',
+      `${d.place_nome ?? 'Trattativa'}${d.titolo ? ` · ${d.titolo}` : ''}. L’operazione non si può annullare.`,
+      async () => {
+        try {
+          await eliminaDeal(d.id);
+          await carica();
+        } catch (e) {
+          // L'errore si dice: un'eliminazione che non è avvenuta e non lo
+          // dichiara fa credere che sia sparita, e la si ritrova domani.
+          avvisa('Non è stata eliminata', (e as Error)?.message ?? 'Riprova.');
+        }
+      },
+      { testoConferma: 'Elimina', distruttivo: true },
+    );
+  }
+
   function azzeraFiltri() {
     setFaseFiltro('tutte');
     setCittaFiltro(null);
@@ -213,6 +270,63 @@ export default function Trattative() {
           <View style={styles.headerScroll}>
         <PageIntro testo="Le trattative in corso raggruppate per negozio, da Scout, HubSpot e registro Anagrafiche. Tocca una trattativa per modificarla." />
         <View style={[styles.head, contenutoCentrato]}>
+          {/* IL SOPRA-MENÙ: aperte, vinte, perse. Sempre a schermo — è la prima
+              domanda di chi arriva qui, e stava dentro un pannello chiuso. */}
+          <View style={styles.viste}>
+            {VISTE.map((v) => (
+              <Pressable
+                key={v.v}
+                style={[styles.vista, vista === v.v && styles.vistaOn]}
+                onPress={() => {
+                  setVista(v.v);
+                  // Cambiando vista il sotto-stato non ha più senso: «inviata»
+                  // dentro le vinte non filtra niente e farebbe sembrare vuota
+                  // una lista che non lo è.
+                  setFaseFiltro('tutte');
+                }}
+              >
+                <Text style={[styles.vistaTxt, vista === v.v && styles.vistaTxtOn]}>
+                  {v.label} ({conteggi[v.v]})
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {/* I sotto-stati: sono di «Aperte», e solo lì compaiono. */}
+          {vista === 'aperte' && fasiApertePresenti.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sottoFiltri}
+              keyboardShouldPersistTaps="handled"
+            >
+              <FiltroChip label="Tutte" on={faseFiltro === 'tutte'} onPress={() => setFaseFiltro('tutte')} />
+              {fasiApertePresenti.map((f) => (
+                <FiltroChip key={f} label={labelFase[f]} on={faseFiltro === f} onPress={() => setFaseFiltro(f)} />
+              ))}
+            </ScrollView>
+          ) : null}
+          {/* La TIPOLOGIA (l'interesse) subito visibile, anche da telefono:
+              richiesta dell'utente. Scorre in orizzontale invece di andare a
+              capo, così non mangia mezza schermata quando le linee sono nove. */}
+          {lineePresenti.length ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sottoFiltri}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.filtroEtichetta}>Tipologia</Text>
+              <FiltroChip label="Tutte" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
+              {lineePresenti.map((l) => (
+                <FiltroChip
+                  key={l}
+                  label={l}
+                  on={lineaFiltro === l}
+                  onPress={() => setLineaFiltro((c) => (c === l ? null : l))}
+                />
+              ))}
+            </ScrollView>
+          ) : null}
           <Text style={styles.sub}>
             {filtrate.length} trattative · valore € {totale.toLocaleString('it-IT')}
           </Text>
@@ -228,17 +342,8 @@ export default function Trattative() {
           {/* Dietro un bottone: 4 righe di filtri aperte occupavano piu di
               una schermata prima della prima trattativa. */}
           <PannelloFiltri attivi={nFiltriAttivi} onAzzera={azzeraFiltri}>
-            <View style={styles.filtri}>
-              <FiltroChip label="Tutte" on={faseFiltro === 'tutte'} onPress={() => setFaseFiltro('tutte')} />
-              {fasiPresenti.map((f) => (
-                <FiltroChip
-                  key={f}
-                  label={labelFase[f]}
-                  on={faseFiltro === f}
-                  onPress={() => setFaseFiltro(f)}
-                />
-              ))}
-            </View>
+            {/* ⚠️ Le fasi e la tipologia NON stanno più qui: sono salite sopra,
+                sempre a schermo. Qui restano i tagli che si usano di rado. */}
             {/* Città: le tre principali + "Altre", come in Target, Clienti e Rubrica. */}
             <View style={styles.filtri}>
               <Text style={styles.filtroEtichetta}>Città</Text>
@@ -251,20 +356,6 @@ export default function Trattative() {
                 />
               ))}
             </View>
-            {lineePresenti.length ? (
-              <View style={styles.filtri}>
-                <Text style={styles.filtroEtichetta}>Interessi</Text>
-                <FiltroChip label="Tutti" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
-                {lineePresenti.map((l) => (
-                  <FiltroChip
-                    key={l}
-                    label={l}
-                    on={lineaFiltro === l}
-                    onPress={() => setLineaFiltro((c) => (c === l ? null : l))}
-                  />
-                ))}
-              </View>
-            ) : null}
             {accountPresenti.length ? (
               <View style={styles.filtri}>
                 <Text style={styles.filtroEtichetta}>Account</Text>
@@ -312,6 +403,7 @@ export default function Trattative() {
                 ordineFasi={FASI}
                 onApri={setEditDeal}
                 onNegozio={(id) => router.push(`/(app)/attivita/${id}`)}
+                onElimina={chiediEliminaDeal}
               />
             </View>
           )}
@@ -344,7 +436,9 @@ export default function Trattative() {
             </Pressable>
           );
         }}
-        renderItem={({ item }) => <RigaDeal deal={item} onEdit={() => setEditDeal(item)} />}
+        renderItem={({ item }) => (
+          <RigaDeal deal={item} onEdit={() => setEditDeal(item)} onElimina={() => chiediEliminaDeal(item)} />
+        )}
       />
       )}
 
@@ -428,7 +522,25 @@ function dataApertura(deal: TrattativaConLuogo): string {
   return `aperta il ${quando} · ${giorni} giorni fa`;
 }
 
-function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => void }) {
+/**
+ * ⚠️ IL CESTINO SULLA RIGA (26/08/2026, segnalato dall'utente: «ho creato per
+ * sbaglio due trattative, dai possibilità di eliminare»). Eliminare si poteva
+ * già — ma solo aprendo la scheda e scorrendo fino in fondo, e un comando che
+ * sta fuori dalla prima schermata è un comando che non c'è.
+ *
+ * Solo sulle trattative nate in Scout: quelle da HubSpot o dal registro
+ * tornerebbero al primo sync, e si chiudono nell'app che le possiede.
+ */
+function RigaDeal({
+  deal,
+  onEdit,
+  onElimina,
+}: {
+  deal: TrattativaConLuogo;
+  onEdit: () => void;
+  onElimina: () => void;
+}) {
+  const suoDiScout = deal.origine !== 'hubspot' && deal.origine !== 'anagrafiche';
   const lineaTxt = deal.linee?.length ? deal.linee.join(', ') : deal.linea;
   const titolo = deal.titolo ?? lineaTxt ?? 'Trattativa';
   // Tipologia di interesse (linee Deluxy) come tag, quando distinta dal titolo.
@@ -445,6 +557,22 @@ function RigaDeal({ deal, onEdit }: { deal: TrattativaConLuogo; onEdit: () => vo
         ) : (
           <Text style={styles.dealValoreVuoto}>+ valore €</Text>
         )}
+        {suoDiScout ? (
+          <Pressable
+            hitSlop={8}
+            style={{ marginLeft: 8 }}
+            onPress={(e: any) => {
+              // ⚠️ Senza fermare l'evento, il tocco arriva anche alla scheda
+              // sotto: si aprirebbe il form insieme alla domanda.
+              e?.stopPropagation?.();
+              onElimina();
+            }}
+            accessibilityLabel="Elimina la trattativa"
+            {...({ title: 'Elimina la trattativa' } as any)}
+          >
+            <Ionicons name="trash-outline" size={16} color={colors.errore} />
+          </Pressable>
+        ) : null}
       </View>
       <View style={styles.dealMetaRow}>
         {/* Fase: dealstage per Scout/HubSpot; stato registro per le righe da Anagrafiche. */}
@@ -546,8 +674,14 @@ function TrattativaModal({
   // In MODIFICA si parte da ciò che è SALVATO — anche niente: preselezionare
   // «Consegne» su una trattativa senza linea faceva vedere nel form un dato
   // che la tabella (onesta) non mostrava. Il default vale solo in CREAZIONE.
+  // ⚠️ CANONIZZATE all'apertura (26/08/2026). Una trattativa salvata con un
+  // nome vecchio — «Eventi» invece di «Eventi & Catering» — faceva comparire un
+  // chip in più nel selettore, perché quello mostra anche i valori scelti che
+  // non sono nel catalogo (per non perderli). Risultato: dieci linee dove il
+  // catalogo ne ha nove, e due chip che sono la stessa cosa. Ricondotto qui, il
+  // valore vecchio si sana da solo al primo salvataggio.
   const [linee, setLinee] = useState<string[]>(
-    deal ? (deal.linee?.length ? deal.linee : deal.linea ? [deal.linea] : []) : ['Consegne'],
+    deal ? canonizzaLinee(deal.linee?.length ? deal.linee : deal.linea ? [deal.linea] : []) : ['Consegne'],
   );
   const [fase, setFase] = useState<DealStage>((deal?.fase as DealStage) ?? 'appointmentscheduled');
   const [valore, setValore] = useState(deal?.valore_atteso != null ? String(deal.valore_atteso) : '');
@@ -957,6 +1091,32 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.grigioChiaro,
     paddingTop: spacing.sm,
+  },
+  // Il sopra-menù: tre pillole larghe, leggibili col pollice.
+  viste: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  vista: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: colors.fill,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+  },
+  vistaOn: { backgroundColor: colors.testo, borderColor: colors.testo },
+  vistaTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
+  vistaTxtOn: { color: colors.bianco },
+  sottoFiltri: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
   },
   sub: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.md, marginBottom: spacing.xs },
   search: {
