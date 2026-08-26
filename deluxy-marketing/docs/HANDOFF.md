@@ -350,7 +350,7 @@ censimento, mai inventare. Rielaborata la Flowers: la #17 è passata da 1 a
 campagna COMPLETI (dal censimento), aggancio perfetto. Verificato dal DOM: 4
 bottoni sotto F13.
 
-«Che senso hanno i colori? indica anche la piattaforma»: sulle card di
+«Che senso hanno i colori?»: dal pomeriggio il RICONOSCIMENTO delle card è per BRAND (bordo e pillola coi colori del brand, come ovunque nell'app) e il verdetto è un PALLINO col tooltip accanto alla data — un semaforo non deve competere col colore d'identità. E la piattaforma: sulle card di
 /analisi l'ordine ora dice il senso — semaforo = verdetto della lettura,
 pallino colorato = brand (i suoi colori di sempre), poi PIATTAFORMA (Google
 Ads / Meta Ads) e tipo in grigio. Il canale mancava perché l'import non lo

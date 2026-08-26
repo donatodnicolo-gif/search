@@ -105,22 +105,37 @@ export default async function PaginaAnalisi({
                   display: "block",
                   textDecoration: "none",
                   color: "inherit",
-                  borderTop: `3px solid ${COLORE_VERDETTO[s.verdetto]}`,
+                  // Il RICONOSCIMENTO è per BRAND (richiesta utente, 26/08):
+                  // il bordo porta il colore del brand, come ovunque nell'app.
+                  // Il verdetto resta — ma come pallino, non come cornice.
+                  borderTop: `3px solid ${COLORE_BRAND[a.brand] ?? "var(--text-tertiary)"}`,
                   marginBottom: 0,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                  {/* L'ordine dice il senso dei colori: il SEMAFORO è il
-                      verdetto della lettura, il pallino colorato è il BRAND
-                      (i suoi colori di sempre), poi la PIATTAFORMA e il tipo
-                      in grigio neutro. */}
-                  <Badge testo={ETICHETTA_VERDETTO[s.verdetto]} colore={COLORE_VERDETTO[s.verdetto]} />
+                  {/* Il BRAND comanda il riconoscimento (pillola coi suoi
+                      colori, come il bordo); poi piattaforma e tipo in grigio.
+                      Il VERDETTO è il pallino in fondo: c'è, colora, ma non
+                      urla — il rosso di un semaforo non deve competere col
+                      colore d'identità della card. */}
                   <Badge testo={ETICHETTA_BRAND[a.brand] ?? a.brand} colore={COLORE_BRAND[a.brand] ?? "var(--text-tertiary)"} />
                   {a.canale && (
                     <span className="tag-neutro">{ETICHETTA_CANALE[a.canale] ?? a.canale}</span>
                   )}
                   <span className="tag-neutro">{ETICHETTA_TIPO_ANALISI[a.tipo] ?? a.tipo}</span>
-                  <span className="cella-sub" style={{ marginLeft: "auto" }}>{formattaData(a.dataAnalisi)}</span>
+                  <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span
+                      title={`Verdetto: ${ETICHETTA_VERDETTO[s.verdetto]}`}
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        background: COLORE_VERDETTO[s.verdetto],
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span className="cella-sub">{formattaData(a.dataAnalisi)}</span>
+                  </span>
                 </div>
                 <div className="cella-nome" style={{ whiteSpace: "normal", marginBottom: 4 }}>{a.titolo}</div>
                 <div className="cella-sub" style={{ whiteSpace: "normal" }}>{s.titolo}</div>
