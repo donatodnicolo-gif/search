@@ -1,0 +1,450 @@
+[
+  {
+    "id": "cmt5zwus90rm6i6so74ibr1d4",
+    "legacyId": 36775,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 48,
+    "valetSalaryDopo": 46.54
+  },
+  {
+    "id": "cmt5zwu770rcci6sonvy1ctpi",
+    "legacyId": 36415,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 44,
+    "valetSalaryDopo": 44.16
+  },
+  {
+    "id": "cmt5zwsat0pyai6sojwn4c89x",
+    "legacyId": 34608,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 42,
+    "valetSalaryDopo": 26.65
+  },
+  {
+    "id": "cmt5zzho60d28i63chkt5o0f2",
+    "legacyId": 55610,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 40,
+    "valetSalaryDopo": 3.57
+  },
+  {
+    "id": "cmt5zz4bc0610i63c8pcuui8b",
+    "legacyId": 46357,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 40,
+    "valetSalaryDopo": 24.75
+  },
+  {
+    "id": "cmt5zwu7c0rd2i6soghry94ic",
+    "legacyId": 36441,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 34,
+    "valetSalaryDopo": 25.53
+  },
+  {
+    "id": "cmt5zwurw0rk6i6sop1hu2uv7",
+    "legacyId": 36702,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 34,
+    "valetSalaryDopo": 30.6
+  },
+  {
+    "id": "cmt5zwswd0qkti6sodh4blvlq",
+    "legacyId": 35419,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 32,
+    "valetSalaryDopo": 31.94
+  },
+  {
+    "id": "cmt5zwswc0qkji6sozphdntm4",
+    "legacyId": 35409,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 30.8,
+    "valetSalaryDopo": 29.64
+  },
+  {
+    "id": "cmt5zwust0rpei6so4t9br7ny",
+    "legacyId": 36892,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 28,
+    "valetSalaryDopo": 28.89
+  },
+  {
+    "id": "cmt5zwsbc0q1ki6sojex3zkxv",
+    "legacyId": 34726,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 26,
+    "valetSalaryDopo": 25.67
+  },
+  {
+    "id": "cmt5zwvw30sd9i6so749bvzi0",
+    "legacyId": 37755,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 26,
+    "valetSalaryDopo": 27.54
+  },
+  {
+    "id": "cmt5zwut10rqni6sotck10u16",
+    "legacyId": 36937,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 26,
+    "valetSalaryDopo": 25.24
+  },
+  {
+    "id": "cmt5zwu5j0r3yi6sopr940dsn",
+    "legacyId": 36111,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 25,
+    "valetSalaryDopo": 14.39
+  },
+  {
+    "id": "cmt5zwusf0rnai6soaxsgjens",
+    "legacyId": 36815,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 25,
+    "valetSalaryDopo": 24.94
+  },
+  {
+    "id": "cmt5zwsva0qg7i6soijqgv5zb",
+    "legacyId": 35253,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 23,
+    "valetSalaryDopo": 20.74
+  },
+  {
+    "id": "cmt5zyzqq03s8i63cs6f31jx9",
+    "legacyId": 43427,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 22,
+    "valetSalaryDopo": 15.17
+  },
+  {
+    "id": "cmt5zwsvm0qhmi6so6pyjv5gm",
+    "legacyId": 35304,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 20,
+    "valetSalaryDopo": 6.49
+  },
+  {
+    "id": "cmt5zwvbl0rvzi6sow05w9luc",
+    "legacyId": 37131,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 20,
+    "valetSalaryDopo": 10.01
+  },
+  {
+    "id": "cmt5zwusw0rpyi6sobdpu00y8",
+    "legacyId": 36912,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 20,
+    "valetSalaryDopo": 19.69
+  },
+  {
+    "id": "cmt5zyzq803pti63c3pyymr8p",
+    "legacyId": 43340,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 19,
+    "valetSalaryDopo": 18.66
+  },
+  {
+    "id": "cmt5zwvbc0ruji6so4x6x3vja",
+    "legacyId": 37079,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 18,
+    "valetSalaryDopo": 18.3
+  },
+  {
+    "id": "cmt5zwsw50qjei6sodl9s4nu9",
+    "legacyId": 35368,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 17,
+    "valetSalaryDopo": 16.86
+  },
+  {
+    "id": "cmt5zwvax0rs3i6soiobmscvq",
+    "legacyId": 36989,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 16,
+    "valetSalaryDopo": 16.36
+  },
+  {
+    "id": "cmt5zwsv60qfki6soj1vow6w8",
+    "legacyId": 35230,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 16,
+    "valetSalaryDopo": 15.8
+  },
+  {
+    "id": "cmt5zysfb01gli63cyfvfjsga",
+    "legacyId": 40388,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 15.3,
+    "valetSalaryDopo": 18.91
+  },
+  {
+    "id": "cmt5zzdt80bkmi63cr36jz9r5",
+    "legacyId": 53669,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 15,
+    "valetSalaryDopo": 6.11
+  },
+  {
+    "id": "cmt5zzlk00e1li63cksa8qnxy",
+    "legacyId": 56887,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 15,
+    "valetSalaryDopo": 0.6
+  },
+  {
+    "id": "cmt5zzhmk0cy4i63czdxot88f",
+    "legacyId": 55462,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 15,
+    "valetSalaryDopo": 3.92
+  },
+  {
+    "id": "cmt5zwtkx0qodi6sod1tms1vd",
+    "legacyId": 35547,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 15,
+    "valetSalaryDopo": 7.56
+  },
+  {
+    "id": "cmt5zwu6t0ra3i6so59bfnrcs",
+    "legacyId": 36333,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 15,
+    "valetSalaryDopo": 6.86
+  },
+  {
+    "id": "cmt5zzk2y0dpmi63ch7pwi53l",
+    "legacyId": 56453,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 15,
+    "valetSalaryDopo": 5.97
+  },
+  {
+    "id": "cmt5zwrrz0ptli6so1wr5g0no",
+    "legacyId": 34439,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 14,
+    "valetSalaryDopo": 13.77
+  },
+  {
+    "id": "cmt5zzeh20bqxi63c409yj3od",
+    "legacyId": 53896,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 13.5,
+    "valetSalaryDopo": 5.78
+  },
+  {
+    "id": "cmt5zwrrn0prqi6so6xzbuovw",
+    "legacyId": 34372,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 13,
+    "valetSalaryDopo": 13.02
+  },
+  {
+    "id": "cmt5zwuqt0reli6soag1doway",
+    "legacyId": 36496,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 13,
+    "valetSalaryDopo": 13.25
+  },
+  {
+    "id": "cmt5zwury0rkki6soxjcmx44o",
+    "legacyId": 36716,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 13,
+    "valetSalaryDopo": 12.46
+  },
+  {
+    "id": "cmt5zwsud0qani6so9bm0sm66",
+    "legacyId": 35053,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 13,
+    "valetSalaryDopo": 29.44
+  },
+  {
+    "id": "cmt5zwsai0pwji6soqiwe2kfe",
+    "legacyId": 34545,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 12,
+    "valetSalaryDopo": 10.8
+  },
+  {
+    "id": "cmt5zwusr0royi6sorcaiy5tl",
+    "legacyId": 36876,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 12,
+    "valetSalaryDopo": 12.48
+  },
+  {
+    "id": "cmt5zz4c3065di63cc7yqxsv5",
+    "legacyId": 46517,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 11,
+    "valetSalaryDopo": 10.98
+  },
+  {
+    "id": "cmt5zysf501gci63cgjxyx5y3",
+    "legacyId": 40379,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 10.8,
+    "valetSalaryDopo": 12.26
+  },
+  {
+    "id": "cmt5zwtnk0qz8i6so1dpya2kp",
+    "legacyId": 35939,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 10,
+    "valetSalaryDopo": 3.7
+  },
+  {
+    "id": "cmt5zwsat0pydi6solgmxh8nz",
+    "legacyId": 34611,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 9.4,
+    "valetSalaryDopo": 9.28
+  },
+  {
+    "id": "cmt5zwur70rg1i6so066oo2uw",
+    "legacyId": 36549,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 8.9,
+    "valetSalaryDopo": 8.94
+  },
+  {
+    "id": "cmt5zwust0rpbi6sop4bayesw",
+    "legacyId": 36889,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 8.8,
+    "valetSalaryDopo": 8.79
+  },
+  {
+    "id": "cmt5zwr4x0p6ji6somt4mydoq",
+    "legacyId": 33607,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 8.76,
+    "valetSalaryDopo": 21.5
+  },
+  {
+    "id": "cmt5zwu7f0rdqi6solelmnq91",
+    "legacyId": 36465,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 8,
+    "valetSalaryDopo": 7.41
+  },
+  {
+    "id": "cmt5zwscf0q7ti6sossaqz0ul",
+    "legacyId": 34951,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 7.9,
+    "valetSalaryDopo": 7.94
+  },
+  {
+    "id": "cmt5zzqrk0fj1i63capzw95iz",
+    "legacyId": 58817,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 7.2,
+    "valetSalaryDopo": 0.78
+  },
+  {
+    "id": "cmt5zwtkq0qnni6sof8xd49re",
+    "legacyId": 35521,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 7,
+    "valetSalaryDopo": 2.21
+  },
+  {
+    "id": "cmt5zwsa60pumi6so1rvikop6",
+    "legacyId": 34476,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 6.1,
+    "valetSalaryDopo": 5.97
+  },
+  {
+    "id": "cmt5zwrr20podi6soj26m1x5d",
+    "legacyId": 34249,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 6,
+    "valetSalaryDopo": 3.69
+  },
+  {
+    "id": "cmt5zzeh20bqzi63cm7sc2g7s",
+    "legacyId": 53898,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 6,
+    "valetSalaryDopo": 2.14
+  },
+  {
+    "id": "cmt5zzeh30br7i63cn7pxo6eo",
+    "legacyId": 53906,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 6,
+    "valetSalaryDopo": 1.66
+  },
+  {
+    "id": "cmt5zz0ix041ci63c4hpi4rw7",
+    "legacyId": 43757,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 6,
+    "valetSalaryDopo": 0.4
+  },
+  {
+    "id": "cmt5zwu6b0r7ei6sotq48fqip",
+    "legacyId": 36235,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 6,
+    "valetSalaryDopo": 7.42
+  },
+  {
+    "id": "cmt5zwur90rgdi6soxhw5955l",
+    "legacyId": 36561,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 6,
+    "valetSalaryDopo": 5.08
+  },
+  {
+    "id": "cmt5zwvbc0ruhi6so8pyvno0e",
+    "legacyId": 37077,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 5.8,
+    "valetSalaryDopo": 5.7
+  },
+  {
+    "id": "cmt5zwvvj0s9wi6so03kszvqy",
+    "legacyId": 37634,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 5.3,
+    "valetSalaryDopo": 2.16
+  },
+  {
+    "id": "cmt5zzzww0ij8i63ck2kei02r",
+    "legacyId": 62723,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 5.3,
+    "valetSalaryDopo": 9.05
+  },
+  {
+    "id": "cmt5zywva02l8i63ck9wgem9b",
+    "legacyId": 41872,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 5.3,
+    "valetSalaryDopo": 2.13
+  },
+  {
+    "id": "cmt5zyz1t037yi63c5v45azpt",
+    "legacyId": 42693,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 5.3,
+    "valetSalaryDopo": 9.29
+  },
+  {
+    "id": "cmt5zztr90glpi63cpgupjrwa",
+    "legacyId": 60213,
+    "valetSalaryPrima": 0,
+    "valetAdditionalPricePrima": 5.3,
+    "valetSalaryDopo": 7.06
+  }
+]
