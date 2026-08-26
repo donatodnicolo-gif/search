@@ -10,6 +10,7 @@ import { parseData, parseImporto } from "./formato";
 import {
   QUALIFICHE,
   FREQUENZE_ATTIVITA,
+  MODALITA_LAVORO,
   MOTIVI_COMPENSO,
   normalizzaNome,
   TIPI_BENEFIT_BASE,
@@ -213,12 +214,14 @@ function datiPersonaDaForm(fd: FormData, percorsoErrore: string) {
   if (testo(fd, "dataAssunzione") && !dataAssunzione) {
     conErrore(percorsoErrore, "La data di assunzione non è una data valida.");
   }
+  const modalitaLavoro = testo(fd, "modalitaLavoro");
   return {
     nome,
     email: testo(fd, "email").toLowerCase(),
     telefono: testo(fd, "telefono"),
     ruolo: testo(fd, "ruolo"),
     sede: testo(fd, "sede"),
+    modalitaLavoro: MODALITA_LAVORO.some((m) => m.chiave === modalitaLavoro) ? modalitaLavoro : "",
     funzioneId: testo(fd, "funzioneId") || null,
     responsabileId: testo(fd, "responsabileId") || null,
     dataAssunzione,
@@ -243,7 +246,7 @@ async function creaCicloOrganigramma(personaId: string, responsabileId: string |
 
 // I campi anagrafici che viaggiano nel giro di decisione sull'omonimia
 // (redirect con query string: niente si perde, niente si riscrive).
-const CAMPI_PERSONA = ["nome", "ruolo", "email", "telefono", "sede", "funzioneId", "responsabileId", "dataAssunzione", "note"] as const;
+const CAMPI_PERSONA = ["nome", "ruolo", "email", "telefono", "sede", "modalitaLavoro", "funzioneId", "responsabileId", "dataAssunzione", "note"] as const;
 
 export async function creaPersona(fd: FormData): Promise<void> {
   const negato = await richiediAdmin();
@@ -334,6 +337,10 @@ export async function ricongiungiPersona(fd: FormData): Promise<void> {
   for (const campo of ["ruolo", "email", "telefono", "sede", "note"] as const) {
     const valore = testo(fd, campo);
     if (valore) aggiornamenti[campo] = campo === "email" ? valore.toLowerCase() : valore;
+  }
+  const modalitaLavoro = testo(fd, "modalitaLavoro");
+  if (MODALITA_LAVORO.some((m) => m.chiave === modalitaLavoro)) {
+    aggiornamenti.modalitaLavoro = modalitaLavoro;
   }
   const funzioneId = testo(fd, "funzioneId");
   if (funzioneId) aggiornamenti.funzioneId = funzioneId;

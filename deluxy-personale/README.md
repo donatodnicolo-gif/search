@@ -49,6 +49,11 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
   (niente più suffisso «da precisare»); chi vuole la forma legale precisa
   sceglie indeterminato/determinato/apprendistato. L'organigramma marca con
   «dal gg/mm» chi ha il contratto che decorre in futuro.
+- ✅ **Modalità di lavoro (26/08)**: sulla scheda (e sul form di creazione),
+  accanto alla Sede — «In sede», «Da remoto», «Ibrida (sede + remoto)» o
+  «non indicata» (default: si dichiara, non si deduce dalla sede scritta in
+  anagrafica). Se indicata compare come badge in testa alla scheda ed esce da
+  `/api/v1/persone` (`modalitaLavoro: "sede"|"remoto"|"ibrido"|null`).
 - ✅ **Benefit per persona (26/08)**: pagina **/benefit** con la tabella
   persone attive × tipi di benefit (spunta, dettaglio, valore mensile, «dal»,
   rimozione al volo) e i totali che dichiarano quanti benefit hanno il valore.

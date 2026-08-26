@@ -48,6 +48,18 @@ export function eAutonomo(tipoContratto: string | null | undefined): boolean {
 
 export const QUALIFICHE = ["operaio", "impiegato", "quadro", "dirigente"] as const;
 
+// Dove lavora la persona: in sede, da remoto o un po' e un po'. Vuoto = non
+// indicata (si dichiara, non si deduce dalla sede scritta in anagrafica).
+export const MODALITA_LAVORO = [
+  { chiave: "sede", nome: "In sede" },
+  { chiave: "remoto", nome: "Da remoto" },
+  { chiave: "ibrido", nome: "Ibrida (sede + remoto)" },
+] as const;
+
+export function nomeModalitaLavoro(chiave: string): string {
+  return MODALITA_LAVORO.find((m) => m.chiave === chiave)?.nome ?? (chiave || "non indicata");
+}
+
 export const FREQUENZE_ATTIVITA = ["giornaliera", "settimanale", "mensile", "su richiesta"] as const;
 
 export const MOTIVI_COMPENSO = [

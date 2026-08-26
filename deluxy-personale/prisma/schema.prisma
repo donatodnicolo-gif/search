@@ -79,6 +79,8 @@ model Persona {
   telefono        String    @default("")
   ruolo           String    @default("") // titolo leggibile: "Responsabile logistica", …
   sede            String    @default("")
+  // sede | remoto | ibrido | "" (non indicata): dove lavora, non dedotta
+  modalitaLavoro  String    @default("")
   funzioneId      String?
   funzione        Funzione? @relation("FunzionePersona", fields: [funzioneId], references: [id])
   // Organigramma: a chi riporta questa persona. Radice = nessun responsabile.

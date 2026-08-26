@@ -56,6 +56,8 @@ export async function GET(req: NextRequest) {
       telefono: x.telefono || null,
       ruolo: x.ruolo,
       sede: x.sede || null,
+      // sede | remoto | ibrido | null (non indicata): dichiarata, mai dedotta.
+      modalitaLavoro: x.modalitaLavoro || null,
       stato: x.stato,
       dataAssunzione: x.dataAssunzione?.toISOString().slice(0, 10) ?? null,
       dataCessazione: x.dataCessazione?.toISOString().slice(0, 10) ?? null,

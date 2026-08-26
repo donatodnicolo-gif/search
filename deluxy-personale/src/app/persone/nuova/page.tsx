@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { creaPersona, ricongiungiPersona } from "@/lib/azioni";
-import { nomeTipoContratto, inquadramentoCorrente } from "@/lib/organico";
+import { MODALITA_LAVORO, nomeTipoContratto, inquadramentoCorrente } from "@/lib/organico";
 
 // La creazione NON duplica in silenzio: se esiste già un'omonima, l'azione
 // rimanda qui con i dati compilati e si sceglie — aggiornare/ricongiungere la
@@ -17,6 +17,7 @@ type Parametri = {
   email?: string;
   telefono?: string;
   sede?: string;
+  modalitaLavoro?: string;
   funzioneId?: string;
   responsabileId?: string;
   dataAssunzione?: string;
@@ -45,7 +46,7 @@ export default async function PaginaNuovaPersona({
 
   // I dati compilati che viaggiano nel giro di decisione.
   const campi: [string, string][] = (
-    ["nome", "ruolo", "email", "telefono", "sede", "funzioneId", "responsabileId", "dataAssunzione", "note"] as const
+    ["nome", "ruolo", "email", "telefono", "sede", "modalitaLavoro", "funzioneId", "responsabileId", "dataAssunzione", "note"] as const
   )
     .map((c) => [c, sp[c] ?? ""] as [string, string])
     .filter(([, v]) => v);
@@ -136,6 +137,17 @@ export default async function PaginaNuovaPersona({
           <div className="campo">
             <label>Sede</label>
             <input type="text" name="sede" defaultValue={sp.sede ?? ""} placeholder="Es. Milano" />
+          </div>
+          <div className="campo">
+            <label>Modalità di lavoro</label>
+            <select name="modalitaLavoro" defaultValue={sp.modalitaLavoro ?? ""}>
+              <option value="">— non indicata —</option>
+              {MODALITA_LAVORO.map((m) => (
+                <option key={m.chiave} value={m.chiave}>
+                  {m.nome}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="campo">
             <label>Funzione</label>

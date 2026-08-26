@@ -7,7 +7,9 @@ import {
   eAutonomo,
   FREQUENZE_ATTIVITA,
   inquadramentoCorrente,
+  MODALITA_LAVORO,
   MOTIVI_COMPENSO,
+  nomeModalitaLavoro,
   nomeMotivoCompenso,
   nomeTipoContratto,
   prossimaDecorrenza,
@@ -102,6 +104,12 @@ export default async function SchedaPersona({
           </p>
         </div>
         <div className="page-azioni">
+          {persona.modalitaLavoro && (
+            <span className="badge">
+              <span className="dot" />
+              {nomeModalitaLavoro(persona.modalitaLavoro).toLowerCase()}
+            </span>
+          )}
           {persona.stato === "cessato" ? (
             <span className="badge rosso">
               <span className="dot" />
@@ -151,6 +159,17 @@ export default async function SchedaPersona({
           <div className="campo">
             <label>Sede</label>
             <input type="text" name="sede" defaultValue={persona.sede} />
+          </div>
+          <div className="campo">
+            <label>Modalità di lavoro</label>
+            <select name="modalitaLavoro" defaultValue={persona.modalitaLavoro}>
+              <option value="">— non indicata —</option>
+              {MODALITA_LAVORO.map((m) => (
+                <option key={m.chiave} value={m.chiave}>
+                  {m.nome}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="campo">
             <label>Funzione</label>
