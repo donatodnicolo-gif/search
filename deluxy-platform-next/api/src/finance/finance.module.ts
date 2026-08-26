@@ -926,7 +926,11 @@ export class FinanceService {
     // che la pagina contava come costo — su tutte le consegne sono 1.280 per
     // 16.071,10 €. Sono i giri in cui una sola consegna porta la paga e le altre
     // no, cioe' proprio le regole carnet.
-    const deliveryCost = d.payable === false ? 0 : (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0);
+    // ⚠️ MAI SOTTO ZERO (27/08): il legacy registrava il CONTANTE trattenuto
+    // dal valet come minus sulla paga (es. #31675: minus −1.237,60 su una paga
+    // di 15) — un «costo negativo» che GONFIAVA il margine dell'ordine di
+    // quell'importo. Il contante e' cassa, non un ricavo della consegna.
+    const deliveryCost = d.payable === false ? 0 : Math.max(0, (d.valetSalary ?? 0) + (d.valetAdditionalPrice ?? 0));
     const incassiCommission = saleValue * INCASSI;
     // ⭐ LA FEE REGISTRATA E' RICAVO, e nel margine ci va (deciso dall'utente
     // il 26/08): il partner non riceve il valore prodotti intero ma quel

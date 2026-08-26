@@ -402,6 +402,22 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### ⭐ 27/08 (notte, 8) — Il CONTANTE travestito da minus gonfiava i margini
+
+Spinta incasso completata: 10.053/10.053 su Orders (metodoIncasso +
+commissioneIncassi). Verificando il #6838 il margine era 920,75 invece di
+220,75: il legacy registrava il CONTANTE trattenuto dal valet come MINUS
+sulla paga (31714: valetAdditionalPrice −700) e la Finanza lo leggeva come
+COSTO NEGATIVO (paga 6 − 700 = −694) sommandolo al margine. **105 consegne**
+cosi (fino a −1.237,60 su una paga di 15). Doppio rimedio: ① 31714
+normalizzata (contante nel contrassegno, minus tolto — contarli entrambi lo
+detrarrebbe due volte); ② computeRow: costo consegna MAI sotto zero.
+Rispinta: 65 ordini corretti, margine finale totale 569.036 → **559.784 €**
+(−9.252 di margini finti). 🔴 DA DECIDERE (utente): convertire gli altri
+104 minus-contante in contrassegni veri (oggi il clamp li ignora nel margine,
+ma negli stipendi il minus oltre la paga EVAPORA: il valet che tratteneva
+1.237 EUR risulta a paga 0 e basta).
+
 ### 27/08 (notte, 7) — L INCASSO va a Orders, il CS eredita i gestiti, contrassegni sgonfiati
 
 - **Orders conosce l INCASSO**: campi metodoIncasso e commissioneIncassi su
