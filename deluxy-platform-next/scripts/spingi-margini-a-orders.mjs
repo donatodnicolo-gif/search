@@ -1,20 +1,20 @@
 /**
  * Manda a Orders gli INGREDIENTI del margine sulla consegna nostra.
  *
- * Orders sa gia' fare il conto — `totale − costoFornitore − costoConsegna +
- * feeConsegna` — ma dichiarava il margine PARZIALE con la nota «la piattaforma
- * non lo espone ancora». Questa e' l'esposizione.
+ * Orders sa gia' fare il conto â `totale â costoFornitore â costoConsegna +
+ * feeConsegna` â ma dichiarava il margine PARZIALE con la nota Â«la piattaforma
+ * non lo espone ancoraÂ». Questa e' l'esposizione.
  *
- * Le formule sono quelle del manuale §3.8 (verificate su app.deluxy.it il 21/07):
+ * Le formule sono quelle del manuale Â§3.8 (verificate su app.deluxy.it il 21/07):
  *   costoConsegna = paga del valet        = valetSalary + valetAdditionalPrice
  *   feeConsegna   = Fee% x prezzo partner = commissionPercent/100 x (price + additionalPrice)
  *
- * ⚠️ Si mandano gli INGREDIENTI, non il margine gia' fatto: il margine si
- * calcola in un posto solo (Standard §7). Il totale dell'ordine e il costo del
+ * â ï¸ Si mandano gli INGREDIENTI, non il margine gia' fatto: il margine si
+ * calcola in un posto solo (Standard Â§7). Il totale dell'ordine e il costo del
  * fornitore vivono in Orders e qui non si conoscono.
  *
- * ⚠️ Il legame passa dal numero Shopify. Orders lo tiene in forma lunga
- * (`gid://shopify/Order/1103…`), la piattaforma nudo (`1103…`): senza
+ * â ï¸ Il legame passa dal numero Shopify. Orders lo tiene in forma lunga
+ * (`gid://shopify/Order/1103â¦`), la piattaforma nudo (`1103â¦`): senza
  * normalizzare, l'appaiamento usciva ZERO su 4.000 ordini e 11.054 consegne che
  * il numero ce l'hanno.
  *
@@ -42,11 +42,11 @@ const numeroShopify = (v) => {
 };
 const eur = (n) => n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' EUR';
 
-// ⭐ 26/08: la parte del plus/minus che e' davvero COSTO della consegna.
+// â­ 26/08: la parte del plus/minus che e' davvero COSTO della consegna.
 // Il MINUS e' contante trattenuto dal valet (un suo debito): non abbassa il
-// costo. Il PLUS sopra i 5 € e' quasi sempre il rimborso di qualcosa che il
+// costo. Il PLUS sopra i 5 â¬ e' quasi sempre il rimborso di qualcosa che il
 // valet ha comprato per conto nostro, non il prezzo del viaggio: fuori dai
-// margini. Fino a 5 € resta, perche' li' e' maggiorazione di paga.
+// margini. Fino a 5 â¬ resta, perche' li' e' maggiorazione di paga.
 // Stessa regola di FinanceService.plusNelCosto: se divergono, l'ingrediente
 // pubblicato non ricompone piu' il margine.
 const plusNelCosto = (v) => {
@@ -88,11 +88,14 @@ console.log(` ${perOrderId.size.toLocaleString('it-IT')} ordini.`);
 
 // 2) Le consegne che portano un numero d'ordine conosciuto.
 const dd = await db.delivery.findMany({
-  // ⭐ 26/08: stesso ambito della Finanza — solo i servizi di VENDITA, o gli
+  // â­ 26/08: stesso ambito della Finanza â solo i servizi di VENDITA, o gli
   // ingredienti pubblicati non ricompongono il margine.
   where: { deletedAt: null, realOrderNumber: { in: [...perOrderId.keys()] }, serviceType: { pricingModel: 'VENDITA' } },
   select: {
     realOrderNumber: true, valetSalary: true, valetAdditionalPrice: true,
+    // ⚠️ payable: senza, si pubblica il costo di TUTTE le consegne del giro
+    // mentre la Finanza azzera le non pagabili (regola carnet). Mancava anche qui.
+    payable: true,
     price: true, additionalPrice: true,
     partner: { select: { commissionPercent: true } },
   },
@@ -105,9 +108,9 @@ for (const d of dd) {
   const k = d.realOrderNumber;
   const c = per.get(k) ?? { costoConsegna: 0, feeConsegna: 0, consegne: 0, senzaFee: 0 };
   c.consegne++;
-  // ⭐ 26/08: il MINUS e' contante trattenuto dal valet, un debito suo — non
+  // â­ 26/08: il MINUS e' contante trattenuto dal valet, un debito suo â non
   // abbassa il costo della consegna. Il PLUS invece lo paghiamo davvero.
-  c.costoConsegna += (d.valetSalary ?? 0) + plusNelCosto(d.valetAdditionalPrice);
+  c.costoConsegna += d.payable === false ? 0 : (d.valetSalary ?? 0) + plusNelCosto(d.valetAdditionalPrice);
   const prezzoPartner = (d.price ?? 0) + (d.additionalPrice ?? 0);
   const fee = d.partner?.commissionPercent ?? 0;
   if (fee > 0) c.feeConsegna += (fee / 100) * prezzoPartner;
@@ -115,9 +118,9 @@ for (const d of dd) {
   per.set(k, c);
 }
 
-// ⚠️ Mai sotto zero. Su 108 consegne il minus supera la paga (una ha 7,20 EUR
-// di paga e un minus di −142) e su 75 supera il prezzo del partner: il conto
-// usciva negativo, e Orders lo rifiutava — giustamente, perche' un costo
+// â ï¸ Mai sotto zero. Su 108 consegne il minus supera la paga (una ha 7,20 EUR
+// di paga e un minus di â142) e su 75 supera il prezzo del partner: il conto
+// usciva negativo, e Orders lo rifiutava â giustamente, perche' un costo
 // negativo vorrebbe dire che il valet paga noi. E' lo stesso pavimento che il
 // calcolo degli stipendi applica gia': un minus non trasforma nessuno in
 // debitore.
@@ -137,9 +140,9 @@ const voci = [...per.entries()].map(([k, c]) => ({
 const totCosto = voci.reduce((s, v) => s + v.costoConsegna, 0);
 const totFee = voci.reduce((s, v) => s + v.feeConsegna, 0);
 
-console.log(SCRIVI ? 'SCRITTURA' : 'PROVA A VUOTO — rilancia con --scrivi');
-console.log(`Ordini con ingredienti: ${voci.length.toLocaleString('it-IT')} · consegne collegate: ${dd.length.toLocaleString('it-IT')}`);
-console.log(`  costo consegna: ${eur(totCosto)} · fee: ${eur(totFee)}`);
+console.log(SCRIVI ? 'SCRITTURA' : 'PROVA A VUOTO â rilancia con --scrivi');
+console.log(`Ordini con ingredienti: ${voci.length.toLocaleString('it-IT')} Â· consegne collegate: ${dd.length.toLocaleString('it-IT')}`);
+console.log(`  costo consegna: ${eur(totCosto)} Â· fee: ${eur(totFee)}`);
 console.log(`  ordini con almeno una consegna il cui partner non ha Fee%: ${voci.filter((v) => v.senzaFee > 0).length.toLocaleString('it-IT')}`);
 
 if (!SCRIVI) { await db.$disconnect(); process.exit(0); }
@@ -171,12 +174,12 @@ for (const v of voci) {
       continue;
     }
     scritti++;
-    if (scritti % 250 === 0) process.stdout.write(`\r  scritti ${scritti}/${voci.length}…`);
+    if (scritti % 250 === 0) process.stdout.write(`\r  scritti ${scritti}/${voci.length}â¦`);
   } catch (e) {
     errori.push(`${v.numero}: ${e.message}`);
   }
 }
-console.log(`\r  Ordini aggiornati: ${scritti.toLocaleString('it-IT')} · gia' a posto: ${saltati.toLocaleString('it-IT')} · su ${voci.length.toLocaleString('it-IT')}          `);
+console.log(`\r  Ordini aggiornati: ${scritti.toLocaleString('it-IT')} Â· gia' a posto: ${saltati.toLocaleString('it-IT')} Â· su ${voci.length.toLocaleString('it-IT')}          `);
 if (errori.length) {
   console.log(`  Errori: ${errori.length}`);
   for (const e of errori.slice(0, 5)) console.log('    ' + e);

@@ -113,6 +113,13 @@ const dd = await db.delivery.findMany({
   where: { deletedAt: null, realOrderNumber: { in: [...perOrderId.keys()] }, serviceType: { pricingModel: 'VENDITA' } },
   select: {
     realOrderNumber: true, valetSalary: true, valetAdditionalPrice: true,
+    // ⚠️ `payable` NON e' un dettaglio: senza, questo script pubblica il costo
+    // di TUTTE le consegne del giro mentre la Finanza (e OrdersSyncService)
+    // azzerano quelle non pagabili — regola carnet, una sola consegna del giro
+    // porta la paga. Mancava, e il 26/08 sera la spinta ha rialzato 684 ordini
+    // con costi che nel margine non ci sono. E' la trappola dell'ingrediente
+    // che non ricompone il piatto, ripagata sullo stesso file.
+    payable: true,
     price: true, additionalPrice: true,
     partner: { select: { commissionPercent: true } },
     valet: { select: { hasVat: true, withholdingPercent: true } },
@@ -126,7 +133,9 @@ for (const d of dd) {
   // d'acconto (paga x (1 - % rimborso) x 25%), costo vero della consegna.
   // ⭐ 26/08: il MINUS non abbassa il costo — e' contante trattenuto dal valet
   // (un suo debito) e incide solo su quanto gli paghiamo. Il PLUS invece si'.
-  const paga = Math.max(0, (d.valetSalary ?? 0) + plusNelCosto(d.valetAdditionalPrice));
+  const paga = d.payable === false
+    ? 0
+    : Math.max(0, (d.valetSalary ?? 0) + plusNelCosto(d.valetAdditionalPrice));
   const ritenuta = paga > 0 && d.valet && d.valet.hasVat === false
     ? paga * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25
     : 0;
