@@ -1984,11 +1984,18 @@ export function riassuntoInTesto(v: AnalisiThreadVista): string {
   // ⚠️ Anche le cifre: nell'aggiornamento incrementale l'AI riparte da questo
   // testo — un prezzo che non c'è qui sparirebbe dal riassunto aggiornato.
   const cifre = (v.cifre ?? []).map((c) => `- ${c.voce}: ${c.valore}`).join('\n')
+  // ⚠️ Anche le AZIONI proposte, per la stessa ragione delle cifre: senza,
+  // l'aggiornamento incrementale riparte da un testo che non le nomina, il
+  // modello vede solo le due mail nuove e non ha modo di sapere che una
+  // trattativa era già stata proposta — i bottoni «Si può fare da qui»
+  // sparivano dal riquadro (visto il 26/08/2026).
+  const azioni = (v.azioni ?? []).map((a) => `- ${a.azioneId}: ${a.perche}`).join('\n')
   return [
     v.sintesi,
     parti && `\nPer punti di vista:\n${parti}`,
     cifre && `\nCifre e prezzi:\n${cifre}`,
     sospesi && `\nIn sospeso:\n${sospesi}`,
+    azioni && `\nAzioni già proposte (riproponile se sono ancora sensate):\n${azioni}`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -2020,6 +2027,9 @@ export async function riassumiThreadOra(
   // corta. Chi preme quel tasto vuole il lavoro fatto, non il ritocco.
   let precedente: string | undefined
   let daIndice = 0
+  // La vista salvata prima di questo giro: serve a non PERDERE le azioni
+  // proposte quando il modello, in questo passaggio, non ne nomina nessuna.
+  let vistaPrecedente: AnalisiThreadVista | undefined
   try {
     if (livello !== 'medio') throw new Error('incrementale non applicabile')
     const vecchio = await db.riassuntoThread.findUnique({
@@ -2031,11 +2041,27 @@ export async function riassumiThreadOra(
     const nuove = vecchio ? messaggi.length - vecchio.messaggiVisti : 0
     if (vecchio && nuove > 0 && vecchio.messaggiVisti > 0 && nuove <= 8) {
       const vista = JSON.parse(vecchio.riassunto) as AnalisiThreadVista
+      vistaPrecedente = vista
       precedente = riassuntoInTesto(vista)
       daIndice = vecchio.messaggiVisti
     }
   } catch {
     /* niente riassunto precedente: si fa completo */
+  }
+
+  // Anche quando NON si va in incrementale (livello diverso, o nessuna mail
+  // nuova) la vista di prima serve: le azioni proposte sono una PORTA, non un
+  // fatto, e riassumere di nuovo non è una ragione per chiuderla.
+  if (!vistaPrecedente) {
+    try {
+      const vecchio = await db.riassuntoThread.findUnique({
+        where: { utenteId_chiave: { utenteId, chiave } },
+        select: { riassunto: true },
+      })
+      if (vecchio) vistaPrecedente = JSON.parse(vecchio.riassunto) as AnalisiThreadVista
+    } catch {
+      /* niente vista precedente: si prosegue senza */
+    }
   }
 
   // In incrementale si passano solo le mail dopo l'ultimo riassunto; l'indice
@@ -2074,6 +2100,28 @@ export async function riassumiThreadOra(
       .filter((a) => idValidi.has(a.azione))
       .slice(0, 2)
       .map((a) => ({ azioneId: a.azione, perche: a.perche, msgId: idDa(a.msgIdx) }))
+
+    // ⚠️⚠️ Le azioni proposte sono una PORTA verso un'altra app, non un dato
+    // della conversazione: se questo giro non ne nomina nessuna si tengono
+    // quelle di prima. Rigenerare il riassunto non è una ragione per far
+    // sparire un bottone che c'era (segnalato dall'utente il 26/08/2026:
+    // «non ho più il richiamo alle app?»), e il modello, in incrementale, ha
+    // letto solo le mail nuove: il suo silenzio non è un giudizio.
+    // La porta si chiude quando il lavoro è FATTO, e quello si sa per certo:
+    // un invio riuscito è registrato in InvioApp.
+    let fatte = new Set<string>()
+    try {
+      const inviate = await db.invioApp.findMany({
+        where: { utenteId, esito: 'ok', messaggioId: { in: messaggi.map((m) => m.id) } },
+        select: { azioneId: true },
+      })
+      fatte = new Set(inviate.map((r) => r.azioneId))
+    } catch {
+      /* storico non leggibile: si preferisce riproporre che nascondere */
+    }
+    const azioniTenute = (azioniVista.length ? azioniVista : (vistaPrecedente?.azioni ?? []))
+      .filter((a) => idValidi.has(a.azioneId) && !fatte.has(a.azioneId))
+      .slice(0, 2)
     const cifreVista = (analisi.cifre ?? [])
       .filter((c) => c.voce.trim() && c.valore.trim())
       .map((c) => ({ voce: c.voce, valore: c.valore, msgId: idDa(c.msgIdx) }))
@@ -2082,7 +2130,7 @@ export async function riassumiThreadOra(
       parti: analisi.parti.map((p) => ({ chi: p.chi, punto: p.punto, msgId: idDa(p.msgIdx) })),
       inSospeso: analisi.inSospeso.map((s) => ({ cosa: s.cosa, chi: s.chi, msgId: idDa(s.msgIdx) })),
       ...(cifreVista.length ? { cifre: cifreVista } : {}),
-      ...(azioniVista.length ? { azioni: azioniVista } : {}),
+      ...(azioniTenute.length ? { azioni: azioniTenute } : {}),
       // Il livello resta scritto: riaprendo si sa se quello che si sta
       // guardando è la sintesi in due righe o il quadro completo.
       livello,
