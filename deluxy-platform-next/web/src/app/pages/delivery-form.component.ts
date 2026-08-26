@@ -689,9 +689,12 @@ export class DeliveryFormComponent implements AfterViewInit {
     this.http.get<ValetRef[]>(`${api}/valets`).subscribe((d) => this.valets.set(d as ValetRef[]));
     // La lista prodotti e' paginata: qui serve il catalogo per la tendina,
     // quindi chiedo la pagina massima consentita.
+    // ⚠️ Si UNISCE, non si sostituisce: in modifica i prodotti della consegna
+    // vengono aggiunti a parte (possono stare oltre i primi 500 di 21.887), e
+    // una set() del catalogo che arriva dopo li porterebbe via.
     this.http
       .get<{ items: Product[] }>(`${api}/products`, { params: { pageSize: 500 } })
-      .subscribe((d) => this.products.set(d.items ?? []));
+      .subscribe((d) => this.products.set(this.unisciProdotti(d.items ?? [], this.products())));
     // La lista clienti e' paginata: qui serve per la tendina "Cliente esistente",
     // quindi chiedo la pagina massima. ATTENZIONE: in produzione i clienti sono
     // migliaia, quindi la tendina resta parziale -> va sostituita da una ricerca
@@ -750,6 +753,16 @@ export class DeliveryFormComponent implements AfterViewInit {
       price: p.price ?? null,
       flexiblePrice: !!p.flexiblePrice,
     })) as ProductRow[];
+    // ⚠️ La tendina ha solo i primi 500 prodotti su 21.887: il prodotto di
+    // QUESTA consegna puo' non esserci, e la selezione sembrerebbe vuota pur
+    // essendo scritta (62510: «Bouquet» c'era, l'opzione no). Si va a prendere.
+    for (const id of new Set(this.productRows.map((r) => r.productId).filter(Boolean))) {
+      if (this.products().some((p) => p.id === id)) continue;
+      this.http.get<Product>(`${environment.apiUrl}/products/${id}`).subscribe({
+        next: (p) => { if (p?.id) this.products.set(this.unisciProdotti(this.products(), [p])); },
+        error: () => {},
+      });
+    }
     // Ricostruisce fasce orarie, data minima e filtri dipendenti
     this.onAddressChange();
     this.onServiceChange();
@@ -1023,6 +1036,12 @@ export class DeliveryFormComponent implements AfterViewInit {
   });
 
   addProduct(): void { this.productRows.push({ productId: '', productVariantId: null, quantity: 1, flexiblePrice: false, price: null }); }
+
+  /** Unione per id: la base vince, gli extra entrano solo se mancano. */
+  private unisciProdotti(base: Product[], extra: Product[]): Product[] {
+    const visti = new Set(base.map((p) => p.id));
+    return [...base, ...extra.filter((p) => !visti.has(p.id))];
+  }
   removeProduct(i: number): void { this.productRows.splice(i, 1); }
 
   /** Prezzo base del prodotto selezionato. */
