@@ -38,6 +38,8 @@ interface CorrispettivoRow {
   totalMarginPercent: number;
   /** Perche' la riga non e' attendibile. */
   anomalia: 'partner_oltre_pubblico' | 'venduto_a_zero' | 'valore_partner_mancante' | null;
+  /** I prodotti della consegna, coi loro prezzi: si vedono nel pop-up. */
+  prodotti?: { nome: string; quantita: number; prezzo: number }[];
 }
 
 /** Il riepilogo di un ordine: importi che stanno a monte delle sue consegne. */
@@ -276,9 +278,9 @@ interface Summary {
                 <th>{{ 'finance.c.category' | translate }}</th>
                 <th>{{ 'finance.c.service' | translate }}</th>
                 <th>{{ 'finance.c.partner' | translate }}</th>
+                <th class="num">{{ 'finance.c.saleValue' | translate }}</th>
                 <th class="num">{{ 'finance.c.valoreProdotti' | translate }}</th>
                 <th class="num">{{ 'finance.c.deliveryFee' | translate }}</th>
-                <th class="num">{{ 'finance.c.saleValue' | translate }}</th>
                 <th class="num">{{ 'finance.c.partnerPrice' | translate }}</th>
                 <th class="num">{{ 'finance.c.takings' | translate }}</th>
                 <th class="num">{{ 'finance.c.takingsNet' | translate }}</th>
@@ -315,12 +317,11 @@ interface Summary {
                     }
                   </td>
                   <td>—</td>
-                  <!-- Valore prodotti · Consegna · Valore vendite: prima gli
-                       addendi, poi la somma — quello che il cliente ha pagato
-                       su Shopify si legge senza fare i conti a mente. -->
+                  <!-- Valore vendite (il totale) e poi i suoi addendi: prodotti
+                       pagati su Shopify e consegna pagata dal cliente. -->
+                  <td class="num">{{ euro(o.saleValue + o.deliveryFee) }}</td>
                   <td class="num">{{ euro(o.saleValue) }}@if (o.vendutoStimato) {<span class="stimato" [title]="'finance.vendutoStimatoHint' | translate">≈</span>}</td>
                   <td class="num">{{ euro(o.deliveryFee) }}</td>
-                  <td class="num">{{ euro(o.saleValue + o.deliveryFee) }}</td>
                   <td class="num">{{ euro(o.partnerPrice) }}</td>
                   <td class="num">{{ euro(o.takings) }}</td>
                   <td class="num">{{ euro(o.takingsNet) }}</td>
@@ -378,9 +379,9 @@ interface Summary {
               <tfoot>
                 <tr class="totals">
                   <td colspan="8">{{ 'finance.total' | translate }}</td>
+                  <td class="num">{{ euro(s.saleValue) }}</td>
                   <td class="num">{{ euro(s.publicPrice) }}</td>
                   <td class="num">{{ euro(s.deliveryFee) }}</td>
-                  <td class="num">{{ euro(s.saleValue) }}</td>
                   <td class="num">{{ euro(s.partnerPrice) }}</td>
                   <td class="num">{{ euro(s.takings) }}</td>
                   <td class="num">{{ euro(s.takingsNet) }}</td>
@@ -442,7 +443,15 @@ interface Summary {
               <a class="link-consegna" [href]="'/deliveries/' + r.deliveryId" target="_blank" rel="noopener">#{{ r.deliveryCode }}</a>
               <span class="pill">{{ r.status }}</span>
               <span class="dlg-data">{{ r.date | date: 'd/M/yy' }}</span>
-              <span class="dlg-prod">{{ r.product }}</span>
+              <!-- I prodotti della consegna col LORO valore: su un ordine a piu'
+                   consegne si vede chi porta cosa, e per quanto. -->
+              <span class="dlg-prod">
+                @if (r.prodotti?.length) {
+                  @for (p of r.prodotti; track $index) {
+                    <span class="dlg-prod-item">{{ p.quantita }} × {{ p.nome }} <strong>{{ euro(p.prezzo) }}</strong></span>
+                  }
+                } @else { {{ r.product }} }
+              </span>
               <span class="muted">{{ r.partner }}</span>
               @if (r.anomalia) { <span class="tag-anomalia">{{ 'finance.anomalia.' + r.anomalia | translate }}</span> }
             </li>
@@ -510,7 +519,9 @@ interface Summary {
       .dlg-consegne { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
       .dlg-consegne li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--hairline); }
       .dlg-data { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
-      .dlg-prod { overflow: hidden; text-overflow: ellipsis; }
+      .dlg-prod { overflow: hidden; text-overflow: ellipsis; display: flex; gap: 6px; flex-wrap: wrap; }
+      .dlg-prod-item { background: var(--fill); border-radius: 980px; padding: 2px 10px; font-size: 12.5px; white-space: nowrap; }
+      .dlg-prod-item strong { font-variant-numeric: tabular-nums; font-weight: 600; margin-left: 4px; }
       .tag-anomalia { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
         background: rgba(215, 0, 21, 0.12); color: var(--red); font-size: 11px; font-weight: 600; }
       .contratto { color: var(--text-secondary); }

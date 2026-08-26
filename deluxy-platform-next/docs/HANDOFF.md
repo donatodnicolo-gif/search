@@ -295,6 +295,27 @@ Il 12731 passa da **−4,78 €** (venduto 35 = concordato Cannavo) a ricavo ver
   numero umano dalla cache («#12801»).
 - **«Anno» nei filtri = anno corrente** (dal 1° gennaio), non ultimi 12 mesi.
 
+### 26/08 (sera, 3) — Colonne riordinate, valori per consegna nel pop-up, id di ripiego
+
+- **«Valore vendite» PRIMA degli addendi** (poi Valore prodotti col «≈», poi
+  Consegna prezzo) — deciso dall'utente.
+- **Nel pop-up ogni consegna mostra i SUOI prodotti col valore** («1 ×
+  Cappelliera M 300 €»): su un ordine a più consegne si vede chi porta cosa.
+- **Id di ripiego leggibile**: `9037674905864` era un ordine del negozio
+  **BusinessSales**, fuori dal registro di Orders (45 ordini di vendita così):
+  niente numero in cache → si mostrava il gid. Ora si ripiega su saleId/DDT
+  della consegna se corto (≤ 8 caratteri): la 62955 esce come «1054».
+- **Corporate nei corrispettivi: MISURATO, è già fuori** — i servizi VENDITA
+  sono solo i cinque «Vendita*», zero consegne di vendita con servizio o
+  partner corporate. Se l'utente lo vede ancora, serve lo screenshot.
+- **Indirizzi esteri: si possono inserire** — campo libero; senza provincia
+  riconosciuta il form AVVISA e mostra tutti i partner invece di bloccare.
+- ⚠️ **Caso 62646 («4 Cioccolati» taglia 6 a 40 €)**: il prezzo partner NON
+  c'è nel database — il legacy stesso ha `variantPrice = variantShopifyPrice
+  = 40` per quella taglia (la «4» fa 28/30, la «10» 62/65). Non è un errore
+  d'import: è il catalogo d'origine. Correggere il listino della variante è
+  una decisione di business (Merchandising/catalogo), non un recupero.
+
 **Resta da fare qui**: creazione/modifica dei modelli SMS da UI (l'API `POST
 /sms-templates` c'è); creazione provincia da UI; la prima corsa AUTOMATICA del
 cron è stanotte alle 4:30 italiane (quella a mano è già andata); riconnettere

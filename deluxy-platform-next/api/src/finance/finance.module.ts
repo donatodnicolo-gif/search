@@ -193,6 +193,9 @@ interface CorrispettivoRow {
   saleRef: string | null;
   /** Il numero d'ordine Shopify: aggancia la cache di cio' che ha pagato il cliente. */
   realOrderNumber: string | null;
+  /** saleId e DDT della consegna: il ripiego LEGGIBILE quando la cache non ha il numero. */
+  legacySaleRef: string | null;
+  ddtRef: string | null;
   status: string;
   date: Date;
   product: string;
@@ -587,8 +590,11 @@ export class FinanceService {
       ordersLink: pagato?.ordersId && ordersBase ? `${ordersBase}/ordini/${pagato.ordersId}` : null,
       brand: pagato?.brand ?? null,
       // Il numero umano dell'ordine ("#12731"): a schermo si legge lui, non
-      // il gid Shopify da 14 cifre che ora fa da chiave di gruppo.
-      numeroOrdine: pagato?.numero ?? null,
+      // il gid Shopify da 14 cifre che ora fa da chiave di gruppo. Dove la
+      // cache non ce l'ha (45 ordini di negozi fuori dal registro di Orders,
+      // es. BusinessSales) si ripiega sul riferimento CORTO della consegna:
+      // 62955 ha legacySaleId 1054, e «1054» si legge — «9037674905864» no.
+      numeroOrdine: pagato?.numero ?? etichettaUmana(g),
       // Almeno una consegna del giro ha il venduto stimato dalla variante
       // (listino di oggi, non fotografia): il totale va letto sapendolo.
       // Se la fonte e' il cliente la stima non c'entra piu'.
@@ -838,6 +844,8 @@ export class FinanceService {
       // stringa vuota o per uno zero scritto come testo.
       saleRef: riferimentoVendita(d),
       realOrderNumber: d.realOrderNumber ?? null,
+      legacySaleRef: buono(d.legacySaleId),
+      ddtRef: buono(d.ddtNumber),
       status: d.status,
       date: d.date,
       product: productLabel,
@@ -884,17 +892,34 @@ function round2(n: number): number {
  * raggruppare per lui mette insieme consegne estranee.
  */
 function riferimentoVendita(d: any): string | null {
-  const buono = (v: unknown) => {
-    if (v == null) return null;
-    const t = String(v).trim();
-    if (!t || t === '0') return null;
-    return t;
-  };
   // ⚠️ PRIMA il numero d'ordine Shopify: e' l'identita' vera dell'ordine.
   // Su alcune vendite `legacySaleId` porta un codice di transazione
   // (081000831922…) diverso per ogni consegna DELLO STESSO ordine: mettendolo
   // per primo, l'ordine #12801 usciva spezzato in due righe con id illeggibili.
   return buono(d.realOrderNumber) ?? buono(d.legacySaleId) ?? buono(d.legacyOrderId) ?? buono(d.ddtNumber) ?? null;
+}
+
+/** Un valore usabile come riferimento: né vuoto né lo zero segnaposto. */
+function buono(v: unknown): string | null {
+  if (v == null) return null;
+  const t = String(v).trim();
+  if (!t || t === '0') return null;
+  return t;
+}
+
+/**
+ * Un riferimento LEGGIBILE per l'ordine quando la cache non ha il numero:
+ * il primo fra saleId e DDT delle consegne che sia corto (fino a 8 caratteri).
+ * I codici di transazione (081000831922…) e i gid Shopify restano fuori.
+ */
+function etichettaUmana(g: { legacySaleRef?: string | null; ddtRef?: string | null }[]): string | null {
+  for (const r of g) {
+    for (const v of [r.legacySaleRef, r.ddtRef]) {
+      const t = String(v ?? '').trim();
+      if (t && t !== '0' && t.length <= 8) return t;
+    }
+  }
+  return null;
 }
 
 @ApiTags('finance')
