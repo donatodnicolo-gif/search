@@ -211,18 +211,49 @@ export function nomeDaDominio(dominio: string): string {
     .join(' ')
 }
 
-/** Un campo del FORM con cui l'utente controlla i dati prima dell'invio.
- *  Senza `campi` il dialogo mostra il JSON grezzo (serve per le azioni con
- *  dati annidati, es. le righe di una proforma). */
+/** Un campo della TABELLA con cui l'utente controlla i dati prima dell'invio.
+ *
+ *  ⚠️ `campi` decide solo **come si mostra** una chiave (etichetta, tipo del
+ *  campo, elenco dei valori ammessi): NON decide quali chiavi si vedono. La
+ *  tabella mostra sempre tutto quello che c'è nel JSON, anche le chiavi non
+ *  dichiarate — una tabella che nasconde un dato lo farebbe partire senza che
+ *  nessuno l'abbia guardato. */
 export type CampoAzione = {
   /** La chiave dentro il JSON dei dati. */
   nome: string
   etichetta: string
-  tipo?: 'testo' | 'email' | 'telefono' | 'lungo'
+  /** `numero` resta un campo di TESTO (in italiano un importo si scrive
+   *  «1.250,50»): la conversione si fa in un punto solo, al confine, con
+   *  `numeroDaTesto` dentro `esegui`. Qui cambia solo la tastiera e
+   *  l'allineamento. */
+  tipo?: 'testo' | 'email' | 'telefono' | 'lungo' | 'numero' | 'data' | 'scelta' | 'elenco'
   aiuto?: string
   obbligatorio?: boolean
-  /** Su schermo largo: quanto occupa (2 = tutta la riga). */
-  largo?: boolean
+  /** Solo per `tipo: 'scelta'`: i valori ammessi, in un menù a tendina. */
+  opzioni?: { valore: string; etichetta: string }[]
+}
+
+/**
+ * Un importo scritto da una persona → numero.
+ *
+ * ⚠️ I campi della tabella sono di testo, e in italiano un prezzo si scrive
+ * «1.250,50 €»: `Number()` su quella stringa dà `NaN`. La conversione sta qui,
+ * in un posto solo, e si fa **al confine** (dentro `esegui`), non mentre si
+ * digita — o «1.2», scritto a metà di «1.250», diventerebbe 12 sotto le dita.
+ *
+ * ⚠️⚠️ Il caso che questa funzione chiude non è un errore visibile ma un
+ * **silenzio**: `commerciale.trattativa` faceva `typeof x === 'number'` e, sul
+ * valore battuto a mano (che è una stringa), lo lasciava semplicemente cadere.
+ * La trattativa si apriva senza importo e nessuno lo veniva a sapere.
+ */
+export function numeroDaTesto(
+  grezzo: unknown
+): { ok: true; valore: number | null } | { ok: false; testo: string } {
+  if (typeof grezzo === 'number' && Number.isFinite(grezzo)) return { ok: true, valore: grezzo }
+  if (typeof grezzo !== 'string' || !grezzo.trim()) return { ok: true, valore: null }
+  const n = Number(grezzo.replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.'))
+  if (!Number.isFinite(n)) return { ok: false, testo: grezzo }
+  return { ok: true, valore: n }
 }
 
 export type AzioneApp = {
@@ -332,28 +363,32 @@ const AZIONI: AzioneApp[] = [
     // già presente in Anagrafiche a cui agganciare il contatto.
     cercaAzienda: true,
     campi: [
-      { nome: 'nome', etichetta: 'Azienda', obbligatorio: true, largo: true },
+      { nome: 'nome', etichetta: 'Azienda', obbligatorio: true },
       { nome: 'categoria', etichetta: 'Categoria', aiuto: 'Es. hotel, ristorante, fioraio' },
       { nome: 'pIva', etichetta: 'Partita IVA' },
       { nome: 'email', etichetta: 'Email', tipo: 'email' },
       { nome: 'telefono', etichetta: 'Telefono', tipo: 'telefono' },
-      { nome: 'indirizzo', etichetta: 'Indirizzo', largo: true },
+      { nome: 'indirizzo', etichetta: 'Indirizzo' },
       { nome: 'citta', etichetta: 'Città' },
       { nome: 'provincia', etichetta: 'Provincia', aiuto: 'Sigla, es. MI' },
       { nome: 'referenteNome', etichetta: 'Referente' },
       { nome: 'referenteRuolo', etichetta: 'Ruolo del referente' },
       {
+        // ⚠️ Valori CHIUSI anche a schermo: Anagrafiche rifiuta l'intera
+        // richiesta per uno stato fuori catalogo, e scriverlo a mano era il
+        // modo più facile per sbagliarlo. A tendina non si può.
         nome: 'stato',
         etichetta: 'Stato commerciale',
-        aiuto: 'prospect · in_contatto · in_attesa · in_trattativa · da_ricontattare · attivo · non_interessato',
+        tipo: 'scelta',
+        opzioni: STATI_COMMERCIALI.map((s) => ({ valore: s, etichetta: s.replace(/_/g, ' ') })),
       },
       {
         nome: 'interessi',
         etichetta: 'Interessi (linee)',
+        tipo: 'elenco',
         aiuto: 'Gifting, Eventi & Catering, Consegne, Concierge, Clientelling, Affiliazioni, Food Supplier, Magazzino, Re-seller',
-        largo: true,
       },
-      { nome: 'note', etichetta: 'Note', tipo: 'lungo', largo: true },
+      { nome: 'note', etichetta: 'Note', tipo: 'lungo' },
     ],
     schema: {
       type: 'object',
@@ -578,6 +613,14 @@ const AZIONI: AzioneApp[] = [
     colore: 'gold',
     guida:
       'La mail riguarda servizi/importi da fatturare a un partner. partner = nome dell’azienda. Ogni riga: descrizione del servizio, quantità (1 se non detta), prezzo unitario SOLO se scritto nella mail (altrimenti null: lo completa l’utente).',
+    // ⚠️ `righe` non è qui di proposito: è un elenco di oggetti, e la tabella
+    // lo mostra da sé in sola lettura (leggibile, ma si corregge dal JSON).
+    // Dichiararlo come campo di testo lo appiattirebbe in una stringa.
+    campi: [
+      { nome: 'partner', etichetta: 'Partner', obbligatorio: true },
+      { nome: 'oggetto', etichetta: 'Oggetto' },
+      { nome: 'note', etichetta: 'Note', tipo: 'lungo' },
+    ],
     schema: {
       type: 'object',
       additionalProperties: false,
@@ -644,6 +687,7 @@ const AZIONI: AzioneApp[] = [
     descrizione: 'Controlla la situazione finanziaria del partner (saldi, fatture).',
     colore: 'green',
     guida: 'Individua il nome dell’azienda partner di cui la mail parla (di norma chi scrive).',
+    campi: [{ nome: 'partner', etichetta: 'Partner da verificare', obbligatorio: true }],
     schema: {
       type: 'object',
       additionalProperties: false,
@@ -684,6 +728,19 @@ const AZIONI: AzioneApp[] = [
     colore: 'purple',
     guida:
       'La mail è una notifica d’ordine di un negozio Shopify. brand = QUALE DEI TRE NEGOZI ha fatto l’ordine, e va scelto fra i valori ammessi: "deluxy.it", "deluxyflowers.com", "cakedesign.me". Si riconosce dall’indirizzo del NEGOZIO che ha mandato la notifica (es. "Deluxy Flowers <info@deluxyflowers.com>" → deluxyflowers.com), non dai link nel piè di pagina, che possono puntare a un altro sito. number = il numero d’ordine (solo le cifre, senza "#" o "Ordine"). Se uno dei due manca, lascialo vuoto: senza non si può cercare.',
+    campi: [
+      // ⚠️ A tendina, non testo libero: è la stessa ragione dell'enum nello
+      // schema. Un negozio scritto a mano («deluxy.it» per un ordine di Deluxy
+      // Flowers) fa rispondere «ordine non trovato» senza dire perché.
+      {
+        nome: 'brand',
+        etichetta: 'Negozio',
+        tipo: 'scelta',
+        obbligatorio: true,
+        opzioni: NEGOZI_FORNITORI.map((n) => ({ valore: n, etichetta: n })),
+      },
+      { nome: 'number', etichetta: 'Numero d’ordine', obbligatorio: true, aiuto: 'Solo le cifre, senza #' },
+    ],
     schema: {
       type: 'object',
       additionalProperties: false,
@@ -829,6 +886,14 @@ const AZIONI: AzioneApp[] = [
     colore: 'green',
     guida:
       'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = la linea commerciale (es. Affiliazioni, Consegne, Eventi) se citata, altrimenti null. valoreAtteso = importo previsto SOLO se scritto (numero, senza simboli), altrimenti null. fase = fase della trattativa se chiara, altrimenti null (default lato app). scadenza = data del follow-up (AAAA-MM-GG) se c’è. nextAction = la prossima azione da fare, in una frase.',
+    campi: [
+      { nome: 'negozio', etichetta: 'Negozio', obbligatorio: true, aiuto: 'Commerciale lo cerca fra i suoi negozi.' },
+      { nome: 'linea', etichetta: 'Linea commerciale', aiuto: 'Es. Affiliazioni, Consegne, Eventi' },
+      { nome: 'valoreAtteso', etichetta: 'Valore atteso (€)', tipo: 'numero', aiuto: 'Vuoto = non ancora quantificato.' },
+      { nome: 'fase', etichetta: 'Fase', aiuto: 'Vuoto = la decide Commerciale.' },
+      { nome: 'scadenza', etichetta: 'Follow-up', tipo: 'data' },
+      { nome: 'nextAction', etichetta: 'Prossima azione', tipo: 'lungo' },
+    ],
     schema: {
       type: 'object',
       additionalProperties: false,
@@ -845,11 +910,18 @@ const AZIONI: AzioneApp[] = [
     async esegui(dati, ctx) {
       const negozio = typeof dati.negozio === 'string' ? dati.negozio.trim() : ''
       if (!negozio) return { ok: false, messaggio: 'Manca il negozio della trattativa.' }
+      // ⚠️ Il campo della tabella è testo («1.250,50»): prima qui c'era
+      // `typeof === 'number'`, e un valore battuto a mano veniva lasciato
+      // cadere **in silenzio** — la trattativa si apriva senza importo e
+      // nessuno lo veniva a sapere. Ora o è un numero, o si dice che non lo è.
+      const valore = numeroDaTesto(dati.valoreAtteso)
+      if (!valore.ok)
+        return { ok: false, messaggio: `«${valore.testo}» non è un importo: scrivi solo il numero, o lascia vuoto.` }
       const body: Record<string, unknown> = {
         azione: 'apri',
         negozio,
         linea: dati.linea || undefined,
-        valoreAtteso: typeof dati.valoreAtteso === 'number' ? dati.valoreAtteso : undefined,
+        valoreAtteso: valore.valore ?? undefined,
         fase: dati.fase || undefined,
         scadenza: dati.scadenza || undefined,
         nextAction: dati.nextAction || undefined,
@@ -885,9 +957,18 @@ const AZIONI: AzioneApp[] = [
                   })
                   .filter((x): x is { valore: string; etichetta: string } => x !== null)
               : []
+            // ⚠️ Senza candidati il messaggio era un vicolo cieco: diceva che
+            // il negozio non c'è, non che si può correggere e riprovare da qui.
+            // E il nome quasi sempre non è sbagliato per caso — è DEDOTTO dal
+            // dominio del mittente (giorgio@lemonandpepper.com → «Lemon and
+            // Pepper»), che è una supposizione ragionevole ma non è come lo
+            // chiama il CRM. Dirlo evita di andare a cercare in Commerciale un
+            // negozio che lì si chiama in un altro modo.
             return {
               ok: false,
-              messaggio: testoErrore(risposta, 'Negozio non trovato in Commerciale.'),
+              messaggio: scelte.length
+                ? testoErrore(risposta, 'Negozio non trovato in Commerciale.')
+                : `${testoErrore(risposta, 'Negozio non trovato in Commerciale.')}\nSe la mail non lo nomina, il nome qui sopra è ricavato dal dominio di chi scrive: correggi «Negozio» con il nome che ha in Commerciale e riprova.`,
               ...(scelte.length ? { scelte, campoScelta: 'negozio' } : {}),
             }
           }
@@ -906,11 +987,11 @@ const AZIONI: AzioneApp[] = [
     guida:
       'La mail è la RISPOSTA DI UN FORNITORE a cui avevamo chiesto un prezzo. lavoro = per quale lavoro è il preventivo, come lo chiama la mail (es. «allestimento vetrine», «torte per l’inaugurazione»): Scout lo riconosce fra i suoi lavori aperti. fornitore = il nome dell’azienda che manda il prezzo. importo = il prezzo in euro, SOLO se scritto (numero, senza simboli e senza IVA se è indicata a parte): se il fornitore non ha ancora dato un prezzo lascia null, non inventarlo e non metterlo a zero. tempi = i tempi di consegna come li scrive lui (es. «10 giorni»). note = condizioni che contano (validità dell’offerta, minimi, trasporto escluso), in una frase.',
     campi: [
-      { nome: 'lavoro', etichetta: 'Per quale lavoro', obbligatorio: true, largo: true, aiuto: 'Scout lo cerca fra i lavori aperti.' },
+      { nome: 'lavoro', etichetta: 'Per quale lavoro', obbligatorio: true, aiuto: 'Scout lo cerca fra i lavori aperti.' },
       { nome: 'fornitore', etichetta: 'Fornitore', obbligatorio: true },
-      { nome: 'importo', etichetta: 'Importo (€)', aiuto: 'Vuoto = prezzo non ancora arrivato.' },
+      { nome: 'importo', etichetta: 'Importo (€)', tipo: 'numero', aiuto: 'Vuoto = prezzo non ancora arrivato.' },
       { nome: 'tempi', etichetta: 'Tempi' },
-      { nome: 'note', etichetta: 'Condizioni', tipo: 'lungo', largo: true },
+      { nome: 'note', etichetta: 'Condizioni', tipo: 'lungo' },
     ],
     schema: {
       type: 'object',
@@ -942,14 +1023,10 @@ const AZIONI: AzioneApp[] = [
       if (!fornitore) return { ok: false, messaggio: 'Manca il fornitore che ha fatto il prezzo.' }
       // Il campo del modulo è testo: «1.250,50» è come si scrive un prezzo qui,
       // e mandarlo così a Scout non darebbe un numero ma un errore.
-      const grezzo = dati.importo
-      let importo: number | null = null
-      if (typeof grezzo === 'number' && Number.isFinite(grezzo)) importo = grezzo
-      else if (typeof grezzo === 'string' && grezzo.trim()) {
-        const n = Number(grezzo.replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.'))
-        if (!Number.isFinite(n)) return { ok: false, messaggio: `«${grezzo}» non è un importo: scrivi solo il numero, o lascia vuoto.` }
-        importo = n
-      }
+      const letto = numeroDaTesto(dati.importo)
+      if (!letto.ok)
+        return { ok: false, messaggio: `«${letto.testo}» non è un importo: scrivi solo il numero, o lascia vuoto.` }
+      const importo = letto.valore
       const body: Record<string, unknown> = {
         azione: 'registra',
         lavoro,

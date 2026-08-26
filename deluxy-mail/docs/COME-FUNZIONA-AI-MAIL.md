@@ -387,9 +387,29 @@ e ora anche dal punto in cui serve davvero:
 - **trascinando** la riga su una delle carte del pannello a destra.
 
 In tutti e tre i casi succede la stessa cosa: l'AI legge la mail, prepara i dati e te li
-mostra in un modulo. **Non parte niente finché non confermi tu.** L'esito resta poi
+mostra in una **tabella**: l'etichetta a sinistra, il valore a destra, e ogni valore si
+può correggere lì com'è — a tendina dove i valori sono chiusi (il negozio, lo stato
+commerciale), col calendario sulle date, a virgole sugli elenchi. Dove l'AI non ha
+trovato niente il campo resta vuoto e dice «non indicato»: è una risposta legittima, non
+un errore da riempire. **Non parte niente finché non confermi tu.** L'esito resta poi
 scritto sulla mail, sotto «Risposte dalle app», col link per aprire il risultato nell'app
 di destinazione.
+
+La tabella fa vedere **tutto** quello che sta per partire, anche i dati che nessuno aveva
+previsto: se una funzione manda una voce in più, quella voce compare in fondo con
+l'etichetta ricavata dal suo nome. Le voci con dentro un elenco — le righe di una
+proforma — si leggono in una tabellina, e per correggerle c'è «Modifica come JSON» in
+fondo, che mostra i dati nella forma con cui viaggiano davvero.
+
+**Da dove viene un valore, e perché a volte va corretto.** Quasi tutti i campi li ricava
+l'AI leggendo la mail; alcuni invece li mette il codice, perché li sa con certezza (il
+negozio di un ordine Shopify e il fornitore di un preventivo si leggono dagli indirizzi,
+non dal testo). Quando la mail **non nomina** l'azienda, l'AI ricade sul dominio di chi
+scrive: da `giorgio@lemonandpepper.com` esce «Lemon and Pepper». È una supposizione
+onesta, ma è il nome che si legge nell'indirizzo — non per forza quello con cui
+l'azienda è registrata nell'app di destinazione. Se Commerciale risponde «negozio non
+trovato», di solito è questo: si corregge il campo nella tabella e si riconferma, senza
+uscire dalla mail.
 
 Le app non collegate si vedono lo stesso, spente: nasconderle farebbe pensare che non
 esistano. Le chiavi si mettono in Impostazioni → App Deluxy.

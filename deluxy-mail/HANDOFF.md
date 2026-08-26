@@ -23,6 +23,41 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 25/08 sera — i dati da confermare sono una TABELLA, non più il JSON
+
+Chiesto dall'utente sulla schermata di «Commerciale — Apri trattativa», che mostrava
+`{ "negozio": "Lemon and Pepper", "valoreAtteso": null, … }` in un riquadro di testo.
+
+- **Il dialogo delle app Deluxy ora mostra una tabella**: etichetta a sinistra, valore
+  modificabile a destra. Tipi di campo veri — **tendina** dove i valori sono chiusi
+  (`brand` dei tre negozi, `stato` commerciale: scriverli a mano era il modo più facile
+  per farsi rifiutare la richiesta), **calendario** sulle date, **elenco a virgole** per
+  gli array (`interessi`). Il JSON resta a un clic («Modifica come JSON»), che serve per
+  i dati annidati.
+- ⚠️⚠️ **La tabella mostra TUTTO quello che c'è nel JSON, non solo i campi dichiarati.**
+  Una tabella costruita sui soli `campi` noti lascerebbe partire in silenzio le chiavi non
+  previste, e chi conferma crederebbe di aver guardato tutto. I dichiarati vengono per
+  primi, il resto in fondo con l'etichetta ricavata dalla chiave. Le voci annidate (le
+  righe di una proforma) si mostrano in una **tabellina in sola lettura** — prima erano
+  una riga di JSON in mezzo alle altre.
+- **Mancavano i `campi` a 4 azioni su 6** (`commerciale.trattativa`, `finance.proforma`,
+  `finance.verifica`, `fornitori.trova`): è per questo che si vedeva il JSON. Aggiunti.
+  Ora la tabella è comunque la vista predefinita anche per un'azione che non li dichiara.
+- 🔴 **Un silenzio chiuso**: `commerciale.trattativa` faceva
+  `typeof dati.valoreAtteso === 'number'`, ma il campo del modulo è **testo** — un
+  importo battuto a mano veniva **lasciato cadere senza dire niente**, e la trattativa si
+  apriva senza valore. Ora la conversione è in un punto solo (`numeroDaTesto`, condivisa
+  con `commerciale.preventivo` che la aveva in copia) e, se non è un numero, lo dice.
+- **Dove prende il «negozio»** (domanda dell'utente): non c'è nessun codice che lo forzi,
+  a differenza del `brand` di «Trova fornitore» e del `fornitore` del preventivo. Lo
+  ricava **l'AI dalla mail**. Su questo caso il nome «Lemon and Pepper» **non compare in
+  nessuna mail dell'archivio** (verificato: 0 righe su 31.575): viene dal **dominio del
+  mittente**, `giorgio.ioan@lemonandpepper.com`. Supposizione ragionevole, ma non è il
+  nome con cui il negozio è registrato in Commerciale — da cui il 404. Il messaggio
+  d'errore ora lo spiega e dice di correggere il campo e riprovare, invece di finire in
+  un vicolo cieco.
+
+---
 ### Dove siamo (25 agosto 2026)
 
 **Fotografia verificata oggi, 25 agosto 2026 alle 12:30** (giornata: la **mail aperta

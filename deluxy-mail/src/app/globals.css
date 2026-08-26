@@ -1440,6 +1440,59 @@ mark.ricerca-hit {
 /* La conversazione già scelta in fase di scrittura (inoltro / mail nuova) */
 .aggancio-scelto { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
+/* ---------- La tabella dei dati da confermare (dialogo APP Deluxy) ----------
+   Al posto del JSON grezzo: etichetta a sinistra, valore modificabile a
+   destra. Una riga per voce, così l'occhio scorre in verticale e si vede in
+   un colpo cosa l'AI ha trovato e cosa ha lasciato in bianco. */
+.tabella-dati { width: 100%; border-collapse: collapse; }
+.tabella-dati th[scope='row'] {
+  /* La colonna delle etichette non deve ballare da una riga all'altra, ma
+     nemmeno mangiarsi lo spazio del valore su uno schermo stretto. */
+  width: 38%; min-width: 132px;
+  text-align: left; vertical-align: top;
+  font-size: 12.5px; font-weight: 500; color: var(--text-secondary);
+  padding: 10px 14px 10px 0;
+  border-top: 1px solid var(--hairline);
+}
+.tabella-dati tr:first-child th[scope='row'],
+.tabella-dati tr:first-child td { border-top: none; }
+.tabella-dati td {
+  padding: 6px 0; vertical-align: top;
+  border-top: 1px solid var(--hairline);
+}
+.tabella-dati th .req { color: var(--red); }
+/* L'aiuto sotto l'etichetta, non accanto: accanto allargherebbe la colonna. */
+.tabella-dati th .aiuto {
+  display: block; margin-top: 3px;
+  font-size: 11.5px; font-weight: 400; color: var(--text-tertiary); line-height: 1.35;
+}
+/* Un campo vuoto non è un errore: «non indicato» è spesso la risposta giusta
+   (l'AI non deve inventare). Il segnaposto lo dice senza gridare. */
+.tabella-dati input::placeholder, .tabella-dati textarea::placeholder { color: var(--text-tertiary); }
+.tabella-dati input, .tabella-dati select, .tabella-dati textarea { font-size: 13.5px; padding: 7px 10px; }
+
+/* Un valore annidato (le righe di una proforma): si LEGGE qui, si corregge dal
+   JSON. Prima era una riga di JSON in mezzo alle altre. */
+.sotto-tabella { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.sotto-tabella th {
+  text-align: left; font-weight: 500; color: var(--text-tertiary);
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 4px 8px 4px 0;
+}
+.sotto-tabella td { padding: 3px 8px 3px 0; border-top: 1px solid var(--hairline); }
+.valore-json {
+  margin: 0; font-family: ui-monospace, monospace; font-size: 12px;
+  white-space: pre-wrap; word-break: break-word; color: var(--text-secondary);
+}
+
+/* Sul telefono la tabella a due colonne strizza il campo a niente: etichetta
+   sopra, valore sotto — resta una tabella, ma impilata. */
+@media (max-width: 560px) {
+  .tabella-dati th[scope='row'], .tabella-dati td { display: block; width: auto; }
+  .tabella-dati th[scope='row'] { padding: 10px 0 4px; }
+  .tabella-dati td { padding: 0 0 10px; border-top: none; }
+}
+
 /* ---------- Calendario ---------- */
 .cal-mese { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; min-width: 130px; text-align: center; }
 .cal-card { padding: 10px; }
