@@ -1,5 +1,54 @@
 # Handoff — Deluxy Customer Service
 
+## 26/08/2026 (11) — Bozze: «Tutte» di partenza, e dopo 7 giorni si annullano
+
+Due richieste dell'utente sulla sezione appena messa in cima a «Nuovo ordine».
+
+**1. «Default metti tutte.»** La vista di partenza era «Da incassare», e nei
+giorni buoni — cioè quasi sempre — mostrava una lista vuota: la sezione sembrava
+rotta invece che a posto. Ora apre su **Tutte**.
+
+**2. «Dopo 7 giorni annulla le bozze e portale in uno stato annullate che non
+compare in tutte.»** Fatto, con un cron giornaliero (`/api/cron/bozze`, 04:35).
+
+⚠️⚠️ **QUESTO PEZZO CANCELLA PER DAVVERO, E FUORI DA CASA NOSTRA**: la bozza
+sparisce da Shopify e il link smette di funzionare. Le guardie, tutte necessarie:
+
+- si toccano **solo** le bozze create da qui col link di pagamento (`OrdineCreato`
+  con `bozzaId`), mai altre;
+- **solo** quelle più vecchie del limite;
+- **solo dopo aver chiesto a Shopify** come stanno. Una bozza **pagata non si
+  cancella mai** — a quel punto è un ordine, e cancellarla sarebbe cancellare una
+  vendita. Se nel frattempo è stata pagata si registra il numero dell'ordine e si
+  lascia stare;
+- se Shopify **non risponde non si annulla niente**: «non lo so» non è «scaduta»;
+- se la cancellazione **fallisce**, la riga NON si segna annullata — resterebbe in
+  giro un link pagabile che qui risulta chiuso;
+- se la bozza **non c'è più** su Shopify (cancellata a mano) si chiude la riga
+  senza cancellare niente: altrimenti resta a chiedere per sempre lo stato di una
+  cosa che non esiste.
+
+⚠️ **Il limite sta in Impostazioni** (`giorniBozzaScaduta`, campo nuovo in fondo
+alla pagina, vuoto = 7): è una regola commerciale — per quanto tiene il prezzo —
+e cambiarla non deve richiedere un rilascio.
+
+⚠️ **Le annullate non spariscono, escono dagli elenchi di lavoro**: non stanno in
+«Tutte» (come chiesto), hanno un filtro loro **«Annullate (n)»** e il numero
+compare nel riassunto in testa. Cancellare la riga vorrebbe dire perdere chi
+aveva mandato quel link, a chi e per quanto — cioè la sola traccia che quel
+preventivo sia mai esistito. E una fila che sparisce senza lasciare un numero fa
+credere che non sia mai esistita: nessuno si accorgerebbe se il cron ne stesse
+chiudendo troppe.
+
+**Misurato prima di accendere**: candidate all'annullamento **adesso: ZERO** (le
+due bozze in tabella sono una pagata — #D5636 → ordine #12819 — e una del 24/08
+che su Shopify non c'è già più). Quindi il primo giro non cancella niente.
+
+⚠️ Trappola incontrata: due chiavi `NOT` nello stesso `where` di Prisma — la
+seconda **sovrascrive la prima** e il filtro sparisce in silenzio. Il typecheck
+lo ha visto (TS2783), ma solo perché erano nello stesso oggetto letterale: la
+forma giusta è `campo: { not: … }`.
+
 ## 26/08/2026 (10) — PREVENTIVI e BOZZE: la parte di prima e la parte di dopo
 
 Due richieste dell'utente, e sono i due lati dello stesso momento — quando un

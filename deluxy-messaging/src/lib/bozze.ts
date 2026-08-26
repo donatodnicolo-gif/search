@@ -19,6 +19,7 @@
 
 import { db } from './db'
 import { decifra } from './crypto'
+import { leggiImpostazioni } from './impostazioni'
 
 const VERSIONE = '2025-01'
 
@@ -100,9 +101,20 @@ export type ElencoBozze = {
   aperte: number
   pagate: number
   valoreInSospeso: number
+  /** Quante ne sono state annullate perché scadute: non spariscono, si contano. */
+  annullate: number
   /** I negozi a cui non si è potuto chiedere: si dice, non si tace. */
   nonChiesti: string[]
 }
+
+/**
+ * Dopo quanti giorni una bozza non pagata si annulla.
+ *
+ * ⚠️ Sta in Impostazioni (`giorniBozzaScaduta`) e non nel codice: è una regola
+ * commerciale — «per quanto tiene il prezzo» — e cambiarla non deve richiedere
+ * un rilascio. Vuoto o non valido = 7.
+ */
+export const GIORNI_SCADENZA_DEFAULT = 7
 
 function giorniDa(d: Date): number {
   return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000))
@@ -115,15 +127,37 @@ function giorniDa(d: Date): number {
  * è già un ordine, e metterla in un elenco di cose in sospeso vorrebbe dire
  * chiedere a qualcuno di controllare una cosa finita.
  */
-export async function elencoBozze(giorni = 60): Promise<ElencoBozze> {
+export async function elencoBozze(
+  giorni = 60,
+  opzioni?: { annullate?: boolean }
+): Promise<ElencoBozze> {
   const dal = new Date(Date.now() - giorni * 86400000)
+  const soloAnnullate = opzioni?.annullate === true
+
+  // ⚠️⚠️ LE ANNULLATE NON STANNO IN «TUTTE» (chiesto dall'utente). Una bozza
+  // scaduta e cancellata su Shopify non è più una cosa da fare: lasciarla in
+  // mezzo alle altre vorrebbe dire far ricontrollare ogni giorno una fila che
+  // cresce e non si smaltisce mai. Restano raggiungibili dal loro filtro —
+  // toglierle dalla vista non è cancellarle.
+  const annullate = await db.ordineCreato.count({
+    where: { pagamento: 'link', creatoIl: { gte: dal }, annullataIl: { not: null } },
+  })
+
   const righe = await db.ordineCreato.findMany({
-    where: { pagamento: 'link', creatoIl: { gte: dal }, NOT: { bozzaId: '' } },
+    where: {
+      pagamento: 'link',
+      creatoIl: { gte: dal },
+      // ⚠️ `bozzaId: { not: '' }` e non un secondo `NOT:` accanto al primo: due
+      // chiavi `NOT` nello stesso oggetto e la seconda sovrascrive la prima —
+      // in silenzio per Prisma, e il filtro sparisce.
+      bozzaId: { not: '' },
+      ...(soloAnnullate ? { annullataIl: { not: null } } : { annullataIl: null }),
+    },
     orderBy: { creatoIl: 'desc' },
     take: 200,
   })
   if (righe.length === 0) {
-    return { bozze: [], aperte: 0, pagate: 0, valoreInSospeso: 0, nonChiesti: [] }
+    return { bozze: [], aperte: 0, pagate: 0, valoreInSospeso: 0, annullate, nonChiesti: [] }
   }
 
   const negozi = await db.negozioShopify.findMany({
@@ -217,6 +251,165 @@ export async function elencoBozze(giorni = 60): Promise<ElencoBozze> {
     valoreInSospeso: bozze
       .filter((b) => b.stato === 'aperta' || b.stato === 'invito_inviato')
       .reduce((s, b) => s + b.importo, 0),
+    annullate,
     nonChiesti: [...new Set(nonChiesti)],
   }
+}
+
+// ── ANNULLARE LE BOZZE SCADUTE ───────────────────────────────────────────────
+//
+// ⚠️⚠️ Questo pezzo CANCELLA per davvero, e fuori da casa nostra: la bozza
+// sparisce da Shopify e il link smette di funzionare. Per questo:
+//   · si toccano SOLO le bozze create da qui col link di pagamento;
+//   · SOLO quelle più vecchie del limite (7 giorni di default);
+//   · e solo dopo aver CHIESTO a Shopify come stanno. Una bozza pagata non si
+//     cancella mai — a quel punto è un ordine, e cancellarla sarebbe cancellare
+//     una vendita.
+// ⚠️ Se Shopify non risponde non si annulla niente: «non lo so» non è «scaduta».
+
+const MUTAZIONE_ELIMINA = `mutation elimina($input: DraftOrderDeleteInput!) {
+  draftOrderDelete(input: $input) {
+    deletedId
+    userErrors { field message }
+  }
+}`
+
+export type EsitoAnnullamento = {
+  guardate: number
+  annullate: number
+  saltate: number
+  errori: string[]
+}
+
+export async function annullaBozzeScadute(giorniLimite?: number): Promise<EsitoAnnullamento> {
+  const conf = await leggiImpostazioni(['giorniBozzaScaduta'])
+  const daImpostazioni = Number(conf.giorniBozzaScaduta)
+  const limite =
+    giorniLimite && giorniLimite > 0
+      ? giorniLimite
+      : Number.isFinite(daImpostazioni) && daImpostazioni > 0
+        ? daImpostazioni
+        : GIORNI_SCADENZA_DEFAULT
+
+  const scadute = new Date(Date.now() - limite * 86400000)
+  const righe = await db.ordineCreato.findMany({
+    where: {
+      pagamento: 'link',
+      annullataIl: null,
+      // ⚠️ Quelle che sappiamo già diventate ordini non si toccano nemmeno per
+      // sbaglio: `ordineNumero` scritto vuol dire pagata.
+      ordineNumero: '',
+      creatoIl: { lt: scadute },
+      bozzaId: { not: '' },
+    },
+    take: 100,
+  })
+  const esito: EsitoAnnullamento = { guardate: righe.length, annullate: 0, saltate: 0, errori: [] }
+  if (righe.length === 0) return esito
+
+  const negozi = await db.negozioShopify.findMany({
+    where: { id: { in: [...new Set(righe.map((r) => r.negozioId).filter(Boolean))] } },
+    select: { id: true, nome: true, dominio: true, clientId: true, clientSecret: true },
+  })
+
+  for (const n of negozi) {
+    const sue = righe.filter((r) => r.negozioId === n.id)
+    if (sue.length === 0) continue
+    const t = await token(n)
+    if (!t) {
+      esito.errori.push(`${n.nome}: nessun token, non annullo niente`)
+      esito.saltate += sue.length
+      continue
+    }
+
+    // Prima si CHIEDE, poi si cancella: lo stato è di Shopify.
+    let stati = new Map<string, NodoBozza>()
+    try {
+      const res = await fetch(`https://${n.dominio}/admin/api/${VERSIONE}/graphql.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': t },
+        body: JSON.stringify({ query: QUERY, variables: { ids: sue.map((r) => r.bozzaId) } }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(20000),
+      })
+      const j = (await res.json().catch(() => ({}))) as { data?: { nodes?: NodoBozza[] } }
+      if (!res.ok || !j.data) throw new Error(`Shopify ha risposto ${res.status}`)
+      stati = new Map(sue.map((r, i) => [r.bozzaId, (j.data?.nodes ?? [])[i] ?? null]))
+    } catch (e) {
+      esito.errori.push(`${n.nome}: ${(e as Error).message}`)
+      esito.saltate += sue.length
+      continue
+    }
+
+    for (const r of sue) {
+      const nodo = stati.get(r.bozzaId)
+
+      // Pagata nel frattempo: si registra l'ordine e si lascia stare.
+      if (nodo?.order?.name || nodo?.status === 'COMPLETED') {
+        await db.ordineCreato
+          .update({
+            where: { id: r.id },
+            data: { ordineNumero: nodo.order?.name ?? r.ordineNumero },
+          })
+          .catch(() => {})
+        esito.saltate++
+        continue
+      }
+
+      // Non c'è più su Shopify: niente da cancellare, ma la riga va chiusa —
+      // altrimenti resta a chiedere lo stato di una bozza che non esiste.
+      if (!nodo) {
+        await db.ordineCreato
+          .update({
+            where: { id: r.id },
+            data: {
+              annullataIl: new Date(),
+              annullataDaNome: 'automatico',
+              annullataMotivo: `Non era più su Shopify dopo ${limite} giorni`,
+            },
+          })
+          .catch(() => {})
+        esito.annullate++
+        continue
+      }
+
+      try {
+        const res = await fetch(`https://${n.dominio}/admin/api/${VERSIONE}/graphql.json`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': t },
+          body: JSON.stringify({
+            query: MUTAZIONE_ELIMINA,
+            variables: { input: { id: r.bozzaId } },
+          }),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(20000),
+        })
+        const j = (await res.json().catch(() => ({}))) as {
+          data?: { draftOrderDelete?: { deletedId?: string; userErrors?: { message: string }[] } }
+        }
+        const errori = j.data?.draftOrderDelete?.userErrors ?? []
+        if (!res.ok || errori.length > 0) {
+          // ⚠️ Se la cancellazione fallisce NON si segna annullata: resterebbe
+          // in giro un link pagabile che qui risulta chiuso.
+          esito.errori.push(`${r.bozzaNome}: ${errori[0]?.message ?? `HTTP ${res.status}`}`)
+          esito.saltate++
+          continue
+        }
+        await db.ordineCreato.update({
+          where: { id: r.id },
+          data: {
+            annullataIl: new Date(),
+            annullataDaNome: 'automatico',
+            annullataMotivo: `Non pagata dopo ${limite} giorni`,
+          },
+        })
+        esito.annullate++
+      } catch (e) {
+        esito.errori.push(`${r.bozzaNome}: ${(e as Error).message}`)
+        esito.saltate++
+      }
+    }
+  }
+
+  return esito
 }

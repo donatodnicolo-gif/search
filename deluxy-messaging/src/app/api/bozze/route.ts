@@ -9,5 +9,6 @@ export const maxDuration = 60
 // pagate (e con che numero d'ordine) o ancora in giro.
 export async function GET(req: NextRequest) {
   const giorni = Math.min(365, Math.max(1, Number(req.nextUrl.searchParams.get('giorni') ?? '60') || 60))
-  return NextResponse.json(await elencoBozze(giorni))
+  const annullate = req.nextUrl.searchParams.get('annullate') === '1'
+  return NextResponse.json(await elencoBozze(giorni, { annullate }))
 }

@@ -387,6 +387,7 @@ model Ordine {
   /**
    * /**
    * /**
+   * /**
    * L'ultimo link di pagamento per una RICONSEGNA di quest'ordine.
    * ⚠️⚠️ Si tiene, e non è un vezzo: senza, chiudendo il pop-up il link
    * spariva e per riaverlo bisognava premere di nuovo «Crea il link» — cioè
@@ -1453,43 +1454,57 @@ model NotaDiario {
 // mostrato all'operatore lo farebbe ricominciare — col cliente che si ritrova
 // due ordini. Vedi il try/catch in `src/lib/nuovo-ordine.ts`.
 model OrdineCreato {
-  id             String   @id @default(cuid())
+  id              String    @id @default(cuid())
   /**
    * Chi l'ha fatto: è il motivo per cui questa tabella esiste.
    */
-  utenteId       String   @default("")
-  utenteNome     String   @default("")
-  negozioId      String   @default("")
-  negozioNome    String   @default("")
+  utenteId        String    @default("")
+  utenteNome      String    @default("")
+  negozioId       String    @default("")
+  negozioNome     String    @default("")
   /**
    * `link` (paga il cliente da Shopify) | `pagato` (i soldi c'erano già).
    */
-  pagamento      String   @default("link")
+  pagamento       String    @default("link")
   /**
    * Con che mezzo, quando è `pagato`: bonifico, contanti, POS.
    */
-  mezzoPagamento String   @default("")
+  mezzoPagamento  String    @default("")
   /**
    * gid della bozza Shopify e il suo nome (#D123).
    */
-  bozzaId        String   @default("")
-  bozzaNome      String   @default("")
+  bozzaId         String    @default("")
+  bozzaNome       String    @default("")
   /**
    * Il numero dell'ordine vero, quando la bozza è stata chiusa subito.
    */
-  ordineNumero   String   @default("")
+  ordineNumero    String    @default("")
   /**
    * Il totale che Shopify ha calcolato sulla bozza: quello vero, non il nostro.
    */
-  importo        Float    @default(0)
-  valuta         String   @default("EUR")
-  clienteNome    String   @default("")
-  clienteEmail   String   @default("")
+  importo         Float     @default(0)
+  valuta          String    @default("EUR")
+  clienteNome     String    @default("")
+  clienteEmail    String    @default("")
   /**
    * Shopify ha spedito da solo la mail con l'invito (serve un indirizzo).
    */
-  invitoInviato  Boolean  @default(false)
-  creatoIl       DateTime @default(now())
+  invitoInviato   Boolean   @default(false)
+  /// Quando la bozza e stata ANNULLATA perche scaduta (cancellata su Shopify),
+  /// e chi l ha fatto (di norma «automatico»).
+  ///
+  /// ⚠️⚠️ Una bozza annullata NON sparisce dalla tabella: sparisce dagli
+  /// ELENCHI di lavoro. Cancellare la riga vorrebbe dire perdere chi aveva
+  /// mandato quel link, a chi e per quanto — cioe la sola traccia che quel
+  /// preventivo sia mai esistito.
+  ///
+  /// ⚠️ Si scrive SOLO dopo che Shopify ha confermato la cancellazione (o ha
+  /// detto che la bozza non c e piu). Segnarla annullata senza averla
+  /// cancellata lascerebbe in giro un link pagabile che qui risulta chiuso.
+  annullataIl     DateTime?
+  annullataDaNome String    @default("")
+  annullataMotivo String    @default("")
+  creatoIl        DateTime  @default(now())
 
   @@index([creatoIl])
   @@index([utenteId, creatoIl])

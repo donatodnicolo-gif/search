@@ -97,6 +97,23 @@ lo stato dal silenzio è il modo di richiamare un cliente che ha già pagato.
 Da ogni riga si può **ricopiare il link** e rimandarlo: è il caso vero di chi lo
 ha perso fra i messaggi.
 
+### Dopo sette giorni la bozza si annulla
+
+Una bozza non pagata dopo **sette giorni** (Impostazioni → *Giorni di validità del
+link di pagamento*) viene **cancellata su Shopify** da un controllo notturno: il
+link smette di funzionare e la riga passa fra le **Annullate**.
+
+⚠️⚠️ Le guardie ci sono tutte, perché questo pezzo cancella davvero e fuori da
+casa nostra: si toccano solo le bozze fatte da qui, solo quelle più vecchie del
+limite, e **solo dopo aver chiesto a Shopify come stanno**. Una bozza pagata non
+si cancella mai — a quel punto è un ordine. Se Shopify non risponde non si
+annulla niente: «non lo so» non è «scaduta».
+
+⚠️ Le annullate **non compaiono in «Tutte»** — sono chiuse, e rimetterle nel
+mucchio vorrebbe dire far ricontrollare ogni giorno una fila che cresce e non si
+smaltisce. Ma non spariscono: hanno il loro filtro **Annullate**, e il numero si
+legge nel riassunto in testa.
+
 ## Le chiamate: l'unico canale che si cancella da solo
 
 Il centralino manda una notifica a **chiamate@deluxy.it** per ogni telefonata

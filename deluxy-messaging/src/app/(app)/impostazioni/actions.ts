@@ -36,6 +36,7 @@ const IN_CHIARO = [
   'widgetTitolo',
   'widgetMessaggio',
   'googleClientId',
+  'giorniBozzaScaduta',
   'ordersUrl',
   'searchUrl',
   'partnerUrl',

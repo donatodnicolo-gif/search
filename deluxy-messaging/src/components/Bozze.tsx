@@ -86,40 +86,46 @@ export function Bozze() {
   const [pagate, setPagate] = useState(0)
   const [sospeso, setSospeso] = useState(0)
   const [nonChiesti, setNonChiesti] = useState<string[]>([])
+  const [annullate, setAnnullate] = useState(0)
   const [caricato, setCaricato] = useState(false)
-  const [soloAperte, setSoloAperte] = useState(true)
+  // ⚠️ «Tutte» è la vista di partenza (chiesto dall'utente): aprendo su «da
+  // incassare» si vedeva una lista vuota nei giorni buoni — cioè quasi sempre —
+  // e la sezione sembrava rotta invece che a posto.
+  const [vista, setVista] = useState<'aperte' | 'tutte' | 'annullate'>('tutte')
   const [errore, setErrore] = useState('')
 
   const carica = useCallback(async () => {
     setCaricato(false)
     try {
-      const res = await fetch('/api/bozze', { cache: 'no-store' })
+      const res = await fetch(`/api/bozze${vista === 'annullate' ? '?annullate=1' : ''}`, {
+        cache: 'no-store',
+      })
       const d = (await res.json().catch(() => ({}))) as {
         bozze?: Bozza[]
         aperte?: number
         pagate?: number
         valoreInSospeso?: number
+        annullate?: number
         nonChiesti?: string[]
       }
       setBozze(d.bozze ?? [])
       setAperte(d.aperte ?? 0)
       setPagate(d.pagate ?? 0)
       setSospeso(d.valoreInSospeso ?? 0)
+      setAnnullate(d.annullate ?? 0)
       setNonChiesti(d.nonChiesti ?? [])
     } catch {
       setErrore('Stato delle bozze non caricato: problema di rete.')
     } finally {
       setCaricato(true)
     }
-  }, [])
+  }, [vista])
 
   useEffect(() => {
     void carica()
   }, [carica])
 
-  const daMostrare = soloAperte
-    ? bozze.filter((b) => b.stato !== 'pagata')
-    : bozze
+  const daMostrare = vista === 'aperte' ? bozze.filter((b) => b.stato !== 'pagata') : bozze
 
   // ⚠️⚠️ IN CIMA ALLA PAGINA, quindi COMPATTA. Questa sezione sta sopra il
   // modulo del nuovo ordine: ogni riga che si prende è una riga in meno di
@@ -135,6 +141,10 @@ export function Bozze() {
         <span className="cella-sub">
           {aperte} non pagate
           {sospeso > 0 ? ` · ${soldi(sospeso)} in sospeso` : ''} · {pagate} diventate ordini
+          {/* ⚠️ Le annullate si CONTANO anche quando non si vedono: una fila che
+              sparisce senza lasciare un numero fa credere che non sia mai
+              esistita, e nessuno si accorge se il cron ne sta chiudendo troppe. */}
+          {annullate > 0 ? ` · ${annullate} annullate` : ''}
         </span>
       </div>
 
@@ -152,17 +162,30 @@ export function Bozze() {
 
       <div className="bozze-comandi">
         <button
-          className={`btn ${soloAperte ? '' : 'btn-secondario'} small`}
-          onClick={() => setSoloAperte(true)}
-        >
-          Da incassare
-        </button>
-        <button
-          className={`btn ${soloAperte ? 'btn-secondario' : ''} small`}
-          onClick={() => setSoloAperte(false)}
+          className={`btn ${vista === 'tutte' ? '' : 'btn-secondario'} small`}
+          onClick={() => setVista('tutte')}
         >
           Tutte
         </button>
+        <button
+          className={`btn ${vista === 'aperte' ? '' : 'btn-secondario'} small`}
+          onClick={() => setVista('aperte')}
+        >
+          Da incassare
+        </button>
+        {/* ⚠️ Le annullate hanno un filtro loro e non stanno in «Tutte»: sono
+            chiuse, e rimetterle nel mucchio vorrebbe dire far ricontrollare ogni
+            giorno una fila che cresce e non si smaltisce. Ma il filtro c'è —
+            toglierle dalla vista non è cancellarle, e chi cerca «quel link di
+            due settimane fa» deve poterlo ritrovare. */}
+        {annullate > 0 ? (
+          <button
+            className={`btn ${vista === 'annullate' ? '' : 'btn-secondario'} small`}
+            onClick={() => setVista('annullate')}
+          >
+            Annullate ({annullate})
+          </button>
+        ) : null}
         <button className="btn btn-secondario small" onClick={() => void carica()}>
           Richiedi lo stato
         </button>
@@ -172,9 +195,11 @@ export function Bozze() {
         <p className="colonna-vuota">Chiedo a Shopify…</p>
       ) : nienteInSospeso ? (
         <p className="cella-sub" style={{ margin: 0 }}>
-          {soloAperte
+          {vista === 'aperte'
             ? 'Nessuna bozza in sospeso: tutti i link mandati sono stati pagati o chiusi.'
-            : 'Nessuna bozza mandata negli ultimi 60 giorni.'}
+            : vista === 'annullate'
+              ? 'Nessuna bozza annullata negli ultimi 60 giorni.'
+              : 'Nessuna bozza mandata negli ultimi 60 giorni.'}
         </p>
       ) : (
         // ⚠️ Un tetto d'altezza, non l'elenco intero: venti bozze in sospeso

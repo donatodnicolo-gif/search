@@ -38,6 +38,7 @@ export default async function PaginaImpostazioni({
     'googleMapsApiKey',
     'googleClientSecret',
     'googleRefreshToken',
+    'giorniBozzaScaduta',
     'ordersUrl',
     'ordersApiKey',
     'searchUrl',
@@ -575,6 +576,19 @@ export default async function PaginaImpostazioni({
               />
             </label>
             <CampoSegreto nome="ordersApiKey" etichetta="Chiave API (sola lettura)" valore={config.ordersApiKey} />
+          </div>
+
+          <div className="card">
+            <h2>Bozze scadute</h2>
+            <p className="descrizione">
+              Dopo quanti giorni una <strong>bozza non pagata</strong> viene annullata e
+              cancellata su Shopify (il link smette di funzionare). Le bozze gia pagate non si
+              toccano mai. Vuoto = 7 giorni.
+            </p>
+            <label className="campo">
+              <span>Giorni di validita del link di pagamento</span>
+              <input name="giorniBozzaScaduta" defaultValue={config.giorniBozzaScaduta} placeholder="7" />
+            </label>
           </div>
 
           <div className="card">
