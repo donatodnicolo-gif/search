@@ -919,7 +919,7 @@ const AZIONI: AzioneApp[] = [
     descrizione: 'Apre una nuova trattativa nel CRM commerciale per il negozio.',
     colore: 'green',
     guida:
-      'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = la linea commerciale (es. Affiliazioni, Consegne, Eventi) se citata, altrimenti null. valoreAtteso = il totale se è scritto (se ti è dato il RIASSUNTO della conversazione, le sue «Cifre e prezzi» sono importi copiati dalle mail: il «totale complessivo» che c’è lì è scritto a tutti gli effetti); se un totale non c’è ma nello scambio ci sono PREZZI e QUANTITÀ scritti, CALCOLA la stima (es. coffee break 18 €/persona × 45 persone = 810) usando SOLO numeri scritti — mai inventare i numeri di partenza; se non c’è niente da cui calcolare, null. fase = deducila dallo scambio scegliendo fra i valori ammessi: hanno appena chiesto = "primo contatto"; si discute di dettagli e condizioni = "in trattativa"; abbiamo GIÀ mandato il preventivo/proposta = "preventivo"; hanno accettato = "chiusa vinta"; hanno rifiutato = "chiusa persa"; se non è chiaro, null. scadenza = data del follow-up (AAAA-MM-GG) se c’è. nextAction = la prossima azione da fare, in una frase. contattoEmail = l’email della PERSONA DI RIFERIMENTO del negozio, se è scritta da qualche parte nello scambio — anche dentro il testo di una mail interna («ho sentito la referente Roberta Sireno, roberta.sireno@havi.com»); MAI un indirizzo di un nostro dominio (quelli siamo noi), mai inventata; se non c’è, null e la mette il codice.',
+      'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = la linea commerciale (es. Affiliazioni, Consegne, Eventi) se citata, altrimenti null. valoreAtteso = il totale se è scritto (se ti è dato il RIASSUNTO della conversazione, le sue «Cifre e prezzi» sono importi copiati dalle mail: il «totale complessivo» che c’è lì è scritto a tutti gli effetti); se un totale non c’è ma nello scambio ci sono PREZZI e QUANTITÀ scritti, CALCOLA la stima (es. coffee break 18 €/persona × 45 persone = 810) usando SOLO numeri scritti — mai inventare i numeri di partenza; se non c’è niente da cui calcolare, null. oggetto = per cosa è la trattativa, in poche parole e senza la data (es. «Catering per la visita della proprietà»). dataEvento = il giorno del servizio/evento in formato AAAA-MM-GG, SOLO se la mail lo dice; se il giorno è scritto senza anno («3 settembre») prendi l’anno dalla data della mail; se non c’è una data, null — mai inventarla. fase = deducila dallo scambio scegliendo fra i valori ammessi: hanno appena chiesto = "primo contatto"; si discute di dettagli e condizioni = "in trattativa"; abbiamo GIÀ mandato il preventivo/proposta = "preventivo"; hanno accettato = "chiusa vinta"; hanno rifiutato = "chiusa persa"; se non è chiaro, null. scadenza = la data del follow-up (AAAA-MM-GG) SOLO se la mail la dice (un termine scritto: «ti risponderò entro venerdì», «serve conferma entro il 30»): se non è scritta lascia null, la propone il codice dalla data dell’evento. nextAction = la prossima azione da fare, in una frase. contattoEmail = l’email della PERSONA DI RIFERIMENTO del negozio, se è scritta da qualche parte nello scambio — anche dentro il testo di una mail interna («ho sentito la referente Roberta Sireno, roberta.sireno@havi.com»); MAI un indirizzo di un nostro dominio (quelli siamo noi), mai inventata; se non c’è, null e la mette il codice.',
     campi: [
       { nome: 'negozio', etichetta: 'Negozio', obbligatorio: true, aiuto: 'Commerciale lo cerca fra i suoi negozi.' },
       {
@@ -929,6 +929,22 @@ const AZIONI: AzioneApp[] = [
         aiuto: 'Si aggancia al negozio in Scout (o si crea, se manca). Dopo l’invio si può registrare anche in Anagrafiche.',
       },
       { nome: 'linea', etichetta: 'Linea commerciale', aiuto: 'Es. Affiliazioni, Consegne, Eventi' },
+      {
+        nome: 'oggetto',
+        etichetta: 'Oggetto',
+        aiuto: 'Per cosa è la trattativa. In Scout diventa il titolo: senza, si ripiega sulla prossima azione.',
+      },
+      {
+        // ⚠️ In Scout la tabella `deals` NON ha una colonna per la data del
+        // servizio (ha `scadenza`, `riprendere_il`, `chiusa_il`): questa data
+        // parte dentro l'OGGETTO, che è un campo vero e si vede nella
+        // trattativa. Mostrarla qui e non mandarla da nessuna parte sarebbe un
+        // valore che vive solo nel pop-up.
+        nome: 'dataEvento',
+        etichetta: 'Data dell’evento',
+        tipo: 'data',
+        aiuto: 'Il giorno del servizio, se la mail lo dice. Parte insieme all’oggetto: in Scout la trattativa non ha un campo suo per questa data.',
+      },
       {
         nome: 'valoreAtteso',
         etichetta: 'Valore atteso (€)',
@@ -950,13 +966,18 @@ const AZIONI: AzioneApp[] = [
           { valore: 'chiusa persa', etichetta: 'Chiusa persa' },
         ],
       },
-      { nome: 'scadenza', etichetta: 'Follow-up', tipo: 'data' },
+      {
+        nome: 'scadenza',
+        etichetta: 'Follow-up',
+        tipo: 'data',
+        aiuto: 'Quando riprendere in mano la trattativa. Se la mail non lo dice, è proposto tre giorni prima dell’evento: controllalo.',
+      },
       { nome: 'nextAction', etichetta: 'Prossima azione', tipo: 'lungo' },
     ],
     schema: {
       type: 'object',
       additionalProperties: false,
-      required: ['negozio', 'contattoEmail', 'linea', 'valoreAtteso', 'fase', 'scadenza', 'nextAction'],
+      required: ['negozio', 'contattoEmail', 'linea', 'oggetto', 'dataEvento', 'valoreAtteso', 'fase', 'scadenza', 'nextAction'],
       properties: {
         negozio: { type: 'string', description: 'Nome del negozio/attività della trattativa.' },
         contattoEmail: {
@@ -964,6 +985,11 @@ const AZIONI: AzioneApp[] = [
           description: 'Email del referente del negozio se è scritta nello scambio; mai un nostro indirizzo. Altrimenti null: la mette il codice.',
         },
         linea: { type: ['string', 'null'], description: 'Linea commerciale (es. Affiliazioni).' },
+        oggetto: { type: ['string', 'null'], description: 'Per cosa è la trattativa, in poche parole e senza la data.' },
+        dataEvento: {
+          type: ['string', 'null'],
+          description: 'Giorno del servizio/evento AAAA-MM-GG, solo se scritto nello scambio (anno dalla data della mail se manca).',
+        },
         valoreAtteso: {
           type: ['number', 'null'],
           description: 'Totale scritto, o stima calcolata SOLO da prezzi e quantità scritti nello scambio.',
@@ -994,7 +1020,23 @@ const AZIONI: AzioneApp[] = [
           : null
       const nostra = scritta ? (ctx.nostriDomini ?? []).includes(scritta.split('@')[1] ?? '') : false
       const buona = (scritta && !nostra ? scritta : null) ?? ctx.controparte ?? null
-      return dati.contattoEmail === buona ? dati : { ...dati, contattoEmail: buona }
+      const d: Record<string, unknown> = dati.contattoEmail === buona ? { ...dati } : { ...dati, contattoEmail: buona }
+
+      // Il FOLLOW-UP quando la mail non lo scrive: tre giorni prima
+      // dell'evento. Non è un dato inventato ma **aritmetica su un fatto
+      // scritto** (la data dell'evento), ed è la stessa concessione già fatta
+      // al valore atteso: si può calcolare, purché i numeri di partenza siano
+      // scritti e si veda che è una proposta (l'aiuto del campo lo dice).
+      // ⚠️ Idempotente: interviene solo se la casella è vuota, quindi il
+      // secondo giro (all'invio) non tocca quello che ha corretto l'utente.
+      const ev =
+        typeof d.dataEvento === 'string' && d.dataEvento.length === 10
+          ? Date.parse(d.dataEvento + 'T00:00:00Z')
+          : Number.NaN
+      if (!d.scadenza && !Number.isNaN(ev)) {
+        d.scadenza = new Date(ev - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      }
+      return d
     },
     async esegui(dati, ctx) {
       const negozio = typeof dati.negozio === 'string' ? dati.negozio.trim() : ''
@@ -1014,9 +1056,28 @@ const AZIONI: AzioneApp[] = [
         (typeof dati.contattoEmail === 'string' && dati.contattoEmail.includes('@')
           ? dati.contattoEmail.trim()
           : null) ?? ctx.controparte ?? undefined
+      // La data dell'evento viaggia DENTRO l'oggetto: `deals` in Scout non ha
+      // una colonna per il giorno del servizio, e un campo mostrato che non
+      // arriva da nessuna parte è peggio di un campo assente.
+      const dataEvento =
+        typeof dati.dataEvento === 'string' && dati.dataEvento.length === 10 && !Number.isNaN(Date.parse(dati.dataEvento))
+          ? dati.dataEvento
+          : ''
+      const giorno = dataEvento ? dataEvento.split('-').reverse().join('/') : ''
+      const oggetto =
+        [typeof dati.oggetto === 'string' ? dati.oggetto.trim() : '', giorno ? `evento del ${giorno}` : '']
+          .filter(Boolean)
+          .join(' — ') || undefined
+      // ⚠️ L'ID del negozio, quando l'utente l'ha scelto fra i candidati: il
+      // NOME non è un'identità — «HAVI» in Scout sono due posti con lo stesso
+      // nome e zona diversa, e rimandare il nome esatto faceva ripetere lo
+      // stesso «più negozi corrispondono» all'infinito (26/08/2026).
+      const negozioId = typeof dati.negozioId === 'string' && dati.negozioId.trim() ? dati.negozioId.trim() : undefined
       const body: Record<string, unknown> = {
         azione: 'apri',
         negozio,
+        negozioId,
+        oggetto,
         contattoEmail,
         ...(dati.crea === 'si' ? { crea: 'si' } : {}),
         linea: dati.linea || undefined,
@@ -1041,21 +1102,31 @@ const AZIONI: AzioneApp[] = [
           if (status === 401 || status === 403)
             return { ok: false, messaggio: 'Chiave Commerciale non valida: controllala in Impostazioni App.' }
           if (status === 404) {
-            // ⚠️ Il 404 di «trattativa» porta con sé i CANDIDATI
+            // ⚠️⚠️ Il 404 di «trattativa» porta con sé i CANDIDATI
             // (`{ error, candidati: [{ id, nome, zona }] }`): non si buttano, si
-            // fanno scegliere. Rimandiamo il NOME esatto perché la funzione
-            // accetta solo quello, e sul nome esatto smette di essere ambigua.
+            // fanno scegliere. Si rimanda l'**id**, non il nome: la riga qui
+            // sopra diceva «sul nome esatto smette di essere ambigua» ed era
+            // FALSA — in Scout «HAVI» sono due posti con lo stesso `nome` e
+            // zona diversa, quindi il match esatto ne trovava due e l'utente
+            // si vedeva ripetere lo stesso errore ogni volta che sceglieva
+            // (visto a schermo il 26/08/2026). Il nome non è un'identità.
             const c = risposta && typeof risposta === 'object' ? (risposta as Record<string, unknown>).candidati : null
-            const scelte = Array.isArray(c)
+            const grezzi = Array.isArray(c)
               ? c
                   .map((x) => {
                     const o = (x ?? {}) as Record<string, unknown>
                     const nome = typeof o.nome === 'string' ? o.nome : ''
+                    const id = typeof o.id === 'string' ? o.id : ''
                     const zona = typeof o.zona === 'string' && o.zona ? ` — ${o.zona}` : ''
-                    return nome ? { valore: nome, etichetta: `${nome}${zona}` } : null
+                    return nome ? { id, valore: id || nome, etichetta: `${nome}${zona}` } : null
                   })
-                  .filter((x): x is { valore: string; etichetta: string } => x !== null)
+                  .filter((x): x is { id: string; valore: string; etichetta: string } => x !== null)
               : []
+            // Se anche UNO solo dei candidati non ha l'id (una versione vecchia
+            // della funzione in Commerciale), si torna a scegliere per nome:
+            // meglio il vecchio comportamento che una scelta che non arriva.
+            const perId = grezzi.length > 0 && grezzi.every((x) => x.id !== '')
+            const scelte = grezzi.map(({ valore, etichetta }) => ({ valore, etichetta }))
             // Con dei candidati si sceglie fra quelli. SENZA candidati non è
             // quasi mai un nome scritto male: è una PROSPECT NUOVA che nel CRM
             // non esiste ancora («Grazia Finoli» che chiede un preventivo da
@@ -1076,7 +1147,7 @@ const AZIONI: AzioneApp[] = [
                       : 'Se la mail non lo nomina, il nome qui sopra è ricavato dal dominio di chi scrive: correggi «Negozio» con il nome che ha in Commerciale e riprova.'
                   }`,
               ...(scelte.length
-                ? { scelte, campoScelta: 'negozio' }
+                ? { scelte, campoScelta: perId ? 'negozioId' : 'negozio' }
                 : puoiCreare
                   ? {
                       scelte: [{ valore: 'si', etichetta: `＋ Crea «${negozio}» nel CRM e apri la trattativa` }],

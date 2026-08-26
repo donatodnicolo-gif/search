@@ -8,8 +8,8 @@
 // owner — la si assegna poi dall'app.
 //
 // POST /functions/v1/trattativa
-//   { azione: 'apri', negozio, linea?, valoreAtteso?, fase?, scadenza?, nextAction?,
-//     crea?, contattoEmail? }
+//   { azione: 'apri', negozio, negozioId?, linea?, valoreAtteso?, fase?, scadenza?,
+//     nextAction?, oggetto?, crea?, contattoEmail? }
 //   → 200 { ok, id, place: { id, nome }, link }
 //   → 404 { error, candidati: [{ id, nome, zona }], puoiCreare?: true }
 //
@@ -93,6 +93,15 @@ Deno.serve(async (req) => {
     const negozio = typeof body.negozio === 'string' ? body.negozio.trim() : '';
     if (!negozio) return json({ error: 'Manca il negozio della trattativa (campo `negozio`).' }, 400);
 
+    // ⚠️⚠️ L'IDENTITÀ del negozio, quando il chiamante l'ha già scelta fra i
+    // candidati che gli abbiamo dato NOI. Il nome non basta: «HAVI» sono DUE
+    // posti (Downers Grove e Arluno) con lo **stesso** `nome` e zona diversa,
+    // quindi il match esatto normalizzato ne trovava due e rispondeva di nuovo
+    // «più negozi corrispondono» — chi sceglieva dal dialogo di AI Mail si
+    // sentiva ripetere lo stesso errore all'infinito (26/08/2026). Con l'id
+    // non si cerca: si prende.
+    const negozioId = typeof body.negozioId === 'string' && body.negozioId.trim() ? body.negozioId.trim() : '';
+
     // service_role: server-to-server, la RLS è già stata superata dalla chiave.
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
@@ -109,6 +118,19 @@ Deno.serve(async (req) => {
     const target = normNome(negozio);
     const esatti = lista.filter((p: any) => normNome(p.nome) === target);
     let scelto = esatti.length === 1 ? esatti[0] : lista.length === 1 ? lista[0] : null;
+
+    // L'id scelto vince su qualunque cosa abbia trovato la ricerca per nome.
+    // (La ricerca gira lo stesso: una query in più, ma il codice resta uno
+    // solo e la lista serve ancora al 404.)
+    if (negozioId) {
+      const { data: perId } = await admin
+        .from('places')
+        .select('id, nome, zona, stato')
+        .eq('id', negozioId)
+        .maybeSingle();
+      if (!perId) return json({ error: 'Il negozio scelto non è più nel CRM commerciale.' }, 404);
+      scelto = perId as any;
+    }
 
     // Il chiamante ha chiesto ESPLICITAMENTE di creare il prospect se manca
     // (es. AI Mail: chi ci chiede un preventivo da fuori non è ancora nel CRM).

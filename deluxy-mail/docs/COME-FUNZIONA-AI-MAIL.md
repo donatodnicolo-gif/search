@@ -460,6 +460,23 @@ centimetri da un totale già estratto nella stessa schermata. La **fase** è
 una tendina con gli stati veri di Scout (Primo contatto · In trattativa · Preventivo
 inviato · Chiusa vinta · Chiusa persa), e l'AI la propone leggendo lo scambio.
 
+**Quando i negozi che corrispondono sono più di uno.** Commerciale risponde con l'elenco
+dei candidati e il dialogo li mostra come bottoni, con la **zona** accanto al nome
+(«HAVI — DOWNERS GROVE», «HAVI — Arluno»): serve perché due posti possono chiamarsi
+identici e distinguersi solo per dove sono. Premendone uno, la trattativa si apre **su
+quel posto** — viaggia il suo identificativo, non il nome. ⚠️ Fino al 26/08/2026 tornava
+indietro il nome, e siccome i due «HAVI» si chiamano davvero allo stesso modo, la scelta
+non risolveva niente: si rivedeva lo stesso errore a ogni clic.
+
+**L'evento e il follow-up.** La tabella ha **Oggetto** (per cosa è la trattativa) e **Data
+dell'evento**, che l'AI legge dalla mail — se il giorno è scritto senza anno («3
+settembre»), l'anno lo prende dalla data della mail. In Scout la trattativa non ha un
+campo suo per il giorno del servizio, quindi quella data parte **dentro l'oggetto**
+(«Catering per la visita della proprietà — evento del 03/09/2026»): la si legge lì. Il
+**Follow-up**, se la mail non fissa un termine, viene proposto a **tre giorni prima
+dell'evento** — è un calcolo su una data scritta, non un'invenzione, e l'aiuto del campo
+dice di controllarlo.
+
 **E se chi scrive nel CRM non c'è proprio?** Quando Commerciale non trova **nessun**
 candidato — una persona nuova che ci chiede un preventivo da un indirizzo privato — il
 dialogo offre **«＋ Crea "…" nel CRM e apri la trattativa»**: nasce il prospect in

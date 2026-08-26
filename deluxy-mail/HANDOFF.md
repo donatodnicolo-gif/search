@@ -23,6 +23,45 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (sera 6) — il nome non è un'identità: «HAVI» sono due, e la scelta non arrivava
+
+Provato a schermo dall'utente subito dopo il deploy della sera 4, con tre segnalazioni.
+
+1. 🔴 **«Ho scelto HAVI Arluno e mi ripete l'errore».** Il 404 di Commerciale porta i
+   candidati e AI Mail li fa scegliere; poi **rimandava il NOME**, e un commento nel
+   codice diceva perfino «sul nome esatto smette di essere ambigua». **Falso**: in Scout
+   `HAVI — DOWNERS GROVE` e `HAVI — Arluno` hanno lo **stesso `nome`** («HAVI») e
+   differiscono per `zona`. La Edge cerca per nome, il match esatto normalizzato ne
+   trovava **due**, e rispondeva di nuovo «più negozi corrispondono a «HAVI»» — un ciclo
+   chiuso: qualunque cosa scegliessi, stessa risposta. È
+   [[trappola-numero-non-e-identita]] vestita da nome.
+   **Correzione, nelle due app**: la Edge `trattativa` accetta **`negozioId`** e, se c'è,
+   **prende quel posto per id senza cercare**; AI Mail rimanda l'**id** del candidato
+   (`campoScelta: 'negozioId'`) tenendo l'etichetta `nome — zona` per l'occhio. ⚠️ Se
+   anche un solo candidato arrivasse senza id (Edge vecchia) si torna a scegliere per
+   nome: peggio del nuovo, ma non peggio di prima. **Edge ripubblicata** su
+   `fdsziebgkljfsugqqbqd`.
+2. **Mancava la DATA DELL'EVENTO.** Ora c'è, come campo data, più un campo **Oggetto**.
+   ⚠️ In Scout `deals` **non ha una colonna per il giorno del servizio** (ha `scadenza`,
+   `riprendere_il`, `chiusa_il`): la data parte **dentro l'oggetto**
+   («Catering per la visita della proprietà — evento del 03/09/2026»), che è un campo
+   vero e si legge nella trattativa. Mostrare una data e non mandarla da nessuna parte
+   sarebbe [[trappola-stato-solo-nel-popup]]. Se un giorno serve filtrarci sopra, la casa
+   giusta è una colonna `data_evento` in Scout, non una copia qui.
+3. **Il FOLLOW-UP si propone da solo**: se la mail non scrive un termine, `normalizza`
+   mette **tre giorni prima dell'evento** (aritmetica su un fatto scritto, come la stima
+   del valore atteso), e l'aiuto del campo dice che è una proposta da controllare. Il
+   modello ora ha l'ordine chiaro: la scadenza la scrive **solo** se è scritta nella
+   mail; l'anno di una data senza anno («3 settembre») lo prende dalla data della mail.
+
+Verifica: `tsc` e build puliti; l'aritmetica provata (evento 2026-09-03 → follow-up
+2026-08-31, oggetto «… — evento del 03/09/2026»); la Edge risponde dopo il deploy.
+⚠️ **NON provato end-to-end**: il giro completo «scelgo il candidato → la trattativa si
+apre sul posto giusto» richiede la chiave di Commerciale **decifrata dall'app** (in
+`Impostazione` sta cifrata con `APP_SECRET`), quindi si vede solo dalla schermata vera.
+È la prima cosa da riprovare: scegli «HAVI — Arluno» e guarda se apre.
+
+---
 ### 26/08 (sera 5) — la revisione ostile del lotto «sera 4»: un backslash mangiato, e cinque righe di questo documento false
 
 Un agente-revisore mandato a **smentirmi** (lo chiede l'utente dopo ogni giornata piena:
