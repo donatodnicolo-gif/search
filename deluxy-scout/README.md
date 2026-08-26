@@ -251,6 +251,62 @@ lì l'elenco resta vuoto e dichiarato incompleto. Si risolve con:
 supabase functions deploy anagrafiche
 ```
 
+## Richieste Web: qualificare crea anche l'anagrafica (26/08/2026)
+
+Qualificare una richiesta (`/lead` → **Qualifica** → «A quale negozio
+appartiene?») fa tre cose, non più una:
+
+1. apre la **trattativa** sul negozio scelto, canale `web` (come prima);
+2. salva in rubrica **chi ci ha scritto**, se la richiesta porta un recapito
+   (come prima);
+3. **mette il negozio nel registro Anagrafiche, se non c'è già** — col
+   referente della richiesta.
+
+Perché: una richiesta qualificata è un'azienda con cui stiamo trattando, e fino
+a ieri restava solo dentro Scout. Il registro — che è la casa delle anagrafiche
+B2B — non ne sapeva niente. Misurato il 26/08/2026: **1.807 negozi in Scout,
+1.051 agganciati al registro** (756 sconosciuti di là), e **zero** richieste mai
+qualificate: questa strada non era mai passata di lì.
+
+**«Se non è già presente»** è deciso in tre passi (`assicuraNegozioNelRegistro`,
+`lib/db.ts`):
+
+| passo | condizione | cosa succede |
+|---|---|---|
+| 1 | il negozio ha già `anagrafiche_id` | c'è: **non si scrive niente** |
+| 2 | il registro ha un'anagrafica con lo stesso nome e città compatibile | c'era già: la si aggancia e le si porta il referente |
+| 3 | nessuna delle due | si crea, e l'id che torna aggancia il negozio |
+
+⚠️ Il passo 2 non è pignoleria. L'upsert del registro aggancia per riferimento
+esterno, P.IVA o **nome + città**; quando la città che gli mandiamo è vuota
+cerca fra le anagrafiche *senza* città — e in Scout la zona è vuota su 979
+negozi su 1.807. Senza quel controllo, qualificare una richiesta su uno di
+quelli avrebbe creato una **seconda scheda** accanto a quella giusta. Nel
+registro un doppione non è un fastidio: è la fonte di verità che si sdoppia.
+
+⚠️ La città non si passa come filtro alla ricerca del registro: di là il filtro
+`citta` è un confronto esatto, e Scout scrive «MILANO» dove il registro ha
+«Milano». Si filtra nell'app, normalizzando.
+
+⚠️ **L'esito si legge a schermo**, sempre — anche quando va male. La finestra di
+conferma dice quale delle tre strade è stata presa, e se il registro non ha
+preso la scrittura lo dichiara («il negozio resta solo in Scout») col motivo.
+La trattativa si apre comunque: è il pezzo che conta, e un registro irraggiungibile
+non deve far perdere il lavoro.
+
+⚠️ La chiave che Scout ha in cassaforte è `deluxy-scout` (`scrittura: true`):
+crea e aggiorna i partner, ma **non** ha lo scope `scritturaPartner`, quindi
+`stato` e `interessi` che mandiamo restano *proposte in revisione* nel registro.
+L'anagrafica nuova nasce quindi come **prospect senza interessi** — che per una
+richiesta web è giusto. Per farle passare servirebbe la chiave
+`deluxy-scout-partner` (esiste di là, non è quella in uso qui).
+
+⚠️ Serve la Edge Function `anagrafiche` **rideployata**: è lei che ora inoltra i
+`contatti` e riporta indietro l'esito (`creato`/`merged`) e l'`id`. Con la
+versione vecchia la scrittura passa lo stesso, ma l'app non può dire quale delle
+due è stata e non aggancia `anagrafiche_id` — e lo dichiara, invece di
+inventarselo.
+
 ## Regole di prodotto (invarianti)
 
 1. La mappa mostra **tutte** le attività; i filtri sono opzionali e servono al giro.

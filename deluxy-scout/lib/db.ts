@@ -4,7 +4,7 @@ import type { AffiliazioneRow, Contact, Deal, EsitoVisita, FonteLead, Lead, Line
 import { LINEE_ATTIVE, canonizzaLinee, statoDaEsito, statoRegistroDaAffiliazione } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
-import { notificaArchiviazioneReferente, sincronizzaNegozioRegistro } from '@/lib/anagrafiche';
+import { notificaArchiviazioneReferente, sincronizzaNegozioRegistro, trovaAnagraficaGiaPresente, type EsitoRegistro } from '@/lib/anagrafiche';
 import { GIORNI_FOLLOWUP_DEAL, GIORNI_FOLLOWUP_LEAD, traGiorni } from '@/lib/cadenze';
 
 /** Contatto arricchito con nome/indirizzo/linea del negozio (per la Rubrica globale). */
@@ -255,22 +255,35 @@ export async function unisciPlaces(da: string, verso: string): Promise<void> {
  * e cambi di stato del negozio. Inerte finché Anagrafiche non abilita la
  * scrittura partner per Scout.
  */
-export async function sincronizzaPlaceRegistro(placeId: string): Promise<void> {
+export async function sincronizzaPlaceRegistro(
+  placeId: string,
+  opzioni?: {
+    /** Referenti da portare nel registro insieme al negozio (fusi di là). */
+    contatti?: { nome?: string | null; email?: string | null; telefono?: string | null; ruolo?: string | null }[];
+    /**
+     * Città da usare al posto della zona di Scout, quando si sa già a quale
+     * scheda del registro si sta scrivendo: il suo upsert aggancia per
+     * *nome + città*, e mandargli la città che ha LUI è il modo di finire su
+     * quella scheda invece di crearne una seconda.
+     */
+    citta?: string | null;
+  },
+): Promise<EsitoRegistro> {
   try {
     const { data: p } = await supabase
       .from('places')
-      .select('nome, zona, indirizzo, categoria, stato, stato_affiliazione, anagrafiche_account, linea_ipotizzata, linee_ipotizzate')
+      .select('nome, zona, indirizzo, categoria, stato, stato_affiliazione, anagrafiche_account, linea_ipotizzata, linee_ipotizzate, anagrafiche_id')
       .eq('id', placeId)
       .single();
-    if (!p) return;
+    if (!p) return { ok: false, reason: 'negozio_non_trovato' };
     // Canonizzate PRIMA di partire: il registro accetta solo le chiavi del suo
     // catalogo e scarta in silenzio i nomi fuori lista — «Regali aziendali»
     // sarebbe arrivato e sparito senza che nessuno se ne accorgesse.
     const linee = canonizzaLinee(p.linee_ipotizzate?.length ? p.linee_ipotizzate : p.linea_ipotizzata ? [p.linea_ipotizzata] : []);
-    await sincronizzaNegozioRegistro({
+    const esito = await sincronizzaNegozioRegistro({
       placeId,
       nome: p.nome,
-      citta: p.zona ?? null,
+      citta: opzioni?.citta !== undefined ? opzioni.citta : p.zona ?? null,
       indirizzo: p.indirizzo ?? null,
       categoria: p.categoria ?? null,
       stato: p.stato ?? null,
@@ -281,10 +294,71 @@ export async function sincronizzaPlaceRegistro(placeId: string): Promise<void> {
       // Account = venditore che segue il cliente (aggiornato anche su Anagrafiche).
       account: p.anagrafiche_account ?? null,
       linee,
+      contatti: opzioni?.contatti,
     });
+    // L'AGGANCIO, appena il registro ci dice il suo id. Senza questa riga il
+    // negozio finiva nel registro ma in Scout restava «non schedato» fino
+    // all'import della notte: le schermate che guardano `anagrafiche_id`
+    // (Copertura, «nel registro» sulla trattativa) dicevano di no su
+    // un'anagrafica che avevamo appena creato noi.
+    //
+    // ⚠️ Solo se il posto non ne ha già uno, e senza far male se l'UPDATE non
+    // passa: `anagrafiche_id` ha un indice UNICO, quindi se il registro ha
+    // fuso la nostra scrittura in una scheda già agganciata a un ALTRO
+    // negozio di Scout la scrittura viene rifiutata (23505). Non è un guasto:
+    // è un doppione locale da unire, e si dice.
+    if (esito.ok && esito.id && !p.anagrafiche_id) {
+      const { error } = await supabase.from('places').update({ anagrafiche_id: esito.id }).eq('id', placeId);
+      if (error) {
+        return { ...esito, reason: error.code === '23505' ? 'gia_agganciato_ad_altro_negozio' : `aggancio_${error.code ?? 'fallito'}` };
+      }
+    }
+    return esito;
   } catch {
     /* best-effort: non deve mai far fallire l'azione dell'utente */
+    return { ok: false, reason: 'non_raggiungibile' };
   }
+}
+
+/**
+ * **Il negozio dev'essere nel registro Anagrafiche: se non c'è, si crea.**
+ *
+ * Tre strade, in quest'ordine — la prima che risponde vince:
+ *  1. il negozio ha già `anagrafiche_id` → **c'è**, non si scrive niente;
+ *  2. il registro ha un'anagrafica con lo stesso nome (e città compatibile) →
+ *     **c'era già**: la si aggancia qui e le si porta il referente, mandando la
+ *     città che ha LEI perché l'upsert finisca su quella scheda;
+ *  3. nessuno dei due → si crea, e l'id che torna aggancia il negozio.
+ *
+ * ⚠️ Il passo 2 non è pignoleria: la zona in Scout è vuota su più della metà
+ * dei negozi, e senza quel controllo il registro — che quando la città manca
+ * cerca fra le anagrafiche *senza* città — avrebbe creato una seconda scheda
+ * accanto a quella giusta. Nel registro un doppione non è un fastidio: è la
+ * fonte di verità delle anagrafiche B2B che si sdoppia.
+ */
+export async function assicuraNegozioNelRegistro(
+  placeId: string,
+  contatti?: { nome?: string | null; email?: string | null; telefono?: string | null; ruolo?: string | null }[],
+): Promise<EsitoRegistro> {
+  const { data: p } = await supabase
+    .from('places')
+    .select('nome, zona, anagrafiche_id')
+    .eq('id', placeId)
+    .maybeSingle();
+  if (!p) return { ok: false, reason: 'negozio_non_trovato' };
+  // 1. Già schedato: c'è, e lo sappiamo senza chiedere niente a nessuno.
+  if (p.anagrafiche_id) return { ok: true, esito: 'gia_presente', id: p.anagrafiche_id, nome: p.nome };
+  // 2. C'è ma non lo sapevamo (il legame non era mai stato scritto).
+  let citta: string | null | undefined;
+  try {
+    const { partner } = await trovaAnagraficaGiaPresente(p.nome, p.zona ?? null);
+    if (partner) citta = partner.citta;
+  } catch {
+    /* registro non raggiungibile in lettura: si prova comunque a scrivere */
+  }
+  // 3. Si scrive: crea o fonde, lo decide il registro (è lui che possiede
+  //    l'identità delle anagrafiche).
+  return sincronizzaPlaceRegistro(placeId, { contatti, ...(citta !== undefined ? { citta } : {}) });
 }
 
 /** Crea un nuovo target sul territorio (scoperto in mobilità). */
@@ -1251,8 +1325,30 @@ export async function scartaLead(id: string): Promise<void> {
  * `conContatto`: la richiesta porta già nome e indirizzo di una persona vera —
  * è arrivata lei a scriverci. Buttarli via e ridigitarli dopo, nella scheda del
  * negozio, è lavoro doppio su un dato che avevamo in mano.
+ *
+ * ⭐ 26/08/2026 — E IL NEGOZIO ENTRA NEL REGISTRO ANAGRAFICHE, se non c'è già.
+ * Una richiesta qualificata è un'azienda con cui stiamo trattando: fino a ieri
+ * restava solo dentro Scout, e in Anagrafiche — che è la casa delle anagrafiche
+ * B2B — non ne sapeva niente nessuno. Misurato quel giorno: **1.807 negozi in
+ * Scout, 1.051 agganciati al registro**, cioè 756 che il registro non conosce;
+ * ed erano *zero* i lead mai qualificati, quindi questa strada non era mai
+ * passata di lì.
+ *
+ * «Se non è già presente» lo decide il registro, non noi: `POST /api/v1/partners`
+ * è un upsert che aggancia per riferimento esterno (`scout` + place_id), P.IVA,
+ * o nome+città, e risponde `creato` oppure `merged`. Quindi rifare la stessa
+ * qualifica non crea un doppione.
+ *
+ * ⚠️ Best-effort: se il registro non risponde, la trattativa si apre lo stesso —
+ * ma l'esito torna al chiamante e **va detto a schermo**, perché «il negozio è
+ * anche in Anagrafiche» e «è rimasto solo in Scout» sono due mondi diversi per
+ * chi domani lo cerca di là.
  */
-export async function qualificaLead(lead: Lead, placeId: string, conContatto = false): Promise<Deal> {
+export async function qualificaLead(
+  lead: Lead,
+  placeId: string,
+  conContatto = false,
+): Promise<{ deal: Deal; registro: EsitoRegistro }> {
   const { data: u } = await supabase.auth.getUser();
   if (conContatto && lead.contatto) {
     // Best-effort: se il contatto non si scrive, la trattativa si crea lo
@@ -1282,7 +1378,22 @@ export async function qualificaLead(lead: Lead, placeId: string, conContatto = f
     .update({ stato: 'qualificato', deal_id: deal.id, place_id: placeId, owner: u.user?.id ?? null, lavorato_il: new Date().toISOString() })
     .eq('id', lead.id);
   if (error) throw error;
-  return deal;
+  // Il negozio va nel registro Anagrafiche, col referente che ci ha scritto.
+  // Non `.catch(() => {})` come le altre chiamate: qui l'esito lo mostriamo.
+  const registro = await assicuraNegozioNelRegistro(
+    placeId,
+    lead.contatto
+      ? [
+          {
+            nome: lead.nome,
+            email: lead.contatto.includes('@') ? lead.contatto : null,
+            telefono: lead.contatto.includes('@') ? null : lead.contatto,
+            ruolo: null,
+          },
+        ]
+      : undefined,
+  );
+  return { deal, registro };
 }
 
 /**

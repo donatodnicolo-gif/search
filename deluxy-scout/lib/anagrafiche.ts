@@ -117,12 +117,42 @@ export async function sincronizzaNegozioRegistro(dati: {
   statoRegistro?: string | null; // StatoAffiliazione (8 stati) — se presente ha priorità
   account?: string | null; // venditore che segue il cliente (campo account del registro)
   linee: string[];
-}): Promise<{ ok: boolean; reason?: string }> {
+  /** Referenti da portare nel registro (fusi di là per email/telefono/nome). */
+  contatti?: { nome?: string | null; email?: string | null; telefono?: string | null; ruolo?: string | null }[];
+}): Promise<EsitoRegistro> {
   try {
-    return await chiama<{ ok: boolean; reason?: string }>({ action: 'upsert_partner', ...dati });
+    return await chiama<EsitoRegistro>({ action: 'upsert_partner', ...dati });
   } catch {
     return { ok: false, reason: 'non_raggiungibile' };
   }
+}
+
+/**
+ * Cosa ha fatto il registro con la nostra scrittura.
+ *
+ * `esito` è la risposta di Anagrafiche: `creato` = l'anagrafica **non c'era e
+ * l'abbiamo creata adesso**; `merged` = c'era già (agganciata per riferimento
+ * esterno, P.IVA o nome+città) e le nostre informazioni ci sono state fuse
+ * dentro. `id` è l'id nel registro: serve a Scout per agganciare il negozio
+ * alla scheda subito, senza aspettare l'import della notte.
+ *
+ * ⚠️ `ok:false` non è un errore da mostrare come guasto dell'utente: la
+ * scrittura verso il registro è best-effort e non deve far perdere il lavoro
+ * fatto in Scout. Ma **va detto**, perché «non l'ha scritto» e «l'ha scritto»
+ * sono due mondi diversi per chi domani cerca quel negozio in Anagrafiche.
+ */
+export interface EsitoRegistro {
+  ok: boolean;
+  reason?: string;
+  /**
+   * `creato` / `merged` li dice il registro. `gia_presente` lo dice Scout: il
+   * negozio era già agganciato a una scheda, quindi non c'era niente da
+   * scrivere e **non si è scritto niente** — dirlo `merged` sarebbe raccontare
+   * una fusione che non è avvenuta.
+   */
+  esito?: 'creato' | 'merged' | 'gia_presente' | null;
+  id?: string | null;
+  nome?: string | null;
 }
 
 /**
@@ -334,4 +364,50 @@ export async function cercaAnagrafica(
   const target = normalizza(nome);
   const esatto = dati.find((p) => normalizza(p.nome) === target);
   return { partner: esatto ?? dati[0], esatto: Boolean(esatto) };
+}
+
+/**
+ * «Questo negozio è GIÀ nel registro?» — la domanda che si fa PRIMA di crearlo.
+ *
+ * Non è `cercaAnagrafica`: quella serve a proporre una corrispondenza a un
+ * essere umano, e quando non trova l'esatto ripiega sul primo dell'elenco. Qui
+ * si sta per SCRIVERE, e la regola larga di una ricerca, usata per affermare
+ * un'identità, scrive il falso. Perciò: solo nome uguale (normalizzato) e
+ * città compatibile, altrimenti `null` — e chi chiama crea.
+ *
+ * ⚠️ **Perché non basta lasciar decidere il registro.** Il suo upsert aggancia
+ * per riferimento esterno, P.IVA, o *nome + città*; e quando la città che gli
+ * mandiamo è vuota cerca fra le anagrafiche **senza città**. In Scout la zona è
+ * vuota su 979 negozi su 1.807 (misurato il 26/08/2026): senza questo giro,
+ * qualificare una richiesta su uno di quelli avrebbe creato una **seconda**
+ * scheda accanto a quella che c'era già.
+ *
+ * ⚠️ La città NON si passa come filtro alla ricerca: di là è un confronto
+ * esatto (`where.citta = v`), e in Scout le zone sono scritte «MILANO» dove il
+ * registro ha «Milano». Si filtra qui, normalizzando.
+ *
+ * ⚠️ Due negozi con lo stesso nome e nessuna città per distinguerli (capita:
+ * «HAVI» sono due) non si decidono: torna `null` con `ambiguo: true`, e la
+ * scelta la fa il registro col suo upsert.
+ */
+export async function trovaAnagraficaGiaPresente(
+  nome: string,
+  citta: string | null,
+): Promise<{ partner: PartnerRegistro | null; ambiguo: boolean }> {
+  if (!nome.trim()) return { partner: null, ambiguo: false };
+  const risposta = await chiama<{ dati?: PartnerRegistro[] }>({ action: 'cerca', q: nome, perPage: 25 });
+  const target = normalizza(nome);
+  const omonimi = (risposta.dati ?? []).filter((p) => normalizza(p.nome) === target);
+  if (!omonimi.length) return { partner: null, ambiguo: false };
+  const c = normalizza(citta);
+  if (c) {
+    const stessaCitta = omonimi.filter((p) => normalizza(p.citta) === c);
+    if (stessaCitta.length === 1) return { partner: stessaCitta[0], ambiguo: false };
+    if (stessaCitta.length > 1) return { partner: null, ambiguo: true };
+    // Omonimi ma in un'altra città: non è lo stesso negozio.
+    return { partner: null, ambiguo: false };
+  }
+  // Senza città non si può distinguere: si accetta solo l'omonimo unico.
+  if (omonimi.length === 1) return { partner: omonimi[0], ambiguo: false };
+  return { partner: null, ambiguo: true };
 }

@@ -164,6 +164,22 @@ Deno.serve(async (req) => {
         }
         payload.interessi = [...chiavi];
       }
+      // I REFERENTI, quando il chiamante ne ha: il registro li fonde per
+      // email/telefono/nome (`mergeContatti`), quindi rimandare lo stesso
+      // referente non ne crea un secondo. Serve alla qualifica di una richiesta
+      // web: chi ci ha scritto è una persona vera con nome e recapito, e
+      // creare l'azienda senza di lui vorrebbe dire mettere nel registro una
+      // scheda muta — il nome di chi chiama resterebbe solo dentro Scout.
+      if (Array.isArray(body.contatti) && body.contatti.length) {
+        payload.contatti = body.contatti
+          .map((c: any) => ({
+            nome: c?.nome ?? null,
+            email: c?.email ?? null,
+            telefono: c?.telefono ?? null,
+            ruolo: c?.ruolo ?? null,
+          }))
+          .filter((c: any) => c.nome || c.email || c.telefono);
+      }
       const res = await fetch(`${BASE}/api/v1/partners`, {
         method: 'POST',
         headers: { 'x-api-key': partnerKey, 'Content-Type': 'application/json' },
@@ -171,7 +187,25 @@ Deno.serve(async (req) => {
       });
       const txt = await res.text();
       if (!res.ok) return json({ ok: false, reason: `registro_${res.status}`, dettaglio: txt.slice(0, 200) });
-      return json({ ok: true });
+      // ⚠️ L'ESITO NON SI BUTTA VIA (26/08/2026). Fino a qui si rispondeva
+      // `{ok:true}` e basta: chi chiamava non sapeva se l'anagrafica era NATA
+      // adesso o esisteva già, e soprattutto **perdeva l'id** che il registro
+      // manda indietro — l'unico modo che ha Scout di agganciare il negozio
+      // alla scheda del registro senza aspettare l'import della notte.
+      //   esito: 'creato' (201) | 'merged' (200, c'era già)
+      const dati = (() => {
+        try {
+          return JSON.parse(txt);
+        } catch {
+          return null;
+        }
+      })();
+      return json({
+        ok: true,
+        esito: dati?.esito ?? null,
+        id: dati?.id ?? null,
+        nome: dati?.nome ?? null,
+      });
     }
 
     let path = '';

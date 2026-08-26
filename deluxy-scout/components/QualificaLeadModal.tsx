@@ -10,10 +10,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '@/lib/theme';
 import { Foglio } from '@/components/Foglio';
 import { cercaPlaces, qualificaLead, type PlaceLite } from '@/lib/db';
+import type { EsitoRegistro } from '@/lib/anagrafiche';
 import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import type { Lead } from '@/types';
 
-export function QualificaLeadModal({ lead, onClose, onFatto }: { lead: Lead; onClose: () => void; onFatto: () => void }) {
+export function QualificaLeadModal({
+  lead,
+  onClose,
+  onFatto,
+}: {
+  lead: Lead;
+  onClose: () => void;
+  // L'esito del registro Anagrafiche viaggia fino alla schermata: chi qualifica
+  // deve sapere se l'azienda è appena NATA di là, se c'era già, o se il
+  // registro non l'ha presa.
+  onFatto: (registro: EsitoRegistro) => void;
+}) {
   const info = analizzaMessaggioLead(lead.nome, lead.messaggio);
   // Chi ci ha scritto è una persona vera, con nome e recapito: se non lo si
   // salva ora, va ridigitato dopo nella scheda del negozio.
@@ -49,8 +61,8 @@ export function QualificaLeadModal({ lead, onClose, onFatto }: { lead: Lead; onC
     setSalvando(true);
     setErrore(null);
     try {
-      await qualificaLead(lead, p.id, conContatto);
-      onFatto();
+      const { registro } = await qualificaLead(lead, p.id, conContatto);
+      onFatto(registro);
     } catch (e: any) {
       setErrore(e?.message ?? 'Qualifica non riuscita');
       setSalvando(false);
@@ -62,7 +74,7 @@ export function QualificaLeadModal({ lead, onClose, onFatto }: { lead: Lead; onC
   return (
     <Foglio
       titolo="A quale negozio appartiene?"
-      sottotitolo="La trattativa nasce sul negozio che scegli, sul canale web."
+      sottotitolo="La trattativa nasce sul negozio che scegli, sul canale web. Il negozio entra anche nel registro Anagrafiche, se non c'è già."
       onClose={onClose}
     >
       {/* Il riepilogo di COSA si sta qualificando: persona, recapiti, richiesta. */}

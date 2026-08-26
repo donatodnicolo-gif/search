@@ -29,12 +29,45 @@ import { Foglio } from '@/components/Foglio';
 import { LeadCard } from '@/components/LeadCard';
 import { QualificaLeadModal } from '@/components/QualificaLeadModal';
 import { creaLead, eliminaLead, fetchLeads, scartaLead } from '@/lib/db';
+import type { EsitoRegistro } from '@/lib/anagrafiche';
 import { urlMessaggioAiMail } from '@/lib/aimail';
 import { fetchCorpoMail, importaRichiesteDaMail } from '@/lib/mail';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
 import type { FonteLead, Lead } from '@/types';
+
+/**
+ * Cosa è successo nel registro Anagrafiche, detto in italiano.
+ *
+ * ⚠️ Si dice SEMPRE, anche quando è andata male: la trattativa si apre lo
+ * stesso (è il pezzo che conta), ma se il negozio non è entrato nel registro
+ * chi lo cercherà di là non lo troverà — e senza questa riga non lo saprebbe
+ * nessuno, perché l'esito viveva solo dentro la risposta della Edge Function.
+ */
+function frasePerIlRegistro(r: EsitoRegistro): string {
+  if (!r.ok) {
+    const perche =
+      r.reason === 'non_configurato'
+        ? 'manca la chiave di scrittura (Profilo → Impostazioni → App collegate → Anagrafiche)'
+        : r.reason === 'non_raggiungibile'
+          ? 'il registro non ha risposto'
+          : /^registro_40[13]$/.test(r.reason ?? '')
+            ? 'il registro ha rifiutato la chiave di Scout'
+            : (r.reason ?? 'motivo sconosciuto');
+    return `⚠️ Anagrafiche NON aggiornato (${perche}): il negozio resta solo in Scout.`;
+  }
+  if (r.reason === 'gia_agganciato_ad_altro_negozio') {
+    return 'Anagrafiche: scritto nel registro, ma quella scheda è già agganciata a un ALTRO negozio di Scout — è un doppione da unire (Da completare → Duplicati).';
+  }
+  const chi = r.nome ? ` («${r.nome}»)` : '';
+  if (r.esito === 'creato') return `Anagrafiche: il negozio non c'era, l'abbiamo creato adesso nel registro${chi}.`;
+  if (r.esito === 'merged') return `Anagrafiche: il negozio c'era già nel registro${chi}; ci abbiamo aggiunto quello che sapevamo.`;
+  if (r.esito === 'gia_presente') return `Anagrafiche: il negozio era già nel registro${chi} — niente da creare.`;
+  // Edge Function `anagrafiche` più vecchia dell'esito (26/08/2026): la
+  // scrittura è passata, ma non sappiamo dire quale delle due è stata.
+  return 'Anagrafiche: scrittura accettata dal registro (non dice se il negozio è nato adesso o c’era già).';
+}
 
 const FONTI: { valore: FonteLead; label: string }[] = [
   { valore: 'sito', label: 'Sito' },
@@ -447,10 +480,13 @@ export default function LeadWeb() {
         <QualificaLeadModal
           lead={daQualificare}
           onClose={() => setDaQualificare(null)}
-          onFatto={() => {
+          onFatto={(registro) => {
             setDaQualificare(null);
             carica();
-            avvisa('Trattativa aperta', 'Richiesta qualificata: trova la trattativa (canale web) in Trattative.');
+            avvisa(
+              'Trattativa aperta',
+              `Richiesta qualificata: trova la trattativa (canale web) in Trattative.\n\n${frasePerIlRegistro(registro)}`,
+            );
           }}
         />
       ) : null}
