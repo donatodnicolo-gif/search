@@ -90,12 +90,23 @@ nella cornice **verde** col ✓.
 - **il marcatore «Da:»** che ripiega la citazione: su 3.195 tagli veri il falso positivo è
   **uno solo** (una notifica UPS), e il testo non è perso, è ripiegato. Irrigidirlo
   metterebbe a rischio 3.194 tagli giusti.
-- **il quarto negozio** `business.deluxy.it`: **non dimostrabile da qui** (la
-  configurazione sta in una cassaforte KV che non possiamo leggere). ⚠️ Ma un ostile ha
-  trovato, in `deluxy-search-supplier`, che un salvataggio qualsiasi delle Impostazioni
-  riscrive l'elenco dei negozi con i **tre** noti: se un quarto negozio è mai stato
-  collegato, quel codice lo cancella. **È un'altra app e un altro repo** (`search`, su
-  `main`): va guardato là.
+- **il quarto negozio** `business.deluxy.it`: **non dimostrabile da qui** (il collegamento
+  vero sta in una cassaforte KV che non possiamo leggere).
+  ⚠️⚠️ **Qui avevo segnalato una cosa FALSA, e la correggo.** Avevo riportato che in
+  `deluxy-search-supplier` un salvataggio delle Impostazioni riscrive l’elenco negozi coi
+  **tre** noti, cancellando il quarto. È falso: il codice VIVO (branch `main`, worktree
+  `C:/Users/nicol/app/.claude/worktrees/search-main`) ha `KNOWN_BRANDS` a **quattro** voci
+  e `SHOP_BRAND` con `90bfeb-f5.myshopify.com` → `business.deluxy.it`, dal commit
+  `5ebbde85` del 26/08. L’agente aveva letto `C:/Users/nicol/app/deluxy-search-supplier`,
+  che è **un’altra copia stantia** (branch `piattaforma-ricerca-insensitive`), e io ho
+  rilanciato la sua accusa senza controllare dove fosse il codice vivo.
+  ⭐ Resta però una **trappola vera**, ed è il punto aperto: `mergeStores`
+  (`api/config.js`) fa `incoming.map(...)`, cioè **si fida dell’elenco che manda il
+  client**, e il client lo costruisce da `KNOWN_BRANDS`. Finché le due liste combaciano
+  va bene; il giorno in cui si collega un negozio via OAuth **senza aggiungerlo a
+  `KNOWN_BRANDS`**, il primo salvataggio delle Impostazioni lo cancella, token compreso.
+  Stessa famiglia dell’enum a tre voci: un elenco chiuso che non sa dire «e gli altri».
+  Vive sul repo `search`, branch `main`.
 
 ⚠️ **Un difetto più profondo, lasciato aperto perché la correzione butta fuori tutti**: il
 cookie di sessione è `userId + HMAC(userId)` — **niente scadenza, niente versione**.
