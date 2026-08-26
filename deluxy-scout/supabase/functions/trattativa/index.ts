@@ -114,6 +114,10 @@ Deno.serve(async (req) => {
     // (es. AI Mail: chi ci chiede un preventivo da fuori non è ancora nel CRM).
     const crea = body.crea === true || body.crea === 'si';
 
+    const contattoEmail = typeof body.contattoEmail === 'string' && body.contattoEmail.includes('@')
+      ? body.contattoEmail.trim().toLowerCase()
+      : null;
+
     if (!scelto && crea && lista.length === 0) {
       // Come l'auto-qualifica dei lead: senza indirizzo non c'è niente da
       // geocodificare, entra a 0,0 — meglio un prospect senza posizione che
@@ -124,25 +128,6 @@ Deno.serve(async (req) => {
         .select('id, nome, zona, stato')
         .single();
       if (eNuovo || !nuovo) return json({ error: eNuovo?.message ?? 'Prospect non creato.' }, 500);
-      // Il contatto in rubrica, se il chiamante sa chi è: aggancia le prossime
-      // richieste della stessa persona invece di far nascere un doppione.
-      const contattoEmail = typeof body.contattoEmail === 'string' && body.contattoEmail.includes('@')
-        ? body.contattoEmail.trim().toLowerCase()
-        : null;
-      if (contattoEmail) {
-        await admin
-          .from('contacts')
-          .insert({
-            place_id: (nuovo as any).id,
-            nome: negozio,
-            ruolo: null,
-            email: contattoEmail,
-            telefono: null,
-            is_decisore: false,
-            hubspot_contact_id: null,
-          })
-          .then(() => {}, () => {});
-      }
       scelto = nuovo as any;
     }
 
@@ -161,6 +146,46 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 1-bis. Il CONTATTO si aggancia SEMPRE al negozio — esistente o appena
+    //    creato: chi scrive da quell'email deve trovarsi in rubrica, così la
+    //    sua prossima richiesta si aggancia qui invece di generare un doppione
+    //    (richiesta utente 26/08/2026: prima il contatto nasceva solo col
+    //    prospect nuovo). Se c'è già un contatto con quell'email sul posto,
+    //    non si duplica. Best-effort: un contatto mancato non ferma la
+    //    trattativa.
+    let notaContatto = '';
+    if (contattoEmail) {
+      try {
+        const { data: esistenti } = await admin
+          .from('contacts')
+          .select('id, email')
+          .eq('place_id', scelto.id)
+          .limit(50);
+        const gia = (esistenti ?? []).some(
+          (c: any) => String(c.email ?? '').toLowerCase() === contattoEmail,
+        );
+        if (!gia) {
+          const contattoNome = typeof body.contattoNome === 'string' && body.contattoNome.trim()
+            ? body.contattoNome.trim()
+            : contattoEmail.split('@')[0];
+          const { error: eC } = await admin.from('contacts').insert({
+            place_id: scelto.id,
+            nome: contattoNome,
+            ruolo: null,
+            email: contattoEmail,
+            telefono: null,
+            is_decisore: false,
+            hubspot_contact_id: null,
+          });
+          if (!eC) notaContatto = ` Contatto ${contattoEmail} agganciato al negozio.`;
+        } else {
+          notaContatto = ` Contatto ${contattoEmail} già in rubrica sul negozio.`;
+        }
+      } catch (_) {
+        /* la trattativa vale più del contatto */
+      }
+    }
+
     // 2. Se sul negozio c'è già una trattativa aperta, non se ne crea un'altra:
     //    due trattative gemelle sullo stesso negozio sono un fastidio, non un dato.
     const { data: aperte } = await admin
@@ -175,7 +200,7 @@ Deno.serve(async (req) => {
         gia_aperta: true,
         id: aperte[0].id,
         place: { id: scelto.id, nome: scelto.nome },
-        messaggio: `«${scelto.nome}» ha già una trattativa aperta.`,
+        messaggio: `«${scelto.nome}» ha già una trattativa aperta.${notaContatto}`,
         link: `${APP_URL}/(app)/attivita/${scelto.id}`,
       });
     }
@@ -219,7 +244,7 @@ Deno.serve(async (req) => {
         ok: true,
         id: creata.id,
         place: { id: scelto.id, nome: scelto.nome },
-        messaggio: `Trattativa aperta per «${scelto.nome}».`,
+        messaggio: `Trattativa aperta per «${scelto.nome}».${notaContatto}`,
         link: `${APP_URL}/(app)/attivita/${scelto.id}`,
       },
       201,
