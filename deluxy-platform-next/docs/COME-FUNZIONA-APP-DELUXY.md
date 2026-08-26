@@ -328,7 +328,7 @@ E il **guadagno** è la differenza col prezzo pubblico, **al netto IVA**: #63013
 | Guadagno % | Guadagno lordo / Valore vendite |
 | Fee % contratto | `Partner.commissionPercent` — se diverge, la cella si accende |
 | Commissione incassi | Valore vendite × 3% |
-| Costo consegna | paga del valet + plus/minus |
+| Costo consegna | paga del valet + **solo il PLUS** + la ritenuta d'acconto dei valet senza P.IVA. **[26/08]** Il **minus NON si sottrae**: è il contante che il valet ha trattenuto — un suo debito verso Deluxy — e incide su quanto gli paghiamo, non su quanto la consegna è costata |
 | Margine totale | Guadagno netto IVA − Costo consegna − Commissione incassi |
 
 ⚠️ **L'IVA non si sottrae due volte**: il guadagno netto l'ha già tolta, e la colonna IVA c'è per mostrarla.

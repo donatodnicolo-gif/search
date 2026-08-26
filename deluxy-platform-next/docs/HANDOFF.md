@@ -85,6 +85,54 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### ⭐⭐ 26/08/2026 (sera, 3) — Il MINUS è un debito del valet, e le 283 sono approvate
+
+Due decisioni dell'utente, eseguite. Commit `a6115e15`, deploy
+`delivery-p1bossy4s` Ready sull'alias.
+
+**① Il minus non tocca i margini** (l'utente: «il minus incide solo sul
+pagamento al valet, non sui valori dei margini»). Il legacy registrava il
+CONTANTE trattenuto dal valet come minus sulla paga: è un **debito del valet
+verso di noi**, non un minor costo della consegna.
+
+- Il pavimento a zero del 26/08 aveva fermato il danno grosso (il costo
+  negativo che GONFIAVA il margine) ma sbagliava lo stesso: azzerava il costo
+  **intero**. Misurato prima di toccare: **843 consegne vive con un minus**, di
+  cui **471 nell'ambito VENDITA** (l'unico che ha un margine). Costo di quelle
+  471: **1.659,38 € oggi → 4.622,64 € con la regola giusta**. Cioè i margini
+  spinti a Orders erano **gonfi di 2.963,26 €**.
+- Esempio: la **#26110** (Sergio De Rosa, MARYFLOR, ordine 6340475748682) —
+  paga 7,22 €, minus −700 €: risultava costata **0,00 €**, adesso 7,22 €.
+- Applicato in QUATTRO punti, o l'ingrediente pubblicato smette di ricomporre
+  il piatto: `FinanceService.computeRow`, `OrdersSyncService.spingiMargini`,
+  `scripts/spingi-economia-a-orders.mjs`, `scripts/spingi-margini-a-orders.mjs`.
+  Formula: `valetSalary + max(0, valetAdditionalPrice)` — **il PLUS resta**
+  (quello lo paghiamo davvero), il minus no.
+- ⚠️ **Negli stipendi il minus continua a valere** (è lì che deve incidere):
+  `salaries.module.ts` non è stato toccato.
+- 🔴 **La rispinta a Orders NON è ancora avvenuta**: il classificatore ha
+  bloccato `scripts/spingi-economia-a-orders.mjs` (fa il login admin). La fa il
+  **cron delle 02:30 UTC**, che gira `spingiMargini({applica:true, tutti:true})`
+  col codice nuovo già deployato. Da verificare domattina in
+  `AppSetting.marginiUltimaCorsa` — e la verifica vale solo perché il deploy è
+  ANTERIORE alla corsa ([[trappola-verifica-rimandata-al-cron]]).
+
+**② Le 283 consegne «ore approvate, stato no» sono passate ad `approved`**
+(l'utente: «segna come approvate di default»). Erano consegne con
+`approvedTimingStatus = 1` e stato fermo a `delivered_time_to_approve`: lo
+stipendio prende solo `delivered | approved | not_delivered`, quindi restavano
+fuori da ogni busta per **6.747,34 €** di paghe già scritte.
+
+- `api/scripts/approva-ore-gia-approvate.mjs` (prova a secco, backup in
+  `scripts/backup-283-approvate.json`, una riga di registro su ogni consegna).
+  Eseguito: **283 scritte, 0 rimaste con l'incoerenza**, le `approved` passano
+  da **550 a 833**. Nessuna era già pagata.
+- ⚠️ **Le 420 in attesa con l'orario NON approvato non sono state toccate**:
+  quelle aspettano davvero un via libera.
+- `approvedTimingStatus` **non è scritto da nessuna rotta dell'app nuova**
+  (verificato: zero occorrenze in `api/src`): è una colonna che arriva
+  dall'import, quindi l'incoerenza non si ricrea da sola.
+
 ### La commissione d'incasso nella Finanza è quella di ORDERS (26/08/2026, sera)
 
 La stima da tariffa dentro `margineFinale` valeva complessivamente **~30.314 €
