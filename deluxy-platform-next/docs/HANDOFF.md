@@ -85,6 +85,39 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### ⭐⭐ 26/08/2026 (sera, 6) — Il PLUS sopra i 5 € è un rimborso di acquisti, e Omini al 50%
+
+**① Regola dell'utente**: «il plus spesso sono rimborsi dati al valet perché ha
+comprato qualcosa, quindi vanno esclusi dal calcolo dei margini se sopra i 5 €».
+Applicata: **plus ≤ 5 € entra nel costo** (è maggiorazione di paga vera),
+**plus > 5 € NON entra** (restituisce al valet una spesa, non è il prezzo del
+viaggio). Il minus continua a non entrare mai.
+
+- ⭐ La regola vive in **UNA funzione sola**, `FinanceService.plusNelCosto`,
+  usata dalla Finanza e dalla spinta a Orders — e ricopiata identica nei due
+  script di spinta, col perché scritto accanto. Se le due divergono,
+  l'ingrediente pubblicato non ricompone più il margine.
+- Misurato nell'ambito VENDITA (10.910 consegne): costo consegna da
+  **103.092,92 € a 89.115,71 €** (**−13.977,21 €**), quindi altrettanto margine
+  in più che partirà verso Orders.
+- 🔴 **Da guardare**: **144 consegne passano a costo ZERO** (2.717,85 €) perché
+  avevano SOLO il plus, con paga base 0 — spesso trasferte lunghe: #36775
+  (46,54 km, plus 48,00), #35394 (53,32 km, plus 47,00), #36415 (44,16 km,
+  plus 44,00), #36405 (52,21 km, plus 40,00). Segnalate, NON corrette di mia
+  iniziativa: se anche quelle sono rimborsi la regola è giusta così, se invece
+  il plus lì è la paga della trasferta vanno trattate a parte.
+
+**② Stefano Omini portato al 50%** di rimborso (decisione dell'utente; la sua
+ricevuta firmata del 04/07/2025 diceva 20% — differenza dichiarata, non
+discussa). Effetto: ritenuta stimata sulle sue 715 consegne pagabili da
+**2.209,90 € a 1.104,95 €**; nell'ambito vendita da 153,28 a 76,64 €.
+Strumento riutilizzabile: `api/scripts/imposta-rimborso-valet.mjs
+--legacyId=<n> --percento=<0..100> [--applica]`, con prova a secco, effetto sui
+conti e backup del valore vecchio.
+
+Deploy `delivery-ib68zklsg` Ready sull'alias (typecheck pulito). La rispinta a
+Orders la fa il cron delle 02:30 UTC col codice nuovo.
+
 ### ⭐⭐⭐ 26/08/2026 (sera, 5) — LE RICEVUTE FIRMATE SI POSSONO LEGGERE, e dicono la verità
 
 Chiesto dall'utente («ricontrolla tutto il database per capire il vero valore
