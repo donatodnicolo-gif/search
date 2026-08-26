@@ -136,13 +136,75 @@ export function casoMarchio(
   return undefined
 }
 
+/**
+ * SI FINGE UNO DI NOI? Il nome mostrato è **esattamente** un indirizzo di un
+ * nostro dominio, ma la mail arriva da fuori: è la frode del capo (CEO
+ * fraud), e in casella è arrivata davvero — «nicolo.donato@deluxy.it» da
+ * `kei@kenic.co.jp`, oggetto «Commissioni» (4/08/2026).
+ *
+ * ⚠️⚠️ **La regola è STRETTA apposta, e la larghezza me l'hanno decisa i dati.**
+ * Cercando «il nome cita un nostro dominio» in produzione si trovano 14 mail:
+ *   - 2 sono questa truffa (nome = un indirizzo @deluxy.it, mittente giapponese);
+ *   - 11 sono il NOSTRO form («landing.deluxy.it» da info@commercialedeluxy.com);
+ *   - 1 è Asana che scrive PER CONTO di una collega («gaia.pati@deluxy.it
+ *     tramite Asana» da no-reply@asana.com).
+ * Le ultime dodici sono posta buona. Quindi: il nome dev'essere un indirizzo
+ * **e nient'altro** — niente spazi. «landing.deluxy.it» non ha la chiocciola,
+ * «… tramite Asana» ha degli spazi, e restano fuori tutte e due.
+ * ⚠️ Il prezzo di questa prudenza: «Nicolò Donato <indirizzo esterno>», cioè il
+ * solo NOME di una persona senza l'indirizzo, non viene riconosciuto. Per
+ * quello servirebbe l'elenco delle persone (Deluxy Personale), e un omonimo
+ * vero finirebbe in spam: meglio lasciarlo all'AI.
+ */
+export function casoFintoInterno(
+  mittente: string,
+  mittenteNome: string | null,
+  nostriDomini: string[]
+): { id: string; descrizione: string } | undefined {
+  const nome = (mittenteNome || '').trim()
+  if (!nome || nostriDomini.length === 0) return undefined
+  // Uno spazio = non è «solo un indirizzo»: è un nome che ne cita uno.
+  if (nome.includes(' ') || nome.includes('\t')) return undefined
+  const finto = nome.toLowerCase().split('"').join('').split("'").join('')
+  if (!finto.includes('@')) return undefined
+  const dominioFinto = finto.slice(finto.lastIndexOf('@') + 1)
+  const dominioVero = dominioDa(mittente)
+  const nostro = (d: string) => Boolean(d) && nostriDomini.some((x) => d === x || d.endsWith('.' + x))
+  if (!nostro(dominioFinto)) return undefined
+  // È davvero uno di noi: nessun trucco.
+  if (nostro(dominioVero)) return undefined
+  return {
+    id: `finto-interno:${dominioFinto}`,
+    descrizione: `si presenta come «${finto}», che è un indirizzo NOSTRO, ma scrive da ${dominioVero || 'un dominio sconosciuto'}`,
+  }
+}
+
+/**
+ * L'unico punto da chiamare da fuori: le due casistiche del mittente, in
+ * ordine di gravità. ⚠️ Chi ne aggiunge una la metta QUI, o le tre schermate
+ * che la usano (sync, mail aperta, decisione) andranno fuori sincrono.
+ */
+export function casoMittente(
+  mittente: string,
+  mittenteNome: string | null,
+  nostriDomini: string[] = []
+): { id: string; descrizione: string } | undefined {
+  return casoFintoInterno(mittente, mittenteNome, nostriDomini) ?? casoMarchio(mittente, mittenteNome)
+}
+
 export function valutaSpam(
   m: { oggetto: string; corpoTesto: string; mittente: string; mittenteNome: string | null },
-  ctx: { contattoNoto: boolean; dominioProprio: boolean; contattoAI: boolean }
+  ctx: { contattoNoto: boolean; dominioProprio: boolean; contattoAI: boolean; nostriDomini?: string[] }
 ): EsitoSpam {
+  // ⚠️ Si calcola PRIMA della lista bianca, ed è l'unica cosa che la scavalca:
+  // fingersi uno di NOI non è mai legittimo, nemmeno da un indirizzo che ci ha
+  // già scritto — anzi, chi prepara una frode del capo spesso scrive prima una
+  // mail innocua, proprio per diventare «contatto noto».
+  const fintoInterno = casoFintoInterno(m.mittente, m.mittenteNome, ctx.nostriDomini ?? [])
+
   // Whitelist: chi conosci non è mai spam. Chiude subito il discorso.
   if (ctx.contattoNoto || ctx.dominioProprio || ctx.contattoAI) {
-    return { livello: 'basso', punteggio: 0, motivi: [] }
+    return { livello: 'basso', punteggio: 0, motivi: [], caso: fintoInterno }
   }
 
   const testo = `${m.oggetto}\n${m.corpoTesto}`
@@ -185,7 +247,7 @@ export function valutaSpam(
   // ⚠️ La casistica NON dà punti: la si approva la prima volta e poi si applica
   // da sola. Sommarla al punteggio vorrebbe dire spostare la mail comunque, e
   // l'approvazione diventerebbe una domanda a cose fatte.
-  const caso = casoMarchio(m.mittente, m.mittenteNome)
+  const caso = fintoInterno ?? casoMarchio(m.mittente, m.mittenteNome)
 
   // Mittente sconosciuto: segnale debole, da solo non basta.
   punti += 1

@@ -122,7 +122,7 @@ import {
   type RiassuntoThreadSalvato,
 } from './sync'
 import { decidiCasoSpam } from './spamCasi'
-import { casoMarchio } from './spam'
+import { casoMittente } from './spam'
 import { chiaveThread } from './thread'
 import { nomiPerGruppi, chiaviPerNome } from './nomiThread'
 import { ricorrenzaDaForm, dateRicorrenza, descriviRicorrenza } from './ricorrenze'
@@ -586,7 +586,7 @@ export async function decidiSpamCaso(
   // Se la mail è arrivata PRIMA della regola non ha `spamCaso` scritto: la
   // casistica si ricalcola qui, dalle stesse regole. Così la decisione si può
   // prendere anche sulla posta vecchia, senza ripassarla tutta.
-  const caso = m.spamCaso ?? casoMarchio(m.mittente, m.mittenteNome)?.id
+  const caso = m.spamCaso ?? casoMittente(m.mittente, m.mittenteNome, await nostriDomini(utenteId))?.id
   if (!caso) return { ok: false, messaggio: 'Non c’è nessuna proposta su questa mail.' }
 
   // Chi decide: se è admin la decisione è dell'azienda, non sua.

@@ -13,7 +13,8 @@ import { NavigaMessaggi } from '@/components/NavigaMessaggi'
 import { SegnaLettaAllApertura } from '@/components/SegnaLettaAllApertura'
 import { ChiediConversazione } from '@/components/ChiediConversazione'
 import { PropostaSpam } from '@/components/PropostaSpam'
-import { casoMarchio } from '@/lib/spam'
+import { casoMittente } from '@/lib/spam'
+import { nostriDomini } from '@/lib/azioneSezione'
 import { mailVicine } from '@/lib/vicine'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { Rianalizza } from '@/components/Rianalizza'
@@ -93,7 +94,17 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     link: string | null
     creatoIl: Date
   }
-  const [sezioni, conversazione, conversazioneStretta, contattoAI, inviiApp, chiaviApp, vicine, rispostaData] = await Promise.all([
+  const [
+    sezioni,
+    conversazione,
+    conversazioneStretta,
+    contattoAI,
+    inviiApp,
+    chiaviApp,
+    vicine,
+    rispostaData,
+    nostriDelUtente,
+  ] = await Promise.all([
     db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } }),
     // La conversazione a cui appartiene questo messaggio, in forma LEGGERA:
     // la pila mostra mittente, anteprima e data, e il corpo di un messaggio se
@@ -122,6 +133,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     // ⚠️ Dentro l ondata, non dopo: due findFirst in coda alla pagina
     //    aggiungerebbero un giro di rete a ogni apertura di mail.
     statoRisposta(u.id, messaggio),
+    // I domini delle NOSTRE caselle: servono alla regola «si finge uno di noi»
+    // (una mail da fuori col nome di un nostro indirizzo). Sta nell'ondata
+    // perché è una query piccola, ma in coda costerebbe un giro di rete.
+    nostriDomini(u.id),
   ])
 
   const azioniApp = descriviAzioni(chiaviApp)
@@ -195,7 +210,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     messaggio.direzione === 'entrata' && !messaggio.cestinato && messaggio.sezione?.nome !== 'SPAM'
       ? (messaggio.spamCaso
           ? messaggio.spamMotivo || 'il mittente non è chi dice di essere'
-          : casoMarchio(messaggio.mittente, messaggio.mittenteNome)?.descrizione) ?? null
+          : casoMittente(messaggio.mittente, messaggio.mittenteNome, nostriDelUtente)?.descrizione) ?? null
       : null
 
   return (

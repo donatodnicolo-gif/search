@@ -1178,6 +1178,8 @@ async function salvaMessaggi(opts: {
         contattoNoto: noti > 0,
         dominioProprio: !!dominioMitt && dominioMitt === dominioProprio,
         contattoAI: emailAI.has(mittBasso),
+        // I domini nostri: qui si conosce quello della casella in sincronia.
+        nostriDomini: dominioProprio ? [dominioProprio] : [],
       }
     )
 
