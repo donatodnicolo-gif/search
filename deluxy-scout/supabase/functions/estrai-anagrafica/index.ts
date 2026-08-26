@@ -18,14 +18,20 @@
 // anagrafiche B2B e ci resta. Il prompt lo dice, e l'app mostra comunque i
 // campi a chi qualifica prima di scriverli.
 //
-// ⚠️ Serve `ANTHROPIC_API_KEY` (secret del progetto, o cassaforte del hub).
-// Senza, la funzione NON fallisce: torna quello che sa estrarre a regole e lo
-// DICHIARA (`fonte: 'regole'`), così chi guarda sa cosa ha in mano.
+// ⚠️ Il motore è **OpenAI** (scelta dell'utente, 26/08/2026): serve
+// `OPENAI_API_KEY` fra i secret del progetto — la stessa che usa già
+// `assistente-trattative`. Se un giorno ci fosse solo la chiave Anthropic vale
+// anche quella, ma la strada principale è una sola.
+//
+// Senza nessuna chiave la funzione NON fallisce: torna quello che sa estrarre a
+// regole e lo DICHIARA (`fonte: 'regole'`), così chi guarda sa cosa ha in mano.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { chiaveHub } from '../_shared/chiavi.ts';
 
+const OPENAI = 'https://api.openai.com/v1/chat/completions';
+const MODEL_OPENAI = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini'; // veloce ed economico
 const ANTHROPIC = 'https://api.anthropic.com/v1/messages';
-const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-haiku-4-5-20251001';
+const MODEL_ANTHROPIC = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-haiku-4-5-20251001';
 
 // Le categorie che il registro conosce davvero (lette dalle sue anagrafiche il
 // 26/08/2026). Il modello deve scegliere fra queste o dire null: una categoria
@@ -138,8 +144,14 @@ Deno.serve(async (req) => {
     const oggetto = typeof body.oggetto === 'string' ? body.oggetto.trim() : null;
     if (!testo) return json({ ok: false, errore: 'Manca il testo della richiesta.' }, 400);
 
-    const aiKey = Deno.env.get('ANTHROPIC_API_KEY') ?? (await chiaveHub('ANTHROPIC_API_KEY'));
-    if (!aiKey) {
+    // OpenAI è la strada principale; Anthropic vale solo se c'è quella e non
+    // l'altra. Due motori con lo stesso prompt: cambia solo la forma della
+    // chiamata e dove sta la risposta.
+    const keyOpenAI = Deno.env.get('OPENAI_API_KEY') ?? (await chiaveHub('OPENAI_API_KEY'));
+    const keyAnthropic = keyOpenAI
+      ? null
+      : Deno.env.get('ANTHROPIC_API_KEY') ?? (await chiaveHub('ANTHROPIC_API_KEY'));
+    if (!keyOpenAI && !keyAnthropic) {
       // Inerte, non rotta: si dice cosa manca e si torna il ripiego.
       return json({
         ok: true,
@@ -147,25 +159,37 @@ Deno.serve(async (req) => {
         dati: aRegole(testo, mittente),
         avviso:
           'Chiave AI non configurata: i campi sono stati letti con le regole fisse (etichette del modulo). ' +
-          'Per la lettura completa serve ANTHROPIC_API_KEY fra i secret del progetto Supabase.',
+          'Per la lettura completa serve OPENAI_API_KEY fra i secret del progetto Supabase.',
       });
     }
 
-    const aiRes = await fetch(ANTHROPIC, {
-      method: 'POST',
-      headers: { 'x-api-key': aiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1000,
-        system: SISTEMA,
-        messages: [
-          {
-            role: 'user',
-            content: JSON.stringify({ mittente, oggetto, testo }),
-          },
-        ],
-      }),
-    });
+    const contenuto = JSON.stringify({ mittente, oggetto, testo });
+    const aiRes = keyOpenAI
+      ? await fetch(OPENAI, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${keyOpenAI}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            model: MODEL_OPENAI,
+            // Modalità JSON: la risposta è un oggetto, non un testo da cui
+            // ritagliarlo. Il prompt nomina «JSON», come la modalità pretende.
+            response_format: { type: 'json_object' },
+            temperature: 0,
+            messages: [
+              { role: 'system', content: SISTEMA },
+              { role: 'user', content: contenuto },
+            ],
+          }),
+        })
+      : await fetch(ANTHROPIC, {
+          method: 'POST',
+          headers: { 'x-api-key': keyAnthropic!, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+          body: JSON.stringify({
+            model: MODEL_ANTHROPIC,
+            max_tokens: 1000,
+            system: SISTEMA,
+            messages: [{ role: 'user', content: contenuto }],
+          }),
+        });
     if (!aiRes.ok) {
       const dettaglio = await aiRes.text().catch(() => '');
       return json({
@@ -176,7 +200,10 @@ Deno.serve(async (req) => {
       });
     }
     const aiData = await aiRes.json();
-    const raw: string = aiData.content?.[0]?.text ?? '{}';
+    // OpenAI: `choices[0].message.content` · Anthropic: `content[0].text`.
+    const raw: string = keyOpenAI
+      ? aiData.choices?.[0]?.message?.content ?? '{}'
+      : aiData.content?.[0]?.text ?? '{}';
     let parsed: Record<string, any> = {};
     try {
       parsed = JSON.parse(raw);
@@ -210,7 +237,7 @@ Deno.serve(async (req) => {
       mancanti: [],
     };
     dati.mancanti = campiMancanti(dati);
-    return json({ ok: true, fonte: 'ai', dati, modello: MODEL });
+    return json({ ok: true, fonte: "ai", dati, modello: keyOpenAI ? MODEL_OPENAI : MODEL_ANTHROPIC });
   } catch (e) {
     return json({ ok: false, errore: String((e as Error)?.message ?? e) }, 500);
   }
