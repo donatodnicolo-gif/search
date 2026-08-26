@@ -303,6 +303,15 @@ registro un doppione non è un fastidio: è la fonte di verità che si sdoppia.
 `citta` è un confronto esatto, e Scout scrive «MILANO» dove il registro ha
 «Milano». Si filtra nell'app, normalizzando.
 
+⚠️ **Cosa resta scoperto**, dichiarato invece che nascosto: il passo 2 riconosce
+solo l'omonimo **unico e con città compatibile**. Restano quindi due casi in cui
+può nascere un doppione nel registro — (a) la stessa città scritta in due lingue
+(«MILAN» in Scout, «Milano» nel registro: 63 negozi contro 238), e (b) un nome
+molto comune il cui omonimo non entra nei primi 25 risultati della ricerca.
+Allargare la regola non è gratis: due negozi possono avere lo stesso nome in
+città diverse («HAVI» sono due), e agganciare quello sbagliato è peggio che
+crearne uno nuovo.
+
 ⚠️ **L'esito si legge a schermo**, sempre — anche quando va male. La finestra di
 conferma dice quale delle tre strade è stata presa, e se il registro non ha
 preso la scrittura lo dichiara («il negozio resta solo in Scout») col motivo.
