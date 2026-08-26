@@ -252,6 +252,29 @@ con riga di registro sulla consegna dove un prezzo scritto è cambiato.
   «1 × 680 €» con la nota che il prezzo vale sulle righe prodotto; il testo
   libero non-JSON tiene il campo modificabile (commit `ceca84c6`).
 
+### ⭐⭐ 26/08 (sera) — Nei MARGINI conta quello che il CLIENTE ha pagato
+
+Quattro regole dell'utente, tutte dentro:
+
+1. **La fee registrata entra nel margine LORDA** («per le fee non c'è da
+   togliere IVA»): niente ÷1,22 sulla quota, né in riga né nel recap.
+2. **Dove c'è l'ordine Shopify, il venduto dei margini è il PAGATO dal
+   cliente**: prodotti + consegna, dalla nuova cache **`OrdineCliente`**
+   (migrazione `20260826093000`) — riempita dalla **corsa notturna dei
+   margini**, che gli ordini li scorre comunque (upsert a blocchi da 500 via
+   SQL, `ordiniClienteAggiornati` nell'esito). `recap()` la usa via
+   `clientePagato(rows)`: `fonteCliente: true` sull'ordine, e lì il «≈» della
+   stima non c'entra più.
+3. **«Consegna prezzo» NON si indica nelle consegne**: tolta dal Listino del
+   form e dal dettaglio; `Delivery.deliveryPrice` resta in banca come ripiego
+   per le consegne senza ordine Shopify.
+4. **Le consegne mostrano il prezzo del partner, i margini quello del
+   cliente**: la riga di consegna resta la fotografia dell'accordo (62510:
+   680), il recap d'ordine legge la cache (62510: 1.000).
+
+Il 12731 passa da **−4,78 €** (venduto 35 = concordato Cannavo) a ricavo vero
+60 € (45 prodotto + 15 consegna) → margine ≈ **+16 €**.
+
 **Resta da fare qui**: creazione/modifica dei modelli SMS da UI (l'API `POST
 /sms-templates` c'è); creazione provincia da UI; la prima corsa AUTOMATICA del
 cron è stanotte alle 4:30 italiane (quella a mano è già andata); riconnettere

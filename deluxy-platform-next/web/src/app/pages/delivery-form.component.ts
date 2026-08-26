@@ -320,8 +320,9 @@ interface ProductRow {
                 <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price" [placeholder]="'deliveryForm.placeholder.auto' | translate" /></label>
               <label class="fld"><span>{{ 'deliveryForm.pricing.plusMinus' | translate }}</span>
                 <input class="field num" type="number" step="0.01" name="additionalPrice" [(ngModel)]="model.additionalPrice" /></label>
-              <label class="fld"><span>{{ 'deliveryForm.pricing.deliveryPrice' | translate }}</span>
-                <input class="field num" type="number" step="0.01" name="deliveryPrice" [(ngModel)]="model.deliveryPrice" /></label>
+              <!-- ⚠️ Niente «Consegna prezzo» qui (l'utente, 26/08): quello che
+                   il cliente paga per la consegna non si indica sulle consegne
+                   — entra nei MARGINI, dalla cache dell'ordine Shopify. -->
             </div>
           </div>
           <div>

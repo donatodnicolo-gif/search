@@ -885,7 +885,7 @@
     "export": "Esporta",
     "empty": "Nessuna vendita nel periodo.",
     "total": "Totale",
-    "assumption": "Ogni riga e' un ORDINE: il valore vendite comprende la consegna pagata dal cliente, e da li' si calcolano guadagno, commissione e margine. Il valore prodotti e' scritto sulla consegna, non calcolato; guadagno = valore vendite − valore prodotti, lordo e al netto IVA (÷1,22). «Fee registrata» e' la quota scritta sulla consegna: il partner riceve il valore prodotti MENO la quota, quindi il margine totale la somma (netta IVA) al guadagno. Il segno ≈ indica un venduto stimato dal listino (variante o prodotto) dove la riga non ha un prezzo scritto.",
+    "assumption": "Ogni riga e' un ORDINE. Dove c'e' l'ordine Shopify collegato, valore vendite e consegna sono QUELLO CHE IL CLIENTE HA PAGATO online (dalla cache di Orders, aggiornata ogni notte); le consegne mostrano invece il prezzo concordato col partner. Guadagno = valore vendite − valore prodotti, lordo e al netto IVA (÷1,22). «Fee registrata» e' la quota scritta sulla consegna: il partner riceve il valore prodotti MENO la quota, quindi il margine totale la somma (lorda) al guadagno netto. Il segno ≈ indica un venduto stimato dal listino dove non c'e' ne' ordine Shopify ne' prezzo scritto.",
     "tab": {
       "corrispettivi": "Corrispettivi",
       "margini": "Margini"

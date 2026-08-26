@@ -154,9 +154,10 @@ interface DeliveryDetail {
               <!-- Valore prodotti: quello scritto SULLA CONSEGNA (accordo col
                    partner), che non è il prezzo di catalogo né quello pubblico
                    Shopify. Senza questa riga il 215 di una vendita sembrava
-                   uscito dal nulla accanto a un catalogo che dice 110. -->
+                   uscito dal nulla accanto a un catalogo che dice 110.
+                   ⚠️ Niente «Prezzo consegna» qui (l'utente, 26/08): quello che
+                   il cliente paga per la consegna vive nei MARGINI, non qui. -->
               <dt>{{ 'deliveryDetail.productValue' | translate }}</dt><dd>{{ d.productValue != null ? d.productValue + ' €' : '—' }}</dd>
-              <dt>{{ 'deliveryDetail.deliveryPrice' | translate }}</dt><dd>{{ d.deliveryPrice != null ? d.deliveryPrice + ' €' : '—' }}</dd>
               <dt>{{ 'deliveryDetail.valetSalary' | translate }}</dt><dd>{{ d.valetSalary != null ? d.valetSalary + ' €' : '—' }}</dd>
               <dt>{{ 'deliveryDetail.valetAdditionalPrice' | translate }}</dt><dd>{{ d.valetAdditionalPrice != null ? d.valetAdditionalPrice + ' €' : '—' }}</dd>
             }

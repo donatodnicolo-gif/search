@@ -100,6 +100,37 @@ export class OrdersSyncService {
   }
 
   /**
+   * Aggiorna la cache `OrdineCliente` (prodotti/consegna/totale pagati dal
+   * cliente) in blocchi: 14.000 upsert a uno a uno attraverso il pooler non
+   * finirebbero dentro i 300 s della corsa notturna.
+   */
+  private async aggiornaOrdineCliente(
+    economia: { orderId: string; numero: string | null; prodotti: number; consegna: number; totale: number }[],
+  ): Promise<number> {
+    let scritti = 0;
+    for (let i = 0; i < economia.length; i += 500) {
+      const blocco = economia.slice(i, i + 500);
+      // I cast servono: i parametri arrivano senza tipo e le colonne sono float8.
+      const valori = blocco
+        .map((_, j) => `($${j * 5 + 1}::text, $${j * 5 + 2}::text, $${j * 5 + 3}::float8, $${j * 5 + 4}::float8, $${j * 5 + 5}::float8)`)
+        .join(',');
+      const parametri = blocco.flatMap((e) => [e.orderId, e.numero, e.prodotti, e.consegna, e.totale]);
+      await this.prisma.$executeRawUnsafe(
+        `INSERT INTO "OrdineCliente" ("id", "orderId", "numero", "prodotti", "consegna", "totale", "aggiornatoIl")
+         SELECT gen_random_uuid(), v.o, v.n, v.p, v.c, v.t, now()
+         FROM (VALUES ${valori}) AS v(o, n, p, c, t)
+         ON CONFLICT ("orderId") DO UPDATE
+         SET "numero" = EXCLUDED."numero", "prodotti" = EXCLUDED."prodotti",
+             "consegna" = EXCLUDED."consegna", "totale" = EXCLUDED."totale",
+             "aggiornatoIl" = now()`,
+        ...parametri,
+      );
+      scritti += blocco.length;
+    }
+    return scritti;
+  }
+
+  /**
    * Manda a Orders gli INGREDIENTI del margine sulla consegna nostra.
    *
    * Orders sa gia' fare il conto — `totale − costoFornitore − costoConsegna +
@@ -160,6 +191,7 @@ export class OrdersSyncService {
       gia: { costoConsegna: number | null; feeConsegna: number | null };
     }>();
     const soloQuesti = opzioni.soloOrdiniShopify?.length ? new Set(opzioni.soloOrdiniShopify) : null;
+    const economia: { orderId: string; numero: string | null; prodotti: number; consegna: number; totale: number }[] = [];
     let pagina = 1;
     // Col filtro mirato (o con `tutti`) il tetto non c'entra: si scorre finché
     // non si trovano tutti quelli chiesti, o finiscono le pagine.
@@ -174,6 +206,8 @@ export class OrdersSyncService {
       const body = (await res.json()) as {
         ordini?: {
           id: string; orderId?: string | null; numero?: string | null;
+          totale?: number | null;
+          righe?: { prezzo?: number | null; quantita?: number | null }[] | null;
           controllo?: { costoConsegna?: number | null; feeConsegna?: number | null } | null;
         }[];
         pagine?: number;
@@ -181,6 +215,20 @@ export class OrdersSyncService {
       for (const o of body.ordini ?? []) {
         const k = OrdersSyncService.numeroShopify(o.orderId);
         if (!k) continue;
+        // La CACHE di quello che il cliente ha pagato (prodotti + consegna) si
+        // aggiorna per TUTTI gli ordini letti, anche fuori dal filtro mirato:
+        // i margini della Finanza contano il prezzo del cliente, e questa
+        // passata e' l'unica che gli ordini li scorre comunque.
+        if (o.totale != null && o.righe?.length) {
+          const prodotti = Math.round(o.righe.reduce((s, r) => s + (r.prezzo ?? 0) * (r.quantita ?? 1), 0) * 100) / 100;
+          economia.push({
+            orderId: k,
+            numero: o.numero ?? null,
+            prodotti,
+            consegna: Math.max(0, Math.round((o.totale - prodotti) * 100) / 100),
+            totale: o.totale,
+          });
+        }
         if (soloQuesti && !soloQuesti.has(k)) continue;
         perOrderId.set(k, {
           id: o.id,
@@ -192,6 +240,7 @@ export class OrdersSyncService {
       if (!body.ordini?.length || pagina >= (body.pagine ?? 1)) break;
       pagina++;
     }
+    const ordiniClienteAggiornati = await this.aggiornaOrdineCliente(economia);
 
     // 2) Le consegne che portano un numero d'ordine conosciuto.
     const deliveries = await this.prisma.delivery.findMany({
@@ -250,7 +299,7 @@ export class OrdersSyncService {
     };
 
     if (!opzioni.applica) {
-      return { ok: true, simulazione: true, totali, esempi: voci.slice(0, 10) };
+      return { ok: true, simulazione: true, totali, ordiniClienteAggiornati, esempi: voci.slice(0, 10) };
     }
 
     let scritti = 0;
@@ -284,7 +333,7 @@ export class OrdersSyncService {
     }
     this.logger.log(`Margini: ingredienti mandati a Orders per ${scritti} ordini (${saltati} già a posto)`);
 
-    const esito = { ok: errori.length === 0, totali, scritti, saltati, errori: errori.slice(0, 10) };
+    const esito = { ok: errori.length === 0, totali, scritti, saltati, ordiniClienteAggiornati, errori: errori.slice(0, 10) };
     // L'esito di una corsa notturna non deve vivere solo nel JSON che nessuno
     // apre: si deposita in AppSetting, dove un occhio (o un'altra query) lo
     // ritrova con data e conteggi.

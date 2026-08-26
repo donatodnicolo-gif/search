@@ -191,6 +191,8 @@ interface CorrispettivoRow {
    * significa lasciare vuota la colonna su una parte delle righe.
    */
   saleRef: string | null;
+  /** Il numero d'ordine Shopify: aggancia la cache di cio' che ha pagato il cliente. */
+  realOrderNumber: string | null;
   status: string;
   date: Date;
   product: string;
@@ -266,6 +268,8 @@ interface RecapOrdine {
   consegne: number;
   /** Somma dei prezzi pagati dal cliente sulle consegne dell'ordine. */
   saleValue: number;
+  /** true = venduto e consegna vengono dall'ordine Shopify (pagato dal cliente). */
+  fonteCliente: boolean;
   /** Almeno una riga senza prezzo scritto, stimata dal listino della variante. */
   vendutoStimato: boolean;
   /** Spese di consegna dell'ordine: contate UNA volta. */
@@ -417,7 +421,7 @@ export class FinanceService {
     // loro: tenere una consegna il cui ordine e' fuori fascia farebbe un elenco
     // che non corrisponde ne' ai totali ne' alle righe d'ordine.
     if (!opzioni.margine) return rows;
-    const tenuti = new Set(this.perFascia(this.recap(rows, await this.tariffe()), opzioni.margine)
+    const tenuti = new Set(this.perFascia(this.recap(rows, await this.tariffe(), await this.clientePagato(rows)), opzioni.margine)
       .map((o) => o.saleRef));
     return rows.filter((r) => tenuti.has(r.saleRef ?? `consegna-${r.deliveryCode}`));
   }
@@ -446,7 +450,26 @@ export class FinanceService {
       ?? null;
   }
 
-  private recap(rows: CorrispettivoRow[], tariffe: TariffaIncasso[] = []): RecapOrdine[] {
+  /**
+   * Quello che il CLIENTE ha pagato online, dalla cache di Orders
+   * (`OrdineCliente`, riempita dalla corsa notturna dei margini): prodotti e
+   * consegna, per numero d'ordine Shopify. E' la fonte dei margini dove c'e'.
+   */
+  private async clientePagato(rows: CorrispettivoRow[]) {
+    const numeri = [...new Set(rows.map((r) => r.realOrderNumber).filter(Boolean))] as string[];
+    if (!numeri.length) return new Map<string, { prodotti: number; consegna: number; totale: number }>();
+    const righe = await this.prisma.ordineCliente.findMany({
+      where: { orderId: { in: numeri } },
+      select: { orderId: true, prodotti: true, consegna: true, totale: true },
+    });
+    return new Map(righe.map((r) => [r.orderId, { prodotti: r.prodotti, consegna: r.consegna, totale: r.totale }]));
+  }
+
+  private recap(
+    rows: CorrispettivoRow[],
+    tariffe: TariffaIncasso[] = [],
+    cliente: Map<string, { prodotti: number; consegna: number; totale: number }> = new Map(),
+  ): RecapOrdine[] {
     const gruppi = new Map<string, CorrispettivoRow[]>();
     for (const r of rows) {
       const k = r.saleRef ?? `consegna-${r.deliveryCode}`;
@@ -481,7 +504,18 @@ export class FinanceService {
       }
       publicPrice = round2(publicPrice);
       // ⚠️ UNA volta sola: le spese di consegna sono dell'ordine.
-      const deliveryFee = round2(Math.max(0, ...g.map((r) => r.deliveryFee)));
+      let deliveryFee = round2(Math.max(0, ...g.map((r) => r.deliveryFee)));
+      // ⭐⭐ DOVE L'ORDINE SHOPIFY C'E', comanda LUI (deciso dall'utente il
+      // 26/08): nelle consegne sta il prezzo concordato col PARTNER, ma nei
+      // margini conta quello che il CLIENTE ha pagato online — prodotti e
+      // consegna, dalla cache di Orders. Il 12731 stava a 35 € di venduto
+      // (il concordato con Cannavo) dove il cliente ne aveva pagati 45 + 15.
+      const pagato = g.map((r) => r.realOrderNumber).map((n) => (n ? cliente.get(n) : undefined)).find(Boolean);
+      const fonteCliente = !!pagato;
+      if (pagato) {
+        publicPrice = round2(pagato.prodotti);
+        deliveryFee = round2(pagato.consegna);
+      }
       const valore = round2(publicPrice + deliveryFee);
       const partnerPrice = round2(g.reduce((s, r) => s + r.partnerPrice, 0));
       // Il guadagno e' la differenza fra quello che ha pagato il cliente e la
@@ -505,9 +539,12 @@ export class FinanceService {
       saleRef,
       consegne: g.length,
       saleValue: publicPrice,
+      /// Il venduto viene dall'ordine Shopify (pagato dal cliente), non dalle righe.
+      fonteCliente,
       // Almeno una consegna del giro ha il venduto stimato dalla variante
       // (listino di oggi, non fotografia): il totale va letto sapendolo.
-      vendutoStimato: g.some((r) => r.vendutoStimato),
+      // Se la fonte e' il cliente la stima non c'entra piu'.
+      vendutoStimato: !fonteCliente && g.some((r) => r.vendutoStimato),
       // Il valore piu' alto fra le consegne del gruppo: nell'import ogni
       // consegna di un ordine riceve lo stesso importo, e dove manca vale zero.
       deliveryFee,
@@ -522,10 +559,10 @@ export class FinanceService {
       feePercent: valore > 0 ? round2((takingsNet / valore) * 100) : 0,
       vat: round2(takings - takingsNet),
       incassiCommission,
-      // La fee registrata e' ricavo e nel margine ci va (26/08), netta IVA
-      // come il guadagno: la somma delle quote del giro, divisa per 1,22.
-      totalMargin: round2(takingsNet + g.reduce((s, r) => s + r.feeContract, 0) / (1 + VAT) - deliveryCost - incassiCommission),
-      totalMarginPercent: valore > 0 ? round2(((takingsNet + g.reduce((s, r) => s + r.feeContract, 0) / (1 + VAT) - deliveryCost - incassiCommission) / valore) * 100) : 0,
+      // La fee registrata e' ricavo e nel margine ci va (26/08), LORDA:
+      // «per le fee non c'e' da togliere IVA» (l'utente).
+      totalMargin: round2(takingsNet + g.reduce((s, r) => s + r.feeContract, 0) - deliveryCost - incassiCommission),
+      totalMarginPercent: valore > 0 ? round2(((takingsNet + g.reduce((s, r) => s + r.feeContract, 0) - deliveryCost - incassiCommission) / valore) * 100) : 0,
       anomalie: g.filter((r) => r.anomalia).length,
       gateway,
       commissioneConfermata: tar ? tar.confermata : false,
@@ -581,7 +618,7 @@ export class FinanceService {
     // ciascuna consegna. Il risultato era un piede di tabella che non era la
     // somma di cio' che si leggeva sopra — la cosa piu' facile da sbagliare e la
     // piu' difficile da accorgersene, perche' tutti i numeri restano plausibili.
-    const ordini = this.perFascia(this.recap(rows, await this.tariffe()), opzioni.margine);
+    const ordini = this.perFascia(this.recap(rows, await this.tariffe(), await this.clientePagato(rows)), opzioni.margine);
     const sum = (f: (o: RecapOrdine) => number) => round2(ordini.reduce((s, o) => s + f(o), 0));
     const publicPrice = sum((o) => o.saleValue);
     const deliveryFee = sum((o) => o.deliveryFee);
@@ -713,10 +750,9 @@ export class FinanceService {
     // ⭐ LA FEE REGISTRATA E' RICAVO, e nel margine ci va (deciso dall'utente
     // il 26/08): il partner non riceve il valore prodotti intero ma quel
     // valore MENO la quota (cosi' la legge anche la Fatturazione: «dovuto =
-    // valore prodotti − trattenuto»). Il margine che la ignorava sottostimava
-    // di 43 € proprio la consegna 62637. Al netto IVA, come il guadagno.
-    const feeContractNet = feeContractAmount / (1 + VAT);
-    const totalMargin = takingsNet + feeContractNet - deliveryCost - incassiCommission;
+    // valore prodotti − trattenuto»). LORDA: «per le fee non c'e' da togliere
+    // IVA» (l'utente, 26/08 sera).
+    const totalMargin = takingsNet + feeContractAmount - deliveryCost - incassiCommission;
     const feeContract = d.partner?.commissionPercent ?? 0;
     // ⚠️ Le tre cose che rendono la riga non attendibile, in ordine di gravita'.
     // Un guadagno a zero NON e' fra queste: con un partner a fee 0% e' una
@@ -745,6 +781,7 @@ export class FinanceService {
       // 23 consegne che non hanno niente in comune. Lo stesso vale per una
       // stringa vuota o per uno zero scritto come testo.
       saleRef: riferimentoVendita(d),
+      realOrderNumber: d.realOrderNumber ?? null,
       status: d.status,
       date: d.date,
       product: productLabel,

@@ -1207,6 +1207,27 @@ model Activity {
 // trigger: CREATED | DEPARTED | ARRIVED
 // partnerId valorizzato = modello personalizzato del partner (se abilitato)
 // ------------------------------------------------------------
+/// CACHE di quello che il CLIENTE ha pagato online, per ordine Shopify.
+///
+/// Il dato appartiene a Deluxy Orders (Standard §7): qui se ne tiene una copia
+/// per riferimento — aggiornata dalla corsa notturna dei margini, che gli
+/// ordini li scorre comunque — perché i MARGINI della Finanza devono contare
+/// il prezzo pagato dal cliente (prodotti + consegna), mentre le consegne
+/// mostrano solo il prezzo concordato col partner (deciso dall'utente 26/08).
+model OrdineCliente {
+  id           String   @id @default(cuid())
+  /// Numero Shopify nudo (la coda del gid): lo stesso di Delivery.realOrderNumber.
+  orderId      String   @unique
+  /// Il numero umano ("#12731"), per leggersi negli elenchi.
+  numero       String?
+  /// Somma delle righe pagate dal cliente (prezzo x quantita).
+  prodotti     Float
+  /// Consegna pagata dal cliente: totale - prodotti, mai sotto zero.
+  consegna     Float
+  totale       Float
+  aggiornatoIl DateTime @updatedAt
+}
+
 model SmsTemplate {
   id        String   @id @default(cuid())
   /// id nel vecchio sistema: rende l'import ripetibile senza doppioni.

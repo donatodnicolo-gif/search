@@ -885,7 +885,7 @@
     "export": "Export",
     "empty": "No sales in this period.",
     "total": "Total",
-    "assumption": "Each row is an ORDER: the sales value includes the shipping paid by the customer, and profit, collection fee and margin are computed from it. The product value is recorded on the delivery, not derived; profit = sales value − product value, gross and net of VAT (÷1.22). \"Recorded fee\" is the quota written on the delivery: the partner receives the product value MINUS the quota, so the total margin adds it (net of VAT) to the profit. The ≈ sign marks a sales value estimated from the price list (variant or product) where the line has no written price.",
+    "assumption": "Each row is an ORDER. Where a linked Shopify order exists, sales value and shipping are WHAT THE CUSTOMER PAID online (from the Orders cache, refreshed nightly); deliveries instead show the price agreed with the partner. Profit = sales value − product value, gross and net of VAT (÷1.22). \"Recorded fee\" is the quota written on the delivery: the partner receives the product value MINUS the quota, so the total margin adds it (gross) to the net profit. The ≈ sign marks a sales value estimated from the price list where there is neither a Shopify order nor a written price.",
     "tab": {
       "corrispettivi": "Takings",
       "margini": "Margins"
