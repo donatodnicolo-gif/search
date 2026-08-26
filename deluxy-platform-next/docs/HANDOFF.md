@@ -402,6 +402,26 @@ c'è, la funzione no); creazione modelli SMS e province da UI; prima corsa
 AUTOMATICA del cron stanotte alle 4:30; riconnettere il connettore Shopify
 per interrogare Shopify direttamente.
 
+### ⭐⭐ 27/08 (notte, 9) — LA RICEVUTA FISCALE vera, e l a ora si paga anche se non consegnata
+
+- **Formula della ricevuta (senza P.IVA) ricavata dalle ricevute FIRMATE del
+  legacy** (pdf-parse sui PDF di app.deluxy.it; controprova: Kiyomi Kurihara
+  % 50 → rimborso 78,35 = 50% del totale 156,70): la % della scheda valet e
+  la QUOTA DEL TOTALE trattata come RIMBORSO SPESE (non imponibile); il resto
+  si gross-uppa con ritenuta d acconto 20% (lordo = netto/0,8); totale
+  bonifico = netto + rimborso = TOTALE (la ritenuta la versa Deluxy in piu);
+  marca da bollo 2 EUR sopra 77,47. Il recap ora ha il blocco «Ricevuta di
+  prestazione occasionale» per i valet senza P.IVA (campo  anche
+  nell API del recap). Con P.IVA resta la pro-forma.
+- **Non consegnata ma A ORA del valet = SI PAGA** (deciso dall utente, caso
+  62372 Cassoli): DA_PAGARE include not_delivered, tenuto SOLO se il listino
+  del valet e a ora (helper nonConsegnataPagabile — valetServiceId non ha
+  relazione filtrabile, filtro in JS in pending/detail/generate).
+- 62038 (era rimasta in_delivery, nel legacy e consegnata) e 62372 di Cassoli:
+  servizio VALET → Servizio a Ora (10 EUR/h, 1h), paga scritta azzerata cosi
+  vale il listino. Cassoli agosto: 5 consegne/34,34 → **7 consegne/54,34**.
+  Verificato live, ricevuta compresa (rimborso 60% = 32,60 su 54,34).
+
 ### ⭐ 27/08 (notte, 8) — Il CONTANTE travestito da minus gonfiava i margini
 
 Spinta incasso completata: 10.053/10.053 su Orders (metodoIncasso +

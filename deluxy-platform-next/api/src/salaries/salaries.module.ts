@@ -114,6 +114,20 @@ export function giriPerDdt(
   return esiti;
 }
 
+/**
+ * ⭐ 27/08 (deciso dall'utente, caso 62372): una consegna NON CONSEGNATA resta
+ * pagabile SOLO se il servizio del VALET e' a ora — l'ora e' stata lavorata
+ * anche se la consegna non e' andata. Le altre non consegnate restano fuori.
+ */
+export function nonConsegnataPagabile(
+  d: { status?: string | null; serviceType?: { pricingModel?: string | null } | null },
+  listino: ListinoValet,
+): boolean {
+  if (d.status !== 'not_delivered') return true;
+  const modello = listino?.serviceType?.pricingModel ?? d.serviceType?.pricingModel ?? '';
+  return modello === 'A_ORA';
+}
+
 export type RegolaPaga = {
 
   valetPayAdjustment?: number | null;
@@ -303,7 +317,7 @@ export class SalariesService {
     const deliveries = await this.prisma.delivery.findMany({
       where,
       select: {
-        id: true, valetId: true, valetServiceId: true, date: true, ddtNumber: true,
+        id: true, valetId: true, valetServiceId: true, date: true, ddtNumber: true, status: true,
         valetSalary: true, valetAdditionalPrice: true, hours: true, extraKm: true,
         paymentOnDelivery: true, paymentAmount: true,
         serviceType: { select: { pricingModel: true, minHours: true } },
@@ -326,10 +340,13 @@ export class SalariesService {
     let arretrato = 0;
     for (const d of deliveries) {
       if (!d.valetId) continue;
+      const listino = scegliListinoValet(d as any, listini.perId, listini.perValet);
+      // Non consegnata: si paga solo il servizio A ORA del valet.
+      if (!nonConsegnataPagabile(d as any, listino)) continue;
       const giro = giri.get(d.id);
       const calcolo = giro && !giro.principale ? null : pagaConsegna(
         d as any,
-        scegliListinoValet(d as any, listini.perId, listini.perValet),
+        listino,
         (d as any).deliveryRule ?? null,
         (d as any).valetDeliveryRule ?? regoleAssegnate.get(d.valetId) ?? null,
         giro?.ritiri ?? (d as any)._count?.pickups ?? 0,
@@ -429,7 +446,7 @@ export class SalariesService {
     // Fatturazione: una riga esclusa si vede col motivo, non sparisce.
     const where: any = { ...SalariesService.DA_PAGARE, valetId };
     delete where.payable;
-    where.status = { in: ['delivered', 'approved', 'delivered_time_to_approve'] };
+    where.status = { in: ['delivered', 'approved', 'delivered_time_to_approve', 'not_delivered'] };
     const data: any = {};
     if (dal) data.gte = new Date(dal);
     if (al) data.lte = new Date(al);
@@ -460,6 +477,11 @@ export class SalariesService {
       // Anche nel dettaglio l'arretrato non si mostra: sarebbe un elenco di
       // consegne del 2021 in mezzo al lavoro di oggi.
       deliveries: deliveries.filter((d) => {
+        // Non consegnata: nel conteggio resta solo il servizio A ORA del valet.
+        if (d.status === 'not_delivered'
+          && !nonConsegnataPagabile(d as any, scegliListinoValet(d as any, listini.perId, listini.perValet))) {
+          return false;
+        }
         // Le marcate (non pagabili, in attesa di approvazione) restano solo se
         // recenti: il passato escluso e' arretrato ordinato, non lavoro aperto.
         if ((d as any).payable === false || d.status === 'delivered_time_to_approve') {
@@ -527,7 +549,7 @@ export class SalariesService {
   async recap(user: JwtUser, valetId: string, dal?: string, al?: string) {
     const valet = await this.prisma.valet.findUnique({
       where: { id: valetId },
-      select: { id: true, firstName: true, lastName: true, email: true, hasVat: true, city: true },
+      select: { id: true, firstName: true, lastName: true, email: true, hasVat: true, city: true, withholdingPercent: true },
     });
     if (!valet) throw new NotFoundException('Valet non trovato');
     const dettaglio = await this.pendingDetail(user, valetId, dal, al);
@@ -538,11 +560,41 @@ export class SalariesService {
     const contanti = arrotonda2(dettaglio.deliveries
       .filter((d) => !(d as any).nonPagabile && !(d as any).daApprovare)
       .reduce((s, d) => s + d.cash, 0));
+    // ⭐ 27/08: per i valet SENZA P.IVA il documento e' la ricevuta di
+    // prestazione occasionale, e la % della scheda e' la QUOTA DEL TOTALE
+    // trattata come RIMBORSO SPESE (non imponibile). Formula verificata sulle
+    // ricevute vere del legacy (Kiyomi Kurihara, % 50: totale 156,70 =
+    // rimborso 78,35 + netto 78,35, con lordo 97,94 e ritenuta 20% 19,59):
+    //   rimborso   = perc% x totale
+    //   nettoComp  = totale − rimborso
+    //   lordo      = nettoComp ÷ 0,8   (gross-up della ritenuta d'acconto 20%)
+    //   ritenuta   = lordo − nettoComp (la versa Deluxy all'erario, in piu')
+    //   bonifico   = nettoComp + rimborso = TOTALE (il valet riceve il pieno)
+    const ricevuta = !valet.hasVat
+      ? (() => {
+          const perc = valet.withholdingPercent ?? 0;
+          const rimborso = arrotonda2((lordo * perc) / 100);
+          const nettoCompenso = arrotonda2(lordo - rimborso);
+          const corrispettivoLordo = arrotonda2(nettoCompenso / 0.8);
+          return {
+            percRimborso: perc,
+            rimborso,
+            corrispettivoLordo,
+            ritenuta: arrotonda2(corrispettivoLordo - nettoCompenso),
+            nettoCompenso,
+            totaleBonifico: lordo,
+            // Marca da bollo da 2 € sopra i 77,47 € di prestazione.
+            bollo: corrispettivoLordo > 77.47,
+          };
+        })()
+      : null;
+
     return {
       valet,
       periodo: { dal: dal ?? null, al: al ?? null },
       righe: dettaglio.deliveries,
       troncato: dettaglio.troncato,
+      ricevuta,
       totali: {
         consegne: pagabili.length,
         nonPagabili: dettaglio.deliveries.length - pagabili.length,
@@ -597,6 +649,7 @@ export class SalariesService {
   .indirizzo { max-width: 240px; font-size: 12.5px; }
   .esclusa td { color: #a1a1a6; }
   .totali { margin-top: 10px; width: auto; margin-left: auto; min-width: 280px; }
+  .ricevuta-titolo { margin: 26px 0 4px; font-size: 15px; letter-spacing: -0.01em; }
   .totali td { border: 0; padding: 4px 8px; }
   .totali .finale td { border-top: 1px solid #1d1d1f; padding-top: 8px; font-weight: 600; font-size: 16px; }
   .nota { margin-top: 26px; font-size: 12px; color: #6e6e73; }
@@ -616,6 +669,17 @@ export class SalariesService {
     <tr><td>Contanti incassati alla consegna</td><td class="num">&minus;${eur(r.totali.contanti)}</td></tr>
     <tr class="finale"><td>Netto</td><td class="num">${eur(r.totali.netto)}</td></tr>
   </table>
+  ${(r as any).ricevuta ? `
+  <h3 class="ricevuta-titolo">Ricevuta di prestazione occasionale (senza P.IVA)</h3>
+  <table class="totali">
+    <tr><td>Rimborso spese (${e((r as any).ricevuta.percRimborso)}% del totale, non imponibile)</td><td class="num">${eur((r as any).ricevuta.rimborso)}</td></tr>
+    <tr><td>Corrispettivo lordo</td><td class="num">${eur((r as any).ricevuta.corrispettivoLordo)}</td></tr>
+    <tr><td>Ritenuta d'acconto (20%)</td><td class="num">&minus;${eur((r as any).ricevuta.ritenuta)}</td></tr>
+    <tr><td>Netto compenso</td><td class="num">${eur((r as any).ricevuta.nettoCompenso)}</td></tr>
+    <tr class="finale"><td>Totale bonifico (netto + rimborso)</td><td class="num">${eur((r as any).ricevuta.totaleBonifico)}</td></tr>
+  </table>
+  ${(r as any).ricevuta.bollo ? '<p class="nota">Prestazione sopra i 77,47 &euro;: sulla ricevuta va la marca da bollo da 2,00 &euro;.</p>' : ''}
+  <p class="nota">La ritenuta d'acconto la versa Deluxy all'erario; i contanti gi&agrave; incassati si scalano dal bonifico.</p>` : ''}
   ${r.totali.nonPagabili ? `<p class="nota">${r.totali.nonPagabili} ${r.totali.nonPagabili === 1 ? 'consegna non &egrave; pagabile' : 'consegne non sono pagabili'} (senza tariffa, o esclusa da una regola carnet): restano in elenco, marcate.</p>` : ''}
   ${r.troncato ? '<p class="nota">Elenco troncato alle prime 500 consegne del periodo.</p>' : ''}
   <p class="nota">Documento di riepilogo, non &egrave; un cedolino. I nominativi dei destinatari non compaiono.</p>
@@ -714,9 +778,12 @@ export class SalariesService {
         });
         continue;
       }
+      const listino = scegliListinoValet(d as any, listini.perId, listini.perValet);
+      // Non consegnata: entra nello stipendio solo il servizio A ORA del valet.
+      if (!nonConsegnataPagabile(d as any, listino)) continue;
       const calcolo = pagaConsegna(
         d as any,
-        scegliListinoValet(d as any, listini.perId, listini.perValet),
+        listino,
         (d as any).deliveryRule ?? null,
         (d as any).valetDeliveryRule ?? regoleAssegnate.get(valetId) ?? null,
         giro?.ritiri ?? (d as any)._count?.pickups ?? 0,
@@ -800,7 +867,11 @@ export class SalariesService {
     // fuori dallo stipendio 550 consegne approvate e da pagare.
     //
     // `delivered_time_to_approve` resta fuori: aspetta ancora un via libera.
-    status: { in: ['delivered', 'approved'] },
+    // ⭐ 27/08 (deciso dall'utente, caso 62372): un servizio A ORA del valet
+    // si paga anche se la consegna NON e' andata — l'ora e' stata lavorata.
+    // 'not_delivered' entra qui e viene tenuto SOLO se il listino del valet
+    // e' a ora (filtro in JS: valetServiceId non ha una relazione filtrabile).
+    status: { in: ['delivered', 'approved', 'not_delivered'] },
 
     paymentStatus: { not: 'paid' },
     salaryLines: { none: {} },
