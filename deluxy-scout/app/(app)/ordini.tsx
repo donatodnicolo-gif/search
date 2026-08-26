@@ -3,14 +3,16 @@
 // qui si segue solo l'incasso: da incassare → incassato (o annullato).
 // La pipeline dice quanto stiamo trattando; questa pagina quanto abbiamo chiuso.
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
-import { aggiornaOrdine, fetchOrdini, type OrdineConLuogo } from '@/lib/db';
-import { avvisa } from '@/lib/dialoghi';
+import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
+import { chiediFatturaPerOrdine } from '@/lib/partner';
+import { Foglio } from '@/components/Foglio';
+import { avvisa, conferma } from '@/lib/dialoghi';
 
 const STATI: { valore: OrdineConLuogo['stato']; label: string; colore: string }[] = [
   { valore: 'da_incassare', label: 'Da incassare', colore: '#B7791F' },
@@ -34,6 +36,10 @@ export default function Ordini() {
   const [loading, setLoading] = useState(true);
   const [statoFiltro, setStatoFiltro] = useState<string | null>(null);
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
+  const [inCorso, setInCorso] = useState<string | null>(null);
+  /** L'ordine per cui si sta scegliendo la percentuale dell'acconto. */
+  const [accontoPer, setAccontoPer] = useState<OrdineConLuogo | null>(null);
+  const [percentuale, setPercentuale] = useState(30);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -125,8 +131,41 @@ export default function Ordini() {
       valore: () => null,
       cella: (o) => (
         <View style={styles.tabAzioni}>
+          {/* Il documento, quando c'è: si apre su FINANCE, dove vive. */}
+          {o.fattura_numero || o.proforma_numero ? (
+            <Pressable
+              style={styles.docChip}
+              hitSlop={6}
+              onPress={(e: any) => {
+                e?.stopPropagation?.();
+                const link = o.fattura_url || o.proforma_url;
+                if (link) Linking.openURL(link);
+              }}
+              accessibilityLabel="Apri il documento su Deluxy Partner"
+            >
+              <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
+              <Text style={styles.docChipTxt}>{o.fattura_numero || o.proforma_numero}</Text>
+            </Pressable>
+          ) : null}
           {o.stato === 'da_incassare' ? (
             <>
+              {/* CHIUDI ORDINE: il lavoro è finito, si chiede la fattura a
+                  FINANCE. Non è «incassato» — i soldi arrivano dopo. */}
+              {!o.fattura_numero ? (
+                <Pressable
+                  style={[styles.btnGhost, inCorso === o.id && { opacity: 0.5 }]}
+                  disabled={inCorso === o.id}
+                  onPress={(e: any) => { e?.stopPropagation?.(); chiudiOrdine(o); }}
+                >
+                  <Text style={styles.btnGhostTxt}>{inCorso === o.id ? 'Chiedo…' : 'Chiudi ordine'}</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                style={styles.btnGhost}
+                onPress={(e: any) => { e?.stopPropagation?.(); chiediAcconto(o); }}
+              >
+                <Text style={styles.btnGhostTxt}>Acconto %</Text>
+              </Pressable>
               <Pressable style={styles.btn} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'incassato'); }}>
                 <Text style={styles.btnTxt}>Incassato</Text>
               </Pressable>
@@ -143,6 +182,106 @@ export default function Ordini() {
       ),
     },
   ];
+
+  /**
+   * ⭐ CHIUDI ORDINE (26/08/2026, richiesta dell'utente): il lavoro è finito,
+   * si chiede la FATTURA a FINANCE.
+   *
+   * Se la pro-forma non c'è ancora si emette adesso, poi si conferma — che di
+   * là vuol dire «andata a fattura». Il riferimento resta sull'ordine: senza,
+   * domani nessuno sa quale fattura è quella di questo lavoro.
+   *
+   * ⚠️ Chiudere NON è incassare: i soldi arrivano dopo, e «Incassato» resta un
+   * gesto a parte. Confonderli farebbe risultare pagato ciò che è solo fatto.
+   */
+  async function chiudiOrdine(o: OrdineConLuogo) {
+    if (inCorso) return;
+    if (!o.valore) {
+      avvisa('Manca il valore', 'Un ordine senza importo non si fattura: scrivi quanto vale, poi lo si chiude.');
+      return;
+    }
+    conferma(
+      'Chiudere l’ordine?',
+      `${o.cliente} · ${importoBreve(o.valore)}.\n\n${
+        o.proforma_numero
+          ? `La pro-forma ${o.proforma_numero} passa a fatturata su FINANCE.`
+          : 'Nasce la pro-forma su FINANCE e viene subito confermata (fatturata).'
+      }\n\nL’incasso resta un gesto a parte: chiudere non vuol dire pagato.`,
+      async () => {
+        setInCorso(o.id);
+        try {
+          const doc = await chiediFatturaPerOrdine({
+            cliente: o.cliente,
+            importo: o.valore!,
+            causale: o.descrizione,
+            proformaNumero: o.proforma_numero ?? null,
+          });
+          await collegaDocumentoAOrdine(o.id, {
+            proformaNumero: doc.riferimento,
+            proformaUrl: doc.url,
+            fatturaNumero: doc.fatturaNumero ?? doc.riferimento,
+            fatturaUrl: doc.url,
+          });
+          await carica();
+          avvisa('Ordine chiuso', `${doc.riferimento} è fatturata su Deluxy Partner.`);
+        } catch (e: any) {
+          // ⚠️ Il messaggio di FINANCE si mostra INTERO: se il cliente là non
+          // c'è dice «Partner non trovato» coi candidati, cioè cosa manca e dove.
+          avvisa('Non è stato chiuso', e?.message ?? 'Riprova.');
+        } finally {
+          setInCorso(null);
+        }
+      },
+      { testoConferma: 'Chiudi e fattura' },
+    );
+  }
+
+  /**
+   * ⭐ ACCONTO IN PERCENTUALE (26/08/2026, richiesta dell'utente): si chiede
+   * una parte adesso, il resto alla consegna.
+   *
+   * Nasce una richiesta di pagamento in **Pagamenti** con la sua rata: la
+   * percentuale si conserva accanto all'importo, così se il valore dell'ordine
+   * cambia si sa da dove veniva il numero — un importo secco direbbe solo
+   * «300 €» e nessuno saprebbe più che era il 30%.
+   */
+  function chiediAcconto(o: OrdineConLuogo) {
+    if (!o.valore) {
+      avvisa('Manca il valore', 'L’acconto è una percentuale dell’ordine: senza importo non si può calcolare.');
+      return;
+    }
+    setAccontoPer(o);
+  }
+
+  async function creaAcconto(o: OrdineConLuogo, percentuale: number) {
+    const importo = Math.round(((o.valore ?? 0) * percentuale) / 100 * 100) / 100;
+    if (!importo) return;
+    setInCorso(o.id);
+    try {
+      await inserisciRichiestaPagamento({
+        cliente: o.cliente,
+        importo,
+        causale: `Acconto ${percentuale}% — ${o.descrizione ?? 'ordine'}`,
+        place_id: o.place_id ?? null,
+        deal_id: o.deal_id ?? null,
+        rate: [
+          { etichetta: `Acconto ${percentuale}%`, modo: 'percentuale', percentuale, importo },
+          {
+            etichetta: 'Saldo',
+            modo: 'percentuale',
+            percentuale: 100 - percentuale,
+            importo: Math.round(((o.valore ?? 0) - importo) * 100) / 100,
+          },
+        ],
+      });
+      setAccontoPer(null);
+      avvisa('Acconto richiesto', `${importoBreve(importo)} (${percentuale}%) è in Pagamenti, col saldo accanto.`);
+    } catch (e: any) {
+      avvisa('Non è stato richiesto', e?.message ?? 'Riprova.');
+    } finally {
+      setInCorso(null);
+    }
+  }
 
   async function cambiaStato(o: OrdineConLuogo, stato: OrdineConLuogo['stato']) {
     try {
@@ -248,6 +387,53 @@ export default function Ordini() {
           )
         }
       />
+
+      {/* Quanto acconto: le percentuali che si usano davvero, più il campo
+          libero. Sotto, l'importo calcolato — perché è quello che il cliente
+          leggerà, e va visto prima di chiederlo. */}
+      {accontoPer ? (
+        <Foglio
+          titolo="Chiedi un acconto"
+          sottotitolo={`${accontoPer.cliente} · ordine da ${importoBreve(accontoPer.valore)}`}
+          onClose={() => setAccontoPer(null)}
+        >
+          <View style={styles.percRow}>
+            {[20, 30, 50, 70].map((p) => (
+              <Pressable
+                key={p}
+                style={[styles.percChip, percentuale === p && styles.percChipOn]}
+                onPress={() => setPercentuale(p)}
+              >
+                <Text style={[styles.percTxt, percentuale === p && styles.percTxtOn]}>{p}%</Text>
+              </Pressable>
+            ))}
+            <TextInput
+              style={styles.percInput}
+              value={String(percentuale)}
+              onChangeText={(v) => {
+                const n = Number(v.replace(/[^\d]/g, ''));
+                setPercentuale(Number.isFinite(n) && n > 0 && n <= 100 ? n : 0);
+              }}
+              keyboardType="number-pad"
+              placeholder="%"
+              placeholderTextColor={colors.grigio}
+            />
+          </View>
+          <Text style={styles.percCalcolo}>
+            Acconto: {importoBreve(Math.round(((accontoPer.valore ?? 0) * percentuale) / 100 * 100) / 100)} · saldo{' '}
+            {importoBreve(
+              Math.round(((accontoPer.valore ?? 0) - ((accontoPer.valore ?? 0) * percentuale) / 100) * 100) / 100,
+            )}
+          </Text>
+          <Pressable
+            style={[styles.btn, styles.btnLargo, (!percentuale || inCorso === accontoPer.id) && { opacity: 0.5 }]}
+            disabled={!percentuale || inCorso === accontoPer.id}
+            onPress={() => creaAcconto(accontoPer, percentuale)}
+          >
+            <Text style={styles.btnTxt}>Crea la richiesta di pagamento</Text>
+          </Pressable>
+        </Foglio>
+      ) : null}
     </View>
   );
 }
@@ -281,6 +467,16 @@ const styles = StyleSheet.create({
   tabValore: { color: colors.testo, fontWeight: '700', fontSize: 13.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end' },
+  docChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 3 },
+  docChipTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 10.5 },
+  percRow: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
+  percChip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
+  percChipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  percTxt: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
+  percTxtOn: { color: colors.bianco },
+  percInput: { width: 70, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 8, color: colors.testo, fontSize: 14, textAlign: 'center' },
+  percCalcolo: { color: colors.testoSoft, fontSize: 13, marginTop: 4 },
+  btnLargo: { marginTop: 8, paddingVertical: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   meta: { color: colors.testoSoft, fontSize: 12 },
   azioni: { flexDirection: 'row', gap: 8 },

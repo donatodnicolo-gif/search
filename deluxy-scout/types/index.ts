@@ -384,6 +384,13 @@ export interface Ordine {
   stato: 'da_incassare' | 'incassato' | 'annullato';
   incassato_il: string | null;
   owner: string | null;
+  /** La richiesta cliente da cui nasce, se viene da lì (migr. 0075). */
+  richiesta_id?: string | null;
+  /** I documenti di FINANCE: solo il riferimento, mai una copia degli importi. */
+  proforma_numero?: string | null;
+  proforma_url?: string | null;
+  fattura_numero?: string | null;
+  fattura_url?: string | null;
   created_at: string;
 }
 
@@ -483,7 +490,15 @@ export type TipologiaRichiesta = 'maison' | 'b2b';
  * una richiesta con un preventivo fuori era indistinguibile da una ancora da
  * guardare, e nessuno sapeva su quale sollecitare.
  */
-export type StatoRichiestaCliente = 'nuova' | 'preventivo_inviato' | 'concordata' | 'fatturata' | 'persa';
+export type StatoRichiestaCliente =
+  | 'nuova'
+  | 'preventivo_inviato'
+  | 'concordata'
+  /** È diventata un ORDINE: il lavoro è passato di mano (migr. 0075). Non è
+   *  «fatturata» — la fattura viene dopo — e non è più «concordata». */
+  | 'in_ordine'
+  | 'fatturata'
+  | 'persa';
 
 /** Chi ha scritto la richiesta: a mano, dalla posta, o un'altra app. */
 export type OrigineRichiesta = 'commerciale' | 'scout-mail' | 'app-delivery' | 'api';
@@ -524,6 +539,8 @@ export interface RichiestaCliente {
   mail_ref?: string | null;
   /** L'id nell'app che l'ha mandata: rende l'ingresso ripetibile senza doppioni. */
   riferimento_esterno?: string | null;
+  /** L'ordine nato da questa richiesta («Trasforma in ordine», migr. 0075). */
+  ordine_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -541,6 +558,7 @@ export const LABEL_STATO_RICHIESTA: Record<StatoRichiestaCliente, string> = {
   nuova: 'Da lavorare',
   preventivo_inviato: 'Preventivo inviato',
   concordata: 'Prezzo concordato',
+  in_ordine: 'Diventata ordine',
   fatturata: 'Fatturata',
   persa: 'Persa',
 };

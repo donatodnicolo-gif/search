@@ -97,6 +97,44 @@ export async function esitoPreventivo(numero: string, stato: 'accettata' | 'rifi
   await chiama({ azione: 'esito_preventivo', numero, stato });
 }
 
+/**
+ * CHIUDE L'ORDINE su FINANCE: il lavoro è finito, si chiede la fattura.
+ *
+ * Due passi in uno, perché è così che va nella realtà: se il documento non
+ * c'è ancora si emette adesso la pro-forma, poi la si conferma — che di là
+ * vuol dire «andata a fattura».
+ *
+ * ⚠️ Torna il riferimento del documento, che va salvato SULL'ORDINE: senza,
+ * domani nessuno sa quale fattura è quella di questo lavoro.
+ */
+export async function chiediFatturaPerOrdine(o: {
+  cliente: string;
+  importo: number;
+  causale?: string | null;
+  proformaNumero?: string | null;
+  fatturaNumero?: string | null;
+}): Promise<{ riferimento: string; url: string; fatturaNumero: string | null }> {
+  let riferimento = o.proformaNumero ?? '';
+  let url = '';
+  if (!riferimento) {
+    const pf = await creaProformaDaRichiesta({ cliente: o.cliente, importo: o.importo, causale: o.causale });
+    riferimento = pf.riferimento;
+    url = pf.url;
+  }
+  // `conferma` è idempotente di là: se era già fatturata risponde 200 con un
+  // avviso, non un errore. Chiudere due volte non rompe niente.
+  const esito = await chiama<{ riferimento?: string; url?: string; fatturaNumero?: string | null }>({
+    azione: 'conferma',
+    numero: riferimento,
+    fatturaNumero: o.fatturaNumero ?? undefined,
+  });
+  return {
+    riferimento: esito.riferimento ?? riferimento,
+    url: esito.url ?? url,
+    fatturaNumero: esito.fatturaNumero ?? null,
+  };
+}
+
 /** Conferma il pagamento della pro-forma collegata (→ stato "fatturata"). */
 export async function confermaPagamentoProforma(numero: string): Promise<void> {
   await chiama({ azione: 'conferma', numero });

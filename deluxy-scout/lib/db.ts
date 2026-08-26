@@ -2560,6 +2560,103 @@ export async function collegaProformaARichiesta(id: string, numero: string, url:
 }
 
 /**
+ * ⭐ DALLA RICHIESTA ALL'ORDINE (26/08/2026, richiesta dell'utente: «metti
+ * Trasforma in Ordini che porta la cosa sotto Ordini e genera in automatico
+ * una proforma che sarà agganciata»).
+ *
+ * Fin qui una richiesta cliente moriva dov'era nata: si prezzava, si chiedeva
+ * il documento, e il lavoro venduto non compariva fra gli ORDINI — cioè nel
+ * posto dove si guarda cosa c'è da consegnare e da incassare.
+ *
+ * ⚠️ Serve l'importo: un ordine senza valore non si incassa e non si misura.
+ * ⚠️ Il legame è nei DUE versi (ordine→richiesta e richiesta→ordine): con uno
+ * solo, una delle due domande — «perché lo stiamo facendo» e «che fine ha
+ * fatto» — resta sempre senza risposta.
+ */
+export async function creaOrdineDaRichiesta(r: RichiestaCliente): Promise<{ id: string }> {
+  if (!r.importo) {
+    throw new Error('Serve l’importo concordato: un ordine senza valore non si incassa e non si misura.');
+  }
+  const { data: u } = await supabase.auth.getUser();
+  // Già trasformata: non se ne fa un secondo. Due ordini per una richiesta
+  // varrebbero due volte la stessa vendita.
+  if (r.ordine_id) {
+    const { data: gia } = await supabase.from('ordini').select('id').eq('id', r.ordine_id).maybeSingle();
+    if (gia) return { id: (gia as { id: string }).id };
+  }
+  const { data, error } = await supabase
+    .from('ordini')
+    .insert({
+      place_id: r.place_id,
+      cliente: r.cliente,
+      descrizione: r.descrizione,
+      valore: r.importo,
+      canale: r.canale === 'web' ? 'web' : 'altro',
+      richiesta_id: r.id,
+      // Il documento che la richiesta ha già, se c'è: l'ordine nasce sapendo
+      // quale pro-forma lo rappresenta.
+      proforma_numero: r.proforma_numero ?? null,
+      proforma_url: r.proforma_url ?? null,
+      owner: u.user?.id ?? null,
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  const ordineId = (data as { id: string }).id;
+  const { error: e2 } = await supabase
+    .from('richieste_cliente')
+    .update({ ordine_id: ordineId, stato: 'in_ordine' })
+    .eq('id', r.id);
+  if (e2) throw e2;
+  return { id: ordineId };
+}
+
+/**
+ * ⭐ DALLA TRATTATIVA ALL'ORDINE (26/08/2026, richiesta dell'utente: «anche qui
+ * metti pulsante per trasformare in ordine, stessa logica che c'è in richieste
+ * clienti»).
+ *
+ * Stessa regola: serve il valore, l'ordine nasce agganciato, e non se ne fa un
+ * secondo se c'è già — due ordini per una trattativa varrebbero due volte la
+ * stessa vendita. `creaOrdineDaDeal` (che gira alla vittoria) fa l'upsert su
+ * `deal_id`: qui si riusa, e si torna l'id per attaccarci il documento.
+ */
+export async function creaOrdineDaTrattativa(d: {
+  id: string;
+  place_id: string;
+  valore_atteso: number | null;
+  oggetto?: string | null;
+  titolo?: string | null;
+  canale?: string | null;
+  linea: string | null;
+  place_nome?: string | null;
+}): Promise<{ id: string }> {
+  if (!d.valore_atteso) {
+    throw new Error('Serve il valore della trattativa: un ordine senza importo non si incassa e non si misura.');
+  }
+  await creaOrdineDaDeal({ ...d, oggetto: d.oggetto ?? d.titolo ?? null });
+  const { data, error } = await supabase.from('ordini').select('id').eq('deal_id', d.id).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('Ordine non trovato dopo la creazione.');
+  return { id: (data as { id: string }).id };
+}
+
+/** Aggancia all'ORDINE il documento emesso da FINANCE (riferimento, non copia). */
+export async function collegaDocumentoAOrdine(
+  ordineId: string,
+  doc: { proformaNumero?: string; proformaUrl?: string; fatturaNumero?: string; fatturaUrl?: string },
+): Promise<void> {
+  const patch: Record<string, string | null> = {};
+  if (doc.proformaNumero) patch.proforma_numero = doc.proformaNumero;
+  if (doc.proformaUrl) patch.proforma_url = doc.proformaUrl;
+  if (doc.fatturaNumero) patch.fattura_numero = doc.fatturaNumero;
+  if (doc.fatturaUrl) patch.fattura_url = doc.fatturaUrl;
+  if (!Object.keys(patch).length) return;
+  const { error } = await supabase.from('ordini').update(patch).eq('id', ordineId);
+  if (error) throw error;
+}
+
+/**
  * Il PREVENTIVO emesso da FINANCE resta agganciato alla richiesta: numero e
  * link, mai una copia degli importi. La richiesta passa a «preventivo inviato»
  * — che è lo stato vero, e dice che la palla adesso è del cliente.

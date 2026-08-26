@@ -36,6 +36,7 @@ export function TabellaTrattative({
   onElimina,
   onRipristina,
   onCancella,
+  onOrdine,
 }: {
   righe: TrattativaConLuogo[];
   /** L'ordine della pipeline: la colonna Fase si ordina per posizione, non per alfabeto. */
@@ -49,6 +50,8 @@ export function TabellaTrattative({
   onRipristina?: (d: TrattativaConLuogo) => void;
   /** La cancella per sempre: solo dalle annullate. */
   onCancella?: (d: TrattativaConLuogo) => void;
+  /** La trasforma in ordine (con la domanda: la fa il chiamante). */
+  onOrdine?: (d: TrattativaConLuogo) => void;
 }) {
   // Default: la più RECENTE in cima (richiesta dell'utente, 26/08/2026).
   // Prima ordinava per valore, e con metà delle trattative senza importo la
@@ -144,6 +147,21 @@ export function TabellaTrattative({
             <Text style={styles.cellaData}>{dataBreve(d.created_at)}</Text>
             <Text style={[styles.cellaData, scaduta && styles.cellaScaduta]}>{dataBreve(d.scadenza)}</Text>
             <Text style={styles.cellaAzione} numberOfLines={2}>{d.next_action || '—'}</Text>
+            {/* TRASFORMA IN ORDINE: solo su una trattativa viva e con un valore
+                — senza importo non c'è un ordine da fare. */}
+            {onOrdine && !d.annullata_il && d.fase !== 'closedlost' && d.valore_atteso ? (
+              <Pressable
+                hitSlop={8}
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  onOrdine(d);
+                }}
+                accessibilityLabel={`Trasforma in ordine la trattativa di ${d.place_nome ?? 'negozio'}`}
+                {...({ title: 'Trasforma in ordine' } as any)}
+              >
+                <Ionicons name="receipt-outline" size={15} color={colors.navy} />
+              </Pressable>
+            ) : null}
             {/* Il cestino sulla riga: eliminare si poteva già, ma solo aprendo
                 la scheda e scorrendo in fondo — e un comando fuori dalla prima
                 schermata è un comando che non si trova. Solo sulle trattative

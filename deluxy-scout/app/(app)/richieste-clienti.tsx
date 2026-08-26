@@ -29,7 +29,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
@@ -39,7 +39,9 @@ import { avvisa, conferma } from '@/lib/dialoghi';
 import {
   aggiornaRichiestaCliente,
   cercaPlaces,
+  collegaDocumentoAOrdine,
   collegaPreventivoARichiesta,
+  creaOrdineDaRichiesta,
   fetchLeads,
   leadDiventaRichiesta,
   collegaProformaARichiesta,
@@ -74,6 +76,7 @@ const COLORE_STATO: Record<StatoRichiestaCliente, string> = {
   // che non è più roba da lavorare ma da sollecitare.
   preventivo_inviato: colors.blue,
   concordata: colors.blue,
+  in_ordine: colors.successo,
   fatturata: colors.successo,
   persa: colors.grigio,
 };
@@ -99,6 +102,7 @@ export default function RichiesteClienti() {
   // elenco che cresce all'infinito smette di dire cosa c'è da fare.
   const [mostraChiuse, setMostraChiuse] = useState(false);
   const [importando, setImportando] = useState(false);
+  const router = useRouter();
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -201,6 +205,72 @@ export default function RichiesteClienti() {
         }
       },
       { testoConferma: 'Chiedi il preventivo' },
+    );
+  }
+
+  /**
+   * ⭐ TRASFORMA IN ORDINE (26/08/2026, richiesta dell'utente): la richiesta
+   * passa sotto Ordini — dove si guarda cosa c'è da consegnare e da incassare —
+   * e il documento nasce insieme.
+   *
+   * Se la pro-forma non c'è ancora, si chiede adesso a FINANCE e si aggancia a
+   * tutti e due: alla richiesta e all'ordine. Se c'è già, l'ordine la eredita
+   * invece di chiederne una seconda — due documenti per una vendita sarebbero
+   * due volte lo stesso incasso.
+   */
+  async function trasformaInOrdine(r: RichiestaCliente) {
+    if (inCorso) return;
+    if (!r.importo) {
+      avvisa(
+        'Manca l’importo',
+        'Un ordine senza valore non si incassa e non si misura: scrivi il prezzo concordato, poi si trasforma.',
+      );
+      return;
+    }
+    conferma(
+      'Trasformare in ordine?',
+      `«${r.cliente}» · ${importoBreve(r.importo)}.\n\nLa richiesta passa sotto Ordini${
+        r.proforma_numero ? ` con la pro-forma ${r.proforma_numero} già agganciata` : ', e la pro-forma nasce adesso su FINANCE'
+      }.`,
+      async () => {
+        setInCorso(r.id);
+        try {
+          const { id: ordineId } = await creaOrdineDaRichiesta(r);
+          // Il documento: se manca, si chiede ora. ⚠️ Best-effort — l'ordine è
+          // già nato, e un registro che non risponde non deve farlo perdere.
+          if (!r.proforma_numero) {
+            try {
+              const pf = await creaProformaDaRichiesta({
+                cliente: r.cliente,
+                importo: r.importo!,
+                causale: r.descrizione,
+                scadenza: r.serve_entro,
+              });
+              await collegaProformaARichiesta(r.id, pf.riferimento, pf.url);
+              await collegaDocumentoAOrdine(ordineId, { proformaNumero: pf.riferimento, proformaUrl: pf.url });
+              await carica();
+              avvisa('Ordine creato', `È in Ordini, con la pro-forma ${pf.riferimento} agganciata.`);
+              return;
+            } catch (e: any) {
+              await carica();
+              // Si dice ESATTAMENTE cosa è riuscito e cosa no: «non riuscito»
+              // su un'operazione a metà manda a cercare nel posto sbagliato.
+              avvisa(
+                'Ordine creato, pro-forma no',
+                `L’ordine è in Ordini. Il documento non è stato emesso: ${e?.message ?? 'riprova da lì'}.`,
+              );
+              return;
+            }
+          }
+          await carica();
+          avvisa('Ordine creato', `È in Ordini, con la pro-forma ${r.proforma_numero} agganciata.`);
+        } catch (e: any) {
+          avvisa('Non è stato creato', e?.message ?? 'Riprova.');
+        } finally {
+          setInCorso(null);
+        }
+      },
+      { testoConferma: 'Trasforma' },
     );
   }
 
@@ -376,6 +446,30 @@ export default function RichiesteClienti() {
           ) : (
             <Text style={styles.btnTxt}>Chiedi la fattura</Text>
           )}
+        </Pressable>
+      ) : null}
+      {/* TRASFORMA IN ORDINE: da qui il lavoro passa dove si consegna e si
+          incassa. Compare quando il prezzo c'è — prima non c'è un ordine. */}
+      {r.ordine_id ? (
+        <Pressable
+          style={styles.btnGhost}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            router.push('/(app)/ordini');
+          }}
+        >
+          <Text style={styles.btnGhostTxt}>Vedi l’ordine</Text>
+        </Pressable>
+      ) : r.stato !== 'persa' && r.importo ? (
+        <Pressable
+          style={[styles.btn, inCorso === r.id && styles.btnOff]}
+          disabled={inCorso === r.id}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            trasformaInOrdine(r);
+          }}
+        >
+          <Text style={styles.btnTxt}>Trasforma in ordine</Text>
         </Pressable>
       ) : null}
       {r.stato === 'concordata' ? (

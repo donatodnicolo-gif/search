@@ -23,7 +23,9 @@ import {
   annullaDeal,
   eliminaDeal,
   ripristinaDeal,
+  collegaDocumentoAOrdine,
   creaOrdineDaDeal,
+  creaOrdineDaTrattativa,
   fetchContatti,
   fetchTutteTrattative,
   inserisciDeal,
@@ -31,6 +33,7 @@ import {
   type TrattativaConLuogo,
 } from '@/lib/db';
 import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } from '@/lib/hubspot';
+import { creaProformaDaRichiesta } from '@/lib/partner';
 import { env } from '@/lib/env';
 import { CANALI, MOTIVI_PERSO, canonizzaLinee, type CanaleTrattativa, type Contact, type DealStage, type MotivoPerso, type StatoAffiliazione } from '@/types';
 import { LineaSelector } from '@/components/LineaSelector';
@@ -268,6 +271,66 @@ export default function Trattative() {
     );
   }
 
+  /**
+   * ⭐ TRASFORMA IN ORDINE (26/08/2026, richiesta dell'utente: «stessa logica
+   * che c'è in richieste clienti»): la trattativa passa sotto Ordini e la
+   * pro-forma nasce insieme, agganciata.
+   *
+   * ⚠️ Serve il valore atteso: un ordine senza importo non si incassa e non si
+   * misura. E la trattativa si chiude VINTA — trasformarla in ordine senza
+   * chiuderla la lascerebbe in pipeline a contare due volte la stessa vendita.
+   */
+  function trasformaInOrdine(d: TrattativaConLuogo) {
+    if (!d.valore_atteso) {
+      avvisa(
+        'Manca il valore',
+        'Scrivi il valore della trattativa: un ordine senza importo non si incassa e non si misura.',
+      );
+      return;
+    }
+    conferma(
+      'Trasformare in ordine?',
+      `${d.place_nome ?? 'Cliente'} · € ${d.valore_atteso.toLocaleString('it-IT')}.\n\nLa trattativa si chiude VINTA, nasce l'ordine in Ordini e la pro-forma su FINANCE, agganciata.`,
+      async () => {
+        try {
+          const { id: ordineId } = await creaOrdineDaTrattativa({
+            id: d.id,
+            place_id: d.place_id,
+            valore_atteso: d.valore_atteso,
+            oggetto: d.oggetto ?? d.titolo ?? null,
+            canale: d.canale ?? null,
+            linea: d.linee?.length ? d.linee[0] : d.linea,
+            place_nome: d.place_nome ?? undefined,
+          });
+          // Vinta: la pipeline non deve tenersi una vendita già passata a ordine.
+          if (d.fase !== 'closedwon') {
+            await aggiornaDeal(d.id, { fase: 'closedwon', chiusa_il: new Date().toISOString().slice(0, 10) });
+          }
+          // Il documento. Best-effort dichiarato: l'ordine è già nato.
+          try {
+            const pf = await creaProformaDaRichiesta({
+              cliente: d.place_nome ?? 'Cliente',
+              importo: d.valore_atteso!,
+              causale: d.oggetto ?? d.titolo ?? null,
+            });
+            await collegaDocumentoAOrdine(ordineId, { proformaNumero: pf.riferimento, proformaUrl: pf.url });
+            await carica();
+            avvisa('Ordine creato', `È in Ordini, con la pro-forma ${pf.riferimento} agganciata.`);
+          } catch (e: any) {
+            await carica();
+            avvisa(
+              'Ordine creato, pro-forma no',
+              `L'ordine è in Ordini e la trattativa è vinta. Il documento non è stato emesso: ${e?.message ?? 'riprova da lì'}.`,
+            );
+          }
+        } catch (e: any) {
+          avvisa('Non è stato creato', (e as Error)?.message ?? 'Riprova.');
+        }
+      },
+      { testoConferma: 'Trasforma' },
+    );
+  }
+
   /** La rimette in gioco: torna nella vista della sua fase. */
   async function ripristina(d: TrattativaConLuogo) {
     try {
@@ -448,6 +511,7 @@ export default function Trattative() {
                 onNegozio={(id) => router.push(`/(app)/attivita/${id}`)}
                 onElimina={chiediEliminaDeal}
                 onRipristina={ripristina}
+                onOrdine={trasformaInOrdine}
                 onCancella={chiediCancellaDeal}
               />
             </View>
@@ -487,6 +551,7 @@ export default function Trattative() {
             onEdit={() => setEditDeal(item)}
             onElimina={() => chiediEliminaDeal(item)}
             onRipristina={() => ripristina(item)}
+            onOrdine={() => trasformaInOrdine(item)}
             onCancella={() => chiediCancellaDeal(item)}
           />
         )}
@@ -588,12 +653,15 @@ function RigaDeal({
   onElimina,
   onRipristina,
   onCancella,
+  onOrdine,
 }: {
   deal: TrattativaConLuogo;
   onEdit: () => void;
   onElimina: () => void;
   onRipristina?: () => void;
   onCancella?: () => void;
+  /** Trasforma la trattativa in ordine (con la domanda: la fa il chiamante). */
+  onOrdine?: () => void;
 }) {
   const suoDiScout = deal.origine !== 'hubspot' && deal.origine !== 'anagrafiche';
   const annullata = Boolean(deal.annullata_il);
@@ -615,6 +683,21 @@ function RigaDeal({
         )}
         {/* Su una annullata il cestino non serve più: servono le due strade
             che restano — rimetterla in gioco o cancellarla davvero. */}
+        {/* TRASFORMA IN ORDINE: su una trattativa viva e con un valore. */}
+        {onOrdine && !annullata && deal.fase !== 'closedlost' && deal.valore_atteso ? (
+          <Pressable
+            hitSlop={8}
+            style={{ marginLeft: 8 }}
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              onOrdine();
+            }}
+            accessibilityLabel="Trasforma in ordine"
+            {...({ title: 'Trasforma in ordine' } as any)}
+          >
+            <Ionicons name="receipt-outline" size={16} color={colors.navy} />
+          </Pressable>
+        ) : null}
         {suoDiScout && annullata ? (
           <>
             <Pressable

@@ -32,12 +32,11 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     ],
   },
   {
-    // I 4 canali da cui arriva il lavoro: territorio, telefono, web, e i
-    // clienti che ci sono già e richiedono ancora (26/08/2026). L'ultimo non
-    // porta clienti nuovi, ma porta VENDITE — ed è l'unico che nasce da un
-    // rapporto che abbiamo già: trattarlo come un canale è ciò che permette di
-    // vedere la RIPETIZIONE, che è il segnale per aprire il contratto.
-    titolo: 'Canali',
+    // Le porte da cui arrivano i clienti NUOVI: territorio, telefono, web.
+    // ⚠️ Si chiamava «Canali» fino al 26/08 sera: il nome nuovo dice chi ci
+    // arriva, non il mezzo — e distingue queste tre dalle richieste di chi è
+    // già cliente, che sono vendite e stanno nel funnel.
+    titolo: 'Nuovi clienti',
     voci: [
       { name: 'mappa', label: 'Territorio · Mappa', icon: 'map-outline' },
       // Una voce sola per due domande che sono la stessa in due tempi: «dove
@@ -47,11 +46,6 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       // leggeva. La rotta /province resta viva per i link già in giro.
       { name: 'affiliazioni', label: 'Affiliazioni · Copertura', icon: 'call-outline' },
       { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
-      // Il canale dei clienti che ci sono già: le loro richieste saltuarie si
-      // prezzano e si finalizzano qui (documento a FINANCE). Stava sotto
-      // «Vendita» dal 26/08 mattina: spostata qui la sera, su richiesta —
-      // una voce, una casa.
-      { name: 'richieste-clienti', label: 'Richieste Clienti', icon: 'reader-outline' },
     ],
   },
   {
@@ -61,6 +55,10 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     // insieme in una scheda a parte: sono i rapporti da riattivare.
     titolo: 'Contatti',
     voci: [
+      // ⭐ 26/08/2026 (richiesta dell'utente): «Potenziali» sta qui, non sotto
+      // Vendita. Sono i negozi visitati che possono diventare qualcosa — cioè
+      // persone da lavorare, non un passo del funnel di una vendita aperta.
+      { name: 'visite', label: 'Potenziali', icon: 'walk-outline' },
       { name: 'lista-selezionati', route: 'lista', params: { vista: 'selezionato' }, label: 'Selezionati', icon: 'star-outline' },
       { name: 'lista-lead', route: 'lista', params: { vista: 'lead' }, label: 'Lead', icon: 'send-outline' },
       { name: 'lista-prospect', route: 'lista', params: { vista: 'prospect' }, label: 'Prospect', icon: 'people-outline' },
@@ -85,11 +83,12 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     // l'occasione), poi la trattativa, l'ordine e l'incasso.
     titolo: 'Vendita',
     voci: [
-      { name: 'visite', label: 'Potenziali', icon: 'walk-outline' },
-      // ⚠️ «Richieste Clienti» sta sotto **Canali**: è la porta da cui entra il
-      // lavoro dei clienti ricorrenti, non un passo della pipeline (si evade
-      // alle condizioni note — regola del binario). Qui non si rimette, per
-      // non avere la stessa voce in due posti.
+      // ⚠️ «Potenziali» è passata sotto **Contatti** (26/08): qui restano solo
+      // i passi di una vendita in corso.
+      // ⭐ 26/08 sera: «Richieste Clienti» torna sotto Vendita, su richiesta.
+      // È una vendita a un cliente che c'è già: sta nel funnel, non fra le
+      // porte da cui arrivano i clienti NUOVI.
+      { name: 'richieste-clienti', label: 'Richieste Clienti', icon: 'reader-outline' },
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
       { name: 'ordini', label: 'Ordini', icon: 'receipt-outline' },
       { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
@@ -232,7 +231,7 @@ function SezionePreferiti({
 // Le sezioni che si possono chiudere: quelle lunghe, dove il menu diventa una
 // colonna da scorrere. «Vendere oggi» e «Account» restano sempre aperte —
 // hanno due voci e chiuderle non guadagnerebbe niente.
-const SEZIONI_CHIUDIBILI = new Set(['Canali', 'Contatti', 'Vendita', 'Forniture', 'Strumenti', 'Andamento']);
+const SEZIONI_CHIUDIBILI = new Set(['Nuovi clienti', 'Contatti', 'Vendita', 'Forniture', 'Strumenti', 'Andamento']);
 
 function ContenutoDrawer({ admin, espansa = true, onToggle, ...props }: any) {
   // Quali sezioni sono chiuse. Parte tutto aperto: chi apre il menu la prima
