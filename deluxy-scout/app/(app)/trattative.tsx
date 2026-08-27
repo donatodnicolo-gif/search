@@ -33,6 +33,8 @@ import {
   inserisciDeal,
   type PlaceLite,
   type TrattativaConLuogo,
+  fetchProfiles,
+  nomeDaProfilo,
 } from '@/lib/db';
 import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } from '@/lib/hubspot';
 import { emettiProformaPerOrdine, raccontaEsito } from '@/lib/documenti';
@@ -852,6 +854,24 @@ function TrattativaModal({
   const [scadenza, setScadenza] = useState<string | null>(deal?.scadenza ?? null);
   const [oggetto, setOggetto] = useState(deal?.oggetto ?? '');
   const [canale, setCanale] = useState<CanaleTrattativa>((deal?.canale as CanaleTrattativa) ?? 'territorio');
+  /**
+   * ⭐ CHI PORTA AVANTI LA TRATTATIVA (27/08/2026).
+   *
+   * ⚠️ I venditori si leggono dai PROFILI, non da una lista scritta qui: una
+   * lista di nomi nel codice invecchia il giorno che entra qualcuno, e chi
+   * entra non compare finche non lo aggiunge uno sviluppatore.
+   */
+  const [proprietario, setProprietario] = useState<string | null>(deal?.owner ?? null);
+  const [venditori, setVenditori] = useState<{ id: string; nome: string | null; email: string | null }[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    fetchProfiles()
+      .then((r) => vivo && setVenditori(r))
+      .catch(() => vivo && setVenditori([]));
+    return () => {
+      vivo = false;
+    };
+  }, []);
   const [motivoPerso, setMotivoPerso] = useState<MotivoPerso | null>((deal?.motivo_perso as MotivoPerso) ?? null);
   const [riprendereIl, setRiprendereIl] = useState<string | null>(deal?.riprendere_il ?? null);
   const [salvando, setSalvando] = useState(false);
@@ -939,6 +959,7 @@ function TrattativaModal({
         scadenza,
         oggetto: oggetto.trim() || null,
         canale,
+        owner: proprietario,
         // La memoria delle perse: motivo + quando riprovarci. Se la trattativa
         // viene riaperta, la memoria si azzera.
         motivo_perso: fase === 'closedlost' ? motivoPerso : null,
@@ -1130,6 +1151,35 @@ function TrattativaModal({
               placeholder="es. consegne weekend, vetrine natalizie…"
               placeholderTextColor={colors.grigio}
             />
+
+            {/* ⭐ CHI LA PORTA AVANTI (27/08/2026). Prima il proprietario si
+                vedeva in tabella ma non si poteva cambiare: una trattativa
+                passata di mano restava intestata a chi l'aveva aperta, e i
+                conti per venditore raccontavano il lavoro di sei mesi fa. */}
+            <Text style={styles.campoLabel}>Chi la porta avanti</Text>
+            <View style={styles.chipRow}>
+              <Pressable
+                style={[styles.chip, !proprietario && styles.chipOn]}
+                onPress={() => setProprietario(null)}
+              >
+                <Text style={[styles.chipTxt, !proprietario && styles.chipTxtOn]}>Nessuno</Text>
+              </Pressable>
+              {venditori.map((v) => (
+                <Pressable
+                  key={v.id}
+                  style={[styles.chip, proprietario === v.id && styles.chipOn]}
+                  onPress={() => setProprietario(v.id)}
+                >
+                  <Text style={[styles.chipTxt, proprietario === v.id && styles.chipTxtOn]}>
+                    {nomeDaProfilo(v)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.sub}>
+              ⚠️ Passandola a un collega non potrai più modificarla tu: è quello che «l&apos;ha presa in mano
+              lui» vuol dire.
+            </Text>
 
             {/* Canale di acquisizione: quale attività l'ha generata */}
             <Text style={styles.campoLabel}>Canale</Text>

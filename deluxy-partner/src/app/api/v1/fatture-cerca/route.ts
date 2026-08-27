@@ -9,22 +9,33 @@ import { chiaveApiValida } from "@/lib/apiauth";
 // ragione sociale, importo oltre che per numero». Serve alla chiusura di un
 // ordine: prima di emetterne una nuova si guarda se quella che il cliente ha
 // già ricevuto esiste — e il numero, quasi sempre, chi chiude l'ordine non ce
-// l'ha. Ha il nome del cliente e sa quanto vale.
+// l'ha.
 //
-//   GET /api/v1/fatture-cerca?cliente=TBF&importo=2720&anno=2026
+//   GET /api/v1/fatture-cerca?cliente=TBF
+//   GET /api/v1/fatture-cerca?importo=2720
 //   Header: X-API-Key (scope «lettura»)
 //
-// ⚠️ SOLA LETTURA e nient'altro: questa rotta non collega, non emette, non
-// marca niente. L'aggancio lo fa Scout sul SUO ordine, dopo che una persona ha
-// guardato la riga — perché il nome sulla fattura può essere di un altro
-// cliente, e agganciare in automatico sarebbe il modo più veloce di sbagliare
-// due pratiche insieme.
+// ⚠️ I CRITERI SONO ALTERNATIVI, non si sommano (correzione dell'utente,
+// 27/08: «sono tutte opzioni differenti non vanno insieme, l'importo non va
+// legato al nome»). Chi cerca per importo spesso NON sa il nome esatto — è per
+// questo che cerca per importo. Metterli in AND voleva dire chiedere due volte
+// la stessa certezza e non trovare mai niente. Si passa UN criterio per volta.
 //
-// ⚠️ Nessun risultato NON è un errore: è la risposta. Chi chiama deve poterla
-// distinguere da «il servizio non risponde», o mostrerà un rosso dove doveva
-// mostrare «non c'è, emettila».
+// ⚠️ SOLA LETTURA: questa rotta non collega, non emette, non marca niente.
+// L'aggancio lo fa Scout sul SUO ordine, dopo che una persona ha guardato la
+// riga — il nome sulla fattura può essere di un altro cliente.
+//
+// ⚠️ Nessun risultato NON è un errore: è la risposta, e chi chiama deve poterla
+// distinguere da «il servizio non risponde».
 
 export const dynamic = "force-dynamic";
+
+/** L'aliquota più bassa che usiamo: serve a delimitare la ricerca per importo. */
+const ALIQUOTA_MIN = 10;
+/** Tolleranza in euro: l'IVA fa ballare i centesimi, e una ricerca al
+ *  centesimo esatto non trova mai niente — cioè si comporta come se la fattura
+ *  non ci fosse. */
+const TOLLERANZA = 1;
 
 export async function GET(req: NextRequest) {
   if (!(await chiaveApiValida(req, "lettura"))) {
@@ -36,31 +47,40 @@ export async function GET(req: NextRequest) {
 
   const cliente = (req.nextUrl.searchParams.get("cliente") ?? "").trim();
   const importoTxt = (req.nextUrl.searchParams.get("importo") ?? "").trim();
-  const annoTxt = (req.nextUrl.searchParams.get("anno") ?? "").trim();
+  const importo = importoTxt ? Number(importoTxt.replace(",", ".")) : null;
+  const cercaPerImporto = importo != null && Number.isFinite(importo) && importo > 0;
 
-  if (!cliente && !importoTxt) {
-    return NextResponse.json(
-      { errore: "Serve almeno «cliente» o «importo»." },
-      { status: 400 },
-    );
+  if (!cliente && !cercaPerImporto) {
+    return NextResponse.json({ errore: "Serve «cliente» oppure «importo»." }, { status: 400 });
   }
 
-  const importo = importoTxt ? Number(importoTxt.replace(",", ".")) : null;
-  const anno = annoTxt ? Number(annoTxt) : null;
+  /**
+   * ⚠️ IL FILTRO SULL'IMPORTO SI FA NEL DATABASE, non dopo.
+   *
+   * Prima prendevo le 200 fatture più recenti e poi filtravo per importo in
+   * memoria: una fattura di due anni fa non sarebbe mai comparsa, e l'elenco
+   * vuoto avrebbe detto «non esiste» invece di «non ho guardato lì». È la
+   * trappola del `take` che si mangia i risultati veri.
+   *
+   * L'importo che arriva può essere il TOTALE (quello che Scout conosce) o
+   * l'IMPONIBILE (quello che qui è registrato): l'imponibile corrispondente sta
+   * fra `importo / 1,22` e `importo`. Si delimita così, e il confronto preciso
+   * si fa dopo sulle poche righe rimaste.
+   */
+  const where = cercaPerImporto
+    ? {
+        imponibile: {
+          gte: importo! / (1 + 22 / 100) - TOLLERANZA,
+          lte: importo! + TOLLERANZA,
+        },
+      }
+    : { partner: { nome: { contains: cliente, mode: "insensitive" as const } } };
 
-  // ⚠️ Il filtro sul CLIENTE si fa nel database (indicizzato, insensibile alle
-  // maiuscole); quello sull'IMPORTO no, e il motivo è che l'importo che Scout
-  // conosce è il TOTALE dell'ordine, mentre qui l'imponibile è netto IVA: due
-  // numeri diversi per la stessa vendita. Si confronta con una tolleranza,
-  // contro entrambi, e si dice quale ha fatto match.
   const righe = await prisma.fatturaServizio.findMany({
-    where: {
-      ...(cliente ? { partner: { nome: { contains: cliente, mode: "insensitive" } } } : {}),
-      ...(anno ? { anno } : {}),
-    },
+    where,
     include: { partner: { select: { id: true, nome: true } }, tipologia: { select: { nome: true } } },
     orderBy: [{ anno: "desc" }, { mese: "desc" }],
-    take: 200,
+    take: 300,
   });
 
   const conTotale = righe.map((f) => ({
@@ -78,29 +98,29 @@ export async function GET(req: NextRequest) {
     incassato: f.incassato,
   }));
 
-  // Tolleranza di un euro: gli arrotondamenti dell'IVA fanno ballare i
-  // centesimi, e una ricerca che pretende il centesimo esatto non trova mai
-  // niente — cioè si comporta come se la fattura non ci fosse.
-  const vicino = (a: number, b: number) => Math.abs(a - b) <= 1;
-  const filtrate =
-    importo != null && Number.isFinite(importo)
-      ? conTotale
-          .map((f) => ({
-            ...f,
-            combacia: vicino(f.totale, importo)
-              ? ("totale" as const)
-              : vicino(f.imponibile, importo)
-                ? ("imponibile" as const)
-                : null,
-          }))
-          .filter((f) => f.combacia !== null)
-      : conTotale.map((f) => ({ ...f, combacia: null }));
+  const vicino = (a: number, b: number) => Math.abs(a - b) <= TOLLERANZA;
+  const risultati = cercaPerImporto
+    ? conTotale
+        .map((f) => ({
+          ...f,
+          combacia: vicino(f.totale, importo!)
+            ? ("totale" as const)
+            : vicino(f.imponibile, importo!)
+              ? ("imponibile" as const)
+              : null,
+        }))
+        .filter((f) => f.combacia !== null)
+    : conTotale.map((f) => ({ ...f, combacia: null }));
 
   return NextResponse.json({
-    trovate: filtrate.length,
+    trovate: risultati.length,
     // Si dice SU CHE COSA si è cercato: un elenco vuoto senza la domanda che
     // l'ha prodotto fa dubitare del servizio invece che della ricerca.
-    ricerca: { cliente: cliente || null, importo, anno },
-    fatture: filtrate.slice(0, 25),
+    ricerca: cercaPerImporto ? { per: "importo", importo } : { per: "cliente", cliente },
+    // ⚠️ Se il taglio morde, si DICHIARA: «25 di 40» è un'informazione, «25» e
+    // basta è un elenco che sembra completo.
+    troncato: risultati.length > 25,
+    fatture: risultati.slice(0, 25),
+    aliquotaMinimaConsiderata: ALIQUOTA_MIN,
   });
 }

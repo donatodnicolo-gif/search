@@ -1638,19 +1638,58 @@ function ChiusuraOrdine({
    * primo l'unico dato che manca — quindi i due campi partono già COMPILATI
    * con quello che l'ordine sa, e basta premere Cerca.
    */
-  const [qCliente, setQCliente] = useState(ordine.place_nome ?? ordine.cliente);
-  const [qImporto, setQImporto] = useState(ordine.valore != null ? scriviImporto(ordine.valore) : '');
+  /**
+   * ⚠️ UN CRITERIO PER VOLTA (correzione dell'utente, 27/08/2026: «sono tutte
+   * opzioni differenti non vanno insieme, l'importo non va legato al nome»).
+   *
+   * Li avevo messi in AND — nome E importo insieme — e sbagliavo: chi cerca per
+   * importo spesso NON sa il nome esatto, ed è per questo che cerca per
+   * importo. Chiedere due certezze per trovarne una vuol dire non trovare mai
+   * niente. Il campo è uno, e cambia significato col criterio scelto.
+   */
+  const [criterio, setCriterio] = useState<'cliente' | 'importo' | 'numero'>('cliente');
+  const [q, setQ] = useState(ordine.place_nome ?? ordine.cliente);
   const [elenco, setElenco] = useState<FatturaInElenco[] | null>(null);
   const [erroreRicerca, setErroreRicerca] = useState<string | null>(null);
 
-  async function cercaPerCliente() {
-    if (cerco) return;
+  /** Cambiando criterio si riparte: il valore di prima non vuol dire più
+   *  niente, e lasciarlo lì farebbe cercare «TBF Limited Srl» come importo. */
+  function scegliCriterio(c: 'cliente' | 'importo' | 'numero') {
+    setCriterio(c);
+    setElenco(null);
+    setTrovata(null);
+    setErroreRicerca(null);
+    setQ(
+      c === 'cliente'
+        ? ordine.place_nome ?? ordine.cliente
+        : c === 'importo'
+          ? ordine.valore != null
+            ? scriviImporto(ordine.valore)
+            : ''
+          : '',
+    );
+  }
+
+  async function cerca() {
+    const testo = q.trim();
+    if (!testo || cerco) return;
     setCerco(true);
     setElenco(null);
+    setTrovata(null);
     setErroreRicerca(null);
     try {
-      const imp = qImporto.trim() ? leggiImporto(qImporto) : null;
-      const r = await cercaFatture({ cliente: qCliente.trim() || null, importo: imp });
+      if (criterio === 'numero') {
+        setTrovata(await cercaFattura(testo));
+        return;
+      }
+      const imp = criterio === 'importo' ? leggiImporto(testo) : null;
+      if (criterio === 'importo' && imp == null) {
+        setErroreRicerca(`«${testo}» non è un importo. Scrivilo come 2.720,00.`);
+        return;
+      }
+      const r = await cercaFatture(
+        criterio === 'importo' ? { importo: imp } : { cliente: testo },
+      );
       if (!r.ok) setErroreRicerca(r.errore ?? 'Ricerca non riuscita.');
       else setElenco(r.fatture);
     } finally {
@@ -1766,39 +1805,73 @@ function ChiusuraOrdine({
       ) : (
         <>
           <Text style={styles.campoLabel}>Cerca la fattura su FINANCE</Text>
-          <Text style={styles.campoAiuto}>
-            Per ragione sociale e importo — sono già compilati con i dati di quest&apos;ordine.
-          </Text>
+          <View style={styles.chipsForm}>
+            {([
+              { v: 'cliente', l: 'Per ragione sociale' },
+              { v: 'importo', l: 'Per importo' },
+              { v: 'numero', l: 'Per numero' },
+            ] as const).map((o) => (
+              <Pressable
+                key={o.v}
+                style={[styles.chip, criterio === o.v && styles.chipOn]}
+                onPress={() => scegliCriterio(o.v)}
+              >
+                <Text style={[styles.chipTxt, criterio === o.v && styles.chipTxtOn]}>{o.l}</Text>
+              </Pressable>
+            ))}
+          </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TextInput
-              style={[styles.campo, { flex: 1.6 }]}
-              value={qCliente}
-              onChangeText={setQCliente}
-              placeholder="Ragione sociale"
-              placeholderTextColor={colors.grigio}
-            />
-            <TextInput
               style={[styles.campo, { flex: 1 }]}
-              value={qImporto}
-              onChangeText={setQImporto}
-              placeholder="Importo"
+              value={q}
+              onChangeText={setQ}
+              placeholder={
+                criterio === 'cliente'
+                  ? 'Ragione sociale'
+                  : criterio === 'importo'
+                    ? 'Importo — es. 2.720,00'
+                    : 'Numero — es. 181/2026'
+              }
               placeholderTextColor={colors.grigio}
-              inputMode="decimal"
+              inputMode={criterio === 'importo' ? 'decimal' : 'text'}
+              autoCapitalize={criterio === 'numero' ? 'none' : 'sentences'}
             />
             <Pressable
-              style={[styles.btnCerca, cerco && { opacity: 0.5 }]}
-              disabled={cerco}
-              onPress={cercaPerCliente}
+              style={[styles.btnCerca, (!q.trim() || cerco) && { opacity: 0.5 }]}
+              disabled={!q.trim() || cerco}
+              onPress={cerca}
             >
               <Text style={styles.btnCercaTxt}>{cerco ? 'Cerco…' : 'Cerca'}</Text>
             </Pressable>
           </View>
           <Text style={styles.campoAiuto}>
-            L&apos;importo si confronta sia col totale sia con l&apos;imponibile, a un euro di tolleranza: l&apos;IVA
-            fa ballare i centesimi, e una ricerca al centesimo esatto non trova mai niente.
+            {criterio === 'importo'
+              ? "L'importo si confronta sia col totale sia con l'imponibile, a un euro di tolleranza: l'IVA fa ballare i centesimi."
+              : criterio === 'cliente'
+                ? 'Basta una parte del nome. È già compilato con il cliente di questo ordine.'
+                : 'Il numero come lo scrive FINANCE, per esempio 181/2026.'}
           </Text>
 
           {erroreRicerca ? <Text style={styles.chiusuraNo}>{erroreRicerca}</Text> : null}
+
+          {trovata ? (
+            trovata.trovata ? (
+              <Pressable style={styles.fattRiga} disabled={!!inCorso} onPress={agganciaEChiudi}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.fattNumero} numberOfLines={1}>
+                    {trovata.numero ?? q.trim()} · {trovata.partner?.nome ?? '—'}
+                  </Text>
+                  <Text style={styles.fattMeta} numberOfLines={1}>
+                    {trovata.totale != null ? importoBreve(trovata.totale) : 'importo non indicato'}
+                    {trovata.pagata ? ' · pagata' : trovata.scaduta ? ' · scaduta' : ' · non pagata'}
+                  </Text>
+                </View>
+                <Ionicons name="link-outline" size={17} color={colors.navy} />
+              </Pressable>
+            ) : (
+              <Text style={styles.chiusuraNo}>{trovata.motivo ?? 'Nessuna fattura con questo numero.'}</Text>
+            )
+          ) : null}
 
           {elenco ? (
             elenco.length ? (
@@ -1808,12 +1881,7 @@ function ChiusuraOrdine({
                     importo, sono la normalità — e agganciare la prima riga
                     sbaglierebbe due pratiche insieme. */}
                 {elenco.map((f) => (
-                  <Pressable
-                    key={f.id}
-                    style={styles.fattRiga}
-                    disabled={!!inCorso}
-                    onPress={() => agganciaRiga(f)}
-                  >
+                  <Pressable key={f.id} style={styles.fattRiga} disabled={!!inCorso} onPress={() => agganciaRiga(f)}>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={styles.fattNumero} numberOfLines={1}>
                         {f.numero ?? 'senza numero'} · {f.partner?.nome ?? '—'}
@@ -1822,7 +1890,7 @@ function ChiusuraOrdine({
                         {importoBreve(f.totale)} ({importoBreve(f.imponibile)} + IVA {f.aliquotaIva}%)
                         {f.emissione ? ` · ${f.emissione}` : ` · ${f.mese}/${f.anno}`}
                         {f.pagata ? ' · pagata' : ' · non pagata'}
-                        {f.combacia === 'imponibile' ? " · l'importo combacia con l'imponibile" : ''}
+                        {f.combacia === 'imponibile' ? " · combacia con l'imponibile" : ''}
                       </Text>
                     </View>
                     <Ionicons name="link-outline" size={17} color={colors.navy} />
@@ -1831,54 +1899,9 @@ function ChiusuraOrdine({
               </View>
             ) : (
               <Text style={styles.campoAiuto}>
-                Nessuna fattura con questi dati. Può essere che non sia ancora stata emessa: sotto c&apos;è come
+                Nessuna fattura con questi dati. Può darsi che non sia ancora stata emessa: qui sotto c&apos;è come
                 farla.
               </Text>
-            )
-          ) : null}
-
-          <Text style={[styles.campoLabel, { marginTop: 10 }]}>Oppure agganciala per numero</Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TextInput
-              style={[styles.campo, { flex: 1 }]}
-              value={numero}
-              onChangeText={setNumero}
-              placeholder="es. 181/2026"
-              placeholderTextColor={colors.grigio}
-              autoCapitalize="none"
-            />
-            <Pressable
-              style={[styles.btnCerca, (!numero.trim() || cerco) && { opacity: 0.5 }]}
-              disabled={!numero.trim() || cerco}
-              onPress={verifica}
-            >
-              <Text style={styles.btnCercaTxt}>{cerco ? 'Cerco…' : 'Cerca'}</Text>
-            </Pressable>
-          </View>
-
-          {trovata ? (
-            trovata.trovata ? (
-              <>
-                <Text style={styles.chiusuraOk}>
-                  Trovata: {trovata.numero ?? numero.trim()}
-                  {trovata.partner?.nome ? ` · ${trovata.partner.nome}` : ''}
-                  {trovata.totale != null ? ` · ${importoBreve(trovata.totale)}` : ''}
-                  {trovata.pagata ? ' · pagata' : trovata.scaduta ? ' · scaduta' : ' · non pagata'}
-                </Text>
-                {/* ⚠️ Il nome sulla fattura può essere di un ALTRO cliente: si
-                    mostra, e a confrontarlo è la persona. Agganciare in
-                    automatico una fattura intestata a qualcun altro sarebbe il
-                    modo più veloce di sbagliare due pratiche insieme. */}
-                <Pressable
-                  style={[styles.btn, styles.btnLargo, inCorso === 'aggancia' && { opacity: 0.5 }]}
-                  disabled={!!inCorso}
-                  onPress={agganciaEChiudi}
-                >
-                  <Text style={styles.btnTxt}>Aggancia questa fattura e chiudi</Text>
-                </Pressable>
-              </>
-            ) : (
-              <Text style={styles.chiusuraNo}>{trovata.motivo ?? 'Nessuna fattura con questo numero.'}</Text>
             )
           ) : null}
 
@@ -1894,20 +1917,13 @@ function ChiusuraOrdine({
             </Text>
           </Pressable>
 
-          <Pressable
-            style={styles.chiudiSenza}
-            disabled={!!inCorso}
-            onPress={() =>
-              conferma(
-                'Chiudere senza fattura?',
-                'L\'ordine risulterà chiuso ma senza documento collegato. Va bene se la fattura è stata fatta fuori dall\'app — altrimenti resta un ricavo senza carta.',
-                () => chiudi('senza'),
-                { testoConferma: 'Chiudi lo stesso' },
-              )
-            }
-          >
-            <Text style={styles.chiudiSenzaTxt}>Chiudi senza fattura</Text>
-          </Pressable>
+          {/* ⚠️ NON C'È «chiudi senza fattura» (regola dell'utente, 27/08/2026:
+              «non può essere chiuso senza fattura»). Un ordine chiuso senza
+              documento è un ricavo senza carta: la scorciatoia l'avevo messa io,
+              e una scorciatoia che si può prendere si prende. */}
+          <Text style={styles.campoAiuto}>
+            Un ordine non si chiude senza fattura: senza documento resta un ricavo senza carta.
+          </Text>
         </>
       )}
     </Foglio>
@@ -2181,8 +2197,6 @@ const styles = StyleSheet.create({
   fattMeta: { color: colors.grigio, fontSize: 11.5, lineHeight: 16 },
   chiusuraOk: { color: '#2F7D46', fontSize: 13, lineHeight: 18, fontWeight: '600' },
   chiusuraNo: { color: colors.errore, fontSize: 13, lineHeight: 18 },
-  chiudiSenza: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },
-  chiudiSenzaTxt: { color: colors.grigio, fontSize: 12.5, fontWeight: '600' },
   spuntaRiga: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 4 },
   spuntaTxt: { flex: 1, color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
   listinoRiga: {
