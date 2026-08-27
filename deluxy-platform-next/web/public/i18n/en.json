@@ -516,7 +516,8 @@
       "quick": "Quick period",
       "thisMonth": "This month",
       "lastMonth": "Last month",
-      "thisYear": "This year"
+      "thisYear": "This year",
+      "services": "Service types"
     },
     "status": {
       "DRAFT": "Draft",
@@ -598,7 +599,8 @@
       "to": "To",
       "allStatuses": "All statuses",
       "clear": "Clear filters",
-      "onlyPayable": "Only valets with payable deliveries"
+      "onlyPayable": "Only valets with payable deliveries",
+      "services": "Service types"
     },
     "pending": {
       "valets": "Valets",

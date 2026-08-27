@@ -24,6 +24,7 @@ import {
   paginate,
   textSearch,
 } from '../common/list-query';
+import { ambitoTeamLeader } from '../common/team-leader';
 import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.module';
@@ -167,6 +168,43 @@ export class DeliveriesService {
    */
   private static readonly VIVE = { deletedAt: null } as const;
 
+  /**
+   * Filtro di visibilità in base al ruolo, TEAM LEADER compreso.
+   *
+   * ⚠️ È `async` perché per un team leader bisogna leggere la sua squadra dal
+   * database. Prima era sincrono e il team leader vedeva solo le proprie
+   * consegne: la sua configurazione (province di responsabilità, partner,
+   * partner esclusi) era scritta e non la leggeva nessuno.
+   */
+  private async filtroRuolo(user: JwtUser): Promise<Record<string, unknown>> {
+    if (user.role !== Role.VALET) return this.roleFilter(user);
+    const valet = await this.prisma.valet.findUnique({
+      where: { id: user.valetId ?? '-' },
+      select: {
+        id: true, isTeamLeader: true,
+        teamLeaderProvinces: true, teamLeaderPartners: true, teamLeaderExcludedPartners: true,
+        provinces: { select: { provinceId: true } },
+      },
+    });
+    const ambito = await ambitoTeamLeader(valet, (provinceIds) =>
+      this.prisma.valet.findMany({
+        where: { provinces: { some: { provinceId: { in: provinceIds } } } },
+        select: { id: true },
+      }),
+    );
+    if (!ambito) return { valetId: user.valetId ?? '-' };
+    const dove: Record<string, unknown> = { valetId: { in: ambito.valetIds } };
+    if (ambito.partnerIds) dove['partnerId'] = { in: ambito.partnerIds };
+    if (ambito.partnerEsclusi.length) {
+      // ⚠️ `notIn` secco scarterebbe anche i NULL: si tiene la forma che il
+      // Prisma applica al campo non nullo, che qui lo è sempre.
+      dove['partnerId'] = ambito.partnerIds
+        ? { in: ambito.partnerIds.filter((x) => !ambito.partnerEsclusi.includes(x)) }
+        : { notIn: ambito.partnerEsclusi };
+    }
+    return dove;
+  }
+
   /** Filtro di visibilita' in base al ruolo. */
   private roleFilter(user: JwtUser) {
     if (user.role === Role.PARTNER) return { partnerId: user.partnerId ?? '-' };
@@ -250,7 +288,7 @@ export class DeliveriesService {
     user: JwtUser,
     query: DeliveryListQueryDto,
   ): Promise<PagedResult<unknown>> {
-    const scope: any = { ...DeliveriesService.VIVE, ...this.roleFilter(user) };
+    const scope: any = { ...DeliveriesService.VIVE, ...(await this.filtroRuolo(user)) };
     if (query.status) scope.status = query.status;
     // Vista Attive / Storico. Uno stato esplicito VINCE sulla vista: se si
     // chiede "consegnate" si vogliono quelle, in qualunque tab ci si trovi.
@@ -310,7 +348,10 @@ export class DeliveriesService {
     // Le note interne non si nascondono piu' dopo averle lette: l'elenco non
     // le seleziona affatto. E' la stessa protezione, un passo prima — un campo
     // che non esce dal database non puo' finire in un carico per sbaglio.
-    return { items: rows, total, page, pageSize };
+    // ⚠️ Anche la LISTA: nascondere i numeri solo nel dettaglio lascerebbe la
+    // stessa fuga da un'altra rotta. Si toglie dove i dati escono, non dove si
+    // mostrano.
+    return { items: rows.map((r) => this.soloIMieiSoldi(r as any, user)), total, page, pageSize };
   }
 
   /**
@@ -319,7 +360,7 @@ export class DeliveriesService {
    * mensile: ogni giorno con ordini viene marcato.
    */
   async calendar(user: JwtUser, from?: string, to?: string, partnerId?: string, valetId?: string) {
-    const scope: any = { ...DeliveriesService.VIVE, ...this.roleFilter(user) };
+    const scope: any = { ...DeliveriesService.VIVE, ...(await this.filtroRuolo(user)) };
     // Admin/Operation possono filtrare per partner o valet (partner/valet restano ai propri).
     if (partnerId && user.role !== Role.PARTNER) scope.partnerId = partnerId;
     if (valetId && user.role !== Role.VALET) scope.valetId = valetId;
@@ -350,7 +391,7 @@ export class DeliveriesService {
    * Riservato ad Admin/Operation (gate nel controller).
    */
   async mapPoints(user: JwtUser, query: DeliveryListQueryDto) {
-    const scope: any = { ...DeliveriesService.VIVE, ...this.roleFilter(user) };
+    const scope: any = { ...DeliveriesService.VIVE, ...(await this.filtroRuolo(user)) };
     if (query.status) scope.status = query.status;
     // Vista Attive / Storico. Uno stato esplicito VINCE sulla vista: se si
     // chiede "consegnate" si vogliono quelle, in qualunque tab ci si trovi.
@@ -419,7 +460,7 @@ export class DeliveriesService {
 
   async findOne(id: string, user: JwtUser) {
     const delivery = await this.prisma.delivery.findFirst({
-      where: { id, ...this.roleFilter(user) },
+      where: { id, ...(await this.filtroRuolo(user)) },
       include: { ...DELIVERY_INCLUDE, activities: true, logs: { orderBy: { createdAt: 'asc' } } },
     });
     if (!delivery) throw new NotFoundException('Consegna non trovata');
@@ -467,7 +508,7 @@ export class DeliveriesService {
       evento: l.type === 'legacy_update' ? eventoDelLog(l.createdAt) : null,
     }));
 
-    return this.hideInternalNotes({ ...delivery, logs }, user);
+    return this.soloIMieiSoldi(this.hideInternalNotes({ ...delivery, logs }, user), user);
   }
 
 
@@ -952,5 +993,59 @@ export class DeliveriesService {
       return { ...delivery, internalNotes: null } as T;
     }
     return delivery;
+  }
+
+  // ============================================================
+  // IL VALET NON VEDE I SOLDI DEL PARTNER (27/08/2026)
+  // ------------------------------------------------------------
+  // Segnalato dall'utente: «i valet possono vedere quanto i partner pagano le
+  // consegne mentre non dovrebbe essere così: il valet può vedere solo i
+  // propri servizi».
+  //
+  // ⚠️ Non era una svista dell'interfaccia: l'API mandava TUTTO. Nascondere i
+  // numeri nella pagina non li avrebbe tolti dalla risposta — chi apre gli
+  // strumenti del browser (o legge la rotta) li vedeva lo stesso. Si tolgono
+  // QUI, che è l'unico posto che nessuno può aggirare.
+  //
+  // ⚠️ Il CONTRASSEGNO resta: sono i contanti che il valet deve incassare alla
+  // consegna. Toglierlo non sarebbe prudenza, sarebbe fargli sbagliare il giro.
+  // ============================================================
+  private static readonly SOLDI_DEL_PARTNER = [
+    'price',
+    'additionalPrice',
+    'deliveryPrice',
+    'flexiblePrice',
+    'isFlexiblePrice',
+    'extraKm',
+    'extraOutOfCity',
+    'billable',
+    'invoiced',
+  ] as const;
+
+  /**
+   * Toglie da una consegna il denaro che riguarda il partner, quando a leggere
+   * è un valet. Quello che il valet vede resta il SUO: `valetSalary`,
+   * `valetAdditionalPrice`, le ore, e il contrassegno da incassare.
+   */
+  private soloIMieiSoldi<T extends Record<string, any>>(delivery: T, user: JwtUser): T {
+    if (user.role !== Role.VALET) return delivery;
+    const pulita: Record<string, any> = { ...delivery };
+    for (const campo of DeliveriesService.SOLDI_DEL_PARTNER) delete pulita[campo];
+    // I prodotti portano il prezzo di vendita al cliente: al valet serve
+    // sapere COSA porta e quanti pezzi, non quanto è stato venduto.
+    if (Array.isArray(pulita['products'])) {
+      pulita['products'] = pulita['products'].map((p: Record<string, any>) => {
+        const { price, productPrice, publicPrice, flexiblePrice, ...resto } = p;
+        return resto;
+      });
+    }
+    // Le righe di fattura e la regola carnet lato fatturazione sono conti fra
+    // noi e il partner: non riguardano chi fa il giro.
+    delete pulita['invoiceLines'];
+    if (pulita['deliveryRule']) {
+      const { partnerBillingAdjustment, toBill, ...regola } = pulita['deliveryRule'];
+      pulita['deliveryRule'] = regola;
+    }
+    return pulita as T;
   }
 }

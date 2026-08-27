@@ -516,7 +516,8 @@
       "quick": "Periodo rapido",
       "thisMonth": "Mese in corso",
       "lastMonth": "Mese scorso",
-      "thisYear": "Anno in corso"
+      "thisYear": "Anno in corso",
+      "services": "Tipologie di servizio"
     },
     "status": {
       "DRAFT": "Bozza",
@@ -598,7 +599,8 @@
       "to": "Al",
       "allStatuses": "Tutti gli stati",
       "clear": "Azzera filtri",
-      "onlyPayable": "Solo valet con consegne pagabili"
+      "onlyPayable": "Solo valet con consegne pagabili",
+      "services": "Tipologie di servizio"
     },
     "pending": {
       "valets": "Valet",

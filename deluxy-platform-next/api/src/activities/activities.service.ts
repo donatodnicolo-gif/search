@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { ambitoTeamLeader } from '../common/team-leader';
 
 @Injectable()
 export class ActivitiesService {
@@ -30,17 +31,39 @@ export class ActivitiesService {
     if (user.role === Role.VALET) {
       const valet = await this.prisma.valet.findUnique({
         where: { id: user.valetId ?? '-' },
-        include: { provinces: true },
+        select: {
+          id: true,
+          isTeamLeader: true,
+          teamLeaderProvinces: true,
+          teamLeaderPartners: true,
+          teamLeaderExcludedPartners: true,
+          provinces: { select: { provinceId: true } },
+        },
       });
-      if (valet?.isTeamLeader && valet.provinces.length) {
-        const provinceIds = valet.provinces.map((p) => p.provinceId);
-        const teamValets = await this.prisma.valet.findMany({
-          where: { provinces: { some: { provinceId: { in: provinceIds } } } },
-          select: { id: true },
-        });
-        where.valetId = { in: teamValets.map((v) => v.id) };
-      } else {
+      // ⚠️ Prima si guardavano `valet.provinces` — le province in cui LUI
+      // lavora — invece di `teamLeaderProvinces`, quelle di cui RISPONDE: due
+      // cose diverse, che per alcuni combaciano e per altri no. E i partner (e
+      // i partner esclusi) non li leggeva nessuno. La regola sta adesso in un
+      // posto solo, condivisa con le consegne.
+      const ambito = await ambitoTeamLeader(
+        valet as any,
+        (provinceIds) =>
+          this.prisma.valet.findMany({
+            where: { provinces: { some: { provinceId: { in: provinceIds } } } },
+            select: { id: true },
+          }),
+      );
+      if (!ambito) {
         where.valetId = user.valetId ?? '-';
+      } else {
+        where.valetId = { in: ambito.valetIds };
+        if (ambito.partnerIds) {
+          where.delivery = {
+            partnerId: { in: ambito.partnerIds.filter((x) => !ambito.partnerEsclusi.includes(x)) },
+          };
+        } else if (ambito.partnerEsclusi.length) {
+          where.delivery = { partnerId: { notIn: ambito.partnerEsclusi } };
+        }
       }
     } else if (user.role === Role.PARTNER) {
       where.delivery = { partnerId: user.partnerId ?? '-' };
@@ -88,14 +111,3 @@ export class ActivitiesService {
     return this.prisma.activity.update({ where: { id }, data: { status } });
   }
 }
-  /**
-   * Le attivita' di ritiro e consegna.
-   *
-   * ⚠️ C'e' un TETTO, e serve: in tabella ce ne sono 57.253 e senza filtro di
-   * data uscivano tutte in una risposta sola. Sono quasi tutte storia — oggi
-   * ne cadono 9 — quindi il valore normale e' il giorno, e «tutte» e' una
-   * vista di comodo da limitare, non da lasciar esplodere.
-   *
-   * Il totale vero si restituisce sempre: chi guarda deve sapere che sta
-   * vedendo una fetta, non tutto.
-   */

@@ -239,6 +239,16 @@ export const SOGLIA_ARRETRATO = new Date('2026-07-01T00:00:00.000Z');
 const IVA = 22;
 const conIva = (n: number) => Math.round(n * (1 + IVA / 100) * 100) / 100;
 
+/**
+ * «id1,id2,id3» da una query → ['id1','id2','id3'].
+ * Vuoto o assente torna `undefined`, che vuol dire «nessun filtro»: una lista
+ * vuota vorrebbe dire «nessun servizio» e il recap uscirebbe vuoto.
+ */
+const elencoId = (testo?: string): string[] | undefined => {
+  const v = (testo ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  return v.length ? v : undefined;
+};
+
 @Injectable()
 export class InvoicesService {
   private readonly logger = new Logger(InvoicesService.name);
@@ -519,7 +529,17 @@ export class InvoicesService {
    * **il resto lo dobbiamo al partner**. Un recap che mostrasse solo la nostra
    * quota sarebbe la metà meno interessante per chi lo riceve.
    */
-  async recap(user: JwtUser, partnerId: string, mese: string) {
+  /**
+   * I due mondi dentro lo stesso recap.
+   *
+   * ⚠️ Un partner ha con noi DUE conti opposti: i servizi che gli facciamo (e
+   * che ci paga) e le vendite che facciamo per lui (che gli giriamo). Sommarli
+   * in un «totale» solo li fa sparire tutt'e due. Qui si separano per modello
+   * di prezzo, che è dove la differenza è scritta.
+   */
+  private static readonly MODELLI_A_PAGAMENTO = ['PREZZO_FISSO', 'A_ORA', 'MAGAZZINO', 'CORPORATE'];
+
+  async recap(user: JwtUser, partnerId: string, mese: string, soloServizi?: string[]) {
     if (user.role === Role.PARTNER && user.partnerId !== partnerId) {
       throw new NotFoundException('Partner non trovato');
     }
@@ -548,6 +568,10 @@ export class InvoicesService {
         invoiceLines: { none: {} },
         invoiced: false,
         date: { gte: dal, lte: al },
+        // ⭐ 27/08 (chiesto dall'utente): si può fare il recap dei soli servizi
+        // scelti — «prima quello delle consegne standard, poi quello delle
+        // vendite». Senza filtro entrano tutti, com'era.
+        ...(soloServizi?.length ? { serviceTypeId: { in: soloServizi } } : {}),
       },
       select: {
         id: true, code: true, date: true, serviceTypeId: true,
@@ -573,7 +597,7 @@ export class InvoicesService {
 
     const righe: {
       code: number; date: Date; provincia: string | null;
-      service: string; orario: string | null; indirizzo: string | null;
+      service: string; modello: string | null; orario: string | null; indirizzo: string | null;
       plusMinus: number; fatturabile: boolean;
       amount: number; venduto: number; dovuto: number;
     }[] = [];
@@ -585,6 +609,7 @@ export class InvoicesService {
         date: d.date,
         provincia: d.province?.code ?? null,
         service: d.serviceType?.name ?? '—',
+        modello: d.serviceType?.pricingModel ?? null,
         orario: d.deliveryTimeFrom ? `${d.deliveryTimeFrom}${d.deliveryTimeTo ? '–' + d.deliveryTimeTo : ''}` : null,
         indirizzo: d.recipientAddress ?? null,
         plusMinus: d.additionalPrice ?? 0,
@@ -614,12 +639,42 @@ export class InvoicesService {
     // percentuali sono per servizio, e sommarle sarebbe una media inventata.
     const quotaDeluxy = Math.round((venduto - dovutoAlPartner) * 100) / 100;
 
+    // ⭐ 27/08 (chiesto dall'utente): i due conti separati, e la differenza.
+    // ⚠️ Vanno in versi OPPOSTI e non si sommano: il primo è denaro che il
+    // partner deve a noi, il secondo denaro che noi dobbiamo a lui. Un «totale»
+    // unico li farebbe sparire tutt'e due — è la trappola del verso del denaro
+    // invertito, già pagata su questo repo.
+    const daPagamento = righe.filter((r) => r.fatturabile && InvoicesService.MODELLI_A_PAGAMENTO.includes(r.modello ?? ''));
+    const daVendita = righe.filter((r) => r.fatturabile && r.modello === 'VENDITA');
+    const q2 = (n: number) => Math.round(n * 100) / 100;
+    const imponibileServizi = q2(daPagamento.reduce((s, r) => s + r.amount, 0));
+    const dovutoDaVendite = q2(daVendita.reduce((s, r) => s + r.dovuto, 0));
+    const riepilogo = {
+      serviziAPagamento: {
+        consegne: daPagamento.length,
+        imponibile: imponibileServizi,
+        iva: q2(conIva(imponibileServizi) - imponibileServizi),
+        totale: q2(conIva(imponibileServizi)),
+      },
+      vendite: {
+        consegne: daVendita.length,
+        venduto: q2(daVendita.reduce((s, r) => s + r.venduto, 0)),
+        quotaDeluxy: q2(daVendita.reduce((s, r) => s + (r.venduto - r.dovuto), 0)),
+        dovutoAlPartner: dovutoDaVendite,
+      },
+      // Il saldo del periodo: quello che ci deve (servizi, IVA compresa) meno
+      // quello che gli dobbiamo (le vendite girate). Positivo = incassiamo noi.
+      saldo: q2(conIva(imponibileServizi) - dovutoDaVendite),
+    };
+
     return {
       partner,
       mese,
       periodo: { dal, al },
       righe,
       escluse,
+      soloServizi: soloServizi?.length ? soloServizi : null,
+      riepilogo,
       totali: {
         deliveriesCount: righe.filter((r) => r.fatturabile).length,
         netAmount,
@@ -667,6 +722,32 @@ export class InvoicesService {
         <tr class="finale"><td>Dovuto a voi</td><td class="num">${eur(r.totali.dovutoAlPartner)}</td></tr>
       </table>` : '';
 
+    /**
+     * ⭐ 27/08 (chiesto dall'utente): il riepilogo che fa capire i DUE conti.
+     * ⚠️ Vanno in versi opposti e si dice a parole quale: il primo è denaro che
+     * ci deve il partner, il secondo denaro che gli dobbiamo noi. Un numero
+     * senza il suo verso si legge come l'opposto la metà delle volte.
+     */
+    const ri = (r as any).riepilogo as {
+      serviziAPagamento: { consegne: number; imponibile: number; iva: number; totale: number };
+      vendite: { consegne: number; venduto: number; quotaDeluxy: number; dovutoAlPartner: number };
+      saldo: number;
+    } | undefined;
+    const blocccoRiepilogo = ri && (ri.serviziAPagamento.consegne || ri.vendite.consegne) ? `
+      <h2>Riepilogo del periodo</h2>
+      <table class="totali riepilogo">
+        <tr class="titolo"><td colspan="2">Servizi che facciamo per voi <span class="q">(consegna, a ora, magazzino) &mdash; ${ri.serviziAPagamento.consegne} consegne</span></td></tr>
+        <tr><td>Imponibile</td><td class="num">${eur(ri.serviziAPagamento.imponibile)}</td></tr>
+        <tr><td>IVA ${IVA}%</td><td class="num">${eur(ri.serviziAPagamento.iva)}</td></tr>
+        <tr class="sub"><td>Che ci dovete</td><td class="num">${eur(ri.serviziAPagamento.totale)}</td></tr>
+        <tr class="titolo"><td colspan="2">Vendite che abbiamo realizzato per voi <span class="q">&mdash; ${ri.vendite.consegne} consegne</span></td></tr>
+        <tr><td>Valore venduto</td><td class="num">${eur(ri.vendite.venduto)}</td></tr>
+        <tr><td>Quota Deluxy</td><td class="num">&minus;${eur(ri.vendite.quotaDeluxy)}</td></tr>
+        <tr class="sub"><td>Che vi dobbiamo</td><td class="num">${eur(ri.vendite.dovutoAlPartner)}</td></tr>
+        <tr class="finale"><td>Differenza${ri.saldo >= 0 ? ' &mdash; a nostro favore' : ' &mdash; a vostro favore'}</td><td class="num">${eur(Math.abs(ri.saldo))}</td></tr>
+      </table>
+      <p class="nota-riepilogo">La differenza è quello che ci dovete (IVA compresa) meno quello che vi dobbiamo. Non è una compensazione automatica: i due importi restano due documenti distinti.</p>` : '';
+
     return `<!doctype html>
 <html lang="it"><head><meta charset="utf-8">
 <title>Recap ${e(mese)} — ${e(r.partner.insegna)}</title>
@@ -696,6 +777,11 @@ export class InvoicesService {
   .totali td { border: 0; padding: 4px 8px; }
   .totali td.num { font-variant-numeric: tabular-nums; }
   .totali .finale td { border-top: 1px solid #1d1d1f; padding-top: 8px; font-weight: 600; font-size: 16px; }
+  .totali.riepilogo { min-width: 340px; }
+  .totali .titolo td { padding-top: 14px; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #6e6e73; }
+  .totali .titolo .q { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .totali .sub td { border-top: 1px solid #e5e5ea; padding-top: 6px; font-weight: 600; }
+  .nota-riepilogo { max-width: 340px; margin: 8px 0 0 auto; font-size: 11.5px; color: #6e6e73; text-align: right; }
   .nota { margin-top: 26px; font-size: 12px; color: #6e6e73; }
   @media print { body { background: #fff; padding: 0; } .foglio { box-shadow: none; border-radius: 0; } }
 </style></head>
@@ -722,6 +808,7 @@ export class InvoicesService {
   </table>
 
   ${blocchoVendite}
+  ${blocccoRiepilogo}
 
   ${r.escluse ? `<p class="nota">${r.escluse} ${r.escluse === 1 ? 'consegna &egrave; marcata «non fatturabile»' : 'consegne sono marcate «non fatturabili»'}: non hanno una tariffa applicabile, oppure una regola carnet prevede di non fatturarle.</p>` : ''}
   <p class="nota">Documento di riepilogo, non &egrave; una fattura. I nominativi dei destinatari non compaiono.</p>
@@ -739,8 +826,8 @@ export class InvoicesService {
    * Contratto verificato su come lo chiama il CRM: `POST /api/v1/invia` con
    * `x-api-key` + `x-utente`, corpo `{ a, cc, oggetto, corpo }`.
    */
-  async inviaRecap(user: JwtUser, partnerId: string, mese: string, aManuale?: string) {
-    const r = await this.recap(user, partnerId, mese);
+  async inviaRecap(user: JwtUser, partnerId: string, mese: string, aManuale?: string, soloServizi?: string[]) {
+    const r = await this.recap(user, partnerId, mese, soloServizi?.length ? soloServizi : undefined);
 
     const destinatario = (aManuale ?? r.partner.invoiceEmail ?? r.partner.email ?? '').trim();
     if (!destinatario) {
@@ -1094,14 +1181,16 @@ export class InvoicesController {
   @ApiOperation({ summary: 'Il recap del mese da mandare al partner (JSON, o HTML con formato=html)' })
   @ApiQuery({ name: 'mese', required: true, description: 'AAAA-MM' })
   @ApiQuery({ name: 'formato', required: false, description: 'html per il documento stampabile' })
+  @ApiQuery({ name: 'servizi', required: false, description: 'Id dei tipi di servizio separati da virgola: recap dei soli servizi scelti' })
   async recap(
     @CurrentUser() user: JwtUser,
     @Param('partnerId') partnerId: string,
     @Query('mese') mese: string,
     @Query('formato') formato: string | undefined,
+    @Query('servizi') servizi: string | undefined,
     @Res({ passthrough: true }) res: RispostaHttp,
   ) {
-    const dati = await this.invoicesService.recap(user, partnerId, mese);
+    const dati = await this.invoicesService.recap(user, partnerId, mese, elencoId(servizi));
     if (formato !== 'html') return dati;
     // Si apre nel browser invece di scaricarsi: si guarda prima di mandarlo.
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -1114,9 +1203,12 @@ export class InvoicesController {
   inviaRecap(
     @CurrentUser() user: JwtUser,
     @Param('partnerId') partnerId: string,
-    @Body() body: { mese: string; a?: string },
+    @Body() body: { mese: string; a?: string; servizi?: string[] },
   ) {
-    return this.invoicesService.inviaRecap(user, partnerId, body.mese, body.a);
+    // ⚠️ Il filtro viaggia anche nell'invio: mandare tutto dopo aver guardato
+    // il recap di un servizio solo vorrebbe dire mandare un documento diverso
+    // da quello che si e' controllato.
+    return this.invoicesService.inviaRecap(user, partnerId, body.mese, body.a, body.servizi);
   }
 
   @Post('generate')

@@ -157,6 +157,19 @@ const NEXT: Record<string, { next: string; key: string }> = {
           <span>{{ 'invoices.filter.onlyPriced' | translate }}</span>
         </label>
       }
+      <!-- ⭐ 27/08 (chiesto dall'utente): il recap di una tipologia per volta
+           — «prima quello delle consegne standard, poi quello delle vendite». -->
+      @if (serviceTypes().length) {
+        <div class="f servizi">
+          <span>{{ 'invoices.filter.services' | translate }}</span>
+          <div class="chips-servizi">
+            @for (s of serviceTypes(); track s.id) {
+              <button type="button" class="chip-serv" [class.on]="serviziScelti().has(s.id)"
+                      (click)="scegliServizio(s.id)">{{ s.name }}</button>
+            }
+          </div>
+        </div>
+      }
       @if (filtriAttivi()) {
         <button type="button" class="link-btn azzera" (click)="azzeraFiltri()">{{ 'invoices.filter.clear' | translate }}</button>
       }
@@ -457,6 +470,11 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .filtri .interruttore { flex-direction: row; align-items: center; gap: 7px; min-width: 0; padding-bottom: 8px; }
       .filtri .interruttore > span { font-size: 13px; color: var(--text); }
       .filtri .azzera { padding-bottom: 8px; }
+      .filtri .f.servizi { min-width: 240px; flex: 1 1 320px; }
+      .chips-servizi { display: flex; flex-wrap: wrap; gap: 6px; }
+      .chip-serv { appearance: none; font: inherit; font-size: 12px; font-weight: 550; padding: 5px 11px; border-radius: 980px; border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: all .15s var(--ease); }
+      .chip-serv:hover { background: var(--fill); }
+      .chip-serv.on { background: var(--ink, #1d1d1f); border-color: transparent; color: #fff; }
       .rosso { color: #C0392B; font-weight: 600; }
       .dovuto { color: #007aff; }
       .mese { font-weight: 550; text-transform: capitalize; white-space: nowrap; }
@@ -523,8 +541,23 @@ export class InvoicesListComponent {
     );
   });
 
+  /** Il catalogo dei tipi di servizio, per il filtro per tipologia. */
+  readonly serviceTypes = signal<{ id: string; name: string; pricingModel?: string }[]>([]);
+  /** I tipi scelti. Vuoto = tutti, che è diverso da «nessuno». */
+  readonly serviziScelti = signal<Set<string>>(new Set());
+
+  scegliServizio(id: string): void {
+    const x = new Set(this.serviziScelti());
+    if (x.has(id)) x.delete(id); else x.add(id);
+    this.serviziScelti.set(x);
+  }
+
+  private queryServizi(): string {
+    return [...this.serviziScelti()].join(',');
+  }
+
   filtriAttivi(): boolean {
-    return !!(this.cerca || this.partnerFilter || this.dal || this.al || this.stato || this.soloPrezzabili);
+    return !!(this.cerca || this.partnerFilter || this.dal || this.al || this.stato || this.soloPrezzabili || this.serviziScelti().size);
   }
 
   /**
@@ -542,6 +575,7 @@ export class InvoicesListComponent {
   azzeraFiltri(): void {
     this.cerca = ''; this.partnerFilter = ''; this.dal = ''; this.al = '';
     this.stato = ''; this.soloPrezzabili = false;
+    this.serviziScelti.set(new Set());
     this.cercaPending.set('');
     this.load();
   }
@@ -574,6 +608,8 @@ export class InvoicesListComponent {
     // Il conto sulla linguetta deve esserci anche partendo da un'altra scheda.
     if (this.view() !== 'pending') this.caricaTotaliPending();
     if (this.canManage()) {
+      this.http.get<{ id: string; name: string; pricingModel?: string }[]>(`${environment.apiUrl}/service-types`)
+        .subscribe({ next: (d) => this.serviceTypes.set(d ?? []), error: () => this.serviceTypes.set([]) });
       this.http.get<PartnerLite[]>(`${environment.apiUrl}/partners`).subscribe((d) =>
         this.partners.set(d.map((p) => ({ id: p.id, insegna: p.insegna }))),
       );
@@ -640,7 +676,7 @@ export class InvoicesListComponent {
     this.error.set(null);
     this.recapInCorso.set(r.chiave);
     this.http.get(`${environment.apiUrl}/invoices/recap/${r.partnerId}`, {
-      params: { mese: r.mese, formato: 'html' }, responseType: 'text',
+      params: { mese: r.mese, formato: 'html', ...(this.queryServizi() ? { servizi: this.queryServizi() } : {}) }, responseType: 'text',
     }).subscribe({
       next: (html) => {
         this.recapInCorso.set(null);
@@ -670,7 +706,8 @@ export class InvoicesListComponent {
     this.error.set(null);
     this.recapInCorso.set(r.chiave);
     this.http.post<{ a: string; righe: number }>(
-      `${environment.apiUrl}/invoices/recap/${r.partnerId}/invia`, { mese: r.mese },
+      `${environment.apiUrl}/invoices/recap/${r.partnerId}/invia`,
+      { mese: r.mese, ...(this.serviziScelti().size ? { servizi: [...this.serviziScelti()] } : {}) },
     ).subscribe({
       next: (esito) => {
         this.recapInCorso.set(null);

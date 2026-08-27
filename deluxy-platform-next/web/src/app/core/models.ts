@@ -136,7 +136,19 @@ export interface Partner {
   paymentStatus?: string;
   active: boolean;
   provinces?: { province: Province }[];
-  services?: { serviceType: { id: string; name?: string } }[];
+  /**
+   * I servizi che il partner ha a listino, col PREZZO.
+   * ⚠️ Il prezzo arriva gia' in questa risposta (PARTNER_INCLUDE lato API): il
+   * form lo usa per proporre il prezzo di listino al cambio di servizio, senza
+   * una seconda chiamata.
+   */
+  services?: {
+    serviceTypeId?: string;
+    price?: number | null;
+    includedKm?: number | null;
+    extraKmPrice?: number | null;
+    serviceType: { id: string; name?: string };
+  }[];
   categories?: { category: Category }[];
 }
 

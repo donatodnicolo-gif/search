@@ -868,8 +868,41 @@ export class DeliveryFormComponent implements AfterViewInit {
     // oggi: aprire una consegna del 2024 e salvarla la spostava al giorno
     // corrente, senza dire niente.
     if (!this.editId() && (!this.model.date || this.model.date < min)) this.model.date = min;
+    // ⭐ 27/08 (chiesto dall'utente): cambiando servizio si RICALCOLA anche il
+    // listino associato. Prima il prezzo restava quello del servizio di prima,
+    // e un numero vecchio accanto a un servizio nuovo non si vede come
+    // sbagliato — si vede come un prezzo.
+    this.proponiPrezzoDiListino();
     // Il filtro per tipo servizio può escludere il partner scelto.
     this.syncSelections();
+  }
+
+  /**
+   * IL PREZZO DI LISTINO del partner per il servizio scelto.
+   *
+   * ⚠️ Si PROPONE, non si impone: un prezzo battuto a mano non si cancella. Si
+   * riscrive solo quando il campo è vuoto o contiene ancora la proposta
+   * precedente — che, cambiato servizio, sarebbe il prezzo dell'altro servizio
+   * lasciato lì a sembrare giusto.
+   *
+   * ⚠️ Gli extra KM restano fuori: dipendono dalla distanza, che qui non è
+   * ancora nota. Il server li aggiunge al salvataggio, con la sua regola.
+   */
+  private prezzoProposto: number | null = null;
+  proponiPrezzoDiListino(): void {
+    const p = this.partners().find((x) => x.id === this.model.partnerId);
+    const riga = (p?.services ?? []).find(
+      (s) => (s.serviceTypeId ?? s.serviceType?.id) === this.model.serviceTypeId,
+    );
+    if (!riga || riga.price == null) return;
+    const s = this.selectedService();
+    const prezzo = s?.pricingModel === 'A_ORA'
+      ? riga.price * Math.max(this.model.hours ?? 1, 1)
+      : riga.price;
+    const attuale = this.model.price;
+    if (attuale != null && attuale !== this.prezzoProposto) return;
+    this.model.price = prezzo;
+    this.prezzoProposto = prezzo;
   }
 
   /** Genera le fasce [from,to] da minOrderTime a maxOrderTime (default 06:00–22:00), passo = slotHours. */
@@ -1090,7 +1123,10 @@ export class DeliveryFormComponent implements AfterViewInit {
       && !suoi.some((s) => s.id === this.model.serviceTypeId)) {
       this.model.serviceTypeId = '';
       this.onServiceChange();
+      return;
     }
+    // Stesso servizio ma altro partner = altro listino: si ricalcola anche qui.
+    this.proponiPrezzoDiListino();
   }
 
   /** Valet filtrati per provincia dell'indirizzo. */

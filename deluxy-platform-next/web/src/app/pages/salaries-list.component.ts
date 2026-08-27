@@ -152,6 +152,21 @@ const NEXT: Record<string, { next: string; key: string }> = {
           <span>{{ 'salaries.filter.onlyPayable' | translate }}</span>
         </label>
       }
+      <!-- ⭐ 27/08 (chiesto dall'utente): si sceglie DI QUALI servizi fare il
+           conto — «prima le consegne standard, poi le vendite». Le caselle
+           invece di una tendina multipla: una tendina a selezione multipla si
+           usa male col mouse e malissimo col dito. -->
+      @if (serviceTypes().length) {
+        <div class="f servizi">
+          <span>{{ 'salaries.filter.services' | translate }}</span>
+          <div class="chips-servizi">
+            @for (s of serviceTypes(); track s.id) {
+              <button type="button" class="chip-serv" [class.on]="serviziScelti().has(s.id)"
+                      (click)="scegliServizio(s.id)">{{ s.name }}</button>
+            }
+          </div>
+        </div>
+      }
       @if (filtriAttivi()) {
         <button type="button" class="link-btn azzera" (click)="azzeraFiltri()">{{ 'salaries.filter.clear' | translate }}</button>
       }
@@ -411,6 +426,11 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .filtri .interruttore { flex-direction: row; align-items: center; gap: 7px; min-width: 0; padding-bottom: 8px; }
       .filtri .interruttore > span { font-size: 13px; color: var(--text); }
       .filtri .azzera { padding-bottom: 8px; }
+      .filtri .f.servizi { min-width: 240px; flex: 1 1 320px; }
+      .chips-servizi { display: flex; flex-wrap: wrap; gap: 6px; }
+      .chip-serv { appearance: none; font: inherit; font-size: 12px; font-weight: 550; padding: 5px 11px; border-radius: 980px; border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: all .15s var(--ease); }
+      .chip-serv:hover { background: var(--fill); }
+      .chip-serv.on { background: var(--ink, #1d1d1f); border-color: transparent; color: #fff; }
       .riepilogo { display: flex; gap: 32px; flex-wrap: wrap; padding: 16px 20px; margin-bottom: 12px; }
       .riepilogo > div { display: flex; flex-direction: column; gap: 2px; }
       .riepilogo .etichetta { font-size: 12px; color: var(--text-secondary); }
@@ -465,6 +485,22 @@ export class SalariesListComponent {
 
   readonly salaries = signal<Salary[]>([]);
   readonly valets = signal<ValetRef[]>([]);
+  /** Il catalogo dei tipi di servizio, per il filtro per tipologia. */
+  readonly serviceTypes = signal<{ id: string; name: string; pricingModel?: string }[]>([]);
+  /** I tipi scelti. Vuoto = tutti, che è diverso da «nessuno». */
+  readonly serviziScelti = signal<Set<string>>(new Set());
+
+  scegliServizio(id: string): void {
+    const s = new Set(this.serviziScelti());
+    if (s.has(id)) s.delete(id); else s.add(id);
+    this.serviziScelti.set(s);
+    this.filtroCambiato();
+  }
+
+  /** La query dei servizi, o niente se non se n'è scelto nessuno. */
+  private queryServizi(): string {
+    return [...this.serviziScelti()].join(',');
+  }
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly banner = signal<string | null>(null);
@@ -531,6 +567,9 @@ export class SalariesListComponent {
       // affollano la tendina senza avere lavoro da pagare.
       this.http.get<ValetRef[]>(`${environment.apiUrl}/valets`).subscribe((d) =>
         this.valets.set((d ?? []).filter((v) => v.active !== false)));
+      // Il catalogo dei tipi di servizio, per il filtro per tipologia.
+      this.http.get<{ id: string; name: string; pricingModel?: string }[]>(`${environment.apiUrl}/service-types`)
+        .subscribe({ next: (d) => this.serviceTypes.set(d ?? []), error: () => this.serviceTypes.set([]) });
     }
   }
 
@@ -583,6 +622,7 @@ export class SalariesListComponent {
     if (this.valetFilter) filtri['valetId'] = this.valetFilter;
     if (this.dal) filtri['dal'] = this.dal;
     if (this.al) filtri['al'] = this.al;
+    if (this.queryServizi()) filtri['servizi'] = this.queryServizi();
 
     if (this.view() === 'pending') {
       this.http.get<{ voci: Pending[]; totali: any }>(
@@ -613,7 +653,7 @@ export class SalariesListComponent {
   }
 
   filtriAttivi(): boolean {
-    return !!(this.cerca || this.valetFilter || this.dal || this.al || this.stato || this.soloPagabili);
+    return !!(this.cerca || this.valetFilter || this.dal || this.al || this.stato || this.soloPagabili || this.serviziScelti().size);
   }
 
   /** Un filtro e' cambiato: si ricarica dopo una pausa, non a ogni tasto. */
@@ -641,7 +681,7 @@ export class SalariesListComponent {
     this.error.set(null);
     this.recapInCorso.set(r.valetId);
     this.http.get(`${environment.apiUrl}/salaries/ricevuta/${r.valetId}`, {
-      params: { dal: r.from.slice(0, 10), al: r.to.slice(0, 10) }, responseType: 'text',
+      params: { dal: r.from.slice(0, 10), al: r.to.slice(0, 10), ...(this.queryServizi() ? { servizi: this.queryServizi() } : {}) }, responseType: 'text',
     }).subscribe({
       next: (html) => {
         this.recapInCorso.set(null);
@@ -663,7 +703,7 @@ export class SalariesListComponent {
     this.error.set(null);
     this.recapInCorso.set(r.valetId);
     this.http.get(`${environment.apiUrl}/salaries/recap/${r.valetId}`, {
-      params: { dal: r.from.slice(0, 10), al: r.to.slice(0, 10), formato: 'html' }, responseType: 'text',
+      params: { dal: r.from.slice(0, 10), al: r.to.slice(0, 10), formato: 'html', ...(this.queryServizi() ? { servizi: this.queryServizi() } : {}) }, responseType: 'text',
     }).subscribe({
       next: (html) => {
         this.recapInCorso.set(null);
@@ -689,7 +729,7 @@ export class SalariesListComponent {
     this.recapInCorso.set(r.valetId);
     this.http.post<{ a: string; righe: number }>(
       `${environment.apiUrl}/salaries/recap/${r.valetId}/invia`,
-      { dal: r.from.slice(0, 10), al: r.to.slice(0, 10) },
+      { dal: r.from.slice(0, 10), al: r.to.slice(0, 10), ...(this.serviziScelti().size ? { servizi: [...this.serviziScelti()] } : {}) },
     ).subscribe({
       next: (esito) => {
         this.recapInCorso.set(null);
@@ -711,6 +751,7 @@ export class SalariesListComponent {
   azzeraFiltri(): void {
     this.cerca = ''; this.valetFilter = ''; this.dal = ''; this.al = '';
     this.stato = ''; this.soloPagabili = false;
+    this.serviziScelti.set(new Set());
     this.cercaPending.set('');
     this.load();
   }
@@ -726,6 +767,9 @@ export class SalariesListComponent {
     const filtri: Record<string, string> = {};
     if (this.dal) filtri['dal'] = this.dal;
     if (this.al) filtri['al'] = this.al;
+    // ⚠️ Anche il dettaglio: se mostrasse consegne che il riepilogo non conta,
+    // i due totali non tornerebbero e il primo a non capire sarebbe chi paga.
+    if (this.queryServizi()) filtri['servizi'] = this.queryServizi();
     this.http.get<{ deliveries: PendingDelivery[]; troncato: boolean }>(
       `${environment.apiUrl}/salaries/pending/${r.valetId}`, { params: filtri },
     ).subscribe({

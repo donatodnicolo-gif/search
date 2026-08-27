@@ -20,6 +20,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
 
 /** Due decimali: gli importi si scrivono come si leggono. */
+/**
+ * «id1,id2,id3» da una query → ['id1','id2','id3'].
+ * Vuoto o assente torna `undefined`, che vuol dire «nessun filtro»: una lista
+ * vuota vorrebbe dire «nessun servizio» e la pagina uscirebbe vuota.
+ */
+const elencoId = (testo?: string): string[] | undefined => {
+  const v = (testo ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  return v.length ? v : undefined;
+};
+
 function arrotonda2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -319,7 +329,7 @@ export class SalariesService {
    * qualcuno non indovinava valet e periodo. Il lavoro da pagare non è uno
    * stipendio: è l'elenco delle consegne che uno stipendio non ce l'hanno.
    */
-  async pending(user: JwtUser, opzioni: { valetId?: string; dal?: string; al?: string } = {}) {
+  async pending(user: JwtUser, opzioni: { valetId?: string; dal?: string; al?: string; servizi?: string[] } = {}) {
     const where: any = { ...SalariesService.DA_PAGARE };
     if (user.role === Role.VALET) where.valetId = user.valetId ?? '-';
     else if (opzioni.valetId) where.valetId = opzioni.valetId;
@@ -327,6 +337,10 @@ export class SalariesService {
     if (opzioni.dal) data.gte = new Date(opzioni.dal);
     if (opzioni.al) data.lte = new Date(opzioni.al);
     if (Object.keys(data).length) where.date = data;
+    // ⭐ 27/08: si può guardare (e pagare) una tipologia di servizio per volta.
+    // ⚠️ Una lista VUOTA non arriva qui: vorrebbe dire «nessun servizio» e
+    // svuoterebbe la pagina invece di non filtrare.
+    if (opzioni.servizi?.length) where.serviceTypeId = { in: opzioni.servizi };
 
     const deliveries = await this.prisma.delivery.findMany({
       where,
@@ -450,7 +464,7 @@ export class SalariesService {
   }
 
   /** Le consegne da pagare di UN valet, una per una (per il dettaglio). */
-  async pendingDetail(user: JwtUser, valetId: string, dal?: string, al?: string) {
+  async pendingDetail(user: JwtUser, valetId: string, dal?: string, al?: string, servizi?: string[]) {
     if (user.role === Role.VALET && user.valetId !== valetId) {
       throw new NotFoundException('Valet non trovato');
     }
@@ -461,6 +475,9 @@ export class SalariesService {
     const where: any = { ...SalariesService.DA_PAGARE, valetId };
     delete where.payable;
     where.status = { in: ['delivered', 'approved', 'delivered_time_to_approve', 'not_delivered'] };
+    // Lo stesso filtro del riepilogo: il dettaglio deve mostrare le STESSE
+    // consegne, o i totali non tornerebbero con la riga da cui si e' arrivati.
+    if (servizi?.length) where.serviceTypeId = { in: servizi };
     const data: any = {};
     if (dal) data.gte = new Date(dal);
     if (al) data.lte = new Date(al);
@@ -560,14 +577,14 @@ export class SalariesService {
    * Fatturazione, ma sull'altro verso del denaro — le consegne da pagare, coi
    * contanti trattenuti e il netto. Stampabile e mandabile via AI Mail.
    */
-  async recap(user: JwtUser, valetId: string, dal?: string, al?: string) {
+  async recap(user: JwtUser, valetId: string, dal?: string, al?: string, servizi?: string[]) {
     const valet = await this.prisma.valet.findUnique({
       where: { id: valetId },
       select: { id: true, firstName: true, lastName: true, email: true, hasVat: true, city: true, withholdingPercent: true,
         fiscalCode: true, address: true, birthPlace: true, birthDate: true },
     });
     if (!valet) throw new NotFoundException('Valet non trovato');
-    const dettaglio = await this.pendingDetail(user, valetId, dal, al);
+    const dettaglio = await this.pendingDetail(user, valetId, dal, al, servizi);
     const pagabili = dettaglio.deliveries.filter((d) => d.amount != null && !d.esclusaDaRegola);
     const lordo = arrotonda2(pagabili.reduce((s, d) => s + (d.amount ?? 0), 0));
     // I contanti delle righe marcate (non pagabili / da approvare) non entrano
@@ -751,8 +768,11 @@ export class SalariesService {
 </div>`;
   }
 
-  async inviaRecap(user: JwtUser, valetId: string, dal?: string, al?: string, aManuale?: string) {
-    const r = await this.recap(user, valetId, dal, al);
+  async inviaRecap(user: JwtUser, valetId: string, dal?: string, al?: string, aManuale?: string, servizi?: string[]) {
+    // ⚠️ Il filtro viaggia anche nell'invio: mandare tutto dopo aver guardato
+    // il recap di un servizio solo vorrebbe dire mandare un documento diverso
+    // da quello che si e' controllato.
+    const r = await this.recap(user, valetId, dal, al, servizi?.length ? servizi : undefined);
     const destinatario = (aManuale ?? r.valet.email ?? '').trim();
     if (!destinatario) {
       throw new BadRequestException('Il valet non ha una email in anagrafica: aggiungila, o indicane una qui.');
@@ -1118,8 +1138,9 @@ export class SalariesController {
     @Query('valetId') valetId?: string,
     @Query('dal') dal?: string,
     @Query('al') al?: string,
+    @Query('servizi') servizi?: string,
   ) {
-    return this.salariesService.pending(user, { valetId, dal, al });
+    return this.salariesService.pending(user, { valetId, dal, al, servizi: elencoId(servizi) });
   }
 
   @Get('pending/:valetId')
@@ -1131,8 +1152,9 @@ export class SalariesController {
     @Param('valetId') valetId: string,
     @Query('dal') dal?: string,
     @Query('al') al?: string,
+    @Query('servizi') servizi?: string,
   ) {
-    return this.salariesService.pendingDetail(user, valetId, dal, al);
+    return this.salariesService.pendingDetail(user, valetId, dal, al, elencoId(servizi));
   }
 
   @Get('ricevuta/:valetId')
@@ -1144,9 +1166,10 @@ export class SalariesController {
     @Param('valetId') valetId: string,
     @Query('dal') dal: string | undefined,
     @Query('al') al: string | undefined,
+    @Query('servizi') servizi: string | undefined,
     @Res({ passthrough: true }) res: RispostaHttp,
   ) {
-    const dati = await this.salariesService.recap(user, valetId, dal, al);
+    const dati = await this.salariesService.recap(user, valetId, dal, al, elencoId(servizi));
     const corpo = this.salariesService.ricevutaHtml(dati);
     if (!corpo) throw new BadRequestException('Il valet ha la P.IVA: il suo documento e la pro-forma fattura, non la ricevuta.');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -1176,9 +1199,10 @@ export class SalariesController {
     @Query('dal') dal: string | undefined,
     @Query('al') al: string | undefined,
     @Query('formato') formato: string | undefined,
+    @Query('servizi') servizi: string | undefined,
     @Res({ passthrough: true }) res: RispostaHttp,
   ) {
-    const dati = await this.salariesService.recap(user, valetId, dal, al);
+    const dati = await this.salariesService.recap(user, valetId, dal, al, elencoId(servizi));
     if (formato !== 'html') return dati;
     // Si apre nel browser invece di scaricarsi: si guarda prima di mandarlo.
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -1191,9 +1215,9 @@ export class SalariesController {
   inviaRecap(
     @CurrentUser() user: JwtUser,
     @Param('valetId') valetId: string,
-    @Body() body: { dal?: string; al?: string; a?: string },
+    @Body() body: { dal?: string; al?: string; a?: string; servizi?: string[] },
   ) {
-    return this.salariesService.inviaRecap(user, valetId, body?.dal, body?.al, body?.a);
+    return this.salariesService.inviaRecap(user, valetId, body?.dal, body?.al, body?.a, body?.servizi);
   }
 
 
