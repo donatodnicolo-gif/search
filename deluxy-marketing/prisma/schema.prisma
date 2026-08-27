@@ -24,46 +24,46 @@ datasource db {
 // creativi o landing, report settimanale… La sintesi è testo/markdown; il
 // documento completo vive su Drive (fileDrive = percorso relativo).
 model Analisi {
-  id           String   @id @default(cuid())
+  id              String    @id @default(cuid())
   // catalogo TIPI_ANALISI in dominio.ts: audit_google | audit_meta | analisi_performance |
   // revisione_creativi | revisione_landing | report_settimanale | analisi_pubblici | analisi | altro
-  tipo         String   @default("analisi")
-  titolo       String
+  tipo            String    @default("analisi")
+  titolo          String
   // catalogo BRANDS: flowers | cake | gifts | cross
-  brand        String   @default("cross")
+  brand           String    @default("cross")
   // catalogo CANALI: google_ads | meta_ads | email | sito | seo | crm | social | altro
-  canale       String?
+  canale          String?
   // Sintesi operativa (markdown semplice): cosa è emerso, in breve.
-  sintesi      String
+  sintesi         String
   // ok | attenzione | critico — il "semaforo" dell'analisi
-  esito        String?
+  esito           String?
   // La SCHEDA: il JSON strutturato che l'AI estrae dal documento completo
   // (verdetto, KPI, findings con priorità, azioni proposte, campagne citate).
   // È quello che /analisi/[id] rende in forma grafica. Forma: lib/scheda-analisi.
-  scheda       String?
+  scheda          String?
   // rosso | giallo | verde — denormalizzato dalla scheda: gli elenchi filtrano qui.
-  verdetto     String?
-  elaborataIl  DateTime?
+  verdetto        String?
+  elaborataIl     DateTime?
   // La RICONCILIAZIONE: per ogni azione della scheda, cosa risulta FATTO
   // guardando la coda delle operazioni (id, stato, esito). La produce l'AI
   // incrociando scheda e OperazioneAdv; si rinfresca perche' la coda cambia.
-  riconciliazione  String?
+  riconciliazione String?
   // Le RISPOSTE dell'utente alle azioni proposte (JSON per indice): accolta,
   // respinta o rimandata, con la nota. Depositate su Drive perche' la
   // prossima analisi le esamini — e' il canale di ritorno verso i progetti.
-  risposte         String?
-  riconciliataIl   DateTime?
+  risposte        String?
+  riconciliataIl  DateTime?
   // "anthropic/claude-opus-5": una scheda senza firma non si giudica.
-  elaborataCon String?
+  elaborataCon    String?
   // Percorso del documento completo dentro "ADV DELUXY SRL" (relativo alla cartella)
-  fileDrive    String?
-  dataAnalisi  DateTime @default(now())
+  fileDrive       String?
+  dataAnalisi     DateTime  @default(now())
   // chi ha depositato: claude_code | custode | manuale | demo
-  origine      String   @default("claude_code")
-  note         String?
-  azioni       Azione[]
-  creataIl     DateTime @default(now())
-  aggiornataIl DateTime @updatedAt
+  origine         String    @default("claude_code")
+  note            String?
+  azioni          Azione[]
+  creataIl        DateTime  @default(now())
+  aggiornataIl    DateTime  @updatedAt
 
   @@index([brand])
   @@index([tipo])
@@ -266,11 +266,11 @@ model Gruppo {
   operazioni       OperazioneAdv[]
   creatoIl         DateTime        @default(now())
   aggiornatoIl     DateTime        @updatedAt
+  bozzaAnnuncio    BozzaAnnuncio?
 
   @@unique([canale, idEsterno])
   @@index([campagnaId])
   @@index([brand])
-  bozzaAnnuncio    BozzaAnnuncio?
 }
 
 // Snapshot giornaliero di un gruppo. Gemello di MetricaCampagna: stessa forma,
@@ -915,33 +915,33 @@ model CopyScore {
 // ("ESEGUE SOLO le azioni esplicitamente approvate", AGENDA PIANI) e del
 // change control del doc 11: il guardrail valida PRIMA di creare la riga.
 model OperazioneAdv {
-  id          String    @id @default(cuid())
+  id                    String    @id @default(cuid())
   // pausa_campagna | attiva_campagna | budget | pausa_keyword | attiva_keyword |
   // negativa | nuova_keyword | nuova_campagna | pausa_gruppo | attiva_gruppo
-  tipo        String
-  canale      String    @default("google_ads")
-  account     String?
+  tipo                  String
+  canale                String    @default("google_ads")
+  account               String?
   // Oggetto su cui agire, con l'id di piattaforma quando c'è
-  bersaglio   String
-  idEsterno   String?
+  bersaglio             String
+  idEsterno             String?
   // Parametri specifici (JSON): es. { "budget": 18.5 } o { "testo": "gratis" }
-  parametri   String?
-  motivo      String?
+  parametri             String?
+  motivo                String?
   // Cosa ha detto il guardrail quando l'operazione è entrata in coda: una
   // riga per avviso, separate da " · ". Dal 04/08/2026 il change control non
   // BLOCCA più (decisione dell'utente): avvisa, e l'avviso deve arrivare fin
   // qui — è al momento dell'approvazione che serve, non in un messaggio che
   // sparisce col redirect.
-  avvisi      String?
+  avvisi                String?
   // in_attesa | approvata | eseguita | fallita | annullata
-  stato       String    @default("in_attesa")
-  livello     String    @default("L1")
+  stato                 String    @default("in_attesa")
+  livello               String    @default("L1")
   // Stato prima dell'esecuzione: serve al rollback e al paper-trail
-  prima       String?
-  esito       String?
-  richiestaDa String    @default("utente")
-  approvataDa String?
-  approvataIl DateTime?
+  prima                 String?
+  esito                 String?
+  richiestaDa           String    @default("utente")
+  approvataDa           String?
+  approvataIl           DateTime?
   // Da quando può partire. `null` = appena approvata, come è sempre stato.
   //
   // ⚠️ È una data DI PARTENZA, non un orario di esecuzione: l'operazione
@@ -953,8 +953,8 @@ model OperazioneAdv {
   // le operazioni allo script e l'esecutore Meta filtrano su questo campo.
   // Una data che vive solo nell'interfaccia è una promessa che il primo giro
   // notturno smentisce.
-  daEseguireDal DateTime?
-  eseguitaIl  DateTime?
+  daEseguireDal         DateTime?
+  eseguitaIl            DateTime?
   // «Lo so, è voluto»: quando qualcuno dichiara che la differenza fra ciò che
   // l'app crede e ciò che Google riporta è una SUA decisione, non un guasto.
   //
@@ -966,11 +966,11 @@ model OperazioneAdv {
   divergenzaAccettataIl DateTime?
   divergenzaAccettataDa String?
   divergenzaMotivo      String?
-  campagnaId  String?
-  gruppoId    String?
-  gruppo      Gruppo?   @relation(fields: [gruppoId], references: [id], onDelete: SetNull)
-  azioneId    String?
-  creataIl    DateTime  @default(now())
+  campagnaId            String?
+  gruppoId              String?
+  gruppo                Gruppo?   @relation(fields: [gruppoId], references: [id], onDelete: SetNull)
+  azioneId              String?
+  creataIl              DateTime  @default(now())
 
   @@index([stato])
   @@index([canale])
@@ -1367,14 +1367,14 @@ model BozzaAnnuncio {
 // da quel momento sono due liste che vanno tenute allineate. L'app lo dichiara
 // invece di far finta che sia una sola.
 model ListaNegative {
-  id           String              @id @default(cuid())
+  id           String                @id @default(cuid())
   // Il nome è quello che comparirà in Google Ads: si sceglie una volta e non
   // si cambia a cuor leggero, perché è la chiave con cui lo script la ritrova.
-  nome         String              @unique
+  nome         String                @unique
   descrizione  String?
   parole       ParolaListaNegative[]
-  creataIl     DateTime            @default(now())
-  aggiornataIl DateTime            @updatedAt
+  creataIl     DateTime              @default(now())
+  aggiornataIl DateTime              @updatedAt
 }
 
 model ParolaListaNegative {
@@ -1445,4 +1445,57 @@ model NegativaCampagna {
   @@index([account, campagna])
   @@index([campagnaId])
   @@index([vistaIl])
+}
+
+// QUANTE CAMPAGNE C'ERANO DAVVERO, anno per anno — il censimento storico.
+//
+// ⚠️ PERCHÉ NON BASTAVA QUELLO CHE C'ERA (27/08/2026). L'app conosce solo le
+// campagne che gli script le raccontano, e gli script guardano una finestra
+// corta (`GIORNI_INDIETRO`) e — salvo `INCLUDI_RIMOSSE` — solo quelle non
+// rimosse. Tutto ciò che è stato spento e cancellato prima di quella finestra
+// per l'app non è mai esistito: non «zero spesa», proprio assente. Quando si
+// chiede «quante campagne abbiamo avuto negli ultimi tre anni e quanto sono
+// costate», l'elenco delle campagne vive risponde a una domanda diversa.
+//
+// ⚠️ NON È UNA COPIA DI `Campagna`, ed è il motivo per cui sta in una tabella
+// sua: qui c'è UNA RIGA PER CAMPAGNA PER ANNO con i totali, non la campagna
+// con la sua vita (gruppi, keyword, annunci, budget di oggi). È un inventario
+// — quali, quante, quanto — e si aggancia a `Campagna` per `idEsterno` quando
+// quella campagna esiste ancora, senza ricopiarne niente.
+//
+// ⚠️ La chiave è (canale, account, idEsterno, anno): rifare il censimento
+// aggiorna i totali invece di scriverli due volte. Un censimento che si somma
+// a sé stesso è peggio di nessun censimento.
+model CampagnaStorica {
+  id          String   @id @default(cuid())
+  canale      String   @default("google_ads")
+  // L'account su cui la campagna girava DAVVERO, come lo scrive la
+  // piattaforma (825-518-1560, 1040175814157216…).
+  account     String
+  idEsterno   String
+  nome        String
+  anno        Int
+  // Lo stato al momento del censimento: ENABLED | PAUSED | REMOVED. È la
+  // risposta a «esiste ancora?», e REMOVED è proprio il caso che nessuno
+  // script racconta.
+  stato       String?
+  // SEARCH | PERFORMANCE_MAX | DISPLAY | VIDEO… su Google; l'objective su Meta.
+  tipo        String?
+  brand       String?
+  spesa       Float    @default(0)
+  impression  Int      @default(0)
+  click       Int      @default(0)
+  conversioni Float    @default(0)
+  ricavi      Float    @default(0)
+  // Primo e ultimo MESE con spesa dentro quell'anno (1-12): dicono quando la
+  // campagna ha vissuto senza portarsi dietro trecentosessantacinque righe.
+  primoMese   Int?
+  ultimoMese  Int?
+  mesiAttivi  Int      @default(0)
+  vistoIl     DateTime @default(now())
+  creataIl    DateTime @default(now())
+
+  @@unique([canale, account, idEsterno, anno])
+  @@index([anno])
+  @@index([idEsterno])
 }

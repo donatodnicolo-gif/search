@@ -8,7 +8,8 @@ export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "gruppi" | "landing" | "copy" | "keywords"
   | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni"
   | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo" | "ricezione" | "ai"
-  | "tracciamento" | "termini" | "trend" | "esclusioni" | "estensioni" | "liste-escluse";
+  | "tracciamento" | "termini" | "trend" | "esclusioni" | "estensioni" | "liste-escluse"
+  | "campagne-storiche";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -91,6 +92,11 @@ export async function Sidebar({
         <SbSezione titolo="Campagne">
           {voce("campagne", "/campagne", "campagne", "Tutte le campagne", nCampagneVive)}
           {voce("landing", "/landing", "landing", "Landing page", nLanding)}
+          {/* ⚠️ Voce a parte da «Tutte le campagne», che mostra quelle VIVE:
+              qui ci sono anche le rimosse degli anni scorsi, che l'app non ha
+              mai visto. Metterle nello stesso elenco farebbe sembrare vivo
+              qualcosa che è morto nel 2024. */}
+          {voce("campagne-storiche", "/campagne-storiche", "storico", "Quante ce n'erano (storico)")}
         </SbSezione>
 
         <SbSezione titolo="Google Ads">

@@ -270,3 +270,114 @@ export async function frequenzeMeta(
   }
   return esito;
 }
+
+// ── CENSIMENTO STORICO: quante campagne c'erano, anno per anno ──────────────
+//
+// ⚠️ PERCHÉ NON RIUSA `leggiMetricheMeta`: quella chiede una riga PER GIORNO
+// (`time_increment: "1"`), che su tre anni vuol dire decine di migliaia di
+// righe da paginare per poi buttarle via — e il dettaglio giornaliero qui non
+// serve a nessuno. Questa chiede il MESE e aggrega per anno.
+//
+// ⚠️ Meta restituisce solo le campagne che hanno EROGATO nel periodo: una
+// campagna creata e mai avviata non compare, e va detto invece di lasciar
+// credere che l'elenco sia l'anagrafica completa.
+export type RigaStoricoMeta = {
+  idEsterno: string;
+  nome: string;
+  anno: number;
+  spesa: number;
+  impression: number;
+  click: number;
+  conversioni: number;
+  ricavi: number;
+  primoMese: number;
+  ultimoMese: number;
+  mesiAttivi: number;
+};
+
+export async function censimentoStoricoMeta(
+  idAccount: string,
+  dal: string,
+  al: string
+): Promise<{ righe: RigaStoricoMeta[]; errore: string | null; mesiLetti: number }> {
+  const t = token();
+  if (!t) return { righe: [], errore: "META_ACCESS_TOKEN non impostato", mesiLetti: 0 };
+
+  const params = new URLSearchParams({
+    level: "campaign",
+    fields: "campaign_id,campaign_name,spend,impressions,clicks,actions,action_values,date_start",
+    time_range: JSON.stringify({ since: dal, until: al }),
+    time_increment: "monthly",
+    limit: "500",
+    access_token: t,
+  });
+
+  // chiave: idCampagna|anno
+  const per = new Map<string, RigaStoricoMeta>();
+  let mesiLetti = 0;
+  let url = `${BASE}/act_${idAccount.replace(/^act_/, "")}/insights?${params.toString()}`;
+  let pagine = 0;
+
+  try {
+    while (url && pagine < 120) {
+      const risposta = await fetch(url, { cache: "no-store" });
+      const corpo = await risposta.json();
+      if (!risposta.ok || corpo.error) {
+        const e = corpo.error ?? {};
+        return {
+          righe: [...per.values()],
+          errore: `Meta ha risposto ${risposta.status}: ${e.message ?? "errore sconosciuto"}${e.code ? ` (codice ${e.code})` : ""}`,
+          mesiLetti,
+        };
+      }
+      for (const d of corpo.data ?? []) {
+        mesiLetti++;
+        const giorno = String(d.date_start ?? "");
+        const anno = Number(giorno.slice(0, 4));
+        const mese = Number(giorno.slice(5, 7));
+        if (!Number.isInteger(anno) || !Number.isInteger(mese)) continue;
+        const id = String(d.campaign_id);
+        const chiave = `${id}|${anno}`;
+        const spesa = Number(d.spend ?? 0) || 0;
+        const v =
+          per.get(chiave) ??
+          ({
+            idEsterno: id,
+            nome: String(d.campaign_name ?? "senza nome"),
+            anno,
+            spesa: 0,
+            impression: 0,
+            click: 0,
+            conversioni: 0,
+            ricavi: 0,
+            primoMese: mese,
+            ultimoMese: mese,
+            mesiAttivi: 0,
+          } as RigaStoricoMeta);
+        v.spesa += spesa;
+        v.impression += Number(d.impressions ?? 0) || 0;
+        v.click += Number(d.clicks ?? 0) || 0;
+        v.conversioni += valoreAzione(d.actions, TIPI_ACQUISTO);
+        v.ricavi += valoreAzione(d.action_values, TIPI_ACQUISTO);
+        // ⚠️ «Attivo» = ha speso. Un mese con una riga a zero non è un mese in
+        // cui la campagna girava: Meta manda righe anche per mesi vuoti.
+        if (spesa > 0) {
+          v.mesiAttivi++;
+          v.primoMese = Math.min(v.primoMese, mese);
+          v.ultimoMese = Math.max(v.ultimoMese, mese);
+        }
+        per.set(chiave, v);
+      }
+      url = corpo.paging?.next ?? "";
+      pagine++;
+    }
+  } catch (e) {
+    return {
+      righe: [...per.values()],
+      errore: `Chiamata a Meta fallita: ${String(e).slice(0, 160)}`,
+      mesiLetti,
+    };
+  }
+
+  return { righe: [...per.values()], errore: null, mesiLetti };
+}

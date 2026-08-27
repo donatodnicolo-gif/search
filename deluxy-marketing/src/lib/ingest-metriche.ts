@@ -50,7 +50,11 @@ const intero = (v: unknown) => (numero(v) != null ? Math.round(numero(v)!) : nul
 
 // Brand dedotto dal nome della campagna quando non è dichiarato: i nomi
 // Deluxy portano già il marchio (es. "[Deluxyflowers] ITALIAN-ENG").
-function brandDa(nome: string, brandDichiarato?: string): string {
+// Esportata perché il censimento storico (lib/censimento-storico.ts) deve
+// dedurre il brand con lo STESSO metro: due copie della stessa regola
+// divergono, e allora la stessa campagna finisce in due brand diversi a
+// seconda di chi l'ha scritta.
+export function brandDa(nome: string, brandDichiarato?: string): string {
   if (brandDichiarato) return brandDichiarato;
   const t = nome.toLowerCase();
   if (/deluxyflower|flowers/.test(t)) return "flowers";
