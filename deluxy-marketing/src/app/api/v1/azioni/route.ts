@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { autentica, erroreApi } from "@/lib/api-auth";
+import { autentica, erroreApi , limiteRichiesto } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { STATI_AZIONE_APERTI } from "@/lib/dominio";
 
@@ -9,6 +9,10 @@ export async function GET(req: NextRequest) {
   if (cliente instanceof NextResponse) return cliente;
 
   const p = req.nextUrl.searchParams;
+
+  const limite = limiteRichiesto(p.get("limite"), 200);
+
+  if (limite == null) return erroreApi(400, "Il parametro 'limite' deve essere un numero.");
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
   const azioni = await prisma.azione.findMany({
@@ -19,7 +23,7 @@ export async function GET(req: NextRequest) {
       ...(p.get("scadute") ? { stato: { in: STATI_AZIONE_APERTI }, scadenza: { lt: oggi } } : {}),
     },
     orderBy: [{ scadenza: { sort: "asc", nulls: "last" } }, { creataIl: "desc" }],
-    take: Number(p.get("limite") ?? 200),
+    take: limite,
     include: {
       eventi: { orderBy: { creatoIl: "asc" } },
       analisi: { select: { id: true, titolo: true } },

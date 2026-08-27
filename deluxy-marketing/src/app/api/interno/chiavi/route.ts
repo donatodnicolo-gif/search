@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { registra } from "@/lib/registro";
 
 // Creazione e revoca delle chiavi API, dalla pagina Impostazioni.
 //
@@ -35,6 +36,21 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // ⚠️ La creazione lascia una traccia (27/08/2026). Non e' una difesa: chi
+  // conia una chiave ha gia' la password del team, quindi e' l'amministratore.
+  // Ma una credenziale che nasce senza che nessuno possa dire QUANDO e con
+  // quale ambito e' una cosa che, il giorno che qualcosa va storto, non si
+  // ricostruisce. Il valore della chiave non entra nel registro: solo il nome
+  // e l'ambito.
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "impostazione",
+    entitaId: record.id,
+    titolo: `Chiave API creata: ${record.nome}`,
+    dettaglio: record.scrittura ? "Ambito: lettura e SCRITTURA" : "Ambito: sola lettura",
+  }).catch(() => {});
+
   return NextResponse.json({ id: record.id, nome: record.nome, scrittura: record.scrittura, chiave });
 }
 
@@ -44,6 +60,14 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const { id } = (await req.json().catch(() => ({}))) as { id?: string };
   if (!id) return NextResponse.json({ errore: "id mancante" }, { status: 400 });
-  await prisma.apiKey.update({ where: { id }, data: { attiva: false } });
+  const revocata = await prisma.apiKey.update({ where: { id }, data: { attiva: false } });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "impostazione",
+    entitaId: id,
+    titolo: `Chiave API revocata: ${revocata.nome}`,
+    dettaglio: "La riga resta, con attiva = false: si conserva quando era stata usata l'ultima volta.",
+  }).catch(() => {});
   return NextResponse.json({ ok: true });
 }

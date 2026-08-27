@@ -527,7 +527,23 @@ export type TestoDocumento =
  * documenti senza poterli mai leggere.
  */
 export async function testoDocumento(percorso: string): Promise<TestoDocumento> {
-  const locale = await cartellaLocaleSeCe();
+  // ⚠️ IL PERCORSO NON ESCE DALLA CARTELLA (27/08/2026, revisione di
+  // sicurezza). `percorso` è `Analisi.fileDrive`, che arriva da
+  // `POST /api/v1/analisi` senza nessuna validazione: `path.join` NON
+  // normalizza via i `..`, e `split("/")` li conserva. Un `fileDrive` come
+  // «../../../.env» faceva leggere quel file e il suo contenuto finiva
+  // riassunto dentro `Analisi.scheda`, che l'API restituisce a chiunque abbia
+  // una chiave — anche di sola lettura.
+  //
+  // ⚠️ Su Vercel non mordeva (la cartella locale non esiste, si ripiega
+  // sull'indice), ma il `.env` di sviluppo punta al database di PRODUZIONE:
+  // un'esca piantata da fuori sarebbe stata letta dal PC su cui gira `npm run
+  // dev`. Qui non si valida: si salta il disco e si passa dall'indice, dove un
+  // percorso inventato semplicemente non esiste.
+  const fuoriDallaCartella =
+    percorso.includes("..") || percorso.startsWith("/") || percorso.startsWith("\\") || /^[A-Za-z]:/.test(percorso);
+
+  const locale = fuoriDallaCartella ? null : await cartellaLocaleSeCe();
   if (locale) {
     try {
       const testo = await fs.readFile(path.join(locale, ...percorso.split("/")), "utf8");

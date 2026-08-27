@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { autentica, erroreApi } from "@/lib/api-auth";
+import { autentica, erroreApi , limiteRichiesto } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { BRANDS, TIPI_ANALISI } from "@/lib/dominio";
 
@@ -9,6 +9,10 @@ export async function GET(req: NextRequest) {
   if (cliente instanceof NextResponse) return cliente;
 
   const p = req.nextUrl.searchParams;
+
+  const limite = limiteRichiesto(p.get("limite"), 100);
+
+  if (limite == null) return erroreApi(400, "Il parametro 'limite' deve essere un numero.");
   const da = p.get("da");
   const analisi = await prisma.analisi.findMany({
     where: {
@@ -17,7 +21,7 @@ export async function GET(req: NextRequest) {
       ...(da ? { dataAnalisi: { gte: new Date(da) } } : {}),
     },
     orderBy: { dataAnalisi: "desc" },
-    take: Number(p.get("limite") ?? 100),
+    take: limite,
     include: { azioni: { select: { id: true, titolo: true, stato: true } } },
   });
   return NextResponse.json({ analisi });

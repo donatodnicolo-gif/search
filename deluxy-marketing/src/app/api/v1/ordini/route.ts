@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { autentica, erroreApi } from "@/lib/api-auth";
+import { autentica, erroreApi , limiteRichiesto } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { registra } from "@/lib/registro";
 
@@ -8,6 +8,8 @@ export async function GET(req: NextRequest) {
   const cliente = await autentica(req);
   if (cliente instanceof NextResponse) return cliente;
   const p = req.nextUrl.searchParams;
+  const limite = limiteRichiesto(p.get("limite"), 200);
+  if (limite == null) return erroreApi(400, "Il parametro 'limite' deve essere un numero.");
   const da = p.get("da");
   const ordini = await prisma.ordine.findMany({
     where: {
@@ -16,7 +18,7 @@ export async function GET(req: NextRequest) {
       ...(p.get("negozio") ? { negozio: p.get("negozio")! } : {}),
     },
     orderBy: { data: "desc" },
-    take: Number(p.get("limite") ?? 200),
+    take: limite,
     // ⚠️ Campi ELENCATI, non `include` sul record intero. Con l'include questa
     // rotta ripubblicava tutte le colonne che la tabella aveva addosso — nome
     // ed email dei clienti compresi, che non sono di questa app — e ogni

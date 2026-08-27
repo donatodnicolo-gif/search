@@ -52,8 +52,15 @@ export async function GET(req: NextRequest) {
       riquadroVisibile: !(inAttesa === 0 && approvate === 0 && !permesso.puo),
       bottoneVisibile: permesso.puo,
     };
-  } catch (e) {
-    meta = { errore: String(e) };
+  } catch {
+    // ⚠️ L'errore NON si stampa qui (27/08/2026). Questa rotta è pubblica —
+    // deve esserlo, la interroga il Hub — e `String(e)` di un errore Prisma
+    // porta con sé l'indirizzo del database. L'ostile ha fatto notare che
+    // l'host del pooler Supabase è un indirizzo regionale pubblico e che
+    // quindi non è un segreto: vero, e infatti questa non è una correzione
+    // di sicurezza, è igiene. Chi ha bisogno del motivo lo trova nei log
+    // della funzione, che non sono pubblici.
+    meta = { errore: "diagnosi non disponibile" };
   }
 
   return NextResponse.json({ ...base, meta }, { headers: { "Cache-Control": "no-store" } });

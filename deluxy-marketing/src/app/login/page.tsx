@@ -9,6 +9,17 @@ async function login(fd: FormData) {
   const password = process.env.MARKETING_APP_PASSWORD;
   const tentativo = String(fd.get("password") ?? "");
   if (!password || tentativo !== password) {
+    // ⚠️ Mezzo secondo di attesa sul tentativo sbagliato (27/08/2026,
+    // revisione di sicurezza). Qui non si contano i tentativi e non si blocca
+    // nessuno: la password è UNA e vale per tutto il team, quindi un blocco
+    // per IP chiuderebbe fuori l'ufficio intero, e un contatore condiviso
+    // vorrebbe stato sul Postgres di produzione per un'app con un utente.
+    //
+    // ⚠️ E va detto che questo è mezzo rimedio: su Vercel chi parallelizza su
+    // cento invocazioni si riprende quello che il ritardo gli toglie. Serve
+    // contro lo script ingenuo, non contro chi ci tiene. La difesa vera è la
+    // LUNGHEZZA della password: se è una parola, questa riga non la salva.
+    await new Promise((r) => setTimeout(r, 700));
     redirect("/login?errore=1");
   }
   const jar = await cookies();

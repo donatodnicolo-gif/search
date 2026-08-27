@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import {
@@ -17,6 +18,10 @@ import {
 //
 // Sta sotto /api/interno, quindi la protegge la password dell'app: il ritorno
 // da Google avviene nel browser di chi è già entrato.
+
+// Il cookie che lega l'andata al ritorno. Sta solo su questa rotta (`path`),
+// dura dieci minuti e non è leggibile da JavaScript.
+const COOKIE_STATE = "dmk_drive_state";
 
 function indirizzoRitorno(req: NextRequest): string {
   return new URL("/api/interno/drive/oauth", req.nextUrl.origin).toString();
@@ -47,7 +52,43 @@ export async function GET(req: NextRequest) {
     // Google dà solo un accesso di un'ora e domani l'app non scrive più.
     auth.searchParams.set("access_type", "offline");
     auth.searchParams.set("prompt", "consent");
-    return NextResponse.redirect(auth);
+    // ⚠️ `state` — il giro deve averlo cominciato QUESTO browser (27/08/2026,
+    // revisione di sicurezza). Senza, chiunque poteva avviare il consenso per
+    // conto suo, autorizzare col PROPRIO account Google, prendersi il `code` e
+    // far aprire a chi è già dentro un link «…/oauth?code=<il suo>»: è una
+    // navigazione di primo livello, quindi `SameSite=Lax` manda il cookie, la
+    // rotta gira come l'operatore e salva il permesso di un estraneo.
+    // Il danno non era l'esfiltrazione — la cartella di destinazione è un id
+    // fisso, quindi col token sbagliato il ponte non trova la cartella e si
+    // ferma — ma il ponte verso Drive smetteva di depositare, e capirne il
+    // perché costa più che impedirlo.
+    // ⚠️ `state` si mette nell'URL PRIMA di costruire la risposta:
+    // `NextResponse.redirect` fotografa l'indirizzo al momento della chiamata,
+    // e un parametro aggiunto dopo non partirebbe.
+    const state = randomBytes(16).toString("hex");
+    auth.searchParams.set("state", state);
+    const risposta = NextResponse.redirect(auth);
+    risposta.cookies.set(COOKIE_STATE, state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 600, // dieci minuti: il tempo di dare il consenso, non di più
+      path: "/api/interno/drive/oauth",
+    });
+    return risposta;
+  }
+
+  // ⚠️ Il ritorno da Google si accetta solo se combacia col cookie di andata.
+  // Un `state` mancante o diverso vuol dire che questo giro l'ha cominciato
+  // qualcun altro: si rifiuta prima di scambiare il codice.
+  const statoAtteso = req.cookies.get(COOKIE_STATE)?.value ?? "";
+  const statoRicevuto = req.nextUrl.searchParams.get("state") ?? "";
+  if (!statoAtteso || !statoRicevuto || statoAtteso !== statoRicevuto) {
+    const via = NextResponse.redirect(
+      new URL("/impostazioni?salvato=drive-oauth-scaduto", req.nextUrl.origin)
+    );
+    via.cookies.delete(COOKIE_STATE);
+    return via;
   }
 
   // Passo 2 — il codice diventa permesso duraturo.
@@ -104,7 +145,11 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.redirect(new URL("/impostazioni?salvato=drive-oauth-ok", req.nextUrl.origin));
+    // Il biglietto d'andata si strappa appena è servito: un `state` che resta
+    // valido è un `state` riutilizzabile.
+    const fatto = NextResponse.redirect(new URL("/impostazioni?salvato=drive-oauth-ok", req.nextUrl.origin));
+    fatto.cookies.delete(COOKIE_STATE);
+    return fatto;
   } catch (e) {
     return NextResponse.redirect(
       new URL(

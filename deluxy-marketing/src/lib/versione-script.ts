@@ -71,6 +71,19 @@ export async function registraDichiarazione(
 ): Promise<void> {
   const pulito = conto.trim();
   if (!pulito) return;
+  // ⚠️ IL CONTO DEVE AVERE LA FORMA DI UN CONTO (27/08/2026, revisione di
+  // sicurezza). Questa funzione è l'unico punto dell'app in cui una chiave di
+  // SOLA LETTURA scrive sul database: la GET di `/api/v1/operazioni` registra
+  // la dichiarazione dello script, e `conto` arrivava dalla query string senza
+  // forma né lunghezza massima. Bastava un ciclo di richieste con `conto`
+  // sempre diverso per riempire `Impostazione` di righe — su un Postgres
+  // condiviso da quattordici app.
+  //
+  // ⚠️ Il formato è quello dei conti Google Ads («123-456-7890»). Un conto
+  // scritto in un modo che non prevediamo NON viene registrato, e l'app torna
+  // a dire «questa copia non dichiara la sua versione»: si degrada nella
+  // direzione prudente, che è quella già progettata.
+  if (!/^[0-9-]{6,20}$/.test(pulito)) return;
   const valore = JSON.stringify({
     versione: versione.trim().slice(0, 40),
     sa: sa.map((t) => t.trim()).filter(Boolean).slice(0, 40),
