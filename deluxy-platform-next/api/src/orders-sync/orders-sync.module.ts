@@ -51,7 +51,17 @@ type Esito =
   | 'provincia-sconosciuta'
   | 'senza-sku'
   | 'prodotto-sconosciuto'
+  | 'senza-partner'
   | 'errore';
+
+/** I campi del prodotto che servono a decidere se una vendita è smistabile. */
+type ProdInfo = {
+  id: string;
+  type: string;
+  partnerId: string | null;
+  categoryId: string | null;
+  visibleToOtherPartners: boolean;
+};
 
 @Injectable()
 export class OrdersSyncService {
@@ -491,20 +501,34 @@ export class OrdersSyncService {
     // L'indice porta ANCHE la variante: riconoscere «MQLSWA-2» come Cappelliera
     // e poi buttare via la taglia M faceva nascere vendite col prodotto base e
     // i prezzi sbagliati a valle (base 110, la M vale 215).
-    const prodotti = new Map<string, { productId: string; variantId: string | null }>(
-      (await this.prisma.product.findMany({ where: { NOT: { sku: null } }, select: { id: true, sku: true } }))
-        .map((p) => [p.sku!.trim().toUpperCase(), { productId: p.id, variantId: null }]),
-    );
+    // L'indice porta ANCHE i campi del prodotto (tipo, categoria, proprietario,
+    // visibilità): servono a `esisteCandidato` per il filtro «solo unici o
+    // province con partner», senza una query per ordine.
+    const prodotti = new Map<string, { productId: string; variantId: string | null; smist: ProdInfo }>();
+    for (const p of await this.prisma.product.findMany({
+      where: { NOT: { sku: null } },
+      select: { id: true, sku: true, type: true, categoryId: true, partnerId: true, visibleToOtherPartners: true },
+    })) {
+      prodotti.set(p.sku!.trim().toUpperCase(), {
+        productId: p.id, variantId: null,
+        smist: { id: p.id, type: p.type, categoryId: p.categoryId, partnerId: p.partnerId, visibleToOtherPartners: p.visibleToOtherPartners },
+      });
+    }
     for (const v of await this.prisma.productVariant.findMany({
-      where: { NOT: { sku: null } }, select: { id: true, sku: true, productId: true },
+      where: { NOT: { sku: null } },
+      select: { id: true, sku: true, productId: true, product: { select: { type: true, categoryId: true, partnerId: true, visibleToOtherPartners: true } } },
     })) {
       const k = v.sku!.trim().toUpperCase();
-      if (!prodotti.has(k)) prodotti.set(k, { productId: v.productId, variantId: v.id });
+      if (!prodotti.has(k)) prodotti.set(k, {
+        productId: v.productId, variantId: v.id,
+        smist: { id: v.productId, type: v.product.type, categoryId: v.product.categoryId, partnerId: v.product.partnerId, visibleToOtherPartners: v.product.visibleToOtherPartners },
+      });
     }
 
     const conteggio: Record<Esito, number> = {
       creata: 0, 'gia-presente': 0, 'riservato-al-cs': 0, 'senza-provincia': 0,
-      'provincia-sconosciuta': 0, 'senza-sku': 0, 'prodotto-sconosciuto': 0, errore: 0,
+      'provincia-sconosciuta': 0, 'senza-sku': 0, 'prodotto-sconosciuto': 0,
+      'senza-partner': 0, errore: 0,
     };
     const esempi: { ordine: string; esito: Esito; dettaglio?: string }[] = [];
     const daGestire: string[] = [];
@@ -529,6 +553,14 @@ export class OrdersSyncService {
       else if (!province.has(codice)) { esito = 'provincia-sconosciuta'; dettaglio = codice; }
       else if (!sku) { esito = 'senza-sku'; }
       else if (!prodotti.has(sku)) { esito = 'prodotto-sconosciuto'; dettaglio = sku; }
+      else if (!(await this.sales.esisteCandidato(prodotti.get(sku)!.smist, province.get(codice)!))) {
+        // FILTRO «solo unici o province con partner» (regola dell'utente): se
+        // non è un prodotto unico e in questa provincia non abbiamo nessun
+        // partner per la sua categoria, la vendita NON si crea — resta
+        // all'ordine originale. Prima ne nascevano di orfane «da gestire» che
+        // nessuno avrebbe mai preso (43 dal primo giro del 24/08).
+        esito = 'senza-partner';
+      }
       else if (!opzioni.applica) {
         // In simulazione si controlla comunque se la vendita c'e' gia', se no
         // il conto direbbe «creata» per ordini gia' entrati e sarebbe falso.
@@ -568,8 +600,12 @@ export class OrdersSyncService {
       applicato: !!opzioni.applica,
       lettiDaOrders: ordini.length,
       conteggio,
-      // Chi entra ma non trova nessun partner: e' l'esito corretto, ma va visto.
-      senzaPartner: daGestire.length,
+      // ⚠️ Due cose diverse:
+      // - `conteggio['senza-partner']`: vendite NON create, perché in provincia
+      //   non c'è nessun partner (filtro d'ingresso). Non entrano affatto.
+      // - `creataMaTuttiChiusiOra`: vendite CREATE (un partner c'è) ma DA_GESTIRE
+      //   perché in questo momento è tutto chiuso: si propongono quando riaprono.
+      creataMaTuttiChiusiOra: daGestire.length,
       esempiDiCosaNonEntra: esempi,
     };
   }

@@ -305,6 +305,37 @@ export class SalesService {
 
   // --- smistamento -------------------------------------------------------
 
+  /**
+   * Esiste un partner che POTREBBE prendere questa vendita in questa provincia?
+   *
+   * È il filtro d'ingresso dello smistamento automatico (Standard §7.4, regola
+   * dell'utente): si smistano SOLO i prodotti UNICI (che hanno un proprietario)
+   * e i NON_UNICI **in una provincia dove abbiamo un partner**. Dove non c'è
+   * nessuno che potrà mai prenderla, la vendita NON si crea: resta all'ordine
+   * originale, e non si accumulano vendite orfane «da gestire» (ce n'erano 43
+   * dal primo giro del 24/08).
+   *
+   * ⚠️ NON guarda gli orari (aperto/chiuso ADESSO): «avere un partner» è un
+   * fatto della rete, non del momento. Un partner che esiste ma è chiuso ora
+   * prende la vendita quando riapre — qui basta che ESISTA, sia attivo e OPERI
+   * nella provincia. Per l'UNICO basta il PROPRIETARIO attivo, a prescindere
+   * dalla provincia: quel prodotto lo fa solo lui.
+   */
+  async esisteCandidato(product: ProdottoDaSmistare, provinceId: string): Promise<boolean> {
+    const lista = await this.candidati(product, provinceId);
+    if (!lista.length) return false;
+    const soloUnico = product.type === ProductType.UNICO;
+    const n = await this.prisma.partner.count({
+      where: {
+        id: { in: lista.map((c) => c.partnerId) },
+        active: true,
+        // NON_UNICO: deve operare nella provincia. UNICO: basta che sia attivo.
+        ...(soloUnico ? {} : { provinces: { some: { provinceId } } }),
+      },
+    });
+    return n > 0;
+  }
+
   /** Chi puo' prendere questa vendita, nell'ordine giusto. */
   private async candidati(product: ProdottoDaSmistare, provinceId: string): Promise<Candidato[]> {
     if (product.type === ProductType.UNICO) {
