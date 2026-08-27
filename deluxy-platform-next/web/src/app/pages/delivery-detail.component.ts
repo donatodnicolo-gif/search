@@ -86,7 +86,7 @@ interface DeliveryDetail {
     <div class="form-head">
       <!-- Torna da dove si e' arrivati (lista filtrata, Finanza…): un
            indirizzo fisso butterebbe via il punto di partenza. -->
-      <a href="javascript:void(0)" class="back" (click)="indietro()">← {{ 'deliveries.title' | translate }}</a>
+      <button type="button" class="back" (click)="indietro()">← {{ 'deliveries.title' | translate }}</button>
       @if (delivery(); as d) {
         <div class="title-row">
           <h1>{{ 'deliveryDetail.title' | translate: { code: d.code } }}</h1>
@@ -374,7 +374,10 @@ interface DeliveryDetail {
       .allegato.doc { max-width: none; }
       .allegato-nota { display: block; font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
       .form-head { margin-bottom: 24px; }
-      .back { font-size: 13px; color: var(--text-secondary); }
+      /* Era un un link finto (href javascript:void): nell.albero di accessibilita. un
+         link senza destinazione. Ora e. un bottone, e questa regola gli toglie
+         il vestito nativo per lasciarlo identico a prima. */
+      .back { appearance: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer; font-size: 13px; color: var(--text-secondary); }
       .back:hover { color: var(--text); }
       .title-row { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }

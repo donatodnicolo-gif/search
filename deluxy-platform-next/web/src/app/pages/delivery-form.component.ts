@@ -49,7 +49,7 @@ interface ProductRow {
         <!-- La freccia torna alla schermata PRECEDENTE (dettaglio, lista
              filtrata…), non a un indirizzo fisso: chi arriva dal dettaglio
              deve ritrovarlo. -->
-        <a href="javascript:void(0)" class="back" (click)="indietro()">← {{ 'deliveryForm.backToDeliveries' | translate }}</a>
+        <button type="button" class="back" (click)="indietro()">← {{ 'deliveryForm.backToDeliveries' | translate }}</button>
         <h1>{{ (editId() ? 'deliveryForm.editTitle' : 'deliveryForm.title') | translate }}</h1>
         <p class="page-caption">{{ 'deliveryForm.caption' | translate }}</p>
       </div>
@@ -397,7 +397,9 @@ interface ProductRow {
     `
       .form-head { margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
       .testa-flag { margin-top: 6px; white-space: nowrap; }
-      .back { font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+      /* Bottone, non un link finto (href javascript:void): un link senza destinazione
+         non e. un link. Il vestito nativo si toglie qui. */
+      .back { appearance: none; background: none; border: none; padding: 0; font: inherit; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
       .back:hover { color: var(--text); }
       h1 { margin: 6px 0 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
