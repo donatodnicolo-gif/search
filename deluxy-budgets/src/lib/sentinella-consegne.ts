@@ -52,7 +52,11 @@ export async function controllaMesiChiusi(
   anno: number,
   opzioni: { registra?: boolean } = {}
 ): Promise<{ ok: boolean; errore?: string; mossi: MeseMosso[]; controllati: number }> {
-  const costi = await fetchCostiConsegne(anno);
+  // ⚠️ **Senza cache, sempre.** Confrontare la lettura di oggi con quella di
+  // ieri pretende che quella di oggi sia di oggi: una risposta servita dalla
+  // finestra di 60 secondi si presenterebbe come un cambiamento mai avvenuto.
+  // La prima notte è successo — sette mesi segnalati, zero cambiati davvero.
+  const costi = await fetchCostiConsegne(anno, { senzaCache: true });
   if (!costi.ok) return { ok: false, errore: costi.errore, mossi: [], controllati: 0 };
 
   const aperto = primoMeseAperto(anno);
@@ -103,11 +107,46 @@ export async function controllaMesiChiusi(
 }
 
 /**
- * I mesi mossi **senza registrare**: è quello che serve a una pagina, che deve
- * poter guardare senza scrivere. Una lettura che scrive è una lettura che
- * cambia il risultato della prossima.
+ * I mesi mossi **come li ha trovati il cron**: la pagina legge lo storico, non
+ * rifà il controllo.
+ *
+ * ⚠️ **Due ragioni, e la seconda conta più della prima.** (1) Rifare il
+ * controllo vorrebbe dire una chiamata alla piattaforma **senza cache** a ogni
+ * apertura di `/da-fare`, che è la home: un secondo di attesa addosso alla
+ * prima pagina che si apre, ogni volta, per un dato che cambia una volta al
+ * giorno. (2) Soprattutto: la pagina vedrebbe uno scostamento **diverso** da
+ * quello registrato, perché confronterebbe l'adesso con l'ultima fotografia
+ * invece delle due fotografie fra loro — due schermate che raccontano lo stesso
+ * fatto con due numeri, che in quest'app è il difetto di famiglia.
+ *
+ * Qui si confrontano le **ultime due letture** di ogni mese chiuso: se il cron
+ * ne ha scritta una nuova, vuol dire che qualcosa era cambiato, e la differenza
+ * fra le due è esattamente quella che ha visto lui.
  */
 export async function mesiChiusiMossi(anno: number): Promise<MeseMosso[]> {
-  const esito = await controllaMesiChiusi(anno, { registra: false });
-  return esito.mossi;
+  const letture = await prisma.letturaConsegne.findMany({
+    where: { year: anno },
+    orderBy: { lettoIl: "desc" },
+  });
+  const perMese = new Map<number, typeof letture>();
+  for (const l of letture) {
+    const g = perMese.get(l.month) ?? [];
+    if (g.length < 2) g.push(l);
+    perMese.set(l.month, g);
+  }
+  const mossi: MeseMosso[] = [];
+  for (const [month, due] of perMese) {
+    if (due.length < 2) continue; // un mese con una sola lettura non si è mosso: è nato
+    const [oggi, ieri] = due;
+    if (Math.abs(oggi.costo - ieri.costo) < SOGLIA_SCOSTAMENTO) continue;
+    mossi.push({
+      year: anno,
+      month,
+      prima: ieri.costo,
+      adesso: oggi.costo,
+      differenza: oggi.costo - ieri.costo,
+      quando: ieri.lettoIl,
+    });
+  }
+  return mossi.sort((a, b) => Math.abs(b.differenza) - Math.abs(a.differenza));
 }

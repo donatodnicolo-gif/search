@@ -93,7 +93,23 @@ const VUOTO: ContoConsegne = { consegne: 0, paga: 0, ritenute: 0, costo: 0, nonP
  * risponde si torna `ok: false` con il motivo, e chi chiama **dichiara** che il
  * dato manca invece di mettere uno zero.
  */
-export async function fetchCostiConsegne(anno: number): Promise<CostiConsegne> {
+/**
+ * @param opzioni.senzaCache salta la finestra di 60 secondi e chiede il valore
+ *   di **adesso**.
+ *
+ * ⚠️⚠️ **Serve a chi CONFRONTA, e non è un dettaglio di prestazioni.** La cache
+ * va benissimo per disegnare una pagina: nessuna decisione cambia perché un
+ * totale è vecchio di un minuto. Ma la sentinella dei mesi chiusi mette a
+ * paragone la lettura di oggi con quella di ieri: se una delle due arriva dalla
+ * cache, una risposta vecchia si presenta come un **cambiamento** che non è mai
+ * avvenuto. È successo davvero la prima notte in cui è stata accesa — ha
+ * segnalato tutti e sette i mesi chiusi, e non si era mosso niente.
+ * ⭐ *Chi confronta due letture non può permettersi che una delle due sia vecchia.*
+ */
+export async function fetchCostiConsegne(
+  anno: number,
+  opzioni: { senzaCache?: boolean } = {}
+): Promise<CostiConsegne> {
   const vuoto = (errore: string): CostiConsegne => ({
     ok: false,
     errore,
@@ -122,7 +138,7 @@ export async function fetchCostiConsegne(anno: number): Promise<CostiConsegne> {
   try {
     const r = await fetch(`${url}/api/v1/app/costi-consegne?anno=${anno}`, {
       headers: { "x-api-key": k },
-      next: { revalidate: RIVALIDA },
+      ...(opzioni.senzaCache ? { cache: "no-store" as const } : { next: { revalidate: RIVALIDA } }),
     });
     if (!r.ok) return vuoto(`la piattaforma ha risposto ${r.status}`);
     const d = (await r.json()) as {
