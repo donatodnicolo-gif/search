@@ -147,6 +147,15 @@ Data consegna\* · Indirizzo destinatario · Partner · Servizio\* · Fascia ora
 
 **Problemi di salvataggio**: verificare numero di caratteri dei telefoni, validare l'indirizzo, verificare presenza prodotto, controllare il messaggio di errore in fondo al form.
 
+**Compila con l'AI** **[NUOVO 27/08/2026]** — in cima al form della consegna **nuova** (mai in modifica) c'è un pannello «✨ Compila con l'AI»: si scrive o si **detta** un testo libero, oppure si carica una **foto** (un ordine scritto a mano, uno screenshot di WhatsApp), e i campi del modulo si riempiono da soli. Rotta `POST /api/v1/ai/consegna-da-testo` (Admin, Operation, Partner).
+
+- ⭐ **Propone, non crea.** La rotta non scrive niente: la consegna nasce quando una persona preme **Salva**, come sempre. Ogni campo resta modificabile.
+- Ogni proposta si **dichiara**: confidenza (verde = ci crede molto, oro = da ricontrollare, rosso = da rileggere riga per riga), una frase su che cosa ha capito, e l'elenco dei campi **non trovati**.
+- Il modello ha l'ordine di **non inventare**: quello che non c'è resta vuoto. Un `null` **non cancella** quello che si è già scritto a mano.
+- Con **due orari** (dalle–alle) la fascia flessibile si **apre** da sola, altrimenti il secondo orario finirebbe in un campo invisibile. L'indirizzo di ritiro e il prodotto, che non hanno un campo proprio, finiscono nelle **note**.
+- ⚠️ La **voce** la trascrive il **browser** (Web Speech API), non l'AI: dove il riconoscimento vocale non esiste (Firefox, iOS datati) il bottone 🎤 non compare. Le **immagini** le legge davvero, fino a **4 MB**.
+- ⚠️ Serve la chiave Anthropic in **Impostazioni → `aiApiKey`**. Senza chiave il pannello **non si mostra** (`/settings/public` espone il solo booleano `aiAttiva`, mai la chiave).
+
 ### 3.2 Activities (`/activities`)
 
 - Vista VALET ACTIVITIES: attività di ritiro e consegna per ogni valet, ordinate per orario; filtro per valet; bottone STORICO; bottone "Reorder with time".

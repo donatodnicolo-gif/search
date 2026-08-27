@@ -294,8 +294,30 @@ export class RecurringServicesComponent implements AfterViewInit {
     return this.auth.user()?.role === 'PARTNER';
   }
 
-  @ViewChild('addrDest') addrDest?: ElementRef<HTMLInputElement>;
-  @ViewChild('addrRitiro') addrRitiro?: ElementRef<HTMLInputElement>;
+  /**
+   * ⚠️ I due campi vivono dentro un `@if`: al primo `ngAfterViewInit` NON
+   * esistono ancora, e prima si agganciava solo li'. Risultato: il commento
+   * diceva «si aggancia all'apertura del form» ma nessuno richiamava
+   * l'aggancio, e i suggerimenti non uscivano mai — mentre sul form consegna,
+   * dove il campo c'e' sempre, funzionavano. Il difetto non era nella chiave.
+   *
+   * Con il SETTER l'aggancio scatta esattamente quando il campo compare, senza
+   * timer da indovinare. La corsa con il caricamento di Google e' coperta dai
+   * due versi: se la chiave arriva dopo, `ngAfterViewInit` richiama; se il
+   * campo arriva dopo, richiama il setter.
+   */
+  private rifDest?: ElementRef<HTMLInputElement>;
+  private rifRitiro?: ElementRef<HTMLInputElement>;
+  @ViewChild('addrDest') set impostaDest(rif: ElementRef<HTMLInputElement> | undefined) {
+    this.rifDest = rif;
+    if (rif) this.agganciaIndirizzi();
+  }
+  @ViewChild('addrRitiro') set impostaRitiro(rif: ElementRef<HTMLInputElement> | undefined) {
+    this.rifRitiro = rif;
+    if (rif) this.agganciaIndirizzi();
+  }
+  get addrDest(): ElementRef<HTMLInputElement> | undefined { return this.rifDest; }
+  get addrRitiro(): ElementRef<HTMLInputElement> | undefined { return this.rifRitiro; }
   /** La chiave browser di Google non c'e': i campi restano di testo, e si dice. */
   readonly mapsMancante = signal(false);
 
