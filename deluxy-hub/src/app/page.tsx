@@ -19,7 +19,28 @@ export default async function HomePage() {
 
       {app.length === 0 ? (
         <div className="vuoto">
-          Nessuna app abilitata per il tuo profilo. Scrivi a un amministratore.
+          {/* Empty-state canonico (Libro cap.6): icona gold-soft + titolo + frase */}
+          <div className="vuoto-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22">
+              <g
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="4" y="4" width="7" height="7" rx="2" />
+                <rect x="13" y="4" width="7" height="7" rx="2" />
+                <rect x="4" y="13" width="7" height="7" rx="2" />
+                <rect x="13" y="13" width="7" height="7" rx="2" />
+              </g>
+            </svg>
+          </div>
+          <div className="vuoto-title">Nessuna app abilitata</div>
+          <p>
+            Il tuo profilo non ha ancora app assegnate: chiedile a un amministratore
+            dalla pagina Utenti.
+          </p>
         </div>
       ) : (
         <div className="app-grid">

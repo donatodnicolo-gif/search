@@ -1,7 +1,7 @@
 @import "./tokens.css";
 
-/* Deluxy Hub — implementazione del Deluxy Design System v1.0
-   (deluxy-design-system/DESIGN-SYSTEM.md). Solo var(--…) dei token. */
+/* Deluxy Hub — implementazione del Deluxy Design System v1.4
+   (deluxy-design-system/DESIGN-SYSTEM.md + LIBRO-UX-UI.md). Solo var(--…) dei token. */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -34,7 +34,7 @@ a { color: inherit; text-decoration: none; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-logo {
   width: 38px; height: 38px; border-radius: 10px;
-  background: linear-gradient(145deg, #1d1f26, #3a3d47);
+  background: linear-gradient(145deg, var(--logo-dark-a), var(--logo-dark-b));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   color: var(--gold);
   font-family: var(--font-logo);
@@ -51,8 +51,9 @@ a { color: inherit; text-decoration: none; }
 .main { max-width: 1080px; margin: 0 auto; padding: 40px 24px 64px; }
 
 .page-head { margin-bottom: 28px; }
-.page-title { font-size: 30px; font-weight: 600; letter-spacing: -0.022em; }
-.page-sub { font-size: 15px; color: var(--text-secondary); margin-top: 6px; }
+/* Libro UX cap.1/DS: titolo pagina 32px/−0.025em, caption 14px (D17, 27/08/2026) */
+.page-title { font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
+.page-sub { font-size: 14px; color: var(--text-secondary); margin-top: 6px; }
 
 .section-label {
   font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
@@ -87,7 +88,7 @@ a { color: inherit; text-decoration: none; }
 .app-icon {
   width: 56px; height: 56px;
   border-radius: 16px;
-  background: linear-gradient(145deg, #1d1f26, #3a3d47);
+  background: linear-gradient(145deg, var(--logo-dark-a), var(--logo-dark-b));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   color: var(--gold);
   display: flex; align-items: center; justify-content: center;
@@ -102,15 +103,30 @@ a { color: inherit; text-decoration: none; }
 }
 .app-open { font-size: 13px; font-weight: 500; color: var(--blue); }
 
+/* Empty-state canonico (Libro cap.6): icona in quadratino gold-soft 44px +
+   titolo title-m + frase che spiega (D5, 27/08/2026) */
 .vuoto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   padding: 48px 24px;
   text-align: center;
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
   color: var(--text-secondary);
   font-size: 14px;
 }
+.vuoto-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-m);
+  background: var(--gold-soft);
+  color: var(--gold);
+  display: flex; align-items: center; justify-content: center;
+}
+.vuoto-title { font-size: 19px; font-weight: 600; color: var(--text); letter-spacing: -0.015em; }
 
 /* ---------- Badge ---------- */
 .badge {
@@ -124,32 +140,48 @@ a { color: inherit; text-decoration: none; }
 }
 .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .badge.gold { background: var(--gold-soft); color: var(--gold-strong); }
-.badge.green { background: rgba(36, 138, 61, 0.12); color: var(--green); }
-.badge.red { background: rgba(215, 0, 21, 0.1); color: var(--red); }
+.badge.green { background: var(--green-soft); color: var(--green); }
+.badge.red { background: var(--red-soft); color: var(--red); }
 
-/* ---------- Bottoni ---------- */
+/* ---------- Bottoni ----------
+   API del Libro cap.3: la classe nuda è l'aspetto MENO enfatico (fill, senza
+   bordo); un bottone dimenticato degrada in innocuo, mai in primario (D13). */
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 16px;
-  border: 1px solid var(--hairline-strong);
+  padding: 8px 18px;
+  border: none;
   border-radius: var(--radius-pill);
-  background: var(--surface);
+  background: var(--fill);
   color: var(--text);
   font-family: inherit; font-size: 13.5px; font-weight: 500;
   cursor: pointer;
-  transition: background 150ms var(--ease), opacity 150ms var(--ease);
+  transition: background 150ms var(--ease), opacity 150ms var(--ease),
+    transform 120ms var(--ease);
 }
 .btn:hover { background: var(--fill-hover); }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.55; cursor: default; }
 .btn.primary {
   background: var(--ink);
-  border-color: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
 }
 .btn.primary:hover { background: var(--ink-hover); }
-.btn.ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.btn.ghost { background: transparent; color: var(--text-secondary); }
 .btn.ghost:hover { background: var(--fill); color: var(--text); }
 .btn.danger { color: var(--red); }
-.btn.danger:hover { background: rgba(215, 0, 21, 0.08); }
+.btn.danger:hover { background: var(--red-soft); }
+/* Rosso pieno SOLO sul passo di conferma, col verbo (Libro cap.3/7) */
+.btn.danger-solid { background: var(--red); color: var(--on-ink); }
+.btn.danger-solid:hover { background: var(--red); opacity: 0.9; }
+
+/* Focus visibile su ogni elemento interattivo (WCAG 2.4.7, D10) */
+.btn:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+.app-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
 
 /* ---------- Form ---------- */
 input, select {
@@ -162,10 +194,11 @@ input, select {
   font-family: inherit;
   font-size: 14px;
 }
+/* Focus dei campi = ORO, come in tutte le app Deluxy (Libro cap.4, D1) */
 input:focus, select:focus {
   outline: none;
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
 }
 label.campo { display: block; margin-bottom: 12px; }
 label.campo > span {
@@ -174,6 +207,32 @@ label.campo > span {
   color: var(--text-secondary);
   margin-bottom: 5px;
 }
+/* Asterisco dei campi obbligatori: rosso, mai oro (Libro cap.4, D15) */
+.req { color: var(--red); }
+
+/* Campi raggruppati stile iOS (login — Libro cap.11, D16): un contenitore
+   solo, divisore hairline interno, focus-within sul gruppo. */
+.campi-gruppo {
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  margin-bottom: 12px;
+  transition: border-color 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+.campi-gruppo:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
+}
+.campi-gruppo label.campo { margin-bottom: 0; padding: 10px 12px; }
+.campi-gruppo label.campo + label.campo { border-top: 1px solid var(--hairline); }
+.campi-gruppo input {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+.campi-gruppo input:focus { box-shadow: none; border-color: transparent; }
 
 .card {
   background: var(--surface);
@@ -189,15 +248,42 @@ label.campo > span {
   font-size: 13.5px;
   margin-bottom: 18px;
 }
-.avviso.ok { background: rgba(36, 138, 61, 0.1); color: var(--green); }
-.avviso.errore { background: rgba(215, 0, 21, 0.09); color: var(--red); }
+.avviso.ok { background: var(--green-soft); color: var(--green); }
+.avviso.errore { background: var(--red-soft); color: var(--red); }
 
-/* ---------- Tabella ---------- */
+/* Conferma narrativa dell'eliminazione (Libro cap.7, D2): nome dell'oggetto
+   + conseguenze + bottone rosso col verbo. Bordo rosso 15% prescritto dal
+   Libro (cap.6, forma «Avviso grave») e non tokenizzato. */
+.conferma-elimina {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--red-soft);
+  border: 1px solid rgba(215, 0, 21, 0.15);
+  border-radius: var(--radius-m);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.conferma-elimina p { margin-bottom: 10px; }
+
+/* Loading di rotta (Libro cap.6: 2–10 s = testo sobrio, D3) */
+.caricamento {
+  padding: 24px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* ---------- Tabella (canone Libro cap.8, D6/D7/D8) ---------- */
+/* Wrapper con overflow + max-height: senza max-height le intestazioni sticky
+   non si fermano mai (misurato sulla piattaforma, th a top −66). */
+.table-wrap { overflow: auto; max-height: 70vh; }
 table { width: 100%; border-collapse: collapse; }
 th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
   text-align: left;
-  font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em;
-  text-transform: uppercase; color: var(--text-tertiary);
+  font-size: 12px; font-weight: 500;
+  color: var(--text-tertiary);
   padding: 0 12px 10px;
 }
 td {
@@ -205,4 +291,15 @@ td {
   border-top: 1px solid var(--hairline);
   font-size: 14px;
   vertical-align: middle;
+  /* Cifre a larghezza fissa: le date di «Ultimo accesso» restano in colonna (D8) */
+  font-variant-numeric: tabular-nums;
+}
+tbody tr:hover { background: rgba(120, 120, 128, 0.05); }
+
+/* ---------- Mobile (D9): la topbar va a capo, il padding si stringe,
+   la tabella scorre nel suo wrapper ---------- */
+@media (max-width: 800px) {
+  .topbar { flex-wrap: wrap; }
+  .main { padding: 20px 16px 48px; }
+  .table-wrap { overflow-x: auto; }
 }

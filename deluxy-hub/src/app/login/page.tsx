@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { accedi } from "@/lib/actions";
+import { SubmitButton } from "@/components/SubmitButton";
 import { sessioneCorrente } from "@/lib/sessione-server";
 
 export default async function LoginPage({
@@ -57,19 +58,26 @@ export default async function LoginPage({
 
         <form action={accedi} style={{ textAlign: "left" }}>
           <input type="hidden" name="da" value={sp.da ?? ""} />
-          <label className="campo">
-            <span>Email</span>
-            <input type="email" name="email" required autoFocus autoComplete="username" />
-          </label>
-          <label className="campo">
-            <span>Password</span>
-            <input
-              type="password"
-              name="password"
-              required
-              autoComplete="current-password"
-            />
-          </label>
+          {/* Campi raggruppati stile iOS con divisore hairline (Libro cap.11) */}
+          <div className="campi-gruppo">
+            <label className="campo">
+              <span>
+                Email <span className="req">*</span>
+              </span>
+              <input type="email" name="email" required autoFocus autoComplete="username" />
+            </label>
+            <label className="campo">
+              <span>
+                Password <span className="req">*</span>
+              </span>
+              <input
+                type="password"
+                name="password"
+                required
+                autoComplete="current-password"
+              />
+            </label>
+          </div>
 
           {sp.errore && (
             <p style={{ color: "var(--red)", fontSize: 13, marginTop: 4 }}>
@@ -77,13 +85,12 @@ export default async function LoginPage({
             </p>
           )}
 
-          <button
-            type="submit"
-            className="btn primary"
+          <SubmitButton
+            pendingText="Accesso…"
             style={{ width: "100%", marginTop: 10, padding: "12px 18px", justifyContent: "center" }}
           >
             Entra
-          </button>
+          </SubmitButton>
         </form>
 
         <p

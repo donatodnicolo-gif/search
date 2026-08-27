@@ -1,4 +1,6 @@
 import { aggiornaUtente, creaUtente, eliminaUtente } from "@/lib/actions";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
+import { SubmitButton } from "@/components/SubmitButton";
 import { appPerIds, appPerRuolo, catalogoApp } from "@/lib/apps";
 import { prisma } from "@/lib/db";
 import { RUOLI, RUOLO_INFO, type Ruolo } from "@/lib/ruoli";
@@ -102,15 +104,21 @@ export default async function UtentiPage({
           style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, alignItems: "end" }}
         >
           <label className="campo" style={{ marginBottom: 0 }}>
-            <span>Nome</span>
+            <span>
+              Nome <span className="req">*</span>
+            </span>
             <input name="nome" required placeholder="Maria Rossi" />
           </label>
           <label className="campo" style={{ marginBottom: 0 }}>
-            <span>Email</span>
+            <span>
+              Email <span className="req">*</span>
+            </span>
             <input name="email" type="email" required placeholder="maria@deluxy.it" />
           </label>
           <label className="campo" style={{ marginBottom: 0 }}>
-            <span>Password (min 8)</span>
+            <span>
+              Password (min 8) <span className="req">*</span>
+            </span>
             <input name="password" type="password" required minLength={8} autoComplete="new-password" />
           </label>
           <label className="campo" style={{ marginBottom: 0 }}>
@@ -124,18 +132,18 @@ export default async function UtentiPage({
             </select>
           </label>
           <ScelteApp selezionate={appPerRuolo("commerciale").map((a) => a.id)} />
-          <button
-            type="submit"
-            className="btn primary"
+          <SubmitButton
+            pendingText="Creazione…"
             style={{ justifyContent: "center", padding: "10px 18px", gridColumn: "1 / -1" }}
           >
             Crea utente
-          </button>
+          </SubmitButton>
         </form>
       </div>
 
       <div className="section-label">{utenti.length} utenti</div>
       <div className="card" style={{ padding: "20px 12px" }}>
+        <div className="table-wrap">
         <table>
           <thead>
             <tr>
@@ -189,7 +197,9 @@ export default async function UtentiPage({
                     >
                       <input type="hidden" name="id" value={u.id} />
                       <label className="campo" style={{ marginBottom: 0 }}>
-                        <span>Nome</span>
+                        <span>
+                          Nome <span className="req">*</span>
+                        </span>
                         <input name="nome" defaultValue={u.nome} required />
                       </label>
                       <label className="campo" style={{ marginBottom: 0 }}>
@@ -216,18 +226,13 @@ export default async function UtentiPage({
                         />
                         Può accedere
                       </label>
-                      <button type="submit" className="btn primary" style={{ justifyContent: "center" }}>
+                      <SubmitButton pendingText="Salvataggio…" style={{ justifyContent: "center" }}>
                         Salva
-                      </button>
+                      </SubmitButton>
                     </form>
 
                     {u.id !== sessione.uid && (
-                      <form action={eliminaUtente} style={{ marginTop: 8 }}>
-                        <input type="hidden" name="id" value={u.id} />
-                        <button type="submit" className="btn danger" style={{ width: "100%", justifyContent: "center" }}>
-                          Elimina utente
-                        </button>
-                      </form>
+                      <ConfermaElimina id={u.id} nome={u.nome} action={eliminaUtente} />
                     )}
                   </details>
                 </td>
@@ -235,6 +240,7 @@ export default async function UtentiPage({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </main>
   );

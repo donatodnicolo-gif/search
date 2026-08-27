@@ -14,6 +14,13 @@ Il Hub vive nello **schema `hub`** dello stesso database Supabase di
 `deluxy-partner`: le sue tabelle sono isolate da quelle di Partner (che stanno in
 `public`), quindi un `prisma db push` del Hub non può toccarne i dati.
 
+> **Deroga UX annotata** (Libro UX&UI cap.1, 27/08/2026): il Hub usa la
+> **topbar** invece della sidebar canonica. È la deroga prevista dal Libro per
+> le app con ≤ 3 destinazioni (Home, Utenti, Profilo): un launcher non ha una
+> navigazione da sidebar. Restano dovuti (aperti): la **voce attiva** a due
+> segnali + `aria-current` sulla topbar e l'avatar/logout a icona (D11/D12
+> del rapporto UX). Sotto gli 800px la topbar va a capo (`flex-wrap`).
+
 ---
 
 ## 1. Ruoli e app

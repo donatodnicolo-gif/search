@@ -1,4 +1,5 @@
 import { cambiaMiaPassword } from "@/lib/actions";
+import { SubmitButton } from "@/components/SubmitButton";
 import { prisma } from "@/lib/db";
 import { RUOLO_INFO } from "@/lib/ruoli";
 import { appVisibili } from "@/lib/permessi";
@@ -53,16 +54,18 @@ export default async function ProfiloPage({
       <div className="card">
         <form action={cambiaMiaPassword}>
           <label className="campo">
-            <span>Password attuale</span>
+            <span>
+              Password attuale <span className="req">*</span>
+            </span>
             <input type="password" name="attuale" required autoComplete="current-password" />
           </label>
           <label className="campo">
-            <span>Nuova password (min 8 caratteri)</span>
+            <span>
+              Nuova password (min 8 caratteri) <span className="req">*</span>
+            </span>
             <input type="password" name="nuova" required minLength={8} autoComplete="new-password" />
           </label>
-          <button type="submit" className="btn primary">
-            Aggiorna password
-          </button>
+          <SubmitButton pendingText="Aggiornamento…">Aggiorna password</SubmitButton>
         </form>
       </div>
     </main>
