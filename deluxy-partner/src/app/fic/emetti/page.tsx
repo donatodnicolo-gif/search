@@ -100,7 +100,7 @@ export default async function EmettiPage({
       </div>
 
       {sp.errore && (
-        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+        <div className="card error" style={{ padding: 14, marginBottom: 16 }}>
           <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.errore)}</span>
         </div>
       )}
@@ -120,7 +120,7 @@ export default async function EmettiPage({
           </p>
         </div>
       ) : erroreFic ? (
-        <div className="card" style={{ borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+        <div className="card error">
           <span style={{ color: "var(--red)", fontSize: 14 }}>{erroreFic}</span>
         </div>
       ) : (

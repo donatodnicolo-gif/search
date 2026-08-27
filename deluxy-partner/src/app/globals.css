@@ -130,6 +130,8 @@ a { color: inherit; text-decoration: none; }
 }
 .card + .card { margin-top: 16px; }
 .card.tight { padding: 0; overflow: hidden; }
+/* Card di errore: red-soft + bordo rosso 15% (Libro cap.6, stato «Errore») */
+.card.error { background: var(--red-soft); border-color: color-mix(in srgb, var(--red) 15%, transparent); }
 
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 24px; }
 .kpi { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-l); box-shadow: var(--shadow-card); padding: 20px 24px; }
@@ -188,7 +190,14 @@ td.neg { color: var(--red); }
 .btn.secondary { background: var(--fill); color: var(--text); }
 .btn.secondary:hover { background: var(--fill-hover); }
 .btn.danger { background: var(--fill); color: var(--red); }
+/* rosso pieno SOLO sul passo di conferma, col verbo (Libro cap.7) */
+.btn.danger-solid { background: var(--red); color: var(--on-ink); }
+.btn.danger-solid:hover { background: color-mix(in srgb, var(--red) 86%, #000); }
 .btn.small { padding: 5px 13px; font-size: 12.5px; }
+
+/* Conferma narrativa in linea (componente ConfermaElimina) */
+.conferma-elimina { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.conferma-elimina-nota { font-size: 12.5px; color: var(--text-secondary); }
 
 /* ---------- Form ---------- */
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 20px; }
@@ -214,6 +223,11 @@ input:focus, select:focus, textarea:focus {
 .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 14px; padding-top: 6px; }
 .form-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
 
+/* form lunghi divisi in sezioni con titolo (Libro cap.4, modello Anagrafiche) */
+.form-section + .form-section { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--hairline); }
+.form-section-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 16px; }
+.form-section-title .sub { display: block; font-size: 12.5px; font-weight: 400; color: var(--text-secondary); margin-top: 2px; }
+
 /* filtri in testa alle liste */
 .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .filters select, .filters input { width: auto; min-width: 140px; padding: 7px 11px; font-size: 13px; }
@@ -228,6 +242,17 @@ input:focus, select:focus, textarea:focus {
 }
 .empty-title { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
 .empty-text { font-size: 14px; color: var(--text-secondary); margin-top: 6px; }
+.empty-actions { display: inline-flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+
+/* ---------- Skeleton di caricamento (loading.tsx di rotta) ---------- */
+@keyframes dx-shimmer { from { background-position: -420px 0; } to { background-position: 420px 0; } }
+.skeleton {
+  border-radius: var(--radius-s);
+  background: linear-gradient(90deg, var(--fill) 25%, var(--fill-hover) 37%, var(--fill) 63%);
+  background-size: 840px 100%;
+  animation: dx-shimmer 1.4s infinite linear;
+}
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
 
 /* ---------- Dettaglio partner ---------- */
 .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 24px; }
@@ -277,7 +302,15 @@ input:focus, select:focus, textarea:focus {
 
 @media (max-width: 900px) {
   .shell { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; position: static; flex-direction: row; flex-wrap: wrap; }
+  /* fascia orizzontale: vale anche se la preferenza «chiusa» era attiva sul desktop */
+  .sidebar, .sidebar.chiusa {
+    width: 100%; height: auto; position: static;
+    flex: 1 1 auto; flex-direction: row; flex-wrap: wrap;
+    padding: 12px 16px;
+  }
+  .sidebar.chiusa .solo-estesa { display: initial; }
+  .sidebar.chiusa .nav-item { padding: 8px 10px; }
+  .sidebar-toggle { display: none; }
   .sidebar-footer { display: none; }
   .main { padding: 20px 16px 40px; }
 }
@@ -315,7 +348,7 @@ input:focus, select:focus, textarea:focus {
 .docpf-titolo { text-align: right; }
 .docpf-tipo {
   font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--gold-strong, #8a6d2f);
+  color: var(--gold-strong);
 }
 .docpf-numero { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin-top: 2px; }
 .docpf-data { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }

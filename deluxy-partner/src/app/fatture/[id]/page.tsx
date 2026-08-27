@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { ivato, nomeMese, MESI } from "@/lib/calc";
 import { updateFattura, segnaFatturaPagata, deleteFattura } from "@/lib/actions";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 
 export const dynamic = "force-dynamic";
 
@@ -100,13 +101,12 @@ export default async function FatturaDetail({
             <button className="btn secondary" type="submit">Riapri (non saldata)</button>
           </form>
         )}
-        <form
+        <ConfermaElimina
           action={deleteFattura.bind(null, id)}
-        >
-          <button className="btn danger" type="submit" title="Elimina definitivamente questa fattura dall'app (non tocca Fatture in Cloud)">
-            Elimina
-          </button>
-        </form>
+          nome={fattura.numero ?? "questa fattura"}
+          size="md"
+          conseguenza="Sparisce dall'app; non tocca Fatture in Cloud."
+        />
       </div>
 
       <h2 className="section-title">Modifica record</h2>

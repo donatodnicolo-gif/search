@@ -89,7 +89,7 @@ export default async function InviaProFormaPage({
       </div>
 
       {sp.errore && (
-        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+        <div className="card error" style={{ padding: 14, marginBottom: 16 }}>
           <span style={{ color: "var(--red)", fontSize: 14 }}>
             {sp.errore === "campi" ? "Compila destinatario, oggetto e testo." : decodeURIComponent(sp.errore)}
           </span>

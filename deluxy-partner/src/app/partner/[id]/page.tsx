@@ -9,6 +9,7 @@ import { feeDaTariffe } from "@/lib/fee";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { PagamentoMese } from "@/components/PagamentoMese";
 import { RecapAI } from "@/components/RecapAI";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { costruisciRecapPrompt } from "@/lib/recap";
 
 export const dynamic = "force-dynamic";
@@ -118,9 +119,10 @@ export default async function PartnerDetail({ params }: { params: Promise<{ id: 
                     <td>{nomeMese(t.dalMese)} {t.dalAnno}</td>
                     <td>{pctIt(t.feePercent)}</td>
                     <td style={{ textAlign: "right" }}>
-                      <form action={eliminaTariffa.bind(null, t.id, id)}>
-                        <button className="btn small danger" type="submit">Elimina</button>
-                      </form>
+                      <ConfermaElimina
+                        action={eliminaTariffa.bind(null, t.id, id)}
+                        nome={`fee dal ${nomeMese(t.dalMese)} ${t.dalAnno}`}
+                      />
                     </td>
                   </tr>
                 ))}

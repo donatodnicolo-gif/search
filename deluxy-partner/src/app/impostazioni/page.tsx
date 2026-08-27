@@ -132,7 +132,7 @@ export default async function ImpostazioniPage({
         </div>
       )}
       {sp.errore && (
-        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+        <div className="card error" style={{ padding: 14, marginBottom: 16 }}>
           <span style={{ color: "var(--red)", fontSize: 14 }}>
             {sp.errore === "iban"
               ? "IBAN non valido: ricontrolla le cifre."

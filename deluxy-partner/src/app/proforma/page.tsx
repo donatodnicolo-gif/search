@@ -104,6 +104,9 @@ export default async function ProFormaListPage({
             <div className="empty-text">
               Crea la prima con &laquo;+ Nuova pro-forma&raquo;: la prepari, la invii al partner e ne segui l&apos;esito da qui.
             </div>
+            <div className="empty-actions">
+              <Link href="/proforma/nuova" className="btn primary small">+ Nuova pro-forma</Link>
+            </div>
           </div>
         ) : (
           <div className="table-wrap">

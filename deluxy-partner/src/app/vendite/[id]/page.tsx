@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { euro } from "@/lib/format";
 import { nomeMese, MESI, commissione, dovutoVendita } from "@/lib/calc";
 import { updateVendita, deleteVendita } from "@/lib/actions";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 
 export const dynamic = "force-dynamic";
 
@@ -40,9 +41,11 @@ export default async function VenditaDetail({
           </p>
         </div>
         <div className="page-actions">
-          <form action={deleteVendita.bind(null, id)}>
-            <button className="btn danger" type="submit" title="Elimina questa vendita">Elimina</button>
-          </form>
+          <ConfermaElimina
+            action={deleteVendita.bind(null, id)}
+            nome={vendita.descrizione ?? `vendita ${nomeMese(vendita.mese)} ${vendita.anno}`}
+            size="md"
+          />
         </div>
       </div>
 

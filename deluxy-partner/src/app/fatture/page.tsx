@@ -5,6 +5,7 @@ import { euro, dataIt } from "@/lib/format";
 import { nomeMese, MESI, ivato } from "@/lib/calc";
 import { segnaFatturaPagata, deleteFattura } from "@/lib/actions";
 import { ThSort, ordina } from "@/components/ThSort";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +101,12 @@ export default async function FatturePage({
             <div className="empty-icon">◎</div>
             <div className="empty-title">Nessuna fattura</div>
             <div className="empty-text">Nessuna fattura trovata per i filtri selezionati.</div>
+            <div className="empty-actions">
+              <Link href="/fatture/nuova" className="btn primary small">+ Nuova fattura</Link>
+              {(sp.mese || sp.stato || sp.tipologia) && (
+                <Link href={`/fatture?anno=${anno}`} className="btn secondary small">Azzera i filtri</Link>
+              )}
+            </div>
           </div>
         ) : (
           <div className="table-wrap">
@@ -150,9 +157,10 @@ export default async function FatturePage({
                           <button className="btn small secondary" type="submit">Riapri</button>
                         </form>
                       )}{" "}
-                      <form action={deleteFattura.bind(null, f.id)} style={{ display: "inline" }}>
-                        <button className="btn small danger" type="submit">Elimina</button>
-                      </form>
+                      <ConfermaElimina
+                        action={deleteFattura.bind(null, f.id)}
+                        nome={f.numero ?? `fattura ${f.partner.nome}`}
+                      />
                     </td>
                   </tr>
                 ))}

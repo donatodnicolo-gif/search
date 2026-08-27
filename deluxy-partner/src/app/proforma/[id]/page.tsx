@@ -6,6 +6,7 @@ import { CHIAVI, leggiImpostazioni } from "@/lib/impostazioni";
 import { totaliProForma, importoRiga, rifProForma, STATI_PF } from "@/lib/proforma";
 import { cambiaStatoProForma, deleteProForma } from "@/lib/proforma-actions";
 import { StampaButton } from "@/components/StampaButton";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 
 export const dynamic = "force-dynamic";
 
@@ -220,9 +221,13 @@ export default async function ProFormaDetail({
             </>
           )}
           {pf.stato === "bozza" && (
-            <form action={deleteProForma.bind(null, id)} style={{ marginLeft: "auto" }}>
-              <button className="btn small danger" type="submit">Elimina bozza</button>
-            </form>
+            <span style={{ marginLeft: "auto" }}>
+              <ConfermaElimina
+                action={deleteProForma.bind(null, id)}
+                nome={rif}
+                etichetta="Elimina bozza"
+              />
+            </span>
           )}
         </div>
         {(!indirizzo || !piva) && (

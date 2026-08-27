@@ -17,6 +17,7 @@ import {
   eliminaTransazioniNonRegistrate,
 } from "@/lib/transazioni-actions";
 import { qontoConfigurato } from "@/lib/qonto";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 
 export const dynamic = "force-dynamic";
 
@@ -129,11 +130,13 @@ export default async function TransazioniPage({
         </div>
         {(nuove.length > 0 || ignorate.length > 0) && (
           <div className="page-actions">
-            <form action={eliminaTransazioniNonRegistrate}>
-              <button className="btn danger small" type="submit" title="Elimina le transazioni non registrate per rifare l'import">
-                Svuota non registrate
-              </button>
-            </form>
+            <ConfermaElimina
+              action={eliminaTransazioniNonRegistrate}
+              nome={`${nuove.length + ignorate.length} transazioni`}
+              etichetta="Svuota non registrate"
+              verbo="Svuota"
+              conseguenza="Le non registrate spariscono; potrai rifare l'import."
+            />
           </div>
         )}
       </div>
@@ -148,7 +151,7 @@ export default async function TransazioniPage({
         </div>
       )}
       {sp.errore && (
-        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+        <div className="card error" style={{ padding: 14, marginBottom: 16 }}>
           <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.errore)}</span>
         </div>
       )}
@@ -453,9 +456,11 @@ export default async function TransazioniPage({
                       </td>
                       <td className="num">{a.usi}</td>
                       <td>
-                        <form action={eliminaAssociazione.bind(null, a.id)}>
-                          <button className="btn small danger" type="submit" title="Elimina la regola (i movimenti futuri torneranno da riconoscere)">Elimina</button>
-                        </form>
+                        <ConfermaElimina
+                          action={eliminaAssociazione.bind(null, a.id)}
+                          nome={a.esempio ?? a.chiave}
+                          conseguenza="I movimenti futuri torneranno da riconoscere."
+                        />
                       </td>
                     </tr>
                   ))}

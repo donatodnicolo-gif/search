@@ -78,8 +78,8 @@ export function RecapAI({ partnerId, prompt }: { partnerId: string; prompt: stri
             marginTop: 14,
             padding: "12px 14px",
             borderRadius: "var(--radius-m)",
-            background: "rgba(215,0,21,0.06)",
-            border: "1px solid rgba(215,0,21,0.15)",
+            background: "var(--red-soft)",
+            border: "1px solid color-mix(in srgb, var(--red) 15%, transparent)",
             color: "var(--red)",
             fontSize: 13.5,
           }}

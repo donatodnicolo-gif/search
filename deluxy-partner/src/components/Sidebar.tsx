@@ -148,10 +148,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside
-      className={`sidebar${chiusa ? " chiusa" : ""}`}
-      style={{ width: chiusa ? 68 : 250, flex: `0 0 ${chiusa ? 68 : 250}px` }}
-    >
+    <aside className={`sidebar${chiusa ? " chiusa" : ""}`}>
       <button
         type="button"
         className="sidebar-toggle"

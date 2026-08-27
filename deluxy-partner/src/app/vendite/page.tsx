@@ -5,6 +5,7 @@ import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, MESI, commissione, dovutoVendita } from "@/lib/calc";
 import { deleteVendita } from "@/lib/actions";
 import { ThSort, ordina } from "@/components/ThSort";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,9 @@ export default async function VenditePage({
             <div className="empty-icon">◎</div>
             <div className="empty-title">Nessuna vendita</div>
             <div className="empty-text">Registra la prima vendita come vendor per questo periodo.</div>
+            <div className="empty-actions">
+              <Link href="/vendite/nuova" className="btn primary small">+ Nuova vendita</Link>
+            </div>
           </div>
         ) : (
           <div className="table-wrap">
@@ -119,9 +123,10 @@ export default async function VenditePage({
                     <td style={{ whiteSpace: "nowrap" }}>
                       <span style={{ display: "inline-flex", gap: 6 }}>
                         <Link href={`/vendite/${v.id}`} className="btn small secondary">Modifica</Link>
-                        <form action={deleteVendita.bind(null, v.id)}>
-                          <button className="btn small danger" type="submit">Elimina</button>
-                        </form>
+                        <ConfermaElimina
+                          action={deleteVendita.bind(null, v.id)}
+                          nome={v.descrizione ?? `vendita ${v.partner.nome}`}
+                        />
                       </span>
                     </td>
                   </tr>
