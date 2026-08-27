@@ -837,6 +837,46 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    - **Scout non cambia**: le sue `places` sono luoghi (lat/lng, `google_place_id`), campi
      fiscali non ne ha. La separazione passa esattamente dove le due app erano già divise.
 
+3d. **✅ COSTRUITO il 27/08/2026 — l'ENTITÀ commerciale (`GruppoAziendale`), il terzo anello.**
+   **La domanda**: «da FINANCE dobbiamo fatturare a una ragione sociale che però è
+   parte di un'entità, e Scout deve dirci quanto fattura quell'entità con noi in tutte
+   le sue società». La catena è **negozio → società → entità** e il terzo anello non
+   esisteva in nessuna app: si arrivava alla società e ci si fermava.
+   **Il caso che l'ha fatta nascere, misurato in FINANCE**: CHANEL sono **tre schede**
+   — MILANO 65.485 €, ROMA 52.600 €, FIRENZE 20.509 € — per **138.595 €**. ⚠️ **CHANEL
+   ROMA non è agganciata al registro**: chiedendo il totale per anagrafica se ne vedono
+   **85.994 €**. Il numero torna, ed è sbagliato del **38%**.
+   ✅ **Fatto qui**: modello `GruppoAziendale` (`nome` @unique), `SoggettoFiscale.gruppoId`,
+   `gruppo` nella risposta di ogni anagrafica, rotte `GET /api/v1/gruppi` e
+   `GET /api/v1/gruppi/:id` (con `anagraficheIds` piatto), assegnazione dalla scheda
+   (campo con suggerimenti, storia `gruppo: «» → «CHANEL»`), pagina **/gruppi** e voce
+   in sidebar. Provato dal form vero: CHANEL creata, 1 società, 1 negozio.
+   ⚠️ **Sola lettura via API, di proposito**: il gruppo lo assegna una persona. Dedurlo
+   dal nome unirebbe le cinque «PASTICCERIA …»; aprirlo in scrittura darebbe tre entità
+   per lo stesso cliente, scritte da tre app.
+   ⚠️ **Un negozio appartiene al gruppo ATTRAVERSO la sua società**: un prospect senza
+   P.IVA non ha entità. È un limite dichiarato — attaccarlo anche direttamente vorrebbe
+   dire due strade per lo stesso fatto, e prima o poi due risposte diverse.
+   ⚠️ **Nel registro NON ci sono importi e non ce ne devono essere.** Il fatturato lo
+   possiede FINANCE (custode dei risultati, decisione 26/08).
+   ❌ **RESTA, ed è in altre due cartelle** — ⚠️ non toccate il 27/08 perché **un'altra
+   sessione ci stava lavorando** (`deluxy-scout` aveva modifiche non committate e la
+   migration `0081_banca_e_amministrazione.sql`; il commit `c2039442` tocca anche
+   `deluxy-partner`). Le istruzioni complete stanno nel **README, sezione «Entità
+   commerciali»**:
+   - **FINANCE**: aggiungere `pIva`/`codiceFiscale` al `Partner` (⚠️ oggi
+     `POST /api/v1/partners` **dichiara `pIva` e non la scrive mai** — il registro
+     gliela manda e lui la butta); riempire `AnagraficaCollegata` (2 righe in tutto);
+     esporre `GET /api/v1/fatturato?gruppo=<id>` che **dichiara la propria base** e
+     soprattutto **quali schede sospetta di aver perso** (le sue con `gruppo` uguale ma
+     senza `anagraficaId`: è il caso CHANEL ROMA).
+   - **Scout**: chiedere, non calcolare — `lib/finance.ts` ha già il tubo verso FINANCE
+     sulla chiave `anagraficaId` ↔ `places.anagrafiche_id`, ma oggi riceve solo
+     `nonFattura` e `ultimoMovimento`, nessun importo.
+   ⚠️ E a monte: il **riversamento da Orders** deciso il 26/08 non è costruito, quindi
+   «fatturato dell'entità» oggi vuol dire «ciò che FINANCE vede» — va detto nella
+   risposta, non lasciato intendere.
+
 ### B. Scelte da prendere (il codice viene dopo)
 
 3bis. **CONSUMERS — sezione COSTRUITA il 01/08/2026 (lo studio che l'ha generata è qui sotto).**

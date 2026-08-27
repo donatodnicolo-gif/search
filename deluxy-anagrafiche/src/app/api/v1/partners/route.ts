@@ -12,7 +12,13 @@ import { whereRicerca } from "@/lib/ricerca";
 import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, PREFISSO_FORNITORE, PREFISSO_LIVELLO, normalizzaStatoAnalisi } from "@/lib/stati";
 import { registraPassaggio } from "@/lib/storico";
 
-const INCLUDE = { contatti: true, riferimenti: true, soggettoFiscale: true } as const;
+// ⚠️ La società E l'entità a cui appartiene: chi legge un'anagrafica per
+// fatturare vuole sapere anche di quale gruppo fa parte.
+const INCLUDE = {
+  contatti: true,
+  riferimenti: true,
+  soggettoFiscale: { include: { gruppo: { select: { id: true, nome: true } } } },
+} as const;
 
 // Registra i riferimenti esterni (sistema→id) per la risoluzione futura.
 async function registraRiferimenti(

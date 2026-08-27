@@ -81,6 +81,85 @@ della risposta.
   si riempiono sempre. IBAN e codice SDI vengono normalizzati (maiuscolo, IBAN
   senza spazi). `noteAmministrative` è additiva (append, mai sovrascritta).
 
+### Entità commerciali — «quanto vale questo cliente in TUTTE le sue società»
+
+La catena è **negozio → società → entità**:
+
+| livello | cos'è | dove vive |
+|---|---|---|
+| **negozio** | dove si consegna, chi si visita | `Partner` del registro (l'id che tutti chiamano `anagraficaId`) |
+| **società** | chi emette la fattura e a chi esce il bonifico | `SoggettoFiscale` — `pIva` è l'identità |
+| **entità** | il cliente come lo intende chi vende | `GruppoAziendale` (dal 27/08/2026) |
+
+⚠️ **Il gruppo lo assegna una persona nel registro.** Non si deduce dal nome
+(dedurlo unirebbe le cinque «PASTICCERIA …», che sono aziende diverse) e
+**nessuna app lo scrive**: le rotte qui sotto sono in **sola lettura**. Aprirlo
+in scrittura vorrebbe dire ritrovarsi tre entità per lo stesso cliente, scritte
+da tre app diverse.
+
+⚠️ **Non è il gruppo di pagamento.** «Chi paga per tutti» sta su
+`datiFinanziari.gruppoPagamento` ed è un'altra domanda: chi paga può essere
+un'amministrazione unica che non coincide con chi compra.
+
+**Le rotte** (chiave di sola lettura):
+
+- `GET /api/v1/gruppi` → `{ totale, gruppi: [{ id, nome, note, societa: [{ id, ragioneSociale, pIva, sedi }] }] }`
+- `GET /api/v1/gruppi/:id` → l'entità con **le società e, per ognuna, i negozi**, più
+  `anagraficheIds`: l'elenco piatto degli id del registro, cioè **le chiavi con cui
+  riconoscete le vostre schede**.
+- Ogni anagrafica porta con sé `gruppo: { id, nome } | null` accanto a
+  `soggettoFiscale`, quindi da un negozio si risale all'entità senza una seconda chiamata.
+
+⚠️⚠️ **Qui non ci sono importi, e non ce ne saranno.** Il registro tiene gli
+**agganci**; il fatturato lo possiede **FINANCE**, che è il custode dei risultati
+(decisione del 26/08/2026). Un fatturato ricopiato nel registro invecchierebbe
+senza che nessuno se ne accorga: il numero continua a tornare, ed è vecchio.
+
+#### Che cosa deve fare FINANCE (`deluxy-partner`)
+
+1. **Aggiungere `pIva` e `codiceFiscale` al modello `Partner`.** ⚠️ Oggi
+   `POST /api/v1/partners` **dichiara `pIva` fra i campi in ingresso e non la
+   scrive mai**, perché quella colonna non esiste: il registro gliela manda già e
+   FINANCE la butta in silenzio. Finché è così, FINANCE non sa **con quale società**
+   fattura ognuna delle sue schede.
+2. **Riempire `AnagraficaCollegata`** (già esiste: 1 partner ↔ N anagrafiche del
+   registro). Oggi ha **2 righe in tutto e nessuna con più di una sede**: è la
+   relazione giusta, inutilizzata.
+3. **Esporre `GET /api/v1/fatturato?gruppo=<id>`**: chiama
+   `GET /api/v1/gruppi/:id` qui, prende `anagraficheIds`, riconosce le proprie
+   schede via `Partner.anagraficaId` **e** `AnagraficaCollegata.anagraficaId`, e
+   somma `FatturaServizio.imponibile` + `VenditaVendor.incassoLordo`.
+   ⚠️ **La risposta deve dichiarare la propria base**: quante schede ha sommato,
+   quali fonti ha incluso, e soprattutto **quali schede sospetta di aver perso** —
+   quelle col proprio `gruppo` uguale ma senza `anagraficaId`.
+   Il caso misurato il 27/08 dice perché: **CHANEL** sono tre schede per
+   **138.595 €**, e **CHANEL ROMA (52.600 €) non è agganciata al registro**.
+   Sommando solo le agganciate escono **85.994 €**: il numero torna, ed è
+   sbagliato del **38%**. Un totale che non dice cosa NON ha contato mente.
+   ⚠️ E dichiarate cosa resta fuori a monte: il **riversamento da Orders** deciso il
+   26/08 non è ancora costruito, quindi «fatturato» oggi vuol dire «ciò che FINANCE
+   vede» — un numero senza la sua base, salvato da qualche parte, prima o poi mente.
+
+#### Che cosa deve fare Scout (`deluxy-scout`)
+
+**Chiedere, non calcolare.** Il tubo è già posato: `lib/finance.ts` interroga
+FINANCE attraverso la Edge Function `finance`, sulla chiave
+`anagraficaId` ↔ `places.anagrafiche_id`. Oggi riceve solo `nonFattura` e
+`ultimoMovimento`: **nessun importo**. Serve (a) far tornare a quell'endpoint il
+totale dell'entità, e (b) sulla scheda del negozio, risalire da
+`places.anagrafiche_id` → `gruppo` (che il registro dà già dentro l'anagrafica)
+e mostrare il totale dell'entità accanto a quello del singolo negozio.
+⚠️ Il totale **non si salva** in Supabase: si legge. Un fatturato copiato in
+un'app di prospezione è un numero che nessuno aggiornerà.
+
+#### Che cosa devono sapere le altre app
+
+- **Customer Service, Ricerca fornitori, piattaforma consegne, Merchandising**: niente
+  cambia nelle vostre scritture. In lettura, se vi serve sapere «di chi è questo
+  negozio», ora l'anagrafica ve lo dice con `soggettoFiscale` e `gruppo`.
+- **Orders**: il giro dell'ordine non cambia. Quando il riversamento verso FINANCE
+  sarà costruito, sarà FINANCE a sommare — non il registro.
+
 ### Valutazione D2C (feedback interni sulle consegne)
 
 Ogni partner può avere una **valutazione D2C**: quanto bene lavora le consegne

@@ -8,7 +8,7 @@ import { isCategoria } from "./categorie";
 import { prisma } from "./db";
 import { MOTIVI_FEEDBACK, normalizzaVoto, ricalcolaValutazioneD2C } from "./feedback-d2c";
 import { segnalaClienteAFinance } from "./finance";
-import { CAMPI_SOGGETTO, salvaDatiSoggetto } from "./soggetto-fiscale";
+import { CAMPI_SOGGETTO, assegnaGruppoASoggetto, salvaDatiSoggetto } from "./soggetto-fiscale";
 import { diffCampi, registraModifica, registraModifiche } from "./log-modifiche";
 import {
   PREFISSO_ANALISI,
@@ -1262,4 +1262,37 @@ export async function riapriRiconciliazione(id: string) {
     data: { stato: "aperta", decisoDa: null, decisoIl: null },
   });
   revalidatePath("/riconciliazioni");
+}
+
+// Mette la società che fattura questa sede dentro un'ENTITÀ commerciale, o la
+// toglie (campo vuoto). Il gruppo si scrive per NOME e nasce se non c'è.
+//
+// ⚠️ Il gruppo sta sopra la SOCIETÀ, non sopra il negozio: mettendo «CHANEL»
+// dalla scheda di CHANEL MILANO ci finisce la società che la fattura, e con
+// lei tutti i negozi che quella società fattura. È voluto — l'entità raggruppa
+// chi emette fattura, e un negozio ci appartiene attraverso la sua società.
+//
+// ⚠️⚠️ Non è il gruppo di PAGAMENTO: quello risponde a «chi paga» e vive fra i
+// dati finanziari. Chi paga può essere un'amministrazione unica che non
+// coincide con chi compra.
+export async function assegnaGruppo(partnerId: string, fd: FormData) {
+  const nome = String(fd.get("gruppo") ?? "").trim();
+  const p = await prisma.partner.findUnique({
+    where: { id: partnerId },
+    include: { soggettoFiscale: { include: { gruppo: { select: { nome: true } } } } },
+  });
+  // Senza società non c'è niente da raggruppare: l'entità raggruppa chi
+  // fattura, e questa sede non fattura con nessuno.
+  if (!p?.soggettoFiscaleId) return;
+
+  const prima = p.soggettoFiscale?.gruppo?.nome ?? "";
+  const esito = await assegnaGruppoASoggetto(p.soggettoFiscaleId, nome || null);
+  const dopo = esito.ok ? (esito.gruppo?.nome ?? "") : prima;
+  if (prima !== dopo) {
+    // Lo storico è della sede che si stava guardando: è da lì che il gesto è
+    // partito, ed è lì che chi indaga andrà a cercarlo.
+    await registraModifica(partnerId, { origine: "ui" }, { campo: "gruppo", da: prima, a: dopo });
+  }
+  revalidatePath(`/partner/${partnerId}`);
+  revalidatePath("/gruppi");
 }

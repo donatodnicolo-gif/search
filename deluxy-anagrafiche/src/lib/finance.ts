@@ -48,7 +48,10 @@ export async function creaPartnerInFinance(partnerId: string): Promise<Esito> {
 
   const p = await prisma.partner.findUnique({
     where: { id: partnerId },
-    include: { capogruppo: { select: { nome: true } }, soggettoFiscale: true },
+    include: {
+      capogruppo: { select: { nome: true } },
+      soggettoFiscale: { include: { gruppo: { select: { id: true, nome: true } } } },
+    },
   });
   if (!p) return { ok: false, motivo: "errore", dettaglio: "anagrafica non trovata" };
 

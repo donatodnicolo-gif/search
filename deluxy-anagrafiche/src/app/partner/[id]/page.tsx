@@ -13,6 +13,7 @@ import { SelettoreStatoAzienda } from "@/components/SelettoreStatoAzienda";
 import { Sidebar } from "@/components/Sidebar";
 import { FasciaD2C, StelleD2C } from "@/components/StelleD2C";
 import {
+  assegnaGruppo,
   eliminaFeedbackD2C,
   impostaArchiviato,
   raggruppaSotto,
@@ -69,8 +70,9 @@ export default async function Dettaglio({
       // oltre non si legge, e la scheda non deve caricarsi un archivio.
       modifiche: { orderBy: { creatoIl: "desc" }, take: 120 },
       capogruppo: { select: { id: true, nome: true, citta: true } },
-      // Chi fattura questa sede: la società, non il negozio.
-      soggettoFiscale: true,
+      // Chi fattura questa sede: la società, non il negozio — e l'entità di cui
+      // quella società fa parte.
+      soggettoFiscale: { include: { gruppo: { select: { id: true, nome: true } } } },
       sedi: {
         where: { attivo: true },
         select: {
@@ -114,6 +116,11 @@ export default async function Dettaglio({
   const sediDelSoggetto = fin.id
     ? await prisma.partner.count({ where: { attivo: true, soggettoFiscaleId: fin.id } })
     : 0;
+  // I gruppi già in uso, per suggerirli invece di farli riscrivere: «Chanel» e
+  // «CHANEL» scritti a mano due volte sarebbero due entità che non si sommano.
+  const gruppiEsistenti = fin.id
+    ? await prisma.gruppoAziendale.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } })
+    : [];
   const [altriLuoghi, perVoto, linee, stessaInsegna] = await Promise.all([
     // Gli altri luoghi della stessa insegna: servono per spostare un referente
     // sulla sede dove lavora davvero. Da una sede si vedono la madre e le
@@ -563,6 +570,40 @@ export default async function Dettaglio({
             P. IVA è già di una società del registro, la sede ci si collega
             invece di crearne una gemella.
           </p>
+        )}
+        {/* L'ENTITÀ: «CHANEL» sono tre società che fatturano separatamente ma
+            commercialmente sono un cliente solo. Sta qui perché è una domanda
+            sulla fatturazione — «a chi appartiene chi mi emette fattura» — e
+            perché il gesto ha senso solo se una società c'è.
+            ⚠️ Si assegna a mano: dedurre il gruppo dal nome unirebbe le cinque
+            «PASTICCERIA …» del registro, che sono aziende diverse fra loro. */}
+        {fin.id && (
+          <form action={assegnaGruppo.bind(null, p.id)} className="sposta-referente" style={{ margin: "0 0 12px" }}>
+            <label htmlFor="gruppo-entita" className="testo-guida" style={{ margin: 0 }}>
+              Entità commerciale
+            </label>
+            <input
+              id="gruppo-entita"
+              name="gruppo"
+              defaultValue={fin.gruppo?.nome ?? ""}
+              placeholder="es. CHANEL — vuoto per toglierla"
+              list="gruppi-esistenti"
+              style={{ minWidth: 220 }}
+            />
+            <datalist id="gruppi-esistenti">
+              {gruppiEsistenti.map((g) => (
+                <option key={g.id} value={g.nome} />
+              ))}
+            </datalist>
+            <button type="submit" className="btn-archivia" title="Metti la società che fattura questa sede in questa entità">
+              →
+            </button>
+            {fin.gruppo && (
+              <a href="/gruppi" className="testo-guida" style={{ margin: 0 }}>
+                vedi l&apos;entità
+              </a>
+            )}
+          </form>
         )}
         {/* Il gruppo di pagamento è una risposta a «chi paga»: quando c'è, va
             letta prima dell'IBAN, non cercata in mezzo agli altri campi. */}

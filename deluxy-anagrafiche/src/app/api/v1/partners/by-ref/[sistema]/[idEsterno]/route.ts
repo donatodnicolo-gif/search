@@ -3,7 +3,13 @@ import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { serializzaPartner } from "@/lib/partner-api";
 
-const INCLUDE = { contatti: true, riferimenti: true, soggettoFiscale: true } as const;
+// ⚠️ La società E l'entità a cui appartiene: chi legge un'anagrafica per
+// fatturare vuole sapere anche di quale gruppo fa parte.
+const INCLUDE = {
+  contatti: true,
+  riferimenti: true,
+  soggettoFiscale: { include: { gruppo: { select: { id: true, nome: true } } } },
+} as const;
 
 // GET /api/v1/partners/by-ref/:sistema/:idEsterno
 // Risolve un partner dall'id che un'altra app usa internamente. È così che le

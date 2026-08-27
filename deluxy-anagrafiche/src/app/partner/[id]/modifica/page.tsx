@@ -51,7 +51,11 @@ export default async function Modifica({
   const sp = await searchParams;
   const p = await prisma.partner.findUnique({
     where: { id },
-    include: { contatti: true, capogruppo: { select: { nome: true } }, soggettoFiscale: true },
+    include: {
+      contatti: true,
+      capogruppo: { select: { nome: true } },
+      soggettoFiscale: { include: { gruppo: { select: { id: true, nome: true } } } },
+    },
   });
   if (!p) notFound();
 

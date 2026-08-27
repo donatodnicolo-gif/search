@@ -39,6 +39,8 @@ export async function Sidebar({
   contattiAttiva = false,
   riconciliazioneAttiva = false,
   riconciliazioniAttive = false,
+  gruppiAttivi = false,
+  gruppi = 0,
   identitaAttiva = false,
   chiaviAttive = false,
   affiliatiAttivi = false,
@@ -59,6 +61,8 @@ export async function Sidebar({
   contattiAttiva?: boolean;
   riconciliazioneAttiva?: boolean;
   riconciliazioniAttive?: boolean;
+  gruppiAttivi?: boolean;
+  gruppi?: number;
   identitaAttiva?: boolean;
   chiaviAttive?: boolean;
   affiliatiAttivi?: boolean;
@@ -183,6 +187,15 @@ export async function Sidebar({
             <span className="sb-icona"><IconaCategoria categoria="CONSUMERS" /></span>
             <span className="sb-nome">Consumers</span>
             <span className="sb-count">{consumers}</span>
+          </a>
+          {/* Le ENTITÀ commerciali: il cliente sopra le sue società di
+              fatturazione. Sta qui perché è una popolazione come le altre —
+              non un'impostazione — e perché è la risposta a «quanto vale questo
+              cliente in tutte le sue società». */}
+          <a className={`sb-item${gruppiAttivi ? " attiva" : ""}`} href="/gruppi">
+            <span className="sb-icona"><IconaCategoria categoria="AFFILIATI" /></span>
+            <span className="sb-nome">Entità commerciali</span>
+            {gruppi > 0 && <span className="sb-count">{gruppi}</span>}
           </a>
           {/* La pagella di chi serve le consegne D2C: i giudizi arrivano dai
               reclami di Customer Service, e qui si legge chi lavora male. */}

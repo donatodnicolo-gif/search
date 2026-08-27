@@ -9,7 +9,13 @@ import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, PREFISSO_FORNITORE } from "@/lib/stati";
 import { ARCHIVIATA, registraPassaggio } from "@/lib/storico";
 
-const INCLUDE = { contatti: true, riferimenti: true, soggettoFiscale: true } as const;
+// ⚠️ La società E l'entità a cui appartiene: chi legge un'anagrafica per
+// fatturare vuole sapere anche di quale gruppo fa parte.
+const INCLUDE = {
+  contatti: true,
+  riferimenti: true,
+  soggettoFiscale: { include: { gruppo: { select: { id: true, nome: true } } } },
+} as const;
 
 type Params = { params: Promise<{ id: string }> };
 

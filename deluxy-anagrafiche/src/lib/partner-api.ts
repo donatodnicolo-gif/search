@@ -227,6 +227,11 @@ export function serializzaPartner(p: PartnerConContatti) {
     // Id e ragione sociale di chi fattura: servono a chi deve emettere o
     // pagare un documento, e a capire quali sedi condividono la stessa società.
     soggettoFiscale: sog.id ? { id: sog.id, ragioneSociale: sog.ragioneSociale } : null,
+    // L'ENTITÀ commerciale sopra la società: «CHANEL» sono tre società che
+    // fatturano separatamente ma sono un cliente solo. ⚠️ Vuoto vuol dire «non
+    // è in nessun gruppo»: il gruppo lo assegna una persona nel registro, non
+    // si deduce dal nome (le cinque «PASTICCERIA …» non sono un'entità).
+    gruppo: sog.gruppo,
     datiFinanziari: {
       pec: sog.pec,
       codiceSdi: sog.codiceSdi,
