@@ -48,6 +48,19 @@ model User {
   inviteToken          String?   @unique
   inviteTokenExpiresAt DateTime?
   activatedAt          DateTime?
+  /// RESET PASSWORD (27/08/2026). Token monouso a scadenza breve.
+  ///
+  /// ⚠️ In colonna sta l'IMPRONTA sha256 del token, non il token: chi legge il
+  /// database non deve poter entrare nell'account di nessuno. Il valore vero
+  /// esiste solo dentro il link che arriva per mail.
+  ///
+  /// ⚠️ È un campo SEPARATO dall'invito, non lo stesso riusato: un invito e un
+  /// reset hanno regole diverse (l'invito attiva l'account, il reset no) e
+  /// riusare la stessa colonna vorrebbe dire che chiedere un reset annulla un
+  /// invito in sospeso.
+  resetTokenHash       String?   @unique
+  resetTokenExpiresAt  DateTime?
+  resetRequestedAt     DateTime?
   partnerId    String?
   partner      Partner? @relation(fields: [partnerId], references: [id])
   valetId      String?  @unique

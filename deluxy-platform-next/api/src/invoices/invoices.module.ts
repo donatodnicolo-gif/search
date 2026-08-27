@@ -1122,8 +1122,27 @@ export class InvoicesService {
   }
 }
 
+// ============================================================
+// ⚠️ CHI ENTRA IN FATTURAZIONE (27/08/2026)
+// ------------------------------------------------------------
+// Il guard dei ruoli, senza `@Roles`, LASCIA PASSARE chiunque sia
+// autenticato (`roles.guard.ts`: «if (!requiredRoles) return true»). Le rotte
+// di lettura di questo controller non ne avevano nessuno, e i metodi del
+// service filtrano per partner solo quando il ruolo è PARTNER: un VALET
+// passava e leggeva TUTTO.
+//
+// Misurato con un token vero prima della correzione: `GET /invoices/pending`
+// rispondeva 200 con 67 righe su 58 partner e i totali dell'azienda —
+// 37.131,57 € di venduto e 33.426,45 € dovuti ai partner. Non serviva
+// nessuna abilità: bastava la propria utenza.
+//
+// Il ruolo si dichiara QUI sulla classe, così vale per ogni rotta anche
+// futura: una rotta nuova senza decoratore torna a essere aperta a tutti, e
+// nessuno se ne accorge finché non è tardi.
+// ============================================================
 @ApiTags('invoices')
 @ApiBearerAuth()
+@Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
 @Controller('invoices')
 export class InvoicesController {
   constructor(private readonly invoicesService: InvoicesService) {}

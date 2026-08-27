@@ -25,6 +25,11 @@ export class ArchiveProductDto {
 
 @ApiTags('products')
 @ApiBearerAuth()
+// ⚠️ Il guard dei ruoli, SENZA `@Roles`, lascia passare chiunque sia
+// autenticato (roles.guard.ts). Questo controller non ne aveva nessuno: un
+// VALET leggeva tutto. Provato con un token vero il 27/08/2026. I ruoli qui
+// sono gli stessi che il frontend applica alla pagina (app.routes.ts).
+@Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}

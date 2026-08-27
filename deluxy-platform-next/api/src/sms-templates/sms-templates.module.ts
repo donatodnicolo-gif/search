@@ -8,7 +8,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CurrentUser, JwtUser } from '../common/decorators';
+import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Brand, Role, SmsTrigger } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -56,6 +56,11 @@ export class SmsTemplatesService {
 
 @ApiTags('sms-templates')
 @ApiBearerAuth()
+// ⚠️ Il guard dei ruoli, SENZA `@Roles`, lascia passare chiunque sia
+// autenticato (roles.guard.ts). Questo controller non ne aveva nessuno: un
+// VALET leggeva tutto. Provato con un token vero il 27/08/2026. I ruoli qui
+// sono gli stessi che il frontend applica alla pagina (app.routes.ts).
+@Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
 @Controller('sms-templates')
 export class SmsTemplatesController {
   constructor(private readonly smsTemplatesService: SmsTemplatesService) {}
