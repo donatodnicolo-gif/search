@@ -8,6 +8,23 @@
 import { PrismaClient } from '@prisma/client'
 
 const stmts = [
+  // Assenza (out of office): risposta automatica e inoltro a un indirizzo.
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "assenzaAttiva" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "assenzaDal" TIMESTAMP(3)`,
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "assenzaAl" TIMESTAMP(3)`,
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "assenzaMessaggio" TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "assenzaInoltra" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "assenzaInoltraA" TEXT NOT NULL DEFAULT ''`,
+  `CREATE TABLE IF NOT EXISTS "AssenzaInvio" (
+     "id" TEXT PRIMARY KEY,
+     "utenteId" TEXT NOT NULL,
+     "quando" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     "tipo" TEXT NOT NULL,
+     "email" TEXT NOT NULL,
+     "oggetto" TEXT NOT NULL DEFAULT '',
+     "messaggioId" TEXT)`,
+  `CREATE INDEX IF NOT EXISTS "AssenzaInvio_utenteId_quando_idx" ON "AssenzaInvio"("utenteId","quando")`,
+  `CREATE INDEX IF NOT EXISTS "AssenzaInvio_utenteId_tipo_email_idx" ON "AssenzaInvio"("utenteId","tipo","email")`,
   // La versione delle sessioni: sale quando si revoca (cambio password,
   // disattivazione) e vive dentro il cookie firmato.
   `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "sessioneVersione" INTEGER NOT NULL DEFAULT 0`,

@@ -1,5 +1,6 @@
-import type { Messaggio, Prisma, Regola, Sezione } from '@prisma/client'
+import type { Account, Messaggio, Prisma, Regola, Sezione } from '@prisma/client'
 import { db } from './db'
+import { applicaAssenza, TETTO_PER_GIRO, type ImpostazioniAssenza } from './assenza'
 import { scaricaNuovi, scaricaVecchi, cercaSulServer, trovaCartellaInviata, dimensioniDalServer, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
 import { allineaCartellaOra } from './cartelleServer'
@@ -1010,9 +1011,24 @@ export async function sincronizzaAccount(
   let account = await db.account.findUniqueOrThrow({ where: { id: accountId } })
   const esito: EsitoSync = { tipo: 'scarico', account: account.email, scaricati: 0, nonSalvati: 0, scartati: 0 }
 
-  const [regole, prefUtente] = await Promise.all([
+  const [regole, prefUtente, tutteLeCaselle] = await Promise.all([
     db.regola.findMany({ where: { utenteId: account.utenteId } }),
-    db.utente.findUnique({ where: { id: account.utenteId }, select: { traduzioneAuto: true } }),
+    db.utente.findUnique({
+      where: { id: account.utenteId },
+      select: {
+        traduzioneAuto: true,
+        assenzaAttiva: true,
+        assenzaDal: true,
+        assenzaAl: true,
+        assenzaMessaggio: true,
+        assenzaInoltra: true,
+        assenzaInoltraA: true,
+      },
+    }),
+    // ⚠️ TUTTE le caselle, anche quelle spente: servono a riconoscere «questo
+    // indirizzo sono io». Una casella disattivata resta tua, e inoltrarle la
+    // posta (o risponderle) sarebbe comunque un giro chiuso.
+    db.account.findMany({ where: { utenteId: account.utenteId }, select: { email: true } }),
   ])
 
   // Quali di questi uid sono già salvati: scaricaNuovi li scavalca senza
@@ -1045,6 +1061,12 @@ export async function sincronizzaAccount(
       regole,
       traduzioneAuto: prefUtente?.traduzioneAuto ?? false,
       dominioProprio: (account.email.split('@')[1] || '').toLowerCase(),
+      // ⚠️ L'assenza si passa SOLO qui, nel giro della posta NUOVA. Lo
+      // scarico dello storico chiama la stessa funzione, e senza questa
+      // distinzione avrebbe risposto (e inoltrato) a mail di mesi fa.
+      assenza: prefUtente ?? null,
+      nostreCaselle: tutteLeCaselle.map((c) => c.email.toLowerCase()),
+      casella: account,
       esito,
       avanzaUltimoUid: true,
     })
@@ -1124,6 +1146,13 @@ async function salvaMessaggi(opts: {
   messaggi: MessaggioScaricato[]
   regole: Regola[]
   traduzioneAuto: boolean
+  /** Le impostazioni di assenza. Assente = non se ne fa niente (è il caso
+   *  dello scarico dello STORICO, che non deve svegliare nessun automatismo). */
+  assenza?: ImpostazioniAssenza | null
+  /** Gli indirizzi di tutte le tue caselle, minuscoli (anti-giro). */
+  nostreCaselle?: string[]
+  /** La casella in sincronia: da lì partono risposta automatica e inoltro. */
+  casella?: Account
   dominioProprio: string
   esito: EsitoSync
   /** true SOLO per lo scarico dei nuovi: fa avanzare account.ultimoUid man
@@ -1131,6 +1160,9 @@ async function salvaMessaggi(opts: {
   avanzaUltimoUid?: boolean
 }): Promise<{ primoFallito: number | null; solaLettura: boolean }> {
   const { utenteId, accountId, messaggi, regole, traduzioneAuto, dominioProprio, esito } = opts
+  const { assenza, nostreCaselle = [], casella } = opts
+  // Il freno a mano dell'assenza, per giro di scarico.
+  let budgetAssenza = TETTO_PER_GIRO
   let primoFallito: number | null = null
   // Il database non accetta scritture: inutile insistere sugli altri messaggi.
   let solaLettura = false
@@ -1158,8 +1190,8 @@ async function salvaMessaggi(opts: {
   // (una connessione IMAP invece di una per mail).
   const spostareInSpam: string[] = []
 
-  const filtraSpam = async (msg: MessaggioScaricato, messaggioId: string) => {
-    if (!spamSezioneId) return
+  const filtraSpam = async (msg: MessaggioScaricato, messaggioId: string): Promise<boolean> => {
+    if (!spamSezioneId) return false
     const mittBasso = msg.mittente.toLowerCase()
     const dominioMitt = mittBasso.split('@')[1] || ''
 
@@ -1233,6 +1265,7 @@ async function salvaMessaggi(opts: {
         data: { sezioneId: spamSezioneId, smistatoDa: 'spam' },
       })
       spostareInSpam.push(messaggioId)
+      return true
     } else if (casoDaChiedere) {
       // La proposta viaggia su DUE binari: sulla mail (il riquadro con «Sì,
       // è spam» / «No»), e come ATTIVITÀ, così la si ritrova anche senza
@@ -1258,6 +1291,7 @@ async function salvaMessaggi(opts: {
         /* colonne non ancora migrate o attività non creata: la mail resta in posta */
       }
     }
+    return false
   }
 
   // Cursore incrementale: su Vercel la funzione può essere uccisa a metà giro
@@ -1358,12 +1392,41 @@ async function salvaMessaggi(opts: {
 
         // Filtro anti-spam all'arrivo: solo posta in entrata non già smistata da
         // una regola o archiviata. Un errore qui non deve fermare lo scarico.
+        let eraSpam = false
         if (creato.direzione === 'entrata' && !daRegole.sezioneId && !daRegole.archivia) {
           try {
-            await filtraSpam(msg, creato.id)
+            eraSpam = await filtraSpam(msg, creato.id)
           } catch {
             /* niente: la mail resta in posta */
           }
+        }
+
+        // ASSENZA (out of office): risposta automatica e/o inoltro.
+        //
+        // ⚠️ Dopo il filtro anti-spam, e mai su una mail finita in spam: una
+        // risposta automatica a uno spammer gli conferma che l'indirizzo è
+        // vivo, ed è esattamente quello che sta cercando.
+        // ⚠️ Il tetto per giro non è una preferenza ma un freno a mano: se
+        // qualcosa va storto, meglio dieci mail sbagliate che trecento.
+        if (assenza && casella && creato.direzione === 'entrata' && budgetAssenza > 0) {
+          budgetAssenza -= await applicaAssenza({
+            utenteId,
+            utente: assenza,
+            account: casella,
+            nostreCaselle,
+            spam: eraSpam,
+            mail: {
+              id: creato.id,
+              messageId: msg.messageId,
+              mittente: msg.mittente,
+              mittenteNome: msg.mittenteNome,
+              oggetto: msg.oggetto,
+              data: msg.data,
+              corpoTesto: msg.corpoTesto,
+              corpoHtml: msg.corpoHtml ?? null,
+              allegati: msg.allegati,
+            },
+          })
         }
 
         // Attività su misura definite dalle regole che hanno agganciato la mail.

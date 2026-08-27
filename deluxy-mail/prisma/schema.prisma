@@ -32,6 +32,31 @@ datasource db {
 /// chiave fosse finita nelle mani sbagliate non ci sarebbe stato modo di
 /// sapere se, quando e su chi era stata usata — nemmeno dopo.
 /// (Revisione di sicurezza 27/08/2026.)
+/// Cosa e partito davvero mentre eri via: una riga per ogni risposta
+/// automatica e per ogni inoltro.
+///
+/// ⚠️ Serve a DUE cose, ed e per questo che e una tabella e non un contatore:
+///  1. si vede in Impostazioni — un automatismo che manda mail a tua insaputa
+///     e senza lasciare traccia e la cosa che spaventa di piu al ritorno;
+///  2. impedisce di rispondere DUE VOLTE allo stesso mittente. Una risposta
+///     automatica che riparte a ogni mail e il modo classico di finire in un
+///     ping-pong infinito con l automatismo dell altro.
+model AssenzaInvio {
+  id          String   @id @default(cuid())
+  utenteId    String
+  utente      Utente   @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  quando      DateTime @default(now())
+  /// risposta | inoltro
+  tipo        String
+  /// Per la risposta: a chi si e risposto. Per l inoltro: a chi si e inoltrato.
+  email       String
+  oggetto     String   @default("")
+  messaggioId String?
+
+  @@index([utenteId, quando])
+  @@index([utenteId, tipo, email])
+}
+
 model ChiamataApi {
   id            String   @id @default(cuid())
   quando        DateTime @default(now())
@@ -51,35 +76,50 @@ model ChiamataApi {
 }
 
 model Utente {
-  id                 String   @id @default(cuid())
-  email              String   @unique
+  id                 String  @id @default(cuid())
+  email              String  @unique
   nome               String
   passwordHash       String // scrypt "salt.hash" — mai reversibile
-  ruolo              String   @default("utente") // admin | utente
-  firma              String   @default("") @db.Text // firma personale nelle bozze (HTML generato)
-  firmaDati          String   @default("") @db.Text // i campi della firma (JSON) per riaprire il form
+  ruolo              String  @default("utente") // admin | utente
+  firma              String  @default("") @db.Text // firma personale nelle bozze (HTML generato)
+  firmaDati          String  @default("") @db.Text // i campi della firma (JSON) per riaprire il form
   // Traduzione automatica: se attiva, le mail in lingua straniera aperte
   // vengono tradotte in italiano, e le risposte scritte in italiano vengono
   // inviate nella lingua dell'originale.
-  traduzioneAuto     Boolean  @default(false)
+  traduzioneAuto     Boolean @default(false)
   // Lingue che l'utente legge senza bisogno di traduzione (una per virgola).
-  lingueLette        String   @default("italiano")
+  lingueLette        String  @default("italiano")
   // Ogni quanti secondi l'app aperta ricontrolla la posta da sola.
-  sincronizzaOgniSec Int      @default(300)
+  sincronizzaOgniSec Int     @default(300)
   // Se attiva, l'app aperta scarica in BACKGROUND tutta la posta di sempre (lo
   // storico) fino a completare la casella, senza bloccare l'uso.
-  scaricaStoricoAuto Boolean  @default(false)
-  attivo             Boolean  @default(true)
+  scaricaStoricoAuto Boolean @default(false)
+  attivo             Boolean @default(true)
   // Quante volte le sessioni di questo utente sono state revocate. Il numero
   // finisce DENTRO il cookie firmato al login: se qui sale (cambio password,
   // disattivazione), tutti i biglietti emessi prima portano un numero diverso
   // e non valgono più. È l'unico modo di cacciare un cookie rubato senza
   // spegnere l'utente. (Revisione di sicurezza 27/08/2026.)
-  sessioneVersione   Int      @default(0)
+  sessioneVersione   Int     @default(0)
+
+  // ---------- ASSENZA (out of office) ----------
+  // ⚠️ `assenzaDal` non e un vezzo: e la barriera contro l arretrato. Quando
+  // si accende l assenza senza indicare una data, si scrive ADESSO — cosi la
+  // risposta automatica e l inoltro valgono solo per la posta che arriva DA
+  // ORA IN POI. Senza, il primo giro di sincronia avrebbe risposto (o
+  // inoltrato) a tutto quello che era gia in casella.
+  assenzaAttiva    Boolean   @default(false)
+  assenzaDal       DateTime?
+  assenzaAl        DateTime?
+  /// Il testo della risposta automatica. Vuoto = non si risponde a nessuno.
+  assenzaMessaggio String    @default("") @db.Text
+  /// Se vero, ogni mail in arrivo viene anche inoltrata a `assenzaInoltraA`.
+  assenzaInoltra   Boolean   @default(false)
+  assenzaInoltraA  String    @default("")
   // Token segreto del feed iCal del calendario: chi lo conosce può LEGGERE
   // gli appuntamenti (Google/Apple/Outlook in abbonamento). Vuoto = feed spento.
-  tokenCalendario    String   @default("")
-  creatoIl           DateTime @default(now())
+  tokenCalendario  String    @default("")
+  creatoIl         DateTime  @default(now())
 
   account            Account[]
   sezioni            Sezione[]
@@ -108,6 +148,7 @@ model Utente {
   pushIscrizioni     PushIscrizione[]
   sequenze           Sequenza[]
   sequenzaIscrizioni SequenzaIscrizione[]
+  assenzaInvii       AssenzaInvio[]
 }
 
 // Una SEQUENZA: un modello di follow-up in più passi. All'invio di una mail

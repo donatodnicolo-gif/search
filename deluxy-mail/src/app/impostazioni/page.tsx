@@ -10,6 +10,7 @@ import { leggiFirmaDati } from '@/lib/firma'
 import { dataLunga } from '@/lib/format'
 import { richiediUtente } from '@/lib/sessione'
 import { StatoDatabase } from '@/components/StatoDatabase'
+import { Assenza } from '@/components/Assenza'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +29,31 @@ export default async function Impostazioni() {
     }),
     leggiImpostazioni(),
   ])
+
+  // ASSENZA: le impostazioni e il registro di cosa e' partito davvero.
+  // ⚠️ Difensivo: la tabella nasce con una migrazione che al build e'
+  // volutamente NON bloccante, quindi puo' non esserci ancora — e questa
+  // pagina non deve cadere per un registro.
+  const giorno = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : '')
+  let invii: { id: string; tipo: string; email: string; oggetto: string; quando: Date }[] = []
+  let quanti = { risposte: 0, inoltri: 0 }
+  try {
+    const daQuando = u.assenzaDal ?? new Date(0)
+    const [ultimi, risposte, inoltri] = await Promise.all([
+      db.assenzaInvio.findMany({
+        where: { utenteId: u.id, quando: { gte: daQuando } },
+        orderBy: { quando: 'desc' },
+        take: 20,
+        select: { id: true, tipo: true, email: true, oggetto: true, quando: true },
+      }),
+      db.assenzaInvio.count({ where: { utenteId: u.id, tipo: 'risposta', quando: { gte: daQuando } } }),
+      db.assenzaInvio.count({ where: { utenteId: u.id, tipo: 'inoltro', quando: { gte: daQuando } } }),
+    ])
+    invii = ultimi
+    quanti = { risposte, inoltri }
+  } catch {
+    invii = []
+  }
   const isAdmin = u.ruolo === 'admin'
 
   // Dati della firma per il form dedicato: se l'email è ancora vuota (primo
@@ -241,6 +267,37 @@ export default async function Impostazioni() {
           </div>
         </form>
       </div>
+
+      <h2 className="section-title">Assenza (out of office)</h2>
+      <p className="page-caption" style={{ marginBottom: 14 }}>
+        Mentre sei via, AI Mail può <strong>rispondere da sola</strong> a chi ti scrive e
+        <strong> inoltrare</strong> la posta a un altro indirizzo. Vale per la posta che arriva
+        <strong> da quando accendi l’assenza</strong>, mai per l’arretrato, e mai per quella che
+        finisce in SPAM. Sotto trovi l’elenco di quello che è partito davvero.
+      </p>
+      <Assenza
+        iniziale={{
+          attiva: u.assenzaAttiva,
+          dal: giorno(u.assenzaDal),
+          al: giorno(u.assenzaAl),
+          messaggio: u.assenzaMessaggio,
+          inoltra: u.assenzaInoltra,
+          inoltraA: u.assenzaInoltraA,
+        }}
+        invii={invii.map((i) => ({
+          id: i.id,
+          tipo: i.tipo,
+          email: i.email,
+          oggetto: i.oggetto,
+          quando: i.quando.toLocaleString('it-IT', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        }))}
+        quanti={quanti}
+      />
 
       <h2 className="section-title">La tua firma</h2>
       <div className="card">

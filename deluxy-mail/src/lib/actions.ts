@@ -27,6 +27,7 @@ import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
 import { accountPerRisposta, caselleIndirizzate, preparaRisposta, modoValido, type Modo } from './rispondi'
 import { elencoContatti } from './contatti'
 import { htmlAPlain, sembraHtml, plainAHtml, immaginiInLineaComeAllegati } from './htmlMail'
+import { spedisci, type DaInviare, type AllegatoInvio } from './invio'
 
 const MAX_ALLEGATI_BYTE = 20 * 1024 * 1024
 
@@ -2258,58 +2259,6 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
 
 // ---------- Scrivere e inviare ----------
 
-type AllegatoInvio = { filename: string; content: Buffer; contentType?: string }
-
-type DaInviare = {
-  a: string
-  cc?: string
-  oggetto: string
-  corpo: string // testo semplice (per il multipart text/plain e la traduzione)
-  corpoHtml?: string // corpo formattato; se assente si invia solo testo
-  allegati?: AllegatoInvio[]
-  inRispostaA?: string | null
-  /** Invito iCal (METHOD:REQUEST): fa comparire i Sì/No nativi nei client. */
-  ics?: string
-}
-
-async function spedisci(account: Account, m: DaInviare): Promise<{ raw: Buffer; messageId: string }> {
-  // Le immagini incollate nel corpo diventano parti MIME con `cid:`, o non si
-  // vedrebbero (vedi `immaginiInLineaComeAllegati`). Riguarda solo cio' che
-  // parte: `m.corpoHtml` resta com era per la copia salvata in `registraInviato`.
-  const inLinea = m.corpoHtml ? immaginiInLineaComeAllegati(m.corpoHtml) : null;
-  const allegatiTutti = [...(m.allegati ?? []), ...(inLinea?.allegati ?? [])];
-  const composer = new MailComposer({
-    from: `${account.nome} <${account.email}>`,
-    to: m.a,
-    cc: m.cc || undefined,
-    subject: m.oggetto,
-    text: m.corpo,
-    ...(inLinea ? { html: inLinea.html } : {}),
-    ...(allegatiTutti.length ? { attachments: allegatiTutti } : {}),
-    ...(m.ics ? { icalEvent: { method: 'REQUEST', content: m.ics } } : {}),
-    inReplyTo: m.inRispostaA ?? undefined,
-    references: m.inRispostaA ?? undefined,
-  })
-
-  const mail = composer.compile()
-  const raw = await mail.build()
-  const messageId = mail.messageId()
-
-  const transporter = nodemailer.createTransport({
-    host: account.smtpHost,
-    port: account.smtpPort,
-    secure: account.smtpSicuro,
-    auth: { user: account.smtpUtente, pass: decifra(account.smtpPassword) },
-    // Certificato per un altro dominio (register.it): salta la verifica del nome.
-    ...(account.ignoraCertTls ? { tls: { rejectUnauthorized: false } } : {}),
-  })
-  await transporter.sendMail({
-    envelope: { from: account.email, to: [m.a, ...(m.cc ? m.cc.split(',').map((x) => x.trim()) : [])] },
-    raw,
-  })
-
-  return { raw, messageId }
-}
 
 /** Tetto complessivo degli allegati ripresi dal server per un inoltro. Non è
  *  una regola di Vercel (i file non passano dalla richiesta): è il limite dei
@@ -3037,6 +2986,90 @@ export async function eliminaBozza(id: string) {
  * lascia i file dietro di sé li fa crescere per sempre senza che nessuno li
  * veda più — stessa ragione di `eliminaBozza` qui sopra.
  */
+// ---------- ASSENZA (out of office) ----------
+
+/** Una data dal modulo (`AAAA-MM-GG`) o null se vuota/non valida. */
+function dataDaCampo(v: string, fineGiornata = false): Date | null {
+  const t = v.trim()
+  if (!t) return null
+  const d = new Date(fineGiornata ? `${t}T23:59:59` : `${t}T00:00:00`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+/**
+ * Salva l'assenza (risposta automatica e inoltro).
+ *
+ * ⚠️⚠️ Il controllo che conta è quello sull'indirizzo di inoltro: se puntasse
+ * a una TUA casella, la mail inoltrata rientrerebbe in AI Mail e ripartirebbe,
+ * all'infinito. Si rifiuta qui, dove c'è una persona che legge il perché —
+ * fermarlo solo al momento dell'invio avrebbe lasciato l'impostazione accesa e
+ * silenziosamente inutile.
+ */
+export async function salvaAssenza(form: FormData): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const attiva = testo(form, 'attiva') === 'si'
+  const messaggio = testo(form, 'messaggio')
+  const inoltra = testo(form, 'inoltra') === 'si'
+  const inoltraA = testo(form, 'inoltraA').toLowerCase()
+  const dal = dataDaCampo(testo(form, 'dal'))
+  const al = dataDaCampo(testo(form, 'al'), true)
+
+  if (inoltra) {
+    if (!inoltraA.includes('@') || /s/.test(inoltraA)) {
+      return { ok: false, messaggio: 'Per inoltrare serve un indirizzo email valido.' }
+    }
+    const mia = await db.account.findFirst({
+      where: { utenteId, email: { equals: inoltraA, mode: 'insensitive' } },
+      select: { email: true },
+    })
+    if (mia) {
+      return {
+        ok: false,
+        messaggio: `${mia.email} è una delle tue caselle: inoltrandoci la posta rientrerebbe qui e ripartirebbe all'infinito. Metti un indirizzo di fuori (un collega, un altro tuo indirizzo personale).`,
+      }
+    }
+  }
+
+  if (attiva && !messaggio.trim() && !inoltra) {
+    return {
+      ok: false,
+      messaggio: 'Accendendo l’assenza senza un testo e senza l’inoltro non succede niente: scrivi la risposta automatica, o spunta l’inoltro.',
+    }
+  }
+
+  if (dal && al && al < dal) {
+    return { ok: false, messaggio: 'La data di ritorno viene prima di quella di partenza.' }
+  }
+
+  // ⚠️⚠️ LA BARRIERA CONTRO L'ARRETRATO. Accendendo l'assenza senza indicare
+  // da quando, si scrive ADESSO. Senza, il primo giro di sincronia avrebbe
+  // risposto (e inoltrato) a tutta la posta ancora da scaricare — per una
+  // casella rimasta indietro, settimane di mail in una volta sola.
+  const daQuando = dal ?? (attiva ? new Date() : null)
+
+  await db.utente.update({
+    where: { id: utenteId },
+    data: {
+      assenzaAttiva: attiva,
+      assenzaDal: daQuando,
+      assenzaAl: al,
+      assenzaMessaggio: messaggio,
+      assenzaInoltra: inoltra,
+      assenzaInoltraA: inoltra ? inoltraA : '',
+    },
+  })
+  revalidatePath('/impostazioni')
+
+  if (!attiva) return { ok: true, messaggio: 'Assenza spenta: la posta torna a comportarsi normalmente.' }
+  const pezzi = []
+  if (messaggio.trim()) pezzi.push('chi ti scrive riceve la risposta automatica (una sola volta a testa)')
+  if (inoltra) pezzi.push(`ogni mail viene inoltrata a ${inoltraA}`)
+  return {
+    ok: true,
+    messaggio: `Assenza accesa: ${pezzi.join(' e ')}. Vale per la posta che arriva da adesso in poi.`,
+  }
+}
+
 export async function eliminaBozzeMassa(ids: string[]): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
   // Un tetto: la pagina ne mostra quante ne ha, ma una richiesta con
