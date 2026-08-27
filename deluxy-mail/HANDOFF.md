@@ -23,6 +23,45 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 27/08 — VERIFICA OSTILE delle tre novità: 8 difetti veri, corretti
+
+Due agenti col mandato di **demolire** quello che avevo appena pubblicato (assenza; tendina
+«Da» + bozze). **9 accuse refutate, 8 confermate.** Metodo: lettura del percorso + simulazione
+con stub che registrano invece di spedire + misure in sola lettura sul database di produzione.
+Nessuna mail spedita, `assenzaAttiva` mai accesa su un utente vero.
+
+| Difetto | Dove | Cosa succedeva davvero |
+|---|---|---|
+| **`/s/` invece di `/\s/`** | `salvaAssenza` | Backslash mangiato scrivendo la patch da uno script: «rifiuta gli indirizzi con la lettera S». Misurato sui 300 mittenti più frequenti: **170 rifiutati** (`cs@`, `amministrazione@`, `info@deluxyflowers.com`), e `mario bianchi@x.it` **accettato**. Ora controllo **positivo** sulla forma |
+| **Il tetto era per BLOCCO** | `sync.ts` | `budgetAssenza` era locale a `salvaMessaggi`, richiamata fino a 20 volte per giro: tetto vero **200 per casella** (×4 caselle, cron ogni 5'). Ora il contatore vive in `sincronizzaAccount`. Simulato: 20 blocchi × 25 mail → **10** |
+| **La barriera tornava indietro** | `impostazioni/page.tsx`, `salvaAssenza` | Il modulo riproponeva la vecchia `assenzaDal`: riaccendendo a dicembre si risalvava agosto, e il messaggio diceva comunque «vale da adesso». Ora a assenza spenta il campo riparte vuoto, e la barriera **non può finire nel passato** (anche «dal = oggi» = mezzanotte **UTC** su Vercel = 02:00 di Roma) |
+| **La regola «una sola» spariva in silenzio** | `assenza.ts` | Viveva in una `create` con `catch` muto: con la scrittura in errore, **5 risposte allo stesso mittente**. Ora si **prenota prima di spedire**: registro non scritto = non si spedisce |
+| **Le mail messe via da una REGOLA** | `sync.ts` | Una mail archiviata/smistata da una regola **salta il filtro anti-spam**, quindi arrivava con `spam:false`. Misurato: 53 regole, **170 mail in 30 giorni da 27 mittenti** → 27 risposte a spammer + 170 inoltri. Ora il flag è `giaMessaVia` |
+| **Bounce VERP** | `assenza.ts` | `bounces+123-abc@sendgrid.net` non era riconosciuto: si rispondeva a un rimbalzo |
+| **La bozza dimenticava la casella** | `salvaMinuta`, `inviaBozza`, `scrivi/page.tsx` | Il salvataggio è **automatico**: bastava scrivere due parole e la scelta spariva, ma il Cc riassestato restava → si spediva **da `cs@` con `cs@` in copia**, il difetto che la tendina doveva chiudere. `Bozza.accountId` esisteva e non lo scriveva nessuno (104 su 104 NULL) |
+| **Il Cc in «rispondi» e «inoltra»** | `Composizione.tsx` | Lì il Cc nasce vuoto per costruzione: rimettere la vecchia casella mandava al cliente una copia che nessuno aveva messo. Ora solo in **«rispondi a tutti»** |
+
+Più due in bozze: il numero detto ora è `deleteMany.count` (erano le righe **lette** prima di
+cancellare) e il tetto di 500 **si dice** invece di tacere.
+
+**Refutate** (da non «correggere»): l'id di casella altrui è già bloccato; `includes()` sugli
+indirizzi non ha collisioni reali (0 su 5.456); i nomi visualizzati non arrivano mai nel campo
+`destinatari` (0 su 34.433); la traduzione non dipende dalla casella; in bozze niente
+paginazione, `gruppoBozza` è la chiave giusta, i contatori dicono il vero, e `.card.tight`
+con `overflow:hidden` non taglia niente. Lo **storico** davvero non sveglia l'assenza
+(verificato sui tre chiamanti di `salvaMessaggi`, non sul commento).
+
+**🔴 Restano aperti**, dichiarati e non corretti:
+- **La firma non segue la casella**: `Utente.firma` è per utente. Scegliendo `cs@`, la mail
+  parte da `cs@` ma è firmata «nicolo.donato@». Chi risponde scrive all'indirizzo della firma.
+  Serve una firma per casella: è una feature, non una toppa.
+- **L'inoltro non ha dedup** (ogni mail = un inoltro) ed è voluto — ma è ciò che, insieme a un
+  arretrato, fa volume.
+- **Nessuno ha provato una mail vera**: il percorso cron → IMAP → SMTP non è mai stato eseguito.
+  Le prove sono riproduzioni fedeli del ciclo con stub.
+
+---
+
 ### 27/08 — ASSENZA (out of office): risposta automatica + inoltro
 
 In **Impostazioni → Assenza**: `assenzaAttiva/Dal/Al/Messaggio/Inoltra/InoltraA` su
