@@ -145,7 +145,13 @@ export function Composizione({
     // dell'originale. Altrimenti, cambiando casella per un motivo qualsiasi,
     // ci si trascinerebbe dietro un indirizzo che in quella conversazione non
     // era mai comparso.
+    // ⚠️⚠️ E solo in «rispondi a TUTTI». Negli altri modi il Cc nasce vuoto per
+    // costruzione — «rispondi» risponde al solo mittente, l'inoltro parte
+    // senza destinatari — quindi lì la vecchia casella non era «sparita
+    // perché stava spedendo lei»: non c'era proprio, e rimetterla dentro
+    // significa mandare al cliente una copia che nessuno aveva chiesto.
     const eraDestinatario =
+      modo === 'tutti' &&
       vecchia !== undefined &&
       daIndirizzate.some((e) => e.toLowerCase() === vecchia.email.toLowerCase())
     if (vecchia && eraDestinatario) {

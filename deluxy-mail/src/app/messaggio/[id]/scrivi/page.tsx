@@ -50,21 +50,25 @@ export default async function Scrivi({ params, searchParams }: Props) {
   // quali erano DAVVERO fra i destinatari, e quindi chi rimettere in Cc se
   // cambi mittente.
   const indirizzate = caselleIndirizzate(messaggio, caselle).map((c) => c.email)
+  // Riprendendo una bozza si riparte da com'era, non dai campi precompilati:
+  // sarebbe come non averla mai salvata.
+  const bozza = bozzaId
+    ? await db.bozza.findFirst({ where: { id: bozzaId, utenteId: u.id, inviata: false } })
+    : null
+
+  // ⚠️ Riprendendo una bozza si riparte dalla casella che vi era stata SCELTA:
+  // ricalcolarla da capo faceva tornare il «Da» a quello proposto dall'app,
+  // mentre i destinatari erano già stati riassestati per l'altra.
+  const daIdBozza = bozza?.accountId && caselle.some((c) => c.id === bozza.accountId) ? bozza.accountId : null
   // ⚠️ La voce proposta dev'essere UNA DELLE VOCI DELLA TENDINA. La casella
   // della copia può essere disattivata (o di un'altra epoca) e non comparire
   // fra le attive: in quel caso il menu mostrerebbe la prima voce mentre lo
   // stato ne tiene un'altra, e la mail partirebbe da un indirizzo diverso da
   // quello scritto a schermo. Un'etichetta che mente è peggio di una scelta
   // scomoda.
-  const daIdProposto = caselle.some((c) => c.id === daCasella.id)
-    ? daCasella.id
-    : (caselle[0]?.id ?? '')
-
-  // Riprendendo una bozza si riparte da com'era, non dai campi precompilati:
-  // sarebbe come non averla mai salvata.
-  const bozza = bozzaId
-    ? await db.bozza.findFirst({ where: { id: bozzaId, utenteId: u.id, inviata: false } })
-    : null
+  const daIdProposto =
+    daIdBozza ??
+    (caselle.some((c) => c.id === daCasella.id) ? daCasella.id : (caselle[0]?.id ?? ''))
 
   // La citazione mantiene la formattazione dell'originale: se l'HTML è stato
   // alleggerito (mail vecchia, vive sul server), si riprende da lì. Solo quando

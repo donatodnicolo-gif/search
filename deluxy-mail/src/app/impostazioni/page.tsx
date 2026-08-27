@@ -278,7 +278,11 @@ export default async function Impostazioni() {
       <Assenza
         iniziale={{
           attiva: u.assenzaAttiva,
-          dal: giorno(u.assenzaDal),
+          // ⚠️ Ad assenza SPENTA il campo riparte vuoto: riproporre la data
+          // della volta scorsa fa risalvare, senza pensarci, una barriera
+          // vecchia di mesi. Ad assenza accesa si mostra, perché lì è il dato
+          // vero di questa assenza.
+          dal: u.assenzaAttiva ? giorno(u.assenzaDal) : '',
           al: giorno(u.assenzaAl),
           messaggio: u.assenzaMessaggio,
           inoltra: u.assenzaInoltra,

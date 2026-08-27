@@ -82,7 +82,14 @@ const AUTOMATICI = [
 export function mittenteAutomatico(email: string): boolean {
   const locale = (email.toLowerCase().split('@')[0] || '').trim()
   if (!locale) return true
-  return AUTOMATICI.some((p) => locale === p || locale.startsWith(`${p}.`) || locale.startsWith(`${p}-`) || locale.startsWith(`${p}_`))
+  // ⚠️ Anche la parte PRIMA del «+»: i rimbalzi viaggiano quasi sempre in
+  // forma VERP, cioè con l'indirizzo di ritorno codificato dopo un più —
+  // `bounces+123-abc@sendgrid.net`. Confrontando solo la stringa intera,
+  // quello passava per un mittente umano e si sarebbe risposto a un rimbalzo.
+  const teste = [locale, locale.split('+')[0]]
+  return teste.some((t) =>
+    AUTOMATICI.some((p) => t === p || t.startsWith(`${p}.`) || t.startsWith(`${p}-`) || t.startsWith(`${p}_`))
+  )
 }
 
 /** Il primo indirizzo scritto in un campo che può contenerne più d'uno. */
@@ -98,8 +105,18 @@ function soloEmail(v: string): string {
  * arretrato che rientra, un mittente che rimbalza — meglio dieci mail sbagliate
  * che trecento. Quello che avanza NON si recupera al giro dopo, ed è voluto:
  * una risposta d'assenza arrivata due ore tardi va bene, una valanga no.
+ *
+ * ⚠️⚠️ Il contatore vive in `sincronizzaAccount`, NON dentro `salvaMessaggi`.
+ * Sembra un dettaglio e non lo è: `salvaMessaggi` lavora su un BLOCCO di mail
+ * e viene richiamata fino a venti volte per giro, quindi un contatore locale a
+ * lei si riazzerava a ogni blocco — il tetto vero era 200 per casella, cioè
+ * venti volte quello scritto qui. Con quattro caselle e il cron ogni cinque
+ * minuti, il freno a mano non frenava.
  */
 export const TETTO_PER_GIRO = 10
+
+/** Il contatore condiviso fra i blocchi di un giro di sincronia. */
+export type BudgetAssenza = { resto: number }
 
 /** L'intestazione di una mail inoltrata, in testo semplice. */
 function intestazione(m: MailArrivata): string {
@@ -147,13 +164,23 @@ export async function applicaAssenza(opts: {
   mail: MailArrivata
   /** Tutti gli indirizzi delle TUE caselle, minuscoli. */
   nostreCaselle: string[]
-  /** La mail è già stata riconosciuta come spam: non si tocca. */
-  spam: boolean
+  /**
+   * La mail è già stata messa da parte: spam riconosciuto dal filtro, oppure
+   * archiviata o smistata da una REGOLA dell'utente.
+   *
+   * ⚠️⚠️ Non è solo lo spam, e la differenza è misurata: una mail agganciata
+   * da una regola con «archivia» (o mandata in una sezione) salta del tutto il
+   * filtro anti-spam, quindi arrivava qui con «spam: false» pur essendo posta
+   * che l'utente ha già deciso di non voler vedere. In produzione: 53 regole
+   * di quel tipo, 170 mail in 30 giorni da 27 mittenti — cioè 27 risposte
+   * automatiche a degli spammer e 170 inoltri a un collega.
+   */
+  giaMessaVia: boolean
 }): Promise<number> {
-  const { utenteId, utente, account, mail, nostreCaselle, spam } = opts
+  const { utenteId, utente, account, mail, nostreCaselle, giaMessaVia } = opts
   let partite = 0
   try {
-    if (spam) return 0
+    if (giaMessaVia) return 0
     if (!assenzaInCorso(utente)) return 0
 
     // ⚠️⚠️ LA BARRIERA CONTRO L'ARRETRATO. Accendendo l'assenza si scrive
@@ -212,6 +239,17 @@ export async function applicaAssenza(opts: {
     })
     if (gia > 0) return partite
 
+    // ⚠️⚠️ IL SEGNO PRIMA DELLA MAIL. La regola «una sola risposta per
+    // mittente» vive nel registro: se la riga non si scrive, la regola non
+    // esiste più — e il `catch` che la ingoiava rendeva la cosa SILENZIOSA.
+    // Provato con la scrittura in errore: allo stesso mittente partivano
+    // cinque risposte invece di una. Adesso si prenota prima: se il registro
+    // non accetta la riga (database in sola lettura, tabella non migrata) non
+    // si spedisce affatto. Una risposta di cortesia non mandata è un
+    // fastidio; cinque allo stesso mittente sono un guasto che si vede da
+    // fuori.
+    if (!(await registra(utenteId, 'risposta', mittente, mail))) return partite
+
     await spedisci(account, {
       a: mittente,
       oggetto: `Re: ${mail.oggetto || '(senza oggetto)'}`,
@@ -219,7 +257,6 @@ export async function applicaAssenza(opts: {
       inRispostaA: mail.messageId,
     })
     partite++
-    await registra(utenteId, 'risposta', mittente, mail)
     return partite
   } catch (e) {
     console.error('[AI Mail] assenza:', e instanceof Error ? e.message : e)
@@ -227,13 +264,19 @@ export async function applicaAssenza(opts: {
   }
 }
 
-/** Il registro di cosa è partito: si vede in Impostazioni, e impedisce il bis. */
-async function registra(utenteId: string, tipo: string, email: string, mail: MailArrivata): Promise<void> {
+/**
+ * Il registro di cosa è partito: si vede in Impostazioni, e impedisce il bis.
+ *
+ * Restituisce `false` se la riga non si è potuta scrivere — e chi chiama, per
+ * la risposta automatica, in quel caso NON spedisce (vedi sopra).
+ */
+async function registra(utenteId: string, tipo: string, email: string, mail: MailArrivata): Promise<boolean> {
   try {
     await db.assenzaInvio.create({
       data: { utenteId, tipo, email, oggetto: mail.oggetto.slice(0, 200), messaggioId: mail.id },
     })
+    return true
   } catch {
-    /* la tabella può non essere ancora migrata: la mail è comunque partita */
+    return false
   }
 }

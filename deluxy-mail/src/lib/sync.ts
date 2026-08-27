@@ -1,6 +1,6 @@
 import type { Account, Messaggio, Prisma, Regola, Sezione } from '@prisma/client'
 import { db } from './db'
-import { applicaAssenza, TETTO_PER_GIRO, type ImpostazioniAssenza } from './assenza'
+import { applicaAssenza, TETTO_PER_GIRO, type BudgetAssenza, type ImpostazioniAssenza } from './assenza'
 import { scaricaNuovi, scaricaVecchi, cercaSulServer, trovaCartellaInviata, dimensioniDalServer, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
 import { allineaCartellaOra } from './cartelleServer'
@@ -1043,6 +1043,14 @@ export async function sincronizzaAccount(
     return new Set(presenti.map((m) => m.uid))
   }
 
+  // ⚠️⚠️ Il freno a mano dell'assenza vive QUI, fuori dal ciclo. Stava dentro
+  // `salvaMessaggi`, che lavora su un blocco per volta ed è richiamata fino a
+  // venti volte: il contatore si riazzerava a ogni blocco e il tetto vero era
+  // 200 mail per casella invece di 10 — con quattro caselle e il cron ogni
+  // cinque minuti, un freno che non frenava. Un oggetto e non un numero
+  // perché il conto deve tornare indietro da chi lo consuma.
+  const budgetAssenza: BudgetAssenza = { resto: TETTO_PER_GIRO }
+
   // A esaurimento: più blocchi per giro finché c'è arretrato e resta tempo.
   for (let giro = 0; giro < 20; giro++) {
     let nuovi
@@ -1067,6 +1075,7 @@ export async function sincronizzaAccount(
       assenza: prefUtente ?? null,
       nostreCaselle: tutteLeCaselle.map((c) => c.email.toLowerCase()),
       casella: account,
+      budgetAssenza,
       esito,
       avanzaUltimoUid: true,
     })
@@ -1153,6 +1162,8 @@ async function salvaMessaggi(opts: {
   nostreCaselle?: string[]
   /** La casella in sincronia: da lì partono risposta automatica e inoltro. */
   casella?: Account
+  /** Il tetto dell'assenza, CONDIVISO fra i blocchi di un giro di sincronia. */
+  budgetAssenza?: BudgetAssenza
   dominioProprio: string
   esito: EsitoSync
   /** true SOLO per lo scarico dei nuovi: fa avanzare account.ultimoUid man
@@ -1160,9 +1171,7 @@ async function salvaMessaggi(opts: {
   avanzaUltimoUid?: boolean
 }): Promise<{ primoFallito: number | null; solaLettura: boolean }> {
   const { utenteId, accountId, messaggi, regole, traduzioneAuto, dominioProprio, esito } = opts
-  const { assenza, nostreCaselle = [], casella } = opts
-  // Il freno a mano dell'assenza, per giro di scarico.
-  let budgetAssenza = TETTO_PER_GIRO
+  const { assenza, nostreCaselle = [], casella, budgetAssenza } = opts
   let primoFallito: number | null = null
   // Il database non accetta scritture: inutile insistere sugli altri messaggi.
   let solaLettura = false
@@ -1408,13 +1417,19 @@ async function salvaMessaggi(opts: {
         // vivo, ed è esattamente quello che sta cercando.
         // ⚠️ Il tetto per giro non è una preferenza ma un freno a mano: se
         // qualcosa va storto, meglio dieci mail sbagliate che trecento.
-        if (assenza && casella && creato.direzione === 'entrata' && budgetAssenza > 0) {
-          budgetAssenza -= await applicaAssenza({
+        if (assenza && casella && budgetAssenza && creato.direzione === 'entrata' && budgetAssenza.resto > 0) {
+          budgetAssenza.resto -= await applicaAssenza({
             utenteId,
             utente: assenza,
             account: casella,
             nostreCaselle,
-            spam: eraSpam,
+            // ⚠️⚠️ Non basta lo spam riconosciuto dal filtro: una mail che una
+            // REGOLA ha archiviato o mandato in una sezione non passa nemmeno
+            // dal filtro (vedi la condizione qui sopra), quindi arrivava con
+            // «spam: false» pur essendo posta che l'utente ha già deciso di
+            // non voler vedere. Misurato in produzione: 53 regole di quel
+            // tipo, 170 mail in 30 giorni da 27 mittenti.
+            giaMessaVia: eraSpam || Boolean(daRegole.sezioneId) || daRegole.archivia,
             mail: {
               id: creato.id,
               messageId: msg.messageId,

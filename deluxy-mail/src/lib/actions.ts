@@ -2185,8 +2185,13 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
 
     // Dalla casella a cui la mail era INDIRIZZATA, non da quella della copia:
     // stessa regola di `inviaMessaggio` (una bozza è pur sempre una risposta).
+    // ⚠️⚠️ Ma se chi ha scritto la bozza aveva SCELTO la casella nella tendina
+    // «Da», comanda quella: è il motivo per cui la scelta viene salvata. Si
+    // ricontrolla comunque che sia una casella attiva dell'utente — la bozza
+    // può essere vecchia e la casella nel frattempo spenta o eliminata.
     const caselleBozza = await db.account.findMany({ where: { utenteId, attivo: true } })
-    const account = accountPerRisposta(bozza.messaggio, caselleBozza) ?? bozza.messaggio.account
+    const sceltaBozza = bozza.accountId ? caselleBozza.find((c) => c.id === bozza.accountId) : undefined
+    const account = sceltaBozza ?? accountPerRisposta(bozza.messaggio, caselleBozza) ?? bozza.messaggio.account
     const { html, testo: testoPiano } = corpoDaForm(bozza.corpo)
     const allegati = form ? await leggiAllegati(form, utenteId) : []
     // ⚠️ E quelli CONSERVATI con la bozza: chi riprende una bozza e preme invia
@@ -2909,6 +2914,24 @@ export async function salvaMinuta(
 
     if (!dati.corpo && !dati.a) return { ok: false, messaggio: 'Non c’è ancora niente da salvare.' }
 
+    // ⚠️⚠️ LA CASELLA SCELTA SI SALVA CON LA BOZZA. Senza, sceglierla non
+    // serviva a niente: il salvataggio è AUTOMATICO (parte da solo mentre
+    // scrivi), quindi riaprendo la bozza il «Da» tornava a quello proposto
+    // dall'app — ma i destinatari erano già stati riassestati per la casella
+    // che avevi scelto tu. Risultato misurato: si spediva da `cs@` con `cs@`
+    // stesso in copia, cioè proprio il «ti rispondi da solo» che la tendina
+    // doveva togliere di mezzo.
+    // ⚠️ L'id arriva dal browser: si accetta solo se è una TUA casella attiva.
+    const casellaSceltaId = testo(form, 'daCasellaId')
+    let accountBozza: string | null = null
+    if (casellaSceltaId) {
+      const mia = await db.account.findFirst({
+        where: { id: casellaSceltaId, utenteId, attivo: true },
+        select: { id: true },
+      })
+      accountBozza = mia?.id ?? null
+    }
+
     // ⚠️ Il messaggioId arriva dalla FORM: va verificato che sia dell'utente,
     // o una bozza finirebbe agganciata alla mail di un altro — e all'invio si
     // spedirebbe dalla SUA casella (inviaBozza legge `bozza.messaggio.account`).
@@ -2923,10 +2946,16 @@ export async function salvaMinuta(
     if (bozzaId) {
       const mia = await db.bozza.findFirst({ where: { id: bozzaId, utenteId } })
       if (!mia) return { ok: false, messaggio: 'Bozza non trovata.' }
-      bozza = await db.bozza.update({ where: { id: bozzaId }, data: { ...dati, modificata: true } })
+      bozza = await db.bozza.update({
+        where: { id: bozzaId },
+        // ⚠️ `accountId` si scrive solo quando c'è: un salvataggio che arriva
+        // senza (una schermata che la tendina non ce l'ha) non deve
+        // CANCELLARE la scelta fatta prima.
+        data: { ...dati, modificata: true, ...(accountBozza ? { accountId: accountBozza } : {}) },
+      })
     } else {
       bozza = await db.bozza.create({
-        data: { ...dati, utenteId, messaggioId: messaggioValido, corpoAI: '' },
+        data: { ...dati, utenteId, messaggioId: messaggioValido, corpoAI: '', accountId: accountBozza },
       })
     }
 
@@ -2988,6 +3017,16 @@ export async function eliminaBozza(id: string) {
  */
 // ---------- ASSENZA (out of office) ----------
 
+/**
+ * Com'è fatto un indirizzo email, per il campo «inoltra a».
+ *
+ * ⚠️ Controllo POSITIVO e volutamente largo: qualcosa, una chiocciola,
+ * qualcosa, un punto, qualcosa — e nessuno spazio in mezzo. Non si tenta di
+ * validare l'email «per davvero» (non si può, e chi ci prova rifiuta indirizzi
+ * legittimi): si tiene fuori ciò che non potrebbe mai partire.
+ */
+const FORMA_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 /** Una data dal modulo (`AAAA-MM-GG`) o null se vuota/non valida. */
 function dataDaCampo(v: string, fineGiornata = false): Date | null {
   const t = v.trim()
@@ -3015,8 +3054,20 @@ export async function salvaAssenza(form: FormData): Promise<{ ok: boolean; messa
   const al = dataDaCampo(testo(form, 'al'), true)
 
   if (inoltra) {
-    if (!inoltraA.includes('@') || /s/.test(inoltraA)) {
-      return { ok: false, messaggio: 'Per inoltrare serve un indirizzo email valido.' }
+    // ⚠️⚠️ Qui c'era `/s/`, non `/\s/`: un backslash mangiato scrivendo la
+    // patch da uno script. La regola diventava «rifiuta gli indirizzi che
+    // contengono la lettera S», ed era esattamente rovesciata — misurato sui
+    // 300 mittenti più frequenti in produzione, 170 rifiutati (`cs@deluxy.it`,
+    // `amministrazione@deluxy.it`, `info@deluxyflowers.com`), mentre
+    // `mario bianchi@x.it` passava. E il messaggio d'errore diceva «indirizzo
+    // non valido», cioè mentiva sul motivo.
+    // ⚠️ Adesso è un controllo POSITIVO: com'è fatto un indirizzo, non che
+    // cosa non deve contenere. Una lista nera si buca, una forma no.
+    if (!FORMA_EMAIL.test(inoltraA)) {
+      return {
+        ok: false,
+        messaggio: `«${inoltraA}» non è un indirizzo email: serve qualcosa come nome@dominio.it, senza spazi.`,
+      }
     }
     const mia = await db.account.findFirst({
       where: { utenteId, email: { equals: inoltraA, mode: 'insensitive' } },
@@ -3045,7 +3096,20 @@ export async function salvaAssenza(form: FormData): Promise<{ ok: boolean; messa
   // da quando, si scrive ADESSO. Senza, il primo giro di sincronia avrebbe
   // risposto (e inoltrato) a tutta la posta ancora da scaricare — per una
   // casella rimasta indietro, settimane di mail in una volta sola.
-  const daQuando = dal ?? (attiva ? new Date() : null)
+  //
+  // ⚠️⚠️ E accendendola, la barriera non può stare nel PASSATO. Due modi in cui
+  // ci finiva:
+  //  - riaccendendo l'assenza a dicembre, il modulo riproponeva la data di
+  //    agosto e la si risalvava senza pensarci: la barriera tornava indietro
+  //    di quattro mesi, mentre il messaggio di conferma continuava a dire
+  //    «vale per la posta che arriva da adesso in poi»;
+  //  - scrivendo «dal = oggi», che vuol dire mezzanotte — e su Vercel la
+  //    mezzanotte è UTC, cioè le 02:00 di Roma: due ore di posta arretrata
+  //    rientravano nella finestra.
+  // Una data FUTURA invece resta: quella è una partenza programmata, ed è il
+  // motivo per cui il campo esiste.
+  const adesso = new Date()
+  const daQuando = attiva ? (dal && dal > adesso ? dal : adesso) : dal
 
   await db.utente.update({
     where: { id: utenteId },
@@ -3074,8 +3138,13 @@ export async function eliminaBozzeMassa(ids: string[]): Promise<{ ok: boolean; m
   const utenteId = await uid()
   // Un tetto: la pagina ne mostra quante ne ha, ma una richiesta con
   // diecimila id è un incidente, non un gesto.
-  const chiesti = [...new Set(ids.filter((x) => typeof x === 'string' && x))].slice(0, 500)
+  const tutti = [...new Set(ids.filter((x) => typeof x === 'string' && x))]
+  const chiesti = tutti.slice(0, 500)
   if (chiesti.length === 0) return { ok: false, messaggio: 'Nessuna bozza selezionata.' }
+  // ⚠️ Il taglio si DICE. Prima `mancanti` era calcolato su una lista già
+  // tagliata, quindi valeva sempre zero: chi ne selezionava seicento leggeva
+  // «500 bozze eliminate» e credeva di aver finito.
+  const tagliate = tutti.length - chiesti.length
 
   const mie = await db.bozza.findMany({
     where: { id: { in: chiesti }, utenteId, inviata: false },
@@ -3083,19 +3152,25 @@ export async function eliminaBozzeMassa(ids: string[]): Promise<{ ok: boolean; m
   })
   if (mie.length === 0) return { ok: false, messaggio: 'Nessuna di quelle bozze esiste più.' }
 
-  await db.bozza.deleteMany({ where: { id: { in: mie.map((b) => b.id) }, utenteId } })
+  // ⚠️⚠️ Il numero vero lo dà la CANCELLAZIONE, non la lettura di prima: fra
+  // il `findMany` e il `deleteMany` lo stato può cambiare (un'altra scheda,
+  // un altro dispositivo). `deleteMany` restituisce già `{ count }`, e prima
+  // lo si buttava via per contare le righe lette — cioè si diceva quante se
+  // ne erano TROVATE, chiamandolo «eliminate».
+  const tolte = await db.bozza.deleteMany({ where: { id: { in: mie.map((b) => b.id) }, utenteId } })
 
   const { scartaGruppo: scarta, gruppoBozza: gruppo } = await import('./allegatiGrandi')
   for (const b of mie) await scarta(utenteId, gruppo(b.id)).catch(() => {})
 
   revalidatePath('/', 'layout')
-  const quante = mie.length
+  const quante = tolte.count
   const mancanti = chiesti.length - quante
   return {
     ok: true,
     messaggio:
       `${quante} ${quante === 1 ? 'bozza eliminata' : 'bozze eliminate'}.` +
-      (mancanti > 0 ? ` ${mancanti} non ${mancanti === 1 ? 'era più lì' : 'erano più lì'}.` : ''),
+      (mancanti > 0 ? ` ${mancanti} non ${mancanti === 1 ? 'era più lì' : 'erano più lì'}.` : '') +
+      (tagliate > 0 ? ` ${tagliate} non ${tagliate === 1 ? 'è stata toccata' : 'sono state toccate'}: si eliminano al massimo 500 bozze per volta.` : ''),
   }
 }
 
