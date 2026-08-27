@@ -108,7 +108,14 @@ export function testoAvviso(d: {
               ? `Link di pagamento: ${d.riferimento}`
               : d.metodo === 'paypal'
                 ? `PayPal: ${d.riferimento}`
-                : `Come pagare: ${d.riferimento}`,
+                : // ⚠️ La carta da remoto si nomina per quello che è: chi legge
+                  // deve capire che non c'è un bonifico da fare, ma che la
+                  // spesa esiste ed è di questo importo. Quello che c'è scritto
+                  // nel riferimento sono DOVE e le ultime quattro cifre — il
+                  // numero intero non ci arriva (`numeroDiCartaNelTesto`).
+                  d.metodo === 'carta'
+                  ? `Carta da remoto: ${d.riferimento}`
+                  : `Come pagare: ${d.riferimento}`,
           ]
         : []
   return [

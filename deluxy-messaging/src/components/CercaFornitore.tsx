@@ -8,6 +8,7 @@ import {
   CORRISPONDENZA_VERA,
   type FornitoreTrovato,
 } from '@/lib/cerca-fornitore'
+import type { DettaglioMaps } from '@/lib/maps-fornitori'
 
 // «Magari abbiamo già i dati»: cerca il fornitore prima di ribattere l'IBAN.
 //
@@ -22,7 +23,14 @@ export function CercaFornitore({
 }: {
   /** Il nome che arriva dall'ordine: si cerca da solo, senza far digitare. */
   cercaSubito?: string
-  onScelto: (f: FornitoreTrovato) => void
+  /**
+   * ⚠️ Il secondo argomento c'è **solo** se il fornitore viene da Google Maps,
+   * ed è la scheda intera del luogo: indirizzo a pezzi, CAP, provincia,
+   * regione, telefono, sito, voto e `place_id`. Serve a chi salva per farne un
+   * contatto completo in anagrafiche — prima di qui si prendeva il telefono e
+   * si buttava via tutto il resto.
+   */
+  onScelto: (f: FornitoreTrovato, daMaps?: DettaglioMaps) => void
 }) {
   const [q, setQ] = useState('')
   const [risultati, setRisultati] = useState<FornitoreTrovato[]>([])
@@ -153,16 +161,23 @@ export function CercaFornitore({
     try {
       const res = await fetch(`/api/fornitori/maps?id=${encodeURIComponent(f.mapsId)}`)
       const d = (await res.json().catch(() => ({}))) as {
-        luogo?: { telefono: string; sito: string; citta: string; indirizzo: string }
+        luogo?: DettaglioMaps
         errore?: string
       }
       // ⚠️ Se il dettaglio non arriva si sceglie LO STESSO, con quello che
       // abbiamo: nome e indirizzo valgono già, e bloccare la scelta per un
       // telefono mancante vorrebbe dire ricopiare tutto a mano.
+      //
+      // ⚠️⚠️ E la scheda intera si passa AVANTI, non solo il telefono: è quella
+      // che diventa il contatto in anagrafiche. Fino al 27/08/2026 di questa
+      // risposta si tenevano due campi su dieci, e in registro entrava un
+      // fornitore col solo nome — che poi qualcuno completava riaprendo Google
+      // sul telefono.
       onScelto(
         d.luogo
           ? { ...f, telefono: d.luogo.telefono || '', citta: d.luogo.citta || f.citta }
-          : f
+          : f,
+        d.luogo
       )
       if (!d.luogo) setNotaMaps(`Il numero non è arrivato (${d.errore ?? 'errore'}): scrivilo a mano.`)
     } catch {

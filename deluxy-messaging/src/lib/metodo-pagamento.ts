@@ -8,7 +8,7 @@
 // ⚠️ Questo file NON importa `db`: lo usa la pagina Pagamenti, che è un
 // componente client.
 
-export type Metodo = 'iban' | 'link' | 'paypal' | 'altro'
+export type Metodo = 'iban' | 'link' | 'paypal' | 'carta' | 'altro'
 
 export const METODI: { chiave: Metodo; nome: string; aiuto: string; segnaposto: string }[] = [
   {
@@ -30,12 +30,80 @@ export const METODI: { chiave: Metodo; nome: string; aiuto: string; segnaposto: 
     segnaposto: 'nome@esempio.it',
   },
   {
+    // ⚠️⚠️ CARTA DA REMOTO = la NOSTRA carta, data al fornitore per telefono o
+    // digitata sul suo sito. Chiesto dall'utente il 27/08/2026, e finché non
+    // c'era finiva in «Altro (scritto)»: cioè una spesa fatta con la carta
+    // aziendale che, negli elenchi e nei conti, non si distingueva da un
+    // accordo a voce. È l'unico metodo in cui il denaro esce **subito** — non
+    // c'è un bonifico da fare dopo — e la riga serve a ricordare **che è già
+    // stato pagato** e con quale carta.
+    //
+    // ⚠️ Qui NON si scrive il numero della carta: vedi `numeroDiCartaNelTesto`.
+    chiave: 'carta',
+    nome: 'Carta da remoto',
+    aiuto:
+      'La nostra carta data al telefono o sul suo sito. Scrivi dove e con quale carta (le ultime 4 cifre) — mai il numero intero.',
+    segnaposto: 'al telefono, carta ••4321',
+  },
+  {
     chiave: 'altro',
     nome: 'Altro (scritto)',
     aiuto: 'Contanti alla consegna, compensazione, quello che è: scrivilo com’è.',
     segnaposto: 'contanti alla consegna, concordato al telefono',
   },
 ]
+
+/**
+ * ⚠️⚠️ IL NUMERO DELLA CARTA NON SI SCRIVE QUI.
+ *
+ * Nasce con «Carta da remoto», ma vale per **tutti** i metodi, perché il campo
+ * è lo stesso campo di testo libero. Tre motivi, tutti veri in questa app:
+ *
+ * 1. `riferimentoPagamento` sta **in chiaro** in un Postgres condiviso con
+ *    altre tredici app (nessuna cifratura: non è fra le `CHIAVI_CIFRATE`).
+ * 2. Finisce **dentro l'avviso** che parte su WhatsApp/Telegram a chi deve
+ *    pagare (`avviso-pagamento-da-fare.ts`): un PAN in una chat ci resta.
+ * 3. Tenere un numero di carta per esteso è esattamente ciò che il PCI-DSS
+ *    vieta a chi non è attrezzato per custodirlo.
+ *
+ * ⚠️ Si riconosce per la **forma del valore**, non per il nome del campo
+ * ([[trappola-mascheratura-per-nome]]): 13-19 cifre, anche spezzate da spazi o
+ * trattini, **e valide col controllo di Luhn**. Luhn serve a non bloccare i
+ * numeri lunghi che carte non sono (un IBAN incollato, un codice d'ordine di
+ * quindici cifre): sbagliare in quel verso fermerebbe il lavoro.
+ *
+ * ⚠️ Le **ultime quattro cifre** restano libere, ed è quello che si chiede di
+ * scrivere: identificano la carta senza essere la carta.
+ *
+ * @returns la parte riconosciuta (per poterla nominare nel messaggio), o ''.
+ */
+export function numeroDiCartaNelTesto(testo: string): string {
+  const t = testo ?? ''
+  // Gruppi di cifre separati da spazi o trattini: «4111 1111 1111 1111».
+  const candidati = t.match(/\d[\d \-]{11,26}\d/g) ?? []
+  for (const c of candidati) {
+    const cifre = c.replace(/\D/g, '')
+    if (cifre.length < 13 || cifre.length > 19) continue
+    if (!luhn(cifre)) continue
+    return c.trim()
+  }
+  return ''
+}
+
+function luhn(cifre: string): boolean {
+  let somma = 0
+  let doppia = false
+  for (let i = cifre.length - 1; i >= 0; i--) {
+    let n = cifre.charCodeAt(i) - 48
+    if (doppia) {
+      n *= 2
+      if (n > 9) n -= 9
+    }
+    somma += n
+    doppia = !doppia
+  }
+  return somma % 10 === 0
+}
 
 export function nomeMetodo(m: string): string {
   return METODI.find((x) => x.chiave === m)?.nome ?? m
@@ -184,7 +252,15 @@ export function cosaManca(d: {
       ? 'Serve il link di pagamento.'
       : d.metodo === 'paypal'
         ? 'Serve l’indirizzo PayPal.'
-        : 'Scrivi come è stato concordato il pagamento.'
+        : d.metodo === 'carta'
+          ? 'Scrivi dove è stata data la carta e quale carta (le ultime 4 cifre).'
+          : 'Scrivi come è stato concordato il pagamento.'
+  }
+  // ⚠️⚠️ Vale per TUTTI i metodi, non solo per la carta: il campo è di testo
+  // libero e finisce in chiaro nel database e dentro l'avviso su WhatsApp.
+  const carta = numeroDiCartaNelTesto(d.riferimento)
+  if (carta) {
+    return `«${carta}» sembra il numero di una carta: qui non va scritto (resta in chiaro nel database e nell’avviso su WhatsApp). Scrivi solo le ultime quattro cifre.`
   }
   return ''
 }

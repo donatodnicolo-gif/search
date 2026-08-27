@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CercaFornitore } from './CercaFornitore'
 import { ibanAccorciato, type FornitoreTrovato } from '@/lib/cerca-fornitore'
+import type { DettaglioMaps } from '@/lib/maps-fornitori'
 import { calcolaMargine, frasiMargine, pct } from '@/lib/margine'
 import { CellaCopiabile } from './CellaCopiabile'
 import { ScegliOrdine, type OrdineTrovato } from './ScegliOrdine'
@@ -108,6 +109,21 @@ export function RichiediPagamento() {
    * apposta. Scriverlo e basta è il gesto che salta il controllo.
    */
   const [intestatarioScelto, setIntestatarioScelto] = useState('')
+  /**
+   * LA SCHEDA DI GOOGLE MAPS del fornitore scelto, quando viene da lì.
+   *
+   * ⚠️⚠️ Chiesto dall'utente il 27/08/2026 («importa tutti i dati da maps che
+   * servono per creare il contatto in anagrafiche»). Salvando, viaggia con la
+   * richiesta e finisce nel registro delle anagrafiche, che è il proprietario
+   * di quei dati: qui **non si salva niente**, sta in memoria il tempo di
+   * compilare il modulo.
+   *
+   * ⚠️ Si azzera insieme a `intestatarioScelto`: la scheda vale per QUEL
+   * fornitore, e un nome riscritto a mano sopra non è più lui. Mandarla lo
+   * stesso vorrebbe dire attaccare indirizzo e telefono di un'attività al nome
+   * di un'altra.
+   */
+  const [luogoMaps, setLuogoMaps] = useState<DettaglioMaps | null>(null)
   // ⚠️ QUANTO HA PAGATO IL CLIENTE, che è un'altra cosa dall'importo qui sotto:
   // quello è quanto diamo al fornitore. La differenza fra i due è tutto il
   // guadagno di quell'ordine, e finora nessuno la vedeva.
@@ -404,9 +420,12 @@ export function RichiediPagamento() {
    * sovrascriverlo con l'ultimo pagamento fatto a quella persona vorrebbe dire
    * pagare la cifra di un altro ordine.
    */
-  function usaFornitore(f: FornitoreTrovato) {
+  function usaFornitore(f: FornitoreTrovato, daMaps?: DettaglioMaps) {
     setIntestatario(f.ragioneSociale || f.nome)
     setIntestatarioScelto(f.ragioneSociale || f.nome)
+    // ⚠️ La scheda di Maps si tiene solo se questo fornitore viene da Maps:
+    // scegliendone poi uno dei nostri, quella di prima deve sparire.
+    setLuogoMaps(daMaps ?? null)
     if (f.iban) {
       setIban(f.iban)
       setIbanNota('')
@@ -627,6 +646,7 @@ export function RichiediPagamento() {
       setRiferimento('')
       setIntestatario('')
       setIntestatarioScelto('')
+      setLuogoMaps(null)
       setImporto('')
       setCausale('')
       setOrdineNumero('')
@@ -682,6 +702,12 @@ export function RichiediPagamento() {
           // lasciando a chi riconcilia il pagamento il compito di indovinare
           // quale ordine fosse partendo dal numero.
           ordineId: ordineScelto?.id ?? '',
+          // ⚠️⚠️ LA SCHEDA DI GOOGLE MAPS, quando il fornitore viene da lì.
+          // Non si salva da nessuna parte qui: attraversa il salvataggio e va
+          // nel registro delle anagrafiche, che è il proprietario di indirizzo,
+          // telefono e categoria (Standard Deluxy §7). Se il fornitore è uno
+          // dei nostri questo campo è `null` e non cambia niente.
+          daMaps: luogoMaps,
           confermaDoppio,
         }),
       })
@@ -731,6 +757,7 @@ export function RichiediPagamento() {
       setRiferimento('')
       setIntestatario('')
       setIntestatarioScelto('')
+      setLuogoMaps(null)
       setImporto('')
       setCausale('')
       setOrdineNumero('')
@@ -983,7 +1010,9 @@ export function RichiediPagamento() {
                   ? 'Link di pagamento'
                   : metodo === 'paypal'
                     ? 'Indirizzo PayPal'
-                    : 'Com’è stato concordato'}
+                    : metodo === 'carta'
+                      ? 'Dove e con quale carta'
+                      : 'Com’è stato concordato'}
               </span>
               <input
                 value={riferimento}
@@ -994,7 +1023,15 @@ export function RichiediPagamento() {
                   esiste solo per gli IBAN. Si dice, invece di lasciare una
                   spunta verde che non vuol dire niente. */}
               <span className="cella-sub">
-                Su questo non c’è un codice di controllo: la verifica vale solo per gli IBAN.
+                {metodo === 'carta'
+                  ? // ⚠️ Sulla carta l'avvertimento utile non è «non si può
+                    // verificare», è «non scrivere il numero»: il campo resta in
+                    // chiaro nel database e viene ricopiato nell'avviso su
+                    // WhatsApp. Il salvataggio lo rifiuta comunque
+                    // (`numeroDiCartaNelTesto`), ma dirlo prima evita di
+                    // scriverlo e vederselo respingere.
+                    'Mai il numero intero della carta: resta in chiaro nel database e nell’avviso su WhatsApp. Le ultime quattro cifre bastano.'
+                  : 'Su questo non c’è un codice di controllo: la verifica vale solo per gli IBAN.'}
               </span>
             </label>
           )}
@@ -1009,11 +1046,39 @@ export function RichiediPagamento() {
                 // e resta marcato come verificato quando non lo è più.
                 if (e.target.value.trim() !== intestatarioScelto.trim()) {
                   setIntestatarioScelto('')
+                  setLuogoMaps(null)
                 }
               }}
               placeholder="Mario Rossi"
             />
           </label>
+          {/* ── COSA ENTRERÀ IN ANAGRAFICA ──
+              ⚠️⚠️ Chiesto dall'utente il 27/08/2026: da Maps si importa tutto
+              quello che serve a farne un contatto. Si MOSTRA perché una
+              scrittura su un'altra app che avviene in silenzio si scopre quando
+              dà fastidio — e perché è la riga che dice a chi lavora «non devi
+              ricopiarlo a mano», che è tutto il punto della cosa.
+              ⚠️ Elenca i campi che ci sono DAVVERO, non quelli previsti: un
+              luogo senza telefono deve dirlo, non prometterlo. */}
+          {luogoMaps ? (
+            <div className="cella-sub" style={{ marginTop: -4 }}>
+              📍 Da Google Maps entrerà in anagrafica:{' '}
+              {[
+                luogoMaps.via && 'indirizzo',
+                luogoMaps.citta && 'città',
+                luogoMaps.provincia && 'provincia',
+                luogoMaps.telefono && 'telefono',
+                luogoMaps.sito && 'sito',
+                luogoMaps.voto != null && 'voto Google',
+              ]
+                .filter(Boolean)
+                .join(', ') || 'solo il nome — Google non dava altro'}
+              .{' '}
+              {luogoMaps.telefono ? null : (
+                <strong>Il telefono non c&apos;è: da chiedere.</strong>
+              )}
+            </div>
+          ) : null}
           {/* ── IL FORNITORE VA SCELTO, NON SCRITTO ──
               ⚠️⚠️ Nel campo c'era scritto «p». Un campo obbligatorio si soddisfa
               con una lettera, e da lì in poi tutto funziona: la richiesta si
@@ -1194,6 +1259,7 @@ export function RichiediPagamento() {
                   setRiferimento('')
                   setIntestatario('')
       setIntestatarioScelto('')
+      setLuogoMaps(null)
                   setImporto('')
                   setCausale('')
                   setOrdineNumero('')

@@ -144,7 +144,7 @@ model RichiestaPagamento {
    */
   ordineId             String    @default("")
   /**
-   * COME lo paghiamo: `iban` · `link` · `paypal` · `altro`.
+   * COME lo paghiamo: `iban` · `link` · `paypal` · `carta` · `altro`.
    * ⚠️⚠️ Non tutti i fornitori si pagano con un bonifico. Chi manda un link di
    * pagamento, chi dà un indirizzo PayPal, chi si accorda a voce («mi paghi in
    * contanti alla consegna»). Finché l'unica forma prevista era l'IBAN, tutto
@@ -157,7 +157,13 @@ model RichiestaPagamento {
   metodo               String    @default("iban")
   /**
    * Il riferimento quando NON è un IBAN: l'indirizzo del link, la mail PayPal,
-   * la frase concordata. ⚠️ Testo libero di proposito: la varietà è il punto.
+   * dove e con quale carta (`carta`), la frase concordata. ⚠️ Testo libero di
+   * proposito: la varietà è il punto.
+   * ⚠️⚠️ Sta IN CHIARO (non è fra le `CHIAVI_CIFRATE`) in un Postgres condiviso
+   * con altre app, e finisce dentro l'avviso su WhatsApp: per questo un numero
+   * di carta per esteso viene rifiutato al salvataggio da
+   * `numeroDiCartaNelTesto` (src/lib/metodo-pagamento.ts). Le ultime quattro
+   * cifre sì: identificano la carta senza essere la carta.
    */
   riferimentoPagamento String    @default("") @db.Text
 

@@ -194,12 +194,114 @@ async function cercaVecchia(testo: string, k: string): Promise<EsitoMaps> {
   }
 }
 
+/**
+ * TUTTO QUELLO CHE MAPS SA DI UN LUOGO, e che serve a farne un'anagrafica.
+ *
+ * ⚠️⚠️ Chiesto dall'utente il 27/08/2026: «devi importare tutti i dati da maps
+ * che servono per creare il contatto in anagrafiche». Prima di allora di un
+ * fornitore trovato su Maps arrivavano **nome, telefono e città** — e la città
+ * ricavata a naso dall'indirizzo scritto: nel registro entrava un contatto con
+ * il nome e basta, cioè quello che poi qualcuno ricopia a mano dal telefono.
+ *
+ * ⚠️ L'indirizzo si prende **a PEZZI** (`addressComponents`), non tagliando la
+ * riga formattata: la riga è pensata per essere letta, cambia forma fra le due
+ * API (vedi `cittaDa`) e in Francia o in Svizzera cambia del tutto. I pezzi
+ * hanno un nome — `locality`, `postal_code`, `administrative_area_level_2` — e
+ * quel nome vale in ogni paese.
+ *
+ * ⚠️ `voto` e `recensioni` sono di GOOGLE, e restano di Google: non finiscono
+ * mai nel `votoD2C` del registro, che è **il nostro** giudizio sulle consegne
+ * («li scrive Deluxy, non il cliente finale», dice lo schema di Anagrafiche).
+ * Confonderli vorrebbe dire leggere «4,6» credendo di aver valutato noi un
+ * fornitore che non abbiamo mai usato.
+ */
 export type DettaglioMaps = {
+  /** Il `place_id`: l'identità del luogo per Google. */
+  id: string
   nome: string
+  /** La riga formattata, come la scrive Google. */
   indirizzo: string
+  /** Via e civico da soli, quando i pezzi ci sono. */
+  via: string
+  cap: string
   citta: string
+  /** La sigla, quando Google la dà (`administrative_area_level_2` breve). */
+  provincia: string
+  regione: string
+  paese: string
   telefono: string
   sito: string
+  /** L'indirizzo della scheda su Google Maps. */
+  mappa: string
+  /** ⚠️ Il giudizio di GOOGLE, non il nostro. */
+  voto: number | null
+  recensioni: number
+  chiuso: boolean
+  /** I tipi Google (`florist`, `bakery`, …): da lì si ricava il mestiere. */
+  tipi: string[]
+}
+
+function dettaglioVuoto(): DettaglioMaps {
+  return {
+    id: '', nome: '', indirizzo: '', via: '', cap: '', citta: '', provincia: '',
+    regione: '', paese: '', telefono: '', sito: '', mappa: '', voto: null,
+    recensioni: 0, chiuso: false, tipi: [],
+  }
+}
+
+/** Un pezzo d'indirizzo, nella forma dell'una o dell'altra API. */
+export type PezzoIndirizzo = {
+  longText?: string
+  shortText?: string
+  long_name?: string
+  short_name?: string
+  types?: string[]
+}
+
+/**
+ * I pezzi dell'indirizzo, messi al loro posto.
+ *
+ * ⚠️ `locality` è il comune, ma NON c'è sempre: nei paesi anglosassoni la città
+ * postale è `postal_town`, e in certi comuni italiani il pezzo che porta il
+ * nome è `administrative_area_level_3`. Si prova in quest'ordine e ci si ferma
+ * al primo che risponde — meglio la città giusta trovata al terzo tentativo che
+ * un campo vuoto.
+ *
+ * ⚠️ La PROVINCIA si prende **breve** (`shortText`: «MI»), la REGIONE **lunga**
+ * («Lombardia»): sono i due formati che usa il registro, e `siglaProvincia` sa
+ * fare solo il verso città→sigla.
+ */
+export function pezziIndirizzo(pezzi: PezzoIndirizzo[]): {
+  via: string
+  cap: string
+  citta: string
+  provincia: string
+  regione: string
+  paese: string
+} {
+  const lungo = (t: string): string => {
+    const p = pezzi.find((x) => (x.types ?? []).includes(t))
+    return (p?.longText ?? p?.long_name ?? '').trim()
+  }
+  const breve = (t: string): string => {
+    const p = pezzi.find((x) => (x.types ?? []).includes(t))
+    return (p?.shortText ?? p?.short_name ?? '').trim()
+  }
+  const strada = lungo('route')
+  const civico = lungo('street_number')
+  return {
+    // ⚠️ In Italia il civico va DOPO la via: «Via Roma 12», non «12 Via Roma».
+    via: [strada, civico].filter(Boolean).join(' '),
+    cap: lungo('postal_code'),
+    citta:
+      lungo('locality') ||
+      lungo('postal_town') ||
+      lungo('administrative_area_level_3') ||
+      '',
+    provincia: breve('administrative_area_level_2'),
+    regione: lungo('administrative_area_level_1'),
+    paese: lungo('country'),
+  }
 }
 
 /**
@@ -215,34 +317,77 @@ export async function dettaglioMaps(
     const res = await fetch(`${DETTAGLIO_NUOVO}/${encodeURIComponent(id)}`, {
       headers: {
         'X-Goog-Api-Key': k,
-        'X-Goog-FieldMask':
-          'displayName,formattedAddress,nationalPhoneNumber,internationalPhoneNumber,websiteUri',
+        // ⚠️ La maschera dice a Google che cosa mandare **e quanto costa**: i
+        // campi si pagano a fasce, e telefono e sito ci mettevano già nella
+        // fascia più cara. I pezzi dell'indirizzo, i tipi e il link alla scheda
+        // stanno in fasce più basse — chiederli qui non cambia la fascia della
+        // chiamata, che resta **una sola** e solo per il luogo scelto.
+        'X-Goog-FieldMask': [
+          'id',
+          'displayName',
+          'formattedAddress',
+          'addressComponents',
+          'nationalPhoneNumber',
+          'internationalPhoneNumber',
+          'websiteUri',
+          'googleMapsUri',
+          'rating',
+          'userRatingCount',
+          'businessStatus',
+          'primaryType',
+          'types',
+        ].join(','),
       },
       signal: AbortSignal.timeout(12000),
       cache: 'no-store',
     })
     const d = (await res.json().catch(() => ({}))) as {
+      id?: string
       displayName?: { text?: string }
       formattedAddress?: string
+      addressComponents?: PezzoIndirizzo[]
       nationalPhoneNumber?: string
       internationalPhoneNumber?: string
       websiteUri?: string
+      googleMapsUri?: string
+      rating?: number
+      userRatingCount?: number
+      businessStatus?: string
+      primaryType?: string
+      types?: string[]
       error?: { message?: string }
     }
     if (d.error?.message) {
       if (apiNonAccesa(d.error.message)) return dettaglioVecchio(id, k)
       return { stato: 'errore', messaggio: d.error.message }
     }
+    const parti = pezziIndirizzo(d.addressComponents ?? [])
     return {
       stato: 'ok',
       luogo: {
+        ...dettaglioVuoto(),
+        // ⚠️ L'id lo si rimanda: chi ha chiesto il dettaglio deve poterlo
+        // riattaccare al luogo scelto senza tenerselo da parte.
+        id: d.id || id,
         nome: d.displayName?.text ?? '',
         indirizzo: d.formattedAddress ?? '',
-        citta: cittaDa(d.formattedAddress ?? ''),
+        ...parti,
+        // ⚠️ `cittaDa` resta come RIPIEGO, non come regola: se i pezzi non
+        // arrivano (chiave senza quel campo, luogo senza `locality`) è meglio
+        // la città letta dalla riga che nessuna città — senza città un
+        // fornitore nel registro non torna più indietro, perché la lista
+        // «fornitori in zona» filtra per provincia.
+        citta: parti.citta || cittaDa(d.formattedAddress ?? ''),
         // ⚠️ Si preferisce l'internazionale: un +39 si può chiamare e si può
         // scrivere su WhatsApp, un numero locale no.
         telefono: d.internationalPhoneNumber || d.nationalPhoneNumber || '',
         sito: d.websiteUri ?? '',
+        mappa: d.googleMapsUri ?? '',
+        voto: typeof d.rating === 'number' ? d.rating : null,
+        recensioni: d.userRatingCount ?? 0,
+        chiuso: d.businessStatus === 'CLOSED_PERMANENTLY',
+        // ⚠️ Il tipo principale davanti: è quello su cui Google si sbilancia.
+        tipi: [d.primaryType ?? '', ...(d.types ?? [])].filter(Boolean),
       },
     }
   } catch (e) {
@@ -258,7 +403,23 @@ async function dettaglioVecchio(
     place_id: id,
     key: k,
     language: 'it',
-    fields: 'name,formatted_address,formatted_phone_number,international_phone_number,website',
+    // ⚠️ Gli stessi dati dell'API nuova, coi nomi vecchi: qui l'elenco si
+    // sbilancia sul `address_component` (singolare, è così che si chiama nella
+    // vecchia) — un nome sbagliato non dà errore, semplicemente non arriva.
+    fields: [
+      'place_id',
+      'name',
+      'formatted_address',
+      'address_component',
+      'formatted_phone_number',
+      'international_phone_number',
+      'website',
+      'url',
+      'rating',
+      'user_ratings_total',
+      'business_status',
+      'type',
+    ].join(','),
   })
   try {
     const res = await fetch(`${DETTAGLIO_VECCHIO}?${p}`, {
@@ -269,24 +430,40 @@ async function dettaglioVecchio(
       status?: string
       error_message?: string
       result?: {
+        place_id?: string
         name?: string
         formatted_address?: string
+        address_components?: PezzoIndirizzo[]
         formatted_phone_number?: string
         international_phone_number?: string
         website?: string
+        url?: string
+        rating?: number
+        user_ratings_total?: number
+        business_status?: string
+        types?: string[]
       }
     }
     if (d.status !== 'OK' || !d.result) {
       return { stato: 'errore', messaggio: d.error_message || d.status || 'nessun dettaglio' }
     }
+    const parti = pezziIndirizzo(d.result.address_components ?? [])
     return {
       stato: 'ok',
       luogo: {
+        ...dettaglioVuoto(),
+        id: d.result.place_id || id,
         nome: d.result.name ?? '',
         indirizzo: d.result.formatted_address ?? '',
-        citta: cittaDa(d.result.formatted_address ?? ''),
+        ...parti,
+        citta: parti.citta || cittaDa(d.result.formatted_address ?? ''),
         telefono: d.result.international_phone_number || d.result.formatted_phone_number || '',
         sito: d.result.website ?? '',
+        mappa: d.result.url ?? '',
+        voto: typeof d.result.rating === 'number' ? d.result.rating : null,
+        recensioni: d.result.user_ratings_total ?? 0,
+        chiuso: d.result.business_status === 'CLOSED_PERMANENTLY',
+        tipi: d.result.types ?? [],
       },
     }
   } catch (e) {

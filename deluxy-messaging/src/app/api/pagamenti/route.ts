@@ -12,6 +12,7 @@ import {
   segnalaFornitorePagatoAlRegistro,
   type EsitoRegistroFornitore,
 } from '@/lib/registro-fornitori'
+import type { DettaglioMaps } from '@/lib/maps-fornitori'
 
 export const dynamic = 'force-dynamic'
 
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
      * sopra il fornitore e il costo: l'identità va conservata, non ricostruita.
      */
     ordineId?: string
-    /** iban · link · paypal · altro. Vedi src/lib/metodo-pagamento.ts. */
+    /** iban · link · paypal · carta · altro. Vedi src/lib/metodo-pagamento.ts. */
     metodo?: string
     riferimentoPagamento?: string
     // false = salva soltanto, senza mandarla a Partner
@@ -138,6 +139,16 @@ export async function POST(req: NextRequest) {
      * chi: una conferma che non dice cosa si sta confermando non è una conferma.
      */
     confermaDoppio?: boolean
+    /**
+     * LA SCHEDA DI GOOGLE MAPS del fornitore, quando è stato scelto da lì.
+     *
+     * ⚠️⚠️ Chiesto dall'utente il 27/08/2026. Non si scrive in nessuna tabella
+     * nostra: attraversa il salvataggio e va al registro delle anagrafiche, che
+     * è il proprietario di indirizzo, telefono, categoria e note (Standard
+     * Deluxy §7 — ogni dato ha una casa sola). Se il fornitore è uno dei
+     * nostri, questo campo non c'è e non cambia niente.
+     */
+    daMaps?: DettaglioMaps | null
   }
 
   // ⚠️⚠️ NON TUTTI I FORNITORI SI PAGANO CON UN BONIFICO. Chi manda un link,
@@ -390,7 +401,7 @@ export async function POST(req: NextRequest) {
   // due errori. L'esito si RESTITUISCE, così se non entra si vede.
   let registro: EsitoRegistroFornitore | null = null
   try {
-    registro = await segnalaFornitorePagatoAlRegistro(richiesta.id, false)
+    registro = await segnalaFornitorePagatoAlRegistro(richiesta.id, false, c.daMaps ?? null)
   } catch {
     registro = null
   }

@@ -1,5 +1,93 @@
 # Handoff — Deluxy Customer Service
 
+## 27/08/2026 (6) — Google Maps entra in anagrafica, e la carta da remoto
+
+Due richieste dell'utente: «devi importare **tutti** i dati da maps che servono
+per creare il contatto in anagrafiche», e «aggiungi come metodo di pagamento:
+**carta da remoto**».
+
+### 1. Da Google Maps al contatto in anagrafica
+
+⚠️⚠️ **Prima: di un fornitore trovato su Maps entrava nel registro IL NOME E
+BASTA.** La chiamata di dettaglio chiedeva a Google cinque campi e la schermata
+ne teneva **due** (telefono e città); indirizzo, CAP, provincia, regione, sito,
+voto e `place_id` si buttavano nel punto stesso in cui erano appena arrivati. E
+poi qualcuno riapriva Google sul telefono e li ricopiava a mano — cioè il lavoro
+che quella ricerca esisteva per togliere.
+
+**Adesso** la scheda arriva intera e viaggia dalla schermata al registro:
+
+- ⚠️ **L'indirizzo si prende A PEZZI** (`addressComponents`), non tagliando la
+  riga formattata. La riga è fatta per essere letta, cambia forma fra le due API
+  di Google (è il motivo per cui esiste `cittaDa`) e in Francia cambia del tutto;
+  i pezzi hanno un nome — `locality`, `postal_code`,
+  `administrative_area_level_2` — e quel nome vale in ogni paese. `cittaDa`
+  resta come **ripiego**, non come regola.
+- ⚠️ **La provincia si prende breve** («MI») e **solo se sono due lettere**: in
+  Francia `administrative_area_level_2` breve è «Alpes-Maritimes», e infilarla
+  in un campo che il registro tratta come sigla sporca i filtri. Senza sigla da
+  Google si ricade su `siglaProvincia`, che risponde solo quando è certa —
+  serve perché la lista «fornitori in zona» **filtra per provincia**.
+- ⚠️ **`bakery` NON diventa PASTICCERIA.** La tabella dei mestieri
+  (`src/lib/anagrafica-da-maps.ts`) è corta apposta: in Italia un `bakery` è
+  anche il panificio, e il merge del registro **protegge** una categoria già
+  scritta. Meglio `ALTRO`, che chiunque corregge, di «PASTICCERIA» addosso a un
+  fornaio. E il mestiere ricavato dal **nostro** ordine (`mestierePerNegozio`)
+  batte sempre i tipi di Google: quello è un fatto, questo è una descrizione.
+- ⚠️⚠️ **Il voto di Google resta di Google**: va nelle note, mai in `votoD2C`,
+  che nel registro è **il nostro** giudizio sulle consegne. Confonderli vuol
+  dire leggere «4,6» credendo di aver valutato noi un fornitore mai usato.
+- ⚠️ **Quello che Anagrafiche non ha dove mettere** — sito, CAP e `place_id` —
+  finisce nelle **note**, in chiaro e attribuito a Google. Il registro non ha
+  quei campi, e i `RiferimentoEsterno` sono agganciati al sistema che scrive:
+  metterci un `place_id` spacciandolo per un nostro id renderebbe
+  irrintracciabile la richiesta vera.
+- ⚠️⚠️ **Non si copia niente in casa nostra.** La scheda attraversa il
+  salvataggio come argomento e finisce nel registro, che è il proprietario di
+  indirizzo, telefono e categoria (Standard Deluxy §7). Nessuna colonna nuova.
+  **Conseguenza da sapere:** al richiamo dal «Pagata» quell'argomento non c'è
+  più, quindi se la scrittura del salvataggio è fallita (registro
+  irraggiungibile, match ambiguo) i dati di Maps non tornano da soli.
+
+**Due trappole schivate, tutte e due misurate sul codice dell'altra app:**
+
+⚠️⚠️ **La città NON si manda al match**, nemmeno adesso che la sappiamo. Il
+registro, nel match, la confronta come `citta: citta.toUpperCase()` — un uguale
+**sensibile alle maiuscole**, eredità dell'import Excel. Su un'anagrafica
+scritta «Milano» quel filtro non trova niente, il match risponde «nessuna» e noi
+creeremmo il doppione **proprio del fornitore che c'era**.
+
+⚠️ **La scheda si applica solo se parla di chi stiamo scrivendo.** Il nome che va
+al registro è quello dell'ORDINE quando c'è, non l'intestatario da cui è nata la
+scheda: normalmente sono la stessa azienda (la rotta blocca con un 409 chi chiede
+di pagare Caio su un ordine di Tizio), ma quel blocco ha un'eccezione — il
+**rimborso al cliente** — e lì si attaccherebbe l'indirizzo di un'azienda a
+un'altra.
+
+E la schermata **dice cosa entrerà**, elencando i campi che ci sono davvero: una
+scrittura su un'altra app che avviene in silenzio si scopre quando dà fastidio.
+
+### 2. «Carta da remoto»
+
+Il metodo nuovo: la **nostra** carta data al fornitore per telefono o digitata
+sul suo sito. Finché non c'era finiva in «Altro (scritto)», cioè una spesa fatta
+con la carta aziendale che negli elenchi non si distingueva da un accordo a voce.
+`metodo` è una colonna di testo: nessuna migrazione.
+
+⚠️⚠️ **E il numero della carta il salvataggio lo RIFIUTA** — per tutti i metodi,
+non solo per questo: `riferimentoPagamento` sta **in chiaro** in un Postgres
+condiviso con altre tredici app e viene ricopiato dentro l'avviso su
+WhatsApp/Telegram. Si riconosce per la **forma del valore** (13-19 cifre, anche
+spezzate, **e valide col controllo di Luhn**), non per il nome del campo. Luhn
+serve a non bloccare un IBAN incollato o un codice d'ordine lungo: sbagliare in
+quel verso fermerebbe il lavoro. Le ultime quattro cifre restano libere, ed è
+quello che il campo chiede di scrivere.
+
+**Verifica**: `tsc` 0, `build` 0, due suite nuove (**18/18** e **36/36**) e le
+altre rilette. ⚠️ Le tre che falliscono — `ai-fuori-turno` (21 ore di turni
+coperte su 168), `messaggi-ordine` (0 ordini in quello stato) — falliscono **sui
+dati**, non sul codice, ed erano già così.
+
 ## 27/08/2026 (5) — chiusi tutti i punti rimasti aperti
 
 Chiesto dall'utente: «sistema tutto» — cioè i tre punti di layout lasciati in
