@@ -143,6 +143,30 @@ export class DeliveriesService {
     private readonly notifications: NotificationsService,
   ) {}
 
+  /**
+   * Le consegne VIVE: quelle non cancellate logicamente.
+   *
+   * ⚠️ Va messa negli ELENCHI (lista, calendario, mappa), non dentro
+   * `roleFilter`: quella la usa anche `findOne`, e infilandola lì la scheda di
+   * una consegna cancellata darebbe 404 — nessun admin potrebbe più aprirla per
+   * capire che cos'era o ripararla.
+   *
+   * Perché serve: 431 consegne importate dal legacy hanno `deletedAt`
+   * valorizzato e sono TUTTE in stato `created`, che non è fra gli stati
+   * chiusi. Finivano quindi nella vista «Attive» — il contatore delle cose da
+   * fare diceva 2.122 invece di 1.691, gonfio del 20% — e nel conteggio del
+   * calendario. Nel resto dell'API il filtro c'è dappertutto (Finanza,
+   * Fatturazione, Stipendi, orders-sync, tracking pubblico): erano questi tre
+   * elenchi gli unici a dimenticarselo, e lo `@@index([deletedAt, date])` dello
+   * schema — creato apposta per «la lettura di sempre: le consegne vive» —
+   * restava ornamentale, perché nessuna query lo usava davvero.
+   *
+   * ⚠️ NON si è messo un filtro globale sul client Prisma: `finance.module.ts`
+   * interroga anche in SQL raw, che un'estensione non tocca — sarebbe stata la
+   * garanzia falsa di «un posto solo».
+   */
+  private static readonly VIVE = { deletedAt: null } as const;
+
   /** Filtro di visibilita' in base al ruolo. */
   private roleFilter(user: JwtUser) {
     if (user.role === Role.PARTNER) return { partnerId: user.partnerId ?? '-' };
@@ -226,7 +250,7 @@ export class DeliveriesService {
     user: JwtUser,
     query: DeliveryListQueryDto,
   ): Promise<PagedResult<unknown>> {
-    const scope: any = { ...this.roleFilter(user) };
+    const scope: any = { ...DeliveriesService.VIVE, ...this.roleFilter(user) };
     if (query.status) scope.status = query.status;
     // Vista Attive / Storico. Uno stato esplicito VINCE sulla vista: se si
     // chiede "consegnate" si vogliono quelle, in qualunque tab ci si trovi.
@@ -295,7 +319,7 @@ export class DeliveriesService {
    * mensile: ogni giorno con ordini viene marcato.
    */
   async calendar(user: JwtUser, from?: string, to?: string, partnerId?: string, valetId?: string) {
-    const scope: any = { ...this.roleFilter(user) };
+    const scope: any = { ...DeliveriesService.VIVE, ...this.roleFilter(user) };
     // Admin/Operation possono filtrare per partner o valet (partner/valet restano ai propri).
     if (partnerId && user.role !== Role.PARTNER) scope.partnerId = partnerId;
     if (valetId && user.role !== Role.VALET) scope.valetId = valetId;
@@ -326,7 +350,7 @@ export class DeliveriesService {
    * Riservato ad Admin/Operation (gate nel controller).
    */
   async mapPoints(user: JwtUser, query: DeliveryListQueryDto) {
-    const scope: any = { ...this.roleFilter(user) };
+    const scope: any = { ...DeliveriesService.VIVE, ...this.roleFilter(user) };
     if (query.status) scope.status = query.status;
     // Vista Attive / Storico. Uno stato esplicito VINCE sulla vista: se si
     // chiede "consegnate" si vogliono quelle, in qualunque tab ci si trovi.

@@ -1153,8 +1153,16 @@ model Delivery {
   parentDelivery     Delivery?         @relation("DeliveryPadre", fields: [parentDeliveryId], references: [id])
   childDeliveries    Delivery[]        @relation("DeliveryPadre")
 
-  /// Soft delete del legacy: 524 consegne. Sta in un campo suo per non
-  /// sovrascrivere lo stato reale della consegna.
+  /// Soft delete del legacy: **431 consegne** (contate in banca il 26/08/2026;
+  /// qui c'era scritto 524, numero mai verificato). Sta in un campo suo per non
+  /// sovrascrivere lo stato reale della consegna — e infatti sono tutte in
+  /// stato `created`, che non e' uno stato chiuso: gli elenchi che si
+  /// dimenticano di filtrarle se le ritrovano fra le cose «da fare».
+  ///
+  /// ⚠️ L'app nuova NON scrive piu' qui: `DeliveriesService.remove()` cancella
+  /// davvero (`prisma.delivery.delete`). Quindi l'insieme e' congelato a 431 e
+  /// non cresce. Resta pero' una contraddizione da decidere: un modello con il
+  /// soft delete in schema e una `remove()` che fa hard delete.
   deletedAt          DateTime?
 
   products           DeliveryProduct[]
