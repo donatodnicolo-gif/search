@@ -23,6 +23,77 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 26/08 (notte 2) — ESAME UX/UI: desktop, mobile e un ostile che li giudica
+
+Chiesto dall'utente: un agente che esamina il layout desktop, uno che esamina il mobile,
+e un **ostile** che valuta i due esami. 20 rilievi, giudicati uno per uno.
+⚠️ Esame del **codice**, non a schermo: il pannello del browser è uno solo e lo tenevo io.
+Le cose non decidibili dal codice sono marcate come tali, in fondo.
+
+🔴 **IL PIÙ GRAVE NON L’HA TROVATO NESSUNO DEI DUE, MA L’OSTILE MENTRE VERIFICAVA:**
+**la distruzione è in blocco, il recupero è uno alla volta.**
+`ListaPosta.tsx:230` carica **800** messaggi; `ListaMail.tsx:95` ne mostra 50, ma
+`selezionaTutte` (`:161`) seleziona **tutte le righe caricate**, non le 50 a schermo, e
+«Cestina» (`:238`) chiama `azioneMassa` **senza nessuna conferma**, sugli id già espansi a
+tutti i messaggi di tutti i thread. Una spunta e un bottone da 80px mandano nel cestino
+fino a **800 messaggi**. Il ritorno non è simmetrico: `cestino/page.tsx` ha `take: 200`,
+**nessuna selezione multipla e nessun ripristino in blocco** — si recupera un messaggio
+alla volta, e oltre i 200 più recenti la pagina non li mostra nemmeno.
+⭐ E l’ironia che lo inquadra: `CestinaThread` chiede conferma **per tre mail**, mentre
+quella barra ne butta ottocento in silenzio. Correzione: una conferma sopra una soglia
+(es. 20 righe), riusando lo schema a due passi che `CestinaThread.tsx:34-45` ha già.
+
+**I confermati che valgono la spesa** (in ordine di rapporto danno/costo):
+1. **«Archivia» sul telefono non dà segno di aver funzionato** — e nasconde fuori schermo
+   la domanda «Sempre da questo mittente?», che crea una **regola permanente**. Il blocco
+   è figlio della barra fissa `nowrap` (`AzioniMessaggio.tsx:287-319`); per giunta
+   `archiviaThreadSenzaAggiornare` non ha `revalidatePath` e il clic non chiama né
+   `router.refresh()` né `mostraFlash`: tocchi, il bottone sparisce, e basta.
+2. **Lo zoom di iOS**: la regola anti-zoom (`input, select, textarea { font-size: 16px }`)
+   è un selettore di ELEMENTO e le media query non aggiungono specificità: la battono
+   cinque classi (ricerca posta 14px, filtri 13px, dialogo APP 13.5px, «Sposta in…»
+   12.5px, selettore casella 13px). La pagina si ingrandisce e non torna indietro.
+3. **Il «Cestina» che mente**: `smaltisciEProssimo` e `cestinaThread` fanno la STESSA cosa
+   (verificato riga per riga), ma il tooltip della barra dice «**la mail** resta sul
+   server» al singolare mentre su un thread da 8 ne cestina 8, e non mostra nessun esito.
+   ⚠️ **Non aggiungere una conferma**: romperebbe la scorciatoia `Canc`. Si corregge il
+   testo col numero vero e si mette il `mostraFlash` che l’altro bottone ha già.
+4. **Zero `loading.tsx` e zero `error.tsx`** in tutto l’App Router, con 25 pagine
+   `force-dynamic`: si clicca nel menu e non succede niente finché il server non ha
+   finito; e un’eccezione porta alla pagina di errore di Next, senza sidebar né uscita.
+5. `CampoDestinatari` senza `inputMode="email"`: su iOS tastiera senza `@`, maiuscola
+   automatica e correttore su un indirizzo. ⚠️ **Non** si può mettere `type="email"`: il
+   campo tiene una lista separata da virgole, che la validazione rifiuterebbe.
+6. Una manciata da una riga: la griglia `70% 30%` → `70fr 30fr`; `.pannello` da `100vh` a
+   `100dvh` (i suoi due bottoni stanno sotto la barra di Safari); l’hover che perde
+   sulle righe non lette (stessa specificità, e viene prima).
+
+⚠️⚠️ **Quello che l’ostile ha SMONTATO, e conta quanto il resto:**
+- **I due esaminatori si contraddicevano** sulla griglia `70% + 30% + 24px`: uno diceva
+  «barra di scorrimento orizzontale», l’altro «assorbita dal padding». Ha ragione il
+  secondo: 24px di traboccatura contro 44px di padding, e sotto i 1100px la griglia non è
+  nemmeno più a due colonne. Resta solo l’asimmetria del bordo (20 contro 44).
+- **«Venti stili di bottone contro quattro»: falso.** `.btn` ha tre varianti più una
+  taglia ed è conforme al design system; chiamare «stile di bottone» una tab o un chip è
+  un errore di categoria. Sopravvive un solo pezzo, e quello è vero: `.azione-riga` veste
+  **Cestina** e **Spam** da nota a piè di pagina (12px, grigio, sottolineato).
+- **`position: sticky` sulla barra di selezione NON farebbe niente**: `.card.tight` ha
+  `overflow: hidden`, che diventa il contenitore di scorrimento. Aggiungerlo e dichiarare
+  fatto sarebbe una toppa che non tocca palla ([[trappola-overflow-che-taglia-i-popup]]).
+- **`dvh` non risolve la tastiera** su iOS: insegue le barre del browser, non la tastiera.
+  Sostituirlo darebbe l’illusione di aver risolto.
+- **Il rimedio alla densità della riga (mostrare le azioni solo su hover) va rifiutato**:
+  su iPad e telefono l’hover non esiste, e lì stanno gli unici Archivia/Cestina/Spam di
+  riga. La cura sarebbe un interruttore compatto/comodo, non l’hover.
+- **`.riga-azioni` che va a capo non è un guasto**: è scritto nel commento che deve farlo.
+
+⚠️ **Da guardare a schermo** prima di toccare: quante mail entrano davvero in una
+schermata (desktop e 390px), la sovrapposizione delle due barre appiccicate, il dialogo
+APP con la tastiera aperta, la barra azioni dentro la **PWA installata**, e la fascia
+**701-900px** (iPad in verticale), dove esce un ibrido — navigazione da telefono e mail
+aperta da desktop — che nessuna soglia ha mai guardato apposta.
+
+---
 ### 26/08 (notte) — CACCIA AI DIFETTI: 30 candidati, 20 confermati, 10 caduti
 
 Chiesto dall'utente: «correggi tutti gli errori di codice dell'app; prima di dire che è
