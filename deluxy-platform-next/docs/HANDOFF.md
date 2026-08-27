@@ -57,9 +57,91 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 26 agosto 2026, sera (verifica live di sola lettura; il corpo più recente è la commissione d'incasso di Orders). ⚠️ Le sezioni intestate «27/08» descrivono lavoro del 26/08: per l'ordine vero guardare `git log`, non le intestazioni.
+**Ultimo aggiornamento:** 27 agosto 2026 (compila con l'AI nel form consegna; i suggerimenti Google che non uscivano nei ricorrenti; tre collegamenti ancora spenti nelle impostazioni). ⚠️ Le sezioni intestate «27/08» del corpo più vecchio descrivono lavoro del 26/08: per l'ordine vero guardare `git log`, non le intestazioni.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### ✨ 27/08/2026 — La consegna si detta, si incolla o si fotografa; e i suggerimenti mancanti nei ricorrenti
+
+**① COMPILA CON L'AI, nel form della consegna NUOVA.** Chiesto dall'utente:
+caricare una consegna digitando un testo veloce da mobile, anche con un
+messaggio vocale o una immagine, e poi *proporre* il modulo compilato.
+`POST /api/v1/ai/consegna-da-testo` (Admin, Operation, Partner), modello
+`claude-opus-5` con uscita a schema.
+
+⭐ **La regola della rotta: PROPONE, NON CREA.** Non scrive niente in banca
+dati. La consegna nasce quando una persona preme Salva. Qui passano indirizzi,
+nomi e orari di clienti veri: un modello che sbaglia una cifra dell'ora deve
+poter essere corretto **prima** che diventi un giro del valet.
+
+⚠️ **La voce la trascrive il BROWSER** (Web Speech API), non l'AI: Claude non
+ascolta l'audio. Dove il riconoscimento non c'è (Firefox, iOS datati) il
+bottone 🎤 **non compare**, invece di comparire e non fare niente. Le
+**immagini** le legge davvero, fino a 4 MB.
+
+Ogni proposta si **dichiara**: confidenza a colori, una frase su che cosa ha
+capito, l'elenco dei campi **non trovati**. Quattro trappole chiuse mentre si
+scriveva: un `null` **non azzera** quello che c'è già nel modulo; con due orari
+la fascia si **apre** (il secondo campo altrimenti è invisibile); l'indirizzo di
+ritiro e il prodotto, che non hanno un campo proprio, **finiscono nelle note**
+invece che nel cestino; e `/settings/public` espone `aiAttiva` — **il booleano,
+mai la chiave** — così il pannello non compare se la chiave manca.
+
+Sullo schema: **`anyOf`, non `type: ['string','null']`**. Il sottoinsieme di
+JSON Schema accettato dalle uscite strutturate documenta `anyOf` e i tipi base,
+non l'unione scritta come elenco di tipi: con la forma non documentata il
+rischio non è un campo sbagliato, è un **400 al primo uso vero**. Trattati anche
+`stop_reason` `refusal` e `max_tokens`, che sono risposte valide che **non**
+rispettano lo schema.
+
+✅ **Misurato** (api locale sul DB vero, `scripts/prova-ai-consegna.mjs`, token
+firmato su un admin vero senza passare da nessuna password): senza token **401**
+· corpo vuoto **400** «Serve un testo o un'immagine» · `tipoImmagine`
+`application/pdf` **400** · testo vero **503** «La chiave dell'AI non è
+impostata: si incolla in Impostazioni → aiApiKey» · come **VALET 403** (la
+rotta costa denaro a ogni chiamata) · `/settings/public` → `aiAttiva: false`.
+
+🔴 **NON MISURATA la chiamata vera ad Anthropic**: `aiApiKey` è **vuota** in
+produzione (0 caratteri al 27/08 09:36). Finché non si incolla una chiave la
+rotta risponde 503 e il pannello non si mostra. È l'unico passo che manca.
+
+**② I SUGGERIMENTI DI GOOGLE NON USCIVANO NEI RICORRENTI.** Segnalato
+dall'utente dopo aver configurato le chiavi: su *Nuova consegna* uscivano, su
+*Consegne ricorrenti* no.
+
+⚠️ Il difetto **non era nella chiave**. I due campi indirizzo dei ricorrenti
+vivono dentro un `@if`: al primo `ngAfterViewInit` **non esistono**, e
+l'aggancio si faceva solo lì. Il commento diceva «si aggancia all'apertura del
+form» ma **nessuno richiamava** `agganciaIndirizzi()`: il ciclo non trovava
+nessun campo e non ripassava più. Sul form consegna il campo c'è sempre, quindi
+lì funzionava — **la differenza fra le due pagine era tutta qui**. Adesso
+l'aggancio scatta dal **setter del `ViewChild`**, cioè esattamente quando il
+campo compare, senza timer da indovinare; la corsa col caricamento di Google è
+coperta dai due versi. Controllate le altre pagine che usano Places: l'elenco
+province aggancia davvero all'apertura, i preventivi non hanno campi indirizzo.
+
+✅ Verificato **dal bundle in produzione** (la data non dimostra il contenuto):
+`chunk-LJNWDZBB.js` scaricato da `deluxy-delivery.vercel.app` contiene
+`impostaDest` e `impostaRitiro`.
+
+**③ TRE COLLEGAMENTI SPENTI, visti leggendo le impostazioni** (solo lunghezze,
+mai valori). Al 27/08 09:36 restano a **0 caratteri**:
+
+| chiave | conseguenza |
+|---|---|
+| `aiApiKey` | «Compila con l'AI» non si mostra |
+| `anagraficheUrl` | la chiave c'è (53) ma **manca l'indirizzo**: registro Anagrafiche irraggiungibile |
+| `lineeApiKey` | `quotes.module.ts:98` è `if (!url \|\| !chiave) return riserva(...)`: i preventivi mostrano **sempre** l'elenco di riserva, e la correzione `soloVetrina=1` non gira mai ⚠️ *a meno che* `LINEE_API_KEY` non sia una env su Vercel, che non posso leggere |
+| `whatsappNumero` | il bottone «Scrivici» dei partner resta senza numero |
+
+Le due chiavi Maps (`googleMapsApiKey`, `googleMapsBrowserKey`) sono state
+messe dall'utente il 27/08 alle 09:36 (39 caratteri ciascuna): prima erano
+**vuote**, ed è per questo che l'app diceva «Maps non configurato» — un avviso
+nuovo su un problema vecchio, che prima l'app si teneva per sé.
+
+Commit `851cc021`, `c8dd55e4`, `4a402273`, `e0d1fd16`; deploy
+`delivery-aro1j8xaa` e `delivery-73ehd6zw3`.
+
 
 ### 💸 26/08/2026 (notte) — IL COSTO DELLE CONSEGNE ESCE DA QUI, e va nel conto economico
 
