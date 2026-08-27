@@ -773,6 +773,43 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    fa FINANCE per `statoAnalisi`) o se resta compilato a mano; (c) travaso una-tantum dei valet
    esistenti, che oggi la tabella è **vuota**.
 
+3c. **🔴 Un'insegna che fattura con PIÙ SOCIETÀ oggi si sovrascrive da sola**
+   (trovato misurando il 27/08/2026, **decisione aperta**).
+   I dati fiscali stanno **sul record-sede**, e dopo ogni scrittura
+   `propagaDatiFinanziari` (`src/lib/insegna.ts`) li **ricopia su tutte le sedi
+   della stessa insegna** — da ogni strada: POST, PATCH, UI, raggruppamento, unione.
+   Il commento dichiara l'assunzione: «i dati finanziari appartengono alla SOCIETÀ
+   (stessa P.IVA), non alla singola sede». ⚠️ Vale finché **un'insegna = una società**.
+   Con due società di fatturazione la propagazione non le distingue: prende «il primo
+   valore compilato, la sede più vecchia vince» e lo scrive sulle altre. Non è un dato
+   mancante, è un dato **giusto sostituito con uno sbagliato** — e uno dei campi è
+   l'**IBAN**, cioè il conto verso cui esce un bonifico.
+   **Misura (27/08/2026, 1.096 anagrafiche vive)**: 47 con P.IVA, 25 con IBAN, 33 con
+   ragione sociale. 88 insegne hanno più di un record; **3 hanno già una P.IVA**
+   (Dr. Vranjes, Bonpoint, Brioni) e **nessuna è ancora in conflitto**. Intanto
+   `gruppoPagamento` è usato **0 volte**, `sede` **0**, `tipoLuogo` **4**: lo strato
+   fiscale è quasi vuoto, quindi **cambiargli forma oggi costa poco**.
+   ⚠️ **E dall'altra parte manca il campo**: in FINANCE (`deluxy-partner`) il modello
+   `Partner` **non ha P.IVA né codice fiscale** — l'unica P.IVA di quell'app sta su
+   `TemplateDocumento`, che è **chi emette** (i brand Deluxy), non chi riceve; e
+   `Partner.nome` è `@unique`. Il pezzo giusto però c'è già: `AnagraficaCollegata`
+   lega **un** partner FINANCE a **N** anagrafiche del registro — è esattamente «una
+   società che fattura per più sedi», ma **esiste in una direzione sola** e il registro
+   non la conosce.
+   **Proposta**: separare il **luogo** (sede/negozio: dove si consegna, chi si visita)
+   dal **soggetto fiscale** (chi fattura e chi si paga), N sedi → 1 soggetto. Un modello
+   `SoggettoFiscale` nel registro (ragione sociale, P.IVA, CF, PEC, SDI, IBAN,
+   intestatario, condizioni) e `Partner.soggettoFiscaleId`; il blocco `datiFinanziari`
+   delle API diventa una **lettura** del soggetto e `propagaDatiFinanziari` **si
+   cancella** invece di essere corretta. Scout **non cambia**: le sue `places` sono
+   luoghi (lat/lng, `google_place_id`), campi fiscali non ne ha.
+   ⚠️ Da fare **prima che lo strato fiscale si riempia**: dopo, ogni riga in più è una
+   migrazione. Vale la regola di `trappola-correzione-non-retroattiva`: correggere il
+   codice non basta, va corretto anche ciò che ha già scritto.
+   **Decisione aperta**: è il disegno giusto? E il punto 8 qui sotto (`gruppoPagamento`
+   in due posti) si chiude dentro questo giro, perché «chi paga per tutti» è una
+   proprietà del **soggetto**, non della sede.
+
 ### B. Scelte da prendere (il codice viene dopo)
 
 3bis. **CONSUMERS — sezione COSTRUITA il 01/08/2026 (lo studio che l'ha generata è qui sotto).**
