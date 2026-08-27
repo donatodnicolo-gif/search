@@ -15,7 +15,7 @@
  */
 
 import { leggiSerie } from "@/lib/archivio";
-import { Avviso, Badge, Metrica } from "@/componenti/pezzi";
+import { Avviso, Badge, Metrica, Vuoto } from "@/componenti/pezzi";
 import { dataBreve, numero, percentuale, prezzo, prezzoUnitario, punti, verso } from "@/lib/formato";
 import { REGOLE, calcolaIngresso, calcolaLivelli, screening, type RegolaIngresso } from "@/lib/tips";
 import { tuttiIMandati } from "@/lib/vista";
@@ -110,19 +110,25 @@ export default async function Tips({ searchParams }: { searchParams: Promise<Ric
         ) : null}
 
         {inRadar.length === 0 ? (
-          <div className="vuoto">Nessun caso con copertura sufficiente dei criteri.</div>
+          <Vuoto titolo="Nessun caso in radar">
+            Nessun caso ha almeno la metà dei criteri accertabile: sotto quella soglia il
+            punteggio non viene mostrato, perché un&apos;affinità calcolata su pochi dati
+            sembrerebbe identica a una calcolata su tutti. I casi entrano qui quando le fonti
+            coprono abbastanza criteri.
+          </Vuoto>
         ) : (
           <div className="tabella-scroll">
-            <table className="tabella">
+            {/* era `className="tabella"`, classe inesistente: tabella senza stile (28/08/2026) */}
+            <table className="tab">
               <thead>
                 <tr>
                   <th>Azienda</th>
                   <th>Chi guida</th>
                   <th>Dall&apos;annuncio</th>
-                  <th style={{ textAlign: "right" }}>Affinità</th>
-                  <th style={{ textAlign: "right" }}>Mandato vs indice</th>
-                  <th style={{ textAlign: "right" }}>Prezzo</th>
-                  <th style={{ textAlign: "right" }}>Dal massimo 52s</th>
+                  <th className="num">Affinità</th>
+                  <th className="num">Mandato vs indice</th>
+                  <th className="num">Prezzo</th>
+                  <th className="num">Dal massimo 52s</th>
                   <th></th>
                 </tr>
               </thead>
@@ -151,28 +157,20 @@ export default async function Tips({ searchParams }: { searchParams: Promise<Ric
                         {numero(c.mesiDallEvento, 0)} mesi fa
                       </div>
                     </td>
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
+                    <td className="num" style={{ fontWeight: 600 }}>
                       {numero(c.affinita, 0)}
                       <div style={{ fontSize: 11.5, color: "var(--text-tertiary)", fontWeight: 400 }}>
                         su {Math.round(c.copertura * 100)}% dei criteri
                       </div>
                     </td>
-                    <td
-                      style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
-                      className={verso(c.mandato?.eccesso ?? null)}
-                    >
+                    <td className={`num ${verso(c.mandato?.eccesso ?? null)}`}>
                       {c.mandato?.eccesso != null ? punti(c.mandato.eccesso) : <span className="neutro">—</span>}
                     </td>
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                      {prezzoUnitario(c.livelli.prezzo, c.livelli.valuta)}
-                    </td>
-                    <td
-                      style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
-                      className={verso(c.livelli.daMassimo)}
-                    >
+                    <td className="num">{prezzoUnitario(c.livelli.prezzo, c.livelli.valuta)}</td>
+                    <td className={`num ${verso(c.livelli.daMassimo)}`}>
                       {percentuale(c.livelli.daMassimo)}
                     </td>
-                    <td style={{ textAlign: "right" }}>
+                    <td className="num">
                       <a className="chip" href={`/tips?titolo=${encodeURIComponent(c.simbolo)}#calcolatore`}>
                         Livelli
                       </a>
@@ -207,15 +205,16 @@ export default async function Tips({ searchParams }: { searchParams: Promise<Ric
           </p>
 
           <div className="tabella-scroll">
-            <table className="tabella">
+            {/* era `className="tabella"`, classe inesistente: tabella senza stile (28/08/2026) */}
+            <table className="tab">
               <thead>
                 <tr>
                   <th>Azienda</th>
                   <th>Chi arriva</th>
                   <th>Annuncio</th>
                   <th>In carica dal</th>
-                  <th style={{ textAlign: "right" }}>Prezzo</th>
-                  <th style={{ textAlign: "right" }}>Dal massimo 52s</th>
+                  <th className="num">Prezzo</th>
+                  <th className="num">Dal massimo 52s</th>
                   <th></th>
                 </tr>
               </thead>
@@ -242,16 +241,11 @@ export default async function Tips({ searchParams }: { searchParams: Promise<Ric
                     <td style={{ whiteSpace: "nowrap", fontWeight: 550 }}>
                       {dataBreve(c.evento.dataEfficacia)}
                     </td>
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                      {prezzoUnitario(c.livelli.prezzo, c.livelli.valuta)}
-                    </td>
-                    <td
-                      style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
-                      className={verso(c.livelli.daMassimo)}
-                    >
+                    <td className="num">{prezzoUnitario(c.livelli.prezzo, c.livelli.valuta)}</td>
+                    <td className={`num ${verso(c.livelli.daMassimo)}`}>
                       {percentuale(c.livelli.daMassimo)}
                     </td>
-                    <td style={{ textAlign: "right" }}>
+                    <td className="num">
                       <a className="chip" href={`/tips?titolo=${encodeURIComponent(c.simbolo)}#calcolatore`}>
                         Livelli
                       </a>
@@ -293,7 +287,8 @@ export default async function Tips({ searchParams }: { searchParams: Promise<Ric
             </p>
 
             <div className="tabella-scroll">
-              <table className="tabella">
+              {/* era `className="tabella"`, classe inesistente: tabella senza stile (28/08/2026) */}
+              <table className="tab">
                 <tbody>
                   {c.criteri.map((cr) => (
                     <tr key={cr.nome}>
@@ -304,7 +299,7 @@ export default async function Tips({ searchParams }: { searchParams: Promise<Ric
                         <div style={{ fontWeight: 500 }}>{cr.nome}</div>
                         <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{cr.spiegazione}</div>
                       </td>
-                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                      <td className="num" style={{ whiteSpace: "nowrap" }}>
                         {cr.soddisfatto === null ? (
                           <span className="neutro">escluso</span>
                         ) : (

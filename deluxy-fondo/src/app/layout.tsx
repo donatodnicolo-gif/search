@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { NavPrincipale } from "@/componenti/NavPrincipale";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,13 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="brand-sub">Cambio di management come segnale</div>
             </div>
           </a>
-          <nav className="topbar-nav">
-            {VOCI.map((v) => (
-              <a key={v.href} className="topbar-link" href={v.href}>
-                {v.testo}
-              </a>
-            ))}
-          </nav>
+          <NavPrincipale voci={VOCI} />
         </header>
         {children}
         <footer className="wrap legale" style={{ paddingTop: 0 }}>

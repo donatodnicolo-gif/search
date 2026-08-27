@@ -13,7 +13,7 @@
 import { costruisciPortafoglio } from "@/lib/portafoglio";
 import { leggiSerie } from "@/lib/archivio";
 import { TITOLI_TUTTI } from "@/lib/universo";
-import { Avviso, Badge, Metrica } from "@/componenti/pezzi";
+import { Avviso, Badge, Metrica, Vuoto } from "@/componenti/pezzi";
 import { dataBreve, numero, percentuale, prezzo, prezzoUnitario, punti, verso } from "@/lib/formato";
 
 export const dynamic = "force-dynamic";
@@ -206,7 +206,11 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
         </p>
 
         {v.posizioni.length === 0 ? (
-          <div className="vuoto">Nessuna posizione registrata.</div>
+          <Vuoto titolo="Nessuna posizione registrata">
+            Qui compaiono le posizioni decise davvero, rivalutate a ogni aggiornamento e
+            confrontate con l&apos;indice dalla data di acquisto. Quando una posizione viene
+            registrata nei dati dell&apos;app, la tabella si popola da sola al giro successivo.
+          </Vuoto>
         ) : (
           <div className="tabella-scroll">
             <table className="tab" style={{ minWidth: 980 }}>
@@ -270,7 +274,7 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                         <td className={`num ${verso(p.eccesso)}`} style={{ fontWeight: 600 }}>
                           {p.eccesso === null && !p.posizione.dataAcquisto ? (
                             <>
-                              <span className="badge oro">manca la data</span>
+                              <Badge testo="manca la data" colore="var(--gold)" />
                               <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 4 }}>
                                 senza data di acquisto non c&apos;è periodo da confrontare
                               </div>
@@ -287,7 +291,9 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                       </>
                     ) : (
                       <td colSpan={6}>
-                        <div className="badge oro">da completare</div>
+                        <div>
+                          <Badge testo="da completare" colore="var(--gold)" />
+                        </div>
                         <div style={{ fontSize: 12.5, color: "var(--text-secondary)", marginTop: 5, maxWidth: "70ch" }}>
                           {p.problema}
                         </div>

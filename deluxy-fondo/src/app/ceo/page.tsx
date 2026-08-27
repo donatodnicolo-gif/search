@@ -12,7 +12,7 @@
  */
 
 import { profiliCeo, riepilogo } from "@/lib/ceo";
-import { Avviso, Badge, Metrica } from "@/componenti/pezzi";
+import { Avviso, Badge, Metrica, Vuoto } from "@/componenti/pezzi";
 import { dataBreve, numero, percentuale, prezzo, punti, verso } from "@/lib/formato";
 
 export const dynamic = "force-dynamic";
@@ -120,7 +120,13 @@ export default async function Ceo({ searchParams }: { searchParams: Promise<Rice
         </div>
 
         {profili.length === 0 ? (
-          <div className="vuoto">Nessuna persona corrisponde a questo filtro.</div>
+          <Vuoto
+            titolo="Nessuna persona con questo filtro"
+            azione={{ href: "/ceo", testo: "Mostra tutte le persone" }}
+          >
+            Il filtro scelto non corrisponde ad alcun profilo dell&apos;universo monitorato.
+            Togli il filtro per tornare all&apos;elenco completo.
+          </Vuoto>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
             {profili.map((p) => (

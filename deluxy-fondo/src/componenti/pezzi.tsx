@@ -33,12 +33,74 @@ export function MetricaPercentuale({ nome, valore, nota }: { nome: string; valor
   return <Metrica nome={nome} valore={percentuale(valore)} nota={nota} colore={verso(valore)} />;
 }
 
+/**
+ * Formula del badge (Libro UX&UI cap.5): pillola + dot `currentColor` + tinta `-soft`
+ * di sfondo + testo semantico pieno. Prima lo sfondo era sempre neutro e solo il dot
+ * era colorato — «le due metà sbagliate della stessa regola» (28/08/2026).
+ * L'oro usa gold-strong come testo: il gold pieno sul -soft non regge il contrasto.
+ */
+const TINTA_BADGE: Record<string, { sfondo: string; testo: string }> = {
+  "var(--green)": { sfondo: "var(--green-soft)", testo: "var(--green)" },
+  "var(--red)": { sfondo: "var(--red-soft)", testo: "var(--red)" },
+  "var(--orange)": { sfondo: "var(--orange-soft)", testo: "var(--orange)" },
+  "var(--blue)": { sfondo: "var(--blue-soft)", testo: "var(--blue)" },
+  "var(--purple)": { sfondo: "var(--purple-soft)", testo: "var(--purple)" },
+  "var(--gold)": { sfondo: "var(--gold-soft)", testo: "var(--gold-strong)" },
+};
+
 export function Badge({ testo, colore, forte }: { testo: string; colore?: string; forte?: boolean }) {
+  const tinta = colore ? TINTA_BADGE[colore] : undefined;
   return (
-    <span className={`badge ${forte ? "forte" : ""}`}>
-      {colore ? <span className="dot" style={{ background: colore }} /> : null}
+    <span
+      className={`badge ${forte ? "forte" : ""}`}
+      style={tinta ? { background: tinta.sfondo, color: tinta.testo } : undefined}
+    >
+      {/* senza tinta (colore fuori mappa, es. text-tertiary) il dot prende il colore richiesto */}
+      {colore ? <span className="dot" style={tinta ? undefined : { background: colore }} /> : null}
       {testo}
     </span>
+  );
+}
+
+/**
+ * Stato vuoto canonico (Libro cap.6): card con icona in quadratino gold-soft 44px,
+ * titolo e frase che spiega; l'azione (facoltativa) è un collegamento, coerente con
+ * un'app senza JavaScript client.
+ */
+export function Vuoto({
+  titolo,
+  children,
+  azione,
+}: {
+  titolo: string;
+  children?: React.ReactNode;
+  azione?: { href: string; testo: string };
+}) {
+  return (
+    <div className="card vuoto">
+      <div className="vuoto-icona" aria-hidden>
+        <svg
+          width="19"
+          height="19"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.6-3.6" />
+        </svg>
+      </div>
+      <div className="vuoto-titolo">{titolo}</div>
+      {children ? <p className="vuoto-testo">{children}</p> : null}
+      {azione ? (
+        <a className="btn ghost" href={azione.href}>
+          {azione.testo}
+        </a>
+      ) : null}
+    </div>
   );
 }
 
@@ -78,7 +140,7 @@ export function BarraPunteggio({ punteggio }: { punteggio: Punteggio | null }) {
   if (punteggio.valore === null) {
     return (
       <div>
-        <div className="badge oro">da valutare</div>
+        <Badge testo="da valutare" colore="var(--gold)" />
         <div className="metrica-nota" style={{ marginTop: 5 }}>
           {punteggio.esito}
         </div>

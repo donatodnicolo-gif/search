@@ -128,6 +128,22 @@ L'interfaccia di questa app ha un **custode**: l'agente `architetto-ux` (definit
 - Il custode valuta ogni segnalazione e decide: correzione locale, regola nuova del Libro (che vale **anche per le altre app**), o deroga motivata.
 - Le deroghe concesse a questa app vanno annotate qui sotto, con motivo e data.
 
+### Deroghe UX annotate (28/08/2026)
+
+- **Celle vuote a parole, non a trattino** (Libro UX&UI cap.8, tripletta «—» / «non
+  disponibile» / `cella-manca`): Fondo scrive **testo esplicito** — «non disponibile»,
+  «non calcolato», «non indicato», «da valutare» — anche dove altre app userebbero il
+  trattino. È la deroga filosofica dell'app, figlia della regola di progetto n. 1 (un
+  dato assente si dichiara, non si abbrevia); il «—» resta riservato al non applicabile.
+  Deroga consapevole, non un errore.
+- **Topbar con 8 voci** (Libro cap.1: topbar ammessa solo con ≤ 3 destinazioni): l'app
+  resta a topbar piatta — 8 voci tutte di consultazione, senza gerarchia operativa — in
+  attesa di un eventuale raggruppamento o migrazione a sidebar. La voce attiva a due
+  segnali + `aria-current` è applicata dal 28/08/2026.
+- **Nessuna autenticazione** (Libro cap.1: utente + logout sempre visibili nelle app con
+  auth): Fondo è a sola lettura, senza utenti né dati riservati; la topbar non mostra
+  utente/logout. L'eventuale autenticazione è un cantiere di sicurezza separato.
+
 ## Custode della sicurezza (obbligatorio — 27/08/2026)
 
 La sicurezza di questa app ha un **custode**: l'agente `architetto-sicurezza` (definito in `.claude/agents/architetto-sicurezza.md`), che applica il [Libro della Sicurezza](../deluxy-design-system/LIBRO-SICUREZZA.md).
