@@ -13,7 +13,7 @@
 // tiene le sue schede. La tabella non ha una versione mobile: sotto i 900px
 // semplicemente non si monta.
 import { ReactNode, useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { frecciaOrdine, ordinaRighe, useOrdinamento, type Ordine } from '@/lib/ordinamento';
@@ -55,7 +55,6 @@ export function Tabella<T>({
   azioni,
   larghezzaAzioni,
   totali,
-  larghezzaMinima,
 }: {
   righe: T[];
   colonne: ColonnaTabella<T>[];
@@ -75,24 +74,6 @@ export function Tabella<T>({
    * corrisponde a niente di visibile.
    */
   totali?: (righe: T[]) => Record<string, string | null | undefined>;
-  /**
-   * ⭐ LA LARGHEZZA CHE QUESTA TABELLA CHIEDE DAVVERO (27/08/2026).
-   *
-   * ⚠️ Prima non esisteva, e il risultato era il peggiore possibile: la card ha
-   * `overflow: hidden` e la riga non si può stringere sotto le sue colonne a
-   * larghezza fissa, quindi su una finestra stretta la parte destra veniva
-   * **TAGLIATA VIA senza barra di scorrimento e senza alcun segnale** — su
-   * Ordini spariva l'intera colonna delle azioni, «Incassato» compreso. E
-   * appena sopra quella soglia il guasto cambiava faccia ma restava: le colonne
-   * di testo (rese come `Text`, che in react-native-web NON ha `flexShrink: 0`)
-   * si stringevano fino a **zero**, e su un portatile da 1280px il nome del
-   * cliente era largo 9px.
-   *
-   * Dichiarando quanto le serve, la tabella scorre in orizzontale quando non
-   * c'è spazio: nessuna colonna sparisce e nessuna si schiaccia. Chi non la
-   * passa si comporta come prima.
-   */
-  larghezzaMinima?: number;
 }) {
   const numeriche = useMemo(
     () => colonne.filter((c) => c.numerica).map((c) => c.chiave),
@@ -111,13 +92,7 @@ export function Tabella<T>({
       : { flex: c.flex ?? 1, minWidth: 0 as const, ...(c.destra ? stiliDestra : null) };
 
   return (
-    <ScrollView
-      horizontal
-      style={styles.card}
-      contentContainerStyle={{ minWidth: '100%' }}
-      showsHorizontalScrollIndicator
-    >
-      <View style={larghezzaMinima ? { minWidth: larghezzaMinima, width: '100%' } : { width: '100%' }}>
+    <View style={styles.card}>
       <View style={[styles.riga, styles.intesta]}>
         {colonne.map((c) => (
           <Pressable
@@ -193,8 +168,7 @@ export function Tabella<T>({
           {onRiga ? <View style={{ width: 16 }} /> : null}
         </View>
       ) : null}
-      </View>
-    </ScrollView>
+    </View>
   );
 }
 

@@ -107,9 +107,18 @@ export default function Ordini() {
     };
   }, [ordini]);
 
-  // Da 900px in su l'elenco è una TABELLA (le schede restano sul telefono).
+  /**
+   * ⚠️ LA SOGLIA È 1280, NON 900 (27/08/2026). Questa tabella ha nove colonne
+   * e 690px di sole colonne a larghezza fissa: sotto i 1280 di finestra — meno
+   * la sidebar, che si prende 265px — non c'è lo spazio per mostrarle senza
+   * schiacciare il nome del cliente a pochi pixel o tagliare via le azioni.
+   *
+   * Sotto questa misura si vedono le SCHEDE, che sono complete e leggibili:
+   * meglio una scheda intera che una tabella mutilata. È lo stesso motivo per
+   * cui esistono le due viste.
+   */
   const { width } = useWindowDimensions();
-  const aTabella = width >= 900;
+  const aTabella = width >= 1280;
 
   /**
    * Quanto ci costa ciascun ordine: dai lavori collegati alla sua trattativa
@@ -701,11 +710,6 @@ export default function Ordini() {
               colonne={colonne}
               chiaveRiga={(o) => o.id}
               ordineIniziale={{ campo: 'quando', verso: 'desc' }}
-              // Quanto chiede questa tabella: le colonne fisse (56+92+98+84+70+94
-              // +196 = 690) più i gap, il chevron e un minimo leggibile per
-              // Cliente, Linea e Fornitore. Sotto questa misura scorre, invece
-              // di tagliare le azioni o schiacciare il nome del cliente.
-              larghezzaMinima={950}
               onRiga={(o) => o.place_id && router.push(`/(app)/attivita/${o.place_id}`)}
               labelRiga={(o) => `Apri la scheda di ${o.place_nome ?? o.cliente}`}
               /**
