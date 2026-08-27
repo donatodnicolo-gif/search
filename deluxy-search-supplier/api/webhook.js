@@ -17,7 +17,12 @@
 //
 // Env richiesti (Vercel → Storage → KV: si impostano da soli):
 //   KV_REST_API_URL, KV_REST_API_TOKEN
-// Env facoltativo: WEBHOOK_SECRET
+// Env di sicurezza (impostane ALMENO uno per chiudere l'endpoint agli estranei; finché
+// nessuno è impostato l'endpoint accetta senza verifica, come prima):
+//   SHOPIFY_WEBHOOK_SECRET  — "secret di firma" di Shopify → Impostazioni → Notifiche (via HTTPS diretto)
+//   WEBHOOK_SECRET          — chiave condivisa da passare come ?key=… o header x-webhook-key (Pub/Sub/manuale)
+
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const BRAND_BY_SHOP = {
   'fb72b1-2.myshopify.com': 'deluxyflowers.com',
@@ -41,7 +46,45 @@ async function kvSet(key, value, ttlSeconds) {
 async function readRaw(req) {
   const chunks = [];
   for await (const c of req) chunks.push(typeof c === 'string' ? Buffer.from(c) : c);
-  return Buffer.concat(chunks).toString('utf8');
+  return Buffer.concat(chunks);   // Buffer grezzo: serve per l'HMAC Shopify sui byte esatti
+}
+
+// Verifica dell'origine del webhook. Due modi, entrambi FAIL-CLOSED ma attivi
+// SOLO se il relativo segreto è impostato (finché non lo imposti, niente cambia):
+//   - Shopify HTTPS diretto: header X-Shopify-Hmac-Sha256 = base64(HMAC-SHA256(body, SHOPIFY_WEBHOOK_SECRET))
+//     (il "secret di firma" mostrato in Shopify → Impostazioni → Notifiche).
+//   - Chiave condivisa: ?key=… o header x-webhook-key = WEBHOOK_SECRET (utile per Pub/Sub o test).
+// Se è impostato ALMENO un segreto e nessuna prova combacia → 401. Se NON è
+// impostato nessun segreto, si accetta come prima (comportamento invariato).
+function verificaOrigine(req, rawBuf) {
+  const shopifySecret = process.env.SHOPIFY_WEBHOOK_SECRET || '';
+  const sharedKey = process.env.WEBHOOK_SECRET || '';
+  const enforce = !!(shopifySecret || sharedKey);
+  if (!enforce) return { ok: true, verificato: false };   // nessun segreto → come prima
+
+  // 1) HMAC Shopify (via HTTPS diretto)
+  if (shopifySecret) {
+    const sig = String(req.headers['x-shopify-hmac-sha256'] || '');
+    if (sig) {
+      try {
+        const atteso = createHmac('sha256', shopifySecret).update(rawBuf).digest();
+        const dato = Buffer.from(sig, 'base64');
+        if (dato.length === atteso.length && timingSafeEqual(dato, atteso)) return { ok: true, verificato: 'hmac' };
+      } catch (e) { /* firma malformata → non valida */ }
+    }
+  }
+  // 2) chiave condivisa (Pub/Sub o manuale)
+  if (sharedKey) {
+    const k = String(req.query.key || req.headers['x-webhook-key'] || '');
+    if (k && safeEqStr(k, sharedKey)) return { ok: true, verificato: 'key' };
+  }
+  return { ok: false };
+}
+function safeEqStr(a, b) {
+  try {
+    const x = Buffer.from(String(a), 'utf8'), y = Buffer.from(String(b), 'utf8');
+    return x.length === y.length && x.length > 0 && timingSafeEqual(x, y);
+  } catch (e) { return false; }
 }
 
 function attr(pools, re) {
@@ -109,14 +152,14 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Solo POST' });
 
   try {
-    if (process.env.WEBHOOK_SECRET) {
-      const k = req.query.key || req.headers['x-webhook-key'];
-      if (k !== process.env.WEBHOOK_SECRET) return res.status(401).json({ error: 'Chiave webhook errata' });
+    const raw = await readRaw(req);                     // Buffer grezzo (per l'HMAC)
+    // fail-closed se è configurato un segreto: un estraneo non può iniettare ordini falsi
+    if (!verificaOrigine(req, raw).ok) {
+      return res.status(401).json({ error: 'Webhook non autenticato: firma HMAC Shopify o chiave assente/errata.' });
     }
 
-    const raw = await readRaw(req);
     let body;
-    try { body = JSON.parse(raw); } catch (e) { return res.status(400).json({ error: 'JSON non valido' }); }
+    try { body = JSON.parse(raw.toString('utf8')); } catch (e) { return res.status(400).json({ error: 'JSON non valido' }); }
 
     // Rileva se arriva da Google Cloud Pub/Sub (push): { message: { data(base64), attributes } }
     let order = body;

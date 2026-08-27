@@ -1,4 +1,4 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 26/08/2026)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 27/08/2026)
 
 > 🏛️ **ARCHITETTURA DEI DATI (OBBLIGATORIA, 24/08/2026)** — Standard Deluxy §7
 > (`C:\Users\nicol\scoutwt\deluxy-standard\STANDARD-DELUXY.md`). Il ruolo di
@@ -779,8 +779,62 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    non collegato. NB commerciale (decisione 26/08, memoria «architettura commerciale»): il sito
    business «resta spento», quindi il collegamento non è urgente.
 
+55. **«Invia richiesta via email» → pop-up AI Mail con la FOTO in allegato** (27/08, chiesto
+   dall'utente sullo screenshot di «Blumen Paule-Liebchen»). Prima il bottone apriva un `mailto:`
+   (client di posta locale, foto solo come link nel testo). Ora apre un **pop-up** (`#mailModal`)
+   con destinatario/oggetto/corpo già compilati (stesso testo del WhatsApp, `currentMessage`) e
+   l'**anteprima della foto**; «Invia» chiama la nuova `POST /api/mail`, che inoltra a
+   **AI Mail** (`<mailUrl>/api/v1/invia`, header `x-api-key: mailApiKey` + `x-utente: mailUtente`)
+   con la **foto del bouquet come vero allegato** (base64 dal blob `photoFile` già scaricato per
+   gli appunti WhatsApp; se non è pronta ripiega sul link nel testo). La mail parte dalla casella
+   vera dell'operatore, copia negli «Inviati». A invio riuscito: stella + stato «in corso» + log
+   `canale:email`. **Config nuova** in ⚙️ Impostazioni: «AI Mail — casella mittente», «token API»
+   (segreto, resta sul server come i token Shopify: `hasMailKey`), e URL opzionale (`mailUtente`,
+   `mailApiKey`, `mailUrl` in `config:v1`). ⚠️ **Non collaudato con invio reale**: serve il token
+   di AI Mail impostato in produzione + login (in locale le /api/* rispondono 401). Verificato in
+   locale: pop-up compila destinatario/oggetto/corpo, anteprima foto, nessun overflow.
+
+56. **Passata di SICUREZZA + UX con agenti ostili** (27/08, chiesto dall'utente). *Sicurezza*
+   (10 sospetti → 1 confermato dal vivo, 3 ridimensionati, 3 smentiti):
+   - 🔴 **CONFERMATO** — `/api/webhook` era **aperto agli estranei** (provato: `WEBHOOK_SECRET`
+     non impostato in produzione → un anonimo poteva iniettare `order:<brand>:<num>` falsi in KV,
+     che l'operatore poi legge; la cache avvelenata oscura anche l'ordine vero). Fix: `verificaOrigine`
+     — verifica l'**HMAC Shopify** (`X-Shopify-Hmac-Sha256` sui byte grezzi con `SHOPIFY_WEBHOOK_SECRET`)
+     e/o la **chiave condivisa** (`WEBHOOK_SECRET` via `?key=`/`x-webhook-key`), **fail-closed** con
+     almeno un segreto impostato. Scelta dell'utente: attivarlo **impostando il segreto** — finché
+     non lo si mette, l'endpoint resta com'era. 🔴 **DA FARE su Vercel**: impostare
+     `SHOPIFY_WEBHOOK_SECRET` (secret di firma da Shopify → Notifiche) *oppure* `WEBHOOK_SECRET`
+     (+ aggiungere `?key=` all'URL webhook), poi Redeploy. Finché non è fatto, il buco resta aperto.
+   - **Ridimensionati/corretti**: SSRF su `/api/contatti` (ora filtra IP interni/loopback/link-local,
+     ricontrollo a ogni redirect); `googleKey`/`googleOauthClientId` **non più restituite alle chiavi
+     API `dlxs_`** (`sanitize(c, soloBrowser)`); confronto del pass code admin ora **timing-safe**
+     (`safeEqStr`). **Smentiti**: OAuth senza `state` (lo START richiede APP_PASSWORD, il callback
+     verifica l'HMAC Shopify), CORS `Allow-Credentials` (auth via header, non cookie), escalation a
+     admin (ogni scrittura privilegiata è gated `!auth.admin`). Nessun modo per un non-admin di
+     scrivere config/chiavi o leggere token/chiavi di scrittura.
+   *UX* (desktop+mobile, verificato dall'ostile con misure DOM):
+   - 🟢 **Mobile: niente più scroll orizzontale** — i gruppi di pillole `#waFilter`/`#pvCat`/
+     `#pvRuolo`/`#ctCat`/`#ctTipo` ora `flex-wrap:wrap` sotto 560px (l'ultima chip usciva dallo
+     schermo; l'overflow era mascherato da `.content{overflow-x:auto}`). L'ostile ha pescato anche
+     `#pvRuolo`, che gli agenti avevano mancato. Verificato: page overflow 60→0 a 375px.
+   - 🟢 **Desktop: stato vuoto** nella colonna dei risultati (`#resultsEmpty`, richiesto dal Design
+     System §4) al posto di ~45% di schermo bianco prima di una ricerca; guidato da un
+     MutationObserver (sparisce coi risultati/mappa/strumenti, torna quando si svuota).
+   - 🟢 **Mobile: stella/archivia** portati a 40px con gap 8 (si toccavano col pollice).
+   - **Cosmetici NON fatti** (fuori dal metro Deluxy o gusto): cap di larghezza agli hint delle
+     viste secondarie, `ct-grid` auto-fill su schermi larghi, cap alla larghezza delle schede
+     risultato, unificare «Smistamento»/«Ricerca negozi» in sidebar, portare gli altri bersagli a
+     44px (il DS Deluxy non ha la regola dei 44px). Il bottone WhatsApp verde è una deroga
+     d'affordance **da annotare**, non un difetto.
+
 ## Cose in sospeso
 
+- 🔴 **Chiudere `/api/webhook`** (punto 56): impostare `SHOPIFY_WEBHOOK_SECRET` (HMAC Shopify) o
+  `WEBHOOK_SECRET` (+ `?key=` sull'URL) su Vercel e Redeploy. Finché non è fatto, un estraneo può
+  iniettare ordini falsi in KV. Il codice è già fail-closed: aspetta solo il segreto.
+- 🔴 **Configurare AI Mail** (punto 55) in ⚙️ Impostazioni: casella mittente + token API di AI Mail
+  (AI Mail → Impostazioni App → «Token API»), altrimenti «Invia richiesta via email» avvisa che
+  non è configurato. Poi collaudare un invio reale (loggati) e verificare la foto in allegato.
 - 🔴 **Collegare business.deluxy.it** (punto 54): webhook «Creazione ordine» su Shopify verso
   `/api/webhook?brand=business.deluxy.it` + OAuth (§8). Non urgente: per la decisione commerciale
   del 26/08 il sito business resta spento — ma finché manca, i suoi ordini rispondono

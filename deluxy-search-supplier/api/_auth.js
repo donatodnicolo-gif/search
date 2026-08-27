@@ -22,6 +22,13 @@ function safeEq(aHex, bHex) {
     return a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
   } catch (e) { return false; }
 }
+// confronto a tempo costante di due stringhe qualsiasi (per il pass code admin)
+function safeEqStr(a, b) {
+  try {
+    const x = Buffer.from(String(a), 'utf8'), y = Buffer.from(String(b), 'utf8');
+    return x.length === y.length && x.length > 0 && timingSafeEqual(x, y);
+  } catch (e) { return false; }
+}
 // confronto password → true/false (hash se presente, altrimenti legacy in chiaro)
 export function checkPass(u, pass) {
   if (u.passHash && u.salt) return safeEq(hashPass(pass, u.salt), u.passHash);
@@ -87,7 +94,7 @@ export async function authUser(req) {
     return { error: 'Sessione scaduta: riapri il link dall\'app.', status: 401 };
   }
   const nome = String(req.headers['x-app-user'] || '').trim();
-  if (pass && pass === process.env.APP_PASSWORD) {
+  if (pass && safeEqStr(pass, process.env.APP_PASSWORD)) {
     return { utente: nome || 'admin', admin: true, cfg: null };
   }
   if (pass && nome) {

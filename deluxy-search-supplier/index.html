@@ -187,6 +187,32 @@
     #lbox .lb-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px}
     #lbox .lb-grid img{height:130px}
   }
+  /* pop-up «Invia richiesta via email» (AI Mail) */
+  #mailModal{position:fixed; inset:0; z-index:1300; background:rgba(0,0,0,.42); display:none;
+    align-items:center; justify-content:center; padding:20px; backdrop-filter:saturate(140%) blur(3px)}
+  #mailModal.on{display:flex}
+  #mailModal .mm-card{background:var(--surface,#fff); border:1px solid var(--hairline,rgba(0,0,0,.08));
+    border-radius:var(--radius-l); box-shadow:var(--shadow-xl,0 24px 60px rgba(0,0,0,.28));
+    width:min(560px,100%); max-height:90vh; display:flex; flex-direction:column; overflow:hidden}
+  #mailModal .mm-head{display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:16px 18px; border-bottom:1px solid var(--hairline,rgba(0,0,0,.08))}
+  #mailModal .mm-title{font-size:16px; font-weight:700; letter-spacing:-.01em}
+  #mailModal .mm-x{background:transparent; border:0; font-size:18px; cursor:pointer; color:var(--text-secondary); padding:4px 8px; border-radius:var(--radius-pill)}
+  #mailModal .mm-x:hover{background:var(--fill,rgba(0,0,0,.05))}
+  #mailModal .mm-body{padding:16px 18px; overflow:auto}
+  #mailModal .mm-body label{display:block; font-size:12px; font-weight:600; color:var(--text-secondary); margin:12px 0 4px}
+  #mailModal .mm-body label:first-child{margin-top:0}
+  #mailModal .mm-body input, #mailModal .mm-body textarea{width:100%; box-sizing:border-box;
+    border:1px solid var(--hairline,rgba(0,0,0,.14)); border-radius:var(--radius-m); padding:10px 12px;
+    font:inherit; font-size:14px; background:var(--surface,#fff); color:var(--text)}
+  #mailModal .mm-body textarea{resize:vertical; line-height:1.5}
+  #mailModal .mm-photo{display:flex; align-items:center; gap:12px; margin-top:14px; padding:10px;
+    background:var(--gold-soft,rgba(184,150,62,.08)); border:1px solid rgba(184,150,62,.28); border-radius:var(--radius-m)}
+  #mailModal .mm-photo img{width:64px; height:64px; object-fit:cover; border-radius:var(--radius-m); flex:0 0 auto}
+  #mailModal .mm-foot{display:flex; justify-content:flex-end; gap:10px; padding:14px 18px;
+    border-top:1px solid var(--hairline,rgba(0,0,0,.08))}
+  @media(max-width:560px){ #mailModal{padding:0; align-items:stretch}
+    #mailModal .mm-card{width:100%; max-height:100vh; border-radius:0} }
   .hint{font-size:12px; color:var(--text-secondary); margin-top:8px; line-height:1.5}
   a.link{color:var(--blue)}
   .ordercard{margin-bottom:14px}
@@ -390,6 +416,12 @@
     #waFilter .wchip, #openFilter .wchip,
     #waFilterResults .wchip, #openFilterResults .wchip, #rateFilterResults .wchip{ flex:0 0 auto; min-width:0; padding:9px 13px }
     #waFilterResults label{ margin-left:0 !important }
+    /* i GRUPPI di pillole vanno a capo, altrimenti l'ultima chip esce dallo schermo
+       (verificato dal vivo: form ricerca #waFilter, Province #pvCat/#pvRuolo, Contatti #ctCat/#ctTipo) */
+    #waFilter, #openFilter, #pvCat, #pvRuolo, #ctCat, #ctTipo{ flex-wrap:wrap }
+    /* stella e archivia: bersagli più larghi e distanziati (si toccano col pollice) */
+    .star-btn, .arch-btn{ width:40px; height:40px }
+    .shop .head > div{ gap:8px !important }
   }
 </style>
 </head>
@@ -513,6 +545,17 @@
           <div class="hint">Client ID OAuth (tipo <i>Web</i>) con l'API <b>People</b> attiva e origine <code>https://search-deluxy.vercel.app</code>. Vuoto = il pulsante scarica un file .vcf da aprire con la rubrica.</div>
         </div>
       </div>
+      <div class="fgrid fgrid-2">
+        <div>
+          <label>AI Mail — casella mittente (email operatore)</label>
+          <input id="cfg_mail_utente" type="email" placeholder="es. deluxy.delivery@gmail.com" autocomplete="off">
+        </div>
+        <div>
+          <label>AI Mail — token API</label>
+          <input id="cfg_mail_key" type="password" placeholder="lascia vuoto = invariato" autocomplete="off">
+        </div>
+      </div>
+      <div class="hint" style="margin-top:-6px">Per «📧 Invia richiesta via email»: la mail parte dalla <b>casella vera</b> dell'operatore passando da <b>AI Mail</b> (la copia finisce negli «Inviati»), con la <b>foto del bouquet in allegato</b>. Il token resta <b>solo sul server</b> e si genera da AI Mail → Impostazioni App → «Token API di AI Mail». URL diverso dal predefinito (<code>https://deluxy-mail.vercel.app</code>)? impostalo qui: <input id="cfg_mail_url" type="text" placeholder="vuoto = deluxy-mail.vercel.app" autocomplete="off" style="width:auto; min-width:220px; padding:4px 8px; margin-left:4px"></div>
       <div>
         <label style="font-size:13px; color:var(--text); font-weight:600">👥 Utenze dell'app</label>
         <div id="userRows" class="grid" style="margin-top:8px"></div>
@@ -742,6 +785,13 @@
     <div class="col-right">
       <div class="status" id="status"></div>
 
+      <!-- stato vuoto: prima di una ricerca la colonna dei risultati non è più bianca -->
+      <div id="resultsEmpty" style="display:none; margin:22px 0; padding:40px 20px; text-align:center">
+        <div style="width:56px; height:56px; margin:0 auto 14px; border-radius:16px; background:var(--gold-soft); display:flex; align-items:center; justify-content:center; font-size:26px">🌸</div>
+        <div style="font-size:17px; font-weight:600; letter-spacing:-.01em; color:var(--text)">I fornitori appariranno qui</div>
+        <div class="hint" style="max-width:360px; margin:6px auto 0">Recupera un ordine o scrivi un indirizzo di consegna, poi premi «Trova fiorai» o «Cerca in zona»: i negozi più vicini compaiono in questa colonna.</div>
+      </div>
+
       <!-- nessun risultato: proposta di allargare la ricerca a un'area più ampia -->
       <div id="noResults" style="display:none; margin:12px 0; padding:16px; background:var(--fill); border:1px solid var(--hairline); border-radius:var(--radius-l); text-align:center">
         <div class="hint" id="noResultsMsg" style="margin:0 0 12px">Nessun negozio trovato in zona.</div>
@@ -898,11 +948,54 @@
   <div class="lb-attr" id="lbAttr"></div>
 </div>
 
+<!-- Pop-up «Invia richiesta via email» (AI Mail): stessi dati del WhatsApp + foto in allegato -->
+<div id="mailModal" role="dialog" aria-modal="true" aria-label="Invia richiesta via email">
+  <div class="mm-card">
+    <div class="mm-head">
+      <div class="mm-title">📧 Invia richiesta via email</div>
+      <button type="button" class="mm-x" id="mmClose" aria-label="Chiudi">✕</button>
+    </div>
+    <div class="mm-body">
+      <label>A</label>
+      <input id="mm_to" type="email" autocomplete="off" placeholder="email del fornitore">
+      <label>Oggetto</label>
+      <input id="mm_subject" type="text" autocomplete="off">
+      <label>Messaggio</label>
+      <textarea id="mm_body" rows="9" spellcheck="false"></textarea>
+      <div id="mm_photo" class="mm-photo" style="display:none">
+        <img id="mm_photo_img" alt="Foto del bouquet">
+        <div class="mm-photo-txt"><b>Foto del bouquet in allegato</b><div id="mm_photo_note" class="hint" style="margin:2px 0 0"></div></div>
+      </div>
+      <div class="status" id="mm_status" style="text-align:left"></div>
+    </div>
+    <div class="mm-foot">
+      <button type="button" class="btn-dl" id="mmCancel">Annulla</button>
+      <button type="button" class="btn" id="mmSend">📧 Invia dalla mia casella</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ------------------ stato & util ------------------ */
 const $ = s => document.querySelector(s);
 const statusEl = $('#status');
 const resultsEl = $('#results');
+// stato vuoto della colonna destra: visibile finché non c'è nulla da mostrare
+// (nessuna scheda, nessun «nessun risultato», nessuno strumento risultati, niente mappa)
+function updateEmptyState(){
+  const el = $('#resultsEmpty'); if(!el) return;
+  const vuoto = !resultsEl.querySelector('.shop')
+    && $('#noResults').style.display === 'none'
+    && $('#resultTools').style.display === 'none'
+    && $('#mapWrap').style.display === 'none';
+  el.style.display = vuoto ? 'block' : 'none';
+}
+try{
+  const mo = new MutationObserver(()=> updateEmptyState());
+  mo.observe(resultsEl, { childList:true });
+  [$('#noResults'), $('#resultTools'), $('#mapWrap')].forEach(n=> n && mo.observe(n, { attributes:true, attributeFilter:['style'] }));
+  updateEmptyState();
+}catch(e){ /* se MutationObserver non c'è, lo stato vuoto resta nascosto: nessun danno */ }
 const cats = new Set(['fioraio','pasticceria']);
 // su mobile i link WhatsApp usano wa.me → si apre l'app WhatsApp del telefono
 const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -1189,6 +1282,10 @@ function applyConfig(){
   $('#cfg_anag_key').placeholder = CONFIG.hasAnagKey ? '•••• salvata (vuoto = invariata)' : 'chiave di sola lettura';
   $('#cfg_goauth').value = CONFIG.googleOauthClientId || '';
   $('#cfg_anag_wkey').placeholder = CONFIG.hasAnagWriteKey ? '•••• salvata (vuoto = invariata)' : 'lascia vuoto = invariata';
+  $('#cfg_mail_utente').value = CONFIG.mailUtente || '';
+  $('#cfg_mail_url').value = CONFIG.mailUrl || '';
+  $('#cfg_mail_key').value = '';
+  $('#cfg_mail_key').placeholder = CONFIG.hasMailKey ? '•••• salvato (vuoto = invariato)' : 'lascia vuoto = invariato';
   KNOWN_BRANDS.forEach(b=>{
     const s = (CONFIG.stores||[]).find(x=>x.brand===b) || {};
     const shopEl = $('#cfg_shop_'+cssId(b)); if(shopEl) shopEl.value = s.shop || '';
@@ -1333,6 +1430,8 @@ async function saveConfig(){
                  pagineRicerca: $('#cfg_pagine').value,
                  anagUrl: $('#cfg_anag_url').value.trim(), anagKey: $('#cfg_anag_key').value.trim(),
                  anagWriteKey: $('#cfg_anag_wkey').value.trim(),
+                 mailUtente: $('#cfg_mail_utente').value.trim(), mailUrl: $('#cfg_mail_url').value.trim(),
+                 mailApiKey: $('#cfg_mail_key').value.trim(),
                  googleOauthClientId: $('#cfg_goauth').value.trim(), utenti, stores };
   $('#cfg_save').disabled=true; $('#cfg_status').className='status'; $('#cfg_status').textContent='Salvo…';
   try{
@@ -1343,6 +1442,7 @@ async function saveConfig(){
     KNOWN_BRANDS.forEach(b=>{ $('#cfg_token_'+cssId(b)).value=''; });  // i token ora sono sul server
     $('#cfg_anag_wkey').value='';  // le chiavi del registro restano solo sul server
     $('#cfg_anag_key').value='';
+    $('#cfg_mail_key').value='';   // il token AI Mail resta solo sul server
     $('#cfg_status').textContent='✅ Impostazioni salvate sul server.';
   }catch(e){ $('#cfg_status').className='status err'; $('#cfg_status').textContent='❌ '+e.message; }
   finally{ $('#cfg_save').disabled=false; }
@@ -2971,25 +3071,102 @@ resultsEl.addEventListener('click', async e=>{
   logEvento({ tipo:'richiesta', canale:'whatsapp', esito:'messaggio pronto su WhatsApp', negozio: negozioDaScheda(btn) });
 });
 
-// invio richiesta ordine via EMAIL (stessi dati del WhatsApp; la foto va come link)
+// invio richiesta ordine via EMAIL — apre il pop-up AI Mail (stessi dati del WhatsApp,
+// con la FOTO in allegato); l'invio parte dalla casella vera dell'operatore.
 resultsEl.addEventListener('click', e=>{
   const btn = e.target.closest('.sendemail');
   if(!btn) return;
   if(!orderLoaded){ alert('Prima recupera un ordine (📦 in alto), poi invialo al fiorario.'); return; }
-  const email = btn.dataset.email;
   const card = btn.closest('.shop');
   const lang = (card && card.dataset.lang) || currentLang || 'it';
-  const subject = (SUBJECTWORD[lang]||'Richiesta ordine') + ' ' + $('#ordTag').textContent;
-  let body = currentMessage(lang);
-  if(statoRicerca.stato !== 'trovato') setStatoRicerca('in corso');
-  starShop(card);
-  const photo = $('#ord_photo').value.trim();
-  if(photo) body += '\n\n' + (PHOTOWORD[lang]||'Foto') + ': ' + photo;
-  window.location.href = 'mailto:' + encodeURIComponent(email)
-    + '?subject=' + encodeURIComponent(subject)
-    + '&body=' + encodeURIComponent(body);
-  setOrderStatus('📧 Email aperta verso ' + email + ' (lingua: ' + (LANG_NAME[lang]||lang) + '). Controlla e invia dal tuo client di posta.');
-  logEvento({ tipo:'richiesta', canale:'email', esito:'bozza email aperta', negozio: negozioDaScheda(btn) });
+  openMailModal({ btn, card, lang, email: btn.dataset.email });
+});
+
+/* ---- pop-up «Invia richiesta via email» via AI Mail (foto in allegato) ---- */
+let mailCtx = null;
+// converte un Blob in base64 puro (senza il prefisso data:…;base64,)
+function blobToBase64(blob){
+  return new Promise((res,rej)=>{
+    const fr = new FileReader();
+    fr.onload = ()=> res(String(fr.result||'').replace(/^data:[^;]*;base64,/, ''));
+    fr.onerror = rej;
+    fr.readAsDataURL(blob);
+  });
+}
+function openMailModal(ctx){
+  mailCtx = ctx;
+  const lang = ctx.lang;
+  if(!CONFIG.hasMailKey || !CONFIG.mailUtente){
+    // AI Mail non configurato: apri lo stesso il pop-up ma avvisa (niente più mailto muto)
+    $('#mm_status').className = 'status err';
+    $('#mm_status').textContent = '⚠️ Invio email non configurato: imposta la casella e il token di AI Mail in ⚙️ Impostazioni.';
+  } else {
+    $('#mm_status').className = 'status'; $('#mm_status').textContent = '';
+  }
+  $('#mm_to').value = ctx.email || '';
+  $('#mm_subject').value = (SUBJECTWORD[lang]||'Richiesta ordine') + ' ' + $('#ordTag').textContent;
+  $('#mm_body').value = currentMessage(lang);
+  // foto in allegato: preview + nota sullo stato (pronta / si sta preparando / non scaricabile)
+  const url = $('#ord_photo').value.trim();
+  const ph = $('#mm_photo'), note = $('#mm_photo_note');
+  if(url){
+    ph.style.display = 'flex';
+    $('#mm_photo_img').src = url;
+    note.textContent = photoFile ? 'Pronta, verrà allegata alla mail.'
+      : photoErr ? ('Non scaricabile (' + photoErr + '): la mail partirà con il link nel testo.')
+      : 'Si sta preparando: se non è pronta all\'invio, va il link nel testo.';
+  } else { ph.style.display = 'none'; }
+  $('#mailModal').classList.add('on');
+  setTimeout(()=> $('#mm_body').focus(), 50);
+}
+function closeMailModal(){ $('#mailModal').classList.remove('on'); mailCtx = null; }
+$('#mmClose').addEventListener('click', closeMailModal);
+$('#mmCancel').addEventListener('click', closeMailModal);
+$('#mailModal').addEventListener('click', e=>{ if(e.target.id==='mailModal') closeMailModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && $('#mailModal').classList.contains('on')) closeMailModal(); });
+
+$('#mmSend').addEventListener('click', async ()=>{
+  if(!mailCtx) return;
+  const to = $('#mm_to').value.trim();
+  const subject = $('#mm_subject').value.trim();
+  let body = $('#mm_body').value;
+  const lang = mailCtx.lang;
+  if(!to){ $('#mm_status').className='status err'; $('#mm_status').textContent='Manca l\'email del destinatario.'; return; }
+  if(!CONFIG.hasMailKey || !CONFIG.mailUtente){
+    $('#mm_status').className='status err';
+    $('#mm_status').textContent='⚠️ Invio email non configurato: imposta la casella e il token di AI Mail in ⚙️ Impostazioni.';
+    return;
+  }
+  $('#mmSend').disabled = true; $('#mmCancel').disabled = true;
+  $('#mm_status').className='status'; $('#mm_status').textContent='📤 Invio in corso…';
+  // allegato: usa il blob GIÀ scaricato (per gli appunti WhatsApp). Se non è pronto, ripiega sul link.
+  let allegati;
+  const url = $('#ord_photo').value.trim();
+  if(photoFile){
+    try{
+      const contenuto = await blobToBase64(photoFile);
+      allegati = [{ nome: photoFileName(), contenuto, tipo: photoFile.type || 'image/jpeg' }];
+    }catch(e){ /* se la conversione fallisce, si ripiega sul link nel testo */ }
+  }
+  if(!allegati && url){ body += '\n\n' + (PHOTOWORD[lang]||'Foto') + ': ' + url; }
+  try{
+    const r = await apiFetch('/api/mail', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ a: to, oggetto: subject, corpo: body, allegati })
+    });
+    const j = await r.json().catch(()=>null);
+    if(!r.ok || !j || j.ok===false) throw new Error((j && j.errore) || ('Errore '+r.status));
+    // riuscito: stella + «in corso», log, chiudi
+    if(statoRicerca.stato !== 'trovato') setStatoRicerca('in corso');
+    if(mailCtx.card) starShop(mailCtx.card);
+    logEvento({ tipo:'richiesta', canale:'email', esito: allegati ? 'email inviata (foto in allegato)' : 'email inviata', negozio: negozioDaScheda(mailCtx.btn) });
+    setOrderStatus('✅ Email inviata a ' + to + (allegati ? ' con la foto in allegato' : '') + ' (lingua: ' + (LANG_NAME[lang]||lang) + ').');
+    closeMailModal();
+  }catch(e){
+    $('#mm_status').className='status err'; $('#mm_status').textContent='❌ '+e.message;
+  }finally{
+    $('#mmSend').disabled = false; $('#mmCancel').disabled = false;
+  }
 });
 
 /* ------------------ rubrica Google + segnalazione al commerciale ------------------ */

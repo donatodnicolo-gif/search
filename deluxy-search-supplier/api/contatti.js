@@ -10,6 +10,33 @@
 // non blocca la ricerca lato client.
 
 import { authUser } from './_auth.js';
+import { lookup } from 'node:dns/promises';
+
+// Anti-SSRF: l'URL del sito lo sceglie l'utente, quindi prima di fetchare
+// risolviamo l'host e rifiutiamo gli indirizzi interni (loopback, rete privata,
+// link-local/metadata cloud). Ricontrollato a ogni redirect (redirect manuale).
+function isPrivateIp(ip) {
+  const v = String(ip || '');
+  if (/^127\./.test(v) || v === '0.0.0.0' || /^10\./.test(v) || /^192\.168\./.test(v)) return true;
+  if (/^169\.254\./.test(v)) return true;                                   // link-local / metadata
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(v)) return true;                    // 172.16.0.0/12
+  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(v)) return true;      // CGNAT 100.64/10
+  const low = v.toLowerCase();
+  if (low === '::1' || low === '::' ) return true;
+  if (/^f[cd][0-9a-f]{2}:/.test(low)) return true;                          // ULA fc00::/7
+  if (/^fe80:/.test(low)) return true;                                      // link-local IPv6
+  if (low.startsWith('::ffff:')) return isPrivateIp(low.slice(7));          // IPv4-mapped
+  return false;
+}
+async function hostConsentito(hostname) {
+  // un IP letterale privato è rifiutato subito; altrimenti si risolve il DNS
+  if (isPrivateIp(hostname)) return false;
+  try {
+    const ips = await lookup(hostname, { all: true });
+    if (!ips.length) return false;
+    return ips.every(r => !isPrivateIp(r.address));
+  } catch (e) { return false; }
+}
 
 const BAD_EMAIL = /\.(png|jpg|jpeg|gif|svg|webp|css|js)$/i;
 const JUNK = /(sentry|wixpress|example\.com|@2x|domain\.com|email@|yourname|nome@)/i;
@@ -39,15 +66,30 @@ async function fetchPage(url) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);
   try {
-    const r = await fetch(url, {
-      signal: ctrl.signal,
-      redirect: 'follow',
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DeluxySupplierBot/1.0)' },
-    });
-    if (!r.ok) return '';
-    const ct = r.headers.get('content-type') || '';
-    if (ct && !/text|html|xml/i.test(ct)) return '';
-    return (await r.text()).slice(0, 500000);   // basta l'inizio: gli indirizzi email stanno nell'header/footer
+    // redirect MANUALE: ogni hop va rivalidato (un sito pubblico può redirigere a un IP interno)
+    let cur = url;
+    for (let hop = 0; hop < 4; hop++) {
+      let u;
+      try { u = new URL(cur); } catch (e) { return ''; }
+      if (!/^https?:$/.test(u.protocol)) return '';
+      if (!(await hostConsentito(u.hostname))) return '';   // anti-SSRF
+      const r = await fetch(cur, {
+        signal: ctrl.signal,
+        redirect: 'manual',
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DeluxySupplierBot/1.0)' },
+      });
+      if (r.status >= 300 && r.status < 400) {
+        const loc = r.headers.get('location');
+        if (!loc) return '';
+        cur = new URL(loc, cur).href;                       // risolve i redirect relativi, poi rivalida al giro dopo
+        continue;
+      }
+      if (!r.ok) return '';
+      const ct = r.headers.get('content-type') || '';
+      if (ct && !/text|html|xml/i.test(ct)) return '';
+      return (await r.text()).slice(0, 500000);   // basta l'inizio: gli indirizzi email stanno nell'header/footer
+    }
+    return '';   // troppi redirect
   } catch (e) {
     return '';
   } finally {

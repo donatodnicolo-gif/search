@@ -38,10 +38,12 @@ function pagine(v) {
 
 // versione "pubblica": include la chiave Google e quella (sola lettura) del registro
 // anagrafiche — servono al browser — ma NON i token Shopify né la chiave di
-// SCRITTURA del registro (usata solo dal server in /api/segnala)
-function sanitize(c) {
+// SCRITTURA del registro (usata solo dal server in /api/segnala) né la chiave di AI Mail.
+// `soloBrowser=false` (chiamante con chiave API dlxs_) → NON restituiamo la chiave
+// Google/OAuth: le integrazioni server non ne hanno bisogno e non è ristretta per referrer.
+function sanitize(c, soloBrowser) {
   return {
-    googleKey: c.googleKey || '',
+    googleKey: soloBrowser ? (c.googleKey || '') : '',
     proxy: c.proxy || '',
     anagUrl: c.anagUrl || '',
     kwFioraio: c.kwFioraio || '',
@@ -55,7 +57,12 @@ function sanitize(c) {
     pagineRicerca: pagine(c.pagineRicerca),
     hasAnagKey: !!c.anagKey,
     hasAnagWriteKey: !!c.anagWriteKey,
-    googleOauthClientId: c.googleOauthClientId || '',
+    // AI Mail (invio richieste via email): la casella e l'URL tornano al browser,
+    // la chiave (mailApiKey) NO — resta sul server come i token Shopify.
+    mailUtente: c.mailUtente || '',
+    mailUrl: c.mailUrl || '',
+    hasMailKey: !!c.mailApiKey,
+    googleOauthClientId: soloBrowser ? (c.googleOauthClientId || '') : '',
     utenti: (c.utenti || []).map(u => ({ nome: u.nome })),
     stores: (c.stores || []).map(s => ({ brand: s.brand, shop: s.shop || '', hasToken: !!s.token })),
   };
@@ -112,7 +119,9 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const c = await readConfig();
-      return res.status(200).json({ ok: true, config: sanitize(c), utente: auth.utente, admin: auth.admin });
+      // le chiavi Google/OAuth tornano solo alle credenziali "browser" (operatore/admin/sessione),
+      // non alle chiavi API dlxs_ (auth.viaChiave): non ne hanno bisogno.
+      return res.status(200).json({ ok: true, config: sanitize(c, !auth.viaChiave), utente: auth.utente, admin: auth.admin });
     }
 
     if (req.method === 'POST') {
@@ -138,11 +147,15 @@ export default async function handler(req, res) {
         // segreta: vuota = mantiene quella già salvata (come i token Shopify)
         anagWriteKey: (body.anagWriteKey && String(body.anagWriteKey).trim()) ? String(body.anagWriteKey).trim() : (cur.anagWriteKey || ''),
         googleOauthClientId: body.googleOauthClientId !== undefined ? String(body.googleOauthClientId).trim() : (cur.googleOauthClientId || ''),
+        // AI Mail: casella + URL in chiaro; la chiave è segreta (vuota = invariata, come i token)
+        mailUtente: body.mailUtente !== undefined ? String(body.mailUtente).trim() : (cur.mailUtente || ''),
+        mailUrl: body.mailUrl !== undefined ? String(body.mailUrl).trim() : (cur.mailUrl || ''),
+        mailApiKey: (body.mailApiKey && String(body.mailApiKey).trim()) ? String(body.mailApiKey).trim() : (cur.mailApiKey || ''),
         utenti: mergeUtenti(cur.utenti, body.utenti),
         stores: mergeStores(cur.stores, body.stores),
       };
       await kv(['SET', KEY, JSON.stringify(merged)]);
-      return res.status(200).json({ ok: true, config: sanitize(merged) });
+      return res.status(200).json({ ok: true, config: sanitize(merged, true) });
     }
 
     return res.status(405).json({ error: 'Metodo non consentito' });
