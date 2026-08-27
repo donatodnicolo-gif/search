@@ -57,9 +57,145 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 27 agosto 2026, pomeriggio (consegne a gruppi; la vista che si ricorda; ricorrenti: eccezioni per giorno, orizzonte alla data di fine, listino applicato).
+**Ultimo aggiornamento:** 27 agosto 2026, sera — REVISIONE DI SICUREZZA (mass assignment, escalation ad admin, porte senza @Roles, forza bruta, intestazioni, tracking pubblico). Restano aperti: negare-per-default sul guard, scope sulle chiavi app, token di conferma separato da quello di monitoraggio.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### 🔒 27/08/2026 (sera) — REVISIONE DI SICUREZZA: tre cacciatori, un ostile, e le toppe rifatte
+
+Chiesto dall'utente: verifica con un agente ostile se un utente puo' arrivare a
+dati non suoi anche richiamando le api dall'esterno; poi risolvere tutto.
+
+Tre agenti hanno battuto tre settori (autorizzazione, fughe di dati, superficie
+esterna). Ogni accusa e' stata PROVATA eseguendola contro il database vero, non
+letta nel codice. Poi un quarto agente OSTILE ha demolito le mie CORREZIONI, e
+ne ha bocciate cinque su undici: quelle sono state rifatte e riprovate.
+
+════════ I BUCHI VERI, misurati prima e dopo ════════
+
+1) MASS ASSIGNMENT — il piu' costoso. Un PARTNER creava una consegna con
+   price 0, billable false, payable false, status «delivered» e il valet a
+   scelta: tutto scritto in colonna. Il whitelist:true del validatore non
+   fermava niente perche' quei campi SONO dichiarati nel DTO — legittimi per il
+   validatore, non per il mestiere. Una consegna a zero e non fatturabile e'
+   denaro che non chiederemo mai a nessuno.
+   DOPO: prezzo 25 € dal listino, stato created, flag a posto.
+
+   ⚠️ LA MIA PRIMA TOPPA ERA INCOMPLETA: ripuliva il dto ma le righe esplicite
+   sotto leggevano ancora l'originale, e price e status passavano lo stesso.
+   Adesso il parametro si RIASSEGNA, cosi' non resta nessuna strada che veda il
+   dto sporco.
+
+   ⚠️ E l'ostile ne ha trovata una LATERALE che avevo mancato: le RIGHE
+   PRODOTTO dichiarano anch'esse un price, e la fatturazione lo somma nel
+   «venduto». Chi non poteva scrivere il prezzo sulla consegna se lo scriveva
+   sui prodotti. Tolto anche li' — e il prezzo di riga viene ora dal CATALOGO
+   (variante se c'e', altrimenti prodotto): lasciarlo a null avrebbe risolto
+   una fuga creando un buco nei conti.
+
+2) DIVENTARE AMMINISTRATORE. Due difetti che si sommavano:
+   · JWT_SECRET aveva un ripiego SCRITTO NEL REPO
+     ('dev-secret-non-usare-in-produzione'): se la variabile mancasse, chiunque
+     avesse un'utenza potrebbe rifirmarsi il token con role ADMIN. Ora l'app
+     NON PARTE senza segreto — meglio ferma e che lo dica, di avviata e
+     insicura in silenzio.
+   · il guard leggeva ruolo, partner e valet DAL TOKEN, non dalla riga utente
+     che aveva appena letto per lo stato. Un admin declassato restava admin per
+     8 ore; un utente spostato dal partner A al B continuava a lavorare su A.
+     Del token resta solo il `sub`: quello dice CHI chiede, il resto lo dice
+     l'archivio.
+
+3) LE PORTE SENZA SERRATURA. Il guard dei ruoli, SENZA @Roles, lascia passare
+   chiunque sia autenticato. Provato con token veri, PRIMA -> DOPO:
+
+     partner legge la scheda di un valet   200 (IBAN, CF, listino) -> 403
+     valet legge la scheda di un partner   200 (P.IVA, banca)      -> 403
+     partner riscrive un'attivita' altrui  200 SCRITTA DAVVERO     -> 403
+     partner scrive il calendario valet    200 (e cancella fasce)  -> 403
+     un CUSTOMER (ce ne sono 4.512)        tutte le consegne       -> 403
+     valet usa Google Geocoding a spese nostre  200                -> 403
+     partner legge il prodotto di un altro 200                     -> 404
+     link pubblico mostra le CANCELLATE    200                     -> 404
+
+   ⚠️ L'id delle attivita' arrivava dal CORPO e il parametro di rotta non
+   veniva nemmeno letto: si chiedeva /activities/qualsiasi-cosa/status e si
+   riscriveva l'attivita' scritta nel corpo. Un identificativo che arriva da
+   due parti non ne ha nessuna.
+
+   ⚠️ roleFilter finiva con «return {}» per ogni ruolo non nominato: l'enum ne
+   ha sei, ne nominava tre. Adesso si elenca chi vede TUTTO, e un ruolo nuovo
+   o dimenticato cade nel ramo che NEGA.
+
+4) DUE SCRITTURE LIBERE VERSO PRISMA.
+   · PUT /service-types/:id prendeva un Record<string, unknown> e lo versava
+     dentro `data`. Un Record non e' una classe, quindi il ValidationPipe non
+     aveva niente da filtrare: {"partnerServices":{"deleteMany":{}}} cancellava
+     TUTTI i listini partner di quel servizio, con un solo PUT.
+   · il webhook fatture non validava `number`: {"number":{"not":null}} passava
+     come OPERATORE Prisma e segnava pagata la prima fattura qualunque — e da
+     li' non si torna indietro, perche' reopen rifiuta le pagate.
+
+5) FORZA BRUTA SUL LOGIN: non c'era niente. Ora il freno sta sul DATABASE (in
+   memoria non reggerebbe fra istanze serverless) con due tetti — 8 per email
+   e 30 per indirizzo di rete — perche' il solo tetto per email non ferma lo
+   SPRAY: l'ostile ha misurato 12 email diverse, stessa password, mai un 429.
+   Riprovato dopo: 30 x 401 poi 429. E l'IP adesso viene DAVVERO registrato:
+   la prima versione aveva la colonna e non la riempiva mai (la modifica al
+   controller non era andata a segno, e l'import restava inutilizzato).
+   Il login non rivela piu' quali account hanno un invito in sospeso.
+
+6) IL PARTNER VEDEVA LA PAGA DEL VALET — lo specchio mancante: conosceva il
+   nostro costo, cioe' il margine, su ogni sua consegna. E l'ostile ha trovato
+   che il filtro stava solo sulle LETTURE: le risposte di SCRITTURA (creazione,
+   modifica, richiesta di annullamento) glielo restituivano lo stesso, note
+   interne comprese. E i SERVIZI RICORRENTI, da un'altra pagina ancora.
+
+7) INTESTAZIONI DI SICUREZZA: in produzione c'era solo HSTS. Aggiunte CSP,
+   frame-ancestors 'none', nosniff, Referrer-Policy, Permissions-Policy.
+
+   ⚠️ LA MIA PRIMA CSP AVREBBE LASCIATO L'APP SENZA FOGLIO DI STILE, e l'ostile
+   l'ha MISURATO nel DOM. Angular, ottimizzando, rinvia il CSS con
+   <link media="print" onload="this.media='all'">: quell'onload e' un gestore
+   IN LINEA, che una CSP con script-src senza 'unsafe-inline' blocca — il media
+   resta "print" e il foglio non si applica. Si e' spento inlineCritical invece
+   di indebolire la CSP. Aggiunti anche unpkg (il raggruppamento dei pin, che
+   falliva ZITTO), maps.gstatic e worker-src blob: che l'API Maps usa.
+   Verificato servendo il costruito con la CSP vera: sfondo rgb(245,245,247),
+   media vuoto, 3 fogli caricati, zero violazioni in console.
+
+8) IL TRACKING PUBBLICO. Il select nascondeva con cura il COGNOME del valet, e
+   due righe sotto i messaggi lo riscrivevano per esteso («Assegnata al valet
+   Mario Rossi»). Adesso esce solo il tipo con un'ETICHETTA scritta da noi.
+   ⚠️ La mia prima versione elencava 'assigned', 'in_delivery',
+   'not_delivered': sono i valori di DeliveryStatus, non i type dei log —
+   ZERO righe in archivio — e il frontend stampava `message`, che non arrivava
+   piu': ogni riga sarebbe stata una data seguita dal nulla. Contati i type
+   veri (created 93, status_change 713, ritiro-forzato 2.200, legacy_update
+   17.680) e aggiornata anche la pagina.
+
+════════ ACCUSE CADUTE ════════
+
+- «Le ricevute servite senza token»: su Vercel /uploads NON e' montato
+  (vercel.ts non chiama useStaticAssets). Refutata da un secondo agente.
+- «Il team leader aggira i partner esclusi con ?partnerId=»: la strada esiste
+  nel codice ma NESSUN team leader ha partner esclusi configurati.
+
+════════ COSA RESTA ════════
+
+🔴 Il difetto e' sempre lo STESSO: dimenticare @Roles apre una rotta a tutti,
+   in silenzio. La difesa strutturale e' invertirlo — negare per default e
+   costringere ogni rotta a dichiararsi @Public() o @Roles(...) — ma spegne
+   tutto cio' che oggi vive di silenzio (una quarantina di rotte da
+   classificare) e va provata rotta per rotta. Non fatta: e' una decisione.
+🟠 Le chiavi app-to-app non hanno scope ne' scadenza: una chiave nata «di sola
+   lettura per i costi» legge anche nome, indirizzo e telefono di ogni
+   destinatario.
+🟠 Il token di monitoraggio E' anche quello di conferma: chi riceve il link
+   «segui la consegna» puo' dichiararla consegnata. Servono due token distinti.
+
+Typecheck api pulito, build web pulita.
+
+Commit `vedi git log`; deploy `delivery-aqtoibmoq`.
 
 ### 🧰 27/08/2026 (pomeriggio) — Consegne a gruppi, la vista che si ricorda, e i ricorrenti che ora fanno quello che dichiarano
 

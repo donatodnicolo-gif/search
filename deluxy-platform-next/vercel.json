@@ -34,19 +34,6 @@
       "schedule": "30 2 * * *"
     }
   ],
-  "//": [
-    "INTESTAZIONI DI SICUREZZA (27/08/2026). In produzione c era solo HSTS,",
-    "quello che Vercel mette da se. Mancavano tutte le altre.",
-    "frame-ancestors: senza, chiunque poteva incorniciare l app in un iframe sul",
-    "proprio sito e far cliccare comandi a un utente gia collegato.",
-    "La CSP e la rete sotto il token: il JWT vive in localStorage, quindi una",
-    "iniezione di script se lo porta via e ha una sessione valida 8 ore. Con",
-    "connect-src self non puo spedirlo da nessuna parte.",
-    "unsafe-inline sugli STILI serve (Angular). Sugli SCRIPT non c e.",
-    "Sta dentro routes con continue:true perche vercel.json non accetta il",
-    "blocco headers quando ci sono le routes: con la forma sbagliata il deploy",
-    "fallisce, o le intestazioni vengono ignorate in silenzio."
-  ],
   "routes": [
     {
       "src": "/api/docs(.*)",
