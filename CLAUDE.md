@@ -50,6 +50,12 @@ Prima di lavorare, leggere **[deluxy-platform-next/docs/REGOLE-DI-LAVORO.md](del
 - Prima di creare o modificare qualsiasi schermata, leggere quelle specifiche e usare i token in `deluxy-design-system/tokens/` (`tokens.css` per web, `theme.ts` per React Native, `tokens.json` come fonte).
 - Per decidere COME va fatto un elemento di interfaccia o arbitrare fra due pattern divergenti: agente **`architetto-ux`** (`.claude/agents/architetto-ux.md`); i casi nuovi entrano prima nel Libro, poi nelle app.
 - **Il layout ha un custode (27/08/2026)**: errori di UI e richieste di cambiamento dell'interfaccia, in QUALSIASI app, non si risolvono in autonomia — si registrano in [deluxy-design-system/SEGNALAZIONI-UX.md](deluxy-design-system/SEGNALAZIONI-UX.md) (o si interpella `architetto-ux`), il custode valuta e decide se è una correzione locale, una regola nuova del Libro valida per tutte le app, o una deroga da annotare nel README dell'app.
+
+## Sicurezza (obbligatorio per ogni app)
+
+**Tutte le app seguono il Libro della Sicurezza**: [deluxy-design-system/LIBRO-SICUREZZA.md](deluxy-design-system/LIBRO-SICUREZZA.md) (le 12 leggi + 16 capitoli: sessioni, password, chiavi a scope, autorizzazione deny-by-default, input, segreti, dati a riposo, webhook HMAC, header, database condiviso, mobile). I riferimenti sono OWASP ASVS/API Top 10/MASVS, NIST 800-63B, RFC 9700; lo Standard Deluxy §7 dà il contratto dati.
+
+- **La sicurezza ha un custode (27/08/2026)**: buchi e cambiamenti di una difesa, in QUALSIASI app, non si risolvono in autonomia — si registrano in [deluxy-design-system/SEGNALAZIONI-SICUREZZA.md](deluxy-design-system/SEGNALAZIONI-SICUREZZA.md) (o si interpella `architetto-sicurezza`). Ogni segnalazione e ogni toppa passa PRIMA dall'agente `sicurezza-ostile` (sopravvive solo con un percorso di sfruttamento: chi/quale chiamata/quale dato). Il custode decide: correzione locale, regola nuova del Libro per tutte le app, o rischio accettato con il motivo scritto.
 - Mai hardcodare colori, radius, ombre o font che esistono come token.
 - Stile: linguaggio Apple — sfondo `#F5F5F7`, superfici bianche con bordi hairline, bottoni a pillola (primari neri, mai oro), badge di stato a pillola con dot, sidebar chiara traslucida, tipografia di sistema con tracking negativo sui titoli, oro `#B8963E` solo come accento.
 - Se serve un componente o token nuovo: aggiungerlo prima al design system (con bump di versione), poi usarlo nell'app.
