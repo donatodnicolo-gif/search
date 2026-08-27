@@ -14,16 +14,6 @@ export const metadata: Metadata = {
   description: "Gestione finanziaria e operativa dei partner Deluxy",
 };
 
-// Con gli account personali serve poter USCIRE: senza, su un computer condiviso
-// non c'è modo di cambiare persona, e la sessione resta aperta per giorni.
-async function esci() {
-  "use server";
-  const jar = await cookies();
-  jar.delete(SESSION_COOKIE);
-  jar.delete("dp_utente");
-  redirect("/login");
-}
-
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const jar = await cookies();
   const sessione = await sessioneCorrente(jar.get(SESSION_COOKIE)?.value);
@@ -34,7 +24,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <div className="shell">
           <Sidebar
-            esci={esci}
             nome={sessione?.tipo === "utente" ? sessione.nome : null}
             ruolo={sessione?.ruolo ?? null}
           />

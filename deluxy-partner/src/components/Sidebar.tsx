@@ -179,11 +179,9 @@ const sections: { label: string; items: Item[] }[] = [
 ];
 
 export function Sidebar({
-  esci,
   nome,
   ruolo,
 }: {
-  esci: () => void;
   nome: string | null;
   ruolo: string | null;
 }) {
@@ -291,7 +289,10 @@ export function Sidebar({
             <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Amministrazione</div>
           )}
         </div>
-        <form action={esci} className="solo-estesa">
+        {/* GET, non una server action: il ruolo «sola lettura» non può fare
+            POST (li blocca il middleware) e restava l'unico che non poteva
+            uscire. Vedi src/app/api/esci/route.ts. */}
+        <form action="/api/esci" method="get" className="solo-estesa">
           <button
             type="submit"
             className="sidebar-toggle"
