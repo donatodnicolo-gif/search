@@ -530,7 +530,7 @@ export default async function ConsuntivoPage({
     // servizi — quanto si paga ai valet per la consegna.
     { label: "Costo per servizi", nota: "banca · valet e servizi", cons: costi.COGS, budget: B("cogs"), prec: costoPrec("COGS"), precParziale: bancaPrecParziale, tipo: "costo", apre: "cogs" },
     { label: "Margine lordo", cons: margineLordoCons, budget: B("margineLordo"), prec: margineLordoPrec, tipo: "totale" },
-    { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), prec: costoPrec("ADV"), precParziale: bancaPrecParziale, tipo: "costo", apre: "adv" },
+    { label: "Spesa pubblicitaria (ADV)", nota: "banca · di cassa, slitta di circa un mese", cons: costi.ADV, budget: B("adv"), prec: costoPrec("ADV"), precParziale: bancaPrecParziale, tipo: "costo", apre: "adv" },
     {
       label: "Costo del personale",
       nota: personalePrecDaBanca
@@ -1021,6 +1021,22 @@ export default async function ConsuntivoPage({
                 <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>.{" "}
               </>
             )}
+            <strong>La riga della pubblicità è di CASSA, e slitta di circa un mese</strong>: Google e Meta addebitano
+            <strong> a soglia</strong> — 500 € tondi Google, 800 € Meta — e il resto sotto soglia arriva l&apos;1–2 del
+            mese dopo. Su gennaio 2026 sono <strong>2.282 € su 11.413</strong> (il 20%) che in realtà sono spesa di
+            dicembre 2025: si riconoscono dalla forma dell&apos;importo, perché dal 4 in poi gli addebiti sono tutti
+            tondi e quelli di inizio mese sono spezzati (311, 344, 375, 453). ⭐ <strong>Non è un errore da
+            correggere</strong>: è uno slittamento uniforme, quindi su un periodo di più mesi si compensa quasi tutto —
+            su Gen–Lug entra la coda di dicembre 2025 (2.282 €) e resta fuori quella di luglio (1.287 €), netto
+            +995 € su 100.350. Sposta la lettura di un <em>singolo mese</em>, non quella del periodo. Le rettifiche di
+            competenza si scrivono da{" "}
+            <Link href="/competenza" style={{ color: "var(--blue)" }}>Competenza</Link>, e vanno fatte su{" "}
+            <em>tutti</em> i mesi o su nessuno: correggerne uno solo trasforma uno slittamento che si annulla da sé in
+            un errore vero.{" "}
+            <strong>⚠️ E Marketing non è la misura di quanto si è speso</strong>: lo script di Google Ads legge solo le
+            campagne attive e in pausa — le <strong>eliminate</strong> no — quindi più si va indietro nel tempo più
+            spesa sparisce dal suo totale (61% del dato di banca a gennaio, 98% a luglio). Per il <em>quanto</em> vale
+            la banca; Marketing resta l&apos;unico che sa <em>per quale brand e quale campagna</em>.{" "}
             <strong>Sul «costo per servizi» attenzione al doppio conteggio</strong>: la quota che va ai partner è già
             tolta dai ricavi (venduto → fatturato), quindi lì dentro devono starci i <strong>servizi</strong> — quanto
             si paga ai <strong>valet</strong> per la consegna — e <em>non</em> i pagamenti ai partner. Oggi quella voce

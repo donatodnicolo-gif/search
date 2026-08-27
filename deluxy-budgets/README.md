@@ -896,7 +896,17 @@ si scala dalla differenza.
 > del mese (7.718 € sul 2026, in 26 addebiti), che riguarda il **mese** prima, non l'anno.
 >
 > **La competenza della pubblicità è quindi l'anno della transazione** (decisione dell'utente,
-> 28/07/2026). Il bottone resta per i casi veri — una fattura di dicembre pagata a gennaio — non per
+> 28/07/2026).
+>
+> ⚠️ **CORRETTO IL 27/08/2026: «quelli con anno di emissione diverso dall'anno di regolamento sono
+> zero» non regge.** Misurato sui movimenti veri: di gennaio 2026 sono **2.282 € su 11.413 (il 20%)**
+> addebitati l'1–2 gennaio, cioè spesa di **dicembre 2025** — Google 1.482, Meta 800. Si riconoscono
+> dalla forma dell'importo: dal 4 in poi sono tutti tondi (500/800, la soglia), quelli di inizio mese
+> sono spezzati (311, 344, 375, 453). ⭐ **La decisione resta valida lo stesso, ma per un'altra
+> ragione**: non perché i casi a cavallo d'anno non esistano, ma perché lo slittamento è **uniforme**
+> e su più mesi si compensa quasi tutto — su Gen–Lug entra la coda di dicembre 2025 (2.282 €) e resta
+> fuori quella di luglio (1.287 €), netto **+995 € su 100.350**. Spostarne uno solo trasformerebbe
+> uno slittamento che si annulla da sé in un errore vero: o tutti i mesi, o nessuno. Il bottone resta per i casi veri — una fattura di dicembre pagata a gennaio — non per
 > il totale.
 
 **Le regole della categoria «Marketing e ADV» erano sbagliate in due sensi opposti**, corrette il
