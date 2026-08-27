@@ -1,9 +1,14 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, NgZone, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { loadGoogleMaps } from '../core/google-maps';
+import { AuthService } from '../core/auth.service';
+
+/** Lo script di Google Maps si carica a runtime: qui basta dichiararlo. */
+declare const google: any;
 
 interface Ricorrente {
   id: string;
@@ -53,7 +58,11 @@ interface PartnerConServizi extends Rif {
         <p class="page-caption">{{ 'recurring.caption' | translate }}</p>
       </div>
       <div class="head-actions">
-        <button class="btn btn-ghost" [disabled]="generando()" (click)="generaOggi()">{{ (generando() ? 'common.saving' : 'recurring.generateToday') | translate }}</button>
+        <!-- «Genera oggi» fa nascere consegne vere: resta dell'ufficio. Al
+             partner ci pensa comunque la corsa notturna. -->
+        @if (!isPartner()) {
+          <button class="btn btn-ghost" [disabled]="generando()" (click)="generaOggi()">{{ (generando() ? 'common.saving' : 'recurring.generateToday') | translate }}</button>
+        }
         <button class="btn btn-primary" (click)="formOpen.set(!formOpen())">{{ (formOpen() ? 'common.cancel' : 'recurring.new') | translate }}</button>
       </div>
     </div>
@@ -66,11 +75,13 @@ interface PartnerConServizi extends Rif {
         <div class="grid">
           <label class="fld"><span>{{ 'recurring.f.nome' | translate }} *</span>
             <input class="field" [(ngModel)]="m.nome" [placeholder]="'recurring.f.nomePh' | translate" /></label>
-          <label class="fld"><span>{{ 'recurring.f.partner' | translate }} *</span>
-            <select class="field" [(ngModel)]="m.partnerId" (ngModelChange)="cambiaPartner()">
-              <option value="">—</option>
-              @for (p of partners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
-            </select></label>
+          @if (!isPartner()) {
+            <label class="fld"><span>{{ 'recurring.f.partner' | translate }} *</span>
+              <select class="field" [(ngModel)]="m.partnerId" (ngModelChange)="cambiaPartner()">
+                <option value="">—</option>
+                @for (p of partners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
+              </select></label>
+          }
           <label class="fld"><span>{{ 'recurring.f.service' | translate }} *</span>
             <select class="field" [(ngModel)]="m.serviceTypeId" [disabled]="!m.partnerId">
               <option value="">—</option>
@@ -81,11 +92,13 @@ interface PartnerConServizi extends Rif {
             } @else if (!m.partnerId) {
               <span class="hint">{{ 'recurring.f.pickPartnerFirst' | translate }}</span>
             }</label>
-          <label class="fld"><span>{{ 'recurring.f.valet' | translate }}</span>
-            <select class="field" [(ngModel)]="m.valetId">
-              <option value="">{{ 'recurring.f.valetAuto' | translate }}</option>
-              @for (v of valets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
-            </select></label>
+          @if (!isPartner()) {
+            <label class="fld"><span>{{ 'recurring.f.valet' | translate }}</span>
+              <select class="field" [(ngModel)]="m.valetId">
+                <option value="">{{ 'recurring.f.valetAuto' | translate }}</option>
+                @for (v of valets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
+              </select></label>
+          }
         </div>
 
         <!-- COME SI RIPETE: settimane, giorni o mesi. La riga cambia faccia a
@@ -126,25 +139,38 @@ interface PartnerConServizi extends Rif {
 
         <div class="grid">
           <label class="fld"><span>{{ 'recurring.f.from' | translate }} *</span>
-            <input class="field" type="time" [(ngModel)]="m.timeFrom" /></label>
+            <input class="field" type="time" step="900" [(ngModel)]="m.timeFrom" /></label>
           <label class="fld"><span>{{ 'recurring.f.to' | translate }} *</span>
-            <input class="field" type="time" [(ngModel)]="m.timeTo" /></label>
+            <input class="field" type="time" step="900" [(ngModel)]="m.timeTo" /></label>
           <label class="fld"><span>{{ 'recurring.f.start' | translate }} *</span>
             <input class="field" type="date" [(ngModel)]="m.dataInizio" /></label>
           <label class="fld"><span>{{ 'recurring.f.end' | translate }}</span>
             <input class="field" type="date" [(ngModel)]="m.dataFine" /></label>
         </div>
         <div class="grid">
+          <!-- Indirizzi agganciati a GOOGLE MAPS, come nel form consegna: si
+               sceglie dal menu e resta l'indirizzo normalizzato da Google, non
+               quello che si e' battuto a mano. Un ricorrente sbagliato sbaglia
+               ogni giorno, non una volta. Senza la chiave in Impostazioni
+               restano campi di testo normali, e lo si dice. -->
           <label class="fld wide"><span>{{ 'recurring.f.address' | translate }} *</span>
-            <input class="field" [(ngModel)]="m.recipientAddress" /></label>
+            <input #addrDest class="field" [(ngModel)]="m.recipientAddress" autocomplete="off" /></label>
           <label class="fld wide"><span>{{ 'recurring.f.pickup' | translate }}</span>
-            <input class="field" [(ngModel)]="m.pickupAddress" /></label>
+            <input #addrRitiro class="field" [(ngModel)]="m.pickupAddress" autocomplete="off" /></label>
+          @if (mapsMancante()) {
+            <span class="hint warn wide">{{ 'recurring.f.mapsMissing' | translate }}</span>
+          }
         </div>
         <div class="grid">
-          <label class="fld"><span>{{ 'recurring.f.price' | translate }}</span>
-            <input class="field num" type="number" [(ngModel)]="m.price" /></label>
-          <label class="fld"><span>{{ 'recurring.f.salary' | translate }}</span>
-            <input class="field num" type="number" [(ngModel)]="m.valetSalary" /></label>
+          <!-- Prezzo e paga sono conti NOSTRI: al partner non si chiedono e non
+               si mostrano. Vuoti significa «vale il listino», che per lui e'
+               sempre il caso. -->
+          @if (!isPartner()) {
+            <label class="fld"><span>{{ 'recurring.f.price' | translate }}</span>
+              <input class="field num" type="number" [(ngModel)]="m.price" /></label>
+            <label class="fld"><span>{{ 'recurring.f.salary' | translate }}</span>
+              <input class="field num" type="number" [(ngModel)]="m.valetSalary" /></label>
+          }
           <label class="fld"><span>{{ 'recurring.f.hours' | translate }}</span>
             <input class="field num" type="number" min="1" [(ngModel)]="m.hours" /></label>
           <label class="fld"><span>{{ 'recurring.f.note' | translate }}</span>
@@ -252,10 +278,80 @@ interface PartnerConServizi extends Rif {
     `,
   ],
 })
-export class RecurringServicesComponent {
+export class RecurringServicesComponent implements AfterViewInit {
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
+  private readonly zone = inject(NgZone);
+  private readonly auth = inject(AuthService);
   private readonly api = environment.apiUrl;
+
+  /**
+   * Il PARTNER si imposta i propri presìdi, ma non sceglie CHI li fa ne' QUANTO
+   * costano: vale il listino che ha gia'. Quei campi non gli si mostrano — e
+   * l'API li sovrascrive comunque, perche' un form nascosto non e' una difesa.
+   */
+  isPartner(): boolean {
+    return this.auth.user()?.role === 'PARTNER';
+  }
+
+  @ViewChild('addrDest') addrDest?: ElementRef<HTMLInputElement>;
+  @ViewChild('addrRitiro') addrRitiro?: ElementRef<HTMLInputElement>;
+  /** La chiave browser di Google non c'e': i campi restano di testo, e si dice. */
+  readonly mapsMancante = signal(false);
+
+  /**
+   * Aggancia l'autocomplete di Google Places ai due indirizzi, come fa il form
+   * consegna. Un servizio ricorrente con l'indirizzo scritto male sbaglia OGNI
+   * GIORNO, non una volta: qui vale ancora piu' che altrove che l'indirizzo sia
+   * quello normalizzato da Google e non quello battuto a mano.
+   *
+   * ⚠️ Il form vive dentro un `@if`, quindi i campi NON esistono al primo
+   * `ngAfterViewInit`: si aggancia quando compaiono (apertura del form), e una
+   * volta sola per campo.
+   */
+  ngAfterViewInit(): void {
+    this.http.get<{ googleMapsBrowserKey: string | null }>(`${this.api}/settings/public`)
+      .subscribe({
+        next: async (cfg) => {
+          const key = cfg?.googleMapsBrowserKey;
+          if (!key) { this.mapsMancante.set(true); return; }
+          this.mapsMancante.set(false);
+          try {
+            await loadGoogleMaps(key);
+            this.chiaveMaps = key;
+            this.agganciaIndirizzi();
+          } catch { /* script non caricato: restano campi normali */ }
+        },
+        error: () => this.mapsMancante.set(true),
+      });
+  }
+
+  private chiaveMaps: string | null = null;
+  private agganciati = new WeakSet<HTMLInputElement>();
+
+  /** Aggancia i campi che ci sono adesso. Si richiama all'apertura del form. */
+  agganciaIndirizzi(): void {
+    if (!this.chiaveMaps) return;
+    for (const rif of [this.addrDest, this.addrRitiro]) {
+      const input = rif?.nativeElement;
+      if (!input || this.agganciati.has(input)) continue;
+      this.agganciati.add(input);
+      const auto = new google.maps.places.Autocomplete(input, {
+        componentRestrictions: { country: 'it' },
+        fields: ['formatted_address'],
+        types: ['address'],
+      });
+      auto.addListener('place_changed', () => {
+        const indirizzo = auto.getPlace()?.formatted_address;
+        if (!indirizzo) return;
+        // L'evento di Google e' fuori dal ciclo Angular: si rientra con la zona.
+        this.zone.run(() => {
+          if (input === this.addrDest?.nativeElement) this.m.recipientAddress = indirizzo;
+          else this.m.pickupAddress = indirizzo;
+        });
+      });
+    }
+  }
 
   readonly GIORNI = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
   /** Per il riassunto a parole: le iniziali non si leggono in una frase. */
@@ -340,8 +436,14 @@ export class RecurringServicesComponent {
     // genererebbe consegne per qualcuno con cui non lavoriamo piu'.
     this.http.get<PartnerConServizi[]>(`${this.api}/partners`).subscribe((d) =>
       this.partners.set((d ?? []).filter((p) => p.active !== false)));
-    this.http.get<Rif[]>(`${this.api}/valets`).subscribe((d) =>
-      this.valets.set((d ?? []).filter((v) => v.active !== false && !v.placeholder)));
+    // Il partner non sceglie se stesso da una tendina: e' gia' lui. Serve pero'
+    // avere il suo id nel modello, o la tendina dei servizi resta vuota.
+    if (this.isPartner()) this.m.partnerId = this.auth.user()?.partnerId ?? '';
+    // I valet li assegna l'ufficio: al partner la lista non serve.
+    if (!this.isPartner()) {
+      this.http.get<Rif[]>(`${this.api}/valets`).subscribe((d) =>
+        this.valets.set((d ?? []).filter((v) => v.active !== false && !v.placeholder)));
+    }
     const oggi = new Date();
     this.m.dataInizio = `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, '0')}-${String(oggi.getDate()).padStart(2, '0')}`;
   }

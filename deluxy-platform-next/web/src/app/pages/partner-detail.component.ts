@@ -287,9 +287,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                       <input type="checkbox" [(ngModel)]="r.closed" [name]="'closed' + r.dayOfWeek" />
                       <span>{{ 'partnerForm.openingHours.closed' | translate }}</span>
                     </label>
-                    <input class="field" type="time" [(ngModel)]="r.openTime"
+                    <input class="field" type="time" step="900" [(ngModel)]="r.openTime"
                            [name]="'open' + r.dayOfWeek" [disabled]="r.closed" />
-                    <input class="field" type="time" [(ngModel)]="r.closeTime"
+                    <input class="field" type="time" step="900" [(ngModel)]="r.closeTime"
                            [name]="'close' + r.dayOfWeek" [disabled]="r.closed" />
                   </div>
                 }

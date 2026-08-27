@@ -13,6 +13,7 @@
 // ============================================================
 import {
   BadRequestException,
+  ForbiddenException,
   Body,
   Controller,
   Delete,
@@ -27,7 +28,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
-import { Roles } from '../common/decorators';
+import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
@@ -135,8 +136,19 @@ export function toccaOggi(
 export class RecurringService_ {
   constructor(private readonly prisma: PrismaService) {}
 
-  list() {
+  /**
+   * Il partner vede SOLO i propri: la lista e' la stessa pagina per tutti, ma
+   * lo scope no. Il `'-'` di ripiego non combacia con nessun id, quindi un
+   * partner senza `partnerId` sul token vede zero righe invece di vederle
+   * tutte — un ripiego che sbaglia in sicurezza.
+   */
+  private scope(user?: JwtUser) {
+    return user?.role === Role.PARTNER ? { partnerId: user.partnerId ?? '-' } : {};
+  }
+
+  list(user?: JwtUser) {
     return this.prisma.recurringService.findMany({
+      where: this.scope(user),
       include: {
         partner: { select: { id: true, insegna: true } },
         serviceType: { select: { id: true, name: true, pricingModel: true } },
@@ -162,7 +174,31 @@ export class RecurringService_ {
     }
   }
 
-  async create(dto: CreaRicorrenteDto) {
+  /**
+   * Quello che un PARTNER non decide: chi va a fare la consegna e quanto costa.
+   *
+   * ⚠️ Non si "ignorano" i campi lasciandoli passare: si SOVRASCRIVONO qui, che
+   * e' l'unico posto che il partner non puo' aggirare. Un client puo' sempre
+   * mandare `price` a mano — la difesa sta nel server, non nel form.
+   * Senza prezzo scritto vale il LISTINO del partner (`PartnerService`), come
+   * per qualunque altra sua consegna; senza valet lo assegna l'ufficio.
+   */
+  private async normalizzaPerPartner(dto: CreaRicorrenteDto, user?: JwtUser): Promise<CreaRicorrenteDto> {
+    if (user?.role !== Role.PARTNER) return dto;
+    const partnerId = user.partnerId;
+    if (!partnerId) throw new ForbiddenException('Utente partner senza partner collegato.');
+    // Il servizio dev'essere UNO DEI SUOI: altrimenti si sceglierebbe il
+    // listino di qualcun altro.
+    const suo = await this.prisma.partnerService.findFirst({
+      where: { partnerId, serviceTypeId: dto.serviceTypeId },
+      select: { id: true },
+    });
+    if (!suo) throw new BadRequestException('Questo servizio non è nel tuo listino.');
+    return { ...dto, partnerId, valetId: undefined, price: undefined, valetSalary: undefined };
+  }
+
+  async create(dtoGrezzo: CreaRicorrenteDto, user?: JwtUser) {
+    const dto = await this.normalizzaPerPartner(dtoGrezzo, user);
     this.controllaRicorrenza(dto);
     return this.prisma.recurringService.create({
       data: {
@@ -190,9 +226,16 @@ export class RecurringService_ {
     });
   }
 
-  async update(id: string, dto: Partial<AggiornaRicorrenteDto>) {
+  async update(id: string, dtoGrezzo: Partial<AggiornaRicorrenteDto>, user?: JwtUser) {
     const c = await this.prisma.recurringService.findUnique({ where: { id } });
     if (!c) throw new NotFoundException('Servizio ricorrente non trovato');
+    // ⚠️ Il partner tocca solo i suoi, e non puo' spostarli a un altro partner
+    // ne' scrivere valet e prezzi.
+    let dto = dtoGrezzo;
+    if (user?.role === Role.PARTNER) {
+      if (c.partnerId !== user.partnerId) throw new ForbiddenException('Non è un tuo servizio ricorrente.');
+      dto = { ...dtoGrezzo, partnerId: undefined, valetId: undefined, price: undefined, valetSalary: undefined };
+    }
     // ⚠️ Si controlla la ricorrenza RISULTANTE, non solo quella mandata: un
     // PATCH che cambia solo la frequenza lascerebbe i giorni vecchi, e un
     // mensile senza giorni del mese non genererebbe mai niente pur sembrando
@@ -230,9 +273,12 @@ export class RecurringService_ {
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, user?: JwtUser) {
     const c = await this.prisma.recurringService.findUnique({ where: { id } });
     if (!c) throw new NotFoundException('Servizio ricorrente non trovato');
+    if (user?.role === Role.PARTNER && c.partnerId !== user.partnerId) {
+      throw new ForbiddenException('Non è un tuo servizio ricorrente.');
+    }
     // Le consegne gia' generate restano (recurringServiceId va a NULL da FK).
     await this.prisma.recurringService.delete({ where: { id } });
     return { ok: true };
@@ -336,24 +382,31 @@ export class RecurringService_ {
 
 @ApiTags('recurring-services')
 @ApiBearerAuth()
-@Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER)
+// ⭐ ANCHE IL PARTNER (27/08, chiesto dall'utente): puo' impostarsi i propri
+// presidi ricorrenti. Non sceglie il valet e non scrive prezzi — si applica il
+// LISTINO che ha gia' (`PartnerService`), come per qualunque altra sua
+// consegna. Tutto il resto lo decide l'ufficio.
+@Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
 @Controller('recurring-services')
 export class RecurringController {
   constructor(private readonly service: RecurringService_) {}
 
   @Get()
   @ApiOperation({ summary: 'I servizi ricorrenti (presìdi che si ripetono)' })
-  list() {
-    return this.service.list();
+  list(@CurrentUser() user: JwtUser) {
+    return this.service.list(user);
   }
 
   @Post()
   @ApiOperation({ summary: 'Nuovo servizio ricorrente (es. ogni lunedi 7-8 per un partner)' })
-  create(@Body() dto: CreaRicorrenteDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreaRicorrenteDto, @CurrentUser() user: JwtUser) {
+    return this.service.create(dto, user);
   }
 
+  // ⚠️ La generazione resta dell'ufficio: fa nascere consegne vere, e il cron
+  // la fa comunque ogni notte per tutti.
   @Post('genera')
+  @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Genera le consegne del giorno (default oggi) dai ricorrenti attivi' })
   genera(@Query('data') data?: string) {
     return this.service.genera(data);
@@ -361,14 +414,14 @@ export class RecurringController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Aggiorna (anche solo attivo on/off)' })
-  update(@Param('id') id: string, @Body() dto: Partial<AggiornaRicorrenteDto>) {
-    return this.service.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: Partial<AggiornaRicorrenteDto>, @CurrentUser() user: JwtUser) {
+    return this.service.update(id, dto, user);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Elimina (le consegne gia generate restano)' })
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.service.remove(id, user);
   }
 }
 

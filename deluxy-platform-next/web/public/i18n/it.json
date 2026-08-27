@@ -2056,7 +2056,8 @@
       "dailyHint": "Si ripete a intervalli regolari a partire dalla data d’inizio.",
       "dayOfMonth": "il giorno",
       "noServices": "Questo partner non ha servizi a listino: aggiungili nella sua scheda.",
-      "pickPartnerFirst": "Scegli prima il partner."
+      "pickPartnerFirst": "Scegli prima il partner.",
+      "mapsMissing": "Google Maps non è configurato: gli indirizzi restano da scrivere a mano."
     },
     "freq": {
       "SETTIMANALE": {

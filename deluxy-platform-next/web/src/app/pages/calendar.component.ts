@@ -103,9 +103,9 @@ const STATUS_COLOR: Record<string, string> = {
               </div>
               @if (editMode === 'timed') {
                 <div class="exc-times">
-                  <input class="field time" type="time" [(ngModel)]="editOpen" />
+                  <input class="field time" type="time" step="900" [(ngModel)]="editOpen" />
                   <span>–</span>
-                  <input class="field time" type="time" [(ngModel)]="editClose" />
+                  <input class="field time" type="time" step="900" [(ngModel)]="editClose" />
                 </div>
               }
               <input class="field" [(ngModel)]="editNote" [attr.placeholder]="'calendar.exc.notePlaceholder' | translate" />

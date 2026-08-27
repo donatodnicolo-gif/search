@@ -2056,7 +2056,8 @@
       "dailyHint": "Repeats at a regular interval starting from the start date.",
       "dayOfMonth": "day",
       "noServices": "This partner has no services on file: add them on their card.",
-      "pickPartnerFirst": "Pick the partner first."
+      "pickPartnerFirst": "Pick the partner first.",
+      "mapsMissing": "Google Maps is not configured: addresses must be typed by hand."
     },
     "freq": {
       "SETTIMANALE": {

@@ -176,9 +176,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
               <span class="oh-day">{{ 'partnerForm.openingHours.days.' + row.key | translate }}</span>
               <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.closed" [name]="'ohClosed' + row.dayOfWeek" /><span>{{ 'partnerForm.openingHours.closed' | translate }}</span></label>
               @if (!row.closed) {
-                <input class="field time" type="time" [(ngModel)]="row.openTime" [name]="'ohOpen' + row.dayOfWeek" />
+                <input class="field time" type="time" step="900" [(ngModel)]="row.openTime" [name]="'ohOpen' + row.dayOfWeek" />
                 <span class="oh-sep">–</span>
-                <input class="field time" type="time" [(ngModel)]="row.closeTime" [name]="'ohClose' + row.dayOfWeek" />
+                <input class="field time" type="time" step="900" [(ngModel)]="row.closeTime" [name]="'ohClose' + row.dayOfWeek" />
               } @else {
                 <span class="oh-closed-note">{{ 'partnerForm.openingHours.closedNote' | translate }}</span>
               }

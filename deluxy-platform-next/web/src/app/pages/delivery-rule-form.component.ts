@@ -101,8 +101,8 @@ function emptyForm(): RuleForm {
           <label class="fld"><span>{{ 'deliveryRules.f.periodEnd' | translate }}</span><input class="field" type="date" name="periodEnd" [(ngModel)]="model.periodEnd" /></label>
         </div>
         <div class="row2">
-          <label class="fld"><span>{{ 'deliveryRules.f.timeFrom' | translate }}</span><input class="field" type="time" name="timeFrom" [(ngModel)]="model.timeFrom" /></label>
-          <label class="fld"><span>{{ 'deliveryRules.f.timeTo' | translate }}</span><input class="field" type="time" name="timeTo" [(ngModel)]="model.timeTo" /></label>
+          <label class="fld"><span>{{ 'deliveryRules.f.timeFrom' | translate }}</span><input class="field" type="time" step="900" name="timeFrom" [(ngModel)]="model.timeFrom" /></label>
+          <label class="fld"><span>{{ 'deliveryRules.f.timeTo' | translate }}</span><input class="field" type="time" step="900" name="timeTo" [(ngModel)]="model.timeTo" /></label>
         </div>
         <div class="row2">
           <label class="fld"><span>{{ 'deliveryRules.f.kmDistance' | translate }}</span><input class="field" type="number" min="0" step="0.1" name="kmDistance" [(ngModel)]="model.kmDistance" /></label>

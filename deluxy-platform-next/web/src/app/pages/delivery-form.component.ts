@@ -118,8 +118,8 @@ interface ProductRow {
               <span class="slot-hint">{{ 'deliveryForm.timing.selectServiceFirst' | translate }}</span>
             } @else if (model.deliveryFlexible && selectedService()?.allowFlexibleTime) {
               <div class="grid-2">
-                <input class="field" type="time" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" />
-                <input class="field" type="time" name="deliveryTimeTo" [(ngModel)]="model.deliveryTimeTo" />
+                <input class="field" type="time" step="900" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" />
+                <input class="field" type="time" step="900" name="deliveryTimeTo" [(ngModel)]="model.deliveryTimeTo" />
               </div>
             } @else {
               <select class="field" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom">
@@ -145,9 +145,9 @@ interface ProductRow {
         @if (model.pickupFlexible) {
           <div class="grid-2 mt">
             <label class="fld"><span>{{ 'deliveryForm.field.pickupFrom' | translate }} *</span>
-              <input class="field" type="time" name="pickupTimeFrom" [(ngModel)]="model.pickupTimeFrom" /></label>
+              <input class="field" type="time" step="900" name="pickupTimeFrom" [(ngModel)]="model.pickupTimeFrom" /></label>
             <label class="fld"><span>{{ 'deliveryForm.field.pickupTo' | translate }} *</span>
-              <input class="field" type="time" name="pickupTimeTo" [(ngModel)]="model.pickupTimeTo" /></label>
+              <input class="field" type="time" step="900" name="pickupTimeTo" [(ngModel)]="model.pickupTimeTo" /></label>
           </div>
         } @else {
           <label class="fld mt" style="max-width:280px"><span>{{ 'deliveryForm.field.pickupTime' | translate }} * <em>{{ 'deliveryForm.timing.pickupSlotSize' | translate }}</em></span>

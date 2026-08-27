@@ -62,7 +62,9 @@ export const routes: Routes = [
       {
         path: 'recurring-services',
         canActivate: [roleGuard],
-        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'], title: 'Servizi ricorrenti' },
+        // ⭐ Anche il PARTNER (27/08): si imposta i propri presìdi, senza scegliere
+        // il valet ne' scrivere prezzi — vale il listino che ha gia'.
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'], title: 'Servizi ricorrenti' },
         loadComponent: () =>
           import('./pages/recurring-services.component').then(
             (m) => m.RecurringServicesComponent,
