@@ -61,6 +61,64 @@ interface ProductRow {
       </label>
     </div>
 
+    <!-- ⭐ COMPILA CON L'AI (27/08): si detta o si incolla un testo, o si carica
+         la foto di un ordine, e il form si RIEMPIE. Non si salva niente: la
+         proposta va rivista e confermata da chi la manda. Solo sulla consegna
+         NUOVA — in modifica riscriverebbe sopra a dati gia' controllati. -->
+    @if (!editId() && aiPossibile()) {
+      <section class="card ai-box" [class.aperto]="aiAperto()">
+        @if (!aiAperto()) {
+          <button type="button" class="btn btn-secondary" (click)="aiAperto.set(true)">
+            ✨ {{ 'deliveryForm.ai.open' | translate }}
+          </button>
+          <span class="ai-sub">{{ 'deliveryForm.ai.sub' | translate }}</span>
+        } @else {
+          <div class="ai-testa">
+            <strong>✨ {{ 'deliveryForm.ai.title' | translate }}</strong>
+            <button type="button" class="link" (click)="aiAperto.set(false)">{{ 'common.close' | translate }}</button>
+          </div>
+          <textarea
+            class="field ai-testo"
+            rows="3"
+            [(ngModel)]="aiTesto"
+            [ngModelOptions]="{ standalone: true }"
+            [placeholder]="'deliveryForm.ai.placeholder' | translate"
+          ></textarea>
+          <div class="ai-azioni">
+            <!-- ⚠️ La voce si trascrive NEL BROWSER: l'AI non ascolta l'audio.
+                 Dove il riconoscimento non c'e' (Firefox, iOS vecchi) il
+                 bottone non compare, invece di comparire e non fare niente. -->
+            @if (vocePossibile) {
+              <button type="button" class="btn btn-secondary" [class.registra]="inAscolto()" (click)="dettatura()">
+                {{ (inAscolto() ? 'deliveryForm.ai.listening' : 'deliveryForm.ai.voice') | translate }}
+              </button>
+            }
+            <label class="btn btn-secondary file">
+              {{ 'deliveryForm.ai.image' | translate }}
+              <input type="file" accept="image/*" capture="environment" (change)="aiImmagine($event)" hidden />
+            </label>
+            @if (aiNomeImmagine()) { <span class="ai-file">{{ aiNomeImmagine() }}</span> }
+            <button type="button" class="btn btn-primary" [disabled]="aiInCorso()" (click)="aiCompila()">
+              {{ (aiInCorso() ? 'deliveryForm.ai.reading' : 'deliveryForm.ai.fill') | translate }}
+            </button>
+          </div>
+          @if (aiErrore()) { <div class="ai-err">{{ aiErrore() }}</div> }
+          @if (aiEsito(); as e) {
+            <!-- La proposta si DICHIARA: quanto ci crede, che cosa ha capito e
+                 che cosa non ha trovato. Un modulo che si riempie da solo senza
+                 dire perche' e' un modulo di cui non ci si puo' fidare. -->
+            <div class="ai-esito" [class]="'ai-esito c-' + e.confidenza">
+              <div><strong>{{ 'deliveryForm.ai.proposal' | translate }}</strong> — {{ 'deliveryForm.ai.confidence.' + e.confidenza | translate }}</div>
+              <div class="ai-perche">{{ e.perche }}</div>
+              @if (e.campiMancanti?.length) {
+                <div class="ai-mancanti">{{ 'deliveryForm.ai.missing' | translate }}: {{ e.campiMancanti.join(', ') }}</div>
+              }
+            </div>
+          }
+        }
+      </section>
+    }
+
     <form (ngSubmit)="submit()" class="form-grid">
       <!-- 1. Scelta del servizio -->
       <section class="card block">
@@ -462,6 +520,26 @@ interface ProductRow {
       .actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 14px 18px; border-radius: var(--radius-l); }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 14px 18px; border-radius: var(--radius-l); }
+      /* Compila con l'AI */
+      .ai-box { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; padding: 14px 18px; }
+      .ai-box.aperto { display: block; }
+      .ai-sub { font-size: 13px; color: var(--text-secondary); }
+      .ai-testa { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+      .ai-testa strong { font-size: 15px; }
+      .ai-testo { width: 100%; resize: vertical; min-height: 74px; }
+      .ai-azioni { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+      .ai-azioni .file { position: relative; cursor: pointer; display: inline-flex; align-items: center; }
+      .ai-file { font-size: 12.5px; color: var(--text-secondary); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .btn.registra { background: rgba(215,0,21,0.1); color: var(--red); border-color: rgba(215,0,21,0.25); }
+      .ai-err { margin-top: 10px; font-size: 13.5px; color: var(--red); }
+      /* Il colore dice quanto ci crede: chi legge una proposta deve vedere
+         subito se fidarsi o rileggere riga per riga. */
+      .ai-esito { margin-top: 12px; padding: 11px 14px; border-radius: var(--radius-l); font-size: 13.5px; }
+      .ai-esito.c-alta { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); }
+      .ai-esito.c-media { background: rgba(184,150,62,0.1); border: 1px solid rgba(184,150,62,0.28); }
+      .ai-esito.c-bassa { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.18); }
+      .ai-perche { margin-top: 4px; color: var(--text-secondary); }
+      .ai-mancanti { margin-top: 6px; font-size: 12.5px; color: var(--text-secondary); }
       @media (max-width: 760px) { .grid-2, .grid-4, .listino { grid-template-columns: 1fr; } }
     `,
   ],
@@ -494,6 +572,151 @@ export class DeliveryFormComponent implements AfterViewInit {
   readonly servizioSel = signal('');
 
   readonly mapsMancante = signal(false);
+
+  // ── COMPILA CON L'AI ───────────────────────────────────────────────────────
+  /** La chiave c'e'? Lo dice il server con un si'/no, mai col valore. */
+  readonly aiPossibile = signal(false);
+  readonly aiAperto = signal(false);
+  readonly aiInCorso = signal(false);
+  readonly aiErrore = signal<string | null>(null);
+  readonly aiEsito = signal<{ confidenza: string; perche: string; campiMancanti: string[] } | null>(null);
+  readonly aiNomeImmagine = signal<string | null>(null);
+  readonly inAscolto = signal(false);
+  aiTesto = '';
+  private aiImmagineBase64: string | null = null;
+  private aiTipoImmagine: string | null = null;
+  private riconoscitore: any = null;
+  /**
+   * ⚠️ La dettatura la fa il BROWSER, non l'AI: Claude non ascolta l'audio.
+   * Dove il riconoscimento vocale non c'è (Firefox, iOS datati) il bottone non
+   * si mostra affatto — un bottone che non fa niente è peggio di un bottone che
+   * non c'è.
+   */
+  readonly vocePossibile =
+    typeof window !== 'undefined'
+    && Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+
+  /** Detta a voce: si trascrive qui e il testo finisce nella casella. */
+  dettatura(): void {
+    if (!this.vocePossibile) return;
+    if (this.inAscolto()) { this.riconoscitore?.stop(); return; }
+    const Riconoscimento = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const r = new Riconoscimento();
+    r.lang = 'it-IT';
+    r.interimResults = false;
+    r.continuous = false;
+    r.onresult = (ev: any) => {
+      const detto = Array.from(ev.results).map((x: any) => x[0].transcript).join(' ').trim();
+      // Si AGGIUNGE al testo, non lo si sostituisce: chi detta due volte sta
+      // completando, non ricominciando.
+      this.zone.run(() => { this.aiTesto = this.aiTesto ? `${this.aiTesto} ${detto}` : detto; });
+    };
+    r.onerror = () => this.zone.run(() => this.inAscolto.set(false));
+    r.onend = () => this.zone.run(() => this.inAscolto.set(false));
+    this.riconoscitore = r;
+    this.inAscolto.set(true);
+    r.start();
+  }
+
+  /** Foto di un ordine scritto, o screenshot di una chat. */
+  aiImmagine(ev: Event): void {
+    const file = (ev.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      this.aiErrore.set(this.translate.instant('deliveryForm.ai.tooBig'));
+      return;
+    }
+    const lettore = new FileReader();
+    lettore.onload = () => {
+      const risultato = String(lettore.result ?? '');
+      // Via il prefisso `data:image/jpeg;base64,`: al server va il solo base64.
+      this.aiImmagineBase64 = risultato.slice(risultato.indexOf(',') + 1);
+      this.aiTipoImmagine = file.type || 'image/jpeg';
+      this.aiNomeImmagine.set(file.name);
+      this.aiErrore.set(null);
+    };
+    lettore.readAsDataURL(file);
+  }
+
+  /**
+   * Chiede all'AI di leggere e RIEMPIE il form. Non salva niente: la consegna
+   * nasce quando la persona preme Salva, come sempre.
+   */
+  aiCompila(): void {
+    if (!this.aiTesto.trim() && !this.aiImmagineBase64) {
+      this.aiErrore.set(this.translate.instant('deliveryForm.ai.empty'));
+      return;
+    }
+    this.aiInCorso.set(true);
+    this.aiErrore.set(null);
+    this.http
+      .post<{ proposta: any }>(`${environment.apiUrl}/ai/consegna-da-testo`, {
+        testo: this.aiTesto.trim() || undefined,
+        immagine: this.aiImmagineBase64 ?? undefined,
+        tipoImmagine: this.aiTipoImmagine ?? undefined,
+      })
+      .subscribe({
+        next: (r) => {
+          this.aiInCorso.set(false);
+          const p = r?.proposta ?? {};
+          this.applicaProposta(p);
+          this.aiEsito.set({
+            confidenza: p.confidenza ?? 'bassa',
+            perche: p.perche ?? '',
+            campiMancanti: p.campiMancanti ?? [],
+          });
+        },
+        error: (err) => {
+          this.aiInCorso.set(false);
+          this.aiErrore.set(err?.error?.message ?? this.translate.instant('deliveryForm.ai.failed'));
+        },
+      });
+  }
+
+  /**
+   * Riversa la proposta nel form.
+   * ⚠️ Solo i campi che l'AI ha DAVVERO riempito: un `null` non azzera quello
+   * che c'è già. È la trappola del form parziale — riempire con «niente» è
+   * peggio che non riempire.
+   */
+  private applicaProposta(p: any): void {
+    const metti = (campo: keyof typeof this.model, valore: unknown) => {
+      if (valore === null || valore === undefined || valore === '') return;
+      (this.model as any)[campo] = valore;
+    };
+    metti('date', p.data);
+    metti('deliveryTimeFrom', p.consegnaDalle);
+    metti('deliveryTimeTo', p.consegnaAlle);
+    metti('pickupTimeFrom', p.ritiroDalle);
+    metti('pickupTimeTo', p.ritiroAlle);
+    // ⚠️ Il secondo orario si vede solo a fascia APERTA: riempirlo lasciando la
+    // fascia chiusa lo scriverebbe in un campo invisibile, e chi salva non
+    // saprebbe mai che c'e'.
+    if (p.consegnaDalle && p.consegnaAlle) this.model.deliveryFlexible = true;
+    if (p.ritiroDalle && p.ritiroAlle) this.model.pickupFlexible = true;
+    metti('recipientFirstName', p.destinatarioNome);
+    metti('recipientLastName', p.destinatarioCognome);
+    metti('recipientAddress', p.destinatarioIndirizzo);
+    metti('recipientIntercom', p.destinatarioCitofono);
+    metti('recipientPhone', p.destinatarioTelefono);
+    metti('senderFirstName', p.mittenteNome);
+    metti('senderLastName', p.mittenteCognome);
+    // Il form non ha un campo «indirizzo di ritiro» (il ritiro e' del partner):
+    // se il messaggio ne parla NON si butta via, finisce nelle note dove chi
+    // legge lo vede. Buttarlo sarebbe perdere un dato che qualcuno ha scritto.
+    const righeNote: string[] = [];
+    if (p.indirizzoRitiro) righeNote.push('Ritiro: ' + p.indirizzoRitiro);
+    if (p.prodotto) righeNote.push('Prodotto: ' + p.prodotto + (p.quantita ? ' x' + p.quantita : ''));
+    if (p.note) righeNote.push(String(p.note));
+    if (righeNote.length) metti('notes', righeNote.join('\n'));
+    if (typeof p.contrassegno === 'number' && p.contrassegno > 0) {
+      (this.model as any).paymentOnDelivery = true;
+      (this.model as any).paymentAmount = p.contrassegno;
+    }
+    // L'indirizzo appena messo deve far scattare la provincia e i partner
+    // abilitati, come se l'avesse scritto una persona.
+    if (p.destinatarioIndirizzo) this.onAddressChange();
+  }
 
   /** Solo l'admin può inserire la chiave: agli altri l'avviso non servirebbe. */
   puoConfigurare(): boolean {
@@ -945,11 +1168,15 @@ export class DeliveryFormComponent implements AfterViewInit {
    *  al campo di testo normale (con geocodifica server) se manca la chiave. */
   ngAfterViewInit(): void {
     const input = this.addressInput?.nativeElement;
-    if (!input) return;
     this.http
-      .get<{ googleMapsBrowserKey: string | null }>(`${environment.apiUrl}/settings/public`)
+      .get<{ googleMapsBrowserKey: string | null; aiAttiva?: boolean }>(`${environment.apiUrl}/settings/public`)
       .subscribe({
         next: async (cfg) => {
+          // Il pannello «compila con l'AI» si mostra solo se la chiave c'e'
+          // davvero: un bottone che fallisce sempre e' peggio di un bottone
+          // che non c'e'. La chiave non arriva mai qui, solo il si'/no.
+          this.aiPossibile.set(Boolean(cfg?.aiAttiva));
+          if (!input) return;
           const key = cfg?.googleMapsBrowserKey;
           if (!key) {
             // ⚠️ Prima si tornava indietro in SILENZIO: il campo restava un

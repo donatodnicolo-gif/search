@@ -30,6 +30,7 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { SalesModule } from './sales/sales.module';
 import { MerchandisingSyncModule } from './merchandising-sync/merchandising-sync.module';
 import { OrdersSyncModule } from './orders-sync/orders-sync.module';
+import { AiModule } from './ai/ai.module';
 import { RecurringModule } from './recurring/recurring.module';
 import { SmsTemplatesModule } from './sms-templates/sms-templates.module';
 import { UsersModule } from './users/users.module';
@@ -53,6 +54,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     SalesModule,
     OrdersSyncModule,
     RecurringModule,
+    AiModule,
     MerchandisingSyncModule,
     SalariesModule,
     ReceiptsModule,

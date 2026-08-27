@@ -1249,7 +1249,28 @@
       "none": "Nessun cliente trovato.",
       "change": "Cambia"
     },
-    "ddtBrandScegli": "Scegli il brand…"
+    "ddtBrandScegli": "Scegli il brand…",
+    "ai": {
+      "open": "Compila con l'AI",
+      "sub": "Detta, incolla un testo o carica una foto: il modulo si riempie e tu controlli.",
+      "title": "Compila con l'AI",
+      "placeholder": "Es. «Domani alle 15 consegna a Maria Rossi, via Montenapoleone 12 Milano, citofono Rossi, 333 1234567, un bouquet, incassare 50 euro».",
+      "voice": "🎤 Detta",
+      "listening": "⏹ Sto ascoltando…",
+      "image": "📷 Foto",
+      "fill": "Compila il modulo",
+      "reading": "Sto leggendo…",
+      "proposal": "Proposta",
+      "missing": "Non trovati",
+      "empty": "Scrivi o detta qualcosa, oppure carica una foto.",
+      "tooBig": "L'immagine supera i 4 MB: riprova con una foto più leggera.",
+      "failed": "L'AI non ha risposto. Riprova, oppure compila a mano.",
+      "confidence": {
+        "alta": "ci crede molto",
+        "media": "da ricontrollare",
+        "bassa": "da rileggere riga per riga"
+      }
+    }
   },
   "partnerForm": {
     "title": "Nuovo partner",

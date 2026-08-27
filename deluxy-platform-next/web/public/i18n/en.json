@@ -1249,7 +1249,28 @@
       "none": "No customer found.",
       "change": "Change"
     },
-    "ddtBrandScegli": "Choose the brand…"
+    "ddtBrandScegli": "Choose the brand…",
+    "ai": {
+      "open": "Fill in with AI",
+      "sub": "Dictate, paste a note or upload a photo: the form fills in and you check it.",
+      "title": "Fill in with AI",
+      "placeholder": "E.g. \"Tomorrow at 3pm deliver to Maria Rossi, via Montenapoleone 12 Milan, intercom Rossi, 333 1234567, one bouquet, collect 50 euros\".",
+      "voice": "🎤 Dictate",
+      "listening": "⏹ Listening…",
+      "image": "📷 Photo",
+      "fill": "Fill the form",
+      "reading": "Reading…",
+      "proposal": "Proposal",
+      "missing": "Not found",
+      "empty": "Type or dictate something, or upload a photo.",
+      "tooBig": "The image is over 4 MB: try again with a lighter photo.",
+      "failed": "The AI did not answer. Try again, or fill it in by hand.",
+      "confidence": {
+        "alta": "high confidence",
+        "media": "double-check it",
+        "bassa": "read it line by line"
+      }
+    }
   },
   "partnerForm": {
     "title": "New partner",

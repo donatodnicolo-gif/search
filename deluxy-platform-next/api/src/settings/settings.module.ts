@@ -293,6 +293,10 @@ export class SettingsController {
     return {
       googleMapsBrowserKey: await this.service.get('googleMapsBrowserKey'),
       whatsappNumero: await this.service.get('whatsappNumero'),
+      // ⚠️ Il BOOLEANO, mai la chiave: serve solo a non mostrare un bottone
+      // «compila con l'AI» che fallirebbe sempre. Un comando che non può
+      // funzionare è peggio di un comando assente.
+      aiAttiva: Boolean((await this.service.get('aiApiKey'))?.trim()),
     };
   }
 }

@@ -17,6 +17,7 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.121.0",
     "@nestjs/common": "^11.0.12",
     "@nestjs/config": "^4.0.1",
     "@nestjs/core": "^11.0.12",
