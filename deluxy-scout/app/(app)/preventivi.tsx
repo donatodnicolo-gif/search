@@ -16,6 +16,7 @@ import { leggiImporto } from '@/lib/importi';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CampoData } from '@/components/CampoData';
+import { SceltaFornitore, type FornitoreScelto } from '@/components/SceltaFornitore';
 import { urlMessaggioAiMail } from '@/lib/aimail';
 import {
   cercaPlaces,
@@ -27,7 +28,6 @@ import {
   type TrattativaConLuogo,
 } from '@/lib/db';
 import type { RichiestaCliente } from '@/types';
-import { LINEE_ATTIVE } from '@/types';
 import { cercaNelRegistro, fetchFornitori, type PartnerRegistro } from '@/lib/anagrafiche';
 import {
   aggiornaLavoro,
@@ -162,6 +162,11 @@ interface VenditaSceglibile {
   /** Di che lavoro si tratta, sotto al nome. */
   dettaglio: string;
   placeId: string | null;
+  /** ⚠️ La linea NON si chiede più: viene da qui (27/08/2026, «le linee sono
+   *  già informazioni relative alla trattativa»). Chiederla di nuovo apriva la
+   *  porta a un lavoro con una linea diversa da quella della vendita a cui
+   *  appartiene — due verità sullo stesso affare. */
+  linea: string | null;
 }
 const ETICHETTA_VENDITA: Record<TipoVendita, { label: string; icona: any; colore: string }> = {
   trattativa: { label: 'Trattativa', icona: 'briefcase-outline', colore: colors.navy },
@@ -174,7 +179,16 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
   const [apri, setApri] = useState(false);
   const [titolo, setTitolo] = useState('');
   const [descrizione, setDescrizione] = useState('');
-  const [linea, setLinea] = useState<string | null>(null);
+  /**
+   * ⭐ CHI FA IL LAVORO (27/08/2026, richiesta dell'utente: «fai cercare
+   * tramite anagrafiche anche il fornitore che lo fa»).
+   *
+   * Sceglierlo qui vuol dire che il lavoro nasce già con il suo primo
+   * preventivo — in attesa del prezzo. Prima bisognava creare il lavoro, poi
+   * aprirlo, poi aggiungere il fornitore: tre passi per la cosa che si sa per
+   * prima, cioè a chi l'hai chiesto.
+   */
+  const [fornitore, setFornitore] = useState<FornitoreScelto | null>(null);
   const [serveEntro, setServeEntro] = useState('');
   const [cliente, setCliente] = useState<PlaceLite | null>(null);
   const [salvo, setSalvo] = useState(false);
@@ -222,6 +236,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
             cliente: d.place_nome ?? 'Senza negozio',
             dettaglio: d.titolo || d.oggetto || (d.linee?.length ? d.linee.join(', ') : d.linea) || 'Trattativa',
             placeId: d.place_id ?? null,
+            linea: (d.linee?.length ? d.linee[0] : d.linea) ?? null,
           });
         }
         for (const r of richieste) {
@@ -236,6 +251,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
             cliente: r.cliente,
             dettaglio: r.descrizione || 'Richiesta cliente',
             placeId: r.place_id ?? null,
+            linea: r.linea ?? null,
           });
         }
         for (const o of ordini) {
@@ -246,6 +262,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
             cliente: o.place_nome ?? o.cliente,
             dettaglio: o.descrizione || o.linea || 'Ordine',
             placeId: o.place_id ?? null,
+            linea: o.linea ?? null,
           });
         }
         setVendite(out);
@@ -272,7 +289,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
     if (!titolo.trim() || !venditaScelta) return;
     setSalvo(true);
     try {
-      await creaLavoro({
+      const nato = await creaLavoro({
         titolo,
         // Il lavoro si aggancia alla vendita giusta, qualunque delle tre sia.
         dealId: venditaScelta.tipo === 'trattativa' ? venditaScelta.id : undefined,
@@ -280,12 +297,25 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
         ordineId: venditaScelta.tipo === 'ordine' ? venditaScelta.id : undefined,
         descrizione,
         placeId: cliente?.id ?? null,
-        linea,
+        // ⚠️ EREDITATA dalla vendita, non chiesta: è la stessa informazione, e
+        // due campi per lo stesso dato divergono al primo che li compila.
+        linea: venditaScelta.linea ?? null,
         serveEntro: serveEntro.trim() || null,
       });
+      // Il fornitore, se è stato scelto: un preventivo senza importo, cioè
+      // «gliel'ho chiesto e aspetto». Il prezzo si scrive quando risponde.
+      if (fornitore) {
+        await aggiungiPreventivo({
+          lavoroId: nato.id,
+          fornitore: fornitore.nome,
+          fornitoreAnagraficheId: fornitore.anagraficheId,
+          fornitoreEmail: fornitore.email,
+          importo: null,
+        });
+      }
       setTitolo('');
       setDescrizione('');
-      setLinea(null);
+      setFornitore(null);
       setServeEntro('');
       setCliente(null);
       setVenditaId(null);
@@ -310,12 +340,17 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
     <View style={styles.form}>
       <Text style={styles.formTitolo}>Nuovo lavoro</Text>
 
-      <Text style={styles.label}>Cosa ci hanno chiesto *</Text>
+      {/* ⚠️ LA DOMANDA È COSA OFFRE IL FORNITORE, non cosa ha chiesto il
+          cliente (27/08/2026, correzione dell'utente). Non è una sfumatura:
+          quello che il cliente chiede sta già sulla vendita qui sotto, e
+          riscriverlo qui creava due descrizioni della stessa cosa. Qui si
+          descrive la FORNITURA — è lei che va confrontata fra più fornitori. */}
+      <Text style={styles.label}>Cosa ci offre il fornitore *</Text>
       <TextInput
         style={styles.input}
         value={titolo}
         onChangeText={setTitolo}
-        placeholder="es. Allestimento vetrine natalizie"
+        placeholder="es. allestimento floreale vetrine — 4 vetrine, montaggio incluso"
         placeholderTextColor={colors.grigio}
       />
 
@@ -412,14 +447,19 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
         </>
       )}
 
-      <Text style={styles.label}>Linea</Text>
-      <View style={styles.chips}>
-        {LINEE_ATTIVE.map((l) => (
-          <Pressable key={l} onPress={() => setLinea(linea === l ? null : l)} style={[styles.chip, linea === l && styles.chipOn]}>
-            <Text style={[styles.chipTxt, linea === l && styles.chipTxtOn]}>{l}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <Text style={styles.label}>Chi lo fa (facoltativo)</Text>
+      <SceltaFornitore valore={fornitore} onScegli={setFornitore} />
+      <Text style={styles.aiuto}>
+        Cercalo in Anagrafiche. Il lavoro nasce con il suo preventivo in attesa: il prezzo si scrive quando
+        risponde. Puoi anche lasciarlo vuoto e aggiungere più fornitori dopo, per confrontarli.
+      </Text>
+
+      {/* La LINEA non si chiede: è quella della vendita scelta qui sopra. Si
+          mostra soltanto, perché sapere su che linea si sta lavorando serve —
+          sceglierla una seconda volta no. */}
+      {venditaScelta?.linea ? (
+        <Text style={styles.aiuto}>Linea: {venditaScelta.linea} (dalla vendita)</Text>
+      ) : null}
 
       {/* Il formato non si scrive più nell'etichetta: lo mostra il calendario,
           e in italiano lo scrive gg/mm/aaaa — dire «AAAA-MM-GG» sarebbe una

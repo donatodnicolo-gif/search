@@ -105,17 +105,17 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     voci: [
       { name: 'preventivi', label: 'Preventivi fornitori', icon: 'calculator-outline' },
       { name: 'forniture', label: 'Forniture', icon: 'cube-outline' },
-      // ⭐ 27/08/2026 — i TEMPLATE delle pro-forme abitano in Scout (decisione
-      // dell'utente: «Scout sarà l'owner dei template, a Finance vengono
-      // comunicate solo le pro-forme»). Stanno accanto ai documenti che
-      // intestano, non fra gli Strumenti: chi vede una pro-forma con
-      // l'intestazione sbagliata cerca da dove esce, e la cerca qui.
-      { name: 'template-documenti', label: 'Template pro-forma', icon: 'document-text-outline' , soloAdmin: true },
     ],
   },
   {
     titolo: 'Strumenti',
     voci: [
+      // ⭐ 27/08/2026 — i TEMPLATE delle pro-forme stanno QUI, non accanto ai
+      // preventivi fornitori (decisione dell'utente: «template va in
+      // strumenti»). Avevo scelto Forniture pensando a chi cerca da dove esce
+      // un'intestazione sbagliata; ma non è una cosa che si vende, è
+      // configurazione — e si tocca una volta ogni tanto, come le altre qui.
+      { name: 'template-documenti', label: 'Template pro-forma', icon: 'document-text-outline', soloAdmin: true },
       { name: 'rubrica', label: 'Rubrica', icon: 'people-outline' },
       { name: 'script', label: 'Script', icon: 'mail-outline' },
       { name: 'sequenze', label: 'Sequenze', icon: 'git-branch-outline' },
