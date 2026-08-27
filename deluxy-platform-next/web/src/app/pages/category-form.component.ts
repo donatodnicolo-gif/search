@@ -47,7 +47,7 @@ interface DiscountRow { provinceId: string; discountPercent: number | null; }
               <option value="required">{{ 'categoryForm.fields.required' | translate }}</option>
               <option value="admin">{{ 'categoryForm.fields.adminOnly' | translate }}</option>
             </select>
-            <button type="button" class="icon-btn" (click)="fieldRows.splice($index,1)">✕</button>
+            <button type="button" class="icon-btn" [attr.aria-label]="'common.remove' | translate" (click)="fieldRows.splice($index,1)">✕</button>
           </div>
         }
         <button type="button" class="btn btn-secondary add" (click)="fieldRows.push({name:'',fieldType:'optional'})">+ {{ 'categoryForm.fields.add' | translate }}</button>
@@ -64,7 +64,7 @@ interface DiscountRow { provinceId: string; discountPercent: number | null; }
               @for (p of provinces(); track p.id) { <option [value]="p.id">{{ p.code }} · {{ p.name }}</option> }
             </select>
             <input class="field num" type="number" step="0.1" [attr.placeholder]="'categoryForm.discounts.percentPlaceholder' | translate" [(ngModel)]="row.discountPercent" [name]="'dperc' + $index" />
-            <button type="button" class="icon-btn" (click)="discountRows.splice($index,1)">✕</button>
+            <button type="button" class="icon-btn" [attr.aria-label]="'common.remove' | translate" (click)="discountRows.splice($index,1)">✕</button>
           </div>
         }
         <button type="button" class="btn btn-secondary add" (click)="discountRows.push({provinceId:'',discountPercent:null})">+ {{ 'categoryForm.discounts.add' | translate }}</button>

@@ -119,7 +119,7 @@ interface ImageRow { url: string; }
           @for (row of imageRows; track $index) {
             <div class="img-row">
               <input class="field" [attr.placeholder]="'productForm.images.placeholder' | translate" [(ngModel)]="row.url" [name]="'img' + $index" />
-              <button type="button" class="icon-btn" (click)="imageRows.splice($index,1)">✕</button>
+              <button type="button" class="icon-btn" [attr.aria-label]="'common.remove' | translate" (click)="imageRows.splice($index,1)">✕</button>
             </div>
           }
           <button type="button" class="btn btn-secondary add" (click)="imageRows.push({url:''})">{{ 'productForm.images.add' | translate }}</button>
@@ -183,7 +183,7 @@ interface ImageRow { url: string; }
                   @if (row.controlStock) {
                     <input class="field num stock" type="number" min="0" [attr.placeholder]="'productForm.variants.stock' | translate" [(ngModel)]="row.stock" [name]="'vstock' + $index" />
                   }
-                  <button type="button" class="icon-btn" (click)="variantRows.splice($index,1)">✕</button>
+                  <button type="button" class="icon-btn" [attr.aria-label]="'common.remove' | translate" (click)="variantRows.splice($index,1)">✕</button>
                 </div>
               </div>
             }
@@ -202,7 +202,7 @@ interface ImageRow { url: string; }
             <input class="field" [attr.placeholder]="'productForm.customFields.namePlaceholder' | translate" [(ngModel)]="row.name" [name]="'fname' + $index" />
             <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.required" [name]="'freq' + $index" /><span>{{ 'productForm.customFields.required' | translate }}</span></label>
             <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.adminOnly" [name]="'fadm' + $index" /><span>{{ 'productForm.customFields.adminOnly' | translate }}</span></label>
-            <button type="button" class="icon-btn" (click)="fieldRows.splice($index,1)">✕</button>
+            <button type="button" class="icon-btn" [attr.aria-label]="'common.remove' | translate" (click)="fieldRows.splice($index,1)">✕</button>
           </div>
         }
         <button type="button" class="btn btn-secondary add" (click)="fieldRows.push({name:'',required:false,adminOnly:false})">{{ 'productForm.customFields.add' | translate }}</button>

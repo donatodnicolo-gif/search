@@ -258,7 +258,8 @@
     "loadError": "Error loading data",
     "saveError": "Error while saving",
     "comingSoon": "Coming soon",
-    "close": "Close"
+    "close": "Close",
+    "remove": "Remove"
   },
   "enums": {
     "productType": {

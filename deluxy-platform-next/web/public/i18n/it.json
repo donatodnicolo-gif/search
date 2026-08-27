@@ -258,7 +258,8 @@
     "loadError": "Errore nel caricamento dei dati",
     "saveError": "Errore nel salvataggio",
     "comingSoon": "In arrivo",
-    "close": "Chiudi"
+    "close": "Chiudi",
+    "remove": "Togli"
   },
   "enums": {
     "productType": {
