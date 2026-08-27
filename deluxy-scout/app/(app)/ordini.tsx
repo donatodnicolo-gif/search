@@ -14,6 +14,8 @@ import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiest
 import { chiediFatturaPerOrdine } from '@/lib/partner';
 import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
+import { aggiornaFornitura, aggiungiFornitura, forniturePerOrdine, rimuoviFornitura, type RigaFornitura } from '@/lib/fornitura';
+import { SceltaFornitore, type FornitoreScelto } from '@/components/SceltaFornitore';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { BRAND, brandDi, CANALI, LINEE_ATTIVE } from '@/types';
@@ -100,14 +102,6 @@ export default function Ordini() {
     [ordini, statoFiltro, lineaFiltro],
   );
 
-  const totali = useMemo(() => {
-    const anno = new Date().getFullYear();
-    const validi = ordini.filter((o) => o.stato !== 'annullato' && new Date(o.created_at).getFullYear() === anno);
-    return {
-      chiusoAnno: validi.reduce((s, o) => s + (o.valore ?? 0), 0),
-      daIncassare: ordini.filter((o) => o.stato === 'da_incassare').reduce((s, o) => s + (o.valore ?? 0), 0),
-    };
-  }, [ordini]);
 
   /**
    * ⚠️ LA SOGLIA NON È 900 (27/08/2026). Questa tabella ha dieci colonne, e
@@ -168,7 +162,25 @@ export default function Ordini() {
    * niente. Il VALORE invece resta un'altra storia — lì zero mentirebbe, ed è
    * il motivo per cui senza valore il margine è «—».
    */
+
+
   const altriCostiDi = (o: OrdineConLuogo): number => o.altri_costi ?? 0;
+  /**
+   * ⭐ LA FORNITURA È OBBLIGATORIA PRIMA DI CHIUDERE (27/08/2026, richiesta
+   * dell'utente: «la fornitura va indicata obbligatoria prima di mettere
+   * l'ordine come chiuso»).
+   *
+   * ⚠️ Obbligatoria QUI e non alla creazione: un ordine nasce da solo da una
+   * trattativa vinta o da una richiesta, e in quel momento il fornitore non si
+   * sa ancora. Un vincolo a monte avrebbe spento il funnel per far rispettare
+   * una regola che riguarda la fine, non l'inizio. Si incassa quando si sa
+   * quanto è costata — altrimenti si registra un ricavo senza il suo costo, e
+   * il margine di quell'ordine è un numero inventato.
+   */
+  const haFornitura = useCallback(
+    (o: OrdineConLuogo) => lavori.some((l) => l.ordine_id === o.id && l.preventivi.length > 0),
+    [lavori],
+  );
   const margineDi = useCallback(
     (o: OrdineConLuogo): number | null => {
       const c = costi.get(o.id);
@@ -177,6 +189,30 @@ export default function Ordini() {
     },
     [costi],
   );
+
+  /**
+   * ⚠️ STA QUI, DOPO `costi` e `margineDi`, e non più in cima: il totale del
+   * margine realizzato li legge entrambi. Messo sopra, il file compilava per
+   * caso finché non gli serviva davvero un valore — e poi smetteva.
+   */
+  const totali = useMemo(() => {
+    const anno = new Date().getFullYear();
+    const validi = ordini.filter((o) => o.stato !== 'annullato' && new Date(o.created_at).getFullYear() === anno);
+    return {
+      chiusoAnno: validi.reduce((s, o) => s + (o.valore ?? 0), 0),
+      daIncassare: ordini.filter((o) => o.stato === 'da_incassare').reduce((s, o) => s + (o.valore ?? 0), 0),
+      // ⚠️ Il margine REALIZZATO dell'anno: solo gli ordini incassati e col
+      // costo definitivo. Un margine «totale» che sommasse anche le stime
+      // sarebbe il numero che si guarda per primo e quello che si scopre falso
+      // per ultimo — e la sua base (quali ordini) non si vedrebbe.
+      margineRealizzato: validi
+        .filter((o) => o.stato === 'incassato' && (costi.get(o.id)?.definitivo ?? false))
+        .reduce((s, o) => s + (margineDi(o) ?? 0), 0),
+      quantiRealizzati: validi.filter(
+        (o) => o.stato === 'incassato' && (costi.get(o.id)?.definitivo ?? false),
+      ).length,
+    };
+  }, [ordini, costi, margineDi]);
 
   const colonne: ColonnaTabella<OrdineConLuogo>[] = [
     {
@@ -320,12 +356,26 @@ export default function Ordini() {
         // Scriverlo sarebbe il numero più ottimista e più falso che c'è.
         if (m === null) return <Text style={styles.tabData}>—</Text>;
         const perc = o.valore ? Math.round((m / o.valore) * 100) : null;
+        /**
+         * ⚠️ REALIZZATO o STIMATO, ed è una differenza che conta (27/08/2026,
+         * richiesta dell'utente: «indica poi in tabella ordini il margine
+         * realizzato»).
+         *
+         * Realizzato vuol dire due cose insieme: l'ordine è INCASSATO — i soldi
+         * sono arrivati — e il costo è DEFINITIVO, cioè la fornitura è stata
+         * registrata e non è più «il preventivo più basso ricevuto». Basta che
+         * ne manchi una perché il numero sia ancora una previsione, e chiamarlo
+         * realizzato vorrebbe dire mettere in cassa un margine che può ancora
+         * cambiare.
+         */
+        const realizzato = o.stato === 'incassato' && (costi.get(o.id)?.definitivo ?? false);
         return (
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={[styles.tabValore, m < 0 && styles.margineNegativo]}>{importoBreve(m)}</Text>
-            {perc !== null ? (
-              <Text style={[styles.tabStima, m < 0 && styles.margineNegativo]}>{perc}%</Text>
-            ) : null}
+            <Text style={[styles.tabStima, m < 0 && styles.margineNegativo]}>
+              {perc !== null ? `${perc}% · ` : ''}
+              {realizzato ? 'realizzato' : 'stimato'}
+            </Text>
           </View>
         );
       },
@@ -731,6 +781,16 @@ export default function Ordini() {
   }
 
   async function cambiaStato(o: OrdineConLuogo, stato: OrdineConLuogo['stato']) {
+    // ⚠️ Il divieto sta QUI, non solo sul bottone: la stessa funzione la
+    // chiamano l'icona in tabella e il bottone della scheda, e una regola
+    // scritta su uno dei due punti è una regola che si aggira dall'altro.
+    if (stato === 'incassato' && !haFornitura(o)) {
+      avvisa(
+        'Manca la fornitura',
+        'Prima di segnare incassato bisogna dire chi ha fornito e a quanto: senza, il ricavo entra nei conti e il suo costo no — e il margine di questo ordine è un numero inventato.\n\nSi scrive dalla modifica dell\'ordine, sezione «Fornitura».',
+      );
+      return;
+    }
     try {
       await aggiornaOrdine(o.id, {
         stato,
@@ -753,6 +813,13 @@ export default function Ordini() {
         <Text style={styles.sub}>
           Chiuso {new Date().getFullYear()}: <Text style={styles.subForte}>{euro(totali.chiusoAnno)}</Text>
           {'  ·  '}Da incassare: <Text style={styles.subForte}>{euro(totali.daIncassare)}</Text>
+          {totali.quantiRealizzati ? (
+            <>
+              {'  ·  '}Margine realizzato:{' '}
+              <Text style={styles.subForte}>{euro(totali.margineRealizzato)}</Text>
+              <Text style={styles.subNota}> (su {totali.quantiRealizzati} ordini incassati)</Text>
+            </>
+          ) : null}
         </Text>
         <View style={styles.chips}>
           <Chip label="Tutti" on={!statoFiltro} onPress={() => setStatoFiltro(null)} />
@@ -1025,6 +1092,21 @@ export default function Ordini() {
             preventivo del fornitore.
           </Text>
 
+          {/* ⭐ LA FORNITURA (27/08/2026, richiesta dell'utente: «possibilità di
+              scelta di uno o più fornitori (integrata ricerca con anagrafiche)
+              e per ogni fornitore il prezzo del servizio fornito con
+              possibilità di inserire come nota che cosa ha fornito»).
+
+              ⚠️ Sta PRIMA degli altri costi perché è il costo principale: gli
+              altri costi sono quello che avanza, non il grosso. E sta qui, non
+              in una schermata a parte, perché è la domanda che ci si fa mentre
+              si guarda l'ordine — «quanto mi è costato?». */}
+          <BloccoFornitura
+            ordine={modificaPer}
+            righe={forniturePerOrdine(lavori, modificaPer.id)}
+            onCambiato={carica}
+          />
+
           {/* ⭐ ALTRI COSTI (27/08/2026, richiesta dell'utente: «metti una
               colonna altri costi sui costi che ci possono essere collegati»).
               Quelli che non passano da un preventivo fornitore: trasporto,
@@ -1170,11 +1252,196 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
   );
 }
 
+/**
+ * LA FORNITURA DI UN ORDINE: chi ha fornito, a quanto, che cosa.
+ *
+ * ⚠️ Non è una tabella nuova: ogni riga è un LAVORO dell'ordine col suo
+ * fornitore scelto (vedi lib/fornitura.ts). Così il costo che si scrive qui è
+ * lo stesso che il margine sottrae e che la colonna Preventivo mostra — invece
+ * di essere un secondo costo che nessuno somma con il primo.
+ */
+function BloccoFornitura({
+  ordine,
+  righe,
+  onCambiato,
+}: {
+  ordine: OrdineConLuogo;
+  righe: RigaFornitura[];
+  onCambiato: () => void;
+}) {
+  const [apri, setApri] = useState(false);
+  const [chi, setChi] = useState<FornitoreScelto | null>(null);
+  const [quanto, setQuanto] = useState('');
+  const [cosa, setCosa] = useState('');
+  const [salvo, setSalvo] = useState(false);
+
+  async function aggiungi() {
+    if (salvo) return;
+    if (!chi) {
+      avvisa('Manca il fornitore', 'Scegli chi ha fornito: un prezzo senza il nome di chi l\'ha fatto non si può né confrontare né richiamare.');
+      return;
+    }
+    // ⚠️ Il prezzo scritto male FERMA il salvataggio, non diventa null: qui
+    // null vuol dire «non lo so ancora», e un costo buttato in silenzio fa
+    // sembrare l'ordine più redditizio di quanto sia.
+    const n = quanto.trim() ? leggiImporto(quanto) : null;
+    if (quanto.trim() && n === null) {
+      avvisa('Prezzo non capito', `«${quanto}» non è un importo. Scrivilo come 1.250,50.`);
+      return;
+    }
+    setSalvo(true);
+    try {
+      await aggiungiFornitura({
+        ordineId: ordine.id,
+        placeId: ordine.place_id ?? null,
+        linea: ordine.linea ?? null,
+        fornitore: chi.nome,
+        anagraficheId: chi.anagraficheId,
+        email: chi.email,
+        importo: n,
+        nota: cosa.trim() || null,
+      });
+      setChi(null);
+      setQuanto('');
+      setCosa('');
+      setApri(false);
+      onCambiato();
+    } catch (e: any) {
+      avvisa('Non è stata salvata', String(e?.message ?? e));
+    } finally {
+      setSalvo(false);
+    }
+  }
+
+  function togli(r: RigaFornitura) {
+    conferma(
+      'Togliere questa fornitura?',
+      `${r.fornitore}${r.importo != null ? ` · ${importoBreve(r.importo)}` : ''}. Esce dal costo dell'ordine, quindi il margine cambia.`,
+      async () => {
+        try {
+          await rimuoviFornitura(r.lavoroId);
+          onCambiato();
+        } catch (e: any) {
+          avvisa('Non è stata tolta', String(e?.message ?? e));
+        }
+      },
+      { testoConferma: 'Togli', distruttivo: true },
+    );
+  }
+
+  const totale = righe.reduce((s, r) => s + (r.importo ?? 0), 0);
+
+  return (
+    <>
+      <Text style={styles.campoLabel}>Fornitura</Text>
+
+      {righe.length ? (
+        <View style={{ gap: 6 }}>
+          {righe.map((r) => (
+            <View key={r.lavoroId} style={styles.fornRiga}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.fornNome} numberOfLines={1}>{r.fornitore}</Text>
+                {r.nota ? <Text style={styles.fornNota} numberOfLines={2}>{r.nota}</Text> : null}
+              </View>
+              <Text style={styles.fornPrezzo}>{r.importo != null ? importoBreve(r.importo) : '—'}</Text>
+              <Pressable onPress={() => togli(r)} hitSlop={8} accessibilityLabel={`Togli ${r.fornitore}`}>
+                <Ionicons name="close-circle-outline" size={18} color={colors.grigio} />
+              </Pressable>
+            </View>
+          ))}
+          <Text style={styles.campoAiuto}>
+            Costo della fornitura: {importoBreve(totale)} · {righe.length}{' '}
+            {righe.length === 1 ? 'fornitore' : 'fornitori'}. Il margine lo sottrae.
+          </Text>
+        </View>
+      ) : (
+        // ⚠️ Non è un vuoto qualsiasi: senza fornitura l'ordine non si può
+        // chiudere, ed è meglio saperlo adesso che davanti al bottone spento.
+        <Text style={styles.fornVuoto}>
+          Nessun fornitore indicato. Serve prima di poter segnare l&apos;ordine come incassato: senza, il ricavo
+          entra nei conti e il suo costo no.
+        </Text>
+      )}
+
+      {apri ? (
+        <View style={styles.fornForm}>
+          <Text style={styles.campoLabel}>Chi ha fornito</Text>
+          <SceltaFornitore valore={chi} onScegli={setChi} autoFocus />
+
+          <Text style={styles.campoLabel}>Quanto ci è costato</Text>
+          <TextInput
+            style={styles.campo}
+            value={quanto}
+            onChangeText={setQuanto}
+            placeholder="es. 1.250,50 — vuoto se non lo sai ancora"
+            placeholderTextColor={colors.grigio}
+            inputMode="decimal"
+          />
+
+          <Text style={styles.campoLabel}>Che cosa ha fornito</Text>
+          <TextInput
+            style={styles.campo}
+            value={cosa}
+            onChangeText={setCosa}
+            placeholder="es. allestimento floreale sala, 30 centrotavola"
+            placeholderTextColor={colors.grigio}
+          />
+
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable style={[styles.btnFornSalva, salvo && { opacity: 0.5 }]} disabled={salvo} onPress={aggiungi}>
+              <Text style={styles.btnFornSalvaTxt}>{salvo ? 'Salvo…' : 'Aggiungi la fornitura'}</Text>
+            </Pressable>
+            <Pressable style={styles.btnFornAnnulla} onPress={() => setApri(false)}>
+              <Text style={styles.btnFornAnnullaTxt}>Annulla</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <Pressable style={styles.btnFornAggiungi} onPress={() => setApri(true)}>
+          <Ionicons name="add" size={16} color={colors.navy} />
+          <Text style={styles.btnFornAggiungiTxt}>Aggiungi un fornitore</Text>
+        </Pressable>
+      )}
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
+  fornRiga: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    backgroundColor: colors.bianco,
+  },
+  fornNome: { color: colors.testo, fontSize: 14, fontWeight: '700' },
+  fornNota: { color: colors.grigio, fontSize: 12, lineHeight: 16, marginTop: 1 },
+  fornPrezzo: { color: colors.testo, fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  fornVuoto: { color: colors.attenzione, fontSize: 12.5, lineHeight: 18 },
+  fornForm: {
+    gap: 6,
+    padding: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    backgroundColor: colors.sfondo,
+    marginTop: 6,
+  },
+  btnFornAggiungi: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, marginTop: 2 },
+  btnFornAggiungiTxt: { color: colors.navy, fontWeight: '700', fontSize: 13.5 },
+  btnFornSalva: { flex: 1, backgroundColor: colors.ink, borderRadius: radius.pill, paddingVertical: 10, alignItems: 'center' },
+  btnFornSalvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 13.5 },
+  btnFornAnnulla: { paddingVertical: 10, paddingHorizontal: 14 },
+  btnFornAnnullaTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13.5 },
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.sfondo },
   sub: { color: colors.testoSoft, fontSize: 13 },
   subForte: { color: colors.navy, fontWeight: '800' },
+  subNota: { color: colors.grigio, fontWeight: '400' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   gruppoTitolo: { color: colors.testoSoft, fontSize: 12, fontWeight: '700', marginRight: 2 },
   chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
