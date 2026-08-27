@@ -2,7 +2,7 @@
 // Nasce automaticamente dalla trattativa vinta (docs/VISIONE-COMMERCIALE.md);
 // qui si segue solo l'incasso: da incassare → incassato (o annullato).
 // La pipeline dice quanto stiamo trattando; questa pagina quanto abbiamo chiuso.
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -16,6 +16,7 @@ import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { aggiornaFornitura, aggiungiFornitura, forniturePerOrdine, rimuoviFornitura, type RigaFornitura } from '@/lib/fornitura';
 import { SceltaFornitore, type FornitoreScelto } from '@/components/SceltaFornitore';
+import { fetchForniture, type Fornitura } from '@/lib/forniture';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { BRAND, brandDi, CANALI, LINEE_ATTIVE } from '@/types';
@@ -1167,7 +1168,11 @@ export default function Ordini() {
               Design arrivava un foglio intestato Deluxy.
               ⚠️ Non si può togliere: una vendita è sempre di qualcuno. Chi non
               sceglie resta su Deluxy. */}
-          <Text style={styles.campoLabel}>Brand della pro-forma</Text>
+          {/* ⚠️ Si chiama «Sito», come la colonna in tabella (27/08/2026). Lo
+              stesso dato con due nomi — «Sito» di là, «Brand della pro-forma»
+              di qua — è un dato che si cerca e non si trova: chi voleva
+              cambiare il sito di un ordine non riconosceva questo campo. */}
+          <Text style={styles.campoLabel}>Sito (decide l&apos;intestazione del documento)</Text>
           <View style={styles.chipsForm}>
             {BRAND.map((b) => (
               <Pressable
@@ -1274,6 +1279,49 @@ function BloccoFornitura({
   const [quanto, setQuanto] = useState('');
   const [cosa, setCosa] = useState('');
   const [salvo, setSalvo] = useState(false);
+  /**
+   * ⭐ RICHIAMARE UNA FORNITURA GIÀ IN APP (27/08/2026, richiesta dell'utente:
+   * «permetti di richiamare anche le forniture già in app»).
+   *
+   * Il listino delle forniture — cosa fa un fornitore e a quanto — è già
+   * caricato: ribattere qui a mano un prezzo che sta già scritto di là vuol
+   * dire due numeri per la stessa cosa, e quello sbagliato è sempre il secondo.
+   *
+   * ⚠️ Il prezzo richiamato si può CORREGGERE prima di salvare: il listino dice
+   * quanto costa di norma, l'ordine dice quanto è costato davvero. Copiarlo
+   * senza poterlo toccare avrebbe trasformato un riferimento in un dogma.
+   */
+  const [listino, setListino] = useState<Fornitura[]>([]);
+  const [cercaListino, setCercaListino] = useState('');
+  const [caricoListino, setCaricoListino] = useState(false);
+
+  useEffect(() => {
+    if (!apri || listino.length || caricoListino) return;
+    setCaricoListino(true);
+    fetchForniture()
+      .then(setListino)
+      .catch(() => setListino([]))
+      .finally(() => setCaricoListino(false));
+  }, [apri, listino.length, caricoListino]);
+
+  const daListino = useMemo(() => {
+    const q = cercaListino.trim().toLowerCase();
+    if (!q) return [];
+    return listino
+      .filter((f) =>
+        [f.fornitore, f.titolo, f.descrizione, f.linea]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q)),
+      )
+      .slice(0, 6);
+  }, [listino, cercaListino]);
+
+  function richiama(f: Fornitura) {
+    setChi({ nome: f.fornitore, anagraficheId: f.fornitore_anagrafiche_id ?? null, email: null });
+    setQuanto(f.prezzo != null ? scriviImporto(f.prezzo) : '');
+    setCosa(f.titolo);
+    setCercaListino('');
+  }
 
   async function aggiungi() {
     if (salvo) return;
@@ -1365,6 +1413,34 @@ function BloccoFornitura({
 
       {apri ? (
         <View style={styles.fornForm}>
+          {/* ⚠️ Il richiamo sta PRIMA di tutto: è la strada corta, e una strada
+              corta messa in fondo non la prende nessuno. */}
+          <Text style={styles.campoLabel}>Richiama dal listino forniture</Text>
+          <TextInput
+            style={styles.campo}
+            value={cercaListino}
+            onChangeText={setCercaListino}
+            placeholder={caricoListino ? 'Carico il listino…' : 'Cerca fra le forniture già caricate…'}
+            placeholderTextColor={colors.grigio}
+            autoCapitalize="none"
+          />
+          {daListino.map((f) => (
+            <Pressable key={f.id} style={styles.listinoRiga} onPress={() => richiama(f)}>
+              <Ionicons name="cube-outline" size={15} color={colors.navy} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.listinoTitolo} numberOfLines={1}>{f.titolo}</Text>
+                <Text style={styles.listinoMeta} numberOfLines={1}>
+                  {f.fornitore}
+                  {f.prezzo != null ? ` · ${importoBreve(f.prezzo)}` : ' · prezzo non indicato'}
+                  {f.prezzo_note ? ` · ${f.prezzo_note}` : ''}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+          {cercaListino.trim() && !daListino.length && !caricoListino ? (
+            <Text style={styles.campoAiuto}>Niente nel listino con questo nome: scrivilo a mano qui sotto.</Text>
+          ) : null}
+
           <Text style={styles.campoLabel}>Chi ha fornito</Text>
           <SceltaFornitore valore={chi} onScegli={setChi} autoFocus />
 
@@ -1407,6 +1483,19 @@ function BloccoFornitura({
 }
 
 const styles = StyleSheet.create({
+  listinoRiga: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 9,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    backgroundColor: colors.bianco,
+  },
+  listinoTitolo: { color: colors.testo, fontSize: 13.5, fontWeight: '700' },
+  listinoMeta: { color: colors.grigio, fontSize: 11.5, lineHeight: 16 },
   fornRiga: {
     flexDirection: 'row',
     alignItems: 'center',
