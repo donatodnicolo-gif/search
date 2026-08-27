@@ -1,5 +1,193 @@
 # Handoff — Deluxy Customer Service
 
+## 27/08/2026 (8) — revisione di sicurezza: 23 accuse, 4 agenti, 11 correzioni
+
+Chiesto dall'utente: verificare se un utente può arrivare a informazioni che non
+gli spettano richiamando le API dall'esterno, più una revisione di sicurezza
+generale, **con un agente ostile** che concordi le migliorie. Due agenti hanno
+cercato (autorizzazione delle API, sicurezza generale) e due hanno avuto il
+mandato di **demolire**: su ventitré accuse, **3 demolite, 6 ridimensionate**.
+
+### Dall'esterno l'app tiene
+
+Sondate tutte e **131 le rotte** senza cookie: ogni `/api/*` risponde 307 verso
+`/login`, gli undici cron 401, le `/api/v1/*` 401, il webhook Meta 403. Un
+cookie inventato viene rifiutato. Pubbliche di proposito restano `/api/health`,
+`/widget` e le due API del widget — e nessuna restituisce dati di nessuno.
+
+**Il problema non era chi sta fuori. Era chi sta dentro.**
+
+### 1. ⚠️⚠️ Un operatore era un amministratore a cui mancavano tre schermate
+
+Le sei pagine di configurazione — Impostazioni, Caselle, Negozi, Numeri
+WhatsApp, Facebook e Instagram, Widget dei siti — **non chiedevano il ruolo**:
+né la pagina, né le dodici server action. E il menu le mostrava a tutti (solo
+Turni e Operatori erano nascoste). Utenti reali: **1 amministratore e 2
+operatori**.
+
+Che cosa si otteneva davvero, con le credenziali di un operatore:
+- ⚠️⚠️ **la posta aziendale**: si scrive `imapHost` di una casella lasciando
+  **vuoto** il campo password — la password vera resta cifrata in tabella e al
+  giro successivo il cron la presenta al server nuovo. `rejectUnauthorized:
+  false` (vedi sotto) risparmia perfino il certificato;
+- ⚠️⚠️ **le chiavi delle app sorelle**: si scrive `anagraficheUrl` e al primo
+  giro la chiave da 53 caratteri parte nell'header verso un server qualunque.
+  ⚠️ La via di fuga «le variabili d'ambiente hanno la precedenza» è stata
+  **verificata e chiusa**: in produzione ce ne sono cinque (`CRON_SECRET`,
+  `APP_URL`, `APP_SECRET`, `DIRECT_URL`, `DATABASE_URL`) e **nessuna** è di
+  queste; e due ponti (Partner, Search) dall'ambiente non leggono affatto;
+- **spegnere la verifica delle firme** del webhook Meta svuotando l'App Secret.
+
+⚠️ La regola era **già scritta**, in italiano e col motivo, in
+`utenti/actions.ts`: «una server action è un endpoint a tutti gli effetti».
+Applicata in **un file su sette**. Adesso `soloAmministratore()` sta in
+`src/lib/sessione.ts` ed è in tutte e dodici le azioni e in tutte e sei le
+pagine; le voci sono sotto `amministratore` nel menu.
+
+### 2. ⚠️⚠️ Il cancello dell'AI si aggirava dall'altra porta
+
+`/api/ai-fuori-turno` riserva all'amministratore l'accensione delle risposte
+automatiche, con un 403 e la spiegazione. La **stessa chiave** si scriveva dal
+modulo Impostazioni senza controlli — e il cron gira ogni dieci minuti, quindi
+non serviva nemmeno far partire il giro a mano: bastava accendere e aspettare.
+
+### 3. ⚠️ Diciassette handler non guardavano se l'utente esiste ancora
+
+`const io = await utenteCorrente()` e poi `io?.nome ?? ''`, senza mai un
+`if (!io)`. Il cookie è firmato sull'id e vive trenta giorni; cancellare un
+utente **non lo invalidava**. Un ex dipendente col cookie in mano mandava mail
+da `cs@deluxy.it`, scriveva ai clienti su WhatsApp, approvava rimborsi e creava
+richieste di pagamento — e l'archivio scriveva autore `''`, cioè **nessuno**.
+⚠️ Anche qui la regola era già nel repo: `clienti/unisci/route.ts` ce l'ha nella
+DELETE e non nella POST, **nello stesso file**.
+
+### 4. ⚠️⚠️ La sessione adesso si revoca
+
+Il cookie era `userId.HMAC(userId)`: nessuna scadenza, nessun numero di serie.
+Conseguenza — **cambiare la password non buttava fuori nessuno**, cioè proprio
+la mossa che si fa quando si sospetta un accesso rubato lasciava dentro
+l'attaccante. L'unica leva globale era cambiare `APP_SECRET`, che è **anche** la
+chiave con cui sono cifrati tutti i segreti: usarla per chiudere una sessione
+rendeva illeggibili token Meta, chiavi API e password delle caselle, in blocco e
+in silenzio.
+
+Ora il cookie è `userId.generazione.HMAC(userId.generazione)` e `Utente` ha una
+colonna `generazione` (migrazione **additiva**, verificata con `migrate diff`).
+Cambiare la password la incrementa; `utenteCorrente()` la confronta col
+database. ⚠️ Il middleware continua a verificare **solo la firma** — gira su
+edge e il database non lo legge — ed è giusto così: la firma dice «l'ho scritto
+io», la lettura dell'utente dice «e vale ancora».
+⚠️ **I cookie della vecchia forma non valgono più**: tutti rientrano dal login
+una volta sola. È voluto — una correzione che serve a invalidare le sessioni
+vecchie e le lascia vive non ha corretto niente.
+
+### 5. ⚠️ L'allegato che poteva eseguire codice
+
+`/api/media/[id]` serviva il file col `Content-Type` **dichiarato da chi manda
+il messaggio** (`mime_type` arriva nel payload di Meta dal documento caricato
+dal mittente), con `Content-Disposition: inline` e senza `nosniff`. Uno
+sconosciuto manda al numero del servizio clienti un «fattura.html» con dentro
+uno `<script>`, l'operatore in inbox ci clicca — è il suo mestiere — e quel
+codice gira **sull'origine dell'app**, con la sua sessione.
+
+⚠️⚠️ **`nosniff` da solo NON basta**, ed è la correzione che verrebbe naturale:
+impedisce di *indovinare* un tipo, non di rispettare un `text/html`
+**dichiarato**. Serve la lista bianca. ⚠️ Misurata prima di stringere sui
+**3.779 messaggi veri**: 126 `image/jpeg`, 6 `png`, 3 `webp`, 3 `audio/ogg`, 1
+`pdf` — e **nessun** html né svg. La lista non toglie niente di quello che i
+clienti mandano.
+
+### 6. Le altre correzioni
+
+- **Gli indirizzi delle app sorelle validati** (`src/lib/indirizzi-app.ts`):
+  solo `https:` e host Deluxy. ⚠️ Serve **anche** col controllo di ruolo: quello
+  guarda CHI passa, questo guarda COSA passa, e resta l'amministratore distratto.
+- **Il webhook Meta non si apre più a segreti vuoti**: 503 invece di accettare
+  tutto. ⚠️ Non era una falla remota — i segreti ci sono, **verificato: 32
+  caratteri entrambi** — era una **trappola di configurazione**: la casella
+  «cancella il valore salvato» spegneva l'autenticazione senza spegnere il
+  webhook, cioè un guasto che si manifesta come «tutto a posto». Stessa cosa
+  ruotando `APP_SECRET`.
+- **`piattaformaApiKey` non si stampa più nell'HTML**: era l'unico dei
+  diciassette campi della pagina fuori posto, un `<input defaultValue>` invece
+  di `CampoSegreto`. ⚠️ Cambiando componente cambia anche la regola di
+  salvataggio: **vuoto adesso vuol dire «non l'ho toccata»**, e per cancellarla
+  c'è la casella — senza questa modifica il primo salvataggio l'avrebbe azzerata.
+- **Un tetto per IP sull'apertura delle chat del widget** (10/ora). ⚠️ Vive
+  nella memoria della funzione: su Vercel le istanze sono più d'una, quindi è un
+  tetto **per istanza** e **non sostituisce** il Vercel Firewall, che è lo
+  strumento giusto e va acceso dal pannello.
+- **Le eccezioni del middleware ancorate**: prima bastava che un percorso
+  COMINCIASSE con «chat» o «widget» per nascere pubblico. Oggi non esponeva
+  niente (verificato voce per voce), ma è il difetto che non si trova mai
+  guardando il file che l'ha causato. **Provato in produzione**: `/loginX`,
+  `/chat-interna`, `/widget-statistiche`, `/api/cronologia` → **307**, e le
+  rotte pubbliche di proposito → ancora 200.
+
+### 🟡 Confermati e NON corretti, con il motivo
+
+- ⚠️⚠️ **Le tre caselle di posta non verificano il certificato TLS.**
+  `ignoraCertTls` ha `@default(true)` e **non compare in nessun form**: si può
+  cambiare solo con una query a mano. Tutte e tre in produzione sono a `true`.
+  **Non l'ho toccato**, e il motivo è che il rimedio può fermare la posta: il
+  default fu messo così perché `register.it` presenta un certificato intestato a
+  un altro dominio, e cambiare `@default` **non tocca le righe che esistono**.
+  Va fatto in tre passi — provare la connessione con la verifica attiva, poi
+  `servername` esplicito se il certificato non combacia, poi l'`UPDATE`.
+- **SSRF su `mediaUrl`**: demolita. L'unico punto di scrittura è il payload
+  **firmato** di Meta, e su Vercel non c'è un metadata service da colpire.
+- **Intestazioni globali (CSP, X-Frame-Options)**: il clickjacking è demolito —
+  `SameSite=Lax` **non** manda il cookie in un iframe cross-site, quindi
+  l'attaccante incornicia una pagina di login. ⚠️ E una regola scritta larga
+  (`source: '/(.*)'`) **spegnerebbe il widget sui siti dei clienti**, che è un
+  danno più grande del problema. Il pezzo che serviva davvero (`nosniff` + tipo
+  controllato) è dentro la correzione di `/api/media`.
+- **`ruolo @default("admin")`**: demolita. Le due sole creazioni passano sempre
+  il ruolo esplicito, e la seconda è protetta due volte da `installazioneVergine`.
+- **Iniezione nel prompt**: ridimensionata. La risposta torna **solo a chi ha
+  scritto** — non si può far scrivere l'app a un terzo — e passa da sei
+  serrature. Il danno resta «farsi recitare gli script aziendali».
+- **Nessun limite ai tentativi di login**: vero, non corretto. Password scrypt
+  con sale e confronto a tempo costante, messaggio d'errore identico nei due
+  casi; resta un oracolo di **temporizzazione** (l'email che non esiste esce
+  subito, quella che esiste paga uno scrypt).
+
+**Verifica**: `tsc` 0, `build` 0, `prova-sicurezza.mts` **48/48**, il giro del
+cookie con la generazione provato a parte (9/9), le altre suite rilette. Commit
+`63e069fc`, deployato, alias + health 200 + cancello provato in produzione.
+
+## 27/08/2026 (7) — Partner: una sezione che dice chi ha preparato che cosa
+
+Chiesto dall'utente. L'elenco dei partner dice **chi esiste** e lo legge dal
+registro Anagrafiche; non diceva **chi ha lavorato** — che è un dato di questa
+app (`Ordine.fornitoreNome`, `fornitoreCosto`) e si poteva guardare solo un
+ordine alla volta.
+
+Adesso `/partner` ha due sezioni. «Fornitori usati» mostra, per ogni fornitore,
+i suoi ordini con venduto, quanto è andato a lui e il margine. I pagamenti
+aggiungono quello che l'ordine non dice — un fornitore pagato su un ordine che
+non lo nomina — **marcato come tale**, perché l'importo di un bonifico non è il
+costo concordato e potrebbe essere un acconto.
+
+⚠️⚠️ **E dice quanto poco sa**: **22 ordini su 1.380** dicono chi li ha
+preparati (1,6%). Ventidue righe senza quel numero accanto si leggono «abbiamo
+usato ventidue fornitori», che è falso.
+
+⚠️ Gli ordini aperti **non sono una tabella dentro la tabella**: una `<table>`
+dentro un `<td>` non ha una larghezza contro cui restringersi, quindi
+`overflow-x: auto` non si accende mai e la cella cresce. Misurato a 375px:
+tabella interna da **564** dentro una cella da **373**, e **tutta la pagina
+scorreva di lato**. Ora ogni ordine è una riga che va a capo — misurato dopo:
+pagina 375 su schermo 375, e su desktop resta una riga sola da 36px.
+
+⚠️ **Nota di metodo**: la prima misura diceva anche «14px di scorrimento
+laterale» ed era **un artefatto della pagina di prova**, che usava un `<main>`
+nudo invece della classe `.main` (padding 14px sul telefono) — cioè proprio i
+14px che il margine negativo dei contatori si mangia. Corretta la cornice della
+prova, l'accusa è sparita. Misurare su una cornice diversa da quella vera è lo
+stesso errore delle anteprime con dati inventati.
+
+
 ## 27/08/2026 (7) — l'AI non rispondeva, e il suo bottone non si accendeva
 
 Segnalato dall'utente: «la risposta automatica dell'AI non funziona, inoltre il
