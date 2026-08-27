@@ -110,7 +110,7 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       // comunicate solo le pro-forme»). Stanno accanto ai documenti che
       // intestano, non fra gli Strumenti: chi vede una pro-forma con
       // l'intestazione sbagliata cerca da dove esce, e la cerca qui.
-      { name: 'template-documenti', label: 'Template pro-forma', icon: 'document-text-outline' },
+      { name: 'template-documenti', label: 'Template pro-forma', icon: 'document-text-outline' , soloAdmin: true },
     ],
   },
   {

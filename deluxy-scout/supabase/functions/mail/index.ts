@@ -125,21 +125,36 @@ Deno.serve(async (req) => {
       //     serve alla ricerca «cerca fra le mie mail» (che prima leggeva da
       //     una cassetta diversa da quella in cui aveva cercato);
       //  2. la cassetta comune — solo se quel messaggio Scout l'ha già
-      //     importato, cioè esiste come `mail_ref` di un lead, di una richiesta
-      //     cliente o di un preventivo. È il caso per cui il ramo esiste:
-      //     rileggere una richiesta presa in carico.
+      //     importato, e la prova sta in `mail_importate` (migr. 0086), che
+      //     scrive solo il server. Fino al 27/08/2026 si guardava invece in
+      //     `leads` / `richieste_cliente` / `preventivi`, cioè in tabelle che
+      //     l'utente scrive: vedi il commento sotto. È il caso per cui il ramo
+      //     esiste: rileggere una richiesta presa in carico.
       const leggiDa = async (casella: string) =>
         await fetch(`${BASE}/api/v1/messaggi?corpo=${encodeURIComponent(idMail)}`, {
           headers: { 'x-api-key': key, 'x-utente': casella },
         });
 
-      const importato = await (async () => {
-        for (const tabella of ['leads', 'richieste_cliente', 'preventivi'] as const) {
-          const { data } = await admin.from(tabella).select('id').eq('mail_ref', idMail).limit(1);
-          if ((data ?? []).length) return true;
-        }
-        return false;
-      })();
+      // ⚠️ LA PROVA NON STA PIÙ DOVE LA SCRIVE CHI DEVE ESSERE PROVATO
+      // (27/08/2026, revisione ostile). Fin qui si cercava `mail_ref` in
+      // `leads`, `richieste_cliente` e `preventivi` — tutte e tre scrivibili
+      // dall'utente (`leads_insert` è `with check (true)`, `preventivi` è
+      // `for all using(true) with check(true)`). Bastava inserire una riga
+      // `leads` con `mail_ref` uguale al Message-ID letto negli header
+      // `References` di un thread, e questo controllo diceva di sì: da lì
+      // usciva il corpo integrale di un messaggio della cassetta personale di
+      // un altro, mai ricevuto da chi lo chiedeva.
+      //
+      // Ora la prova sta in `mail_importate` (migr. 0086): RLS accesa e
+      // nessuna policy, quindi la scrive solo il server — questa funzione, al
+      // momento dell'import. Restringere `leads` non sarebbe bastato: sarebbe
+      // rimasta `preventivi`, e domani un'altra tabella.
+      const { data: prova } = await admin
+        .from('mail_importate')
+        .select('mail_ref')
+        .eq('mail_ref', idMail)
+        .limit(1);
+      const importato = (prova ?? []).length > 0;
       // 1. La propria cassetta. `email` viene dal token, mai dal client.
       let r = email ? await leggiDa(email) : null;
 
@@ -311,6 +326,22 @@ Deno.serve(async (req) => {
           const { data: inseriti, error } = await admin.from('leads').insert(nuovi).select('id, nome, contatto, messaggio, mail_ref');
           if (error) return json({ ok: false, errore: error.message }, 500);
           importati = nuovi.length;
+          // ⚠️ LA PROVA DELL'IMPORT SI SCRIVE QUI, e solo qui (migr. 0086).
+          // È l'unica cosa che poi autorizza la lettura del corpo di quel
+          // messaggio dalla cassetta comune: sta in una tabella che l'utente
+          // non può scrivere, mentre `leads.mail_ref` — che serviva prima — la
+          // scrive chiunque. Best-effort: se questa riga non entra, il
+          // messaggio resta importato e semplicemente non si potrà rileggere,
+          // che è il verso giusto in cui sbagliare.
+          await admin
+            .from('mail_importate')
+            .upsert(
+              nuovi
+                .filter((n: any) => n.mail_ref)
+                .map((n: any) => ({ mail_ref: n.mail_ref, casella })),
+              { onConflict: 'mail_ref' },
+            )
+            .then(undefined, () => undefined);
           // AUTO-QUALIFICA (25/08/2026): la trattativa nasce qui, non aspetta
           // una persona — agganciata al contatto se è in rubrica, altrimenti
           // creando negozio e contatto dai dati della richiesta. Best-effort:

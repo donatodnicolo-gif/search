@@ -17,7 +17,6 @@
 // nel posto sbagliato costa più del guasto.
 import { collegaDocumentoAOrdine } from '@/lib/db';
 import { brandDi } from '@/types';
-import { intestazionePerBrand } from '@/lib/template-documento';
 import { creaProformaDaRichiesta } from '@/lib/partner';
 
 export interface EsitoProforma {
@@ -54,12 +53,12 @@ export async function emettiProformaPerOrdine(o: {
     };
   }
   try {
-    // ⚠️ L'INTESTAZIONE VIAGGIA COL DOCUMENTO: i template sono di Scout, e di
-    // là viene salvata sul documento come fotografia. Se non c'è (nessun
-    // template configurato) si manda null e FINANCE usa la sua intestazione
-    // generale, come ha sempre fatto — non si blocca l'emissione per una
-    // configurazione che non è ancora stata fatta.
-    const intestazione = await intestazionePerBrand(brandDi(o)).catch(() => null);
+    // ⚠️ L'INTESTAZIONE NON LA MANDA PIÙ IL CLIENT (27/08/2026, revisione di
+    // sicurezza). I template sono di Scout e di là viene congelata sul
+    // documento come fotografia — ed è proprio per questo che sceglierla da qui
+    // era sbagliato: chiunque potesse chiamare l'Edge Function poteva emettere
+    // una pro-forma con l'IBAN che preferiva. Ora si manda solo il BRAND, e la
+    // carta intestata la risolve il server dal template di quel brand.
     const pf = await creaProformaDaRichiesta({
       cliente: o.cliente,
       importo: o.importo,
@@ -70,7 +69,6 @@ export async function emettiProformaPerOrdine(o: {
       // FINANCE», che è un altro pezzo di configurazione e può cambiare senza
       // che questa app lo sappia.
       brand: brandDi(o),
-      intestazione,
     });
     await collegaDocumentoAOrdine(o.ordineId, { proformaNumero: pf.riferimento, proformaUrl: pf.url });
     return { emessa: true, riferimento: pf.riferimento, url: pf.url, perche: null };

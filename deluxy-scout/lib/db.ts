@@ -936,13 +936,36 @@ export async function fetchProfilo(id: string): Promise<Profilo | null> {
   return data as Profilo;
 }
 
-/** Token privato del feed iCal dell'utente corrente (per sottoscrivere il calendario). */
+/**
+ * Token privato del feed iCal dell'utente corrente.
+ *
+ * ⚠️ NON si legge più da `profiles` (27/08/2026, revisione di sicurezza). La
+ * RLS filtra le RIGHE, non le COLONNE: con `profiles_read using (true)` un
+ * `select cal_token from profiles` restituiva il token di TUTTI. E quel token
+ * apre il feed `.ics` senza sessione — quindi bastava leggerlo per scaricarsi
+ * i task di un collega da qualsiasi browser, per sempre, anche dopo che
+ * l'account era stato sospeso. Il `.eq('id', ...)` qui sotto era una buona
+ * educazione del client, non un confine.
+ *
+ * Ora la colonna non è più selezionabile da nessuno (migr. 0085) e il proprio
+ * token si chiede a una funzione che sa da sé chi la chiama.
+ */
 export async function fetchCalToken(): Promise<string | null> {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
-  const { data, error } = await supabase.from('profiles').select('cal_token').eq('id', u.user.id).single();
+  const { data, error } = await supabase.rpc('mio_cal_token');
   if (error) return null;
-  return (data as any)?.cal_token ?? null;
+  return (data as string) ?? null;
+}
+
+/**
+ * Cambia il proprio token: il vecchio smette di valere all'istante.
+ *
+ * Serviva già prima e non c'era. Un token che non si ruota, quando esce di
+ * mano, resta fuori per sempre — non c'è modo di richiamarlo.
+ */
+export async function rigeneraCalToken(): Promise<string | null> {
+  const { data, error } = await supabase.rpc('rigenera_cal_token');
+  if (error) throw error;
+  return (data as string) ?? null;
 }
 
 /** URL del feed iCal sottoscrivibile (Google/Apple/Outlook). */

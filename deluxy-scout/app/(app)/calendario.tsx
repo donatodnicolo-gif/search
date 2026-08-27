@@ -21,7 +21,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Foglio } from '@/components/Foglio';
 import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { PageIntro } from '@/components/ui';
-import { fetchCalToken, fetchTask, fetchTutteTrattative, urlFeedCalendario } from '@/lib/db';
+import { avvisa, conferma } from '@/lib/dialoghi';
+import { fetchCalToken, fetchTask, fetchTutteTrattative, rigeneraCalToken, urlFeedCalendario } from '@/lib/db';
 
 interface Evento {
   id: string;
@@ -275,6 +276,34 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 function SyncModal({ onClose }: { onClose: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   const [copiato, setCopiato] = useState(false);
+  const [rigenero, setRigenero] = useState(false);
+
+  /**
+   * ⭐ CAMBIARE IL LINK (27/08/2026, revisione di sicurezza).
+   *
+   * Questo URL vale SENZA sessione: chi ce l'ha legge i tuoi task finché
+   * esiste. Prima non c'era modo di cambiarlo — un link finito nella mail
+   * sbagliata restava valido per sempre. Adesso si può, e chi lo fa spegne le
+   * sottoscrizioni fatte col vecchio: è il punto, ed è detto prima di farlo.
+   */
+  function rigenera() {
+    conferma(
+      'Cambiare il link del calendario?',
+      'Il link di adesso smette di funzionare subito. I calendari che lo usano (Google, Apple, Outlook) vanno rifatti con quello nuovo.',
+      async () => {
+        setRigenero(true);
+        try {
+          const t = await rigeneraCalToken();
+          setUrl(t ? urlFeedCalendario(t) : null);
+        } catch (e: any) {
+          avvisa('Non è stato cambiato', String(e?.message ?? e));
+        } finally {
+          setRigenero(false);
+        }
+      },
+      { testoConferma: 'Cambia il link', distruttivo: true },
+    );
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -304,6 +333,13 @@ function SyncModal({ onClose }: { onClose: () => void }) {
             <Ionicons name={copiato ? 'checkmark' : 'copy-outline'} size={16} color={colors.bianco} />
             <Text style={styles.copiaTxt}>{copiato ? 'Copiato!' : 'Copia link'}</Text>
           </Pressable>
+          <Pressable style={styles.cambiaBtn} onPress={rigenera} disabled={!url || rigenero}>
+            <Ionicons name="refresh-outline" size={15} color={colors.testoSoft} />
+            <Text style={styles.cambiaTxt}>{rigenero ? 'Cambio…' : 'Cambia il link'}</Text>
+          </Pressable>
+          <Text style={styles.cambiaNota}>
+            Questo link vale senza password: chi ce l&apos;ha vede i tuoi task. Se è finito dove non doveva, cambialo.
+          </Text>
 
           <View style={styles.istruzioni}>
             <Text style={styles.istrTitolo}>Come aggiungerlo</Text>
@@ -410,6 +446,9 @@ const styles = StyleSheet.create({
   },
   fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
   label: { fontSize: 11, fontWeight: '800', color: colors.grigio, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
+  cambiaBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, marginTop: 6 },
+  cambiaTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
+  cambiaNota: { color: colors.grigio, fontSize: 12, lineHeight: 16, textAlign: 'center' },
   urlInput: {
     backgroundColor: colors.bianco,
     borderWidth: 1,

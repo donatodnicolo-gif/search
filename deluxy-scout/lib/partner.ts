@@ -67,8 +67,13 @@ export async function creaProformaDaRichiesta(r: {
    * usa il template predefinito.
    */
   brand?: string | null;
-  /** L intestazione con cui emetterlo: la possiede Scout, viaggia col documento. */
-  intestazione?: unknown;
+  /**
+   * ⚠️ NON c'è più un campo `intestazione` (27/08/2026, revisione di
+   * sicurezza). La carta intestata — logo, ragione sociale, IBAN — la risolve
+   * la Edge Function dal template del BRAND, perché FINANCE la congela sul
+   * documento: accettarla da chi chiama voleva dire lasciargli scegliere le
+   * coordinate su cui il cliente bonifica. Qui si manda il brand, e basta.
+   */
 }): Promise<ProformaCreata> {
   const descrizione = r.causale?.trim() || `Incasso ${r.cliente}`;
   const imponibile = Math.round((r.importo / 1.22) * 100) / 100;
@@ -78,7 +83,6 @@ export async function creaProformaDaRichiesta(r: {
     oggetto: descrizione,
     scadenza: r.scadenza ?? undefined,
     brand: r.brand ?? undefined,
-    intestazione: r.intestazione ?? undefined,
     righe: [{ descrizione, prezzoUnitario: imponibile, aliquotaIva: 22 }],
   });
 }

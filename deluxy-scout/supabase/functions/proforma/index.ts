@@ -19,6 +19,65 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...cors } });
 }
 
+/**
+ * LA CARTA INTESTATA LA SCEGLIE IL SERVER, non chi chiama (27/08/2026,
+ * revisione di sicurezza).
+ *
+ * ⚠️ Prima arrivava dal client — `intestazione: body.intestazione` — e veniva
+ * inoltrata a FINANCE alla lettera, che la CONGELA sul documento. Voleva dire
+ * che un venditore poteva emettere una pro-forma con l'IBAN che preferiva:
+ * non serviva nemmeno toccare la tabella dei template. Il documento esce a nome
+ * dell'azienda, quindi l'azienda decide con quali coordinate esce.
+ *
+ * Si legge col service_role perché la tabella è di lettura aperta ma non
+ * vogliamo dipendere dalla sessione di chi chiama: la carta intestata è la
+ * stessa per tutti.
+ */
+async function intestazioneDelBrand(admin: any, brand: string | null | undefined) {
+  const q = admin
+    .from('template_documento')
+    .select('nome, brand, logo_data_url, ragione_sociale, indirizzo, cap, citta, provincia, piva, codice_fiscale, rea, sdi, pec, telefono, email, sito, banca, iban, bic, intestatario_conto, note_piede, predefinito')
+    .limit(1);
+  // Prima quella del brand chiesto; se non c'è, la predefinita. Se non c'è
+  // nemmeno quella, si va senza: di là FINANCE usa la sua.
+  const { data: perBrand } = brand ? await q.eq('brand', brand) : { data: null };
+  let riga = perBrand?.[0];
+  if (!riga) {
+    const { data: pre } = await admin
+      .from('template_documento')
+      .select('nome, brand, logo_data_url, ragione_sociale, indirizzo, cap, citta, provincia, piva, codice_fiscale, rea, sdi, pec, telefono, email, sito, banca, iban, bic, intestatario_conto, note_piede, predefinito')
+      .eq('predefinito', true)
+      .limit(1);
+    riga = pre?.[0];
+  }
+  if (!riga) return undefined;
+  // I nomi che FINANCE si aspetta (camelCase): la traduzione sta QUI, in un
+  // posto solo, e non nel client.
+  return {
+    nome: riga.nome ?? null,
+    brand: riga.brand ?? null,
+    logoDataUrl: riga.logo_data_url ?? null,
+    ragioneSociale: riga.ragione_sociale ?? null,
+    indirizzo: riga.indirizzo ?? null,
+    cap: riga.cap ?? null,
+    citta: riga.citta ?? null,
+    provincia: riga.provincia ?? null,
+    piva: riga.piva ?? null,
+    codiceFiscale: riga.codice_fiscale ?? null,
+    rea: riga.rea ?? null,
+    sdi: riga.sdi ?? null,
+    pec: riga.pec ?? null,
+    telefono: riga.telefono ?? null,
+    email: riga.email ?? null,
+    sito: riga.sito ?? null,
+    banca: riga.banca ?? null,
+    iban: riga.iban ?? null,
+    bic: riga.bic ?? null,
+    intestatarioConto: riga.intestatario_conto ?? null,
+    notePiede: riga.note_piede ?? null,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
@@ -57,9 +116,12 @@ Deno.serve(async (req) => {
           // per brand (logo, dati societari, coordinate di pagamento). Si passa
           // il brand per nome; senza, di là si usa il predefinito.
           brand: body.brand ?? undefined,
-          // L intestazione la possiede Scout: viaggia col documento e di là
-          // viene salvata sul documento come fotografia.
-          intestazione: body.intestazione ?? undefined,
+          // ⚠️ L'intestazione la possiede Scout e la RISOLVE QUI, dal
+          // template del brand. Quella eventualmente mandata dal client si
+          // IGNORA: di là viene congelata sul documento, quindi accettarla
+          // dal chiamante voleva dire lasciargli scegliere l'IBAN su cui il
+          // cliente bonifica.
+          intestazione: await intestazioneDelBrand(admin, body.brand),
           righe: body.righe,
         }),
       });

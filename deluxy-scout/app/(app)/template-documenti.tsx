@@ -23,11 +23,13 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { Redirect, useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
+import { useAuth } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
 import { BRAND, BRAND_DEFAULT } from '@/types';
 import { leggiDatiAzienda, type DatiAzienda } from '@/lib/db';
 import {
@@ -93,6 +95,17 @@ const VUOTA: Bozza = {
 };
 
 export default function TemplateDocumenti() {
+  /**
+   * ⚠️ IL CONFINE STA QUI, non nel menu (27/08/2026, revisione di sicurezza).
+   * Questa schermata scrive le COORDINATE DI PAGAMENTO che finiscono sulle
+   * pro-forma: nasconderla dal menu la toglie di vista, non di portata — la
+   * rotta si scrive a mano nella barra degli indirizzi. La difesa vera è la
+   * RLS (migr. 0085, scrittura riservata all'admin); questo Redirect serve a
+   * non mostrare a un venditore una schermata che poi rifiuterebbe i salvataggi
+   * con un errore del database.
+   */
+  const { session } = useAuth();
+  const admin = isAdmin(session?.user?.email);
   const [righe, setRighe] = useState<TemplateDocumento[]>([]);
   const [loading, setLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
@@ -303,6 +316,10 @@ export default function TemplateDocumenti() {
       { testoConferma: 'Elimina', distruttivo: true },
     );
   }
+
+  // Dopo gli hook, mai prima: un `return` anticipato sopra cambierebbe il
+  // numero di hook fra un render e l'altro.
+  if (!admin) return <Redirect href="/(app)/profilo" />;
 
   return (
     <ScrollView
