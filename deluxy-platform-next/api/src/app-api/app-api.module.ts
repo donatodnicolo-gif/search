@@ -460,6 +460,223 @@ export class AppApiService {
     // Stesso formato della lista: chi consuma non deve imparare due dialetti.
     return this.serializza(s, consegna);
   }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // LE CONSEGNE, UNA PER UNA (27/08/2026, chiesto dall'utente: «API che si
+  // possono richiamare per sapere esito di servizio, costo consegna e tutti i
+  // dati»).
+  //
+  // `costi-consegne` qui sopra risponde per MESE e per NEGOZIO: serve a chi fa
+  // il conto economico. Questa risponde per CONSEGNA: serve a chi deve sapere
+  // com'e' finita quella, e quanto e' costata.
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /** Tutto quello che serve a raccontare una consegna. Un posto solo. */
+  private static readonly CONSEGNA_SELECT = {
+    id: true, code: true, identifier: true, date: true, status: true,
+    deliveryTimeFrom: true, deliveryTimeTo: true, deliveryFlexible: true,
+    pickupTimeFrom: true, pickupTimeTo: true, pickupAddress: true,
+    recipientFirstName: true, recipientLastName: true, recipientAddress: true,
+    recipientPhone: true, recipientIntercom: true,
+    latitude: true, longitude: true, distanceKm: true,
+    startedAt: true, deliveredAt: true, receivedBy: true,
+    payable: true, billable: true, invoiced: true, paymentStatus: true,
+    price: true, additionalPrice: true, productValue: true, deliveryPrice: true,
+    valetSalary: true, valetAdditionalPrice: true, hours: true,
+    paymentOnDelivery: true, paymentAmount: true,
+    ddtNumber: true, ddtBrand: true, notes: true,
+    realOrderNumber: true, shop: true, externalOrderSource: true,
+    createdAt: true, updatedAt: true,
+    partner: { select: { id: true, insegna: true, commissionPercent: true } },
+    valet: { select: { id: true, firstName: true, lastName: true, hasVat: true, withholdingPercent: true } },
+    serviceType: { select: { id: true, name: true, pricingModel: true } },
+    province: { select: { code: true, name: true } },
+    products: {
+      select: {
+        quantity: true, price: true,
+        product: { select: { name: true } },
+        productVariant: { select: { name: true } },
+      },
+    },
+  } as const;
+
+  /**
+   * Gli stati che dicono «finita»: il resto e' ancora in corso.
+   * ⚠️ Elenco POSITIVO: uno stato nuovo nasce «in corso», non «chiusa» per
+   * distrazione.
+   */
+  private static readonly CHIUSI = new Set([
+    'delivered', 'approved', 'not_delivered', 'cancelled', 'not_accepted', 'invalidated',
+  ]);
+
+  /**
+   * L'ESITO e il COSTO di una consegna, con le stesse regole della Finanza.
+   *
+   * ⚠️ Il costo si compone qui una volta sola e viaggia SCOMPOSTO: chi legge
+   * vede anche il plus che NON e' stato contato e il minus che non si sottrae,
+   * invece di dover indovinare perche' il totale non torna con la paga scritta.
+   * Un numero senza i suoi ingredienti si legge come sbagliato.
+   */
+  private consegnaSerializzata(d: any) {
+    const plusContato = FinanceService.plusNelCosto(d.valetAdditionalPrice);
+    const plusScartato = Math.max(0, (d.valetAdditionalPrice ?? 0) - plusContato);
+    const minus = Math.min(0, d.valetAdditionalPrice ?? 0);
+    const paga = d.payable === false ? 0 : Math.max(0, (d.valetSalary ?? 0) + plusContato);
+    const ritenuta = paga > 0 && d.valet && d.valet.hasVat === false
+      ? Math.round(paga * (1 - ((d.valet.withholdingPercent ?? 0) / 100)) * 0.25 * 100) / 100
+      : 0;
+    const feePercent = d.partner?.commissionPercent ?? 0;
+    const prezzoPartner = (d.price ?? 0) + (d.additionalPrice ?? 0);
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+
+    return {
+      id: d.id,
+      numero: d.code,
+      codicePubblico: d.identifier ?? null,
+      data: d.date,
+      // ── ESITO ────────────────────────────────────────────────────────────
+      esito: {
+        stato: d.status,
+        chiusa: AppApiService.CHIUSI.has(d.status),
+        consegnata: d.status === 'delivered' || d.status === 'approved',
+        partitaIl: d.startedAt ?? null,
+        consegnataIl: d.deliveredAt ?? null,
+        ricevutaDa: d.receivedBy ?? null,
+        oreApprovate: d.status === 'approved',
+      },
+      // ── QUANDO E DOVE ────────────────────────────────────────────────────
+      consegna: { dalle: d.deliveryTimeFrom, alle: d.deliveryTimeTo, flessibile: d.deliveryFlexible },
+      ritiro: { dalle: d.pickupTimeFrom, alle: d.pickupTimeTo, indirizzo: d.pickupAddress },
+      destinatario: {
+        nome: [d.recipientFirstName, d.recipientLastName].filter(Boolean).join(' ') || null,
+        indirizzo: d.recipientAddress,
+        citofono: d.recipientIntercom ?? null,
+        telefono: d.recipientPhone ?? null,
+        latitudine: d.latitude ?? null,
+        longitudine: d.longitude ?? null,
+        provincia: d.province ? { codice: d.province.code, nome: d.province.name } : null,
+      },
+      distanzaKm: d.distanceKm ?? null,
+      // ── CHI ──────────────────────────────────────────────────────────────
+      partner: d.partner ? { id: d.partner.id, insegna: d.partner.insegna } : null,
+      valet: d.valet
+        ? {
+            id: d.valet.id,
+            nome: `${d.valet.firstName} ${d.valet.lastName}`.trim(),
+            conPartitaIva: d.valet.hasVat,
+          }
+        : null,
+      servizio: d.serviceType
+        ? { id: d.serviceType.id, nome: d.serviceType.name, modello: d.serviceType.pricingModel }
+        : null,
+      ore: d.hours ?? null,
+      // ── ECONOMIA ─────────────────────────────────────────────────────────
+      costoConsegna: {
+        totale: r2(paga + ritenuta),
+        paga: r2(paga),
+        ritenuta,
+        pagabile: d.payable !== false,
+        // Gli ingredienti che spiegano la differenza con la paga SCRITTA.
+        pagaScritta: d.valetSalary ?? null,
+        plusContato: r2(plusContato),
+        plusScartato: r2(plusScartato),
+        minus: r2(minus),
+        regola:
+          'paga = 0 se non pagabile, altrimenti valetSalary + il plus FINO A 5 € '
+          + '(il plus maggiore è rimborso di acquisti del valet, non prezzo del viaggio; '
+          + 'il minus è contante che ha trattenuto e non si sottrae). '
+          + 'ritenuta = paga × (1 − % rimborso) × 25%, solo per i valet senza P.IVA, '
+          + 'e la versa Deluxy IN PIÙ rispetto al bonifico: è costo, non trattenuta.',
+      },
+      economiaPartner: {
+        prezzo: d.price ?? null,
+        plusMinus: d.additionalPrice ?? null,
+        prezzoTotale: r2(prezzoPartner),
+        feePercent,
+        fee: feePercent > 0 ? r2((feePercent / 100) * prezzoPartner) : 0,
+        valoreProdotti: d.productValue ?? null,
+        prezzoConsegnaCliente: d.deliveryPrice ?? null,
+        daFatturare: d.billable, giaFatturata: d.invoiced,
+      },
+      incasso: {
+        allaConsegna: d.paymentOnDelivery,
+        contrassegno: d.paymentAmount ?? null,
+        statoPagamentoValet: d.paymentStatus,
+      },
+      ordine: {
+        numeroShopify: d.realOrderNumber ?? null,
+        canale: d.shop ?? null,
+        sorgente: d.externalOrderSource ?? null,
+        ddt: d.ddtNumber ?? null,
+        ddtBrand: d.ddtBrand ?? null,
+      },
+      prodotti: (d.products ?? []).map((p: any) => ({
+        nome: p.product?.name ?? null,
+        variante: p.productVariant?.name ?? null,
+        quantita: p.quantity,
+        prezzo: p.price ?? null,
+      })),
+      note: d.notes ?? null,
+      creataIl: d.createdAt,
+      aggiornataIl: d.updatedAt,
+    };
+  }
+
+  /**
+   * Pull incrementale delle consegne: stesso patto di `vendite`.
+   * Chi legge tiene l'ultimo `aggiornataIl` visto e lo rimanda: cosi' la
+   * seconda chiamata costa quanto quello che e' cambiato, non quanto l'archivio.
+   */
+  async consegne(opzioni: {
+    aggiornateDa?: string; dal?: string; al?: string; stato?: string; partnerId?: string; limit: number;
+  }) {
+    const da = opzioni.aggiornateDa ? new Date(opzioni.aggiornateDa) : null;
+    if (opzioni.aggiornateDa && Number.isNaN(da?.getTime())) {
+      throw new NotFoundException('aggiornateDa non è una data valida (ISO).');
+    }
+    const dal = opzioni.dal ? new Date(`${opzioni.dal}T00:00:00.000Z`) : null;
+    const al = opzioni.al ? new Date(`${opzioni.al}T23:59:59.999Z`) : null;
+
+    const consegne = await this.prisma.delivery.findMany({
+      where: {
+        // ⚠️ Le cancellate logicamente non escono da qui: per chi legge non
+        // esistono piu'.
+        deletedAt: null,
+        ...(da ? { updatedAt: { gt: da } } : {}),
+        ...(dal || al ? { date: { ...(dal ? { gte: dal } : {}), ...(al ? { lte: al } : {}) } } : {}),
+        ...(opzioni.stato ? { status: opzioni.stato } : {}),
+        ...(opzioni.partnerId ? { partnerId: opzioni.partnerId } : {}),
+      },
+      select: AppApiService.CONSEGNA_SELECT,
+      orderBy: { updatedAt: 'asc' },
+      take: Math.min(500, Math.max(1, opzioni.limit)),
+    });
+
+    const righe = consegne.map((d) => this.consegnaSerializzata(d));
+    return {
+      // Il cursore per la chiamata dopo: si dichiara, non si fa dedurre.
+      aggiornateDa: opzioni.aggiornateDa ?? null,
+      prossimoCursore: righe.length ? righe[righe.length - 1].aggiornataIl : (opzioni.aggiornateDa ?? null),
+      quante: righe.length,
+      // Se ne sono uscite quante ne stanno nel tetto, quasi certamente ce n'è
+      // dell'altro: dirlo evita di scambiare una pagina per la fine.
+      altrePagine: righe.length >= Math.min(500, Math.max(1, opzioni.limit)),
+      consegne: righe,
+    };
+  }
+
+  /** Una consegna sola, per il NUMERO che si legge a schermo (es. 62637). */
+  async consegnaPerNumero(numero: number) {
+    if (!Number.isInteger(numero) || numero <= 0 || numero > 2_147_483_647) {
+      throw new NotFoundException('Numero consegna non valido.');
+    }
+    const d = await this.prisma.delivery.findFirst({
+      where: { code: numero, deletedAt: null },
+      select: AppApiService.CONSEGNA_SELECT,
+    });
+    if (!d) throw new NotFoundException(`Consegna #${numero} non trovata.`);
+    return this.consegnaSerializzata(d);
+  }
 }
 
 @ApiTags('app — canale app-to-app (chiave, non sessione)')
@@ -497,6 +714,32 @@ export class AppApiController {
       if (Number.isFinite(y)) return this.service.costiConsegne(`${y}-01-01`, `${y + 1}-01-01`);
     }
     return this.service.costiConsegne(dal, al);
+  }
+
+  @Get('consegne')
+  @ApiOperation({
+    summary:
+      "Le consegne una per una: esito, costo consegna scomposto e tutti i dati. Pull incrementale su `aggiornateDa`",
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (scripts/crea-chiave-app.mjs)' })
+  consegne(
+    @Query('aggiornateDa') aggiornateDa?: string,
+    @Query('dal') dal?: string,
+    @Query('al') al?: string,
+    @Query('stato') stato?: string,
+    @Query('partnerId') partnerId?: string,
+    @Query('limit') limit = '200',
+  ) {
+    return this.service.consegne({
+      aggiornateDa, dal, al, stato, partnerId, limit: Number(limit) || 200,
+    });
+  }
+
+  @Get('consegne/:numero')
+  @ApiOperation({ summary: 'Una consegna sola, per il numero che si legge a schermo (es. 62637)' })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (scripts/crea-chiave-app.mjs)' })
+  consegna(@Param('numero') numero: string) {
+    return this.service.consegnaPerNumero(Number(numero));
   }
 
   @Get('vendite/by-ref/:source/:externalOrderId')
