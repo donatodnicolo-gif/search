@@ -77,6 +77,11 @@ Variabili in `.env` (mai committato):
 - **Valida copy** (/copy/valida) — lint claim/parole per brand (7.2/7.3) + Copy Score /100; scorecard landing 13 criteri nella scheda landing; rotazione creativa in /meta.
 - **Documenti Drive** — indice in sola lettura della cartella ufficiale.
 - **Storico** — il registro globale di tutte le modifiche (gemello dello 00.2 su Drive).
+- **Quante ce n'erano (storico)** (`/campagne-storiche`) — il **censimento storico**: quali e
+  quante campagne sono esistite negli ultimi anni e quanto sono costate, **comprese le rimosse**.
+  Non è l'elenco delle campagne (quello mostra le vive): gli script quotidiani guardano una
+  finestra corta e saltano le cancellate, quindi ciò che è morto prima di quella finestra per
+  l'app non esiste. Una riga per campagna per **anno**, non il giorno per giorno.
 
 ## Script
 
@@ -96,6 +101,15 @@ Variabili in `.env` (mai committato):
   test Meta 8.x).
 - `node scripts/deposita-analisi.mjs '<json>'` — deposita un'analisi senza server (usato
   dall'attività quotidiana).
+- `node scripts/censimento-storico.mjs --stato|--copie|--meta` — il **censimento storico**
+  delle campagne. `--meta` lo lancia subito (lo esegue l'app, dove vive `META_ACCESS_TOKEN`);
+  `--copie` prepara `scripts/google-ads-censimento-storico.js` da incollare **una volta per
+  account** in Google Ads, perché di là i dati escono solo da uno Script che gira dentro
+  l'account. Si fa una volta: il passato non cambia.
+- `node scripts/prova-censimento-storico.mjs` — prova a secco di quello script (AdsApp finto):
+  verifica l'aggregazione campagna×anno, i mesi attivi e che le **rimosse** arrivino.
+- `node scripts/crea-tabella-campagne-storiche.mjs` — crea `CampagnaStorica` (CREATE mirato,
+  mai `prisma db push`: il Postgres è condiviso).
 
 ## Collegamento a Google Ads
 
@@ -202,6 +216,8 @@ non ha bisogno di niente: sono gli Scripts a spingere i dati dentro.
 | GET/POST | `/api/v1/campagne` | Elenco con metriche 30 gg / registrazione campagna (upsert per `idEsterno`). Le **defunte non escono**: `?defunte=incluse` per averle |
 | GET/PATCH | `/api/v1/campagne/:id` | Scheda completa / aggiornamento |
 | POST | `/api/v1/campagne/:id/metriche` | Upsert metriche giornaliere: `{ metriche: [{ data, spesa, click, conversioni, ricavi }] }` |
+| GET/POST | `/api/v1/censimento` | Censimento storico: riepilogo (`?anno=`, `?canale=`) / invio righe `{ account, righe: [{ idEsterno, nome, anno, … }] }` (serve **scrittura**) |
+| POST | `/api/v1/censimento/meta` | Fa **adesso** il censimento storico su Meta (`{ anni: 3 }`): il token vive nell'app, non sul portatile |
 
 Esempio di deposito a fine audit:
 

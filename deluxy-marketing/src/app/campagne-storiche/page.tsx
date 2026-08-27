@@ -223,6 +223,9 @@ export default async function PaginaCampagneStoriche({
                 </table>
               </div>
               <p className="cella-sub" style={{ marginTop: 12, whiteSpace: "normal" }}>
+                Lo <b>stato</b> è vuoto sulle righe Meta e non è un dato mancante: le insights di
+                Meta portano i numeri, non lo stato della campagna — mentre su Google lo stato
+                arriva dalla stessa query, ed è lì che si legge «rimossa».{" "}
                 «L&apos;app la conosce?» si calcola adesso confrontando l&apos;id di piattaforma con
                 le campagne in elenco: non è una colonna salvata, perché un «sì» scritto ieri
                 diventa falso oggi senza che nessuno se ne accorga. Le righe sono i totali per

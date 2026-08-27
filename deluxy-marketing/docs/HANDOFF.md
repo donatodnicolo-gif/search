@@ -1,9 +1,22 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **26/08/2026 (pomeriggio)**. Una finestra Claude nuova deve poter
+> Stato al **27/08/2026 (mattina)**. Una finestra Claude nuova deve poter
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
+> ⏱️ **RI-MISURATO IL 27/08 MATTINA** (i dettagli in FATTO, prima sezione). Cosa
+> è cambiato rispetto all'elenco qui sotto, che è del 25/08:
+> · la coda ha **3 fallite** (erano 1) e **1 approvata FERMA** su Meta dal 26/08
+>   — la campagna «[Opera] ATC - VOLUME» è ancora accesa: su Meta esegue l'app,
+>   e solo quando qualcuno preme. Adesso si vede dalla home.
+> · **due allarmi della home dicevano il falso** («Cake mai partito», «sync 23
+>   giorni fa»): corretti, erano una finestra troppo corta e una fonte sbagliata.
+> · punti 5 e 6 **ancora aperti e invariati**: dati personali nelle colonne
+>   (8.152 nomi, 6.486 email) e cinque segreti in chiaro in `Impostazione`.
+> · la versione dello script la dichiara **un conto solo su tre** (Flowers).
+> · 🆕 c'è il **censimento storico** delle campagne: fatto su Meta (89 campagne,
+>   60.574 €, 22 mai viste dall'app), **da fare su Google** incollando lo script.
+
 > 🔴 **I punti aperti, RI-MISURATI sul database di produzione il 25/08 fra le 12 e le 13**
 > (`/api/health` 200, `database: true`; query in sola lettura, poi il lavoro di
 > oggi — vedi la prima sezione di FATTO):
@@ -335,6 +348,99 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐⭐ IL CENSIMENTO STORICO: quante campagne c'erano DAVVERO (27/08/2026)
+**Domanda dell'utente**: quali e quante campagne sono esistite negli ultimi
+tre anni, e quanto sono costate — non il dettaglio, il conto.
+
+**Perché non si poteva rispondere.** L'app conosce le campagne che gli script
+le raccontano, e gli script guardano una finestra corta (`GIORNI_INDIETRO`) e,
+se `INCLUDI_RIMOSSE` è false, saltano le rimosse. Tutto ciò che è stato spento
+e cancellato prima di quella finestra per l'app **non è mai esistito**: non
+«zero spesa», proprio assente. L'elenco delle campagne rispondeva a un'altra
+domanda e sembrava rispondere a questa.
+
+**Cosa c'è adesso**
+- `CampagnaStorica`: **una riga per campagna per ANNO** (totali, primo e ultimo
+  mese con spesa). Non è una copia di `Campagna`: è un inventario, e si aggancia
+  per `idEsterno` senza ricopiare niente. Chiave (canale, account, campagna,
+  anno) → **ripetibile**: rifarlo aggiorna, non somma.
+- `scripts/google-ads-censimento-storico.js` — script **ad hoc** da incollare
+  una volta per account. ⚠️ **Non ha nessun `WHERE` sullo stato**: è l'assenza
+  di quel filtro che fa entrare le REMOVED (gli iteratori `AdsApp.campaigns()`
+  le escludono, GAQL no). Le copie: `node scripts/censimento-storico.mjs --copie`.
+- `POST /api/v1/censimento` (scrittura) + `GET` riepilogo; `POST
+  /api/v1/censimento/meta` fa il giro Meta **dentro l'app**, perché
+  `META_ACCESS_TOKEN` vive solo lì e portarlo sul portatile vorrebbe dire
+  scriverlo su disco.
+- Pagina **`/campagne-storiche`** («Quante ce n'erano (storico)»): anno per
+  anno, e la colonna «l'app la conosce?» calcolata al momento — non salvata,
+  perché un «sì» scritto ieri è falso oggi.
+- `node scripts/prova-censimento-storico.mjs`: prova a secco con AdsApp finto
+  (aggregazione campagna×anno, un mese a zero **non** conta come attivo, le
+  rimosse arrivano con `REMOVED`). Non tocca il database.
+
+**Misurato subito dopo, sui dati veri — solo META** (Google aspetta l'incollo):
+**89 campagne · 60.574 € · 2023-2026**, di cui **22 mai viste dall'app**
+(Flowers 13 campagne · Cake 6 · Gifts 70). Anno per anno: 2026 44 campagne /
+25.750 € · 2025 29 / 20.491 € · 2024 17 / 11.524 € · 2023 6 / 2.809 €.
+Controprova: il 2026 di Meta secondo l'app (`MetricaCampagna`) fa 24.904 €
+contro i 25.750 € del censimento — il censimento è **più alto**, come dev'essere,
+perché contiene anche le campagne che l'app non ha mai visto.
+⚠️ Meta riporta **solo le campagne che hanno erogato**: una creata e mai
+avviata non compare, né qui né altrove. E le insights di Meta **non portano lo
+stato**: la colonna «stato» è vuota sulle righe Meta, piena su quelle Google.
+🔴 **RESTA A UNA PERSONA**: incollare `censimento-storico.js` (già pronto in
+`Downloads\deluxy-google-ads\`) nei **tre** account Google, con `CHIAVE_API`,
+prima in ANTEPRIMA. Finché non è fatto, la pagina racconta **solo Meta** — e va
+detto, o un censimento a metà si legge come completo.
+
+### ⭐⭐ DUE ALLARMI CHE DICEVANO IL FALSO, sulla PRIMA schermata (27/08/2026)
+Trovati guardando la home con i numeri veri accanto, non rileggendo il codice.
+1. **«Cakedesign Google Ads — MAI PARTITO»: falso.** Quell'account aveva
+   consegnato quella notte alle **02:42**. `UltimaCorsa` leggeva le **ultime 400
+   consegne** e raggruppava a mano: Gifts ne scrive ~236 al giorno, Flowers
+   ~139, Meta 24 — nelle sette ore dopo la corsa di Cake la sua riga era già
+   caduta fuori dalla finestra. È la trappola del `take`, e costava doppio:
+   quel riquadro **esiste** per accorgersi di uno script fermo, e gridava al
+   lupo sull'unico conto che stava lavorando. Ora l'ultima consegna per account
+   la calcola il database (`groupBy` + `max`), senza finestra.
+2. **«Sincronizzato 23 giorni fa · 04/08»: falso.** La sync era arrivata in
+   fondo alle **06:10 di stamattina**, 689 documenti. `BottoneSync` leggeva il
+   `RegistroEvento`, che scrive **solo il bottone**: da quando c'è il cron
+   `/api/cron/drive` (25/08) l'esito viveva **solo nel JSON del cron**. Ora
+   legge la riga `SyncDrive` — la traccia vera da qualunque strada parta la
+   sync — e lo stato lo prende dalla **colonna**, non cercando parole dentro un
+   testo libero.
+3. **Nuovo riquadro in home: «Decisioni prese e non ancora eseguite».** Oggi
+   dice **1 approvata ferma** (`pausa_campagna` Meta su «[Opera] ATC - VOLUME»,
+   approvata il 26/08 alle 12:56, campagna **ancora ENABLED**: su Meta esegue
+   l'app e **solo quando qualcuno preme**) e **3 fallite** mai rimesse in coda.
+   Dalla prima schermata non se ne vedeva nessuna: la sidebar mostrava un «1»
+   (in attesa + approvate sommate) e le fallite non le contava nessuno.
+
+`daQuanto` è passata in `lib/dominio`: ne serviva una seconda copia, e due
+copie della stessa regola divergono.
+
+### Ri-misurato il 27/08/2026 mattina (sola lettura, prima di lavorare)
+- Health `200`, `database: true`. Consegne: Meta 09:07 (ogni ora), Google
+  Cake 04:42 · Gifts 06:12 · Flowers 07:24. **0 consegne non-ok in 10 giorni.**
+  Ordini 8.480 (06:20). Sync Drive 06:10, 689 documenti.
+- **Coda: 0 in attesa · 1 approvata (ferma, vedi sopra) · 99 eseguite · 9
+  annullate · 3 FALLITE** (erano 1): `nuovo_annuncio` DUPLICATE_ASSET dal
+  21/08, `rimuovi_estensione` «White-glove deliveries» del 26/08 (sitelink non
+  trovato su campagna, 5 gruppi e account) e `pausa_gruppo` «Mother's Day-
+  Italian» del 26/08 (bersaglio non trovato: riga vecchia senza id).
+- Campagne: Google **21 attive · 140 in pausa** (+1 senza stato); Meta **8 · 61**.
+- Negative: **92.731**, **0 orfane**.
+- Spesa 7 gg: Google Flowers 1.018 € · Gifts 669 € · Cake 247 €; Meta Flowers
+  295 € · Cake 124 € · Gifts 104 €.
+- 🔴 **Aperti, invariati**: la versione dello script la dichiara **un conto solo**
+  (Flowers, `2026-08-26`): Cake e Gifts sono ancora muti, cioè hanno copie
+  precedenti. I **dati personali sono ancora nelle colonne** (8.152 nomi,
+  6.486 email). I **cinque segreti** in `Impostazione` sono ancora **in chiaro**
+  e nella loro forma originale: vanno spostati **e ruotati**.
+
 
 ### ⭐ LE RISPOSTE SI VERIFICANO, NON SI OBBEDISCONO (26/08/2026 notte)
 
