@@ -62,6 +62,8 @@ export default function Ordini() {
     linea: string | null;
     canale: string | null;
     brand: string | null;
+    altriCosti: string;
+    altriCostiNota: string;
   } | null>(null);
 
   const carica = useCallback(async () => {
@@ -128,11 +130,22 @@ export default function Ordini() {
    * «—»: contarlo a costo zero darebbe un margine pari al prezzo pieno.
    */
   const costi = useMemo(() => costiPerOrdine(lavori, ordini), [lavori, ordini]);
+  /**
+   * ⚠️ IL MARGINE TOGLIE ANCHE GLI ALTRI COSTI (27/08/2026). Una colonna che
+   * mostra un costo senza sottrarlo racconta due numeri che non tornano fra
+   * loro, ed è peggio che non avere la colonna.
+   *
+   * Qui `null` vuol dire «non ce ne sono», non «non lo so»: un costo che
+   * nessuno ha scritto è un costo che non c'è, e contarlo zero non gonfia
+   * niente. Il VALORE invece resta un'altra storia — lì zero mentirebbe, ed è
+   * il motivo per cui senza valore il margine è «—».
+   */
+  const altriCostiDi = (o: OrdineConLuogo): number => o.altri_costi ?? 0;
   const margineDi = useCallback(
     (o: OrdineConLuogo): number | null => {
       const c = costi.get(o.id);
       if (!c || o.valore == null) return null;
-      return Math.round((o.valore - c.costo) * 100) / 100;
+      return Math.round((o.valore - c.costo - (o.altri_costi ?? 0)) * 100) / 100;
     },
     [costi],
   );
@@ -148,27 +161,8 @@ export default function Ordini() {
       valore: (o) => o.place_nome ?? o.cliente,
       cella: (o) => (
         <View style={{ gap: 2 }}>
-          {/* ⭐ IL NOME APRE LA MODIFICA (27/08/2026, richiesta dell'utente).
-              Il resto della riga continua ad aprire la scheda del negozio: sono
-              due cose diverse e adesso hanno due bersagli diversi, invece di
-              costringere a cercare l'icona della matita in fondo alla riga. */}
-          <Pressable
-            onPress={(e: any) => {
-              e?.stopPropagation?.();
-              apriModifica(o);
-            }}
-            accessibilityLabel={`Modifica l'ordine di ${o.place_nome ?? o.cliente}`}
-            {...({ title: "Modifica l'ordine" } as any)}
-          >
-            <Text style={styles.tabNome} numberOfLines={2}>{o.place_nome ?? o.cliente}</Text>
-          </Pressable>
+          <Text style={styles.tabNome} numberOfLines={2}>{o.place_nome ?? o.cliente}</Text>
           {o.descrizione ? <Text style={styles.descr} numberOfLines={1}>{o.descrizione}</Text> : null}
-          {/* Con quale insegna esce il documento. Si scrive solo quando NON è
-              quella di sempre: ripetere «deluxy.it» su ogni riga sarebbe
-              rumore, e ciò che conta è accorgersi delle eccezioni. */}
-          {brandDi(o) !== BRAND[0] ? (
-            <Text style={styles.brandTxt} numberOfLines={1}>{brandDi(o)}</Text>
-          ) : null}
           {/* ⚠️ Il documento sta QUI, sotto il nome, non fra le azioni: è
               un'informazione sull'ordine, non un comando. Nella colonna delle
               azioni rubava lo spazio ai bottoni e li mandava a capo. */}
@@ -192,7 +186,21 @@ export default function Ordini() {
       ),
     },
     { chiave: 'linea', label: 'Linea', flex: 0.7, valore: (o) => o.linea ?? null },
-    { chiave: 'canale', label: 'Canale', width: 56, valore: (o) => o.canale ?? null },
+    /**
+     * ⭐ DI CHE SITO È (27/08/2026, richiesta dell'utente: «metti anche in
+     * tabella di che sito è»). Prima si scriveva solo quando NON era deluxy.it
+     * — e siccome sono quasi tutti deluxy.it, non si vedeva mai. Decide
+     * l'intestazione del documento: saperlo a colpo d'occhio evita di emettere
+     * una pro-forma con il logo dell'insegna sbagliata.
+     */
+    {
+      chiave: 'sito',
+      label: 'Sito',
+      width: 96,
+      valore: (o) => brandDi(o),
+      cella: (o) => <Text style={styles.sitoTxt} numberOfLines={1}>{brandDi(o)}</Text>,
+    },
+    { chiave: 'canale', label: 'Canale', width: 50, valore: (o) => o.canale ?? null },
     /**
      * QUANTO CI COSTA, accanto a quanto lo vendiamo (richiesta dell'utente).
      * Il fornitore e il suo preventivo vengono dai lavori collegati alla
@@ -207,7 +215,7 @@ export default function Ordini() {
     {
       chiave: 'costo',
       label: 'Preventivo',
-      width: 92,
+      width: 88,
       destra: true,
       numerica: true,
       valore: (o) => costi.get(o.id)?.costo ?? null,
@@ -224,10 +232,38 @@ export default function Ordini() {
         );
       },
     },
+    /**
+     * ⭐ ALTRI COSTI (27/08/2026, richiesta dell'utente: «metti una colonna
+     * altri costi sui costi che ci possono essere collegati»).
+     *
+     * Quelli che non passano da un preventivo fornitore: trasporto, una persona
+     * in più, il noleggio, il materiale comprato al volo. Finché non si contano,
+     * il margine è più alto di quello vero. Si scrivono dalla modifica
+     * dell'ordine, insieme alla nota che dice di cosa sono fatti.
+     */
+    {
+      chiave: 'altri',
+      label: 'Altri costi',
+      width: 88,
+      destra: true,
+      numerica: true,
+      valore: (o) => o.altri_costi ?? null,
+      cella: (o) =>
+        o.altri_costi == null ? (
+          <Text style={styles.tabData}>—</Text>
+        ) : (
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.tabValore}>{importoBreve(o.altri_costi)}</Text>
+            {o.altri_costi_nota ? (
+              <Text style={styles.tabStima} numberOfLines={1}>{o.altri_costi_nota}</Text>
+            ) : null}
+          </View>
+        ),
+    },
     {
       chiave: 'margine',
       label: 'Margine',
-      width: 98,
+      width: 92,
       destra: true,
       numerica: true,
       valore: (o) => margineDi(o),
@@ -250,7 +286,7 @@ export default function Ordini() {
     {
       chiave: 'valore',
       label: 'Valore',
-      width: 84,
+      width: 80,
       destra: true,
       numerica: true,
       valore: (o) => o.valore,
@@ -259,7 +295,7 @@ export default function Ordini() {
     {
       chiave: 'quando',
       label: 'Creato',
-      width: 70,
+      width: 66,
       destra: true,
       numerica: true,
       valore: (o) => o.created_at,
@@ -268,7 +304,7 @@ export default function Ordini() {
     {
       chiave: 'stato',
       label: 'Stato',
-      width: 94,
+      width: 88,
       valore: (o) => o.stato,
       cella: (o) => <StatusBadge small label={labelStatoOrdine[o.stato]} colore={coloreStatoOrdine[o.stato]} />,
     },
@@ -537,6 +573,8 @@ export default function Ordini() {
       linea: o.linea ?? null,
       canale: o.canale ?? null,
       brand: brandDi(o),
+      altriCosti: scriviImporto(o.altri_costi),
+      altriCostiNota: o.altri_costi_nota ?? '',
     });
   }
 
@@ -569,6 +607,17 @@ export default function Ordini() {
     if ((bozza.canale ?? null) !== (modificaPer.canale ?? null))
       patch.canale = bozza.canale as OrdineConLuogo['canale'];
     if ((bozza.brand ?? null) !== brandDi(modificaPer)) patch.brand = bozza.brand;
+    // ⚠️ Vuoto = «non ce ne sono», e si scrive null: zero e null qui dicono la
+    // stessa cosa nel margine, ma null non fa comparire «€ 0» in tabella su
+    // ogni ordine che non ha costi extra.
+    const altri = bozza.altriCosti.trim() ? leggiImporto(bozza.altriCosti) : null;
+    if (bozza.altriCosti.trim() && altri === null) {
+      avvisa('Altri costi non capiti', `«${bozza.altriCosti}» non è un importo. Scrivilo come 1.250,50.`);
+      return;
+    }
+    if (altri !== (modificaPer.altri_costi ?? null)) patch.altri_costi = altri;
+    const nota = bozza.altriCostiNota.trim() || null;
+    if (nota !== (modificaPer.altri_costi_nota ?? null)) patch.altri_costi_nota = nota;
     if (!Object.keys(patch).length) {
       setModificaPer(null);
       setBozza(null);
@@ -710,8 +759,12 @@ export default function Ordini() {
               colonne={colonne}
               chiaveRiga={(o) => o.id}
               ordineIniziale={{ campo: 'quando', verso: 'desc' }}
-              onRiga={(o) => o.place_id && router.push(`/(app)/attivita/${o.place_id}`)}
-              labelRiga={(o) => `Apri la scheda di ${o.place_nome ?? o.cliente}`}
+              // ⭐ LA RIGA APRE L'ORDINE (27/08/2026, richiesta dell'utente: «al
+              // click sulla riga della tabella deve aprire il dettaglio
+              // dell'ordine non l'anagrafica»). Prima portava alla scheda del
+              // negozio: da un elenco di ORDINI ci si aspetta l'ordine.
+              onRiga={(o) => apriModifica(o)}
+              labelRiga={(o) => `Apri l'ordine di ${o.place_nome ?? o.cliente}`}
               /**
                * I totali in fondo (richiesta dell'utente). Sono quelli delle
                * righe A SCHERMO: cambiando filtro cambiano, e devono — un
@@ -737,11 +790,19 @@ export default function Ordini() {
                 const valore = righe.reduce((s, o) => s + (o.valore ?? 0), 0);
                 const costo = conCosto.reduce((s, o) => s + (costi.get(o.id)?.costo ?? 0), 0);
                 const margine = conCosto.reduce((s, o) => s + (margineDi(o) ?? 0), 0);
+                // ⚠️ Gli altri costi si sommano sulla STESSA base del margine
+                // (`conCosto`), non su tutte le righe: sono un addendo di quel
+                // conto, e sommarli su una base più larga farebbe una riga di
+                // totali che non torna con se stessa — Margine ≠ Valore −
+                // Preventivo − Altri costi — proprio dove sta scritto su
+                // quanti ordini è fatta.
+                const altri = conCosto.reduce((s, o) => s + altriCostiDi(o), 0);
                 return {
                   cliente: `Totale · ${righe.length} ordini`,
                   valore: importoBreve(valore),
                   fornitore: conCosto.length ? `su ${conCosto.length} di ${righe.length}` : 'nessun preventivo',
                   costo: conCosto.length ? importoBreve(costo) : '—',
+                  altri: conCosto.length && altri ? importoBreve(altri) : '—',
                   margine: conCosto.length ? importoBreve(margine) : '—',
                 };
               }}
@@ -899,6 +960,32 @@ export default function Ordini() {
             preventivo del fornitore.
           </Text>
 
+          {/* ⭐ ALTRI COSTI (27/08/2026, richiesta dell'utente: «metti una
+              colonna altri costi sui costi che ci possono essere collegati»).
+              Quelli che non passano da un preventivo fornitore: trasporto,
+              una persona in più, il noleggio, il materiale comprato al volo.
+              ⚠️ Il margine LI TOGLIE: è detto sotto al campo, perché un costo
+              scritto qui cambia un numero che si legge altrove. */}
+          <Text style={styles.campoLabel}>Altri costi</Text>
+          <TextInput
+            style={styles.campo}
+            value={bozza.altriCosti}
+            onChangeText={(v) => setBozza({ ...bozza, altriCosti: v })}
+            placeholder="es. 120,00"
+            placeholderTextColor={colors.grigio}
+            inputMode="decimal"
+          />
+          <TextInput
+            style={styles.campo}
+            value={bozza.altriCostiNota}
+            onChangeText={(v) => setBozza({ ...bozza, altriCostiNota: v })}
+            placeholder="Di cosa sono fatti (trasporto, personale…)"
+            placeholderTextColor={colors.grigio}
+          />
+          <Text style={styles.campoAiuto}>
+            Costi collegati che non passano da un preventivo fornitore. Il margine li sottrae.
+          </Text>
+
           <Text style={styles.campoLabel}>Linea</Text>
           <View style={styles.chipsForm}>
             {LINEE_ATTIVE.map((l) => (
@@ -1044,6 +1131,7 @@ const styles = StyleSheet.create({
   // NON implementa hitSlop — la prop viene scartata in silenzio da View —
   // quindi sul sito il bersaglio era esattamente il glifo, 16px. hitSlop resta
   // per iOS/Android, dove funziona; il padding vale su tutte e due.
+  sitoTxt: { color: colors.testoSoft, fontSize: 11.5, fontWeight: '600' },
   brandTxt: { color: colors.goldStrong, fontSize: 10.5, fontWeight: '700' },
   riepilogoMobile: { paddingBottom: 8 },
   riepilogoTxt: { color: colors.testoSoft, fontSize: 12.5, fontWeight: '700' },

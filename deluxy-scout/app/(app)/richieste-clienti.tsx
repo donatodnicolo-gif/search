@@ -31,7 +31,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
-import { leggiImportoPositivo } from '@/lib/importi';
+import { leggiImportoPositivo, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { CampoData } from '@/components/CampoData';
@@ -124,6 +124,16 @@ export default function RichiesteClienti() {
   const [vista, setVista] = useState<VistaRichiesta>('aperte');
   const [query, setQuery] = useState('');
   const [importando, setImportando] = useState(false);
+  /**
+   * ⭐ MODIFICA DELLA RICHIESTA (27/08/2026, richiesta dell'utente: «al click
+   * su riga permetti modifica della richiesta cliente»).
+   *
+   * Fin qui una richiesta si poteva solo far avanzare di stato o eliminare: un
+   * importo sbagliato o una descrizione da correggere obbligavano a cancellarla
+   * e riscriverla — e con lei se ne andavano la data, la nota e il legame con
+   * la mail da cui era nata.
+   */
+  const [modificaPer, setModificaPer] = useState<RichiestaCliente | null>(null);
   const router = useRouter();
 
   const carica = useCallback(async () => {
@@ -624,6 +634,8 @@ export default function RichiesteClienti() {
             colonne={colonne}
             chiaveRiga={(r) => r.id}
             ordineIniziale={{ campo: 'serve', verso: 'asc' }}
+            onRiga={(r) => setModificaPer(r)}
+            labelRiga={(r) => `Modifica la richiesta di ${r.cliente}`}
             azioni={azioniDi}
             larghezzaAzioni={252}
           />
@@ -653,6 +665,17 @@ export default function RichiesteClienti() {
         <Ionicons name="add" size={22} color={colors.bianco} />
         <Text style={styles.fabTxt}>Nuova richiesta</Text>
       </Pressable>
+
+      {modificaPer ? (
+        <ModificaRichiesta
+          r={modificaPer}
+          onClose={() => setModificaPer(null)}
+          onSalvata={() => {
+            setModificaPer(null);
+            carica();
+          }}
+        />
+      ) : null}
 
       {formAperto ? (
         <NuovaRichiestaModal
@@ -1107,6 +1130,170 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
             <ActivityIndicator color={colors.bianco} size="small" />
           ) : (
             <Text style={styles.btnSalvaTxt}>Salva la richiesta</Text>
+          )}
+        </Pressable>
+      </ScrollView>
+    </Foglio>
+  );
+}
+
+/**
+ * IL FOGLIO DI MODIFICA di una richiesta (27/08/2026).
+ *
+ * ⚠️ QUI NON SI CAMBIA LO STATO, di proposito. Gli stati di una richiesta si
+ * muovono dalle azioni della riga perché ognuna fa anche ALTRO — registrare
+ * l'esito di un preventivo su FINANCE, far nascere l'ordine — e una fila di
+ * chip che scrivesse la sola colonna `stato` scavalcherebbe quel lavoro
+ * lasciando i due sistemi a raccontare due storie diverse.
+ *
+ * ⚠️ E non si tocca il NEGOZIO collegato: il suo nome appartiene alla sua
+ * scheda. Qui si corregge solo come si chiama su questa richiesta.
+ */
+function ModificaRichiesta({
+  r,
+  onClose,
+  onSalvata,
+}: {
+  r: RichiestaCliente;
+  onClose: () => void;
+  onSalvata: () => void;
+}) {
+  const [cliente, setCliente] = useState(r.cliente);
+  const [descrizione, setDescrizione] = useState(r.descrizione);
+  const [importo, setImporto] = useState(scriviImporto(r.importo));
+  const [canale, setCanale] = useState<CanaleRichiesta>(r.canale);
+  const [tipologia, setTipologia] = useState<TipologiaRichiesta>(r.tipologia);
+  const [serveEntro, setServeEntro] = useState<string | null>(r.serve_entro);
+  const [nota, setNota] = useState(r.nota ?? '');
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  async function salva() {
+    if (salvando) return;
+    if (!cliente.trim() || !descrizione.trim()) {
+      setErrore('Servono il cliente e cosa chiede.');
+      return;
+    }
+    // ⚠️ Vuoto = «non ancora concordato», e si scrive null. Un importo scritto
+    // male, invece, FERMA il salvataggio: mandarlo a null lo cancellerebbe in
+    // silenzio, e da lì esce una pro-forma senza prezzo.
+    let valore: number | null = null;
+    if (importo.trim()) {
+      valore = leggiImportoPositivo(importo);
+      if (valore === null) {
+        setErrore(`«${importo}» non è un importo. Scrivilo come 1.500,50.`);
+        return;
+      }
+    }
+    setSalvando(true);
+    setErrore(null);
+    try {
+      await aggiornaRichiestaCliente(r.id, {
+        cliente: cliente.trim(),
+        descrizione: descrizione.trim(),
+        importo: valore,
+        canale,
+        tipologia,
+        serve_entro: serveEntro,
+        nota: nota.trim() || null,
+      });
+      onSalvata();
+    } catch (e: any) {
+      setErrore(String(e?.message ?? e));
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <Foglio
+      titolo="Modifica la richiesta"
+      sottotitolo="Si correggono i dati della richiesta. Lo stato si muove dalle azioni della riga."
+      onClose={onClose}
+      bloccaSfondo
+      largo
+    >
+      <ScrollView contentContainerStyle={{ gap: spacing.sm, paddingBottom: 8 }}>
+        {/* ⚠️ IL DOCUMENTO GIÀ EMESSO NON SI CORREGGE DA QUI. Cambiare l'importo
+            dopo la pro-forma lascia il cliente con in mano un numero e noi con
+            un altro: è detto PRIMA di scriverlo, non dopo. */}
+        {r.fattura_numero || r.proforma_numero ? (
+          <Text style={styles.nota}>
+            Attenzione: per questa richiesta esiste già{' '}
+            {r.fattura_numero ? `la fattura ${r.fattura_numero}` : `la pro-forma ${r.proforma_numero}`}. Cambiando
+            l'importo qui, quel documento resta com'è: va corretto su FINANCE.
+          </Text>
+        ) : null}
+
+        <Text style={styles.campoLabel}>Cliente</Text>
+        <TextInput
+          style={styles.input}
+          value={cliente}
+          onChangeText={setCliente}
+          placeholder="Nome del cliente"
+          placeholderTextColor={colors.grigio}
+        />
+        {r.place_id ? (
+          <Text style={styles.nota}>
+            Collegata a un cliente di Scout: il nome della sua scheda si cambia di là, qui solo come si chiama su
+            questa richiesta.
+          </Text>
+        ) : null}
+
+        <Text style={styles.campoLabel}>Cosa chiede</Text>
+        <TextInput
+          style={[styles.input, styles.inputAlto]}
+          value={descrizione}
+          onChangeText={setDescrizione}
+          placeholder="Es. catering per 40 persone, sede di Milano"
+          placeholderTextColor={colors.grigio}
+          multiline
+        />
+
+        <Text style={styles.campoLabel}>Importo concordato (facoltativo)</Text>
+        <TextInput
+          style={styles.input}
+          value={importo}
+          onChangeText={setImporto}
+          placeholder="es. 1.500,50 — vuoto = ancora da concordare"
+          placeholderTextColor={colors.grigio}
+          inputMode="decimal"
+        />
+
+        <Text style={styles.campoLabel}>Com'è arrivata</Text>
+        <View style={styles.chips}>
+          {CANALI.map((c) => (
+            <Chip key={c} label={LABEL_CANALE_RICHIESTA[c]} on={canale === c} onPress={() => setCanale(c)} />
+          ))}
+        </View>
+
+        <Text style={styles.campoLabel}>Tipologia (per il budget)</Text>
+        <View style={styles.chips}>
+          {TIPOLOGIE.map((t) => (
+            <Chip key={t} label={LABEL_TIPOLOGIA[t]} on={tipologia === t} onPress={() => setTipologia(t)} />
+          ))}
+        </View>
+
+        <Text style={styles.campoLabel}>Serve entro (facoltativo)</Text>
+        <CampoData valore={serveEntro} onCambia={setServeEntro} />
+
+        <Text style={styles.campoLabel}>Note (facoltativo)</Text>
+        <TextInput
+          style={[styles.input, styles.inputAlto]}
+          value={nota}
+          onChangeText={setNota}
+          placeholder="Quello che serve ricordare: condizioni, referente, vincoli…"
+          placeholderTextColor={colors.grigio}
+          multiline
+        />
+
+        {errore ? <Text style={styles.errore}>{errore}</Text> : null}
+
+        <Pressable style={[styles.btnSalva, salvando && styles.btnOff]} disabled={salvando} onPress={salva}>
+          {salvando ? (
+            <ActivityIndicator color={colors.bianco} size="small" />
+          ) : (
+            <Text style={styles.btnSalvaTxt}>Salva le modifiche</Text>
           )}
         </Pressable>
       </ScrollView>

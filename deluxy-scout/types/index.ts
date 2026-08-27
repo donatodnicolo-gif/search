@@ -404,6 +404,11 @@ export interface Ordine {
   richiesta_id?: string | null;
   /** Con quale insegna si vende (migr. 0078). Null = deluxy.it. */
   brand?: string | null;
+  /** Costi collegati che non passano da un preventivo fornitore (migr. 0082).
+   *  ⚠️ Entrano nel margine: una colonna di costi che non li toglie racconta
+   *  due numeri che non tornano fra loro. */
+  altri_costi?: number | null;
+  altri_costi_nota?: string | null;
   /** I documenti di FINANCE: solo il riferimento, mai una copia degli importi. */
   proforma_numero?: string | null;
   proforma_url?: string | null;

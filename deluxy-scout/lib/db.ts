@@ -1455,7 +1455,7 @@ export async function creaOrdineDaDeal(deal: {
 export async function aggiornaOrdine(
   id: string,
   patch: Partial<
-    Pick<Ordine, 'stato' | 'incassato_il' | 'valore' | 'descrizione' | 'cliente' | 'linea' | 'canale' | 'brand'>
+    Pick<Ordine, 'stato' | 'incassato_il' | 'valore' | 'descrizione' | 'cliente' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('ordini').update(patch).eq('id', id);
@@ -2688,7 +2688,7 @@ export async function leadDiventaRichiesta(leadId: string, richiestaId: string, 
 
 export async function aggiornaRichiestaCliente(
   id: string,
-  campi: Partial<Pick<RichiestaCliente, 'descrizione' | 'importo' | 'canale' | 'tipologia' | 'stato' | 'serve_entro' | 'nota'>>,
+  campi: Partial<Pick<RichiestaCliente, 'cliente' | 'descrizione' | 'importo' | 'canale' | 'tipologia' | 'stato' | 'serve_entro' | 'nota'>>,
 ): Promise<void> {
   const { data, error } = await supabase.from('richieste_cliente').update(campi).eq('id', id).select('id');
   if (error) throw error;
