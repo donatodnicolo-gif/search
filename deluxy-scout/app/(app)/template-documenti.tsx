@@ -29,6 +29,7 @@ import { EmptyState, PageIntro } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { BRAND, BRAND_DEFAULT } from '@/types';
+import { leggiDatiAzienda, type DatiAzienda } from '@/lib/db';
 import {
   eliminaTemplate,
   fetchTemplate,
@@ -62,6 +63,8 @@ type Bozza = {
   iban: string;
   intestatario_conto: string;
   modalita_pagamento: string;
+  sdi: string;
+  pec: string;
   note_default: string;
   disclaimer: string;
 };
@@ -79,6 +82,8 @@ const VUOTA: Bozza = {
   iban: '',
   intestatario_conto: '',
   modalita_pagamento: 'Bonifico bancario',
+  sdi: '',
+  pec: '',
   note_default: '',
   disclaimer: '',
 };
@@ -90,6 +95,8 @@ export default function TemplateDocumenti() {
   const [apertoId, setApertoId] = useState<string | null>(null);
   const [bozza, setBozza] = useState<Bozza | null>(null);
   const [salvo, setSalvo] = useState(false);
+  /** I dati di fatturazione: Impostazioni → Dati per la fatturazione. */
+  const [azienda, setAzienda] = useState<DatiAzienda | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -111,6 +118,7 @@ export default function TemplateDocumenti() {
   useFocusEffect(
     useCallback(() => {
       carica();
+      leggiDatiAzienda().then(setAzienda).catch(() => {});
     }, [carica]),
   );
 
@@ -129,18 +137,35 @@ export default function TemplateDocumenti() {
    * una volta sola.
    */
   function datiSocietariDiDefault(): Partial<Bozza> {
+    // Prima fonte: i DATI PER LA FATTURAZIONE (Impostazioni), che sono
+    // l'identità fiscale dell'azienda e li scrive solo l'amministratore.
+    const da: Partial<Bozza> = azienda
+      ? {
+          ragione_sociale: azienda.ragioneSociale,
+          piva: azienda.piva,
+          indirizzo: [azienda.indirizzo, azienda.capCitta].filter(Boolean).join(' — '),
+          sdi: azienda.sdi,
+          pec: azienda.pec,
+        }
+      : {};
+    // Seconda fonte: il template predefinito, per ciò che le impostazioni non
+    // sanno — IBAN, modalità di pagamento, testo di legge, codice fiscale, REA.
     const base = righe.find((r) => r.predefinito) ?? righe[0];
-    if (!base) return {};
+    if (!base) return da;
     return {
-      ragione_sociale: base.ragione_sociale,
-      indirizzo: base.indirizzo ?? '',
-      piva: base.piva ?? '',
       codice_fiscale: base.codice_fiscale ?? '',
       rea: base.rea ?? '',
       iban: base.iban ?? '',
       intestatario_conto: base.intestatario_conto ?? '',
       modalita_pagamento: base.modalita_pagamento ?? '',
       disclaimer: base.disclaimer ?? '',
+      // Se le impostazioni sono vuote si ripiega su quello che c'è già.
+      ragione_sociale: base.ragione_sociale,
+      indirizzo: base.indirizzo ?? '',
+      piva: base.piva ?? '',
+      sdi: base.sdi ?? '',
+      pec: base.pec ?? '',
+      ...da,
       // ⚠️ NON si copiano: logo, nome, brand, contatti. Sono esattamente le
       // quattro cose che distinguono un'insegna dall'altra — copiarle
       // farebbe uscire il documento di Cake Design col logo di Deluxy.
@@ -164,6 +189,8 @@ export default function TemplateDocumenti() {
             iban: t.iban ?? '',
             intestatario_conto: t.intestatario_conto ?? '',
             modalita_pagamento: t.modalita_pagamento ?? '',
+            sdi: t.sdi ?? '',
+            pec: t.pec ?? '',
             note_default: t.note_default ?? '',
             disclaimer: t.disclaimer ?? '',
           }
@@ -369,10 +396,12 @@ export default function TemplateDocumenti() {
             intestazione.
           </Text>
 
-          {apertoId === 'nuovo' && righe.length ? (
+          {/* Vale anche per il PRIMO template: i dati non vengono dal template
+              precedente ma dalle Impostazioni, quindi ci sono da subito. */}
+          {apertoId === 'nuovo' && (azienda?.piva || righe.length) ? (
             <Text style={styles.aiuto}>
-              I dati societari sono già compilati con quelli di «{(righe.find((r) => r.predefinito) ?? righe[0]).nome}»:
-              le insegne sono la stessa società. Cambia logo, nome e contatti.
+              I dati societari arrivano da Impostazioni → Dati per la fatturazione: le insegne sono la
+              stessa società. Qui cambia logo, nome e contatti.
             </Text>
           ) : null}
           <Text style={styles.label}>Ragione sociale *</Text>
@@ -413,6 +442,25 @@ export default function TemplateDocumenti() {
             onChangeText={(v) => setBozza({ ...bozza, rea: v })}
             placeholder="MI-1234567"
             placeholderTextColor={colors.grigio}
+          />
+          <Text style={styles.label}>Codice SDI</Text>
+          <TextInput
+            style={styles.input}
+            value={bozza.sdi}
+            onChangeText={(v) => setBozza({ ...bozza, sdi: v })}
+            placeholder="M5UXCR1"
+            placeholderTextColor={colors.grigio}
+            autoCapitalize="characters"
+          />
+          <Text style={styles.label}>PEC</Text>
+          <TextInput
+            style={styles.input}
+            value={bozza.pec}
+            onChangeText={(v) => setBozza({ ...bozza, pec: v })}
+            placeholder="deluxy@pec.net"
+            placeholderTextColor={colors.grigio}
+            autoCapitalize="none"
+            keyboardType="email-address"
           />
           <Text style={styles.label}>Contatti</Text>
           <TextInput

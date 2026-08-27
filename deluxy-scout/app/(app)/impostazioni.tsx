@@ -13,13 +13,16 @@ import { isAdmin } from '@/lib/admin';
 import {
   APP_DELUXY,
   CHIAVE_CASELLA_RICHIESTE,
+  CHIAVI_AZIENDA,
   chiaveIngressoConfigurata,
   fetchStatoChiaviApp,
   generaChiaveIngresso,
+  leggiDatiAzienda,
   leggiImpostazione,
   rimuoviChiaveApp,
   salvaChiaveApp,
   salvaImpostazione,
+  type DatiAzienda,
   type StatoChiaveApp,
 } from '@/lib/db';
 import { collegaCasellaMail, fetchCaselleMail, importaRichiesteDaMail, type CasellaMail } from '@/lib/mail';
@@ -44,6 +47,25 @@ export default function Impostazioni() {
   const [formCasella, setFormCasella] = useState(false);
   const [nuova, setNuova] = useState(CASELLA_VUOTA);
   const [collegando, setCollegando] = useState(false);
+  /**
+   * ⭐ I DATI PER LA FATTURAZIONE (27/08/2026, richiesta dell'utente:
+   * «mettili cambiabili da impostazioni solo da admin»).
+   *
+   * Sono l'identità fiscale dell'azienda: da qui parte ogni template dei
+   * documenti, così una partita IVA si scrive una volta sola e se cambia si
+   * cambia in un posto. ⚠️ Li scrive solo l'amministratore, e non è un filtro
+   * di questa schermata: lo impone la RLS della tabella `impostazioni`.
+   */
+  const [azienda, setAzienda] = useState<DatiAzienda>({
+    ragioneSociale: '',
+    piva: '',
+    indirizzo: '',
+    capCitta: '',
+    sdi: '',
+    pec: '',
+  });
+  const [salvandoAzienda, setSalvandoAzienda] = useState(false);
+  const [esitoAzienda, setEsitoAzienda] = useState<string | null>(null);
 
   const caricaCaselle = useCallback(() => {
     // Best-effort: se AI Mail non è ancora aggiornata l'elenco non arriva, ma
@@ -56,6 +78,47 @@ export default function Impostazioni() {
   useEffect(() => {
     caricaCaselle();
   }, [caricaCaselle]);
+
+  useEffect(() => {
+    leggiDatiAzienda().then(setAzienda).catch(() => {});
+  }, []);
+
+  /**
+   * Salva i dati di fatturazione.
+   *
+   * ⚠️ Sei chiavi, sei scritture: se una fallisce si dice QUALE campo non è
+   * passato, invece di un «non riuscito» che lascia lo schermo pieno di dati e
+   * il database a metà. E si rilegge da capo, così quello che resta a schermo è
+   * quello che c'è davvero scritto.
+   */
+  async function salvaAzienda() {
+    if (salvandoAzienda) return;
+    setSalvandoAzienda(true);
+    setEsitoAzienda(null);
+    const campi: [keyof DatiAzienda, string, string][] = [
+      ['ragioneSociale', CHIAVI_AZIENDA.ragioneSociale, 'ragione sociale'],
+      ['piva', CHIAVI_AZIENDA.piva, 'partita IVA'],
+      ['indirizzo', CHIAVI_AZIENDA.indirizzo, 'indirizzo'],
+      ['capCitta', CHIAVI_AZIENDA.capCitta, 'CAP e città'],
+      ['sdi', CHIAVI_AZIENDA.sdi, 'codice SDI'],
+      ['pec', CHIAVI_AZIENDA.pec, 'PEC'],
+    ];
+    try {
+      for (const [chiaveStato, chiave, etichetta] of campi) {
+        try {
+          await salvaImpostazione(chiave, azienda[chiaveStato]);
+        } catch (e: any) {
+          throw new Error(`${etichetta}: ${e?.message ?? 'non salvata'}`);
+        }
+      }
+      setAzienda(await leggiDatiAzienda());
+      setEsitoAzienda('Dati di fatturazione salvati.');
+    } catch (e: any) {
+      setEsitoAzienda(e?.message ?? 'Non salvati.');
+    } finally {
+      setSalvandoAzienda(false);
+    }
+  }
 
   /** Collega la casella in AI Mail e la imposta subito come casella delle richieste. */
   async function collega() {
@@ -141,6 +204,100 @@ export default function Impostazioni() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* ⭐ DATI PER LA FATTURAZIONE — stanno per primi: sono l'identità
+          dell'azienda, e da qui parte l'intestazione di ogni documento che
+          esce verso un cliente. */}
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>DATI PER LA FATTURAZIONE</Text>
+        <Text style={styles.aiuto}>
+          L&apos;identità fiscale dell&apos;azienda. Da qui parte ogni template delle pro-forme: si scrivono
+          una volta, e se cambiano si cambiano qui — non su ogni insegna.
+        </Text>
+
+        <Text style={styles.campoLabel}>Ragione sociale</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.ragioneSociale}
+          onChangeText={(v) => setAzienda({ ...azienda, ragioneSociale: v })}
+          editable={admin}
+          placeholder="Deluxy Srl"
+          placeholderTextColor={colors.grigio}
+        />
+
+        <Text style={styles.campoLabel}>Partita IVA</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.piva}
+          onChangeText={(v) => setAzienda({ ...azienda, piva: v })}
+          editable={admin}
+          placeholder="11453140961"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+        />
+
+        <Text style={styles.campoLabel}>Indirizzo</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.indirizzo}
+          onChangeText={(v) => setAzienda({ ...azienda, indirizzo: v })}
+          editable={admin}
+          placeholder="Via Varesina 60"
+          placeholderTextColor={colors.grigio}
+        />
+
+        <Text style={styles.campoLabel}>CAP e città</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.capCitta}
+          onChangeText={(v) => setAzienda({ ...azienda, capCitta: v })}
+          editable={admin}
+          placeholder="20156 Milano"
+          placeholderTextColor={colors.grigio}
+        />
+
+        <Text style={styles.campoLabel}>Codice SDI</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.sdi}
+          onChangeText={(v) => setAzienda({ ...azienda, sdi: v })}
+          editable={admin}
+          placeholder="M5UXCR1"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="characters"
+        />
+
+        <Text style={styles.campoLabel}>PEC</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.pec}
+          onChangeText={(v) => setAzienda({ ...azienda, pec: v })}
+          editable={admin}
+          placeholder="deluxy@pec.net"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+
+        {admin ? (
+          <>
+            <Pressable
+              style={[styles.btn, salvandoAzienda && styles.btnOff]}
+              disabled={salvandoAzienda}
+              onPress={salvaAzienda}
+            >
+              <Text style={styles.btnTxt}>{salvandoAzienda ? 'Salvo…' : 'Salva i dati di fatturazione'}</Text>
+            </Pressable>
+            <Text style={styles.nota}>
+              ⚠️ Cambiarli qui NON cambia i documenti già emessi: l&apos;intestazione con cui sono usciti
+              resta su di loro. Vale per i prossimi, e per i template che si creano da adesso.
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.nota}>Solo un amministratore può cambiarli.</Text>
+        )}
+        {esitoAzienda ? <Text style={styles.nota}>{esitoAzienda}</Text> : null}
+      </View>
+
       <View style={styles.card}>
         <Text style={styles.cardLabel}>RICHIESTE WEB</Text>
         <Text style={styles.aiuto}>

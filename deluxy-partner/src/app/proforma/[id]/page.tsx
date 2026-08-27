@@ -107,6 +107,8 @@ export default async function ProFormaDetail({
             {piva && <div className="docpf-mittente">P. IVA {piva}</div>}
             {ii.codiceFiscale && <div className="docpf-mittente">C.F. {ii.codiceFiscale}</div>}
             {ii.rea && <div className="docpf-mittente">REA {ii.rea}</div>}
+            {ii.sdi && <div className="docpf-mittente">SDI {ii.sdi}</div>}
+            {ii.pec && <div className="docpf-mittente">PEC {ii.pec}</div>}
             {contatti && <div className="docpf-mittente">{contatti}</div>}
           </div>
           <div className="docpf-titolo">

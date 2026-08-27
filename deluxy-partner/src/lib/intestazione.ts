@@ -27,6 +27,8 @@ export interface Intestazione {
   iban: string;
   intestatarioConto: string;
   modalitaPagamento: string;
+  sdi: string;
+  pec: string;
   disclaimer: string;
   /** Il brand dichiarato da chi ha emesso: si mostra a schermo, non decide. */
   brand: string;
@@ -59,6 +61,8 @@ export function leggiIntestazione(v: unknown): Intestazione | null {
     iban: testo(o.iban, 60),
     intestatarioConto: testo(o.intestatarioConto, 200),
     modalitaPagamento: testo(o.modalitaPagamento, 300),
+    sdi: testo(o.sdi, 20),
+    pec: testo(o.pec, 200),
     disclaimer: testo(o.disclaimer, 1500),
     brand: testo(o.brand, 120),
   };
@@ -87,6 +91,8 @@ export async function intestazioneDaMostrare(
     iban: "",
     intestatarioConto: "",
     modalitaPagamento: "",
+    sdi: "",
+    pec: "",
     disclaimer: disclaimerDefault,
     brand: "",
     fonte: "impostazioni",

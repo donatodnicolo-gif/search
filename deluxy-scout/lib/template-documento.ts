@@ -42,6 +42,8 @@ export interface TemplateDocumento {
   iban: string | null;
   intestatario_conto: string | null;
   modalita_pagamento: string | null;
+  sdi: string | null;
+  pec: string | null;
   note_default: string | null;
   disclaimer: string | null;
   created_at: string;
@@ -59,6 +61,8 @@ export interface IntestazioneDocumento {
   iban: string;
   intestatarioConto: string;
   modalitaPagamento: string;
+  sdi: string;
+  pec: string;
   disclaimer: string;
   brand: string;
 }
@@ -138,6 +142,8 @@ export async function intestazionePerBrand(brand: string | null | undefined): Pr
     iban: t.iban ?? '',
     intestatarioConto: t.intestatario_conto ?? '',
     modalitaPagamento: t.modalita_pagamento ?? '',
+    sdi: t.sdi ?? '',
+    pec: t.pec ?? '',
     disclaimer: t.disclaimer ?? '',
     brand: t.brand ?? t.nome,
   };

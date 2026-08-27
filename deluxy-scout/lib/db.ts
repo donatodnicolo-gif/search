@@ -2369,6 +2369,51 @@ function mimeDaUri(uri: string): string {
 
 export const CHIAVE_CASELLA_RICHIESTE = 'mail.casella_richieste';
 
+/**
+ * ⭐ I DATI PER LA FATTURAZIONE (27/08/2026, migr. 0080).
+ *
+ * L'identità fiscale dell'azienda: non appartiene a un template né a un
+ * documento. Da qui parte ogni template nuovo, così una partita IVA si scrive
+ * UNA volta — e se cambia si cambia in un posto solo.
+ *
+ * ⚠️ Li scrive SOLO l'amministratore, e non è un filtro dell'interfaccia: lo
+ * impone la policy `impostazioni_write` nel database.
+ */
+export const CHIAVI_AZIENDA = {
+  ragioneSociale: 'azienda.ragione_sociale',
+  piva: 'azienda.piva',
+  indirizzo: 'azienda.indirizzo',
+  capCitta: 'azienda.cap_citta',
+  sdi: 'azienda.sdi',
+  pec: 'azienda.pec',
+} as const;
+
+export interface DatiAzienda {
+  ragioneSociale: string;
+  piva: string;
+  indirizzo: string;
+  capCitta: string;
+  sdi: string;
+  pec: string;
+}
+
+/** Legge i dati di fatturazione in un colpo solo (una query, non sei). */
+export async function leggiDatiAzienda(): Promise<DatiAzienda> {
+  const { data } = await supabase
+    .from('impostazioni')
+    .select('chiave, valore')
+    .in('chiave', Object.values(CHIAVI_AZIENDA));
+  const m = new Map((data ?? []).map((r: any) => [r.chiave, r.valore ?? '']));
+  return {
+    ragioneSociale: m.get(CHIAVI_AZIENDA.ragioneSociale) ?? '',
+    piva: m.get(CHIAVI_AZIENDA.piva) ?? '',
+    indirizzo: m.get(CHIAVI_AZIENDA.indirizzo) ?? '',
+    capCitta: m.get(CHIAVI_AZIENDA.capCitta) ?? '',
+    sdi: m.get(CHIAVI_AZIENDA.sdi) ?? '',
+    pec: m.get(CHIAVI_AZIENDA.pec) ?? '',
+  };
+}
+
 export async function leggiImpostazione(chiave: string): Promise<string | null> {
   const { data, error } = await supabase.from('impostazioni').select('valore').eq('chiave', chiave).maybeSingle();
   if (error) return null;
