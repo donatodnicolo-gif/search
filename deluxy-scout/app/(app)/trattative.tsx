@@ -300,6 +300,8 @@ export default function Trattative() {
             canale: d.canale ?? null,
             linea: d.linee?.length ? d.linee[0] : d.linea,
             place_nome: d.place_nome ?? undefined,
+            // Chi ha seguito la trattativa segue anche l ordine.
+            owner: d.owner ?? null,
           });
           // Vinta: la pipeline non deve tenersi una vendita già passata a ordine.
           if (d.fase !== 'closedwon') {
@@ -1024,6 +1026,9 @@ function TrattativaModal({
               canale: patch.canale,
               linea: patch.linea,
               place_nome: place.nome,
+              // Chi ha seguito la trattativa segue anche l'ordine: senza questa
+              // riga l'ordine sarebbe intestato a chi ha premuto «vinta».
+              owner: patch.owner ?? null,
             });
             const esito = await emettiProformaPerOrdine({
               ordineId,

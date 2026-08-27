@@ -1456,14 +1456,38 @@ export async function fetchOrdini(): Promise<OrdineConLuogo[]> {
    * `nomeDaProfilo`), e best-effort: se i profili non rispondono gli ordini si
    * vedono lo stesso col nome vuoto, invece di non vedersi affatto.
    */
-  const ids = [...new Set(righe.map((r) => (r as any).owner).filter(Boolean))] as string[];
+  /**
+   * ⚠️ CHI HA SEGUITO LA TRATTATIVA VINCE su chi ha creato l'ordine
+   * (27/08/2026). L'ordine nasce dalla trattativa vinta, e il suo `owner` fino
+   * a oggi era il default della colonna — cioè chi ha premuto il bottone. Chi
+   * ha lavorato quel cliente per tre mesi è l'altro, ed è quello che va letto
+   * in tabella: qui si risolve dal deal quando c'è, e si ripiega sull'ordine
+   * quando l'ordine non viene da una trattativa (richiesta cliente, import).
+   */
+  const dealIds = [...new Set(righe.map((r) => r.deal_id).filter(Boolean))] as string[];
+  const ownerDelDeal = new Map<string, string>();
+  if (dealIds.length) {
+    try {
+      const { data: deals } = await supabase.from('deals').select('id, owner').in('id', dealIds);
+      for (const d of (deals ?? []) as { id: string; owner: string | null }[]) {
+        if (d.owner) ownerDelDeal.set(d.id, d.owner);
+      }
+    } catch {
+      // niente trattative leggibili: vale il proprietario dell'ordine
+    }
+  }
+  const ids = [
+    ...new Set([
+      ...righe.map((r) => (r.deal_id ? ownerDelDeal.get(r.deal_id) : null) ?? (r as any).owner).filter(Boolean),
+    ]),
+  ] as string[];
   if (ids.length) {
     try {
       const profili = await fetchProfiles();
       const nome = new Map(profili.map((p) => [p.id, nomeDaProfilo(p)]));
       for (const r of righe) {
-        const o = (r as any).owner as string | null;
-        if (o) r.owner_nome = nome.get(o) ?? null;
+        const chi = (r.deal_id ? ownerDelDeal.get(r.deal_id) : null) ?? ((r as any).owner as string | null);
+        if (chi) r.owner_nome = nome.get(chi) ?? null;
       }
     } catch {
       // i profili non sono indispensabili: la colonna resta vuota
@@ -1484,6 +1508,14 @@ export async function creaOrdineDaDeal(deal: {
   canale?: string | null;
   linea: string | null;
   place_nome?: string | null;
+  /** ⭐ CHI HA SEGUITO LA TRATTATIVA (27/08/2026, richiesta dell'utente: «anche
+   *  qui va riportato chi ha seguito trattativa e di conseguenza ordine»).
+   *
+   *  ⚠️ Senza, l'ordine prendeva il proprietario di DEFAULT della colonna —
+   *  cioè chi ha premuto il bottone. Chiudere la trattativa di un collega gli
+   *  toglieva l'ordine dalle mani, e i conti per venditore lo attribuivano a
+   *  chi aveva fatto l'ultimo clic. */
+  owner?: string | null;
 }): Promise<{ id: string }> {
   // Come per assicuraPlace: l'indice unico su deal_id è parziale, quindi niente
   // ON CONFLICT. Se l'ordine di questa trattativa c'è già, si aggiorna.
@@ -1494,6 +1526,9 @@ export async function creaOrdineDaDeal(deal: {
     valore: deal.valore_atteso,
     canale: deal.canale ?? null,
     linea: deal.linea,
+    // Il proprietario viaggia con l'ordine; se la trattativa non ne ha uno, la
+    // colonna applica il suo default (chi sta scrivendo) come prima.
+    ...(deal.owner ? { owner: deal.owner } : {}),
   };
   const { data: gia } = await supabase.from('ordini').select('id').eq('deal_id', deal.id).maybeSingle();
   // ⚠️ Torna l'id dell'ordine (27/08/2026): prima non tornava niente, e chi lo
@@ -2988,6 +3023,8 @@ export async function creaOrdineDaTrattativa(d: {
   canale?: string | null;
   linea: string | null;
   place_nome?: string | null;
+  /** Chi ha seguito la trattativa: segue anche l ordine (27/08/2026). */
+  owner?: string | null;
 }): Promise<{ id: string }> {
   if (!d.valore_atteso) {
     throw new Error('Serve il valore della trattativa: un ordine senza importo non si incassa e non si misura.');
