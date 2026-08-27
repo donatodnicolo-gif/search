@@ -1778,3 +1778,24 @@ model Operation {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
+
+/// TENTATIVI DI ACCESSO FALLITI (27/08/2026).
+///
+/// ⚠️ Serve una tabella e non un contatore in memoria: su Vercel ogni
+/// invocazione può finire su un'istanza diversa, e un contatore per istanza
+/// non conta niente — l'attaccante prende semplicemente un'altra istanza.
+///
+/// ⚠️ Si registra l'IMPRONTA dell'email, non l'email: questa tabella è un
+/// elenco di indirizzi che qualcuno ha provato, e non deve diventare un
+/// elenco leggibile di indirizzi validi.
+model TentativoAccesso {
+  id        String   @id @default(cuid())
+  /// sha256 dell'email in minuscolo.
+  chiave    String
+  /// L'indirizzo di rete di chi prova, per distinguere un utente distratto da
+  /// una macchina che tenta.
+  ip        String?
+  quando    DateTime @default(now())
+
+  @@index([chiave, quando])
+}

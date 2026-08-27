@@ -46,7 +46,25 @@ export class JwtAuthGuard implements CanActivate {
     if (!user || user.status !== 'active') {
       throw new UnauthorizedException('Accesso revocato o utente non attivo');
     }
-    request.user = payload;
+    // ⚠️ 27/08/2026 — CHI SEI LO DICE IL DATABASE, NON IL TOKEN.
+    //
+    // Prima si scriveva `request.user = payload`: ruolo, partner e valet
+    // venivano dal token firmato al login, e da lì `RolesGuard` decideva. Due
+    // conseguenze, tutt'e due reali:
+    //   · un ADMIN declassato restava ADMIN fino alla scadenza (8 ore);
+    //   · un utente spostato dal partner A al B continuava a leggere e a
+    //     scrivere le cose di A.
+    // La riga vera è già in mano — la query la facevamo comunque per lo stato —
+    // e la si buttava via. Del token resta solo il `sub`: quello dice CHI
+    // chiede, il resto lo dice l'archivio.
+    request.user = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      isSupport: user.isSupport,
+      partnerId: user.partnerId,
+      valetId: user.valetId,
+    };
     return true;
   }
 }

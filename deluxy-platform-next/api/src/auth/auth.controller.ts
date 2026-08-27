@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Public } from '../common/decorators';
 import { AuthService } from './auth.service';
@@ -14,8 +14,15 @@ export class AuthController {
   @Post('login')
   @HttpCode(200)
   @ApiOperation({ summary: 'Login con email e password, restituisce JWT' })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(
+    @Body() dto: LoginDto,
+    @Req() req: { ip?: string; headers?: Record<string, string | string[] | undefined> },
+  ) {
+    // ⚠️ Dietro Vercel l'indirizzo vero sta in `x-forwarded-for`: `req.ip`
+    // vedrebbe il proxy, cioè lo stesso valore per tutti — un contatore per IP
+    // costruito su quello conterebbe il mondo intero come una persona sola.
+    const inoltrato = String(req?.headers?.['x-forwarded-for'] ?? '').split(',')[0].trim();
+    return this.authService.login(dto, inoltrato || req?.ip);
   }
 
   @Public()

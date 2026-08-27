@@ -205,15 +205,32 @@ export class DeliveriesService {
     return dove;
   }
 
-  /** Filtro di visibilita' in base al ruolo. */
+  /**
+   * Filtro di visibilità in base al ruolo.
+   *
+   * ⚠️ 27/08/2026 — SI ELENCA CHI PUÒ VEDERE TUTTO, non chi non può.
+   *
+   * Prima finiva con `return {}`, cioè «nessun filtro», per ogni ruolo non
+   * nominato. L'enum ne ha sei e qui se ne nominavano tre: **CUSTOMER cadeva
+   * nel ramo aperto** — tutte le consegne di tutti, con indirizzi, telefoni e
+   * note. In archivio ci sono **4.512 utenti CUSTOMER**, e almeno uno è attivo
+   * con una password: misurato, `GET /deliveries` gli rispondeva 200 con le
+   * consegne di partner diversi. È la trappola della regola scritta su N
+   * valori: un elenco di eccezioni non risponde «e se non è nessuno di
+   * questi?».
+   *
+   * Adesso l'elenco è quello di chi vede tutto. Un ruolo nuovo, o uno
+   * dimenticato, finisce nel ramo che NEGA — e lo dice.
+   */
   private roleFilter(user: JwtUser) {
+    if (user.role === Role.ADMIN || user.role === Role.OPERATION) return {};
     if (user.role === Role.PARTNER) return { partnerId: user.partnerId ?? '-' };
     if (user.role === Role.VALET) return { valetId: user.valetId ?? '-' };
     if (user.role === Role.PROJECT_MANAGER) {
       // Il PM non gestisce consegne: nessun accesso
       throw new ForbiddenException('Il project manager non accede alle consegne');
     }
-    return {};
+    throw new ForbiddenException('Questo ruolo non ha accesso alle consegne');
   }
 
   /** Campi testuali coperti dalla ricerca globale `q`. */
@@ -526,23 +543,29 @@ export class DeliveriesService {
     const prodotti = new Map(
       (await this.prisma.product.findMany({
         where: { id: { in: righe.map((r) => r.productId) } },
-        select: { id: true, name: true, sku: true },
+        select: { id: true, name: true, sku: true, price: true },
       })).map((x) => [x.id, x]),
     );
     const idVarianti = righe.map((r) => r.productVariantId).filter(Boolean) as string[];
     const varianti = idVarianti.length
       ? new Map((await this.prisma.productVariant.findMany({
-          where: { id: { in: idVarianti } }, select: { id: true, name: true },
-        })).map((x) => [x.id, x.name]))
-      : new Map<string, string>();
+          where: { id: { in: idVarianti } }, select: { id: true, name: true, price: true },
+        })).map((x) => [x.id, x]))
+      : new Map<string, { id: string; name: string; price: number | null }>();
     return righe.map((r) => ({
       productId: r.productId,
       productName: prodotti.get(r.productId)?.name ?? null,
       productSku: prodotti.get(r.productId)?.sku ?? null,
-      variantName: r.productVariantId ? varianti.get(r.productVariantId) ?? null : null,
+      variantName: r.productVariantId ? varianti.get(r.productVariantId)?.name ?? null : null,
       productVariantId: r.productVariantId,
       quantity: r.quantity ?? 1,
-      price: r.price,
+      // ⚠️ Senza prezzo scritto vale il CATALOGO — la variante se c'è (la
+      // taglia M costa quanto la M, non quanto il prodotto base), altrimenti
+      // il prodotto. Serve da quando al PARTNER il prezzo di riga viene tolto:
+      // lasciarlo a `null` avrebbe messo a ZERO il venduto in fattura, cioè
+      // avrebbe risolto una fuga creando un buco nei conti.
+      price: r.price ?? varianti.get(r.productVariantId ?? '')?.price
+        ?? prodotti.get(r.productId)?.price ?? null,
       flexiblePrice: r.flexiblePrice ?? false,
       fieldValues: r.fieldValues,
     }));
@@ -616,6 +639,24 @@ export class DeliveriesService {
       price += extraKm * partnerService.extraKmPrice;
     }
 
+    // ⚠️ 27/08/2026 — QUELLO CHE UN PARTNER NON DECIDE.
+    //
+    // Il DTO dichiara `price`, `billable`, `payable`, `valetSalary`, `status`,
+    // `valetId`… quindi `whitelist: true` NON li scarta: sono campi legittimi
+    // del DTO, e finivano in colonna così come arrivavano. Misurato con un
+    // token vero di partner il 27/08: una consegna creata con `price: 0`,
+    // `billable: false`, `status: 'delivered'` e un valet a scelta — scritta
+    // esattamente così. Una consegna a zero e non fatturabile è denaro che non
+    // chiederemo mai a nessuno.
+    //
+    // La difesa sta QUI e non nel form: il form non lo controlla chi chiama.
+    //
+    // ⚠️ Si RIASSEGNA `dto`, non si crea una variabile accanto. La prima
+    // versione di questa toppa faceva `const dtoPulito = …` e lasciava le
+    // righe esplicite qui sotto a leggere da `dto`: `price` e `status`
+    // passavano lo stesso. Misurato — la toppa va smontata come il difetto.
+    // Con la riassegnazione non resta nessuna strada che veda il dto sporco.
+    dto = DeliveriesService.senzaCampiDiUfficio(dto, user);
     const { products, pickups, partnerId: _p, ...scalar } = dto;
 
     const last = await this.prisma.delivery.aggregate({ _max: { code: true } });
@@ -692,7 +733,12 @@ export class DeliveriesService {
       },
       include: DELIVERY_INCLUDE,
     });
-    return delivery;
+    // ⚠️ 27/08/2026 — Anche QUI. `soloIMieiSoldi` e `hideInternalNotes` erano
+    // applicate solo su `findAll` e `findOne`: chiedendo l'annullamento di una
+    // consegna, o salvandone una, il partner si riprendeva `valetSalary`,
+    // `valetAdditionalPrice` e le note interne dalla risposta della SCRITTURA.
+    // Una difesa messa solo sulle letture non è una difesa.
+    return this.soloIMieiSoldi(this.hideInternalNotes(delivery, user), user);
   }
 
   async update(id: string, dto: UpdateDeliveryDto, user: JwtUser) {
@@ -712,6 +758,11 @@ export class DeliveriesService {
         );
       }
     }
+    // ⚠️ Stessa difesa della creazione: i campi d'ufficio non si scrivono con
+    // un PUT. Qui la regola dello stato «solo se da gestire» già limitava il
+    // danno, ma non il PREZZO: un partner poteva riportare a zero una consegna
+    // ancora da gestire, e sarebbe finita in fattura a zero.
+    dto = DeliveriesService.senzaCampiDiUfficio(dto, user);
     const { products, pickups, partnerId, date, ...scalar } = dto;
     // Stessa regola della creazione: per un partner "locale" il ritiro segue il
     // destinatario, anche quando la modifica arriva a mano dal pannello.
@@ -735,7 +786,7 @@ export class DeliveriesService {
       dto.recipientAddress && dto.recipientAddress !== delivery.recipientAddress
         ? await this.settings.geocodeCoords(dto.recipientAddress)
         : undefined;
-    return this.prisma.delivery.update({
+    const aggiornata = await this.prisma.delivery.update({
       where: { id },
       data: {
         ...scalar,
@@ -760,6 +811,12 @@ export class DeliveriesService {
       },
       include: DELIVERY_INCLUDE,
     });
+    // ⚠️ 27/08/2026 — Anche QUI. `soloIMieiSoldi` e `hideInternalNotes` erano
+    // applicate solo su `findAll` e `findOne`: chiedendo l'annullamento di una
+    // consegna, o salvandone una, il partner si riprendeva `valetSalary`,
+    // `valetAdditionalPrice` e le note interne dalla risposta della SCRITTURA.
+    // Una difesa messa solo sulle letture non è una difesa.
+    return this.soloIMieiSoldi(this.hideInternalNotes(aggiornata, user), user);
   }
 
   async updateStatus(id: string, status: DeliveryStatus, user: JwtUser) {
@@ -798,7 +855,12 @@ export class DeliveriesService {
     });
 
     await this.notifyStatusChange(updated, status, user);
-    return updated;
+    // ⚠️ 27/08/2026 — Anche QUI. `soloIMieiSoldi` e `hideInternalNotes` erano
+    // applicate solo su `findAll` e `findOne`: chiedendo l'annullamento di una
+    // consegna, o salvandone una, il partner si riprendeva `valetSalary`,
+    // `valetAdditionalPrice` e le note interne dalla risposta della SCRITTURA.
+    // Una difesa messa solo sulle letture non è una difesa.
+    return this.soloIMieiSoldi(this.hideInternalNotes(updated, user), user);
   }
 
   /**
@@ -859,7 +921,11 @@ export class DeliveriesService {
    */
   async findByTrackingToken(token: string) {
     const delivery = await this.prisma.delivery.findFirst({
-      where: { trackingToken: token },
+      // ⚠️ 27/08/2026 — ANCHE IL SOFT-DELETE. Mancava solo qui: la gemella
+      // `confirmDeliveredByToken` lo filtrava già. Misurato: la consegna
+      // cancellata #61449 rispondeva 200 a chiunque avesse il link — «per chi
+      // legge non esiste più» valeva dentro l'app e non fuori.
+      where: { trackingToken: token, deletedAt: null },
       include: {
         partner: { select: { insegna: true } },
         valet: { select: { firstName: true } },
@@ -878,9 +944,54 @@ export class DeliveriesService {
       recipientFirstName: delivery.recipientFirstName,
       partner: delivery.partner?.insegna ?? null,
       valetFirstName: delivery.valet?.firstName ?? null,
-      logs: delivery.logs.map((l) => ({ type: l.type, message: l.message, createdAt: l.createdAt })),
+      // ⚠️ 27/08/2026 — I LOG NON ESCONO PIÙ COL LORO TESTO.
+      //
+      // Il `select` qui sopra nasconde con cura il COGNOME del valet — e due
+      // righe più sotto i messaggi lo riscrivevano per esteso: «Assegnata al
+      // valet Mario Rossi», «Consegna confermata — ricevuta da …». Una
+      // restrizione annullata dalla riga successiva non è una restrizione.
+      //
+      // Fuori esce solo il TIPO e il momento: l'etichetta la costruisce chi
+      // legge. Un tipo non riconosciuto non si mostra affatto, invece di
+      // ripiegare sul messaggio grezzo — il ripiego riaprirebbe il buco al
+      // primo tipo nuovo.
+      logs: delivery.logs
+        .filter((l) => l.type in DeliveriesService.ETICHETTE_PUBBLICHE)
+        .map((l) => ({
+          type: l.type,
+          etichetta: DeliveriesService.ETICHETTE_PUBBLICHE[l.type],
+          createdAt: l.createdAt,
+        })),
     };
   }
+
+  /**
+   * I passaggi che si possono raccontare a chi ha il link, con l'etichetta
+   * SCRITTA DA NOI. Chi riceve un fiore vuole sapere a che punto è, non chi
+   * glielo porta né che cosa si sono detti in ufficio.
+   *
+   * ⚠️ Non si manda più il `message`: il `select` qui sopra nasconde con cura
+   * il COGNOME del valet, e i messaggi lo riscrivevano per esteso («Assegnata
+   * al valet Mario Rossi», `type: 'status_change'`). Una restrizione annullata
+   * dalla riga successiva non è una restrizione.
+   *
+   * ⚠️ I tipi sono quelli che il codice SCRIVE DAVVERO, contati in archivio il
+   * 27/08/2026: `created` 93, `status_change` 713, `ritiro-forzato` 2.200,
+   * `delivered`, `departed`, `legacy_update` 17.680. La prima versione di
+   * questo filtro elencava `assigned`, `in_delivery`, `not_delivered` — che
+   * sono i valori di `DeliveryStatus`, non i tipi dei log: **zero righe in
+   * archivio**. È la trappola del filtro con un valore inesistente.
+   *
+   * Restano fuori di proposito `status_change` (porta il nome del valet) e
+   * `legacy_update` (un rimando che non dice niente a nessuno).
+   */
+  private static readonly ETICHETTE_PUBBLICHE: Record<string, string> = {
+    created: 'Consegna registrata',
+    departed: 'Il valet è partito',
+    'ritiro-forzato': 'Ritiro effettuato',
+    delivered: 'Consegnata',
+    cancelled: 'Annullata',
+  };
 
   /**
    * Conferma di consegna dal link pubblico "consegnata" (senza login): imposta
@@ -960,7 +1071,7 @@ export class DeliveriesService {
       data: { valetId },
     });
 
-    return this.prisma.delivery.update({
+    const assegnata = await this.prisma.delivery.update({
       where: { id },
       data: {
         valetId,
@@ -976,12 +1087,70 @@ export class DeliveriesService {
       },
       include: DELIVERY_INCLUDE,
     });
+    // Questa e' dell'ufficio (`@Roles(ADMIN, OPERATION)`), ma passare dalla
+    // stessa porta costa zero e toglie un'eccezione da ricordare.
+    return this.soloIMieiSoldi(this.hideInternalNotes(assegnata, user), user);
   }
 
   async remove(id: string, user: JwtUser) {
     await this.findOne(id, user);
     await this.prisma.delivery.delete({ where: { id } });
     return { deleted: true };
+  }
+
+  /**
+   * I CAMPI CHE DECIDE L'UFFICIO, non chi manda la richiesta.
+   *
+   * Denaro (prezzi, paghe, flag di fatturazione), assegnazione del valet e
+   * stato della consegna: un partner li propone al massimo a voce, non li
+   * scrive. `deliveryCodeRequired` e le note interne restano fuori per lo
+   * stesso motivo.
+   *
+   * ⚠️ Non è un elenco di comodo: è la differenza fra «il listino decide» e
+   * «decide chi chiama». Aggiungendo un campo economico al DTO va aggiunto
+   * anche qui, o il difetto si riapre da solo.
+   */
+  private static readonly CAMPI_DI_UFFICIO = [
+    'price', 'additionalPrice', 'deliveryPrice', 'flexiblePrice', 'isFlexiblePrice',
+    'valetSalary', 'valetAdditionalPrice', 'valetServiceId',
+    'billable', 'payable', 'invoiced',
+    'status', 'paymentStatus',
+    'valetId',
+    'internalNotes',
+    'extraKm', 'extraOutOfCity', 'distanceKm',
+    // ⚠️ `deluxyDelivery` è un interruttore che nessuno legge in tutta l'api:
+    // un flag senza padrone che il partner poteva accendersi. Finché non ha un
+    // significato scritto da qualche parte, non lo scrive lui.
+    'deluxyDelivery',
+  ] as const;
+  //
+  // ⚠️ Restano scrivibili DI PROPOSITO, e vale la pena dirlo perché sembrano
+  // economici: `hours` (è la durata che il partner CHIEDE per un servizio a
+  // ora — moltiplica il prezzo verso l'alto, non verso il basso),
+  // `paymentOnDelivery`/`paymentAmount` (il contrassegno è una richiesta sua),
+  // `deliveryCodeRequired` (chiede più sicurezza, non meno).
+
+  /** Toglie i campi d'ufficio quando a scrivere è un partner. */
+  private static senzaCampiDiUfficio<T extends Record<string, any>>(dto: T, user: JwtUser): T {
+    if (user.role !== Role.PARTNER) return dto;
+    const pulito: Record<string, any> = { ...dto };
+    for (const c of DeliveriesService.CAMPI_DI_UFFICIO) delete pulito[c];
+    // ⚠️ LA PORTA LATERALE: cancellare le chiavi di primo livello non basta.
+    // `DeliveryProductDto` dichiara a sua volta `price` e `flexiblePrice`, e
+    // quel prezzo NON è decorativo: la fatturazione lo somma nel «venduto»
+    // (`invoices.module.ts`, `products.price`). Un partner che non può
+    // scrivere `price` sulla consegna se lo scriveva sulle sue righe prodotto
+    // — cioè si dettava da solo l'importo che gli fattureremo.
+    //
+    // Il prezzo dei prodotti viene dal catalogo, e il catalogo lo tiene
+    // l'ufficio. Quantità e varianti restano sue: quelle sono la richiesta.
+    if (Array.isArray(pulito['products'])) {
+      pulito['products'] = pulito['products'].map((r: Record<string, any>) => {
+        const { price, flexiblePrice, ...resto } = r;
+        return resto;
+      });
+    }
+    return pulito as T;
   }
 
   /** Le note interne sono visibili solo ad admin/operation/valet. */
@@ -1028,6 +1197,15 @@ export class DeliveriesService {
    * `valetAdditionalPrice`, le ore, e il contrassegno da incassare.
    */
   private soloIMieiSoldi<T extends Record<string, any>>(delivery: T, user: JwtUser): T {
+    // ⚠️ 27/08/2026 — LO SPECCHIO MANCANTE. Si toglieva il denaro del partner
+    // al valet, ma non il denaro del valet al PARTNER: `valetSalary` e
+    // `valetAdditionalPrice` uscivano su ogni sua consegna. Sono il NOSTRO
+    // costo: chi li vede accanto al prezzo che paga legge il nostro margine.
+    if (user.role === Role.PARTNER) {
+      const pulita: Record<string, any> = { ...delivery };
+      for (const c of ['valetSalary', 'valetAdditionalPrice', 'valetServiceId']) delete pulita[c];
+      return pulita as T;
+    }
     if (user.role !== Role.VALET) return delivery;
     const pulita: Record<string, any> = { ...delivery };
     for (const campo of DeliveriesService.SOLDI_DEL_PARTNER) delete pulita[campo];

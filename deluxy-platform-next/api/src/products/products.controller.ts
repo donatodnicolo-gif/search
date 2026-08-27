@@ -70,8 +70,11 @@ export class ProductsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Dettaglio prodotto' })
-  findOne(@Param('id') id: string) {
-    return this.productsService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    // ⚠️ 27/08: era l'unica rotta del modulo senza controllo di proprietà.
+    // Misurato: un partner leggeva «Torta CakeDesign personalizzata» di un
+    // altro partner. `findAll` filtrava già, `update`/`remove` pure.
+    return this.productsService.findOne(id, user);
   }
 
   @Post()

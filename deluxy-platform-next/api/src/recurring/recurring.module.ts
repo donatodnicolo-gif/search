@@ -232,8 +232,8 @@ export class RecurringService_ {
     return user?.role === Role.PARTNER ? { partnerId: user.partnerId ?? '-' } : {};
   }
 
-  list(user?: JwtUser) {
-    return this.prisma.recurringService.findMany({
+  async list(user?: JwtUser) {
+    const righe = await this.prisma.recurringService.findMany({
       where: this.scope(user),
       include: {
         partner: { select: { id: true, insegna: true } },
@@ -246,6 +246,20 @@ export class RecurringService_ {
         _count: { select: { deliveries: true } },
       },
       orderBy: [{ attivo: 'desc' }, { createdAt: 'desc' }],
+    });
+    // ⚠️ 27/08/2026 — Qui si usa `include`, quindi escono TUTTI gli scalari,
+    // `valetSalary` compreso: la paga che noi diamo al valet, su una pagina
+    // che il partner apre. È lo stesso costo nostro che si toglie dalle
+    // consegne (`soloIMieiSoldi`) — solo da un'altra porta. Una difesa messa
+    // su una pagina sola non è una difesa.
+    if (user?.role !== Role.PARTNER) return righe;
+    return righe.map((r) => {
+      const { valetSalary, ...resto } = r;
+      return {
+        ...resto,
+        valet: null,
+        varianti: (r.varianti ?? []).map((v) => ({ ...v, valetId: null, valet: null })),
+      };
     });
   }
 

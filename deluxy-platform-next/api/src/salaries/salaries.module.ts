@@ -768,6 +768,71 @@ export class SalariesService {
 </div>`;
   }
 
+  /** Lo stile della ricevuta, uno solo: lo usano il corpo e l'allegato. */
+  private static readonly STILE_RICEVUTA = `<style>
+    .ricevuta { margin-top: 40px; padding-top: 24px; border-top: 2px solid #1d1d1f; page-break-before: always; }
+    .ricevuta .bollo-nota { font-size: 11px; color: #6e6e73; }
+    .ricevuta table.conti { margin: 14px 0; min-width: 320px; border-collapse: collapse; }
+    .ricevuta table.conti td { padding: 4px 10px; border-bottom: 1px solid #e5e5ea; }
+    .ricevuta table.conti .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .ricevuta table.conti .finale td { font-weight: 650; border-bottom: 0; }
+    .ricevuta table.firma { width: 100%; margin-top: 28px; }
+    .ricevuta table.firma .destra { text-align: right; }
+  </style>`;
+
+  /** Il corpo della mail: recap, e in fondo la ricevuta per chi non ha P.IVA. */
+  private corpoRecapMail(r: Awaited<ReturnType<SalariesService['recap']>>): string {
+    const base = this.recapHtml(r);
+    const ricevuta = this.ricevutaHtml(r);
+    if (!ricevuta) return base;
+    return base.replace(
+      '</div></body></html>',
+      `${SalariesService.STILE_RICEVUTA}${ricevuta}</div></body></html>`,
+    );
+  }
+
+  /**
+   * RECAP E RICEVUTA COME FILE (27/08/2026, chiesto dall'utente).
+   *
+   * ⚠️ Il nome del file porta il periodo e il cognome: un allegato che si
+   * chiama «recap.html» diventa illeggibile appena se ne archiviano due.
+   *
+   * ⚠️ La ricevuta è un documento a sé, non un pezzo del recap: chi non ha
+   * P.IVA la stampa e la firma. Per chi ha P.IVA non esiste e non si allega
+   * un file vuoto per simmetria.
+   */
+  private allegatiRecap(
+    r: Awaited<ReturnType<SalariesService['recap']>>,
+  ): { nome: string; contenuto: string; tipo: string }[] {
+    const pulito = (s: string) => (s || '').normalize('NFKD').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40);
+    const chi = pulito(`${r.valet.lastName}-${r.valet.firstName}`);
+    const quando = [r.periodo?.dal, r.periodo?.al].filter(Boolean).map((x) => String(x).slice(0, 10)).join('_') || 'periodo';
+    const inBase64 = (html: string) => Buffer.from(html, 'utf8').toString('base64');
+
+    const allegati = [{
+      nome: `recap-paghe-${chi}-${quando}.html`,
+      contenuto: inBase64(this.recapHtml(r)),
+      tipo: 'text/html',
+    }];
+    const ricevuta = this.ricevutaHtml(r);
+    if (ricevuta) {
+      allegati.push({
+        nome: `ricevuta-${chi}-${quando}.html`,
+        contenuto: inBase64(
+          `<!doctype html><html lang="it"><head><meta charset="utf-8">`
+          + `<title>Ricevuta — ${r.valet.lastName} ${r.valet.firstName}</title>`
+          + `<style>body{margin:0;padding:32px;background:#fff;color:#1d1d1f;`
+          + `font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}`
+          + `.foglio{max-width:760px;margin:0 auto}</style>`
+          + SalariesService.STILE_RICEVUTA
+          + `</head><body><div class="foglio">${ricevuta}</div></body></html>`,
+        ),
+        tipo: 'text/html',
+      });
+    }
+    return allegati;
+  }
+
   async inviaRecap(user: JwtUser, valetId: string, dal?: string, al?: string, aManuale?: string, servizi?: string[]) {
     // ⚠️ Il filtro viaggia anche nell'invio: mandare tutto dopo aver guardato
     // il recap di un servizio solo vorrebbe dire mandare un documento diverso
@@ -800,22 +865,12 @@ export class SalariesService {
           // ⭐ 27/08: per i valet SENZA P.IVA in fondo alla mail c'e' la
           // RICEVUTA in stile legacy, da stampare e firmare (il bollo lo
           // applica il valet). Con P.IVA parte il solo recap.
-          corpo: (() => {
-            const base = this.recapHtml(r);
-            const ricevuta = this.ricevutaHtml(r);
-            if (!ricevuta) return base;
-            const stile = `<style>
-              .ricevuta { margin-top: 40px; padding-top: 24px; border-top: 2px solid #1d1d1f; page-break-before: always; }
-              .ricevuta .bollo-nota { font-size: 11px; color: #6e6e73; }
-              .ricevuta table.conti { margin: 14px 0; min-width: 320px; }
-              .ricevuta table.conti td { padding: 4px 10px; border-bottom: 1px solid #e5e5ea; }
-              .ricevuta table.conti .num { text-align: right; font-variant-numeric: tabular-nums; }
-              .ricevuta table.conti .finale td { font-weight: 650; border-bottom: 0; }
-              .ricevuta table.firma { width: 100%; margin-top: 28px; }
-              .ricevuta table.firma .destra { text-align: right; }
-            </style>`;
-            return base.replace('</div></body></html>', `${stile}${ricevuta}</div></body></html>`);
-          })(),
+          corpo: this.corpoRecapMail(r),
+          // ⭐ 27/08 (chiesto dall'utente): recap e ricevuta anche come FILE
+          // allegati. Nel corpo restano — una mail che si legge senza aprire
+          // niente vale — ma una ricevuta da firmare dentro il testo non si
+          // stampa bene e non si archivia.
+          allegati: this.allegatiRecap(r),
         }),
         signal: AbortSignal.timeout(45_000),
       });

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
@@ -107,7 +107,38 @@ export class ActivitiesService {
     return { reordered: items.length };
   }
 
-  updateStatus(id: string, status: string) {
+  /**
+   * Cambia lo stato di un'attività — SOLO se è nel perimetro di chi chiede.
+   *
+   * ⚠️ Prima era un `update` secco sull'id, senza guardare chi chiedeva: un
+   * partner cambiava lo stato del giro di un valet qualsiasi. Il perimetro è
+   * lo stesso della lista (`findAll`), non una regola nuova: il valet le
+   * proprie, il team leader quelle della squadra, l'ufficio tutte.
+   */
+  async updateStatus(id: string, status: string, user?: JwtUser) {
+    if (user?.role === Role.VALET) {
+      const valet = await this.prisma.valet.findUnique({
+        where: { id: user.valetId ?? '-' },
+        select: {
+          id: true, isTeamLeader: true,
+          teamLeaderProvinces: true, teamLeaderPartners: true, teamLeaderExcludedPartners: true,
+          provinces: { select: { provinceId: true } },
+        },
+      });
+      const ambito = await ambitoTeamLeader(valet as any, (provinceIds) =>
+        this.prisma.valet.findMany({
+          where: { provinces: { some: { provinceId: { in: provinceIds } } } },
+          select: { id: true },
+        }),
+      );
+      const suoi = ambito ? ambito.valetIds : [user.valetId ?? '-'];
+      const sua = await this.prisma.activity.findFirst({
+        where: { id, valetId: { in: suoi } },
+        select: { id: true },
+      });
+      // 404 e non 403: chi non può vederla non deve nemmeno sapere che esiste.
+      if (!sua) throw new NotFoundException('Attività non trovata');
+    }
     return this.prisma.activity.update({ where: { id }, data: { status } });
   }
 }

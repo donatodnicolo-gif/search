@@ -258,6 +258,10 @@ export class SettingsController {
   }
 
   @Get('geocode')
+  // ⚠️ 27/08: senza `@Roles` qualunque utente autenticato — anche un valet o un
+  // CUSTOMER — faceva chiamate illimitate a Google Geocoding con la nostra
+  // chiave SEGRETA, a nostre spese. Misurato: 200 con un token di valet.
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
   @ApiOperation({
     summary: 'Provincia + coordinate di un indirizzo via Google Geocoding (chiave dalle impostazioni)',
   })

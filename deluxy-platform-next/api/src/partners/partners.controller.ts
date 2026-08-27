@@ -28,6 +28,11 @@ export class PartnersController {
   }
 
   @Get(':id')
+  // ⚠️ 27/08/2026: senza `@Roles` questa rotta rispondeva a chiunque fosse
+  // autenticato. Misurato con un token vero di VALET: 200, con P.IVA, dati
+  // bancari e il LISTINO con cui il partner paga. Il controllo nel service
+  // fermava solo «un partner che guarda un altro partner».
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
   @ApiOperation({ summary: 'Dettaglio partner (il partner vede solo se stesso)' })
   findOne(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.partnersService.findOne(id, user);

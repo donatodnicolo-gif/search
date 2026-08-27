@@ -861,6 +861,19 @@ export class InvoicesService {
           a: destinatario,
           oggetto: `Recap consegne ${nomeMese} — ${r.partner.insegna}`,
           corpo: this.recapHtml(r),
+          // ⭐ 27/08 (chiesto dall'utente): il recap anche come FILE. Nel corpo
+          // resta — una mail che si legge senza aprire niente vale — ma un
+          // documento da archiviare o girare al commercialista dev'essere un
+          // file, non il testo di una mail.
+          //
+          // ⚠️ Il nome porta mese e insegna: un allegato che si chiama
+          // «recap.html» diventa illeggibile appena se ne archiviano due.
+          allegati: [{
+            nome: `recap-consegne-${r.mese}-${(r.partner.insegna || '')
+              .normalize('NFKD').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40)}.html`,
+            contenuto: Buffer.from(this.recapHtml(r), 'utf8').toString('base64'),
+            tipo: 'text/html',
+          }],
         }),
         // L'SMTP vero ci mette qualche secondo: un timeout corto farebbe
         // sembrare fallito un invio andato a buon fine.
@@ -1089,8 +1102,20 @@ export class InvoicesService {
     if (!body.id && !body.number) {
       throw new BadRequestException('Fornisci `id` o `number` della fattura');
     }
+    // ⚠️ 27/08/2026 — Il corpo arriva come tipo inline, quindi il
+    // `ValidationPipe` non lo controlla: `number` poteva essere un OGGETTO e
+    // finire dritto dentro il `where` come operatore Prisma. Con
+    //   { "number": { "not": null } }
+    // si prendeva la prima fattura qualunque e la si segnava PAGATA e
+    // archiviata — e da lì non si torna indietro dall'app, perché `reopen`
+    // rifiuta le pagate. Qui si impone la FORMA prima di guardare il valore.
+    const id = typeof body.id === 'string' ? body.id.trim() : '';
+    const numero = typeof body.number === 'string' ? body.number.trim() : '';
+    if (!id && !numero) {
+      throw new BadRequestException('`id` e `number` devono essere stringhe.');
+    }
     const invoice = await this.prisma.invoice.findFirst({
-      where: body.id ? { id: body.id } : { number: body.number },
+      where: id ? { id } : { number: numero },
     });
     if (!invoice) throw new NotFoundException('Fattura non trovata');
     if (invoice.status === InvoiceStatus.PAID) {

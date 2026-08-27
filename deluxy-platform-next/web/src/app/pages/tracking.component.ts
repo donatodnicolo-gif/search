@@ -15,7 +15,14 @@ interface PublicTracking {
   recipientFirstName: string;
   partner?: string | null;
   valetFirstName?: string | null;
-  logs: { type: string; message: string; createdAt: string }[];
+  /**
+   * ⚠️ 27/08/2026: NON c'è più `message`. Il testo dei log conteneva il nome
+   * e cognome del valet («Assegnata al valet Mario Rossi») e finiva su una
+   * pagina PUBBLICA, annullando il fatto che l'API nasconde apposta il
+   * cognome. Ora l'etichetta la scrive il server, per i soli passaggi che si
+   * possono raccontare.
+   */
+  logs: { type: string; etichetta: string; createdAt: string }[];
 }
 
 /**
@@ -60,7 +67,7 @@ interface PublicTracking {
               @for (l of d.logs; track l.createdAt) {
                 <li>
                   <span class="log-date">{{ l.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
-                  <span>{{ l.message }}</span>
+                  <span>{{ l.etichetta }}</span>
                 </li>
               }
             </ul>

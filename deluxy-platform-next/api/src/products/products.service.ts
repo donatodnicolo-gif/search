@@ -117,9 +117,20 @@ export class ProductsService {
     return { items, total, page, pageSize };
   }
 
-  async findOne(id: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
+  /**
+   * Il dettaglio di un prodotto — solo se è nel perimetro di chi chiede.
+   *
+   * ⚠️ Stesso `OR` di `findAll`: il catalogo comune (`partnerId: null`) più i
+   * propri. Era l'unica rotta del modulo senza controllo di proprietà, e non
+   * riceveva nemmeno l'utente.
+   */
+  async findOne(id: string, user?: JwtUser) {
+    const dove: any = { id };
+    if (user?.role === Role.PARTNER) {
+      dove.OR = [{ partnerId: null }, { partnerId: user.partnerId ?? '-' }];
+    }
+    const product = await this.prisma.product.findFirst({
+      where: dove,
       include: PRODUCT_INCLUDE,
     });
     if (!product) throw new NotFoundException('Prodotto non trovato');

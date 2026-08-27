@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -33,9 +34,39 @@ export class ServiceTypesService {
     return service;
   }
 
+  /**
+   * I campi SCALARI che si possono aggiornare, per nome.
+   *
+   * ⚠️ 27/08/2026 — Prima il corpo era un `Record<string, unknown>` versato
+   * dritto dentro `data`. Un `Record` non è una classe, quindi il
+   * `ValidationPipe` con `whitelist: true` non aveva niente da filtrare: il
+   * corpo passava **letteralmente**. E Prisma accetta le scritture ANNIDATE
+   * sulle relazioni, quindi
+   *   `{ "partnerServices": { "deleteMany": {} } }`
+   * cancellava tutti i listini partner di quel servizio. Senza log, senza
+   * conferma, con un solo PUT.
+   *
+   * L'elenco per nome è la difesa: un campo non nominato non arriva a Prisma,
+   * e le relazioni non sono nominabili per costruzione.
+   */
+  private static readonly CAMPI_MODIFICABILI = [
+    'name', 'code', 'pricingModel', 'scope',
+    'basePrice', 'perPiecePrice', 'transportPrice', 'deliveryPrice',
+    'minHours', 'noticeDays', 'slotHours',
+    'maxOrderTime', 'minOrderTime', 'allowFlexibleTime',
+    'notes', 'hideCustomerInfo', 'active',
+  ] as const;
+
   async update(id: string, body: Record<string, unknown>) {
     await this.findOne(id);
-    return this.prisma.serviceType.update({ where: { id }, data: body });
+    const data: Record<string, unknown> = {};
+    for (const campo of ServiceTypesService.CAMPI_MODIFICABILI) {
+      if (body[campo] !== undefined) data[campo] = body[campo];
+    }
+    if (!Object.keys(data).length) {
+      throw new BadRequestException('Nessun campo modificabile nella richiesta.');
+    }
+    return this.prisma.serviceType.update({ where: { id }, data });
   }
 
   /** Filtrabile per ambito (partner | valet). "both" appare in entrambi. */

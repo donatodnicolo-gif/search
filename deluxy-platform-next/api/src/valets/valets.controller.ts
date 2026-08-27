@@ -28,6 +28,12 @@ export class ValetsController {
   }
 
   @Get(':id')
+  // ⚠️ 27/08/2026: senza `@Roles` questa rotta rispondeva a chiunque fosse
+  // autenticato. Misurato con un token vero di PARTNER: 200, con IBAN, codice
+  // fiscale e il listino di paga di un valet qualsiasi. Il controllo nel
+  // service fermava SOLO «un valet che guarda un altro valet»: chi non era
+  // valet non veniva mai fermato.
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.VALET)
   @ApiOperation({ summary: 'Dettaglio valet (il valet vede solo se stesso)' })
   findOne(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.valetsService.findOne(id, user);
@@ -55,6 +61,11 @@ export class ValetsController {
   }
 
   @Get(':id/availability')
+  // ⚠️ 27/08/2026: la disponibilità di un valet la scrive l'ufficio o il valet
+  // stesso. Senza `@Roles` la scriveva chiunque: misurato, un PARTNER ha
+  // scritto una riga sul calendario di un valet — e `setAvailability` prima
+  // CANCELLA le fasce di quel giorno, quindi la scrittura distrugge.
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.VALET)
   @ApiOperation({ summary: 'Disponibilita del valet per data (in un intervallo)' })
   @ApiQuery({ name: 'from', required: false })
   @ApiQuery({ name: 'to', required: false })
@@ -68,6 +79,7 @@ export class ValetsController {
   }
 
   @Put(':id/availability')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.VALET)
   @ApiOperation({ summary: 'Imposta disponibilita per una data (upsert; il valet solo la propria)' })
   setAvailability(
     @Param('id') id: string,
@@ -78,6 +90,7 @@ export class ValetsController {
   }
 
   @Delete(':id/availability/:date')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.VALET)
   @ApiOperation({ summary: 'Rimuove la disponibilita di una data (torna al default disponibile)' })
   removeAvailability(
     @Param('id') id: string,
