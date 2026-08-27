@@ -8,3 +8,9 @@ tsconfig.tsbuildinfo
 
 .vercel
 .env*
+
+# File di lavoro con dati di persone (nomi, cellulari, email dei referenti):
+# non vanno ne committati ne caricati nel bundle della funzione.
+*.tmp.json
+*.tmp.mts
+*.tmp.mjs

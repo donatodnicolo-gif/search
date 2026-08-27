@@ -10,6 +10,10 @@ import { nomeCompleto } from "@/lib/valet";
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const client = await autentica(req);
   if (client instanceof NextResponse) return client;
+  // ⚠️ Persone fisiche: vedi la nota nella rotta d'elenco.
+  if (!client.leggePersone) {
+    return erroreApi(403, "Questa chiave non può leggere i dati delle persone");
+  }
 
   const { id } = await ctx.params;
   const v =

@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { autentica } from "@/lib/api-auth";
+import { autentica , erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { nomeCompleto } from "@/lib/valet";
 
@@ -71,6 +71,13 @@ function serializza(v: {
 export async function GET(req: NextRequest) {
   const client = await autentica(req);
   if (client instanceof NextResponse) return client;
+  // ⚠️ I valet sono PERSONE: qui ci sono codice fiscale, indirizzo di casa,
+  // telefono. Fino al 27/08/2026 li vedeva qualunque chiave attiva. Oggi la
+  // tabella è vuota, quindi la chiusura non rompe nessuno — ed è il momento
+  // giusto per chiuderla, prima che ci finisca dentro l'organico.
+  if (!client.leggePersone) {
+    return erroreApi(403, "Questa chiave non può leggere i dati delle persone");
+  }
 
   const p = req.nextUrl.searchParams;
   const where: Prisma.ValetWhereInput = {};

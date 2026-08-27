@@ -257,7 +257,14 @@ export async function creaPartner(fd: FormData) {
   // ⚠️ La P.IVA identifica la SOCIETÀ, non il negozio: se il form la porta,
   // nasce (o si ritrova, quando quella P.IVA c'è già) il soggetto fiscale e
   // l'anagrafica ci si collega. Senza P.IVA non si crea niente.
-  await salvaDatiSoggetto(creato.id, { pIva: testo("pIva") }, { pIva: { sistema: "ui" } });
+  await salvaDatiSoggetto(
+    creato.id,
+    { pIva: testo("pIva") },
+    { pIva: { sistema: "ui" } },
+    // Dalla UI l'aggancio a una società esistente è voluto: lo sta facendo una
+    // persona che ha davanti la scheda. Dalle API no — vedi salvaDatiSoggetto.
+    { agganciaPerPIva: true },
+  );
   await registraModifica(creato.id, { origine: "ui" }, { campo: "creata", a: `${nome}${citta ? ` · ${citta}` : ""}` });
   // Avvisa l'app commerciale: da lì il partner dev'essere lavorabile subito,
   // senza aspettare un import. Best-effort — se Scout non risponde il partner
@@ -517,6 +524,7 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
     amministrazioneEmail: testo("amministrazioneEmail"),
     },
     Object.fromEntries(CAMPI_SOGGETTO.map((c) => [c, { sistema: "ui" }])),
+    { agganciaPerPIva: true },
   );
   revalidatePath("/");
   revalidatePath(`/partner/${partnerId}`);

@@ -12,3 +12,7 @@ prisma/dev.db
 prisma/dev.db-journal
 node_modules
 .next
+
+*.tmp.json
+*.tmp.mts
+*.tmp.mjs

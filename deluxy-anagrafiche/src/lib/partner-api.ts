@@ -183,8 +183,16 @@ type PartnerConContatti = Prisma.PartnerGetPayload<{
 };
 
 // Rappresentazione JSON esposta dalle API
-export function serializzaPartner(p: PartnerConContatti) {
+// ⚠️ `vedeDatiFinanziari` PREDEFINITO A FALSO, di proposito: se una rotta nuova
+// dimentica di passarlo, il difetto è che l'IBAN non si vede — non che si vede
+// a chi non deve. Il guasto va nella direzione sicura.
+export function serializzaPartner(
+  p: PartnerConContatti,
+  opzioni: { vedeDatiFinanziari?: boolean; vedePersone?: boolean } = {},
+) {
   const sog = leggiSoggetto(p);
+  const vede = opzioni.vedeDatiFinanziari === true;
+  const vedePersone = opzioni.vedePersone === true;
   return {
     id: p.id,
     nome: p.nome,
@@ -232,7 +240,16 @@ export function serializzaPartner(p: PartnerConContatti) {
     // è in nessun gruppo»: il gruppo lo assegna una persona nel registro, non
     // si deduce dal nome (le cinque «PASTICCERIA …» non sono un'entità).
     gruppo: sog.gruppo,
-    datiFinanziari: {
+    // ⚠️ IBAN, intestatario del conto, PEC, SDI e contatto amministrativo escono
+    // SOLO alle chiavi con l'ambito «Dati finanziari». Fino al 27/08/2026 li
+    // vedeva qualsiasi chiave attiva: col registro usato anche per i FORNITORI
+    // — cioè per chi paghiamo — è una superficie da frode, e camminando sulle
+    // pagine si raccoglieva l'intero registro.
+    //
+    // ⚠️⚠️ Quando la chiave non ha l'ambito il blocco è `null`, non un oggetto
+    // di campi vuoti: «non ti è permesso vederlo» e «non c'è» sono due risposte
+    // diverse, e confonderle manda un'app a creare un dato che esiste già.
+    datiFinanziari: !vede ? null : {
       pec: sog.pec,
       codiceSdi: sog.codiceSdi,
       iban: sog.iban,
@@ -261,13 +278,26 @@ export function serializzaPartner(p: PartnerConContatti) {
     note: p.note,
     contattiRaw: p.contattiRaw,
     datiExtra: p.datiExtra ? JSON.parse(p.datiExtra) : null,
-    contatti: p.contatti.map((c) => ({
-      id: c.id,
-      ruolo: c.ruolo,
-      nome: c.nome,
-      telefono: c.telefono,
-      email: c.email,
-    })),
+    // ⚠️ I referenti sono PERSONE FISICHE (nome, cellulare, email): escono solo
+    // alle chiavi con l'ambito «Persone». Fino al 27/08/2026 li vedeva
+    // qualunque chiave — e due app rigiravano la risposta INTERA al browser dei
+    // loro utenti, quindi la rubrica arrivava a chiunque usasse quelle app.
+    //
+    // ⚠️⚠️ Senza l'ambito il campo è `null`, non `[]`: «non ti è permesso» e
+    // «non ne ha» sono due risposte diverse, e scambiarle manda un'app a
+    // ricreare referenti che esistono già.
+    contatti: !vedePersone
+      ? null
+      : p.contatti.map((c) => ({
+          id: c.id,
+          ruolo: c.ruolo,
+          nome: c.nome,
+          telefono: c.telefono,
+          email: c.email,
+        })),
+    // Quanti ne ha, comunque: sapere che una scheda HA dei referenti non è un
+    // dato personale, e senza questo un'app crederebbe l'anagrafica vuota.
+    numeroContatti: p.contatti.length,
     platformId: p.platformId,
     hubspotId: p.hubspotId,
     // Riferimenti esterni per il join cross-app (sistema → id di quell'app)

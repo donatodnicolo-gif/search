@@ -22,9 +22,14 @@ export async function GET(req: NextRequest) {
   if (client instanceof NextResponse) return client;
 
   const q = req.nextUrl.searchParams.get("q")?.trim();
+  // ⚠️ Un elenco senza tetto è un'estrazione di massa che aspetta solo di
+  // crescere: oggi i gruppi sono pochi, e proprio per questo il tetto si mette
+  // adesso, quando non si nota.
+  const take = Math.min(Number(req.nextUrl.searchParams.get("take") ?? 200) || 200, 200);
   const gruppi = await prisma.gruppoAziendale.findMany({
     where: q ? { nome: { contains: q, mode: "insensitive" } } : undefined,
     orderBy: { nome: "asc" },
+    take,
     include: {
       societa: {
         select: { id: true, ragioneSociale: true, pIva: true, _count: { select: { sedi: true } } },

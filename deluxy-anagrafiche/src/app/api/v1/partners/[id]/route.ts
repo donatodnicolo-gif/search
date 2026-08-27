@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { segnalaClienteAFinance } from "@/lib/finance";
 import { salvaDatiSoggetto, separaDati } from "@/lib/soggetto-fiscale";
 import { diffCampi, registraModifiche } from "@/lib/log-modifiche";
-import { mergeContatti } from "@/lib/merge";
+import { sistemaDellaChiave, mergeContatti } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, PREFISSO_FORNITORE } from "@/lib/stati";
 import { ARCHIVIATA, registraPassaggio } from "@/lib/storico";
@@ -31,14 +31,18 @@ export async function GET(req: NextRequest, { params }: Params) {
     (await prisma.partner.findUnique({ where: { id }, include: INCLUDE })) ??
     (await prisma.partner.findUnique({ where: { platformId: id }, include: INCLUDE }));
   if (!partner) {
-    const ref = await prisma.riferimentoEsterno.findFirst({
-      where: { idEsterno: id },
+    // ⚠️ Un id esterno vale DENTRO il sistema che l'ha coniato: «42» esiste in
+    // cinque app e significa cinque aziende diverse. Cercandolo senza sistema,
+    // con `findFirst`, l'app A chiedeva il proprio 42 e riceveva il partner di
+    // B — con i dati bancari di B. Adesso si cerca nel sistema della CHIAVE.
+    const ref = await prisma.riferimentoEsterno.findUnique({
+      where: { sistema_idEsterno: { sistema: sistemaDellaChiave(client.nome), idEsterno: id } },
       include: { partner: { include: INCLUDE } },
     });
     partner = ref?.partner ?? null;
   }
   if (!partner) return erroreApi(404, "Anagrafica non trovata");
-  return NextResponse.json(serializzaPartner(partner));
+  return NextResponse.json(serializzaPartner(partner, { vedeDatiFinanziari: client.leggeDatiFinanziari, vedePersone: client.leggePersone }));
 }
 
 // PATCH /api/v1/partners/:id — aggiornamento parziale mirato (richiede scrittura).
@@ -125,7 +129,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   } else if (dati.attivo === true && !esistente.attivo) {
     await registraPassaggio(id, ARCHIVIATA, aggiornato.stato, client.nome);
   }
-  return NextResponse.json(serializzaPartner(aggiornato));
+  return NextResponse.json(serializzaPartner(aggiornato, { vedeDatiFinanziari: client.leggeDatiFinanziari, vedePersone: client.leggePersone }));
 }
 
 // DELETE /api/v1/partners/:id — disattivazione (soft delete: attivo=false).
@@ -146,5 +150,5 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   if (esistente.attivo) {
     await registraPassaggio(id, esistente.stato, ARCHIVIATA, client.nome);
   }
-  return NextResponse.json(serializzaPartner(disattivato));
+  return NextResponse.json(serializzaPartner(disattivato, { vedeDatiFinanziari: client.leggeDatiFinanziari, vedePersone: client.leggePersone }));
 }

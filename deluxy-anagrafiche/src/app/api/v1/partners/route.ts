@@ -27,11 +27,24 @@ async function registraRiferimenti(
 ) {
   for (const r of refs) {
     if (!r.idEsterno) continue;
-    await prisma.riferimentoEsterno.upsert({
+    // ⚠️ L'`upsert` con `update: { partnerId }` RIASSEGNAVA un riferimento che
+    // esisteva già: bastava dichiarare `sistema: "platform"` e l'idEsterno di
+    // un partner altrui per far puntare quel riferimento alla propria
+    // anagrafica — e da lì in poi la piattaforma, chiedendo «chi è il mio
+    // partner 123», riceveva un'altra azienda con altri dati bancari.
+    //
+    // Adesso un riferimento si CREA se non c'è, e se c'è si lascia dov'è: chi
+    // ha davvero sbagliato aggancio lo corregge dalla UI, che è un gesto di una
+    // persona, non l'effetto secondario di una POST.
+    const gia = await prisma.riferimentoEsterno.findUnique({
       where: { sistema_idEsterno: { sistema: r.sistema, idEsterno: r.idEsterno } },
-      create: { partnerId, sistema: r.sistema, idEsterno: r.idEsterno },
-      update: { partnerId },
+      select: { partnerId: true },
     });
+    if (!gia) {
+      await prisma.riferimentoEsterno.create({
+        data: { partnerId, sistema: r.sistema, idEsterno: r.idEsterno },
+      });
+    }
   }
 }
 
@@ -115,7 +128,7 @@ export async function GET(req: NextRequest) {
     totale,
     pagina,
     perPagina,
-    dati: dati.map(serializzaPartner),
+    dati: dati.map((x) => serializzaPartner(x, { vedeDatiFinanziari: client.leggeDatiFinanziari, vedePersone: client.leggePersone })),
   });
 }
 
@@ -328,7 +341,7 @@ export async function POST(req: NextRequest) {
     const aggiornato = await prisma.partner.findUnique({ where: { id: esistente.id }, include: INCLUDE });
     return NextResponse.json({
       esito: "merged",
-      ...serializzaPartner(aggiornato!),
+      ...serializzaPartner(aggiornato!, { vedeDatiFinanziari: client.leggeDatiFinanziari, vedePersone: client.leggePersone }),
       applicati: Object.keys(datiMerge),
       in_revisione: ignorati,
     });
@@ -396,5 +409,8 @@ export async function POST(req: NextRequest) {
     provenienzaIniziale(separatiCreate.soggetto, sistema, asOf) as Record<string, { sistema: string; asOf?: string }>,
   );
   const creatoFull = await prisma.partner.findUnique({ where: { id: creato.id }, include: INCLUDE });
-  return NextResponse.json({ esito: "creato", ...serializzaPartner(creatoFull!) }, { status: 201 });
+  return NextResponse.json(
+    { esito: "creato", ...serializzaPartner(creatoFull!, { vedeDatiFinanziari: client.leggeDatiFinanziari, vedePersone: client.leggePersone }) },
+    { status: 201 },
+  );
 }

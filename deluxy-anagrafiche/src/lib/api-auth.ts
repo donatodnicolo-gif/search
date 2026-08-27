@@ -13,6 +13,10 @@ export type ClientApi = {
   scritturaReferenti: boolean;
   scritturaPartner: boolean;
   scritturaFeedback: boolean;
+  // ⚠️ Ambito di LETTURA: senza, il blocco `datiFinanziari` non esce affatto.
+  leggeDatiFinanziari: boolean;
+  // ⚠️ Ambito di LETTURA: senza, referenti e valet non escono.
+  leggePersone: boolean;
 };
 
 export function erroreApi(status: number, messaggio: string) {
@@ -66,5 +70,7 @@ export async function autentica(
     scritturaReferenti: record.scritturaReferenti,
     scritturaPartner: record.scritturaPartner,
     scritturaFeedback: record.scritturaFeedback,
+    leggeDatiFinanziari: record.leggeDatiFinanziari,
+    leggePersone: record.leggePersone,
   };
 }

@@ -28,5 +28,5 @@ export async function GET(
     include: { partner: { include: INCLUDE } },
   });
   if (!ref) return erroreApi(404, "Nessuna anagrafica per questo riferimento");
-  return NextResponse.json(serializzaPartner(ref.partner));
+  return NextResponse.json(serializzaPartner(ref.partner, { vedeDatiFinanziari: client.leggeDatiFinanziari, vedePersone: client.leggePersone }));
 }

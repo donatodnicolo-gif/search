@@ -374,20 +374,35 @@ model Modifica {
 // Chiavi API delle app client. La chiave in chiaro non viene mai salvata:
 // si conserva solo lo SHA-256 (vedi scripts/crea-chiave.mjs).
 model ApiKey {
-  id                 String    @id @default(cuid())
-  nome               String    @unique // app client: deluxy-platform, deluxy-partner, ...
-  hash               String    @unique // sha256 esadecimale della chiave
+  id                  String    @id @default(cuid())
+  nome                String    @unique // app client: deluxy-platform, deluxy-partner, ...
+  hash                String    @unique // sha256 esadecimale della chiave
   // Primi caratteri della chiave in chiaro ("dlxk_a1b2c3…"): non basta per
   // autenticarsi, serve a riconoscere quale chiave si ha in mano nell'elenco.
-  prefisso           String?
-  note               String? // a cosa serve / in quale .env vive (testo libero, per chi la gestisce)
-  scrittura          Boolean   @default(false) // true = può creare/modificare/disattivare il partner (PATCH/DELETE inclusi)
-  scritturaReferenti Boolean   @default(false) // true = può solo archiviare i referenti (scope ristretto, es. Scout)
-  scritturaFeedback  Boolean   @default(false) // true = può solo inviare feedback D2C (scope ristretto, es. Customer Service)
-  scritturaPartner   Boolean   @default(false) // true = solo POST upsert dei partner (no PATCH/DELETE) + può settare stato/interessi (driver di prima parte, es. Scout)
-  attiva             Boolean   @default(true)
-  creataIl           DateTime  @default(now())
-  ultimoUso          DateTime?
+  prefisso            String?
+  note                String? // a cosa serve / in quale .env vive (testo libero, per chi la gestisce)
+  scrittura           Boolean   @default(false) // true = può creare/modificare/disattivare il partner (PATCH/DELETE inclusi)
+  scritturaReferenti  Boolean   @default(false) // true = può solo archiviare i referenti (scope ristretto, es. Scout)
+  scritturaFeedback   Boolean   @default(false) // true = può solo inviare feedback D2C (scope ristretto, es. Customer Service)
+  // ⚠️ PRIMO AMBITO CHE RIGUARDA LA LETTURA, non la scrittura.
+  // Fino al 27/08/2026 QUALSIASI chiave attiva vedeva il blocco
+  // `datiFinanziari` — IBAN, intestatario del conto, PEC, SDI, contatto
+  // amministrativo — comprese le chiavi di sola lettura di app che con i
+  // pagamenti non c'entrano nulla. Provato dal vivo: con una chiave di sola
+  // lettura si legge l'IBAN di un fornitore, e camminando sulle pagine si
+  // raccoglie l'intero registro. Col registro usato anche per i FORNITORI —
+  // cioe' per chi paghiamo — quella e' una superficie da frode.
+  // Adesso il blocco esce solo per le chiavi che hanno questo ambito.
+  leggeDatiFinanziari Boolean   @default(false)
+  // ⚠️ Secondo ambito di LETTURA: le PERSONE. Referenti (nome, telefono, email)
+  // e valet (codice fiscale, indirizzo di casa) sono dati di persone fisiche, e
+  // fino al 27/08/2026 li vedeva qualunque chiave attiva — comprese quelle di
+  // app che rigirano la risposta al browser dei loro utenti.
+  leggePersone        Boolean   @default(false)
+  scritturaPartner    Boolean   @default(false) // true = solo POST upsert dei partner (no PATCH/DELETE) + può settare stato/interessi (driver di prima parte, es. Scout)
+  attiva              Boolean   @default(true)
+  creataIl            DateTime  @default(now())
+  ultimoUso           DateTime?
 }
 
 // ————————————————————— CONSUMERS —————————————————————

@@ -109,6 +109,12 @@ export async function salvaDatiSoggetto(
   partnerId: string,
   dati: DatiSoggetto,
   prov?: Record<string, { sistema: string; asOf?: string }>,
+  // ⚠️ `agganciaPerPIva` è VERO solo dalla UI. La P.IVA è pubblica: da un'API
+  // bastava mandare `{nome:"Negozio finto", pIva:"<P.IVA vera>"}` per attaccare
+  // una scheda propria al soggetto fiscale di un'azienda reale — e da lì
+  // leggerne (o riscriverne) IBAN e fatturazione. Dalla UI decide una persona
+  // che sta guardando la scheda; da un'API no.
+  opzioni: { agganciaPerPIva?: boolean } = {},
 ): Promise<string | null> {
   const p = await prisma.partner.findUnique({
     where: { id: partnerId },
@@ -138,7 +144,17 @@ export async function salvaDatiSoggetto(
   // ⚠️ La P.IVA è l'identità: se quella società c'è già, la sede si CLIPPA a
   // quella invece di crearne una gemella. È il caso vero del secondo negozio.
   const pIva = puliti.pIva?.trim();
-  const esistente = pIva ? await prisma.soggettoFiscale.findUnique({ where: { pIva } }) : null;
+  const esistente =
+    pIva && opzioni.agganciaPerPIva === true
+      ? await prisma.soggettoFiscale.findUnique({ where: { pIva } })
+      : null;
+  // ⚠️ Se quella P.IVA è già di un'altra società e la scrittura NON viene dalla
+  // UI, non si crea un gemello (la P.IVA è @unique: fallirebbe) e non ci si
+  // aggancia: si lascia la sede senza soggetto e decide una persona.
+  if (!esistente && pIva && opzioni.agganciaPerPIva !== true) {
+    const altrui = await prisma.soggettoFiscale.findUnique({ where: { pIva }, select: { id: true } });
+    if (altrui) return null;
+  }
   const soggetto =
     esistente ??
     (await prisma.soggettoFiscale.create({

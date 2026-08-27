@@ -29,6 +29,8 @@ export type ChiaveInElenco = {
   scritturaPartner: boolean;
   scritturaReferenti: boolean;
   scritturaFeedback: boolean;
+  leggeDatiFinanziari: boolean;
+  leggePersone: boolean;
   creata: string;
   ultimoUso: string | null;
 };

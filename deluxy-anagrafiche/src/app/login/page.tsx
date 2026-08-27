@@ -1,12 +1,18 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
+import { DURATA_SESSIONE_MS, SESSION_COOKIE, passwordCorretta, sessionToken } from "@/lib/auth";
 
 async function login(fd: FormData) {
   "use server";
   const password = process.env.ANAGRAFICHE_APP_PASSWORD;
   const tentativo = String(fd.get("password") ?? "");
-  if (!password || tentativo !== password) {
+  // ⚠️ Confronto a tempo costante: vedi `passwordCorretta` in lib/auth.
+  if (!password || !passwordCorretta(tentativo, password)) {
+    // ⚠️ Un piccolo ritardo su OGNI tentativo sbagliato. Non è un vero freno
+    // — quello richiede uno stato condiviso, e qui le funzioni sono
+    // indipendenti — ma alza il costo di chi prova a raffica, e non si nota
+    // quando si sbaglia a digitare. Il freno vero è il login dall'Hub.
+    await new Promise((r) => setTimeout(r, 400));
     redirect("/login?errore=1");
   }
   const jar = await cookies();
@@ -14,7 +20,9 @@ async function login(fd: FormData) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30, // 30 giorni
+    // La scadenza vera è dentro il valore firmato: questa è solo la pulizia
+    // lato browser, e deve dire la stessa cosa.
+    maxAge: DURATA_SESSIONE_MS / 1000,
     path: "/",
   });
   redirect("/");

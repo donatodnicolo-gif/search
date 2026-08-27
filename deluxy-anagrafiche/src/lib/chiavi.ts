@@ -5,12 +5,22 @@
 // stesso commit: la colonna in `prisma/schema.prisma`, il controllo in
 // `autentica()` e questa lista.
 //
-// La lettura è implicita: ogni chiave attiva legge. Gli ambiti aggiungono
-// scrittura, ciascuno su un pezzo preciso.
+// ⚠️ FINO AL 27/08/2026 la lettura era implicita: ogni chiave attiva vedeva
+// TUTTO, IBAN e rubrica compresi. Non era un difetto di una rotta, era il
+// modello dei permessi ad avere un asse solo — diceva chi SCRIVE cosa, mai chi
+// LEGGE cosa. Provato dal vivo: con una chiave di sola lettura si legge l'IBAN
+// di un fornitore, e camminando sulle pagine si raccoglie l'intero registro.
+//
+// Adesso gli assi sono due. La lettura di BASE (aziende: nome, indirizzo,
+// stati, categorie) resta implicita; i due pezzi che fanno male hanno il loro
+// ambito: «Dati finanziari» e «Persone». Sono ambiti di LETTURA, e per questo
+// il predefinito è chiuso.
 
-export type Ambito = "scrittura" | "partner" | "referenti" | "feedback";
+export type Ambito = "scrittura" | "partner" | "referenti" | "feedback" | "finanziari" | "persone";
 
 export type PermessiChiave = {
+  leggeDatiFinanziari: boolean;
+  leggePersone: boolean;
   scrittura: boolean;
   scritturaPartner: boolean;
   scritturaReferenti: boolean;
@@ -18,6 +28,8 @@ export type PermessiChiave = {
 };
 
 export const PERMESSI_VUOTI: PermessiChiave = {
+  leggeDatiFinanziari: false,
+  leggePersone: false,
   scrittura: false,
   scritturaPartner: false,
   scritturaReferenti: false,
@@ -32,6 +44,24 @@ export const AMBITI: {
   endpoint: string;
   colore: string;
 }[] = [
+  {
+    id: "finanziari",
+    campo: "leggeDatiFinanziari",
+    nome: "Dati finanziari (lettura)",
+    descrizione:
+      "Fa uscire IBAN, intestatario del conto, PEC, SDI e contatto amministrativo. Senza, quel blocco è null. Da dare solo a chi paga o fattura davvero: col registro usato anche per i fornitori, è la superficie da frode del bonifico.",
+    endpoint: "blocco datiFinanziari in GET /api/v1/partners",
+    colore: "var(--red)",
+  },
+  {
+    id: "persone",
+    campo: "leggePersone",
+    nome: "Persone (lettura)",
+    descrizione:
+      "Fa uscire i referenti (nome, telefono, email) e i valet (codice fiscale, indirizzo). Senza, i referenti sono null e /api/v1/valet risponde 403. Da negare alle app che rigirano la risposta al browser dei loro utenti.",
+    endpoint: "contatti in GET /api/v1/partners · GET /api/v1/valet",
+    colore: "var(--purple)",
+  },
   {
     id: "scrittura",
     campo: "scrittura",
@@ -80,10 +110,29 @@ export const TIPOLOGIE: { id: string; nome: string; descrizione: string; ambiti:
     ambiti: [],
   },
   {
+    id: "lettura-aziende",
+    nome: "Sola lettura — solo aziende",
+    descrizione:
+      "Legge le anagrafiche senza vedere né le persone né i dati bancari. È la tipologia giusta per le app che mostrano il registro ai propri utenti.",
+    ambiti: [],
+  },
+  {
+    id: "lettura-completa",
+    nome: "Sola lettura — con persone e fatturazione",
+    descrizione: "Legge tutto ma non scrive niente. Da dare solo a chi ha bisogno della rubrica o dell'IBAN.",
+    ambiti: ["finanziari", "persone"],
+  },
+  {
     id: "scrittura",
     nome: "Scrittura piena",
     descrizione: "Possiede il dato: crea, modifica, archivia. Oggi ce l'hanno la piattaforma consegne e FINANCE.",
     ambiti: ["scrittura"],
+  },
+  {
+    id: "fatturazione",
+    nome: "Fatturazione (FINANCE)",
+    descrizione: "Scrive il golden record e legge la fatturazione: è il mestiere di chi emette fatture e paga.",
+    ambiti: ["scrittura", "finanziari", "persone"],
   },
   {
     id: "partner",

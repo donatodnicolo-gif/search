@@ -17,6 +17,15 @@ const FIDUCIA: Record<string, number> = {
   manuale: 30,
   excel: 25, // lotto storico
 };
+// Una data dichiarata non puo' essere nel futuro: se lo e', vale «adesso».
+export function limitaAdAdesso(asOf?: string): string | undefined {
+  if (!asOf) return undefined;
+  const t = new Date(asOf);
+  if (Number.isNaN(t.getTime())) return undefined;
+  const ora = new Date();
+  return t > ora ? ora.toISOString() : asOf;
+}
+
 export function fiducia(sistema?: string | null): number {
   if (!sistema) return 0;
   return FIDUCIA[sistema] ?? 20; // sorgente sconosciuta: bassa, ma > 0
@@ -99,6 +108,10 @@ export function calcolaMerge(
   asOf?: string,
   opzioni: { sbloccaCurati?: boolean } = {},
 ): EsitoMerge {
+  // ⚠️ Un `asOf` nel FUTURO vince ogni confronto di freschezza per sempre: era
+  // il secondo mezzo (col `sistema` falso) per imporre un valore e renderlo
+  // inamovibile. La freschezza dichiarata non puo' superare adesso.
+  asOf = limitaAdAdesso(asOf);
   const prov: Provenienza = (esistente.provenienza as Provenienza) ?? {};
   const nuovaProv: Provenienza = { ...prov };
   const dati: Record<string, unknown> = {};
@@ -235,8 +248,35 @@ export function mergeContatti(esistenti: ContattoEsistente[], incoming: Contatto
 }
 
 // Normalizza il nome della sorgente: "deluxy-scout" -> "scout".
+// ⚠️⚠️ CHI CHIAMA NON DICE PIU' CHI E' (27/08/2026).
+//
+// Prima questa funzione faceva vincere il `sistema` scritto nel CORPO della
+// richiesta sul nome della chiave. Il corpo lo scrive il chiamante: bastava
+// mandare `"sistema":"ui"` per prendersi la fiducia 100 — piu' della
+// piattaforma e di FINANCE — e riscrivere i campi fattuali, **IBAN compreso**,
+// cioe' il conto su cui FINANCE paga. Le stesse tre lettere falsificavano lo
+// storico («l'ha fatto il team dal registro»), accendevano le regole
+// automatiche riservate a certe app, e con `idEsterno` si potevano rubare i
+// riferimenti esterni di un'altra app.
+//
+// Adesso l'identita' viene dalla CHIAVE, che e' un segreto e non un campo. Il
+// `sistema` del corpo resta ammesso come SOTTO-ETICHETTA della stessa app —
+// «scout-web» per la chiave «deluxy-scout» — perche' un'app puo' avere piu'
+// canali; ma non puo' spacciarsi per un'altra, quindi tutto cio' che decide
+// permessi, fiducia e regole guarda `sistemaDellaChiave()`.
+export function sistemaDellaChiave(nomeChiave: string): string {
+  return nomeChiave.trim().replace(/^deluxy-/, "");
+}
+
 export function nomeSistema(nomeChiave: string, sistemaBody?: string | null): string {
-  const s = (sistemaBody ?? "").trim();
-  if (s) return s;
-  return nomeChiave.replace(/^deluxy-/, "");
+  const base = sistemaDellaChiave(nomeChiave);
+  const dichiarato = (sistemaBody ?? "").trim();
+  if (!dichiarato) return base;
+  const d = dichiarato.toLowerCase().replace(/^deluxy-/, "");
+  // Ammesso solo se e' lo stesso sistema o un suo canale: «scout», «scout-web».
+  if (d === base.toLowerCase() || d.startsWith(base.toLowerCase() + "-")) return dichiarato;
+  // ⚠️ Non e' un errore da 400: rifiutare romperebbe in silenzio le app che
+  // mandano un'etichetta storica. Si IGNORA e si usa la chiave — l'etichetta
+  // falsa non entra ne' nella fiducia ne' nello storico.
+  return base;
 }

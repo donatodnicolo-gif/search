@@ -29,6 +29,8 @@ export default async function PaginaChiavi() {
     scritturaPartner: c.scritturaPartner,
     scritturaReferenti: c.scritturaReferenti,
     scritturaFeedback: c.scritturaFeedback,
+    leggeDatiFinanziari: c.leggeDatiFinanziari,
+    leggePersone: c.leggePersone,
     creata: DATA.format(c.creataIl),
     ultimoUso: c.ultimoUso ? DATA_ORA.format(c.ultimoUso) : null,
   }));
