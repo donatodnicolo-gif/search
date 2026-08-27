@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **27/08/2026 (mattina)**. Una finestra Claude nuova deve poter
+> Stato al **27/08/2026 (pomeriggio)**. Una finestra Claude nuova deve poter
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
@@ -16,6 +16,10 @@
 > · la versione dello script la dichiara **un conto solo su tre** (Flowers).
 > · 🆕 c'è il **censimento storico** delle campagne: fatto su Meta (89 campagne,
 >   60.574 €, 22 mai viste dall'app), **da fare su Google** incollando lo script.
+> · 🆕 **passata UX/UI con tre agenti** (desktop, telefono, ostile): 23 accuse,
+>   **19 corrette**, 2 refutate. Sul telefono le pagine non scorrono più di lato
+>   e i bersagli sono da 44px; su desktop le intestazioni restano a vista e la
+>   prima colonna non scappa. Dettagli in FATTO, prima sezione.
 
 > 🔴 **I punti aperti, RI-MISURATI sul database di produzione il 25/08 fra le 12 e le 13**
 > (`/api/health` 200, `database: true`; query in sola lettura, poi il lavoro di
@@ -348,6 +352,93 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐⭐ UX/UI: TRE AGENTI, 23 ACCUSE, 19 CORREZIONI (27/08/2026 pomeriggio)
+
+Un agente sul **layout desktop**, uno sul **telefono** (375×812) e uno **OSTILE**
+col mandato di *refutare*, non di confermare. Le definizioni riutilizzabili
+stanno in `C:\Users\nicol\app\.claude\agents\` (`ux-desktop.md`, `ux-mobile.md`,
+`ux-ostile.md`) — ⚠️ i file nuovi si caricano solo **riavviando** Claude Code:
+in questa sessione sono stati usati passandone il testo a un agente generico.
+
+**Esito del contraddittorio: 19 confermate, 2 REFUTATE, 2 con l'effetto
+capovolto.** Le due refutate NON sono state toccate:
+- «le pillole d'ordinamento di `/campagne` perdono i filtri»: **falso**, leggono
+  gli stessi parametri URL del `select` (`filtriOra` da `searchParams`), e la
+  doppia forma è una scelta scritta nel commento;
+- «il riquadro in home dice 3 fallite e non ne mostra nessuna»: **falso**, i due
+  conteggi sono etichettati separatamente e le fallite hanno la loro riga sotto.
+
+#### Quello che sul telefono rendeva l'app inusabile
+- **La dashboard e la scheda campagna scorrevano di lato** (459px in 375) e il
+  browser rimpiccioliva tutto all'**81,7%**: `.due-colonne` non stringeva i
+  figli (`min-width: auto`). ⚠️ **L'ostile ha trovato un secondo colpevole che
+  il mobile non aveva visto**: un `gridTemplateColumns` **inline** in
+  `campagne/[id]` che scavalcava una `@media` già scritta e già giusta. Adesso
+  **375 = 375** su tutte e cinque le pagine, zero elementi fuori.
+- **`/operazioni` sfondava** (471 in 375): `.op-stato` girava in riga senza
+  `flex-wrap`. La pagina delle approvazioni si portava via i bottoni di comando.
+- **Le metriche per mese nascondevano Conv., Ricavi e ROAS**: sotto i 760px il
+  pannello mostrava quanto si era **speso** e nascondeva quanto si era
+  **incassato**. L'agente mobile l'aveva dedotto da markup iniettato; l'ostile
+  l'ha **misurato su una campagna vera**: 11.612 € di ricavi e 7,2× di ROAS
+  invisibili dal telefono. Ora cadono impression, click e conversioni.
+- **Bersagli del tocco**: voci del menu e hamburger da 34px → **44**; campi data
+  **118×20 → 169×44** (erano fuori dal selettore dei filtri, quindi sbagliati
+  **anche col mouse**); campi numerici a **16px**, la soglia sotto cui iOS
+  ingrandisce da solo la pagina.
+
+#### Desktop
+- **Intestazioni di tabella**: 12px, peso 500, niente maiuscolo (design system)
+  e **sticky**. ⚠️⚠️ **Lo sticky da solo NON bastava**, ed è la lezione della
+  giornata: un wrapper con `overflow-x: auto` diventa scroll container su
+  **entrambi** gli assi, quindi l'intestazione si aggancia a lui — che in
+  verticale non scorre — e non resta a vista un bel niente, si limita a sembrare
+  corretta nel foglio di stile. Serviva un'**altezza** sul wrapper
+  (`.tabella-lunga`, 72vh). Verificato scorrendo davvero: `scrollTop 800` e
+  l'intestazione ferma al bordo (822 = 822).
+- **`.th-ordinabile` aveva `position: relative`** e per specificità batteva lo
+  sticky: restavano ferme solo le intestazioni delle tabelle **corte**, cioè
+  proprio quelle che non ne avevano bisogno.
+- **«Annulla» accanto ad «Approva» a 6px**, grigio come un'opzione neutra: ora
+  **rosso** e a 14px. ⚠️ L'ostile ha ridimensionato l'effetto (non tocca
+  l'account pubblicitario) **e l'ha peggiorato in un punto**: un'operazione
+  annullata non ha **nessun** bottone per tornare indietro, va rifatta da capo.
+- **Prima colonna ancorata** (`.tab-ancorata`) nelle tabelle larghe: scorrendo a
+  destra restavano numeri senza sapere di quale brand o campagna fossero.
+- **L'esito della sync era tagliato al 52%** — «nuovi 4 · aggiornati 42»
+  invisibili — e il `title` mostrava i **conteggi** anche quando la sync
+  **falliva**, cioè proprio quando serve il motivo.
+- **`/campagne-storiche`**: filtri **sopra** la card che filtrano, due gruppi
+  separati da una distanza vera, e ⚠️ **gli anni della barra non si
+  autoescludono più**: uscivano da `perAnno` già filtrato, quindi scegliendo il
+  2024 sparivano tutti gli altri anni — una porta che si chiude alle spalle.
+- **Note lunghe**: da 137 a **87 caratteri per riga**, 0 sopra i 90.
+- KPI (190px e padding da design system), i quattro bottoni di `/campagne`
+  raggruppati (erano a 627px di distanza), stato vuoto, titoli di card.
+
+#### Due correzioni MIE erano sbagliate, e le ha trovate la rimisura
+Non l'agente: la misura fatta **dopo** aver corretto.
+1. Il `max-width: 460px` dato a `.sync-esito` per farla vedere tutta **faceva
+   scorrere la dashboard sul telefono** (474px in 375). Una larghezza fissa
+   messa per mostrare di più è un modo nuovo di nascondere. Risolto sul
+   genitore: `.sync-blocco` era `flex: 0 0 auto`, cioè «non stringerti mai».
+2. Il selettore dei bersagli del tocco copriva `.cella-nome a` ma non
+   `a.cella-nome`: **29 link erano rimasti a 18px** dopo la «correzione».
+
+#### Trappole da ricordare
+- ⚠️ **Il pannello del browser chiuso rende ogni scheda `document.hidden`**: lo
+  scroll della finestra **non avanza** e `window.scrollTo` non fa niente
+  (`scrollY` resta 0). Lo scroll di un contenitore con `overflow` invece
+  funziona: è così che lo sticky è stato provato davvero.
+- ⚠️ **25 `style={{ font: "inherit" }}` inline in 16 file** battono qualunque
+  regola: la regola del tocco a 16px risultava attiva e non faceva niente
+  (computed 13,5px). È l'unico `!important` del foglio, ed è dentro
+  `@media (pointer: coarse)`: scritto nel commento perché non sembri pigrizia.
+- ⚠️ Una misura presa su un elemento dentro un `<details>` **chiuso** vale zero:
+  Chrome continua a dare `getBoundingClientRect()` su `content-visibility:
+  hidden`. L'accusa «tabella alta 7227px» era vera e **invisibile**.
+
 
 ### ⭐⭐⭐ IL CENSIMENTO STORICO: quante campagne c'erano DAVVERO (27/08/2026)
 **Domanda dell'utente**: quali e quante campagne sono esistite negli ultimi
