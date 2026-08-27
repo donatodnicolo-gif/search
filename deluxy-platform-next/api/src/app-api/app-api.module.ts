@@ -812,6 +812,43 @@ export class AppApiService {
     return this.consegnaPerNumero(creata.code);
   }
 
+  /**
+   * IL CATALOGO DEI SERVIZI della piattaforma (27/08/2026).
+   *
+   * Lo legge Deluxy Scout, che è il master delle LINEE DI INTERESSE: da lì si
+   * guarda questo elenco e si decide quali linee creare, invece di ribattere a
+   * mano nomi che qui esistono già e di scoprire mesi dopo che «Eventi» e
+   * «Eventi & Catering» erano la stessa cosa scritta in due modi.
+   *
+   * ⚠️ Si legge e basta: chi possiede il servizio è la piattaforma, chi
+   * possiede la linea è Scout. Nessuno dei due scrive in casa dell'altro, e
+   * quello che Scout crea è una linea SUA, non una copia di questo record —
+   * torna anche il `codice` proprio perché il legame si tenga per riferimento.
+   *
+   * ⚠️ Tornano anche i servizi SPENTI, con il loro flag. Nasconderli qui
+   * farebbe leggere «non esiste» dove la verità è «esiste ed è disattivato»:
+   * chi legge deve poter distinguere le due cose, ed è una riga di filtro.
+   */
+  async servizi(ambito?: string) {
+    const where: any = {};
+    if (ambito === 'partner') where.scope = { in: ['partner', 'both'] };
+    if (ambito === 'valet') where.scope = { in: ['valet', 'both'] };
+    const righe = await this.prisma.serviceType.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, code: true, scope: true, pricingModel: true, active: true, notes: true },
+    });
+    return righe.map((s) => ({
+      id: s.id,
+      nome: s.name,
+      codice: s.code,
+      ambito: s.scope,
+      modello: s.pricingModel,
+      attivo: s.active,
+      note: s.notes,
+    }));
+  }
+
   /** Una consegna sola, per il NUMERO che si legge a schermo (es. 62637). */
   async consegnaPerNumero(numero: number) {
     if (!Number.isInteger(numero) || numero <= 0 || numero > 2_147_483_647) {
@@ -899,6 +936,16 @@ export class AppApiController {
       );
     }
     return this.service.creaConsegna(dto, req.appChiave.nome ?? 'app sconosciuta');
+  }
+
+  @Get('servizi')
+  @ApiOperation({
+    summary:
+      'Il catalogo dei tipi di servizio (nome, codice, ambito partner/valet, modello di prezzo, attivo) — lo legge Deluxy Scout per decidere quali linee di interesse creare',
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (scripts/crea-chiave-app.mjs)' })
+  servizi(@Query('ambito') ambito?: string) {
+    return this.service.servizi(ambito);
   }
 
   @Get('consegne/:numero')
