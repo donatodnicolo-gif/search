@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { prisma } from "@/lib/db";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
@@ -151,7 +152,10 @@ export default async function FatturePage({
                         </form>
                       )}{" "}
                       <form action={deleteFattura.bind(null, f.id)} style={{ display: "inline" }}>
-                        <button className="btn small danger" type="submit">Elimina</button>
+                        <ConfermaElimina
+                          oggetto="questa fattura"
+                          conseguenza="Sparisce dal registro; eventuali abbinamenti a pagamenti vanno rifatti."
+                        />
                       </form>
                     </td>
                   </tr>

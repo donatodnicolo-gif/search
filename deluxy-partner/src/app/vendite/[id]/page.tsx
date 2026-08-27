@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/format";
@@ -41,7 +42,12 @@ export default async function VenditaDetail({
         </div>
         <div className="page-actions">
           <form action={deleteVendita.bind(null, id)}>
-            <button className="btn danger" type="submit" title="Elimina questa vendita">Elimina</button>
+            <ConfermaElimina
+              className="btn danger"
+              oggetto="questa vendita"
+              conseguenza="Si perde l'incasso e la commissione calcolata; se già fatturata, la fattura resta."
+              title="Elimina questa vendita"
+            />
           </form>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { prisma } from "@/lib/db";
 import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
@@ -191,9 +192,13 @@ export default async function TransazioniPage({
         {(nuove.length > 0 || ignorate.length > 0) && (
           <div className="page-actions">
             <form action={eliminaTransazioniNonRegistrate}>
-              <button className="btn danger small" type="submit" title="Elimina le transazioni non registrate per rifare l'import">
-                Svuota non registrate
-              </button>
+              <ConfermaElimina
+                verbo="Svuota"
+                className="btn danger small"
+                oggetto={`le ${nuove.length} transazioni non ancora registrate`}
+                conseguenza="Vengono cancellate in blocco per poter rifare l'import; quelle già registrate restano."
+                title="Elimina le transazioni non registrate per rifare l'import"
+              />
             </form>
           </div>
         )}
@@ -594,7 +599,11 @@ export default async function TransazioniPage({
                       <td className="num">{a.usi}</td>
                       <td>
                         <form action={eliminaAssociazione.bind(null, a.id)}>
-                          <button className="btn small danger" type="submit" title="Elimina la regola (i movimenti futuri torneranno da riconoscere)">Elimina</button>
+                          <ConfermaElimina
+                            oggetto="questa regola"
+                            conseguenza="I movimenti futuri di questa controparte torneranno da riconoscere a mano."
+                            title="Elimina la regola"
+                          />
                         </form>
                       </td>
                     </tr>

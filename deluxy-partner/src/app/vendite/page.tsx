@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { prisma } from "@/lib/db";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
@@ -196,7 +197,10 @@ export default async function VenditePage({
                       <span style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
                         <Link href={`/vendite/${v.id}`} className="btn small secondary">Modifica</Link>
                         <form action={deleteVendita.bind(null, v.id)} style={{ display: "inline" }}>
-                          <button className="btn small danger" type="submit">Elimina</button>
+                          <ConfermaElimina
+                            oggetto="questa vendita"
+                            conseguenza="Si perde l'incasso e la commissione calcolata; se già fatturata, la fattura resta."
+                          />
                         </form>
                         {/* La commissione si fattura una volta per partner+mese:
                             se è già emessa si mostra il numero, altrimenti il

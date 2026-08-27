@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt, pctIt } from "@/lib/format";
@@ -269,7 +270,11 @@ export default async function ProFormaDetail({
           )}
           {pf.stato === "bozza" && (
             <form action={deleteProForma.bind(null, id)} style={{ marginLeft: "auto" }}>
-              <button className="btn small danger" type="submit">Elimina bozza</button>
+              <ConfermaElimina
+                verbo="Elimina"
+                oggetto="questa bozza"
+                conseguenza="La bozza sparisce; il numero non è ancora impegnato, quindi non resta assegnato."
+              />
             </form>
           )}
         </div>

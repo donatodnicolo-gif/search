@@ -48,7 +48,12 @@ export function PartnerForm({
   const provinciaReg = anagrafica?.provincia ?? "";
   return (
     <form action={action} className="card">
-      <div className="form-grid">
+      {/* Form lungo (~30 campi): diviso in sezioni con titolo (Libro UX cap. 4)
+          così i dati commerciali, fiscali, del contatto e le opzioni non sono
+          una parete unica di input. */}
+      <section className="form-section">
+        <h2 className="section-title" style={{ marginTop: 0 }}>Anagrafica e condizioni</h2>
+        <div className="form-grid">
         <div className="full">
           <label className="field-label">Nome / insegna <span className="req">*</span></label>
           <input type="text" name="nome" required defaultValue={p?.nome ?? ""} placeholder="Es. PASTICCERIA ROSSI (ROSSI SRL)" />
@@ -117,13 +122,16 @@ export function PartnerForm({
           <label className="field-label">Piano di rientro debito</label>
           <input type="text" name="pdrDebito" defaultValue={p?.pdrDebito ?? ""} />
         </div>
-        <div className="full">
-          <h2 className="section-title" style={{ fontSize: 15, marginBottom: 2 }}>Dati fiscali e di fatturazione</h2>
-          <p className="muted" style={{ fontSize: 12.5, margin: "0 0 6px" }}>
-            Sono quelli che finiscono sulla fattura elettronica. Si salvano nel registro <strong>Anagrafiche</strong>,
-            che resta la fonte unica: modificandoli qui, li vedranno anche le altre app.
-          </p>
         </div>
+      </section>
+
+      <section className="form-section">
+        <h2 className="section-title">Dati fiscali e di fatturazione</h2>
+        <p className="muted" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
+          Sono quelli che finiscono sulla fattura elettronica. Si salvano nel registro <strong>Anagrafiche</strong>,
+          che resta la fonte unica: modificandoli qui, li vedranno anche le altre app.
+        </p>
+        <div className="form-grid">
         <div>
           <label className="field-label">Partita IVA</label>
           <input type="text" name="pIva" defaultValue={pIvaReg} placeholder="es. 12514031009" />
@@ -171,17 +179,18 @@ export function PartnerForm({
           <input type="text" name="telefono" defaultValue={telefonoReg} />
         </div>
 
-        <div className="full" style={{ marginTop: 4 }}>
-          <div className="field-label" style={{ fontWeight: 600, color: "var(--text)" }}>
-            Contatto amministrativo
-          </div>
-          <p className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>
-            Chi si occupa dei pagamenti: è il destinatario predefinito di solleciti e pro-forma.
-            {collegato
-              ? " Nome, email e telefono sono precompilati dal registro Anagrafiche e, al salvataggio, vi tornano scritti."
-              : " Dalla scheda partner puoi importarlo dal registro Anagrafiche."}
-          </p>
         </div>
+      </section>
+
+      <section className="form-section">
+        <h2 className="section-title">Contatto amministrativo</h2>
+        <p className="muted" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
+          Chi si occupa dei pagamenti: è il destinatario predefinito di solleciti e pro-forma.
+          {collegato
+            ? " Nome, email e telefono sono precompilati dal registro Anagrafiche e, al salvataggio, vi tornano scritti."
+            : " Dalla scheda partner puoi importarlo dal registro Anagrafiche."}
+        </p>
+        <div className="form-grid">
         <div>
           <label className="field-label">
             Nome referente{collegato && <span className="muted" style={{ fontWeight: 400, fontSize: 11.5 }}> · nel registro</span>}
@@ -204,6 +213,12 @@ export function PartnerForm({
           </label>
           <input type="text" name="ammTelefono" defaultValue={ammTelefonoReg} />
         </div>
+        </div>
+      </section>
+
+      <section className="form-section">
+        <h2 className="section-title">Opzioni e note</h2>
+        <div className="form-grid">
         <div className="checkbox-row">
           <input type="checkbox" id="compensazione" name="compensazione" defaultChecked={p?.compensazione ?? false} />
           <label htmlFor="compensazione">Compensazione crediti/incassi</label>
@@ -228,7 +243,8 @@ export function PartnerForm({
           <label className="field-label">Note</label>
           <textarea name="note" rows={3} defaultValue={p?.note ?? ""} />
         </div>
-      </div>
+        </div>
+      </section>
       <div className="form-footer">
         <BottoneInvio inCorso="Salvo e aggiorno il registro…">{submitLabel}</BottoneInvio>
       </div>

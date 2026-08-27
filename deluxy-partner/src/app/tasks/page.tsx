@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { prisma } from "@/lib/db";
 import { dataIt, euro } from "@/lib/format";
 import { ivato } from "@/lib/calc";
@@ -288,7 +289,10 @@ export default async function TasksPage({
                             </form>
                           )}
                           <form action={eliminaTask.bind(null, t.id)} style={{ display: "inline" }}>
-                            <button className="btn small danger" type="submit">Elimina</button>
+                            <ConfermaElimina
+                              oggetto="questa task"
+                              conseguenza="Viene rimossa definitivamente; non finisce in un archivio."
+                            />
                           </form>
                         </span>
                       </td>

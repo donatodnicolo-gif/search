@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -345,7 +346,11 @@ export default async function ImpostazioniPage({
                         {n.token ? "Ricollega" : "Collega con Shopify"}
                       </a>
                       <form action={rimuoviNegozioShopify.bind(null, n.id)} style={{ display: "inline" }}>
-                        <button className="btn small danger" type="submit">Rimuovi</button>
+                        <ConfermaElimina
+                          verbo="Rimuovi"
+                          oggetto={`il negozio ${n.brand}`}
+                          conseguenza="Il token Shopify salvato viene cancellato: gli ordini di questa insegna non si sincronizzano più finché non lo ricolleghi."
+                        />
                       </form>
                     </td>
                   </tr>

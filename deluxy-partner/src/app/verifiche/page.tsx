@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, sessioneCorrente } from "@/lib/auth";
@@ -466,7 +467,13 @@ const dati = await res.json();
         </h2>
         {conteggio > 0 && (
           <form action={svuotaStorico}>
-            <button className="btn secondary small" type="submit" title="Cancella lo storico delle richieste">Svuota storico</button>
+            <ConfermaElimina
+              verbo="Svuota"
+              className="btn danger small"
+              oggetto={`lo storico (${conteggio} richieste)`}
+              conseguenza="Tutte le righe di verifica vengono cancellate in blocco; l'operazione non si annulla."
+              title="Cancella lo storico delle richieste"
+            />
           </form>
         )}
       </div>

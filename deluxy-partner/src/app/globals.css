@@ -197,16 +197,37 @@ td.neg { color: var(--red); }
 }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.55; cursor: default; }
-.btn.primary { background: var(--ink); color: #fff; }
+/* Focus da tastiera visibile su ogni bottone (WCAG 2.4.7): mai un bottone
+   che si raggiunge col Tab senza mostrarsi. */
+.btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.btn.primary { background: var(--ink); color: var(--on-ink); }
 .btn.primary:hover { background: var(--ink-hover); }
 .btn.secondary { background: var(--fill); color: var(--text); }
 .btn.secondary:hover { background: var(--fill-hover); }
 .btn.danger { background: var(--fill); color: var(--red); }
+/* Rosso pieno SOLO sul passo di conferma, col verbo (Libro cap. 3 e 7). */
+.btn.danger-solid { background: var(--red); color: var(--on-ink); }
+.btn.danger-solid:hover { background: #b3000f; }
 .btn.small { padding: 5px 13px; font-size: 12.5px; }
+
+/* Conferma narrativa in linea (componente ConfermaElimina, Libro cap. 7):
+   nome dell'oggetto + conseguenza + bottone rosso col verbo. Va a capo da
+   sola nelle celle strette senza spingere fuori le azioni. */
+.conferma-elimina {
+  display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 6px 10px; border-radius: var(--radius-m);
+  background: var(--red-soft); border: 1px solid rgba(215, 0, 21, 0.2);
+  text-align: left;
+}
+.conferma-elimina-testo { font-size: 12.5px; color: var(--red); max-width: 320px; }
+.conferma-elimina-azioni { display: inline-flex; gap: 6px; align-items: center; }
 
 /* ---------- Form ---------- */
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 20px; }
 .form-grid .full { grid-column: 1 / -1; }
+/* Sezioni di un form lungo (Libro UX cap. 4): un filo d'aria e una linea
+   sottile fra un gruppo di campi e il successivo. */
+.form-section + .form-section { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--hairline); }
 label.field-label { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
 label.field-label .req { color: var(--red); }
 input[type="text"], input[type="number"], input[type="date"], input[type="email"], select, textarea {
@@ -291,7 +312,10 @@ input:focus, select:focus, textarea:focus {
 
 @media (max-width: 900px) {
   .shell { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; position: static; flex-direction: row; flex-wrap: wrap; }
+  /* flex: 0 0 auto azzera il flex-basis 250px della base (che in colonna
+     diventerebbe altezza fissa): la fascia mobile è larga quanto lo schermo e
+     alta quanto le voci. */
+  .sidebar, .sidebar.chiusa { width: 100%; flex: 0 0 auto; height: auto; position: static; flex-direction: row; flex-wrap: wrap; padding: 12px 16px; }
   /* su mobile la sidebar è una fascia che si dispone in riga: niente scroll
      interno, le sezioni tornano figlie dirette e vanno a capo da sole */
   .sidebar-nav { display: contents; }

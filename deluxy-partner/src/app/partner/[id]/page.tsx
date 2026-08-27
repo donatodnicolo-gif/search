@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -325,7 +326,10 @@ export default async function PartnerDetail({
                     <td>{pctIt(t.feePercent)}</td>
                     <td style={{ textAlign: "right" }}>
                       <form action={eliminaTariffa.bind(null, t.id, id)}>
-                        <button className="btn small danger" type="submit">Elimina</button>
+                        <ConfermaElimina
+                          oggetto="questa tariffa"
+                          conseguenza="I mesi coperti da questa fee useranno la tariffa precedente al ricalcolo."
+                        />
                       </form>
                     </td>
                   </tr>
@@ -610,7 +614,11 @@ export default async function PartnerDetail({
                           </span>
                           <span style={{ color: "var(--text-secondary)" }}>{e.descrizione ?? (e.importo >= 0 ? "aggiunta" : "detrazione")}</span>
                           <form action={eliminaExtra.bind(null, e.id, id)} style={{ display: "inline", marginLeft: "auto" }}>
-                            <button className="btn small danger" type="submit" title="Elimina questa voce extra">Elimina</button>
+                            <ConfermaElimina
+                              oggetto="questa voce extra"
+                              conseguenza="L'importo aggiunto o detratto sparisce dal saldo del mese."
+                              title="Elimina questa voce extra"
+                            />
                           </form>
                         </div>
                       ))}

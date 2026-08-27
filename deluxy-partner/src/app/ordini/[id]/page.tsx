@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
@@ -176,7 +177,12 @@ export default async function OrdineDetail({
               </p>
             )}
             <form action={azzeraPagamentoFornitore.bind(null, id)} style={{ marginTop: 14 }}>
-              <button className="btn small danger" type="submit">Rimuovi costo fornitore</button>
+              <ConfermaElimina
+                verbo="Rimuovi"
+                oggetto="il costo fornitore"
+                conseguenza="L'abbinamento al movimento in uscita si annulla e il margine dell'ordine si ricalcola."
+                title="Rimuovi costo fornitore"
+              />
             </form>
           </>
         ) : (

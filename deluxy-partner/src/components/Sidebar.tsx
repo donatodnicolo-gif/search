@@ -202,10 +202,10 @@ export function Sidebar({
   };
 
   return (
-    <aside
-      className={`sidebar${chiusa ? " chiusa" : ""}`}
-      style={{ width: chiusa ? 68 : 250, flex: `0 0 ${chiusa ? 68 : 250}px` }}
-    >
+    // La larghezza è governata dal CSS (.sidebar / .sidebar.chiusa): uno style
+    // inline qui vinceva sulla media query a 900px e teneva la barra a 250px
+    // anche a 375px, coprendo mezzo schermo sul telefono.
+    <aside className={`sidebar${chiusa ? " chiusa" : ""}`}>
       <button
         type="button"
         className="sidebar-toggle"
