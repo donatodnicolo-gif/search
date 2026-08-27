@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import {
   APP_DELUXY,
+  fetchServiziPiattaforma,
   CHIAVE_CASELLA_RICHIESTE,
   CHIAVI_AZIENDA,
   chiaveIngressoConfigurata,
@@ -664,6 +665,44 @@ function SezioneChiaveIngresso() {
 
 /** Elenco delle app Deluxy richiamabili, con la loro chiave. Solo admin. */
 function SezioneAppCollegate() {
+  /**
+   * ⚠️ «COLLEGATA» NON SI DEDUCE DALLA CHIAVE (27/08/2026). La pillola verde
+   * qui accanto dice solo che un valore è stato incollato: non che sia la
+   * chiave giusta, né che l'altra app risponda. È già successo — una chiave
+   * incollata, la spunta verde, e l'app dall'altra parte che rispondeva 401
+   * senza che nessuno lo sapesse.
+   *
+   * Questa prova CHIAMA davvero e riporta l'esito com'è. Per ora esiste per la
+   * piattaforma consegne, che è l'unica con una rotta di sola lettura pensata
+   * apposta; le altre si aggiungeranno quando ce l'avranno.
+   */
+  const [provaApp, setProvaApp] = useState<string | null>(null);
+  const [esitoProva, setEsitoProva] = useState<{ app: string; ok: boolean; testo: string } | null>(null);
+
+  async function provaCollegamento(idApp: string) {
+    if (provaApp) return;
+    setProvaApp(idApp);
+    setEsitoProva(null);
+    try {
+      const esito = await fetchServiziPiattaforma();
+      if (esito.ok) {
+        setEsitoProva({
+          app: idApp,
+          ok: true,
+          testo: `Risponde: ${esito.servizi.length} servizi nel catalogo.`,
+        });
+      } else if (esito.motivo === 'non_configurato') {
+        setEsitoProva({ app: idApp, ok: false, testo: 'Nessuna chiave salvata.' });
+      } else {
+        setEsitoProva({ app: idApp, ok: false, testo: esito.dettaglio });
+      }
+    } catch (e: any) {
+      setEsitoProva({ app: idApp, ok: false, testo: String(e?.message ?? e) });
+    } finally {
+      setProvaApp(null);
+    }
+  }
+
   const [stato, setStato] = useState<StatoChiaveApp[]>([]);
   const [aperta, setAperta] = useState<string | null>(null);
   const [chiave, setChiave] = useState('');
@@ -782,6 +821,18 @@ function SezioneAppCollegate() {
                   >
                     <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : 'Salva la chiave'}</Text>
                   </Pressable>
+                  {app.id === 'piattaforma' ? (
+                    <Pressable
+                      style={[styles.btnGhost, provaApp === app.id && styles.btnOff]}
+                      disabled={!!provaApp}
+                      onPress={() => provaCollegamento(app.id)}
+                    >
+                      <Ionicons name="pulse-outline" size={15} color={colors.navy} />
+                      <Text style={styles.btnGhostTxt}>
+                        {provaApp === app.id ? 'Provo…' : 'Prova il collegamento'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
                   {collegata ? (
                     <Pressable style={styles.btnGhost} disabled={salvando} onPress={() => rimuovi(app.id)}>
                       <Ionicons name="trash-outline" size={15} color={colors.navy} />
@@ -789,6 +840,22 @@ function SezioneAppCollegate() {
                     </Pressable>
                   ) : null}
                 </View>
+
+                {/* ⚠️ L'esito si scrive PER ESTESO, anche quando è brutto: «401
+                    chiave non valida» dice cosa fare, «non riuscito» manda a
+                    indovinare — e a reincollare la stessa chiave sbagliata. */}
+                {esitoProva && esitoProva.app === app.id ? (
+                  <View style={[styles.esito, esitoProva.ok ? styles.esitoOk : styles.esitoKo]}>
+                    <Ionicons
+                      name={esitoProva.ok ? 'checkmark-circle-outline' : 'alert-circle-outline'}
+                      size={16}
+                      color={esitoProva.ok ? '#2F7D46' : colors.errore}
+                    />
+                    <Text style={[styles.esitoTxt, { color: esitoProva.ok ? '#2F7D46' : colors.errore }]}>
+                      {esitoProva.testo}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             ) : null}
           </View>

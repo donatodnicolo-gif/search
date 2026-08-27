@@ -2782,6 +2782,8 @@ export async function creaRichiestaCliente(r: {
   descrizione: string;
   importo: number | null;
   canale: RichiestaCliente['canale'];
+  /** Su quale linea si vende (migr. 0087): finisce nell'ordine. */
+  linea?: string | null;
   tipologia: RichiestaCliente['tipologia'];
   serve_entro: string | null;
   nota: string | null;
@@ -2837,7 +2839,7 @@ export async function leadDiventaRichiesta(leadId: string, richiestaId: string, 
 
 export async function aggiornaRichiestaCliente(
   id: string,
-  campi: Partial<Pick<RichiestaCliente, 'cliente' | 'descrizione' | 'importo' | 'canale' | 'tipologia' | 'stato' | 'serve_entro' | 'nota'>>,
+  campi: Partial<Pick<RichiestaCliente, 'cliente' | 'descrizione' | 'importo' | 'canale' | 'linea' | 'tipologia' | 'stato' | 'serve_entro' | 'nota'>>,
 ): Promise<void> {
   const { data, error } = await supabase.from('richieste_cliente').update(campi).eq('id', id).select('id');
   if (error) throw error;
@@ -2902,6 +2904,12 @@ export async function creaOrdineDaRichiesta(r: RichiestaCliente): Promise<{ id: 
       descrizione: r.descrizione,
       valore: r.importo,
       canale: r.canale === 'web' ? 'web' : 'altro',
+      // ⚠️ LA LINEA VIAGGIA CON L'ORDINE (27/08/2026). Era il vero motivo per
+      // cui serviva sulla richiesta: senza, ogni ordine nato qui arrivava in
+      // /ordini con la colonna Linea vuota e restava fuori da tutti i conti per
+      // linea — un pezzo di ricavo che spariva dalle statistiche, non un campo
+      // mancante in una maschera.
+      linea: r.linea ?? null,
       richiesta_id: r.id,
       // Il documento che la richiesta ha già, se c'è: l'ordine nasce sapendo
       // quale pro-forma lo rappresenta.

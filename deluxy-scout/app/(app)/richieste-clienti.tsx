@@ -64,10 +64,19 @@ import {
   type RichiestaCliente,
   type StatoRichiestaCliente,
   type TipologiaRichiesta,
+  LINEE_ATTIVE,
 } from '@/types';
 
 const CANALI: CanaleRichiesta[] = ['mail', 'telefono', 'whatsapp', 'di_persona', 'web', 'altro'];
 const TIPOLOGIE: TipologiaRichiesta[] = ['b2b', 'maison'];
+/**
+ * ⭐ LA LINEA DI BUSINESS (27/08/2026, richiesta dell'utente: «serve la linea di
+ * business di richiesta»).
+ *
+ * Stesso vocabolario di trattative e ordini — è LINEE_ATTIVE, non un elenco
+ * scritto qui: due liste di linee divergono al primo ritocco, e da lì «Gifting»
+ * e «Regali» diventano due conti separati della stessa cosa.
+ */
 const LABEL_TIPOLOGIA: Record<TipologiaRichiesta, string> = {
   b2b: 'B2B (ricorrente)',
   maison: 'Maison (nuovo)',
@@ -518,6 +527,9 @@ export default function RichiesteClienti() {
       ),
     },
     { chiave: 'descrizione', label: 'Cosa chiede', flex: 1.6, righe: 2, valore: (r) => r.descrizione },
+    // ⚠️ Larghezza fissa e due righe: «Eventi & Catering» non entra in una riga
+    // sola, e una colonna elastica qui ruberebbe spazio al nome del cliente.
+    { chiave: 'linea', label: 'Linea', width: 92, righe: 2, valore: (r) => r.linea ?? null },
     {
       chiave: 'importo',
       label: 'Importo',
@@ -702,6 +714,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
   const [descrizione, setDescrizione] = useState('');
   const [importo, setImporto] = useState('');
   const [canale, setCanale] = useState<CanaleRichiesta>('mail');
+  const [linea, setLinea] = useState<string | null>(null);
   const [tipologia, setTipologia] = useState<TipologiaRichiesta>('b2b');
   const [serveEntro, setServeEntro] = useState<string | null>(null);
   const [nota, setNota] = useState('');
@@ -853,6 +866,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
         descrizione: descrizione.trim(),
         importo: leggiImporto(importo),
         canale,
+        linea,
         tipologia,
         serve_entro: serveEntro,
         nota: nota.trim() || null,
@@ -1103,6 +1117,24 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
           ))}
         </View>
 
+        <Text style={styles.campoLabel}>Linea di business</Text>
+        <View style={styles.chips}>
+          {LINEE_ATTIVE.map((l) => (
+            <Chip key={l} label={l} on={linea === l} onPress={() => setLinea(linea === l ? null : l)} />
+          ))}
+        </View>
+        <Text style={styles.nota}>
+          Su quale linea si vende. Viaggia nell&apos;ordine che nasce da qui: senza, l&apos;ordine resta fuori dai
+          conti per linea.
+        </Text>
+
+        <Text style={styles.campoLabel}>Linea di business</Text>
+        <View style={styles.chips}>
+          {LINEE_ATTIVE.map((l) => (
+            <Chip key={l} label={l} on={linea === l} onPress={() => setLinea(linea === l ? null : l)} />
+          ))}
+        </View>
+
         <Text style={styles.campoLabel}>Tipologia (per il budget)</Text>
         <View style={styles.chips}>
           {TIPOLOGIE.map((t) => (
@@ -1162,6 +1194,7 @@ function ModificaRichiesta({
   const [descrizione, setDescrizione] = useState(r.descrizione);
   const [importo, setImporto] = useState(scriviImporto(r.importo));
   const [canale, setCanale] = useState<CanaleRichiesta>(r.canale);
+  const [linea, setLinea] = useState<string | null>(r.linea ?? null);
   const [tipologia, setTipologia] = useState<TipologiaRichiesta>(r.tipologia);
   const [serveEntro, setServeEntro] = useState<string | null>(r.serve_entro);
   const [nota, setNota] = useState(r.nota ?? '');
@@ -1193,6 +1226,7 @@ function ModificaRichiesta({
         descrizione: descrizione.trim(),
         importo: valore,
         canale,
+        linea,
         tipologia,
         serve_entro: serveEntro,
         nota: nota.trim() || null,

@@ -546,6 +546,10 @@ export interface RichiestaCliente {
   /** Facoltativo: si scrive la richiesta prima di sapere quanto costa. */
   importo: number | null;
   canale: CanaleRichiesta;
+  /** La linea di interesse su cui si vende (migr. 0087). Viaggia nell'ordine
+   *  che nasce da qui: senza, ogni ordine da richiesta restava fuori dai conti
+   *  per linea. Null = non indicata, mai dedotta. */
+  linea?: string | null;
   tipologia: TipologiaRichiesta;
   stato: StatoRichiestaCliente;
   serve_entro: string | null;
