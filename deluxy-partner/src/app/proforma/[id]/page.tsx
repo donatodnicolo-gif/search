@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt, pctIt } from "@/lib/format";
-import { CHIAVI, leggiImpostazioni } from "@/lib/impostazioni";
 import { totaliProForma, importoRiga, rifProForma, statiDi } from "@/lib/proforma";
 import { cambiaStatoProForma, deleteProForma } from "@/lib/proforma-actions";
 import { StampaButton } from "@/components/StampaButton";
+import { intestazionePerDocumento } from "@/lib/template-documento";
+import { DISCLAIMER_PREVENTIVO, DISCLAIMER_PROFORMA } from "@/lib/documento-costanti";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +21,12 @@ export default async function ProFormaDetail({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const [pf, imp] = await Promise.all([
-    prisma.proForma.findUnique({
-      where: { id },
-      include: { partner: true, righe: { orderBy: { ordine: "asc" } } },
-    }),
-    leggiImpostazioni(),
-  ]);
+  // ⚠️ Le impostazioni generali non si leggono più qui: le legge
+  // `intestazionePerDocumento`, che sa scegliere fra template e ripiego.
+  const pf = await prisma.proForma.findUnique({
+    where: { id },
+    include: { partner: true, righe: { orderBy: { ordine: "asc" } } },
+  });
   if (!pf) notFound();
 
   const tot = totaliProForma(pf.righe);
@@ -38,10 +38,16 @@ export default async function ProFormaDetail({
   // è un'offerta, non un documento fiscale mancato.
   const preventivo = pf.tipo === "preventivo";
 
-  const intestazione = imp[CHIAVI.aziendaIntestazione] || "Deluxy";
-  const indirizzo = imp[CHIAVI.aziendaIndirizzo] || "";
-  const piva = imp[CHIAVI.aziendaPiva] || "";
-  const contatti = imp[CHIAVI.aziendaContatti] || "";
+  // ⚠️ L'INTESTAZIONE VIENE DAL TEMPLATE DEL DOCUMENTO, se ne ha uno
+  // (27/08/2026): logo e dati societari del brand con cui è stato emesso.
+  // Senza template si torna alle quattro righe generali di sempre — chi non usa
+  // i template non vede cambiare niente.
+  const ii = await intestazionePerDocumento(pf.templateId);
+  const intestazione = ii.ragioneSociale;
+  const indirizzo = ii.indirizzo;
+  const piva = ii.piva;
+  const contatti = ii.contatti;
+  const disclaimer = ii.disclaimer || (preventivo ? DISCLAIMER_PREVENTIVO : DISCLAIMER_PROFORMA);
 
   return (
     <>
@@ -93,9 +99,15 @@ export default async function ProFormaDetail({
       <div className="docpf card">
         <div className="docpf-top">
           <div>
+            {ii.logoDataUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={ii.logoDataUrl} alt="" className="docpf-logo" />
+            ) : null}
             <div className="docpf-brand">{intestazione}</div>
             {indirizzo && <div className="docpf-mittente">{indirizzo}</div>}
             {piva && <div className="docpf-mittente">P. IVA {piva}</div>}
+            {ii.codiceFiscale && <div className="docpf-mittente">C.F. {ii.codiceFiscale}</div>}
+            {ii.rea && <div className="docpf-mittente">REA {ii.rea}</div>}
             {contatti && <div className="docpf-mittente">{contatti}</div>}
           </div>
           <div className="docpf-titolo">
@@ -153,21 +165,17 @@ export default async function ProFormaDetail({
               <p><span className="docpf-label">Offerta valida fino al</span> {dataIt(pf.validoFino)}</p>
             )}
             {pf.note && <p style={{ whiteSpace: "pre-wrap" }}>{pf.note}</p>}
-            <p className="docpf-disclaimer">
-              {preventivo ? (
-                <>
-                  Il presente preventivo è un&apos;offerta commerciale e non costituisce fattura: i prezzi sono
-                  al netto dell&apos;IVA di legge, indicata nel riepilogo. All&apos;accettazione seguirà il documento
-                  di pagamento e, a saldo ricevuto, la fattura definitiva.
-                </>
-              ) : (
-                <>
-                  Il presente documento è una fattura pro-forma emessa a solo scopo informativo: non costituisce
-                  fattura ai sensi dell&apos;art. 21 del DPR 633/72, non è valida ai fini della detrazione IVA e non
-                  è titolo per la registrazione contabile. La fattura definitiva sarà emessa al ricevimento del pagamento.
-                </>
-              )}
-            </p>
+            {/* ⚠️ COME SI PAGA, sul documento (27/08/2026). Un foglio che chiede
+                soldi senza dire dove mandarli fa perdere un giro di mail: la
+                modalità e l'IBAN vengono dal template del brand. */}
+            {!preventivo && (ii.modalitaPagamento || ii.iban) && (
+              <p>
+                <span className="docpf-label">Pagamento</span> {ii.modalitaPagamento}
+                {ii.iban ? `${ii.modalitaPagamento ? " — " : ""}IBAN ${ii.iban}` : ""}
+                {ii.intestatarioConto ? ` (intestato a ${ii.intestatarioConto})` : ""}
+              </p>
+            )}
+            <p className="docpf-disclaimer">{disclaimer}</p>
           </div>
           <div className="docpf-totali">
             {tot.perAliquota.map((a) => (

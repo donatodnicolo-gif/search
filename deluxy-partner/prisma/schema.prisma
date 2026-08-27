@@ -400,6 +400,11 @@ model ProForma {
   // l'impegno, e non coincide con quella del documento).
   validoFino    DateTime?
   accettatoIl   DateTime?
+  // Con quale intestazione è stato emesso (logo e dati societari del brand).
+  // ⚠️ `SetNull`: cancellare un template non deve cancellare i documenti che ha
+  // generato — quelli restano e tornano all'intestazione generale.
+  templateId    String?
+  template      TemplateDocumento? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   righe         ProFormaRiga[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -408,6 +413,52 @@ model ProForma {
   @@index([stato, data])
   @@index([partnerId])
   @@index([tipo, stato])
+  @@index([templateId])
+}
+
+/// L'INTESTAZIONE DEI DOCUMENTI, UNA PER BRAND (27/08/2026).
+///
+/// Prima esisteva una sola intestazione, in quattro righe di `Impostazione` e
+/// senza logo. Ma i brand del gruppo sono tre, e un documento che esce con
+/// l'intestazione del brand sbagliato è un documento che il cliente non
+/// riconosce. Qui stanno logo, dati societari, coordinate di pagamento e il
+/// testo di legge — cioè tutto ciò che di una pro-forma non dipende dal
+/// singolo documento.
+///
+/// ⚠️ È un sovrascrittore, non un obbligo: senza template il documento usa
+/// l'intestazione generale di sempre.
+model TemplateDocumento {
+  id                 String   @id @default(cuid())
+  nome               String   @unique // come si chiama per chi lo sceglie
+  brand              String?  @unique // deluxy.it | deluxyflowers.com | cakedesign.me
+  attivo             Boolean  @default(true)
+  predefinito        Boolean  @default(false) // uno solo: lo impone un indice parziale
+
+  // Chi emette: i dati che la legge chiede in testa a una pro-forma.
+  ragioneSociale     String
+  indirizzo          String?
+  piva               String?
+  codiceFiscale      String?
+  rea                String?
+  contatti           String? // telefono · email · sito, su una riga
+  // Data URI di proposito: il documento si stampa, e un logo ospitato fuori
+  // sparisce dal PDF il giorno che quell'host cambia.
+  logoDataUrl        String?
+
+  // Come si paga: un documento che chiede soldi senza dire dove mandarli fa
+  // perdere un giro di mail.
+  iban               String?
+  intestatarioConto  String?
+  modalitaPagamento  String?
+
+  // Cosa c'è scritto in calce.
+  noteDefault        String?
+  disclaimer         String? // la formula di legge, se si vuole cambiarla
+  aliquotaIvaDefault Float    @default(22)
+
+  documenti          ProForma[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 // Riga di dettaglio della pro-forma: importo riga = quantita * prezzoUnitario.
