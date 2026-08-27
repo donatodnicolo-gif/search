@@ -31,7 +31,9 @@ interface QuoteRequest {
 }
 
 const STATUS_META: Record<string, { key: string; color: string }> = {
-  aperta: { key: 'quotes.status.aperta', color: '#B8963E' },
+  // ⚠️ DIFETTO 6 (Libro UX cap.5): l'oro NON e' uno stato. «Aperta» attende
+  // un'azione → --orange (#c93400); «in lavorazione» resta blu.
+  aperta: { key: 'quotes.status.aperta', color: '#c93400' },
   in_lavorazione: { key: 'quotes.status.in_lavorazione', color: '#0071e3' },
   risposta: { key: 'quotes.status.risposta', color: '#248A3D' },
 };

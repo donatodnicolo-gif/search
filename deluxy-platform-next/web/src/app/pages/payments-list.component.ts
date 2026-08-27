@@ -21,7 +21,9 @@ interface Payment {
 }
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
-  REQUESTED: { label: 'Richiesto', color: '#B8963E' },
+  // ⚠️ DIFETTO 6 (Libro UX cap.5): l'oro NON e' mai uno stato. «Richiesto»
+  // attende un'azione → --orange (#c93400).
+  REQUESTED: { label: 'Richiesto', color: '#c93400' },
   APPROVED: { label: 'Approvato', color: '#007aff' },
   REJECTED: { label: 'Rifiutato', color: '#d70015' },
   PAID: { label: 'Pagato', color: '#248A3D' },

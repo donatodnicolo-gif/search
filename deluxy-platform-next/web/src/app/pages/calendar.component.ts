@@ -6,6 +6,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 import { DELIVERY_STATUS_LABELS } from '../core/models';
+import { coloreStato } from '../core/stati-consegna';
 
 interface CalDay { date: string; total: number; byStatus: Record<string, number> }
 interface DeliveryLite {
@@ -24,11 +25,10 @@ interface DeliveryLite {
 interface Override { mode: 'blocked' | 'timed'; from?: string | null; to?: string | null; note?: string | null }
 interface Cell { ymd: string; day: number; inMonth: boolean; isToday: boolean; count: number; closed: boolean; ov: 'none' | 'blocked' | 'timed' }
 
-const STATUS_COLOR: Record<string, string> = {
-  created: '#d70015', assigned: '#e6b800', in_preparation: '#ff9500', accepted: '#007aff',
-  in_delivery: '#af52de', cancellation_requested: '#5ac8fa', delivered: '#248a3d',
-  approved: '#248a3d', delivered_time_to_approve: '#ff9500', invalidated: '#8a8a8e',
-};
+// ⚠️ DIFETTO 4/5: la copia locale di STATUS_COLOR e' stata rimossa. Il colore
+// dello stato ora viene dalla mappa UNICA `core/stati-consegna.ts` (prima qui
+// mancavano not_delivered/not_accepted e uscivano grigi; accepted era #007aff e
+// in_delivery #af52de, divergenti dalla lista).
 
 /**
  * Calendario mensile: ogni giorno con consegne è marcato; il click apre l'elenco.
@@ -464,7 +464,7 @@ export class CalendarComponent {
   }
 
   statusLabel(s: string): string { return DELIVERY_STATUS_LABELS[s] ?? s; }
-  color(s: string): string { return STATUS_COLOR[s] ?? '#8a8a8e'; }
+  color(s: string): string { return coloreStato(s); }
 
   private ymd(d: Date): string { return d.toISOString().slice(0, 10); }
 }

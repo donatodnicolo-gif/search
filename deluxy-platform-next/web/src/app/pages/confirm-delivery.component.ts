@@ -92,12 +92,15 @@ interface PublicTracking {
       dd { margin: 0; }
       .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 980px; padding: 3px 12px; font-size: 12.5px; font-weight: 550; background: var(--fill); color: var(--text-secondary); }
       .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-tertiary); }
+      /* ⚠️ DIFETTO 4/5: gemello CSS di core/stati-consegna.ts (fonte unica). */
       .dot.s-created { background: var(--red); }
-      .dot.s-assigned { background: #e6b800; }
+      .dot.s-assigned { background: var(--amber); }
       .dot.s-in_preparation { background: #ff9500; }
       .dot.s-accepted { background: var(--blue); }
       .dot.s-in_delivery { background: var(--purple); }
       .dot.s-delivered, .dot.s-approved { background: var(--green); }
+      .dot.s-not_delivered, .dot.s-not_accepted { background: var(--red); }
+      .dot.s-cancelled, .dot.s-invalidated, .dot.s-archived { background: var(--grey); }
       .form { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; }
       .form label { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
       .form .btn { margin-top: 8px; align-self: flex-start; }

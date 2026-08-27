@@ -116,7 +116,12 @@ const SERVICE_ICONS: Record<string, string> = {
       <div class="state-card error-card">{{ error() }}</div>
     } @else if (deliveries().length === 0) {
       <div class="card state-card">
-        <strong>{{ 'deliveries.emptyTitle' | translate }}</strong>
+        <span class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 8.5 5 4.5h14l2 4M3 8.5V19a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8.5M3 8.5h6a3 3 0 0 0 6 0h6" />
+          </svg>
+        </span>
+        <strong class="empty-title">{{ 'deliveries.emptyTitle' | translate }}</strong>
         <span class="muted">{{ 'deliveries.emptyHint' | translate }}</span>
       </div>
     } @else {
@@ -582,13 +587,17 @@ const SERVICE_ICONS: Record<string, string> = {
         background: var(--text-tertiary);
         flex-shrink: 0;
       }
-      /* Colori allineati alla legenda dell'app reale (app.deluxy.it) */
+      /* Colori allineati alla legenda dell'app reale (app.deluxy.it).
+         ⚠️ DIFETTO 4/5: la FONTE UNICA di questi colori e' core/stati-consegna.ts
+         (consumata da calendario e mappa). Questo blocco CSS ne e' il gemello
+         per i pallini della lista: chi cambia un colore la' lo cambia anche qui,
+         altrimenti la lista e la mappa tornano a divergere. */
       .status-dot.s-created { background: var(--red); }                    /* Da gestire: rosso */
-      .status-dot.s-assigned { background: #e6b800; }                      /* In gestione: giallo */
-      .status-dot.s-in_preparation { background: #ff9500; }                /* In preparazione: arancione */
+      .status-dot.s-assigned { background: var(--amber); }                 /* In gestione: giallo (--amber) */
+      .status-dot.s-in_preparation { background: #ff9500; }                /* In preparazione: arancione legacy (nessun token) */
       .status-dot.s-accepted { background: var(--blue); }                  /* Accettata: blu */
       .status-dot.s-in_delivery { background: var(--purple); }             /* In consegna: viola */
-      .status-dot.s-cancellation_requested { background: #5ac8fa; }        /* Richiedi annullamento: azzurro */
+      .status-dot.s-cancellation_requested { background: #5ac8fa; }        /* Richiedi annullamento: azzurro legacy (nessun token) */
       .status-dot.s-delivered,
       .status-dot.s-approved { background: var(--green); }                  /* Consegnata e approvata: verde */
       .status-dot.s-delivered_time_to_approve { background: #ff9500; }      /* Ore da approvare: arancio */
@@ -604,7 +613,7 @@ const SERVICE_ICONS: Record<string, string> = {
       .status-dot.s-not_accepted { background: var(--red); }                /* Fallite: rosso pieno */
       .status-dot.s-cancelled,
       .status-dot.s-invalidated,
-      .status-dot.s-archived { background: #8a8a8e; }                       /* Annullate: grigio */
+      .status-dot.s-archived { background: var(--grey); }                   /* Annullate: grigio (--grey) */
 
       /* Legenda colori stato */
       .legend {

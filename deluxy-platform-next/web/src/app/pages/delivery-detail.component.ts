@@ -418,13 +418,17 @@ interface DeliveryDetail {
       .variante { margin-left: 6px; font-size: 11px; background: var(--fill); color: var(--text-secondary); border-radius: 980px; padding: 2px 8px; }
       .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 980px; padding: 3px 12px; font-size: 12.5px; font-weight: 550; background: var(--fill); color: var(--text-secondary); }
       .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-tertiary); }
+      /* ⚠️ DIFETTO 4/5: colori dal gemello CSS di core/stati-consegna.ts
+         (fonte unica). Tokenizzati dove esiste il token. */
       .dot.s-created { background: var(--red); }
-      .dot.s-assigned { background: #e6b800; }
+      .dot.s-assigned { background: var(--amber); }
       .dot.s-in_preparation { background: #ff9500; }
       .dot.s-accepted { background: var(--blue); }
       .dot.s-in_delivery { background: var(--purple); }
       .dot.s-cancellation_requested { background: #5ac8fa; }
       .dot.s-delivered, .dot.s-approved { background: var(--green); }
+      .dot.s-not_delivered, .dot.s-not_accepted { background: var(--red); }
+      .dot.s-cancelled, .dot.s-invalidated, .dot.s-archived { background: var(--grey); }
       .state-card { padding: 32px; color: var(--text-secondary); }
       .state-card.error { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); }
       @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }

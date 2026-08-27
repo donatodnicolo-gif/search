@@ -156,7 +156,10 @@ input.field {
   -webkit-appearance: none;
   border: 1px solid var(--hairline-strong);
   background: var(--surface);
-  border-radius: 10px;
+  /* ⚠️ DIFETTO 11 (Libro UX cap.4 «Campi … radius-m»): era 10px hardcoded, il
+     design system vuole 12px. Ora dal token, cosi' i campi hanno lo stesso
+     raggio delle card e dei bottoni piccoli. */
+  border-radius: var(--radius-m);
   padding: 8px 12px;
   font-size: 14px;
   font-family: inherit;
@@ -239,6 +242,105 @@ input.field {
   border: 1px solid var(--hairline);
   border-radius: var(--radius-l);
   box-shadow: var(--shadow-card);
+}
+
+/* ⚠️ DIFETTO 2 (Libro UX «Testata pagina», 27/08/2026) — 8 pagine usano
+   .page-header/.page-caption/.head-actions senza definirle localmente
+   (api-keys, delivery-rules, finance, provinces, recurring-services, sales-list,
+   sms-templates, valet-rules): il titolo usciva col default del browser (nero,
+   ~2em, senza tracking), la caption nera, le azioni impilate a capo a sinistra.
+   Il vestito canonico stava SOLO dentro i singoli componenti (16 pagine) e la
+   .page-header globale esisteva SOLO dentro @media(max-width:800px). Qui la
+   regola e' GLOBALE col vestito canonico: le pagine che la ridefiniscono
+   localmente (stili scoped, piu' specifici) continuano a vincere; le 8 rotte la
+   ereditano. La regola in @media aggiunge solo gap:10px (display:flex e wrap
+   arrivano gia' da qui): resta compatibile. */
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.page-header h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.page-caption {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.page-actions,
+.head-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ⚠️ DIFETTO 8 (Libro UX cap.6 «Errore») — .error-card/.ok-card sono usate
+   come stato in 3 punti che NON le definiscono localmente (availability-board
+   e recurring-services per l'errore, deliveries-list per l'esito di massa):
+   restavano card bianche o testo nudo perche' lo stile stava solo scoped nelle
+   altre pagine. Qui la coppia diventa un fallback GLOBALE col pattern del Libro
+   (tinta -soft + bordo 15% + testo pieno); le pagine con def locale (scoped)
+   continuano a vincere e non cambiano. */
+.error-card {
+  background: var(--red-soft);
+  border: 1px solid color-mix(in srgb, var(--red) 15%, transparent);
+  color: var(--red);
+  padding: 14px;
+  border-radius: var(--radius-l);
+}
+.ok-card {
+  background: var(--green-soft);
+  border: 1px solid color-mix(in srgb, var(--green) 15%, transparent);
+  color: var(--green);
+  padding: 14px;
+  border-radius: var(--radius-l);
+}
+
+/* ⚠️ DIFETTO 16 (DS §2.6 «press scale»): le righe cliccabili (.row-link, usata
+   in 9 liste) confermano il tocco con un micro-affondo, come i bottoni. Su una
+   riga a piena larghezza .98 sposterebbe troppo: si usa un valore sobrio. */
+.row-link {
+  transition: background 0.14s ease, transform 0.12s var(--ease);
+}
+.row-link:active {
+  transform: scale(0.99);
+}
+
+/* ⚠️ DIFETTO 7 (Libro UX cap.6 «Empty»): il vuoto canonico ha icona in
+   quadratino gold-soft + titolo title-m + frase che insegna (+ azione). Prima
+   l'empty era solo <strong> + testo. Queste classi condivise danno il vestito
+   canonico; applicate a deliveries-list come riferimento. Le altre liste
+   migrano quando si estrae il componente empty condiviso (annotato). */
+.empty-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-m);
+  background: var(--gold-soft);
+  color: var(--gold-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.empty-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.empty-title {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0 0 2px;
 }
 
 /* Menu autocomplete indirizzi di Google Places: sopra la UI dell'app. */

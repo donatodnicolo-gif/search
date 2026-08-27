@@ -15,6 +15,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { loadGoogleMaps } from '../core/google-maps';
 import { DELIVERY_STATUS_LABELS } from '../core/models';
+import { coloreStato } from '../core/stati-consegna';
 
 declare const google: any;
 
@@ -34,22 +35,10 @@ interface MapPoint {
   valet?: { firstName: string; lastName: string } | null;
 }
 
-/** Colore del pin per stato (allineato alla legenda della lista consegne). */
-const STATUS_COLOR: Record<string, string> = {
-  created: '#d70015',
-  assigned: '#e6b800',
-  in_preparation: '#ff9500',
-  accepted: '#007aff',
-  in_delivery: '#af52de',
-  cancellation_requested: '#5ac8fa',
-  delivered: '#248a3d',
-  approved: '#248a3d',
-  delivered_time_to_approve: '#ff9500',
-  not_delivered: '#8a8a8e',
-  not_accepted: '#8a8a8e',
-  cancelled: '#8a8a8e',
-  invalidated: '#8a8a8e',
-};
+// ⚠️ DIFETTO 4/5: la copia locale del colore-per-stato e' stata rimossa. Ora il
+// pin usa la mappa UNICA `core/stati-consegna.ts`. Qui `not_delivered` e
+// `not_accepted` erano GRIGI (#8a8a8e) mentre nella lista erano ROSSI: lo stesso
+// stato con due letture opposte. Ora sono rossi ovunque.
 
 // Caricamento opzionale del clusterer (degrada a marker singoli se non disponibile).
 let clustererScriptPromise: Promise<boolean> | null = null;
@@ -219,7 +208,7 @@ export class DeliveryMapComponent implements AfterViewInit, OnChanges, OnDestroy
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           scale: 7,
-          fillColor: STATUS_COLOR[p.status] ?? '#8a8a8e',
+          fillColor: coloreStato(p.status),
           fillOpacity: 1,
           strokeColor: '#fff',
           strokeWeight: 2,

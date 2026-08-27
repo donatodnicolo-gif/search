@@ -394,26 +394,30 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
         display: none;
       }
       .sidebar.collapsed .brand {
+        /* ⚠️ DIFETTO 17 (Libro UX cap.1): «logout e logo non spariscono mai» da
+           collassata. Prima brand-mark e logout avevano display:none: il logo D
+           e il tasto Esci sparivano. Ora il logo resta (incolonnato sopra la
+           freccia di espansione nei 68px). */
+        flex-direction: column;
         justify-content: center;
+        gap: 10px;
         padding: 4px 0 18px;
       }
       .sidebar.collapsed .collapse-btn {
         margin-left: 0;
         transform: rotate(180deg);
       }
-      .sidebar.collapsed .brand-mark {
-        display: none;
-      }
       .sidebar.collapsed .nav-link {
         justify-content: center;
         padding: 9px 0;
       }
       .sidebar.collapsed .user-box {
+        /* ⚠️ DIFETTO 17: il logout (a icona) resta raggiungibile anche da
+           collassata. Avatar, campanella e logout incolonnati. */
+        flex-direction: column;
         justify-content: center;
-        padding: 10px 0;
-      }
-      .sidebar.collapsed .logout {
-        display: none;
+        gap: 10px;
+        padding: 12px 0;
       }
 
       /* Topbar e overlay: nascosti su desktop */

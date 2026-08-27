@@ -20,7 +20,9 @@ interface Activity {
 }
 
 const STATI: Record<string, { etichetta: string; colore: string }> = {
-  pending: { etichetta: 'Da fare', colore: '#B8963E' },
+  // ⚠️ DIFETTO 6 (Libro UX cap.5): l'oro NON e' uno stato. «Da fare» attende
+  // un'azione → --orange (#c93400).
+  pending: { etichetta: 'Da fare', colore: '#c93400' },
   done: { etichetta: 'Fatta', colore: '#248A3D' },
   skipped: { etichetta: 'Saltata', colore: '#6e6e73' },
 };
