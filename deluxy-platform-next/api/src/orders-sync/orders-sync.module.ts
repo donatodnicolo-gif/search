@@ -744,6 +744,32 @@ export class CronMarginiController {
     const ricorrenti = await this.ricorrenti.genera().catch((e) => ({ ok: false, errore: (e as Error).message }));
     return { ...margini, valetFermi, ricorrenti };
   }
+
+  /**
+   * Lo SMISTAMENTO automatico degli ordini D2C, ogni 15 minuti (vercel.json).
+   *
+   * Legge gli ordini NUOVI da Orders e propone ai partner quelli idonei — SOLO
+   * prodotti unici o province dove abbiamo un partner (il filtro è in
+   * `sincronizza`); niente vendite orfane. Ogni ordine si propone una volta
+   * sola: idempotente su (source, id esterno), «già presente» non si ritocca.
+   *
+   * ⚠️ Con `applica:true` propone a PARTNER VERI. Attivato su decisione
+   * dell'utente (27/08/2026, cadenza 15′ = come il giro di Orders su Shopify).
+   * Salta i riservati al CS (`smistamento=manuale`) e i già evasi in chat.
+   *
+   * Identità = `CRON_SECRET`, verificata PRIMA di tutto (come `margini`).
+   */
+  @Get('smistamento')
+  @Public()
+  @ApiOperation({ summary: 'Ogni 15′: propone ai partner gli ordini idonei (unici o province con partner)' })
+  async smistamento(@Headers('authorization') authorization?: string) {
+    const segreto = process.env.CRON_SECRET ?? '';
+    if (!segreto || authorization !== `Bearer ${segreto}`) throw new UnauthorizedException();
+    // Solo la finestra recente (ultimi 3 giorni): leggero, così può girare ogni
+    // 15 minuti. Idempotente: ciò che è già proposto resta com'è.
+    const da = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return this.service.sincronizza({ applica: true, da, limite: 1000 });
+  }
 }
 
 @Module({
