@@ -45,9 +45,10 @@ Prima di lavorare, leggere **[deluxy-platform-next/docs/REGOLE-DI-LAVORO.md](del
 
 ## Design system (obbligatorio per ogni lavoro di UI)
 
-**Tutte le app — esistenti e nuove — seguono il Deluxy Design System**: [deluxy-design-system/DESIGN-SYSTEM.md](deluxy-design-system/DESIGN-SYSTEM.md).
+**Tutte le app — esistenti e nuove — seguono il Deluxy Design System**: [deluxy-design-system/DESIGN-SYSTEM.md](deluxy-design-system/DESIGN-SYSTEM.md) (token e componenti) **e il Libro UX&UI**: [deluxy-design-system/LIBRO-UX-UI.md](deluxy-design-system/LIBRO-UX-UI.md) (pattern vincolanti: navigazione, form, tabelle, stati, feedback, conferme, mobile — con l'implementazione di riferimento di ciascuno).
 
-- Prima di creare o modificare qualsiasi schermata, leggere quella specifica e usare i token in `deluxy-design-system/tokens/` (`tokens.css` per web, `theme.ts` per React Native, `tokens.json` come fonte).
+- Prima di creare o modificare qualsiasi schermata, leggere quelle specifiche e usare i token in `deluxy-design-system/tokens/` (`tokens.css` per web, `theme.ts` per React Native, `tokens.json` come fonte).
+- Per decidere COME va fatto un elemento di interfaccia o arbitrare fra due pattern divergenti: agente **`architetto-ux`** (`.claude/agents/architetto-ux.md`); i casi nuovi entrano prima nel Libro, poi nelle app.
 - Mai hardcodare colori, radius, ombre o font che esistono come token.
 - Stile: linguaggio Apple — sfondo `#F5F5F7`, superfici bianche con bordi hairline, bottoni a pillola (primari neri, mai oro), badge di stato a pillola con dot, sidebar chiara traslucida, tipografia di sistema con tracking negativo sui titoli, oro `#B8963E` solo come accento.
 - Se serve un componente o token nuovo: aggiungerlo prima al design system (con bump di versione), poi usarlo nell'app.

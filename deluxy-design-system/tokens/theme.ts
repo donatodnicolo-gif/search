@@ -1,7 +1,9 @@
 /**
- * Deluxy Design System — token per React Native / Expo (v1.0)
+ * Deluxy Design System — token per React Native / Expo (v1.4)
  * Fonte: deluxy-design-system/tokens/tokens.json
  * Le app mobile (es. Deluxy Scout) mappano gradualmente i loro theme locali su questi token.
+ * ⚠️ MAI lo swap secco dell'import: le chiavi in collisione col theme locale
+ * (es. spacing.md locale=16 vs qui 12) si RINOMINANO prima (Libro UX&UI, cap. 12).
  */
 
 export const colors = {
@@ -22,11 +24,33 @@ export const colors = {
   goldStrong: '#A07F2C',
   goldSoft: 'rgba(184, 150, 62, 0.12)',
   blue: '#0071E3',
+  blueSoft: 'rgba(0, 113, 227, 0.10)',
   green: '#248A3D',
+  greenSoft: 'rgba(36, 138, 61, 0.11)',
   orange: '#C93400',
+  orangeSoft: 'rgba(201, 52, 0, 0.10)',
   red: '#D70015',
+  redSoft: 'rgba(215, 0, 21, 0.09)',
   purple: '#6D3FC4',
+  purpleSoft: 'rgba(109, 63, 196, 0.10)',
+  /** Testo e icone su ink/gold e superfici scure. */
+  onInk: '#FFFFFF',
+  /** Stato neutro/terminato (annullata, archiviata, bozza). */
+  grey: '#8A8A8E',
+  /** SOLO incassi dentro card (segmented, blocchi codice/chiave). */
+  surfaceSunken: '#ECECEF',
+  /** Velo dietro modali e fogli. */
+  scrim: 'rgba(0, 0, 0, 0.32)',
+  /** I due capi del gradiente del logo. */
+  logoDarkA: '#1D1F26',
+  logoDarkB: '#3A3D47',
 } as const;
+
+/** Bersaglio minimo su touch: min-height/area di ogni elemento interattivo. */
+export const touchMin = 44;
+
+/** Soglia unica largo/stretto (px). Scout la usa già; le app nuove partono da qui. */
+export const breakpointMobile = 900;
 
 /** Sfondo badge = tinta 9–12%, testo = colore pieno. */
 export const statusTint = {
