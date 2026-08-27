@@ -931,8 +931,19 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
       (facoltativa: senza, si usa la password come prima ma con scadenza vera).
       Confronto a **tempo costante** anche sulla password, e 400 ms di attesa su ogni
       tentativo sbagliato.
-   9. **Intestazioni**: c'era solo HSTS (di Vercel) → aggiunte **CSP**,
+   9. ⚠️ **Intestazioni — e un errore mio, con la sua lezione.** C'era solo HSTS
+      (di Vercel) → aggiunte **CSP**,
       `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`.
+      ⚠️⚠️ **La prima CSP ha ROTTO la produzione**: scritta senza `unsafe-inline`
+      sugli script, ha bloccato i sette script in linea con cui Next idrata l'App
+      Router, e la pagina di login è rimasta morta («Connection closed»). Trovato
+      **aprendo il sito col browser**, non guardando il build — che passava. Corretta
+      e ripubblicata subito. **Una CSP che rompe l'app non protegge niente**: si
+      allenta e lo si scrive. Resta comunque bloccato ciò che conta di più (script da
+      origini esterne, `object-src`, dirottamento di `base-uri`, form verso domini
+      terzi, incorniciamento); non è più bloccato uno script in linea iniettato in
+      pagina. La via giusta è il **nonce per richiesta** dal middleware, che però
+      impone il rendering dinamico ovunque: è un cambio da misurare a parte.
    10. Tetto all'elenco `/api/v1/gruppi`, e i **`*.tmp.json`** (che contengono nomi,
        cellulari ed email dei referenti) ora sono ignorati da **git e da Vercel** —
        prima non lo erano da nessuno dei due.

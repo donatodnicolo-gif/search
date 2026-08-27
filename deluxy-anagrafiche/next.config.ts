@@ -13,7 +13,22 @@ import type { NextConfig } from "next";
 // Le immagini ammettono `data:` per i QR e le vCard generate nel browser.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-eval'",
+  // ⚠️⚠️ `unsafe-inline` sugli SCRIPT è una rinuncia, e va detto: senza, Next
+  // non parte. Provato in produzione il 27/08/2026 — la prima CSP scritta senza
+  // di esso ha bloccato sette script in linea di Next (idratazione e bootstrap
+  // dell'App Router) e la pagina di login è rimasta morta. Una CSP che rompe
+  // l'app non protegge niente: la si allenta e lo si scrive, non la si lascia
+  // rotta.
+  //
+  // Quello che questa CSP ferma comunque: script da ORIGINI esterne (una
+  // libreria iniettata da fuori non parte), `object-src`, il dirottamento di
+  // `base-uri`, l'invio di form a domini terzi e l'incorniciamento della pagina.
+  // Quello che NON ferma più: uno script in linea iniettato in pagina.
+  //
+  // La via giusta è il **nonce per richiesta** generato dal middleware, che Next
+  // supporta ma impone il rendering dinamico ovunque: è un cambio da fare con
+  // calma e da misurare, non nello stesso giro di una correzione di sicurezza.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
