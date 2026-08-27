@@ -70,9 +70,54 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 28 agosto 2026 — ambito del team leader (vedeva 2 consegne su 8) e PROVINCIA che nessuno scriveva (100% delle consegne nate qui); prima: chiavi app generabili dall'app, revisione di sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 28 agosto 2026 — ricorrenti lunghi a LOTTI (93 ms a consegna, misurati) e ore calcolate per i servizi a ora; prima: ambito del team leader, provincia mai scritta, chiavi app generabili dall'app, revisione di sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### ⏱️ 28/08/2026 — Un ricorrente lungo non blocca più il salvataggio (lotti da 150), e le ORE
+
+Domanda dell'utente: «se carico 1 servizio ricorrente con 1000 consegne
+rischiamo di bloccare l'app? magari caricando 15 consegne ogni minuto».
+
+**Misurato, non stimato**: una consegna generata costa **93 ms** (365 in 33,8
+s). Mille sarebbero **93 secondi** sul tasto Salva — dentro i 300 s della
+funzione (ce ne stanno ~3.200), ma inaccettabili. E soprattutto **la corsa
+notturna fa TUTTI i ricorrenti in una invocazione**: tre servizi lunghi e il
+tetto lo sfondi davvero.
+
+Il lavoro adesso si spezza in tre:
+
+| quando | quanto | perché |
+|---|---|---|
+| **Creazione/modifica** | 14 giorni | il tasto risponde subito, e il presidio si vede sul calendario |
+| **Cron dei 15′** (quello dello smistamento) | lotto da **150** (~14 s) | 150 ogni quarto d'ora = 14.400 al giorno |
+| **Corsa notturna** | tetto **600** (~56 s) | nessuno aspetta: recupera l'arretrato |
+
+⚠️ Il riempimento sta **in coda** allo smistamento, non prima (quello ha una
+finestra di 3 giorni), e dentro un `catch`: un riempimento storto non deve far
+fallire il lavoro principale della corsa. È **idempotente**, quindi due corse
+sovrapposte non raddoppiano; e il tetto raggiunto si **dichiara**
+(`mancanoAncora`) — «create 150» letto come «ho finito» lascerebbe il resto
+del periodo vuoto senza che nessuno lo sappia.
+
+**Le ORE nei ricorrenti** (stessa richiesta): erano due modi di dire la stessa
+cosa e potevano **contraddirsi** — 09:00–10:00 con «3 ore» non è un dato, e la
+paga del valet si calcola sulle ORE, quindi vinceva il numero mentre a schermo
+si leggeva la fascia. Adesso per i servizi **a ora** si scrive inizio + quante
+ore e la fine si **calcola** (mostrata sotto il campo); per gli altri resta la
+fascia. ⚠️ Il calcolo va in **modulo 24**: parte alle 23 e dura 3 ore → 02:00,
+non «26:00».
+
+✅ **Misurato** (`scripts/prova-riempimento-lotti.mjs`, 365 consegne
+usa-e-getta): salvataggio **201 in 2,3 s** con 14 create (prima ~34 s) · cron
+senza segreto **401** · giro 1 → 164/365 «mancano ancora» · giro 2 → 314/365 ·
+giro 3 → **365/365, 0 mancanti**, dal 27/08/2026 al 26/08/2027.
+
+⚠️ La prima corsa della prova chiamava il **bottone dell'ufficio** invece della
+rotta del cron: due tetti diversi (600 e 150), e provare quello sbagliato non
+diceva niente sul comportamento vero.
+
+Deploy `delivery-b6ly22o17`.
 
 ### 🧭 28/08/2026 — Il team leader vedeva 2 consegne su 8, e nessuno scriveva la PROVINCIA
 
