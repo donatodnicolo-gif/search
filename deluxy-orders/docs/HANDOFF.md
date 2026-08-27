@@ -5,6 +5,50 @@ Stato al **26/08/2026** (sezione qui sotto; il corpo del documento
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
 
+## 27/08/2026 — Audit di sicurezza (red-team + verifica ostile): la porta esterna TIENE, due hardening
+
+Su richiesta utente: un agente **red-team** ha cercato brecce (accesso esterno a
+API non consentite, injection, SSRF, auth), un secondo agente **ostile** ha
+demolito i rilievi prima di correggere.
+
+⭐ **VERDETTO: nessuna breccia esterna.** Ogni rotta dati autentica PRIMA di
+rispondere — `/api/v1/*` con la chiave (`autentica()`), `/api/cron/sync` con
+`CRON_SECRET`, UI/CSV/server action dietro la password nel middleware.
+Verificato **dal vivo** (401 senza chiave, 401 chiave falsa, read-key non
+scrive, 307→/login per UI/CSV) e in codice. **Niente SQL injection** (raw query
+tutte a segnaposto `$N`; `${SCHEMA}` viene da `DATABASE_URL`, non dall'utente),
+**niente SSRF** (host dei `fetch` da env/DB fidati), **niente segreti** hardcodati,
+e il **CVE-2025-29927** (bypass middleware) NON è sfruttabile (Next 15.5.21).
+
+**Corretti (i 2 sopravvissuti alla verifica ostile):**
+- **M3 — il cookie di sessione ora è un HMAC vero.** Era `SHA-256("deluxy-orders::"+password)`:
+  non chiavato, quindi un cookie trapelato permetteva il **brute-force offline
+  della password di team** (riusata su altre app → movimento laterale). Ora è
+  **HMAC-SHA256 con `APP_SECRET`** (segreto server, Standard §4.4), via
+  `crypto.subtle` (gira in Edge e Node). `src/lib/auth.ts`. ⚠️ **Impostato
+  `APP_SECRET` su Vercel** (3 ambienti). ⚠️ Al deploy **le sessioni attuali
+  cadono una volta** (i vecchi cookie SHA-256 sono rifiutati): tutti rifanno
+  login. Corretto anche il commento che diceva «HMAC» quando non lo era.
+- **B1 — header di sicurezza** in `next.config.ts`: `X-Frame-Options: DENY` +
+  CSP `frame-ancestors 'none'` (niente clickjacking su /login), `nosniff`,
+  `Referrer-Policy`. Niente CSP piena (romperebbe gli stili inline).
+
+**Verificato**: `tsc` + `next build` ok; in locale il middleware accetta il
+cookie HMAC (200), rifiuta il vecchio SHA-256 e l'assenza (307→/login), e i 4
+header ci sono.
+
+**Deliberatamente NON toccati (l'ostile li ha demoliti — non re-indurire):**
+- **Rate-limiter sul login** e **`timingSafeEqual`**: over-engineering su
+  serverless interno; la leva vera è una **`ORDERS_APP_PASSWORD` ad alta
+  entropia** (🔴 azione dell'utente, non codice — disinnesca sia brute-force
+  online sia offline). Il timing su rete è teorico e la toppa naïve rischia bug.
+- **Scope per-endpoint delle chiavi**: oltre lo Standard; revoca (`attiva`),
+  rotazione (`--rigenera`) e split lettura/scrittura ESISTONO già. Meglio:
+  chiavi in cassaforte Hub + rotazione periodica (operativo, non codice).
+- **CORS `*`, backstop auth nel middleware, messaggio d'errore del cron**:
+  pattern benedetto dallo Standard e non sfruttabili (auth via header, non
+  cookie; l'errore del cron lo vede solo chi ha già il `CRON_SECRET`).
+
 ## 27/08/2026 — Revisione UX a tre agenti (desktop + mobile + ostile), poi corretta
 
 Passata su richiesta utente: un agente ha misurato il layout **desktop**, uno il
