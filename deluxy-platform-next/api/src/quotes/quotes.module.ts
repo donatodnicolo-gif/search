@@ -100,8 +100,13 @@ export class QuotesService {
       return riserva('Collegamento a Deluxy Scout non configurato: elenco di riserva.');
     }
     try {
+      // ⭐ 26/08/2026 — `soloVetrina=1`: quali linee compaiono qui lo decide
+      // Scout, che ne è il master, con un flag per linea (Linee di interesse →
+      // «In vetrina»). Prima si chiedevano tutte le linee ATTIVE, e attivo
+      // vuol dire un'altra cosa: «Magazzino» è vivo commercialmente ma è un
+      // servizio interno, e finiva fra quelli che un partner può chiedere.
       const sep = url.includes('?') ? '&' : '?';
-      const res = await fetch(`${url}${sep}soloAttive=1`, { headers: { 'x-api-key': chiave } });
+      const res = await fetch(`${url}${sep}soloAttive=1&soloVetrina=1`, { headers: { 'x-api-key': chiave } });
       if (!res.ok) return riserva(`Scout risponde HTTP ${res.status}: elenco di riserva.`);
       const body = (await res.json()) as { linee?: LineaCommerciale[] };
       const linee = body.linee ?? [];
