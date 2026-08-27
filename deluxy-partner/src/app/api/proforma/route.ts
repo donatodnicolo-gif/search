@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
   const partnerRif = sp.get("partner")?.trim();
   const query = `proforma ${id ?? numero ?? partnerRif ?? "(vuota)"}`;
 
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "lettura"))) {
     await log(req, query, "non_autorizzato");
     return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
   }
@@ -197,7 +197,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "scrittura"))) {
     await log(req, "proforma (creazione)", "non_autorizzato");
     return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
   }
@@ -304,7 +304,7 @@ export async function POST(req: NextRequest) {
 // passa a "fatturata" (stesso passaggio del bottone "Fattura" nell'app),
 // con l'eventuale numero della fattura definitiva.
 export async function PATCH(req: NextRequest) {
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "scrittura"))) {
     await log(req, "proforma (conferma pagamento)", "non_autorizzato");
     return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
   }

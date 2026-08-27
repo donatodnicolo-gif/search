@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   const includiIgnorate = (sp.get("stato") ?? "").toLowerCase() === "tutte";
   const query = `spese ${anno}${mese ? `/${mese}` : dal !== 1 || al !== 12 ? ` ${dal}-${al}` : ""}`;
 
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "banca"))) {
     await prisma.richiestaVerifica.create({
       data: { origine: appOrigine(req), queryPartner: query, esito: "non_autorizzato", ip: ipRichiesta(req) },
     });

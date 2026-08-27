@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   const stato = (sp.get("stato") ?? "tutte").toLowerCase();
   const query = `tipologie ${anno}${mese ? `/${mese}` : dal !== 1 || al !== 12 ? ` ${dal}-${al}` : ""}`;
 
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "lettura"))) {
     await prisma.richiestaVerifica.create({
       data: { origine: appOrigine(req), queryPartner: query, esito: "non_autorizzato", ip: ipRichiesta(req) },
     });

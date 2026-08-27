@@ -9,8 +9,16 @@ import { sessioneCorrente, type Ruolo } from "./auth";
 // CHI: con un ACCOUNT PERSONALE (email+password) o entrando dal Hub, il nome
 // viaggia FIRMATO nel cookie di sessione ed è quello che si annota. Con la
 // password di team un nome non esiste: si registra l'etichetta del profilo
-// ("Accesso a password"). Il vecchio cookie in chiaro `dp_utente` resta letto
-// solo per le sessioni aperte prima del cambio, e sparisce da sé alla scadenza.
+// ("Accesso a password").
+//
+// ⚠️ 27/08/2026 — il ripiego sul vecchio cookie in chiaro `dp_utente` è stato
+// TOLTO. Lo scriveva il client, quindi bastava un
+// `document.cookie='dp_utente={"nome":"un collega"}'` perché le proprie
+// modifiche comparissero in /impostazioni/logs sotto il nome di un altro: non
+// è elevazione di privilegio, è ripudio dell'audit — e un registro che si può
+// intestare a chi si vuole non è un registro. Nessun codice lo scrive più (i
+// riferimenti rimasti lo cancellano soltanto) e le sessioni che lo portavano
+// sono scadute da un pezzo.
 
 export const COOKIE_UTENTE = "dp_utente";
 
@@ -40,25 +48,11 @@ export async function attoreCorrente(): Promise<Attore> {
     if (sessione?.tipo === "utente" && sessione.nome.trim()) {
       return { utente: sessione.nome.trim(), utenteId: sessione.uid || null, ruolo };
     }
-    const raw = jar.get(COOKIE_UTENTE)?.value;
-    if (raw) {
-      try {
-        const p = JSON.parse(decodeURIComponent(raw)) as { nome?: string; uid?: string };
-        if (p.nome?.trim()) return { utente: p.nome.trim(), utenteId: p.uid ?? null, ruolo };
-      } catch {
-        // cookie in formato vecchio/manomesso: si ignora e si usa il fallback
-      }
-    }
     const etichetta = ruolo === "sola_lettura" ? "Accesso sola lettura" : ruolo === "admin" ? "Accesso a password" : "Sistema";
     return { utente: etichetta, utenteId: null, ruolo };
   } catch {
     return { utente: "Sistema", utenteId: null, ruolo: null };
   }
-}
-
-// Serializza il nome per il cookie `dp_utente` (lo scrive il flusso SSO).
-export function cookieUtente(nome: string, uid?: string): string {
-  return encodeURIComponent(JSON.stringify({ nome, uid }));
 }
 
 type VoceRegistro = {

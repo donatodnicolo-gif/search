@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const anno = parseInt(sp.get("anno") ?? "") || ANNO_CORRENTE;
 
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "lettura"))) {
     await prisma.richiestaVerifica.create({
       data: { origine: appOrigine(req), queryPartner: `vendor ${anno}`, esito: "non_autorizzato", ip: ipRichiesta(req) },
     });

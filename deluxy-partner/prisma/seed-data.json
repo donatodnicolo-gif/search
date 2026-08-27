@@ -11508,7 +11508,7 @@
      "saldoCompensazione": 278.16,
      "bonifico": -278.16,
      "netto": 0,
-     "note": "IBAN per Mandato SEPA IT75L0306901791100000006025"
+     "note": "IBAN per Mandato SEPA [IBAN rimosso]"
     },
     {
      "mese": 2,
@@ -11664,7 +11664,7 @@
      "saldoCompensazione": -59.724,
      "bonifico": 59.72,
      "netto": -0.004,
-     "note": "IT48F0569601615000009028X75"
+     "note": "[IBAN rimosso]"
     },
     {
      "mese": 2,
@@ -13224,7 +13224,7 @@
      "saldoCompensazione": 0,
      "bonifico": null,
      "netto": 0,
-     "note": "IBAN IT96L0569603200000011687X57 (ANTONELLO DI MEGLIO)"
+     "note": "IBAN [IBAN rimosso] (ANTONELLO DI MEGLIO)"
     },
     {
      "mese": 2,

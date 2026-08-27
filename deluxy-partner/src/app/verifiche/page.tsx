@@ -5,6 +5,7 @@ import { SESSION_COOKIE, sessioneCorrente } from "@/lib/auth";
 import { randomBytes } from "crypto";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { CHIAVE_LEGACY, CHIAVE_PER_SCOPE, type ScopeApi } from "@/lib/apiauth";
 import { dataIt } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,35 @@ async function generaChiave() {
   });
   revalidatePath("/verifiche");
   redirect("/verifiche?generata=1");
+}
+
+// Le chiavi a SCOPE: una per permesso, generabili una alla volta. La chiave
+// unica storica resta valida su tutti gli scope finché non la si rigenera o
+// cancella — spegnerla di colpo romperebbe hub, mail, scout, orders e la
+// piattaforma insieme.
+const SCOPES: { scope: ScopeApi; titolo: string; cosaApre: string }[] = [
+  { scope: "lettura", titolo: "Lettura", cosaApre: "verifica partner, fatture, incassi, tipologie, stato del credito, riepiloghi, vendor, controllo ordini" },
+  { scope: "banca", titolo: "Banca", cosaApre: "estratto conto (/api/v1/movimenti) e uscite con causali e controparti (/api/spese)" },
+  { scope: "scrittura", titolo: "Scrittura", cosaApre: "creazione e modifica di pro-forma, task e anagrafiche partner" },
+];
+
+async function generaChiaveScope(scope: ScopeApi) {
+  "use server";
+  const valore = `dlxv_${scope}_` + randomBytes(24).toString("hex");
+  await prisma.impostazione.upsert({
+    where: { chiave: CHIAVE_PER_SCOPE[scope] },
+    create: { chiave: CHIAVE_PER_SCOPE[scope], valore },
+    update: { valore },
+  });
+  revalidatePath("/verifiche");
+  redirect(`/verifiche?generata=${scope}`);
+}
+
+// Una chiave si mostra INTERA solo nell'istante in cui la si genera: è l'unico
+// momento in cui serve copiarla. Il resto del tempo si vede che c'è, non qual è.
+function mascherata(v: string | null | undefined): string {
+  if (!v) return "—";
+  return v.length <= 10 ? "•".repeat(v.length) : `${v.slice(0, 5)}…${v.slice(-4)}`;
 }
 
 async function svuotaStorico() {
@@ -59,8 +89,9 @@ export default async function VerifichePage({
   const sessione = await sessioneCorrente(jar.get(SESSION_COOKIE)?.value);
   if (sessione?.ruolo !== "admin") redirect("/");
 
-  const [imp, richieste, conteggio] = await Promise.all([
-    prisma.impostazione.findUnique({ where: { chiave: "api.verificheKey" } }),
+  const [imp, chiaviScope, richieste, conteggio] = await Promise.all([
+    prisma.impostazione.findUnique({ where: { chiave: CHIAVE_LEGACY } }),
+    prisma.impostazione.findMany({ where: { chiave: { in: Object.values(CHIAVE_PER_SCOPE) } } }),
     prisma.richiestaVerifica.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
     prisma.richiestaVerifica.count(),
   ]);
@@ -95,7 +126,12 @@ const dati = await res.json();
 
       {sp.generata && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
-          <span className="badge green"><span className="dot" />Nuova chiave generata — le chiavi precedenti non funzionano più</span>
+          <span className="badge green">
+            <span className="dot" />
+            {sp.generata === "1"
+              ? "Nuova chiave storica generata — la precedente non funziona più"
+              : `Nuova chiave «${sp.generata}» generata — la precedente per quel permesso non funziona più`}
+          </span>
         </div>
       )}
 
@@ -104,7 +140,7 @@ const dati = await res.json();
         {chiave ? (
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <code style={{ flex: "1 1 320px", padding: "10px 12px", background: "var(--bg)", borderRadius: "var(--radius-m)", border: "1px solid var(--hairline)", fontSize: 13, wordBreak: "break-all" }}>
-              {chiave}
+              {sp.generata === "1" ? chiave : mascherata(chiave)}
             </code>
             <form action={generaChiave}>
               <button className="btn secondary" type="submit" title="Genera una nuova chiave (invalida quella attuale)">Rigenera</button>
@@ -121,9 +157,58 @@ const dati = await res.json();
           </div>
         )}
         <p className="muted" style={{ fontSize: 12.5, marginTop: 12 }}>
-          Trattala come una password: dà accesso in sola lettura alla situazione finanziaria dei partner.
-          Va inviata nell&apos;header <code>X-API-Key</code> di ogni richiesta.
+          ⚠️ Questa è la <strong>chiave storica</strong>, e apre <strong>tutto</strong>: la stessa stringa che
+          serve a verificare un partner legge anche l&apos;estratto conto e scrive pro-forma, task e
+          anagrafiche. Si vede per intero <strong>solo subito dopo «Rigenera»</strong>. Va sostituita, un&apos;app
+          alla volta, con le chiavi a permesso qui sotto; quando nessuno la usa più, rigenerala e non
+          consegnarla a nessuno. Header <code>X-API-Key</code>.
         </p>
+      </div>
+
+      <h2 className="section-title">Chiavi per permesso</h2>
+      <div className="card">
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 14 }}>
+          Ogni rotta dichiara il permesso che richiede. Dai a ogni app <strong>solo</strong> la chiave che le
+          serve: chi deve sapere se un partner è in regola non deve poter leggere il conto corrente.
+          Finché esiste, la chiave storica resta valida su tutti i permessi: si migra un&apos;app alla volta,
+          senza spegnere niente.
+        </p>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Permesso</th><th>Cosa apre</th><th>Chiave</th><th></th></tr>
+            </thead>
+            <tbody>
+              {SCOPES.map(({ scope, titolo, cosaApre }) => {
+                const valore = chiaviScope.find((c) => c.chiave === CHIAVE_PER_SCOPE[scope])?.valore ?? null;
+                const appenaGenerata = sp.generata === scope;
+                return (
+                  <tr key={scope}>
+                    <td style={{ fontWeight: 500 }}>{titolo}</td>
+                    <td className="muted" style={{ fontSize: 12.5, maxWidth: 340 }}>{cosaApre}</td>
+                    <td>
+                      <code style={{ fontSize: 12.5, wordBreak: "break-all" }}>
+                        {appenaGenerata ? valore : mascherata(valore)}
+                      </code>
+                      {appenaGenerata && (
+                        <div style={{ fontSize: 12, color: "var(--orange)", marginTop: 4 }}>
+                          Copiala adesso: dopo questa pagina non si rivede per intero.
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <form action={generaChiaveScope.bind(null, scope)}>
+                        <button className={valore ? "btn secondary small" : "btn primary small"} type="submit">
+                          {valore ? "Rigenera" : "Genera"}
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <h2 className="section-title">Come richiamarla da un altro progetto</h2>

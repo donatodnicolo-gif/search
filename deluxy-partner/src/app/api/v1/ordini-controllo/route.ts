@@ -20,7 +20,7 @@ import { chiaveApiValida } from "@/lib/apiauth";
 // dal registro. Il `numero` (#1234) è in più, per leggere la risposta.
 
 export async function GET(req: NextRequest) {
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "lettura"))) {
     return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
   }
 

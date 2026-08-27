@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { eseguiSyncOrdini } from "@/lib/ordini-sync";
 import { ordersConfigurato } from "@/lib/ordini-registro";
 import { env, pulisci } from "@/lib/env";
+import { segretoCombacia } from "@/lib/confronto";
 
 // Sincronizzazione automatica notturna degli ordini (cron Vercel, vedi
 // vercel.json). Scarica gli ordini recenti dal registro Deluxy Orders e li
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
   // Vercel farebbe fallire il match e il cron risponderebbe 401 tutte le notti
   // senza che nessuno se ne accorga.
   const inviato = pulisci(req.headers.get("authorization")?.replace(/^Bearer\s+/i, ""));
-  if (inviato !== segreto) {
+  if (!segretoCombacia(inviato, segreto)) {
     return NextResponse.json({ errore: "Non autorizzato." }, { status: 401 });
   }
 

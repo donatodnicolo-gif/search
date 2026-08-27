@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 
 // Callback OAuth Shopify: verifica l'autenticità (HMAC col client secret), scambia
@@ -36,12 +37,28 @@ export async function GET(req: NextRequest) {
   if (!CLIENT_SECRET) return esito("errore", "OAuth non configurato: manca SHOPIFY_CLIENT_SECRET su Vercel.");
   if (!hmacValido(sp, CLIENT_SECRET)) return esito("errore", "Verifica HMAC fallita: richiesta non autentica.");
 
-  // brand dallo state (lo avevamo messo noi all'avvio)
+  // Brand e NONCE dallo state (li avevamo messi noi all'avvio).
   let brand = "";
+  let nonceStato = "";
   try {
-    brand = (JSON.parse(Buffer.from(sp.get("state") ?? "", "base64url").toString())?.brand ?? "").trim();
+    const st = JSON.parse(Buffer.from(sp.get("state") ?? "", "base64url").toString()) as { brand?: string; n?: string };
+    brand = (st?.brand ?? "").trim();
+    nonceStato = (st?.n ?? "").trim();
   } catch {
-    /* state assente/illeggibile: si ripiega sul dominio */
+    /* state assente/illeggibile: nessun nonce, e sotto si rifiuta */
+  }
+
+  // ⚠️ Il nonce lega questo ritorno al browser che ha AVVIATO il collegamento.
+  // L'HMAC prova solo che la chiamata arriva da Shopify: senza il nonce,
+  // chiunque controlli un negozio .myshopify.com può presentarsi qui con uno
+  // state scelto da lui.
+  const nonceCookie = (await cookies()).get("shopify_oauth")?.value ?? "";
+  const nonceOk =
+    nonceStato.length > 0 &&
+    nonceCookie.length === nonceStato.length &&
+    crypto.timingSafeEqual(Buffer.from(nonceStato), Buffer.from(nonceCookie));
+  if (!nonceOk) {
+    return esito("errore", "Collegamento non riconosciuto: riavvia il collegamento da Impostazioni di FINANCE.");
   }
 
   // scambia il code con l'access token
@@ -66,6 +83,17 @@ export async function GET(req: NextRequest) {
     brand = esistente.brand;
   } else {
     if (!brand) brand = shop;
+    // ⚠️ Mai spostare un brand ESISTENTE su un altro negozio da qui: l'upsert
+    // per brand riscriveva dominio e token con quelli presi dallo state, e da
+    // lì in poi la sync ordini avrebbe letto dal negozio di chi ha avviato il
+    // giro. Un cambio di negozio è una decisione, si fa da FINANCE.
+    const perBrand = await prisma.negozioShopify.findUnique({ where: { brand } });
+    if (perBrand && perBrand.dominio && perBrand.dominio !== shop) {
+      return esito(
+        "errore",
+        `Il brand «${brand}» è già collegato a ${perBrand.dominio}: il cambio di negozio si fa da FINANCE, non dal ritorno OAuth.`
+      );
+    }
     await prisma.negozioShopify.upsert({
       where: { brand },
       create: { brand, dominio: shop, token, attivo: true },

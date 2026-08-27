@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { qontoConfigurato } from "@/lib/qonto";
 import { scaricaMovimentiQonto } from "@/lib/transazioni-actions";
 import { env, pulisci } from "@/lib/env";
+import { segretoCombacia } from "@/lib/confronto";
 
 // Sincronizzazione automatica dei movimenti Qonto (cron Vercel, vedi vercel.json).
 // Scarica i movimenti completati e li deduplica per hash: NON registra nulla e
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     );
   }
   // Confronto sui due valori ripuliti: vedi la nota nel cron degli ordini.
-  const autorizzato = pulisci(req.headers.get("authorization")?.replace(/^Bearer\s+/i, "")) === segreto;
+  const autorizzato = segretoCombacia(pulisci(req.headers.get("authorization")?.replace(/^Bearer\s+/i, "")), segreto);
   if (!autorizzato) {
     return NextResponse.json({ errore: "Non autorizzato." }, { status: 401 });
   }

@@ -21,7 +21,21 @@ export async function middleware(req: NextRequest) {
   }
 
   const password = process.env.PARTNER_APP_PASSWORD;
-  if (!password) return NextResponse.next(); // sviluppo locale: aperta
+  if (!password) {
+    // In locale l'app resta aperta: lavorare non deve richiedere di inventarsi
+    // una password. In PRODUZIONE no. Qui l'autorizzazione vive quasi tutta in
+    // questo file: senza la password non esiste sessione, e "lasciar passare"
+    // significherebbe pubblicare in SCRITTURA l'intera contabilità — senza che
+    // nulla lo segnali. Un 503 si vede subito; un'app aperta no.
+    const inProduzione = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL_ENV);
+    if (inProduzione) {
+      return new NextResponse(
+        "Configurazione incompleta: manca PARTNER_APP_PASSWORD. L'app è chiusa per sicurezza.",
+        { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } }
+      );
+    }
+    return NextResponse.next();
+  }
 
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;
   const ruolo = await ruoloDaSessione(cookie);
@@ -55,6 +69,12 @@ export const config = {
     // ordini-controllo): si autenticano da sé con X-API-Key. Senza questa
     // esclusione il middleware le manda al login e chi legge riceve la PAGINA
     // di login con stato 200, credendo di aver ricevuto dei dati.
-    "/((?!login|api/health|api/sso|api/fic/callback|api/shopify|api/verifiche|api/fatture|api/proforma|api/tipologie|api/incassi|api/tasks|api/riepilogo-finanziario|api/clienti|api/spese|api/vendor|api/pagamenti/notifica|api/cron|api/v1|_next/static|_next/image|favicon.ico).*)",
+    // ⚠️ Ogni voce è ANCORATA a fine segmento con `(?:/|$)`. Senza, i prefissi
+    // sono liberi: `api/fatture` escluderebbe dalla sessione anche una futura
+    // `/api/fatture-storico`, che nascerebbe pubblica senza che nessuno
+    // l'abbia deciso. Oggi non esiste una rotta in quella condizione: si ancora
+    // adesso, che non costa niente, per non scoprirlo il giorno in cui
+    // qualcuno aggiunge il file.
+    "/((?!login(?:/|$)|api/health(?:/|$)|api/sso(?:/|$)|api/fic/callback(?:/|$)|api/shopify/callback(?:/|$)|api/verifiche(?:/|$)|api/fatture(?:/|$)|api/proforma(?:/|$)|api/tipologie(?:/|$)|api/incassi(?:/|$)|api/tasks(?:/|$)|api/riepilogo-finanziario(?:/|$)|api/clienti(?:/|$)|api/spese(?:/|$)|api/vendor(?:/|$)|api/pagamenti/notifica(?:/|$)|api/cron(?:/|$)|api/v1(?:/|$)|_next/static(?:/|$)|_next/image(?:/|$)|favicon\.ico$).*)",
   ],
 };

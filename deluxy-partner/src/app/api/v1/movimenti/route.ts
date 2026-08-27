@@ -24,7 +24,7 @@ import { chiaveApiValida } from "@/lib/apiauth";
 // ordini non ne ha bisogno e i dati che non servono non si mandano fuori.
 
 export async function GET(req: NextRequest) {
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "banca"))) {
     return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
   }
 

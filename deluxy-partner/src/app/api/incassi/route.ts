@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   const origine = sp.get("origine")?.trim();
   const query = `incassi ${rif ?? partnerRif ?? origine ?? "periodo"}`;
 
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "lettura"))) {
     await prisma.richiestaVerifica.create({
       data: { origine: appOrigine(req), queryPartner: query, esito: "non_autorizzato", ip: ipRichiesta(req) },
     });

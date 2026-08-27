@@ -860,7 +860,7 @@
      "dataPagamento": null,
      "bonifico": -161.04,
      "netto": 0,
-     "note": "IBAN per Mandato SEPA IT75L0306901791100000006025"
+     "note": "IBAN per Mandato SEPA [IBAN rimosso]"
     },
     {
      "mese": 4,
@@ -878,7 +878,7 @@
      "dataPagamento": "2025-05-12",
      "bonifico": -292.8,
      "netto": 0,
-     "note": "IBAN per Mandato SEPA IT75L0306901791100000006025"
+     "note": "IBAN per Mandato SEPA [IBAN rimosso]"
     },
     {
      "mese": 5,
@@ -896,7 +896,7 @@
      "dataPagamento": null,
      "bonifico": -307.44,
      "netto": 0,
-     "note": "IBAN per Mandato SEPA IT75L0306901791100000006025"
+     "note": "IBAN per Mandato SEPA [IBAN rimosso]"
     },
     {
      "mese": 6,
@@ -914,7 +914,7 @@
      "dataPagamento": "2025-07-09",
      "bonifico": -278.16,
      "netto": 0,
-     "note": "IBAN per Mandato SEPA IT75L0306901791100000006025"
+     "note": "IBAN per Mandato SEPA [IBAN rimosso]"
     },
     {
      "mese": 7,
@@ -932,7 +932,7 @@
      "dataPagamento": "2025-08-07",
      "bonifico": -336.72,
      "netto": 0,
-     "note": "IBAN per Mandato SEPA IT75L0306901791100000006025"
+     "note": "IBAN per Mandato SEPA [IBAN rimosso]"
     },
     {
      "mese": 8,
@@ -973,7 +973,7 @@
     {
      "mese": 10,
      "fattEmessa": true,
-     "fattNumeri": "IBAN per Mandato SEPA IT75L0306901791100000006025",
+     "fattNumeri": "IBAN per Mandato SEPA [IBAN rimosso]",
      "fattSaldata": true,
      "fattImporto": 494,
      "commFattEmessa": null,
@@ -7031,7 +7031,7 @@
      "dataPagamento": "2025-07-28",
      "bonifico": 1834.12,
      "netto": -0.0012,
-     "note": "IT72B0326801605000886532200"
+     "note": "[IBAN rimosso]"
     },
     {
      "mese": 7,
@@ -7049,7 +7049,7 @@
      "dataPagamento": "2025-08-28",
      "bonifico": 687.7,
      "netto": -0.004,
-     "note": "IT72B0326801605000886532200"
+     "note": "[IBAN rimosso]"
     },
     {
      "mese": 8,
@@ -7090,7 +7090,7 @@
     {
      "mese": 10,
      "fattEmessa": true,
-     "fattNumeri": "IT72B0326801605000886532200",
+     "fattNumeri": "[IBAN rimosso]",
      "fattSaldata": false,
      "fattImporto": null,
      "commFattEmessa": null,
@@ -10250,7 +10250,7 @@
      "dataPagamento": "2025-08-28",
      "bonifico": 335.71,
      "netto": -0.004,
-     "note": "Da pagare giugno e luglio su nuovo IBAN IT96L0569603200000011687X57 (ANTONELLO DI MEGLIO)"
+     "note": "Da pagare giugno e luglio su nuovo IBAN [IBAN rimosso] (ANTONELLO DI MEGLIO)"
     },
     {
      "mese": 8,
@@ -10291,7 +10291,7 @@
     {
      "mese": 10,
      "fattEmessa": true,
-     "fattNumeri": "IBAN IT96L0569603200000011687X57 (ANTONELLO DI MEGLIO)",
+     "fattNumeri": "IBAN [IBAN rimosso] (ANTONELLO DI MEGLIO)",
      "fattSaldata": false,
      "fattImporto": null,
      "commFattEmessa": null,
@@ -10829,7 +10829,7 @@
      "dataPagamento": "2025-03-27",
      "bonifico": 94.5,
      "netto": 0,
-     "note": "Bonifico su nuovo IBAN: IT20X0623009467000031033428"
+     "note": "Bonifico su nuovo IBAN: [IBAN rimosso]"
     },
     {
      "mese": 3,
@@ -10847,7 +10847,7 @@
      "dataPagamento": "+020225-04",
      "bonifico": 249.48,
      "netto": 0,
-     "note": "Bonifico su nuovo IBAN: IT20X0623009467000031033428"
+     "note": "Bonifico su nuovo IBAN: [IBAN rimosso]"
     },
     {
      "mese": 4,
@@ -10865,7 +10865,7 @@
      "dataPagamento": null,
      "bonifico": null,
      "netto": 0,
-     "note": "Bonifico su nuovo IBAN: IT20X0623009467000031033428"
+     "note": "Bonifico su nuovo IBAN: [IBAN rimosso]"
     },
     {
      "mese": 5,
@@ -10883,7 +10883,7 @@
      "dataPagamento": null,
      "bonifico": null,
      "netto": 0,
-     "note": "Bonifico su nuovo IBAN: IT20X0623009467000031033428"
+     "note": "Bonifico su nuovo IBAN: [IBAN rimosso]"
     },
     {
      "mese": 6,
@@ -10901,7 +10901,7 @@
      "dataPagamento": null,
      "bonifico": null,
      "netto": 0,
-     "note": "Bonifico su nuovo IBAN: IT20X0623009467000031033428"
+     "note": "Bonifico su nuovo IBAN: [IBAN rimosso]"
     },
     {
      "mese": 7,
@@ -10919,7 +10919,7 @@
      "dataPagamento": null,
      "bonifico": null,
      "netto": 0,
-     "note": "Bonifico su nuovo IBAN: IT20X0623009467000031033428"
+     "note": "Bonifico su nuovo IBAN: [IBAN rimosso]"
     },
     {
      "mese": 8,
@@ -10960,7 +10960,7 @@
     {
      "mese": 10,
      "fattEmessa": null,
-     "fattNumeri": "Bonifico su nuovo IBAN: IT20X0623009467000031033428",
+     "fattNumeri": "Bonifico su nuovo IBAN: [IBAN rimosso]",
      "fattSaldata": null,
      "fattImporto": null,
      "commFattEmessa": null,

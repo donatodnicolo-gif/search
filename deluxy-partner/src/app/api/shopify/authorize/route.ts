@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 // Avvio OAuth Shopify: reindirizza il negozio alla pagina di autorizzazione.
 // Stesso schema dell'app di smistamento (client_id + scope + redirect_uri).
@@ -24,13 +25,27 @@ export async function GET(req: NextRequest) {
         encodeURIComponent("Dominio .myshopify.com del negozio non valido.")
     );
   }
-  // il brand viaggia dentro lo state (Shopify lo rimanda indietro nel callback)
-  const state = Buffer.from(JSON.stringify({ brand, shop })).toString("base64url");
+  // Il brand viaggia dentro lo state (Shopify lo rimanda indietro nel callback),
+  // insieme a un NONCE casuale che scriviamo anche in un cookie HttpOnly: al
+  // ritorno i due devono combaciare. Senza, lo state è solo un pezzo di testo
+  // che chiunque può comporre — e l'HMAC di Shopify prova che la chiamata viene
+  // da Shopify, non che l'abbia iniziata un nostro operatore. Stesso schema già
+  // usato per Fatture in Cloud.
+  const nonce = crypto.randomBytes(16).toString("base64url");
+  const state = Buffer.from(JSON.stringify({ brand, shop, n: nonce })).toString("base64url");
   const url =
     `https://${shop}/admin/oauth/authorize` +
     `?client_id=${encodeURIComponent(CLIENT_ID)}` +
     `&scope=${encodeURIComponent(SCOPES)}` +
     `&redirect_uri=${encodeURIComponent(REDIRECT)}` +
     `&state=${encodeURIComponent(state)}`;
-  return NextResponse.redirect(url);
+  const res = NextResponse.redirect(url);
+  res.cookies.set("shopify_oauth", nonce, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600,
+  });
+  return res;
 }

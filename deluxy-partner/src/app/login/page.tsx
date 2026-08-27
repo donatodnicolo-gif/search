@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
 import { creaSessione, DURATA_GIORNI } from "@/lib/sessione";
-import { registraAccesso } from "@/lib/accessi";
+import { registraAccesso, frenaTentativi } from "@/lib/accessi";
+import { segretoCombacia } from "@/lib/confronto";
 import { verificaCredenziali } from "@/lib/utenti";
 import { prisma } from "@/lib/db";
 
@@ -32,6 +33,8 @@ async function login(fd: FormData) {
         { utente: email.toLowerCase(), via: "email", esito: "fallito" },
         intestazioni
       );
+      // il freno si applica DOPO aver annotato, così conta anche questo
+      await frenaTentativi(intestazioni);
       // «Utente disattivato» si può dire: chi lo legge ha già dimostrato di
       // conoscere la password giusta, quindi non si sta rivelando niente.
       redirect(`/login?errore=${esito.motivo === "disattivato" ? "disattivato" : "credenziali"}`);
@@ -54,12 +57,18 @@ async function login(fd: FormData) {
   const password = process.env.PARTNER_APP_PASSWORD;
   const readonly = process.env.PARTNER_APP_PASSWORD_READONLY;
   // accetta la password piena o quella di sola lettura; il cookie codifica il ruolo
-  const usata = password && tentativo === password ? password : readonly && tentativo === readonly ? readonly : null;
+  // Confronto a tempo costante anche qui: è pur sempre un segreto.
+  const usata = segretoCombacia(tentativo, password)
+    ? password!
+    : segretoCombacia(tentativo, readonly)
+      ? readonly!
+      : null;
   if (!usata) {
     // Anche i tentativi sbagliati finiscono nel registro accessi: sono il solo
     // segnale che qualcuno sta provando a entrare. Non si annota la password
     // tentata — servirebbe a niente e sarebbe un segreto scritto nel database.
     await registraAccesso({ utente: "Sconosciuto", via: "password", esito: "fallito" }, intestazioni);
+    await frenaTentativi(intestazioni);
     redirect("/login?errore=credenziali");
   }
   const ruolo = usata === password ? "admin" : "sola_lettura";

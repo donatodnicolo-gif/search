@@ -21,6 +21,35 @@ function ipDaHeader(h: Headers): string | null {
   return h.get("x-real-ip");
 }
 
+/**
+ * FRENO sui tentativi falliti (27/08/2026). Prima non c'era NIENTE: si poteva
+ * provare la password di team all'infinito, alla velocità della rete.
+ *
+ * È un freno, non un blocco, ed è una scelta: gli account qui sono pochissimi
+ * e la password di team è la porta di servizio — un lockout chiuderebbe fuori
+ * l'unica persona che entra, e sarebbe un modo comodo per far fuori l'app da
+ * remoto. Qui invece OGNI tentativo sbagliato dallo stesso indirizzo costa più
+ * del precedente (fino a 5 secondi), che è quanto basta a rendere assurdo
+ * provare a tentativi e non impedisce a nessuno di sbagliare a digitare.
+ *
+ * Non lancia mai: se il conteggio va storto si entra come prima.
+ */
+export async function frenaTentativi(h: Headers): Promise<void> {
+  try {
+    const ip = ipDaHeader(h);
+    if (!ip) return;
+    const da = new Date(Date.now() - 15 * 60 * 1000);
+    const falliti = await prisma.accessoApp.count({
+      where: { esito: "fallito", ip, createdAt: { gte: da } },
+    });
+    if (falliti < 2) return;
+    const attesa = Math.min(5000, 250 * 2 ** (falliti - 2));
+    await new Promise((r) => setTimeout(r, attesa));
+  } catch (e) {
+    console.warn("[accessi] freno non applicato:", (e as Error).message);
+  }
+}
+
 export async function registraAccesso(
   v: {
     utente: string;

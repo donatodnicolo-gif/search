@@ -45,7 +45,7 @@ async function risolviPartner(rif: string | undefined | null) {
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "lettura"))) {
     return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
   }
   const id = sp.get("id")?.trim();
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "scrittura"))) {
     return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
   }
   let body: {
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "scrittura"))) {
     return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
   }
   let body: { id?: string; stato?: string };

@@ -105,7 +105,7 @@ async function log(req: NextRequest, query: string, esito: string, sintesi?: str
 }
 
 export async function GET(req: NextRequest) {
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "lettura"))) {
     return NextResponse.json({ errore: "Chiave API mancante o non valida (header X-API-Key)." }, { status: 401 });
   }
   const sp = req.nextUrl.searchParams;

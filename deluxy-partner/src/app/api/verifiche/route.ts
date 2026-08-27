@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { chiaveApiValida, appOrigine, ipRichiesta } from "@/lib/apiauth";
 import { verificaPartner } from "@/lib/verifica";
 
 // API pubblica di verifica partner per gli altri progetti Deluxy.
@@ -11,28 +12,20 @@ import { verificaPartner } from "@/lib/verifica";
 // Risponde con la situazione finanziaria sintetica del partner. Ogni richiesta
 // (autorizzata o no) viene registrata nello storico (RichiestaVerifica).
 
-async function chiaveValida(req: NextRequest): Promise<boolean> {
-  const attesa = (await prisma.impostazione.findUnique({ where: { chiave: "api.verificheKey" } }))?.valore;
-  if (!attesa) return false;
-  const header = req.headers.get("x-api-key");
-  const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  return header === attesa || bearer === attesa;
-}
-
-function origine(req: NextRequest): string | null {
-  return req.headers.get("x-app") || req.nextUrl.searchParams.get("origine") || null;
-}
-
-function ip(req: NextRequest): string | null {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
-}
+// ⚠️ 27/08/2026 — questa rotta si era RICOPIATA il controllo della chiave e
+// due helper identici a quelli di `@/lib/apiauth`. Una copia non eredita
+// niente: quando le chiavi sono diventate a scope, e il confronto a tempo
+// costante, questa sarebbe rimasta all'unica chiave e al `===`, senza che
+// nessun errore lo dicesse. Ora usa gli stessi di tutte le altre rotte.
+const origine = appOrigine;
+const ip = ipRichiesta;
 
 export async function GET(req: NextRequest) {
   const query = (req.nextUrl.searchParams.get("partner") ?? req.nextUrl.searchParams.get("q") ?? "").trim();
   const app = origine(req);
   const indirizzo = ip(req);
 
-  if (!(await chiaveValida(req))) {
+  if (!(await chiaveApiValida(req, "lettura"))) {
     await prisma.richiestaVerifica.create({
       data: { origine: app, queryPartner: query || "(vuota)", esito: "non_autorizzato", ip: indirizzo },
     });

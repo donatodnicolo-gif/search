@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const indirizzo = ipRichiesta(req);
   const query = numero || (id ? `id:${id}` : "(vuota)");
 
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "lettura"))) {
     await prisma.richiestaVerifica.create({
       data: { origine: app, queryPartner: `fattura ${query}`, esito: "non_autorizzato", ip: indirizzo },
     });

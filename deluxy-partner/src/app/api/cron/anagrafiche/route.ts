@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { importaAttivi } from "@/lib/importa-registro";
 import { inviaStatiFinanziari } from "@/lib/stato-finanziario-registro";
 import { env, pulisci } from "@/lib/env";
+import { segretoCombacia } from "@/lib/confronto";
 
 // Ogni notte: i partner diventati ATTIVI nel registro Anagrafiche entrano in
 // FINANCE. Chi c'è già viene saltato, e chi combacia per nome senza avere
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   // confronto sui valori ripuliti: un a-capo nella variabile su Vercel farebbe
   // fallire il match tutte le notti, in silenzio
   const inviato = pulisci(req.headers.get("authorization")?.replace(/^Bearer\s+/i, ""));
-  if (inviato !== segreto) {
+  if (!segretoCombacia(inviato, segreto)) {
     return NextResponse.json({ errore: "Non autorizzato." }, { status: 401 });
   }
 
