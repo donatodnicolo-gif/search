@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NavLink } from "./NavLink";
 import { esci } from "@/lib/actions";
 import { RUOLO_INFO } from "@/lib/ruoli";
 import type { Sessione } from "@/lib/session";
@@ -36,42 +37,42 @@ export async function Topbar({ sessione }: { sessione: Sessione }) {
       </Link>
 
       <div className="topbar-actions">
+        {/* Tre gruppi separati da una distanza: chi sei · dove vai · esci.
+            Con un solo gap uniforme i sette elementi erano un blocco unico. */}
         <span className="badge gold">
           <span className="dot" />
           {RUOLO_INFO[sessione.ruolo].etichetta}
         </span>
+        <span className="gruppo">
         {sessione.ruolo === "admin" && (
           <>
-            <Link href="/utenti" className="btn ghost">
-              Utenti
-            </Link>
-            <Link href="/chiavi" className="btn ghost">
-              Chiavi
-            </Link>
-            <Link href="/stato" className="btn ghost">
-              Stato
-            </Link>
+            <NavLink href="/utenti">Utenti</NavLink>
+            <NavLink href="/chiavi">Chiavi</NavLink>
+            <NavLink href="/stato">Stato</NavLink>
           </>
         )}
 
-        {/* Il cartellino si usa solo da computer: da schermo stretto il bottone
-            non compare (e il server rifiuta comunque le richieste da telefono). */}
-        <Link href="/cartellino" className="btn solo-da-desktop" title="Presenze, ferie, malattia">
+        {/* Il cartellino si usa solo da computer, ma a stabilirlo e' il
+            DISPOSITIVO (middleware + server action), non la larghezza della
+            finestra: nasconderlo sotto i 900px lasciava senza porta anche il
+            portatile con mezzo schermo aperto, ed e' l'unico link che porta li'. */}
+        <NavLink href="/cartellino" className="btn" title="Presenze, ferie, malattia">
           <span className={`dot-stato ${cartellino?.aperto ? "dentro" : "fuori"}`} />
           Cartellino
           {cartellino?.aperto && cartellino.dalle && (
             <span className="topbar-ora">dalle {oraDi(cartellino.dalle)}</span>
           )}
-        </Link>
+        </NavLink>
+        </span>
 
-        <Link href="/profilo" className="btn ghost">
-          {sessione.nome}
-        </Link>
+        <span className="gruppo">
+        <NavLink href="/profilo">{sessione.nome}</NavLink>
         <form action={esci}>
           <button type="submit" className="btn">
             Esci
           </button>
         </form>
+        </span>
       </div>
     </header>
   );

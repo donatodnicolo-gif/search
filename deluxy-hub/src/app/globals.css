@@ -42,13 +42,23 @@ a { color: inherit; text-decoration: none; }
   display: flex; align-items: center; justify-content: center;
   flex: 0 0 auto;
 }
-.brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+.brand { min-width: 0; }
+.brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; white-space: nowrap; }
 .brand-sub { font-size: 12px; color: var(--text-secondary); }
 
-.topbar-actions { display: flex; align-items: center; gap: 10px; }
+/* Va a capo invece di sfondare: sotto i ~750px il blocco azioni misura piu'
+   della finestra e il browser rimpiccioliva TUTTA la pagina al 59%.
+   Le voci restano tutte: si stringe la cornice, non il loro numero. */
+.topbar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+/* I tre gruppi (chi sei · dove vai · esci) separati da una distanza, non da un segno */
+.topbar-actions .gruppo { display: flex; align-items: center; gap: 6px; }
+.topbar-actions .gruppo + .gruppo { margin-left: 8px; }
 
 /* ---------- Contenuto ---------- */
-.main { max-width: 1080px; margin: 0 auto; padding: 40px 24px 64px; }
+/* 1240 e' la misura che apre la QUARTA colonna di tessere: 4x260 + 3x16 = 1088
+   di contenuto, e a 1080 ne restavano 1032 (mancavano 56px). Sopra i 1240 il
+   testo tornerebbe una riga troppo lunga da leggere. */
+.main { max-width: 1240px; margin: 0 auto; padding: 40px 24px 64px; }
 
 .page-head { margin-bottom: 28px; }
 .page-title { font-size: 30px; font-weight: 600; letter-spacing: -0.022em; }
@@ -58,6 +68,18 @@ a { color: inherit; text-decoration: none; }
   font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--text-tertiary);
   margin: 32px 0 12px;
+}
+
+/* ---------- Ricerca fra le app ---------- */
+.cerca-app { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.cerca-app input {
+  max-width: 340px;
+  padding: 9px 14px;
+  border-radius: var(--radius-pill);
+}
+.cerca-esito { font-size: 12.5px; color: var(--text-tertiary); white-space: nowrap; }
+@media (max-width: 720px) {
+  .cerca-app input { max-width: none; }
 }
 
 /* ---------- Griglia app ---------- */
@@ -78,11 +100,18 @@ a { color: inherit; text-decoration: none; }
   box-shadow: var(--shadow-card);
   transition: transform 200ms var(--ease), box-shadow 200ms var(--ease);
 }
-.app-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-float);
+@media (hover: hover) {
+  .app-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-float);
+  }
 }
-.app-card:active { transform: translateY(-1px); }
+/* Press: il DS (:101) chiede scale(0.98) sulle card e 0.97 sui bottoni */
+.app-card:active { transform: scale(0.98); }
+.app-card:focus-visible, .btn:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
 
 .app-icon {
   width: 56px; height: 56px;
@@ -95,7 +124,14 @@ a { color: inherit; text-decoration: none; }
 
 .app-name { font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
 .app-role { font-size: 12.5px; color: var(--text-tertiary); margin-top: 2px; }
-.app-desc { font-size: 13.5px; color: var(--text-secondary); line-height: 1.45; }
+/* Tre righe per tutte: le descrizioni andavano da 2 a 5 righe e le righe della
+   griglia risultavano alte 267 / 306 / 286, con fino a 59px di vuoto dentro una
+   card. Il testo intero resta nel DOM (e nel title) per chi legge con la voce. */
+.app-desc {
+  font-size: 13.5px; color: var(--text-secondary); line-height: 1.45;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  overflow: hidden;
+}
 .app-foot {
   margin-top: auto; padding-top: 6px;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -142,7 +178,8 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
   transition: background 150ms var(--ease), opacity 150ms var(--ease);
 }
-.btn:hover { background: var(--fill-hover); }
+@media (hover: hover) { .btn:hover { background: var(--fill-hover); } }
+.btn:active { transform: scale(0.97); }
 .btn.primary {
   background: var(--ink);
   border-color: var(--ink);
@@ -150,6 +187,8 @@ a { color: inherit; text-decoration: none; }
 }
 .btn.primary:hover { background: var(--ink-hover); }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
+/* La pagina che stai guardando si vede: prima i link erano identici ovunque. */
+.btn.attivo, .btn.ghost.attivo { background: var(--fill); color: var(--text); font-weight: 600; }
 .btn.ghost:hover { background: var(--fill); color: var(--text); }
 .btn.danger { color: var(--red); }
 .btn.danger:hover { background: rgba(215, 0, 21, 0.08); }
@@ -165,13 +204,16 @@ input, select {
   font-family: inherit;
   font-size: 14px;
 }
-input:focus, select:focus {
+input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
 }
-label.campo { display: block; margin-bottom: 12px; }
-label.campo > span {
+/* Vale su .campo, non solo su label.campo: il gruppo delle spunte e' un <div>
+   (un <label> che avvolge 19 caselle punterebbe a un controllo solo) e la sua
+   intestazione restava 15px/400 nero, cioe' sembrava un titolo di sezione. */
+.campo { display: block; margin-bottom: 12px; }
+.campo > span {
   display: block;
   font-size: 12.5px; font-weight: 500;
   color: var(--text-secondary);
@@ -269,11 +311,13 @@ a.marca:hover { background: var(--fill-hover); }
 
 .griglia-form {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  /* 240 invece di 180: con 180 la griglia apriva 5 tracce per 3-4 campi e
+     lasciava 199px di buco a destra, come se la card fosse tagliata a meta'. */
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px;
   align-items: end;
 }
-.griglia-form label.campo { margin-bottom: 0; }
+.griglia-form .campo { margin-bottom: 0; }
 .griglia-form button { justify-content: center; }
 .campo-largo { grid-column: 1 / -1; }
 input[type="file"] { padding: 8px; font-size: 13px; }
@@ -320,24 +364,87 @@ input[type="file"] { padding: 8px; font-size: 13px; }
 .dot-stato.dentro { background: var(--green); }
 .topbar-ora { font-size: 12px; color: var(--text-tertiary); font-weight: 400; }
 
-/* Il cartellino si usa solo da computer: su schermo stretto il bottone sparisce.
-   È solo il lato estetico della regola — a rifiutare le richieste dal telefono
-   sono il middleware e le server action. */
-@media (max-width: 900px) {
-  .solo-da-desktop { display: none; }
-}
+/* Il cartellino si usa solo da computer, ma il criterio e' il DISPOSITIVO, non
+   la larghezza della finestra: a rifiutare le richieste dal telefono sono il
+   middleware e le server action (dispositivo.ts). Nascondere il bottone sotto i
+   900px puniva anche il portatile con mezzo schermo aperto — e /cartellino e'
+   linkato in UN SOLO POSTO, quindi lo lasciava senza porta per timbrare. Da
+   telefono il bottone si vede e porta a /cartellino/solo-desktop, che spiega
+   la regola invece di farla sparire. */
 
 /* ---------- Tabella ---------- */
 table { width: 100%; border-collapse: collapse; }
 th {
   text-align: left;
-  font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em;
-  text-transform: uppercase; color: var(--text-tertiary);
+  font-size: 12px; font-weight: 500;
+  color: var(--text-tertiary);
   padding: 0 12px 10px;
 }
 td {
   padding: 12px;
   border-top: 1px solid var(--hairline);
   font-size: 14px;
-  vertical-align: middle;
+  vertical-align: top;
+}
+
+/* ---------- Tabelle strette ---------- */
+/* Sotto i ~768px la tabella utenti misurava 612px dentro una card di 327: 298px
+   di righe finivano FUORI dal riquadro bianco, sul fondo grigio, e con esse la
+   colonna Stato, Ultimo accesso e il comando «Modifica» — l'unica azione della
+   pagina. Non era compressione: era sbordo, e non c'era nulla da far scorrere. */
+.tabella-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tabella-scroll table { min-width: 560px; }
+
+/* ---------- Spunte delle app ---------- */
+/* Spuntata e non spuntata erano identiche (stesso sfondo, stesso bordo, stesso
+   peso): distingueva solo la casella nativa da 13px. Su una pagina di PERMESSI
+   non e' un attrito, e' il rischio di sbagliare senza accorgersene. */
+.spunta-app {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; padding: 7px 13px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background 150ms var(--ease), border-color 150ms var(--ease);
+}
+.spunta-app input { width: auto; margin: 0; }
+.spunta-app:has(input:checked) {
+  background: var(--gold-soft);
+  border-color: var(--gold);
+  color: var(--gold-strong);
+  font-weight: 500;
+}
+
+/* Un'ancora non deve atterrare sotto la barra appiccicata in cima (mobile n.6):
+   il bottone «Crea account» salta a #nuovo-utente per precompilare il nome, ed
+   era proprio il campo col nome a finire coperto. */
+:target { scroll-margin-top: 96px; }
+
+/* ---------- Schermi stretti ---------- */
+/* Prima di oggi il foglio aveva DUE media query in 343 righe, e nessuna toccava
+   barra, griglia, tabella o form: il portale non era stato disegnato per il
+   telefono, era stato lasciato ricadere. */
+@media (max-width: 900px) {
+  /* Sotto la soglia di iOS il tocco su un campo ingrandisce la pagina da solo e
+     non la rimette piu' a posto: 16px e' la misura che glielo impedisce. */
+  input, select, textarea { font-size: 16px; }
+
+  /* Il dito non e' il puntatore: 44px e' la taglia minima per centrare un
+     comando. I bottoni della barra misuravano 35-37px. */
+  .btn { min-height: 44px; padding: 10px 16px; }
+  summary.btn { min-height: 44px; }
+}
+
+@media (max-width: 720px) {
+  .topbar { flex-wrap: wrap; padding: 10px 16px; gap: 8px; }
+  .brand { flex: 1 1 100%; }
+  .topbar-actions { width: 100%; justify-content: flex-start; gap: 6px; }
+  .topbar-actions .gruppo + .gruppo { margin-left: 0; }
+  .topbar-actions .btn { padding: 10px 12px; font-size: 13px; }
+  .main { padding: 24px 16px 48px; }
+  .page-title { font-size: 26px; }
+  /* Due righe bastano dove la colonna e' una sola e la pagina e' gia' lunga */
+  .app-desc { -webkit-line-clamp: 2; }
+  .timbra-box { gap: 16px; }
+  .timbra-box .btn { width: 100%; justify-content: center; }
 }

@@ -219,7 +219,8 @@ export default async function CartellinoPage({
         <div className="vuoto">Nessuna timbratura in questo mese.</div>
       ) : (
         <div className="card" style={{ padding: "20px 12px" }}>
-          <table>
+          <div className="tabella-scroll">
+            <table>
             <thead>
               <tr>
                 <th>Giorno</th>
@@ -262,6 +263,7 @@ export default async function CartellinoPage({
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -318,7 +320,8 @@ export default async function CartellinoPage({
         <div className="vuoto">Nessuna assenza registrata.</div>
       ) : (
         <div className="card" style={{ padding: "20px 12px" }}>
-          <table>
+          <div className="tabella-scroll">
+            <table>
             <thead>
               <tr>
                 <th>Periodo</th>
@@ -406,6 +409,7 @@ export default async function CartellinoPage({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

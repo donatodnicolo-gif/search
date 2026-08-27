@@ -47,7 +47,7 @@ export function FormGiornata({ oggi }: { oggi: string }) {
           }
         />
       </label>
-      <button type="submit" className="btn">
+      <button type="submit" className="btn primary">
         Registra giornata
       </button>
     </form>

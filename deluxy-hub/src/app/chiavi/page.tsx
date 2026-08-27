@@ -132,7 +132,8 @@ export default async function ChiaviPage({
             Nessuna chiave salvata: aggiungi la prima qui sopra.
           </p>
         ) : (
-          <table>
+          <div className="tabella-scroll">
+            <table>
             <thead>
               <tr>
                 <th>Progetto</th>
@@ -225,6 +226,7 @@ export default async function ChiaviPage({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -250,7 +252,8 @@ export default async function ChiaviPage({
             Nessun token: generane uno qui sopra e mettilo nell'ambiente dell'app che deve leggere.
           </p>
         ) : (
-          <table>
+          <div className="tabella-scroll">
+            <table>
             <thead>
               <tr>
                 <th>Nome</th>
@@ -290,6 +293,7 @@ export default async function ChiaviPage({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </main>

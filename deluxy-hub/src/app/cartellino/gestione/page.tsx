@@ -109,7 +109,8 @@ export default async function GestioneCartellinoPage({
         <div className="vuoto">Nessuna richiesta in attesa.</div>
       ) : (
         <div className="card" style={{ padding: "20px 12px" }}>
-          <table>
+          <div className="tabella-scroll">
+            <table>
             <thead>
               <tr>
                 <th>Chi</th>
@@ -166,6 +167,7 @@ export default async function GestioneCartellinoPage({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -198,7 +200,8 @@ export default async function GestioneCartellinoPage({
       </div>
 
       <div className="card" style={{ padding: "20px 12px" }}>
-        <table>
+        <div className="tabella-scroll">
+          <table>
           <thead>
             <tr>
               <th>Persona</th>
@@ -279,6 +282,7 @@ export default async function GestioneCartellinoPage({
             ))}
           </tbody>
         </table>
+          </div>
       </div>
 
       {/* ---------- Invio per email ---------- */}

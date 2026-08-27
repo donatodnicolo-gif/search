@@ -1,59 +1,12 @@
-import { aggiornaUtente, creaUtente, eliminaUtente } from "@/lib/actions";
+import { creaUtente } from "@/lib/actions";
 import { appPerIds, appPerRuolo, catalogoApp } from "@/lib/apps";
 import { prisma } from "@/lib/db";
 import { nomeNormalizzato, organicoDaBudgets, type PersonaBudgets } from "@/lib/organico";
 import { RUOLI, RUOLO_INFO, type Ruolo } from "@/lib/ruoli";
 import { richiediAdmin } from "@/lib/sessione-server";
 import { OrganicoBudgets } from "./OrganicoBudgets";
-
-// Spunte "quali app può aprire questo utente". Gli id spuntati arrivano alla
-// server action come campi "app" ripetuti. `selezionate` pre-spunta quelle giuste
-// (i default del ruolo su un nuovo utente, le app già assegnate in modifica).
-function ScelteApp({ selezionate }: { selezionate: readonly string[] }) {
-  const scelti = new Set(selezionate);
-  return (
-    <div className="campo" style={{ marginBottom: 0, gridColumn: "1 / -1" }}>
-      <span>App visibili nella home</span>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 2 }}>
-        {catalogoApp().map((a) => (
-          <label
-            key={a.id}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 7,
-              fontSize: 13,
-              padding: "7px 13px",
-              border: "1px solid var(--hairline-strong)",
-              borderRadius: "var(--radius-pill)",
-              cursor: "pointer",
-            }}
-          >
-            <input
-              type="checkbox"
-              name="app"
-              value={a.id}
-              defaultChecked={scelti.has(a.id)}
-              style={{ width: "auto", margin: 0 }}
-            />
-            {a.nome}
-          </label>
-        ))}
-      </div>
-      <span
-        style={{
-          fontSize: 11.5,
-          color: "var(--text-tertiary)",
-          fontWeight: 400,
-          marginTop: 7,
-          display: "block",
-        }}
-      >
-        Gli amministratori vedono comunque tutte le app, a prescindere da queste spunte.
-      </span>
-    </div>
-  );
-}
+import { RigaUtente } from "./RigaUtente";
+import { ScelteApp } from "./ScelteApp";
 
 const MESSAGGI_OK: Record<string, string> = {
   creato: "Utente creato.",
@@ -85,6 +38,11 @@ export default async function UtentiPage({
 }) {
   const sessione = await richiediAdmin();
   const sp = await searchParams;
+
+  // Serve al form «Nuovo utente» e a ogni riga (che è un componente client):
+  // catalogoApp() legge process.env e non può attraversare il confine, i suoi
+  // dati sì.
+  const appElenco = catalogoApp().map((a) => ({ id: a.id, nome: a.nome }));
 
   // L'organico arriva da Budgets in parallelo alla lista utenti: due fonti,
   // nessuna delle due deve aspettare l'altra.
@@ -128,7 +86,7 @@ export default async function UtentiPage({
       <div className="card" id="nuovo-utente">
         <form
           action={creaUtente}
-          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, alignItems: "end" }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, alignItems: "end" }}
         >
           <label className="campo" style={{ marginBottom: 0 }}>
             <span>Nome</span>
@@ -152,7 +110,7 @@ export default async function UtentiPage({
               ))}
             </select>
           </label>
-          <ScelteApp selezionate={appPerRuolo("commerciale").map((a) => a.id)} />
+          <ScelteApp app={appElenco} selezionate={appPerRuolo("commerciale").map((a) => a.id)} />
           <button
             type="submit"
             className="btn primary"
@@ -171,6 +129,10 @@ export default async function UtentiPage({
 
       <div className="section-label">{utenti.length} utenti</div>
       <div className="card" style={{ padding: "20px 12px" }}>
+        {/* Sotto i ~768px la tabella misura più della card: senza questo
+            contenitore le colonne Stato, Ultimo accesso e il comando «Modifica»
+            venivano disegnate FUORI dal riquadro, e non c'era nulla da scorrere. */}
+        <div className="tabella-scroll">
         <table>
           <thead>
             <tr>
@@ -182,100 +144,33 @@ export default async function UtentiPage({
             </tr>
           </thead>
           <tbody>
-            {utenti.map((u) => {
-              const team = teamPerNome.get(nomeNormalizzato(u.nome));
-              return (
-              <tr key={u.id}>
-                <td>
-                  <div style={{ fontWeight: 500 }}>{u.nome}</div>
-                  <div style={{ fontSize: 12.5, color: "var(--text-tertiary)" }}>
-                    {u.email}
-                    {team ? ` · ${team}` : ""}
-                  </div>
-                </td>
-                <td>
-                  <span className="badge gold">
-                    <span className="dot" />
-                    {RUOLO_INFO[u.ruolo as Ruolo]?.etichetta ?? u.ruolo}
-                  </span>
-                  <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>
-                    {u.ruolo === "admin"
-                      ? "tutte le app"
-                      : appPerIds(u.appAbilitate)
-                          .map((a) => a.nome)
-                          .join(" · ") || "nessuna app"}
-                  </div>
-                </td>
-                <td>
-                  <span className={`badge ${u.attivo ? "green" : "red"}`}>
-                    <span className="dot" />
-                    {u.attivo ? "Attivo" : "Disattivato"}
-                  </span>
-                </td>
-                <td style={{ color: "var(--text-secondary)", fontSize: 13 }}>
-                  {dataIt(u.ultimoAccesso)}
-                </td>
-                <td>
-                  <details>
-                    <summary
-                      className="btn ghost"
-                      style={{ listStyle: "none", display: "inline-flex" }}
-                    >
-                      Modifica
-                    </summary>
-                    <form
-                      action={aggiornaUtente}
-                      style={{ marginTop: 12, display: "grid", gap: 10, minWidth: 240 }}
-                    >
-                      <input type="hidden" name="id" value={u.id} />
-                      <label className="campo" style={{ marginBottom: 0 }}>
-                        <span>Nome</span>
-                        <input name="nome" defaultValue={u.nome} required />
-                      </label>
-                      <label className="campo" style={{ marginBottom: 0 }}>
-                        <span>Ruolo</span>
-                        <select name="ruolo" defaultValue={u.ruolo}>
-                          {RUOLI.map((r) => (
-                            <option key={r} value={r}>
-                              {RUOLO_INFO[r].etichetta}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="campo" style={{ marginBottom: 0 }}>
-                        <span>Nuova password (vuoto = invariata)</span>
-                        <input name="password" type="password" autoComplete="new-password" />
-                      </label>
-                      <ScelteApp selezionate={u.appAbilitate} />
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
-                        <input
-                          type="checkbox"
-                          name="attivo"
-                          defaultChecked={u.attivo}
-                          style={{ width: "auto" }}
-                        />
-                        Può accedere
-                      </label>
-                      <button type="submit" className="btn primary" style={{ justifyContent: "center" }}>
-                        Salva
-                      </button>
-                    </form>
-
-                    {u.id !== sessione.uid && (
-                      <form action={eliminaUtente} style={{ marginTop: 8 }}>
-                        <input type="hidden" name="id" value={u.id} />
-                        <button type="submit" className="btn danger" style={{ width: "100%", justifyContent: "center" }}>
-                          Elimina utente
-                        </button>
-                      </form>
-                    )}
-                  </details>
-                </td>
-              </tr>
-              );
-            })}
+            {utenti.map((u) => (
+              <RigaUtente
+                key={u.id}
+                utente={{
+                  id: u.id,
+                  nome: u.nome,
+                  email: u.email,
+                  ruolo: u.ruolo,
+                  attivo: u.attivo,
+                  appAbilitate: u.appAbilitate,
+                }}
+                team={teamPerNome.get(nomeNormalizzato(u.nome)) ?? null}
+                appElenco={appElenco}
+                appAbilitateTesto={
+                  u.ruolo === "admin"
+                    ? "tutte le app"
+                    : appPerIds(u.appAbilitate)
+                        .map((a) => a.nome)
+                        .join(" · ") || "nessuna app"
+                }
+                ultimoAccesso={dataIt(u.ultimoAccesso)}
+                puoEliminare={u.id !== sessione.uid}
+              />
+            ))}
           </tbody>
         </table>
+        </div>
       </div>
     </main>
   );

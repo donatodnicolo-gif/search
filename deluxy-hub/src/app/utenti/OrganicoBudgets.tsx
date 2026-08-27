@@ -52,7 +52,7 @@ function RigaPersona({ persona, account }: { persona: PersonaBudgets; account: A
         </div>
       ) : (
         <a
-          className="btn ghost"
+          className="btn"
           href={`/utenti?nome=${encodeURIComponent(persona.nome)}#nuovo-utente`}
         >
           Crea account

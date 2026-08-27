@@ -1,7 +1,7 @@
 # Deluxy Hub — Handoff per ripartire
 
 > Documento per una nuova sessione (anche altro account Claude) che riprende il
-> lavoro sul portale. Aggiornato: **26 agosto 2026**.
+> lavoro sul portale. Aggiornato: **27 agosto 2026**.
 > Leggi anche [README.md](README.md) (dettagli completi) e la memoria del progetto.
 
 > ⚠️ **La cartella di lavoro è `C:\Users\nicol\scoutwt\deluxy-hub` (branch
@@ -120,6 +120,11 @@ Dato salvato: `Utente.appAbilitate String[]` (id delle app), vedi
 | [`src/middleware.ts`](src/middleware.ts) | blocca chi non è loggato; `/utenti`, `/chiavi`, `/stato` solo admin |
 | [`src/components/AppIcon.tsx`](src/components/AppIcon.tsx) | glifi SVG delle app |
 | [`src/app/{page,login,utenti,profilo}`](src/app) | home, login, gestione utenti, profilo |
+| [`src/components/GrigliaApp.tsx`](src/components/GrigliaApp.tsx) | le tessere della home **con la ricerca** (client: ci vive lo stato del filtro) |
+| [`src/components/NavLink.tsx`](src/components/NavLink.tsx) | link della barra che sa se è la pagina corrente (`aria-current`, classe `attivo`) |
+| [`src/app/utenti/RigaUtente.tsx`](src/app/utenti/RigaUtente.tsx) | riga della tabella utenti: il pannello «Modifica» sta in una **riga sua**, non nella cella |
+| [`src/app/utenti/ScelteApp.tsx`](src/app/utenti/ScelteApp.tsx) | le spunte delle app: l'elenco arriva per **props** (`catalogoApp()` legge `process.env` e non attraversa il confine client) |
+| [`src/app/{error,not-found,loading}.tsx`](src/app) | la rete di sicurezza: imprevisti, indirizzi sbagliati e attese (§5-quinquies) |
 | [`src/lib/organico.ts`](src/lib/organico.ts) | legge squadre e persone da Budgets (`GET /api/v1/team`; chiave dalla cassaforte, env come ripiego) per la sezione in `/utenti` |
 | [`src/app/utenti/OrganicoBudgets.tsx`](src/app/utenti/OrganicoBudgets.tsx) | la sezione «Squadre e persone»: badge squadra, stato account per persona, bottone «Crea account» che precompila il form |
 | [`src/lib/stato-servizi.ts`](src/lib/stato-servizi.ts) | interroga l'health di ogni app del catalogo (server + database) |
@@ -318,6 +323,82 @@ aggiorna la voce `BUDGETS_API_KEY` in `/chiavi` — le vecchie emesse mai usate
   ovunque. È [[trappola-periodi-fuso-server]] in versione «solo visualizzazione»;
   provato con `TZ=UTC` (09:08 → 11:08).
 
+
+## 5-quinquies. Revisione di layout e UX (27 agosto 2026)
+
+Tre revisori indipendenti — uno sul layout desktop, uno sul mobile, uno ostile
+incaricato di **demolire** i primi due — hanno misurato il portale col DOM
+(niente impressioni: px, colonne, scrollWidth, aree toccabili). Bilancio:
+**19 reperti confermati, 8 ridimensionati, 1 caduto**. Le correzioni sono tutte
+in questo commit. Cosa e' cambiato e **perche'**, perche' non venga disfatto:
+
+1. **La barra in alto va a capo** (`.topbar-actions { flex-wrap: wrap }` + media
+   query a 720px). Era il difetto n.1: un flex che non andava a capo misurava
+   501px dentro 375, e il browser **rimpiccioliva l'intera pagina al 59%** (la
+   descrizione da 13.5px si leggeva a ~8px). ⚠️ Le voci restano **tutte**: si
+   stringe la cornice, non si riduce il loro numero.
+2. **Il marchio non si spezza piu'** (`white-space: nowrap` + `.brand{min-width:0}`):
+   compresso a 96px, «Deluxy Hub» andava su 2 righe e il sottotitolo su 3,
+   portando la barra a **122px per ogni ruolo**, anche dove non c'era eccedenza.
+3. **Campi a 16px sotto i 900px**: sotto quella soglia iOS ingrandisce da solo
+   al primo tocco e non torna indietro. Vale anche sul **login**, cioe' sul
+   primissimo gesto di chiunque.
+4. **Aree toccabili a 44px** (`min-height` sui `.btn` su schermo stretto): erano
+   35-38px. Il metro non e' teorico — l'«Entra» del login, progettato apposta,
+   misurava gia' 44.
+5. **Contenuto a 1240px** (era 1080): apre la **quarta colonna** di tessere, che
+   mancava per 56px. A 1920 il portale mostrava 3 colonne e 824px di vuoto.
+6. **Ricerca in cima alla home** (`GrigliaApp`, client): con 19 app «trovare»
+   era l'unica cosa non progettata — nessun filtro, nessun raggruppamento, 4
+   schermate di scorrimento da telefono. Filtra nome, sottotitolo e descrizione.
+7. **Le descrizioni sono tagliate a 3 righe** (2 su mobile) col testo intero nel
+   `title`: andavano da 2 a 5 righe e le righe della griglia risultavano alte
+   267/306/286px, con fino a 59px di vuoto dentro una card.
+8. **Ogni tabella sta in `.tabella-scroll`**: sotto i ~768px la tabella utenti
+   misurava 612px in una card di 327 e **298px di righe finivano fuori dal
+   riquadro** — con esse Stato, Ultimo accesso e il comando «Modifica».
+9. **Il pannello «Modifica» ha una riga sua** (`RigaUtente`, client): dentro la
+   cella rimisurava tutta la tabella (colonne da 246/238/170/187/165 a
+   166/143/115/85/498, riga da 71 a 674px) e faceva andare a capo le date delle
+   righe vicine. Modificare una persona scompaginava la lista.
+10. **La barra dice dove sei** (`NavLink` + `aria-current` + `.attivo`): i link
+    erano pixel-identici su ogni pagina.
+11. **Le spunte delle app si accendono quando sono scelte** (`.spunta-app` con
+    `:has(input:checked)`): erano identiche a quelle non scelte, e su una pagina
+    di **permessi** non e' un attrito ma il rischio di sbagliare in silenzio.
+12. **Focus oro, non blu** e **intestazioni di tabella senza maiuscolo urlato**:
+    due deroghe al Design System (righe 115 e 122), verificate sul documento.
+13. **`:active` e `:focus-visible` su bottoni e tessere**: il DS chiede che
+    *ogni* elemento interattivo risponda, e nessun bottone rispondeva alla
+    pressione. L'hover ora sta in `@media (hover: hover)`: su touch la tessera
+    restava sollevata dopo il tocco (e la card apre una scheda nuova, quindi
+    tornando indietro sembrava selezionata).
+14. **`error.tsx`, `not-found.tsx`, `loading.tsx`**: non ce n'era **nessuno**. Un
+    imprevisto portava alla schermata spoglia di Next, senza barra ne' strada per
+    tornare; un indirizzo sbagliato usciva dal portale (e chi non era autenticato
+    ci veniva rispedito **dopo** il login, per via di `?da=`); e `/utenti` poteva
+    restare 6 secondi (il timeout di Budgets) senza un segnale.
+15. **Seconda uscita in `/profilo`**: «Esci» viveva solo nella barra, cioe'
+    nell'elemento che su schermo stretto si rompe per primo.
+16. **Il Cartellino non sparisce piu' sotto i 900px**: la regola «solo da
+    computer» la applicano middleware e server action guardando il **dispositivo**;
+    il CSS puniva anche il portatile con mezzo schermo, e `/cartellino` e'
+    linkato in **un solo posto**.
+
+**Rimasto aperto di proposito**: `--text-tertiary` (#86868b) ha contrasto 3.62:1
+su bianco, sotto la soglia di 4.5:1, ed e' usato su 28 elementi che portano dati
+(email, elenco app abilitate). ⚠️ **Non si corregge qui**: e' il token del Design
+System, il Hub lo applica fedelmente. Va cambiato in `deluxy-design-system` per
+tutte le app, altrimenti torna alla prossima.
+
+**Come sono state verificate**: typecheck, build, e misure sugli stili calcolati
+(barra `flex-wrap: wrap`, campi 16px a 375, bottoni `min-height: 44px`, tabella
+`overflow-x: auto`, `th` 12px/500/nessun maiuscolo, voce attiva con
+`aria-current="page"` e peso 600). ⚠️ Le misure di **posizione** (colonne, altezze,
+eccedenza) non sono state riverificate dopo la correzione: in quella sessione il
+pannello del browser non componeva i frame e ogni `getBoundingClientRect`
+tornava 0 — la stessa condizione dichiarata dai revisori. Da rifare quando il
+pannello e' a schermo.
 ## 6. Deploy e ambiente (Vercel)
 
 - Progetto: **`deluxy/deluxy-hub`** (CLI già autenticata come `donatodnicolo-gif`).

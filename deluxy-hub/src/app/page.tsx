@@ -1,4 +1,4 @@
-import { AppIcon } from "@/components/AppIcon";
+import { GrigliaApp } from "@/components/GrigliaApp";
 import { RUOLO_INFO } from "@/lib/ruoli";
 import { appVisibili } from "@/lib/permessi";
 import { richiediSessione } from "@/lib/sessione-server";
@@ -22,37 +22,9 @@ export default async function HomePage() {
           Nessuna app abilitata per il tuo profilo. Scrivi a un amministratore.
         </div>
       ) : (
-        <div className="app-grid">
-          {app.map((a) => (
-            <a
-              key={a.id}
-              className="app-card"
-              // Le app con SSO passano dal Hub (/vai/<id>), che genera il token
-              // e reindirizza: così l'utente entra senza rifare il login.
-              href={a.sso ? `/vai/${a.id}` : a.url}
-              target="_blank"
-              rel="noreferrer noopener"
-            >
-              <div className="app-icon">
-                <AppIcon icona={a.icona} />
-              </div>
-              <div>
-                <div className="app-name">{a.nome}</div>
-                <div className="app-role">{a.sottotitolo}</div>
-              </div>
-              <p className="app-desc">{a.descrizione}</p>
-              <div className="app-foot">
-                <span className="app-open">Apri ↗</span>
-                {a.mobile && (
-                  <span className="badge">
-                    <span className="dot" />
-                    Mobile
-                  </span>
-                )}
-              </div>
-            </a>
-          ))}
-        </div>
+        // La griglia è client perché ci vive dentro il campo di ricerca; le app
+        // arrivano già risolte dal server (catalogoApp legge process.env).
+        <GrigliaApp app={[...app]} />
       )}
     </main>
   );

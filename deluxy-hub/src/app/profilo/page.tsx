@@ -1,4 +1,4 @@
-import { cambiaMiaPassword } from "@/lib/actions";
+import { cambiaMiaPassword, esci } from "@/lib/actions";
 import { prisma } from "@/lib/db";
 import { RUOLO_INFO } from "@/lib/ruoli";
 import { appVisibili } from "@/lib/permessi";
@@ -62,6 +62,21 @@ export default async function ProfiloPage({
           </label>
           <button type="submit" className="btn primary">
             Aggiorna password
+          </button>
+        </form>
+      </div>
+
+      {/* Seconda porta d'uscita: Esci viveva soltanto nella barra in alto,
+          cioe' nell'elemento che su schermo stretto si rompe per primo. Un
+          modo per uscire non puo' dipendere da un punto solo. */}
+      <div className="section-label">Uscita</div>
+      <div className="card">
+        <p style={{ fontSize: 13.5, color: "var(--text-secondary)", margin: "0 0 14px" }}>
+          Chiudi la sessione su questo computer.
+        </p>
+        <form action={esci}>
+          <button type="submit" className="btn">
+            Esci dal portale
           </button>
         </form>
       </div>
