@@ -32,6 +32,14 @@ export async function middleware(req: NextRequest) {
   // il server risponde e se il database risponde.
   if (pathname === "/api/health") return NextResponse.next();
 
+  // ⚠️ Le rotte del **cron** non hanno una sessione: le chiama Vercel, non una
+  // persona. Senza questa riga il middleware le manderebbe a `/login` con un
+  // 307 — e il cron risponderebbe «ok» tutte le notti **senza aver fatto
+  // niente**, che è il modo peggiore di rompersi (un esito che esiste e mente).
+  // Non è una porta aperta: ognuna di quelle rotte pretende `CRON_SECRET` come
+  // prima cosa, e senza quel segreto è chiusa per tutti.
+  if (pathname.startsWith("/api/cron/")) return NextResponse.next();
+
   const password = process.env.BUDGETS_APP_PASSWORD;
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;
 

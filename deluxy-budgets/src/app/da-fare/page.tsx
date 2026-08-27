@@ -4,6 +4,7 @@ import { quotaDeluxyAnno } from "@/lib/quota";
 import { prisma } from "@/lib/db";
 import { primoMeseAperto } from "@/lib/periodo";
 import { eur, MESI } from "@/lib/format";
+import { mesiChiusiMossi } from "@/lib/sentinella-consegne";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,31 @@ export default async function DaFare() {
   const mesiChiusi = Array.from({ length: Math.min(aperto - 1, 12) }, (_, i) => i + 1);
   const q = await quotaDeluxyAnno(ANNO_CORRENTE, dati.maisons);
   const voci: Voce[] = [];
+
+  // ---- 0. I mesi chiusi che si sono mossi ----
+  //
+  // ⭐ Sta per prima perché è l'unica voce che parla del **passato**: le altre
+  // dicono cosa manca da fare, questa dice che una cosa che credevi ferma si è
+  // mossa. Il costo delle consegne si legge dal vivo dalla piattaforma, quindi
+  // una correzione su una consegna di marzo cambia il marzo del conto economico
+  // senza che nessuno lo chieda — ed è giusto che passi, non che passi in
+  // silenzio.
+  //
+  // ⚠️ Qui si **guarda e basta**: la fotografia la registra il cron notturno
+  // (`/api/cron/sentinella-consegne`). Una pagina che scrive mentre la si apre
+  // cambia il risultato della prossima apertura, e l'avviso sparirebbe da solo
+  // appena qualcuno lo legge.
+  const mossi = await mesiChiusiMossi(ANNO_CORRENTE).catch(() => []);
+  for (const m of mossi) {
+    const su = m.differenza > 0;
+    voci.push({
+      titolo: `${MESI[m.month - 1]} è cambiato dopo essere stato chiuso: ${su ? "+" : ""}${eur(m.differenza)} di consegne`,
+      dettaglio: `Valeva ${eur(m.prima)}, adesso vale ${eur(m.adesso)}. Il costo delle consegne si legge dal vivo dalla piattaforma: qualcuno ha corretto una consegna di quel mese — una paga, un plus, una consegna resa pagabile — e il conto economico di ${MESI[m.month - 1]} si è mosso con lei. Non è un errore da correggere: è una cosa da sapere, perché i numeri di quel mese che hai già letto o mandato a qualcuno adesso sono diversi.`,
+      href: "/consuntivo",
+      azione: "Guarda il mese",
+      grave: Math.abs(m.differenza) >= 500,
+    });
+  }
 
   // ---- 1. Budget di vendita mancanti: mesi chiusi con vendite vere e budget a zero ----
   for (const m of dati.maisons) {

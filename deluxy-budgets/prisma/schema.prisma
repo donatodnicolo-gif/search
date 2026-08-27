@@ -488,3 +488,33 @@ model Premio {
 
   @@index([year])
 }
+
+// LA SENTINELLA SUI MESI CHIUSI (27/08/2026).
+//
+// Il costo delle consegne lo dà la piattaforma e si legge **dal vivo**: il
+// numero è sempre quello di adesso, che è il pregio — e il difetto. Un mese
+// chiuso non è congelato: se in piattaforma si corregge la paga di una consegna
+// di marzo (un plus rimesso, una consegna resa pagabile, un valet che passa a
+// partita IVA), il costo di marzo cambia da solo e con lui l'EBITDA dei mesi
+// chiusi. Nessuno se ne accorge, perché nessuno confronta il numero di oggi con
+// quello di ieri.
+//
+// ⚠️⚠️ **QUESTA TABELLA NON È UNA COPIA DEL DATO, ed è la differenza che conta.**
+// Nessun conto la legge: il conto economico continua a chiedere alla
+// piattaforma ogni volta. Serve **solo** a ricordare quanto valeva ieri, per
+// poterlo confrontare con quanto vale oggi. Il giorno che qualcuno la usasse
+// per calcolare, sarebbe la tabella-copia che il contratto dati vieta.
+//
+// ⭐ Non impedisce il cambiamento — una correzione è legittima e deve passare —
+// lo rende **visibile**.
+model LetturaConsegne {
+  id     String @id @default(cuid())
+  year   Int
+  month  Int
+  // Quanto valeva la lettura di quel mese in quell'istante.
+  costo    Float
+  consegne Int   @default(0)
+  lettoIl  DateTime @default(now())
+
+  @@index([year, month, lettoIl])
+}
