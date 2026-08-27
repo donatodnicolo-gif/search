@@ -50,7 +50,7 @@ interface Rif { id: string; insegna?: string; name?: string; firstName?: string;
  * la tendina dei servizi non ha bisogno di una seconda chiamata.
  */
 interface PartnerConServizi extends Rif {
-  services?: { serviceTypeId: string; serviceType?: { id: string; name: string } }[];
+  services?: { serviceTypeId: string; serviceType?: { id: string; name: string; pricingModel?: string } }[];
   /** Il suo indirizzo: e' il ritiro proposto per default. */
   address?: string | null;
 }
@@ -97,7 +97,7 @@ interface PartnerConServizi extends Rif {
               </select></label>
           }
           <label class="fld"><span>{{ 'recurring.f.service' | translate }} *</span>
-            <select class="field" [(ngModel)]="m.serviceTypeId" [disabled]="!m.partnerId">
+            <select class="field" [(ngModel)]="m.serviceTypeId" (ngModelChange)="ricalcolaFine()" [disabled]="!m.partnerId">
               <option value="">—</option>
               @for (s of serviziDelPartner(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
             </select>
@@ -153,9 +153,21 @@ interface PartnerConServizi extends Rif {
 
         <div class="grid">
           <label class="fld"><span>{{ 'recurring.f.from' | translate }} *</span>
-            <input class="field" type="time" step="900" [(ngModel)]="m.timeFrom" /></label>
-          <label class="fld"><span>{{ 'recurring.f.to' | translate }} *</span>
-            <input class="field" type="time" step="900" [(ngModel)]="m.timeTo" /></label>
+            <input class="field" type="time" step="900" [(ngModel)]="m.timeFrom" (ngModelChange)="ricalcolaFine()" /></label>
+          @if (aOra()) {
+            <!-- ⭐ 28/08 (chiesto dall'utente): per i servizi A ORA la fine non
+                 si scrive, si CALCOLA. Prima si potevano dichiarare sia la
+                 fascia dalle–alle sia il numero di ore, e le due potevano dire
+                 cose diverse: 09:00–10:00 con «3 ore» non è un dato, è una
+                 contraddizione che nessuno vede. -->
+            <label class="fld"><span>{{ 'recurring.f.oreQuante' | translate }} *</span>
+              <input class="field num" type="number" min="1" max="24" step="1"
+                     [(ngModel)]="m.hours" (ngModelChange)="ricalcolaFine()" />
+              <span class="hint">{{ 'recurring.f.oreHint' | translate: { fine: m.timeTo || '—' } }}</span></label>
+          } @else {
+            <label class="fld"><span>{{ 'recurring.f.to' | translate }} *</span>
+              <input class="field" type="time" step="900" [(ngModel)]="m.timeTo" /></label>
+          }
 
           <label class="fld"><span>{{ 'recurring.f.start' | translate }} *</span>
             <input class="field" type="date" [(ngModel)]="m.dataInizio" /></label>
@@ -225,8 +237,6 @@ interface PartnerConServizi extends Rif {
             <label class="fld"><span>{{ 'recurring.f.salary' | translate }}</span>
               <input class="field num" type="number" [(ngModel)]="m.valetSalary" /></label>
           }
-          <label class="fld"><span>{{ 'recurring.f.hours' | translate }}</span>
-            <input class="field num" type="number" min="1" [(ngModel)]="m.hours" /></label>
           <label class="fld"><span>{{ 'recurring.f.note' | translate }}</span>
             <input class="field" [(ngModel)]="m.note" /></label>
         </div>
@@ -493,6 +503,38 @@ export class RecurringServicesComponent implements AfterViewInit {
 
   giorniSel = [false, false, false, false, false, false, false];
 
+  /**
+   * Il servizio scelto è A ORA? Il modello di prezzo arriva già col partner
+   * (`PARTNER_INCLUDE`), quindi non serve una seconda chiamata.
+   */
+  aOra(): boolean {
+    return this.serviziDelPartner().find((x) => x.id === this.m.serviceTypeId)?.pricingModel === 'A_ORA';
+  }
+
+  /**
+   * Per i servizi A ORA la fine si CALCOLA da inizio + ore.
+   *
+   * ⚠️ 28/08 (chiesto dall'utente). Prima si potevano dichiarare sia la fascia
+   * dalle–alle sia il numero di ore, ed erano due modi di dire la stessa cosa
+   * che potevano CONTRADDIRSI: 09:00–10:00 con «3 ore» non è un dato, è una
+   * contraddizione che nessuno vede — e la paga del valet si calcola sulle ORE,
+   * quindi vinceva il numero mentre a schermo si leggeva la fascia.
+   *
+   * Fuori dai servizi a ora non si tocca niente: là la fascia la scrive chi
+   * imposta.
+   */
+  ricalcolaFine(): void {
+    if (!this.aOra()) return;
+    const ore = Math.max(1, Math.min(24, Number(this.m.hours) || 1));
+    this.m.hours = ore;
+    const m = /^(d{1,2}):(d{2})$/.exec(this.m.timeFrom ?? '');
+    if (!m) { this.m.timeTo = ''; return; }
+    // ⚠️ Il modulo 24: un servizio che parte alle 23 e dura 3 ore finisce alle
+    // 02:00, non alle 26:00 — e «26:00» non è un orario che un campo accetti.
+    const fine = (Number(m[1]) * 60 + Number(m[2]) + ore * 60) % (24 * 60);
+    this.m.timeTo = `${String(Math.floor(fine / 60)).padStart(2, '0')}:${String(fine % 60).padStart(2, '0')}`;
+  }
+
   // ── ECCEZIONI PER GIORNO ───────────────────────────────────────────────────
   /** Le eccezioni in lavorazione. I giorni stanno a bandierine, non a stringa. */
   varianti: { giorni: boolean[]; timeFrom: string; timeTo: string; valetId: string }[] = [];
@@ -544,11 +586,17 @@ export class RecurringServicesComponent implements AfterViewInit {
    * e la consegna generata sarebbe nata senza prezzo. Finche' non si sceglie un
    * partner la tendina resta vuota, e lo dice.
    */
-  serviziDelPartner(): Rif[] {
+  serviziDelPartner(): (Rif & { pricingModel?: string })[] {
     const p = this.partners().find((x) => x.id === this.m.partnerId);
     if (!p) return [];
     return (p.services ?? [])
-      .map((s) => ({ id: s.serviceType?.id ?? s.serviceTypeId, name: s.serviceType?.name ?? '' }))
+      .map((s) => ({
+        id: s.serviceType?.id ?? s.serviceTypeId,
+        name: s.serviceType?.name ?? '',
+        // Serve a sapere se il servizio è A ORA: senza, la fascia non si sa
+        // se va scritta o calcolata.
+        pricingModel: s.serviceType?.pricingModel,
+      }))
       .filter((s) => s.id && s.name)
       .sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -733,7 +781,18 @@ export class RecurringServicesComponent implements AfterViewInit {
         && !(this.m.giorniMese ?? '').split(',').map((x) => Number(x.trim())).some((n) => n >= 1 && n <= 31)) {
       mancanti.push(this.translate.instant('recurring.f.monthDays'));
     }
-    if (!this.m.timeFrom || !this.m.timeTo) mancanti.push(this.translate.instant('recurring.f.from'));
+    // ⚠️ A ORA la fine è calcolata: si chiede l'inizio e le ORE, non la fine —
+    // chiedere un campo che l'utente non compila lo lascerebbe bloccato su un
+    // errore che non può risolvere.
+    if (this.aOra()) {
+      if (!this.m.timeFrom) mancanti.push(this.translate.instant('recurring.f.from'));
+      if (!this.m.hours || this.m.hours < 1) mancanti.push(this.translate.instant('recurring.f.oreQuante'));
+      // Si ricalcola per sicurezza: se qualcuno arriva qui senza aver toccato i
+      // campi (form riaperto in modifica) la fine dev'essere comunque coerente.
+      this.ricalcolaFine();
+    } else if (!this.m.timeFrom || !this.m.timeTo) {
+      mancanti.push(this.translate.instant('recurring.f.from'));
+    }
     if (!this.m.recipientAddress.trim()) mancanti.push(this.translate.instant('recurring.f.address'));
     if (!this.m.dataInizio) mancanti.push(this.translate.instant('recurring.f.start'));
     if (mancanti.length) {

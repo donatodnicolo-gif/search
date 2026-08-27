@@ -740,7 +740,12 @@ export class CronMarginiController {
     // La regola dei 90 giorni: un valet che non si collega passa inattivo.
     const valetFermi = await this.valets.disattivaFermi();
     // ⭐ 27/08: la corsa notturna genera anche le consegne dei SERVIZI
-    // RICORRENTI di oggi (idempotente: la coppia servizio+data non si rigenera).
+    // RICORRENTI (idempotente: la coppia servizio+data non si rigenera).
+    //
+    // ⚠️ Qui il tetto resta quello ALTO (600): è la corsa di notte, non ha
+    // nessuno che aspetta, ed è quella che recupera l'arretrato se durante il
+    // giorno i lotti da 150 non sono bastati. A 93 ms l'una, 600 sono ~56 s:
+    // dentro i 300 s della funzione con margine, insieme al resto della corsa.
     const ricorrenti = await this.ricorrenti.genera().catch((e) => ({ ok: false, errore: (e as Error).message }));
     return { ...margini, valetFermi, ricorrenti };
   }
@@ -768,7 +773,19 @@ export class CronMarginiController {
     // Solo la finestra recente (ultimi 3 giorni): leggero, così può girare ogni
     // 15 minuti. Idempotente: ciò che è già proposto resta com'è.
     const da = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    return this.service.sincronizza({ applica: true, da, limite: 1000 });
+    const smistate = await this.service.sincronizza({ applica: true, da, limite: 1000 });
+    // ⭐ 28/08: sullo stesso giro si RIEMPIONO a lotti i servizi ricorrenti
+    // lunghi. La creazione ne fa due settimane e risponde subito; il resto
+    // arriva di qui, 150 consegne per volta (~14 s a 93 ms l'una, misurati).
+    //
+    // ⚠️ In coda allo smistamento, non prima: quello ha una finestra di 3
+    // giorni e non può aspettare. E `catch`: un riempimento che va storto non
+    // deve far fallire lo smistamento, che e' il lavoro principale di questa
+    // corsa.
+    const ricorrenti = await this.ricorrenti
+      .riempi()
+      .catch((e) => ({ ok: false, errore: (e as Error).message }));
+    return { ...smistate, ricorrenti };
   }
 }
 

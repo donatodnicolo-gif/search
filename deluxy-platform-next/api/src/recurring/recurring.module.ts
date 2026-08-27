@@ -190,6 +190,32 @@ const ORIZZONTE_MASSIMO_GIORNI = 400;
  */
 const MASSIMO_PER_CORSA = 600;
 
+/**
+ * QUANTO SI GENERA SUBITO, quando si crea o si modifica un ricorrente.
+ *
+ * ⚠️ **Misurato il 28/08/2026**: una consegna generata costa **93 ms** (365 in
+ * 33,8 s). Un ricorrente giornaliero fino a fine anno sono ~126 consegne = 12 s
+ * di attesa sul tasto Salva; uno da 1.000 sarebbero **93 secondi**. Dentro i
+ * 300 s della funzione ci starebbe — ma un salvataggio che gira un minuto e
+ * mezzo non è accettabile, e la corsa notturna fa TUTTI i ricorrenti in una
+ * invocazione sola: tre servizi lunghi e il tetto lo sfondi davvero.
+ *
+ * Quindi alla creazione si generano solo le prime due settimane (~1,3 s: il
+ * tasto risponde subito e il presidio si vede sul calendario), e il resto lo
+ * riempie la corsa periodica, a lotti.
+ */
+const SUBITO_GIORNI = 14;
+
+/**
+ * Il lotto della corsa periodica di RIEMPIMENTO.
+ *
+ * ⚠️ Va tenuto piccolo di proposito: gira ogni 15 minuti insieme allo
+ * smistamento, e deve lasciare tempo a quello. A 93 ms l'una, 150 consegne
+ * sono ~14 s — e 150 ogni quarto d'ora fanno 14.400 al giorno, molto più di
+ * quanto qualunque ricorrente possa chiedere.
+ */
+const LOTTO_RIEMPIMENTO = 150;
+
 /** I nomi dei giorni, per messaggi che si leggono senza decodificare una maschera. */
 const NOMI_GIORNI = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
 
@@ -408,10 +434,10 @@ export class RecurringService_ {
     // solo per OGGI: chi impostava un presidio non vedeva nascere niente e
     // l'aveva - giustamente - per rotto. Un presidio che non si vede sul
     // calendario e' indistinguibile da uno che non funziona.
-    // ⚠️ Senza `giorni`: passarlo vorrebbe dire «comanda questo numero» e
-    // schiaccerebbe a due settimane anche un servizio che dichiara «fino al
-    // 31/12». L'orizzonte lo decide la data di fine, se c'è.
-    const generate = await this.genera({ soloId: creato.id });
+    // ⚠️ Solo le prime due settimane, non tutto l'orizzonte: vedi
+    // `SUBITO_GIORNI`. Il resto lo riempie la corsa periodica — così il tasto
+    // Salva risponde in un secondo anche per un ricorrente di mille consegne.
+    const generate = await this.genera({ soloId: creato.id, giorni: SUBITO_GIORNI });
     return { ...creato, generate };
   }
 
@@ -485,7 +511,7 @@ export class RecurringService_ {
     // ha GIA' scritto. Cambiare la fascia e lasciare le consegne future con
     // quella vecchia sarebbe una modifica che non modifica niente.
     const riallineate = await this.riallineaFuture(id);
-    const generate = await this.genera({ soloId: id });
+    const generate = await this.genera({ soloId: id, giorni: SUBITO_GIORNI });
     return { ...(await this.prisma.recurringService.findUnique({ where: { id }, include: { varianti: true } }))!, riallineate, generate };
   }
 
@@ -575,6 +601,40 @@ export class RecurringService_ {
     return { toccate, tolte };
   }
 
+  /**
+   * IL RIEMPIMENTO A LOTTI (28/08/2026, chiesto dall'utente).
+   *
+   * «Se carico un servizio ricorrente con 1000 consegne rischiamo di bloccare
+   * l'app? Magari caricando 15 consegne ogni minuto.»
+   *
+   * ⚠️ Misurato: **93 ms a consegna** (365 in 33,8 s). Mille consegne in una
+   * richiesta sola sarebbero **93 secondi** sul tasto Salva — dentro i 300 s
+   * della funzione, ma inaccettabili — e la corsa notturna fa TUTTI i
+   * ricorrenti insieme: tre servizi lunghi e il tetto lo sfondi davvero.
+   *
+   * Quindi il lavoro si spezza: la creazione fa **due settimane** e questa
+   * corsa, ogni quarto d'ora, aggiunge un **lotto** fino a coprire l'orizzonte
+   * dichiarato da ciascun servizio.
+   *
+   * ⚠️ È idempotente come la generazione normale (la coppia servizio+data non
+   * si rigenera), quindi una corsa che si sovrappone alla precedente non
+   * raddoppia niente: al massimo non trova nulla da fare.
+   *
+   * ⚠️ Il tetto raggiunto si **dichiara**: «create 150» letto come «ho finito»
+   * lascerebbe il resto del periodo vuoto senza che nessuno lo sappia. La
+   * corsa dopo riprende da dove si è fermata.
+   */
+  async riempi(lotto = LOTTO_RIEMPIMENTO) {
+    const esito = await this.genera({ max: lotto });
+    return {
+      ...esito,
+      lotto,
+      // Detto a parole per chi legge l'esito del cron: «ne mancano ancora» è
+      // un'informazione, «create 150» da solo non lo è.
+      mancanoAncora: esito.fermatoAlTetto,
+    };
+  }
+
   async remove(id: string, user?: JwtUser) {
     const c = await this.prisma.recurringService.findUnique({ where: { id } });
     if (!c) throw new NotFoundException('Servizio ricorrente non trovato');
@@ -599,7 +659,7 @@ export class RecurringService_ {
    * quella consegna e' stata cancellata a mano, perche' cancellarla e' una
    * decisione, non un errore da rimediare.
    */
-  async genera(opzioni?: { da?: string; giorni?: number; soloId?: string } | string) {
+  async genera(opzioni?: { da?: string; giorni?: number; soloId?: string; max?: number } | string) {
     // Compatibilita': `genera('2026-08-27')` continua a voler dire quel giorno.
     const o = typeof opzioni === 'string' ? { da: opzioni, giorni: 1 } : (opzioni ?? {});
     const partenza = o.da
@@ -771,7 +831,7 @@ export class RecurringService_ {
           giorno.setUTCDate(giorno.getUTCDate() + 1);
           continue;
         }
-        if (create >= MASSIMO_PER_CORSA) { fermatoAlTetto = true; break; }
+        if (create >= (o.max ?? MASSIMO_PER_CORSA)) { fermatoAlTetto = true; break; }
 
         const f = fasciaDelGiorno(r, iso);
         // ⚠️ Una chiamata per INDIRIZZO, non per consegna: un ricorrente fino

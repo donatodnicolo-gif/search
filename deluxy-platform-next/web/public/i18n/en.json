@@ -2096,7 +2096,9 @@
       "dayOfMonth": "day",
       "noServices": "This partner has no services on file: add them on their card.",
       "pickPartnerFirst": "Pick the partner first.",
-      "mapsMissing": "Google Maps is not configured: addresses must be typed by hand."
+      "mapsMissing": "Google Maps is not configured: addresses must be typed by hand.",
+      "oreQuante": "How many hours",
+      "oreHint": "End time: {{fine}}"
     },
     "freq": {
       "SETTIMANALE": {

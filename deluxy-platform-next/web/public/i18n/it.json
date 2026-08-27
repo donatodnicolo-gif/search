@@ -2096,7 +2096,9 @@
       "dayOfMonth": "il giorno",
       "noServices": "Questo partner non ha servizi a listino: aggiungili nella sua scheda.",
       "pickPartnerFirst": "Scegli prima il partner.",
-      "mapsMissing": "Google Maps non è configurato: gli indirizzi restano da scrivere a mano."
+      "mapsMissing": "Google Maps non è configurato: gli indirizzi restano da scrivere a mano.",
+      "oreQuante": "Quante ore",
+      "oreHint": "Fine calcolata: {{fine}}"
     },
     "freq": {
       "SETTIMANALE": {

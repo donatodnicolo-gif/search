@@ -23,6 +23,9 @@ const figlio = spawn('npx', ['nest', 'start'], {
     ...process.env,
     DATABASE_URL: `postgresql://${u.username}:${u.password}@${u.hostname}:5432/postgres?schema=platform&connection_limit=5`,
     JWT_SECRET: 'segreto-solo-per-la-prova-locale',
+    // Serve a provare le rotte del cron in locale: in produzione il valore
+    // vero sta nell'ambiente, e senza la rotta e' chiusa per tutti.
+    CRON_SECRET: 'cron-solo-per-la-prova-locale',
     JWT_EXPIRES_IN: '1h',
     PORT: '3399',
     CORS_ORIGINS: 'http://localhost:4200',
