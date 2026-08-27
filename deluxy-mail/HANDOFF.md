@@ -23,6 +23,30 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 27/08 — Il mittente della risposta lo scegli tu (tendina Da)
+
+Segnalato: una mail arrivata sia a `nicolo.donato@` sia a `cs@` si poteva rispondere
+solo da `cs@`. Misurato su quel messaggio: due caselle fra i destinatari, e
+`accountPerRisposta` propone **la prima** che il database restituisce. Non era una
+decisione, era un ordinamento.
+
+Ora il campo **Da** e una tendina con **tutte** le caselle attive, sempre, in
+`Composizione` (quindi pagina intera **e** finestra rapida). Nuove props:
+`daScelte`, `daId`, `daIndirizzate`. `caselleIndirizzate()` in `rispondi.ts` non
+serve piu a decidere se mostrarla, ma a sapere **chi rimettere in Cc**.
+
+- Cambiando mittente, l indirizzo scelto **esce** da A e Cc (in rispondi a tutti,
+  altrimenti ti rispondi da solo); il precedente **rientra in Cc solo se era
+  davvero fra i destinatari** dell originale.
+- ⚠️ `daCasellaId` arriva dal browser: `inviaMessaggio` lo cerca dentro le caselle
+  gia filtrate per `utenteId` + `attivo`, e se non lo trova ricade su
+  `accountPerRisposta`. Senza quel controllo bastava cambiare un campo del form per
+  spedire da una casella altrui.
+- ⚠️ La voce proposta e sempre **una voce della tendina**: se la casella della copia
+  fosse disattivata, il menu avrebbe mostrato la prima e spedito da un altra.
+
+---
+
 ### 27/08 — REVISIONE DI SICUREZZA (due cacciatori + un agente ostile)
 
 Domanda di partenza: **un utente può arrivare, chiamando le API da fuori, a informazioni che non gli spettano?** Due agenti hanno cercato in modo indipendente (superficie esterna; chiavi e isolamento), un terzo ha avuto il mandato di **demolire** quello che avevano trovato.

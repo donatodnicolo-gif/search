@@ -386,6 +386,24 @@ per «Rispondi», per le bozze dell'AI e per le risposte agli inviti di calendar
 nessuna delle tue caselle è fra i destinatari (una mail girata da un alias), resta la
 casella della copia: meglio un mittente discutibile di un invio che non parte.
 
+## 6-ter. Da quale casella parte la risposta
+
+Il campo **Da**, rispondendo, e una tendina con tutte le tue caselle attive: la
+risposta puo partire da qualunque indirizzo, non solo da quello che l app ha
+indovinato. C e sia nella pagina intera sia nella finestra rapida (nella mail
+nuova c era gia).
+
+Cosa propone. Si risponde dall indirizzo **a cui la mail era indirizzata**, non
+da quello che ne ha scaricato la copia: con piu caselle collegate la stessa mail
+entra in piu caselle, e la copia che ti capita davanti puo essere quella che era
+solo in copia. Quando la mail e arrivata a **piu di una** delle tue caselle, sotto
+la tendina te lo dice: la proposta e la prima, ma la scelta e tua.
+
+Cosa succede cambiando. L indirizzo che scegli **esce** da A e Cc, altrimenti in
+un rispondi a tutti ti risponderesti da solo. Il precedente **rientra in Cc** solo
+se era davvero fra i destinatari dell originale: se scegli una casella che con
+quella conversazione non c entrava, non si aggiunge nessuno.
+
 ## 6-bis. La barra delle azioni sulla mail aperta
 
 Sulla mail aperta restano in vista le quattro azioni d'uso continuo — **Rispondi**,
