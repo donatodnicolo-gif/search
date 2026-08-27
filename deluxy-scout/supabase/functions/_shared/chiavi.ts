@@ -32,6 +32,7 @@ const DA_APP: Record<string, string> = {
   ANAGRAFICHE_PARTNER_KEY: 'anagrafiche',
   ORDERS_API_KEY: 'orders',
   PARTNER_API_KEY: 'partner',
+  PIATTAFORMA_API_KEY: 'piattaforma',
   TASKS_API_KEY: 'tasks',
   CALENDARIO_API_KEY: 'calendario',
   SCRIPTS_API_KEY: 'scripts',

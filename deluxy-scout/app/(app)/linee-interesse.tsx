@@ -1,7 +1,7 @@
 // Gestione delle LINEE DI INTERESSE (solo admin). Scout è il master: qui si
 // creano/modificano/archiviano le linee e le loro SOTTOLINEE. Le altre app le
 // leggono dalla Edge Function `linee`.
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Stack, useFocusEffect } from 'expo-router';
@@ -11,7 +11,15 @@ import { PageIntro, StatusBadge } from '@/components/ui';
 import { conferma, avvisa } from '@/lib/dialoghi';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { aggiornaLinea, archiviaLinea, creaLinea, fetchLineeInteresse, type LineaInteresse } from '@/lib/db';
+import {
+  aggiornaLinea,
+  archiviaLinea,
+  creaLinea,
+  fetchLineeInteresse,
+  fetchServiziPiattaforma,
+  type LineaInteresse,
+  type ServizioPiattaforma,
+} from '@/lib/db';
 
 type Editor =
   | { modo: 'nuova-linea' }
@@ -24,6 +32,15 @@ export default function LineeInteresse() {
   const [linee, setLinee] = useState<LineaInteresse[]>([]);
   const [loading, setLoading] = useState(true);
   const [editor, setEditor] = useState<Editor | null>(null);
+  /**
+   * ⭐ I SERVIZI DELLA PIATTAFORMA CONSEGNE (27/08/2026, richiesta dell'utente:
+   * «ora dovresti poter richiamare l'app delivery per dire quali inserire»).
+   *
+   * Le linee si battevano a mano da questa parte mentre i servizi che si
+   * vendono davvero erano già scritti di là: da qui si guarda quell'elenco e si
+   * sceglie cosa portare in Scout, invece di riscrivere nomi che esistono già.
+   */
+  const [catalogo, setCatalogo] = useState(false);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -158,13 +175,249 @@ export default function LineeInteresse() {
         ))}
       </ScrollView>
 
-      <Pressable style={styles.fab} onPress={() => setEditor({ modo: 'nuova-linea' })}>
-        <Ionicons name="add" size={22} color={colors.bianco} />
-        <Text style={styles.fabTxt}>Nuova linea</Text>
-      </Pressable>
+      <View style={styles.barraSotto}>
+        {/* ⚠️ Sta accanto a «Nuova linea», non dentro un menù: è l'altro modo
+            di rispondere alla stessa domanda — quali linee servono — e un
+            comando fuori dalla prima schermata non si trova. */}
+        <Pressable style={styles.fabGhost} onPress={() => setCatalogo(true)}>
+          <Ionicons name="cube-outline" size={18} color={colors.navy} />
+          <Text style={styles.fabGhostTxt}>Servizi dell&apos;app consegne</Text>
+        </Pressable>
+        <Pressable style={styles.fab} onPress={() => setEditor({ modo: 'nuova-linea' })}>
+          <Ionicons name="add" size={22} color={colors.bianco} />
+          <Text style={styles.fabTxt}>Nuova linea</Text>
+        </Pressable>
+      </View>
 
       {editor ? <EditorModal editor={editor} onClose={() => setEditor(null)} onSalvato={() => { setEditor(null); carica(); }} /> : null}
+
+      {catalogo ? (
+        <CatalogoConsegne linee={linee} onClose={() => setCatalogo(false)} onInserite={() => { setCatalogo(false); carica(); }} />
+      ) : null}
     </View>
+  );
+}
+
+/**
+ * Il nome di una linea in una grafia sola, per confrontarla con quella di un
+ * servizio della piattaforma.
+ *
+ * ⚠️ Serve perché il nome è un INDIZIO, non un'identità: «Eventi & Catering» e
+ * «eventi e catering» sono la stessa cosa scritta da due persone diverse, e
+ * senza questo passaggio la schermata proporrebbe di creare una linea che c'è
+ * già. L'identità vera è `servizio_codice`, e si guarda prima di questo.
+ */
+function grafiaUnica(nome: string): string {
+  return nome
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' e ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * IL CATALOGO DELLA PIATTAFORMA: cosa si vende di là, e cosa manca di qua.
+ *
+ * ⚠️ Le linee non si «sincronizzano»: si SCEGLIE cosa creare, una per una. Una
+ * copia automatica farebbe di Scout uno specchio della piattaforma, e le linee
+ * di interesse servono anche a cose che consegne non fa (Affiliazioni,
+ * Re-seller). Chi possiede il dato decide cosa entra in casa sua.
+ */
+function CatalogoConsegne({
+  linee,
+  onClose,
+  onInserite,
+}: {
+  linee: LineaInteresse[];
+  onClose: () => void;
+  onInserite: () => void;
+}) {
+  const [stato, setStato] = useState<'carico' | 'ok' | 'non_configurato' | 'errore'>('carico');
+  const [dettaglio, setDettaglio] = useState<string | null>(null);
+  const [servizi, setServizi] = useState<ServizioPiattaforma[]>([]);
+  const [scelti, setScelti] = useState<Set<string>>(new Set());
+  const [inserendo, setInserendo] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    fetchServiziPiattaforma().then((esito) => {
+      if (!vivo) return;
+      if (esito.ok) {
+        setServizi(esito.servizi);
+        setStato('ok');
+      } else if (esito.motivo === 'non_configurato') {
+        setStato('non_configurato');
+      } else {
+        setDettaglio(esito.dettaglio);
+        setStato('errore');
+      }
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  /** Tutte le linee, comprese le sottolinee: una sottolinea è già una risposta. */
+  const tutte = useMemo(() => linee.flatMap((l) => [l, ...(l.sottolinee ?? [])]), [linee]);
+  const perCodice = useMemo(
+    () => new Set(tutte.map((l) => l.servizio_codice).filter(Boolean) as string[]),
+    [tutte],
+  );
+  const perNome = useMemo(() => new Map(tutte.map((l) => [grafiaUnica(l.nome), l.nome])), [tutte]);
+
+  /**
+   * Come sta messo ogni servizio rispetto alle linee di Scout. Tre risposte
+   * diverse, e la differenza conta: «collegato» è una certezza (il codice),
+   * «somiglia» è un sospetto da guardare (il nome), «manca» è l'unico che si
+   * può creare senza pensarci.
+   */
+  const righe = useMemo(
+    () =>
+      servizi.map((sv) => {
+        if (perCodice.has(sv.codice)) return { sv, come: 'collegato' as const, linea: null as string | null };
+        const simile = perNome.get(grafiaUnica(sv.nome));
+        if (simile) return { sv, come: 'somiglia' as const, linea: simile };
+        return { sv, come: 'manca' as const, linea: null };
+      }),
+    [servizi, perCodice, perNome],
+  );
+  const mancanti = righe.filter((r) => r.come === 'manca');
+
+  function spuntaTutti() {
+    setScelti(scelti.size === mancanti.length ? new Set() : new Set(mancanti.map((r) => r.sv.codice)));
+  }
+
+  async function inserisci() {
+    if (inserendo || !scelti.size) return;
+    setInserendo(true);
+    const falliti: string[] = [];
+    try {
+      for (const r of mancanti) {
+        if (!scelti.has(r.sv.codice)) continue;
+        try {
+          await creaLinea({
+            nome: r.sv.nome,
+            attiva_bool: r.sv.attivo,
+            // ⚠️ La vetrina segue l'AMBITO del servizio: quello che un valet
+            // esegue non è qualcosa che un partner possa chiedersi da solo. È
+            // scritto anche a schermo, perché è una decisione presa qui.
+            in_vetrina: r.sv.ambito !== 'valet',
+            servizio_codice: r.sv.codice,
+          });
+        } catch (e: any) {
+          falliti.push(`${r.sv.nome} (${e?.message ?? 'non riuscita'})`);
+        }
+      }
+      // ⚠️ Si dice QUALI non sono entrate, non «qualcosa è andato storto»: con
+      // dieci righe in fila, «errore» manda a ricontrollarle tutte a mano.
+      if (falliti.length) {
+        avvisa('Alcune linee non sono nate', falliti.join('\n'));
+      }
+      onInserite();
+    } finally {
+      setInserendo(false);
+    }
+  }
+
+  return (
+    <Foglio
+      titolo="Servizi dell'app consegne"
+      sottotitolo="Quello che si vende sulla piattaforma. Si sceglie cosa portare in Scout: le linee restano nostre."
+      onClose={onClose}
+      largo
+    >
+      <ScrollView contentContainerStyle={{ gap: spacing.sm, paddingBottom: 8 }}>
+        {stato === 'carico' ? <ActivityIndicator color={colors.navy} /> : null}
+
+        {stato === 'non_configurato' ? (
+          <Text style={styles.avviso}>
+            L&apos;app consegne non è collegata: manca la sua chiave. Si incolla in Impostazioni → App collegate,
+            riga «Consegne (piattaforma)». La chiave si crea sulla piattaforma con
+            {' '}api/scripts/crea-chiave-app.mjs.
+          </Text>
+        ) : null}
+
+        {stato === 'errore' ? (
+          <Text style={styles.avviso}>La piattaforma non ha risposto. {dettaglio}</Text>
+        ) : null}
+
+        {stato === 'ok' && !servizi.length ? (
+          <Text style={styles.avviso}>La piattaforma ha risposto, ma il suo catalogo dei servizi è vuoto.</Text>
+        ) : null}
+
+        {stato === 'ok' && servizi.length ? (
+          <>
+            <Text style={styles.catNota}>
+              {mancanti.length
+                ? `${mancanti.length} servizi non hanno una linea in Scout. Le linee create partono in vetrina, tranne quelle di ambito valet.`
+                : 'Ogni servizio della piattaforma ha già la sua linea qui.'}
+            </Text>
+
+            {mancanti.length ? (
+              <Pressable onPress={spuntaTutti} style={styles.catTutti}>
+                <Ionicons
+                  name={scelti.size === mancanti.length ? 'checkbox' : 'square-outline'}
+                  size={18}
+                  color={colors.navy}
+                />
+                <Text style={styles.catTuttiTxt}>Scegli tutti quelli che mancano</Text>
+              </Pressable>
+            ) : null}
+
+            {righe.map(({ sv, come, linea }) => {
+              const scelto = scelti.has(sv.codice);
+              return (
+                <Pressable
+                  key={sv.id}
+                  style={[styles.catRiga, come !== 'manca' && styles.catRigaSpenta]}
+                  disabled={come !== 'manca'}
+                  onPress={() => {
+                    const nuovo = new Set(scelti);
+                    if (scelto) nuovo.delete(sv.codice);
+                    else nuovo.add(sv.codice);
+                    setScelti(nuovo);
+                  }}
+                >
+                  {come === 'manca' ? (
+                    <Ionicons name={scelto ? 'checkbox' : 'square-outline'} size={18} color={colors.navy} />
+                  ) : (
+                    <Ionicons name="link-outline" size={18} color={colors.grigio} />
+                  )}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.catNome} numberOfLines={1}>
+                      {sv.nome}
+                    </Text>
+                    <Text style={styles.catMeta} numberOfLines={2}>
+                      {sv.codice} · {sv.ambito} · {sv.modello}
+                      {sv.attivo ? '' : ' · spento sulla piattaforma'}
+                      {come === 'collegato' ? ' — già collegato a una linea' : ''}
+                      {come === 'somiglia' ? ` — c'è già «${linea}» con lo stesso nome` : ''}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+
+            <Pressable
+              style={[styles.btnSalva, (!scelti.size || inserendo) && styles.btnOff]}
+              disabled={!scelti.size || inserendo}
+              onPress={inserisci}
+            >
+              {inserendo ? (
+                <ActivityIndicator color={colors.bianco} size="small" />
+              ) : (
+                <Text style={styles.btnSalvaTxt}>
+                  {scelti.size ? `Crea ${scelti.size} linee` : 'Scegli cosa creare'}
+                </Text>
+              )}
+            </Pressable>
+          </>
+        ) : null}
+      </ScrollView>
+    </Foglio>
   );
 }
 
@@ -249,6 +502,40 @@ function EditorModal({ editor, onClose, onSalvato }: { editor: Editor; onClose: 
 }
 
 const styles = StyleSheet.create({
+  barraSotto: { position: 'absolute', right: spacing.lg, bottom: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  fabGhost: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.pill,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+  },
+  fabGhostTxt: { color: colors.navy, fontWeight: '700', fontSize: 13.5 },
+  avviso: { color: colors.testoSoft, fontSize: 13, lineHeight: 19 },
+  catNota: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
+  catTutti: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
+  catTuttiTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
+  catRiga: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    backgroundColor: colors.bianco,
+  },
+  catRigaSpenta: { opacity: 0.55 },
+  catNome: { color: colors.testo, fontSize: 14, fontWeight: '700' },
+  catMeta: { color: colors.grigio, fontSize: 11.5, lineHeight: 16, marginTop: 1 },
+  btnSalva: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingVertical: 12, alignItems: 'center', marginTop: 6 },
+  btnSalvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
+  btnOff: { opacity: 0.45 },
   container: { flex: 1, backgroundColor: colors.sfondo },
   list: { padding: spacing.md, paddingBottom: 96, gap: spacing.sm },
   vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
@@ -264,8 +551,11 @@ const styles = StyleSheet.create({
   sottoStandby: { color: colors.grigio, fontSize: 11, fontStyle: 'italic' },
   aggiungiSotto: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },
   aggiungiSottoTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 13 },
+  // ⚠️ NON è più assoluto: da quando sta dentro `barraSotto` — che è lei ad
+  // essere ancorata in basso a destra — un secondo `position:'absolute'` qui
+  // lo avrebbe riposizionato DENTRO la barra, cioè sopra l'altro bottone.
   fab: {
-    position: 'absolute', right: spacing.md, bottom: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: colors.navy, borderRadius: radius.pill, paddingLeft: 14, paddingRight: 18, paddingVertical: 12,
     shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4,
   },

@@ -32,6 +32,7 @@ import { creaLead, eliminaLead, fetchLeads, scartaLead } from '@/lib/db';
 import type { EsitoRegistro } from '@/lib/anagrafiche';
 import { urlMessaggioAiMail } from '@/lib/aimail';
 import { fetchCorpoMail, importaRichiesteDaMail } from '@/lib/mail';
+import { chiudiLetturaPosta, prenotaLetturaPosta, rilasciaLetturaPosta, statoImportPosta } from '@/lib/db';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
@@ -85,6 +86,20 @@ export default function LeadWeb() {
   const [formAperto, setFormAperto] = useState(false);
   const [daQualificare, setDaQualificare] = useState<Lead | null>(null);
   const [importando, setImportando] = useState(false);
+  /**
+   * ⭐ L'IMPORT CHE PARTE DA SOLO (27/08/2026, richiesta dell'utente: «import
+   * automatico ogni giorno o ogni volta che si apre la pagina»).
+   *
+   * Prima bisognava ricordarsi di premere un bottone: una richiesta arrivata
+   * di sabato restava nella casella finché qualcuno non apriva questa pagina E
+   * si ricordava di cliccare. Ora l'apertura basta.
+   *
+   * ⚠️ L'esito NON apre un pop-up. Il bottone a mano lo fa perché lo hai
+   * chiesto tu; una finestra che si piazza davanti ogni volta che passi di qui
+   * si impara a chiudere senza leggere, e il giorno che dice qualcosa di
+   * importante nessuno la legge. Qui si scrive in una riga sotto al bottone.
+   */
+  const [esitoAuto, setEsitoAuto] = useState<string | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -98,6 +113,66 @@ export default function LeadWeb() {
   useFocusEffect(
     useCallback(() => {
       carica();
+    }, [carica]),
+  );
+
+  /**
+   * Quanto si aspetta prima di rileggere la casella aprendo di nuovo la
+   * pagina.
+   *
+   * ⚠️ Non è zero, e non è un capriccio: fra dashboard e lead si passa di qui
+   * dieci volte in un'ora, e ogni lettura è una connessione IMAP e una manciata
+   * di secondi. Un quarto d'ora tiene la promessa («si apre la pagina, arriva
+   * la posta») senza trasformare ogni navigazione in un'attesa. Il bottone a
+   * mano non aspetta niente: se sai che è appena arrivata, la prendi subito.
+   */
+  /**
+   * Quanto si aspetta prima di rileggere la casella riaprendo la pagina.
+   *
+   * ⚠️ Non è zero, e non è un capriccio: fra dashboard e lead si passa di qui
+   * dieci volte in un'ora, e ogni lettura è una connessione alla casella e una
+   * manciata di secondi. Un quarto d'ora tiene la promessa — si apre la pagina,
+   * arriva la posta — senza trasformare ogni navigazione in un'attesa. Il
+   * bottone a mano non aspetta niente: se sai che è appena arrivata, la prendi
+   * subito.
+   */
+  const ATTESA_MIN = 15;
+
+  useFocusEffect(
+    useCallback(() => {
+      let vivo = true;
+      (async () => {
+        const prima = await statoImportPosta();
+        // Chi apre e non deve leggere vede comunque com'è finita l'ultima
+        // volta: senza, la riga sparisce e la pagina sembra non fare niente.
+        if (vivo && prima?.ultimo_esito) setEsitoAuto(prima.ultimo_esito);
+        const mio = await prenotaLetturaPosta(ATTESA_MIN);
+        if (!mio || !vivo) return;
+        try {
+          const esito = await importaRichiesteDaMail();
+          if (!vivo) return;
+          await carica();
+          const parti = [
+            esito.importate ? `${esito.importate} nuove richieste` : 'nessuna richiesta nuova',
+            esito.richiesteCliente ? `${esito.richiesteCliente} in Richieste Clienti` : '',
+            esito.scartate ? `${esito.scartate} scartate` : '',
+          ].filter(Boolean);
+          const riga = `Posta letta alle ${new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}: ${parti.join(' · ')}.`;
+          setEsitoAuto(riga);
+          await chiudiLetturaPosta(riga, true);
+        } catch (e: any) {
+          // ⚠️ Si DICE che non ha funzionato, e l'orologio torna indietro. Un
+          // import automatico che fallisce in silenzio è peggio di nessun
+          // import automatico: la casella sembra vuota e nessuno va a guardare.
+          const riga = `Lettura automatica della posta non riuscita: ${e?.message ?? 'riprova col bottone'}.`;
+          await rilasciaLetturaPosta(prima?.ultimo_tentativo ?? null).catch(() => undefined);
+          await chiudiLetturaPosta(riga, false).catch(() => undefined);
+          if (vivo) setEsitoAuto(riga);
+        }
+      })();
+      return () => {
+        vivo = false;
+      };
     }, [carica]),
   );
 
@@ -381,6 +456,7 @@ export default function LeadWeb() {
             {importando ? 'Leggo la posta…' : 'Importa da commerciale@deluxy.it'}
           </Text>
         </Pressable>
+        {esitoAuto ? <Text style={styles.esitoAuto}>{esitoAuto}</Text> : null}
         <View style={styles.chips}>
           {[
             { v: 'nuovo', label: `Nuovi${nNuovi ? ` (${nNuovi})` : ''}` },
@@ -592,6 +668,7 @@ const styles = StyleSheet.create({
   head: { padding: spacing.md, gap: spacing.sm },
   btnImporta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingVertical: 9 },
   btnImportaTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
+  esitoAuto: { color: colors.grigio, fontSize: 12, lineHeight: 16, marginTop: 6, textAlign: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },

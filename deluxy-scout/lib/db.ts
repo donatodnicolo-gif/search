@@ -51,6 +51,9 @@ export interface LineaInteresse {
   ordine: number;
   icona: string | null;
   pitch: string | null;
+  /** Il servizio della piattaforma consegne da cui è nata (migr. 0083).
+   *  ⚠️ Riferimento, non copia: prezzi e modello restano di là. */
+  servizio_codice?: string | null;
   sottolinee?: LineaInteresse[]; // valorizzato solo per le linee top-level
 }
 
@@ -58,7 +61,7 @@ export interface LineaInteresse {
 export async function fetchLineeInteresse(): Promise<LineaInteresse[]> {
   const { data, error } = await supabase
     .from('lines')
-    .select('id, nome, attiva_bool, in_vetrina, archiviata, parent_id, ordine, icona, pitch')
+    .select('id, nome, attiva_bool, in_vetrina, archiviata, parent_id, ordine, icona, pitch, servizio_codice')
     .eq('archiviata', false)
     .order('ordine')
     .order('nome');
@@ -92,6 +95,8 @@ export async function creaLinea(l: {
   attiva_bool?: boolean;
   /** Se compare fra i servizi richiedibili nella casa del partner. */
   in_vetrina?: boolean;
+  /** Il servizio della piattaforma consegne da cui nasce (migr. 0083). */
+  servizio_codice?: string | null;
 }): Promise<void> {
   const { error } = await supabase.from('lines').insert({
     nome: l.nome.trim(),
@@ -100,6 +105,7 @@ export async function creaLinea(l: {
     pitch: l.pitch ?? null,
     attiva_bool: l.attiva_bool ?? true,
     in_vetrina: l.in_vetrina ?? true,
+    servizio_codice: l.servizio_codice ?? null,
   });
   if (error) throw error;
 }
@@ -2438,6 +2444,56 @@ export async function leggiDatiAzienda(): Promise<DatiAzienda> {
   };
 }
 
+// ── L'import automatico della posta (migr. 0084) ─────────────────────────────
+//
+// La pagina Lead legge la casella commerciale da sola, aprendola (richiesta
+// dell'utente, 27/08/2026). Queste tre funzioni sono la lavagna condivisa che
+// dice se tocca a me farlo.
+//
+// ⚠️ NON è `impostazioni`: quella la scrive solo l'amministratore, e un import
+// automatico che non riesce a segnare il proprio passaggio non parte. Per un
+// venditore sarebbe rimasto un bottone da premere a mano.
+
+export interface StatoImportPosta {
+  ultimo_tentativo: string | null;
+  ultimo_esito: string | null;
+  ultimo_ok: boolean | null;
+}
+
+/** Com'è finita l'ultima lettura, per chiunque apra la pagina. */
+export async function statoImportPosta(): Promise<StatoImportPosta | null> {
+  const { data, error } = await supabase
+    .from('import_posta')
+    .select('ultimo_tentativo, ultimo_esito, ultimo_ok')
+    .maybeSingle();
+  if (error) return null;
+  return (data as StatoImportPosta) ?? null;
+}
+
+/**
+ * Prenota il giro: torna `true` solo a chi lo deve fare davvero.
+ *
+ * ⚠️ La condizione sta DENTRO la UPDATE, sul server: leggere «quando» e poi
+ * scrivere «adesso» in due passi lascia aperta la finestra in cui due persone
+ * leggono lo stesso «mai» e leggono la casella in due. E l'orologio è quello
+ * del server, non del telefono di chi apre la pagina.
+ */
+export async function prenotaLetturaPosta(attesaMinuti: number): Promise<boolean> {
+  const { data, error } = await supabase.rpc('prenota_lettura_posta', { attesa_minuti: attesaMinuti });
+  if (error) return false;
+  return data === true;
+}
+
+/** Scrive com'è andata, perché la legga anche chi arriva dopo. */
+export async function chiudiLetturaPosta(esito: string, ok: boolean): Promise<void> {
+  await supabase.rpc('chiudi_lettura_posta', { esito, ok });
+}
+
+/** Rimette indietro l'orologio quando il giro è fallito. */
+export async function rilasciaLetturaPosta(precedente: string | null): Promise<void> {
+  await supabase.rpc('rilascia_lettura_posta', { precedente });
+}
+
 export async function leggiImpostazione(chiave: string): Promise<string | null> {
   const { data, error } = await supabase.from('impostazioni').select('valore').eq('chiave', chiave).maybeSingle();
   if (error) return null;
@@ -2451,6 +2507,72 @@ export async function salvaImpostazione(chiave: string, valore: string): Promise
     { onConflict: 'chiave' },
   );
   if (error) throw error;
+}
+
+// ── Il catalogo dei servizi della PIATTAFORMA CONSEGNE ───────────────────────
+//
+// Scout è il master delle linee di interesse, ma i servizi che si vendono
+// davvero sono già scritti nella piattaforma. Da qui si leggono per decidere
+// quali linee creare (richiesta dell'utente, 27/08/2026).
+//
+// ⚠️ Si LEGGE e basta. Il servizio è di casa loro, la linea è di casa nostra:
+// quello che nasce di qua è una linea Deluxy Scout che tiene il codice del
+// servizio come riferimento, non una copia di quel record.
+
+export interface ServizioPiattaforma {
+  id: string;
+  nome: string;
+  codice: string;
+  /** partner | valet | both — a chi è rivolto. */
+  ambito: string;
+  /** VENDITA | PREZZO_FISSO | A_ORA | MAGAZZINO | CORPORATE. */
+  modello: string;
+  attivo: boolean;
+  note?: string | null;
+}
+
+export type EsitoServiziPiattaforma =
+  | { ok: true; servizi: ServizioPiattaforma[] }
+  | { ok: false; motivo: 'non_configurato' }
+  | { ok: false; motivo: 'errore'; dettaglio: string };
+
+/**
+ * Chiede alla piattaforma il suo catalogo dei servizi, passando dalla Edge
+ * Function `servizi-consegne` (la chiave resta sul server).
+ *
+ * ⚠️ Non lancia: «non collegata» è uno STATO, non un guasto, e la schermata lo
+ * scrive come tale. Una eccezione qui farebbe sembrare rotta la piattaforma
+ * quando manca solo una chiave da incollare.
+ */
+export async function fetchServiziPiattaforma(ambito?: string): Promise<EsitoServiziPiattaforma> {
+  try {
+    const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/servizi-consegne`;
+    const { data: s } = await supabase.auth.getSession();
+    const token = s.session?.access_token;
+    if (!token) return { ok: false, motivo: 'errore', dettaglio: 'Sessione scaduta: rientra.' };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        apikey: env.supabaseAnonKey(),
+      },
+      body: JSON.stringify(ambito ? { ambito } : {}),
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body) {
+      return { ok: false, motivo: 'errore', dettaglio: `La funzione ha risposto ${res.status}.` };
+    }
+    if (body.ok) return { ok: true, servizi: (body.servizi ?? []) as ServizioPiattaforma[] };
+    if (body.motivo === 'non_configurato') return { ok: false, motivo: 'non_configurato' };
+    return {
+      ok: false,
+      motivo: 'errore',
+      dettaglio: [body.stato ? `Errore ${body.stato}` : null, body.dettaglio].filter(Boolean).join(': ') || 'Non riuscito.',
+    };
+  } catch (e: any) {
+    return { ok: false, motivo: 'errore', dettaglio: String(e?.message ?? e) };
+  }
 }
 
 // ── Chiavi API delle altre app Deluxy (migr. 0044) ───────────────────────────
@@ -2475,6 +2597,10 @@ export const APP_DELUXY: AppDeluxy[] = [
   { id: 'scripts', nome: 'Scripts', urlDefault: 'https://deluxy-scripts.vercel.app', aCosaServe: 'I testi pronti da mandare al cliente, già composti.' },
   { id: 'marketing', nome: 'Marketing', urlDefault: 'https://deluxy-marketing.vercel.app', aCosaServe: 'La spesa pubblicitaria reale per brand.' },
   { id: 'partner', nome: 'Partner', urlDefault: 'https://deluxy-partner.vercel.app', aCosaServe: 'La parte finanziaria dei partner: fatture e saldi.' },
+  // ⚠️ L'indirizzo è quello del CANALE APP (`/api/v1`), non della pagina: la
+  // piattaforma serve web e API sullo stesso dominio, e puntare alla home
+  // farebbe rispondere l'HTML dell'app al posto dei dati.
+  { id: 'piattaforma', nome: 'Consegne (piattaforma)', urlDefault: 'https://deluxy-delivery.vercel.app/api/v1', aCosaServe: 'I servizi che si vendono davvero: da qui si decide quali linee di interesse creare.' },
 ];
 
 export interface StatoChiaveApp {
