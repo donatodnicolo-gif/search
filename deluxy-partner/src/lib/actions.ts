@@ -394,15 +394,24 @@ export async function segnaFatturaCompensata(id: string, compensata: boolean) {
 // dell'importo, il resto resta da incassare. È un'entrata di denaro (incasso dal
 // partner), quindi NON passa dal codice di conferma. Se l'incasso copre tutto il
 // residuo la fattura diventa saldata. `importo` è IVA inclusa.
-export async function incassaFatturaParziale(id: string, fd: FormData) {
-  const importo = n(fd, "importo");
-  const dataPag = d(fd, "dataPagamento") ?? new Date();
+// Nucleo dell'incasso parziale, SENZA redirect: lo usano sia il modulo della
+// scheda fattura sia la riconciliazione bancaria («Salda in parte»). La regola
+// dell'acconto — quanto resta, quando diventa saldatura piena — vive qui e in
+// nessun altro posto: due copie divergono al primo caso limite.
+export async function applicaIncassoParziale(
+  id: string,
+  importo: number,
+  dataPag: Date
+): Promise<
+  | { ok: false; motivo: string }
+  | { ok: true; saldata: boolean; numero: string; importo: number; incassato: number; residuo: number; partnerId: string; partnerNome: string }
+> {
   const f = await prisma.fatturaServizio.findUnique({ where: { id }, include: { partner: true } });
-  if (!f) return;
+  if (!f) return { ok: false, motivo: "La fattura non esiste più." };
+  const numero = f.numero ?? "s.n.";
+  const base = { numero, importo, partnerId: f.partnerId, partnerNome: f.partner.nome };
   const totale = +ivato(f).toFixed(2);
-  if (importo == null || importo <= 0) {
-    redirect(`/fatture/${id}?erroreIncasso=${encodeURIComponent("Indica un importo maggiore di zero.")}`);
-  }
+  if (!(importo > 0)) return { ok: false, motivo: "Indica un importo maggiore di zero." };
   const giaIncassato = f.incassato ?? 0;
   const nuovoIncassato = +Math.min(totale, giaIncassato + importo).toFixed(2);
   const saldata = totale - nuovoIncassato <= 0.005;
@@ -411,7 +420,7 @@ export async function incassaFatturaParziale(id: string, fd: FormData) {
   // (saldo del mese in compensazione, registro, FIC pieno, cache).
   if (saldata) {
     await segnaFatturaPagata(id, true, dataPag);
-    redirect(`/fatture/${id}?incasso=saldata`);
+    return { ok: true, saldata: true, ...base, incassato: totale, residuo: 0 };
   }
 
   await prisma.fatturaServizio.update({ where: { id }, data: { incassato: nuovoIncassato } });
@@ -433,7 +442,17 @@ export async function incassaFatturaParziale(id: string, fd: FormData) {
     categoria: "pagamenti", entita: "fattura", entitaId: f.id, partner: f.partner.nome,
   });
   revalidateAll();
-  redirect(`/fatture/${id}?incasso=parziale`);
+  return { ok: true, saldata: false, ...base, incassato: nuovoIncassato, residuo: +(totale - nuovoIncassato).toFixed(2) };
+}
+
+// Modulo «Incassa…» della scheda fattura: legge il form e traduce l'esito in
+// un redirect. Tutta la contabilità sta in applicaIncassoParziale().
+export async function incassaFatturaParziale(id: string, fd: FormData) {
+  const importo = n(fd, "importo");
+  const dataPag = d(fd, "dataPagamento") ?? new Date();
+  const esito = await applicaIncassoParziale(id, importo ?? 0, dataPag);
+  if (!esito.ok) redirect(`/fatture/${id}?erroreIncasso=${encodeURIComponent(esito.motivo)}`);
+  redirect(`/fatture/${id}?incasso=${esito.saldata ? "saldata" : "parziale"}`);
 }
 
 export async function deleteFattura(id: string) {

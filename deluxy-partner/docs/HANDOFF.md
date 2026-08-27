@@ -16,6 +16,20 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 27/08/2026 (sera) — «Salda in parte», e «fattura» erano DUE cose
+>
+> **Fatto il punto (a) della proposta di stamattina.** In `/transazioni` il match con una fattura ha ora un secondo bottone **«Salda in parte»**: passa l'importo del movimento a un incasso parziale, la fattura resta aperta per il residuo e il secondo bonifico la chiude. Tre pezzi:
+>
+> - **`applicaIncassoParziale(id, importo, data)`** in `src/lib/actions.ts`: nucleo senza redirect, estratto da `incassaFatturaParziale` (che ora è solo il modulo della scheda fattura). La regola dell'acconto — quanto resta, quando diventa saldatura piena — **vive in un posto solo**.
+> - **`registraTransazioneAcconto(txId, fatturaId)`** in `src/lib/transazioni-actions.ts`: torna `EsitoRiga` come le altre azioni di riga, rifiuta gli addebiti («un acconto si registra solo su un accredito»), scrive sul movimento `esito` = «Acconto di X € sulla fattura N — restano Y €» e lascia la voce nel registro modifiche. Se l'importo copre tutto il residuo, delega alla saldatura piena e lo dice.
+> - **Il motore ora abbina sul RESIDUO, non sul totale** (`src/lib/riconciliazione.ts`): `residuoFattura(f)` al posto di `ivato(f)` in tutti i confronti degli accrediti. Senza questo il secondo bonifico non avrebbe mai trovato la sua fattura (330 € contro un totale di 1.830 €, mentre il residuo era esattamente 330). Per le fatture senza acconti non cambia nulla: residuo = totale.
+>
+> Nel blocco «Discrepanze» il suggerimento porta ora un campo **`acconto`**: quando il partner ha **una sola** fattura aperta e l'accredito è più piccolo del suo residuo, compare «Salda in parte» prima di «Registra comunque» (che è il bottone che sposta i conti del mese). Con più fatture aperte non si indovina: resta com'era. Nel match con fattura, quando il movimento è più piccolo del residuo, «Salda in parte» diventa il gesto principale e «Salda fattura» passa in secondo piano — con un `title` che dice a chiare lettere che segnerebbe incassata TUTTA la fattura.
+>
+> **Verificato**: typecheck e build puliti; pagina renderizzata in locale sui dati veri — il bottone **compare su un caso reale** (movimento con causale «fatt. 221-349/2026», atteso 457,50 €). ⚠️ Il percorso di scrittura non è stato eseguito: non si prova un acconto sulla contabilità vera. Lo prova il primo uso, e l'esito resta scritto sul movimento e nel registro modifiche.
+>
+> ⚠️ **E «almeno una fattura nell'anno» erano DUE cose.** Il filtro di default dei partner contava solo le `FatturaServizio` e faceva sparire **MARYFLOR**, che nel 2026 di fatture ne ha **sette** — ma sono **fatture di COMMISSIONI**, che vivono sui saldi mensili (`SaldoMensile.commFattEmessa/commFattNumero`), non fra le fatture di servizi. Erano **24 partner** in questa condizione. Ora il default conta entrambe: **79 partner su 110** (erano 55), nascosti 31 di cui **3** con vendite come vendor e nessuna fattura di nessun tipo.
+
 > ### 27/08/2026 — una fattura pagata con DUE bonifici non ha una casa in `/transazioni` (verificato su ANGOLO FIORITO)
 >
 > Segnalato dall'utente: cercando «lops angela» in `/transazioni` c'è un bonifico di **330 €**; premendo «Registra incasso» si sballa il conto del partner, premendo «Ignora» il movimento sparisce e non si risale più al pagamento ricevuto. **Verificato sul database di produzione: la sostanza è giusta.**

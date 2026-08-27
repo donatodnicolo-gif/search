@@ -156,11 +156,16 @@ export default async function PartnerList({
     }
     return true;
   };
+  // «Almeno una fattura nell'anno» sono DUE cose: le fatture di servizi
+  // (FatturaServizio) e le fatture di COMMISSIONI emesse sui saldi mensili dei
+  // vendor (SaldoMensile.commFattEmessa). Contare solo le prime nascondeva 24
+  // partner che una fattura ce l'hanno eccome — MARYFLOR ne ha sette nel 2026.
+  const haFattura = (t: Riga) => t.fatture.length > 0 || t.saldiRecords.some((s) => s.commFattEmessa);
   const passaStato = (t: Riga) => {
     switch (stato) {
       // default: chi ha almeno una fattura di competenza dell'anno in corso
-      case "attivi-fatture": return t.fatture.length > 0;
-      case "attivi-movimenti": return t.fatture.length > 0 || t.vendite.length > 0;
+      case "attivi-fatture": return haFattura(t);
+      case "attivi-movimenti": return haFattura(t) || t.vendite.length > 0;
       case "attivi": return t.partner.clienteAnno !== "Dismesso";
       case "dismessi": return t.partner.clienteAnno === "Dismesso";
       default: return true;
@@ -173,7 +178,7 @@ export default async function PartnerList({
   const nascostiDalloStato = base.length - filtered.length;
   const nascostiConVendite = base.filter((t) => !passaStato(t) && t.vendite.length > 0).length;
   const ETICHETTA_STATO: Record<string, string> = {
-    "attivi-fatture": `con almeno una fattura ${ANNO_CORRENTE}`,
+    "attivi-fatture": `con almeno una fattura ${ANNO_CORRENTE} (servizi o commissioni)`,
     "attivi-movimenti": `con una fattura o una vendita ${ANNO_CORRENTE}`,
     attivi: "non dismessi",
     dismessi: "dismessi",
@@ -246,7 +251,7 @@ export default async function PartnerList({
             {categorie.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           <select name="stato" defaultValue={stato} aria-label="Stato del partner">
-            <option value="attivi-fatture">Attivi · con fattura {ANNO_CORRENTE}</option>
+            <option value="attivi-fatture">Attivi · con fattura {ANNO_CORRENTE}</option>{/* servizi o commissioni */}
             <option value="attivi-movimenti">Attivi · fattura o vendita {ANNO_CORRENTE}</option>
             <option value="attivi">Non dismessi</option>
             <option value="dismessi">Dismessi</option>
@@ -285,7 +290,7 @@ export default async function PartnerList({
             Nascosti <strong>{nascostiDalloStato}</strong>
             {stato === "attivi-fatture" && nascostiConVendite > 0 && (
               <>, di cui <strong>{nascostiConVendite}</strong> con vendite come vendor nel{" "}
-              {ANNO_CORRENTE} ma nessuna fattura di servizio</>
+              {ANNO_CORRENTE} ma nessuna fattura, né di servizi né di commissioni</>
             )}
             .{" "}
             {stato === "attivi-fatture" && nascostiConVendite > 0 && (

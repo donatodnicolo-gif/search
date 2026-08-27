@@ -6,7 +6,8 @@ import { prisma } from "./db";
 import { parseEstratto, hashMovimento } from "./estratto";
 import { chiaveControparte } from "./riconciliazione";
 import { qontoOrganizzazione, qontoTransazioni } from "./qonto";
-import { segnaFatturaPagataConEsito } from "./actions";
+import { segnaFatturaPagataConEsito, applicaIncassoParziale } from "./actions";
+import { euro } from "./format";
 import { registra } from "./registro";
 
 function revalidate() {
@@ -225,6 +226,49 @@ export async function registraTransazioneFattura(txId: string, fatturaId: string
   } catch (e) {
     if (eDiNext(e)) throw e;
     console.error("[transazioni] registraTransazioneFattura non riuscita:", e);
+    return { ok: false, testo: messaggioErrore(e) };
+  }
+}
+
+// La transazione è un ACCONTO su una fattura: paga una parte del residuo e la
+// fattura resta aperta per il resto. Nasce dal caso reale di ANGOLO FIORITO —
+// fattura 434/2026 da 1.830 € pagata con due bonifici, 1.500 € di imponibile e
+// 330 € di IVA: con il solo «Salda fattura» il primo bonifico chiudeva il 100%
+// del documento e il secondo restava orfano, senza un bottone che non falsasse
+// i conti del partner.
+export async function registraTransazioneAcconto(txId: string, fatturaId: string): Promise<EsitoRiga> {
+  try {
+    const [tx, fattura] = await Promise.all([
+      prisma.transazioneBancaria.findUnique({ where: { id: txId } }),
+      prisma.fatturaServizio.findUnique({ where: { id: fatturaId } }),
+    ]);
+    if (!tx) return { ok: false, testo: "Il movimento non esiste più (forse è stato eliminato da un'altra scheda). Ricarica la pagina." };
+    if (!fattura) return { ok: false, testo: "La fattura non esiste più. Ricarica la pagina." };
+    if (tx.stato === "registrata") return { ok: false, testo: `Questo movimento risulta già registrato${tx.esito ? `: ${tx.esito}` : ""}.` };
+    // Un acconto è denaro che ENTRA: su un addebito non ha senso, e registrarlo
+    // scriverebbe un incasso che non c'è.
+    if (tx.importo <= 0) return { ok: false, testo: "Questo movimento è un'uscita: un acconto si registra solo su un accredito." };
+
+    const importo = +tx.importo.toFixed(2);
+    const esito = await applicaIncassoParziale(fatturaId, importo, tx.data);
+    if (!esito.ok) return { ok: false, testo: esito.motivo };
+
+    const testo = esito.saldata
+      ? `Fattura ${esito.numero} saldata: con questo movimento l'incasso copre tutto il residuo`
+      : `Acconto di ${euro(importo)} sulla fattura ${esito.numero} — restano ${euro(esito.residuo)}`;
+    await prisma.transazioneBancaria.update({
+      where: { id: txId },
+      data: { stato: "registrata", partnerId: esito.partnerId, esito: testo },
+    });
+    await registra({
+      azione: `Movimento bancario registrato come ${esito.saldata ? "saldo" : "acconto"} sulla fattura ${esito.numero} (${euro(importo)})`,
+      categoria: "transazioni", entita: "fattura", entitaId: fatturaId, partner: esito.partnerNome,
+    });
+    revalidateTranneLista();
+    return { ok: true, testo };
+  } catch (e) {
+    if (eDiNext(e)) throw e;
+    console.error("[transazioni] registraTransazioneAcconto non riuscita:", e);
     return { ok: false, testo: messaggioErrore(e) };
   }
 }

@@ -1,5 +1,5 @@
 import type { Partner, FatturaServizio, TransazioneBancaria } from "@prisma/client";
-import { ivato } from "./calc";
+import { ivato, residuoFattura } from "./calc";
 
 // Motore di riconciliazione: abbina i movimenti dell'estratto conto alle
 // attese del database. Ordine di forza degli agganci:
@@ -15,7 +15,11 @@ export type Suggerimento =
   | { tipo: "fattura"; fattura: FatturaServizio & { partner: Partner }; motivo: string }
   | { tipo: "incasso_partner"; partner: Partner; motivo: string }
   | { tipo: "bonifico_partner"; partner: Partner; mesePagamento: number | null; motivo: string }
-  | { tipo: "discrepanza"; partner: Partner; motivo: string }
+  // `acconto`: la fattura su cui l'importo ricevuto sta con ogni probabilità
+  // come ACCONTO (una sola fattura aperta del partner, e il movimento è più
+  // piccolo del suo residuo). Serve a offrire «Salda in parte» invece del solo
+  // «registra comunque», che sposterebbe il conto del mese.
+  | { tipo: "discrepanza"; partner: Partner; acconto?: FatturaServizio & { partner: Partner }; motivo: string }
   | { tipo: "sconosciuta"; motivo: string };
 
 export function normalizza(s: string): string {
@@ -144,7 +148,7 @@ export function suggerisci(
         normalizzaNumero(f.numero).some((n) => citati.includes(n))
       );
       if (perNumero.length) {
-        const somma = perNumero.reduce((a, f) => a + ivato(f), 0);
+        const somma = perNumero.reduce((a, f) => a + residuoFattura(f), 0);
         const ok = Math.abs(somma - tx.importo) <= TOLLERANZA;
         return {
           tipo: "fattura",
@@ -157,7 +161,7 @@ export function suggerisci(
     }
     // per importo esatto (con o senza partner riconosciuto)
     const candidate = ctx.fattureAperte.filter(
-      (f) => Math.abs(ivato(f) - tx.importo) <= TOLLERANZA && (!partner || f.partnerId === partner.id)
+      (f) => Math.abs(residuoFattura(f) - tx.importo) <= TOLLERANZA && (!partner || f.partnerId === partner.id)
     );
     if (candidate.length === 1) {
       return { tipo: "fattura", fattura: candidate[0], motivo: partner ? "partner e importo coincidono" : "importo esatto di una sola fattura aperta" };
@@ -165,14 +169,28 @@ export function suggerisci(
     if (partner) {
       // somma delle fatture aperte del partner
       const sue = ctx.fattureAperte.filter((f) => f.partnerId === partner.id);
-      const somma = sue.reduce((a, f) => a + ivato(f), 0);
+      const somma = sue.reduce((a, f) => a + residuoFattura(f), 0);
       if (sue.length && Math.abs(somma - tx.importo) <= TOLLERANZA) {
         return { tipo: "fattura", fattura: sue[0], motivo: `copre tutte le ${sue.length} fatture aperte del partner` };
       }
       // Un'associazione salvata è una scelta esplicita dell'operatore: mai
       // "discrepanza", si registra come incasso dal partner.
       if (sue.length && !forzato) {
-        return { tipo: "discrepanza", partner, motivo: `partner riconosciuto ma l'importo non corrisponde a nessuna fattura aperta (aperte: ${somma.toFixed(2)} €)` };
+        // Caso ricorrente: il cliente paga la stessa fattura in due bonifici
+        // (imponibile e IVA). Se il partner ha UNA sola fattura aperta e
+        // l'accredito è più piccolo del suo residuo, è un acconto — non una
+        // discrepanza da registrare a forza sul mese.
+        const aperte = sue.filter((f) => residuoFattura(f) > 0.005);
+        const acconto =
+          aperte.length === 1 && tx.importo < residuoFattura(aperte[0]) - TOLLERANZA ? aperte[0] : undefined;
+        return {
+          tipo: "discrepanza",
+          partner,
+          acconto,
+          motivo: acconto
+            ? `non copre la fatt. ${acconto.numero ?? "s.n."} (residuo ${residuoFattura(acconto).toFixed(2)} €): sembra un acconto`
+            : `partner riconosciuto ma l'importo non corrisponde a nessuna fattura aperta (residuo aperte: ${somma.toFixed(2)} €)`,
+        };
       }
       return {
         tipo: "incasso_partner",

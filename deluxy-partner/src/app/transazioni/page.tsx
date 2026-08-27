@@ -2,12 +2,13 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
-import { ivato, nomeMese } from "@/lib/calc";
+import { ivato, residuoFattura, parzialmenteIncassata, nomeMese } from "@/lib/calc";
 import { suggerisci, type Suggerimento } from "@/lib/riconciliazione";
 import {
   importaEstratto,
   sincronizzaQonto,
   registraTransazioneFattura,
+  registraTransazioneAcconto,
   registraTransazionePagamento,
   ignoraTransazione,
   ignoraTransazioni,
@@ -340,7 +341,10 @@ export default async function TransazioniPage({
                           <>
                             <Link href={`/partner/${sugg.fattura.partnerId}`} style={{ fontWeight: 500 }}>{sugg.fattura.partner.nome}</Link>
                             <div className="muted" style={{ fontSize: 12 }}>
-                              Fatt. {sugg.fattura.numero ?? "s.n."} · {euro(ivato(sugg.fattura))} · {sugg.motivo}
+                              Fatt. {sugg.fattura.numero ?? "s.n."} ·{" "}
+                              {parzialmenteIncassata(sugg.fattura)
+                                ? `residuo ${euro(residuoFattura(sugg.fattura))} di ${euro(ivato(sugg.fattura))}`
+                                : euro(ivato(sugg.fattura))} · {sugg.motivo}
                             </div>
                           </>
                         )}
@@ -361,13 +365,35 @@ export default async function TransazioniPage({
                       </td>
                       <td>
                         <span style={{ display: "inline-flex", gap: 6, alignItems: "flex-start" }}>
-                          {sugg.tipo === "fattura" && (
-                            <AzioneTransazione
-                              azione={registraTransazioneFattura.bind(null, tx.id, sugg.fattura.id)}
-                              etichetta="Salda fattura"
-                              title={`Segna incassata la fattura ${sugg.fattura.numero ?? "s.n."} con la data del movimento`}
-                            />
-                          )}
+                          {sugg.tipo === "fattura" && (() => {
+                            // Se il movimento è più piccolo del residuo, «Salda fattura»
+                            // chiuderebbe il 100% del documento con una parte soltanto:
+                            // l'acconto diventa il gesto principale, la saldatura piena
+                            // resta a portata ma in secondo piano.
+                            const residuo = residuoFattura(sugg.fattura);
+                            const parziale = tx.importo > 0 && tx.importo < residuo - 0.02;
+                            return (
+                              <>
+                                {parziale && (
+                                  <AzioneTransazione
+                                    azione={registraTransazioneAcconto.bind(null, tx.id, sugg.fattura.id)}
+                                    etichetta="Salda in parte"
+                                    title={`Registra ${euro(tx.importo)} come acconto sulla fattura ${sugg.fattura.numero ?? "s.n."}: restano ${euro(residuo - tx.importo)}`}
+                                  />
+                                )}
+                                <AzioneTransazione
+                                  azione={registraTransazioneFattura.bind(null, tx.id, sugg.fattura.id)}
+                                  etichetta="Salda fattura"
+                                  variante={parziale ? "secondary" : "primary"}
+                                  title={
+                                    parziale
+                                      ? `Segna incassata TUTTA la fattura ${sugg.fattura.numero ?? "s.n."} (${euro(ivato(sugg.fattura))}), anche se il movimento è di ${euro(tx.importo)}`
+                                      : `Segna incassata la fattura ${sugg.fattura.numero ?? "s.n."} con la data del movimento`
+                                  }
+                                />
+                              </>
+                            );
+                          })()}
                           {sugg.tipo === "incasso_partner" && (
                             <AzioneTransazione
                               azione={registraTransazionePagamento.bind(null, tx.id, sugg.partner.id, null)}
@@ -422,6 +448,13 @@ export default async function TransazioniPage({
                         <span style={{ display: "inline-flex", gap: 6, alignItems: "flex-start" }}>
                           {sugg.tipo === "discrepanza" && (
                             <>
+                              {sugg.acconto && (
+                                <AzioneTransazione
+                                  azione={registraTransazioneAcconto.bind(null, tx.id, sugg.acconto.id)}
+                                  etichetta="Salda in parte"
+                                  title={`Registra ${euro(tx.importo)} come acconto sulla fattura ${sugg.acconto.numero ?? "s.n."}: restano ${euro(residuoFattura(sugg.acconto) - tx.importo)}`}
+                                />
+                              )}
                               <AzioneTransazione
                                 azione={registraTransazionePagamento.bind(null, tx.id, sugg.partner.id, null)}
                                 etichetta="Registra comunque"
