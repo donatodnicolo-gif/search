@@ -172,11 +172,18 @@ interface DeliveryDetail {
             <dt>{{ 'deliveries.col.recipient' | translate }}</dt><dd>{{ d.recipientFirstName }} {{ d.recipientLastName }}</dd>
             <dt>{{ 'deliveries.col.address' | translate }}</dt><dd>{{ d.recipientAddress }}</dd>
             <dt>{{ 'deliveryDetail.intercom' | translate }}</dt><dd>{{ d.recipientIntercom || '—' }}</dd>
-            <dt>{{ 'deliveryDetail.phone' | translate }}</dt><dd>{{ d.recipientPhone || '—' }}</dd>
-            <dt>{{ 'deliveryDetail.email' | translate }}</dt><dd>{{ d.recipientEmail || '—' }}</dd>
+            <!-- ⚠️ Telefono e mail CLICCABILI: e' il gesto piu' frequente del
+                 turno di un valet, che col telefono in mano deve chiamare chi
+                 riceve. Prima erano testo nudo — si selezionava il numero a
+                 mano e si usciva dall'app. L'indirizzo era gia' coperto dal
+                 bottone Maps qui sopra; il telefono no. -->
+            <dt>{{ 'deliveryDetail.phone' | translate }}</dt>
+            <dd>@if (d.recipientPhone) { <a [href]="'tel:' + d.recipientPhone">{{ d.recipientPhone }}</a> } @else { — }</dd>
+            <dt>{{ 'deliveryDetail.email' | translate }}</dt>
+            <dd>@if (d.recipientEmail) { <a [href]="'mailto:' + d.recipientEmail">{{ d.recipientEmail }}</a> } @else { — }</dd>
             <dt>{{ 'deliveryDetail.sender' | translate }}</dt>
             <dd>{{ (d.senderFirstName || d.senderLastName) ? (d.senderFirstName + ' ' + d.senderLastName) : '—' }}
-              {{ d.senderPhone ? '· ' + d.senderPhone : '' }}</dd>
+              @if (d.senderPhone) { · <a [href]="'tel:' + d.senderPhone">{{ d.senderPhone }}</a> }</dd>
           </dl>
         </section>
 

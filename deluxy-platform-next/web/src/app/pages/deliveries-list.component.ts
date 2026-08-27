@@ -410,7 +410,7 @@ const SERVICE_ICONS: Record<string, string> = {
       /* Avviso su una data fuori dalla vita dell'azienda (errori del legacy). */
       .data-sospetta {
         margin-left: 6px;
-        color: #b8863e;
+        color: var(--gold); /* era #b8863e: cifre invertite, l.oro e. #b8963e */
         cursor: help;
       }
       /* Mobile: i filtri vanno a capo e occupano tutta la larghezza (niente overflow). */

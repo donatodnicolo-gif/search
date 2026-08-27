@@ -19,6 +19,7 @@
   --gold-strong: #a07f2c;
   --gold-soft: rgba(184, 150, 62, 0.12);
   --ink: #111318;
+  --ink-hover: #2a2d35;
 
   /* Semantic */
   --blue: #0071e3;
@@ -31,11 +32,34 @@
   --radius-s: 8px;
   --radius-m: 12px;
   --radius-l: 18px;
+  /* ⚠️ Mancavano, pur essendo nel design system (tokens.css:22,38,39): questo
+     foglio e' una COPIA A MANO di tokens.css, e la copia aveva perso tre
+     variabili. `--radius-pill` era usato in finance.component.ts, e non
+     esistendo la dichiarazione decadeva: la pillola usciva rettangolare. */
+  --radius-xl: 24px;
+  --radius-pill: 980px;
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.05);
   --shadow-float: 0 4px 12px rgba(0, 0, 0, 0.08), 0 24px 60px rgba(0, 0, 0, 0.12);
 
   /* Motion */
   --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  /* ⚠️ NOMI CHE IL CODICE USA E CHE NON ESISTEVANO (26/08/2026).
+     Sette variabili erano usate 31 volte in giro per l'app e definite ZERO
+     volte. Una dichiarazione CSS con una variabile non definita e senza
+     fallback e' INVALIDA: la proprieta' torna al valore iniziale, in silenzio.
+     Cosi' il badge «Attivo» dei servizi ricorrenti aveva il dot trasparente
+     (piu' invisibile del «Non attivo»), l'avviso «possibile doppione» della
+     scheda partner perdeva bordo, sfondo e raggio, e restava testo nudo.
+     Qui si danno i nomi mancanti, mappati sui token veri: e' additivo e non
+     cambia nulla di quello che gia' funzionava. */
+  --success: var(--green);
+  --danger: var(--red);
+  --warning: var(--orange);
+  --text-primary: var(--text);
+  --surface-2: var(--bg);
+  --surface-sunken: #ececef;
+  --radius-md: var(--radius-m);
 
   /* Legacy aliases (compatibilità componenti esistenti) */
   --deluxy-dark: var(--ink);
@@ -143,12 +167,40 @@ input.field {
 .btn:active {
   transform: scale(0.97);
 }
+/* ⚠️ Un bottone spento deve SEMBRARE spento (design system: «disabled =
+   opacity 0.55»). Prima non c'era nessuna regola `:disabled` in tutto il
+   foglio: i 53 bottoni che si disabilitano — «Salva» mentre salva, «Genera
+   fatture» mentre genera, il «Salva» del pop-up finche' l'importo e' vuoto —
+   erano identici a quelli attivi, e chi lavora li premeva tre volte senza
+   capire perche' non rispondessero. */
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.55;
+  cursor: default;
+  pointer-events: none;
+  transform: none;
+}
 .btn-primary {
   background: var(--ink);
   color: #fff;
 }
 .btn-primary:hover {
   background: #2a2d35;
+}
+/* ⚠️ `.btn-ghost` era usata 5 volte (Esporta CSV di Finanza, Fatture e
+   Stipendi, «Genera oggi» dei ricorrenti, Annulla del pop-up reclamo) e non
+   era definita da nessuna parte: restava il bottone GRIGIO DI SISTEMA del
+   browser — l'unico elemento dell'app fuori dalla palette, col raggio a
+   pillola sopra un colore che non e' nostro. Qui prende il vestito del design
+   system: superficie trasparente, hairline, testo secondario. */
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.btn-ghost:hover {
+  background: var(--fill);
+  color: var(--text);
 }
 .btn-secondary {
   background: var(--fill);
@@ -283,6 +335,14 @@ input.field {
   .table-wrap td:last-child {
     border-bottom: none !important;
   }
+  /* ⚠️ Una cella VUOTA diventerebbe una riga morta alta 34px: l'etichetta e il
+     nulla accanto. Capita sistematicamente al VALET, per cui la colonna delle
+     azioni non renderizza niente — due righe inutili su schede che ne hanno
+     gia' dodici. Sul desktop non si vede, perche' li' e' una cella vuota in
+     una griglia. */
+  .table-wrap td:empty {
+    display: none !important;
+  }
   .table-wrap td::before {
     content: attr(data-label);
     flex-shrink: 0;
@@ -315,5 +375,22 @@ input.field {
   }
   .pager {
     flex-wrap: wrap;
+  }
+  /* ⚠️ SOTTO I 16px SAFARI iOS INGRANDISCE LA PAGINA quando si mette a fuoco
+     un campo — e non torna indietro da solo: chi scrive deve pizzicare per
+     ritrovare il bottone. I campi erano a 14px. Il caso che morde di piu' e'
+     la pagina pubblica di conferma consegna: il valet tocca «Chi ha ritirato»,
+     la vista salta, e il tasto «Conferma» finisce fuori. */
+  .field,
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  /* Il pollice ha bisogno di 44px: sotto, si sbaglia bersaglio. Qui si allarga
+     il bottone standard, che e' quello che conclude ogni gesto importante. */
+  .btn {
+    min-height: 44px;
+    padding: 11px 18px;
   }
 }
