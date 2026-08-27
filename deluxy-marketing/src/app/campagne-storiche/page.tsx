@@ -34,7 +34,13 @@ export default async function PaginaCampagneStoriche({
     canale: sp.canale,
   });
 
-  const anniDisponibili = [...new Set(r.perAnno.map((a) => a.anno))].sort((a, b) => b - a);
+  // ⚠️ Gli anni della barra si chiedono SENZA il filtro anno addosso. Prima
+  // uscivano da `r.perAnno`, che e' gia' filtrato: scegliendo il 2024
+  // sparivano tutti gli altri anni dalla barra, e l'unico modo di tornare
+  // indietro era «Tutti gli anni». Un filtro che si mangia le proprie
+  // alternative e' una porta che si chiude alle spalle.
+  const tuttiGliAnni = await riepilogoCensimento({ canale: sp.canale });
+  const anniDisponibili = [...new Set(tuttiGliAnni.perAnno.map((a) => a.anno))].sort((a, b) => b - a);
   const filtro = (k: "anno" | "canale", v?: string) => {
     const p = new URLSearchParams();
     if (k === "anno" ? v : sp.anno) p.set("anno", k === "anno" ? v! : sp.anno!);
@@ -110,6 +116,44 @@ export default async function PaginaCampagneStoriche({
               </div>
             </div>
 
+            {/* ⚠️ I FILTRI STANNO SOPRA QUELLO CHE FILTRANO. Erano sotto la card
+                «Anno per anno» — che pero' risponde a loro — quindi cliccando un
+                anno cambiava una tabella fuori dal campo visivo, e sembrava non
+                fosse successo niente.
+                ⚠️ E i due gruppi (anni e canali) sono separati da una distanza
+                vera: con lo stesso gap di 8px si leggevano come una fila unica
+                di otto bottoni, e non si capiva che sono due assi indipendenti. */}
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <a className={`btn small ${sp.anno ? "btn-secondario" : ""}`} href={filtro("anno", undefined)}>
+                  Tutti gli anni
+                </a>
+                {anniDisponibili.map((a) => (
+                  <a
+                    key={a}
+                    className={`btn small ${String(a) === sp.anno ? "" : "btn-secondario"}`}
+                    href={filtro("anno", String(a))}
+                  >
+                    {a}
+                  </a>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <a className={`btn small ${sp.canale ? "btn-secondario" : ""}`} href={filtro("canale", undefined)}>
+                  Tutti i canali
+                </a>
+                {["google_ads", "meta_ads"].map((c) => (
+                  <a
+                    key={c}
+                    className={`btn small ${c === sp.canale ? "" : "btn-secondario"}`}
+                    href={filtro("canale", c)}
+                  >
+                    {ETICHETTA_CANALE[c] ?? c}
+                  </a>
+                ))}
+              </div>
+            </div>
+
             <section className="scheda">
               <div className="scheda-titolo">Anno per anno</div>
               <div style={{ overflowX: "auto" }}>
@@ -125,8 +169,15 @@ export default async function PaginaCampagneStoriche({
                   <tbody>
                     {r.perAnno.map((a) => (
                       <tr key={a.anno}>
+                        {/* Il link aveva il colore del testo e nessuna
+                            sottolineatura, mentre l'hover illuminava tutta la
+                            riga: sembrava cliccabile ovunque e funzionava solo
+                            sopra quattro cifre. Adesso si vede che e' un link
+                            (e la stessa scelta e' comunque nella barra sopra). */}
                         <td className="cella-nome">
-                          <a href={filtro("anno", String(a.anno))}>{a.anno}</a>
+                          <a href={filtro("anno", String(a.anno))} style={{ color: "var(--blue)" }}>
+                            {a.anno}
+                          </a>
                         </td>
                         <td className="num">{a.campagne}</td>
                         {/* ⚠️ «Esisteva» e «ha speso» non sono la stessa cosa:
@@ -141,39 +192,16 @@ export default async function PaginaCampagneStoriche({
               </div>
             </section>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-              <a className={`btn small ${sp.anno ? "btn-secondario" : ""}`} href={filtro("anno", undefined)}>
-                Tutti gli anni
-              </a>
-              {anniDisponibili.map((a) => (
-                <a
-                  key={a}
-                  className={`btn small ${String(a) === sp.anno ? "" : "btn-secondario"}`}
-                  href={filtro("anno", String(a))}
-                >
-                  {a}
-                </a>
-              ))}
-              <a className={`btn small ${sp.canale ? "btn-secondario" : ""}`} href={filtro("canale", undefined)}>
-                Tutti i canali
-              </a>
-              {["google_ads", "meta_ads"].map((c) => (
-                <a
-                  key={c}
-                  className={`btn small ${c === sp.canale ? "" : "btn-secondario"}`}
-                  href={filtro("canale", c)}
-                >
-                  {ETICHETTA_CANALE[c] ?? c}
-                </a>
-              ))}
-            </div>
-
             <section className="scheda">
               <div className="scheda-titolo">
                 Le campagne, dalla più costosa ({r.voci.length})
               </div>
-              <div style={{ overflowX: "auto" }}>
-                <table>
+              <div className="tabella-lunga">
+                {/* «tab-ancorata»: otto colonne in 313px di telefono vogliono
+                    dire due schermate e mezza di scorrimento, e a meta' strada
+                    non si sa piu' di quale campagna sia il numero che si legge.
+                    La prima colonna resta ferma. */}
+                <table className="tab-ancorata">
                   <thead>
                     <tr>
                       <th>Campagna</th>

@@ -285,10 +285,16 @@ export default async function Dashboard({
             >
               {vendite > 0 ? formattaEuro(atteso.risultato) : "—"}
             </div>
+            {/* ⚠️ Una didascalia da 81 caratteri in una tessera larga 151px
+                finiva spezzata in cinque righe da sedici caratteri, e siccome
+                è la più lunga dettava l'altezza a tutte le altre cinque della
+                fila, che restavano mezze vuote. L'incidenza della pubblicità
+                sul venduto non sparisce: sta nel titolo del valore, insieme al
+                conto per esteso. */}
             <div className="kpi-etichetta">
               Risultato atteso · {Math.round(atteso.margineUsato * 100)}% di margine − ADV
               {atteso.incidenzaAdv != null && (
-                <> · la pubblicità pesa il {(atteso.incidenzaAdv * 100).toFixed(1)}% sul venduto</>
+                <> · ADV {(atteso.incidenzaAdv * 100).toFixed(1)}% del venduto</>
               )}
             </div>
           </div>

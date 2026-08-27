@@ -127,7 +127,9 @@ export default async function PaginaBudget({
                 {ETICHETTA_SITO[sito]} — {formattaEuro(totaleAnno)} nell&apos;anno
               </div>
               <div style={{ overflowX: "auto", paddingBottom: 8 }}>
-                <table className="tabella-calendario">
+                {/* «tab-ancorata»: 802px di tabella in 313px di telefono — il
+                    nome della riga scorreva via prima dei campi da compilare. */}
+                <table className="tabella-calendario tab-ancorata">
                   <thead>
                     <tr>
                       <th style={{ minWidth: 190 }}>Voce</th>

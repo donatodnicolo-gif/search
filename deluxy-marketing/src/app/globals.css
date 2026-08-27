@@ -133,7 +133,11 @@ a { color: inherit; text-decoration: none; }
   background: var(--surface); border: 1px solid var(--hairline);
   border-radius: var(--radius-l); box-shadow: var(--shadow-card); margin-bottom: 18px;
 }
-.filtri input[type="search"], .filtri select {
+/* input[type="date"] era fuori da questo elenco, e col reset * { padding: 0 }
+   restava il campo grezzo del browser: misurato 118 x 20px, meno della meta'
+   del bersaglio minimo per un dito — e fuori linguaggio anche col mouse,
+   perche' il selettore di periodo sta su quasi tutte le pagine. */
+.filtri input[type="search"], .filtri input[type="date"], .filtri select {
   appearance: none; font: inherit; color: var(--text);
   background: var(--fill); border: 1px solid transparent;
   border-radius: var(--radius-m); padding: 8px 12px; outline: none;
@@ -143,7 +147,7 @@ a { color: inherit; text-decoration: none; }
 /* Focus ORO, come dice il design system (§Campi input): bordo gold + anello
    gold-soft. Prima era un grigio appena percettibile: chi compila un modulo
    lungo perdeva il segno di dove stava scrivendo. */
-.filtri input[type="search"]:focus, .filtri select:focus {
+.filtri input[type="search"]:focus, .filtri input[type="date"]:focus, .filtri select:focus {
   background: var(--surface); border-color: var(--gold);
   box-shadow: 0 0 0 4px var(--gold-soft);
 }
@@ -170,10 +174,18 @@ a { color: inherit; text-decoration: none; }
   border-radius: var(--radius-l); box-shadow: var(--shadow-card); overflow-x: auto;
 }
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+/* 12px, peso 500, NIENTE maiuscolo: e' quello che chiede il design system
+   (Tabelle), e fino al 27/08/2026 qui c'erano 11px in maiuscolo urlato.
+   E STICKY: su un elenco lungo, dalla quindicesima riga in giu' non c'era piu'
+   nessuna intestazione, e un numero in sesta colonna non si sapeva se fosse
+   spesa, incasso o ROAS. Il fondo NON e' un vezzo: senza, in sticky il testo
+   delle righe si vedrebbe attraverso. --sticky-top vale 0 di suo e diventa
+   l'altezza della barra dove la barra c'e' (telefono). */
 th {
-  text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--text-tertiary);
+  text-align: left; font-size: 12px; font-weight: 500; letter-spacing: 0;
+  text-transform: none; color: var(--text-tertiary);
   padding: 11px 10px; border-bottom: 1px solid var(--hairline); white-space: nowrap;
+  position: sticky; top: var(--sticky-top, 0px); z-index: 2; background: var(--surface);
 }
 th:first-child, td:first-child { padding-left: 16px; }
 th:last-child, td:last-child { padding-right: 16px; }
@@ -182,7 +194,37 @@ tr:last-child td { border-bottom: none; }
 tbody tr { transition: background 120ms var(--ease); }
 tbody tr:hover { background: var(--fill); }
 .cella-nome { font-weight: 600; letter-spacing: -0.01em; }
+
+/* LA PRIMA COLONNA CHE NON SCAPPA. Una tabella larga dentro il suo
+   overflow-x non rompe la pagina — ed e' giusto cosi' — ma scorrendo a destra
+   l'etichetta della riga esce dal campo e restano numeri orfani: su «Vendite e
+   budget» si legge «8173 EUR» senza sapere se e' Flowers o Gifts.
+   Si mette a mano dove le colonne sono tante: su una tabella stretta ancorare
+   la prima colonna non serve a niente. */
+.tab-ancorata th:first-child,
+.tab-ancorata td:first-child {
+  position: sticky; left: 0; background: var(--surface); z-index: 1;
+}
+.tab-ancorata th:first-child { z-index: 3; }
+.tab-ancorata tbody tr:hover td:first-child { background: var(--fill); }
+
+/* ⚠️ PERCHE' IL WRAPPER HA UN'ALTEZZA. Lo `sticky` dell'intestazione si
+   aggancia al primo antenato che scorre — e un contenitore con
+   `overflow-x: auto` diventa scroll container su TUTTI E DUE gli assi, anche
+   se in verticale non scorre. Risultato: l'intestazione sticky dentro un
+   wrapper senza altezza non resta a vista un bel niente, si limita a sembrare
+   corretta nel foglio di stile. Misurato il 27/08/2026: catena tabella →
+   div(overflow auto) → section, nessun antenato scorrevole in verticale.
+   Con un'altezza massima la tabella lunga scorre DENTRO la sua cornice e
+   l'intestazione resta dov'e' serve. */
+.tabella-lunga { max-height: 72vh; overflow: auto; }
 .cella-sub { font-size: 12.5px; color: var(--text-tertiary); margin-top: 2px; font-weight: 400; }
+/* Solo i PARAGRAFI: .cella-sub fa da «testo piccolo grigio» sia dentro le celle
+   (dove e' gia' stretto) sia come nota esplicativa a piena larghezza, e la'
+   arrivava a 137 caratteri per riga — oltre i ~90 l'occhio perde il capo riga a
+   ogni ritorno. Sono proprio le righe che si leggono per decidere se approvare
+   un'operazione. */
+p.cella-sub { max-width: 72ch; }
 .cella-muta { color: var(--text-secondary); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -332,6 +374,9 @@ tbody tr:hover { background: var(--fill); }
   font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 14px;
 }
+/* La qualificazione («giorno 27 di 31») stava dentro il titolo a 12,5px: piu'
+   grande del titolo che qualifica, e in maiuscolo per eredita'. */
+.scheda-titolo .cella-sub { font-size: 11px; text-transform: none; letter-spacing: 0; }
 .griglia-campi { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px 24px; }
 .campo dt { font-size: 12px; color: var(--text-tertiary); margin-bottom: 3px; }
 .campo dd { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -350,13 +395,16 @@ tbody tr:hover { background: var(--fill); }
 /* ============================================================= */
 
 /* ---------- Riga di KPI ---------- */
+/* 190 e non 150: con sei tessere in fila la didascalia piu' lunga finiva
+   spezzata in colonne da venti caratteri, e siccome e' lei a dettare l'altezza
+   le altre cinque restavano con mezzo riquadro vuoto sotto. */
 .kpi-riga {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px; margin-bottom: 22px;
 }
 .kpi {
   background: var(--surface); border: 1px solid var(--hairline);
-  border-radius: var(--radius-l); box-shadow: var(--shadow-card); padding: 16px 18px;
+  border-radius: var(--radius-l); box-shadow: var(--shadow-card); padding: 24px;
 }
 .kpi-valore { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .kpi-etichetta { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; }
@@ -388,7 +436,12 @@ tbody tr:hover { background: var(--fill); }
 .storia-autore { margin-left: auto; color: var(--text-secondary); font-size: 12.5px; flex: 0 0 auto; }
 
 /* ---------- Selettore stato (pillole) ---------- */
-.pill-scelta { display: flex; flex-wrap: wrap; gap: 6px; }
+/* 6px erano la distanza fra «Approva» e «Annulla»: due pillole della stessa
+   forma, e un click storto scarta l'operazione invece di approvarla — e
+   un'operazione annullata non ha nessun bottone per tornare indietro, va
+   rifatta da capo. La distanza e' meta' della correzione: l'altra e' il colore
+   distruttivo su «Annulla» (vedi operazioni/page.tsx). */
+.pill-scelta { display: flex; flex-wrap: wrap; gap: 14px; }
 .pill-opt {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px;
   border-radius: var(--radius-pill); border: 1px solid var(--hairline-strong);
@@ -401,6 +454,12 @@ tbody tr:hover { background: var(--fill); }
 .pill-opt.attuale { background: var(--fill); border-color: transparent; font-weight: 600; color: var(--text); cursor: default; }
 
 .due-colonne { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; align-items: start; }
+/* min-width: 0 NON e' un dettaglio: senza, il figlio di una griglia si
+   dimensiona sul suo min-content (una tabella con th { white-space: nowrap })
+   e sfonda la traccia. Misurato il 27/08/2026 sul telefono: la dashboard
+   faceva 459px in 375, il browser rimpiccioliva tutta la pagina all'81,7% e il
+   testo da 11px arrivava a 9px veri. */
+.due-colonne > * { min-width: 0; }
 @media (max-width: 1000px) { .due-colonne { grid-template-columns: 1fr; } }
 
 /* ---------- Nota informativa ---------- */
@@ -641,10 +700,25 @@ tbody tr:hover { background: var(--fill); }
 .selettore-stato:hover { background-color: var(--fill); }
 
 /* ---------- Bottone sincronizza con esito ---------- */
-.sync-blocco { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: 0 0 auto; }
+/* ⚠️ `flex: 0 1 auto` e `min-width: 0`, non `0 0 auto`: con «non stringerti
+   mai» il blocco teneva la larghezza del suo testo più lungo e sfondava la
+   pagina sul telefono — e il `max-width: 100%` del figlio non serviva a
+   niente, perché il 100% era già il genitore sfondato. */
+.sync-blocco {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  flex: 0 1 auto; min-width: 0; max-width: 100%;
+}
+/* Il taglio a 240px con nowrap nascondeva il 52% della riga: si leggeva la data
+   e spariva «nuovi 4 · aggiornati 42», che e' l'unico posto dove l'app dice
+   cosa ha fatto la sincronizzazione. Il blocco e' gia' in colonna: andare a
+   capo non rompe niente. */
+/* ⚠️ `min(460px, 100%)` e non `460px` secco: alla prima correzione avevo
+   scritto 460 fisso, e su uno schermo da 375 questa riga da sola faceva
+   scorrere di lato tutta la dashboard (474px misurati). Una larghezza fissa
+   messa per far VEDERE di più è un modo nuovo di nascondere le cose. */
 .sync-esito {
   font-size: 11.5px; color: var(--green); text-align: right; line-height: 1.35;
-  max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: min(460px, 100%); overflow-wrap: anywhere;
 }
 
 /* ---------- Conferma di salvataggio ---------- */
@@ -768,11 +842,17 @@ tbody tr:hover { background: var(--fill); }
 /* Il giorno rientra rispetto al mese: si vede a colpo d'occhio che sta dentro */
 .giorno-riga > :first-child { padding-left: 23px; }
 
+/* QUALI COLONNE SI TOLGONO, sul telefono. Fino al 27/08/2026 si tenevano le
+   prime quattro — Mese, Spesa, Impr., Click — e sparivano Conv., Ricavi e
+   ROAS: il pannello mostrava quanto si era SPESO e nascondeva quanto si era
+   incassato, che e' la meta' peggiore del dato (misurato su una campagna vera:
+   11.612 EUR di ricavi e 7,2x di ROAS invisibili dal telefono). Ora cadono
+   impression, click e conversioni, che sul telefono non fanno decidere. */
 @media (max-width: 760px) {
-  .mesi { --mesi-cols: minmax(110px, 1.4fr) .9fr .7fr .7fr; }
-  .mesi-testa > :nth-child(n + 5),
-  .mese-riga > :nth-child(n + 5),
-  .giorno-riga > :nth-child(n + 5) { display: none; }
+  .mesi { --mesi-cols: minmax(110px, 1.4fr) .9fr .9fr .6fr; }
+  .mesi-testa > :nth-child(3), .mesi-testa > :nth-child(4), .mesi-testa > :nth-child(5),
+  .mese-riga > :nth-child(3), .mese-riga > :nth-child(4), .mese-riga > :nth-child(5),
+  .giorno-riga > :nth-child(3), .giorno-riga > :nth-child(4), .giorno-riga > :nth-child(5) { display: none; }
 }
 
 /* ---------- Stagionalità: i dodici mesi ---------- */
@@ -809,7 +889,13 @@ tbody tr:hover { background: var(--fill); }
 
 /* ---------- Intestazioni di tabella ordinabili ---------- */
 .th-ordinabile {
-  cursor: pointer; user-select: none; position: relative;
+  /* ⚠️ NIENTE `position: relative` qui. C'era, e con la sua specificità
+     batteva lo `sticky` di `th`: le uniche intestazioni che restavano ferme
+     erano quelle NON ordinabili, cioè le tabelle corte — mentre proprio gli
+     elenchi lunghi e ordinabili perdevano l'intestazione dopo dieci righe.
+     Non serve: `sticky` è già un elemento posizionato, quindi la freccetta
+     assoluta dell'ordinamento continua ad ancorarsi qui. */
+  cursor: pointer; user-select: none;
   padding-right: 16px !important;
   transition: color 120ms var(--ease);
 }
@@ -924,7 +1010,13 @@ tbody tr:hover { background: var(--fill); }
 
 @media (max-width: 640px) {
   .op-riga { flex-direction: column; gap: 8px; }
-  .op-stato { align-items: flex-start; text-align: left; flex-direction: row; gap: 10px; }
+  /* flex-wrap: wrap e non solo row: canale + stato + livello misuravano 421px
+     dentro una riga da 313, e la pagina delle approvazioni scorreva di lato
+     portandosi via i bottoni di comando. */
+  .op-stato {
+    align-items: flex-start; text-align: left; flex-direction: row; gap: 10px;
+    flex-wrap: wrap; min-width: 0;
+  }
 }
 
 /* ---------- "Porta su altre campagne" nella riga di una keyword ---------- */
@@ -1251,16 +1343,40 @@ html { scroll-behavior: smooth; }
    da mouse, non da pollice. Le azioni restano TUTTE: si allarga il
    bersaglio, non si toglie il bottone. */
 @media (max-width: 800px) {
+  :root { --sticky-top: 64px; }
   .main { padding: 22px 14px 48px; }
   .page-title { font-size: 24px; }
   .scheda { padding: 18px 16px; }
-  .kpi { padding: 13px 14px; }
+  .kpi { padding: 18px 16px; }
   .kpi-valore { font-size: 22px; }
 }
+/* Questo blocco esisteva ma copriva solo bottoni e pillole: le voci del MENU —
+   che sul telefono sono l'unica navigazione — restavano bersagli da 34px
+   attaccati fra loro, e l'hamburger per aprirlo pure. Un menu che si sbaglia a
+   premere e' peggio di un menu brutto. */
 @media (pointer: coarse) {
   .btn.small { padding: 8px 14px; font-size: 13px; }
-  .pill-opt { padding: 6px 13px; }
+  .pill-opt { padding: 6px 13px; min-height: 44px; }
   .selettore-stato { padding-top: 6px; padding-bottom: 6px; }
+  .sb-item { padding: 12px; }
+  .sidebar summary { min-height: 44px; display: flex; align-items: center; }
+  .toggle-sidebar { width: 44px; height: 44px; }
+  /* Il nome nella riga e' cliccabile ma il bersaglio era la sola riga di testo,
+     alta 18px: si allarga il bersaglio, non si sposta il link.
+     ⚠️ Due forme, e la prima correzione ne copriva una sola: a volte la classe
+     sta sulla CELLA (`td.cella-nome > a`), a volte sul LINK (`a.cella-nome`).
+     Misurato dopo la prima passata: 29 bersagli erano rimasti a 18px. */
+  .cella-nome a, a.cella-nome { display: inline-block; padding: 8px 0; }
+  /* Sotto i 16px iOS ingrandisce la pagina appena si tocca il campo, e la
+     colonna che si stava inquadrando si sposta.
+     ⚠️ `!important` — misurato, non per pigrizia: 25 campi in 16 file portano
+     `style={{ font: "inherit" }}` inline, e un inline vince su qualunque
+     regola. Senza questa forzatura la regola c'era, risultava attiva e non
+     faceva niente: computed 13,5px con la regola a 16px sotto gli occhi.
+     Vale SOLO sul tocco, quindi non tocca la resa col mouse. */
+  input[type="number"], input[type="text"], input[type="search"], input[type="date"], select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* --- Chi chiede meno movimento, lo ottiene davvero --- */

@@ -136,6 +136,13 @@ export default async function PaginaCampagne({
               nella media, in apprendimento o critica.
             </p>
           </div>
+          {/* ⚠️ I quattro bottoni stanno in UN contenitore. Erano quattro figli
+              diretti di .page-head, che e' `space-between` e va a capo: sulla
+              seconda riga «Crea campagna» finiva all'estrema sinistra e «Crea
+              da ciò che funziona» all'estrema destra, 627px di vuoto fra due
+              azioni della stessa famiglia. Cosi' invece `space-between` separa
+              il titolo dal blocco delle azioni, che e' quello che deve fare. */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
           {/* Le ANALISI depositate su Drive, elaborate in schede: il posto
               dove si vedono TUTTE è /analisi — il bottone porta con sé i
               filtri di adesso (brand e canale, Meta compreso). Il pallino
@@ -166,6 +173,7 @@ export default async function PaginaCampagne({
             Crea campagna
           </a>
           <a className="btn" href="/campagne/crea">Crea da ciò che funziona</a>
+          </div>
         </div>
 
         {canale === "meta_ads" && (

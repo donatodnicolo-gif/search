@@ -535,10 +535,17 @@ export default async function PaginaOperazioni({
                   <span style={{ color: "var(--text)" }}>Ritira approvazione</span>
                 </button>
               )}
+              {/* ⚠️ ROSSO, e staccato (il gap di .pill-scelta e' passato da 6 a
+                  14px il 27/08/2026). Erano due pillole identiche a 6px l'una
+                  dall'altra: un click storto scarta l'operazione invece di
+                  approvarla, e un'operazione annullata NON ha nessun bottone
+                  per tornare indietro — solo le fallite hanno «Rimetti in
+                  coda». Il design system lo dice: un'azione distruttiva ha il
+                  testo rosso, non il grigio di un'opzione neutra. */}
               <button
                 className="pill-opt"
                 formAction={annullaOperazione}
-                style={{ color: "var(--text-tertiary)" }}
+                style={{ color: "var(--red)" }}
                 title={
                   o.stato === "approvata"
                     ? "Toglie l'operazione dalla coda prima che lo script la esegua: su Google non cambia niente"
@@ -546,7 +553,7 @@ export default async function PaginaOperazioni({
                 }
               >
                 <span className="dot" />
-                <span style={{ color: "var(--text)" }}>Annulla</span>
+                <span style={{ color: "var(--red)" }}>Annulla</span>
               </button>
             </form>
           )}
@@ -829,7 +836,7 @@ export default async function PaginaOperazioni({
             Da approvare ({daApprovare.length})
           </div>
           {daApprovare.length === 0 ? (
-            <div className="vuoto-mini">Niente in attesa.</div>
+            <div className="vuoto-mini">Niente in attesa: tutto quello che era stato deciso e' gia' passato di qui.</div>
           ) : (
             <>
               {/* Approvare in blocco. ⚠️ Non salta nessuna rete: si approva

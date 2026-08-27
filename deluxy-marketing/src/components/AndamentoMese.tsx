@@ -144,7 +144,13 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
         </div>
       ) : (
         <div style={{ overflowX: "auto" }}>
-          <table>
+          {/* ⚠️ «tab-ancorata»: tredici colonne in una card da 900px vogliono
+              dire 200px di scorrimento a destra, e la colonna del BRAND è larga
+              87px — cioè esce dal campo prima che si arrivi a «ROS» e
+              «risultato stimato». Quattro righe di numeri senza sapere se sono
+              Flowers o Gifts, in una tabella che serve proprio a confrontarli.
+              La prima colonna resta ferma. */}
+          <table className="tab-ancorata">
             <thead>
               {/* Prima riga: i due mondi. Senza questa divisione, "stima fine
                   mese" appare due volte e sembra un errore. */}

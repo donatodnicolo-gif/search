@@ -1061,7 +1061,14 @@ export default async function SchedaCampagna({
           <div>
             <section className="scheda">
               <div className="scheda-titolo">Aggiungi metrica del giorno</div>
-              <form className="modulo" action={aggiungiMetrica} style={{ gridTemplateColumns: "1fr 1fr" }}>
+              {/* ⚠️ Lo style inline che c'era qui — gridTemplateColumns "1fr 1fr" —
+                  scavalcava DUE regole gia' scritte: .modulo usa
+                  repeat(2, minmax(0, 1fr)), cioe' la versione che NON sfonda,
+                  e sotto gli 800px diventa una colonna sola. Uno stile inline
+                  vince su qualunque media query: sul telefono la scheda
+                  campagna continuava a scorrere di lato (436px in 375) anche
+                  dopo aver sistemato .due-colonne. */}
+              <form className="modulo" action={aggiungiMetrica}>
                 <input type="hidden" name="campagnaId" value={campagna.id} />
                 <div className="campo-modulo">
                   <label>Giorno <span className="obbligatorio">*</span></label>

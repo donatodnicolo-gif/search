@@ -63,8 +63,12 @@ export async function BottoneSync({ etichetta = "Sincronizza" }: { etichetta?: s
       <form action={avviaSyncDrive}>
         <BottoneSyncAzione etichetta={etichetta} />
       </form>
+      {/* ⚠️ Il `title` portava i CONTEGGI: quando la sync fallisce il testo a
+          schermo diventa «non riuscita — il motivo» ma il tooltip continuava a
+          mostrare «trovati 689 · nuovi 4…», cioè proprio nel caso in cui serve
+          il motivo, il motivo non era recuperabile in nessun modo. */}
       {ultima && quando ? (
-        <div className="sync-esito" style={colore ? { color: colore } : undefined} title={numeri}>
+        <div className="sync-esito" style={colore ? { color: colore } : undefined} title={messaggio}>
           {fallita ? "⚠ " : interrotta || inCorso ? "◐ " : "✓ "}
           <b>{daQuanto(quando).testo}</b>
           {" · "}
