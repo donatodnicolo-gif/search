@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { Filtri } from "@/components/Filtri";
 import { NuovaTask, type PersonaUI } from "@/components/NuovaTask";
 import { RigaTask, type TaskUI } from "@/components/RigaTask";
+import { Vuoto } from "@/components/Vuoto";
 import { leggiSessione, SESSION_COOKIE } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { elencaPersone } from "@/lib/persone";
@@ -33,13 +34,14 @@ function toUI(t: TaskConLivelli): TaskUI {
       .map((l) => ({ id: l.id, priorita: l.priorita, data: l.data?.toISOString() ?? null, nota: l.nota })),
     link: t.link,
     contestoEtichetta: t.contestoEtichetta,
+    attiva: t.attiva,
   };
 }
 
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; q?: string; utente?: string; sistema?: string }>;
+  searchParams: Promise<{ stato?: string; q?: string; utente?: string; sistema?: string; archiviate?: string }>;
 }) {
   const sp = await searchParams;
 
@@ -49,11 +51,18 @@ export default async function Home({
   const sessione = await leggiSessione(jar.get(SESSION_COOKIE)?.value);
   const admin = sessione ? isAdmin(sessione.ruolo) : true;
 
-  const where: Prisma.TaskWhereInput = { attiva: true };
+  // Vista «Archiviate»: la via di ritorno dell'archiviazione (Libro cap.7:
+  // niente azioni irreversibili dalla UI). Mostra le task con attiva=false,
+  // qualunque sia il loro stato.
+  const vistaArchiviate = sp.archiviate === "1";
+
+  const where: Prisma.TaskWhereInput = { attiva: !vistaArchiviate };
   if (sp.q?.trim()) where.AND = whereRicerca(sp.q.trim());
   if (sp.sistema?.trim()) where.sistema = sp.sistema.trim();
-  if (sp.stato) where.stato = sp.stato;
-  else where.stato = { notIn: [...STATI_CHIUSI] }; // default "Da fare"
+  if (!vistaArchiviate) {
+    if (sp.stato) where.stato = sp.stato;
+    else where.stato = { notIn: [...STATI_CHIUSI] }; // default "Da fare"
+  }
 
   // Visibilità: l'admin vede tutte le task (e può filtrare per persona con
   // ?utente); gli altri vedono solo le proprie e quelle della loro squadra.
@@ -81,9 +90,11 @@ export default async function Home({
       // A chi si può assegnare una nuova attività (per il form «Nuova attività»).
       elencaPersone({ admin, emailSessione: sessione?.email ?? null }),
     ]);
-  } catch {
-    erroreDb =
-      "Database non configurato. Imposta DATABASE_URL / DIRECT_URL (npm run db:condiviso -- <env>) e lancia npm run db:push.";
+  } catch (e) {
+    // Il dettaglio tecnico resta nei log del server; all'utente un messaggio
+    // umano (Libro cap.6: mai messaggi da sviluppatore all'utente).
+    console.error("[tasks] elenco attività non caricabile:", e);
+    erroreDb = "Il registro delle attività non risponde.";
   }
 
   // Raggruppa per utente (email)
@@ -98,9 +109,11 @@ export default async function Home({
     (a[1].nome ?? a[0]).localeCompare(b[1].nome ?? b[0], "it"),
   );
 
-  const sub = admin
-    ? `Le cose da fare di ogni persona, da tutte le app Deluxy. ${task.length} attività.`
-    : `Le tue attività e quelle della tua squadra. ${task.length} attività.`;
+  const sub = vistaArchiviate
+    ? `Attività archiviate: da qui si ripristinano. ${task.length} attività.`
+    : admin
+      ? `Le cose da fare di ogni persona, da tutte le app Deluxy. ${task.length} attività.`
+      : `Le tue attività e quelle della tua squadra. ${task.length} attività.`;
 
   return (
     <main className="wrap">
@@ -119,9 +132,16 @@ export default async function Home({
       <Filtri sistemi={sistemiPresenti} />
 
       {erroreDb ? (
-        <div className="vuoto">{erroreDb}</div>
+        <Vuoto tono="errore" titolo={erroreDb}>
+          Riprova fra qualche istante ricaricando la pagina; se continua, segnalalo a chi
+          amministra le app Deluxy.
+        </Vuoto>
       ) : ordinati.length === 0 ? (
-        <div className="vuoto">Nessuna attività con questi filtri.</div>
+        <Vuoto titolo={vistaArchiviate ? "Nessuna attività archiviata" : "Nessuna attività qui"}>
+          {vistaArchiviate
+            ? "Le attività archiviate con «Archivia» compaiono in questo elenco, da cui si possono ripristinare."
+            : "Con questi filtri non c'è nulla: prova un altro stato o azzera la ricerca. Le attività arrivano dalle app Deluxy o dal bottone «Nuova attività»."}
+        </Vuoto>
       ) : (
         ordinati.map(([email, g]) => (
           <section className="gruppo" key={email}>

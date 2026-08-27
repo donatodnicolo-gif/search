@@ -13,6 +13,7 @@ export function Filtri({ sistemi = [] }: { sistemi?: string[] }) {
 
   const statoAttivo = sp.get("stato") ?? "";
   const sistemaAttivo = sp.get("sistema") ?? "";
+  const archiviate = sp.get("archiviate") === "1";
   const [q, setQ] = useState(sp.get("q") ?? "");
 
   // Debounce della ricerca sull'URL
@@ -39,18 +40,41 @@ export function Filtri({ sistemi = [] }: { sistemi?: string[] }) {
     ...STATI.map((s) => ({ valore: s, etichetta: ETICHETTA_STATO[s as Stato], colore: COLORE_STATO[s as Stato] })),
   ];
 
+  // Un chip di stato riporta sempre alle attività attive; «Archiviate» è la
+  // vista di ritorno delle archiviazioni (senza, l'archiviazione sarebbe
+  // irreversibile dalla UI — Libro cap.7 P0).
+  function setStato(v: string) {
+    const params = new URLSearchParams(Array.from(sp.entries()));
+    if (v) params.set("stato", v);
+    else params.delete("stato");
+    params.delete("archiviate");
+    router.replace(`${pathname}?${params.toString()}`);
+  }
+
   return (
     <div className="filtri">
       {chips.map((c) => (
         <button
           key={c.valore || "dafare"}
-          className={`chip${statoAttivo === c.valore ? " attivo" : ""}`}
-          onClick={() => setParam("stato", c.valore)}
+          className={`chip${!archiviate && statoAttivo === c.valore ? " attivo" : ""}`}
+          onClick={() => setStato(c.valore)}
         >
           {c.colore && <span className="dot" style={{ background: c.colore }} />}
           {c.etichetta}
         </button>
       ))}
+      <button
+        className={`chip${archiviate ? " attivo" : ""}`}
+        onClick={() => {
+          const params = new URLSearchParams(Array.from(sp.entries()));
+          params.delete("stato");
+          if (archiviate) params.delete("archiviate");
+          else params.set("archiviate", "1");
+          router.replace(`${pathname}?${params.toString()}`);
+        }}
+      >
+        Archiviate
+      </button>
       {sistemi.length > 0 && (
         <select
           className="chip"

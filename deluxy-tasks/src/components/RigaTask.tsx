@@ -2,9 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { COLORE_PRIORITA, ETICHETTA_PRIORITA, type Priorita } from "@/lib/priorita";
-import { COLORE_STATO, ETICHETTA_STATO, STATI_CHIUSI, type Stato } from "@/lib/stati";
-import { coloreSistema, etichettaSistema } from "@/lib/sistemi";
+import { COLORE_PRIORITA, ETICHETTA_PRIORITA, TINTA_PRIORITA, type Priorita } from "@/lib/priorita";
+import { COLORE_STATO, ETICHETTA_STATO, STATI_CHIUSI, TINTA_STATO, type Stato } from "@/lib/stati";
+import { etichettaSistema } from "@/lib/sistemi";
 
 export type LivelloUI = {
   id: string;
@@ -27,6 +27,7 @@ export type TaskUI = {
   livelli: LivelloUI[];
   link: string | null;
   contestoEtichetta: string | null;
+  attiva: boolean;
 };
 
 function dataBreve(iso: string | null): string {
@@ -52,17 +53,28 @@ function scadenzaTesto(iso: string | null): { testo: string; rossa: boolean } | 
 export function RigaTask({ task }: { task: TaskUI }) {
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
+  // Conferma inline dell'archiviazione (Libro cap.7: mai irreversibile senza conferma).
+  const [confermaArchivia, setConfermaArchivia] = useState(false);
+  // Un fallimento non è mai invisibile (Libro cap.6): l'errore resta sulla card.
+  const [errore, setErrore] = useState<string | null>(null);
   const chiusa = (STATI_CHIUSI as readonly string[]).includes(task.stato);
 
   async function azione(body: Record<string, unknown>) {
     setInCorso(true);
+    setErrore(null);
     try {
-      await fetch(`/api/interno/tasks/${task.id}`, {
+      const res = await fetch(`/api/interno/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        setErrore("Non sono riuscito a salvare la modifica. Riprova.");
+        return;
+      }
       router.refresh();
+    } catch {
+      setErrore("Rete assente: la modifica non è stata salvata. Riprova.");
     } finally {
       setInCorso(false);
     }
@@ -95,17 +107,25 @@ export function RigaTask({ task }: { task: TaskUI }) {
         </div>
         {task.descrizione && <div className="task-desc">{task.descrizione}</div>}
         <div className="task-meta">
-          <span className="badge">
-            <span className="dot" style={{ background: coloreSistema(task.sistema) }} />
-            {etichettaSistema(task.sistema)}
-          </span>
-          <span className="badge">
-            <span className="dot" style={{ background: COLORE_STATO[stato] ?? "var(--text-tertiary)" }} />
+          {/* Provenienza = categoria: badge NEUTRO senza dot (Libro cap.5). */}
+          <span className="badge">{etichettaSistema(task.sistema)}</span>
+          {/* Stato: formula piena — dot (currentColor) + tinta -soft + testo semantico. */}
+          <span
+            className="badge"
+            style={{
+              color: COLORE_STATO[stato] ?? "var(--text-tertiary)",
+              background: TINTA_STATO[stato] ?? "var(--fill)",
+            }}
+          >
+            <span className="dot" />
             {ETICHETTA_STATO[stato] ?? task.stato}
           </span>
           {(priorita === "alta" || priorita === "urgente") && (
-            <span className="badge">
-              <span className="dot" style={{ background: COLORE_PRIORITA[priorita] }} />
+            <span
+              className="badge"
+              style={{ color: COLORE_PRIORITA[priorita], background: TINTA_PRIORITA[priorita] }}
+            >
+              <span className="dot" />
               {ETICHETTA_PRIORITA[priorita]}
             </span>
           )}
@@ -139,9 +159,34 @@ export function RigaTask({ task }: { task: TaskUI }) {
       </div>
 
       <div className="task-azioni">
-        <button className="mini" disabled={inCorso} onClick={() => azione({ attiva: false })}>
-          Archivia
-        </button>
+        {!task.attiva ? (
+          // Vista «Archiviate»: da qui si torna indietro (l'archiviazione non è più senza ritorno).
+          <button className="mini" disabled={inCorso} onClick={() => azione({ attiva: true })}>
+            Ripristina
+          </button>
+        ) : confermaArchivia ? (
+          <div className="conferma">
+            Archivio «{task.titolo.length > 40 ? `${task.titolo.slice(0, 40)}…` : task.titolo}»?
+            Sparisce dall'elenco; la ritrovi nel filtro «Archiviate».
+            <div className="conferma-azioni">
+              <button className="mini" disabled={inCorso} onClick={() => setConfermaArchivia(false)}>
+                Annulla
+              </button>
+              <button className="mini danger" disabled={inCorso} onClick={() => azione({ attiva: false })}>
+                Archivia
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="mini" disabled={inCorso} onClick={() => setConfermaArchivia(true)}>
+            Archivia
+          </button>
+        )}
+        {errore && (
+          <span className="campo-errore" role="alert">
+            {errore}
+          </span>
+        )}
       </div>
     </div>
   );

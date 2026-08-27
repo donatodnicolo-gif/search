@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { Chiavi, type ChiaveUI } from "@/components/Chiavi";
+import { Vuoto } from "@/components/Vuoto";
 import { leggiSessione, SESSION_COOKIE } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isAdmin } from "@/lib/ruoli";
@@ -20,7 +21,10 @@ export default async function PaginaChiavi() {
     return (
       <main className="wrap">
         <h1 className="page-title">Chiavi</h1>
-        <div className="vuoto">Le chiavi delle app le gestisce un amministratore.</div>
+        <Vuoto icona="chiave" titolo="Riservato agli amministratori">
+          Le chiavi delle app le gestisce un amministratore: se te ne serve una, chiedi a chi
+          amministra il Deluxy Hub.
+        </Vuoto>
       </main>
     );
   }
@@ -37,9 +41,9 @@ export default async function PaginaChiavi() {
       creataIl: c.creataIl.toISOString(),
       ultimoUso: c.ultimoUso?.toISOString() ?? null,
     }));
-  } catch {
-    erroreDb =
-      "Database non raggiungibile: senza database non si possono creare chiavi.";
+  } catch (e) {
+    console.error("[tasks] elenco chiavi non caricabile:", e);
+    erroreDb = "Il registro delle chiavi non risponde.";
   }
 
   // Nomi già noti come provenienza delle task: comodi da suggerire, ma il nome
@@ -57,7 +61,10 @@ export default async function PaginaChiavi() {
       </div>
 
       {erroreDb ? (
-        <div className="vuoto">{erroreDb}</div>
+        <Vuoto tono="errore" titolo={erroreDb}>
+          Senza database non si possono creare né revocare chiavi. Riprova ricaricando la pagina;
+          se continua, segnalalo a chi amministra le app Deluxy.
+        </Vuoto>
       ) : (
         <Chiavi chiavi={chiavi} suggeriti={suggeriti} />
       )}

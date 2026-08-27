@@ -67,6 +67,9 @@ export default async function LoginPage({
           Accedi con le tue credenziali del Deluxy Hub.
         </p>
         <form action={login}>
+          {/* Focus visibile (bordo oro + anello) via .campo-login: gli stili
+              inline non possono esprimere :focus e lasciavano outline:none
+              senza sostituto. */}
           <input
             type="email"
             name="email"
@@ -74,18 +77,8 @@ export default async function LoginPage({
             autoFocus
             placeholder="Email"
             autoComplete="username"
-            style={{
-              width: "100%",
-              textAlign: "center",
-              font: "inherit",
-              color: "var(--text)",
-              background: "var(--fill)",
-              border: "1px solid transparent",
-              borderRadius: "var(--radius-m)",
-              padding: "10px 12px",
-              outline: "none",
-              marginBottom: 10,
-            }}
+            className="campo-login"
+            style={{ marginBottom: 10 }}
           />
           <input
             type="password"
@@ -93,17 +86,7 @@ export default async function LoginPage({
             required
             placeholder="Password"
             autoComplete="current-password"
-            style={{
-              width: "100%",
-              textAlign: "center",
-              font: "inherit",
-              color: "var(--text)",
-              background: "var(--fill)",
-              border: "1px solid transparent",
-              borderRadius: "var(--radius-m)",
-              padding: "10px 12px",
-              outline: "none",
-            }}
+            className="campo-login"
           />
           {sp.errore && (
             <p style={{ color: "var(--red)", fontSize: 13, marginTop: 10 }}>Email o password non corretti.</p>

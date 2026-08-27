@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { COLORE_PRIORITA, ETICHETTA_PRIORITA, PRIORITA, PRIORITA_DEFAULT, type Priorita } from "@/lib/priorita";
-import { creaTaskAction } from "@/lib/task-actions";
+import { creaTaskAction, type CampoNuovaTask } from "@/lib/task-actions";
 
 // «Nuova attività»: il bottone nella testa della pagina apre una card con il
 // form (titolo, descrizione, per chi, priorità, scadenza, link). Il salvataggio
@@ -28,7 +28,8 @@ export function NuovaTask({
   const router = useRouter();
   const [aperto, setAperto] = useState(false);
   const [inCorso, start] = useTransition();
-  const [errore, setErrore] = useState<string | null>(null);
+  // L'errore porta con sé il campo colpevole: la UI lo mostra lì (Libro, legge 5).
+  const [errore, setErrore] = useState<{ messaggio: string; campo?: CampoNuovaTask } | null>(null);
   const [fatta, setFatta] = useState<string | null>(null);
 
   const perDefault = me && persone.some((p) => p.email === me) ? me : (persone[0]?.email ?? (admin ? ALTRA : ""));
@@ -65,7 +66,7 @@ export function NuovaTask({
     start(async () => {
       const esito = await creaTaskAction({ titolo, descrizione, utenteEmail, priorita, scadenza, link });
       if (!esito.ok) {
-        setErrore(esito.messaggio);
+        setErrore({ messaggio: esito.messaggio, campo: esito.campo });
         return;
       }
       const nome = persone.find((p) => p.email === utenteEmail)?.nome ?? utenteEmail;
@@ -75,6 +76,14 @@ export function NuovaTask({
       router.refresh();
     });
   }
+
+  // L'errore di validazione compare sotto il campo che l'ha causato.
+  const errCampo = (c: CampoNuovaTask) =>
+    errore?.campo === c ? (
+      <span className="campo-errore" role="alert">
+        {errore.messaggio}
+      </span>
+    ) : null;
 
   return (
     <>
@@ -108,6 +117,7 @@ export function NuovaTask({
               autoFocus
               required
             />
+            {errCampo("titolo")}
           </div>
 
           <div className="campo-blocco">
@@ -149,6 +159,7 @@ export function NuovaTask({
                   required
                 />
               )}
+              {errCampo("utenteEmail")}
             </div>
 
             <div className="campo-blocco">
@@ -161,11 +172,12 @@ export function NuovaTask({
                     className={`chip${priorita === p ? " attivo" : ""}`}
                     onClick={() => setPriorita(p)}
                   >
-                    <span className="dot" style={{ background: priorita === p ? "#fff" : COLORE_PRIORITA[p] }} />
+                    <span className="dot" style={{ background: priorita === p ? "var(--on-ink)" : COLORE_PRIORITA[p] }} />
                     {ETICHETTA_PRIORITA[p]}
                   </button>
                 ))}
               </div>
+              {errCampo("priorita")}
             </div>
 
             <div className="campo-blocco">
@@ -179,6 +191,7 @@ export function NuovaTask({
                 value={scadenza}
                 onChange={(e) => setScadenza(e.target.value)}
               />
+              {errCampo("scadenza")}
             </div>
 
             <div className="campo-blocco">
@@ -193,11 +206,14 @@ export function NuovaTask({
                 onChange={(e) => setLink(e.target.value)}
                 placeholder="https://… (facoltativo)"
               />
+              {errCampo("link")}
             </div>
           </div>
 
           <div className="nuova-piede">
-            <span className="nuova-errore">{errore ?? ""}</span>
+            {/* Nel piede restano solo gli errori generali (sessione, database):
+                quelli di campo stanno sotto il campo colpevole. */}
+            <span className="nuova-errore">{errore && !errore.campo ? errore.messaggio : ""}</span>
             <button
               type="button"
               className="btn ghost"

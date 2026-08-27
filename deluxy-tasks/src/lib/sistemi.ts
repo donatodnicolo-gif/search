@@ -2,17 +2,21 @@
 // colorare la provenienza nella UI. La chiave `sistema` è libera lato API
 // (un'app nuova può mandare da subito), ma queste sono quelle note.
 
-export const SISTEMI: Record<string, { nome: string; colore: string }> = {
-  platform: { nome: "Consegne", colore: "var(--ink)" },
-  scout: { nome: "Scout", colore: "var(--blue)" },
-  mail: { nome: "AI Mail", colore: "var(--purple)" },
-  partner: { nome: "Finance", colore: "var(--green)" },
-  budgets: { nome: "Budgets", colore: "var(--gold-strong)" },
-  anagrafiche: { nome: "Anagrafiche", colore: "var(--orange)" },
-  suppliers: { nome: "Fornitori", colore: "var(--blue)" },
-  search: { nome: "Ricerca", colore: "var(--blue)" },
-  hub: { nome: "Hub", colore: "var(--ink)" },
-  tasks: { nome: "Inserita a mano", colore: "var(--gold)" },
+// La provenienza è una CATEGORIA, non uno stato: il Libro UX&UI cap.5 vieta di
+// usare i colori semantici come palette categoriale (leggere «pericolo» dove
+// c'è «viene da Anagrafiche» è un falso allarme). Finché il DS non ha token
+// categoriali dedicati, il badge di provenienza è NEUTRO: testo su --fill.
+export const SISTEMI: Record<string, { nome: string }> = {
+  platform: { nome: "Consegne" },
+  scout: { nome: "Scout" },
+  mail: { nome: "AI Mail" },
+  partner: { nome: "Finance" },
+  budgets: { nome: "Budgets" },
+  anagrafiche: { nome: "Anagrafiche" },
+  suppliers: { nome: "Fornitori" },
+  search: { nome: "Ricerca" },
+  hub: { nome: "Hub" },
+  tasks: { nome: "Inserita a mano" },
 };
 
 // Sistema riservato alle attività create dalla UI di Tasks (bottone «Nuova
@@ -21,8 +25,4 @@ export const SISTEMA_UI = "tasks";
 
 export function etichettaSistema(sistema: string): string {
   return SISTEMI[sistema]?.nome ?? sistema;
-}
-
-export function coloreSistema(sistema: string): string {
-  return SISTEMI[sistema]?.colore ?? "var(--text-secondary)";
 }

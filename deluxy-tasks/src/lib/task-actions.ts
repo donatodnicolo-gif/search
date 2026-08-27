@@ -26,7 +26,12 @@ export type NuovaTaskInput = {
   link?: string;
 };
 
-export type EsitoNuovaTask = { ok: true; id: string } | { ok: false; messaggio: string };
+// `campo` dice QUALE campo ha causato l'errore, così la UI lo mostra lì
+// (Libro UX&UI, legge 5: l'errore sta presso il campo). Assente = errore generale.
+export type CampoNuovaTask = "titolo" | "utenteEmail" | "priorita" | "scadenza" | "link";
+export type EsitoNuovaTask =
+  | { ok: true; id: string }
+  | { ok: false; messaggio: string; campo?: CampoNuovaTask };
 
 /** Chi sta creando. Senza segreto (sviluppo) non c'è sessione: vista admin. */
 async function chiSono(): Promise<{ sessione: Sessione | null; admin: boolean } | { errore: string }> {
@@ -45,35 +50,43 @@ export async function creaTaskAction(input: NuovaTaskInput): Promise<EsitoNuovaT
   if ("errore" in io) return { ok: false, messaggio: io.errore };
 
   const titolo = (input.titolo ?? "").trim();
-  if (!titolo) return { ok: false, messaggio: "Scrivi un titolo." };
-  if (titolo.length > 200) return { ok: false, messaggio: "Titolo troppo lungo (massimo 200 caratteri)." };
+  if (!titolo) return { ok: false, messaggio: "Scrivi un titolo.", campo: "titolo" };
+  if (titolo.length > 200)
+    return { ok: false, messaggio: "Titolo troppo lungo (massimo 200 caratteri).", campo: "titolo" };
 
   const utenteEmail = (input.utenteEmail ?? "").trim().toLowerCase();
-  if (!RE_EMAIL.test(utenteEmail)) return { ok: false, messaggio: "Scegli a chi assegnarla (email valida)." };
+  if (!RE_EMAIL.test(utenteEmail))
+    return { ok: false, messaggio: "Scegli a chi assegnarla (email valida).", campo: "utenteEmail" };
 
   // Un non-admin può assegnare solo a sé o alla propria squadra.
   if (!io.admin && io.sessione) {
     const visibili = await emailiVisibili(io.sessione.email);
     if (!visibili.includes(utenteEmail)) {
-      return { ok: false, messaggio: "Puoi assegnare attività solo a te o alla tua squadra." };
+      return {
+        ok: false,
+        messaggio: "Puoi assegnare attività solo a te o alla tua squadra.",
+        campo: "utenteEmail",
+      };
     }
   }
 
   const priorita = input.priorita?.trim() || PRIORITA_DEFAULT;
-  if (!isPriorita(priorita)) return { ok: false, messaggio: "Priorità non valida." };
+  if (!isPriorita(priorita)) return { ok: false, messaggio: "Priorità non valida.", campo: "priorita" };
 
   let scadenza: Date | null = null;
   const dataTesto = (input.scadenza ?? "").trim();
   if (dataTesto) {
-    if (!RE_DATA.test(dataTesto)) return { ok: false, messaggio: "Data di scadenza non valida." };
+    if (!RE_DATA.test(dataTesto))
+      return { ok: false, messaggio: "Data di scadenza non valida.", campo: "scadenza" };
     // Giorno intero: mezzogiorno UTC, così in Italia resta lo stesso giorno.
     scadenza = new Date(`${dataTesto}T12:00:00.000Z`);
-    if (isNaN(scadenza.getTime())) return { ok: false, messaggio: "Data di scadenza non valida." };
+    if (isNaN(scadenza.getTime()))
+      return { ok: false, messaggio: "Data di scadenza non valida.", campo: "scadenza" };
   }
 
   const link = (input.link ?? "").trim();
   if (link && !/^https?:\/\//i.test(link)) {
-    return { ok: false, messaggio: "Il link deve iniziare con http:// o https://." };
+    return { ok: false, messaggio: "Il link deve iniziare con http:// o https://.", campo: "link" };
   }
 
   const descrizione = (input.descrizione ?? "").trim();

@@ -30,3 +30,12 @@ export const COLORE_PRIORITA: Record<Priorita, string> = {
   alta: "var(--orange)",
   urgente: "var(--red)",
 };
+
+// Tinta -soft di sfondo del badge (Libro cap.5: dot + tinta + testo pieno).
+// Bassa/media sono neutre: sfondo --fill.
+export const TINTA_PRIORITA: Record<Priorita, string> = {
+  bassa: "var(--fill)",
+  media: "var(--fill)",
+  alta: "var(--orange-soft)",
+  urgente: "var(--red-soft)",
+};

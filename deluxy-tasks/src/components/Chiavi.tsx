@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { creaChiaveAction, revocaChiaveAction, riattivaChiaveAction } from "@/lib/chiavi-actions";
+import { Vuoto } from "@/components/Vuoto";
 
 // La pagina delle chiavi API: da qui si apre il registro a un'altra app senza
 // passare dalla riga di comando. La chiave si vede UNA volta, appena creata.
@@ -152,7 +153,10 @@ export function Chiavi({ chiavi, suggeriti }: { chiavi: ChiaveUI[]; suggeriti: s
       )}
 
       {chiavi.length === 0 ? (
-        <div className="vuoto">Nessuna chiave: nessun'altra app può ancora scrivere qui.</div>
+        <Vuoto icona="chiave" titolo="Nessuna chiave">
+          Nessun'altra app può ancora leggere o scrivere qui: genera la prima chiave con il campo
+          qui sopra.
+        </Vuoto>
       ) : (
         <div className="lista">
           {chiavi.map((c) => (
@@ -171,9 +175,11 @@ export function Chiavi({ chiavi, suggeriti }: { chiavi: ChiaveUI[]; suggeriti: s
                 />
                 {c.attiva ? "attiva" : "revocata"}
               </span>
+              {/* «Revoca» è distruttiva: stile .danger (testo red su fill), non
+                  lo stesso ghost di «Annulla» (Libro cap.3). */}
               <button
                 type="button"
-                className="btn ghost"
+                className={`btn ${c.attiva ? "danger" : "ghost"}`}
                 onClick={() => cambiaStato(c)}
                 disabled={inCorso}
               >
