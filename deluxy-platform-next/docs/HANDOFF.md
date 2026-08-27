@@ -153,6 +153,66 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### 🧹 26/08/2026 (sera, 12) — Le 431 cancellate stavano fra le cose da fare
+
+Sospetto mio, dato in pasto a un agente ostile: **confermato nel meccanismo, e
+due miei numeri demoliti**.
+
+**Il difetto**: lista, calendario e mappa erano gli **unici tre** consumatori a
+non filtrare `deletedAt` — Finanza, Fatturazione, Stipendi, orders-sync e il
+tracking pubblico lo fanno tutti. Le 431 consegne cancellate ereditate dal
+legacy sono **tutte in stato `created`**, che non è chiuso: cadevano nella vista
+**Attive**.
+
+Misurato prima e dopo la correzione:
+
+| | prima | dopo |
+|---|---|---|
+| contatore vista Attive | **2.122** | **1.691** (−431, era gonfio del 20%) |
+| calendario dal 2021 | 61.424 | 60.997 |
+| mappa col filtro stato «created» | 1.642 punti | 1.392 |
+
+**Il rimedio**: una costante `DeliveriesService.VIVE = { deletedAt: null }`
+sparsa nei tre costruttori di scope (`findAll`, `calendar`, `mapPoints`).
+
+- ⚠️ **NON dentro `roleFilter`**, che sarebbe stato il punto unico: la usa anche
+  `findOne`, e infilandola lì la scheda di una consegna cancellata darebbe 404 —
+  nessun admin potrebbe più aprirla per capire che cos'era. Controprova fatta:
+  la **#4072** si apre ancora.
+- ⚠️ **NON un filtro globale sul client Prisma**: sembra la mossa giusta ed è una
+  garanzia falsa — la Finanza interroga anche in **SQL raw**, che una client
+  extension non tocca; e intercetterebbe pure gli script di manutenzione,
+  nascondendo le righe proprio a chi deve ripararle.
+- ⭐ Effetto collaterale buono: l'indice `@@index([deletedAt, date])` — creato
+  con il commento «la lettura di sempre: le consegne vive» — era **ornamentale**,
+  perché nessuna query usava la sua prima colonna. Adesso serve davvero.
+
+**Che cosa l'agente ha demolito delle mie affermazioni**: NON è vero che le
+cancellate siano del 2024-2025 (il **96% è 2021-2023**); non se ne vede
+**nessuna in prima pagina** con l'ordine di default (la prima è a pagina 9 su
+43); la mappa di default era **pulita per caso**, salvata dal tetto di 3.000
+punti. E **nessun euro in gioco**: 613,13 € di prezzo in tutto, zero paghe, zero
+fatturate.
+
+Corretto anche il commento dello schema, che diceva **524** consegne: sono 431.
+
+Commit `780cbaca`, deploy `delivery-il5gl9ivf` Ready sull'alias.
+
+🔴 **Due cose viste per strada, da decidere (non toccate)**:
+1. `DeliveriesService.remove()` fa **hard delete** (`prisma.delivery.delete`) su
+   un modello che ha il soft delete in schema, con `DeliveryProduct` in
+   `onDelete: Cascade`. Le 431 vengono solo dall'import: l'insieme è congelato.
+   Quale delle due è la regola va deciso.
+2. **6.752 prodotti su 22.952 hanno `deletedAt`** e `products.service.ts` non lo
+   filtra: non si vedono solo perché il 100% di loro ha anche `archived = true`,
+   e lo scope di default mostra i non archiviati. È una **coincidenza
+   dell'import, non una regola**: il giorno che qualcuno disarchivia un prodotto
+   senza azzerare `deletedAt`, riappare.
+
+⚠️ **La caccia per settori si è fermata**: i quattro agenti lanciati su vendite,
+paghe, fatture e utenti sono morti tutti sul **limite settimanale d'uso**
+(«resets 8am»). Quei quattro settori restano da battere.
+
 ### 🐞 26/08/2026 (sera, 11) — Caccia agli errori, ogni candidato passato a un AGENTE OSTILE
 
 Metodo chiesto dall'utente: prima di trattare qualcosa come errore, sottoporlo
