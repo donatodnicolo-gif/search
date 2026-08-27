@@ -1,5 +1,76 @@
 # Handoff — Deluxy Customer Service
 
+## 27/08/2026 (7) — l'AI non rispondeva, e il suo bottone non si accendeva
+
+Segnalato dall'utente: «la risposta automatica dell'AI non funziona, inoltre il
+bottone su inbox non è chiaro, dovrebbe essere colorato se AI è attivo».
+
+### Il bottone: la regola CSS non si applicava, mai
+
+⚠️⚠️ La regola c'era ed era scritta `button.ai-accesa` — specificità **(0,1,1)**.
+Il bottone porta `.bottone.secondario.mini`, che è **(0,3,0)**: sfondo, bordo e
+colore li vinceva quella, sempre. **Acceso e spento avevano la stessa identica
+faccia**, e l'unica differenza era la parola scritta dentro.
+
+**Provato, non dedotto**: la regola nella forma vecchia, iniettata **per ultima**
+nel documento, perde lo stesso (fondo `rgb(255,255,255)`, testo
+`rgb(29,29,31)` invece dell'oro). Perde per specificità, non per ordine.
+
+Adesso il selettore è `button.bottone.secondario.ai-accesa` — **(0,3,1)**, batte
+per costruzione e non per posizione nel file. Misurato dopo: fondo
+`rgba(184,150,62,.12)`, bordo `#B8963E`, testo `#A07F2C`, peso 600, **pallino
+oro da 7px**. ⚠️ Oro come **accento e non come fondo pieno**: il Design System
+dice che i bottoni pieni sono neri. E «spenta» adesso è uno **stato** anche lui —
+pallino grigio, testo secondario — mentre finché lo stato non si sa il pallino
+**non c'è**, perché «non lo so» non deve somigliare a «spenta».
+
+### L'AI: metà del giro se lo mangiavano conversazioni bloccate
+
+⚠️⚠️ **Il filtro stava DOPO il taglio.** La query prendeva le prime `PER_GIRO`
+(10) **dalla più vecchia**, e solo dopo scartava «ha già una risposta in fondo»,
+«c'è già una domanda aperta all'amministratore», «tetto raggiunto». Ma gli scarti
+stanno **esattamente in cima**, perché sono i più vecchi — e una domanda aperta
+resta aperta **finché una persona non risponde**, quindi quel posto è perso a
+ogni giro, per sempre.
+
+**Misurato sulla coda vera del 27/08 alle 11:45: 10 candidate, 10 posti, e
+CINQUE bruciati.** Con undici messaggi in coda, l'undicesimo cliente non sarebbe
+mai entrato nel giro.
+
+Adesso si guarda largo (`PER_GIRO * 6`) e si conta come **lavorata** solo una
+conversazione che arriva davvero a chiedere all'AI: gli scarti non costano una
+chiamata e non consumano il tetto.
+
+⚠️ **E le caselle a cui non c'è nessuno non si toccano.** Nella coda vera non
+c'era **un solo cliente**: un avviso di mancata consegna (`mailer-daemon@…`), due
+newsletter, un fornitore. A un `mailer-daemon` non si può rispondere, e chiedere
+all'amministratore su WhatsApp «non so cosa rispondere a mailer-daemon» è il modo
+più veloce di insegnargli a non guardare più gli avvisi. Si guarda
+l'**indirizzo** e non il testo, con una lista corta e ancorata: `norberto@` non è
+`no-reply@`, e sbagliare in quel verso vorrebbe dire non rispondere a un cliente.
+
+⚠️ **L'orologio mentiva.** L'ultimo giro si scriveva **solo in fondo**, cioè solo
+quando il giro arrivava a guardare le conversazioni — ma esce prima in quattro
+casi su cinque (spenta, c'è chi lavora, niente in coda, nessuno script). Il
+pannello diceva «ultimo giro alle 08:50» alle 11:45, che si legge in un modo
+solo: **il cron è morto**. Non lo era, stava rispettando i turni. Adesso sono due
+righe: «ultimo controllo» (il cron è passato) e «l'ultima volta che ha lavorato»
+(l'ultimo esito vero, che non si sovrascrive).
+
+### ⚠️ Quello che resta com'è, e va saputo
+
+**L'AI risponde SOLO fuori turno**, ed è la seconda delle quattro serrature. In
+griglia ci sono 21 ore coperte su 168 e adesso ce n'è una attiva: finché c'è
+qualcuno in turno il giro non parte, ed è giusto così. Chi guarda l'inbox in
+orario di lavoro **non vedrà mai** l'AI rispondere.
+
+**Quattro domande aperte all'amministratore** (una del 23/08). Finché restano
+aperte, quelle conversazioni non si lavorano — adesso però non bloccano più le
+altre.
+
+**Verifica**: `tsc` 0, `build` 0, prova nuova `prova-coda-ai.mts` **13/13**, stili
+misurati nel browser su una pagina temporanea poi cancellata.
+
 ## 27/08/2026 (6) — Google Maps entra in anagrafica, e la carta da remoto
 
 Due richieste dell'utente: «devi importare **tutti** i dati da maps che servono

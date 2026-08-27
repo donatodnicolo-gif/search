@@ -5487,14 +5487,51 @@ td .azioni-ordine {
    ⚠️ Il bottone cambia FACCIA quando è accesa, non solo scritta: è l'unica cosa
    dell'app che parla ai clienti da sola, e «acceso» dev'essere una cosa che si
    vede attraversando la stanza. Oro, come tutti i segnali di quest'app. */
-button.ai-accesa {
-  background: var(--gold);
+/* ── L'INTERRUTTORE DELL'AI SI VEDE DA COM'È MESSO ──
+ *
+ * ⚠️⚠️ QUESTA REGOLA NON SI APPLICAVA. Era scritta `button.ai-accesa`
+ * — specificità (0,1,1) — e il bottone porta `.bottone.secondario.mini`, che è
+ * (0,3,0): lo sfondo, il bordo e il colore li vinceva quella, sempre. Il
+ * risultato è quello segnalato dall'utente il 27/08/2026: **acceso e spento
+ * avevano esattamente la stessa faccia**, e l'unica differenza era la parola
+ * scritta dentro. Adesso il selettore è `button.bottone.secondario.ai-accesa`,
+ * (0,3,1): batte l'altra per costruzione e non per ordine nel file — che è la
+ * differenza fra una regola che tiene e una che salta al prossimo riordino.
+ *
+ * ⚠️ Oro come ACCENTO, non come fondo pieno: il Design System dice che i bottoni
+ * pieni sono neri e l'oro è un accento (`DESIGN-SYSTEM.md`). Fondo tenue, bordo
+ * e testo oro, e un PALLINO davanti — lo stesso linguaggio dei badge di stato,
+ * dove il pallino è la cosa che si vede prima di leggere. */
+button.bottone.ai-spenta::before,
+button.bottone.ai-accesa::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: baseline;
+}
+
+button.bottone.secondario.ai-accesa {
+  background: var(--gold-soft);
   border-color: var(--gold);
+  color: var(--gold-strong);
+  font-weight: 600;
+}
+
+button.bottone.secondario.ai-accesa:hover {
+  background: var(--gold);
+  border-color: var(--gold-strong);
   color: #fff;
 }
-button.ai-accesa:hover {
-  background: var(--gold-strong);
-  color: #fff;
+
+/* ⚠️ Spenta NON è «niente»: è uno stato, e va detto anche lui. Il pallino c'è
+ * uguale, vuoto di colore — così le due facce si distinguono di colpo, senza
+ * dover leggere la parola. */
+button.bottone.secondario.ai-spenta {
+  color: var(--text-secondary);
 }
 
 .pannello-ai {

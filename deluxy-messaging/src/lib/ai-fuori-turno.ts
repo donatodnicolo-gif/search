@@ -34,8 +34,50 @@ import { giornoSettimana, inMinuti, turniDelGiorno, type EsitoTurni } from './tu
 /** I canali su cui ha senso rispondere da soli. */
 const CANALI = ['whatsapp', 'instagram', 'messenger', 'email', 'widget']
 
-/** Quante conversazioni al massimo per giro: un cron non deve diventare un invio di massa. */
+/**
+ * Quante conversazioni al massimo si LAVORANO per giro (cioè quante chiamate
+ * all'AI): un cron non deve diventare un invio di massa.
+ *
+ * ⚠️ Non è quante se ne guardano. Vedi il `take` nella query: gli scarti si
+ * contano dopo, o le conversazioni bloccate mangiano i posti dei clienti veri.
+ */
 const PER_GIRO = 10
+
+/**
+ * L'indirizzo dichiara che dall'altra parte non c'è nessuno?
+ *
+ * ⚠️⚠️ Non è un filtro antispam e non giudica il contenuto: guarda solo la parte
+ * prima della chiocciola, e riconosce le caselle che **per convenzione** non
+ * ricevono risposte. Rispondere lì non fallisce nemmeno con un errore: il
+ * messaggio parte e non lo legge nessuno.
+ *
+ * ⚠️ Volutamente CORTA e ancorata: `noreply` sì, ma una `no.reply.marketing@…`
+ * no e va bene così — sbagliare in questo verso costa una domanda in più
+ * all'amministratore, sbagliare nell'altro vuol dire non rispondere a un
+ * cliente che si chiama `norberto@…`.
+ */
+export function casellaSenzaNessuno(indirizzo: string): boolean {
+  const a = (indirizzo ?? '').trim().toLowerCase()
+  const locale = a.includes('@') ? a.slice(0, a.indexOf('@')) : a
+  if (!locale) return false
+  const SENZA_NESSUNO = [
+    'mailer-daemon',
+    'postmaster',
+    'no-reply',
+    'noreply',
+    'donotreply',
+    'do-not-reply',
+    'bounce',
+    'bounces',
+    'mailer',
+    'notifications',
+    'notification',
+    'automated',
+  ]
+  // ⚠️ Uguaglianza o prefisso staccato da un separatore: «noreply» e
+  // «noreply-123» sì, «norbertoreply» no.
+  return SENZA_NESSUNO.some((s) => locale === s || locale.startsWith(`${s}-`) || locale.startsWith(`${s}.`) || locale.startsWith(`${s}+`))
+}
 
 /** Quante risposte automatiche al massimo su una conversazione, in tutto. */
 const TETTO_PER_CONVERSAZIONE = 3
@@ -273,6 +315,7 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
     // ⚠️ Spenta NON si scrive nell'esito: se ne scrivesse uno a ogni giro,
     // l'ultima riga vera — quella dell'ultima volta che ha davvero risposto —
     // sparirebbe dopo dieci minuti.
+    if (!opz.prova) await segnaPassaggio()
     return { ...vuoto, fermo: 'Le risposte automatiche fuori turno sono spente.' }
   }
 
@@ -280,6 +323,7 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
   if (inTurno.length > 0) {
     // ⚠️ Non è un errore: è la regola. Si dice chi c'è, così chi legge il log
     // non va a cercare un guasto.
+    if (!opz.prova) await segnaPassaggio()
     return { ...vuoto, inTurno, fermo: `C'è chi lavora: ${inTurno.join(', ')}.` }
   }
 
@@ -296,12 +340,27 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
       ultimoMessaggioIl: { gte: limite },
     },
     orderBy: { ultimoMessaggioIl: 'asc' },
-    take: PER_GIRO,
+    // ⚠️⚠️ SI GUARDA LARGO E SI TAGLIA DOPO. `PER_GIRO` è il tetto di quante
+    // conversazioni si possono **lavorare** (cioè quante chiamate all'AI si
+    // fanno), non di quante se ne possono guardare: metterlo qui nella query
+    // significava applicare tutti gli scarti — «ha già una risposta in fondo»,
+    // «c'è già una domanda aperta», «tetto raggiunto» — **dopo** il taglio.
+    //
+    // ⚠️ E l'ordine è dalla PIÙ VECCHIA, quindi gli scarti stanno esattamente in
+    // cima: una conversazione con una domanda aperta all'amministratore resta
+    // bloccata **finché una persona non risponde**, e intanto occupa un posto a
+    // ogni giro, per sempre. Misurato il 27/08/2026 alle 11:45: dieci candidate
+    // e dieci posti, di cui **tre già bruciati** da due domande aperte (una
+    // della notte precedente) e da una conversazione a cui avevamo già
+    // risposto. Con undici messaggi in coda, il cliente numero undici non
+    // sarebbe mai entrato nel giro.
+    take: PER_GIRO * 6,
   })
 
   const esito: EsitoGiro = { ...vuoto, inTurno }
   if (conversazioni.length === 0) {
     esito.fermo = 'Nessuna conversazione che aspetta una risposta.'
+    if (!opz.prova) await segnaPassaggio()
     return esito
   }
 
@@ -313,11 +372,40 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
   })
   if (script.length === 0) {
     esito.fermo = 'Non c’è nessuna risposta pronta da cui attingere: l’AI non inventa.'
+    if (!opz.prova) await segnaPassaggio()
     return esito
   }
 
+  // ⚠️ Quante ne abbiamo davvero LAVORATE (cioè chieste all'AI): è questo il
+  // numero che `PER_GIRO` limita. Gli scarti non consumano niente — non costano
+  // una chiamata e non sono lavoro fatto.
+  let lavorate = 0
   for (const c of conversazioni) {
+    if (lavorate >= PER_GIRO) {
+      esito.righe.push(`(mi fermo a ${PER_GIRO}: le altre al prossimo giro)`)
+      break
+    }
     const nome = c.nome || c.idEsterno
+
+    // ── LE CASELLE CHE NON SONO PERSONE ──
+    //
+    // ⚠️⚠️ Misurato il 27/08/2026 sulla coda vera: delle dieci conversazioni in
+    // attesa **nessuna era un cliente**. C'erano un avviso di mancata consegna
+    // (`mailer-daemon@…`), due newsletter e un fornitore. A un
+    // `mailer-daemon` non si può rispondere — è la casella che ci dice che
+    // un'altra mail non è arrivata — e chiedere all'amministratore su WhatsApp
+    // «non so cosa rispondere a mailer-daemon» è il modo più veloce di
+    // insegnargli a non guardare più gli avvisi.
+    //
+    // ⚠️ Si guarda l'INDIRIZZO, non il testo: un indirizzo di rimbalzo o di
+    // sola andata dichiara da sé che dall'altra parte non c'è nessuno. Le
+    // newsletter vere invece un indirizzo valido ce l'hanno, e per quelle resta
+    // la strada normale — l'AI non trova uno script adatto e chiede.
+    if (c.canale === 'email' && casellaSenzaNessuno(c.idEsterno)) {
+      esito.saltate++
+      esito.righe.push(`${nome}: casella automatica, non si risponde e non si chiede`)
+      continue
+    }
     const ultimo = await db.messaggio.findFirst({
       where: { conversazioneId: c.id },
       orderBy: { creatoIl: 'desc' },
@@ -365,6 +453,9 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
         })
       : null
 
+    // ⚠️ Da qui in giù si SPENDE: la chiamata all'AI è la parte cara del giro,
+    // ed è il punto in cui questa conversazione conta come lavorata.
+    lavorate++
     const proposta = await suggerisciRisposta(
       testo,
       script,
@@ -468,5 +559,27 @@ async function segnaGiro(esito: EsitoGiro, prova?: boolean) {
     await salvaImpostazione(CHIAVE_ESITO, riassumiGiro(esito))
   } catch {
     // l'esito è un contorno: se non si scrive, il giro vale comunque
+  }
+}
+
+/**
+ * IL CRON È PASSATO DI QUI, comunque sia andata.
+ *
+ * ⚠️⚠️ Prima l'orologio si scriveva **solo in fondo al giro**, cioè solo quando
+ * il giro arrivava a guardare le conversazioni. Ma il giro esce prima in
+ * quattro casi su cinque — spenta, c'è chi lavora, niente in coda, nessuno
+ * script — e in tutti quelli l'ora restava quella di ore prima. Il pannello
+ * diceva «ultimo giro alle 08:50» alle 11:45, che si legge in un modo solo:
+ * **il cron è morto**. Non lo era: stava rispettando i turni.
+ *
+ * ⚠️ L'ESITO invece NON si tocca qui, ed è la ragione per cui sono due chiavi
+ * separate: un giro che non è partito non è quello che è successo ai clienti, e
+ * sovrascriverlo cancellerebbe l'ultima riga vera dopo dieci minuti.
+ */
+async function segnaPassaggio() {
+  try {
+    await salvaImpostazione(CHIAVE_ULTIMO, new Date().toISOString())
+  } catch {
+    // contorno: se non si scrive, il giro vale comunque
   }
 }

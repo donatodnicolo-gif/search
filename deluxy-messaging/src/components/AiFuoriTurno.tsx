@@ -187,7 +187,11 @@ export function AiFuoriTurno({ amministratore }: { amministratore: boolean }) {
     <>
       <button
         ref={bottone}
-        className={`bottone secondario mini${acceso ? ' ai-accesa' : ''}`}
+        // ⚠️ La classe si mette solo quando lo stato lo SAPPIAMO: finché la
+        // lettura non è tornata (o è fallita) il bottone resta neutro, perché
+        // un pallino grigio che dice «spenta» mentre in realtà non lo sappiamo
+        // è la bugia che questo componente esiste per non dire.
+        className={`bottone secondario mini${stato ? (acceso ? ' ai-accesa' : ' ai-spenta') : ''}`}
         onClick={() => setAperto((v) => !v)}
         title={
           stato
@@ -248,9 +252,21 @@ export function AiFuoriTurno({ amministratore }: { amministratore: boolean }) {
                   {stato.script === 0 ? ' — senza queste non risponde' : ''}
                 </li>
                 <li>
+                  {/* ⚠️⚠️ SONO DUE COSE DIVERSE e prima erano scritte come una.
+                      «Ultimo controllo» è l'ultima volta che il cron è passato
+                      — ogni dieci minuti, anche quando non fa niente perché c'è
+                      qualcuno in turno. «L'ultima volta che ha lavorato» è
+                      l'ultimo giro che ha davvero guardato le conversazioni.
+                      Scritte insieme, un cron sano che rispetta i turni sembrava
+                      morto da tre ore. */}
                   {stato.ultimo
-                    ? `ultimo giro: ${new Date(stato.ultimo).toLocaleString('it-IT')} — ${stato.esito || '—'}`
-                    : 'non risulta nessun giro: non ha mai risposto a nessuno'}
+                    ? `ultimo controllo: ${new Date(stato.ultimo).toLocaleString('it-IT')}`
+                    : 'non risulta nessun controllo: il cron non è mai passato'}
+                </li>
+                <li>
+                  {stato.esito
+                    ? `l’ultima volta che ha lavorato: ${stato.esito}`
+                    : 'non ha ancora lavorato nessuna conversazione'}
                 </li>
               </ul>
 
