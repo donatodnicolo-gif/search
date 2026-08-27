@@ -153,6 +153,54 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### 🔌 27/08/2026 — Le API per esito e costo consegna, i quarti d'ora, Maps e i ricorrenti ai partner
+
+**① LE CONSEGNE NEL CANALE APP-TO-APP.** `costi-consegne` rispondeva per MESE e
+per NEGOZIO (serve al conto economico); mancava il per CONSEGNA. Adesso:
+
+- `GET /api/v1/app/consegne` — pull incrementale su `aggiornateDa`, con filtri
+  `dal`/`al`/`stato`/`partnerId`, **cursore dichiarato** (`prossimoCursore`) e
+  il flag **`altrePagine`**: una pagina piena scambiata per la fine è un errore
+  silenzioso.
+- `GET /api/v1/app/consegne/:numero` — la singola, per il numero che si legge a
+  schermo.
+
+Dentro ci sono **21 blocchi**: esito (stato, se è chiusa, quando è partita,
+quando è stata consegnata, chi ha ritirato), orari, indirizzi con coordinate e
+provincia, partner, valet, servizio, prodotti, ordine Shopify e DDT.
+
+⭐ **Il costo viaggia SCOMPOSTO**: `totale`, `paga`, `ritenuta` — e accanto la
+`pagaScritta` col `plusContato`, il `plusScartato` e il `minus`. Un numero che
+non torna con la paga scritta si legge come sbagliato se non porta i suoi
+ingredienti. La regola è la **stessa funzione** della Finanza
+(`FinanceService.plusNelCosto`), non una copia.
+
+✅ **Provato in produzione** (`scripts/prova-rotte-consegne.mjs`, che crea una
+chiave usa-e-getta, chiama e la cancella, senza mai stamparla): 401 senza
+chiave · cursore che non ripropone le righe viste · **#42195 con un plus di
+24,34 SCARTATO → paga 10,66** (la regola dei 5 € vista da fuori) · 404
+leggibile sul numero inesistente · **una cancellata logicamente non esce**.
+
+**② FASCE DA 15 MINUTI** su tutti e 14 gli input orario (`step="900"`): il
+selettore nativo offriva i minuti uno per uno. Misurato prima: **il 98,5% degli
+orari è già su multipli di 15** (`:00` 180.383 · `:30` 22.799 · poi `:45` e
+`:15`). Restano fuori 2.186 valori storici su 61.406 consegne: si vedono e si
+salvano lo stesso, semplicemente non cadono su un quarto.
+
+**③ INDIRIZZI SU GOOGLE MAPS nei ricorrenti** (destinatario e ritiro), stesso
+meccanismo del form consegna. Qui pesa più che altrove: un ricorrente con
+l'indirizzo sbagliato sbaglia **ogni giorno**. ⚠️ Il form vive dentro un `@if`,
+quindi i campi non esistono al primo `ngAfterViewInit`: si aggancia
+all'apertura, una volta sola per campo.
+
+**④ I RICORRENTI ANCHE AL PARTNER**, senza valet e senza prezzi: vale il
+listino che ha già. ⚠️ I campi che non decide non si nascondono soltanto — il
+server li **sovrascrive** (partnerId forzato al suo, valet e prezzi azzerati) e
+**rifiuta un servizio fuori dal suo listino**. Un form nascosto non è una
+difesa. «Genera oggi» resta dell'ufficio.
+
+Commit `7e7fb74c`, `a64b4e95`, `814761a8`; deploy `delivery-41eymjcbf`.
+
 ### 🚪 27/08/2026 — La casa del partner era nel menu dell'ufficio
 
 Segnalato dall'utente con uno screenshot: entrato come **Ada Admin**, la prima
