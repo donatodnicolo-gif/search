@@ -197,7 +197,7 @@ export default async function PaginaCartellini({
             <form action={inviaReportPresenze} className="form-inline">
               <input type="hidden" name="mese" value={mese} />
               <div className="campo">
-                <label>Email del commercialista *</label>
+                <label>Email del commercialista <span className="ob">*</span></label>
                 <input
                   type="email"
                   name="destinatario"

@@ -141,7 +141,7 @@ export default async function SchedaPersona({
         </div>
         <div className="form-griglia">
           <div className="campo">
-            <label>Nome e cognome *</label>
+            <label>Nome e cognome <span className="ob">*</span></label>
             <input type="text" name="nome" required defaultValue={persona.nome} />
           </div>
           <div className="campo">
@@ -343,7 +343,7 @@ export default async function SchedaPersona({
                       <input type="hidden" name="id" value={a.id} />
                       <input type="hidden" name="personaId" value={persona.id} />
                       <div className="campo">
-                        <label>Attività *</label>
+                        <label>Attività <span className="ob">*</span></label>
                         <input type="text" name="nome" required defaultValue={a.nome} />
                       </div>
                       <div className="campo" style={{ flex: 2 }}>
@@ -516,11 +516,11 @@ export default async function SchedaPersona({
           <input type="hidden" name="personaId" value={persona.id} />
           <div className="form-griglia">
             <div className="campo">
-              <label>Decorrenza *</label>
+              <label>Decorrenza <span className="ob">*</span></label>
               <input type="date" name="decorrenza" required defaultValue={oggiInput} />
             </div>
             <div className="campo">
-              <label>Tipo di contratto *</label>
+              <label>Tipo di contratto <span className="ob">*</span></label>
               <select name="tipoContratto" required defaultValue="">
                 <option value="" disabled>
                   Scegli…
@@ -662,11 +662,11 @@ export default async function SchedaPersona({
           <input type="hidden" name="personaId" value={persona.id} />
           <div className="form-griglia">
             <div className="campo">
-              <label>Decorrenza *</label>
+              <label>Decorrenza <span className="ob">*</span></label>
               <input type="date" name="decorrenza" required defaultValue={oggiInput} />
             </div>
             <div className="campo">
-              <label>{autonomo ? "Compenso annuo € *" : "RAL — lordo annuo € *"}</label>
+              <label>{autonomo ? "Compenso annuo €" : "RAL — lordo annuo €"} <span className="ob">*</span></label>
               <input
                 type="text"
                 inputMode="decimal"

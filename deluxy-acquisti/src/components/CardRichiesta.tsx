@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useIo } from "./Identita";
 import { decidiRichiesta, convertiRichiesta } from "@/lib/actions";
 import { PRIORITA, STATI_RICHIESTA, formattaData, formattaImporto, voce } from "@/lib/vocab";
@@ -56,11 +56,11 @@ export function CardRichiesta({ r }: { r: RichiestaDTO }) {
           </div>
           {r.descrizione && <div className="card-desc">{r.descrizione}</div>}
           <div className="card-meta">
-            <span className="badge">
-              <span className="dot" style={{ background: st.colore }} /> {st.etichetta}
+            <span className="badge tinta" style={{ "--c": st.colore } as CSSProperties}>
+              <span className="dot" /> {st.etichetta}
             </span>
-            <span className="badge">
-              <span className="dot" style={{ background: pr.colore }} /> {pr.etichetta}
+            <span className="badge tinta" style={{ "--c": pr.colore } as CSSProperties}>
+              <span className="dot" /> {pr.etichetta}
             </span>
             {r.categoria && <span className="badge">{r.categoria}</span>}
             {r.fornitoreSuggerito && <span className="muted">Fornitore: {r.fornitoreSuggerito}</span>}

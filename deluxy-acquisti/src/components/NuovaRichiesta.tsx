@@ -32,7 +32,7 @@ export function NuovaRichiesta({ onClose }: { onClose: () => void }) {
       <form action={invia}>
         <CampiIo io={io} />
         <div className="campo">
-          <label>Cosa serve *</label>
+          <label>Cosa serve <span className="ob">*</span></label>
           <input name="titolo" required autoFocus placeholder="Es. 500 scatole regalo bordeaux" />
         </div>
         <div className="campo">

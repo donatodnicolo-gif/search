@@ -114,7 +114,7 @@ export default async function Componi({ searchParams }: { searchParams: Promise<
               value={sp.evento ? `/eventi/${sp.evento}` : codice ? `/clienti/${codice}` : "/mail"}
             />
             <div className="campo">
-              <label>A *</label>
+              <label>A <span className="ob">*</span></label>
               <input
                 type="email"
                 name="destinatario"
@@ -124,11 +124,11 @@ export default async function Componi({ searchParams }: { searchParams: Promise<
               />
             </div>
             <div className="campo">
-              <label>Oggetto *</label>
+              <label>Oggetto <span className="ob">*</span></label>
               <input type="text" name="oggetto" defaultValue={oggetto} required />
             </div>
             <div className="campo">
-              <label>Testo *</label>
+              <label>Testo <span className="ob">*</span></label>
               <textarea name="corpo" rows={14} defaultValue={corpo} required />
               <span className="aiuto">
                 Se restano {"{{variabili}}"} nel testo, si riempiono coi dati del cliente al momento dell&apos;invio.

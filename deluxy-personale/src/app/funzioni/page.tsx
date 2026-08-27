@@ -72,7 +72,7 @@ export default async function PaginaFunzioni({
         </div>
         <form action={creaFunzione} className="form-inline">
           <div className="campo">
-            <label>Nome *</label>
+            <label>Nome <span className="ob">*</span></label>
             <input type="text" name="nome" required placeholder="Es. Operations" />
           </div>
           <div className="campo" style={{ flex: 2 }}>
@@ -127,7 +127,7 @@ export default async function PaginaFunzioni({
               <form action={aggiornaFunzione} className="form-inline">
                 <input type="hidden" name="id" value={f.id} />
                 <div className="campo">
-                  <label>Nome *</label>
+                  <label>Nome <span className="ob">*</span></label>
                   <input type="text" name="nome" required defaultValue={f.nome} />
                 </div>
                 <div className="campo" style={{ flex: 2 }}>
@@ -221,7 +221,7 @@ export default async function PaginaFunzioni({
                       <form action={aggiornaMansione} className="form-inline">
                         <input type="hidden" name="id" value={m.id} />
                         <div className="campo">
-                          <label>Nome *</label>
+                          <label>Nome <span className="ob">*</span></label>
                           <input type="text" name="nome" required defaultValue={m.nome} />
                         </div>
                         <div className="campo" style={{ flex: 2 }}>
@@ -301,7 +301,7 @@ export default async function PaginaFunzioni({
                               <form action={aggiornaAttivita} className="form-inline">
                                 <input type="hidden" name="id" value={a.id} />
                                 <div className="campo">
-                                  <label>Attività *</label>
+                                  <label>Attività <span className="ob">*</span></label>
                                   <input type="text" name="nome" required defaultValue={a.nome} />
                                 </div>
                                 <div className="campo" style={{ flex: 2 }}>

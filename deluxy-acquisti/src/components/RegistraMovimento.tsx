@@ -47,7 +47,7 @@ export function RegistraMovimento({ acquisto, onClose }: { acquisto: AcquistoDTO
             </select>
           </div>
           <div className="campo">
-            <label>Importo *</label>
+            <label>Importo <span className="ob">*</span></label>
             <input name="importo" inputMode="decimal" required defaultValue={residuo > 0 ? residuo.toFixed(2) : ""} placeholder="0,00" />
           </div>
         </div>

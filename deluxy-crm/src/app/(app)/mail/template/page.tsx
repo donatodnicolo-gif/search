@@ -86,15 +86,15 @@ export default async function Template({ searchParams }: { searchParams: Promise
               {inModifica ? <input type="hidden" name="id" value={inModifica.id} /> : null}
               <input type="hidden" name="torna" value="/mail/template" />
               <div className="campo">
-                <label>Nome *</label>
+                <label>Nome <span className="ob">*</span></label>
                 <input type="text" name="nome" defaultValue={inModifica?.nome ?? ""} placeholder="es. Auguri di compleanno" required />
               </div>
               <div className="campo">
-                <label>Oggetto *</label>
+                <label>Oggetto <span className="ob">*</span></label>
                 <input type="text" name="oggetto" defaultValue={inModifica?.oggetto ?? ""} placeholder="es. I nostri auguri, {{nome}}" required />
               </div>
               <div className="campo">
-                <label>Testo *</label>
+                <label>Testo <span className="ob">*</span></label>
                 <textarea name="corpo" rows={10} defaultValue={inModifica?.corpo ?? ""} placeholder={"Gentile {{nome}},\n\n…"} required />
               </div>
               <div className="form-piede">

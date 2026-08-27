@@ -119,7 +119,7 @@ export default async function PaginaNuovaPersona({
       <form action={creaPersona} className="card">
         <div className="form-griglia">
           <div className="campo">
-            <label>Nome e cognome *</label>
+            <label>Nome e cognome <span className="ob">*</span></label>
             <input type="text" name="nome" required autoFocus defaultValue={sp.nome ?? ""} placeholder="Es. Giulia Bianchi" />
           </div>
           <div className="campo">

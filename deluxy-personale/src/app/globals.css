@@ -98,6 +98,8 @@ a { color: inherit; text-decoration: none; }
 }
 .btn:hover { background: var(--ink-hover); }
 .btn:active { transform: scale(0.97); }
+/* Focus da tastiera visibile su ogni bottone (WCAG 2.4.7) — Libro UX cap.3 */
+.btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .btn.ghost { background: var(--fill); color: var(--text); }
 .btn.ghost:hover { background: var(--fill-hover); }
 .btn.pericolo { background: var(--fill); color: var(--red); }
@@ -169,6 +171,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .campo.largo { grid-column: 1 / -1; }
 .campo label { font-size: 12.5px; font-weight: 500; color: var(--text-secondary); }
+/* Asterisco dei campi obbligatori: rosso, mai oro (Libro UX cap.4 / NN/g) */
+.ob { color: var(--red); }
 input[type="text"], input[type="email"], input[type="tel"], input[type="date"],
 input[type="password"], input[type="number"], select, textarea {
   font: inherit; font-size: 14px; color: var(--text);

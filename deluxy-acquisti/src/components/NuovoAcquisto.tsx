@@ -116,7 +116,7 @@ export function NuovoAcquisto({ onClose }: { onClose: () => void }) {
       <form action={invia}>
         <CampiIo io={io} />
         <div className="campo">
-          <label>Descrizione *</label>
+          <label>Descrizione <span className="ob">*</span></label>
           <input
             name="descrizione"
             required
@@ -127,7 +127,7 @@ export function NuovoAcquisto({ onClose }: { onClose: () => void }) {
         </div>
         <div className="riga">
           <div className="campo">
-            <label>Fornitore *</label>
+            <label>Fornitore <span className="ob">*</span></label>
             <input
               name="fornitoreNome"
               required

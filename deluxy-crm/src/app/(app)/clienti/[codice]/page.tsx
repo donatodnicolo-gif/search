@@ -321,11 +321,11 @@ export default async function Scheda({
                 <input type="hidden" name="torna" value={qui} />
                 <div className="form-riga">
                   <div className="campo">
-                    <label>Giorno *</label>
+                    <label>Giorno <span className="ob">*</span></label>
                     <input type="number" name="giorno" min={1} max={31} required />
                   </div>
                   <div className="campo">
-                    <label>Mese *</label>
+                    <label>Mese <span className="ob">*</span></label>
                     <select name="mese" required defaultValue="">
                       <option value="" disabled>—</option>
                       {["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"].map((m, i) => (
@@ -383,7 +383,7 @@ export default async function Scheda({
                 </div>
               </div>
               <div className="campo">
-                <label>Titolo *</label>
+                <label>Titolo <span className="ob">*</span></label>
                 <input type="text" name="titolo" placeholder="es. Chiamata per il compleanno" required />
               </div>
               <div className="campo">

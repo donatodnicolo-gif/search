@@ -198,12 +198,12 @@ export default async function DettaglioEvento({
               <input type="hidden" name="id" value={evento.id} />
               <input type="hidden" name="torna" value={qui} />
               <div className="campo">
-                <label>Titolo *</label>
+                <label>Titolo <span className="ob">*</span></label>
                 <input type="text" name="titolo" defaultValue={evento.titolo} required />
               </div>
               <div className="form-riga">
                 <div className="campo">
-                  <label>Inizio *</label>
+                  <label>Inizio <span className="ob">*</span></label>
                   <input type="datetime-local" name="dataInizio" defaultValue={aOraItaliana(evento.dataInizio)} required />
                 </div>
                 <div className="campo">

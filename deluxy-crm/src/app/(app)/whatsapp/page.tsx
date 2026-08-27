@@ -85,11 +85,11 @@ export default async function WhatsApp({ searchParams }: { searchParams: Promise
               {inModifica ? <input type="hidden" name="id" value={inModifica.id} /> : null}
               <input type="hidden" name="torna" value="/whatsapp" />
               <div className="campo">
-                <label>Nome *</label>
+                <label>Nome <span className="ob">*</span></label>
                 <input type="text" name="nome" defaultValue={inModifica?.nome ?? ""} placeholder="es. Auguri veloci" required />
               </div>
               <div className="campo">
-                <label>Testo *</label>
+                <label>Testo <span className="ob">*</span></label>
                 <textarea
                   name="testo"
                   rows={6}

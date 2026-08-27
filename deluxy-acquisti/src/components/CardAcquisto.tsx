@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useIo } from "./Identita";
 import { aggiornaStatoAcquisto, eliminaMovimento } from "@/lib/actions";
 import { RegistraMovimento } from "./RegistraMovimento";
@@ -44,8 +44,8 @@ export function CardAcquisto({ a }: { a: AcquistoDTO }) {
           </div>
           <div className="card-desc">{a.fornitoreNome}{a.numeroFattura ? ` · fattura ${a.numeroFattura}` : ""}</div>
           <div className="card-meta">
-            <span className="badge">
-              <span className="dot" style={{ background: st.colore }} /> {st.etichetta}
+            <span className="badge tinta" style={{ "--c": st.colore } as CSSProperties}>
+              <span className="dot" /> {st.etichetta}
             </span>
             {a.categoria && <span className="badge">{a.categoria}</span>}
             <span className="muted">ordine {formattaData(a.dataOrdine)}</span>

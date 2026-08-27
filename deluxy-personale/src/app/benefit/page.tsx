@@ -212,7 +212,7 @@ export default async function PaginaBenefit({
           <form action={assegnaBenefit} className="form-inline">
             <input type="hidden" name="torna" value="/benefit" />
             <div className="campo">
-              <label>Persona *</label>
+              <label>Persona <span className="ob">*</span></label>
               <select name="personaId" required defaultValue="">
                 <option value="" disabled>
                   Scegli…
@@ -225,7 +225,7 @@ export default async function PaginaBenefit({
               </select>
             </div>
             <div className="campo">
-              <label>Benefit *</label>
+              <label>Benefit <span className="ob">*</span></label>
               <select name="tipoId" required defaultValue="">
                 <option value="" disabled>
                   Scegli…
@@ -299,7 +299,7 @@ export default async function PaginaBenefit({
 
         <form action={creaTipoBenefit} className="form-inline">
           <div className="campo">
-            <label>Nuovo tipo di benefit *</label>
+            <label>Nuovo tipo di benefit <span className="ob">*</span></label>
             <input type="text" name="nome" required placeholder="Es. Welfare aziendale, palestra, formazione…" />
           </div>
           <div className="campo" style={{ flex: 2 }}>

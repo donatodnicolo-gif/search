@@ -23,12 +23,12 @@ export default async function NuovoEvento({ searchParams }: { searchParams: Prom
         <form action={salvaEvento}>
           <input type="hidden" name="torna" value="/eventi/nuovo" />
           <div className="campo">
-            <label>Titolo *</label>
+            <label>Titolo <span className="ob">*</span></label>
             <input type="text" name="titolo" placeholder="es. Cena di San Valentino — tavolo Deluxy" required />
           </div>
           <div className="form-riga">
             <div className="campo">
-              <label>Inizio *</label>
+              <label>Inizio <span className="ob">*</span></label>
               <input type="datetime-local" name="dataInizio" required />
             </div>
             <div className="campo">

@@ -68,11 +68,11 @@ export default async function ComponiWhatsApp({ searchParams }: { searchParams: 
             <input type="hidden" name="nomeCliente" value={cliente?.nome ?? ""} />
             <input type="hidden" name="torna" value={codice ? `/clienti/${encodeURIComponent(codice)}` : "/whatsapp"} />
             <div className="campo">
-              <label>Numero *</label>
+              <label>Numero <span className="ob">*</span></label>
               <input type="text" name="telefono" defaultValue={numero ?? cliente?.telefono ?? ""} placeholder="+39…" required />
             </div>
             <div className="campo">
-              <label>Testo *</label>
+              <label>Testo <span className="ob">*</span></label>
               <textarea name="testo" rows={7} defaultValue={testo} required placeholder="Breve e caldo: due frasi, come a un amico che si rispetta." />
             </div>
             <div className="campo">
