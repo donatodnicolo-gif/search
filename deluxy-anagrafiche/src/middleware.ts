@@ -2,10 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, sessioneValida } from "@/lib/auth";
 
 // Due compiti:
-// 1. /api/* — CORS per le API di lettura: permette alle app Deluxy nel browser
-//    (es. l'app search/supplier su search-deluxy.vercel.app) di interrogare il
-//    registro. Le chiamate restano protette dalla chiave x-api-key; via CORS si
-//    espongono solo GET (le scritture arrivano server-to-server dalla piattaforma).
+// 1. /api/* — CORS, ora a ELENCO invece che aperto a tutti.
+//    ⚠️ Era `Access-Control-Allow-Origin: *` con `x-api-key` fra gli header
+//    ammessi. Non era sfruttabile — con l'origine `*` il browser non manda
+//    credenziali, e senza chiave la risposta è 401 — ma era **un invito
+//    esplicito a mettere la chiave nel browser**, che è il vero modo di
+//    perderla: in una pagina la legge qualunque estensione.
+//    ✅ Cercata in TUTTE le app consumatrici (27/08/2026): la chiave sta sempre
+//    lato server — proxy di search/supplier, Edge Function di Scout, lib server
+//    di FINANCE, servizio NestJS della piattaforma. **Nessuna la porta nel
+//    browser**, quindi il permesso aperto non serviva a nessuno.
+//    Se un giorno servirà davvero, si elencano le origini in
+//    ANAGRAFICHE_CORS_ORIGINI (separate da virgola): senza, niente CORS. Un
+//    consumatore che si rompe lo dice forte (errore CORS nel browser), non in
+//    silenzio.
 // 2. tutto il resto (UI) — protezione con password unica come deluxy-partner.
 //
 // ⚠️⚠️ IL GUASTO VA NELLA DIREZIONE SICURA (27/08/2026). Prima, se
@@ -15,12 +25,24 @@ import { SESSION_COOKIE, sessioneValida } from "@/lib/auth";
 // aprivano il registro intero — /chiavi compresa, dove si conia una chiave di
 // scrittura piena. Ora la password manca solo in sviluppo locale
 // (NODE_ENV !== "production"); in produzione la sua assenza CHIUDE tutto.
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "x-api-key, authorization, content-type",
-  "Access-Control-Max-Age": "86400",
-};
+const ORIGINI_AMMESSE = (process.env.ANAGRAFICHE_CORS_ORIGINI ?? "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+// Gli header CORS per QUESTA richiesta: vuoto se l'origine non è in elenco.
+function corsPer(origine: string | null): Record<string, string> {
+  if (!origine || !ORIGINI_AMMESSE.includes(origine)) return {};
+  return {
+    "Access-Control-Allow-Origin": origine,
+    // ⚠️ L'origine cambia per richiesta: senza `Vary`, una cache condivisa
+    // servirebbe a tutti la risposta preparata per il primo che ha chiesto.
+    Vary: "Origin",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "x-api-key, authorization, content-type",
+    "Access-Control-Max-Age": "86400",
+  };
+}
 
 // L'apertura senza password è ammessa solo fuori produzione.
 const aperturaVietata = () => process.env.NODE_ENV === "production";
@@ -47,11 +69,12 @@ export async function middleware(req: NextRequest) {
   }
 
   if (pathname.startsWith("/api")) {
+    const cors = corsPer(req.headers.get("origin"));
     if (req.method === "OPTIONS") {
-      return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+      return new NextResponse(null, { status: 204, headers: cors });
     }
     const res = NextResponse.next();
-    for (const [k, v] of Object.entries(CORS_HEADERS)) res.headers.set(k, v);
+    for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
     return res;
   }
 

@@ -961,9 +961,18 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    - **Nessun freno sull'API**: 10 tentativi con chiave sbagliata → 10 × 401, nessun
      429. Con chiavi da 192 bit non è un rischio pratico; con la password unica della
      UI lo sarebbe, e lì il freno vero è il **login dall'Hub** (punto 6).
-   - **CORS `*` su `/api`**: non sfruttabile (senza credenziali il browser non manda
-     nulla, e senza chiave la risposta è 401), ma `Access-Control-Allow-Headers:
-     x-api-key` con origine `*` è un invito a mettere la chiave nel browser.
+   - ✅ **CORS: chiuso il 27/08/2026.** Era `Access-Control-Allow-Origin: *` con
+     `x-api-key` fra gli header ammessi: non sfruttabile (con l'origine `*` il browser
+     non manda credenziali, e senza chiave la risposta è 401) ma **un invito a mettere
+     la chiave nel browser**. ✅ Cercata la chiave in TUTTE le app consumatrici: sta
+     sempre lato server — proxy di search/supplier, Edge Function di Scout, lib server
+     di FINANCE, servizio NestJS della piattaforma. **Nessuna la porta nel browser**,
+     quindi il permesso aperto non serviva a nessuno. Ora è a **elenco**:
+     `ANAGRAFICHE_CORS_ORIGINI` (origini separate da virgola); senza la variabile,
+     niente header CORS. ✅ Provato: origine ostile → nessun header; chiamate
+     server-to-server (senza `Origin`) → 200 con 50 anagrafiche su 1.098.
+     ⚠️ Se un giorno un'app dovrà chiamare dal browser, si rompe **forte** (errore
+     CORS visibile) e si aggiunge l'origine alla variabile — non in silenzio.
    - **`RichiestaMatch.ip`**: preso da `x-forwarded-for` senza validazione e
      conservato senza scadenza — audit falsificabile e dato personale eterno.
    - ⚠️ **Due app rigirano al browser la risposta intera del registro**
