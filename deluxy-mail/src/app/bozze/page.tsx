@@ -1,9 +1,8 @@
-import Link from 'next/link'
 import { db } from '@/lib/db'
 import { dataBreve } from '@/lib/format'
 import { htmlAPlain, sembraHtml } from '@/lib/htmlMail'
 import { ripulisciAnteprima } from '@/lib/citato'
-import { EliminaBozza } from '@/components/EliminaBozza'
+import { ListaBozze, type RigaBozzaDati } from '@/components/ListaBozze'
 import { RicercaMail } from '@/components/RicercaMail'
 import { CondizioniRicerca } from '@/components/CondizioniRicerca'
 import { richiediUtente } from '@/lib/sessione'
@@ -71,8 +70,21 @@ export default async function Bozze({ searchParams }: Props) {
     }
   }
 
-  const mie = bozze.filter((b) => b.origine === 'utente')
-  const daAI = bozze.filter((b) => b.origine === 'ai')
+  // Le righe si preparano QUI, sul server: la lista e un componente client
+  // (deve tenere la selezione), e un componente client non deve ricevere
+  // oggetti Prisma interi ne rifare i conti: riceve quello che disegna.
+  const righe: RigaBozzaDati[] = bozze.map((b) => ({
+    id: b.id,
+    origine: b.origine,
+    modo: b.modo,
+    oggetto: b.oggetto,
+    anteprima: anteprimaBozza(b.corpo),
+    destinatario: b.a || b.messaggio?.mittenteNome || b.messaggio?.mittente || '-',
+    dove: dovePortare(b),
+    data: dataBreve(b.aggiornataIl),
+    modificata: b.modificata,
+    allegati: b.allegatiGruppo ? (quantiAllegati.get(b.allegatiGruppo) ?? 0) : 0,
+  }))
 
   return (
     <>
@@ -121,112 +133,29 @@ export default async function Bozze({ searchParams }: Props) {
           </div>
         </div>
       ) : (
-        <>
-          {mie.length > 0 && (
-            <>
-              <h2 className="section-title" style={{ marginTop: 0 }}>
-                Iniziate da te
-              </h2>
-              <div className="card tight">
-                <div className="mail-list">
-                  {mie.map((b) => (
-                    <RigaBozza key={b.id} bozza={b} allegati={b.allegatiGruppo ? (quantiAllegati.get(b.allegatiGruppo) ?? 0) : 0} />
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {daAI.length > 0 && (
-            <>
-              <h2 className="section-title">Proposte dall’AI</h2>
-              <div className="card tight">
-                <div className="mail-list">
-                  {daAI.map((b) => (
-                    <RigaBozza key={b.id} bozza={b} allegati={b.allegatiGruppo ? (quantiAllegati.get(b.allegatiGruppo) ?? 0) : 0} />
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </>
+        <ListaBozze righe={righe} />
       )}
     </>
   )
 }
 
-type BozzaConMessaggio = {
+/**
+ * Dove si riapre una bozza.
+ *
+ * Una bozza tua torna nella schermata di scrittura da cui e nata (la risposta
+ * sotto il messaggio, la mail nuova in Scrivi); una dell'AI si rivede sotto il
+ * messaggio a cui risponde.
+ */
+function dovePortare(b: {
   id: string
   origine: string
   modo: string
-  a: string
-  oggetto: string
-  corpo: string
-  modificata: boolean
-  aggiornataIl: Date
-  messaggio: { id: string; mittente: string; mittenteNome: string | null } | null
-}
-
-/** `allegati`: quanti file la bozza si porta dietro (0 = nessuno). Arriva
- *  come numero e non come elenco: la riga deve disegnare un bollino, non
- *  caricare i byte dei file. */
-function RigaBozza({ bozza, allegati = 0 }: { bozza: BozzaConMessaggio; allegati?: number }) {
-  // Una bozza tua si riapre nella schermata di scrittura da cui è nata (la
-  // risposta sotto il messaggio, la mail nuova in "Scrivi"); una dell'AI si
-  // rivede sotto il messaggio a cui risponde.
-  const dove =
-    bozza.origine === 'utente' && bozza.messaggio
-      ? `/messaggio/${bozza.messaggio.id}/scrivi?modo=${bozza.modo}&bozza=${bozza.id}`
-      : bozza.messaggio
-        ? `/messaggio/${bozza.messaggio.id}`
-        : `/scrivi?bozza=${bozza.id}`
-
-  const destinatario = bozza.a || bozza.messaggio?.mittenteNome || bozza.messaggio?.mittente || '—'
-
-  return (
-    <div className="mail-row">
-      <div className="mail-row-head">
-        <Link href={dove} className="mail-row-link">
-          <div className="mail-top">
-            <span className="dot-spacer" />
-            <span className="mail-mittente">a {destinatario}</span>
-          </div>
-          <div className="mail-oggetto" style={{ paddingLeft: 17 }}>
-            {bozza.oggetto || '(senza oggetto)'}
-          </div>
-          <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
-            <span className="muted">
-              {anteprimaBozza(bozza.corpo) || '(vuota)'}
-            </span>
-          </div>
-          <div className="mail-tags" style={{ paddingLeft: 17 }}>
-            {allegati > 0 && (
-              <span className="badge neutral" title="Allegati conservati con la bozza">
-                📎 {allegati}
-              </span>
-            )}
-            {bozza.modo === 'nuova' && <span className="badge neutral">nuova mail</span>}
-            {bozza.modo === 'inoltra' && <span className="badge neutral">inoltro</span>}
-            {bozza.modo === 'tutti' && <span className="badge neutral">a tutti</span>}
-            {bozza.origine === 'ai' && bozza.modificata && (
-              <span className="badge neutral">modificata da te</span>
-            )}
-          </div>
-        </Link>
-
-        <div className="mail-row-side">
-          <span className="mail-data">{dataBreve(bozza.aggiornataIl)}</span>
-        </div>
-      </div>
-
-      <div className="riga-azioni" style={{ paddingLeft: 17 }}>
-        <Link href={dove} className="azione-riga">
-          Riprendi
-        </Link>
-        <EliminaBozza id={bozza.id} />
-      </div>
-    </div>
-  )
+  messaggio: { id: string } | null
+}): string {
+  if (b.origine === 'utente' && b.messaggio) {
+    return `/messaggio/${b.messaggio.id}/scrivi?modo=${b.modo}&bozza=${b.id}`
+  }
+  return b.messaggio ? `/messaggio/${b.messaggio.id}` : `/scrivi?bozza=${b.id}`
 }
 
 /**

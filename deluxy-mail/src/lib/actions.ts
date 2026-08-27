@@ -3022,6 +3022,51 @@ export async function eliminaBozza(id: string) {
 }
 
 /**
+ * Butta via PIÙ bozze in un colpo solo (selezione multipla in «Bozze»).
+ *
+ * ⚠️ Gli id arrivano dal browser: non si cancella per id, si cancella per
+ * `id IN (…) AND utenteId = …`. Un id di un altro utente semplicemente non
+ * trova niente da cancellare.
+ *
+ * ⚠️ Si rileggono PRIMA le bozze che esistono davvero, perché il numero da
+ * dire a chi guarda dev'essere quello CANCELLATO, non quello chiesto: se
+ * qualcuna era già sparita da un'altra scheda, «eliminate 12» sarebbe una
+ * bugia comoda.
+ *
+ * ⚠️ E i loro allegati: sono byte nel database, e una bozza cancellata che
+ * lascia i file dietro di sé li fa crescere per sempre senza che nessuno li
+ * veda più — stessa ragione di `eliminaBozza` qui sopra.
+ */
+export async function eliminaBozzeMassa(ids: string[]): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  // Un tetto: la pagina ne mostra quante ne ha, ma una richiesta con
+  // diecimila id è un incidente, non un gesto.
+  const chiesti = [...new Set(ids.filter((x) => typeof x === 'string' && x))].slice(0, 500)
+  if (chiesti.length === 0) return { ok: false, messaggio: 'Nessuna bozza selezionata.' }
+
+  const mie = await db.bozza.findMany({
+    where: { id: { in: chiesti }, utenteId, inviata: false },
+    select: { id: true },
+  })
+  if (mie.length === 0) return { ok: false, messaggio: 'Nessuna di quelle bozze esiste più.' }
+
+  await db.bozza.deleteMany({ where: { id: { in: mie.map((b) => b.id) }, utenteId } })
+
+  const { scartaGruppo: scarta, gruppoBozza: gruppo } = await import('./allegatiGrandi')
+  for (const b of mie) await scarta(utenteId, gruppo(b.id)).catch(() => {})
+
+  revalidatePath('/', 'layout')
+  const quante = mie.length
+  const mancanti = chiesti.length - quante
+  return {
+    ok: true,
+    messaggio:
+      `${quante} ${quante === 1 ? 'bozza eliminata' : 'bozze eliminate'}.` +
+      (mancanti > 0 ? ` ${mancanti} non ${mancanti === 1 ? 'era più lì' : 'erano più lì'}.` : ''),
+  }
+}
+
+/**
  * «Chiedi a Renè» dalla schermata di scrittura: torna il TESTO, che finisce
  * nell'editor già aperto. Non crea bozze e non sposta di pagina (a differenza
  * di «Delega Renè», che prepara una bozza e ti ci porta).
