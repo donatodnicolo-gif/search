@@ -2698,6 +2698,8 @@ const SUBJECTWORD = { it:'Richiesta ordine', en:'Order request', fr:'Demande de 
 // etichette destinatario/telefono per la riga contatti nel messaggio al fornitore
 const RECIPIENTWORD = { it:'Destinatario', en:'Recipient', fr:'Destinataire', de:'Empfänger', es:'Destinatario' };
 const PHONEWORD     = { it:'Telefono',     en:'Phone',     fr:'Téléphone',    de:'Telefon',   es:'Teléfono' };
+// firma finale: «grazie mille» nella lingua del negozio, in chiusura del messaggio
+const CLOSINGWORD   = { it:'Grazie mille!', en:'Thank you very much!', fr:'Merci beaucoup !', de:'Vielen Dank!', es:'¡Muchas gracias!' };
 function buildOrderMessage(lang){
   lang = lang || ($('#ordLang') && $('#ordLang').value) || currentLang || 'it';
   const fn = MSG_LANG[lang] || MSG_LANG.it;
@@ -2724,6 +2726,8 @@ function buildOrderMessage(lang){
   const card = $('#ord_card').value.trim();
   if(card) msg += '\n\n💌 ' + (CARDWORD[lang]||'Bigliettino') + ': ' + card;
   // la foto NON va nel testo: viene copiata negli appunti per essere allegata (Ctrl+V)
+  // firma finale nella lingua del negozio
+  msg += '\n\n' + (CLOSINGWORD[lang] || CLOSINGWORD.it);
   return msg;
 }
 
