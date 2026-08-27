@@ -3,6 +3,7 @@ import { ripulisciAnteprima } from '@/lib/citato'
 import { db } from '@/lib/db'
 import { dataBreve } from '@/lib/format'
 import { AzioniRiga } from '@/components/AzioniRiga'
+import { RipristinaCestino } from '@/components/RipristinaCestino'
 import { SvuotaCestino } from '@/components/SvuotaCestino'
 import { richiediUtente } from '@/lib/sessione'
 
@@ -13,7 +14,11 @@ export default async function Cestino() {
   const messaggi = await db.messaggio.findMany({
     where: { utenteId: u.id, cestinato: true },
     orderBy: { cestinatoIl: 'desc' },
-    take: 200,
+    // ⚠️ La finestra del recupero deve reggere il confronto con quella della
+    // distruzione: dalla posta si cestinano fino a 800 conversazioni in un
+    // colpo, e con 200 il cestino non le mostrava nemmeno tutte — chi voleva
+    // disfare non trovava più metà di quello che aveva buttato.
+    take: 800,
     // La lista mostra solo riassunto/anteprima: i corpi non servono e pesano.
     omit: { corpoTesto: true, corpoHtml: true },
   })
@@ -30,6 +35,9 @@ export default async function Cestino() {
         </div>
         {messaggi.length > 0 && (
           <div className="page-actions">
+            {/* Il ripristino in blocco sta ACCANTO allo svuotamento: le due strade
+                opposte devono costare lo stesso numero di gesti. */}
+            <RipristinaCestino ids={messaggi.map((m) => m.id)} />
             <SvuotaCestino quanti={messaggi.length} />
           </div>
         )}

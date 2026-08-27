@@ -12,7 +12,7 @@ import {
   smaltisciEProssimo,
   spostaInSezione,
 } from '@/lib/actions'
-import { mostraFlash } from './Flash'
+import { mettiFlash, mostraFlash } from './Flash'
 import { DelegaReneBottone, DelegaReneDialog } from './DelegaRene'
 import { apriScorciatoie } from './Scorciatoie'
 import { EVENTO_LETTA } from './SegnaLettaAllApertura'
@@ -98,6 +98,7 @@ export function AzioniMessaggio({
   }
 
   return (
+    <>
     <div className="azioni-messaggio">
       {/* IN VISTA: le quattro azioni d'uso continuo. La lettera stampata sul
           bottone È la scorciatoia (su touch sparisce: niente tastiera). */}
@@ -127,7 +128,11 @@ export function AzioniMessaggio({
               // chiedi se per sempre restando qui. Archivia TUTTA la
               // conversazione: in elenco una riga è un thread.
               startTransition(async () => {
-                await archiviaThreadSenzaAggiornare(id)
+                const r = await archiviaThreadSenzaAggiornare(id)
+                // ⚠️ Un segno che è successo qualcosa: sul telefono si toccava
+                // «Archivia», il bottone spariva, e basta — nessun avviso,
+                // nessun aggiornamento. Chi non vede niente riprova.
+                mostraFlash(r?.messaggio ?? 'Archiviata.', r && r.ok === false ? 'errore' : 'ok')
                 setChiediSempre(true)
               })
             }
@@ -155,13 +160,23 @@ export function AzioniMessaggio({
           </button>
         )}
 
+        {/* ⚠️⚠️ Questo bottone cestina TUTTA LA CONVERSAZIONE, non «la mail»:
+            `smaltisciEProssimo` espande agli id del thread, esattamente come
+            «Cestina tutta la conversazione». Il titolo diceva «la mail resta
+            sul server» al singolare mentre su un thread da otto ne spostava
+            otto — e non mostrava nessun esito, perché navigava via subito.
+            ⚠️ NIENTE conferma qui: è il bottone della scorciatoia `Canc`, e
+            una domanda in mezzo spezzerebbe il flusso da tastiera che è la
+            ragione per cui esiste. Si dice la verità prima (nel titolo) e
+            dopo (con l’avviso, che ora porta il numero). */}
         <button
           className="btn secondary small"
           disabled={inCorso}
-          title="Sposta nel cestino e apri la mail successiva, la mail resta sul server (tasto Canc)"
+          title="Sposta nel cestino TUTTA la conversazione e apre la mail successiva. Sulla casella le mail restano (tasto Canc)"
           onClick={() =>
             startTransition(async () => {
               const r = await smaltisciEProssimo(id, 'cestina')
+              mettiFlash(r.messaggio, r.ok ? 'ok' : 'errore')
               router.push(r.prossimo ? `/messaggio/${r.prossimo}` : '/')
             })
           }
@@ -282,6 +297,19 @@ export function AzioniMessaggio({
       <DelegaReneDialog />
       <AgganciaDialog />
 
+    </div>
+
+    {/* ⚠️⚠️ FUORI dalla barra. Sul telefono `.azioni-messaggio` è una striscia
+        FISSA in fondo, `flex-wrap: nowrap` con `overflow-x: auto`: questa
+        domanda — che crea una REGOLA PERMANENTE sul mittente — e il messaggio di
+        errore nascevano a destra dei bottoni, **oltre il bordo dello schermo**,
+        in una barra la cui barra di scorrimento su iOS è invisibile. Una
+        decisione permanente proposta e mai mostrata, e un fallimento che si
+        legge come successo. Ora stanno in un riquadro loro, che sul telefono si
+        appoggia SOPRA la striscia (stesso trattamento del menu «⋯ Altro», che
+        questo problema lo aveva già risolto per sé). */}
+    {(chiediSempre || stato) && (
+      <div className="azioni-esito">
       {/* Compare SOLO dopo aver archiviato, per chiedere se l'archiviazione
           vale per sempre (crea la regola sul mittente). */}
       {chiediSempre && (
@@ -317,6 +345,8 @@ export function AzioniMessaggio({
       )}
 
       {stato && <div style={{ fontSize: 12, color: 'var(--red)', width: '100%' }}>{stato}</div>}
-    </div>
+      </div>
+    )}
+    </>
   )
 }

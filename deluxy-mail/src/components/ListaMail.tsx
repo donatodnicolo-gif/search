@@ -178,8 +178,24 @@ export function ListaMail({
     .filter((r) => selezione.has(r.id))
     .flatMap((r) => (r.ids?.length ? r.ids : [r.id]))
 
+  // ⚠️⚠️ Sopra questa soglia un'azione DISTRUTTIVA chiede conferma. La lista
+  // carica 800 conversazioni e ne mostra 50, ma «Seleziona tutti» le prende
+  // TUTTE: una spunta e un bottone da 80px mandavano nel cestino fino a
+  // ottocento messaggi senza una domanda. E il ritorno non è simmetrico — dal
+  // cestino si ripristina una mail alla volta — quindi il gesto è di fatto
+  // irreversibile per chi lo sbaglia.
+  // ⚠️ La soglia serve a non mettersi in mezzo a chi smaltisce a mano cinque
+  // righe: sotto le 20, nessuna domanda.
+  const SOGLIA_CONFERMA = 20
+  const [confermaMassa, setConfermaMassa] = useState<{ azione: AzioneMassa; quante: number } | null>(null)
+
   const esegui = (azione: AzioneMassa, sezioneId?: string | null) => {
     if (selezione.size === 0) return
+    if (azione === 'cestina' && selezione.size >= SOGLIA_CONFERMA && !confermaMassa) {
+      setConfermaMassa({ azione, quante: selezione.size })
+      return
+    }
+    setConfermaMassa(null)
     // ⚠️ In elenco una riga È un thread: la selezione tiene l'id di TESTA, ma
     // l'azione deve toccare TUTTE le mail della conversazione — se no,
     // archiviando/cestinando, le altre restano e la riga ricompare col
@@ -228,6 +244,27 @@ export function ListaMail({
           >
             Solo le non lette ({nonLette.length})
           </button>
+        )}
+
+        {/* La domanda, con il numero VERO davanti: «tante» non è un numero. */}
+        {confermaMassa && (
+          <div className="mail-select-conferma">
+            <span>
+              Cestino <strong>{confermaMassa.quante}</strong>{' '}
+              {confermaMassa.quante === 1 ? 'conversazione' : 'conversazioni'}?
+            </span>
+            <button
+              type="button"
+              className="btn danger small"
+              disabled={inCorso}
+              onClick={() => esegui('cestina')}
+            >
+              Sì, cestina
+            </button>
+            <button type="button" className="btn secondary small" onClick={() => setConfermaMassa(null)}>
+              Annulla
+            </button>
+          </div>
         )}
 
         {selezione.size > 0 && (

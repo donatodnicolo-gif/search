@@ -25,6 +25,11 @@ import {
  * Ogni click va fermato (preventDefault): la riga è un link, altrimenti aprirebbe
  * la mail invece di eseguire l'azione.
  */
+// ⚠️ Cestina e Spam portano `pericolo`: con il solo `.azione-riga` (12px,
+// grigio, sottolineato) erano vestite da nota a piè di pagina, in mezzo a
+// «Nome» e «Apri completo», mentre sono le uniche due che portano via la mail.
+// La forma resta identica — non si sposta niente e non si toglie niente — a
+// cambiare è solo il colore, che è l’unica cosa che qui diceva il falso.
 export function AzioniRiga({
   id,
   archiviato,
@@ -166,7 +171,7 @@ export function AzioniRiga({
       )}
       <button
         type="button"
-        className="azione-riga"
+        className="azione-riga pericolo"
         disabled={inCorso}
         title="Sposta nel cestino di AI Mail (la mail resta sul server)"
         onClick={(e) => eseguiEsci(e, () => (perThread ? cestinaThread(id) : cestinaMessaggio(id)))}
@@ -176,7 +181,7 @@ export function AzioniRiga({
       {!giaInSpam && (
         <button
           type="button"
-          className="azione-riga"
+          className="azione-riga pericolo"
           disabled={inCorso}
           title="Sposta nello SPAM (posta indesiderata)"
           onClick={(e) => eseguiEsci(e, () => (perThread ? segnalaSpamThread(id) : segnalaSpam(id)))}

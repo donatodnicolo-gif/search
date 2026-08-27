@@ -1,5 +1,6 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -42,9 +43,22 @@ export function VoceMenu({
   bersaglio?: Bersaglio
   children?: React.ReactNode
 }) {
+  // ⚠️⚠️ DOVE SONO. Il CSS per la voce accesa (`.nav-item.active`) c'era da
+  // sempre, ma la classe non veniva messa da nessuna parte: in una barra con
+  // ventuno destinazioni, tutte nere e dello stesso peso, non c’era modo di
+  // sapere in quale schermata si fosse — e siccome le pagine sono tutte
+  // dinamiche, premendo una voce non cambiava niente finché il server non
+  // rispondeva. Chi non vede reazione, ripreme.
+  // ⚠️ Il confronto è ESATTO, non `startsWith`: con `startsWith` la home («/»)
+  // combacerebbe con qualunque indirizzo e resterebbe accesa sempre.
+  // ⚠️ Le SEZIONI stanno nella query (`/?sezione=…`), che `usePathname` non
+  // vede: quelle le accende `Sidebar`, che il parametro ce l’ha già.
+  const qui = usePathname()
+  const attiva = qui === href.split('?')[0] && !href.includes('?')
+
   return (
     <DropMail bersaglio={bersaglio} label={label} className="nav-item-riga">
-      <Link href={href} className="nav-item">
+      <Link href={href} className={attiva ? 'nav-item active' : 'nav-item'} aria-current={attiva ? 'page' : undefined}>
         <span style={{ flex: 1 }}>{label}</span>
         {badge ? <span className="badge neutral">{badge}</span> : null}
       </Link>

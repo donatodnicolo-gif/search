@@ -17,6 +17,11 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
+  // ⚠️ Senza `viewportFit: 'cover'`, `env(safe-area-inset-*)` vale ZERO su iOS —
+  // e il CSS lo usa in quattro punti (barra azioni fissa, distanziatore, FAB,
+  // menu «⋯ Altro»). Erano quattro calcoli che non calcolavano niente, e nella
+  // PWA installata la barra delle azioni finiva sotto la barra Home.
+  viewportFit: 'cover',
   themeColor: '#f5f5f7',
   width: 'device-width',
   initialScale: 1,

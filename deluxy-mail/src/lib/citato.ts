@@ -109,9 +109,18 @@ function decodificaEntita(s: string): string {
       // Entità numeriche: decimali (&#229;) ed esadecimali (&#xE5;).
       .replace(/&#(\d{1,7});/g, (_, n) => sicuroDaCodice(parseInt(n, 10)))
       .replace(/&#x([0-9a-f]{1,6});/gi, (_, n) => sicuroDaCodice(parseInt(n, 16)))
-      // Le entità con nome più comuni (non si decodificano `&lt;`/`&gt;`: un «<»
-      // riportato in vita potrebbe far ricomparire residui di tag).
-      .replace(/&nbsp;/gi, ' ')
+      // ⚠️⚠️ Le entità con nome dei caratteri INVISIBILI. Le newsletter riempiono
+      // il «preheader» — la riga che i client mostrano in anteprima — con decine
+      // di `&zwnj;` di seguito, per impedire che dopo il titolo si veda l’inizio
+      // del corpo. Il ripulitore qui sotto toglie già quei caratteri, ma li
+      // cercava come CARATTERI: `&zwnj;` non veniva mai decodificato, e nessuna
+      // delle due regole lo prendeva. Risultato a schermo: un'anteprima fatta di
+      // «&zwnj; &zwnj; &zwnj;…» al posto del testo (visto il 27/08/2026 su una
+      // mail di Matrimonio.com). Si tolgono qui, prima che diventino testo.
+      .replace(/&(zwnj|zwj|lrm|rlm|shy|nbsp);/gi, (_, nome) => (/nbsp/i.test(nome) ? ' ' : ''))
+      .replace(/&(ensp|emsp|thinsp|hairsp|numsp|puncsp);/gi, ' ')
+      // Le altre entità con nome più comuni (non si decodificano `&lt;`/`&gt;`:
+      // un «<» riportato in vita potrebbe far ricomparire residui di tag).
       .replace(/&amp;/gi, '&')
       .replace(/&quot;/gi, '"')
       .replace(/&apos;/gi, "'")
@@ -154,6 +163,14 @@ export function ripulisciAnteprima(testo: string): string {
     .replace(/\bcid:\S+/gi, ' ')
     // Righe di separazione e simboli avanzati dalla conversione.
     .replace(/[-=_*~|]{3,}/g, ' ')
+    // ⚠️ L'anteprima SALVATA è tagliata a una lunghezza fissa, quindi l'ultima
+    // cosa che contiene è spesso monca: mezza entità («&zwn») o mezzo indirizzo
+    // («htt»). Le regole qui sopra cercano la forma intera e non le prendono, e
+    // il moncone resta a schermo in coda al testo. Si tolgono solo IN FONDO, dove
+    // un troncone è per forza un troncone: in mezzo alla frase «&ne» o «http»
+    // potrebbero essere testo vero.
+    .replace(/&[a-z]{1,10}$/i, ' ')
+    .replace(/\b(?:h|ht|htt|http|https|www)$/i, ' ')
     .replace(/\s+/g, ' ')
     .trim()
   // Un residuo di sole parentesi/punteggiatura non è testo.

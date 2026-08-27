@@ -60,6 +60,16 @@ export function CampoDestinatari({
       <input
         ref={ref}
         type="text"
+        // ⚠️ NON `type="email"`: qui dentro sta una LISTA separata da virgole,
+        // che la validazione del browser rifiuterebbe. Si chiede la tastiera
+        // giusta senza cambiare il tipo: su iOS, prima, il campo più importante
+        // di un client di posta si scriveva con la tastiera alfabetica (nessun
+        // `@`), la maiuscola automatica sulla prima lettera e il correttore
+        // attivo su un indirizzo.
+        inputMode="email"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         value={value}
         placeholder={placeholder}
         autoFocus={autoFocus}

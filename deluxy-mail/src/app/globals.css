@@ -141,6 +141,9 @@ a { color: inherit; text-decoration: none; }
 .tasti-aiuto { font-size: 12.5px; }
 
 /* «← Posta in arrivo» + Precedente/Successiva: una fila sola che va a capo. */
+/* ⚠️ Sotto la barra alta del telefono, non sopra: avevano lo stesso z-index e
+   vinceva questa (viene dopo nel DOM), passando davanti a hamburger e Renè
+   proprio mentre si scorre una mail. */
 .naviga-testa { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .naviga-messaggi { display: inline-flex; align-items: center; gap: 6px; }
 /* Spento ma VISIBILE: in cima o in fondo all'elenco il tasto non sparisce,
@@ -292,6 +295,16 @@ input:focus, select:focus, textarea:focus {
   flex: 0 0 auto;
 }
 .mail-select-all input { width: 16px; height: 16px; accent-color: var(--ink); cursor: pointer; }
+/* La domanda prima di cestinare in blocco: nella barra, in rosso tenue, col
+   numero VERO davanti. */
+.mail-select-conferma {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 13.5px;
+  background: rgba(215, 45, 45, 0.06);
+  border: 1px solid rgba(215, 45, 45, 0.18);
+  border-radius: var(--radius-m);
+  padding: 8px 12px;
+}
 .mail-select-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; flex: 0 0 auto; }
 .mail-select-azioni .btn { white-space: nowrap; flex: 0 0 auto; }
 .mail-select-sposta {
@@ -320,6 +333,13 @@ input:focus, select:focus, textarea:focus {
 .mail-row:hover { background: rgba(120, 120, 128, 0.05); }
 .mail-row.non-letto { background: rgba(0, 113, 227, 0.03); }
 .mail-row.selezionato { background: var(--fill-active); }
+/* ⚠️ L’hover DOPO le altre due, e più specifico: `.mail-row:hover` e
+   `.mail-row.non-letto` hanno la stessa specificità, quindi vinceva chi veniva
+   dopo nel file — e sulle righe NON LETTE, cioè quasi tutta la posta in arrivo,
+   passando il mouse non succedeva niente. È l’unico segnale che dice «questa è
+   la riga che stai per aprire». */
+.mail-row.non-letto:hover,
+.mail-row.selezionato:hover { background: rgba(120, 120, 128, 0.09); }
 /* Solo questa parte apre la mail: i pulsanti di priorità stanno fuori. */
 .mail-row-link { display: block; cursor: pointer; flex: 1; min-width: 0; }
 
@@ -370,7 +390,7 @@ input:focus, select:focus, textarea:focus {
 /* Autocompletamento destinatari dalla rubrica (campo A / Cc in scrittura). */
 .rubrica-suggerimenti {
   position: absolute;
-  z-index: 30;
+  z-index: 29;
   left: 0;
   right: 0;
   top: calc(100% + 4px);
@@ -516,7 +536,11 @@ mark.ricerca-hit {
 
 /* ---------- Posta in arrivo a due colonne ---------- */
 /* 70% posta, 30% attività: le cose da fare restano sott'occhio mentre leggi. */
-.inbox-split { display: grid; grid-template-columns: 70% 30%; gap: 24px; align-items: start; }
+/* ⚠️ `70fr 30fr` e non `70% 30%`: le percentuali si calcolano sulla larghezza
+   INTERA, quindi 70% + 30% + 24px di gap faceva 100% + 24px, e la colonna
+   destra finiva a 20px dal bordo mentre tutto il resto della pagina sta a 44.
+   Le `fr` si spartiscono quello che AVANZA dopo il gap: il conto torna. */
+.inbox-split { display: grid; grid-template-columns: 70fr 30fr; gap: 24px; align-items: start; }
 .inbox-split > * { min-width: 0; }
 
 /* La colonna destra (APP DELUXY + DA FARE) segue lo scorrimento come un blocco
@@ -648,6 +672,14 @@ mark.ricerca-hit {
 
 /* Azioni reversibili della riga: stesso peso visivo di "Archivia definitivo",
    ma neutre — quella è rossa perché è l'unica che lascia un segno. */
+/* ⚠️ `\.azione-riga` è un LINK di riga: 12px, grigio, sottolineato. Va bene per
+   «Nome», «Aggancia», «Apri completo» — non per Cestina e Spam, che con quel
+   vestito sembravano note a piè di pagina invece che azioni distruttive.
+   Quelle prendono il colore del pericolo: la forma resta la stessa, cambia
+   solo il peso visivo. */
+.azione-riga.pericolo { color: var(--red); }
+.azione-riga.pericolo:hover { color: var(--red); text-decoration-thickness: 2px; }
+
 .azione-riga {
   border: none;
   background: none;
@@ -861,7 +893,11 @@ mark.ricerca-hit {
   position: fixed;
   top: 0;
   right: 0;
-  height: 100vh;
+  /* ⚠️ `dvh` e non `vh`: su iOS `100vh` è più alto della finestra visibile con
+     la barra di Safari aperta, e il PIEDE del pannello — «Apri contatto» e
+     «Rifai il punto» — finiva sotto il bordo, irraggiungibile (a scorrere è il
+     corpo, non il pannello). La sidebar usa già `100dvh`. */
+  height: 100dvh;
   width: 440px;
   max-width: 100vw;
   z-index: 61;
@@ -946,7 +982,14 @@ mark.ricerca-hit {
 .nota-sottile {
   font-size: 12.5px; color: var(--text-tertiary); margin: 0 0 10px;
 }
+/* ⚠️ Il limite sta sul CORPO, non su `.main`: su `.main` strizzerebbe tabelle,
+   calendario e statistiche, che la larghezza la usano davvero. Su un monitor da
+   1920 una mail in testo semplice arrivava a ~190 caratteri per riga (la misura
+   leggibile è 60-80): l’occhio perde il capo riga a ogni ritorno.
+   ⚠️ Vale solo per il testo semplice — le mail in HTML si impaginano da sé
+   dentro il loro iframe, e lì non si tocca niente. */
 .mail-body {
+  max-width: 78ch;
   font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
 }
 
@@ -1751,6 +1794,15 @@ mark.ricerca-hit {
    aprirebbe DENTRO la barra. Sfondo quasi pieno e via.
    ============================================================ */
 @media (max-width: 700px) {
+  /* ⚠️⚠️ Sul telefono la barra della selezione VA A CAPO. Era `nowrap` con un
+     commento che lo rivendicava («sempre su una riga sola»), ma su 390px le due
+     etichette iniziali riempiono già la riga: i sei comandi nascevano oltre il
+     bordo destro, e su iOS la barra di scorrimento è invisibile finché non la
+     trascini — nessun indizio che ci fosse altro. Le caselle di spunta esistono
+     SOLO per l’azione di massa: la spunta funzionava e l’azione era
+     irraggiungibile. Il comando più lontano era «Annulla», cioè l’uscita. */
+  .mail-select-bar { flex-wrap: wrap; overflow-x: visible; }
+  .mail-select-azioni { flex-wrap: wrap; }
   /* La testa di navigazione resta a portata di mano mentre si scorre. */
   .naviga-testa {
     position: sticky; top: 8px; z-index: 30;
@@ -1803,13 +1855,62 @@ mark.ricerca-hit {
 
   .mail-subject { font-size: 19px; line-height: 1.25; }
 
-  /* iOS zooma sui campi sotto i 16px: qui non deve zoomare niente. */
+  /* ⚠️⚠️ iOS ingrandisce la pagina sui campi sotto i 16px, e alla chiusura
+     della tastiera NON torna indietro: si resta su una pagina zoomata che ora
+     scorre anche di lato. La riga qui sotto c’era già, ma è un selettore di
+     ELEMENTO (specificità 0,0,1) e **le media query non aggiungono
+     specificità**: la battevano cinque classi, fra cui la barra di ricerca
+     della posta e TUTTI i campi del dialogo «conferma prima di mandare».
+     Qui sotto sono ripetute per nome: se ne nasce una nuova sotto i 16px, va
+     aggiunta a questo elenco. */
   input, select, textarea { font-size: 16px; }
+  .ricerca-mail input,
+  .filters select, .filters input,
+  .selettore-account select,
+  .mail-select-sposta,
+  .sposta-sezione,
+  .tabella-dati input, .tabella-dati select, .tabella-dati textarea { font-size: 16px; }
+}
+
+/* L’esito delle azioni sulla mail: la domanda «Sempre da questo mittente?» e i
+   messaggi di errore. Sul desktop è una riga sotto i bottoni. */
+.azioni-esito {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+@media (max-width: 700px) {
+  /* ⚠️ Sul telefono si appoggia SOPRA la barra fissa, come fa già il menu
+     «⋯ Altro»: dentro la barra (che è `nowrap` e scorre di lato) questa
+     domanda nasceva oltre il bordo dello schermo. */
+  .azioni-esito {
+    position: fixed;
+    left: 12px; right: 12px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    z-index: 41;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-m);
+    box-shadow: var(--shadow-card);
+    padding: 12px 14px;
+    margin-top: 0;
+  }
 }
 
 /* Dove non c'è una tastiera, i suoi suggerimenti sono rumore. */
 @media (hover: none) and (pointer: coarse) {
   .btn kbd.tasto, .tasti-aiuto, .solo-tastiera { display: none; }
+
+  /* ⚠️ La casella di spunta di riga era 16px attaccata al link che apre la
+     mail: un tocco storto APRE il messaggio invece di selezionarlo, e si
+     perde la selezione già fatta. Il margine negativo allarga l’area
+     sensibile senza spostare niente a schermo. */
+  .mail-check { padding: 12px 10px; margin: -12px -10px; }
+
+  /* ⚠️ Sul calendario del telefono l’evento diventa un pallino da 6px dentro
+     un `<button>` con `font-size: 0`: il bersaglio era alto SETTE pixel, ed è
+     l'unico modo di aprire un appuntamento dalla griglia. */
+  .cal-evento, .cal-task { min-height: 22px; display: flex; align-items: center; }
 }
 
 /* ============================================================

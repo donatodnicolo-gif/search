@@ -304,10 +304,14 @@ export async function smaltisciEProssimo(
   return {
     ok: true,
     prossimo: prossimo?.id ?? null,
+    // ⚠️ Il NUMERO nel messaggio: questa azione tocca tutta la conversazione,
+    // e chi la lancia da una mail aperta crede di spostarne una sola. Dirlo
+    // dopo non è la stessa cosa che chiedere prima, ma almeno non si scopre
+    // la sparizione delle altre sette per caso, tre giorni dopo.
     messaggio:
       azione === 'cestina'
-        ? 'Nel cestino. Si recupera da lì.'
-        : 'Archiviata. La trovi in Archiviati.',
+        ? `Nel cestino: ${tutti.length} ${tutti.length === 1 ? 'messaggio' : 'messaggi'} della conversazione. Si recuperano da lì.`
+        : `Archiviata: ${tutti.length} ${tutti.length === 1 ? 'messaggio' : 'messaggi'}. Li trovi in Archiviati.`,
   }
 }
 
@@ -1426,14 +1430,22 @@ export async function cestinaThread(messaggioId: string): Promise<{ ok: boolean;
 /** Archivia TUTTE le mail del thread, SENZA rinfrescare (flusso "Archivia →
  *  Sempre?"): in posta in arrivo una riga è un thread, quindi archiviare deve
  *  togliere l'intera conversazione, non solo il messaggio più recente. */
-export async function archiviaThreadSenzaAggiornare(messaggioId: string) {
+export async function archiviaThreadSenzaAggiornare(
+  messaggioId: string
+): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
   const ids = [...(await idsThread(utenteId, messaggioId))]
-  if (ids.length === 0) return
+  // ⚠️ Torna un esito: prima usciva muta, e chi premeva «Archivia» sul telefono
+  // non vedeva NIENTE — nessun avviso, nessun aggiornamento — e riprovava.
+  if (ids.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
   await db.messaggio.updateMany({
     where: { id: { in: ids }, utenteId },
     data: { archiviato: true, letto: true },
   })
+  return {
+    ok: true,
+    messaggio: `Archiviata: ${ids.length} ${ids.length === 1 ? 'messaggio' : 'messaggi'}.`,
+  }
 }
 
 /** Sposta nello SPAM TUTTE le mail del thread (crea la sezione SPAM se manca). */
