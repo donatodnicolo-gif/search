@@ -2123,7 +2123,8 @@
       "summary": "Di norma {{normale}}. Eccezioni: {{eccezioni}}."
     },
     "savedWithN": "Servizio ricorrente creato: {{n}} consegne già generate per i prossimi giorni.",
-    "updated": "Servizio ricorrente aggiornato: {{n}} nuove consegne, {{r}} consegne future rimesse in riga."
+    "updated": "Servizio ricorrente aggiornato: {{n}} nuove consegne, {{r}} consegne future rimesse in riga.",
+    "inCorsoTitolo": "Sta ancora creando le consegne: arrivano a scaglioni, ogni 15 minuti."
   },
   "apiKeys": {
     "title": "Chiavi delle app",

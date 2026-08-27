@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { AfterViewInit, Component, ElementRef, NgZone, ViewChild, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -42,6 +42,12 @@ interface Ricorrente {
     valet?: { id: string; firstName: string; lastName: string } | null;
   }[];
   _count: { deliveries: number };
+  /**
+   * A che punto è la generazione, da oggi all'orizzonte dichiarato.
+   * ⚠️ Serve da quando la generazione è a LOTTI: un ricorrente lungo resta a
+   * metà per qualche giro di cron, e senza dirlo sembra che manchino consegne.
+   */
+  avanzamento?: { attese: number; fatte: number; mancanti: number; inCorso: boolean };
 }
 interface Rif { id: string; insegna?: string; name?: string; firstName?: string; lastName?: string; active?: boolean; placeholder?: boolean }
 /**
@@ -288,7 +294,20 @@ interface PartnerConServizi extends Rif {
                   }
                 </td>
                 <td>{{ r.valet ? (r.valet.lastName + ' ' + r.valet.firstName) : '—' }}</td>
-                <td class="num">{{ r._count.deliveries | number }}</td>
+                <td class="num">
+                  {{ r._count.deliveries | number }}
+                  @if (r.avanzamento?.inCorso) {
+                    <!-- ⭐ 28/08 (chiesto dall'utente): la rotellina finché non
+                         sono create tutte. Con il numero accanto, perché una
+                         rotellina da sola dice «aspetta» ma non «quanto»: su un
+                         anno di consegne la differenza è fra un attimo e tre
+                         giri di cron. -->
+                    <span class="in-corso" [title]="'recurring.inCorsoTitolo' | translate">
+                      <span class="rotella" aria-hidden="true"></span>
+                      <span class="quante">{{ r.avanzamento!.fatte | number }}/{{ r.avanzamento!.attese | number }}</span>
+                    </span>
+                  }
+                </td>
                 <td>
                   <span class="badge" [class.badge-on]="r.attivo" [class.badge-off]="!r.attivo">
                     <span class="dot"></span>{{ (r.attivo ? 'common.active' : 'common.inactive') | translate }}
@@ -334,6 +353,19 @@ interface PartnerConServizi extends Rif {
       .ecc-valet { min-width: 190px; }
       .ecc-tog { margin-left: auto; align-self: center; }
       .add-ecc { align-self: flex-start; }
+      /* «Sta ancora creando»: rotellina + quante ne mancano. */
+      .in-corso { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; vertical-align: middle; }
+      .in-corso .quante { font-size: 11.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+      .rotella {
+        width: 13px; height: 13px; border-radius: 50%;
+        border: 2px solid var(--hairline-strong);
+        border-top-color: var(--gold-strong, #b8963e);
+        animation: gira .8s linear infinite;
+      }
+      @keyframes gira { to { transform: rotate(360deg); } }
+      /* ⚠️ Chi ha chiesto di ridurre le animazioni la vede FERMA, non sparita:
+         il segno «sta lavorando» deve restare, è quello che porta il senso. */
+      @media (prefers-reduced-motion: reduce) { .rotella { animation: none; } }
       .ecc-riga { font-size: 11.5px; color: var(--gold-strong, #b8963e); font-weight: 550; }
       .hint { font-size: 12px; color: var(--text-tertiary); margin: 0; }
       .hint.warn { color: var(--orange); }
@@ -387,7 +419,7 @@ interface PartnerConServizi extends Rif {
     `,
   ],
 })
-export class RecurringServicesComponent implements AfterViewInit {
+export class RecurringServicesComponent implements AfterViewInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly zone = inject(NgZone);
@@ -756,11 +788,43 @@ export class RecurringServicesComponent implements AfterViewInit {
     this.m.dataInizio = `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, '0')}-${String(oggi.getDate()).padStart(2, '0')}`;
   }
 
+  /**
+   * Ogni quanto si ricontrolla, mentre qualcosa sta ancora nascendo.
+   *
+   * ⚠️ Trenta secondi, non due: il riempimento gira col cron dei **15 minuti**,
+   * quindi fra un giro e l'altro non cambia niente. Chiedere più spesso non
+   * farebbe arrivare le consegne prima — farebbe solo più richieste.
+   */
+  private static readonly RICONTROLLA_MS = 30_000;
+  private attesaRicarica?: ReturnType<typeof setTimeout>;
+
   private load(): void {
     this.http.get<Ricorrente[]>(`${this.api}/recurring-services`).subscribe({
-      next: (d) => { this.lista.set(d ?? []); this.loading.set(false); },
+      next: (d) => {
+        this.lista.set(d ?? []);
+        this.loading.set(false);
+        this.programmaRicarica();
+      },
       error: () => this.loading.set(false),
     });
+  }
+
+  /**
+   * Si ricarica da soli SOLO finché c'è qualcosa in corso, e ci si ferma
+   * quando non c'è più niente da aspettare.
+   *
+   * ⚠️ Un aggiornamento che continua per sempre è una pagina che chiama il
+   * server tutta la notte per non mostrare mai niente di nuovo.
+   */
+  private programmaRicarica(): void {
+    clearTimeout(this.attesaRicarica);
+    if (!this.lista().some((r) => r.avanzamento?.inCorso)) return;
+    this.attesaRicarica = setTimeout(() => this.load(), RecurringServicesComponent.RICONTROLLA_MS);
+  }
+
+  /** ⚠️ Uscendo dalla pagina il timer va spento, o resta acceso a vuoto. */
+  ngOnDestroy(): void {
+    clearTimeout(this.attesaRicarica);
   }
 
   salva(): void {

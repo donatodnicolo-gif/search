@@ -282,13 +282,21 @@ export class RecurringService_ {
       },
       orderBy: [{ attivo: 'desc' }, { createdAt: 'desc' }],
     });
+
+    // ⭐ 28/08 (chiesto dall'utente): «mostra una rotellina finché non sono
+    // create tutte le consegne». Da quando la generazione è a LOTTI, un
+    // ricorrente lungo resta a metà per qualche giro di cron — e senza dirlo
+    // sembra semplicemente che manchino delle consegne.
+    const avanzamenti = await this.avanzamento(righe);
+    const conStato = righe.map((r) => ({ ...r, avanzamento: avanzamenti.get(r.id)! }));
+
     // ⚠️ 27/08/2026 — Qui si usa `include`, quindi escono TUTTI gli scalari,
     // `valetSalary` compreso: la paga che noi diamo al valet, su una pagina
     // che il partner apre. È lo stesso costo nostro che si toglie dalle
     // consegne (`soloIMieiSoldi`) — solo da un'altra porta. Una difesa messa
     // su una pagina sola non è una difesa.
-    if (user?.role !== Role.PARTNER) return righe;
-    return righe.map((r) => {
+    if (user?.role !== Role.PARTNER) return conStato;
+    return conStato.map((r) => {
       const { valetSalary, ...resto } = r;
       return {
         ...resto,
@@ -296,6 +304,63 @@ export class RecurringService_ {
         varianti: (r.varianti ?? []).map((v) => ({ ...v, valetId: null, valet: null })),
       };
     });
+  }
+
+  /**
+   * A CHE PUNTO È la generazione di ogni ricorrente.
+   *
+   * ⚠️ Si contano i giorni **da oggi in avanti** fino all'orizzonte, non
+   * dall'inizio del periodo: le consegne del passato non si generano più, e
+   * contarle direbbe «mancano 200» su un servizio che sta benissimo.
+   *
+   * ⚠️ «Fatta» vuol dire che la riga ESISTE, anche se poi è stata cancellata:
+   * la generazione è idempotente sulla coppia (servizio, data) e non la
+   * rifarebbe comunque. Contare solo le vive direbbe «in corso» per sempre su
+   * un servizio a cui qualcuno ha cancellato una consegna a mano.
+   *
+   * ⚠️ Un servizio SOSPESO non è «in corso»: è fermo. Mostrare una rotellina
+   * su qualcosa che non sta lavorando è peggio che non mostrarla.
+   */
+  private async avanzamento(righe: { id: string; attivo: boolean; frequenza: string; ogni: number; giorni: string; giorniMese: string | null; dataInizio: Date; dataFine: Date | null }[]) {
+    const oggi = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' }).format(new Date());
+    const daOggi = new Date(`${oggi}T00:00:00.000Z`);
+    const tetto = new Date(daOggi);
+    tetto.setUTCDate(tetto.getUTCDate() + ORIZZONTE_MASSIMO_GIORNI - 1);
+
+    // Un conteggio solo per tutti: una query per riga sarebbe una query per
+    // riga anche quando i ricorrenti diventano cinquanta.
+    const conteggi = new Map(
+      (await this.prisma.delivery.groupBy({
+        by: ['recurringServiceId'],
+        where: { recurringServiceId: { in: righe.map((r) => r.id) }, date: { gte: daOggi } },
+        _count: { _all: true },
+      })).map((g) => [g.recurringServiceId, g._count._all]),
+    );
+
+    const esito = new Map<string, { attese: number; fatte: number; mancanti: number; inCorso: boolean }>();
+    for (const r of righe) {
+      const inizio = new Date(Date.UTC(r.dataInizio.getUTCFullYear(), r.dataInizio.getUTCMonth(), r.dataInizio.getUTCDate()));
+      const fineDichiarata = r.dataFine
+        ? new Date(Date.UTC(r.dataFine.getUTCFullYear(), r.dataFine.getUTCMonth(), r.dataFine.getUTCDate()))
+        : null;
+      // Senza data di fine l'orizzonte è la finestra mobile: là non «manca»
+      // mai niente, perché il domani non è ancora arrivato.
+      const finestraMobile = new Date(daOggi);
+      finestraMobile.setUTCDate(finestraMobile.getUTCDate() + ORIZZONTE_GIORNI - 1);
+      let fine = fineDichiarata ?? finestraMobile;
+      if (fine > tetto) fine = tetto;
+
+      let attese = 0;
+      const g = new Date(daOggi > inizio ? daOggi : inizio);
+      while (g <= fine) {
+        if (toccaOggi(r, g.toISOString().slice(0, 10))) attese++;
+        g.setUTCDate(g.getUTCDate() + 1);
+      }
+      const fatte = conteggi.get(r.id) ?? 0;
+      const mancanti = Math.max(0, attese - fatte);
+      esito.set(r.id, { attese, fatte, mancanti, inCorso: r.attivo && mancanti > 0 });
+    }
+    return esito;
   }
 
   /**

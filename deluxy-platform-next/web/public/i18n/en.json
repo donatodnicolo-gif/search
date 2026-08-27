@@ -2123,7 +2123,8 @@
       "summary": "Normally {{normale}}. Exceptions: {{eccezioni}}."
     },
     "savedWithN": "Recurring service created: {{n}} deliveries already generated for the coming days.",
-    "updated": "Recurring service updated: {{n}} new deliveries, {{r}} future deliveries realigned."
+    "updated": "Recurring service updated: {{n}} new deliveries, {{r}} future deliveries realigned.",
+    "inCorsoTitolo": "Still creating the deliveries: they arrive in batches, every 15 minutes."
   },
   "apiKeys": {
     "title": "App keys",
