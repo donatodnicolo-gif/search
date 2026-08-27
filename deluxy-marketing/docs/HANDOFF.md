@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **27/08/2026 (pomeriggio)**. Una finestra Claude nuova deve poter
+> Stato al **27/08/2026 (sera)**. Una finestra Claude nuova deve poter
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
@@ -16,6 +16,12 @@
 > · la versione dello script la dichiara **un conto solo su tre** (Flowers).
 > · 🆕 c'è il **censimento storico** delle campagne: fatto su Meta (89 campagne,
 >   60.574 €, 22 mai viste dall'app), **da fare su Google** incollando lo script.
+> · 🆕 **revisione di SICUREZZA**: ~120 prove dall'esterno, **zero buchi**
+>   (401/403/307 dove serve). Quattro correzioni: la GET che faceva scrivere una
+>   chiave di sola lettura, la traversata di percorso via `fileDrive`, l'OAuth
+>   di Drive senza `state`, il freno sul login. Quattro accuse **refutate**
+>   dall'ostile e non toccate. 🔴 Restano due cose da guardare A MANO: quanto è
+>   lunga `MARKETING_APP_PASSWORD` e quali chiavi API sono attive e di chi sono.
 > · 🆕 **passata UX/UI con tre agenti** (desktop, telefono, ostile): 23 accuse,
 >   **19 corrette**, 2 refutate. Sul telefono le pagine non scorrono più di lato
 >   e i bersagli sono da 44px; su desktop le intestazioni restano a vista e la
@@ -352,6 +358,99 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐⭐ SICUREZZA: 120 PROVE DALL'ESTERNO (ZERO BUCHI) E 4 CORREZIONI (27/08/2026 sera)
+
+**La domanda**: un estraneo può leggere dati richiamando dall'esterno API che
+non gli sono consentite? **La risposta, misurata: no.**
+
+#### Le prove, fatte davvero (~120 chiamate, locale + produzione)
+- **401 senza chiave** su tutte e 39 le rotte; 401 con chiave inventata, vuota,
+  troncata di un carattere, con spazi, in maiuscolo (l'hash è case-sensitive),
+  con `Bearer` senza valore, con la chiave passata in query string.
+- **403 su tutte e 26 le rotte di scrittura** usando una chiave di sola lettura
+  creata apposta: **nessuna scrittura riuscita**.
+- **Cron**: 401 in produzione con e senza `Bearer` sbagliato; 503 in locale
+  (fail-closed quando `CRON_SECRET` non c'è).
+- **Pagine e `/api/interno/*`**: 307 → `/login` senza cookie — e il corpo è la
+  pagina di login, non i dati (controllato il corpo, non solo il codice).
+- **CVE-2025-29927** (bypass del middleware Next): non sfruttabile,
+  `x-middleware-subrequest` non passa — siamo su Next 15.5.21.
+- **Nessun dato personale** nelle risposte di `/api/v1/ordini`: i campi sono
+  elencati uno per uno e nome/email non ci sono più.
+- **Nessuno stack trace**, nome di tabella o valore interno nei messaggi
+  d'errore.
+
+#### L'audit del codice, e cosa ne è rimasto dopo l'ostile
+Otto rilievi da lettura del codice → **4 REFUTATI, 3 ridimensionati, 1
+confermato**. Corretto solo ciò che ha retto:
+
+1. **Una chiave di SOLA LETTURA scriveva sul database.** Unico punto dell'app:
+   la GET di `/api/v1/operazioni` registrava la dichiarazione dello script, e
+   `conto` arrivava dalla query string **senza forma né lunghezza**. Bastava un
+   ciclo per riempire `Impostazione` di righe sul Postgres condiviso da 14 app,
+   o per falsificare la dichiarazione di un conto vero (facendo sparire
+   l'avviso che compare a chi approva). Ora il conto deve avere la forma di un
+   conto Google Ads. **Provato**: chiave di lettura + conto inventato → il
+   database resta a una riga sola.
+2. **Traversata di percorso via `fileDrive`.** `path.join` non normalizza via i
+   `..`: un `fileDrive` come `../../../.env` faceva leggere quel file, il cui
+   contenuto finiva riassunto in `Analisi.scheda` — leggibile da chiunque abbia
+   una chiave. ⚠️ Su Vercel non mordeva, **ma la cartella Drive esiste sul PC di
+   sviluppo e il `.env` locale punta al database di produzione**: l'esca si
+   piantava da fuori e maturava qui. Ora i percorsi che escono dalla cartella
+   saltano il disco. **Provato su sei casi.**
+3. **OAuth di Drive senza `state`.** Chiunque poteva far collegare all'app il
+   **proprio** account Google mandando un link a chi era già dentro
+   (`SameSite=Lax` manda il cookie su una GET di primo livello). ⚠️ L'ostile ha
+   smontato metà dell'accusa: **niente esfiltrazione**, perché la cartella di
+   destinazione è un id fisso e le letture non usano l'OAuth — il danno era che
+   **il ponte verso Drive smetteva di depositare**. Ora `state` in cookie
+   `httpOnly` con path limitato e scadenza 10 minuti. **Provato**: il passo 1 lo
+   mette, un ritorno con codice altrui e senza cookie è rifiutato **prima**
+   dello scambio.
+4. **Login senza freno**: mezzo secondo di attesa sul tentativo sbagliato. ⚠️ È
+   mezzo rimedio e sta scritto nel commento: su Vercel chi parallelizza se lo
+   riprende. **La difesa vera è la lunghezza di `MARKETING_APP_PASSWORD`** — e
+   quella non l'ho potuta misurare: 🔴 **da guardare**, se è una parola questa
+   riga non salva niente.
+
+**Igiene, non sicurezza** (l'ostile: «non compra niente», ma non toglie niente a
+nessuno): `/api/health` non stampa più l'errore Prisma testuale; `limite` non
+numerico dà 400 invece di 500 e ha un tetto, con la regola scritta **una volta
+sola** in `api-auth`; creazione e revoca di una chiave API lasciano una traccia
+nel registro (prima una credenziale nasceva senza che nessuno potesse dire
+quando e con quale ambito).
+
+#### Le quattro accuse REFUTATE — scritte qui perché non si «ricorreggano»
+- **`/api/health?meta=1` loquace**: è una scelta dichiarata col suo motivo, e
+  l'host del pooler Supabase è un indirizzo **regionale pubblico**, non un
+  segreto. La toppa non cambia cosa ottiene chi guarda.
+- **«Serve uno scope per rotta»**: la premessa era **falsa** — le chiavi
+  incollate negli Script di Google Ads sono di **scrittura**, non di lettura
+  (chiamano `ingest` e `aggiornamenti`, che chiedono `scrittura: true`). Scope
+  per rotta significa colonna nuova, riemissione delle chiavi e rotture su più
+  app, per un rischio che oggi non ha un attore.
+- **`limite` senza tetto come vettore di esaurimento**: misurato — `NaN` viene
+  rifiutato **prima** che la query prenda una connessione, ed è la richiesta più
+  economica che si possa fare; e chi ha una chiave ottiene le stesse righe in
+  più giri.
+- **`/api/interno/chiavi` conia chiavi**: protetta dal middleware in produzione
+  (verificato 307), e la via cross-site è chiusa da `SameSite=Lax`; il fail-open
+  locale vale per chi è già alla tastiera, dove c'è il `.env` col database.
+
+#### Note di metodo
+- La chiave di sola lettura creata per il test è stata **revocata** a fine
+  lavoro (`prova-sicurezza-tmp`, `attiva = false`), e i file con le chiavi
+  cancellati dallo scratchpad.
+- ⚠️ Non è stato possibile **elencare le chiavi attive con i loro scope** (la
+  lettura di `ApiKey` è stata bloccata dal classificatore dell'ambiente): è il
+  dato che manca per dire se i due difetti corretti avessero oggi un attore.
+  🔴 Da guardare a mano da Impostazioni: **quante chiavi attive ci sono, di chi
+  sono e quali sono di sola lettura**.
+- 🔴 Da guardare nella console Google Cloud: il consent screen è in «Test» o
+  pubblicato? Decide quanto fosse raggiungibile l'attacco OAuth.
+
 
 ### ⭐⭐⭐ UX/UI: TRE AGENTI, 23 ACCUSE, 19 CORREZIONI (27/08/2026 pomeriggio)
 
