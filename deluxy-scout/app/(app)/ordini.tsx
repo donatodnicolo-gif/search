@@ -536,18 +536,53 @@ export default function Ordini() {
        * la stessa parola di prima.
        */
       /**
-       * ⚠️ 178 NON è un numero tondo: è il conto. Sei icone da 17 con cornice
-       * da 5 per lato fanno 6×27 = 162, più cinque spazi da 2 = 172, più sei di
-       * margine perché una misura esatta al pixel non ha dove andare se un
-       * carattere rende mezzo pixel più largo — e questa riga non va a capo:
-       * quello che avanza esce dalla colonna. Chi tocca `iconaAzione` o
-       * aggiunge un'azione rifà questo conto.
+       * ⚠️ 206 NON è un numero tondo: è il conto, e va rifatto ogni volta che
+       * si aggiunge un'azione. SETTE icone da 17 con cornice da 5 per lato fanno
+       * 7×27 = 189, più sei spazi da 2 = 201, più cinque di margine perché una
+       * misura esatta al pixel non ha dove andare se un carattere rende mezzo
+       * pixel più largo — e questa riga NON VA A CAPO: quello che avanza esce
+       * dalla colonna.
+       *
+       * Erano sei fino al 27/08/2026; il lucchetto della chiusura è il settimo,
+       * ed è uscito dal ramo «da incassare» per essere visibile sempre.
        */
-      width: 178,
+      width: 206,
       fissa: true,
       valore: () => null,
       cella: (o) => (
         <View style={styles.tabAzioni}>
+          {/* ⚠️ IL LUCCHETTO STA FUORI DAL RAMO (27/08/2026, segnalazione
+              dell'utente: «il lucchetto per chiudere ordine deve essere
+              visibile anche qui»). L'avevo messo accanto alla spunta
+              «incassato», che vive solo nel ramo «da incassare»: su un ordine
+              GIÀ incassato spariva — cioè proprio su quelli che si devono
+              chiudere. Chiudere la pratica non dipende da dove sono i soldi.
+
+              Resta fuori solo l'annullato: una pratica che non è successa non
+              si chiude, si lascia com'è. */}
+          {o.stato !== 'annullato' ? (
+            <Pressable
+              style={styles.iconaAzione}
+              hitSlop={8}
+              onPress={(e: any) => {
+                e?.stopPropagation?.();
+                if (o.chiuso_il) riapriOrdine(o);
+                else apriChiusura(o);
+              }}
+              accessibilityLabel={o.chiuso_il ? "Riapri l'ordine" : "Chiudi l'ordine"}
+              {...({
+                title: o.chiuso_il
+                  ? 'Riapri la pratica'
+                  : 'Chiudi la pratica — fattura emessa o agganciata',
+              } as any)}
+            >
+              <Ionicons
+                name={o.chiuso_il ? 'lock-open-outline' : 'lock-closed-outline'}
+                size={16}
+                color={o.chiuso_il ? colors.goldStrong : colors.grigio}
+              />
+            </Pressable>
+          ) : null}
           {o.stato === 'da_incassare' ? (
             <>
               {/* FATTURA: il lavoro è finito, si chiede il documento a
@@ -597,30 +632,6 @@ export default function Ordini() {
                 {...({ title: 'Incassato — i soldi sono arrivati' } as any)}
               >
                 <Ionicons name="checkmark" size={17} color={colors.bianco} />
-              </Pressable>
-              {/* ⚠️ CHIUDI sta ACCANTO a incassato, non al suo posto: sono due
-                  fatti diversi (i soldi / la pratica) e su una riga vanno visti
-                  insieme, o si finisce per usare l'uno per dire l'altro. */}
-              <Pressable
-                style={styles.iconaAzione}
-                hitSlop={8}
-                onPress={(e: any) => {
-                  e?.stopPropagation?.();
-                  if (o.chiuso_il) riapriOrdine(o);
-                  else apriChiusura(o);
-                }}
-                accessibilityLabel={o.chiuso_il ? "Riapri l'ordine" : "Chiudi l'ordine"}
-                {...({
-                  title: o.chiuso_il
-                    ? 'Riapri la pratica'
-                    : 'Chiudi la pratica — fattura emessa o agganciata',
-                } as any)}
-              >
-                <Ionicons
-                  name={o.chiuso_il ? 'lock-open-outline' : 'lock-closed-outline'}
-                  size={16}
-                  color={o.chiuso_il ? colors.goldStrong : colors.grigio}
-                />
               </Pressable>
               <Pressable
                 style={styles.iconaAzione}
@@ -1221,6 +1232,13 @@ export default function Ordini() {
                         <Pressable style={styles.btn} onPress={() => cambiaStato(o, 'incassato')}>
                           <Ionicons name="checkmark-circle-outline" size={15} color={colors.bianco} />
                           <Text style={styles.btnTxt}>Incassato</Text>
+                        </Pressable>
+                        {/* Anche sulla scheda: sotto la soglia la tabella non
+                            si monta, e la chiusura sarebbe esistita solo su
+                            schermo grande. */}
+                        <Pressable style={styles.btnGhost} onPress={() => apriChiusura(o)}>
+                          <Ionicons name="lock-closed-outline" size={15} color={colors.navy} />
+                          <Text style={styles.btnGhostTxt}>Chiudi</Text>
                         </Pressable>
                         <Pressable style={styles.btnGhost} onPress={() => apriModifica(o)}>
                           <Text style={styles.btnGhostTxt}>Modifica</Text>

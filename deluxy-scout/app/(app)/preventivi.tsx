@@ -964,6 +964,23 @@ function NuovoPreventivo({ lavoroId, onFatto }: { lavoroId: string; onFatto: () 
   const [nomeLibero, setNomeLibero] = useState('');
   const [importo, setImporto] = useState('');
   const [tempi, setTempi] = useState('');
+  /**
+   * ⭐ ANCHE QUI IL PREZZO PUÒ ESSERE A UNITÀ (27/08/2026, segnalazione
+   * dell'utente: «manca le opzioni di quantità, giorni, ecc»).
+   *
+   * Le avevo messe solo nel form del NUOVO lavoro, e questo è il form che si
+   * usa di più: è quello dove si aggiunge il secondo e il terzo fornitore, cioè
+   * proprio dove i prezzi si confrontano. Un confronto fra «1.350 totali» e
+   * «45 a pezzo» non è un confronto.
+   */
+  const [unita, setUnita] = useState<'pezzi' | 'giorni' | 'ore' | null>(null);
+  const [quanti, setQuanti] = useState('');
+  const conto = (() => {
+    const u = importo.trim() ? leggiImporto(importo) : null;
+    const q = quanti.trim() ? Number(quanti.replace(',', '.')) : null;
+    if (!unita || u == null || q == null || !Number.isFinite(q) || q <= 0) return null;
+    return { unitario: u, quanti: q, totale: Math.round(u * q * 100) / 100 };
+  })();
   const [salvo, setSalvo] = useState(false);
   /**
    * ⭐ IL FORNITORE DAL REGISTRO (26/08/2026, richiesta dell'utente: «metti
@@ -1050,7 +1067,13 @@ function NuovoPreventivo({ lavoroId, onFatto }: { lavoroId: string; onFatto: () 
         fornitorePlaceId: fornitore?.id ?? null,
         fornitoreAnagraficheId: daRegistro?.id ?? null,
         fornitoreEmail: daRegistro?.email ?? null,
-        importo: n,
+        // ⚠️ `importo` è SEMPRE il totale: è quello che il confronto fra
+        // fornitori e il margine leggono. L'unitario e la quantità stanno
+        // accanto, per poter rifare il conto e spiegarlo.
+        importo: conto ? conto.totale : n,
+        prezzoUnitario: conto ? conto.unitario : null,
+        quantita: conto ? conto.quanti : null,
+        unita: conto ? unita : null,
         tempi,
       });
       setFornitore(null);
@@ -1059,6 +1082,8 @@ function NuovoPreventivo({ lavoroId, onFatto }: { lavoroId: string; onFatto: () 
       setNomeLibero('');
       setImporto('');
       setTempi('');
+      setUnita(null);
+      setQuanti('');
       await onFatto();
     } catch (e: any) {
       avvisa('Non è stato salvato', e?.message ?? 'Riprova.');
@@ -1163,6 +1188,48 @@ function NuovoPreventivo({ lavoroId, onFatto }: { lavoroId: string; onFatto: () 
           placeholderTextColor={colors.grigio}
         />
       </View>
+      {/* Quel prezzo è un totale o è a unità? Facoltativo: senza scelta è il
+          totale, che è il caso più frequente. */}
+      <View style={styles.chips}>
+        {([
+          { v: 'pezzi', l: 'a pezzo' },
+          { v: 'giorni', l: 'al giorno' },
+          { v: 'ore', l: "all'ora" },
+        ] as const).map((o) => (
+          <Pressable
+            key={o.v}
+            onPress={() => setUnita(unita === o.v ? null : o.v)}
+            style={[styles.chip, unita === o.v && styles.chipOn]}
+          >
+            <Text style={[styles.chipTxt, unita === o.v && styles.chipTxtOn]}>{o.l}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {unita ? (
+        <>
+          <TextInput
+            style={styles.input}
+            value={quanti}
+            onChangeText={setQuanti}
+            placeholder={unita === 'pezzi' ? 'Quanti pezzi — es. 30' : unita === 'giorni' ? 'Quanti giorni — es. 3' : 'Quante ore — es. 8'}
+            placeholderTextColor={colors.grigio}
+            inputMode="decimal"
+          />
+          {conto ? (
+            <Text style={styles.aggiungiNota}>
+              {scriviImporto(conto.unitario)} × {conto.quanti} ={' '}
+              <Text style={{ fontWeight: '800' }}>€ {scriviImporto(conto.totale)}</Text> — è questo che entra nel
+              confronto e nel margine.
+            </Text>
+          ) : (
+            <Text style={styles.aggiungiNota}>
+              Scrivi il prezzo di una unità nel campo qui sopra e quante ne sono qui: il totale lo calcola l&apos;app.
+            </Text>
+          )}
+        </>
+      ) : null}
+
       {/* Il prezzo può mancare: è il caso «gliel'ho chiesto, non ha risposto»,
           e va potuto registrare — se no quel fornitore sparisce dal confronto. */}
       <Text style={styles.aggiungiNota}>
