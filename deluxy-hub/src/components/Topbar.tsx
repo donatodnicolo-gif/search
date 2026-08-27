@@ -2,6 +2,7 @@ import Link from "next/link";
 import { esci } from "@/lib/actions";
 import { RUOLO_INFO } from "@/lib/ruoli";
 import type { Sessione } from "@/lib/session";
+import { MenuMobile } from "@/components/MenuMobile";
 
 export function Topbar({ sessione }: { sessione: Sessione }) {
   return (
@@ -14,7 +15,8 @@ export function Topbar({ sessione }: { sessione: Sessione }) {
         </div>
       </Link>
 
-      <div className="topbar-actions">
+      {/* Le azioni: in linea sul desktop, in un drawer laterale su mobile. */}
+      <MenuMobile>
         <span className="badge gold">
           <span className="dot" />
           {RUOLO_INFO[sessione.ruolo].etichetta}
@@ -32,7 +34,7 @@ export function Topbar({ sessione }: { sessione: Sessione }) {
             Esci
           </button>
         </form>
-      </div>
+      </MenuMobile>
     </header>
   );
 }

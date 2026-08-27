@@ -47,6 +47,9 @@ a { color: inherit; text-decoration: none; }
 
 .topbar-actions { display: flex; align-items: center; gap: 10px; }
 
+/* Hamburger: nascosto sul desktop, compare solo su mobile (vedi @media). */
+.hamburger { display: none; }
+
 /* ---------- Contenuto ---------- */
 .main { max-width: 1080px; margin: 0 auto; padding: 40px 24px 64px; }
 
@@ -296,10 +299,76 @@ td {
 }
 tbody tr:hover { background: rgba(120, 120, 128, 0.05); }
 
-/* ---------- Mobile (D9): la topbar va a capo, il padding si stringe,
-   la tabella scorre nel suo wrapper ---------- */
+/* ---------- Mobile: la topbar resta compatta e le azioni passano in un
+   MENU LATERALE a scomparsa (come le altre app Deluxy). Il padding si
+   stringe e la tabella scorre nel suo wrapper. ---------- */
 @media (max-width: 800px) {
-  .topbar { flex-wrap: wrap; }
   .main { padding: 20px 16px 48px; }
   .table-wrap { overflow-x: auto; }
+
+  /* la barra non va più a capo: logo a sinistra, hamburger a destra */
+  .topbar { flex-wrap: nowrap; }
+  .brand-sub { display: none; }
+
+  .hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: var(--radius-s);
+    background: var(--fill);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 150ms var(--ease), transform 150ms var(--ease);
+  }
+  .hamburger:hover { background: var(--fill-hover); }
+  .hamburger:active { transform: scale(0.97); }
+  .hamburger:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* il velo dietro il drawer */
+  .menu-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: var(--scrim);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    animation: menu-fade 0.2s var(--ease);
+  }
+  @keyframes menu-fade { from { opacity: 0; } to { opacity: 1; } }
+
+  /* le azioni diventano un drawer che scivola da destra */
+  .topbar-actions {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 50;
+    height: 100dvh;
+    width: min(280px, 82vw);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    box-shadow: var(--shadow-float);
+    border-left: 1px solid var(--hairline);
+    transform: translateX(100%);
+    transition: transform 0.28s var(--ease);
+    overflow-y: auto;
+  }
+  .topbar-actions.aperto { transform: translateX(0); }
+
+  /* dentro il drawer le voci sono a piena larghezza, allineate a sinistra */
+  .topbar-actions .badge { align-self: flex-start; }
+  .topbar-actions form { width: 100%; }
+  .topbar-actions .btn,
+  .topbar-actions form .btn { width: 100%; justify-content: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar-actions { transition: none; }
+  .menu-scrim { animation: none; }
 }
