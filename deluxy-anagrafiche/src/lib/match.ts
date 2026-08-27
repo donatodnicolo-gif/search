@@ -91,15 +91,21 @@ export async function risolviMatch(input: {
   const nome = input.nome?.trim();
   const citta = input.citta?.trim();
 
-  // P.IVA — identità forte: se aggancia, si chiude qui.
+  // ⚠️ P.IVA e codice fiscale identificano la SOCIETÀ, non il negozio: si
+  // cercano sul soggetto fiscale. Una società con tre sedi risponde con tre
+  // anagrafiche — e allora l'identità forte dice «è questa società», non «è
+  // questo negozio»: si torna la lista, e sceglie chi chiama.
+  const sediDi = (dove: { pIva: string } | { codiceFiscale: string }) =>
+    prisma.partner.findMany({ where: { attivo: true, soggettoFiscale: { is: dove } }, take: 10, orderBy: { nome: "asc" } });
   if (pIva) {
-    const match = await prisma.partner.findFirst({ where: { pIva, attivo: true } });
-    if (match) return { tipo: "piva", esito: "agganciata", confidenza: "alta", match, candidati: [] };
+    const sedi = await sediDi({ pIva });
+    if (sedi.length === 1) return { tipo: "piva", esito: "agganciata", confidenza: "alta", match: sedi[0], candidati: [] };
+    if (sedi.length > 1) return { tipo: "piva", esito: "candidati", confidenza: "alta", match: null, candidati: sedi };
   }
-  // Codice fiscale — identità forte.
   if (cf) {
-    const match = await prisma.partner.findFirst({ where: { codiceFiscale: cf, attivo: true } });
-    if (match) return { tipo: "codice_fiscale", esito: "agganciata", confidenza: "alta", match, candidati: [] };
+    const sedi = await sediDi({ codiceFiscale: cf });
+    if (sedi.length === 1) return { tipo: "codice_fiscale", esito: "agganciata", confidenza: "alta", match: sedi[0], candidati: [] };
+    if (sedi.length > 1) return { tipo: "codice_fiscale", esito: "candidati", confidenza: "alta", match: null, candidati: sedi };
   }
   // Nome (+ città) — ricade qui se P.IVA/CF non hanno agganciato.
   if (nome) {

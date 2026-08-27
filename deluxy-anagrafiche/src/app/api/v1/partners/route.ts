@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { segnalaClienteAFinance } from "@/lib/finance";
-import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
+import { CAMPI_SOGGETTO, leggiSoggetto, salvaDatiSoggetto, separaDati } from "@/lib/soggetto-fiscale";
 import { INTERESSE_AFFILIAZIONE, eFinance, eRicercaFornitori } from "@/lib/interessi";
 import { diffCampi, registraModifica, registraModifiche } from "@/lib/log-modifiche";
 import { calcolaMerge, mergeContatti, nomeSistema, provenienzaIniziale } from "@/lib/merge";
@@ -12,15 +12,7 @@ import { whereRicerca } from "@/lib/ricerca";
 import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, PREFISSO_FORNITORE, PREFISSO_LIVELLO, normalizzaStatoAnalisi } from "@/lib/stati";
 import { registraPassaggio } from "@/lib/storico";
 
-// La fatturazione è della società: se una scrittura ha toccato campi
-// finanziari, i valori vanno copiati sulle altre sedi della stessa insegna.
-async function propagaSeFinanziari(partnerId: string, scritti: Record<string, unknown>) {
-  if ((CAMPI_FINANZIARI as readonly string[]).some((c) => c in scritti)) {
-    await propagaDatiFinanziari(partnerId);
-  }
-}
-
-const INCLUDE = { contatti: true, riferimenti: true } as const;
+const INCLUDE = { contatti: true, riferimenti: true, soggettoFiscale: true } as const;
 
 // Registra i riferimenti esterni (sistema→id) per la risoluzione futura.
 async function registraRiferimenti(
@@ -163,11 +155,19 @@ export async function POST(req: NextRequest) {
   if (!esistente && platformId) {
     esistente = await prisma.partner.findUnique({ where: { platformId } });
   }
+  // ⚠️ P.IVA e codice fiscale identificano la SOCIETÀ, non il negozio: si
+  // cercano sul soggetto fiscale. Una società con tre sedi risponde con tre
+  // anagrafiche, quindi l'aggancio vale solo se la sede è UNA — se no non si
+  // sa a quale delle tre stia scrivendo chi chiama, e si passa al nome.
+  const perSoggetto = async (dove: { pIva: string } | { codiceFiscale: string }) => {
+    const sedi = await prisma.partner.findMany({ where: { soggettoFiscale: { is: dove } }, take: 2 });
+    return sedi.length === 1 ? sedi[0] : null;
+  };
   if (!esistente && typeof dati.pIva === "string" && dati.pIva) {
-    esistente = await prisma.partner.findFirst({ where: { pIva: dati.pIva } });
+    esistente = await perSoggetto({ pIva: dati.pIva });
   }
   if (!esistente && typeof dati.codiceFiscale === "string" && dati.codiceFiscale) {
-    esistente = await prisma.partner.findFirst({ where: { codiceFiscale: dati.codiceFiscale } });
+    esistente = await perSoggetto({ codiceFiscale: dati.codiceFiscale });
   }
   if (!esistente && typeof dati.nome === "string") {
     esistente = await prisma.partner.findFirst({
@@ -195,7 +195,19 @@ export async function POST(req: NextRequest) {
     delete mergeInput.fonte;
     delete mergeInput.attivo;
 
-    const { dati: datiMerge, provenienza, ignorati } = calcolaMerge(esistente, mergeInput, sistema, asOf, { sbloccaCurati });
+    // ⚠️ I campi fiscali non stanno più sulla sede: per confrontarli col
+    // «vince il più fresco» servono i valori del SOGGETTO e la SUA provenienza.
+    // Si compone un record virtuale — sede + soggetto — e si merge quello.
+    const soggettoOra = leggiSoggetto(
+      await prisma.partner.findUnique({ where: { id: esistente.id }, include: { soggettoFiscale: true } }) ?? {},
+    );
+    const perMerge = { ...esistente } as Record<string, unknown>;
+    for (const c of CAMPI_SOGGETTO) perMerge[c] = soggettoOra[c];
+    perMerge.provenienza = { ...((esistente.provenienza ?? {}) as object), ...soggettoOra.aggiornamenti };
+    const { dati: datiMerge, provenienza, ignorati } = calcolaMerge(
+      perMerge as typeof esistente, mergeInput, sistema, asOf, { sbloccaCurati });
+    // Ciò che è della società va scritto sulla società, non sul negozio.
+    const separati = separaDati(datiMerge);
 
     let contattiWrite: Prisma.ContattoUpdateManyWithoutPartnerNestedInput | undefined;
     if (contatti) {
@@ -204,18 +216,25 @@ export async function POST(req: NextRequest) {
       contattiWrite = { create: ops.create, update: ops.update };
     }
 
+    const provSede: Record<string, unknown> = {};
+    const provSoggetto: Record<string, { sistema: string; asOf?: string }> = {};
+    for (const [k, v] of Object.entries(provenienza as Record<string, { sistema: string; asOf?: string }>)) {
+      if ((CAMPI_SOGGETTO as readonly string[]).includes(k)) provSoggetto[k] = v;
+      else provSede[k] = v;
+    }
     await prisma.partner.update({
       where: { id: esistente.id },
       data: {
-        ...datiMerge,
-        provenienza: provenienza as Prisma.InputJsonValue,
+        ...separati.sede,
+        provenienza: provSede as Prisma.InputJsonValue,
         ...(contattiWrite ? { contatti: contattiWrite } : {}),
       },
     });
+    await salvaDatiSoggetto(esistente.id, separati.soggetto, provSoggetto);
     // Log delle modifiche: quali campi ha davvero cambiato QUESTA app.
     // `datiMerge` contiene solo ciò che il merge ha applicato, quindi il diff
     // non registra i campi che la sorgente ha mandato ma ha perso il confronto.
-    await registraModifiche(esistente.id, { origine: sistema }, diffCampi(esistente, datiMerge));
+    await registraModifiche(esistente.id, { origine: sistema }, diffCampi(perMerge as typeof esistente, datiMerge));
     await registraRiferimenti(esistente.id, refs);
     // Audit dei cambi di stato: commerciale (solo driver di prima parte),
     // finanziario e analisi (FINANCE) finiscono tutti nella stessa storia.
@@ -268,7 +287,6 @@ export async function POST(req: NextRequest) {
         sistema,
       );
     }
-    await propagaSeFinanziari(esistente.id, datiMerge);
     // Chi passa dall'app di ricerca fornitori è un affiliato: l'interesse si
     // aggiunge (push), senza toccare quelli già scelti dal team.
     const interessiOra = Array.isArray(datiMerge.interessi)
@@ -339,11 +357,12 @@ export async function POST(req: NextRequest) {
   delete datiCreate.account;
   delete datiCreate.attivo;
   const fonte = typeof dati.fonte === "string" && dati.fonte ? dati.fonte : sistema === "platform" ? "platform" : sistema;
+  const separatiCreate = separaDati(datiCreate);
   const creato = await prisma.partner.create({
     data: {
-      ...datiCreate,
+      ...(separatiCreate.sede as Prisma.PartnerUncheckedCreateInput),
       fonte,
-      provenienza: provenienzaIniziale(datiCreate, sistema, asOf) as Prisma.InputJsonValue,
+      provenienza: provenienzaIniziale(separatiCreate.sede, sistema, asOf) as Prisma.InputJsonValue,
       contatti: contatti ? { create: contatti.map((c) => ({ ...c, fonte: sistema })) } : undefined,
     },
   });
@@ -365,7 +384,11 @@ export async function POST(req: NextRequest) {
       sistema,
     );
   }
-  await propagaSeFinanziari(creato.id, datiCreate);
+  await salvaDatiSoggetto(
+    creato.id,
+    separatiCreate.soggetto,
+    provenienzaIniziale(separatiCreate.soggetto, sistema, asOf) as Record<string, { sistema: string; asOf?: string }>,
+  );
   const creatoFull = await prisma.partner.findUnique({ where: { id: creato.id }, include: INCLUDE });
   return NextResponse.json({ esito: "creato", ...serializzaPartner(creatoFull!) }, { status: 201 });
 }

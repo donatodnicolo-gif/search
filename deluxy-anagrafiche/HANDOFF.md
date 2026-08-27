@@ -773,42 +773,69 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    fa FINANCE per `statoAnalisi`) o se resta compilato a mano; (c) travaso una-tantum dei valet
    esistenti, che oggi la tabella è **vuota**.
 
-3c. **🔴 Un'insegna che fattura con PIÙ SOCIETÀ oggi si sovrascrive da sola**
-   (trovato misurando il 27/08/2026, **decisione aperta**).
-   I dati fiscali stanno **sul record-sede**, e dopo ogni scrittura
-   `propagaDatiFinanziari` (`src/lib/insegna.ts`) li **ricopia su tutte le sedi
-   della stessa insegna** — da ogni strada: POST, PATCH, UI, raggruppamento, unione.
-   Il commento dichiara l'assunzione: «i dati finanziari appartengono alla SOCIETÀ
-   (stessa P.IVA), non alla singola sede». ⚠️ Vale finché **un'insegna = una società**.
-   Con due società di fatturazione la propagazione non le distingue: prende «il primo
-   valore compilato, la sede più vecchia vince» e lo scrive sulle altre. Non è un dato
-   mancante, è un dato **giusto sostituito con uno sbagliato** — e uno dei campi è
-   l'**IBAN**, cioè il conto verso cui esce un bonifico.
-   **Misura (27/08/2026, 1.096 anagrafiche vive)**: 47 con P.IVA, 25 con IBAN, 33 con
-   ragione sociale. 88 insegne hanno più di un record; **3 hanno già una P.IVA**
-   (Dr. Vranjes, Bonpoint, Brioni) e **nessuna è ancora in conflitto**. Intanto
-   `gruppoPagamento` è usato **0 volte**, `sede` **0**, `tipoLuogo` **4**: lo strato
-   fiscale è quasi vuoto, quindi **cambiargli forma oggi costa poco**.
-   ⚠️ **E dall'altra parte manca il campo**: in FINANCE (`deluxy-partner`) il modello
-   `Partner` **non ha P.IVA né codice fiscale** — l'unica P.IVA di quell'app sta su
-   `TemplateDocumento`, che è **chi emette** (i brand Deluxy), non chi riceve; e
-   `Partner.nome` è `@unique`. Il pezzo giusto però c'è già: `AnagraficaCollegata`
-   lega **un** partner FINANCE a **N** anagrafiche del registro — è esattamente «una
-   società che fattura per più sedi», ma **esiste in una direzione sola** e il registro
-   non la conosce.
-   **Proposta**: separare il **luogo** (sede/negozio: dove si consegna, chi si visita)
-   dal **soggetto fiscale** (chi fattura e chi si paga), N sedi → 1 soggetto. Un modello
-   `SoggettoFiscale` nel registro (ragione sociale, P.IVA, CF, PEC, SDI, IBAN,
-   intestatario, condizioni) e `Partner.soggettoFiscaleId`; il blocco `datiFinanziari`
-   delle API diventa una **lettura** del soggetto e `propagaDatiFinanziari` **si
-   cancella** invece di essere corretta. Scout **non cambia**: le sue `places` sono
-   luoghi (lat/lng, `google_place_id`), campi fiscali non ne ha.
-   ⚠️ Da fare **prima che lo strato fiscale si riempia**: dopo, ogni riga in più è una
-   migrazione. Vale la regola di `trappola-correzione-non-retroattiva`: correggere il
-   codice non basta, va corretto anche ciò che ha già scritto.
-   **Decisione aperta**: è il disegno giusto? E il punto 8 qui sotto (`gruppoPagamento`
-   in due posti) si chiude dentro questo giro, perché «chi paga per tutti» è una
-   proprietà del **soggetto**, non della sede.
+3c. **✅ COSTRUITO il 27/08/2026 — chi fattura è una SOCIETÀ, non un negozio.**
+   **Il difetto**: i dati fiscali stavano sul record-SEDE e `propagaDatiFinanziari`
+   li **ricopiava su tutte le sedi della stessa insegna** (da ogni strada: POST, PATCH,
+   UI, raggruppamento, unione), perché si assumeva «un'insegna = una società». Con due
+   società di fatturazione la propagazione non le distingueva: prendeva «il primo valore
+   compilato, la sede più vecchia vince» e lo scriveva sulle altre. Non un dato mancante:
+   un dato **giusto sostituito con uno sbagliato** — e uno dei campi è l'**IBAN**.
+
+   **La forma nuova**: il **luogo** (sede/negozio: dove si consegna, chi si visita) è
+   separato dal **soggetto fiscale** (chi fattura e chi si paga). **N sedi → 1 soggetto.**
+   - modello `SoggettoFiscale` (`ragioneSociale` obbligatoria, `pIva` **@unique** =
+     l'identità, CF, PEC, SDI, IBAN, intestatario, banca, metodo e condizioni di
+     pagamento, gruppo di pagamento, note e contatto amministrativo, `provenienza`);
+   - `Partner.soggettoFiscaleId` → la sede **punta** alla società;
+   - **`propagaDatiFinanziari` è stata cancellata**, non corretta: non c'è più niente da
+     propagare perché non c'è più niente di copiato. Anche `src/lib/insegna.ts` non
+     esiste più; al suo posto `src/lib/soggetto-fiscale.ts`.
+
+   **La forma della risposta API non cambia** — `pIva`, `codiceFiscale` al primo livello e
+   il blocco `datiFinanziari` con `aggiornamenti` stanno dov'erano, ma i valori arrivano
+   dal soggetto. In più c'è `soggettoFiscale: { id, ragioneSociale } | null`. ⚠️ **Vuoto
+   ora vuol dire «questa sede non è collegata a nessuna società»**, non «non ha
+   fatturazione»: prima al suo posto compariva la fatturazione di un'ALTRA sede.
+   Le scritture continuano ad arrivare piatte: `separaDati()` divide sede e società, e
+   `salvaDatiSoggetto()` scrive sulla seconda — **creando il soggetto se non c'è**, o
+   **agganciandosi a quello che ha già quella P.IVA** invece di crearne un gemello.
+
+   ⚠️ **Il match per P.IVA ora è onesto**: identifica la **società**, e una società con
+   tre sedi non è un negozio. Con più di una sede risponde `candidati` (confidenza alta),
+   non `agganciata` — stessa lezione di «un solo risultato non è un'identità».
+
+   ⚠️ **Raggruppare non decide chi fattura**: collegando anagrafiche come sedi di
+   un'insegna, la società della madre si eredita **solo** per quelle che non ne hanno
+   una propria; chi ce l'ha se la tiene. E **⇄ Unisci** non fonde più due società: se la
+   destinazione ha già un soggetto, quello della sorgente non lo sostituisce.
+
+   **Travaso, misurato**: **58 soggetti creati, 62 sedi collegate**; `DR.VRANJES FIRENZE
+   S.P.A.` e `BRIONI ITALIA S.R.L.` ne hanno 3 ciascuna. **0 valori persi, 0 diversi**,
+   nessuna insegna spaccata fra più soggetti (il vecchio modello le aveva già appiattite).
+   **Prova di isolamento sui dati veri**: riscrivendo la fatturazione di una sede BRIONI,
+   **1 soggetto su 58** risulta toccato — il suo — e nessun valore cambia.
+
+   ⚠️ **Le colonne vecchie sono ancora NEL DATABASE**, fuori dal modello Prisma: l'app non
+   le vede, nessuno le legge, nessuno le scrive. Sono la rete di sicurezza. Prima di
+   cancellarle si rilancia **`npx tsx scripts/verifica-soggetti-fiscali.mts`** (legge le
+   colonne grezze in SQL e le confronta col soggetto; esce 1 se anche un solo valore non
+   si ritrova). ⚠️ Finché ci sono, **nessuno le legga**: sono congelate al 27/08 e
+   mentirebbero — vale [[trappola-database-dismesso-ancora-acceso]].
+
+   **Cosa resta**:
+   - la UI **non ha ancora un modo per cambiare società a una sede** («questa sede fattura
+     con un'altra società»): oggi si crea un soggetto compilando la P.IVA, e ci si aggancia
+     scrivendo una P.IVA già esistente. Manca il gesto esplicito, e la pagina che elenca i
+     soggetti con le loro sedi;
+   - **FINANCE non ha P.IVA né codice fiscale sul suo `Partner`** (l'unica P.IVA di
+     quell'app sta su `TemplateDocumento`, cioè **chi emette**), e `Partner.nome` è
+     `@unique`: finché non li aggiunge, non sa distinguere due società di fatturazione.
+     Il pezzo giusto ce l'ha già — `AnagraficaCollegata` lega **un** partner a **N**
+     anagrafiche — ma esiste in una direzione sola. È lo stesso giro del punto 0.
+   - il punto **8** (gruppo di pagamento in due posti) si chiude qui: «chi paga per tutti»
+     è una proprietà del **soggetto**, e nel registro vive solo lì.
+   - **Scout non cambia**: le sue `places` sono luoghi (lat/lng, `google_place_id`), campi
+     fiscali non ne ha. La separazione passa esattamente dove le due app erano già divise.
 
 ### B. Scelte da prendere (il codice viene dopo)
 

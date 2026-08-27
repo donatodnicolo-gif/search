@@ -204,6 +204,18 @@ curl -X POST https://deluxy-anagrafiche.vercel.app/api/v1/feedback \
 
 ### Regole d'ingaggio (attive)
 
+- **Chi fattura è una SOCIETÀ, non un negozio** (dal 27/08/2026). `pIva`,
+  `codiceFiscale` e il blocco `datiFinanziari` stanno dov'erano nella risposta, ma i
+  valori vengono dal **soggetto fiscale** collegato, che trovate anche esplicito in
+  `soggettoFiscale: { id, ragioneSociale } | null`. **N sedi → 1 soggetto**: due negozi
+  della stessa insegna possono fatturare con due società diverse, e ognuno risponde con
+  la sua. ⚠️ **Vuoto vuol dire «questa sede non è collegata a nessuna società»**, non
+  «non ha fatturazione» — prima al suo posto compariva la fatturazione di un'altra sede.
+  In scrittura non cambia niente: mandate i campi come sempre (piatti o dentro
+  `datiFinanziari`) e il registro li mette sulla società — creandola se non c'è, o
+  agganciandosi a quella che ha già quella P.IVA.
+  ⚠️ **`GET /partners/match?pIva=`** identifica la **società**: se ha più sedi risponde
+  `candidati` (confidenza alta), non `agganciata`. Tre negozi non sono un negozio.
 - **La forma giuridica non conta** (dal 27/08/2026): mandate il nome com'è, «srl»
   compreso — se il primo giro non trova niente il registro riprova senza le forme
   giuridiche, sul solo nome. ⚠️ Ma **due forme diverse non si agganciano mai** da

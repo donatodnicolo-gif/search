@@ -20,8 +20,9 @@ export function whereRicerca(q: string): Prisma.PartnerWhereInput[] {
         { indirizzo: like },
         { email: like },
         { telefono: like },
-        { pIva: like },
-        { codiceFiscale: like },
+        // La partita IVA e il codice fiscale stanno sulla società che fattura,
+        // non sul negozio: si cercano attraverso il collegamento.
+        { soggettoFiscale: { is: { OR: [{ pIva: like }, { codiceFiscale: like }] } } },
         { account: like },
         { note: like },
         { tipoProspect: like },

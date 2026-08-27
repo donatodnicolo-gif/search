@@ -1,6 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { valutazioneD2C } from "./feedback-d2c";
-import { CAMPI_FINANZIARI } from "./insegna";
+import { CAMPI_SOGGETTO, leggiSoggetto } from "./soggetto-fiscale";
+import type { DatiSoggetto } from "./soggetto-fiscale";
+
+// ⚠️ Una scrittura porta insieme i campi del LUOGO e quelli della SOCIETÀ, e
+// arriva piatta com'è sempre arrivata: è `separaDati()` a dividerli prima di
+// toccare il database. Il tipo lo dice, così nessuno prova a passarla intera
+// a un `partner.create`.
+export type DatiScrittura = Prisma.PartnerUncheckedCreateInput & DatiSoggetto;
 import { isLivello, isStato, isStatoFinanziario, isStatoFornitore, normalizzaStatoAnalisi } from "./stati";
 
 // Campi scalari accettati in scrittura dalle API (POST/PATCH).
@@ -65,14 +72,14 @@ function pulisci(v: unknown): string | null {
 export function validaPartner(
   body: Record<string, unknown>,
   perCreazione: boolean,
-): { dati: Prisma.PartnerUncheckedCreateInput; contatti?: ContattoInput[] } | ErroreValidazione {
+): { dati: DatiScrittura; contatti?: ContattoInput[] } | ErroreValidazione {
   // Simmetria lettura/scrittura: la risposta annida i campi finanziari sotto
   // `datiFinanziari`; accettiamo la stessa forma in ingresso (oltre a quella
   // piatta) sollevandone i campi al primo livello — così un'app può rispedire
   // esattamente ciò che ha letto.
   if (body.datiFinanziari && typeof body.datiFinanziari === "object") {
     const nidi = body.datiFinanziari as Record<string, unknown>;
-    for (const campo of CAMPI_FINANZIARI) {
+    for (const campo of CAMPI_SOGGETTO) {
       if (campo in nidi && !(campo in body)) body = { ...body, [campo]: nidi[campo] };
     }
   }
@@ -169,23 +176,15 @@ export function validaPartner(
   return { dati: dati as Prisma.PartnerUncheckedCreateInput, contatti };
 }
 
-type PartnerConContatti = Prisma.PartnerGetPayload<{ include: { contatti: true } }> & {
+type PartnerConContatti = Prisma.PartnerGetPayload<{
+  include: { contatti: true; soggettoFiscale: true };
+}> & {
   riferimenti?: { sistema: string; idEsterno: string }[];
 };
 
-// Estrae dalla provenienza per campo solo i campi finanziari: per ciascuno
-// chi l'ha scritto (`sistema`) e la freschezza dichiarata (`asOf`).
-function provenienzaFinanziaria(prov: unknown): Record<string, { sistema: string; asOf?: string }> {
-  const p = (prov ?? {}) as Record<string, { sistema: string; asOf?: string }>;
-  const out: Record<string, { sistema: string; asOf?: string }> = {};
-  for (const campo of CAMPI_FINANZIARI) {
-    if (p[campo]) out[campo] = p[campo];
-  }
-  return out;
-}
-
 // Rappresentazione JSON esposta dalle API
 export function serializzaPartner(p: PartnerConContatti) {
+  const sog = leggiSoggetto(p);
   return {
     id: p.id,
     nome: p.nome,
@@ -215,26 +214,36 @@ export function serializzaPartner(p: PartnerConContatti) {
     indirizzo: p.indirizzo,
     email: p.email,
     telefono: p.telefono,
-    pIva: p.pIva,
-    codiceFiscale: p.codiceFiscale,
-    // Dati finanziari della società: condivisi tra tutte le sedi della stessa
-    // insegna. `aggiornamenti` dice chi li ha scritti e quando (asOf), così le
-    // app capiscono se il registro ha una versione più fresca della loro.
+    // ⚠️ P.IVA, codice fiscale e fatturazione sono della SOCIETÀ che emette la
+    // fattura, non del negozio: si leggono dal soggetto fiscale collegato.
+    // La forma della risposta è quella di sempre, così nessuna app cambia.
+    //
+    // ⚠️⚠️ Vuoto vuol dire «questa sede non è collegata a nessun soggetto»,
+    // non «non ha fatturazione». Prima del 27/08/2026 al suo posto compariva
+    // la fatturazione di un'ALTRA sede della stessa insegna, che è una
+    // risposta peggiore del silenzio: si scriveva un IBAN non suo.
+    pIva: sog.pIva,
+    codiceFiscale: sog.codiceFiscale,
+    // Id e ragione sociale di chi fattura: servono a chi deve emettere o
+    // pagare un documento, e a capire quali sedi condividono la stessa società.
+    soggettoFiscale: sog.id ? { id: sog.id, ragioneSociale: sog.ragioneSociale } : null,
     datiFinanziari: {
-      pec: p.pec,
-      codiceSdi: p.codiceSdi,
-      iban: p.iban,
-      intestatarioConto: p.intestatarioConto,
-      banca: p.banca,
-      metodoPagamento: p.metodoPagamento,
-      condizioniPagamento: p.condizioniPagamento,
+      pec: sog.pec,
+      codiceSdi: sog.codiceSdi,
+      iban: sog.iban,
+      intestatarioConto: sog.intestatarioConto,
+      banca: sog.banca,
+      metodoPagamento: sog.metodoPagamento,
+      condizioniPagamento: sog.condizioniPagamento,
       // Se valorizzato: paga la centrale indicata, non la singola sede.
-      gruppoPagamento: p.gruppoPagamento,
-      noteAmministrative: p.noteAmministrative,
-      amministrazioneNome: p.amministrazioneNome,
-      amministrazioneTelefono: p.amministrazioneTelefono,
-      amministrazioneEmail: p.amministrazioneEmail,
-      aggiornamenti: provenienzaFinanziaria(p.provenienza),
+      gruppoPagamento: sog.gruppoPagamento,
+      noteAmministrative: sog.noteAmministrative,
+      amministrazioneNome: sog.amministrazioneNome,
+      amministrazioneTelefono: sog.amministrazioneTelefono,
+      amministrazioneEmail: sog.amministrazioneEmail,
+      // Chi li ha scritti e quando (asOf), così le app capiscono se il registro
+      // ha una versione più fresca della loro.
+      aggiornamenti: sog.aggiornamenti,
     },
     account: p.account,
     ultimaVisita: p.ultimaVisita,

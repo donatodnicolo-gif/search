@@ -16,121 +16,109 @@ datasource db {
 }
 
 model Partner {
-  id             String     @id @default(cuid())
-  nome           String // insegna / nome prospect
-  ragioneSociale String?
+  id                      String               @id @default(cuid())
+  nome                    String // insegna / nome prospect
+  ragioneSociale          String?
   // Categoria libera normalizzata in maiuscolo: BOUTIQUE, FIORISTA, PASTICCERIA,
   // RISTORANTE, CATERING, GIFTING, CONCIERGE, ...
-  categoria      String     @default("ALTRO")
-  tipoProspect   String? // valore grezzo "TIPO PROSPECT" del tracker Excel
+  categoria               String               @default("ALTRO")
+  tipoProspect            String? // valore grezzo "TIPO PROSPECT" del tracker Excel
   // Stato COMMERCIALE (a che punto del funnel siamo): selezionato | lead |
   // prospect | in_trattativa | attivo (= partner) | a_rischio |
   // non_interessato | dismesso — vedi src/lib/stati.ts
-  stato          String     @default("prospect")
+  stato                   String               @default("prospect")
   // LIVELLO del contatto dentro quello stato: in_contatto | in_attesa |
   // da_ricontattare. Vuoto = non indicato. Dal 31/07/2026: erano stati
   // commerciali, ma dicevano il MOMENTO del contatto, non il gradino del
   // funnel, e obbligavano a scegliere fra due cose vere insieme.
-  livello          String?
+  livello                 String?
   // Stato FINANZIARIO (come paga l'azienda, dimensione dell'amministrazione):
   // da_verificare | regolare | in_ritardo | insoluto | piano_di_rientro | bloccato
-  statoFinanziario String   @default("da_verificare")
+  statoFinanziario        String               @default("da_verificare")
   // Stato ANALISI (perimetro dell'anno, catalogo di FINANCE/deluxy-partner
   // `clienteAnno`): pp (pari perimetro) | nuovo | dismesso. Vuoto = non analizzata.
-  statoAnalisi     String?
+  statoAnalisi            String?
   // Stato FORNITORE (il rapporto di fornitura, richiesto il 24/08/2026): dice
   // se quest'azienda ci FORNISCE e a che punto siamo con lei — da_provare |
   // abituale | da_evitare. Vuoto = non è un nostro fornitore. È una dimensione
   // a parte, non uno stato commerciale: la stessa azienda può comprarci
   // (stato "attivo" = Cliente) E fornirci, e metterli nella stessa lista
   // obbligherebbe a scegliere fra due cose vere insieme.
-  statoFornitore   String?
-  citta          String?
-  provincia      String?
-  regione        String?
+  statoFornitore          String?
+  citta                   String?
+  provincia               String?
+  regione                 String?
   // Come si chiama QUESTA sede dentro l'insegna: «Montenapoleone», «Corso
   // Vercelli», «Flagship», «Outlet». Le sedi di un gruppo hanno tutte lo stesso
   // `nome`, quindi senza questa etichetta si distinguono solo dall'indirizzo —
   // e chi non ce l'ha resta una riga muta in mezzo alle sorelle.
-  sede           String?
+  sede                    String?
   // Che cosa E questo luogo: sede | negozio | showroom | magazzino | altro
   // (catalogo in src/lib/luoghi.ts). Dimensione diversa dal gruppo: il gruppo
   // dice DI CHI e l anagrafica, questo dice CHE RUOLO ha il luogo. Vuoto = non
   // indicato; non si deduce dall indirizzo ne dall essere capogruppo, perche
   // la sede legale puo benissimo non essere l anagrafica madre.
-  tipoLuogo      String?
-  indirizzo      String?
-  email          String?
-  telefono       String?
-  pIva           String?
-  codiceFiscale  String?
-  account        String? // commerciale che segue l'anagrafica (ELEONORA, GAIA, ...)
-  ultimaVisita   DateTime?
-  // — Dati finanziari / fatturazione (curati dal team dalla UI) —
-  pec                 String?
-  codiceSdi           String? // codice destinatario per la fatturazione elettronica
-  iban                String?
-  // A CHI e' intestato il conto: e' il nome a cui esce il bonifico, e non e'
-  // sempre l'insegna ne' la ragione sociale (ditte individuali, societa' che
-  // incassano per il negozio). La banca controlla che intestatario e IBAN
-  // combacino: se qui non c'e' il nome giusto, il pagamento viene rifiutato.
-  intestatarioConto   String?
-  banca               String?
-  metodoPagamento     String? // bonifico, RID/SEPA, carta, ...
-  condizioniPagamento String? // es. "30 gg d.f.", "pagamento anticipato"
-  // Gruppo di pagamento (facoltativo): quando è compilato, chi paga è la sede
-  // centrale indicata qui e le singole sedi NON si fatturano separatamente.
-  // È un campo finanziario come gli altri, quindi condiviso e propagato a
-  // tutte le sedi dell'insegna (vedi src/lib/insegna.ts).
-  gruppoPagamento     String?
-  noteAmministrative  String?
-  // Contatto amministrativo (fatturazione/pagamenti)
-  amministrazioneNome     String?
-  amministrazioneTelefono String?
-  amministrazioneEmail    String?
+  tipoLuogo               String?
+  indirizzo               String?
+  email                   String?
+  telefono                String?
+  account                 String? // commerciale che segue l'anagrafica (ELEONORA, GAIA, ...)
+  ultimaVisita            DateTime?
+  // — CHI FATTURA questa sede —
+  // Il soggetto fiscale e' la SOCIETA' che emette la fattura e a cui esce il
+  // bonifico; questo record e' il LUOGO (negozio, sede) in cui si lavora. Un
+  // gruppo puo' avere piu' societa' di fatturazione e dieci negozi: N sedi
+  // -> 1 soggetto.
+  //
+  // ⚠️ Prima del 27/08/2026 i dati fiscali stavano qui, sulla sede, e venivano
+  // RICOPIATI su tutte le sedi della stessa insegna: un'insegna con due
+  // societa' si sovrascriveva da sola, IBAN compreso. Le colonne qui sotto
+  // sono quel modello, e restano solo finche' la migrazione non e' verificata.
+  soggettoFiscaleId       String?
+  soggettoFiscale         SoggettoFiscale?     @relation(fields: [soggettoFiscaleId], references: [id], onDelete: SetNull)
   // Tipologie di interesse commerciale (multi-scelta, catalogo in src/lib/interessi.ts)
-  interessi      String[]   @default([])
+  interessi               String[]             @default([])
   // — Valutazione D2C (come lavora il partner sulle consegne D2C) —
   // Media dei feedback INTERNI (li scrive Deluxy, non il cliente finale).
   // Aggregati ricalcolati a ogni feedback (src/lib/feedback-d2c.ts): media dei
   // voti su scala 1–5, quanti feedback l'hanno prodotta, l'ultimo ricevuto e
   // quando è stata ricalcolata. `votoD2C` null = NESSUN feedback: si legge
   // «da valutare», mai zero (un partner senza feedback non è un partner scarso).
-  votoD2C             Float?
-  numeroFeedbackD2C   Int        @default(0)
-  ultimoFeedbackD2C   DateTime?
-  votoD2CAggiornatoIl DateTime?
-  feedbackD2C         FeedbackD2C[]
-  note           String?
-  contattiRaw    String? // blocco contatti originale dell'Excel (testo libero)
+  votoD2C                 Float?
+  numeroFeedbackD2C       Int                  @default(0)
+  ultimoFeedbackD2C       DateTime?
+  votoD2CAggiornatoIl     DateTime?
+  feedbackD2C             FeedbackD2C[]
+  note                    String?
+  contattiRaw             String? // blocco contatti originale dell'Excel (testo libero)
   // Extra specifici del foglio di provenienza (stime, fee, ...), JSON serializzato
-  datiExtra      String?
-  contatti       Contatto[]
-  passaggi       PassaggioStato[]
-  modifiche      Modifica[]
-  riferimenti    RiferimentoEsterno[]
-  riconciliazioni Riconciliazione[]
+  datiExtra               String?
+  contatti                Contatto[]
+  passaggi                PassaggioStato[]
+  modifiche               Modifica[]
+  riferimenti             RiferimentoEsterno[]
+  riconciliazioni         Riconciliazione[]
   // Le persone (B2C) che comprano da noi e che sono la stessa realta di questa
   // azienda: nasce dall aggancio per email o telefono coi clienti di Orders.
-  consumers      Consumer[]
+  consumers               Consumer[]
   // Gruppo aziendale: un'insegna madre (es. BOTTEGA VENETA) con le sue sedi
   // (Milano, Roma). Ogni sede resta un'anagrafica autonoma con i propri
   // referenti, stato e azioni; la madre le raggruppa e basta.
-  capogruppoId   String?
-  capogruppo     Partner?   @relation("Gruppo", fields: [capogruppoId], references: [id], onDelete: SetNull)
-  sedi           Partner[]  @relation("Gruppo")
+  capogruppoId            String?
+  capogruppo              Partner?             @relation("Gruppo", fields: [capogruppoId], references: [id], onDelete: SetNull)
+  sedi                    Partner[]            @relation("Gruppo")
   // Collegamento con la piattaforma consegne: id del Partner su app.deluxy.it
-  platformId     String?    @unique
+  platformId              String?              @unique
   // Riconciliazione manuale con HubSpot: id della company nel CRM
-  hubspotId      String?    @unique
+  hubspotId               String?              @unique
   // Provenienza per campo dei valori fattuali: { campo: { sistema, asOf } }.
   // Alimenta il merge "vince il più fresco / la sorgente più autorevole".
-  provenienza    Json?
+  provenienza             Json?
   // excel | platform | manuale | ui | hubspot | <nome sorgente API>
-  fonte          String     @default("manuale")
-  attivo         Boolean    @default(true)
-  creatoIl       DateTime   @default(now())
-  aggiornatoIl   DateTime   @updatedAt
+  fonte                   String               @default("manuale")
+  attivo                  Boolean              @default(true)
+  creatoIl                DateTime             @default(now())
+  aggiornatoIl            DateTime             @updatedAt
 
   @@index([categoria])
   @@index([stato])
@@ -153,20 +141,20 @@ model Partner {
 // ricalcolati a ogni scrittura). Arriva dalle app interne via
 // POST /api/v1/feedback o dal team a mano nella scheda.
 model FeedbackD2C {
-  id            String   @id @default(cuid())
-  partnerId     String
+  id             String   @id @default(cuid())
+  partnerId      String
   // Voto normalizzato 1–5 (le stelle mostrate ovunque). Se la sorgente usa
   // un'altra scala (es. 1–10) manda `votoOriginale` + `scala` e il registro
   // normalizza — così le medie sono confrontabili.
-  voto          Int
-  votoOriginale Float?
-  scala         Int      @default(5)
-  origine       String? // da dove nasce il giudizio: consegna | reclamo | controllo | visita | segnalazione | altro
-  sistema       String // app che l'ha inviato (nome della chiave API) o "ui"
-  idEsterno     String? // id del feedback nell'app di origine: rende la scrittura idempotente
-  ordine        String? // numero d'ordine/consegna a cui si riferisce
-  autore        String? // CHI ha valutato, dentro Deluxy (persona o team)
-  commento      String?
+  voto           Int
+  votoOriginale  Float?
+  scala          Int      @default(5)
+  origine        String? // da dove nasce il giudizio: consegna | reclamo | controllo | visita | segnalazione | altro
+  sistema        String // app che l'ha inviato (nome della chiave API) o "ui"
+  idEsterno      String? // id del feedback nell'app di origine: rende la scrittura idempotente
+  ordine         String? // numero d'ordine/consegna a cui si riferisce
+  autore         String? // CHI ha valutato, dentro Deluxy (persona o team)
+  commento       String?
   // — Quando il giudizio nasce da un RECLAMO di Customer Service —
   // Il voto lì non si digita: si ricava da questi due (vedi votoDaReclamo in
   // src/lib/feedback-d2c.ts). Si conservano perché un voto va spiegato: senza,
@@ -174,10 +162,10 @@ model FeedbackD2C {
   gravita        Int? // 1 lieve · 2 media · 3 grave (peso della casistica in Customer Service)
   reclamoRisolto Boolean? // reclamo chiuso/risolto: rimediare alza il voto
   casistica      String? // tipo di problema, come si chiama in Customer Service
-  motivi        String[] @default([]) // tag del giudizio (puntualita, qualita_prodotto, …)
-  dataFeedback  DateTime // a quando si riferisce il giudizio (non quando è arrivato qui)
-  creatoIl      DateTime @default(now())
-  partner       Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  motivi         String[] @default([]) // tag del giudizio (puntualita, qualita_prodotto, …)
+  dataFeedback   DateTime // a quando si riferisce il giudizio (non quando è arrivato qui)
+  creatoIl       DateTime @default(now())
+  partner        Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   @@unique([sistema, idEsterno])
   @@index([partnerId, dataFeedback])
@@ -187,24 +175,24 @@ model FeedbackD2C {
 // Persone di riferimento del partner (parse del blocco CONTATTI dell'Excel
 // o inviate dalle API)
 model Contatto {
-  id        String  @id @default(cuid())
-  partnerId String
-  ruolo     String? // TITOLARE, STORE MANAGER, SALES ASSISTANT, ...
-  nome      String?
-  telefono  String?
-  email     String?
-  fonte     String? // sorgente che ha inserito il referente (per il merge)
-  hubspotId String? // id del contatto nel CRM HubSpot (per aprirlo)
-  nomeRubrica String? // nome con cui salvarlo in rubrica Google; se vuoto: [STATO] [AZIENDA] [CITTÀ] [Nome]
+  id                 String    @id @default(cuid())
+  partnerId          String
+  ruolo              String? // TITOLARE, STORE MANAGER, SALES ASSISTANT, ...
+  nome               String?
+  telefono           String?
+  email              String?
+  fonte              String? // sorgente che ha inserito il referente (per il merge)
+  hubspotId          String? // id del contatto nel CRM HubSpot (per aprirlo)
+  nomeRubrica        String? // nome con cui salvarlo in rubrica Google; se vuoto: [STATO] [AZIENDA] [CITTÀ] [Nome]
   // Quando questo referente è finito nella rubrica Google (o è stato trovato
   // già presente). Prima il salvataggio avveniva solo nel browser e non
   // lasciava traccia: riaprendo la scheda non si sapeva se era già stato fatto,
   // e si rifaceva. Non è il momento in cui è stato CREATO in Google, è il
   // momento in cui il registro ha avuto conferma che c'è.
   salvatoInRubricaIl DateTime?
-  archiviato   Boolean   @default(false) // referente archiviato (es. da Scout): escluso da rubrica/elenchi
-  archiviatoIl DateTime?
-  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  archiviato         Boolean   @default(false) // referente archiviato (es. da Scout): escluso da rubrica/elenchi
+  archiviatoIl       DateTime?
+  partner            Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   @@index([partnerId])
 }
@@ -230,23 +218,23 @@ model Contatto {
 // veri sotto 26 falsi allarmi, che è il modo migliore per far smettere di
 // guardare la lista.
 model Riconciliazione {
-  id           String   @id @default(cuid())
-  partnerId    String
+  id             String    @id @default(cuid())
+  partnerId      String
   // Quale campo dell'anagrafica: indirizzo | account | provincia | citta | ...
-  campo        String
+  campo          String
   // Cosa dice il registro adesso e cosa dice la fonte esterna.
-  valoreAttuale String?
+  valoreAttuale  String?
   valoreProposto String?
   // Da dove arriva la proposta: "excel" (il tracker), o l'app che l'ha mandata.
-  fonte        String
+  fonte          String
   // aperta = da decidere · accettata = ha vinto la proposta (il campo è stato
   // scritto) · rifiutata = ha vinto il registro. Le risolte restano, così la
   // stessa differenza non si ripresenta a ogni import.
-  stato        String   @default("aperta")
-  decisoDa     String?
-  decisoIl     DateTime?
-  creatoIl     DateTime @default(now())
-  partner      Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  stato          String    @default("aperta")
+  decisoDa       String?
+  decisoIl       DateTime?
+  creatoIl       DateTime  @default(now())
+  partner        Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   // Lo stesso campo dalla stessa fonte non genera due righe: si aggiorna quella
   // che c'è. Senza, ogni import rilanciato triplicherebbe la coda.
@@ -315,31 +303,31 @@ model RichiestaMatch {
 // attaccato a lei (`partnerId` obbligatorio, cascade). Un valet non è di
 // nessuna azienda — è di Deluxy — quindi ha una tabella sua.
 model Valet {
-  id            String   @id @default(cuid())
-  nome          String
-  cognome       String?
-  telefono      String?
-  email         String?
-  indirizzo     String?
-  citta         String?
-  provincia     String?
+  id              String   @id @default(cuid())
+  nome            String
+  cognome         String?
+  telefono        String?
+  email           String?
+  indirizzo       String?
+  citta           String?
+  provincia       String?
   // Province su cui lavora: testo libero separato da virgola, per orientarsi.
   // L'assegnazione vera è nella piattaforma (ValetProvince).
   provinceServite String?
-  mezzo         String? // Auto | Moto/Scooter | Bicicletta | Furgone | A piedi
+  mezzo           String? // Auto | Moto/Scooter | Bicicletta | Furgone | A piedi
   // Identità fiscale della persona: il registro è la fonte dell'identità.
   // I dati di PAGAMENTO (IBAN, ritenuta, frequenza stipendio) no: quelli stanno
   // nella piattaforma, che emette gli stipendi.
-  codiceFiscale String?
-  pIva          String?
+  codiceFiscale   String?
+  pIva            String?
   // in_servizio | sospeso | cessato — vedi src/lib/valet.ts
-  stato         String   @default("in_servizio")
-  note          String?
-  platformId    String?  @unique // id del valet nella piattaforma consegne
-  fonte         String   @default("ui") // ui | platform | <nome chiave app>
-  attivo        Boolean  @default(true) // soft delete, come per i partner
-  creatoIl      DateTime @default(now())
-  aggiornatoIl  DateTime @updatedAt
+  stato           String   @default("in_servizio")
+  note            String?
+  platformId      String?  @unique // id del valet nella piattaforma consegne
+  fonte           String   @default("ui") // ui | platform | <nome chiave app>
+  attivo          Boolean  @default(true) // soft delete, come per i partner
+  creatoIl        DateTime @default(now())
+  aggiornatoIl    DateTime @updatedAt
 
   @@index([attivo, stato])
   @@index([cognome, nome])
@@ -386,20 +374,20 @@ model Modifica {
 // Chiavi API delle app client. La chiave in chiaro non viene mai salvata:
 // si conserva solo lo SHA-256 (vedi scripts/crea-chiave.mjs).
 model ApiKey {
-  id        String    @id @default(cuid())
-  nome      String    @unique // app client: deluxy-platform, deluxy-partner, ...
-  hash      String    @unique // sha256 esadecimale della chiave
+  id                 String    @id @default(cuid())
+  nome               String    @unique // app client: deluxy-platform, deluxy-partner, ...
+  hash               String    @unique // sha256 esadecimale della chiave
   // Primi caratteri della chiave in chiaro ("dlxk_a1b2c3…"): non basta per
   // autenticarsi, serve a riconoscere quale chiave si ha in mano nell'elenco.
-  prefisso  String?
-  note      String? // a cosa serve / in quale .env vive (testo libero, per chi la gestisce)
-  scrittura Boolean   @default(false) // true = può creare/modificare/disattivare il partner (PATCH/DELETE inclusi)
-  scritturaReferenti Boolean @default(false) // true = può solo archiviare i referenti (scope ristretto, es. Scout)
-  scritturaFeedback  Boolean @default(false) // true = può solo inviare feedback D2C (scope ristretto, es. Customer Service)
-  scritturaPartner   Boolean @default(false) // true = solo POST upsert dei partner (no PATCH/DELETE) + può settare stato/interessi (driver di prima parte, es. Scout)
-  attiva    Boolean   @default(true)
-  creataIl  DateTime  @default(now())
-  ultimoUso DateTime?
+  prefisso           String?
+  note               String? // a cosa serve / in quale .env vive (testo libero, per chi la gestisce)
+  scrittura          Boolean   @default(false) // true = può creare/modificare/disattivare il partner (PATCH/DELETE inclusi)
+  scritturaReferenti Boolean   @default(false) // true = può solo archiviare i referenti (scope ristretto, es. Scout)
+  scritturaFeedback  Boolean   @default(false) // true = può solo inviare feedback D2C (scope ristretto, es. Customer Service)
+  scritturaPartner   Boolean   @default(false) // true = solo POST upsert dei partner (no PATCH/DELETE) + può settare stato/interessi (driver di prima parte, es. Scout)
+  attiva             Boolean   @default(true)
+  creataIl           DateTime  @default(now())
+  ultimoUso          DateTime?
 }
 
 // ————————————————————— CONSUMERS —————————————————————
@@ -417,30 +405,30 @@ model ApiKey {
 // calcolato, con scritto quando è stata scattata (`sincronizzatoIl`). Non si
 // modificano a mano i numeri: si rifà la sincronizzazione.
 model Consumer {
-  id     String @id @default(cuid())
+  id       String  @id @default(cuid())
   // La chiave con cui Orders identifica la persona: email → telefono → nome,
   // in quest'ordine. È la stessa che usano le sue API e la sua UI, quindi è
   // anche il modo per tornare alla scheda di là.
-  chiave String @unique
+  chiave   String  @unique
   nome     String?
   email    String?
   telefono String?
   citta    String?
 
   // ---- fotografia calcolata da Orders ----
-  ordini           Int       @default(0)
-  annullati        Int       @default(0)
-  speso            Float     @default(0)
-  ordineMedio      Float     @default(0)
-  primoOrdine      DateTime?
-  ultimoOrdine     DateTime?
-  giorniDallUltimo Int?
-  brand            String[]  @default([])
+  ordini             Int       @default(0)
+  annullati          Int       @default(0)
+  speso              Float     @default(0)
+  ordineMedio        Float     @default(0)
+  primoOrdine        DateTime?
+  ultimoOrdine       DateTime?
+  giorniDallUltimo   Int?
+  brand              String[]  @default([])
   // Vocabolario di Orders, copiato così com'è per non inventarne un secondo:
   // segmento  = vip | da-non-perdere | fedele | ricorrente | nuovo | una-tantum | da-riattivare | perso
   // tipologia = privato | azienda | horeca | eventi | rivenditore
-  segmento  String?
-  tipologia String?
+  segmento           String?
+  tipologia          String?
   // Il canale del PRIMO ordine: da dove ci è arrivata questa persona.
   // Vuoto = quel primo ordine non ha provenienza, e NON va letto come «diretto».
   acquisizioneCanale String?
@@ -449,15 +437,15 @@ model Consumer {
   // ---- riepilogo scritto dall'AI in Orders ----
   // Vuoto = non ancora scritto (costa una chiamata a pagamento per persona),
   // non «persona senza preferenze».
-  riassunto        String?
-  gusti            String?
-  riepilogoOrdini  Int?      // su quanti ordini era basato quando l'hanno scritto
+  riassunto       String?
+  gusti           String?
+  riepilogoOrdini Int? // su quanti ordini era basato quando l'hanno scritto
 
   // ---- collegamento all'anagrafica B2B, quando è la stessa realtà ----
   // Nasce dall'aggancio per email/telefono. Il nome NON basta: sui dati veri
   // ha trovato 2 casi su 61 e produce falsi positivi.
-  partnerId String?
-  partner   Partner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  partnerId      String?
+  partner        Partner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
   agganciatoCome String? // email | telefono | manuale
 
   sincronizzatoIl DateTime @default(now())
@@ -467,4 +455,56 @@ model Consumer {
   @@index([tipologia])
   @@index([partnerId])
   @@index([speso])
+}
+
+/// CHI FATTURA e CHI SI PAGA: la societa', non il negozio.
+///
+/// ⚠️ Nasce il 27/08/2026 da un difetto di modello: i dati fiscali stavano sul
+/// record-sede e `propagaDatiFinanziari` li ricopiava su tutte le sedi della
+/// stessa insegna, perche' si assumeva «un'insegna = una societa'». Con due
+/// societa' di fatturazione la propagazione non le distingueva: prendeva il
+/// primo valore compilato e lo scriveva sulle altre. Non un dato mancante, un
+/// dato giusto sostituito con uno sbagliato - e uno dei campi e' l'IBAN.
+///
+/// Qui il dato ha una casa sola e le sedi ci puntano: due societa' = due
+/// soggetti, e nessuna delle due tocca l'altra.
+model SoggettoFiscale {
+  id                      String    @id @default(cuid())
+  // Come si chiama la societa' negli atti: e' l'unico campo obbligatorio,
+  // perche' un soggetto senza nome non si puo' ne' fatturare ne' pagare.
+  ragioneSociale          String
+  // ⚠️ L'identita' fiscale: due soggetti con la stessa P.IVA sono lo stesso
+  // soggetto. Unique (in Postgres i NULL non collidono, e la maggior parte
+  // delle anagrafiche la P.IVA non ce l'ha ancora).
+  pIva                    String?   @unique
+  codiceFiscale           String?
+  pec                     String?
+  codiceSdi               String? // codice destinatario per la fatturazione elettronica
+  iban                    String?
+  // A CHI e' intestato il conto: e' il nome a cui esce il bonifico, e non e'
+  // sempre l'insegna ne' la ragione sociale (ditte individuali, societa' che
+  // incassano per il negozio). La banca controlla che intestatario e IBAN
+  // combacino: col nome sbagliato il pagamento viene rifiutato.
+  intestatarioConto       String?
+  banca                   String?
+  metodoPagamento         String? // bonifico, RID/SEPA, carta, ...
+  condizioniPagamento     String? // es. "30 gg d.f.", "pagamento anticipato"
+  // Quando e' compilato paga la centrale indicata qui, e le sedi NON si
+  // fatturano separatamente. E' una scelta della SOCIETA', per questo vive qui.
+  gruppoPagamento         String?
+  noteAmministrative      String?
+  // Contatto amministrativo (fatturazione/pagamenti)
+  amministrazioneNome     String?
+  amministrazioneTelefono String?
+  amministrazioneEmail    String?
+  // Provenienza per campo dei valori fattuali: { campo: { sistema, asOf } }.
+  // Alimenta il merge "vince il piu' fresco / la sorgente piu' autorevole".
+  provenienza             Json?
+  // Le sedi che questo soggetto fattura.
+  sedi                    Partner[]
+  fonte                   String    @default("manuale")
+  creatoIl                DateTime  @default(now())
+  aggiornatoIl            DateTime  @updatedAt
+
+  @@index([ragioneSociale])
 }

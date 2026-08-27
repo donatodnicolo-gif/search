@@ -6,7 +6,7 @@ import { aggiornaPartner } from "@/lib/azioni";
 import { getOpzioniAccount } from "@/lib/commerciali";
 import { DESCRIZIONI_TIPO_LUOGO, ETICHETTE_TIPO_LUOGO, TIPI_LUOGO } from "@/lib/luoghi";
 import { prisma } from "@/lib/db";
-import { datiFinanziariCondivisi } from "@/lib/insegna";
+import { leggiSoggetto } from "@/lib/soggetto-fiscale";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +51,7 @@ export default async function Modifica({
   const sp = await searchParams;
   const p = await prisma.partner.findUnique({
     where: { id },
-    include: { contatti: true, capogruppo: { select: { nome: true } } },
+    include: { contatti: true, capogruppo: { select: { nome: true } }, soggettoFiscale: true },
   });
   if (!p) notFound();
 
@@ -62,9 +62,10 @@ export default async function Modifica({
   // Chi può seguire l'anagrafica: il team commerciale arriva da Budgets.
   const opzioniAccount = await getOpzioniAccount(p.account);
 
-  // Dati finanziari condivisi dall'insegna: si compilano una volta e valgono
-  // per tutte le sedi della stessa società.
-  const fin = await datiFinanziariCondivisi(p);
+  // ⚠️ Fatturazione della SOCIETÀ collegata a questa sede: si compila una
+  // volta e vale per tutte le sedi che fatturano con quella società — non per
+  // tutte quelle che hanno la stessa insegna, che possono essere due società.
+  const fin = leggiSoggetto(p);
   const haSedi = await prisma.partner.count({
     where: {
       attivo: true,
@@ -75,6 +76,15 @@ export default async function Modifica({
       ],
     },
   });
+
+  // ⚠️ Quante sedi fattura DAVVERO questa società. È un'altra domanda da
+  // «quante sedi ha l'insegna»: fino al 27/08/2026 qui si prometteva che il
+  // salvataggio valeva «per tutte le sedi dell'insegna», e infatti i valori
+  // venivano ricopiati su tutte — anche su quelle che fatturano con un'altra
+  // società. Adesso vale per le sedi collegate a QUESTO soggetto, e basta.
+  const sediDelSoggetto = p.soggettoFiscaleId
+    ? await prisma.partner.count({ where: { attivo: true, soggettoFiscaleId: p.soggettoFiscaleId } })
+    : 0;
 
   // Referenti esistenti più due righe vuote per aggiungerne
   const righe = [...p.contatti, ...Array.from({ length: 2 }, () => null)];
@@ -170,12 +180,30 @@ export default async function Modifica({
             <h2 className="scheda-titolo">
               Dati finanziari <span className="scheda-sub">fatturazione e pagamenti</span>
             </h2>
-            {haSedi > 0 && (
-              <p className="testo-guida" style={{ marginTop: 0 }}>
-                Sono i dati di fatturazione della società: salvandoli valgono per tutte le{" "}
-                {haSedi + 1} sedi di questa insegna.
-              </p>
-            )}
+            <p className="testo-guida" style={{ marginTop: 0 }}>
+              {sediDelSoggetto > 1 ? (
+                <>
+                  Sono i dati di <strong>{fin.ragioneSociale}</strong>, la società che fattura questa
+                  sede: salvandoli valgono per tutte e {sediDelSoggetto} le sedi che fattura.{" "}
+                  {haSedi + 1 > sediDelSoggetto && (
+                    <>
+                      ⚠️ L&apos;insegna ha {haSedi + 1} sedi in tutto: le altre fatturano con una
+                      società diversa e <strong>non</strong> vengono toccate.
+                    </>
+                  )}
+                </>
+              ) : fin.id ? (
+                <>
+                  Sono i dati di <strong>{fin.ragioneSociale}</strong>, la società che fattura questa
+                  sede. Nessun&apos;altra sede è collegata a questa società.
+                </>
+              ) : (
+                <>
+                  Questa sede non ha ancora una società di fatturazione. Salvando la P. IVA ne nasce
+                  una — o, se quella P. IVA è già nel registro, la sede si collega a quella.
+                </>
+              )}
+            </p>
             <div className="modulo">
               <Campo etichetta="PEC" nome="pec">
                 <input id="pec" name="pec" type="email" defaultValue={fin.pec ?? ""} />

@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { segnalaClienteAFinance } from "@/lib/finance";
-import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
+import { salvaDatiSoggetto, separaDati } from "@/lib/soggetto-fiscale";
 import { diffCampi, registraModifiche } from "@/lib/log-modifiche";
 import { mergeContatti } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, PREFISSO_FORNITORE } from "@/lib/stati";
 import { ARCHIVIATA, registraPassaggio } from "@/lib/storico";
 
-const INCLUDE = { contatti: true, riferimenti: true } as const;
+const INCLUDE = { contatti: true, riferimenti: true, soggettoFiscale: true } as const;
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -65,19 +65,25 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     contattiWrite = { create: ops.create, update: ops.update };
   }
 
-  const aggiornato = await prisma.partner.update({
+  // ⚠️ Ciò che è della SOCIETÀ (P.IVA, IBAN, fatturazione) va scritto sulla
+  // società, non sul negozio: si separa prima di toccare l'anagrafica.
+  const separati = separaDati(dati);
+  await prisma.partner.update({
     where: { id },
     data: {
-      ...dati,
+      ...separati.sede,
       ...(contattiWrite ? { contatti: contattiWrite } : {}),
     },
-    include: INCLUDE,
   });
-  await registraModifiche(id, { origine: client.nome }, diffCampi(esistente, dati));
-  // La fatturazione è della società: propaga i campi finanziari alle sedi
-  if ((CAMPI_FINANZIARI as readonly string[]).some((c) => c in dati)) {
-    await propagaDatiFinanziari(id);
-  }
+  // Chi ha scritto quel campo e quando: è ciò che le altre app leggono in
+  // `datiFinanziari.aggiornamenti` per sapere se il registro è più fresco di loro.
+  await salvaDatiSoggetto(
+    id,
+    separati.soggetto,
+    Object.fromEntries(Object.keys(separati.soggetto).map((c) => [c, { sistema: client.nome }])),
+  );
+  const aggiornato = (await prisma.partner.findUnique({ where: { id }, include: INCLUDE }))!;
+  await registraModifiche(id, { origine: client.nome }, diffCampi(esistente, separati.sede));
   if (dati.stato) {
     await registraPassaggio(id, esistente.stato, aggiornato.stato, client.nome);
     if (aggiornato.stato === "attivo" && esistente.stato !== "attivo") {

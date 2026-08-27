@@ -8,7 +8,7 @@ import { isCategoria } from "./categorie";
 import { prisma } from "./db";
 import { MOTIVI_FEEDBACK, normalizzaVoto, ricalcolaValutazioneD2C } from "./feedback-d2c";
 import { segnalaClienteAFinance } from "./finance";
-import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "./insegna";
+import { CAMPI_SOGGETTO, salvaDatiSoggetto } from "./soggetto-fiscale";
 import { diffCampi, registraModifica, registraModifiche } from "./log-modifiche";
 import {
   PREFISSO_ANALISI,
@@ -248,13 +248,16 @@ export async function creaPartner(fd: FormData) {
       ragioneSociale: testo("ragioneSociale"),
       email: testo("email"),
       telefono: testo("telefono"),
-      pIva: testo("pIva"),
       account: testo("account"),
       note: testo("note"),
       fonte: "ui",
       contatti: contatti.length ? { create: contatti } : undefined,
     },
   });
+  // ⚠️ La P.IVA identifica la SOCIETÀ, non il negozio: se il form la porta,
+  // nasce (o si ritrova, quando quella P.IVA c'è già) il soggetto fiscale e
+  // l'anagrafica ci si collega. Senza P.IVA non si crea niente.
+  await salvaDatiSoggetto(creato.id, { pIva: testo("pIva") }, { pIva: { sistema: "ui" } });
   await registraModifica(creato.id, { origine: "ui" }, { campo: "creata", a: `${nome}${citta ? ` · ${citta}` : ""}` });
   // Avvisa l'app commerciale: da lì il partner dev'essere lavorabile subito,
   // senza aspettare un import. Best-effort — se Scout non risponde il partner
@@ -452,24 +455,9 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
       indirizzo: testo("indirizzo"),
       email: testo("email"),
       telefono: testo("telefono"),
-      pIva: testo("pIva"),
-      codiceFiscale: testo("codiceFiscale"),
       account: testo("account"),
       note: testo("note"),
       ultimaVisita: ultimaVisita ? new Date(ultimaVisita) : null,
-      // dati finanziari / fatturazione
-      pec: testo("pec"),
-      codiceSdi: maiuscolo("codiceSdi"),
-      iban: testo("iban")?.replace(/\s+/g, "").toUpperCase() ?? null,
-      intestatarioConto: testo("intestatarioConto"),
-      banca: testo("banca"),
-      metodoPagamento: testo("metodoPagamento"),
-      condizioniPagamento: testo("condizioniPagamento"),
-      gruppoPagamento: testo("gruppoPagamento"),
-      noteAmministrative: testo("noteAmministrative"),
-      amministrazioneNome: testo("amministrazioneNome"),
-      amministrazioneTelefono: testo("amministrazioneTelefono"),
-      amministrazioneEmail: testo("amministrazioneEmail"),
       contatti: {
         ...(daAggiornare.length
           ? { update: daAggiornare.map((c) => ({ where: { id: c.id }, data: c.dati })) }
@@ -506,9 +494,30 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
       da: [prima?.nome, prima?.ruolo, prima?.telefono].filter(Boolean).join(" · ") || id,
     });
   }
-  // La fatturazione è della società: propaga i dati finanziari a tutte le sedi
-  // della stessa insegna, così restano un unico set condiviso.
-  await propagaDatiFinanziari(partnerId);
+  // ⚠️ La fatturazione è della SOCIETÀ, non del negozio: si scrive sul
+  // soggetto fiscale collegato — e se la sede non ne ha ancora uno, nasce qui.
+  // Non c'è più niente da propagare alle altre sedi, perché non c'è più niente
+  // di copiato: le sedi della stessa società guardano lo stesso record.
+  await salvaDatiSoggetto(
+    partnerId,
+    {
+      pIva: testo("pIva"),
+      codiceFiscale: testo("codiceFiscale"),
+    pec: testo("pec"),
+    codiceSdi: maiuscolo("codiceSdi"),
+    iban: testo("iban")?.replace(/\s+/g, "").toUpperCase() ?? null,
+    intestatarioConto: testo("intestatarioConto"),
+    banca: testo("banca"),
+    metodoPagamento: testo("metodoPagamento"),
+    condizioniPagamento: testo("condizioniPagamento"),
+    gruppoPagamento: testo("gruppoPagamento"),
+    noteAmministrative: testo("noteAmministrative"),
+    amministrazioneNome: testo("amministrazioneNome"),
+    amministrazioneTelefono: testo("amministrazioneTelefono"),
+    amministrazioneEmail: testo("amministrazioneEmail"),
+    },
+    Object.fromEntries(CAMPI_SOGGETTO.map((c) => [c, { sistema: "ui" }])),
+  );
   revalidatePath("/");
   revalidatePath(`/partner/${partnerId}`);
   redirect(`/partner/${partnerId}`);
@@ -865,6 +874,10 @@ export async function aggiungiSede(
       telefono: testo("telefono"),
       account: madre.account,
       capogruppoId: madre.id,
+      // ⚠️ La sede nuova punta alla stessa società della madre: è un
+      // riferimento, non una copia. Prima i dati fiscali le venivano RICOPIATI
+      // addosso, e da lì in poi due sedi con società diverse si sovrascrivevano.
+      soggettoFiscaleId: madre.soggettoFiscaleId,
       fonte: "ui",
     },
   });
@@ -877,8 +890,6 @@ export async function aggiungiSede(
     campo: "creata",
     a: `${etichettaSede} — come sede di ${madre.nome}`,
   });
-  // La fatturazione è della società: la sede nuova parte con gli stessi dati.
-  await propagaDatiFinanziari(madre.id);
   revalidatePath(`/partner/${madre.id}`);
   revalidatePath("/");
   return { ok: true, id: sede.id };
@@ -933,7 +944,20 @@ export async function collegaSedi(
       where: { id: { in: daCollegare } },
       data: { capogruppoId: madreId },
     });
-    await propagaDatiFinanziari(madreId);
+    // ⚠️ Raggruppare sotto un'insegna NON decide chi fattura: si eredita la
+    // società della madre solo per le sedi che non ne hanno una propria. Chi
+    // ce l'ha se la tiene — è esattamente il caso dell'insegna che fattura con
+    // più società, che il vecchio modello schiacciava su una sola.
+    const madreSoggetto = await prisma.partner.findUnique({
+      where: { id: madreId },
+      select: { soggettoFiscaleId: true },
+    });
+    if (madreSoggetto?.soggettoFiscaleId) {
+      await prisma.partner.updateMany({
+        where: { id: { in: daCollegare }, soggettoFiscaleId: null },
+        data: { soggettoFiscaleId: madreSoggetto.soggettoFiscaleId },
+      });
+    }
     after(async () => {
       for (const c of candidate.filter((x) => daCollegare.includes(x.id))) {
         await registraModifica(madreId, { origine: "ui", entita: "sede" }, {
@@ -977,11 +1001,13 @@ export async function unisciAnagrafiche(
   if (!destinazione.attivo) return { ok: false, errore: "La destinazione è archiviata: ripristinala prima di unire." };
 
   // Campi fattuali: si riempiono solo i buchi della destinazione.
+  // ⚠️ Solo i campi del LUOGO. La fatturazione non sta più sulla sede, sta sul
+  // soggetto fiscale: unire due negozi non deve poter fondere due società. Se
+  // la destinazione non ha un soggetto e la sorgente sì, si eredita il
+  // COLLEGAMENTO (sotto) — che è un riferimento, non una copia di valori.
   const DA_TRAVASARE = [
     "ragioneSociale", "citta", "provincia", "regione", "sede", "tipoLuogo", "indirizzo",
-    "email", "telefono", "pIva", "codiceFiscale", "account", "tipoProspect", "ultimaVisita", "statoFornitore",
-    "pec", "codiceSdi", "iban", "intestatarioConto", "banca", "metodoPagamento", "condizioniPagamento",
-    "gruppoPagamento", "amministrazioneNome", "amministrazioneTelefono", "amministrazioneEmail",
+    "email", "telefono", "account", "tipoProspect", "ultimaVisita", "statoFornitore",
     "platformId", "hubspotId",
   ] as const;
   const dati: Record<string, unknown> = {};
@@ -993,6 +1019,13 @@ export async function unisciAnagrafiche(
       dati[campo] = arrivo;
       riempiti.push(campo);
     }
+  }
+  // ⚠️ Il soggetto fiscale si eredita solo se la destinazione non ne ha uno:
+  // se ne ha già uno, quello della sorgente NON lo sostituisce — sarebbe
+  // cambiare la società che fattura un negozio con un gesto che parla d'altro.
+  if (!destinazione.soggettoFiscaleId && sorgente.soggettoFiscaleId) {
+    dati.soggettoFiscaleId = sorgente.soggettoFiscaleId;
+    riempiti.push("soggettoFiscale");
   }
   // Interessi: unione, non sostituzione.
   const interessi = [...new Set([...destinazione.interessi, ...sorgente.interessi])];
@@ -1053,9 +1086,6 @@ export async function unisciAnagrafiche(
   ]);
 
   if (feedback > 0) await ricalcolaValutazioneD2C(destinazioneId);
-  if (Object.keys(dati).some((c) => (CAMPI_FINANZIARI as readonly string[]).includes(c))) {
-    await propagaDatiFinanziari(destinazioneId);
-  }
 
   after(async () => {
     await registraModifica(destinazioneId, { origine: "ui" }, {

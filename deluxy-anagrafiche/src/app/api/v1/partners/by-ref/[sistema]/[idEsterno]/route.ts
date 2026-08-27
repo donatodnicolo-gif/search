@@ -3,7 +3,7 @@ import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { serializzaPartner } from "@/lib/partner-api";
 
-const INCLUDE = { contatti: true, riferimenti: true } as const;
+const INCLUDE = { contatti: true, riferimenti: true, soggettoFiscale: true } as const;
 
 // GET /api/v1/partners/by-ref/:sistema/:idEsterno
 // Risolve un partner dall'id che un'altra app usa internamente. È così che le

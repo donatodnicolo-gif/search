@@ -31,7 +31,7 @@ import {
 import { linkContattoHubspot } from "@/lib/hubspot-link";
 import { eAzione, etichettaCampo, etichettaOrigine } from "@/lib/log-modifiche";
 import { COLORE_TIPO_LUOGO, etichettaTipoLuogo, isTipoLuogo } from "@/lib/luoghi";
-import { datiFinanziariCondivisi } from "@/lib/insegna";
+import { leggiSoggetto } from "@/lib/soggetto-fiscale";
 import { eAffiliatoReseller } from "@/lib/interessi";
 import { getLinee } from "@/lib/linee";
 import { ETICHETTE_STATO, isStato, nomeEventoStato } from "@/lib/stati";
@@ -69,6 +69,8 @@ export default async function Dettaglio({
       // oltre non si legge, e la scheda non deve caricarsi un archivio.
       modifiche: { orderBy: { creatoIl: "desc" }, take: 120 },
       capogruppo: { select: { id: true, nome: true, citta: true } },
+      // Chi fattura questa sede: la società, non il negozio.
+      soggettoFiscale: true,
       sedi: {
         where: { attivo: true },
         select: {
@@ -102,9 +104,17 @@ export default async function Dettaglio({
   // guardava una sede pensava di doverle collegare a mano — cercando di dare a
   // un'anagrafica due insegne, che il modello non permette e non deve.
   const nomeInsegna = (p.capogruppo?.nome ?? p.nome).trim();
-  const [fin, altriLuoghi, perVoto, linee, stessaInsegna] = await Promise.all([
-    // Fatturazione a livello di società: condivisa da tutte le sedi dell'insegna.
-    datiFinanziariCondivisi(p),
+  // ⚠️ La fatturazione è di CHI FATTURA, non dell'insegna: si legge dal
+  // soggetto collegato. Prima si prendeva «il primo valore compilato fra le
+  // sedi con lo stesso nome», che su un'insegna con due società mostrava —
+  // e faceva salvare — l'IBAN dell'altra.
+  const fin = leggiSoggetto(p);
+  // Quante sedi fattura questa società: dirlo è ciò che distingue «la
+  // fatturazione di questo negozio» da «la fatturazione condivisa».
+  const sediDelSoggetto = fin.id
+    ? await prisma.partner.count({ where: { attivo: true, soggettoFiscaleId: fin.id } })
+    : 0;
+  const [altriLuoghi, perVoto, linee, stessaInsegna] = await Promise.all([
     // Gli altri luoghi della stessa insegna: servono per spostare un referente
     // sulla sede dove lavora davvero. Da una sede si vedono la madre e le
     // sorelle; dalla madre, le sue sedi.
@@ -534,15 +544,33 @@ export default async function Dettaglio({
         <h2 className="scheda-titolo">
           Dati finanziari{" "}
           <span className="scheda-sub">
-            fatturazione e pagamenti{haSedi ? " · condivisi con le sedi dell'insegna" : ""}
+            {fin.id
+              ? `fattura ${fin.ragioneSociale}${sediDelSoggetto > 1 ? ` · e altre ${sediDelSoggetto - 1} sedi` : ""}`
+              : "fatturazione e pagamenti"}
           </span>
         </h2>
+        {/* ⚠️ Chi fattura questo negozio è una SOCIETÀ, e un'insegna può averne
+            più d'una. Fino al 27/08/2026 qui compariva «condivisi con le sedi
+            dell'insegna» e i valori venivano ricopiati su tutte: bastavano due
+            società perché una sede mostrasse — e facesse salvare — l'IBAN
+            dell'altra. Adesso o c'è una società collegata, e si dice quale, o
+            non c'è niente: il silenzio è una risposta migliore del dato di un
+            altro. */}
+        {!fin.id && (
+          <p className="testo-guida" style={{ margin: "0 0 12px" }}>
+            Nessuna società di fatturazione collegata a questa sede. Si crea
+            compilando P. IVA e dati di fatturazione con ✎ Modifica: se quella
+            P. IVA è già di una società del registro, la sede ci si collega
+            invece di crearne una gemella.
+          </p>
+        )}
         {/* Il gruppo di pagamento è una risposta a «chi paga»: quando c'è, va
             letta prima dell'IBAN, non cercata in mezzo agli altri campi. */}
         {fin.gruppoPagamento && (
           <p className="avviso-pagamento">
             <strong>Pagamento centralizzato:</strong> paga <strong>{fin.gruppoPagamento}</strong> per
-            tutte le sedi dell&apos;insegna — le singole sedi non si fatturano separatamente.
+            tutte le sedi di <strong>{fin.ragioneSociale}</strong> — quelle sedi non si fatturano
+            separatamente.
           </p>
         )}
         {[p.ragioneSociale, fin.pIva, fin.codiceFiscale, fin.pec, fin.codiceSdi, fin.iban,
