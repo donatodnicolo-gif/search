@@ -19,12 +19,23 @@
 | Data | App | Segnalazione | Fonte |
 |---|---|---|---|
 | 27/08 | search-supplier | Propagare i token v1.4 (inline in `index.html:9-22`, si sviluppa su `main`: da fare in una sessione su quel branch) | custode |
-| 27/08 | Scout | Migrare `lib/theme.ts` ai token DS **rinominando prima le chiavi in collisione** (`spacing.md` 16≠12) — mai swap secco (Libro cap. 12) | custode |
-| 27/08 | scoutwt | Allineare la copia del DS in `scoutwt/deluxy-design-system` alla v1.4 (oggi ferma alla 1.3) e valutare se copiarvi il Libro (repo PUBBLICO) | custode |
+| 27/08 | Scout | Migrazione COMPLETA di `lib/theme.ts` ai token DS (rinominando le chiavi in collisione `spacing.md` 16≠12 — mai swap secco). Fatta la parte ADDITIVA sicura (token nuovi + hex→token); lo swap dell'import resta | custode |
+| 27/08 | scoutwt/DS | Allineare la copia del DS in `scoutwt/deluxy-design-system` alla v1.4 (oggi 1.3) — bassa priorità: le app hanno già la loro copia dei token a v1.4 | custode |
+| 27/08 | Calendario | Un errore DB reso dentro `.vuoto` (page.tsx:187) = «fallimento = lista vuota» (Libro cap.6, legge 9): serve una card d'errore con «Riprova» | passata UX |
+| 27/08 | Anagrafiche | Drawer mobile: aggiungere focus-trap + ritorno del focus; ridurre il padding pagina mobile (40/24) | passata UX |
 
 ## Decise
 
 | Data | App | Segnalazione | Esito |
 |---|---|---|---|
-| 27/08 | tutte | Nasce il Libro UX&UI: ~140 divergenze censite su 10 app, giuria a 3 lenti + revisione ostile | Libro v1.0 + DS v1.4 + piano P0/P1/P2 (Libro, Appendice B); i 3 P0 lanciati come task |
-| 27/08 | 10 app web | Copie `tokens.css` ferme alla v1.0 | Propagata la v1.4 a hub, partner, tasks, fondo, anagrafiche, mail, crm, personale, acquisti, calendario + token v1.4 aggiunti a `platform-next/web/styles.css` |
+| 27/08 | tutte | Nasce il Libro UX&UI: ~140 divergenze censite su 10 app, giuria a 3 lenti + revisione ostile | Libro v1.0 + DS v1.4 + piano P0/P1/P2 (Libro, Appendice B) |
+| 27/08 | 10 app web | Copie `tokens.css` ferme alla v1.0 | Propagata la v1.4 + token v1.4 in `platform-next/web/styles.css` |
+| 27/08 | **Hub** | Adeguamento P0/P1/P2 | focus oro, tabella sticky, empty-state, conferma elimina utente, loading+SubmitButton, asterischi rossi, login raggruppato, responsive; **+ drawer laterale mobile** (hamburger+scrim). tsc+build ✓, pushato |
+| 27/08 | **Fondo** | Adeguamento | bug `.tabella` inesistente (3 tabelle Tips), nav attiva, badge alla formula, empty+loading, th sticky, prima @media a 900; deroghe annotate. tsc+build ✓, pushato |
+| 27/08 | **Tasks** | Adeguamento | focus, badge, errori inline per-campo, «Archivia» con conferma+vista Ripristino, logout, empty+loading. tsc+build ✓, pushato |
+| 27/08 | **Piattaforma** | Adeguamento | 8 `.page-header` rotti definiti, `.error-card`/`.ok-card` mancanti, **mappa stati unica** (`stati-consegna.ts`: not_delivered rossa ovunque), oro→orange, sidebar collassata mostra logo+logout. ng build ✓, pushato |
+| 27/08 | **Finance** | Adeguamento | bug sidebar mobile (style inline), conferma narrativa sugli 8 delete nudi, empty con azione, loading, PartnerForm in sezioni. tsc+build ✓, pushato |
+| 27/08 | **AI Mail** (scoutwt) | Adeguamento | classi bottone rotte, token fantasma, voci nav con query, icone nav, login raggruppato+footnote, toast alla formula. tsc+build ✓. scoutwt `scout-ui` pushato (no deploy) |
+| 27/08 | **Anagrafiche** (scoutwt) | Adeguamento | focus oro, badge alla formula, th sticky, asterischi rossi, empty+loading, **navigazione mobile (drawer)**. tsc+build ✓. scoutwt pushato |
+| 27/08 | **Scout** (scoutwt) | Adeguamento conservativo | StatusBar bug, palette-ombra badge→token semantici, bersagli 44px, oro→stato, login radius; token additivi (no swap). tsc ✓. scoutwt pushato **+ deploy web in produzione** (deluxy-scout.vercel.app) |
+| 27/08 | **CRM · Personale · Acquisti · Calendario** | Passata UX | focus oro, :focus-visible, asterischi rossi, loading, badge/titolo dove divergevano; molte già conformi post-token. tsc ✓ (build ✓ Acquisti). Le prime 3 pushate; Calendario gitignorata (locale) |
