@@ -70,9 +70,79 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 27 agosto 2026, sera — REVISIONE DI SICUREZZA (mass assignment, escalation ad admin, porte senza @Roles, forza bruta, intestazioni, tracking pubblico). Restano aperti: negare-per-default sul guard, scope sulle chiavi app, token di conferma separato da quello di monitoraggio.
+**Ultimo aggiornamento:** 28 agosto 2026 — chiavi app generabili dall'app (Configurazione → Chiavi delle app), con SCADENZA. Prima: revisione di sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app (la scadenza c'è), token di conferma separato da quello di monitoraggio.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### 🔑 28/08/2026 — Le chiavi delle altre app si generano DALL'APP
+
+Chiesto dall'utente: poter generare dall'app le chiavi con cui le altre app
+chiamano questa, in lettura e/o scrittura. Prima si creavano solo da riga di
+comando (scripts/crea-chiave-app.mjs): in pratica le creava chi aveva il repo
+aperto.
+
+Nuova schermata Configurazione -> Chiavi delle app (solo ADMIN: una chiave app
+scavalca i ruoli dell'applicazione). Rotte /api/v1/chiavi-app: elenco,
+generazione, rigenerazione, accendi/spegni, elimina.
+
+⚠️ LA REGOLA: la chiave in chiaro esiste per un ISTANTE. Si genera, si mostra
+UNA volta nella risposta della creazione, e in archivio resta solo il suo
+SHA-256. Non c'e' nessuna rotta che la rilegga - non per dimenticanza: una
+chiave rileggibile vive nei log, nelle cache del browser e nelle schermate. Chi
+la perde ne rigenera un'altra, sono dieci secondi. Il pannello che la mostra
+resta a schermo finche' non lo si chiude apposta: uno che sparisce da solo
+farebbe perdere un valore che non torna.
+
+⭐ SCADENZA, che prima non esisteva. Era uno dei tre punti aperti della
+revisione di sicurezza: una chiave consegnata una volta valeva per sempre, e
+una chiave che nessuno ritira e' una porta che nessuno chiude. Si verifica a
+OGNI chiamata, non alla creazione, e il messaggio dice SCADUTA - non «non
+valida» - perche' chi la usa deve sapere che cosa chiedere invece di
+ricontrollare di aver copiato bene.
+
+⚠️ La scadenza si prende a FINE giornata: new Date('2026-12-31') e' mezzanotte
+UTC, cioe' le 01:00 in Italia, e una chiave «valida fino al 31/12» sarebbe
+morta il 31 all'una di notte.
+
+Nell'elenco si dichiara anche quello che serve a DECIDERE: lo stato calcolato
+(una chiave attiva con la scadenza passata e' spenta di fatto, e mostrarla
+attiva farebbe cercare il guasto dalla parte sbagliata) e da quanti giorni non
+la chiama nessuno - una chiave viva che nessuno usa da mesi e' una porta aperta
+senza motivo, e la sola data dell'ultimo uso non lo fa notare.
+
+⚠️ IL PERMESSO DI SCRITTURA E' DIVENTATO UN GUARD. Stava dentro il gestore, e i
+pipe girano PRIMA dei gestori: una chiave di sola lettura che mandava un corpo
+imperfetto riceveva un 400 SUI NOMI DEI CAMPI, non il rifiuto del permesso. Il
+rifiuto c'era comunque - niente veniva scritto - ma chi lo leggeva capiva la
+cosa sbagliata, e una prova automatica non poteva distinguere «respinto» da
+«non ci sono arrivato». Adesso il motivo vero arriva per primo.
+
+MISURATO sull'api locale contro il database vero
+(scripts/prova-chiavi-app.mjs, chiave usa-e-getta poi cancellata; il valore in
+chiaro non viene mai stampato, solo la sua FORMA):
+
+- un VALET su /chiavi-app: 403; l'admin: 200; l'impronta NON esce nell'elenco;
+- generata: dxp_ + 43 caratteri; in archivio c'e' solo l'impronta; non si puo'
+  rileggere;
+- funziona davvero: GET /app/consegne 200; POST con corpo VALIDO 401 «Questa
+  chiave e' di sola lettura», e ZERO consegne nate;
+- i rifiuti: nome gia' preso 409, nome con spazi e maiuscole 400, scadenza gia'
+  passata 400 - tutti col motivo;
+- scadenza passata: 401 «Chiave API scaduta il …», e l'elenco la dichiara;
+- rigenerata: la vecchia 401, la nuova 200;
+- spenta: 401; eliminata: sparita dall'archivio.
+
+⚠️ La prima corsa della prova diceva 400 sul permesso di scrittura e sembrava
+un rifiuto: era la validazione del corpo, con i nomi dei campi sbagliati nella
+prova stessa. Corretti i nomi (sono quelli di CreateDeliveryDto) ED e' emerso
+il difetto vero dell'ordine guard/pipe.
+
+In archivio ci sono gia' due chiavi vive: deluxy-orders e deluxy-budgets,
+entrambe di sola lettura, entrambe usate oggi.
+
+Typecheck api pulito, build web pulita.
+
+Deploy `delivery-fyzrfygmj`.
 
 ### 🔒 27/08/2026 (sera) — REVISIONE DI SICUREZZA: tre cacciatori, un ostile, e le toppe rifatte
 

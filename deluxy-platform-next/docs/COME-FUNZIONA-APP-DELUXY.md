@@ -475,6 +475,19 @@ Tutte le **formule di prezzo** sono centralizzate nel modulo **`api/src/calculat
 - **Convenzioni note**: il valet è "expert" (es. `/api/experts/delivery/experts`); i codici piattaforma vendita sono `shopifysale`, `cakesales`, `businesssales`, `flowerssales`, `deluxyexperiencesales`, `deluxydotcomsales`; gli stati consegna sono `created`, `assigned`, `delivering`, `inPreparation`, `accepted`, `requestCancellation` (+`delivered`, `notDelivered`, `cancelled` in storico); i tipi servizio sono `sales`, `hourlyrate`, `fixedprice`, `corporate`, `warehouseservice`.
 - **API key partner** (WooCommerce) generabile in autonomia dalla scheda partner; garantisce l'accesso alle API di invio ordini.
 
+### Chiavi delle app (`/api-keys`) **[NUOVO 28/08/2026]**
+
+**Configurazione → Chiavi delle app**, solo **Admin**: le chiavi con cui le *altre app di Deluxy* (Orders, Budgets, Customer Service, Scout…) chiamano questa piattaforma sul canale `/api/v1/app/*`, presentandosi con l'intestazione `x-api-key`.
+
+- **Due livelli**: *sola lettura* (consegne, vendite, costi) oppure *lettura e scrittura* (può anche **creare consegne**).
+- ⚠️ **Il valore si vede una volta sola**, subito dopo la generazione: in archivio resta solo l'impronta SHA-256, e **nessuna rotta lo rilegge**. Chi la perde **rigenera**.
+- **Rigenera** dà una chiave nuova alla stessa app: la vecchia smette di funzionare **all'istante**, quindi l'app va aggiornata subito.
+- **Scadenza** facoltativa (vuota = non scade), verificata **a ogni chiamata**. Una chiave scaduta risponde `401` dicendo *scaduta*, non *non valida*.
+- L'elenco mostra **da quanti giorni non la usa nessuno**: una chiave viva che nessuno chiama è una porta aperta senza motivo.
+- **Spegni/Accendi** senza cancellare, ed **Elimina** definitivo.
+
+⚠️ Le chiavi **non hanno ancora uno scope per rotta**: una chiave di sola lettura legge *tutto* il canale app, compresi nome, indirizzo e telefono dei destinatari. È un punto aperto dichiarato nell'handoff.
+
 ## 9. Piano di modernizzazione (staging)
 
 - **Problema**: Node.js v12 e Angular datati — dipendenze deprecate, difficoltà a integrare strumenti moderni, manutenzione rischiosa.
