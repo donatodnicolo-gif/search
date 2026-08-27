@@ -101,6 +101,13 @@ export class ReceiptsService {
 
 @ApiTags('receipts')
 @ApiBearerAuth()
+// ⚠️ Il guard dei ruoli, SENZA `@Roles`, lascia passare chiunque sia
+// autenticato (roles.guard.ts). Qui non c'era: un PARTNER leggeva il denaro
+// dei VALET. Misurato il 27/08/2026 con un token vero di partner —
+// /receipts 160,8 KB, /payments 238,4 KB, /salaries/pending 40 KB, e il recap
+// paghe di un valet qualsiasi rispondeva 200. I ruoli sono gli stessi che il
+// frontend applica alle pagine corrispondenti (app.routes.ts).
+@Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
 @Controller('receipts')
 export class ReceiptsController {
   constructor(private readonly receiptsService: ReceiptsService) {}
