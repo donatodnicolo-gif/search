@@ -106,8 +106,18 @@ const DETTAGLIO_TESTI: Record<string, { titolo: string; vuoto: string; cta: stri
   },
 };
 
+/**
+ * ⚠️ ABBREVIATO, perché queste cifre stanno in tessere da ~78px sul telefono
+ * (27/08/2026). Prima era `toLocaleString` per esteso: «€ 12.345,67» chiede
+ * ~82px e la tessera ne dà 78, quindi con `numberOfLines={1}` le ultime cifre
+ * sparivano dietro i puntini — un importo troncato è peggio di un importo
+ * arrotondato, perché sembra ancora un importo esatto.
+ */
 function euro(n: number): string {
-  return `€ ${n.toLocaleString('it-IT')}`;
+  if (Math.abs(n) >= 1000) {
+    return `€ ${(n / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 })}k`;
+  }
+  return `€ ${n.toLocaleString('it-IT', { maximumFractionDigits: 0 })}`;
 }
 
 export default function Oggi() {
@@ -410,8 +420,8 @@ export default function Oggi() {
 
       {/* I numeri della settimana: sto seminando abbastanza in ogni canale? */}
       <View style={styles.kpiRow}>
-        <Kpi label="Visite 7g" valore={String(visite7g.length)} icona="walk-outline" onPress={() => setDettaglio('visite')} />
-        <Kpi label="Chiamate 7g" valore={String(chiamate7g.length)} icona="call-outline" onPress={() => setDettaglio('chiamate')} />
+        <Kpi label="Visite" valore={String(visite7g.length)} icona="walk-outline" onPress={() => setDettaglio('visite')} />
+        <Kpi label="Chiamate" valore={String(chiamate7g.length)} icona="call-outline" onPress={() => setDettaglio('chiamate')} />
         <Kpi label="Trattative" valore={String(aperteMie.length)} icona="briefcase-outline" onPress={() => setDettaglio('trattative')} />
         <Kpi label="Pipeline" valore={euro(pipeline)} icona="trending-up-outline" stretta onPress={() => setDettaglio('pipeline')} />
       </View>
@@ -807,7 +817,9 @@ const styles = StyleSheet.create({
   rigaTitolo: { flex: 1, color: colors.testo, fontWeight: '700', fontSize: 14 },
   rigaSotto: { color: colors.testoSoft, fontSize: 12 },
   rigaMeta: { color: colors.testoSoft, fontSize: 12, maxWidth: 150, textAlign: 'right' },
-  chiudiRichiamo: { padding: 4, marginLeft: 2 },
+  // Il bersaglio vero: hitSlop non vale sul web, e questa x sta in una riga
+  // che apre la scheda del negozio — mancarla porta da un'altra parte.
+  chiudiRichiamo: { padding: 10 },
   kpiPremuta: { backgroundColor: colors.fill },
   velo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: spacing.md },
   foglio: {

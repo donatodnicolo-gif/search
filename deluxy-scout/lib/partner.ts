@@ -67,6 +67,8 @@ export async function creaProformaDaRichiesta(r: {
    * usa il template predefinito.
    */
   brand?: string | null;
+  /** L intestazione con cui emetterlo: la possiede Scout, viaggia col documento. */
+  intestazione?: unknown;
 }): Promise<ProformaCreata> {
   const descrizione = r.causale?.trim() || `Incasso ${r.cliente}`;
   const imponibile = Math.round((r.importo / 1.22) * 100) / 100;
@@ -76,6 +78,7 @@ export async function creaProformaDaRichiesta(r: {
     oggetto: descrizione,
     scadenza: r.scadenza ?? undefined,
     brand: r.brand ?? undefined,
+    intestazione: r.intestazione ?? undefined,
     righe: [{ descrizione, prezzoUnitario: imponibile, aliquotaIva: 22 }],
   });
 }

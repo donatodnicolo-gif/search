@@ -105,6 +105,12 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     voci: [
       { name: 'preventivi', label: 'Preventivi fornitori', icon: 'calculator-outline' },
       { name: 'forniture', label: 'Forniture', icon: 'cube-outline' },
+      // ⭐ 27/08/2026 — i TEMPLATE delle pro-forme abitano in Scout (decisione
+      // dell'utente: «Scout sarà l'owner dei template, a Finance vengono
+      // comunicate solo le pro-forme»). Stanno accanto ai documenti che
+      // intestano, non fra gli Strumenti: chi vede una pro-forma con
+      // l'intestazione sbagliata cerca da dove esce, e la cerca qui.
+      { name: 'template-documenti', label: 'Template pro-forma', icon: 'document-text-outline' },
     ],
   },
   {
@@ -428,6 +434,7 @@ export default function AppLayout() {
         <Drawer.Screen name="sequenze" options={{ title: 'Sequenze' }} />
         <Drawer.Screen name="preventivi" options={{ title: 'Preventivi fornitori' }} />
         <Drawer.Screen name="forniture" options={{ title: 'Forniture' }} />
+        <Drawer.Screen name="template-documenti" options={{ title: 'Template pro-forma' }} />
         <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
         <Drawer.Screen name="fornitori" options={{ title: 'Fornitori' }} />
         <Drawer.Screen name="richieste-clienti" options={{ title: 'Richieste Clienti' }} />

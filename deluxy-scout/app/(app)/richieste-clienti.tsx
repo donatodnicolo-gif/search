@@ -190,12 +190,25 @@ export default function RichiesteClienti() {
 
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return righe.filter((r) => {
+    const filtrate = righe.filter((r) => {
       if (vistaDiRichiesta(r.stato) !== vista) return false;
       if (!q) return true;
       return [r.cliente, r.descrizione, r.nota, r.proforma_numero, r.preventivo_numero]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
+    });
+    // ⚠️ PRIMA QUELLE CHE SCADONO PRIMA (27/08/2026). La tabella parte ordinata
+    // per «serve entro» — perché è quello l'ordine giusto per lavorarle — ma il
+    // ramo a SCHEDE, cioè il telefono, mostrava l'ordine del database
+    // (inserimento, dal più recente): dal telefono la richiesta che scade
+    // domani stava in fondo, e lì non c'è nessuna intestazione da toccare per
+    // riordinare. Ora i due rami partono uguali.
+    // Chi non ha una data va in fondo: «non lo so» non è «scade fra molto».
+    return [...filtrate].sort((a, b) => {
+      if (a.serve_entro === b.serve_entro) return 0;
+      if (!a.serve_entro) return 1;
+      if (!b.serve_entro) return -1;
+      return a.serve_entro < b.serve_entro ? -1 : 1;
     });
   }, [righe, vista, query]);
 

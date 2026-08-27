@@ -16,6 +16,8 @@
 // va detto — non è la stessa cosa di un ordine non creato, e mandare a cercare
 // nel posto sbagliato costa più del guasto.
 import { collegaDocumentoAOrdine } from '@/lib/db';
+import { brandDi } from '@/types';
+import { intestazionePerBrand } from '@/lib/template-documento';
 import { creaProformaDaRichiesta } from '@/lib/partner';
 
 export interface EsitoProforma {
@@ -52,12 +54,23 @@ export async function emettiProformaPerOrdine(o: {
     };
   }
   try {
+    // ⚠️ L'INTESTAZIONE VIAGGIA COL DOCUMENTO: i template sono di Scout, e di
+    // là viene salvata sul documento come fotografia. Se non c'è (nessun
+    // template configurato) si manda null e FINANCE usa la sua intestazione
+    // generale, come ha sempre fatto — non si blocca l'emissione per una
+    // configurazione che non è ancora stata fatta.
+    const intestazione = await intestazionePerBrand(brandDi(o)).catch(() => null);
     const pf = await creaProformaDaRichiesta({
       cliente: o.cliente,
       importo: o.importo,
       causale: o.causale ?? null,
       scadenza: o.scadenza ?? null,
-      brand: o.brand ?? null,
+      // ⚠️ Il default sta in `brandDi`, una volta sola: chi non ha scelto
+      // vende come Deluxy. Mandare null vorrebbe dire «usa il predefinito di
+      // FINANCE», che è un altro pezzo di configurazione e può cambiare senza
+      // che questa app lo sappia.
+      brand: brandDi(o),
+      intestazione,
     });
     await collegaDocumentoAOrdine(o.ordineId, { proformaNumero: pf.riferimento, proformaUrl: pf.url });
     return { emessa: true, riferimento: pf.riferimento, url: pf.url, perche: null };

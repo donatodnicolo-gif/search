@@ -962,7 +962,10 @@ const styles = StyleSheet.create({
   prevMeta: { color: colors.testoSoft, fontSize: 12 },
   prevFonte: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   prevAzioni: { flexDirection: 'row', gap: spacing.md, marginTop: 2 },
-  prevAzione: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
+  // ⚠️ Il bersaglio è il PADDING, non hitSlop: react-native-web scarta
+  // hitSlop, quindi «Scegli questo» ed «Elimina» erano alti quanto la riga di
+  // testo (~15px). Il padding vale su web e su telefono.
+  prevAzione: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, color: colors.testo, fontWeight: '700', fontSize: 12.5 },
   aggiungi: { gap: 8, backgroundColor: colors.sfondo, borderRadius: radius.md, padding: spacing.sm },
   aggiungiTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
   aggiungiNota: { color: colors.grigio, fontSize: 11.5, lineHeight: 16 },

@@ -372,6 +372,22 @@ export const CANALI: { valore: CanaleTrattativa; label: string }[] = [
 ];
 
 // Ordine: il punto d'arrivo del funnel — cosa abbiamo chiuso davvero.
+/**
+ * LE INSEGNE con cui il gruppo vende. Decidono l'INTESTAZIONE del documento in
+ * FINANCE (logo, dati societari, IBAN): un cliente di Cake Design non deve
+ * ricevere un foglio intestato Deluxy.
+ *
+ * ⚠️ Il default è il primo: chi non sceglie vende come Deluxy, che è il caso
+ * di gran lunga più frequente.
+ */
+export const BRAND = ['deluxy.it', 'deluxyflowers.com', 'cakedesign.me'] as const;
+export type Brand = (typeof BRAND)[number];
+export const BRAND_DEFAULT: Brand = 'deluxy.it';
+/** L'insegna di una vendita, col default applicato in un posto solo. */
+export function brandDi(v: { brand?: string | null } | null | undefined): string {
+  return (v?.brand ?? '').trim() || BRAND_DEFAULT;
+}
+
 export interface Ordine {
   id: string;
   deal_id: string | null;
@@ -386,6 +402,8 @@ export interface Ordine {
   owner: string | null;
   /** La richiesta cliente da cui nasce, se viene da lì (migr. 0075). */
   richiesta_id?: string | null;
+  /** Con quale insegna si vende (migr. 0078). Null = deluxy.it. */
+  brand?: string | null;
   /** I documenti di FINANCE: solo il riferimento, mai una copia degli importi. */
   proforma_numero?: string | null;
   proforma_url?: string | null;

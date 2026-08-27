@@ -371,7 +371,8 @@ export default function Trattative() {
   const intestazione = (
           <View style={styles.headerScroll}>
         <PageIntro testo="Le trattative in corso raggruppate per negozio, da Scout, HubSpot e registro Anagrafiche. Tocca una trattativa per modificarla." />
-        <View style={[styles.head, contenutoCentrato]}>
+        {/* L'intestazione segue la larghezza dell'elenco: vedi ordini.tsx. */}
+        <View style={[styles.head, aTabella ? contenutoLargo : contenutoCentrato]}>
           {/* IL SOPRA-MENÙ: aperte, vinte, perse. Sempre a schermo — è la prima
               domanda di chi arriva qui, e stava dentro un pannello chiuso. */}
           <View style={styles.viste}>
@@ -681,7 +682,7 @@ function RigaDeal({
         {onOrdine && !annullata && deal.fase !== 'closedlost' && deal.valore_atteso ? (
           <Pressable
             hitSlop={8}
-            style={{ marginLeft: 8 }}
+            style={styles.iconaAzione}
             onPress={(e: any) => {
               e?.stopPropagation?.();
               onOrdine();
@@ -696,7 +697,7 @@ function RigaDeal({
           <>
             <Pressable
               hitSlop={8}
-              style={{ marginLeft: 8 }}
+              style={styles.iconaAzione}
               onPress={(e: any) => {
                 e?.stopPropagation?.();
                 onRipristina?.();
@@ -708,7 +709,7 @@ function RigaDeal({
             </Pressable>
             <Pressable
               hitSlop={8}
-              style={{ marginLeft: 6 }}
+              style={styles.iconaAzione}
               onPress={(e: any) => {
                 e?.stopPropagation?.();
                 onCancella?.();
@@ -722,7 +723,7 @@ function RigaDeal({
         ) : suoDiScout ? (
           <Pressable
             hitSlop={8}
-            style={{ marginLeft: 8 }}
+            style={styles.iconaAzione}
             onPress={(e: any) => {
               // ⚠️ Senza fermare l'evento, il tocco arriva anche alla scheda
               // sotto: si aprirebbe il form insieme alla domanda.
@@ -1279,6 +1280,11 @@ function TrattativaModal({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
+  // ⚠️ Il bersaglio è il PADDING, non `hitSlop`: react-native-web scarta quella
+  // prop in silenzio, quindi sul sito queste icone-azione erano larghe quanto
+  // il glifo (16px). Il padding vale su web e su telefono, e fa anche da
+  // distanza fra due icone adiacenti — una delle quali cancella per sempre.
+  iconaAzione: { padding: 8, borderRadius: radius.sm },
   head: {
     backgroundColor: colors.sfondo,
     borderBottomWidth: 1,

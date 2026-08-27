@@ -4,7 +4,7 @@
 // larghezza massima: un bottom-sheet steso su un monitor grande è una striscia
 // che mette il titolo a sinistra, la × a destra e due metri di vuoto in mezzo.
 import type { ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, shadow, spacing } from '@/lib/theme';
 
@@ -48,7 +48,26 @@ export function Foglio({
               <Ionicons name="close" size={22} color={colors.testoSoft} />
             </Pressable>
           </View>
-          {children}
+          {/* ⚠️ IL CONTENUTO SCORRE (27/08/2026). Prima i `children` stavano
+              nudi qui dentro, e il foglio ha un tetto d'altezza (88% dello
+              schermo): tutto quello che non ci stava usciva dal bordo e
+              diventava IRRAGGIUNGIBILE — il Modal è `position: fixed`, quindi
+              nemmeno la pagina sotto scorreva. Sul telefono il foglio di
+              modifica di un ordine sforava di ~61px (109 con il negozio
+              collegato): fuori restava per intero il bottone «Salva le
+              modifiche», cioè la schermata non si poteva usare.
+              Sta qui e non nei singoli fogli perché il tetto è di QUESTO
+              componente: metterlo di là voleva dire ricordarselo ogni volta —
+              e infatti quattro fogli su undici se l'erano dimenticato.
+              `keyboardShouldPersistTaps`: senza, il primo tocco su un bottone
+              serve solo a chiudere la tastiera. */}
+          <ScrollView
+            style={styles.corpo}
+            contentContainerStyle={styles.corpoDentro}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -59,7 +78,13 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
   overlayBasso: { justifyContent: 'flex-end' },
   overlayCentro: { justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
-  foglio: { backgroundColor: colors.bianco, padding: spacing.md, gap: 8 },
+  // ⚠️ Il padding sta nel CORPO, non nel foglio: se stesse qui, scorrendo il
+  // contenuto si vedrebbe il bordo inferiore staccarsi dal testo.
+  foglio: { backgroundColor: colors.bianco, paddingHorizontal: spacing.md, paddingTop: spacing.md, gap: 8 },
+  // `flexShrink: 1` è ciò che fa rispettare il tetto d'altezza al corpo:
+  // senza, la View cresce col contenuto e lo scroll non si attiva mai.
+  corpo: { flexShrink: 1 },
+  corpoDentro: { gap: 8, paddingBottom: spacing.md },
   foglioBasso: {
     width: '100%',
     borderTopLeftRadius: radius.lg,

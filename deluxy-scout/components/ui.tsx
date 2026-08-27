@@ -143,6 +143,11 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
+    // ⚠️ Un tetto alla MISURA della riga, non alla larghezza del blocco: dentro
+    // il contenitore delle tabelle l'intro arrivava a 1148px — una riga sola da
+    // 141 caratteri — e su Trattative, dove la lista non ha cap, cresceva col
+    // monitor. Il bordo sinistro resta allineato: cambia solo dove va a capo.
+    maxWidth: 680,
   },
   sectionLabel: {
     color: colors.testoSoft,

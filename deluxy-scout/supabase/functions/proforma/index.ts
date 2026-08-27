@@ -57,6 +57,9 @@ Deno.serve(async (req) => {
           // per brand (logo, dati societari, coordinate di pagamento). Si passa
           // il brand per nome; senza, di là si usa il predefinito.
           brand: body.brand ?? undefined,
+          // L intestazione la possiede Scout: viaggia col documento e di là
+          // viene salvata sul documento come fotografia.
+          intestazione: body.intestazione ?? undefined,
           righe: body.righe,
         }),
       });

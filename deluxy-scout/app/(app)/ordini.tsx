@@ -16,7 +16,7 @@ import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
-import { CANALI, LINEE_ATTIVE } from '@/types';
+import { BRAND, brandDi, CANALI, LINEE_ATTIVE } from '@/types';
 
 const STATI: { valore: OrdineConLuogo['stato']; label: string; colore: string }[] = [
   { valore: 'da_incassare', label: 'Da incassare', colore: '#B7791F' },
@@ -61,6 +61,7 @@ export default function Ordini() {
     valore: string;
     linea: string | null;
     canale: string | null;
+    brand: string | null;
   } | null>(null);
 
   const carica = useCallback(async () => {
@@ -131,12 +132,34 @@ export default function Ordini() {
     {
       chiave: 'cliente',
       label: 'Cliente',
-      flex: 1.2,
+      // ⚠️ Più largo delle altre: è il dato per cui si guarda la riga. Con flex
+      // 1.2 e sette colonne a larghezza fissa gli restavano 82px al cap, e 9px
+      // su un portatile da 1280 — il nome del cliente spariva.
+      flex: 2,
       valore: (o) => o.place_nome ?? o.cliente,
       cella: (o) => (
         <View style={{ gap: 2 }}>
-          <Text style={styles.tabNome} numberOfLines={2}>{o.place_nome ?? o.cliente}</Text>
+          {/* ⭐ IL NOME APRE LA MODIFICA (27/08/2026, richiesta dell'utente).
+              Il resto della riga continua ad aprire la scheda del negozio: sono
+              due cose diverse e adesso hanno due bersagli diversi, invece di
+              costringere a cercare l'icona della matita in fondo alla riga. */}
+          <Pressable
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              apriModifica(o);
+            }}
+            accessibilityLabel={`Modifica l'ordine di ${o.place_nome ?? o.cliente}`}
+            {...({ title: "Modifica l'ordine" } as any)}
+          >
+            <Text style={styles.tabNome} numberOfLines={2}>{o.place_nome ?? o.cliente}</Text>
+          </Pressable>
           {o.descrizione ? <Text style={styles.descr} numberOfLines={1}>{o.descrizione}</Text> : null}
+          {/* Con quale insegna esce il documento. Si scrive solo quando NON è
+              quella di sempre: ripetere «deluxy.it» su ogni riga sarebbe
+              rumore, e ciò che conta è accorgersi delle eccezioni. */}
+          {brandDi(o) !== BRAND[0] ? (
+            <Text style={styles.brandTxt} numberOfLines={1}>{brandDi(o)}</Text>
+          ) : null}
           {/* ⚠️ Il documento sta QUI, sotto il nome, non fra le azioni: è
               un'informazione sull'ordine, non un comando. Nella colonna delle
               azioni rubava lo spazio ai bottoni e li mandava a capo. */}
@@ -243,7 +266,13 @@ export default function Ordini() {
     {
       chiave: 'azioni',
       label: '',
-      width: 268,
+      // ⚠️ Larga quanto i bottoni chiedono davvero (27/08/2026): con 268px il
+      // contenuto (~360) andava a capo, e siccome Fattura e Pro-forma
+      // compaiono solo finché il documento manca, «Incassato» finiva a capo su
+      // certe righe e no su altre — l'occhio non trovava mai il bottone nero
+      // nello stesso posto. Adesso la tabella scorre invece di tagliare, quindi
+      // la colonna può essere della misura giusta.
+      width: 372,
       fissa: true,
       valore: () => null,
       cella: (o) => (
@@ -290,6 +319,7 @@ export default function Ordini() {
               {/* Correggere e annullare sono icone: si usano di rado e non
                   devono rubare spazio alle azioni di tutti i giorni. */}
               <Pressable
+                style={styles.iconaAzione}
                 hitSlop={8}
                 onPress={(e: any) => { e?.stopPropagation?.(); apriModifica(o); }}
                 accessibilityLabel="Modifica l'ordine"
@@ -298,8 +328,9 @@ export default function Ordini() {
                 <Ionicons name="create-outline" size={16} color={colors.grigio} />
               </Pressable>
               <Pressable
+                style={styles.iconaAzione}
                 hitSlop={8}
-                onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'annullato'); }}
+                onPress={(e: any) => { e?.stopPropagation?.(); chiediAnnulla(o); }}
                 accessibilityLabel="Annulla l'ordine"
                 {...({ title: "Annulla l'ordine" } as any)}
               >
@@ -314,6 +345,7 @@ export default function Ordini() {
               {/* ⚠️ Anche un ordine incassato o annullato si corregge: un nome
                   sbagliato resta sbagliato nei conti dell'anno. */}
               <Pressable
+                style={styles.iconaAzione}
                 hitSlop={8}
                 onPress={(e: any) => { e?.stopPropagation?.(); apriModifica(o); }}
                 accessibilityLabel="Modifica l'ordine"
@@ -477,6 +509,7 @@ export default function Ordini() {
       valore: scriviImporto(o.valore),
       linea: o.linea ?? null,
       canale: o.canale ?? null,
+      brand: brandDi(o),
     });
   }
 
@@ -508,6 +541,7 @@ export default function Ordini() {
     if ((bozza.linea ?? null) !== (modificaPer.linea ?? null)) patch.linea = bozza.linea;
     if ((bozza.canale ?? null) !== (modificaPer.canale ?? null))
       patch.canale = bozza.canale as OrdineConLuogo['canale'];
+    if ((bozza.brand ?? null) !== brandDi(modificaPer)) patch.brand = bozza.brand;
     if (!Object.keys(patch).length) {
       setModificaPer(null);
       setBozza(null);
@@ -548,6 +582,23 @@ export default function Ordini() {
     await salva();
   }
 
+  /**
+   * ⚠️ ANNULLARE CHIEDE (27/08/2026). Era l'unico gesto pesante della pagina
+   * senza conferma: partiva dritto da un'icona di 16px che sta a 6px da
+   * «Modifica», l'azione più usata della riga. Tutte le altre operazioni serie
+   * — Fattura, Pro-forma, la modifica di un ordine già fatturato — la conferma
+   * ce l'avevano. Si dice anche che è reversibile: è vero, e sapere che si può
+   * tornare indietro fa parte della decisione.
+   */
+  function chiediAnnulla(o: OrdineConLuogo) {
+    conferma(
+      "Annullare l'ordine?",
+      `${o.cliente} · ${importoBreve(o.valore)}.\n\nEsce dal «Chiuso ${new Date().getFullYear()}» e dal «Da incassare». Si può rimettere in gioco dal bottone «Da incassare».`,
+      () => cambiaStato(o, 'annullato'),
+      { testoConferma: 'Annulla ordine', distruttivo: true },
+    );
+  }
+
   async function cambiaStato(o: OrdineConLuogo, stato: OrdineConLuogo['stato']) {
     try {
       await aggiornaOrdine(o.id, {
@@ -562,7 +613,11 @@ export default function Ordini() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.head, contenutoCentrato]}>
+      {/* ⚠️ L'intestazione segue la LARGHEZZA DELL'ELENCO (27/08/2026): con un
+          cap da 760 sopra una tabella da 1180, entrambi centrati, titolo e
+          filtri partivano 210px dentro il bordo della tabella e sembravano di
+          un altro blocco. È lo schema che Richieste Clienti applicava già. */}
+      <View style={[styles.head, aTabella ? contenutoLargo : contenutoCentrato]}>
         <PageIntro testo="Gli ordini nati dalle trattative vinte. La pipeline dice quanto stai trattando: qui vedi quanto hai chiuso, e cosa resta da incassare." />
         <Text style={styles.sub}>
           Chiuso {new Date().getFullYear()}: <Text style={styles.subForte}>{euro(totali.chiusoAnno)}</Text>
@@ -586,6 +641,26 @@ export default function Ordini() {
       </View>
 
       <FlatList
+        /**
+         * ⚠️ IL TOTALE DEL FILTRO ANCHE SUL TELEFONO (27/08/2026). La riga dei
+         * totali è una prop della tabella, quindi sotto i 900px non c'era
+         * niente: filtrando «Gifting» dal telefono non si vedeva né quante
+         * righe fossero né quanto valessero, mentre da monitor sì. I due numeri
+         * in testa non rispondono a quella domanda — dichiarano un'altra base
+         * (l'anno, e lo stato «da incassare») e non seguono i filtri, ed è
+         * giusto così.
+         */
+        ListHeaderComponent={
+          !aTabella && dati.length ? (
+            <View style={styles.riepilogoMobile}>
+              <Text style={styles.riepilogoTxt}>
+                {dati.length} {dati.length === 1 ? 'ordine' : 'ordini'}
+                {statoFiltro || lineaFiltro ? ' nel filtro' : ''} ·{' '}
+                {importoBreve(dati.reduce((s, o) => s + (o.valore ?? 0), 0))}
+              </Text>
+            </View>
+          ) : null
+        }
         // In tabella la FlatList riceve UNA riga con l'intero elenco.
         data={aTabella ? (dati.length ? [dati] : []) : dati}
         keyExtractor={(o: any) => (aTabella ? 'tabella' : (o as OrdineConLuogo).id)}
@@ -608,6 +683,11 @@ export default function Ordini() {
               colonne={colonne}
               chiaveRiga={(o) => o.id}
               ordineIniziale={{ campo: 'quando', verso: 'desc' }}
+              // Quanto chiede questa tabella: colonne fisse (372+68+104+112+92+82+108
+              // = 938) + gap e chevron + un minimo leggibile per Cliente, Linea e
+              // Fornitore. Sotto questa misura scorre, invece di tagliare la
+              // colonna delle azioni o schiacciare il nome del cliente a 9px.
+              larghezzaMinima={1340}
               onRiga={(o) => o.place_id && router.push(`/(app)/attivita/${o.place_id}`)}
               labelRiga={(o) => `Apri la scheda di ${o.place_nome ?? o.cliente}`}
               /**
@@ -650,7 +730,7 @@ export default function Ordini() {
               return (
                 <View style={styles.card}>
                   <View style={styles.cardHead}>
-                    <Pressable style={{ flex: 1 }} onPress={() => o.place_id && router.push(`/(app)/attivita/${o.place_id}`)}>
+                    <Pressable style={{ flex: 1 }} onPress={() => apriModifica(o)} accessibilityLabel={`Modifica l'ordine di ${o.place_nome ?? o.cliente}`}>
                       <Text numberOfLines={3} style={styles.nome}>{o.place_nome ?? o.cliente}</Text>
                       {o.descrizione ? <Text style={styles.descr} numberOfLines={1}>{o.descrizione}</Text> : null}
                     </Pressable>
@@ -823,6 +903,31 @@ export default function Ordini() {
             ))}
           </View>
 
+          {/* ⭐ CON QUALE INSEGNA SI VENDE (27/08/2026, richiesta dell'utente:
+              «fai indicare anche il brand per cui è la pro-forma, default
+              deluxy»). Non è un'etichetta: decide l'INTESTAZIONE del documento
+              — logo, ragione sociale, IBAN — che FINANCE tiene una per brand.
+              Prima usciva sempre quella predefinita, quindi al cliente di Cake
+              Design arrivava un foglio intestato Deluxy.
+              ⚠️ Non si può togliere: una vendita è sempre di qualcuno. Chi non
+              sceglie resta su Deluxy. */}
+          <Text style={styles.campoLabel}>Brand della pro-forma</Text>
+          <View style={styles.chipsForm}>
+            {BRAND.map((b) => (
+              <Pressable
+                key={b}
+                style={[styles.chip, bozza.brand === b && styles.chipOn]}
+                onPress={() => setBozza({ ...bozza, brand: b })}
+              >
+                <Text style={[styles.chipTxt, bozza.brand === b && styles.chipTxtOn]}>{b}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.campoAiuto}>
+            Decide logo e dati societari del documento. Se la pro-forma è già stata emessa, cambiarlo qui
+            non la rifà: il documento va rifatto da FINANCE.
+          </Text>
+
           <Pressable
             style={[styles.btn, styles.btnLargo, inCorso === modificaPer.id && { opacity: 0.5 }]}
             disabled={inCorso === modificaPer.id}
@@ -913,11 +1018,22 @@ const styles = StyleSheet.create({
   margineNegativo: { color: colors.errore },
   tabValore: { color: colors.testo, fontWeight: '700', fontSize: 13.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  // ⚠️ IL BERSAGLIO È IL PADDING, NON hitSlop (27/08/2026): react-native-web
+  // NON implementa hitSlop — la prop viene scartata in silenzio da View —
+  // quindi sul sito il bersaglio era esattamente il glifo, 16px. hitSlop resta
+  // per iOS/Android, dove funziona; il padding vale su tutte e due.
+  brandTxt: { color: colors.goldStrong, fontSize: 10.5, fontWeight: '700' },
+  riepilogoMobile: { paddingBottom: 8 },
+  riepilogoTxt: { color: colors.testoSoft, fontSize: 12.5, fontWeight: '700' },
+  iconaAzione: { padding: 8, borderRadius: radius.sm },
   tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap', rowGap: 4 },
   // Bottoni piccoli per le azioni secondarie: stessa altezza, meno peso.
   btnMini: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
   btnMiniTxt: { color: colors.testo, fontWeight: '700', fontSize: 11.5 },
-  docChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 3 },
+  // ⚠️ `alignSelf: 'flex-start'` (27/08/2026): senza, il contenitore è
+  // `stretch` e la pillola si stirava a tutta la larghezza — un badge che
+  // diventa una fascia dorata, sia nella scheda sia nella colonna Cliente.
+  docChip: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 3 },
   docChipTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 10.5 },
   percRow: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   percChip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
@@ -938,7 +1054,6 @@ const styles = StyleSheet.create({
   // Sul telefono i bottoni vanno a capo invece di stringersi: quattro azioni
   // su una riga sola diventavano illeggibili.
   azioni: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', rowGap: 6, alignItems: 'center' },
-  docChipCard: { alignSelf: 'flex-start' },
   btn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
   btnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 12.5 },
   btnGhost: { borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 },

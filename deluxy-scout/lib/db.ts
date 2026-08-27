@@ -1455,7 +1455,7 @@ export async function creaOrdineDaDeal(deal: {
 export async function aggiornaOrdine(
   id: string,
   patch: Partial<
-    Pick<Ordine, 'stato' | 'incassato_il' | 'valore' | 'descrizione' | 'cliente' | 'linea' | 'canale'>
+    Pick<Ordine, 'stato' | 'incassato_il' | 'valore' | 'descrizione' | 'cliente' | 'linea' | 'canale' | 'brand'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('ordini').update(patch).eq('id', id);

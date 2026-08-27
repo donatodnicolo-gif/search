@@ -165,6 +165,7 @@ export function TabellaTrattative({
                 — senza importo non c'è un ordine da fare. */}
             {onOrdine && !d.annullata_il && d.fase !== 'closedlost' && d.valore_atteso ? (
               <Pressable
+                style={styles.iconaAzione}
                 hitSlop={8}
                 onPress={(e) => {
                   e?.stopPropagation?.();
@@ -184,6 +185,7 @@ export function TabellaTrattative({
               <>
                 {onRipristina ? (
                   <Pressable
+                    style={styles.iconaAzione}
                     hitSlop={8}
                     onPress={(e: any) => {
                       e?.stopPropagation?.();
@@ -197,6 +199,7 @@ export function TabellaTrattative({
                 ) : null}
                 {onCancella ? (
                   <Pressable
+                    style={styles.iconaAzione}
                     hitSlop={8}
                     onPress={(e: any) => {
                       e?.stopPropagation?.();
@@ -211,6 +214,7 @@ export function TabellaTrattative({
               </>
             ) : onElimina && d.origine !== 'hubspot' && d.origine !== 'anagrafiche' ? (
               <Pressable
+                style={styles.iconaAzione}
                 hitSlop={8}
                 onPress={(e: any) => {
                   e?.stopPropagation?.();
@@ -283,6 +287,9 @@ const styles = StyleSheet.create({
   cellaAzione: { flex: 1.2, minWidth: 0, color: colors.testoSoft, fontSize: 12.5, lineHeight: 16 },
   // Le azioni: larghezza fissa e allineate a destra, così la riga finisce
   // sempre nello stesso punto — con tre icone o con nessuna.
+  // ⚠️ Il bersaglio è il PADDING, non hitSlop: react-native-web lo scarta in
+  // silenzio, quindi sul sito queste icone erano bersagli da 15px.
+  iconaAzione: { padding: 8, borderRadius: radius.sm },
   colAzioni: { width: 84, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   cellaScaduta: { color: colors.errore, fontWeight: '700' },
 });

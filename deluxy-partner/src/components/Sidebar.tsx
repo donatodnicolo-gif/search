@@ -130,9 +130,6 @@ const sections: { label: string; items: Item[] }[] = [
     items: [
       { href: "/registrazioni/fatture", label: "Fatture", icon: icons.fattura },
       { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
-      // I template stanno accanto ai documenti, non in Impostazioni: chi guarda
-      // una pro-forma sbagliata cerca da dove esce quell'intestazione qui.
-      { href: "/template", label: "Template documenti", icon: icons.impostazioni },
       { href: "/registrazioni/riconciliazione", label: "Riconciliazione clienti", icon: icons.confronti },
     ],
   },

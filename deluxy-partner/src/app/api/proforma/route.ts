@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { chiaveApiValida, appOrigine, ipRichiesta } from "@/lib/apiauth";
 import { totaliProForma, rifProForma } from "@/lib/proforma";
-import { risolviTemplate } from "@/lib/template-documento";
+import { leggiIntestazione } from "@/lib/intestazione";
 
 // API pubblica: i documenti che precedono la fattura, per gli altri progetti
 // Deluxy. Sono DUE, distinti da `tipo` (26/08/2026):
@@ -210,9 +210,8 @@ export async function POST(req: NextRequest) {
     validoFino?: string;
     oggetto?: string;
     note?: string;
-    /** Con quale intestazione emetterlo: brand o nome del template. */
-    template?: string;
-    brand?: string;
+    /** L intestazione con cui emetterlo: la manda chi possiede i template. */
+    intestazione?: unknown;
     righe?: { descrizione?: string; quantita?: number; prezzoUnitario?: number; aliquotaIva?: number }[];
   };
   try {
@@ -260,31 +259,12 @@ export async function POST(req: NextRequest) {
   // non sanno che esista una scelta.
   const tipo = body.tipo?.trim() === "preventivo" ? "preventivo" : "proforma";
 
-  // ⚠️ CON QUALE INTESTAZIONE (27/08/2026). Chi chiama può dire il BRAND o il
-  // nome del template — «emetti con l'intestazione di cakedesign.me» — e non
-  // deve conoscere nessun codice interno. Se non lo dice si usa il predefinito;
-  // se non c'è nemmeno quello, il documento esce con l'intestazione generale,
-  // come ha sempre fatto.
-  //
-  // Un brand che NON esiste non si ignora in silenzio: si risponde 404. Chiedere
-  // un'intestazione e vedersene uscire un'altra è peggio di un rifiuto — il
-  // documento è già partito verso il cliente quando ce ne si accorge.
-  const rifTemplate = (body.template ?? body.brand)?.trim() || null;
-  const tpl = await risolviTemplate(rifTemplate);
-  if (rifTemplate && !tpl.trovato) {
-    await log(req, `${tipo} per ${partner.nome}`, "non_trovato", `template «${rifTemplate}» inesistente`);
-    const noti = await prisma.templateDocumento.findMany({
-      where: { attivo: true },
-      select: { nome: true, brand: true },
-    });
-    return NextResponse.json(
-      {
-        errore: `Non esiste un template «${rifTemplate}».`,
-        template: noti.map((t) => t.brand ?? t.nome),
-      },
-      { status: 404 },
-    );
-  }
+  // ⚠️ L INTESTAZIONE ARRIVA COL DOCUMENTO e ci resta sopra (27/08/2026):
+  // FINANCE non possiede i template, li possiede Scout. Quello che si salva qui
+  // è una FOTOGRAFIA — un documento gia mandato al cliente non deve cambiare
+  // aspetto perché qualcuno ha ritoccato il template mesi dopo. Senza, si usa
+  // l intestazione generale delle Impostazioni, come da sempre.
+  const intestazione = leggiIntestazione(body.intestazione);
 
   // numerazione progressiva per anno **e per tipo** (PV 1/2026 e PF 1/2026
   // convivono); in caso di collisione fra creazioni concorrenti si ritenta.
@@ -305,7 +285,7 @@ export async function POST(req: NextRequest) {
           validoFino: tipo === "preventivo" ? parseData(body.validoFino) : null,
           oggetto: body.oggetto?.trim() || null,
           note: body.note?.trim() || null,
-          templateId: tpl.id,
+          intestazione: intestazione ? JSON.parse(JSON.stringify(intestazione)) : undefined,
           righe: { create: righe },
         },
         include: { partner: true, righe: true },

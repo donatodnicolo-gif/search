@@ -5,8 +5,7 @@ import { euro, dataIt, pctIt } from "@/lib/format";
 import { totaliProForma, importoRiga, rifProForma, statiDi } from "@/lib/proforma";
 import { cambiaStatoProForma, deleteProForma } from "@/lib/proforma-actions";
 import { StampaButton } from "@/components/StampaButton";
-import { intestazionePerDocumento } from "@/lib/template-documento";
-import { DISCLAIMER_PREVENTIVO, DISCLAIMER_PROFORMA } from "@/lib/documento-costanti";
+import { intestazioneDaMostrare } from "@/lib/intestazione";
 
 export const dynamic = "force-dynamic";
 
@@ -42,12 +41,12 @@ export default async function ProFormaDetail({
   // (27/08/2026): logo e dati societari del brand con cui è stato emesso.
   // Senza template si torna alle quattro righe generali di sempre — chi non usa
   // i template non vede cambiare niente.
-  const ii = await intestazionePerDocumento(pf.templateId);
+  const ii = await intestazioneDaMostrare(pf.intestazione, preventivo);
   const intestazione = ii.ragioneSociale;
   const indirizzo = ii.indirizzo;
   const piva = ii.piva;
   const contatti = ii.contatti;
-  const disclaimer = ii.disclaimer || (preventivo ? DISCLAIMER_PREVENTIVO : DISCLAIMER_PROFORMA);
+  const disclaimer = ii.disclaimer;
 
   return (
     <>
