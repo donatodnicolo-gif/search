@@ -17,6 +17,7 @@ import { avvisa, conferma } from '@/lib/dialoghi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CampoData } from '@/components/CampoData';
 import { SceltaFornitore, type FornitoreScelto } from '@/components/SceltaFornitore';
+import { salvaNelListino } from '@/lib/forniture';
 import { urlMessaggioAiMail } from '@/lib/aimail';
 import {
   cercaPlaces,
@@ -211,6 +212,18 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
    */
   const [unita, setUnita] = useState<'pezzi' | 'giorni' | 'ore' | null>(null);
   const [quanti, setQuanti] = useState('');
+  /**
+   * ⭐ IL PONTE VERSO IL LISTINO (27/08/2026, «sistema il buco»).
+   *
+   * Fin qui un prezzo ricevuto restava attaccato a un solo lavoro, e la volta
+   * dopo si ricominciava da capo — proprio il problema che le Forniture erano
+   * nate per risolvere. Ora si può portare nel listino con una spunta.
+   *
+   * ⚠️ ACCESA di default quando c'è un prezzo, ma sempre togliibile: metà dei
+   * preventivi sono una tantum. Il default acceso è una scelta — una spunta
+   * spenta che nessuno accende lascia il buco esattamente dov'era.
+   */
+  const [alListino, setAlListino] = useState(true);
 
   /**
    * Il conto, calcolato UNA VOLTA e usato sia per mostrarlo sia per salvarlo.
@@ -368,6 +381,24 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
           quantita: contoUnitario ? contoUnitario.quanti : null,
           unita: contoUnitario ? unita : null,
         });
+        // Il ponte verso il listino. ⚠️ Best-effort e con il suo catch: se il
+        // listino non accetta la riga, il preventivo resta salvato — spegnere
+        // il lavoro appena creato per un doppione nel listino sarebbe perdere
+        // la cosa importante per salvare quella comoda.
+        if (alListino) {
+          await salvaNelListino({
+            fornitore: fornitore.nome,
+            fornitoreAnagraficheId: fornitore.anagraficheId,
+            titolo,
+            descrizione: descrizione.trim() || null,
+            linea: venditaScelta.linea ?? null,
+            prezzo: contoUnitario ? contoUnitario.totale : prezzo,
+            provenienza: `da un preventivo per ${venditaScelta.cliente}`,
+            prezzoUnitario: contoUnitario ? contoUnitario.unitario : null,
+            quantita: contoUnitario ? contoUnitario.quanti : null,
+            unita: contoUnitario ? unita : null,
+          }).catch(() => undefined);
+        }
       }
       setTitolo('');
       setDescrizione('');
@@ -375,6 +406,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
       setImporto('');
       setUnita(null);
       setQuanti('');
+      setAlListino(true);
       setServeEntro('');
       setCliente(null);
       setVenditaId(null);
@@ -549,6 +581,21 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
               </Pressable>
             ))}
           </View>
+
+          {/* La spunta sta accanto al prezzo, non in fondo: è una decisione
+              SU QUEL numero, e in fondo al form si sarebbe letta come una
+              impostazione del lavoro. */}
+          <Pressable style={styles.spuntaRiga} onPress={() => setAlListino(!alListino)}>
+            <Ionicons
+              name={alListino ? 'checkbox' : 'square-outline'}
+              size={19}
+              color={alListino ? colors.navy : colors.grigio}
+            />
+            <Text style={styles.spuntaTxt}>
+              Salva anche nel listino Forniture — così la prossima volta questo prezzo si ritrova, invece di
+              richiederlo da capo.
+            </Text>
+          </Pressable>
 
           {unita ? (
             <>
@@ -1091,6 +1138,8 @@ const styles = StyleSheet.create({
   // Spiega perché un campo è vuoto o cosa manca: si legge come una frase, non
   // come un errore.
   aiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18, marginTop: 4 },
+  spuntaRiga: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 8 },
+  spuntaTxt: { flex: 1, color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
   dealScelta: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.goldSoft, borderRadius: radius.md, padding: 10, marginTop: 4 },
   dealSceltaNome: { color: colors.testo, fontWeight: '800', fontSize: 14 },
   dealRiga: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, padding: 10 },

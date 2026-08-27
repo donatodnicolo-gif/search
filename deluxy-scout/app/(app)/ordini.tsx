@@ -16,7 +16,7 @@ import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { aggiornaFornitura, aggiungiFornitura, forniturePerOrdine, rimuoviFornitura, type RigaFornitura } from '@/lib/fornitura';
 import { SceltaFornitore, type FornitoreScelto } from '@/components/SceltaFornitore';
-import { fetchForniture, type Fornitura } from '@/lib/forniture';
+import { fetchForniture, salvaNelListino, type Fornitura } from '@/lib/forniture';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { BRAND, brandDi, CANALI, LINEE_ATTIVE } from '@/types';
@@ -1340,6 +1340,14 @@ function BloccoFornitura({
    * quanto costa di norma, l'ordine dice quanto è costato davvero. Copiarlo
    * senza poterlo toccare avrebbe trasformato un riferimento in un dogma.
    */
+  /**
+   * ⚠️ La stessa spunta di /preventivi (27/08/2026, «sistema il buco»): anche
+   * qui si impara un prezzo, e anche qui restava attaccato a un ordine solo.
+   * Accesa di default, ma non quando la fornitura è stata RICHIAMATA dal
+   * listino — quella ci è già dentro, e rimetterla creerebbe la riga doppia
+   * che `salvaNelListino` poi si rifiuta di scrivere.
+   */
+  const [alListino, setAlListino] = useState(true);
   const [listino, setListino] = useState<Fornitura[]>([]);
   const [cercaListino, setCercaListino] = useState('');
   const [caricoListino, setCaricoListino] = useState(false);
@@ -1370,6 +1378,7 @@ function BloccoFornitura({
     setQuanto(f.prezzo != null ? scriviImporto(f.prezzo) : '');
     setCosa(f.titolo);
     setCercaListino('');
+    setAlListino(false);
   }
 
   async function aggiungi() {
@@ -1398,6 +1407,18 @@ function BloccoFornitura({
         importo: n,
         nota: cosa.trim() || null,
       });
+      // Best-effort col suo catch: se il listino rifiuta, la fornitura
+      // dell'ordine resta — è quella che conta per il margine.
+      if (alListino && chi) {
+        await salvaNelListino({
+          fornitore: chi.nome,
+          fornitoreAnagraficheId: chi.anagraficheId,
+          titolo: cosa.trim() || `Fornitura di ${chi.nome}`,
+          linea: ordine.linea ?? null,
+          prezzo: n,
+          provenienza: `da un ordine di ${ordine.place_nome ?? ordine.cliente}`,
+        }).catch(() => undefined);
+      }
       setChi(null);
       setQuanto('');
       setCosa('');
@@ -1512,6 +1533,17 @@ function BloccoFornitura({
             placeholderTextColor={colors.grigio}
           />
 
+          <Pressable style={styles.spuntaRiga} onPress={() => setAlListino(!alListino)}>
+            <Ionicons
+              name={alListino ? 'checkbox' : 'square-outline'}
+              size={19}
+              color={alListino ? colors.navy : colors.grigio}
+            />
+            <Text style={styles.spuntaTxt}>
+              Salva anche nel listino Forniture — così la prossima volta questo prezzo si ritrova.
+            </Text>
+          </Pressable>
+
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pressable style={[styles.btnFornSalva, salvo && { opacity: 0.5 }]} disabled={salvo} onPress={aggiungi}>
               <Text style={styles.btnFornSalvaTxt}>{salvo ? 'Salvo…' : 'Aggiungi la fornitura'}</Text>
@@ -1532,6 +1564,8 @@ function BloccoFornitura({
 }
 
 const styles = StyleSheet.create({
+  spuntaRiga: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 4 },
+  spuntaTxt: { flex: 1, color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
   listinoRiga: {
     flexDirection: 'row',
     alignItems: 'center',
