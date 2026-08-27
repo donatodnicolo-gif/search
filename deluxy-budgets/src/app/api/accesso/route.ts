@@ -22,6 +22,28 @@ export async function POST(req: Request) {
   //    segreto generato e mai messo nell'app di autenticazione non deve poter
   //    chiudere fuori nessuno.
   if (azione === "genera") {
+    // ⚠️⚠️ **RIGENERARE È ANCHE SPEGNERE** (chiuso il 27/08/2026).
+    //
+    // `salvaSegreto` scrive `note: null`, e `note === "attivo"` è l'**unico**
+    // segnale che il secondo fattore è acceso. Quindi un `genera` su un TOTP
+    // già attivo lo **disattivava**, senza chiedere nessun codice — mentre
+    // `rimuovi`, dieci righe più sotto, il codice lo chiede, e il commento
+    // accanto dichiara «togliere la protezione deve costare quanto averla».
+    // C'erano due porte per la stessa stanza, e una non aveva serratura.
+    //
+    // ⭐ Non conta come si chiama l'azione: conta che cosa **lascia dietro**.
+    // Un'azione che nel suo effetto contiene una disattivazione è una
+    // disattivazione, e va protetta come tale.
+    const gia = await statoAccesso();
+    if (gia.obbligatorio) {
+      const attuale = await segretoAccesso();
+      if (attuale && !codiceTotpValido(attuale, String(b?.codice ?? ""))) {
+        return NextResponse.json(
+          { error: "Il secondo fattore è già attivo: per rigenerarlo serve un codice valido di quello in uso." },
+          { status: 400 }
+        );
+      }
+    }
     const segreto = generaSegretoTotp();
     await salvaSegreto(segreto);
     return NextResponse.json({ ok: true, segreto, uri: uriTotp(segreto, "team") });

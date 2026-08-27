@@ -43,8 +43,29 @@ export async function middleware(req: NextRequest) {
   const password = process.env.BUDGETS_APP_PASSWORD;
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;
 
-  // Sviluppo locale senza password: l'app è aperta, come prima.
-  if (!password) return NextResponse.next();
+  // ⚠️⚠️ **SE LA PASSWORD SPARISCE, L'APP NON DEVE APRIRSI** (27/08/2026).
+  //
+  // Questo ramo esiste per lo sviluppo locale, dove non si vuole digitare una
+  // password a ogni ricarica. Ma finché diceva soltanto «niente password →
+  // passa», bastava che BUDGETS_APP_PASSWORD sparisse dall'ambiente di Vercel —
+  // una variabile cancellata per sbaglio, un ambiente nuovo creato a metà —
+  // perché **tutta l'app diventasse pubblica**, API di scrittura comprese. E il
+  // guasto si sarebbe presentato nel modo peggiore: «tutto funziona».
+  //
+  // ⭐ In produzione si chiude, non si apre: senza password non entra nessuno.
+  // Una serratura che manca deve tenere la porta chiusa, non spalancarla.
+  if (!password) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        {
+          error:
+            "Configurazione incompleta: BUDGETS_APP_PASSWORD non è impostata. L'app resta chiusa finché non lo è.",
+        },
+        { status: 503 }
+      );
+    }
+    return NextResponse.next();
+  }
 
   // 1) Sessione firmata (Hub). Porta il ruolo con sé.
   const sessione = await leggiSessione(cookie);

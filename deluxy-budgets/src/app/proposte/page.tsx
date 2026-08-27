@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { ANNO_CORRENTE } from "@/lib/calc";
 import { eur } from "@/lib/format";
+import { chiGuarda } from "@/lib/chi-guarda";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +14,24 @@ const BADGE: Record<string, string> = {
 };
 
 export default async function Proposte() {
+  // ⚠️⚠️ **UN NON-ADMIN VEDE SOLO LE SUE** (buco chiuso il 27/08/2026).
+  //
+  // Questa query non filtrava per autore e la pagina non leggeva **mai** la
+  // sessione: il profilo `proposte` — che dal Hub prende **qualsiasi** utente
+  // non-admin — vedeva le proposte di tutti, con autore, ambito, totale in euro
+  // e note. `src/lib/ruoli.ts` promette il contrario: «manda il proprio budget
+  // e rivede i **propri** invii».
+  //
+  // ⭐ Il middleware dice **dove** puoi entrare; solo la pagina sa **cosa**
+  // puoi vedere lì dentro, perché è l'unica che conosce le righe.
+  const chi = await chiGuarda();
   const proposte = await prisma.propostaBudget.findMany({
-    where: { year: ANNO_CORRENTE },
+    where: {
+      year: ANNO_CORRENTE,
+      // Le proposte vecchie hanno `inviataDaUid` nullo: per un non-admin
+      // restano invisibili, che è il verso giusto in cui sbagliare.
+      ...(chi.admin ? {} : { inviataDaUid: chi.uid ?? "—nessuno—" }),
+    },
     orderBy: { createdAt: "desc" },
   });
   const [maisons, linee] = await Promise.all([

@@ -3,6 +3,7 @@ import { ANNO_CORRENTE } from "@/lib/calc";
 import { PropostaForm } from "@/components/PropostaForm";
 import { caricaAnno } from "@/lib/calc";
 import { consuntivoPerAmbito } from "@/lib/proposta-consuntivo";
+import { chiGuarda } from "@/lib/chi-guarda";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,25 @@ export default async function NuovaProposta() {
     linee.map((l) => ({ slug: l.slug, nome: l.nome }))
   );
 
+  // ⚠️⚠️ **IL CONSUNTIVO AZIENDALE NON ESCE DA QUESTA PAGINA PER UN NON-ADMIN**
+  // (buco chiuso il 27/08/2026).
+  //
+  // `consuntivoPerAmbito` calcola anche l'ambito **GLOBALE**: i ricavi reali di
+  // tutta l'azienda, mese per mese — fatturato di Finance più il ricavo
+  // dell'ecommerce. Quella mappa veniva passata **intera** al componente client,
+  // quindi finiva nel payload della pagina: per leggerla non serviva nemmeno
+  // selezionare l'ambito, bastavano gli strumenti di sviluppo del browser. E la
+  // pagina è aperta a chiunque abbia il profilo `proposte`, cioè a qualsiasi
+  // utente del Hub che non sia admin.
+  //
+  // ⭐ **Quello che non deve arrivare al browser non si nasconde: non si manda.**
+  // Un dato passato come prop a un componente client è pubblico per chi ha
+  // quella pagina, comunque lo si disegni.
+  const chi = await chiGuarda();
+  const ambitiVisibili = chi.admin
+    ? ambiti
+    : Object.fromEntries(Object.entries(ambiti).filter(([k]) => k !== "GLOBALE"));
+
   return (
     <>
       <div className="page-head">
@@ -45,7 +65,7 @@ export default async function NuovaProposta() {
         maisons={maisons.map((m) => ({ slug: m.slug, nome: m.nome }))}
         linee={linee.map((l) => ({ slug: l.slug, nome: l.nome }))}
         tipologie={dati.tipologie.map((t) => ({ slug: t.slug, nome: t.nome }))}
-        ambiti={ambiti}
+        ambiti={ambitiVisibili}
         mesiChiusi={mesiChiusi}
       />
     </>

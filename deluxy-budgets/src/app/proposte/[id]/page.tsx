@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { caricaAnno, FONTI, nomeFonte, venditeApplicate } from "@/lib/calc";
 import { eur, MESI } from "@/lib/format";
 import { DecisioneProposta } from "@/components/DecisioneProposta";
+import { chiGuarda } from "@/lib/chi-guarda";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,14 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
   const { id } = await params;
   const p = await prisma.propostaBudget.findUnique({ where: { id } });
   if (!p) notFound();
+
+  // ⚠️⚠️ **LA PROPOSTA DI UN ALTRO NON SI APRE** (27/08/2026). Da qui si vedeva
+  // il **budget pubblicato** di qualunque maison, mese per mese e fonte per
+  // fonte, più la proiezione dell'anno: bastava avere l'id, e gli id si
+  // prendevano dalla lista. `notFound()` e non 403 di proposito: a chi non deve
+  // vederla non si conferma nemmeno che esista.
+  const chi = await chiGuarda();
+  if (!chi.admin && (!chi.uid || p.inviataDaUid !== chi.uid)) notFound();
 
   const [maisons, linee, dati] = await Promise.all([
     prisma.maison.findMany(),

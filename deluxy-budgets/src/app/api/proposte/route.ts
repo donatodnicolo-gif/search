@@ -1,11 +1,28 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { chiGuarda } from "@/lib/chi-guarda";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body || typeof body.autore !== "string" || !body.autore.trim()) {
     return NextResponse.json({ error: "autore mancante" }, { status: 400 });
   }
+
+  // ⚠️⚠️ **L'AUTORE NON LO SCEGLIE CHI MANDA** (buco chiuso il 27/08/2026).
+  //
+  // Prima `autore` era testo libero preso dal corpo della richiesta e non
+  // veniva mai confrontato con la sessione: chiunque avesse un accesso poteva
+  // inviare una proposta di budget **firmata col nome di un collega**, su
+  // qualunque maison. E siccome nel record non finiva nessuna identità, il
+  // filtro «solo le mie proposte» non era neppure implementabile: mancava il
+  // dato su cui filtrare.
+  //
+  // ⭐ Adesso chi manda viene sempre **registrato** (`inviataDa*`, dalla
+  // sessione firmata, che non si scrive dal browser). Il campo `autore` resta
+  // libero **solo per l'admin**, perché una proposta si può inserire per conto
+  // di qualcun altro; per tutti gli altri lo impone il server.
+  const chi = await chiGuarda();
+  const autore = chi.admin ? String(body.autore).trim() : (chi.nome || String(body.autore).trim());
   // **Una proposta contiene solo i mesi che propone.** Pretendere dodici mesi
   // sembrava un controllo di completezza, e invece obbligava a riempire di zeri
   // i mesi già chiusi: siccome il consolidamento scrive nel budget *quello che
@@ -41,7 +58,7 @@ export async function POST(req: Request) {
   const proposta = await prisma.propostaBudget.create({
     data: {
       year: Number(body.year) || new Date().getFullYear(),
-      autore: body.autore.trim(),
+      autore, inviataDaUid: chi.uid, inviataDaNome: chi.nome,
       ruolo: typeof body.ruolo === "string" ? body.ruolo : "Responsabile",
       ambitoTipo,
       ambitoSlug: ambitoTipo === "GLOBALE" ? null : (body.ambitoSlug ?? null),

@@ -301,7 +301,18 @@ model RegolaCosto {
 model PropostaBudget {
   id         String   @id @default(cuid())
   year       Int
+  // Il nome che compare sulla proposta. Resta scrivibile perche un admin puo
+  // inserirla per conto di qualcun altro; per chi NON e admin lo impone il
+  // server dalla sessione, e non lo si sceglie piu dal modulo.
   autore     String
+  // ⚠️ CHI L HA MANDATA DAVVERO (27/08/2026). Prima nel record non c era
+  // nessuna identita: `autore` era testo libero preso dal corpo della
+  // richiesta, quindi (a) chiunque poteva firmare col nome di un collega e
+  // (b) il filtro «solo le mie proposte» non era nemmeno implementabile —
+  // mancava il dato su cui filtrare. Null sulle proposte scritte prima di
+  // questo campo, e sulle proposte inserite dall admin per conto d altri.
+  inviataDaUid   String?
+  inviataDaNome  String?
   ruolo      String   @default("Responsabile")
   ambitoTipo String // MAISON | LINEA | GLOBALE
   ambitoSlug String? // slug della maison o della linea
@@ -517,4 +528,23 @@ model LetturaConsegne {
   lettoIl  DateTime @default(now())
 
   @@index([year, month, lettoIl])
+}
+
+
+// I tentativi di accesso falliti, per mettere un freno a chi prova le password
+// a raffica.
+//
+// ⚠️ Sta nel **database** e non in memoria di proposito. Un contatore in
+// memoria, su Vercel, conta per singola istanza serverless: se ne accendono
+// quante ne servono, quindi il freno che sembra esserci non c'è. Un contatore
+// che non frena e' peggio di nessun contatore, perche' fa smettere di cercarne
+// uno vero.
+model TentativoAccesso {
+  id     String   @id @default(cuid())
+  // Da dove arriva il tentativo. Non e' un'identita' (un indirizzo si cambia):
+  // e' solo il costo che si impone a chi martella dallo stesso posto.
+  chiave String
+  quando DateTime @default(now())
+
+  @@index([chiave, quando])
 }

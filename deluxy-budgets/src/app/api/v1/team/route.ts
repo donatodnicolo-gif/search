@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { autentica } from "@/lib/api-auth";
+import { autentica, chiamante } from "@/lib/api-auth";
 import { ANNO_CORRENTE, caricaAnno, TIPI_PERSONA } from "@/lib/calc";
 import { lordoAnnuo } from "@/lib/persone";
 
@@ -36,7 +36,33 @@ export async function GET(req: NextRequest) {
 
   const p = req.nextUrl.searchParams;
   const anno = Number(p.get("anno")) || ANNO_CORRENTE;
-  const conCompensi = p.get("compensi") === "1";
+  // ⚠️⚠️ **I COMPENSI NON ESCONO CON LA CHIAVE CONDIVISA** (buco confermato e
+  // provato dal vivo il 27/08/2026: `GET /api/v1/team?compensi=1` con
+  // `BUDGETS_API_KEY` rispondeva **200** con `costoAzienda` e `retribuzione`
+  // — importo, superminimo, contributi, lordo annuo — di **11 persone**).
+  //
+  // Perché era aperto: `autentica()` decide lo scope dal **metodo HTTP**, e un
+  // GET passa con qualunque chiave di lettura. Sopra questa riga c'era scritto
+  // «sono stipendi… chi li vuole li chiede, e si vede nei log»: era un
+  // **cartello**, non una serratura. E `ultimoUso` registra la chiave, non il
+  // parametro, quindi nemmeno il log manteneva la promessa.
+  //
+  // ⭐ La chiave condivisa gira negli `.env` di Hub, Anagrafiche, Finance e
+  // Marketing, **non si può revocare da sola** e non dice chi l'ha usata: è
+  // esattamente la credenziale a cui non si dà il dato più sensibile dell'app.
+  // I compensi vogliono una chiave **emessa**, che ha un nome e si revoca.
+  const vuoleCompensi = p.get("compensi") === "1";
+  const chi = await chiamante(req);
+  if (vuoleCompensi && chi?.tipo !== "emessa") {
+    return NextResponse.json(
+      {
+        errore:
+          "I compensi non escono con la chiave condivisa BUDGETS_API_KEY: serve una chiave emessa a nome della tua app (Budgets → Configurazione → Chiavi), così si sa chi li ha letti e la si può revocare.",
+      },
+      { status: 403 }
+    );
+  }
+  const conCompensi = vuoleCompensi;
 
   const dati = await caricaAnno(anno);
   const nomeTipo = (k: string) => TIPI_PERSONA.find((t) => t.key === k)?.label ?? k;

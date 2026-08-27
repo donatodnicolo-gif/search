@@ -5,6 +5,7 @@ import { segretoAccesso, statoAccesso } from "@/lib/accesso";
 import { codiceTotpValido } from "@/lib/totp";
 import { autentica } from "@/lib/utenti";
 import { creaSessione, type Ruolo } from "@/lib/sessione";
+import { frena, origineRichiesta, segnaFallito, segnaRiuscito } from "@/lib/freno-accessi";
 
 async function login(fd: FormData) {
   "use server";
@@ -12,12 +13,23 @@ async function login(fd: FormData) {
   const tentativo = String(fd.get("password") ?? "");
   const email = String(fd.get("email") ?? "").trim();
 
+  // ⚠️ **UN FRENO SUI TENTATIVI** (27/08/2026). Prima non ce n'era nessuno: si
+  // potevano provare password all'infinito, alla velocità della rete, e da
+  // nessuna parte restava traccia. Il freno non blocca — rallenta, e solo dopo
+  // cinque errori dalla stessa origine. Dettagli e limiti in `freno-accessi.ts`.
+  const origine = await origineRichiesta();
+  await frena(origine);
+
   // **Con l'email si entra come persona**, con il proprio ruolo. Chi la lascia
   // vuota usa la password di team, che resta la via di riserva: se il database
   // non risponde o non ci sono ancora utenti, l'app non si chiude fuori da sola.
   if (email) {
     const utente = await autentica(email, tentativo);
-    if (!utente) redirect("/login?errore=1");
+    if (!utente) {
+      await segnaFallito(origine);
+      redirect("/login?errore=1");
+    }
+    await segnaRiuscito(origine);
     const jarU = await cookies();
     jarU.set(
       SESSION_COOKIE,
@@ -40,6 +52,7 @@ async function login(fd: FormData) {
   }
 
   if (!password || tentativo !== password) {
+    await segnaFallito(origine);
     redirect("/login?errore=1");
   }
 
@@ -54,9 +67,13 @@ async function login(fd: FormData) {
     // password invece di chiudere fuori tutti. È scritto in Configurazione →
     // Accesso, che in quel caso mostra il secondo fattore come non attivo.
     if (segreto && !codiceTotpValido(segreto, codice)) {
+      // Anche il codice sbagliato conta: sono sei cifre, ed è il bersaglio più
+      // corto che l'app abbia.
+      await segnaFallito(origine);
       redirect("/login?errore=codice");
     }
   }
+  await segnaRiuscito(origine);
   const jar = await cookies();
   jar.set(SESSION_COOKIE, await sessionToken(password), {
     httpOnly: true,

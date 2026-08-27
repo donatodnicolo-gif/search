@@ -4,6 +4,40 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### 27/08/2026: una passata di sicurezza, con due agenti ostili a smontarla
+
+Dieci sospetti su accesso e permessi, ognuno **passato a un revisore ostile col mandato di demolirlo** prima di toccare una riga. Esito: **1 confermata, 7 ridimensionate, 2 smentite**. Vale la pena leggere anche le smentite, perché dicono che cosa NON è un problema qui.
+
+**L'unica confermata, e provata dal vivo in produzione.** `GET /api/v1/team?anno=2026&compensi=1` con la chiave condivisa `BUDGETS_API_KEY` rispondeva **200**, restituendo `costoAzienda` e `retribuzione` (importo, superminimo, contributi, mensilità, lordo annuo) di **11 persone**. Il netto in busta no, il resto sì. Perché era aperto: `autentica()` decide lo scope dal **metodo HTTP**, e un GET passa con qualunque chiave di lettura. Sopra quella riga c'era scritto «sono stipendi… chi li vuole li chiede, e si vede nei log»: era un **cartello, non una serratura** — e nemmeno il log manteneva la promessa, perché `ultimoUso` registra la chiave, non il parametro. La chiave condivisa gira negli `.env` di Hub, Anagrafiche, Finance e Marketing, **non si revoca da sola** e non dice chi l'ha usata. Adesso i compensi vogliono una chiave **emessa** (Configurazione → Chiavi), che ha un nome e si spegne; con quella condivisa arriva **403** con scritto perché.
+
+**Le altre correzioni** (difetti veri nel codice, che oggi nessuno poteva subire perché mancano i soggetti: in produzione c'è **un solo utente**, il commercialista in sola lettura, e l'SSO dal Hub non emette sessioni per via di `HUB_SSO_SECRET` assente — ma si chiudono adesso, prima che qualcuno crei l'utente che li renderebbe reali):
+
+- **Le proposte di un altro non si aprono più.** `/proposte` elencava quelle di tutti e `/proposte/[id]` mostrava il budget pubblicato di qualunque maison a chi avesse l'id. Ora la lista è filtrata e il dettaglio risponde `notFound()` — non 403: a chi non deve vederla non si conferma nemmeno che esista.
+- **Il consuntivo aziendale non esce da `/proposte/nuova`.** La pagina calcolava anche l'ambito `GLOBALE` (i ricavi reali dell'azienda, mese per mese) e lo passava **intero** al componente client: per leggerlo non serviva selezionare niente, bastavano gli strumenti di sviluppo del browser. *Quello che non deve arrivare al browser non si nasconde: non si manda.*
+- **L'autore non lo sceglie più chi manda.** Era testo libero nel corpo della richiesta, mai confrontato con la sessione: si poteva firmare una proposta col nome di un collega. E siccome nel record non finiva nessuna identità, il filtro «solo le mie» non era neppure *implementabile*. Ora c'è `inviataDaUid`, preso dalla sessione firmata.
+- **Il secondo fattore non si spegne più senza codice.** `salvaSegreto` scrive `note: null`, e `note === "attivo"` è l'unico segnale di attivazione: quindi un `genera` su un TOTP già acceso lo **disattivava**, senza chiedere niente — mentre `rimuovi`, dieci righe sotto, il codice lo chiedeva. Due porte per la stessa stanza, una senza serratura. (Oggi il TOTP non è attivo per nessuno: nel database la riga `ACCESSO_TOTP` non esiste.)
+- **Se sparisce la password, l'app non si apre.** Il middleware, senza `BUDGETS_APP_PASSWORD`, lasciava passare tutto — comodo in locale, ma senza nessuna guardia sull'ambiente, e `/api/health` avrebbe continuato a dire «SANA» con l'app spalancata. In produzione ora risponde **503**.
+- **Un freno sui tentativi.** Non ce n'era nessuno. Il conteggio sta a **database** e non in memoria di proposito: su Vercel un contatore in memoria conta per singola istanza serverless e si azzera da solo — sembra un freno e non lo è. Non blocca, rallenta: dopo cinque errori dalla stessa origine la risposta arriva comunque, ma pagando mezzo secondo alla volta.
+- **Intestazioni di sicurezza** (`frame-ancestors`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`): la produzione aveva solo `Strict-Transport-Security`.
+
+**Due cose che avevo scritto io e sono state corrette dall'ostile**, e restano scritte perché sono l'insegnamento:
+
+- Il commento accanto alle nuove intestazioni affermava che «`sameSite: lax` non ferma il clickjacking, perché dentro una cornice il cookie viaggia». **È il contrario di come funziona SameSite**: un iframe di terzi è una sottorisorsa cross-site, il cookie Lax **non parte**, e la vittima nella cornice vedrebbe la schermata di accesso. Le intestazioni si tengono, ma come difesa in profondità. *Una difesa tenuta per un motivo sbagliato è peggio di una difesa in meno: prima o poi quel motivo torna in un ragionamento sul CSRF, dove SameSite invece protegge.*
+- Il confronto della chiave condivisa con `===` non era una fuga: la differenza è nanosecondi sotto millisecondi di rete, e a monte c'è una query al database che inietta molto più rumore del segnale che si vorrebbe misurare. Sanato lo stesso (`timingSafeEqual`), ma come coerenza, non come buco.
+
+**🔴 Resta da fare, e va fatto a mano: `APP_SECRET` in produzione.** Oggi non c'è, e `src/lib/crypto.ts` ripiega su `BUDGETS_APP_PASSWORD`: la password di team è **anche** la chiave AES delle chiavi a database e la chiave HMAC delle sessioni. Conseguenze: cambiare la password non «scollega tutti» soltanto, rende **illeggibile la chiave OpenAI salvata**; e chi conosce la password si calcola da sé un cookie valido, saltando un eventuale secondo fattore.
+
+⚠️ **Non basta aggiungere la variabile**, ed è la trappola misurata quel giorno: `APP_SECRET` è **prima** nella lista dei segreti, quindi appena c'è, tutto ciò che è cifrato col ripiego diventa illeggibile — e l'app lo tratta come «non impostato», in silenzio, senza un errore. Un cambio di chiave non è configurazione, è **migrazione di dati**. Lo script c'è già e si è provato a vuoto con esito pulito:
+
+```
+node scripts/migra-app-secret.mjs --da=BUDGETS_APP_PASSWORD --a=APP_SECRET   # prova
+node scripts/migra-app-secret.mjs --da=BUDGETS_APP_PASSWORD --a=APP_SECRET --scrivi
+```
+
+Ordine: prima `APP_SECRET` su Vercel (in produzione), poi lo script con `--scrivi`, poi il deploy. E si mettono in conto due effetti attesi: **tutte le sessioni aperte cadono** (la chiave di firma cambia) e va rifatto l'accesso.
+
+E una cosa che si è scoperta provando, non leggendo: `APP_SECRET` **in locale c'era già**, ma la riga a database era stata scritta dalla produzione ed era cifrata con la password di team. Cioè in sviluppo l'app non riusciva a leggere la propria chiave OpenAI e nessuno se n'era accorto, perché una chiave che non si decifra viene trattata come «non impostata». ⭐ **Qual è il segreto giusto non lo dice la configurazione, lo dice il dato**: si prova a decifrare, e quello che apre è quello vero.
+
 ### 26/08/2026 (pomeriggio): la riga ecommerce è MISURATA, e il bilancio usa le quote PER BRAND
 
 Due decisioni dell'utente, nello stesso giro:

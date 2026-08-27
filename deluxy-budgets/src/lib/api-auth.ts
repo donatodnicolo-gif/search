@@ -1,6 +1,27 @@
+import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { chiave } from "./chiavi";
 import { scriveQualcosa, verificaChiaveEmessa } from "./chiavi-emesse";
+
+/**
+ * Confronto a **tempo costante**, come già fanno le chiavi emesse.
+ *
+ * ⚠️ Un `===` esce al primo carattere diverso, e dal tempo di risposta si
+ * indovina il prefisso una lettera per volta. Su una funzione serverless, fra
+ * jitter di rete e avvii a freddo, il segnale è quasi sempre sepolto nel rumore
+ * — ma era **l'unica delle due strade di questo file a non seguire la regola
+ * scritta nell'altra**, e una difesa che vale solo su metà degli ingressi non è
+ * una difesa: è una svista che sembra una scelta.
+ *
+ * La lunghezza si confronta prima e in chiaro: `timingSafeEqual` pretende due
+ * buffer della stessa misura, e la lunghezza di una chiave non è il segreto.
+ */
+function ugualeATempoCostante(a: string, b: string): boolean {
+  const x = Buffer.from(a, "utf8");
+  const y = Buffer.from(b, "utf8");
+  if (x.length !== y.length) return false;
+  return timingSafeEqual(x, y);
+}
 
 // Autenticazione delle API che questa app espone alle altre app Deluxy.
 //
@@ -30,6 +51,36 @@ const pulisci = (v: string | null) => (v ?? "").replace(INVISIBILI, "").trim();
 // cambia niente** — chiede all'AI come classificherebbe delle spese e risponde.
 // Trattarla come scrittura obbligherebbe Finance a una chiave che può scrivere
 // nel budget per fare una domanda.
+/**
+ * CHI STA CHIAMANDO: la chiave **emessa** che ha aperto la porta, oppure la
+ * chiave **condivisa**.
+ *
+ * ⚠️ Serve perché lo scope da solo non basta a decidere tutto. `autentica()`
+ * guarda il **metodo HTTP**: giusto per separare chi legge da chi scrive, ma
+ * cieco su una domanda diversa — *questa lettura, chiunque può farla?* Gli
+ * stipendi di `/api/v1/team?compensi=1` sono una lettura come le altre per il
+ * metodo, e una cosa completamente diversa per chi la subisce.
+ *
+ * ⭐ La chiave **condivisa** non è una chiave di qualcuno: gira negli `.env` di
+ * Hub, Anagrafiche, Finance e Marketing, non si può revocare da sola e non
+ * lascia traccia di chi l'ha usata. Va bene per leggere un elenco di categorie;
+ * non va bene per leggere quanto guadagnano le persone.
+ */
+export type Chiamante =
+  | { tipo: "emessa"; nome: string; scrittura: boolean }
+  | { tipo: "condivisa" }
+  | null;
+
+export async function chiamante(req: NextRequest): Promise<Chiamante> {
+  const inviata = pulisci(req.headers.get("x-api-key"));
+  if (!inviata) return null;
+  const esito = await verificaChiaveEmessa(inviata, false);
+  if (esito.ok) return { tipo: "emessa", nome: esito.nome, scrittura: esito.scope === "scrittura" };
+  const condivisa = await chiave("BUDGETS_API_KEY");
+  if (condivisa && ugualeATempoCostante(pulisci(condivisa), inviata)) return { tipo: "condivisa" };
+  return null;
+}
+
 export async function autentica(
   req: NextRequest,
   opzioni: { scrive?: boolean } = {}
@@ -64,7 +115,7 @@ export async function autentica(
 
   // ---- 2. La vecchia chiave unica, solo in lettura ----
   const condivisa = await chiave("BUDGETS_API_KEY");
-  if (condivisa && pulisci(condivisa) === inviata) {
+  if (condivisa && ugualeATempoCostante(pulisci(condivisa), inviata)) {
     if (serveScrittura) {
       return NextResponse.json(
         {
