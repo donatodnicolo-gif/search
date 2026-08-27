@@ -60,6 +60,13 @@ export async function creaProformaDaRichiesta(r: {
   importo: number;
   causale?: string | null;
   scadenza?: string | null;
+  /**
+   * Con quale INTESTAZIONE emetterla (27/08/2026): FINANCE tiene un template
+   * per brand — logo, dati societari, coordinate di pagamento. Si passa il
+   * brand per nome («cakedesign.me»), non un codice interno. Senza, di là si
+   * usa il template predefinito.
+   */
+  brand?: string | null;
 }): Promise<ProformaCreata> {
   const descrizione = r.causale?.trim() || `Incasso ${r.cliente}`;
   const imponibile = Math.round((r.importo / 1.22) * 100) / 100;
@@ -68,6 +75,7 @@ export async function creaProformaDaRichiesta(r: {
     partner: r.cliente,
     oggetto: descrizione,
     scadenza: r.scadenza ?? undefined,
+    brand: r.brand ?? undefined,
     righe: [{ descrizione, prezzoUnitario: imponibile, aliquotaIva: 22 }],
   });
 }

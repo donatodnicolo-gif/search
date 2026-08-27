@@ -52,6 +52,7 @@ import {
   type PlaceLite,
 } from '@/lib/db';
 import { creaPreventivoDaRichiesta, creaProformaDaRichiesta, esitoPreventivo } from '@/lib/partner';
+import { emettiProformaPerOrdine, raccontaEsito } from '@/lib/documenti';
 import { cercaNellaMiaCasella, fetchCorpoMail, importaRichiesteDaMail, type MiaMail } from '@/lib/mail';
 import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import { urlMessaggioAiMail } from '@/lib/aimail';
@@ -271,28 +272,26 @@ export default function RichiesteClienti() {
           // Il documento: se manca, si chiede ora. ⚠️ Best-effort — l'ordine è
           // già nato, e un registro che non risponde non deve farlo perdere.
           if (!r.proforma_numero) {
-            try {
-              const pf = await creaProformaDaRichiesta({
-                cliente: r.cliente,
-                importo: r.importo!,
-                causale: r.descrizione,
-                scadenza: r.serve_entro,
-              });
-              await collegaProformaARichiesta(r.id, pf.riferimento, pf.url);
-              await collegaDocumentoAOrdine(ordineId, { proformaNumero: pf.riferimento, proformaUrl: pf.url });
-              await carica();
-              avvisa('Ordine creato', `È in Ordini, con la pro-forma ${pf.riferimento} agganciata.`);
-              return;
-            } catch (e: any) {
-              await carica();
-              // Si dice ESATTAMENTE cosa è riuscito e cosa no: «non riuscito»
-              // su un'operazione a metà manda a cercare nel posto sbagliato.
-              avvisa(
-                'Ordine creato, pro-forma no',
-                `L’ordine è in Ordini. Il documento non è stato emesso: ${e?.message ?? 'riprova da lì'}.`,
-              );
-              return;
+            // Stesso posto delle altre due strade (lib/documenti.ts): non
+            // lancia mai e torna un esito da raccontare. Si dice ESATTAMENTE
+            // cosa è riuscito e cosa no — «non riuscito» su un'operazione a
+            // metà manda a cercare nel posto sbagliato.
+            const esito = await emettiProformaPerOrdine({
+              ordineId,
+              cliente: r.cliente,
+              importo: r.importo,
+              causale: r.descrizione,
+              scadenza: r.serve_entro,
+            });
+            // Il riferimento va anche sulla RICHIESTA: da lì si riapre il
+            // documento senza passare dall'ordine.
+            if (esito.emessa && esito.riferimento) {
+              await collegaProformaARichiesta(r.id, esito.riferimento, esito.url ?? '');
             }
+            await carica();
+            const t = raccontaEsito(esito);
+            avvisa(t.titolo, t.testo);
+            return;
           }
           await carica();
           avvisa('Ordine creato', `È in Ordini, con la pro-forma ${r.proforma_numero} agganciata.`);

@@ -12,6 +12,7 @@ import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
 import { chiediFatturaPerOrdine } from '@/lib/partner';
+import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
@@ -260,6 +261,22 @@ export default function Ordini() {
                   <Text style={styles.btnMiniTxt}>{inCorso === o.id ? 'Chiedo…' : 'Fattura'}</Text>
                 </Pressable>
               ) : null}
+              {/* ⭐ LA PRO-FORMA CHE NON C'È (27/08/2026). Ogni ordine nasce
+                  con la sua pro-forma, ma se FINANCE non risponde — o se il
+                  cliente là non esiste ancora — l'ordine resta senza. Prima
+                  l'unico modo di rimediare era rifare l'ordine: adesso il
+                  bottone compare SOLO su chi il documento non ce l'ha, e sparisce
+                  appena arriva. */}
+              {!o.proforma_numero && !o.fattura_numero ? (
+                <Pressable
+                  style={[styles.btnMini, inCorso === o.id && { opacity: 0.5 }]}
+                  disabled={inCorso === o.id}
+                  onPress={(e: any) => { e?.stopPropagation?.(); emettiProforma(o); }}
+                  {...({ title: 'Emetti la pro-forma su FINANCE e agganciala a questo ordine' } as any)}
+                >
+                  <Text style={styles.btnMiniTxt}>{inCorso === o.id ? 'Emetto…' : 'Pro-forma'}</Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 style={styles.btnMini}
                 onPress={(e: any) => { e?.stopPropagation?.(); chiediAcconto(o); }}
@@ -411,6 +428,43 @@ export default function Ordini() {
     } finally {
       setInCorso(null);
     }
+  }
+
+  /**
+   * ⭐ EMETTE LA PRO-FORMA che manca (27/08/2026).
+   *
+   * Ogni ordine nasce con la sua — è la regola, e adesso vale su tutte e tre le
+   * strade che portano a un ordine. Ma FINANCE può non rispondere, o il cliente
+   * può non esistere ancora di là: in quel caso l'ordine nasce comunque (non si
+   * perde una vendita perché un registro è giù) e resta senza documento. Da qui
+   * si rimedia, senza rifare l'ordine.
+   */
+  async function emettiProforma(o: OrdineConLuogo) {
+    if (inCorso) return;
+    conferma(
+      'Emettere la pro-forma?',
+      `${o.cliente} · ${importoBreve(o.valore)}.\n\nNasce su FINANCE in bozza e resta agganciata a questo ordine. L'invio al cliente si fa di là.`,
+      async () => {
+        setInCorso(o.id);
+        try {
+          const esito = await emettiProformaPerOrdine({
+            ordineId: o.id,
+            cliente: o.cliente,
+            importo: o.valore,
+            causale: o.descrizione,
+          });
+          await carica();
+          if (esito.emessa) {
+            avvisa('Pro-forma emessa', `${esito.riferimento} è agganciata all'ordine.`);
+          } else {
+            avvisa('Non è stata emessa', `${esito.perche}.`);
+          }
+        } finally {
+          setInCorso(null);
+        }
+      },
+      { testoConferma: 'Emetti' },
+    );
   }
 
   /** Apre il foglio di modifica con i valori di adesso già dentro. */
@@ -645,6 +699,15 @@ export default function Ordini() {
                             onPress={() => chiediFattura(o)}
                           >
                             <Text style={styles.btnGhostTxt}>{inCorso === o.id ? 'Chiedo…' : 'Fattura'}</Text>
+                          </Pressable>
+                        ) : null}
+                        {!o.proforma_numero && !o.fattura_numero ? (
+                          <Pressable
+                            style={[styles.btnGhost, inCorso === o.id && { opacity: 0.5 }]}
+                            disabled={inCorso === o.id}
+                            onPress={() => emettiProforma(o)}
+                          >
+                            <Text style={styles.btnGhostTxt}>{inCorso === o.id ? 'Emetto…' : 'Pro-forma'}</Text>
                           </Pressable>
                         ) : null}
                         <Pressable style={styles.btnGhost} onPress={() => chiediAcconto(o)}>

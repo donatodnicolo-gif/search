@@ -476,3 +476,38 @@ cancellato insieme alla sua storia, **irreversibilmente**. E la «prova a vuoto�
 prescritta prima del delete usava lo stesso predicato: confermava il numero
 sbagliato ed era muta proprio sul danno. Ora il conteggio dichiara quanto
 lavoro sparirebbe, e su quelle tre righe deve leggere **zero**.
+
+## Ogni ordine nasce con la sua pro-forma (27/08/2026)
+
+Richiesta dell'utente: «quando finisce in ordini crea automaticamente la
+pro-forma».
+
+Le strade che portano a un ordine sono **tre**, e due su tre il documento lo
+emettevano già:
+
+| Strada | Prima | Adesso |
+| --- | --- | --- |
+| «Trasforma in ordine» da una richiesta cliente | pro-forma emessa | uguale |
+| «Trasforma in ordine» da una trattativa | pro-forma emessa | uguale |
+| Chiudere la trattativa come **vinta** dal suo form | **niente documento** | pro-forma emessa |
+
+La terza era il buco — e l'errore era pure ingoiato (`.catch(() => {})`), quindi
+l'ordine compariva in elenco senza documento e senza che nessuno sapesse perché.
+Adesso la regola sta in **un posto solo** ([lib/documenti.ts](lib/documenti.ts)):
+tre copie della stessa regola divergono al primo ritocco.
+
+⚠️ **Non lancia mai.** Quando la pro-forma non si può emettere — FINANCE non
+risponde, o il cliente là non esiste ancora — **l'ordine resta**: non si perde
+una vendita perché un registro è giù. Ma il documento mancante **si dice**, e su
+quell'ordine compare il bottone **«Pro-forma»** per emetterla dopo, senza rifare
+l'ordine. Il bottone c'è solo su chi il documento non ce l'ha, e sparisce appena
+arriva.
+
+⚠️ **Senza valore non si emette**: una pro-forma è una richiesta di denaro, e una
+richiesta di denaro senza cifra non è un documento. Si dice, invece di emettere
+zero.
+
+**Con quale intestazione**: FINANCE tiene un template per brand (logo, dati
+societari, IBAN). Si passa il brand **per nome** — `brand: 'cakedesign.me'` —
+senza conoscere codici interni; senza, di là si usa il predefinito. I template si
+fanno in FINANCE → *Template documenti*, che è dove il documento viene disegnato.

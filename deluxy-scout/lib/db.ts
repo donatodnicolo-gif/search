@@ -1415,7 +1415,7 @@ export async function creaOrdineDaDeal(deal: {
   canale?: string | null;
   linea: string | null;
   place_nome?: string | null;
-}): Promise<void> {
+}): Promise<{ id: string }> {
   // Come per assicuraPlace: l'indice unico su deal_id è parziale, quindi niente
   // ON CONFLICT. Se l'ordine di questa trattativa c'è già, si aggiorna.
   const riga = {
@@ -1427,10 +1427,22 @@ export async function creaOrdineDaDeal(deal: {
     linea: deal.linea,
   };
   const { data: gia } = await supabase.from('ordini').select('id').eq('deal_id', deal.id).maybeSingle();
-  const { error } = gia
-    ? await supabase.from('ordini').update(riga).eq('id', gia.id)
-    : await supabase.from('ordini').insert({ ...riga, deal_id: deal.id });
+  // ⚠️ Torna l'id dell'ordine (27/08/2026): prima non tornava niente, e chi lo
+  // chiamava non poteva agganciarci la pro-forma. Era il buco per cui una
+  // trattativa chiusa VINTA dal form generava un ordine senza documento,
+  // mentre le altre due strade la pro-forma la emettevano.
+  if (gia) {
+    const { error } = await supabase.from('ordini').update(riga).eq('id', gia.id);
+    if (error) throw error;
+    return { id: gia.id };
+  }
+  const { data, error } = await supabase
+    .from('ordini')
+    .insert({ ...riga, deal_id: deal.id })
+    .select('id')
+    .single();
   if (error) throw error;
+  return { id: data.id as string };
 }
 
 /**

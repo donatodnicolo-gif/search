@@ -35,7 +35,7 @@ import {
   type TrattativaConLuogo,
 } from '@/lib/db';
 import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } from '@/lib/hubspot';
-import { creaProformaDaRichiesta } from '@/lib/partner';
+import { emettiProformaPerOrdine, raccontaEsito } from '@/lib/documenti';
 import { env } from '@/lib/env';
 import { CANALI, MOTIVI_PERSO, canonizzaLinee, type CanaleTrattativa, type Contact, type DealStage, type MotivoPerso, type StatoAffiliazione } from '@/types';
 import { LineaSelector } from '@/components/LineaSelector';
@@ -301,23 +301,22 @@ export default function Trattative() {
           });
           // Vinta: la pipeline non deve tenersi una vendita già passata a ordine.
           if (d.fase !== 'closedwon') {
-            await aggiornaDeal(d.id, { fase: 'closedwon', chiusa_il: new Date().toISOString().slice(0, 10) });
+            await aggiornaDeal(d.id, { fase: 'closedwon', chiusa_il: isoOggi() });
           }
-          // Il documento. Best-effort dichiarato: l'ordine è già nato.
-          try {
-            const pf = await creaProformaDaRichiesta({
+          // Il documento, dallo stesso posto delle altre strade
+          // (lib/documenti.ts): non lancia mai, torna un esito da raccontare.
+          {
+            const esito = await emettiProformaPerOrdine({
+              ordineId,
               cliente: d.place_nome ?? 'Cliente',
-              importo: d.valore_atteso!,
+              importo: d.valore_atteso,
               causale: d.oggetto ?? d.titolo ?? null,
             });
-            await collegaDocumentoAOrdine(ordineId, { proformaNumero: pf.riferimento, proformaUrl: pf.url });
             await carica();
-            avvisa('Ordine creato', `È in Ordini, con la pro-forma ${pf.riferimento} agganciata.`);
-          } catch (e: any) {
-            await carica();
+            const r = raccontaEsito(esito);
             avvisa(
-              'Ordine creato, pro-forma no',
-              `L'ordine è in Ordini e la trattativa è vinta. Il documento non è stato emesso: ${e?.message ?? 'riprova da lì'}.`,
+              r.titolo,
+              esito.emessa ? r.testo : `L'ordine è in Ordini e la trattativa è vinta. ${r.testo}`,
             );
           }
         } catch (e: any) {
@@ -984,18 +983,43 @@ function TrattativaModal({
       }
       // La vinta genera l'ordine (idempotente su deal_id): il funnel finisce
       // in un ordine, non in una fase. Best-effort: la vinta resta valida.
+      //
+      // ⭐ E CON L'ORDINE NASCE LA PRO-FORMA (27/08/2026, richiesta
+      // dell'utente: «quando finisce in ordini crea automaticamente la
+      // pro-forma»). Era il buco: le altre due strade verso un ordine il
+      // documento lo emettevano, questa no — e l'errore era pure ingoiato, così
+      // l'ordine compariva in elenco senza documento e senza che nessuno
+      // sapesse perché.
       if (fase === 'closedwon' && place) {
         const dealId = inModifica && deal && deal.origine !== 'anagrafiche' ? deal.id : null;
         if (dealId && !dealId.startsWith('hs_')) {
-          await creaOrdineDaDeal({
-            id: dealId,
-            place_id: place.id,
-            valore_atteso: patch.valore_atteso,
-            oggetto: patch.oggetto,
-            canale: patch.canale,
-            linea: patch.linea,
-            place_nome: place.nome,
-          }).catch(() => {});
+          try {
+            const { id: ordineId } = await creaOrdineDaDeal({
+              id: dealId,
+              place_id: place.id,
+              valore_atteso: patch.valore_atteso,
+              oggetto: patch.oggetto,
+              canale: patch.canale,
+              linea: patch.linea,
+              place_nome: place.nome,
+            });
+            const esito = await emettiProformaPerOrdine({
+              ordineId,
+              cliente: place.nome,
+              importo: patch.valore_atteso,
+              causale: patch.oggetto,
+            });
+            // ⚠️ Il documento mancante si DICE. Prima era muto: si scopriva
+            // guardando l'elenco degli ordini giorni dopo.
+            if (!esito.emessa) {
+              avvisa(
+                'Trattativa vinta, pro-forma no',
+                `L'ordine è in Ordini. Il documento non è stato emesso: ${esito.perche}.\n\nSi emette dal bottone «Pro-forma» sulla riga dell'ordine.`,
+              );
+            }
+          } catch {
+            /* l'ordine non è nato: la vinta resta valida, si riprova da Ordini */
+          }
         }
       }
       onSalvata();

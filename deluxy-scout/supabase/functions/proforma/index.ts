@@ -53,6 +53,10 @@ Deno.serve(async (req) => {
           scadenza: body.scadenza ?? undefined,
           validoFino: body.validoFino ?? undefined,
           note: body.note ?? undefined,
+          // ⭐ 27/08/2026 — con quale INTESTAZIONE: FINANCE tiene un template
+          // per brand (logo, dati societari, coordinate di pagamento). Si passa
+          // il brand per nome; senza, di là si usa il predefinito.
+          brand: body.brand ?? undefined,
           righe: body.righe,
         }),
       });
