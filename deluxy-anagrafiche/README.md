@@ -204,6 +204,14 @@ curl -X POST https://deluxy-anagrafiche.vercel.app/api/v1/feedback \
 
 ### Regole d'ingaggio (attive)
 
+- **La forma giuridica non conta** (dal 27/08/2026): mandate il nome com'è, «srl»
+  compreso — se il primo giro non trova niente il registro riprova senza le forme
+  giuridiche, sul solo nome. ⚠️ Ma **due forme diverse non si agganciano mai** da
+  sole («Rossi Fiori SRL» ≠ «Rossi Fiori SAS»), e **l'ordine delle parole conta**:
+  «PALAZZO FENDI» e «FENDI PALAZZO» sono due negozi veri, a Milano e a Roma.
+  Quando il nome non regge il confronto la risposta è `candidati`, non `agganciata`:
+  ⚠️ **`candidati` non è `nessuna`** — se ne create una nuova invece di farla
+  confermare a una persona, il doppione lo state creando voi.
 - **Primo contatto senza id**: `GET /partners/match?pIva=…&codiceFiscale=…&nome=…&citta=…`
   (passando anche `idEsterno`) → il match sicuro o i candidati con la confidenza.
   **Mandate più criteri insieme**: è una **cascata** — P.IVA → codice fiscale →

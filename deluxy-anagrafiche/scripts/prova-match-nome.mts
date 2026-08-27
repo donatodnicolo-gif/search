@@ -47,5 +47,26 @@ for (const nome of NOMI) {
     male++;
   }
 }
-console.log(male ? `\n${male} agganci sbagliati` : "\nNessun aggancio sbagliato");
+// ⚠️ La tolleranza alle forme giuridiche (27/08/2026) è una regola che
+// AGGANCIA: si prova sui casi in cui deve dire di sì e su quelli in cui deve
+// dire di no, altrimenti la si scopre in produzione come quella di agosto.
+const CASI: [string, string, boolean][] = [
+  ["Fioreria Battistella srl", "Fioreria Battistella", true],   // forma da una parte sola
+  ["Ketty Flowers srl", "Ketty Flowers · PORTO CERVO", true],
+  ["Rossi Fiori SRL", "Rossi Fiori S.R.L.", true],              // stessa forma, scritta diversa
+  ["Rossi Fiori SRL", "Rossi Fiori SAS", false],                // ⚠️ due soggetti giuridici
+  ["Battistella fioreria srl", "Fioreria Battistella", false],  // ordine diverso: decide una persona
+  ["PALAZZO FENDI", "FENDI PALAZZO", false],                    // due negozi veri, Milano e Roma
+  ["Fiori srl", "Fiori", false],                                // senza sostanza non identifica nessuno
+];
+console.log("");
+for (const [a, b, atteso] of CASI) {
+  const ok = nomeAffine(a, b) === atteso;
+  if (!ok) male++;
+  console.log(`${ok ? "ok  " : "NO  "} «${a}» ⇄ «${b}» → atteso ${atteso}`);
+}
+
+
+console.log("");
+console.log(male ? `${male} verifiche fallite` : "Nessun aggancio sbagliato");
 process.exit(male ? 1 : 0);

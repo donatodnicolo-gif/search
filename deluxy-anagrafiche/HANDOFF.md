@@ -1,6 +1,6 @@
 # Deluxy Anagrafiche — Handoff / Stato del progetto
 
-> Documento per riprendere il lavoro da zero in una nuova sessione. Aggiornato il 24/08/2026.
+> Documento per riprendere il lavoro da zero in una nuova sessione. Aggiornato il 27/08/2026.
 > Leggi anche `README.md` (brief di integrazione per le altre app) e il `CLAUDE.md` alla radice del repo.
 
 ## ⚠️ 25/08/2026 — «un solo risultato» non è un'identità (match per nome)
@@ -43,10 +43,35 @@ pagati dal Customer Service, «Paradis des fleurs» ora torna **candidati**, e
 «RIGUTTO ELENA» continua ad agganciarsi a **«Il Giardino Di Rigutto Elena»**
 (che è giusto: evita il doppione).
 
-⚠️ **Resta aperto, ed è un limite della ricerca a parole, non di questa
-correzione**: «Battistella fioreria srl» non trova «Fioreria Battistella» perché
-«srl» non compare da nessuna parte — quindi risponde «nessuna» e chi chiama
-creerebbe un quasi-doppione.
+✅ **Chiuso il 27/08/2026 — la forma giuridica non identifica nessuno.**
+«Battistella fioreria srl» non trovava «Fioreria Battistella» perché la ricerca
+a parole le vuole **tutte** e «srl» non compare in nessun campo: rispondeva
+«nessuna», e chi chiamava creava il quasi-doppione. Ora, **solo quando il primo
+giro non ha trovato niente**, `risolviMatch` riprova senza le forme giuridiche
+(`paroleSignificative` in `src/lib/ricerca.ts`) e **solo su nome e ragione
+sociale** — il ripiego è più largo, quindi ⚠️ **non deve poter pescare fra i
+contatti**: è da lì che è nato l'aggancio sbagliato di due giorni prima. Essendo
+un secondo giro su un risultato vuoto, non toglie né cambia nessun risultato che
+prima c'era.
+
+E `nomeAffine` ignora la forma giuridica nel confronto — «Fioreria Battistella
+srl» **è** «Fioreria Battistella» — con tre guardie:
+- ⚠️⚠️ **forme diverse non si agganciano mai**: «Rossi Fiori SRL» e «Rossi Fiori
+  SAS» sono due soggetti giuridici. Si ignora la forma quando c'è **da una parte
+  sola**, o quando è la stessa scritta in modo diverso («S.R.L.» / «srl»);
+- **la sostanza si richiede di nuovo** dopo aver tolto la parola: «Fiori srl» e
+  «Fiori» diventano identici, ma «Fiori» non identifica nessuno (sei caratteri);
+- **l'ordine delle parole resta vincolante**, e non è pignoleria: nel registro
+  ci sono «PALAZZO FENDI» (MILANO) e «FENDI PALAZZO» (ROMA), «ARTE E FIORI»
+  (Firenze) e «Fiori & Arte» (PESCARA) — **stesse parole, negozi diversi**.
+  Perciò «Battistella fioreria srl» ⇄ «Fioreria Battistella» torna fra i
+  **candidati**, non fra gli agganci: lo conferma una persona.
+
+**Verifica ostile su tutte le 600.060 coppie** di nomi vivi: **0 agganci nuovi**
+fra i record esistenti (nessuna coppia in registro differisce per la sola forma)
+e **0 agganci persi**. La regola cambia solo la risposta a chi *chiede da fuori*
+— che è il caso vero. Le prove stanno in `scripts/prova-match-nome.mts`
+(i 17 fornitori del Customer Service + i 7 casi della regola).
 
 **✅ E il dato scritto per sbaglio è stato tolto** (25/08, ore 14):
 `npx tsx scripts/ripara-aggancio-sbagliato.mts --scrivi` ha rimesso a vuoto lo
@@ -58,8 +83,9 @@ sono passati da 5 a **15**, e «RIGUTTO ELENA» si è agganciata al record che
 c'era già («Il Giardino Di Rigutto Elena») invece di creare un doppione.
 
 🔴 **Due aspettano una persona nella pagina Match**: «Paradis des fleurs» (che
-ora torna correttamente fra i candidati) e «Battistella fioreria srl», che
-somiglia a «Fioreria Battistella».
+torna correttamente fra i candidati) e «Battistella fioreria srl» — che dal
+27/08 **il candidato ce l'ha**, «Fioreria Battistella» (PORDENONE), e aspetta
+solo la conferma.
 
 ## 1. Cos'è, in una riga
 
