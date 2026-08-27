@@ -224,12 +224,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...shadow.card,
   },
+  // ⚠️ COMPATTA (27/08/2026, richiesta dell'utente sulla tabella Ordini). I
+  // margini di prima — 16 di padding, 8 di gap, 10 sopra e sotto — su una
+  // tabella da nove colonne si sommavano a 96px di ARIA fra le colonne, cioè
+  // spazio tolto ai dati e righe più alte del necessario. Qui si guarda un
+  // elenco per confrontarlo: più righe stanno a schermo, meglio si confronta.
   riga: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },

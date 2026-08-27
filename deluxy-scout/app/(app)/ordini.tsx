@@ -183,7 +183,7 @@ export default function Ordini() {
       ),
     },
     { chiave: 'linea', label: 'Linea', flex: 0.7, valore: (o) => o.linea ?? null },
-    { chiave: 'canale', label: 'Canale', width: 68, valore: (o) => o.canale ?? null },
+    { chiave: 'canale', label: 'Canale', width: 56, valore: (o) => o.canale ?? null },
     /**
      * QUANTO CI COSTA, accanto a quanto lo vendiamo (richiesta dell'utente).
      * Il fornitore e il suo preventivo vengono dai lavori collegati alla
@@ -198,7 +198,7 @@ export default function Ordini() {
     {
       chiave: 'costo',
       label: 'Preventivo',
-      width: 104,
+      width: 92,
       destra: true,
       numerica: true,
       valore: (o) => costi.get(o.id)?.costo ?? null,
@@ -218,7 +218,7 @@ export default function Ordini() {
     {
       chiave: 'margine',
       label: 'Margine',
-      width: 112,
+      width: 98,
       destra: true,
       numerica: true,
       valore: (o) => margineDi(o),
@@ -241,7 +241,7 @@ export default function Ordini() {
     {
       chiave: 'valore',
       label: 'Valore',
-      width: 92,
+      width: 84,
       destra: true,
       numerica: true,
       valore: (o) => o.valore,
@@ -250,7 +250,7 @@ export default function Ordini() {
     {
       chiave: 'quando',
       label: 'Creato',
-      width: 82,
+      width: 70,
       destra: true,
       numerica: true,
       valore: (o) => o.created_at,
@@ -259,20 +259,24 @@ export default function Ordini() {
     {
       chiave: 'stato',
       label: 'Stato',
-      width: 108,
+      width: 94,
       valore: (o) => o.stato,
       cella: (o) => <StatusBadge small label={labelStatoOrdine[o.stato]} colore={coloreStatoOrdine[o.stato]} />,
     },
     {
       chiave: 'azioni',
       label: '',
-      // ⚠️ Larga quanto i bottoni chiedono davvero (27/08/2026): con 268px il
-      // contenuto (~360) andava a capo, e siccome Fattura e Pro-forma
-      // compaiono solo finché il documento manca, «Incassato» finiva a capo su
-      // certe righe e no su altre — l'occhio non trovava mai il bottone nero
-      // nello stesso posto. Adesso la tabella scorre invece di tagliare, quindi
-      // la colonna può essere della misura giusta.
-      width: 372,
+      /**
+       * ⚠️ COMPATTA (27/08/2026, richiesta dell'utente: «tabella deve essere
+       * compatta»). Prima erano quattro pillole di testo più due icone: ~360px
+       * di larghezza per riga, cioè un terzo della tabella speso in bottoni.
+       *
+       * Le azioni sono le STESSE SEI: non se ne toglie nessuna per fare spazio
+       * — si stringe la cornice, non il loro numero. Diventano icone con
+       * l'etichetta al passaggio del mouse e per il lettore di schermo, che è
+       * la stessa parola di prima.
+       */
+      width: 196,
       fissa: true,
       valore: () => null,
       cella: (o) => (
@@ -283,11 +287,13 @@ export default function Ordini() {
                   FINANCE. Non è «incassato» — i soldi arrivano dopo. */}
               {!o.fattura_numero ? (
                 <Pressable
-                  style={[styles.btnMini, inCorso === o.id && { opacity: 0.5 }]}
+                  style={[styles.iconaAzione, inCorso === o.id && { opacity: 0.5 }]}
                   disabled={inCorso === o.id}
                   onPress={(e: any) => { e?.stopPropagation?.(); chiediFattura(o); }}
+                  accessibilityLabel="Chiedi la fattura a FINANCE"
+                  {...({ title: 'Fattura — chiedi il documento a FINANCE (non è l’incasso)' } as any)}
                 >
-                  <Text style={styles.btnMiniTxt}>{inCorso === o.id ? 'Chiedo…' : 'Fattura'}</Text>
+                  <Ionicons name="document-text-outline" size={17} color={colors.navy} />
                 </Pressable>
               ) : null}
               {/* ⭐ LA PRO-FORMA CHE NON C'È (27/08/2026). Ogni ordine nasce
@@ -298,26 +304,33 @@ export default function Ordini() {
                   appena arriva. */}
               {!o.proforma_numero && !o.fattura_numero ? (
                 <Pressable
-                  style={[styles.btnMini, inCorso === o.id && { opacity: 0.5 }]}
+                  style={[styles.iconaAzione, inCorso === o.id && { opacity: 0.5 }]}
                   disabled={inCorso === o.id}
                   onPress={(e: any) => { e?.stopPropagation?.(); emettiProforma(o); }}
-                  {...({ title: 'Emetti la pro-forma su FINANCE e agganciala a questo ordine' } as any)}
+                  accessibilityLabel="Emetti la pro-forma"
+                  {...({ title: 'Pro-forma — emettila su FINANCE e agganciala a questo ordine' } as any)}
                 >
-                  <Text style={styles.btnMiniTxt}>{inCorso === o.id ? 'Emetto…' : 'Pro-forma'}</Text>
+                  <Ionicons name="receipt-outline" size={17} color={colors.navy} />
                 </Pressable>
               ) : null}
               <Pressable
-                style={styles.btnMini}
+                style={styles.iconaAzione}
                 onPress={(e: any) => { e?.stopPropagation?.(); chiediAcconto(o); }}
-                {...({ title: 'Chiedi un acconto in percentuale' } as any)}
+                accessibilityLabel="Chiedi un acconto"
+                {...({ title: 'Acconto — chiedine uno in percentuale' } as any)}
               >
-                <Text style={styles.btnMiniTxt}>Acconto</Text>
+                <Ionicons name="wallet-outline" size={17} color={colors.navy} />
               </Pressable>
-              <Pressable style={styles.btn} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'incassato'); }}>
-                <Text style={styles.btnTxt}>Incassato</Text>
+              {/* L'azione di tutti i giorni resta l'unica PIENA: si trova
+                  a colpo d'occhio anche fra sei icone. */}
+              <Pressable
+                style={styles.iconaPiena}
+                onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'incassato'); }}
+                accessibilityLabel="Segna incassato"
+                {...({ title: 'Incassato — i soldi sono arrivati' } as any)}
+              >
+                <Ionicons name="checkmark" size={17} color={colors.bianco} />
               </Pressable>
-              {/* Correggere e annullare sono icone: si usano di rado e non
-                  devono rubare spazio alle azioni di tutti i giorni. */}
               <Pressable
                 style={styles.iconaAzione}
                 hitSlop={8}
@@ -339,8 +352,13 @@ export default function Ordini() {
             </>
           ) : (
             <>
-              <Pressable style={styles.btnMini} onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'da_incassare'); }}>
-                <Text style={styles.btnMiniTxt}>Da incassare</Text>
+              <Pressable
+                style={styles.iconaAzione}
+                onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'da_incassare'); }}
+                accessibilityLabel="Riporta a da incassare"
+                {...({ title: 'Riportalo fra quelli da incassare' } as any)}
+              >
+                <Ionicons name="arrow-undo-outline" size={17} color={colors.navy} />
               </Pressable>
               {/* ⚠️ Anche un ordine incassato o annullato si corregge: un nome
                   sbagliato resta sbagliato nei conti dell'anno. */}
@@ -683,11 +701,11 @@ export default function Ordini() {
               colonne={colonne}
               chiaveRiga={(o) => o.id}
               ordineIniziale={{ campo: 'quando', verso: 'desc' }}
-              // Quanto chiede questa tabella: colonne fisse (372+68+104+112+92+82+108
-              // = 938) + gap e chevron + un minimo leggibile per Cliente, Linea e
-              // Fornitore. Sotto questa misura scorre, invece di tagliare la
-              // colonna delle azioni o schiacciare il nome del cliente a 9px.
-              larghezzaMinima={1340}
+              // Quanto chiede questa tabella: le colonne fisse (56+92+98+84+70+94
+              // +196 = 690) più i gap, il chevron e un minimo leggibile per
+              // Cliente, Linea e Fornitore. Sotto questa misura scorre, invece
+              // di tagliare le azioni o schiacciare il nome del cliente.
+              larghezzaMinima={950}
               onRiga={(o) => o.place_id && router.push(`/(app)/attivita/${o.place_id}`)}
               labelRiga={(o) => `Apri la scheda di ${o.place_nome ?? o.cliente}`}
               /**
@@ -1025,8 +1043,13 @@ const styles = StyleSheet.create({
   brandTxt: { color: colors.goldStrong, fontSize: 10.5, fontWeight: '700' },
   riepilogoMobile: { paddingBottom: 8 },
   riepilogoTxt: { color: colors.testoSoft, fontSize: 12.5, fontWeight: '700' },
-  iconaAzione: { padding: 8, borderRadius: radius.sm },
-  tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap', rowGap: 4 },
+  iconaAzione: { padding: 7, borderRadius: radius.sm },
+  // L'azione di tutti i giorni: l'unica piena, si trova a colpo d'occhio.
+  iconaPiena: { padding: 7, borderRadius: radius.sm, backgroundColor: colors.ink },
+  // Le sei azioni su UNA riga, senza andare a capo: la colonna è dimensionata
+  // su di loro, quindi il wrap non serve più — ed era lui a far cambiare posto
+  // al bottone principale da una riga all'altra.
+  tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 2, justifyContent: 'flex-end' },
   // Bottoni piccoli per le azioni secondarie: stessa altezza, meno peso.
   btnMini: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
   btnMiniTxt: { color: colors.testo, fontWeight: '700', fontSize: 11.5 },

@@ -114,6 +114,39 @@ export default function TemplateDocumenti() {
     }, [carica]),
   );
 
+  /**
+   * ⭐ I DATI SOCIETARI SONO GIÀ DENTRO (27/08/2026, richiesta dell'utente:
+   * «i dati societari sono di default»).
+   *
+   * Le tre insegne sono la STESSA società: ragione sociale, P. IVA, codice
+   * fiscale, REA, indirizzo, IBAN e testo di legge non cambiano — cambiano il
+   * logo, il nome e i contatti. Farli riscrivere tre volte è un invito a
+   * sbagliare una partita IVA, e una P. IVA sbagliata su un documento che va al
+   * cliente è un problema serio.
+   *
+   * ⚠️ Si copiano dal template PREDEFINITO (o dal primo che c'è), non da una
+   * costante: quei dati non li inventa il codice. La prima volta si scrivono
+   * una volta sola.
+   */
+  function datiSocietariDiDefault(): Partial<Bozza> {
+    const base = righe.find((r) => r.predefinito) ?? righe[0];
+    if (!base) return {};
+    return {
+      ragione_sociale: base.ragione_sociale,
+      indirizzo: base.indirizzo ?? '',
+      piva: base.piva ?? '',
+      codice_fiscale: base.codice_fiscale ?? '',
+      rea: base.rea ?? '',
+      iban: base.iban ?? '',
+      intestatario_conto: base.intestatario_conto ?? '',
+      modalita_pagamento: base.modalita_pagamento ?? '',
+      disclaimer: base.disclaimer ?? '',
+      // ⚠️ NON si copiano: logo, nome, brand, contatti. Sono esattamente le
+      // quattro cose che distinguono un'insegna dall'altra — copiarle
+      // farebbe uscire il documento di Cake Design col logo di Deluxy.
+    };
+  }
+
   function apri(t: TemplateDocumento | null) {
     setApertoId(t?.id ?? 'nuovo');
     setBozza(
@@ -134,7 +167,7 @@ export default function TemplateDocumenti() {
             note_default: t.note_default ?? '',
             disclaimer: t.disclaimer ?? '',
           }
-        : { ...VUOTA },
+        : { ...VUOTA, ...datiSocietariDiDefault() },
     );
   }
 
@@ -336,6 +369,12 @@ export default function TemplateDocumenti() {
             intestazione.
           </Text>
 
+          {apertoId === 'nuovo' && righe.length ? (
+            <Text style={styles.aiuto}>
+              I dati societari sono già compilati con quelli di «{(righe.find((r) => r.predefinito) ?? righe[0]).nome}»:
+              le insegne sono la stessa società. Cambia logo, nome e contatti.
+            </Text>
+          ) : null}
           <Text style={styles.label}>Ragione sociale *</Text>
           <TextInput
             style={styles.input}
