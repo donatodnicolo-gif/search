@@ -2792,9 +2792,37 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
  * prende l'utente esplicito, non la sessione. Testo semplice, dal primo account
  * dell'utente. Registra l'inviata come dalla UI.
  */
+/**
+ * Tetto degli ALLEGATI che arrivano dalle API (27/08/2026).
+ *
+ * ⚠️ Qui i file passano DENTRO la richiesta come base64, quindi il limite non
+ * e' quello dei server di posta ma quello della funzione serverless: sopra
+ * questo peso la richiesta muore prima di arrivare, e muore in modo poco
+ * leggibile. Meglio un rifiuto che lo dice.
+ */
+const MAX_ALLEGATI_API = 8 * 1024 * 1024
+
+/**
+ * I caratteri che non possono stare nel NOME di un allegato: finisce in
+ * un intestazione MIME e poi in un file sul computer di chi riceve. Barre,
+ * a-capo e byte nullo non sono un fastidio estetico.
+ */
+const VIETATI_NEL_NOME = [String.fromCharCode(92), '/', String.fromCharCode(13), String.fromCharCode(10), String.fromCharCode(0)]
+
 export async function inviaMailApi(
   utenteId: string,
-  dati: { a: string; cc?: string; oggetto: string; corpo: string; corpoHtml?: string },
+  dati: {
+    a: string; cc?: string; oggetto: string; corpo: string; corpoHtml?: string
+    /**
+     * ⭐ 27/08/2026: gli ALLEGATI, chiesti dalla piattaforma consegne. Servono
+     * a mandare il recap e la RICEVUTA come file invece che dentro il corpo:
+     * una ricevuta da firmare che vive nel testo della mail non si stampa
+     * bene e non si archivia.
+     *
+     * `contenuto` e' base64 (senza il prefisso `data:`).
+     */
+    allegati?: { nome: string; contenuto: string; tipo?: string }[]
+  },
   // ⭐ 27/08: la CASELLA da cui partire, quando il chiamante la indica (per
   // `x-utente` = email di un account, es. amministrazione@deluxy.it). Senza,
   // resta la prima casella dell'utente, come sempre.
@@ -2827,7 +2855,32 @@ export async function inviaMailApi(
     })
     if (!account) return { ok: false, messaggio: accountEmail ? `Nessuna casella ${accountEmail} per questo utente.` : 'Nessuna casella collegata per questo utente.' }
 
-    const daInviare: DaInviare = { a, cc: dati.cc, oggetto, corpo, corpoHtml: html || undefined, inRispostaA: null }
+    // Gli allegati delle API: base64 -> Buffer, con i controlli che servono.
+    // ⚠️ Il NOME si ripulisce: finisce in un'intestazione MIME e in un file
+    // sul computer di chi riceve. Un nome con barre o a-capo non e' un
+    // fastidio estetico.
+    let allegati: AllegatoInvio[] | undefined
+    if (dati.allegati?.length) {
+      let peso = 0
+      allegati = []
+      for (const x of dati.allegati) {
+        const nome = VIETATI_NEL_NOME.reduce((n, ch) => n.split(ch).join('_'), x?.nome ?? '').trim().slice(0, 120)
+        const b64 = (x?.contenuto ?? '').trim()
+        if (!nome || !b64) return { ok: false, messaggio: 'Allegato senza nome o senza contenuto.' }
+        const content = Buffer.from(b64, 'base64')
+        // ⚠️ Un base64 malformato non lancia: Buffer.from scarta i caratteri
+        // strani e torna un buffer piu' corto — anche vuoto. Un allegato vuoto
+        // che parte senza dire niente e' peggio di un rifiuto.
+        if (!content.length) return { ok: false, messaggio: `Allegato «${nome}»: contenuto non leggibile (atteso base64).` }
+        peso += content.length
+        if (peso > MAX_ALLEGATI_API) {
+          return { ok: false, messaggio: `Allegati troppo pesanti: il massimo complessivo e' ${Math.round(MAX_ALLEGATI_API / 1024 / 1024)} MB.` }
+        }
+        allegati.push({ filename: nome, content, contentType: x?.tipo || undefined })
+      }
+    }
+
+    const daInviare: DaInviare = { a, cc: dati.cc, oggetto, corpo, corpoHtml: html || undefined, allegati, inRispostaA: null }
     const { raw, messageId } = await spedisci(account, daInviare)
     const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, null)
 

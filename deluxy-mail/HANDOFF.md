@@ -23,6 +23,51 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 27/08 — ALLEGATI nelle API di invio (chiesto dalla piattaforma consegne)
+
+`POST /api/v1/invia` accetta adesso anche `allegati`:
+
+```json
+{
+  "a": "valet@esempio.it",
+  "oggetto": "Recap paghe",
+  "corpo": "<html>…</html>",
+  "allegati": [
+    { "nome": "ricevuta-Rossi-2026-08-01_2026-08-27.html",
+      "contenuto": "<base64 SENZA il prefisso data:>",
+      "tipo": "text/html" }
+  ]
+}
+```
+
+**Perché**: la piattaforma consegne manda al valet il recap paghe e la
+**ricevuta da firmare**. Fino a ieri la ricevuta viaggiava **dentro il corpo**
+della mail — si legge, ma non si stampa bene e non si archivia. Serviva un
+file.
+
+⚠️ Il pezzo che mancava era **solo la porta**: `spedisci()` passava già
+gli `allegati` a MailComposer e `DaInviare` li dichiarava già. Erano
+`inviaMailApi` e la rotta a non farli entrare.
+
+**Le difese, e perché ognuna**:
+
+- **8 MB in tutto** (`MAX_ALLEGATI_API`). ⚠️ Non è il limite dei server di
+  posta (quello è ~25 MB e vale per l’inoltro, dove i file **non** passano
+  dalla richiesta): qui il base64 viaggia **dentro** la richiesta, quindi il
+  tetto è quello della funzione serverless. Sopra, la richiesta muore prima di
+  arrivare e muore in modo illeggibile.
+- **Il nome si ripulisce** da barre, a-capo e byte nullo: finisce in
+  un’intestazione MIME e poi in un file sul computer di chi riceve. Non è un
+  fastidio estetico.
+- **Un base64 malformato si RIFIUTA.** ⚠️ `Buffer.from(x, "base64")` non
+  lancia: scarta i caratteri strani e torna un buffer più corto, anche vuoto.
+  Un allegato vuoto che parte senza dire niente è peggio di un rifiuto.
+
+Chi chiama oggi: `deluxy-platform-next` — recap paghe valet (+ ricevuta per
+chi non ha P.IVA) e recap consegne partner.
+
+Typecheck pulito.
+
 ### 26/08 (notte 2) — ESAME UX/UI: desktop, mobile e un ostile che li giudica
 
 Chiesto dall'utente: un agente che esamina il layout desktop, uno che esamina il mobile,

@@ -21,7 +21,10 @@ export async function POST(request: Request) {
   const auth = await autenticaApi(request)
   if (!auth.ok) return NextResponse.json({ ok: false, errore: auth.errore }, { status: auth.status })
 
-  let body: { a?: string; cc?: string; oggetto?: string; corpo?: string; corpoHtml?: string; html?: string }
+  let body: {
+    a?: string; cc?: string; oggetto?: string; corpo?: string; corpoHtml?: string; html?: string
+    allegati?: { nome: string; contenuto: string; tipo?: string }[]
+  }
   try {
     body = await request.json()
   } catch {
@@ -36,6 +39,12 @@ export async function POST(request: Request) {
     oggetto: body.oggetto ?? '',
     corpo: body.corpo ?? '',
     corpoHtml: body.corpoHtml ?? body.html,
+    // ⭐ 27/08/2026: ALLEGATI. Chiesti dalla piattaforma consegne, che manda al
+    // valet il recap paghe e la RICEVUTA da firmare: dentro il corpo della mail
+    // non si stampano bene e non si archiviano.
+    //   allegati: [{ nome: 'ricevuta.html', contenuto: '<base64>', tipo: 'text/html' }]
+    // Il contenuto e' base64 SENZA il prefisso `data:`. Massimo 8 MB in tutto.
+    allegati: Array.isArray(body.allegati) ? body.allegati : undefined,
   }, auth.accountEmail)
   return NextResponse.json(esito, { status: esito.ok ? 200 : 400 })
 }
