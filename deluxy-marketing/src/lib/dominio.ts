@@ -619,3 +619,25 @@ export const ETICHETTA_OPERAZIONE: Record<string, string> = {
   pausa_gruppo: "Pausa gruppo",
   attiva_gruppo: "Riattiva gruppo",
 };
+
+/**
+ * Da quanto tempo è successa una cosa, in parole («22 ore fa»).
+ *
+ * ⚠️ Sta qui e non dentro un componente perché ne serviva GIÀ una seconda
+ * copia: la prima è nata in `UltimaCorsa` per i connettori fermi, la seconda
+ * serviva alla coda ferma. Due copie della stessa regola divergono — è già
+ * successo in questo repo con la lettura degli importi — e «da quanto aspetta»
+ * è esattamente il numero su cui si decide se una cosa è normale o rotta.
+ *
+ * ⚠️ È una DURATA, non un giorno di calendario: non dipende dal fuso del
+ * server (Vercel gira in UTC), a differenza di «oggi».
+ */
+export function daQuanto(d: Date | string): { testo: string; ore: number } {
+  const min = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 60000));
+  if (min < 1) return { testo: "adesso", ore: 0 };
+  if (min < 60) return { testo: `${min} min fa`, ore: 0 };
+  const ore = Math.floor(min / 60);
+  if (ore < 24) return { testo: `${ore} ${ore === 1 ? "ora" : "ore"} fa`, ore };
+  const giorni = Math.floor(ore / 24);
+  return { testo: `${giorni} ${giorni === 1 ? "giorno" : "giorni"} fa`, ore };
+}

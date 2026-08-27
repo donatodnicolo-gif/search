@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { ETICHETTA_CANALE, formattaDataOra } from "@/lib/dominio";
+import { daQuanto, ETICHETTA_CANALE, formattaDataOra } from "@/lib/dominio";
 
 // QUANDO SI SONO FATTI VIVI I CONNETTORI, uno per uno.
 //
@@ -13,22 +13,27 @@ import { ETICHETTA_CANALE, formattaDataOra } from "@/lib/dominio";
 // La soglia non è un'opinione: gli script sono programmati quotidiani, quindi
 // oltre 24 ore c'è qualcosa che non va, oltre 48 è fermo.
 
-function daQuanto(d: Date): { testo: string; ore: number } {
-  const min = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
-  if (min < 60) return { testo: `${min} min fa`, ore: 0 };
-  const ore = Math.floor(min / 60);
-  if (ore < 24) return { testo: `${ore} ${ore === 1 ? "ora" : "ore"} fa`, ore };
-  const giorni = Math.floor(ore / 24);
-  return { testo: `${giorni} ${giorni === 1 ? "giorno" : "giorni"} fa`, ore };
-}
-
 export async function UltimaCorsa() {
-  const [consegne, account] = await Promise.all([
-    // Una riga per account: l'ultima consegna, qualunque tipo di dato fosse.
-    prisma.ricezioneDati.findMany({
-      orderBy: { ricevutoIl: "desc" },
-      take: 400,
-      select: { account: true, fonte: true, tipo: true, ricevutoIl: true, righe: true },
+  // ⚠️⚠️ QUI C'ERA UN ALLARME FALSO, misurato il 27/08/2026: la tabella
+  // diceva «Cakedesign Google Ads — MAI PARTITO» mentre quell'account aveva
+  // consegnato quella notte alle 02:42. Il motivo: si leggevano le ULTIME 400
+  // consegne e si raggruppava a mano. Ma le consegne non sono distribuite in
+  // parti uguali — Gifts ne manda ~236 al giorno, Flowers ~139, Meta 24 —
+  // e nelle sette ore dopo la corsa di Cake le altre ne avevano già scritte
+  // 400: l'unica riga che serviva era caduta fuori dalla finestra.
+  //
+  // È la trappola del «take» che nasconde i risultati veri, e qui costava il
+  // doppio: questo riquadro ESISTE per accorgersi di uno script fermo, e
+  // gridava al lupo sull'unico account che stava lavorando. Un allarme che
+  // mente si impara a ignorarlo, e allora smette di funzionare anche per
+  // quelli veri.
+  //
+  // La domanda giusta è «l'ultima consegna PER ACCOUNT»: si chiede al
+  // database (un massimo per gruppo), non a una finestra sperando che basti.
+  const [ultimePerAccount, account] = await Promise.all([
+    prisma.ricezioneDati.groupBy({
+      by: ["account"],
+      _max: { ricevutoIl: true },
     }),
     prisma.accountAdv.findMany({
       where: { attivo: true },
@@ -36,11 +41,30 @@ export async function UltimaCorsa() {
     }),
   ]);
 
+  // Il dettaglio (che dato era, quante righe) solo per quelle N righe: una
+  // coppia account+istante è una riga sola.
+  const coppie = ultimePerAccount.filter(
+    (g): g is typeof g & { account: string; _max: { ricevutoIl: Date } } =>
+      Boolean(g.account) && g._max.ricevutoIl != null
+  );
+  const dettagli = coppie.length
+    ? await prisma.ricezioneDati.findMany({
+        where: {
+          OR: coppie.map((g) => ({ account: g.account, ricevutoIl: g._max.ricevutoIl })),
+        },
+        select: { account: true, fonte: true, tipo: true, ricevutoIl: true, righe: true },
+      })
+    : [];
+
   const soloCifre = (s: string) => s.replace(/\D/g, "");
   const ultima = new Map<string, { quando: Date; tipo: string; righe: number; fonte: string }>();
-  for (const c of consegne) {
+  for (const c of dettagli) {
     const k = soloCifre(c.account ?? "");
-    if (!k || ultima.has(k)) continue;
+    if (!k) continue;
+    const gia = ultima.get(k);
+    // Due account scritti in modo diverso («846-090-5423» e «8460905423»)
+    // finiscono nella stessa chiave: vince la consegna più recente.
+    if (gia && gia.quando >= c.ricevutoIl) continue;
     ultima.set(k, { quando: c.ricevutoIl, tipo: c.tipo, righe: c.righe, fonte: c.fonte });
   }
 

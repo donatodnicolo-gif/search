@@ -1,4 +1,5 @@
 import { AndamentoMese } from "@/components/AndamentoMese";
+import { CodaFerma } from "@/components/CodaFerma";
 import { Badge } from "@/components/Badge";
 import { BottoneSync } from "@/components/BottoneSync";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
@@ -222,6 +223,11 @@ export default async function Dashboard({
         <ScelteBrand periodo={periodo.corrente} />
 
         <UltimaCorsa />
+
+        {/* Subito sotto i connettori fermi, e per lo stesso motivo: quello che
+            è stato deciso e non è ancora successo non si vede da nessuna
+            parte finché non si apre la coda. */}
+        <CodaFerma />
 
         <AndamentoMese />
 
