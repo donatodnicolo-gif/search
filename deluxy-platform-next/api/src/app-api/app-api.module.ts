@@ -1,5 +1,7 @@
 import { createHash } from 'crypto';
 import {
+  BadRequestException,
+  Body,
   CanActivate,
   Controller,
   ExecutionContext,
@@ -8,13 +10,20 @@ import {
   Module,
   NotFoundException,
   Param,
+  Post,
   Query,
+  Req,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
+import { DeliveriesModule } from '../deliveries/deliveries.module';
+import { DeliveriesService } from '../deliveries/deliveries.service';
+import { CreateDeliveryDto } from '../deliveries/dto/create-delivery.dto';
+import { JwtUser } from '../common/decorators';
+import { Role } from '../common/enums';
 import { FinanceService } from '../finance/finance.module';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -85,7 +94,10 @@ function canonico(shop: string | null | undefined): string {
 
 @Injectable()
 export class AppApiService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly deliveries: DeliveriesService,
+  ) {}
 
   /**
    * Le vendite di una sorgente aggiornate da un momento in poi: è la rotta del
@@ -252,13 +264,9 @@ export class AppApiService {
       // pagato lo stesso. Restano dentro di proposito — ma è una decisione, non
       // una svista, e sono 639 € se un giorno la si vuole rovesciare.
       where: {
-        deletedAt: null,
-        valetId: { not: null },
-        // Il segnaposto «Consegna Partner» non è una persona da pagare.
-        valet: { placeholder: false },
-        // Gli stessi stati che generano la paga negli stipendi: una consegna
-        // ancora da approvare non è un costo, è una richiesta.
-        status: { in: ['delivered', 'approved', 'not_delivered'] },
+        // ⚠️ Il perimetro sta in UN POSTO SOLO (`PERIMETRO_COSTO`), condiviso
+        // col totale dell'elenco per consegna: due copie divergerebbero.
+        ...AppApiService.PERIMETRO_COSTO,
         ...(daData || aData
           ? { date: { ...(daData ? { gte: daData } : {}), ...(aData ? { lt: aData } : {}) } }
           : {}),
@@ -320,15 +328,8 @@ export class AppApiService {
       // filtro sugli stati della query. Una consegna non riuscita è un viaggio
       // fatto; una annullata è un viaggio mai partito.
       if (d.status === 'not_delivered') nonConsegnateTenute++;
-      const paga =
-        d.payable === false
-          ? 0
-          : Math.max(0, (d.valetSalary ?? 0) + FinanceService.plusNelCosto(d.valetAdditionalPrice));
+      const { paga, ritenuta } = AppApiService.costoDi(d);
       const senzaPartitaIva = d.valet?.hasVat === false;
-      const ritenuta =
-        paga > 0 && senzaPartitaIva
-          ? paga * (1 - (d.valet?.withholdingPercent ?? 0) / 100) * 0.25
-          : 0;
       if (d.valet?.id) (senzaPartitaIva ? senzaPiva : conPiva).add(d.valet.id);
 
       // Mese di CALENDARIO ITALIANO: una consegna delle 00:30 del 1° marzo è
@@ -470,6 +471,54 @@ export class AppApiService {
   // il conto economico. Questa risponde per CONSEGNA: serve a chi deve sapere
   // com'e' finita quella, e quanto e' costata.
   // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * IL PERIMETRO DEL COSTO — lo stesso che legge Deluxy Budgets.
+   *
+   * ⚠️ Vive QUI, in un posto solo, e lo usano sia `costi-consegne` (il totale
+   * per mese e per negozio) sia il totale dell'elenco per consegna. Se le due
+   * rotte lo ripetessero, il giorno che cambia una regola darebbero due numeri
+   * diversi sullo stesso archivio — e chi legge non avrebbe modo di sapere
+   * quale dei due è quello buono.
+   *
+   * Il filtro è POSITIVO: si nominano gli stati che si pagano, non quelli che
+   * si scartano. Uno stato nuovo nasce ESCLUSO invece di entrare di straforo.
+   */
+  // ⚠️ Niente `as const`: renderebbe l'elenco degli stati readonly e Prisma
+  // vuole un array modificabile — l'errore che ne esce non nomina il perimetro,
+  // dice solo che «status non è assegnabile».
+  static readonly PERIMETRO_COSTO: {
+    deletedAt: null;
+    valetId: { not: null };
+    valet: { placeholder: boolean };
+    status: { in: string[] };
+  } = {
+    deletedAt: null,
+    valetId: { not: null },
+    // Il segnaposto «Consegna Partner» non è una persona da pagare.
+    valet: { placeholder: false },
+    // Gli stessi stati che generano la paga negli stipendi: annullate e
+    // invalidate restano fuori — una consegna non riuscita è un viaggio fatto,
+    // una annullata è un viaggio mai partito.
+    status: { in: ['delivered', 'approved', 'not_delivered'] },
+  };
+
+  /**
+   * Il costo di UNA consegna: paga + ritenuta, con le regole della Finanza.
+   * Una funzione sola, usata da tutte e tre le rotte che parlano di costi.
+   */
+  static costoDi(d: {
+    payable?: boolean | null; valetSalary?: number | null; valetAdditionalPrice?: number | null;
+    valet?: { hasVat?: boolean | null; withholdingPercent?: number | null } | null;
+  }): { paga: number; ritenuta: number; costo: number } {
+    const paga = d.payable === false
+      ? 0
+      : Math.max(0, (d.valetSalary ?? 0) + FinanceService.plusNelCosto(d.valetAdditionalPrice));
+    const ritenuta = paga > 0 && d.valet?.hasVat === false
+      ? paga * (1 - ((d.valet?.withholdingPercent ?? 0) / 100)) * 0.25
+      : 0;
+    return { paga, ritenuta, costo: paga + ritenuta };
+  }
 
   /** Tutto quello che serve a raccontare una consegna. Un posto solo. */
   private static readonly CONSEGNA_SELECT = {
@@ -637,23 +686,82 @@ export class AppApiService {
     const dal = opzioni.dal ? new Date(`${opzioni.dal}T00:00:00.000Z`) : null;
     const al = opzioni.al ? new Date(`${opzioni.al}T23:59:59.999Z`) : null;
 
+    // Il filtro del PERIODO: quello che descrive «di quali consegne stiamo
+    // parlando». Non contiene il cursore.
+    const periodo = {
+      // ⚠️ Le cancellate logicamente non escono da qui: per chi legge non
+      // esistono piu'.
+      deletedAt: null,
+      ...(dal || al ? { date: { ...(dal ? { gte: dal } : {}), ...(al ? { lte: al } : {}) } } : {}),
+      ...(opzioni.stato ? { status: opzioni.stato } : {}),
+      ...(opzioni.partnerId ? { partnerId: opzioni.partnerId } : {}),
+    };
+    // Il filtro delle RIGHE di questa pagina: il periodo più il cursore.
+    const where = { ...periodo, ...(da ? { updatedAt: { gt: da } } : {}) };
+
     const consegne = await this.prisma.delivery.findMany({
-      where: {
-        // ⚠️ Le cancellate logicamente non escono da qui: per chi legge non
-        // esistono piu'.
-        deletedAt: null,
-        ...(da ? { updatedAt: { gt: da } } : {}),
-        ...(dal || al ? { date: { ...(dal ? { gte: dal } : {}), ...(al ? { lte: al } : {}) } } : {}),
-        ...(opzioni.stato ? { status: opzioni.stato } : {}),
-        ...(opzioni.partnerId ? { partnerId: opzioni.partnerId } : {}),
-      },
+      where,
       select: AppApiService.CONSEGNA_SELECT,
       orderBy: { updatedAt: 'asc' },
       take: Math.min(500, Math.max(1, opzioni.limit)),
     });
 
     const righe = consegne.map((d) => this.consegnaSerializzata(d));
+
+    // ⭐⭐ IL TOTALE, LO STESSO CHE LEGGE BUDGETS (27/08, chiesto dall'utente).
+    //
+    // ⚠️ NON è la somma della pagina: è il conto su TUTTO quello che il filtro
+    // seleziona. Sommare le righe restituite darebbe il costo di duecento
+    // consegne spacciato per il costo del periodo — la pagina scambiata per la
+    // fine, che è l'errore che questa rotta cerca di non far fare.
+    //
+    // ⚠️ E non è nemmeno il conto su tutte le consegne del filtro: entrano solo
+    // quelle dentro `PERIMETRO_COSTO` (un valet vero, e uno stato che si paga).
+    // Le altre si contano a parte e si DICHIARANO: un totale che non dice cosa
+    // ha lasciato fuori si legge come completo.
+    // ⚠️ E il totale NON tiene conto di `aggiornateDa`: quello è il cursore
+    // della sincronizzazione, non un pezzo della domanda. Con dentro il
+    // cursore, il «totale» sarebbe «quanto è costato ciò che è cambiato da
+    // ieri» — un numero che nessuno ha chiesto e che somiglia troppo a quello
+    // giusto per accorgersene.
+    const doveTotale = { ...periodo, ...AppApiService.PERIMETRO_COSTO };
+    const [perCosto, quanteInFiltro] = await Promise.all([
+      this.prisma.delivery.findMany({
+        where: doveTotale,
+        select: {
+          payable: true, valetSalary: true, valetAdditionalPrice: true,
+          valet: { select: { hasVat: true, withholdingPercent: true } },
+        },
+      }),
+      this.prisma.delivery.count({ where: periodo }),
+    ]);
+    const somma = perCosto.reduce(
+      (a, d) => {
+        const c = AppApiService.costoDi(d);
+        return { paga: a.paga + c.paga, ritenute: a.ritenute + c.ritenuta, costo: a.costo + c.costo };
+      },
+      { paga: 0, ritenute: 0, costo: 0 },
+    );
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+
     return {
+      totali: {
+        // La BASE del totale, detta accanto al totale (una cifra senza la sua
+        // base è una cifra che sembra sbagliata o, peggio, che convince).
+        consegneNelFiltro: quanteInFiltro,
+        consegneNelCosto: perCosto.length,
+        consegneFuoriDalCosto: quanteInFiltro - perCosto.length,
+        costo: r2(somma.costo),
+        paga: r2(somma.paga),
+        ritenute: r2(somma.ritenute),
+        perimetro:
+          'Nel costo entrano solo le consegne con un valet vero (niente segnaposto «Consegna Partner») '
+          + 'e in stato delivered, approved o not_delivered: una consegna non riuscita è un viaggio fatto, '
+          + 'una annullata è un viaggio mai partito. È lo STESSO perimetro di /app/costi-consegne, '
+          + 'quello che legge Deluxy Budgets per il conto economico.',
+        avvertenza:
+          'Questo totale vale sul PERIODO chiesto (dal, al, stato, partnerId), non sulle righe di questa pagina e non sul cursore aggiornateDa.',
+      },
       // Il cursore per la chiamata dopo: si dichiara, non si fa dedurre.
       aggiornateDa: opzioni.aggiornateDa ?? null,
       prossimoCursore: righe.length ? righe[righe.length - 1].aggiornataIl : (opzioni.aggiornateDa ?? null),
@@ -663,6 +771,45 @@ export class AppApiService {
       altrePagine: righe.length >= Math.min(500, Math.max(1, opzioni.limit)),
       consegne: righe,
     };
+  }
+
+  /**
+   * CREA UNA CONSEGNA dal canale app-to-app (27/08/2026, chiesto dall'utente).
+   *
+   * ⭐ Non scrive niente da sola: passa da `DeliveriesService.create`, la
+   * STESSA strada del form. Cosi' la consegna nata da un'altra app ha il prezzo
+   * dal listino del partner, la paga dal listino del valet, le attivita' di
+   * ritiro e consegna e le notifiche — esattamente come quella creata a mano.
+   * Una seconda strada di creazione vorrebbe dire due consegne diverse a
+   * seconda di chi le ha chieste, e la differenza si scoprirebbe in fattura.
+   *
+   * ⚠️ Chi chiama e' un'APP, non una persona: si presenta come OPERATION e deve
+   * dire il `partnerId`. Il nome della chiave finisce nel registro della
+   * consegna, o fra un mese nessuno saprebbe da dove e' arrivata.
+   */
+  async creaConsegna(dto: CreateDeliveryDto, nomeChiave: string) {
+    if (!dto.partnerId) {
+      throw new BadRequestException('partnerId obbligatorio: dal canale app non c\'è un partner sottinteso.');
+    }
+    const utenteApp: JwtUser = {
+      sub: `app:${nomeChiave}`,
+      email: `${nomeChiave}@app.deluxy`,
+      role: Role.OPERATION,
+      isSupport: false,
+      partnerId: null,
+      valetId: null,
+    };
+    const creata: any = await this.deliveries.create(dto, utenteApp);
+    await this.prisma.deliveryLog.create({
+      data: {
+        deliveryId: creata.id,
+        type: 'created',
+        message: `Consegna creata dal canale app-to-app dalla chiave «${nomeChiave}».`,
+      },
+    });
+    // Si risponde nello STESSO formato della lettura: chi crea e poi rilegge
+    // non deve imparare due dialetti.
+    return this.consegnaPerNumero(creata.code);
   }
 
   /** Una consegna sola, per il NUMERO che si legge a schermo (es. 62637). */
@@ -735,6 +882,25 @@ export class AppApiController {
     });
   }
 
+  @Post('consegne')
+  @ApiOperation({
+    summary:
+      'Crea una consegna dal canale app (richiede una chiave con permesso di SCRITTURA). Stessa strada del form: prezzo dal listino del partner, paga dal listino del valet, attività e notifiche',
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app CON scrittura' })
+  creaConsegna(@Body() dto: CreateDeliveryDto, @Req() req: any) {
+    // ⚠️ IL PERMESSO DI SCRITTURA SI CONTROLLA QUI, e la chiave lo porta con sé
+    // (`AppApiKey.scrittura`). Il guard del controller dice solo CHI sei: una
+    // chiave di sola lettura che potesse creare consegne renderebbe inutile
+    // avere due tipi di chiave.
+    if (!req?.appChiave?.scrittura) {
+      throw new UnauthorizedException(
+        'Questa chiave è di sola lettura: per creare consegne serve una chiave con permesso di scrittura.',
+      );
+    }
+    return this.service.creaConsegna(dto, req.appChiave.nome ?? 'app sconosciuta');
+  }
+
   @Get('consegne/:numero')
   @ApiOperation({ summary: 'Una consegna sola, per il numero che si legge a schermo (es. 62637)' })
   @ApiHeader({ name: 'x-api-key', description: 'Chiave app (scripts/crea-chiave-app.mjs)' })
@@ -757,6 +923,9 @@ export class AppApiController {
 }
 
 @Module({
+  // ⚠️ Serve DeliveriesModule: la creazione dal canale app passa dalla stessa
+  // strada del form, non da una scorciatoia.
+  imports: [DeliveriesModule],
   controllers: [AppApiController],
   providers: [AppApiKeyGuard, AppApiService],
 })
