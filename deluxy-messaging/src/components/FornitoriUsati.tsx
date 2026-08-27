@@ -2,19 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { linkOrdine } from '@/lib/link-ordine'
-import type { EsitoFornitoriUsati, FornitoreUsato, OrdineDelFornitore } from '@/lib/fornitori-usati'
+import { nomeMetodo } from '@/lib/metodo-pagamento'
+import type { EsitoFornitoriUsati, FornitorePagato, PagamentoAlFornitore } from '@/lib/fornitori-usati'
 
-// CHI HA PREPARATO CHE COSA.
+// A CHI ABBIAMO PAGATO, E QUANTO.
 //
-// ⚠️⚠️ Chiesto dall'utente il 27/08/2026: «una sezione fornitori dove fai vedere
-// quali fornitori sono stati utilizzati per quali ordini». L'elenco dei partner
+// ⚠️⚠️ Chiesto dall'utente il 27/08/2026: «metti solo fornitori a cui abbiamo
+// fatto pagamenti e l'importo totale dei pagamenti fatti». L'elenco dei partner
 // qui accanto dice CHI ESISTE (lo legge dal registro Anagrafiche); questa dice
-// CHI HA LAVORATO, e la seconda non si ricava dalla prima.
+// **a chi sono usciti i soldi**, e la seconda non si ricava dalla prima.
 //
-// ⚠️⚠️ E DICE SUBITO QUANTO POCO SA. Su 1.380 ordini, 22 dicono chi li ha
-// preparati. Una tabella con ventidue righe e nient'altro si legge «abbiamo
-// usato ventidue fornitori»: è falso, e il numero grande accanto è l'unica cosa
-// che lo impedisce ([[trappola-percentuale-senza-la-sua-base]]).
+// ⚠️ «Pagato» vuol dire pagato: le richieste ancora aperte non entrano nel
+// totale — fra il salvataggio e il bonifico passano giorni, e contarle come
+// denaro uscito direbbe che abbiamo speso quello che dobbiamo ancora spendere.
+// Ma si DICONO, perché un elenco che tace su una richiesta aperta si legge come
+// «con lui abbiamo chiuso».
 
 function euro(v: number, valuta = 'EUR'): string {
   return v.toLocaleString('it-IT', { style: 'currency', currency: valuta || 'EUR' })
@@ -26,15 +28,15 @@ function giorno(iso: string | null): string {
 }
 
 /**
- * Il margine di UN ordine, in percentuale.
+ * Il margine di UN pagamento, in percentuale.
  *
- * ⚠️ `null` quando manca uno dei due numeri, e allora si scrive «—»: una
- * percentuale calcolata su un valore che non conosciamo è un numero inventato
- * che sembra un dato, ed è accanto a cifre che vanno in banca.
+ * ⚠️ `null` quando non sappiamo quanto ha pagato il cliente, e allora si scrive
+ * «—»: una percentuale calcolata su un valore che non conosciamo è un numero
+ * inventato che sembra un dato, ed è accanto a cifre che sono uscite dalla banca.
  */
-function marginePct(o: OrdineDelFornitore): number | null {
-  if (!o.valore || o.costo == null) return null
-  return ((o.valore - o.costo) / o.valore) * 100
+function marginePct(p: PagamentoAlFornitore): number | null {
+  if (!p.valoreOrdine || !p.importo) return null
+  return ((p.valoreOrdine - p.importo) / p.valoreOrdine) * 100
 }
 
 export function FornitoriUsati() {
@@ -79,27 +81,20 @@ export function FornitoriUsati() {
     const f = dati?.fornitori ?? []
     const t = q.trim().toLowerCase()
     if (!t) return f
-    // ⚠️ Si cerca anche nei NUMERI D'ORDINE e negli altri modi in cui il nome è
-    // stato scritto: la domanda vera è spesso «chi ha fatto il 2799?», non «dov'è
-    // Passiflora».
+    // ⚠️ Si cerca anche nei NUMERI D'ORDINE e nelle causali: la domanda vera è
+    // spesso «chi abbiamo pagato per il 2799?», non «dov'è Passiflora».
     return f.filter(
       (x) =>
         x.nome.toLowerCase().includes(t) ||
-        x.citta.toLowerCase().includes(t) ||
         x.altriNomi.some((n) => n.toLowerCase().includes(t)) ||
-        x.ordini.some((o) => o.numero.toLowerCase().includes(t) || o.cliente.toLowerCase().includes(t))
+        x.pagamenti.some(
+          (p) =>
+            p.ordineNumero.toLowerCase().includes(t) ||
+            p.cliente.toLowerCase().includes(t) ||
+            p.causale.toLowerCase().includes(t)
+        )
     )
   }, [dati, q])
-
-  const totali = useMemo(() => {
-    const f = dati?.fornitori ?? []
-    return {
-      fornitori: f.length,
-      ordini: f.reduce((s, x) => s + x.ordini.length, 0),
-      speso: f.reduce((s, x) => s + x.totaleCosto, 0),
-      muti: f.reduce((s, x) => s + x.senzaCosto, 0),
-    }
-  }, [dati])
 
   function apriChiudi(k: string) {
     setAperti((p) => {
@@ -110,63 +105,67 @@ export function FornitoriUsati() {
     })
   }
 
-  const scoperti = dati ? dati.ordiniTotali - dati.ordiniConFornitore : 0
-  const pctCoperti = dati && dati.ordiniTotali ? (dati.ordiniConFornitore / dati.ordiniTotali) * 100 : 0
+  const valuta = dati?.valuteDiverse?.[0] ?? 'EUR'
+  const piuValute = (dati?.valuteDiverse?.length ?? 0) > 1
 
   return (
     <>
       <p className="page-sub">
-        Chi ha <strong>preparato</strong> i nostri ordini, e quali. Il dato lo scrive il riquadro
-        «chi prepara quest&apos;ordine» sulla scheda dell&apos;ordine, e i pagamenti aggiungono
-        quello che l&apos;ordine non dice: qui non si ricopia niente da altre app.
+        I fornitori a cui abbiamo <strong>pagato</strong> qualcosa, con il totale di quello che è
+        uscito. Viene dalle richieste di pagamento di quest&apos;app, segnate come pagate: non è
+        una copia della contabilità, è quello che questa app ha registrato.
       </p>
 
       {errore ? <div className="avviso-errore">{errore}</div> : null}
 
-      {/* ── QUANTO SAPPIAMO ──
-          ⚠️⚠️ Sta PRIMA della tabella e non dopo, ed è l'unica ragione per cui
-          questa pagina non mente: ventidue righe senza «su 1.380» si leggono
-          come «abbiamo usato ventidue fornitori». */}
-      {dati && scoperti > 0 ? (
-        <div className="avviso-errore" style={{ background: 'var(--gold-soft)', color: 'var(--gold-strong)', borderColor: 'var(--gold)' }}>
-          <strong>
-            {dati.ordiniConFornitore} ordini su {dati.ordiniTotali} dicono chi li ha preparati
-            ({pctCoperti.toFixed(1)}%).
-          </strong>{' '}
-          Gli altri <strong>{scoperti}</strong> un fornitore l&apos;hanno avuto, ma non è scritto
-          da nessuna parte: di quelli non si può sapere né chi ha lavorato né quanto è costato.
-          Si riempie dalla scheda dell&apos;ordine, nel riquadro «chi prepara quest&apos;ordine».
+      {/* ⚠️⚠️ Valute diverse: NON si somma. Un totale unico su due valute è un
+          numero che non esiste, e sarebbe il tipo di numero che qualcuno porta
+          in una riunione. */}
+      {piuValute ? (
+        <div className="avviso-errore">
+          Ci sono pagamenti in {dati?.valuteDiverse.join(', ')}: i totali qui sotto sommano importi
+          di valute diverse e <strong>non vanno letti come una cifra sola</strong>.
         </div>
       ) : null}
 
       <div className="kpi-riga">
         <div className="kpi">
-          <span className="kpi-etichetta">Fornitori usati</span>
-          <span className="kpi-valore">{totali.fornitori}</span>
+          <span className="kpi-etichetta">Fornitori pagati</span>
+          <span className="kpi-valore">{dati?.fornitori.length ?? 0}</span>
         </div>
         <div className="kpi">
-          <span className="kpi-etichetta">Ordini preparati</span>
-          <span className="kpi-valore">{totali.ordini}</span>
+          <span className="kpi-etichetta">Totale pagato</span>
+          <span className="kpi-valore">{euro(dati?.totalePagato ?? 0, valuta)}</span>
         </div>
         <div className="kpi">
-          <span className="kpi-etichetta">Dato ai fornitori</span>
-          <span className="kpi-valore">{euro(totali.speso)}</span>
+          <span className="kpi-etichetta">Pagamenti fatti</span>
+          <span className="kpi-valore">{dati?.pagamenti ?? 0}</span>
         </div>
         <div className="kpi">
-          {/* ⚠️ Gli ordini senza costo non valgono zero: valgono «non lo so», e
-              sommarli come zero farebbe leggere un totale più basso del vero. */}
-          <span className="kpi-etichetta">Senza costo scritto</span>
-          <span className="kpi-valore">{totali.muti}</span>
+          {/* ⚠️ Le aperte NON sono nel totale: sono soldi che dobbiamo ancora
+              far uscire, e sommarle direbbe che li abbiamo già fatti uscire. */}
+          <span className="kpi-etichetta">Ancora da pagare</span>
+          <span className="kpi-valore">{euro(dati?.importoAperte ?? 0, valuta)}</span>
         </div>
       </div>
+
+      {dati && dati.aperte > 0 ? (
+        <p className="cella-sub" style={{ marginTop: -8, marginBottom: 14 }}>
+          ⚠️ {dati.aperte} {dati.aperte === 1 ? 'richiesta' : 'richieste'} per{' '}
+          {euro(dati.importoAperte, valuta)} {dati.aperte === 1 ? 'è' : 'sono'} ancora da pagare:{' '}
+          {dati.aperte === 1 ? 'non è' : 'non sono'} in questo elenco e{' '}
+          {dati.aperte === 1 ? 'non entra' : 'non entrano'} nel totale.{' '}
+          <a href="/pagamenti">Vedile in Pagamenti</a>.
+        </p>
+      ) : null}
 
       <div className="barra-ricerca">
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Cerca un fornitore, un numero d’ordine, un cliente…"
-          aria-label="Cerca fra i fornitori usati"
+          placeholder="Cerca un fornitore, un numero d’ordine, una causale…"
+          aria-label="Cerca fra i fornitori pagati"
         />
         {q ? (
           <button className="btn btn-secondario" onClick={() => setQ('')}>
@@ -176,12 +175,12 @@ export function FornitoriUsati() {
       </div>
 
       {!caricato ? (
-        <div className="vuoto">Conto chi ha preparato che cosa…</div>
+        <div className="vuoto">Conto quanto è uscito e a chi…</div>
       ) : filtrati.length === 0 ? (
         <div className="vuoto">
           {q
-            ? `Nessun fornitore e nessun ordine per «${q}».`
-            : 'Nessun ordine dice ancora chi lo ha preparato.'}
+            ? `Nessun fornitore e nessun pagamento per «${q}».`
+            : 'Nessun pagamento a fornitori risulta ancora fatto.'}
         </div>
       ) : (
         <div className="tabella-wrap">
@@ -189,9 +188,8 @@ export function FornitoriUsati() {
             <thead>
               <tr>
                 <th>Fornitore</th>
-                <th>Dove</th>
-                <th className="num">Ordini</th>
-                <th className="num">Dato a lui</th>
+                <th className="num">Pagamenti</th>
+                <th className="num">Totale pagato</th>
                 <th>Ultimo</th>
                 <th></th>
               </tr>
@@ -209,15 +207,6 @@ export function FornitoriUsati() {
           </table>
         </div>
       )}
-
-      {dati && dati.soloDaPagamento > 0 ? (
-        <p className="cella-sub" style={{ marginTop: 12 }}>
-          ⚠️ {dati.soloDaPagamento}{' '}
-          {dati.soloDaPagamento === 1 ? 'riga viene' : 'righe vengono'} solo dalla richiesta di
-          pagamento: sull&apos;ordine il fornitore non è scritto, quindi la cifra è quella del
-          bonifico e non il costo concordato — e potrebbe essere un acconto.
-        </p>
-      ) : null}
     </>
   )
 }
@@ -227,7 +216,7 @@ function RigaFornitore({
   aperto,
   onApri,
 }: {
-  f: FornitoreUsato
+  f: FornitorePagato
   aperto: boolean
   onApri: () => void
 }) {
@@ -238,64 +227,59 @@ function RigaFornitore({
           <strong>{f.nome}</strong>
           {f.altriNomi.length ? (
             // ⚠️ Gli altri modi in cui è stato scritto si DICONO: senza, due
-            // righe unite sembrano un errore («SO'FLEUR» e «So Fleur» sono uno).
+            // righe unite in una sembrano un errore.
             <div className="cella-sub">scritto anche: {f.altriNomi.join(' · ')}</div>
           ) : null}
         </td>
-        <td>{f.citta || <span className="cella-sub">non indicata</span>}</td>
-        <td className="num">{f.ordini.length}</td>
+        <td className="num">{f.pagamenti.length}</td>
         <td className="num">
-          {f.totaleCosto ? euro(f.totaleCosto) : <span className="cella-sub">—</span>}
-          {f.senzaCosto ? (
-            <div className="cella-sub">{f.senzaCosto} senza costo</div>
-          ) : null}
+          <strong>{euro(f.totalePagato, f.valuta)}</strong>
         </td>
         <td>{giorno(f.ultimoIl)}</td>
         <td className="num">
           <button className="btn btn-secondario small" onClick={onApri} aria-expanded={aperto}>
-            {aperto ? 'Chiudi' : `Ordini (${f.ordini.length})`}
+            {aperto ? 'Chiudi' : `Dettaglio (${f.pagamenti.length})`}
           </button>
         </td>
       </tr>
       {aperto ? (
         <tr>
-          {/* ⚠️⚠️ NIENTE TABELLA DENTRA LA TABELLA. La prima versione metteva qui
-              una `<table>` con le sue intestazioni, ed era sbagliata in un modo
-              che si vede solo misurando: una tabella dentro un `<td>` **non ha
-              una larghezza contro cui restringersi**, quindi `overflow-x: auto`
-              non si accende mai — la cella cresce e basta. Misurato a 375px:
-              la tabella interna larga 564 dentro una cella da 373, e **tutta la
-              pagina scorreva di lato** (389 contro 375). E anche quando funziona
-              è uno scorrimento dentro uno scorrimento, che sul telefono nessuno
-              governa.
-              Adesso ogni ordine è un blocco che VA A CAPO: su uno schermo largo
-              i campi stanno in fila, su uno stretto si impilano. Nessuna
-              seconda barra di scorrimento, e le intestazioni non servono perché
-              ogni valore porta la sua etichetta. */}
-          <td colSpan={6} className="ordini-fornitore">
-            {f.ordini.map((o) => {
-              const m = marginePct(o)
+          {/* ⚠️⚠️ NIENTE TABELLA DENTRO LA TABELLA. Una `<table>` dentro un `<td>`
+              non ha una larghezza contro cui restringersi, quindi
+              `overflow-x: auto` non si accende mai: la cella cresce e basta.
+              Misurato a 375px sulla prima versione di questa schermata: tabella
+              interna larga 564 dentro una cella da 373, e tutta la pagina
+              scorreva di lato. Qui ogni pagamento è un blocco che VA A CAPO —
+              largo sta in fila, stretto si impila — e ogni valore porta la sua
+              etichetta, così non servono intestazioni sopra. */}
+          <td colSpan={5} className="ordini-fornitore">
+            {f.pagamenti.map((p) => {
+              const m = marginePct(p)
               return (
-                <div className="ordine-riga" key={`${o.id}-${o.numero}`}>
+                <div className="ordine-riga" key={p.id}>
                   <span className="ordine-numero">
-                    <a href={linkOrdine(o.numero)} target="_blank" rel="noreferrer">
-                      {o.numero}
-                    </a>
-                    {o.annullato ? <span className="badge">annullato</span> : null}
-                    {o.fonte === 'pagamento' ? (
-                      <span className="badge">solo dal pagamento</span>
-                    ) : null}
+                    {p.ordineNumero ? (
+                      <a href={linkOrdine(p.ordineNumero)} target="_blank" rel="noreferrer">
+                        {p.ordineNumero}
+                      </a>
+                    ) : (
+                      // ⚠️ Un pagamento senza ordine collegato non è un errore
+                      // (un canone, un rimborso spese): si dice com'è.
+                      <span className="cella-sub">senza ordine</span>
+                    )}
                   </span>
                   <span className="ordine-dove">
-                    {[o.negozio, o.cliente].filter(Boolean).join(' · ') || '—'}
+                    {[p.negozio, p.cliente].filter(Boolean).join(' · ') ||
+                      p.causale ||
+                      '—'}
+                  </span>
+                  <span className="ordine-dato">
+                    <span className="cella-sub">pagato</span>{' '}
+                    <strong>{euro(p.importo, p.valuta)}</strong>
                   </span>
                   <span className="ordine-dato">
                     <span className="cella-sub">venduto</span>{' '}
-                    {o.valore ? euro(o.valore, o.valuta) : <em>non indicato</em>}
-                  </span>
-                  <span className="ordine-dato">
-                    <span className="cella-sub">al fornitore</span>{' '}
-                    {o.costo == null ? <em>non scritto</em> : euro(o.costo, o.valuta)}
+                    {p.valoreOrdine ? euro(p.valoreOrdine, p.valuta) : <em>non indicato</em>}
                   </span>
                   <span className="ordine-dato">
                     <span className="cella-sub">margine</span>{' '}
@@ -308,9 +292,21 @@ function RigaFornitore({
                     )}
                   </span>
                   <span className="ordine-dato">
-                    <span className="cella-sub">registrato</span> {giorno(o.registratoIl)}
-                    {o.registratoDa ? ` da ${o.registratoDa}` : ''}
+                    <span className="cella-sub">{giorno(p.pagatoIl)}</span>{' '}
+                    {p.pagatoCon || nomeMetodo(p.metodo)}
+                    {p.pagatoDa ? ` · ${p.pagatoDa}` : ''}
                   </span>
+                  {/* ⚠️⚠️ Il fornitore dell'ordine diverso da chi abbiamo pagato
+                      è la cosa più importante di questa riga: o l'ordine è
+                      sbagliato, o il bonifico è andato a qualcun altro. Non si
+                      nasconde in un sottotitolo grigio. */}
+                  {p.fornitoreDellOrdine ? (
+                    <span className="ordine-dato">
+                      <strong style={{ color: '#c93400' }}>
+                        ⚠️ sull’ordine risulta «{p.fornitoreDellOrdine}»
+                      </strong>
+                    </span>
+                  ) : null}
                 </div>
               )
             })}

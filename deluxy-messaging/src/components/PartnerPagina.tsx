@@ -10,8 +10,8 @@ import { FornitoriUsati } from './FornitoriUsati'
 // una tabella sola è il modo di non rispondere a nessuna delle due:
 //  · **Partner** legge il registro Anagrafiche — l'elenco delle insegne attive,
 //    che è di un'altra app e cambia quando cambia là;
-//  · **Fornitori usati** conta gli ordini di QUESTA app — chi li ha preparati e
-//    quanto è costato, che il registro non sa e non deve sapere.
+//  · **Fornitori pagati** conta gli ordini di QUESTA app — chi li ha preparati e
+//    soldi e quanto, che il registro non sa e non deve sapere.
 //
 // ⚠️ Un fornitore può stare nella seconda e non nella prima (l'abbiamo pagato
 // una volta e in registro non c'è), e viceversa (un partner attivo che non ha

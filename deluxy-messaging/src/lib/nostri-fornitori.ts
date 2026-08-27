@@ -32,6 +32,15 @@ export type NostroFornitore = {
   province: string[]
   /** Il numero dell'ultimo ordine che gli abbiamo dato: porta alla scheda. */
   ultimoOrdine: string
+  /**
+   * 3 = ha consegnato in QUESTA città · 2 = in questa provincia · 1 = altrove
+   * · 0 = non lo sappiamo (nessuna città sui suoi ordini).
+   * ⚠️ Lo riempie `ordinaPerConsegna`: sull'elenco crudo non c'è, perché
+   * dipende dalla consegna che si sta guardando.
+   */
+  vicinanza?: 0 | 1 | 2 | 3
+  /** Ha già consegnato in questa zona? ⚠️ Sottostimato: vedi `quantoCentra`. */
+  inZona?: boolean
 }
 
 /**
@@ -102,17 +111,52 @@ export function ordinaPerConsegna(
   cittaConsegna: string,
   provinciaConsegna: string
 ): NostroFornitore[] {
+  return [...elenco]
+    .map((f) => ({ ...f, ...quantoCentra(f, cittaConsegna, provinciaConsegna) }))
+    .sort(
+      (a, b) =>
+        b.vicinanza - a.vicinanza ||
+        b.lavoro.ordini - a.lavoro.ordini ||
+        (b.lavoro.ultimoIl ?? '').localeCompare(a.lavoro.ultimoIl ?? '')
+    )
+}
+
+/**
+ * QUANTO C'ENTRA questo fornitore con la consegna che si sta guardando.
+ *
+ * ⚠️⚠️ NASCE DA UNA SEGNALAZIONE (27/08/2026): il pannello si intitola
+ * «Fornitori in provincia di VI» e sotto elencava gente che consegna a Cannes,
+ * Tricesimo, Bosa, Macerata Campania e Algiers. Non era un difetto del filtro:
+ * **il filtro non c'è**. Questa lista non restringe alla provincia, **ordina** —
+ * e quando nessuno ha lavorato in quella zona tutti pareggiano, quindi si vedono
+ * i sei più recenti, che sono ovunque. Misurato: **zero su 22** ha mai preparato
+ * una consegna in provincia di VI.
+ *
+ * ⚠️ Filtrare per davvero sarebbe peggio: l'elenco sarebbe **vuoto quasi
+ * sempre**, e la cosa utile — «in quella zona non abbiamo nessuno, ma questi
+ * lavorano con noi, prova a chiederglielo» — sparirebbe. La correzione giusta
+ * non è togliere righe: è **dire la verità su ogni riga**, e dirlo prima
+ * dell'elenco quando la verità è «nessuno».
+ *
+ * ⚠️⚠️ E c'è un limite da sapere: la provincia si RICAVA dalla città di consegna
+ * con `siglaProvincia`, che risponde solo quando è certa — cioè in pratica sui
+ * capoluoghi. Misurato: **18 fornitori su 22 non danno nessuna provincia**
+ * (Cannes, Tricesimo, Mijas, Algiers, Toronto, Giarre…). Quindi «ha lavorato in
+ * questa zona» è per forza **sottostimato**, e questa funzione lo dichiara con
+ * `vicinanza: 0` invece di far finta che 1 voglia dire «altrove».
+ */
+export function quantoCentra(
+  f: NostroFornitore,
+  cittaConsegna: string,
+  provinciaConsegna: string
+): { vicinanza: 0 | 1 | 2 | 3; inZona: boolean } {
   const citta = (cittaConsegna ?? '').trim().toLowerCase()
   const sigla = siglaProvincia(provinciaConsegna || cittaConsegna)
-  const punteggio = (f: NostroFornitore) => {
-    if (citta && f.citta.some((c) => c.toLowerCase() === citta)) return 3
-    if (sigla && f.province.includes(sigla)) return 2
-    return 1
-  }
-  return [...elenco].sort(
-    (a, b) =>
-      punteggio(b) - punteggio(a) ||
-      b.lavoro.ordini - a.lavoro.ordini ||
-      (b.lavoro.ultimoIl ?? '').localeCompare(a.lavoro.ultimoIl ?? '')
-  )
+  if (citta && f.citta.some((c) => c.toLowerCase() === citta)) return { vicinanza: 3, inZona: true }
+  if (sigla && f.province.includes(sigla)) return { vicinanza: 2, inZona: true }
+  // ⚠️ 1 = «di lui sappiamo dove ha consegnato, e non è qui».
+  if (f.province.length || f.citta.length) return { vicinanza: 1, inZona: false }
+  // ⚠️ 0 = «non lo sappiamo affatto»: nessuna città sui suoi ordini. Non è la
+  // stessa cosa di «altrove», e metterli insieme direbbe una cosa non vera.
+  return { vicinanza: 0, inZona: false }
 }

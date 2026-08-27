@@ -1,233 +1,216 @@
 import { db } from './db'
 import { chiaveNome } from './cerca-fornitore'
 
-// CHI HA PREPARATO CHE COSA — l'elenco dei fornitori usati, ordine per ordine.
+// A CHI ABBIAMO PAGATO, E QUANTO — l'elenco dei fornitori pagati davvero.
 //
-// ⚠️⚠️ Chiesto dall'utente il 27/08/2026: «una sezione fornitori dove fai vedere
-// quali fornitori sono stati utilizzati per quali ordini». Il dato c'era già
-// tutto — `Ordine.fornitoreNome` e `fornitoreCosto` li scrive il riquadro «chi
-// prepara quest'ordine» — ma si poteva solo guardare un ordine alla volta.
-// `lavoro-fornitore.ts` ne fa la SOMMA (serve alla ricerca, per dire «gli
-// abbiamo già dato N ordini»); qui serve il contrario: il DETTAGLIO.
+// ⚠️⚠️ Chiesto dall'utente il 27/08/2026: «metti solo fornitori a cui abbiamo
+// fatto pagamenti e l'importo totale dei pagamenti fatti». La prima versione
+// partiva dagli ORDINI (`Ordine.fornitoreNome`) e mostrava chi aveva preparato;
+// questa parte dai PAGAMENTI, che è un'altra domanda e ha un'altra risposta:
+// «chi ha lavorato» è una decisione registrata, «a chi sono usciti i soldi» è un
+// fatto contabile. I due elenchi non coincidono — su un ordine può lavorare
+// qualcuno che non abbiamo ancora pagato, e si può pagare qualcuno su un ordine
+// che non lo nomina.
 //
-// ⚠️⚠️ E LA COPERTURA SI DICE, sempre. Misurato il 27/08/2026: su **1.380
-// ordini, 22** hanno un fornitore scritto. Un elenco che mostra ventidue righe
-// senza dire «su 1.380» si legge come «abbiamo usato ventidue fornitori», che è
-// falso: quelli sono i fornitori che qualcuno ha REGISTRATO. Gli altri ordini un
-// fornitore l'hanno avuto, solo che non è scritto da nessuna parte — e questa
-// pagina serve anche a far vedere quanto grande è quel buco.
+// ⚠️⚠️ «PAGAMENTI FATTI» vuol dire `pagataIl` valorizzato, non «richiesta
+// salvata». Sono due momenti diversi e fra loro possono passare giorni: contare
+// le richieste aperte come denaro uscito gonfierebbe il totale di quello che
+// dobbiamo ancora pagare. Misurato il 27/08/2026: 23 richieste, **22 pagate per
+// 2.418 €** e una aperta da 253 € — che qui NON entra, ma si dice quante e per
+// quanto (`aperte`, `importoAperte`), perché un elenco che tace su una richiesta
+// aperta si legge come «con lui abbiamo chiuso».
 //
-// ⚠️ Qui non si ricopia niente da altre app: `fornitoreNome`, `fornitoreCosto` e
-// `totale` sono colonne di QUESTA app (Standard Deluxy §7). L'anagrafica del
-// fornitore resta di deluxy-anagrafiche, e infatti da qui non si legge.
+// ⚠️ Il valore dell'ordine resta un contorno: si legge dall'ordine collegato
+// quando c'è. Se manca, la riga dice «non indicato» e non zero — l'app non deve
+// far sembrare gratis un ordine di cui non sa il prezzo.
 
-export type OrdineDelFornitore = {
+export type PagamentoAlFornitore = {
   id: string
-  numero: string
-  /** Come il fornitore è scritto SU QUESTO ordine (può variare fra ordini). */
+  /** L'ordine per cui è stato pagato, se è collegato. */
+  ordineNumero: string
+  /** Come l'intestatario è scritto SU QUESTA richiesta. */
   scrittoCome: string
+  importo: number
+  valuta: string
+  /** Quando il denaro è uscito. */
+  pagatoIl: string | null
+  pagatoDa: string
+  /** Con che mezzo risulta uscito (bonifico, contanti, POS…), quando è scritto. */
+  pagatoCon: string
+  /** iban · link · paypal · carta · altro. */
+  metodo: string
+  causale: string
+  // ── Il contorno che viene dall'ordine, quando l'ordine c'è ──
   negozio: string
   cliente: string
   citta: string
   /** Quanto ha pagato il cliente. `0` = non lo sappiamo. */
-  valore: number
-  valuta: string
-  /** Quanto va al fornitore. `null` = non è stato scritto: NON è zero. */
-  costo: number | null
-  /** Quando è stato registrato chi prepara. */
-  registratoIl: string | null
-  registratoDa: string
-  consegna: string | null
-  gestione: string
-  annullato: boolean
-  /**
-   * Da dove sappiamo che è stato lui: `ordine` = c'è scritto sull'ordine;
-   * `pagamento` = sull'ordine non c'è, ma esiste una richiesta di pagamento
-   * intestata a lui e collegata a quell'ordine.
-   *
-   * ⚠️ Le due cose NON sono la stessa e non vanno mescolate in silenzio: la
-   * prima è una decisione registrata, la seconda è un indizio contabile. Sulla
-   * seconda il costo è l'importo del pagamento, che può essere un acconto.
-   */
-  fonte: 'ordine' | 'pagamento'
+  valoreOrdine: number
+  /** Il fornitore scritto SULL'ORDINE, se è diverso da chi abbiamo pagato. */
+  fornitoreDellOrdine: string
 }
 
-export type FornitoreUsato = {
-  /** `chiaveNome` del nome: lo stesso fornitore è scritto in modi diversi. */
+export type FornitorePagato = {
+  /** `chiaveNome` dell'intestatario: lo stesso nome è scritto in modi diversi. */
   chiave: string
-  /** Il nome più recente fra quelli usati: è quello che la gente riconosce. */
   nome: string
-  /** Tutti i modi in cui è stato scritto, se sono più d'uno. */
+  /** Gli altri modi in cui è stato scritto, se sono più d'uno. */
   altriNomi: string[]
-  citta: string
-  ordini: OrdineDelFornitore[]
-  /** Somma dei costi SCRITTI. */
-  totaleCosto: number
-  /** Quanti dei suoi ordini non dicono quanto gli abbiamo dato. */
-  senzaCosto: number
-  /** Somma del venduto dei suoi ordini di cui conosciamo il valore. */
-  totaleVenduto: number
+  pagamenti: PagamentoAlFornitore[]
+  /** ⚠️ La somma dei pagamenti FATTI. È il numero che è stato chiesto. */
+  totalePagato: number
+  valuta: string
+  /** L'ultimo pagamento, per data di uscita. */
   ultimoIl: string | null
+  /** Quanto valevano in tutto gli ordini pagati di cui conosciamo il prezzo. */
+  totaleVenduto: number
+  /** Quanti dei suoi pagamenti non dicono quanto ha pagato il cliente. */
+  senzaValoreOrdine: number
 }
 
 export type EsitoFornitoriUsati = {
-  fornitori: FornitoreUsato[]
-  /** Il conto onesto: quanti ordini in tutto, quanti sanno chi li ha preparati. */
-  ordiniTotali: number
-  ordiniConFornitore: number
-  /** Quanti arrivano solo dal pagamento (sull'ordine il fornitore non c'è). */
-  soloDaPagamento: number
+  fornitori: FornitorePagato[]
+  /** Quante richieste pagate in tutto, e per quanto. */
+  pagamenti: number
+  totalePagato: number
+  /** ⚠️ Le richieste ancora DA pagare: non sono qui dentro, ma si dicono. */
+  aperte: number
+  importoAperte: number
+  /**
+   * ⚠️ Se un giorno arrivano pagamenti in valute diverse, un totale solo
+   * mentirebbe: si dice invece di sommare mele e pere.
+   */
+  valuteDiverse: string[]
 }
 
 export async function fornitoriUsati(): Promise<EsitoFornitoriUsati> {
-  const [ordiniTotali, righe, pagamenti] = await Promise.all([
-    db.ordine.count(),
-    db.ordine.findMany({
-      where: { fornitoreNome: { not: '' } },
-      select: {
-        id: true,
-        numero: true,
-        negozioNome: true,
-        clienteNome: true,
-        citta: true,
-        totale: true,
-        valuta: true,
-        gestione: true,
-        annullatoIl: true,
-        dataConsegna: true,
-        fornitoreNome: true,
-        fornitoreCitta: true,
-        fornitoreCosto: true,
-        fornitoreIl: true,
-        fornitoreDaNome: true,
-      },
-      // ⚠️ Dal più recente: `fornitoreIl` può essere vuoto sui più vecchi, e
-      // allora vale il numero — che in quest'app cresce nel tempo.
-      orderBy: [{ fornitoreIl: 'desc' }, { numero: 'desc' }],
-    }),
-    // ⚠️ I pagamenti servono a coprire il caso «l'ordine non dice chi lo ha
-    // preparato, ma qualcuno lo ha pagato»: è l'unica traccia che resta, e
-    // buttarla via vorrebbe dire mostrare meno di quello che si sa.
+  const [richieste, aperte] = await Promise.all([
     db.richiestaPagamento.findMany({
-      where: { ordineNumero: { not: '' }, intestatario: { not: '' } },
+      // ⚠️ `pagataIl: { not: null }` è tutta la differenza fra «gli abbiamo
+      // chiesto di pagarlo» e «l'abbiamo pagato».
+      where: { pagataIl: { not: null }, intestatario: { not: '' } },
       select: {
         id: true,
         intestatario: true,
         ordineNumero: true,
-        ordineId: true,
         importo: true,
         valuta: true,
-        creatoIl: true,
+        causale: true,
+        metodo: true,
+        pagataIl: true,
+        pagataDaNome: true,
+        pagatoCon: true,
       },
-      orderBy: { creatoIl: 'desc' },
+      orderBy: { pagataIl: 'desc' },
+    }),
+    db.richiestaPagamento.findMany({
+      where: { pagataIl: null, intestatario: { not: '' } },
+      select: { importo: true },
     }),
   ])
 
-  const per = new Map<string, FornitoreUsato>()
-  const aggiungi = (nome: string, citta: string, o: OrdineDelFornitore) => {
+  // ── Il contorno: gli ordini citati, in UNA query sola ──
+  //
+  // ⚠️ Una query per riga sarebbe una ventina di andate e ritorni per una
+  // schermata sola. Si chiedono tutti insieme i numeri che servono.
+  const numeri = richieste.map((r) => r.ordineNumero).filter(Boolean)
+  const varianti = [
+    ...new Set(numeri.flatMap((n) => [n, n.replace(/^#+/, ''), `#${n.replace(/^#+/, '')}`])),
+  ]
+  const ordini = varianti.length
+    ? await db.ordine.findMany({
+        where: { numero: { in: varianti } },
+        select: {
+          numero: true,
+          totale: true,
+          negozioNome: true,
+          clienteNome: true,
+          citta: true,
+          fornitoreNome: true,
+        },
+      })
+    : []
+  // ⚠️ Si indicizza per SOLE CIFRE: «#2799» e «2799» sono lo stesso ordine
+  // scritto in due modi, e confrontarli secchi perderebbe metà degli agganci.
+  const perNumero = new Map<string, (typeof ordini)[number]>()
+  for (const o of ordini) {
+    const k = soloCifre(o.numero)
+    // ⚠️ Se lo stesso numero esiste su due negozi non si sceglie: si tiene il
+    // primo e basta, perché qui l'ordine è un CONTORNO — il fatto che conta (il
+    // pagamento) non dipende da lui. Il posto dove l'ambiguità si risolve è la
+    // riconciliazione, che ha l'id dell'ordine.
+    if (k && !perNumero.has(k)) perNumero.set(k, o)
+  }
+
+  const per = new Map<string, FornitorePagato>()
+  for (const r of richieste) {
+    const nome = r.intestatario.trim()
     const k = chiaveNome(nome)
-    if (!k) return
-    const f = per.get(k) ?? {
-      chiave: k,
-      nome,
-      altriNomi: [],
-      citta: '',
-      ordini: [],
-      totaleCosto: 0,
-      senzaCosto: 0,
-      totaleVenduto: 0,
-      ultimoIl: null,
-    }
-    // ⚠️ Il nome mostrato è quello del PRIMO che arriva, e i due elenchi
-    // arrivano già ordinati dal più recente: così si legge come è scritto oggi,
-    // non come lo scriveva qualcuno a luglio. Gli altri modi non si buttano —
-    // servono a capire perché due righe che sembravano diverse sono una sola.
+    if (!k) continue
+    const o = r.ordineNumero ? perNumero.get(soloCifre(r.ordineNumero)) : undefined
+    const f =
+      per.get(k) ??
+      ({
+        chiave: k,
+        nome,
+        altriNomi: [],
+        pagamenti: [],
+        totalePagato: 0,
+        valuta: r.valuta || 'EUR',
+        ultimoIl: null,
+        totaleVenduto: 0,
+        senzaValoreOrdine: 0,
+      } satisfies FornitorePagato)
+    // ⚠️ Le righe arrivano dal pagamento più recente: il nome mostrato è quindi
+    // quello scritto l'ultima volta, non quello di mesi fa. Gli altri modi non
+    // si buttano — spiegano perché due righe che sembravano diverse sono una.
     if (nome !== f.nome && !f.altriNomi.includes(nome)) f.altriNomi.push(nome)
-    if (!f.citta && citta) f.citta = citta
-    f.ordini.push(o)
-    if (o.costo == null) f.senzaCosto++
-    else f.totaleCosto += o.costo
-    f.totaleVenduto += o.valore
-    if (o.registratoIl && (!f.ultimoIl || o.registratoIl > f.ultimoIl)) f.ultimoIl = o.registratoIl
+    f.totalePagato += r.importo ?? 0
+    const quando = r.pagataIl?.toISOString() ?? null
+    if (quando && (!f.ultimoIl || quando > f.ultimoIl)) f.ultimoIl = quando
+    const valore = o?.totale ?? 0
+    if (valore) f.totaleVenduto += valore
+    else f.senzaValoreOrdine++
+    f.pagamenti.push({
+      id: r.id,
+      ordineNumero: r.ordineNumero,
+      scrittoCome: nome,
+      importo: r.importo ?? 0,
+      valuta: r.valuta || 'EUR',
+      pagatoIl: quando,
+      pagatoDa: r.pagataDaNome ?? '',
+      pagatoCon: r.pagatoCon ?? '',
+      metodo: r.metodo || 'iban',
+      causale: r.causale ?? '',
+      negozio: o?.negozioNome ?? '',
+      cliente: o?.clienteNome ?? '',
+      citta: o?.citta ?? '',
+      valoreOrdine: valore,
+      // ⚠️ Si mostra SOLO se è un nome diverso da chi abbiamo pagato: uguale
+      // sarebbe rumore, diverso è una cosa da guardare (l'ordine dice che l'ha
+      // preparato Tizio e i soldi sono andati a Caio).
+      fornitoreDellOrdine:
+        o?.fornitoreNome && chiaveNome(o.fornitoreNome) !== k ? o.fornitoreNome : '',
+    })
     per.set(k, f)
   }
 
-  const numeriGiaVisti = new Set<string>()
-  for (const r of righe) {
-    numeriGiaVisti.add(`${chiaveNome(r.fornitoreNome)}|${soloCifre(r.numero)}`)
-    aggiungi(r.fornitoreNome, r.fornitoreCitta, {
-      id: r.id,
-      numero: r.numero,
-      scrittoCome: r.fornitoreNome,
-      negozio: r.negozioNome,
-      cliente: r.clienteNome,
-      citta: r.citta,
-      valore: r.totale ?? 0,
-      valuta: r.valuta || 'EUR',
-      costo: r.fornitoreCosto ?? null,
-      registratoIl: r.fornitoreIl?.toISOString() ?? null,
-      registratoDa: r.fornitoreDaNome,
-      consegna: r.dataConsegna?.toISOString() ?? null,
-      gestione: r.gestione,
-      annullato: !!r.annullatoIl,
-      fonte: 'ordine',
-    })
-  }
-
-  // ── Quello che sanno solo i pagamenti ──
-  //
-  // ⚠️ Si aggiunge SOLO se quella coppia fornitore+ordine non c'è già: altrimenti
-  // lo stesso lavoro comparirebbe due volte, una col costo concordato e una con
-  // l'importo del bonifico, e i due numeri non sono lo stesso numero.
-  let soloDaPagamento = 0
-  for (const p of pagamenti) {
-    const chiave = `${chiaveNome(p.intestatario)}|${soloCifre(p.ordineNumero)}`
-    if (numeriGiaVisti.has(chiave)) continue
-    numeriGiaVisti.add(chiave)
-    soloDaPagamento++
-    aggiungi(p.intestatario, '', {
-      id: p.ordineId || p.id,
-      numero: p.ordineNumero,
-      scrittoCome: p.intestatario,
-      negozio: '',
-      cliente: '',
-      citta: '',
-      // ⚠️ Il venduto qui NON lo sappiamo: la richiesta di pagamento non lo
-      // porta. Zero vuol dire «non indicato», e infatti non entra nei conti
-      // (`totaleVenduto` somma zero) invece di far sembrare l'ordine gratis.
-      valore: 0,
-      valuta: p.valuta || 'EUR',
-      costo: p.importo || null,
-      registratoIl: p.creatoIl.toISOString(),
-      // ⚠️ Chi ha CHIESTO il pagamento la RichiestaPagamento non lo registra
-      // (`pagataDaNome` è chi ha premuto «Pagata», che è un altro gesto e un
-      // altro momento): meglio vuoto che il nome sbagliato.
-      registratoDa: '',
-      consegna: null,
-      gestione: '',
-      annullato: false,
-      fonte: 'pagamento',
-    })
-  }
-
   const fornitori = [...per.values()].sort(
-    (a, b) =>
-      b.ordini.length - a.ordini.length ||
-      b.totaleCosto - a.totaleCosto ||
-      a.nome.localeCompare(b.nome, 'it')
+    (a, b) => b.totalePagato - a.totalePagato || a.nome.localeCompare(b.nome, 'it')
   )
   return {
     fornitori,
-    ordiniTotali,
-    ordiniConFornitore: righe.length,
-    soloDaPagamento,
+    pagamenti: richieste.length,
+    totalePagato: richieste.reduce((s, r) => s + (r.importo ?? 0), 0),
+    aperte: aperte.length,
+    importoAperte: aperte.reduce((s, r) => s + (r.importo ?? 0), 0),
+    valuteDiverse: [...new Set(richieste.map((r) => r.valuta || 'EUR'))],
   }
 }
 
 /**
  * Le sole cifre del numero d'ordine.
- * ⚠️ «#2799» e «2799» sono lo stesso ordine scritto in due modi: confrontarli
- * secchi farebbe comparire due volte lo stesso lavoro.
+ * ⚠️ «#2799» e «2799» sono lo stesso ordine scritto in due modi.
  */
 function soloCifre(v: string): string {
   return (v ?? '').replace(/\D/g, '')

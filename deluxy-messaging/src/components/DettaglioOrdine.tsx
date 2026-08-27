@@ -60,6 +60,13 @@ type NostroFornitoreDto = {
   citta: string[]
   province: string[]
   ultimoOrdine: string
+  /**
+   * Ha già consegnato in QUESTA zona? Lo decide la rotta (`quantoCentra`).
+   * ⚠️ È **sottostimato**: la provincia si ricava dalla città di consegna e
+   * `siglaProvincia` risponde solo quando è certa — 18 fornitori su 22 non ne
+   * danno nessuna. Quindi `false` vuol dire «non risulta», non «di sicuro no».
+   */
+  inZona?: boolean
 }
 
 type Riga = {
@@ -2007,21 +2014,54 @@ export function DettaglioOrdine({
                     <div className="cella-nome" style={{ marginBottom: 4 }}>
                       Hanno già preparato ordini per noi
                     </div>
-                    <p className="cella-sub" style={{ marginTop: 0 }}>
-                      Dai nostri ordini, non dal registro: in cima chi ha già consegnato in questa
-                      zona.
-                    </p>
+                    {/* ⚠️⚠️ QUESTA RIGA DICEVA IL FALSO, ed è la segnalazione
+                        dell'utente del 27/08/2026: il pannello si intitola
+                        «Fornitori in provincia di VI» e qui sotto comparivano
+                        Cannes, Tricesimo, Bosa, Macerata Campania, Algiers.
+                        Non è un filtro rotto: **questo elenco non filtra per
+                        provincia, ordina soltanto** — e quando in quella zona
+                        non ha lavorato nessuno pareggiano tutti, quindi si
+                        vedono i sei più recenti, che sono ovunque.
+                        ⚠️ Filtrare per davvero sarebbe peggio: l'elenco
+                        sarebbe vuoto quasi sempre, e la cosa utile — «lì non
+                        abbiamo nessuno, ma questi lavorano con noi» —
+                        sparirebbe. Si dice invece com'è, prima dell'elenco. */}
+                    {nostri.some((f) => f.inZona) ? (
+                      <p className="cella-sub" style={{ marginTop: 0 }}>
+                        Dai nostri ordini, non dal registro: in cima chi ha già consegnato in
+                        questa zona.
+                      </p>
+                    ) : (
+                      <p className="cella-sub" style={{ marginTop: 0 }}>
+                        <strong>
+                          Nessuno dei nostri ha mai consegnato in provincia di{' '}
+                          {zonaProvincia || spedizione.provincia || 'questa'}.
+                        </strong>{' '}
+                        Questi hanno lavorato altrove: non sono una proposta per la zona, sono
+                        gente che ci conosce e a cui si può chiedere.
+                      </p>
+                    )}
                     <ul className="elenco-nostri-fornitori">
                       {nostri.slice(0, 6).map((f) => (
                         <li key={f.nome}>
                           <span className="cella-nome">{f.nome}</span>{' '}
                           <span className="cella-sub">{riassuntoLavoro(f.lavoro)}</span>
+                          {/* ⚠️ La riga dice DOVE, con l'etichetta giusta: le
+                              città sono quelle di CONSEGNA, non l'indirizzo del
+                              fornitore — dove abbia il negozio non lo sappiamo e
+                              non lo si scrive come se lo sapessimo. */}
                           {f.citta.length ? (
                             <span className="cella-sub">
                               {' '}
-                              · consegne a {f.citta.slice(0, 3).join(', ')}
+                              · {f.inZona ? 'ha consegnato qui:' : 'ha consegnato a'}{' '}
+                              {f.citta.slice(0, 3).join(', ')}
                             </span>
-                          ) : null}
+                          ) : (
+                            // ⚠️ «Non sappiamo dove» NON è «altrove»: sui suoi
+                            // ordini non c'è nessuna città, e dirlo evita che
+                            // qualcuno lo scarti credendo che sia lontano.
+                            <span className="cella-sub"> · non sappiamo dove ha consegnato</span>
+                          )}
                         </li>
                       ))}
                     </ul>
