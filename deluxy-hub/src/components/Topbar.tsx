@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { NavLink } from "./NavLink";
+import { MenuMobile } from "./MenuMobile";
 import { esci } from "@/lib/actions";
 import { RUOLO_INFO } from "@/lib/ruoli";
 import type { Sessione } from "@/lib/session";
@@ -36,7 +37,9 @@ export async function Topbar({ sessione }: { sessione: Sessione }) {
         </div>
       </Link>
 
-      <div className="topbar-actions">
+      {/* In linea sul desktop; su mobile un hamburger apre un drawer laterale
+          con TUTTE queste voci (nessuna tolta). */}
+      <MenuMobile>
         {/* Tre gruppi separati da una distanza: chi sei · dove vai · esci.
             Con un solo gap uniforme i sette elementi erano un blocco unico. */}
         <span className="badge gold">
@@ -73,7 +76,7 @@ export async function Topbar({ sessione }: { sessione: Sessione }) {
           </button>
         </form>
         </span>
-      </div>
+      </MenuMobile>
     </header>
   );
 }

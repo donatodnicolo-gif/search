@@ -54,6 +54,9 @@ a { color: inherit; text-decoration: none; }
 .topbar-actions .gruppo { display: flex; align-items: center; gap: 6px; }
 .topbar-actions .gruppo + .gruppo { margin-left: 8px; }
 
+/* Hamburger: nascosto sul desktop, compare solo su mobile (vedi @media 720). */
+.hamburger { display: none; }
+
 /* ---------- Contenuto ---------- */
 /* 1240 e' la misura che apre la QUARTA colonna di tessere: 4x260 + 3x16 = 1088
    di contenuto, e a 1080 ne restavano 1032 (mancavano 56px). Sopra i 1240 il
@@ -436,13 +439,63 @@ td {
 }
 
 @media (max-width: 720px) {
-  .topbar { flex-wrap: wrap; padding: 10px 16px; gap: 8px; }
-  .brand { flex: 1 1 100%; }
-  .topbar-actions { width: 100%; justify-content: flex-start; gap: 6px; }
-  .topbar-actions .gruppo + .gruppo { margin-left: 0; }
-  .topbar-actions .btn { padding: 10px 12px; font-size: 13px; }
+  /* La barra resta compatta: logo a sinistra, hamburger a destra. Le azioni
+     NON vanno piu' a capo: passano tutte in un drawer laterale a scomparsa. */
+  .topbar { flex-wrap: nowrap; padding: 10px 16px; gap: 8px; }
+  .brand-sub { display: none; }
   .main { padding: 24px 16px 48px; }
   .page-title { font-size: 26px; }
+
+  .hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px; height: 40px;
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: var(--radius-s, 8px);
+    background: var(--fill);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 150ms var(--ease), transform 150ms var(--ease);
+  }
+  @media (hover: hover) { .hamburger:hover { background: var(--fill-hover); } }
+  .hamburger:active { transform: scale(0.97); }
+  .hamburger:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* Velo dietro il drawer (--scrim non esiste in questa copia dei token: 0.32). */
+  .menu-scrim {
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(0, 0, 0, 0.32);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    animation: menu-fade 0.2s var(--ease);
+  }
+  @keyframes menu-fade { from { opacity: 0; } to { opacity: 1; } }
+
+  /* Le azioni: drawer che scivola da destra. Tutte le voci restano. */
+  .topbar-actions {
+    position: fixed; top: 0; right: 0; z-index: 50;
+    height: 100dvh; width: min(288px, 84vw);
+    flex-direction: column; align-items: stretch; flex-wrap: nowrap;
+    gap: 10px; padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    box-shadow: var(--shadow-float);
+    border-left: 1px solid var(--hairline);
+    transform: translateX(100%);
+    transition: transform 0.28s var(--ease);
+    overflow-y: auto;
+    justify-content: flex-start;
+  }
+  .topbar-actions.aperto { transform: translateX(0); }
+
+  /* Dentro il drawer i gruppi si impilano a piena larghezza. */
+  .topbar-actions .badge { align-self: flex-start; }
+  .topbar-actions .gruppo { flex-direction: column; align-items: stretch; gap: 6px; width: 100%; }
+  .topbar-actions .gruppo + .gruppo { margin-left: 0; margin-top: 4px; }
+  .topbar-actions form { width: 100%; }
+  .topbar-actions .btn,
+  .topbar-actions form .btn { width: 100%; justify-content: flex-start; padding: 10px 12px; font-size: 14px; }
   /* Due righe bastano dove la colonna e' una sola e la pagina e' gia' lunga */
   .app-desc { -webkit-line-clamp: 2; }
   .timbra-box { gap: 16px; }
