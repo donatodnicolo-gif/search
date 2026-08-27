@@ -153,6 +153,88 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### 🎨 27/08/2026 — Esame UX/UI desktop e mobile, ognuno con il suo agente ostile
+
+Metodo: due agenti hanno esaminato il layout (uno desktop, uno mobile) contro il
+Deluxy Design System e il lavoro vero di chi usa l'app; poi **ogni rapporto è
+stato dato a un agente ostile** incaricato di demolirlo. Su otto rilievi mobile
+e sette desktop, **sei sono stati ridimensionati o ribaltati** — e gli ostili
+hanno trovato **due difetti che nessuno dei due esami aveva visto**.
+
+**Corretto (commit `afcdceb2`, `84d5f577`, `e64638c7`, `a566e3ac`; deploy
+`delivery-llvssv2zn` Ready):**
+
+- **Sette variabili CSS usate 31 volte e definite ZERO** (`--success`,
+  `--danger`, `--warning`, `--text-primary`, `--surface-2`, `--surface-sunken`,
+  `--radius-md`). Una dichiarazione con una custom property non definita e senza
+  fallback è **invalida**: il badge «Attivo» dei ricorrenti aveva il dot
+  **trasparente** (più invisibile del «Non attivo»), l'avviso «possibile
+  doppione» della scheda partner restava testo nudo, la pillola di Finanza
+  usciva **rettangolare**. Aggiunti anche `--radius-pill`, `--radius-xl`,
+  `--ink-hover`, che il design system ha e la **copia a mano** di `tokens.css`
+  aveva perso. ⚠️ L'ostile ha ridimensionato il titolo: gli usi senza fallback
+  che rompevano davvero erano **3 punti**, non 31.
+- **`.btn:disabled` non esisteva**: 53 bottoni che si spengono erano identici a
+  quelli accesi. `.btn-ghost` usata 5 volte e mai definita: restava il grigio di
+  sistema del browser, l'unico elemento fuori palette.
+- **⭐ Le intestazioni sticky non si fermavano** (misurato dall'ostile):
+  `.table-wrap` aveva `overflow-x: auto` **senza altezza**. Il valore usato di
+  `overflow-y` viene promosso ad `auto`, quindi è il contenitore il porto di
+  scorrimento dei `th` — ma senza altezza `scrollHeight === clientHeight`, non
+  scorre mai, e lo scroll della pagina si porta via le intestazioni (dopo 400px
+  il `th` stava a **top −66**). Con 50 righe per pagina ne restavano leggibili
+  **quindici**; le altre 35 senza titoli di colonna, e «Consegna» e «Ritiro» —
+  adiacenti e identiche nella forma `09:00–13:00` — indistinguibili. Rimedio:
+  `max-height` sul contenitore, neutralizzata sotto gli 800px dove le righe sono
+  card.
+- **⭐⭐ Tre pallini invisibili, trovati dall'ostile e da nessun esame**: senza
+  una regola a due classi per `not_delivered`/`cancelled`/`not_accepted` vinceva
+  la regola PILLOLA più in basso nello stesso foglio, e il pallino usciva
+  `rgba(215,0,21,.09)` — rosso al **nove per cento** su bianco, contrasto
+  **1,09:1**. E la legenda usava `s-archived`, classe **mai definita**, che li
+  disegnava grigi. Pallino e legenda mentivano entrambi, proprio sulle righe da
+  vedere per prime. Ora colori pieni e legenda in due gruppi veri.
+- **Mobile**: campi a **16px** (sotto, Safari iOS ingrandisce al focus e non
+  torna indietro — mordeva la conferma consegna pubblica); **il nome dello stato
+  accanto al pallino** solo sotto gli 800px (su touch non c'è hover, quindi il
+  `title` non appare mai); **celle vuote nascoste** nelle schede (per il valet
+  erano due righe morte per consegna); aree di tocco `status-dot-btn` 18→24px e
+  `link-btn` 19→24px (minimo WCAG 2.5.8).
+- **Telefono e mail cliccabili** nel dettaglio consegna: `tel:` non compariva in
+  tutta l'app, ed è il gesto più frequente del turno di un valet.
+- **Accessibilità**: il «torna indietro» era un `href="javascript:void(0)"` —
+  un link che non porta da nessuna parte; i cinque bottoni ✕ non avevano nome.
+- Refuso: `#b8863e` (cifre invertite) al posto dell'oro `#b8963e`.
+
+**Non corretto, per decisione degli ostili:**
+
+- **Il cambio lingua non aggiorna le etichette delle schede** (l'observer guarda
+  solo `childList`, ngx-translate muta `characterData` — **provato in
+  produzione**): vero, ma si ripara al primo gesto, e ascoltare `characterData`
+  significa risvegliare l'observer a ogni aggiornamento di testo dell'app.
+- **Le tendine non sembrano tendine** (58 `select` senza chevron): il design
+  system non nomina il chevron, e costa una scoperta una tantum.
+- **44px sui bottoni**: il DS prescrive `padding 8×18` e `body-s 13.5–14px`,
+  quindi l'app è **conforme al metro dichiarato**. Alzarli è cambiare il design
+  system, non correggere l'app.
+- **La lista Consegne larga 1808px**: a 1920 l'eccedenza scende da 732 a 252px,
+  e per PARTNER e VALET è **zero** (le loro azioni sono meno). Se si tocca, la
+  mossa giusta è **restringere** la colonna Azioni (413px per quattro bottoni),
+  non toglierne: si stringe la cornice, non il numero.
+
+🔴 **Restano aperti, con la strada già scritta**: i **filtri persi** tornando dal
+dettaglio (vanno messi in `queryParams`; il `target="_blank"` sul «Modifica» è
+la toppa che gira intorno al buco, e il commit che l'ha introdotto lo dice);
+`styles.css` che **importa** `tokens.css` invece di copiarlo a mano; e la
+campanella nella topbar mobile — ma per il **partner**, non per il valet, che
+non riceve notifiche da nessuna rotta. Nota dell'ostile: `enablePush()` non è
+chiamato da nessuna parte, il Web Push è **codice morto**.
+
+⚠️ **Verifica non fatta**: la regola sticky è arrivata in produzione (cercata
+nel CSS servito: `max-height:calc(100vh - 240px)`), ma **non l'ho misurata a
+schermo** — il pannello browser rende i file locali come istantanee statiche e
+non vi esegue JavaScript. Serve una passata visiva a 1440 e 1920.
+
 ### 🧹 26/08/2026 (sera, 12) — Le 431 cancellate stavano fra le cose da fare
 
 Sospetto mio, dato in pasto a un agente ostile: **confermato nel meccanismo, e
