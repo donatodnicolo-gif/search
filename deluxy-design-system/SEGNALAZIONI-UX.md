@@ -24,6 +24,25 @@
 | 27/08 | Calendario | Un errore DB reso dentro `.vuoto` (page.tsx:187) = «fallimento = lista vuota» (Libro cap.6, legge 9): serve una card d'errore con «Riprova» | passata UX |
 | 27/08 | Anagrafiche | Drawer mobile: aggiungere focus-trap + ritorno del focus; ridurre il padding pagina mobile (40/24) | passata UX |
 
+## ⚠️ Copie vive vs stale (scoperto il 28/08 durante «push tutto live»)
+
+Alcune app hanno DUE copie (repo `app/` e `scoutwt/`, stesso repo GitHub, branch diversi). La copia VIVA è quella col progetto Vercel pinnato (`.vercel/project.json`):
+
+| App | Copia VIVA (deploy) | Nota |
+|---|---|---|
+| **Hub** | `scoutwt/deluxy-hub` (proj `deluxy-hub`) | `app/deluxy-hub` è STALE (più semplice). Adeguamento+drawer applicati su scoutwt |
+| **Finance** (deluxy-partner) | `scoutwt/deluxy-partner` (proj id) | `app/deluxy-partner` STALE (166 file di diff). Adeguamento su scoutwt |
+| **Customer Service** | `scoutwt/deluxy-messaging` | solo in scoutwt |
+| **Anagrafiche · AI Mail** | `scoutwt` | solo/live in scoutwt |
+| Tasks | `app/` — deploy **dalla RADICE** `app/` (proj `deluxy-tasks`, Root Dir=deluxy-tasks); il pin dentro la sottocartella («tasks») è vecchio e FALLISce | |
+| Piattaforma (delivery) | `app/` — deploy **dalla RADICE** con `VERCEL_ORG_ID/PROJECT_ID` del progetto `delivery` (la radice è linkata a Tasks) | |
+| CRM · Personale · Calendario | `app/` (pin proprio) | deploy dalla loro cartella |
+| **Fondo · Acquisti** | — | NON su Vercel (solo locale, porte 3180/3100): nulla da deployare |
+
+## Deploy in produzione (28/08, «push tutto live»)
+
+Deployate e verificate (target production, aliased): **Hub, Finance, Customer Service, Anagrafiche, AI Mail, Piattaforma (delivery→app.deluxy.it), CRM, Tasks, Personale, Calendario, Scout** (Scout via `bash scripts/deploy-web.sh`, verifica post-deploy ✓). Fondo/Acquisti non deployati (non su Vercel). search-supplier resta da fare su `main`.
+
 ## Decise
 
 | Data | App | Segnalazione | Esito |
