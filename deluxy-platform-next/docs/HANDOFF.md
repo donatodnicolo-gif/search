@@ -3,6 +3,19 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> ✅ **27/08/2026 — SMISTAMENTO AUTOMATICO ACCESO (proposte a partner VERI).**
+> Su decisione dell'utente il cron `*/15 * * * *` → `/api/v1/cron/smistamento`
+> (`OrdersSyncService.sincronizza({applica:true})`, finestra 3 giorni,
+> CRON_SECRET verificato per primo) è **LIVE**: ogni 15′ legge gli ordini nuovi
+> da Orders e propone ai partner quelli idonei. ⭐ Con **FILTRO nuovo «solo unici
+> o province con partner»** (`SalesService.esisteCandidato`): non nascono più
+> vendite orfane «da gestire» (simulato sulle 43 del 24/08: **31 evitate, 12
+> restano** — un partner c'è, era chiuso). Salta i riservati al CS
+> (`smistamento=manuale`) e i già evasi in chat. Le 43 orfane vecchie **lasciate
+> com'erano** (scelta utente). Commit `5f54c1f5`, deploy dal **repo root** con
+> `VERCEL_ORG_ID/VERCEL_PROJECT_ID` del progetto `delivery` (⚠️ la radice `app/`
+> è linkata a **Tasks**: NON deployare da lì col link locale).
+
 > 🏛️ **ARCHITETTURA DEI DATI (OBBLIGATORIA, 24/08/2026)** — Standard Deluxy §7
 > (`C:\Users\nicol\scoutwt\deluxy-standard\STANDARD-DELUXY.md`). Il ruolo di
 > QUESTA app nel giro dell'ordine D2C: è **il canale applicativo del
