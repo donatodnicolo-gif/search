@@ -577,6 +577,8 @@ model Valet {
   services            ValetService[]
   deliveries          Delivery[]
   recurringServices   RecurringService[]
+  /// Eccezioni di giorno che assegnano QUESTO valet solo in certi giorni.
+  varianteRicorrenti  RecurringServiceVariant[]
   activities          Activity[]
   availabilities      ValetAvailability[]
   openingHours        ValetOpeningHour[]
@@ -956,8 +958,39 @@ model RecurringService {
   note               String?
   ultimaGenerazione  DateTime?
   deliveries         Delivery[]
+  /// Le ECCEZIONI per certi giorni (vedi RecurringServiceVariant).
+  varianti           RecurringServiceVariant[]
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
+}
+
+/// ECCEZIONI PER GIORNO di un servizio ricorrente (27/08/2026, chiesto
+/// dall'utente): «da lunedi' a venerdi' 7-8, sabato e domenica 8-9».
+///
+/// La fascia del servizio (`RecurringService.timeFrom/timeTo`) resta quella
+/// NORMALE; qui si dichiara solo che cosa cambia in certi giorni. Un giorno
+/// senza eccezione usa la fascia normale — cosi' l'eccezione si legge per
+/// differenza, e non si e' costretti a ripetere il caso comune sette volte.
+///
+/// ⚠️ Le maschere NON possono sovrapporsi: due eccezioni che rivendicano lo
+/// stesso giorno si rifiutano al salvataggio. Scegliere «la prima» vorrebbe
+/// dire far decidere all'ORDINAMENTO quale fascia vale, e l'ordinamento cambia
+/// da solo aggiungendo una riga.
+model RecurringServiceVariant {
+  id                 String           @id @default(cuid())
+  recurringServiceId String
+  recurringService   RecurringService @relation(fields: [recurringServiceId], references: [id], onDelete: Cascade)
+  /// Maschera lun..dom, es. "0000011" = sabato e domenica.
+  giorni             String
+  timeFrom           String // "08:00"
+  timeTo             String // "09:00"
+  /// Valet diverso in quei giorni (facoltativo). Vuoto = quello del servizio.
+  valetId            String?
+  valet              Valet?           @relation(fields: [valetId], references: [id])
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([recurringServiceId])
 }
 
 // ------------------------------------------------------------

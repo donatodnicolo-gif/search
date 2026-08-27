@@ -29,6 +29,18 @@ interface Ricorrente {
   partner: { id: string; insegna: string };
   serviceType: { id: string; name: string; pricingModel?: string };
   valet?: { id: string; firstName: string; lastName: string } | null;
+  frequenza?: string | null;
+  ogni?: number | null;
+  giorniMese?: string | null;
+  /** Le eccezioni per giorno: «sabato e domenica 8-9». */
+  varianti?: {
+    id: string;
+    giorni: string;
+    timeFrom: string;
+    timeTo: string;
+    valetId?: string | null;
+    valet?: { id: string; firstName: string; lastName: string } | null;
+  }[];
   _count: { deliveries: number };
 }
 interface Rif { id: string; insegna?: string; name?: string; firstName?: string; lastName?: string; active?: boolean; placeholder?: boolean }
@@ -39,6 +51,8 @@ interface Rif { id: string; insegna?: string; name?: string; firstName?: string;
  */
 interface PartnerConServizi extends Rif {
   services?: { serviceTypeId: string; serviceType?: { id: string; name: string } }[];
+  /** Il suo indirizzo: e' il ritiro proposto per default. */
+  address?: string | null;
 }
 
 /**
@@ -63,7 +77,7 @@ interface PartnerConServizi extends Rif {
         @if (!isPartner()) {
           <button class="btn btn-ghost" [disabled]="generando()" (click)="generaOggi()">{{ (generando() ? 'common.saving' : 'recurring.generateToday') | translate }}</button>
         }
-        <button class="btn btn-primary" (click)="formOpen.set(!formOpen())">{{ (formOpen() ? 'common.cancel' : 'recurring.new') | translate }}</button>
+        <button class="btn btn-primary" (click)="formOpen() ? annullaForm() : apriNuovo()">{{ (formOpen() ? 'common.cancel' : 'recurring.new') | translate }}</button>
       </div>
     </div>
 
@@ -142,10 +156,50 @@ interface PartnerConServizi extends Rif {
             <input class="field" type="time" step="900" [(ngModel)]="m.timeFrom" /></label>
           <label class="fld"><span>{{ 'recurring.f.to' | translate }} *</span>
             <input class="field" type="time" step="900" [(ngModel)]="m.timeTo" /></label>
+
           <label class="fld"><span>{{ 'recurring.f.start' | translate }} *</span>
             <input class="field" type="date" [(ngModel)]="m.dataInizio" /></label>
           <label class="fld"><span>{{ 'recurring.f.end' | translate }}</span>
             <input class="field" type="date" [(ngModel)]="m.dataFine" /></label>
+        </div>
+
+        <!-- ⭐ ECCEZIONI PER GIORNO (27/08, chiesto dall'utente): «da lunedi' a
+             venerdi' 7-8, sabato e domenica 8-9». Qui si dichiara SOLO cio' che
+             cambia: i giorni senza eccezione usano la fascia normale, cosi'
+             l'eccezione si legge per differenza invece di ripetere sette volte
+             il caso comune. -->
+        <div class="setup-group">
+          <span class="group-label">{{ 'recurring.exc.title' | translate }}</span>
+          @if (!varianti.length) {
+            <span class="hint">{{ 'recurring.exc.hint' | translate }}</span>
+          }
+          @for (v of varianti; track $index) {
+            <div class="eccezione">
+              <div class="chips">
+                @for (g of GIORNI; track $index) {
+                  <button type="button" class="chip mini-chip"
+                          [class.on]="v.giorni[$index]"
+                          [disabled]="!giornoPossibile($index)"
+                          [title]="giornoPossibile($index) ? '' : ('recurring.exc.dayOff' | translate)"
+                          (click)="v.giorni[$index] = !v.giorni[$index]">{{ g }}</button>
+                }
+              </div>
+              <label class="fld ecc-ora"><span>{{ 'recurring.f.from' | translate }}</span>
+                <input class="field" type="time" step="900" [(ngModel)]="v.timeFrom" /></label>
+              <label class="fld ecc-ora"><span>{{ 'recurring.f.to' | translate }}</span>
+                <input class="field" type="time" step="900" [(ngModel)]="v.timeTo" /></label>
+              @if (!isPartner()) {
+                <label class="fld ecc-valet"><span>{{ 'recurring.f.valet' | translate }}</span>
+                  <select class="field" [(ngModel)]="v.valetId">
+                    <option value="">{{ 'recurring.exc.sameValet' | translate }}</option>
+                    @for (x of valets(); track x.id) { <option [value]="x.id">{{ x.lastName }} {{ x.firstName }}</option> }
+                  </select></label>
+              }
+              <button type="button" class="link-btn danger ecc-tog" (click)="togliEccezione($index)">{{ 'common.delete' | translate }}</button>
+            </div>
+          }
+          <button type="button" class="btn btn-secondary add-ecc" (click)="aggiungiEccezione()">+ {{ 'recurring.exc.add' | translate }}</button>
+          @if (varianti.length) { <p class="riassunto">{{ riassuntoEccezioni() }}</p> }
         </div>
         <div class="grid">
           <!-- Indirizzi agganciati a GOOGLE MAPS, come nel form consegna: si
@@ -216,6 +270,12 @@ interface PartnerConServizi extends Rif {
                   </span>
                   <br><span class="muted mini">{{ r.timeFrom }}–{{ r.timeTo }}
                     · {{ r.dataInizio | date: 'd/M/yy' }}@if (r.dataFine) { – {{ r.dataFine | date: 'd/M/yy' }} }</span>
+                  <!-- Le eccezioni si vedono nell'elenco: un servizio che di
+                       sabato va a un altro orario deve dirlo qui, o chi guarda
+                       legge una fascia sola e la crede l'unica. -->
+                  @for (v of r.varianti ?? []; track v.id) {
+                    <br><span class="ecc-riga">{{ etichettaGiorni(v.giorni) }} {{ v.timeFrom }}–{{ v.timeTo }}@if (v.valet) { · {{ v.valet.lastName }} }</span>
+                  }
                 </td>
                 <td>{{ r.valet ? (r.valet.lastName + ' ' + r.valet.firstName) : '—' }}</td>
                 <td class="num">{{ r._count.deliveries | number }}</td>
@@ -225,6 +285,7 @@ interface PartnerConServizi extends Rif {
                   </span>
                 </td>
                 <td class="nowrap">
+                  <button class="link-btn" (click)="modifica(r)">{{ 'common.edit' | translate }}</button>
                   <button class="link-btn" (click)="toggle(r)">{{ (r.attivo ? 'recurring.pause' : 'recurring.resume') | translate }}</button>
                   <button class="link-btn danger" (click)="elimina(r)">{{ 'common.delete' | translate }}</button>
                 </td>
@@ -253,6 +314,17 @@ interface PartnerConServizi extends Rif {
       .chips { display: flex; gap: 6px; flex-wrap: wrap; }
       .chip { border: 1px solid var(--hairline); background: var(--surface, #fff); border-radius: 980px; padding: 7px 14px; font-size: 13px; font-weight: 550; cursor: pointer; color: var(--text-secondary); font-family: inherit; }
       .chip.on { background: #1d1d1f; border-color: #1d1d1f; color: #fff; }
+      /* Un giorno che il servizio non fa: spento e non premibile, cosi' si
+         vede che c'e' ma non si puo' scegliere. */
+      .chip:disabled { opacity: .38; cursor: not-allowed; }
+      /* Eccezioni per giorno */
+      .eccezione { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; padding: 12px; border: 1px solid var(--hairline); border-radius: var(--radius-l); background: var(--surface-sunken, #fafafa); }
+      .mini-chip { padding: 5px 10px; font-size: 12px; }
+      .ecc-ora { max-width: 130px; }
+      .ecc-valet { min-width: 190px; }
+      .ecc-tog { margin-left: auto; align-self: center; }
+      .add-ecc { align-self: flex-start; }
+      .ecc-riga { font-size: 11.5px; color: var(--gold-strong, #b8963e); font-weight: 550; }
       .hint { font-size: 12px; color: var(--text-tertiary); margin: 0; }
       .hint.warn { color: var(--orange); }
       /* «Ogni [2] [settimane]»: si legge come una frase, non come tre campi. */
@@ -394,6 +466,49 @@ export class RecurringServicesComponent implements AfterViewInit {
 
   giorniSel = [false, false, false, false, false, false, false];
 
+  // ── ECCEZIONI PER GIORNO ───────────────────────────────────────────────────
+  /** Le eccezioni in lavorazione. I giorni stanno a bandierine, non a stringa. */
+  varianti: { giorni: boolean[]; timeFrom: string; timeTo: string; valetId: string }[] = [];
+  /** Quando si modifica: l'id del ricorrente aperto. Vuoto = se ne crea uno nuovo. */
+  readonly inModifica = signal<string | null>(null);
+
+  /**
+   * Un'eccezione ha senso solo su un giorno che il servizio fa davvero: su un
+   * SETTIMANALE gli altri giorni si spengono. Una regola che non può scattare
+   * non si lascia impostare — sembrerebbe fatta e non farebbe niente.
+   */
+  giornoPossibile(i: number): boolean {
+    return this.m.frequenza !== 'SETTIMANALE' || this.giorniSel[i];
+  }
+
+  aggiungiEccezione(): void {
+    this.varianti = [
+      ...this.varianti,
+      { giorni: [false, false, false, false, false, false, false], timeFrom: '', timeTo: '', valetId: '' },
+    ];
+  }
+
+  togliEccezione(i: number): void {
+    this.varianti = this.varianti.filter((_, k) => k !== i);
+  }
+
+  /** «sabato, domenica» da "0000011": nell'elenco la maschera non si legge. */
+  etichettaGiorni(maschera: string): string {
+    return this.NOMI_GIORNI.filter((_, i) => maschera[i] === '1').join(', ');
+  }
+
+  /** Le eccezioni dette a parole, per rileggere quello che si è appena scelto. */
+  riassuntoEccezioni(): string {
+    const righe = this.varianti
+      .filter((v) => v.giorni.some(Boolean) && v.timeFrom && v.timeTo)
+      .map((v) => `${this.NOMI_GIORNI.filter((_, i) => v.giorni[i]).join(', ')} ${v.timeFrom}–${v.timeTo}`);
+    if (!righe.length) return '';
+    return this.translate.instant('recurring.exc.summary', {
+      normale: `${this.m.timeFrom || '—'}–${this.m.timeTo || '—'}`,
+      eccezioni: righe.join(' · '),
+    });
+  }
+
   /**
    * I servizi del PARTNER SCELTO, non tutto il catalogo.
    *
@@ -439,6 +554,102 @@ export class RecurringServicesComponent implements AfterViewInit {
     if (!this.serviziDelPartner().some((s) => s.id === this.m.serviceTypeId)) {
       this.m.serviceTypeId = '';
     }
+    this.proponiRitiro();
+  }
+
+  /**
+   * L'INDIRIZZO DI RITIRO È QUELLO DEL PARTNER, proposto da solo.
+   *
+   * ⚠️ Si propone, non si impone: se qualcuno ha scritto un indirizzo suo non
+   * glielo si cancella. Si riscrive solo quando il campo è vuoto o contiene
+   * ancora l'indirizzo del partner PRECEDENTE — che, cambiato partner, sarebbe
+   * il ritiro sbagliato lasciato lì a sembrare giusto.
+   */
+  private ritiroProposto = '';
+  private proponiRitiro(): void {
+    const suo = (this.partners().find((p) => p.id === this.m.partnerId)?.address ?? '').trim();
+    const attuale = this.m.pickupAddress.trim();
+    if (attuale && attuale !== this.ritiroProposto) return;
+    this.m.pickupAddress = suo;
+    this.ritiroProposto = suo;
+  }
+
+  /**
+   * MODIFICA di un ricorrente esistente: si riapre il form con dentro i suoi
+   * valori. Prima si poteva solo sospendere o eliminare — cambiare un orario
+   * voleva dire rifare tutto da capo e perdere le consegne già collegate.
+   */
+  modifica(r: Ricorrente): void {
+    this.error.set(null);
+    this.banner.set(null);
+    this.inModifica.set(r.id);
+    this.giorniSel = Array.from({ length: 7 }, (_, i) => r.giorni[i] === '1');
+    this.varianti = (r.varianti ?? []).map((v) => ({
+      giorni: Array.from({ length: 7 }, (_, i) => v.giorni[i] === '1'),
+      timeFrom: v.timeFrom,
+      timeTo: v.timeTo,
+      valetId: v.valetId ?? '',
+    }));
+    const iso = (d: string | null | undefined) => (d ? String(d).slice(0, 10) : '');
+    this.m = {
+      nome: r.nome,
+      partnerId: r.partner.id,
+      serviceTypeId: r.serviceType.id,
+      valetId: r.valet?.id ?? '',
+      frequenza: (r.frequenza ?? 'SETTIMANALE') as (typeof this.FREQUENZE)[number],
+      ogni: r.ogni ?? 1,
+      giorniMese: r.giorniMese ?? '',
+      timeFrom: r.timeFrom,
+      timeTo: r.timeTo,
+      dataInizio: iso(r.dataInizio),
+      dataFine: iso(r.dataFine),
+      recipientAddress: r.recipientAddress,
+      pickupAddress: r.pickupAddress ?? '',
+      price: r.price ?? null,
+      valetSalary: r.valetSalary ?? null,
+      hours: r.hours ?? null,
+      note: r.note ?? '',
+    };
+    // ⚠️ Aprendo in modifica il ritiro è quello SALVATO: non si ripropone
+    // quello del partner, o si sovrascriverebbe una scelta già fatta.
+    this.ritiroProposto = '';
+    this.formOpen.set(true);
+    // I campi indirizzo nascono adesso: l'aggancio a Google scatta dal setter
+    // del ViewChild, non serve richiamarlo qui.
+  }
+
+  /** Si esce dalla modifica: il form torna a essere quello del nuovo. */
+  annullaForm(): void {
+    this.formOpen.set(false);
+    this.inModifica.set(null);
+    this.varianti = [];
+  }
+
+  /**
+   * Form vuoto per un nuovo ricorrente.
+   * ⚠️ Si RIPULISCE davvero: aprendo «Nuovo» dopo una modifica, senza questo,
+   * si riscriverebbe sopra il ricorrente di prima credendo di crearne uno.
+   */
+  apriNuovo(): void {
+    this.error.set(null);
+    this.banner.set(null);
+    this.inModifica.set(null);
+    this.varianti = [];
+    this.giorniSel = [false, false, false, false, false, false, false];
+    this.ritiroProposto = '';
+    const oggi = new Date();
+    this.m = {
+      nome: '', partnerId: this.isPartner() ? (this.auth.user()?.partnerId ?? '') : '',
+      serviceTypeId: '', valetId: '',
+      frequenza: 'SETTIMANALE', ogni: 1, giorniMese: '',
+      timeFrom: '', timeTo: '',
+      dataInizio: `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, '0')}-${String(oggi.getDate()).padStart(2, '0')}`,
+      dataFine: '',
+      recipientAddress: '', pickupAddress: '',
+      price: null, valetSalary: null, hours: null, note: '',
+    };
+    this.proponiRitiro();
+    this.formOpen.set(true);
   }
 
   m = {
@@ -519,12 +730,43 @@ export class RecurringServicesComponent implements AfterViewInit {
     if (this.m.valetSalary != null) payload['valetSalary'] = Number(this.m.valetSalary);
     if (this.m.hours != null) payload['hours'] = Number(this.m.hours);
     if (this.m.note.trim()) payload['note'] = this.m.note.trim();
-    this.http.post(`${this.api}/recurring-services`, payload).subscribe({
-      next: () => {
+    // ⚠️ Le eccezioni si mandano SEMPRE, anche vuote: `[]` vuol dire «non ce ne
+    // sono più» e il server le toglie, mentre non mandarle vorrebbe dire «non
+    // le ho toccate» e resterebbero quelle vecchie. In modifica è la differenza
+    // fra togliere un'eccezione e non riuscire a toglierla.
+    payload['varianti'] = this.varianti
+      .filter((v) => v.giorni.some(Boolean))
+      .map((v) => ({
+        giorni: v.giorni.map((x) => (x ? '1' : '0')).join(''),
+        timeFrom: v.timeFrom,
+        timeTo: v.timeTo,
+        ...(v.valetId ? { valetId: v.valetId } : {}),
+      }));
+    // In modifica i campi che il form non mostra (prezzo e paga per un partner)
+    // non si mandano: il server li rifiuterebbe comunque, ma qui non si finge
+    // nemmeno di mandarli.
+    const id = this.inModifica();
+    const chiamata = id
+      ? this.http.patch(`${this.api}/recurring-services/${id}`, payload)
+      : this.http.post(`${this.api}/recurring-services`, payload);
+    chiamata.subscribe({
+      next: (r: any) => {
         this.salvando.set(false);
         this.formOpen.set(false);
-        this.banner.set(this.translate.instant('recurring.saved'));
+        this.inModifica.set(null);
+        // Si dice che cosa è successo DAVVERO: quante consegne sono nate e
+        // quante future sono state rimesse in riga. «Salvato» da solo non
+        // distingue un presidio che parte da uno che non parte.
+        const nate = r?.generate?.create ?? 0;
+        const riall = (r?.riallineate?.toccate ?? 0) + (r?.riallineate?.tolte ?? 0);
+        this.banner.set(
+          id
+            ? this.translate.instant('recurring.updated', { n: nate, r: riall })
+            : this.translate.instant('recurring.savedWithN', { n: nate }),
+        );
         this.giorniSel = [false, false, false, false, false, false, false];
+        this.varianti = [];
+        this.ritiroProposto = '';
         this.m = { ...this.m, nome: "", recipientAddress: "", pickupAddress: "", note: "", price: null, valetSalary: null, hours: null, giorniMese: "" };
         this.load();
       },
@@ -553,10 +795,14 @@ export class RecurringServicesComponent implements AfterViewInit {
   generaOggi(): void {
     this.error.set(null);
     this.generando.set(true);
-    this.http.post<{ create: number; giaEsistenti: number; ricorrentiDelGiorno: number }>(`${this.api}/recurring-services/genera`, {}).subscribe({
+    this.http.post<{ create: number; giaEsistenti: number; dal: string; al: string }>(`${this.api}/recurring-services/genera`, {}).subscribe({
       next: (d) => {
         this.generando.set(false);
-        this.banner.set(this.translate.instant('recurring.generated', { n: d.create, gia: d.giaEsistenti, tot: d.ricorrentiDelGiorno }));
+        // Si dice anche FINO A QUANDO si e' generato: «create 12» senza la
+        // finestra non fa capire se il calendario e' coperto o no.
+        this.banner.set(this.translate.instant('recurring.generated', {
+          n: d.create, gia: d.giaEsistenti, dal: d.dal, al: d.al,
+        }));
         this.load();
       },
       error: (e) => {

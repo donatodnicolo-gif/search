@@ -27,11 +27,36 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
+
+/**
+ * ECCEZIONE PER GIORNO: «sabato e domenica 8-9», dentro un servizio che per il
+ * resto va 7-8. Si dichiara solo cio' che CAMBIA.
+ */
+export class VarianteDto {
+  @Matches(/^[01]{7}$/, { message: 'giorni deve essere una maschera di 7 bit lun..dom' })
+  giorni!: string;
+  @Matches(/^\d{2}:\d{2}$/) timeFrom!: string;
+  @Matches(/^\d{2}:\d{2}$/) timeTo!: string;
+  @IsOptional() @IsString() valetId?: string;
+}
 
 export class CreaRicorrenteDto {
   @IsString() nome!: string;
@@ -60,6 +85,12 @@ export class CreaRicorrenteDto {
   @IsString() dataInizio!: string; // YYYY-MM-DD
   @IsOptional() @IsString() dataFine?: string;
   @IsOptional() @IsString() note?: string;
+  /**
+   * Le eccezioni per giorno. ⚠️ `undefined` = non toccare quelle che ci sono
+   * (e' la trappola del form parziale); `[]` = toglierle tutte, detto apposta.
+   */
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VarianteDto)
+  varianti?: VarianteDto[];
 }
 
 export class AggiornaRicorrenteDto extends CreaRicorrenteDto {
@@ -132,6 +163,46 @@ export function toccaOggi(
   return settimane >= 0 && settimane % ogni === 0;
 }
 
+/**
+ * QUANTI GIORNI IN AVANTI si generano.
+ *
+ * Due settimane: abbastanza da vedere il presidio sul calendario e da
+ * assegnare i valet con calma, poco abbastanza da non riempire il futuro di
+ * consegne che una modifica dovrebbe poi rincorrere. La corsa notturna fa
+ * scorrere la finestra di un giorno per volta.
+ */
+const ORIZZONTE_GIORNI = 14;
+
+/** I nomi dei giorni, per messaggi che si leggono senza decodificare una maschera. */
+const NOMI_GIORNI = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
+
+type Variante = { giorni: string; timeFrom: string; timeTo: string; valetId?: string | null };
+
+/**
+ * LA FASCIA DI QUEL GIORNO: l'eccezione se c'è, altrimenti quella normale.
+ *
+ * ⚠️ Una sola funzione, richiamata da tutti: la generazione, la scelta della
+ * regola carnet e il riallineamento delle consegne future. Se la generazione
+ * usasse l'eccezione e la regola carnet la fascia normale, si sceglierebbe la
+ * regola sull'orario sbagliato — e nessuno se ne accorgerebbe guardando la
+ * consegna, che mostra l'orario giusto.
+ */
+export function fasciaDelGiorno(
+  r: { timeFrom: string; timeTo: string; valetId?: string | null; varianti?: Variante[] },
+  iso: string,
+): { timeFrom: string; timeTo: string; valetId: string | null; daEccezione: boolean } {
+  const dow = giornoSettimana(iso);
+  const v = (r.varianti ?? []).find((x) => x.giorni[dow] === '1');
+  return {
+    timeFrom: v?.timeFrom ?? r.timeFrom,
+    timeTo: v?.timeTo ?? r.timeTo,
+    // ⚠️ `??` e non `||`: un'eccezione senza valet NON azzera il valet del
+    // servizio, lo lascia com'è. L'eccezione sovrascrive solo ciò che dichiara.
+    valetId: v?.valetId ?? r.valetId ?? null,
+    daEccezione: Boolean(v),
+  };
+}
+
 @Injectable()
 export class RecurringService_ {
   constructor(private readonly prisma: PrismaService) {}
@@ -153,6 +224,10 @@ export class RecurringService_ {
         partner: { select: { id: true, insegna: true } },
         serviceType: { select: { id: true, name: true, pricingModel: true } },
         valet: { select: { id: true, firstName: true, lastName: true } },
+        varianti: {
+          include: { valet: { select: { id: true, firstName: true, lastName: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
         _count: { select: { deliveries: true } },
       },
       orderBy: [{ attivo: 'desc' }, { createdAt: 'desc' }],
@@ -175,6 +250,50 @@ export class RecurringService_ {
   }
 
   /**
+   * LE ECCEZIONI PER GIORNO, controllate sul serio.
+   *
+   * ⚠️ Due eccezioni non possono rivendicare lo stesso giorno: si RIFIUTA,
+   * invece di far vincere «la prima». Sceglierne una per ordinamento vorrebbe
+   * dire che la fascia del sabato cambia da sola aggiungendo una riga altrove.
+   *
+   * ⚠️ Su un servizio SETTIMANALE un'eccezione su un giorno che il servizio
+   * non fa non sbaglierebbe niente: semplicemente non scatterebbe MAI. Una
+   * regola che non può scattare si rifiuta, non si accetta in silenzio — è la
+   * differenza fra «impostato» e «funzionante».
+   */
+  private controllaVarianti(
+    varianti: VarianteDto[] | undefined,
+    contesto: { frequenza: string; giorni: string },
+  ): void {
+    if (!varianti?.length) return;
+    const preso: (number | null)[] = Array(7).fill(null);
+    varianti.forEach((v, i) => {
+      if (v.timeFrom >= v.timeTo) {
+        throw new BadRequestException(
+          `Eccezione ${i + 1}: l'orario di fine (${v.timeTo}) deve venire dopo quello d'inizio (${v.timeFrom}).`,
+        );
+      }
+      if (!/1/.test(v.giorni)) {
+        throw new BadRequestException(`Eccezione ${i + 1}: scegli almeno un giorno.`);
+      }
+      for (let g = 0; g < 7; g++) {
+        if (v.giorni[g] !== '1') continue;
+        if (preso[g] !== null) {
+          throw new BadRequestException(
+            `${NOMI_GIORNI[g].charAt(0).toUpperCase() + NOMI_GIORNI[g].slice(1)} è in due eccezioni (la ${preso[g]! + 1} e la ${i + 1}): scegline una sola, altrimenti non si sa quale fascia vale.`,
+          );
+        }
+        preso[g] = i;
+        if (contesto.frequenza === 'SETTIMANALE' && contesto.giorni[g] !== '1') {
+          throw new BadRequestException(
+            `Eccezione ${i + 1}: il servizio non lavora di ${NOMI_GIORNI[g]}, quindi quell'eccezione non scatterebbe mai. Accendi il giorno fra quelli del servizio, oppure toglilo dall'eccezione.`,
+          );
+        }
+      }
+    });
+  }
+
+  /**
    * Quello che un PARTNER non decide: chi va a fare la consegna e quanto costa.
    *
    * ⚠️ Non si "ignorano" i campi lasciandoli passare: si SOVRASCRIVONO qui, che
@@ -194,14 +313,37 @@ export class RecurringService_ {
       select: { id: true },
     });
     if (!suo) throw new BadRequestException('Questo servizio non è nel tuo listino.');
-    return { ...dto, partnerId, valetId: undefined, price: undefined, valetSalary: undefined };
+    return {
+      ...dto,
+      partnerId,
+      valetId: undefined,
+      price: undefined,
+      valetSalary: undefined,
+      // ⚠️ Anche dentro le eccezioni il valet non lo sceglie lui: si toglie
+      // qui, non ci si fida del form che non glielo mostra.
+      varianti: dto.varianti?.map((v) => ({ ...v, valetId: undefined })),
+    };
   }
 
   async create(dtoGrezzo: CreaRicorrenteDto, user?: JwtUser) {
     const dto = await this.normalizzaPerPartner(dtoGrezzo, user);
     this.controllaRicorrenza(dto);
-    return this.prisma.recurringService.create({
+    this.controllaVarianti(dto.varianti, {
+      frequenza: dto.frequenza ?? 'SETTIMANALE',
+      giorni: dto.giorni,
+    });
+    const creato = await this.prisma.recurringService.create({
       data: {
+        varianti: dto.varianti?.length
+          ? {
+              create: dto.varianti.map((v) => ({
+                giorni: v.giorni,
+                timeFrom: v.timeFrom,
+                timeTo: v.timeTo,
+                valetId: v.valetId || null,
+              })),
+            }
+          : undefined,
         nome: dto.nome.trim(),
         partnerId: dto.partnerId,
         serviceTypeId: dto.serviceTypeId,
@@ -224,6 +366,12 @@ export class RecurringService_ {
         note: dto.note?.trim() || null,
       },
     });
+    // ⭐ SI GENERA SUBITO L'ORIZZONTE. Prima la generazione era solo notturna e
+    // solo per OGGI: chi impostava un presidio non vedeva nascere niente e
+    // l'aveva - giustamente - per rotto. Un presidio che non si vede sul
+    // calendario e' indistinguibile da uno che non funziona.
+    const generate = await this.genera({ da: undefined, giorni: ORIZZONTE_GIORNI, soloId: creato.id });
+    return { ...creato, generate };
   }
 
   async update(id: string, dtoGrezzo: Partial<AggiornaRicorrenteDto>, user?: JwtUser) {
@@ -245,7 +393,28 @@ export class RecurringService_ {
       giorni: dto.giorni ?? c.giorni,
       giorniMese: dto.giorniMese ?? c.giorniMese ?? undefined,
     });
-    return this.prisma.recurringService.update({
+    this.controllaVarianti(dto.varianti, {
+      frequenza: dto.frequenza ?? c.frequenza,
+      giorni: dto.giorni ?? c.giorni,
+    });
+    // ⚠️ Le eccezioni si sostituiscono in blocco SOLO se il client le manda:
+    // `undefined` vuol dire «non le ho toccate», `[]` vuol dire «toglile
+    // tutte». Confondere i due casi cancellerebbe in silenzio.
+    if (dto.varianti !== undefined) {
+      await this.prisma.recurringServiceVariant.deleteMany({ where: { recurringServiceId: id } });
+      if (dto.varianti.length) {
+        await this.prisma.recurringServiceVariant.createMany({
+          data: dto.varianti.map((v) => ({
+            recurringServiceId: id,
+            giorni: v.giorni,
+            timeFrom: v.timeFrom,
+            timeTo: v.timeTo,
+            valetId: v.valetId || null,
+          })),
+        });
+      }
+    }
+    await this.prisma.recurringService.update({
       where: { id },
       data: {
         ...(dto.nome !== undefined ? { nome: dto.nome.trim() } : {}),
@@ -271,6 +440,92 @@ export class RecurringService_ {
         ...(dto.attivo !== undefined ? { attivo: dto.attivo } : {}),
       },
     });
+    // ⭐ Correggere la regola non basta: va corretto anche cio' che la regola
+    // ha GIA' scritto. Cambiare la fascia e lasciare le consegne future con
+    // quella vecchia sarebbe una modifica che non modifica niente.
+    const riallineate = await this.riallineaFuture(id);
+    const generate = await this.genera({ giorni: ORIZZONTE_GIORNI, soloId: id });
+    return { ...(await this.prisma.recurringService.findUnique({ where: { id }, include: { varianti: true } }))!, riallineate, generate };
+  }
+
+  /**
+   * Rimette in riga le consegne FUTURE nate da questo servizio.
+   *
+   * ⚠️ Si toccano solo quelle **non ancora lavorate** — `created`/`assigned`,
+   * non cancellate, da domani in poi. Una consegna che il valet ha gia'
+   * accettato o consegnato e' un fatto avvenuto: riscriverle l'orario a
+   * posteriori vorrebbe dire falsificare la giornata di qualcuno.
+   *
+   * ⚠️ Nemmeno OGGI si tocca: la giornata e' in corso, il valet potrebbe
+   * essersi gia' organizzato anche senza aver premuto niente.
+   */
+  private async riallineaFuture(id: string) {
+    const r = await this.prisma.recurringService.findUnique({
+      where: { id },
+      include: { varianti: true },
+    });
+    if (!r) return { toccate: 0, tolte: 0 };
+    const oggi = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' }).format(new Date());
+    const domani = new Date(`${oggi}T00:00:00.000Z`);
+    domani.setUTCDate(domani.getUTCDate() + 1);
+
+    const future = await this.prisma.delivery.findMany({
+      where: {
+        recurringServiceId: id,
+        deletedAt: null,
+        date: { gte: domani },
+        status: { in: ['created', 'assigned'] },
+      },
+      select: { id: true, date: true },
+    });
+
+    let toccate = 0;
+    let tolte = 0;
+    for (const d of future) {
+      const iso = d.date.toISOString().slice(0, 10);
+      // Un giorno che non tocca piu' (giorni cambiati, servizio sospeso,
+      // periodo accorciato) non deve restare li' a chiedere un valet.
+      const vale = r.attivo
+        && d.date >= new Date(Date.UTC(r.dataInizio.getUTCFullYear(), r.dataInizio.getUTCMonth(), r.dataInizio.getUTCDate()))
+        && (!r.dataFine || d.date <= r.dataFine)
+        && toccaOggi(r, iso);
+      if (!vale) {
+        await this.prisma.delivery.update({
+          where: { id: d.id },
+          data: { deletedAt: new Date(), status: 'cancelled' },
+        });
+        await this.prisma.deliveryLog.create({
+          data: {
+            deliveryId: d.id,
+            type: 'cancelled',
+            message: `Annullata: il servizio ricorrente «${r.nome}» non prevede più il ${iso}.`,
+          },
+        });
+        tolte++;
+        continue;
+      }
+      const f = fasciaDelGiorno(r, iso);
+      await this.prisma.delivery.update({
+        where: { id: d.id },
+        data: {
+          deliveryTimeFrom: f.timeFrom,
+          deliveryTimeTo: f.timeTo,
+          valetId: f.valetId,
+          status: f.valetId ? 'assigned' : 'created',
+          pickupAddress: r.pickupAddress,
+          recipientFirstName: r.recipientFirstName ?? r.nome,
+          recipientLastName: r.recipientLastName ?? '',
+          recipientAddress: r.recipientAddress,
+          price: r.price ?? 0,
+          valetSalary: r.valetSalary ?? 0,
+          hours: r.hours,
+          serviceTypeId: r.serviceTypeId,
+          partnerId: r.partnerId,
+        },
+      });
+      toccate++;
+    }
+    return { toccate, tolte };
   }
 
   async remove(id: string, user?: JwtUser) {
@@ -285,25 +540,44 @@ export class RecurringService_ {
   }
 
   /**
-   * Genera le consegne di UNA data (default oggi, ora di Roma) per tutti i
-   * servizi ricorrenti attivi che cadono in quel giorno. Idempotente: la
-   * coppia (servizio, data) non si rigenera.
+   * Genera le consegne di un ORIZZONTE di giorni (default: da oggi, ora di
+   * Roma, per `ORIZZONTE_GIORNI`) per i servizi ricorrenti attivi.
+   *
+   * ⭐ Prima generava UN SOLO giorno, e solo alla corsa notturna. Chi impostava
+   * un presidio non vedeva niente sul calendario dei giorni dopo, e un presidio
+   * che non si vede in anticipo e' indistinguibile da uno che non funziona.
+   * Adesso la finestra si riempie in avanti e la corsa notturna la fa scorrere.
+   *
+   * Resta IDEMPOTENTE: la coppia (servizio, data) non si rigenera — nemmeno se
+   * quella consegna e' stata cancellata a mano, perche' cancellarla e' una
+   * decisione, non un errore da rimediare.
    */
-  async genera(dataIso?: string) {
-    const giorno = dataIso
+  async genera(opzioni?: { da?: string; giorni?: number; soloId?: string } | string) {
+    // Compatibilita': `genera('2026-08-27')` continua a voler dire quel giorno.
+    const o = typeof opzioni === 'string' ? { da: opzioni, giorni: 1 } : (opzioni ?? {});
+    const partenza = o.da
       ?? new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' }).format(new Date());
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(giorno)) throw new BadRequestException('Data non valida (YYYY-MM-DD).');
-    const dow = giornoSettimana(giorno);
-    const dataGiorno = new Date(`${giorno}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(partenza)) throw new BadRequestException('Data non valida (YYYY-MM-DD).');
+    const quanti = Math.min(Math.max(1, o.giorni ?? ORIZZONTE_GIORNI), 90);
+
+    const giorniDaFare: string[] = [];
+    for (let k = 0; k < quanti; k++) {
+      const d = new Date(`${partenza}T00:00:00.000Z`);
+      d.setUTCDate(d.getUTCDate() + k);
+      giorniDaFare.push(d.toISOString().slice(0, 10));
+    }
+    const ultimo = new Date(`${giorniDaFare[giorniDaFare.length - 1]}T00:00:00.000Z`);
+    const primo = new Date(`${giorniDaFare[0]}T00:00:00.000Z`);
 
     const ricorrenti = await this.prisma.recurringService.findMany({
-      where: { attivo: true, dataInizio: { lte: dataGiorno }, OR: [{ dataFine: null }, { dataFine: { gte: dataGiorno } }] },
-      include: { serviceType: { select: { pricingModel: true } } },
+      where: {
+        ...(o.soloId ? { id: o.soloId } : {}),
+        attivo: true,
+        dataInizio: { lte: ultimo },
+        OR: [{ dataFine: null }, { dataFine: { gte: primo } }],
+      },
+      include: { serviceType: { select: { pricingModel: true } }, varianti: true },
     });
-    // Chi tocca oggi: la regola sta in `toccaOggi`, una sola volta, perche' la
-    // decidono in tre (settimanale, giornaliera, mensile) e riscriverla qui
-    // dentro vorrebbe dire due implementazioni della stessa cosa.
-    const oggiTocca = ricorrenti.filter((r) => toccaOggi(r, giorno));
 
     // Le regole carnet attive, per applicarle alla nascita (stesse prove
     // dello script applica-regole: qui il giorno e l'orario sono NOSTRI).
@@ -316,14 +590,24 @@ export class RecurringService_ {
       return m ? Number(m[1]) * 60 + Number(m[2]) : null;
     };
     const MODELLO: Record<string, string> = { fixedprice: 'PREZZO_FISSO', hourlyrate: 'A_ORA' };
-    const regolaPer = (r: (typeof ricorrenti)[number]): string | null => {
+    /**
+     * ⚠️ La regola si sceglie sull'orario VERO di quel giorno, non su quello
+     * "normale" del servizio: con un'eccezione (sabato 8-9 invece di 7-8) la
+     * finestra oraria della regola carnet puo' dare un esito diverso, e la
+     * consegna mostrerebbe l'orario giusto con la regola dell'orario sbagliato.
+     */
+    const regolaPer = (
+      r: (typeof ricorrenti)[number],
+      dataGiorno: Date,
+      oraInizio: string,
+    ): string | null => {
       const candidate = regole.filter((g) => {
         if (!g.partners.some((p) => p.partnerId === r.partnerId)) return false;
         if (g.periodStart && dataGiorno < g.periodStart) return false;
         if (g.periodEnd && dataGiorno > g.periodEnd) return false;
         const modello = MODELLO[(g.legacyPricingModel ?? '').trim()] ?? null;
         if (modello && r.serviceType?.pricingModel !== modello) return false;
-        const da = minuti(g.timeFrom), a = minuti(g.timeTo), ora = minuti(r.timeFrom);
+        const da = minuti(g.timeFrom), a = minuti(g.timeTo), ora = minuti(oraInizio);
         if (da != null && a != null && !(da === 0 && a >= 1439)) {
           if (ora == null || ora < da || ora > a) return false;
         }
@@ -333,50 +617,77 @@ export class RecurringService_ {
     };
 
     let create = 0, giaEsistenti = 0;
-    const esiti: { nome: string; code?: number; esito: string }[] = [];
-    for (const r of oggiTocca) {
-      const gia = await this.prisma.delivery.findFirst({
-        where: { recurringServiceId: r.id, date: dataGiorno },
-        select: { id: true },
-      });
-      if (gia) { giaEsistenti++; esiti.push({ nome: r.nome, esito: 'gia generata' }); continue; }
-      const ultimo = await this.prisma.delivery.aggregate({ _max: { code: true } });
-      const consegna = await this.prisma.delivery.create({
-        data: {
-          code: (ultimo._max.code ?? 0) + 1,
-          date: dataGiorno,
-          partnerId: r.partnerId,
-          serviceTypeId: r.serviceTypeId,
-          valetId: r.valetId,
-          status: r.valetId ? 'assigned' : 'created',
-          deliveryTimeFrom: r.timeFrom,
-          deliveryTimeTo: r.timeTo,
-          pickupAddress: r.pickupAddress,
-          recipientFirstName: r.recipientFirstName ?? r.nome,
-          recipientLastName: r.recipientLastName ?? '',
-          recipientAddress: r.recipientAddress,
-          price: r.price ?? 0,
-          valetSalary: r.valetSalary ?? 0,
-          hours: r.hours,
-          payable: true,
-          billable: true,
-          recurringServiceId: r.id,
-          deliveryRuleId: regolaPer(r),
-        },
-        select: { id: true, code: true },
-      });
-      await this.prisma.deliveryLog.create({
-        data: {
-          deliveryId: consegna.id,
-          type: 'created',
-          message: `Generata dal servizio ricorrente «${r.nome}» per il ${giorno} (${r.timeFrom}–${r.timeTo}).`,
-        },
-      });
-      await this.prisma.recurringService.update({ where: { id: r.id }, data: { ultimaGenerazione: new Date() } });
-      create++;
-      esiti.push({ nome: r.nome, code: consegna.code, esito: 'creata' });
+    const esiti: { nome: string; giorno: string; code?: number; esito: string }[] = [];
+    const toccati = new Set<string>();
+
+    for (const giorno of giorniDaFare) {
+      const dataGiorno = new Date(`${giorno}T00:00:00.000Z`);
+      const inizio = (r: (typeof ricorrenti)[number]) =>
+        new Date(Date.UTC(r.dataInizio.getUTCFullYear(), r.dataInizio.getUTCMonth(), r.dataInizio.getUTCDate()));
+      const delGiorno = ricorrenti.filter(
+        (r) => dataGiorno >= inizio(r) && (!r.dataFine || dataGiorno <= r.dataFine) && toccaOggi(r, giorno),
+      );
+      for (const r of delGiorno) {
+        const gia = await this.prisma.delivery.findFirst({
+          where: { recurringServiceId: r.id, date: dataGiorno },
+          select: { id: true },
+        });
+        if (gia) { giaEsistenti++; esiti.push({ nome: r.nome, giorno, esito: 'gia generata' }); continue; }
+        const f = fasciaDelGiorno(r, giorno);
+        const ultimoCode = await this.prisma.delivery.aggregate({ _max: { code: true } });
+        const consegna = await this.prisma.delivery.create({
+          data: {
+            code: (ultimoCode._max.code ?? 0) + 1,
+            date: dataGiorno,
+            partnerId: r.partnerId,
+            serviceTypeId: r.serviceTypeId,
+            valetId: f.valetId,
+            status: f.valetId ? 'assigned' : 'created',
+            deliveryTimeFrom: f.timeFrom,
+            deliveryTimeTo: f.timeTo,
+            pickupAddress: r.pickupAddress,
+            recipientFirstName: r.recipientFirstName ?? r.nome,
+            recipientLastName: r.recipientLastName ?? '',
+            recipientAddress: r.recipientAddress,
+            price: r.price ?? 0,
+            valetSalary: r.valetSalary ?? 0,
+            hours: r.hours,
+            payable: true,
+            billable: true,
+            recurringServiceId: r.id,
+            deliveryRuleId: regolaPer(r, dataGiorno, f.timeFrom),
+          },
+          select: { id: true, code: true },
+        });
+        await this.prisma.deliveryLog.create({
+          data: {
+            deliveryId: consegna.id,
+            type: 'created',
+            message:
+              `Generata dal servizio ricorrente «${r.nome}» per il ${giorno} (${f.timeFrom}–${f.timeTo})`
+              + (f.daEccezione ? ', fascia da eccezione di giorno.' : '.'),
+          },
+        });
+        toccati.add(r.id);
+        create++;
+        esiti.push({ nome: r.nome, giorno, code: consegna.code, esito: 'creata' });
+      }
     }
-    return { ok: true, giorno, ricorrentiDelGiorno: oggiTocca.length, create, giaEsistenti, esiti };
+    if (toccati.size) {
+      await this.prisma.recurringService.updateMany({
+        where: { id: { in: [...toccati] } },
+        data: { ultimaGenerazione: new Date() },
+      });
+    }
+    return {
+      ok: true,
+      dal: giorniDaFare[0],
+      al: giorniDaFare[giorniDaFare.length - 1],
+      giorniEsaminati: giorniDaFare.length,
+      create,
+      giaEsistenti,
+      esiti,
+    };
   }
 }
 
@@ -407,9 +718,12 @@ export class RecurringController {
   // la fa comunque ogni notte per tutti.
   @Post('genera')
   @Roles(Role.ADMIN, Role.OPERATION)
-  @ApiOperation({ summary: 'Genera le consegne del giorno (default oggi) dai ricorrenti attivi' })
-  genera(@Query('data') data?: string) {
-    return this.service.genera(data);
+  @ApiOperation({
+    summary: 'Genera le consegne dei prossimi giorni (default: 14 da oggi) dai ricorrenti attivi',
+  })
+  genera(@Query('data') data?: string, @Query('giorni') giorni?: string) {
+    const n = Number(giorni);
+    return this.service.genera({ da: data, giorni: Number.isFinite(n) && n > 0 ? n : undefined });
   }
 
   @Patch(':id')

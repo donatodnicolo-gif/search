@@ -2033,11 +2033,11 @@
     "title": "Servizi ricorrenti",
     "caption": "Il presidio che si ripete: si sceglie il giorno e la fascia (come gli orari di Google), il cron notturno genera la consegna del giorno, e alle consegne si applicano le regole del partner.",
     "new": "+ Nuovo servizio ricorrente",
-    "generateToday": "Genera le consegne di oggi",
+    "generateToday": "Genera le consegne dei prossimi giorni",
     "emptyTitle": "Nessun servizio ricorrente",
     "emptyHint": "Crea il primo con «Nuovo servizio ricorrente»: es. ogni lunedì 7–8 per un partner.",
     "saved": "Servizio ricorrente creato: le consegne partiranno dalla prossima corsa notturna (o con «Genera le consegne di oggi»).",
-    "generated": "Generate {{n}} consegne ({{gia}} già esistenti, {{tot}} servizi di oggi).",
+    "generated": "Generate {{n}} consegne dal {{dal}} al {{al}} ({{gia}} c'erano già).",
     "pause": "Sospendi",
     "resume": "Riattiva",
     "deleteConfirm": "Eliminare «{{nome}}»? Le consegne già generate restano.",
@@ -2093,6 +2093,16 @@
         "singolare": "mese",
         "plurale": "mesi"
       }
-    }
+    },
+    "exc": {
+      "title": "Fasce diverse per certi giorni",
+      "hint": "Facoltativo. Serve quando un giorno va a un orario diverso: es. da lunedì a venerdì 7–8, sabato e domenica 8–9. I giorni senza eccezione usano la fascia qui sopra.",
+      "add": "Aggiungi un'eccezione",
+      "sameValet": "Lo stesso del servizio",
+      "dayOff": "Il servizio non lavora in questo giorno: accendilo prima fra i giorni del servizio.",
+      "summary": "Di norma {{normale}}. Eccezioni: {{eccezioni}}."
+    },
+    "savedWithN": "Servizio ricorrente creato: {{n}} consegne già generate per i prossimi giorni.",
+    "updated": "Servizio ricorrente aggiornato: {{n}} nuove consegne, {{r}} consegne future rimesse in riga."
   }
 }

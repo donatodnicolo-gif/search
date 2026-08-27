@@ -2033,11 +2033,11 @@
     "title": "Recurring services",
     "caption": "The repeating service: pick days and time window (like Google opening hours); the nightly cron creates the day delivery, and partner rules apply.",
     "new": "+ New recurring service",
-    "generateToday": "Generate today deliveries",
+    "generateToday": "Generate the next days",
     "emptyTitle": "No recurring services",
     "emptyHint": "Create the first one: e.g. every Monday 7–8 for a partner.",
     "saved": "Recurring service created: deliveries start from the next nightly run (or with Generate today).",
-    "generated": "Generated {{n}} deliveries ({{gia}} already existing, {{tot}} services today).",
+    "generated": "Generated {{n}} deliveries from {{dal}} to {{al}} ({{gia}} already existed).",
     "pause": "Pause",
     "resume": "Resume",
     "deleteConfirm": "Delete {{nome}}? Generated deliveries remain.",
@@ -2093,6 +2093,16 @@
         "singolare": "month",
         "plurale": "months"
       }
-    }
+    },
+    "exc": {
+      "title": "Different time slots on certain days",
+      "hint": "Optional. Use it when a day runs at a different time: e.g. Monday to Friday 7–8, Saturday and Sunday 8–9. Days without an exception use the slot above.",
+      "add": "Add an exception",
+      "sameValet": "Same as the service",
+      "dayOff": "The service does not run on this day: switch it on among the service days first.",
+      "summary": "Normally {{normale}}. Exceptions: {{eccezioni}}."
+    },
+    "savedWithN": "Recurring service created: {{n}} deliveries already generated for the coming days.",
+    "updated": "Recurring service updated: {{n}} new deliveries, {{r}} future deliveries realigned."
   }
 }
