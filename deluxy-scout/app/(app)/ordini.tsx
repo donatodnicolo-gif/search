@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing, contenutoCentrato, contenutoExtraLargo } from '@/lib/theme';
+import { colors, radius, spacing, touchMin, contenutoCentrato, contenutoExtraLargo } from '@/lib/theme';
 import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
@@ -47,6 +47,12 @@ export default function Ordini() {
   /** I lavori da preventivare: da qui esce il COSTO di ogni ordine. */
   const [lavori, setLavori] = useState<LavoroConPreventivi[]>([]);
   const [loading, setLoading] = useState(true);
+  // ⚠️ Un fallimento non è una lista vuota (Libro UX cap.6, legge 9): senza
+  // questo stato, se `fetchOrdini` andava giù la pagina mostrava «Ancora nessun
+  // ordine» — cioè diceva che non ce n'erano invece che «non li ho potuti
+  // leggere». È l'errore che le sorelle (preventivi, richieste, pagamenti)
+  // gestiscono già e questa no.
+  const [errore, setErrore] = useState<string | null>(null);
   const [statoFiltro, setStatoFiltro] = useState<string | null>(null);
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
   /**
@@ -110,6 +116,7 @@ export default function Ordini() {
 
   const carica = useCallback(async () => {
     setLoading(true);
+    setErrore(null);
     try {
       // I lavori servono al COSTO di ogni ordine (preventivi fornitore). Col
       // suo `catch`: se la tabella non risponde, gli ordini si vedono lo
@@ -117,6 +124,12 @@ export default function Ordini() {
       const [ord, lav] = await Promise.all([fetchOrdini(), fetchLavori().catch(() => [])]);
       setOrdini(ord);
       setLavori(lav);
+    } catch (e: any) {
+      // ⚠️ Se sono gli ORDINI a non caricare non si finge una lista vuota: si
+      // dice cosa è andato storto e si offre «Riprova». Il messaggio di
+      // PostgREST si mostra così com'è quando non è tecnico, altrimenti una
+      // frase leggibile.
+      setErrore(String(e?.message ?? '') || 'Non è stato possibile caricare gli ordini.');
     } finally {
       setLoading(false);
     }
@@ -1102,14 +1115,35 @@ export default function Ordini() {
         contentContainerStyle={[styles.list, aTabella ? contenutoExtraLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
-          <EmptyState
-            loading={loading}
-            icona="receipt-outline"
-            titolo="Ancora nessun ordine"
-            aiuto="Quando chiudi una trattativa come «vinta», l'ordine nasce qui da solo, pronto da seguire fino all'incasso."
-            azione="Vai alle Trattative"
-            onAzione={() => router.push('/(app)/trattative')}
-          />
+          errore ? (
+            // Errore ≠ vuoto (Libro UX cap.6): card rossa + «Riprova», non la
+            // schermata che dice «non ce ne sono».
+            <View style={styles.erroreCard}>
+              <View style={styles.erroreTesta}>
+                <Ionicons name="warning-outline" size={16} color={colors.errore} />
+                <Text style={styles.erroreTitolo}>Gli ordini non si sono caricati</Text>
+              </View>
+              <Text style={styles.erroreTxt}>{errore}</Text>
+              <Pressable
+                style={({ pressed }) => [styles.btnRiprova, pressed && { opacity: 0.6 }]}
+                onPress={carica}
+                accessibilityRole="button"
+                accessibilityLabel="Riprova a caricare gli ordini"
+              >
+                <Ionicons name="refresh" size={15} color={colors.bianco} />
+                <Text style={styles.btnRiprovaTxt}>Riprova</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <EmptyState
+              loading={loading}
+              icona="receipt-outline"
+              titolo="Ancora nessun ordine"
+              aiuto="Quando chiudi una trattativa come «vinta», l'ordine nasce qui da solo, pronto da seguire fino all'incasso."
+              azione="Vai alle Trattative"
+              onAzione={() => router.push('/(app)/trattative')}
+            />
+          )
         }
         renderItem={({ item }) =>
           aTabella ? (
@@ -1591,7 +1625,8 @@ export default function Ordini() {
 
 function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, on && styles.chipOn]}>
+    // «tutto risponde» (Libro UX cap.3): la pillola reagisce alla pressione.
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && { opacity: 0.6 }]}>
       <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{label}</Text>
     </Pressable>
   );
@@ -2183,12 +2218,14 @@ function BloccoFornitura({
 }
 
 const styles = StyleSheet.create({
-  btnCerca: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 16, justifyContent: 'center' },
+  // Bersaglio touch ≥44px (Libro UX cap.10 §1 / WCAG) sui bottoni e chip di
+  // questa pagina, che reimplementa gli stili in locale invece di usare `Btn`.
+  btnCerca: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 16, minHeight: touchMin, justifyContent: 'center' },
   btnCercaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 13 },
   btnGhostLargo: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco,
-    borderRadius: radius.pill, paddingVertical: 12,
+    borderRadius: radius.pill, paddingVertical: 12, minHeight: touchMin,
   },
   btnGhostLargoTxt: { color: colors.navy, fontWeight: '700', fontSize: 13.5 },
   fattRiga: {
@@ -2198,7 +2235,6 @@ const styles = StyleSheet.create({
   },
   fattNumero: { color: colors.testo, fontSize: 13.5, fontWeight: '700' },
   fattMeta: { color: colors.grigio, fontSize: 11.5, lineHeight: 16 },
-  chiusuraOk: { color: '#2F7D46', fontSize: 13, lineHeight: 18, fontWeight: '600' },
   chiusuraNo: { color: colors.errore, fontSize: 13, lineHeight: 18 },
   spuntaRiga: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 4 },
   spuntaTxt: { flex: 1, color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
@@ -2241,9 +2277,9 @@ const styles = StyleSheet.create({
   },
   btnFornAggiungi: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, marginTop: 2 },
   btnFornAggiungiTxt: { color: colors.navy, fontWeight: '700', fontSize: 13.5 },
-  btnFornSalva: { flex: 1, backgroundColor: colors.ink, borderRadius: radius.pill, paddingVertical: 10, alignItems: 'center' },
+  btnFornSalva: { flex: 1, backgroundColor: colors.ink, borderRadius: radius.pill, paddingVertical: 10, minHeight: touchMin, alignItems: 'center', justifyContent: 'center' },
   btnFornSalvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 13.5 },
-  btnFornAnnulla: { paddingVertical: 10, paddingHorizontal: 14 },
+  btnFornAnnulla: { paddingVertical: 10, paddingHorizontal: 14, minHeight: touchMin, justifyContent: 'center' },
   btnFornAnnullaTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13.5 },
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.sfondo },
@@ -2252,7 +2288,7 @@ const styles = StyleSheet.create({
   subNota: { color: colors.grigio, fontWeight: '400' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   gruppoTitolo: { color: colors.testoSoft, fontSize: 12, fontWeight: '700', marginRight: 2 },
-  chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6, minHeight: touchMin, justifyContent: 'center' },
   chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
   chipTxtOn: { color: colors.bianco },
@@ -2298,7 +2334,7 @@ const styles = StyleSheet.create({
   docChip: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 3 },
   docChipTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 10.5 },
   percRow: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
-  percChip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
+  percChip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8, minHeight: touchMin, justifyContent: 'center' },
   percChipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   percTxt: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
   percTxtOn: { color: colors.bianco },
@@ -2316,8 +2352,15 @@ const styles = StyleSheet.create({
   // Sul telefono i bottoni vanno a capo invece di stringersi: quattro azioni
   // su una riga sola diventavano illeggibili.
   azioni: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', rowGap: 6, alignItems: 'center' },
-  btn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7, minHeight: touchMin },
   btnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 12.5 },
-  btnGhost: { borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  btnGhost: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7, minHeight: touchMin },
   btnGhostTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
+  // Errore di caricamento (Libro UX cap.6): card rossa con «Riprova».
+  erroreCard: { backgroundColor: colors.erroreSoft, borderWidth: 1, borderColor: colors.errore, borderRadius: radius.lg, padding: spacing.md, gap: 8 },
+  erroreTesta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  erroreTitolo: { color: colors.testo, fontWeight: '700', fontSize: 14 },
+  erroreTxt: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
+  btnRiprova: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 16, minHeight: touchMin },
+  btnRiprovaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13.5 },
 });

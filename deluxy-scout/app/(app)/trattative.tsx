@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Foglio } from '@/components/Foglio';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, shadow, spacing, touchMin, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { isoOggi, isoTraGiorni } from '@/lib/giorni';
 import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { TabellaTrattative } from '@/components/TabellaTrattative';
@@ -1552,6 +1552,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 7,
+    // Bersaglio touch ≥44px (Libro UX cap.10 §1 / WCAG).
+    minHeight: touchMin,
+    justifyContent: 'center',
   },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },

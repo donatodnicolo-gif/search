@@ -11,12 +11,12 @@
 // il loro lavoro e la palla è passata a Vendita. ⚠️ Sono nascoste, NON
 // cancellate: i record di `visits` alimentano Storico, Dashboard e Team.
 import { useCallback, useMemo, useState } from 'react';
-import { RefreshControl, SectionList, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, RefreshControl, SectionList, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place, Visit } from '@/types';
 import { canonizzaLinee } from '@/types';
-import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { colors, radius, spacing, touchMin, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import {
   fetchAllVisits,
   fetchDaCompletare,
@@ -73,12 +73,17 @@ export default function Visite() {
   // I recapiti stanno sui contatti, non sul negozio: servono per le azioni.
   const [recapiti, setRecapiti] = useState<Map<string, RecapitoPlace>>(new Map());
   const [loading, setLoading] = useState(true);
+  // ⚠️ Un fallimento non è una lista vuota (Libro UX cap.6, legge 9): senza,
+  // se le visite non si caricavano compariva «Nessun potenziale da lavorare»,
+  // cioè si dava per vuoto ciò che era solo irraggiungibile.
+  const [errore, setErrore] = useState<string | null>(null);
   const [daCompletare, setDaCompletare] = useState<Place | null>(null);
   // «Invia mail»: si sceglie lo script e si parte dall'app, come in Clienti.
   const [mailPlace, setMailPlace] = useState<Place | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
+    setErrore(null);
     try {
       const [v, p, b, t, idBozze] = await Promise.all([
         fetchAllVisits(),
@@ -101,6 +106,10 @@ export default function Visite() {
       } catch {
         setRecapiti(new Map());
       }
+    } catch (e: any) {
+      // ⚠️ Errore ≠ vuoto: se le visite/negozi non si caricano si dice, con
+      // «Riprova», invece di mostrare la schermata «nessun potenziale».
+      setErrore(String(e?.message ?? '') || 'Non è stato possibile caricare le visite.');
     } finally {
       setLoading(false);
     }
@@ -263,12 +272,31 @@ export default function Visite() {
           </View>
         }
         ListEmptyComponent={
-          <EmptyState
-            loading={loading}
-            icona="walk-outline"
-            titolo="Nessun potenziale da lavorare"
-            aiuto="I potenziali arrivano dalle visite fatte sulla Mappa o dalla scheda di un negozio. Quelli già diventati trattativa non compaiono qui: li trovi in Trattative."
-          />
+          errore ? (
+            <View style={styles.erroreCard}>
+              <View style={styles.erroreTesta}>
+                <Ionicons name="warning-outline" size={16} color={colors.errore} />
+                <Text style={styles.erroreTitolo}>Le visite non si sono caricate</Text>
+              </View>
+              <Text style={styles.erroreTxt}>{errore}</Text>
+              <Pressable
+                style={({ pressed }) => [styles.btnRiprova, pressed && { opacity: 0.6 }]}
+                onPress={carica}
+                accessibilityRole="button"
+                accessibilityLabel="Riprova a caricare le visite"
+              >
+                <Ionicons name="refresh" size={15} color={colors.bianco} />
+                <Text style={styles.btnRiprovaTxt}>Riprova</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <EmptyState
+              loading={loading}
+              icona="walk-outline"
+              titolo="Nessun potenziale da lavorare"
+              aiuto="I potenziali arrivano dalle visite fatte sulla Mappa o dalla scheda di un negozio. Quelli già diventati trattativa non compaiono qui: li trovi in Trattative."
+            />
+          )
         }
         renderSectionHeader={({ section }) => <Text style={styles.sezione}>{section.title.toUpperCase()}</Text>}
         renderItem={({ item }) => {
@@ -372,6 +400,13 @@ export default function Visite() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 96 },
+  // Errore di caricamento (Libro UX cap.6): card rossa con «Riprova».
+  erroreCard: { backgroundColor: colors.erroreSoft, borderWidth: 1, borderColor: colors.errore, borderRadius: radius.lg, padding: spacing.md, gap: 8 },
+  erroreTesta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  erroreTitolo: { color: colors.testo, fontWeight: '700', fontSize: 14 },
+  erroreTxt: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
+  btnRiprova: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 16, minHeight: touchMin },
+  btnRiprovaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13.5 },
   headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
   sezione: { color: colors.testoSoft, fontSize: 11.5, fontWeight: '800', letterSpacing: 0.4, marginTop: spacing.sm, marginBottom: 4 },
   nota: { color: colors.grigio, fontSize: 12.5, fontStyle: 'italic' },

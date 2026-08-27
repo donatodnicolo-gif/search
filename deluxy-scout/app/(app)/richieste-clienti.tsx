@@ -30,7 +30,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { colors, radius, shadow, spacing, touchMin, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { leggiImportoPositivo, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
@@ -1337,7 +1337,8 @@ function ModificaRichiesta({
 
 function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, on && styles.chipOn]}>
+    // «tutto risponde» (Libro UX cap.3): la pillola reagisce alla pressione.
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && { opacity: 0.6 }]}>
       <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{label}</Text>
     </Pressable>
   );
@@ -1411,7 +1412,7 @@ const styles = StyleSheet.create({
   badgeCol: { gap: 3, alignItems: 'flex-start' },
   // Azioni
   azioni: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' },
-  btn: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6, minWidth: 118, alignItems: 'center' },
+  btn: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6, minWidth: 118, minHeight: touchMin, alignItems: 'center', justifyContent: 'center' },
   btnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 12 },
   btnOff: { opacity: 0.45 },
   btnGhost: { borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
@@ -1462,7 +1463,7 @@ const styles = StyleSheet.create({
   sceltoNome: { color: colors.navy, fontWeight: '700', fontSize: 15 },
   sceltoInd: { color: colors.testoSoft, fontSize: 12.5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6, minHeight: touchMin, justifyContent: 'center' },
   chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
   chipTxtOn: { color: colors.bianco },

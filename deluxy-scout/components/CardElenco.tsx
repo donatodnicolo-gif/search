@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   // Scelta multipla: bordo scuro e sfondo appena tinto. Non solo la casella —
   // scorrendo un elenco lungo si deve capire cos'è dentro senza rileggere ogni
   // singola riga.
-  cardScelta: { borderColor: colors.ink, backgroundColor: '#F4F6F8' },
+  cardScelta: { borderColor: colors.ink, backgroundColor: colors.fill },
   casella: { backgroundColor: colors.bianco, borderColor: colors.grigioChiaro },
   casellaOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

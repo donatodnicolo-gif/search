@@ -22,7 +22,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { colors, radius, spacing, touchMin, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { Tabella, dataBreve, type ColonnaTabella } from '@/components/Tabella';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
@@ -670,12 +670,12 @@ const styles = StyleSheet.create({
   btnImportaTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
   esitoAuto: { color: colors.grigio, fontSize: 12, lineHeight: 16, marginTop: 6, textAlign: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  chip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6, minHeight: touchMin, justifyContent: 'center' },
   chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
   chipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 90 },
-  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 8 },
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 8, minHeight: touchMin },
   btnLargo: { marginTop: spacing.sm },
   btnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 12.5 },
   fab: {

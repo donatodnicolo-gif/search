@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { Foglio } from '@/components/Foglio';
 import type { RichiestaPagamento, StatoPagamento } from '@/types';
-import { colors, labelFase, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, labelFase, radius, shadow, spacing, touchMin, contenutoCentrato } from '@/lib/theme';
 import { isoTraGiorni } from '@/lib/giorni';
 import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { avvisa } from '@/lib/dialoghi';
@@ -717,7 +717,7 @@ const styles = StyleSheet.create({
   proformaTitolo: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   proformaNota: { color: colors.grigio, fontSize: 12, lineHeight: 16, marginTop: 2 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  chip: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6, minHeight: touchMin, justifyContent: 'center' },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
