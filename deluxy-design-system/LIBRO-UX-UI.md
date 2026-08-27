@@ -210,6 +210,7 @@ In più, promossi a canone: messaggio d'errore **indistinguibile** per email ine
 - **Commenti**: ogni fix o deroga UI porta **sintomo osservato + misura + data** («53 bottoni disabilitati sembravano attivi», «eventi alti 7px», 24/08). È la sola difesa contro chi «ripulisce» la riga fra sei mesi.
 - **Deroghe**: annotate nel **README dell'app** con motivo e voce del Libro derogata (DS §6 — oggi rispettata da 0 app su 10). Una deroga non scritta è indistinguibile da un errore, e in audit si tratta da bug.
 - **Il Libro si aggiorna così**: caso nuovo → agente `architetto-ux` (ricerca → verdetto → proposta di voce) → la voce entra qui con bump di versione → poi si usa nelle app. Le decisioni contestate portano il conteggio del voto e il dissenso (come cap. 5).
+- **Il custode del layout**: dal 27/08/2026 ogni errore di UI e ogni richiesta di cambiamento dell'interfaccia, in qualsiasi app, passa dal custode (`architetto-ux`) attraverso il registro [SEGNALAZIONI-UX.md](SEGNALAZIONI-UX.md): il custode decide se è una correzione locale, una regola nuova di questo Libro (valida per tutte le app) o una deroga da annotare. La sezione «Custode del layout» sta nel README di ogni app.
 - ⚠️ Questo file e il DS esistono in DUE copie (repo `app/` e repo `scoutwt/`): a ogni bump si allineano entrambe. **Attenzione: il repo `scoutwt` è PUBBLICO** — prima di copiarvi il Libro valutare che non esponga dettagli interni sensibili (il piano di adeguamento cita difetti di sicurezza d'uso).
 
 ---

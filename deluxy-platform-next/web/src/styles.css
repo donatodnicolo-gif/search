@@ -1,5 +1,5 @@
 /* Deluxy Platform — implementazione di riferimento del Deluxy Design System.
-   Fonte dei token: ../../deluxy-design-system/tokens/tokens.json (v1.0) */
+   Fonte dei token: ../../deluxy-design-system/tokens/tokens.json (v1.4) */
 :root {
   /* Palette */
   --bg: #f5f5f7;
@@ -27,6 +27,23 @@
   --red: #d70015;
   --orange: #c93400;
   --purple: #6d3fc4;
+
+  /* Token v1.4 (27/08/2026, Libro UX&UI): tinte -soft (la formula dei badge:
+     tinta di sfondo + testo pieno), on-ink, grey (stato neutro/terminato),
+     amber (SOLO legenda storica consegne, sempre col testo accanto), scrim
+     (l'unico velo dietro modali e drawer), gradiente logo, bersaglio touch. */
+  --blue-soft: rgba(0, 113, 227, 0.1);
+  --green-soft: rgba(36, 138, 61, 0.11);
+  --orange-soft: rgba(201, 52, 0, 0.1);
+  --red-soft: rgba(215, 0, 21, 0.09);
+  --purple-soft: rgba(109, 63, 196, 0.1);
+  --on-ink: #ffffff;
+  --grey: #8a8a8e;
+  --amber: #e6b800;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --logo-dark-a: #1d1f26;
+  --logo-dark-b: #3a3d47;
+  --touch-min: 44px;
 
   /* Shape & elevation */
   --radius-s: 8px;

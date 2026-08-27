@@ -49,6 +49,7 @@ Prima di lavorare, leggere **[deluxy-platform-next/docs/REGOLE-DI-LAVORO.md](del
 
 - Prima di creare o modificare qualsiasi schermata, leggere quelle specifiche e usare i token in `deluxy-design-system/tokens/` (`tokens.css` per web, `theme.ts` per React Native, `tokens.json` come fonte).
 - Per decidere COME va fatto un elemento di interfaccia o arbitrare fra due pattern divergenti: agente **`architetto-ux`** (`.claude/agents/architetto-ux.md`); i casi nuovi entrano prima nel Libro, poi nelle app.
+- **Il layout ha un custode (27/08/2026)**: errori di UI e richieste di cambiamento dell'interfaccia, in QUALSIASI app, non si risolvono in autonomia — si registrano in [deluxy-design-system/SEGNALAZIONI-UX.md](deluxy-design-system/SEGNALAZIONI-UX.md) (o si interpella `architetto-ux`), il custode valuta e decide se è una correzione locale, una regola nuova del Libro valida per tutte le app, o una deroga da annotare nel README dell'app.
 - Mai hardcodare colori, radius, ombre o font che esistono come token.
 - Stile: linguaggio Apple — sfondo `#F5F5F7`, superfici bianche con bordi hairline, bottoni a pillola (primari neri, mai oro), badge di stato a pillola con dot, sidebar chiara traslucida, tipografia di sistema con tracking negativo sui titoli, oro `#B8963E` solo come accento.
 - Se serve un componente o token nuovo: aggiungerlo prima al design system (con bump di versione), poi usarlo nell'app.

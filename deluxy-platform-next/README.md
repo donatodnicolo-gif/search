@@ -142,3 +142,11 @@ Osservazioni raccolte dall'app reale, utili per la migrazione:
 - Il calcolo della distanza ritiro→consegna e' predisposto (campo `distanceKm`, extra KM/fuori citta calcolati alla creazione): in produzione va collegato a un servizio di mappe (Google Distance Matrix / OSRM).
 - L'invio SMS e' modellato (flag per trigger + modelli per brand) ma il provider SMS va collegato in produzione.
 - Il frontend e' PWA-ready (manifest, theme color, layout responsive); il service worker puo' essere aggiunto con `ng add @angular/pwa`.
+
+## Custode del layout (obbligatorio — 27/08/2026)
+
+L'interfaccia di questa app ha un **custode**: l'agente `architetto-ux` (definito in `.claude/agents/architetto-ux.md`), che applica il [Libro UX&UI](../deluxy-design-system/LIBRO-UX-UI.md) e il [Design System](../deluxy-design-system/DESIGN-SYSTEM.md) v1.4.
+
+- **Errori di layout/UX e richieste di cambiamento dell'interfaccia NON si risolvono in autonomia**: si segnalano prima nel registro [`deluxy-design-system/SEGNALAZIONI-UX.md`](../deluxy-design-system/SEGNALAZIONI-UX.md), o si interpella direttamente l'agente.
+- Il custode valuta ogni segnalazione e decide: correzione locale, regola nuova del Libro (che vale **anche per le altre app**), o deroga motivata.
+- Le deroghe concesse a questa app vanno annotate qui sotto, con motivo e data.
