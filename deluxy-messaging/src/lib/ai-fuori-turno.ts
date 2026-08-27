@@ -1,4 +1,5 @@
 import { db } from './db'
+import { conAvvisoAutomatico } from './risposta-automatica'
 import { leggiImpostazioni, salvaImpostazione } from './impostazioni'
 import { inviaSulCanale } from './invio'
 import { suggerisciRisposta } from './ai'
@@ -532,7 +533,14 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
       continue
     }
 
-    const rispostaTesto = proposta.suggerimento.risposta.trim()
+    // ⚠️⚠️ SI DICE CHE RISPONDE UNA MACCHINA. Chiesto dall'utente il 27/08/2026
+    // dopo aver ricevuto «my name is [Your Name] from Deluxy»: un messaggio che
+    // si presenta come una persona quando dall'altra parte non c'è nessuno è
+    // una piccola bugia detta al cliente, e la prima volta che se ne accorge —
+    // chiedendo qualcosa che la macchina non capisce — è la cosa che ricorda.
+    // ⚠️ La frase la scrive il CODICE e non il modello: un'istruzione nel
+    // prompt si può ignorare, e questa è la riga che non deve mancare mai.
+    const rispostaTesto = conAvvisoAutomatico(proposta.suggerimento.risposta.trim(), lingua)
     if (!rispostaTesto) {
       esito.saltate++
       esito.righe.push(`${nome}: la risposta proposta era vuota`)

@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { segnapostoNonRiempito } from './risposta-automatica'
 import Anthropic from '@anthropic-ai/sdk'
 import { leggiImpostazioni } from './impostazioni'
 import { verificaIban } from './iban'
@@ -135,7 +136,8 @@ Come lavorare, in ordine di importanza:
 2. I DATI non si inventano. Nome, numero d'ordine e date solo se compaiono nel messaggio del cliente; se un dato manca, tieni la frase generica.
 3. LA FORMA la decidono le ISTRUZIONI DELL'AZIENDA che trovi nel messaggio: tono, lunghezza, saluto, firma, apertura e chiusura. Se un'istruzione chiede di riscrivere, accorciare, firmare o cambiare tono, FALLO: riformulare non è inventare, finché il contenuto resta quello dello script. Aggiungere una firma, un saluto o un oggetto perché un'istruzione lo chiede NON è aggiungere contenuto: fallo anche se lo script non ce l'ha.
 4. Dove le istruzioni non dicono niente, resta vicino al testo dello script.
-5. Se nessuno script è davvero adatto, lascia scriptId e risposta vuoti e spiega perché nel motivo. Meglio nessuna risposta che una sbagliata.`
+5. Se nessuno script è davvero adatto, lascia scriptId e risposta vuoti e spiega perché nel motivo. Meglio nessuna risposta che una sbagliata.
+6. MAI SEGNAPOSTI. Niente [Your Name], [Brand], {nome}, <data>: quello che non sai non si lascia da riempire. Se per scrivere la risposta ti servirebbe un dato che non hai, non usare un segnaposto — lascia scriptId e risposta vuoti come al punto 5. Firma con il nome dell'azienda, mai con un nome di persona.`
 
 export type EsitoRisposta =
   | { stato: 'ok'; suggerimento: Suggerimento | null; fornitore: string }
@@ -244,6 +246,18 @@ export async function suggerisciRisposta(
     // Non ci fidiamo dell'id: dev'essere uno di quelli che abbiamo dato.
     const scelto = script.find((s) => s.id === d.scriptId)
     if (!scelto || !d.risposta.trim()) {
+      return { stato: 'ok', suggerimento: null, fornitore: `OpenAI ${modello}` }
+    }
+    // ⚠️⚠️ LA RETE SOTTO L'ISTRUZIONE. Il punto 6 del prompt dice di non usare
+    // segnaposti, ma un'istruzione si può ignorare — e il 27/08/2026 è stata
+    // ignorata: a un cliente è arrivato «my name is [Your Name] from Deluxy».
+    // Lo schema strutturato non poteva accorgersene: valida la FORMA (un
+    // scriptId noto, un testo non vuoto), non il contenuto.
+    // ⚠️ Non si «ripulisce» togliendo le parentesi: resterebbe una frase
+    // monca. Si tratta come «questa non la so» — cioè si chiede a una persona,
+    // che è la strada che questa app ha già per i dubbi.
+    const segnaposto = segnapostoNonRiempito(d.risposta)
+    if (segnaposto) {
       return { stato: 'ok', suggerimento: null, fornitore: `OpenAI ${modello}` }
     }
     return {

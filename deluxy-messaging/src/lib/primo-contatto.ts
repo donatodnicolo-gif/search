@@ -16,6 +16,7 @@
 import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { inviaSulCanale } from '@/lib/invio'
+import { conAvvisoAutomatico } from '@/lib/risposta-automatica'
 import { linguaDelTesto } from '@/lib/lingua-testo'
 import { linguaCliente, type ChiaveLingua } from '@/lib/lingua'
 
@@ -209,7 +210,14 @@ export async function rispostaDiPrimoContatto(conversazioneId: string): Promise<
       conversazione.idEsterno,
       conversazione.canale
     )
-    const testo = testoPrimoContatto(lingua, conf.primoContattoTesto ?? '')
+    // ⚠️⚠️ Anche il saluto automatico dice che è automatico: parte da solo,
+    // senza che nessuno lo legga, ed è il PRIMO messaggio che un cliente riceve
+    // da noi. Lasciargli credere che dall'altra parte ci sia già una persona
+    // vuol dire farlo aspettare una risposta che a quell'ora non arriva.
+    const testo = conAvvisoAutomatico(
+      testoPrimoContatto(lingua, conf.primoContattoTesto ?? ''),
+      lingua
+    )
     if (!testo) return false
 
     const esito = await inviaSulCanale(conversazione, testo)
