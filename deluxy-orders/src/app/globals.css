@@ -104,9 +104,40 @@ a { color: inherit; text-decoration: none; }
 .sb-count { font-size: 12px; color: var(--text-tertiary); font-weight: 400; }
 .sb-dot { display: block; width: 8px; height: 8px; border-radius: 50%; }
 
+/* Su TELEFONO la sidebar diventa un cassetto a scomparsa SOPRA il contenuto,
+   comandato dall'hamburger (`data-menu-aperto` su <html>). Prima era
+   `display:none` e l'hamburger non poteva riportarla — dal telefono non
+   c'era NESSUNA navigazione (revisione UX 27/08). La colonna a 240px non ci
+   sta in riga, quindi qui è `position:fixed` e scorre da sinistra. */
 @media (max-width: 800px) {
-  .sidebar { display: none; }
+  .sidebar {
+    position: fixed;
+    top: 63px;
+    left: 0;
+    width: 264px;
+    max-width: 84vw;
+    height: calc(100vh - 63px);
+    z-index: 40;
+    margin-left: 0;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-100%);
+    transition: transform 220ms var(--ease);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.22);
+  }
+  :root[data-menu-aperto] .sidebar { transform: translateX(0); }
+  :root[data-menu-aperto] .menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: 63px 0 0 0;
+    background: rgba(0, 0, 0, 0.32);
+    z-index: 35;
+    animation: backdrop-in 160ms var(--ease);
+  }
 }
+/* Il velo dietro il cassetto: mai visibile su desktop, solo col menu aperto. */
+.menu-backdrop { display: none; }
+@keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- Contenuto ---------- */
 .main { flex: 1; min-width: 0; max-width: 1500px; margin: 0 auto; padding: 40px 24px 64px; }
@@ -1215,4 +1246,75 @@ a.periodo-opz:hover { background: var(--fill); color: var(--text); }
   font: inherit;
   color: var(--text);
   background: var(--surface);
+}
+
+/* ==========================================================================
+   Revisione UX/UI (27/08/2026, tre agenti: desktop + mobile + ostile)
+   Correzioni ai difetti sopravvissuti alla verifica ostile.
+   ========================================================================== */
+
+/* D2 — le righe di aiuto arrivavano a ~180 caratteri su schermo largo: limite
+   di lettura. Su telefono sono già più strette di 72ch, quindi lì non cambia. */
+.testo-guida, .page-sub { max-width: 72ch; }
+
+/* D5 — la pill «CS:» era solo testo+dot: le do la forma a pillola come i badge,
+   così stato-CS e chip-margine affiancati hanno la stessa forma. Tinta chiara,
+   il colore resta sul testo e sul dot. */
+.pill-stato {
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+}
+
+/* M8 — la riga «Dal … al … Vedi» sforava a 375px (scroll orizzontale di
+   pagina): ora va a capo dentro la card. */
+.periodo-a-mano { flex-wrap: wrap; }
+
+/* D3 — i 12 select filtro avevano larghezze irregolari: base uniforme. */
+.filtri select { min-width: 152px; flex: 1 1 152px; }
+
+/* M7 — su telefono i 12 filtri sempre aperti (~500px) seppellivano l'elenco
+   sotto la piega. Ora si aprono col bottone «Filtri» (checkbox hack: niente
+   JS, e dopo un filtro la pagina ricarica e si richiudono). A schermo largo il
+   bottone sparisce e i filtri restano sempre visibili. */
+.filtri-toggle { display: none; }
+.filtri-somma { display: none; }
+@media (max-width: 700px) {
+  .filtri-somma {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-bottom: 10px; padding: 9px 16px;
+    border: 1px solid var(--hairline); border-radius: var(--radius-pill);
+    background: var(--surface); color: var(--text);
+    font-size: 14px; font-weight: 500; cursor: pointer; user-select: none;
+  }
+  .filtri { display: none; }
+  .filtri-toggle:checked ~ .filtri { display: flex; }
+}
+
+/* M2 — su ≤700px `.scelta-vista` era `display:none`. Sulla home è solo il
+   toggle vista (le colonne si impilano da sole → ok), ma su Analisi e Margini
+   la STESSA classe porta i filtri Negozio/Confronto/Dimensione, che così
+   sparivano dal telefono senza sostituto. Invece di nasconderli, vanno a capo:
+   restano usabili. */
+@media (max-width: 700px) {
+  .scelta-vista { display: inline-flex; flex-wrap: wrap; height: auto; }
+}
+
+/* M3/M4/M5/M6/M9 — bersagli del tocco. Su telefono i controlli CUSTOM (link,
+   pill, bottoni-testo) stavano sui 20-30px, sotto la soglia comoda del pollice.
+   I <select>/date NATIVI non si toccano (il browser ne allarga già l'area).
+   Si alzano altezze e distanze solo su ≤800px. */
+@media (max-width: 800px) {
+  /* M3 — aprire l'ordine dalla card: il numero è l'unico link (~20px). */
+  .card-numero { display: inline-flex; align-items: center; min-height: 40px; }
+  /* M4 — pill di stato/etichette sulla scheda ordine. */
+  .stato-pill { padding: 8px 12px; }
+  .selettore-stato { gap: 8px; }
+  /* M5 — pillole del periodo (l'unico comando periodo sul telefono). */
+  .periodo-opz { padding: 8px 12px; }
+  .riga-rapida { gap: 8px; }
+  /* M6 — «salva» in Controllo era un testo alto ~20px. */
+  .btn-testo { min-height: 34px; display: inline-flex; align-items: center; padding: 4px 8px; }
+  /* M9 — bottoni «small» (paginazione, Filtra, Azzera, Ho visto). */
+  .btn.small { padding-top: 8px; padding-bottom: 8px; }
 }

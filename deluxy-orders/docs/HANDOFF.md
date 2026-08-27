@@ -5,6 +5,42 @@ Stato al **26/08/2026** (sezione qui sotto; il corpo del documento
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
 
+## 27/08/2026 — Revisione UX a tre agenti (desktop + mobile + ostile), poi corretta
+
+Passata su richiesta utente: un agente ha misurato il layout **desktop**, uno il
+**mobile**, un terzo **ostile** ha demolito le segnalazioni prima di correggere.
+Su 16 accuse: **2 cadute** (colonne kanban con scroll voluto; tabella-in-card con
+`overflow-x` — pattern del DS, non difetti), 7 ridimensionate, **13 corrette**.
+
+⭐⭐ **Il più grave, VERO: dal TELEFONO non c'era navigazione.** La sidebar era
+`display:none` a ≤800px e l'hamburger cambiava solo `margin-left/opacity` (mai
+`display`): un comando morto. L'unico link raggiungibile era il logo → «/». **Fix**:
+su ≤800px la sidebar è un **cassetto** `position:fixed` che scorre da sinistra,
+aperto dall'hamburger (`data-menu-aperto` su `<html>`), con velo (`.menu-backdrop`),
+chiusura su Esc, sul tocco fuori e **al cambio pagina** (`usePathname`). Vedi
+`ToggleSidebar.tsx` + il blocco `@media(max-width:800px)` in `globals.css`.
+
+Gli altri 12, tutti in `globals.css` (un blocco «Revisione UX» in fondo) + `page.tsx`:
+- **Bersagli del tocco** su ≤800px (i `<select>`/date NATIVI esclusi: il browser ne
+  allarga l'area da sé — l'ostile l'ha fatto notare): alzati `.card-numero` (aprire
+  l'ordine, era un link ~20px), `.stato-pill`, `.periodo-opz`, `.btn-testo` («salva»),
+  `.btn.small`, e i gap a ≥8px.
+- **Filtri**: 12 select sempre aperti seppellivano l'elenco sul telefono → ora
+  collassano dietro il bottone **«Filtri»** (checkbox hack, niente JS) su ≤700px, e
+  su desktop hanno larghezza uniforme.
+- **Analisi/Margini**: i filtri Negozio/Confronto/Dimensione (classe `.scelta-vista`)
+  sparivano sul telefono (`display:none`) senza sostituto → ora vanno a capo e
+  restano usabili.
+- **Righe di aiuto** (`.testo-guida`/`.page-sub`) senza `max-width` → ~180 car/riga
+  su desktop: limite a 72ch. **Riga date «Dal…al»** che sforava a 375px → `flex-wrap`.
+  **Pill «CS:»** senza forma → tinta a pillola come i badge. **Elenco vuoto** → link
+  «Azzera i filtri».
+
+Verificato: `tsc` pulito, `next build` completo, e sul dev server il markup nuovo +
+le regole CSS compilate (drawer, touch target, filtri). ⚠️ Gli agenti UX **non
+hanno il pannello browser** in questa sessione: hanno lavorato su HTML renderizzato
+(curl) + analisi CSS deterministica + codice — affidabile per il layout.
+
 ## 26/08/2026 (2) — il QUARTO negozio: business.deluxy.it, creato ma ancora SPENTO
 
 Chiesto dall'utente: «dobbiamo integrare business.deluxy.it».

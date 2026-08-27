@@ -222,7 +222,16 @@ export default async function ElencoOrdini({
         </p>
       )}
 
-      {/* Filtri */}
+      {/* Filtri — su telefono si aprono col bottone «Filtri» (checkbox hack,
+          niente JS); a schermo largo restano sempre visibili. Prima erano 12
+          select sempre aperti che spingevano gli ordini sotto la piega. */}
+      <input type="checkbox" id="mostra-filtri" className="filtri-toggle" hidden />
+      <label htmlFor="mostra-filtri" className="filtri-somma">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M3 5h18M6 12h12M10 19h4" />
+        </svg>
+        Filtri
+      </label>
       <form className="filtri" method="get">
         {sp.q && <input type="hidden" name="q" value={sp.q} />}
         {vista === "elenco" && <input type="hidden" name="vista" value="elenco" />}
@@ -460,7 +469,7 @@ export default async function ElencoOrdini({
           {nessunNegozio ? (
             <>Nessun negozio collegato. Vai in <Link href="/impostazioni" className="ritorno">Impostazioni</Link> per aggiungere un negozio Shopify e sincronizzare gli ordini.</>
           ) : (
-            <>Nessun ordine con questi filtri.</>
+            <>Nessun ordine con questi filtri. <Link href="/" className="ritorno">Azzera i filtri</Link></>
           )}
         </div>
       ) : (
