@@ -850,6 +850,18 @@ Le stesse tre cose si fanno **senza aprire la mail** dalla colonna «Top thread 
 Chiudendo o cestinando, la conversazione lascia subito la colonna — in entrambi i casi
 esce dai Top thread.
 
+## 6c-bis. Bozze: selezione multipla
+
+In **Bozze** ogni riga ha la sua spunta, come nella posta in arrivo: si
+selezionano quelle che non servono piu e si eliminano insieme. La spunta e una
+per tutte e due le sezioni (Iniziate da te e Proposte dall AI): sono due
+titoli, non due elenchi. C e anche la scorciatoia **Solo quelle dell AI**, che
+e la pulizia che si fa davvero.
+
+⚠️ Qui la conferma si chiede **sempre**, anche per due righe. Nella posta
+«Cestina» sposta nel cestino e dal cestino si torna indietro; una bozza
+cancellata invece non va da nessuna parte: sparisce, con i suoi allegati.
+
 ## 6d. Cestinare è immediato
 
 Cestinare, archiviare o segnalare come spam fa **sparire subito** la riga e basta:
@@ -1066,6 +1078,45 @@ aggiornare una password scaduta. **Non** può spostare la casella su un altro se
 i server indicati non sono quelli già salvati, la richiesta viene rifiutata e bisogna
 passare da Impostazioni. Cambiare il server di posta di una casella significa decidere
 da dove passa tutta la posta in uscita: è una cosa che si fa guardandola in faccia.
+
+## 7-ter. Assenza (out of office)
+
+In **Impostazioni → Assenza** dici che sei via. Da quel momento, per la posta che
+arriva, AI Mail può fare due cose — insieme o una sola:
+
+- **rispondere da sola** a chi ti scrive, col testo che hai preparato;
+- **inoltrare** ogni mail a un indirizzo che indichi (una spunta e il campo).
+
+Puoi mettere un periodo (**dal** / **al**) oppure lasciarli vuoti: senza «dal»
+vale da adesso, senza «al» dura finché non la spegni a mano.
+
+**Vale solo per la posta che arriva da adesso in poi.** Accendendo l'assenza,
+l'app si segna il momento e ignora tutto ciò che è più vecchio. Senza questa
+regola, la prima sincronia dopo l'accensione avrebbe risposto e inoltrato a tutta
+la posta ancora da scaricare — per una casella rimasta indietro, settimane di
+mail in un colpo solo.
+
+**A chi NON risponde mai:**
+
+- a chi ha già ricevuto la risposta: **una sola volta per mittente**, per tutta
+  l'assenza. Se anche dall'altra parte c'è un risponditore automatico, senza
+  questa regola i due si scriverebbero all'infinito;
+- agli indirizzi automatici (`noreply`, `notifiche`, avvisi di mancata consegna);
+- alle tue stesse caselle;
+- a quello che finisce in **SPAM**: rispondere a uno spammer gli conferma solo
+  che l'indirizzo è vivo.
+
+**Sull'inoltro, due cose da sapere.** L'indirizzo **non può essere una delle tue
+caselle** di AI Mail: la mail rientrerebbe e ripartirebbe all'infinito, quindi
+l'app rifiuta di salvarlo e ti dice perché. E gli **allegati non viaggiano**:
+vivono sul server della posta e andrebbero ripescati uno a uno proprio nel
+momento in cui c'è meno tempo. Chi riceve l'inoltro se lo vede scritto in cima
+alla mail, invece di credere che ci fosse tutto.
+
+**Cosa è partito davvero.** Sotto al modulo c'è l'elenco: quando, se era una
+risposta o un inoltro, a chi, e per quale mail. È l'unico punto dell'app in cui
+una mail parte senza che nessuno prema invio, e al ritorno la prima domanda è
+sempre «che cosa ha mandato in giro?».
 
 ## 6e. La rubrica e la scheda di un contatto
 

@@ -23,6 +23,54 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 27/08 — ASSENZA (out of office): risposta automatica + inoltro
+
+In **Impostazioni → Assenza**: `assenzaAttiva/Dal/Al/Messaggio/Inoltra/InoltraA` su
+`Utente`, tabella `AssenzaInvio` (registro + antirepliche), logica in `src/lib/assenza.ts`,
+aggancio in `sync.ts` dentro `salvaMessaggi` **subito dopo il filtro anti-spam**.
+
+⚠️ **È l'unico punto dell'app in cui una mail parte senza che nessuno prema invio.** Le
+difese, tutte volute e tutte da non togliere:
+
+| Difesa | Dove | Cosa impedisce |
+|---|---|---|
+| `assenzaDal` scritto all'accensione (adesso, se non indichi una data) e confronto `mail.data < dal` | `salvaAssenza` + `applicaAssenza` | Che il primo giro di sincronia risponda/inoltri a **tutto l'arretrato** non ancora scaricato |
+| Una risposta sola per mittente (conteggio su `AssenzaInvio` da `assenzaDal`) | `applicaAssenza` | Il **ping-pong infinito** con il risponditore automatico dell'altro |
+| `mittenteAutomatico()` | `assenza.ts` | Risposte a `noreply`, notifiche, mancate consegne. ⚠️ È un **ripiego dichiarato**: le intestazioni vere (`Auto-Submitted`, `Precedence`, `List-Id`) lo scaricatore non le tiene |
+| `nostreCaselle` (TUTTE, anche le spente) | `sync.ts` → `applicaAssenza` | Rispondere/inoltrare a se stessi |
+| Rifiuto al salvataggio se `inoltraA` è una tua casella, **più** ricontrollo all'invio | `salvaAssenza` + `applicaAssenza` | Il **giro infinito** dell'inoltro che rientra |
+| `spam: eraSpam` (`filtraSpam` ora ritorna `boolean`) | `sync.ts` | Confermare a uno spammer che l'indirizzo è vivo |
+| `TETTO_PER_GIRO = 10` | `assenza.ts` | Che un guasto mandi trecento mail invece di dieci |
+| L'assenza si passa **solo** nel ramo della posta nuova | `sincronizzaAccount` | Che lo **storico** (stessa funzione `salvaMessaggi`) svegli gli automatismi |
+
+⚠️ **Gli allegati NON viaggiano con l'inoltro**: vivono su IMAP e andrebbero ripescati
+proprio durante la sincronia, dove c'è meno tempo di tutti. È scritto in cima alla mail
+inoltrata — detto, non nascosto.
+
+⚠️ **`spedisci` è uscita da `actions.ts` e vive in `src/lib/invio.ts`.** In un file
+`'use server'` ogni export diventa una Server Action, cioè un indirizzo chiamabile da
+fuori: esportare di lì una funzione che spedisce posta, con destinatario e testo fra i
+parametri, sarebbe stato aprire una porta per mandare mail a nome delle caselle aziendali.
+Chi serve sia alle azioni sia alla sincronia vive in un modulo normale.
+
+Colonne e tabella **già in produzione** (migrazione applicata dal build, 115/115, verificata
+su `information_schema`). Provata la logica pura: 12 casi su 12.
+
+---
+
+### 27/08 — Bozze: selezione multipla
+
+`src/components/ListaBozze.tsx` (nuovo) + `eliminaBozzeMassa` in `actions.ts`. Spunta per
+riga, «Seleziona tutte», scorciatoia «Solo quelle dell'AI»; **una sola** selezione per le
+due sezioni.
+
+- ⚠️ Conferma **sempre**, non sopra una soglia come in posta: là «Cestina» va nel cestino e
+  si torna indietro, qui la bozza sparisce con i suoi allegati.
+- ⚠️ Gli id arrivano dal browser: si cancella per `id IN (…) AND utenteId`, e il numero
+  detto a chi guarda è quello **cancellato**, non quello chiesto.
+
+---
+
 ### 27/08 — Il mittente della risposta lo scegli tu (tendina Da)
 
 Segnalato: una mail arrivata sia a `nicolo.donato@` sia a `cs@` si poteva rispondere
