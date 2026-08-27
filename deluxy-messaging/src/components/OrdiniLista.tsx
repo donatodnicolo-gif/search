@@ -176,7 +176,7 @@ function TipoCliente({ tipo, da }: { tipo: string; da: string }) {
   const origine = origineTipoCliente(da)
   return (
     <span
-      className="badge"
+      className="badge badge-cliente"
       style={{ color: coloreTipoCliente(tipo) }}
       title={
         `Tipo di cliente: ${nomeTipoCliente(tipo)}` +
@@ -202,7 +202,7 @@ function ProfiloCliente({ numeroOrdine }: { numeroOrdine: number | null }) {
   if (!p.etichetta) return null
   return (
     <span
-      className="badge"
+      className="badge badge-cliente"
       style={p.tono === 'oro' ? { color: 'var(--gold)', borderColor: 'var(--gold)' } : undefined}
       title={p.spiega + ' Conteggio dal registro Ordini, su tutta la storia del cliente.'}
     >
@@ -1537,7 +1537,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
       {syncFermo && !syncFallito ? (
         <div className="avviso-errore">
           Gli ordini non si aggiornano da più di un&apos;ora: il giro automatico potrebbe essersi
-          fermato. Premi <strong>Aggiorna adesso</strong> e, se non cambia, controlla il cron.
+          fermato. Premi <strong>Aggiorna</strong> e, se non cambia, controlla il cron.
         </div>
       ) : null}
 

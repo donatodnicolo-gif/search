@@ -130,6 +130,20 @@ model RichiestaPagamento {
   origine              String    @default("manuale")
   ordineNumero         String    @default("") // se legata a un ordine
   /**
+   * ⚠️⚠️ L'IDENTITÀ dell'ordine, non il suo nome.
+   *
+   * Il NUMERO non identifica: lo stesso «#2799» può esistere su due negozi, e
+   * chi riconcilia il pagamento sceglieva `findFirst` — cioè uno a caso, e ci
+   * scriveva sopra il fornitore e il costo, che finiscono nel margine e
+   * viaggiano fino a Deluxy Orders.
+   *
+   * L'operatore l'ordine lo SCEGLIE da un elenco (`ScegliOrdine`), quindi
+   * l'identità c'era: si buttava via al salvataggio, tenendo solo il numero.
+   * Qui si conserva. Vuoto = riga vecchia, o numero scritto a mano: in quel
+   * caso si usa il numero, ma solo se porta a UN ordine solo.
+   */
+  ordineId             String    @default("")
+  /**
    * COME lo paghiamo: `iban` · `link` · `paypal` · `altro`.
    * ⚠️⚠️ Non tutti i fornitori si pagano con un bonifico. Chi manda un link di
    * pagamento, chi dà un indirizzo PayPal, chi si accorda a voce («mi paghi in

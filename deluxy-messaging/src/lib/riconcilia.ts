@@ -23,7 +23,7 @@ import { decidi, type Verdetto } from './riconciliazione'
 export type EsitoRiconciliazione = {
   /** Se l'ordine è stato aggiornato davvero. */
   fatto: boolean
-  verdetto: Verdetto | 'senza-richiesta' | 'non-pagata' | 'ordine-non-trovato'
+  verdetto: Verdetto | 'senza-richiesta' | 'non-pagata' | 'ordine-non-trovato' | 'numero-ambiguo'
   /** Una riga da mostrare a chi ha appena premuto il bottone. */
   messaggio: string
   /** L'esito della proposta a Orders, quando si è arrivati a farla. */
@@ -59,6 +59,7 @@ export async function riconciliaDaPagamento(
       intestatario: true,
       importo: true,
       ordineNumero: true,
+      ordineId: true,
       pagataIl: true,
       metodo: true,
     },
@@ -92,8 +93,36 @@ export async function riconciliaDaPagamento(
   }
 
   const numero = r.ordineNumero.replace('#', '')
+  // ⚠️⚠️ PRIMA L'IDENTITÀ, POI IL NOME. Questa funzione scrive sull'ordine il
+  // fornitore e il costo, che entrano nel margine e vengono mandati a Deluxy
+  // Orders — e lo fa **da sola**, quando qualcuno preme «Pagata». Sceglierlo con
+  // un `findFirst` sul NUMERO vuol dire, il giorno che due negozi hanno lo
+  // stesso numero, scriverlo sull'ordine sbagliato: un costo di fornitura falso
+  // su una vendita, e un margine falso su un'altra, tutti e due in silenzio.
+  //
+  // L'operatore l'ordine lo SCEGLIE da un elenco: da oggi quella scelta si
+  // conserva (`RichiestaPagamento.ordineId`) e qui vale più del numero.
+  //
+  // ⚠️ Sulle righe vecchie `ordineId` è vuoto, e allora si usa il numero — ma
+  // **solo se porta a un ordine solo**. Se sono due, non si sceglie: si dice.
+  // Misurato oggi: **zero numeri ripetuti su 1.373 ordini e 3 negozi**, quindi
+  // il ripiego oggi non sbaglia mai. Diventa possibile il giorno che entra il
+  // quarto negozio, ed è per quel giorno che c'è il controllo.
+  const dove = r.ordineId
+    ? { id: r.ordineId }
+    : { numero: { in: [numero, `#${numero}`] } }
+  if (!r.ordineId) {
+    const quanti = await db.ordine.count({ where: { numero: { in: [numero, `#${numero}`] } } })
+    if (quanti > 1) {
+      return {
+        fatto: false,
+        verdetto: 'numero-ambiguo',
+        messaggio: `Il numero ${r.ordineNumero} appartiene a ${quanti} ordini di negozi diversi: non so su quale registrare il fornitore, e sceglierne uno scriverebbe il falso sull'altro. Apri l'ordine giusto e registra il fornitore da lì.`,
+      }
+    }
+  }
   const ordine = await db.ordine.findFirst({
-    where: { numero: { in: [numero, `#${numero}`] } },
+    where: dove,
     select: {
       id: true,
       numero: true,

@@ -1,5 +1,86 @@
 # Handoff — Deluxy Customer Service
 
+## 27/08/2026 (5) — chiusi tutti i punti rimasti aperti
+
+Chiesto dall'utente: «sistema tutto» — cioè i tre punti di layout lasciati in
+sospeso e i tre difetti latenti della caccia agli errori.
+
+### I tre di layout
+
+**1. Le pillole grigie identiche adesso hanno delle FAMIGLIE.** Sulla stessa
+scheda ce n'erano quattro-cinque **identiche al pixel** che dicevano cose
+diverse: chi prepara l'ordine, che cliente è, a che punto siamo, cosa dice
+l'altra app. Il design system diceva già come si fa («pillola con dot colorato +
+testo, testo semantico pieno») e il dot in `.badge::before` c'era già, in
+`currentColor`: mancava dare a ogni famiglia il suo colore, che tinge testo e
+pallino insieme.
+- `.badge-fornitore` → **oro**: è la famiglia del denaro che esce.
+- `.badge-cliente` (tipo e storia) → **contorno invece di pieno**, così la
+  famiglia si riconosce anche quando il colore è il grigio di «Privato», che è il
+  tipo neutro e grigio deve restare.
+- `.badge-altrove` → **blu**: quello che dice un'altra app (stato Shopify,
+  canale). ⚠️ Confonderlo col nostro stato di lavorazione è l'errore che questa
+  distinzione esiste per impedire.
+
+**2. Un solo vocabolario di bottoni.** Convivevano `.btn` (grigio pieno, senza
+bordo, 28px) e `.bottone` (bianco, bordo hairline, 26px), stessa funzione e due
+facce. Contati: **`.bottone` ~1.534 usi, `.btn` ~30**, quasi tutti nel pannello
+del dettaglio. ⚠️ Non ho riscritto trenta chiamate: ho **allineato `.btn` a
+`.bottone`**, che è quello che l'app usa davvero. Stesso risultato, nessun file
+toccato, niente da sbagliare in trenta punti.
+
+**3. La cornice della bacheca si stringe (~60px).** Sopra il primo ordine ci sono
+18 controlli e la prima scheda cominciava a **y=390** su 900 — il 43% è cornice.
+⚠️⚠️ **Non ho tolto niente**: i comandi restano tutti, è la regola di quest'app.
+Si sono ridotti i margini fra le tre righe di filtri e la larghezza minima della
+casella di ricerca, che a 240px mandava la barra a capo su due righe.
+
+Più l'etichetta che non combaciava: l'avviso diceva «Premi **Aggiorna adesso**» e
+il bottone si chiama «Aggiorna».
+
+### I tre difetti latenti
+
+**4. ⚠️⚠️ LA RICONCILIAZIONE NON INDOVINA PIÙ QUALE ORDINE.** Era il più serio:
+`riconcilia.ts` cercava l'ordine con un `findFirst` **sul numero**, e ci scriveva
+sopra `fornitoreNome` e `fornitoreCosto` — che entrano nel margine e vengono
+mandati a Deluxy Orders — **da solo**, quando qualcuno preme «Pagata». Il giorno
+che due negozi hanno lo stesso numero, quel costo finisce sull'ordine sbagliato:
+un costo falso su una vendita e un margine falso su un'altra, tutti e due in
+silenzio.
+
+L'identità c'era già e si buttava via: **l'operatore l'ordine lo SCEGLIE** da un
+elenco, e al salvataggio restava solo il numero. Adesso si conserva.
+- Schema: **`RichiestaPagamento.ordineId`**, aggiunta con una sola
+  `ALTER TABLE ADD COLUMN … DEFAULT ''` (verificata prima con `migrate diff`:
+  nessuna deriva, nessun dato toccato).
+- La rotta la salva, il modulo la manda, `riconcilia.ts` la preferisce al numero.
+- ⚠️ Sulle righe **vecchie** `ordineId` è vuoto: lì si usa ancora il numero, ma
+  **solo se porta a un ordine solo**. Se sono due, non si sceglie — si risponde
+  `numero-ambiguo` e si manda a registrare il fornitore dall'ordine giusto.
+  Misurato: **zero numeri ripetuti su 1.373 ordini e 3 negozi**, quindi oggi il
+  ripiego non sbaglia mai; il controllo è per il giorno del quarto negozio.
+
+**5. La sincronizzazione con la piattaforma legge a pagine, e il segnaposto segue
+quello che ha letto.** Prima chiedeva **una pagina da 200** e poi scriveva il
+segnaposto ad `adesso`: oltre le 200, il resto non si leggeva **mai più**. Il caso
+peggiore era il primo giro (`da = null`), dove la piattaforma torna le 200 **più
+vecchie**. Ora si continua da **`aggiornataIl` dell'ultima letta** (non serve un
+`offset`: la rotta accetta `aggiornateDa` e ordina per data), fino a 20 pagine, e
+il segnaposto diventa **l'ultima data davvero letta** — così un giro interrotto a
+metà riprende da lì invece di saltare avanti. Se si è dovuto smettere prima,
+**lo scrive**.
+
+**6. «Da rispondere in chat» contato sul database.** Nasceva da una lista con
+`take: 200`, mentre «da rispondere» è un `count` vero: sopra le duecento in
+attesa, `daRispondereEmail` — che è la differenza fra i due — si sarebbe presa
+tutto l'errore. Due numeri sullo stesso schermo devono venire dallo stesso
+insieme.
+
+### Verifica
+
+`npx tsc --noEmit` esito 0 · `npm run build` esito 0 · **sette suite di prove,
+tutte passate** · nessun carattere di controllo nei sorgenti.
+
 ## 27/08/2026 (4) — layout: due agenti misurano, due li smontano, sei correzioni
 
 Chiesto dall'utente: «crea un agente che esamina il layout lato desktop e uno

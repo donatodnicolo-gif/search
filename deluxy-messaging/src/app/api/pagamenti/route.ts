@@ -121,6 +121,12 @@ export async function POST(req: NextRequest) {
     linkConversazione?: string
     origine?: string
     ordineNumero?: string
+    /**
+     * ⚠️ L'id dell'ordine SCELTO dall'elenco. Il numero non identifica (lo stesso
+     * «#2799» può stare su due negozi) e chi riconcilia il pagamento ci scrive
+     * sopra il fornitore e il costo: l'identità va conservata, non ricostruita.
+     */
+    ordineId?: string
     /** iban · link · paypal · altro. Vedi src/lib/metodo-pagamento.ts. */
     metodo?: string
     riferimentoPagamento?: string
@@ -279,6 +285,10 @@ export async function POST(req: NextRequest) {
       ibanPaese: metodo === 'iban' ? esitoIban.paese : '',
       origine: c.origine || 'manuale',
       ordineNumero: (c.ordineNumero ?? '').trim(),
+      // ⚠️ L'IDENTITÀ dell'ordine, non solo il suo nome: lo stesso numero può
+      // stare su due negozi, e chi riconcilia il pagamento ci scrive sopra il
+      // fornitore e il costo. Vedi il commento sul campo in `schema.prisma`.
+      ordineId: (c.ordineId ?? '').trim(),
     },
   })
 

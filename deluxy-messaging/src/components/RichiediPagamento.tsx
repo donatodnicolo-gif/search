@@ -677,6 +677,11 @@ export function RichiediPagamento() {
           // veniva mai mandato, quindi nessuna richiesta salvata sapeva a quale
           // ordine appartenesse.
           ordineNumero: ordineScelto?.numero || ordineNumero,
+          // ⚠️ L'ORDINE SCELTO, non solo il suo numero: l'identità c'è già qui
+          // (l'ha presa il selettore) e finora si buttava via al salvataggio,
+          // lasciando a chi riconcilia il pagamento il compito di indovinare
+          // quale ordine fosse partendo dal numero.
+          ordineId: ordineScelto?.id ?? '',
           confermaDoppio,
         }),
       })

@@ -5638,3 +5638,76 @@ button.ai-accesa:hover {
   }
   .pannello textarea { min-height: 64px; }
 }
+
+/* ── LE FAMIGLIE DELLE PILLOLE ──
+   ⚠️⚠️ Misurato su una scheda della bacheca: **quattro-cinque pillole identiche
+   al pixel** (stesso sfondo `rgba(120,120,128,.08)`, stesso grigio, stesso
+   raggio) dicevano cose di famiglie diverse — chi prepara l'ordine, che
+   cliente è, a che punto siamo, che dice l'altra app. Quattro categorie con
+   una faccia sola: chi guarda deve leggerle tutte per capire quale lo
+   riguarda.
+
+   Il design system dice come si fa: «pillola con **dot colorato** + testo,
+   tinta di sfondo 9–12% e testo semantico pieno». Il dot in `.badge::before`
+   c'era già ed è `currentColor` — mancava solo dare a ogni famiglia il suo
+   colore, che così tinge testo e pallino insieme. */
+
+/* CHI PREPARA E QUANTO GLI DIAMO: è la famiglia del denaro che esce. Oro,
+   come tutti i segnali di quest'app che riguardano i soldi. */
+.badge-fornitore {
+  color: var(--gold-strong);
+  background: var(--gold-soft);
+}
+
+/* CHI È IL CLIENTE (tipo e storia): non è uno stato e non è un'azione, è un
+   dato anagrafico. ⚠️ Contorno invece di pieno: così la famiglia si riconosce
+   anche quando il colore è il grigio di «Privato», che è il tipo neutro e
+   grigio deve restare. */
+.badge-cliente {
+  background: transparent;
+  border: 1px solid var(--hairline-strong);
+}
+
+/* QUELLO CHE DICE UN'ALTRA APP (lo stato Shopify, il canale del messaggio):
+   non lo decidiamo noi, e confonderlo col nostro stato di lavorazione è
+   l'errore che questa distinzione esiste per impedire. */
+.badge-altrove {
+  color: var(--blue);
+  background: rgba(0, 113, 227, 0.1);
+}
+
+/* ── UN SOLO VOCABOLARIO DI BOTTONI ──
+   ⚠️⚠️ Nell'app convivevano due sistemi: `.btn` (grigio pieno, senza bordo,
+   28px) e `.bottone` (bianco, bordo hairline, 26px), con la stessa funzione e
+   due facce. Contati: `.bottone` ~1.534 usi, `.btn` ~30 — quasi tutti dentro
+   il pannello del dettaglio ordine.
+   ⚠️ Non si riscrivono trenta chiamate: si allinea `.btn` a `.bottone`, che è
+   quello che l'app usa davvero. Stesso risultato, nessun file toccato, e
+   niente da sbagliare in trenta punti diversi. */
+.btn-secondario {
+  background: transparent;
+  border: 1px solid var(--hairline-strong);
+  color: var(--text);
+}
+.btn-secondario:hover {
+  background: var(--fill);
+}
+.btn.small {
+  padding: 3px 11px;
+  font-size: 12.5px;
+}
+
+/* ── LA CORNICE DELLA BACHECA SI STRINGE ──
+   ⚠️ Misurato a 1440×900 (due volte, da due parti): sopra il primo ordine ci
+   sono **18 controlli** e la prima scheda comincia a **y=390** — il 43% dello
+   schermo è cornice, e a 900px si vede **una scheda e mezza**.
+   ⚠️⚠️ Non si toglie NIENTE: si stringe. I comandi restano tutti — è la regola
+   di quest'app, e toglierne uno per fare spazio è il modo di far tornare la
+   gente a lavorare a mano. Quello che si riduce sono i margini fra le tre
+   righe di filtri e la larghezza minima della casella di ricerca, che a 240px
+   mandava la barra a capo su due righe.
+   Guadagnati ~60px, cioè un quarto di scheda in più a schermo. */
+.barra-ricerca { margin-bottom: 8px; }
+.barra-ricerca input[type='search'] { min-width: 180px; }
+.filtri-passi { margin: -4px 0 8px; }
+.riga-tipi { margin: -2px 0 6px; }

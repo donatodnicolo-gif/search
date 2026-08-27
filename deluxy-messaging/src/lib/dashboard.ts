@@ -291,7 +291,19 @@ export async function datiDashboard(): Promise<DatiDashboard> {
     })
     .slice(0, 12)
 
-  const daRispondereChat = tutteLeAttese.filter((a) => CANALI_CHAT.includes(a.canale)).length
+  // ⚠️⚠️ CONTATO SUL DATABASE, non sulla lista tagliata. `tutteLeAttese` nasce da
+  // una `findMany` con `take: 200`: sopra le duecento conversazioni in attesa il
+  // conto delle chat sarebbe fermo a 200 e `daRispondereEmail`, che è una
+  // differenza (`daRispondere - daRispondereChat`), si prenderebbe tutto
+  // l'errore. Due numeri sullo stesso schermo devono venire dallo stesso insieme.
+  const daRispondereChat = await db.conversazione.count({
+    where: {
+      archiviata: false,
+      eliminataIl: null,
+      OR: [{ nonLetti: { gt: 0 } }, { daRileggere: true }],
+      canale: { in: [...CANALI_CHAT] },
+    },
+  })
 
   // Le fasce: stesso ordine e stessa logica della bacheca ordini, così le due
   // schermate non raccontano priorità diverse.

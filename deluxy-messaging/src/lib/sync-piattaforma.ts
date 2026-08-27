@@ -59,39 +59,88 @@ export async function sincronizzaConPiattaforma(opz: { prova?: boolean } = {}): 
   // di là e la nostra lettura si incrociano al secondo, senza margine quella
   // vendita non la vedremmo mai più.
   const da = c[CHIAVE_ULTIMO] ? new Date(new Date(c[CHIAVE_ULTIMO]).getTime() - 3600 * 1000) : null
-  const risposta = await venditeAggiornate(da)
-  if (risposta.stato === 'non-configurato') {
-    esito.errore = 'Piattaforma consegne non collegata: manca la chiave in Impostazioni.'
-    return esito
-  }
-  if (risposta.stato === 'errore') {
-    esito.errore = risposta.messaggio
-    return esito
-  }
-  if (risposta.stato === 'non-trovato') {
-    esito.errore = 'La rotta delle vendite non risponde: controlla l’indirizzo della piattaforma.'
-    return esito
+
+  // ── SI LEGGE A PAGINE, E IL SEGNAPOSTO SEGUE QUELLO CHE SI È LETTO ──
+  //
+  // ⚠️⚠️ Prima si chiedeva **una pagina sola da 200** e poi si scriveva il
+  // segnaposto ad `adesso`. Se le vendite cambiate erano di più, dalla 201ª in
+  // poi **non si leggevano mai più**: il giro dopo ripartiva da adesso, e quelle
+  // restavano indietro per sempre. Il caso peggiore era il **primo giro**
+  // (`da = null`): la piattaforma ordina per `aggiornataIl` crescente, quindi
+  // tornava le 200 **più vecchie** e tutto il resto spariva.
+  //
+  // ⚠️ Non serve un `offset`: la piattaforma accetta `aggiornateDa` e ordina per
+  // data, quindi si continua **dall'ultima letta** — che è anche il modo giusto
+  // di non saltare niente se qualcosa cambia mentre si legge.
+  //
+  // ⚠️⚠️ E il segnaposto diventa **l'ultima data DAVVERO LETTA**, non `adesso`:
+  // così, se il giro si interrompe a metà, quello dopo riprende da lì invece di
+  // saltare in avanti.
+  const PAGINE_MAX = 20
+  let cursore = da
+  let ultimaLetta: string = ''
+  let troncato = false
+
+  for (let pagina = 0; pagina < PAGINE_MAX; pagina++) {
+    const risposta = await venditeAggiornate(cursore)
+    if (risposta.stato === 'non-configurato') {
+      esito.errore = 'Piattaforma consegne non collegata: manca la chiave in Impostazioni.'
+      return esito
+    }
+    if (risposta.stato === 'errore') {
+      esito.errore = risposta.messaggio
+      break
+    }
+    if (risposta.stato === 'non-trovato') {
+      esito.errore = 'La rotta delle vendite non risponde: controlla l’indirizzo della piattaforma.'
+      return esito
+    }
+
+    const vendite = risposta.dati.vendite ?? []
+    if (!vendite.length) break
+    esito.lette += vendite.length
+
+    for (const v of vendite) {
+      const riga = await allineaUno(v, opz.prova === true)
+      if (riga.esito === 'in-app') esito.passateInApp++
+      else if (riga.esito === 'tornato') esito.tornateANoi++
+      else if (riga.esito === 'aggiornato') esito.aggiornate++
+      else esito.saltate++
+      if (riga.testo) esito.righe.push(riga.testo)
+      if (v.vendita.aggiornataIl > ultimaLetta) ultimaLetta = v.vendita.aggiornataIl
+    }
+
+    // Pagina non piena: non c'è altro da leggere.
+    if (vendite.length < 200) break
+
+    const prossimo = ultimaLetta ? new Date(ultimaLetta) : null
+    // ⚠️ Se il cursore non avanza — tutte le vendite della pagina con la stessa
+    // data al millisecondo — si smette invece di girare a vuoto per sempre.
+    if (!prossimo || (cursore && prossimo.getTime() <= cursore.getTime())) {
+      troncato = true
+      break
+    }
+    cursore = prossimo
+    if (pagina === PAGINE_MAX - 1) troncato = true
   }
 
-  const vendite = risposta.dati.vendite ?? []
-  esito.lette = vendite.length
-
-  for (const v of vendite) {
-    const riga = await allineaUno(v, opz.prova === true)
-    if (riga.esito === 'in-app') esito.passateInApp++
-    else if (riga.esito === 'tornato') esito.tornateANoi++
-    else if (riga.esito === 'aggiornato') esito.aggiornate++
-    else esito.saltate++
-    if (riga.testo) esito.righe.push(riga.testo)
+  // ⚠️ Se si è dovuto smettere prima della fine, LO SI DICE: un elenco troncato
+  // letto come completo trasforma «non c'è» in un fatto.
+  if (troncato) {
+    esito.righe.push(
+      `⚠️ Lette ${esito.lette} vendite e non è finita: il segnaposto resta all'ultima letta, il giro dopo riprende da lì.`
+    )
   }
 
   if (!opz.prova) {
-    await salvaImpostazione(CHIAVE_ULTIMO, new Date().toISOString())
+    // ⚠️⚠️ L'ULTIMA DATA LETTA, non `adesso`. Con `adesso` tutto ciò che non si
+    // è fatto in tempo a leggere restava indietro per sempre.
+    await salvaImpostazione(CHIAVE_ULTIMO, ultimaLetta || new Date().toISOString())
     // ⚠️⚠️ L'esito si SCRIVE. Un giro notturno di cui nessuno vede il risultato
     // non è misurato, è ricordato: qui resta una riga leggibile da Impostazioni.
     await salvaImpostazione(
       CHIAVE_ESITO,
-      `${new Date().toISOString()} · lette ${esito.lette} · in app ${esito.passateInApp} · tornate ${esito.tornateANoi}${esito.errore ? ' · ' + esito.errore : ''}`
+      `${new Date().toISOString()} · lette ${esito.lette}${troncato ? '+ (troncato)' : ''} · in app ${esito.passateInApp} · tornate ${esito.tornateANoi}${esito.errore ? ' · ' + esito.errore : ''}`
     )
   }
   return esito
