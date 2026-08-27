@@ -167,10 +167,23 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
   let nomeConv = ''
   let threadAI = false
   let threadChiuso = false
+  // Le azioni verso le altre app GIÀ ANDATE A BUON FINE in questa
+  // conversazione: una per azione, la più recente.
+  //
+  // ⚠️⚠️ Si leggono QUI, a ogni apertura, e non basta il filtro che il
+  // riassunto fa quando si genera: quel filtro fotografa il momento in cui
+  // il testo è stato scritto, e tutto ciò che fai DOPO resta invisibile.
+  // Misurato il 27/08/2026 su un vero scambio: riassunto generato alle
+  // 15:25:02, trattativa aperta alle 15:26:29 — e il riassunto continuava a
+  // proporre «Apri trattativa» come se non fosse successo niente.
+  // ⚠️ Su TUTTA la conversazione, non solo su questa mail: l'azione parte
+  // dalla mail che porta i dati (il prezzo del fornitore), che spesso non è
+  // quella che si sta guardando.
+  let azioniFatte: { azioneId: string; quando: string; link: string | null }[] = []
   if (chiaveConv) {
     // Le istruzioni AI del thread non si leggono più qui: il form è stato
     // tolto (si usa «Delega Renè») e chi le applica le rilegge da sé.
-    const [rt, nt, tai, tch] = await Promise.all([
+    const [rt, nt, tai, tch, fatte] = await Promise.all([
       // Il riassunto ha senso solo se c'è davvero uno scambio da riassumere.
       conversazione.length > 1 ? leggiRiassuntoThread(u.id, chiaveConv) : Promise.resolve(null),
       // Il nome può essere finito su un'altra mail della conversazione (le
@@ -180,11 +193,38 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
       threadHaAI(u.id, conversazione.map((m) => m.id)),
       // Conversazione chiusa (stessa logica: segno su tutte le sue mail).
       threadEChiuso(u.id, conversazione.map((m) => m.id)),
+      // Cosa è già stato fatto verso le altre app, in tutta la conversazione.
+      db.invioApp
+        .findMany({
+          where: { utenteId: u.id, esito: 'ok', messaggioId: { in: conversazione.map((m) => m.id) } },
+          orderBy: { creatoIl: 'desc' },
+          select: { azioneId: true, creatoIl: true, link: true },
+        })
+        .catch(() => [] as { azioneId: string; creatoIl: Date; link: string | null }[]),
     ])
     riassuntoThread = rt
     nomeConv = nt ?? ''
     threadAI = tai
     threadChiuso = tch
+    // Una voce per azione, la più recente (l'elenco arriva dal più nuovo).
+    // Solo le azioni che SCRIVONO. Una verifica o una ricerca si rifanno
+    // quando si vuole: segnarle come «gia fatte» e toglierle dalle proposte
+    // trasformerebbe una scorciatoia in un cancello.
+    const scriventi = new Set(azioniApp.filter((a) => a.scrive).map((a) => a.id))
+    const vista = new Set<string>()
+    azioniFatte = fatte
+      .filter((f) => scriventi.has(f.azioneId))
+      .filter((f) => (vista.has(f.azioneId) ? false : (vista.add(f.azioneId), true)))
+      .map((f) => ({
+        azioneId: f.azioneId,
+        quando: f.creatoIl.toLocaleString('it-IT', {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        link: f.link,
+      }))
   }
 
   // Qui si mostra solo la proposta dell'AI: le bozze che hai iniziato tu si
@@ -589,6 +629,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
             // Il catalogo delle azioni app: serve a dare nome, colore e stato
             // di collegamento alle azioni che il riassunto propone.
             azioniApp={azioniApp}
+            // Cosa è già stato fatto verso le altre app: il riassunto non
+            // deve riproporlo, e chi guarda deve vederlo scritto.
+            giaFatte={azioniFatte}
             // Quanti messaggi ha ORA: serve a dire in chiaro quando il
             // riassunto è vecchio (fatto su 10, adesso sono 17).
             messaggiOra={conversazione.length}

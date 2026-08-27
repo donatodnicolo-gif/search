@@ -1686,12 +1686,16 @@ export type AzioneDescritta = {
   cercaAzienda?: boolean
   /** L'azione da proporre a invio riuscito (una catena, non un automatismo). */
   dopo?: { azioneId: string; invito: string }
+  /** true se l azione SCRIVE in un app aziendale: rifarla crea un doppione,
+   *  quindi una volta riuscita si mostra come FATTA invece di riproporla. Le
+   *  azioni di sola lettura restano proposte, e vanno rifatte quando serve. */
+  scrive: boolean
 }
 
 /** Descrive le azioni per i client component. `configurata` = la chiave della
  *  sua app è presente (inserita nell'app o via env). */
 export function descriviAzioni(chiavi: ChiaviApp): AzioneDescritta[] {
-  return AZIONI.map(({ id, app, nome, descrizione, colore, campi, cercaAzienda, dopo }) => ({
+  return AZIONI.map(({ id, app, nome, descrizione, colore, campi, cercaAzienda, dopo, scrive }) => ({
     id,
     app,
     nome,
@@ -1700,6 +1704,11 @@ export function descriviAzioni(chiavi: ChiaviApp): AzioneDescritta[] {
     campi,
     cercaAzienda,
     dopo,
+    // ⚠️ Serve a distinguere «già fatto» da «rifattibile»: un'azione che
+    // SCRIVE (apre una trattativa, crea una proforma) fatta due volte crea
+    // un doppione; una di sola lettura (verifica, ricerca) si rifà quando si
+    // vuole, ed è giusto che resti proposta.
+    scrive,
     configurata: chiaveDiAzione({ app } as AzioneApp, chiavi).length > 0,
   }))
 }

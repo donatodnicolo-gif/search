@@ -4499,14 +4499,14 @@ export async function proponiPerApp(
         messaggioId,
       })
     }
-    const { id, app, nome, descrizione, colore, campi, cercaAzienda, dopo } = azione
+    const { id, app, nome, descrizione, colore, campi, cercaAzienda, dopo, scrive } = azione
     return {
       ok: true,
       messaggio: 'Dati pronti: controllali e conferma.',
       // `campi`/`cercaAzienda` servono al dialogo per mostrare il FORM invece
       // del JSON grezzo e, dove previsto, la ricerca dell'azienda; `dopo` è
       // l'azione da proporre a invio riuscito (la catena trattativa→contatto).
-      azione: { id, app, nome, descrizione, colore, configurata, campi, cercaAzienda, dopo },
+      azione: { id, app, nome, descrizione, colore, configurata, campi, cercaAzienda, dopo, scrive },
       dati: JSON.stringify(dati, null, 2),
     }
   } catch (e) {

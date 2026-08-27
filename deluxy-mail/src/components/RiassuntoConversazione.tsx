@@ -77,12 +77,26 @@ export function RiassuntoConversazione({
   messaggiOra,
   autoAggiorna = false,
   azioniApp = [],
+  giaFatte = [],
 }: {
   messaggioId: string
   iniziale: Salvato | null
   /** Il catalogo delle azioni app (nome, colore, se collegata): serve a
    *  vestire le azioni che il riassunto propone. */
   azioniApp?: AzioneDescritta[]
+  /**
+   * Le azioni GIÀ ANDATE A BUON FINE in questa conversazione, con quando e
+   * il link al risultato.
+   *
+   * ⚠️⚠️ Arrivano dalla pagina, cioè si leggono al momento di DISEGNARE. Il
+   * riassunto un filtro «togli quelle fatte» ce l'aveva già, ma girava solo
+   * quando il riassunto si GENERA: aprendo una trattativa un minuto e mezzo
+   * dopo aver generato il riassunto, il bottone «Apri trattativa» restava lì
+   * come se non fosse successo niente — e ci si ritrovava a rifare un lavoro
+   * già fatto (segnalato il 27/08/2026, misurato: riassunto generato alle
+   * 15:25:02, trattativa aperta alle 15:26:29).
+   */
+  giaFatte?: { azioneId: string; quando: string; link: string | null }[]
   /** Quanti messaggi ha ORA la conversazione: se sono più di quelli su cui il
    *  riassunto è stato fatto, quel riassunto è vecchio e va detto. */
   messaggiOra?: number
@@ -263,11 +277,48 @@ export function RiassuntoConversazione({
               ⚠️ I dati si preparano dalla mail che li PORTA (msgId), non da
               quella che si sta guardando: il prezzo sta nella mail del
               fornitore anche se sei sull'ultima della conversazione. */}
+          {giaFatte.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontWeight: 600 }}>Già fatto da qui</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+                {giaFatte.map((f) => {
+                  const az = azioniApp.find((x) => x.id === f.azioneId)
+                  if (!az) return null
+                  return (
+                    <div key={f.azioneId} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span className={`badge ${az.colore}`}>
+                        <span className="dot" />
+                        {az.app}
+                      </span>
+                      <span style={{ fontSize: 13.5 }}>
+                        ✓ {az.nome} — {f.quando}
+                      </span>
+                      {/* Il link al risultato c'è quando l'altra app lo
+                          restituisce: senza, «già fatto» resta una parola e
+                          per controllare bisogna andarlo a cercare a mano. */}
+                      {f.link && (
+                        <a className="azione-riga" href={f.link} target="_blank" rel="noreferrer">
+                          apri in {az.app}
+                        </a>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {(
             <div style={{ marginTop: 12 }}>
               <div style={{ fontWeight: 600 }}>Si può fare da qui</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
-                {(dati.analisi.azioni ?? []).map((a) => {
+                {/* ⚠️ Le già fatte NON si ripropongono: il riassunto è un
+                    testo salvato, e può essere più vecchio di quello che hai
+                    fatto dopo averlo generato. Il confronto si fa QUI, con
+                    quello che è successo davvero. */}
+                {(dati.analisi.azioni ?? [])
+                  .filter((a) => !giaFatte.some((f) => f.azioneId === a.azioneId))
+                  .map((a) => {
                   // L'azione va vestita dal catalogo: se non c'è più (o non è
                   // stato passato), meglio niente che un bottone rotto.
                   const az = azioniApp.find((x) => x.id === a.azioneId)
@@ -300,7 +351,7 @@ export function RiassuntoConversazione({
                       <span className="muted" style={{ fontSize: 12.5 }}>{a.perche}</span>
                     </div>
                   )
-                })}
+                  })}
                 {/* ⚠️⚠️ LA PORTA CHE NON DIPENDE DAL MODELLO. I bottoni qui
                     sopra li propone l'AI, e l'AI può tacere: su questo
                     scambio proponeva «Registra il preventivo» e NON «Apri
