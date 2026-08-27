@@ -509,6 +509,77 @@ export async function spedizioniDelNegozio(negozioId: string): Promise<Spedizion
   return [...conta.values()].sort((a, b) => b.usata - a.usata).slice(0, 8)
 }
 
+export type MetodoNegozio = {
+  /** Come lo chiama Shopify: «Shopify Payments», «Paypal», «Bank Deposit»… */
+  nome: string
+  /** Su quanti ordini recenti compare: i più usati stanno davanti. */
+  usato: number
+}
+
+/**
+ * I METODI DI PAGAMENTO CHE QUEL NEGOZIO USA DAVVERO.
+ *
+ * ⚠️⚠️ Chiesto dall'utente il 27/08/2026: «implementare come tipologie di
+ * pagamento in nuovo ordine tutte le tipologie presenti su Shopify». Prima la
+ * tendina aveva cinque voci scritte nel codice — bonifico, contanti, POS,
+ * PayPal, altro — che nessuno aveva mai confrontato con Shopify: erano i nomi
+ * che usiamo noi, non quelli che si leggono nell'ordine.
+ *
+ * ⚠️⚠️ E NON SI POSSONO CHIEDERE A SHOPIFY. Provato il 27/08/2026 sull'API vera
+ * (2024-10): `manualPaymentGatewayConfigs` **non esiste** su `QueryRoot`, e
+ * `shop.paymentSettings` restituisce solo i portafogli digitali. L'unico posto
+ * dove i metodi di questo negozio sono scritti sono **i suoi ordini**. Quindi si
+ * fa come per le spedizioni: si guarda cosa ha usato davvero.
+ *
+ * Misurato sui tre negozi, ultimi 60 ordini ciascuno:
+ *   Deluxy   → Shopify Payments, Paypal, Manual
+ *   Cake     → Shopify Payments, Paypal, **Bank Deposit**, Manual
+ *   FLowers  → Shopify Payments, Paypal, Manual
+ *
+ * ⚠️ «Bank Deposit» ce l'ha solo Cake: una lista scritta nel codice l'avrebbe
+ * data a tutti e tre o a nessuno, ed è esattamente il tipo di dettaglio per cui
+ * chiedere ai dati vale più che deciderlo.
+ *
+ * ⚠️ Si legge `formattedGateway` e non `paymentGatewayNames`: il primo è il nome
+ * che si vede nell'ordine su Shopify («Bank Deposit»), il secondo è la chiave
+ * tecnica («manual»). Chi registra un pagamento deve poter scrivere la stessa
+ * parola che poi rileggerà là.
+ */
+export async function metodiPagamentoDelNegozio(negozioId: string): Promise<MetodoNegozio[]> {
+  const n = await negozio(negozioId)
+  if (!n) return []
+  const t = await token(n)
+  if (!t) return []
+  const d = await graphql<{
+    data?: {
+      orders?: {
+        edges?: { node: { transactions?: { formattedGateway?: string | null }[] } }[]
+      }
+    }
+  }>(
+    n,
+    t,
+    `{ orders(first: 60, sortKey: CREATED_AT, reverse: true) {
+        edges { node { transactions(first: 3) { formattedGateway } } }
+      } }`
+  )
+  const conta = new Map<string, number>()
+  for (const e of d.data?.orders?.edges ?? []) {
+    // ⚠️ Un ordine con due transazioni sullo stesso mezzo (autorizzazione e
+    // cattura) conterebbe due volte: si guarda l'ordine, non la transazione.
+    const suoi = new Set<string>()
+    for (const tr of e.node.transactions ?? []) {
+      const g = (tr.formattedGateway ?? '').trim()
+      if (g) suoi.add(g)
+    }
+    for (const g of suoi) conta.set(g, (conta.get(g) ?? 0) + 1)
+  }
+  return [...conta.entries()]
+    .map(([nome, usato]) => ({ nome, usato }))
+    .sort((a, b) => b.usato - a.usato)
+    .slice(0, 10)
+}
+
 export type ClienteTrovato = {
   nome: string
   cognome: string

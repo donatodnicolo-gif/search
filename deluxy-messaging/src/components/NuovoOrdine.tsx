@@ -104,7 +104,18 @@ export function NuovoOrdine({
   const [biglietto, setBiglietto] = useState('')
 
   const [pagamento, setPagamento] = useState<'link' | 'pagato'>('link')
-  const [mezzo, setMezzo] = useState('bonifico')
+  const [mezzo, setMezzo] = useState('')
+  /**
+   * I metodi che QUESTO negozio usa davvero, chiesti ai suoi ordini.
+   *
+   * ⚠️⚠️ Prima qui c'erano cinque voci scritte nel codice (bonifico, contanti,
+   * POS, PayPal, altro): i nomi che usiamo noi, mai confrontati con Shopify.
+   * Misurato il 27/08/2026, i tre negozi usano «Shopify Payments», «Paypal»,
+   * «Manual» — e Cake anche **«Bank Deposit»**, che gli altri due non hanno.
+   * Una lista nel codice l'avrebbe data a tutti o a nessuno.
+   */
+  const [metodi, setMetodi] = useState<{ nome: string; usato: number }[]>([])
+  const [metodiNota, setMetodiNota] = useState('')
 
   const [creando, setCreando] = useState(false)
   const [errore, setErrore] = useState('')
@@ -155,6 +166,29 @@ export function NuovoOrdine({
       setSpedizioni([])
       return
     }
+    // ⚠️ I metodi si rileggono a ogni cambio di negozio, come le spedizioni:
+    // sono del negozio, non dell'azienda — «Bank Deposit» ce l'ha solo Cake.
+    chiediJson<{ metodi?: { nome: string; usato: number }[] }>(
+      '/api/nuovo-ordine/pagamenti?negozio=' + encodeURIComponent(negozioId)
+    ).then((e) => {
+      if (e.stato !== 'ok') {
+        setMetodi([])
+        setMetodiNota(
+          e.stato === 'sessione-scaduta'
+            ? frasePerEsito(e)
+            : // ⚠️ Si dice che la lista è di RISERVA: senza, chi non trova
+              // «Bank Deposit» crede che quel negozio non ce l'abbia.
+              'Non sono riuscito a chiedere a Shopify quali metodi usa questo negozio: qui sotto ci sono quelli generici.'
+        )
+        return
+      }
+      const m = e.dati.metodi ?? []
+      setMetodi(m)
+      setMetodiNota(
+        m.length ? '' : 'Shopify non riporta nessun metodo per questo negozio: qui sotto quelli generici.'
+      )
+      if (m.length) setMezzo(m[0].nome)
+    })
     fetch('/api/nuovo-ordine/spedizioni?negozio=' + encodeURIComponent(negozioId))
       .then((r) => (r.ok ? r.json() : { spedizioni: [] }))
       .then((d: { spedizioni?: { titolo: string; prezzo: number; usata: number }[] }) => {
@@ -843,12 +877,41 @@ export function NuovoOrdine({
             <label className="campo" style={{ width: 180 }}>
               <span>Con che mezzo</span>
               <select value={mezzo} onChange={(e) => setMezzo(e.target.value)}>
-                <option value="bonifico">Bonifico</option>
-                <option value="contanti">Contanti</option>
-                <option value="POS">POS</option>
-                <option value="PayPal">PayPal</option>
-                <option value="altro">Altro</option>
+                {/* ⚠️ I metodi VERI di questo negozio davanti, col nome che si
+                    rileggerà su Shopify. La riserva sotto serve quando Shopify
+                    non risponde o il negozio non ha storia — e resta separata,
+                    così non si confonde «quello che il negozio usa» con
+                    «quello che scriviamo noi». */}
+                {metodi.length ? (
+                  <optgroup label="Usati da questo negozio">
+                    {metodi.map((m) => (
+                      <option key={m.nome} value={m.nome}>
+                        {m.nome}
+                        {m.usato > 1 ? ` — ${m.usato} ordini` : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
+                <optgroup label={metodi.length ? 'Altri' : 'Generici'}>
+                  <option value="Bonifico">Bonifico</option>
+                  <option value="Contanti">Contanti</option>
+                  <option value="POS">POS</option>
+                  <option value="PayPal">PayPal</option>
+                  <option value="Altro">Altro</option>
+                </optgroup>
               </select>
+              {metodiNota ? <span className="cella-sub">{metodiNota}</span> : null}
+              {/* ⚠️⚠️ SI DICE DOVE FINISCE, perché non è dove ci si aspetta.
+                  Shopify non lascia scegliere il mezzo quando si chiude una
+                  bozza: `draftOrderComplete` accetta un `paymentGatewayId` che
+                  questa app non ha modo di ricavare (provato: non esiste una
+                  query che elenchi i gateway). Quindi il mezzo resta scritto
+                  nelle NOTE dell'ordine, e su Shopify la transazione risulta
+                  «Manual». Meglio dirlo che lasciar credere il contrario. */}
+              <span className="cella-sub">
+                Il mezzo resta scritto nelle note dell&apos;ordine: su Shopify la transazione
+                risulta comunque «Manual».
+              </span>
             </label>
           ) : null}
         </div>

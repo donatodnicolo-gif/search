@@ -413,3 +413,160 @@ export async function annullaBozzeScadute(giorniLimite?: number): Promise<EsitoA
 
   return esito
 }
+
+// ── SEGNARE UNA BOZZA COME PAGATA ──
+//
+// ⚠️⚠️ Chiesto dall'utente il 27/08/2026: «occorre poter segnare una bozza
+// d'ordine creata come pagata». Il caso è quello di tutti i giorni: si manda il
+// link, il cliente paga **fuori da Shopify** — un bonifico, un contante alla
+// consegna, un POS in negozio — e la bozza resta lì aperta per sempre. Dopo
+// sette giorni il cron la annulla come scaduta, cioè si butta via un ordine
+// incassato.
+//
+// ⚠️ Chiuderla è ESATTAMENTE quello che fa il «Crea come pagato» del modulo:
+// `draftOrderComplete`. La differenza è solo il momento — allora si sapeva
+// prima, qui si scopre dopo.
+
+export type EsitoBozzaPagata = {
+  ok: boolean
+  /** Il numero dell'ordine nato dalla bozza, quando è andata. */
+  ordineNumero: string
+  messaggio: string
+}
+
+/**
+ * Chiude una bozza su Shopify e la fa diventare un ordine pagato.
+ *
+ * ⚠️⚠️ SI CHIEDE PRIMA A SHOPIFY com'è messa, e non ci si fida della riga
+ * nostra. Fra il momento in cui la pagina è stata aperta e il momento in cui
+ * qualcuno preme il bottone, quella bozza può essere già stata pagata dal
+ * cliente col link, o annullata a mano da Shopify. Chiudere una bozza già
+ * chiusa risponde un errore che nessuno saprebbe leggere; peggio, riaprire una
+ * discussione su un ordine che esiste già.
+ *
+ * ⚠️ Il MEZZO non si può dire a Shopify: `draftOrderComplete` accetta un
+ * `paymentGatewayId` che questa app non ha modo di ricavare (non esiste una
+ * query che elenchi i gateway — provato sull'API 2024-10). Resta scritto da
+ * noi, sulla riga `OrdineCreato`, ed è lì che si va a rileggerlo.
+ */
+export async function segnaBozzaPagata(
+  id: string,
+  mezzo: string,
+  chi: { id: string; nome: string }
+): Promise<EsitoBozzaPagata> {
+  const riga = await db.ordineCreato.findUnique({ where: { id } })
+  if (!riga) return { ok: false, ordineNumero: '', messaggio: 'Bozza non trovata.' }
+  if (riga.ordineNumero) {
+    return {
+      ok: false,
+      ordineNumero: riga.ordineNumero,
+      messaggio: `Questa bozza è già diventata l'ordine ${riga.ordineNumero}.`,
+    }
+  }
+  if (riga.annullataIl) {
+    return { ok: false, ordineNumero: '', messaggio: 'Questa bozza è stata annullata: rifalla.' }
+  }
+  if (!riga.bozzaId) {
+    return { ok: false, ordineNumero: '', messaggio: 'Di questa riga non sappiamo la bozza su Shopify.' }
+  }
+
+  const n = await db.negozioShopify.findUnique({
+    where: { id: riga.negozioId },
+    select: { id: true, nome: true, dominio: true, clientId: true, clientSecret: true },
+  })
+  if (!n) return { ok: false, ordineNumero: '', messaggio: 'Negozio non trovato.' }
+  const t = await token(n)
+  if (!t) {
+    return {
+      ok: false,
+      ordineNumero: '',
+      messaggio: `${n.nome}: mancano le credenziali dell'app Shopify, non posso chiudere la bozza.`,
+    }
+  }
+
+  async function chiedi<T>(query: string, variables?: unknown): Promise<T> {
+    const res = await fetch(`https://${n!.dominio}/admin/api/${VERSIONE}/graphql.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': t },
+      body: JSON.stringify({ query, variables }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(20000),
+    })
+    return (await res.json().catch(() => ({}))) as T
+  }
+
+  // 1) Com'è messa ADESSO, secondo Shopify.
+  const stato = await chiedi<{
+    data?: { node?: { status?: string; order?: { name?: string } | null } | null }
+  }>(`query Stato($id: ID!) { node(id: $id) { ... on DraftOrder { status order { name } } } }`, {
+    id: riga.bozzaId,
+  })
+  const nodo = stato.data?.node
+  if (!nodo) {
+    return {
+      ok: false,
+      ordineNumero: '',
+      messaggio: 'Shopify non trova più questa bozza: potrebbe essere stata cancellata di là.',
+    }
+  }
+  if (nodo.order?.name) {
+    // ⚠️ Già pagata col link mentre guardavamo: non è un errore, è una buona
+    // notizia — si scrive il numero e si smette di considerarla in sospeso.
+    await db.ordineCreato.update({
+      where: { id },
+      data: { ordineNumero: nodo.order.name },
+    })
+    return {
+      ok: true,
+      ordineNumero: nodo.order.name,
+      messaggio: `L'aveva già pagata il cliente col link: è l'ordine ${nodo.order.name}.`,
+    }
+  }
+
+  // 2) La si chiude.
+  const chiusa = await chiedi<{
+    data?: {
+      draftOrderComplete?: {
+        draftOrder?: { order?: { name: string } | null } | null
+        userErrors?: { message: string }[]
+      }
+    }
+    errors?: { message: string }[]
+  }>(
+    `mutation Chiudi($id: ID!) {
+      draftOrderComplete(id: $id) {
+        draftOrder { order { name } }
+        userErrors { message }
+      }
+    }`,
+    { id: riga.bozzaId }
+  )
+  const errore =
+    chiusa.errors?.[0]?.message || chiusa.data?.draftOrderComplete?.userErrors?.[0]?.message
+  if (errore) return { ok: false, ordineNumero: '', messaggio: `Shopify non l'ha chiusa: ${errore}` }
+
+  const numero = chiusa.data?.draftOrderComplete?.draftOrder?.order?.name ?? ''
+  await db.ordineCreato.update({
+    where: { id },
+    data: {
+      ordineNumero: numero,
+      // ⚠️ `pagamento` diventa «pagato» e il mezzo si scrive: da qui in poi
+      // questa riga non è più una cosa in sospeso, e l'elenco delle bozze —
+      // che tiene solo `pagamento: 'link'` — smette giustamente di mostrarla.
+      pagamento: 'pagato',
+      mezzoPagamento: mezzo.trim(),
+      // ⚠️ CHI l'ha segnata, e non chi l'aveva creata: è una dichiarazione che
+      // il denaro è arrivato, e davanti a un ordine contestato «lo ha detto
+      // l'app» non è una risposta.
+      segnataPagataDaNome: chi.nome,
+      segnataPagataIl: new Date(),
+    },
+  })
+  return {
+    ok: true,
+    ordineNumero: numero,
+    messaggio: numero
+      ? `Fatto: è diventata l'ordine ${numero}.`
+      : 'Fatto: Shopify l’ha chiusa (il numero arriverà con la prossima sincronizzazione).',
+  }
+}

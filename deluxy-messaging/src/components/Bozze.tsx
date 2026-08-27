@@ -93,6 +93,14 @@ export function Bozze() {
   // e la sezione sembrava rotta invece che a posto.
   const [vista, setVista] = useState<'aperte' | 'tutte' | 'annullate'>('tutte')
   const [errore, setErrore] = useState('')
+  /**
+   * L'id della bozza che si sta chiudendo, o vuoto.
+   *
+   * ⚠️ Uno solo e non un booleano: con cinque bozze a schermo, un «Chiudo…» su
+   * tutte le righe non direbbe quale — e chiudere una bozza è un gesto che si
+   * fa una volta sola.
+   */
+  const [inCorso, setInCorso] = useState('')
 
   const carica = useCallback(async () => {
     setCaricato(false)
@@ -126,6 +134,55 @@ export function Bozze() {
   }, [carica])
 
   const daMostrare = vista === 'aperte' ? bozze.filter((b) => b.stato !== 'pagata') : bozze
+
+  /**
+   * Segna come pagata una bozza: la chiude su Shopify e diventa un ordine.
+   *
+   * ⚠️⚠️ LA CONFERMA DICE COSA SUCCEDE, non «sei sicuro?». Da questo momento
+   * quello è un ordine vero: entra nel registro, va in consegna e va in
+   * contabilità. Se il denaro non è arrivato davvero, disfarlo vuol dire un
+   * rimborso su Shopify — non un clic.
+   *
+   * ⚠️ E il MEZZO si chiede, non si suppone: «pagata» senza dire come è la riga
+   * che fra un mese non si sa più riconciliare con l'estratto conto. Con una
+   * domanda sola, perché tre finestre di fila non le legge nessuno.
+   */
+  async function segnaPagata(b: Bozza) {
+    const mezzo = window.prompt(
+      `Segno ${b.bozzaNome || 'la bozza'} da ${soldi(b.importo, b.valuta)} come PAGATA.\n\n` +
+        `Diventa un ordine vero su ${b.negozioNome}: entra in consegna e in contabilità. Se i soldi non sono arrivati, disfarlo vuol dire un rimborso su Shopify.\n\n` +
+        'Con che mezzo è stata pagata?',
+      'Bonifico'
+    )
+    if (mezzo === null) return
+    if (!mezzo.trim()) {
+      setErrore('Serve il mezzo: «pagata» senza dire come non si riconcilia più.')
+      return
+    }
+    setInCorso(b.id)
+    setErrore('')
+    try {
+      const res = await fetch('/api/bozze/pagata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: b.id, mezzo: mezzo.trim() }),
+      })
+      const d = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        messaggio?: string
+        errore?: string
+      }
+      // ⚠️ Il messaggio si mostra ANCHE quando è andata bene: «l'aveva già
+      // pagata il cliente col link» è un esito diverso da «l'ho chiusa io», e
+      // chi ha premuto deve sapere quale dei due è successo.
+      setErrore(d.messaggio || d.errore || (res.ok ? '' : 'Non è riuscito.'))
+      await carica()
+    } catch {
+      setErrore('Non è riuscito: problema di rete.')
+    } finally {
+      setInCorso('')
+    }
+  }
 
   // ⚠️⚠️ IN CIMA ALLA PAGINA, quindi COMPATTA. Questa sezione sta sopra il
   // modulo del nuovo ordine: ogni riga che si prende è una riga in meno di
@@ -241,6 +298,24 @@ export function Bozze() {
                       Apri
                     </a>
                   </>
+                ) : null}
+                {/* ── SEGNARE COME PAGATA ──
+                    ⚠️⚠️ Chiesto dall'utente il 27/08/2026. È il caso di tutti i
+                    giorni: si manda il link, il cliente paga FUORI da Shopify —
+                    un bonifico, un contante alla consegna — e la bozza resta lì
+                    aperta finché dopo sette giorni il cron la annulla come
+                    scaduta. Cioè si butta via un ordine incassato.
+                    ⚠️ Solo sulle bozze che si possono ancora chiudere: su una
+                    già pagata o sparita da Shopify il bottone non c'è, invece
+                    di esserci e rispondere di no. */}
+                {b.stato === 'aperta' || b.stato === 'invito_inviato' ? (
+                  <button
+                    className="btn btn-secondario small"
+                    disabled={inCorso === b.id}
+                    onClick={() => void segnaPagata(b)}
+                  >
+                    {inCorso === b.id ? 'Chiudo…' : 'Segna pagata'}
+                  </button>
                 ) : null}
               </div>
             </div>

@@ -1541,6 +1541,17 @@ model OrdineCreato {
   /// detto che la bozza non c e piu). Segnarla annullata senza averla
   /// cancellata lascerebbe in giro un link pagabile che qui risulta chiuso.
   annullataIl     DateTime?
+  /**
+   * CHI ha dichiarato che questa bozza è stata pagata, e quando.
+   *
+   * ⚠️ Diverso da chi l'ha creata (`utenteNome`): il link lo manda una
+   * persona, i soldi li vede arrivare un'altra, e magari giorni dopo. Davanti
+   * a un ordine contestato «lo ha chiuso l'app» non è una risposta.
+   * ⚠️ Vuoto = la bozza l'ha pagata il CLIENTE col link, e la chiusura l'ha
+   * fatta Shopify per conto suo: sono due fatti diversi e non vanno confusi.
+   */
+  segnataPagataDaNome String @default("")
+  segnataPagataIl     DateTime?
   annullataDaNome String    @default("")
   annullataMotivo String    @default("")
   creatoIl        DateTime  @default(now())
