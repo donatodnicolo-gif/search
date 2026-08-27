@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import crypto from 'node:crypto'
-import { tokenApiConfigurato } from '@/lib/apiAuth'
+import { registraChiamata, tokenApiConfigurato } from '@/lib/apiAuth'
 import { db } from '@/lib/db'
 import { cifra } from '@/lib/crypto'
 import { hashPassword } from '@/lib/password'
@@ -50,8 +50,14 @@ async function autorizza(
     ''
   ).trim()
   if (!data || !uguali(data, token)) {
+    await registraChiamata(req, 'chiaveErrata', {})
     return { ok: false, status: 401, errore: 'Non autorizzato: chiave API errata o mancante.' }
   }
+  // ⚠️ Questa rotta CREA utenti e riscrive credenziali: che resti scritto chi
+  // l'ha chiamata è il minimo. `autenticaApi` lo fa per tutte le altre, ma qui
+  // l'autorizzazione è separata (l'utente è proprio ciò che si sta creando) e
+  // il registro va richiamato a mano.
+  await registraChiamata(req, 'ok', {})
   return { ok: true }
 }
 
@@ -173,8 +179,34 @@ export async function POST(request: Request) {
 
   const esistente = await db.account.findFirst({
     where: { utenteId: utente.id, email },
-    select: { id: true },
+    select: { id: true, imapHost: true, smtpHost: true },
   })
+
+  // ⚠️⚠️ NON SI SPOSTA IL SERVER DI UNA CASELLA CHE ESISTE GIÀ.
+  //
+  // Questa rotta nasce per COLLEGARE una casella, e va benissimo che serva
+  // anche a rinfrescare una password scaduta. Ma finché l'update riscriveva
+  // tutto, riscriveva anche `smtpHost`: chi avesse avuto la chiave delle API
+  // poteva ripuntare il server di posta di una casella vera — poniamo
+  // `cs@deluxy.it` — al proprio, e da quel momento ogni mail che AI Mail
+  // manda da quella casella (comprese quelle che partono dalle altre app via
+  // `/api/v1/invia`) sarebbe passata dalle sue mani. E `provaConnessione`,
+  // che gira prima, non se ne sarebbe accorta: interroga il server indicato
+  // dal chiamante, che ovviamente risponde di sì.
+  //
+  // Cambiare server è una cosa rara e importante: si fa dalla schermata
+  // Impostazioni, guardando in faccia quello che si sta facendo.
+  if (esistente && (esistente.imapHost !== dati.imapHost || esistente.smtpHost !== dati.smtpHost)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        errore: `La casella ${email} è già collegata a ${esistente.imapHost} / ${esistente.smtpHost}: da qui si può aggiornare la password, non spostare il server.`,
+        suggerimento: 'Per cambiare server apri Impostazioni → Caselle in AI Mail.',
+      },
+      { status: 409 },
+    )
+  }
+
   const daScrivere = {
     ...dati,
     imapPassword: cifra(dati.imapPassword),

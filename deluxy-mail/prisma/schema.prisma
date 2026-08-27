@@ -23,56 +23,89 @@ datasource db {
 }
 
 // Chi accede ad AI Mail. Gli utenti li crea un amministratore dentro l'app.
+/// Chi ha bussato alle API di AI Mail, e per conto di chi.
+///
+/// ⚠️⚠️ Non è un cancello: è la MEMORIA. La chiave delle API è una sola e
+/// vale per tutte le app Deluxy che la possiedono; chi ce l'ha sceglie su
+/// quale casella agire scrivendo un'intestazione. Finché non c'era questa
+/// tabella, di quelle chiamate non restava traccia da nessuna parte: se la
+/// chiave fosse finita nelle mani sbagliate non ci sarebbe stato modo di
+/// sapere se, quando e su chi era stata usata — nemmeno dopo.
+/// (Revisione di sicurezza 27/08/2026.)
+model ChiamataApi {
+  id            String   @id @default(cuid())
+  quando        DateTime @default(now())
+  rotta         String
+  metodo        String   @default("")
+  /// L'intestazione `x-utente` così com'è arrivata: è una DICHIARAZIONE del
+  /// chiamante, non un'identità verificata. Va letta come tale.
+  utenteChiesto String   @default("")
+  utenteId      String?
+  /// ok | chiaveErrata | utenteSconosciuto | nonConfigurata
+  esito         String
+  ip            String   @default("")
+  agente        String   @default("")
+
+  @@index([quando])
+  @@index([esito])
+}
+
 model Utente {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  nome         String
-  passwordHash String // scrypt "salt.hash" — mai reversibile
-  ruolo        String   @default("utente") // admin | utente
-  firma        String   @default("") @db.Text // firma personale nelle bozze (HTML generato)
-  firmaDati    String   @default("") @db.Text // i campi della firma (JSON) per riaprire il form
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  nome               String
+  passwordHash       String // scrypt "salt.hash" — mai reversibile
+  ruolo              String   @default("utente") // admin | utente
+  firma              String   @default("") @db.Text // firma personale nelle bozze (HTML generato)
+  firmaDati          String   @default("") @db.Text // i campi della firma (JSON) per riaprire il form
   // Traduzione automatica: se attiva, le mail in lingua straniera aperte
   // vengono tradotte in italiano, e le risposte scritte in italiano vengono
   // inviate nella lingua dell'originale.
-  traduzioneAuto Boolean @default(false)
+  traduzioneAuto     Boolean  @default(false)
   // Lingue che l'utente legge senza bisogno di traduzione (una per virgola).
-  lingueLette   String   @default("italiano")
+  lingueLette        String   @default("italiano")
   // Ogni quanti secondi l'app aperta ricontrolla la posta da sola.
-  sincronizzaOgniSec Int @default(300)
+  sincronizzaOgniSec Int      @default(300)
   // Se attiva, l'app aperta scarica in BACKGROUND tutta la posta di sempre (lo
   // storico) fino a completare la casella, senza bloccare l'uso.
-  scaricaStoricoAuto Boolean @default(false)
-  attivo       Boolean  @default(true)
+  scaricaStoricoAuto Boolean  @default(false)
+  attivo             Boolean  @default(true)
+  // Quante volte le sessioni di questo utente sono state revocate. Il numero
+  // finisce DENTRO il cookie firmato al login: se qui sale (cambio password,
+  // disattivazione), tutti i biglietti emessi prima portano un numero diverso
+  // e non valgono più. È l'unico modo di cacciare un cookie rubato senza
+  // spegnere l'utente. (Revisione di sicurezza 27/08/2026.)
+  sessioneVersione   Int      @default(0)
   // Token segreto del feed iCal del calendario: chi lo conosce può LEGGERE
   // gli appuntamenti (Google/Apple/Outlook in abbonamento). Vuoto = feed spento.
-  tokenCalendario String @default("")
-  creatoIl     DateTime @default(now())
+  tokenCalendario    String   @default("")
+  creatoIl           DateTime @default(now())
 
-  account   Account[]
-  sezioni   Sezione[]
-  regole    Regola[]
-  messaggi  Messaggio[]
-  attivita  Attivita[]
-  bozze     Bozza[]
-  rapporti  RapportoAI[]
-  riassunti RiassuntoContatto[]
-  thread    RiassuntoThread[]
-  contattiAI ContattoAI[]
-  istruzioniThread IstruzioneThread[]
-  nomiThread       NomeThread[]
-  threadAI         ThreadAI[]
-  threadChiusi     ThreadChiuso[]
-  allegatiCaricati AllegatoCaricato[]
-  aliasContatti    AliasContatto[]
-  regoleApp  RegolaApp[]
-  inviiApp   InvioApp[]
-  eventi     Evento[]
-  riassuntiSezione RiassuntoSezione[]
-  reneMemoria      ReneMemoria?
-  reneAnalisi      ReneAnalisi[]
-  reneProposte     ReneProposta[]
-  reneConseguenze  ReneConseguenza[]
-  pushIscrizioni   PushIscrizione[]
+  account            Account[]
+  sezioni            Sezione[]
+  regole             Regola[]
+  messaggi           Messaggio[]
+  attivita           Attivita[]
+  bozze              Bozza[]
+  rapporti           RapportoAI[]
+  riassunti          RiassuntoContatto[]
+  thread             RiassuntoThread[]
+  contattiAI         ContattoAI[]
+  istruzioniThread   IstruzioneThread[]
+  nomiThread         NomeThread[]
+  threadAI           ThreadAI[]
+  threadChiusi       ThreadChiuso[]
+  allegatiCaricati   AllegatoCaricato[]
+  aliasContatti      AliasContatto[]
+  regoleApp          RegolaApp[]
+  inviiApp           InvioApp[]
+  eventi             Evento[]
+  riassuntiSezione   RiassuntoSezione[]
+  reneMemoria        ReneMemoria?
+  reneAnalisi        ReneAnalisi[]
+  reneProposte       ReneProposta[]
+  reneConseguenze    ReneConseguenza[]
+  pushIscrizioni     PushIscrizione[]
   sequenze           Sequenza[]
   sequenzaIscrizioni SequenzaIscrizione[]
 }
@@ -87,8 +120,8 @@ model Sequenza {
   utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
 
   nome        String
-  descrizione String  @default("")
-  attiva      Boolean @default(true)
+  descrizione String   @default("")
+  attiva      Boolean  @default(true)
   creataIl    DateTime @default(now())
 
   passi      SequenzaPasso[]
@@ -142,10 +175,10 @@ model SequenzaIscrizione {
 // Un dispositivo iscritto alle notifiche push (Web Push). Un utente può averne
 // più d'uno (telefono, desktop). L'endpoint è l'indirizzo unico del push service.
 model PushIscrizione {
-  id       String @id @default(cuid())
+  id       String   @id @default(cuid())
   utenteId String
-  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
-  endpoint String @unique
+  utente   Utente   @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  endpoint String   @unique
   p256dh   String // chiave pubblica del client (cifratura del payload)
   auth     String // segreto di autenticazione del client
   creatoIl DateTime @default(now())
@@ -161,11 +194,11 @@ model Evento {
   utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
 
   titolo         String
-  descrizione    String  @default("") @db.Text
-  luogo          String  @default("")
+  descrizione    String    @default("") @db.Text
+  luogo          String    @default("")
   inizio         DateTime
   fine           DateTime?
-  giornataIntera Boolean @default(false)
+  giornataIntera Boolean   @default(false)
 
   messaggioId String?
   messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: SetNull)
@@ -197,46 +230,46 @@ model Account {
   utenteId String
   utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
 
-  nome         String // etichetta mostrata nell'app, es. "Deluxy Delivery"
-  email        String
+  nome                 String // etichetta mostrata nell'app, es. "Deluxy Delivery"
+  email                String
   // IMAP
-  imapHost     String
-  imapPort     Int     @default(993)
-  imapSicuro   Boolean @default(true) // TLS diretto sulla porta 993
-  imapUtente   String
-  imapPassword String // cifrata (mai in chiaro)
+  imapHost             String
+  imapPort             Int         @default(993)
+  imapSicuro           Boolean     @default(true) // TLS diretto sulla porta 993
+  imapUtente           String
+  imapPassword         String // cifrata (mai in chiaro)
   // SMTP
-  smtpHost     String
-  smtpPort     Int     @default(465)
-  smtpSicuro   Boolean @default(true)
-  smtpUtente   String
-  smtpPassword String // cifrata (mai in chiaro)
+  smtpHost             String
+  smtpPort             Int         @default(465)
+  smtpSicuro           Boolean     @default(true)
+  smtpUtente           String
+  smtpPassword         String // cifrata (mai in chiaro)
   // Alcuni provider (es. register.it) presentano un certificato TLS per un
   // dominio diverso dall'host (*.securemail.pro): con questo flag si salta la
   // verifica del nome sul certificato per QUESTA casella (IMAP e SMTP).
-  ignoraCertTls Boolean @default(false)
+  ignoraCertTls        Boolean     @default(false)
   // Stato sincronizzazione
-  cartella        String  @default("INBOX")
-  cartellaInviata String?
+  cartella             String      @default("INBOX")
+  cartellaInviata      String?
   // Cartella CESTINO del server: cestinando qui, la mail ci viene spostata
   // anche sulla casella (così webmail e telefono restano allineati). Si scopre
   // da sola alla prima occorrenza (flag IMAP \Trash).
-  cartellaCestino String?
+  cartellaCestino      String?
   // Cartella della posta indesiderata (flag IMAP \Junk): segnando spam qui, la
   // mail ci viene spostata anche sulla casella.
-  cartellaSpam    String?
-  ultimoUid       Int     @default(0)
-  primoUid        Int     @default(0)
-  storicoFinito   Boolean @default(false)
+  cartellaSpam         String?
+  ultimoUid            Int         @default(0)
+  primoUid             Int         @default(0)
+  storicoFinito        Boolean     @default(false)
   // Cursori per la cartella "Inviata" (storico degli inviati scaricato in background).
-  ultimoUidInviata     Int     @default(0)
-  primoUidInviata      Int     @default(0)
-  storicoInviataFinito Boolean @default(false)
-  ultimoSync      DateTime?
-  ultimoErrore    String?
-  attivo          Boolean   @default(true)
-  creatoIl        DateTime  @default(now())
-  messaggi        Messaggio[]
+  ultimoUidInviata     Int         @default(0)
+  primoUidInviata      Int         @default(0)
+  storicoInviataFinito Boolean     @default(false)
+  ultimoSync           DateTime?
+  ultimoErrore         String?
+  attivo               Boolean     @default(true)
+  creatoIl             DateTime    @default(now())
+  messaggi             Messaggio[]
 
   @@unique([utenteId, email])
   @@index([utenteId, attivo])
@@ -257,9 +290,9 @@ model Sezione {
   // Gerarchia a due livelli: una sezione può avere sottosezioni (genitoreId
   // valorizzato = è una sottosezione). Non si annida oltre: due livelli sono
   // quanto serve per ordinare la posta senza perdercisi.
-  genitoreId    String?
-  genitore      Sezione?  @relation("SottoSezioni", fields: [genitoreId], references: [id], onDelete: Cascade)
-  sottosezioni  Sezione[] @relation("SottoSezioni")
+  genitoreId   String?
+  genitore     Sezione?  @relation("SottoSezioni", fields: [genitoreId], references: [id], onDelete: Cascade)
+  sottosezioni Sezione[] @relation("SottoSezioni")
 
   // ---------- L'azione APP DELUXY agganciata alla sezione ----------
   // Mettendo A MANO una mail in questa sezione parte la chiamata all'app (es.
@@ -268,17 +301,17 @@ model Sezione {
   // ⚠️ Vale SOLO per lo spostamento manuale: lo smistamento dell'AI e quello
   // delle regole non fanno partire niente — un errore del modello creerebbe
   // schede vere dentro un registro aziendale.
-  azioneId String?
+  azioneId         String?
   // 'chiedi' = si apre la proposta coi dati da controllare (predefinito).
   // 'automatico' = parte da sola dopo la risposta; l'esito si legge sotto la
   // mail, in «Risposte dalle app».
-  azioneModo       String @default("chiedi")
+  azioneModo       String  @default("chiedi")
   // Nota in italiano passata all'AI quando prepara i dati per questa azione.
-  azioneIstruzioni String @default("") @db.Text
+  azioneIstruzioni String  @default("") @db.Text
 
-  messaggi    Messaggio[]
-  regole      Regola[]
-  riassunti   RiassuntoSezione[]
+  messaggi  Messaggio[]
+  regole    Regola[]
+  riassunti RiassuntoSezione[]
 
   @@unique([utenteId, nome])
   @@index([utenteId])
@@ -297,11 +330,11 @@ model RiassuntoSezione {
   sezione   Sezione @relation(fields: [sezioneId], references: [id], onDelete: Cascade)
 
   // giorni | thread
-  taglio  String
-  giorni  Int    @default(7)
+  taglio String
+  giorni Int    @default(7)
 
   testo         String @db.Text
-  punti         String @db.Text @default("") // un punto per riga
+  punti         String @default("") @db.Text // un punto per riga
   messaggiVisti Int    @default(0)
   threadVisti   Int    @default(0)
 
@@ -324,7 +357,7 @@ model Regola {
   seOggetto  String?
   seContiene String?
 
-  istruzioneAI String?
+  istruzioneAI  String?
   // Testo di un'attività da creare quando la regola scatta (opzionale). Se
   // valorizzato, ogni messaggio agganciato genera questa attività su misura.
   attivitaTesto String?
@@ -351,9 +384,9 @@ model Messaggio {
   accountId String
   account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
-  uid       Int
-  messageId String?
-  thread    String?
+  uid           Int
+  messageId     String?
+  thread        String?
   // Aggancio MANUALE a una conversazione: quando due mail parlano della stessa
   // cosa ma non hanno né catena di risposte né oggetto in comune, l'utente le
   // unisce e condividono questo codice. Vince su tutto: è una scelta esplicita.
@@ -363,11 +396,11 @@ model Messaggio {
   // singola mail e questa NON si unisce più per legami naturali (resta legata
   // solo da un eventuale aggancio manuale esplicito).
   scollegato    Boolean @default(false)
-  direzione String  @default("entrata")
+  direzione     String  @default("entrata")
   // Solo sulle mail in USCITA: com'è partita — 'rispondi' | 'inoltra' | 'nuova'.
   // Serve a mostrare in lista se una conversazione è stata inoltrata (↪), come
   // già si mostra se è stata risposta (↩).
-  modoInvio String  @default("")
+  modoInvio     String  @default("")
 
   mittente     String
   mittenteNome String?
@@ -375,9 +408,9 @@ model Messaggio {
   oggetto      String
   data         DateTime
   anteprima    String
-  corpoTesto   String  @db.Text
-  corpoHtml    String? @db.Text
-  allegati     Int     @default(0)
+  corpoTesto   String   @db.Text
+  corpoHtml    String?  @db.Text
+  allegati     Int      @default(0)
   // Dimensione in byte del messaggio grezzo (per l'ordinamento). Null = mail
   // vecchia salvata prima di questo campo: si ordina come 0.
   dimensione   Int?
@@ -387,22 +420,22 @@ model Messaggio {
   cestinato   Boolean   @default(false)
   cestinatoIl DateTime?
 
-  sezioneId     String?
-  sezione       Sezione?  @relation(fields: [sezioneId], references: [id], onDelete: SetNull)
-  smistatoDa    String?
-  regolaId      String?
-  priorita      String?
-  prioritaDa    String?
-  riassunto     String?
-  serveRisposta Boolean   @default(false)
-  analizzatoIl  DateTime?
-  erroreAI      String?
+  sezioneId        String?
+  sezione          Sezione?  @relation(fields: [sezioneId], references: [id], onDelete: SetNull)
+  smistatoDa       String?
+  regolaId         String?
+  priorita         String?
+  prioritaDa       String?
+  riassunto        String?
+  serveRisposta    Boolean   @default(false)
+  analizzatoIl     DateTime?
+  erroreAI         String?
   // La CASISTICA di spam riconosciuta all'arrivo e ancora da approvare
   // (es. `marchio:shopify:gratuito`). Finché è valorizzata, la mail è in posta
   // con la proposta «è spam?»: approvandola va in SPAM e da lì in poi la stessa
   // casistica si applica da sola (vedi lib/spamCasi.ts). Si azzera decidendo.
-  spamCaso      String?
-  spamMotivo    String?
+  spamCaso         String?
+  spamMotivo       String?
   // La risposta data a un INVITO di calendario (ACCEPTED/TENTATIVE/DECLINED).
   // Sta sulla mail perché è di quella mail che si parla: senza, riaprendola i
   // tre tasti tornavano come se non avessi mai risposto.
@@ -410,16 +443,16 @@ model Messaggio {
   invitoRispostoIl DateTime?
   // Quando è partita la notifica push per questa mail: evita di notificarla due
   // volte (il cron e l'eventuale giro interattivo non si pestano i piedi).
-  notificatoIl  DateTime?
+  notificatoIl     DateTime?
   // Traduzione: lingua rilevata del messaggio (null = non ancora controllato).
   // corpoTradotto = traduzione in italiano, valorizzata solo se la lingua è
   // straniera e la traduzione automatica è attiva.
-  lingua        String?
-  corpoTradotto String?   @db.Text
+  lingua           String?
+  corpoTradotto    String?   @db.Text
   // Appuntamento proposto dall'AI (JSON): se la mail è un invito a una riunione,
   // l'analisi lo compila e la pagina propone «Aggiungi al calendario». Si
   // svuota quando l'utente accetta o ignora.
-  eventoProposto String?  @db.Text
+  eventoProposto   String?   @db.Text
 
   attivita Attivita[]
   bozze    Bozza[]
@@ -471,15 +504,21 @@ model Attivita {
   rapporto      RapportoAI? @relation(fields: [rapportoId], references: [id], onDelete: SetNull)
 
   titolo     String
-  /** Cosa fare, come l ha descritta chi ha creato l attivita (spesso l AI). */
+  /**
+   * Cosa fare, come l ha descritta chi ha creato l attivita (spesso l AI).
+   */
   dettaglio  String?
-  /** Le note di chi la sta seguendo: si AGGIUNGONO al dettaglio, non lo
-   *  sostituiscono. Tenerle separate e voluto: la descrizione dice cosa fare,
-   *  la nota dice a che punto sei — e riscrivere la prima per annotare la
-   *  seconda cancellava il lavoro dell AI (segnalato il 21/08/2026). */
+  /**
+   * Le note di chi la sta seguendo: si AGGIUNGONO al dettaglio, non lo
+   * sostituiscono. Tenerle separate e voluto: la descrizione dice cosa fare,
+   * la nota dice a che punto sei — e riscrivere la prima per annotare la
+   * seconda cancellava il lavoro dell AI (segnalato il 21/08/2026).
+   */
   note       String?
-  /** Chi ha scritto la nota e quando. Su un elenco condiviso una nota senza
-   *  firma vale poco: «chiesta rateizzazione» detto da chi, e quando? */
+  /**
+   * Chi ha scritto la nota e quando. Su un elenco condiviso una nota senza
+   * firma vale poco: «chiesta rateizzazione» detto da chi, e quando?
+   */
   noteAutore String?
   noteIl     DateTime?
   scadenza   DateTime?
@@ -511,10 +550,12 @@ model Bozza {
   corpo   String @db.Text
   corpoAI String @default("") @db.Text
 
-  /** Il gruppo di `AllegatoCaricato` che tiene gli allegati di questa bozza.
-   *  ⚠️ Un allegato in partenza non ha un posto dove stare: quello di una
-   *  mail RICEVUTA vive sul server IMAP, questo esiste solo nel browser
-   *  finche non parte. Se la bozza deve ricordarlo, i byte vanno tenuti. */
+  /**
+   * Il gruppo di `AllegatoCaricato` che tiene gli allegati di questa bozza.
+   * ⚠️ Un allegato in partenza non ha un posto dove stare: quello di una
+   * mail RICEVUTA vive sul server IMAP, questo esiste solo nel browser
+   * finche non parte. Se la bozza deve ricordarlo, i byte vanno tenuti.
+   */
   allegatiGruppo String?
 
   modificata   Boolean   @default(false)
@@ -550,11 +591,11 @@ model RapportoAI {
   utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
 
   periodo        String
-  riassunto      String   @db.Text
-  messaggiVisti  Int      @default(0)
-  troncato       Boolean  @default(false)
-  attivitaCreate Int      @default(0)
-  generatoIl     DateTime @default(now())
+  riassunto      String             @db.Text
+  messaggiVisti  Int                @default(0)
+  troncato       Boolean            @default(false)
+  attivitaCreate Int                @default(0)
+  generatoIl     DateTime           @default(now())
   attivita       Attivita[]
   proposte       PropostaArchivio[]
 
@@ -599,11 +640,11 @@ model ContattoAI {
   utenteId String
   utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
 
-  email    String
+  email      String
   // Istruzioni AI personalizzate per questo contatto (es. "è il corriere:
   // per lui conta solo la disponibilità mezzi"). Fidate: le scrive l'utente.
-  istruzioni String @default("") @db.Text
-  creatoIl DateTime @default(now())
+  istruzioni String   @default("") @db.Text
+  creatoIl   DateTime @default(now())
 
   @@unique([utenteId, email])
   @@index([utenteId])
@@ -626,9 +667,13 @@ model AllegatoCaricato {
   utenteId String
   utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
 
-  /** Tutti i pezzi di una stessa scrittura condividono questo codice. */
+  /**
+   * Tutti i pezzi di una stessa scrittura condividono questo codice.
+   */
   gruppo String
-  /** Quale file (0,1,2…) e quale pezzo di quel file. */
+  /**
+   * Quale file (0,1,2…) e quale pezzo di quel file.
+   */
   file   Int
   parte  Int
   nome   String
@@ -652,7 +697,9 @@ model ThreadAI {
   utenteId String
   utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
 
-  /** Id di una mail della conversazione. */
+  /**
+   * Id di una mail della conversazione.
+   */
   chiave   String
   creatoIl DateTime @default(now())
 
@@ -668,7 +715,9 @@ model ThreadChiuso {
   utenteId String
   utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
 
-  /** Id di una mail della conversazione. */
+  /**
+   * Id di una mail della conversazione.
+   */
   chiave   String
   creatoIl DateTime @default(now())
 
@@ -731,7 +780,7 @@ model RegolaApp {
   seContiene String?
 
   // id dell'azione nel catalogo in src/lib/appDeluxy.ts (es. "anagrafiche.prospect").
-  azioneId String
+  azioneId   String
   // Nota in italiano passata all'AI quando prepara i dati per questa azione.
   istruzioni String @default("") @db.Text
 
@@ -750,13 +799,13 @@ model InvioApp {
   messaggioId String?
   messaggio   Messaggio? @relation(fields: [messaggioId], references: [id], onDelete: SetNull)
 
-  azioneId String
+  azioneId   String
   // ok | errore
-  esito       String
-  esitoTesto  String @db.Text
+  esito      String
+  esitoTesto String  @db.Text
   // I dati effettivamente inviati, in JSON: serve per capire cosa è partito.
-  dati String @default("") @db.Text
-  link String?
+  dati       String  @default("") @db.Text
+  link       String?
 
   creatoIl DateTime @default(now())
 
@@ -784,9 +833,9 @@ model ReneAnalisi {
   utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
 
   periodo   String
-  riassunto String @db.Text
+  riassunto String   @db.Text
   // Le mail urgenti senza risposta (JSON: [{messaggioId, oggetto, mittente, motivo}]).
-  urgenti   String @default("[]") @db.Text
+  urgenti   String   @default("[]") @db.Text
   creataIl  DateTime @default(now())
 
   proposte ReneProposta[]
@@ -797,24 +846,24 @@ model ReneAnalisi {
 // Un'azione che Renè propone: si applica solo dopo la conferma dell'utente
 // (o da sola, se quel TIPO di azione è diventato una conseguenza).
 model ReneProposta {
-  id        String  @id @default(cuid())
+  id        String       @id @default(cuid())
   utenteId  String
-  utente    Utente  @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  utente    Utente       @relation(fields: [utenteId], references: [id], onDelete: Cascade)
   analisiId String?
   analisi   ReneAnalisi? @relation(fields: [analisiId], references: [id], onDelete: Cascade)
 
   // sezione | regola | smista | attivita | evento
-  tipo  String
+  tipo          String
   // I dati dell'azione, in JSON.
-  dati  String @db.Text
+  dati          String   @db.Text
   // Impronta per non riproporre due volte la stessa cosa (anche se rifiutata).
-  firma String
+  firma         String
   // proposta | applicata | rifiutata | errore
-  stato      String  @default("proposta")
-  esitoTesto String  @default("")
+  stato         String   @default("proposta")
+  esitoTesto    String   @default("")
   // true se applicata da sola perché il tipo è una conseguenza approvata.
-  daConseguenza Boolean @default(false)
-  creataIl   DateTime @default(now())
+  daConseguenza Boolean  @default(false)
+  creataIl      DateTime @default(now())
 
   @@index([utenteId, stato, creataIl])
   @@index([utenteId, firma])
@@ -828,8 +877,8 @@ model ReneConseguenza {
   utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
 
   tipo        String
-  descrizione String  @default("")
-  attiva      Boolean @default(true)
+  descrizione String   @default("")
+  attiva      Boolean  @default(true)
   creataIl    DateTime @default(now())
 
   @@unique([utenteId, tipo])

@@ -1,4 +1,5 @@
 import { db } from './db'
+import { cifra, decifra } from './crypto'
 
 // ARCHIVIO DEGLI ALLEGATI SU GOOGLE DRIVE.
 //
@@ -58,13 +59,51 @@ export type ConfigDrive = {
   cartella: string | null
 }
 
+/**
+ * I due valori di Drive che sono SEGRETI davvero, e che quindi nel database
+ * stanno CIFRATI (revisione di sicurezza 27/08/2026).
+ *
+ * ⚠️⚠️ Prima ci finivano in chiaro, ed erano gli unici: nella tabella delle
+ * impostazioni la chiave delle API e le otto chiavi delle app sono AES-GCM da
+ * sempre, questi due no — `scrivi()` faceva l'upsert del valore grezzo. Chi
+ * fosse arrivato a leggere il database avrebbe trovato il segreto OAuth
+ * leggibile, mentre tutto il resto gli restava muto senza APP_SECRET.
+ *
+ * ⚠️ Il pericolo vero non è quello di oggi ma quello di domani: il REFRESH
+ * TOKEN non è ancora stato scritto (Drive non è collegato). Quando lo sarà,
+ * quella riga varrà l'accesso duraturo all'archivio degli allegati. Si chiude
+ * PRIMA che venga scritta, non dopo.
+ *
+ * `id`, `email` e `cartella` restano in chiaro: non sono segreti, e leggibili
+ * servono a capire a colpo d'occhio quale account è collegato.
+ */
+const CIFRATI = new Set([IMP_SEGRETO, IMP_REFRESH])
+
 async function leggi(chiavi: string[]): Promise<Map<string, string>> {
   const righe = await db.impostazione.findMany({ where: { chiave: { in: chiavi } } }).catch(() => [])
-  return new Map(righe.map((r) => [r.chiave, (r.valore ?? '').trim()]))
+  return new Map(
+    righe.map((r) => {
+      const grezzo = (r.valore ?? '').trim()
+      if (!grezzo || !CIFRATI.has(r.chiave)) return [r.chiave, grezzo] as const
+      try {
+        return [r.chiave, decifra(grezzo)] as const
+      } catch {
+        // ⚠️ RIPIEGO OBBLIGATORIO: le righe scritte prima di oggi sono in
+        // chiaro, e `decifra` su un valore non cifrato lancia. Senza questo
+        // ramo, il primo deploy avrebbe reso illeggibile la configurazione
+        // Drive già inserita: la pagina Impostazioni si sarebbe presentata
+        // coi campi vuoti e il collegamento da rifare a mano, senza che
+        // niente spiegasse perché. Si rileggono com'erano; alla prima
+        // riscrittura diventano cifrate da sole.
+        return [r.chiave, grezzo] as const
+      }
+    })
+  )
 }
 
 async function scrivi(chiave: string, valore: string): Promise<void> {
-  await db.impostazione.upsert({ where: { chiave }, update: { valore }, create: { chiave, valore } })
+  const v = CIFRATI.has(chiave) ? cifra(valore) : valore
+  await db.impostazione.upsert({ where: { chiave }, update: { valore: v }, create: { chiave, valore: v } })
 }
 
 export async function configDrive(): Promise<ConfigDrive> {

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { db } from './db'
 import { decifra } from './crypto'
 
@@ -13,6 +14,78 @@ import { decifra } from './crypto'
 // precedenza; l'env resta come alternativa.
 
 export const CHIAVE_TOKEN_API = 'api.token'
+
+/**
+ * Confronto a tempo costante fra la chiave ricevuta e quella attesa.
+ *
+ * ⚠️ Prima era un `!==` secco. Onestamente: per via della rete e della query
+ * al database che gira PRIMA del confronto, la differenza di nanosecondi qui
+ * non era misurabile da fuori — non era una porta aperta. Ma la rotta gemella
+ * (`/api/v1/caselle`) il confronto giusto ce l'aveva già: due modi diversi di
+ * fare la stessa cosa nello stesso punto sono un invito a copiare quello
+ * sbagliato.
+ */
+function chiaviUguali(a: string, b: string): boolean {
+  const A = Buffer.from(a)
+  const B = Buffer.from(b)
+  // ⚠️ `timingSafeEqual` LANCIA se le lunghezze non combaciano: il controllo
+  // qui sopra non è una svista da «correggere», è obbligatorio.
+  return A.length === B.length && crypto.timingSafeEqual(A, B)
+}
+
+export type EsitoChiamata = 'ok' | 'chiaveErrata' | 'utenteSconosciuto' | 'nonConfigurata'
+
+/**
+ * Scrive nel registro chi ha bussato alle API.
+ *
+ * ⚠️⚠️ La chiave delle API è UNA SOLA e non ha ambiti: chi ce l'ha sceglie su
+ * quale casella agire scrivendo `x-utente`, e può leggere la posta di chiunque
+ * o mandare mail a nome di chiunque. Restringerla ad ambiti per app è un
+ * lavoro che tocca tutti i chiamanti (piattaforma, Scout, CRM…) e non si fa
+ * di nascosto in una revisione di sicurezza. Quello che si poteva fare subito,
+ * e che mancava del tutto, è la MEMORIA: senza queste righe, di un uso
+ * improprio della chiave non sarebbe rimasta traccia da nessuna parte.
+ *
+ * ⚠️ Non deve MAI far fallire una chiamata vera: se la tabella non c'è ancora
+ * (la migrazione gira al build ed è volutamente non bloccante) o il database
+ * fa i capricci, si tace e si va avanti. Un registro che rompe l'app che
+ * doveva sorvegliare è peggio di nessun registro.
+ */
+export async function registraChiamata(
+  req: Request,
+  esito: EsitoChiamata,
+  dati: { utenteChiesto?: string; utenteId?: string }
+): Promise<void> {
+  try {
+    let rotta = ''
+    try {
+      rotta = new URL(req.url).pathname
+    } catch {
+      rotta = ''
+    }
+    await db.chiamataApi.create({
+      data: {
+        rotta,
+        metodo: req.method || '',
+        utenteChiesto: (dati.utenteChiesto || '').slice(0, 200),
+        utenteId: dati.utenteId ?? null,
+        esito,
+        // ⚠️ Il primo della lista è il client; gli altri sono i proxy.
+        ip: (req.headers.get('x-forwarded-for') || '').split(',')[0].trim().slice(0, 60),
+        agente: (req.headers.get('user-agent') || '').slice(0, 200),
+      },
+    })
+    // Pulizia saltuaria: il registro serve a guardare indietro qualche mese,
+    // non per sempre. Una volta ogni cinquanta chiamate circa, così non si
+    // paga una cancellazione a ogni richiesta.
+    if (Math.random() < 0.02) {
+      const limite = new Date(Date.now() - 1000 * 60 * 60 * 24 * 180)
+      await db.chiamataApi.deleteMany({ where: { quando: { lt: limite } } })
+    }
+  } catch {
+    /* il registro non deve mai rompere una chiamata vera */
+  }
+}
 
 /** Il token API in vigore e da dove viene (per la UI e per l'auth). */
 export async function tokenApiConfigurato(): Promise<{ token: string; fonte: 'app' | 'env' | 'nessuno' }> {
@@ -40,6 +113,7 @@ export type Autenticato =
 export async function autenticaApi(req: Request): Promise<Autenticato> {
   const { token: atteso } = await tokenApiConfigurato()
   if (!atteso) {
+    await registraChiamata(req, 'nonConfigurata', {})
     return { ok: false, errore: 'API non configurata: nessun token (generalo in Impostazioni App o imposta API_TOKEN).', status: 503 }
   }
 
@@ -48,7 +122,8 @@ export async function autenticaApi(req: Request): Promise<Autenticato> {
     req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
     ''
   ).trim()
-  if (chiave !== atteso) {
+  if (!chiaviUguali(chiave, atteso)) {
+    await registraChiamata(req, 'chiaveErrata', { utenteChiesto: req.headers.get('x-utente') || '' })
     return { ok: false, errore: 'Non autorizzato: chiave API errata o mancante.', status: 401 }
   }
 
@@ -72,6 +147,7 @@ export async function autenticaApi(req: Request): Promise<Autenticato> {
       where: { utenteId: u.id, email: { equals: emailUtente, mode: 'insensitive' }, attivo: true },
       select: { email: true },
     })
+    await registraChiamata(req, 'ok', { utenteChiesto: emailUtente, utenteId: u.id })
     return { ok: true, utenteId: u.id, email: u.email, ...(suaCasella ? { accountEmail: suaCasella.email } : {}) }
   }
 
@@ -86,8 +162,10 @@ export async function autenticaApi(req: Request): Promise<Autenticato> {
     select: { utenteId: true, email: true, utente: { select: { email: true, attivo: true } } },
   })
   if (account?.utente?.attivo) {
+    await registraChiamata(req, 'ok', { utenteChiesto: emailUtente, utenteId: account.utenteId })
     return { ok: true, utenteId: account.utenteId, email: account.utente.email, accountEmail: account.email }
   }
 
+  await registraChiamata(req, 'utenteSconosciuto', { utenteChiesto: emailUtente })
   return { ok: false, errore: `Nessun utente o casella AI Mail attiva con email ${emailUtente}.`, status: 404 }
 }

@@ -34,6 +34,29 @@ export default async function ImpostazioniApp() {
   const app = statoApp(chiavi)
   const isAdmin = u.ruolo === 'admin'
   const tokenApi = isAdmin ? await tokenApiConfigurato() : { token: '', fonte: 'nessuno' as const }
+  // Chi ha usato la chiave delle API, e con che esito. ⚠️ Difensivo: la
+  // tabella nasce con una migrazione che al build è volutamente NON
+  // bloccante, quindi può non esserci ancora — e questa pagina non deve
+  // cadere per un registro.
+  let chiamate: { id: string; quando: Date; rotta: string; metodo: string; utenteChiesto: string; esito: string; ip: string }[] = []
+  let rifiutate = 0
+  if (isAdmin) {
+    try {
+      chiamate = await db.chiamataApi.findMany({
+        orderBy: { quando: 'desc' },
+        take: 25,
+        select: { id: true, quando: true, rotta: true, metodo: true, utenteChiesto: true, esito: true, ip: true },
+      })
+      rifiutate = await db.chiamataApi.count({
+        where: {
+          esito: { not: 'ok' },
+          quando: { gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7) },
+        },
+      })
+    } catch {
+      chiamate = []
+    }
+  }
   const statoDr = isAdmin ? await statoDrive() : null
   const confDr = isAdmin ? await configDrive() : null
   // ⚠️ Il segreto NON si rimanda al browser: del client id si mostra solo la
@@ -79,6 +102,65 @@ export default async function ImpostazioniApp() {
           </p>
           <div className="card" style={{ marginBottom: 24 }}>
             <TokenApi token={tokenApi.token} fonte={tokenApi.fonte} />
+          </div>
+
+          {/* ---------- Chi ha usato la chiave ---------- */}
+          <h2 className="section-title">Chi ha usato la chiave</h2>
+          <p className="page-caption" style={{ marginBottom: 14 }}>
+            La chiave qui sopra è <strong>una sola</strong> e vale per tutte le app che ce
+            l’hanno: chi la possiede sceglie su quale casella agire scrivendo l’header{' '}
+            <code className="app-var">x-utente</code>, e può leggere la posta o mandare una mail
+            a nome di chiunque. Finché non c’era questo elenco, di quelle chiamate non restava
+            traccia da nessuna parte. <strong>Le ultime 25</strong>, conservate sei mesi.
+          </p>
+          <div className="card" style={{ marginBottom: 24 }}>
+            {rifiutate > 0 && (
+              <p style={{ margin: '0 0 12px', fontWeight: 600 }}>
+                ⚠️ {rifiutate} {rifiutate === 1 ? 'chiamata rifiutata' : 'chiamate rifiutate'} negli
+                ultimi 7 giorni (chiave errata o utente sconosciuto).
+              </p>
+            )}
+            {chiamate.length === 0 ? (
+              <p className="page-caption" style={{ margin: 0 }}>
+                Nessuna chiamata registrata: o le API non le usa nessuno, o il registro è appena
+                nato (segna da oggi in avanti, non all’indietro).
+              </p>
+            ) : (
+              <div className="sotto-tabella-wrap">
+                <table className="tabella-dati">
+                  <thead>
+                    <tr>
+                      <th>Quando</th>
+                      <th>Rotta</th>
+                      <th>Per conto di</th>
+                      <th>Esito</th>
+                      <th>Da</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chiamate.map((c) => (
+                      <tr key={c.id}>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          {c.quando.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td><code className="app-var">{c.metodo} {c.rotta}</code></td>
+                        <td>{c.utenteChiesto || '—'}</td>
+                        <td style={{ fontWeight: c.esito === 'ok' ? 400 : 600 }}>
+                          {c.esito === 'ok'
+                            ? 'ok'
+                            : c.esito === 'chiaveErrata'
+                              ? 'chiave errata'
+                              : c.esito === 'utenteSconosciuto'
+                                ? 'utente sconosciuto'
+                                : 'API non configurata'}
+                        </td>
+                        <td>{c.ip || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </>
       )}

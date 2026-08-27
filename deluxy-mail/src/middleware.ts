@@ -4,8 +4,13 @@ import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
 export async function middleware(req: NextRequest) {
   // Il cancello è la sessione firmata: solo chi ha fatto login con un utente
   // valido ha un cookie che supera la verifica della firma.
-  const userId = await verificaSessione(req.cookies.get(SESSION_COOKIE)?.value)
-  if (userId) return NextResponse.next()
+  // ⚠️ Qui si guarda solo che il biglietto sia FIRMATO e non scaduto. Che sia
+  // anche ancora VALIDO (utente attivo, versione non revocata) lo stabilisce
+  // `utenteCorrente()` a ogni pagina: quel controllo vuole il database, e qui
+  // siamo su edge, dove Prisma non arriva. Questo è il cancello grosso, non
+  // l'ultimo.
+  const sessione = await verificaSessione(req.cookies.get(SESSION_COOKIE)?.value)
+  if (sessione) return NextResponse.next()
 
   // Dove stava andando: dopo il login ci si torna. Serve ai link che arrivano
   // dalle ALTRE app Deluxy (es. «scrivi a questo partner» apre /scrivi già

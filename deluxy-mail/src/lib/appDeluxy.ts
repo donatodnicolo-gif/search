@@ -366,8 +366,17 @@ export type AzioneApp = {
    * confezionata potrebbe pilotare i campi): anche con la sezione in modo
    * «automatico», si chiede sempre conferma mostrando i dati. Le azioni di sola
    * lettura (verifica/trova) restano automatiche. (Revisione 14/08/2026.)
+   *
+   * ⚠️⚠️ OBBLIGATORIO, e non per pignoleria (revisione di sicurezza 27/08/2026).
+   * Questa riga è l'UNICA cosa che impedisce a una mail scritta da un estraneo
+   * di far scrivere qualcosa dentro un'app aziendale senza che nessuno guardi:
+   * chi esegue legge `scrive` e, se è vero, si ferma a chiedere. Finché il
+   * campo era facoltativo, un'azione nuova a cui ci si dimenticava di metterlo
+   * ricadeva sul valore mancante — cioè «non scrive» — e partiva DA SOLA. Il
+   * difetto non si sarebbe visto in nessuna prova: si sarebbe visto il giorno
+   * in cui qualcuno manda la mail giusta. Ora dimenticarlo non compila.
    */
-  scrive?: boolean
+  scrive: boolean
   /**
    * QUANDO il riassunto di una conversazione deve proporre questa azione
    * (es. «un fornitore ha comunicato un prezzo» → Registra il preventivo).
@@ -797,6 +806,9 @@ const AZIONI: AzioneApp[] = [
   {
     id: 'finance.verifica',
     app: 'Finance',
+    // Sola lettura: una GET a Finance. Non crea e non modifica niente, quindi
+    // può partire da sola quando la sezione è in «automatico».
+    scrive: false,
     nome: 'Verifica partner',
     descrizione: 'Controlla la situazione finanziaria del partner (saldi, fatture).',
     colore: 'green',
@@ -890,6 +902,8 @@ const AZIONI: AzioneApp[] = [
   {
     id: 'fornitori.trova',
     app: 'Fornitori',
+    // Sola lettura: una GET a Fornitori che cerca i negozi vicini.
+    scrive: false,
     nome: 'Trova fornitore',
     descrizione: 'Trova i fioristi/pasticcerie più vicini alla consegna di un ordine.',
     colore: 'purple',

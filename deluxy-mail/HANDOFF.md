@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **26 agosto 2026**.
+> Documento di ripartenza. Aggiornato: **27 agosto 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -22,6 +22,49 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre app Deluxy, ognuna nel suo schema (⚠️ **erano 12 il 19/08 e 14 il 21/08**: il numero cresce, non fidarsi di questa riga — si contano gli schemi). Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
+
+### 27/08 — REVISIONE DI SICUREZZA (due cacciatori + un agente ostile)
+
+Domanda di partenza: **un utente può arrivare, chiamando le API da fuori, a informazioni che non gli spettano?** Due agenti hanno cercato in modo indipendente (superficie esterna; chiavi e isolamento), un terzo ha avuto il mandato di **demolire** quello che avevano trovato.
+
+**Dalla rete, senza credenziali, non esce niente.** Provato: `/api/sync`, `/api/calendario`, `/api/v1/caselle`, `/api/v1/messaggi`, `/api/v1/contatto` → 401; `/api/interno/drive/oauth` e ogni pagina → 307 al login; `/api/invito` senza token valido → pagina «Link non valido», e il GET non scrive più. `/api/health` risponde 200 ma dice solo tre booleani.
+
+**Conteggio: 12 accuse → 4 sopravvissute, 1 caduta del tutto, 6 ridimensionate, 1 informativa.**
+
+#### Corretto
+
+| Cosa | Dove | Perché contava |
+|---|---|---|
+| **Redirect aperto** dopo il login | `src/lib/auth-actions.ts` | Un `dopo` che comincia con barra + barra rovescia superava il filtro («comincia per `/` ma non per `//`») e i browser lo risolvevano **fuori**, su un dominio esterno. Ora l'indirizzo si **normalizza** col parser dei browser contro un'origine finta: se l'origine cambia, si torna a `/`. Provato su 12 casi, comprese la tabulazione e la doppia barra rovescia. |
+| **Sessione senza scadenza né revoca** | `src/lib/auth.ts`, `sessione.ts`, `auth-actions.ts`, `middleware.ts` | Il biglietto era `userId` + firma: nessuna data, nessuna versione. Un cookie rubato valeva **per sempre**, e cambiare la password non lo cacciava. Ora porta versione e data di emissione; la versione sale al **cambio password** e alla **disattivazione**. |
+| **Segreti OAuth di Drive in chiaro** | `src/lib/drive.ts` | Erano gli unici in chiaro nella tabella `Impostazione` (chiave API e chiavi app sono AES-GCM da sempre). Adesso `client_secret` e `refresh` si cifrano — **prima** che il refresh token venga scritto, perché Drive non è ancora collegato. Con ripiego in lettura: i valori già scritti restano leggibili. |
+| **SMTP ripuntabile via API** | `src/app/api/v1/caselle/route.ts` | ⚠️ **Il vettore che nessuno dei due cacciatori aveva visto.** Su una casella già esistente l'`update` riscriveva anche `imapHost`/`smtpHost`: chi aveva la chiave poteva puntare il server di una casella vera al proprio e far transitare da lì **tutta la posta in uscita**, comprese le mail che partono dalle altre app. `provaConnessione` non era un ostacolo: interroga il server indicato dall'attaccante, che risponde di sì. Ora cambiare server da qui dà **409**; aggiornare la password continua a funzionare. |
+| **Nessuna traccia delle chiamate API** | nuova tabella `ChiamataApi` + `src/lib/apiAuth.ts` | La chiave è una sola e senza ambiti: chi ce l'ha sceglie la casella scrivendo `x-utente`. Restringerla ad ambiti tocca tutti i chiamanti e non si fa di nascosto in una revisione; quello che mancava del tutto era la **memoria**. Si vede in **Impostazioni App → «Chi ha usato la chiave»** (ultime 25, e quante rifiutate in 7 giorni). |
+| **Flag `scrive` facoltativo** | `src/lib/appDeluxy.ts` | È l'unica cosa che impedisce a una mail scritta da un estraneo di far scrivere in un'app aziendale senza conferma. Era facoltativo con ripiego «non scrive»: un'azione nuova a cui ci si dimenticava il flag sarebbe partita **da sola**, e il difetto non si sarebbe visto in nessuna prova. Ora è **obbligatorio nel tipo** — dimenticarlo non compila. Le 7 azioni sono state controllate una per una: le 2 senza flag erano davvero due GET. |
+| Confronto della chiave, minimo password | `apiAuth.ts`, `auth-actions.ts` | `timingSafeEqual` come nella rotta gemella; minimo password 6 → **10**, ma **solo dove si imposta** una password: in `accedi` la lunghezza non si controlla, e alzarla lì avrebbe chiuso fuori chi ne ha già una corta. |
+
+**⚠️ Nessuno è stato rimandato al login.** `verificaSessione` accetta **due formati**: quello nuovo e quello vecchio, quest'ultimo fino al **6 ottobre 2026** (`TAGLIO_BIGLIETTI_VECCHI` in `auth.ts`). La data non è a caso: il cookie ha sempre avuto `maxAge` di 30 giorni, quindi dentro quella finestra ognuno sarebbe rientrato comunque. **Dopo quella data la costante si può togliere** insieme al ramo del vecchio formato. Fino ad allora i biglietti vecchi **non sono revocabili** (non portano il numero di versione): su di loro l'unica leva resta `attivo: false`.
+
+⚠️ La colonna `sessioneVersione` e la tabella `ChiamataApi` **esistono già in produzione** (migrazione applicata dal build, 106/106 statement, verificata leggendo `information_schema`). Contava farlo prima del deploy: la migrazione di questo progetto è **volutamente non bloccante**, e una colonna che Prisma seleziona sempre, se manca, non degrada — spegne ogni pagina.
+
+#### NON corretto, e perché (l'ostile ha demolito)
+
+- **«Chi indica una casella in `x-utente` legge tutta la posta del proprietario»** — accusa **caduta**. Chi ha la chiave non ha bisogno di passare dalla casella: scrive direttamente l'email dell'utente. La casella non è mai stata un privilegio minore. La toppa proposta (filtrare le letture per `accountId`) **non protegge nulla e rompe** il caso per cui quel ramo esiste: la piattaforma consegne chiama con `x-utente` = l'email di una casella.
+- **`GET /api/v1/caselle` elenca tutte le caselle** — irrilevante: chi ci arriva ha già la chiave, e con quella legge 34.503 messaggi. Sono 9 indirizzi interni deducibili, e nessuna credenziale è nel `select`. La rotta serve a Scout per sapere quale `x-utente` usare.
+- **Riattivazione di un utente via API** — nessun bersaglio (10 utenti su 10 attivi) e nessun furto d'account: su un utente esistente la password **non** viene toccata. Il pezzo pericoloso di quella rotta era un altro, ed è quello corretto sopra.
+- **scrypt al costo di default** — igiene, non una falla: conta solo per chi ha **già** il dump del database. ⚠️ E alzare `N` alla lettera **romperebbe il login di tutti**: oltre 2^14 serve anche `maxmem`, e il formato salvato non porta i parametri. Se un giorno si fa: prefisso versionato, verifica che legge entrambi i formati, re-hash pigro al login.
+- **Token d'invito per evento** — 3 eventi in tutto ce l'hanno, e per abusarne bisogna essere già invitati **e** conoscere l'email di un altro invitato. Non vale un deploy.
+- **Iniezione di prompt nell'AI** — la difesa **c'era già** (in `actions.ts` il ramo che ferma le azioni con `scrive`), e la catena ha due cancelli a monte. Restava fragile solo il flag: reso obbligatorio (sopra).
+- **`esci()` che cancella solo il cookie locale** — lasciato com'è: trasformarlo in «esci da tutti i dispositivi» cambierebbe un comportamento che nessuno ha chiesto di cambiare. Semmai si aggiunge un bottone apposta.
+
+#### 🔴 Aperto — decide l'umano
+
+1. **AI Mail parla col database come `postgres`.** Misurato: `rolbypassrls`, `rolcreaterole`, **23 schemi** visibili, 854 privilegi di tabella fuori da `mail`, e due letture di prova eseguite in `personale."Persona"` e `hub."Utente"`. Il `?schema=mail` è un default, non un confine. **Non è un buco di AI Mail**: è la postura del cluster condiviso, e per sfruttarla bisogna avere già la stringa di connessione. Si può **staccare la sola AI Mail** con un ruolo `mail_app` (GRANT solo su `mail`) senza toccare le altre 13 app — ⚠️ ma quel ruolo deve avere **CREATE sullo schema `mail`**, perché `build` esegue `migrate-prod.mjs`, e servono le `ALTER DEFAULT PRIVILEGES`: un grant a metà non è un buco, è **l'app giù**. La **rotazione della password `postgres`** invece è un fermo coordinato di **14 app** e non si decide da qui.
+2. **Rotazione della chiave API**: nessuno sa oggi chi ce l'abbia. Finché non lo si sa, ruotarla spegne a caso qualche integrazione. Il registro nuovo serve **proprio** a scoprirlo: fra qualche giorno «Chi ha usato la chiave» dirà quali app la usano davvero.
+3. **Data di taglio dei biglietti vecchi**: oggi 6 ottobre. Anticiparla caccia prima le sessioni non revocabili, ma rimanda al login chi non entra da un po'.
+4. **`POST /api/v1/caselle` deve poter aggiornare una casella esistente?** Oggi sì per la password, no per il server. Se qualche chiamante cambiava host da lì, adesso prende 409.
+
+---
 
 ### 27/08 — ALLEGATI nelle API di invio (chiesto dalla piattaforma consegne)
 

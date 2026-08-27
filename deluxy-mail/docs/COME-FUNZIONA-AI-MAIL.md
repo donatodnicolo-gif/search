@@ -1005,6 +1005,50 @@ non è mai automatico: anche se un attacco passasse, si fermerebbe alla bozza.
 
 **Chiave OpenAI.** Solo lato server, mai spedita ai client desktop o Android.
 
+### Restare collegati, e smettere di esserlo (dal 27/08/2026)
+
+**Il biglietto d'ingresso scade.** Quando entri, il cookie che ti tiene collegato porta
+dentro di sé la data in cui è nato e un numero di versione, ed è firmato: dopo trenta
+giorni non vale più, e non c'è modo di allungarlo cambiando qualcosa nel browser. Prima
+quella scadenza esisteva solo come regola del browser — chi si copiava il valore del
+cookie se lo teneva buono per sempre.
+
+**Cambiare la password caccia chi era entrato.** Se un amministratore reimposta la
+password di una persona, tutte le sessioni aperte con la vecchia smettono di funzionare
+all'istante, su qualunque dispositivo. È la cosa che chiunque farebbe per prima se
+sospettasse che qualcuno gli è entrato in posta, e prima non serviva a niente: riscriveva
+la password e basta. Lo stesso vale disattivando un utente dalla schermata Utenti.
+
+**«Esci» resta locale.** Il bottone chiude la sessione **di questo browser**, come ha
+sempre fatto — non ti scollega dal telefono. Per buttare fuori tutti i dispositivi si
+cambia la password.
+
+**Le password nuove vogliono almeno 10 caratteri.** Vale quando se ne imposta una (primo
+amministratore, utente nuovo, reimposta). Chi ne ha già una più corta continua a entrare
+senza problemi: il controllo è su chi la sceglie, non su chi la usa.
+
+### Chi ha usato la chiave delle API (Impostazioni App)
+
+Le altre app Deluxy chiamano AI Mail con una chiave, e nell'header dicono per conto di
+quale casella stanno agendo. La chiave è **una sola** e non ha ambiti: chi ce l'ha può
+leggere la posta o mandare una mail a nome di chiunque. Restringerla a una casella per
+app è un lavoro che tocca tutti i chiamanti; nel frattempo, in **Impostazioni App** (solo
+amministratori) c'è l'elenco delle **ultime 25 chiamate**: quando, quale rotta, per conto
+di chi, con che esito e da quale indirizzo. In cima compare un avviso se negli ultimi
+sette giorni qualcuna è stata **rifiutata** — chiave sbagliata o casella inesistente.
+
+Il registro parte da oggi in avanti: non sa dire niente sul passato. Serve a due cose —
+accorgersi di un uso che non torna, e scoprire **quali app usano davvero la chiave**
+prima di cambiarla.
+
+### Collegare una casella dall'esterno: cosa si può e cosa no
+
+`POST /api/v1/caselle` serve a collegare una casella nuova, e va bene anche per
+aggiornare una password scaduta. **Non** può spostare la casella su un altro server: se
+i server indicati non sono quelli già salvati, la richiesta viene rifiutata e bisogna
+passare da Impostazioni. Cambiare il server di posta di una casella significa decidere
+da dove passa tutta la posta in uscita: è una cosa che si fa guardandola in faccia.
+
 ## 6e. La rubrica e la scheda di un contatto
 
 **Rubrica** (`/rubrica`) si compila da sola dalla posta: c'è chi ti ha scritto e

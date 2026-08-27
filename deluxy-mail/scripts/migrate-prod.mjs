@@ -8,6 +8,23 @@
 import { PrismaClient } from '@prisma/client'
 
 const stmts = [
+  // La versione delle sessioni: sale quando si revoca (cambio password,
+  // disattivazione) e vive dentro il cookie firmato.
+  `ALTER TABLE "Utente" ADD COLUMN IF NOT EXISTS "sessioneVersione" INTEGER NOT NULL DEFAULT 0`,
+  // Il registro delle chiamate alle API: chi ha bussato, per conto di chi,
+  // con che esito. Senza, di un uso improprio della chiave non resta niente.
+  `CREATE TABLE IF NOT EXISTS "ChiamataApi" (
+     "id" TEXT PRIMARY KEY,
+     "quando" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     "rotta" TEXT NOT NULL,
+     "metodo" TEXT NOT NULL DEFAULT '',
+     "utenteChiesto" TEXT NOT NULL DEFAULT '',
+     "utenteId" TEXT,
+     "esito" TEXT NOT NULL,
+     "ip" TEXT NOT NULL DEFAULT '',
+     "agente" TEXT NOT NULL DEFAULT '')`,
+  `CREATE INDEX IF NOT EXISTS "ChiamataApi_quando_idx" ON "ChiamataApi"("quando")`,
+  `CREATE INDEX IF NOT EXISTS "ChiamataApi_esito_idx" ON "ChiamataApi"("esito")`,
   // Gli allegati di una bozza: il gruppo che li tiene in `AllegatoCaricato`.
   `ALTER TABLE "Bozza" ADD COLUMN IF NOT EXISTS "allegatiGruppo" TEXT`,
   // Le note di chi segue un attivita: separate da `dettaglio`, che dice cosa
