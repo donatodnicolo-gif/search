@@ -32,6 +32,7 @@ import type { RichiestaCliente } from '@/types';
 import { cercaNelRegistro, fetchFornitori, type PartnerRegistro } from '@/lib/anagrafiche';
 import {
   aggiornaLavoro,
+  aggiornaPreventivo,
   aggiungiPreventivo,
   confronto,
   creaLavoro,
@@ -794,6 +795,51 @@ function RigaPreventivo({
   const differenza = p.importo != null && minimo != null && Number(p.importo) > minimo ? Number(p.importo) - minimo : null;
   const ilPiuBasso = p.importo != null && minimo != null && Number(p.importo) === minimo && p.stato !== 'scartato';
 
+  /**
+   * ⭐ LA MATITA (27/08/2026, richiesta dell'utente: «mettimi una matita per
+   * modificare il preventivo»).
+   *
+   * Fin qui un preventivo si poteva solo scegliere o ELIMINARE: un prezzo
+   * ribassato al telefono — che è la cosa più normale che succede — obbligava a
+   * cancellarlo e riscriverlo, e con lui se ne andavano i tempi, la nota e
+   * soprattutto la PROVENIENZA (la mail da cui era arrivato). Correggere non è
+   * rifare.
+   */
+  const [correggo, setCorreggo] = useState(false);
+  const [nImporto, setNImporto] = useState(p.importo != null ? scriviImporto(p.importo) : '');
+  const [nTempi, setNTempi] = useState(p.tempi ?? '');
+  const [nNote, setNNote] = useState(p.note ?? '');
+  const [salvoCorr, setSalvoCorr] = useState(false);
+
+  async function salvaCorrezione() {
+    if (salvoCorr) return;
+    // ⚠️ Vuoto = «non ha ancora risposto», e si scrive null. Un prezzo scritto
+    // male FERMA: buttarlo a null direbbe il contrario del vero, e il
+    // preventivo uscirebbe dal confronto senza che niente lo dica.
+    const v = nImporto.trim() ? leggiImporto(nImporto) : null;
+    if (nImporto.trim() && v == null) {
+      avvisa('Prezzo non capito', `«${nImporto}» non è un importo. Scrivilo come 1.250,50 — o lascialo vuoto.`);
+      return;
+    }
+    setSalvoCorr(true);
+    try {
+      await aggiornaPreventivo(p.id, {
+        importo: v,
+        tempi: nTempi.trim() || null,
+        note: nNote.trim() || null,
+        // Se il prezzo arriva ora su un preventivo che lo aspettava, lo stato
+        // segue il fatto: si deduce, non si chiede.
+        ...(p.stato === 'richiesto' && v != null ? { stato: 'ricevuto' as const } : {}),
+      });
+      setCorreggo(false);
+      await onCambiato();
+    } catch (e: any) {
+      avvisa('Non è stato salvato', String(e?.message ?? e));
+    } finally {
+      setSalvoCorr(false);
+    }
+  }
+
   return (
     <View style={[styles.prev, p.stato === 'scelto' && styles.prevScelto, p.stato === 'scartato' && styles.prevScartato]}>
       <View style={styles.prevTesta}>
@@ -843,6 +889,14 @@ function RigaPreventivo({
         ) : null}
         <Pressable
           hitSlop={6}
+          onPress={() => setCorreggo(!correggo)}
+          accessibilityLabel={`Modifica il preventivo di ${p.fornitore}`}
+          {...({ title: 'Correggi prezzo, tempi e note' } as any)}
+        >
+          <Ionicons name={correggo ? 'close-outline' : 'create-outline'} size={17} color={colors.navy} />
+        </Pressable>
+        <Pressable
+          hitSlop={6}
           onPress={() =>
             conferma(
               'Elimino il preventivo?',
@@ -858,6 +912,49 @@ function RigaPreventivo({
           <Text style={[styles.prevAzione, styles.rosso]}>Elimina</Text>
         </Pressable>
       </View>
+
+      {correggo ? (
+        <View style={styles.prevForm}>
+          <Text style={styles.label}>Quanto ci ha chiesto</Text>
+          <TextInput
+            style={styles.input}
+            value={nImporto}
+            onChangeText={setNImporto}
+            placeholder="es. 1.250,50 — vuoto se non ha ancora risposto"
+            placeholderTextColor={colors.grigio}
+            inputMode="decimal"
+            autoFocus
+          />
+          <Text style={styles.label}>Tempi</Text>
+          <TextInput
+            style={styles.input}
+            value={nTempi}
+            onChangeText={setNTempi}
+            placeholder="es. 48 ore, 3 giorni lavorativi"
+            placeholderTextColor={colors.grigio}
+          />
+          <Text style={styles.label}>Note</Text>
+          <TextInput
+            style={styles.input}
+            value={nNote}
+            onChangeText={setNNote}
+            placeholder="Cosa comprende, condizioni, vincoli…"
+            placeholderTextColor={colors.grigio}
+          />
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+            <Pressable
+              style={[styles.btnPri, salvoCorr && styles.off]}
+              disabled={salvoCorr}
+              onPress={salvaCorrezione}
+            >
+              <Text style={styles.btnPriTxt}>{salvoCorr ? 'Salvo…' : 'Salva'}</Text>
+            </Pressable>
+            <Pressable style={styles.btnSec} onPress={() => setCorreggo(false)} disabled={salvoCorr}>
+              <Text style={styles.btnSecTxt}>Annulla</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -1138,6 +1235,7 @@ const styles = StyleSheet.create({
   // Spiega perché un campo è vuoto o cosa manca: si legge come una frase, non
   // come un errore.
   aiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18, marginTop: 4 },
+  prevForm: { gap: 4, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.grigioChiaro },
   spuntaRiga: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 8 },
   spuntaTxt: { flex: 1, color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
   dealScelta: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.goldSoft, borderRadius: radius.md, padding: 10, marginTop: 4 },

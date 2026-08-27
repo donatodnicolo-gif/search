@@ -155,6 +155,17 @@ Deno.serve(async (req) => {
       // con grazia se l'endpoint non esiste ancora su Partner.
       const p = new URLSearchParams({ partner: String(body.partner ?? '') });
       res = await fetch(`${BASE}/api/riepilogo-finanziario?${p.toString()}`, { headers });
+    } else if (body.azione === 'cerca_fattura') {
+      // ⭐ 27/08/2026 — CERCA UNA FATTURA GIÀ EMESSA, per numero.
+      //
+      // Serve alla chiusura di un ordine: prima di emetterne una nuova si
+      // guarda se quella che il cliente ha già ricevuto esiste davvero di là.
+      // ⚠️ Si VERIFICA, non si crede: agganciare un numero scritto a mano
+      // senza controllarlo vorrebbe dire dichiarare fatturato un ordine con
+      // un riferimento che non esiste — e nessuno se ne accorgerebbe finché
+      // qualcuno non va a cercare quella fattura.
+      const p = new URLSearchParams({ numero: String(body.numero ?? '') });
+      res = await fetch(`${BASE}/api/fatture?${p.toString()}`, { headers });
     } else {
       return json({ error: `Azione sconosciuta: ${body.azione}` }, 400);
     }

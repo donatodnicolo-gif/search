@@ -1421,6 +1421,8 @@ export async function aggiornaStarred(placeId: string, starred: boolean): Promis
 /** Ordine arricchito col nome del negozio, per la schermata Ordini. */
 export interface OrdineConLuogo extends Ordine {
   place_nome: string | null;
+  /** Chi lo segue, risolto dal profilo (migr. — solo lettura, mai scritto). */
+  owner_nome?: string | null;
 }
 
 export async function fetchOrdini(): Promise<OrdineConLuogo[]> {
@@ -1429,7 +1431,34 @@ export async function fetchOrdini(): Promise<OrdineConLuogo[]> {
     .select('*, places(nome)')
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((r: any) => ({ ...r, place_nome: r.places?.nome ?? null }));
+  const righe: OrdineConLuogo[] = (data ?? []).map((r: any) => ({
+    ...r,
+    place_nome: r.places?.nome ?? null,
+    owner_nome: null,
+  }));
+  /**
+   * ⚠️ CHI L'HA SEGUITO (27/08/2026, richiesta dell'utente: «per ogni
+   * trattativa e ordine poi indica anche chi è che l'ha seguita»).
+   *
+   * L'`owner` è un uuid: da solo, in tabella, non dice niente a nessuno. Si
+   * risolve in nome con la stessa strada delle trattative (`fetchProfiles` +
+   * `nomeDaProfilo`), e best-effort: se i profili non rispondono gli ordini si
+   * vedono lo stesso col nome vuoto, invece di non vedersi affatto.
+   */
+  const ids = [...new Set(righe.map((r) => (r as any).owner).filter(Boolean))] as string[];
+  if (ids.length) {
+    try {
+      const profili = await fetchProfiles();
+      const nome = new Map(profili.map((p) => [p.id, nomeDaProfilo(p)]));
+      for (const r of righe) {
+        const o = (r as any).owner as string | null;
+        if (o) r.owner_nome = nome.get(o) ?? null;
+      }
+    } catch {
+      // i profili non sono indispensabili: la colonna resta vuota
+    }
+  }
+  return righe;
 }
 
 /**
@@ -1484,7 +1513,7 @@ export async function creaOrdineDaDeal(deal: {
 export async function aggiornaOrdine(
   id: string,
   patch: Partial<
-    Pick<Ordine, 'stato' | 'incassato_il' | 'valore' | 'descrizione' | 'cliente' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota'>
+    Pick<Ordine, 'stato' | 'incassato_il' | 'chiuso_il' | 'valore' | 'valore_unitario' | 'quantita' | 'unita' | 'descrizione' | 'cliente' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('ordini').update(patch).eq('id', id);

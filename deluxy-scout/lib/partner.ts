@@ -158,6 +158,40 @@ export async function chiediFatturaPerOrdine(o: {
   };
 }
 
+/**
+ * Una fattura già emessa, cercata per numero su FINANCE.
+ *
+ * ⚠️ Serve a VERIFICARE prima di agganciare: scrivere un numero di fattura
+ * sull'ordine senza controllare che esista vorrebbe dire dichiararlo fatturato
+ * con un riferimento inventato — e non se ne accorgerebbe nessuno finché
+ * qualcuno non va a cercare quella fattura.
+ */
+export interface FatturaTrovata {
+  trovata: boolean;
+  numero?: string | null;
+  id?: string | null;
+  partner?: { id: string; nome: string } | null;
+  imponibile?: number | null;
+  totale?: number | null;
+  pagata?: boolean;
+  scaduta?: boolean;
+  dataPagamento?: string | null;
+  motivo?: string | null;
+}
+
+export async function cercaFattura(numero: string): Promise<FatturaTrovata> {
+  try {
+    const r = await chiama<FatturaTrovata>({ azione: 'cerca_fattura', numero });
+    return r ?? { trovata: false, motivo: 'Nessuna risposta da FINANCE.' };
+  } catch (e: any) {
+    // Il 404 di FINANCE arriva qui come errore: «non trovata» non è un guasto,
+    // è la risposta — e va detta come tale, o la schermata mostra un rosso che
+    // sembra un problema dell'app.
+    const m = String(e?.message ?? e);
+    return { trovata: false, motivo: /404|non trovat/i.test(m) ? 'Nessuna fattura con questo numero.' : m };
+  }
+}
+
 /** Conferma il pagamento della pro-forma collegata (→ stato "fatturata"). */
 export async function confermaPagamentoProforma(numero: string): Promise<void> {
   await chiama({ azione: 'conferma', numero });

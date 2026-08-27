@@ -363,13 +363,33 @@ export interface Deal {
 }
 
 // I 3 canali di acquisizione (+ altro): territorio, telefono, web.
-export type CanaleTrattativa = 'territorio' | 'telefono' | 'web' | 'altro';
+/**
+ * DA DOVE ARRIVA una vendita.
+ *
+ * ⚠️ 27/08/2026 — aggiunti `mail` e `app` (segnalazione dell'utente: «canale
+ * manca mail e mettici anche App»). Non erano due dimenticanze qualsiasi: la
+ * posta è il canale da cui l'app importa le richieste ogni giorno, e l'app
+ * consegne è quella che ce le manda da sola. Senza queste due voci finivano
+ * tutte in «Altro», e «Altro» era il canale più grosso di tutti — cioè il
+ * conto per canale non diceva niente.
+ *
+ * ⚠️ I valori sono minuscoli e stabili: sono scritti nel database. Cambiare un
+ * valore (non l'etichetta) vuol dire lasciare indietro le righe già salvate.
+ */
+export type CanaleTrattativa = 'territorio' | 'telefono' | 'mail' | 'web' | 'app' | 'altro';
 export const CANALI: { valore: CanaleTrattativa; label: string }[] = [
   { valore: 'territorio', label: 'Territorio' },
   { valore: 'telefono', label: 'Telefono' },
+  { valore: 'mail', label: 'Mail' },
   { valore: 'web', label: 'Web' },
+  { valore: 'app', label: 'App' },
   { valore: 'altro', label: 'Altro' },
 ];
+/** L'etichetta di un canale, col valore grezzo come ripiego: una riga vecchia
+ *  con un canale fuori elenco si legge com'è, non sparisce. */
+export const LABEL_CANALE: Record<string, string> = Object.fromEntries(
+  CANALI.map((c) => [c.valore, c.label]),
+);
 
 // Ordine: il punto d'arrivo del funnel — cosa abbiamo chiuso davvero.
 /**
@@ -407,6 +427,17 @@ export interface Ordine {
   /** Costi collegati che non passano da un preventivo fornitore (migr. 0082).
    *  ⚠️ Entrano nel margine: una colonna di costi che non li toglie racconta
    *  due numeri che non tornano fra loro. */
+  /** Quando la pratica è stata CHIUSA (migr. 0089): fornitura registrata e
+   *  fattura emessa o agganciata. ⚠️ Diverso da `stato = incassato`, che parla
+   *  dei soldi: si può incassare un acconto e chiudere dopo, o chiudere e
+   *  incassare a 60 giorni. */
+  chiuso_il?: string | null;
+  /** Gli INGREDIENTI del valore, quando si vende a unità (migr. 0090).
+   *  ⚠️ `valore` resta il totale: margine, conti dell'anno e pro-forma leggono
+   *  quello. Questi lo spiegano e permettono di rifarlo. */
+  valore_unitario?: number | null;
+  quantita?: number | null;
+  unita?: 'pezzi' | 'giorni' | 'ore' | null;
   altri_costi?: number | null;
   altri_costi_nota?: string | null;
   /** I documenti di FINANCE: solo il riferimento, mai una copia degli importi. */

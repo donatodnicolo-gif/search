@@ -11,7 +11,7 @@ import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
-import { chiediFatturaPerOrdine } from '@/lib/partner';
+import { cercaFattura, chiediFatturaPerOrdine } from '@/lib/partner';
 import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { aggiornaFornitura, aggiungiFornitura, forniturePerOrdine, rimuoviFornitura, type RigaFornitura } from '@/lib/fornitura';
@@ -19,7 +19,7 @@ import { SceltaFornitore, type FornitoreScelto } from '@/components/SceltaFornit
 import { fetchForniture, salvaNelListino, type Fornitura } from '@/lib/forniture';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
-import { BRAND, brandDi, CANALI, LINEE_ATTIVE } from '@/types';
+import { BRAND, brandDi, CANALI, LABEL_CANALE, LINEE_ATTIVE } from '@/types';
 
 const STATI: { valore: OrdineConLuogo['stato']; label: string; colore: string }[] = [
   { valore: 'da_incassare', label: 'Da incassare', colore: '#B7791F' },
@@ -45,6 +45,16 @@ export default function Ordini() {
   const [loading, setLoading] = useState(true);
   const [statoFiltro, setStatoFiltro] = useState<string | null>(null);
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
+  /**
+   * ⭐ IL PERIODO (27/08/2026, richiesta dell'utente: «consenti di filtrare per
+   * periodo con filtri veloci: mese corrente, scorso, trimestre, anno»).
+   *
+   * ⚠️ I confini si calcolano sull'ora LOCALE, non in UTC: un ordine creato
+   * alle 23:30 del 31 agosto, letto con i confini UTC, finisce a settembre — e
+   * il conto del mese non torna con quello che si vede in elenco. È la stessa
+   * trappola già pagata su «oggi».
+   */
+  const [periodo, setPeriodo] = useState<'tutti' | 'mese' | 'scorso' | 'trimestre' | 'anno'>('tutti');
   const [inCorso, setInCorso] = useState<string | null>(null);
   /** L'ordine per cui si sta scegliendo la percentuale dell'acconto. */
   const [accontoPer, setAccontoPer] = useState<OrdineConLuogo | null>(null);
@@ -57,6 +67,19 @@ export default function Ordini() {
    * o una descrizione da correggere obbligavano ad annullarlo e rifarlo — e un
    * ordine annullato resta nell'elenco a dire una cosa che non è successa.
    */
+  /**
+   * ⭐ CHIUDERE L'ORDINE (27/08/2026, richiesta dell'utente: «oltre a incassato
+   * ci deve essere un bottone per chiudere l'ordine; una volta chiuso si
+   * propone l'aggancio con fatture già presenti in finance o se non c'è nessuna
+   * fattura si procede con l'emissione»).
+   *
+   * ⚠️ Chiuso ≠ incassato. Incassato parla dei SOLDI, chiuso della PRATICA:
+   * fornitura registrata, fattura emessa o agganciata, niente più da fare.
+   * Succedono nell'ordine che capita — acconto incassato e pratica aperta, o
+   * pratica chiusa e incasso a 60 giorni — e per questo sono due campi, non
+   * uno stato in più.
+   */
+  const [chiusuraPer, setChiusuraPer] = useState<OrdineConLuogo | null>(null);
   const [modificaPer, setModificaPer] = useState<OrdineConLuogo | null>(null);
   const [bozza, setBozza] = useState<{
     cliente: string;
@@ -67,6 +90,8 @@ export default function Ordini() {
     brand: string | null;
     altriCosti: string;
     altriCostiNota: string;
+    unita: 'pezzi' | 'giorni' | 'ore' | null;
+    quanti: string;
   } | null>(null);
 
   const carica = useCallback(async () => {
@@ -95,12 +120,39 @@ export default function Ordini() {
     [ordini],
   );
 
+  /** I due estremi del periodo scelto, in ora locale. */
+  const finestra = useMemo(() => {
+    const ora = new Date();
+    const a = new Date(ora.getFullYear(), ora.getMonth(), ora.getDate() + 1); // domani a mezzanotte
+    if (periodo === 'mese') return { da: new Date(ora.getFullYear(), ora.getMonth(), 1), a };
+    if (periodo === 'scorso') {
+      return {
+        da: new Date(ora.getFullYear(), ora.getMonth() - 1, 1),
+        // ⚠️ «Mese scorso» finisce dove comincia questo: se arrivasse fino a
+        // oggi conterebbe due mesi e si chiamerebbe come uno.
+        a: new Date(ora.getFullYear(), ora.getMonth(), 1),
+      };
+    }
+    if (periodo === 'trimestre') {
+      const inizio = Math.floor(ora.getMonth() / 3) * 3;
+      return { da: new Date(ora.getFullYear(), inizio, 1), a };
+    }
+    if (periodo === 'anno') return { da: new Date(ora.getFullYear(), 0, 1), a };
+    return null;
+  }, [periodo]);
+
   const dati = useMemo(
     () =>
-      ordini.filter(
-        (o) => (!statoFiltro || o.stato === statoFiltro) && (!lineaFiltro || o.linea === lineaFiltro),
-      ),
-    [ordini, statoFiltro, lineaFiltro],
+      ordini.filter((o) => {
+        if (statoFiltro && o.stato !== statoFiltro) return false;
+        if (lineaFiltro && o.linea !== lineaFiltro) return false;
+        if (finestra) {
+          const q = new Date(o.created_at);
+          if (isNaN(q.getTime()) || q < finestra.da || q >= finestra.a) return false;
+        }
+        return true;
+      }),
+    [ordini, statoFiltro, lineaFiltro, finestra],
   );
 
 
@@ -231,6 +283,17 @@ export default function Ordini() {
         <View style={{ gap: 2 }}>
           <Text style={styles.tabNome} numberOfLines={2}>{o.place_nome ?? o.cliente}</Text>
           {o.descrizione ? <Text style={styles.descr} numberOfLines={1}>{o.descrizione}</Text> : null}
+          {/* ⭐ CHI L'HA SEGUITO (27/08/2026, richiesta dell'utente: «per ogni
+              trattativa e ordine poi indica anche chi è che l'ha seguita»).
+              ⚠️ Sta QUI e non in una colonna sua, e la ragione è misurata: con
+              tredici colonne al nome del cliente restavano 69px. Un nome corto
+              sotto il nome del cliente costa zero larghezza e si legge nello
+              stesso sguardo — una colonna in più li avrebbe resi illeggibili
+              tutti e due.
+              ⚠️ Quando manca non si scrive niente: un ordine senza proprietario
+              è un fatto (nato da un import o da un cron), e attribuirlo a chi
+              guarda sarebbe la bugia più comoda. */}
+          {o.owner_nome ? <Text style={styles.seguitoDa}>Seguito da {o.owner_nome}</Text> : null}
           {/* ⚠️ Il documento sta QUI, sotto il nome, non fra le azioni: è
               un'informazione sull'ordine, non un comando. Nella colonna delle
               azioni rubava lo spazio ai bottoni e li mandava a capo. */}
@@ -269,17 +332,22 @@ export default function Ordini() {
       cella: (o) => <Text style={styles.sitoTxt} numberOfLines={1}>{brandDi(o)}</Text>,
     },
     /**
-     * ⚠️ IL CANALE ESCE PER PRIMO quando lo spazio finisce (27/08/2026,
-     * misurato nel DOM). Con undici colonne al nome del cliente restavano 54px:
-     * qualcosa doveva uscire, e fra tutte questa è la meno cercata — «web» o
-     * «telefono» si legge nella scheda e nella modifica, mentre il nome del
-     * cliente non ha un altrove.
+     * ⚠️ IL CANALE C'È SEMPRE (27/08/2026, richiesta dell'utente: «nella
+     * tabella indica anche il canale da chi arriva»). L'avevo fatto sparire
+     * sotto i 1620 per far posto al nome del cliente: era una scelta mia, e
+     * l'utente ha detto che quella colonna la vuole. Lo spazio si trova
+     * altrove — è per questo che «Linea» e «Fornitore» hanno una misura fissa.
      *
-     * Non sparisce: torna da sola sopra i 1620, dove c'è posto per tutte.
+     * ⚠️ Si mostra l'ETICHETTA, non il valore grezzo: nel database c'è `mail`,
+     * a schermo va «Mail». E il valore grezzo resta come ripiego, così una riga
+     * vecchia con un canale fuori elenco si legge com'è invece di sparire.
      */
-    ...(tutteLeColonne
-      ? ([{ chiave: 'canale', label: 'Canale', width: 50, valore: (o) => o.canale ?? null }] as ColonnaTabella<OrdineConLuogo>[])
-      : []),
+    {
+      chiave: 'canale',
+      label: 'Canale',
+      width: 78,
+      valore: (o) => (o.canale ? LABEL_CANALE[o.canale] ?? o.canale : null),
+    },
     /**
      * QUANTO CI COSTA, accanto a quanto lo vendiamo (richiesta dell'utente).
      * Il fornitore e il suo preventivo vengono dai lavori collegati alla
@@ -441,10 +509,18 @@ export default function Ordini() {
     },
     {
       chiave: 'stato',
+      // ⚠️ Sotto il badge dello stato c'è la pratica: «incassato» e «chiuso»
+      // sono due risposte a due domande diverse, e una riga che mostra solo la
+      // prima fa credere che non ci sia altro da fare.
       label: 'Stato',
       width: 88,
       valore: (o) => o.stato,
-      cella: (o) => <StatusBadge small label={labelStatoOrdine[o.stato]} colore={coloreStatoOrdine[o.stato]} />,
+      cella: (o) => (
+        <View style={{ gap: 2, alignItems: 'flex-start' }}>
+          <StatusBadge small label={labelStatoOrdine[o.stato]} colore={coloreStatoOrdine[o.stato]} />
+          {o.chiuso_il ? <Text style={styles.tabStima}>pratica chiusa</Text> : null}
+        </View>
+      ),
     },
     {
       chiave: 'azioni',
@@ -521,6 +597,30 @@ export default function Ordini() {
                 {...({ title: 'Incassato — i soldi sono arrivati' } as any)}
               >
                 <Ionicons name="checkmark" size={17} color={colors.bianco} />
+              </Pressable>
+              {/* ⚠️ CHIUDI sta ACCANTO a incassato, non al suo posto: sono due
+                  fatti diversi (i soldi / la pratica) e su una riga vanno visti
+                  insieme, o si finisce per usare l'uno per dire l'altro. */}
+              <Pressable
+                style={styles.iconaAzione}
+                hitSlop={8}
+                onPress={(e: any) => {
+                  e?.stopPropagation?.();
+                  if (o.chiuso_il) riapriOrdine(o);
+                  else apriChiusura(o);
+                }}
+                accessibilityLabel={o.chiuso_il ? "Riapri l'ordine" : "Chiudi l'ordine"}
+                {...({
+                  title: o.chiuso_il
+                    ? 'Riapri la pratica'
+                    : 'Chiudi la pratica — fattura emessa o agganciata',
+                } as any)}
+              >
+                <Ionicons
+                  name={o.chiuso_il ? 'lock-open-outline' : 'lock-closed-outline'}
+                  size={16}
+                  color={o.chiuso_il ? colors.goldStrong : colors.grigio}
+                />
               </Pressable>
               <Pressable
                 style={styles.iconaAzione}
@@ -721,6 +821,8 @@ export default function Ordini() {
       brand: brandDi(o),
       altriCosti: scriviImporto(o.altri_costi),
       altriCostiNota: o.altri_costi_nota ?? '',
+      unita: o.unita ?? null,
+      quanti: o.quantita != null ? String(o.quantita) : '',
     });
   }
 
@@ -748,7 +850,22 @@ export default function Ordini() {
     if (nome !== (modificaPer.cliente ?? '')) patch.cliente = nome;
     const descr = bozza.descrizione.trim() || null;
     if (descr !== (modificaPer.descrizione ?? null)) patch.descrizione = descr;
-    if (valore !== (modificaPer.valore ?? null)) patch.valore = valore;
+    /**
+     * ⚠️ IL VALORE È SEMPRE IL TOTALE (27/08/2026, richiesta dell'utente: «le
+     * opzioni di valore e se sono riferite a quantità, giorno o ora mettile
+     * anche qui»). Con l'unità scelta, il numero scritto sopra è il prezzo di
+     * UNA e il totale è il prodotto: margine, conti dell'anno, percentuale e
+     * pro-forma leggono `valore`, e mettendoci l'unitario un ordine da «45 ×
+     * 30» varrebbe 45 anche sul documento mandato al cliente.
+     */
+    const q = bozza.quanti.trim() ? Number(bozza.quanti.replace(',', '.')) : null;
+    const aUnita = bozza.unita && valore != null && q != null && Number.isFinite(q) && q > 0;
+    const totale = aUnita ? Math.round(valore! * q! * 100) / 100 : valore;
+    if (totale !== (modificaPer.valore ?? null)) patch.valore = totale;
+    const unitario = aUnita ? valore : null;
+    if (unitario !== (modificaPer.valore_unitario ?? null)) patch.valore_unitario = unitario;
+    if ((aUnita ? q : null) !== (modificaPer.quantita ?? null)) patch.quantita = aUnita ? q : null;
+    if ((aUnita ? bozza.unita : null) !== (modificaPer.unita ?? null)) patch.unita = aUnita ? bozza.unita : null;
     if ((bozza.linea ?? null) !== (modificaPer.linea ?? null)) patch.linea = bozza.linea;
     if ((bozza.canale ?? null) !== (modificaPer.canale ?? null))
       patch.canale = bozza.canale as OrdineConLuogo['canale'];
@@ -821,6 +938,33 @@ export default function Ordini() {
     );
   }
 
+  /**
+   * ⚠️ IL DIVIETO VALE ANCHE QUI, ed è il posto per cui era nato (richiesta
+   * dell'utente: «la fornitura va indicata obbligatoria prima di mettere
+   * l'ordine come chiuso»). Chiudere senza sapere quanto è costato vuol dire
+   * archiviare un ricavo senza il suo costo: il margine di quell'ordine resta
+   * un numero inventato, e nessuno ci tornerà più sopra.
+   */
+  function apriChiusura(o: OrdineConLuogo) {
+    if (!haFornitura(o)) {
+      avvisa(
+        'Manca la fornitura',
+        'Prima di chiudere bisogna dire chi ha fornito e a quanto: senza, il ricavo entra nei conti e il suo costo no.\n\nSi scrive dalla modifica dell\'ordine, sezione «Fornitura».',
+      );
+      return;
+    }
+    setChiusuraPer(o);
+  }
+
+  async function riapriOrdine(o: OrdineConLuogo) {
+    try {
+      await aggiornaOrdine(o.id, { chiuso_il: null });
+      carica();
+    } catch (e: any) {
+      avvisa('Non riaperto', String(e?.message ?? e));
+    }
+  }
+
   async function cambiaStato(o: OrdineConLuogo, stato: OrdineConLuogo['stato']) {
     // ⚠️ Il divieto sta QUI, non solo sul bottone: la stessa funzione la
     // chiamano l'icona in tabella e il bottone della scheda, e una regola
@@ -877,6 +1021,22 @@ export default function Ordini() {
             ))}
           </View>
         ) : null}
+        {/* ⭐ IL PERIODO (27/08/2026): quattro scorciatoie, non un
+            calendario. La domanda vera e quella di tutti i giorni — «come sta
+            andando questo mese?» — e per farsela non si deve scegliere due
+            date. */}
+        <View style={styles.chips}>
+          <Text style={styles.gruppoTitolo}>Periodo</Text>
+          {([
+            { v: 'tutti', l: 'Sempre' },
+            { v: 'mese', l: 'Questo mese' },
+            { v: 'scorso', l: 'Mese scorso' },
+            { v: 'trimestre', l: 'Trimestre' },
+            { v: 'anno', l: 'Anno' },
+          ] as const).map((o) => (
+            <Chip key={o.v} label={o.l} on={periodo === o.v} onPress={() => setPeriodo(o.v)} />
+          ))}
+        </View>
       </View>
 
       <FlatList
@@ -1091,6 +1251,17 @@ export default function Ordini() {
           chi compra, cos'è, quanto vale, linea e canale. Lo STATO non sta qui:
           ha i suoi bottoni, e mescolarlo a un form lo farebbe cambiare per
           sbaglio insieme a una correzione di battitura. */}
+      {chiusuraPer ? (
+        <ChiusuraOrdine
+          ordine={chiusuraPer}
+          onClose={() => setChiusuraPer(null)}
+          onFatto={() => {
+            setChiusuraPer(null);
+            carica();
+          }}
+        />
+      ) : null}
+
       {modificaPer && bozza ? (
         <Foglio
           titolo="Modifica l'ordine"
@@ -1141,6 +1312,64 @@ export default function Ordini() {
             Lasciandolo vuoto il valore torna sconosciuto (non zero). Il margine si ricalcola da solo sul
             preventivo del fornitore.
           </Text>
+
+          {/* ⭐ IL VALORE A UNITÀ (27/08/2026): le stesse opzioni dei preventivi,
+              dall'altra parte del conto — là quanto ci costa, qui quanto lo
+              vendiamo. Facoltative: senza scelta il numero sopra è il totale. */}
+          <Text style={styles.campoLabel}>Il valore è… (facoltativo)</Text>
+          <View style={styles.chipsForm}>
+            {([
+              { v: 'pezzi', l: 'a pezzo / a persona' },
+              { v: 'giorni', l: 'al giorno' },
+              { v: 'ore', l: "all'ora" },
+            ] as const).map((o) => (
+              <Pressable
+                key={o.v}
+                style={[styles.chip, bozza.unita === o.v && styles.chipOn]}
+                onPress={() => setBozza({ ...bozza, unita: bozza.unita === o.v ? null : o.v })}
+              >
+                <Text style={[styles.chipTxt, bozza.unita === o.v && styles.chipTxtOn]}>{o.l}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {bozza.unita ? (
+            <>
+              <Text style={styles.campoLabel}>
+                {bozza.unita === 'pezzi' ? 'Quante persone / pezzi' : bozza.unita === 'giorni' ? 'Quanti giorni' : 'Quante ore'}
+              </Text>
+              <TextInput
+                style={styles.campo}
+                value={bozza.quanti}
+                onChangeText={(v) => setBozza({ ...bozza, quanti: v })}
+                placeholder={bozza.unita === 'pezzi' ? 'es. 30' : bozza.unita === 'giorni' ? 'es. 3' : 'es. 8'}
+                placeholderTextColor={colors.grigio}
+                inputMode="decimal"
+              />
+              {/* ⚠️ Il totale si VEDE prima di salvare: è quello che finisce nel
+                  margine, nei conti dell'anno e sul documento del cliente. Un
+                  conto fatto dall'app e mai mostrato è un conto che nessuno
+                  controlla. */}
+              {(() => {
+                const u = bozza.valore.trim() ? leggiImporto(bozza.valore) : null;
+                const q = bozza.quanti.trim() ? Number(bozza.quanti.replace(',', '.')) : null;
+                if (u == null || q == null || !Number.isFinite(q) || q <= 0) {
+                  return (
+                    <Text style={styles.campoAiuto}>
+                      Scrivi sopra il prezzo di una unità e qui quante ne sono: il totale lo calcola l&apos;app.
+                    </Text>
+                  );
+                }
+                return (
+                  <Text style={styles.campoAiuto}>
+                    {scriviImporto(u)} × {q} ={' '}
+                    <Text style={{ fontWeight: '800' }}>€ {scriviImporto(Math.round(u * q * 100) / 100)}</Text> — è
+                    questo che finisce nel margine e sul documento.
+                  </Text>
+                );
+              })()}
+            </>
+          ) : null}
 
           {/* ⭐ LA FORNITURA (27/08/2026, richiesta dell'utente: «possibilità di
               scelta di uno o più fornitori (integrata ricerca con anagrafiche)
@@ -1314,6 +1543,203 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
  * lo stesso che il margine sottrae e che la colonna Preventivo mostra — invece
  * di essere un secondo costo che nessuno somma con il primo.
  */
+/**
+ * LA CHIUSURA DI UN ORDINE, e la domanda che la accompagna: questa vendita è
+ * già fatturata?
+ *
+ * Tre strade, e sono tre perché la realtà ne ha tre:
+ *  1. la fattura ESISTE già di là — si scrive il numero, l'app la VERIFICA su
+ *     FINANCE e la aggancia. ⚠️ Si verifica, non si crede: un numero scritto a
+ *     mano e mai controllato dichiara fatturato un ordine con un riferimento
+ *     che non esiste, e non se ne accorge nessuno.
+ *  2. non esiste — si emette, con la strada che l'app ha già.
+ *  3. non serve (fattura fuori app, cliente privato, nota di credito) — si
+ *     chiude lo stesso, ma la scelta è esplicita e scritta.
+ */
+function ChiusuraOrdine({
+  ordine,
+  onClose,
+  onFatto,
+}: {
+  ordine: OrdineConLuogo;
+  onClose: () => void;
+  onFatto: () => void;
+}) {
+  const [numero, setNumero] = useState('');
+  const [cerco, setCerco] = useState(false);
+  const [trovata, setTrovata] = useState<Awaited<ReturnType<typeof cercaFattura>> | null>(null);
+  const [inCorso, setInCorso] = useState<string | null>(null);
+
+  const giaFatturato = Boolean(ordine.fattura_numero);
+
+  async function verifica() {
+    const n = numero.trim();
+    if (!n || cerco) return;
+    setCerco(true);
+    setTrovata(null);
+    try {
+      setTrovata(await cercaFattura(n));
+    } finally {
+      setCerco(false);
+    }
+  }
+
+  async function chiudi(conNota: string) {
+    setInCorso(conNota);
+    try {
+      await aggiornaOrdine(ordine.id, { chiuso_il: new Date().toISOString() });
+      onFatto();
+    } catch (e: any) {
+      avvisa('Non chiuso', String(e?.message ?? e));
+    } finally {
+      setInCorso(null);
+    }
+  }
+
+  async function agganciaEChiudi() {
+    if (!trovata?.trovata) return;
+    setInCorso('aggancia');
+    try {
+      await collegaDocumentoAOrdine(ordine.id, { fatturaNumero: trovata.numero ?? numero.trim() });
+      await aggiornaOrdine(ordine.id, { chiuso_il: new Date().toISOString() });
+      onFatto();
+    } catch (e: any) {
+      avvisa('Non agganciata', String(e?.message ?? e));
+    } finally {
+      setInCorso(null);
+    }
+  }
+
+  async function emettiEChiudi() {
+    if (ordine.valore == null) {
+      avvisa('Manca il valore', 'Senza il valore dell\'ordine non si può emettere una fattura: si scrive dalla modifica.');
+      return;
+    }
+    setInCorso('emetti');
+    try {
+      const esito = await chiediFatturaPerOrdine({
+        cliente: ordine.place_nome ?? ordine.cliente,
+        importo: ordine.valore,
+        causale: ordine.descrizione,
+        proformaNumero: ordine.proforma_numero,
+      });
+      await collegaDocumentoAOrdine(ordine.id, {
+        proformaNumero: esito.riferimento,
+        proformaUrl: esito.url,
+        ...(esito.fatturaNumero ? { fatturaNumero: esito.fatturaNumero } : {}),
+      });
+      await aggiornaOrdine(ordine.id, { chiuso_il: new Date().toISOString() });
+      onFatto();
+    } catch (e: any) {
+      // ⚠️ Il messaggio di FINANCE si mostra INTERO: «Partner non trovato» coi
+      // candidati dice cosa fare, «non riuscito» manda a indovinare.
+      avvisa('Fattura non emessa', String(e?.message ?? e));
+    } finally {
+      setInCorso(null);
+    }
+  }
+
+  return (
+    <Foglio
+      titolo="Chiudi l'ordine"
+      sottotitolo={`${ordine.place_nome ?? ordine.cliente} · ${euro(ordine.valore)}. Chiudere vuol dire: pratica finita. L'incasso è un'altra cosa.`}
+      onClose={onClose}
+    >
+      {giaFatturato ? (
+        <>
+          <Text style={styles.campoAiuto}>
+            Questo ordine ha già la fattura {ordine.fattura_numero}. Non c&apos;è altro da fare: si può chiudere.
+          </Text>
+          <Pressable
+            style={[styles.btn, styles.btnLargo, inCorso === 'gia' && { opacity: 0.5 }]}
+            disabled={!!inCorso}
+            onPress={() => chiudi('gia')}
+          >
+            <Text style={styles.btnTxt}>Chiudi l&apos;ordine</Text>
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <Text style={styles.campoLabel}>Hai già la fattura?</Text>
+          <Text style={styles.campoAiuto}>
+            Scrivi il numero e l&apos;app la cerca su FINANCE: si aggancia solo se esiste davvero.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TextInput
+              style={[styles.campo, { flex: 1 }]}
+              value={numero}
+              onChangeText={setNumero}
+              placeholder="es. 181/2026"
+              placeholderTextColor={colors.grigio}
+              autoCapitalize="none"
+            />
+            <Pressable
+              style={[styles.btnCerca, (!numero.trim() || cerco) && { opacity: 0.5 }]}
+              disabled={!numero.trim() || cerco}
+              onPress={verifica}
+            >
+              <Text style={styles.btnCercaTxt}>{cerco ? 'Cerco…' : 'Cerca'}</Text>
+            </Pressable>
+          </View>
+
+          {trovata ? (
+            trovata.trovata ? (
+              <>
+                <Text style={styles.chiusuraOk}>
+                  Trovata: {trovata.numero ?? numero.trim()}
+                  {trovata.partner?.nome ? ` · ${trovata.partner.nome}` : ''}
+                  {trovata.totale != null ? ` · ${importoBreve(trovata.totale)}` : ''}
+                  {trovata.pagata ? ' · pagata' : trovata.scaduta ? ' · scaduta' : ' · non pagata'}
+                </Text>
+                {/* ⚠️ Il nome sulla fattura può essere di un ALTRO cliente: si
+                    mostra, e a confrontarlo è la persona. Agganciare in
+                    automatico una fattura intestata a qualcun altro sarebbe il
+                    modo più veloce di sbagliare due pratiche insieme. */}
+                <Pressable
+                  style={[styles.btn, styles.btnLargo, inCorso === 'aggancia' && { opacity: 0.5 }]}
+                  disabled={!!inCorso}
+                  onPress={agganciaEChiudi}
+                >
+                  <Text style={styles.btnTxt}>Aggancia questa fattura e chiudi</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Text style={styles.chiusuraNo}>{trovata.motivo ?? 'Nessuna fattura con questo numero.'}</Text>
+            )
+          ) : null}
+
+          <Text style={[styles.campoLabel, { marginTop: 10 }]}>Oppure emettila adesso</Text>
+          <Pressable
+            style={[styles.btnGhostLargo, inCorso === 'emetti' && { opacity: 0.5 }]}
+            disabled={!!inCorso}
+            onPress={emettiEChiudi}
+          >
+            <Ionicons name="document-text-outline" size={16} color={colors.navy} />
+            <Text style={styles.btnGhostLargoTxt}>
+              {inCorso === 'emetti' ? 'Emetto…' : 'Emetti la fattura su FINANCE e chiudi'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.chiudiSenza}
+            disabled={!!inCorso}
+            onPress={() =>
+              conferma(
+                'Chiudere senza fattura?',
+                'L\'ordine risulterà chiuso ma senza documento collegato. Va bene se la fattura è stata fatta fuori dall\'app — altrimenti resta un ricavo senza carta.',
+                () => chiudi('senza'),
+                { testoConferma: 'Chiudi lo stesso' },
+              )
+            }
+          >
+            <Text style={styles.chiudiSenzaTxt}>Chiudi senza fattura</Text>
+          </Pressable>
+        </>
+      )}
+    </Foglio>
+  );
+}
+
 function BloccoFornitura({
   ordine,
   righe,
@@ -1564,6 +1990,18 @@ function BloccoFornitura({
 }
 
 const styles = StyleSheet.create({
+  btnCerca: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 16, justifyContent: 'center' },
+  btnCercaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 13 },
+  btnGhostLargo: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco,
+    borderRadius: radius.pill, paddingVertical: 12,
+  },
+  btnGhostLargoTxt: { color: colors.navy, fontWeight: '700', fontSize: 13.5 },
+  chiusuraOk: { color: '#2F7D46', fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  chiusuraNo: { color: colors.errore, fontSize: 13, lineHeight: 18 },
+  chiudiSenza: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },
+  chiudiSenzaTxt: { color: colors.grigio, fontSize: 12.5, fontWeight: '600' },
   spuntaRiga: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 4 },
   spuntaTxt: { flex: 1, color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
   listinoRiga: {
@@ -1635,6 +2073,7 @@ const styles = StyleSheet.create({
   // NON implementa hitSlop — la prop viene scartata in silenzio da View —
   // quindi sul sito il bersaglio era esattamente il glifo, 16px. hitSlop resta
   // per iOS/Android, dove funziona; il padding vale su tutte e due.
+  seguitoDa: { color: colors.grigio, fontSize: 11, lineHeight: 15 },
   sitoTxt: { color: colors.testoSoft, fontSize: 11.5, fontWeight: '600' },
   brandTxt: { color: colors.goldStrong, fontSize: 10.5, fontWeight: '700' },
   riepilogoMobile: { paddingBottom: 8 },
