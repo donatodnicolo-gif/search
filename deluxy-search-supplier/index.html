@@ -2066,9 +2066,14 @@ async function anagLookup(geo, categorie){
   // "Città Metropolitana di Firenze" / "Provincia di Como" → "Firenze" / "Como"
   const provCity = (geo.provLong||'').replace(/^(città metropolitana di|provincia di|metropolitan city of|province of)\s*/i,'').trim();
   const provinceVals = [...new Set([geo.provShort, provCity, geo.provLong].filter(Boolean).map(v=>v.toUpperCase()))];
+  // Ripiego per CITTÀ: la città di consegna vera (geo.city) prima del capoluogo.
+  // Serve alle consegne all'ESTERO (es. deluxyflowers a Ludwigsburg): lì nessuna
+  // provincia italiana combacia, ma un fornitore che abbiamo in quella città sì —
+  // così sale in cima come i prospect, invece di restare invisibile.
+  const cityVals = [...new Set([geo.city, provCity].filter(Boolean).map(v=>v.toUpperCase()))];
   const stages = [
     { campo:'provincia', valori: provinceVals, scope: 'provincia '+(geo.provShort||provCity||geo.provLong) },
-    { campo:'citta',     valori:[provCity],    scope: provCity+' (capoluogo)' },
+    { campo:'citta',     valori: cityVals,     scope: (geo.city || provCity) + (geo.country && geo.country!=='IT' ? '' : ' (città)') },
   ];
   let scope = '';
   for (const st of stages){
