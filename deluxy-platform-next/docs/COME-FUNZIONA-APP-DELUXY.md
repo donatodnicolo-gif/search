@@ -156,6 +156,27 @@ Data consegna\* · Indirizzo destinatario · Partner · Servizio\* · Fascia ora
 - ⚠️ La **voce** la trascrive il **browser** (Web Speech API), non l'AI: dove il riconoscimento vocale non esiste (Firefox, iOS datati) il bottone 🎤 non compare. Le **immagini** le legge davvero, fino a **4 MB**.
 - ⚠️ Serve la chiave Anthropic in **Impostazioni → `aiApiKey`**. Senza chiave il pannello **non si mostra** (`/settings/public` espone il solo booleano `aiAttiva`, mai la chiave).
 
+#### Più consegne insieme **[NUOVO 27/08/2026]**
+
+Per **Admin e Operation** ogni riga della lista ha una casella: spuntandone una o più compare in cima la barra delle azioni — **stato**, **assegna valet**, **plus/minus valet**, ed **elimina** (solo Admin). Rotte `PATCH /api/v1/deliveries/massa/{stato|assegna|plus-valet|elimina}`.
+
+- Le azioni di massa **non hanno regole proprie**: richiamano una per una quelle del caso singolo, quindi log, calcolo della paga e stati ammessi restano gli stessi.
+- L'esito è **per consegna**: «fatto su 17, 3 non sono riuscite, la prima dice…». Massimo **200** consegne per volta.
+- **Assegna**: si offrono solo i valet **attivi** che coprono la provincia di **tutte** le consegne scelte (le province si intersecano). Se nessuno le copre tutte, il pannello lo dice.
+- La selezione vale per la **pagina corrente** e si azzera cambiando pagina o filtro.
+
+**La vista si ricorda** **[NUOVO 27/08/2026]**: giorno, intervallo, stato, ricerca, vista e pagina finiscono nell'indirizzo. Il «← Consegne» del dettaglio e il tasto indietro del browser riportano alla lista **com'era**, non a oggi.
+
+### 3.1-bis Servizi ricorrenti (`/recurring-services`) **[NUOVO]**
+
+Il presidio che si ripete: «da lunedì a venerdì 7–8 per un partner». Si sceglie **come si ripete** (ogni N settimane con i giorni a chips · ogni N giorni · ogni N mesi con i giorni del mese), la **fascia**, il periodo, l'indirizzo di consegna e quello di **ritiro — proposto in automatico dall'indirizzo del partner scelto**. Aperto anche ai **Partner** per i propri, senza valet né prezzi: vale il listino che hanno già (il server li sovrascrive, non si fida del form).
+
+- **Fasce diverse per certi giorni** **[27/08/2026]**: «lun–ven 7–8, sabato e domenica 8–9». Si dichiara solo ciò che cambia; i giorni senza eccezione usano la fascia normale. Due eccezioni **non possono** rivendicare lo stesso giorno (si rifiuta col nome del giorno), e su un settimanale un'eccezione su un giorno che il servizio non fa **si rifiuta** invece di non scattare mai. L'eccezione può portare anche un **valet diverso**.
+- **Fin dove si genera** **[27/08/2026]**: se il servizio ha una **data di fine**, l'orizzonte è quella; senza, è una finestra mobile di **14 giorni** che la corsa notturna fa scorrere. Tetti: 400 giorni e 600 consegne per corsa, e il tetto raggiunto viene dichiarato. La generazione parte **subito** alla creazione e alla modifica, oltre che dal bottone e dal cron delle 02:30.
+- **Modifica** **[27/08/2026]**: cambiando un ricorrente, le consegne **future e non ancora lavorate** vengono rimesse in riga (fascia, valet, indirizzi, prezzo) e quelle dei giorni che non tocca più vengono **annullate**. Non si toccano né quelle di oggi né quelle già accettate o consegnate.
+- **Il prezzo viene dal listino** **[27/08/2026]**: senza prezzo scritto a mano vale il listino del partner per quel servizio (per i servizi a ora, moltiplicato per le ore), e la paga valet dal listino del valet. Prima nascevano a **zero**.
+- La coppia (servizio, data) **non si rigenera**: una consegna cancellata a mano resta cancellata.
+
 ### 3.2 Activities (`/activities`)
 
 - Vista VALET ACTIVITIES: attività di ritiro e consegna per ogni valet, ordinate per orario; filtro per valet; bottone STORICO; bottone "Reorder with time".

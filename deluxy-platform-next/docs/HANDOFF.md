@@ -57,9 +57,69 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 27 agosto 2026 (compila con l'AI nel form consegna; i suggerimenti Google che non uscivano nei ricorrenti; tre collegamenti ancora spenti nelle impostazioni). ⚠️ Le sezioni intestate «27/08» del corpo più vecchio descrivono lavoro del 26/08: per l'ordine vero guardare `git log`, non le intestazioni.
+**Ultimo aggiornamento:** 27 agosto 2026, pomeriggio (consegne a gruppi; la vista che si ricorda; ricorrenti: eccezioni per giorno, orizzonte alla data di fine, listino applicato).
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### 🧰 27/08/2026 (pomeriggio) — Consegne a gruppi, la vista che si ricorda, e i ricorrenti che ora fanno quello che dichiarano
+
+**① PIÙ CONSEGNE INSIEME** (admin e operation): si spuntano le righe e si
+cambia stato, si assegna il valet, si scrive il plus/minus, si eliminano
+(l'ultima solo admin).
+
+⚠️ Le rotte `/deliveries/massa/*` **non riscrivono le regole**: richiamano una
+per una le stesse funzioni del caso singolo — log, calcolo della paga,
+permessi, stati ammessi restano scritti in un posto solo. E l'esito è **per
+consegna**: «fatto su 17, 3 non sono riuscite, la prima dice…». Un «fatto»
+generico con tre fallite sarebbe una bugia comoda. Tetto di **200 id** per
+chiamata: una lista senza limiti va in timeout **a metà**, e a metà vuol dire
+con una parte già cambiata e nessuno che lo sa.
+
+⚠️ Per l'assegnazione di massa le province si **intersecano**, non si prende
+quella della prima: venti consegne fra Milano e Roma non possono andare a un
+valet che copre solo Milano.
+
+**② SOLO VALET ATTIVI.** Il filtro c'era solo nel dettaglio: il pop-up della
+LISTA offriva anche gli spenti. Su **287 valet in archivio ne sono attivi 62**
+— ne offriva 225 con cui non lavoriamo più. Assegnare a un valet spento non dà
+errore: dà una consegna che nessuno andrà a fare.
+
+**③ LA VISTA SI RICORDA.** I filtri finiscono nell'indirizzo (con `replaceUrl`,
+se no ogni cambio di filtro lascerebbe una tappa) e in `sessionStorage`. Il «←
+Consegne» faceva `location.back()` con ripiego su `/deliveries`: in una scheda
+nuova `history.length` è comunque > 1 e si usciva dall'app, e il ripiego
+riportava la lista a **oggi**.
+
+**④ L'ORIZZONTE È LA DATA DI FINE.** Segnalato dall'utente: «io ho messo che è
+così fino al 31.12» ma si generavano 14 giorni. Chi scrive una data di fine ha
+già detto fin dove vuole vedere. Senza data di fine resta la finestra mobile di
+due settimane. Tetti: **400 giorni**, **600 consegne per corsa**, e il tetto
+raggiunto si **dichiara**.
+
+**⑤ IL LISTINO NON VENIVA APPLICATO.** Segnalato dall'utente. Si scriveva
+`r.price ?? 0`: senza prezzo scritto a mano la consegna nasceva a **ZERO**, non
+«da listino». Uno zero non è un dato mancante, è un numero: entra nei conti e
+nessuno lo vede come sbagliato guardando la consegna.
+
+✅ **Misurato** (`scripts/prova-azioni-di-massa.mjs`, consegne usa-e-getta poi
+cancellate davvero): con `dataFine` 31/12 → **91 consegne dal 27/08 al 31/12**,
+tetto non raggiunto · listino **91 su 91**, zero a zero · stato di massa 10/10 ·
+assegnazione 10/10 a un valet vero · plus 10/10 · i tre rifiuti (lista vuota,
+stato inesistente, 201 id) col motivo · un id inesistente in mezzo non ferma le
+altre («riuscite 3, fallita 1, Consegna non trovata»).
+
+⚠️ **La prima corsa di prova era invalida**: la porta era ancora occupata dal
+server precedente (`EADDRINUSE`), le rotte erano mappate ma il server nuovo non
+era partito e le chiamate colpivano quello vecchio. I tre 404 e i due «✘» di
+quella corsa avevano **una causa sola**, non tre difetti.
+
+**⑥ CORRETTO CIÒ CHE IL DIFETTO AVEVA GIÀ SCRITTO.** Il ricorrente vero
+«Consegne x EL Piattin» (MALI'A) aveva 10 consegne a prezzo **zero**: la
+generazione è idempotente e non le avrebbe riscritte. Corrette a mano dal
+listino (**12 €**, con un log su ciascuna) ed esteso il periodo: adesso **91
+consegne fino al 31/12/2026, zero a prezzo zero**.
+
+Commit `96a63263`; deploy `delivery-4mqgi7sda`.
 
 ### ✨ 27/08/2026 — La consegna si detta, si incolla o si fotografa; e i suggerimenti mancanti nei ricorrenti
 
