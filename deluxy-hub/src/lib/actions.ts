@@ -33,7 +33,14 @@ function destinazioneSicura(da: string): string {
   try {
     const u = new URL(da, "http://interno.invalido");
     if (u.origin !== "http://interno.invalido") return "/";
-    return u.pathname + u.search + u.hash;
+    const dest = u.pathname + u.search + u.hash;
+    // NON basta guardare l'origine e restituire il pathname: la normalizzazione
+    // dei dot-segment può portare il pathname a iniziare con «//» (es.
+    // `/.//host` → `//host`, protocol-relative → dominio esterno). Una seconda
+    // risoluzione del risultato lo cattura — se ora l'origine cambia o l'URL è
+    // malformato, non è interno. (Bug trovato dal giro ostile sulle patch.)
+    if (new URL(dest, "http://interno.invalido").origin !== "http://interno.invalido") return "/";
+    return dest;
   } catch {
     return "/";
   }
@@ -143,6 +150,7 @@ export async function aggiornaUtente(fd: FormData) {
     attivo: boolean;
     appAbilitate: string[];
     passwordHash?: string;
+    sessioniValideDa?: Date;
   } = {
     nome,
     ruolo,
@@ -152,6 +160,11 @@ export async function aggiornaUtente(fd: FormData) {
   if (password) {
     if (password.length < 8) redirect("/utenti?errore=password");
     dati.passwordHash = await hashPassword(password);
+    // Un reset da amministratore serve spesso proprio quando un account è
+    // compromesso: deve buttare fuori le sessioni esistenti come fa il cambio
+    // password in self-service, altrimenti un cookie rubato resta valido fino
+    // alla scadenza (30 giorni). Troncato al secondo, come in cambiaMiaPassword.
+    dati.sessioniValideDa = new Date(Math.floor(Date.now() / 1000) * 1000);
   }
 
   await prisma.utente.update({ where: { id }, data: dati });

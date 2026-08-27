@@ -465,6 +465,13 @@ solida (scrypt, HMAC a tempo costante, token per hash).
   entropia cercati per hash. Da fare quando c'e' l'infrastruttura.
 - **Token SSO nell'URL** (R8): mitigato (AES-GCM, 60s, monouso di fatto). Il fix
   (POST invece di GET) toccherebbe il `/api/sso` di TUTTE le app di destinazione.
+
+**Giro ostile FINALE sulle patch (stesso giorno) — ha trovato un residuo vero:**
+- 🔴→✅ **L'anti-open-redirect era ancora bucato**: `destinazioneSicura` controllava l'origine ma restituiva il `pathname`, e la normalizzazione dei dot-segment porta `/.//host` (e `/..//host`) a un pathname `//host` = protocol-relative → dominio esterno. Le varianti a blacklist erano già chiuse, ma i dot-segment le aggiravano. **Corretto ri-risolvendo il risultato finale** con un secondo `new URL(dest, …)` e scartando se l'origine cambia; provato su 15 vettori, 0 bypass. ⭐ **Lezione: un origin-check che poi restituisce il pathname è mezzo controllo — il valore che ESCE va rivalidato, non solo l'input.**
+- 🔴→✅ **Il reset password da ADMIN non revocava le sessioni** (solo il self-service lo faceva): un account compromesso a cui l'admin cambiava la password teneva il cookie rubato fino a scadenza. Aggiunto `sessioniValideDa = now` anche in `aggiornaUtente` quando cambia la password. (Chi resetta la PROPRIA password dal pannello /utenti viene disconnesso — atteso.)
+- ⚠️ **Finestra di 1 secondo** nella revoca (il troncamento al secondo, necessario per non auto-invalidare il cookie riemesso): una sessione emessa nello stesso secondo del cambio password sopravvive. L'ostile stesso la dice «praticamente irrilevante». Costo del compromesso.
+- ✅ **Le altre 5 correzioni: CHIUSE, nessuna regressione dura** — login anonimo senza query sprecata, `cache()` request-scoped (niente leak fra utenti), certificati e header reggono.
+
 ## 6. Deploy e ambiente (Vercel)
 
 - Progetto: **`deluxy/deluxy-hub`** (CLI già autenticata come `donatodnicolo-gif`).
