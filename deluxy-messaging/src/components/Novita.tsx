@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { avvisaSessioneScaduta } from '@/lib/leggi-json'
 import { usePathname, useRouter } from 'next/navigation'
 import type { Novita as NovitaDto } from '@/lib/novita'
 
@@ -100,6 +101,7 @@ export function Novita() {
       // rotta venisse tolta dal middleware).
       const ct = res.headers.get('content-type') ?? ''
       if (res.status === 401 || res.redirected || !ct.includes('application/json')) {
+        avvisaSessioneScaduta()
         spento.current = true
         return
       }

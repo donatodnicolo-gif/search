@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { chiediJson, frasePerEsito } from '@/lib/leggi-json'
 
 // Fare un ordine per un cliente al telefono, senza uscire dall'app.
 //
@@ -113,14 +114,37 @@ export function NuovoOrdine({
     inviato: boolean
   } | null>(null)
 
+  // ⚠️⚠️ SEGNALATO IL 27/08/2026: «nel creare un nuovo ordine non vede quali
+  // sono i negozi». Prima qui c'era `r.ok ? r.json() : { negozi: [] }` con un
+  // `.catch(() => setNegozi([]))`: **qualunque** cosa andasse storta diventava
+  // «non ci sono negozi», cioè una tendina col solo «Scegli…» e nessun
+  // messaggio. E il caso che capita davvero è la sessione scaduta con l'app
+  // aperta in una scheda: il middleware fa un 307 verso /login, `fetch` lo
+  // segue, `r.ok` è **vero**, e si finisce nel ramo della lista vuota.
+  // Adesso i tre casi si distinguono e si dicono (`src/lib/leggi-json.ts`).
+  const [negoziNota, setNegoziNota] = useState('')
   useEffect(() => {
-    fetch('/api/ordini?gestione=gestito')
-      .then((r) => (r.ok ? r.json() : { negozi: [] }))
-      .then((d: { negozi?: Negozio[] }) => {
-        setNegozi(d.negozi ?? [])
-        if (d.negozi?.length === 1) setNegozioId(d.negozi[0].id)
-      })
-      .catch(() => setNegozi([]))
+    let vivo = true
+    chiediJson<{ negozi?: Negozio[] }>('/api/ordini?gestione=gestito').then((e) => {
+      if (!vivo) return
+      if (e.stato !== 'ok') {
+        setNegoziNota(frasePerEsito(e))
+        return
+      }
+      const n = e.dati.negozi ?? []
+      setNegozi(n)
+      setNegoziNota(
+        n.length
+          ? ''
+          : // ⚠️ Zero negozi è un caso vero e diverso da un guasto: si dice
+            // dove si aggiungono, invece di lasciare una tendina muta.
+            'Nessun negozio configurato: li aggiunge un amministratore dalla pagina Negozi.'
+      )
+      if (n.length === 1) setNegozioId(n[0].id)
+    })
+    return () => {
+      vivo = false
+    }
   }, [])
 
   // ⚠️ Le spedizioni si rileggono a ogni cambio di negozio, e la più usata si
@@ -428,6 +452,9 @@ export function NuovoOrdine({
                 </option>
               ))}
             </select>
+            {/* ⚠️ La nota sta ATTACCATA alla tendina, non in cima alla pagina:
+                è lì che si guarda quando non si trova il proprio negozio. */}
+            {negoziNota ? <span className="avviso-errore">{negoziNota}</span> : null}
           </label>
           <label className="campo" style={{ gridColumn: '1 / -1' }}>
             {/* ── Richiamare un cliente già registrato ──

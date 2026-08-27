@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { avvisaSessioneScaduta } from '@/lib/leggi-json'
 import { usePathname } from 'next/navigation'
 import { decidiPallini, type Visto } from '@/lib/pallini'
 import { useCallback, useEffect, useState } from 'react'
@@ -451,7 +452,14 @@ function usaPallini(path: string): { accesi: Set<string>; carichi: Record<string
       // che `fetch` segue da solo, tornando HTML con stato 200. Si guardano il
       // redirect e il tipo di contenuto, o si continuerebbe a bussare.
       const ct = res.headers.get('content-type') ?? ''
-      if (!res.ok || res.redirected || !ct.includes('application/json')) return
+      if (!res.ok || res.redirected || !ct.includes('application/json')) {
+        // ⚠️⚠️ QUESTO È IL PUNTO CHE SE NE ACCORGE SEMPRE: la barra laterale c'è
+        // su ogni pagina e chiede i carichi a intervalli, quindi qualunque
+        // schermata si stia guardando la fascia compare entro un giro — anche
+        // se la schermata in questione i suoi errori se li mangia.
+        avvisaSessioneScaduta()
+        return
+      }
       const d = (await res.json()) as { sezioni: Record<string, Carico> }
       setCarichi(d.sezioni)
       // ⚠️ Il segnalibro sta nel browser di quella persona: «l'ho guardato io»

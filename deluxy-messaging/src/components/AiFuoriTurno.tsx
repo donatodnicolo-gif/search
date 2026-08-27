@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { avvisaSessioneScaduta } from '@/lib/leggi-json'
 
 // ── LA RISPOSTA AUTOMATICA, GOVERNATA DALL'INBOX ──
 //
@@ -67,6 +68,7 @@ export function AiFuoriTurno({ amministratore }: { amministratore: boolean }) {
       const res = await fetch('/api/ai-fuori-turno', { cache: 'no-store' })
       const ct = res.headers.get('content-type') ?? ''
       if (!res.ok || res.redirected || !ct.includes('application/json')) {
+        if (res.redirected || res.status === 401) avvisaSessioneScaduta()
         setNonLoSo(true)
         return
       }

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { utenteCorrente } from '@/lib/sessione'
 import { Sidebar } from '@/components/Sidebar'
 import { ToggleSidebar, VeloMenu } from '@/components/ToggleSidebar'
+import { SessioneScaduta } from '@/components/SessioneScaduta'
 import { AiutoLaterale } from '@/components/AiutoLaterale'
 import { Novita } from '@/components/Novita'
 import { esci } from '../login/actions'
@@ -30,6 +31,11 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
       </header>
       {/* Il menu sta a sinistra: la barra in alto tiene solo marchio e utente.
           Su mobile diventa un pannello a scomparsa, col velo che lo chiude. */}
+      {/* ⚠️⚠️ PRIMA DI TUTTO IL RESTO, e fissa in cima: quando la sessione
+          muore con l'app aperta in una scheda nessuno viene mandato al login
+          — la pagina non si ricarica — e da quel momento ogni elenco si svuota
+          in silenzio. Successo davvero il 27/08/2026. Vedi SessioneScaduta. */}
+      <SessioneScaduta />
       <div className="layout">
         <VeloMenu />
         {/* ⚠️ Il ruolo serve al menu per non mostrare a un operatore le due voci

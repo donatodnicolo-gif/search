@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { avvisaSessioneScaduta } from '@/lib/leggi-json'
 import Link from 'next/link'
 import { linkOrdine } from '@/lib/link-ordine'
 import { correggiRiga } from '@/lib/diario'
@@ -116,7 +117,11 @@ export function Diario() {
       const res = await fetch('/api/diario?' + p.toString())
       const ct = res.headers.get('content-type') ?? ''
       if (!res.ok || res.redirected || !ct.includes('application/json')) {
-        setErrore('Non sono riuscito a leggere il diario. Ricarica la pagina.')
+        // ⚠️ Il messaggio qui c'era già ed era giusto, ma parlava solo a chi
+        // guardava il diario: la sessione è morta per TUTTA l'app, e lo dice
+        // la fascia in cima.
+        avvisaSessioneScaduta()
+        setErrore('La sessione è scaduta: rientra dal login e il diario torna.')
         return
       }
       const d = (await res.json()) as {

@@ -5807,3 +5807,50 @@ button.bottone.secondario.ai-spenta {
   color: var(--text-secondary);
   font-style: normal;
 }
+
+/* ── LA FASCIA «LA SESSIONE È SCADUTA» ──
+ *
+ * ⚠️⚠️ Fissa in cima e sopra tutto: compare quando l'app si accorge che le sue
+ * chiamate finiscono al login, e da quel momento nessun elenco si riempie più.
+ * Un avviso che scorre via con la pagina, su un'app che non funziona, non lo
+ * legge nessuno. ⚠️ E non si chiude: chiuderlo lascerebbe la persona davanti a
+ * schermate vuote senza più nessuno che gliene spieghi il motivo. */
+.sessione-scaduta {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  background: #c93400;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.35;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* ⚠️ `min-width: 0` sul testo: su 375px una fascia flex senza questo non scende
+ * sotto la larghezza del suo contenuto e allarga tutta la pagina. */
+.sessione-scaduta > span {
+  min-width: 0;
+}
+
+/* Il bottone è bianco su rosso: dentro una fascia d'allarme un bottone col
+ * vestito normale dell'app si legge come parte dello sfondo. */
+.sessione-scaduta .bottone {
+  background: #fff;
+  color: #c93400;
+  border-color: #fff;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+.sessione-scaduta .bottone:hover {
+  background: #f5f5f7;
+  color: #c93400;
+}
