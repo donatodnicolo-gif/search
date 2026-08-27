@@ -24,7 +24,7 @@ import {
   paginate,
   textSearch,
 } from '../common/list-query';
-import { ambitoTeamLeader } from '../common/team-leader';
+import { ambitoTeamLeader, filtroDaAmbito } from '../common/team-leader';
 import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.module';
@@ -193,16 +193,9 @@ export class DeliveriesService {
       }),
     );
     if (!ambito) return { valetId: user.valetId ?? '-' };
-    const dove: Record<string, unknown> = { valetId: { in: ambito.valetIds } };
-    if (ambito.partnerIds) dove['partnerId'] = { in: ambito.partnerIds };
-    if (ambito.partnerEsclusi.length) {
-      // ⚠️ `notIn` secco scarterebbe anche i NULL: si tiene la forma che il
-      // Prisma applica al campo non nullo, che qui lo è sempre.
-      dove['partnerId'] = ambito.partnerIds
-        ? { in: ambito.partnerIds.filter((x) => !ambito.partnerEsclusi.includes(x)) }
-        : { notIn: ambito.partnerEsclusi };
-    }
-    return dove;
+    // La regola sta in `filtroDaAmbito`, condivisa con le attività: qui si usa,
+    // non si riscrive.
+    return filtroDaAmbito(ambito);
   }
 
   /**
@@ -661,8 +654,9 @@ export class DeliveriesService {
 
     const last = await this.prisma.delivery.aggregate({ _max: { code: true } });
 
-    // Coordinate per la mappa: geocodifica una volta l'indirizzo (chiave server).
-    const coords = await this.settings.geocodeCoords(dto.recipientAddress);
+    // Coordinate per la mappa E provincia: la geocodifica le torna insieme, e
+    // la provincia si buttava via (vedi `luogoDaIndirizzo`).
+    const luogo = await this.luogoDaIndirizzo(dto.recipientAddress);
 
     const delivery = await this.prisma.delivery.create({
       data: {
@@ -670,8 +664,13 @@ export class DeliveriesService {
         code: (last._max.code ?? 0) + 1,
         date: new Date(dto.date),
         partnerId,
-        latitude: coords?.lat ?? null,
-        longitude: coords?.lng ?? null,
+        latitude: luogo.lat,
+        longitude: luogo.lng,
+        // ⚠️ Non si sovrascrive una provincia già dichiarata da chi chiama: la
+        // geocodifica è un ripiego, non un'autorità.
+        // Il DTO non dichiara `provinceId`: la provincia la deduce sempre la
+        // geocodifica. Se un domani il DTO la dichiarasse, qui andrà rispettata.
+        provinceId: luogo.provinceId,
         // Prezzo: se impostato manualmente (LISTINO) vince, altrimenti calcolo automatico
         price: dto.price != null ? dto.price : price,
         distanceKm,
@@ -784,7 +783,7 @@ export class DeliveriesService {
     // Se l'indirizzo destinatario cambia, rigeocodifica le coordinate della mappa.
     const reGeocode =
       dto.recipientAddress && dto.recipientAddress !== delivery.recipientAddress
-        ? await this.settings.geocodeCoords(dto.recipientAddress)
+        ? await this.luogoDaIndirizzo(dto.recipientAddress)
         : undefined;
     const aggiornata = await this.prisma.delivery.update({
       where: { id },
@@ -792,8 +791,14 @@ export class DeliveriesService {
         ...scalar,
         ...forzatura,
         ...(date ? { date: new Date(date) } : {}),
+        // Cambiato l'indirizzo, cambiano anche coordinate E provincia: tenere
+        // la vecchia provincia su un indirizzo nuovo è peggio che non averla.
         ...(reGeocode !== undefined
-          ? { latitude: reGeocode?.lat ?? null, longitude: reGeocode?.lng ?? null }
+          ? {
+              latitude: reGeocode.lat,
+              longitude: reGeocode.lng,
+              ...(reGeocode.provinceId ? { provinceId: reGeocode.provinceId } : {}),
+            }
           : {}),
         // Righe prodotto: sostituite in blocco (come nei form di modifica)
         ...(products
@@ -1151,6 +1156,49 @@ export class DeliveriesService {
       });
     }
     return pulito as T;
+  }
+
+  // ============================================================
+  // DOVE SI TROVA UNA CONSEGNA (28/08/2026)
+  // ------------------------------------------------------------
+  // ⚠️ Nessuno scriveva `provinceId`: **100% delle consegne nate in questa app
+  // non ne aveva una** (94 su 94, misurato). Le 61.404 importate ce l'hanno a
+  // metà (52% vuota). Senza provincia una consegna sparisce dai filtri per
+  // provincia — i partner abilitati, i valet della zona, l'ambito dei team
+  // leader — e non è un vuoto che si nota: è una riga che semplicemente non
+  // compare, e chi guarda conclude che non esiste.
+  //
+  // La geocodifica c'era già e si usava SOLO per le coordinate, buttando via
+  // la provincia che tornava nella stessa risposta.
+  //
+  // ⚠️ Si RICORDA per indirizzo dentro la richiesta: la generazione dei
+  // ricorrenti crea decine di consegne allo stesso indirizzo, e chiamare
+  // Google una volta per consegna sarebbe pagare novanta volte la stessa
+  // risposta.
+  // ============================================================
+  private readonly luoghiVisti = new Map<string, { lat: number | null; lng: number | null; provinceId: string | null }>();
+
+  async luogoDaIndirizzo(
+    indirizzo: string | null | undefined,
+  ): Promise<{ lat: number | null; lng: number | null; provinceId: string | null }> {
+    const chiave = (indirizzo ?? '').trim().toLowerCase();
+    const vuoto = { lat: null, lng: null, provinceId: null };
+    if (!chiave) return vuoto;
+    const gia = this.luoghiVisti.get(chiave);
+    if (gia) return gia;
+
+    const r = await this.settings.geocode(indirizzo!.trim()).catch(() => null);
+    let provinceId: string | null = null;
+    if (r?.provinceCode) {
+      const p = await this.prisma.province.findUnique({
+        where: { code: r.provinceCode },
+        select: { id: true },
+      });
+      provinceId = p?.id ?? null;
+    }
+    const esito = { lat: r?.lat ?? null, lng: r?.lng ?? null, provinceId };
+    this.luoghiVisti.set(chiave, esito);
+    return esito;
   }
 
   /** Le note interne sono visibili solo ad admin/operation/valet. */

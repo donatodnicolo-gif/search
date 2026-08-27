@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
-import { ambitoTeamLeader } from '../common/team-leader';
+import { ambitoTeamLeader, filtroDaAmbito } from '../common/team-leader';
 
 @Injectable()
 export class ActivitiesService {
@@ -56,14 +56,25 @@ export class ActivitiesService {
       if (!ambito) {
         where.valetId = user.valetId ?? '-';
       } else {
-        where.valetId = { in: ambito.valetIds };
-        if (ambito.partnerIds) {
-          where.delivery = {
-            partnerId: { in: ambito.partnerIds.filter((x) => !ambito.partnerEsclusi.includes(x)) },
-          };
-        } else if (ambito.partnerEsclusi.length) {
-          where.delivery = { partnerId: { notIn: ambito.partnerEsclusi } };
-        }
+        // ⚠️ Le attività non hanno una provincia propria: quella sta sulla
+        // CONSEGNA. Quindi il pezzo «senza valet nelle mie province» si
+        // traduce in una condizione annidata su `delivery`. Anche qui le
+        // attività ancora senza valet sono il lavoro da distribuire, che è
+        // proprio quello che un capo squadra deve vedere.
+        const f = filtroDaAmbito(ambito) as { AND: Record<string, any>[] };
+        where.AND = f.AND.map((pezzo) => {
+          if (pezzo['OR']) {
+            return {
+              OR: pezzo['OR'].map((r: Record<string, any>) =>
+                'provinceId' in r
+                  ? { valetId: null, delivery: { provinceId: r['provinceId'] } }
+                  : r,
+              ),
+            };
+          }
+          // I vincoli sul partner vivono sulla consegna, non sull'attività.
+          return { delivery: pezzo };
+        });
       }
     } else if (user.role === Role.PARTNER) {
       where.delivery = { partnerId: user.partnerId ?? '-' };

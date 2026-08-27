@@ -45,6 +45,8 @@ import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
+import { DeliveriesModule } from '../deliveries/deliveries.module';
+import { DeliveriesService } from '../deliveries/deliveries.service';
 
 /**
  * ECCEZIONE PER GIORNO: «sabato e domenica 8-9», dentro un servizio che per il
@@ -220,7 +222,14 @@ export function fasciaDelGiorno(
 
 @Injectable()
 export class RecurringService_ {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // ⚠️ Serve per la GEOCODIFICA: la generazione scriveva in banca dati
+    // saltando il passaggio del form, e le consegne nascevano senza provincia
+    // né coordinate — 91 su 91, misurate. Una consegna senza provincia sparisce
+    // dalla mappa, dai filtri per zona e dall'ambito dei team leader.
+    private readonly deliveries: DeliveriesService,
+  ) {}
 
   /**
    * Il partner vede SOLO i propri: la lista e' la stessa pagina per tutti, ma
@@ -513,6 +522,9 @@ export class RecurringService_ {
 
     let toccate = 0;
     let tolte = 0;
+    // Una volta sola per tutto il riallineamento: l'indirizzo del ricorrente è
+    // uno, e la memoria di `luogoDaIndirizzo` fa il resto.
+    const luogoRiallineo = await this.deliveries.luogoDaIndirizzo(r.recipientAddress);
     for (const d of future) {
       const iso = d.date.toISOString().slice(0, 10);
       // Un giorno che non tocca piu' (giorni cambiati, servizio sospeso,
@@ -548,6 +560,9 @@ export class RecurringService_ {
           recipientFirstName: r.recipientFirstName ?? r.nome,
           recipientLastName: r.recipientLastName ?? '',
           recipientAddress: r.recipientAddress,
+          latitude: luogoRiallineo.lat,
+          longitude: luogoRiallineo.lng,
+          provinceId: luogoRiallineo.provinceId,
           price: r.price ?? 0,
           valetSalary: r.valetSalary ?? 0,
           hours: r.hours,
@@ -759,6 +774,10 @@ export class RecurringService_ {
         if (create >= MASSIMO_PER_CORSA) { fermatoAlTetto = true; break; }
 
         const f = fasciaDelGiorno(r, iso);
+        // ⚠️ Una chiamata per INDIRIZZO, non per consegna: un ricorrente fino
+        // al 31/12 ne fa novanta allo stesso indirizzo, e sarebbero novanta
+        // chiamate a Google per la stessa risposta.
+        const luogo = await this.deliveries.luogoDaIndirizzo(r.recipientAddress);
         const consegna = await this.prisma.delivery.create({
           data: {
             code: prossimoCode++,
@@ -870,7 +889,7 @@ export class RecurringController {
 }
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, DeliveriesModule],
   controllers: [RecurringController],
   providers: [RecurringService_],
   exports: [RecurringService_],
