@@ -1600,6 +1600,12 @@ button {
   gap: 8px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--hairline);
+  /* ⚠️⚠️ VA A CAPO. In vista «Elenco» la colonna è larga 324px e questa barra ne
+     chiede **900**: i tredici comandi non sparivano — finivano dietro una barra
+     di scorrimento orizzontale in fondo a un elenco alto 790px, che non cerca
+     nessuno. Fra quelli fuori: «Colonne», cioè la via di ritorno, e
+     l'interruttore «Risponde l'AI». Andando a capo si vedono tutti. */
+  flex-wrap: wrap;
 }
 
 .barra-elenco .esito {
@@ -2401,6 +2407,12 @@ td .azioni-ordine {
   align-items: flex-start;
   padding: 24px 16px;
   overflow-y: auto;
+  /* ⚠️⚠️ Finito il pannello, il dito NON deve continuare sulla bacheca sotto.
+     Misurato: col pannello aperto la pagina dietro scorreva ancora, e chiudendo
+     ci si ritrovava in un punto dell'elenco che non si era scelto. Il pannello
+     di un ordine può essere lungo quattro schermate (nove su un ordine a
+     Milano): l'inerzia alla fine è la regola, non l'eccezione. */
+  overscroll-behavior: contain;
   z-index: 60;
 }
 
@@ -2419,6 +2431,37 @@ td .azioni-ordine {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
+  /* ⚠️⚠️ VA A CAPO. Segnalato dall'utente («da mobile il pop-up su un ordine non
+     è funzionale») e misurato: a 375px il bottone **Chiudi** finiva a 370→430,
+     cioè **cinque pixel visibili**; a 360px zero. Il pop-up guadagnava 55px di
+     scorrimento laterale, e per chiudere bisognava strisciare di lato dentro una
+     finestra — un gesto che non prova nessuno. Rientrava solo sopra i 430px di
+     larghezza, cioè su nessun telefono comune. */
+  flex-wrap: wrap;
+}
+
+/* ⚠️ E il titolo si stringe invece di spingere fuori i bottoni: senza
+   `min-width: 0` un blocco flex non scende sotto la larghezza del suo
+   contenuto, e a spingere fuori dallo schermo era proprio lui. È la ricetta che
+   la finestra della mail aveva già, ed è il motivo per cui quella sul telefono
+   sta bene. */
+.pannello-testa > *:first-child {
+  min-width: 0;
+}
+
+/* ⚠️⚠️ La testata RESTA IN ALTO mentre si scorre. Il pannello di un ordine è
+   alto in media **4,1 schermate** su un telefono (fino a 9 su un ordine a
+   Milano) e il bottone «Chiudi» è **l'unico** che c'è: in fondo non ce n'è un
+   altro, Esc su un telefono non esiste, e del velo restano due strisce da 8px
+   per lato. Scorrendo, l'uscita spariva. */
+.pannello-testa {
+  position: sticky;
+  top: -18px;
+  z-index: 2;
+  /* Sfondo pieno e un po' di respiro: sopra al contenuto che le scorre sotto. */
+  background: var(--bg);
+  padding-top: 4px;
+  margin-top: -4px;
 }
 
 /* Prodotti dell'ordine: foto grande, perché è quella che si guarda. */
@@ -2544,7 +2587,13 @@ td .azioni-ordine {
    la bacheca deve tornare larga. */
 .barra-ricerca { margin-bottom: 10px; }
 
-.colonna { padding: 11px; max-height: calc(100vh - 190px); }
+/* ⚠️⚠️ 330 e non 190: sopra la colonna, misurati a 1440×900, ce ne sono **316**
+   (barra, testata, ricerca, filtri). Con 190 la colonna finiva **126px sotto il
+   bordo della finestra**, e ci volevano due scorrimenti annidati — quello dentro
+   la colonna per gli ordini, e quello della pagina per vedere il fondo della
+   colonna, che però gli ordini non li muove. Cioè esattamente ciò che il
+   `max-height` esisteva per evitare. */
+.colonna { padding: 11px; max-height: calc(100vh - 330px); }
 .colonna-valore { margin-bottom: 8px; }
 .scheda-ordine { padding: 8px 10px; margin-bottom: 6px; }
 .scheda-ordine .riga-bassa { margin-top: 3px; }
@@ -4080,12 +4129,35 @@ td .azioni-ordine {
    Non è un `auto-fit`: le tre cose vanno guardate INSIEME, e un riquadro che
    cambia colonna a seconda della larghezza costringe a ricercarlo ogni volta. */
 .griglia-dettaglio {
-  display: grid;
-  grid-template-columns: minmax(320px, 1.15fr) minmax(280px, 0.95fr) minmax(300px, 1fr);
-  gap: 16px;
-  /* I riquadri hanno altezze molto diverse: si allineano in alto invece di
-     allungarsi a vuoto per pareggiare il vicino. */
-  align-items: start;
+  /* ⚠️⚠️ COLONNE CHE SI RIEMPIONO, non una griglia a righe. Con `grid` i cinque
+     riquadri stanno su due righe, e siccome hanno altezze molto diverse la
+     seconda riga comincia sotto il PIÙ ALTO della prima: misurato su un ordine
+     vero, il riquadro «Ordine» — destinatario, indirizzo, totale, i bottoni per
+     chiamare il cliente — cadeva a **y=1.101** con **due colonne vuote di
+     fianco** e circa **3.000px di buco**. Con `column-count` i riquadri
+     scendono a riempire la colonna più corta, e il pannello si accorcia.
+     ⚠️ `break-inside: avoid` sulle card: senza, una card si spezza a metà fra
+     due colonne. */
+  column-count: 3;
+  column-gap: 16px;
+}
+
+.griglia-dettaglio > .card {
+  break-inside: avoid;
+  /* Nelle colonne lo stacco verticale non lo dà il `gap`: lo dà il margine. */
+  margin-bottom: 16px !important;
+  /* Chrome ha bisogno di questo per non tagliare l'ombra della card. */
+  display: inline-block;
+  width: 100%;
+}
+
+/* Sotto i 1100px due colonne, sotto gli 800 una sola: tre colonne da 250px non
+   contengono un indirizzo. */
+@media (max-width: 1100px) {
+  .griglia-dettaglio { column-count: 2; }
+}
+@media (max-width: 800px) {
+  .griglia-dettaglio { column-count: 1; }
 }
 
 /* Dentro la griglia il margine sotto delle card non serve più: lo spazio lo
@@ -5528,4 +5600,41 @@ button.ai-accesa:hover {
 /* Col numero accanto, il pallino non deve più spingersi da solo a destra. */
 .sb-quanti + .sb-pallino {
   margin-left: 0;
+}
+
+
+/* ── SUL TELEFONO: bersagli che si prendono col dito ──
+   ⚠️ Misurati a 375×812 dentro il pannello di un ordine: il link del telefono
+   del cliente era alto **18px** e la casella «fatta» del diario **13×13**,
+   mentre il resto dell'app tiene i bottoni a 40. Un bersaglio da 13px accanto a
+   un altro comando è una telefonata partita per sbaglio. */
+@media (max-width: 700px) {
+  /* La casella del diario, dentro l'ordine e nella pagina del diario. */
+  .elenco-diario input[type='checkbox'],
+  .seguito-diario input[type='checkbox'] {
+    width: 22px;
+    height: 22px;
+    flex: none;
+  }
+
+  /* ⚠️ I campi «nudi» del pannello (importo e motivo della riconsegna, il link,
+     il numero da unire) erano input HTML senza vestito: Arial 13,3px e bordo
+     `inset`. E sotto i 16px **Safari ingrandisce la pagina quando ci si entra**,
+     lasciando la finestra a spasso di lato. Sedici, quindi — non quindici. */
+  .pannello input[type='text'],
+  .pannello input[type='number'],
+  .pannello input:not([type]),
+  .pannello textarea,
+  .pannello select {
+    font: inherit;
+    font-size: 16px;
+    min-height: 40px;
+    padding: 6px 10px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--radius-s);
+    background: var(--surface);
+    color: var(--text);
+    max-width: 100%;
+  }
+  .pannello textarea { min-height: 64px; }
 }

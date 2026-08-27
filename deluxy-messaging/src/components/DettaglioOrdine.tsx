@@ -22,6 +22,9 @@ import { nomeStatoVendita } from '@/lib/piattaforma-stati'
 import { riassuntoLavoro, type LavoroDato } from '@/lib/cerca-fornitore'
 import type { BozzaMail } from './ComponiMail'
 
+/** Quanti fornitori in zona si mostrano prima di chiedere «mostrali tutti». */
+const TETTO_ZONA = 6
+
 // Il dettaglio di un ordine, che si apre cliccando la sua scheda.
 //
 // Serve a una cosa precisa: guardare il prodotto e chiedere al fornitore se è
@@ -354,6 +357,17 @@ export function DettaglioOrdine({
   const [chiedendo, setChiedendo] = useState('')
   const [esitoChiesto, setEsitoChiesto] = useState('')
   const [zonaCaricata, setZonaCaricata] = useState(false)
+  // ⚠️⚠️ QUANTI FORNITORI IN ZONA SI MOSTRANO. Senza tetto si disegnano tutti, e
+  // nel registro Milano ne ha **31** (22 pasticcerie + 9 fiorai): misurato, il
+  // pannello dell'ordine passava da **3.300px a 7.300**, e con tutto acceso a
+  // **9.700** — nove schermate di telefono, con l'unico bottone «Chiudi» in
+  // cima. E il 51% degli ordini è del negozio «Deluxy», che non dice il
+  // mestiere, quindi si mostrano **tutte e due** le liste.
+  //
+  // ⚠️ Sei e non tre: l'elenco è già ordinato per «chi non è ancora stato
+  // chiesto» e serve a scegliere i primi a cui scrivere. Chi ne vuole di più
+  // preme, e allora è una sua decisione.
+  const [zonaTutti, setZonaTutti] = useState(false)
   /**
    * Che mestiere cercare: vuoto = lo decide il negozio (Cake → pasticcerie,
    * Flowers → fiorai).
@@ -1785,7 +1799,25 @@ export function DettaglioOrdine({
                 <a className="btn btn-secondario small" href={`/reclami?ordineId=${ordine.id}&ordine=${encodeURIComponent(ordine.numero)}&cliente=${encodeURIComponent(ordine.clienteNome)}&telefono=${encodeURIComponent(ordine.telefono)}&email=${encodeURIComponent(ordine.email)}&negozio=${encodeURIComponent(ordine.negozioNome)}`}>
                   Apri reclamo
                 </a>
-                <a className="btn btn-secondario small" href={`/rimborsi?ordineId=${ordine.id}&ordine=${encodeURIComponent(ordine.numero)}&cliente=${encodeURIComponent(ordine.clienteNome)}&totale=${ordine.totale}&pagamento=${encodeURIComponent(ordine.statoPagamento)}&negozio=${encodeURIComponent(ordine.negozioNome)}`}>
+                {/* ⚠️⚠️ TELEFONO ED EMAIL ci vanno. Da qui mancavano — mentre lo
+                    stesso comando sulla scheda della bacheca li passa — e la
+                    richiesta di rimborso nasceva senza recapiti: la pagina
+                    Rimborsi li legge dall'indirizzo e li mette nel modulo.
+                    Stesso bottone, stesso risultato: se un giorno divergono
+                    ancora, diverge quello che finisce nel modulo. */}
+                <a
+                  className="btn btn-secondario small"
+                  href={`/rimborsi?${new URLSearchParams({
+                    ordineId: ordine.id,
+                    ordine: ordine.numero,
+                    cliente: ordine.clienteNome,
+                    telefono: ordine.telefono ?? '',
+                    email: ordine.email ?? '',
+                    negozio: ordine.negozioNome,
+                    totale: String(ordine.totale || ''),
+                    pagamento: ordine.statoPagamento ?? '',
+                  }).toString()}`}
+                >
                   Chiedi rimborso
                 </a>
                 {/* Un bottone per ogni canale che questo cliente ha davvero.
@@ -2031,7 +2063,9 @@ export function DettaglioOrdine({
                         ordiniFatti: 0,
                       })),
                       new Map(chiesti.map((x) => [chiaveFornitore(x.fornitoreNome), x]))
-                    ).map(({ candidato, chiesto: giaChiesto }) => {
+                    )
+                      .slice(0, zonaTutti ? undefined : TETTO_ZONA)
+                      .map(({ candidato, chiesto: giaChiesto }) => {
                       const fz = zona.find((z) => z.id === candidato.id)!
                       const richiesta = richiestaFornitore({
                         prodotto: righe[0]?.titolo ?? '',
@@ -2219,9 +2253,30 @@ export function DettaglioOrdine({
                           </div>
                         </div>
                       )
-                    })}
+                      })}
                   </div>
                 )}
+                {/* ⚠️ Il numero di quelli nascosti sta scritto: una lista tagliata
+                    senza dire quanti ne mancano fa credere che quelli siano
+                    tutti, e si chiama al primo che c'è invece che al più adatto. */}
+                {!zonaTutti && zona.length > TETTO_ZONA ? (
+                  <button
+                    className="bottone secondario mini"
+                    style={{ marginTop: 8 }}
+                    onClick={() => setZonaTutti(true)}
+                  >
+                    Mostra tutti ({zona.length})
+                  </button>
+                ) : null}
+                {zonaTutti && zona.length > TETTO_ZONA ? (
+                  <button
+                    className="bottone secondario mini"
+                    style={{ marginTop: 8 }}
+                    onClick={() => setZonaTutti(false)}
+                  >
+                    Mostra solo i primi {TETTO_ZONA}
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>

@@ -1,5 +1,126 @@
 # Handoff — Deluxy Customer Service
 
+## 27/08/2026 (4) — layout: due agenti misurano, due li smontano, sei correzioni
+
+Chiesto dall'utente: «crea un agente che esamina il layout lato desktop e uno
+lato mobile, entrambi insieme a un agente ostile ne valuta la ux e ui… da mobile
+esempio il popup su un ordine non è funzionale e poi ci sono dei bottoni che
+sembrano ripetuti».
+
+Due agenti hanno misurato (uno desktop, uno telefono) montando i componenti veri
+su una pagina d'anteprima sotto `/widget`. Altri due li hanno **rimisurati con
+l'incarico di smontarli** — e con i **dati veri del database**, che è la parte
+che ha cambiato le conclusioni.
+
+### ⚠️ Quello che i dati veri hanno smontato
+
+- **«WhatsApp ed Email del fornitore raddoppiati nella scheda»**: su **1.375
+  ordini su 1.375** `fornitoreTelefono` e `fornitoreEmail` sono **vuoti**, e quei
+  due bottoni esistono solo se pieni. Era l'artefatto di un fornitore inventato
+  nell'anteprima.
+- **«Il pannello è alto 4.925px»**: su un ordine vero è **3.321px**, e le righe
+  prodotto per ordine sono **mediana 1** (111 su 120 ne hanno una sola). Il
+  pannello gonfio veniva dai dati finti… **ma il numero peggiore era vero per un
+  altro motivo**, vedi sotto.
+- **«Lo stato dell'ordine è scritto due volte sulla scheda»**: il doppione è
+  **impedito di proposito** (`PASSI.includes(gestione) ? null : badge`); ricompare
+  solo sugli ordini già gestiti, a 32px, e sono due oggetti diversi.
+- **«Il select Assegna è largo 171px»**: **158**, sta **da solo sulla sua riga**,
+  e lo vede solo un amministratore.
+- **«`top: 63px` scritto a mano diverge da `--h-topbar`»**: la media query
+  riscrive **tutti e due** i valori con la variabile. Oggi non possono divergere.
+- **«Il menu laterale è troppo lungo»**: 33 voci, a 900px se ne vedono 18 e la
+  prima nascosta è «Punteggi» — cioè esattamente il gruppo che il commento mette
+  in fondo apposta. **Non è un difetto.**
+- **«9 comandi dell'inbox sono inerti»**: non inerti — dietro una barra di
+  scorrimento orizzontale. Che però nessuno cerca, quindi la correzione si fa lo
+  stesso.
+
+### Le sei correzioni
+
+**1. ⚠️⚠️ IL POP-UP DELL'ORDINE SUL TELEFONO: «Chiudi» era fuori dallo schermo.**
+Esattamente la segnalazione dell'utente. Misurato a 375px: **«Chiudi» occupava
+370→430, cinque pixel visibili**; a 360px zero. Il pop-up guadagnava **55px di
+scorrimento laterale**, e per chiudere bisognava strisciare di lato dentro una
+finestra — un gesto che non prova nessuno. Rientrava solo **sopra i 430px**, cioè
+su nessun telefono comune, e per questo dal computer non si vedeva.
+Causa: `.pannello-testa` è `flex` **senza `flex-wrap`**, il blocco di destra tiene
+297px di bottoni e quello di sinistra non ha `min-width: 0`. Ora ha tutti e due.
+**Misurato dopo: «Chiudi» a 295→354, dentro; scorrimento laterale ZERO.**
+
+**2. La testata resta in alto.** Era `static` in cima a un pannello alto **4,1
+schermate di telefono**, con **un solo** «Chiudi» in tutto il pannello, nessuno
+in fondo, Esc che sul telefono non esiste e del velo due strisce da 8px per lato.
+Ora `position: sticky`. **Misurato: scorrendo di 1.200px «Chiudi» è ancora a
+y=96.**
+
+**3. ⚠️⚠️ La lista dei fornitori in zona non aveva nessun tetto.** È il motivo
+vero per cui il pannello diventa enorme: nel registro **Milano ha 31 fornitori**
+(22 pasticcerie + 9 fiorai), e il **51% degli ordini è del negozio «Deluxy»**,
+che non dice il mestiere — quindi si mostrano **entrambe** le liste. Misurato: 9
+schede = 4.904px, 22 schede = **7.312px**, con tutto acceso **9.722px**. Adesso
+se ne mostrano **sei**, con «Mostra tutti (N)» che dice **quanti** ne restano —
+una lista tagliata senza dire quanti ne mancano fa chiamare il primo che c'è
+invece del più adatto.
+
+**4. Lo scorrimento del pannello non trascina più la bacheca sotto**
+(`overscroll-behavior: contain` sul velo): finiti i 3.000px il dito continuava
+sull'elenco, e chiudendo ci si ritrovava altrove.
+
+**5. I campi «nudi» del pannello.** Quattro input su ogni ordine erano HTML
+grezzo: **Arial 13,3px, bordo `inset`, alti 21px**. ⚠️ E sotto i 16px **Safari
+ingrandisce la pagina quando ci si entra** — con lo scorrimento laterale già
+presente, si finiva a spasso. Ora **40px e 16px** (non 15: il `font: inherit`
+dell'app non sarebbe bastato). **Misurato: 40px / 16px.** Insieme: la casella
+«fatta» del diario da **13×13** a 22.
+
+**6. ⚠️⚠️ LO STESSO COMANDO CHE FA DUE COSE DIVERSE.** Questo è il «bottoni che
+sembrano ripetuti» dell'utente, ed è peggio di un doppione: **«Chiedi rimborso»
+dal pannello non passava telefono ed email**, mentre lo stesso comando dalla
+bacheca sì — e la pagina Rimborsi li legge dall'indirizzo per riempire il modulo.
+Aprendo il rimborso dal pannello, la richiesta **nasceva senza recapiti**.
+
+### E dal desktop
+
+**7. La griglia del dettaglio lasciava «Ordine» in seconda riga con due colonne
+vuote.** Cinque riquadri su tre colonne: la seconda riga comincia sotto il **più
+alto** della prima, quindi destinatario, indirizzo, totale e i bottoni per
+chiamare il cliente cadevano a **y=1.101** su un ordine vero, con circa 3.000px
+di buco di fianco. Ora è `column-count` con `break-inside: avoid`, e le colonne
+si riempiono. **Misurato: «Ordine» da y=1.101 a y=294, pannello da ~2.240 a
+1.279px.** Due colonne sotto 1100px, una sola sotto 800.
+
+**8. `.colonna { max-height: calc(100vh - 190px) }` sbagliava di 126px.** Sopra
+la colonna, a 1440×900, ce ne sono **316**: la colonna finiva **126px sotto il
+bordo**, e ci volevano due scorrimenti annidati — quello dentro la colonna per
+gli ordini e quello della pagina per vedere il fondo della colonna, che gli
+ordini non li muove. Cioè esattamente ciò che quel `max-height` esisteva per
+evitare. Ora **330**.
+
+**9. La barra dell'inbox va a capo.** In vista «Elenco» la colonna è larga 324px
+e la barra ne chiede **900**: tredici comandi finivano dietro una barra di
+scorrimento orizzontale in fondo a un elenco alto 790px. Fra quelli fuori:
+«Colonne» (la via di ritorno) e l'interruttore «Risponde l'AI».
+
+### 🟡 Confermati e non corretti
+
+- **Quattro-cinque badge grigi pixel-identici** sulla stessa scheda dicono cose
+  di famiglie diverse (costo fornitore, canale, tipo cliente, stato Shopify), tre
+  su quattro senza `title`. Vero e misurato; è un lavoro di tassonomia visiva che
+  merita una passata sua.
+- **18 controlli sopra il primo ordine**, che comincia a y=390 su 900. Vero: a
+  900px si vede una scheda e mezza.
+- **Due sistemi di bottoni** (`.btn` e `.bottone`) convivono, ma non si vedono
+  mai affiancati (distanza minima misurata: 90px).
+- **«Premi Aggiorna adesso» / bottone «Aggiorna»**: una parola, su un avviso che
+  compare solo se la sync è ferma da un'ora.
+
+### Verifica
+
+Misure prese nel browser a **375×812** e **1440×900** su una pagina d'anteprima
+temporanea (ora cancellata), con i valori riportati qui sopra.
+`npx tsc --noEmit` esito 0 · `npm run build` esito 0.
+
 ## 27/08/2026 (3) — caccia agli errori: 32 sospetti, 3 agenti ostili, 20 corretti
 
 Chiesto dall'utente: «correggi tutti gli errori di codice dell'app; prima di
