@@ -241,7 +241,19 @@ input.field {
    sua, e chi non lo faceva restava col default del browser. Gli stili di
    componente piu' specifici continuano a vincere. */
 .table-wrap {
-  overflow-x: auto;
+  /* ⚠️⚠️ L'ALTEZZA NON E' UN VEZZO: senza, le intestazioni sticky non si
+     fermano mai. Con `overflow-x: auto` il valore USATO di `overflow-y` viene
+     promosso ad `auto`, quindi e' questo contenitore a diventare il porto di
+     scorrimento dei `th` in `position: sticky` — ma non avendo un'altezza
+     `scrollHeight === clientHeight`, non scorre mai, e lo scroll della PAGINA
+     si porta via le intestazioni. Misurato prima della correzione: dopo 400px
+     di scroll il `th` stava a top −66.
+     Con 50 righe per pagina ne restavano leggibili quindici; le altre
+     trentacinque si leggevano senza titoli di colonna — e «Consegna» e
+     «Ritiro», adiacenti e identiche nella forma 09:00–13:00, diventavano
+     indistinguibili. Vale per tutte e 26 le liste dell'app. */
+  overflow: auto;
+  max-height: calc(100vh - 240px);
 }
 .table-wrap table {
   width: 100%;
@@ -293,6 +305,11 @@ input.field {
   /* Il contenitore smette di essere una card: le card sono le righe. */
   .table-wrap,
   .card.table-wrap {
+    /* Sotto gli 800px le righe sono CARD e la thead non c'e': l'altezza
+       massima farebbe una finestrella che scorre dentro la pagina, che e'
+       proprio quello che il mobile non deve avere. */
+    max-height: none !important;
+    overflow: visible !important;
     overflow-x: visible !important;
     background: transparent !important;
     border: none !important;

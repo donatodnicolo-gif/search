@@ -268,7 +268,9 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
       .badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 980px; font-size: 12px; font-weight: 550; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
       .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
       .row-actions { display: flex; gap: 12px; }
-      .link-btn { background: none; border: none; padding: 0; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+      /* padding verticale + margine negativo: l.area di tocco arriva a 24px
+         (minimo WCAG 2.5.8) senza spostare il testo di un pixel. */
+      .link-btn { background: none; border: none; padding: 6px 0; margin: -6px 0; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
       .link-btn.danger { color: var(--red); }
       .state-card { padding: 28px; color: var(--text-secondary); }
       .error-card { background: rgba(215, 0, 21, 0.06); border: 1px solid rgba(215, 0, 21, 0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin: 12px 0; }

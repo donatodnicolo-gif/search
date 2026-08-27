@@ -187,6 +187,13 @@ const SERVICE_ICONS: Record<string, string> = {
                     "
                   >
                     <span class="status-dot" [class]="'status-dot s-' + d.status"></span>
+                    <!-- ⚠️ IL NOME DELLO STATO, ma solo sotto gli 800px. Su un
+                         telefono non c'e' hover, quindi il title qui sopra non
+                         appare mai e la scheda mostrava una riga «Stato» con un
+                         puntino di 10px e nient'altro. Il design system chiede
+                         «pillola con dot E TESTO». Su desktop resta nascosto:
+                         li' c'e' la legenda, e la tabella e' gia' troppo larga. -->
+                    <span class="st-testo">{{ 'status.delivery.' + d.status | translate }}</span>
                   </button>
                 </td>
                 <td class="mono">{{ d.code }}</td>
@@ -420,6 +427,19 @@ const SERVICE_ICONS: Record<string, string> = {
         .filters > * { flex: 1 1 140px; min-width: 0; }
         .filters .btn { justify-content: center; text-align: center; }
       }
+      /* ⚠️ 800px, non 640: e' la soglia a cui le tabelle diventano SCHEDE
+         (styles.css) ed e' li' che l'intestazione di colonna sparisce. Sotto,
+         il pallino da solo non dice piu' niente, quindi esce il nome. */
+      @media (max-width: 800px) {
+        .st-testo {
+          display: inline;
+          margin-left: 8px;
+          font-size: 13.5px;
+          color: var(--text);
+          vertical-align: middle;
+        }
+        .status-dot-btn { line-height: normal; }
+      }
       .table-wrap {
         overflow-x: auto;
       }
@@ -485,7 +505,19 @@ const SERVICE_ICONS: Record<string, string> = {
       .status-dot.s-delivered,
       .status-dot.s-approved { background: var(--green); }                  /* Consegnata e approvata: verde */
       .status-dot.s-delivered_time_to_approve { background: #ff9500; }      /* Ore da approvare: arancio */
-      .status-dot.s-invalidated { background: #8a8a8e; }                    /* Annullata d.ufficio: grigio */
+      /* ⚠️⚠️ QUESTE TRE MANCAVANO, ed erano proprio le righe che l.operatore
+         deve vedere per prime. Senza una regola a DUE classi vinceva la regola
+         PILLOLA .s-not_delivered/.s-cancelled/.s-not_accepted piu' in basso in
+         questo stesso foglio (stessa specificita', ma dopo): il pallino usciva
+         rgba(215,0,21,.09), cioe' un cerchio rosso al NOVE per cento su una
+         card bianca. Praticamente invisibile. E la legenda, che per quel gruppo
+         usa una classe mai definita, lo disegnava GRIGIO: pallino e legenda
+         dicevano due cose diverse, ed erano sbagliate tutt.e due. */
+      .status-dot.s-not_delivered,
+      .status-dot.s-not_accepted { background: var(--red); }                /* Fallite: rosso pieno */
+      .status-dot.s-cancelled,
+      .status-dot.s-invalidated,
+      .status-dot.s-archived { background: #8a8a8e; }                       /* Annullate: grigio */
 
       /* Legenda colori stato */
       .legend {
@@ -543,12 +575,17 @@ const SERVICE_ICONS: Record<string, string> = {
       .status-dot-btn {
         border: 0;
         background: transparent;
-        padding: 4px;
-        margin: -4px;
+        /* 7px di padding con margine negativo: l'area di tocco passa da 18 a
+           24px — il minimo di WCAG 2.5.8 — senza spostare di un pixel il
+           pallino ne' allargare la colonna. */
+        padding: 7px;
+        margin: -7px;
         border-radius: 999px;
         line-height: 0;
         cursor: default;
       }
+      /* Il nome dello stato vive solo nella scheda mobile (vedi il template). */
+      .st-testo { display: none; }
       .status-dot-btn.cliccabile { cursor: pointer; }
       .status-dot-btn.cliccabile:hover { background: var(--surface-sunken, #ececef); }
       .modal-close {
@@ -1003,7 +1040,12 @@ export class DeliveriesListComponent {
     { cls: 's-in_delivery', statuses: ['in_delivery'] },
     { cls: 's-cancellation_requested', statuses: ['cancellation_requested'] },
     { cls: 's-delivered', statuses: ['delivered', 'approved'] },
-    { cls: 's-archived', statuses: ['not_delivered', 'not_accepted', 'cancelled', 'invalidated'] },
+    // ⚠️ Prima erano un gruppo solo sotto `s-archived`, una classe che non
+    // esiste in nessun foglio: la pastiglia usciva grigia mentre i pallini in
+    // tabella erano rossi slavati. Adesso sono due gruppi, ognuno del colore
+    // che ha davvero — e un fallimento non si confonde con un annullamento.
+    { cls: 's-not_delivered', statuses: ['not_delivered', 'not_accepted'] },
+    { cls: 's-cancelled', statuses: ['cancelled', 'invalidated'] },
   ];
 
   /**
