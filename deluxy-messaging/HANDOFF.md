@@ -186,6 +186,30 @@ ad avere l'email con maiuscole: al primo, la storia si sarebbe spezzata in due.
 - **`daRispondereEmail` è una differenza fra un `count` vero e una lista tagliata
   a 200.** Il carico oggi è 3.
 
+### 🩸 E un danno che mi sono fatto da solo, riparato
+
+Lo script di migrazione dei segreti si era **riscritte** `cifra` e `decifra`
+invece di importarle, e derivava la chiave con `sha256(APP_SECRET)` mentre l’app
+usa `scryptSync(APP_SECRET, 'deluxy-messaging', 32)`. Il controllo che lo script
+fa prima di scrivere **tornava** — perché cifrava e decifrava con la stessa
+chiave sbagliata — quindi non ha fermato niente.
+
+Risultato: `igAppSecret` e `googleMapsApiKey` scritti nel database in una forma
+che l’app **non sapeva più leggere** — cioè verifica delle firme dei webhook
+Instagram spenta, e Maps senza chiave. Me ne sono accorto perché **ho riletto i
+valori dopo la migrazione**, e uscivano vuoti.
+
+**Recuperati**: erano ancora decifrabili con la chiave sbagliata, quindi riletti
+e riscritti con la funzione vera. Ricontrollati uno per uno: `igAppSecret` 32
+caratteri, `googleMapsApiKey` 39, `metaAppSecret` 32, `openaiApiKey` 164,
+`shopifyClientSecret` 38 — **tutti si rileggono**.
+
+⚠️⚠️ **La lezione, e il motivo per cui quello script adesso è un `.mts`**: una
+funzione crittografica **non si ricopia, si importa**. E «è già cifrata» adesso
+si decide **provando a decifrarla con la funzione vera**, non guardandone la
+forma: una forma giusta cifrata con la chiave sbagliata sembrerebbe a posto e
+resterebbe illeggibile per sempre.
+
 ### Verifica
 
 `npx tsc --noEmit` esito 0 · `npm run build` esito 0 · **sei suite di prove, tutte

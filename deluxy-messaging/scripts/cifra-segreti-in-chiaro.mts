@@ -6,13 +6,22 @@
 // condiviso con altre tredici app. Ma cambiare l'elenco non cifra quello che è
 // già scritto: questo script lo fa, una volta sola.
 //
-// ⚠️ È IDEMPOTENTE: riconosce i valori già cifrati dalla loro forma e non li
-// tocca. Rilanciarlo non fa danni.
+// ⚠️⚠️ USA `cifra` E `decifra` DELL'APP, NON UNA LORO COPIA. La prima versione di
+// questo script se le era riscritte, e aveva derivato la chiave con
+// `sha256(APP_SECRET)` invece che con `scryptSync(APP_SECRET, 'deluxy-messaging',
+// 32)`: il giro di controllo tornava — perché cifrava e decifrava con la STESSA
+// chiave sbagliata — e i due segreti sono finiti nel database illeggibili
+// dall'app. Recuperati, ma è il motivo per cui questo file adesso è un `.mts`:
+// per poter importare le funzioni vere.
+//
+// ⚠️ È IDEMPOTENTE: riconosce i valori già cifrati e non li tocca.
 // ⚠️ Con `--scrivi` scrive. Senza, dice soltanto cosa farebbe.
 // ⚠️ Non stampa MAI un valore: solo la chiave, la lunghezza e lo stato.
+//
+//   npx tsx scripts/cifra-segreti-in-chiaro.mts [--scrivi]
 import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
-import crypto from 'node:crypto'
+import { cifra, decifra } from '../src/lib/crypto'
 
 const DA_CIFRARE = [
   'metaAppSecret', 'waToken', 'fbPageToken', 'igToken', 'googleClientSecret',
@@ -20,30 +29,6 @@ const DA_CIFRARE = [
   'anthropicApiKey', 'openaiApiKey', 'partnerApiKey', 'anagraficheApiKey',
   'igAppSecret', 'shopifyClientSecret', 'googleMapsApiKey', 'piattaformaApiKey',
 ]
-
-const sembraCifrato = (v) => {
-  const p = v.split('.')
-  return p.length === 3 && p[0].length === 16 && p[1].length === 24 && p.every((x) => /^[A-Za-z0-9+/=]+$/.test(x))
-}
-
-// Stessa funzione di src/lib/crypto.ts: AES-256-GCM con APP_SECRET.
-function chiave() {
-  const s = process.env.APP_SECRET
-  if (!s) throw new Error('APP_SECRET non configurato: senza non si può cifrare niente.')
-  return crypto.createHash('sha256').update(s).digest()
-}
-function cifra(testo) {
-  const iv = crypto.randomBytes(12)
-  const c = crypto.createCipheriv('aes-256-gcm', chiave(), iv)
-  const dati = Buffer.concat([c.update(testo, 'utf8'), c.final()])
-  return [iv, c.getAuthTag(), dati].map((b) => b.toString('base64')).join('.')
-}
-function decifra(v) {
-  const [iv, tag, dati] = v.split('.')
-  const d = crypto.createDecipheriv('aes-256-gcm', chiave(), Buffer.from(iv, 'base64'))
-  d.setAuthTag(Buffer.from(tag, 'base64'))
-  return Buffer.concat([d.update(Buffer.from(dati, 'base64')), d.final()]).toString('utf8')
-}
 
 const scrivi = process.argv.includes('--scrivi')
 const db = new PrismaClient()
@@ -53,10 +38,22 @@ console.log(`chiavi che devono stare cifrate: ${DA_CIFRARE.length} · presenti i
 let daFare = 0
 for (const r of righe) {
   const v = r.valore ?? ''
-  if (!v) { console.log(`  ${r.chiave.padEnd(22)} vuota`); continue }
-  if (sembraCifrato(v)) { console.log(`  ${r.chiave.padEnd(22)} già cifrata`); continue }
+  if (!v) {
+    console.log(`  ${r.chiave.padEnd(22)} vuota`)
+    continue
+  }
+  // ⚠️ «È già cifrata» si decide PROVANDO A DECIFRARLA con la funzione vera, non
+  // guardandone la forma: una forma giusta cifrata con la chiave sbagliata
+  // sembrerebbe a posto e resterebbe illeggibile per sempre.
+  try {
+    decifra(v)
+    console.log(`  ${r.chiave.padEnd(22)} già cifrata`)
+    continue
+  } catch {
+    // in chiaro, oppure cifrata male: in tutti e due i casi si riscrive
+  }
   daFare++
-  console.log(`  ${r.chiave.padEnd(22)} IN CHIARO (${v.length} caratteri) → da cifrare`)
+  console.log(`  ${r.chiave.padEnd(22)} da cifrare (${v.length} caratteri)`)
   if (!scrivi) continue
   const cifrato = cifra(v)
   // ⚠️ Si ricontrolla PRIMA di scrivere: cifrare male un segreto e sovrascrivere
@@ -64,5 +61,11 @@ for (const r of righe) {
   if (decifra(cifrato) !== v) throw new Error(`${r.chiave}: la cifratura non torna, non scrivo niente`)
   await db.impostazione.update({ where: { chiave: r.chiave }, data: { valore: cifrato } })
 }
-console.log(daFare === 0 ? '\nNiente da fare: sono già tutte cifrate.' : scrivi ? `\nSCRITTO: ${daFare} cifrate.` : `\nPROVA — rilancia con --scrivi per cifrare ${daFare} chiavi.`)
+console.log(
+  daFare === 0
+    ? '\nNiente da fare: sono già tutte cifrate.'
+    : scrivi
+      ? `\nSCRITTO: ${daFare} cifrate.`
+      : `\nPROVA — rilancia con --scrivi per cifrare ${daFare} chiavi.`
+)
 await db.$disconnect()
