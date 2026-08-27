@@ -138,6 +138,12 @@ model Utente {
   attivo        Boolean   @default(true)
   creatoIl      DateTime  @default(now())
   ultimoAccesso DateTime?
+  // Le sessioni (cookie firmati) emesse PRIMA di questo istante non valgono
+  // più. `null` = nessuna revoca, tutti i cookie firmati e non scaduti valgono.
+  // Si sposta avanti al cambio password e a un eventuale «esci da tutti i
+  // dispositivi»: così un cookie rubato muore, cosa che cancellarlo dal client
+  // (esci) non otteneva. Confrontato con l'`iat` del cookie in sessioneCorrente.
+  sessioniValideDa DateTime?
 
   // Cartellino: cancellando l'utente sparisce anche il suo cartellino (cascade).
   timbrature  Timbratura[]

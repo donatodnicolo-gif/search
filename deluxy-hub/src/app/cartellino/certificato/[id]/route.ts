@@ -30,7 +30,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     headers: {
       "Content-Type": c.tipoMime,
       "Content-Length": String(c.dimensione),
-      "Content-Disposition": `inline; filename="${semplice}"; filename*=UTF-8''${encodeURIComponent(c.nomeFile)}`,
+      // `attachment`, non `inline`: il file si scarica invece di aprirsi
+      // nell'origine del Hub. Con `X-Content-Type-Options: nosniff` (header
+      // globali) toglie ogni rischio che un contenuto caricato con un MIME
+      // dichiarato falso venga interpretato come pagina nella nostra origine.
+      "Content-Disposition": `attachment; filename="${semplice}"; filename*=UTF-8''${encodeURIComponent(c.nomeFile)}`,
+      "X-Content-Type-Options": "nosniff",
       // Mai in cache condivisa: è un documento sanitario di una persona sola.
       "Cache-Control": "private, no-store",
     },

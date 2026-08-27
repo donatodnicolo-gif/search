@@ -14,6 +14,7 @@ import {
   isTipoAssenza,
   istanteInItalia,
   mimeAmmesso,
+  tipoDaiByte,
   prossimoVerso,
   statoIniziale,
 } from "./cartellino";
@@ -132,7 +133,7 @@ export async function richiediAssenza(fd: FormData) {
   const file = fd.get("certificato");
   const conFile = file instanceof File && file.size > 0;
   if (conFile) {
-    const problema = controllaFile(file);
+    const problema = await controllaFile(file);
     if (problema) redirect(`/cartellino?errore=${problema}`);
   }
 
@@ -165,7 +166,7 @@ export async function caricaCertificato(fd: FormData) {
   const file = fd.get("certificato");
   if (!(file instanceof File) || file.size === 0) redirect("/cartellino?errore=file-mancante");
 
-  const problema = controllaFile(file);
+  const problema = await controllaFile(file);
   if (problema) redirect(`/cartellino?errore=${problema}`);
 
   // Si allega solo alla PROPRIA assenza: l'id arriva dal form, quindi si verifica.
@@ -293,9 +294,14 @@ export async function mandaPresenze(fd: FormData) {
 // ---------- Aiutanti ----------
 
 // Ritorna il codice d'errore da mostrare, oppure null se il file va bene.
-function controllaFile(file: File): string | null {
+// Controlla la dimensione, il MIME dichiarato (rifiuto rapido) e — la difesa
+// vera — i primi byte reali del file: un HTML travestito da PNG viene scartato
+// qui, prima ancora di creare l'assenza.
+async function controllaFile(file: File): Promise<string | null> {
   if (file.size > MAX_CERTIFICATO_BYTE) return "file-grande";
   if (!mimeAmmesso(file.type)) return "file-tipo";
+  const testa = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  if (!tipoDaiByte(testa)) return "file-tipo";
   return null;
 }
 
@@ -313,7 +319,8 @@ async function salvaCertificato(
       // Il nome arriva dal computer di chi carica: si tiene corto e senza
       // percorsi, perché finisce in un header Content-Disposition.
       nomeFile: file.name.replace(/[\\/]/g, "_").slice(0, 120) || "certificato",
-      tipoMime: file.type,
+      // Il tipo VERO dai byte, non quello dichiarato dal browser.
+      tipoMime: tipoDaiByte(dati) ?? file.type,
       dimensione: file.size,
       dati,
       protocollo: protocollo.slice(0, 40),

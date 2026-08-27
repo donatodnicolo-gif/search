@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { catalogoApp } from "@/lib/apps";
 import { prisma } from "@/lib/db";
+import { appVisibili } from "@/lib/permessi";
 import { creaTokenSso } from "@/lib/sso";
 import { sessioneCorrente } from "@/lib/sessione-server";
 
@@ -24,6 +25,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ app: string
   const { app: appId } = await ctx.params;
   const app = catalogoApp().find((a) => a.id === appId);
   if (!app) return NextResponse.redirect(new URL("/", req.url));
+
+  // Il gate dei permessi è QUI, non solo nelle tessere della home: senza,
+  // chiunque abbia una sessione poteva chiamare /vai/<app> a mano e farsi
+  // coniare un token SSO per un'app non sua — comprese quelle solo-admin
+  // (Personale = stipendi). Il portale deve decidere chi entra, non delegarlo
+  // all'app di destinazione. `appVisibili` incrocia ruolo (fresco dal DB) e
+  // appAbilitate; per un admin resta l'intero catalogo.
+  const viste = await appVisibili(sessione);
+  if (!viste.some((a) => a.id === app.id)) {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
 
   if (app.sso) {
     try {

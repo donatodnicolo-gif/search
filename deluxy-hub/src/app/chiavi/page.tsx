@@ -24,6 +24,7 @@ const MESSAGGI_ERRORE: Record<string, string> = {
     "HUB_CHIAVI_SECRET manca (o è troppo corto) nell'ambiente: senza, i valori non si possono cifrare.",
   token: "Token non valido: dai un nome e premi «Genera token» prima di salvare.",
   "token-esiste": "Questo token esiste già: generane un altro.",
+  scope: "Scegli almeno un progetto: un token senza progetti leggerebbe i segreti di tutte le app.",
 };
 
 function dataIt(d: Date) {

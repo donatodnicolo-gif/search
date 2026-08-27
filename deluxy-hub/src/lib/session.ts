@@ -12,7 +12,13 @@ export type Sessione = {
   uid: string;
   nome: string;
   ruolo: Ruolo;
-  exp: number; // secondi epoch
+  exp: number; // secondi epoch (scadenza)
+  // Istante di emissione (secondi epoch). Serve a `sessioneCorrente` per
+  // scartare i cookie emessi prima di `Utente.sessioniValideDa` (revoca al
+  // cambio password). Opzionale per compatibilità: i cookie emessi prima di
+  // questo campo non ce l'hanno, e vengono trattati come «emessi da sempre»
+  // (quindi revocabili appena si imposta una data di validità).
+  iat?: number;
 };
 
 function segreto(): string {
@@ -45,8 +51,9 @@ async function firma(payload: string): Promise<string> {
   return b64urlEncode(new Uint8Array(sig));
 }
 
-export async function creaSessione(dati: Omit<Sessione, "exp">): Promise<string> {
-  const sessione: Sessione = { ...dati, exp: Math.floor(Date.now() / 1000) + DURATA_SESSIONE_S };
+export async function creaSessione(dati: Omit<Sessione, "exp" | "iat">): Promise<string> {
+  const ora = Math.floor(Date.now() / 1000);
+  const sessione: Sessione = { ...dati, iat: ora, exp: ora + DURATA_SESSIONE_S };
   const payload = b64urlEncode(new TextEncoder().encode(JSON.stringify(sessione)));
   return `${payload}.${await firma(payload)}`;
 }

@@ -247,6 +247,19 @@ export function mimeAmmesso(mime: string): boolean {
   return (MIME_CERTIFICATO as readonly string[]).includes(mime);
 }
 
+// Il tipo VERO del file dai suoi primi byte, non dal MIME che dichiara il
+// browser (falsificabile). Ritorna il MIME riconosciuto o null se non è uno dei
+// tre ammessi. Serve perché un file caricato come «image/png» ma fatto di altro
+// non deve poter essere servito con quel tipo: con la firma vera il download
+// dice la verità sul contenuto.
+export function tipoDaiByte(buf: Uint8Array): string | null {
+  const inizia = (...b: number[]) => b.every((v, i) => buf[i] === v);
+  if (inizia(0x25, 0x50, 0x44, 0x46)) return "application/pdf"; // %PDF
+  if (inizia(0xff, 0xd8, 0xff)) return "image/jpeg"; // JPEG SOI
+  if (inizia(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return "image/png";
+  return null;
+}
+
 export function pesoLeggibile(byte: number): string {
   if (byte < 1024) return `${byte} B`;
   if (byte < 1024 * 1024) return `${Math.round(byte / 1024)} KB`;

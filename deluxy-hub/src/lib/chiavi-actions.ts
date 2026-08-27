@@ -103,6 +103,12 @@ export async function creaToken(fd: FormData) {
   // generato nulla (JS disattivato) — non salviamo un token debole.
   if (!nome || token.length < 24) redirect("/chiavi?errore=token");
 
+  // Uno scope vuoto vale «tutti i progetti» (vedi le rotte /api/chiavi e
+  // /api/presenze): un token creato senza spunte diventa una chiave maestra su
+  // TUTTI i segreti di tutte le app. Deny-by-default: almeno un progetto, così
+  // la master key non nasce per distrazione.
+  if (progetti.length === 0) redirect("/chiavi?errore=scope");
+
   const hash = hashToken(token);
   if (await prisma.tokenApi.findUnique({ where: { hash } })) {
     redirect("/chiavi?errore=token-esiste");

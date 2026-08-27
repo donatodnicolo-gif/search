@@ -399,6 +399,72 @@ eccedenza) non sono state riverificate dopo la correzione: in quella sessione il
 pannello del browser non componeva i frame e ogni `getBoundingClientRect`
 tornava 0 — la stessa condizione dichiarata dai revisori. Da rifare quando il
 pannello e' a schermo.
+
+## 5-sexies. Revisione di sicurezza (27 agosto 2026)
+
+Tre pentester (esterno su produzione, interno sul codice, e un ostile che ha
+**demolito** reperti e correzioni prima dell'implementazione). **Dall'esterno
+anonimo non si legge nulla**: cassaforte, presenze e pagine danno 401/redirect,
+cookie falsificati e trucchi sul path rifiutati, `/api/health` non trapela.
+Il vero accesso indebito lo otteneva un **utente gia' loggato a basso privilegio**.
+Corretto (commit di sicurezza), con il **perche'** perche' non venga disfatto:
+
+1. **`/vai/[app]` ora controlla `appVisibili` prima di coniare il token SSO**
+   (`src/app/vai/[app]/route.ts`). Prima chiunque loggato poteva chiamare
+   `/vai/personale` (stipendi, solo-admin) e farsi coniare un token valido: il
+   gate stava solo nelle tessere della home. Il portale decide chi entra, non
+   lo delega all'app di destinazione.
+2. **La sessione si rilegge dal DB a ogni richiesta** (`src/lib/sessione-server.ts`,
+   `sessioneCorrente` memoizzata con `cache()`): ruolo/nome/`attivo` vengono dalla
+   riga viva, non dal cookie congelato 30 giorni. Un admin declassato smette di
+   esserlo adesso, un utente disattivato/eliminato e' fuori subito. Il middleware
+   Edge resta il primo filtro (firma), la verita' e' qui (Prisma non gira
+   sull'Edge). Chiude anche l'`/vai` dell'utente eliminato.
+3. **Revoca al cambio password** (buco trovato dall'ostile): `cambiaMiaPassword`
+   sposta `Utente.sessioniValideDa` a ora → ogni cookie emesso prima (anche uno
+   **rubato**) muore; poi si riemette quello di chi cambia, con `iat` nuovo, per
+   non cacciarlo fuori. Il cookie porta `iat` (`src/lib/session.ts`); il confronto
+   e' troncato al secondo (l'`iat` e' in secondi: coi ms il cookie nuovo si
+   auto-invaliderebbe). Schema: aggiunta `sessioniValideDa DateTime?` a `hub.Utente`
+   (nullable, `db push`, nessun altro schema toccato).
+4. **Open redirect chiuso** (`src/lib/actions.ts`, `destinazioneSicura`): il vecchio
+   `da.startsWith('/')` accettava `//evil` e, col tab `/%09/evil`, sfuggiva a
+   qualunque blacklist. Ora si risolve `new URL(da, origine-fittizia)` e si tiene
+   solo se l'origine resta interna. ⚠️ **Non tornare al controllo a caratteri**:
+   provato con backslash/tab/newline grezzi (`String.fromCharCode`), tutti → `/`.
+5. **Login: scrypt gira SEMPRE** (`accedi`, `HASH_FITTIZIO`): prima girava solo
+   se l'utente esisteva ed era attivo → oracolo temporale che smascherava le email
+   valide, vanificando il messaggio d'errore unico. ⚠️ L'hash fittizio **deve**
+   essere ben formato (salt hex : 64 byte hex), altrimenti `verificaPassword`
+   esce prima di scrypt e l'oracolo resta. Misurato: 56ms fittizio vs 52ms vero.
+6. **Header di sicurezza** (`next.config.ts`): `X-Frame-Options: DENY` +
+   CSP `frame-ancestors 'none'` (anti-clickjacking), `nosniff`, `Referrer-Policy`,
+   `Permissions-Policy`, `poweredByHeader:false`. ⚠️ La CSP e' **prudente di
+   proposito** (solo frame-ancestors/base-uri/object-src/form-action): una CSP
+   stretta su `script-src` romperebbe l'hydration di Next. Niente `clipboard-write=()`
+   nella Permissions-Policy: la pagina Chiavi copia il token.
+7. **Token di servizio: scope vuoto vietato alla creazione** (`chiavi-actions.ts`):
+   un token senza progetti valeva «tutti» = chiave maestra su ogni segreto.
+   Verificato: in produzione **un solo token, scope `personale`** (nessuna master
+   key esistente). La semantica a runtime NON e' cambiata (romperebbe i token gia'
+   emessi e il Hub stesso): si blocca solo la nascita di nuovi token vuoti.
+8. **Certificati sanitari: `attachment` + `nosniff` + magic byte** (buco trovato
+   dall'ostile). Il download ora forza lo scaricamento invece di aprire nell'origine
+   del Hub, e il tipo si legge dai **primi byte reali** (`tipoDaiByte`), non dal MIME
+   dichiarato dal browser: un HTML travestito da PNG viene scartato prima di salvare.
+
+**Regge, non toccato** (verificato dai pentester): server action tutte con
+`richiediAdmin`, pagine admin con doppio controllo, IDOR certificati chiuso, token
+SSO cifrato AES-256-GCM legato all'app con `exp` 60s, cripto password/sessione
+solida (scrypt, HMAC a tempo costante, token per hash).
+
+🔴 **Lasciato aperto, con la ragione** (non e' incuria):
+- **Rate-limit su login e API** (R5): un limite in-memory su Vercel serverless e'
+  teatro (ogni lambda ha la sua memoria). Serve uno store (Upstash) o il Vercel
+  Firewall sulla rotta di login. Mitigato: scrypt rallenta, i token sono ad alta
+  entropia cercati per hash. Da fare quando c'e' l'infrastruttura.
+- **Token SSO nell'URL** (R8): mitigato (AES-GCM, 60s, monouso di fatto). Il fix
+  (POST invece di GET) toccherebbe il `/api/sso` di TUTTE le app di destinazione.
 ## 6. Deploy e ambiente (Vercel)
 
 - Progetto: **`deluxy/deluxy-hub`** (CLI già autenticata come `donatodnicolo-gif`).
