@@ -45,7 +45,8 @@
     "regoleValet": "Regole valet",
     "serviziRicorrenti": "Servizi ricorrenti",
     "preventivi": "Preventivi",
-    "serviziDeluxy": "Servizi Deluxy"
+    "serviziDeluxy": "Servizi Deluxy",
+    "chiaviApp": "Chiavi delle app"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -2121,5 +2122,61 @@
     },
     "savedWithN": "Servizio ricorrente creato: {{n}} consegne già generate per i prossimi giorni.",
     "updated": "Servizio ricorrente aggiornato: {{n}} nuove consegne, {{r}} consegne future rimesse in riga."
+  },
+  "apiKeys": {
+    "title": "Chiavi delle app",
+    "caption": "Le chiavi con cui le altre app di Deluxy chiamano questa, in lettura o in lettura e scrittura.",
+    "new": "+ Nuova chiave",
+    "generate": "Genera la chiave",
+    "emptyTitle": "Nessuna chiave",
+    "emptyHint": "Genera la prima per far chiamare questa app da un'altra.",
+    "f": {
+      "nome": "App che la userà",
+      "nomePh": "deluxy-orders",
+      "nomeHint": "Minuscole, numeri, punto, trattino. È l'etichetta che rileggerai fra un anno.",
+      "permessi": "Permessi",
+      "scadenza": "Scade il",
+      "scadenzaHint": "Vuoto = non scade.",
+      "note": "A che serve",
+      "notePh": "Es. tira i costi di consegna per il conto economico"
+    },
+    "perm": {
+      "lettura": "Sola lettura",
+      "scrittura": "Lettura e scrittura",
+      "letturaHint": "Può leggere consegne, vendite e costi. Non scrive niente.",
+      "scritturaHint": "Può anche CREARE consegne. Dalla solo a chi deve davvero.",
+      "soloLettura": "Sola lettura",
+      "lettura2": "Lettura + scrittura"
+    },
+    "stato": {
+      "attiva": "Attiva",
+      "spenta": "Spenta",
+      "scaduta": "Scaduta"
+    },
+    "c": {
+      "app": "App",
+      "permessi": "Permessi",
+      "stato": "Stato",
+      "ultimoUso": "Ultimo uso",
+      "scadenza": "Scadenza"
+    },
+    "creataDa": "creata da {{chi}}",
+    "maiUsata": "mai usata",
+    "nonScade": "non scade",
+    "ferma": "ferma da {{n}} giorni",
+    "rigenera": "Rigenera",
+    "spegni": "Spegni",
+    "accendi": "Accendi",
+    "created": {
+      "title": "Chiave per «{{nome}}»",
+      "how": "Si usa nell'intestazione x-api-key:",
+      "done": "Fatto, l'ho copiata"
+    },
+    "copy": "Copia",
+    "copied": "Copiata ✓",
+    "copyFailed": "Non sono riuscito a copiarla negli appunti: selezionala a mano.",
+    "confirmRigenera": "Rigeneri la chiave di «{{nome}}»? Quella vecchia smette di funzionare SUBITO: l'app va aggiornata.",
+    "confirmElimina": "Elimini la chiave di «{{nome}}»? Non si torna indietro, e quell'app smette di chiamare.",
+    "nota": "La chiave in chiaro si vede una volta sola, appena generata: in archivio resta solo la sua impronta. Se la perdi, rigenerala."
   }
 }

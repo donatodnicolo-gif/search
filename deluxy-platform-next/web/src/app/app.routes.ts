@@ -373,6 +373,15 @@ export const routes: Routes = [
           ),
       },
       // ---- Utenti e accessi (solo admin) ----
+      // Le chiavi con cui le altre app chiamano questa. Solo ADMIN: una chiave
+      // app scavalca i ruoli dell'applicazione.
+      {
+        path: 'api-keys',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN'] },
+        loadComponent: () =>
+          import('./pages/api-keys.component').then((m) => m.ApiKeysComponent),
+      },
       {
         path: 'users',
         canActivate: [roleGuard],

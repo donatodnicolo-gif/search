@@ -67,11 +67,47 @@ export class AppApiKeyGuard implements CanActivate {
     if (!record || !record.attiva) {
       throw new UnauthorizedException('Chiave API non valida o disattivata.');
     }
+    // ⚠️ 27/08/2026 — LA SCADENZA SI VERIFICA A OGNI CHIAMATA, non alla
+    // creazione. Prima non esisteva proprio: una chiave consegnata una volta
+    // valeva per sempre, e una chiave che nessuno ritira è una porta che
+    // nessuno chiude.
+    //
+    // Il messaggio dice SCADUTA e non «non valida»: chi la usa deve sapere che
+    // cosa chiedere, invece di ricontrollare di aver copiato bene.
+    if (record.scadeIl && record.scadeIl.getTime() <= Date.now()) {
+      throw new UnauthorizedException(
+        `Chiave API scaduta il ${record.scadeIl.toISOString().slice(0, 10)}: chiedine una nuova.`,
+      );
+    }
     // Traccia d'uso best-effort: un fallimento qui non deve negare la risposta.
     void this.prisma.appApiKey
       .update({ where: { id: record.id }, data: { ultimoUso: new Date() } })
       .catch(() => undefined);
     req.appChiave = { nome: record.nome, scrittura: record.scrittura };
+    return true;
+  }
+}
+
+/**
+ * IL PERMESSO DI SCRITTURA, come guard.
+ *
+ * ⚠️ Stava dentro il gestore, e i pipe girano PRIMA dei gestori: una chiave di
+ * sola lettura che mandava un corpo imperfetto riceveva un **400 sui nomi dei
+ * campi**, non il rifiuto del permesso. Il rifiuto c'era comunque — niente
+ * veniva scritto — ma chi lo leggeva capiva la cosa sbagliata, e una prova
+ * automatica non poteva distinguere «respinto» da «non ci sono arrivato».
+ *
+ * I guard girano prima dei pipe: qui il motivo vero arriva per primo.
+ */
+@Injectable()
+export class ScritturaRichiestaGuard implements CanActivate {
+  canActivate(ctx: ExecutionContext): boolean {
+    const req = ctx.switchToHttp().getRequest();
+    if (!req?.appChiave?.scrittura) {
+      throw new UnauthorizedException(
+        'Questa chiave è di sola lettura: per creare consegne serve una chiave con permesso di scrittura.',
+      );
+    }
     return true;
   }
 }
@@ -925,16 +961,12 @@ export class AppApiController {
       'Crea una consegna dal canale app (richiede una chiave con permesso di SCRITTURA). Stessa strada del form: prezzo dal listino del partner, paga dal listino del valet, attività e notifiche',
   })
   @ApiHeader({ name: 'x-api-key', description: 'Chiave app CON scrittura' })
+  // ⚠️ Il permesso è un GUARD, non un controllo dentro il gestore: i guard
+  // girano prima dei pipe, quindi «questa chiave non scrive» arriva prima di
+  // «il campo data non è una data». Il guard del controller dice CHI sei,
+  // questo dice CHE COSA puoi fare.
+  @UseGuards(ScritturaRichiestaGuard)
   creaConsegna(@Body() dto: CreateDeliveryDto, @Req() req: any) {
-    // ⚠️ IL PERMESSO DI SCRITTURA SI CONTROLLA QUI, e la chiave lo porta con sé
-    // (`AppApiKey.scrittura`). Il guard del controller dice solo CHI sei: una
-    // chiave di sola lettura che potesse creare consegne renderebbe inutile
-    // avere due tipi di chiave.
-    if (!req?.appChiave?.scrittura) {
-      throw new UnauthorizedException(
-        'Questa chiave è di sola lettura: per creare consegne serve una chiave con permesso di scrittura.',
-      );
-    }
     return this.service.creaConsegna(dto, req.appChiave.nome ?? 'app sconosciuta');
   }
 

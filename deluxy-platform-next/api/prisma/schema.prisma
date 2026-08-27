@@ -1740,6 +1740,18 @@ model AppApiKey {
   hash      String    @unique // SHA-256 della chiave, mai il valore
   scrittura Boolean   @default(false)
   attiva    Boolean   @default(true)
+  /// A che serve, scritto da chi la crea: fra un anno «deluxy-orders» da solo
+  /// non dice se si può spegnere.
+  note      String?
+  /// SCADENZA (27/08/2026). Vuota = non scade.
+  ///
+  /// ⚠️ Prima non esisteva: una chiave data una volta valeva per sempre, e una
+  /// chiave che nessuno ritira è una porta che nessuno chiude. Il guard la
+  /// verifica a ogni chiamata, non solo alla creazione.
+  scadeIl   DateTime?
+  /// Chi l'ha creata: quando si ritrova una chiave viva e nessuno sa perché,
+  /// serve un nome a cui chiedere.
+  creataDa  String?
   ultimoUso DateTime?
   creataIl  DateTime  @default(now())
 }

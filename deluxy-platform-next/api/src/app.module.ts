@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ActivitiesModule } from './activities/activities.module';
 import { AppApiModule } from './app-api/app-api.module';
+import { ChiaviAppModule } from './app-api/chiavi.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
@@ -48,6 +49,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     DeliveriesModule,
     ActivitiesModule,
     AppApiModule,
+    ChiaviAppModule,
     ProductsModule,
     CategoriesModule,
     CustomersModule,

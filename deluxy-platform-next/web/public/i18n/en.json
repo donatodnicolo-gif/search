@@ -45,7 +45,8 @@
     "regoleValet": "Valet rules",
     "serviziRicorrenti": "Recurring services",
     "preventivi": "Quotes",
-    "serviziDeluxy": "Deluxy services"
+    "serviziDeluxy": "Deluxy services",
+    "chiaviApp": "App keys"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -2121,5 +2122,61 @@
     },
     "savedWithN": "Recurring service created: {{n}} deliveries already generated for the coming days.",
     "updated": "Recurring service updated: {{n}} new deliveries, {{r}} future deliveries realigned."
+  },
+  "apiKeys": {
+    "title": "App keys",
+    "caption": "The keys other Deluxy apps use to call this one, read-only or read and write.",
+    "new": "+ New key",
+    "generate": "Generate the key",
+    "emptyTitle": "No keys",
+    "emptyHint": "Generate the first one to let another app call this one.",
+    "f": {
+      "nome": "App that will use it",
+      "nomePh": "deluxy-orders",
+      "nomeHint": "Lowercase, digits, dot, dash. It is the label you will read a year from now.",
+      "permessi": "Permissions",
+      "scadenza": "Expires on",
+      "scadenzaHint": "Empty = never expires.",
+      "note": "What it is for",
+      "notePh": "e.g. pulls delivery costs for the P&L"
+    },
+    "perm": {
+      "lettura": "Read only",
+      "scrittura": "Read and write",
+      "letturaHint": "Can read deliveries, sales and costs. Writes nothing.",
+      "scritturaHint": "Can also CREATE deliveries. Give it only to who truly needs it.",
+      "soloLettura": "Read only",
+      "lettura2": "Read + write"
+    },
+    "stato": {
+      "attiva": "Active",
+      "spenta": "Off",
+      "scaduta": "Expired"
+    },
+    "c": {
+      "app": "App",
+      "permessi": "Permissions",
+      "stato": "Status",
+      "ultimoUso": "Last used",
+      "scadenza": "Expiry"
+    },
+    "creataDa": "created by {{chi}}",
+    "maiUsata": "never used",
+    "nonScade": "never expires",
+    "ferma": "idle for {{n}} days",
+    "rigenera": "Regenerate",
+    "spegni": "Turn off",
+    "accendi": "Turn on",
+    "created": {
+      "title": "Key for \"{{nome}}\"",
+      "how": "Use it in the x-api-key header:",
+      "done": "Done, I copied it"
+    },
+    "copy": "Copy",
+    "copied": "Copied ✓",
+    "copyFailed": "Could not copy to the clipboard: select it by hand.",
+    "confirmRigenera": "Regenerate the key for \"{{nome}}\"? The old one stops working IMMEDIATELY: the app must be updated.",
+    "confirmElimina": "Delete the key for \"{{nome}}\"? This cannot be undone, and that app stops calling.",
+    "nota": "The key itself is shown once, right after generating it: only its fingerprint is stored. If you lose it, regenerate it."
   }
 }
