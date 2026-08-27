@@ -179,6 +179,58 @@ export interface FatturaTrovata {
   motivo?: string | null;
 }
 
+/** Una riga dell'elenco: quello che serve a riconoscere la fattura giusta. */
+export interface FatturaInElenco {
+  id: string;
+  numero: string | null;
+  partner: { id: string; nome: string } | null;
+  tipologia: string | null;
+  anno: number;
+  mese: number;
+  emissione: string | null;
+  imponibile: number;
+  aliquotaIva: number;
+  totale: number;
+  pagata: boolean;
+  /** Su quale numero ha fatto match la ricerca per importo: totale o imponibile. */
+  combacia: 'totale' | 'imponibile' | null;
+}
+
+/**
+ * Cerca le fatture di un cliente, per nome e/o importo.
+ *
+ * ⚠️ Torna un ELENCO da far guardare, non «la» fattura: il nome di un cliente
+ * somiglia a quello di un altro, e l'importo di due ordini dello stesso mese
+ * può coincidere. Sceglie una persona.
+ *
+ * ⚠️ Zero risultati non è un errore: è la risposta. Va distinta da «il servizio
+ * non risponde», o la schermata mostra un rosso dove doveva dire «non c'è,
+ * emettila».
+ */
+export async function cercaFatture(q: {
+  cliente?: string | null;
+  importo?: number | null;
+  anno?: number | null;
+}): Promise<{ ok: boolean; fatture: FatturaInElenco[]; errore?: string }> {
+  try {
+    const r = await chiama<{ trovate: number; fatture: FatturaInElenco[] }>({
+      azione: 'cerca_fatture',
+      cliente: q.cliente ?? undefined,
+      importo: q.importo ?? undefined,
+      anno: q.anno ?? undefined,
+    });
+    return { ok: true, fatture: r?.fatture ?? [] };
+  } catch (e: any) {
+    const m = String(e?.message ?? e);
+    // Il 404 della rotta assente va detto per quello che è: FINANCE non è
+    // ancora aggiornato, non «non ci sono fatture».
+    if (/404|not found/i.test(m)) {
+      return { ok: false, fatture: [], errore: 'La ricerca fatture non è ancora disponibile su FINANCE.' };
+    }
+    return { ok: false, fatture: [], errore: m };
+  }
+}
+
 export async function cercaFattura(numero: string): Promise<FatturaTrovata> {
   try {
     const r = await chiama<FatturaTrovata>({ azione: 'cerca_fattura', numero });

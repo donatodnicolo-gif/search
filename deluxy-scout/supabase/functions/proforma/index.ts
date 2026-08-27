@@ -155,6 +155,18 @@ Deno.serve(async (req) => {
       // con grazia se l'endpoint non esiste ancora su Partner.
       const p = new URLSearchParams({ partner: String(body.partner ?? '') });
       res = await fetch(`${BASE}/api/riepilogo-finanziario?${p.toString()}`, { headers });
+    } else if (body.azione === 'cerca_fatture') {
+      // ⭐ 27/08/2026 — CERCA LE FATTURE per ragione sociale e importo.
+      //
+      // Il numero, quando si chiude un ordine, quasi nessuno ce l'ha: si sa
+      // chi è il cliente e quanto vale. Questa cerca su quello, e torna un
+      // elenco da GUARDARE — l'aggancio lo decide una persona, perché il nome
+      // può somigliare a quello di un altro cliente.
+      const p = new URLSearchParams();
+      if (body.cliente) p.set('cliente', String(body.cliente));
+      if (body.importo != null) p.set('importo', String(body.importo));
+      if (body.anno) p.set('anno', String(body.anno));
+      res = await fetch(`${BASE}/api/v1/fatture-cerca?${p.toString()}`, { headers });
     } else if (body.azione === 'cerca_fattura') {
       // ⭐ 27/08/2026 — CERCA UNA FATTURA GIÀ EMESSA, per numero.
       //

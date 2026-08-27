@@ -11,7 +11,7 @@ import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
-import { cercaFattura, chiediFatturaPerOrdine } from '@/lib/partner';
+import { cercaFattura, cercaFatture, chiediFatturaPerOrdine, type FatturaInElenco } from '@/lib/partner';
 import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { aggiornaFornitura, aggiungiFornitura, forniturePerOrdine, rimuoviFornitura, type RigaFornitura } from '@/lib/fornitura';
@@ -20,6 +20,7 @@ import { fetchForniture, salvaNelListino, type Fornitura } from '@/lib/forniture
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { BRAND, brandDi, CANALI, LABEL_CANALE, LINEE_ATTIVE } from '@/types';
+import { urlSchedaRegistro } from '@/lib/anagrafiche';
 
 const STATI: { valore: OrdineConLuogo['stato']; label: string; colore: string }[] = [
   { valore: 'da_incassare', label: 'Da incassare', colore: '#B7791F' },
@@ -55,6 +56,16 @@ export default function Ordini() {
    * trappola già pagata su «oggi».
    */
   const [periodo, setPeriodo] = useState<'tutti' | 'mese' | 'scorso' | 'trimestre' | 'anno'>('tutti');
+  /**
+   * ⭐ APERTI / CHIUSI (27/08/2026, richiesta dell'utente: «metti tra i filtri
+   * anche ordini chiusi»).
+   *
+   * ⚠️ È un filtro SUO, accanto allo stato, non una voce dentro quello: chiuso
+   * e incassato sono due domande diverse, e metterli nella stessa fila avrebbe
+   * fatto credere che si escludano — mentre un ordine incassato E chiuso è il
+   * caso normale.
+   */
+  const [chiusura, setChiusura] = useState<'tutti' | 'aperti' | 'chiusi'>('tutti');
   const [inCorso, setInCorso] = useState<string | null>(null);
   /** L'ordine per cui si sta scegliendo la percentuale dell'acconto. */
   const [accontoPer, setAccontoPer] = useState<OrdineConLuogo | null>(null);
@@ -146,13 +157,15 @@ export default function Ordini() {
       ordini.filter((o) => {
         if (statoFiltro && o.stato !== statoFiltro) return false;
         if (lineaFiltro && o.linea !== lineaFiltro) return false;
+        if (chiusura === 'aperti' && o.chiuso_il) return false;
+        if (chiusura === 'chiusi' && !o.chiuso_il) return false;
         if (finestra) {
           const q = new Date(o.created_at);
           if (isNaN(q.getTime()) || q < finestra.da || q >= finestra.a) return false;
         }
         return true;
       }),
-    [ordini, statoFiltro, lineaFiltro, finestra],
+    [ordini, statoFiltro, lineaFiltro, chiusura, finestra],
   );
 
 
@@ -1005,7 +1018,10 @@ export default function Ordini() {
           filtri partivano 210px dentro il bordo della tabella e sembravano di
           un altro blocco. È lo schema che Richieste Clienti applicava già. */}
       <View style={[styles.head, aTabella ? contenutoExtraLargo : contenutoCentrato]}>
-        <PageIntro testo="Gli ordini nati dalle trattative vinte. La pipeline dice quanto stai trattando: qui vedi quanto hai chiuso, e cosa resta da incassare." />
+        <PageIntro
+          dentroUnBloccoSpaziato
+          testo="Gli ordini nati dalle trattative vinte. La pipeline dice quanto stai trattando: qui vedi quanto hai chiuso, e cosa resta da incassare."
+        />
         <Text style={styles.sub}>
           Chiuso {new Date().getFullYear()}: <Text style={styles.subForte}>{euro(totali.chiusoAnno)}</Text>
           {'  ·  '}Da incassare: <Text style={styles.subForte}>{euro(totali.daIncassare)}</Text>
@@ -1036,6 +1052,12 @@ export default function Ordini() {
             calendario. La domanda vera e quella di tutti i giorni — «come sta
             andando questo mese?» — e per farsela non si deve scegliere due
             date. */}
+        <View style={styles.chips}>
+          <Text style={styles.gruppoTitolo}>Pratica</Text>
+          <Chip label="Tutti" on={chiusura === 'tutti'} onPress={() => setChiusura('tutti')} />
+          <Chip label="Da chiudere" on={chiusura === 'aperti'} onPress={() => setChiusura('aperti')} />
+          <Chip label="Chiusi" on={chiusura === 'chiusi'} onPress={() => setChiusura('chiusi')} />
+        </View>
         <View style={styles.chips}>
           <Text style={styles.gruppoTitolo}>Periodo</Text>
           {([
@@ -1302,9 +1324,28 @@ export default function Ordini() {
               scheda, e riscriverlo sull'ordine farebbe due nomi diversi per la
               stessa attività. Qui si corregge solo come si chiama sull'ordine. */}
           {modificaPer.place_nome ? (
-            <Text style={styles.campoAiuto}>
-              Negozio collegato: {modificaPer.place_nome} — si cambia dalla sua scheda, non da qui.
-            </Text>
+            <View style={styles.rigaNegozio}>
+              <Text style={[styles.campoAiuto, { flex: 1 }]}>
+                Negozio collegato: {modificaPer.place_nome} — si cambia dalla sua scheda, non da qui.
+              </Text>
+              {/* ⭐ 27/08/2026, richiesta dell'utente: «metti link per aprire i
+                  dati del cliente in anagrafica». La domanda che segue «chi è
+                  questo cliente?» è sempre la stessa — P.IVA, sede, referenti —
+                  e la risposta sta in un'altra app: senza il link si copiava il
+                  nome e lo si cercava a mano.
+                  ⚠️ Compare solo se il negozio È nel registro: un link che
+                  porta a una scheda inesistente fa credere che il dato ci sia. */}
+              {urlSchedaRegistro(modificaPer.place_anagrafiche_id) ? (
+                <Pressable
+                  style={styles.linkRegistro}
+                  onPress={() => Linking.openURL(urlSchedaRegistro(modificaPer.place_anagrafiche_id)!)}
+                  accessibilityLabel="Apri la scheda del cliente in Anagrafiche"
+                >
+                  <Ionicons name="open-outline" size={14} color={colors.navy} />
+                  <Text style={styles.linkRegistroTxt}>Apri in Anagrafiche</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
 
           <Text style={styles.campoLabel}>Descrizione</Text>
@@ -1587,6 +1628,52 @@ function ChiusuraOrdine({
   const [cerco, setCerco] = useState(false);
   const [trovata, setTrovata] = useState<Awaited<ReturnType<typeof cercaFattura>> | null>(null);
   const [inCorso, setInCorso] = useState<string | null>(null);
+  /**
+   * ⭐ CERCARE PER RAGIONE SOCIALE E IMPORTO (27/08/2026, richiesta
+   * dell'utente: «la ricerca della fattura va fatta per ragione sociale,
+   * importo oltre che per numero»).
+   *
+   * ⚠️ Il numero, quando si chiude un ordine, quasi nessuno ce l'ha: si sa chi
+   * è il cliente e quanto vale. Partire dal numero voleva dire chiedere per
+   * primo l'unico dato che manca — quindi i due campi partono già COMPILATI
+   * con quello che l'ordine sa, e basta premere Cerca.
+   */
+  const [qCliente, setQCliente] = useState(ordine.place_nome ?? ordine.cliente);
+  const [qImporto, setQImporto] = useState(ordine.valore != null ? scriviImporto(ordine.valore) : '');
+  const [elenco, setElenco] = useState<FatturaInElenco[] | null>(null);
+  const [erroreRicerca, setErroreRicerca] = useState<string | null>(null);
+
+  async function cercaPerCliente() {
+    if (cerco) return;
+    setCerco(true);
+    setElenco(null);
+    setErroreRicerca(null);
+    try {
+      const imp = qImporto.trim() ? leggiImporto(qImporto) : null;
+      const r = await cercaFatture({ cliente: qCliente.trim() || null, importo: imp });
+      if (!r.ok) setErroreRicerca(r.errore ?? 'Ricerca non riuscita.');
+      else setElenco(r.fatture);
+    } finally {
+      setCerco(false);
+    }
+  }
+
+  async function agganciaRiga(f: FatturaInElenco) {
+    if (!f.numero) {
+      avvisa('Fattura senza numero', 'Questa fattura non ha ancora un numero su FINANCE: si aggancia quando ce l\'ha.');
+      return;
+    }
+    setInCorso('aggancia');
+    try {
+      await collegaDocumentoAOrdine(ordine.id, { fatturaNumero: f.numero });
+      await aggiornaOrdine(ordine.id, { chiuso_il: new Date().toISOString() });
+      onFatto();
+    } catch (e: any) {
+      avvisa('Non agganciata', String(e?.message ?? e));
+    } finally {
+      setInCorso(null);
+    }
+  }
 
   const giaFatturato = Boolean(ordine.fattura_numero);
 
@@ -1678,10 +1765,79 @@ function ChiusuraOrdine({
         </>
       ) : (
         <>
-          <Text style={styles.campoLabel}>Hai già la fattura?</Text>
+          <Text style={styles.campoLabel}>Cerca la fattura su FINANCE</Text>
           <Text style={styles.campoAiuto}>
-            Scrivi il numero e l&apos;app la cerca su FINANCE: si aggancia solo se esiste davvero.
+            Per ragione sociale e importo — sono già compilati con i dati di quest&apos;ordine.
           </Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TextInput
+              style={[styles.campo, { flex: 1.6 }]}
+              value={qCliente}
+              onChangeText={setQCliente}
+              placeholder="Ragione sociale"
+              placeholderTextColor={colors.grigio}
+            />
+            <TextInput
+              style={[styles.campo, { flex: 1 }]}
+              value={qImporto}
+              onChangeText={setQImporto}
+              placeholder="Importo"
+              placeholderTextColor={colors.grigio}
+              inputMode="decimal"
+            />
+            <Pressable
+              style={[styles.btnCerca, cerco && { opacity: 0.5 }]}
+              disabled={cerco}
+              onPress={cercaPerCliente}
+            >
+              <Text style={styles.btnCercaTxt}>{cerco ? 'Cerco…' : 'Cerca'}</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.campoAiuto}>
+            L&apos;importo si confronta sia col totale sia con l&apos;imponibile, a un euro di tolleranza: l&apos;IVA
+            fa ballare i centesimi, e una ricerca al centesimo esatto non trova mai niente.
+          </Text>
+
+          {erroreRicerca ? <Text style={styles.chiusuraNo}>{erroreRicerca}</Text> : null}
+
+          {elenco ? (
+            elenco.length ? (
+              <View style={{ gap: 6 }}>
+                {/* ⚠️ Si SCEGLIE, non si aggancia da soli: due clienti con un
+                    nome simile, o due ordini dello stesso mese con lo stesso
+                    importo, sono la normalità — e agganciare la prima riga
+                    sbaglierebbe due pratiche insieme. */}
+                {elenco.map((f) => (
+                  <Pressable
+                    key={f.id}
+                    style={styles.fattRiga}
+                    disabled={!!inCorso}
+                    onPress={() => agganciaRiga(f)}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.fattNumero} numberOfLines={1}>
+                        {f.numero ?? 'senza numero'} · {f.partner?.nome ?? '—'}
+                      </Text>
+                      <Text style={styles.fattMeta} numberOfLines={1}>
+                        {importoBreve(f.totale)} ({importoBreve(f.imponibile)} + IVA {f.aliquotaIva}%)
+                        {f.emissione ? ` · ${f.emissione}` : ` · ${f.mese}/${f.anno}`}
+                        {f.pagata ? ' · pagata' : ' · non pagata'}
+                        {f.combacia === 'imponibile' ? " · l'importo combacia con l'imponibile" : ''}
+                      </Text>
+                    </View>
+                    <Ionicons name="link-outline" size={17} color={colors.navy} />
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.campoAiuto}>
+                Nessuna fattura con questi dati. Può essere che non sia ancora stata emessa: sotto c&apos;è come
+                farla.
+              </Text>
+            )
+          ) : null}
+
+          <Text style={[styles.campoLabel, { marginTop: 10 }]}>Oppure agganciala per numero</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TextInput
               style={[styles.campo, { flex: 1 }]}
@@ -2016,6 +2172,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill, paddingVertical: 12,
   },
   btnGhostLargoTxt: { color: colors.navy, fontWeight: '700', fontSize: 13.5 },
+  fattRiga: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 8, paddingHorizontal: 10,
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco,
+  },
+  fattNumero: { color: colors.testo, fontSize: 13.5, fontWeight: '700' },
+  fattMeta: { color: colors.grigio, fontSize: 11.5, lineHeight: 16 },
   chiusuraOk: { color: '#2F7D46', fontSize: 13, lineHeight: 18, fontWeight: '600' },
   chiusuraNo: { color: colors.errore, fontSize: 13, lineHeight: 18 },
   chiudiSenza: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },
@@ -2091,6 +2254,9 @@ const styles = StyleSheet.create({
   // NON implementa hitSlop — la prop viene scartata in silenzio da View —
   // quindi sul sito il bersaglio era esattamente il glifo, 16px. hitSlop resta
   // per iOS/Android, dove funziona; il padding vale su tutte e due.
+  rigaNegozio: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  linkRegistro: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
+  linkRegistroTxt: { color: colors.navy, fontWeight: '700', fontSize: 12.5 },
   seguitoDa: { color: colors.grigio, fontSize: 11, lineHeight: 15 },
   sitoTxt: { color: colors.testoSoft, fontSize: 11.5, fontWeight: '600' },
   brandTxt: { color: colors.goldStrong, fontSize: 10.5, fontWeight: '700' },

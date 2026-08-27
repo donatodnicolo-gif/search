@@ -11,6 +11,20 @@ export interface ContattoRegistro {
   email: string | null;
 }
 
+/**
+ * L'indirizzo della scheda di un'azienda nel registro Anagrafiche.
+ *
+ * ⚠️ In un posto solo: l'indirizzo di un'altra app scritto in tre schermate è
+ * un indirizzo che al primo cambio ne resta giusto uno. E torna `null` quando
+ * il negozio nel registro non c'è: un link che porta a una pagina vuota è
+ * peggio di nessun link, perché fa credere che il dato ci sia.
+ */
+export function urlSchedaRegistro(anagraficheId: string | null | undefined): string | null {
+  const id = (anagraficheId ?? '').trim();
+  if (!id) return null;
+  return `https://deluxy-anagrafiche.vercel.app/partner/${id}`;
+}
+
 export interface PartnerRegistro {
   id: string;
   nome: string;

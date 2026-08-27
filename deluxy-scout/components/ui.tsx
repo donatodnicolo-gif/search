@@ -13,8 +13,22 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
  * che spiega cosa contiene la sezione e come si usa. Il titolo vive già
  * nell'header di navigazione, quindi qui rendiamo solo la spiegazione.
  */
-export function PageIntro({ testo }: { testo: string }) {
-  return <Text style={styles.pageIntro}>{testo}</Text>;
+/**
+ * @param dentroUnBloccoSpaziato  quando l'intro sta già dentro un contenitore
+ *   con il suo padding. ⚠️ Senza, il rientro si SOMMA: 16 del contenitore più
+ *   16 suoi, e il testo parte 32px dentro mentre i filtri sotto partono da 16.
+ *   A schermo si legge come un blocco storto, e non si capisce perché.
+ */
+export function PageIntro({
+  testo,
+  dentroUnBloccoSpaziato,
+}: {
+  testo: string;
+  dentroUnBloccoSpaziato?: boolean;
+}) {
+  return (
+    <Text style={[styles.pageIntro, dentroUnBloccoSpaziato && styles.pageIntroNudo]}>{testo}</Text>
+  );
 }
 
 /** Etichetta di sezione MAIUSCOLA (token `label`: 11px 600 +0.06em). */
@@ -137,6 +151,7 @@ export function LinkRiga({ label, onPress }: { label: string; onPress: () => voi
 }
 
 const styles = StyleSheet.create({
+  pageIntroNudo: { paddingHorizontal: 0, paddingTop: 0 },
   pageIntro: {
     color: colors.testoSoft,
     fontSize: 13.5,

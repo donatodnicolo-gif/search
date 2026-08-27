@@ -1421,6 +1421,9 @@ export async function aggiornaStarred(placeId: string, starred: boolean): Promis
 /** Ordine arricchito col nome del negozio, per la schermata Ordini. */
 export interface OrdineConLuogo extends Ordine {
   place_nome: string | null;
+  /** L'id del negozio nel registro Anagrafiche, se collegato: serve al link
+   *  che apre la sua scheda. Null = il negozio esiste solo in Scout. */
+  place_anagrafiche_id?: string | null;
   /** Chi lo segue, risolto dal profilo (migr. — solo lettura, mai scritto). */
   owner_nome?: string | null;
 }
@@ -1428,12 +1431,13 @@ export interface OrdineConLuogo extends Ordine {
 export async function fetchOrdini(): Promise<OrdineConLuogo[]> {
   const { data, error } = await supabase
     .from('ordini')
-    .select('*, places(nome)')
+    .select('*, places(nome, anagrafiche_id)')
     .order('created_at', { ascending: false });
   if (error) throw error;
   const righe: OrdineConLuogo[] = (data ?? []).map((r: any) => ({
     ...r,
     place_nome: r.places?.nome ?? null,
+    place_anagrafiche_id: r.places?.anagrafiche_id ?? null,
     owner_nome: null,
   }));
   /**
