@@ -116,6 +116,29 @@ function inoltratoHtml(messaggio: Messaggio): string {
  * e `inviaMessaggio` (per spedire davvero da quella casella) — se decidesse
  * solo la pagina, l'invio partirebbe comunque dalla casella della copia.
  */
+/**
+ * TUTTE le tue caselle a cui quella mail era indirizzata (destinatari + copia).
+ *
+ * ⚠️ Serve a sapere se c'è un DUBBIO. `accountPerRisposta` qui sopra sceglie
+ * la prima e tira dritto, e nella stragrande maggioranza dei casi è la scelta
+ * giusta — ma quando la stessa mail è arrivata sia a `cs@` sia a
+ * `nicolo.donato@`, «la prima» è un ordine di database, non una decisione.
+ * L'utente vedeva il mittente deciso al posto suo, senza modo di cambiarlo
+ * (segnalato il 27/08/2026).
+ *
+ * Con meno di due elementi non c'è niente da chiedere: la tendina compare
+ * SOLO quando la risposta è genuinamente ambigua.
+ */
+export function caselleIndirizzate<T extends { id: string; email: string }>(
+  messaggio: { direzione: string; destinatari: string; accountId: string },
+  caselle: T[]
+): T[] {
+  // Su una mail USCITA non c'è scelta: l'hai mandata tu, da lì.
+  if (messaggio.direzione !== 'entrata') return []
+  const dest = messaggio.destinatari.toLowerCase()
+  return caselle.filter((c) => dest.includes(c.email.toLowerCase()))
+}
+
 export function accountPerRisposta<T extends { id: string; email: string }>(
   messaggio: { direzione: string; destinatari: string; accountId: string },
   caselle: T[]

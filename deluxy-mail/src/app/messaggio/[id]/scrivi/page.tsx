@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
-import { accountPerRisposta, modoValido, preparaRisposta, TITOLI } from '@/lib/rispondi'
+import { accountPerRisposta, caselleIndirizzate, modoValido, preparaRisposta, TITOLI } from '@/lib/rispondi'
 import { Composizione } from '@/components/Composizione'
 import { richiediUtente } from '@/lib/sessione'
 import { leggiSenzaTraduzione, lingueLetteDi } from '@/lib/lingue'
@@ -44,6 +44,21 @@ export default async function Scrivi({ params, searchParams }: Props) {
     select: { id: true, email: true, nome: true },
   })
   const daCasella = accountPerRisposta(messaggio, caselle) ?? messaggio.account
+  // La tendina «Da» c'è SEMPRE (chiesto il 27/08/2026): una risposta si deve
+  // poter far partire da qualunque casella, non solo da quella che l'app ha
+  // indovinato. `caselleIndirizzate` resta, ma con un altro compito: dice
+  // quali erano DAVVERO fra i destinatari, e quindi chi rimettere in Cc se
+  // cambi mittente.
+  const indirizzate = caselleIndirizzate(messaggio, caselle).map((c) => c.email)
+  // ⚠️ La voce proposta dev'essere UNA DELLE VOCI DELLA TENDINA. La casella
+  // della copia può essere disattivata (o di un'altra epoca) e non comparire
+  // fra le attive: in quel caso il menu mostrerebbe la prima voce mentre lo
+  // stato ne tiene un'altra, e la mail partirebbe da un indirizzo diverso da
+  // quello scritto a schermo. Un'etichetta che mente è peggio di una scelta
+  // scomoda.
+  const daIdProposto = caselle.some((c) => c.id === daCasella.id)
+    ? daCasella.id
+    : (caselle[0]?.id ?? '')
 
   // Riprendendo una bozza si riparte da com'era, non dai campi precompilati:
   // sarebbe come non averla mai salvata.
@@ -160,6 +175,9 @@ export default async function Scrivi({ params, searchParams }: Props) {
         messaggioId={messaggio.id}
         modo={modo}
         da={`${daCasella.nome} <${daCasella.email}>`}
+        daScelte={caselle}
+        daId={daIdProposto}
+        daIndirizzate={indirizzate}
         iniziale={iniziale}
         tornaA={`/messaggio/${id}`}
         bozzaId={bozza?.id}

@@ -8,6 +8,9 @@ import type { Modo } from '@/lib/rispondi'
 type Dati = {
   modo: Modo
   da: string
+  daScelte: { id: string; email: string; nome: string }[]
+  daId: string
+  daIndirizzate: string[]
   oggettoOriginale: string
   iniziale: { a: string; cc: string; oggetto: string; corpo: string }
   contatti: { email: string; nome: string | null }[]
@@ -85,6 +88,9 @@ export function FinestraScrivi() {
         setDati({
           modo: r.modo,
           da: r.da ?? '',
+          daScelte: r.daScelte ?? [],
+          daId: r.daId ?? '',
+          daIndirizzate: r.daIndirizzate ?? [],
           oggettoOriginale: r.oggettoOriginale ?? '',
           iniziale: r.iniziale,
           contatti: r.contatti ?? [],
@@ -157,6 +163,9 @@ export function FinestraScrivi() {
                 messaggioId={messaggioId}
                 modo={dati.modo}
                 da={dati.da}
+                daScelte={dati.daScelte}
+                daId={dati.daId}
+                daIndirizzate={dati.daIndirizzate}
                 iniziale={dati.iniziale}
                 // Restando in posta in arrivo non si va da nessuna parte:
                 // la finestra si chiude e la lista si aggiorna da sola.

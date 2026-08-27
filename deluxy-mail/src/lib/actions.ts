@@ -24,7 +24,7 @@ import { htmlDiMessaggio } from './htmlServer'
 import { sanitizzaHtml } from './sanitizzaHtml'
 import { leggiEventoProposto } from './eventoProposto'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
-import { accountPerRisposta, preparaRisposta, modoValido, type Modo } from './rispondi'
+import { accountPerRisposta, caselleIndirizzate, preparaRisposta, modoValido, type Modo } from './rispondi'
 import { elencoContatti } from './contatti'
 import { htmlAPlain, sembraHtml, plainAHtml, immaginiInLineaComeAllegati } from './htmlMail'
 
@@ -2487,6 +2487,11 @@ export async function preparaComposizione(
   messaggio?: string
   modo?: Modo
   da?: string
+  /** TUTTE le caselle attive di chi scrive: la tendina «Da» c'e sempre. */
+  daScelte?: { id: string; email: string; nome: string }[]
+  daId?: string
+  /** Quelle che erano davvero fra i destinatari dell'originale. */
+  daIndirizzate?: string[]
   oggettoOriginale?: string
   iniziale?: { a: string; cc: string; oggetto: string; corpo: string }
   contatti?: { email: string; nome: string | null }[]
@@ -2557,6 +2562,19 @@ export async function preparaComposizione(
     ok: true,
     modo,
     da: `${casellaRisposta.nome} <${casellaRisposta.email}>`,
+    // La finestra rapida mostra la stessa tendina della pagina intera: tutte
+    // le caselle, con accanto quali erano davvero fra i destinatari.
+    daScelte: caselleUtente,
+    // ⚠️ La voce proposta dev'essere UNA DELLE VOCI DELLA TENDINA. La casella
+    // della copia può essere disattivata (o di un'altra epoca) e non comparire
+    // fra le attive: in quel caso il menu mostrerebbe la prima voce mentre lo
+    // stato ne tiene un'altra, e la mail partirebbe da un indirizzo diverso da
+    // quello scritto a schermo. Un'etichetta che mente è peggio di una scelta
+    // scomoda.
+    daId: caselleUtente.some((c) => c.id === casellaRisposta.id)
+      ? casellaRisposta.id
+      : (caselleUtente[0]?.id ?? ''),
+    daIndirizzate: caselleIndirizzate(messaggio, caselleUtente).map((c) => c.email),
     oggettoOriginale: messaggio.oggetto,
     iniziale,
     contatti,
@@ -2595,7 +2613,18 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     // mittente sbagliato (segnalato il 26/08/2026).
     const accountCopia = originale.account
     const caselle = await db.account.findMany({ where: { utenteId, attivo: true } })
-    const account = accountPerRisposta(originale, caselle) ?? accountCopia
+    // ⭐ 27/08/2026: se chi scrive ha SCELTO la casella nella tendina «Da»,
+    // comanda la scelta — sempre, non solo quando la mail era arrivata a più
+    // d'una delle sue caselle.
+    //
+    // ⚠️⚠️ L'id arriva dal browser, quindi NON ci si fida: si cerca dentro
+    // `caselle`, che è già filtrata per `utenteId` e `attivo`. Un id di un
+    // altro utente non trova niente e si ricade sulla regola di sempre —
+    // altrimenti bastava cambiare un campo del form per spedire da una
+    // casella che non è tua.
+    const sceltaId = testo(form, 'daCasellaId')
+    const scelta = sceltaId ? (caselle.find((c) => c.id === sceltaId) ?? null) : null
+    const account = scelta ?? accountPerRisposta(originale, caselle) ?? accountCopia
     const inoltro = testo(form, 'modo') === 'inoltra'
 
     // Rispondendo a una mail straniera (in una lingua che non leggi): scritta in
