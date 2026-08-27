@@ -5,6 +5,14 @@ Stato al **26/08/2026** (sezione qui sotto; il corpo del documento
 ripartire una finestra nuova senza contesto: prima lo stato, poi le **trappole
 già pagate** — quelle valgono più dell'elenco delle funzioni.
 
+> ✅ **RISOLTO (27/08, confermato dall'utente): `write_draft_orders` c'è.** I
+> vecchi «PUNTI APERTI» qui sotto lo davano come mancante e bloccante per
+> `/incassa` («Fatti pagare»). Non lo è più: il Customer Service crea ordini con
+> `draftOrderCreate` (deluxy-messaging `src/lib/nuovo-ordine.ts`), che richiede
+> proprio quello scope, e **i negozi condividono una sola app Shopify** (3 negozi,
+> 1 `clientId`) → lo scope copre anche Orders. La sua `/incassa` può creare il
+> link di pagamento. Ignorare le righe più sotto che lo danno per mancante.
+
 ## 27/08/2026 — Audit di sicurezza (red-team + verifica ostile): la porta esterna TIENE, due hardening
 
 Su richiesta utente: un agente **red-team** ha cercato brecce (accesso esterno a
