@@ -57,10 +57,14 @@ export function colpaGiudicabile(tipo: string): tipo is 'valet' | 'partner' {
 }
 
 // Gravità del reclamo: pesa nel giudizio automatico.
+// Escalation semantica (Libro UX §5): l'oro NON è mai uno stato — la Media era
+// oro (#b8963e) e diventa arancio «attende un'azione»; la Grave sale a rosso
+// «intervento adesso». La Lieve resta neutra. Valori allineati ai token
+// --grey / --orange / --red.
 export const GRAVITA = [
-  { livello: 1, nome: 'Lieve', colore: '#6e6e73' },
-  { livello: 2, nome: 'Media', colore: '#b8963e' },
-  { livello: 3, nome: 'Grave', colore: '#c93400' },
+  { livello: 1, nome: 'Lieve', colore: '#8a8a8e' },
+  { livello: 2, nome: 'Media', colore: '#c93400' },
+  { livello: 3, nome: 'Grave', colore: '#d70015' },
 ] as const
 
 export function nomeGravita(livello: number): string {
@@ -68,7 +72,7 @@ export function nomeGravita(livello: number): string {
 }
 
 export function coloreGravita(livello: number): string {
-  return GRAVITA.find((g) => g.livello === livello)?.colore ?? '#b8963e'
+  return GRAVITA.find((g) => g.livello === livello)?.colore ?? '#c93400'
 }
 
 export function gravitaValida(v: number): boolean {

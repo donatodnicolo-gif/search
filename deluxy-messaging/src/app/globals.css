@@ -271,11 +271,22 @@ button {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s var(--ease);
+  transition: background 0.15s var(--ease), transform 0.15s var(--ease);
 }
 
 .bottone:hover {
   background: var(--ink-hover);
+}
+
+/* Il tocco affonda il bottone (WCAG/HIG): riscontro fisico all'azione. */
+.bottone:active {
+  transform: scale(0.97);
+}
+
+/* Fuoco da tastiera: anello oro, mai `outline:none` senza sostituto (WCAG 2.4.7). */
+.bottone:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--gold-soft);
 }
 
 .bottone:disabled {
@@ -346,8 +357,8 @@ button {
 .campo textarea:focus,
 .campo select:focus {
   outline: none;
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
 }
 
 /* Tendina compatta dentro una tabella: cambiare stato senza aprire la scheda
@@ -364,7 +375,8 @@ button {
 
 .mini-select:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
 }
 
 .avviso-errore {
@@ -1160,7 +1172,8 @@ button {
 
 .risposte-pronte > input:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
 }
 
 .elenco-risposte {
@@ -1236,7 +1249,8 @@ button {
 
 .thread .composer textarea:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
 }
 
 
@@ -1313,8 +1327,8 @@ button {
   gap: 16px;
   flex-wrap: wrap;
 }
-.page-title { font-size: 30px; font-weight: 600; letter-spacing: -0.022em; margin: 0; }
-.page-sub { font-size: 15px; color: var(--text-secondary); margin: 6px 0 0; max-width: 70ch; }
+.page-title { font-size: 32px; font-weight: 600; letter-spacing: -0.025em; margin: 0; }
+.page-sub { font-size: 14px; color: var(--text-secondary); margin: 6px 0 0; max-width: 70ch; }
 
 .kpi-riga {
   display: grid;
@@ -1426,7 +1440,7 @@ button {
   margin-bottom: 12px;
   transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
 }
-.ricerca:focus-within { border-color: var(--hairline-strong); box-shadow: var(--shadow-float); }
+.ricerca:focus-within { border-color: var(--gold); box-shadow: 0 0 0 4px var(--gold-soft); }
 .ricerca-icona { display: flex; color: var(--text-tertiary); flex: 0 0 auto; }
 .ricerca input[type='search'] {
   flex: 1;
@@ -1484,7 +1498,8 @@ button {
   transition: background 160ms var(--ease), transform 160ms var(--ease);
 }
 .btn:hover { background: var(--ink-hover); }
-.btn:active { transform: scale(0.98); }
+.btn:active { transform: scale(0.97); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--gold-soft); }
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btn-secondario { background: var(--fill); color: var(--text); }
 .btn-secondario:hover { background: var(--fill-hover); }
@@ -1525,10 +1540,9 @@ button {
 .tabella-wrap table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .tabella-wrap th {
   text-align: left;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
+  /* Il MAIUSCOLO urlato è abolito (Libro §8): sentence case, 12/500/tertiary. */
   color: var(--text-tertiary);
   padding: 11px 10px;
   border-bottom: 1px solid var(--hairline);
@@ -1635,8 +1649,8 @@ button {
 
 .barra-ricerca input[type='search']:focus {
   outline: none;
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
 }
 
 .barra-ricerca select {
@@ -1651,7 +1665,8 @@ button {
 
 .barra-ricerca select:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
 }
 
 /* ---- Agenda: le consegne da oggi in avanti ---- */
@@ -2014,11 +2029,10 @@ td .azioni-ordine {
 
 .tabella th {
   text-align: left;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 12px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  color: var(--text-tertiary);
+  /* Il MAIUSCOLO urlato è abolito (Libro §8): sentence case, 12/500/tertiary. */
   padding: 12px 16px;
   border-bottom: 1px solid var(--hairline);
   white-space: nowrap;
@@ -3087,7 +3101,8 @@ td .azioni-ordine {
 
 .nuova-attivita input:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
 }
 
 .elenco-attivita li {
@@ -3182,7 +3197,9 @@ td .azioni-ordine {
 /* La riga trovata da «Oggi»: si accende un attimo e poi si spegne da sola —
    serve a farsi trovare, non a restare accesa mentre si lavora. */
 .riga-evidenziata > td {
-  background: var(--oro-tenue, rgba(184, 150, 62, 0.14));
+  /* Lampo transitorio «trovato da Oggi» (accento, non uno stato): token vero
+     `--gold-soft` invece del `--oro-tenue` inesistente lasciato col ripiego. */
+  background: var(--gold-soft);
   transition: background 600ms ease;
 }
 
@@ -3200,14 +3217,17 @@ td .azioni-ordine {
   white-space: nowrap;
 }
 
+/* Escalation semantica (Libro §5): Grave = rosso «intervento adesso»,
+   Media = arancio «attende un'azione». ⚠️ La Media era ORO, ma l'oro non è mai
+   uno stato: è l'accento identità del brand. */
 .elenco-reclami .gravita.g3 {
-  background: rgba(201, 52, 0, 0.12);
+  background: var(--red-soft);
   color: var(--red);
 }
 
 .elenco-reclami .gravita.g2 {
-  background: rgba(184, 150, 62, 0.16);
-  color: var(--gold);
+  background: var(--orange-soft);
+  color: var(--orange);
 }
 
 .elenco-reclami .ordine {
@@ -4109,7 +4129,8 @@ td .azioni-ordine {
 
 .conversazione-ordine .rispondi textarea:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-soft);
 }
 
 /* ---- Dettaglio ordine a colonne ----
@@ -4911,7 +4932,9 @@ td .azioni-ordine {
    premuto un bottone in cima e si è ritrovato più in basso. Restando acceso
    diventerebbe un altro stato da interpretare. */
 .riquadro-acceso {
-  outline: 2px solid var(--oro);
+  /* ⚠️ Era `var(--oro)`, token inesistente: l'outline non compariva mai (il
+     lampo di «è questo» restava spento). Il token vero è `--gold`. */
+  outline: 2px solid var(--gold);
   outline-offset: 2px;
   transition: outline-color 0.4s ease;
 }
