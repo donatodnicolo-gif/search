@@ -16,6 +16,20 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 27/08/2026 — una fattura pagata con DUE bonifici non ha una casa in `/transazioni` (verificato su ANGOLO FIORITO)
+>
+> Segnalato dall'utente: cercando «lops angela» in `/transazioni` c'è un bonifico di **330 €**; premendo «Registra incasso» si sballa il conto del partner, premendo «Ignora» il movimento sparisce e non si risale più al pagamento ricevuto. **Verificato sul database di produzione: la sostanza è giusta.**
+>
+> **I fatti.** Fattura **434/2026** di ANGOLO FIORITO (LOPS ANGELA): imponibile 1.500 € + IVA = **1.830 €**, pagata dal cliente con **due bonifici separati** — **1.500 € il 16/06** (imponibile) e **330 € il 18/06** (IVA). Il partner è **in compensazione**. Giugno oggi è **PAREGGIATO**: vendite 3.362 € → dovuto al partner **2.336,59 €**; servizi fatturati 1.830 € IVATI incassati; `bonificoImporto` **506,59 €** = 2.336,59 pagati − 1.830 dell'incasso automatico della fattura (`segnaFatturaPagataConEsito` sottrae l'IVATO dal bonifico del mese per i partner in compensazione). Il movimento da 1.500 è `registrata`, quello da **330 è `ignorata`** (partnerId `null`, esito `null`).
+>
+> **1) «Registra incasso» sballa davvero.** `registraTransazionePagamento` su un accredito di +330 scrive `bonificoImporto -= 330` → 506,59 → **176,59**, e il mese passa da PAREGGIATO a **«da bonificare al partner 330,00 €»**: un debito inventato verso il partner, per soldi che il partner ha PAGATO a noi. Il doppio conto nasce perché quei 330 € sono già dentro i 1.830 € di `incassato` della fattura. Ed è già successo una volta: il **31/07 alle 20:28** c'è a registro «Annullati i pagamenti registrati per Giugno 2026», e subito dopo la fattura riaperta e risaldata a mano.
+>
+> **2) «Ignora» non cancella la traccia, ma la rende muta.** Il movimento resta e si ritrova: la ricerca filtra anche registrate e ignorate, e il blocco **«Storico»** si apre da solo quando c'è una ricerca, con il bottone **Ripristina**. Però il record ignorato **non conserva né il partner né il perché** (`ignoraTransazione` scrive solo `stato: "ignorata"`), e la **scheda partner non mostra nessun movimento bancario**: dalla parte di ANGOLO FIORITO quei 330 € non esistono. Se la causale non avesse contenuto «LOPS ANGELA» non sarebbero più stati trovabili per partner.
+>
+> **3) Il difetto a monte: l'incasso parziale non arriva da qui.** `registraTransazioneFattura` (bottone «Salda fattura») **non guarda l'importo del movimento**: chiama `segnaFatturaPagataConEsito`, che mette `incassato = ivato(fattura)`, cioè il **totale**. Il primo dei due bonifici chiude quindi il 100% della fattura e il secondo resta orfano per costruzione. L'incasso parziale **esiste** (`incassaFatturaParziale`, la voce «Incassa…» sulla fattura) ma da `/transazioni` non è raggiungibile.
+>
+> **Cosa proporre** (non fatto, aspetta una decisione): (a) nel match con una fattura, un secondo bottone **«Salda in parte»** che passa l'importo del movimento a `incassaFatturaParziale`, così due bonifici chiudono una fattura senza bugie; (b) match anche sulle fatture **già saldate** dello stesso partner, con l'etichetta «fa parte della fattura N già incassata» — che registra il collegamento senza toccare i conti; (c) «Ignora» che chiede **un motivo** e permette di legare il movimento a un partner, e una sezione «Movimenti bancari» nella scheda partner. ⚠️ Finché non c'è, la regola pratica è: **su un accredito che è la coda di una fattura già incassata NON premere «Registra incasso»** — è l'unico dei due bottoni che sposta dei numeri.
+
 > ### 27/08/2026 — l'elenco partner parte dagli ATTIVI, e la scheda ha il ritorno
 >
 > Chiesto dall'utente: «metti filtro di default partner attivi (con almeno una fattura nell'anno in corso)». Fatto in `/partner`: senza parametri l'elenco mostra **solo chi ha almeno una fattura di competenza dell'anno in corso** — misurato sul database di produzione, **55 partner su 110**.
