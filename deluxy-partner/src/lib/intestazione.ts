@@ -29,6 +29,8 @@ export interface Intestazione {
   modalitaPagamento: string;
   sdi: string;
   pec: string;
+  banca: string;
+  bic: string;
   disclaimer: string;
   /** Il brand dichiarato da chi ha emesso: si mostra a schermo, non decide. */
   brand: string;
@@ -63,6 +65,8 @@ export function leggiIntestazione(v: unknown): Intestazione | null {
     modalitaPagamento: testo(o.modalitaPagamento, 300),
     sdi: testo(o.sdi, 20),
     pec: testo(o.pec, 200),
+    banca: testo(o.banca, 120),
+    bic: testo(o.bic, 20),
     disclaimer: testo(o.disclaimer, 1500),
     brand: testo(o.brand, 120),
   };
@@ -93,6 +97,8 @@ export async function intestazioneDaMostrare(
     modalitaPagamento: "",
     sdi: "",
     pec: "",
+    banca: "",
+    bic: "",
     disclaimer: disclaimerDefault,
     brand: "",
     fonte: "impostazioni",

@@ -173,7 +173,9 @@ export default async function ProFormaDetail({
               <p>
                 <span className="docpf-label">Pagamento</span> {ii.modalitaPagamento}
                 {ii.iban ? `${ii.modalitaPagamento ? " — " : ""}IBAN ${ii.iban}` : ""}
-                {ii.intestatarioConto ? ` (intestato a ${ii.intestatarioConto})` : ""}
+                {ii.banca ? ` presso ${ii.banca}` : ""}
+                {ii.bic ? ` (BIC ${ii.bic})` : ""}
+                {ii.intestatarioConto ? ` — intestato a ${ii.intestatarioConto}` : ""}
               </p>
             )}
             <p className="docpf-disclaimer">{disclaimer}</p>

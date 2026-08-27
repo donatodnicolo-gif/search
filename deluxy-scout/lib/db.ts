@@ -2386,6 +2386,16 @@ export const CHIAVI_AZIENDA = {
   capCitta: 'azienda.cap_citta',
   sdi: 'azienda.sdi',
   pec: 'azienda.pec',
+  // Informazioni bancarie: dove il cliente manda i soldi. ⚠️ Vuote finché non
+  // le scrive un amministratore — un IBAN non lo inventa il codice.
+  iban: 'banca.iban',
+  intestatarioConto: 'banca.intestatario',
+  banca: 'banca.istituto',
+  bic: 'banca.bic',
+  // Chi risponde di fatture e pagamenti: finisce nei contatti del documento.
+  ammReferente: 'amministrazione.referente',
+  ammEmail: 'amministrazione.email',
+  ammTelefono: 'amministrazione.telefono',
 } as const;
 
 export interface DatiAzienda {
@@ -2395,6 +2405,13 @@ export interface DatiAzienda {
   capCitta: string;
   sdi: string;
   pec: string;
+  iban: string;
+  intestatarioConto: string;
+  banca: string;
+  bic: string;
+  ammReferente: string;
+  ammEmail: string;
+  ammTelefono: string;
 }
 
 /** Legge i dati di fatturazione in un colpo solo (una query, non sei). */
@@ -2411,6 +2428,13 @@ export async function leggiDatiAzienda(): Promise<DatiAzienda> {
     capCitta: m.get(CHIAVI_AZIENDA.capCitta) ?? '',
     sdi: m.get(CHIAVI_AZIENDA.sdi) ?? '',
     pec: m.get(CHIAVI_AZIENDA.pec) ?? '',
+    iban: m.get(CHIAVI_AZIENDA.iban) ?? '',
+    intestatarioConto: m.get(CHIAVI_AZIENDA.intestatarioConto) ?? '',
+    banca: m.get(CHIAVI_AZIENDA.banca) ?? '',
+    bic: m.get(CHIAVI_AZIENDA.bic) ?? '',
+    ammReferente: m.get(CHIAVI_AZIENDA.ammReferente) ?? '',
+    ammEmail: m.get(CHIAVI_AZIENDA.ammEmail) ?? '',
+    ammTelefono: m.get(CHIAVI_AZIENDA.ammTelefono) ?? '',
   };
 }
 

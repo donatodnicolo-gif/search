@@ -44,6 +44,8 @@ export interface TemplateDocumento {
   modalita_pagamento: string | null;
   sdi: string | null;
   pec: string | null;
+  banca: string | null;
+  bic: string | null;
   note_default: string | null;
   disclaimer: string | null;
   created_at: string;
@@ -63,6 +65,8 @@ export interface IntestazioneDocumento {
   modalitaPagamento: string;
   sdi: string;
   pec: string;
+  banca: string;
+  bic: string;
   disclaimer: string;
   brand: string;
 }
@@ -144,6 +148,8 @@ export async function intestazionePerBrand(brand: string | null | undefined): Pr
     modalitaPagamento: t.modalita_pagamento ?? '',
     sdi: t.sdi ?? '',
     pec: t.pec ?? '',
+    banca: t.banca ?? '',
+    bic: t.bic ?? '',
     disclaimer: t.disclaimer ?? '',
     brand: t.brand ?? t.nome,
   };

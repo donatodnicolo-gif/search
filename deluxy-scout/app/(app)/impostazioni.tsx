@@ -63,6 +63,13 @@ export default function Impostazioni() {
     capCitta: '',
     sdi: '',
     pec: '',
+    iban: '',
+    intestatarioConto: '',
+    banca: '',
+    bic: '',
+    ammReferente: '',
+    ammEmail: '',
+    ammTelefono: '',
   });
   const [salvandoAzienda, setSalvandoAzienda] = useState(false);
   const [esitoAzienda, setEsitoAzienda] = useState<string | null>(null);
@@ -102,6 +109,13 @@ export default function Impostazioni() {
       ['capCitta', CHIAVI_AZIENDA.capCitta, 'CAP e città'],
       ['sdi', CHIAVI_AZIENDA.sdi, 'codice SDI'],
       ['pec', CHIAVI_AZIENDA.pec, 'PEC'],
+      ['iban', CHIAVI_AZIENDA.iban, 'IBAN'],
+      ['intestatarioConto', CHIAVI_AZIENDA.intestatarioConto, 'intestatario del conto'],
+      ['banca', CHIAVI_AZIENDA.banca, 'banca'],
+      ['bic', CHIAVI_AZIENDA.bic, 'BIC'],
+      ['ammReferente', CHIAVI_AZIENDA.ammReferente, 'referente amministrativo'],
+      ['ammEmail', CHIAVI_AZIENDA.ammEmail, 'email amministrazione'],
+      ['ammTelefono', CHIAVI_AZIENDA.ammTelefono, 'telefono amministrazione'],
     ];
     try {
       for (const [chiaveStato, chiave, etichetta] of campi) {
@@ -278,6 +292,95 @@ export default function Impostazioni() {
           keyboardType="email-address"
         />
 
+        {/* ————— Informazioni bancarie ————— */}
+        <Text style={[styles.cardLabel, styles.sottoSezione]}>INFORMAZIONI BANCARIE</Text>
+        <Text style={styles.aiuto}>
+          Dove il cliente manda i soldi. Finiscono in fondo alla pro-forma: un documento che chiede un
+          pagamento senza dire dove mandarlo fa perdere un giro di mail.
+        </Text>
+
+        <Text style={styles.campoLabel}>IBAN</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.iban}
+          onChangeText={(v) => setAzienda({ ...azienda, iban: v })}
+          editable={admin}
+          placeholder="IT00 X000 0000 0000 0000 0000 000"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="characters"
+        />
+
+        <Text style={styles.campoLabel}>Intestato a</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.intestatarioConto}
+          onChangeText={(v) => setAzienda({ ...azienda, intestatarioConto: v })}
+          editable={admin}
+          placeholder="se diverso dalla ragione sociale"
+          placeholderTextColor={colors.grigio}
+        />
+
+        <Text style={styles.campoLabel}>Banca</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.banca}
+          onChangeText={(v) => setAzienda({ ...azienda, banca: v })}
+          editable={admin}
+          placeholder="l'IBAN da solo non dice a chi si bonifica"
+          placeholderTextColor={colors.grigio}
+        />
+
+        <Text style={styles.campoLabel}>BIC / SWIFT</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.bic}
+          onChangeText={(v) => setAzienda({ ...azienda, bic: v })}
+          editable={admin}
+          placeholder="serve ai bonifici dall'estero"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="characters"
+        />
+
+        {/* ————— Contatti amministrativi ————— */}
+        <Text style={[styles.cardLabel, styles.sottoSezione]}>CONTATTI AMMINISTRATIVI</Text>
+        <Text style={styles.aiuto}>
+          Chi risponde di fatture e pagamenti. Diventano i contatti stampati sul documento, così il cliente
+          sa a chi scrivere senza cercare.
+        </Text>
+
+        <Text style={styles.campoLabel}>Referente</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.ammReferente}
+          onChangeText={(v) => setAzienda({ ...azienda, ammReferente: v })}
+          editable={admin}
+          placeholder="Amministrazione"
+          placeholderTextColor={colors.grigio}
+        />
+
+        <Text style={styles.campoLabel}>Email</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.ammEmail}
+          onChangeText={(v) => setAzienda({ ...azienda, ammEmail: v })}
+          editable={admin}
+          placeholder="amministrazione@deluxy.it"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+
+        <Text style={styles.campoLabel}>Telefono</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={azienda.ammTelefono}
+          onChangeText={(v) => setAzienda({ ...azienda, ammTelefono: v })}
+          editable={admin}
+          placeholder="+39 02 000000"
+          placeholderTextColor={colors.grigio}
+          keyboardType="phone-pad"
+        />
+
         {admin ? (
           <>
             <Pressable
@@ -285,7 +388,7 @@ export default function Impostazioni() {
               disabled={salvandoAzienda}
               onPress={salvaAzienda}
             >
-              <Text style={styles.btnTxt}>{salvandoAzienda ? 'Salvo…' : 'Salva i dati di fatturazione'}</Text>
+              <Text style={styles.btnTxt}>{salvandoAzienda ? 'Salvo…' : 'Salva'}</Text>
             </Pressable>
             <Text style={styles.nota}>
               ⚠️ Cambiarli qui NON cambia i documenti già emessi: l&apos;intestazione con cui sono usciti
@@ -737,6 +840,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: 8,
   },
+  // Una sotto-sezione dentro la stessa card: stessa forma dell'etichetta, con
+  // l'aria sopra che la stacca dal campo precedente.
+  sottoSezione: { marginTop: spacing.md },
   cardLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
   aiuto: { color: colors.testoSoft, fontSize: 13 },
   campoLabel: { color: colors.testoSoft, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },

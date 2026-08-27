@@ -65,6 +65,8 @@ type Bozza = {
   modalita_pagamento: string;
   sdi: string;
   pec: string;
+  banca: string;
+  bic: string;
   note_default: string;
   disclaimer: string;
 };
@@ -84,6 +86,8 @@ const VUOTA: Bozza = {
   modalita_pagamento: 'Bonifico bancario',
   sdi: '',
   pec: '',
+  banca: '',
+  bic: '',
   note_default: '',
   disclaimer: '',
 };
@@ -146,6 +150,18 @@ export default function TemplateDocumenti() {
           indirizzo: [azienda.indirizzo, azienda.capCitta].filter(Boolean).join(' — '),
           sdi: azienda.sdi,
           pec: azienda.pec,
+          // Informazioni bancarie e contatti amministrativi: anche questi
+          // vengono dalle Impostazioni (richiesta dell'utente), non si
+          // riscrivono per ogni insegna.
+          iban: azienda.iban,
+          intestatario_conto: azienda.intestatarioConto,
+          banca: azienda.banca,
+          bic: azienda.bic,
+          // I contatti del documento si compongono da chi risponde di fatture e
+          // pagamenti: è a lui che il cliente deve scrivere.
+          contatti: [azienda.ammReferente, azienda.ammTelefono, azienda.ammEmail]
+            .filter((v) => v && v.trim())
+            .join(' · '),
         }
       : {};
     // Seconda fonte: il template predefinito, per ciò che le impostazioni non
@@ -166,9 +182,9 @@ export default function TemplateDocumenti() {
       sdi: base.sdi ?? '',
       pec: base.pec ?? '',
       ...da,
-      // ⚠️ NON si copiano: logo, nome, brand, contatti. Sono esattamente le
-      // quattro cose che distinguono un'insegna dall'altra — copiarle
-      // farebbe uscire il documento di Cake Design col logo di Deluxy.
+      // ⚠️ NON si copiano LOGO, NOME e BRAND: sono le tre cose che distinguono
+      // un'insegna dall'altra, e copiarle farebbe uscire il documento di Cake
+      // Design col logo di Deluxy.
     };
   }
 
@@ -191,6 +207,8 @@ export default function TemplateDocumenti() {
             modalita_pagamento: t.modalita_pagamento ?? '',
             sdi: t.sdi ?? '',
             pec: t.pec ?? '',
+            banca: t.banca ?? '',
+            bic: t.bic ?? '',
             note_default: t.note_default ?? '',
             disclaimer: t.disclaimer ?? '',
           }
@@ -511,6 +529,21 @@ export default function TemplateDocumenti() {
             onChangeText={(v) => setBozza({ ...bozza, intestatario_conto: v })}
             placeholder="se diverso dalla ragione sociale"
             placeholderTextColor={colors.grigio}
+          />
+          <Text style={styles.label}>Banca</Text>
+          <TextInput
+            style={styles.input}
+            value={bozza.banca}
+            onChangeText={(v) => setBozza({ ...bozza, banca: v })}
+            placeholderTextColor={colors.grigio}
+          />
+          <Text style={styles.label}>BIC / SWIFT</Text>
+          <TextInput
+            style={styles.input}
+            value={bozza.bic}
+            onChangeText={(v) => setBozza({ ...bozza, bic: v })}
+            placeholderTextColor={colors.grigio}
+            autoCapitalize="characters"
           />
           <Text style={styles.label}>Modalità di pagamento</Text>
           <TextInput
