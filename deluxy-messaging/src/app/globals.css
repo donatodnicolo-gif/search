@@ -5748,3 +5748,62 @@ button.bottone.secondario.ai-spenta {
 .barra-ricerca input[type='search'] { min-width: 180px; }
 .filtri-passi { margin: -4px 0 8px; }
 .riga-tipi { margin: -2px 0 6px; }
+
+/* ── GLI ORDINI DI UN FORNITORE, dentro la riga che si apre ──
+ *
+ * ⚠️⚠️ Non è una tabella, ed è una scelta misurata. Una `<table>` dentro un
+ * `<td>` non ha una larghezza contro cui restringersi: `overflow-x: auto` non
+ * si accende mai, la cella cresce e **tutta la pagina** si mette a scorrere di
+ * lato (misurato a 375px: 389 contro 375). Qui ogni ordine è una riga che va a
+ * capo — larga sta in fila, stretta si impila — e ogni valore porta la sua
+ * etichetta, così non servono intestazioni sopra.
+ *
+ * ⚠️ `min-width: 0` sui figli: senza, un blocco flex non scende mai sotto la
+ * larghezza del suo contenuto ed è di nuovo la pagina a doversi allargare. */
+.ordini-fornitore {
+  background: var(--fill);
+  padding: 10px 12px;
+}
+
+.ordine-riga {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.ordine-riga:last-child {
+  border-bottom: none;
+}
+
+.ordine-riga > * {
+  min-width: 0;
+}
+
+.ordine-numero {
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Il negozio e il cliente prendono lo spazio che avanza: sono l'unica parte di
+ * lunghezza imprevedibile, e su una riga stretta è giusto che vadano a capo
+ * loro invece di spingere fuori i numeri. */
+.ordine-dove {
+  flex: 1 1 12ch;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.ordine-dato {
+  white-space: nowrap;
+}
+
+.ordine-dato em {
+  color: var(--text-secondary);
+  font-style: normal;
+}

@@ -69,7 +69,16 @@ function linkContatto(p: Partner): { url: string; come: string; chi: string } | 
   return null
 }
 
-export function PartnerLista() {
+/**
+ * L'elenco dei partner attivi del registro.
+ *
+ * ⚠️ `dentroLaPagina`: quando questa lista sta nella pagina a due sezioni, la
+ * cornice `<main>` e il titolo li mette il contenitore. Se li mettesse anche
+ * questa, la pagina avrebbe due `<main>` annidati e due titoli uno sotto
+ * l'altro — e un `<main>` dentro un `<main>` non è solo brutto: i lettori di
+ * schermo cercano «il contenuto principale» e ne troverebbero due.
+ */
+export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: boolean } = {}) {
   const [partner, setPartner] = useState<Partner[]>([])
   const [categorie, setCategorie] = useState<string[]>([])
   const [citta, setCitta] = useState<string[]>([])
@@ -130,11 +139,12 @@ export function PartnerLista() {
   const contattabili = partner.filter((p) => linkContatto(p)).length
   const conReferenti = partner.filter((p) => p.contatti.length).length
 
+  const Cornice = dentroLaPagina ? Frammento : Principale
   return (
-    <main>
+    <Cornice>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Partner</h1>
+          {dentroLaPagina ? null : <h1 className="page-title">Partner</h1>}
           <p className="page-sub">
             I partner <strong>attivi</strong> letti dal registro{' '}
             <strong>Deluxy Anagrafiche</strong>, la fonte di verità delle anagrafiche. Non ne
@@ -316,6 +326,17 @@ export function PartnerLista() {
           </table>
         </div>
       )}
-    </main>
+    </Cornice>
   )
+}
+
+// ⚠️ Due cornici invece di un ternario dentro il JSX: React vuole un componente
+// (maiuscolo) per poterlo usare come tag, e definirlo qui fuori evita che venga
+// ricreato a ogni render — cosa che smonterebbe e rimonterebbe tutto l'albero
+// sotto, perdendo lo stato delle schede aperte a ogni battuta nella ricerca.
+function Principale({ children }: { children: React.ReactNode }) {
+  return <main>{children}</main>
+}
+function Frammento({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
 }
