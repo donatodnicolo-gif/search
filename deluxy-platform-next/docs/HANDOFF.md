@@ -70,9 +70,43 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 28 agosto 2026 — ricorrenti lunghi a LOTTI (93 ms a consegna, misurati) e ore calcolate per i servizi a ora; prima: ambito del team leader, provincia mai scritta, chiavi app generabili dall'app, revisione di sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 28 agosto 2026 — rotellina di avanzamento sui ricorrenti; prima: lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### 🔄 28/08/2026 — La rotellina accanto ai ricorrenti finché le consegne non sono tutte create
+
+Chiesto dall'utente. Da quando la generazione è a **lotti**, un ricorrente lungo
+resta a metà per qualche giro di cron — e senza dirlo sembra che manchino delle
+consegne.
+
+L'elenco porta ora un **avanzamento** per ogni ricorrente (attese / fatte /
+mancanti) e accanto al numero compare una rotellina con **«164/201»**: una
+rotellina da sola dice «aspetta» ma non «quanto», e su un anno di consegne la
+differenza è fra un attimo e tre giri di cron.
+
+**Tre insidie chiuse, tutte provate:**
+
+- ⚠️ Si contano i giorni **da oggi** in avanti, non dall'inizio del periodo: le
+  consegne del passato non si generano più, e contarle direbbe «mancano 200» su
+  un servizio che sta benissimo.
+- ⚠️ «Fatta» = **la riga esiste**, anche se cancellata a mano: la generazione è
+  idempotente su (servizio, data) e non la rifarebbe. Contare solo le vive
+  terrebbe la rotellina accesa **per sempre**.
+- ⚠️ Un servizio **sospeso** non è «in corso»: è fermo. Una rotellina su
+  qualcosa che non lavora manda a cercare un problema che non c'è.
+
+La pagina si **ricarica da sola ogni 30 s solo finché c'è qualcosa in corso**, e
+si ferma quando non c'è più niente da aspettare (30 s e non 2: il riempimento
+gira col cron dei 15 minuti). Il timer si spegne uscendo dalla pagina. Con
+`prefers-reduced-motion` la rotellina resta **ferma, non sparita**.
+
+✅ **Misurato** (`scripts/prova-avanzamento-ricorrenti.mjs`, 201 consegne):
+appena salvato **14/201 gira** · giro 1 **164/201 gira** · giro 2 **201/201
+FERMA** · sospeso con orizzonte lungo **FERMA** · con una consegna cancellata
+**FERMA**.
+
+Deploy `delivery-dc83vxbzf`.
 
 ### ⏱️ 28/08/2026 — Un ricorrente lungo non blocca più il salvataggio (lotti da 150), e le ORE
 
