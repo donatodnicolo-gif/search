@@ -90,6 +90,54 @@ for (const c of ['impostazioni', 'caselle', 'negozi', 'numeri-whatsapp', 'accoun
 const barra = fs.readFileSync('src/components/Sidebar.tsx', 'utf8')
 prova('⚠️ e il menu non le mostra più a tutti', /\.\.\.\(amministratore[\s\S]{0,900}\/impostazioni/.test(barra), true)
 
+console.log('\n— le eccezioni del middleware sono ANCORATE, e widget.js è fra loro —')
+const mw = fs.readFileSync('src/middleware.ts', 'utf8')
+const matcher = /matcher: \[\s*'([^']+)'/.exec(mw)?.[1] ?? ''
+prova("il matcher c'è", matcher.length > 0, true)
+// ⚠️⚠️ `widget.js` È LO SCRIPT CHE I SITI DEI CLIENTI CARICANO col tag
+// `<script src="…/widget.js">`. Ancorando le eccezioni ha smesso di combaciare
+// con «widget» (che prima valeva per PREFISSO) ed è finito dietro al cancello:
+// 307 verso /login, e la chat spariva da tutti e tre i siti. Nessun errore da
+// nessuna parte — solo uno script che non si carica. Da qui in poi lo dice una
+// prova, invece di doverselo ricordare.
+//
+// ⚠️ La stringa nel file è già una regex: qui si legge com'è e si applica ai
+// percorsi veri, invece di riscriverne una somigliante — riscriverla vorrebbe
+// dire provare la copia e non l'originale.
+// ⚠️ Nel file il matcher è un LETTERALE JS: `\\.` sono due caratteri nel
+// sorgente e uno solo a runtime. Senza questo `replace` si proverebbe una regex
+// diversa da quella che gira davvero — e una prova che non prova l'originale è
+// peggio di nessuna prova ([[trappola-confronto-con-il-proprio-specchio]]).
+const cancello = new RegExp('^' + matcher.replace(/\\\\/g, '\\') + '$')
+const protetto = (p: string) => cancello.test(p)
+prova('⚠️ /widget.js resta PUBBLICO', protetto('/widget.js'), false)
+prova('/widget resta pubblico', protetto('/widget'), false)
+prova('/login resta pubblico', protetto('/login'), false)
+prova('/registrati resta pubblico', protetto('/registrati'), false)
+prova('/chat/abc resta pubblico', protetto('/chat/abc'), false)
+prova('/api/health resta pubblico', protetto('/api/health'), false)
+prova('/api/widget/messaggi resta pubblico', protetto('/api/widget/messaggi'), false)
+prova('/favicon.ico resta pubblico', protetto('/favicon.ico'), false)
+prova('⚠️ /loginX è PROTETTO', protetto('/loginX'), true)
+prova('⚠️ /widget-statistiche è PROTETTO', protetto('/widget-statistiche'), true)
+prova('⚠️ /chat-interna è PROTETTO', protetto('/chat-interna'), true)
+prova('⚠️ /api/cronologia è PROTETTO', protetto('/api/cronologia'), true)
+prova('/impostazioni è protetto', protetto('/impostazioni'), true)
+prova('/api/clienti è protetto', protetto('/api/clienti'), true)
+
+console.log('\n— le intestazioni di sicurezza non spengono il widget —')
+const cfg = fs.readFileSync('next.config.ts', 'utf8')
+prova('X-Frame-Options c\'è', cfg.includes('"X-Frame-Options", value: "DENY"'), true)
+prova('e il widget resta incorniciabile', cfg.includes('frame-ancestors *'), true)
+// ⚠️ La regola larga (`/(.*)`) metterebbe DENY anche sul widget, e il widget
+// dentro l'iframe dei clienti È il prodotto: sarebbe una correzione di
+// sicurezza che spegne una funzione che funziona.
+// ⚠️ Con la virgola in fondo: senza, questa riga combacia anche col COMMENTO
+// che spiega perché il source largo sarebbe sbagliato — e la prova fallirebbe
+// per aver trovato la propria spiegazione.
+prova('⚠️ il source NON è largo', cfg.includes('source: "/(.*)",'), false)
+prova('⚠️ ed è ancorato, non per prefisso', cfg.includes('source: "/((?!widget).*)",'), false)
+
 console.log('\n— il webhook senza segreti si CHIUDE —')
 const wh = fs.readFileSync('src/app/api/webhooks/meta/route.ts', 'utf8')
 prova('non c\'è più il ramo che salta la verifica', wh.includes('if (segreti.length) {'), false)

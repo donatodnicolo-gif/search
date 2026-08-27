@@ -63,7 +63,19 @@ export const config = {
   // trova mai guardando il file che l'ha causato: il giorno che qualcuno
   // aggiunge `/chat-interna`, `/widget-statistiche` o `/api/cronologia`, quella
   // rotta nasce **pubblica** e nessun controllo lo dice.
+  //
+  // ⚠️⚠️ `widget.js` VA ELENCATO A PARTE, e ci sono cascato: ancorando le
+  // eccezioni, `/widget.js` ha smesso di combaciare con `widget` (che prima
+  // funzionava per PREFISSO) ed è finito dietro al cancello — cioè lo script
+  // che i tre siti dei clienti caricano col tag `<script src=".../widget.js">`
+  // rispondeva **307 verso /login**, e la chat spariva da tutti e tre. È il
+  // rovescio esatto del difetto che l'ancoraggio doveva chiudere, ed è passato
+  // perché avevo provato `/loginX` e `/chat-interna` ma non i file statici.
+  //
+  // ⚠️ Chi mette un file nuovo in `public/` deve aggiungerlo qui: oggi ce n'è
+  // uno solo (`widget.js`), e un file statico che nasce dietro al login non dà
+  // nessun errore — semplicemente non si carica dove serve.
   matcher: [
-    '/((?!(?:login|registrati|widget|chat|api/widget|api/webhooks|api/cron|api/health|_next/static|_next/image|favicon\\.ico)(?:/|$)).*)',
+    '/((?!(?:login|registrati|widget|widget\\.js|chat|api/widget|api/webhooks|api/cron|api/health|_next/static|_next/image|favicon\\.ico)(?:/|$)).*)',
   ],
 }

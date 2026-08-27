@@ -14,6 +14,46 @@ const nextConfig: NextConfig = {
   // /widget deve poter essere incorniciata ovunque, il resto dell'app no.
   async headers() {
     return [
+      // ── LE INTESTAZIONI DI SICUREZZA, DOVUNQUE TRANNE IL WIDGET ──
+      //
+      // ⚠️⚠️ IL `source` ESCLUDE `widget`, e non è pignoleria: Next applica
+      // **tutte** le regole che combaciano, quindi un `source: "/(.*)"` con
+      // `X-Frame-Options: DENY` la metterebbe anche sul widget — e il widget
+      // dentro l'iframe dei siti dei clienti **è il prodotto**. Sarebbe una
+      // correzione di sicurezza che spegne una funzione che funziona, cioè un
+      // danno più grande del problema che risolve.
+      //
+      // ⚠️ E il problema che risolve, oggi, è **futuro**. Il clickjacking di un
+      // operatore loggato adesso non funziona: il cookie è `SameSite=Lax`, e in
+      // un iframe cross-site il browser non lo manda — l'attaccante incornicia
+      // una pagina di login. Verificato che `vercel.app` è nella **Public
+      // Suffix List** (sottomesso da Vercel), quindi
+      // `deluxy-messaging.vercel.app` è un dominio registrabile a sé e le altre
+      // app Deluxy su `*.vercel.app` sono cross-site rispetto a questa.
+      //
+      // ⚠️⚠️ Ma quella protezione è **gratuita e fragile**: il giorno che l'app
+      // passa a un dominio proprio (`cs.deluxy.it`), `www.deluxy.it` e ogni
+      // altra app sullo stesso dominio registrabile diventano *same-site*, il
+      // cookie Lax parte anche nell'iframe, e il clickjacking diventa reale
+      // **senza che nessuno tocchi questo repo**. Queste righe costano nulla e
+      // chiudono anche quel giorno.
+      {
+        // ⚠️ Ancorato, per lo stesso motivo del matcher del middleware: scritto
+        // `(?!widget)` nudo, l'eccezione varrebbe per PREFISSO e una futura
+        // `/widget-statistiche` nascerebbe senza intestazioni di sicurezza —
+        // che è il difetto latente che si è appena chiuso di là. Qui escono
+        // solo il widget vero, il suo script e quello che ci sta sotto.
+        source: "/((?!widget(?:$|/|\\.js$)).*)",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          // ⚠️ `nosniff` è una seconda riga di difesa sotto gli allegati: la
+          // prima è la lista bianca dei tipi in `api/media/[id]`, perché
+          // `nosniff` impedisce di INDOVINARE un tipo, non di dichiararlo.
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
       {
         source: "/widget",
         headers: [
