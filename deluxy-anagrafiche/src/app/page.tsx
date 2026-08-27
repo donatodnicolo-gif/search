@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { GruppoEspandibile } from "@/components/GruppoEspandibile";
 import { MenuInteressi } from "@/components/MenuInteressi";
 import { MenuStato } from "@/components/MenuStato";
+import { Vuoto } from "@/components/Vuoto";
 import { MenuStatoAzienda } from "@/components/MenuStatoAzienda";
 import { Riconcilia } from "@/components/Riconcilia";
 import { etichetta, Sidebar } from "@/components/Sidebar";
@@ -577,7 +578,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       )}
 
       {partner.length === 0 ? (
-        <div className="vuoto">Nessuna anagrafica trovata con questi filtri.</div>
+        <Vuoto titolo="Nessuna anagrafica">Nessuna anagrafica trovata con questi filtri. Prova ad allargare o azzerare i filtri.</Vuoto>
       ) : (
         <div className="tabella-wrap">
           <table>

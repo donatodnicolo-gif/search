@@ -20,7 +20,7 @@ function Badge({ colore, etichetta }: { colore: string; etichetta: string }) {
   return (
     <span className="badge" style={{ color: colore }}>
       <span className="dot" />
-      <span style={{ color: "var(--text)" }}>{etichetta}</span>
+      <span className="badge-testo">{etichetta}</span>
     </span>
   );
 }

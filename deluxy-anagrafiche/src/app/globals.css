@@ -46,7 +46,7 @@ a { color: inherit; text-decoration: none; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-logo {
   width: 38px; height: 38px; border-radius: 10px;
-  background: linear-gradient(145deg, #1d1f26, #3a3d47);
+  background: linear-gradient(145deg, var(--logo-dark-a), var(--logo-dark-b));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   color: var(--gold);
   font-family: var(--font-logo);
@@ -120,8 +120,44 @@ a { color: inherit; text-decoration: none; }
 .sb-count { font-size: 12px; color: var(--text-tertiary); font-weight: 400; }
 .sb-dot { display: block; width: 8px; height: 8px; border-radius: 50%; margin: 0 auto; }
 
+/* Velo del drawer: esiste solo sotto la soglia mobile. */
+.scrim-sidebar { display: none; }
+
+/* Su mobile la sidebar diventa un drawer off-canvas (prima era display:none e
+   l'hamburger non mostrava nulla — P0). Chiuso = fuori schermo a sinistra;
+   l'hamburger toglie data-sidebar-chiusa e lo fa scorrere dentro, il velo lo
+   richiude al tocco. 27/08 */
 @media (max-width: 800px) {
-  .sidebar { display: none; }
+  .sidebar {
+    position: fixed;
+    top: 63px; left: 0;
+    height: calc(100vh - 63px);
+    width: 264px; flex-basis: 264px;
+    z-index: 50;
+    margin-left: 0;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+    box-shadow: var(--shadow-float);
+    transition: transform 240ms var(--ease);
+  }
+  [data-sidebar-chiusa] .sidebar {
+    margin-left: 0;
+    opacity: 1;
+    pointer-events: none;
+    transform: translateX(-100%);
+  }
+  .scrim-sidebar {
+    display: block;
+    position: fixed; inset: 63px 0 0 0; z-index: 40;
+    background: var(--scrim);
+    opacity: 1;
+    transition: opacity 240ms var(--ease);
+  }
+  [data-sidebar-chiusa] .scrim-sidebar {
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 /* Su schermi stretti con la sidebar aperta, le colonne secondarie (Account,
@@ -135,8 +171,8 @@ a { color: inherit; text-decoration: none; }
 .main { flex: 1; min-width: 0; max-width: 1500px; margin: 0 auto; padding: 40px 24px 64px; }
 
 .page-head { margin-bottom: 24px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.page-title { font-size: 30px; font-weight: 600; letter-spacing: -0.022em; }
-.page-sub { font-size: 15px; color: var(--text-secondary); margin-top: 6px; }
+.page-title { font-size: 32px; font-weight: 600; letter-spacing: -0.022em; }
+.page-sub { font-size: 14px; color: var(--text-secondary); margin-top: 6px; }
 
 /* ---------- Filtri ---------- */
 .filtri {
@@ -153,16 +189,16 @@ a { color: inherit; text-decoration: none; }
   appearance: none;
   font: inherit;
   color: var(--text);
-  background: var(--fill);
-  border: 1px solid transparent;
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-m);
   padding: 8px 12px;
   outline: none;
-  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
 }
 .filtri input[type="search"] { flex: 1 1 220px; min-width: 180px; }
 .filtri input[type="search"]:focus,
-.filtri select:focus { background: var(--surface); border-color: var(--hairline-strong); }
+.filtri select:focus { border-color: var(--gold); box-shadow: 0 0 0 4px var(--gold-soft); }
 .filtri select { cursor: pointer; }
 
 .btn {
@@ -171,11 +207,11 @@ a { color: inherit; text-decoration: none; }
   padding: 8px 18px;
   border: none; cursor: pointer;
   border-radius: var(--radius-pill);
-  background: var(--ink); color: #fff;
+  background: var(--ink); color: var(--on-ink);
   transition: background 160ms var(--ease), transform 160ms var(--ease);
 }
 .btn:hover { background: var(--ink-hover); }
-.btn:active { transform: scale(0.98); }
+.btn:active { transform: scale(0.97); }
 .btn-secondario {
   background: var(--fill); color: var(--text);
 }
@@ -190,13 +226,18 @@ a { color: inherit; text-decoration: none; }
   overflow-x: auto;
 }
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+/* Intestazioni tabella al canone DS §8: 12px/500/tertiary sentence case e
+   STICKY (il MAIUSCOLO urlato 11px/600 è abolito). Lo sfondo surface copre le
+   righe che scorrono sotto. 27/08 */
 th {
   text-align: left;
-  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  font-size: 12px; font-weight: 500;
   color: var(--text-tertiary);
   padding: 11px 10px;
   border-bottom: 1px solid var(--hairline);
   white-space: nowrap;
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface);
 }
 th:first-child, td:first-child { padding-left: 16px; }
 th:last-child, td:last-child { padding-right: 16px; }
@@ -216,21 +257,29 @@ td {
 }
 tr:last-child td { border-bottom: none; }
 tbody tr { transition: background 120ms var(--ease); }
-tbody tr:hover { background: var(--fill); }
+/* Hover riga al 5% canonico DS §8 (era 8% via --fill: troppo marcato). */
+tbody tr:hover { background: rgba(120, 120, 128, 0.05); }
 .cella-nome { font-weight: 600; letter-spacing: -0.01em; }
 .cella-sub { font-size: 12.5px; color: var(--text-tertiary); margin-top: 2px; font-weight: 400; }
 .cella-muta { color: var(--text-secondary); }
 
-/* ---------- Badge di stato (pillola con dot) ---------- */
+/* ---------- Badge di stato (pillola con dot) ----------
+   Formula del Libro: tinta -soft di sfondo + testo semantico pieno + dot
+   currentColor. Il colore semantico arriva via `color` inline; la tinta di
+   sfondo è la sua versione -soft (color-mix ~12%, come i token blue-soft…).
+   Prima: sfondo fill neutro, testo forzato nero, solo il dot colorato — le due
+   metà sbagliate della regola. 27/08 */
 .badge {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 10px;
   border-radius: var(--radius-pill);
-  background: var(--fill);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  color: var(--text-tertiary);
   font-size: 12px; font-weight: 500;
   white-space: nowrap;
 }
 .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge .badge-testo { color: currentColor; }
 
 /* ---------- Menu di stato (righe dell'elenco) ---------- */
 .menu-stato { position: relative; display: inline-block; }
@@ -406,27 +455,33 @@ tbody tr:hover { background: var(--fill); }
 .modulo-contatto:last-child { border-bottom: none; }
 .campo-modulo { display: flex; flex-direction: column; gap: 5px; }
 .campo-modulo.largo { grid-column: 1 / -1; }
+/* Label dei campi (DS §Form): 12.5/500/sentence case/text-secondary. Il token
+   `label` (11px MAIUSCOLO) resta riservato ai titoli di SEZIONE, non ai campi. */
 .campo-modulo label {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--text-tertiary);
+  font-size: 12.5px; font-weight: 500;
+  color: var(--text-secondary);
 }
-.campo-modulo .obbligatorio { color: var(--gold-strong); }
+/* L'asterisco degli obbligatori è ROSSO (NN/g): l'oro è l'accento brand, non
+   marca gli obblighi ed è sotto contrasto. */
+.campo-modulo .obbligatorio { color: var(--red); }
 .campo-modulo input,
 .campo-modulo select,
 .campo-modulo textarea {
   font: inherit; font-size: 14px;
   color: var(--text);
-  background: var(--fill);
-  border: 1px solid transparent;
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-m);
   padding: 9px 12px;
   outline: none;
-  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
   resize: vertical;
 }
+/* Focus al canone DS (WCAG 2.4.7): bordo oro + anello gold-soft — mai lo
+   sbiancamento surface/hairline che non lasciava alcun segno visibile. 27/08 */
 .campo-modulo input:focus,
 .campo-modulo select:focus,
-.campo-modulo textarea:focus { background: var(--surface); border-color: var(--hairline-strong); }
+.campo-modulo textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 4px var(--gold-soft); }
 .azioni-modulo { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
 .avviso-errore {
   padding: 10px 14px; margin-bottom: 14px;
@@ -506,7 +561,7 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
 
 .modale-sfondo {
   position: fixed; inset: 0; z-index: 60;
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--scrim);
   display: flex; align-items: flex-start; justify-content: center;
   padding: 10vh 20px 20px;
 }
@@ -537,17 +592,18 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   transition: background 120ms var(--ease), color 120ms var(--ease);
 }
 .scelta-modo .modo:hover { background: var(--fill); color: var(--text); }
-.scelta-modo .modo.attivo { background: var(--ink); color: #fff; border-color: var(--ink); }
+.scelta-modo .modo.attivo { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 .modale-ricerca {
   width: 100%;
   font: inherit; color: var(--text);
-  background: var(--fill);
-  border: 1px solid transparent;
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-m);
   padding: 10px 12px;
   outline: none;
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
 }
-.modale-ricerca:focus { background: var(--surface); border-color: var(--hairline-strong); }
+.modale-ricerca:focus { border-color: var(--gold); box-shadow: 0 0 0 4px var(--gold-soft); }
 .modale-risultati { margin-top: 10px; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 .modale-vuoto { padding: 14px 6px; font-size: 13.5px; color: var(--text-tertiary); }
 .modale-voce {
@@ -569,8 +625,11 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   display: grid; gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
-.card-identita { display: block; text-decoration: none; color: inherit; transition: box-shadow .15s, transform .15s; }
-.card-identita:hover { box-shadow: 0 6px 20px rgba(0,0,0,.10); transform: translateY(-2px); }
+.card-identita { display: block; text-decoration: none; color: inherit; transition: box-shadow .15s var(--ease), transform .15s var(--ease); }
+/* Hover = ombra di catalogo (shadow-float); il feedback di pressione è scale,
+   non un translateY con ombra inventata. 27/08 */
+.card-identita:hover { box-shadow: var(--shadow-float); }
+.card-identita:active { transform: scale(0.98); }
 .card-identita-num { font-size: 34px; font-weight: 700; letter-spacing: -.02em; margin-top: 6px; }
 .card-identita-etic { font-size: 13px; color: var(--text-secondary); }
 
@@ -579,9 +638,9 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   position: sticky; top: 8px; z-index: 5;
   display: flex; align-items: center; gap: 12px;
   padding: 10px 14px; margin-bottom: 12px;
-  background: var(--text); color: #fff;
-  border-radius: 12px; font-size: 13.5px; font-weight: 500;
-  box-shadow: 0 4px 14px rgba(0,0,0,.14);
+  background: var(--text); color: var(--on-ink);
+  border-radius: var(--radius-m); font-size: 13.5px; font-weight: 500;
+  box-shadow: var(--shadow-float);
 }
 .chip-suggerito {
   padding: 4px 11px; border-radius: 999px;
@@ -662,17 +721,18 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
 .form-feedback select,
 .form-feedback textarea {
   font: inherit; font-size: 13.5px; color: var(--text);
-  background: var(--fill);
-  border: 1px solid transparent;
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-m);
   padding: 8px 10px;
   outline: none;
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
 }
 .form-feedback input[type="text"] { flex: 1 1 150px; min-width: 130px; }
 .form-feedback textarea { width: 100%; resize: vertical; }
 .form-feedback input:focus,
 .form-feedback select:focus,
-.form-feedback textarea:focus { background: var(--surface); border-color: var(--hairline-strong); }
+.form-feedback textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 4px var(--gold-soft); }
 .d2c-scelta { display: inline-flex; gap: 2px; }
 .d2c-stella {
   border: 0; background: transparent; cursor: pointer;
@@ -729,6 +789,22 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
 .in-rubrica { color: var(--green); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
 .storia li > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
 
+/* ---------- Caricamento di rotta (skeleton sobrio, DS §6 soglia 2–10 s) ---------- */
+.caricamento { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.skeleton {
+  background: linear-gradient(90deg, var(--fill) 25%, var(--fill-hover) 37%, var(--fill) 63%);
+  background-size: 400% 100%;
+  border-radius: var(--radius-m);
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+.skeleton-titolo { height: 30px; width: 240px; }
+.skeleton-riga { height: 46px; }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
 /* ---------- Paginazione ---------- */
 .paginazione {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -762,6 +838,7 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
 .campo dd { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .campo-largo { grid-column: 1 / -1; }
 
+/* Empty-state canonico (Libro §6): quadratino gold-soft + titolo + frase. */
 .vuoto {
   padding: 48px 24px;
   text-align: center;
@@ -770,7 +847,19 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   border-radius: var(--radius-l);
   color: var(--text-secondary);
   font-size: 14px;
+  display: flex; flex-direction: column; align-items: center;
 }
+.vuoto-icona {
+  width: 44px; height: 44px; border-radius: var(--radius-m);
+  background: var(--gold-soft); color: var(--gold);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+}
+.vuoto-titolo {
+  font-size: 19px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--text); margin-bottom: 4px;
+}
+.vuoto-testo { font-size: 14px; color: var(--text-secondary); max-width: 360px; line-height: 1.5; }
 
 /* ---------- Riconciliazioni dati ----------
    I disaccordi fra registro e tracker, uno per riga. I due valori stanno
@@ -783,7 +872,7 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   font-size: 14px; font-weight: 600; color: var(--text-secondary);
   text-decoration: none; border: 1px solid var(--hairline); background: var(--surface);
 }
-.tab-voce.attiva { background: var(--ink); color: #fff; border-color: var(--ink); }
+.tab-voce.attiva { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 
 .elenco-riconc { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .riconc {
@@ -832,7 +921,8 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 .chiave-azioni { display: flex; gap: 6px; flex-wrap: wrap; }
-.btn-compatto { font-size: 12.5px; padding: 6px 12px; }
+/* Bottone compatto: unificato sul modificatore canonico `.btn.small`
+   (era un duplicato `.btn-compatto` con padding leggermente diverso). 27/08 */
 .btn-pericolo { color: var(--red); }
 .btn-pericolo:hover { background: rgba(215, 0, 21, 0.08); }
 
@@ -934,10 +1024,11 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
 .sposta-referente { display: flex; align-items: center; gap: 4px; }
 .sposta-referente select {
   font: inherit; font-size: 12.5px; color: var(--text);
-  background: var(--fill); border: 1px solid transparent;
+  background: var(--surface); border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-s); padding: 4px 8px; max-width: 170px; cursor: pointer;
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
 }
-.sposta-referente select:focus { background: var(--surface); border-color: var(--hairline-strong); outline: none; }
+.sposta-referente select:focus { border-color: var(--gold); box-shadow: 0 0 0 4px var(--gold-soft); outline: none; }
 
 /* Ricerca in rubrica Google: campo e bottone sulla stessa riga (la ricerca
    parte a comando, non a ogni tasto — ogni chiamata passa dalla People API). */
@@ -957,7 +1048,7 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   flex: 0 0 18px; height: 18px; margin-top: 2px;
   border: 1px solid var(--hairline-strong); border-radius: 5px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; line-height: 1; color: #fff;
+  font-size: 12px; line-height: 1; color: var(--on-ink);
 }
 .voce-scelta.attiva { background: var(--fill); }
 .voce-scelta.attiva .spunta { background: var(--ink); border-color: var(--ink); }

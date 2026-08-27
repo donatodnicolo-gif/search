@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { Sidebar } from "@/components/Sidebar";
+import { Vuoto } from "@/components/Vuoto";
 import { type RigaRiconc, TabellaRiconciliazione } from "@/components/TabellaRiconciliazione";
 import { prisma } from "@/lib/db";
 import { whereRicerca } from "@/lib/ricerca";
@@ -146,11 +147,11 @@ export default async function Riconciliazione({ searchParams }: { searchParams: 
         </form>
 
         {contatti.length === 0 ? (
-          <div className="vuoto">
+          <Vuoto titolo="Niente da smistare">
             {ambito === "tutti"
-              ? "Nessun referente con questi filtri."
+              ? "Nessun referente con questi filtri. Prova ad allargare o azzerare la ricerca."
               : `Nessun referente da smistare${filtri.q ? " con questi filtri" : ""}. 🎉`}
-          </div>
+          </Vuoto>
         ) : (
           <TabellaRiconciliazione righe={righe} />
         )}

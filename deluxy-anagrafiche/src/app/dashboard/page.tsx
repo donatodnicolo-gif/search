@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { FiltriDashboard } from "@/components/FiltriDashboard";
 import { Sidebar } from "@/components/Sidebar";
+import { Vuoto } from "@/components/Vuoto";
 import { prisma } from "@/lib/db";
 import { coloreInteresse } from "@/lib/interessi";
 import { getLinee } from "@/lib/linee";
@@ -302,7 +303,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
 
         {totale === 0 ? (
-          <div className="vuoto">Nessuna anagrafica in questa fetta. Allarga i filtri.</div>
+          <Vuoto titolo="Nessun dato">Nessuna anagrafica in questa fetta. Allarga i filtri per vedere i numeri.</Vuoto>
         ) : (
         <div className="dash-grid">
           <section className="scheda">

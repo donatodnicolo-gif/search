@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/Sidebar";
+import { Vuoto } from "@/components/Vuoto";
 import { DecidiRiconciliazione } from "@/components/DecidiRiconciliazione";
 import { prisma } from "@/lib/db";
 
@@ -51,15 +52,17 @@ export default async function Riconciliazioni({
   return (
     <div className="layout">
       <Sidebar />
-      <main className="contenuto">
-        <header className="testata">
-          <h1>Riconciliazioni</h1>
-          <p className="sottotitolo">
-            Dove il tracker Excel e il registro dicono cose diverse sullo stesso campo. Nessuno dei due
-            vince da solo: decidi tu, una riga per volta. Le differenze di sola forma (provincia in sigla,
-            città in coda all’indirizzo) non compaiono qui.
-          </p>
-        </header>
+      <main className="main">
+        <div className="page-head">
+          <div>
+            <h1 className="page-title">Riconciliazioni</h1>
+            <p className="page-sub">
+              Dove il tracker Excel e il registro dicono cose diverse sullo stesso campo. Nessuno dei due
+              vince da solo: decidi tu, una riga per volta. Le differenze di sola forma (provincia in sigla,
+              città in coda all’indirizzo) non compaiono qui.
+            </p>
+          </div>
+        </div>
 
         <nav className="tab">
           <a className={`tab-voce${!mostraDecise ? " attiva" : ""}`} href="/riconciliazioni">
@@ -71,11 +74,11 @@ export default async function Riconciliazioni({
         </nav>
 
         {righe.length === 0 ? (
-          <p className="vuoto">
+          <Vuoto titolo={mostraDecise ? "Nessuna decisione" : "Tutto allineato"}>
             {mostraDecise
               ? "Nessuna decisione presa finora."
               : "Nessun disaccordo aperto: registro e tracker dicono la stessa cosa (o le differenze rimaste sono di sola forma)."}
-          </p>
+          </Vuoto>
         ) : (
           <ul className="elenco-riconc">
             {righe.map((r) => (

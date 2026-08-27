@@ -46,15 +46,17 @@ export default async function Gruppi() {
   return (
     <div className="layout">
       <Sidebar gruppiAttivi gruppi={gruppi.length} />
-      <main className="contenuto">
-        <header className="testata">
-          <h1>Entità commerciali</h1>
-          <p className="sottotitolo">
-            Il cliente come lo intende chi vende, sopra le sue società di fatturazione: la catena è
-            negozio → società → entità. Serve quando si fattura a una ragione sociale ma si vuole
-            sapere quanto vale il cliente <em>in tutte</em> le sue società.
-          </p>
-        </header>
+      <main className="main">
+        <div className="page-head">
+          <div>
+            <h1 className="page-title">Entità commerciali</h1>
+            <p className="page-sub">
+              Il cliente come lo intende chi vende, sopra le sue società di fatturazione: la catena è
+              negozio → società → entità. Serve quando si fattura a una ragione sociale ma si vuole
+              sapere quanto vale il cliente <em>in tutte</em> le sue società.
+            </p>
+          </div>
+        </div>
 
         <p className="testo-guida">
           {gruppi.length === 0

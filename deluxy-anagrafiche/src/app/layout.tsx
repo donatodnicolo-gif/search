@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ScrimSidebar } from "@/components/ScrimSidebar";
 import { ToggleSidebar } from "@/components/ToggleSidebar";
 import "./globals.css";
 
@@ -11,11 +12,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="it">
       <head>
-        {/* Riapplica la preferenza sidebar prima del paint (niente lampeggio) */}
+        {/* Riapplica la preferenza sidebar prima del paint (niente lampeggio).
+            Su mobile (≤800px) il drawer nasce SEMPRE chiuso, a prescindere dalla
+            preferenza salvata: così si apre solo col tocco e — con la
+            navigazione a ricaricamento pieno delle pagine — si richiude a ogni
+            passaggio (Libro §2). 27/08 */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              'try{if(localStorage.getItem("anagrafiche-sidebar")==="chiusa")document.documentElement.setAttribute("data-sidebar-chiusa","")}catch(e){}',
+              'try{var v=localStorage.getItem("anagrafiche-sidebar");if(v==="chiusa"||window.innerWidth<=800)document.documentElement.setAttribute("data-sidebar-chiusa","")}catch(e){}',
           }}
         />
       </head>
@@ -31,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </a>
         </header>
         {children}
+        <ScrimSidebar />
       </body>
     </html>
   );

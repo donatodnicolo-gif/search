@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { Sidebar } from "@/components/Sidebar";
+import { Vuoto } from "@/components/Vuoto";
 import { prisma } from "@/lib/db";
 import {
   SEGMENTI,
@@ -158,11 +159,11 @@ export default async function Consumers({
         </form>
 
         {righe.length === 0 ? (
-          <div className="vuoto">
+          <Vuoto titolo="Nessun consumer">
             {totale === 0 && !q && !segmento && !tipologia
               ? "Nessun consumer importato. Si importano da Orders con `npm run importa:consumers`."
-              : "Nessuna persona con questi filtri."}
-          </div>
+              : "Nessuna persona con questi filtri. Prova ad allargare o azzerare i filtri."}
+          </Vuoto>
         ) : (
           <div className="tabella-wrap">
             <table>

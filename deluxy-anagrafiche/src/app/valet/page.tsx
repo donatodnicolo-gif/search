@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/Sidebar";
+import { Vuoto } from "@/components/Vuoto";
 import { prisma } from "@/lib/db";
 import {
   COLORE_STATO_VALET,
@@ -83,9 +84,11 @@ export default async function Valet({
         </form>
 
         {righe.length === 0 ? (
-          <div className="vuoto">
-            {q || stato ? "Nessun valet con questi filtri." : "Nessun valet ancora inserito."}
-          </div>
+          <Vuoto titolo="Nessun valet">
+            {q || stato
+              ? "Nessun valet con questi filtri. Prova ad allargare o azzerare la ricerca."
+              : "Nessun valet ancora inserito."}
+          </Vuoto>
         ) : (
           <div className="tabella-wrap">
             <table>

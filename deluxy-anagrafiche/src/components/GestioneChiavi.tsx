@@ -158,14 +158,14 @@ export function GestioneChiavi({ chiavi }: { chiavi: ChiaveInElenco[] }) {
                 <div className="chiave-azioni">
                   <button
                     type="button"
-                    className="btn btn-secondario btn-compatto"
+                    className="btn btn-secondario small"
                     onClick={() => setInModifica(modifica ? null : c.id)}
                   >
                     {modifica ? "Chiudi" : "Permessi"}
                   </button>
                   <button
                     type="button"
-                    className="btn btn-secondario btn-compatto"
+                    className="btn btn-secondario small"
                     onClick={async () => {
                       if (!confirm(`Rigenerare la chiave "${c.nome}"?\n\nLa chiave attuale smette di funzionare subito: va sostituita nel .env dell'app (e su Vercel).`))
                         return;
@@ -176,14 +176,14 @@ export function GestioneChiavi({ chiavi }: { chiavi: ChiaveInElenco[] }) {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-secondario btn-compatto"
+                    className="btn btn-secondario small"
                     onClick={async () => gestisci(await impostaAttivaChiave(c.id, !c.attiva))}
                   >
                     {c.attiva ? "Sospendi" : "Riattiva"}
                   </button>
                   <button
                     type="button"
-                    className="btn btn-secondario btn-compatto btn-pericolo"
+                    className="btn btn-secondario small btn-pericolo"
                     onClick={async () => {
                       if (!confirm(`Eliminare definitivamente la chiave "${c.nome}"?\n\nSe un'app la sta ancora usando riceverà 401. Per fermarla in modo reversibile usa "Sospendi".`))
                         return;
@@ -342,7 +342,7 @@ function ChiaveAppenaCreata({
         <div className="chiave-in-chiaro-piede">
           <button
             type="button"
-            className="btn btn-compatto"
+            className="btn small"
             onClick={async () => {
               try {
                 await navigator.clipboard.writeText(valore);
@@ -354,7 +354,7 @@ function ChiaveAppenaCreata({
           >
             {copiata ? "Copiata ✓" : "Copia"}
           </button>
-          <button type="button" className="btn btn-secondario btn-compatto" onClick={onChiudi}>
+          <button type="button" className="btn btn-secondario small" onClick={onChiudi}>
             Ho copiato
           </button>
           <span className="testo-guida">

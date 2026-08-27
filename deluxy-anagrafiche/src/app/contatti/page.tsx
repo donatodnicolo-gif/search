@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { Sidebar } from "@/components/Sidebar";
+import { Vuoto } from "@/components/Vuoto";
 import { TabellaContattiGoogle, type RigaContatto } from "@/components/TabellaContattiGoogle";
 import { prisma } from "@/lib/db";
 import { eAffiliatoReseller } from "@/lib/interessi";
@@ -122,7 +123,7 @@ export default async function Contatti({ searchParams }: { searchParams: Promise
         </form>
 
         {contatti.length === 0 ? (
-          <div className="vuoto">Nessun contatto con questi filtri.</div>
+          <Vuoto titolo="Nessun contatto">Nessun contatto con questi filtri. Prova ad allargare o azzerare la ricerca.</Vuoto>
         ) : (
           <TabellaContattiGoogle contatti={righe} />
         )}
