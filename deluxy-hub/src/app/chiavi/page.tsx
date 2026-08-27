@@ -4,6 +4,8 @@ import { decifra } from "@/lib/cifratura";
 import { aggiornaChiave, creaChiave, eliminaChiave, revocaToken } from "@/lib/chiavi-actions";
 import { prisma } from "@/lib/db";
 import { richiediAdmin } from "@/lib/sessione-server";
+import { ConfermaAzione } from "@/components/ConfermaAzione";
+import { EmptyState } from "@/components/EmptyState";
 import { TokenForm } from "./TokenForm";
 
 // Cassaforte delle chiavi dei progetti, solo admin. I valori stanno sul database
@@ -95,7 +97,7 @@ export default async function ChiaviPage({
           action={creaChiave}
           style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, alignItems: "end" }}
         >
-          <label className="campo" style={{ marginBottom: 0 }}>
+          <label className="campo req" style={{ marginBottom: 0 }}>
             <span>Progetto</span>
             <input name="progetto" required list="progetti" placeholder="deluxy-mail" />
             <datalist id="progetti">
@@ -104,11 +106,11 @@ export default async function ChiaviPage({
               ))}
             </datalist>
           </label>
-          <label className="campo" style={{ marginBottom: 0 }}>
+          <label className="campo req" style={{ marginBottom: 0 }}>
             <span>Nome</span>
             <input name="nome" required placeholder="OPENAI_API_KEY" style={{ fontFamily: "ui-monospace, monospace" }} />
           </label>
-          <label className="campo" style={{ marginBottom: 0, gridColumn: "1 / -1" }}>
+          <label className="campo req" style={{ marginBottom: 0, gridColumn: "1 / -1" }}>
             <span>Valore (salvato cifrato)</span>
             <input name="valore" required autoComplete="off" spellCheck={false} style={{ fontFamily: "ui-monospace, monospace" }} />
           </label>
@@ -129,9 +131,10 @@ export default async function ChiaviPage({
       <div className="section-label">{chiavi.length} chiavi</div>
       <div className="card" style={{ padding: "20px 12px" }}>
         {chiavi.length === 0 ? (
-          <p style={{ color: "var(--text-tertiary)", fontSize: 13.5, margin: "4px 8px" }}>
-            Nessuna chiave salvata: aggiungi la prima qui sopra.
-          </p>
+          <EmptyState
+            titolo="Nessuna chiave salvata"
+            frase="Qui vivono i segreti dei progetti, cifrati. Aggiungi la prima con il modulo qui sopra."
+          />
         ) : (
           <div className="tabella-scroll">
             <table>
@@ -215,12 +218,16 @@ export default async function ChiaviPage({
                           Salva
                         </button>
                       </form>
-                      <form action={eliminaChiave} style={{ marginTop: 8 }}>
-                        <input type="hidden" name="id" value={c.id} />
-                        <button type="submit" className="btn danger" style={{ width: "100%", justifyContent: "center" }}>
-                          Elimina chiave
-                        </button>
-                      </form>
+                      <div style={{ marginTop: 8 }}>
+                        <ConfermaAzione
+                          action={eliminaChiave}
+                          campiNascosti={{ id: c.id }}
+                          verbo="Elimina chiave"
+                          titolo={`Elimino «${c.progetto} · ${c.nome}»?`}
+                          conseguenza="Le app che la leggono smettono di funzionare finché non ne salvi un'altra. Il valore cifrato è perduto."
+                          larghezza
+                        />
+                      </div>
                     </details>
                   </td>
                 </tr>
@@ -249,9 +256,10 @@ export default async function ChiaviPage({
       <div className="section-label">{token.length} token</div>
       <div className="card" style={{ padding: "20px 12px" }}>
         {token.length === 0 ? (
-          <p style={{ color: "var(--text-tertiary)", fontSize: 13.5, margin: "4px 8px" }}>
-            Nessun token: generane uno qui sopra e mettilo nell'ambiente dell'app che deve leggere.
-          </p>
+          <EmptyState
+            titolo="Nessun token di servizio"
+            frase="I token fanno leggere le chiavi alle altre app. Generane uno qui sopra e mettilo nell'ambiente dell'app che deve leggere."
+          />
         ) : (
           <div className="tabella-scroll">
             <table>
@@ -283,12 +291,13 @@ export default async function ChiaviPage({
                     {t.ultimoUso ? dataIt(t.ultimoUso) : "mai"}
                   </td>
                   <td>
-                    <form action={revocaToken}>
-                      <input type="hidden" name="id" value={t.id} />
-                      <button type="submit" className="btn danger" style={{ justifyContent: "center" }}>
-                        Revoca
-                      </button>
-                    </form>
+                    <ConfermaAzione
+                      action={revocaToken}
+                      campiNascosti={{ id: t.id }}
+                      verbo="Revoca"
+                      titolo={`Revoco il token «${t.nome}»?`}
+                      conseguenza="L'app che lo usa perde subito l'accesso alle chiavi. Dovrai generarne uno nuovo e aggiornarla."
+                    />
                   </td>
                 </tr>
               ))}

@@ -31,7 +31,7 @@ export function TokenForm({ progetti }: { progetti: string[] }) {
   return (
     <form action={creaToken} style={{ display: "grid", gap: 14 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, alignItems: "end" }}>
-        <label className="campo" style={{ marginBottom: 0 }}>
+        <label className="campo req" style={{ marginBottom: 0 }}>
           <span>A chi serve (nome)</span>
           <input name="nome" required placeholder="deluxy-scout" />
         </label>

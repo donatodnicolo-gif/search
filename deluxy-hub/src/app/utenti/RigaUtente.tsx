@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { aggiornaUtente, eliminaUtente } from "@/lib/actions";
 import { RUOLI, RUOLO_INFO, type Ruolo } from "@/lib/ruoli";
+import { ConfermaAzione } from "@/components/ConfermaAzione";
 import { ScelteApp } from "./ScelteApp";
 
 // La riga di un utente, con il suo pannello di modifica.
@@ -79,7 +80,7 @@ export function RigaUtente({
           <td colSpan={5} style={{ background: "var(--fill)" }}>
             <form action={aggiornaUtente} style={{ display: "grid", gap: 10, maxWidth: 620 }}>
               <input type="hidden" name="id" value={utente.id} />
-              <label className="campo" style={{ marginBottom: 0 }}>
+              <label className="campo req" style={{ marginBottom: 0 }}>
                 <span>Nome</span>
                 <input name="nome" defaultValue={utente.nome} required />
               </label>
@@ -110,12 +111,15 @@ export function RigaUtente({
             </form>
 
             {puoEliminare && (
-              <form action={eliminaUtente} style={{ marginTop: 12 }}>
-                <input type="hidden" name="id" value={utente.id} />
-                <button type="submit" className="btn danger">
-                  Elimina utente
-                </button>
-              </form>
+              <div style={{ marginTop: 12 }}>
+                <ConfermaAzione
+                  action={eliminaUtente}
+                  campiNascosti={{ id: utente.id }}
+                  verbo="Elimina utente"
+                  titolo={`Elimino «${utente.nome}»?`}
+                  conseguenza="Perde l'accesso al portale e sparisce dall'elenco. L'operazione è definitiva."
+                />
+              </div>
             )}
           </td>
         </tr>

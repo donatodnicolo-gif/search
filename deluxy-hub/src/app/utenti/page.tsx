@@ -88,15 +88,15 @@ export default async function UtentiPage({
           action={creaUtente}
           style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, alignItems: "end" }}
         >
-          <label className="campo" style={{ marginBottom: 0 }}>
+          <label className="campo req" style={{ marginBottom: 0 }}>
             <span>Nome</span>
             <input name="nome" required placeholder="Maria Rossi" defaultValue={nomePrecompilato} />
           </label>
-          <label className="campo" style={{ marginBottom: 0 }}>
+          <label className="campo req" style={{ marginBottom: 0 }}>
             <span>Email</span>
             <input name="email" type="email" required placeholder="maria@deluxy.it" />
           </label>
-          <label className="campo" style={{ marginBottom: 0 }}>
+          <label className="campo req" style={{ marginBottom: 0 }}>
             <span>Password (min 8)</span>
             <input name="password" type="password" required minLength={8} autoComplete="new-password" />
           </label>

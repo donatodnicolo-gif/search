@@ -34,7 +34,7 @@ a { color: inherit; text-decoration: none; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-logo {
   width: 38px; height: 38px; border-radius: 10px;
-  background: linear-gradient(145deg, #1d1f26, #3a3d47);
+  background: linear-gradient(145deg, var(--logo-dark-a), var(--logo-dark-b));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   color: var(--gold);
   font-family: var(--font-logo);
@@ -64,8 +64,8 @@ a { color: inherit; text-decoration: none; }
 .main { max-width: 1240px; margin: 0 auto; padding: 40px 24px 64px; }
 
 .page-head { margin-bottom: 28px; }
-.page-title { font-size: 30px; font-weight: 600; letter-spacing: -0.022em; }
-.page-sub { font-size: 15px; color: var(--text-secondary); margin-top: 6px; }
+.page-title { font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
+.page-sub { font-size: 14px; color: var(--text-secondary); margin-top: 6px; }
 
 .section-label {
   font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
@@ -119,7 +119,7 @@ a { color: inherit; text-decoration: none; }
 .app-icon {
   width: 56px; height: 56px;
   border-radius: 16px;
-  background: linear-gradient(145deg, #1d1f26, #3a3d47);
+  background: linear-gradient(145deg, var(--logo-dark-a), var(--logo-dark-b));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   color: var(--gold);
   display: flex; align-items: center; justify-content: center;
@@ -151,6 +151,21 @@ a { color: inherit; text-decoration: none; }
   font-size: 14px;
 }
 
+/* ---------- Empty state canonico (Libro §6.2) ----------
+   Icona in quadratino gold-soft 44px + titolo title-m + frase che insegna.
+   Un vuoto non è mai solo testo grigio. */
+.empty { text-align: center; padding: 40px 24px; }
+.empty-icona {
+  width: 44px; height: 44px;
+  margin: 0 auto 12px;
+  border-radius: var(--radius-m);
+  background: var(--gold-soft);
+  color: var(--gold-strong);
+  display: flex; align-items: center; justify-content: center;
+}
+.empty-titolo { font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
+.empty-frase { font-size: 13.5px; color: var(--text-secondary); margin-top: 4px; }
+
 /* ---------- Badge ---------- */
 .badge {
   display: inline-flex; align-items: center; gap: 6px;
@@ -163,8 +178,8 @@ a { color: inherit; text-decoration: none; }
 }
 .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .badge.gold { background: var(--gold-soft); color: var(--gold-strong); }
-.badge.green { background: rgba(36, 138, 61, 0.12); color: var(--green); }
-.badge.red { background: rgba(215, 0, 21, 0.1); color: var(--red); }
+.badge.green { background: var(--green-soft); color: var(--green); }
+.badge.red { background: var(--red-soft); color: var(--red); }
 /* Stato non misurabile (l'app non espone ancora l'health-check): grigio, perché
    non è né un successo né un guasto — è un'informazione che ci manca. */
 .badge.neutro { background: var(--fill); color: var(--text-tertiary); }
@@ -194,7 +209,15 @@ a { color: inherit; text-decoration: none; }
 .btn.attivo, .btn.ghost.attivo { background: var(--fill); color: var(--text); font-weight: 600; }
 .btn.ghost:hover { background: var(--fill); color: var(--text); }
 .btn.danger { color: var(--red); }
-.btn.danger:hover { background: rgba(215, 0, 21, 0.08); }
+.btn.danger:hover { background: var(--red-soft); }
+/* Il rosso PIENO solo sul passo di conferma di una distruzione, col verbo
+   (Libro §3 «il rosso pieno solo sul passo di conferma»). */
+.btn.danger.solid {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--on-ink);
+}
+.btn.danger.solid:hover { background: var(--red); filter: brightness(0.94); }
 
 /* ---------- Form ---------- */
 input, select {
@@ -222,6 +245,20 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-secondary);
   margin-bottom: 5px;
 }
+/* Campo obbligatorio: asterisco ROSSO (Libro §4; l'oro non marca gli obblighi). */
+.campo.req > span::after { content: " *"; color: var(--red); font-weight: 600; }
+
+/* ---------- Conferma distruttiva (Libro §7) ----------
+   Nome dell'oggetto + conseguenza + bottone rosso col verbo. Mai al primo click. */
+.conferma-distruttiva {
+  border: 1px solid var(--red-soft);
+  background: var(--red-soft);
+  border-radius: var(--radius-m);
+  padding: 12px 14px;
+}
+.conferma-titolo { font-size: 14px; font-weight: 600; }
+.conferma-conseguenza { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+.conferma-azioni { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 
 .card {
   background: var(--surface);
@@ -237,8 +274,8 @@ input:focus, select:focus, textarea:focus {
   font-size: 13.5px;
   margin-bottom: 18px;
 }
-.avviso.ok { background: rgba(36, 138, 61, 0.1); color: var(--green); }
-.avviso.errore { background: rgba(215, 0, 21, 0.09); color: var(--red); }
+.avviso.ok { background: var(--green-soft); color: var(--green); }
+.avviso.errore { background: var(--red-soft); color: var(--red); }
 
 /* ---------- Stato servizi ---------- */
 .stato-lista {
@@ -307,7 +344,7 @@ input:focus, select:focus, textarea:focus {
 }
 a.marca:hover { background: var(--fill-hover); }
 .marca em { font-style: normal; font-size: 11.5px; color: var(--text-tertiary); }
-.marca.entrata { background: rgba(36, 138, 61, 0.12); color: var(--green); }
+.marca.entrata { background: var(--green-soft); color: var(--green); }
 
 .nota { font-size: 12.5px; color: var(--text-tertiary); line-height: 1.5; margin-top: 12px; }
 .nota-riga { display: block; font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
@@ -395,8 +432,20 @@ td {
    di righe finivano FUORI dal riquadro bianco, sul fondo grigio, e con esse la
    colonna Stato, Ultimo accesso e il comando «Modifica» — l'unica azione della
    pagina. Non era compressione: era sbordo, e non c'era nulla da far scorrere. */
-.tabella-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* Wrapper con altezza massima: senza, le intestazioni sticky non si fermano mai
+   (Libro §8, misurato: th a top negativo). Con poche righe la max-height non si
+   raggiunge e non cambia nulla. */
+.tabella-scroll { overflow: auto; max-height: 70vh; -webkit-overflow-scrolling: touch; }
 .tabella-scroll table { min-width: 560px; }
+.tabella-scroll thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface);
+  box-shadow: inset 0 -1px 0 var(--hairline);
+  padding-top: 8px;
+}
+/* Hover di riga: il valore canonico del Libro §8 (non c'è un token per questa
+   tinta neutrale a 5%). */
+.tabella-scroll tbody tr:hover { background: rgba(120, 120, 128, 0.05); }
 
 /* ---------- Spunte delle app ---------- */
 /* Spuntata e non spuntata erano identiche (stesso sfondo, stesso bordo, stesso
@@ -463,10 +512,10 @@ td {
   .hamburger:active { transform: scale(0.97); }
   .hamburger:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-  /* Velo dietro il drawer (--scrim non esiste in questa copia dei token: 0.32). */
+  /* Velo dietro il drawer: il token unico --scrim (v1.4). */
   .menu-scrim {
     position: fixed; inset: 0; z-index: 40;
-    background: rgba(0, 0, 0, 0.32);
+    background: var(--scrim);
     -webkit-backdrop-filter: blur(2px);
     backdrop-filter: blur(2px);
     animation: menu-fade 0.2s var(--ease);
