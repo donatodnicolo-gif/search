@@ -556,6 +556,17 @@
         </div>
       </div>
       <div class="hint" style="margin-top:-6px">Per «📧 Invia richiesta via email»: la mail parte dalla <b>casella vera</b> dell'operatore passando da <b>AI Mail</b> (la copia finisce negli «Inviati»), con la <b>foto del bouquet in allegato</b>. Il token resta <b>solo sul server</b> e si genera da AI Mail → Impostazioni App → «Token API di AI Mail». URL diverso dal predefinito (<code>https://deluxy-mail.vercel.app</code>)? impostalo qui: <input id="cfg_mail_url" type="text" placeholder="vuoto = deluxy-mail.vercel.app" autocomplete="off" style="width:auto; min-width:220px; padding:4px 8px; margin-left:4px"></div>
+      <div class="fgrid fgrid-2">
+        <div>
+          <label>Orders — URL (fonte degli ordini)</label>
+          <input id="cfg_orders_url" type="text" placeholder="vuoto = https://deluxy-orders.vercel.app" autocomplete="off">
+        </div>
+        <div>
+          <label>Orders — chiave di lettura</label>
+          <input id="cfg_orders_key" type="password" placeholder="lascia vuoto = invariata" autocomplete="off">
+        </div>
+      </div>
+      <div class="hint" style="margin-top:-6px">Con la chiave impostata, gli ordini si leggono da <b>Orders</b> (l'unica app collegata a Shopify: Standard Deluxy §7) invece che da Shopify direttamente — <b>foto e bigliettino compresi</b>. Se Orders non ha ancora l'ordine (appena creato) si ripiega sul webhook/token. La chiave (sola lettura) si genera in Orders con <code>npm run chiave -- deluxy-search</code> e resta <b>solo sul server</b>.</div>
       <div>
         <label style="font-size:13px; color:var(--text); font-weight:600">👥 Utenze dell'app</label>
         <div id="userRows" class="grid" style="margin-top:8px"></div>
@@ -1286,6 +1297,9 @@ function applyConfig(){
   $('#cfg_mail_url').value = CONFIG.mailUrl || '';
   $('#cfg_mail_key').value = '';
   $('#cfg_mail_key').placeholder = CONFIG.hasMailKey ? '•••• salvato (vuoto = invariato)' : 'lascia vuoto = invariato';
+  $('#cfg_orders_url').value = CONFIG.ordersUrl || '';
+  $('#cfg_orders_key').value = '';
+  $('#cfg_orders_key').placeholder = CONFIG.hasOrdersKey ? '•••• salvata (vuoto = invariata)' : 'lascia vuoto = invariata';
   KNOWN_BRANDS.forEach(b=>{
     const s = (CONFIG.stores||[]).find(x=>x.brand===b) || {};
     const shopEl = $('#cfg_shop_'+cssId(b)); if(shopEl) shopEl.value = s.shop || '';
@@ -1432,6 +1446,7 @@ async function saveConfig(){
                  anagWriteKey: $('#cfg_anag_wkey').value.trim(),
                  mailUtente: $('#cfg_mail_utente').value.trim(), mailUrl: $('#cfg_mail_url').value.trim(),
                  mailApiKey: $('#cfg_mail_key').value.trim(),
+                 ordersUrl: $('#cfg_orders_url').value.trim(), ordersKey: $('#cfg_orders_key').value.trim(),
                  googleOauthClientId: $('#cfg_goauth').value.trim(), utenti, stores };
   $('#cfg_save').disabled=true; $('#cfg_status').className='status'; $('#cfg_status').textContent='Salvo…';
   try{
@@ -1443,6 +1458,7 @@ async function saveConfig(){
     $('#cfg_anag_wkey').value='';  // le chiavi del registro restano solo sul server
     $('#cfg_anag_key').value='';
     $('#cfg_mail_key').value='';   // il token AI Mail resta solo sul server
+    $('#cfg_orders_key').value=''; // la chiave di Orders resta solo sul server
     $('#cfg_status').textContent='✅ Impostazioni salvate sul server.';
   }catch(e){ $('#cfg_status').className='status err'; $('#cfg_status').textContent='❌ '+e.message; }
   finally{ $('#cfg_save').disabled=false; }

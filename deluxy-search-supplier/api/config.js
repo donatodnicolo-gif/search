@@ -62,6 +62,9 @@ function sanitize(c, soloBrowser) {
     mailUtente: c.mailUtente || '',
     mailUrl: c.mailUrl || '',
     hasMailKey: !!c.mailApiKey,
+    // Orders (fonte di verità degli ordini): URL in chiaro, chiave di lettura solo sul server
+    ordersUrl: c.ordersUrl || '',
+    hasOrdersKey: !!c.ordersKey,
     googleOauthClientId: soloBrowser ? (c.googleOauthClientId || '') : '',
     utenti: (c.utenti || []).map(u => ({ nome: u.nome })),
     stores: (c.stores || []).map(s => ({ brand: s.brand, shop: s.shop || '', hasToken: !!s.token })),
@@ -151,6 +154,9 @@ export default async function handler(req, res) {
         mailUtente: body.mailUtente !== undefined ? String(body.mailUtente).trim() : (cur.mailUtente || ''),
         mailUrl: body.mailUrl !== undefined ? String(body.mailUrl).trim() : (cur.mailUrl || ''),
         mailApiKey: (body.mailApiKey && String(body.mailApiKey).trim()) ? String(body.mailApiKey).trim() : (cur.mailApiKey || ''),
+        // Orders: URL (vuoto = predefinito) + chiave di lettura (segreta, vuota = invariata)
+        ordersUrl: body.ordersUrl !== undefined ? String(body.ordersUrl).trim() : (cur.ordersUrl || ''),
+        ordersKey: (body.ordersKey && String(body.ordersKey).trim()) ? String(body.ordersKey).trim() : (cur.ordersKey || ''),
         utenti: mergeUtenti(cur.utenti, body.utenti),
         stores: mergeStores(cur.stores, body.stores),
       };

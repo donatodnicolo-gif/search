@@ -827,8 +827,32 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
      44px (il DS Deluxy non ha la regola dei 44px). Il bottone WhatsApp verde è una deroga
      d'affordance **da annotare**, non un difetto.
 
+57. **Gli ordini si leggono da ORDERS, non più da Shopify direttamente** (27/08, chiesto
+   dall'utente: «tutti gli ordini e le info di Shopify devono passare da Orders, non ogni app col
+   proprio collegamento» — è lo Standard §7: ogni dato ha una casa sola, quella degli ordini è
+   Orders). Verificato che Orders (`deluxy-orders`, scoutwt) espone tutto il necessario:
+   `GET /api/v1/ordini?brand=&q=<num>` (auth `x-api-key` sola lettura) restituisce destinatario/
+   indirizzo (`spedizione`), telefono, data+fascia (`consegna`), **bigliettino** (`biglietto`) e
+   soprattutto la **foto per riga** (`RigaOrdine.immagine`, CDN Shopify) — e i brand coincidono
+   (`deluxy.it`/`deluxyflowers.com`/`cakedesign.me`). Fatto in `api/order.js`: `fetchFromOrders` +
+   `mapOrdersOrder` come **passo 0** (prima di webhook/Shopify); se Orders ha l'ordine lo mappa e
+   lo serve, altrimenti si ripiega sul vecchio percorso. Il tag d'ordine finisce in `items[].tags`
+   così «un Bouquet come da foto» continua a funzionare. Config nuova: `ordersUrl` (default
+   deluxy-orders.vercel.app) + `ordersKey` (segreta, `hasOrdersKey`) in ⚙️ Impostazioni.
+   **INERTE finché non si imposta `ordersKey`**: senza chiave, comportamento invariato.
+   🔴 **DA FARE**: generare la chiave in Orders (`npm run chiave -- deluxy-search`) e metterla in
+   Impostazioni. Poi collaudare un ordine reale (loggati) e confrontare col vecchio percorso.
+   ⚠️ Restano da valutare, prima di **togliere del tutto Shopify da qui** (webhook + 4 token):
+   (a) **freschezza** — Orders sincronizza via cron, un ordine appena fatto potrebbe non esserci
+   ancora (per questo il ripiego resta); (b) **business.deluxy.it** non è tra i brand di Orders.
+   Quando la freschezza è confermata, si possono rimuovere webhook e token (e i punti 54/56).
+
 ## Cose in sospeso
 
+- 🟡 **Attivare la lettura da Orders** (punto 57): generare la chiave di lettura in Orders
+  (`npm run chiave -- deluxy-search`) e metterla in ⚙️ Impostazioni → «Orders — chiave». Da lì gli
+  ordini arrivano da Orders (foto e bigliettino compresi). Poi, confermata la freschezza, togliere
+  il collegamento diretto a Shopify (webhook + token) — che a quel punto rende superfluo il punto 56.
 - 🔴 **Chiudere `/api/webhook`** (punto 56): impostare `SHOPIFY_WEBHOOK_SECRET` (HMAC Shopify) o
   `WEBHOOK_SECRET` (+ `?key=` sull'URL) su Vercel e Redeploy. Finché non è fatto, un estraneo può
   iniettare ordini falsi in KV. Il codice è già fail-closed: aspetta solo il segreto.

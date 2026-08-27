@@ -102,6 +102,89 @@ async function kvGet(key) {
   } catch (e) { return null; }
 }
 
+// ---- Orders: fonte di verità degli ordini Shopify (Standard Deluxy §7) ----
+// Invece di collegarsi a Shopify per conto suo, l'app legge l'ordine da Orders
+// (deluxy-orders), che è l'unica app con il collegamento a Shopify. La chiave di
+// sola lettura di Orders sta in cassaforte (config:v1.ordersKey) e NON arriva mai
+// al browser. Finché la chiave non è impostata, l'app usa il vecchio percorso
+// (webhook/Shopify): la migrazione è inerte finché non la si attiva.
+const ORDERS_URL_DEFAULT = 'https://deluxy-orders.vercel.app';
+async function ordersCfg() {
+  const raw = await kvGet('config:v1');
+  if (!raw) return null;
+  try {
+    const c = JSON.parse(raw);
+    const key = (c.ordersKey || '').trim();
+    if (!key) return null;
+    return { url: (c.ordersUrl || ORDERS_URL_DEFAULT).replace(/\/$/, ''), key };
+  } catch (e) { return null; }
+}
+
+// mappa un ordine nella forma di Orders → la forma attesa dal front-end di search
+function mapOrdersOrder(brand, od) {
+  const sp = od.spedizione || {};
+  const address = [sp.indirizzo, [sp.cap, sp.citta].filter(Boolean).join(' '), sp.provincia, sp.paese]
+    .filter(Boolean).join(', ');
+  const tagsOrdine = (od.shopify && Array.isArray(od.shopify.tags)) ? od.shopify.tags : [];
+  const tipoOrdine = (od.classificazione && od.classificazione.tipoProdotto) || '';
+  const items = (od.righe || []).map(r => ({
+    title: r.titolo,
+    // Orders non tiene il productType per riga: passo la classificazione dell'ordine
+    // e i tag dell'ordine, che il classificatore di formato (bouquet/torta…) sa leggere.
+    type: tipoOrdine,
+    tags: tagsOrdine,
+    variant: (r.variante && r.variante !== 'Default Title') ? r.variante : '',
+    quantity: r.quantita,
+    image: r.immagine || '',
+    properties: (r.proprieta || []).map(p => {
+      const i = String(p).indexOf(':');
+      return i > 0 ? { key: String(p).slice(0, i).trim(), value: String(p).slice(i + 1).trim() } : { key: '', value: String(p) };
+    }).filter(p => p.key && !p.key.startsWith('_')),
+  }));
+  const photo = items.find(i => i.image)?.image || '';
+  const numero = String(od.numero || '');
+  return {
+    found: true,
+    brand: od.brand || brand,
+    orderName: numero.startsWith('#') ? numero : ('#' + numero),
+    orderId: od.orderId ? String(od.orderId) : '',
+    financialStatus: od.shopify ? od.shopify.financialStatus : '',
+    recipient: sp.nome || (od.cliente && od.cliente.nome) || '',
+    address,
+    phone: (od.cliente && od.cliente.telefono) || '',
+    amountPaid: parseFloat(od.totale || '0'),
+    currency: od.valuta || 'EUR',
+    note: (od.shopify && od.shopify.note) || '',
+    date: (od.consegna && od.consegna.data) || '',
+    time: (od.consegna && od.consegna.fascia) || '',
+    cardMessage: od.biglietto || (od.shopify && od.shopify.note) || '',
+    photoUrl: photo,
+    items,
+    attributes: [],
+    source: 'orders',
+  };
+}
+
+// legge l'ordine da Orders; null se non configurata, ordine assente o Orders irraggiungibile
+// (in tutti questi casi il chiamante ripiega su webhook/Shopify).
+async function fetchFromOrders(brand, numNoHash) {
+  const cfg = await ordersCfg();
+  if (!cfg) return null;
+  const wanted = String(numNoHash).replace(/\D/g, '');
+  try {
+    const r = await fetch(cfg.url + '/api/v1/ordini?brand=' + encodeURIComponent(brand)
+      + '&q=' + encodeURIComponent(numNoHash) + '&limit=10', {
+      headers: { 'x-api-key': cfg.key },
+      signal: AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined,
+    });
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => null);
+    const lista = (j && j.ordini) || [];
+    const od = lista.find(o => String(o.numero || '').replace(/\D/g, '') === wanted);
+    return od ? mapOrdersOrder(brand, od) : null;
+  } catch (e) { return null; }
+}
+
 // credenziali del negozio: prima dalla cassaforte KV (config:v1), poi dalle env come fallback
 async function storeFor(brand) {
   const raw = await kvGet('config:v1');
@@ -214,7 +297,17 @@ export default async function handler(req, res) {
     const numNoHash = number.replace(/^#/, '').trim();
     const ts = String(req.query.ts || '');   // timestamp del check, dal browser
 
-    // 1) prima cerca fra gli ordini ricevuti via webhook (nessun token necessario)
+    // 0) FONTE DI VERITÀ: Orders (deluxy-orders). Se la chiave è configurata,
+    //    l'ordine si legge da lì — Orders è l'unica app collegata a Shopify
+    //    (Standard §7). Foto e bigliettino inclusi. Se Orders non ha l'ordine
+    //    (o non è configurata), si ripiega sul webhook/Shopify qui sotto.
+    const daOrders = await fetchFromOrders(brand, numNoHash);
+    if (daOrders) {
+      await logCheck(auth.utente, ts, brand, numNoHash, 'ordine trovato (Orders)', daOrders.amountPaid);
+      return res.status(200).json(daOrders);
+    }
+
+    // 1) poi cerca fra gli ordini ricevuti via webhook (nessun token necessario)
     const cached = await kvGet(`order:${brand}:${numNoHash}`);
     if (cached) {
       const data = JSON.parse(cached);
