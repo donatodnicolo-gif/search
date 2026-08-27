@@ -53,6 +53,9 @@ export default async function PartnerList({
   // ————— Filtri "attività" e "periodo" —————
   // attivita: "" tutte · "vendor" solo vendite come vendor · "servizi" tutti i
   // servizi a fatturazione · "tip:<id>" una singola tipologia (es. Consegne).
+  // Stato: senza parametro l'elenco parte dai partner ATTIVI, cioè con almeno
+  // una fattura di competenza dell'anno in corso. "tutti" toglie il filtro.
+  const stato = sp.stato ?? "attivi-fatture";
   const attivita = sp.attivita ?? "";
   const tipologiaId = attivita.startsWith("tip:") ? attivita.slice(4) : null;
   const soloVendor = attivita === "vendor";
@@ -135,13 +138,14 @@ export default async function PartnerList({
   const citta = [...new Set(tutti.map((t) => t.partner.citta).filter(Boolean))].sort() as string[];
   const categorie = [...new Set(tutti.map((t) => t.partner.categoria?.trim()).filter(Boolean))].sort() as string[];
 
-  let filtered = tutti.filter((t) => {
+  // Tutti i filtri TRANNE lo stato: sono la base su cui si contano i partner che
+  // lo stato di default sta nascondendo (numero esatto su ciò che si vede, non
+  // sull'intero database).
+  const passaAltriFiltri = (t: Riga) => {
     const p = t.partner;
     if (sp.q && !p.nome.toLowerCase().includes(sp.q.toLowerCase())) return false;
     if (sp.citta && p.citta !== sp.citta) return false;
     if (sp.categoria && p.categoria?.trim() !== sp.categoria) return false;
-    if (sp.stato === "attivi" && p.clienteAnno === "Dismesso") return false;
-    if (sp.stato === "dismessi" && p.clienteAnno !== "Dismesso") return false;
     if (sp.credito === "arischio" && GRAVITA[credito(p.id).stato] < GRAVITA.ritardo) return false;
     if (sp.credito && sp.credito !== "arischio" && credito(p.id).stato !== sp.credito) return false;
     // con un filtro attività/periodo mostra solo chi ha davvero movimenti dentro
@@ -151,7 +155,38 @@ export default async function PartnerList({
       if (Math.abs(v.vendite) < 0.005 && Math.abs(v.servizi) < 0.005) return false;
     }
     return true;
-  });
+  };
+  const passaStato = (t: Riga) => {
+    switch (stato) {
+      // default: chi ha almeno una fattura di competenza dell'anno in corso
+      case "attivi-fatture": return t.fatture.length > 0;
+      case "attivi-movimenti": return t.fatture.length > 0 || t.vendite.length > 0;
+      case "attivi": return t.partner.clienteAnno !== "Dismesso";
+      case "dismessi": return t.partner.clienteAnno === "Dismesso";
+      default: return true;
+    }
+  };
+  const base = tutti.filter(passaAltriFiltri);
+  let filtered = base.filter(passaStato);
+  // quanti restano fuori per il solo stato, e quanti di quelli hanno comunque
+  // lavorato nell'anno (vendite come vendor, senza fattura di servizio)
+  const nascostiDalloStato = base.length - filtered.length;
+  const nascostiConVendite = base.filter((t) => !passaStato(t) && t.vendite.length > 0).length;
+  const ETICHETTA_STATO: Record<string, string> = {
+    "attivi-fatture": `con almeno una fattura ${ANNO_CORRENTE}`,
+    "attivi-movimenti": `con una fattura o una vendita ${ANNO_CORRENTE}`,
+    attivi: "non dismessi",
+    dismessi: "dismessi",
+  };
+  // stesso link, cambiato solo lo stato: gli altri filtri non si perdono
+  const linkStato = (v: string) => {
+    const qs = new URLSearchParams();
+    for (const [k, val] of Object.entries(sp)) {
+      if (val && k !== "stato" && k !== "importFatto" && k !== "importErrore") qs.set(k, val);
+    }
+    qs.set("stato", v);
+    return `/partner?${qs.toString()}`;
+  };
 
   type T = (typeof tutti)[number];
   const campi: Record<string, (t: T) => string | number | null> = {
@@ -210,10 +245,12 @@ export default async function PartnerList({
             <option value="">Tutte le categorie</option>
             {categorie.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <select name="stato" defaultValue={sp.stato ?? ""}>
-            <option value="">Tutti</option>
-            <option value="attivi">Attivi</option>
+          <select name="stato" defaultValue={stato} aria-label="Stato del partner">
+            <option value="attivi-fatture">Attivi · con fattura {ANNO_CORRENTE}</option>
+            <option value="attivi-movimenti">Attivi · fattura o vendita {ANNO_CORRENTE}</option>
+            <option value="attivi">Non dismessi</option>
             <option value="dismessi">Dismessi</option>
+            <option value="tutti">Tutti i partner</option>
           </select>
           <select name="credito" defaultValue={sp.credito ?? ""} aria-label="Stato finanziario">
             <option value="">Credito: tutti</option>
@@ -242,6 +279,21 @@ export default async function PartnerList({
           <button className="btn secondary small" type="submit">Filtra</button>
           {filtroAttivo && <Link href="/partner" className="btn secondary small">Azzera</Link>}
         </form>
+        {stato !== "tutti" && nascostiDalloStato > 0 && (
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+            In elenco i <strong>{filtered.length}</strong> partner {ETICHETTA_STATO[stato]}.{" "}
+            Nascosti <strong>{nascostiDalloStato}</strong>
+            {stato === "attivi-fatture" && nascostiConVendite > 0 && (
+              <>, di cui <strong>{nascostiConVendite}</strong> con vendite come vendor nel{" "}
+              {ANNO_CORRENTE} ma nessuna fattura di servizio</>
+            )}
+            .{" "}
+            {stato === "attivi-fatture" && nascostiConVendite > 0 && (
+              <><Link href={linkStato("attivi-movimenti")}>Conta anche le vendite</Link> · </>
+            )}
+            <Link href={linkStato("tutti")}>Mostra tutti i partner</Link>
+          </p>
+        )}
         {filtroAttivo && (
           <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
             Valori di <strong>{nomeMese(dal)}–{nomeMese(al)} {ANNO_CORRENTE}</strong>

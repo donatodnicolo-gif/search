@@ -102,6 +102,9 @@ export default async function PartnerDetail({
 
   return (
     <>
+      <Link href="/partner" className="btn secondary small" style={{ marginBottom: 10 }}>
+        ← Tutti i partner
+      </Link>
       <div className="page-head">
         <div>
           <h1 className="page-title">{partner.nome}</h1>
