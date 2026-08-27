@@ -51,6 +51,15 @@ export default function Forniture() {
   const [loading, setLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
   const [formAperto, setFormAperto] = useState(false);
+  /**
+   * ⭐ LA RIGA SI APRE (27/08/2026, richiesta dell'utente: «al click delle
+   * righe in forniture apri un form di modifica»).
+   *
+   * Prima una fornitura si poteva solo spegnere o cancellare: un prezzo
+   * cambiato — che è la cosa che cambia più spesso — obbligava a rifarla da
+   * capo, e con lei se ne andavano zona, tempi, minimo e note.
+   */
+  const [modifica, setModifica] = useState<Fornitura | null>(null);
   const [query, setQuery] = useState('');
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
   const [mostraSpente, setMostraSpente] = useState(false);
@@ -251,10 +260,25 @@ export default function Forniture() {
             onAzione={() => setFormAperto(true)}
           />
         ) : aTabella ? (
-          <Tabella righe={dati} colonne={colonne} chiaveRiga={(f) => f.id} ordineIniziale={{ campo: 'fornitore', verso: 'asc' }} />
+          <Tabella
+            righe={dati}
+            colonne={colonne}
+            chiaveRiga={(f) => f.id}
+            ordineIniziale={{ campo: 'fornitore', verso: 'asc' }}
+            onRiga={(f) => setModifica(f)}
+            labelRiga={(f) => `Modifica ${f.titolo} di ${f.fornitore}`}
+          />
         ) : (
           dati.map((f) => (
-            <View key={f.id} style={[styles.card, !f.attiva && styles.cardSpenta]}>
+            // ⚠️ Anche la scheda si apre: sotto la soglia la tabella non si
+            // monta, e la modifica sarebbe esistita solo su schermo grande.
+            <Pressable
+              key={f.id}
+              style={[styles.card, !f.attiva && styles.cardSpenta]}
+              onPress={() => setModifica(f)}
+              accessibilityRole="button"
+              accessibilityLabel={`Modifica ${f.titolo} di ${f.fornitore}`}
+            >
               <View style={styles.cardHead}>
                 <Text style={styles.cardFornitore} numberOfLines={1}>{f.fornitore}</Text>
                 {!f.attiva ? <StatusBadge small label="Spenta" colore={colors.grigio} /> : null}
@@ -284,7 +308,7 @@ export default function Forniture() {
                   <Ionicons name="trash-outline" size={17} color={colors.errore} />
                 </Pressable>
               </View>
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>
@@ -303,28 +327,60 @@ export default function Forniture() {
           }}
         />
       ) : null}
+
+      {modifica ? (
+        <NuovaFornituraModal
+          esistente={modifica}
+          onClose={() => setModifica(null)}
+          onCreata={() => {
+            setModifica(null);
+            carica();
+          }}
+        />
+      ) : null}
     </View>
   );
 }
 
-function NuovaFornituraModal({ onClose, onCreata }: { onClose: () => void; onCreata: () => void }) {
+/**
+ * Il foglio della fornitura: lo stesso per crearne una e per correggerla
+ * (27/08/2026, richiesta dell'utente: «al click delle righe in forniture apri
+ * un form di modifica»).
+ *
+ * ⚠️ UNO SOLO, non due: due fogli con gli stessi dodici campi divergono al
+ * primo campo aggiunto, e il campo nuovo finisce in uno dei due — di solito
+ * quello che non si sta guardando.
+ */
+function NuovaFornituraModal({
+  onClose,
+  onCreata,
+  esistente,
+}: {
+  onClose: () => void;
+  onCreata: () => void;
+  /** Se c'è, si sta correggendo questa; se manca, se ne crea una nuova. */
+  esistente?: Fornitura | null;
+}) {
   // Il fornitore si sceglie dal REGISTRO, come nei preventivi: il nome non è
   // un'identità, e due grafie sono due fornitori per chiunque conti la spesa.
   const [fornitoriRegistro, setFornitoriRegistro] = useState<PartnerRegistro[]>([]);
   const [cerca, setCerca] = useState('');
   const [altri, setAltri] = useState<PartnerRegistro[]>([]);
   const [scelto, setScelto] = useState<PartnerRegistro | null>(null);
-  const [nomeLibero, setNomeLibero] = useState('');
-  const [titolo, setTitolo] = useState('');
-  const [descrizione, setDescrizione] = useState('');
-  const [linea, setLinea] = useState<string | null>(null);
-  const [prezzo, setPrezzo] = useState('');
-  const [prezzoNote, setPrezzoNote] = useState('');
-  const [tempi, setTempi] = useState('');
-  const [minimo, setMinimo] = useState('');
-  const [zona, setZona] = useState('');
-  const [allegato, setAllegato] = useState('');
-  const [note, setNote] = useState('');
+  // ⚠️ In modifica il nome parte come «libero»: il fornitore è già scritto
+  // sulla riga, e rifargli scegliere la scheda del registro per correggere un
+  // prezzo sarebbe un passo in più per una cosa che non sta cambiando.
+  const [nomeLibero, setNomeLibero] = useState(esistente?.fornitore ?? '');
+  const [titolo, setTitolo] = useState(esistente?.titolo ?? '');
+  const [descrizione, setDescrizione] = useState(esistente?.descrizione ?? '');
+  const [linea, setLinea] = useState<string | null>(esistente?.linea ?? null);
+  const [prezzo, setPrezzo] = useState(esistente?.prezzo != null ? String(esistente.prezzo).replace('.', ',') : '');
+  const [prezzoNote, setPrezzoNote] = useState(esistente?.prezzo_note ?? '');
+  const [tempi, setTempi] = useState(esistente?.tempi ?? '');
+  const [minimo, setMinimo] = useState(esistente?.minimo_ordine ?? '');
+  const [zona, setZona] = useState(esistente?.zona ?? '');
+  const [allegato, setAllegato] = useState(esistente?.allegato_url ?? '');
+  const [note, setNote] = useState(esistente?.note ?? '');
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -372,20 +428,47 @@ function NuovaFornituraModal({ onClose, onCreata }: { onClose: () => void; onCre
     setSalvando(true);
     setErrore(null);
     try {
-      await creaFornitura({
-        fornitore: nomeFornitore,
-        fornitoreAnagraficheId: scelto?.id ?? null,
-        titolo,
-        descrizione,
-        linea,
-        prezzo: leggiPrezzo(prezzo),
-        prezzoNote,
-        tempi,
-        minimoOrdine: minimo,
-        zona,
-        allegatoUrl: allegato,
-        note,
-      });
+      // ⚠️ Il prezzo scritto male FERMA il salvataggio: qui `null` vuol dire
+      // «non lo sappiamo», e un numero buttato in silenzio farebbe sparire la
+      // fornitura dai confronti senza che niente lo dica.
+      const p = prezzo.trim() ? leggiPrezzo(prezzo) : null;
+      if (prezzo.trim() && p == null) {
+        setErrore(`«${prezzo}» non è un importo. Scrivilo come 1.250,50 — o lascialo vuoto.`);
+        setSalvando(false);
+        return;
+      }
+      if (esistente) {
+        // In modifica non si tocca il FORNITORE: cambiarlo qui vorrebbe dire
+        // spostare una fornitura da un'azienda a un'altra senza accorgersene.
+        // Si spegne questa e se ne fa una nuova.
+        await aggiornaFornitura(esistente.id, {
+          titolo: titolo.trim(),
+          descrizione: descrizione.trim() || null,
+          linea,
+          prezzo: p,
+          prezzo_note: prezzoNote.trim() || null,
+          tempi: tempi.trim() || null,
+          minimo_ordine: minimo.trim() || null,
+          zona: zona.trim() || null,
+          allegato_url: allegato.trim() || null,
+          note: note.trim() || null,
+        });
+      } else {
+        await creaFornitura({
+          fornitore: nomeFornitore,
+          fornitoreAnagraficheId: scelto?.id ?? null,
+          titolo,
+          descrizione,
+          linea,
+          prezzo: p,
+          prezzoNote,
+          tempi,
+          minimoOrdine: minimo,
+          zona,
+          allegatoUrl: allegato,
+          note,
+        });
+      }
       onCreata();
     } catch (e: any) {
       setErrore(String(e?.message ?? e));
@@ -396,8 +479,12 @@ function NuovaFornituraModal({ onClose, onCreata }: { onClose: () => void; onCre
 
   return (
     <Foglio
-      titolo="Nuova fornitura"
-      sottotitolo="Cosa fa questo fornitore, sempre: il prezzo qui è un riferimento, non un impegno."
+      titolo={esistente ? 'Modifica la fornitura' : 'Nuova fornitura'}
+      sottotitolo={
+        esistente
+          ? `${esistente.fornitore} — il prezzo è un riferimento, non un impegno. Il fornitore non si cambia da qui.`
+          : 'Cosa fa questo fornitore, sempre: il prezzo qui è un riferimento, non un impegno.'
+      }
       onClose={onClose}
       bloccaSfondo
       largo

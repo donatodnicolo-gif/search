@@ -292,6 +292,25 @@ export default function Ordini() {
       righe: 2,
       valore: (o) => costi.get(o.id)?.fornitore ?? null,
     },
+    /**
+     * ⚠️ L'ORDINE DELLE COLONNE DEL DENARO È QUELLO CHIESTO DALL'UTENTE
+     * (27/08/2026): valore → preventivo → altri costi → margine → % margine.
+     *
+     * Non è una preferenza estetica: è la SEQUENZA DEL CONTO. Si legge quanto
+     * si vende, quanto si paga, e solo dopo quello che resta — e chi la legge
+     * può rifare la sottrazione con l'occhio, senza saltare da una parte
+     * all'altra della riga. Prima il margine stava PRIMA del valore da cui si
+     * ricava.
+     */
+    {
+      chiave: 'valore',
+      label: 'Valore',
+      width: 80,
+      destra: true,
+      numerica: true,
+      valore: (o) => o.valore,
+      cella: (o) => <Text style={styles.tabValore}>{importoBreve(o.valore)}</Text>,
+    },
     {
       chiave: 'costo',
       label: 'Preventivo',
@@ -356,7 +375,6 @@ export default function Ordini() {
         // ⚠️ Senza preventivo il margine NON è il prezzo pieno: è sconosciuto.
         // Scriverlo sarebbe il numero più ottimista e più falso che c'è.
         if (m === null) return <Text style={styles.tabData}>—</Text>;
-        const perc = o.valore ? Math.round((m / o.valore) * 100) : null;
         /**
          * ⚠️ REALIZZATO o STIMATO, ed è una differenza che conta (27/08/2026,
          * richiesta dell'utente: «indica poi in tabella ordini il margine
@@ -374,21 +392,43 @@ export default function Ordini() {
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={[styles.tabValore, m < 0 && styles.margineNegativo]}>{importoBreve(m)}</Text>
             <Text style={[styles.tabStima, m < 0 && styles.margineNegativo]}>
-              {perc !== null ? `${perc}% · ` : ''}
               {realizzato ? 'realizzato' : 'stimato'}
             </Text>
           </View>
         );
       },
     },
+    /**
+     * ⭐ LA PERCENTUALE DI MARGINE, colonna sua (27/08/2026, richiesta
+     * dell'utente: «valore, preventivo, margine e % margine»).
+     *
+     * ⚠️ La sua BASE è il valore, ed è la colonna che si legge quattro posti
+     * più a sinistra, nella stessa riga: una percentuale la cui base non sta a
+     * schermo è un numero giusto che sembra sbagliato. Prima stava dentro la
+     * didascalia del margine, dove non si poteva né ordinare né confrontare —
+     * ed è proprio ordinando per questa che si vede quale lavoro rende.
+     *
+     * ⚠️ Senza valore non c'è percentuale: dividere per zero, o per un valore
+     * sconosciuto, darebbe un numero inventato. Si scrive «—», che è vero.
+     */
     {
-      chiave: 'valore',
-      label: 'Valore',
-      width: 80,
+      chiave: 'percentuale',
+      label: '% Margine',
+      width: 74,
       destra: true,
       numerica: true,
-      valore: (o) => o.valore,
-      cella: (o) => <Text style={styles.tabValore}>{importoBreve(o.valore)}</Text>,
+      valore: (o) => {
+        const m = margineDi(o);
+        return m !== null && o.valore ? Math.round((m / o.valore) * 1000) / 10 : null;
+      },
+      cella: (o) => {
+        const m = margineDi(o);
+        if (m === null || !o.valore) return <Text style={styles.tabData}>—</Text>;
+        const perc = Math.round((m / o.valore) * 100);
+        return (
+          <Text style={[styles.tabValore, m < 0 && styles.margineNegativo]}>{perc}%</Text>
+        );
+      },
     },
     {
       chiave: 'quando',
@@ -927,6 +967,15 @@ export default function Ordini() {
                   costo: conCosto.length ? importoBreve(costo) : '—',
                   altri: conCosto.length && altri ? importoBreve(altri) : '—',
                   margine: conCosto.length ? importoBreve(margine) : '—',
+                  // ⚠️ La percentuale del TOTALE si calcola sul valore degli ordini
+                  // che hanno un costo (`conCosto`), non su tutti: dividere il
+                  // margine di venti ordini per il valore di cinquanta darebbe una
+                  // marginalità falsa, e più bassa del vero.
+                  percentuale: (() => {
+                    if (!conCosto.length) return '—';
+                    const base = conCosto.reduce((s, o) => s + (o.valore ?? 0), 0);
+                    return base ? `${Math.round((margine / base) * 100)}%` : '—';
+                  })(),
                 };
               }}
             />

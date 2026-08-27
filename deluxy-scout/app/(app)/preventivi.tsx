@@ -12,7 +12,7 @@ import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, Styl
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
-import { leggiImporto } from '@/lib/importi';
+import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CampoData } from '@/components/CampoData';
@@ -200,6 +200,31 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
    * aspetta.
    */
   const [importo, setImporto] = useState('');
+  /**
+   * ⭐ IL PREZZO A UNITÀ (27/08/2026, richiesta dell'utente: «metti opzioni se
+   * il prezzo è a quantità o al giorno o all'ora … e al flag fai inserire un
+   * numero»).
+   *
+   * ⚠️ FACOLTATIVO, come chiesto: senza unità il numero scritto sopra è il
+   * totale e basta. Con l'unità, quel numero diventa il prezzo di UNA — e il
+   * totale lo fa l'app, mostrandolo prima di salvare.
+   */
+  const [unita, setUnita] = useState<'pezzi' | 'giorni' | 'ore' | null>(null);
+  const [quanti, setQuanti] = useState('');
+
+  /**
+   * Il conto, calcolato UNA VOLTA e usato sia per mostrarlo sia per salvarlo.
+   *
+   * ⚠️ Scritto due volte — una per la riga «45 × 30 = 1.350» e una per
+   * l'insert — diventerebbe due conti che al primo ritocco divergono, e chi
+   * guarda lo schermo vedrebbe un totale diverso da quello salvato.
+   */
+  const contoUnitario = (() => {
+    const u = importo.trim() ? leggiImporto(importo) : null;
+    const q = quanti.trim() ? Number(quanti.replace(',', '.')) : null;
+    if (!unita || u == null || q == null || !Number.isFinite(q) || q <= 0) return null;
+    return { unitario: u, quanti: q, totale: Math.round(u * q * 100) / 100 };
+  })();
   const [serveEntro, setServeEntro] = useState('');
   const [cliente, setCliente] = useState<PlaceLite | null>(null);
   const [salvo, setSalvo] = useState(false);
@@ -333,15 +358,23 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
           fornitore: fornitore.nome,
           fornitoreAnagraficheId: fornitore.anagraficheId,
           fornitoreEmail: fornitore.email,
-          // Con un prezzo il preventivo nasce «ricevuto», senza «in attesa»:
-          // lo stato lo deduce `aggiungiPreventivo`, non lo si chiede.
-          importo: prezzo,
+          // ⚠️ `importo` è SEMPRE il totale: quando il prezzo è a unità, il
+          // totale è il prodotto — il margine, il confronto e i totali leggono
+          // quel campo, e mettendoci il prezzo unitario un preventivo da
+          // «45 € × 30» varrebbe 45 in ogni conto dell'app. Gli ingredienti
+          // restano accanto, per poterlo rifare e spiegare.
+          importo: contoUnitario ? contoUnitario.totale : prezzo,
+          prezzoUnitario: contoUnitario ? contoUnitario.unitario : null,
+          quantita: contoUnitario ? contoUnitario.quanti : null,
+          unita: contoUnitario ? unita : null,
         });
       }
       setTitolo('');
       setDescrizione('');
       setFornitore(null);
       setImporto('');
+      setUnita(null);
+      setQuanti('');
       setServeEntro('');
       setCliente(null);
       setVenditaId(null);
@@ -494,6 +527,58 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
             Lasciandolo vuoto il preventivo nasce «in attesa»: vuoto e zero non sono la stessa cosa, e un
             preventivo senza prezzo resta fuori dal confronto invece di vincerlo.
           </Text>
+
+          {/* ⭐ QUEL PREZZO È UN TOTALE O È A UNITÀ? (27/08/2026, richiesta
+              dell'utente). Facoltativo: senza scelta il numero qui sopra è il
+              totale e basta — ed è il caso più frequente, quindi nessun chip
+              parte acceso. Scegliendone uno, quel numero diventa il prezzo di
+              UNA, e il totale lo fa l'app. */}
+          <Text style={styles.label}>Il prezzo è… (facoltativo)</Text>
+          <View style={styles.chips}>
+            {([
+              { v: 'pezzi', l: 'a pezzo' },
+              { v: 'giorni', l: 'al giorno' },
+              { v: 'ore', l: "all'ora" },
+            ] as const).map((o) => (
+              <Pressable
+                key={o.v}
+                onPress={() => setUnita(unita === o.v ? null : o.v)}
+                style={[styles.chip, unita === o.v && styles.chipOn]}
+              >
+                <Text style={[styles.chipTxt, unita === o.v && styles.chipTxtOn]}>{o.l}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {unita ? (
+            <>
+              <Text style={styles.label}>
+                {unita === 'pezzi' ? 'Quanti pezzi' : unita === 'giorni' ? 'Quanti giorni' : 'Quante ore'}
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={quanti}
+                onChangeText={setQuanti}
+                placeholder={unita === 'pezzi' ? 'es. 30' : unita === 'giorni' ? 'es. 3' : 'es. 8'}
+                placeholderTextColor={colors.grigio}
+                inputMode="decimal"
+              />
+              {/* ⚠️ Il totale si VEDE prima di salvare: è il numero che poi
+                  entra nel margine, e un conto fatto dall'app e mai mostrato è
+                  un conto che nessuno controlla. */}
+              {contoUnitario ? (
+                <Text style={styles.aiuto}>
+                  {scriviImporto(contoUnitario.unitario)} × {contoUnitario.quanti} ={' '}
+                  <Text style={{ fontWeight: '800' }}>€ {scriviImporto(contoUnitario.totale)}</Text> — è questo
+                  che finisce nel confronto e nel margine.
+                </Text>
+              ) : (
+                <Text style={styles.aiuto}>
+                  Scrivi il prezzo di una unità qui sopra e quante ne sono qui: il totale lo calcola l&apos;app.
+                </Text>
+              )}
+            </>
+          ) : null}
         </>
       ) : (
         <Text style={styles.aiuto}>

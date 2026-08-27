@@ -48,8 +48,14 @@ export interface Preventivo {
   lavoro_id: string;
   fornitore: string;
   fornitore_place_id: string | null;
-  /** NULL = chiesto ma non ancora risposto. Non è zero: è «non lo sappiamo». */
+  /** NULL = chiesto ma non ancora risposto. Non è zero: è «non lo sappiamo».
+   *  ⚠️ È sempre il TOTALE, anche quando il fornitore ha quotato a pezzo: il
+   *  margine, il confronto e i totali leggono questo campo. */
   importo: number | null;
+  /** Gli INGREDIENTI del totale, quando il prezzo è a quantità (migr. 0088). */
+  prezzo_unitario?: number | null;
+  quantita?: number | null;
+  unita?: 'pezzi' | 'giorni' | 'ore' | null;
   tempi: string | null;
   valido_fino: string | null;
   note: string | null;
@@ -252,6 +258,12 @@ export async function aggiungiPreventivo(p: {
   /** L'indirizzo a cui è stato chiesto il prezzo, se lo sappiamo. */
   fornitoreEmail?: string | null;
   importo?: number | null;
+  /** Se il fornitore ha quotato a unità: il prezzo di una, quante, e di che
+   *  cosa. ⚠️ Il totale resta `importo` — questi lo spiegano, non lo
+   *  sostituiscono. */
+  prezzoUnitario?: number | null;
+  quantita?: number | null;
+  unita?: 'pezzi' | 'giorni' | 'ore' | null;
   tempi?: string | null;
   note?: string | null;
 }): Promise<void> {
@@ -262,6 +274,9 @@ export async function aggiungiPreventivo(p: {
     fornitore_anagrafiche_id: p.fornitoreAnagraficheId || null,
     fornitore_email: p.fornitoreEmail?.trim() || null,
     importo: p.importo ?? null,
+    prezzo_unitario: p.prezzoUnitario ?? null,
+    quantita: p.quantita ?? null,
+    unita: p.unita ?? null,
     tempi: p.tempi?.trim() || null,
     note: p.note?.trim() || null,
     // Con un prezzo dentro il preventivo è già arrivato; senza, lo stiamo
