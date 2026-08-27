@@ -1,5 +1,97 @@
 # Handoff — Deluxy Customer Service
 
+## 27/08/2026 (10) — tre segnalazioni, un guasto solo; e i pagamenti di Shopify
+
+### ⚠️⚠️ Il guasto: la sessione moriva e l'app non lo diceva
+
+Segnalato a raffica: «Federica non vede quali sono i negozi nel nuovo ordine»,
+«non si riesce più a leggere il diario», «e anche la chat». **Tre sintomi, un
+guasto solo, e l'ho fatto io** con la tappa (8): cambiando la forma del cookie
+per rendere revocabili le sessioni, tutti i cookie già in giro sono diventati
+invalidi.
+
+⚠️⚠️ Chi aveva l'app **aperta in una scheda non è stato mandato al login**: la
+pagina non si ricarica, quindi il middleware non la vede mai passare. Da quel
+momento ogni `fetch` del browser si è preso un **307 verso /login**, che `fetch`
+segue di suo restituendo la pagina di login **con stato 200**.
+
+**Provato in produzione**, non dedotto: con un cookie della forma nuova
+`/api/diario` e `/api/ordini` rispondono **200**, con quello della forma vecchia
+**307 → /login**. L'app stava bene: erano i cookie nei browser a essere scaduti.
+
+E la causa per cui i negozi sparivano **in silenzio**:
+
+```ts
+.then((r) => (r.ok ? r.json() : { negozi: [] }))
+.catch(() => setNegozi([]))
+```
+
+Qualunque cosa vada storta diventa «non ci sono negozi». Adesso c'è
+`src/lib/leggi-json.ts`, che distingue i tre casi (sessione scaduta, errore,
+davvero zero righe) e li dice.
+
+⚠️ E c'è una **fascia rossa fissa in cima** (`SessioneScaduta`) col bottone
+«Rientra». La fa comparire chiunque se ne accorga, e il punto che se ne accorge
+**sempre** è la barra laterale: c'è su ogni pagina e fa polling, quindi la fascia
+arriva entro un giro anche sulle schermate che i propri errori se li mangiano.
+⚠️ **Non** un salto automatico al login: chi sta compilando un ordine al telefono
+ha mezz'ora di lavoro in quel modulo.
+
+Trappola: [[trappola-il-fallimento-che-sembra-una-lista-vuota]].
+
+### I metodi di pagamento glieli chiede Shopify
+
+La tendina del nuovo ordine aveva **cinque voci scritte nel codice** (bonifico,
+contanti, POS, PayPal, altro): i nomi che usiamo noi, mai confrontati con
+Shopify.
+
+⚠️⚠️ **E a Shopify non si possono chiedere in elenco.** Provato sull'API vera
+(2024-10): `manualPaymentGatewayConfigs` **non esiste** su `QueryRoot`, e
+`shop.paymentSettings` dà solo i portafogli digitali. L'unico posto dove i metodi
+di un negozio sono scritti sono **i suoi ordini** — quindi si fa come per le
+spedizioni: si guarda cosa ha usato davvero.
+
+Misurato sugli ultimi 60 ordini di ciascuno:
+
+| negozio | metodi |
+|---|---|
+| Deluxy | Shopify Payments (48) · Paypal (9) · Manual (3) |
+| Cake | Shopify Payments (45) · Paypal (12) · **Bank Deposit (3)** · Manual (1) |
+| FLowers | Shopify Payments (52) · Paypal (7) · Manual (1) |
+
+⚠️ **«Bank Deposit» ce l'ha solo Cake**: una lista nel codice l'avrebbe data a
+tutti e tre o a nessuno. ⚠️ Si legge `formattedGateway` e non
+`paymentGatewayNames`: il primo è il nome che si rilegge nell'ordine su Shopify
+(«Bank Deposit»), il secondo è la chiave tecnica («manual»).
+
+⚠️ E **si dice dove finisce**: `draftOrderComplete` accetta un `paymentGatewayId`
+che questa app non ha modo di ricavare, quindi il mezzo resta nelle **note**
+dell'ordine e su Shopify la transazione risulta «Manual».
+
+### Segnare pagata una bozza già creata
+
+⚠️ È il caso di tutti i giorni: si manda il link, il cliente paga **fuori da
+Shopify** — bonifico, contanti alla consegna, POS — e la bozza resta aperta
+finché dopo sette giorni il cron la annulla come scaduta. **Si buttava via un
+ordine incassato.**
+
+Il bottone chiude la bozza con `draftOrderComplete`, la stessa cosa che fa «Crea
+come pagato»: cambia solo il momento in cui si è saputo.
+
+⚠️⚠️ **Prima si chiede a Shopify com'è messa**, e non ci si fida della riga
+nostra: fra l'apertura della pagina e il clic quella bozza può essere già stata
+pagata col link o annullata a mano. Se l'ha già pagata il cliente si scrive il
+numero e **lo si dice**, invece di rispondere un errore.
+⚠️ Il **mezzo è obbligatorio** — «pagata» senza dire come non si riconcilia con
+l'estratto conto — e si scrive **chi** l'ha dichiarato (`segnataPagataDaNome`):
+davanti a un ordine contestato «lo ha chiuso l'app» non è una risposta.
+Migrazione additiva, verificata con `migrate diff`.
+
+**Verifica**: `tsc` 0, `build` 0, `prova-sicurezza` 67/67, e le rotte nuove
+provate in produzione **con la sessione di un operatore** (200, e i tre negozi
+coi loro metodi). Commit `19633f38` e `e6f1db7b`.
+
+
 ## 27/08/2026 (9) — ancorando le eccezioni avevo spento widget.js su tre siti
 
 ⚠️⚠️ **DIFETTO MIO, di poche ore prima, e in produzione.** Ancorare le eccezioni
