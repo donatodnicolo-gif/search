@@ -81,6 +81,46 @@ della risposta.
   si riempiono sempre. IBAN e codice SDI vengono normalizzati (maiuscolo, IBAN
   senza spazi). `noteAmministrative` è additiva (append, mai sovrascritta).
 
+### ⚠️ Cambio di permessi del 27/08/2026 — la lettura ora ha due ambiti
+
+Fino a ieri **ogni chiave attiva vedeva tutto**: IBAN, PEC, intestatario del conto,
+e la rubrica dei referenti con nome, telefono ed email. Provato dal vivo: con una
+chiave di sola lettura si legge l'IBAN di un fornitore, e camminando sulle pagine
+si raccoglie l'intero registro. Il modello dei permessi aveva un asse solo — diceva
+chi **scrive** cosa, mai chi **legge** cosa.
+
+Adesso ci sono due ambiti di lettura, **predefiniti chiusi**:
+
+| ambito | cosa sblocca | chi ce l'ha |
+|---|---|---|
+| **Dati finanziari** | il blocco `datiFinanziari` (IBAN, intestatario, PEC, SDI, contatto amministrativo) | `deluxy-partner` |
+| **Persone** | `contatti` nelle anagrafiche e tutto `/api/v1/valet` | `deluxy-partner`, `deluxy-messaging`, `deluxy-scout`, `deluxy-scout-partner`, `app-ai-mail` |
+
+⚠️ **Senza l'ambito il campo è `null`, non un elenco vuoto**: «non ti è permesso
+vederlo» e «non c'è» sono due risposte diverse, e scambiarle manda un'app a
+ricreare un dato che esiste già. Per non lasciarvi ciechi, `numeroContatti` dice
+**quanti** referenti ha la scheda anche a chi non può vederli.
+`/api/v1/valet` risponde **403** a chi non ha l'ambito.
+
+**Se vi serve un ambito**: si assegna dalla pagina `/chiavi`. Chi è stato escluso
+lo è stato **misurando** il codice: `deluxy-suppliers` e `commercial-key` rigirano
+la risposta al browser dei loro utenti, e non mostrano né persone né IBAN.
+
+### ⚠️ E il `sistema` non lo dichiarate più voi
+
+`nomeSistema` faceva vincere il campo `sistema` del **corpo** sul nome della
+chiave. Mandando `"sistema":"ui"` ci si prendeva la fiducia 100 — più della
+piattaforma e di FINANCE — e si riscrivevano i campi fattuali, **IBAN compreso**.
+Adesso l'identità viene dalla **chiave**. Potete ancora mandare `sistema`, ma solo
+come **canale della stessa app**: `scout-web` per la chiave `deluxy-scout` va bene,
+`ui` no — viene ignorato in silenzio (non è un 400: rifiutare romperebbe chi manda
+un'etichetta storica). ⚠️ Un `asOf` **nel futuro** ora vale «adesso».
+
+⚠️ Due conseguenze da conoscere: un **riferimento esterno che esiste già non viene
+più riassegnato** da una POST (si corregge dalla UI), e `GET /partners/:id` risolve
+un `idEsterno` **solo dentro il sistema della vostra chiave** — prima con un id
+corto come «42» potevate ricevere il partner di un'altra app.
+
 ### Entità commerciali — «quanto vale questo cliente in TUTTE le sue società»
 
 La catena è **negozio → società → entità**:

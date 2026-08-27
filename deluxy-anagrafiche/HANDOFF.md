@@ -877,6 +877,88 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    «fatturato dell'entità» oggi vuol dire «ciò che FINANCE vede» — va detto nella
    risposta, non lasciato intendere.
 
+3e. **🔒 REVISIONE DI SICUREZZA del 27/08/2026 — fatta, corretta, verificata dal vivo.**
+   Due revisori ostili sul codice + prove sulla produzione. **Il punto 7 di questa
+   sezione (ambito «dati finanziari» sulle chiavi) è chiuso qui dentro.**
+
+   **Quello che REGGEVA già** (verificato, non supposto): nessuna delle 15 rotte è
+   senza autenticazione (le due `health` lo sono di proposito e non danno dati);
+   `autentica()` è sempre la **prima** istruzione, quindi nessun ramo pubblico prima
+   del controllo; gli scope in **scrittura** reggono (con una chiave di lettura:
+   POST/PATCH/DELETE/unisci/feedback → **403**); nessuna iniezione SQL (tutto il raw
+   usa `Prisma.sql` parametrizzato e qualifica lo schema `"anagrafiche"`); chiavi da
+   **192 bit** con sha256 — adeguato per un segreto ad alta entropia, non è una
+   password; **revoca immediata** (nessuna cache); nessun segreto committato in
+   questa app; i **Consumers non hanno rotta API** ed erano già i meglio protetti.
+
+   **Quello che NON reggeva, e cosa è cambiato:**
+   1. ⚠️⚠️ **Il chiamante dichiarava la propria identità.** `nomeSistema` faceva
+      vincere il `sistema` del **corpo** sul nome della chiave: con `"sistema":"ui"`
+      si prendeva la **fiducia 100** — più di piattaforma e FINANCE — e si
+      riscrivevano i campi fattuali, **IBAN compreso** (il conto su cui FINANCE paga);
+      si falsificava lo storico («l'ha fatto il team») e si accendevano le regole
+      automatiche di altre app. Ora l'identità viene dalla **chiave**; il corpo può
+      dichiarare solo un **canale** della stessa app. ✅ Provato in produzione:
+      chiedendo con `sistema=ui` la `RichiestaMatch` registra il nome della chiave.
+   2. **`asOf` nel futuro** vinceva ogni confronto di freschezza per sempre → limitato
+      ad adesso.
+   3. ⚠️⚠️ **La lettura non aveva ambiti**: qualunque chiave vedeva IBAN e rubrica.
+      ✅ Misurato prima: con una chiave di sola lettura, **50 anagrafiche = 70 referenti
+      con 46 email e 46 telefoni, più 2 IBAN**, e la paginazione permetteva di
+      camminare su tutte le 1.097. ✅ Dopo: **0 e 0**, `datiFinanziari: null`,
+      `contatti: null`, `/api/v1/valet` → **403**. Due ambiti nuovi (predefiniti
+      **chiusi**), assegnati **misurando** chi li usa: finanziari → solo FINANCE;
+      persone → FINANCE, Customer Service, Scout, AI Mail.
+      ⚠️ `numeroContatti` resta visibile a tutti: sapere che una scheda **ha** dei
+      referenti non è un dato personale, e senza un'app la crederebbe vuota.
+   4. **Un riferimento esterno si poteva rubare**: l'`upsert` riassegnava un xref
+      esistente → ora si crea se non c'è, e se c'è resta.
+   5. **`GET /partners/:id` risolveva un `idEsterno` senza sistema**, con `findFirst`:
+      l'app A chiedeva il proprio «42» e riceveva il partner di B → ora si cerca nel
+      sistema della chiave.
+   6. **Una POST con la P.IVA (pubblica) di un'azienda vera** agganciava la propria
+      scheda al suo soggetto fiscale, e da lì se ne leggeva l'IBAN → l'aggancio per
+      P.IVA ora è **solo dalla UI**, dove decide una persona. (Difetto nato lo stesso
+      giorno, col soggetto fiscale.)
+   7. ⚠️ **Il guasto andava nella direzione sbagliata**: senza `ANAGRAFICHE_APP_PASSWORD`
+      la UI **e** `/api/interno` erano **aperte**, in silenzio. In produzione ora
+      rispondono **503**. (In produzione la variabile c'è: verificato, `/` e `/chiavi`
+      rimandano a `/login`.)
+   8. **Il cookie di sessione era `SHA-256(password)`**: identico per tutti, mai
+      scaduto, e chi lo vedeva aveva in mano un digest da rompere **fuori linea** —
+      il commento diceva «HMAC», il codice no. Ora è **HMAC su una scadenza firmata
+      dal server**, con segreto separato se c'è `ANAGRAFICHE_SESSION_SECRET`
+      (facoltativa: senza, si usa la password come prima ma con scadenza vera).
+      Confronto a **tempo costante** anche sulla password, e 400 ms di attesa su ogni
+      tentativo sbagliato.
+   9. **Intestazioni**: c'era solo HSTS (di Vercel) → aggiunte **CSP**,
+      `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`.
+   10. Tetto all'elenco `/api/v1/gruppi`, e i **`*.tmp.json`** (che contengono nomi,
+       cellulari ed email dei referenti) ora sono ignorati da **git e da Vercel** —
+       prima non lo erano da nessuno dei due.
+
+   🔴 **RESTA APERTO — e non è codice di quest'app:**
+   - ⚠️ **Credenziali Postgres nella storia git PUBBLICA.** `deluxy-platform-next/docs/HANDOFF.md`,
+     commit **`642198b3`**, **`15fc0407`**, **`74210d51`**: URI completi (utente,
+     password, host) di **due cluster**, su `origin/piattaforma-ricerca-insensitive`,
+     e il repo **github.com/donatodnicolo-gif/search risponde 200 senza credenziali:
+     è pubblico**. ✅ **Verificato però che sono SCADUTE**: le impronte delle tre
+     password pubblicate non coincidono con quelle in uso oggi su **nessuno** dei due
+     cluster — sono state ruotate dopo. Quindi **non sono sfruttabili adesso**, ma la
+     storia va ripulita (e restano pubblici host e nomi utente). ⚠️ Riscrivere la
+     storia di un repo condiviso è un gesto da concordare: altre sessioni ci lavorano.
+   - **Nessun freno sull'API**: 10 tentativi con chiave sbagliata → 10 × 401, nessun
+     429. Con chiavi da 192 bit non è un rischio pratico; con la password unica della
+     UI lo sarebbe, e lì il freno vero è il **login dall'Hub** (punto 6).
+   - **CORS `*` su `/api`**: non sfruttabile (senza credenziali il browser non manda
+     nulla, e senza chiave la risposta è 401), ma `Access-Control-Allow-Headers:
+     x-api-key` con origine `*` è un invito a mettere la chiave nel browser.
+   - **`RichiestaMatch.ip`**: preso da `x-forwarded-for` senza validazione e
+     conservato senza scadenza — audit falsificabile e dato personale eterno.
+   - ⚠️ **Due app rigirano al browser la risposta intera del registro**
+     (`deluxy-scout/supabase/functions/anagrafiche`, `deluxy-search-supplier/api/anagrafiche.js`):
+     ora ricevono meno, ma la buona pratica è che proiettino i campi loro.
+
 ### B. Scelte da prendere (il codice viene dopo)
 
 3bis. **CONSUMERS — sezione COSTRUITA il 01/08/2026 (lo studio che l'ha generata è qui sotto).**
@@ -971,7 +1053,7 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    piena**, quindi quella password vale quanto le chiavi. Serve il login dall'Hub, con `/chiavi`
    riservata agli admin: da lì `autore` si riempie da sé.
 
-7. **Ambito «dati finanziari» sulle chiavi**: oggi **qualsiasi** chiave di lettura vede il blocco
+7. **✅ CHIUSO il 27/08/2026 — vedi il punto 3e qui sopra.** Era: **Ambito «dati finanziari» sulle chiavi**: qualsiasi chiave di lettura vedeva il blocco
    `datiFinanziari`, IBAN compreso (`deluxy-suppliers` e `deluxy-scout` inclusi). Finché sono dati
    di clienti è brutto; col registro usato anche per i fornitori — cioè per chi paghiamo — diventa
    una superficie da frode. L'impianto delle tipologie in `src/lib/chiavi.ts` è pronto ad
