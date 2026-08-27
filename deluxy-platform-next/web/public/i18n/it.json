@@ -2048,7 +2048,29 @@
       "salary": "Paga valet (€, vuoto = listino)",
       "hours": "Ore (per servizi a ora)",
       "note": "Note",
-      "rulesHint": "Alle consegne generate si applicano da sole le regole carnet del partner (periodo, orario e tipo di servizio combacianti)."
+      "rulesHint": "Alle consegne generate si applicano da sole le regole carnet del partner (periodo, orario e tipo di servizio combacianti).",
+      "repeat": "Come si ripete",
+      "every": "Ogni",
+      "monthDays": "Giorni del mese",
+      "monthDaysHint": "Numeri separati da virgola, es. 1, 15. Un 31 nei mesi che non ce l’hanno viene saltato.",
+      "dailyHint": "Si ripete a intervalli regolari a partire dalla data d’inizio.",
+      "dayOfMonth": "il giorno",
+      "noServices": "Questo partner non ha servizi a listino: aggiungili nella sua scheda.",
+      "pickPartnerFirst": "Scegli prima il partner."
+    },
+    "freq": {
+      "SETTIMANALE": {
+        "singolare": "settimana",
+        "plurale": "settimane"
+      },
+      "GIORNALIERO": {
+        "singolare": "giorno",
+        "plurale": "giorni"
+      },
+      "MENSILE": {
+        "singolare": "mese",
+        "plurale": "mesi"
+      }
     }
   }
 }

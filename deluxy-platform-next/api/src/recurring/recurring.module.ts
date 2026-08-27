@@ -26,7 +26,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsBoolean, IsNumber, IsOptional, IsString, Matches } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 import { Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -37,9 +37,16 @@ export class CreaRicorrenteDto {
   @IsString() partnerId!: string;
   @IsString() serviceTypeId!: string;
   @IsOptional() @IsString() valetId?: string;
-  /** Maschera lun..dom, es. "1000000" = ogni lunedi'. */
+  /** Maschera lun..dom, es. "1000000" = ogni lunedi'. Serve alla SETTIMANALE. */
   @Matches(/^[01]{7}$/, { message: 'giorni deve essere una maschera di 7 bit lun..dom, es. 1000000' })
   giorni!: string;
+  /** SETTIMANALE (default, com'era) | GIORNALIERO | MENSILE. */
+  @IsOptional() @IsIn(['SETTIMANALE', 'GIORNALIERO', 'MENSILE']) frequenza?: string;
+  /** Ogni quante settimane / giorni / mesi. 1 = tutte. */
+  @IsOptional() @IsInt() @Min(1) @Max(52) ogni?: number;
+  /** Solo per MENSILE: i giorni del mese, es. "1,15". */
+  @IsOptional() @Matches(/^\s*\d{1,2}(\s*,\s*\d{1,2})*\s*$/, { message: 'giorniMese: numeri separati da virgola, es. 1,15' })
+  giorniMese?: string;
   @Matches(/^\d{2}:\d{2}$/) timeFrom!: string;
   @Matches(/^\d{2}:\d{2}$/) timeTo!: string;
   @IsOptional() @IsString() pickupAddress?: string;
@@ -63,6 +70,67 @@ function giornoSettimana(iso: string): number {
   return (new Date(`${iso}T00:00:00.000Z`).getUTCDay() + 6) % 7;
 }
 
+/** Il lunedi' della settimana di una data (per contare le settimane intere). */
+function lunediDi(d: Date): Date {
+  const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7));
+  return x;
+}
+
+/** I giorni del mese dichiarati, da "1,15" a [1, 15]. Scarta il non plausibile. */
+export function giorniDelMese(testo: string | null | undefined): number[] {
+  return (testo ?? '')
+    .split(',')
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isInteger(n) && n >= 1 && n <= 31);
+}
+
+/**
+ * QUESTO GIORNO TOCCA A QUESTO SERVIZIO?
+ *
+ * Tre modi di ripetersi, e il conto parte sempre da `dataInizio`:
+ *  - SETTIMANALE: i giorni della maschera, ogni `ogni` settimane. Le settimane
+ *    si contano fra i LUNEDI', non a intervalli di 7 giorni dalla data
+ *    d'inizio: «ogni due settimane il lunedi' e il venerdi'» deve cadere nella
+ *    stessa settimana per tutt'e due, non a sette giorni dal proprio inizio.
+ *  - GIORNALIERO: ogni `ogni` giorni dal via.
+ *  - MENSILE: i giorni del mese dichiarati, ogni `ogni` mesi.
+ *    ⚠️ Il 31 nei mesi che non ce l'hanno NON si arrotonda: quel giorno non
+ *    esiste e la consegna non nasce. Spostarla al 30 sarebbe inventare una
+ *    data che nessuno ha chiesto.
+ */
+export function toccaOggi(
+  r: { frequenza?: string | null; ogni?: number | null; giorni: string; giorniMese?: string | null; dataInizio: Date },
+  iso: string,
+): boolean {
+  const giorno = new Date(`${iso}T00:00:00.000Z`);
+  const inizio = new Date(Date.UTC(
+    r.dataInizio.getUTCFullYear(), r.dataInizio.getUTCMonth(), r.dataInizio.getUTCDate(),
+  ));
+  if (giorno < inizio) return false;
+  const ogni = Math.max(1, r.ogni ?? 1);
+
+  if (r.frequenza === 'GIORNALIERO') {
+    const passati = Math.round((giorno.getTime() - inizio.getTime()) / 86_400_000);
+    return passati % ogni === 0;
+  }
+
+  if (r.frequenza === 'MENSILE') {
+    if (!giorniDelMese(r.giorniMese).includes(giorno.getUTCDate())) return false;
+    const mesi = (giorno.getUTCFullYear() - inizio.getUTCFullYear()) * 12
+      + (giorno.getUTCMonth() - inizio.getUTCMonth());
+    return mesi >= 0 && mesi % ogni === 0;
+  }
+
+  // SETTIMANALE (anche quando `frequenza` e' vuota: e' com'era prima).
+  if (r.giorni[giornoSettimana(iso)] !== '1') return false;
+  if (ogni === 1) return true;
+  const settimane = Math.round(
+    (lunediDi(giorno).getTime() - lunediDi(inizio).getTime()) / (7 * 86_400_000),
+  );
+  return settimane >= 0 && settimane % ogni === 0;
+}
+
 @Injectable()
 export class RecurringService_ {
   constructor(private readonly prisma: PrismaService) {}
@@ -79,8 +147,23 @@ export class RecurringService_ {
     });
   }
 
+  /**
+   * Quello che serve DAVVERO, secondo come si ripete. Un servizio settimanale
+   * senza nessun giorno acceso, o uno mensile senza giorni del mese, non
+   * genererebbe mai niente e resterebbe li' a sembrare attivo.
+   */
+  private controllaRicorrenza(dto: { frequenza?: string; giorni: string; giorniMese?: string }) {
+    const f = dto.frequenza ?? 'SETTIMANALE';
+    if (f === 'SETTIMANALE' && !/[1]/.test(dto.giorni)) {
+      throw new BadRequestException('Scegli almeno un giorno della settimana.');
+    }
+    if (f === 'MENSILE' && giorniDelMese(dto.giorniMese).length === 0) {
+      throw new BadRequestException('Scegli almeno un giorno del mese (es. 1, 15).');
+    }
+  }
+
   async create(dto: CreaRicorrenteDto) {
-    if (!/[1]/.test(dto.giorni)) throw new BadRequestException('Scegli almeno un giorno della settimana.');
+    this.controllaRicorrenza(dto);
     return this.prisma.recurringService.create({
       data: {
         nome: dto.nome.trim(),
@@ -88,6 +171,9 @@ export class RecurringService_ {
         serviceTypeId: dto.serviceTypeId,
         valetId: dto.valetId || null,
         giorni: dto.giorni,
+        frequenza: dto.frequenza ?? 'SETTIMANALE',
+        ogni: dto.ogni ?? 1,
+        giorniMese: giorniDelMese(dto.giorniMese).join(',') || null,
         timeFrom: dto.timeFrom,
         timeTo: dto.timeTo,
         pickupAddress: dto.pickupAddress?.trim() || null,
@@ -107,6 +193,15 @@ export class RecurringService_ {
   async update(id: string, dto: Partial<AggiornaRicorrenteDto>) {
     const c = await this.prisma.recurringService.findUnique({ where: { id } });
     if (!c) throw new NotFoundException('Servizio ricorrente non trovato');
+    // ⚠️ Si controlla la ricorrenza RISULTANTE, non solo quella mandata: un
+    // PATCH che cambia solo la frequenza lascerebbe i giorni vecchi, e un
+    // mensile senza giorni del mese non genererebbe mai niente pur sembrando
+    // attivo. E' la trappola del form parziale, dal lato della validazione.
+    this.controllaRicorrenza({
+      frequenza: dto.frequenza ?? c.frequenza,
+      giorni: dto.giorni ?? c.giorni,
+      giorniMese: dto.giorniMese ?? c.giorniMese ?? undefined,
+    });
     return this.prisma.recurringService.update({
       where: { id },
       data: {
@@ -115,6 +210,9 @@ export class RecurringService_ {
         ...(dto.serviceTypeId !== undefined ? { serviceTypeId: dto.serviceTypeId } : {}),
         ...(dto.valetId !== undefined ? { valetId: dto.valetId || null } : {}),
         ...(dto.giorni !== undefined ? { giorni: dto.giorni } : {}),
+        ...(dto.frequenza !== undefined ? { frequenza: dto.frequenza } : {}),
+        ...(dto.ogni !== undefined ? { ogni: dto.ogni } : {}),
+        ...(dto.giorniMese !== undefined ? { giorniMese: giorniDelMese(dto.giorniMese).join(',') || null } : {}),
         ...(dto.timeFrom !== undefined ? { timeFrom: dto.timeFrom } : {}),
         ...(dto.timeTo !== undefined ? { timeTo: dto.timeTo } : {}),
         ...(dto.pickupAddress !== undefined ? { pickupAddress: dto.pickupAddress?.trim() || null } : {}),
@@ -156,7 +254,10 @@ export class RecurringService_ {
       where: { attivo: true, dataInizio: { lte: dataGiorno }, OR: [{ dataFine: null }, { dataFine: { gte: dataGiorno } }] },
       include: { serviceType: { select: { pricingModel: true } } },
     });
-    const oggiTocca = ricorrenti.filter((r) => r.giorni[dow] === '1');
+    // Chi tocca oggi: la regola sta in `toccaOggi`, una sola volta, perche' la
+    // decidono in tre (settimanale, giornaliera, mensile) e riscriverla qui
+    // dentro vorrebbe dire due implementazioni della stessa cosa.
+    const oggiTocca = ricorrenti.filter((r) => toccaOggi(r, giorno));
 
     // Le regole carnet attive, per applicarle alla nascita (stesse prove
     // dello script applica-regole: qui il giorno e l'orario sono NOSTRI).

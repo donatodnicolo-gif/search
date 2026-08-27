@@ -928,6 +928,18 @@ model RecurringService {
   serviceType        ServiceType  @relation(fields: [serviceTypeId], references: [id])
   valetId            String?
   valet              Valet?       @relation(fields: [valetId], references: [id])
+  /// COME SI RIPETE (27/08/2026). Prima esisteva solo il giro settimanale, e
+  /// «il 1° di ogni mese» o «ogni tre giorni» non si potevano dire.
+  ///   SETTIMANALE  -> i giorni della settimana in `giorni`, ogni `ogni` settimane
+  ///   GIORNALIERO  -> ogni `ogni` giorni, contati da `dataInizio`
+  ///   MENSILE      -> i giorni del mese in `giorniMese`, ogni `ogni` mesi
+  frequenza          String       @default("SETTIMANALE")
+  /// Ogni quante settimane / giorni / mesi. 1 = tutte.
+  ogni               Int          @default(1)
+  /// Solo per MENSILE: i giorni del mese separati da virgola, es. "1,15".
+  /// ⚠️ Un 31 nei mesi corti NON si arrotonda al 30: il giorno non esiste e
+  /// la consegna non si genera. Inventarla sarebbe peggio che saltarla.
+  giorniMese         String?
   giorni             String // maschera lun..dom, es. "1000000"
   timeFrom           String // "07:00"
   timeTo             String // "08:00"

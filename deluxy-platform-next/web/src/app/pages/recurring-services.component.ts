@@ -27,6 +27,14 @@ interface Ricorrente {
   _count: { deliveries: number };
 }
 interface Rif { id: string; insegna?: string; name?: string; firstName?: string; lastName?: string; active?: boolean; placeholder?: boolean }
+/**
+ * Il partner come lo manda `GET /partners`: con dentro i SUOI servizi.
+ * ⚠️ Arrivano gia' nella stessa risposta (`PARTNER_INCLUDE` lato API), quindi
+ * la tendina dei servizi non ha bisogno di una seconda chiamata.
+ */
+interface PartnerConServizi extends Rif {
+  services?: { serviceTypeId: string; serviceType?: { id: string; name: string } }[];
+}
 
 /**
  * SERVIZI RICORRENTI: il presidio che si ripete — «ogni lunedi' 7-8 per un
@@ -59,15 +67,20 @@ interface Rif { id: string; insegna?: string; name?: string; firstName?: string;
           <label class="fld"><span>{{ 'recurring.f.nome' | translate }} *</span>
             <input class="field" [(ngModel)]="m.nome" [placeholder]="'recurring.f.nomePh' | translate" /></label>
           <label class="fld"><span>{{ 'recurring.f.partner' | translate }} *</span>
-            <select class="field" [(ngModel)]="m.partnerId">
+            <select class="field" [(ngModel)]="m.partnerId" (ngModelChange)="cambiaPartner()">
               <option value="">—</option>
               @for (p of partners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
             </select></label>
           <label class="fld"><span>{{ 'recurring.f.service' | translate }} *</span>
-            <select class="field" [(ngModel)]="m.serviceTypeId">
+            <select class="field" [(ngModel)]="m.serviceTypeId" [disabled]="!m.partnerId">
               <option value="">—</option>
-              @for (s of services(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
-            </select></label>
+              @for (s of serviziDelPartner(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+            </select>
+            @if (m.partnerId && !serviziDelPartner().length) {
+              <span class="hint warn">{{ 'recurring.f.noServices' | translate }}</span>
+            } @else if (!m.partnerId) {
+              <span class="hint">{{ 'recurring.f.pickPartnerFirst' | translate }}</span>
+            }</label>
           <label class="fld"><span>{{ 'recurring.f.valet' | translate }}</span>
             <select class="field" [(ngModel)]="m.valetId">
               <option value="">{{ 'recurring.f.valetAuto' | translate }}</option>
@@ -75,14 +88,40 @@ interface Rif { id: string; insegna?: string; name?: string; firstName?: string;
             </select></label>
         </div>
 
-        <!-- I GIORNI, come gli orari di Google: chips lun..dom. -->
+        <!-- COME SI RIPETE: settimane, giorni o mesi. La riga cambia faccia a
+             seconda della scelta, cosi' non si compilano campi che non
+             contano — un mensile non ha giorni della settimana. -->
         <div class="setup-group">
-          <span class="group-label">{{ 'recurring.f.days' | translate }} *</span>
-          <div class="chips">
-            @for (g of GIORNI; track $index) {
-              <button type="button" class="chip" [class.on]="giorniSel[$index]" (click)="giorniSel[$index] = !giorniSel[$index]">{{ g }}</button>
-            }
+          <span class="group-label">{{ 'recurring.f.repeat' | translate }} *</span>
+          <div class="ripetizione">
+            <span class="ogni-testo">{{ 'recurring.f.every' | translate }}</span>
+            <input class="field num ogni-num" type="number" min="1" max="52" [(ngModel)]="m.ogni" />
+            <select class="field freq" [(ngModel)]="m.frequenza">
+              @for (f of FREQUENZE; track f) {
+                <option [value]="f">{{ 'recurring.freq.' + f + (m.ogni > 1 ? '.plurale' : '.singolare') | translate }}</option>
+              }
+            </select>
           </div>
+
+          @if (m.frequenza === 'SETTIMANALE') {
+            <div class="chips">
+              @for (g of GIORNI; track $index) {
+                <button type="button" class="chip" [class.on]="giorniSel[$index]" (click)="giorniSel[$index] = !giorniSel[$index]">{{ g }}</button>
+              }
+            </div>
+          } @else if (m.frequenza === 'MENSILE') {
+            <label class="fld mese">
+              <span>{{ 'recurring.f.monthDays' | translate }} *</span>
+              <input class="field" [(ngModel)]="m.giorniMese" placeholder="1, 15" />
+              <span class="hint">{{ 'recurring.f.monthDaysHint' | translate }}</span>
+            </label>
+          } @else {
+            <span class="hint">{{ 'recurring.f.dailyHint' | translate }}</span>
+          }
+
+          <!-- Detto a parole: chi imposta deve leggere quello che ha appena
+               scelto, non ricostruirlo dai campi. -->
+          <p class="riassunto">{{ riassunto() }}</p>
         </div>
 
         <div class="grid">
@@ -189,6 +228,14 @@ interface Rif { id: string; insegna?: string; name?: string; firstName?: string;
       .chip { border: 1px solid var(--hairline); background: var(--surface, #fff); border-radius: 980px; padding: 7px 14px; font-size: 13px; font-weight: 550; cursor: pointer; color: var(--text-secondary); font-family: inherit; }
       .chip.on { background: #1d1d1f; border-color: #1d1d1f; color: #fff; }
       .hint { font-size: 12px; color: var(--text-tertiary); margin: 0; }
+      .hint.warn { color: var(--orange); }
+      /* «Ogni [2] [settimane]»: si legge come una frase, non come tre campi. */
+      .ripetizione { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .ogni-testo { font-size: 13.5px; color: var(--text-secondary); }
+      .ogni-num { width: 76px; }
+      .freq { width: auto; min-width: 130px; }
+      .mese { max-width: 320px; }
+      .riassunto { margin: 2px 0 0; font-size: 13px; color: var(--text); font-weight: 550; }
       .azioni { display: flex; justify-content: flex-end; }
       .giorni { display: inline-flex; gap: 2px; }
       .giorni .g { font-size: 10.5px; font-weight: 600; color: var(--text-tertiary); opacity: 0.4; }
@@ -211,10 +258,14 @@ export class RecurringServicesComponent {
   private readonly api = environment.apiUrl;
 
   readonly GIORNI = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
+  /** Per il riassunto a parole: le iniziali non si leggono in una frase. */
+  readonly NOMI_GIORNI = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
+
+  /** Come si ripete: le tre voci della tendina «Ogni». */
+  readonly FREQUENZE = ['SETTIMANALE', 'GIORNALIERO', 'MENSILE'] as const;
 
   readonly lista = signal<Ricorrente[]>([]);
-  readonly partners = signal<Rif[]>([]);
-  readonly services = signal<Rif[]>([]);
+  readonly partners = signal<PartnerConServizi[]>([]);
   readonly valets = signal<Rif[]>([]);
   readonly loading = signal(true);
   readonly formOpen = signal(false);
@@ -224,8 +275,59 @@ export class RecurringServicesComponent {
   readonly banner = signal<string | null>(null);
 
   giorniSel = [false, false, false, false, false, false, false];
+
+  /**
+   * I servizi del PARTNER SCELTO, non tutto il catalogo.
+   *
+   * Prima la tendina mostrava tutti i tipi di servizio dell'azienda: si poteva
+   * scegliere per un partner un servizio che quel partner non ha a listino —
+   * e la consegna generata sarebbe nata senza prezzo. Finche' non si sceglie un
+   * partner la tendina resta vuota, e lo dice.
+   */
+  serviziDelPartner(): Rif[] {
+    const p = this.partners().find((x) => x.id === this.m.partnerId);
+    if (!p) return [];
+    return (p.services ?? [])
+      .map((s) => ({ id: s.serviceType?.id ?? s.serviceTypeId, name: s.serviceType?.name ?? '' }))
+      .filter((s) => s.id && s.name)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * La ricorrenza detta a parole, sotto i campi: «Ogni 2 settimane il lunedi'
+   * e il venerdi'». Chi imposta deve poter rileggere quello che ha scelto
+   * senza ricostruirlo dai controlli.
+   */
+  riassunto(): string {
+    const n = Math.max(1, Number(this.m.ogni) || 1);
+    const t = (k: string, p?: Record<string, unknown>) => this.translate.instant(k, p);
+    const unita = t(`recurring.freq.${this.m.frequenza}.${n > 1 ? 'plurale' : 'singolare'}`);
+    const testa = n > 1 ? `${t('recurring.f.every')} ${n} ${unita}` : `${t('recurring.f.every')} ${unita}`;
+    if (this.m.frequenza === 'SETTIMANALE') {
+      const scelti = this.NOMI_GIORNI.filter((_, i) => this.giorniSel[i]);
+      if (!scelti.length) return `${testa} — ${t('recurring.f.days')}?`;
+      return `${testa}: ${scelti.join(', ')}`;
+    }
+    if (this.m.frequenza === 'MENSILE') {
+      const gg = (this.m.giorniMese ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+      if (!gg.length) return `${testa} — ${t('recurring.f.monthDays')}?`;
+      return `${testa}: ${t('recurring.f.dayOfMonth')} ${gg.join(', ')}`;
+    }
+    return testa;
+  }
+
+  /** Cambiando partner, un servizio che lui non ha non puo' restare scelto. */
+  cambiaPartner(): void {
+    if (!this.serviziDelPartner().some((s) => s.id === this.m.serviceTypeId)) {
+      this.m.serviceTypeId = '';
+    }
+  }
+
   m = {
     nome: '', partnerId: '', serviceTypeId: '', valetId: '',
+    frequenza: 'SETTIMANALE' as (typeof this.FREQUENZE)[number],
+    ogni: 1,
+    giorniMese: '',
     timeFrom: '', timeTo: '', dataInizio: '', dataFine: '',
     recipientAddress: '', pickupAddress: '',
     price: null as number | null, valetSalary: null as number | null, hours: null as number | null,
@@ -234,8 +336,10 @@ export class RecurringServicesComponent {
 
   constructor() {
     this.load();
-    this.http.get<Rif[]>(`${this.api}/partners`).subscribe((d) => this.partners.set(d ?? []));
-    this.http.get<Rif[]>(`${this.api}/service-types`).subscribe((d) => this.services.set(d ?? []));
+    // ⚠️ Solo i partner ATTIVI: un servizio ricorrente su un partner spento
+    // genererebbe consegne per qualcuno con cui non lavoriamo piu'.
+    this.http.get<PartnerConServizi[]>(`${this.api}/partners`).subscribe((d) =>
+      this.partners.set((d ?? []).filter((p) => p.active !== false)));
     this.http.get<Rif[]>(`${this.api}/valets`).subscribe((d) =>
       this.valets.set((d ?? []).filter((v) => v.active !== false && !v.placeholder)));
     const oggi = new Date();
@@ -257,7 +361,16 @@ export class RecurringServicesComponent {
     if (!this.m.nome.trim()) mancanti.push(this.translate.instant('recurring.f.nome'));
     if (!this.m.partnerId) mancanti.push(this.translate.instant('recurring.f.partner'));
     if (!this.m.serviceTypeId) mancanti.push(this.translate.instant('recurring.f.service'));
-    if (!/[1]/.test(giorni)) mancanti.push(this.translate.instant('recurring.f.days'));
+    // ⚠️ Si chiede solo quello che quella ricorrenza usa davvero: i giorni
+    // della settimana a una settimanale, i giorni del mese a una mensile.
+    // Alla giornaliera non serve nessuno dei due.
+    if (this.m.frequenza === 'SETTIMANALE' && !/[1]/.test(giorni)) {
+      mancanti.push(this.translate.instant('recurring.f.days'));
+    }
+    if (this.m.frequenza === 'MENSILE'
+        && !(this.m.giorniMese ?? '').split(',').map((x) => Number(x.trim())).some((n) => n >= 1 && n <= 31)) {
+      mancanti.push(this.translate.instant('recurring.f.monthDays'));
+    }
     if (!this.m.timeFrom || !this.m.timeTo) mancanti.push(this.translate.instant('recurring.f.from'));
     if (!this.m.recipientAddress.trim()) mancanti.push(this.translate.instant('recurring.f.address'));
     if (!this.m.dataInizio) mancanti.push(this.translate.instant('recurring.f.start'));
@@ -271,7 +384,10 @@ export class RecurringServicesComponent {
       giorni, timeFrom: this.m.timeFrom, timeTo: this.m.timeTo,
       recipientAddress: this.m.recipientAddress.trim(),
       dataInizio: this.m.dataInizio,
+      frequenza: this.m.frequenza,
+      ogni: Math.max(1, Number(this.m.ogni) || 1),
     };
+    if (this.m.frequenza === 'MENSILE') payload['giorniMese'] = (this.m.giorniMese ?? '').trim();
     if (this.m.valetId) payload['valetId'] = this.m.valetId;
     if (this.m.dataFine) payload['dataFine'] = this.m.dataFine;
     if (this.m.pickupAddress.trim()) payload['pickupAddress'] = this.m.pickupAddress.trim();
@@ -285,7 +401,7 @@ export class RecurringServicesComponent {
         this.formOpen.set(false);
         this.banner.set(this.translate.instant('recurring.saved'));
         this.giorniSel = [false, false, false, false, false, false, false];
-        this.m = { ...this.m, nome: '', recipientAddress: '', pickupAddress: '', note: '', price: null, valetSalary: null, hours: null };
+        this.m = { ...this.m, nome: "", recipientAddress: "", pickupAddress: "", note: "", price: null, valetSalary: null, hours: null, giorniMese: "" };
         this.load();
       },
       error: (e) => {
