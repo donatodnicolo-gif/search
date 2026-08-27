@@ -56,7 +56,7 @@ function categoriaLeggibile(c: string | null): string | null {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await chiaveApiValida(req))) {
+  if (!(await chiaveApiValida(req, "scrittura"))) {
     return NextResponse.json({ errore: "Chiave API mancante o non valida." }, { status: 401 });
   }
 
@@ -79,8 +79,6 @@ export async function POST(req: NextRequest) {
     ...(testo(body.citta) ? { citta: testo(body.citta) } : {}),
     ...(testo(body.email) ? { email: testo(body.email) } : {}),
     ...(testo(body.telefono) ? { telefono: testo(body.telefono) } : {}),
-    ...(testo(body.iban) ? { iban: testo(body.iban)!.replace(/\s/g, "").toUpperCase() } : {}),
-    ...(testo(body.intestatarioConto) ? { intestatarioConto: testo(body.intestatarioConto) } : {}),
     ...(testo(body.ammNome) ? { ammNome: testo(body.ammNome) } : {}),
     ...(testo(body.ammEmail) ? { ammEmail: testo(body.ammEmail) } : {}),
     ...(testo(body.ammTelefono) ? { ammTelefono: testo(body.ammTelefono) } : {}),
@@ -88,6 +86,45 @@ export async function POST(req: NextRequest) {
     // «Chanel» e «CHANEL» diventano due gruppi che nello scadenzario non si sommano
     ...(testo(body.gruppo) ? { gruppo: testo(body.gruppo)!.toUpperCase() } : {}),
   };
+
+  /**
+   * ⚠️ LE COORDINATE BANCARIE NON SI RISCRIVONO DA QUI (27/08/2026, revisione
+   * di sicurezza).
+   *
+   * Questa rotta si autentica con la chiave API condivisa fra cinque app, e
+   * aggancia il partner anche per NOME: bastava conoscere il nome per cambiare
+   * l'IBAN di un partner a credito. Il bonifico successivo esce da
+   * `GET /api/sepa`, che quell'IBAN lo prende così com'è e lo mette nella
+   * distinta pain.001 che l'operatore carica in home banking. L'unica barriera
+   * era l'occhio di chi autorizza — e la modifica non lasciava traccia, perché
+   * `registra()` veniva chiamata SOLO alla creazione.
+   *
+   * Alla creazione restano ammesse: una scheda nuova non ha un IBAN da
+   * sostituire. Su una scheda che esiste, si cambiano da FINANCE, a mano, da
+   * chi risponde di quel conto.
+   */
+  const ibanChiesto = testo(body.iban) ? testo(body.iban)!.replace(/\s/g, "").toUpperCase() : null;
+  const intestatarioChiesto = testo(body.intestatarioConto);
+
+  /** Il tentativo si SCRIVE, anche quando non cambia niente: un cambio di IBAN
+   *  rifiutato in silenzio è un allarme che non suona. */
+  async function annotaSeDiverso(id: string, nomePartner: string, attuale: { iban: string | null; intestatarioConto: string | null }) {
+    const cambiaIban = !!ibanChiesto && ibanChiesto !== (attuale.iban ?? "").replace(/\s/g, "").toUpperCase();
+    const cambiaIntestatario = !!intestatarioChiesto && intestatarioChiesto !== attuale.intestatarioConto;
+    if (!cambiaIban && !cambiaIntestatario) return null;
+    await registra({
+      categoria: "partner",
+      entita: "partner",
+      entitaId: id,
+      partner: nomePartner,
+      azione: `RIFIUTATO cambio coordinate bancarie da API (${appOrigine(req) ?? "api"}): ${
+        cambiaIban ? "IBAN" : ""
+      }${cambiaIban && cambiaIntestatario ? " e " : ""}${
+        cambiaIntestatario ? "intestatario" : ""
+      }. Si cambiano da FINANCE, non da un'altra app.`,
+    });
+    return "coordinate bancarie non modificate: si cambiano da FINANCE";
+  }
 
   try {
     // 1) già collegato al registro — come anagrafica principale del partner
@@ -98,9 +135,10 @@ export async function POST(req: NextRequest) {
     if (anagraficaId) {
       const principale = await prisma.partner.findFirst({ where: { anagraficaId } });
       if (principale) {
+        const nota = await annotaSeDiverso(principale.id, principale.nome, principale);
         await prisma.partner.update({ where: { id: principale.id }, data: dati });
         revalidatePath(`/partner/${principale.id}`, "layout");
-        return NextResponse.json({ esito: "aggiornato", id: principale.id });
+        return NextResponse.json({ esito: "aggiornato", id: principale.id, ...(nota ? { nota } : {}) });
       }
       // La stessa scheda vista da una SEDE SECONDARIA: si riconosce e basta.
       // ⚠️ Non si scrive niente. I dati della scheda vengono dalla sede
@@ -119,18 +157,27 @@ export async function POST(req: NextRequest) {
     // 2) stessa scheda, arrivata prima del registro: si collega, non si duplica
     const perNome = await prisma.partner.findUnique({ where: { nome } });
     if (perNome) {
+      const nota = await annotaSeDiverso(perNome.id, perNome.nome, perNome);
       await prisma.partner.update({
         where: { id: perNome.id },
         data: { ...dati, ...(anagraficaId ? { anagraficaId } : {}) },
       });
       revalidatePath(`/partner/${perNome.id}`, "layout");
       revalidatePath("/partner", "layout");
-      return NextResponse.json({ esito: "collegato", id: perNome.id });
+      return NextResponse.json({ esito: "collegato", id: perNome.id, ...(nota ? { nota } : {}) });
     }
 
     // 3) non esiste: si crea
     const creato = await prisma.partner.create({
-      data: { nome, attivo: true, ...(anagraficaId ? { anagraficaId } : {}), ...dati },
+      data: {
+        nome,
+        attivo: true,
+        ...(anagraficaId ? { anagraficaId } : {}),
+        ...dati,
+        // Solo qui: una scheda nuova non ha un conto da dirottare.
+        ...(ibanChiesto ? { iban: ibanChiesto } : {}),
+        ...(intestatarioChiesto ? { intestatarioConto: intestatarioChiesto } : {}),
+      },
     });
     await registra({
       categoria: "partner",

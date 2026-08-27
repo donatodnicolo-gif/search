@@ -1,5 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, sessioneCorrente } from "@/lib/auth";
 import { randomBytes } from "crypto";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
@@ -38,6 +40,25 @@ export default async function VerifichePage({
   searchParams: Promise<{ generata?: string }>;
 }) {
   const sp = await searchParams;
+
+  /**
+   * ⚠️ SOLO L'AMMINISTRATORE (27/08/2026, revisione di sicurezza).
+   *
+   * Questa pagina stampa la CHIAVE API in chiaro, e negli esempi curl qui
+   * sotto. È una GET, e il middleware al ruolo `sola_lettura` blocca solo i
+   * metodi di scrittura: quindi un profilo nato per «guardare i numeri» leggeva
+   * la chiave e con quella chiamava le rotte di scrittura — che sono per giunta
+   * ESCLUSE dal matcher del middleware, quindi non le guarda nessuno. Emettere
+   * una pro-forma, marcarla come fatturata, riscrivere l'IBAN di un partner: il
+   * ruolo di sola lettura, in pratica, non esisteva.
+   *
+   * Il confine sta qui, non nel menu: nascondere la voce la toglie di vista,
+   * non di portata — l'indirizzo si scrive a mano.
+   */
+  const jar = await cookies();
+  const sessione = await sessioneCorrente(jar.get(SESSION_COOKIE)?.value);
+  if (sessione?.ruolo !== "admin") redirect("/");
+
   const [imp, richieste, conteggio] = await Promise.all([
     prisma.impostazione.findUnique({ where: { chiave: "api.verificheKey" } }),
     prisma.richiestaVerifica.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),

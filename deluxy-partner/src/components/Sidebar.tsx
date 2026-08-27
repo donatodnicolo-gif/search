@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 // Una voce di menu può avere sottovoci (es. Fatture → Servizi / Pro-forma):
 // il gruppo si apre da solo quando sei dentro una delle sue pagine.
-type Item = { href: string; label: string; icon: React.ReactNode; figli?: Item[] };
+type Item = { href: string; label: string; icon: React.ReactNode; figli?: Item[]; soloAdmin?: boolean };
 
 const stroke = {
   fill: "none",
@@ -168,7 +168,11 @@ const sections: { label: string; items: Item[] }[] = [
   {
     label: "Configurazione",
     items: [
-      { href: "/verifiche", label: "API verifiche", icon: icons.api },
+      // ⚠️ Solo l'amministratore: quella pagina stampa la CHIAVE API in
+      // chiaro. Nascondere la voce non è la difesa (la difesa è il redirect
+      // dentro la pagina): è per non mostrare a un profilo di sola lettura una
+      // porta che poi gli si chiude in faccia.
+      { href: "/verifiche", label: "API verifiche", icon: icons.api, soloAdmin: true },
       { href: "/impostazioni", label: "Impostazioni", icon: icons.impostazioni },
     ],
   },
@@ -231,7 +235,7 @@ export function Sidebar({
       {sections.map((s) => (
         <div className="nav-section" key={s.label}>
           <div className="nav-label solo-estesa">{s.label}</div>
-          {s.items.map((it) => {
+          {s.items.filter((it) => !it.soloAdmin || ruolo === "admin").map((it) => {
             const figli = it.figli ?? [];
             // il gruppo è "aperto" quando sei su una delle sue pagine
             const apertoGruppo = figli.some((f) => isActive(f.href));
