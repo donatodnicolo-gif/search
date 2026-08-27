@@ -344,7 +344,34 @@ interface PartnerConServizi extends Rif {
       .badge-on .dot { background: var(--success); }
       .badge-off { background: var(--fill); color: var(--text-tertiary); }
       .badge-off .dot { background: var(--text-tertiary); }
-      .link-btn.danger { color: var(--danger, #d70015); }
+      /* ⚠️ La classe .link-btn non era definita da nessuna parte, ne' qui ne'
+         nel foglio globale: i tre bottoni della riga uscivano col VESTITO
+         NATIVO del browser — riquadri grigi squadrati in mezzo a
+         un'interfaccia a pillole. Qui prendono la stessa forma delle azioni di
+         riga della lista consegne (.act), che e' lo standard di questa app.
+         ⚠️⚠️ Niente apici inversi nei commenti: chiudono il template literal
+         di styles[] e la build cita «position 0». E' gia' successo tre volte. */
+      .link-btn {
+        appearance: none;
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--hairline-strong);
+        background: var(--surface);
+        border-radius: 980px;
+        padding: 4px 11px;
+        margin-right: 6px;
+        font-size: 12px;
+        font-weight: 550;
+        font-family: inherit;
+        color: var(--text);
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s var(--ease);
+      }
+      .link-btn:hover:not(:disabled) { background: var(--fill); }
+      .link-btn:disabled { opacity: .4; cursor: not-allowed; }
+      .link-btn.danger { color: var(--danger, #d70015); border-color: rgba(215, 0, 21, 0.28); }
+      .link-btn.danger:hover:not(:disabled) { background: rgba(215, 0, 21, 0.07); }
       .ok-card { padding: 12px 16px; margin-bottom: 12px; color: var(--success); }
       .state-card { display: flex; flex-direction: column; gap: 6px; padding: 28px; }
     `,

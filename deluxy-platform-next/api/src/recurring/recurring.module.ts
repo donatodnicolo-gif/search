@@ -164,14 +164,29 @@ export function toccaOggi(
 }
 
 /**
- * QUANTI GIORNI IN AVANTI si generano.
+ * QUANTI GIORNI IN AVANTI si generano, quando il servizio NON dichiara una
+ * data di fine. Due settimane: la corsa notturna fa scorrere la finestra.
  *
- * Due settimane: abbastanza da vedere il presidio sul calendario e da
- * assegnare i valet con calma, poco abbastanza da non riempire il futuro di
- * consegne che una modifica dovrebbe poi rincorrere. La corsa notturna fa
- * scorrere la finestra di un giorno per volta.
+ * ⚠️ Se il servizio ha una DATA DI FINE, l'orizzonte è quella: chi scrive «fino
+ * al 31/12» ha già detto fin dove vuole vedere le consegne, e fermarsi a due
+ * settimane vorrebbe dire ignorare quello che ha dichiarato.
  */
 const ORIZZONTE_GIORNI = 14;
+
+/**
+ * Il tetto assoluto, per non far nascere anni di consegne in una richiesta
+ * sola: una data di fine nel 2099 non deve poter generare 27.000 righe.
+ * Quello che resta fuori si DICE, non si taglia in silenzio.
+ */
+const ORIZZONTE_MASSIMO_GIORNI = 400;
+
+/**
+ * Quante consegne al massimo si creano in una chiamata. Serve a non arrivare
+ * al tetto dei 300 s della funzione a metà lavoro — e «a metà» vuol dire con
+ * una parte già scritta e nessuno che sa quale. Chi si ferma qui lo dichiara e
+ * la corsa successiva riprende da dove era.
+ */
+const MASSIMO_PER_CORSA = 600;
 
 /** I nomi dei giorni, per messaggi che si leggono senza decodificare una maschera. */
 const NOMI_GIORNI = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
@@ -370,7 +385,10 @@ export class RecurringService_ {
     // solo per OGGI: chi impostava un presidio non vedeva nascere niente e
     // l'aveva - giustamente - per rotto. Un presidio che non si vede sul
     // calendario e' indistinguibile da uno che non funziona.
-    const generate = await this.genera({ da: undefined, giorni: ORIZZONTE_GIORNI, soloId: creato.id });
+    // ⚠️ Senza `giorni`: passarlo vorrebbe dire «comanda questo numero» e
+    // schiaccerebbe a due settimane anche un servizio che dichiara «fino al
+    // 31/12». L'orizzonte lo decide la data di fine, se c'è.
+    const generate = await this.genera({ soloId: creato.id });
     return { ...creato, generate };
   }
 
@@ -444,7 +462,7 @@ export class RecurringService_ {
     // ha GIA' scritto. Cambiare la fascia e lasciare le consegne future con
     // quella vecchia sarebbe una modifica che non modifica niente.
     const riallineate = await this.riallineaFuture(id);
-    const generate = await this.genera({ giorni: ORIZZONTE_GIORNI, soloId: id });
+    const generate = await this.genera({ soloId: id });
     return { ...(await this.prisma.recurringService.findUnique({ where: { id }, include: { varianti: true } }))!, riallineate, generate };
   }
 
@@ -558,26 +576,99 @@ export class RecurringService_ {
     const partenza = o.da
       ?? new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' }).format(new Date());
     if (!/^\d{4}-\d{2}-\d{2}$/.test(partenza)) throw new BadRequestException('Data non valida (YYYY-MM-DD).');
-    const quanti = Math.min(Math.max(1, o.giorni ?? ORIZZONTE_GIORNI), 90);
-
-    const giorniDaFare: string[] = [];
-    for (let k = 0; k < quanti; k++) {
-      const d = new Date(`${partenza}T00:00:00.000Z`);
-      d.setUTCDate(d.getUTCDate() + k);
-      giorniDaFare.push(d.toISOString().slice(0, 10));
-    }
-    const ultimo = new Date(`${giorniDaFare[giorniDaFare.length - 1]}T00:00:00.000Z`);
-    const primo = new Date(`${giorniDaFare[0]}T00:00:00.000Z`);
+    const primo = new Date(`${partenza}T00:00:00.000Z`);
+    /** Il tetto assoluto: oltre non si va comunque. */
+    const tetto = new Date(primo);
+    tetto.setUTCDate(tetto.getUTCDate() + (o.giorni ?? ORIZZONTE_MASSIMO_GIORNI) - 1);
 
     const ricorrenti = await this.prisma.recurringService.findMany({
       where: {
         ...(o.soloId ? { id: o.soloId } : {}),
         attivo: true,
-        dataInizio: { lte: ultimo },
+        dataInizio: { lte: tetto },
         OR: [{ dataFine: null }, { dataFine: { gte: primo } }],
       },
       include: { serviceType: { select: { pricingModel: true } }, varianti: true },
     });
+
+    /**
+     * FIN DOVE si genera, per OGNI servizio.
+     *
+     * ⭐ Chi ha scritto «fino al 31/12» ha gia' detto fin dove vuole vedere le
+     * consegne: fermarsi a due settimane vorrebbe dire ignorare quello che ha
+     * dichiarato. Senza data di fine («per sempre») vale la finestra mobile,
+     * che la corsa notturna fa scorrere di un giorno per volta.
+     */
+    const finePer = (r: (typeof ricorrenti)[number]): Date => {
+      const mobile = new Date(primo);
+      mobile.setUTCDate(mobile.getUTCDate() + (o.giorni ?? ORIZZONTE_GIORNI) - 1);
+      const dichiarata = r.dataFine
+        ? new Date(Date.UTC(r.dataFine.getUTCFullYear(), r.dataFine.getUTCMonth(), r.dataFine.getUTCDate()))
+        : null;
+      // Con `giorni` chiesto esplicitamente comanda quello; altrimenti la data
+      // di fine se c'e'. In ogni caso mai oltre il tetto assoluto.
+      const scelta = o.giorni != null ? mobile : (dichiarata ?? mobile);
+      return scelta > tetto ? tetto : scelta;
+    };
+
+    /**
+     * IL PREZZO DAL LISTINO, quando il ricorrente non ne dichiara uno.
+     *
+     * ⚠️ Prima si scriveva `r.price ?? 0`: senza prezzo scritto a mano la
+     * consegna nasceva a **ZERO**, non «da listino». Uno zero non e' un dato
+     * mancante — e' un numero, entra nei conti, e nessuno lo vede come sbagliato
+     * guardando la consegna. Adesso vale la stessa regola del form: prezzo del
+     * partner per quel servizio, o prezzo base del tipo di servizio; per i
+     * servizi A ORA moltiplicato per le ore.
+     *
+     * ⚠️ Gli extra KM restano fuori: dipendono dalla distanza, e la distanza di
+     * un presidio ricorrente non e' nota qui. Meglio il listino secco che una
+     * distanza inventata.
+     */
+    const listini = new Map<string, { price: number; pricingModel: string | null }>();
+    const prezzoDaListino = async (r: (typeof ricorrenti)[number]): Promise<number> => {
+      if (r.price != null) return r.price;
+      const chiave = `${r.partnerId}|${r.serviceTypeId}`;
+      if (!listini.has(chiave)) {
+        const ps = await this.prisma.partnerService.findUnique({
+          where: { partnerId_serviceTypeId: { partnerId: r.partnerId, serviceTypeId: r.serviceTypeId } },
+          select: { price: true },
+        });
+        const st = await this.prisma.serviceType.findUnique({
+          where: { id: r.serviceTypeId },
+          select: { basePrice: true, pricingModel: true },
+        });
+        listini.set(chiave, {
+          price: ps?.price ?? st?.basePrice ?? 0,
+          pricingModel: st?.pricingModel ?? null,
+        });
+      }
+      const l = listini.get(chiave)!;
+      return l.pricingModel === 'A_ORA' ? l.price * Math.max(r.hours ?? 1, 1) : l.price;
+    };
+
+    /**
+     * LA PAGA DEL VALET dal suo listino, quando il ricorrente non la dichiara.
+     * Stesso ragionamento: senza, il valet risultava pagato zero. Vale solo se
+     * un valet c'e' — se lo assegna l'ufficio piu' tardi, la paga la calcola
+     * `assignValet`, che e' il posto giusto.
+     */
+    const paghe = new Map<string, number>();
+    const pagaDaListino = async (r: (typeof ricorrenti)[number], valetId: string | null): Promise<number> => {
+      if (r.valetSalary != null) return r.valetSalary;
+      if (!valetId) return 0;
+      const chiave = `${valetId}|${r.serviceTypeId}`;
+      if (!paghe.has(chiave)) {
+        const vs = await this.prisma.valetService.findFirst({
+          where: { valetId, serviceTypeId: r.serviceTypeId },
+          select: { salary: true },
+        });
+        paghe.set(chiave, vs?.salary ?? 0);
+      }
+      const base = paghe.get(chiave)!;
+      const st = listini.get(`${r.partnerId}|${r.serviceTypeId}`);
+      return st?.pricingModel === 'A_ORA' ? base * Math.max(r.hours ?? 1, 1) : base;
+    };
 
     // Le regole carnet attive, per applicarle alla nascita (stesse prove
     // dello script applica-regole: qui il giorno e l'orario sono NOSTRI).
@@ -620,24 +711,43 @@ export class RecurringService_ {
     const esiti: { nome: string; giorno: string; code?: number; esito: string }[] = [];
     const toccati = new Set<string>();
 
-    for (const giorno of giorniDaFare) {
-      const dataGiorno = new Date(`${giorno}T00:00:00.000Z`);
-      const inizio = (r: (typeof ricorrenti)[number]) =>
-        new Date(Date.UTC(r.dataInizio.getUTCFullYear(), r.dataInizio.getUTCMonth(), r.dataInizio.getUTCDate()));
-      const delGiorno = ricorrenti.filter(
-        (r) => dataGiorno >= inizio(r) && (!r.dataFine || dataGiorno <= r.dataFine) && toccaOggi(r, giorno),
-      );
-      for (const r of delGiorno) {
+    // ⚠️ Il numero della consegna si legge UNA VOLTA e poi si incrementa qui:
+    // prima si faceva un `aggregate` per ogni consegna creata — un giro in piu'
+    // sul database per riga, che su un orizzonte di mesi si sente. E' anche
+    // meno esposto alle corse: il progressivo non si rilegge in mezzo.
+    const ultimoCode = await this.prisma.delivery.aggregate({ _max: { code: true } });
+    let prossimoCode = (ultimoCode._max.code ?? 0) + 1;
+
+    let ultimoGiornoFatto = partenza;
+    let fermatoAlTetto = false;
+
+    for (const r of ricorrenti) {
+      const inizio = new Date(Date.UTC(
+        r.dataInizio.getUTCFullYear(), r.dataInizio.getUTCMonth(), r.dataInizio.getUTCDate(),
+      ));
+      const fine = finePer(r);
+      const giorno = new Date(primo > inizio ? primo : inizio);
+      while (giorno <= fine) {
+        const iso = giorno.toISOString().slice(0, 10);
+        if (iso > ultimoGiornoFatto) ultimoGiornoFatto = iso;
+        if (!toccaOggi(r, iso)) { giorno.setUTCDate(giorno.getUTCDate() + 1); continue; }
+
+        const dataGiorno = new Date(`${iso}T00:00:00.000Z`);
         const gia = await this.prisma.delivery.findFirst({
           where: { recurringServiceId: r.id, date: dataGiorno },
           select: { id: true },
         });
-        if (gia) { giaEsistenti++; esiti.push({ nome: r.nome, giorno, esito: 'gia generata' }); continue; }
-        const f = fasciaDelGiorno(r, giorno);
-        const ultimoCode = await this.prisma.delivery.aggregate({ _max: { code: true } });
+        if (gia) {
+          giaEsistenti++;
+          giorno.setUTCDate(giorno.getUTCDate() + 1);
+          continue;
+        }
+        if (create >= MASSIMO_PER_CORSA) { fermatoAlTetto = true; break; }
+
+        const f = fasciaDelGiorno(r, iso);
         const consegna = await this.prisma.delivery.create({
           data: {
-            code: (ultimoCode._max.code ?? 0) + 1,
+            code: prossimoCode++,
             date: dataGiorno,
             partnerId: r.partnerId,
             serviceTypeId: r.serviceTypeId,
@@ -649,8 +759,8 @@ export class RecurringService_ {
             recipientFirstName: r.recipientFirstName ?? r.nome,
             recipientLastName: r.recipientLastName ?? '',
             recipientAddress: r.recipientAddress,
-            price: r.price ?? 0,
-            valetSalary: r.valetSalary ?? 0,
+            price: await prezzoDaListino(r),
+            valetSalary: await pagaDaListino(r, f.valetId),
             hours: r.hours,
             payable: true,
             billable: true,
@@ -664,15 +774,18 @@ export class RecurringService_ {
             deliveryId: consegna.id,
             type: 'created',
             message:
-              `Generata dal servizio ricorrente «${r.nome}» per il ${giorno} (${f.timeFrom}–${f.timeTo})`
+              `Generata dal servizio ricorrente «${r.nome}» per il ${iso} (${f.timeFrom}–${f.timeTo})`
               + (f.daEccezione ? ', fascia da eccezione di giorno.' : '.'),
           },
         });
         toccati.add(r.id);
         create++;
-        esiti.push({ nome: r.nome, giorno, code: consegna.code, esito: 'creata' });
+        esiti.push({ nome: r.nome, giorno: iso, code: consegna.code, esito: 'creata' });
+        giorno.setUTCDate(giorno.getUTCDate() + 1);
       }
+      if (fermatoAlTetto) break;
     }
+
     if (toccati.size) {
       await this.prisma.recurringService.updateMany({
         where: { id: { in: [...toccati] } },
@@ -681,11 +794,14 @@ export class RecurringService_ {
     }
     return {
       ok: true,
-      dal: giorniDaFare[0],
-      al: giorniDaFare[giorniDaFare.length - 1],
-      giorniEsaminati: giorniDaFare.length,
+      dal: partenza,
+      al: ultimoGiornoFatto,
       create,
       giaEsistenti,
+      // ⚠️ Un tetto raggiunto si DICE: senza, «create 600» si legge come «ho
+      // finito» e il resto del periodo resterebbe vuoto senza che nessuno lo
+      // sappia. La corsa successiva riprende da dove si e' fermata.
+      fermatoAlTetto,
       esiti,
     };
   }

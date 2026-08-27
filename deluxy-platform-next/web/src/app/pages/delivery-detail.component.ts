@@ -450,9 +450,29 @@ export class DeliveryDetailComponent {
   private readonly router = inject(Router);
 
   /** Torna da dove si e' arrivati; se la storia e' vuota (link diretto), alla lista. */
+  /**
+   * Torna alla lista COM'ERA: stesso giorno, stessi filtri, stessa pagina.
+   *
+   * ⚠️ Prima era `location.back()` con un ripiego su `/deliveries`. Due
+   * problemi: aprendo la consegna in una scheda nuova (che è come si arriva qui
+   * dalle azioni di riga) `history.length` è comunque > 1 per via della
+   * cronologia del browser, e il «indietro» portava fuori dall'app; e il
+   * ripiego riportava la lista a OGGI, buttando via il giorno che si stava
+   * guardando — che è proprio quello che l'utente ha segnalato.
+   *
+   * Adesso si va sulla lista con i filtri che la lista stessa ha salvato
+   * quando li ha usati. Senza niente di salvato (scheda nuova, sessione
+   * appena aperta) si va sulla lista normale, com'era.
+   */
   indietro(): void {
-    if (history.length > 1) this.location.back();
-    else this.router.navigate(['/deliveries']);
+    let salvata: string | null = null;
+    try { salvata = sessionStorage.getItem('consegne:ultima-vista'); } catch { /* privata: pazienza */ }
+    if (!salvata) { this.router.navigate(['/deliveries']); return; }
+    const p = new URLSearchParams(salvata);
+    const tieni = ['date', 'dateTo', 'status', 'view', 'q', 'page'];
+    const queryParams: Record<string, string> = {};
+    for (const k of tieni) { const v = p.get(k); if (v) queryParams[k] = v; }
+    this.router.navigate(['/deliveries'], { queryParams });
   }
 
   readonly delivery = signal<DeliveryDetail | null>(null);

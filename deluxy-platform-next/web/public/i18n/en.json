@@ -710,7 +710,8 @@
       "edit": "Edit",
       "assign": "Assign",
       "monitor": "Monitor",
-      "additionalValet": "Additional valet +/-"
+      "additionalValet": "Additional valet +/-",
+      "status": "Status"
     },
     "assign": {
       "title": "Assign valet",
@@ -744,6 +745,20 @@
       "from": "From",
       "to": "To",
       "clearRange": "Single day"
+    },
+    "bulk": {
+      "selected": "{{n}} deliveries selected",
+      "selectAll": "Select all on this page",
+      "selectOne": "Select this delivery",
+      "clear": "Clear selection",
+      "title": "On {{n}} deliveries at once",
+      "statusHint": "The chosen status is applied to every selected delivery.",
+      "assignHint": "{{n}} active valets cover the province of every selected delivery.",
+      "noCommonValet": "No active valet covers the province of every selected delivery. Select fewer, or assign them in groups.",
+      "plusHint": "The same plus/minus is written on the valet pay of every selected delivery.",
+      "done": "Done on {{n}} deliveries.",
+      "partial": "Done on {{n}} deliveries; {{k}} failed. The first one says: {{perche}}",
+      "confirmDelete": "Delete {{n}} deliveries? This cannot be undone."
     }
   },
   "partners": {

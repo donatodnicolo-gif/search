@@ -17,6 +17,10 @@ import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import {
   AssignValetDto,
+  AzioneDiMassaDto,
+  AzioneDiMassaImportoDto,
+  AzioneDiMassaStatoDto,
+  AzioneDiMassaValetDto,
   UpdateDeliveryDto,
   UpdateDeliveryStatusDto,
 } from './dto/update-delivery.dto';
@@ -123,6 +127,76 @@ export class DeliveriesController {
   @ApiOperation({ summary: 'Conferma pubblica di consegna (link "consegnata"): stato -> delivered' })
   confirmDelivered(@Param('token') token: string, @Body() body: { receivedBy?: string }) {
     return this.deliveriesService.confirmDeliveredByToken(token, body.receivedBy);
+  }
+
+  // ============================================================
+  // AZIONI SU PIÙ CONSEGNE INSIEME (27/08/2026, chiesto dall'utente)
+  // ------------------------------------------------------------
+  // ⚠️ Queste rotte NON riscrivono le regole: richiamano una per una le stesse
+  // funzioni del caso singolo, così log, calcolo della paga, permessi e stati
+  // ammessi restano scritti in un posto solo. Una seconda implementazione
+  // «più veloce» divergerebbe al primo cambiamento.
+  //
+  // ⚠️ L'esito è PER CONSEGNA: una che fallisce non ferma le altre e non si
+  // perde. Un «fatto» generico su venti consegne, con tre andate male, sarebbe
+  // una bugia comoda.
+  // ============================================================
+  @Patch('massa/stato')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Cambia lo stato di più consegne insieme' })
+  async statoDiMassa(@Body() dto: AzioneDiMassaStatoDto, @CurrentUser() user: JwtUser) {
+    return this.inSequenza(dto.ids, (id) =>
+      this.deliveriesService.updateStatus(id, dto.status, user),
+    );
+  }
+
+  @Patch('massa/assegna')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Assegna lo stesso valet a più consegne insieme' })
+  async assegnaDiMassa(@Body() dto: AzioneDiMassaValetDto, @CurrentUser() user: JwtUser) {
+    return this.inSequenza(dto.ids, (id) =>
+      this.deliveriesService.assignValet(id, dto.valetId, user),
+    );
+  }
+
+  @Patch('massa/plus-valet')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Scrive lo stesso plus/minus valet su più consegne insieme' })
+  async plusDiMassa(@Body() dto: AzioneDiMassaImportoDto, @CurrentUser() user: JwtUser) {
+    return this.inSequenza(dto.ids, (id) =>
+      this.deliveriesService.update(id, { valetAdditionalPrice: dto.importo } as any, user),
+    );
+  }
+
+  @Patch('massa/elimina')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Elimina più consegne insieme (solo admin)' })
+  async eliminaDiMassa(@Body() dto: AzioneDiMassaDto, @CurrentUser() user: JwtUser) {
+    return this.inSequenza(dto.ids, (id) => this.deliveriesService.remove(id, user));
+  }
+
+  /**
+   * Esegue l'azione su ogni id e RACCOGLIE gli esiti, uno per uno.
+   * In sequenza e non in parallelo: `assignValet` e `updateStatus` leggono e
+   * riscrivono le stesse righe (numeri progressivi, attività), e venti scritture
+   * insieme sullo stesso partner sono un invito alle corse.
+   */
+  private async inSequenza(ids: string[], azione: (id: string) => Promise<unknown>) {
+    const esiti: { id: string; ok: boolean; errore?: string }[] = [];
+    for (const id of ids) {
+      try {
+        await azione(id);
+        esiti.push({ id, ok: true });
+      } catch (e) {
+        esiti.push({ id, ok: false, errore: (e as Error).message });
+      }
+    }
+    return {
+      chieste: ids.length,
+      riuscite: esiti.filter((x) => x.ok).length,
+      fallite: esiti.filter((x) => !x.ok).length,
+      esiti,
+    };
   }
 
   @Patch(':id/assign')

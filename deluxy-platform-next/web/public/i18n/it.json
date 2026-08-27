@@ -710,7 +710,8 @@
       "edit": "Modifica",
       "assign": "Assegna",
       "monitor": "Monitorare",
-      "additionalValet": "Additional valet +/-"
+      "additionalValet": "Additional valet +/-",
+      "status": "Stato"
     },
     "assign": {
       "title": "Assegna valet",
@@ -744,6 +745,20 @@
       "from": "Dal",
       "to": "Al",
       "clearRange": "Solo un giorno"
+    },
+    "bulk": {
+      "selected": "{{n}} consegne scelte",
+      "selectAll": "Scegli tutte quelle di questa pagina",
+      "selectOne": "Scegli questa consegna",
+      "clear": "Togli la scelta",
+      "title": "Su {{n}} consegne insieme",
+      "statusHint": "Lo stato scelto viene messo su tutte quelle selezionate.",
+      "assignHint": "{{n}} valet attivi coprono la provincia di tutte le consegne scelte.",
+      "noCommonValet": "Nessun valet attivo copre la provincia di tutte le consegne scelte. Scegline di meno, o assegnale a gruppi.",
+      "plusHint": "Lo stesso plus/minus viene scritto sulla paga valet di tutte quelle selezionate.",
+      "done": "Fatto su {{n}} consegne.",
+      "partial": "Fatto su {{n}} consegne; {{k}} non sono riuscite. La prima dice: {{perche}}",
+      "confirmDelete": "Elimini {{n}} consegne? Non si torna indietro."
     }
   },
   "partners": {

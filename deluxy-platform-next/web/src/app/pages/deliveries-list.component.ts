@@ -131,10 +131,37 @@ const SERVICE_ICONS: Record<string, string> = {
           </span>
         }
       </div>
+      <!-- ⭐ PIÙ CONSEGNE INSIEME (27/08, chiesto dall'utente). La barra compare
+           solo quando c'è qualcosa di scelto: un comando sempre a schermo che
+           quasi sempre non serve ruba spazio alla tabella. -->
+      @if (canManage() && quanteScelte() > 0) {
+        <div class="card barra-massa">
+          <strong class="quante">{{ 'deliveries.bulk.selected' | translate: { n: quanteScelte() } }}</strong>
+          <button type="button" class="act" (click)="apriAzioneDiMassa('stato')">{{ 'deliveries.actions.status' | translate }}</button>
+          <button type="button" class="act" (click)="apriAzioneDiMassa('assegna')">{{ 'deliveries.actions.assign' | translate }}</button>
+          <button type="button" class="act" (click)="apriAzioneDiMassa('plus')">{{ 'deliveries.actions.additionalValet' | translate }}</button>
+          @if (isAdmin()) {
+            <button type="button" class="act pericolo" [disabled]="inCorsoDiMassa()" (click)="eliminaDiMassa()">{{ 'common.delete' | translate }}</button>
+          }
+          <button type="button" class="act chiaro" (click)="scegliTutte(false)">{{ 'deliveries.bulk.clear' | translate }}</button>
+        </div>
+      }
+      @if (esitoDiMassa()) { <div class="card ok-card">{{ esitoDiMassa() }}</div> }
+
       <div class="card table-wrap">
         <table>
           <thead>
             <tr>
+              @if (canManage()) {
+                <!-- Sceglie tutte quelle DELLA PAGINA: selezionare righe che non
+                     si vedono vorrebbe dire agire alla cieca. -->
+                <th class="sel-col">
+                  <input type="checkbox" [checked]="tutteScelte()"
+                         [indeterminate]="quanteScelte() > 0 && !tutteScelte()"
+                         (change)="scegliTutte($any($event.target).checked)"
+                         [attr.aria-label]="'deliveries.bulk.selectAll' | translate" />
+                </th>
+              }
               <th class="st-col sortable" (click)="sortBy('status')">
                 {{ 'deliveries.col.status' | translate }}<span class="sort-ind">{{ sortIndicator('status') }}</span>
               </th>
@@ -172,7 +199,15 @@ const SERVICE_ICONS: Record<string, string> = {
                 [attr.tabindex]="canDetails() ? 0 : null"
                 (click)="openDetail(d)"
                 (keydown.enter)="openDetail(d)"
+                [class.scelta]="selezionata(d.id)"
               >
+                @if (canManage()) {
+                  <td class="sel-col" (click)="$event.stopPropagation()">
+                    <input type="checkbox" [checked]="selezionata(d.id)"
+                           (change)="scegli(d.id, $any($event.target).checked)"
+                           [attr.aria-label]="'deliveries.bulk.selectOne' | translate" />
+                  </td>
+                }
                 <td class="st-col">
                   <!-- Clic sul pallino = cambio stato rapido, senza entrare in
                        modifica. Si ferma la propagazione perché la riga apre il
@@ -353,6 +388,58 @@ const SERVICE_ICONS: Record<string, string> = {
           <button type="button" class="btn btn-secondary" (click)="additionalFor.set(null)">{{ 'common.cancel' | translate }}</button>
           <button type="button" class="btn btn-primary" [disabled]="additionalValue == null" (click)="saveAdditional()">{{ 'common.save' | translate }}</button>
         </div>
+      </div>
+    }
+
+    <!-- ⭐ AZIONI SU PIÙ CONSEGNE INSIEME -->
+    @if (azioneDiMassa(); as quale) {
+      <div class="overlay" (click)="azioneDiMassa.set(null)"></div>
+      <div class="modal card" role="dialog" aria-modal="true">
+        <button type="button" class="modal-close" (click)="azioneDiMassa.set(null)" [attr.aria-label]="'common.close' | translate">×</button>
+        <h2>{{ 'deliveries.bulk.title' | translate: { n: quanteScelte() } }}</h2>
+        @if (actionError()) { <div class="modal-err">{{ actionError() }}</div> }
+
+        @if (quale === 'stato') {
+          <p class="modal-sub">{{ 'deliveries.bulk.statusHint' | translate }}</p>
+          <ul class="valet-list">
+            @for (s of statusKeys; track s) {
+              <li>
+                <span><span class="status-dot" [class]="'status-dot s-' + s"></span>{{ 'status.delivery.' + s | translate }}</span>
+                <button type="button" class="act" [disabled]="inCorsoDiMassa()" (click)="statoDiMassa(s)">
+                  {{ 'deliveries.status.set' | translate }}
+                </button>
+              </li>
+            }
+          </ul>
+        } @else if (quale === 'assegna') {
+          @if (!assignValetsDiMassa().length) {
+            <!-- ⚠️ Nessun valet copre TUTTE le consegne scelte: lo si dice,
+                 invece di offrire una lista che andrebbe bene solo per alcune. -->
+            <p class="modal-sub warn">{{ 'deliveries.bulk.noCommonValet' | translate }}</p>
+          } @else {
+            <p class="modal-sub">{{ 'deliveries.bulk.assignHint' | translate: { n: assignValetsDiMassa().length } }}</p>
+            <ul class="valet-list">
+              @for (v of assignValetsDiMassa(); track v.id) {
+                <li>
+                  <span>{{ v.lastName }} {{ v.firstName }}</span>
+                  <button type="button" class="act" [disabled]="inCorsoDiMassa()" (click)="assegnaDiMassa(v.id)">
+                    {{ (inCorsoDiMassa() ? 'common.saving' : 'deliveries.assign.choose') | translate }}
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        } @else {
+          <p class="modal-sub">{{ 'deliveries.bulk.plusHint' | translate }}</p>
+          <label class="fld">
+            <span>{{ 'deliveries.additional.amount' | translate }}</span>
+            <input class="field num" type="number" step="0.01" [(ngModel)]="plusDiMassaValore" name="plusDiMassaValore" />
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" (click)="azioneDiMassa.set(null)">{{ 'common.cancel' | translate }}</button>
+            <button type="button" class="btn btn-primary" [disabled]="plusDiMassaValore == null || inCorsoDiMassa()" (click)="salvaPlusDiMassa()">{{ 'common.save' | translate }}</button>
+          </div>
+        }
       </div>
     }
   `,
@@ -720,6 +807,21 @@ const SERVICE_ICONS: Record<string, string> = {
         outline-offset: -2px;
       }
 
+      /* Selezione multipla */
+      .sel-col { width: 34px; text-align: center; }
+      .sel-col input { width: 16px; height: 16px; accent-color: var(--ink, #1d1d1f); cursor: pointer; }
+      tr.scelta > td { background: color-mix(in srgb, var(--ink, #1d1d1f) 5%, transparent); }
+      .barra-massa {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        padding: 10px 14px; margin-bottom: 12px;
+        position: sticky; top: 0; z-index: 5;
+      }
+      .barra-massa .quante { font-size: 13.5px; margin-right: 6px; }
+      .act.pericolo { color: var(--red); border-color: rgba(215, 0, 21, 0.28); }
+      .act.pericolo:hover:not(:disabled) { background: rgba(215, 0, 21, 0.07); }
+      .act.chiaro { margin-left: auto; color: var(--text-secondary); }
+      .modal-sub.warn { color: var(--orange); }
+
       /* Azioni di riga */
       .actions-cell {
         white-space: nowrap;
@@ -868,6 +970,11 @@ export class DeliveriesListComponent {
     return r === 'ADMIN' || r === 'OPERATION';
   }
 
+  /** Eliminare è dell'admin: è l'unica azione di massa che non si disfa. */
+  isAdmin(): boolean {
+    return this.roleOf() === 'ADMIN';
+  }
+
   canEdit(d: Delivery): boolean {
     const r = this.roleOf();
     if (r === 'ADMIN' || r === 'OPERATION') return true;
@@ -936,13 +1043,47 @@ export class DeliveriesListComponent {
     return d ? detectProvince(d.recipientAddress, this.provinces()) : null;
   });
 
-  /** Solo i valet che hanno abilitata quella provincia. */
-  readonly assignValets = computed(() => {
-    const prov = this.assignProvince();
-    if (!prov) return this.valets();
-    return this.valets().filter((v) =>
-      (v.provinces ?? []).some((p) => p.province?.code === prov.code),
-    );
+  /**
+   * Chi può ricevere una consegna: valet **attivi**, non segnaposto, e con la
+   * provincia di quella consegna **abilitata**.
+   *
+   * ⚠️ Il filtro sugli ATTIVI mancava qui — c'era solo nel dettaglio. Su 287
+   * valet in archivio ne sono attivi 62: il pop-up di questa pagina ne offriva
+   * anche 225 spenti, fra cui gente con cui non lavoriamo più. Assegnare a un
+   * valet spento non dà errore: dà una consegna che nessuno andrà a fare.
+   *
+   * ⚠️ Senza provincia riconosciuta restano gli attivi: meglio una lista larga
+   * che una lista vuota su un indirizzo scritto in modo insolito.
+   */
+  private valetAssegnabili(recipientAddress: string | null | undefined) {
+    const attivi = this.valets().filter((v) => v.active !== false && v.placeholder !== true);
+    const prov = recipientAddress ? detectProvince(recipientAddress, this.provinces()) : null;
+    if (!prov) return attivi;
+    return attivi.filter((v) => (v.provinces ?? []).some((p) => p.province?.code === prov.code));
+  }
+
+  readonly assignValets = computed(() => this.valetAssegnabili(this.assignFor()?.recipientAddress));
+
+  /**
+   * Per l'assegnazione DI MASSA: i valet buoni per TUTTE le consegne scelte.
+   *
+   * ⚠️ Si intersecano le province, non si prende quella della prima: scegliere
+   * venti consegne fra Milano e Roma e vedersi offrire i valet di Milano
+   * vorrebbe dire assegnare a chi non copre metà di quelle consegne. Se
+   * l'intersezione è vuota lo dice il pannello, invece di offrire una lista
+   * sbagliata.
+   */
+  readonly assignValetsDiMassa = computed(() => {
+    const scelte = this.deliveries().filter((d) => this.selezione().has(d.id));
+    if (!scelte.length) return [];
+    let insieme: ValetRef[] | null = null;
+    for (const d of scelte) {
+      const buoni = this.valetAssegnabili(d.recipientAddress);
+      const ids = new Set(buoni.map((v) => v.id));
+      insieme = insieme === null ? buoni : insieme.filter((v) => ids.has(v.id));
+      if (!insieme.length) return [];
+    }
+    return insieme ?? [];
   });
 
   openAssign(d: Delivery): void {
@@ -1112,8 +1253,19 @@ export class DeliveriesListComponent {
     // Filtro data preimpostato dalla query (es. "Vai al giorno" dal calendario).
     // Altrimenti si parte da OGGI: senza filtro la lista impagina tutto lo
     // storico e la pagina impiega secondi ad aprirsi.
-    const qDate = this.route.snapshot.queryParamMap.get('date');
+    // ⭐ Si riprende la vista da dove si era lasciata: tornando da una consegna
+    // (o col tasto indietro) i filtri arrivano nell'indirizzo, e la lista si
+    // riapre sul giorno che si stava guardando invece che su oggi.
+    const p = this.route.snapshot.queryParamMap;
+    const qDate = p.get('date');
     this.dateFilter = qDate ?? this.oggi();
+    this.dateTo = p.get('dateTo') ?? '';
+    this.statusFilter = p.get('status') ?? '';
+    const v = p.get('view');
+    if (v === 'attive' || v === 'storico') this.vista = v;
+    this.query = p.get('q') ?? '';
+    const pag = Number(p.get('page'));
+    if (Number.isInteger(pag) && pag > 1) this.page.set(pag);
     this.load();
     // ⚠️ Province e valet servono SOLO dentro il pop-up "Assegna", ma venivano
     // chiesti all'apertura della pagina: misurato, /valets pesa 445 KB e
@@ -1132,6 +1284,143 @@ export class DeliveriesListComponent {
     const api = environment.apiUrl;
     this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
     this.http.get<ValetRef[]>(`${api}/valets`).subscribe((d) => this.valets.set(d));
+  }
+
+  // ============================================================
+  // LA VISTA SI RICORDA (27/08/2026, chiesto dall'utente)
+  // ------------------------------------------------------------
+  // «Il tasto indietro riporta alla pagina come era prima impostata (quindi al
+  // giorno che stavo guardando).» Prima il ritorno era un link fisso a
+  // /deliveries e la lista ripartiva da OGGI: chi lavorava su un altro giorno
+  // doveva rimpostare i filtri a ogni consegna aperta.
+  //
+  // Si salva in due posti perche' servono a due cose diverse: l'INDIRIZZO fa
+  // funzionare il tasto indietro del browser e i link condivisi;
+  // sessionStorage lo legge il «← Consegne» del dettaglio, che e' un link
+  // normale e non sa da dove si arriva.
+  // ============================================================
+  static readonly CHIAVE_VISTA = 'consegne:ultima-vista';
+
+  private ricordaVista(params: HttpParams): void {
+    const stringa = params.toString();
+    try { sessionStorage.setItem(DeliveriesListComponent.CHIAVE_VISTA, stringa); } catch { /* privata: pazienza */ }
+    // ⚠️ `replaceUrl`: si SOSTITUISCE la voce di cronologia invece di
+    // aggiungerne una. Senza, ogni cambio di filtro lascerebbe una tappa e il
+    // tasto indietro tornerebbe indietro di un filtro per volta invece che
+    // alla pagina di prima.
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        date: this.dateFilter || null,
+        dateTo: this.dateTo || null,
+        status: this.statusFilter || null,
+        view: this.vista,
+        q: this.query.trim() || null,
+        page: this.page() > 1 ? this.page() : null,
+      },
+      replaceUrl: true,
+    });
+  }
+
+  // ============================================================
+  // PIÙ CONSEGNE INSIEME (27/08/2026, chiesto dall'utente)
+  // ------------------------------------------------------------
+  // ⚠️ Solo admin e operation: sono le stesse azioni dei bottoni di riga, e
+  // farle su venti righe non le rende meno delicate.
+  // ============================================================
+  readonly selezione = signal<Set<string>>(new Set());
+  readonly azioneDiMassa = signal<'stato' | 'assegna' | 'plus' | null>(null);
+  readonly inCorsoDiMassa = signal(false);
+  readonly esitoDiMassa = signal<string | null>(null);
+  plusDiMassaValore: number | null = null;
+
+  selezionata(id: string): boolean {
+    return this.selezione().has(id);
+  }
+
+  scegli(id: string, acceso: boolean): void {
+    const s = new Set(this.selezione());
+    if (acceso) s.add(id); else s.delete(id);
+    this.selezione.set(s);
+  }
+
+  /** Tutte quelle DELLA PAGINA: non si selezionano righe che non si vedono. */
+  tutteScelte(): boolean {
+    const righe = this.deliveries();
+    return righe.length > 0 && righe.every((d) => this.selezione().has(d.id));
+  }
+
+  scegliTutte(acceso: boolean): void {
+    this.selezione.set(acceso ? new Set(this.deliveries().map((d) => d.id)) : new Set());
+  }
+
+  quanteScelte(): number {
+    return this.selezione().size;
+  }
+
+  private async eseguiDiMassa(percorso: string, corpo: Record<string, unknown>, conferma?: string): Promise<void> {
+    const ids = [...this.selezione()];
+    if (!ids.length) return;
+    if (conferma && !confirm(conferma)) return;
+    this.inCorsoDiMassa.set(true);
+    this.esitoDiMassa.set(null);
+    this.actionError.set(null);
+    this.http
+      .patch<{ chieste: number; riuscite: number; fallite: number; esiti: { id: string; ok: boolean; errore?: string }[] }>(
+        `${environment.apiUrl}/deliveries/massa/${percorso}`,
+        { ids, ...corpo },
+      )
+      .subscribe({
+        next: (r) => {
+          this.inCorsoDiMassa.set(false);
+          this.azioneDiMassa.set(null);
+          // ⚠️ Si dice quante sono andate male E PERCHE'. «Fatto» su venti
+          // consegne con tre fallite sarebbe una bugia comoda: chi legge
+          // crederebbe di averle cambiate tutte.
+          const primoErrore = r.esiti.find((x) => !x.ok)?.errore;
+          this.esitoDiMassa.set(
+            r.fallite === 0
+              ? this.translate.instant('deliveries.bulk.done', { n: r.riuscite })
+              : this.translate.instant('deliveries.bulk.partial', {
+                  n: r.riuscite, k: r.fallite, perche: primoErrore ?? '',
+                }),
+          );
+          this.load();
+        },
+        error: (err) => {
+          this.inCorsoDiMassa.set(false);
+          this.actionError.set(err?.error?.message ?? 'Errore');
+        },
+      });
+  }
+
+  statoDiMassa(stato: string): void {
+    void this.eseguiDiMassa('stato', { status: stato });
+  }
+
+  assegnaDiMassa(valetId: string): void {
+    void this.eseguiDiMassa('assegna', { valetId });
+  }
+
+  salvaPlusDiMassa(): void {
+    if (this.plusDiMassaValore == null) return;
+    void this.eseguiDiMassa('plus-valet', { importo: Number(this.plusDiMassaValore) });
+  }
+
+  eliminaDiMassa(): void {
+    void this.eseguiDiMassa(
+      'elimina',
+      {},
+      this.translate.instant('deliveries.bulk.confirmDelete', { n: this.quanteScelte() }),
+    );
+  }
+
+  /** Il pop-up «assegna» di massa ha bisogno dell'elenco valet come quello singolo. */
+  apriAzioneDiMassa(quale: 'stato' | 'assegna' | 'plus'): void {
+    if (quale === 'assegna') this.caricaRiferimenti();
+    this.plusDiMassaValore = null;
+    this.esitoDiMassa.set(null);
+    this.azioneDiMassa.set(quale);
   }
 
   // ---- Stato tabella: ricerca globale + ordinamento + paginazione (server-side) ----
@@ -1209,6 +1498,12 @@ export class DeliveriesListComponent {
       params = params.set('dateTo', this.dateTo);
     }
     if (this.query.trim()) params = params.set('q', this.query.trim());
+    // ⭐ La vista si RICORDA (27/08, chiesto dall'utente): tornando indietro da
+    // una consegna si deve rivedere il giorno che si stava guardando, non
+    // ripartire da oggi. Si scrive nell'indirizzo — così vale anche per il
+    // tasto indietro del browser e per un link condiviso — e in sessionStorage,
+    // che è quello che legge il «← Consegne» del dettaglio.
+    this.ricordaVista(params);
     this.http
       .get<{ items: Delivery[]; total: number }>(`${environment.apiUrl}/deliveries`, { params })
       .subscribe({
@@ -1216,6 +1511,10 @@ export class DeliveriesListComponent {
           this.deliveries.set(data.items ?? []);
           this.total.set(data.total ?? 0);
           this.loading.set(false);
+          // ⚠️ Cambiando pagina o filtro la selezione si azzera: tenere
+          // selezionate righe che non si vedono più vorrebbe dire agire alla
+          // cieca su consegne che nessuno sta guardando.
+          this.selezione.set(new Set());
         },
         error: (err) => {
           this.loading.set(false);
