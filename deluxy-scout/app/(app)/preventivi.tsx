@@ -189,6 +189,17 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
    * prima, cioè a chi l'hai chiesto.
    */
   const [fornitore, setFornitore] = useState<FornitoreScelto | null>(null);
+  /**
+   * ⭐ L'IMPORTO, QUI (27/08/2026, segnalazione dell'utente: «manca l'importo
+   * del preventivo»).
+   *
+   * ⚠️ Resta FACOLTATIVO, e il vuoto non è zero: se il fornitore ha già dato il
+   * prezzo si scrive subito, se lo si sta ancora aspettando si lascia vuoto e
+   * il preventivo nasce «in attesa». Sono due stati diversi, e il secondo è la
+   * ragione per cui questa schermata esiste — si chiede a due o tre e si
+   * aspetta.
+   */
+  const [importo, setImporto] = useState('');
   const [serveEntro, setServeEntro] = useState('');
   const [cliente, setCliente] = useState<PlaceLite | null>(null);
   const [salvo, setSalvo] = useState(false);
@@ -287,6 +298,18 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
 
   async function salva() {
     if (!titolo.trim() || !venditaScelta) return;
+    // ⚠️ Il prezzo scritto male FERMA tutto, e si controlla PRIMA di creare il
+    // lavoro: mandarlo a null lo butterebbe in silenzio, e qui null ha già un
+    // significato preciso — «gliel'ho chiesto e non ha ancora risposto».
+    // Nascerebbe un lavoro con un preventivo che dice il contrario del vero.
+    const prezzo = importo.trim() ? leggiImporto(importo) : null;
+    if (importo.trim() && prezzo == null) {
+      avvisa(
+        'Prezzo non capito',
+        `«${importo}» non è un importo. Scrivilo come 1.250,50 — oppure lascia il campo vuoto se il fornitore non ha ancora risposto.`,
+      );
+      return;
+    }
     setSalvo(true);
     try {
       const nato = await creaLavoro({
@@ -310,12 +333,15 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
           fornitore: fornitore.nome,
           fornitoreAnagraficheId: fornitore.anagraficheId,
           fornitoreEmail: fornitore.email,
-          importo: null,
+          // Con un prezzo il preventivo nasce «ricevuto», senza «in attesa»:
+          // lo stato lo deduce `aggiungiPreventivo`, non lo si chiede.
+          importo: prezzo,
         });
       }
       setTitolo('');
       setDescrizione('');
       setFornitore(null);
+      setImporto('');
       setServeEntro('');
       setCliente(null);
       setVenditaId(null);
@@ -449,10 +475,31 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
 
       <Text style={styles.label}>Chi lo fa (facoltativo)</Text>
       <SceltaFornitore valore={fornitore} onScegli={setFornitore} />
-      <Text style={styles.aiuto}>
-        Cercalo in Anagrafiche. Il lavoro nasce con il suo preventivo in attesa: il prezzo si scrive quando
-        risponde. Puoi anche lasciarlo vuoto e aggiungere più fornitori dopo, per confrontarli.
-      </Text>
+
+      {/* ⚠️ L'importo compare solo QUANDO il fornitore c'è: un prezzo senza il
+          nome di chi l'ha fatto non si può né confrontare né richiamare, ed è
+          la stessa regola che vale nel resto della schermata. */}
+      {fornitore ? (
+        <>
+          <Text style={styles.label}>Quanto ci ha chiesto (facoltativo)</Text>
+          <TextInput
+            style={styles.input}
+            value={importo}
+            onChangeText={setImporto}
+            placeholder="es. 1.250,50 — vuoto se non ha ancora risposto"
+            placeholderTextColor={colors.grigio}
+            inputMode="decimal"
+          />
+          <Text style={styles.aiuto}>
+            Lasciandolo vuoto il preventivo nasce «in attesa»: vuoto e zero non sono la stessa cosa, e un
+            preventivo senza prezzo resta fuori dal confronto invece di vincerlo.
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.aiuto}>
+          Cercalo in Anagrafiche. Puoi anche lasciarlo vuoto e aggiungere più fornitori dopo, per confrontarli.
+        </Text>
+      )}
 
       {/* La LINEA non si chiede: è quella della vendita scelta qui sopra. Si
           mostra soltanto, perché sapere su che linea si sta lavorando serve —
