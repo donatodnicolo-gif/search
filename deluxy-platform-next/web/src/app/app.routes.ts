@@ -68,11 +68,17 @@ export const routes: Routes = [
             (m) => m.RecurringServicesComponent,
           ),
       },
-      // ---- La casa del partner: la vetrina dei servizi richiedibili ----
+      // ---- La casa del PARTNER: la vetrina dei servizi richiedibili ----
+      // ⚠️ Solo PARTNER (27/08): la pagina dice «Che cosa ti serve?» e offre di
+      // chiedere un preventivo a Deluxy — e' scritta per chi sta dall'altra
+      // parte. Prima era aperta ad ADMIN e OPERATION, che dal menu ci
+      // atterravano e vedevano una vetrina rivolta a se stessi, con sopra
+      // l'avviso che il collegamento a Scout non e' configurato. L'ufficio le
+      // richieste dei partner le vede in Preventivi, che e' la sua pagina.
       {
         path: 'home',
         canActivate: [roleGuard],
-        data: { roles: ['ADMIN', 'OPERATION', 'PARTNER'], title: 'Servizi Deluxy' },
+        data: { roles: ['PARTNER'], title: 'Servizi Deluxy' },
         loadComponent: () =>
           import('./pages/partner-home.component').then((m) => m.PartnerHomeComponent),
       },
