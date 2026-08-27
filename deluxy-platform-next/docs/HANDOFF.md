@@ -70,9 +70,58 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 28 agosto 2026 — chiavi app generabili dall'app (Configurazione → Chiavi delle app), con SCADENZA. Prima: revisione di sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app (la scadenza c'è), token di conferma separato da quello di monitoraggio.
+**Ultimo aggiornamento:** 28 agosto 2026 — ambito del team leader (vedeva 2 consegne su 8) e PROVINCIA che nessuno scriveva (100% delle consegne nate qui); prima: chiavi app generabili dall'app, revisione di sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### 🧭 28/08/2026 — Il team leader vedeva 2 consegne su 8, e nessuno scriveva la PROVINCIA
+
+Segnalato dall'utente: «il team leader renato.cassoli vede solo casati e malia».
+
+**La causa**: l'ambito filtrava `valetId: { in: [...117 valet] }`, e un `IN`
+**scarta i NULL**. Le altre 6 erano **senza valet** — cioè proprio quelle **da
+assegnare**, che sono il suo lavoro. Un capo squadra che vede solo il lavoro
+già distribuito non può distribuirlo.
+
+Adesso: le consegne della sua squadra **più** quelle ancora senza valet nelle
+sue **province di responsabilità**. Una senza valet e senza provincia
+riconosciuta resta fuori: non si sa di chi sia (l'ufficio le vede tutte).
+
+⚠️ Il filtro torna un **`AND`**, non chiavi sciolte: `?partnerId=` assegna le
+proprie chiavi sullo stesso oggetto e una chiave sciolta verrebbe
+**sovrascritta** — un team leader avrebbe potuto chiedere proprio il partner da
+cui è escluso. Chiude anche l'accusa #10 dell'audit, vera nel codice ma senza
+bersaglio.
+
+**🔴 E cercando il perché è saltato fuori un difetto più grande: nessuno
+scriveva la PROVINCIA sulle consegne.** Misurato: **100% delle consegne nate
+in questa app** non ne aveva una (94 su 94); tutte e 91 quelle dei ricorrenti
+erano anche **senza coordinate**. La geocodifica c'era già e si usava **solo
+per le coordinate** — la provincia tornava nella stessa risposta e si buttava.
+
+Senza provincia una consegna sparisce dai filtri per zona (partner abilitati,
+valet della zona, ambito dei capisquadra) e dalla mappa. Non è un vuoto che si
+nota: è una riga che non compare.
+
+- `create` e `update` scrivono provincia **e** coordinate (cambiando indirizzo
+  cambiano entrambe: tenere la vecchia provincia su un indirizzo nuovo è
+  peggio che non averla);
+- la generazione dei **ricorrenti**, che scriveva in banca dati saltando il
+  passaggio del form, ora passa dalla stessa funzione;
+- ⚠️ la geocodifica si **ricorda per indirizzo**: un ricorrente fino al 31/12
+  fa novanta consegne allo stesso indirizzo. Misurato sulla riparazione: **94
+  consegne, TRE chiamate** a Google.
+
+⚠️ Corretto anche ciò che il difetto aveva già scritto
+(`scripts/ripara-province-consegne.mjs`, con `--prova` che non scrive): **94
+riparate, 0 rimaste**. Le **31.987 importate** dal legacy senza provincia
+restano fuori di proposito: è una decisione a parte.
+
+✅ **Misurato, prima → dopo, sullo stesso giorno**: il team leader vedeva **2
+consegne su 8 → ne vede 7**; da assegnare **0 → 5**; l'unica fuori è di
+Firenze, provincia non sua; `?partnerId=` fuori ambito → 0 righe.
+
+Deploy `delivery-fgww5a4vq`.
 
 ### 🔑 28/08/2026 — Le chiavi delle altre app si generano DALL'APP
 
