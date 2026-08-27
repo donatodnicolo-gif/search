@@ -6,7 +6,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { colors, radius, spacing, contenutoCentrato, contenutoExtraLargo } from '@/lib/theme';
 import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
@@ -110,17 +110,45 @@ export default function Ordini() {
   }, [ordini]);
 
   /**
-   * ⚠️ LA SOGLIA È 1280, NON 900 (27/08/2026). Questa tabella ha nove colonne
-   * e 690px di sole colonne a larghezza fissa: sotto i 1280 di finestra — meno
-   * la sidebar, che si prende 265px — non c'è lo spazio per mostrarle senza
-   * schiacciare il nome del cliente a pochi pixel o tagliare via le azioni.
+   * ⚠️ LA SOGLIA NON È 900 (27/08/2026). Questa tabella ha dieci colonne, e
+   * settecento pixel se ne vanno in colonne a larghezza fissa: sotto la misura
+   * qui sotto — meno la sidebar, che si prende 265px — non c'è lo spazio per
+   * mostrarle senza schiacciare il nome del cliente a pochi pixel o tagliare
+   * via le azioni.
    *
    * Sotto questa misura si vedono le SCHEDE, che sono complete e leggibili:
    * meglio una scheda intera che una tabella mutilata. È lo stesso motivo per
-   * cui esistono le due viste.
+   * cui esistono le due viste. Quanto vale esattamente sta in `aTabella`, in
+   * un punto solo: scritta anche qui, la misura si sarebbe scordata di
+   * cambiare insieme alle colonne.
    */
   const { width } = useWindowDimensions();
-  const aTabella = width >= 1280;
+  /**
+   * ⚠️ La colonna «Altri costi» compare SOLO se qualcuno ne ha scritti. Una
+   * colonna di soli «—» costa 94px di larghezza a una tabella che ne ha già
+   * dieci, e li toglie al nome del cliente — che è il dato per cui si guarda la
+   * riga. Finché la funzione non si usa, la tabella resta quella di prima.
+   */
+  const conAltriCosti = useMemo(() => dati.some((o) => o.altri_costi != null), [dati]);
+  /**
+   * ⚠️ E LA SOGLIA SI ALZA CON LE COLONNE. 1280 era la misura giusta per
+   * NOVE; con «Sito» diventano dieci e con «Altri costi» undici, e alla stessa
+   * larghezza al Cliente restavano una settantina di pixel — una tabella che
+   * tecnicamente entra e praticamente non si legge, visto che il nome del
+   * cliente è il dato per cui si guarda la riga.
+   *
+   * Sotto la soglia si vedono le SCHEDE, che dicono le stesse cose per esteso
+   * — sito compreso, o la richiesta «metti anche in tabella di che sito è»
+   * sarebbe stata esaudita solo su uno schermo grande.
+   */
+  const aTabella = width >= (conAltriCosti ? 1460 : 1360);
+  /**
+   * Sopra questa misura ci stanno TUTTE le colonne, canale compreso: misurato
+   * nel DOM, a 1620 al nome del cliente restano 209px invece dei 111 che
+   * avrebbe con la stessa tabella a 1460. Non è una soglia di stile: è il punto
+   * in cui rimettere una colonna smette di togliere spazio al dato principale.
+   */
+  const tutteLeColonne = width >= 1620;
 
   /**
    * Quanto ci costa ciascun ordine: dai lavori collegati alla sua trattativa
@@ -154,10 +182,13 @@ export default function Ordini() {
     {
       chiave: 'cliente',
       label: 'Cliente',
-      // ⚠️ Più largo delle altre: è il dato per cui si guarda la riga. Con flex
-      // 1.2 e sette colonne a larghezza fissa gli restavano 82px al cap, e 9px
-      // su un portatile da 1280 — il nome del cliente spariva.
-      flex: 2,
+      // ⚠️ L'UNICA colonna elastica, ed è voluto (misurato il 27/08/2026).
+      // Quando erano elastiche anche Linea e Fornitore si dividevano lo spazio
+      // in proporzione: al cliente ne toccava il 57%, cioè 56px, e agli altri
+      // due venti pixel a testa — tre colonne illeggibili invece di una larga e
+      // due strette ma stabili. Chi ha un testo corto prende una misura fissa;
+      // quello che cresce è il nome, che è il dato per cui si guarda la riga.
+      flex: 1,
       valore: (o) => o.place_nome ?? o.cliente,
       cella: (o) => (
         <View style={{ gap: 2 }}>
@@ -185,7 +216,7 @@ export default function Ordini() {
         </View>
       ),
     },
-    { chiave: 'linea', label: 'Linea', flex: 0.7, valore: (o) => o.linea ?? null },
+    { chiave: 'linea', label: 'Linea', width: 92, righe: 2, valore: (o) => o.linea ?? null },
     /**
      * ⭐ DI CHE SITO È (27/08/2026, richiesta dell'utente: «metti anche in
      * tabella di che sito è»). Prima si scriveva solo quando NON era deluxy.it
@@ -196,11 +227,22 @@ export default function Ordini() {
     {
       chiave: 'sito',
       label: 'Sito',
-      width: 96,
+      width: 84,
       valore: (o) => brandDi(o),
       cella: (o) => <Text style={styles.sitoTxt} numberOfLines={1}>{brandDi(o)}</Text>,
     },
-    { chiave: 'canale', label: 'Canale', width: 50, valore: (o) => o.canale ?? null },
+    /**
+     * ⚠️ IL CANALE ESCE PER PRIMO quando lo spazio finisce (27/08/2026,
+     * misurato nel DOM). Con undici colonne al nome del cliente restavano 54px:
+     * qualcosa doveva uscire, e fra tutte questa è la meno cercata — «web» o
+     * «telefono» si legge nella scheda e nella modifica, mentre il nome del
+     * cliente non ha un altrove.
+     *
+     * Non sparisce: torna da sola sopra i 1620, dove c'è posto per tutte.
+     */
+    ...(tutteLeColonne
+      ? ([{ chiave: 'canale', label: 'Canale', width: 50, valore: (o) => o.canale ?? null }] as ColonnaTabella<OrdineConLuogo>[])
+      : []),
     /**
      * QUANTO CI COSTA, accanto a quanto lo vendiamo (richiesta dell'utente).
      * Il fornitore e il suo preventivo vengono dai lavori collegati alla
@@ -209,7 +251,8 @@ export default function Ordini() {
     {
       chiave: 'fornitore',
       label: 'Fornitore',
-      flex: 0.8,
+      width: 96,
+      righe: 2,
       valore: (o) => costi.get(o.id)?.fornitore ?? null,
     },
     {
@@ -241,25 +284,29 @@ export default function Ordini() {
      * il margine è più alto di quello vero. Si scrivono dalla modifica
      * dell'ordine, insieme alla nota che dice di cosa sono fatti.
      */
-    {
-      chiave: 'altri',
-      label: 'Altri costi',
-      width: 88,
-      destra: true,
-      numerica: true,
-      valore: (o) => o.altri_costi ?? null,
-      cella: (o) =>
-        o.altri_costi == null ? (
-          <Text style={styles.tabData}>—</Text>
-        ) : (
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.tabValore}>{importoBreve(o.altri_costi)}</Text>
-            {o.altri_costi_nota ? (
-              <Text style={styles.tabStima} numberOfLines={1}>{o.altri_costi_nota}</Text>
-            ) : null}
-          </View>
-        ),
-    },
+    ...(conAltriCosti
+      ? ([
+      {
+        chiave: 'altri',
+        label: 'Altri costi',
+        width: 88,
+        destra: true,
+        numerica: true,
+        valore: (o) => o.altri_costi ?? null,
+        cella: (o) =>
+          o.altri_costi == null ? (
+            <Text style={styles.tabData}>—</Text>
+          ) : (
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.tabValore}>{importoBreve(o.altri_costi)}</Text>
+              {o.altri_costi_nota ? (
+                <Text style={styles.tabStima} numberOfLines={1}>{o.altri_costi_nota}</Text>
+              ) : null}
+            </View>
+          ),
+      },
+        ] as ColonnaTabella<OrdineConLuogo>[])
+      : []),
     {
       chiave: 'margine',
       label: 'Margine',
@@ -321,7 +368,15 @@ export default function Ordini() {
        * l'etichetta al passaggio del mouse e per il lettore di schermo, che è
        * la stessa parola di prima.
        */
-      width: 196,
+      /**
+       * ⚠️ 178 NON è un numero tondo: è il conto. Sei icone da 17 con cornice
+       * da 5 per lato fanno 6×27 = 162, più cinque spazi da 2 = 172, più sei di
+       * margine perché una misura esatta al pixel non ha dove andare se un
+       * carattere rende mezzo pixel più largo — e questa riga non va a capo:
+       * quello che avanza esce dalla colonna. Chi tocca `iconaAzione` o
+       * aggiunge un'azione rifà questo conto.
+       */
+      width: 178,
       fissa: true,
       valore: () => null,
       cella: (o) => (
@@ -693,7 +748,7 @@ export default function Ordini() {
           cap da 760 sopra una tabella da 1180, entrambi centrati, titolo e
           filtri partivano 210px dentro il bordo della tabella e sembravano di
           un altro blocco. È lo schema che Richieste Clienti applicava già. */}
-      <View style={[styles.head, aTabella ? contenutoLargo : contenutoCentrato]}>
+      <View style={[styles.head, aTabella ? contenutoExtraLargo : contenutoCentrato]}>
         <PageIntro testo="Gli ordini nati dalle trattative vinte. La pipeline dice quanto stai trattando: qui vedi quanto hai chiuso, e cosa resta da incassare." />
         <Text style={styles.sub}>
           Chiuso {new Date().getFullYear()}: <Text style={styles.subForte}>{euro(totali.chiusoAnno)}</Text>
@@ -740,7 +795,7 @@ export default function Ordini() {
         // In tabella la FlatList riceve UNA riga con l'intero elenco.
         data={aTabella ? (dati.length ? [dati] : []) : dati}
         keyExtractor={(o: any) => (aTabella ? 'tabella' : (o as OrdineConLuogo).id)}
-        contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
+        contentContainerStyle={[styles.list, aTabella ? contenutoExtraLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         ListEmptyComponent={
           <EmptyState
@@ -823,6 +878,16 @@ export default function Ordini() {
                     <StatusBadge small label={labelStatoOrdine[o.stato]} colore={coloreStatoOrdine[o.stato]} />
                     {o.canale ? <Text style={styles.meta}>canale {o.canale}</Text> : null}
                     {o.linea ? <Text style={styles.meta}>{o.linea}</Text> : null}
+                    {/* ⚠️ Il sito sta anche QUI, non solo in tabella: sotto la
+                        soglia la tabella non si monta, e senza questa riga la
+                        risposta a «di che sito è» sparirebbe con lei. */}
+                    <Text style={styles.meta}>{brandDi(o)}</Text>
+                    {o.altri_costi != null ? (
+                      <Text style={styles.meta}>
+                        + {importoBreve(o.altri_costi)} di altri costi
+                        {o.altri_costi_nota ? ` (${o.altri_costi_nota})` : ''}
+                      </Text>
+                    ) : null}
                     <Text style={styles.meta}>{dataIt(o.created_at)}</Text>
                   </View>
                   {/* Il costo e il margine anche sul telefono: senza, da qui
@@ -1135,9 +1200,12 @@ const styles = StyleSheet.create({
   brandTxt: { color: colors.goldStrong, fontSize: 10.5, fontWeight: '700' },
   riepilogoMobile: { paddingBottom: 8 },
   riepilogoTxt: { color: colors.testoSoft, fontSize: 12.5, fontWeight: '700' },
-  iconaAzione: { padding: 7, borderRadius: radius.sm },
+  // ⚠️ Cornice da 5, non da 7 (27/08/2026): con l'undicesima colonna servivano
+  // pixel, e la regola è quella detta dall'utente — si stringe la cornice dei
+  // bottoni, non il loro numero. Le azioni restano SEI.
+  iconaAzione: { padding: 5, borderRadius: radius.sm },
   // L'azione di tutti i giorni: l'unica piena, si trova a colpo d'occhio.
-  iconaPiena: { padding: 7, borderRadius: radius.sm, backgroundColor: colors.ink },
+  iconaPiena: { padding: 5, borderRadius: radius.sm, backgroundColor: colors.ink },
   // Le sei azioni su UNA riga, senza andare a capo: la colonna è dimensionata
   // su di loro, quindi il wrap non serve più — ed era lui a far cambiare posto
   // al bottone principale da una riga all'altra.

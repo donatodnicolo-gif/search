@@ -197,3 +197,14 @@ export const contenutoCentrato = { width: '100%' as const, maxWidth: CONTENUTO_M
 // il telefono diventa illeggibile). Si usa solo dove c’è davvero una tabella.
 export const CONTENUTO_LARGO = 1180;
 export const contenutoLargo = { width: '100%' as const, maxWidth: CONTENUTO_LARGO, alignSelf: 'center' as const };
+
+// Cap per la tabella PIÙ larga che abbiamo (Ordini: undici colonne più le
+// azioni).
+//
+// ⚠️ Misurato, non stimato (27/08/2026): con 1180 di cap, a monitor grande la
+// tabella restava ferma lì e al nome del cliente toccavano 56px — allargare la
+// finestra non serviva a niente, perché il tetto non era lo schermo ma questo
+// numero. Un elenco di undici colonne è l'unico posto dove una riga lunga aiuta
+// a leggere invece di stancare.
+export const CONTENUTO_EXTRA_LARGO = 1560;
+export const contenutoExtraLargo = { width: '100%' as const, maxWidth: CONTENUTO_EXTRA_LARGO, alignSelf: 'center' as const };
