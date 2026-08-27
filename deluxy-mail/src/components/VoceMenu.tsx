@@ -1,12 +1,46 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { azioneMassa, rimettiInPostaMassa, segnalaSpamThread } from '@/lib/actions'
 import { idsTrascinati } from './MailDrag'
 import { mostraFlash } from './Flash'
+
+/**
+ * Voce accesa (M8 — 27/08/2026). Prima `attiva` valeva solo per le voci SENZA
+ * query (`!href.includes('?')`): Archivio (`/?stato=archiviati`), Spam e le
+ * Sezioni (`/?sezione=…`) non si accendevano MAI, pur essendo la vista corrente.
+ * Ora il confronto guarda ANCHE la query: la voce è accesa quando la rotta
+ * combacia e OGNI parametro del suo href combacia con l'URL. La voce «piatta»
+ * (senza query, es. Posta in arrivo `/`) resta accesa solo quando l'URL non ha
+ * un filtro/sezione che appartiene a un'altra voce, così non resta accesa sopra
+ * a `/?sezione=…`.
+ */
+export function useVoceAttiva(href: string): boolean {
+  const qui = usePathname()
+  const params = useSearchParams()
+  const [path, query] = href.split('?')
+  if (qui !== path) return false
+  if (query) {
+    const attesi = new URLSearchParams(query)
+    return [...attesi.entries()].every(([k, v]) => params.get(k) === v)
+  }
+  // Voce piatta: non deve restare accesa quando è attivo un filtro/sezione.
+  return !params.get('sezione') && !params.get('stato')
+}
+
+/**
+ * I colori delle sezioni arrivano dal DB (M15 — 27/08/2026): `var(--${colore})`
+ * interpolato a crudo dava un pallino TRASPARENTE per qualunque valore non
+ * tokenizzato. Qui la whitelist dei colori ammessi (gli stessi del selettore in
+ * `sezioni/page.tsx`), con ripiego al neutro.
+ */
+const COLORI_SEZIONE = new Set(['blue', 'green', 'orange', 'red', 'purple', 'gold'])
+export function coloreSezione(colore: string | null | undefined): string {
+  return colore && COLORI_SEZIONE.has(colore) ? `var(--${colore})` : 'var(--grey)'
+}
 
 /** Cosa succede lasciando cadere delle mail su questa voce del menu. */
 export type Bersaglio =
@@ -35,12 +69,14 @@ export function VoceMenu({
   label,
   badge,
   bersaglio,
+  icona,
   children,
 }: {
   href: string
   label: string
   badge?: number | null
   bersaglio?: Bersaglio
+  icona?: React.ReactNode
   children?: React.ReactNode
 }) {
   // ⚠️⚠️ DOVE SONO. Il CSS per la voce accesa (`.nav-item.active`) c'era da
@@ -51,19 +87,55 @@ export function VoceMenu({
   // rispondeva. Chi non vede reazione, ripreme.
   // ⚠️ Il confronto è ESATTO, non `startsWith`: con `startsWith` la home («/»)
   // combacerebbe con qualunque indirizzo e resterebbe accesa sempre.
-  // ⚠️ Le SEZIONI stanno nella query (`/?sezione=…`), che `usePathname` non
-  // vede: quelle le accende `Sidebar`, che il parametro ce l’ha già.
-  const qui = usePathname()
-  const attiva = qui === href.split('?')[0] && !href.includes('?')
+  // ⚠️ Le SEZIONI e i filtri stanno nella query: `useVoceAttiva` la confronta.
+  const attiva = useVoceAttiva(href)
 
   return (
     <DropMail bersaglio={bersaglio} label={label} className="nav-item-riga">
       <Link href={href} className={attiva ? 'nav-item active' : 'nav-item'} aria-current={attiva ? 'page' : undefined}>
+        {icona}
         <span style={{ flex: 1 }}>{label}</span>
         {badge ? <span className="badge neutral">{badge}</span> : null}
       </Link>
       {children}
     </DropMail>
+  )
+}
+
+/**
+ * La voce di una SEZIONE (M8/M9/M15). Ha un contenuto proprio — il pallino del
+ * colore — perciò non passa da `VoceMenu`, ma condivide la stessa logica di
+ * voce accesa e il colore passato dalla whitelist.
+ */
+export function VoceSezione({
+  href,
+  nome,
+  colore,
+  badge,
+  sotto,
+}: {
+  href: string
+  nome: string
+  colore: string | null | undefined
+  badge?: number | null
+  sotto?: boolean
+}) {
+  const attiva = useVoceAttiva(href)
+  return (
+    <Link
+      href={href}
+      className={`nav-item ${sotto ? 'sotto' : ''}${attiva ? ' active' : ''}`}
+      aria-current={attiva ? 'page' : undefined}
+    >
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+        <span
+          className="dot"
+          style={{ width: 7, height: 7, borderRadius: '50%', background: coloreSezione(colore), flex: '0 0 7px' }}
+        />
+        {nome}
+      </span>
+      {badge ? <span className="badge neutral">{badge}</span> : null}
+    </Link>
   )
 }
 

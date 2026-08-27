@@ -113,9 +113,7 @@ export default async function Contatto({ params }: Props) {
               {iniziali(nome, email)}
             </span>
             <div>
-              <h1 className="page-title" style={{ fontSize: 26 }}>
-                {nome || email.split('@')[0]}
-              </h1>
+              <h1 className="page-title">{nome || email.split('@')[0]}</h1>
               <p className="page-caption" style={{ marginTop: 2 }}>
                 {email}
               </p>

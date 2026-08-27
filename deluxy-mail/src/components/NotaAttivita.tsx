@@ -114,12 +114,12 @@ export function NotaAttivita({
         }}
       />
       <div className="nota-azioni">
-        <button type="button" className="btn btn-primario" onClick={salva} disabled={inCorso}>
+        <button type="button" className="btn primary" onClick={salva} disabled={inCorso}>
           {inCorso ? 'Salvo…' : 'Salva'}
         </button>
         <button
           type="button"
-          className="btn"
+          className="btn secondary"
           onClick={() => {
             setTesto(nota ?? '')
             setApre(false)

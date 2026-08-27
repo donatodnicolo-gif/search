@@ -203,12 +203,12 @@ export default async function ImpostazioniApp() {
             <form action={salvaDriveAction} className="form-riga">
               <input className="input" name="clientId" placeholder="Client ID" defaultValue={drive.idParziale} />
               <input className="input" name="clientSegreto" type="password" placeholder="Client secret" />
-              <button className="btn" type="submit">Salva credenziali</button>
+              <button className="btn primary" type="submit">Salva credenziali</button>
             </form>
 
             {drive.configurato && (
               <p style={{ marginTop: 12 }}>
-                <a className="btn btn-primario" href="/api/interno/drive/oauth">
+                <a className="btn primary" href="/api/interno/drive/oauth">
                   {drive.collegato ? 'Ricollega Drive' : 'Collega Drive'}
                 </a>
               </p>

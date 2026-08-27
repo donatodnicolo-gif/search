@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
 import { esci } from '@/lib/auth-actions'
@@ -9,7 +8,8 @@ import { PiuAzione } from './PiuAzione'
 import type { TipoAzione } from './AzioneRapida'
 import { SelettoreAccount } from './SelettoreAccount'
 import { accountAttivoId, caselleUtente } from '@/lib/accountAttivo'
-import { VoceMenu, DropMail, type Bersaglio } from './VoceMenu'
+import { VoceMenu, VoceSezione, DropMail, type Bersaglio } from './VoceMenu'
+import { iconaPerVoce } from './iconeNav'
 
 type Voce = {
   href: string
@@ -31,7 +31,7 @@ function Gruppo({ titolo, voci }: { titolo: string; voci: Voce[] }) {
     <nav className="nav-section">
       <div className="nav-label">{titolo}</div>
       {voci.map((v) => (
-        <VoceMenu key={v.href} href={v.href} label={v.label} badge={v.badge} bersaglio={v.bersaglio}>
+        <VoceMenu key={v.href} href={v.href} label={v.label} badge={v.badge} bersaglio={v.bersaglio} icona={iconaPerVoce(v.label)}>
           {v.azione && <PiuAzione tipo={v.azione} titolo={v.azioneTitolo || `Nuovo — ${v.label}`} />}
         </VoceMenu>
       ))}
@@ -206,16 +206,13 @@ export async function Sidebar() {
                 label={s.nome}
                 className="nav-drop"
               >
-                <Link href={`/?sezione=${s.id}`} className={`nav-item ${s.genitoreId ? 'sotto' : ''}`}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                    <span
-                      className="dot"
-                      style={{ width: 7, height: 7, borderRadius: '50%', background: `var(--${s.colore})`, flex: '0 0 7px' }}
-                    />
-                    {s.nome}
-                  </span>
-                  {s._count.messaggi ? <span className="badge neutral">{s._count.messaggi}</span> : null}
-                </Link>
+                <VoceSezione
+                  href={`/?sezione=${s.id}`}
+                  nome={s.nome}
+                  colore={s.colore}
+                  badge={s._count.messaggi}
+                  sotto={!!s.genitoreId}
+                />
               </DropMail>
             ))}
         </nav>
@@ -233,13 +230,16 @@ export async function Sidebar() {
             {utente.ruolo === 'admin' ? 'Amministratore' : 'Utente'}
           </div>
         </div>
+        {/* M10 — 27/08/2026: il logout era un link di testo sottolineato (la
+            sottolineatura promette navigazione, non un'azione; e 12px sono un
+            bersaglio minuscolo). Ora è un'icona «esci», come da Libro §1. */}
         <form action={esci}>
-          <button
-            type="submit"
-            title="Esci"
-            style={{ border: 'none', background: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}
-          >
-            Esci
+          <button type="submit" className="logout-btn" title="Esci" aria-label="Esci">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <path d="M16 17l5-5-5-5" />
+              <path d="M21 12H9" />
+            </svg>
           </button>
         </form>
       </div>
