@@ -7,9 +7,9 @@ import { creaSessione, SESSION_COOKIE } from '@/lib/auth'
 import { hashPassword, verificaPassword } from '@/lib/password'
 import { installazioneVergine, normalizzaEmail, emailValida, MIN_PASSWORD } from '@/lib/utenti'
 
-async function apriSessione(userId: string) {
+async function apriSessione(userId: string, generazione: number) {
   const negozio = await cookies()
-  negozio.set(SESSION_COOKIE, await creaSessione(userId), {
+  negozio.set(SESSION_COOKIE, await creaSessione(userId, generazione), {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -27,7 +27,7 @@ export async function entra(formData: FormData) {
     redirect('/login?errore=' + encodeURIComponent('Email o password errate.'))
   }
 
-  await apriSessione(utente.id)
+  await apriSessione(utente.id, utente.generazione)
   redirect('/')
 }
 
@@ -73,7 +73,7 @@ export async function registrati(formData: FormData) {
   const utente = await db.utente.create({
     data: { nome, email, passwordHash: hashPassword(password), ruolo: 'admin' },
   })
-  await apriSessione(utente.id)
+  await apriSessione(utente.id, utente.generazione)
   redirect('/')
 }
 

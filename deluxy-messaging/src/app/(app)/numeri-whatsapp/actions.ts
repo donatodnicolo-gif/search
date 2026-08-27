@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { cifra } from '@/lib/crypto'
+import { soloAmministratore } from '@/lib/sessione'
 
 /**
  * Crea o aggiorna un numero WhatsApp collegato.
@@ -13,6 +14,11 @@ import { cifra } from '@/lib/crypto'
  * delle caselle di posta.
  */
 export async function salvaNumeroAction(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   const id = String(formData.get('id') ?? '').trim() || null
   const nome = String(formData.get('nome') ?? '').trim()
   // Solo cifre: da Meta si copia spesso con spazi o a capo intorno.
@@ -44,6 +50,11 @@ export async function salvaNumeroAction(formData: FormData) {
 }
 
 export async function eliminaNumeroAction(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   const id = String(formData.get('id') ?? '').trim()
   if (!id) return
   // Le conversazioni restano: portano il `numeroId` scritto dal webhook e non

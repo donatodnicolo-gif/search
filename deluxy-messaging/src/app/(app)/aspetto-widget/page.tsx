@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { AspettoWidget } from '@/components/AspettoWidget'
 import { codiceDelSito, sitiWidget } from '@/lib/widget-siti'
 import { salvaAspettoSito } from './actions'
+import { soloAmministratore } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,10 @@ export default async function PaginaAspettoWidget({
 }: {
   searchParams: Promise<{ sito?: string; salvato?: string }>
 }) {
+  // ⚠️ Il cancello sta ANCHE qui, non solo nelle azioni: senza, la pagina si
+  // apre e mostra la configurazione — nomi di host, caselle, numeri, quali
+  // segreti sono impostati — anche a chi poi non potrebbe salvarla.
+  await soloAmministratore()
   const { sito: sitoScelto, salvato } = await searchParams
   const intestazioni = await headers()
   const host = intestazioni.get('host') ?? 'deluxy-messaging.vercel.app'

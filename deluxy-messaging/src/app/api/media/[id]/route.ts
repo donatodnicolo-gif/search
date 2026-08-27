@@ -64,14 +64,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
         { status: 502 }
       )
     }
+    // ⚠️ Anche qui il tipo passa dal filtro: il server di Meta lo riporta dal
+    // file caricato, non lo decide lui.
     return new NextResponse(file.body, {
-      headers: {
-        // Il tipo vero lo dice il server di Meta; il nostro è solo una stima
-        // fatta dal tipo dell'allegato, quindi cede il passo.
-        'Content-Type':
-          file.headers.get('content-type') || messaggio.mimeType || 'application/octet-stream',
-        'Cache-Control': 'private, max-age=3600',
-      },
+      headers: intestazioniFile(
+        file.headers.get('content-type') || messaggio.mimeType || '',
+        messaggio.nomeFile
+      ),
     })
   }
 
@@ -96,16 +95,69 @@ export async function GET(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ errore: `Scaricamento non riuscito (${file.status})` }, { status: 502 })
   }
 
-  const tipo = messaggio.mimeType || indirizzo.mimeType || 'application/octet-stream'
   return new NextResponse(file.body, {
-    headers: {
-      'Content-Type': tipo,
-      // I file non cambiano mai: si possono tenere nel browser. `private`
-      // perché sono messaggi di clienti, non roba da CDN condivise.
-      'Cache-Control': 'private, max-age=3600',
-      ...(messaggio.nomeFile
-        ? { 'Content-Disposition': `inline; filename="${encodeURIComponent(messaggio.nomeFile)}"` }
-        : {}),
-    },
+    headers: intestazioniFile(messaggio.mimeType || indirizzo.mimeType || '', messaggio.nomeFile),
   })
+}
+
+/**
+ * I TIPI CHE SI POSSONO APRIRE DENTRO L'APP.
+ *
+ * ⚠️⚠️ Nasce da un buco vero, trovato il 27/08/2026. Il `Content-Type` con cui
+ * questa rotta serviva il file era **quello dichiarato da chi ha mandato il
+ * messaggio**: `mime_type` arriva nel payload di Meta dal documento caricato
+ * dal mittente (`webhooks/meta/route.ts`, ramo `document`) e finiva dritto
+ * nell'intestazione, con `Content-Disposition: inline`. Uno sconosciuto manda
+ * al numero del servizio clienti un «fattura.html» con dentro uno `<script>`,
+ * l'operatore in inbox ci clicca — è il suo mestiere — e quel codice gira
+ * **sull'origine dell'app**, con la sua sessione: legge l'inbox, la rubrica dei
+ * clienti, i pagamenti. Un `image/svg+xml` fa lo stesso, perché aperto come
+ * documento di primo livello gli script dentro un SVG vengono eseguiti.
+ *
+ * ⚠️⚠️ E `X-Content-Type-Options: nosniff` **DA SOLO NON BASTA**, che è la
+ * correzione che verrebbe naturale: `nosniff` impedisce al browser di
+ * *indovinare* un tipo, non gli impedisce di rispettare un `text/html`
+ * *dichiarato*. Chi si ferma lì crede di aver chiuso e non ha chiuso niente.
+ * Serve la lista bianca: quello che non è in elenco esce come
+ * `application/octet-stream` e in `attachment`, cioè si scarica e non si apre.
+ *
+ * ⚠️ La lista è la stessa idea di `TIPI_RICEVUTA` in
+ * `api/pagamenti/[id]/ricevuta/route.ts`, dove la regola era già scritta e
+ * applicata: qui non era arrivata.
+ *
+ * ⚠️ Misurato prima di stringere, sui 3.779 messaggi in tabella: 126
+ * `image/jpeg`, 6 `image/png`, 3 `image/webp`, 3 `audio/ogg`, 1
+ * `application/pdf` — e **nessun** `text/html` né `image/svg+xml`. La lista
+ * bianca non toglie niente di quello che i clienti mandano davvero.
+ */
+const APRIBILI = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+  'audio/ogg',
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/aac',
+  'audio/amr',
+  'video/mp4',
+])
+
+function intestazioniFile(dichiarato: string, nomeFile: string): Record<string, string> {
+  // ⚠️ Solo la parte prima del «;»: Meta manda «audio/ogg; codecs=opus», e
+  // confrontarlo intero farebbe cadere nella lista nera un audio legittimo.
+  const tipo = (dichiarato || '').split(';')[0].trim().toLowerCase()
+  const ok = APRIBILI.has(tipo)
+  const nome = nomeFile ? encodeURIComponent(nomeFile) : 'allegato'
+  return {
+    'Content-Type': ok ? tipo : 'application/octet-stream',
+    // ⚠️ `nosniff` c'è comunque: non basta da solo, ma senza di lui un
+    // `application/octet-stream` che *sembra* HTML potrebbe essere indovinato.
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Disposition': `${ok ? 'inline' : 'attachment'}; filename="${nome}"`,
+    // I file non cambiano mai: si possono tenere nel browser. `private`
+    // perché sono messaggi di clienti, non roba da CDN condivise.
+    'Cache-Control': 'private, max-age=3600',
+  }
 }

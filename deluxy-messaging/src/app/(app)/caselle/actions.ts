@@ -4,8 +4,14 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { salvaCasella } from '@/lib/email'
 import { salvaMittentiIgnorati } from '@/lib/mittenti-ignorati'
+import { soloAmministratore } from '@/lib/sessione'
 
 export async function salvaCasellaAction(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   const id = String(formData.get('id') ?? '').trim() || null
   const indirizzo = String(formData.get('indirizzo') ?? '').trim()
   if (!indirizzo) return
@@ -38,12 +44,22 @@ export async function salvaCasellaAction(formData: FormData) {
 // notifiche automatiche. Le loro mail entrano già archiviate — non si cancella
 // niente, si toglie soltanto dal mucchio di chi aspetta una risposta.
 export async function salvaMittentiIgnoratiAction(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   await salvaMittentiIgnorati(String(formData.get('mittentiIgnorati') ?? ''))
   revalidatePath('/caselle')
   revalidatePath('/inbox')
 }
 
 export async function eliminaCasellaAction(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   const id = String(formData.get('id') ?? '').trim()
   if (!id) return
   await db.casellaEmail.delete({ where: { id } })

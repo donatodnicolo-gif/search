@@ -10,6 +10,7 @@ import { copertura } from '@/lib/ai-fuori-turno'
 import { salvaECollegaGoogle, salvaImpostazioni } from './actions'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
 import { CampoSegreto } from '@/components/CampoSegreto'
+import { soloAmministratore } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,10 @@ export default async function PaginaImpostazioni({
 }: {
   searchParams: Promise<{ salvato?: string; okGoogle?: string; erroreGoogle?: string }>
 }) {
+  // ⚠️ Il cancello sta ANCHE qui, non solo nelle azioni: senza, la pagina si
+  // apre e mostra la configurazione — nomi di host, caselle, numeri, quali
+  // segreti sono impostati — anche a chi poi non potrebbe salvarla.
+  await soloAmministratore()
   const { salvato, okGoogle, erroreGoogle } = await searchParams
   // ⚠️ Quante ore alla settimana la griglia dei turni lascia scoperte: è il
   // numero che dice quanto lavoro si sta consegnando all'AI accendendo
@@ -527,14 +532,20 @@ export default async function PaginaImpostazioni({
                 placeholder="https://deluxy-delivery.vercel.app"
               />
             </label>
-            <label className="campo">
-              <span>Chiave app</span>
-              <input
-                name="piattaformaApiKey"
-                defaultValue={config.piattaformaApiKey}
-                placeholder="incolla qui la chiave"
-              />
-            </label>
+            {/* ⚠️⚠️ ERA UN INPUT NORMALE con `defaultValue={config.piattaformaApiKey}`:
+                la chiave — cifrata a riposo, decifrata per essere mandata al
+                browser — finiva **nel sorgente della pagina**, leggibile col
+                tasto destro, nella cache, negli screenshot di supporto. Su
+                diciassette campi di questa pagina era l'unica fuori posto: le
+                altre quindici chiavi passano tutte da `CampoSegreto`, che il
+                valore non lo stampa mai e serve solo a dire «c'è». Una regola
+                giusta applicata in sedici punti su diciassette. */}
+            <CampoSegreto
+              nome="piattaformaApiKey"
+              etichetta="Chiave app"
+              valore={config.piattaformaApiKey}
+              segnaposto="incolla qui la chiave"
+            />
             {config.piattaformaSyncEsito ? (
               <p className="descrizione" style={{ marginBottom: 0 }}>
                 Ultimo giro: {config.piattaformaSyncEsito}

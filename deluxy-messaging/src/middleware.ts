@@ -25,8 +25,12 @@ export async function middleware(req: NextRequest) {
 
   // Il cancello è la sessione firmata: solo chi ha fatto login con un utente
   // valido ha un cookie che supera la verifica della firma.
-  const userId = await verificaSessione(req.cookies.get(SESSION_COOKIE)?.value)
-  if (userId) return NextResponse.next()
+  // ⚠️ Qui si verifica solo la FIRMA: il middleware gira su edge e il database
+  // non lo può leggere. Che la sessione valga ANCORA (utente cancellato,
+  // password cambiata) lo dice , che il database lo legge —
+  // ed è per questo che ogni rotta lo richiama invece di fidarsi di qui.
+  const sessione = await verificaSessione(req.cookies.get(SESSION_COOKIE)?.value)
+  if (sessione) return NextResponse.next()
 
   return NextResponse.redirect(new URL('/login', req.url))
 }
@@ -50,7 +54,16 @@ export const config = {
   // finirebbe al login, cioè il link mandato ai clienti non funzionerebbe per
   // nessuno tranne noi. È pubblica di proposito, e il suo cancello è il codice
   // casuale nell'indirizzo, non la sessione.
+  // ⚠️⚠️ OGNI ECCEZIONE È ANCORATA a una barra o alla fine del percorso. Prima
+  // le alternative erano nude, quindi l'eccezione valeva per PREFISSO: bastava
+  // che un percorso COMINCIASSE con «chat» o «widget» per restare fuori dal
+  // cancello. Oggi non espone niente — l'ho verificato voce per voce su tutte
+  // le rotte esistenti: `/chargeback` e `/chiamate` non cominciano per «chat»,
+  // e `/aspetto-widget` comincia per «a» — ma è il tipo di difetto che non si
+  // trova mai guardando il file che l'ha causato: il giorno che qualcuno
+  // aggiunge `/chat-interna`, `/widget-statistiche` o `/api/cronologia`, quella
+  // rotta nasce **pubblica** e nessun controllo lo dice.
   matcher: [
-    '/((?!login|registrati|widget|chat|api/widget|api/webhooks|api/cron|api/health|_next/static|_next/image|favicon.ico).*)',
+    '/((?!(?:login|registrati|widget|chat|api/widget|api/webhooks|api/cron|api/health|_next/static|_next/image|favicon\\.ico)(?:/|$)).*)',
   ],
 }

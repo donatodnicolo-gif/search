@@ -27,28 +27,63 @@ function base64url(buf: ArrayBuffer): string {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-async function firma(userId: string): Promise<string> {
+async function firma(corpo: string): Promise<string> {
   const key = await chiaveHmac()
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(userId))
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(corpo))
   return base64url(sig)
 }
 
-/** Crea il cookie di sessione: `userId.firma`. Solo noi possiamo firmarlo. */
-export async function creaSessione(userId: string): Promise<string> {
-  return `${userId}.${await firma(userId)}`
+/**
+ * Il cookie di sessione: `userId.generazione.firma`. Solo noi possiamo firmarlo.
+ *
+ * ⚠️⚠️ LA GENERAZIONE È DENTRO LA FIRMA, ed è quello che rende la sessione
+ * revocabile. Prima il valore era `userId.HMAC(userId)` e non conteneva altro:
+ * nessuna scadenza, nessun numero di serie. Conseguenza pratica — **cambiare la
+ * password non buttava fuori nessuno**. Chi sospettava un accesso rubato faceva
+ * la mossa più naturale del mondo, e l'attaccante restava dentro per i trenta
+ * giorni del cookie. L'unica leva vera era cambiare `APP_SECRET`, che però è
+ * anche la chiave con cui sono cifrati tutti i segreti dell'app: chiudere una
+ * sessione con quella significava rendere illeggibili token Meta, chiavi API e
+ * password delle caselle di posta, tutte insieme e in silenzio.
+ *
+ * ⚠️ Il CONTROLLO della generazione non sta qui: sta in `utenteCorrente()`, che
+ * il database lo legge. Questo file gira anche sul middleware (edge), dove il
+ * database non c'è — e va bene così: il middleware dice «questo cookie l'ho
+ * firmato io», la lettura dell'utente dice «e vale ancora».
+ */
+export async function creaSessione(userId: string, generazione: number): Promise<string> {
+  const corpo = `${userId}.${generazione}`
+  return `${corpo}.${await firma(corpo)}`
 }
 
-/** Restituisce lo userId se il cookie è firmato correttamente, altrimenti null. */
-export async function verificaSessione(token: string | undefined): Promise<string | null> {
+/**
+ * Lo userId e la generazione, se il cookie è firmato correttamente.
+ *
+ * ⚠️ I cookie della vecchia forma (`userId.firma`, due pezzi) **non valgono
+ * più**: chi li ha rientra dal login una volta sola. È voluto — una correzione
+ * che serve a invalidare le sessioni vecchie e le lascia vive non ha corretto
+ * niente.
+ */
+export async function verificaSessione(
+  token: string | undefined
+): Promise<{ userId: string; generazione: number } | null> {
   if (!token) return null
   const punto = token.lastIndexOf('.')
   if (punto <= 0) return null
-  const userId = token.slice(0, punto)
+  const corpo = token.slice(0, punto)
   const dato = token.slice(punto + 1)
-  const atteso = await firma(userId)
+  const atteso = await firma(corpo)
   // confronto a tempo costante
   if (dato.length !== atteso.length) return null
   let diff = 0
   for (let i = 0; i < dato.length; i++) diff |= dato.charCodeAt(i) ^ atteso.charCodeAt(i)
-  return diff === 0 ? userId : null
+  if (diff !== 0) return null
+  // ⚠️ La generazione è l'ULTIMO pezzo prima della firma: l'id di Prisma è un
+  // `cuid` senza punti, ma tagliare dal fondo regge comunque se un giorno
+  // cambiasse forma.
+  const sep = corpo.lastIndexOf('.')
+  if (sep <= 0) return null
+  const generazione = Number(corpo.slice(sep + 1))
+  if (!Number.isInteger(generazione) || generazione < 0) return null
+  return { userId: corpo.slice(0, sep), generazione }
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { cifra } from '@/lib/crypto'
+import { soloAmministratore } from '@/lib/sessione'
 
 /**
  * Crea o aggiorna una Pagina Facebook o un account Instagram collegato.
@@ -13,6 +14,11 @@ import { cifra } from '@/lib/crypto'
  * delle caselle di posta e dei numeri WhatsApp.
  */
 export async function salvaPaginaAction(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   const id = String(formData.get('id') ?? '').trim() || null
   const canale = String(formData.get('canale') ?? '').trim()
   // Solo cifre: da Meta si copia spesso con spazi o a capo intorno.
@@ -45,6 +51,11 @@ export async function salvaPaginaAction(formData: FormData) {
 }
 
 export async function eliminaPaginaAction(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   const id = String(formData.get('id') ?? '').trim()
   if (!id) return
   // Le conversazioni restano: portano l'id dell'account scritto dal webhook e

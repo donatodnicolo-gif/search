@@ -2,8 +2,14 @@
 
 import { revalidatePath } from 'next/cache'
 import { eliminaNegozio, salvaNegozio } from '@/lib/negozi'
+import { soloAmministratore } from '@/lib/sessione'
 
 export async function salvaNegozioAction(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   const id = String(formData.get('id') ?? '').trim() || null
   const nome = String(formData.get('nome') ?? '')
   // ⚠️⚠️ `undefined` = il form non conteneva il campo, quindi non si tocca. Il
@@ -36,6 +42,11 @@ export async function salvaNegozioAction(formData: FormData) {
 }
 
 export async function eliminaNegozioAction(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   const id = String(formData.get('id') ?? '').trim()
   if (!id) return
   await eliminaNegozio(id)

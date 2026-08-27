@@ -3,6 +3,7 @@ import { pagineCollegate, type PaginaCollegata } from '@/lib/pagine-meta'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
 import { RinnovaTokenMeta } from '@/components/RinnovaTokenMeta'
 import { salvaPaginaAction, eliminaPaginaAction } from './actions'
+import { soloAmministratore } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -171,6 +172,10 @@ function ModuloNuovo({
 }
 
 export default async function PaginaAccountMeta() {
+  // ⚠️ Il cancello sta ANCHE qui, non solo nelle azioni: senza, la pagina si
+  // apre e mostra la configurazione — nomi di host, caselle, numeri, quali
+  // segreti sono impostati — anche a chi poi non potrebbe salvarla.
+  await soloAmministratore()
   const [pagine, negozi, visti] = await Promise.all([
     pagineCollegate(),
     db.negozioShopify.findMany({ select: { id: true, nome: true }, orderBy: { nome: 'asc' } }),

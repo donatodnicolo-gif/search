@@ -3,6 +3,7 @@ import { numeriCollegati } from '@/lib/numeri-whatsapp'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
 import { RegistraNumero } from '@/components/RegistraNumero'
 import { salvaNumeroAction, eliminaNumeroAction } from './actions'
+import { soloAmministratore } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,10 @@ export const dynamic = 'force-dynamic'
 // cioè per metà dei clienti dal marchio sbagliato.
 
 export default async function PaginaNumeriWhatsApp() {
+  // ⚠️ Il cancello sta ANCHE qui, non solo nelle azioni: senza, la pagina si
+  // apre e mostra la configurazione — nomi di host, caselle, numeri, quali
+  // segreti sono impostati — anche a chi poi non potrebbe salvarla.
+  await soloAmministratore()
   const [numeri, negozi] = await Promise.all([
     numeriCollegati(),
     db.negozioShopify.findMany({ select: { id: true, nome: true }, orderBy: { nome: 'asc' } }),

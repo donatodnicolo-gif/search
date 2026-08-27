@@ -75,6 +75,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   // Chi sta rispondendo: con più operatori, «chi ha scritto al cliente» è la
   // prima domanda quando la conversazione passa di mano.
   const chiScrive = await utenteCorrente()
+  // ⚠️ Il cookie è `userId.HMAC(userId)` e vive trenta giorni: il middleware
+  // ne verifica solo la FIRMA, e cancellare un utente non lo invalida. Senza
+  // questa riga l'azione partiva lo stesso, con autore vuoto in archivio.
+  if (!chiScrive) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
 
   // Le regole di «da quale nostro numero/pagina esce la risposta» stanno in
   // `src/lib/invio.ts`, non più qui: le usa anche la risposta di primo contatto

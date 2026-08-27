@@ -34,6 +34,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   const utente = await utenteCorrente()
+  // ⚠️ Il cookie è `userId.HMAC(userId)` e vive trenta giorni: il middleware
+  // ne verifica solo la FIRMA, e cancellare un utente non lo invalida. Senza
+  // questa riga l'azione partiva lo stesso, con autore vuoto in archivio.
+  if (!utente) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const deciso = stato === 'approvato' || stato === 'rifiutato'
 
   const rimborso = await db.rimborso.update({

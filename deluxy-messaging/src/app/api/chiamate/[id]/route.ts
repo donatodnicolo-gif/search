@@ -30,6 +30,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   const io = await utenteCorrente()
+  // ⚠️ Il cookie è `userId.HMAC(userId)` e vive trenta giorni: il middleware
+  // ne verifica solo la FIRMA, e cancellare un utente non lo invalida. Senza
+  // questa riga l'azione partiva lo stesso, con autore vuoto in archivio.
+  if (!io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const esito = await segnaRichiamata(id, {
     esito: String(c.esito ?? ''),
     // ⚠️ Il nome di chi ha richiamato si scrive: «richiamato» senza un nome, in

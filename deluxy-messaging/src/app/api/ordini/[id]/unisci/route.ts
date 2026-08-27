@@ -17,6 +17,10 @@ type Params = { params: Promise<{ id: string }> }
 export async function POST(req: NextRequest, { params }: Params) {
   const { id } = await params
   const io = await utenteCorrente()
+  // ⚠️ Il cookie è `userId.HMAC(userId)` e vive trenta giorni: il middleware
+  // ne verifica solo la FIRMA, e cancellare un utente non lo invalida. Senza
+  // questa riga l'azione partiva lo stesso, con autore vuoto in archivio.
+  if (!io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const { numero } = (await req.json().catch(() => ({}))) as { numero?: string }
   const esito = await unisciOrdini(id, numero ?? '', io?.nome ?? '')
   return NextResponse.json(esito, { status: esito.ok ? 200 : 400 })

@@ -36,6 +36,10 @@ export async function POST(req: NextRequest) {
   // promemoria senza scadenza che nessun promemoria.
   const scadenza = c.scadenza?.trim() ? new Date(c.scadenza) : null
   const chiScrive = await utenteCorrente()
+  // ⚠️ Il cookie è `userId.HMAC(userId)` e vive trenta giorni: il middleware
+  // ne verifica solo la FIRMA, e cancellare un utente non lo invalida. Senza
+  // questa riga l'azione partiva lo stesso, con autore vuoto in archivio.
+  if (!chiScrive) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
 
   const attivita = await db.attivita.create({
     data: {

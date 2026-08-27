@@ -3,9 +3,15 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { normalizzaSlug, salvaSitoWidget } from '@/lib/widget-siti'
+import { soloAmministratore } from '@/lib/sessione'
 
 // Salva l'aspetto e i testi del widget per UN sito.
 export async function salvaAspettoSito(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   const slug = String(formData.get('slug') ?? '').trim()
   if (!slug) return
 

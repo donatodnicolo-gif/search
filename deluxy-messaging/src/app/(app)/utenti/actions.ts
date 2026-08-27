@@ -86,11 +86,21 @@ export async function cambiaPassword(formData: FormData) {
   const u = await db.utente.findUnique({ where: { id } })
   if (!u) torna('Utente non trovato.', 'errore')
 
-  await db.utente.update({ where: { id }, data: { passwordHash: hashPassword(password) } })
+  // ⚠️⚠️ LA GENERAZIONE SALE, e con lei cadono tutte le sessioni aperte di
+  // quella persona. Prima non succedeva: il cookie è firmato sull'id e vive
+  // trenta giorni, quindi cambiare la password — che è la mossa che si fa
+  // proprio quando si sospetta un accesso rubato — **lasciava dentro
+  // l'attaccante**. Chi la cambiava credeva di aver chiuso la porta.
+  await db.utente.update({
+    where: { id },
+    data: { passwordHash: hashPassword(password), generazione: { increment: 1 } },
+  })
   revalidatePath('/utenti')
   // ⚠️ Non si scrive la password nel messaggio: finirebbe nell'URL, e da lì
   // nella cronologia del browser e nei log del server.
-  torna(`Password di ${u.nome} cambiata. Comunicagliela a voce o su un canale sicuro.`)
+  torna(
+    `Password di ${u.nome} cambiata, e i suoi accessi aperti sono stati chiusi: dovrà rientrare. Comunicagliela a voce o su un canale sicuro.`
+  )
 }
 
 export async function eliminaUtente(formData: FormData) {

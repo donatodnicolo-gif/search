@@ -134,13 +134,29 @@ export function Sidebar({
         // più in basso quelle che si aprono ogni giorno, e insegna a scorrere il
         // gruppo invece di leggerlo.
         { href: '/reclami/casistiche', nome: 'Casistiche', icona: iconaCasistiche },
-        { href: '/utenti', nome: 'Utenti', icona: iconaUtenti },
-        { href: '/negozi', nome: 'Negozi', icona: iconaNegozi },
-        { href: '/numeri-whatsapp', nome: 'Numeri WhatsApp', icona: iconaChat },
-        { href: '/account-meta', nome: 'Facebook e Instagram', icona: iconaChat },
-        { href: '/aspetto-widget', nome: 'Widget dei siti', icona: iconaChat },
-        { href: '/caselle', nome: 'Caselle', icona: iconaBusta },
-        { href: '/impostazioni', nome: 'Impostazioni', icona: iconaImpostazioni },
+        // ── LA CONFIGURAZIONE È DELL'AMMINISTRATORE ──
+        //
+        // ⚠️⚠️ Fino al 27/08/2026 queste sette voci erano nel menu di TUTTI, e
+        // le pagine non chiedevano il ruolo: un operatore apriva Impostazioni e
+        // riscriveva gli indirizzi delle app sorelle, le caselle di posta e i
+        // token di Meta. Il cancello vero adesso sta nelle pagine e nelle
+        // azioni (`soloAmministratore`, src/lib/sessione.ts) — questo qui è
+        // solo la coerenza: mostrare una voce che poi rimanda indietro è un
+        // invito a sbattere contro una porta.
+        //
+        // ⚠️ `/utenti` il cancello ce l'aveva già da sempre: era l'unica delle
+        // sette, ed è quella che ha insegnato la regola alle altre sei.
+        ...(amministratore
+          ? [
+              { href: '/utenti', nome: 'Utenti', icona: iconaUtenti },
+              { href: '/negozi', nome: 'Negozi', icona: iconaNegozi },
+              { href: '/numeri-whatsapp', nome: 'Numeri WhatsApp', icona: iconaChat },
+              { href: '/account-meta', nome: 'Facebook e Instagram', icona: iconaChat },
+              { href: '/aspetto-widget', nome: 'Widget dei siti', icona: iconaChat },
+              { href: '/caselle', nome: 'Caselle', icona: iconaBusta },
+              { href: '/impostazioni', nome: 'Impostazioni', icona: iconaImpostazioni },
+            ]
+          : []),
       ],
     },
   ]

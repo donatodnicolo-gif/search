@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { brandRicercaDaNegozio, prefissoDaNegozio } from '@/lib/negozi'
 import { eliminaNegozioAction, salvaNegozioAction } from './actions'
+import { soloAmministratore } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +10,10 @@ function Badge({ ok, testo }: { ok: boolean; testo: string }) {
 }
 
 export default async function PaginaNegozi() {
+  // ⚠️ Il cancello sta ANCHE qui, non solo nelle azioni: senza, la pagina si
+  // apre e mostra la configurazione — nomi di host, caselle, numeri, quali
+  // segreti sono impostati — anche a chi poi non potrebbe salvarla.
+  await soloAmministratore()
   const negozi = await db.negozioShopify.findMany({ orderBy: { nome: 'asc' } })
 
   return (

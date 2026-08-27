@@ -25,7 +25,26 @@ model Utente {
   email        String   @unique
   nome         String
   passwordHash String // scrypt "salt.hash" — mai reversibile
+  // ⚠️ `@default("admin")` è il default del PRIMO account (l'installazione
+  // vergine). Le due creazioni che esistono passano sempre il ruolo esplicito
+  // (`login/actions.ts` per il primo, `utenti/actions.ts` con ripiego su
+  // «operatore» per gli altri): nessuna riga nasce amministratore per caso.
   ruolo        String   @default("admin") // admin | operatore
+  /**
+   * LA GENERAZIONE DELLE SUE SESSIONI.
+   *
+   * ⚠️⚠️ Il cookie è `userId.generazione.HMAC(...)` e non contiene altro:
+   * nessuna scadenza, nessun identificatore di sessione. Senza questo numero
+   * **cambiare la password non buttava fuori nessuno** — che è la mossa
+   * istintiva dopo un sospetto, e lasciava dentro esattamente chi si voleva
+   * cacciare. L'unica leva era cambiare `APP_SECRET`, che però è anche la
+   * chiave con cui sono cifrati tutti i segreti: usarla per chiudere una
+   * sessione li rendeva illeggibili in blocco, webhook Meta e posta compresi.
+   *
+   * Cambiando la password il numero sale, e ogni cookie firmato con il numero
+   * di prima smette di valere al primo caricamento.
+   */
+  generazione  Int      @default(0)
   creatoIl     DateTime @default(now())
 }
 

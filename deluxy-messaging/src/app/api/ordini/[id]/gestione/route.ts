@@ -27,6 +27,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   // spariva senza lasciare un nome. Con cinque ordini segnati in un giorno e
   // nessuno che se lo ricordava, la domanda «chi e stato» non aveva risposta.
   const utente = await utenteCorrente()
+  // ⚠️ Il cookie è `userId.HMAC(userId)` e vive trenta giorni: il middleware
+  // ne verifica solo la FIRMA, e cancellare un utente non lo invalida. Senza
+  // questa riga l'azione partiva lo stesso, con autore vuoto in archivio.
+  if (!utente) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const ordine = await db.ordine.update({
     where: { id },
     data: {

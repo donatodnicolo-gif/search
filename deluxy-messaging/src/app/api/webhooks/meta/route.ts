@@ -74,7 +74,30 @@ export async function POST(req: NextRequest) {
   // non firmato vuol dire lasciare a chi chiama la scelta della serratura.
   const { metaAppSecret, igAppSecret } = await leggiImpostazioni(['metaAppSecret', 'igAppSecret'])
   const segreti = [metaAppSecret, igAppSecret].filter((s): s is string => Boolean(s?.trim()))
-  if (segreti.length) {
+  // ⚠️⚠️ SENZA SEGRETI SI CHIUDE, NON SI APRE. Prima la verifica stava dentro un
+  // `if (segreti.length)`: a segreti vuoti il blocco non veniva eseguito e si
+  // arrivava dritti allo smistamento, cioè chiunque conoscesse questo indirizzo
+  // — che non è segreto, sta scritto in chiaro in Impostazioni ed è registrato
+  // su developers.facebook.com — poteva inventare messaggi a nome di qualunque
+  // numero e far partire risposte vere ai clienti dal nostro WhatsApp.
+  //
+  // ⚠️ Non era teoria e non serviva un attacco: bastava un clic. La casella
+  // «Cancella il valore salvato» accanto all'App Secret spegneva la verifica
+  // **senza spegnere il webhook** — un guasto che si manifesta come «tutto a
+  // posto». E fino al 27/08/2026 quella casella la poteva usare chiunque, anche
+  // un operatore. Stessa cosa cambiando `APP_SECRET`: i segreti cifrati
+  // diventano illeggibili, `leggiImpostazioni` torna stringa vuota, e chi ha
+  // ruotato la chiave per prudenza avrebbe aperto il webhook al mondo.
+  //
+  // ⚠️ 503 e non 401: non è «la tua firma è sbagliata», è «questa app non è
+  // configurata per ricevere». Meta riprova, e i cron fanno già così.
+  if (!segreti.length) {
+    await annotaChiamata(
+      'nessun App Secret configurato: rifiuto tutto. Senza un segreto la firma non è verificabile, e senza firma chiunque potrebbe scrivere in inbox. Metti l’App Secret in Impostazioni.'
+    )
+    return new NextResponse('Webhook non configurato', { status: 503 })
+  }
+  {
     const firma = req.headers.get('x-hub-signature-256') || ''
     const inviata = Buffer.from(firma)
     const combacia = segreti.some((segreto) => {

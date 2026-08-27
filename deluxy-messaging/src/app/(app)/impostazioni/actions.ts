@@ -2,6 +2,8 @@
 
 import { redirect } from 'next/navigation'
 import { salvaImpostazione } from '@/lib/impostazioni'
+import { soloAmministratore } from '@/lib/sessione'
+import { CAMPI_INDIRIZZO, indirizzoAmmesso } from '@/lib/indirizzi-app'
 
 // Campi "segreti": se il form li lascia vuoti, il valore salvato resta com'è
 // (così non serve reincollare i token a ogni modifica).
@@ -60,11 +62,21 @@ const IN_CHIARO = [
  * nessuno.
  */
 export async function salvaECollegaGoogle(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   await scriviTutto(formData)
   redirect('/api/google/connetti')
 }
 
 export async function salvaImpostazioni(formData: FormData) {
+  // ⚠️⚠️ Una server action è un ENDPOINT: nascondere la voce di menu non
+  // impedisce a nessuno di chiamarla. Il cancello sta qui dentro, in ogni
+  // azione, non solo nella pagina — vedi il motivo per esteso in
+  // `src/lib/sessione.ts`.
+  await soloAmministratore()
   await scriviTutto(formData)
   redirect('/impostazioni?salvato=1')
 }
@@ -73,7 +85,12 @@ export async function salvaImpostazioni(formData: FormData) {
 async function scriviTutto(formData: FormData) {
   for (const chiave of IN_CHIARO) {
     const v = formData.get(chiave)
-    if (typeof v === 'string') await salvaImpostazione(chiave, v.trim())
+    if (typeof v !== 'string') continue
+    // ⚠️ Un indirizzo non ammesso NON si scrive, e non si scrive nemmeno a metà:
+    // si salta e si lascia quello di prima. Meglio un'impostazione che non
+    // cambia che una chiave che parte verso un server sconosciuto.
+    if (CAMPI_INDIRIZZO.has(chiave) && !indirizzoAmmesso(v)) continue
+    await salvaImpostazione(chiave, v.trim())
   }
   for (const chiave of SEGRETI) {
     // La cancellazione viene prima: se qualcuno spunta «cancella» e per abitudine
@@ -115,20 +132,41 @@ async function scriviTutto(formData: FormData) {
     if (typeof testo === 'string') await salvaImpostazione('primoContattoTesto', testo.trim())
   }
 
+  // ── Piattaforma consegne ──
+  //
+  // ⚠️ L'indirizzo passa dallo stesso filtro degli altri (`indirizzoAmmesso`):
+  // anche verso la piattaforma parte una chiave nell'header.
+  {
+    const v = formData.get('piattaformaUrl')
+    if (typeof v === 'string' && indirizzoAmmesso(v)) await salvaImpostazione('piattaformaUrl', v.trim())
+  }
+  // ⚠️⚠️ La chiave adesso è un `CampoSegreto`, e i campi segreti seguono la
+  // regola dei segreti: **vuoto vuol dire «non l'ho toccata»**, non «cancellala»
+  // — il campo arriva sempre vuoto perché il valore non viene mai stampato a
+  // video. Per cancellarla c'è la casella «Cancella il valore salvato», come per
+  // tutte le altre quindici. Scritta come prima (`if typeof v === 'string'`),
+  // il primo salvataggio della pagina l'avrebbe azzerata in silenzio.
+  if (formData.get('svuota_piattaformaApiKey') === '1') {
+    await salvaImpostazione('piattaformaApiKey', '')
+  } else {
+    const k = formData.get('piattaformaApiKey')
+    if (typeof k === 'string' && k.trim()) await salvaImpostazione('piattaformaApiKey', k.trim())
+  }
+
   // ── Fuori turno risponde l'AI ──
   //
   // ⚠️⚠️ Stesso meccanismo del primo contatto, e qui pesa ancora di più: è
   // l'interruttore di un'app che scrive ai clienti da sola, di notte. Senza il
   // segnale di sezione una casella non spuntata non arriverebbe nella form, e la
   // funzione una volta accesa non si potrebbe più spegnere.
-  // ── Piattaforma consegne ──
-  // ⚠️ Campi normali (non caselle): si salvano solo se arrivano, come le altre
-  // chiavi. Un campo assente non deve cancellare quello che c'era.
-  for (const chiave of ['piattaformaUrl', 'piattaformaApiKey']) {
-    const v = formData.get(chiave)
-    if (typeof v === 'string') await salvaImpostazione(chiave, v.trim())
-  }
-
+  //
+  // ⚠️⚠️ E questa riga era il BUCO più imbarazzante dei tre: `/api/ai-fuori-turno`
+  // riserva all'amministratore l'accensione con un 403 e un commento che spiega
+  // perché — «è una decisione di chi risponde di quello che l'azienda dice» — e
+  // qui la stessa chiave si scriveva senza chiedere niente a nessuno. Il cron
+  // gira ogni dieci minuti, quindi non serviva nemmeno far partire il giro a
+  // mano: bastava accendere e aspettare. Adesso il cancello sta in cima
+  // all'azione, come nell'altra porta.
   if (formData.get('sezioneAiFuoriTurno') === '1') {
     await salvaImpostazione('aiFuoriTurnoAttivo', formData.get('aiFuoriTurnoAttivo') ? 'si' : '')
   }

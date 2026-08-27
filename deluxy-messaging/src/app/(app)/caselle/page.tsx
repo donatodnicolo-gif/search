@@ -4,10 +4,15 @@ import { ProvaCasella } from '@/components/ProvaCasella'
 import { RismistaMail } from '@/components/RismistaMail'
 import { eliminaCasellaAction, salvaCasellaAction, salvaMittentiIgnoratiAction } from './actions'
 import { elencoMittentiIgnorati } from '@/lib/mittenti-ignorati'
+import { soloAmministratore } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PaginaCaselle() {
+  // ⚠️ Il cancello sta ANCHE qui, non solo nelle azioni: senza, la pagina si
+  // apre e mostra la configurazione — nomi di host, caselle, numeri, quali
+  // segreti sono impostati — anche a chi poi non potrebbe salvarla.
+  await soloAmministratore()
   const [caselle, negozi, mittentiIgnorati] = await Promise.all([
     db.casellaEmail.findMany({ orderBy: [{ predefinita: 'desc' }, { indirizzo: 'asc' }] }),
     db.negozioShopify.findMany({
