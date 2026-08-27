@@ -153,6 +153,24 @@ Sessione di sola lettura (handoff → memoria). Misurato su
   `whatsappNumero` in Impostazioni, e `AppSetting.marginiUltimaCorsa`.
 
 
+### 🚪 27/08/2026 — La casa del partner era nel menu dell'ufficio
+
+Segnalato dall'utente con uno screenshot: entrato come **Ada Admin**, la prima
+voce della sidebar era «Servizi Deluxy» e portava alla vetrina **«Che cosa ti
+serve? Scegli il servizio che vuoi richiedere»** — una pagina scritta per chi
+sta dall'altra parte e chiede un preventivo a Deluxy. Con sopra, per giunta,
+l'avviso che il collegamento a Scout non è configurato.
+
+`/home` e la sua voce di menu sono ora **solo del PARTNER** (`app.routes.ts` e
+`shell.component.ts`). L'ufficio le richieste dei partner le vede in
+**Preventivi**, che è la sua pagina; dopo il login ADMIN e OPERATION continuano
+ad atterrare su `/deliveries`. Il VALET non aveva né la voce né la rotta, e
+resta così. Commit `861ba803`, deploy `delivery-pfe1qchk1` Ready.
+
+⭐ **DECISO dall'utente (27/08): admin, operation e valet NON hanno una home, e
+va bene così.** La loro pagina d'apertura è la lista su cui lavorano. Non serve
+un cruscotto: chi la ripropone rilegga questa riga prima di costruirlo.
+
 ### 🎨 27/08/2026 — Esame UX/UI desktop e mobile, ognuno con il suo agente ostile
 
 Metodo: due agenti hanno esaminato il layout (uno desktop, uno mobile) contro il
