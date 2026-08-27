@@ -427,17 +427,25 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
       continue
     }
 
-    // ⚠️ Se una domanda su questa conversazione è già aperta, non se ne fa
-    // un'altra: l'amministratore riceverebbe lo stesso dubbio ogni cinque
-    // minuti, e dopo tre volte smetterebbe di guardare gli avvisi.
+    // ⚠️⚠️ UNA DOMANDA APERTA NON SPEGNE PIÙ L'AI SU QUEL CLIENTE.
+    //
+    // Prima qui si usciva e basta, e il difetto si è visto provando (27/08/2026):
+    // un cliente scrive «sono io», l'AI non trova uno script adatto e chiede
+    // all'amministratore — giusto. Poi lo stesso cliente scrive «hi», che l'AI
+    // saprebbe gestire benissimo («First contact»), e **veniva saltato**. Cioè
+    // **un solo messaggio incomprensibile spegneva l'AI su quel cliente per
+    // sempre**, anche per tutti i messaggi che poi avrebbe saputo gestire.
+    //
+    // La regola giusta è più stretta di com'era: la domanda aperta deve fermare
+    // **una seconda domanda**, non **la risposta a un messaggio nuovo**.
+    // Adesso si prosegue: se l'AI sa rispondere, risponde; se non sa, non apre
+    // una domanda nuova ma **aggiunge un seguito a quella aperta** — che è la
+    // cosa che il freno voleva ottenere (non tempestare l'amministratore) senza
+    // l'effetto collaterale di lasciare il cliente senza risposta.
     const domandaAperta = await db.domandaAiuto.findFirst({
       where: { conversazioneId: c.id, stato: 'aperta' },
+      orderBy: { creatoIl: 'desc' },
     })
-    if (domandaAperta) {
-      esito.saltate++
-      esito.righe.push(`${nome}: c’è già una domanda aperta all’amministratore`)
-      continue
-    }
 
     const testo = (ultimo.testo ?? '').trim()
     if (!testo) {
@@ -478,6 +486,27 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
     // la ragione per cui questa funzione può stare accesa di notte.
     if (!proposta.suggerimento) {
       esito.domande++
+      if (domandaAperta) {
+        // ⚠️⚠️ SEGUITO, non una domanda nuova. Il filo è già aperto e ha già il
+        // suo codice: aprirne un secondo vorrebbe dire due conversazioni
+        // parallele sullo stesso cliente, e chi risponde dal telefono non
+        // saprebbe a quale delle due sta rispondendo.
+        esito.righe.push(`${nome}: ancora un dubbio → lo aggiungo alla domanda già aperta`)
+        if (opz.prova) continue
+        await db.messaggioAiuto.create({
+          data: {
+            domandaId: domandaAperta.id,
+            autore: 'sistema',
+            autoreNome: 'AI fuori turno',
+            testo: `Ha scritto ancora: «${testo.slice(0, 400)}»`,
+          },
+        })
+        await avvisaAmministratore(
+          domandaAperta.id,
+          `${nome} ha scritto ancora: «${testo.slice(0, 400)}»`
+        )
+        continue
+      }
       esito.righe.push(`${nome}: dubbio → chiedo all’amministratore`)
       if (opz.prova) continue
       const domanda = await db.domandaAiuto.create({
@@ -492,6 +521,11 @@ export async function giroAiFuoriTurno(opz: { prova?: boolean } = {}): Promise<E
           // deve sapere che dall'altra parte non c'è nessuno che aspetta al
           // computer, e che il cliente non ha ancora ricevuto niente.
           utenteNome: 'AI fuori turno',
+          // ⚠️⚠️ QUESTO È IL PERMESSO: con `perIlCliente` la risposta che
+          // l'amministratore scrive dal telefono viene **girata al cliente**.
+          // È un campo suo e non si deduce da `utenteNome`: un'etichetta da
+          // mostrare a schermo non è un permesso.
+          perIlCliente: true,
         },
       })
       await avvisaAmministratore(domanda.id)

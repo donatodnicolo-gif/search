@@ -5,6 +5,7 @@ import { leggiImpostazioni } from '@/lib/impostazioni'
 import { linguaDelTesto } from '@/lib/lingua-testo'
 import { attaccaReazione } from '@/lib/reazioni'
 import { confermaSuWhatsApp, rispostaDaWhatsApp } from '@/lib/aiuto-whatsapp'
+import { giraRispostaAlCliente } from '@/lib/gira-al-cliente'
 import { rispostaDiPrimoContatto } from '@/lib/primo-contatto'
 
 export const dynamic = 'force-dynamic'
@@ -344,6 +345,26 @@ async function gestisciWhatsApp(corpo: MetaWebhook) {
             citato: msg.context?.id ?? '',
           })
           if (esito.trovata) {
+            // ── E SE LA DOMANDA ERA PER UN CLIENTE, LA RISPOSTA GLI ARRIVA ──
+            //
+            // ⚠️⚠️ Chiesto dall'utente il 27/08/2026: «l'AI chiede a me, le
+            // rispondo e lei gira la risposta al cliente». Fino a qui il giro si
+            // fermava un passo prima: la risposta si registrava nel filo e il
+            // cliente non riceveva niente — e nessuno se ne accorgeva, perché
+            // sul telefono arrivava comunque «Risposta registrata».
+            //
+            // ⚠️ La conferma dice **cosa** è partito e **a chi**, o perché no.
+            // È l'unica difesa contro il caso peggiore: aver risposto a un
+            // cliente sbagliato e non saperlo.
+            if (esito.perIlCliente) {
+              const giro = await giraRispostaAlCliente(esito.domandaId, esito.risposta)
+              await confermaSuWhatsApp(
+                giro.mandato
+                  ? `Mandato a ${giro.a} (${giro.canale}): «${giro.testo.slice(0, 120)}${giro.testo.length > 120 ? '…' : ''}»`
+                  : `Registrata (${esito.codice}) ma AL CLIENTE NON è andata: ${giro.motivo}.`
+              )
+              continue
+            }
             await confermaSuWhatsApp(
               `Risposta registrata (${esito.codice}). ${esito.chiHaChiesto || 'Chi ha chiesto'} la vede nel pannello Aiuto.`
             )

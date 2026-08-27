@@ -1798,6 +1798,20 @@ model DomandaAiuto {
    * La conversazione da cui è partita, quando parte dall'inbox.
    */
   conversazioneId String @default("")
+  /**
+   * QUESTA DOMANDA NASCE PER UN CLIENTE CHE ASPETTA.
+   *
+   * ⚠️⚠️ Vera solo quando la apre l'AI fuori turno: quello che l'amministratore
+   * risponde su WhatsApp viene GIRATO AL CLIENTE. Se un operatore chiede aiuto
+   * per conto suo la risposta resta interna, e mandarla a un cliente sarebbe
+   * spedire una nota di lavoro a chi ha comprato dei fiori.
+   *
+   * ⚠️ È un campo suo e non si deduce da `utenteNome === "AI fuori turno"`:
+   * un'etichetta da mostrare a schermo non è un permesso, e il giorno che
+   * qualcuno la cambia per farla più bella l'automatismo cambierebbe
+   * comportamento senza che nessuno colleghi le due cose.
+   */
+  perIlCliente Boolean @default(false)
 
   utenteId   String @default("")
   utenteNome String @default("")

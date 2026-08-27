@@ -99,6 +99,36 @@ export async function avvisaAmministratore(domandaId: string, seguito?: string):
   if (!d) return
 
   const codice = d.codice || codiceDa(d.id)
+  // ── CHI STA ASPETTANDO DALL'ALTRA PARTE ──
+  //
+  // ⚠️⚠️ Quando la domanda nasce per un cliente, quello che si risponde **va al
+  // cliente**. Deve essere scritto nel messaggio, in chiaro e prima della
+  // risposta: chi legge dal telefono, in piedi, non può ricordarsi che questa
+  // richiesta si comporta diversamente dalle altre.
+  //
+  // ⚠️ E si dice IN CHE LINGUA ha scritto il cliente: la risposta si gira com'è,
+  // non tradotta (riscriverla vorrebbe dire mandargli una frase che
+  // l'amministratore non ha mai scritto), quindi la scelta della lingua è sua e
+  // deve poterla fare.
+  let perCliente: string[] = []
+  if (d.perIlCliente && d.conversazioneId) {
+    const c = await db.conversazione.findUnique({
+      where: { id: d.conversazioneId },
+      select: { nome: true, idEsterno: true, canale: true },
+    })
+    const ultimo = await db.messaggio.findFirst({
+      where: { conversazioneId: d.conversazioneId, direzione: 'in' },
+      orderBy: { creatoIl: 'desc' },
+      select: { lingua: true },
+    })
+    if (c) {
+      perCliente = [
+        `⚠️ Quello che rispondi lo MANDO AL CLIENTE: ${c.nome || c.idEsterno} (${c.canale}${ultimo?.lingua ? `, scrive in ${ultimo.lingua}` : ''}).`,
+        'Se invece è una nota per noi, comincia con "INTERNO".',
+      ]
+    }
+  }
+
   // ⚠️ Un messaggio successivo si annuncia come tale: «AIUTO K37ZP (ancora)».
   // Senza, sul telefono sembrerebbe una richiesta nuova, e chi risponde
   // ricomincerebbe da capo una conversazione già a metà.
@@ -109,11 +139,16 @@ export async function avvisaAmministratore(domandaId: string, seguito?: string):
     '',
     seguito ?? d.testo,
     '',
+    ...perCliente,
+    ...(perCliente.length ? [''] : []),
     // ⚠️ Le due strade sono scritte nel messaggio: chi risponde dal telefono, in
     // piedi, non si ricorda una convenzione che non ha davanti.
     `Per rispondere: cita questo messaggio, oppure scrivi "${codice} " seguito dalla risposta.`,
   ]
-    .filter((r) => r !== '')
+    // ⚠️ Le righe vuote messe APPOSTA si tengono (separano i blocchi), i campi
+    // assenti no: `filter(Boolean)` non sa distinguerli e attaccherebbe tutto
+    // in un blocco unico — già successo, e visto sul telefono provando.
+    .filter((r, i, a) => r !== '' || (i > 0 && a[i - 1] !== ''))
     .join('\n')
 
   try {
@@ -145,7 +180,16 @@ async function segna(id: string, codice: string, waId: string, esito: string) {
 }
 
 export type EsitoRispostaWa =
-  | { trovata: true; domandaId: string; codice: string; chiHaChiesto: string }
+  | {
+      trovata: true
+      domandaId: string
+      codice: string
+      chiHaChiesto: string
+      /** ⚠️ Vera = quello che ha scritto va girato al cliente che aspetta. */
+      perIlCliente: boolean
+      /** Il testo della sola risposta, senza il codice in testa. */
+      risposta: string
+    }
   | { trovata: false }
 
 /**
@@ -224,6 +268,11 @@ export async function rispostaDaWhatsApp(opz: {
     domandaId: domanda.id,
     codice: domanda.codice,
     chiHaChiesto: domanda.utenteNome,
+    perIlCliente: domanda.perIlCliente,
+    // ⚠️ La risposta RIPULITA: col codice in testa («A7K2C la consegna si fa»)
+    // il cliente si vedrebbe arrivare anche il codice, che per lui non vuol
+    // dire niente e sembra un errore.
+    risposta,
   }
 }
 
