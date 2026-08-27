@@ -1,5 +1,52 @@
 # Handoff — Deluxy Customer Service
 
+## 27/08/2026 (9) — ancorando le eccezioni avevo spento widget.js su tre siti
+
+⚠️⚠️ **DIFETTO MIO, di poche ore prima, e in produzione.** Ancorare le eccezioni
+del matcher chiudeva un rischio latente vero (un percorso che COMINCIA con
+«chat» o «widget» nasceva pubblico) — ma **`widget.js` passava proprio grazie a
+quel prefisso**. Ancorato, `widget` pretende `/` o fine stringa e `widget.js` ha
+un punto: finito dietro al cancello, **307 verso /login**. Cioè lo script che i
+tre siti dei clienti caricano con `<script src="…/widget.js">` non si caricava
+più, e la chat spariva da tutti e tre.
+
+⚠️ **Il guasto non dà nessun errore**: nessun 500, nessuna riga di log — uno
+script che non arriva, su un sito che non è questo. Si scopre tardi.
+
+⚠️ Ed era passato la verifica: avevo provato `/loginX`, `/chat-interna`,
+`/widget-statistiche` — **tutti i falsi positivi, nessun file statico**. Provare
+solo il verso «adesso è protetto» lascia scoperto il verso «adesso non lo è più».
+
+Adesso `widget.js` è un'eccezione esplicita, e **una prova lo tiene**: la suite
+legge il matcher DAL FILE, lo applica ai percorsi veri e controlla tutti e due i
+versi. ⚠️ Il matcher nel sorgente è un letterale JS (`\.` sono due caratteri lì
+e uno a runtime): senza il `replace` si proverebbe una regex diversa da quella
+che gira.
+
+### E le quattro intestazioni di sicurezza
+
+L'agente ostile ha chiuso il suo ultimo caveat verificandolo invece di
+assumerlo: **`vercel.app` è nella Public Suffix List** (sottomesso da Vercel),
+quindi `deluxy-messaging.vercel.app` è un dominio registrabile a sé e le altre
+app Deluxy su `*.vercel.app` sono **cross-site**. Il clickjacking oggi **non
+funziona**: il cookie `SameSite=Lax` non parte in un iframe di terzi e
+l'attaccante incornicia una pagina di login.
+
+⚠️ Ma quella protezione è **gratuita e fragile**: il giorno che l'app passa a un
+dominio proprio (`cs.deluxy.it`), `www.deluxy.it` e ogni altra app sullo stesso
+dominio registrabile diventano *same-site*, il cookie Lax parte anche
+nell'iframe, e il clickjacking diventa reale **senza che nessuno tocchi questo
+repo**. Quindi le intestazioni ci sono.
+
+⚠️⚠️ **Il `source` esclude il widget e il suo script, ancorato.** Una regola larga
+(`/(.*)`) metterebbe `DENY` anche sul widget — e il widget dentro l'iframe dei
+clienti **è il prodotto**: sarebbe una correzione di sicurezza che spegne una
+funzione che funziona. Verificato in produzione: `/widget` e `/widget.js` senza
+`X-Frame-Options` e col loro `frame-ancestors *`, tutto il resto con `DENY`,
+`nosniff` e `Referrer-Policy`.
+
+Commit `53b38897`, deployato. `prova-sicurezza.mts` **67/67**.
+
 ## 27/08/2026 (8) — revisione di sicurezza: 23 accuse, 4 agenti, 11 correzioni
 
 Chiesto dall'utente: verificare se un utente può arrivare a informazioni che non
