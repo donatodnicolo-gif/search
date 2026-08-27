@@ -91,7 +91,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: spacing.lg },
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.lg,
+    // Card-firma del login: radius 24 (DS §4, Libro UX cap.11), non 18.
+    // ⚠️ DEFERITO: il vetro/blur (expo-blur non installato) e i due radial-gradient
+    // (oro alto-sx, ink basso-dx) restano da fare — richiedono una dipendenza nuova.
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.hairline,
     padding: spacing.xl,

@@ -1,7 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, touchMin } from '@/lib/theme';
 
 /**
  * Contenitore dei filtri di una lista, richiudibile.
@@ -79,6 +79,8 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 7,
+    // Bersaglio touch ≥44px (Libro UX cap.10 §1 / WCAG): prima ~33px.
+    minHeight: touchMin,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,

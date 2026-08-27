@@ -173,7 +173,7 @@ interface VenditaSceglibile {
 const ETICHETTA_VENDITA: Record<TipoVendita, { label: string; icona: any; colore: string }> = {
   trattativa: { label: 'Trattativa', icona: 'briefcase-outline', colore: colors.navy },
   richiesta: { label: 'Richiesta', icona: 'chatbubble-ellipses-outline', colore: colors.goldStrong },
-  ordine: { label: 'Ordine', icona: 'receipt-outline', colore: '#2F7D46' },
+  ordine: { label: 'Ordine', icona: 'receipt-outline', colore: colors.successo },
 };
 
 /** Il form del nuovo lavoro: titolo obbligatorio, il resto aiuta e basta. */

@@ -42,10 +42,12 @@ const LABEL_ESITO: Record<string, string> = {
   chiuso: 'Chiuso',
 };
 
+// Token semantici del DS (Libro UX cap.5), non hex Material: un solo verde/
+// arancione/rosso in tutta l'app.
 const COLORE_ESITO: Record<string, string> = {
-  interessato: '#2F7D46',
-  da_richiamare: '#B7791F',
-  non_interessato: '#B3261E',
+  interessato: colors.successo,
+  da_richiamare: colors.attenzione,
+  non_interessato: colors.errore,
 };
 
 /** "il 12 lug", per dire quando è stata fatta senza pesare sulla riga. */

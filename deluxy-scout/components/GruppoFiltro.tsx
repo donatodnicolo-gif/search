@@ -8,7 +8,7 @@
 // che va cancellata.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius } from '@/lib/theme';
+import { colors, radius, touchMin } from '@/lib/theme';
 
 export function GruppoFiltro({
   titolo,
@@ -116,6 +116,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    // Bersaglio touch ≥44px (Libro UX cap.10 §1 / WCAG): prima ~31px.
+    minHeight: touchMin,
     borderRadius: radius.pill,
   },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },

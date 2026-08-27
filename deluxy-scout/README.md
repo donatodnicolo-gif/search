@@ -511,3 +511,76 @@ zero.
 societari, IBAN). Si passa il brand **per nome** — `brand: 'cakedesign.me'` —
 senza conoscere codici interni; senza, di là si usa il predefinito. I template si
 fanno in FINANCE → *Template documenti*, che è dove il documento viene disegnato.
+
+## Design system e deroghe UX annotate (28/08/2026)
+
+Scout segue il **Deluxy Design System** ([../deluxy-design-system/DESIGN-SYSTEM.md](../deluxy-design-system/DESIGN-SYSTEM.md),
+v1.4) per i materiali (token, colori, ombre) e i **due Libri** — il **Libro UX&UI**
+e il **Libro della Sicurezza** — per i pattern. I due Libri vivono nel repo privato
+`app/` (`deluxy-design-system/LIBRO-UX-UI.md`), perché questo repo (`scoutwt`) è
+**pubblico**: non ci si copiano dettagli d'uso sensibili.
+
+### Custode del layout
+
+Ogni errore di UI o richiesta di cambiamento dell'interfaccia passa dal custode
+(`architetto-ux`) attraverso il registro `SEGNALAZIONI-UX.md` del repo `app/`: è
+lui a decidere se è una correzione locale, una regola nuova del Libro (valida per
+tutte le app) o una **deroga da annotare qui**.
+
+### Le deroghe di Scout (motivo + voce del Libro derogata)
+
+Una deroga non scritta è indistinguibile da un errore, e in audit si tratta da bug
+(DS §6, Libro UX cap.12). Scout ne dichiara tre:
+
+1. **Pin della mappa colorati per PRIORITÀ, con P1 in ORO** (`lib/theme.ts`
+   `coloreProprita`, `app/(app)/mappa.tsx`). Deroga al **Libro UX cap.5** («l'oro
+   non è mai uno stato»): sulla mappa il colore del pin è la *priorità* (P1/P2/P3),
+   non uno stato di processo, e lo stato viaggia sul **glifo** sovrapposto (○ ◐ ★ ✕,
+   `iconaStato`) più la legenda — così il colore non è mai l'unico segnale (WCAG
+   1.4.1). L'oro qui è l'accento brand della priorità massima, coerente con l'uso
+   dell'oro come accento (avatar, focus, polyline del giro), non come stato.
+
+2. **La tabella non si «strizza»: sotto i 900px si SOSTITUISCE con le schede**
+   (`components/Tabella.tsx` non si monta sotto soglia; si montano `CardElenco`).
+   È il canone RN del **Libro UX cap.8** (in React Native la tabella non si adatta,
+   si sostituisce) — lo si annota perché su Scout la soglia è un unico numero
+   documentato (900px) e chi arriva dal mondo web si aspetta lo scroll orizzontale,
+   che qui è **vietato**.
+
+3. **`spacing` locale in collisione col DS** (`lib/theme.ts`: `md/lg/xl` =
+   16/24/32; il DS dice 12/16/20). Deroga governata dal **Libro UX cap.12**: NON si
+   fa lo swap secco dell'import né si cambiano i valori — 44 schermate
+   cambierebbero in silenzio. Le chiavi si rinomineranno prima, in una migrazione
+   verificata. Nel frattempo i token nuovi del DS v1.4 (tinte `-soft`, `onInk`,
+   `grey`, `touchMin`, `typography`, `motion`) sono stati aggiunti in modo
+   **additivo** a `lib/theme.ts` e si usano nelle correzioni mirate.
+
+### Adeguamento UX del 28/08/2026 (correzioni mirate)
+
+- **Barra di stato**: da `style="light"` (ora/batteria invisibili su header
+  bianchi) a `style="dark"` — Libro UX cap.10 §8.
+- **Colori di stato dai token semantici**: eliminati gli hex «ombra Material»
+  (`#2F7D46/#1F6FEB/#5B8DEF/#B7791F/#B3261E`) da badge e livelli (`lib/livelli.ts`,
+  `visite`, `ordini`, `preventivi`, `CoperturaProvince`, `coloreAffiliazione`) —
+  ora un solo verde/blu/arancione/rosso in tutta l'app (Libro UX cap.5).
+- **Oro tolto dagli stati di processo**: `in_trattativa` → blu «in lavorazione»;
+  chip cross-sell selezionato → selezione neutra invece dell'oro pieno (cap.5).
+- **Bersagli touch ≥44px**: chip filtro, azioni rapide, bottone Filtri e il `Btn`
+  canonico portati a `minHeight: touchMin` (cap.10 §1 / WCAG 2.5.5).
+- **Card del login**: radius 24 (era 18), Libro UX cap.11.
+
+### Deferito (annotato, non forzato)
+
+- **Vetro/blur e radial-gradient del login**: richiedono `expo-blur` (non
+  installato) e i due gradienti oro/ink — Libro UX cap.11. Da fare con la
+  dipendenza.
+- **Adozione del componente `Btn` in ~44 schermate** (oggi usato 1 volta): 461
+  `Pressable` a mano senza stato `pressed` — refactor ampio (Libro UX cap.3).
+- **Indicatore di rete globale + coda visibile dalla home** (quinto stato
+  «offline» del cap.6): il motore `syncQueue` c'è, manca la spia.
+- **Swap dei token/import** e **rinomina delle chiavi `spacing`**: migrazione
+  verificata a parte (cap.12), mai in un colpo secco.
+- **`grigioChiaro` → hairline trasparente**: tocca il bordo di *tutte* le card,
+  va valutato a parte (Libro UX cap.10 / DS).
+- **ScrollView annidate nei fogli** e **`behavior` esplicito del
+  KeyboardAvoidingView su Android** (cap.9, cap.10 §5).

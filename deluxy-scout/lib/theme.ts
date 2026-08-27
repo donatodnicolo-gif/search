@@ -35,7 +35,28 @@ export const colors = {
   errore: '#D70015', // red
   blue: '#0071E3',
   purple: '#6D3FC4',
+  // ─── Token AGGIUNTI dal DS v1.4 (28/08/2026, allineamento UX) ──────────────
+  // Tinte «-soft» dei semantici: sfondo dei badge a pillola (testo = colore pieno,
+  // sfondo = 9–12%). Nomi DS + alias italiani coerenti coi semantici locali.
+  blueSoft: 'rgba(0, 113, 227, 0.10)',
+  greenSoft: 'rgba(36, 138, 61, 0.11)',
+  orangeSoft: 'rgba(201, 52, 0, 0.10)',
+  redSoft: 'rgba(215, 0, 21, 0.09)',
+  purpleSoft: 'rgba(109, 63, 196, 0.10)',
+  successoSoft: 'rgba(36, 138, 61, 0.11)',
+  attenzioneSoft: 'rgba(201, 52, 0, 0.10)',
+  erroreSoft: 'rgba(215, 0, 21, 0.09)',
+  goldSoftStrong: 'rgba(184, 150, 62, 0.20)',
+  // Testo/icone su superfici scure (ink/oro).
+  onInk: '#FFFFFF',
+  // Stato neutro/terminato (annullata, archiviata, bozza). Distinto da `grigio`,
+  // che è il text-tertiary: qui è il grigio-STATO del DS (`grey`).
+  grey: '#8A8A8E',
 } as const;
+
+// Bersaglio minimo su touch (HIG 44pt / Material 48dp): min-height/area di ogni
+// elemento interattivo. DS v1.4. ADDITIVO: usalo sui bersagli piccoli.
+export const touchMin = 44;
 
 export const spacing = {
   xs: 4,
@@ -51,6 +72,31 @@ export const radius = {
   lg: 18,
   xl: 24, // card hero/login (DS)
   pill: 980, // valore canonico DS
+} as const;
+
+// I sette ruoli tipografici del DS v1.4 (titleXl…label). ADDITIVO: le 44 schermate
+// storiche hanno dimensioni e pesi hardcoded; questi token sono a disposizione per
+// il codice nuovo e per le correzioni mirate, senza riscrivere ciò che già va.
+export const typography = {
+  titleXl: { fontSize: 32, fontWeight: '600' as const, letterSpacing: -0.8 },
+  titleL: { fontSize: 24, fontWeight: '600' as const, letterSpacing: -0.5 },
+  titleM: { fontSize: 19, fontWeight: '600' as const, letterSpacing: -0.38 },
+  body: { fontSize: 15, fontWeight: '400' as const },
+  bodyS: { fontSize: 14, fontWeight: '400' as const },
+  caption: { fontSize: 13, fontWeight: '400' as const },
+  label: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    letterSpacing: 0.66,
+    textTransform: 'uppercase' as const,
+  },
+} as const;
+
+// Motion del DS v1.4: durata e scala della pressione. Da usare sui Pressable
+// nuovi (oggi 461 senza stato pressed — vedi Libro UX cap. 3).
+export const motion = {
+  durationPress: 150,
+  pressScale: 0.97,
 } as const;
 
 // Due sole ombre (DS): card e float. Morbide, mai dure.
@@ -171,12 +217,17 @@ export const labelAffiliazione: Record<StatoAffiliazione, string> = {
 };
 
 export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
-  // Stesso grigio del badge SELEZIONATO nelle liste (lib/livelli.ts): è lo
-  // stesso concetto, deve avere lo stesso colore.
-  selezionato: '#8A8A8E',
-  lead: '#5B8DEF',
+  // Stesso grigio-stato del badge SELEZIONATO nelle liste (lib/livelli.ts →
+  // colors.grey): è lo stesso concetto, deve avere lo stesso colore.
+  selezionato: colors.grey,
+  // «In lavorazione» come il lead della scala Scout: blu semantico, non un
+  // azzurro Material a parte (#5B8DEF).
+  lead: colors.blue,
   prospect: colors.grigio,
-  in_trattativa: colors.oro,
+  // ⚠️ D23 (Libro UX cap.5): l'ORO NON È MAI UNO STATO. «In trattativa» = ha
+  // risposto, c'è una trattativa aperta → è «in lavorazione» → blu semantico.
+  // L'oro resta solo come ACCENTO brand (avatar, focus, polyline del giro).
+  in_trattativa: colors.blue,
   attivo: colors.successo,
   dismesso: colors.grigio,
 };

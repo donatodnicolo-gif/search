@@ -409,7 +409,7 @@ function Chip({ label, on, onPress, standby }: { label: string; on: boolean; onP
       onPress={onPress}
       style={[styles.chip, on && (standby ? styles.chipStandbyOn : styles.chipOn)]}
     >
-      <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{label}</Text>
+      <Text style={[styles.chipTxt, on && (standby ? styles.chipTxtStandbyOn : styles.chipTxtOn)]}>{label}</Text>
     </Pressable>
   );
 }
@@ -463,9 +463,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
-  chipStandbyOn: { backgroundColor: colors.oro, borderColor: colors.oro },
+  // ⚠️ D23 (Libro UX cap.5): l'oro non è uno stato di selezione. Il cross-sell
+  // «in standby» si distingue dalla linea primaria (navy pieno) con una selezione
+  // NEUTRA — fill grigio + bordo marcato + testo scuro — non con l'oro brand.
+  chipStandbyOn: { backgroundColor: colors.fillActive, borderColor: colors.hairlineStrong },
   chipTxt: { color: colors.navy, fontWeight: '700' },
   chipTxtOn: { color: colors.bianco },
+  chipTxtStandbyOn: { color: colors.navy },
   // Solo da leggere: non si preme, e si vede che non si preme.
   chipFermo: {
     flexDirection: 'row',

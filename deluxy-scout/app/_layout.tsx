@@ -22,7 +22,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <StatusBar style="light" backgroundColor={colors.navy} />
+        {/* Gli header dell'app sono BIANCHI (headerStyle: colors.bianco in
+            (app)/_layout) e le schermate hanno sfondo chiaro: la barra di stato
+            va SCURA, o su iOS ora/batteria restano invisibili (Libro UX cap.10 §8,
+            bug osservato 28/08/2026). `backgroundColor` vale solo su Android. */}
+        <StatusBar style="dark" backgroundColor={colors.bianco} />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />

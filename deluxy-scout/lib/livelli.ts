@@ -36,6 +36,11 @@
 // rinomina non ha richiesto migrazioni.
 
 import type { Place } from '@/types';
+// I colori di stato vengono dai token semantici del DS (Libro UX cap.5): un solo
+// verde/blu/arancione/rosso in tutta l'app. Prima qui c'erano gli hex Material
+// (#2F7D46/#1F6FEB/#5B8DEF/#B7791F/#B3261E), che davano due verdi e due blu
+// diversi nella stessa schermata (segnalazione UX 28/08/2026).
+import { colors } from '@/lib/theme';
 
 export type Livello = 'selezionato' | 'lead' | 'prospect' | 'cliente' | 'dormiente';
 
@@ -101,7 +106,7 @@ export function statoCommerciale(p: Place): string | null {
 }
 
 export const LABEL_PERSO = 'Perso';
-export const COLORE_PERSO = '#B3261E';
+export const COLORE_PERSO = colors.errore;
 
 /**
  * Cliente **a rischio**: compra ancora, ma i segnali peggiorano.
@@ -119,7 +124,7 @@ export function aRischio(p: Place): boolean {
 }
 
 export const LABEL_A_RISCHIO = 'A rischio';
-export const COLORE_A_RISCHIO = '#B7791F';
+export const COLORE_A_RISCHIO = colors.attenzione;
 
 /**
  * Il livello di un negozio.
@@ -223,21 +228,23 @@ export function inLavorazione(p: Place, haContatto = false, contattato = false):
   return Boolean(p.creato_da) || Boolean(p.starred) || haContatto || contattato || Boolean(p.hubspot_ha_contatto);
 }
 
-/** Colore del badge: coerente col resto dell'app (verde chiuso, blu in corso). */
+/** Colore del badge: token semantici del DS (verde chiuso, blu in corso). Lead e
+ *  prospect condividono il blu «in lavorazione» — a distinguerli è l'etichetta di
+ *  testo del badge, non una seconda tinta (Libro UX cap.5: il colore mai da solo). */
 export function coloreLivello(l: Livello): string {
   switch (l) {
     case 'cliente':
-      return '#2F7D46';
+      return colors.successo;
     case 'prospect':
-      return '#1F6FEB';
-    // Il contatto è partito ma non è ancora arrivato a una persona: acceso
-    // quanto basta per distinguerlo da un selezionato fermo, non quanto un
-    // prospect.
+      return colors.blue;
+    // Il contatto è partito ma non è ancora arrivato a una persona: «in
+    // lavorazione» come il prospect (blu). Prima era un azzurro Material a parte
+    // (#5B8DEF): il DS non ha una seconda tinta di blu, e l'etichetta basta.
     case 'lead':
-      return '#5B8DEF';
+      return colors.blue;
     case 'dormiente':
-      return '#B7791F';
+      return colors.attenzione;
     default:
-      return '#8A8A8E';
+      return colors.grey;
   }
 }

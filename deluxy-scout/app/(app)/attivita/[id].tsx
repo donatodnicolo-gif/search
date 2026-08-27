@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Contact, Deal, Place, Priorita, Task, Visit } from '@/types';
 import { canonizzaLinee } from '@/types';
-import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
+import { colors, labelFase, labelStato, radius, spacing, touchMin } from '@/lib/theme';
 import { COLORE_A_RISCHIO, COLORE_PERSO, LABEL_A_RISCHIO, LABEL_LIVELLO, LABEL_PERSO, aRischio, coloreLivello, ePerso, livelloDi } from '@/lib/livelli';
 import { StatusBadge } from '@/components/ui';
 import { aggiornaNascosto, aggiornaPlace, completaTask, eliminaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati } from '@/lib/db';
@@ -995,6 +995,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingVertical: 7,
     paddingHorizontal: 11,
+    // Bersaglio touch ≥44px (Libro UX cap.10 §1 / WCAG): prima ~32px, senza hitSlop.
+    minHeight: touchMin,
   },
   azionePrimaria: { backgroundColor: colors.ink, borderColor: colors.ink },
   azioneOff: { opacity: 0.45 },

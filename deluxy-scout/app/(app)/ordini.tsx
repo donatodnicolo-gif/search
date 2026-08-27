@@ -22,10 +22,13 @@ import { avvisa, conferma } from '@/lib/dialoghi';
 import { BRAND, brandDi, CANALI, LABEL_CANALE, LINEE_ATTIVE } from '@/types';
 import { urlSchedaRegistro } from '@/lib/anagrafiche';
 
+// Colori di stato dai token semantici del DS (Libro UX cap.5): arancione = attende
+// un'azione, verde = concluso bene, rosso/neutro = terminato. Prima erano hex
+// Material, divergenti dal resto dell'app.
 const STATI: { valore: OrdineConLuogo['stato']; label: string; colore: string }[] = [
-  { valore: 'da_incassare', label: 'Da incassare', colore: '#B7791F' },
-  { valore: 'incassato', label: 'Incassato', colore: '#2F7D46' },
-  { valore: 'annullato', label: 'Annullato', colore: '#B3261E' },
+  { valore: 'da_incassare', label: 'Da incassare', colore: colors.attenzione },
+  { valore: 'incassato', label: 'Incassato', colore: colors.successo },
+  { valore: 'annullato', label: 'Annullato', colore: colors.grey },
 ];
 const labelStatoOrdine = Object.fromEntries(STATI.map((s) => [s.valore, s.label]));
 const coloreStatoOrdine = Object.fromEntries(STATI.map((s) => [s.valore, s.colore]));

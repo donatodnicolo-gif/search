@@ -4,7 +4,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, shadow, spacing } from '@/lib/theme';
+import { colors, radius, shadow, spacing, touchMin } from '@/lib/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -213,6 +213,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: 18,
     paddingVertical: 10,
+    // Bersaglio touch ≥44px (Libro UX cap.10 §1 / WCAG). Vale anche per btnSmall,
+    // che riduce il padding ma non deve scendere sotto l'area minima.
+    minHeight: touchMin,
     alignSelf: 'flex-start',
   },
   btnSmall: { paddingHorizontal: 14, paddingVertical: 7 },
