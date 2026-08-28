@@ -34,6 +34,8 @@ export default async function ProFormaDetail({
 
   const tot = totaliProForma(pf.righe);
   const st = statoDocumento(pf.tipo, pf.stato, pf.fatturaNumero);
+  // Eliminabile finché non è una fattura VERA su FIC (numero presente).
+  const puoEliminare = !(pf.stato === "fatturata" && pf.fatturaNumero);
   const rif = rifProForma(pf);
   // Lo stesso documento con due nomi: qui si decide come si chiama, in
   // intestazione e nel testo di legge. ⚠️ Un preventivo NON può portare la
@@ -347,12 +349,12 @@ export default async function ProFormaDetail({
               </form>
             </>
           )}
-          {pf.stato === "bozza" && (
+          {puoEliminare && (
             <form action={deleteProForma.bind(null, id)} style={{ marginLeft: "auto" }}>
               <ConfermaElimina
                 verbo="Elimina"
-                oggetto="questa bozza"
-                conseguenza="La bozza sparisce; il numero non è ancora impegnato, quindi non resta assegnato."
+                oggetto={pf.stato === "bozza" ? "questa bozza" : `la pro-forma ${rif}`}
+                conseguenza="Non è stata emessa su Fatture in Cloud, quindi non c'è nessuna fattura da toccare: sparisce solo questo documento."
               />
             </form>
           )}

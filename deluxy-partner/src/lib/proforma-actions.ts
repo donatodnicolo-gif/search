@@ -179,6 +179,15 @@ export async function cambiaStatoProForma(id: string, stato: string, fd?: FormDa
 }
 
 export async function deleteProForma(id: string) {
+  // Si eliminano solo le pro-forma NON ancora fatturate davvero. Una con un
+  // numero di fattura vero è collegata a un documento fiscale su Fatture in
+  // Cloud: cancellare qui il record perderebbe il legame senza toccare la
+  // fattura vera — meglio non farlo (guard, oltre alla UI).
+  const pf = await prisma.proForma.findUnique({ where: { id }, select: { stato: true, fatturaNumero: true } });
+  if (!pf) redirect("/proforma");
+  if (pf.stato === "fatturata" && pf.fatturaNumero) {
+    redirect(`/proforma/${id}?erroreStato=${encodeURIComponent("Questa pro-forma ha una fattura emessa su Fatture in Cloud: non si elimina. Semmai riportala in bozza.")}`);
+  }
   await prisma.proForma.delete({ where: { id } });
   revalidateProforma();
   redirect("/proforma");
