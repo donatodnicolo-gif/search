@@ -1091,3 +1091,22 @@ export async function assegnaGruppo(partnerId: string, fd: FormData) {
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/gruppi");
 }
+
+// Aggiunge un'azienda a un CAPOGRUPPO dalla pagina del capogruppo (il verso
+// opposto al campo «Capogruppo» sulla scheda dell'azienda). È lo stesso gesto —
+// scrive `capogruppoId` sull'azienda — visto dall'entità invece che dal negozio.
+export async function aggiungiAziendaAlCapogruppo(capogruppoId: string, partnerId: string) {
+  const [azienda, capo] = await Promise.all([
+    prisma.partner.findUnique({ where: { id: partnerId }, select: { nome: true, capogruppo: { select: { nome: true } } } }),
+    prisma.capogruppo.findUnique({ where: { id: capogruppoId }, select: { nome: true } }),
+  ]);
+  if (!azienda || !capo) return;
+  await prisma.partner.update({ where: { id: partnerId }, data: { capogruppoId } });
+  await registraModifica(partnerId, { origine: "ui" }, {
+    campo: "capogruppo",
+    da: azienda.capogruppo?.nome,
+    a: capo.nome,
+  });
+  revalidatePath("/gruppi");
+  revalidatePath(`/partner/${partnerId}`);
+}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
+import { AggiungiAziendaCapogruppo } from "@/components/AggiungiAziendaCapogruppo";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,7 @@ export default async function Gruppi() {
                   ))}
                 </p>
               )}
+              <AggiungiAziendaCapogruppo capogruppoId={g.id} giaDentro={g.aziende.map((a) => a.id)} />
             </section>
           );
         })}
