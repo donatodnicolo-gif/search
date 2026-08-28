@@ -48,6 +48,14 @@ const testo = (v: unknown): string | null => {
   return s || null;
 };
 
+// P.IVA e codice fiscale si scrivono in mille modi («IT 084 4316 0158»,
+// «08443160158»): senza spazi e in maiuscolo sono confrontabili con quelli del
+// registro, che è come si riconoscono le sedi della stessa società.
+const codiceFiscaleNorm = (v: unknown): string | null => {
+  const s = testo(v);
+  return s ? s.replace(/[\s.\-/]/g, "").toUpperCase() : null;
+};
+
 // «FIORISTA» → «Fiorista»: le categorie del registro sono in maiuscolo e negli
 // elenchi di FINANCE si leggono accanto a nomi propri.
 function categoriaLeggibile(c: string | null): string | null {
@@ -82,6 +90,15 @@ export async function POST(req: NextRequest) {
     ...(testo(body.ammNome) ? { ammNome: testo(body.ammNome) } : {}),
     ...(testo(body.ammEmail) ? { ammEmail: testo(body.ammEmail) } : {}),
     ...(testo(body.ammTelefono) ? { ammTelefono: testo(body.ammTelefono) } : {}),
+    // ⚠️ P.IVA e codice fiscale del cliente: la sessione precedente li aveva
+    // dichiarati e aggiunta la colonna, ma NON li scriveva — la rotta li
+    // buttava lo stesso. Ora entrano (normalizzati). Sono l'identità della
+    // società con cui il negozio fattura, la fonte di verità è il registro
+    // (che li manda già da src/lib/finance.ts), qui è la copia operativa.
+    // Diversamente dall'IBAN NON sono coordinate bancarie: cambiarli non manda
+    // soldi da nessuna parte, quindi si aggiornano anche su una scheda che c'è.
+    ...(codiceFiscaleNorm(body.pIva) ? { pIva: codiceFiscaleNorm(body.pIva) } : {}),
+    ...(codiceFiscaleNorm(body.codiceFiscale) ? { codiceFiscale: codiceFiscaleNorm(body.codiceFiscale) } : {}),
     // il gruppo di pagamento è un'etichetta: qui si tiene in MAIUSCOLO, altrimenti
     // «Chanel» e «CHANEL» diventano due gruppi che nello scadenzario non si sommano
     ...(testo(body.gruppo) ? { gruppo: testo(body.gruppo)!.toUpperCase() } : {}),

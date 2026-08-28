@@ -309,3 +309,21 @@ export async function creaAnagrafica(opts: {
     return { ok: false, errore: `Registro non raggiungibile: ${(e as Error).message}` };
   }
 }
+
+// IL CAPOGRUPPO dal registro (28/08/2026): un cliente con dentro più aziende.
+// Serve al fatturato per capogruppo — la lista degli id del registro
+// (`anagraficheIds`) è la chiave con cui FINANCE riconosce le proprie schede
+// (via `Partner.anagraficaId` e `AnagraficaCollegata.anagraficaId`).
+export type CapogruppoRegistro = {
+  id: string;
+  nome: string;
+  aziende: { id: string; nome: string; citta: string | null; pagaDaSe: boolean }[];
+  anagraficheIds: string[];
+};
+
+export async function capogruppoDalRegistro(
+  id: string,
+  timeoutMs = 6000,
+): Promise<CapogruppoRegistro | null> {
+  return (await chiamata(`/api/v1/gruppi/${encodeURIComponent(id)}`, timeoutMs)) as CapogruppoRegistro | null;
+}

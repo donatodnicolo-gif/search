@@ -50,6 +50,28 @@ model Partner {
   intestatarioConto      String?
   email                  String?
   telefono               String?
+  // ⚠️ DATI FISCALI DI CHI RICEVE — la società con cui questo negozio fattura.
+  // NON confonderli con la P.IVA di `TemplateDocumento`, che è di CHI EMETTE (i
+  // brand Deluxy): scambiarle vuol dire intestare a noi stessi il documento di
+  // un cliente.
+  //
+  // Fonte di verità: il registro Anagrafiche, dove dal 27/08/2026 vivono sul
+  // SOGGETTO FISCALE (la società) e non sul negozio — due negozi con la stessa
+  // insegna possono fatturare con due società diverse. Qui è la copia
+  // operativa, come già per IBAN e intestatario del conto: serve quando il
+  // registro non risponde, e una pro-forma senza la P.IVA del cliente non è un
+  // documento valido.
+  //
+  // ⚠️ Aggiunte il 28/08/2026. Prima `POST /api/v1/partners` DICHIARAVA `pIva`
+  // fra i campi in ingresso, il registro gliela mandava davvero
+  // (`src/lib/finance.ts` di deluxy-anagrafiche) e FINANCE la buttava in
+  // silenzio, perché la colonna non esisteva: l'app non sapeva con quale
+  // società fattura nessuna delle sue schede.
+  //
+  // ⚠️ Non è @unique: tre negozi della stessa catena possono fatturare tutti
+  // con la stessa società, e qui restano tre schede distinte.
+  pIva                   String?
+  codiceFiscale          String?
   // Referente amministrativo (chi paga le fatture): destinatario predefinito di
   // solleciti e pro-forma. Si può importare dal registro Anagrafiche.
   ammNome                String?
