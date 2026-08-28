@@ -11,6 +11,15 @@
 
 ---
 
+## 0-bis. Manuale delle funzionalità (OBBLIGATORIO — 27/08/2026)
+
+Il Hub ha un **manuale visivo** delle sue funzionalità: [`docs/manuale-funzionalita.html`](docs/manuale-funzionalita.html), lo stesso file pubblicato come **Artifact** su https://claude.ai/code/artifact/78d07a3e-31b7-47e8-aa2e-1b15b1ddd689 (guida per chi entra nel team: cos'è il Hub, login, home, ruoli, le 19 app, cartellino, funzioni admin, come le app si parlano, sicurezza in parole semplici).
+
+🔴 **Regola dell'utente**: d'ora in poi **ogni funzionalità nuova o modificata va scritta in questo manuale nello stesso giro di lavoro** — si aggiorna il file `docs/manuale-funzionalita.html` (versionato col commit della feature) e **si ripubblica l'Artifact allo STESSO indirizzo** (dalla stessa conversazione: ripubblicare lo stesso path; da un'altra conversazione: passare l'`url` dell'artifact). Un file solo, versionato + artifact. Se una schermata non corrisponde al manuale, ha ragione la schermata: il manuale va corretto.
+
+
+---
+
 ## 1. Cos'è, dov'è, com'è messo
 
 **Deluxy Hub** è il portale unico di accesso alle app Deluxy: l'utente entra con

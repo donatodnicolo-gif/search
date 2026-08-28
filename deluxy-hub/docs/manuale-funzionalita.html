@@ -1,0 +1,528 @@
+<title>Guida al Deluxy Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300&display=swap">
+<style>
+  :root {
+    --ground: #f5f5f7;
+    --surface: #ffffff;
+    --surface-2: #fafafb;
+    --ink: #1d1d1f;
+    --ink-2: #52525a;
+    --ink-3: #86868b;
+    --hairline: rgba(0,0,0,0.10);
+    --hairline-strong: rgba(0,0,0,0.16);
+    --gold: #a4842f;
+    --gold-bright: #b8963e;
+    --gold-soft: rgba(184,150,62,0.12);
+    --green: #248a3d;
+    --green-soft: rgba(36,138,61,0.12);
+    --red: #c70012;
+    --red-soft: rgba(199,0,18,0.10);
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+    --shadow-lift: 0 2px 6px rgba(0,0,0,0.06), 0 18px 44px rgba(0,0,0,0.10);
+    --font-display: "Newsreader", Georgia, "Times New Roman", serif;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0e10;
+      --surface: #1c1c1e;
+      --surface-2: #242426;
+      --ink: #f5f5f7;
+      --ink-2: #b0b0b6;
+      --ink-3: #86868b;
+      --hairline: rgba(255,255,255,0.12);
+      --hairline-strong: rgba(255,255,255,0.20);
+      --gold: #d8b869;
+      --gold-bright: #e2c67d;
+      --gold-soft: rgba(216,184,105,0.16);
+      --green: #4cc463;
+      --green-soft: rgba(76,196,99,0.16);
+      --red: #ff5a5f;
+      --red-soft: rgba(255,90,95,0.16);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.45);
+      --shadow-lift: 0 2px 6px rgba(0,0,0,0.4), 0 18px 44px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0e10;
+    --surface: #1c1c1e;
+    --surface-2: #242426;
+    --ink: #f5f5f7;
+    --ink-2: #b0b0b6;
+    --ink-3: #86868b;
+    --hairline: rgba(255,255,255,0.12);
+    --hairline-strong: rgba(255,255,255,0.20);
+    --gold: #d8b869;
+    --gold-bright: #e2c67d;
+    --gold-soft: rgba(216,184,105,0.16);
+    --green: #4cc463;
+    --green-soft: rgba(76,196,99,0.16);
+    --red: #ff5a5f;
+    --red-soft: rgba(255,90,95,0.16);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.45);
+    --shadow-lift: 0 2px 6px rgba(0,0,0,0.4), 0 18px 44px rgba(0,0,0,0.6);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- Barra ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 12px 24px;
+    background: color-mix(in srgb, var(--ground) 82%, transparent);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .topbar .mark { display: flex; align-items: center; gap: 11px; font-weight: 600; letter-spacing: -0.01em; }
+  .logo-d {
+    width: 32px; height: 32px; border-radius: 9px; flex: 0 0 auto;
+    background: linear-gradient(150deg, #2a2c33, #14151a);
+    color: var(--gold-bright); display: grid; place-items: center;
+    font-family: var(--font-display); font-size: 19px; font-weight: 500;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
+  }
+  .topbar .right { display: flex; align-items: center; gap: 10px; }
+  .topbar .eyebrow { font-size: 12.5px; color: var(--ink-3); letter-spacing: 0.02em; }
+  .toggle {
+    font: inherit; font-size: 13px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 13px; border-radius: 999px;
+    border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--ink);
+  }
+  .toggle:hover { border-color: var(--gold); }
+  .toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 88px 0 40px; }
+  .hero .kicker {
+    font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--gold); font-weight: 600; margin-bottom: 22px;
+  }
+  .hero h1 {
+    font-family: var(--font-display); font-weight: 300;
+    font-size: clamp(44px, 8vw, 82px); line-height: 1.02; letter-spacing: -0.02em;
+    margin: 0 0 24px; text-wrap: balance;
+  }
+  .hero h1 em { font-style: italic; color: var(--gold); }
+  .hero .lede {
+    font-size: clamp(19px, 2.4vw, 23px); line-height: 1.5; color: var(--ink-2);
+    max-width: 60ch; margin: 0;
+  }
+  .hero .meta {
+    margin-top: 34px; display: flex; flex-wrap: wrap; gap: 10px 26px;
+    font-size: 14px; color: var(--ink-3);
+  }
+  .hero .meta b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Sezioni ---------- */
+  section { padding: 34px 0; }
+  .chapter-head { display: flex; align-items: baseline; gap: 18px; margin-bottom: 8px; }
+  .chapter-num {
+    font-family: var(--font-display); font-weight: 300; font-size: 40px; line-height: 1;
+    color: var(--gold); flex: 0 0 auto; font-variant-numeric: tabular-nums;
+  }
+  .chapter-head h2 {
+    font-family: var(--font-display); font-weight: 400; font-size: clamp(28px, 4vw, 38px);
+    letter-spacing: -0.015em; margin: 0; line-height: 1.1; text-wrap: balance;
+  }
+  .chapter-sub { color: var(--ink-2); font-size: 18px; max-width: 64ch; margin: 6px 0 26px 58px; }
+  @media (max-width: 620px) { .chapter-sub { margin-left: 0; } }
+  .rule { height: 1px; background: var(--hairline); border: 0; margin: 0; }
+
+  p { max-width: 66ch; }
+  .lead-in { margin-left: 58px; }
+  @media (max-width: 620px) { .lead-in { margin-left: 0; } }
+
+  /* ---------- Card generica ---------- */
+  .card {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 18px; box-shadow: var(--shadow); padding: 26px;
+  }
+  .grid { display: grid; gap: 18px; }
+  @media (min-width: 720px) { .grid.two { grid-template-columns: 1fr 1fr; } }
+
+  /* ---------- Mock: login ---------- */
+  .demo { display: grid; gap: 16px; align-items: center; }
+  @media (min-width: 800px) { .demo.split { grid-template-columns: 340px 1fr; gap: 34px; } }
+  .login-card {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 22px; box-shadow: var(--shadow-lift); padding: 30px 26px; text-align: center;
+  }
+  .login-card .logo-d { width: 46px; height: 46px; font-size: 26px; border-radius: 13px; margin: 0 auto 16px; }
+  .login-card h3 { margin: 0 0 4px; font-size: 20px; letter-spacing: -0.01em; }
+  .login-card .muted { color: var(--ink-3); font-size: 13.5px; margin: 0 0 20px; }
+  .field {
+    text-align: left; border: 1px solid var(--hairline-strong); border-radius: 11px;
+    padding: 9px 13px; margin-bottom: 11px; background: var(--surface-2);
+  }
+  .field .lab { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+  .field .val { font-size: 14.5px; color: var(--ink); }
+  .field .val.dim { color: var(--ink-3); letter-spacing: 0.18em; }
+  .btn-ink {
+    width: 100%; border: 0; border-radius: 999px; padding: 12px;
+    background: var(--ink); color: var(--ground);
+    font: inherit; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; cursor: default;
+  }
+
+  .note-list { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+  .note-list li { display: flex; gap: 13px; align-items: flex-start; }
+  .note-list .dot {
+    flex: 0 0 auto; width: 24px; height: 24px; border-radius: 999px; margin-top: 2px;
+    background: var(--gold-soft); color: var(--gold); display: grid; place-items: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .note-list .txt { font-size: 15.5px; color: var(--ink-2); }
+  .note-list .txt b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Pillole di stato / ruolo ---------- */
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px; vertical-align: middle;
+    padding: 4px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+    background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--hairline);
+    white-space: nowrap;
+  }
+  .pill .pdot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .pill.gold { background: var(--gold-soft); color: var(--gold); border-color: transparent; }
+  .pill.green { background: var(--green-soft); color: var(--green); border-color: transparent; }
+  .pill.red { background: var(--red-soft); color: var(--red); border-color: transparent; }
+
+  /* ---------- Ruoli ---------- */
+  .roles { display: grid; gap: 16px; }
+  @media (min-width: 760px) { .roles { grid-template-columns: repeat(3, 1fr); } }
+  .role { background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; padding: 22px; box-shadow: var(--shadow); }
+  .role h4 { margin: 14px 0 6px; font-size: 17px; letter-spacing: -0.01em; }
+  .role p { font-size: 14.5px; color: var(--ink-2); margin: 0; max-width: none; }
+
+  /* ---------- Catalogo app ---------- */
+  .catalog { display: grid; gap: 12px; grid-template-columns: 1fr; }
+  @media (min-width: 640px) { .catalog { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 940px) { .catalog { grid-template-columns: 1fr 1fr 1fr; } }
+  .app {
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 14px;
+    padding: 15px 16px; display: flex; gap: 13px; align-items: flex-start; box-shadow: var(--shadow);
+  }
+  .app .ico {
+    flex: 0 0 auto; width: 38px; height: 38px; border-radius: 11px;
+    background: linear-gradient(150deg, #2a2c33, #14151a); color: var(--gold-bright);
+    display: grid; place-items: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+  .app .ico svg { width: 20px; height: 20px; }
+  .app .nm { font-weight: 600; font-size: 14.5px; letter-spacing: -0.01em; }
+  .app .ds { font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }
+  .app .tags { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag { font-size: 10.5px; font-weight: 600; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; background: var(--gold-soft); color: var(--gold); }
+  .tag.grey { background: var(--surface-2); color: var(--ink-3); border: 1px solid var(--hairline); }
+
+  /* ---------- Cartellino mock ---------- */
+  .clock-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 18px; box-shadow: var(--shadow); padding: 24px 26px; display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: wrap; }
+  .clock-time { font-size: 44px; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .clock-day { font-size: 13.5px; color: var(--ink-3); margin-top: 6px; }
+  .clock-state { margin-top: 12px; font-size: 14px; color: var(--ink-2); }
+  .stamp-btn { border: 0; border-radius: 999px; background: var(--ink); color: var(--ground); padding: 14px 26px; font: inherit; font-weight: 600; font-size: 15px; cursor: default; }
+
+  /* ---------- Callout ---------- */
+  .callout {
+    border: 1px solid var(--hairline); border-left: 3px solid var(--gold);
+    background: var(--surface); border-radius: 12px; padding: 16px 20px;
+    display: flex; gap: 13px; align-items: flex-start;
+  }
+  .callout .ci { flex: 0 0 auto; color: var(--gold); font-size: 17px; line-height: 1.5; }
+  .callout p { margin: 0; font-size: 15px; color: var(--ink-2); }
+  .callout p b { color: var(--ink); }
+  code, .path { font-family: var(--font-mono); font-size: 0.9em; background: var(--gold-soft); color: var(--gold); padding: 1px 6px; border-radius: 6px; }
+
+  /* ---------- Flusso app-parlano ---------- */
+  .flow { display: grid; gap: 12px; }
+  .flow-row { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--hairline); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .flow-row .n { font-family: var(--font-display); font-size: 22px; color: var(--gold); flex: 0 0 auto; width: 30px; text-align: center; }
+  .flow-row .b { font-size: 15px; color: var(--ink-2); }
+  .flow-row .b b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Sicurezza ---------- */
+  .sec-grid { display: grid; gap: 14px; }
+  @media (min-width: 720px) { .sec-grid { grid-template-columns: 1fr 1fr; } }
+  .sec { display: flex; gap: 13px; align-items: flex-start; }
+  .sec .k { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9px; background: var(--green-soft); color: var(--green); display: grid; place-items: center; font-size: 15px; }
+  .sec h4 { margin: 3px 0 3px; font-size: 15.5px; letter-spacing: -0.01em; }
+  .sec p { margin: 0; font-size: 14px; color: var(--ink-2); max-width: none; }
+
+  /* ---------- Footer ---------- */
+  footer { padding: 48px 0 70px; border-top: 1px solid var(--hairline); margin-top: 30px; }
+  .living {
+    background: var(--surface); border: 1px solid var(--gold); border-radius: 18px;
+    padding: 26px 28px; box-shadow: var(--shadow);
+  }
+  .living .kicker { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+  .living h3 { font-family: var(--font-display); font-weight: 400; font-size: 24px; letter-spacing: -0.01em; margin: 8px 0 8px; }
+  .living p { margin: 0; color: var(--ink-2); font-size: 15px; }
+  .foot-meta { margin-top: 24px; font-size: 13px; color: var(--ink-3); display: flex; flex-wrap: wrap; gap: 6px 20px; }
+
+  a { color: var(--gold); text-underline-offset: 2px; }
+  a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 3px; }
+
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+</style>
+
+<header class="topbar">
+  <div class="mark"><span class="logo-d">D</span> Deluxy&nbsp;Hub</div>
+  <div class="right">
+    <span class="eyebrow">Manuale delle funzionalità</span>
+    <button class="toggle" id="tt" aria-label="Cambia tema">◐ Tema</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="hero">
+    <div class="kicker">Guida per chi comincia oggi</div>
+    <h1>Una porta sola<br>per <em>tutto</em> Deluxy.</h1>
+    <p class="lede">Il Hub è il portale da cui si entra in tutte le app dell'azienda. Un accesso, e davanti a te compaiono solo gli strumenti che ti spettano. Questa guida ti accompagna dal primo login fino a capire come le app dialogano tra loro.</p>
+    <div class="meta">
+      <span><b>19</b> app collegate</span>
+      <span><b>3</b> tipi di utente</span>
+      <span><b>1</b> password per tutto</span>
+      <span>deluxy-hub.vercel.app</span>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section class="reveal">
+    <div class="chapter-head"><span class="chapter-num">01</span><h2>Cos'è il Hub, in una frase</h2></div>
+    <p class="chapter-sub">Non è un'app che «fa» qualcosa: è l'atrio da cui si raggiunge tutto il resto.</p>
+    <div class="lead-in">
+      <p>Deluxy è fatta di tante app — Ordini, Finance, Marketing, il Cartellino delle presenze e altre ancora. Prima, per entrare in ognuna serviva un indirizzo e una password diversi. Il <b>Hub</b> mette fine a questo: entri una volta, e nella tua pagina personale trovi le icone delle app che puoi usare. Le clicchi e ci sei dentro, senza rifare l'accesso.</p>
+      <div class="callout"><span class="ci">✦</span><p>Pensa al Hub come alla <b>reception di un palazzo</b>: ti riconosce all'ingresso, ti dà le chiavi solo dei piani dove puoi salire, e da lì raggiungi ogni ufficio senza mostrare di nuovo il badge.</p></div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section class="reveal">
+    <div class="chapter-head"><span class="chapter-num">02</span><h2>Entrare</h2></div>
+    <p class="chapter-sub">Email e password. Senza accesso, il portale non mostra nulla — nemmeno una briciola.</p>
+    <div class="demo split lead-in">
+      <div class="login-card" aria-hidden="true">
+        <div class="logo-d">D</div>
+        <h3>Deluxy Hub</h3>
+        <p class="muted">Accedi per continuare</p>
+        <div class="field"><div class="lab">Email</div><div class="val">maria.rossi@deluxy.it</div></div>
+        <div class="field"><div class="lab">Password</div><div class="val dim">••••••••••</div></div>
+        <div class="btn-ink">Entra</div>
+      </div>
+      <div>
+        <ul class="note-list">
+          <li><span class="dot">1</span><span class="txt"><b>Le credenziali le crea un amministratore.</b> Non ci si registra da soli: quando entri nel team, un admin ti apre l'accesso e ti consegna la password.</span></li>
+          <li><span class="dot">2</span><span class="txt"><b>Cambi la password quando vuoi</b> dalla tua pagina Profilo. Se la cambi, ogni altra sessione aperta altrove viene chiusa — utile se un dispositivo è andato perso.</span></li>
+          <li><span class="dot">3</span><span class="txt"><b>Password dimenticata?</b> Non c'è un recupero automatico: la reimposta un amministratore. È una scelta di sicurezza, non una dimenticanza.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section class="reveal">
+    <div class="chapter-head"><span class="chapter-num">03</span><h2>La tua home: solo le tue app</h2></div>
+    <p class="chapter-sub">Appena entri, un saluto e la griglia delle app che puoi aprire. Niente di ciò che non ti riguarda.</p>
+    <div class="lead-in">
+      <p>La home mostra le tessere delle sole app abilitate per te. In alto c'è un campo di <b>ricerca</b>: digiti una parola — anche di quello che l'app <em>fa</em>, non solo del nome — e la griglia si restringe. Cliccando una tessera l'app si apre in una nuova scheda.</p>
+      <div class="catalog" style="margin-top:20px" aria-hidden="true">
+        <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span><div><div class="nm">Ordini</div><div class="ds">Registro ordini Shopify</div></div></div>
+        <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 10l9-6 9 6v9a1 1 0 0 1-1 1h-4v-6H8v6H4a1 1 0 0 1-1-1z"/></svg></span><div><div class="nm">Finance</div><div class="ds">Gestione finanziaria</div><div class="tags"><span class="tag">SSO</span></div></div></div>
+        <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg></span><div><div class="nm">Ricerca fornitori</div><div class="ds">Ricerca e smistamento</div></div></div>
+      </div>
+      <div class="callout" style="margin-top:18px"><span class="ci">✦</span><p>Due persone con lo stesso ruolo possono vedere <b>home diverse</b>: le app si accendono <b>una per una, per singola persona</b>. Il ruolo serve solo a preparare una scelta di partenza comoda.</p></div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section class="reveal">
+    <div class="chapter-head"><span class="chapter-num">04</span><h2>Chi sei: i tre ruoli</h2></div>
+    <p class="chapter-sub">Il ruolo decide cosa puoi <em>fare</em>; le spunte per-persona decidono cosa puoi <em>vedere</em>.</p>
+    <div class="roles lead-in">
+      <div class="role">
+        <span class="pill gold"><span class="pdot"></span>Amministratore</span>
+        <h4>Vede e governa tutto</h4>
+        <p>Tutte le app, più le funzioni di regia: crea gli utenti, custodisce le chiavi, controlla lo stato dei servizi.</p>
+      </div>
+      <div class="role">
+        <span class="pill"><span class="pdot"></span>Partner</span>
+        <h4>Il proprio giro</h4>
+        <p>Vede solo le app spuntate sul suo profilo — di norma quelle che riguardano i suoi conti e la sua attività.</p>
+      </div>
+      <div class="role">
+        <span class="pill"><span class="pdot"></span>Commerciale</span>
+        <h4>Gli strumenti di vendita</h4>
+        <p>Vede solo le app abilitate per lui: prospezione, clienti, budget delle sue linee — niente di amministrativo.</p>
+      </div>
+    </div>
+    <p class="lead-in" style="margin-top:20px; color:var(--ink-2)">Cambiare le spunte a una persona ha effetto <b>subito</b>, al caricamento successivo. Un cambio di ruolo, invece, si applica al login dopo — o subito, se un admin lo forza.</p>
+  </section>
+
+  <hr class="rule">
+
+  <section class="reveal">
+    <div class="chapter-head"><span class="chapter-num">05</span><h2>Le 19 app del portale</h2></div>
+    <p class="chapter-sub">Ognuna è autonoma; il Hub le collega soltanto. Ecco cosa troverai nel catalogo.</p>
+    <div class="catalog lead-in">
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span><div><div class="nm">Ordini</div><div class="ds">Registro ordini Shopify</div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 10l9-6 9 6v9a1 1 0 0 1-1 1h-4v-6H8v6H4a1 1 0 0 1-1-1z"/></svg></span><div><div class="nm">Finance</div><div class="ds">Gestione finanziaria</div><div class="tags"><span class="tag">SSO</span></div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v18M5 8l7-5 7 5M5 8v8l7 5 7-5V8"/></svg></span><div><div class="nm">Budgets</div><div class="ds">Budget e P&amp;L</div><div class="tags"><span class="tag">SSO</span></div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16v12H4z"/><path d="M8 10h8M8 14h5"/></svg></span><div><div class="nm">Transactions</div><div class="ds">Autorizzazione pagamenti</div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span><div><div class="nm">Marketing</div><div class="ds">Analisi &amp; campagne ADV</div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></span><div><div class="nm">CRM</div><div class="ds">Il libro dei clienti</div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16v14H4z"/><path d="M4 9h16"/></svg></span><div><div class="nm">Customer Service</div><div class="ds">Reclami e messaggi dei clienti</div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16v11H7l-3 3z"/></svg></span><div><div class="nm">AI Mail</div><div class="ds">Posta intelligente</div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg></span><div><div class="nm">Ricerca fornitori</div><div class="ds">Ricerca e smistamento</div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21C7 17 4 13 4 9a8 8 0 0 1 16 0c0 4-3 8-8 12z"/><circle cx="12" cy="9" r="2.4"/></svg></span><div><div class="nm">Commerciale Scout</div><div class="ds">Prospezione sul campo</div><div class="tags"><span class="tag">Mobile</span></div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16v13H4z"/><path d="M8 3v4M16 3v4M4 11h16"/></svg></span><div><div class="nm">Calendario</div><div class="ds">Gli eventi di tutte le app</div><div class="tags"><span class="tag">SSO</span></div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 6h14M5 12h14M5 18h14"/><circle cx="4" cy="6" r=".6" fill="currentColor"/></svg></span><div><div class="nm">Attività</div><div class="ds">Le attività di tutte le app</div><div class="tags"><span class="tag">SSO</span></div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></span><div><div class="nm">Personale</div><div class="ds">Organico e mansioni</div><div class="tags"><span class="tag">SSO</span></div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 4h9l3 3v13H6z"/><path d="M9 12h6M9 16h6"/></svg></span><div><div class="nm">Anagrafiche</div><div class="ds">Registro partner B2B</div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8l8-4 8 4-8 4z"/><path d="M4 8v8l8 4 8-4V8"/></svg></span><div><div class="nm">Merchandising</div><div class="ds">Prodotto &amp; collezioni</div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21C7 17 4 13 4 9a8 8 0 0 1 16 0c0 4-3 8-8 12z"/></svg></span><div><div class="nm">Consegne</div><div class="ds">Piattaforma logistica</div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h4"/></svg></span><div><div class="nm">Scripts</div><div class="ds">I testi pronti da inviare</div><div class="tags"><span class="tag">SSO</span></div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/></svg></span><div><div class="nm">Maison</div><div class="ds">Piano digitale Shopify</div></div></div>
+      <div class="app"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 18V9M9 18V5M14 18v-7M19 18V8"/></svg></span><div><div class="nm">Fondo</div><div class="ds">Cambi di management</div><div class="tags"><span class="tag grey">In arrivo</span></div></div></div>
+    </div>
+    <div class="callout lead-in" style="margin-top:18px"><span class="ci">✦</span><p><span class="tag" style="vertical-align:middle">SSO</span> significa <b>ingresso diretto</b>: apri l'app dal Hub e sei già dentro, senza rifare il login. Le altre chiedono il loro accesso la prima volta. <span class="tag" style="vertical-align:middle">Mobile</span> segna le app pensate per il telefono.</p></div>
+  </section>
+
+  <hr class="rule">
+
+  <section class="reveal">
+    <div class="chapter-head"><span class="chapter-num">06</span><h2>Il Cartellino</h2></div>
+    <p class="chapter-sub">Le tue presenze, ferie e certificati, in un posto solo. Si usa solo da computer.</p>
+    <div class="lead-in">
+      <div class="clock-card" aria-hidden="true">
+        <div>
+          <div class="clock-time">08:32:13</div>
+          <div class="clock-day">Martedì 25 Agosto</div>
+          <div class="clock-state"><span class="pill"><span class="pdot"></span>Fuori</span> &nbsp;nessuna timbratura oggi</div>
+        </div>
+        <div class="stamp-btn">Timbra entrata</div>
+      </div>
+      <ul class="note-list" style="margin-top:22px">
+        <li><span class="dot">›</span><span class="txt"><b>Timbri entrata e uscita</b> con un bottone. L'orologio grande segna l'ora del server (quella che verrà registrata), non quella del tuo computer: se il tuo PC è indietro, te lo dice.</span></li>
+        <li><span class="dot">›</span><span class="txt"><b>Hai dimenticato di timbrare?</b> Registri la giornata a mano. Per un giorno già passato la motivazione è obbligatoria — chi controlla deve sapere il perché.</span></li>
+        <li><span class="dot">›</span><span class="txt"><b>Ferie, permessi, trasferte, malattia:</b> si chiedono da qui. La malattia nasce già «registrata», e il certificato lo alleghi anche nei giorni dopo.</span></li>
+        <li><span class="dot">›</span><span class="txt"><b>I certificati sono documenti sanitari:</b> li scarica solo chi li ha caricati, o un amministratore. Nessun altro.</span></li>
+      </ul>
+      <div class="callout" style="margin-top:18px"><span class="ci">✦</span><p><b>Solo da computer.</b> Una timbratura dal telefono potrebbe partire da ovunque, quindi da smartphone il Cartellino spiega la regola invece di lasciarti timbrare. Gli amministratori hanno in più una pagina di gestione con le timbrature di tutti e il riepilogo del mese da inviare per email.</p></div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section class="reveal">
+    <div class="chapter-head"><span class="chapter-num">07</span><h2>Da amministratore</h2></div>
+    <p class="chapter-sub">Tre stanze in più, raggiungibili dalla barra in alto solo se sei admin.</p>
+    <div class="grid two lead-in">
+      <div class="card">
+        <span class="pill gold"><span class="pdot"></span>Utenti</span>
+        <h4 style="margin:12px 0 6px; font-size:17px; letter-spacing:-0.01em">Chi entra e cosa vede</h4>
+        <p style="margin:0; font-size:14.5px; color:var(--ink-2); max-width:none">Crei le persone, scegli app per app cosa possono aprire, attivi o disattivi un accesso. Qui c'è anche l'<b>organico</b>, letto da Budgets: accanto a ogni persona vedi se ha già un account e puoi crearglielo al volo.</p>
+      </div>
+      <div class="card">
+        <span class="pill gold"><span class="pdot"></span>Chiavi</span>
+        <h4 style="margin:12px 0 6px; font-size:17px; letter-spacing:-0.01em">La cassaforte dei segreti</h4>
+        <p style="margin:0; font-size:14.5px; color:var(--ink-2); max-width:none">I codici riservati che le app usano per parlarsi, custoditi cifrati in un posto solo. Non tornano mai visibili per intero, e ogni app li legge con un permesso limitato ai suoi progetti.</p>
+      </div>
+      <div class="card">
+        <span class="pill gold"><span class="pdot"></span>Stato</span>
+        <h4 style="margin:12px 0 6px; font-size:17px; letter-spacing:-0.01em">I semafori dei servizi</h4>
+        <p style="margin:0; font-size:14.5px; color:var(--ink-2); max-width:none">Per ogni app, due luci: il servizio è su o giù, e il suo database risponde o no. Un colpo d'occhio per sapere se qualcosa è in avaria, con il motivo del guasto.</p>
+      </div>
+      <div class="card">
+        <span class="pill gold"><span class="pdot"></span>Profilo</span>
+        <h4 style="margin:12px 0 6px; font-size:17px; letter-spacing:-0.01em">Vale per tutti</h4>
+        <p style="margin:0; font-size:14.5px; color:var(--ink-2); max-width:none">La pagina personale dove cambi la tua password ed esci dal portale. Aperta a ogni ruolo, non solo agli admin.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section class="reveal">
+    <div class="chapter-head"><span class="chapter-num">08</span><h2>Come le app si parlano</h2></div>
+    <p class="chapter-sub">Restano separate, ma non isolate. Il Hub fa da tramite, con una regola d'oro.</p>
+    <div class="lead-in">
+      <div class="callout" style="margin-bottom:18px"><span class="ci">✦</span><p><b>Ogni dato ha una casa sola.</b> Chi lo possiede è l'unico che lo scrive; gli altri lo leggono, non lo copiano. Così un numero non finisce mai diverso in due posti.</p></div>
+      <div class="flow">
+        <div class="flow-row"><span class="n">→</span><span class="b"><b>Ingresso diretto (SSO).</b> Apri un'app col bollino SSO dalla home: il Hub le passa un lasciapassare valido per pochi secondi, e tu entri senza rifare il login. Il lasciapassare vale solo per l'app a cui è destinato, e solo se quell'app è davvero fra le tue.</span></div>
+        <div class="flow-row"><span class="n">→</span><span class="b"><b>Lettura tra app.</b> Un'app che ha bisogno di un dato di un'altra lo chiede con una chiave dedicata, limitata a ciò che le serve. Esempio: il Hub mostra l'organico leggendolo da Budgets, senza tenerne una copia.</span></div>
+        <div class="flow-row"><span class="n">→</span><span class="b"><b>Salute condivisa.</b> Ogni app espone un piccolo segnale «sto bene / sto male» che la pagina Stato raccoglie. Nessuno origlia il database altrui: si chiede, non si spia.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section class="reveal">
+    <div class="chapter-head"><span class="chapter-num">09</span><h2>La sicurezza, in parole semplici</h2></div>
+    <p class="chapter-sub">Non devi pensarci tu: è cucita dentro. Ma è giusto sapere cosa ti protegge.</p>
+    <div class="sec-grid lead-in">
+      <div class="sec"><span class="k">✓</span><div><h4>Ti mostra solo il tuo</h4><p>A ogni pagina il portale ricontrolla chi sei davvero: se il tuo ruolo cambia o il tuo accesso viene chiuso, ha effetto subito, non tra settimane.</p></div></div>
+      <div class="sec"><span class="k">✓</span><div><h4>Le password non si leggono</h4><p>Nessuno — nemmeno un amministratore — può leggere la tua password: sul sistema ne resta solo un'impronta da cui non si torna indietro.</p></div></div>
+      <div class="sec"><span class="k">✓</span><div><h4>I segreti stanno in cassaforte</h4><p>I codici con cui le app si parlano sono cifrati e mai visibili per intero. Ogni chiave può leggere solo i progetti a cui è stata destinata.</p></div></div>
+      <div class="sec"><span class="k">✓</span><div><h4>Cambi password, chiudi le porte</h4><p>Cambiare la password chiude le altre sessioni aperte altrove. Se un dispositivo è andato perso, quel gesto lo taglia fuori.</p></div></div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="living">
+      <div class="kicker">Documento vivo</div>
+      <h3>Questo manuale cresce con il Hub</h3>
+      <p>Ogni funzione nuova o modificata entra qui, così chi arriva domani trova sempre il quadro aggiornato. Se una schermata non corrisponde a quello che leggi, ha ragione la schermata — e questo manuale va corretto.</p>
+    </div>
+    <div class="foot-meta">
+      <span>Deluxy Hub · guida per l'accesso</span>
+      <span>Aggiornata: 27 agosto 2026</span>
+      <span>deluxy-hub.vercel.app</span>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById('tt');
+    btn.addEventListener('click', function () {
+      var cur = root.getAttribute('data-theme');
+      if (!cur) {
+        var darkNow = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        cur = darkNow ? 'dark' : 'light';
+      }
+      root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+    });
+    if ('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      var io = new IntersectionObserver(function (es) {
+        es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+      }, { rootMargin: '0px 0px -8% 0px' });
+      document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+    } else {
+      document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('in'); });
+    }
+  })();
+</script>
