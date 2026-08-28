@@ -342,6 +342,31 @@ tr.riga-link { cursor: pointer; }
 .filtro-pillola:hover { background: var(--fill-hover); color: var(--text); }
 .filtro-pillola.attivo { background: var(--ink); color: #fff; font-weight: 550; }
 
+/* Gruppo di chip su mobile: una riga che scorre (Libro v1.3 §8.9).
+   Si AGGIUNGE al contenitore flex delle chip (o a un wrapper attorno alle
+   SOLE pillole, quando nella .filtri convivono col form di ricerca): sopra
+   la soglia resta il wrap, sotto la riga scorre di lato. Due guardie del
+   Libro: la scrollbar si nasconde (l'ultima chip che «sbuca» dal bordo è
+   l'indizio che c'è altro), e nella corsia stanno SOLO chip di filtro —
+   ricerca e bottoni d'azione restano fuori, sempre visibili. */
+.filtri .riga-chips-scorri { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; min-width: 0; }
+@media (max-width: 900px) {
+  .riga-chips-scorri {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .riga-chips-scorri::-webkit-scrollbar { display: none; }
+  /* Senza questo le chip si STRINGONO (flex-shrink) invece di sfilare oltre
+     il bordo: la corsia non scorrerebbe mai. */
+  .riga-chips-scorri > * { flex: 0 0 auto; }
+  /* Col wrapper accanto, il form di ricerca prende la riga intera: la corsia
+     delle pillole va sotto, a tutta larghezza. */
+  .filtri form { flex: 1 1 100%; }
+  .filtri > .riga-chips-scorri { flex: 1 1 100%; }
+}
+
 .paginazione { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; font-size: 13px; color: var(--text-secondary); }
 
 .mono { font-variant-numeric: tabular-nums; }

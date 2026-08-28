@@ -53,6 +53,10 @@ export function Filtri({ sistemi = [] }: { sistemi?: string[] }) {
 
   return (
     <div className="filtri">
+      {/* Solo le chip di filtro stanno nella corsia che scorre su mobile
+          (Libro §8.9) — il select-chip è un filtro compatto e ci sta anche
+          lui; la RICERCA resta fuori, sempre visibile. */}
+      <div className="riga-chips-scorri">
       {chips.map((c) => (
         <button
           key={c.valore || "dafare"}
@@ -90,6 +94,7 @@ export function Filtri({ sistemi = [] }: { sistemi?: string[] }) {
           ))}
         </select>
       )}
+      </div>
       <input
         className="cerca"
         placeholder="Cerca fra le attività…"

@@ -27,7 +27,9 @@ export default async function Ricorrenze({ searchParams }: { searchParams: Promi
         </div>
       </div>
 
-      <div className="filtri">
+      {/* Su mobile le pillole scorrono su UNA riga (Libro §8.9): qui dentro
+          ci sono solo chip di filtro. */}
+      <div className="filtri riga-chips-scorri">
         {[7, 14, 30, 60, 90].map((g) => (
           <a key={g} className={`filtro-pillola${g === giorni ? " attivo" : ""}`} href={`/ricorrenze?giorni=${g}`}>
             {g} giorni

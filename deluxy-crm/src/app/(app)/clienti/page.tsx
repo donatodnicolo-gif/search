@@ -61,19 +61,23 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
           />
           <button className="btn ghost" type="submit">Cerca</button>
         </form>
-        <a className={`filtro-pillola${!lista ? " attivo" : ""}`} href={linkCon({ lista: undefined, page: "1" })}>
-          Tutti
-        </a>
-        {listePrincipali.map((l) => (
-          <a
-            key={l.chiave}
-            className={`filtro-pillola${lista === l.chiave ? " attivo" : ""}`}
-            href={linkCon({ lista: l.chiave, page: "1" })}
-            title={l.criterio}
-          >
-            {l.nome} · {l.clienti}
+        {/* Solo le pillole stanno nella corsia che scorre su mobile (Libro
+            §8.9): il form di ricerca resta fuori, sempre visibile. */}
+        <div className="riga-chips-scorri">
+          <a className={`filtro-pillola${!lista ? " attivo" : ""}`} href={linkCon({ lista: undefined, page: "1" })}>
+            Tutti
           </a>
-        ))}
+          {listePrincipali.map((l) => (
+            <a
+              key={l.chiave}
+              className={`filtro-pillola${lista === l.chiave ? " attivo" : ""}`}
+              href={linkCon({ lista: l.chiave, page: "1" })}
+              title={l.criterio}
+            >
+              {l.nome} · {l.clienti}
+            </a>
+          ))}
+        </div>
       </div>
 
       {!elenco.ok ? (

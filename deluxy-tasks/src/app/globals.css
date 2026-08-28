@@ -96,6 +96,29 @@ a { color: inherit; text-decoration: none; }
 /* Focus oro su OGNI campo, ricerca compresa (Libro cap.4, WCAG 2.4.7). */
 .cerca:focus { border-color: var(--gold); box-shadow: 0 0 0 4px var(--gold-soft); }
 
+/* Gruppo di chip su mobile: una riga che scorre (Libro v1.3 §8.9).
+   È il wrapper attorno alle SOLE chip di filtro dentro .filtri (il
+   select-travestito-da-chip è un controllo di filtro compatto e può stare in
+   corsia): sopra la soglia resta il wrap, sotto la riga scorre di lato. Due
+   guardie del Libro: la scrollbar si nasconde (l'ultima chip che «sbuca» dal
+   bordo è l'indizio che c'è altro), e la RICERCA resta fuori dalla corsia,
+   sempre visibile. */
+.filtri .riga-chips-scorri { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
+@media (max-width: 640px) {
+  .riga-chips-scorri {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .riga-chips-scorri::-webkit-scrollbar { display: none; }
+  /* Senza questo le chip si STRINGONO (flex-shrink) invece di sfilare oltre
+     il bordo: la corsia non scorrerebbe mai. */
+  .riga-chips-scorri > * { flex: 0 0 auto; }
+  /* La corsia prende la sua riga; la ricerca va sotto, a tutta larghezza. */
+  .filtri > .riga-chips-scorri { flex: 1 1 100%; }
+}
+
 /* ---------- Gruppo (per persona) ---------- */
 .gruppo { margin-top: 26px; }
 .gruppo-testa {
