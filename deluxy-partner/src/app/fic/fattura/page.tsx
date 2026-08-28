@@ -51,20 +51,27 @@ async function emetti(origine: string, id: string, fd: FormData) {
     if (!a) {
       redirect(`${back}&errore=${encodeURIComponent("Non ho i dati del registro per creare il cliente: scegline uno esistente o riprova.")}`);
     }
+    // ⚠️ Si costruisce omettendo i campi VUOTI: mandare `certified_email: null`
+    // faceva rifiutare FIC con «PEC del cliente non valida» anche quando il
+    // recapito c'era (lo SDI). E il Codice Destinatario si mette SEMPRE: lo SDI
+    // del registro se c'è, altrimenti «0000000» — che è lo standard quando il
+    // cliente non ha né SDI né PEC (la fattura arriva allo SDI e il cliente la
+    // scarica dal cassetto fiscale). La PEC NON è obbligatoria.
+    const pec = a.datiFinanziari?.pec?.trim() || null;
+    const sdi = a.datiFinanziari?.codiceSdi?.trim().toUpperCase() || null;
     entity = {
       name: a.ragioneSociale || a.nome,
       vat_number: a.pIva,
-      // Un azienda italiana ha il codice fiscale UGUALE alla P.IVA: se il
-      // registro non ha un CF a parte, si usa la P.IVA — altrimenti FIC rifiuta
-      // la fattura elettronica chiedendo il codice fiscale del cliente.
+      // Azienda italiana: il codice fiscale coincide con la P.IVA se non ce
+      // n'è uno a parte, altrimenti FIC chiede il codice fiscale del cliente.
       tax_code: a.codiceFiscale || a.pIva,
-      address_street: a.indirizzo,
-      address_city: a.citta,
-      address_province: a.provincia,
       country: "Italia",
-      certified_email: a.datiFinanziari?.pec ?? null,
-      ei_code: a.datiFinanziari?.codiceSdi ?? null,
-      email: a.email,
+      ei_code: sdi || "0000000",
+      ...(a.indirizzo ? { address_street: a.indirizzo } : {}),
+      ...(a.citta ? { address_city: a.citta } : {}),
+      ...(a.provincia ? { address_province: a.provincia } : {}),
+      ...(pec ? { certified_email: pec } : {}),
+      ...(a.email ? { email: a.email } : {}),
     };
   }
   if (!clienteId && !entity) {
@@ -297,7 +304,7 @@ export default async function EmettiFatturaPage({
                 <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
                   Nessun cliente su Fatture in Cloud con la P.IVA di &laquo;{partnerNome}&raquo;: alla conferma
                   ne verrà <strong style={{ color: "var(--text)" }}>creato uno nuovo</strong> coi dati del registro
-                  (ragione sociale, P.IVA, indirizzo, SDI/PEC). Se SDI o PEC mancano, completali nel registro.
+                  (ragione sociale, P.IVA, indirizzo, SDI/PEC). Se non ha SDI ne PEC la fattura va comunque allo SDI (codice 0000000) e il cliente la scarica dal cassetto fiscale.
                 </p>
               ) : suggerito ? (
                 <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
