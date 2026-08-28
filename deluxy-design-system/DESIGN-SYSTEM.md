@@ -1,10 +1,12 @@
 # Deluxy Design System
 
-**Versione 1.3 — 26 agosto 2026** · *1.1: componente «Avvisi (toast)». 1.2: componente «Scelta data — il «/» dentro un campo». 1.3: la barra vale in QUALUNQUE punto della riga (non solo in fondo) e togliendola il pannello si chiude.*
+**Versione 1.4 — 27 agosto 2026** · *1.1: componente «Avvisi (toast)». 1.2: componente «Scelta data — il «/» dentro un campo». 1.3: la barra vale in QUALUNQUE punto della riga (non solo in fondo) e togliendola il pannello si chiude. 1.4: nasce il **Libro UX&UI** ([LIBRO-UX-UI.md](LIBRO-UX-UI.md)) e arrivano i token: tinte `-soft` dei semantici, `on-ink`, `grey`, `scrim`, `amber` (solo legenda consegne), `surface-sunken`, `touch-min`, coppia del gradiente logo, soglia mobile 900.*
 
 Il linguaggio visivo ufficiale di tutte le app Deluxy. Nato dal redesign di `deluxy-platform-next` (stile Apple), vale d'ora in poi per **ogni app esistente e nuova**: piattaforma web, Deluxy Scout, app fornitori, siti Shopify, landing page.
 
 > Regola d'oro: **prima di disegnare qualsiasi schermata si parte da questo documento**, non dal gusto del momento. Se serve qualcosa che qui non c'è, si aggiunge qui prima, poi si usa nell'app.
+>
+> **Per i pattern d'uso — navigazione, form, tabelle, stati, feedback, conferme, mobile — la fonte è il [Libro UX&UI](LIBRO-UX-UI.md)** (v1.0, 27/08/2026): questo documento dà i materiali (token e componenti), il Libro dice come si compongono e quale implementazione fa da riferimento. In caso di contrasto su un pattern vince il Libro; su un token vince questo file.
 
 ---
 
@@ -26,7 +28,7 @@ Un livello può usare solo ciò che è definito nel livello sopra: i componenti 
 
 1. **Chiarezza prima di tutto.** Il contenuto è il protagonista: sfondi neutri, testo scuro, un solo accento (l'oro Deluxy). Se un elemento non aiuta a capire o ad agire, si toglie.
 2. **Lusso = sottrazione.** Il senso premium nasce da spazio bianco generoso, bordi hairline, ombre soffici e tipografia curata — mai da decorazioni, gradienti forti o colori accesi.
-3. **Un accento, usato poco.** L'oro (`#B8963E`) segna identità e punti chiave (logo, icona attiva, focus). Le azioni primarie sono **nere** (ink), non oro: l'oro si consuma se usato ovunque.
+3. **Un accento, usato poco.** L'oro (`#B8963E`) segna identità e punti chiave (logo, icona attiva, focus). Le azioni primarie sono **nere** (ink), non oro: l'oro si consuma se usato ovunque. **L'oro non è mai un colore di stato né di validazione** (Libro, cap. 5).
 4. **Tutto risponde.** Ogni elemento interattivo ha hover, active (scale 0.97–0.98) e focus visibile. Le transizioni sono brevi (150–200 ms) e con easing morbido.
 
 ## 2. Fondamenta (token)
@@ -40,22 +42,28 @@ I valori canonici vivono in [`tokens/tokens.json`](tokens/tokens.json); `tokens.
 | `bg` | `#F5F5F7` | Sfondo pagina (sempre, mai bianco pieno) |
 | `surface` | `#FFFFFF` | Card, tabelle, superfici |
 | `surface-translucent` | `rgba(255,255,255,0.72)` + blur 24px | Sidebar, barre, overlay (effetto vetro) |
+| `surface-sunken` | `#ECECEF` | **Solo** incassi dentro card: sfondo di segmented/quick-tabs e blocchi codice/chiave. Nient'altro (v1.4) |
+| `on-ink` | `#FFFFFF` | Testo e icone su `ink`, `gold` e superfici scure (v1.4) |
 | `text` | `#1D1D1F` | Testo primario |
 | `text-secondary` | `#6E6E73` | Sottotitoli, caption |
 | `text-tertiary` | `#86868B` | Placeholder, label colonne |
 | `hairline` | `rgba(0,0,0,0.08)` | Bordi, divisori |
 | `hairline-strong` | `rgba(0,0,0,0.14)` | Bordi di campi input |
 | `fill` / `fill-hover` / `fill-active` | `rgba(120,120,128,0.08/0.14/0.20)` | Riempimenti neutri (hover, selezione, bottoni secondari) |
-| `ink` | `#111318` | Azioni primarie, brand scuro |
+| `ink` / `ink-hover` | `#111318` / `#2A2D35` | Azioni primarie, brand scuro (l'hover NON si scrive a mano: è token) |
 | `gold` / `gold-strong` | `#B8963E` / `#A07F2C` | Accento brand (icone attive, focus, avatar) |
 | `gold-soft` | `rgba(184,150,62,0.12)` | Sfondi tinta oro |
-| `blue` | `#0071E3` | Stato informativo / in corso |
-| `green` | `#248A3D` | Successo / completato |
-| `orange` | `#C93400` | Attenzione / da gestire |
-| `red` | `#D70015` | Errore / annullato |
-| `purple` | `#6D3FC4` | Stato speciale (es. in consegna) |
+| `blue` / `blue-soft` | `#0071E3` / `rgba(0,113,227,0.10)` | Stato informativo / in corso |
+| `green` / `green-soft` | `#248A3D` / `rgba(36,138,61,0.11)` | Successo / completato |
+| `orange` / `orange-soft` | `#C93400` / `rgba(201,52,0,0.10)` | Attenzione / da gestire / attende un'azione |
+| `red` / `red-soft` | `#D70015` / `rgba(215,0,21,0.09)` | Errore / annullato / richiede intervento adesso |
+| `purple` / `purple-soft` | `#6D3FC4` / `rgba(109,63,196,0.10)` | Stato speciale (es. in consegna) |
+| `grey` | `#8A8A8E` | Stato neutro/terminato (annullata, archiviata, bozza) — testo del badge neutro (v1.4) |
+| `amber` | `#E6B800` | **Solo** legenda storica consegne della piattaforma («In gestione»), sempre accompagnato dal testo dello stato. Vietato altrove (v1.4, Libro cap. 5) |
+| `scrim` | `rgba(0,0,0,0.32)` | Velo dietro modali e drawer — un valore solo, mai a mano (v1.4) |
+| `logo-dark-a` / `logo-dark-b` | `#1D1F26` / `#3A3D47` | I due capi del gradiente del logo (v1.4) |
 
-Regole: i colori semantici si usano **solo** per stati e feedback, sempre in coppia "tinta al 9–12% di sfondo + testo pieno" (es. badge). Il rosso pieno solo per errori e azioni distruttive.
+Regole: i colori semantici si usano **solo** per stati e feedback, sempre in coppia "tinta `-soft` di sfondo + testo pieno" (es. badge). Il rosso pieno solo per errori e azioni distruttive. Le categorie senza significato di stato (provenienza, tipologia) **non** usano i semantici: v. Libro cap. 5.
 
 ### 2.2 Tipografia
 
@@ -69,7 +77,7 @@ Font di sistema, sempre: `-apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI
 | `body` | 15px · 400 · 0 | Testo base |
 | `body-s` | 13.5–14px · 400 | Tabelle, form, nav |
 | `caption` | 12–13px · 400 | Caption sotto i titoli, note |
-| `label` | 11px · 600 · +0.06em MAIUSCOLO | Etichette di sezione (es. sidebar) |
+| `label` | 11px · 600 · +0.06em MAIUSCOLO | Etichette di sezione (es. sidebar) — **non** le label dei campi form (quelle: 12.5px/500, Libro cap. 4) |
 
 Ogni titolo pagina ha sotto una **caption** grigia (`text-secondary`, 14px) che spiega la sezione in una frase.
 
@@ -101,14 +109,21 @@ L'elevazione si dà con ombra + hairline, **mai** con bordi scuri o ombre dure.
 - Press: `scale(0.97)` sui bottoni, `scale(0.98)` sulle card cliccabili
 - Mai animazioni decorative o che ritardano l'utente.
 
+### 2.7 Tocco e soglie (v1.4)
+
+- `touch-min`: **44px** — altezza/area minima di ogni elemento interattivo su puntatore touch (`pointer: coarse`). Il padding 8×18 dei bottoni resta la forma desktop: su touch si aggiunge `min-height: var(--touch-min)`. 24px è solo il minimo legale WCAG 2.5.8, mai l'obiettivo.
+- **Soglia mobile: 900px** — una costante documentata per app (i breakpoint non sono tokenizzabili in CSS puro: ogni app dichiara la sua costante in UN punto e la riusa; il valore canonico per le app nuove è 900). La piattaforma consegne resta a 800 come **deroga annotata** finché non migra in un colpo solo verificato (Libro cap. 10).
+- Input su mobile: `font-size ≥ 16px` (sotto, iOS zooma al focus e non torna indietro — misurato due volte nel parco).
+
 ## 3. Componenti
 
 ### Bottoni (sempre a pillola)
-- **Primario**: sfondo `ink`, testo bianco, hover `#2A2D35`
+- **Primario**: sfondo `ink`, testo `on-ink`, hover `ink-hover`
 - **Secondario**: sfondo `fill`, testo `text`, hover `fill-hover`
-- **Oro** (solo momenti di brand, es. CTA marketing): sfondo `gold`, testo bianco
+- **Oro** (solo momenti di brand, es. CTA marketing): sfondo `gold`, testo `on-ink`
 - **Distruttivo**: testo `red` su `fill`, o rosso pieno solo dopo conferma
 - Padding 8×18 (13px verticale per CTA grandi), font-weight 500–600, disabled = opacity 0.55
+- API delle classi e azioni di riga: Libro cap. 3 (`.btn` nudo = secondario; il link sottolineato non è mai un'azione).
 
 ### Campi input
 - Bordo `hairline-strong`, radius 12, padding 8–13×12–14, sfondo `surface`
@@ -120,12 +135,14 @@ L'elevazione si dà con ombra + hairline, **mai** con bordi scuri o ombre dure.
 
 ### Tabelle
 - Dentro una card; intestazioni 12px `text-tertiary` peso 500 (niente maiuscolo urlato), sticky
+- ⚠️ Lo sticky funziona **solo** se il wrapper scrollabile ha una `max-height`: senza, le intestazioni se ne vanno con la pagina (misurato: th a top −66). Nota obbligatoria, v. Libro cap. 8.
 - Righe con hover `rgba(120,120,128,0.05)`, divisori hairline, ultima riga senza bordo
 - Numeri allineati a destra con `tabular-nums`; celle vuote = "—"
 
 ### Badge di stato (pillole)
-- Pillola con **dot** colorato + testo, tinta di sfondo 9–12% + testo semantico pieno
-- Mappa stati Deluxy: da gestire=orange · in gestione/accettata=blue · in consegna=purple · consegnata=green · annullata/non consegnata=red · neutro=fill
+- Pillola con **dot** colorato + testo, tinta di sfondo `-soft` + testo semantico pieno; il dot eredita `currentColor`
+- Mappa stati Deluxy: da gestire=orange · in gestione/accettata=blue · in consegna=purple · consegnata=green · annullata/non consegnata=red · neutro=fill+`grey`
+- La piattaforma consegne usa la **legenda storica** come deroga annotata (Libro cap. 5): mappa unica per app, mai copie.
 
 ### Avvisi (toast)
 
@@ -219,14 +236,16 @@ invecchia di un giorno al giorno, la data no.
 ### Navigazione (app gestionali)
 - Sidebar **chiara traslucida** (blur 24px, saturate 180%), larghezza ~250px, bordo destro hairline
 - Voci raggruppate in **sezioni con etichetta MAIUSCOLA** (Operatività, Rete, Amministrazione, Configurazione…)
-- Voce: icona stroke 1.7px (stile SF Symbols, 19px) + label 13.5px; attiva = sfondo `fill-active` + peso 600 + icona oro
-- In basso: avatar con iniziali su `gold-soft`, nome + ruolo, logout a icona
-- Mobile: la sidebar diventa tab bar o menu; stessa gerarchia
+- Voce: icona stroke 1.7px (stile SF Symbols, 19px) + label 13.5px; attiva = sfondo `fill-active` + peso 600 + icona oro **+ `aria-current="page"`**
+- In basso: avatar con iniziali su `gold-soft`, nome + ruolo, logout a icona (nelle app con autenticazione)
+- Mobile: la sidebar diventa tab bar o menu; stessa gerarchia. Regole complete e riferimenti: Libro cap. 1–2.
 
 ### Logo
-- La "D" in Georgia serif, oro su quadrato scuro `linear-gradient(145deg, #1D1F26, #3A3D47)`, radius ~26% del lato, luce interna `inset 0 1px 0 rgba(255,255,255,0.12)`
+- La "D" in Georgia serif, oro su quadrato scuro `linear-gradient(145deg, var(--logo-dark-a), var(--logo-dark-b))`, radius ~26% del lato, luce interna `inset 0 1px 0 rgba(255,255,255,0.12)`
 
 ## 4. Pattern
+
+> I pattern completi — con l'implementazione di riferimento di ciascuno e il piano di adeguamento per app — vivono nel **[Libro UX&UI](LIBRO-UX-UI.md)**. Qui resta il minimo sindacale.
 
 ### Pagina
 ```
@@ -237,15 +256,15 @@ invecchia di un giorno al giorno, la data no.
 Il titolo dice **cosa**, la caption dice **perché/cosa contiene**, le azioni stanno sulla stessa riga a destra.
 
 ### Stati obbligatori
-Ogni vista dati implementa **quattro stati**, tutti dentro card:
+Ogni vista dati implementa **quattro stati**, tutti dentro card (le app da campo ne hanno un quinto: **offline** — Libro cap. 6):
 1. **Loading**: testo sobrio ("Caricamento…"), niente spinner giganti
-2. **Empty**: icona in quadratino `gold-soft`, titolo `title-m`, frase di aiuto, eventuale azione secondaria
-3. **Errore**: card con tinta `red` al 6% e bordo rosso al 15%, messaggio chiaro
+2. **Empty**: icona in quadratino `gold-soft`, titolo `title-m`, frase di aiuto, **azione**
+3. **Errore**: card con tinta `red-soft` e bordo rosso al 15%, messaggio chiaro **+ azione di ripresa («Riprova»)**. Un fallimento non è mai una lista vuota.
 4. **Dati**: la tabella/lista
 
 ### Form
-- Label sopra il campo (o placeholder per form brevi), obbligatori con \*
-- Errori inline sotto il campo in `red`, mai solo alert
+- Label sopra il campo (12.5px/500), obbligatori con `*` **rosso**
+- Errori **presso il campo** che li ha causati, in `red`, input conservato — mai solo alert (come si fa anche senza JS client: Libro cap. 4)
 - CTA primaria in fondo a destra (o full-width nei form stretti)
 
 ### Login (tutte le app)
@@ -256,13 +275,14 @@ Card in vetro smerigliato (blur 30px, radius 24, `shadow-float`) su sfondo `bg` 
 | App | Come adottare |
 |---|---|
 | **Web (Angular/React/HTML)** | Importa [`tokens/tokens.css`](tokens/tokens.css) come primo foglio di stile; usa solo `var(--…)`. Riferimento vivo: `deluxy-platform-next/web/` |
-| **React Native / Expo** (Deluxy Scout) | Importa [`tokens/theme.ts`](tokens/theme.ts); sostituire gradualmente i token locali (`lib/theme.ts`) mappandoli su questi. Blur: `expo-blur` per barre/sidebar |
+| **React Native / Expo** (Deluxy Scout) | Importa [`tokens/theme.ts`](tokens/theme.ts). ⚠️ **Mai lo swap secco dell'import**: le chiavi in collisione (es. `spacing.md` locale=16 vs DS=12) si RINOMINANO prima, o 44 schermate cambiano in silenzio (Libro cap. 12). Blur: `expo-blur` per barre/sidebar |
 | **Shopify (temi Deluxy)** | I token colore/tipografia entrano nelle variabili del tema; la skill `sviluppi-siti-deluxy` deve citare questo file. I siti vetrina possono usare più oro (contesto marketing), ma stessa scala tipo/spazio/radius |
-| **Nuove app** | Giorno zero: si copia `tokens/` e si linka questo documento nel README |
+| **Nuove app** | Giorno zero: si copia `tokens/` e si linka questo documento + il Libro nel README |
 
 ## 6. Governance
 
-- Questo documento e `tokens/tokens.json` sono **la fonte**; le copie nelle app sono implementazioni.
+- Questo documento e `tokens/tokens.json` sono **la fonte**; le copie nelle app sono implementazioni. Le copie web devono restare **byte-identiche** (check anti-drift in CI: Libro cap. 12).
 - Per cambiare un token o aggiungere un componente: si modifica qui (con bump di versione in testa), poi si propaga alle app.
 - Ogni PR/commit di UI deve poter rispondere: *"quale sezione del design system sto applicando?"*
-- Deroghe consapevoli (es. mappa di Scout, checkout Shopify) vanno annotate nel README dell'app con il motivo.
+- Deroghe consapevoli (es. mappa di Scout, checkout Shopify, legenda consegne) vanno annotate nel README dell'app con il motivo.
+- ⚠️ Questo file esiste in DUE copie (repo `app/` e repo `scoutwt/`): a ogni bump vanno allineate ENTRAMBE (il 27/08 la copia di `app/` era rimasta alla v1.0 mentre `scoutwt` era alla v1.3).

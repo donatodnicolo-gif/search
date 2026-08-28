@@ -1,16 +1,22 @@
 # Deluxy Design System — guida all'adozione
 
-Questa cartella è la **fonte unica** del linguaggio visivo Deluxy:
+Questa cartella è la **fonte unica** del linguaggio visivo Deluxy e ospita anche i due Libri (UX e Sicurezza) e i loro registri:
 
 ```
 deluxy-design-system/
-├── DESIGN-SYSTEM.md      ← la specifica (principi → token → componenti → pattern)
-├── README.md             ← questa guida
+├── DESIGN-SYSTEM.md            ← la specifica UI (principi → token → componenti → pattern)
+├── LIBRO-UX-UI.md             ← i pattern d'interfaccia vincolanti + custode (architetto-ux)
+├── LIBRO-SICUREZZA.md         ← le regole di sicurezza vincolanti + custode (architetto-sicurezza)
+├── SEGNALAZIONI-UX.md         ← registro del custode del layout
+├── SEGNALAZIONI-SICUREZZA.md  ← registro del custode della sicurezza
+├── README.md                  ← questa guida
 └── tokens/
     ├── tokens.json       ← valori canonici (machine-readable)
     ├── tokens.css        ← per app web (CSS custom properties)
     └── theme.ts          ← per app React Native / Expo
 ```
+
+> **I due Libri e i loro custodi.** L'UI segue il [Libro UX&UI](LIBRO-UX-UI.md) (custode: agente `architetto-ux`); la sicurezza segue il [Libro della Sicurezza](LIBRO-SICUREZZA.md) (custode: `architetto-sicurezza`, con verifica ostile `sicurezza-ostile`). Errori e cambiamenti si registrano nei rispettivi `SEGNALAZIONI-*.md`, non si risolvono in autonomia; il custode decide se è una correzione locale, una regola nuova valida per tutte le app, o una deroga da annotare.
 
 ## Come si adotta, app per app
 

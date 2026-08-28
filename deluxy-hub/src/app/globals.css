@@ -522,16 +522,17 @@ td {
   }
   @keyframes menu-fade { from { opacity: 0; } to { opacity: 1; } }
 
-  /* Le azioni: drawer che scivola da destra. Tutte le voci restano. */
+  /* Le azioni: drawer che scivola da SINISTRA, come in tutte le app Deluxy
+     (regola del Libro §2, 28/08). Tutte le voci restano. */
   .topbar-actions {
-    position: fixed; top: 0; right: 0; z-index: 50;
+    position: fixed; top: 0; left: 0; z-index: 50;
     height: 100dvh; width: min(288px, 84vw);
     flex-direction: column; align-items: stretch; flex-wrap: nowrap;
     gap: 10px; padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
     background: var(--surface);
     box-shadow: var(--shadow-float);
-    border-left: 1px solid var(--hairline);
-    transform: translateX(100%);
+    border-right: 1px solid var(--hairline);
+    transform: translateX(-100%);
     transition: transform 0.28s var(--ease);
     overflow-y: auto;
     justify-content: flex-start;
