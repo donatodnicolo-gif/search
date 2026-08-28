@@ -72,9 +72,55 @@
 
 **📕 MANUALE DI FUNZIONALITÀ (28/08/2026, deciso dall'utente): [`docs/guida-visiva.html`](guida-visiva.html) → artifact https://claude.ai/code/artifact/17c9fcad-6a0e-4da7-982f-fb546431d1d1** — la guida visiva per chi arriva nuovo. ⚠️ **Ogni funzionalità aggiunta o modificata va scritta lì, nello stesso commit, e ripubblicata allo STESSO indirizzo** (`Artifact` con lo stesso `file_path`, o con `url` da un'altra sessione: un indirizzo nuovo lascia in mano all'utente un link che invecchia). NON sostituisce `COME-FUNZIONA-APP-DELUXY.md`: quello è il riferimento campo per campo, la guida è l'orientamento. Regola in [REGOLE-DI-LAVORO.md §0-bis](REGOLE-DI-LAVORO.md).
 
-**Ultimo aggiornamento:** 28 agosto 2026 — manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 28 agosto 2026 — ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### ⭐ 28/08/2026 — L'ORDINE AZIENDALE È DAVVERO DUE CONSEGNE: la mia smentita del 24/08 era sbagliata
+
+**Correzione dell'utente, e i dati gli danno ragione.** Il 24/08 avevo scritto
+nel manuale che la descrizione «il Corporate replica la consegna a un altro
+partner trasformando il servizio da prezzo fisso a vendita» **non era sostenuta
+dai dati**. Era sostenuta eccome: **misuravo la colonna sbagliata.**
+
+⚠️ Il legame **non è `parentDeliveryId`** (su queste coppie è **vuoto**: i suoi 72
+legami sono un'altra cosa, seconde tratte e giri di magazzino). È
+**`legacyCorrespondDeliveryId`** — e ci sono **110 coppie**.
+
+**L'esempio letto al centesimo** (`api/scripts/verifica-corporate.mjs`), coppia
+#62454 ⇄ #62455 del 6/09/2026:
+
+| | riga A | riga B |
+|---|---|---|
+| partner | **Casati 14** | **MALI'A** |
+| servizio | ORDINE BRIOCHE | Vendita Deluxy |
+| modello | **CORPORATE** | **VENDITA** |
+| prezzo | 59,52 € | 8,926 € |
+
+…e **tutto il resto è identico**: stessa data, stesso ritiro (Viale Legioni
+Romane 55), stessa consegna (Via Casati 14), stessa fascia 06:30, **stesso
+valet**, stesso stato, e le **stesse identiche 9 righe di prodotto** (tutti
+prodotti UNICI di MALI'A). È una replica, punto.
+
+⭐ **Il prezzo della riga VENDITA è la fee del partner che VENDE applicata al
+valore dei prodotti: 107 coppie su 109.** MALI'A ha fee 20% → 8,926 su 44,63 è
+**esattamente** il 20%. CLIVATI-CONSEGNE ha fee 0 → la sua riga vendita è 0, e
+quadra lo stesso.
+
+⚠️ **Il prezzo della riga CORPORATE non segue una formula unica**: nelle coppie
+MALI'A→Casati è il valore diviso 0,75 (il listino corporate 25 di Casati) solo
+in **27 casi su 53**. Negli altri è stato deciso a mano. Non inventare la
+formula: se serve, va chiesta.
+
+⚠️ **87 consegne Corporate su 197 non hanno la riga gemella.** Non so se è un
+dato perso nell'import o se quei casi funzionano davvero a riga singola.
+Domanda aperta per l'utente.
+
+**Corretti**: `docs/COME-FUNZIONA-APP-DELUXY.md` §7-bis (la riga «Aziendale»
+diceva il falso) e la **guida visiva**, che ora ha il blocco «L'ordine aziendale
+è due consegne, non una» con la tabella della coppia vera — e una regola nuova
+in fondo: *prima di dire che il manuale sbaglia, controlla di guardare la
+colonna giusta*.
 
 ### 🧾 28/08/2026 — La tabella partner non si allunga più, i bottoni del registro dicono cosa fanno, e la scheda mostra le ultime consegne
 

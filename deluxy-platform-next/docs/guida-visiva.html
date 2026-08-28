@@ -829,8 +829,8 @@
               </tr>
               <tr>
                 <td><b>Aziendale</b></td>
-                <td>Dal valore dei prodotti. È l'unico che si prezza <b>senza listino</b>.</td>
-                <td>Il partner paga noi.</td>
+                <td>Dal valore dei prodotti. È l'unico che si prezza <b>senza listino</b>, e l'unico che nasce in <b>due righe</b> — vedi qui sotto.</td>
+                <td>Il partner paga noi, e noi paghiamo il partner che ha fornito la merce.</td>
               </tr>
             </tbody>
           </table>
@@ -845,6 +845,38 @@
             È il motivo per cui la pagina Finanza guarda <b>solo</b> i servizi di tipo Vendita.
           </p>
         </div>
+
+        <h3 style="margin-top:30px; font-size:19px">L'ordine aziendale è due consegne, non una</h3>
+        <p style="margin-top:6px">
+          Quando un partner ordina merce di un altro partner, il sistema scrive
+          <b>due righe gemelle</b>: stessa data, stesso ritiro, stessa consegna, stessa fascia
+          oraria, stesso valet e le stesse identiche righe di prodotto. Cambia chi c'è
+          intestato e come si prezza.
+        </p>
+
+        <div class="avvolgi" style="margin-top:14px">
+          <table>
+            <thead>
+              <tr><th></th><th>La riga aziendale</th><th>La riga di vendita</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><b>Intestata a</b></td><td>chi ordina — <b>Casati 14</b></td><td>chi fornisce — <b>MALI'A</b></td></tr>
+              <tr><td><b>Servizio</b></td><td>ORDINE BRIOCHE</td><td>Vendita Deluxy</td></tr>
+              <tr><td><b>Modello</b></td><td>Aziendale</td><td>Vendita</td></tr>
+              <tr><td><b>Prezzo</b></td><td class="num">59,52&nbsp;€</td><td class="num">8,93&nbsp;€</td></tr>
+              <tr><td><b>Che cos'è</b></td><td>quello che Casati ci deve</td><td>la nostra quota sulla merce di MALI'A</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="fonte">Coppia #62454 ⇄ #62455 del 6 settembre 2026, letta in banca dati. Sono 110 coppie in tutto.</p>
+
+        <p style="margin-top:16px">
+          <b>Il prezzo della riga di vendita è la fee del fornitore applicata al valore della
+          merce</b> — MALI'A ha il 20%, e 8,93 è esattamente il 20% di 44,63. Vale su
+          <b>107 coppie su 109</b>. Il prezzo della riga aziendale invece non segue una formula
+          sola: spesso è il valore diviso per (1 − listino), ma in metà dei casi è stato
+          deciso a mano.
+        </p>
 
         <p style="margin-top:20px">
           Il compenso del valet è un conto a parte, con regole sue: listino urbano o fuori
@@ -906,6 +938,15 @@
         <div class="avviso">
           <h3>Le regole economiche non si ricopiano</h3>
           <p>Quota, margine, fee e IVA si leggono da chi le possiede. Una regola ricopiata in cinque punti diverge in silenzio, e nessuno se ne accorge finché i conti non tornano.</p>
+        </div>
+        <div class="avviso">
+          <h3>Prima di dire che il manuale sbaglia, controlla di guardare la colonna giusta</h3>
+          <p>
+            Il 24 agosto avevo dichiarato falsa la descrizione dell'ordine aziendale, misurando
+            un campo che su quelle consegne è vuoto. La descrizione era giusta: il legame è
+            un altro campo. Una smentita basata su una misura vale quanto la misura — e una
+            misura sulla colonna sbagliata cancella dal manuale una cosa vera.
+          </p>
         </div>
         <div class="avviso calmo">
           <h3>Se una cosa sembra sbagliata, misurala prima di aggiustarla</h3>
