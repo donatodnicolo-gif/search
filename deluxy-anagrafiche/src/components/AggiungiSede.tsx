@@ -22,6 +22,8 @@ export function AggiungiSede({
   provincia,
   ragioneSociale,
   categoria,
+  telefono,
+  email,
   compatto = false,
 }: {
   madreId: string;
@@ -30,6 +32,11 @@ export function AggiungiSede({
   provincia: string | null;
   ragioneSociale: string | null;
   categoria: string;
+  // ⚠️ Recapiti dell'INSEGNA: servono a precompilare, e vanno passati da
+  // ENTRAMBI i punti di montaggio. Se se ne aggiorna uno solo, la stessa
+  // modale si comporta in due modi a seconda di dove la si apre.
+  telefono: string | null;
+  email: string | null;
   compatto?: boolean;
 }) {
   const [aperto, setAperto] = useState(false);
@@ -172,6 +179,9 @@ export function AggiungiSede({
                   <div className="campo-modulo">
                     <label htmlFor="sede-citta">Città</label>
                     <input id="sede-citta" name="citta" defaultValue={citta ?? ""} />
+                    <p className="testo-guida">
+                      Dall&apos;insegna. Cambiala se la sede è in un&apos;altra città.
+                    </p>
                   </div>
                   <div className="campo-modulo">
                     <label htmlFor="sede-provincia">Provincia</label>
@@ -189,21 +199,45 @@ export function AggiungiSede({
                       sede con lo stesso nome e la stessa città non viene creata.
                     </p>
                   </div>
+                  {/* ⚠️ VALORE VERO, non un placeholder grigio: un placeholder
+                      non viene inviato al server, quindi il campo «sembrerebbe
+                      pieno e salverebbe vuoto» — peggio del problema che
+                      risolve. E niente eredità silenziosa lato server: ciò che
+                      si vede nel campo è ciò che si salva, altrimenti svuotarlo
+                      non varrebbe più come «questa sede non ha recapiti suoi». */}
                   <div className="campo-modulo">
                     <label htmlFor="sede-telefono">Telefono</label>
-                    <input id="sede-telefono" name="telefono" />
+                    <input id="sede-telefono" name="telefono" defaultValue={telefono ?? ""} />
+                    <p className="testo-guida">
+                      Dall&apos;insegna. Cambialo se la sede ha il suo numero; svuotalo se non lo sai.
+                    </p>
                   </div>
                   <div className="campo-modulo">
                     <label htmlFor="sede-email">Email</label>
-                    <input id="sede-email" name="email" type="email" />
+                    <input id="sede-email" name="email" type="email" defaultValue={email ?? ""} />
+                    <p className="testo-guida">
+                      Dall&apos;insegna. Cambiala se la sede ha la sua casella; svuotala se non la sai.
+                    </p>
                   </div>
                 </div>
+                {/* ⚠️ Tre frasi per i tre regimi: cosa NON è nel modulo ma
+                    arriva lo stesso, cosa è già compilato e da dove viene, cosa
+                    resta vuoto e perché. La versione precedente aveva solo la
+                    prima, ed è per questo che telefono ed email sembravano
+                    ereditati mentre nascevano vuoti. */}
                 <p className="testo-guida" style={{ marginTop: 10 }}>
-                  <strong>Arriva tutto dall&apos;insegna, non serve riscriverlo</strong>:{" "}
-                  {[ragioneSociale, categoria].filter(Boolean).join(" · ")}, stati, interessi, account
-                  e i dati di fatturazione. Qui si scrive solo quello che <em>cambia</em> da una sede
-                  all&apos;altra — e l&apos;indirizzo resta vuoto apposta: una sede nuova e un altro
-                  luogo, copiarlo creerebbe un gemello.
+                  <strong>Non si riscrivono qui, arrivano dall&apos;insegna</strong>:{" "}
+                  {[ragioneSociale, categoria].filter(Boolean).join(" · ")}, stati, interessi,
+                  account, regione e i dati di fatturazione.
+                </p>
+                <p className="testo-guida">
+                  <strong>Insegna, città, provincia, telefono ed email</strong> sono già compilati con
+                  quelli dell&apos;insegna: correggili se questa sede ha i suoi.
+                </p>
+                <p className="testo-guida">
+                  <strong>Nome della sede e indirizzo restano vuoti apposta</strong>: sono ciò che
+                  distingue un luogo dall&apos;altro — senza almeno uno dei due, una seconda sede con
+                  lo stesso nome e la stessa città non viene creata.
                 </p>
                 <div className="azioni-modulo">
                   <button type="button" className="btn btn-secondario" onClick={chiudi}>Annulla</button>

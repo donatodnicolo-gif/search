@@ -304,6 +304,8 @@ export default async function Dettaglio({
                 provincia={p.provincia}
                 ragioneSociale={p.ragioneSociale}
                 categoria={p.categoria}
+                telefono={p.telefono}
+                email={p.email}
                 compatto
               />
             )}
@@ -668,6 +670,8 @@ export default async function Dettaglio({
                 provincia={p.provincia}
                 ragioneSociale={p.ragioneSociale}
                 categoria={p.categoria}
+                telefono={p.telefono}
+                email={p.email}
                 compatto
               />
             )}

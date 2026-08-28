@@ -670,17 +670,34 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   position: fixed; inset: 0; z-index: 60;
   background: var(--scrim);
   display: flex; align-items: flex-start; justify-content: center;
-  padding: 10vh 20px 20px;
+  padding: 4vh 20px 20px;
 }
+/* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9, segnalazione utente:
+   «Aggiungi sede» era più alta dello schermo e il Salva irraggiungibile).
+   Il pannello ha un tetto e SCORRE LUI; testata (con la ✕) e piede (con le
+   azioni) sono sticky, così chiusura e Salva non finiscono mai sotto la
+   piega. Collaudo: a 375×812 e a 1366×768 il bottone di conferma si
+   raggiunge senza scrollare la pagina. */
 .modale {
   width: 520px; max-width: 100%;
+  max-height: min(92dvh, calc(100dvh - 4vh - 20px));
+  overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-l);
   box-shadow: var(--shadow-float);
-  padding: 20px;
+  /* Verticale: lo danno la testata (sticky) e il piede; le modali senza
+     piede chiudono con l'ultimo figlio. */
+  padding: 0 20px;
 }
-.modale-testata { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.modale > :last-child:not(.modale-piede) { margin-bottom: 20px; }
+.modale-testata {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface);
+  padding: 20px 0 14px; margin-bottom: 0;
+  border-bottom: 1px solid var(--hairline);
+}
 .modale-titolo { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
 .modale-sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
 .modale-chiudi {
@@ -1162,7 +1179,11 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
 .voce-scelta .voce-testo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .modale-piede {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hairline);
+  /* Sticky in fondo al pannello scorrevole: il Salva resta sempre in vista
+     (Libro v1.7 §9). */
+  position: sticky; bottom: 0; z-index: 2;
+  background: var(--surface);
+  margin-top: 14px; padding: 14px 0 20px; border-top: 1px solid var(--hairline);
 }
 .modale-piede .testo-guida { flex: 1; min-width: 140px; }
 

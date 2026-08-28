@@ -979,6 +979,53 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
      (`deluxy-scout/supabase/functions/anagrafiche`, `deluxy-search-supplier/api/anagrafiche.js`):
      ora ricevono meno, ma la buona pratica è che proiettino i campi loro.
 
+3f. **✅ 27/08/2026 — la modale «Aggiungi una sede» non ereditava telefono ed email.**
+   Segnalato dall'utente creando una sede per «Vivo Concerti SRL»: «non mi prende di
+   default i valori già inseriti». **Non era una regressione**: `email` e `telefono`
+   sono sempre arrivati solo dal modulo (verificato sulla versione precedente ai
+   lavori di oggi).
+   **Il difetto**: i due campi cadevano fra le due promesse della modale. Il riepilogo
+   diceva «arriva tutto dall'insegna» elencando cose che non li comprendevano, e lato
+   server `aggiungiSede` li prende solo da `testo(...)`: la sede nasceva **senza
+   recapiti** anche quando l'insegna ne aveva, e non lo diceva nessuno.
+   ⚠️ **Deciso dall'agente `architetto-ux`**, non in autonomia (regola del CLAUDE.md).
+   La regola che ne è uscita — **il campo ereditato da un record padre** — vale per
+   tutte le app e va portata nel Libro UX&UI §4:
+
+   > Quando un modulo crea un figlio dentro il contesto di un padre (sede di
+   > un'insegna, riga di un ordine, task di un progetto), ogni campo sta in uno di tre
+   > regimi: **(1) identifica il figlio** (chiave di unicità, luogo fisico) → **vuoto**,
+   > col motivo scritto sotto il campo; **(2) descrive l'organizzazione e resta vero
+   > finché non lo si smentisce** → **precompilato col valore vero** (`defaultValue`,
+   > **mai** placeholder) più una nota che **nomina la fonte** («Dall'insegna.
+   > Cambialo se…»); **(3) non è nel modulo** → ereditato lato server e **dichiarato
+   > per nome** nel riepilogo. Il regime si sceglie col **costo dell'errore non
+   > corretto**: recuperabile → 2; silenzioso e costoso (indirizzo di consegna, chiave
+   > di deduplicazione) → 1. ⚠️⚠️ **Vietata l'eredità silenziosa su un campo mostrato
+   > vuoto**: *ciò che si vede nel campo è ciò che si salva*.
+
+   **Applicato**: telefono ed email ora precompilati col valore dell'insegna e con la
+   nota di provenienza; nota aggiunta anche a **Città** (l'aveva solo Provincia);
+   riepilogo riscritto in **tre frasi**, una per regime. `azioni.ts` **non toccato**:
+   `email: testo("email")` era già la forma giusta — tutta la correzione sta nel modulo.
+   ⚠️ **Indirizzo e Nome della sede restano vuoti**, e ora c'è anche la misura: il
+   controllo anti-gemella cerca su **nome + città + indirizzo**, quindi precompilare
+   l'indirizzo darebbe una collisione **garantita** — e un indirizzo ereditato e non
+   corretto manda un valet nel posto sbagliato. Un telefono ereditato e non corretto
+   fa squillare il centralino: si recupera in una frase.
+   ⚠️ **Effetto collaterale accettato**: N sedi nasceranno con la stessa email
+   dell'insegna. Non blocca la creazione (il dedup non guarda i recapiti), ma **chi
+   invia comunicazioni di massa (CRM, AI Mail) deve deduplicare per indirizzo email**,
+   se no l'insegna riceve N copie della stessa mail.
+   ✅ Provato: i prop `telefono`/`email` arrivano al componente da **entrambi** i punti
+   di montaggio della scheda (era il rischio segnalato: aggiornarne uno solo fa
+   comportare la stessa modale in due modi).
+   ❌ **Da fare**: portare la voce nel Libro UX&UI (§4, prossima versione libera — la
+   v1.8 è già presa). ⚠️ Il 27/08 `deluxy-design-system/` NON è stato toccato perché
+   **un'altra sessione ci stava lavorando** (`LIBRO-UX-UI.md` e `SEGNALAZIONI-UX.md`
+   modificati e non committati). Le due copie del Libro (in `app/` e in `scoutwt/`)
+   vanno allineate insieme.
+
 ### B. Scelte da prendere (il codice viene dopo)
 
 3bis. **CONSUMERS — sezione COSTRUITA il 01/08/2026 (lo studio che l'ha generata è qui sotto).**
