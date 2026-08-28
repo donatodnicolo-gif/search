@@ -28,6 +28,7 @@ import { TaskFormModal } from '@/components/TaskFormModal';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 import { FinanceCard } from '@/components/FinanceCard';
+import { EntitaCard } from '@/components/EntitaCard';
 import { MailContattoCard } from '@/components/MailContattoCard';
 import { Loader } from '../../_layout';
 
@@ -716,6 +717,12 @@ export default function SchedaAttivita() {
         <View style={{ marginTop: spacing.lg }}>
           <FinanceCard nomeCliente={place.nome} mostra={place.stato === 'cliente' || place.anagrafiche_stato === 'attivo'} />
         </View>
+
+        {/* ⭐ L'ENTITÀ, accanto al fatturato del singolo negozio: «CHANEL» sono
+            tre società che fatturano separatamente ma commercialmente sono un
+            cliente solo. Sta SOTTO la card Finance di proposito — prima quanto
+            fa questo negozio, poi di chi fa parte. */}
+        <EntitaCard anagraficaId={place.anagrafiche_id} nomeNegozio={place.nome} />
 
         {/* Ultime mail ricevute dai contatti del negozio (da AI Mail). */}
         <MailContattoCard emails={contatti.map((c) => c.email ?? '').filter(Boolean)} />

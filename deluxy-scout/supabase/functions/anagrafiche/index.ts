@@ -239,6 +239,18 @@ Deno.serve(async (req) => {
       path = `/api/v1/partners?${p.toString()}`;
     } else if (body.action === 'dettaglio' && body.id) {
       path = `/api/v1/partners/${encodeURIComponent(String(body.id))}`;
+    } else if (body.action === 'gruppo' && body.id) {
+      // ⭐ L'ENTITÀ COMMERCIALE (28/08/2026, richiesta dell'utente: «mostrare
+      // il fatturato dell'ENTITÀ, tutte le società di quel cliente»).
+      //
+      // Il registro tiene la catena a tre livelli negozio → società →
+      // entità: `anagraficheIds` è l'elenco piatto delle schede del gruppo,
+      // ed è la chiave con cui FINANCE può sommare il fatturato di tutte.
+      //
+      // ⚠️ Qui NON ci sono importi, e non devono esserci: il registro tiene
+      // gli agganci, chi ha i soldi somma (Standard §7). Un fatturato
+      // ricopiato invecchia e il numero continua a sembrare giusto.
+      path = `/api/v1/gruppi/${encodeURIComponent(String(body.id))}`;
     } else {
       return json({ error: `Azione sconosciuta: ${body.action}` }, 400);
     }

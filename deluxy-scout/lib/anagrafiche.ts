@@ -455,6 +455,70 @@ export async function estraiAnagrafica(
  * candidati e decidere lui. ⚠️ Non si usa per AFFERMARE un'identità — per
  * quello c'è `trovaAnagraficaGiaPresente`, che accetta solo l'omonimo unico.
  */
+/** Una società del gruppo, con le sue sedi (i «negozi» di Scout). */
+export interface SocietaEntita {
+  id: string;
+  ragioneSociale: string;
+  pIva: string | null;
+  sedi: { id: string; nome: string; citta: string | null; stato: string | null }[];
+}
+
+/** L'ENTITÀ commerciale: il cliente come lo intende chi vende. */
+export interface Entita {
+  id: string;
+  nome: string;
+  societa: SocietaEntita[];
+  /** L'elenco piatto delle schede del registro che compongono l'entità. */
+  anagraficheIds: string[];
+}
+
+/**
+ * ⭐ L'ENTITÀ DI UN NEGOZIO (28/08/2026, richiesta dell'utente: «mostrare il
+ * fatturato dell'ENTITÀ, tutte le società di quel cliente — perché CHANEL
+ * sono tre società che fatturano separatamente ma commercialmente sono un
+ * cliente solo»).
+ *
+ * La catena è a tre livelli e vive nel registro: **negozio → società →
+ * entità**. Un negozio appartiene all'entità ATTRAVERSO la sua società,
+ * quindi un prospect senza P.IVA non ha entità — non è un guasto, è il
+ * modello: attaccarlo anche direttamente darebbe due strade per lo stesso
+ * fatto, e prima o poi due risposte diverse.
+ *
+ * ⚠️ Torna `null` quando il negozio non è nel registro o non ha un'entità.
+ * Chi chiama deve poter distinguere «non ne fa parte» da «non lo sappiamo»:
+ * qui il primo caso è `null` e il secondo è un errore che risale.
+ *
+ * ⚠️ Qui NON arrivano importi, e non devono: il registro tiene gli agganci,
+ * chi ha i soldi somma (Standard §7).
+ */
+export async function fetchEntitaDelNegozio(anagraficaId: string | null | undefined): Promise<Entita | null> {
+  const id = (anagraficaId ?? "").trim();
+  if (!id) return null;
+  // 1) la scheda dice a quale gruppo appartiene (via la sua società)
+  const scheda = await chiama<any>({ action: "dettaglio", id });
+  const gruppoId = scheda?.gruppo?.id ?? scheda?.dati?.gruppo?.id ?? null;
+  if (!gruppoId) return null;
+  // 2) il gruppo dice di quali società e sedi è fatto
+  const g = await chiama<any>({ action: "gruppo", id: String(gruppoId) });
+  if (!g?.id) return null;
+  return {
+    id: String(g.id),
+    nome: String(g.nome ?? "Entità"),
+    societa: (g.societa ?? []).map((s: any) => ({
+      id: String(s.id),
+      ragioneSociale: String(s.ragioneSociale ?? "—"),
+      pIva: s.pIva ?? null,
+      sedi: (s.sedi ?? []).map((x: any) => ({
+        id: String(x.id),
+        nome: String(x.nome ?? "—"),
+        citta: x.citta ?? null,
+        stato: x.stato ?? null,
+      })),
+    })),
+    anagraficheIds: (g.anagraficheIds ?? []).map((x: any) => String(x)),
+  };
+}
+
 export async function cercaNelRegistro(q: string, max = 12): Promise<PartnerRegistro[]> {
   const testo = q.trim();
   if (testo.length < 2) return [];
