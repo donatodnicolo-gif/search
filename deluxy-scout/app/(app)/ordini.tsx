@@ -24,7 +24,7 @@ import { fetchForniture, salvaNelListino, type Fornitura } from '@/lib/forniture
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { BRAND, brandDi, CANALI, LABEL_CANALE, LINEE_ATTIVE } from '@/types';
-import { urlSchedaRegistro } from '@/lib/anagrafiche';
+import { datiSocietariRegistro, urlSchedaRegistro } from '@/lib/anagrafiche';
 import { fetchProfiles } from '@/lib/db';
 
 // Colori di stato dai token semantici del DS (Libro UX cap.5): arancione = attende
@@ -972,9 +972,11 @@ export default function Ordini() {
     if (!o.proforma_numero) return;
     setInCorso(o.id);
     try {
-      const [doc, templates] = await Promise.all([
+      const [doc, templates, dest] = await Promise.all([
         documentoProforma(o.proforma_numero),
         fetchTemplate().catch(() => [] as TemplateDocumento[]),
+        // I dati societari del CLIENTE: vivono nel registro, non su FINANCE.
+        o.place_anagrafiche_id ? datiSocietariRegistro(o.place_anagrafiche_id) : Promise.resolve(null),
       ]);
       // Il template del brand dell'ordine; senza, il predefinito; senza
       // NESSUN template — al 28/08 la tabella era VUOTA, ed è per questo che
@@ -1018,7 +1020,7 @@ export default function Ordini() {
           bic: imp['banca.bic'] || '',
         };
       }
-      const nomeFile = await scaricaPdfProforma(doc, intestazione);
+      const nomeFile = await scaricaPdfProforma(doc, intestazione, dest ?? { nome: doc.partner?.nome ?? o.cliente });
       avvisa('Pro-forma scaricata', `${nomeFile} è nei tuoi Download.`);
     } catch (e: any) {
       avvisa('Pro-forma non scaricata', String(e?.message ?? e));

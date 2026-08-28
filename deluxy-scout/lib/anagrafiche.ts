@@ -519,6 +519,34 @@ export async function fetchEntitaDelNegozio(anagraficaId: string | null | undefi
   };
 }
 
+/** I dati SOCIETARI di una scheda del registro: servono al destinatario dei
+ *  documenti. Torna null se la scheda non c'è — mai un dato inventato. */
+export interface DatiSocietari {
+  nome: string;
+  ragioneSociale: string | null;
+  indirizzo: string | null;
+  citta: string | null;
+  pIva: string | null;
+  codiceFiscale: string | null;
+}
+export async function datiSocietariRegistro(anagraficheId: string): Promise<DatiSocietari | null> {
+  try {
+    const r = await chiama<any>({ action: 'dettaglio', id: anagraficheId });
+    const d = r?.dati ?? r;
+    if (!d?.nome) return null;
+    return {
+      nome: String(d.nome),
+      ragioneSociale: d.ragioneSociale ?? d.soggettoFiscale?.ragioneSociale ?? null,
+      indirizzo: d.indirizzo ?? null,
+      citta: d.citta ?? null,
+      pIva: d.pIva ?? d.soggettoFiscale?.pIva ?? null,
+      codiceFiscale: d.codiceFiscale ?? d.soggettoFiscale?.codiceFiscale ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function cercaNelRegistro(q: string, max = 12): Promise<PartnerRegistro[]> {
   const testo = q.trim();
   if (testo.length < 2) return [];

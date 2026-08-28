@@ -37,9 +37,20 @@ const dataIt = (iso: string | null | undefined) => {
  * messaggio leggibile: chi chiama lo mostra, un download che non parte in
  * silenzio insegna a non premere il bottone.
  */
+/** Il destinatario coi suoi dati societari (dal registro Anagrafiche). */
+export interface DestinatarioDocumento {
+  nome: string;
+  ragioneSociale?: string | null;
+  indirizzo?: string | null;
+  citta?: string | null;
+  pIva?: string | null;
+  codiceFiscale?: string | null;
+}
+
 export async function scaricaPdfProforma(
   doc: DocumentoProforma,
   int: Partial<IntestazioneDocumento> | null,
+  dest?: DestinatarioDocumento | null,
 ): Promise<string> {
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -86,10 +97,31 @@ export async function scaricaPdfProforma(
   y += 8;
 
   // ── Intestata a / oggetto ────────────────────────────────────────────────
+  /**
+   * ⭐ I DATI SOCIETARI DEL DESTINATARIO (28/08/2026, segnalazione
+   * dell'utente: «mancano tutti i dati societari del destinatario»). Il
+   * documento di FINANCE porta solo il NOME: ragione sociale, indirizzo e
+   * P.IVA vivono nel registro Anagrafiche e arrivano da lì. Se la scheda non
+   * è agganciata si stampa il solo nome — mai un dato inventato.
+   */
   pdf.setFont('helvetica', 'bold').setFontSize(8).setTextColor(150, 120, 46);
   pdf.text('INTESTATA A', L, y);
   pdf.setFontSize(12).setTextColor(17, 19, 24);
-  pdf.text(doc.partner?.nome ?? '', L, (y += 5.5));
+  pdf.text(dest?.ragioneSociale || dest?.nome || doc.partner?.nome || '', L, (y += 5.5));
+  pdf.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(80);
+  if (dest?.ragioneSociale && dest.nome && dest.ragioneSociale !== dest.nome) {
+    pdf.text(dest.nome, L, (y += 4.6));
+  }
+  const rigaVia = [dest?.indirizzo, dest?.citta].filter(Boolean).join(' · ');
+  if (rigaVia) pdf.text(rigaVia, L, (y += 4.6));
+  const rigaFisc = [
+    dest?.pIva ? `P.IVA ${dest.pIva}` : '',
+    dest?.codiceFiscale && dest.codiceFiscale !== dest.pIva ? `CF ${dest.codiceFiscale}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  if (rigaFisc) pdf.text(rigaFisc, L, (y += 4.6));
+  pdf.setTextColor(17, 19, 24);
   if (doc.oggetto) {
     pdf.setFontSize(8).setTextColor(150, 120, 46);
     pdf.text('OGGETTO', L, (y += 8));
