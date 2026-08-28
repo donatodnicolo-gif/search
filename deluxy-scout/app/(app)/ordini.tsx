@@ -566,7 +566,11 @@ export default function Ordini() {
       cella: (o) => (
         <View style={{ gap: 2, alignItems: 'flex-start' }}>
           <StatusBadge small label={labelStatoOrdine[o.stato]} colore={coloreStatoOrdine[o.stato]} />
-          {o.chiuso_il ? <Text style={styles.tabStima}>pratica chiusa</Text> : null}
+          {o.chiuso_il ? (
+            <Text style={styles.tabStima}>
+              chiusa il {new Date(o.chiuso_il).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+            </Text>
+          ) : null}
         </View>
       ),
     },
@@ -1022,13 +1026,37 @@ export default function Ordini() {
     setChiusuraPer(o);
   }
 
-  async function riapriOrdine(o: OrdineConLuogo) {
-    try {
-      await aggiornaOrdine(o.id, { chiuso_il: null });
-      carica();
-    } catch (e: any) {
-      avvisa('Non riaperto', String(e?.message ?? e));
-    }
+  /**
+   * ⭐ RIAPRIRE UN ORDINE CHIUSO (27/08/2026, richiesta dell'utente).
+   *
+   * ⚠️ SI CHIEDE PRIMA. Riaprire era già possibile — lo stesso lucchetto —
+   * ma succedeva al primo clic, in silenzio: una pratica chiusa si riapriva
+   * per sbaglio e nessuno se ne accorgeva, perché a schermo cambiava solo
+   * un'icona. Chiudere costa tre passaggi; disfare non può costarne mezzo.
+   *
+   * ⚠️ La FATTURA resta agganciata. Riaprire vuol dire «c'è ancora da fare
+   * qualcosa», non «quel documento non esiste»: staccarla farebbe sparire un
+   * collegamento vero, e per rimetterlo bisognerebbe ricercarla.
+   */
+  function riapriOrdine(o: OrdineConLuogo) {
+    const quando = o.chiuso_il ? new Date(o.chiuso_il).toLocaleDateString('it-IT') : null;
+    conferma(
+      "Riaprire l'ordine?",
+      `${o.place_nome ?? o.cliente}${quando ? ` — chiuso il ${quando}` : ''}.\n\nTorna fra le pratiche da chiudere. ${
+        o.fattura_numero
+          ? `La fattura ${o.fattura_numero} resta collegata: riaprire non la cancella.`
+          : 'Non ha documenti collegati.'
+      }`,
+      async () => {
+        try {
+          await aggiornaOrdine(o.id, { chiuso_il: null });
+          carica();
+        } catch (e: any) {
+          avvisa('Non riaperto', String(e?.message ?? e));
+        }
+      },
+      { testoConferma: 'Riapri' },
+    );
   }
 
   async function cambiaStato(o: OrdineConLuogo, stato: OrdineConLuogo['stato']) {
@@ -1321,9 +1349,16 @@ export default function Ordini() {
                         {/* Anche sulla scheda: sotto la soglia la tabella non
                             si monta, e la chiusura sarebbe esistita solo su
                             schermo grande. */}
-                        <Pressable style={styles.btnGhost} onPress={() => apriChiusura(o)}>
-                          <Ionicons name="lock-closed-outline" size={15} color={colors.navy} />
-                          <Text style={styles.btnGhostTxt}>Chiudi</Text>
+                        <Pressable
+                          style={styles.btnGhost}
+                          onPress={() => (o.chiuso_il ? riapriOrdine(o) : apriChiusura(o))}
+                        >
+                          <Ionicons
+                            name={o.chiuso_il ? 'lock-open-outline' : 'lock-closed-outline'}
+                            size={15}
+                            color={colors.navy}
+                          />
+                          <Text style={styles.btnGhostTxt}>{o.chiuso_il ? 'Riapri' : 'Chiudi'}</Text>
                         </Pressable>
                         <Pressable style={styles.btnGhost} onPress={() => apriModifica(o)}>
                           <Text style={styles.btnGhostTxt}>Modifica</Text>
@@ -1798,27 +1833,23 @@ function ChiusuraOrdine({
   }
 
   /**
-   * ⚠️ SI CONFRONTA CON L'IMPONIBILE, non col totale — ma si accettano
-   * entrambi, e si dice quale ha fatto tornare il conto.
+   * ⚠️ SI CONFRONTA SOLO L'IMPONIBILE (27/08/2026, detto dall'utente: «i valori
+   * che inserisco io sono senza iva»).
    *
-   * Il valore di un ordine in Scout è al netto dell'IVA: la fattura di TBF ha
-   * imponibile 2.720 e totale 3.318,40, e pretendere il totale non avrebbe
-   * fatto quadrare mai niente. Ma un ordine registrato IVA inclusa esiste, e
-   * rifiutarlo sarebbe stato altrettanto sbagliato: si guardano tutte e due le
-   * somme e passa quella che torna.
+   * Prima accettavo anche la somma dei TOTALI, per non essere rigido con un
+   * ordine registrato IVA inclusa. Era una gentilezza che poteva far danno: due
+   * fatture il cui LORDO somma per caso al valore netto dell'ordine avrebbero
+   * fatto accendere il bottone, e l'ordine si sarebbe chiuso con le fatture
+   * sbagliate. Quando la regola è nota, una seconda strada non è tolleranza: è
+   * un modo in più di sbagliare senza accorgersene.
+   *
+   * Il totale con IVA resta a schermo, ma come informazione — non come criterio.
    */
   const TOLLERANZA = 1;
   const sommaImponibile = scelte.reduce((s, f) => s + (f.imponibile ?? 0), 0);
   const sommaTotale = scelte.reduce((s, f) => s + (f.totale ?? 0), 0);
   const atteso = ordine.valore ?? null;
-  const quadraSu =
-    atteso == null
-      ? null
-      : Math.abs(sommaImponibile - atteso) <= TOLLERANZA
-        ? ('imponibile' as const)
-        : Math.abs(sommaTotale - atteso) <= TOLLERANZA
-          ? ('totale' as const)
-          : null;
+  const quadra = atteso != null && Math.abs(sommaImponibile - atteso) <= TOLLERANZA;
   const scarto = atteso == null ? null : Math.round((sommaImponibile - atteso) * 100) / 100;
 
   async function agganciaScelte() {
@@ -1948,7 +1979,7 @@ function ChiusuraOrdine({
           </View>
           <Text style={styles.campoAiuto}>
             {criterio === 'importo'
-              ? "L'importo si confronta sia col totale sia con l'imponibile, a un euro di tolleranza: l'IVA fa ballare i centesimi."
+              ? "Si cerca sull'imponibile (i valori degli ordini sono senza IVA), ma anche sul totale, per trovarla lo stesso se hai in mente la cifra lorda."
               : criterio === 'cliente'
                 ? 'Basta una parte del nome. È già compilato con il cliente di questo ordine.'
                 : 'Il numero come lo scrive FINANCE, per esempio 181/2026.'}
@@ -1985,7 +2016,7 @@ function ChiusuraOrdine({
                         {importoBreve(f.totale)} ({importoBreve(f.imponibile)} + IVA {f.aliquotaIva}%)
                         {f.emissione ? ` · ${f.emissione}` : ` · ${f.mese}/${f.anno}`}
                         {f.pagata ? ' · pagata' : ' · non pagata'}
-                        {f.combacia === 'imponibile' ? " · combacia con l'imponibile" : ''}
+                        {f.combacia === 'totale' ? ' · trovata per il totale con IVA, non per l\'imponibile' : ''}
                       </Text>
                     </View>
                   </Pressable>
@@ -1996,35 +2027,35 @@ function ChiusuraOrdine({
                     dire «non quadra» a cose fatte obbliga a rifare la selezione
                     a indovinare. Qui si legge quanto manca, riga per riga. */}
                 {scelte.length ? (
-                  <View style={[styles.sommaRiga, quadraSu ? styles.sommaOk : styles.sommaNo]}>
+                  <View style={[styles.sommaRiga, quadra ? styles.sommaOk : styles.sommaNo]}>
                     <Ionicons
-                      name={quadraSu ? 'checkmark-circle-outline' : 'alert-circle-outline'}
+                      name={quadra ? 'checkmark-circle-outline' : 'alert-circle-outline'}
                       size={16}
-                      color={quadraSu ? '#2F7D46' : colors.attenzione}
+                      color={quadra ? '#2F7D46' : colors.attenzione}
                     />
-                    <Text style={[styles.sommaTxt, { color: quadraSu ? '#2F7D46' : colors.attenzione }]}>
+                    <Text style={[styles.sommaTxt, { color: quadra ? '#2F7D46' : colors.attenzione }]}>
                       {scelte.length} {scelte.length === 1 ? 'fattura' : 'fatture'} ·{' '}
                       {importoBreve(sommaImponibile)} imponibile ({importoBreve(sommaTotale)} con IVA)
                       {atteso == null
                         ? " — l'ordine non ha un valore, quindi non c'è niente da far quadrare"
-                        : quadraSu
-                          ? ` — quadra col valore dell'ordine${quadraSu === 'totale' ? ' (IVA inclusa)' : ''}`
-                          : ` — ${scarto! > 0 ? 'in più' : 'mancano'} ${importoBreve(Math.abs(scarto!))} sul valore di ${importoBreve(atteso)}`}
+                        : quadra
+                          ? ` — quadra col valore dell'ordine (${importoBreve(atteso)}, senza IVA)`
+                          : ` — ${scarto! > 0 ? 'in più' : 'mancano'} ${importoBreve(Math.abs(scarto!))} sui ${importoBreve(atteso)} dell'ordine, che è senza IVA`}
                     </Text>
                   </View>
                 ) : null}
 
                 <Pressable
-                  style={[styles.btn, styles.btnLargo, (!quadraSu || !!inCorso) && { opacity: 0.45 }]}
-                  disabled={!quadraSu || !!inCorso}
+                  style={[styles.btn, styles.btnLargo, (!quadra || !!inCorso) && { opacity: 0.45 }]}
+                  disabled={!quadra || !!inCorso}
                   onPress={agganciaScelte}
                 >
                   <Text style={styles.btnTxt}>
                     {inCorso === 'aggancia'
                       ? 'Aggancio…'
-                      : quadraSu
+                      : quadra
                         ? `Aggancia ${scelte.length === 1 ? 'la fattura' : `le ${scelte.length} fatture`} e chiudi`
-                        : 'La somma deve essere pari al valore dell\'ordine'}
+                        : "La somma degli imponibili deve essere pari al valore dell'ordine"}
                   </Text>
                 </Pressable>
               </View>
