@@ -1424,6 +1424,36 @@ export async function aggiornaStarred(placeId: string, starred: boolean): Promis
 
 // ── Ordini (il punto d'arrivo del funnel: cosa abbiamo chiuso) ────────────────
 
+/**
+ * Annuncia un ordine nuovo a tutta la squadra (Edge Function
+ * `notifica-ordine`), come Shopify fa con gli ordini del sito.
+ *
+ * ⚠️ **BEST EFFORT, E DI PROPOSITO.** L'ordine è già salvato quando questa
+ * parte: se la mail non esce (SMTP non configurato, rete giù) non deve
+ * *sembrare* che la creazione sia fallita. L'errore si ingoia qui.
+ *
+ * ⚠️ Il doppione lo impedisce il server (`annunciato_il`), non chi chiama:
+ * chiamarla due volte è innocuo.
+ */
+export async function annunciaOrdine(ordineId: string): Promise<void> {
+  try {
+    const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/notifica-ordine`;
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: env.supabaseAnonKey(),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ ordine_id: ordineId }),
+    });
+  } catch {
+    // silenzio: vedi sopra
+  }
+}
+
 /** Ordine arricchito col nome del negozio, per la schermata Ordini. */
 export interface OrdineConLuogo extends Ordine {
   place_nome: string | null;
@@ -1552,6 +1582,9 @@ export async function creaOrdineDaDeal(deal: {
     .select('id')
     .single();
   if (error) throw error;
+  // ⚠️ L'annuncio sta QUI e non nel ramo sopra: lì l'ordine esisteva già, e
+  // rimandare la mail a ogni ri-salvataggio della trattativa sarebbe rumore.
+  void annunciaOrdine(data.id as string);
   return { id: data.id as string };
 }
 
@@ -3007,6 +3040,7 @@ export async function creaOrdineDaRichiesta(r: RichiestaCliente): Promise<{ id: 
     .update({ ordine_id: ordineId, stato: 'in_ordine' })
     .eq('id', r.id);
   if (e2) throw e2;
+  void annunciaOrdine(ordineId);
   return { id: ordineId };
 }
 

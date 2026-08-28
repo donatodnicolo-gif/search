@@ -343,6 +343,10 @@ export default function Ordini() {
               è un fatto (nato da un import o da un cron), e attribuirlo a chi
               guarda sarebbe la bugia più comoda. */}
           {o.owner_nome ? <Text style={styles.seguitoDa}>Seguito da {o.owner_nome}</Text> : null}
+          {/* ⚠️ Il riferimento sta sulla RIGA, non solo nel foglio: è il numero
+              che si copia nel DDT della consegna, e chi lo cerca sta guardando
+              l'elenco — non ha voglia di aprire cinque ordini per trovarlo. */}
+          <ChipRiferimento rif={o.riferimento} />
           {/* ⚠️ Il documento sta QUI, sotto il nome, non fra le azioni: è
               un'informazione sull'ordine, non un comando. Nella colonna delle
               azioni rubava lo spazio ai bottoni e li mandava a capo. */}
@@ -1310,6 +1314,7 @@ export default function Ordini() {
                     ) : null}
                     <Text style={styles.meta}>{dataIt(o.created_at)}</Text>
                   </View>
+                  <ChipRiferimento rif={o.riferimento} />
                   {/* Il costo e il margine anche sul telefono: senza, da qui
                       si vedrebbe solo quanto si incassa e mai quanto resta. */}
                   {(() => {
@@ -1421,7 +1426,7 @@ export default function Ordini() {
 
       {modificaPer && bozza ? (
         <Foglio
-          titolo="Modifica l'ordine"
+          titolo={modificaPer.riferimento ? `Ordine ${modificaPer.riferimento}` : "Modifica l'ordine"}
           sottotitolo={`Creato il ${dataIt(modificaPer.created_at)} · ${labelStatoOrdine[modificaPer.stato]}`}
           bloccaSfondo
           onClose={() => {
@@ -1429,6 +1434,17 @@ export default function Ordini() {
             setBozza(null);
           }}
         >
+          {/* ⚠️ Il riferimento in cima e COPIABILE: il foglio è il posto da
+              cui si va ad aprire la consegna, ed è lì che serve avere il numero
+              del DDT sotto il dito. Non è un campo: non si modifica (il
+              database rifiuta), quindi non ha una casella. */}
+          {modificaPer.riferimento ? (
+            <View style={styles.rifRiga}>
+              <ChipRiferimento rif={modificaPer.riferimento} grande />
+              <Text style={styles.rifNota}>da scrivere come DDT sulla consegna in app delivery</Text>
+            </View>
+          ) : null}
+
           <Text style={styles.campoLabel}>Cliente *</Text>
           <TextInput
             style={styles.campo}
@@ -2427,6 +2443,50 @@ function BloccoFornitura({
   );
 }
 
+/**
+ * ⭐ IL RIFERIMENTO DELL'ORDINE, in una pillola che si COPIA (migr. 0095).
+ *
+ * Richiesta dell'utente (28/08/2026): il progressivo «deve essere messo come
+ * ddt all'interno dell'app delivery». Cioè: qualcuno lo legge qui e lo scrive
+ * là. Un testo da ribattere a mano si sbaglia — e un DDT sbagliato lega la
+ * consegna all'ordine di un altro; quindi si tocca e finisce negli appunti.
+ *
+ * ⚠️ Sul web gli appunti passano da `navigator.clipboard`, che esiste solo in
+ * HTTPS. Se non c'è, la pillola resta e mostra comunque il numero: si legge e
+ * si ribatte. Sparire sarebbe peggio.
+ */
+function ChipRiferimento({ rif, grande }: { rif?: string | null; grande?: boolean }) {
+  const [copiato, setCopiato] = useState(false);
+  if (!rif) return null;
+  const copia = () => {
+    try {
+      const nav: any = typeof navigator !== 'undefined' ? navigator : null;
+      if (nav?.clipboard?.writeText) {
+        nav.clipboard.writeText(rif);
+        setCopiato(true);
+        setTimeout(() => setCopiato(false), 1600);
+      }
+    } catch {
+      // niente: il numero resta leggibile a schermo
+    }
+  };
+  return (
+    <Pressable
+      style={[styles.rifChip, grande && styles.rifChipGrande]}
+      hitSlop={6}
+      onPress={(e: any) => {
+        e?.stopPropagation?.();
+        copia();
+      }}
+      accessibilityLabel={`Copia il riferimento ${rif}, da scrivere come DDT sulla consegna`}
+      {...({ title: 'Copia: va scritto come DDT sulla consegna in app delivery' } as any)}
+    >
+      <Ionicons name={copiato ? 'checkmark' : 'copy-outline'} size={grande ? 13 : 10.5} color={colors.grigio} />
+      <Text style={[styles.rifChipTxt, grande && styles.rifChipTxtGrande]}>{copiato ? 'copiato' : rif}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   // Bersaglio touch ≥44px (Libro UX cap.10 §1 / WCAG) sui bottoni e chip di
   // questa pagina, che reimplementa gli stili in locale invece di usare `Btn`.
@@ -2549,6 +2609,14 @@ const styles = StyleSheet.create({
   // ⚠️ `alignSelf: 'flex-start'` (27/08/2026): senza, il contenitore è
   // `stretch` e la pillola si stirava a tutta la larghezza — un badge che
   // diventa una fascia dorata, sia nella scheda sia nella colonna Cliente.
+  // La pillola del riferimento: grigia e neutra, perché è un'ETICHETTA, non
+  // uno stato né un documento. L'oro qui griderebbe più della fattura.
+  rifRiga: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 14 },
+  rifNota: { color: colors.grigio, fontSize: 12, flexShrink: 1 },
+  rifChip: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.sfondo, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 6, paddingVertical: 2 },
+  rifChipGrande: { paddingHorizontal: 9, paddingVertical: 4, gap: 5 },
+  rifChipTxt: { color: colors.grigio, fontWeight: '700', fontSize: 10, fontVariant: ['tabular-nums'] },
+  rifChipTxtGrande: { fontSize: 12.5, color: colors.testo },
   docChip: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 3 },
   docChipTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 10.5 },
   percRow: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },

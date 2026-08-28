@@ -410,6 +410,17 @@ export function brandDi(v: { brand?: string | null } | null | undefined): string
 
 export interface Ordine {
   id: string;
+  /** ⭐ IL RIFERIMENTO DELL'ORDINE — SCOUT001, SCOUT002, … (migr. 0095).
+   *
+   *  Lo assegna il DATABASE alla creazione (trigger + sequenza), non l'app:
+   *  un ordine nasce da tre strade diverse e domani da una quarta.
+   *
+   *  ⚠️ È il numero che va scritto come **DDT** sulla consegna nella
+   *  piattaforma: è l'unico filo che lega una consegna al suo ordine. Non si
+   *  cambia (il database rifiuta l'aggiornamento). */
+  riferimento?: string | null;
+  /** Quando è partita la mail [ORDINE SCOUT] a tutti (migr. 0096). */
+  annunciato_il?: string | null;
   deal_id: string | null;
   place_id: string | null;
   cliente: string;
