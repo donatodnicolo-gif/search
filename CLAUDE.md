@@ -4,6 +4,19 @@ Questo repo contiene le app dell'ecosistema Deluxy: `deluxy-hub/` (portale unico
 
 > `deluxy-search-supplier/` è pubblicata su Vercel (progetto `search-deluxy`, **Root Directory = `deluxy-search-supplier`**) dal branch **`main`**: si sviluppa lì, non su questo branch. Spec: [deluxy-search-supplier/AI_SPEC.md](deluxy-search-supplier/AI_SPEC.md).
 
+
+## Manuale delle funzionalità (OBBLIGATORIO — 28/08/2026)
+
+La guida visiva di tutto l'ecosistema per chi arriva è
+`C:Users
+icolscoutwtMANUALE-DELUXY.html`, pubblicata su
+https://claude.ai/code/artifact/6f2b9d92-ff98-4d22-bdd1-e08d66c57f44 .
+**Ogni funzionalità nuova o modificata — anche nelle app di questa cartella — va
+registrata lì**: una riga nel «Registro delle novità» (quando · dove · cosa cambia
+per chi usa l'app), nello stesso giro di lavoro; se il cambiamento tocca la mappa,
+i flussi o le regole, si aggiornano anche i capitoli. Si modifica il file e si
+ripubblica l'artifact allo STESSO indirizzo (Artifact con url).
+
 ## Architettura dei dati (OBBLIGATORIA — 24/08/2026)
 
 **Prima di aggiungere una tabella, leggere dati di un'altra app o ricopiare un
