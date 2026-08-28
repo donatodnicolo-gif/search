@@ -28,8 +28,14 @@ const CSP = [
   // La via giusta è il **nonce per richiesta** generato dal middleware, che Next
   // supporta ma impone il rendering dinamico ovunque: è un cambio da fare con
   // calma e da misurare, non nello stesso giro di una correzione di sicurezza.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
+  // ⚠️ accounts.google.com fra gli SCRIPT: la ricerca nella rubrica carica di
+  // lì la libreria Google Identity (gsi/client). Dimenticarlo il 27/08 l'aveva
+  // rotta in silenzio — «Impossibile caricare Google Identity». Una CSP che
+  // rompe una funzione non protegge niente: si apre il dominio preciso che
+  // serve, e nient'altro.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com",
+  // Google Identity inietta anche un foglio di stile dal suo dominio.
+  "style-src 'self' 'unsafe-inline' https://accounts.google.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   // Google Identity e People API: la rubrica si legge dal browser.
