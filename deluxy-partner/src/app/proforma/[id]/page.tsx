@@ -4,7 +4,7 @@ import { TornaIndietro } from "@/components/TornaIndietro";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt, pctIt } from "@/lib/format";
-import { totaliProForma, importoRiga, rifProForma, statiDi } from "@/lib/proforma";
+import { totaliProForma, importoRiga, rifProForma, statiDi, statoDocumento } from "@/lib/proforma";
 import { cambiaStatoProForma, deleteProForma } from "@/lib/proforma-actions";
 import { StampaButton } from "@/components/StampaButton";
 import { intestazioneDaMostrare } from "@/lib/intestazione";
@@ -33,7 +33,7 @@ export default async function ProFormaDetail({
   if (!pf) notFound();
 
   const tot = totaliProForma(pf.righe);
-  const st = statiDi(pf.tipo)[pf.stato] ?? statiDi(pf.tipo).bozza;
+  const st = statoDocumento(pf.tipo, pf.stato, pf.fatturaNumero);
   const rif = rifProForma(pf);
   // Lo stesso documento con due nomi: qui si decide come si chiama, in
   // intestazione e nel testo di legge. ⚠️ Un preventivo NON può portare la
@@ -263,6 +263,9 @@ export default async function ProFormaDetail({
             <>
               <Link href={`/proforma/${id}/invia`} className="btn primary">Invia al partner…</Link>
               <Link href={`/proforma/${id}/modifica`} className="btn secondary">Modifica</Link>
+              <form action={cambiaStatoProForma.bind(null, id, "annullata", undefined)} style={{ display: "inline" }}>
+                <button className="btn secondary" type="submit" title="Annulla la pro-forma: il numero resta assegnato, si può ripristinare">Annulla</button>
+              </form>
               <form action={cambiaStatoProForma.bind(null, id, "inviata", undefined)} style={{ display: "inline" }}>
                 <button className="btn secondary" type="submit" title="Se l'hai già trasmessa fuori dall'app (WhatsApp, a mano…)">
                   Segna come inviata

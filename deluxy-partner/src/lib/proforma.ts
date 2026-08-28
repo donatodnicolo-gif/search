@@ -91,6 +91,21 @@ export function statiDi(tipo?: string | null): Record<string, { label: string; b
   return tipo === "preventivo" ? STATI_PREVENTIVO : STATI_PF;
 }
 
+// Lo stato COME SI MOSTRA. Regola (28/08/2026): «fatturata» vale — verde — solo
+// se c'e un numero di fattura vero (emesso su Fatture in Cloud). Una pro-forma
+// segnata fatturata SENZA numero non e fatturata davvero: si mostra in ambra
+// come «da emettere», cosi l'elenco non mente.
+export function statoDocumento(
+  tipo: string | null | undefined,
+  stato: string,
+  fatturaNumero: string | null,
+): { label: string; badge: string } {
+  if (stato === "fatturata" && !fatturaNumero) {
+    return { label: tipo === "preventivo" ? "Da fatturare" : "Da emettere su FIC", badge: "orange" };
+  }
+  return statiDi(tipo)[stato] ?? statiDi(tipo).bozza;
+}
+
 // Testo standard dell'email di accompagnamento (modificabile prima dell'invio).
 export function testoEmailProForma(
   p: ProFormaLike,

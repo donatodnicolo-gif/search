@@ -268,6 +268,55 @@ export type FicFattura = {
 
 // Elenco delle fatture emesse su Fatture in Cloud (paginato, dalla più recente).
 // `anno` filtra per anno di emissione; `q` cerca su cliente/numero.
+// Ricerca RAPIDA fra le fatture EMESSE, per il campo «fattura collegata» della
+// richiesta di pagamento. Cerca su ragione sociale, numero, importo (lordo) e
+// P.IVA — su TUTTE le fatture, non solo l'anno in corso. Torna una lista corta.
+// Non fatale a monte (chi chiama la avvolge): qui però l'errore FIC si propaga
+// perché la ricerca senza risultati e la ricerca fallita non vanno confuse.
+export type FicFatturaBreve = {
+  id: number;
+  numero: string;
+  cliente: string;
+  pIva: string | null;
+  importo: number;
+  data: string | null;
+};
+export async function ficCercaEmesse(q: string): Promise<FicFatturaBreve[]> {
+  const testo = q.trim().replace(/'/g, "");
+  if (testo.length < 2) return [];
+  const { companyId } = await ficStato();
+  if (!companyId) return [];
+  // Costruisce l'OR dei criteri applicabili all'input:
+  //  · sole cifre lunghe 11 → P.IVA esatta;
+  //  · numero (intero) → numero fattura o importo lordo esatto;
+  //  · sempre → ragione sociale che contiene il testo.
+  const criteri: string[] = [`entity.name contains '${testo}'`];
+  const soloCifre = testo.replace(/[.,\s]/g, "");
+  if (/^\d{11}$/.test(soloCifre)) criteri.push(`entity.vat_number = '${soloCifre}'`);
+  if (/^\d+$/.test(testo)) criteri.push(`number = ${parseInt(testo)}`);
+  const importo = parseFloat(testo.replace(/\./g, "").replace(",", "."));
+  if (Number.isFinite(importo) && importo > 0) criteri.push(`amount_gross = ${importo}`);
+  const query = encodeURIComponent(criteri.join(" or "));
+  const fields = "id,number,numeration,date,amount_gross,entity";
+  const r = await ficFetch<{
+    data: {
+      id: number; number: number; numeration: string | null; date: string | null;
+      amount_gross: number; entity?: { name?: string | null; vat_number?: string | null };
+    }[];
+  }>(`/c/${companyId}/issued_documents?type=invoice&fields=${fields}&sort=-date,-number&per_page=12&q=${query}`);
+  return (r.data ?? []).map((d) => {
+    const anno = (d.date ?? "").slice(0, 4);
+    return {
+      id: d.id,
+      numero: `${d.number}${d.numeration?.trim() ? d.numeration : anno ? `/${anno}` : ""}`,
+      cliente: d.entity?.name ?? "—",
+      pIva: d.entity?.vat_number ?? null,
+      importo: d.amount_gross,
+      data: d.date,
+    };
+  });
+}
+
 export async function ficFatture(opts?: {
   anno?: number;
   q?: string;

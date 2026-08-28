@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
-import { totaliProForma, rifProForma, statiDi } from "@/lib/proforma";
+import { totaliProForma, rifProForma, statiDi, statoDocumento } from "@/lib/proforma";
 import { ThSort, ordina } from "@/components/ThSort";
 import { RigaLink } from "@/components/RigaLink";
 
@@ -80,8 +80,12 @@ export default async function ProFormaListPage({
   if (sp.sort && campi[sp.sort]) proforme = ordina(proforme, campi[sp.sort], sp.dir);
 
   const attive = proforme.filter((p) => p.stato !== "annullata");
-  const inAttesa = proforme.filter((p) => p.stato === "inviata");
-  const fatturate = proforme.filter((p) => p.stato === "fatturata");
+  // «Fatturata» vale solo con un numero vero: quelle senza aspettano un gesto
+  // (emetterle o annullarle), quindi stanno con le «da confermare», non fra le fatte.
+  const fatturate = proforme.filter((p) => p.stato === "fatturata" && p.fatturaNumero);
+  const inAttesa = proforme.filter(
+    (p) => p.stato === "inviata" || (p.stato === "fatturata" && !p.fatturaNumero)
+  );
 
   return (
     <>
@@ -208,7 +212,7 @@ export default async function ProFormaListPage({
               </thead>
               <tbody>
                 {proforme.map((p) => {
-                  const st = STATI[p.stato] ?? STATI.bozza;
+                  const st = statoDocumento(tipo, p.stato, p.fatturaNumero);
                   return (
                     // «La riga si apre col click» (Libro UX&UI v1.6 §8).
                     <RigaLink key={p.id} href={`/proforma/${p.id}`} className="riga-link">

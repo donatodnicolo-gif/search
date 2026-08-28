@@ -10,6 +10,7 @@ import { SESSION_COOKIE, sessioneCorrente } from "./auth";
 import { richiediPagamentoLibero, transactionsConfigurato } from "./transactions";
 import { categorieDaBudgets } from "./categorie-spesa";
 import { cercaBeneficiariRegistro, type BeneficiarioRegistro } from "./anagrafiche";
+import { ficCercaEmesse, type FicFatturaBreve } from "./fic";
 
 // Sezione «Richiedi pagamento»: chiedere il pagamento di una spesa qualsiasi.
 //
@@ -27,6 +28,15 @@ function torna(chiave: string, valore: string): never {
 export async function cercaBeneficiari(q: string): Promise<BeneficiarioRegistro[]> {
   try {
     return await cercaBeneficiariRegistro(q);
+  } catch {
+    return [];
+  }
+}
+
+// Ricerca fra le fatture EMESSE per collegarne una alla richiesta (client).
+export async function cercaFattureEmesse(q: string): Promise<FicFatturaBreve[]> {
+  try {
+    return await ficCercaEmesse(q);
   } catch {
     return [];
   }

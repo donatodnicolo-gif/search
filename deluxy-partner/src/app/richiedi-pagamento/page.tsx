@@ -6,6 +6,7 @@ import { transactionsConfigurato, STATI_RICHIESTA } from "@/lib/transactions";
 import { creaRichiestaPagamento } from "@/lib/richieste-actions";
 import { BottoneInvio } from "@/components/BottoneInvio";
 import { SceltaBeneficiario } from "@/components/SceltaBeneficiario";
+import { CercaFatturaEmessa } from "@/components/CercaFatturaEmessa";
 
 export const dynamic = "force-dynamic";
 
@@ -127,8 +128,8 @@ export default async function RichiediPagamentoPage({
                 È il pagamento di una <strong>fornitura</strong> (costo di prodotto)
               </label>
               <div style={{ marginTop: 8 }}>
-                <label className="field-label">Fattura del fornitore (rif.)</label>
-                <input type="text" name="fatturaFornitoreRif" placeholder="es. 44/2026 del 12/08 — SDI/PEC se serve" />
+                <label className="field-label">Fattura collegata</label>
+                <CercaFatturaEmessa />
                 <span className="muted" style={{ fontSize: 12 }}>
                   Il riferimento della fattura a cui il pagamento si riferisce. Con la fornitura scegli sopra una
                   <strong> categoria di costo del prodotto (COGS)</strong>: così Budgets lo legge come costo di prodotto e non come spesa generica.
