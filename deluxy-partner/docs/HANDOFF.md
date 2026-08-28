@@ -16,6 +16,12 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 28/08/2026 — Registro fatture: riga cliccabile + cliente linkato; fix URL FIC
+>
+> Segnalato: su `/registrazioni/fatture` non era applicata la regola del Libro «riga cliccabile», e il nome cliente non apriva la sua scheda. Fatto: le righe ora usano `RigaLink` — cliccando si apre la **fattura su Fatture in Cloud** (questa lista viene da FIC, non ha un dettaglio in-app), e il **nome cliente** è un link alla **scheda partner** (`/partner/[id]`) risolto per nome/ragione sociale normalizzati (match esatto: se non combacia resta testo, niente link sbagliati — 223 clienti agganciati sui dati veri). `RigaLink` ora gestisce anche gli URL esterni (apre in scheda nuova).
+> ⚠️ **Fix**: il link «Apri in Fatture in Cloud» che avevo messo sulla scheda fattura usava `invoices-view/<id>`; il path giusto (già usato dal Registro fatture) è **`invoices/view/<id>`** — corretto in `ficUrlFattura` (`fic.ts`).
+> ⚠️ Questo commit è DOPO lo schema di richiedi-pagamento: va live con lo stesso deploy, quindi aspetta anch'esso le due ALTER (vedi blocco sopra).
+
 > ### 28/08/2026 — richiedi-pagamento (ricerca beneficiario + flag fornitura) e guard «fatturata» ⚠️ MIGRAZIONE DA APPLICARE
 >
 > Tre cose approvate dall'utente («tutti»). ⚠️⚠️ **La 3 aggiunge due colonne al Postgres CONDIVISO** e **non è ancora applicata**: la mia ALTER è stata bloccata dal classificatore di sicurezza dell'auto-mode. **Finché le colonne non esistono, NON deployare**: il client Prisma rigenerato le seleziona su ogni query di `RichiestaPagamento` e la pagina andrebbe in errore. Codice committato e in attesa.

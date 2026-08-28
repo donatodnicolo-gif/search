@@ -12,6 +12,8 @@ import type { ReactNode } from "react";
 // non naviga.
 const COMANDI = "a, button, input, select, textarea, label, details, summary, dialog, [role='dialog']";
 
+const ESTERNO = /^https?:\/\//;
+
 export function RigaLink({ href, className, children }: { href: string; className?: string; children: ReactNode }) {
   const router = useRouter();
   return (
@@ -20,7 +22,10 @@ export function RigaLink({ href, className, children }: { href: string; classNam
       onClick={(e) => {
         if ((e.target as HTMLElement).closest(COMANDI)) return;
         if (window.getSelection()?.toString()) return;
-        router.push(href);
+        // Un dettaglio che vive fuori dall'app (es. la fattura su Fatture in
+        // Cloud) si apre in una scheda nuova, così non si perde l'elenco.
+        if (ESTERNO.test(href)) window.open(href, "_blank", "noopener,noreferrer");
+        else router.push(href);
       }}
     >
       {children}

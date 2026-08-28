@@ -1006,7 +1006,7 @@ export async function ficUrlFattura(numero: string | null, anno?: number): Promi
     if (!collegato) return null;
     const id = await ficIdDaNumero(numero, anno);
     if (!id) return null;
-    return `https://secure.fattureincloud.it/invoices-view/${id}`;
+    return `https://secure.fattureincloud.it/invoices/view/${id}`;
   } catch {
     return null;
   }

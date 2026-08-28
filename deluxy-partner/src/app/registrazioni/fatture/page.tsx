@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RigaLink } from "@/components/RigaLink";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -66,6 +67,19 @@ export default async function FattureCloudPage({
           : (e as Error).message;
     }
   }
+
+  // Mappa nome-cliente -> id del partner FINANCE, per aprire la scheda del
+  // cliente dal suo nome. Le fatture arrivano da FIC con il solo nome (stringa):
+  // si aggancia per nome/ragione sociale normalizzati (match esatto, cosi' non
+  // si linka un cliente sbagliato). Se non combacia, il nome resta testo.
+  const norm = (x: string) => x.toLowerCase().replace(/[.,]/g, "").replace(/\s+/g, " ").trim();
+  const partnersFin = await prisma.partner.findMany({ select: { id: true, nome: true, ragioneSociale: true } });
+  const idPerNome = new Map();
+  for (const p of partnersFin) {
+    if (p.nome) idPerNome.set(norm(p.nome), p.id);
+    if (p.ragioneSociale) idPerNome.set(norm(p.ragioneSociale), p.id);
+  }
+  const partnerIdDi = (cliente: string) => idPerNome.get(norm(cliente)) ?? null;
 
   const totImponibile = fatture.reduce((a, f) => a + f.imponibile, 0);
   const totLordo = fatture.reduce((a, f) => a + f.totale, 0);
@@ -176,11 +190,19 @@ export default async function FattureCloudPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {fatture.map((f) => (
-                      <tr key={f.id}>
+                    {fatture.map((f) => {
+                      const idCliente = partnerIdDi(f.cliente);
+                      return (
+                      <RigaLink key={f.id} className="row-link" href={`https://secure.fattureincloud.it/invoices/view/${f.id}`}>
                         <td style={{ fontWeight: 500 }}>{f.numero}</td>
                         <td>{dataIt(f.data)}</td>
-                        <td>{f.cliente}</td>
+                        <td>
+                          {idCliente ? (
+                            <Link href={`/partner/${idCliente}`} style={{ color: "var(--blue)" }} title="Apri la scheda di questo cliente">{f.cliente}</Link>
+                          ) : (
+                            f.cliente
+                          )}
+                        </td>
                         <td className="num">{euro(f.imponibile)}</td>
                         <td className="num">{euro(f.totale)}</td>
                         <td className={`num ${!f.pagata && f.residuo > 0.005 ? "neg" : ""}`}>
@@ -250,8 +272,9 @@ export default async function FattureCloudPage({
                             </a>
                           )}
                         </td>
-                      </tr>
-                    ))}
+                      </RigaLink>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
