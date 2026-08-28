@@ -58,6 +58,12 @@ export default async function FatturePage({
           </p>
         </div>
         <div className="page-actions">
+          {/* ⚠️ Le note di credito NON sono in questo elenco e non sono detratte
+              dal fatturato (28/08/2026): vivono solo su Fatture in Cloud, e
+              finché il collegamento non viene rinnovato l'app non ha nemmeno il
+              permesso di leggerle. Il collegamento sta qui perché una pagina che
+              nessuno può raggiungere non corregge niente. */}
+          <Link href="/fatture/note-credito" className="btn">Note di credito</Link>
           <Link href="/fatture/nuova" className="btn primary">+ Nuova fattura</Link>
         </div>
       </div>

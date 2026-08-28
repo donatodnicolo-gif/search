@@ -192,6 +192,42 @@ Questo è il documento "parti da qui": stato reale del prodotto, funzioni, API, 
 
 ---
 
+## 🔴 PUNTO APERTO — le note di credito non sono detratte dai ricavi (28/08/2026)
+
+**Domanda dell'utente**: «nel calcolo dei ricavi detrai le note di credito di Fatture in Cloud?». **No.** E non per un errore di calcolo: **non entrano affatto**. Tre strati, tutti misurati.
+
+1. **Il codice non le chiede.** Ogni chiamata a FIC in `src/lib/fic.ts` filtrava `type=invoice`. In tutta l'app non esisteva una riga che nominasse `credit_note` o `nota di credito`.
+2. **Non poteva chiederle.** Provato sull'API di produzione col token vero: `type=credit_note` → **403 `NO_PERMISSION`**, mentre `type=invoice` → 200. Lo scope concesso era `entity.clients:a issued_documents.invoices:a`. ⭐ **Un dato che l'integrazione non ha il permesso di vedere non risulta mancante**: il fatturato tornava completo, ordinato e plausibile.
+3. **Il ricavo non lo scrive la sincronizzazione.** `fatturaServizio.create` esiste in due soli punti, entrambi in `src/lib/actions.ts`: le righe sono scritte **a mano** (più l'import una-tantum di `PARTNER.xlsx`). La sincronizzazione FIC non crea ricavo, riconcilia lo stato di pagamento per numero.
+
+**Quanto pesa: non si sa ancora**, e non va stimato — il dato esiste e si può leggere, appena c'è il permesso. Quello che si sa: in tabella ci sono **zero righe con imponibile negativo**, ma **9 righe nominano una NC nel numero**. Confrontate con FIC, quattro su cinque sono più basse del lordo di una cifra tonda — la nota **era stata scalata a mano**:
+
+| riga | imponibile in FIC | salvato | differenza |
+|---|---|---|---|
+| `346-347/2025 (NC 24-25/2025)` | 3.267,84 € | 2.714,88 € | −552,96 |
+| `307/2025 + NC 12/2025` | 2.151,25 € | 2.046,25 € | −105,00 |
+| `274/2025 + NC 13/2025` | 730,00 € | 610,00 € | −120,00 |
+| `312/2025 - NC 14/2025` | 93,00 € | 68,00 € | −25,00 |
+| `50/2025 (NC 28/2025)` | 240,20 € | 423,23 € | +183,03 (riga «totale mese», non torna 1:1) |
+
+⭐ **Quindi oggi la detrazione è disciplina, non meccanismo**: c'è dove una persona se n'è ricordata, non c'è dove non se n'è ricordata. E il 2026 ha già una riga con `+NC` scritta a mano (168,91 € a marzo), quindi non è una faccenda chiusa col 2025.
+
+### Fatto (28/08/2026)
+
+- **Scope aggiunto**: `FIC_SCOPES` comprende ora `issued_documents.credit_notes:r`.
+- **`ficNoteCredito(anno)`** in `src/lib/fic.ts`. ⚠️ L'imponibile torna **positivo** come lo dà FIC, di proposito: un numero che cambia segno a metà strada è il modo più efficace di sommarlo due volte con l'aria di sottrarlo. E un 403 **non diventa una lista vuota** — alza `FicPermessoNoteCredito`, perché «nessuna nota di credito» e «non posso vederle» non devono essere la stessa frase.
+- **Pagina `/fatture/note-credito`** (link dall'elenco fatture): mostra le note dell'anno, il fatturato, e quanto sarebbe al netto. **Non cambia nessun numero del conto economico.**
+
+⚠️ **Nessuna di queste tre cose è stata verificata sui dati veri**, perché il 403 impedisce di leggerne anche una. Typecheck e build passano; il comportamento contro note di credito reali è **non provato**.
+
+### Cosa manca, in ordine
+
+1. **Rifare il collegamento a Fatture in Cloud** (Impostazioni → Fatture in Cloud → ricollega). Serve una persona: è un consenso da dare su FIC. ⚠️ Aggiungere lo scope nel codice **non basta** — un token già emesso porta i permessi che aveva al momento del consenso.
+2. **Guardare `/fatture/note-credito` per il 2026 e il 2025** e vedere quanto pesano davvero.
+3. **Solo allora** decidere come detrarle. Applicarle vuol dire attribuire ogni nota a un partner e a una tipologia, e quella decisione si prende **guardando i numeri**, non prima di averli visti. La strada probabile è una riga `FatturaServizio` con imponibile negativo (il campo lo permette già), così il fatturato si nettizza da sé ovunque — conto economico, consuntivo di Budgets, stato del credito — senza ricopiare la regola in cinque posti.
+4. **Budgets legge questo fatturato** (`consuntivo-dettaglio.ts`: «fatturato in Finance — N fatture, imponibile»): finché il punto 3 non è fatto, **i ricavi del conto economico sono al lordo degli storni**, per una cifra ignota.
+
+
 ## 1. Cos'è, dov'è
 
 App che **sostituisce PARTNER.xlsx**: gestione finanziaria e operativa dei partner Deluxy (servizi a fatturazione, vendite come vendor, saldi/compensazioni, bonifici, scadenze, riconciliazione bancaria, reportistica, API per gli altri progetti).

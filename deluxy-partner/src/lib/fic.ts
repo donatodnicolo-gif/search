@@ -12,7 +12,26 @@ const BASE = "https://api-v2.fattureincloud.it";
 // Deve coincidere ESATTAMENTE con la Redirect URL registrata nell'app FINANCE
 export const FIC_REDIRECT_URI = "https://deluxy-partner.vercel.app";
 
-export const FIC_SCOPES = "entity.clients:a issued_documents.invoices:a";
+// ⚠️⚠️ **LE NOTE DI CREDITO NON ERANO NEL PERMESSO** (28/08/2026).
+//
+// Fino a oggi lo scope era `entity.clients:a issued_documents.invoices:a`, e
+// tutte le chiamate filtravano `type=invoice`. Conseguenza misurata sull'API
+// vera, col token di produzione: `type=credit_note` risponde
+// **403 NO_PERMISSION**. Cioè le note di credito non è che non venissero
+// dedotte dai ricavi — **non erano nemmeno visibili**, e nessun codice qui le
+// avrebbe potute leggere.
+//
+// ⭐ **Un dato che l'integrazione non ha il permesso di vedere non è un dato
+// mancante: è un dato che non risulta mancante.** Il fatturato tornava
+// completo, ordinato e plausibile, e nessuna schermata poteva accorgersi che
+// era al lordo degli storni.
+//
+// ⚠️ Aggiungere lo scope **non basta**: il token già emesso porta i permessi
+// che aveva al momento del consenso. Finché non si rifà il collegamento
+// (Impostazioni → Fatture in Cloud → ricollega), `ficNoteCredito` continua a
+// prendere 403 — e lo dice con parole sue invece di sembrare «zero note».
+export const FIC_SCOPES =
+  "entity.clients:a issued_documents.invoices:a issued_documents.credit_notes:r";
 
 async function leggi(chiavi: string[]): Promise<Record<string, string>> {
   const righe = await prisma.impostazione.findMany({ where: { chiave: { in: chiavi } } });
@@ -318,6 +337,85 @@ export async function ficFatture(opts?: {
         residuo,
         incassato: +(d.amount_gross - residuo).toFixed(2),
         scadenza: prossima?.due_date ?? null,
+        urlDettaglio: d.url ?? null,
+      });
+    }
+    if (!r.last_page || page >= r.last_page) break;
+  }
+  return out;
+}
+
+export type FicNotaCredito = {
+  id: number;
+  numero: string;
+  data: string | null; // YYYY-MM-DD
+  cliente: string;
+  imponibile: number; // POSITIVO come lo restituisce FIC: è chi lo usa a sottrarlo
+  iva: number;
+  totale: number;
+  urlDettaglio: string | null;
+};
+
+/** Il permesso manca: il collegamento va rifatto dopo l'aggiunta dello scope. */
+export class FicPermessoNoteCredito extends Error {
+  constructor() {
+    super(
+      "Fatture in Cloud non concede le note di credito con il collegamento attuale: " +
+        "Impostazioni → Fatture in Cloud → ricollega, per rinnovare il consenso con il permesso nuovo."
+    );
+    this.name = "FicPermessoNoteCredito";
+  }
+}
+
+/**
+ * Le note di credito emesse in un anno.
+ *
+ * ⚠️ L'imponibile torna **positivo**, come lo dà Fatture in Cloud. Non lo giro
+ * di segno qui di proposito: un numero che cambia segno a metà strada è il modo
+ * più efficace di sommarlo due volte con l'aria di sottrarlo. Chi calcola i
+ * ricavi lo **sottrae esplicitamente**, e nel punto in cui si vede.
+ *
+ * ⚠️ Un 403 qui **non è una lista vuota**: alza `FicPermessoNoteCredito`. Se lo
+ * ingoiasse restituendo `[]`, il referto direbbe «nessuna nota di credito» —
+ * cioè esattamente la stessa frase del caso in cui davvero non ce ne sono, che
+ * è la bugia peggiore possibile qui.
+ */
+export async function ficNoteCredito(anno: number): Promise<FicNotaCredito[]> {
+  const { companyId } = await ficStato();
+  if (!companyId) throw new Error("Fatture in Cloud non collegato.");
+
+  const q = encodeURIComponent(`date >= '${anno}-01-01' and date <= '${anno}-12-31'`);
+  const fields = "id,number,numeration,date,amount_net,amount_vat,amount_gross,url,entity";
+  const out: FicNotaCredito[] = [];
+
+  for (let page = 1; page <= 20; page++) {
+    if (page > 1) await attendi(120);
+    let r: {
+      data: {
+        id: number; number: number; numeration: string | null; date: string | null;
+        amount_net: number; amount_vat: number; amount_gross: number;
+        url: string | null; entity?: { name?: string | null };
+      }[];
+      last_page?: number;
+    };
+    try {
+      r = await ficFetch(
+        `/c/${companyId}/issued_documents?type=credit_note&fields=${fields}&sort=-date,-number&per_page=50&page=${page}&q=${q}`
+      );
+    } catch (e) {
+      const testo = e instanceof Error ? e.message : String(e);
+      if (testo.includes("403") || testo.includes("NO_PERMISSION")) throw new FicPermessoNoteCredito();
+      throw e;
+    }
+    for (const d of r.data) {
+      out.push({
+        id: d.id,
+        numero: `${d.number}${d.numeration?.trim() ? d.numeration : `/${anno}`}`,
+        data: d.date,
+        cliente: d.entity?.name ?? "—",
+        imponibile: d.amount_net,
+        iva: d.amount_vat,
+        totale: d.amount_gross,
         urlDettaglio: d.url ?? null,
       });
     }
