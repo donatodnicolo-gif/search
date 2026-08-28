@@ -7,7 +7,7 @@ import { router, useFocusEffect } from 'expo-router';
 import type { EsitoVisita } from '@/types';
 import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { Tabella, type ColonnaTabella } from '@/components/Tabella';
-import { EmptyState, PageIntro, RigaChips } from '@/components/ui';
+import { CampoCerca, EmptyState, PageIntro, RigaChips } from '@/components/ui';
 import { fetchStorico, type VisitaStorico } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { PERIODO_DEFAULT, inPeriodo, type Periodo } from '@/lib/periodo';
@@ -73,11 +73,16 @@ export default function Storico() {
   );
 
   // Applica i filtri e raggruppa per GIORNO (già ordinate desc dal server).
+  // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
+  const [cerca, setCerca] = useState('');
   const sezioni = useMemo(() => {
+    const q = cerca.trim().toLowerCase();
+    const nrm = (v: unknown) => String(v ?? '').toLowerCase();
     const filtrate = visite.filter((v) => {
       if (!inPeriodo(v.data, periodo)) return false;
       if (accountFiltro && v.owner_nome !== accountFiltro) return false;
       if (!passaFiltroCitta(v.place_zona, cittaFiltro)) return false;
+      if (q && ![v.place_nome, v.place_zona, v.place_indirizzo, v.owner_nome].some((x) => nrm(x).includes(q))) return false;
       return true;
     });
     const perGiorno = new Map<string, VisitaStorico[]>();
@@ -90,7 +95,7 @@ export default function Storico() {
       titolo: giornoLabel(righe[0].data),
       data: righe,
     }));
-  }, [visite, accountFiltro, cittaFiltro, periodo]);
+  }, [visite, accountFiltro, cittaFiltro, periodo, cerca]);
 
   const totale = useMemo(
     () => sezioni.reduce((n, s) => n + s.data.length, 0),
@@ -160,6 +165,9 @@ export default function Storico() {
     <View style={styles.container}>
       <View style={styles.head}>
         <PageIntro testo="Lo storico delle visite: per giorno, con il venditore, il negozio e la via. Usa i filtri per account o città." />
+        <View style={{ marginBottom: 10 }}>
+          <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca per negozio, via, zona o venditore…" />
+        </View>
         <Text style={styles.sub}>{totale} visite{accountFiltro || cittaFiltro ? ' (filtrate)' : ''}</Text>
         {/* Libro v1.2 §8 (28/08): tre gruppi sempre aperti erano l'eccedenza —
             ora stanno dietro «Filtri (N)», chiuso di default. */}

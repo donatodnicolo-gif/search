@@ -52,8 +52,17 @@ async function chiama<T>(body: unknown): Promise<T> {
 
 /**
  * Crea una pro-forma su Deluxy Partner a partire da una richiesta di pagamento.
- * L'importo richiesto al cliente è inteso IVA INCLUSA: qui si scorpora
- * l'imponibile (aliquota 22%) così il totale della pro-forma coincide.
+ * ⚠️⚠️ L'IMPORTO È SEMPRE IVA ESCLUSA (28/08/2026, regola dell'utente:
+ * «il valore passato risulta lordo con iva mentre la regola è sempre che sarà
+ * con iva da aggiungere»).
+ *
+ * Fino a oggi qui si SCORPORAVA (importo / 1,22): la convenzione era nata
+ * sulle richieste clienti, dove il prezzo detto al telefono è quello che il
+ * cliente paga. Ma gli ordini registrano il valore NETTO — e passando di qui
+ * un ordine da 3.500 € produceva un documento da 2.868,85 + IVA = 3.500
+ * lordi: l'imponibile sbagliato, e nessun errore a schermo. La regola adesso
+ * è UNA per tutta l'app: quello che si scrive è l'imponibile, l'IVA la
+ * aggiunge il documento.
  */
 export async function creaProformaDaRichiesta(r: {
   cliente: string;
@@ -76,14 +85,14 @@ export async function creaProformaDaRichiesta(r: {
    */
 }): Promise<ProformaCreata> {
   const descrizione = r.causale?.trim() || `Incasso ${r.cliente}`;
-  const imponibile = Math.round((r.importo / 1.22) * 100) / 100;
+  // L'importo È l'imponibile: niente scorporo (vedi sopra).
   return chiama<ProformaCreata>({
     azione: 'crea',
     partner: r.cliente,
     oggetto: descrizione,
     scadenza: r.scadenza ?? undefined,
     brand: r.brand ?? undefined,
-    righe: [{ descrizione, prezzoUnitario: imponibile, aliquotaIva: 22 }],
+    righe: [{ descrizione, prezzoUnitario: r.importo, aliquotaIva: 22 }],
   });
 }
 
@@ -94,8 +103,8 @@ export async function creaProformaDaRichiesta(r: {
  * bozza — l'invio al cliente resta un'azione di là, che è dove vive il
  * documento. Qui si tiene solo il riferimento.
  *
- * ⚠️ L'importo che si scrive nella richiesta è quello che il cliente PAGA (IVA
- * inclusa): al documento va l'imponibile, o l'IVA verrebbe aggiunta due volte.
+ * ⚠️⚠️ Anche qui l'importo è IVA ESCLUSA (28/08/2026, stessa regola della
+ * pro-forma qui sopra): è l'imponibile, e l'IVA la aggiunge il documento.
  */
 export async function creaPreventivoDaRichiesta(r: {
   cliente: string;
@@ -104,14 +113,14 @@ export async function creaPreventivoDaRichiesta(r: {
   validoFino?: string | null;
 }): Promise<ProformaCreata> {
   const descrizione = r.causale?.trim() || `Preventivo ${r.cliente}`;
-  const imponibile = Math.round((r.importo / 1.22) * 100) / 100;
+  // L'importo È l'imponibile: niente scorporo (stessa regola della pro-forma).
   return chiama<ProformaCreata>({
     azione: 'crea',
     tipo: 'preventivo',
     partner: r.cliente,
     oggetto: descrizione,
     validoFino: r.validoFino ?? undefined,
-    righe: [{ descrizione, prezzoUnitario: imponibile, aliquotaIva: 22 }],
+    righe: [{ descrizione, prezzoUnitario: r.importo, aliquotaIva: 22 }],
   });
 }
 

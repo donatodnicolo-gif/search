@@ -156,6 +156,18 @@ Deno.serve(async (req) => {
       if (!conChiave.ok) return json({ error: 'Non autenticato' }, 401);
     }
 
+    // ⭐ L'INTERRUTTORE (28/08/2026): con HubSpot disattivato dalle
+    // Impostazioni anche questa funzione è inerte — stesso 409 riconoscibile
+    // di hubspot-sync, così nessun chiamante lo scambia per un guasto.
+    const { data: interruttore } = await admin
+      .from('impostazioni')
+      .select('valore')
+      .eq('chiave', 'hubspot.attivo')
+      .maybeSingle();
+    if ((interruttore?.valore ?? 'si').trim() === 'no') {
+      return json({ error: 'HubSpot è disattivato dalle Impostazioni di Scout.', disattivato: true }, 409);
+    }
+
     // Da qui in giù si sa chi sta chiamando. I controlli sulla configurazione
     // stanno DOPO apposta: dire a un anonimo quali segreti ci mancano è
     // raccontargli com'è fatto il dietro le quinte.

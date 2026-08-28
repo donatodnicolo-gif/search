@@ -23,7 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, touchMin, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { Tabella, dataBreve, type ColonnaTabella } from '@/components/Tabella';
-import { EmptyState, PageIntro, RigaChips } from '@/components/ui';
+import { CampoCerca, EmptyState, PageIntro, RigaChips } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { LeadCard } from '@/components/LeadCard';
 import { QualificaLeadModal } from '@/components/QualificaLeadModal';
@@ -175,7 +175,15 @@ export default function LeadWeb() {
     }, [carica]),
   );
 
-  const dati = useMemo(() => leads.filter((l) => l.stato === statoFiltro), [leads, statoFiltro]);
+  // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
+  const [cerca, setCerca] = useState('');
+  const dati = useMemo(() => {
+    const base = leads.filter((l) => l.stato === statoFiltro);
+    const q = cerca.trim().toLowerCase();
+    if (!q) return base;
+    const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+    return base.filter((l) => [l.nome, l.contatto, l.messaggio].some((v) => nrm(v).includes(q)));
+  }, [leads, statoFiltro, cerca]);
   const nNuovi = leads.filter((l) => l.stato === 'nuovo').length;
 
   /** Tira dentro la posta della casella commerciale: ogni mail è una richiesta. */
@@ -449,6 +457,9 @@ export default function LeadWeb() {
     <View style={styles.container}>
       <View style={[styles.head, contenutoCentrato]}>
         <PageIntro testo="Le richieste arrivate dal web e dalla casella commerciale: qualificale agganciandole a un negozio — nasce la trattativa, canale web — oppure scartale. Rispondere entro 2 giorni: sul web chi tarda perde." />
+        <View style={{ marginBottom: 10 }}>
+          <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca per nome, contatto o testo della richiesta…" />
+        </View>
         <Pressable style={[styles.btnImporta, importando && { opacity: 0.5 }]} disabled={importando} onPress={importaDallaMail}>
           <Ionicons name="mail-outline" size={15} color={colors.navy} />
           <Text style={styles.btnImportaTxt}>

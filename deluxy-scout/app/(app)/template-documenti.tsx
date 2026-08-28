@@ -25,7 +25,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
-import { EmptyState, PageIntro } from '@/components/ui';
+import { CampoCerca, EmptyState, PageIntro } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { useAuth } from '@/lib/auth';
@@ -119,6 +119,7 @@ export default function TemplateDocumenti() {
   const { session } = useAuth();
   const admin = isAdmin(session?.user?.email);
   const [righe, setRighe] = useState<TemplateDocumento[]>([]);
+  const [cerca, setCerca] = useState('');
   const [loading, setLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
   const [apertoId, setApertoId] = useState<string | null>(null);
@@ -341,6 +342,9 @@ export default function TemplateDocumenti() {
       refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
     >
       <PageIntro testo="L'intestazione con cui escono le pro-forme: logo, dati societari e coordinate di pagamento, una per insegna. Quando si emette un documento, l'intestazione parte insieme a lui e resta su quel documento — ritoccarla dopo non cambia ciò che il cliente ha già ricevuto." />
+      <View style={{ marginBottom: 10 }}>
+        <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca per nome, insegna o ragione sociale…" />
+      </View>
 
       {errore ? (
         <Text style={styles.errore}>
@@ -362,7 +366,15 @@ export default function TemplateDocumenti() {
         />
       ) : null}
 
-      {righe.map((t) => (
+      {righe
+        .filter((t) => {
+          // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
+          const q = cerca.trim().toLowerCase();
+          if (!q) return true;
+          const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+          return [t.nome, t.brand, t.ragione_sociale].some((v) => nrm(v).includes(q));
+        })
+        .map((t) => (
         <Pressable key={t.id} style={styles.card} onPress={() => apri(t)}>
           <View style={styles.cardTop}>
             {t.logo_data_url ? (

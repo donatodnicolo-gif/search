@@ -15,7 +15,7 @@ import NetInfo from '@react-native-community/netinfo';
 import type { QueuedVisit } from '@/types';
 import { statoDaEsito } from '@/types';
 import { aggiornaStatoPlace, caricaFotoVetrina, inserisciVisita } from '@/lib/db';
-import { RateLimitError, syncVisita } from '@/lib/hubspot';
+import { RateLimitError, hubspotAttivo, syncVisita } from '@/lib/hubspot';
 import { env } from '@/lib/env';
 
 const CHIAVE_CODA = 'deluxy.sync.queue.v1';
@@ -149,7 +149,7 @@ async function processaUno(item: QueuedVisit): Promise<void> {
   // coda: 1». La visita su Supabase c'è già: se HubSpot non risponde resta
   // `hubspot_synced=false` e si risincronizza dopo, esattamente come fa il
   // percorso online (lib/db.ts, `inserisciVisita`).
-  if (env.hubspotSyncUrl()) {
+  if (env.hubspotSyncUrl() && (await hubspotAttivo())) {
     try {
       await syncVisita(visita.id);
     } catch {

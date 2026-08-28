@@ -28,7 +28,7 @@ import {
   type TrattativaConLuogo,
 } from '@/lib/db';
 import { COLORE_VISITA, LABEL_VISITA } from '@/lib/statoVisita';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { CampoCerca, EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CardElenco } from '@/components/CardElenco';
 import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniContatto } from '@/components/AzioniContatto';
@@ -128,10 +128,21 @@ export default function Visite() {
     [trattative],
   );
 
+  // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
+  const [cerca, setCerca] = useState('');
   const sezioni = useMemo(() => {
-    const bozzeAperte = bozze.filter((p) => !conTrattativa.has(p.id));
+    const q = cerca.trim().toLowerCase();
+    const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+    const bozzeAperte = bozze
+      .filter((p) => !conTrattativa.has(p.id))
+      .filter((p) => !q || [p.nome, p.zona].some((v) => nrm(v).includes(q)));
     const fatte = visite
       .filter((v) => !conTrattativa.has(v.place_id))
+      .filter((v) => {
+        if (!q) return true;
+        const p = perId.get(v.place_id);
+        return [p?.nome, p?.zona, v.note_post_meeting].some((x) => nrm(x).includes(q));
+      })
       // Una bozza è già in cima: non ripeterla qui sotto.
       .filter((v) => !bozzeAperte.some((b) => b.id === v.place_id))
       .sort((a, b) => (a.data < b.data ? 1 : -1));
@@ -144,7 +155,7 @@ export default function Visite() {
         ? [{ title: `Visite fatte (${fatte.length})`, data: fatte.map((v): Riga => ({ tipo: 'visita', visita: v, place: perId.get(v.place_id) })) }]
         : []),
     ];
-  }, [bozze, visite, conTrattativa, perId]);
+  }, [bozze, visite, conTrattativa, perId, cerca]);
 
   function apriTrattativa(placeId: string, nome: string) {
     router.push(`/(app)/trattative?nuovoPer=${placeId}&nuovoNome=${encodeURIComponent(nome)}`);
@@ -269,6 +280,9 @@ export default function Visite() {
         ListHeaderComponent={
           <View style={styles.headerScroll}>
             <PageIntro testo="I negozi su cui stai lavorando: qui ci sono tutte le azioni per instaurare un contatto. Le bozze vanno chiuse; quando nasce la trattativa il negozio esce da qui." />
+            <View style={{ marginBottom: 10 }}>
+              <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca per negozio, zona o note…" />
+            </View>
           </View>
         }
         ListEmptyComponent={

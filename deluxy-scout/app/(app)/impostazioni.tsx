@@ -27,6 +27,7 @@ import {
   type StatoChiaveApp,
 } from '@/lib/db';
 import { collegaCasellaMail, fetchCaselleMail, importaRichiesteDaMail, type CasellaMail } from '@/lib/mail';
+import { invalidaHubspotAttivo } from '@/lib/hubspot';
 import { avvisa } from '@/lib/dialoghi';
 
 const CHIAVE_CASELLA_LETTURA = 'mail.casella_lettura';
@@ -565,6 +566,9 @@ export default function Impostazioni() {
           (RLS sulla tabella chiavi_app, migr. 0044). */}
       {admin ? <SezioneAppCollegate /> : null}
 
+      {/* HubSpot: presto dismesso — l'interruttore per spegnerlo prima. */}
+      {admin ? <SezioneHubspot /> : null}
+
       {/* Il verso opposto: la chiave con cui le ALTRE app chiamano Scout. */}
       {admin ? <SezioneChiaveIngresso /> : null}
 
@@ -587,6 +591,90 @@ export default function Impostazioni() {
  * rigenerarla dalla riga di comando — spegnendo in silenzio le integrazioni che
  * la usavano già. Qui si genera, si copia subito, e si sa sempre se c'è.
  */
+/**
+ * ⭐ L'INTERRUTTORE DI HUBSPOT (28/08/2026, richiesta dell'utente: «metti in
+ * impostazioni la possibilità di disattivare la connessione con hubspot che
+ * presto sarà dismesso»).
+ *
+ * ⚠️ Spegnere DICE cosa spegne, prima di farlo: il sync delle visite, le
+ * trattative lette dal CRM (che spariscono dall'elenco), la conciliazione
+ * contatti. Un interruttore senza conseguenze scritte si preme per scoprirle.
+ *
+ * ⚠️ Il valore si rilegge dal server dopo il salvataggio: quello che si vede
+ * è quello che c'è scritto, non quello che si è appena premuto.
+ */
+function SezioneHubspot() {
+  const [attivo, setAttivo] = useState<boolean | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  const leggi = useCallback(() => {
+    leggiImpostazione('hubspot.attivo')
+      .then((v) => setAttivo((v ?? 'si').trim() !== 'no'))
+      .catch(() => setAttivo(null));
+  }, []);
+  useEffect(() => {
+    leggi();
+  }, [leggi]);
+
+  async function cambia(nuovo: boolean) {
+    if (salvando || attivo === null || nuovo === attivo) return;
+    setSalvando(true);
+    setErrore(null);
+    try {
+      await salvaImpostazione('hubspot.attivo', nuovo ? 'si' : 'no');
+      invalidaHubspotAttivo();
+      leggi();
+    } catch (e) {
+      setErrore(String((e as Error)?.message ?? e));
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardLabel}>HUBSPOT</Text>
+      {attivo === null ? (
+        <ActivityIndicator size="small" style={{ alignSelf: 'flex-start' }} />
+      ) : (
+        <>
+          <View style={styles.hsRiga}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.forte}>{attivo ? 'Connessione attiva' : 'Connessione disattivata'}</Text>
+              <Text style={styles.aiuto}>
+                {attivo
+                  ? 'Le visite si sincronizzano sul CRM e le trattative di HubSpot compaiono nell’elenco.'
+                  : 'Niente sync delle visite, niente trattative dal CRM, niente conciliazione contatti. Le visite restano salvate in Scout.'}
+              </Text>
+            </View>
+            <Pressable
+              style={[styles.btn, salvando && styles.btnOff, !attivo && styles.hsBtnRiattiva]}
+              disabled={salvando}
+              onPress={() => cambia(!attivo)}
+              accessibilityLabel={attivo ? 'Disattiva la connessione HubSpot' : 'Riattiva la connessione HubSpot'}
+            >
+              <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : attivo ? 'Disattiva' : 'Riattiva'}</Text>
+            </Pressable>
+          </View>
+          {attivo ? (
+            <Text style={styles.nota}>
+              HubSpot sarà dismesso: da qui si spegne la connessione senza toccare il codice. Vale anche sul
+              server — con l’interruttore spento le funzioni di sync rifiutano qualunque chiamata.
+            </Text>
+          ) : (
+            <Text style={styles.nota}>
+              I dati già copiati (aziende, contatti, deal) restano nel database: nessuna cancellazione. Riattivando,
+              tutto riparte com’era.
+            </Text>
+          )}
+          {errore ? <Text style={[styles.nota, { color: colors.errore }]}>Non salvato: {errore}</Text> : null}
+        </>
+      )}
+    </View>
+  );
+}
+
 function SezioneChiaveIngresso() {
   const [configurata, setConfigurata] = useState<boolean | null>(null);
   const [chiave, setChiave] = useState<string | null>(null);
@@ -926,6 +1014,11 @@ const styles = StyleSheet.create({
   inputOff: { backgroundColor: colors.sfondo, color: colors.testoSoft },
   nota: { color: colors.grigio, fontSize: 12 },
   azioni: { flexDirection: 'row', gap: 8, marginTop: 4, flexWrap: 'wrap' },
+  // L'interruttore di HubSpot: testo a sinistra, bottone a destra. «Riattiva»
+  // è grigio scuro, non oro: riaccendere un canale in dismissione non è
+  // un'azione da celebrare.
+  hsRiga: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  hsBtnRiattiva: { backgroundColor: colors.grigio },
   btn: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 9 },
   btnOff: { opacity: 0.5 },
   btnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13 },

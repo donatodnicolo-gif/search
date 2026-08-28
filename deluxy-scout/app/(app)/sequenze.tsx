@@ -17,7 +17,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { avvisa, conferma } from '@/lib/dialoghi';
-import { EmptyState, PageIntro } from '@/components/ui';
+import { CampoCerca, EmptyState, PageIntro } from '@/components/ui';
 import { doveLaTrovi, fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
 import { fetchRecapitiPlace, fetchTuttiContatti, registraContattoAvviato, type ContattoConLuogo } from '@/lib/db';
 import {
@@ -46,6 +46,7 @@ export default function Sequenze() {
   const router = useRouter();
   const [coda, setCoda] = useState<InCoda[]>([]);
   const [sequenze, setSequenze] = useState<Sequenza[]>([]);
+  const [cerca, setCerca] = useState('');
   const [passi, setPassi] = useState<Record<string, PassoSequenza[]>>({});
   const [script, setScript] = useState<ScriptEmail[]>([]);
   const [contatti, setContatti] = useState<ContattoConLuogo[]>([]);
@@ -297,6 +298,9 @@ export default function Sequenze() {
     >
       <View style={styles.headerScroll}>
         <PageIntro testo="Un percorso di solleciti scritto una volta sola: questo testo, poi dopo tot giorni quest'altro. L'app tiene il conto delle scadenze. Se il cliente risponde la sequenza si ferma da sé — e prima di ogni invio l'app controlla che non abbia già risposto." />
+        <View style={{ marginBottom: 10 }}>
+          <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca una sequenza per nome…" />
+        </View>
       </View>
 
       {errore ? (
@@ -376,7 +380,15 @@ export default function Sequenze() {
         />
       ) : null}
 
-      {sequenze.map((s) => {
+      {sequenze
+        .filter((s) => {
+          // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
+          const q = cerca.trim().toLowerCase();
+          if (!q) return true;
+          const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+          return [s.nome, s.descrizione].some((v) => nrm(v).includes(q));
+        })
+        .map((s) => {
         const suoi = passi[s.id] ?? [];
         const apertaOra = aperta === s.id;
         return (

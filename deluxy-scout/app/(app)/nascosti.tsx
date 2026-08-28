@@ -1,5 +1,5 @@
 // Sezione "Nascosti": attività segnate "non interessanti". Si possono ripristinare.
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import type { Place } from '@/types';
@@ -9,12 +9,21 @@ import { LineaIcon } from '@/components/LineaIcon';
 import { aggiornaNascosto, fetchNascosti } from '@/lib/db';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { Tabella, type ColonnaTabella } from '@/components/Tabella';
+import { CampoCerca } from '@/components/ui';
 
 export default function Nascosti() {
   // Da 900px in su l'elenco è una TABELLA (le schede restano sul telefono).
   const { width } = useWindowDimensions();
   const aTabella = width >= 900;
   const [dati, setDati] = useState<Place[]>([]);
+  // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
+  const [cerca, setCerca] = useState('');
+  const visibili = useMemo(() => {
+    const q = cerca.trim().toLowerCase();
+    if (!q) return dati;
+    const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+    return dati.filter((p) => [p.nome, p.zona, p.indirizzo].some((v) => nrm(v).includes(q)));
+  }, [dati, cerca]);
   const [loading, setLoading] = useState(true);
 
   const carica = useCallback(async () => {
@@ -47,10 +56,13 @@ export default function Nascosti() {
         <Text style={styles.sub}>
           Attività segnate "non interessanti". Ripristinale per rivederle nella scoperta.
         </Text>
+        <View style={{ marginTop: 8 }}>
+          <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca per nome, zona o indirizzo…" />
+        </View>
       </View>
       <FlatList
         // In tabella la FlatList riceve UNA riga con l'intero elenco.
-        data={aTabella ? (dati.length ? [dati] : []) : dati}
+        data={aTabella ? (visibili.length ? [visibili] : []) : visibili}
         keyExtractor={(p: any) => (aTabella ? 'tabella' : (p as Place).id)}
         contentContainerStyle={[styles.list, aTabella && contenutoLargo]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}

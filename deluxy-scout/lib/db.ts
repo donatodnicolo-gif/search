@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { AffiliazioneRow, Contact, Deal, EsitoVisita, FonteLead, Lead, Linea, Ordine, Place, Profilo, RichiestaCliente, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
 import { LINEE_ATTIVE, canonizzaLinee, statoDaEsito, statoRegistroDaAffiliazione } from '@/types';
 import { env } from '@/lib/env';
-import { syncVisita } from '@/lib/hubspot';
+import { hubspotAttivo, syncVisita } from '@/lib/hubspot';
 import { notificaArchiviazioneReferente, sincronizzaNegozioRegistro, trovaAnagraficaGiaPresente, type EsitoRegistro } from '@/lib/anagrafiche';
 import { analizzaMessaggioLead } from '@/lib/lead-parse';
 import { GIORNI_FOLLOWUP_DEAL, GIORNI_FOLLOWUP_LEAD, traGiorni } from '@/lib/cadenze';
@@ -1140,10 +1140,17 @@ export async function fetchTutteTrattative(
 
   // 2. Trattative aperte dal CRM HubSpot (con valore). Degrada con grazia se la
   //    copia CRM non è popolata (mostra solo Scout + registro).
-  const { data: hsDeals } = await supabase
-    .from('hubspot_deals')
-    .select('hubspot_id, company_hubspot_id, nome, fase, valore, linea, aperta')
-    .eq('aperta', true);
+  //
+  // ⚠️ Con HubSpot DISATTIVATO (impostazioni, 28/08/2026) questa fonte si
+  // SPEGNE: la copia locale non si aggiorna più, e mostrare trattative ferme
+  // nel tempo con la faccia di trattative vive è peggio che non mostrarle.
+  const hubspotAcceso = await hubspotAttivo();
+  const { data: hsDeals } = hubspotAcceso
+    ? await supabase
+        .from('hubspot_deals')
+        .select('hubspot_id, company_hubspot_id, nome, fase, valore, linea, aperta')
+        .eq('aperta', true)
+    : { data: [] as any[] };
 
   // Risolvi il nome: negozio Scout collegato → azienda HubSpot → nome del deal.
   const companyIds = [
@@ -1592,6 +1599,54 @@ export async function creaOrdineDaDeal(deal: {
   const { data, error } = await supabase
     .from('ordini')
     .insert({ ...riga, deal_id: deal.id })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return { id: data.id as string };
+}
+
+/**
+ * ⭐ DUPLICA UN ORDINE COME BOZZA (28/08/2026, richiesta dell'utente: «dai
+ * possibilità di duplicare un ordine come bozza da poter poi chiudere in caso
+ * si sono fatti errori e uno è stato annullato — su tutti gli ordini»).
+ *
+ * Si copiano i dati COMMERCIALI: cliente, valore (e i suoi ingredienti a
+ * quantità), linea, canale, brand, altri costi, chi lo segue.
+ *
+ * ⚠️ NON si copiano, e ognuno ha il suo perché:
+ *  - `riferimento`: il numero nasce alla chiusura DELLA COPIA — due ordini
+ *    con lo stesso SCOUT sarebbero due consegne sullo stesso DDT;
+ *  - `deal_id` / `richiesta_id`: la trattativa ha un indice UNICO sul suo
+ *    ordine, e la richiesta punta già all'originale — copiare il legame
+ *    significherebbe due ordini che dicono di essere la stessa vendita;
+ *  - documenti (pro-forma, fatture): appartengono all'originale, anche se
+ *    annullato — la copia chiede i suoi;
+ *  - fornitura ed evasione: vanno rifatte sulla copia, e la chiusura le
+ *    pretende comunque.
+ */
+export async function duplicaOrdine(o: Ordine): Promise<{ id: string }> {
+  const { data: u } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('ordini')
+    .insert({
+      place_id: o.place_id ?? null,
+      cliente: o.cliente,
+      descrizione: o.descrizione ?? null,
+      valore: o.valore ?? null,
+      valore_unitario: o.valore_unitario ?? null,
+      quantita: o.quantita ?? null,
+      unita: o.unita ?? null,
+      canale: o.canale ?? null,
+      linea: o.linea ?? null,
+      brand: o.brand ?? null,
+      altri_costi: o.altri_costi ?? null,
+      altri_costi_nota: o.altri_costi_nota ?? null,
+      // Chi seguiva l'originale segue la copia: rifare un ordine sbagliato non
+      // cambia di chi era il cliente.
+      owner: o.owner ?? u.user?.id ?? undefined,
+      owner_scelto: o.owner_scelto ?? false,
+      stato: 'da_incassare',
+    })
     .select('id')
     .single();
   if (error) throw error;
@@ -2584,7 +2639,7 @@ export async function registraVisitaRapida(
   // Best effort: porta subito la visita su HubSpot (company+contact+deal).
   // Se fallisce resta hubspot_synced=false e verrà ripresa dai sync successivi.
   // I "non target" NON creano deal su HubSpot: non inquinare la pipeline.
-  if (opts.esito !== 'non_target' && env.hubspotSyncUrl()) {
+  if (opts.esito !== 'non_target' && env.hubspotSyncUrl() && (await hubspotAttivo())) {
     try {
       await syncVisita(visita.id);
     } catch {

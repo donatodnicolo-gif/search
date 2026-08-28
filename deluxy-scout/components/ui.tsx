@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
   type StyleProp,
@@ -278,6 +279,52 @@ const stiliConto = StyleSheet.create({
  * scroll indicator (l'ultima chip che sbuca dal bordo è l'indizio che c'è
  * altro).
  */
+/**
+ * ⭐ IL CAMPO DI RICERCA DI OGNI ELENCO (28/08/2026, segnalazione dell'utente:
+ * «IN TUTTA APP le varie sezioni NON HANNO la ricerca come da regola UX»).
+ *
+ * Libro UX&UI v1.9 §8-bis: ogni elenco ha la ricerca. Dodici schermate ne
+ * erano rimaste senza, ognuna pronta a inventarsi il suo campo: questo è
+ * quello UNICO, con la stessa forma di clienti/ordini/trattative. Il filtro
+ * resta della schermata — solo lei sa su quali campi ha senso cercare.
+ */
+export function CampoCerca({
+  valore,
+  onCambia,
+  placeholder,
+}: {
+  valore: string;
+  onCambia: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <TextInput
+      style={stiliCerca.campo}
+      value={valore}
+      onChangeText={onCambia}
+      placeholder={placeholder}
+      placeholderTextColor={colors.grigio}
+      autoCapitalize="none"
+      autoCorrect={false}
+      clearButtonMode="while-editing"
+      accessibilityLabel={placeholder}
+    />
+  );
+}
+
+const stiliCerca = StyleSheet.create({
+  campo: {
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.m,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    color: colors.testo,
+    fontSize: 14,
+  },
+});
+
 export function RigaChips({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const { width } = useWindowDimensions();
   if (width < 900) {

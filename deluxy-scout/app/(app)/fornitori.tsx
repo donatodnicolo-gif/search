@@ -19,7 +19,7 @@ import { avvisa } from '@/lib/dialoghi';
 import { CardElenco } from '@/components/CardElenco';
 import { Tabella, dataBreve, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
-import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
+import { CampoCerca, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { COLORE_VISITA } from '@/lib/statoVisita';
 
 const LABEL_FORNITORE: Record<string, string> = {
@@ -110,10 +110,15 @@ export default function Fornitori() {
     () => STATI_FORNITORE.filter((s) => partner.some((p) => p.statoFornitore === s)),
     [partner],
   );
-  const dati = useMemo(
-    () => (statoFiltro ? partner.filter((p) => p.statoFornitore === statoFiltro) : partner),
-    [partner, statoFiltro],
-  );
+  // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
+  const [cerca, setCerca] = useState('');
+  const dati = useMemo(() => {
+    const base = statoFiltro ? partner.filter((p) => p.statoFornitore === statoFiltro) : partner;
+    const q = cerca.trim().toLowerCase();
+    if (!q) return base;
+    const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+    return base.filter((p) => [p.nome, p.citta, p.categoria].some((v) => nrm(v).includes(q)));
+  }, [partner, statoFiltro, cerca]);
 
   // Le stesse azioni nei due vestiti (scheda e tabella), scritte una volta.
   const azioniDi = (p: PartnerRegistro) => {
@@ -217,6 +222,9 @@ export default function Fornitori() {
     >
       <View style={styles.headerScroll}>
         <PageIntro testo="I nostri fornitori, letti live dal registro Anagrafiche: chi ha già preparato ordini per noi ed è stato pagato dal Customer Service, più quelli segnati a mano. Sono i contatti più caldi da affiliare: hanno già lavorato con Deluxy." />
+        <View style={{ marginBottom: 10 }}>
+          <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca per nome, città, categoria…" />
+        </View>
       </View>
 
       {statiPresenti.length > 1 ? (

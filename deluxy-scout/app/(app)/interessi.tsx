@@ -19,7 +19,7 @@ import { canonizzaLinee } from '@/types';
 import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { usePlaces } from '@/lib/usePlaces';
 import { coloreLivello, inLavorazione, LABEL_LIVELLO, livelloDi, type Livello } from '@/lib/livelli';
-import { EmptyState, PageIntro } from '@/components/ui';
+import { CampoCerca, EmptyState, PageIntro } from '@/components/ui';
 import { CardElenco } from '@/components/CardElenco';
 import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniContatto } from '@/components/AzioniContatto';
@@ -52,9 +52,16 @@ export default function Interessi() {
   const [aperto, setAperto] = useState<string | null>(null);
   const [livelloAperto, setLivelloAperto] = useState<Colonna | null>(null);
 
+  // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026):
+  // filtra i NEGOZI, e i conteggi delle colonne seguono — un numero che non
+  // corrisponde alle righe aperte sotto sarebbe un numero falso.
+  const [cerca, setCerca] = useState('');
   const gruppi = useMemo(() => {
+    const q = cerca.trim().toLowerCase();
+    const nrm = (v: unknown) => String(v ?? '').toLowerCase();
     const per = new Map<string, PerLivello>();
     for (const p of places) {
+      if (q && ![p.nome, p.zona].some((v) => nrm(v).includes(q))) continue;
       // Stesso criterio delle liste (lib/livelli.ts): scelto da una persona
       // OPPURE con un rapporto già in piedi — un contatto in rubrica o una
       // mail già partita. Prima bastava non avere `creato_da` per sparire da
@@ -85,7 +92,7 @@ export default function Interessi() {
       .sort((a, b) =>
         a.linea === 'Da assegnare' ? 1 : b.linea === 'Da assegnare' ? -1 : b.totale - a.totale,
       );
-  }, [places, conContatto, contattati, inTrattativa, nonFatturano]);
+  }, [places, conContatto, contattati, inTrattativa, nonFatturano, cerca]);
 
   const elencoAperto = useMemo(() => {
     if (!aperto || !livelloAperto) return [];
@@ -167,6 +174,9 @@ export default function Interessi() {
     >
       <View style={styles.headerScroll}>
         <PageIntro testo="Ogni linea di servizio con quello che ci sta dentro: selezionati, lead, prospect e clienti. Tocca un numero per vedere i negozi. Qui si contano i NEGOZI, mentre in Rubrica si contano le persone — lo stesso negozio con tre referenti lì fa tre righe, qui una. Un negozio con due interessi compare sotto entrambi: le colonne non si sommano." />
+      <View style={{ marginBottom: 10 }}>
+        <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca un negozio per nome o zona…" />
+      </View>
       </View>
 
       {!loading && gruppi.length === 0 ? (

@@ -42,6 +42,21 @@ Deno.serve(async (req) => {
     const { data: userData } = await admin.auth.getUser(jwt);
     if (!userData?.user) return json({ error: 'Non autenticato' }, 401);
 
+    // ⭐ L'INTERRUTTORE (28/08/2026, richiesta dell'utente: HubSpot «presto
+    // sarà dismesso»). Il controllo sta QUI, non solo nel client: un
+    // interruttore che vive solo nel browser lo rispetta solo chi usa il
+    // browser — un cron o una chiamata diretta passerebbero comunque.
+    // 409 e non 500: non è un guasto, è una decisione, e chi chiama deve
+    // poterla distinguere da un errore per non ritentare all'infinito.
+    const { data: interruttore } = await admin
+      .from('impostazioni')
+      .select('valore')
+      .eq('chiave', 'hubspot.attivo')
+      .maybeSingle();
+    if ((interruttore?.valore ?? 'si').trim() === 'no') {
+      return json({ error: 'HubSpot è disattivato dalle Impostazioni di Scout.', disattivato: true }, 409);
+    }
+
     // ⚠️ Il controllo dei segreti sta DOPO l'auth: prima un anonimo si sentiva
     // dire QUALE variabile mancava — un pezzo del dietro le quinte regalato.
     // Stesso pattern già corretto in hubspot-match il 23/08 (audit 24/08/2026).

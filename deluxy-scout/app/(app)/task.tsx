@@ -11,7 +11,7 @@ import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { completaTask, eliminaTask, fetchTask } from '@/lib/db';
-import { EmptyState, PageIntro } from '@/components/ui';
+import { CampoCerca, EmptyState, PageIntro } from '@/components/ui';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { TaskFormModal } from '@/components/TaskFormModal';
 
@@ -50,11 +50,18 @@ export default function TaskScreen() {
     }, [carica]),
   );
 
+  // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
+  const [cerca, setCerca] = useState('');
   const { aperti, fatti } = useMemo(() => {
-    const aperti = tasks.filter((t) => !t.completata);
-    const fatti = tasks.filter((t) => t.completata);
+    const q = cerca.trim().toLowerCase();
+    const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+    const visibili = q
+      ? tasks.filter((t) => [t.titolo, t.place_nome, t.owner_nome, t.contatto?.nome].some((v) => nrm(v).includes(q)))
+      : tasks;
+    const aperti = visibili.filter((t) => !t.completata);
+    const fatti = visibili.filter((t) => t.completata);
     return { aperti, fatti };
-  }, [tasks]);
+  }, [tasks, cerca]);
 
   async function toggle(task: Task) {
     setTasks((prev) => prev.map((x) => (x.id === task.id ? { ...x, completata: !x.completata } : x)));
@@ -176,6 +183,9 @@ export default function TaskScreen() {
   return (
     <View style={styles.container}>
       <PageIntro testo="I tuoi promemoria e quelli assegnati al team: spunta un task quando è fatto, toccalo per modificarlo." />
+      <View style={{ paddingHorizontal: spacing.lg, marginTop: 8 }}>
+        <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca per titolo, negozio, contatto o assegnatario…" />
+      </View>
       <View style={styles.head}>
         <View style={styles.toggle}>
           <Seg label="Assegnati a me" on={scope === 'miei'} onPress={() => setScope('miei')} />

@@ -20,7 +20,7 @@ import {
   type VerdettoDuplicato,
 } from '@/lib/riconciliazione';
 import { urlNavigazione } from '@/lib/nav';
-import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
+import { cercaContattiHubspot, dealsPerPlace, hubspotAttivo, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
 import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
@@ -119,6 +119,12 @@ export default function SchedaAttivita() {
     setMatchAI(null);
     setMatchLoading(true);
     try {
+      // ⚠️ Il NO si dice (Libro v1.10, nessun click muto): con HubSpot spento
+      // la conciliazione non parte, e chi ha premuto deve sapere perché.
+      if (!(await hubspotAttivo())) {
+        setMatchErrore('HubSpot è disattivato dalle Impostazioni: la conciliazione contatti non è disponibile.');
+        return;
+      }
       const r = await cercaContattiHubspot(p.nome, p.indirizzo, escludiAziende);
       setMatchAI({ ...r, contatti: r.contatti.filter((c) => !scartatiIds.includes(c.hubspot_contact_id)) });
     } catch (e) {
@@ -159,7 +165,7 @@ export default function SchedaAttivita() {
     setAziendeScartate(az);
     // Sync inverso: se HubSpot è configurato, prova ad allineare i deal.
     let deals = d;
-    if (env.hubspotSyncUrl() && p?.hubspot_company_id) {
+    if (env.hubspotSyncUrl() && p?.hubspot_company_id && (await hubspotAttivo())) {
       try {
         deals = await dealsPerPlace(id);
       } catch {

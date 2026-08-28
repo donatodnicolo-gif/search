@@ -13,6 +13,47 @@ import { env } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
 import type { Deal, Visit } from '@/types';
 
+/**
+ * ⭐ L'INTERRUTTORE DI HUBSPOT (28/08/2026, richiesta dell'utente: «metti in
+ * impostazioni la possibilità di disattivare la connessione con hubspot che
+ * presto sarà dismesso»).
+ *
+ * Vive in `impostazioni.hubspot.attivo` ('si'/'no', default acceso). Quando è
+ * spento: niente sync delle visite, niente lettura dei deal HubSpot in
+ * Trattative, niente conciliazione contatti — e la Edge Function rifiuta
+ * comunque, perché un interruttore controllato solo dal client non è un
+ * interruttore.
+ *
+ * ⚠️ Cache di 60 secondi CON invalidazione dal toggle (Libro PERFORMANCE:
+ * niente cache senza TTL e invalidazione dichiarati): l'elenco trattative lo
+ * chiede a ogni apertura, e una query in più per ogni schermata sarebbe il
+ * prezzo di un valore che cambia una volta nella vita.
+ */
+let cacheHubspotAttivo: { valore: boolean; quando: number } | null = null;
+export async function hubspotAttivo(): Promise<boolean> {
+  const ora = Date.now();
+  if (cacheHubspotAttivo && ora - cacheHubspotAttivo.quando < 60_000) return cacheHubspotAttivo.valore;
+  try {
+    const { data } = await supabase
+      .from('impostazioni')
+      .select('valore')
+      .eq('chiave', 'hubspot.attivo')
+      .maybeSingle();
+    // Assente = acceso: l'interruttore è nato dopo la connessione, e il
+    // default deve essere «non è cambiato niente».
+    const valore = (data?.valore ?? 'si').trim() !== 'no';
+    cacheHubspotAttivo = { valore, quando: ora };
+    return valore;
+  } catch {
+    // Se l'impostazione non si legge si resta su quel che si sapeva: spegnere
+    // un canale per un errore di rete sarebbe un falso comando.
+    return cacheHubspotAttivo?.valore ?? true;
+  }
+}
+export function invalidaHubspotAttivo(): void {
+  cacheHubspotAttivo = null;
+}
+
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;

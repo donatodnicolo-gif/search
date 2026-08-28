@@ -27,7 +27,7 @@ import {
   chiudiRichiamo,
   type TrattativaConLuogo,
 } from '@/lib/db';
-import { Chip, RigaChips } from '@/components/ui';
+import { CampoCerca, Chip, RigaChips } from '@/components/ui';
 import { TaskFormModal } from '@/components/TaskFormModal';
 import {
   daRicontattare,
@@ -75,6 +75,8 @@ export default function DaCompletare() {
    *  risposta. ⚠️ Vale SOLO per i task — richiami e visite non hanno un
    *  assegnatario, e il titolo della sezione lo dice per non far credere che
    *  filtri tutta la pagina. */
+  // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
+  const [cerca, setCerca] = useState('');
   const [scopeTask, setScopeTask] = useState<'miei' | 'tutti'>('miei');
   const [taskAperto, setTaskAperto] = useState<Task | null>(null);
 
@@ -138,25 +140,33 @@ export default function DaCompletare() {
     );
   }, [richiami]);
 
+  // Il filtro della ricerca, applicato a OGNI sezione con i suoi campi.
+  const q = cerca.trim().toLowerCase();
+  const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+  const richiamiVisti = q ? richiami.filter((r) => [r.place.nome, r.place.zona, r.visita.note_post_meeting].some((x) => nrm(x).includes(q))) : richiami;
+  const followupVisti = q ? followup.filter((d) => [d.place_nome, d.titolo, d.linea, d.owner_nome].some((x) => nrm(x).includes(q))) : followup;
+  const tasksVisti = q ? tasks.filter((t) => [t.titolo, t.place_nome, t.owner_nome, t.contatto?.nome].some((x) => nrm(x).includes(q))) : tasks;
+  const daCompletareVisti = q ? daCompletare.filter((p) => [p.nome, p.zona].some((x) => nrm(x).includes(q))) : daCompletare;
+
   const sezioni = [
-    ...(richiami.length
-      ? [{ title: `Da ricontattare (${richiami.length})`, data: richiami.map((r): Riga => ({ tipo: 'richiamo', richiamo: r })) }]
+    ...(richiamiVisti.length
+      ? [{ title: `Da ricontattare (${richiamiVisti.length})`, data: richiamiVisti.map((r): Riga => ({ tipo: 'richiamo', richiamo: r })) }]
       : []),
-    ...(followup.length
-      ? [{ title: `Follow-up affiliazioni (${followup.length})`, data: followup.map((d): Riga => ({ tipo: 'followup', deal: d })) }]
+    ...(followupVisti.length
+      ? [{ title: `Follow-up affiliazioni (${followupVisti.length})`, data: followupVisti.map((d): Riga => ({ tipo: 'followup', deal: d })) }]
       : []),
-    ...(tasks.length
+    ...(tasksVisti.length
       ? [
           {
             // Il titolo DICE su cosa agisce il filtro: «Task (3)» con le
             // pillole sopra farebbe credere che filtrino tutta la pagina.
-            title: `${scopeTask === 'miei' ? 'Task assegnati a me' : 'Task di tutti'} (${tasks.length})`,
-            data: tasks.map((t): Riga => ({ tipo: 'task', task: t })),
+            title: `${scopeTask === 'miei' ? 'Task assegnati a me' : 'Task di tutti'} (${tasksVisti.length})`,
+            data: tasksVisti.map((t): Riga => ({ tipo: 'task', task: t })),
           },
         ]
       : []),
-    ...(daCompletare.length
-      ? [{ title: `Da completare (${daCompletare.length})`, data: daCompletare.map((p): Riga => ({ tipo: 'completa', place: p })) }]
+    ...(daCompletareVisti.length
+      ? [{ title: `Da completare (${daCompletareVisti.length})`, data: daCompletareVisti.map((p): Riga => ({ tipo: 'completa', place: p })) }]
       : []),
   ];
 
@@ -344,6 +354,9 @@ export default function DaCompletare() {
             ripete («Task assegnati a me» / «Task di tutti»): richiami e visite
             non hanno un assegnatario, e un filtro che sembra globale ma agisce
             su una sezione sola fa contare righe che non sono cambiate. */}
+        <View style={{ marginTop: 10 }}>
+          <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca in tutta la coda: negozio, task, contatto…" />
+        </View>
         <RigaChips style={styles.filtri}>
           <Chip label="Task assegnati a me" on={scopeTask === 'miei'} onPress={() => setScopeTask('miei')} />
           <Chip label="Task di tutti" on={scopeTask === 'tutti'} onPress={() => setScopeTask('tutti')} />

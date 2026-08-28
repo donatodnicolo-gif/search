@@ -11,7 +11,7 @@ import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
-import { aggiornaOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
+import { aggiornaOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, duplicaOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
 import { cercaFatture, chiediFatturaPerOrdine, type FatturaInElenco } from '@/lib/partner';
 import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
@@ -243,7 +243,7 @@ export default function Ordini() {
    * — sito compreso, o la richiesta «metti anche in tabella di che sito è»
    * sarebbe stata esaudita solo su uno schermo grande.
    */
-  const aTabella = width >= (conAltriCosti ? 1572 : 1472);
+  const aTabella = width >= (conAltriCosti ? 1607 : 1507);
   /**
    * Sopra questa misura ci stanno TUTTE le colonne, canale compreso: misurato
    * nel DOM, a 1649 al nome del cliente restano 209px invece dei 111 che
@@ -251,7 +251,7 @@ export default function Ordini() {
    * salite di 48 con le icone grandi del 28/08). Non è una soglia di stile: è il punto
    * in cui rimettere una colonna smette di togliere spazio al dato principale.
    */
-  const tutteLeColonne = width >= 1732;
+  const tutteLeColonne = width >= 1767;
 
   /**
    * Quanto ci costa ciascun ordine: dai lavori collegati alla sua trattativa
@@ -659,8 +659,12 @@ export default function Ordini() {
        * cornici da 33: 9×33 = 297, più otto spazi da 2 = 313, più 5 di
        * margine = 318. Soglie di nuovo su di 35: 1537→1572, 1437→1472,
        * 1697→1732.
+       *
+       * ⚠️ 28/08/2026, sera: DUPLICA è la decima, e sta su TUTTI gli ordini.
+       * 10×33 = 330, più nove spazi da 2 = 348, più 5 = 353. Soglie +35:
+       * 1572→1607, 1472→1507, 1732→1767.
        */
-      width: 318,
+      width: 353,
       fissa: true,
       valore: () => null,
       cella: (o) => (
@@ -710,6 +714,21 @@ export default function Ordini() {
               ⚠️ Quando è già stata mandata l'icona resta e diventa piena: si
               può rimandare (l'indirizzo cambia, la data slitta), ma si vede a
               colpo d'occhio che qualcosa era già partito. */}
+          {/* ⭐ DUPLICA (28/08/2026): su TUTTI gli ordini, anche annullati e
+              chiusi — è chiesto proprio per rifare un ordine annullato per
+              errore. Nasce una bozza; niente numero, documenti o fornitura. */}
+          <Pressable
+            style={styles.iconaAzione}
+            hitSlop={8}
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              duplica(o);
+            }}
+            accessibilityLabel={`Duplica l'ordine ${o.riferimento ?? o.cliente} come bozza`}
+            {...({ title: 'Duplica come bozza — per rifare un ordine sbagliato o annullato' } as any)}
+          >
+            <Ionicons name="copy-outline" size={19} color={colors.navy} />
+          </Pressable>
           {/* ⭐ SCARICA LA FATTURA: c'è solo quando una fattura c'è davvero.
               Un'icona sempre presente che a volte non fa niente insegna a non
               premerla. */}
@@ -1190,6 +1209,27 @@ export default function Ordini() {
    * archiviare un ricavo senza il suo costo: il margine di quell'ordine resta
    * un numero inventato, e nessuno ci tornerà più sopra.
    */
+  /** Duplica come BOZZA: si conferma prima, e si dice cosa NON viene copiato. */
+  function duplica(o: OrdineConLuogo) {
+    conferma(
+      "Duplicare l'ordine?",
+      `${o.riferimento ?? o.cliente}: nasce una copia in BOZZA con cliente, valore e linea. Non si copiano numero, documenti, fornitura ed evasione — la copia si completa e si chiude come un ordine nuovo.`,
+      async () => {
+        setInCorso(o.id);
+        try {
+          await duplicaOrdine(o);
+          await carica();
+          avvisa('Ordine duplicato', "La copia è in cima all'elenco, in bozza: si completa e si chiude come un ordine nuovo.");
+        } catch (e: any) {
+          avvisa('Non duplicato', String(e?.message ?? e));
+        } finally {
+          setInCorso(null);
+        }
+      },
+      { testoConferma: 'Duplica' },
+    );
+  }
+
   function apriEvasione(o: OrdineConLuogo) {
     // ⚠️ La condizione è la stessa che applica il server: qui si risparmia un
     // giro, ma il NO vero lo dice la funzione — un controllo che vive solo nel
@@ -1580,6 +1620,10 @@ export default function Ordini() {
                             color={colors.navy}
                           />
                           <Text style={styles.btnGhostTxt}>{o.chiuso_il ? 'Riapri' : 'Chiudi'}</Text>
+                        </Pressable>
+                        <Pressable style={styles.btnGhost} onPress={() => duplica(o)}>
+                          <Ionicons name="copy-outline" size={15} color={colors.navy} />
+                          <Text style={styles.btnGhostTxt}>Duplica</Text>
                         </Pressable>
                         {/* Sul telefono l'evasione è un bottone con la parola
                             scritta: un furgoncino da solo, senza la colonna

@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Stack, useFocusEffect } from 'expo-router';
 import { Foglio } from '@/components/Foglio';
 import { colors, radius, spacing } from '@/lib/theme';
-import { PageIntro, StatusBadge } from '@/components/ui';
+import { CampoCerca, PageIntro, StatusBadge } from '@/components/ui';
 import { conferma, avvisa } from '@/lib/dialoghi';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
@@ -30,6 +30,7 @@ export default function LineeInteresse() {
   const { session } = useAuth();
   const admin = isAdmin(session?.user?.email);
   const [linee, setLinee] = useState<LineaInteresse[]>([]);
+  const [cerca, setCerca] = useState('');
   const [loading, setLoading] = useState(true);
   const [editor, setEditor] = useState<Editor | null>(null);
   /**
@@ -109,11 +110,24 @@ export default function LineeInteresse() {
     <View style={styles.container}>
       <Stack.Screen options={{ title: 'Linee di interesse' }} />
       <PageIntro testo="Scout è il master delle linee di interesse: qui le crei, modifichi o archivi, con le relative sottolinee. Le altre app Deluxy le leggono da qui. Due flag, due domande diverse: «Attiva» dice se la linea è viva commercialmente, «In vetrina» se i partner possono chiederne un preventivo dalla loro casa (deluxy-delivery /home)." />
+      <View style={{ marginBottom: 10 }}>
+        <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca una linea o sottolinea…" />
+      </View>
       <ScrollView contentContainerStyle={styles.list} refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}>
         {!loading && linee.length === 0 ? (
           <Text style={styles.vuoto}>Nessuna linea. Creane una col bottone in basso.</Text>
         ) : null}
-        {linee.map((l) => (
+        {linee
+          .filter((l) => {
+            // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
+            // ⚠️ Si guarda anche nelle SOTTOLINEE: chi cerca «rose» deve
+            // trovare la linea madre che la contiene.
+            const q = cerca.trim().toLowerCase();
+            if (!q) return true;
+            const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+            return nrm(l.nome).includes(q) || (l.sottolinee ?? []).some((s) => nrm(s.nome).includes(q));
+          })
+          .map((l) => (
           <View key={l.id} style={styles.card}>
             <View style={styles.rigaLinea}>
               <View style={styles.iconaBox}>

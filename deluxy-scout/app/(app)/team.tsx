@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { fetchAllDeals, fetchAllVisits, fetchPlaces, fetchProfiles } from '@/lib/db';
 import { attivitaPerVenditore, nomeVenditore, visiteUltimi7Giorni, type StatVenditore } from '@/lib/metrics';
-import { EmptyState, PageIntro } from '@/components/ui';
+import { CampoCerca, EmptyState, PageIntro } from '@/components/ui';
 import { StatCard } from '@/components/StatCard';
 
 const ESITO_LABEL: Record<string, string> = {
@@ -60,7 +60,15 @@ export default function Team() {
     }, [carica]),
   );
 
-  const venditori = useMemo(() => attivitaPerVenditore(visits, deals, profili), [visits, deals, profili]);
+  // Ricerca su ogni elenco (Libro v1.9 §8-bis — mancava, 28/08/2026).
+  const [cerca, setCerca] = useState('');
+  const venditori = useMemo(() => {
+    const tutti = attivitaPerVenditore(visits, deals, profili);
+    const q = cerca.trim().toLowerCase();
+    if (!q) return tutti;
+    const nrm = (v: unknown) => String(v ?? '').toLowerCase();
+    return tutti.filter((s) => nrm(s.nome).includes(q));
+  }, [visits, deals, profili, cerca]);
   const mappaProfili = useMemo(() => new Map(profili.map((p) => [p.id, p])), [profili]);
   const nomiPlace = useMemo(() => new Map(places.map((p) => [p.id, p.nome])), [places]);
   const recenti = useMemo(
@@ -75,6 +83,9 @@ export default function Team() {
   return (
     <View style={styles.container}>
       <PageIntro testo="L'attività di tutta la rete: visite, esiti e trattative di ogni venditore. Tocca un venditore per il dettaglio giorno per giorno." />
+      <View style={{ paddingHorizontal: spacing.lg, marginTop: 8 }}>
+        <CampoCerca valore={cerca} onCambia={setCerca} placeholder="Cerca un venditore per nome…" />
+      </View>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}

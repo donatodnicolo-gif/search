@@ -705,8 +705,9 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
               <View style={{ flex: 1 }}>
                 <Text style={styles.proformaTitolo}>Emetti anche la pro-forma su Deluxy Partner</Text>
                 <Text style={styles.proformaNota}>
-                  Il cliente dev'essere un partner del registro. L'importo è inteso IVA inclusa: in pro-forma
-                  l'imponibile viene scorporato (22%). Attiva di default — si disattiva da Profilo → Pagamenti.
+                  Il cliente dev'essere un partner del registro. L'importo è IVA esclusa: è l'imponibile
+                  della pro-forma, e l'IVA (22%) si aggiunge sul documento. Attiva di default — si disattiva da
+                  Profilo → Pagamenti.
                 </Text>
               </View>
             </Pressable>
