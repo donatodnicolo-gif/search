@@ -13,6 +13,7 @@ import { feeDaTariffe } from "@/lib/fee";
 import { transactionsConfigurato } from "@/lib/transactions";
 import { fattureFicDelPartner } from "@/lib/fic-partner";
 import { scollegaFatturaCommissioni } from "@/lib/fic-actions";
+import { scollegaMovimentoAttribuito, escludiMovimentoDaPartner } from "@/lib/movimenti-partner-actions";
 import { CollegaFatturaCommissioni } from "@/components/CollegaFatturaCommissioni";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
@@ -72,13 +73,25 @@ export default async function PartnerDetail({
   // questo i candidati sono marcati «per nome — da confermare», non spacciati
   // per certi. I movimenti già attribuiti a un ALTRO partner non entrano.
   const tokenNome = tokenPartner(partner.nome);
+  // Movimenti esclusi a mano da QUESTA scheda (omonimi «non è questo partner»):
+  // si tolgono dai candidati per nome. Lettura non fatale (tabella dedicata,
+  // via SQL raw): se fallisce si mostra tutto invece di rompere la scheda.
+  const esclusi = await prisma
+    .$queryRaw<{ movimentoId: string }[]>`SELECT "movimentoId" FROM "public"."EsclusioneMovimentoPartner" WHERE "partnerId" = ${id};`
+    .catch(() => [] as { movimentoId: string }[]);
+  const esclusiIds = esclusi.map((e) => e.movimentoId);
   const ultimiMovimenti = await prisma.transazioneBancaria.findMany({
     where: {
-      OR: [
-        { partnerId: id },
-        ...(tokenNome.length
-          ? [{ partnerId: null, OR: tokenNome.map((t) => ({ controparte: { contains: t, mode: "insensitive" as const } })) }]
-          : []),
+      AND: [
+        {
+          OR: [
+            { partnerId: id },
+            ...(tokenNome.length
+              ? [{ partnerId: null, OR: tokenNome.map((t) => ({ controparte: { contains: t, mode: "insensitive" as const } })) }]
+              : []),
+          ],
+        },
+        ...(esclusiIds.length ? [{ id: { notIn: esclusiIds } }] : []),
       ],
     },
     orderBy: [{ data: "desc" }, { id: "desc" }],
@@ -318,7 +331,7 @@ export default async function PartnerDetail({
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Data</th><th>Movimento</th><th>Stato</th><th className="num">Importo</th></tr>
+                  <tr><th>Data</th><th>Movimento</th><th>Stato</th><th className="num">Importo</th><th></th></tr>
                 </thead>
                 <tbody>
                   {ultimiMovimenti.map((m) => (
@@ -349,6 +362,37 @@ export default async function PartnerDetail({
                       </td>
                       <td className={`num ${m.importo > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
                         {m.importo > 0 ? "+" : "−"}{euro(Math.abs(m.importo))}
+                      </td>
+                      <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
+                        {m.partnerId === id ? (
+                          // Attribuito: scollegare azzera il legame e lo rimette
+                          // in coda alla riconciliazione.
+                          <form action={scollegaMovimentoAttribuito.bind(null, id, m.id)} style={{ display: "inline" }}>
+                            <ConfermaElimina
+                              className="btn small secondary"
+                              classeConferma="btn small danger-solid"
+                              trigger="Scollega"
+                              inCorso="Scollego…"
+                              verbo="Scollega"
+                              oggetto="questo movimento dal partner"
+                              conseguenza="Il movimento non si cancella: torna fra quelli da riconciliare, per attribuirlo al partner giusto."
+                            />
+                          </form>
+                        ) : (
+                          // Candidato per nome (omonimo): non è collegato, lo si
+                          // esclude in modo persistente SOLO da questa scheda.
+                          <form action={escludiMovimentoDaPartner.bind(null, id, m.id)} style={{ display: "inline" }}>
+                            <ConfermaElimina
+                              className="btn small secondary"
+                              classeConferma="btn small danger-solid"
+                              trigger="Non è di questo partner"
+                              inCorso="Escludo…"
+                              verbo="Escludi"
+                              oggetto="questo movimento da questa scheda"
+                              conseguenza="È un omonimo: sparisce da qui in modo permanente, ma resta riconciliabile altrove e per il partner giusto."
+                            />
+                          </form>
+                        )}
                       </td>
                     </tr>
                   ))}
