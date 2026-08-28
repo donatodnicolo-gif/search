@@ -3406,19 +3406,48 @@ async function saveContact(btn, opts){
     logEvento({ tipo:'rubrica', esito:'scaricato .vcf (OAuth non riuscito)', negozio:data });
   }
 }
+// payload per creare/aggiornare il fornitore nel registro Anagrafiche (via /api/segnala):
+// idEsterno (place_id Google) = identità stabile con cui il registro ci riconosce;
+// l'ordine in corso finisce nelle note del registro.
+function segnalaPayload(pid, data){
+  const payload = Object.assign({ quando: new Date().toISOString(), idEsterno: pid }, data);
+  if(orderLoaded){
+    const numero = ($('#ordTag').textContent.match(/#?(\d+)/)||[])[1] || '';
+    const valore = $('#ord_paid').value.trim();
+    if(numero || valore) payload.ordine = { numero, valore, brand: $('#brand').value };
+  }
+  return payload;
+}
+// «Salva in rubrica» crea/aggiorna ANCHE il fornitore in Anagrafiche (chiesto 27/08):
+// se lo salviamo fra i contatti, dev'essere anche nel registro fornitori — così la
+// prossima volta compare in cima come prospect. Best effort: non tocca il bottone
+// (lo gestisce saveContact), riferisce nella riga di stato; una sola volta per scheda.
+async function creaFornitoreRegistro(btn){
+  const pid = btn.dataset.pid;
+  const data = CARD_DATA[pid]; if(!data) return;
+  if(btn.dataset.registroDone) return;
+  fillContactsFromCard(btn, data);   // porta email/telefono dalla scheda nei dati, come fa reportShop
+  try{
+    const r = await apiFetch('/api/segnala', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(segnalaPayload(pid, data)) });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
+    btn.dataset.registroDone = '1';
+    setStatus(j.esistente ? 'ℹ️ Già nel registro Anagrafiche (contatto aggiornato).' : '✅ Aggiunto anche al registro Anagrafiche (fornitore).');
+    logEvento({ tipo:'segnalazione',
+      esito: j.esistente ? 'già nel registro (da «salva in rubrica»)' : 'fornitore creato nel registro (da «salva in rubrica»)',
+      negozio:data });
+  }catch(err){
+    // di solito: manca la chiave di SCRITTURA del registro in Impostazioni
+    setStatus('ℹ️ Salvato in rubrica, ma NON nel registro Anagrafiche: '+err.message
+      +' (imposta la «chiave di scrittura del registro» in ⚙️ Impostazioni).', true);
+  }
+}
 async function reportShop(btn){
   const data = CARD_DATA[btn.dataset.pid]; if(!data) return;
   fillContactsFromCard(btn, data);
   btn.disabled = true; btn.textContent = '⏳ Segnalo al commerciale…';
   try{
-    // ordine per cui si sta contattando il negozio → finisce nelle note del registro;
-    // idEsterno (place_id Google) = identità stabile con cui il registro ci riconosce
-    const payload = Object.assign({ quando: new Date().toISOString(), idEsterno: btn.dataset.pid }, data);
-    if(orderLoaded){
-      const numero = ($('#ordTag').textContent.match(/#?(\d+)/)||[])[1] || '';
-      const valore = $('#ord_paid').value.trim();
-      if(numero || valore) payload.ordine = { numero, valore, brand: $('#brand').value };
-    }
+    const payload = segnalaPayload(btn.dataset.pid, data);
     const r = await apiFetch('/api/segnala', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const j = await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
@@ -3434,7 +3463,7 @@ async function reportShop(btn){
   }
 }
 resultsEl.addEventListener('click', e=>{
-  const s = e.target.closest('.savecontact'); if(s){ saveContact(s); return; }
+  const s = e.target.closest('.savecontact'); if(s){ saveContact(s); creaFornitoreRegistro(s); return; }
   const r = e.target.closest('.reportshop'); if(r){ reportShop(r); }
 });
 
@@ -3918,7 +3947,7 @@ function shopCard(d, cat, dist, pid){
     ${reviewsHtml}
     ${hasWa ? `<button class="sendorder" data-phone="${waDigits}" data-lang="${shopLang}">📤 Invia richiesta ordine su WhatsApp${IS_MOBILE?'':' Web'}</button>` : ''}
     ${pid ? `<div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
-      <button class="btn-dl savecontact" data-pid="${pid}">💾 Salva in rubrica</button>
+      <button class="btn-dl savecontact" data-pid="${pid}" title="Salva nei Contatti Google e crea il fornitore nel registro Anagrafiche">💾 Salva in rubrica + registro</button>
       <button class="btn-dl reportshop" data-pid="${pid}">📣 Segnala al commerciale</button>
       <button class="btn-dl reconshop" data-pid="${pid}">🔗 Riconcilia</button>
     </div>
