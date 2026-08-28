@@ -8,6 +8,7 @@ import { totaliProForma, importoRiga, rifProForma, statiDi } from "@/lib/proform
 import { cambiaStatoProForma, deleteProForma } from "@/lib/proforma-actions";
 import { StampaButton } from "@/components/StampaButton";
 import { intestazioneDaMostrare } from "@/lib/intestazione";
+import { anagraficaPerId } from "@/lib/anagrafiche";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,36 @@ export default async function ProFormaDetail({
   // formula della pro-forma («non costituisce fattura ai sensi dell'art. 21»):
   // è un'offerta, non un documento fiscale mancato.
   const preventivo = pf.tipo === "preventivo";
+
+  // I DATI FISCALI DEL CLIENTE vengono da ANAGRAFICHE, non ricopiati qui: se il
+  // partner è collegato al registro (`anagraficaId`) si legge da lì ragione
+  // sociale, indirizzo, P.IVA, C.F., SDI e PEC — che sono la casa di quel dato.
+  // Il partner FINANCE non li tiene (per questo il documento li mostrava vuoti).
+  // Non fatale: se il registro è giù, restano i pochi campi del partner.
+  const anag = pf.partner.anagraficaId ? await anagraficaPerId(pf.partner.anagraficaId) : null;
+  const cliente = {
+    nome: pf.partner.ragioneSociale || anag?.ragioneSociale || pf.partner.nome,
+    insegna: null as string | null,
+    indirizzo: anag?.indirizzo ?? null,
+    citta: anag?.citta ?? pf.partner.citta ?? null,
+    pIva: anag?.pIva ?? null,
+    codiceFiscale: anag?.codiceFiscale ?? null,
+    codiceSdi: anag?.datiFinanziari?.codiceSdi ?? null,
+    pec: anag?.datiFinanziari?.pec ?? null,
+    email: pf.partner.email ?? anag?.email ?? null,
+  };
+  // Mostra l'insegna sotto la ragione sociale solo se è davvero un'altra cosa.
+  if (pf.partner.nome && pf.partner.nome !== cliente.nome) cliente.insegna = pf.partner.nome;
+  // Se l'indirizzo contiene già la città (es. «… 20143 Milano»), non ripeterla.
+  const cittaSeparata =
+    cliente.citta && !(cliente.indirizzo ?? "").toLowerCase().includes(cliente.citta.toLowerCase())
+      ? cliente.citta
+      : null;
+  // Per una fattura vera servono P.IVA e un recapito elettronico (SDI o PEC):
+  // se mancano, il documento lo dice invece di far scoprire il buco a valle.
+  const mancanti: string[] = [];
+  if (!cliente.pIva) mancanti.push("P. IVA");
+  if (!cliente.codiceSdi && !cliente.pec) mancanti.push("Cod. SDI o PEC");
 
   // ⚠️ L'INTESTAZIONE VIENE DAL TEMPLATE DEL DOCUMENTO, se ne ha uno
   // (27/08/2026): logo e dati societari del brand con cui è stato emesso.
@@ -94,6 +125,14 @@ export default async function ProFormaDetail({
       )}
 
       {/* ————— Documento ————— */}
+      {mancanti.length > 0 && (
+        <div className="card" style={{ padding: 12, marginBottom: 12, borderColor: "rgba(201,52,0,0.2)", background: "rgba(201,52,0,0.06)" }}>
+          <span style={{ fontSize: 13, color: "var(--orange)" }}>
+            Per emettere la fattura vera mancano ancora, sull&apos;anagrafica del cliente:{" "}
+            <strong>{mancanti.join(" · ")}</strong>. Si compilano in Anagrafiche (il registro è la loro casa).
+          </span>
+        </div>
+      )}
       <div className="docpf card">
         <div className="docpf-top">
           <div>
@@ -119,12 +158,17 @@ export default async function ProFormaDetail({
 
         <div className="docpf-dest">
           <div className="docpf-label">Spettabile</div>
-          <div className="docpf-dest-nome">{pf.partner.ragioneSociale || pf.partner.nome}</div>
-          {pf.partner.ragioneSociale && pf.partner.ragioneSociale !== pf.partner.nome && (
-            <div className="docpf-mittente">{pf.partner.nome}</div>
+          <div className="docpf-dest-nome">{cliente.nome}</div>
+          {cliente.insegna && <div className="docpf-mittente">{cliente.insegna}</div>}
+          {cliente.indirizzo && <div className="docpf-mittente">{cliente.indirizzo}</div>}
+          {cittaSeparata && <div className="docpf-mittente">{cittaSeparata}</div>}
+          {cliente.pIva && <div className="docpf-mittente">P. IVA {cliente.pIva}</div>}
+          {cliente.codiceFiscale && cliente.codiceFiscale !== cliente.pIva && (
+            <div className="docpf-mittente">C.F. {cliente.codiceFiscale}</div>
           )}
-          {pf.partner.citta && <div className="docpf-mittente">{pf.partner.citta}</div>}
-          {pf.partner.email && <div className="docpf-mittente">{pf.partner.email}</div>}
+          {cliente.codiceSdi && <div className="docpf-mittente">Cod. SDI {cliente.codiceSdi}</div>}
+          {cliente.pec && <div className="docpf-mittente">PEC {cliente.pec}</div>}
+          {cliente.email && <div className="docpf-mittente">{cliente.email}</div>}
         </div>
 
         {pf.oggetto && (
