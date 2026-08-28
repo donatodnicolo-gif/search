@@ -194,6 +194,10 @@ export interface FatturaInElenco {
   pagata: boolean;
   /** Su quale numero ha fatto match la ricerca per importo: totale o imponibile. */
   combacia: 'totale' | 'imponibile' | null;
+  /** Il PDF del documento su Fatture in Cloud. ⚠️ FINANCE lo mandava già
+   *  (`url: f.urlDettaglio`) e qui si buttava via perché il tipo non lo
+   *  dichiarava: senza, la fattura agganciata non si poteva più aprire. */
+  url?: string | null;
 }
 
 /**

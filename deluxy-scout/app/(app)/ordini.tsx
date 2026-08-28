@@ -243,7 +243,7 @@ export default function Ordini() {
    * — sito compreso, o la richiesta «metti anche in tabella di che sito è»
    * sarebbe stata esaudita solo su uno schermo grande.
    */
-  const aTabella = width >= (conAltriCosti ? 1537 : 1437);
+  const aTabella = width >= (conAltriCosti ? 1572 : 1472);
   /**
    * Sopra questa misura ci stanno TUTTE le colonne, canale compreso: misurato
    * nel DOM, a 1649 al nome del cliente restano 209px invece dei 111 che
@@ -251,7 +251,7 @@ export default function Ordini() {
    * salite di 48 con le icone grandi del 28/08). Non è una soglia di stile: è il punto
    * in cui rimettere una colonna smette di togliere spazio al dato principale.
    */
-  const tutteLeColonne = width >= 1697;
+  const tutteLeColonne = width >= 1732;
 
   /**
    * Quanto ci costa ciascun ordine: dai lavori collegati alla sua trattativa
@@ -357,20 +357,42 @@ export default function Ordini() {
           {/* ⚠️ Il documento sta QUI, sotto il nome, non fra le azioni: è
               un'informazione sull'ordine, non un comando. Nella colonna delle
               azioni rubava lo spazio ai bottoni e li mandava a capo. */}
-          {o.fattura_numero || o.proforma_numero ? (
+          {/* ⭐ CHE DOCUMENTO È (28/08/2026, richiesta dell'utente: «se
+              l'ordine è stato chiuso con fattura indicalo chiaramente»).
+
+              ⚠️ Prima la pillola scriveva il numero e basta: «PF 2/2026» e
+              «600/2026» avevano lo stesso aspetto, e una pratica chiusa con
+              una PRO-FORMA sembrava fatturata. Sono due cose diverse — la
+              pro-forma è una richiesta di pagamento, la fattura è il
+              documento fiscale — e la differenza si vede solo se è scritta. */}
+          {o.fattura_numero ? (
+            <Pressable
+              style={[styles.docChip, styles.docChipFattura]}
+              hitSlop={6}
+              onPress={(e: any) => {
+                e?.stopPropagation?.();
+                scaricaFattura(o);
+              }}
+              accessibilityLabel={`Scarica la fattura ${o.fattura_numero}`}
+              {...({ title: 'Scarica la fattura (PDF da Fatture in Cloud)' } as any)}
+            >
+              <Ionicons name="receipt" size={11} color={colors.bianco} />
+              <Text style={[styles.docChipTxt, styles.docChipTxtFattura]}>Fattura {o.fattura_numero}</Text>
+              <Ionicons name="download-outline" size={11} color={colors.bianco} />
+            </Pressable>
+          ) : o.proforma_numero ? (
             <Pressable
               style={styles.docChip}
               hitSlop={6}
               onPress={(e: any) => {
                 e?.stopPropagation?.();
-                const link = o.fattura_url || o.proforma_url;
-                if (link) Linking.openURL(link);
+                if (o.proforma_url) Linking.openURL(o.proforma_url);
               }}
-              accessibilityLabel="Apri il documento su Deluxy Partner"
-              {...({ title: 'Apri il documento su Deluxy Partner' } as any)}
+              accessibilityLabel={`Apri la pro-forma ${o.proforma_numero}`}
+              {...({ title: 'Pro-forma — non è la fattura: quella si emette dopo' } as any)}
             >
               <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
-              <Text style={styles.docChipTxt}>{o.fattura_numero || o.proforma_numero}</Text>
+              <Text style={styles.docChipTxt}>Pro-forma {o.proforma_numero}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -578,9 +600,19 @@ export default function Ordini() {
       cella: (o) => (
         <View style={{ gap: 2, alignItems: 'flex-start' }}>
           <StatusBadge small label={labelStatoOrdine[o.stato]} colore={coloreStatoOrdine[o.stato]} />
+          {/* ⚠️ «Chiusa il 28/08» non dice la cosa che serve: chiusa CON CHE
+              COSA (28/08/2026, richiesta dell'utente: «se l'ordine è stato
+              chiuso con fattura indicalo chiaramente»). Una pratica chiusa
+              con una PRO-FORMA non è fatturata, e leggerla come fatturata fa
+              dare per incassabile un ricavo che allo SDI non è mai partito. */}
           {o.chiuso_il ? (
-            <Text style={styles.tabStima}>
-              chiusa il {new Date(o.chiuso_il).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+            <Text style={[styles.tabStima, o.fattura_numero && styles.tabChiusaFattura]}>
+              {o.fattura_numero
+                ? 'chiusa con fattura'
+                : o.proforma_numero
+                  ? 'chiusa con pro-forma'
+                  : 'chiusa senza documento'}{' '}
+              il {new Date(o.chiuso_il).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })}
             </Text>
           ) : null}
         </View>
@@ -621,8 +653,14 @@ export default function Ordini() {
        * piccole» — cornici 27→33 (icona 19 + 7 di padding per lato). Conto
        * rifatto: 8×33 = 264, più sette spazi da 2 = 278, più 5 di margine =
        * 283. Le soglie salgono di altri 48: 1489→1537, 1389→1437, 1649→1697.
+       *
+       * ⚠️ 28/08/2026, poco dopo: lo SCARICO DELLA FATTURA è il nono, e
+       * compare solo dove una fattura c'è davvero. Conto rifatto con le
+       * cornici da 33: 9×33 = 297, più otto spazi da 2 = 313, più 5 di
+       * margine = 318. Soglie di nuovo su di 35: 1537→1572, 1437→1472,
+       * 1697→1732.
        */
-      width: 283,
+      width: 318,
       fissa: true,
       valore: () => null,
       cella: (o) => (
@@ -672,6 +710,23 @@ export default function Ordini() {
               ⚠️ Quando è già stata mandata l'icona resta e diventa piena: si
               può rimandare (l'indirizzo cambia, la data slitta), ma si vede a
               colpo d'occhio che qualcosa era già partito. */}
+          {/* ⭐ SCARICA LA FATTURA: c'è solo quando una fattura c'è davvero.
+              Un'icona sempre presente che a volte non fa niente insegna a non
+              premerla. */}
+          {o.fattura_numero ? (
+            <Pressable
+              style={styles.iconaAzione}
+              hitSlop={8}
+              onPress={(e: any) => {
+                e?.stopPropagation?.();
+                scaricaFattura(o);
+              }}
+              accessibilityLabel={`Scarica la fattura ${o.fattura_numero}`}
+              {...({ title: `Scarica la fattura ${o.fattura_numero} (PDF)` } as any)}
+            >
+              <Ionicons name="download-outline" size={19} color={colors.navy} />
+            </Pressable>
+          ) : null}
           {o.chiuso_il ? (
             <Pressable
               style={styles.iconaAzione}
@@ -804,6 +859,61 @@ export default function Ordini() {
    * fatturato. Il bottone si chiama «Fattura» (26/08 sera, richiesta
    * dell'utente: prima diceva «Chiudi», che non diceva cosa succedeva).
    */
+  /**
+   * ⭐ SCARICA LA FATTURA (28/08/2026, richiesta dell'utente: «permetti di
+   * scaricare la fattura anche da questa app direttamente»).
+   *
+   * ⚠️ **Il link può non esserci, e non è un guasto.** Le fatture agganciate
+   * prima di oggi hanno il numero ma non l'indirizzo del PDF: FINANCE lo
+   * mandava già e Scout lo buttava via. Qui, se manca, si va a RIPRENDERLO dal
+   * numero e lo si SCRIVE sull'ordine — così la volta dopo è immediato.
+   *
+   * ⚠️ Se non si trova si dice perché. Aprire una pagina vuota, o non fare
+   * niente al tocco, sono i due modi peggiori di rispondere «non ce l'ho».
+   */
+  async function scaricaFattura(o: OrdineConLuogo) {
+    if (o.fattura_url) {
+      Linking.openURL(o.fattura_url);
+      return;
+    }
+    if (!o.fattura_numero) return;
+    setInCorso(o.id);
+    try {
+      // ⚠️ IL NUMERO SI SPEZZA: sull'ordine è scritto «600/2026», ma la
+      // ricerca su Fatture in Cloud vuole il numero NUDO e l'anno a parte.
+      // Misurato il 28/08/2026 sulla 600 di TBF: «600» torna la fattura col
+      // link, «600/2026» torna zero risultati — e lo scarico avrebbe detto
+      // «il PDF non è disponibile» su una fattura che c'è.
+      const [soloNumero, soloAnno] = o.fattura_numero.split('/');
+      const esito = await cercaFatture({
+        numero: soloNumero,
+        anno: soloAnno ? Number(soloAnno) : null,
+        tipo: 'invoice',
+      });
+      // ⚠️ Si prende quella col NUMERO UGUALE, non la prima dell'elenco: una
+      // ricerca per numero può tornare anche i simili, e aprire la fattura di
+      // un altro cliente è peggio che non aprirne nessuna.
+      const trovata = (esito.fatture ?? []).find((f) => (f.numero ?? '') === o.fattura_numero);
+      if (!trovata?.url) {
+        avvisa(
+          'Il PDF non è disponibile',
+          esito.ok
+            ? `La fattura ${o.fattura_numero} risulta agganciata, ma Fatture in Cloud non dà un link al documento. Si apre da FINANCE.`
+            : `Non sono riuscito a chiederlo a FINANCE: ${esito.errore ?? 'nessuna risposta'}.`,
+        );
+        return;
+      }
+      // Si scrive sull'ordine: la seconda volta non deve rifare il giro.
+      await collegaDocumentoAOrdine(o.id, { fatturaUrl: trovata.url });
+      Linking.openURL(trovata.url);
+      await carica();
+    } catch (e: any) {
+      avvisa('Non sono riuscito ad aprirla', String(e?.message ?? e));
+    } finally {
+      setInCorso(null);
+    }
+  }
+
   async function chiediFattura(o: OrdineConLuogo) {
     if (inCorso) return;
     if (!o.valore) {
@@ -1402,18 +1512,31 @@ export default function Ordini() {
                       </Text>
                     );
                   })()}
-                  {/* Il documento sta con le informazioni, non fra i comandi. */}
-                  {o.fattura_numero || o.proforma_numero ? (
+                  {/* Il documento sta con le informazioni, non fra i comandi —
+                      e dice CHE COS'È: fattura o pro-forma non sono la stessa
+                      cosa, e sul telefono il numero da solo non lo suggerisce. */}
+                  {o.fattura_numero ? (
+                    <Pressable
+                      style={[styles.docChip, styles.docChipFattura]}
+                      onPress={() => scaricaFattura(o)}
+                      accessibilityLabel={`Scarica la fattura ${o.fattura_numero}`}
+                    >
+                      <Ionicons name="receipt" size={11} color={colors.bianco} />
+                      <Text style={[styles.docChipTxt, styles.docChipTxtFattura]}>
+                        Fattura {o.fattura_numero}
+                      </Text>
+                      <Ionicons name="download-outline" size={11} color={colors.bianco} />
+                    </Pressable>
+                  ) : o.proforma_numero ? (
                     <Pressable
                       style={styles.docChip}
                       onPress={() => {
-                        const link = o.fattura_url || o.proforma_url;
-                        if (link) Linking.openURL(link);
+                        if (o.proforma_url) Linking.openURL(o.proforma_url);
                       }}
-                      accessibilityLabel="Apri il documento su Deluxy Partner"
+                      accessibilityLabel={`Apri la pro-forma ${o.proforma_numero}`}
                     >
                       <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
-                      <Text style={styles.docChipTxt}>{o.fattura_numero || o.proforma_numero}</Text>
+                      <Text style={styles.docChipTxt}>Pro-forma {o.proforma_numero}</Text>
                     </Pressable>
                   ) : null}
                   <View style={styles.azioni}>
@@ -2043,7 +2166,13 @@ function ChiusuraOrdine({
     }
     setInCorso('aggancia');
     try {
-      await collegaDocumentoAOrdine(ordine.id, { fatture: numeri });
+      // ⚠️ Il link è quello della PRIMA fattura, come `fattura_numero`: sono
+      // la coppia che il resto dell'app legge quando ne mostra una sola. Le
+      // altre restano in `fatture`, e chi le vuole tutte le apre da FINANCE.
+      await collegaDocumentoAOrdine(ordine.id, {
+        fatture: numeri,
+        ...(scelte[0]?.url ? { fatturaUrl: scelte[0].url } : {}),
+      });
       await chiudiOrdine(ordine.id);
       onFatto();
     } catch (e: any) {
@@ -2306,7 +2435,17 @@ function ChiusuraOrdine({
             )
           ) : null}
 
-          <Text style={[styles.campoLabel, { marginTop: 10 }]}>Oppure emettila adesso</Text>
+          {/* ⚠️ IL BOTTONE DICEVA «Emetti la fattura» E FACEVA UNA PRO-FORMA
+              (28/08/2026, segnalazione dell'utente: «vedo ancora il simbolo di
+              emissione fattura ma dovrebbe essere stata emessa»).
+
+              L'ordine SCOUT002 era chiuso con PF 2/2026 — una pro-forma — e
+              l'icona «emetti fattura» sulla riga continuava a comparire: era
+              corretta, la fattura non era mai stata emessa. A mentire era
+              l'etichetta del bottone. Una richiesta di pagamento e un
+              documento fiscale non sono la stessa cosa, e chiamarli con lo
+              stesso nome fa credere chiuso un giro che è a metà. */}
+          <Text style={[styles.campoLabel, { marginTop: 10 }]}>Oppure emetti adesso la pro-forma</Text>
           <Pressable
             style={[styles.btnGhostLargo, inCorso === 'emetti' && { opacity: 0.5 }]}
             disabled={!!inCorso}
@@ -2314,7 +2453,7 @@ function ChiusuraOrdine({
           >
             <Ionicons name="document-text-outline" size={16} color={colors.navy} />
             <Text style={styles.btnGhostLargoTxt}>
-              {inCorso === 'emetti' ? 'Emetto…' : 'Emetti la fattura su FINANCE e chiudi'}
+              {inCorso === 'emetti' ? 'Emetto…' : 'Emetti la PRO-FORMA su FINANCE e chiudi'}
             </Text>
           </Pressable>
 
@@ -2324,6 +2463,10 @@ function ChiusuraOrdine({
               e una scorciatoia che si può prendere si prende. */}
           <Text style={styles.campoAiuto}>
             Un ordine non si chiude senza documento — fattura o ricevuta: senza, resta un ricavo senza carta.
+          </Text>
+          <Text style={styles.campoAiuto}>
+            La pro-forma è la richiesta di pagamento, non il documento fiscale: la fattura si emette dopo, dal
+            bottone «Fattura» sulla riga dell&apos;ordine.
           </Text>
       </>
     </Foglio>
@@ -2924,6 +3067,13 @@ const styles = StyleSheet.create({
   rifChipTxtGrande: { fontSize: 12.5, color: colors.testo },
   docChip: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 3 },
   docChipTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 10.5 },
+  // La fattura è piena e scura, la pro-forma è chiara: si distinguono di
+  // spalle, senza leggere il numero.
+  docChipFattura: { backgroundColor: colors.ink, borderWidth: 0 },
+  // «chiusa con fattura» si legge più scuro: è lo stato che chiude davvero
+  // la pratica, e distinguerlo a colpo d'occhio è il punto della riga.
+  tabChiusaFattura: { color: colors.testo, fontWeight: '700' },
+  docChipTxtFattura: { color: colors.bianco },
   percRow: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   percChip: { borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8, minHeight: touchMin, justifyContent: 'center' },
   percChipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
