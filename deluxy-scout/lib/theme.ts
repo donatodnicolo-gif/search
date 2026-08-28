@@ -208,5 +208,9 @@ export const contenutoLargo = { width: '100%' as const, maxWidth: CONTENUTO_LARG
 // finestra non serviva a niente, perché il tetto non era lo schermo ma questo
 // numero. Un elenco di undici colonne è l'unico posto dove una riga lunga aiuta
 // a leggere invece di stancare.
-export const CONTENUTO_EXTRA_LARGO = 1560;
+// 1560 → 1608 il 28/08/2026: la colonna azioni di Ordini è cresciuta di 48px
+// (icone grandi, Libro v1.8) e dentro un cap fermo quei 48 li pagava la
+// colonna elastica del cliente — strizzata fino alle lettere in verticale.
+// Il cap cresce di quanto è cresciuta la colonna.
+export const CONTENUTO_EXTRA_LARGO = 1608;
 export const contenutoExtraLargo = { width: '100%' as const, maxWidth: CONTENUTO_EXTRA_LARGO, alignSelf: 'center' as const };

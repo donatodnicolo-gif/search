@@ -25,6 +25,10 @@ export interface ColonnaTabella<T> {
   /** Larghezza: o flessibile (`flex`) o fissa (`width`). Default flex: 1. */
   flex?: number;
   width?: number;
+  /** Sotto questa larghezza una colonna elastica non scende MAI (default 90):
+   *  vedi il commento su `stileCol` — la colonna da 14px con le lettere in
+   *  verticale non deve ripetersi. */
+  minWidth?: number;
   /** Allineata a destra (numeri, date, importi). */
   destra?: boolean;
   /** Ordinamento di partenza decrescente (colonne di numeri/date). */
@@ -86,10 +90,16 @@ export function Tabella<T>({
     [righe, ordine, mappa],
   );
 
+  // ⚠️ minWidth 90, NON 0 (28/08/2026, segnalazione utente con screenshot):
+  // con minWidth 0 la colonna elastica paga da sola ogni pixel che le fisse
+  // si prendono in più — su Ordini «Cliente» era scesa a ~14px e il testo
+  // scendeva in VERTICALE, una lettera per riga. Sotto i 90px una colonna di
+  // nomi non è più una colonna: meglio che le fisse sforino (le soglie della
+  // schermata le nascondono comunque) che un elenco illeggibile in silenzio.
   const stileCol = (c: ColonnaTabella<T>) =>
     c.width !== undefined
       ? { width: c.width, ...(c.destra ? stiliDestra : null) }
-      : { flex: c.flex ?? 1, minWidth: 0 as const, ...(c.destra ? stiliDestra : null) };
+      : { flex: c.flex ?? 1, minWidth: c.minWidth ?? 90, ...(c.destra ? stiliDestra : null) };
 
   return (
     <View style={styles.card}>
