@@ -111,6 +111,12 @@ Variabili in `.env` (mai committato):
 - `node scripts/crea-tabella-campagne-storiche.mjs` — crea `CampagnaStorica` (CREATE mirato,
   mai `prisma db push`: il Postgres è condiviso).
 
+## Collegamento a TikTok Ads
+
+Nel codice c'è già tutto (connettore, cron ogni 2 ore, rotta manuale, pagina):
+**mancano solo il token e l'advertiser id**. Istruzioni passo passo:
+[docs/COLLEGARE-TIKTOK.md](docs/COLLEGARE-TIKTOK.md).
+
 ## Collegamento a Google Ads
 
 Lo script `scripts/google-ads-script.js` si incolla in Google Ads (Strumenti → Azioni

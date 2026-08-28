@@ -22,6 +22,11 @@
 >   di Drive senza `state`, il freno sul login. Quattro accuse **refutate**
 >   dall'ostile e non toccate. 🔴 Restano due cose da guardare A MANO: quanto è
 >   lunga `MARKETING_APP_PASSWORD` e quali chiavi API sono attive e di chi sono.
+> · **TikTok**: nel codice è pronto da settimane (connettore, cron, rotta,
+>   pagina) e **non è mai partito** perché mancano due dati — token e advertiser
+>   id. Misurato oggi: 0 advertiser, token assente, 0 consegne. Le istruzioni
+>   sono in [docs/COLLEGARE-TIKTOK.md](COLLEGARE-TIKTOK.md): non c'è codice da
+>   scrivere.
 > · 🆕 **passata UX/UI con tre agenti** (desktop, telefono, ostile): 23 accuse,
 >   **19 corrette**, 2 refutate. Sul telefono le pagine non scorrono più di lato
 >   e i bersagli sono da 44px; su desktop le intestazioni restano a vista e la
