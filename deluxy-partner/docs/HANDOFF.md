@@ -62,6 +62,14 @@
 > - **Annulla dalla bozza**: prima una bozza si poteva solo eliminare; ora c è **«Annulla»** (→ stato annullata, numero conservato, ripristinabile), accanto a Invia/Modifica.
 > - **Richiedi pagamento — «Fattura collegata» è una RICERCA** (non più campo libero): `CercaFatturaEmessa` cerca fra **tutte le fatture emesse** su FIC per ragione sociale, numero, importo (lordo) e P.IVA (`ficCercaEmesse` in `fic.ts`), e riempie il riferimento con «n. N — cliente — importo». Scelta dell utente: cerca fra le fatture EMESSE (non le fatture d acquisto).
 
+> ### 28/08/2026 — ricerca fattura collegata, intestatario per P.IVA, dettaglio richiesta
+>
+> - **Richiedi pagamento — «Fattura collegata»**: campo di **testo libero con suggerimenti** (`CercaFatturaEmessa`). Mentre scrivi, se il testo combacia con una fattura EMESSA compaiono i risultati (ragione sociale, numero, importo, P.IVA) e con un clic riempi il riferimento; l'importo è marcato **«IVA incl.»** (è `amount_gross`). ⚠️ Le **fatture d'acquisto (fornitori) NON sono cercabili**: la connessione FIC risponde **403 «No permission»** su `received_documents` — servirebbe ri-autorizzare FIC con lo scope acquisti. Per quelle il riferimento si scrive a mano (per questo il campo resta a testo libero).
+> - **Intestatario proposto per P.IVA, non per nome** (`suggerisciClienteFic` + `/fic/fattura`): prima, senza riconciliazione, si ripiegava sulla **somiglianza del nome** e su parole comuni pescava il cliente sbagliato (caso **HAVI LOGISTICS → «Hansol Logistics Hungary Kft.»**). Ora si legge la **P.IVA del partner dal registro** (`anagraficaPerId`, 6 s) e si propone il cliente FIC con la **stessa P.IVA** (esatta). Se la P.IVA c'è ma nessun cliente FIC la porta, **non si propone un nome a caso**: si lascia scegliere.
+> - **Dettaglio della richiesta di pagamento** (`/richiedi-pagamento/[id]`): la scheda intera (beneficiario, IBAN, importo, causale, categoria, fornitura + fattura collegata, scadenza, note, richiedente, riferimento Transactions, partner). Le righe di «Richieste inviate» sono ora **cliccabili** (`RigaLink`) → aprono il dettaglio (regola del Libro).
+>
+> ℹ️ Nota per l'utente: il **403 «Importo oltre il tetto consentito a questa app»** su una richiesta è un limite di **Deluxy Transactions** (tetto per-app su quanto FINANCE può chiedere), non di FINANCE. La richiesta resta «Non inviata».
+
 > ### 28/08/2026 — «Emetti fattura»: anticipo (due scadenze)
 >
 > Chiesto dall utente: nelle scadenze di pagamento, poter chiedere un anticipo. Sulla pagina `/fic/fattura` due campi nuovi: **Anticipo €** (lordo, facoltativo) + **Scadenza dell anticipo**. Se l acconto è valido (0 < acconto < totale), `ficCreaFattura` manda a FIC un `payments_list` con **due scadenze** (acconto alla sua data, saldo alla scadenza), entrambe `not_paid`; altrimenti una sola come prima. Da aggiungere al manuale nel prossimo batch.

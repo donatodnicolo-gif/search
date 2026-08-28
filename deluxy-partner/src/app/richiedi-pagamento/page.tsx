@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RigaLink } from "@/components/RigaLink";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { categorieDaBudgets, TIPI_PL } from "@/lib/categorie-spesa";
@@ -128,7 +129,7 @@ export default async function RichiediPagamentoPage({
                 È il pagamento di una <strong>fornitura</strong> (costo di prodotto)
               </label>
               <div style={{ marginTop: 8 }}>
-                <label className="field-label">Fattura collegata</label>
+                <label className="field-label">Fattura del fornitore (rif.)</label>
                 <CercaFatturaEmessa />
                 <span className="muted" style={{ fontSize: 12 }}>
                   Il riferimento della fattura a cui il pagamento si riferisce. Con la fornitura scegli sopra una
@@ -173,7 +174,7 @@ export default async function RichiediPagamentoPage({
               </thead>
               <tbody>
                 {richieste.map((r) => (
-                  <tr key={r.id}>
+                  <RigaLink key={r.id} className="row-link" href={`/richiedi-pagamento/${r.id}`}>
                     <td style={{ whiteSpace: "nowrap", fontSize: 12.5 }}>{quando(r.createdAt)}</td>
                     <td>
                       <div style={{ fontWeight: 500, fontSize: 13 }}>
@@ -221,7 +222,7 @@ export default async function RichiediPagamentoPage({
                       )}
                     </td>
                     <td style={{ fontSize: 12 }}>{r.richiedente ?? "—"}</td>
-                  </tr>
+                  </RigaLink>
                 ))}
               </tbody>
             </table>

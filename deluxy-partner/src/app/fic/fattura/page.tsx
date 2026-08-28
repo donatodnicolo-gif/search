@@ -15,6 +15,7 @@ import {
   type FicEntity,
 } from "@/lib/fic";
 import { suggerisciClienteFic } from "@/lib/fic-cliente";
+import { anagraficaPerId } from "@/lib/anagrafiche";
 import { BottoneInvio } from "@/components/BottoneInvio";
 
 export const dynamic = "force-dynamic";
@@ -130,6 +131,7 @@ export default async function EmettiFatturaPage({
   // Dati di origine, normalizzati per l'anteprima
   let titolo: string;
   let partnerNome: string;
+  let partnerAnagraficaId: string | null = null;
   // serve l'id, non solo il nome: la riconciliazione confermata è per partner
   let partnerId: string;
   let oggettoDefault: string;
@@ -146,6 +148,7 @@ export default async function EmettiFatturaPage({
     titolo = `Emetti fattura da ${rifProForma(pf)}`;
     partnerNome = pf.partner.nome;
     partnerId = pf.partner.id;
+    partnerAnagraficaId = pf.partner.anagraficaId;
     oggettoDefault = pf.oggetto ?? "";
     scadenzaDefault = pf.scadenza;
     righe = pf.righe.map((r) => ({
@@ -164,6 +167,7 @@ export default async function EmettiFatturaPage({
     titolo = "Emetti fattura servizi su Fatture in Cloud";
     partnerNome = f.partner.nome;
     partnerId = f.partner.id;
+    partnerAnagraficaId = f.partner.anagraficaId;
     oggettoDefault = f.descrizione ?? `${f.tipologia.nome} — ${nomeMese(f.mese)} ${f.anno}`;
     scadenzaDefault = f.scadenza;
     righe = [
@@ -184,7 +188,13 @@ export default async function EmettiFatturaPage({
   const metodi = stato.collegato ? await ficMetodiPagamento().catch(() => []) : [];
   // preseleziona il cliente FIC: prima la riconciliazione confermata a mano,
   // poi la somiglianza dei nomi (src/lib/fic-cliente.ts)
-  const scelta = await suggerisciClienteFic({ id: partnerId, nome: partnerNome }, clienti);
+  // La P.IVA del partner dal registro Anagrafiche: serve a proporre il cliente
+  // FIC per identità fiscale (esatta) invece che per somiglianza di nome —
+  // «HAVI LOGISTICS» non deve più diventare «Hansol Logistics». 6 s di timeout
+  // (a freddo il registro sfiora i 3,5 s); se non risponde si prosegue senza.
+  const anagPartner = partnerAnagraficaId ? await anagraficaPerId(partnerAnagraficaId, 6000) : null;
+  const pivaPartner = anagPartner?.pIva ?? null;
+  const scelta = await suggerisciClienteFic({ id: partnerId, nome: partnerNome, piva: pivaPartner }, clienti);
   const suggerito = scelta.cliente;
   const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 

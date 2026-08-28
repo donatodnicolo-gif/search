@@ -29,7 +29,7 @@ export type SuggerimentoCliente<T> = {
   cliente: T | null;
   /** da dove arriva: riconciliazione confermata, fatture già emesse a quel
    *  partner, somiglianza di nome, oppure niente */
-  da: "riconciliazione" | "storico" | "nome" | null;
+  da: "riconciliazione" | "piva" | "storico" | "nome" | null;
   /** il nome con cui il soggetto è registrato su FIC */
   ficNome?: string;
   /** altri soggetti FIC riconciliati con lo stesso partner (intestazioni alternative) */
@@ -67,8 +67,8 @@ async function soggettoDaFattureEmesse<T>(
   return null;
 }
 
-export async function suggerisciClienteFic<T extends { nome: string }>(
-  partner: Pick<Partner, "id" | "nome">,
+export async function suggerisciClienteFic<T extends { nome: string; piva?: string | null }>(
+  partner: Pick<Partner, "id" | "nome"> & { piva?: string | null },
   clienti: T[]
 ): Promise<SuggerimentoCliente<T>> {
   const conferme = await prisma.riconciliazioneAnagrafica.findMany({
@@ -91,6 +91,24 @@ export async function suggerisciClienteFic<T extends { nome: string }>(
       ficNome: riconciliati[0].nome,
       alternative: riconciliati.slice(1),
     };
+  }
+
+  // ⚠️ La P.IVA è l'identità fiscale: se il partner ne ha una (dal registro
+  // Anagrafiche) e un cliente FIC porta la STESSA, è quello — non un'ipotesi.
+  // Va prima della somiglianza di nome, che su parole comuni («LOGISTICS»)
+  // pesca il cliente sbagliato (caso HAVI LOGISTICS → «Hansol Logistics»).
+  const pivaPartner = (partner.piva ?? "").replace(/[^0-9A-Za-z]/g, "").toUpperCase();
+  if (pivaPartner.length >= 8) {
+    const perPiva = clienti.find(
+      (c) => (c.piva ?? "").replace(/[^0-9A-Za-z]/g, "").toUpperCase() === pivaPartner
+    );
+    if (perPiva) {
+      return { cliente: perPiva, da: "piva", ficNome: perPiva.nome, alternative: [] };
+    }
+    // La P.IVA c'è ma nessun cliente FIC la porta: il soggetto giusto non è
+    // ancora fra i fatturabili. Meglio NON proporre un nome a caso — chi guarda
+    // sceglie, o crea il cliente coi dati veri — che proporne uno sbagliato.
+    return { cliente: null, da: null, alternative: [] };
   }
 
   // Seconda via, altrettanto solida: le fatture commissioni che l'app ha già
