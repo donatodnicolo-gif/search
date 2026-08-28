@@ -14,7 +14,23 @@
 
 > ⚠️ **L'app si chiama FINANCE.** Dal 01/08/2026 è così che si presenta a schermo (titolo, sidebar, accesso). **Cartella, database, URL `deluxy-partner.vercel.app`, cookie `dp_session` e il `sistema: "deluxy-partner"` con cui il registro Anagrafiche riconosce chi scrive NON sono stati rinominati**: cambiarli scollegherebbe le altre app.
 
+> 📒 **MANUALE DI FUNZIONALITÀ (OBBLIGATORIO, dal 28/08/2026)** — richiesto
+> dall'utente: la guida visiva per chi arriva nuovo è
+> **[docs/COME-FUNZIONA-FINANCE.html](COME-FUNZIONA-FINANCE.html)** (pubblicata
+> anche come Artifact: https://claude.ai/code/artifact/f1be9dee-81fd-4a0f-bd63-e3ac56605270).
+> **Ogni funzionalità nuova o modificata va documentata LÌ, nello stesso commit
+> che la introduce**, e l'Artifact va ripubblicato allo stesso URL (da questa o
+> altra sessione: `Artifact` con `url`). L'HANDOFF resta il diario tecnico di
+> chi sviluppa; il manuale è per chi usa l'app. Struttura del manuale: mappa
+> ecosistema · glossario · menu (rispecchia `Sidebar.tsx`) · 5 flussi
+> (cliente, fatturare/incassare, vendor, banca, ordini) · regole d'oro · API.
+
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
+
+> ### 28/08/2026 — Nasce il manuale di funzionalità (guida visiva per chi arriva nuovo)
+>
+> Creato **`docs/COME-FUNZIONA-FINANCE.html`**: guida visiva completa dell'app per una persona nuova — mappa dell'ecosistema (cosa entra da Anagrafiche/Orders/Qonto/FIC, cosa esce verso Transactions/Budgets/Scout), glossario dei 10 termini, il menu sezione per sezione (fedele a `Sidebar.tsx` post-riordino), i 5 flussi passo-passo (nasce un cliente, fatturare e incassare, vendite vendor con esempio numerico 1.000 €/15% → 150/33/183/817, la banca quotidiana, quadratura ordini Shopify), le 7 regole d'oro e gli ambiti delle chiavi API. Design system Deluxy (token, tema chiaro/scuro). Pubblicato come Artifact (URL nel riquadro 📒 in cima).
+> ⚠️ **Nuova regola di casa, decisa dall'utente**: d'ora in poi inserimenti e aggiornamenti di funzionalità si documentano **nel manuale**, nello stesso commit — vale come la regola 0 della piattaforma, applicata a FINANCE.
 
 > ### 28/08/2026 — Registro fatture: riga cliccabile + cliente linkato; fix URL FIC
 >

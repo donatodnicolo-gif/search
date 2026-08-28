@@ -1,0 +1,583 @@
+<title>Manuale FINANCE</title>
+<style>
+  /* ————— Deluxy Design System: token ————— */
+  :root {
+    --bg: #F5F5F7;
+    --surface: #FFFFFF;
+    --surface-2: #FAFAFB;
+    --hairline: #E3E3E7;
+    --text: #1D1D1F;
+    --text-2: #6E6E73;
+    --text-3: #98989D;
+    --gold: #B8963E;
+    --gold-soft: rgba(184, 150, 62, 0.10);
+    --green: #2E7D4F;
+    --green-soft: rgba(46, 125, 79, 0.10);
+    --orange: #B25E09;
+    --orange-soft: rgba(178, 94, 9, 0.10);
+    --red: #B3261E;
+    --red-soft: rgba(179, 38, 30, 0.08);
+    --blue: #2D5FA8;
+    --blue-soft: rgba(45, 95, 168, 0.09);
+    --ink: #1D1D1F;          /* bottoni/pillole scure */
+    --ink-text: #FFFFFF;
+    --radius-l: 18px;
+    --radius-m: 12px;
+    --radius-s: 8px;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161618;
+      --surface: #1F1F22;
+      --surface-2: #242428;
+      --hairline: rgba(255,255,255,0.13);
+      --text: #F5F5F7;
+      --text-2: #A8A8AD;
+      --text-3: #7A7A80;
+      --gold: #CBA85A;
+      --gold-soft: rgba(203, 168, 90, 0.14);
+      --green: #6FBE8F;
+      --green-soft: rgba(111, 190, 143, 0.13);
+      --orange: #E0A05C;
+      --orange-soft: rgba(224, 160, 92, 0.13);
+      --red: #E58A84;
+      --red-soft: rgba(229, 138, 132, 0.12);
+      --blue: #8AB1E8;
+      --blue-soft: rgba(138, 177, 232, 0.13);
+      --ink: #F5F5F7;
+      --ink-text: #161618;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.30);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161618;
+    --surface: #1F1F22;
+    --surface-2: #242428;
+    --hairline: rgba(255,255,255,0.13);
+    --text: #F5F5F7;
+    --text-2: #A8A8AD;
+    --text-3: #7A7A80;
+    --gold: #CBA85A;
+    --gold-soft: rgba(203, 168, 90, 0.14);
+    --green: #6FBE8F;
+    --green-soft: rgba(111, 190, 143, 0.13);
+    --orange: #E0A05C;
+    --orange-soft: rgba(224, 160, 92, 0.13);
+    --red: #E58A84;
+    --red-soft: rgba(229, 138, 132, 0.12);
+    --blue: #8AB1E8;
+    --blue-soft: rgba(138, 177, 232, 0.13);
+    --ink: #F5F5F7;
+    --ink-text: #161618;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.30);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px 80px; }
+
+  /* ————— Testata ————— */
+  header.hero { padding: 56px 0 8px; }
+  .eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 10px;
+  }
+  h1 {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    font-size: clamp(30px, 5vw, 44px); font-weight: 700; letter-spacing: -0.03em;
+    margin: 0 0 12px; text-wrap: balance;
+  }
+  .hero p.lede { font-size: 17px; color: var(--text-2); max-width: 640px; margin: 0 0 20px; }
+  .hero-facts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .fact {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 999px;
+    padding: 6px 14px; font-size: 12.5px; color: var(--text-2);
+  }
+  .fact strong { color: var(--text); font-weight: 600; }
+  .fact .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex: none; }
+
+  /* ————— Indice sticky ————— */
+  nav.toc {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--hairline);
+    margin: 28px -20px 0; padding: 10px 20px;
+    display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+  }
+  nav.toc::-webkit-scrollbar { display: none; }
+  nav.toc a {
+    flex: none; text-decoration: none; color: var(--text-2);
+    font-size: 12.5px; font-weight: 500; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  nav.toc a:hover { color: var(--text); background: var(--surface); border-color: var(--hairline); }
+
+  /* ————— Sezioni ————— */
+  section { margin-top: 56px; scroll-margin-top: 64px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .sec-num {
+    font-size: 12px; font-weight: 700; color: var(--gold);
+    font-variant-numeric: tabular-nums; letter-spacing: 0.06em;
+  }
+  h2 {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: 0; text-wrap: balance;
+  }
+  .sec-sub { color: var(--text-2); margin: 4px 0 20px; max-width: 640px; }
+  h3 { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: var(--radius-l); padding: 20px 22px; box-shadow: var(--shadow);
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 999px; padding: 3px 11px; font-size: 11.5px; font-weight: 600;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge.green  { background: var(--green-soft);  color: var(--green); }
+  .badge.orange { background: var(--orange-soft); color: var(--orange); }
+  .badge.red    { background: var(--red-soft);    color: var(--red); }
+  .badge.blue   { background: var(--blue-soft);   color: var(--blue); }
+  .badge.gold   { background: var(--gold-soft);   color: var(--gold); }
+  .badge.neutral{ background: var(--surface-2);   color: var(--text-2); border: 1px solid var(--hairline); }
+
+  code, .route {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 0.86em; background: var(--surface-2); border: 1px solid var(--hairline);
+    border-radius: 6px; padding: 1px 6px; white-space: nowrap;
+  }
+  .muted { color: var(--text-2); }
+  .small { font-size: 13px; }
+  p { margin: 0 0 10px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* ————— Mappa ecosistema ————— */
+  .eco { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: stretch; }
+  @media (max-width: 720px) { .eco { grid-template-columns: 1fr; } .eco-center { order: -1; } }
+  .eco-col { display: flex; flex-direction: column; gap: 10px; }
+  .eco-col-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-3); padding: 0 4px;
+  }
+  .eco-app {
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-m);
+    padding: 10px 14px;
+  }
+  .eco-app .nome { font-weight: 650; font-size: 13.5px; }
+  .eco-app .cosa { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+  .eco-center {
+    display: flex; align-items: center; justify-content: center;
+  }
+  .eco-fin {
+    background: var(--ink); color: var(--ink-text); border-radius: var(--radius-l);
+    padding: 26px 30px; text-align: center; box-shadow: var(--shadow); min-width: 170px;
+  }
+  .eco-fin .t { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
+  .eco-fin .s { font-size: 11.5px; opacity: 0.75; margin-top: 4px; }
+
+  /* ————— Glossario ————— */
+  .term { border-left: 3px solid var(--gold); padding: 2px 0 2px 14px; }
+  .term dt { font-weight: 650; font-size: 14.5px; }
+  .term dd { margin: 3px 0 0; color: var(--text-2); font-size: 13.5px; }
+  dl.glossario { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px 22px; margin: 0; }
+
+  /* ————— Menu ————— */
+  .menu-sec { padding: 16px 18px; }
+  .menu-sec .titolo {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-3); margin-bottom: 10px;
+  }
+  .menu-voce { display: flex; gap: 10px; padding: 7px 0; border-top: 1px solid var(--hairline); }
+  .menu-voce:first-of-type { border-top: 0; }
+  .menu-voce .nome { flex: none; width: 172px; font-weight: 600; font-size: 13px; }
+  .menu-voce .nome .route { display: block; margin-top: 2px; width: fit-content; }
+  .menu-voce .cosa { font-size: 12.5px; color: var(--text-2); }
+  @media (max-width: 560px) { .menu-voce { flex-direction: column; gap: 3px; } .menu-voce .nome { width: auto; } }
+
+  /* ————— Flussi (passi con freccia) ————— */
+  .flow { display: flex; flex-direction: column; gap: 0; counter-reset: passo; }
+  .step { display: flex; gap: 14px; }
+  .step .rail { display: flex; flex-direction: column; align-items: center; flex: none; width: 30px; }
+  .step .pallino {
+    counter-increment: passo; width: 26px; height: 26px; border-radius: 50%; flex: none;
+    background: var(--ink); color: var(--ink-text);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .step .pallino::before { content: counter(passo); }
+  .step .linea { width: 2px; flex: 1; background: var(--hairline); margin: 4px 0; min-height: 14px; }
+  .step:last-child .linea { display: none; }
+  .step .corpo { padding-bottom: 18px; min-width: 0; }
+  .step:last-child .corpo { padding-bottom: 0; }
+  .step .chi { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
+  .step h4 { margin: 2px 0 4px; font-size: 14.5px; font-weight: 650; letter-spacing: -0.01em; }
+  .step p { font-size: 13.5px; color: var(--text-2); }
+
+  /* ————— Esempio numerico ————— */
+  table.conti { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  table.conti td { padding: 8px 4px; border-top: 1px solid var(--hairline); font-size: 13.5px; }
+  table.conti tr:first-child td { border-top: 0; }
+  table.conti td.euro { text-align: right; font-weight: 600; white-space: nowrap; }
+  table.conti td.nota { color: var(--text-2); font-size: 12.5px; }
+  table.conti tr.tot td { border-top: 2px solid var(--text); font-weight: 700; }
+
+  /* ————— Regole d'oro ————— */
+  .regola { display: flex; gap: 12px; align-items: flex-start; }
+  .regola .icona {
+    flex: none; width: 30px; height: 30px; border-radius: 999px;
+    background: var(--gold-soft); color: var(--gold);
+    display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;
+  }
+  .regola p { font-size: 13.5px; color: var(--text-2); }
+  .regola strong { color: var(--text); }
+
+  .avviso {
+    border: 1px solid var(--hairline); border-left: 3px solid var(--orange);
+    background: var(--surface); border-radius: var(--radius-m); padding: 14px 18px;
+    font-size: 13.5px; color: var(--text-2);
+  }
+  .avviso strong { color: var(--text); }
+
+  footer.fine {
+    margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--hairline);
+    font-size: 12.5px; color: var(--text-3);
+  }
+  a { color: var(--blue); }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Ecosistema Deluxy · manuale di funzionalità</div>
+  <h1>FINANCE, spiegata a chi arriva oggi</h1>
+  <p class="lede">FINANCE è l'app dove Deluxy tiene i conti con i suoi partner: cosa gli abbiamo fatturato, cosa abbiamo venduto per loro, chi ci deve dei soldi, chi ne aspetta da noi, e cosa è davvero passato in banca. Ha sostituito il foglio <code>PARTNER.xlsx</code>: qui i numeri derivati si <em>calcolano sempre</em>, non si scrivono mai a mano.</p>
+  <div class="hero-facts">
+    <span class="fact"><span class="dot"></span><strong>deluxy-partner.vercel.app</strong></span>
+    <span class="fact">In locale: porta <strong>3040</strong></span>
+    <span class="fact">Accesso: email + password, o dal <strong>Hub</strong></span>
+    <span class="fact">Cartella: <strong>deluxy-partner/</strong></span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Indice">
+  <a href="#mappa">La mappa</a>
+  <a href="#parole">Le parole</a>
+  <a href="#menu">Il menu</a>
+  <a href="#flusso-cliente">Nasce un cliente</a>
+  <a href="#flusso-fattura">Fatturare e incassare</a>
+  <a href="#flusso-vendor">Vendite vendor</a>
+  <a href="#flusso-banca">La banca</a>
+  <a href="#flusso-ordini">Ordini Shopify</a>
+  <a href="#regole">Regole d'oro</a>
+  <a href="#api">Chi la interroga</a>
+  <a href="#manuale">Questo manuale</a>
+</nav>
+
+<!-- ══════════════════ 1. LA MAPPA ══════════════════ -->
+<section id="mappa">
+  <div class="sec-head"><span class="sec-num">01</span><h2>La mappa: FINANCE non è sola</h2></div>
+  <p class="sec-sub">FINANCE vive in mezzo alle altre app Deluxy. La regola generale: <strong>ogni dato ha una casa sola</strong> — FINANCE possiede i risultati economici, e per tutto il resto chiede a chi lo possiede.</p>
+
+  <div class="eco">
+    <div class="eco-col">
+      <div class="eco-col-label">Da qui ENTRANO dati</div>
+      <div class="eco-app"><div class="nome">Anagrafiche <span class="badge gold"><span class="dot"></span>registro</span></div><div class="cosa">Chi sono i partner: quando un'azienda diventa «Cliente» nel registro, la scheda qui nasce da sola. P.IVA, IBAN, contatti arrivano da lì.</div></div>
+      <div class="eco-app"><div class="nome">Deluxy Orders</div><div class="cosa">Gli ordini Shopify dei tre siti: FINANCE li legge dal registro ordini, non più da Shopify direttamente.</div></div>
+      <div class="eco-app"><div class="nome">Qonto <span class="badge neutral">banca</span></div><div class="cosa">L'estratto conto arriva in automatico (sync notturna + all'apertura). I file CSV/XLSX di altre banche si caricano a mano.</div></div>
+      <div class="eco-app"><div class="nome">Fatture in Cloud <span class="badge neutral">FIC</span></div><div class="cosa">Le fatture <em>vere</em> si emettono e si leggono lì. FINANCE le crea, le collega, le mostra — la contabilità ufficiale resta su FIC.</div></div>
+    </div>
+    <div class="eco-center">
+      <div class="eco-fin"><div class="t">FINANCE</div><div class="s">custode dei risultati:<br>fatturato, saldi, incassi</div></div>
+    </div>
+    <div class="eco-col">
+      <div class="eco-col-label">Verso qui ESCONO dati</div>
+      <div class="eco-app"><div class="nome">Transactions <span class="badge red"><span class="dot"></span>unica uscita del denaro</span></div><div class="cosa">FINANCE non paga nessuno: <em>chiede</em> un pagamento a Transactions, e segna «pagato» solo quando Transactions lo notifica.</div></div>
+      <div class="eco-app"><div class="nome">Budgets</div><div class="cosa">Le categorie di costo del conto economico vivono là; FINANCE le usa per classificare le spese, senza duplicare l'elenco.</div></div>
+      <div class="eco-app"><div class="nome">Scout, Hub, AI Mail…</div><div class="cosa">Le altre app interrogano FINANCE via API: «questo cliente come paga?», «questa fattura è saldata?», «quanto ha fatturato?».</div></div>
+      <div class="eco-app"><div class="nome">Anagrafiche <span class="badge neutral">ritorno</span></div><div class="cosa">FINANCE rimanda al registro lo <em>stato finanziario</em> di ogni cliente (regolare, in ritardo, insoluto): il commerciale lo vede prima di firmare.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 2. LE PAROLE ══════════════════ -->
+<section id="parole">
+  <div class="sec-head"><span class="sec-num">02</span><h2>Le parole che devi conoscere</h2></div>
+  <p class="sec-sub">Dieci termini. Capiti questi, ogni schermata si legge da sola.</p>
+  <div class="card">
+    <dl class="glossario">
+      <div class="term"><dt>Partner</dt><dd>Un cliente B2B di Deluxy (fiorista, pasticceria, boutique…). La scheda tiene i patti commerciali: fee %, giorni di pagamento, compensazione.</dd></div>
+      <div class="term"><dt>Fattura di servizi</dt><dd>Quello che <em>Deluxy fattura al partner</em>: consegne, magazzino, eventi… Ha tipologia, competenza (mese), scadenza, stato di incasso.</dd></div>
+      <div class="term"><dt>Vendita vendor</dt><dd>Quello che <em>Deluxy vende per conto del partner</em>. Deluxy incassa, trattiene una commissione (la fee) e gira il resto al partner.</dd></div>
+      <div class="term"><dt>Fee e commissione</dt><dd>La fee è la % pattuita col partner; la commissione è la fee applicata all'incasso. Commissione e dovuto <strong>si calcolano sempre</strong>, mai si digitano.</dd></div>
+      <div class="term"><dt>Saldo mensile</dt><dd>La chiusura del mese per un partner: dovuto delle vendite ± extra, fattura commissioni, bonifico. È dove i due flussi si incontrano.</dd></div>
+      <div class="term"><dt>Compensazione</dt><dd>Per alcuni partner (flag esplicito) le fatture non passano dalla banca: si scalano da quello che Deluxy gli deve, finché non sono coperte.</dd></div>
+      <div class="term"><dt>Gruppo di pagamento</dt><dd>Più schede saldate da un'unica amministrazione (es. CHANEL Milano + Roma + Firenze). Si scrive a mano: dal nome non si deduce.</dd></div>
+      <div class="term"><dt>Pro-forma</dt><dd>Un documento di richiesta pagamento <em>prima</em> della fattura vera. Stati: bozza → inviata → fatturata (o annullata).</dd></div>
+      <div class="term"><dt>Movimento bancario</dt><dd>Una riga dell'estratto conto (Qonto o file). Ogni movimento va <em>riconciliato</em>: a quale fattura, ordine o spesa corrisponde?</dd></div>
+      <div class="term"><dt>Riconciliazione</dt><dd>L'atto di abbinare due mondi: un movimento a una fattura, un cliente FIC a un partner, un ordine a un accredito. È il cuore del lavoro quotidiano.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ══════════════════ 3. IL MENU ══════════════════ -->
+<section id="menu">
+  <div class="sec-head"><span class="sec-num">03</span><h2>Il menu, sezione per sezione</h2></div>
+  <p class="sec-sub">La barra laterale ha sei gruppi, ordinati per frequenza d'uso (riordinati il 28/08/2026 con una giuria di controller e tesorieri). Questo è esattamente quello che vedi nell'app.</p>
+
+  <div class="grid2">
+    <div class="card menu-sec">
+      <div class="titolo">— (in cima)</div>
+      <div class="menu-voce"><div class="nome">Dashboard<span class="route">/</span></div><div class="cosa">Il colpo d'occhio: KPI dell'anno, bonifici da fare, fatture scadute. Due bottoni distinti: «Richiedi pagamento» (manda la richiesta a Transactions) e «Annota pagato» (per i bonifici fatti a mano in banca).</div></div>
+    </div>
+
+    <div class="card menu-sec">
+      <div class="titolo">Tesoreria</div>
+      <div class="menu-voce"><div class="nome">Movimenti bancari<span class="route">/movimenti</span></div><div class="cosa">L'estratto conto UNICO: Qonto + file insieme, con KPI, filtri e scheda per movimento. Vista di sola lettura.</div></div>
+      <div class="menu-voce"><div class="nome">Import &amp; riconciliazione<span class="route">/transazioni</span></div><div class="cosa">Dove i movimenti si lavorano: sync Qonto (parte da sola all'apertura), upload file, abbinamento a fatture e dovuti con un click.</div></div>
+      <div class="menu-voce"><div class="nome">Saldi e bonifici<span class="route">/saldi</span></div><div class="cosa">La chiusura mensile per partner e l'export SEPA/CSV per l'home banking.</div></div>
+      <div class="menu-voce"><div class="nome">Richiedi pagamento<span class="route">/richiedi-pagamento</span></div><div class="cosa">Chiedere a Transactions il pagamento di una spesa qualsiasi (fornitore, affitto…), già classificata con le categorie di Budgets.</div></div>
+      <div class="menu-voce"><div class="nome">Spese per categoria<span class="route">/spese</span></div><div class="cosa">Le uscite di banca classificate per voce di conto economico: regole automatiche di Budgets, proposta AI, correzione a mano.</div></div>
+    </div>
+
+    <div class="card menu-sec">
+      <div class="titolo">Ciclo attivo</div>
+      <div class="menu-voce"><div class="nome">Fatturazione servizi<span class="route">/fatture</span></div><div class="cosa">Le fatture di servizi ai partner: registrazione, competenza, scadenza, stato di incasso (anche parziale).</div></div>
+      <div class="menu-voce"><div class="nome">Vendite vendor<span class="route">/vendite</span></div><div class="cosa">Le vendite fatte per conto dei partner, con fee, commissione e dovuto calcolati e visibili mentre compili.</div></div>
+      <div class="menu-voce"><div class="nome">Pro-forma<span class="route">/proforma</span></div><div class="cosa">Documenti di richiesta pagamento con numerazione, stampa/PDF, invio email e intestazione per brand (template).</div></div>
+      <div class="menu-voce"><div class="nome">Registro fatture<span class="route">/registrazioni/fatture</span></div><div class="cosa">L'elenco delle fatture vere emesse su Fatture in Cloud, con link diretto a FIC e alla scheda del cliente.</div></div>
+      <div class="menu-voce"><div class="nome">Riconciliazione clienti<span class="route">/registrazioni/riconciliazione</span></div><div class="cosa">Abbinare i clienti FIC ai partner e completare il registro Anagrafiche con i dati fiscali e bancari.</div></div>
+      <div class="menu-voce"><div class="nome">Scadenzario<span class="route">/scadenzario</span></div><div class="cosa">Chi ci deve cosa: fatture da incassare (con sollecito a un click), bonifici pendenti, commissioni da emettere, gruppi di pagamento.</div></div>
+    </div>
+
+    <div class="card menu-sec">
+      <div class="titolo">Rete e vendite</div>
+      <div class="menu-voce"><div class="nome">Partner<span class="route">/partner</span></div><div class="cosa">Le schede dei clienti. L'elenco parte dagli attivi; la scheda ha recap AI, anagrafica dal registro, fatture aperte, movimenti mensili, posta col cliente.</div></div>
+      <div class="menu-voce"><div class="nome">Orders<span class="route">/ordini</span></div><div class="cosa">Gli ordini Shopify e la loro quadratura: incassato davvero? quanto è andato al fornitore? con che margine?</div></div>
+    </div>
+
+    <div class="card menu-sec">
+      <div class="titolo">Analisi</div>
+      <div class="menu-voce"><div class="nome">Analisi finanziaria<span class="route">/analisi</span></div><div class="cosa">Il piano di cassa per scadenza: entrate e uscite mese per mese, saldato e da saldare, liquidità Qonto in diretta.</div></div>
+      <div class="menu-voce"><div class="nome">Confronti<span class="route">/confronti</span></div><div class="cosa">2026 contro 2025, per mese, trimestre, anno o periodo libero, partner per partner.</div></div>
+      <div class="menu-voce"><div class="nome">Report<span class="route">/report</span></div><div class="cosa">Andamento per tipologia, città, categoria; top partner; forecast contro actual.</div></div>
+    </div>
+
+    <div class="card menu-sec">
+      <div class="titolo">Sistema</div>
+      <div class="menu-voce"><div class="nome">Tasks finance<span class="route">/tasks</span></div><div class="cosa">Le attività amministrative, sincronizzate in due direzioni con Deluxy Tasks.</div></div>
+      <div class="menu-voce"><div class="nome">Impostazioni<span class="route">/impostazioni</span></div><div class="cosa">SEPA, SMTP, Qonto, Fatture in Cloud, template documenti, utenti, accessi, regole degli stati cliente.</div></div>
+      <div class="menu-voce"><div class="nome">API verifiche <span class="badge neutral">solo admin</span><span class="route">/verifiche</span></div><div class="cosa">Le chiavi API per le altre app (lettura / banca / scrittura) e lo storico delle richieste.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 4. NASCE UN CLIENTE ══════════════════ -->
+<section id="flusso-cliente">
+  <div class="sec-head"><span class="sec-num">04</span><h2>Flusso 1 · Nasce un cliente</h2></div>
+  <p class="sec-sub">Non si crea quasi mai a mano: la scheda arriva dal registro Anagrafiche.</p>
+  <div class="card">
+    <div class="flow">
+      <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+        <div class="chi">Registro Anagrafiche</div><h4>Un'azienda diventa «Cliente»</h4>
+        <p>Il commerciale cambia lo stato nel registro. Il registro chiama subito FINANCE (<code>POST /api/v1/partners</code>) e la scheda nasce qui, con nome, città, P.IVA, IBAN e contatto amministrativo.</p>
+      </div></div>
+      <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+        <div class="chi">FINANCE · automatico</div><h4>Rete di sicurezza ogni notte</h4>
+        <p>Un cron alle 5:45 ripassa l'elenco dei clienti del registro e recupera chi fosse sfuggito. Chi <em>somiglia</em> a una scheda già presente non si crea da solo: finisce in «da decidere» in <span class="route">/partner</span>, e una persona sceglie «è la stessa: collega» o «è un'altra: crea».</p>
+      </div></div>
+      <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+        <div class="chi">Tu</div><h4>Completi i patti commerciali</h4>
+        <p>Fee %, giorni di pagamento, compensazione <strong>non arrivano mai dal registro</strong>: sono accordi commerciali, li scrive chi tratta col partner, nella scheda.</p>
+      </div></div>
+      <div class="step"><div class="rail"><div class="pallino"></div></div><div class="corpo">
+        <div class="chi">Da sapere</div><h4>Una scheda non sparisce mai</h4>
+        <p>Se nel registro l'azienda torna «prospect», qui la scheda resta: ci sono attaccate fatture, vendite e saldi, e un dato contabile non può sparire. Più sedi del registro possono puntare alla stessa scheda (MONCLER Firenze + Forte dei Marmi = un cliente solo).</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 5. FATTURARE E INCASSARE ══════════════════ -->
+<section id="flusso-fattura">
+  <div class="sec-head"><span class="sec-num">05</span><h2>Flusso 2 · Fatturare un servizio e incassarlo</h2></div>
+  <p class="sec-sub">Il giro «Deluxy chiede soldi al partner», dall'inizio alla fine.</p>
+  <div class="card">
+    <div class="flow">
+      <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+        <div class="chi">Fatturazione servizi</div><h4>Registri la fattura</h4>
+        <p>In <span class="route">/fatture/nuova</span>: partner, tipologia (obbligatoria: Consegne, Magazzino, Eventi…), mese di competenza, imponibile. La scadenza si propone dai giorni di pagamento del partner. Se serve la fattura <em>vera</em>, la emetti su Fatture in Cloud da <span class="route">/fic/fattura</span> e il numero torna qui.</p>
+      </div></div>
+      <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+        <div class="chi">Scadenzario</div><h4>La tieni d'occhio</h4>
+        <p><span class="route">/scadenzario</span> mostra le fatture aperte e scadute. Da lì parte il <strong>sollecito</strong> via email al contatto amministrativo. Se il partner fa parte di un gruppo di pagamento, in cima vedi quanto deve il gruppo intero.</p>
+      </div></div>
+      <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+        <div class="chi">Banca</div><h4>Arriva il bonifico</h4>
+        <p>Il movimento compare in <span class="route">/transazioni</span> (sync Qonto). Lo abbini alla fattura con un click («Salda fattura»): la fattura diventa incassata — anche in parte, con l'acconto tracciato.</p>
+      </div></div>
+      <div class="step"><div class="rail"><div class="pallino"></div></div><div class="corpo">
+        <div class="chi">Caso speciale</div><h4>Partner in compensazione</h4>
+        <p>Niente bonifico: la fattura si <strong>scala dal dovuto</strong> delle sue vendite, nel saldo mensile, finché non è coperta. In banca non c'è nulla da cercare.</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 6. VENDITE VENDOR ══════════════════ -->
+<section id="flusso-vendor">
+  <div class="sec-head"><span class="sec-num">06</span><h2>Flusso 3 · Vendere per conto del partner</h2></div>
+  <p class="sec-sub">Il giro opposto: Deluxy incassa, trattiene la commissione, gira il resto. Le formule vivono in un posto solo (<code>src/lib/calc.ts</code>) e la pagina te le mostra mentre compili.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="flow">
+        <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+          <div class="chi">Vendite vendor</div><h4>Registri la vendita</h4>
+          <p>In <span class="route">/vendite/nuova</span>: partner, mese, incasso. La fee si applica da sola (dal profilo o dalla tariffa del mese) e vedi subito commissione, IVA e dovuto.</p>
+        </div></div>
+        <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+          <div class="chi">Fatture in Cloud</div><h4>Fatturi la commissione</h4>
+          <p>Bottone «Fattura commissioni» sul mese: una fattura per partner+mese, mai due. Se esiste già (fatta a mano su FIC), la <em>colleghi</em> con «Esiste già» invece di emetterne una seconda.</p>
+        </div></div>
+        <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+          <div class="chi">Saldi e bonifici</div><h4>Chiudi il mese</h4>
+          <p>In <span class="route">/saldi</span> il dovuto ± extra diventa l'importo da girare al partner. «Richiedi pagamento» manda la richiesta a <strong>Transactions</strong>: qui non esce denaro.</p>
+        </div></div>
+        <div class="step"><div class="rail"><div class="pallino"></div></div><div class="corpo">
+          <div class="chi">Transactions → FINANCE</div><h4>Il pagamento torna come notifica</h4>
+          <p>Quando Transactions paga, un webhook firmato annota il bonifico sul saldo. Il mese resta «da bonificare» finché la notifica non arriva.</p>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Esempio con i numeri</h3>
+      <p class="small muted">Vendita da 1.000 € con fee al 15% (esempio verificato dal motore di calcolo):</p>
+      <table class="conti">
+        <tr><td>Incasso della vendita</td><td class="euro">1.000,00 €</td></tr>
+        <tr><td>Commissione Deluxy (15%)<br><span class="nota">questa si fattura al partner</span></td><td class="euro">150,00 €</td></tr>
+        <tr><td>IVA 22% sulla commissione</td><td class="euro">33,00 €</td></tr>
+        <tr><td>Trattenuto da Deluxy<br><span class="nota">commissione + IVA</span></td><td class="euro">183,00 €</td></tr>
+        <tr class="tot"><td>Da girare al partner</td><td class="euro">817,00 €</td></tr>
+      </table>
+      <p class="small muted" style="margin-top:12px">Su 1.000 € incassati, 183 restano a Deluxy (di cui 33 di IVA) e 817 vanno al partner. Questi importi non si digitano mai: escono dalle formule.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 7. LA BANCA ══════════════════ -->
+<section id="flusso-banca">
+  <div class="sec-head"><span class="sec-num">07</span><h2>Flusso 4 · La banca, ogni giorno</h2></div>
+  <p class="sec-sub">Tutto ciò che passa sul conto vive in una tabella sola, con due viste: <span class="route">/movimenti</span> per leggere, <span class="route">/transazioni</span> per lavorare.</p>
+  <div class="card">
+    <div class="flow">
+      <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+        <div class="chi">Automatico</div><h4>I movimenti arrivano da soli</h4>
+        <p>Qonto si sincronizza ogni notte e all'apertura di <span class="route">/transazioni</span> (con un freno di 60 secondi). Gli estratti di altre banche si caricano da file: il parser è tollerante e i duplicati si riconoscono da soli.</p>
+      </div></div>
+      <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+        <div class="chi">Tu</div><h4>Riconcili le entrate</h4>
+        <p>Ogni accredito va abbinato: a una fattura di servizi, a un dovuto, a un ordine. L'app propone i match (per numero in causale, per importo, per nome); tu confermi con un click, e l'esito compare accanto alla riga — verde o rosso col motivo vero.</p>
+      </div></div>
+      <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+        <div class="chi">Tu</div><h4>Classifichi le uscite</h4>
+        <p>In <span class="route">/spese</span> ogni uscita prende una categoria di costo di Budgets: le regole automatiche fanno il grosso, l'AI propone (mai sovrascrive), tu correggi. Occhio alle <strong>partite di giro</strong> ⇄: il bonifico al fioraio che ha evaso un ordine non è una spesa, è la sua quota.</p>
+      </div></div>
+      <div class="step"><div class="rail"><div class="pallino"></div></div><div class="corpo">
+        <div class="chi">Risultato</div><h4>Il piano di cassa si legge da solo</h4>
+        <p><span class="route">/analisi</span> mette in fila entrate e uscite per scadenza, mese per mese, e ogni numero si apre per vedere fattura per fattura da dove viene.</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 8. ORDINI SHOPIFY ══════════════════ -->
+<section id="flusso-ordini">
+  <div class="sec-head"><span class="sec-num">08</span><h2>Flusso 5 · Gli ordini Shopify quadrano?</h2></div>
+  <p class="sec-sub">Per ogni ordine dei tre siti, due domande: <strong>l'abbiamo incassato davvero?</strong> e <strong>quanto è andato al fornitore?</strong></p>
+  <div class="card">
+    <div class="flow">
+      <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+        <div class="chi">Automatico</div><h4>Gli ordini arrivano da Deluxy Orders</h4>
+        <p>Sync notturna dal registro ordini (non più da Shopify direttamente). Bottone «Aggiorna ordini» per non aspettare la notte.</p>
+      </div></div>
+      <div class="step"><div class="rail"><div class="pallino"></div><div class="linea"></div></div><div class="corpo">
+        <div class="chi">Automatico + tu</div><h4>Ogni ordine si incassa a modo suo</h4>
+        <p>Carta → incassato in automatico (arriva nel payout aggregato). Bonifico → si abbina a un movimento (popup «Riconcilia», proposte per importo e numero in causale). Ordini del brand deluxy.it → nascono «ordine partner»: rientrano nel conto mensile del partner, in banca non c'è nulla da cercare.</p>
+      </div></div>
+      <div class="step"><div class="rail"><div class="pallino"></div></div><div class="corpo">
+        <div class="chi">Tu</div><h4>Costo fornitore e margine</h4>
+        <p>Nella scheda ordine si registra quanto è stato pagato al fioraio (o si abbina il movimento in uscita). L'app confronta con la quota attesa (~60%): sotto è margine buono (verde), sopra è da guardare (rosso).</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 9. REGOLE D'ORO ══════════════════ -->
+<section id="regole">
+  <div class="sec-head"><span class="sec-num">09</span><h2>Le regole d'oro</h2></div>
+  <p class="sec-sub">Sette princìpi che spiegano il 90% delle scelte dell'app. Se un comportamento ti sorprende, quasi sempre la risposta è qui.</p>
+  <div class="grid2">
+    <div class="card regola"><div class="icona">1</div><div><p><strong>I numeri derivati si calcolano, mai si digitano.</strong> Commissioni, dovuti, saldi, rolling escono dalle formule di <code>calc.ts</code>. Se un totale è sbagliato, si corregge il movimento a monte, non il totale.</p></div></div>
+    <div class="card regola"><div class="icona">2</div><div><p><strong>Il denaro esce solo da Transactions.</strong> FINANCE chiede, Transactions paga, il webhook conferma. «Annota pagato» esiste solo per i bonifici fatti a mano in banca.</p></div></div>
+    <div class="card regola"><div class="icona">3</div><div><p><strong>L'anagrafica vive nel registro.</strong> P.IVA, IBAN, contatti si correggono in Anagrafiche, non qui: FINANCE ne tiene una copia operativa e si riallinea.</p></div></div>
+    <div class="card regola"><div class="icona">4</div><div><p><strong>Le fatture vere stanno su Fatture in Cloud.</strong> FINANCE le emette e le collega, ma la contabilità ufficiale è FIC. Una commissione si fattura <em>una volta</em> per partner e mese.</p></div></div>
+    <div class="card regola"><div class="icona">5</div><div><p><strong>Ogni azione dice com'è andata.</strong> I bottoni rispondono in verde o in rosso col motivo vero, accanto alla riga. Un click che «non fa niente» è un bug, non la normalità.</p></div></div>
+    <div class="card regola"><div class="icona">6</div><div><p><strong>Un dato contabile non sparisce.</strong> Le schede non si cancellano, gli stati si riaprono, i collegamenti si scollegano. Tutto lascia traccia nel registro modifiche.</p></div></div>
+    <div class="card regola"><div class="icona">7</div><div><p><strong>Meglio «non indicato» che inventato.</strong> Una fattura senza scadenza non viene collocata su un mese a caso; un totale dichiara la propria base. Un numero senza la sua origine, prima o poi, mente.</p></div></div>
+  </div>
+</section>
+
+<!-- ══════════════════ 10. API ══════════════════ -->
+<section id="api">
+  <div class="sec-head"><span class="sec-num">10</span><h2>Chi interroga FINANCE (e con che permessi)</h2></div>
+  <p class="sec-sub">Le altre app Deluxy leggono da qui via API con chiave. Le chiavi hanno tre ambiti separati, gestiti in <span class="route">/verifiche</span>.</p>
+  <div class="grid3">
+    <div class="card">
+      <span class="badge green"><span class="dot"></span>lettura</span>
+      <h3 style="margin-top:10px">Dati di sintesi</h3>
+      <p class="small muted">Situazione partner, stato fatture, stati del cliente (come paga), riepilogo per la card Finance di Scout, totali per tipologia.</p>
+    </div>
+    <div class="card">
+      <span class="badge orange"><span class="dot"></span>banca</span>
+      <h3 style="margin-top:10px">Estratto conto</h3>
+      <p class="small muted">I movimenti bancari con causali e controparti (li usa Deluxy Orders per il controllo degli incassi). Più sensibile: chiave a parte.</p>
+    </div>
+    <div class="card">
+      <span class="badge red"><span class="dot"></span>scrittura</span>
+      <h3 style="margin-top:10px">Creazione schede</h3>
+      <p class="small muted">L'unica scrittura da fuori: il registro Anagrafiche crea/aggiorna le schede partner quando un'azienda diventa cliente. Niente importi.</p>
+    </div>
+  </div>
+  <p class="small muted" style="margin-top:14px">In cambio, FINANCE rimanda ad Anagrafiche lo <strong>stato finanziario</strong> di ogni cliente (regolare / in ritardo / insoluto / piano di rientro), così chi vende lo sa prima di firmare.</p>
+</section>
+
+<!-- ══════════════════ 11. MANUALE VIVO ══════════════════ -->
+<section id="manuale">
+  <div class="sec-head"><span class="sec-num">11</span><h2>Questo manuale è vivo</h2></div>
+  <div class="avviso">
+    <strong>Regola di casa (dal 28/08/2026):</strong> ogni funzionalità nuova o modificata di FINANCE va documentata <strong>in questo manuale, nello stesso commit</strong> che la introduce. Il file sorgente è <code>deluxy-partner/docs/COME-FUNZIONA-FINANCE.html</code>; dopo la modifica si ripubblica l'Artifact così il link resta aggiornato. L'HANDOFF resta il diario tecnico di chi sviluppa; questo è il manuale di chi usa.
+  </div>
+</section>
+
+<footer class="fine">
+  Manuale FINANCE · ecosistema Deluxy · aggiornato al 28/08/2026 · fonte: <code>docs/COME-FUNZIONA-FINANCE.html</code> nel repo, sezioni verificate su HANDOFF e codice (menu, flussi, formule).
+</footer>
+
+</div>
