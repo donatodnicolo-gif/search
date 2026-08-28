@@ -1,0 +1,645 @@
+<title>Manuale di AI Mail</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+
+<style>
+  :root {
+    --bg: #F1F1F3;
+    --surface: #FFFFFF;
+    --surface-2: #FAFAFB;
+    --ink: #1A1A1D;
+    --ink-2: #55555C;
+    --ink-3: #8A8A93;
+    --hairline: #E4E4E8;
+    --hairline-strong: #D3D3D9;
+    --gold: #B8963E;
+    --gold-soft: #F4EDDA;
+    --gold-strong: #8F7220;
+    --green: #2E7D57;
+    --green-soft: #E4F0EA;
+    --red: #C0392B;
+    --blue: #2F6BB0;
+    --blue-soft: #E4EDF6;
+    --purple: #7A5AA8;
+    --purple-soft: #EDE7F4;
+    --shadow: 0 1px 2px rgba(20,20,29,.04), 0 6px 22px rgba(20,20,29,.05);
+    --radius: 16px;
+    --radius-s: 10px;
+    --maxw: 720px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131316;
+      --surface: #1C1C21;
+      --surface-2: #232329;
+      --ink: #ECECEF;
+      --ink-2: #ABABB4;
+      --ink-3: #74747E;
+      --hairline: #2C2C33;
+      --hairline-strong: #3B3B44;
+      --gold: #CBAB52;
+      --gold-soft: #2A2416;
+      --gold-strong: #DCC072;
+      --green: #4FB587;
+      --green-soft: #16271F;
+      --red: #E67C6E;
+      --blue: #5E9BD8;
+      --blue-soft: #16202C;
+      --purple: #A98BD4;
+      --purple-soft: #221B2E;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 26px rgba(0,0,0,.35);
+    }
+  }
+  [data-theme="dark"] {
+    --bg: #131316;
+    --surface: #1C1C21;
+    --surface-2: #232329;
+    --ink: #ECECEF;
+    --ink-2: #ABABB4;
+    --ink-3: #74747E;
+    --hairline: #2C2C33;
+    --hairline-strong: #3B3B44;
+    --gold: #CBAB52;
+    --gold-soft: #2A2416;
+    --gold-strong: #DCC072;
+    --green: #4FB587;
+    --green-soft: #16271F;
+    --red: #E67C6E;
+    --blue: #5E9BD8;
+    --blue-soft: #16202C;
+    --purple: #A98BD4;
+    --purple-soft: #221B2E;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 26px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 22px; }
+  .wide { max-width: 1040px; margin: 0 auto; padding: 0 22px; }
+
+  h1, h2, h3 { font-family: "Newsreader", Georgia, serif; font-weight: 500; text-wrap: balance; letter-spacing: -0.01em; }
+
+  .eyebrow {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--gold-strong); font-weight: 700;
+  }
+
+  /* ---------- header band ---------- */
+  header.hero {
+    border-bottom: 1px solid var(--hairline);
+    background:
+      radial-gradient(120% 90% at 88% -10%, var(--gold-soft) 0%, transparent 55%),
+      var(--surface);
+  }
+  .hero-inner { padding: 62px 0 44px; }
+  .hero h1 {
+    font-size: clamp(44px, 8vw, 74px);
+    line-height: .98; margin: 16px 0 0; letter-spacing: -0.025em;
+  }
+  .hero .lede {
+    font-family: "Newsreader", Georgia, serif;
+    font-size: clamp(20px, 3.2vw, 26px); font-style: italic; color: var(--ink-2);
+    margin: 18px 0 0; max-width: 30ch; line-height: 1.35;
+  }
+  .hero .sub { color: var(--ink-2); margin: 20px 0 0; max-width: 54ch; }
+
+  .principles { display: grid; gap: 14px; margin-top: 34px; grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 720px) { .principles { grid-template-columns: 1fr; } }
+  .principle {
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    border-radius: var(--radius-s); padding: 16px 16px 18px;
+  }
+  .principle .n {
+    font-family: "Space Mono", monospace; font-size: 12px; font-weight: 700;
+    color: var(--gold-strong);
+  }
+  .principle b { display: block; font-size: 15.5px; margin: 6px 0 4px; }
+  .principle p { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+
+  /* ---------- sections ---------- */
+  section { padding: 52px 0; border-bottom: 1px solid var(--hairline); }
+  section:last-of-type { border-bottom: none; }
+  .sec-head { margin-bottom: 26px; }
+  .sec-head h2 { font-size: clamp(28px, 4.6vw, 38px); margin: 8px 0 0; }
+  .sec-head p { color: var(--ink-2); margin: 12px 0 0; max-width: 58ch; }
+
+  p { margin: 0 0 16px; }
+  .prose > p, .prose > ul { max-width: 65ch; }
+  strong { font-weight: 600; }
+  a { color: var(--gold-strong); text-underline-offset: 2px; text-decoration-thickness: 1px; }
+
+  ul.clean { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  ul.clean > li { position: relative; padding-left: 26px; max-width: 64ch; color: var(--ink-2); }
+  ul.clean > li::before {
+    content: ""; position: absolute; left: 4px; top: 11px;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--gold);
+  }
+  ul.clean > li b, ul.clean > li strong { color: var(--ink); }
+
+  /* ---------- sommario ---------- */
+  .toc {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 8px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px;
+  }
+  @media (max-width: 620px) { .toc { grid-template-columns: 1fr; } }
+  .toc a {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 11px 14px; border-radius: var(--radius-s);
+    color: var(--ink); text-decoration: none; font-size: 15.5px;
+    transition: background .15s ease;
+  }
+  .toc a:hover { background: var(--surface-2); }
+  .toc a .tn { font-family: "Space Mono", monospace; font-size: 12px; color: var(--gold-strong); font-weight: 700; min-width: 20px; }
+  .toc a span.t { font-weight: 500; }
+
+  /* ---------- flow diagram ---------- */
+  .flow-scroll { overflow-x: auto; padding-bottom: 6px; margin: 0 -22px; padding-left: 22px; padding-right: 22px; }
+  .flow {
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(170px, 1fr);
+    gap: 10px; align-items: stretch; min-width: 720px;
+  }
+  @media (max-width: 760px) {
+    .flow { grid-auto-flow: row; grid-auto-columns: auto; min-width: 0; }
+  }
+  .stage {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: var(--radius-s); padding: 16px 16px 18px; position: relative;
+    box-shadow: var(--shadow);
+  }
+  .stage .step {
+    font-family: "Space Mono", monospace; font-size: 12px; font-weight: 700;
+    color: var(--surface); background: var(--ink);
+    width: 24px; height: 24px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .stage h4 { font-family: "Hanken Grotesk", sans-serif; font-weight: 600; font-size: 16px; margin: 12px 0 6px; }
+  .stage p { font-size: 13.5px; color: var(--ink-2); margin: 0; line-height: 1.48; }
+  .stage code { font-family: "Space Mono", monospace; font-size: 12px; color: var(--gold-strong); }
+  .flow-out {
+    margin-top: 16px; text-align: center; font-family: "Space Mono", monospace;
+    font-size: 13px; color: var(--ink-2);
+  }
+  .flow-out b { color: var(--ink); }
+
+  /* ---------- app map cards ---------- */
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 820px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 540px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow);
+  }
+  .card h3 { font-size: 20px; margin: 0 0 6px; }
+  .card p { font-size: 14.5px; color: var(--ink-2); margin: 0; line-height: 1.5; }
+  .card .k { font-family: "Space Mono", monospace; font-size: 12px; color: var(--ink-3); margin-top: 10px; }
+
+  /* ---------- pills / badges ---------- */
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 13px; border-radius: 999px; font-size: 13.5px; font-weight: 500;
+    border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--ink);
+  }
+  .pill.dark { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+  .pillrow { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .badge.blue { background: var(--blue-soft); color: var(--blue); } .badge.blue .dot { background: var(--blue); }
+  .badge.gold { background: var(--gold-soft); color: var(--gold-strong); } .badge.gold .dot { background: var(--gold); }
+  .badge.green { background: var(--green-soft); color: var(--green); } .badge.green .dot { background: var(--green); }
+  .badge.purple { background: var(--purple-soft); color: var(--purple); } .badge.purple .dot { background: var(--purple); }
+
+  kbd {
+    font-family: "Space Mono", monospace; font-size: 12px; font-weight: 700;
+    background: var(--surface); border: 1px solid var(--hairline-strong);
+    border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px; color: var(--ink);
+  }
+
+  /* action row + shortcuts */
+  .actionbar {
+    display: flex; flex-wrap: wrap; gap: 8px; padding: 16px;
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+  }
+  .shortcuts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 22px; margin-top: 20px; }
+  @media (max-width: 560px) { .shortcuts { grid-template-columns: 1fr; } }
+  .shortcuts .row { display: flex; align-items: center; gap: 12px; font-size: 14.5px; color: var(--ink-2); }
+  .shortcuts .row b { color: var(--ink); font-weight: 500; }
+
+  /* app-action table */
+  .actions { display: grid; gap: 10px; }
+  .action {
+    display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start;
+    padding: 14px 16px; background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: var(--radius-s);
+  }
+  .action .name { font-weight: 600; }
+  .action .desc { font-size: 14px; color: var(--ink-2); margin-top: 2px; }
+
+  /* golden rules callout */
+  .callout {
+    background: linear-gradient(180deg, var(--gold-soft), var(--surface));
+    border: 1px solid var(--hairline); border-radius: var(--radius);
+    padding: 28px; box-shadow: var(--shadow);
+  }
+  .callout h2 { margin-top: 0; }
+  .rules { display: grid; gap: 16px; margin-top: 4px; }
+  .rule { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; }
+  .rule .mk {
+    font-family: "Newsreader", serif; font-size: 26px; font-weight: 600; color: var(--gold-strong);
+    line-height: 1; width: 30px;
+  }
+  .rule b { font-weight: 600; }
+  .rule p { margin: 4px 0 0; color: var(--ink-2); font-size: 15px; }
+
+  /* changelog */
+  .log { display: grid; gap: 4px; }
+  .log-item {
+    display: grid; grid-template-columns: 96px 1fr; gap: 18px;
+    padding: 16px 0; border-top: 1px solid var(--hairline); align-items: start;
+  }
+  @media (max-width: 560px) { .log-item { grid-template-columns: 1fr; gap: 6px; } }
+  .log-item .date {
+    font-family: "Space Mono", monospace; font-size: 12.5px; color: var(--ink-3);
+    font-variant-numeric: tabular-nums; padding-top: 2px;
+  }
+  .log-item .body b { font-weight: 600; }
+  .log-item .body p { margin: 3px 0 0; font-size: 14.5px; color: var(--ink-2); }
+  .log-note {
+    background: var(--surface-2); border: 1px dashed var(--hairline-strong);
+    border-radius: var(--radius-s); padding: 16px 18px; margin-bottom: 24px;
+    font-size: 14.5px; color: var(--ink-2);
+  }
+  .log-note b { color: var(--ink); }
+
+  footer { padding: 40px 0 64px; color: var(--ink-3); font-size: 13.5px; }
+  footer .wrap > div { max-width: 65ch; }
+
+  a.anchor-safe { scroll-margin-top: 20px; }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="hero">
+  <div class="wrap hero-inner">
+    <div class="eyebrow">Manuale &middot; Deluxy</div>
+    <h1>AI Mail</h1>
+    <p class="lede">L&rsquo;app non ti mostra la posta. La lavora.</p>
+    <p class="sub">Quando apri AI Mail, la posta &egrave; gi&agrave; smistata, le cose da fare sono gi&agrave; una lista e le risposte sono gi&agrave; scritte in bozza. Questa guida ti spiega, dall&rsquo;inizio, come &egrave; fatta e come si usa &mdash; e da qui in avanti &egrave; il posto dove si annota ogni funzione nuova.</p>
+
+    <div class="principles">
+      <div class="principle">
+        <span class="n">01</span>
+        <b>La casella &egrave; la verit&agrave;</b>
+        <p>AI Mail tiene una copia per lavorarci. Se domani sparisse l&rsquo;app, la tua posta sarebbe ancora sul server.</p>
+      </div>
+      <div class="principle">
+        <span class="n">02</span>
+        <b>L&rsquo;AI propone, tu disponi</b>
+        <p>Nessuna mail parte da sola. L&rsquo;unica cancellazione vera la fai tu, a mano, svuotando il Cestino.</p>
+      </div>
+      <div class="principle">
+        <span class="n">03</span>
+        <b>Le tue regole battono l&rsquo;AI</b>
+        <p>Se hai scritto una condizione esatta, il modello non pu&ograve; contraddirla.</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="wrap" style="padding-top:36px;padding-bottom:8px;" aria-label="Sommario">
+  <div class="eyebrow" style="margin-bottom:12px;">Sommario</div>
+  <div class="toc">
+    <a href="#giro"><span class="tn">1</span><span class="t">Il giro di un messaggio</span></a>
+    <a href="#mappa"><span class="tn">2</span><span class="t">La mappa dell&rsquo;app</span></a>
+    <a href="#mail-aperta"><span class="tn">3</span><span class="t">Sulla mail aperta</span></a>
+    <a href="#app-deluxy"><span class="tn">4</span><span class="t">Le app che richiama</span></a>
+    <a href="#assenza"><span class="tn">5</span><span class="t">Quando sei via</span></a>
+    <a href="#regole"><span class="tn">6</span><span class="t">Le regole d&rsquo;oro</span></a>
+    <a href="#registro"><span class="tn">7</span><span class="t">Registro delle novit&agrave;</span></a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- 1 -->
+  <section id="giro" class="anchor-safe">
+    <div class="wide">
+      <div class="sec-head">
+        <div class="eyebrow">Il cuore</div>
+        <h2>Il giro di un messaggio</h2>
+        <p>Ogni mail che arriva fa lo stesso percorso, sempre nello stesso ordine. Le tue regole vengono prima dell&rsquo;AI &mdash; cos&igrave; una condizione esatta vince sempre.</p>
+      </div>
+
+      <div class="flow-scroll">
+        <div class="flow">
+          <div class="stage">
+            <span class="step">1</span>
+            <h4>Scarico</h4>
+            <p>Ci si collega alla casella in IMAP e si prendono solo i messaggi nuovi. La prima volta, gli ultimi 25 &mdash; non anni di archivio.</p>
+          </div>
+          <div class="stage">
+            <span class="step">2</span>
+            <h4>Regole esatte</h4>
+            <p>Le tue condizioni, valutate per prime e per priorit&agrave;. Non costano nulla e danno sempre lo stesso risultato.</p>
+          </div>
+          <div class="stage">
+            <span class="step">3</span>
+            <h4>Analisi AI</h4>
+            <p>Una sola lettura del messaggio restituisce insieme sezione, priorit&agrave;, riassunto, cose da fare e bozza.</p>
+          </div>
+          <div class="stage">
+            <span class="step">4</span>
+            <h4>In posta</h4>
+            <p>Il messaggio si posa nella sua sezione. Se l&rsquo;AI inciampa su una mail, l&rsquo;errore resta l&igrave; e le altre proseguono.</p>
+          </div>
+        </div>
+      </div>
+      <div class="flow-out">
+        &rarr; ne escono una <b>sezione</b>, delle <b>attivit&agrave;</b> e una <b>bozza di risposta</b>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section id="mappa" class="anchor-safe">
+    <div class="wide">
+      <div class="sec-head">
+        <div class="eyebrow">Dove si va</div>
+        <h2>La mappa dell&rsquo;app</h2>
+        <p>Le stanze principali. Ognuna &egrave; una voce del men&ugrave; a sinistra.</p>
+      </div>
+      <div class="cards">
+        <div class="card">
+          <h3>Posta in arrivo</h3>
+          <p>La posta gi&agrave; smistata in sezioni &mdash; colonne come &laquo;Ordini&raquo; o &laquo;Fornitori&raquo;. Una riga &egrave; l&rsquo;intera conversazione, non il singolo messaggio.</p>
+        </div>
+        <div class="card">
+          <h3>Sezioni</h3>
+          <p>Le colonne della posta. A decidere lo smistamento non &egrave; il nome ma la <b>descrizione</b> che ne dai: pi&ugrave; &egrave; precisa, meglio l&rsquo;AI capisce. Una sezione pu&ograve; anche richiamare un&rsquo;app Deluxy.</p>
+        </div>
+        <div class="card">
+          <h3>Attivit&agrave;</h3>
+          <p>Le cose da fare, create solo quando la mail chiede davvero qualcosa. Raggruppate sotto la conversazione da cui nascono; si chiudono e si riaprono; riportano sempre alla mail.</p>
+        </div>
+        <div class="card">
+          <h3>Bozze</h3>
+          <p>Le mail iniziate e non finite, e le risposte proposte dall&rsquo;AI. Si cercano, si selezionano in blocco, e nessuna parte da sola.</p>
+        </div>
+        <div class="card">
+          <h3>Calendario &amp; Tasks</h3>
+          <p>Gli appuntamenti riconosciuti finiscono in agenda; le attivit&agrave; vivono anche in Deluxy Tasks. AI Mail non &egrave; un&rsquo;isola: parla con le altre app.</p>
+        </div>
+        <div class="card">
+          <h3>Rubrica &amp; Clienti</h3>
+          <p>La scheda a 360&deg; di un contatto e il legame mail&harr;cliente, con cui le altre app sanno chi &egrave; chi.</p>
+        </div>
+        <div class="card">
+          <h3>Cestino</h3>
+          <p>Nel cestino si torna indietro. L&rsquo;unica cancellazione irreversibile &egrave; <b>svuotarlo</b>: allora i messaggi spariscono anche dalla casella.</p>
+        </div>
+        <div class="card">
+          <h3>Impostazioni</h3>
+          <p>Le caselle collegate, la firma, le notifiche, l&rsquo;assenza, e le chiavi con cui le altre app Deluxy chiamano AI Mail.</p>
+        </div>
+        <div class="card">
+          <h3>Ren&egrave; &amp; Assistente</h3>
+          <p>L&rsquo;AI a cui delegare una risposta o una domanda sull&rsquo;intera conversazione (&laquo;sai per quando?&raquo;) senza rileggere venti mail.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section id="mail-aperta" class="anchor-safe">
+    <div class="wrap prose">
+      <div class="sec-head">
+        <div class="eyebrow">Il gesto quotidiano</div>
+        <h2>Sulla mail aperta</h2>
+        <p>Le azioni che si usano di continuo sono in prima fila; tutto il resto sta dietro &laquo;&middot;&middot;&middot; Altro&raquo;.</p>
+      </div>
+
+      <div class="actionbar" role="img" aria-label="Barra delle azioni: Rispondi, A tutti, Inoltra, Cestina, Altro">
+        <span class="pill dark">Rispondi <kbd>R</kbd></span>
+        <span class="pill">A tutti <kbd>T</kbd></span>
+        <span class="pill">Inoltra <kbd>I</kbd></span>
+        <span class="pill">Cestina <kbd>Canc</kbd></span>
+        <span class="pill">&middot;&middot;&middot; Altro</span>
+      </div>
+
+      <ul class="clean" style="margin-top:22px;">
+        <li><b>Rispondere a tutti</b> &egrave; in prima fila: su questa posta la maggior parte degli scambi ha pi&ugrave; persone in copia, e rispondere al solo mittente taglierebbe fuori gli altri. <b>Archivia</b> &mdash; una cosa da fine pratica &mdash; sta invece sotto &laquo;Altro&raquo;.</li>
+        <li><b>Da quale casella parte la risposta.</b> Se una mail &egrave; arrivata a pi&ugrave; tue caselle, il campo &laquo;Da&raquo; &egrave; una tendina: scegli tu. Cambiando mittente, l&rsquo;indirizzo scelto esce dai destinatari &mdash; cos&igrave; non ti rispondi da solo.</li>
+        <li><b>I suggeriti dei destinatari</b> escono in ordine: prima il <b>team</b>, poi i <b>colleghi di chi stai scrivendo</b> (stesso dominio), poi tutti gli altri &mdash; ognuno per nome.</li>
+        <li><b>Cestinare chiede.</b> Se la mail &egrave; in una conversazione, ti domanda se buttare <b>solo questa</b> o <b>tutta</b> &mdash; con &laquo;solo questa&raquo; proposta per prima.</li>
+        <li><b>La priorit&agrave;</b> si d&agrave; con un tocco &mdash; <span class="pill" style="padding:3px 9px;font-size:12px;"><span class="dot" style="background:var(--red);"></span>P0</span> urgente fino a P3 &mdash; e l&rsquo;AI, se non l&rsquo;ha ancora letta, la riassume da quella.</li>
+        <li><b>&rarr; App</b> manda i dati della mail a un&rsquo;altra app Deluxy; <b>&laquo;Questa mail fissa un appuntamento?&raquo;</b> lo mette in agenda. Nessuna delle due parte senza la tua conferma.</li>
+      </ul>
+
+      <h3 style="font-size:21px;margin:34px 0 6px;">Le scorciatoie da tastiera</h3>
+      <div class="shortcuts">
+        <div class="row"><kbd>R</kbd> <b>Rispondi</b></div>
+        <div class="row"><kbd>T</kbd> <b>Rispondi a tutti</b></div>
+        <div class="row"><kbd>I</kbd> <b>Inoltra</b></div>
+        <div class="row"><kbd>E</kbd> <b>Archivia</b></div>
+        <div class="row"><kbd>Canc</kbd> <b>Cestina</b></div>
+        <div class="row"><kbd>P</kbd> <b>Precedente</b> &middot; <kbd>N</kbd> <b>Successiva</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section id="app-deluxy" class="anchor-safe">
+    <div class="wide">
+      <div class="sec-head">
+        <div class="eyebrow">L&rsquo;ecosistema</div>
+        <h2>Le app che AI Mail richiama</h2>
+        <p>Da una mail puoi far partire un&rsquo;azione in un&rsquo;altra app Deluxy. L&rsquo;AI compila i dati leggendo la mail, tu controlli e confermi &mdash; qui niente parte da solo.</p>
+      </div>
+
+      <div class="pillrow" style="margin-bottom:22px;">
+        <span class="badge blue"><span class="dot"></span>Anagrafiche</span>
+        <span class="badge gold"><span class="dot"></span>Finance</span>
+        <span class="badge green"><span class="dot"></span>Commerciale</span>
+        <span class="badge purple"><span class="dot"></span>Fornitori</span>
+      </div>
+
+      <div class="actions">
+        <div class="action">
+          <span class="badge blue"><span class="dot"></span>Anagrafiche</span>
+          <div><div class="name">Registra contatto</div><div class="desc">Crea o aggiorna la scheda di un partner nel registro centrale. Gli interessi si scelgono da una lista di pastiglie, non a mano.</div></div>
+        </div>
+        <div class="action">
+          <span class="badge gold"><span class="dot"></span>Finance</span>
+          <div><div class="name">Crea pro-forma</div><div class="desc">Prepara una pro-forma (o un preventivo) per il partner. Documento in bozza, non fiscale.</div></div>
+        </div>
+        <div class="action">
+          <span class="badge gold"><span class="dot"></span>Finance</span>
+          <div><div class="name">Verifica partner</div><div class="desc">Sola lettura: mostra saldi, fatture aperte, situazione. Si pu&ograve; rifare quando vuoi.</div></div>
+        </div>
+        <div class="action">
+          <span class="badge gold"><span class="dot"></span>Finance</span>
+          <div><div class="name">Emetti fattura</div><div class="desc">Una fattura elettronica vera su Fatture in Cloud &mdash; prende un numero e parte verso lo SDI. Non si annulla con un clic: rifiuta il doppione e non inventa mai il cliente. Non viene mai suggerita da sola: la si cerca.</div></div>
+        </div>
+        <div class="action">
+          <span class="badge green"><span class="dot"></span>Commerciale</span>
+          <div><div class="name">Apri trattativa &middot; Richiesta cliente &middot; Registra preventivo</div><div class="desc">Portano in Scout una trattativa nuova, la richiesta di un cliente esistente, o il prezzo che un fornitore ha mandato per un lavoro aperto.</div></div>
+        </div>
+        <div class="action">
+          <span class="badge purple"><span class="dot"></span>Fornitori</span>
+          <div><div class="name">Trova fornitore</div><div class="desc">Sola lettura: i fioristi o le pasticcerie pi&ugrave; vicini alla consegna di un ordine.</div></div>
+        </div>
+      </div>
+
+      <p style="max-width:64ch;margin-top:22px;color:var(--ink-2);font-size:15px;">Sotto il riassunto di una conversazione compare anche <b>&laquo;Gi&agrave; fatto da qui&raquo;</b>: le azioni che scrivono (una trattativa, una pro-forma) non vengono riproposte una volta riuscite &mdash; cos&igrave; non le rifai per sbaglio. E la finestra di ogni azione <b>si trascina</b> per il titolo, per leggere la mail sotto mentre la compili.</p>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section id="assenza" class="anchor-safe">
+    <div class="wrap prose">
+      <div class="sec-head">
+        <div class="eyebrow">Fuori ufficio</div>
+        <h2>Quando sei via</h2>
+        <p>In Impostazioni accendi l&rsquo;<b>assenza</b>: chi ti scrive riceve una risposta automatica, e con una spunta ogni mail viene anche inoltrata a un indirizzo che scegli.</p>
+      </div>
+      <p>&Egrave; l&rsquo;unico punto in cui una mail parte senza che nessuno prema invio, quindi &egrave; costruita per non impazzire:</p>
+      <ul class="clean">
+        <li>vale <b>solo per la posta che arriva da adesso</b>, mai per l&rsquo;arretrato;</li>
+        <li><b>una sola risposta per mittente</b>, cos&igrave; non nasce un rimpallo infinito con l&rsquo;automatismo di qualcun altro;</li>
+        <li>mai verso indirizzi automatici (i &laquo;noreply&raquo;), mai verso una tua stessa casella, mai su ci&ograve; che &egrave; gi&agrave; finito in spam;</li>
+        <li>sotto al modulo c&rsquo;&egrave; il <b>registro di cosa &egrave; partito davvero</b>: al ritorno, la prima cosa che vuoi sapere.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section id="regole" class="anchor-safe">
+    <div class="wrap">
+      <div class="callout">
+        <div class="eyebrow">Da tenere a mente</div>
+        <h2 style="font-size:clamp(26px,4.4vw,34px);margin-bottom:18px;">Le regole d&rsquo;oro</h2>
+        <div class="rules">
+          <div class="rule">
+            <div class="mk">1</div>
+            <div><b>Niente parte, niente sparisce da solo.</b><p>L&rsquo;AI al massimo archivia. L&rsquo;unica cancellazione vera &egrave; svuotare il Cestino: la fai tu, a mano, ed &egrave; irreversibile perch&eacute; toglie i messaggi anche dal server.</p></div>
+          </div>
+          <div class="rule">
+            <div class="mk">2</div>
+            <div><b>La casella resta la fonte di verit&agrave;.</b><p>AI Mail &egrave; una copia per lavorarci sopra. La tua posta vera sta sul server IMAP, e ci resta.</p></div>
+          </div>
+          <div class="rule">
+            <div class="mk">3</div>
+            <div><b>Le tue regole battono l&rsquo;AI.</b><p>Una condizione esatta che hai scritto tu non pu&ograve; essere contraddetta dal modello.</p></div>
+          </div>
+          <div class="rule">
+            <div class="mk">4</div>
+            <div><b>La sessione scade e si revoca.</b><p>Restare collegati non &egrave; per sempre: il biglietto d&rsquo;ingresso ha una durata, e cambiando la password si buttano fuori i dispositivi rimasti aperti altrove.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section id="registro" class="anchor-safe">
+    <div class="wide">
+      <div class="sec-head">
+        <div class="eyebrow">Il manuale vivo</div>
+        <h2>Registro delle novit&agrave;</h2>
+        <p>Da qui in avanti, ogni funzione nuova o modificata si annota qui &mdash; cos&igrave; questa guida resta il posto in cui una persona nuova capisce sempre com&rsquo;&egrave; fatta l&rsquo;app <em>oggi</em>.</p>
+      </div>
+
+      <div class="log-note">
+        <b>Come si aggiorna.</b> Quando una funzione entra o cambia, si aggiunge una riga qui sotto con la data e una frase in lingua di tutti i giorni &mdash; cosa fa, non come &egrave; scritta. Il file vive nel repo in <span style="font-family:'Space Mono',monospace;font-size:13px;">docs/GUIDA-VISIVA.html</span> e si ripubblica come questa pagina.
+      </div>
+
+      <div class="log">
+        <div class="log-item">
+          <div class="date">27/08/2026</div>
+          <div class="body">
+            <b>Emetti fattura</b>
+            <p>Da una mail si pu&ograve; emettere una fattura vera su Fatture in Cloud, con le difese del caso: niente doppioni, niente cliente inventato. Non viene mai suggerita da sola.</p>
+          </div>
+        </div>
+        <div class="log-item">
+          <div class="date">27/08/2026</div>
+          <div class="body">
+            <b>Assenza (out of office)</b>
+            <p>Risposta automatica e inoltro a un indirizzo, con il registro di cosa &egrave; partito. Vale solo dalla posta che arriva da quando la accendi.</p>
+          </div>
+        </div>
+        <div class="log-item">
+          <div class="date">27/08/2026</div>
+          <div class="body">
+            <b>Tendina &laquo;Da&raquo; nelle risposte</b>
+            <p>Se una mail &egrave; arrivata a pi&ugrave; tue caselle, scegli tu da quale rispondere. Cambiando mittente, i destinatari si sistemano da soli.</p>
+          </div>
+        </div>
+        <div class="log-item">
+          <div class="date">27/08/2026</div>
+          <div class="body">
+            <b>Suggeriti dei destinatari, in ordine</b>
+            <p>Prima il team, poi i colleghi di chi stai scrivendo, poi il resto &mdash; ognuno per nome.</p>
+          </div>
+        </div>
+        <div class="log-item">
+          <div class="date">27/08/2026</div>
+          <div class="body">
+            <b>Cestina chiede: solo questa o tutta</b>
+            <p>Su una conversazione, buttare una mail non butta pi&ugrave; l&rsquo;intero scambio senza avvisare. &laquo;Solo questa&raquo; &egrave; proposta per prima.</p>
+          </div>
+        </div>
+        <div class="log-item">
+          <div class="date">27/08/2026</div>
+          <div class="body">
+            <b>&laquo;A tutti&raquo; in prima fila, &laquo;Archivia&raquo; sotto Altro</b>
+            <p>L&rsquo;azione che si usa a ogni risposta &egrave; in vista; quella di fine pratica sta nel men&ugrave;.</p>
+          </div>
+        </div>
+        <div class="log-item">
+          <div class="date">27/08/2026</div>
+          <div class="body">
+            <b>Bozze: selezione multipla &middot; &laquo;Gi&agrave; fatto da qui&raquo; &middot; link cliccabili</b>
+            <p>Si eliminano pi&ugrave; bozze insieme; il riassunto non ripropone un&rsquo;azione gi&agrave; fatta; e gli indirizzi web scritti nel corpo diventano link.</p>
+          </div>
+        </div>
+        <div class="log-item">
+          <div class="date">27/08/2026</div>
+          <div class="body">
+            <b>Sicurezza: sessioni e chiavi</b>
+            <p>La sessione ora scade e si revoca (cambio password); resta il registro di chi usa le chiavi delle API; il server di posta di una casella non &egrave; pi&ugrave; ripuntabile dall&rsquo;esterno.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <strong style="color:var(--ink);font-weight:600;">Manuale di AI Mail</strong> &mdash; la guida vale per l&rsquo;app in produzione. Il testo funzionale completo, per chi sviluppa, vive in <span style="font-family:'Space Mono',monospace;font-size:12.5px;">docs/COME-FUNZIONA-AI-MAIL.md</span>; questa &egrave; la sua versione visiva, ed &egrave; il manuale di funzionalit&agrave; da tenere aggiornato.
+    </div>
+  </div>
+</footer>

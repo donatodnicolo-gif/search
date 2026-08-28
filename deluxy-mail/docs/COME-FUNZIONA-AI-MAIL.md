@@ -2,6 +2,11 @@
 
 Documento di riferimento dell'app `deluxy-mail`. Aggiornato al 21 luglio 2026.
 
+> 📘 **Guida visiva per chi arriva nuovo**, e **manuale delle funzionalità da tenere aggiornato**:
+> [docs/GUIDA-VISIVA.html](GUIDA-VISIVA.html) — pubblicata anche come Artifact su claude.ai.
+> **D’ora in poi ogni funzione nuova o modificata si annota nel «Registro delle novità» di quella
+> guida**, con data e una frase in lingua di tutti i giorni, oltre che nel dettaglio tecnico qui sotto.
+
 ---
 
 ## 1. L'idea
