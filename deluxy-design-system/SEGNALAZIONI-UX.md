@@ -52,6 +52,44 @@ Alcune app hanno DUE copie (repo `app/` e `scoutwt/`, stesso repo GitHub, branch
 
 Deployate e verificate (target production, aliased): **Hub, Finance, Customer Service, Anagrafiche, AI Mail, Piattaforma (delivery→app.deluxy.it), CRM, Tasks, Personale, Calendario, Scout** (Scout via `bash scripts/deploy-web.sh`, verifica post-deploy ✓). Fondo/Acquisti non deployati (non su Vercel). **search-supplier** adeguata su `main` (worktree `.claude/worktrees/search-main`, token v1.4 + InfoWindow + card errore) e pushata: il push su `main` ha fatto partire il deploy di produzione `search-deluxy` (Vercel git-integration) — verificato Ready. **12 app live in tutto.**
 
+## Audit v1.10 «Nessun click muto» — fotografia del parco (28/08/2026)
+
+Verifica della regola su 20 app (6 audit paralleli sul codice delle copie VIVE). Esito: **4 conformi, 15 parziali, 1 fuori canone**. Nessun fix applicato: solo la fotografia, in attesa di decisione.
+
+| App | Verdetto | Nodo principale |
+|---|---|---|
+| **Tasks** | ✅ CONFORME | implementazione di riferimento della regola (`.campo-errore` con `role="alert"`, messaggi rete/server distinti, input conservato) |
+| **Transactions** | ✅ CONFORME | 13 Moduli* a canone; riserve: niente `error.tsx`, 6 form `void` senza in-corso (peggiore: «Segna come pagata» `distinte/[id]/page.tsx:71`) |
+| **Scout** | ✅ CONFORME | canone `avvisa()`+guardia `salvando` a tappeto; 2 falle: `pagamenti.tsx:298-320` cambiaStato/salvaIncassato SENZA catch (incassi), `comunicaProforma` best-effort muto |
+| **Fondo** | ✅ n/a | sola lettura, zero azioni mutanti |
+| **Piattaforma** | 🟡 PARZIALE | ~40/69 scritture a canone; gravi: `calendar.component.ts:446-463` salva/rimuove disponibilità con errore MUTO; `delivery-form.component.ts:738-747` PATCH richiesta→accettata `error:()=>undefined` |
+| **search-supplier** | 🟡 PARZIALE | `saveStato` (`index.html:3087`) ottimismo senza rollback né messaggio su stato/stelle/archivia (condiviso fra operatori); revoca chiave senza `r.ok`; «Errore 500» crudo nei fallback |
+| **Hub** | 🟡 PARZIALE | esiti i migliori del parco (dizionari su 6 pagine) ma **zero stati in-corso su 16/16 submit** e input perso su `?errore=` (nuovo utente, registra giornata) |
+| **Anagrafiche** | 🟡 PARZIALE | modali ottimi; manca `error.tsx` su cui contano MenuStato/MenuInteressi/pill (crash inglese di Next); `RisolviMatch.tsx:47` try/finally senza catch |
+| **AI Mail** | 🟡 PARZIALE | la più matura sui 3 stati, MA: toast-errore ancora 9 s (`Flash.tsx:90`, migrazione a banner mai avvenuta) e **7 call-site col Flash senza tono** = fallimento vestito di verde (`BottoneRispostaAI.tsx:28`, `ChiudiThread`, `MessaggiContatto` che azzera pure la selezione…) |
+| **Customer Service** | 🟡 PARZIALE | invio Inbox ORA a canone (rollback + content-type) ma: `Dashboard.tsx:86-95` spunta attività ottimistica con `catch(()=>{})` (stesso schema del 30/07); polling Inbox 4-5 s SENZA controllo redirect (si congela muta a sessione scaduta); 17 delete fire-and-forget |
+| **Orders** | 🟡 PARZIALE (al confine) | 42 server action con 1 solo try, **nessun `error.tsx`**, zero `useFormStatus` su 63 form; sync Shopify ricliccabile durante l'esecuzione |
+| **Marketing** | 🟡 PARZIALE | fix cornice 24/08 ok nel caso generale MA `ESITI_NEGATIVI` contiene `drive-json-invalido` che nessuna azione emette (l'azione emette `drive-json-rotto`): JSON invalido = cornice VERDE col ✕ nel testo; 114 action/14 try, no error.tsx |
+| **Merchandising** | 🟡 PARZIALE | `?avviso=` scritto dal redirect ma MAI letto dalla pagina prodotto (errori parziali Shopify invisibili = successo bugiardo); zero in-corso (doppio click su «Crea su Shopify» = doppio prodotto); form 30 campi perso su errore |
+| **Scripts** | 🟡 PARZIALE | il «Salva» principale su successo è indistinguibile dal non aver salvato (solo revalidate); i 3 componenti AI/chiavi invece sono il canone esatto |
+| **Finance** | 🟡 PARZIALE | esiti a banner ovunque + `error.tsx` + `AzioneTransazione.tsx` (il miglior componente del parco), MA `BottoneInvio` usato in 10 file su 88: **116 submit nudi** (il rischio doppio-protocollo è scritto nel commento del componente stesso) |
+| **CRM** | 🟡 PARZIALE | zero in-corso (mail personalizzata SENZA dedup: doppio click = mail doppia al cliente); 5 delete con `catch(()=>{})`; input perso su `?errore=`; `WaAssistito` mostra «Aperta ✓» comunque |
+| **Personale** | 🟡 PARZIALE | la più disciplinata delle 5 piccole; manca in-corso sui form classici, input perso su validazione (tranne il flusso omonimia, che è il pattern giusto) |
+| **Calendario** | 🟡 PARZIALE | `RigaEvento.tsx:27-39`: ✓ completato/Annulla/Archivia senza `res.ok` né catch né esito — il click può non fare nulla in silenzio |
+| **Acquisti** | 🟡 PARZIALE | `CardAcquisto.tsx:24-36` 3 bottoni muti; trappola prod: errori attesi modellati come `throw new Error("…")` → Next 15 li REDIGE in produzione, i modali mostrano il generico inglese (in dev sembra tutto ok) |
+| **Budgets** | 🔴 FUORI CANONE | **falso successo sistemico**: il middleware redirige anche le `/api/*` interne a `/login` → `fetch` segue → 200 HTML → `res.ok` true → TUTTI gli editor mostrano «salvato» a sessione scaduta senza aver scritto nulla (`ImpostazioniForm.tsx:45`, `TeamEditor.tsx:65` che chiude e PERDE l'input, `MarginiEditor.tsx:116`); delete senza ramo errore; zero try nei components (rete giù = bottone inchiodato per sempre) |
+
+**Le due mancanze TRASVERSALI** (colpiscono quasi tutto il parco, candidate a correzione di sistema, non app per app):
+1. **Zero `useFormStatus`** sui form a server action in tutte le app Next: lo stato «in corso» esiste solo nei componenti client. Serve UN componente condiviso (il `BottoneInvio` di Finance è già scritto: va promosso a DS e adottato).
+2. **`error.tsx` assente** in Anagrafiche, Orders, Marketing, Merchandising, Scripts, Transactions, CRM, Personale, Calendario, Acquisti: ogni throw non catturato è la pagina inglese di Next. Il modello c'è (Finance, Mail, Tasks).
+
+**Priorità proposte al custode** (dalla gravità del danno):
+- **P0 Budgets**: escludere le `/api/*` dal redirect del middleware (rispondere 401 JSON) + controllo `res.redirected` nei client — è il falso successo che scrive la regola.
+- **P0 Marketing**: allineare `drive-json-rotto`/`drive-json-invalido` (una riga) — cornice verde su errore, il bug del 24/08 ancora vivo su un ramo.
+- **P0 Scout pagamenti**: try/catch su `cambiaStato`/`salvaIncassato` — sono gli incassi.
+- **P1**: Calendario RigaEvento; CS Dashboard.spunta + redirect-check sui polling Inbox; piattaforma calendar.component + chiudiRichiesta; search-supplier saveStato; CRM dedup mail personalizzata; Acquisti throw redatti in prod.
+- **P2**: error.tsx ovunque manca; BottoneInvio/useFormStatus a tappeto; Mail toast→banner + 7 toni mancanti; input conservato sui redirect `?errore=`.
+
 ## Decise
 
 | Data | App | Segnalazione | Esito |
