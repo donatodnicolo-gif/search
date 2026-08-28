@@ -158,3 +158,28 @@ vuol dire **un giro solo**, pagato una volta (`giriPerDdt` in
 dallo stesso valet nello stesso giorno**, scrivere lo stesso `SCOUT00N` su
 entrambe **taglia la paga di una**. Con una consegna per ordine non succede
 niente; se capita il caso doppio serve un campo dedicato, non il DDT.
+
+## Il fornitore dell'evento si PAGA da Scout — chiedendo (28/08/2026)
+
+Il buco «il costo del fornitore di un evento non ha una casa applicativa» è
+chiuso: nel menu **Vendita → Paga fornitori** si scrive la richiesta (chi,
+quanto, come — bonifico, link, PayPal, carta, altro) e la si manda a **Deluxy
+Transactions**, il collettore unico dei pagamenti. Scout NON paga: chiede. Di
+là una persona autorizza (2FA, doppia firma sopra soglia) e paga; l'esito —
+pagata, con che mezzo, quando — torna da solo sul webhook `transactions-esito`
+e la riga qui si aggiorna. La **prova** del pagamento resta in Transactions.
+
+- **Lettura AI**: si incolla il messaggio del fornitore o si carica la foto
+  della sua richiesta; l'AI PROPONE intestatario, importo, IBAN e causale
+  (motore centrale `POST /api/v1/estrai` di Transactions, il mod-97 decide);
+  chi salva è sempre la persona.
+- Tabella `richieste_pagamento_fornitore` (migrazione 0104): è lo SPECCHIO
+  dell'esito notificato, non una verità — «Aggiorna stato» rilegge live, e il
+  pull di recupero è `GET /api/v1/richieste?aggiornateDa=` di là.
+- Edge Function `transactions` (proxy firmato HMAC, utenti loggati) e
+  `transactions-esito` (webhook, deployata `--no-verify-jwt`: l'identità la
+  prova la firma HMAC fail-closed).
+- ⚠️ I segreti (`TRANSACTIONS_API_KEY`/`_HMAC_SECRET`) NON stanno in
+  `chiavi_app` (colonna in chiaro): sono **secrets della funzione** (o
+  cassaforte Hub). Installati il 28/08; chiave `deluxy-scout` emessa in
+  Transactions con tetti 5.000 €/richiesta e 20.000 €/giorno.

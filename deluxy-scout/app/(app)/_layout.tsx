@@ -62,6 +62,9 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
       { name: 'ordini', label: 'Ordini', icon: 'receipt-outline' },
       { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
+      // ⭐ 28/08: il verso OPPOSTO di «Pagamenti» — i fornitori degli eventi da
+      // pagare. La richiesta parte verso Deluxy Transactions (collettore unico).
+      { name: 'pagamenti-fornitori', label: 'Paga fornitori', icon: 'cash-outline' },
     ],
   },
   {
@@ -440,6 +443,7 @@ export default function AppLayout() {
         <Drawer.Screen name="richieste-clienti" options={{ title: 'Richieste Clienti' }} />
         <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni · Copertura' }} />
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />
+        <Drawer.Screen name="pagamenti-fornitori" options={{ title: 'Paga fornitori' }} />
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard' }} />
         <Drawer.Screen name="storico" options={{ title: 'Storico' }} />
         <Drawer.Screen name="team" options={{ title: 'Team' }} />
