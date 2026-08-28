@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import { useSpostabile } from './useSpostabile'
 import { useRouter } from 'next/navigation'
 import {
   proponiPerApp,
@@ -75,6 +76,46 @@ function ValoreAnnidato({ valore }: { valore: unknown }) {
  * solo nome Commerciale risponde «corrisponde a 2 lavori: serve lavoroId».
  * L'id si scrive SOLO su una voce scelta davvero (confronto esatto sul nome).
  */
+/**
+ * Un campo a SCELTA MULTIPLA: pastiglie che si accendono e si spengono.
+ *
+ * ⚠️ Non un elenco di caselle di spunta ma delle pastiglie, per la stessa
+ * ragione per cui i filtri delle liste lo sono: nove voci in colonna
+ * allungherebbero la finestra piu di quanto valga il campo, e questa finestra
+ * sta sopra la mail che serve leggere per compilarla.
+ *
+ * ⚠️ Chi ha scelto si vede a colpo d occhio anche senza leggere: la pastiglia
+ * accesa e piena, quella spenta e solo un bordo.
+ */
+function CampoMulti({
+  opzioni,
+  scelti,
+  onCambia,
+}: {
+  opzioni: { valore: string; etichetta: string }[]
+  scelti: string[]
+  onCambia: (nuovi: string[]) => void
+}) {
+  const acceso = (v: string) => scelti.some((s) => s.toLowerCase() === v.toLowerCase())
+  const cambia = (v: string) =>
+    onCambia(acceso(v) ? scelti.filter((s) => s.toLowerCase() !== v.toLowerCase()) : [...scelti, v])
+  return (
+    <div className="multi-pastiglie">
+      {opzioni.map((o) => (
+        <button
+          key={o.valore}
+          type="button"
+          className={acceso(o.valore) ? "multi-pastiglia accesa" : "multi-pastiglia"}
+          aria-pressed={acceso(o.valore)}
+          onClick={() => cambia(o.valore)}
+        >
+          {o.etichetta}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function CampoConRicerca({
   campo,
   valore,
@@ -406,6 +447,12 @@ function FormAzione({
                         </option>
                       ))}
                     </select>
+                  ) : tipo === 'multi' ? (
+                    <CampoMulti
+                      opzioni={campo?.opzioni ?? []}
+                      scelti={Array.isArray(v) ? v.map(String) : valore ? valore.split(',').map((x) => x.trim()).filter(Boolean) : []}
+                      onCambia={(nuovi) => scrivi(chiave, nuovi.length ? nuovi : '')}
+                    />
                   ) : tipo === 'elenco' ? (
                     <input
                       type="text"
@@ -533,12 +580,25 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
 
   useChiudiConEsc(Boolean(messaggioId), chiudi)
 
+  // ⚠️ Questa finestra chiede di compilare campi che stanno scritti NELLA
+  // mail sotto (partita IVA, PEC, codice destinatario: vivono nel piè di
+  // pagina del messaggio). Poterla spostare non è un vezzo: prima l'unico
+  // modo di leggere quei dati era chiuderla e riaprirla.
+  const sposta = useSpostabile(Boolean(messaggioId))
+
   if (!messaggioId) return null
 
   return (
     <div className="modal-scrim" onClick={chiudi}>
-      <div className="modal" role="dialog" aria-label="APP Deluxy" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title">
+      <div
+        className="modal"
+        role="dialog"
+        aria-label="APP Deluxy"
+        ref={sposta.ref}
+        style={sposta.stile}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-title trascinabile" {...sposta.maniglia}>
           <span>{proposta?.azione ? `${proposta.azione.app} — ${proposta.azione.nome}` : 'APP Deluxy'}</span>
           <ChiudiModale onChiudi={chiudi} />
         </div>

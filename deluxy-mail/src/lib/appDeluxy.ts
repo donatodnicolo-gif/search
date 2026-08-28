@@ -267,10 +267,19 @@ export type CampoAzione = {
    *  «1.250,50»): la conversione si fa in un punto solo, al confine, con
    *  `numeroDaTesto` dentro `esegui`. Qui cambia solo la tastiera e
    *  l'allineamento. */
-  tipo?: 'testo' | 'email' | 'telefono' | 'lungo' | 'numero' | 'data' | 'scelta' | 'elenco'
+  tipo?: 'testo' | 'email' | 'telefono' | 'lungo' | 'numero' | 'data' | 'scelta' | 'elenco' | 'multi'
   aiuto?: string
   obbligatorio?: boolean
-  /** Solo per `tipo: 'scelta'`: i valori ammessi, in un menù a tendina. */
+  /**
+   * I valori ammessi: per `tipo: 'scelta'` un menù a tendina (uno solo), per
+   * `tipo: 'multi'` delle pastiglie da accendere e spegnere (quanti si vuole).
+   *
+   * ⚠️ `multi` esiste perché un campo dove i valori ammessi sono NOVE e
+   * scritti nell'aiuto sotto la casella non è un campo di testo: è un elenco
+   * travestito. Chi compilava doveva ricopiarli a mano con le virgole giuste,
+   * e quello che scriveva storto («eventi e catering» invece di «Eventi &
+   * Catering») veniva buttato via in silenzio da `interessiCanonici`.
+   */
   opzioni?: { valore: string; etichetta: string }[]
   /**
    * Il campo si compila da una RICERCA invece che a memoria:
@@ -499,8 +508,14 @@ const AZIONI: AzioneApp[] = [
       {
         nome: 'interessi',
         etichetta: 'Interessi (linee)',
-        tipo: 'elenco',
-        aiuto: 'Gifting, Eventi & Catering, Consegne, Concierge, Clientelling, Affiliazioni, Food Supplier, Magazzino, Re-seller',
+        // ⚠️ Erano da scrivere a mano, separati da virgole, con l'elenco dei
+        // valori ammessi stampato sotto come promemoria: chi sbagliava una
+        // maiuscola o una «&» se lo vedeva scartare senza un perché
+        // (`interessiCanonici` tiene solo ciò che è in catalogo). Le pastiglie
+        // dicono da sole quali sono i valori, e non se ne può scrivere uno
+        // sbagliato.
+        tipo: 'multi',
+        opzioni: INTERESSI_LINEE.map((i) => ({ valore: i, etichetta: i })),
       },
       { nome: 'note', etichetta: 'Note', tipo: 'lungo' },
     ],

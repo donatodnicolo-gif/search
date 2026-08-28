@@ -1100,6 +1100,48 @@ mark.ricerca-hit {
   font-size: 17px; font-weight: 600; letter-spacing: -0.017em;
   margin: -20px -22px 12px; padding: 20px 22px 10px;
 }
+/* La riga del titolo come MANIGLIA: la finestra si trascina di lì.
+   ⚠️ `touch-action: none` serve o su schermo tattile il gesto viene preso
+   dallo scorrimento della pagina e la finestra non si muove. ⚠️ `user-select`
+   spento, altrimenti trascinando si SELEZIONA il testo del titolo invece di
+   spostare, e resta evidenziato. */
+.modal-title.trascinabile {
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Su telefono la finestra sale dal fondo e occupa tutto: non c'è nessun
+   «altrove» dove spostarla, e la maniglia ruberebbe lo scorrimento al dito. */
+@media (max-width: 700px) {
+  .modal-title.trascinabile { cursor: default; touch-action: auto; }
+}
+/* Le pastiglie di un campo a scelta multipla (es. le linee di interesse in
+   Anagrafiche). Accesa = piena, spenta = solo bordo: si legge senza dover
+   cercare una spunta piccola. */
+.multi-pastiglie { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0; }
+.multi-pastiglia {
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  padding: 5px 11px;
+  font-size: 12.5px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 150ms var(--ease), color 150ms var(--ease), border-color 150ms var(--ease);
+}
+.multi-pastiglia:hover { border-color: var(--ink); color: var(--text); }
+.multi-pastiglia.accesa {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
+}
+/* Sul telefono il bersaglio del dito non puo essere alto 22px. */
+@media (hover: none) and (pointer: coarse) {
+  .multi-pastiglia { padding: 9px 13px; font-size: 13.5px; }
+}
+
 .modal-chiudi {
   flex: 0 0 auto;
   border: none; background: var(--fill); color: var(--text-secondary);
