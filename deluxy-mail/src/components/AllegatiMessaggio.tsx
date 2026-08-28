@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { elencoAllegati } from '@/lib/actions'
+import { dalServerCondiviso } from '@/lib/dalServer'
 
 type Allegato = { nome: string; tipo: string; dimensione: number; parte?: string }
 
@@ -23,9 +23,12 @@ export function AllegatiMessaggio({ messaggioId, quanti }: { messaggioId: string
 
   useEffect(() => {
     let vivo = true
-    elencoAllegati(messaggioId)
-      .then((a) => {
-        if (vivo) setAllegati(a)
+    // ⚠️ La STESSA chiamata che serve il corpo HTML (dalServerCondiviso):
+    // condivisa al mount, apre una connessione IMAP sola. Qui si usa solo il
+    // pezzo `allegati`.
+    dalServerCondiviso(messaggioId)
+      .then((r) => {
+        if (vivo) setAllegati(r.allegati)
       })
       .catch(() => {
         if (vivo) setErrore(true)

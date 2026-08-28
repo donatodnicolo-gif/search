@@ -1,6 +1,6 @@
 import type { Account } from '@prisma/client'
 import { db } from './db'
-import { strutturaMessaggio, scaricaParte } from './imap'
+import { strutturaMessaggio, scaricaParte, htmlEStrutturaImap } from './imap'
 import { cartellaDiMessaggio } from './cartelleServer'
 
 // Il CORPO HTML delle mail, preso dal server QUANDO SERVE invece che tenuto per
@@ -66,6 +66,35 @@ export async function htmlDalServer(
   const dati = await scaricaParte(account, uid, parte.parte, cartella)
   if (!dati) return null
   return decodifica(dati, parte.charset)
+}
+
+/**
+ * L'HTML del corpo E l'elenco degli allegati, dal server, in UNA connessione.
+ *
+ * ⚠️ È il wrapper che decide se l'HTML serve davvero: se è già in casa
+ * (`corpoHtml`) si passa `serveHtml: false` e la connessione lista solo gli
+ * allegati, senza scaricare il corpo per niente. La decodifica del buffer sta
+ * QUI, in un posto solo (come `htmlDalServer`), non nella primitiva IMAP.
+ *
+ * Best-effort: se il server non risponde, torna html null e allegati vuoti —
+ * chi chiama ripiega sul testo, esattamente come prima.
+ */
+export async function htmlEAllegatiDalServer(
+  m: ConCorpoEAccount,
+  serveHtml: boolean
+): Promise<{ html: string | null; allegati: { nome: string; tipo: string; dimensione: number; parte: string }[] }> {
+  if (m.uid <= 0) return { html: null, allegati: [] }
+  const cartella = cartellaDiMessaggio(
+    { direzione: m.direzione, cestinato: m.cestinato ?? false, sezione: m.sezione },
+    m.account
+  )
+  try {
+    const r = await htmlEStrutturaImap(m.account, m.uid, serveHtml, cartella)
+    const html = r.htmlGrezzo ? decodifica(r.htmlGrezzo, r.htmlCharset) : null
+    return { html, allegati: r.allegati }
+  } catch {
+    return { html: null, allegati: [] }
+  }
 }
 
 type ConCorpoEAccount = {

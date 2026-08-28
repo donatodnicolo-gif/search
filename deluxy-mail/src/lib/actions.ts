@@ -20,7 +20,7 @@ import {
   modoValido as modoAzioneSezione,
   nostriDomini,
 } from './azioneSezione'
-import { htmlDiMessaggio } from './htmlServer'
+import { htmlDiMessaggio, htmlEAllegatiDalServer } from './htmlServer'
 import { sanitizzaHtml } from './sanitizzaHtml'
 import { leggiEventoProposto } from './eventoProposto'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
@@ -1027,6 +1027,36 @@ export async function creaAttivitaConProposta(comando: string): Promise<EsitoNuo
  * chiede DOPO il render, come la traduzione e gli allegati: aprire resta
  * istantaneo, l'impaginato arriva un attimo dopo.
  */
+/**
+ * Corpo (HTML dal server, se serve) ED elenco allegati in UNA sola chiamata —
+ * cioè una sola connessione IMAP (revisione prestazioni 28/08/2026).
+ *
+ * ⚠️ Prima erano due azioni separate (`leggiHtmlMessaggio` + `elencoAllegati`),
+ * lanciate da due componenti diversi, e ognuna apriva la sua connessione: fino
+ * a TRE strette di mano IMAP per aprire una mail vecchia con allegati. Il
+ * client (`dalServerCondiviso`) ora chiama QUESTA una volta sola e ne serve
+ * entrambi i pezzi.
+ *
+ * ⚠️ `serveHtml` è vero solo quando l'HTML non è in casa: se `corpoHtml` c'è,
+ * non si riscarica il corpo dal server (spreco), si lista solo.
+ */
+export async function corpoEAllegatiDalServer(
+  messaggioId: string
+): Promise<{ ok: boolean; html: string | null; allegati: { nome: string; tipo: string; dimensione: number; parte: string }[] }> {
+  const utenteId = await uid()
+  const m = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    include: { account: true, sezione: { select: { nome: true } } },
+  })
+  if (!m) return { ok: false, html: null, allegati: [] }
+  const serveHtml = !m.corpoHtml && m.uid > 0
+  const r = await htmlEAllegatiDalServer(m, serveHtml)
+  // L'HTML in casa vince su quello dal server (è lo stesso, ma evita un giro);
+  // in entrambi i casi passa dalla sanificazione, come nelle azioni di prima.
+  const grezzo = m.corpoHtml ?? r.html
+  return { ok: true, html: grezzo ? sanitizzaHtml(grezzo) : null, allegati: r.allegati }
+}
+
 export async function leggiHtmlMessaggio(messaggioId: string): Promise<{ html: string | null }> {
   const utenteId = await uid()
   const m = await db.messaggio.findFirst({

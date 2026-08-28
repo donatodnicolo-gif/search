@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { leggiHtmlMessaggio } from '@/lib/actions'
+import { dalServerCondiviso } from '@/lib/dalServer'
 import { dividiCitato, senzaSegnapostoFile } from '@/lib/citato'
 import { ripiegaCitatoHtml } from '@/lib/citatoHtml'
 
@@ -51,7 +51,10 @@ export function CorpoMessaggio({ html: htmlIniziale, testo, tradotto, lingua, ht
   useEffect(() => {
     if (!htmlDalServerDi || htmlIniziale) return
     let vivo = true
-    leggiHtmlMessaggio(htmlDalServerDi)
+    // ⚠️ La STESSA chiamata che serve gli allegati (dalServerCondiviso): al
+    // mount i due componenti la condividono, così parte una connessione IMAP
+    // sola invece di due. Qui si usa solo il pezzo `html`.
+    dalServerCondiviso(htmlDalServerDi)
       .then((r) => {
         if (!vivo) return
         setRecupero(false)

@@ -473,6 +473,94 @@ export async function strutturaMessaggio(
   }
 }
 
+/**
+ * L'HTML del corpo E l'elenco degli allegati in UNA SOLA connessione IMAP.
+ *
+ * ⚠️⚠️ PERCHÉ ESISTE (revisione prestazioni 28/08/2026). Aprire una mail
+ * vecchia con allegati apriva TRE connessioni IMAP alla stessa casella, in
+ * fila: `strutturaMessaggio` (per trovare la parte HTML), `scaricaParte` (per
+ * scaricarla) e `leggiAllegati` (per l'elenco). Ognuna è un collegamento +
+ * TLS + login + apri cartella, e su register.it (`securemail`) il collegamento
+ * è la parte lenta: due-tre secondi a testa. E le prime due e la terza
+ * chiedevano al server la STESSA struttura del messaggio, due volte.
+ *
+ * Qui: un collegamento solo, la struttura chiesta UNA volta, e da quella si
+ * ricava sia l'elenco allegati sia (nella stessa connessione, se serve) il
+ * download della parte HTML. Tre strette di mano diventano una.
+ *
+ * ⚠️ `serveHtml` è false quando l'HTML è già in casa (mail recente): si lista
+ * solo, senza scaricare il corpo per niente.
+ * ⚠️ Il buffer HTML torna GREZZO col suo charset: la decodifica sta in
+ * htmlServer.ts, in un posto solo, e non si duplica qui.
+ */
+export async function htmlEStrutturaImap(
+  account: Account,
+  uid: number,
+  serveHtml: boolean,
+  cartella?: string
+): Promise<{
+  htmlGrezzo: Buffer | null
+  htmlCharset: string
+  allegati: { nome: string; tipo: string; dimensione: number; parte: string }[]
+}> {
+  const vuoto = { htmlGrezzo: null, htmlCharset: '', allegati: [] }
+  if (uid <= 0) return vuoto
+  const client = connessione(account)
+  await client.connect()
+  try {
+    await client.mailboxOpen(cartella || account.cartella, { readOnly: true })
+    let radice: NodoStruttura | undefined
+    for await (const msg of client.fetch({ uid: String(uid) }, { uid: true, bodyStructure: true }, { uid: true })) {
+      radice = msg.bodyStructure as NodoStruttura | undefined
+    }
+    if (!radice) return vuoto
+
+    // Una sola passata sull'albero: si raccolgono gli allegati (stessa regola
+    // di `leggiAllegati`) e si individua la parte HTML del corpo (stessa
+    // regola di `htmlDalServer`: text/html SENZA nome).
+    let html: { parte: string; charset: string } | null = null
+    const allegati: { nome: string; tipo: string; dimensione: number; parte: string }[] = []
+    const visita = (n: NodoStruttura) => {
+      if (n.childNodes?.length) {
+        for (const f of n.childNodes) visita(f)
+        return
+      }
+      const tipo = (n.type || '').toLowerCase()
+      const nome = n.dispositionParameters?.filename || n.parameters?.name || ''
+      if (!html && tipo === 'text/html' && !nome) {
+        html = { parte: n.part || '1', charset: (n.parameters?.charset || '').toLowerCase() }
+      }
+      const allegato =
+        (n.disposition || '').toLowerCase() === 'attachment' ||
+        Boolean(nome) ||
+        tipo.startsWith('text/calendar')
+      if (allegato && n.part) {
+        allegati.push({
+          nome: nome || `allegato-${allegati.length + 1}`,
+          tipo: tipo || 'application/octet-stream',
+          dimensione: n.size ?? 0,
+          parte: n.part,
+        })
+      }
+    }
+    visita(radice)
+
+    // La parte HTML si scarica QUI, nella connessione già aperta.
+    let htmlGrezzo: Buffer | null = null
+    if (serveHtml && html) {
+      const scarico = await client.download(String(uid), (html as { parte: string }).parte, { uid: true })
+      if (scarico?.content) {
+        const pezzi: Buffer[] = []
+        for await (const c of scarico.content) pezzi.push(Buffer.from(c))
+        htmlGrezzo = Buffer.concat(pezzi)
+      }
+    }
+    return { htmlGrezzo, htmlCharset: html ? (html as { charset: string }).charset : '', allegati }
+  } finally {
+    await client.logout()
+  }
+}
+
 /** Scarica UNA parte del messaggio (un allegato) senza tirarsi dietro il resto. */
 export async function scaricaParte(
   account: Account,
