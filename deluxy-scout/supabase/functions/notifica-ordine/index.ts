@@ -21,7 +21,7 @@
 // ⚠️ Se lo SMTP non è configurato la funzione è INERTE (`smtp_non_configurato`)
 // e non è un errore: l'ordine è già salvato, la mail è un di più.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { credenzialiPerUtente, inviaMail } from '../_shared/smtp.ts';
+import { credenzialiPerUtente, decifra, inviaMail, type Credenziali } from '../_shared/smtp.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -31,6 +31,48 @@ const cors = {
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...cors } });
+}
+
+/**
+ * ⭐ LA CASELLA DELL'AZIENDA (28/08/2026, decisione dell'utente: «si manda
+ * pure da commerciale@deluxy.it»).
+ *
+ * L'annuncio di un ordine non è una mail personale: è la voce dell'azienda, e
+ * deve partire dallo stesso indirizzo qualunque commerciale abbia chiuso. Il
+ * mittente si legge da `impostazioni.mail.casella_annunci` (migr. 0097) e si
+ * risolve nelle credenziali già salvate — cifrate — in `smtp_account`.
+ *
+ * ⚠️ Le password non arrivano da qui né da un secret nuovo: si decifrano dalla
+ * riga che esiste già, con `SMTP_ENC_KEY`. Una copia in più delle credenziali
+ * è una copia in più da revocare il giorno che cambiano.
+ *
+ * ⚠️ Ripiego sulla casella di chi segue l'ordine: se un domani quella
+ * dell'azienda non fosse configurata, meglio una mail che parte da un collega
+ * che nessuna mail.
+ */
+async function credenzialiAnnunci(admin: any, ownerId: string | null): Promise<Credenziali | null> {
+  const { data: imp } = await admin
+    .from('impostazioni')
+    .select('valore')
+    .eq('chiave', 'mail.casella_annunci')
+    .maybeSingle();
+  const casella = String(imp?.valore ?? '').trim();
+  if (casella) {
+    const { data } = await admin.from('smtp_account').select('*').eq('utente', casella).maybeSingle();
+    if (data?.host && data?.utente && data?.password_cifrata) {
+      const nome = String(data.mittente ?? '').trim();
+      return {
+        host: data.host,
+        port: Number(data.porta ?? 465),
+        user: data.utente,
+        pass: await decifra(data.password_cifrata),
+        // Il nome visibile dice CHE COS'È: chi riceve deve capire dall'elenco
+        // che è un ordine dell'app, non un messaggio di una persona.
+        from: `"${(nome && !nome.includes('@') ? nome : 'Deluxy Scout').replace(/"/g, '')}" <${data.utente}>`,
+      };
+    }
+  }
+  return await credenzialiPerUtente(admin, ownerId);
 }
 
 const euro = (v: unknown) =>
@@ -71,9 +113,9 @@ Deno.serve(async (req) => {
       return json({ sent: false, reason: 'nessun_destinatario' });
     }
 
-    // Mittente: la casella di chi segue l'ordine, con i secret globali come
-    // ripiego (stessa regola di `notifica-task`).
-    const cred = await credenzialiPerUtente(admin, o.owner ?? null);
+    // Mittente: la casella dell'azienda (commerciale@deluxy.it), non quella
+    // personale — vedi `credenzialiAnnunci`.
+    const cred = await credenzialiAnnunci(admin, o.owner ?? null);
     if (!cred) {
       // ⚠️ Si RILASCIA la prenotazione: senza, l'ordine resterebbe segnato
       // «annunciato» pur non avendo mandato niente, e configurare lo SMTP dopo

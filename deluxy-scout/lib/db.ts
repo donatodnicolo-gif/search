@@ -1582,9 +1582,6 @@ export async function creaOrdineDaDeal(deal: {
     .select('id')
     .single();
   if (error) throw error;
-  // ⚠️ L'annuncio sta QUI e non nel ramo sopra: lì l'ordine esisteva già, e
-  // rimandare la mail a ogni ri-salvataggio della trattativa sarebbe rumore.
-  void annunciaOrdine(data.id as string);
   return { id: data.id as string };
 }
 
@@ -1603,6 +1600,27 @@ export async function aggiornaOrdine(
 ): Promise<void> {
   const { error } = await supabase.from('ordini').update(patch).eq('id', id);
   if (error) throw error;
+}
+
+/**
+ * ⭐ CHIUDE LA PRATICA — ed è l'unica porta per farlo (28/08/2026).
+ *
+ * Decisione dell'utente: «assegna il numero d'ordine solo alla chiusura, il
+ * resto sono draft». Chiudere quindi fa due cose che prima erano sparse:
+ *
+ *  1. il DATABASE assegna `SCOUT00N` (migr. 0098) — non l'app, così vale per
+ *     ogni strada, anche quelle che non esistono ancora;
+ *  2. parte l'annuncio `[ORDINE SCOUT]` a tutta la squadra, che a quel punto
+ *     porta il numero nell'oggetto invece di un ordine senza nome.
+ *
+ * ⚠️ Le due chiusure dell'app (aggancia le fatture / emetti la fattura)
+ * passano di qui: se una sola delle due chiamasse `aggiornaOrdine` per conto
+ * suo, metà degli ordini resterebbe senza annuncio e nessuno se ne accorgerebbe
+ * — sarebbero mail che non arrivano, non un errore a schermo.
+ */
+export async function chiudiOrdine(id: string): Promise<void> {
+  await aggiornaOrdine(id, { chiuso_il: new Date().toISOString() });
+  void annunciaOrdine(id);
 }
 
 // ── Lead web (coda di qualificazione prima della trattativa) ──────────────────
@@ -3040,7 +3058,6 @@ export async function creaOrdineDaRichiesta(r: RichiestaCliente): Promise<{ id: 
     .update({ ordine_id: ordineId, stato: 'in_ordine' })
     .eq('id', r.id);
   if (e2) throw e2;
-  void annunciaOrdine(ordineId);
   return { id: ordineId };
 }
 

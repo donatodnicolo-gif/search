@@ -11,7 +11,7 @@ import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
-import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
+import { aggiornaOrdine, chiudiOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
 import { cercaFatture, chiediFatturaPerOrdine, type FatturaInElenco } from '@/lib/partner';
 import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
@@ -1438,12 +1438,21 @@ export default function Ordini() {
               cui si va ad aprire la consegna, ed è lì che serve avere il numero
               del DDT sotto il dito. Non è un campo: non si modifica (il
               database rifiuta), quindi non ha una casella. */}
-          {modificaPer.riferimento ? (
-            <View style={styles.rifRiga}>
-              <ChipRiferimento rif={modificaPer.riferimento} grande />
-              <Text style={styles.rifNota}>da scrivere come DDT sulla consegna in app delivery</Text>
-            </View>
-          ) : null}
+          <View style={styles.rifRiga}>
+            {modificaPer.riferimento ? (
+              <>
+                <ChipRiferimento rif={modificaPer.riferimento} grande />
+                <Text style={styles.rifNota}>da scrivere come DDT sulla consegna in app delivery</Text>
+              </>
+            ) : (
+              /* ⚠️ Si DICE perché non c'è. Un campo vuoto senza spiegazione
+                 sembra un dato perso; qui è la regola: finché la pratica non è
+                 chiusa l'ordine è una bozza e il numero non esiste ancora. */
+              <Text style={styles.rifNota}>
+                Bozza · il numero d'ordine (SCOUT…) si assegna alla chiusura della pratica
+              </Text>
+            )}
+          </View>
 
           <Text style={styles.campoLabel}>Cliente *</Text>
           <TextInput
@@ -1908,7 +1917,7 @@ function ChiusuraOrdine({
     setInCorso('aggancia');
     try {
       await collegaDocumentoAOrdine(ordine.id, { fatture: numeri });
-      await aggiornaOrdine(ordine.id, { chiuso_il: new Date().toISOString() });
+      await chiudiOrdine(ordine.id);
       onFatto();
     } catch (e: any) {
       avvisa('Non agganciate', String(e?.message ?? e));
@@ -1992,7 +2001,7 @@ function ChiusuraOrdine({
         proformaUrl: esito.url,
         ...(esito.fatturaNumero ? { fatturaNumero: esito.fatturaNumero } : {}),
       });
-      await aggiornaOrdine(ordine.id, { chiuso_il: new Date().toISOString() });
+      await chiudiOrdine(ordine.id);
       onFatto();
     } catch (e: any) {
       // ⚠️ Il messaggio di FINANCE si mostra INTERO: «Partner non trovato» coi
