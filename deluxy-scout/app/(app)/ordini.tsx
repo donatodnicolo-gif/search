@@ -1873,19 +1873,62 @@ function ChiusuraOrdine({
     }
   }
 
-  const giaFatturato = Boolean(ordine.fattura_numero);
-
-  async function chiudi(conNota: string) {
-    setInCorso(conNota);
-    try {
-      await aggiornaOrdine(ordine.id, { chiuso_il: new Date().toISOString() });
-      onFatto();
-    } catch (e: any) {
-      avvisa('Non chiuso', String(e?.message ?? e));
-    } finally {
-      setInCorso(null);
+  /**
+   * ⚠️ NIENTE RAMO SPECIALE PER «ha già una fattura» (27/08/2026, domanda
+   * dell'utente: «dove devo cliccare per cercare le altre fatture?» — da
+   * nessuna parte, ed era il difetto).
+   *
+   * Quel ramo mostrava solo «c'è già la 600/2026, si può chiudere»: toglieva la
+   * ricerca, quindi non si potevano aggiungere le altre, e soprattutto
+   * SCAVALCAVA il controllo della somma — chiudeva con una fattura sola senza
+   * verificare che coprisse il valore. Due strade per la stessa decisione, e
+   * quella corta non applicava la regola.
+   *
+   * Ora la strada è una: le fatture già collegate si RICARICANO da FINANCE e
+   * partono selezionate, così il conto le comprende e si può aggiungerne
+   * altre.
+   */
+  const [gia, setGia] = useState<'carico' | 'fatto'>('carico');
+  const collegate = ordine.fatture?.length
+    ? ordine.fatture
+    : ordine.fattura_numero
+      ? [ordine.fattura_numero]
+      : [];
+  useEffect(() => {
+    let vivo = true;
+    if (!collegate.length) {
+      setGia('fatto');
+      return;
     }
-  }
+    (async () => {
+      const trovate: FatturaInElenco[] = [];
+      for (const n of collegate) {
+        const r = await cercaFatture({ numero: n });
+        // ⚠️ Si prende quella col numero ESATTO: cercando «600/2026» FIC può
+        // tornare anche la 1600/2026, e pre-selezionare la fattura sbagliata
+        // sarebbe peggio che non pre-selezionarne nessuna.
+        const esatta = r.fatture.find((f) => f.numero === n);
+        if (esatta) trovate.push(esatta);
+      }
+      if (!vivo) return;
+      setScelte(trovate);
+      setGia('fatto');
+    })();
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /*
+   * ⚠️ NON C'È PIÙ UNA `chiudi()` SENZA CONTROLLI (27/08/2026). Serviva al ramo
+   * «ha già una fattura», che è stato tolto: chiudeva senza verificare che le
+   * fatture coprissero il valore dell'ordine. Una funzione del genere lasciata
+   * lì è la scorciatoia che al prossimo ritocco qualcuno ricollega — e la
+   * regola («la somma deve essere pari al valore») tornerebbe aggirabile.
+   *
+   * L'unica chiusura passa da `agganciaScelte`, che il controllo lo fa.
+   */
 
   async function emettiEChiudi() {
     if (ordine.valore == null) {
@@ -1922,21 +1965,17 @@ function ChiusuraOrdine({
       sottotitolo={`${ordine.place_nome ?? ordine.cliente} · ${euro(ordine.valore)}. Chiudere vuol dire: pratica finita. L'incasso è un'altra cosa.`}
       onClose={onClose}
     >
-      {giaFatturato ? (
-        <>
-          <Text style={styles.campoAiuto}>
-            Questo ordine ha già la fattura {ordine.fattura_numero}. Non c&apos;è altro da fare: si può chiudere.
-          </Text>
-          <Pressable
-            style={[styles.btn, styles.btnLargo, inCorso === 'gia' && { opacity: 0.5 }]}
-            disabled={!!inCorso}
-            onPress={() => chiudi('gia')}
-          >
-            <Text style={styles.btnTxt}>Chiudi l&apos;ordine</Text>
-          </Pressable>
-        </>
-      ) : (
-        <>
+      {collegate.length ? (
+        <Text style={styles.campoAiuto}>
+          {gia === 'carico'
+            ? `Carico da FINANCE ${collegate.length === 1 ? 'la fattura già collegata' : 'le fatture già collegate'}…`
+            : scelte.length
+              ? `Già collegate e selezionate: ${scelte.map((f) => f.numero).join(', ')}. Cercane altre qui sotto se ne mancano.`
+              : `Le fatture collegate (${collegate.join(', ')}) non si trovano più su Fatture in Cloud: cercale qui sotto.`}
+        </Text>
+      ) : null}
+
+      <>
           <Text style={styles.campoLabel}>Cerca la fattura su FINANCE</Text>
           <View style={styles.chipsForm}>
             {([
@@ -2086,8 +2125,7 @@ function ChiusuraOrdine({
           <Text style={styles.campoAiuto}>
             Un ordine non si chiude senza fattura: senza documento resta un ricavo senza carta.
           </Text>
-        </>
-      )}
+      </>
     </Foglio>
   );
 }
