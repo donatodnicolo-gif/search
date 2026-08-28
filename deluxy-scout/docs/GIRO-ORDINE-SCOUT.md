@@ -45,6 +45,32 @@ Nella mail c'è l'istruzione operativa: scrivere il numero nel campo **DDT** del
 servizio sulla piattaforma consegne. In /ordini la pillola col numero si copia
 con un tocco.
 
+## La richiesta di evasione
+
+Su un ordine **chiuso** compare il furgoncino: apre un foglio che chiede le tre
+cose che l'ordine non sa — **data del servizio, destinatario, indirizzo** — piu
+fascia oraria, citofono, telefono, ritiro, cosa e note. Alla conferma parte
+`[EVASIONE SCOUT001]` alle consegne, dalla casella dell'azienda, con dentro il
+numero da scrivere nel DDT.
+
+⚠️ **Non crea la consegna sulla piattaforma, e non e un ripiego provvisorio.**
+La rotta esiste (`POST /app/consegne`, chiave con scrittura) ma pretende dati
+che Scout non ha: il tipo di servizio del catalogo e il partner. Sono scelte
+che chi inserisce fa guardando, e indovinarle qui vuol dire far partire un
+valet nel posto sbagliato. La mail lo dice esplicitamente a chi la riceve.
+
+⚠️ **La chiave della piattaforma salvata in Scout non e una chiave della
+piattaforma**: nella cassaforte (Impostazioni → App collegate → Consegne) c'e
+27 caratteri che cominciano per `IT51M` — l'IBAN dell'azienda, incollato nel
+campo sbagliato. Finche resta cosi, anche la lettura del catalogo servizi
+risponde 401. Si rigenera con `node api/scripts/crea-chiave-app.mjs
+deluxy-scout` sulla piattaforma.
+
+La richiesta si puo **rimandare** (la data slitta, l'indirizzo cambia): quello
+che era stato mandato ricompare precompilato, e resta scritto sull'ordine
+(`evasione_dati`) — cosi alla domanda «che indirizzo avevamo mandato?» non si
+risponde «guarda nella posta».
+
 ## Dove finisce ogni euro (misurato, non dedotto)
 
 Deluxy Budgets si costruisce il conto economico da **tre fonti**, e nessuna di

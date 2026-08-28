@@ -1623,6 +1623,48 @@ export async function chiudiOrdine(id: string): Promise<void> {
   void annunciaOrdine(id);
 }
 
+/**
+ * ⭐ CHIEDE L'EVASIONE di un ordine chiuso (Edge Function
+ * `richiesta-evasione`): manda alle consegne le informazioni per inserire il
+ * servizio.
+ *
+ * ⚠️ NON è best effort come l'annuncio: qui l'utente sta chiedendo qualcosa a
+ * qualcuno, e deve sapere se è partita. L'errore RISALE.
+ */
+export async function chiediEvasione(
+  ordineId: string,
+  dati: {
+    data_servizio: string;
+    ora_da?: string;
+    ora_a?: string;
+    destinatario: string;
+    indirizzo: string;
+    citofono?: string;
+    telefono?: string;
+    ritiro?: string;
+    cosa?: string;
+    note?: string;
+  },
+): Promise<{ ripiego: boolean; a: string[] }> {
+  const url = `${env.supabaseUrl().replace(/[/]$/, '')}/functions/v1/richiesta-evasione`;
+  const { data: sess } = await supabase.auth.getSession();
+  const token = sess.session?.access_token;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ ordine_id: ordineId, ...dati }),
+  });
+  const esito = await res.json().catch(() => ({}));
+  if (!res.ok || !esito?.sent) {
+    throw new Error(String(esito?.error ?? esito?.reason ?? 'La richiesta non è partita.'));
+  }
+  return { ripiego: !!esito.ripiego, a: Array.isArray(esito.a) ? esito.a : [] };
+}
+
 // ── Lead web (coda di qualificazione prima della trattativa) ──────────────────
 
 export async function fetchLeads(): Promise<Lead[]> {

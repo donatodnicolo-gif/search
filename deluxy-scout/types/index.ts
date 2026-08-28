@@ -421,6 +421,22 @@ export interface Ordine {
   riferimento?: string | null;
   /** Quando è partita la mail [ORDINE SCOUT] a tutti (migr. 0096). */
   annunciato_il?: string | null;
+  /** Quando è stata mandata alle consegne la richiesta di evasione (migr. 0099). */
+  evasione_richiesta_il?: string | null;
+  /** Copia di COSA è stato chiesto: alla domanda «che indirizzo avevamo
+   *  mandato?» non si deve rispondere «guarda nella tua posta». */
+  evasione_dati?: {
+    data_servizio?: string | null;
+    ora_da?: string | null;
+    ora_a?: string | null;
+    destinatario?: string | null;
+    indirizzo?: string | null;
+    citofono?: string | null;
+    telefono?: string | null;
+    ritiro?: string | null;
+    cosa?: string | null;
+    note?: string | null;
+  } | null;
   deal_id: string | null;
   place_id: string | null;
   cliente: string;

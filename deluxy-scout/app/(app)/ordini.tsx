@@ -11,7 +11,7 @@ import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
-import { aggiornaOrdine, chiudiOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
+import { aggiornaOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
 import { cercaFatture, chiediFatturaPerOrdine, type FatturaInElenco } from '@/lib/partner';
 import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
@@ -103,6 +103,8 @@ export default function Ordini() {
    */
   const [chiusuraPer, setChiusuraPer] = useState<OrdineConLuogo | null>(null);
   const [modificaPer, setModificaPer] = useState<OrdineConLuogo | null>(null);
+  /** L'ordine per cui si sta chiedendo l'evasione alle consegne (migr. 0099). */
+  const [evasionePer, setEvasionePer] = useState<OrdineConLuogo | null>(null);
   const [bozza, setBozza] = useState<{
     cliente: string;
     descrizione: string;
@@ -237,14 +239,14 @@ export default function Ordini() {
    * — sito compreso, o la richiesta «metti anche in tabella di che sito è»
    * sarebbe stata esaudita solo su uno schermo grande.
    */
-  const aTabella = width >= (conAltriCosti ? 1460 : 1360);
+  const aTabella = width >= (conAltriCosti ? 1489 : 1389);
   /**
    * Sopra questa misura ci stanno TUTTE le colonne, canale compreso: misurato
-   * nel DOM, a 1620 al nome del cliente restano 209px invece dei 111 che
-   * avrebbe con la stessa tabella a 1460. Non è una soglia di stile: è il punto
+   * nel DOM, a 1649 al nome del cliente restano 209px invece dei 111 che
+   * avrebbe con la stessa tabella a 1489. Non è una soglia di stile: è il punto
    * in cui rimettere una colonna smette di togliere spazio al dato principale.
    */
-  const tutteLeColonne = width >= 1620;
+  const tutteLeColonne = width >= 1649;
 
   /**
    * Quanto ci costa ciascun ordine: dai lavori collegati alla sua trattativa
@@ -602,8 +604,15 @@ export default function Ordini() {
        *
        * Erano sei fino al 27/08/2026; il lucchetto della chiusura è il settimo,
        * ed è uscito dal ramo «da incassare» per essere visibile sempre.
+       *
+       * ⚠️ 28/08/2026: il furgone dell'EVASIONE è l'ottavo, e il conto è stato
+       * rifatto — 8×27 = 216, più sette spazi da 2 = 230, più 5 di margine =
+       * 235. Le tre soglie della tabella sono salite dello stesso numero
+       * (1460→1489, 1360→1389, 1620→1649): allargare una colonna senza alzare
+       * la soglia stringe tutte le altre proprio alla larghezza in cui la
+       * tabella era già al limite.
        */
-      width: 206,
+      width: 235,
       fissa: true,
       valore: () => null,
       cella: (o) => (
@@ -637,6 +646,41 @@ export default function Ordini() {
                 name={o.chiuso_il ? 'lock-open-outline' : 'lock-closed-outline'}
                 size={16}
                 color={o.chiuso_il ? colors.goldStrong : colors.grigio}
+              />
+            </Pressable>
+          ) : null}
+          {/* ⭐ L'EVASIONE (28/08/2026, richiesta dell'utente: «metti richiesta
+              evasione di un ordine dopo la chiusura che manda all'app delivery
+              le informazioni per l'inserimento»).
+
+              ⚠️ Appare SOLO a pratica chiusa, e non è una restrizione
+              burocratica: prima l'ordine è una bozza senza numero, e la
+              richiesta arriverebbe alle consegne senza il riferimento da
+              scrivere nel DDT — cioè senza il modo di sapere a cosa lega la
+              consegna che sta inserendo.
+
+              ⚠️ Quando è già stata mandata l'icona resta e diventa piena: si
+              può rimandare (l'indirizzo cambia, la data slitta), ma si vede a
+              colpo d'occhio che qualcosa era già partito. */}
+          {o.chiuso_il ? (
+            <Pressable
+              style={styles.iconaAzione}
+              hitSlop={8}
+              onPress={(e: any) => {
+                e?.stopPropagation?.();
+                apriEvasione(o);
+              }}
+              accessibilityLabel="Chiedi l'evasione alle consegne"
+              {...({
+                title: o.evasione_richiesta_il
+                  ? `Evasione già chiesta il ${dataIt(o.evasione_richiesta_il)} — si può rimandare`
+                  : 'Chiedi l’evasione: manda alle consegne i dati per inserire il servizio',
+              } as any)}
+            >
+              <Ionicons
+                name={o.evasione_richiesta_il ? 'car' : 'car-outline'}
+                size={17}
+                color={o.evasione_richiesta_il ? colors.goldStrong : colors.navy}
               />
             </Pressable>
           ) : null}
@@ -1020,6 +1064,20 @@ export default function Ordini() {
    * archiviare un ricavo senza il suo costo: il margine di quell'ordine resta
    * un numero inventato, e nessuno ci tornerà più sopra.
    */
+  function apriEvasione(o: OrdineConLuogo) {
+    // ⚠️ La condizione è la stessa che applica il server: qui si risparmia un
+    // giro, ma il NO vero lo dice la funzione — un controllo che vive solo nel
+    // browser è un controllo che non c'è.
+    if (!o.chiuso_il) {
+      avvisa(
+        'La pratica non è ancora chiusa',
+        "L'evasione si chiede dopo la chiusura: prima l'ordine è una bozza e non ha il numero da scrivere nel DDT della consegna.",
+      );
+      return;
+    }
+    setEvasionePer(o);
+  }
+
   function apriChiusura(o: OrdineConLuogo) {
     if (!haFornitura(o)) {
       avvisa(
@@ -1384,6 +1442,21 @@ export default function Ordini() {
                           />
                           <Text style={styles.btnGhostTxt}>{o.chiuso_il ? 'Riapri' : 'Chiudi'}</Text>
                         </Pressable>
+                        {/* Sul telefono l'evasione è un bottone con la parola
+                            scritta: un furgoncino da solo, senza la colonna
+                            delle azioni a fargli da contesto, non si capisce. */}
+                        {o.chiuso_il ? (
+                          <Pressable style={styles.btnGhost} onPress={() => apriEvasione(o)}>
+                            <Ionicons
+                              name={o.evasione_richiesta_il ? 'car' : 'car-outline'}
+                              size={15}
+                              color={o.evasione_richiesta_il ? colors.goldStrong : colors.navy}
+                            />
+                            <Text style={styles.btnGhostTxt}>
+                              {o.evasione_richiesta_il ? 'Evasione chiesta' : 'Evasione'}
+                            </Text>
+                          </Pressable>
+                        ) : null}
                         <Pressable style={styles.btnGhost} onPress={() => apriModifica(o)}>
                           <Text style={styles.btnGhostTxt}>Modifica</Text>
                         </Pressable>
@@ -1419,6 +1492,17 @@ export default function Ordini() {
           onClose={() => setChiusuraPer(null)}
           onFatto={() => {
             setChiusuraPer(null);
+            carica();
+          }}
+        />
+      ) : null}
+
+      {evasionePer ? (
+        <RichiestaEvasione
+          ordine={evasionePer}
+          onClose={() => setEvasionePer(null)}
+          onFatto={() => {
+            setEvasionePer(null);
             carica();
           }}
         />
@@ -2453,6 +2537,162 @@ function BloccoFornitura({
 }
 
 /**
+ * ⭐ LA RICHIESTA DI EVASIONE (28/08/2026, richiesta dell'utente: «metti
+ * richiesta evasione di un ordine dopo la chiusura che manda all'app delivery
+ * le informazioni per l'inserimento»).
+ *
+ * ⚠️ **CHIEDE QUELLO CHE L'ORDINE NON SA.** Una consegna sulla piattaforma
+ * pretende quando, a chi e dove: l'ordine ha solo il cliente e cosa è stato
+ * venduto. Questi tre campi sono OBBLIGATORI qui e obbligatori nella funzione,
+ * perché una richiesta senza indirizzo costringe chi la riceve a rincorrere
+ * chi l'ha scritta — ed è la strada per cui un valet parte per il posto
+ * sbagliato.
+ *
+ * ⚠️ **SI PUÒ RIMANDARE.** La data slitta, l'indirizzo cambia: quello che si
+ * era mandato ricompare precompilato (`evasione_dati`), così si corregge un
+ * campo invece di riscrivere tutto — e non si ricostruisce a memoria.
+ */
+function RichiestaEvasione({
+  ordine,
+  onClose,
+  onFatto,
+}: {
+  ordine: OrdineConLuogo;
+  onClose: () => void;
+  onFatto: () => void;
+}) {
+  const g = ordine.evasione_dati ?? null;
+  const [quando, setQuando] = useState(g?.data_servizio ?? '');
+  const [oraDa, setOraDa] = useState(g?.ora_da ?? '');
+  const [oraA, setOraA] = useState(g?.ora_a ?? '');
+  const [destinatario, setDestinatario] = useState(g?.destinatario ?? ordine.place_nome ?? ordine.cliente ?? '');
+  const [indirizzo, setIndirizzo] = useState(g?.indirizzo ?? '');
+  const [citofono, setCitofono] = useState(g?.citofono ?? '');
+  const [telefono, setTelefono] = useState(g?.telefono ?? '');
+  const [ritiro, setRitiro] = useState(g?.ritiro ?? '');
+  const [cosa, setCosa] = useState(g?.cosa ?? ordine.descrizione ?? '');
+  const [note, setNote] = useState(g?.note ?? '');
+  const [inCorso, setInCorso] = useState(false);
+
+  const pronta = !!quando.trim() && !!destinatario.trim() && !!indirizzo.trim();
+
+  async function manda() {
+    if (!pronta || inCorso) return;
+    setInCorso(true);
+    try {
+      const esito = await chiediEvasione(ordine.id, {
+        data_servizio: quando.trim(),
+        ora_da: oraDa.trim(),
+        ora_a: oraA.trim(),
+        destinatario: destinatario.trim(),
+        indirizzo: indirizzo.trim(),
+        citofono: citofono.trim(),
+        telefono: telefono.trim(),
+        ritiro: ritiro.trim(),
+        cosa: cosa.trim(),
+        note: note.trim(),
+      });
+      // ⚠️ Si dice A CHI è andata, e si dice quando è andata a tutti perché
+      // l'indirizzo delle consegne non è impostato: «mandata» senza dire dove
+      // farebbe credere che sia arrivata a chi di dovere.
+      avvisa(
+        'Richiesta mandata',
+        esito.ripiego
+          ? `È andata a tutta la squadra: non c'è ancora un indirizzo delle consegne impostato (impostazione «mail.casella_consegne»).`
+          : `È andata a ${esito.a.join(', ')}.`,
+      );
+      onFatto();
+    } catch (e: any) {
+      avvisa('Richiesta non partita', String(e?.message ?? e));
+    } finally {
+      setInCorso(false);
+    }
+  }
+
+  return (
+    <Foglio
+      titolo={`Chiedi l'evasione · ${ordine.riferimento ?? ''}`}
+      sottotitolo={`${ordine.place_nome ?? ordine.cliente}. Va alle consegne, che inseriscono il servizio sulla piattaforma.`}
+      bloccaSfondo
+      onClose={onClose}
+    >
+      {ordine.evasione_richiesta_il ? (
+        <View style={styles.rifRiga}>
+          <Text style={styles.rifNota}>
+            Già chiesta il {dataIt(ordine.evasione_richiesta_il)} · qui sotto c'è quello che era stato mandato
+          </Text>
+        </View>
+      ) : null}
+
+      <Text style={styles.campoLabel}>Data del servizio *</Text>
+      <TextInput
+        style={styles.campo}
+        value={quando}
+        onChangeText={setQuando}
+        placeholder="es. 12/09/2026"
+        placeholderTextColor={colors.grigio}
+      />
+
+      <View style={styles.evasioneRiga}>
+        <View style={styles.evasioneMezzo}>
+          <Text style={styles.campoLabel}>Dalle</Text>
+          <TextInput style={styles.campo} value={oraDa} onChangeText={setOraDa} placeholder="09:00" placeholderTextColor={colors.grigio} />
+        </View>
+        <View style={styles.evasioneMezzo}>
+          <Text style={styles.campoLabel}>Alle</Text>
+          <TextInput style={styles.campo} value={oraA} onChangeText={setOraA} placeholder="13:00" placeholderTextColor={colors.grigio} />
+        </View>
+      </View>
+
+      <Text style={styles.campoLabel}>Destinatario *</Text>
+      <TextInput style={styles.campo} value={destinatario} onChangeText={setDestinatario} placeholder="Nome e cognome, o l'insegna" placeholderTextColor={colors.grigio} />
+
+      <Text style={styles.campoLabel}>Indirizzo di consegna *</Text>
+      <TextInput style={styles.campo} value={indirizzo} onChangeText={setIndirizzo} placeholder="Via, numero, città" placeholderTextColor={colors.grigio} />
+
+      <View style={styles.evasioneRiga}>
+        <View style={styles.evasioneMezzo}>
+          <Text style={styles.campoLabel}>Citofono</Text>
+          <TextInput style={styles.campo} value={citofono} onChangeText={setCitofono} placeholderTextColor={colors.grigio} />
+        </View>
+        <View style={styles.evasioneMezzo}>
+          <Text style={styles.campoLabel}>Telefono</Text>
+          <TextInput style={styles.campo} value={telefono} onChangeText={setTelefono} placeholder="per il valet" placeholderTextColor={colors.grigio} />
+        </View>
+      </View>
+
+      <Text style={styles.campoLabel}>Ritiro presso</Text>
+      <TextInput style={styles.campo} value={ritiro} onChangeText={setRitiro} placeholder="il fornitore, se il valet deve passare a prendere" placeholderTextColor={colors.grigio} />
+
+      <Text style={styles.campoLabel}>Cosa</Text>
+      <TextInput style={styles.campo} value={cosa} onChangeText={setCosa} placeholder="cosa va consegnato" placeholderTextColor={colors.grigio} />
+
+      <Text style={styles.campoLabel}>Note</Text>
+      <TextInput style={[styles.campo, styles.campoAlto]} value={note} onChangeText={setNote} multiline placeholder="tutto quello che serve a chi consegna" placeholderTextColor={colors.grigio} />
+
+      {/* ⚠️ Si dice PRIMA che il numero va nel DDT: chi manda la richiesta deve
+          sapere cosa sta chiedendo, non scoprirlo dalla mail che riceve. */}
+      <Text style={styles.rifNota}>
+        Nella richiesta va anche {ordine.riferimento}, da scrivere nel campo DDT della consegna.
+      </Text>
+
+      <Pressable
+        style={[styles.btn, styles.btnLargo, (!pronta || inCorso) && { opacity: 0.5 }]}
+        disabled={!pronta || inCorso}
+        onPress={manda}
+      >
+        <Text style={styles.btnTxt}>{inCorso ? 'Mando…' : "Manda alle consegne"}</Text>
+      </Pressable>
+      {!pronta ? (
+        <Text style={styles.rifNota}>
+          Servono data, destinatario e indirizzo: senza, la consegna non si può inserire.
+        </Text>
+      ) : null}
+    </Foglio>
+  );
+}
+
+/**
  * ⭐ IL RIFERIMENTO DELL'ORDINE, in una pillola che si COPIA (migr. 0095).
  *
  * Richiesta dell'utente (28/08/2026): il progressivo «deve essere messo come
@@ -2640,6 +2880,10 @@ const styles = StyleSheet.create({
   campoLabel: { color: colors.navy, fontWeight: '700', fontSize: 13, marginTop: spacing.sm },
   campo: { borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, backgroundColor: colors.bianco, paddingHorizontal: 12, paddingVertical: 9, color: colors.testo, fontSize: 14, marginTop: 4 },
   campoAlto: { minHeight: 64, textAlignVertical: 'top' },
+  // Due campi corti sulla stessa riga (dalle/alle, citofono/telefono): stanno
+  // insieme perche si leggono insieme, e a schermo stretto vanno a capo da soli.
+  evasioneRiga: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  evasioneMezzo: { flexGrow: 1, flexBasis: 140 },
   campoAiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18, marginTop: 4 },
   chipsForm: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
