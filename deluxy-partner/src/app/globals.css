@@ -83,6 +83,11 @@ a { color: inherit; text-decoration: none; }
 .sidebar.chiusa .brand { justify-content: center; padding-left: 0; padding-right: 0; }
 .sidebar.chiusa .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
 .sidebar.chiusa .sidebar-footer { justify-content: center; }
+/* In modalità ridotta le etichette di sezione spariscono (solo-estesa): senza
+   un separatore i gruppi collasserebbero in un elenco unico. Un hairline tiene
+   il raggruppamento visibile — regola UX per la sidebar a icone. */
+.sidebar.chiusa .nav-section { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.sidebar.chiusa .nav-section:first-child { border-top: none; padding-top: 0; margin-top: 4px; }
 .sidebar-toggle {
   position: absolute;
   top: 26px;

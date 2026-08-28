@@ -53,7 +53,7 @@ export default async function FatturePage({
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Servizi a fatturazione</h1>
+          <h1 className="page-title">Fatturazione servizi</h1>
           <p className="page-caption">
             Fatture emesse ai partner per i servizi Deluxy (consegne, eventi, magazzino…).
           </p>

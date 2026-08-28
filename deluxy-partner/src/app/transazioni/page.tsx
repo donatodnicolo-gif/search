@@ -17,9 +17,11 @@ import {
   eliminaAssociazione,
   ripristinaTransazione,
   eliminaTransazioniNonRegistrate,
+  sincronizzaQontoAllApertura,
 } from "@/lib/transazioni-actions";
 import { qontoConfigurato } from "@/lib/qonto";
 import { BottoneSincronizzaQonto } from "@/components/BottoneSincronizzaQonto";
+import { AutoSyncQonto } from "@/components/AutoSyncQonto";
 import { AzioneTransazione } from "@/components/AzioneTransazione";
 
 export const dynamic = "force-dynamic";
@@ -181,9 +183,10 @@ export default async function TransazioniPage({
 
   return (
     <>
+      {qonto && <AutoSyncQonto azione={sincronizzaQontoAllApertura} />}
       <div className="page-head">
         <div>
-          <h1 className="page-title">Import transazioni</h1>
+          <h1 className="page-title">Import & riconciliazione</h1>
           <p className="page-caption">
             Carica l&apos;estratto conto (CSV o XLSX): l&apos;app ricostruisce incassi e pagamenti,
             li confronta col database e segnala cosa manca.
@@ -238,7 +241,7 @@ export default async function TransazioniPage({
               <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
                 {ultimaSync
                   ? `Ultima: ${dataIt(ultimaSync)} alle ${ultimaSync.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`
-                  : "Sincronizzazione automatica ogni notte alle 5"}
+                  : "Si sincronizza da sola quando apri la pagina, e ogni notte alle 5"}
               </span>
             </form>
           )}

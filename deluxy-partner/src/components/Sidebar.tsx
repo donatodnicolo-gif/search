@@ -103,6 +103,34 @@ const icons = {
       <path d="M3 4v16h18" />
     </svg>
   ),
+  banca: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M4 10h16M4 10l8-5 8 5" />
+      <path d="M6.5 10v7M10 10v7M14 10v7M17.5 10v7" />
+      <path d="M3 20.5h18" />
+    </svg>
+  ),
+  categoria: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M4 4.5h7l9 9-6.5 6.5-9-9V4.5z" />
+      <circle cx="8" cy="8.5" r="1.3" />
+    </svg>
+  ),
+  registro: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M5 4.5h9a2 2 0 0 1 2 2V20H7a2 2 0 0 1-2-2V4.5z" />
+      <path d="M16 6.5h3V20H7" />
+      <path d="M8.5 9h5M8.5 12.5h5" />
+    </svg>
+  ),
+  riconcilia: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M3.5 7l2.5 2.5 3.5-4" />
+      <path d="M12.5 8h8" />
+      <path d="M3.5 16.5l2.5 2.5 3.5-4" />
+      <path d="M12.5 17.5h8" />
+    </svg>
+  ),
   api: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <path d="M8 9l-4 3 4 3M16 9l4 3-4 3M13.5 6l-3 12" />
@@ -118,66 +146,69 @@ const icons = {
 
 const sections: { label: string; items: Item[] }[] = [
   {
-    label: "Operatività",
+    // La home non è una categoria: nessuna etichetta, sta in cima da sola.
+    label: "",
+    items: [{ href: "/", label: "Dashboard", icon: icons.dashboard }],
+  },
+  {
+    // Il cuore quotidiano: si apre per «far quadrare la banca». La vista unica
+    // dei movimenti sta PRIMA dell'import — nella maggior parte dei giorni si
+    // guarda, non si carica (la sync Qonto è automatica all'apertura).
+    label: "Tesoreria",
     items: [
-      { href: "/", label: "Dashboard", icon: icons.dashboard },
-      { href: "/fatture", label: "Servizi a fatturazione", icon: icons.fattura },
-      { href: "/vendite", label: "Vendite come vendor", icon: icons.vendite },
-    ],
-  },
-  {
-    label: "Registrazioni",
-    items: [
-      { href: "/registrazioni/fatture", label: "Fatture", icon: icons.fattura },
-      { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
-      { href: "/registrazioni/riconciliazione", label: "Riconciliazione clienti", icon: icons.confronti },
-    ],
-  },
-  {
-    // Gli ordini del sito hanno una sezione tutta loro: non sono una
-    // "registrazione" come una fattura o una pro-forma, e da qui passa la
-    // quadratura degli incassi dell'e-commerce.
-    label: "Ordini Shopify",
-    items: [{ href: "/ordini", label: "Orders", icon: icons.ordini }],
-  },
-  {
-    label: "Rete",
-    items: [{ href: "/partner", label: "Partner", icon: icons.partner }],
-  },
-  {
-    label: "Amministrazione",
-    items: [
-      { href: "/tasks", label: "Tasks finance", icon: icons.tasks },
+      { href: "/movimenti", label: "Movimenti bancari", icon: icons.banca },
+      { href: "/transazioni", label: "Import & riconciliazione", icon: icons.transazioni },
       { href: "/saldi", label: "Saldi e bonifici", icon: icons.saldi },
       { href: "/richiedi-pagamento", label: "Richiedi pagamento", icon: icons.pagamenti },
-      { href: "/transazioni", label: "Import transazioni", icon: icons.transazioni },
-      { href: "/spese", label: "Spese per categoria", icon: icons.analisi },
+      { href: "/spese", label: "Spese per categoria", icon: icons.categoria },
+    ],
+  },
+  {
+    // Quello che fatturiamo e incassiamo. «Fatturazione servizi» (il lavoro:
+    // cosa fatturo ai partner) è cosa diversa dal «Registro fatture» (la
+    // contabilizzazione): nomi che dicono la FASE, non lo stesso oggetto, e
+    // icone diverse — era la coppia ambigua segnalata dalla revisione UX.
+    label: "Ciclo attivo",
+    items: [
+      { href: "/fatture", label: "Fatturazione servizi", icon: icons.fattura },
+      { href: "/vendite", label: "Vendite vendor", icon: icons.vendite },
+      { href: "/proforma", label: "Pro-forma", icon: icons.proforma },
+      { href: "/registrazioni/fatture", label: "Registro fatture", icon: icons.registro },
+      { href: "/registrazioni/riconciliazione", label: "Riconciliazione clienti", icon: icons.riconcilia },
       { href: "/scadenzario", label: "Scadenzario", icon: icons.scadenze },
     ],
   },
   {
-    // Le viste che servono a capire l'andamento, separate dalle pagine dove si
-    // registra qualcosa: qui non si tocca nessun dato, si legge e si confronta.
-    label: "Analisi",
+    // Le due voci che prima erano sezioni da sole (Rete, Ordini Shopify):
+    // accorpate, come chiede il Libro — un'etichetta di sezione si paga solo
+    // se raggruppa almeno due voci.
+    label: "Rete e vendite",
     items: [
-      { href: "/report", label: "Report", icon: icons.report },
-      { href: "/analisi", label: "Analisi finanziaria", icon: icons.analisi },
-      { href: "/confronti", label: "Confronti", icon: icons.confronti },
+      { href: "/partner", label: "Partner", icon: icons.partner },
+      { href: "/ordini", label: "Orders", icon: icons.ordini },
     ],
   },
   {
-    label: "Configurazione",
+    // Sola lettura: qui non si registra niente, si legge e si confronta.
+    label: "Analisi",
     items: [
-      // ⚠️ Solo l'amministratore: quella pagina stampa la CHIAVE API in
-      // chiaro. Nascondere la voce non è la difesa (la difesa è il redirect
-      // dentro la pagina): è per non mostrare a un profilo di sola lettura una
-      // porta che poi gli si chiude in faccia.
-      { href: "/verifiche", label: "API verifiche", icon: icons.api, soloAdmin: true },
+      { href: "/analisi", label: "Analisi finanziaria", icon: icons.analisi },
+      { href: "/confronti", label: "Confronti", icon: icons.confronti },
+      { href: "/report", label: "Report", icon: icons.report },
+    ],
+  },
+  {
+    label: "Sistema",
+    items: [
+      { href: "/tasks", label: "Tasks finance", icon: icons.tasks },
       { href: "/impostazioni", label: "Impostazioni", icon: icons.impostazioni },
+      // ⚠️ Solo l'amministratore: la pagina stampa la CHIAVE API. Nascondere la
+      // voce non è la difesa (la difesa è il redirect nella pagina): è per non
+      // mostrare a un profilo di sola lettura una porta che poi gli si chiude.
+      { href: "/verifiche", label: "API verifiche", icon: icons.api, soloAdmin: true },
     ],
   },
 ];
-
 export function Sidebar({
   nome,
   ruolo,
@@ -232,7 +263,7 @@ export function Sidebar({
       <nav className="sidebar-nav">
       {sections.map((s) => (
         <div className="nav-section" key={s.label}>
-          <div className="nav-label solo-estesa">{s.label}</div>
+          {s.label && <div className="nav-label solo-estesa">{s.label}</div>}
           {s.items.filter((it) => !it.soloAdmin || ruolo === "admin").map((it) => {
             const figli = it.figli ?? [];
             // il gruppo è "aperto" quando sei su una delle sue pagine

@@ -75,7 +75,7 @@ export default async function FattureCloudPage({
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Fatture</h1>
+          <h1 className="page-title">Registro fatture</h1>
           <p className="page-caption">
             Fatture emesse su <strong>Fatture in Cloud</strong>. Per crearne una vai su una pro-forma o su una
             fattura servizi e usa &laquo;Emetti su FIC&raquo;.

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { parseEstratto, hashMovimento } from "./estratto";
 import { chiaveControparte } from "./riconciliazione";
-import { qontoOrganizzazione, qontoTransazioni } from "./qonto";
+import { qontoOrganizzazione, qontoTransazioni, qontoConfigurato } from "./qonto";
 import { segnaFatturaPagataConEsito, applicaIncassoParziale } from "./actions";
 import { euro } from "./format";
 import { registra } from "./registro";
@@ -160,6 +160,46 @@ export async function sincronizzaQonto() {
   revalidate();
   // messaggio dedicato alla sync Qonto (distinto dall'import da file)
   redirect(`/transazioni?qonto=ok&nuove=${esito.nuove}&conti=${esito.conti}&totali=${esito.totali}`);
+}
+
+// Sync Qonto all'APERTURA della pagina. La chiama un piccolo componente client
+// al montaggio (`AutoSyncQonto`): la pagina si apre subito e questa gira in
+// background, senza redirect e senza mai far fallire il caricamento.
+//
+// ⚠️ Ha un FRENO: se l'ultima sync riuscita è di meno di 60 secondi fa, non
+// richiama Qonto. Aprire, chiudere e riaprire la pagina — o cambiare filtro —
+// non deve martellare l'API della banca (c'è un rate limit) né rallentare la
+// navigazione; il cron notturno e il bottone «Sincronizza» restano invariati.
+// Per l'operatore l'effetto è comunque «si aggiorna da sola quando entro».
+const FRENO_AUTO_SYNC_MS = 60_000;
+
+export async function sincronizzaQontoAllApertura(): Promise<{ nuove: number } | { saltato: string }> {
+  try {
+    if (!(await qontoConfigurato())) return { saltato: "qonto-non-configurato" };
+    const imp = await prisma.impostazione.findUnique({ where: { chiave: "qonto.ultimaSync" } });
+    if (imp?.valore) {
+      const eta = Date.now() - new Date(imp.valore).getTime();
+      if (Number.isFinite(eta) && eta >= 0 && eta < FRENO_AUTO_SYNC_MS) {
+        return { saltato: "sync-recente" };
+      }
+    }
+    const esito = await scaricaMovimentiQonto();
+    if (esito.nuove > 0) {
+      try {
+        const { eseguiAbbinamentoPerNumero } = await import("./ordini-abbina");
+        await eseguiAbbinamentoPerNumero();
+      } catch (err) {
+        console.warn("[qonto] abbinamento automatico ordini non riuscito:", (err as Error).message);
+      }
+      revalidate();
+    }
+    return { nuove: esito.nuove };
+  } catch (e) {
+    // Una sync fallita all'apertura NON deve rompere la pagina: si annota e si
+    // tace. Resta il bottone manuale, che invece l'errore lo mostra.
+    console.warn("[qonto] auto-sync all'apertura non riuscita:", (e as Error).message);
+    return { saltato: "errore" };
+  }
 }
 
 // Esito di un'azione di riga in /transazioni, mostrato ACCANTO al bottone.
