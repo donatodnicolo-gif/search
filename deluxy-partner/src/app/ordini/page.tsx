@@ -14,6 +14,7 @@ import {
   impostaGestioneOrdine,
 } from "@/lib/ordini-actions";
 import { RiconciliaModale } from "@/components/RiconciliaModale";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { BottoneAggiornaOrdini } from "@/components/BottoneAggiornaOrdini";
 import { GestioneOrdine } from "@/components/GestioneOrdine";
 import { ordersConfigurato } from "@/lib/ordini-registro";
@@ -279,6 +280,14 @@ export default async function OrdiniPage({
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
         <form className="filters" method="get">
+          {/* I select vivono dietro «Filtri (N)» sotto la soglia mobile (Libro
+              v1.2 §8): il periodo conta solo fuori dal default (90 giorni). */}
+          <ZonaFiltri
+            attivi={
+              (giorniPeriodo !== 90 ? 1 : 0) +
+              [sp.negozio, sp.cat, sp.stato].filter(Boolean).length
+            }
+          >
           <select name="periodo" defaultValue={String(giorniPeriodo)} aria-label="Periodo">
             <option value="30">Ultimi 30 giorni</option>
             <option value="90">Ultimi 90 giorni</option>
@@ -298,6 +307,7 @@ export default async function OrdiniPage({
             <option value="">Tutti gli stati</option>
             {Object.entries(STATI_ORDINE).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
+          </ZonaFiltri>
           <button className="btn secondary small" type="submit">Filtra</button>
         </form>
       </div>

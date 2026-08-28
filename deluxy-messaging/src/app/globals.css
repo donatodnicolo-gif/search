@@ -1669,6 +1669,30 @@ button {
   box-shadow: 0 0 0 4px var(--gold-soft);
 }
 
+/* Zona filtri (Libro UX&UI v1.2 §8): il bottone «Filtri (N)» esiste solo
+   sotto la soglia mobile (800, la stessa della sidebar a scomparsa); dalla
+   soglia in su il wrapper è display:contents, così i select restano figli
+   diretti della flex .barra-ricerca e su desktop non cambia NULLA. Ricerca,
+   riga dei passi e riga esito restano sempre visibili; i 5 select stanno
+   dietro il bottone. I campi nascosti restano montati (solo display:none). */
+.zf-bottone { display: none; }
+.zona-filtri, .zona-filtri .zf-campi { display: contents; }
+@media (max-width: 800px) {
+  .zona-filtri { display: block; }
+  .zf-bottone {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 44px; padding: 8px 16px;
+    border: 1px solid var(--hairline-strong); border-radius: var(--radius-pill);
+    background: var(--surface); color: var(--text); font: inherit; font-weight: 600; font-size: 13px;
+    cursor: pointer;
+  }
+  .zona-filtri[data-aperto] .zf-bottone { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .zona-filtri .zf-campi { display: none; }
+  /* Aperta occupa tutta la riga, così i select wrappano sotto il bottone. */
+  .zona-filtri[data-aperto] { flex: 1 1 100%; }
+  .zona-filtri[data-aperto] .zf-campi { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+}
+
 /* ---- Agenda: le consegne da oggi in avanti ---- */
 
 .agenda {

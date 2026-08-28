@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { Sidebar } from "@/components/Sidebar";
 import { Vuoto } from "@/components/Vuoto";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { prisma } from "@/lib/db";
 import {
   SEGMENTI,
@@ -134,24 +135,29 @@ export default async function Consumers({
 
         <form className="filtri" method="get">
           <input type="search" name="q" placeholder="Cerca nome, email, telefono, città…" defaultValue={q} />
-          <select name="segmento" defaultValue={segmento}>
-            <option value="">Tutti i segmenti</option>
-            {SEGMENTI.map((s) => (
-              <option key={s.chiave} value={s.chiave}>{s.nome}</option>
-            ))}
-          </select>
-          <select name="tipologia" defaultValue={tipologia}>
-            <option value="">Tutte le tipologie</option>
-            {TIPOLOGIE.map((t) => (
-              <option key={t.chiave} value={t.chiave}>{t.nome}</option>
-            ))}
-          </select>
-          <select name="ordina" defaultValue={ordina}>
-            <option value="speso">Ordina per spesa</option>
-            <option value="ordini">Ordina per numero di ordini</option>
-            <option value="recenti">Ordina per ultimo ordine</option>
-            <option value="nome">Ordina per nome</option>
-          </select>
+          {/* I select vivono dietro «Filtri (N)» sotto la soglia mobile (Libro
+              v1.2 §8). L'ordinamento NON è un filtro: sta nel pannello ma
+              resta fuori dal conteggio N (§8.6). */}
+          <ZonaFiltri attivi={[segmento, tipologia].filter(Boolean).length}>
+            <select name="segmento" defaultValue={segmento}>
+              <option value="">Tutti i segmenti</option>
+              {SEGMENTI.map((s) => (
+                <option key={s.chiave} value={s.chiave}>{s.nome}</option>
+              ))}
+            </select>
+            <select name="tipologia" defaultValue={tipologia}>
+              <option value="">Tutte le tipologie</option>
+              {TIPOLOGIE.map((t) => (
+                <option key={t.chiave} value={t.chiave}>{t.nome}</option>
+              ))}
+            </select>
+            <select name="ordina" defaultValue={ordina}>
+              <option value="speso">Ordina per spesa</option>
+              <option value="ordini">Ordina per numero di ordini</option>
+              <option value="recenti">Ordina per ultimo ordine</option>
+              <option value="nome">Ordina per nome</option>
+            </select>
+          </ZonaFiltri>
           <button className="btn btn-secondario" type="submit">Filtra</button>
           <a className="btn btn-secondario" href={conFiltro({ b2b: soloB2B ? "" : "1", pagina: "" })}>
             {soloB2B ? "← Tutte le persone" : `Solo chi è anche azienda (${agganciati})`}

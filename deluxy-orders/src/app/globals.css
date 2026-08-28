@@ -1273,23 +1273,40 @@ a.periodo-opz:hover { background: var(--fill); color: var(--text); }
 /* D3 — i 12 select filtro avevano larghezze irregolari: base uniforme. */
 .filtri select { min-width: 152px; flex: 1 1 152px; }
 
-/* M7 — su telefono i 12 filtri sempre aperti (~500px) seppellivano l'elenco
-   sotto la piega. Ora si aprono col bottone «Filtri» (checkbox hack: niente
-   JS, e dopo un filtro la pagina ricarica e si richiudono). A schermo largo il
-   bottone sparisce e i filtri restano sempre visibili. */
-.filtri-toggle { display: none; }
-.filtri-somma { display: none; }
+/* M7 → Libro v1.2 §8 (28/08) — il checkbox-hack che apriva i filtri su
+   telefono è vietato dal Libro (fallisce tastiera e screen reader) e il suo
+   `.filtri { display:none }` globale nascondeva SENZA sostituto anche le zone
+   filtri delle altre pagine. Ora la disclosure è il client component
+   ZonaFiltri (bottone «Filtri (N)» con aria-expanded): sotto la soglia i
+   campi stanno dietro il bottone, dalla soglia in su il wrapper è
+   display:contents e non cambia nulla. I campi nascosti restano montati
+   (display:none): il form GET li invia comunque. */
+.zf-bottone { display: none; }
+.zona-filtri, .zona-filtri .zf-campi { display: contents; }
 @media (max-width: 700px) {
-  .filtri-somma {
-    display: inline-flex; align-items: center; gap: 8px;
-    margin-bottom: 10px; padding: 9px 16px;
-    border: 1px solid var(--hairline); border-radius: var(--radius-pill);
-    background: var(--surface); color: var(--text);
-    font-size: 14px; font-weight: 500; cursor: pointer; user-select: none;
+  .zona-filtri { display: block; }
+  .main > .zona-filtri { margin-bottom: 14px; }
+  .zf-bottone {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 44px; padding: 8px 16px;
+    border: 1px solid var(--hairline-strong); border-radius: var(--radius-pill);
+    background: var(--surface); color: var(--text); font: inherit; font-weight: 600; font-size: 13px;
+    cursor: pointer;
   }
-  .filtri { display: none; }
-  .filtri-toggle:checked ~ .filtri { display: flex; }
+  .zona-filtri[data-aperto] .zf-bottone { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .zona-filtri .zf-campi { display: none; }
+  /* Aperta occupa tutta la riga della card, così i campi wrappano sotto. */
+  .zona-filtri[data-aperto] { flex: 1 1 100%; }
+  .zona-filtri[data-aperto] .zf-campi { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  /* Un gruppo-card dentro il pannello prende tutta la riga. */
+  .zf-campi > .filtri { flex: 1 1 100%; }
 }
+
+/* Clienti — la card UNICA dei filtri (Libro v1.2 §8): dentro, la ricerca e i
+   gruppi di pillole sono righe piene, senza card nella card. */
+.filtri .filtri { padding: 0; border: 0; box-shadow: none; background: transparent; margin-bottom: 0; flex: 1 1 100%; }
+.filtri .ricerca { flex: 1 1 100%; margin-bottom: 0; box-shadow: none; }
+.filtri .esito-ricerca { flex: 1 1 100%; margin: 0 0 0 4px; }
 
 /* M2 — su ≤700px `.scelta-vista` era `display:none`. Sulla home è solo il
    toggle vista (le colonne si impilano da sole → ok), ma su Analisi e Margini

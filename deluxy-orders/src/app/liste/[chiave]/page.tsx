@@ -6,6 +6,7 @@ import { elencoClienti, ordinamentoValido, versoValido, totaliClienti } from "@/
 import { FAMIGLIE, LISTE, lista } from "@/lib/segmenti";
 import { TabellaClienti } from "@/components/TabellaClienti";
 import { FiltriTaglio } from "@/components/FiltriTaglio";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 
 export const dynamic = "force-dynamic";
 
@@ -119,25 +120,30 @@ export default async function DettaglioLista({
         </div>
       </div>
 
-      {/* Le altre liste della stessa famiglia: si passa dall'una all'altra */}
-      {famiglia && (
-        <div className="filtri">
-          <span className="etichetta-ordina">{famiglia.nome}</span>
-          {sorelle.map((s) => (
-            <Link key={s.chiave} className={`stato-pill${s.chiave === l.chiave ? " attuale" : ""}`} href={`/liste/${s.chiave}`}>
-              <span className="dot" style={{ background: s.colore }} />
-              <span className="stato-label">{s.nome}</span>
-            </Link>
-          ))}
-        </div>
-      )}
+      {/* Sotto la soglia mobile i gruppi di pillole (famiglia + brand +
+          categoria) vivono dietro «Filtri (N)» (Libro v1.2 §8) — prima il
+          display:none globale di M7 li nascondeva del tutto sul telefono. */}
+      <ZonaFiltri attivi={(taglio.brand ? 1 : 0) + (taglio.categoria ? 1 : 0)}>
+        {/* Le altre liste della stessa famiglia: si passa dall'una all'altra */}
+        {famiglia && (
+          <div className="filtri">
+            <span className="etichetta-ordina">{famiglia.nome}</span>
+            {sorelle.map((s) => (
+              <Link key={s.chiave} className={`stato-pill${s.chiave === l.chiave ? " attuale" : ""}`} href={`/liste/${s.chiave}`}>
+                <span className="dot" style={{ background: s.colore }} />
+                <span className="stato-label">{s.nome}</span>
+              </Link>
+            ))}
+          </div>
+        )}
 
-      <FiltriTaglio
-        brand={brand}
-        brandScelto={taglio.brand}
-        categoriaScelta={taglio.categoria}
-        href={conTaglio}
-      />
+        <FiltriTaglio
+          brand={brand}
+          brandScelto={taglio.brand}
+          categoriaScelta={taglio.categoria}
+          href={conTaglio}
+        />
+      </ZonaFiltri>
 
       <form className="ricerca" method="get">
         {sp.ordina && <input type="hidden" name="ordina" value={sp.ordina} />}

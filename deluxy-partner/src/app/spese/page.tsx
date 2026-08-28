@@ -6,6 +6,7 @@ import { ANNO_CORRENTE } from "@/lib/queries";
 import { categorieDaBudgets, budgetsConfigurato, contaRegole, TIPI_PL } from "@/lib/categorie-spesa";
 import { impostaCategoriaSpesa, applicaRegoleCategorie, riclassificaTutteLeSpese, proponiCategorieAI } from "@/lib/spese-actions";
 import { CategoriaSpesa } from "@/components/CategoriaSpesa";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { BottoneAI } from "@/components/BottoneAI";
 
 export const dynamic = "force-dynamic";
@@ -411,6 +412,15 @@ export default async function SpesePage({
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
         <form className="filters" method="get">
+          {/* I campi vivono dietro «Filtri (N)» sotto la soglia mobile (Libro
+              v1.2 §8): N conta solo i filtri fuori dal loro default. */}
+          <ZonaFiltri
+            attivi={
+              (anno !== ANNO_CORRENTE ? 1 : 0) +
+              (dal !== 1 || al !== 12 ? 1 : 0) +
+              [sp.cat, tipo, sp.solo].filter(Boolean).length
+            }
+          >
           <input type="number" name="anno" defaultValue={anno} style={{ width: 90 }} aria-label="Anno" />
           <select name="dal" defaultValue={dal} aria-label="Dal mese">
             {MESI.map((m, i) => <option key={m} value={i + 1}>da {m}</option>)}
@@ -435,6 +445,7 @@ export default async function SpesePage({
             <option value="senza">Solo senza categoria</option>
             <option value="ai">Solo assegnate dall&apos;AI (da rivedere)</option>
           </select>
+          </ZonaFiltri>
           <button className="btn secondary small" type="submit">Filtra</button>
         </form>
       </div>

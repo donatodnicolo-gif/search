@@ -6,6 +6,7 @@ import { MESI, nomeMese } from "@/lib/calc";
 import { euro, pctIt } from "@/lib/format";
 import { ThSort, ordina } from "@/components/ThSort";
 import { BadgeCredito } from "@/components/BadgeCredito";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { schedeTutti, schedaVuota, GRAVITA } from "@/lib/stato-credito";
 
 export const dynamic = "force-dynamic";
@@ -242,6 +243,16 @@ export default async function PartnerList({
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
         <form className="filters" method="get">
           <input type="text" name="q" placeholder="Cerca partner…" defaultValue={sp.q ?? ""} />
+          {/* I select vivono dietro «Filtri (N)» sotto la soglia mobile (Libro
+              v1.2 §8): N conta solo i filtri fuori dal loro default. */}
+          <ZonaFiltri
+            attivi={
+              [sp.citta, sp.categoria, sp.credito].filter(Boolean).length +
+              (stato !== "attivi-fatture" ? 1 : 0) +
+              (attivita ? 1 : 0) +
+              (periodoRidotto ? 1 : 0)
+            }
+          >
           <select name="citta" defaultValue={sp.citta ?? ""}>
             <option value="">Tutte le città</option>
             {citta.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -281,6 +292,7 @@ export default async function PartnerList({
           <select name="al" defaultValue={String(al)} aria-label="Al mese">
             {MESI.map((m, i) => <option key={m} value={i + 1}>A {m}</option>)}
           </select>
+          </ZonaFiltri>
           <button className="btn secondary small" type="submit">Filtra</button>
           {filtroAttivo && <Link href="/partner" className="btn secondary small">Azzera</Link>}
         </form>

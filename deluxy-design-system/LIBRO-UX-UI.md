@@ -1,6 +1,6 @@
 # Il Libro UX&UI Deluxy
 
-**Versione 1.1 — 28 agosto 2026** · *1.1: il drawer di menu si apre sempre da sinistra (§2).*
+**Versione 1.2 — 28 agosto 2026** · *1.1: il drawer di menu si apre sempre da sinistra (§2). 1.2: la zona filtri di un elenco — tetto di 2 righe a pannello chiuso, fasce a breakpoint, eccedenza dietro «Filtri (N)» (§8; giuria: architetto + ostile).*
 
 Il canone dei **pattern di interfaccia** di tutte le app Deluxy: menù, bottoni, form, tabelle, stati, feedback, conferme, finestre, mobile. D'ora in poi **ogni elemento di interfaccia, in ogni app esistente e nuova, si costruisce attingendo da qui** — non dal gusto del momento e non copiando un'altra app a caso.
 
@@ -158,12 +158,21 @@ Riferimenti: Mail `EliminaSezione`/`SvuotaCestino`, Anagrafiche `Riconcilia`. Pe
 
 **Mobile — la tabella non si strizza**: sotto la soglia, **diventa schede**. Web: utility `tabelle-a-schede` della piattaforma (etichette lette dai `th` già tradotti → `data-label`, MutationObserver; 27 liste sistemate senza toccare una pagina — da estrarre nel layer condiviso). React Native: la tabella **non si monta**, si montano le card (`Scout/Tabella.tsx` + `CardElenco`). Lo scroll orizzontale come UNICA risposta mobile è vietato. Sulla scheda, il pallino di stato si porta il nome (cap. 5).
 
-**Filtri — il pacchetto canonico** (dossier §8 + tessere già esistenti nel parco):
-- barra filtri sopra la tabella (desktop); su mobile pannello/bottom sheet chiuso di default col **conteggio dei filtri attivi sul bottone** e «Mostra N risultati»;
-- chip **rimovibili singolarmente** + «Azzera tutto»; i chip vanno a capo, non scorrono in orizzontale; sono `<button>`, ≥44px su touch;
-- **conteggio sempre visibile**: «12 di 340 · filtro attivo» (`ContoRighe` di Scout — oggi in 2 liste su 20: si estende a tutte). Il default che nasconde chi aspetta è già costato 27 partner invisibili;
-- **lo stato dei filtri sta nell'URL** (debounce ~300 ms, `router.replace`): condivisibile fra colleghi, back funzionante (riferimento: Tasks `Filtri.tsx`);
-- le **viste salvate** della piattaforma (filtri+ordinamento+paginazione come chip condivisibili col team) si integrano sopra questo pacchetto.
+**Filtri — la ZONA FILTRI di un elenco** *(v1.2, 28/08/2026 — segnalazione utente su Scout/Ordini: 4 gruppi di pillole sempre aperti ≈ 300-330px a 375px, il 37-40% della viewport. Proposta dell'architetto passata dalla revisione ostile: 4 punti confermati, 6 corretti — le correzioni sono incorporate qui.)*
+
+Vale per web e React Native. La regola madre è un **numero falsificabile**:
+
+1. **Tetto a pannello chiuso: 2 righe (~70-90px), contando il wrap REALE** (non le righe «logiche»: la trappola di Ordini era proprio lì). **Misura di collaudo: a 375×812 la prima riga dell'elenco compare nella prima schermata.** Una zona filtri che sfora il tetto è un bug, non uno stile.
+2. **Cosa resta visibile: fasce a breakpoint dichiarate**, mai «ciò che non wrappa» (misura runtime che in CSS-only non esiste e in RN è fragile). Sotto la soglia mobile: ricerca (se c'è) + bottone **«Filtri (N)»** + «Azzera» (solo con N>0); la **dimensione primaria** resta fuori solo se è un segmented compatto ≤3 valori corti. Dalla soglia in su: anche la dimensione primaria (UNA sola per elenco, ≤5 valori mutuamente esclusivi, con «Tutti»); su desktop largo anche select compatti — **finché tutto sta nel tetto**.
+3. **Il pannello contiene l'ECCEDENZA rispetto al tetto**, chiuso di default; se a quel breakpoint l'eccedenza è vuota (es. Anagrafiche desktop: 6 select in una riga da ~50px), il pannello non c'è e i filtri restano in barra. In RN i gruppi a chip sono alti per natura → di fatto quasi tutto sta nel pannello (`PannelloFiltri`, chiuso di default su ogni viewport — scelta utente già in codice).
+4. **Singola o multipla**: valori esclusivi per natura (stato del flusso, periodo, aperto/chiuso) → **singola** con «Tutti»; valori combinabili o numerosi (linea, città, account, tag) → **multipla in OR** con spunta (`GruppoFiltro`). Il wrap dentro il pannello regge fino a ~15-20 valori; la ricerca interna al gruppo è raccomandata solo quando un caso reale la richiede (oggi in Scout nessuno).
+5. **Si capisce sempre perché la lista è ridotta**: conteggio (N) sul bottone + **«N di M · filtro attivo» sopra la lista** (`ContoRighe` — UNA fonte sola, mai due conteggi della stessa cosa). I **chip rimovibili** dei filtri attivi a pannello chiuso vivono **solo dalla soglia in su** (tetto una riga + coda «+N»): su mobile ricreerebbero l'impilamento che questa regola abolisce (misurato: a 375px un solo chip sta nei ~150px residui). Il vuoto da filtro resta il vuoto n. 2 del cap. 6 («0 di N» + «Azzera i filtri»).
+6. **L'ordinamento NON è un filtro**: fuori dal conteggio (N), mai dentro il numero. Su desktop vive nei `th` (`ThSort`); su mobile, dove la tabella diventa schede e i `th` spariscono, un controllo «Ordina» dichiarato nella riga sempre-visibile (o nel pannello, ma escluso da N).
+7. **Applicazione interattiva dove c'è JS client** (canone Tasks: stato nell'URL, debounce ~300 ms, `router.replace`); nelle pagine server-rendered a form GET il bottone **«Filtra» resta legittimo**, con «Azzera» come **link alla rotta nuda** (canone Finance). In RN lo stato è di schermata (nessun URL nativo).
+8. **Collasso web sotto la soglia**: disclosure accessibile — un client component con bottone `aria-expanded` («Filtri (N)») o `<details>/<summary>` nativo; **mai il checkbox-hack** (fallisce tastiera e screen reader). Dalla soglia in su i campi sono sempre visibili e il bottone sparisce.
+9. Restano ferme: chip `<button>` ≥44px che **vanno a capo, mai scroll orizzontale**; «Azzera tutto» a un tap; le **viste salvate** della piattaforma si integrano sopra questo pacchetto.
+
+**Riferimenti d'implementazione**: RN — Scout `PannelloFiltri.tsx` (bottone «Filtri (N)» + Azzera, chiuso di default) composto come `[riga primaria] + [PannelloFiltri con l'eccedenza]`, `GruppoFiltro` dentro; web con JS — Tasks `components/Filtri.tsx` (riga unica, select-travestito-da-chip, URL+debounce) e piattaforma `deliveries-list` (segmented `quick-tabs` su `--surface-sunken`, media query `flex:1 1 140px`); web server-rendered — il collasso disclosure alla prima app che lo monta (Anagrafiche) diventa riferimento.
 
 ## 9. Finestre (modali e fogli)
 

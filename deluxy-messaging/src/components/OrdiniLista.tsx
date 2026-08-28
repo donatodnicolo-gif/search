@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { ZonaFiltri } from '@/components/ZonaFiltri'
 import { CHIUSURA, GESTIONI, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import {
   TIPI_CLIENTE,
@@ -1549,6 +1550,22 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
           placeholder="Cerca per numero ordine, cliente, telefono, email o indirizzo…"
           aria-label="Cerca ordini"
         />
+        {/* I 5 select rispondono a «quali ordini» e sotto la soglia mobile
+            vivono dietro «Filtri (N)» (Libro v1.2 §8): N = quanti non sono al
+            default. Ricerca, riga dei passi e riga esito restano fuori, sempre
+            visibili. La sincronizzazione select↔pillole non cambia: i select
+            restano montati anche a pannello chiuso (nascosti solo via CSS). */}
+        <ZonaFiltri
+          attivi={
+            // filtroGestione NON conta: lo stesso stato è già visibile fuori,
+            // nelle pillole dei passi — due segnali dello stesso filtro
+            // farebbero cercare nel pannello una cosa che si vede già.
+            (negozio ? 1 : 0) +
+            (filtroTipo ? 1 : 0) +
+            (filtroPresa ? 1 : 0) +
+            (filtroContatto ? 1 : 0)
+          }
+        >
         <select value={negozio} onChange={(e) => setNegozio(e.target.value)} aria-label="Negozio">
           <option value="">Tutti i negozi</option>
           {negozi.map((n) => (
@@ -1604,6 +1621,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
           <option value="no">Da salvare</option>
           <option value="si">Salvati</option>
         </select>
+        </ZonaFiltri>
         {filtriAttivi ? (
           <button
             className="bottone secondario"

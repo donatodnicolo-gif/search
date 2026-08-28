@@ -9,6 +9,7 @@ import {
 import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { CambiaStatoSelect } from "@/components/CambiaStatoSelect";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { brandConColore, mappaColori, coloreBrand, mappaRicerca } from "@/lib/brand";
 import { linkRicerca } from "@/lib/fornitori";
 import { ordinali } from "@/lib/repeater";
@@ -222,19 +223,21 @@ export default async function ElencoOrdini({
         </p>
       )}
 
-      {/* Filtri — su telefono si aprono col bottone «Filtri» (checkbox hack,
-          niente JS); a schermo largo restano sempre visibili. Prima erano 12
-          select sempre aperti che spingevano gli ordini sotto la piega. */}
-      <input type="checkbox" id="mostra-filtri" className="filtri-toggle" hidden />
-      <label htmlFor="mostra-filtri" className="filtri-somma">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M3 5h18M6 12h12M10 19h4" />
-        </svg>
-        Filtri
-      </label>
+      {/* Filtri — su telefono i 12 select vivono dietro «Filtri (N)» (Libro
+          v1.2 §8, ZonaFiltri: prima era un checkbox hack, vietato dal Libro
+          perché fallisce tastiera e screen reader); a schermo largo restano
+          sempre visibili. N = quanti filtri sono valorizzati. */}
       <form className="filtri" method="get">
         {sp.q && <input type="hidden" name="q" value={sp.q} />}
         {vista === "elenco" && <input type="hidden" name="vista" value="elenco" />}
+        <ZonaFiltri
+          attivi={
+            [
+              sp.brand, sp.anno, sp.stato, sp.categoria, sp.shopify, sp.problema,
+              sp.rischio, sp.urgenza, sp.estero, sp.pagamento, sp.app, sp.etichetta,
+            ].filter(Boolean).length
+          }
+        >
         <select name="brand" defaultValue={sp.brand ?? ""}>
           <option value="">Tutti i brand</option>
           {negozi.map((n) => (
@@ -314,6 +317,7 @@ export default async function ElencoOrdini({
             <option key={e.id} value={e.nome}>{e.nome}</option>
           ))}
         </select>
+        </ZonaFiltri>
         <button className="btn btn-secondario small" type="submit">Filtra</button>
         <Link className="btn btn-secondario small" href="/">Azzera</Link>
       </form>

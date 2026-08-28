@@ -3,6 +3,7 @@ import { GruppoEspandibile } from "@/components/GruppoEspandibile";
 import { MenuInteressi } from "@/components/MenuInteressi";
 import { MenuStato } from "@/components/MenuStato";
 import { Vuoto } from "@/components/Vuoto";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { MenuStatoAzienda } from "@/components/MenuStatoAzienda";
 import { Riconcilia } from "@/components/Riconcilia";
 import { etichetta, Sidebar } from "@/components/Sidebar";
@@ -473,42 +474,55 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
           placeholder="Cerca in tutti i campi: nome, città, referenti, telefono, note…"
           defaultValue={filtri.q ?? ""}
         />
-        <select name="citta" defaultValue={filtri.citta ?? ""}>
-          <option value="">Tutte le città</option>
-          {citta.map((c) => (
-            <option key={c.citta} value={c.citta ?? ""}>{c.citta}</option>
-          ))}
-        </select>
-        <select name="stato" defaultValue={filtri.stato ?? ""}>
-          <option value="">Tutti gli stati commerciali</option>
-          {STATI.map((s) => (
-            <option key={s} value={s}>{ETICHETTE_STATO[s]}</option>
-          ))}
-        </select>
-        <select name="statoFinanziario" defaultValue={filtri.statoFinanziario ?? ""}>
-          <option value="">Tutti gli stati finanziari</option>
-          {STATI_FINANZIARI.map((s) => (
-            <option key={s} value={s}>{ETICHETTE_STATO_FINANZIARIO[s]}</option>
-          ))}
-        </select>
-        <select name="statoAnalisi" defaultValue={filtri.statoAnalisi ?? ""}>
-          <option value="">Tutti gli stati analisi</option>
-          {STATI_ANALISI.map((s) => (
-            <option key={s} value={s}>{DESCRIZIONI_STATO_ANALISI[s]}</option>
-          ))}
-          <option value="nessuno">Non analizzate</option>
-        </select>
-        <select name="statoFornitore" defaultValue={filtri.statoFornitore ?? ""}>
-          <option value="">Fornitori: tutte</option>
-          {STATI_FORNITORE.map((s) => (
-            <option key={s} value={s}>{ETICHETTE_STATO_FORNITORE[s]}</option>
-          ))}
-        </select>
-        <select name="feedbackD2C" defaultValue={filtri.feedbackD2C ?? ""}>
-          <option value="">Valutazione D2C: tutte</option>
-          <option value="si">Con feedback</option>
-          <option value="nessuno">Da valutare (nessun feedback)</option>
-        </select>
+        {/* I select vivono dietro «Filtri (N)» sotto la soglia mobile (Libro
+            v1.2 §8): N = quanti sono valorizzati, calcolato dai searchParams. */}
+        <ZonaFiltri
+          attivi={[
+            filtri.citta,
+            filtri.stato,
+            filtri.statoFinanziario,
+            filtri.statoAnalisi,
+            filtri.statoFornitore,
+            filtri.feedbackD2C,
+          ].filter(Boolean).length}
+        >
+          <select name="citta" defaultValue={filtri.citta ?? ""}>
+            <option value="">Tutte le città</option>
+            {citta.map((c) => (
+              <option key={c.citta} value={c.citta ?? ""}>{c.citta}</option>
+            ))}
+          </select>
+          <select name="stato" defaultValue={filtri.stato ?? ""}>
+            <option value="">Tutti gli stati commerciali</option>
+            {STATI.map((s) => (
+              <option key={s} value={s}>{ETICHETTE_STATO[s]}</option>
+            ))}
+          </select>
+          <select name="statoFinanziario" defaultValue={filtri.statoFinanziario ?? ""}>
+            <option value="">Tutti gli stati finanziari</option>
+            {STATI_FINANZIARI.map((s) => (
+              <option key={s} value={s}>{ETICHETTE_STATO_FINANZIARIO[s]}</option>
+            ))}
+          </select>
+          <select name="statoAnalisi" defaultValue={filtri.statoAnalisi ?? ""}>
+            <option value="">Tutti gli stati analisi</option>
+            {STATI_ANALISI.map((s) => (
+              <option key={s} value={s}>{DESCRIZIONI_STATO_ANALISI[s]}</option>
+            ))}
+            <option value="nessuno">Non analizzate</option>
+          </select>
+          <select name="statoFornitore" defaultValue={filtri.statoFornitore ?? ""}>
+            <option value="">Fornitori: tutte</option>
+            {STATI_FORNITORE.map((s) => (
+              <option key={s} value={s}>{ETICHETTE_STATO_FORNITORE[s]}</option>
+            ))}
+          </select>
+          <select name="feedbackD2C" defaultValue={filtri.feedbackD2C ?? ""}>
+            <option value="">Valutazione D2C: tutte</option>
+            <option value="si">Con feedback</option>
+            <option value="nessuno">Da valutare (nessun feedback)</option>
+          </select>
+        </ZonaFiltri>
         <button className="btn" type="submit">Filtra</button>
       </form>
 

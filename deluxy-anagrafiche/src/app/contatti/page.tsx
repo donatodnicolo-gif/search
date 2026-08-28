@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { Sidebar } from "@/components/Sidebar";
 import { Vuoto } from "@/components/Vuoto";
 import { TabellaContattiGoogle, type RigaContatto } from "@/components/TabellaContattiGoogle";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { prisma } from "@/lib/db";
 import { eAffiliatoReseller } from "@/lib/interessi";
 import { ETICHETTE_STATO, isStato } from "@/lib/stati";
@@ -114,11 +115,14 @@ export default async function Contatti({ searchParams }: { searchParams: Promise
             placeholder="Cerca per nome, ruolo, telefono, email o anagrafica…"
             defaultValue={filtri.q ?? ""}
           />
-          <select name="fonte" defaultValue={filtri.fonte ?? ""}>
-            <option value="">Tutte le fonti</option>
-            <option value="excel">Tracker Excel</option>
-            <option value="hubspot">HubSpot</option>
-          </select>
+          {/* Il select vive dietro «Filtri (N)» sotto la soglia mobile (Libro v1.2 §8). */}
+          <ZonaFiltri attivi={filtri.fonte ? 1 : 0}>
+            <select name="fonte" defaultValue={filtri.fonte ?? ""}>
+              <option value="">Tutte le fonti</option>
+              <option value="excel">Tracker Excel</option>
+              <option value="hubspot">HubSpot</option>
+            </select>
+          </ZonaFiltri>
           <button className="btn" type="submit">Filtra</button>
         </form>
 

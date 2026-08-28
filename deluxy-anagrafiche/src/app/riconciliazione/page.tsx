@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { Sidebar } from "@/components/Sidebar";
 import { Vuoto } from "@/components/Vuoto";
 import { type RigaRiconc, TabellaRiconciliazione } from "@/components/TabellaRiconciliazione";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { prisma } from "@/lib/db";
 import { whereRicerca } from "@/lib/ricerca";
 
@@ -139,10 +140,14 @@ export default async function Riconciliazione({ searchParams }: { searchParams: 
             placeholder="Cerca per nome, email, ruolo o anagrafica attuale…"
             defaultValue={filtri.q ?? ""}
           />
-          <select name="ambito" defaultValue={ambito}>
-            <option value="da_classificare">Da smistare (contenitori)</option>
-            <option value="tutti">Tutti i referenti del registro</option>
-          </select>
+          {/* Il select vive dietro «Filtri (N)» sotto la soglia mobile (Libro
+              v1.2 §8): conta 1 solo fuori dal default «da smistare». */}
+          <ZonaFiltri attivi={ambito !== "da_classificare" ? 1 : 0}>
+            <select name="ambito" defaultValue={ambito}>
+              <option value="da_classificare">Da smistare (contenitori)</option>
+              <option value="tutti">Tutti i referenti del registro</option>
+            </select>
+          </ZonaFiltri>
           <button className="btn" type="submit">Filtra</button>
         </form>
 

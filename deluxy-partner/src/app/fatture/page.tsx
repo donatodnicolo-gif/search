@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ConfermaElimina } from "@/components/ConfermaElimina";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { prisma } from "@/lib/db";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
@@ -83,6 +84,8 @@ export default async function FatturePage({
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
         <form className="filters" method="get">
+          {/* I select vivono dietro «Filtri (N)» sotto la soglia mobile (Libro v1.2 §8). */}
+          <ZonaFiltri attivi={[sp.mese, sp.stato, sp.tipologia].filter(Boolean).length}>
           <select name="mese" defaultValue={sp.mese ?? ""}>
             <option value="">Tutto l&apos;anno</option>
             {MESI.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
@@ -96,6 +99,7 @@ export default async function FatturePage({
             <option value="">Tutte le tipologie</option>
             {tipologie.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
           </select>
+          </ZonaFiltri>
           <input type="hidden" name="anno" value={anno} />
           <button className="btn secondary small" type="submit">Filtra</button>
         </form>

@@ -207,6 +207,29 @@ a { color: inherit; text-decoration: none; }
 .filtri select:focus { border-color: var(--gold); box-shadow: 0 0 0 4px var(--gold-soft); }
 .filtri select { cursor: pointer; }
 
+/* Zona filtri (Libro UX&UI v1.2 §8): il bottone «Filtri (N)» esiste solo sotto
+   la soglia mobile; dalla soglia in su il wrapper è display:contents, così i
+   select restano figli diretti della flex .filtri e su desktop non cambia
+   NULLA. I campi nascosti restano montati (display:none): il form GET li
+   invia comunque, il submit non perde i filtri attivi. 28/08 */
+.zf-bottone { display: none; }
+.zona-filtri, .zona-filtri .zf-campi { display: contents; }
+@media (max-width: 800px) {
+  .zona-filtri { display: block; }
+  .zf-bottone {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 44px; padding: 8px 16px;
+    border: 1px solid var(--hairline-strong); border-radius: var(--radius-pill);
+    background: var(--surface); color: var(--text); font: inherit; font-weight: 600; font-size: 13px;
+    cursor: pointer;
+  }
+  .zona-filtri[data-aperto] .zf-bottone { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+  .zona-filtri .zf-campi { display: none; }
+  /* Aperta occupa tutta la riga, così i select wrappano sotto il bottone. */
+  .zona-filtri[data-aperto] { flex: 1 1 100%; }
+  .zona-filtri[data-aperto] .zf-campi { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+}
+
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   font: inherit; font-size: 14px; font-weight: 500;

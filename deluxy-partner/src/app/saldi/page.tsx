@@ -3,6 +3,7 @@ import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
 import { nomeMese, MESI } from "@/lib/calc";
 import { upsertSaldo } from "@/lib/actions";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 
 export const dynamic = "force-dynamic";
 
@@ -77,15 +78,26 @@ export default async function SaldiPage({
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
         <form className="filters" method="get">
-          <select name="mese" defaultValue={mese}>
-            {MESI.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-          </select>
-          <input type="number" name="anno" defaultValue={anno} style={{ width: 90 }} />
+          {/* Ricerca sempre visibile; mese/anno/solo dietro «Filtri (N)» sotto
+              la soglia mobile (Libro v1.2 §8): N conta solo i valori fuori dal
+              default (mese e anno correnti). */}
           <input type="text" name="q" placeholder="Cerca partner…" defaultValue={sp.q ?? ""} />
-          <select name="solo" defaultValue={sp.solo ?? ""}>
-            <option value="">Tutti</option>
-            <option value="aperti">Solo residui aperti</option>
-          </select>
+          <ZonaFiltri
+            attivi={
+              (mese !== new Date().getMonth() + 1 ? 1 : 0) +
+              (anno !== ANNO_CORRENTE ? 1 : 0) +
+              (sp.solo ? 1 : 0)
+            }
+          >
+            <select name="mese" defaultValue={mese}>
+              {MESI.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
+            <input type="number" name="anno" defaultValue={anno} style={{ width: 90 }} />
+            <select name="solo" defaultValue={sp.solo ?? ""}>
+              <option value="">Tutti</option>
+              <option value="aperti">Solo residui aperti</option>
+            </select>
+          </ZonaFiltri>
           <button className="btn secondary small" type="submit">Applica</button>
         </form>
       </div>

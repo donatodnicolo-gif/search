@@ -13,6 +13,7 @@ import {
 } from "@/lib/controllo";
 import { riepilogoMovimenti, configurazioneFinance } from "@/lib/movimenti";
 import { AbbinaMovimento } from "@/components/AbbinaMovimento";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { LinkPagamento } from "@/components/LinkPagamento";
 import {
   abbinaIncasso,
@@ -389,6 +390,9 @@ export default async function Controllo({
 
       {/* ---- Filtri ---- */}
       <form className="filtri" method="get">
+        {/* I select vivono dietro «Filtri (N)» sotto la soglia mobile (Libro
+            v1.2 §8): la finestra conta solo fuori dal default (90 giorni). */}
+        <ZonaFiltri attivi={(finestra !== 90 ? 1 : 0) + (brand ? 1 : 0) + (stato ? 1 : 0)}>
         <select name="giorni" defaultValue={String(finestra)}>
           <option value="30">Ultimi 30 giorni</option>
           <option value="90">Ultimi 90 giorni</option>
@@ -412,6 +416,7 @@ export default async function Controllo({
             </option>
           ))}
         </select>
+        </ZonaFiltri>
         <button className="btn btn-secondario small" type="submit">
           Filtra
         </button>

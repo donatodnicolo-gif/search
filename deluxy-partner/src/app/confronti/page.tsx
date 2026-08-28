@@ -4,6 +4,7 @@ import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro } from "@/lib/format";
 import { MESI, nomeMese } from "@/lib/calc";
 import { ThSort, ordina } from "@/components/ThSort";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +118,10 @@ export default async function ConfrontiPage({
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
         <form className="filters" method="get">
+          {/* I select vivono dietro «Filtri (N)» sotto la soglia mobile (Libro
+              v1.2 §8): conta il solo tipo di periodo fuori dal default («anno
+              intero»); mese/trimestre/da/a sono qualificatori del tipo. */}
+          <ZonaFiltri attivi={tipo !== "anno" ? 1 : 0}>
           <select name="tipo" defaultValue={tipo}>
             <option value="anno">Anno intero</option>
             <option value="mese">Mese</option>
@@ -138,6 +143,7 @@ export default async function ConfrontiPage({
           <select name="a" defaultValue={a} title="A (periodo personalizzato)">
             {MESI.map((m, i) => <option key={m} value={i + 1}>a {m}</option>)}
           </select>
+          </ZonaFiltri>
           <button className="btn secondary small" type="submit">Applica</button>
         </form>
       </div>

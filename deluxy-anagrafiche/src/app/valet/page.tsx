@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/Sidebar";
 import { Vuoto } from "@/components/Vuoto";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { prisma } from "@/lib/db";
 import {
   COLORE_STATO_VALET,
@@ -68,14 +69,17 @@ export default async function Valet({
 
         <form className="filtri" method="get">
           <input type="search" name="q" placeholder="Cerca nome, telefono, email, provincia…" defaultValue={q} />
-          <select name="stato" defaultValue={stato ?? ""}>
-            <option value="">Tutti gli stati</option>
-            {STATI_VALET.map((s) => (
-              <option key={s} value={s}>
-                {ETICHETTE_STATO_VALET[s]} ({conta.get(s) ?? 0})
-              </option>
-            ))}
-          </select>
+          {/* Il select vive dietro «Filtri (N)» sotto la soglia mobile (Libro v1.2 §8). */}
+          <ZonaFiltri attivi={stato ? 1 : 0}>
+            <select name="stato" defaultValue={stato ?? ""}>
+              <option value="">Tutti gli stati</option>
+              {STATI_VALET.map((s) => (
+                <option key={s} value={s}>
+                  {ETICHETTE_STATO_VALET[s]} ({conta.get(s) ?? 0})
+                </option>
+              ))}
+            </select>
+          </ZonaFiltri>
           {archiviati && <input type="hidden" name="archiviati" value="1" />}
           <button className="btn btn-secondario" type="submit">Filtra</button>
           <a className="btn btn-secondario" href={archiviati ? "/valet" : "/valet?archiviati=1"}>

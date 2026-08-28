@@ -11,6 +11,7 @@ import {
 import { LISTE, lista } from "@/lib/segmenti";
 import { TabellaClienti } from "@/components/TabellaClienti";
 import { FiltriTaglio } from "@/components/FiltriTaglio";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { prisma } from "@/lib/db";
 import { aiConfigurata } from "@/lib/ai";
 import { riepilogaClientiMancantiAI } from "@/app/actions";
@@ -126,65 +127,72 @@ export default async function Clienti({
         </div>
       )}
 
-      {/* Ricerca */}
-      <form className="ricerca" method="get">
-        {sp.ordina && <input type="hidden" name="ordina" value={sp.ordina} />}
-        {sp.verso && <input type="hidden" name="verso" value={sp.verso} />}
-        {sp.lista && <input type="hidden" name="lista" value={sp.lista} />}
-        <span className="ricerca-icona" aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-            <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.4 15.4 20 20" />
-          </svg>
-        </span>
-        <input type="search" name="q" placeholder="Cerca un cliente: nome, email, telefono, città…" defaultValue={sp.q ?? ""} />
-        <button className="btn" type="submit">Cerca</button>
-        {q && <Link className="btn btn-secondario" href={conFiltro({ q: "" })}>Annulla</Link>}
-      </form>
-
-      <FiltriTaglio
-        brand={brand}
-        brandScelto={taglio.brand}
-        categoriaScelta={taglio.categoria}
-        href={(chiave, valore) => conFiltro({ [chiave]: valore, page: "" })}
-      />
-
-      {/* Tag: segmento di valore */}
+      {/* Zona filtri in UNA card sola (Libro v1.2 §8): prima erano 5 card
+          impilate (~oltre 300px a 375px). La ricerca resta sempre visibile;
+          i gruppi Brand/Categoria/Segmento/Tipologia/Privacy vivono dietro
+          «Filtri (N)» sotto la soglia mobile e sono tutti visibili sopra. */}
       <div className="filtri">
-        <span className="etichetta-ordina">Segmento</span>
-        <Link className={`stato-pill${!filtro ? " attuale" : ""}`} href={conFiltro({ lista: "", page: "" })}>
-          <span className="stato-label">Tutti</span>
-        </Link>
-        {perValore.map((l) => (
-          <Link key={l.chiave} className={`stato-pill${filtro === l.chiave ? " attuale" : ""}`} href={conFiltro({ lista: l.chiave, page: "" })}>
-            <span className="dot" style={{ background: l.colore }} />
-            <span className="stato-label">{l.nome}</span>
-          </Link>
-        ))}
-      </div>
+        <form className="ricerca" method="get">
+          {sp.ordina && <input type="hidden" name="ordina" value={sp.ordina} />}
+          {sp.verso && <input type="hidden" name="verso" value={sp.verso} />}
+          {sp.lista && <input type="hidden" name="lista" value={sp.lista} />}
+          <span className="ricerca-icona" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.4 15.4 20 20" />
+            </svg>
+          </span>
+          <input type="search" name="q" placeholder="Cerca un cliente: nome, email, telefono, città…" defaultValue={sp.q ?? ""} />
+          <button className="btn" type="submit">Cerca</button>
+          {q && <Link className="btn btn-secondario" href={conFiltro({ q: "" })}>Annulla</Link>}
+        </form>
 
-      {/* Tag: tipologia di cliente */}
-      <div className="filtri">
-        <span className="etichetta-ordina">Tipologia</span>
-        {perTipologia.map((l) => (
-          <Link key={l.chiave} className={`stato-pill${filtro === l.chiave ? " attuale" : ""}`} href={conFiltro({ lista: l.chiave, page: "" })}>
-            <span className="dot" style={{ background: l.colore }} />
-            <span className="stato-label">{l.nome}</span>
-          </Link>
-        ))}
-        <Link className={`stato-pill${filtro === "probabili-aziende" ? " attuale" : ""}`} href={conFiltro({ lista: "probabili-aziende", page: "" })}>
-          <span className="stato-label">Probabili aziende da confermare</span>
-        </Link>
-      </div>
+        <ZonaFiltri attivi={(taglio.brand ? 1 : 0) + (taglio.categoria ? 1 : 0) + (filtro ? 1 : 0)}>
+          <FiltriTaglio
+            brand={brand}
+            brandScelto={taglio.brand}
+            categoriaScelta={taglio.categoria}
+            href={(chiave, valore) => conFiltro({ [chiave]: valore, page: "" })}
+          />
 
-      {/* Privacy: chi si può contattare davvero */}
-      <div className="filtri">
-        <span className="etichetta-ordina">Privacy</span>
-        {perPrivacy.map((l) => (
-          <Link key={l.chiave} className={`stato-pill${filtro === l.chiave ? " attuale" : ""}`} href={conFiltro({ lista: l.chiave, page: "" })}>
-            <span className="dot" style={{ background: l.colore }} />
-            <span className="stato-label">{l.nome}</span>
-          </Link>
-        ))}
+          {/* Tag: segmento di valore */}
+          <div className="filtri">
+            <span className="etichetta-ordina">Segmento</span>
+            <Link className={`stato-pill${!filtro ? " attuale" : ""}`} href={conFiltro({ lista: "", page: "" })}>
+              <span className="stato-label">Tutti</span>
+            </Link>
+            {perValore.map((l) => (
+              <Link key={l.chiave} className={`stato-pill${filtro === l.chiave ? " attuale" : ""}`} href={conFiltro({ lista: l.chiave, page: "" })}>
+                <span className="dot" style={{ background: l.colore }} />
+                <span className="stato-label">{l.nome}</span>
+              </Link>
+            ))}
+          </div>
+
+          {/* Tag: tipologia di cliente */}
+          <div className="filtri">
+            <span className="etichetta-ordina">Tipologia</span>
+            {perTipologia.map((l) => (
+              <Link key={l.chiave} className={`stato-pill${filtro === l.chiave ? " attuale" : ""}`} href={conFiltro({ lista: l.chiave, page: "" })}>
+                <span className="dot" style={{ background: l.colore }} />
+                <span className="stato-label">{l.nome}</span>
+              </Link>
+            ))}
+            <Link className={`stato-pill${filtro === "probabili-aziende" ? " attuale" : ""}`} href={conFiltro({ lista: "probabili-aziende", page: "" })}>
+              <span className="stato-label">Probabili aziende da confermare</span>
+            </Link>
+          </div>
+
+          {/* Privacy: chi si può contattare davvero */}
+          <div className="filtri">
+            <span className="etichetta-ordina">Privacy</span>
+            {perPrivacy.map((l) => (
+              <Link key={l.chiave} className={`stato-pill${filtro === l.chiave ? " attuale" : ""}`} href={conFiltro({ lista: l.chiave, page: "" })}>
+                <span className="dot" style={{ background: l.colore }} />
+                <span className="stato-label">{l.nome}</span>
+              </Link>
+            ))}
+          </div>
+        </ZonaFiltri>
       </div>
 
       {filtro && (

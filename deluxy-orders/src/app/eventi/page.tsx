@@ -15,6 +15,7 @@ import {
   riepilogoEventi,
 } from "@/lib/eventi";
 import { aggiornaEventoCliente, leggiBigliettiConAI, rilevaEventiClienti } from "@/app/actions";
+import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { aiConfigurata, modelloAI } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
@@ -159,14 +160,20 @@ export default async function Eventi({
         {q && <Link className="btn btn-secondario" href={conFiltro({ q: "" })}>Annulla</Link>}
       </form>
 
-      <div className="filtri">
-        <span className="etichetta-ordina">Vista</span>
-        {viste.map((v) => (
-          <Link key={v.chiave} className={`stato-pill${vista === v.chiave ? " attuale" : ""}`} href={conFiltro({ vista: v.chiave, page: "" })}>
-            <span className="stato-label">{v.nome}</span>
-          </Link>
-        ))}
-      </div>
+      {/* Le viste (6 valori, più del segmented compatto ≤3 del Libro §8.2):
+          sotto la soglia mobile vivono dietro «Filtri (N)» — prima il
+          display:none globale di M7 le nascondeva del tutto sul telefono,
+          senza sostituto. N conta la vista fuori dal default «prossimi». */}
+      <ZonaFiltri attivi={vista !== "prossimi" ? 1 : 0}>
+        <div className="filtri">
+          <span className="etichetta-ordina">Vista</span>
+          {viste.map((v) => (
+            <Link key={v.chiave} className={`stato-pill${vista === v.chiave ? " attuale" : ""}`} href={conFiltro({ vista: v.chiave, page: "" })}>
+              <span className="stato-label">{v.nome}</span>
+            </Link>
+          ))}
+        </div>
+      </ZonaFiltri>
 
       {mostrati.length === 0 ? (
         <div className="vuoto">
