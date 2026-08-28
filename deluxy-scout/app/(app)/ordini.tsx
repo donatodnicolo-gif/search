@@ -11,7 +11,7 @@ import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
-import { cercaFattura, cercaFatture, chiediFatturaPerOrdine, type FatturaInElenco } from '@/lib/partner';
+import { cercaFatture, chiediFatturaPerOrdine, type FatturaInElenco } from '@/lib/partner';
 import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { aggiornaFornitura, aggiungiFornitura, forniturePerOrdine, rimuoviFornitura, type RigaFornitura } from '@/lib/fornitura';
@@ -1709,7 +1709,6 @@ function ChiusuraOrdine({
 }) {
   const [numero, setNumero] = useState('');
   const [cerco, setCerco] = useState(false);
-  const [trovata, setTrovata] = useState<Awaited<ReturnType<typeof cercaFattura>> | null>(null);
   const [inCorso, setInCorso] = useState<string | null>(null);
   /**
    * ⭐ CERCARE PER RAGIONE SOCIALE E IMPORTO (27/08/2026, richiesta
@@ -1740,7 +1739,6 @@ function ChiusuraOrdine({
   function scegliCriterio(c: 'cliente' | 'importo' | 'numero') {
     setCriterio(c);
     setElenco(null);
-    setTrovata(null);
     setErroreRicerca(null);
     setQ(
       c === 'cliente'
@@ -1758,7 +1756,6 @@ function ChiusuraOrdine({
     if (!testo || cerco) return;
     setCerco(true);
     setElenco(null);
-    setTrovata(null);
     setErroreRicerca(null);
     try {
       const imp = criterio === 'importo' ? leggiImporto(testo) : null;
@@ -1785,36 +1782,67 @@ function ChiusuraOrdine({
     }
   }
 
-  async function agganciaRiga(f: FatturaInElenco) {
-    if (!f.numero) {
-      avvisa('Fattura senza numero', 'Questa fattura non ha ancora un numero su FINANCE: si aggancia quando ce l\'ha.');
+  /**
+   * ⭐ PIÙ FATTURE PER UN ORDINE (27/08/2026, richiesta dell'utente: «consenti
+   * di selezionare più fatture, prima di dare ok la somma delle fatture
+   * selezionate deve essere pari al valore dell'ordine»).
+   *
+   * Succede davvero: un evento fatturato in due tranche, un acconto e un saldo.
+   * Agganciarne una sola su due voleva dire dichiarare fatturato per intero un
+   * ordine che lo era a metà.
+   */
+  const [scelte, setScelte] = useState<FatturaInElenco[]>([]);
+
+  function commuta(f: FatturaInElenco) {
+    setScelte((s) => (s.some((x) => x.id === f.id) ? s.filter((x) => x.id !== f.id) : [...s, f]));
+  }
+
+  /**
+   * ⚠️ SI CONFRONTA CON L'IMPONIBILE, non col totale — ma si accettano
+   * entrambi, e si dice quale ha fatto tornare il conto.
+   *
+   * Il valore di un ordine in Scout è al netto dell'IVA: la fattura di TBF ha
+   * imponibile 2.720 e totale 3.318,40, e pretendere il totale non avrebbe
+   * fatto quadrare mai niente. Ma un ordine registrato IVA inclusa esiste, e
+   * rifiutarlo sarebbe stato altrettanto sbagliato: si guardano tutte e due le
+   * somme e passa quella che torna.
+   */
+  const TOLLERANZA = 1;
+  const sommaImponibile = scelte.reduce((s, f) => s + (f.imponibile ?? 0), 0);
+  const sommaTotale = scelte.reduce((s, f) => s + (f.totale ?? 0), 0);
+  const atteso = ordine.valore ?? null;
+  const quadraSu =
+    atteso == null
+      ? null
+      : Math.abs(sommaImponibile - atteso) <= TOLLERANZA
+        ? ('imponibile' as const)
+        : Math.abs(sommaTotale - atteso) <= TOLLERANZA
+          ? ('totale' as const)
+          : null;
+  const scarto = atteso == null ? null : Math.round((sommaImponibile - atteso) * 100) / 100;
+
+  async function agganciaScelte() {
+    const numeri = scelte.map((f) => f.numero).filter(Boolean) as string[];
+    if (numeri.length !== scelte.length) {
+      avvisa(
+        'Una fattura è senza numero',
+        'Una delle selezionate non ha ancora un numero su Fatture in Cloud: si aggancia quando ce l\'ha.',
+      );
       return;
     }
     setInCorso('aggancia');
     try {
-      await collegaDocumentoAOrdine(ordine.id, { fatturaNumero: f.numero });
+      await collegaDocumentoAOrdine(ordine.id, { fatture: numeri });
       await aggiornaOrdine(ordine.id, { chiuso_il: new Date().toISOString() });
       onFatto();
     } catch (e: any) {
-      avvisa('Non agganciata', String(e?.message ?? e));
+      avvisa('Non agganciate', String(e?.message ?? e));
     } finally {
       setInCorso(null);
     }
   }
 
   const giaFatturato = Boolean(ordine.fattura_numero);
-
-  async function verifica() {
-    const n = numero.trim();
-    if (!n || cerco) return;
-    setCerco(true);
-    setTrovata(null);
-    try {
-      setTrovata(await cercaFattura(n));
-    } finally {
-      setCerco(false);
-    }
-  }
 
   async function chiudi(conNota: string) {
     setInCorso(conNota);
@@ -1823,20 +1851,6 @@ function ChiusuraOrdine({
       onFatto();
     } catch (e: any) {
       avvisa('Non chiuso', String(e?.message ?? e));
-    } finally {
-      setInCorso(null);
-    }
-  }
-
-  async function agganciaEChiudi() {
-    if (!trovata?.trovata) return;
-    setInCorso('aggancia');
-    try {
-      await collegaDocumentoAOrdine(ordine.id, { fatturaNumero: trovata.numero ?? numero.trim() });
-      await aggiornaOrdine(ordine.id, { chiuso_il: new Date().toISOString() });
-      onFatto();
-    } catch (e: any) {
-      avvisa('Non agganciata', String(e?.message ?? e));
     } finally {
       setInCorso(null);
     }
@@ -1942,25 +1956,6 @@ function ChiusuraOrdine({
 
           {erroreRicerca ? <Text style={styles.chiusuraNo}>{erroreRicerca}</Text> : null}
 
-          {trovata ? (
-            trovata.trovata ? (
-              <Pressable style={styles.fattRiga} disabled={!!inCorso} onPress={agganciaEChiudi}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.fattNumero} numberOfLines={1}>
-                    {trovata.numero ?? q.trim()} · {trovata.partner?.nome ?? '—'}
-                  </Text>
-                  <Text style={styles.fattMeta} numberOfLines={1}>
-                    {trovata.totale != null ? importoBreve(trovata.totale) : 'importo non indicato'}
-                    {trovata.pagata ? ' · pagata' : trovata.scaduta ? ' · scaduta' : ' · non pagata'}
-                  </Text>
-                </View>
-                <Ionicons name="link-outline" size={17} color={colors.navy} />
-              </Pressable>
-            ) : (
-              <Text style={styles.chiusuraNo}>{trovata.motivo ?? 'Nessuna fattura con questo numero.'}</Text>
-            )
-          ) : null}
-
           {elenco ? (
             elenco.length ? (
               <View style={{ gap: 6 }}>
@@ -1968,8 +1963,20 @@ function ChiusuraOrdine({
                     nome simile, o due ordini dello stesso mese con lo stesso
                     importo, sono la normalità — e agganciare la prima riga
                     sbaglierebbe due pratiche insieme. */}
-                {elenco.map((f) => (
-                  <Pressable key={f.id} style={styles.fattRiga} disabled={!!inCorso} onPress={() => agganciaRiga(f)}>
+                {elenco.map((f) => {
+                  const presa = scelte.some((x) => x.id === f.id);
+                  return (
+                  <Pressable
+                    key={f.id}
+                    style={[styles.fattRiga, presa && styles.fattRigaPresa]}
+                    disabled={!!inCorso}
+                    onPress={() => commuta(f)}
+                  >
+                    <Ionicons
+                      name={presa ? 'checkbox' : 'square-outline'}
+                      size={18}
+                      color={presa ? colors.navy : colors.grigio}
+                    />
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={styles.fattNumero} numberOfLines={1}>
                         {f.numero ?? 'senza numero'} · {f.partner?.nome ?? '—'}
@@ -1981,9 +1988,45 @@ function ChiusuraOrdine({
                         {f.combacia === 'imponibile' ? " · combacia con l'imponibile" : ''}
                       </Text>
                     </View>
-                    <Ionicons name="link-outline" size={17} color={colors.navy} />
                   </Pressable>
-                ))}
+                  );
+                })}
+
+                {/* ⚠️ IL CONTO SI VEDE MENTRE SI SCEGLIE, non dopo aver premuto:
+                    dire «non quadra» a cose fatte obbliga a rifare la selezione
+                    a indovinare. Qui si legge quanto manca, riga per riga. */}
+                {scelte.length ? (
+                  <View style={[styles.sommaRiga, quadraSu ? styles.sommaOk : styles.sommaNo]}>
+                    <Ionicons
+                      name={quadraSu ? 'checkmark-circle-outline' : 'alert-circle-outline'}
+                      size={16}
+                      color={quadraSu ? '#2F7D46' : colors.attenzione}
+                    />
+                    <Text style={[styles.sommaTxt, { color: quadraSu ? '#2F7D46' : colors.attenzione }]}>
+                      {scelte.length} {scelte.length === 1 ? 'fattura' : 'fatture'} ·{' '}
+                      {importoBreve(sommaImponibile)} imponibile ({importoBreve(sommaTotale)} con IVA)
+                      {atteso == null
+                        ? " — l'ordine non ha un valore, quindi non c'è niente da far quadrare"
+                        : quadraSu
+                          ? ` — quadra col valore dell'ordine${quadraSu === 'totale' ? ' (IVA inclusa)' : ''}`
+                          : ` — ${scarto! > 0 ? 'in più' : 'mancano'} ${importoBreve(Math.abs(scarto!))} sul valore di ${importoBreve(atteso)}`}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <Pressable
+                  style={[styles.btn, styles.btnLargo, (!quadraSu || !!inCorso) && { opacity: 0.45 }]}
+                  disabled={!quadraSu || !!inCorso}
+                  onPress={agganciaScelte}
+                >
+                  <Text style={styles.btnTxt}>
+                    {inCorso === 'aggancia'
+                      ? 'Aggancio…'
+                      : quadraSu
+                        ? `Aggancia ${scelte.length === 1 ? 'la fattura' : `le ${scelte.length} fatture`} e chiudi`
+                        : 'La somma deve essere pari al valore dell\'ordine'}
+                  </Text>
+                </Pressable>
               </View>
             ) : (
               <Text style={styles.campoAiuto}>
@@ -2283,6 +2326,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8, paddingHorizontal: 10,
     borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco,
   },
+  fattRigaPresa: { borderColor: colors.navy, backgroundColor: colors.sfondo },
+  sommaRiga: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.md, borderWidth: 1,
+  },
+  sommaOk: { borderColor: '#2F7D46', backgroundColor: colors.bianco },
+  sommaNo: { borderColor: colors.attenzione, backgroundColor: colors.bianco },
+  sommaTxt: { flex: 1, fontSize: 12.5, lineHeight: 17, fontWeight: '600' },
   fattNumero: { color: colors.testo, fontSize: 13.5, fontWeight: '700' },
   fattMeta: { color: colors.grigio, fontSize: 11.5, lineHeight: 16 },
   chiusuraNo: { color: colors.errore, fontSize: 13, lineHeight: 18 },

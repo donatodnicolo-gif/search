@@ -436,6 +436,9 @@ export interface Ordine {
    *  `owner_scelto`: altrimenti è il default della colonna — chi ha creato
    *  l'ordine — e comanda il proprietario della trattativa (migr. 0091). */
   owner_scelto?: boolean;
+  /** Tutti i numeri di fattura collegati (migr. 0092). `fattura_numero` porta
+   *  il primo, per chi legge un campo solo. */
+  fatture?: string[] | null;
   /** Gli INGREDIENTI del valore, quando si vende a unità (migr. 0090).
    *  ⚠️ `valore` resta il totale: margine, conti dell'anno e pro-forma leggono
    *  quello. Questi lo spiegano e permettono di rifarlo. */

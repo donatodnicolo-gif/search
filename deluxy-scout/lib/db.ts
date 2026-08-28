@@ -3046,9 +3046,22 @@ export async function creaOrdineDaTrattativa(d: {
 /** Aggancia all'ORDINE il documento emesso da FINANCE (riferimento, non copia). */
 export async function collegaDocumentoAOrdine(
   ordineId: string,
-  doc: { proformaNumero?: string; proformaUrl?: string; fatturaNumero?: string; fatturaUrl?: string },
+  doc: {
+    proformaNumero?: string;
+    proformaUrl?: string;
+    fatturaNumero?: string;
+    fatturaUrl?: string;
+    /** Tutte le fatture dell'ordine (migr. 0092). ⚠️ La prima finisce anche in
+     *  `fattura_numero`: la colonna della tabella e il giro verso FINANCE
+     *  leggono quel campo, e lasciarlo vuoto farebbe sparire il documento. */
+    fatture?: string[];
+  },
 ): Promise<void> {
-  const patch: Record<string, string | null> = {};
+  const patch: Record<string, string | string[] | null> = {};
+  if (doc.fatture?.length) {
+    patch.fatture = doc.fatture;
+    patch.fattura_numero = doc.fatture[0];
+  }
   if (doc.proformaNumero) patch.proforma_numero = doc.proformaNumero;
   if (doc.proformaUrl) patch.proforma_url = doc.proformaUrl;
   if (doc.fatturaNumero) patch.fattura_numero = doc.fatturaNumero;
