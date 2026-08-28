@@ -1,0 +1,579 @@
+<title>Manuale FINANCE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground: #F5F5F7;
+    --surface: #FFFFFF;
+    --surface-2: #FBFAF7;
+    --ink: #1D1D1F;
+    --ink-soft: #605C52;
+    --ink-faint: #8A8578;
+    --hair: #E4E1DA;
+    --hair-strong: #D2CEC4;
+    --gold: #A9812C;
+    --gold-soft: #F3ECDA;
+    --green: #2E7D48;
+    --green-soft: #E7F1E9;
+    --orange: #C4611B;
+    --orange-soft: #F6E9DE;
+    --red: #B4231E;
+    --shadow: 0 1px 2px rgba(30,28,22,.05), 0 8px 28px rgba(30,28,22,.05);
+    --radius: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0F0F12;
+      --surface: #1A1A1E;
+      --surface-2: #201F22;
+      --ink: #F1F0F2;
+      --ink-soft: #B0ACA2;
+      --ink-faint: #837F76;
+      --hair: #2C2B30;
+      --hair-strong: #3A3940;
+      --gold: #D2AC5E;
+      --gold-soft: #2A2419;
+      --green: #6BC088;
+      --green-soft: #17281C;
+      --orange: #E39257;
+      --orange-soft: #2A1D12;
+      --red: #E7726C;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 34px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0F0F12;
+    --surface: #1A1A1E;
+    --surface-2: #201F22;
+    --ink: #F1F0F2;
+    --ink-soft: #B0ACA2;
+    --ink-faint: #837F76;
+    --hair: #2C2B30;
+    --hair-strong: #3A3940;
+    --gold: #D2AC5E;
+    --gold-soft: #2A2419;
+    --green: #6BC088;
+    --green-soft: #17281C;
+    --orange: #E39257;
+    --orange-soft: #2A1D12;
+    --red: #E7726C;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 34px rgba(0,0,0,.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+
+  h1, h2, h3 {
+    font-family: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    line-height: 1.12;
+    margin: 0;
+  }
+
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- header ---------- */
+  header.hero {
+    border-bottom: 1px solid var(--hair);
+    background:
+      radial-gradient(120% 90% at 85% -10%, var(--gold-soft), transparent 60%),
+      var(--surface);
+  }
+  .hero-inner { padding: 62px 24px 46px; max-width: 940px; margin: 0 auto; }
+  .kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--gold);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px;
+  }
+  .kicker::before {
+    content: ""; width: 26px; height: 1px; background: var(--gold); display: inline-block;
+  }
+  header.hero h1 { font-size: clamp(38px, 6.4vw, 64px); font-weight: 600; }
+  .lede {
+    margin: 22px 0 0; max-width: 62ch;
+    font-size: clamp(17px, 2.2vw, 20px); color: var(--ink-soft);
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+  .living {
+    margin-top: 30px; display: inline-flex; align-items: center; gap: 12px;
+    background: var(--surface-2); border: 1px solid var(--hair-strong);
+    border-radius: 999px; padding: 9px 16px 9px 12px;
+    font-size: 13.5px; color: var(--ink-soft);
+  }
+  .living .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); flex: none; }
+  .living strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- section scaffolding ---------- */
+  section { padding: 54px 0; border-bottom: 1px solid var(--hair); }
+  section:last-of-type { border-bottom: 0; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 0 0 14px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .eyebrow b { color: var(--gold); font-weight: 600; }
+  section h2 { font-size: clamp(26px, 3.6vw, 34px); font-weight: 600; }
+  section > .wrap > p { max-width: 66ch; color: var(--ink-soft); }
+  section > .wrap > p strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- one-liner card ---------- */
+  .thesis {
+    background: var(--surface); border: 1px solid var(--hair);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 32px 34px; margin-top: 8px;
+    display: grid; grid-template-columns: auto 1fr; gap: 26px; align-items: center;
+  }
+  .thesis .glyph {
+    width: 54px; height: 54px; border-radius: 14px; flex: none;
+    background: var(--ink); color: var(--surface);
+    display: grid; place-items: center;
+    font-family: "Schibsted Grotesk", sans-serif; font-weight: 700; font-size: 26px;
+    letter-spacing: -0.03em;
+  }
+  .thesis p { margin: 0; font-size: 19px; line-height: 1.5; color: var(--ink); }
+  .thesis p em { font-style: normal; color: var(--gold); font-weight: 600; }
+  @media (max-width: 560px) { .thesis { grid-template-columns: 1fr; gap: 18px; } }
+
+  /* ---------- menu map ---------- */
+  .map { display: grid; gap: 16px; margin-top: 26px; }
+  .zone {
+    background: var(--surface); border: 1px solid var(--hair);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .zone-head {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 22px; border-bottom: 1px solid var(--hair);
+    background: var(--surface-2);
+  }
+  .zone-tag {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--surface); background: var(--ink);
+    padding: 4px 9px; border-radius: 7px; flex: none;
+  }
+  .zone.accent .zone-tag { background: var(--gold); color: #1a1408; }
+  .zone-head h3 { font-size: 18px; font-weight: 600; }
+  .zone-head .aside { margin-left: auto; font-size: 13px; color: var(--ink-faint); }
+  .rows { display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 620px) { .rows { grid-template-columns: 1fr; } }
+  .row {
+    padding: 15px 22px; border-top: 1px solid var(--hair);
+  }
+  .rows .row:nth-child(-n+2) { border-top: 0; }
+  @media (max-width: 620px) { .rows .row:nth-child(2) { border-top: 1px solid var(--hair); } }
+  .row .name {
+    font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 9px;
+  }
+  .row .name .marker { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex: none; }
+  .row .desc { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; line-height: 1.5; }
+
+  /* ---------- figures / diagrams ---------- */
+  figure {
+    margin: 30px 0 0; padding: 30px 28px 20px;
+    background: var(--surface); border: 1px solid var(--hair);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  figure svg { width: 100%; height: auto; display: block; color: var(--ink); }
+  figcaption {
+    margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--hair);
+    font-size: 13.5px; color: var(--ink-soft); text-align: center;
+  }
+  figcaption strong { color: var(--ink); }
+  .svg-scroll { overflow-x: auto; }
+
+  /* svg helpers via classes (SVG uses currentColor + a couple of vars-as-attrs won't inherit, so we style nodes) */
+  .d-box { fill: var(--surface-2); stroke: var(--hair-strong); }
+  .d-box-gold { fill: var(--gold-soft); stroke: var(--gold); }
+  .d-box-ink { fill: var(--ink); stroke: var(--ink); }
+  .d-t { fill: var(--ink); font-family: "IBM Plex Sans", sans-serif; }
+  .d-t-inv { fill: var(--surface); font-family: "IBM Plex Sans", sans-serif; }
+  .d-t-soft { fill: var(--ink-soft); font-family: "IBM Plex Mono", monospace; }
+  .d-t-gold { fill: var(--gold); font-family: "IBM Plex Mono", monospace; }
+  .d-line { stroke: var(--ink-soft); fill: none; }
+  .d-line-gold { stroke: var(--gold); fill: none; }
+
+  /* ---------- two-column pairs ---------- */
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 26px; }
+  @media (max-width: 620px) { .pair { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--surface); border: 1px solid var(--hair);
+    border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px 24px 22px;
+  }
+  .panel .tag {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 12px; display: inline-block;
+    padding: 3px 9px; border-radius: 6px;
+  }
+  .panel.in .tag { color: var(--green); background: var(--green-soft); }
+  .panel.out .tag { color: var(--orange); background: var(--orange-soft); }
+  .panel h3 { font-size: 19px; font-weight: 600; margin-bottom: 6px; }
+  .panel > p { color: var(--ink-soft); font-size: 14px; margin: 0 0 16px; }
+  .panel ol { margin: 0; padding-left: 0; list-style: none; counter-reset: step; display: grid; gap: 11px; }
+  .panel li { counter-increment: step; padding-left: 34px; position: relative; font-size: 14px; line-height: 1.5; }
+  .panel li::before {
+    content: counter(step); position: absolute; left: 0; top: 0;
+    width: 23px; height: 23px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--hair-strong);
+    color: var(--ink-soft); font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 600;
+    display: grid; place-items: center;
+  }
+  .panel li b { font-weight: 600; }
+
+  /* ---------- data homes ---------- */
+  .homes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 24px; }
+  @media (max-width: 620px) { .homes { grid-template-columns: 1fr; } }
+  .home {
+    display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start;
+    background: var(--surface); border: 1px solid var(--hair); border-radius: 13px; padding: 16px 18px;
+  }
+  .home .chip {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 600;
+    color: var(--gold); background: var(--gold-soft); border-radius: 8px;
+    width: 42px; height: 42px; display: grid; place-items: center; flex: none;
+  }
+  .home h4 { margin: 0 0 3px; font-size: 15px; font-weight: 600; font-family: "IBM Plex Sans", sans-serif; }
+  .home p { margin: 0; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+
+  /* ---------- glossary ---------- */
+  .gloss { margin-top: 22px; border-top: 1px solid var(--hair); }
+  .term {
+    display: grid; grid-template-columns: 200px 1fr; gap: 20px;
+    padding: 16px 0; border-bottom: 1px solid var(--hair);
+  }
+  @media (max-width: 560px) { .term { grid-template-columns: 1fr; gap: 4px; } }
+  .term dt { font-weight: 600; font-size: 15px; }
+  .term dt .mono { font-size: 12.5px; color: var(--ink-faint); font-weight: 400; display: block; margin-top: 2px; }
+  .term dd { margin: 0; color: var(--ink-soft); font-size: 14px; }
+
+  /* ---------- rules ---------- */
+  .rules { display: grid; gap: 12px; margin-top: 24px; }
+  .rule {
+    display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: baseline;
+    background: var(--surface); border: 1px solid var(--hair); border-left: 3px solid var(--gold);
+    border-radius: 12px; padding: 18px 22px;
+  }
+  .rule .n { font-family: "Schibsted Grotesk", sans-serif; font-weight: 700; font-size: 20px; color: var(--gold); }
+  .rule p { margin: 0; font-size: 15px; }
+  .rule p b { font-weight: 600; }
+  .rule p span { color: var(--ink-soft); }
+
+  footer {
+    padding: 46px 24px 60px; text-align: center; color: var(--ink-faint);
+    font-size: 13px; border-top: 1px solid var(--hair); background: var(--surface-2);
+  }
+  footer .mono { color: var(--gold); }
+  footer strong { color: var(--ink-soft); }
+</style>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="kicker">Manuale operativo · deluxy-partner.vercel.app</div>
+    <h1>FINANCE, spiegato da zero</h1>
+    <p class="lede">FINANCE è il quaderno dei conti di Deluxy: <strong>chi fattura ai partner, chi paga chi, e come si fa quadrare la banca</strong>. Ha sostituito il vecchio PARTNER.xlsx. Questa guida ti dice cosa fa ogni parte e come si muovono soldi e documenti — senza dare per scontato nulla.</p>
+    <div class="living"><span class="dot"></span><span>Manuale vivo — <strong>ogni nuova funzione o modifica va scritta qui</strong>, nello stesso momento in cui entra nell'app.</span></div>
+  </div>
+</header>
+
+<section id="cosa">
+  <div class="wrap">
+    <p class="eyebrow"><b>01</b> In una frase</p>
+    <div class="thesis">
+      <div class="glyph">F</div>
+      <p>FINANCE è dove si <em>tiene la contabilità dei partner</em>: le fatture che emettiamo, i saldi che dobbiamo, gli incassi che aspettiamo, e la riconciliazione di tutto questo con l'estratto conto. <em>Il denaro non esce mai da qui</em> — FINANCE prepara e chiede, un'altra app esegue.</p>
+    </div>
+  </div>
+</section>
+
+<section id="menu">
+  <div class="wrap">
+    <p class="eyebrow"><b>02</b> La mappa del menu</p>
+    <h2>Sei aree, in ordine di quanto le apri</h2>
+    <p>Il menu a sinistra segue la giornata di chi ci lavora: prima la banca, poi la fatturazione, poi le viste di lettura. Ecco cosa c'è dietro ogni voce.</p>
+
+    <div class="map">
+
+      <div class="zone">
+        <div class="zone-head"><span class="zone-tag">Home</span><h3>Dashboard</h3><span class="aside">il cruscotto</span></div>
+        <div class="rows">
+          <div class="row"><div class="name"><span class="marker"></span>Dashboard</div><div class="desc">I numeri del giorno e gli avvisi: cosa è in ritardo, cosa aspetta un gesto. È la prima cosa che apri.</div></div>
+        </div>
+      </div>
+
+      <div class="zone accent">
+        <div class="zone-head"><span class="zone-tag">Tesoreria</span><h3>La banca, ogni giorno</h3><span class="aside">il cuore quotidiano</span></div>
+        <div class="rows">
+          <div class="row"><div class="name"><span class="marker"></span>Movimenti bancari</div><div class="desc">L'estratto conto unico: tutti i movimenti insieme, quelli automatici da Qonto e quelli caricati da file. Qui si guarda.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Import &amp; riconciliazione</div><div class="desc">Dove si caricano gli estratti e si abbina ogni movimento a una fattura o a un pagamento.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Saldi e bonifici</div><div class="desc">Quanto dobbiamo a ogni partner ogni mese (fatture contro vendite, in compensazione).</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Richiedi pagamento</div><div class="desc">Si chiede il pagamento di una spesa. Parte solo la richiesta: il denaro lo muove Transactions.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Spese per categoria</div><div class="desc">Le uscite classificate per voce di costo — quelle del bilancio di Budgets.</div></div>
+        </div>
+      </div>
+
+      <div class="zone">
+        <div class="zone-head"><span class="zone-tag">Ciclo attivo</span><h3>Quello che fatturiamo e incassiamo</h3></div>
+        <div class="rows">
+          <div class="row"><div class="name"><span class="marker"></span>Fatturazione servizi</div><div class="desc">Le fatture di servizi emesse ai partner, con il rolling dell'anno.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Vendite vendor</div><div class="desc">Le vendite in cui Deluxy fa da vendor per il partner, con la commissione.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Pro-forma</div><div class="desc">Preventivi e pro-forma; da qui si emette la fattura vera su Fatture in Cloud.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Registro fatture</div><div class="desc">Le fatture vere emesse su Fatture in Cloud, con lo stato di incasso.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Riconciliazione clienti</div><div class="desc">Abbina gli incassi ricevuti al cliente giusto.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Scadenzario</div><div class="desc">L'aging dei crediti: cosa scade e cosa è già scaduto.</div></div>
+        </div>
+      </div>
+
+      <div class="zone">
+        <div class="zone-head"><span class="zone-tag">Rete e vendite</span><h3>Anagrafiche e negozio</h3></div>
+        <div class="rows">
+          <div class="row"><div class="name"><span class="marker"></span>Partner</div><div class="desc">La scheda a 360° di ogni partner: condizioni, situazione finanziaria, movimenti bancari collegati.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Orders</div><div class="desc">Gli ordini del sito Shopify e la quadratura degli incassi da gateway.</div></div>
+        </div>
+      </div>
+
+      <div class="zone">
+        <div class="zone-head"><span class="zone-tag">Analisi</span><h3>Sola lettura: si guarda, non si tocca</h3></div>
+        <div class="rows">
+          <div class="row"><div class="name"><span class="marker"></span>Analisi finanziaria</div><div class="desc">Il piano di cassa mese per mese: da incassare, da pagare, saldo proiettato.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Confronti</div><div class="desc">Anno su anno, a parità di periodo.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Report</div><div class="desc">Le sintesi da esportare.</div></div>
+        </div>
+      </div>
+
+      <div class="zone">
+        <div class="zone-head"><span class="zone-tag">Sistema</span><h3>Attività e impostazioni</h3></div>
+        <div class="rows">
+          <div class="row"><div class="name"><span class="marker"></span>Tasks finance</div><div class="desc">Le attività condivise del team.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>Impostazioni</div><div class="desc">Collegamenti (Fatture in Cloud, Qonto…), intestazione documenti, utenti.</div></div>
+          <div class="row"><div class="name"><span class="marker"></span>API verifiche</div><div class="desc">Le chiavi con cui le altre app leggono da FINANCE. Solo per l'amministratore.</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section id="giro">
+  <div class="wrap">
+    <p class="eyebrow"><b>03</b> Il giro del denaro</p>
+    <h2>Come si muovono soldi e documenti</h2>
+    <p>Due correnti attraversano FINANCE: quella che <strong>entra</strong> (fatturiamo, incassiamo) e quella che <strong>esce</strong> (dobbiamo ai partner, chiediamo il pagamento). Tutte e due finiscono per incontrare l'<strong>estratto conto</strong>, ed è lì che si chiude il cerchio con la riconciliazione.</p>
+
+    <figure>
+      <div class="svg-scroll">
+      <svg viewBox="0 0 860 430" role="img" aria-label="Schema del giro del denaro: dal ciclo attivo e dai saldi partner fino all'estratto conto, con la riconciliazione al centro e Transactions come unica uscita del denaro.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+          <marker id="arg" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/>
+          </marker>
+        </defs>
+
+        <!-- lane labels -->
+        <text class="d-t-soft" x="24" y="40" font-size="12" letter-spacing="1.5">ENTRA →</text>
+        <text class="d-t-soft" x="24" y="250" font-size="12" letter-spacing="1.5">ESCE →</text>
+
+        <!-- TOP LANE: active cycle -->
+        <rect class="d-box" x="24" y="54" width="176" height="72" rx="12"/>
+        <text class="d-t" x="112" y="84" text-anchor="middle" font-size="14" font-weight="600">Ciclo attivo</text>
+        <text class="d-t-soft" x="112" y="104" text-anchor="middle" font-size="11">fatture · vendite vendor</text>
+
+        <rect class="d-box" x="252" y="54" width="176" height="72" rx="12"/>
+        <text class="d-t" x="340" y="84" text-anchor="middle" font-size="14" font-weight="600">Registro fatture</text>
+        <text class="d-t-soft" x="340" y="104" text-anchor="middle" font-size="11">emesse su FIC</text>
+
+        <line class="d-line" x1="200" y1="90" x2="246" y2="90" marker-end="url(#ar)"/>
+        <text class="d-t-soft" x="223" y="80" text-anchor="middle" font-size="10.5">emetti</text>
+
+        <!-- to reconciliation -->
+        <line class="d-line" x1="428" y1="90" x2="612" y2="176" marker-end="url(#ar)"/>
+        <text class="d-t-soft" x="512" y="120" text-anchor="middle" font-size="10.5">incasso atteso</text>
+
+        <!-- CENTER: reconciliation -->
+        <rect class="d-box-gold" x="612" y="150" width="200" height="120" rx="14"/>
+        <text class="d-t-gold" x="712" y="182" text-anchor="middle" font-size="11" letter-spacing="1">RICONCILIAZIONE</text>
+        <text class="d-t" x="712" y="208" text-anchor="middle" font-size="15" font-weight="600">Estratto conto</text>
+        <text class="d-t-soft" x="712" y="230" text-anchor="middle" font-size="11">Qonto (auto) + file</text>
+        <text class="d-t-soft" x="712" y="248" text-anchor="middle" font-size="11">22.591 movimenti</text>
+
+        <!-- BOTTOM LANE: partner settlement -->
+        <rect class="d-box" x="24" y="264" width="176" height="72" rx="12"/>
+        <text class="d-t" x="112" y="294" text-anchor="middle" font-size="14" font-weight="600">Saldi e bonifici</text>
+        <text class="d-t-soft" x="112" y="314" text-anchor="middle" font-size="11">quanto dobbiamo</text>
+
+        <rect class="d-box" x="252" y="264" width="176" height="72" rx="12"/>
+        <text class="d-t" x="340" y="294" text-anchor="middle" font-size="14" font-weight="600">Richiedi pagamento</text>
+        <text class="d-t-soft" x="340" y="314" text-anchor="middle" font-size="11">solo la richiesta</text>
+
+        <line class="d-line" x1="200" y1="300" x2="246" y2="300" marker-end="url(#ar)"/>
+
+        <!-- to Transactions (the only money-out) -->
+        <rect class="d-box-ink" x="252" y="368" width="176" height="46" rx="11"/>
+        <text class="d-t-inv" x="340" y="390" text-anchor="middle" font-size="13" font-weight="600">Deluxy Transactions</text>
+        <text class="d-t-inv" x="340" y="406" text-anchor="middle" font-size="10.5" opacity="0.8">l'unica uscita del denaro</text>
+
+        <line class="d-line-gold" x1="340" y1="336" x2="340" y2="364" marker-end="url(#arg)"/>
+        <text class="d-t-gold" x="352" y="354" font-size="10">autorizza →</text>
+
+        <!-- bank movement flows back to reconciliation -->
+        <path class="d-line" d="M428 300 C 540 300, 560 220, 608 210" marker-end="url(#ar)"/>
+        <text class="d-t-soft" x="512" y="286" text-anchor="middle" font-size="10.5">il bonifico torna in banca</text>
+
+        <!-- Transactions bank movement also reconciles -->
+        <path class="d-line-gold" d="M428 391 C 620 391, 700 300, 712 274" marker-end="url(#arg)"/>
+      </svg>
+      </div>
+      <figcaption><strong>Il cerchio si chiude in banca.</strong> Fatture e vendite generano incassi attesi; i saldi partner diventano richieste che <strong>Transactions</strong> — e solo lui — trasforma in bonifici. Ogni movimento, entrata o uscita, ricompare nell'estratto conto e lì viene riconciliato.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="cicli">
+  <div class="wrap">
+    <p class="eyebrow"><b>04</b> I due cicli, passo per passo</p>
+    <h2>Chi paga noi, e chi paghiamo noi</h2>
+    <div class="pair">
+      <div class="panel in">
+        <span class="tag">Entra · ciclo attivo</span>
+        <h3>Fatturare e incassare</h3>
+        <p>Quello che il partner deve a Deluxy.</p>
+        <ol>
+          <li>Nasce una <b>pro-forma</b> (preventivo) o una <b>fattura di servizi</b>.</li>
+          <li>Dalla pro-forma si <b>emette la fattura vera</b> su Fatture in Cloud: entra nel Registro fatture.</li>
+          <li>Il cliente paga; l'accredito arriva in <b>banca</b>.</li>
+          <li>In riconciliazione l'incasso si <b>abbina</b> alla fattura, che diventa saldata.</li>
+          <li>Lo <b>Scadenzario</b> tiene d'occhio ciò che tarda.</li>
+        </ol>
+      </div>
+      <div class="panel out">
+        <span class="tag">Esce · rapporto col partner</span>
+        <h3>Saldare e pagare</h3>
+        <p>Quello che Deluxy deve al partner.</p>
+        <ol>
+          <li><b>Saldi e bonifici</b> calcola il dovuto del mese: fatture contro vendite, in compensazione.</li>
+          <li>Si apre una <b>Richiesta di pagamento</b> (beneficiario, IBAN, importo, causale).</li>
+          <li>La richiesta va a <b>Transactions</b>, dove una persona la autorizza — secondo fattore, e sopra soglia doppia firma.</li>
+          <li>Il bonifico parte da lì e <b>ricompare in banca</b>.</li>
+          <li>Il movimento si riconcilia e il mese si chiude.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="dati">
+  <div class="wrap">
+    <p class="eyebrow"><b>05</b> Da dove arrivano i dati</p>
+    <h2>Ogni dato ha una casa sola</h2>
+    <p>FINANCE non copia i dati degli altri: li <strong>legge</strong> dall'app che li possiede. Se un numero ti sembra mancante o vecchio, quasi sempre la casa è un'altra app — e lì va corretto.</p>
+
+    <figure>
+      <div class="svg-scroll">
+      <svg viewBox="0 0 820 250" role="img" aria-label="FINANCE al centro legge da cinque app: Anagrafiche per le identità, Orders per il margine, Budgets per le categorie, Fatture in Cloud per le fatture vere, Transactions per l'uscita del denaro.">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+        <!-- center -->
+        <rect class="d-box-ink" x="330" y="98" width="160" height="54" rx="13"/>
+        <text class="d-t-inv" x="410" y="124" text-anchor="middle" font-size="16" font-weight="600">FINANCE</text>
+        <text class="d-t-inv" x="410" y="142" text-anchor="middle" font-size="10.5" opacity="0.8">contabilità partner</text>
+
+        <!-- satellites -->
+        <rect class="d-box" x="40" y="30" width="150" height="52" rx="11"/>
+        <text class="d-t" x="115" y="52" text-anchor="middle" font-size="13" font-weight="600">Anagrafiche</text>
+        <text class="d-t-soft" x="115" y="69" text-anchor="middle" font-size="10.5">identità · P.IVA · IBAN</text>
+        <line class="d-line" x1="190" y1="66" x2="332" y2="108" marker-end="url(#ar2)"/>
+
+        <rect class="d-box" x="40" y="168" width="150" height="52" rx="11"/>
+        <text class="d-t" x="115" y="190" text-anchor="middle" font-size="13" font-weight="600">Orders</text>
+        <text class="d-t-soft" x="115" y="207" text-anchor="middle" font-size="10.5">ordini · margine</text>
+        <line class="d-line" x1="190" y1="184" x2="332" y2="142" marker-end="url(#ar2)"/>
+
+        <rect class="d-box" x="630" y="18" width="150" height="52" rx="11"/>
+        <text class="d-t" x="705" y="40" text-anchor="middle" font-size="13" font-weight="600">Budgets</text>
+        <text class="d-t-soft" x="705" y="57" text-anchor="middle" font-size="10.5">categorie di costo</text>
+        <line class="d-line" x1="628" y1="54" x2="492" y2="104" marker-end="url(#ar2)"/>
+
+        <rect class="d-box" x="630" y="98" width="150" height="52" rx="11"/>
+        <text class="d-t" x="705" y="120" text-anchor="middle" font-size="13" font-weight="600">Fatture in Cloud</text>
+        <text class="d-t-soft" x="705" y="137" text-anchor="middle" font-size="10.5">le fatture vere</text>
+        <line class="d-line" x1="628" y1="124" x2="492" y2="124" marker-end="url(#ar2)"/>
+
+        <rect class="d-box-gold" x="630" y="178" width="150" height="52" rx="11"/>
+        <text class="d-t" x="705" y="200" text-anchor="middle" font-size="13" font-weight="600">Transactions</text>
+        <text class="d-t-gold" x="705" y="217" text-anchor="middle" font-size="10.5">l'uscita del denaro</text>
+        <line class="d-line" x1="628" y1="204" x2="492" y2="146" marker-end="url(#ar2)"/>
+      </svg>
+      </div>
+      <figcaption>Le frecce vanno <strong>verso</strong> FINANCE: legge da ognuna. L'unica dove FINANCE <em>scrive</em> è la richiesta a Transactions — che poi decide una persona.</figcaption>
+    </figure>
+
+    <div class="homes">
+      <div class="home"><div class="chip">AN</div><div><h4>Anagrafiche</h4><p>Chi è il partner: ragione sociale, P.IVA, indirizzo, IBAN. La pro-forma prende da qui i dati per fatturare.</p></div></div>
+      <div class="home"><div class="chip">OR</div><div><h4>Orders</h4><p>Gli ordini del sito e il margine. FINANCE non ricalcola il margine: lo legge.</p></div></div>
+      <div class="home"><div class="chip">BU</div><div><h4>Budgets</h4><p>Le categorie di costo del bilancio. Quando classifichi una spesa, sono le sue.</p></div></div>
+      <div class="home"><div class="chip">FIC</div><div><h4>Fatture in Cloud</h4><p>Le fatture fiscali vere. Il Registro fatture le mostra e ci si apre sopra.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="glossario">
+  <div class="wrap">
+    <p class="eyebrow"><b>06</b> Le parole che servono</p>
+    <h2>Piccolo glossario</h2>
+    <dl class="gloss">
+      <div class="term"><dt>Pro-forma</dt><dd>Un documento che sembra una fattura ma non lo è ancora: un preventivo. La fattura vera nasce dopo, all'atto del pagamento.</dd></div>
+      <div class="term"><dt>Riconciliazione</dt><dd>Abbinare un movimento della banca al documento che lo spiega — una fattura incassata, un bonifico partito. Finché non è abbinato, è «da lavorare».</dd></div>
+      <div class="term"><dt>Compensazione</dt><dd>Quando col partner si fanno i conti al netto: quello che ci deve (fatture) meno quello che gli dobbiamo (vendite). Si bonifica o si incassa solo la differenza.</dd></div>
+      <div class="term"><dt>Vendite vendor</dt><dd>Vendite in cui Deluxy vende «per conto» del partner e trattiene una commissione. Il resto è dovuto al partner.</dd></div>
+      <div class="term"><dt>Residuo</dt><dd>Quanto resta da incassare (o pagare) su un documento dopo eventuali acconti. IVA inclusa.</dd></div>
+      <div class="term"><dt>SEPA</dt><dd>Lo standard dei bonifici europei. La causale che «si legge in banca» ha un limite di 140 caratteri.</dd></div>
+      <div class="term"><dt>COGS <span class="mono">costo del prodotto</span></dt><dd>La categoria di costo delle forniture. Marcare un pagamento come «fornitura» serve a farlo leggere così a Budgets.</dd></div>
+      <div class="term"><dt>Scadenzario <span class="mono">aging</span></dt><dd>L'elenco dei crediti ordinati per quanto sono vicini (o oltre) la scadenza.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section id="regole">
+  <div class="wrap">
+    <p class="eyebrow"><b>07</b> Le regole d'oro</p>
+    <h2>Cinque cose da non dimenticare mai</h2>
+    <div class="rules">
+      <div class="rule"><span class="n">1</span><p><b>Da FINANCE non esce denaro.</b> <span>Qui si prepara e si chiede. Il bonifico lo esegue Transactions, dopo che una persona lo autorizza.</span></p></div>
+      <div class="rule"><span class="n">2</span><p><b>Ogni dato ha una casa sola.</b> <span>Identità in Anagrafiche, margine in Orders, categorie in Budgets, fatture in Fatture in Cloud. FINANCE legge, non copia.</span></p></div>
+      <div class="rule"><span class="n">3</span><p><b>«Fatturata» vuol dire che la fattura esiste.</b> <span>Non è un'etichetta: richiede il numero e, se FIC è collegato, che il documento ci sia davvero.</span></p></div>
+      <div class="rule"><span class="n">4</span><p><b>Un incasso o un pagamento vale quando è riconciliato.</b> <span>Finché il movimento in banca non è abbinato, il conto non è chiuso.</span></p></div>
+      <div class="rule"><span class="n">5</span><p><b>Se un numero non torna, guarda la sua casa.</b> <span>Un dato mancante di solito è vuoto nell'app che lo possiede — si corregge lì, non qui.</span></p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p><strong>Manuale FINANCE</strong> — la fonte di verità di cosa fa l'app.<br>
+  Aggiornalo a ogni nuova funzione: <span class="mono">deluxy-partner/docs/MANUALE-FINANCE.html</span></p>
+</footer>

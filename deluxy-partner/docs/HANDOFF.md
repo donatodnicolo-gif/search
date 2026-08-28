@@ -1,5 +1,8 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 📘 **MANUALE VIVO — [docs/MANUALE-FINANCE.html](MANUALE-FINANCE.html)** (guida visiva per chi è nuovo: cosa fa l'app, il giro del denaro, da dove arrivano i dati; artifact: https://claude.ai/code/artifact/b7168d1f-636e-4d65-8875-da758503e682).
+> ⚠️ **REGOLA (28/08/2026, chiesta dall'utente): ogni nuova funzione o modifica di comportamento va scritta ANCHE nel manuale, nello stesso momento in cui entra in app.** Il file HTML vive nel repo; dopo averlo aggiornato, ripubblicalo come artifact sullo stesso URL (passa quell'URL come `url` all'strumento Artifact) così il link resta stabile.
+
 > 🏛️ **ARCHITETTURA DEI DATI (OBBLIGATORIA, 24/08/2026)** — Standard Deluxy §7
 > ([../../deluxy-standard/STANDARD-DELUXY.md](../../deluxy-standard/STANDARD-DELUXY.md)).
 > Il ruolo di QUESTA app: **contabilità e riconciliazione** (fatture FIC,
