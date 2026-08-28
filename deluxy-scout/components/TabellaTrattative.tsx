@@ -174,7 +174,7 @@ export function TabellaTrattative({
                 accessibilityLabel={`Trasforma in ordine la trattativa di ${d.place_nome ?? 'negozio'}`}
                 {...({ title: 'Trasforma in ordine' } as any)}
               >
-                <Ionicons name="receipt-outline" size={15} color={colors.navy} />
+                <Ionicons name="receipt-outline" size={19} color={colors.navy} />
               </Pressable>
             ) : null}
             {/* Il cestino sulla riga: eliminare si poteva già, ma solo aprendo
@@ -194,7 +194,7 @@ export function TabellaTrattative({
                     accessibilityLabel={`Rimetti in gioco la trattativa di ${d.place_nome ?? 'negozio'}`}
                     {...({ title: 'Rimettila in gioco' } as any)}
                   >
-                    <Ionicons name="arrow-undo-outline" size={15} color={colors.navy} />
+                    <Ionicons name="arrow-undo-outline" size={19} color={colors.navy} />
                   </Pressable>
                 ) : null}
                 {onCancella ? (
@@ -223,7 +223,7 @@ export function TabellaTrattative({
                 accessibilityLabel={`Annulla la trattativa di ${d.place_nome ?? "negozio"}`}
                 {...({ title: 'Elimina la trattativa' } as any)}
               >
-                <Ionicons name="trash-outline" size={15} color={colors.errore} />
+                <Ionicons name="trash-outline" size={19} color={colors.errore} />
               </Pressable>
             ) : null}
             <Ionicons name="chevron-forward" size={15} color={colors.grigio} />
@@ -339,6 +339,8 @@ const styles = StyleSheet.create({
   },
   cellaTotale: { color: colors.testo, fontWeight: '800', fontSize: 13, fontVariant: ['tabular-nums'] },
   cellaTotaleNota: { color: colors.grigio, fontSize: 12 },
-  colAzioni: { width: 84, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
+  // 3 cornici da 35 (icona 19 + 8 di padding per lato) + 2 gap da 8 + margine:
+  // icone grandi e col tooltip (Libro v1.8 §3, 28/08/2026).
+  colAzioni: { width: 124, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   cellaScaduta: { color: colors.errore, fontWeight: '700' },
 });

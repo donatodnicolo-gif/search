@@ -329,7 +329,9 @@ function CatalogoConsegne({
       onClose={onClose}
       largo
     >
-      <ScrollView contentContainerStyle={{ gap: spacing.sm, paddingBottom: 8 }}>
+      {/* View e non ScrollView: il corpo del Foglio scorre già da solo, due
+          ScrollView annidate sullo stesso asse sono vietate (Libro v1.7 §9). */}
+      <View style={{ gap: spacing.sm, paddingBottom: 8 }}>
         {stato === 'carico' ? <ActivityIndicator color={colors.navy} /> : null}
 
         {stato === 'non_configurato' ? (
@@ -416,7 +418,7 @@ function CatalogoConsegne({
             </Pressable>
           </>
         ) : null}
-      </ScrollView>
+      </View>
     </Foglio>
   );
 }

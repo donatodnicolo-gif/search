@@ -1,12 +1,18 @@
 // Sezione "Da fare": la coda operativa del venditore.
 // 1) Da ricontattare — negozi la cui ultima visita chiede un seguito
 //    (interessato → recap entro 3 giorni, da richiamare → entro 7).
-// 2) Da completare — visite segnate sul campo ma senza contatto/note.
+// 2) Follow-up affiliazioni — le trattative Affiliazioni/Re-seller CON una
+//    scadenza (chi non se ne è data una sta in Trattative, non qui).
+// 3) TASK aperti (28/08/2026, richiesta dell'utente: «da fare fai vedere anche
+//    le tasks sempre con filtro io / tutti»). Erano l'unica cosa da fare che
+//    questa pagina non mostrava: chi la teneva aperta come coda del giorno
+//    doveva ricordarsi di guardare anche «I miei task».
+// 4) Da completare — visite segnate sul campo ma senza contatto/note.
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, SectionList, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import type { Place } from '@/types';
+import type { Place, Task } from '@/types';
 import { colors, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { EmptyState, StatusBadge } from '@/components/ui';
@@ -15,11 +21,14 @@ import {
   fetchAllVisits,
   fetchDaCompletare,
   fetchPlaces,
+  fetchTask,
   fetchTutteTrattative,
   fetchUltimoContattoPerPlace,
   chiudiRichiamo,
   type TrattativaConLuogo,
 } from '@/lib/db';
+import { Chip, RigaChips } from '@/components/ui';
+import { TaskFormModal } from '@/components/TaskFormModal';
 import {
   daRicontattare,
   followupAffiliazioni,
@@ -33,6 +42,7 @@ import { VisitaModal } from '@/components/VisitaModal';
 type Riga =
   | { tipo: 'richiamo'; richiamo: Richiamo }
   | { tipo: 'followup'; deal: TrattativaConLuogo }
+  | { tipo: 'task'; task: Task }
   | { tipo: 'completa'; place: Place };
 
 // Info scadenza follow-up: testo relativo + flag ritardo + data breve.
@@ -60,18 +70,31 @@ export default function DaCompletare() {
   const [followup, setFollowup] = useState<TrattativaConLuogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState<Place | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  /** Il filtro dei task, come in «I miei task»: la stessa domanda, la stessa
+   *  risposta. ⚠️ Vale SOLO per i task — richiami e visite non hanno un
+   *  assegnatario, e il titolo della sezione lo dice per non far credere che
+   *  filtri tutta la pagina. */
+  const [scopeTask, setScopeTask] = useState<'miei' | 'tutti'>('miei');
+  const [taskAperto, setTaskAperto] = useState<Task | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
     try {
-      const [dc, places, visits, trattative, ultimoContatto] = await Promise.all([
+      const [dc, places, visits, trattative, ultimoContatto, task] = await Promise.all([
         fetchDaCompletare(),
         fetchPlaces(),
         fetchAllVisits(),
         fetchTutteTrattative(),
         fetchUltimoContattoPerPlace().catch(() => new Map<string, string>()),
+        // ⚠️ Best effort: se i task non arrivano, la coda si vede lo stesso
+        // senza quella sezione invece di non vedersi affatto.
+        fetchTask(scopeTask === 'miei').catch(() => [] as Task[]),
       ]);
       setDaCompletare(dc);
+      // ⚠️ Solo gli APERTI: questa è una coda di cose da fare, e un task già
+      // spuntato non è una cosa da fare — sta in «I miei task», completati.
+      setTasks(task.filter((t) => !t.completata));
       // Stesso criterio della Home: chi è in trattativa non è un richiamo.
       setRichiami(
         daRicontattare(places, visits, new Date(), {
@@ -89,7 +112,7 @@ export default function DaCompletare() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scopeTask]);
 
   useFocusEffect(
     useCallback(() => {
@@ -121,6 +144,16 @@ export default function DaCompletare() {
       : []),
     ...(followup.length
       ? [{ title: `Follow-up affiliazioni (${followup.length})`, data: followup.map((d): Riga => ({ tipo: 'followup', deal: d })) }]
+      : []),
+    ...(tasks.length
+      ? [
+          {
+            // Il titolo DICE su cosa agisce il filtro: «Task (3)» con le
+            // pillole sopra farebbe credere che filtrino tutta la pagina.
+            title: `${scopeTask === 'miei' ? 'Task assegnati a me' : 'Task di tutti'} (${tasks.length})`,
+            data: tasks.map((t): Riga => ({ tipo: 'task', task: t })),
+          },
+        ]
       : []),
     ...(daCompletare.length
       ? [{ title: `Da completare (${daCompletare.length})`, data: daCompletare.map((p): Riga => ({ tipo: 'completa', place: p })) }]
@@ -190,6 +223,46 @@ export default function DaCompletare() {
           <Ionicons name="close" size={18} color={colors.grigio} />
         </Pressable>
       ),
+    },
+  ];
+
+  const colonneTask: ColonnaTabella<Task>[] = [
+    {
+      chiave: 'titolo',
+      label: 'Task',
+      flex: 1.2,
+      valore: (t) => t.titolo,
+      cella: (t) => (
+        <View style={{ gap: 2 }}>
+          <View style={styles.tabNomeRiga}>
+            <PriorityBadge priorita={t.priorita} small />
+            <Text style={styles.tabNome} numberOfLines={2}>{t.titolo}</Text>
+          </View>
+          {/* ⚠️ Il CONTATTO collegato si legge qui (migr. 0100): «Sentire
+              Marco» senza dire quale Marco è un promemoria che fra un mese non
+              si sa più eseguire. */}
+          {t.contatto?.nome ? (
+            <Text style={styles.tabSotto} numberOfLines={1}>
+              {t.contatto.nome}
+              {t.contatto.telefono ? ` · ${t.contatto.telefono}` : ''}
+            </Text>
+          ) : t.place_nome ? (
+            <Text style={styles.tabSotto} numberOfLines={1}>{t.place_nome}</Text>
+          ) : null}
+        </View>
+      ),
+    },
+    { chiave: 'owner', label: 'Assegnato a', flex: 0.8, valore: (t) => t.owner_nome ?? 'Non attribuito' },
+    {
+      chiave: 'scadenza',
+      label: 'Scadenza',
+      width: 132,
+      valore: (t) => t.scadenza,
+      cella: (t) => {
+        const s = scadenzaInfo(t.scadenza);
+        if (!s) return <Text style={styles.tabSotto}>Senza scadenza</Text>;
+        return <Text style={[styles.tabData, s.ritardo && styles.tabRitardo]}>{s.txt}</Text>;
+      },
     },
   ];
 
@@ -265,8 +338,16 @@ export default function DaCompletare() {
     <View style={styles.container}>
       <View style={styles.head}>
         <Text style={styles.sub}>
-          Richiami in scadenza e visite da completare — la tua coda di lavoro.
+          Richiami, task aperti e visite da completare — la tua coda di lavoro.
         </Text>
+        {/* ⚠️ Le pillole governano SOLO i task, e il titolo della sezione lo
+            ripete («Task assegnati a me» / «Task di tutti»): richiami e visite
+            non hanno un assegnatario, e un filtro che sembra globale ma agisce
+            su una sezione sola fa contare righe che non sono cambiate. */}
+        <RigaChips style={styles.filtri}>
+          <Chip label="Task assegnati a me" on={scopeTask === 'miei'} onPress={() => setScopeTask('miei')} />
+          <Chip label="Task di tutti" on={scopeTask === 'tutti'} onPress={() => setScopeTask('tutti')} />
+        </RigaChips>
       </View>
       <SectionList
         sections={sezioniVista}
@@ -277,7 +358,9 @@ export default function DaCompletare() {
               ? `r-${r.richiamo.place.id}`
               : r.tipo === 'followup'
                 ? `f-${r.deal.id}`
-                : `c-${r.place.id}`
+                : r.tipo === 'task'
+                  ? `t-${r.task.id}`
+                  : `c-${r.place.id}`
         }
         contentContainerStyle={[styles.list, aTabella ? contenutoLargo : contenutoCentrato]}
         stickySectionHeadersEnabled={false}
@@ -324,6 +407,21 @@ export default function DaCompletare() {
                 />
               );
             }
+            if (righe[0].tipo === 'task') {
+              return (
+                <Tabella
+                  righe={righe.map((r) => (r as Riga & { tipo: 'task' }).task)}
+                  colonne={colonneTask}
+                  chiaveRiga={(t) => t.id}
+                  ordineIniziale={{ campo: 'scadenza', verso: 'asc' }}
+                  onRiga={(t) => setTaskAperto(t)}
+                  labelRiga={(t) => `Modifica il task «${t.titolo}»`}
+                  totali={(righe) => ({
+                    titolo: `Totale · ${righe.length} ${righe.length === 1 ? 'task' : 'task'}`,
+                  })}
+                />
+              );
+            }
             return (
               <Tabella
                 righe={righe.map((r) => (r as Riga & { tipo: 'completa' }).place)}
@@ -346,11 +444,23 @@ export default function DaCompletare() {
               d={item.deal}
               onPress={() => item.deal.place_id && router.push(`/(app)/attivita/${item.deal.place_id}`)}
             />
+          ) : item.tipo === 'task' ? (
+            <RigaTask t={item.task} onPress={() => setTaskAperto(item.task)} />
           ) : (
             <RigaCompleta p={item.place} onPress={() => setSel(item.place)} />
           );
         }}
       />
+      {taskAperto ? (
+        <TaskFormModal
+          task={taskAperto}
+          onClose={() => setTaskAperto(null)}
+          onSalvato={() => {
+            setTaskAperto(null);
+            carica();
+          }}
+        />
+      ) : null}
       <VisitaModal
         place={sel}
         onClose={() => setSel(null)}
@@ -360,6 +470,35 @@ export default function DaCompletare() {
         }}
       />
     </View>
+  );
+}
+
+/** Un task nella coda, sul telefono: cosa fare, chi sentire, per quando. */
+function RigaTask({ t, onPress }: { t: Task; onPress: () => void }) {
+  const s = scadenzaInfo(t.scadenza);
+  return (
+    <Pressable style={styles.card} onPress={onPress}>
+      <View style={styles.icona}>
+        <Ionicons name="checkbox-outline" size={20} color={colors.navy} />
+      </View>
+      <View style={styles.info}>
+        <View style={styles.titoloRow}>
+          <PriorityBadge priorita={t.priorita} small />
+          <Text numberOfLines={3} style={styles.nome}>{t.titolo}</Text>
+          {s?.ritardo ? <StatusBadge small label="In ritardo" colore={colors.errore} /> : null}
+        </View>
+        <Text style={styles.meta} numberOfLines={1}>
+          {[
+            t.contatto?.nome ? `Sentire ${t.contatto.nome}` : t.place_nome,
+            t.owner_nome,
+            s ? s.txt : 'senza scadenza',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </Text>
+      </View>
+      <Text style={styles.freccia}>Apri ›</Text>
+    </Pressable>
   );
 }
 
@@ -469,6 +608,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
+  filtri: { marginTop: 10 },
   sub: { color: colors.testoSoft, fontSize: 13 },
   tabNomeRiga: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tabNome: { flex: 1, minWidth: 0, color: colors.navy, fontWeight: '700', fontSize: 14 },

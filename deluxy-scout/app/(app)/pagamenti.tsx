@@ -473,7 +473,10 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
     // bloccaSfondo: una richiesta scritta a metà non si chiude col clic fuori;
     // largo perché le righe delle rate hanno bisogno di respiro.
     <Foglio titolo="Richiesta di pagamento" onClose={onClose} bloccaSfondo largo>
-          <ScrollView contentContainerStyle={{ gap: spacing.sm }} keyboardShouldPersistTaps="handled">
+          {/* View e non ScrollView: il corpo del Foglio scorre già da solo (e ha
+              già keyboardShouldPersistTaps); due ScrollView annidate sullo
+              stesso asse sono vietate (Libro v1.7 §9). */}
+          <View style={{ gap: spacing.sm }}>
             <Text style={styles.label}>Trattativa</Text>
             {scelta ? (
               <View style={styles.scelta}>
@@ -635,7 +638,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
             <Pressable style={[styles.salva, (!valido || salvando) && styles.salvaOff]} disabled={!valido || salvando} onPress={salva}>
               {salvando ? <ActivityIndicator color={colors.bianco} /> : <Text style={styles.salvaTxt}>Crea richiesta</Text>}
             </Pressable>
-          </ScrollView>
+          </View>
     </Foglio>
   );
 }

@@ -58,7 +58,9 @@ export function RiconciliaModale({
                   {eur.format(totale)}{clienteNome ? ` · ${clienteNome}` : ""}
                 </div>
               </div>
-              <button className="btn small secondary" type="button" onClick={() => setAperto(false)}>Chiudi</button>
+              {/* ✕ obbligatoria in testata (Libro v1.7 §9): resta in vista
+                  anche a risultati lunghi perché la testata è sticky. */}
+              <button className="modal-chiudi" type="button" aria-label="Chiudi" onClick={() => setAperto(false)}>✕</button>
             </div>
 
             <form

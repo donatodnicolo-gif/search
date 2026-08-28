@@ -494,7 +494,9 @@ function NuovaFornituraModal({
       bloccaSfondo
       largo
     >
-      <ScrollView contentContainerStyle={{ gap: spacing.sm, paddingBottom: 8 }}>
+      {/* View e non ScrollView: il corpo del Foglio scorre già da solo, due
+          ScrollView annidate sullo stesso asse sono vietate (Libro v1.7 §9). */}
+      <View style={{ gap: spacing.sm, paddingBottom: 8 }}>
         <Text style={styles.campoLabel}>Fornitore *</Text>
         {scelto ? (
           <Pressable style={styles.sceltoRiga} onPress={() => setScelto(null)}>
@@ -642,7 +644,7 @@ function NuovaFornituraModal({
         <Pressable style={[styles.salva, (!valido || salvando) && styles.salvaOff]} onPress={salva} disabled={!valido || salvando}>
           {salvando ? <ActivityIndicator color={colors.bianco} /> : <Text style={styles.salvaTxt}>Salva la fornitura</Text>}
         </Pressable>
-      </ScrollView>
+      </View>
     </Foglio>
   );
 }

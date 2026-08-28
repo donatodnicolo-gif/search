@@ -1829,7 +1829,7 @@ export async function fetchTask(soloMiei: boolean): Promise<Task[]> {
   const uid = u.user?.id ?? null;
   let q = supabase
     .from('tasks')
-    .select('*, places(nome)')
+    .select('*, places(nome), contacts(id, nome, ruolo, telefono, email)')
     .order('completata', { ascending: true })
     .order('scadenza', { ascending: true, nullsFirst: false })
     .order('priorita', { ascending: true })
@@ -1837,7 +1837,11 @@ export async function fetchTask(soloMiei: boolean): Promise<Task[]> {
   if (soloMiei && uid) q = q.eq('owner', uid);
   const { data, error } = await q;
   if (error) throw error;
-  const righe = (data ?? []).map((r: any) => ({ ...r, place_nome: r.places?.nome ?? null })) as Task[];
+  const righe = (data ?? []).map((r: any) => ({
+    ...r,
+    place_nome: r.places?.nome ?? null,
+    contatto: r.contacts ?? null,
+  })) as Task[];
 
   const ids = [...new Set(righe.flatMap((t) => [t.owner, t.creato_da]).filter(Boolean))] as string[];
   if (ids.length) {
@@ -1857,6 +1861,51 @@ export function fetchMieiTask(): Promise<Task[]> {
 }
 
 /** I task collegati a un negozio (RLS: quelli che l'utente può vedere). */
+/** Un contatto trovato dalla ricerca, col negozio a cui appartiene. */
+export interface ContattoTrovato {
+  id: string;
+  nome: string;
+  ruolo: string | null;
+  telefono: string | null;
+  email: string | null;
+  place_id: string | null;
+  place_nome: string | null;
+}
+
+/**
+ * ⭐ CERCA UN CONTATTO IN RUBRICA (28/08/2026, richiesta dell utente:
+ * «consenti di collegare un contatto a una task»).
+ *
+ * ⚠️ Gli ARCHIVIATI restano fuori: un referente archiviato non lavora piu la
+ * per definizione, e proporlo vorrebbe dire farsi assegnare un promemoria da
+ * dare a qualcuno che non risponde.
+ *
+ * ⚠️ Si cerca sul database e si torna il NEGOZIO di ciascuno: due persone
+ * possono chiamarsi uguale, e il nome da solo non basta a riconoscerle.
+ */
+export async function cercaContatti(q: string, max = 8): Promise<ContattoTrovato[]> {
+  const t = q.trim();
+  if (t.length < 2) return [];
+  const sicuro = t.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('id, nome, ruolo, telefono, email, place_id, places(nome)')
+    .eq('archiviato', false)
+    .ilike('nome', `%${sicuro}%`)
+    .order('nome')
+    .limit(max);
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    nome: r.nome,
+    ruolo: r.ruolo ?? null,
+    telefono: r.telefono ?? null,
+    email: r.email ?? null,
+    place_id: r.place_id ?? null,
+    place_nome: r.places?.nome ?? null,
+  }));
+}
+
 export async function fetchTaskPlace(placeId: string): Promise<Task[]> {
   const { data, error } = await supabase
     .from('tasks')
@@ -1887,6 +1936,7 @@ export async function inserisciTask(t: {
   priorita: Task['priorita'];
   scadenza?: string | null;
   place_id?: string | null;
+  contatto_id?: string | null;
   owner?: string | null;
 }): Promise<Task> {
   const { data: u } = await supabase.auth.getUser();
@@ -1900,6 +1950,7 @@ export async function inserisciTask(t: {
       priorita: t.priorita,
       scadenza: t.scadenza ?? null,
       place_id: t.place_id ?? null,
+      contatto_id: t.contatto_id ?? null,
     })
     .select('*')
     .single();
@@ -1910,7 +1961,7 @@ export async function inserisciTask(t: {
 /** Aggiorna i campi editabili di un task (incl. riassegnazione via `owner`). */
 export async function aggiornaTask(
   id: string,
-  patch: Partial<Pick<Task, 'titolo' | 'note' | 'priorita' | 'scadenza' | 'owner'>>,
+  patch: Partial<Pick<Task, 'titolo' | 'note' | 'priorita' | 'scadenza' | 'owner' | 'contatto_id'>>,
 ): Promise<void> {
   const { error } = await supabase.from('tasks').update(patch).eq('id', id);
   if (error) throw error;

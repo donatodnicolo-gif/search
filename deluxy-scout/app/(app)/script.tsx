@@ -2,7 +2,7 @@
 // team riusa. Da qui si creano/modificano i modelli e si parte per l'invio a più
 // contatti. I segnaposto {nome} e {negozio} vengono personalizzati per ciascuno.
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Foglio } from '@/components/Foglio';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -249,7 +249,10 @@ function EditorModal({ script, onClose, onSalvato }: { script?: ScriptEmail; onC
     // bloccaSfondo: un testo scritto a metà non si chiude col clic fuori;
     // largo perché l'editor del corpo merita spazio.
     <Foglio titolo={script ? 'Modifica script' : 'Nuovo script'} onClose={onClose} bloccaSfondo largo>
-          <ScrollView contentContainerStyle={{ gap: spacing.sm }} keyboardShouldPersistTaps="handled">
+          {/* View e non ScrollView: il corpo del Foglio scorre già da solo (e ha
+              già keyboardShouldPersistTaps); due ScrollView annidate sullo
+              stesso asse sono vietate (Libro v1.7 §9). */}
+          <View style={{ gap: spacing.sm }}>
             <Text style={styles.label}>Titolo *</Text>
             <TextInput style={styles.input} value={titolo} onChangeText={setTitolo} placeholder="Es. Primo contatto boutique" placeholderTextColor={colors.grigio} />
 
@@ -281,7 +284,7 @@ function EditorModal({ script, onClose, onSalvato }: { script?: ScriptEmail; onC
             <Pressable style={[styles.salva, salvando && styles.salvaOff]} onPress={salva} disabled={salvando}>
               {salvando ? <ActivityIndicator color={colors.bianco} /> : <Text style={styles.salvaTxt}>Salva script</Text>}
             </Pressable>
-          </ScrollView>
+          </View>
     </Foglio>
   );
 }

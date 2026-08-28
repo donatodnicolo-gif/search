@@ -462,12 +462,18 @@ th.num { text-align: right; }
 /* ---------- Finestrella (dialog nativo) ---------- */
 /* È un <dialog> vero: Esc lo chiude, il resto della pagina non si può usare
    mentre è aperto, e non serve un finto sfondo grigio disegnato a mano. */
+/* ⚠️ LA FINESTRA STA DENTRO LA VIEWPORT (Libro v1.7 §9, segnalazione utente:
+   una modale più alta dello schermo col bottone di conferma irraggiungibile).
+   Tetto in `dvh` e scroll sul CORPO (il contenitore visibile): prima il
+   dialog aveva un tetto ma nessuno scorreva, e il contenuto lungo sfondava.
+   Collaudo: a 375×812 e a 1366×768 le azioni si raggiungono senza scrollare
+   la pagina. */
 dialog.finestra {
   border: none;
   padding: 0;
   background: transparent;
   width: min(560px, calc(100vw - 28px));
-  max-height: calc(100vh - 40px);
+  max-height: min(92dvh, calc(100dvh - 40px));
   color: var(--text);
 }
 dialog.finestra::backdrop { background: rgba(0, 0, 0, 0.32); }
@@ -477,6 +483,36 @@ dialog.finestra::backdrop { background: rgba(0, 0, 0, 0.32); }
   border-radius: var(--radius-l);
   box-shadow: var(--shadow-card);
   padding: 20px;
+  max-height: inherit;
+  overflow-y: auto;
+}
+/* Testata sticky con la ✕ obbligatoria (Libro v1.7 §9): la chiusura non
+   finisce mai sotto la piega. Margini negativi = il padding del corpo. */
+.finestra-testa {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  position: sticky; top: -20px; z-index: 2;
+  background: var(--surface);
+  margin: -20px -20px 12px;
+  padding: 20px 20px 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.finestra-testa .scheda-titolo { margin: 0; }
+.finestra-chiudi {
+  flex: 0 0 auto;
+  border: 0; background: var(--fill); color: var(--text-secondary);
+  width: 28px; height: 28px; border-radius: 999px;
+  font-size: 13px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.finestra-chiudi:hover { background: var(--hairline-strong); color: var(--text); }
+/* Nel corpo scorrevole il piede con le azioni resta in fondo ma in vista
+   (Libro v1.7 §9). */
+.finestra-corpo .azioni-modulo {
+  position: sticky; bottom: -20px; z-index: 2;
+  background: var(--surface);
+  margin: 4px -20px -20px;
+  padding: 12px 20px 20px;
+  border-top: 1px solid var(--hairline);
 }
 .finestra-corpo .firma-nota { margin-bottom: 14px; }
 /* I messaggi dicono cosa è andato storto con i soldi: devono leggersi, non

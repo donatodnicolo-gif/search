@@ -5,7 +5,7 @@
 // tipico: la richiesta di un privato non ha un negozio — si gestisce dal
 // Customer Service e qui si scarta.
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '@/lib/theme';
 import { Foglio } from '@/components/Foglio';
@@ -229,7 +229,10 @@ export function QualificaLeadModal({
         placeholderTextColor={colors.grigio}
         autoFocus
       />
-      <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled">
+      {/* View e non ScrollView: il tetto e lo scroll li dà il corpo del Foglio
+          (che ha già keyboardShouldPersistTaps) — due ScrollView annidate sullo
+          stesso asse sono vietate (Libro v1.7 §9). */}
+      <View style={{ gap: 8 }}>
         {risultati.map((p) => (
           <Pressable key={p.id} style={styles.risultato} onPress={() => scegli(p)} disabled={salvando}>
             <Ionicons name="storefront-outline" size={16} color={colors.testoSoft} />
@@ -252,7 +255,7 @@ export function QualificaLeadModal({
             </Text>
           </View>
         ) : null}
-      </ScrollView>
+      </View>
 
       {/* IL NEGOZIO CHE NON C'È. Sta sempre a schermo, non solo quando la
           ricerca è vuota: chi qualifica spesso vede degli omonimi che non sono

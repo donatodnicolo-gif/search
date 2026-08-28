@@ -205,8 +205,9 @@ export function ComponiMail({
               parte dalla casella aziendale, non dal tuo programma di posta
             </div>
           </div>
-          <button className="btn btn-secondario small" onClick={onChiudi} disabled={inviando}>
-            Chiudi
+          {/* ✕ obbligatoria (Libro v1.7 §9): stesso handler di Esc e del velo. */}
+          <button className="pannello-chiudi" aria-label="Chiudi" title="Chiudi (Esc)" onClick={onChiudi} disabled={inviando}>
+            ✕
           </button>
         </div>
 
@@ -364,7 +365,9 @@ export function ComponiMail({
           </label>
         ) : null}
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* Piede sticky (Libro v1.7 §9): «Invia» resta in vista anche con la
+            mail lunga scorrata. */}
+        <div className="pannello-piede">
           <button
             className="btn"
             onClick={invia}

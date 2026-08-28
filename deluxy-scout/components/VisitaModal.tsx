@@ -9,7 +9,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -170,7 +169,10 @@ export function VisitaModal({
               <Ionicons name="chatbubble-outline" size={12} color={colors.testoSoft} /> {place.aggancio_apertura}
             </Text>
           ) : null}
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
+          {/* View e non ScrollView: il corpo del Foglio scorre già da solo (e ha
+              già keyboardShouldPersistTaps); due ScrollView annidate sullo
+              stesso asse sono vietate (Libro v1.7 §9). */}
+          <View style={styles.body}>
             <Text style={styles.sezione}>Com’è andata?</Text>
             <EsitoButtons value={esito} onChange={setEsito} />
 
@@ -208,7 +210,7 @@ export function VisitaModal({
             />
 
             {errore ? <Text style={styles.errore}>{errore}</Text> : null}
-          </ScrollView>
+          </View>
 
           {/* Dire che la bozza è al sicuro serve: senza, chi chiude il pop-up
               non ha modo di sapere che ritroverà quello che ha scritto. */}

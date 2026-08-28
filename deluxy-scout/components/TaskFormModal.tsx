@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,6 +17,8 @@ import { supabase } from '@/lib/supabase';
 import { aggiornaTask, fetchProfiles, inserisciTask, notificaAssegnazioneTask } from '@/lib/db';
 import { nomeVenditore } from '@/lib/metrics';
 import { isoTraGiorni } from '@/lib/giorni';
+import { CampoData } from '@/components/CampoData';
+import { SceltaContatto, type ContattoScelto } from '@/components/SceltaContatto';
 
 // Etichette allineate al PriorityBadge ("P1 · Alta"…).
 const PRIORITA: { v: Priorita; label: string }[] = [
@@ -58,6 +59,14 @@ export function TaskFormModal({
   const [priorita, setPriorita] = useState<Priorita>(task?.priorita ?? 'P2');
   const [scadenza, setScadenza] = useState<string | null>(task?.scadenza ?? null);
   const [owner, setOwner] = useState<string | null>(task?.owner ?? null);
+  /** Il contatto collegato (migr. 0100): chi bisogna chiamare o scrivere. */
+  const [contatto, setContatto] = useState<ContattoScelto | null>(
+    task?.contatto ? { ...task.contatto } : null,
+  );
+  /** Il calendario aperto a mano: i chip coprono i casi frequenti, non tutti. */
+  const [dataLibera, setDataLibera] = useState(
+    !!task?.scadenza && ![0, 1, 7].some((g) => isoTraGiorni(g) === task?.scadenza),
+  );
   const [mioId, setMioId] = useState<string | null>(null);
   const [venditori, setVenditori] = useState<Profilo[]>([]);
   const [salvando, setSalvando] = useState(false);
@@ -81,10 +90,23 @@ export function TaskFormModal({
       const assegnatario = owner ?? mioId;
       let taskId = task?.id ?? null;
       if (inModifica && task) {
-        await aggiornaTask(task.id, { titolo: t, priorita, scadenza, owner: assegnatario });
+        await aggiornaTask(task.id, {
+          titolo: t,
+          priorita,
+          scadenza,
+          owner: assegnatario,
+          contatto_id: contatto?.id ?? null,
+        });
         taskId = task.id;
       } else {
-        const nuovo = await inserisciTask({ titolo: t, priorita, scadenza, owner: assegnatario, place_id: placeId ?? null });
+        const nuovo = await inserisciTask({
+          titolo: t,
+          priorita,
+          scadenza,
+          owner: assegnatario,
+          place_id: placeId ?? null,
+          contatto_id: contatto?.id ?? null,
+        });
         taskId = nuovo.id;
       }
       // Se assegnato a un ALTRO, notifica via email (best-effort; inerte se SMTP non configurato).
@@ -107,7 +129,10 @@ export function TaskFormModal({
             </Text>
           ) : null}
 
-          <ScrollView contentContainerStyle={{ gap: spacing.sm }} keyboardShouldPersistTaps="handled">
+          {/* View e non ScrollView: il corpo del Foglio scorre già da solo (e ha
+              già keyboardShouldPersistTaps); due ScrollView annidate sullo
+              stesso asse sono vietate (Libro v1.7 §9). */}
+          <View style={{ gap: spacing.sm }}>
             <TextInput
               style={styles.input}
               value={titolo}
@@ -134,14 +159,52 @@ export function TaskFormModal({
             <View style={styles.chips}>
               {SCAD.map((o) => {
                 const iso = o.giorni == null ? null : isoTraGiorni(o.giorni);
-                const on = scadenza === iso;
+                const on = !dataLibera && scadenza === iso;
                 return (
-                  <Pressable key={o.label} style={[styles.chip, on && styles.chipOn]} onPress={() => setScadenza(iso)}>
+                  <Pressable
+                    key={o.label}
+                    style={[styles.chip, on && styles.chipOn]}
+                    onPress={() => {
+                      setDataLibera(false);
+                      setScadenza(iso);
+                    }}
+                  >
                     <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{o.label}</Text>
                   </Pressable>
                 );
               })}
+              {/* ⭐ IL CALENDARIO (28/08/2026, richiesta dell'utente: «nella
+                  scadenza metti anche la possibilità di aprire un calendario»).
+
+                  ⚠️ I chip restano e vengono PRIMA: oggi, domani e fra una
+                  settimana sono la quasi totalità dei promemoria, e obbligare
+                  a scegliere su un calendario per dire «domani» sarebbe tre
+                  gesti al posto di uno. Il calendario serve alla data che i
+                  chip non sanno dire — la fiera del 14 ottobre. */}
+              <Pressable
+                style={[styles.chip, dataLibera && styles.chipOn]}
+                onPress={() => setDataLibera(true)}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={13}
+                  color={dataLibera ? colors.bianco : colors.grigio}
+                />
+                <Text style={[styles.chipTxt, dataLibera && styles.chipTxtOn]}>Scegli data</Text>
+              </Pressable>
             </View>
+            {dataLibera ? (
+              // Sul web è il calendario del browser (CampoData.web.tsx), sul
+              // telefono un campo con la data scritta: lo stesso componente.
+              <CampoData valore={scadenza} onCambia={setScadenza} placeholder="es. 2026-10-14" />
+            ) : null}
+
+            {/* ⭐ IL CONTATTO (28/08/2026, richiesta dell'utente: «consenti di
+                collegare un contatto a una task»). Sta dopo la scadenza e prima
+                dell'assegnatario: sono due persone diverse — CHI devo sentire e
+                CHI se ne occupa — e vicine si scambierebbero. */}
+            <Text style={styles.label}>Contatto</Text>
+            <SceltaContatto scelto={contatto} onScegli={setContatto} />
 
             <Text style={styles.label}>Assegna a</Text>
             <View style={styles.chips}>
@@ -177,7 +240,7 @@ export function TaskFormModal({
                 <Text style={styles.btnTxt}>{inModifica ? 'Salva modifiche' : 'Crea task'}</Text>
               )}
             </Pressable>
-          </ScrollView>
+          </View>
     </Foglio>
   );
 }

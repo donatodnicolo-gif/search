@@ -685,7 +685,7 @@ function RigaDeal({
             accessibilityLabel="Trasforma in ordine"
             {...({ title: 'Trasforma in ordine' } as any)}
           >
-            <Ionicons name="receipt-outline" size={16} color={colors.navy} />
+            <Ionicons name="receipt-outline" size={19} color={colors.navy} />
           </Pressable>
         ) : null}
         {suoDiScout && annullata ? (
@@ -700,7 +700,7 @@ function RigaDeal({
               accessibilityLabel="Rimetti in gioco la trattativa"
               {...({ title: 'Rimettila in gioco' } as any)}
             >
-              <Ionicons name="arrow-undo-outline" size={16} color={colors.navy} />
+              <Ionicons name="arrow-undo-outline" size={19} color={colors.navy} />
             </Pressable>
             <Pressable
               hitSlop={8}
@@ -728,7 +728,7 @@ function RigaDeal({
             accessibilityLabel="Annulla la trattativa"
             {...({ title: 'Annulla la trattativa (va in «Annullate»)' } as any)}
           >
-            <Ionicons name="trash-outline" size={16} color={colors.errore} />
+            <Ionicons name="trash-outline" size={19} color={colors.errore} />
           </Pressable>
         ) : null}
       </View>
@@ -1054,7 +1054,10 @@ function TrattativaModal({
     // bloccaSfondo: una trattativa scritta a metà non si chiude col clic fuori;
     // largo perché il form ha molti campi.
     <Foglio titolo={titoloSheet} onClose={onClose} bloccaSfondo largo>
-          <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+          {/* View e non ScrollView: il corpo del Foglio scorre già da solo (e ha
+              già keyboardShouldPersistTaps); due ScrollView annidate sullo
+              stesso asse sono vietate (Libro v1.7 §9). */}
+          <View style={styles.sheetBody}>
             {/* Negozio / contatto */}
             <Text style={styles.campoLabel}>Negozio</Text>
             {place ? (
@@ -1307,7 +1310,7 @@ function TrattativaModal({
             ) : null}
 
             {errore ? <Text style={styles.errore}>{errore}</Text> : null}
-          </ScrollView>
+          </View>
 
           <Pressable
             style={[styles.salva, (!place || salvando) && styles.salvaDisabled]}

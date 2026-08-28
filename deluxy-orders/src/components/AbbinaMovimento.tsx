@@ -70,8 +70,10 @@ export function AbbinaMovimento({
                 {ordineNumero}
               </strong>
               <span className="testo-guida">valore ordine {euro(totale)}</span>
-              <button className="btn btn-secondario small" type="button" onClick={() => setAperto(false)}>
-                Chiudi
+              {/* ✕ obbligatoria in testata (Libro v1.7 §9): la testata è
+                  sticky, quindi la chiusura resta in vista anche a lista lunga. */}
+              <button className="modale-chiudi" type="button" aria-label="Chiudi" onClick={() => setAperto(false)}>
+                ✕
               </button>
             </div>
 

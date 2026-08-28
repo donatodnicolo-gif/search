@@ -1088,7 +1088,20 @@ mark.ricerca-hit {
   box-shadow: var(--shadow-float);
   padding: 20px 22px;
   width: 100%; max-width: 560px;
-  max-height: 80vh; overflow-y: auto;
+  /* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9): tetto in `dvh`
+     (su iOS 80vh sforava la finestra visibile con la barra) e scroll sul
+     contenitore. Collaudo: a 375×812 e 1366×768 il Salva si raggiunge
+     senza scrollare la pagina. */
+  max-height: min(92dvh, calc(100dvh - 10vh - 16px)); overflow-y: auto;
+}
+/* Piede con le azioni sticky in fondo (Libro v1.7 §9): il Salva/Annulla resta
+   in vista anche a form scorrato. Gli offset negativi rispecchiano il padding
+   della .modal, come la testata sticky qui sopra. */
+.modal .form-footer {
+  position: sticky; bottom: -20px; z-index: 1;
+  background: var(--surface);
+  margin: 24px -22px -20px; padding: 12px 22px 16px;
+  border-top: 1px solid var(--hairline);
 }
 /* Titolo + ✕: la riga resta APPICCICATA in cima mentre il dialogo scorre.
    In un dialogo lungo (la ricerca delle mail da agganciare) il tasto «Chiudi»

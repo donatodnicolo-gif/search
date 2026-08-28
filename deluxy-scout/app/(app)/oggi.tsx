@@ -834,7 +834,11 @@ const styles = StyleSheet.create({
   foglioTesta: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   foglioTitolo: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 16, letterSpacing: -0.3 },
   foglioConto: { color: colors.testoSoft, fontSize: 12, marginTop: 2, marginBottom: spacing.sm },
-  foglioLista: { flexGrow: 0 },
+  // ⚠️ `flexShrink: 1` come nel Foglio canonico (Libro v1.7 §9): senza, la
+  // ScrollView si dimensiona sul contenuto e SFORA il tetto dell'80% del
+  // foglio — le righe oltre il bordo diventavano irraggiungibili, perché il
+  // Modal è fisso e la pagina sotto non scorre.
+  foglioLista: { flexGrow: 0, flexShrink: 1 },
   foglioVuoto: { color: colors.testoSoft, fontSize: 13, lineHeight: 19, paddingVertical: spacing.sm },
   foglioRiga: {
     flexDirection: 'row',

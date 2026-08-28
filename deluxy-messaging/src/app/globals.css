@@ -2461,6 +2461,16 @@ td .azioni-ordine {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   width: min(760px, 100%);
   padding: 18px;
+  /* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9, segnalazione utente:
+     una modale più alta dello schermo col bottone di conferma
+     irraggiungibile). Il tetto e lo scroll stanno sul PANNELLO, non sul velo:
+     un pannello da 4 schermate scorre qui dentro, la testata sticky con la ✕
+     resta in vista e il velo non si muove più. Collaudo: a 375×812 e a
+     1366×768 le azioni si raggiungono senza scrollare la pagina. */
+  max-height: min(92dvh, calc(100dvh - 48px));
+  overflow-y: auto;
+  /* Come sul velo: finita l'inerzia, il dito non continua sulla pagina sotto. */
+  overscroll-behavior: contain;
 }
 
 .pannello-testa {
@@ -2496,10 +2506,52 @@ td .azioni-ordine {
   position: sticky;
   top: -18px;
   z-index: 2;
-  /* Sfondo pieno e un po' di respiro: sopra al contenuto che le scorre sotto. */
+  /* Sfondo pieno e un po' di respiro: sopra al contenuto che le scorre sotto.
+     ⚠️ Da quando scorre il PANNELLO (Libro v1.7 §9) la testata occupa anche il
+     suo padding (margini negativi + padding proprio, come la modale di Mail):
+     senza, restava una striscia da 18px in cui il contenuto sbucava sopra la
+     testata. `top: -18px` = l'altezza del padding che le appartiene. */
   background: var(--bg);
-  padding-top: 4px;
-  margin-top: -4px;
+  margin: -18px -18px 14px;
+  padding: 18px 18px 8px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* La ✕ obbligatoria in testata (Libro v1.7 §9): stesso handler di Esc e del
+   clic sul velo, sempre in vista perché la testata è sticky. */
+.pannello-chiudi {
+  flex: 0 0 auto;
+  border: 0;
+  background: var(--fill, rgba(120, 120, 128, 0.08));
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pannello-chiudi:hover { background: var(--hairline-strong); color: var(--text); }
+.pannello-chiudi:disabled { opacity: 0.5; cursor: default; }
+
+/* Piede con le azioni sticky in fondo (Libro v1.7 §9): Invia/Annulla restano
+   in vista anche a pannello scorrato. Gli offset negativi rispecchiano il
+   padding del pannello, come la testata qui sopra. */
+.pannello-piede {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  position: sticky;
+  bottom: -18px;
+  z-index: 2;
+  background: var(--bg);
+  margin: 14px -18px -18px;
+  padding: 10px 18px 18px;
+  border-top: 1px solid var(--hairline);
 }
 
 /* Prodotti dell'ordine: foto grande, perché è quella che si guarda. */
@@ -3663,11 +3715,44 @@ td .azioni-ordine {
   box-shadow: var(--shadow-float);
   padding: 18px 20px;
   width: min(420px, 100%);
-  max-height: 90vh;
+  /* Tetto in `dvh` (Libro v1.7 §9): 90vh su un telefono con la barra del
+     browser sforava la finestra visibile. Lo scroll resta sul contenitore. */
+  max-height: min(92dvh, calc(100dvh - 32px));
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Testata della finestra di pagamento: sticky, con la ✕ obbligatoria
+   (Libro v1.7 §9) — prima l'unica uscita era il clic fuori dal riquadro. */
+.pagata-testa {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  position: sticky;
+  top: -18px;
+  z-index: 2;
+  background: var(--surface);
+  margin: -18px -20px 0;
+  padding: 18px 20px 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* Piede sticky della finestra di pagamento: «Registra» resta in vista anche
+   col modulo scorrato (Libro v1.7 §9). */
+.pagata-piede {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  position: sticky;
+  bottom: -18px;
+  z-index: 2;
+  background: var(--surface);
+  margin: 0 -20px -18px;
+  padding: 10px 20px 18px;
+  border-top: 1px solid var(--hairline);
 }
 
 .finestra-pagata .campo { margin: 0; }

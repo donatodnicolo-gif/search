@@ -1297,7 +1297,21 @@ export function RichiediPagamento() {
           }}
         >
           <div className="finestra-pagata">
-            <h3 style={{ margin: 0 }}>Pagamento a {chiedoPagata.intestatario}</h3>
+            {/* Testata sticky con la ✕ obbligatoria (Libro v1.7 §9): prima
+                l'unica uscita era il clic fuori dal riquadro — un gesto che
+                nessuno prova da dentro un modulo. */}
+            <div className="pagata-testa">
+              <h3 style={{ margin: 0 }}>Pagamento a {chiedoPagata.intestatario}</h3>
+              <button
+                className="pannello-chiudi"
+                aria-label="Chiudi"
+                title="Chiudi"
+                onClick={() => setChiedoPagata(null)}
+                disabled={pagando === chiedoPagata.id}
+              >
+                ✕
+              </button>
+            </div>
             <p className="cella-sub" style={{ margin: 0 }}>
               {[
                 chiedoPagata.importo
@@ -1349,7 +1363,9 @@ export function RichiediPagamento() {
 
             {errore ? <p className="errore-riga">{errore}</p> : null}
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {/* Piede sticky (Libro v1.7 §9): «Registra» resta in vista anche
+                col modulo scorrato. */}
+            <div className="pagata-piede">
               <button
                 className="btn"
                 disabled={pagando === chiedoPagata.id}

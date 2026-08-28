@@ -54,7 +54,20 @@ export function ChiusuraRapida({
           riquadro sovrapposto. */}
       <dialog className="finestra" ref={finestra}>
         <div className="finestra-corpo">
-          <div className="scheda-titolo">{pagata ? "Già pagata altrove" : "Annullare la richiesta"}</div>
+          {/* Testata sticky con la ✕ obbligatoria (Libro v1.7 §9): Esc resta,
+              ma la chiusura deve anche vedersi. */}
+          <div className="finestra-testa">
+            <div className="scheda-titolo">{pagata ? "Già pagata altrove" : "Annullare la richiesta"}</div>
+            <button
+              type="button"
+              className="finestra-chiudi"
+              aria-label="Chiudi"
+              title="Chiudi (Esc)"
+              onClick={() => finestra.current?.close()}
+            >
+              ✕
+            </button>
+          </div>
           <p className="testo-guida" style={{ marginTop: 0 }}>
             <strong>{riferimento}</strong> · {beneficiario} · <strong>{importo}</strong>
           </p>

@@ -5,7 +5,7 @@
 // passi non manderebbe mai niente, e una spenta nemmeno — proporle vorrebbe
 // dire far credere di aver messo in moto qualcosa.
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Foglio } from '@/components/Foglio';
 import { useRouter } from 'expo-router';
@@ -102,7 +102,10 @@ export function IscriviSequenzaModal({
               </Pressable>
             </View>
           ) : (
-            <ScrollView style={{ maxHeight: 340 }} contentContainerStyle={{ gap: 8 }}>
+            // View e non ScrollView: il tetto e lo scroll li dà il corpo del
+            // Foglio — due ScrollView annidate sullo stesso asse sono vietate
+            // (Libro v1.7 §9).
+            <View style={{ gap: 8 }}>
               {sequenze.map((s) => {
                 const suoi = passi[s.id] ?? [];
                 return (
@@ -130,7 +133,7 @@ export function IscriviSequenzaModal({
                   </Pressable>
                 );
               })}
-            </ScrollView>
+            </View>
           )}
     </Foglio>
   );

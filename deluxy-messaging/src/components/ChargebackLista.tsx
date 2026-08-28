@@ -294,8 +294,9 @@ export function ChargebackLista() {
                     : ''}
                 </div>
               </div>
-              <button className="btn btn-secondario small" onClick={() => setAperta(null)}>
-                Chiudi
+              {/* ✕ obbligatoria (Libro v1.7 §9): stesso handler del velo. */}
+              <button className="pannello-chiudi" aria-label="Chiudi" title="Chiudi" onClick={() => setAperta(null)}>
+                ✕
               </button>
             </div>
 
@@ -385,7 +386,17 @@ export function ChargebackLista() {
               />
             </label>
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* L'avvertenza sta PRIMA dei bottoni: il piede è sticky in fondo
+                al pannello (Libro v1.7 §9) e dopo di lui non deve flottare
+                nulla — e un avviso su un invio definitivo si legge prima. */}
+            <p className="descrizione" style={{ marginBottom: 0 }}>
+              ⚠️ <strong>L&apos;invio è definitivo</strong>: le prove partono verso la banca e la
+              contestazione passa in esame. La bozza invece resta qui e non parte: si scrive, si
+              rilegge, e si manda dopo.
+            </p>
+            {/* Piede sticky (Libro v1.7 §9): «Salva bozza» e l'invio restano
+                in vista anche col modulo lungo scorrato. */}
+            <div className="pannello-piede">
               <button
                 className="bottone secondario"
                 onClick={() => salva(false)}
@@ -404,11 +415,6 @@ export function ChargebackLista() {
                 </button>
               ) : null}
             </div>
-            <p className="descrizione" style={{ marginBottom: 0 }}>
-              ⚠️ <strong>L&apos;invio è definitivo</strong>: le prove partono verso la banca e la
-              contestazione passa in esame. La bozza invece resta qui e non parte: si scrive, si
-              rilegge, e si manda dopo.
-            </p>
           </div>
         </div>
       ) : null}

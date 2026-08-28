@@ -964,8 +964,9 @@ export function DettaglioOrdine({
                 </button>
               </>
             ) : null}
-            <button className="btn btn-secondario small" onClick={onChiudi}>
-              Chiudi
+            {/* ✕ obbligatoria (Libro v1.7 §9): stesso handler di Esc e del velo. */}
+            <button className="pannello-chiudi" aria-label="Chiudi" title="Chiudi (Esc)" onClick={onChiudi}>
+              ✕
             </button>
           </div>
         </div>

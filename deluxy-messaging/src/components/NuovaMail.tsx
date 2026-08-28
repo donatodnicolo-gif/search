@@ -117,8 +117,9 @@ export function NuovaMail({ onChiudi, onInviata }: { onChiudi: () => void; onInv
       >
         <div className="pannello-testa">
           <h2 style={{ margin: 0, fontSize: 17 }}>Nuovo messaggio</h2>
-          <button className="bottone secondario mini" onClick={onChiudi} title="Chiudi (Esc)">
-            Chiudi
+          {/* ✕ obbligatoria (Libro v1.7 §9): stesso handler di Esc e del velo. */}
+          <button className="pannello-chiudi" aria-label="Chiudi" onClick={onChiudi} title="Chiudi (Esc)">
+            ✕
           </button>
         </div>
 
@@ -202,7 +203,9 @@ export function NuovaMail({ onChiudi, onInviata }: { onChiudi: () => void; onInv
 
         {errore ? <div className="avviso-errore">{errore}</div> : null}
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* Piede sticky (Libro v1.7 §9): «Invia» resta in vista anche con il
+            messaggio lungo scorrato. */}
+        <div className="pannello-piede">
           <button
             className="bottone"
             onClick={invia}

@@ -196,8 +196,9 @@ export function AiutoLaterale() {
           <aside className="aiuto-pannello" id="pannello-aiuto">
             <div className="aiuto-testa">
               <strong>{dati.amministratore ? 'Richieste dei colleghi' : 'Chiedi aiuto'}</strong>
-              <button className="bottone secondario mini" onClick={() => setAperto(false)}>
-                Chiudi
+              {/* ✕ obbligatoria (Libro v1.7 §9): stesso handler del velo. */}
+              <button className="pannello-chiudi" aria-label="Chiudi" title="Chiudi" onClick={() => setAperto(false)}>
+                ✕
               </button>
             </div>
 

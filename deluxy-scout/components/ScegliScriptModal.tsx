@@ -2,7 +2,7 @@
 // nuovo) e vai alla schermata di invio. Lo script è il testo, l'invio resta
 // quello di sempre — con revisione e conferma esplicita, mai automatico.
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Foglio } from '@/components/Foglio';
 import { useRouter } from 'expo-router';
@@ -101,7 +101,10 @@ export function ScegliScriptModal({
           {script === null ? (
             <ActivityIndicator color={colors.oro} style={{ marginVertical: spacing.lg }} />
           ) : (
-            <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ gap: 8 }}>
+            // View e non ScrollView: il tetto e lo scroll li dà il corpo del
+            // Foglio — due ScrollView annidate sullo stesso asse sono vietate
+            // (Libro v1.7 §9).
+            <View style={{ gap: 8 }}>
               {script.length === 0 ? (
                 <Text style={styles.vuoto}>Nessuno script in libreria: creane uno.</Text>
               ) : (
@@ -118,7 +121,7 @@ export function ScegliScriptModal({
                   </Pressable>
                 ))
               )}
-            </ScrollView>
+            </View>
           )}
 
           {/* Due cose diverse, e la differenza conta:

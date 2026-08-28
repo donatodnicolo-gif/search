@@ -1149,11 +1149,18 @@ p.cella-sub { max-width: 72ch; }
   text-transform: uppercase; color: var(--text-tertiary);
 }
 
-/* ---------- Dialogo modale (condiviso) ---------- */
+/* ---------- Dialogo modale (condiviso) ----------
+   ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9, segnalazione utente:
+   una modale più alta dello schermo col bottone di conferma irraggiungibile).
+   Il tetto è in `dvh` e lo scroll sta sul CORPO INTERO (non solo
+   sull'elenco): un contenuto fuori dai figli scorrevoli prima veniva
+   RITAGLIATO dall'overflow hidden e spariva. Testata e piede sono sticky,
+   così ✕ e «Metti in coda» restano in vista. Collaudo: a 375×812 e a
+   1366×768 il bottone di conferma si raggiunge senza scrollare la pagina. */
 .modale {
   padding: 0; border: 0; background: none;
   max-width: min(560px, calc(100vw - 32px)); width: 100%;
-  max-height: min(80vh, 720px);
+  max-height: min(92dvh, calc(100dvh - 32px));
 }
 .modale::backdrop { background: rgba(0, 0, 0, 0.32); backdrop-filter: blur(2px); }
 .modale-corpo {
@@ -1161,10 +1168,13 @@ p.cella-sub { max-width: 72ch; }
   background: var(--surface); color: var(--text);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-l); box-shadow: var(--shadow-float);
-  overflow: hidden;
+  overflow-y: auto;
 }
 .modale-testa {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface);
+  flex: 0 0 auto;
   padding: 16px 18px 12px; border-bottom: 1px solid var(--hairline);
 }
 .modale-occhiello {
@@ -1223,6 +1233,10 @@ p.cella-sub { max-width: 72ch; }
 }
 .modale-piede {
   display: flex; justify-content: flex-end; gap: 10px;
+  /* Sticky in fondo al corpo scorrevole: Annulla/conferma sempre in vista
+     (Libro v1.7 §9). */
+  position: sticky; bottom: 0; z-index: 2;
+  flex: 0 0 auto;
   padding: 14px 18px; margin-top: 12px; border-top: 1px solid var(--hairline);
   background: var(--bg);
 }

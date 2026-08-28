@@ -13,7 +13,6 @@ import {
   Linking,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -537,7 +536,9 @@ export default function LeadWeb() {
           sottotitolo={[infoDaLeggere?.email || daLeggere.contatto, infoDaLeggere?.telefono].filter(Boolean).join(' · ') || undefined}
           onClose={() => setDaLeggere(null)}
         >
-          <ScrollView style={styles.corpoBox} contentContainerStyle={{ paddingBottom: 8 }}>
+          {/* View e non ScrollView: il corpo del Foglio scorre già da solo, due
+              ScrollView annidate sullo stesso asse sono vietate (Libro v1.7 §9). */}
+          <View style={[styles.corpoBox, { paddingBottom: 8 }]}>
             {corpoStato === 'carico' ? (
               <Text style={styles.corpoAttesa}>Prendo il testo da AI Mail…</Text>
             ) : null}
@@ -552,7 +553,7 @@ export default function LeadWeb() {
                 {corpoErrore ? ` (${corpoErrore})` : ''}.
               </Text>
             ) : null}
-          </ScrollView>
+          </View>
 
           <View style={styles.azioniMail}>
             {daLeggere.mail_ref ? (
@@ -633,7 +634,10 @@ function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato
   return (
     // bloccaSfondo: un form scritto a metà non si chiude con un clic fuori.
     <Foglio titolo="Nuova richiesta" onClose={onClose} bloccaSfondo>
-      <ScrollView contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled">
+      {/* View e non ScrollView: il corpo del Foglio scorre già da solo (e ha
+          già keyboardShouldPersistTaps); due ScrollView annidate sullo stesso
+          asse sono vietate (Libro v1.7 §9). */}
+      <View style={{ gap: 8 }}>
         <Text style={styles.campoLabel}>Chi ci ha contattato</Text>
         <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="nome persona o azienda" placeholderTextColor={colors.grigio} autoFocus />
         <Text style={styles.campoLabel}>Contatto (email o telefono)</Text>
@@ -649,7 +653,7 @@ function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato
         <Text style={styles.campoLabel}>Cosa chiede</Text>
         <TextInput style={[styles.input, { minHeight: 60 }]} value={messaggio} onChangeText={setMessaggio} placeholder="es. preventivo consegne weekend" placeholderTextColor={colors.grigio} multiline />
         {errore ? <Text style={styles.errore}>{errore}</Text> : null}
-      </ScrollView>
+      </View>
       <Pressable style={[styles.btn, styles.btnLargo, (!nome.trim() || salvando) && { opacity: 0.5 }]} disabled={!nome.trim() || salvando} onPress={salva}>
         <Text style={styles.btnTxt}>{salvando ? 'Salvo…' : 'Salva richiesta'}</Text>
       </Pressable>
@@ -699,7 +703,9 @@ const styles = StyleSheet.create({
   input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.hairlineStrong, borderRadius: radius.m, paddingHorizontal: 12, paddingVertical: 10, color: colors.testo, fontSize: 14 },
   errore: { color: colors.errore, fontSize: 13, fontWeight: '700' },
   corpoMail: { color: colors.testo, fontSize: 14.5, lineHeight: 23 },
-  corpoBox: { maxHeight: 380, marginVertical: spacing.sm },
+  // Niente maxHeight: il tetto e lo scroll li dà il corpo del Foglio
+  // (Libro v1.7 §9) — un secondo scroll interno qui era annidato.
+  corpoBox: { marginVertical: spacing.sm },
   corpoAttesa: { color: colors.testoSoft, fontSize: 13, marginBottom: 6 },
   corpoNota: { color: colors.testoSoft, fontSize: 12, marginTop: 10, fontStyle: 'italic' },
   azioniMail: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 2 },

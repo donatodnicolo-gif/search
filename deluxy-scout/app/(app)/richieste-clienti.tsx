@@ -908,7 +908,9 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
       bloccaSfondo
       largo
     >
-      <ScrollView contentContainerStyle={{ gap: spacing.sm, paddingBottom: 8 }}>
+      {/* View e non ScrollView: il corpo del Foglio scorre già da solo, due
+          ScrollView annidate sullo stesso asse sono vietate (Libro v1.7 §9). */}
+      <View style={{ gap: spacing.sm, paddingBottom: 8 }}>
         {/* ARRIVA DA UNA MAIL? Prima di scrivere a mano quello che il cliente
             ha già scritto, si prende la sua mail dalla coda. */}
         {daMail ? (
@@ -1169,7 +1171,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
             <Text style={styles.btnSalvaTxt}>Salva la richiesta</Text>
           )}
         </Pressable>
-      </ScrollView>
+      </View>
     </Foglio>
   );
 }
@@ -1252,7 +1254,9 @@ function ModificaRichiesta({
       bloccaSfondo
       largo
     >
-      <ScrollView contentContainerStyle={{ gap: spacing.sm, paddingBottom: 8 }}>
+      {/* View e non ScrollView: il corpo del Foglio scorre già da solo, due
+          ScrollView annidate sullo stesso asse sono vietate (Libro v1.7 §9). */}
+      <View style={{ gap: spacing.sm, paddingBottom: 8 }}>
         {/* ⚠️ IL DOCUMENTO GIÀ EMESSO NON SI CORREGGE DA QUI. Cambiare l'importo
             dopo la pro-forma lascia il cliente con in mano un numero e noi con
             un altro: è detto PRIMA di scriverlo, non dopo. */}
@@ -1346,7 +1350,7 @@ function ModificaRichiesta({
             <Text style={styles.btnSalvaTxt}>Salva le modifiche</Text>
           )}
         </Pressable>
-      </ScrollView>
+      </View>
     </Foglio>
   );
 }

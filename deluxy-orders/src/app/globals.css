@@ -1134,21 +1134,45 @@ a.periodo-opz:hover { background: var(--fill); color: var(--text); }
   padding: 20px;
   background: rgba(0, 0, 0, 0.35);
 }
+/* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9, segnalazione utente:
+   una modale più alta dello schermo col bottone di conferma irraggiungibile).
+   Tetto e scroll sul CONTENITORE; testata sticky con la ✕ sempre in vista.
+   Collaudo: a 375×812 e a 1366×768 le azioni si raggiungono senza scrollare
+   la pagina. */
 .modale {
   width: min(760px, 100%);
-  max-height: 82vh;
-  overflow: auto;
-  padding: 18px;
+  max-height: min(92dvh, calc(100dvh - 40px));
+  overflow-y: auto;
+  /* Verticale in alto: lo dà la testata sticky; sotto resta il padding. */
+  padding: 0 18px 18px;
   border-radius: var(--radius-l);
   background: var(--surface);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
 }
 .modale-testa {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-bottom: 12px;
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface);
+  padding: 18px 0 12px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--hairline);
 }
 .modale-testa strong { font-size: 15px; }
-.modale-testa .btn { margin-left: auto; }
+.modale-testa .btn,
+.modale-testa .modale-chiudi { margin-left: auto; }
+/* La ✕ obbligatoria in testata (Libro v1.7 §9): stessa chiusura dello scrim. */
+.modale-chiudi {
+  border: 0; background: transparent; cursor: pointer;
+  color: var(--text-tertiary); font-size: 14px; padding: 4px 6px;
+  border-radius: var(--radius-s);
+}
+.modale-chiudi:hover { background: var(--fill); color: var(--text); }
+/* Piede sticky per le modali con azioni di conferma in coda (Libro v1.7 §9). */
+.modale-piede {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  position: sticky; bottom: 0; z-index: 2;
+  background: var(--surface);
+  margin-top: 12px; padding: 12px 0 18px; border-top: 1px solid var(--hairline);
+}
 .modale-cerca { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .modale-cerca input {
   flex: 1;

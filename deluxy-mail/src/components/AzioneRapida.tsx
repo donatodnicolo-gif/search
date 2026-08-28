@@ -97,13 +97,15 @@ export function AzioneRapida() {
               </div>
             </div>
             {stato && <div style={{ fontSize: 13, marginTop: 10, color: 'var(--text-secondary)' }}>{stato}</div>}
+            {/* La nota sta SOPRA il piede: il piede è sticky in fondo alla
+                modale (Libro v1.7 §9) e dopo di lui non deve flottare nulla. */}
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              Per invitati e ripetizioni apri il <a href="/calendario" style={{ textDecoration: 'underline' }}>Calendario</a>.
+            </p>
             <div className="form-footer">
               <button className="btn secondary" type="button" onClick={chiudi} disabled={inCorso}>Annulla</button>
               <button className="btn primary" type="submit" disabled={inCorso}>{inCorso ? 'Salvo…' : 'Salva'}</button>
             </div>
-            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-              Per invitati e ripetizioni apri il <a href="/calendario" style={{ textDecoration: 'underline' }}>Calendario</a>.
-            </p>
           </form>
         )}
 

@@ -138,8 +138,9 @@ export function MailAperta({
               · {quandoPerEsteso(messaggio.creatoIl)}
             </div>
           </div>
-          <button className="btn btn-secondario small" onClick={onChiudi}>
-            Chiudi
+          {/* ✕ obbligatoria (Libro v1.7 §9): stesso handler del velo. */}
+          <button className="pannello-chiudi" aria-label="Chiudi" title="Chiudi" onClick={onChiudi}>
+            ✕
           </button>
         </div>
 
