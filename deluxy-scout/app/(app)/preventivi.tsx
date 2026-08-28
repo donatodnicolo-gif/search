@@ -787,7 +787,7 @@ function SchedaLavoro({
             prezzo. I lavori nati prima di questa regola (26/08/2026) non ce
             l'hanno, e invece di far finta di niente lo si dichiara — un costo
             senza vendita non fa margine. */}
-        {!lavoro.deal_id && !lavoro.richiesta_id && !lavoro.ordine_id ? (
+        {!lavoro.deal_id && !lavoro.hubspot_deal_id && !lavoro.richiesta_id && !lavoro.ordine_id ? (
           <Text style={styles.avvisoTrattativa}>
             <Ionicons name="warning-outline" size={12} color={colors.errore} /> Nessuna vendita collegata: si
             ricrea il lavoro dalla trattativa, dalla richiesta cliente o dall'ordine giusto, o non si sa per

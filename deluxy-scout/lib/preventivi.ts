@@ -32,6 +32,10 @@ export interface Lavoro {
   place_id: string | null;
   /** La vendita a cui appartiene: una delle tre (migr. 0077). */
   deal_id: string | null;
+  /** La trattativa di HUBSPOT, quando la vendita non ha una riga in deals
+   *  (migr. 0101): l'elenco trattative usa per quelle l'id sintetico
+   *  `hs_<id>`, che in un uuid non entra — e non deve. */
+  hubspot_deal_id?: string | null;
   richiesta_id?: string | null;
   ordine_id?: string | null;
   linea: string | null;
@@ -117,13 +121,35 @@ export async function creaLavoro(l: {
   if (!l.dealId && !l.richiestaId && !l.ordineId) {
     throw new Error('Serve la vendita a cui appartiene: una trattativa, una richiesta cliente o un ordine.');
   }
+  /**
+   * ⚠️ GLI ID SINTETICI SI SMISTANO (28/08/2026, segnalazione dell'utente:
+   * «invalid input syntax for type uuid: "hs_512059002060"»).
+   *
+   * L'elenco trattative è fatto di tre fonti: i deals di Scout (uuid vero),
+   * quelli di HubSpot (`hs_<id>`) e i partner del registro in trattativa
+   * (`ana_<place>`). Solo il primo può entrare in `deal_id`: il secondo va
+   * nella SUA colonna, il terzo è in realtà il negozio — e infilare un id
+   * sintetico nell'uuid non era un collegamento, era l'errore del database
+   * mostrato all'utente.
+   */
+  let dealUuid = l.dealId || null;
+  let hubspotDealId: string | null = null;
+  let placeDaRegistro: string | null = null;
+  if (dealUuid?.startsWith('hs_')) {
+    hubspotDealId = dealUuid.slice(3);
+    dealUuid = null;
+  } else if (dealUuid?.startsWith('ana_')) {
+    placeDaRegistro = dealUuid.slice(4);
+    dealUuid = null;
+  }
   const { data, error } = await supabase
     .from('lavori')
     .insert({
       titolo: l.titolo.trim(),
       descrizione: l.descrizione?.trim() || null,
-      place_id: l.placeId || null,
-      deal_id: l.dealId || null,
+      place_id: l.placeId || placeDaRegistro || null,
+      deal_id: dealUuid,
+      hubspot_deal_id: hubspotDealId,
       richiesta_id: l.richiestaId || null,
       ordine_id: l.ordineId || null,
       linea: l.linea || null,
@@ -197,7 +223,11 @@ export function costiPerChiave(lavori: LavoroConPreventivi[]): Map<string, Costo
         ? `richiesta:${l.richiesta_id}`
         : l.deal_id
           ? `deal:${l.deal_id}`
-          : null;
+          : l.hubspot_deal_id
+            // Lo stesso id sintetico dell'elenco trattative: è la lingua in
+            // cui quelle righe si chiamano, e la chiave deve parlarla.
+            ? `deal:hs_${l.hubspot_deal_id}`
+            : null;
     if (!chiave) continue;
     const scelto = l.preventivi.find((p) => p.stato === 'scelto' && p.importo != null);
     const candidati = l.preventivi.filter((p) => p.importo != null && p.stato !== 'scartato');
