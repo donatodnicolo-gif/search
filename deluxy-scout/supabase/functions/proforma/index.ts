@@ -346,6 +346,13 @@ Deno.serve(async (req) => {
       if (body.importo != null) p.set('importo', String(body.importo));
       if (body.anno) p.set('anno', String(body.anno));
       res = await fetch(`${BASE}/api/v1/fatture-cerca?${p.toString()}`, { headers });
+    } else if (body.azione === 'documento') {
+      // ⭐ I DATI di una pro-forma/preventivo già emessi (28/08/2026, per la
+      // copia stampabile dentro Scout: la pagina di FINANCE è dietro login).
+      // Sola lettura: righe, totali, date — l'API li dà già con GET ?numero=.
+      const p = new URLSearchParams({ numero: String(body.numero ?? '') });
+      if (body.tipo === 'preventivo') p.set('tipo', 'preventivo');
+      res = await fetch(`${BASE}/api/proforma?${p.toString()}`, { headers });
     } else if (body.azione === 'cerca_fattura') {
       // ⭐ 27/08/2026 — CERCA UNA FATTURA GIÀ EMESSA, per numero.
       //

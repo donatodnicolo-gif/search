@@ -124,6 +124,34 @@ export async function creaPreventivoDaRichiesta(r: {
   });
 }
 
+/** Il documento come lo dà FINANCE: righe, totali e date — per la stampa. */
+export interface DocumentoProforma {
+  id: string;
+  tipo: 'proforma' | 'preventivo';
+  riferimento: string;
+  partner: { id: string; nome: string } | null;
+  data: string | null;
+  scadenza: string | null;
+  oggetto: string | null;
+  note: string | null;
+  stato: string;
+  fatturaNumero: string | null;
+  righe: { descrizione: string; quantita: number; prezzoUnitario: number; aliquotaIva: number; importo: number }[];
+  imponibile: number;
+  iva: number;
+  totale: number;
+  url: string | null;
+}
+
+/**
+ * ⭐ I DATI di un documento già emesso (28/08/2026): servono alla copia
+ * stampabile dentro Scout — la pagina di FINANCE è dietro login, e chi deve
+ * solo scaricare non deve entrarci.
+ */
+export async function documentoProforma(numero: string, tipo?: 'preventivo'): Promise<DocumentoProforma> {
+  return chiama<DocumentoProforma>({ azione: 'documento', numero, tipo });
+}
+
 /** L'esito del preventivo: lo decide il cliente, non noi. */
 export async function esitoPreventivo(numero: string, stato: 'accettata' | 'rifiutata'): Promise<void> {
   await chiama({ azione: 'esito_preventivo', numero, stato });

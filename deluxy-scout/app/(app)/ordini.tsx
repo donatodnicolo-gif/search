@@ -12,7 +12,9 @@ import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, duplicaOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
-import { cercaFatture, chiediFatturaPerOrdine, type FatturaInElenco } from '@/lib/partner';
+import { cercaFatture, chiediFatturaPerOrdine, documentoProforma, type FatturaInElenco } from '@/lib/partner';
+import { stampaProforma } from '@/lib/stampa';
+import { fetchTemplate, type TemplateDocumento } from '@/lib/template-documento';
 import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { aggiornaFornitura, aggiungiFornitura, forniturePerOrdine, rimuoviFornitura, type RigaFornitura } from '@/lib/fornitura';
@@ -34,6 +36,24 @@ const STATI: { valore: OrdineConLuogo['stato']; label: string; colore: string }[
   { valore: 'annullato', label: 'Annullato', colore: colors.grey },
 ];
 const labelStatoOrdine = Object.fromEntries(STATI.map((s) => [s.valore, s.label]));
+
+/**
+ * ⭐ LO STATO DELLA PRATICA (28/08/2026, richiesta dell'utente: «va messo lo
+ * stato dell'ordine: Bozza, Annullato, Chiuso, Incassato»).
+ *
+ * Sono QUATTRO parole per DUE fatti — la pratica (bozza/chiusa/annullata) e i
+ * soldi (incassati o no) — piegati in una scala sola:
+ *   Annullato  → la pratica non è successa: vince su tutto;
+ *   Incassato  → i soldi sono arrivati: è la fine buona, chiusa o no;
+ *   Chiuso     → pratica finita, incasso ancora da vedere;
+ *   Bozza      → tutto ancora aperto.
+ */
+function statoPratica(o: { stato: string; chiuso_il?: string | null }): { label: string; colore: string } {
+  if (o.stato === 'annullato') return { label: 'Annullato', colore: colors.grigio };
+  if (o.stato === 'incassato') return { label: 'Incassato', colore: colors.successo };
+  if (o.chiuso_il) return { label: 'Chiuso', colore: colors.testo };
+  return { label: 'Bozza', colore: colors.goldStrong };
+}
 const coloreStatoOrdine = Object.fromEntries(STATI.map((s) => [s.valore, s.colore]));
 
 function euro(n: number | null): string {
@@ -243,7 +263,7 @@ export default function Ordini() {
    * — sito compreso, o la richiesta «metti anche in tabella di che sito è»
    * sarebbe stata esaudita solo su uno schermo grande.
    */
-  const aTabella = width >= (conAltriCosti ? 1607 : 1507);
+  const aTabella = width >= (conAltriCosti ? 1633 : 1533);
   /**
    * Sopra questa misura ci stanno TUTTE le colonne, canale compreso: misurato
    * nel DOM, a 1649 al nome del cliente restano 209px invece dei 111 che
@@ -251,7 +271,7 @@ export default function Ordini() {
    * salite di 48 con le icone grandi del 28/08). Non è una soglia di stile: è il punto
    * in cui rimettere una colonna smette di togliere spazio al dato principale.
    */
-  const tutteLeColonne = width >= 1767;
+  const tutteLeColonne = width >= 1793;
 
   /**
    * Quanto ci costa ciascun ordine: dai lavori collegati alla sua trattativa
@@ -386,10 +406,10 @@ export default function Ordini() {
               hitSlop={6}
               onPress={(e: any) => {
                 e?.stopPropagation?.();
-                if (o.proforma_url) Linking.openURL(o.proforma_url);
+                scaricaProforma(o);
               }}
-              accessibilityLabel={`Apri la pro-forma ${o.proforma_numero}`}
-              {...({ title: 'Pro-forma — non è la fattura: quella si emette dopo' } as any)}
+              accessibilityLabel={`Scarica la pro-forma ${o.proforma_numero}`}
+              {...({ title: 'Scarica la pro-forma (stampa da Scout) — non è la fattura' } as any)}
             >
               <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
               <Text style={styles.docChipTxt}>Pro-forma {o.proforma_numero}</Text>
@@ -583,7 +603,11 @@ export default function Ordini() {
     {
       chiave: 'quando',
       label: 'Creato',
-      width: 66,
+      // ⚠️ 84 e non 66 (28/08/2026, segnalazione dell'utente: «le date sono
+      // sotto margine invece che in una colonna a sé»): a 66 la data andava a
+      // capo o si incollava alla colonna prima, e la testata sembrava di
+      // un'altra colonna.
+      width: 84,
       destra: true,
       numerica: true,
       valore: (o) => o.created_at,
@@ -595,11 +619,16 @@ export default function Ordini() {
       // sono due risposte a due domande diverse, e una riga che mostra solo la
       // prima fa credere che non ci sia altro da fare.
       label: 'Stato',
-      width: 88,
-      valore: (o) => o.stato,
+      width: 96,
+      valore: (o) => statoPratica(o).label,
       cella: (o) => (
         <View style={{ gap: 2, alignItems: 'flex-start' }}>
-          <StatusBadge small label={labelStatoOrdine[o.stato]} colore={coloreStatoOrdine[o.stato]} />
+          <StatusBadge small label={statoPratica(o).label} colore={statoPratica(o).colore} />
+          {/* «Chiuso» senza soldi: si dice che l'incasso manca, o la scala a
+              quattro parole nasconderebbe proprio la cosa da fare. */}
+          {statoPratica(o).label === 'Chiuso' && o.stato === 'da_incassare' ? (
+            <Text style={styles.tabStima}>da incassare</Text>
+          ) : null}
           {/* ⚠️ «Chiusa il 28/08» non dice la cosa che serve: chiusa CON CHE
               COSA (28/08/2026, richiesta dell'utente: «se l'ordine è stato
               chiuso con fattura indicalo chiaramente»). Una pratica chiusa
@@ -890,6 +919,99 @@ export default function Ordini() {
    * ⚠️ Se non si trova si dice perché. Aprire una pagina vuota, o non fare
    * niente al tocco, sono i due modi peggiori di rispondere «non ce l'ho».
    */
+  /**
+   * ⭐ LA PRO-FORMA SI SCARICA DA QUI (28/08/2026, richiesta dell'utente:
+   * «consenti il download direttamente da app di questa pro-forma senza
+   * aprire finance»). La pagina di FINANCE è dietro login (verificato: 307 →
+   * /login): si chiedono i DATI all'API e si impagina con il template del
+   * brand, che è di Scout. La finestra ha «Stampa / Salva PDF».
+   */
+  /**
+   * ⭐ AGGIORNA LA PRO-FORMA (28/08/2026, richiesta dell'utente: «metti un
+   * pulsante che chieda l'aggiornamento della pro-forma»).
+   *
+   * ⚠️ FINANCE non modifica un documento emesso (la sua API cambia solo lo
+   * stato): «aggiornare» vuol dire EMETTERE una pro-forma nuova con i dati di
+   * adesso — valore, causale, brand — e agganciare quella all'ordine. È anche
+   * giusto così: il documento vecchio è già stato visto da qualcuno, e
+   * riscriverlo sotto lo stesso numero renderebbe vere due versioni.
+   *
+   * ⚠️ La vecchia RESTA su FINANCE, e l'avviso lo dice col numero: annullarla
+   * è un'azione di là, di chi possiede il documento.
+   */
+  function aggiornaProforma(o: OrdineConLuogo) {
+    if (!o.valore) {
+      avvisa('Manca il valore', "Senza l'importo la pro-forma nuova non si può emettere: scrivilo e riprova.");
+      return;
+    }
+    conferma(
+      'Aggiornare la pro-forma?',
+      `Viene emessa una pro-forma NUOVA con i dati attuali (${importoBreve(o.valore)} + IVA) e agganciata all'ordine. La ${o.proforma_numero} resta su FINANCE: se non vale più, va annullata di là.`,
+      async () => {
+        setInCorso(o.id);
+        try {
+          const esito = await emettiProformaPerOrdine({
+            ordineId: o.id,
+            cliente: o.place_nome ?? o.cliente,
+            importo: o.valore,
+            causale: o.descrizione,
+            brand: brandDi(o),
+          });
+          if (!esito.emessa) {
+            avvisa('Pro-forma non aggiornata', esito.perche ?? 'FINANCE non ha risposto.');
+            return;
+          }
+          await carica();
+          avvisa('Pro-forma aggiornata', `Ora l'ordine porta la ${esito.riferimento}. La vecchia ${o.proforma_numero ?? ''} resta su FINANCE.`);
+        } catch (e: any) {
+          avvisa('Pro-forma non aggiornata', String(e?.message ?? e));
+        } finally {
+          setInCorso(null);
+        }
+      },
+      { testoConferma: 'Emetti la nuova' },
+    );
+  }
+
+  async function scaricaProforma(o: OrdineConLuogo) {
+    if (!o.proforma_numero) return;
+    setInCorso(o.id);
+    try {
+      const [doc, templates] = await Promise.all([
+        documentoProforma(o.proforma_numero),
+        fetchTemplate().catch(() => [] as TemplateDocumento[]),
+      ]);
+      // Il template del brand dell'ordine; senza, il predefinito. La copia lo
+      // dichiara in calce: l'intestazione è quella di OGGI, non la fotografia.
+      const marca = brandDi(o);
+      const t =
+        templates.find((x) => x.attivo && (x.brand ?? '') === marca) ??
+        templates.find((x) => x.predefinito) ??
+        null;
+      const aperta = stampaProforma(doc, t ? {
+        ragioneSociale: t.ragione_sociale,
+        indirizzo: t.indirizzo ?? '',
+        piva: t.piva ?? '',
+        rea: t.rea ?? '',
+        contatti: t.contatti ?? '',
+        logoDataUrl: t.logo_data_url ?? '',
+        iban: t.iban ?? '',
+        intestatarioConto: t.intestatario_conto ?? '',
+        modalitaPagamento: t.modalita_pagamento ?? '',
+        banca: t.banca ?? '',
+        bic: t.bic ?? '',
+        disclaimer: t.disclaimer ?? '',
+      } : null);
+      if (!aperta) {
+        avvisa('Finestra bloccata', 'Il browser ha bloccato la finestra di stampa: consenti i pop-up per deluxy-scout e riprova.');
+      }
+    } catch (e: any) {
+      avvisa('Pro-forma non scaricata', String(e?.message ?? e));
+    } finally {
+      setInCorso(null);
+    }
+  }
+
   async function scaricaFattura(o: OrdineConLuogo) {
     if (o.fattura_url) {
       Linking.openURL(o.fattura_url);
@@ -1523,7 +1645,7 @@ export default function Ordini() {
                     <Text style={styles.valore}>{euro(o.valore)}</Text>
                   </View>
                   <View style={styles.metaRow}>
-                    <StatusBadge small label={labelStatoOrdine[o.stato]} colore={coloreStatoOrdine[o.stato]} />
+                    <StatusBadge small label={statoPratica(o).label} colore={statoPratica(o).colore} />
                     {o.canale ? <Text style={styles.meta}>canale {o.canale}</Text> : null}
                     {o.linea ? <Text style={styles.meta}>{o.linea}</Text> : null}
                     {/* ⚠️ Il sito sta anche QUI, non solo in tabella: sotto la
@@ -1570,10 +1692,8 @@ export default function Ordini() {
                   ) : o.proforma_numero ? (
                     <Pressable
                       style={styles.docChip}
-                      onPress={() => {
-                        if (o.proforma_url) Linking.openURL(o.proforma_url);
-                      }}
-                      accessibilityLabel={`Apri la pro-forma ${o.proforma_numero}`}
+                      onPress={() => scaricaProforma(o)}
+                      accessibilityLabel={`Scarica la pro-forma ${o.proforma_numero}`}
                     >
                       <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
                       <Text style={styles.docChipTxt}>Pro-forma {o.proforma_numero}</Text>
@@ -1720,6 +1840,24 @@ export default function Ordini() {
               </Text>
             )}
           </View>
+
+          {/* ⭐ La pro-forma dell'ordine: da qui si AGGIORNA (se il valore è
+              cambiato, o se è nata con la regola IVA vecchia). */}
+          {modificaPer.proforma_numero ? (
+            <View style={styles.rifRiga}>
+              <Pressable
+                style={styles.btnGhost}
+                disabled={inCorso === modificaPer.id}
+                onPress={() => aggiornaProforma(modificaPer)}
+              >
+                <Ionicons name="refresh-outline" size={15} color={colors.navy} />
+                <Text style={styles.btnGhostTxt}>
+                  {inCorso === modificaPer.id ? 'Emetto…' : `Aggiorna la pro-forma ${modificaPer.proforma_numero}`}
+                </Text>
+              </Pressable>
+              <Text style={styles.rifNota}>ne esce una nuova coi dati attuali; la vecchia resta su FINANCE</Text>
+            </View>
+          ) : null}
 
           <Text style={styles.campoLabel}>Cliente *</Text>
           <TextInput
