@@ -40,6 +40,8 @@ export async function emettiProformaPerOrdine(o: {
   causale?: string | null;
   scadenza?: string | null;
   brand?: string | null;
+  /** L'acconto richiesto (migr. 0103): finisce come nota SUL documento. */
+  accontoPercento?: number | null;
 }): Promise<EsitoProforma> {
   // ⚠️ Senza importo non si emette: una pro-forma è una richiesta di denaro, e
   // una richiesta di denaro senza cifra non è un documento — è un foglio che il
@@ -59,10 +61,30 @@ export async function emettiProformaPerOrdine(o: {
     // era sbagliato: chiunque potesse chiamare l'Edge Function poteva emettere
     // una pro-forma con l'IBAN che preferiva. Ora si manda solo il BRAND, e la
     // carta intestata la risolve il server dal template di quel brand.
+    /**
+     * ⭐ LA PRO-FORMA DICE L'ACCONTO (28/08/2026, richiesta dell'utente: «la
+     * pro-forma deve tener conto che è richiesto un anticipo e farlo vedere»).
+     *
+     * ⚠️ Il TOTALE resta pieno: il documento chiede tutto il dovuto, e la nota
+     * dice come si paga — acconto adesso, saldo dopo. Emetterla del solo 30%
+     * farebbe sparire il saldo dai conti di FINANCE.
+     * Gli importi della nota sono IVA COMPRESA e lo dicono: è la cifra che il
+     * cliente bonifica davvero.
+     */
+    const nota = (() => {
+      if (!o.accontoPercento || !o.importo) return null;
+      const lordo = o.importo * 1.22;
+      const acconto = Math.round(((lordo * o.accontoPercento) / 100) * 100) / 100;
+      const saldo = Math.round((lordo - acconto) * 100) / 100;
+      const eur = (n: number) =>
+        '€ ' + n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return `È richiesto un acconto del ${o.accontoPercento}% alla conferma: ${eur(acconto)} (IVA compresa). Saldo alla consegna: ${eur(saldo)}.`;
+    })();
     const pf = await creaProformaDaRichiesta({
       cliente: o.cliente,
       importo: o.importo,
       causale: o.causale ?? null,
+      note: nota,
       scadenza: o.scadenza ?? null,
       // ⚠️ Il default sta in `brandDi`, una volta sola: chi non ha scelto
       // vende come Deluxy. Mandare null vorrebbe dire «usa il predefinito di

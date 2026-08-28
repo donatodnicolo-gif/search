@@ -804,10 +804,21 @@ export default function Ordini() {
               <Pressable
                 style={styles.iconaAzione}
                 onPress={(e: any) => { e?.stopPropagation?.(); chiediAcconto(o); }}
-                accessibilityLabel="Chiedi un acconto"
-                {...({ title: 'Acconto — chiedine uno in percentuale' } as any)}
+                accessibilityLabel={o.acconto_richiesto_il ? `Acconto del ${o.acconto_percento}% già richiesto` : "Chiedi un acconto"}
+                {...({
+                  title: o.acconto_richiesto_il
+                    ? `Acconto del ${o.acconto_percento}% richiesto il ${dataIt(o.acconto_richiesto_il)}`
+                    : 'Acconto — chiedine uno in percentuale',
+                } as any)}
               >
-                <Ionicons name="wallet-outline" size={19} color={colors.navy} />
+                {/* ⭐ ACCESA quando l'acconto è stato chiesto (28/08/2026,
+                    richiesta dell'utente): piena e oro — è uno stato, non un
+                    invito, come il lucchetto della pratica chiusa. */}
+                <Ionicons
+                  name={o.acconto_richiesto_il ? 'wallet' : 'wallet-outline'}
+                  size={19}
+                  color={o.acconto_richiesto_il ? colors.goldStrong : colors.navy}
+                />
               </Pressable>
               {/* L'azione di tutti i giorni resta l'unica PIENA: si trova
                   a colpo d'occhio anche fra sei icone. */}
@@ -928,6 +939,7 @@ export default function Ordini() {
             importo: o.valore,
             causale: o.descrizione,
             brand: brandDi(o),
+            accontoPercento: o.acconto_percento ?? null,
           });
           if (!esito.emessa) {
             avvisa('Pro-forma non aggiornata', esito.perche ?? 'FINANCE non ha risposto.');
@@ -1127,8 +1139,15 @@ export default function Ordini() {
           },
         ],
       });
+      // ⚠️ L'ordine RICORDA l'acconto (28/08/2026): senza questa riga né
+      // l'icona né la pro-forma potevano sapere che era stato chiesto.
+      await aggiornaOrdine(o.id, {
+        acconto_percento: percentuale,
+        acconto_richiesto_il: new Date().toISOString(),
+      });
+      await carica();
       setAccontoPer(null);
-      avvisa('Acconto richiesto', `${importoBreve(importo)} (${percentuale}%) è in Pagamenti, col saldo accanto.`);
+      avvisa('Acconto richiesto', `${importoBreve(importo)} (${percentuale}%) è in Pagamenti, col saldo accanto. L'icona del portafoglio resta accesa sull'ordine.`);
     } catch (e: any) {
       avvisa('Non è stato richiesto', e?.message ?? 'Riprova.');
     } finally {
@@ -1158,6 +1177,8 @@ export default function Ordini() {
             cliente: o.cliente,
             importo: o.valore,
             causale: o.descrizione,
+            brand: brandDi(o),
+            accontoPercento: o.acconto_percento ?? null,
           });
           await carica();
           if (esito.emessa) {

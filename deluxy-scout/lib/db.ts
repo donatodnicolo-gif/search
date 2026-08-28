@@ -1727,7 +1727,7 @@ export async function duplicaOrdine(o: Ordine): Promise<{ id: string }> {
 export async function aggiornaOrdine(
   id: string,
   patch: Partial<
-    Pick<Ordine, 'stato' | 'incassato_il' | 'chiuso_il' | 'valore' | 'valore_unitario' | 'quantita' | 'unita' | 'owner' | 'owner_scelto' | 'descrizione' | 'cliente' | 'place_id' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota'>
+    Pick<Ordine, 'stato' | 'incassato_il' | 'chiuso_il' | 'valore' | 'valore_unitario' | 'quantita' | 'unita' | 'owner' | 'owner_scelto' | 'descrizione' | 'cliente' | 'place_id' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota' | 'acconto_percento' | 'acconto_richiesto_il'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('ordini').update(patch).eq('id', id);

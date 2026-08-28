@@ -69,6 +69,8 @@ export async function creaProformaDaRichiesta(r: {
   importo: number;
   causale?: string | null;
   scadenza?: string | null;
+  /** La nota che finisce SUL documento (es. i termini dell'acconto). */
+  note?: string | null;
   /**
    * Con quale INTESTAZIONE emetterla (27/08/2026): FINANCE tiene un template
    * per brand — logo, dati societari, coordinate di pagamento. Si passa il
@@ -91,6 +93,7 @@ export async function creaProformaDaRichiesta(r: {
     partner: r.cliente,
     oggetto: descrizione,
     scadenza: r.scadenza ?? undefined,
+    note: r.note ?? undefined,
     brand: r.brand ?? undefined,
     righe: [{ descrizione, prezzoUnitario: r.importo, aliquotaIva: 22 }],
   });
