@@ -851,6 +851,89 @@ const AZIONI: AzioneApp[] = [
     },
   },
   {
+    id: 'finance.fattura',
+    app: 'Finance',
+    nome: 'Emetti fattura',
+    scrive: true,
+    // ⚠️⚠️ NON sta in `dalRiassunto`, e non è una dimenticanza: il riassunto
+    // propone da sé le azioni che gli sembrano sensate, e una FATTURA
+    // ELETTRONICA non è una cosa da suggerire. Prende un numero nella
+    // numerazione dell'anno, parte verso lo SDI, e si annulla solo con una
+    // nota di credito. Si trova fra le app quando la si va a cercare.
+    descrizione: 'Emette una fattura vera su Fatture in Cloud (non una bozza).',
+    colore: 'gold',
+    guida:
+      'La mail riguarda servizi/importi GIÀ CONCORDATI con un partner, da fatturare adesso. partner = nome dell’azienda a cui intestare la fattura. Ogni riga: descrizione del servizio, quantità (1 se non detta), prezzo unitario SOLO se scritto nella mail — se un prezzo non c’è, null: una fattura con un prezzo indovinato è un problema fiscale, non un errore di compilazione.',
+    campi: [
+      { nome: 'partner', etichetta: 'Partner', obbligatorio: true },
+      { nome: 'oggetto', etichetta: 'Oggetto (si vede in fattura)' },
+      { nome: 'scadenza', etichetta: 'Scadenza', tipo: 'data' },
+    ],
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['partner', 'oggetto', 'righe'],
+      properties: {
+        partner: { type: 'string', description: 'Nome del partner a cui intestare la fattura.' },
+        oggetto: { type: ['string', 'null'] },
+        righe: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['descrizione', 'quantita', 'prezzoUnitario'],
+            properties: {
+              descrizione: { type: 'string' },
+              quantita: { type: 'number' },
+              prezzoUnitario: { type: ['number', 'null'], description: 'Solo se scritto nella mail.' },
+            },
+          },
+        },
+      },
+    },
+    async esegui(dati, ctx) {
+      const righe = Array.isArray(dati.righe) ? (dati.righe as Record<string, unknown>[]) : []
+      if (righe.length === 0) return { ok: false, messaggio: 'Nessuna riga da fatturare.' }
+      // ⚠️ Il prezzo mancante ferma qui, non di là: un null che diventa zero è
+      // una fattura da zero euro già emessa.
+      if (righe.some((r) => r.prezzoUnitario == null))
+        return { ok: false, messaggio: 'Manca il prezzo di una riga: completalo prima di emettere.' }
+      return chiama(
+        `${FINANCE_URL}/api/fattura`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': ctx.chiave, 'X-App': 'deluxy-mail' },
+          body: JSON.stringify({
+            partner: dati.partner,
+            oggetto: dati.oggetto || undefined,
+            scadenza: dati.scadenza || undefined,
+            righe: righe.map((r) => ({
+              descrizione: r.descrizione,
+              quantita: typeof r.quantita === 'number' ? r.quantita : 1,
+              prezzoUnitario: r.prezzoUnitario,
+            })),
+          }),
+        },
+        (status, risposta) => {
+          const r = (risposta ?? {}) as Record<string, unknown>
+          if (status >= 200 && status < 300) {
+            return {
+              ok: true,
+              messaggio: r.numero ? `Fattura ${r.numero} emessa a ${r.partner ?? ''}.` : 'Fattura emessa.',
+              link: FINANCE_URL,
+            }
+          }
+          if (status === 401 || status === 403) return { ok: false, messaggio: 'Chiave Finance non valida.' }
+          // ⚠️ 409 non è un guasto: o Fatture in Cloud non è collegato, o
+          // manca il cliente, o Finance ha visto un DOPPIONE. In tutti e tre i
+          // casi il testo dice cosa fare, e va mostrato invece di un
+          // «non riuscito» che costringe a rifare per scoprirlo.
+          return { ok: false, messaggio: testoErrore(risposta, `Finance ha risposto ${status}.`) }
+        }
+      )
+    },
+  },
+  {
     id: 'finance.verifica',
     app: 'Finance',
     // Sola lettura: una GET a Finance. Non crea e non modifica niente, quindi
