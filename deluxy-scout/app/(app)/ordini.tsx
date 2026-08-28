@@ -48,6 +48,20 @@ const labelStatoOrdine = Object.fromEntries(STATI.map((s) => [s.valore, s.label]
  *   Chiuso     → pratica finita, incasso ancora da vedere;
  *   Bozza      → tutto ancora aperto.
  */
+/**
+ * ⚠️ Le pillole del filtro parlano LA STESSA scala della colonna Stato
+ * (28/08/2026, richiesta dell'utente: «metti anche Chiusi tra i filtri»).
+ * Prima filtravano sul vecchio stato a tre valori: «Chiuso» in tabella non era
+ * filtrabile, e un filtro che non sa dire quello che la colonna mostra fa
+ * cercare a occhio.
+ */
+const FILTRI_PRATICA: { valore: string; chip: string }[] = [
+  { valore: 'Bozza', chip: 'Bozze' },
+  { valore: 'Chiuso', chip: 'Chiusi' },
+  { valore: 'Incassato', chip: 'Incassati' },
+  { valore: 'Annullato', chip: 'Annullati' },
+];
+
 function statoPratica(o: { stato: string; chiuso_il?: string | null }): { label: string; colore: string } {
   if (o.stato === 'annullato') return { label: 'Annullato', colore: colors.grigio };
   if (o.stato === 'incassato') return { label: 'Incassato', colore: colors.successo };
@@ -217,7 +231,7 @@ export default function Ordini() {
   const dati = useMemo(
     () =>
       ordini.filter((o) => {
-        if (statoFiltro && o.stato !== statoFiltro) return false;
+        if (statoFiltro && statoPratica(o).label !== statoFiltro) return false;
         if (lineaFiltro && o.linea !== lineaFiltro) return false;
         if (chiusura === 'aperti' && o.chiuso_il) return false;
         if (chiusura === 'chiusi' && !o.chiuso_il) return false;
@@ -1464,8 +1478,8 @@ export default function Ordini() {
           primaria={
             <>
               <Chip label="Tutti" on={!statoFiltro} onPress={() => setStatoFiltro(null)} />
-              {STATI.map((s) => (
-                <Chip key={s.valore} label={s.label} on={statoFiltro === s.valore} onPress={() => setStatoFiltro((c) => (c === s.valore ? null : s.valore))} />
+              {FILTRI_PRATICA.map((s) => (
+                <Chip key={s.valore} label={s.chip} on={statoFiltro === s.valore} onPress={() => setStatoFiltro((c) => (c === s.valore ? null : s.valore))} />
               ))}
             </>
           }
