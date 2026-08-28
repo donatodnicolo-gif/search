@@ -1,6 +1,6 @@
 # Il Libro UX&UI Deluxy
 
-**Versione 1.9 — 28 agosto 2026** · *1.9: ogni elenco ha ricerca + filtri principali + scorciatoie di periodo (§8-bis).* · *1.8: le azioni a icona — icona ≥18-19px, bersaglio ≥28px desktop / 44 touch, e il tooltip che dice cosa fa (§3).* · *1.7: le modali stanno DENTRO la viewport (max-height + corpo scorrevole + piede sticky) e la ✕ è obbligatoria (§9).* · *1.6: la riga di tabella si apre col click quando il record ha un dettaglio (§8).* · *1.1: il drawer di menu si apre sempre da sinistra (§2). 1.2: la zona filtri di un elenco — tetto di 2 righe a pannello chiuso, fasce a breakpoint, eccedenza dietro «Filtri (N)» (§8; giuria: architetto + ostile). 1.3: su mobile i gruppi di chip scorrono su UNA riga (decisione utente; §8 punto 9). 1.4: le notifiche in-app — toast + pallino giallo + numero, il sistema del Customer Service promosso a canone (§7). 1.5: il ritorno al punto esatto — «← Indietro» esplicito su ogni dettaglio, che ripristina filtri/pagina/scroll (§2).*
+**Versione 1.10 — 28 agosto 2026** · *1.10: l'esito di ogni azione — tre stati visibili, vietati fallimento silenzioso ed esito ambiguo, dodicesima legge (§7).* · *1.9: ogni elenco ha ricerca + filtri principali + scorciatoie di periodo (§8-bis).* · *1.8: le azioni a icona — icona ≥18-19px, bersaglio ≥28px desktop / 44 touch, e il tooltip che dice cosa fa (§3).* · *1.7: le modali stanno DENTRO la viewport (max-height + corpo scorrevole + piede sticky) e la ✕ è obbligatoria (§9).* · *1.6: la riga di tabella si apre col click quando il record ha un dettaglio (§8).* · *1.1: il drawer di menu si apre sempre da sinistra (§2). 1.2: la zona filtri di un elenco — tetto di 2 righe a pannello chiuso, fasce a breakpoint, eccedenza dietro «Filtri (N)» (§8; giuria: architetto + ostile). 1.3: su mobile i gruppi di chip scorrono su UNA riga (decisione utente; §8 punto 9). 1.4: le notifiche in-app — toast + pallino giallo + numero, il sistema del Customer Service promosso a canone (§7). 1.5: il ritorno al punto esatto — «← Indietro» esplicito su ogni dettaglio, che ripristina filtri/pagina/scroll (§2).*
 
 Il canone dei **pattern di interfaccia** di tutte le app Deluxy: menù, bottoni, form, tabelle, stati, feedback, conferme, finestre, mobile. D'ora in poi **ogni elemento di interfaccia, in ogni app esistente e nuova, si costruisce attingendo da qui** — non dal gusto del momento e non copiando un'altra app a caso.
 
@@ -10,7 +10,7 @@ Il canone dei **pattern di interfaccia** di tutte le app Deluxy: menù, bottoni,
 
 ---
 
-## Le undici leggi
+## Le dodici leggi
 
 Le regole su cui **tutte** le fonti convergono e che nessun capitolo può contraddire:
 
@@ -25,6 +25,7 @@ Le regole su cui **tutte** le fonti convergono e che nessun capitolo può contra
 9. **Un vuoto spiega e offre la strada; un fallimento non è MAI una lista vuota.**
 10. **Caricamento a soglie**: sotto 1 s niente, 2–10 s testo sobrio/skeleton, oltre 10 s barra.
 11. **Nella suite la coerenza è legge**: stessa entità = stesso nome, stessa icona, stesso colore in ogni app. Ogni divergenza non motivata è un bug; ogni divergenza motivata è **scritta nel README dell'app**.
+12. **Nessun click muto**: ogni azione che può fallire mostra uno dei tre stati — in corso, riuscita, fallita. Un bottone che non risponde nulla, o che mostra successo su un errore del server, è un bug (§7).
 
 ---
 
@@ -127,6 +128,26 @@ Componente unico consigliato per i primi tre stati (una card, cambia icona/tono)
 | **Nota contestuale** accanto al bottone, verde, auto-dismiss ~4 s | esito di un'azione il cui bersaglio resta in vista | Tasks `.nota-ok` |
 | **Flash** in alto al centro, 4 s, `role="status"`, sopravvive alla navigazione | esito di un'azione che attraversa un cambio di vista | Mail `Flash.tsx` (il tono è un parametro OBBLIGATORIO: un fallimento non può uscire verde «per costruzione») |
 | **Avvisi (toast) in basso a destra** | ciò che succede *intorno* (nuovo messaggio, nuovo ordine) — mai esiti di azioni tue | DS §Avvisi (v1.1); implementazione: Customer Service `Novita.tsx` |
+
+**L'ESITO DI OGNI AZIONE — il click muto è vietato** *(v1.10, 28/08/2026 — regola dell'utente: un bottone che genera un errore lo COMUNICA; mai un'azione anonima, mai un fallimento silenzioso, mai una UI che sembra aver fatto quando la chiamata è fallita)*
+
+Ogni azione che può fallire — submit, salvataggio, chiamata API dietro un bottone, invio ottimistico — ha un **contratto a TRE stati, tutti visibili**:
+
+1. **In corso** — il bottone si disabilita e cambia etichetta («Salvataggio…», come già §4 e §6.1): il doppio invio è un bug. Oltre i 2 s valgono le soglie della legge 10.
+2. **Successo** — un segnale che si vede: nota contestuale, Flash, o una transizione evidente (la modale si chiude, la riga compare) — uno dei tre canali qui sopra, mai «niente».
+3. **Errore** — **messaggio visibile presso il punto dell'azione** (accanto al bottone, o in testa alla finestra che la contiene; persistente, mai un toast: legge 8), con **la causa in parole umane e cosa fare** («Il server ha rifiutato il salvataggio: riprova»; «Sessione scaduta: rientra per continuare»), e **l'input conservato** (legge 5, estesa dalle validazioni alle azioni).
+
+Le tre proibizioni — tutte già pagate sul campo:
+
+- **Vietato il fallimento silenzioso**: mai `catch` vuoto, mai `console.error` come unico esito, mai tornare allo stato iniziale senza dire niente. Ogni chiamata dietro un bottone ha il ramo `!res.ok` — e `res.ok` da solo **non basta** dove un middleware protegge le rotte: il 307 verso `/login` torna a `fetch` come 200 HTML, quindi si controllano anche `res.redirected` e il `content-type` (misurato in Customer Service il 26/08: tre segnalazioni diverse per una sola sessione scaduta). La sessione morta si dice con la fascia di riaccesso del poller-sentinella (qui sotto, notifiche), non con un'app che smette di rispondere.
+- **Vietato l'esito ambiguo**: la UI non mostra MAI un segnale di successo se il server ha risposto errore — niente chiusura della modale, niente reset del form, niente toast verde. **La cornice segue l'esito, non il testo**: verde-✓ solo per esiti dentro un insieme esplicito di successi, tutto il resto rosso-✕ (Marketing, 24/08: «✓ Scrittura NON riuscita» — la forma vince sul testo, e l'operatore ha rifatto il collegamento due volte credendolo riuscito). L'**invio ottimistico deve saper tornare indietro**: al rifiuto l'elemento disegnato in anticipo si rimuove, il testo torna nel campo, lo stato locale sporco si dimentica (Customer Service, 30/07: 18 conversazioni con zero messaggi per 18 giorni, e da fuori funzionava tutto). Il riferimento è l'optimistic con rollback di Anagrafiche `MenuStato`; l'ottimismo senza rollback è FUORI canone.
+- **Vietato il codice nudo**: rete assente, 401, 403, 500 si traducono in messaggi comprensibili da un **dizionario per app** (riferimento: Hub `utenti/page.tsx:56-67`) — «Non hai i permessi per questa azione», «Il server non risponde: riprova fra poco» — mai «Error 500» né `TypeError: Failed to fetch`. Il dettaglio tecnico può stare in un secondo rigo o nel log, mai al posto del messaggio.
+
+Accessibilità: l'errore comparso via JS porta `role="alert"` (o `aria-live="assertive"`), il successo `role="status"` (WCAG 4.1.3 — il Flash di Mail già lo fa).
+
+**La misura di collaudo, falsificabile**: si fa fallire la chiamata (rete staccata, o 500 forzato) e si clicca il bottone. Se la schermata resta **identica a prima** — o peggio mostra un segnale di successo — il bottone è fuori canone. Vale anche per le azioni ottimistiche: dopo il rifiuto del server, lo schermo non può essere indistinguibile dal successo.
+
+Questo blocco governa le **azioni** (scritture); il fallimento delle **letture** resta governato dal cap. 6.3 («un fallimento non è mai una lista vuota»). Fonti: NN/g euristiche 1 (visibility of system status) e 9 (help users recognize, diagnose, and recover from errors); Apple HIG «Feedback»; Material 3 (progress indicators, comunicazione dell'errore nel contesto).
 
 **Le NOTIFICHE IN-APP — il sistema canonico** *(v1.4, 28/08/2026 — promosso dall'utente: «il sistema del Customer Service è eccezionale, implementalo per tutte le app»)*. Tre segnali, tre significati, MAI confusi (riferimento: CS `Sidebar.tsx` + `lib/pallini.ts` + `api/novita/sezioni`):
 
