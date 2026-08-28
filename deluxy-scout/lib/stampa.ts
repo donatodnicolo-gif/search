@@ -29,16 +29,22 @@ const euro = (n: number | null | undefined) =>
   n == null ? '—' : '€ ' + Number(n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /**
- * Apre la finestra di stampa con il documento impaginato. Solo web: sul
- * telefono si apre il link di FINANCE, che resta la casa del documento.
+ * Apre la stampa del documento impaginato. Solo web.
  *
- * Torna false se il browser ha bloccato la finestra (popup): chi chiama lo
- * DICE, perché un bottone che non fa niente insegna a non premerlo.
+ * ⚠️ NIENTE window.open (28/08/2026, segnalazione dell'utente: finestra
+ * about:blank VUOTA più l'avviso di pop-up bloccato, insieme). Il primo
+ * tentativo apriva la finestra con `noopener` — che per definizione NON
+ * restituisce la maniglia: la finestra nasceva, il codice riceveva null, non
+ * poteva scriverci dentro (pagina bianca) e credeva pure che fosse stata
+ * bloccata. Due bugie da una riga.
+ *
+ * La strada giusta non ha pop-up: un IFRAME invisibile nella stessa pagina,
+ * il documento dentro, e `print()` sul suo contenuto. Nessun blocker può
+ * intrommettersi, e il dialogo di stampa (con «Salva come PDF») si apre
+ * direttamente.
  */
 export function stampaProforma(doc: DocumentoProforma, int: Partial<IntestazioneDocumento> | null): boolean {
   if (typeof window === 'undefined' || typeof document === 'undefined') return false;
-  const w = window.open('', '_blank', 'noopener,width=900,height=1000');
-  if (!w) return false;
 
   const righeHtml = (doc.righe ?? [])
     .map(
@@ -75,7 +81,6 @@ export function stampaProforma(doc: DocumentoProforma, int: Partial<Intestazione
   @media print{ .no-print{display:none} body{margin:10mm} }
   .no-print{position:fixed;top:12px;right:12px;background:#111318;color:#fff;border:0;border-radius:999px;padding:10px 18px;font-weight:700;cursor:pointer}
 </style></head><body>
-<button class="no-print" onclick="window.print()">Stampa / Salva PDF</button>
 <header>
   <div>
     ${int?.logoDataUrl ? `<img class="logo" src="${esc(int.logoDataUrl)}" alt="">` : ''}
@@ -124,7 +129,38 @@ ${int?.disclaimer ? `<footer>${esc(int.disclaimer)}</footer>` : ''}
 <div class="nota-copia">Copia emessa da Deluxy Scout con l'intestazione attuale del brand — il documento originale vive su Deluxy Partner (FINANCE).</div>
 </body></html>`;
 
-  w.document.write(html);
-  w.document.close();
+  const frame = document.createElement('iframe');
+  // Fuori dallo schermo, non display:none: alcuni browser non stampano un
+  // frame che non è mai stato disegnato.
+  frame.style.position = 'fixed';
+  frame.style.right = '0';
+  frame.style.bottom = '0';
+  frame.style.width = '0';
+  frame.style.height = '0';
+  frame.style.border = '0';
+  frame.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(frame);
+
+  const fdoc = frame.contentDocument ?? frame.contentWindow?.document;
+  if (!fdoc || !frame.contentWindow) {
+    frame.remove();
+    return false;
+  }
+  fdoc.open();
+  fdoc.write(html);
+  fdoc.close();
+
+  const finestra = frame.contentWindow;
+  // ⚠️ La pulizia va DOPO la stampa: togliere il frame mentre il dialogo è
+  // aperto stamperebbe una pagina vuota su alcuni browser. `afterprint` è il
+  // segnale giusto; il timeout lungo è la rete di sicurezza se non arriva.
+  const pulisci = () => frame.remove();
+  finestra.addEventListener('afterprint', pulisci, { once: true });
+  setTimeout(pulisci, 120_000);
+  // Un attimo perché il logo (data URI) e i font si assestino nel frame.
+  setTimeout(() => {
+    finestra.focus();
+    finestra.print();
+  }, 150);
   return true;
 }

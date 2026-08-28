@@ -1003,7 +1003,7 @@ export default function Ordini() {
         disclaimer: t.disclaimer ?? '',
       } : null);
       if (!aperta) {
-        avvisa('Finestra bloccata', 'Il browser ha bloccato la finestra di stampa: consenti i pop-up per deluxy-scout e riprova.');
+        avvisa('Stampa non partita', 'Non sono riuscito a preparare il documento in questa pagina: ricarica e riprova.');
       }
     } catch (e: any) {
       avvisa('Pro-forma non scaricata', String(e?.message ?? e));
