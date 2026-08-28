@@ -741,14 +741,24 @@ const AZIONI: AzioneApp[] = [
     },
   },
   {
-    id: 'finance.proforma',
-    app: 'Finance',
-    nome: 'Crea proforma',
+    // ⚠️⚠️ ERA `finance.proforma`, e chiamava FINANCE dritto (27/08/2026).
+    // Adesso passa da SCOUT, che è il proxy ufficiale verso FINANCE per questi
+    // documenti — e non è un dettaglio di percorso: è Scout a scegliere la
+    // CARTA INTESTATA del brand, sul server. Chiamando Finance direttamente,
+    // le pro-forma nate da una mail uscivano con l'intestazione predefinita,
+    // non con quella dell'azienda che stava emettendo.
+    // ⚠️ L'id è cambiato: le pro-forma create prima restano in archivio con
+    // l'id vecchio e non compaiono più fra le «già fatte» del riassunto. È il
+    // prezzo del trasloco, ed è preferibile a un id che dice Finance mentre
+    // chiama Scout.
+    id: 'commerciale.proforma',
+    app: 'Commerciale',
+    nome: 'Crea pro-forma',
     scrive: true,
     dalRiassunto:
       'i servizi e gli importi sono stati CONCORDATI con un partner e si può passare a fatturare (non quando i prezzi sono ancora in discussione)',
-    descrizione: 'Prepara una proforma per il partner in Deluxy Finance.',
-    colore: 'gold',
+    descrizione: 'Prepara una pro-forma (o un preventivo) per il partner, con la carta intestata del brand.',
+    colore: 'green',
     guida:
       'La mail riguarda servizi/importi da fatturare a un partner. partner = nome dell’azienda. Ogni riga: descrizione del servizio, quantità (1 se non detta), prezzo unitario SOLO se scritto nella mail (altrimenti null: lo completa l’utente).',
     // ⚠️ `righe` non è qui di proposito: è un elenco di oggetti, e la tabella
@@ -756,6 +766,18 @@ const AZIONI: AzioneApp[] = [
     // Dichiararlo come campo di testo lo appiattirebbe in una stringa.
     campi: [
       { nome: 'partner', etichetta: 'Partner', obbligatorio: true },
+      {
+        nome: 'tipo',
+        etichetta: 'Documento',
+        tipo: 'scelta',
+        // ⚠️ I due valori sono quelli che FINANCE accetta davvero, non due
+        // nomi scelti qui: un terzo tipo verrebbe rifiutato di là.
+        opzioni: [
+          { valore: 'proforma', etichetta: 'Pro-forma' },
+          { valore: 'preventivo', etichetta: 'Preventivo' },
+        ],
+        aiuto: 'Vuoto = pro-forma.',
+      },
       { nome: 'oggetto', etichetta: 'Oggetto' },
       { nome: 'note', etichetta: 'Note', tipo: 'lungo' },
     ],
@@ -786,13 +808,19 @@ const AZIONI: AzioneApp[] = [
       const righe = Array.isArray(dati.righe) ? (dati.righe as Record<string, unknown>[]) : []
       if (righe.some((r) => r.prezzoUnitario == null))
         return { ok: false, messaggio: 'Manca il prezzo di una riga: completalo prima di inviare.' }
+      // ⚠️ Il tipo lo decide chi conferma, ma solo fra i due che FINANCE
+      // conosce: qualunque altra parola diventa una pro-forma, invece di far
+      // fallire l'invio con un errore che arriva dall'altra app.
+      const tipo = String(dati.tipo ?? '').trim().toLowerCase() === 'preventivo' ? 'preventivo' : undefined
       return chiama(
-        `${FINANCE_URL}/api/proforma`,
+        `${COMMERCIALE_URL}/proforma`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-Key': ctx.chiave, 'X-App': 'deluxy-mail' },
+          headers: { 'Content-Type': 'application/json', 'x-api-key': ctx.chiave },
           body: JSON.stringify({
+            azione: 'crea',
             partner: dati.partner,
+            tipo,
             oggetto: dati.oggetto || undefined,
             note: dati.note || undefined,
             righe: righe.map((r) => ({
@@ -803,17 +831,21 @@ const AZIONI: AzioneApp[] = [
           }),
         },
         (status, risposta) => {
+          const quale = tipo === 'preventivo' ? 'Preventivo' : 'Pro-forma'
           if (status >= 200 && status < 300) {
             const r = (risposta ?? {}) as Record<string, unknown>
             const numero = r.numero ?? (r.proforma as Record<string, unknown> | undefined)?.numero
             return {
               ok: true,
-              messaggio: numero ? `Proforma ${numero} creata in Finance.` : 'Proforma creata in Finance.',
+              messaggio: numero ? `${quale} ${numero} creata.` : `${quale} creata.`,
+              // ⚠️ Il documento vive in FINANCE anche se la richiesta passa da
+              // Scout: il link deve portare dove si va a guardarlo.
               link: FINANCE_URL,
             }
           }
-          if (status === 401 || status === 403) return { ok: false, messaggio: 'Chiave Finance non valida.' }
-          return { ok: false, messaggio: testoErrore(risposta, `Finance ha risposto ${status}.`) }
+          if (status === 401 || status === 403)
+            return { ok: false, messaggio: 'Chiave Commerciale non valida: controllala in Impostazioni App.' }
+          return { ok: false, messaggio: testoErrore(risposta, `Commerciale ha risposto ${status}.`) }
         }
       )
     },

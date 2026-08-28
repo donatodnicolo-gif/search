@@ -5,6 +5,7 @@
 //   { azione: 'riepilogo', partner }                                           → GET   /api/riepilogo-finanziario
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { chiaveHub } from '../_shared/chiavi.ts';
+import { chiaveIngressoValida } from '../_shared/chiaveIn.ts';
 
 const BASE = Deno.env.get('PARTNER_URL') ?? 'https://deluxy-partner.vercel.app';
 
@@ -12,7 +13,7 @@ const BASE = Deno.env.get('PARTNER_URL') ?? 'https://deluxy-partner.vercel.app';
 // se non sono elencati qui il preflight fallisce e il browser dà "Failed to fetch".
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-api-key, x-client-info',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 function json(body: unknown, status = 200) {
@@ -84,11 +85,35 @@ Deno.serve(async (req) => {
     const key = await chiaveHub('PARTNER_API_KEY'); // vault hub, fallback env
     if (!key) return json({ error: 'PARTNER_API_KEY non configurata' }, 500);
 
-    // Autenticazione: chi chiama dev'essere un utente Scout loggato.
+    // AUTENTICAZIONE, in due modi.
+    //
+    // 1. Un UTENTE SCOUT collegato (il client web di Scout): com'è sempre stato.
+    // 2. La CHIAVE D'INGRESSO delle app (header `x-api-key`): la stessa che
+    //    usa già la funzione gemella `preventivi`, e con la stessa verifica.
+    //
+    // ⚠️ Il secondo modo serve perché anche AI Mail deve poter preparare una
+    // pro-forma da una mail (chiesto il 27/08/2026): AI Mail non ha e non può
+    // avere una sessione utente di Scout, ha una chiave d'app. Prima l'unica
+    // strada era che chiamasse FINANCE direttamente — e così facendo la
+    // pro-forma usciva con la carta intestata PREDEFINITA invece di quella del
+    // brand, perché è questa funzione a sceglierla.
+    // ⚠️ Quello che NON cambia: la carta intestata la decide comunque il
+    // server (vedi `intestazioneDelBrand`). Chi chiama non può indicarla, con
+    // la chiave o senza — è la revisione di sicurezza del 27/08/2026, e vale
+    // per tutti e due i modi.
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
-    const { data: userData } = await admin.auth.getUser(jwt);
-    if (!userData?.user) return json({ error: 'Non autenticato' }, 401);
+    const chiaveApp = req.headers.get('x-api-key');
+    let autorizzato = false;
+    if (chiaveApp) {
+      const esito = await chiaveIngressoValida(chiaveApp, admin);
+      autorizzato = esito.ok;
+      if (!autorizzato) return json({ error: esito.motivo ?? 'Chiave API non valida' }, 401);
+    } else {
+      const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
+      const { data: userData } = await admin.auth.getUser(jwt);
+      autorizzato = Boolean(userData?.user);
+    }
+    if (!autorizzato) return json({ error: 'Non autenticato' }, 401);
 
     const body = await req.json().catch(() => ({}));
     const headers = {
