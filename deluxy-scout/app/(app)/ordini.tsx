@@ -140,6 +140,8 @@ export default function Ordini() {
   const [modificaPer, setModificaPer] = useState<OrdineConLuogo | null>(null);
   /** L'ordine per cui si sta chiedendo l'evasione alle consegne (migr. 0099). */
   const [evasionePer, setEvasionePer] = useState<OrdineConLuogo | null>(null);
+  /** La legenda delle icone: chiusa di default, si apre da «Legenda». */
+  const [legenda, setLegenda] = useState(false);
   const [bozza, setBozza] = useState<{
     cliente: string;
     /** Il negozio a cui l'ordine è legato: si può CAMBIARE (28/08/2026). */
@@ -688,7 +690,7 @@ export default function Ordini() {
                 if (o.chiuso_il) riapriOrdine(o);
                 else apriChiusura(o);
               }}
-              accessibilityLabel={o.chiuso_il ? "Riapri l'ordine" : "Chiudi l'ordine"}
+              accessibilityLabel={o.chiuso_il ? "Pratica chiusa — riapri" : "Chiudi la pratica"}
               {...({
                 title: o.chiuso_il
                   ? 'Riapri la pratica'
@@ -696,9 +698,13 @@ export default function Ordini() {
               } as any)}
             >
               <Ionicons
-                name={o.chiuso_il ? 'lock-open-outline' : 'lock-closed-outline'}
+                /* ⭐ LA CHIUSURA È LA V (28/08/2026, richiesta dell'utente:
+                    «la chiusura dell'ordine sarebbe più chiara con la V»).
+                    Il lucchetto diceva «bloccato», non «finito». Vuota = da
+                    chiudere; piena e oro = chiusa (e il tocco riapre). */
+                name={o.chiuso_il ? 'checkmark-circle' : 'checkmark-circle-outline'}
                 size={19}
-                color={o.chiuso_il ? colors.goldStrong : colors.grigio}
+                color={o.chiuso_il ? colors.goldStrong : colors.navy}
               />
             </Pressable>
           ) : null}
@@ -779,9 +785,11 @@ export default function Ordini() {
                   disabled={inCorso === o.id}
                   onPress={(e: any) => { e?.stopPropagation?.(); chiediFattura(o); }}
                   accessibilityLabel="Chiedi la fattura a FINANCE"
-                  {...({ title: 'Fattura — chiedi il documento a FINANCE (non è l’incasso)' } as any)}
+                  {...({ title: 'FATTURA — chiedi il documento fiscale a FINANCE (non è l’incasso)' } as any)}
                 >
-                  <Ionicons name="document-text-outline" size={19} color={colors.navy} />
+                  {/* La stessa icona della pillola «Fattura»: un concetto, un
+                      simbolo — ovunque compaia. */}
+                  <Ionicons name="receipt-outline" size={19} color={colors.navy} />
                 </Pressable>
               ) : null}
               {/* ⭐ LA PRO-FORMA CHE NON C'È (27/08/2026). Ogni ordine nasce
@@ -796,9 +804,10 @@ export default function Ordini() {
                   disabled={inCorso === o.id}
                   onPress={(e: any) => { e?.stopPropagation?.(); emettiProforma(o); }}
                   accessibilityLabel="Emetti la pro-forma"
-                  {...({ title: 'Pro-forma — emettila su FINANCE e agganciala a questo ordine' } as any)}
+                  {...({ title: 'PRO-FORMA — emettila su FINANCE e agganciala a questo ordine' } as any)}
                 >
-                  <Ionicons name="receipt-outline" size={19} color={colors.navy} />
+                  {/* La stessa icona della pillola «Pro-forma». */}
+                  <Ionicons name="document-text-outline" size={19} color={colors.navy} />
                 </Pressable>
               ) : null}
               <Pressable
@@ -826,9 +835,12 @@ export default function Ordini() {
                 style={styles.iconaPiena}
                 onPress={(e: any) => { e?.stopPropagation?.(); cambiaStato(o, 'incassato'); }}
                 accessibilityLabel="Segna incassato"
-                {...({ title: 'Incassato — i soldi sono arrivati' } as any)}
+                {...({ title: 'Segna INCASSATO — i soldi sono arrivati' } as any)}
               >
-                <Ionicons name="checkmark" size={19} color={colors.bianco} />
+                {/* ⚠️ Era la V bianca su nero: ma la V ora è la CHIUSURA, e due
+                    V con due significati si scambiano. L'incasso è denaro:
+                    banconote. */}
+                <Ionicons name="cash-outline" size={19} color={colors.bianco} />
               </Pressable>
               <Pressable
                 style={styles.iconaAzione}
@@ -1480,6 +1492,44 @@ export default function Ordini() {
             </>
           ) : null}
         </Text>
+        {/* ⭐ LA LEGENDA DELLE ICONE (28/08/2026, richiesta dell'utente:
+            «rivedi tutte le icone... metti poi una legenda»). Chiusa di
+            default: chi le conosce non deve scavalcarla ogni giorno. Solo
+            dove c'è la tabella — sul telefono i bottoni hanno la parola. */}
+        {aTabella ? (
+          <View>
+            <Pressable style={styles.legendaToggle} onPress={() => setLegenda((v) => !v)} hitSlop={6}>
+              <Ionicons name={legenda ? 'chevron-up' : 'help-circle-outline'} size={15} color={colors.grigio} />
+              <Text style={styles.legendaToggleTxt}>{legenda ? 'Chiudi la legenda' : 'Legenda delle icone'}</Text>
+            </Pressable>
+            {legenda ? (
+              <View style={styles.legenda}>
+                {(
+                  [
+                    ['checkmark-circle-outline', 'Chiudi la pratica', 'piena e oro = chiusa; il tocco riapre'],
+                    ['cash-outline', 'Segna incassato', 'i soldi sono arrivati (bottone nero)'],
+                    ['receipt-outline', 'Chiedi la fattura', 'il documento fiscale, da FINANCE'],
+                    ['document-text-outline', 'Emetti la pro-forma', 'la richiesta di pagamento'],
+                    ['wallet-outline', 'Chiedi un acconto', 'piena e oro = già richiesto'],
+                    ['download-outline', 'Scarica la fattura', 'PDF da Fatture in Cloud'],
+                    ['car-outline', 'Richiedi l’evasione', 'piena e oro = già richiesta; solo a pratica chiusa'],
+                    ['copy-outline', 'Duplica come bozza', 'per rifare un ordine sbagliato'],
+                    ['create-outline', 'Modifica l’ordine', 'valore, cliente, fornitura, pro-forma'],
+                    ['close-circle-outline', 'Annulla l’ordine', 'la pratica non è successa'],
+                    ['arrow-undo-outline', 'Riporta a da incassare', 'toglie l’incasso segnato per sbaglio'],
+                  ] as [string, string, string][]
+                ).map(([icona, nome, nota]) => (
+                  <View key={nome} style={styles.legendaRiga}>
+                    <Ionicons name={icona as any} size={16} color={colors.navy} />
+                    <Text style={styles.legendaNome}>{nome}</Text>
+                    <Text style={styles.legendaNota} numberOfLines={1}>{nota}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
         {/* Zona filtri al Libro v1.2 §8 (28/08, segnalazione utente: 4 gruppi
             sempre aperti ≈ 300px, il 37-40% di un telefono). La dimensione
             PRIMARIA — lo stato dell'incasso, quella che si cambia più volte al
@@ -1763,7 +1813,7 @@ export default function Ordini() {
                           onPress={() => (o.chiuso_il ? riapriOrdine(o) : apriChiusura(o))}
                         >
                           <Ionicons
-                            name={o.chiuso_il ? 'lock-open-outline' : 'lock-closed-outline'}
+                            name={o.chiuso_il ? 'arrow-undo-outline' : 'checkmark-circle-outline'}
                             size={15}
                             color={colors.navy}
                           />
@@ -3269,6 +3319,23 @@ const styles = StyleSheet.create({
   // La pillola del riferimento: grigia e neutra, perché è un'ETICHETTA, non
   // uno stato né un documento. L'oro qui griderebbe più della fattura.
   rifRiga: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 14 },
+  legendaToggle: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-end', paddingVertical: 4 },
+  legendaToggleTxt: { color: colors.grigio, fontSize: 12, fontWeight: '600' },
+  legenda: {
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.m,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginBottom: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 24,
+  },
+  legendaRiga: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 4, minWidth: 300 },
+  legendaNome: { color: colors.testo, fontSize: 12.5, fontWeight: '700' },
+  legendaNota: { color: colors.grigio, fontSize: 12, flexShrink: 1 },
   rifNota: { color: colors.grigio, fontSize: 12, flexShrink: 1 },
   rifChip: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.sfondo, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 6, paddingVertical: 2 },
   rifChipGrande: { paddingHorizontal: 9, paddingVertical: 4, gap: 5 },
