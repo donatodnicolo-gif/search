@@ -10,6 +10,32 @@ Il manuale [COME-FUNZIONA-APP-DELUXY.md](COME-FUNZIONA-APP-DELUXY.md) è la **fo
 
 Il `.docx` è generato automaticamente dal `.md`: **non** modificarlo a mano (verrebbe sovrascritto). Lo snapshot originale consegnato dal team è `COME-FUNZIONA-APP-DELUXY-AGGIORNATO-2026-07.docx` (storico, non aggiornato).
 
+## 0-bis. Manuale di funzionalità (guida visiva) — deciso dall'utente il 28/08/2026
+
+> «D'ora in poi l'inserimento e aggiornamento di funzionalità devono essere inseriti in questo manuale di funzionalità.»
+
+Il manuale è [guida-visiva.html](guida-visiva.html), pubblicato come artifact
+(link nell'handoff). È la guida che legge **una persona nuova**: che cosa fa
+l'applicativo, chi vede cosa, come viaggia una consegna, dove va il denaro.
+
+**A ogni commit che aggiunge o cambia una funzionalità**, nello stesso commit:
+
+1. si aggiorna `docs/guida-visiva.html`;
+2. si **ripubblica allo STESSO indirizzo** (`Artifact` con lo stesso
+   `file_path`, oppure con l'`url` dell'artifact se la sessione è un'altra) —
+   un indirizzo nuovo lascia in mano all'utente un link che invecchia;
+3. si aggiorna anche il manuale tecnico `COME-FUNZIONA-APP-DELUXY.md` (regola 0).
+
+⚠️ **Non sono lo stesso documento e non si sostituiscono**: il `.md` è il
+riferimento completo, campo per campo, che si consulta; la guida visiva è
+l'orientamento, che si legge una volta dall'inizio alla fine. Una funzione
+descritta solo nel `.md` resta invisibile a chi arriva; una descritta solo
+nella guida perde i dettagli che servono a lavorarci.
+
+**Come si scrive dentro la guida**: che cosa fa e **chi lo vede**, non come è
+costruita dentro. Se la funzione ha una regola che può sorprendere, va in **Le
+regole del posto** col motivo. I numeri si **misurano** e si **datano**.
+
 ## 1. Handoff sempre aggiornato
 A ogni tappa e **prima di fermarsi**, aggiornare:
 - [HANDOFF.md](HANDOFF.md) — cosa è FATTO / cosa MANCA, data, come riprendere;

@@ -35,6 +35,7 @@ Le anagrafiche dei partner B2B vivono SOLO in `deluxy-anagrafiche/` (porta 3060)
 Prima di lavorare, leggere **[deluxy-platform-next/docs/REGOLE-DI-LAVORO.md](deluxy-platform-next/docs/REGOLE-DI-LAVORO.md)** e l'**handoff** [deluxy-platform-next/docs/HANDOFF.md](deluxy-platform-next/docs/HANDOFF.md) (stato FATTO/MANCA, come riprendere). In sintesi:
 
 0. **Documento app sempre aggiornato**: a ogni commit che cambia comportamento, aggiornare anche il manuale `docs/COME-FUNZIONA-APP-DELUXY.md` nello stesso commit.
+0-bis. **Manuale di funzionalità** (deciso dall'utente il 28/08/2026): ogni funzionalità aggiunta o modificata va scritta anche in `deluxy-platform-next/docs/guida-visiva.html` — la guida visiva per chi arriva nuovo — e **ripubblicata allo stesso indirizzo** dell'artifact. Non sostituisce il manuale tecnico: quello è il riferimento campo per campo, questa è l'orientamento. Dettagli in [REGOLE-DI-LAVORO.md §0-bis](deluxy-platform-next/docs/REGOLE-DI-LAVORO.md).
 1. **Handoff sempre aggiornato**: a ogni tappa e prima di fermarsi, aggiornare `docs/HANDOFF.md` + la memoria del progetto (una finestra nuova deve poter riprendere senza contesto).
 2. **Commit spesso**, con verifica reale (typecheck + build/preview) prima del commit.
 3. **Segreti mai su file né committati**; `.env`/`.env.legacy` in `.gitignore`.

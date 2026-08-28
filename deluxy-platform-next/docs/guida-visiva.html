@@ -1,0 +1,942 @@
+<title>Come funziona Deluxy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500;6..96,600&display=swap">
+
+<style>
+  /* ============================================================
+     TOKEN — Deluxy Design System v1.4.
+     I colori non sono inventati: sono quelli dell'app vera
+     (deluxy-design-system/tokens/tokens.css). L'oro e' SOLO un
+     accento, mai un bottone: e' una regola del design system.
+     ============================================================ */
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --sunken: #ececef;
+    --text: #1d1d1f;
+    --text-2: #6e6e73;
+    --text-3: #86868b;
+    --hair: rgba(0, 0, 0, 0.08);
+    --hair-2: rgba(0, 0, 0, 0.14);
+    --fill: rgba(120, 120, 128, 0.08);
+    --ink: #111318;
+    --on-ink: #ffffff;
+    --gold: #b8963e;
+    --gold-soft: rgba(184, 150, 62, 0.14);
+    --blue: #0071e3;
+    --green: #248a3d;
+    --orange: #c93400;
+    --red: #d70015;
+    --purple: #6d3fc4;
+    --amber: #b8930f;
+    --grey: #8a8a8e;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.05);
+    --rail: rgba(255, 255, 255, 0.78);
+
+    --display: "Bodoni Moda", "Didot", "Bodoni MT", Georgia, serif;
+    --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  /* Tema scuro: progettato, non invertito. L'oro si alza perche' a
+     #b8963e su fondo scuro perde stacco. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1014;
+      --surface: #17191f;
+      --sunken: #1e2129;
+      --text: #f2f2f4;
+      --text-2: #a6a7ad;
+      --text-3: #85868d;
+      --hair: rgba(255, 255, 255, 0.10);
+      --hair-2: rgba(255, 255, 255, 0.18);
+      --fill: rgba(160, 162, 175, 0.12);
+      --ink: #f2f2f4;
+      --on-ink: #0f1014;
+      --gold: #cfae5a;
+      --gold-soft: rgba(207, 174, 90, 0.16);
+      --blue: #4c9dff;
+      --green: #46bd63;
+      --orange: #ff7a45;
+      --red: #ff5a5f;
+      --purple: #a68bf0;
+      --amber: #e0bb2e;
+      --grey: #9b9ca3;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.45);
+      --rail: rgba(23, 25, 31, 0.82);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1014;
+    --surface: #17191f;
+    --sunken: #1e2129;
+    --text: #f2f2f4;
+    --text-2: #a6a7ad;
+    --text-3: #85868d;
+    --hair: rgba(255, 255, 255, 0.10);
+    --hair-2: rgba(255, 255, 255, 0.18);
+    --fill: rgba(160, 162, 175, 0.12);
+    --ink: #f2f2f4;
+    --on-ink: #0f1014;
+    --gold: #cfae5a;
+    --gold-soft: rgba(207, 174, 90, 0.16);
+    --blue: #4c9dff;
+    --green: #46bd63;
+    --orange: #ff7a45;
+    --red: #ff5a5f;
+    --purple: #a68bf0;
+    --amber: #e0bb2e;
+    --grey: #9b9ca3;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.45);
+    --rail: rgba(23, 25, 31, 0.82);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--ui);
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .impianto {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr);
+    gap: 0;
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+
+  /* ---------- La barra: rifa' il menu VERO dell'app ---------- */
+  .rail {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding: 34px 22px 40px 28px;
+    background: var(--rail);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-right: 1px solid var(--hair);
+  }
+  .rail .marchio {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 26px;
+  }
+  .tessera {
+    width: 30px; height: 30px;
+    border-radius: 9px;
+    background: linear-gradient(150deg, #1d1f26, #3a3d47);
+    color: #fff;
+    display: grid; place-items: center;
+    font-family: var(--display);
+    font-size: 17px;
+    flex: 0 0 auto;
+  }
+  .rail .nome { font-weight: 600; letter-spacing: -0.02em; }
+  .rail nav { display: flex; flex-direction: column; gap: 3px; }
+  .rail a {
+    color: var(--text-2);
+    text-decoration: none;
+    font-size: 13.5px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    display: block;
+  }
+  .rail a:hover { background: var(--fill); color: var(--text); }
+  .rail a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .rail .gruppo {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-3);
+    margin: 20px 0 6px 10px;
+    font-weight: 600;
+  }
+
+  /* ---------- La colonna di lettura ---------- */
+  main { padding: 56px 44px 110px; min-width: 0; }
+  .col { max-width: 74ch; }
+
+  .occhiello {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    color: var(--gold);
+    font-weight: 600;
+    margin: 0 0 12px;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: clamp(40px, 6vw, 64px);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    margin: 0 0 18px;
+    text-wrap: balance;
+  }
+  .sommario {
+    font-size: 20px;
+    line-height: 1.55;
+    color: var(--text-2);
+    margin: 0 0 40px;
+    max-width: 62ch;
+  }
+  .sommario strong { color: var(--text); font-weight: 600; }
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 31px;
+    line-height: 1.18;
+    letter-spacing: -0.005em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  h3 {
+    font-size: 16.5px;
+    font-weight: 650;
+    letter-spacing: -0.012em;
+    margin: 0 0 6px;
+  }
+  section { padding-top: 60px; }
+  section > .cappello { color: var(--text-2); margin: 0 0 26px; max-width: 64ch; }
+  p { margin: 0 0 16px; }
+  .col > section p:last-child { margin-bottom: 0; }
+  a.dentro { color: var(--text); text-decoration-color: var(--gold); text-underline-offset: 3px; }
+
+  code, .rotta {
+    font-family: var(--mono);
+    font-size: 0.87em;
+    background: var(--sunken);
+    padding: 1.5px 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  /* ---------- I numeri d'apertura ---------- */
+  .numeri {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+    gap: 1px;
+    background: var(--hair);
+    border: 1px solid var(--hair);
+    border-radius: 16px;
+    overflow: hidden;
+    margin: 0 0 8px;
+  }
+  .numeri div { background: var(--surface); padding: 18px 16px; }
+  .numeri b {
+    display: block;
+    font-family: var(--display);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .numeri span {
+    display: block;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-3);
+    margin-top: 5px;
+  }
+  .fonte { font-size: 12.5px; color: var(--text-3); margin: 10px 0 0; }
+
+  /* ---------- Schede ---------- */
+  .schede {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 14px;
+  }
+  .scheda {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 16px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .scheda p { font-size: 14px; color: var(--text-2); margin: 0; }
+  .scheda .vede {
+    font-size: 12.5px;
+    color: var(--text-3);
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--hair);
+    line-height: 1.5;
+  }
+  .ruolo-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--text-3);
+    margin-bottom: 8px;
+  }
+
+  /* ---------- Il viaggio: una sequenza vera, quindi numerata ---------- */
+  .viaggio { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0; list-style: none; counter-reset: tappa; }
+  .viaggio li {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 18px;
+    padding: 0 0 26px;
+    position: relative;
+  }
+  .viaggio li::before {
+    counter-increment: tappa;
+    content: counter(tappa, decimal-leading-zero);
+    font-family: var(--display);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--gold);
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    border: 1px solid var(--gold-soft);
+    background: var(--gold-soft);
+    border-radius: 50%;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Il filo che unisce le tappe: dice che e' una sequenza. */
+  .viaggio li::after {
+    content: "";
+    position: absolute;
+    left: 20px; top: 44px; bottom: 8px;
+    width: 1px;
+    background: var(--hair-2);
+  }
+  .viaggio li:last-child { padding-bottom: 0; }
+  .viaggio li:last-child::after { display: none; }
+  .viaggio p { font-size: 14.5px; color: var(--text-2); margin: 0; }
+  .viaggio .chi {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  /* ---------- Le pillole di stato: la legenda VERA dell'app ---------- */
+  .stati { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border-radius: 980px;
+    padding: 5px 13px 5px 11px;
+    font-size: 13px;
+    font-weight: 550;
+    border: 1px solid var(--hair);
+    background: var(--surface);
+    white-space: nowrap;
+  }
+  .pill i {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: 0 0 auto;
+  }
+  .c-red { color: var(--red); }
+  .c-amber { color: var(--amber); }
+  .c-blue { color: var(--blue); }
+  .c-purple { color: var(--purple); }
+  .c-green { color: var(--green); }
+  .c-orange { color: var(--orange); }
+  .c-grey { color: var(--grey); }
+
+  /* ---------- Il menu ricostruito ---------- */
+  .quartieri { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 14px; }
+  .quartiere {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 16px;
+    padding: 16px 18px 18px;
+    box-shadow: var(--shadow);
+  }
+  .quartiere h3 { display: flex; align-items: baseline; gap: 8px; }
+  .quartiere h3 em {
+    font-style: normal;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    font-weight: 600;
+  }
+  .voci { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .voci li { font-size: 13.5px; line-height: 1.45; }
+  .voci b { font-weight: 600; }
+  .voci span { color: var(--text-2); }
+
+  /* ---------- Le porte da cui entra una consegna ---------- */
+  .porte { display: grid; gap: 10px; }
+  .porta {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-left: 3px solid var(--gold);
+    border-radius: 12px;
+    padding: 14px 18px;
+  }
+  .porta .via {
+    font-size: 12.5px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    padding-top: 1px;
+  }
+  .porta p { font-size: 14px; color: var(--text-2); margin: 0; }
+
+  /* ---------- Tabelle ---------- */
+  .avvolgi { overflow-x: auto; border: 1px solid var(--hair); border-radius: 14px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 460px; }
+  th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--hair); vertical-align: top; }
+  thead th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    font-weight: 600;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- Gli avvisi: le trappole del posto ---------- */
+  .avviso {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-left: 3px solid var(--red);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+  }
+  .avviso h3 { margin-bottom: 3px; }
+  .avviso p { font-size: 14px; color: var(--text-2); margin: 0; }
+  .avviso.calmo { border-left-color: var(--blue); }
+
+  /* ---------- Il patto finale ---------- */
+  .patto {
+    background: var(--ink);
+    color: var(--on-ink);
+    border-radius: 20px;
+    padding: 32px 34px;
+    margin-top: 12px;
+  }
+  .patto h2 { color: var(--on-ink); margin-bottom: 12px; }
+  .patto p { color: color-mix(in srgb, var(--on-ink) 72%, transparent); }
+  .patto ol { margin: 16px 0 0; padding-left: 20px; }
+  .patto li { margin-bottom: 10px; font-size: 14.5px; color: color-mix(in srgb, var(--on-ink) 80%, transparent); }
+  .patto li b { color: var(--on-ink); font-weight: 600; }
+  .patto code { background: color-mix(in srgb, var(--on-ink) 12%, transparent); color: var(--on-ink); }
+
+  footer {
+    margin-top: 46px;
+    padding-top: 22px;
+    border-top: 1px solid var(--hair);
+    font-size: 13px;
+    color: var(--text-3);
+  }
+
+  @media (max-width: 900px) {
+    .impianto { grid-template-columns: 1fr; }
+    .rail {
+      position: static;
+      max-height: none;
+      border-right: 0;
+      border-bottom: 1px solid var(--hair);
+      padding: 22px 20px 24px;
+    }
+    .rail nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 2px; }
+    .rail .gruppo { grid-column: 1 / -1; }
+    main { padding: 34px 20px 80px; }
+    .porta { grid-template-columns: 1fr; gap: 6px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="impianto">
+
+  <aside class="rail">
+    <div class="marchio">
+      <span class="tessera">D</span>
+      <span class="nome">Deluxy</span>
+    </div>
+    <nav>
+      <span class="gruppo">La guida</span>
+      <a href="#cose">Che cos'è</a>
+      <a href="#ruoli">Chi sei quando entri</a>
+      <a href="#viaggio">Il viaggio di una consegna</a>
+      <a href="#stati">Gli stati e i colori</a>
+      <span class="gruppo">L'applicativo</span>
+      <a href="#menu">Le cinque sezioni</a>
+      <a href="#porte">Da dove entra una consegna</a>
+      <a href="#denaro">Dove va il denaro</a>
+      <a href="#altreapp">Come parla con le altre app</a>
+      <span class="gruppo">Prima di toccare</span>
+      <a href="#regole">Le regole del posto</a>
+      <a href="#patto">Come si aggiorna</a>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="col">
+
+      <p class="occhiello">Manuale di funzionalità · piattaforma consegne</p>
+      <h1>Come funziona Deluxy</h1>
+      <p class="sommario">
+        Deluxy porta a mano oggetti che non sopportano un corriere: fiori, torte, borse,
+        gioielli. Questa piattaforma è <strong>il posto dove quel lavoro viene organizzato</strong> —
+        chi ha chiesto la consegna, chi la esegue, dove si trova adesso, quanto si fattura
+        e quanto si paga. Se è il tuo primo giorno, leggi in ordine: alla fine sai
+        muoverti da solo.
+      </p>
+
+      <section id="cose">
+        <h2>Che cos'è, in concreto</h2>
+        <p class="cappello">
+          Non è un gestionale generico adattato. È un registro di consegne in guanti bianchi,
+          costruito attorno a tre soggetti: il <b>partner</b> che chiede il servizio, il
+          <b>valet</b> che lo esegue, e l'<b>ufficio</b> che li fa incontrare.
+        </p>
+
+        <div class="numeri">
+          <div><b>61.498</b><span>consegne</span></div>
+          <div><b>289</b><span>partner · 202 attivi</span></div>
+          <div><b>287</b><span>valet · 62 attivi</span></div>
+          <div><b>22.952</b><span>prodotti</span></div>
+          <div><b>4.513</b><span>clienti finali</span></div>
+          <div><b>107</b><span>province</span></div>
+        </div>
+        <p class="fonte">Contati sul database di produzione il 28 agosto 2026. Non sono stime.</p>
+
+        <p style="margin-top:24px">
+          Il <b>partner</b> è un negozio, una boutique, una pasticceria: è il cliente che chiede
+          la consegna. Il <b>valet</b> è chi la porta fisicamente, in auto, bici, moto o furgone.
+          Il <b>cliente finale</b> è chi riceve il pacco, e nella maggior parte dei casi non entra
+          mai nell'applicativo: riceve un SMS con un link di tracciamento e basta.
+        </p>
+      </section>
+
+      <section id="ruoli">
+        <h2>Chi sei quando entri</h2>
+        <p class="cappello">
+          L'applicativo è uno solo, ma mostra cose diverse a persone diverse. Il tuo ruolo
+          decide le voci di menu che vedi <em>e</em> i dati che il server ti manda —
+          non è un filtro estetico: quello che non ti spetta non arriva proprio.
+        </p>
+
+        <div class="schede">
+          <div class="scheda">
+            <span class="ruolo-tag">ADMIN · 3 persone</span>
+            <h3>Amministratore</h3>
+            <p>Vede e fa tutto. È l'unico che gestisce utenti, chiavi delle app e impostazioni.</p>
+            <p class="vede">Unico ad accedere a Finanza, Utenti e ruoli, Chiavi delle app.</p>
+          </div>
+          <div class="scheda">
+            <span class="ruolo-tag">OPERATION · 14 persone</span>
+            <h3>Operativo</h3>
+            <p>Il mestiere quotidiano: smistare, assegnare i valet, cambiare stati, fatturare.</p>
+            <p class="vede">Il <b>Customer Service</b> non è un ruolo a parte: è un Operativo con la specialità <code>customer_service</code>.</p>
+          </div>
+          <div class="scheda">
+            <span class="ruolo-tag">PARTNER · 265 account</span>
+            <h3>Partner</h3>
+            <p>Chiede le consegne e segue le proprie. Ha una vetrina sua, «Servizi Deluxy».</p>
+            <p class="vede">Vede <b>solo le proprie</b> consegne, e mai quanto viene pagato il valet.</p>
+          </div>
+          <div class="scheda">
+            <span class="ruolo-tag">VALET · 286 account</span>
+            <h3>Valet</h3>
+            <p>Esegue. Segna la partenza, l'arrivo, l'esito; carica ricevute e vede la propria paga.</p>
+            <p class="vede">Vede <b>solo i propri</b> servizi, e mai quanto il partner paga la consegna.</p>
+          </div>
+          <div class="scheda">
+            <span class="ruolo-tag">PROJECT_MANAGER · 3</span>
+            <h3>Project manager</h3>
+            <p>Anagrafiche, regole e prodotti; resta fuori dall'operatività quotidiana.</p>
+            <p class="vede">Niente Amministrazione.</p>
+          </div>
+          <div class="scheda">
+            <span class="ruolo-tag">CUSTOMER · 4.512</span>
+            <h3>Cliente finale</h3>
+            <p>Esiste come anagrafica; quasi nessuno accede davvero. Chi accede vede solo le sue consegne.</p>
+            <p class="vede">Eredità del vecchio sistema, dove i clienti erano schede senza password.</p>
+          </div>
+        </div>
+
+        <div class="avviso calmo" style="margin-top:18px">
+          <h3>Il team leader è un valet con una squadra</h3>
+          <p>
+            Non è un ruolo in più: è un valet a cui sono assegnati altri valet. Vede le consegne
+            dei suoi, quelle non ancora assegnate nelle sue province, e quelle dei partner che
+            gli sono affidati.
+          </p>
+        </div>
+      </section>
+
+      <section id="viaggio">
+        <h2>Il viaggio di una consegna</h2>
+        <p class="cappello">
+          Questa è la spina dorsale dell'applicativo. Tutto il resto — fatture, paghe, statistiche —
+          si aggancia a queste tappe. Sono un ordine vero: la tappa 5 non può precedere la 4.
+        </p>
+
+        <ol class="viaggio">
+          <li>
+            <div>
+              <span class="chi">Partner, ufficio, o un'altra app</span>
+              <h3>Qualcuno chiede una consegna</h3>
+              <p>Nasce con data, fascia oraria, indirizzo di ritiro, indirizzo di consegna, destinatario, prodotti e tipo di servizio. Lo stato di partenza è <b>Da gestire</b>.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <span class="chi">Ufficio</span>
+              <h3>Il prezzo si calcola dal tipo di servizio</h3>
+              <p>Non è un campo libero: dipende dal listino di quel partner per quel servizio — a prezzo fisso, a ora, a vendita, a magazzino, aziendale. Le formule stanno tutte in un posto solo, e si possono provare in <b>Calcoli</b>.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <span class="chi">Ufficio</span>
+              <h3>Si assegna un valet</h3>
+              <p>Sono proponibili <b>solo i valet attivi con la provincia della consegna abilitata</b>: chi non ci lavora non compare. Da qui lo stato passa a <b>In gestione</b>.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <span class="chi">Valet</span>
+              <h3>Il valet ritira</h3>
+              <p>Segna la partenza. Al cliente finale parte un SMS con il link di tracciamento — un indirizzo pubblico che mostra lo stato senza mostrare i prezzi.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <span class="chi">Valet</span>
+              <h3>Il valet consegna</h3>
+              <p>Segna l'esito: <b>Consegnata</b> oppure <b>Non consegnata</b>. Se la consegna richiede una firma o un pagamento alla consegna, li raccoglie qui.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <span class="chi">Sistema</span>
+              <h3>La consegna entra in due conti diversi</h3>
+              <p>Da una parte quello che il <b>partner ci deve</b> (Fatturazione), dall'altra quello che <b>noi dobbiamo al valet</b> (Stipendi). Sono due strade separate che non si incrociano mai.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <span class="chi">Ufficio</span>
+              <h3>Si fattura e si paga</h3>
+              <p>Al partner si emette la fattura del periodo; al valet si paga il compenso, dopo che ha caricato la ricevuta firmata. <b>Anche le non consegnate si pagano</b>: il viaggio l'ha fatto lo stesso.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section id="stati">
+        <h2>Gli stati e i colori</h2>
+        <p class="cappello">
+          Questa legenda ha vent'anni di abitudine dentro, e i colori non sono decorativi:
+          <b>il rosso vuol dire «intervieni adesso»</b>, il grigio vuol dire «finita, non toccare».
+          Chi smista li legge di corsa, di lato, senza leggere le parole.
+        </p>
+
+        <div class="stati">
+          <span class="pill c-red"><i></i>Da gestire</span>
+          <span class="pill c-amber"><i></i>In gestione</span>
+          <span class="pill c-orange"><i></i>In preparazione</span>
+          <span class="pill c-blue"><i></i>Accettata</span>
+          <span class="pill c-purple"><i></i>In consegna</span>
+          <span class="pill c-green"><i></i>Consegnata</span>
+          <span class="pill c-green"><i></i>Approvata</span>
+          <span class="pill c-red"><i></i>Non consegnata</span>
+          <span class="pill c-red"><i></i>Non accettata</span>
+          <span class="pill c-blue"><i></i>Cancellazione richiesta</span>
+          <span class="pill c-orange"><i></i>Ore da approvare</span>
+          <span class="pill c-grey"><i></i>Annullata</span>
+          <span class="pill c-grey"><i></i>Annullata d'ufficio</span>
+          <span class="pill c-grey"><i></i>Archiviata</span>
+        </div>
+
+        <div class="avviso">
+          <h3>Tre stati rossi, e non è un caso</h3>
+          <p>
+            <b>Da gestire</b>, <b>Non consegnata</b> e <b>Non accettata</b> condividono il rosso perché
+            chiedono tutti e tre la stessa cosa: qualcuno deve intervenire oggi. Cambiare
+            questi colori senza una migrazione concordata rimette in circolo errori di
+            smistamento veri, già successi.
+          </p>
+        </div>
+      </section>
+
+      <section id="menu">
+        <h2>Le cinque sezioni del menu</h2>
+        <p class="cappello">
+          La barra a sinistra dell'applicativo è divisa in cinque gruppi. Qui sotto ci sono
+          tutti, con quello che ogni voce serve a fare. Le voci che non ti competono
+          non compaiono nemmeno.
+        </p>
+
+        <div class="quartieri">
+
+          <div class="quartiere">
+            <h3>Operatività <em>il lavoro di oggi</em></h3>
+            <ul class="voci">
+              <li><b>Servizi Deluxy</b> — <span>la vetrina del partner: «che cosa ti serve?». Solo per i partner.</span></li>
+              <li><b>Consegne</b> — <span>il cuore. Elenco, filtri, azioni su più consegne insieme, mappa, dettaglio.</span></li>
+              <li><b>Servizi ricorrenti</b> — <span>una consegna che si ripete: si dichiara una volta e le consegne nascono da sole, a lotti.</span></li>
+              <li><b>Calendario</b> — <span>il mese a colpo d'occhio, con quante consegne per giorno.</span></li>
+              <li><b>Attività</b> — <span>le ore lavorate dai valet, da approvare.</span></li>
+              <li><b>Vendite</b> — <span>gli ordini che arrivano dai negozi online e vengono proposti ai partner.</span></li>
+              <li><b>Preventivi</b> — <span>le richieste di quotazione dei partner.</span></li>
+              <li><b>Disponibilità</b> — <span>chi è disponibile in un dato giorno.</span></li>
+            </ul>
+          </div>
+
+          <div class="quartiere">
+            <h3>Utenti <em>chi sono le persone</em></h3>
+            <ul class="voci">
+              <li><b>Partner</b> — <span>i negozi clienti: dati, province servite, listino, carnet, collegamento al registro anagrafiche, ultime consegne.</span></li>
+              <li><b>Valet</b> — <span>chi consegna: mezzo, città, tariffe, team leader.</span></li>
+              <li><b>Clienti</b> — <span>i destinatari finali.</span></li>
+              <li><b>Operatori</b> — <span>le persone dell'ufficio e la loro specialità.</span></li>
+            </ul>
+          </div>
+
+          <div class="quartiere">
+            <h3>Prodotti <em>che cosa si consegna</em></h3>
+            <ul class="voci">
+              <li><b>Prodotti</b> — <span>il catalogo dei partner. Un prodotto <b>unico</b> lo vende solo il suo proprietario; uno <b>non unico</b> può farlo chiunque sia in lista.</span></li>
+              <li><b>Categorie</b> — <span>fiori, torte, gioielli… servono a decidere a chi va una vendita.</span></li>
+            </ul>
+          </div>
+
+          <div class="quartiere">
+            <h3>Amministrazione <em>i soldi e le regole</em></h3>
+            <ul class="voci">
+              <li><b>Servizi</b> — <span>il catalogo dei tipi di servizio e come si prezzano.</span></li>
+              <li><b>Calcoli</b> — <span>tutte le formule, spiegate e provabili con numeri finti.</span></li>
+              <li><b>Fatturazione</b> — <span>quello che i partner devono a noi.</span></li>
+              <li><b>Stipendi</b> — <span>quello che noi dobbiamo ai valet.</span></li>
+              <li><b>Ricevute</b> e <b>Pagamenti</b> — <span>il valet firma la ricevuta, poi lo si paga.</span></li>
+              <li><b>Regole carnet</b> e <b>Regole valet</b> — <span>pacchetti di consegne concordati, e scaglioni di paga.</span></li>
+              <li><b>Finanza</b> — <span>i corrispettivi. Solo amministratore.</span></li>
+            </ul>
+          </div>
+
+          <div class="quartiere">
+            <h3>Configurazione <em>come è fatta la casa</em></h3>
+            <ul class="voci">
+              <li><b>Richieste</b> — <span>la posta in arrivo: le altre app chiedono consegne <b>a parole</b>, e una persona legge e decide.</span></li>
+              <li><b>Modelli SMS</b> — <span>i messaggi che partono al cliente finale.</span></li>
+              <li><b>Province e città</b> — <span>dove si consegna.</span></li>
+              <li><b>Utenti e ruoli</b> — <span>chi entra e con che permessi.</span></li>
+              <li><b>Chiavi delle app</b> — <span>le chiavi con cui le altre app Deluxy chiamano questa.</span></li>
+              <li><b>Impostazioni</b> — <span>indirizzi e chiavi dei servizi esterni.</span></li>
+            </ul>
+          </div>
+
+        </div>
+      </section>
+
+      <section id="porte">
+        <h2>Da dove entra una consegna</h2>
+        <p class="cappello">
+          Sono sette strade diverse, e vale la pena conoscerle tutte: quando una consegna
+          «compare senza che nessuno l'abbia scritta», di solito è arrivata da una di queste.
+        </p>
+
+        <div class="porte">
+          <div class="porta">
+            <span class="via">A mano</span>
+            <p>Il modulo classico. Chi la scrive vede subito il prezzo che ne esce.</p>
+          </div>
+          <div class="porta">
+            <span class="via">Dettata o fotografata</span>
+            <p>Si detta a voce, si incolla un messaggio o si carica la foto di un foglio: l'AI legge e <b>propone</b> il modulo compilato. Non salva mai da sola — i campi restano tutti correggibili.</p>
+          </div>
+          <div class="porta">
+            <span class="via">Servizio ricorrente</span>
+            <p>«Tutti i lunedì e i mercoledì fino al 31 dicembre». Le consegne nascono da sole a lotti; accanto al servizio gira una rotellina finché non sono tutte create.</p>
+          </div>
+          <div class="porta">
+            <span class="via">Da una vendita</span>
+            <p>Un ordine arriva da un negozio online, viene proposto al partner giusto per provincia e categoria; quando il partner accetta, la consegna nasce.</p>
+          </div>
+          <div class="porta">
+            <span class="via">Da una richiesta</span>
+            <p>Un'altra app manda una domanda scritta a parole. <b>Una richiesta non è una consegna:</b> diventa consegna solo quando una persona la accetta.</p>
+          </div>
+          <div class="porta">
+            <span class="via">Da un'altra app</span>
+            <p>Chiamata diretta con una chiave che ha il permesso di scrittura. Salta la lettura umana, quindi si dà a poche app e con criterio.</p>
+          </div>
+          <div class="porta">
+            <span class="via">Importata</span>
+            <p>Il grosso dell'archivio: consegne portate dal vecchio sistema. Si riconoscono perché non passano dai controlli di oggi.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="denaro">
+        <h2>Dove va il denaro</h2>
+        <p class="cappello">
+          Qui si sbaglia facilmente, perché <b>il denaro non scorre sempre nello stesso verso</b>.
+          Il tipo di servizio decide chi paga chi.
+        </p>
+
+        <div class="avvolgi">
+          <table>
+            <thead>
+              <tr><th>Tipo di servizio</th><th>Come si calcola</th><th>Chi paga chi</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>Vendita</b></td>
+                <td>Somma dei prodotti venduti. Il numero a listino <b>è una percentuale</b>, non euro: è la quota che tratteniamo.</td>
+                <td>Il cliente paga noi, noi dobbiamo il resto al partner.</td>
+              </tr>
+              <tr>
+                <td><b>Prezzo fisso</b></td>
+                <td>In città: valore del servizio + prezzo al km oltre quelli inclusi. Fuori città: prezzo fuori città × distanza intera.</td>
+                <td>Il partner paga noi.</td>
+              </tr>
+              <tr>
+                <td><b>A ora</b></td>
+                <td>Ore lavorate × tariffa oraria, con il minimo di ore del servizio.</td>
+                <td>Il partner paga noi.</td>
+              </tr>
+              <tr>
+                <td><b>Magazzino</b></td>
+                <td>Prezzo base + prezzo a pezzo × pezzi + trasporto.</td>
+                <td>Il partner paga noi.</td>
+              </tr>
+              <tr>
+                <td><b>Aziendale</b></td>
+                <td>Dal valore dei prodotti. È l'unico che si prezza <b>senza listino</b>.</td>
+                <td>Il partner paga noi.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="avviso" style="margin-top:18px">
+          <h3>Vendita e consegna vanno in direzioni opposte</h3>
+          <p>
+            Su una <b>vendita</b> incassiamo dal cliente finale e dobbiamo dei soldi al partner.
+            Su una <b>consegna</b> il partner è il cliente e la consegna gliela fatturiamo noi.
+            Sommare le due cose non dà un totale più grande: dà un totale sbagliato.
+            È il motivo per cui la pagina Finanza guarda <b>solo</b> i servizi di tipo Vendita.
+          </p>
+        </div>
+
+        <p style="margin-top:20px">
+          Il compenso del valet è un conto a parte, con regole sue: listino urbano o fuori
+          città, scaglioni di carnet, ritenuta d'acconto per chi non ha partita IVA. Un valet
+          non vede mai quanto il partner ha pagato, e un partner non vede mai quanto è stato
+          pagato il valet.
+        </p>
+      </section>
+
+      <section id="altreapp">
+        <h2>Come parla con le altre app</h2>
+        <p class="cappello">
+          Deluxy non è una sola applicazione: è una famiglia. La regola che tiene insieme
+          tutto è una sola — <b>ogni dato ha una casa sola</b>. Chi lo possiede è l'unico che
+          lo scrive; gli altri lo leggono, non lo ricopiano.
+        </p>
+
+        <div class="avvolgi">
+          <table>
+            <thead>
+              <tr><th>Con chi</th><th>Che cosa passa</th><th>In che verso</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><b>Anagrafiche</b></td><td>I dati dei partner B2B</td><td>Questa piattaforma <b>scrive</b>; è l'unica che può.</td></tr>
+              <tr><td><b>Orders</b></td><td>Gli ordini dei negozi online e l'esito delle vendite</td><td>Entrano gli ordini, esce l'esito.</td></tr>
+              <tr><td><b>Budgets</b></td><td>Il costo delle consegne</td><td>Esce, letto dal vivo.</td></tr>
+              <tr><td><b>Qualsiasi app</b></td><td>Richieste di consegna scritte a parole</td><td>Entra la domanda; una persona decide.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p style="margin-top:18px">
+          Le chiamate fra app passano da <b>Configurazione → Chiavi delle app</b>. Una chiave si
+          vede una volta sola, alla creazione: in archivio ne resta solo l'impronta, e nessuna
+          pagina la rilegge. Chi la perde ne rigenera una nuova, e quella vecchia smette di
+          funzionare all'istante.
+        </p>
+      </section>
+
+      <section id="regole">
+        <h2>Le regole del posto</h2>
+        <p class="cappello">
+          Non sono opinioni: ognuna nasce da un errore già pagato. Impararle adesso costa
+          cinque minuti.
+        </p>
+
+        <div class="avviso">
+          <h3>Un numero non è un'identità</h3>
+          <p>La stessa consegna ha un numero nostro e uno del vecchio sistema. Cercare «17431» può trovarne due diverse: guarda sempre <em>quale</em> numero stai leggendo.</p>
+        </div>
+        <div class="avviso">
+          <h3>Il prezzo scritto sulla consegna vince sempre</h3>
+          <p>È la fotografia di quanto si decise quel giorno. Ricalcolarlo col listino di oggi riscriverebbe il passato.</p>
+        </div>
+        <div class="avviso">
+          <h3>Una lista ridotta deve dire perché</h3>
+          <p>Ogni filtro attivo si vede scritto in pagina. Un filtro silenzioso fa sommare una parte credendola il tutto — e i numeri che ne escono sembrano veri.</p>
+        </div>
+        <div class="avviso">
+          <h3>Le regole economiche non si ricopiano</h3>
+          <p>Quota, margine, fee e IVA si leggono da chi le possiede. Una regola ricopiata in cinque punti diverge in silenzio, e nessuno se ne accorge finché i conti non tornano.</p>
+        </div>
+        <div class="avviso calmo">
+          <h3>Se una cosa sembra sbagliata, misurala prima di aggiustarla</h3>
+          <p>Più di una volta il «difetto» era il comportamento giusto, e la correzione avrebbe rotto qualcosa di funzionante. Contare le righe costa meno che rimettere a posto.</p>
+        </div>
+      </section>
+
+      <section id="patto">
+        <div class="patto">
+          <h2>Come si aggiorna questo manuale</h2>
+          <p>
+            Da oggi questa guida è il manuale di funzionalità della piattaforma: <b>ogni
+            funzione nuova o modificata entra qui</b>, nello stesso momento in cui viene
+            scritta. Un manuale aggiornato la settimana dopo è un manuale che mente per
+            una settimana.
+          </p>
+          <ol>
+            <li><b>Nello stesso commit</b> che cambia il comportamento, si aggiorna anche questa pagina — mai in un secondo momento, mai «poi lo scrivo».</li>
+            <li>Si scrive <b>che cosa fa</b> e <b>chi lo vede</b>, non come è costruito dentro. Chi legge sta imparando il mestiere, non il codice.</li>
+            <li>Se la funzione ha una regola che può sorprendere, va in <b>Le regole del posto</b> con il motivo — la regola senza il perché non sopravvive a chi arriva dopo.</li>
+            <li>I numeri si <b>misurano</b> e si datano. Un numero senza data invecchia senza dirlo.</li>
+            <li>Il file è <code>deluxy-platform-next/docs/guida-visiva.html</code>: si modifica e si ripubblica <b>allo stesso indirizzo</b>, così il link che hai in mano resta valido.</li>
+          </ol>
+        </div>
+
+        <footer>
+          Piattaforma consegne Deluxy · guida scritta il 28 agosto 2026, sui dati e sul codice
+          in produzione di quel giorno. I conteggi sono misurati, non stimati.
+        </footer>
+      </section>
+
+    </div>
+  </main>
+</div>
