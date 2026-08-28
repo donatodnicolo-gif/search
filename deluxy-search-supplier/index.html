@@ -4148,11 +4148,29 @@ async function renderResults(found, geo, origin, service, opts){
 
   setStatus(`Carico i dettagli di ${found.length} negozi…`);
   const cards = [];
-  for(const f of found){
-    const d = await details(service, f.place.place_id);
-    if(!d) continue;
+  // ⚠️ PRIMA era un for…await sequenziale con appendChild dentro il ciclo:
+  // fino a 60 round-trip da ~200-400ms l'uno = 12-24 SECONDI di lista che si
+  // riempiva a goccia, con un reflow per scheda (Libro PERFORMANCE, giuria
+  // 28/08). Ora: pool di 6 richieste in volo (per non far scattare la quota
+  // Places) e UN solo append via DocumentFragment. L'ordine finale lo rimette
+  // comunque applySort() a fine render, quindi il parallelo non lo rompe.
+  const dettagli = new Array(found.length);
+  {
+    let prossimo = 0;
+    const lavoratore = async () => {
+      while(prossimo < found.length){
+        const i = prossimo++;
+        dettagli[i] = await details(service, found[i].place.place_id).catch(()=>null);
+      }
+    };
+    await Promise.all(Array.from({length: Math.min(6, found.length)}, lavoratore));
+  }
+  const frammento = document.createDocumentFragment();
+  found.forEach((f, i) => {
+    const d = dettagli[i];
+    if(!d) return;
     const card = shopCard(d, f.cat, { straight:f.dist, drive:f.driveDist, driveText:f.driveText, durText:f.durText }, f.place.place_id);
-    resultsEl.appendChild(card);
+    frammento.appendChild(card);
     cards.push({card, website:d.website, pid:f.place.place_id});
     // punto per la mappa (posizione dai dettagli, ripiego sulla scheda della ricerca)
     const loc = (d.geometry && d.geometry.location) || (f.place.geometry && f.place.geometry.location);
@@ -4166,7 +4184,8 @@ async function renderResults(found, geo, origin, service, opts){
         phone: intlN || d.formatted_phone_number || '', waDigits: (waN.length>=8?waN:''), url: d.url||'',
         foto: fotoPin ? fotoPin.thumb : '' });
     }
-  }
+  });
+  resultsEl.appendChild(frammento);
 
   // registro anagrafiche: evidenzia chi è già partner/prospect e portalo in cima
   let anagNote = '';
