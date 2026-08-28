@@ -228,6 +228,32 @@ export const STATI_FORNITORE = ["segnalato", "da_provare", "abituale", "da_evita
 
 export type StatoFornitore = (typeof STATI_FORNITORE)[number];
 
+// ⚠️ LA SCALA DEL RAPPORTO DI FORNITURA — e «da evitare» non ne fa parte.
+//
+// I primi tre sono **gradini**: nessuno → l'app di ricerca l'ha segnalato → lo
+// abbiamo messo in lista da provare → ci lavoriamo davvero. «Da evitare» non è
+// un gradino più alto: è un **veto**, e sta fuori dalla scala (ha già la sua
+// guardia nel merge — nessuna app lo ribalta, si toglie solo dalla UI).
+//
+// ⚠️⚠️ Serve perché lo stato fornitore è un campo FATTUALE del merge, cioè
+// «vince il più fresco»: senza scala, un'app che rimanda «da provare» su un
+// fornitore già **abituale** lo farebbe **retrocedere**, e il gesto di oggi
+// cancellerebbe il rapporto di sei mesi. Il caso vero: un negozio già abituale
+// risalvato dall'app di ricerca fornitori.
+const GRADINO_FORNITORE: Record<string, number> = {
+  segnalato: 0,
+  da_provare: 1,
+  abituale: 2,
+};
+
+// Quanto è avanti un rapporto di fornitura. Vuoto (non è un fornitore) = -1,
+// così qualsiasi valore lo fa partire. «Da evitare» torna null: non è in scala.
+export function gradinoFornitore(v?: string | null): number | null {
+  if (!v) return -1;
+  return v in GRADINO_FORNITORE ? GRADINO_FORNITORE[v] : null;
+}
+
+
 export const ETICHETTE_STATO_FORNITORE: Record<StatoFornitore, string> = {
   segnalato: "Segnalato",
   da_provare: "Da provare",

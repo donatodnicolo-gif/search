@@ -1026,6 +1026,25 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    modificati e non committati). Le due copie del Libro (in `app/` e in `scoutwt/`)
    vanno allineate insieme.
 
+3g. **✅ 27/08/2026 — il rapporto di fornitura può solo AVANZARE.**
+   Segnalato da chi lavora sull'app di ricerca fornitori: un negozio già «abituale»,
+   risalvato da lì, poteva tornare **«da provare»**. ✅ **Verificato nel codice prima di
+   correggere**: `statoFornitore` è fra i **FATTUALI** di `merge.ts` («vince il più
+   fresco») e l'unica guardia era quella di `da_evitare`. L'accusa era giusta.
+   **La correzione**: scala **segnalato(0) → da_provare(1) → abituale(2)** in
+   `src/lib/stati.ts` (`gradinoFornitore`), e una guardia in `calcolaMerge` che
+   **ignora** una scrittura che riporterebbe indietro (finisce in `in_revisione`).
+   ⚠️ Vale **solo per le app**: la UI non passa da `calcolaMerge`, quindi una persona
+   può sempre retrocedere — ed è giusto che debba farlo a mano, come per `da_evitare`.
+   ⚠️ `da_evitare` resta **fuori dalla scala**: le app possono metterlo (alzare un veto
+   è prudente), non toglierlo. E nemmeno **svuotare** si può da un'app.
+   ✅ Provato su 9 casi con `scripts/prova-scala-fornitore.mts`, **con `asOf` nel
+   futuro** — cioè nella condizione in cui il difetto si vedeva.
+   ✅ **E il dato già scritto**: cercate le retrocessioni in tutto lo storico (7 cambi
+   di stato fornitore registrati) → **nessuna fra due gradini**. Le due righe che
+   somigliavano erano **azzeramenti** decisi dalla UI, uno dei quali è la riparazione
+   dell'aggancio sbagliato del 25/08. **La guardia arriva prima del danno.**
+
 ### B. Scelte da prendere (il codice viene dopo)
 
 3bis. **CONSUMERS — sezione COSTRUITA il 01/08/2026 (lo studio che l'ha generata è qui sotto).**

@@ -81,6 +81,28 @@ della risposta.
   si riempiono sempre. IBAN e codice SDI vengono normalizzati (maiuscolo, IBAN
   senza spazi). `noteAmministrative` è additiva (append, mai sovrascritta).
 
+### ⚠️ Lo stato fornitore può solo AVANZARE (dal 27/08/2026)
+
+`statoFornitore` è un campo fattuale, quindi vinceva «il più fresco». Risultato:
+un negozio già **abituale** che veniva risalvato da un'app tornava **«da provare»**,
+perché quella scrittura era più recente — il gesto di oggi cancellava il rapporto di
+sei mesi, e nessuno se ne accorgeva.
+
+La scala è **segnalato → da_provare → abituale**. Dalle app si può solo **salire**:
+una scrittura che riporterebbe indietro viene **ignorata** e torna nell'elenco
+`in_revisione` della risposta. Non è un errore: la vostra chiamata riesce, quel campo
+soltanto non viene applicato.
+
+⚠️ **«Da evitare» sta fuori dalla scala**: è un veto, non un gradino. Le app possono
+**metterlo** (alzare un allarme è la direzione prudente) ma **non toglierlo** — si
+toglie solo dalla UI del registro, come prima.
+
+⚠️ Nemmeno **svuotare** si può da un'app: dire «questo non ci fornisce più» è una
+decisione, e la prende una persona nel registro.
+
+Se dovete davvero far retrocedere un fornitore, si fa **dalla UI**: la persona che lo
+decide è la stessa che se ne assume la responsabilità.
+
 ### ⚠️ Cambio di permessi del 27/08/2026 — la lettura ora ha due ambiti
 
 Fino a ieri **ogni chiave attiva vedeva tutto**: IBAN, PEC, intestatario del conto,

@@ -2,6 +2,8 @@
 // Il registro possiede il golden record: ogni scrittura in arrivo è un merge
 // governato da regole per campo, mai una sostituzione.
 
+import { gradinoFornitore } from "./stati";
+
 export type Provenienza = Record<string, { sistema: string; asOf?: string }>;
 
 // Fiducia della sorgente: numero più alto = più autorevole. Decide i pareggi
@@ -164,6 +166,30 @@ export function calcolaMerge(
       ignorati.push(campo);
       continue;
     }
+
+    // ⚠️⚠️ IL RAPPORTO DI FORNITURA PUÒ SOLO AVANZARE, MAI RETROCEDERE — dalle
+    // app. Lo stato fornitore è un campo fattuale, quindi «vince il più
+    // fresco»: senza questa guardia, un negozio già **abituale** risalvato
+    // dall'app di ricerca fornitori tornava **«da provare»**, perché quella
+    // scrittura era più recente. Il gesto di oggi cancellava il rapporto di sei
+    // mesi, e nessuno se ne accorgeva: lo stato è una pillola in una scheda.
+    //
+    // ⚠️ Vale SOLO per le scritture delle app. La UI del registro non passa di
+    // qui (aggiornaPartner scrive diretto): una persona può sempre retrocedere
+    // un fornitore, ed è giusto che debba farlo a mano — come per «da evitare»,
+    // che pure si toglie solo dalla UI.
+    //
+    // ⚠️ «Da evitare» resta fuori dalla scala e continua a passare: è un veto, e
+    // alzare un veto è la direzione prudente.
+    if (campo === "statoFornitore" && typeof valore === "string" && valore !== "da_evitare") {
+      const arrivo = gradinoFornitore(valore);
+      const attuale = gradinoFornitore(esistente.statoFornitore as string | null);
+      if (arrivo != null && attuale != null && arrivo < attuale) {
+        ignorati.push(campo);
+        continue;
+      }
+    }
+
 
     if ((FATTUALI as readonly string[]).includes(campo)) {
       const attuale = esistente[campo];
