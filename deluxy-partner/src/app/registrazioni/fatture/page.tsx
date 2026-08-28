@@ -84,6 +84,17 @@ export default async function FattureCloudPage({
       voci.push({ norm: nn, id: p.id });
     }
   }
+  // Indice P.IVA → partner: è la chiave VERA di chi è il cliente, molto più
+  // affidabile del nome scritto. Un partner può avere PIÙ soggetti fiscali
+  // (es. «Tiffany»: la S.p.A. italiana IT09985080150 e l'entità NL) tutti
+  // ricondotti alla stessa scheda. Tabella FINANCE dedicata (via SQL raw, non
+  // in schema.prisma); lettura non fatale: se manca si ripiega sul nome.
+  const normP = (s: string) => s.toUpperCase().replace(/[\s.]/g, "");
+  const pivaRows = await prisma
+    .$queryRaw<{ pIva: string; partnerId: string; nome: string | null }[]>`SELECT "pIva","partnerId","nome" FROM "public"."PartnerPivaEntita";`
+    .catch(() => [] as { pIva: string; partnerId: string; nome: string | null }[]);
+  const partnerPerPiva = new Map<string, { id: string; nome: string | null }>();
+  for (const r of pivaRows) partnerPerPiva.set(normP(r.pIva), { id: r.partnerId, nome: r.nome });
   // Aggancio del cliente FIC (una stringa) al partner FINANCE. Prima l'esatto;
   // se non c'è, un PREFISSO — la stessa azienda scritta più corta o più lunga
   // («TIFFANY & CO.» vs «TIFFANY & CO. ITALIA S.P.A.»). ⚠️ Due paletti contro
@@ -91,7 +102,13 @@ export default async function FattureCloudPage({
   // generico corto tipo «tiffany» da solo non pesca), e deve risolvere a UN
   // solo partner (se due partner condividono il prefisso è ambiguo → niente
   // link, come per l'omonimia dei movimenti).
-  const partnerIdDi = (cliente: string): string | null => {
+  const partnerIdDi = (cliente: string, pIva?: string | null): string | null => {
+    // 1) P.IVA: se combacia, è certo — supera l'ambiguità dei nomi.
+    if (pIva) {
+      const perPiva = partnerPerPiva.get(normP(pIva));
+      if (perPiva) return perPiva.id;
+    }
+    // 2) nome esatto, poi prefisso (paletti: ≥8 e un solo partner).
     const c = norm(cliente);
     const esatto = idPerNome.get(c);
     if (esatto) return esatto;
@@ -214,7 +231,7 @@ export default async function FattureCloudPage({
                   </thead>
                   <tbody>
                     {fatture.map((f) => {
-                      const idCliente = partnerIdDi(f.cliente);
+                      const idCliente = partnerIdDi(f.cliente, f.pIva);
                       return (
                       <RigaLink key={f.id} className="row-link" href={`https://secure.fattureincloud.it/invoices/view/${f.id}`}>
                         <td style={{ fontWeight: 500 }}>{f.numero}</td>
@@ -225,6 +242,10 @@ export default async function FattureCloudPage({
                           ) : (
                             f.cliente
                           )}
+                          {/* La P.IVA rende esplicito QUALE soggetto fiscale è:
+                              due entità dello stesso brand (es. Tiffany IT e NL)
+                              si distinguono qui, pur puntando allo stesso partner. */}
+                          {f.pIva && <div className="muted" style={{ fontSize: 12 }}>P.IVA {f.pIva}</div>}
                         </td>
                         <td className="num">{euro(f.imponibile)}</td>
                         <td className="num">{euro(f.totale)}</td>

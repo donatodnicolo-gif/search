@@ -256,6 +256,8 @@ export type FicFattura = {
   numero: string; // number + numeration (es. "212/2026")
   data: string | null; // YYYY-MM-DD
   cliente: string;
+  pIva: string | null; // P.IVA del soggetto fatturato (entity.vat_number): è la
+  //                      chiave vera per riconoscere CHI è, oltre al nome scritto
   imponibile: number;
   iva: number;
   totale: number;
@@ -365,7 +367,7 @@ export async function ficFatture(opts?: {
         amount_gross: number;
         payments_list?: { amount: number; due_date: string | null; status: string }[];
         url: string | null;
-        entity?: { name?: string | null };
+        entity?: { name?: string | null; vat_number?: string | null };
       }[];
       last_page?: number;
     }>(
@@ -395,6 +397,7 @@ export async function ficFatture(opts?: {
         numero: `${d.number}${d.numeration?.trim() ? d.numeration : anno ? `/${anno}` : ""}`,
         data: d.date,
         cliente: d.entity?.name ?? "—",
+        pIva: d.entity?.vat_number ?? null,
         imponibile: d.amount_net,
         iva: d.amount_vat,
         totale: d.amount_gross,
