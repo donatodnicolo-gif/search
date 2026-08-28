@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { SoldiReclamo } from './SoldiReclamo'
 import { FiloReclamo } from './FiloReclamo'
+import { ChipsPeriodo } from './ChipsPeriodo'
+import type { Periodo } from '@/lib/periodo'
 import {
   STATI_RECLAMO,
   COLPA_TIPI,
@@ -107,6 +109,10 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
   const [filtroStato, setFiltroStato] = useState('aperti')
   const [filtroColpa, setFiltroColpa] = useState('')
   const [filtroGravita, setFiltroGravita] = useState('')
+  // La scorciatoia di periodo (Libro v1.9 §8-bis), sulla DATA DI APERTURA del
+  // reclamo (`creatoIl`). ⚠️ Filtra il SERVER, non la memoria: l'elenco è
+  // tagliato a 300 e filtrare a valle nasconderebbe i reclami oltre il taglio.
+  const [periodo, setPeriodo] = useState<Periodo>('')
 
   const carica = useCallback(async () => {
     try {
@@ -116,6 +122,7 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
       if (filtroColpa) p.set('colpa', filtroColpa)
       if (filtroGravita) p.set('gravita', filtroGravita)
       if (filtroDomande) p.set('domande', filtroDomande)
+      if (periodo) p.set('periodo', periodo)
       const res = await fetch('/api/reclami?' + p.toString())
       if (!res.ok) return
       const d = (await res.json()) as {
@@ -133,7 +140,7 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, filtroStato, filtroColpa, filtroGravita, filtroDomande])
+  }, [qCercata, filtroStato, filtroColpa, filtroGravita, filtroDomande, periodo])
 
   useEffect(() => {
     const t = setTimeout(() => setQCercata(q.trim()), 300)
@@ -353,7 +360,7 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
     await carica()
   }
 
-  const filtriAttivi = !!(qCercata || filtroColpa || filtroGravita || filtroDomande || filtroStato !== 'aperti')
+  const filtriAttivi = !!(qCercata || filtroColpa || filtroGravita || filtroDomande || periodo || filtroStato !== 'aperti')
   const totaleTutti = Object.values(perStato).reduce((s, n) => s + n, 0)
   const aperti = (perStato['aperto'] ?? 0) + (perStato['in_lavorazione'] ?? 0)
 
@@ -652,6 +659,10 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
         </div>
       ) : null}
 
+      {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): sulla data di apertura
+          del reclamo. Stanno SOPRA i filtri, come nelle altre app. */}
+      <ChipsPeriodo valore={periodo} cambia={setPeriodo} campo="la data di apertura del reclamo" />
+
       {/* Filtri */}
       <div className="barra-ricerca">
         <input
@@ -699,6 +710,7 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
               setFiltroColpa('')
               setFiltroGravita('')
               setFiltroDomande('')
+              setPeriodo('')
             }}
           >
             Azzera

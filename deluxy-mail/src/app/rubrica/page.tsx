@@ -41,6 +41,9 @@ export default async function Rubrica({ searchParams }: Props) {
         </div>
       </div>
 
+      {/* Niente scorciatoie di periodo qui (Libro v1.9 §8-bis): la rubrica è
+          un registro ANAGRAFICO, non un elenco di eventi — un contatto non
+          «appartiene» a un mese. La ricerca c'è già (CercaContatti). */}
       <div style={{ margin: '4px 0 20px' }}>
         <CercaContatti valore={q ?? ''} />
       </div>

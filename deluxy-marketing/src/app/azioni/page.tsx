@@ -1,7 +1,9 @@
 import { Badge } from "@/components/Badge";
+import { ChipsPeriodo } from "@/components/ChipsPeriodo";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
+import { intervalloScorciatoia } from "@/lib/periodo";
 import {
   BRANDS,
   CANALI,
@@ -22,15 +24,22 @@ export const dynamic = "force-dynamic";
 export default async function PaginaAzioni({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; owner?: string; canale?: string; q?: string }>;
+  searchParams: Promise<{ brand?: string; owner?: string; canale?: string; q?: string; periodo?: string }>;
 }) {
-  const { brand, owner, canale, q } = await searchParams;
+  const { brand, owner, canale, q, periodo } = await searchParams;
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis) si applicano a `creataIl`:
+  // quando l'azione è nata. Non alla scadenza, che può non esserci — e che
+  // sulla board si legge già riga per riga.
+  const intervallo = intervalloScorciatoia(periodo);
   const azioni = await prisma.azione.findMany({
     where: {
       ...(brand ? { brand } : {}),
       ...(owner ? { owner } : {}),
       ...(canale ? { canale } : {}),
-      ...(q ? { titolo: { contains: q } } : {}),
+      ...(intervallo ? { creataIl: { gte: intervallo.da, lt: intervallo.a } } : {}),
+      // La ricerca ignora le maiuscole (`mode: "insensitive"`): su Postgres
+      // `contains` da solo è case-sensitive.
+      ...(q ? { titolo: { contains: q, mode: "insensitive" as const } } : {}),
     },
     orderBy: [{ scadenza: { sort: "asc", nulls: "last" } }, { creataIl: "desc" }],
     include: { analisi: { select: { titolo: true } }, campagna: { select: { nome: true } } },
@@ -52,6 +61,16 @@ export default async function PaginaAzioni({
           </div>
           <a className="btn" href="/azioni/nuova">Nuova azione</a>
         </div>
+
+        {/* Le scorciatoie di periodo su `creataIl`. Il form qui sotto non ha
+            un campo `periodo`: il suo submit le azzera da solo. */}
+        <ChipsPeriodo
+          base="/azioni"
+          periodo={periodo}
+          altriFiltri={new URLSearchParams(
+            Object.entries({ brand, owner, canale, q }).filter(([, v]) => v) as [string, string][]
+          ).toString()}
+        />
 
         <form className="filtri" method="get">
           <input type="search" name="q" placeholder="Cerca un&apos;azione…" defaultValue={q ?? ""} />

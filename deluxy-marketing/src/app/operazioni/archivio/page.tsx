@@ -1,7 +1,9 @@
+import { ChipsPeriodo } from "@/components/ChipsPeriodo";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_CANALE, formattaDataOra } from "@/lib/dominio";
 import { spiegaErroreGoogle } from "@/lib/errori-google";
+import { intervalloScorciatoia } from "@/lib/periodo";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +41,7 @@ const COLORE_STATO: Record<string, string> = {
 export default async function ArchivioOperazioni({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; canale?: string; stato?: string; tipo?: string; p?: string }>;
+  searchParams: Promise<{ q?: string; canale?: string; stato?: string; tipo?: string; periodo?: string; p?: string }>;
 }) {
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
@@ -47,6 +49,10 @@ export default async function ArchivioOperazioni({
   const stato = sp.stato ?? "";
   const tipo = sp.tipo ?? "";
   const pagina = Math.max(1, Number(sp.p ?? "1") || 1);
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis) si applicano a `creataIl`:
+  // quando l'operazione è stata messa in coda, che è la data con cui
+  // l'archivio è ordinato e con cui ci si ricorda del passato.
+  const intervallo = intervalloScorciatoia(sp.periodo);
 
   // ⚠️ La ricerca guarda anche MOTIVO ed ESITO, non solo il bersaglio: quando
   // si torna sul passato spesso ci si ricorda della frase («destination not
@@ -57,6 +63,7 @@ export default async function ArchivioOperazioni({
     ...(canale ? { canale } : {}),
     ...(stato ? { stato } : {}),
     ...(tipo ? { tipo } : {}),
+    ...(intervallo ? { creataIl: { gte: intervallo.da, lt: intervallo.a } } : {}),
     ...(q
       ? {
           OR: [
@@ -84,7 +91,9 @@ export default async function ArchivioOperazioni({
   const pagine = Math.max(1, Math.ceil(totale / PER_PAGINA));
   const link = (cambi: Record<string, string | number | undefined>) => {
     const u = new URLSearchParams();
-    const valori: Record<string, string | number | undefined> = { q, canale, stato, tipo, p: pagina, ...cambi };
+    // ⚠️ `periodo` viaggia con la paginazione: senza, «Più vecchie →»
+    // azzerava la scorciatoia appena scelta.
+    const valori: Record<string, string | number | undefined> = { q, canale, stato, tipo, periodo: sp.periodo, p: pagina, ...cambi };
     for (const [k, v] of Object.entries(valori)) {
       if (v != null && v !== "" && !(k === "p" && Number(v) === 1)) u.set(k, String(v));
     }
@@ -111,6 +120,16 @@ export default async function ArchivioOperazioni({
         </div>
 
         <section className="scheda">
+          {/* Le scorciatoie di periodo su `creataIl`. Il form qui sotto non ha
+              un campo `periodo`: il suo submit le azzera da solo. Cambiare
+              periodo riparte dalla pagina 1 (le chips non portano `p`). */}
+          <ChipsPeriodo
+            base="/operazioni/archivio"
+            periodo={sp.periodo}
+            altriFiltri={new URLSearchParams(
+              Object.entries({ q, canale, stato, tipo }).filter(([, v]) => v) as [string, string][]
+            ).toString()}
+          />
           <form className="filtri" method="get" action="/operazioni/archivio">
             {/* ⚠️ La casella cerca anche nel MOTIVO e nell'ESITO: del passato ci
                 si ricorda la frase, non il nome esatto della campagna. */}
@@ -147,7 +166,7 @@ export default async function ArchivioOperazioni({
             <button className="btn small" type="submit">
               Cerca
             </button>
-            {(q || canale || stato || tipo) && (
+            {(q || canale || stato || tipo || sp.periodo) && (
               <a className="btn small btn-secondario" href="/operazioni/archivio">
                 Pulisci
               </a>

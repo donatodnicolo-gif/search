@@ -6,6 +6,8 @@ import { nomiPerGruppi } from '@/lib/nomiThread'
 import { indiceClienti, linkPartner } from '@/lib/anagrafiche'
 import { emailContattiAI } from '@/lib/contattiAI'
 import { RicercaMail } from '@/components/RicercaMail'
+import { ChipsPeriodo } from '@/components/ChipsPeriodo'
+import { intervalloPeriodo } from '@/lib/periodo'
 import { ListaMail } from '@/components/ListaMail'
 import { AgganciaDialog } from '@/components/AgganciaRiga'
 import { DelegaReneDialog } from '@/components/DelegaRene'
@@ -15,7 +17,7 @@ import type { RigaData } from '@/components/RigaMail'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-type Props = { searchParams: Promise<{ q?: string }> }
+type Props = { searchParams: Promise<{ q?: string; periodo?: string }> }
 
 /**
  * "Clienti": la posta dei CLIENTI di Anagrafiche (partner con stato attivo),
@@ -23,10 +25,14 @@ type Props = { searchParams: Promise<{ q?: string }> }
  * posta, la mostra qui con le stesse azioni della posta in arrivo.
  */
 export default async function Clienti({ searchParams }: Props) {
-  const { q: qGrezzo } = await searchParams
+  const { q: qGrezzo, periodo } = await searchParams
   const q = (qGrezzo ?? '').trim()
   const ricerca = q.length >= 2
   const u = await richiediUtente()
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis) sulla DATA DEL MESSAGGIO
+  // (`data`): la finestra delle 2000 mail recenti diventa «le 2000 più
+  // recenti del periodo», la riconciliazione coi clienti resta identica.
+  const intervallo = intervalloPeriodo(periodo)
 
   const idx = await indiceClienti().catch(() => null)
   const nessunCliente = !idx || (idx.perEmail.size === 0 && idx.perDominio.size === 0)
@@ -47,6 +53,7 @@ export default async function Clienti({ searchParams }: Props) {
           cestinato: false,
           archiviato: false,
           NOT: { sezione: { nome: 'SPAM' } },
+          ...(intervallo ? { data: { gte: intervallo.gte, lt: intervallo.lt } } : {}),
           ...(ricerca
             ? {
                 OR: [
@@ -179,6 +186,9 @@ export default async function Clienti({ searchParams }: Props) {
       ) : (
         <>
           <div style={{ marginBottom: 16 }}>
+            {/* Chips fuori dal form: un nuovo submit della ricerca riparte
+                senza `periodo` e lo azzera da solo (Libro v1.9 §8-bis). */}
+            <ChipsPeriodo base="/clienti" periodo={periodo} altri={{ q: ricerca ? q : undefined }} />
             <RicercaMail iniziale={ricerca ? q : ''} base="/clienti" placeholder="Cerca nella posta dei clienti…" />
           </div>
 

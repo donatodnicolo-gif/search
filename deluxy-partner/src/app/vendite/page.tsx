@@ -17,6 +17,7 @@ export default async function VenditePage({
   searchParams: Promise<{
     anno?: string;
     mese?: string;
+    periodo?: string;
     sort?: string;
     dir?: string;
     q?: string;
@@ -27,6 +28,24 @@ export default async function VenditePage({
   const sp = await searchParams;
   const anno = sp.anno ? parseInt(sp.anno) : ANNO_CORRENTE;
   const mese = sp.mese ? parseInt(sp.mese) : undefined;
+
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis): un parametro solo. Le
+  // vendite hanno (anno, mese) di competenza: il periodo si traduce in un
+  // elenco di coppie, come su /fatture — il trimestre può scavallare l'anno.
+  const oggi = new Date();
+  const coppiaMesiFa = (n: number) => {
+    const d = new Date(oggi.getFullYear(), oggi.getMonth() - n, 1);
+    return { anno: d.getFullYear(), mese: d.getMonth() + 1 };
+  };
+  const coppiePeriodo: { anno: number; mese: number }[] | null =
+    sp.periodo === "mese" ? [coppiaMesiFa(0)]
+    : sp.periodo === "scorso" ? [coppiaMesiFa(1)]
+    : sp.periodo === "trimestre" ? [coppiaMesiFa(0), coppiaMesiFa(1), coppiaMesiFa(2)]
+    : sp.periodo === "anno" ? Array.from({ length: 12 }, (_, i) => ({ anno: oggi.getFullYear(), mese: i + 1 }))
+    : null;
+  const whereCompetenza = coppiePeriodo
+    ? { OR: coppiePeriodo.map((c) => ({ anno: c.anno, mese: c.mese })) }
+    : { anno, ...(mese ? { mese } : {}) };
   // dove tornare dopo aver emesso: la stessa vista, coi filtri di adesso
   const tornaA =
     "/vendite?" +
@@ -53,8 +72,10 @@ export default async function VenditePage({
       }
     : {};
 
+  // Competenza e ricerca hanno entrambe un OR: si compongono in AND, così
+  // nessuno dei due sovrascrive l'altro.
   let vendite = await prisma.venditaVendor.findMany({
-    where: { anno, ...(mese ? { mese } : {}), ...filtroRicerca },
+    where: { AND: [whereCompetenza, filtroRicerca] },
     include: { partner: true },
     orderBy: [{ mese: "desc" }, { partner: { nome: "asc" } }],
   });
@@ -62,7 +83,7 @@ export default async function VenditePage({
   // Stato della fattura commissioni per partner+mese: la commissione si fattura
   // una volta sola per mese, quindi qui serve sapere se è già stata emessa.
   const saldi = await prisma.saldoMensile.findMany({
-    where: { anno, ...(mese ? { mese } : {}) },
+    where: whereCompetenza,
     select: { partnerId: true, mese: true, commFattEmessa: true, commFattNumero: true },
   });
   const fattComm = new Map(saldi.map((s) => [`${s.partnerId}:${s.mese}`, s]));
@@ -133,6 +154,28 @@ export default async function VenditePage({
       </div>
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+        {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): link GET, un solo
+            parametro, sulla competenza (anno, mese) della vendita. Sono FUORI
+            dal form: il submit con anno/mese le azzera da solo. */}
+        <div className="filters riga-chips-scorri" style={{ marginBottom: 10 }}>
+          {([
+            { v: "mese", l: "Mese in corso" },
+            { v: "scorso", l: "Mese scorso" },
+            { v: "trimestre", l: "Trimestre" },
+            { v: "anno", l: "Anno" },
+          ] as const).map((p) => (
+            <Link
+              key={p.v}
+              href={`/vendite?periodo=${p.v}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+              className={`chip-link${sp.periodo === p.v ? " attiva" : ""}`}
+            >
+              {p.l}
+            </Link>
+          ))}
+          {coppiePeriodo ? (
+            <Link href="/vendite" className="chip-link azzera">Tutto l&apos;anno</Link>
+          ) : null}
+        </div>
         <form className="filters" method="get">
           <input
             type="search"

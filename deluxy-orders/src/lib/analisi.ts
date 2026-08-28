@@ -414,6 +414,22 @@ export function inizioGiornoItaliano(iso: string): Date | null {
 
 export const MS_IN_GIORNO = MS_GIORNO;
 
+// Le scorciatoie di periodo (Libro UX&UI v1.9 §8-bis): UN parametro
+// (`periodo=mese|scorso|trimestre|anno`) tradotto qui, in un punto solo, in un
+// intervallo { gte, lt } a confini italiani (stessa regola di inizioPeriodo).
+// Semantica: mese = mese corrente · scorso = mese precedente · trimestre =
+// ultimi 3 mesi incluso il corrente · anno = anno solare corrente.
+export function intervalloScorciatoia(
+  chiave: string | null | undefined,
+  adesso = new Date(),
+): { gte: Date; lt: Date } | null {
+  if (chiave === "mese") return { gte: inizioPeriodo(adesso, "mese"), lt: inizioPeriodo(adesso, "mese", 1) };
+  if (chiave === "scorso") return { gte: inizioPeriodo(adesso, "mese", -1), lt: inizioPeriodo(adesso, "mese") };
+  if (chiave === "trimestre") return { gte: inizioPeriodo(adesso, "mese", -2), lt: inizioPeriodo(adesso, "mese", 1) };
+  if (chiave === "anno") return { gte: inizioPeriodo(adesso, "anno"), lt: inizioPeriodo(adesso, "anno", 1) };
+  return null;
+}
+
 // «01 – 14 feb 2026», o «01 feb – 03 mar 2026» quando il periodo scavalca il
 // mese: si scrive quello che serve a riconoscerlo, non una data intera due volte.
 export function nomeIntervallo(inizio: Date, fineEsclusa: Date): string {

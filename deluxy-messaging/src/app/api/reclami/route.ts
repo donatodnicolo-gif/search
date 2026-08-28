@@ -8,6 +8,7 @@ import {
   reclamoAperto,
 } from '@/lib/reclami'
 import { utenteCorrente } from '@/lib/sessione'
+import { intervalloPeriodo, periodoValido } from '@/lib/periodo'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,7 @@ export const dynamic = 'force-dynamic'
 //   stato   aperti | aperto | in_lavorazione | risolto | chiuso
 //   colpa   valet | partner | azienda | cliente | nessuno
 //   gravita 1 | 2 | 3
+//   periodo mese | scorso | trimestre | anno (scorciatoie §8-bis, su `creatoIl`)
 export async function GET(req: NextRequest) {
   // ⚠️ Chi sei. Sta qui e non solo nel middleware: quello controlla la FIRMA
   // del cookie, non che l'utente esista ancora — e il cookie di un account
@@ -36,6 +38,11 @@ export async function GET(req: NextRequest) {
   else if (stato) dove.stato = stato
   if (colpa) dove.colpaTipo = colpa
   if (gravita) dove.gravita = Number(gravita)
+  // La scorciatoia di periodo, sulla DATA DI APERTURA del reclamo.
+  // ⚠️ Sta QUI e non nel browser: l'elenco è tagliato a 300, e filtrando a
+  // valle mancherebbero proprio i reclami oltre il taglio.
+  const intervallo = intervalloPeriodo(periodoValido(p.get('periodo')))
+  if (intervallo) dove.creatoIl = { gte: intervallo.da, lt: intervallo.a }
   if (q) {
     const testo: Prisma.StringFilter = { contains: q, mode: 'insensitive' }
     dove.OR = [

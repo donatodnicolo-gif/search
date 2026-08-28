@@ -30,7 +30,7 @@ export default async function MovimentiPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    fonte?: string; dir?: string; q?: string; dal?: string; al?: string; stato?: string; pag?: string;
+    fonte?: string; dir?: string; q?: string; dal?: string; al?: string; stato?: string; pag?: string; periodo?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -49,7 +49,18 @@ export default async function MovimentiPage({
   // stato di lavorazione
   if (sp.stato && ["nuova", "registrata", "ignorata"].includes(sp.stato)) where.stato = sp.stato;
 
-  // periodo
+  // periodo — prima le scorciatoie (Libro v1.9 §8-bis, un parametro solo,
+  // sulla DATA del movimento), poi le date libere che restano l'opzione
+  // avanzata e, se scritte, vincono sul confine corrispondente.
+  const oggi = new Date();
+  const inizioMese = (n: number) => new Date(oggi.getFullYear(), oggi.getMonth() - n, 1);
+  const intervalloPeriodo =
+    sp.periodo === "mese" ? { gte: inizioMese(0) }
+    : sp.periodo === "scorso" ? { gte: inizioMese(1), lt: inizioMese(0) }
+    : sp.periodo === "trimestre" ? { gte: inizioMese(2) }
+    : sp.periodo === "anno" ? { gte: new Date(oggi.getFullYear(), 0, 1) }
+    : null;
+  if (intervalloPeriodo) where.data = { ...intervalloPeriodo };
   const dal = sp.dal ? new Date(sp.dal + "T00:00:00.000Z") : null;
   const al = sp.al ? new Date(sp.al + "T23:59:59.999Z") : null;
   if (dal && !isNaN(dal.getTime())) where.data = { ...(where.data as object), gte: dal };
@@ -109,7 +120,7 @@ export default async function MovimentiPage({
   const link = (patch: Record<string, string | number | undefined>) => {
     const qs = new URLSearchParams();
     const base: Record<string, string | undefined> = {
-      fonte: sp.fonte, dir: sp.dir, q: sp.q, dal: sp.dal, al: sp.al, stato: sp.stato, pag: String(pag),
+      fonte: sp.fonte, dir: sp.dir, q: sp.q, dal: sp.dal, al: sp.al, stato: sp.stato, periodo: sp.periodo, pag: String(pag),
     };
     for (const [k, v] of Object.entries({ ...base, ...patch })) {
       if (v !== undefined && v !== "" && v !== null) qs.set(k, String(v));
@@ -159,6 +170,31 @@ export default async function MovimentiPage({
       </div>
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+        {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): link GET, un solo
+            parametro, sulla data del movimento. Sono FUORI dal form (il submit
+            le azzera da solo); scegliendone una si puliscono le date libere,
+            che restano l'opzione avanzata. */}
+        <div className="filters riga-chips-scorri" style={{ marginBottom: 10 }}>
+          {([
+            { v: "mese", l: "Mese in corso" },
+            { v: "scorso", l: "Mese scorso" },
+            { v: "trimestre", l: "Trimestre" },
+            { v: "anno", l: "Anno" },
+          ] as const).map((p) => (
+            <Link
+              key={p.v}
+              href={link({ periodo: p.v, dal: undefined, al: undefined, pag: 1 })}
+              className={`chip-link${sp.periodo === p.v ? " attiva" : ""}`}
+            >
+              {p.l}
+            </Link>
+          ))}
+          {intervalloPeriodo ? (
+            <Link href={link({ periodo: undefined, pag: 1 })} className="chip-link azzera">
+              Tutto lo storico
+            </Link>
+          ) : null}
+        </div>
         <form className="filters" method="get">
           <input type="text" name="q" placeholder="Cerca descrizione, controparte, importo…" defaultValue={sp.q ?? ""} />
           <select name="fonte" defaultValue={sp.fonte ?? ""} aria-label="Fonte del movimento">

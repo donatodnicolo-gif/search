@@ -132,6 +132,15 @@ export default function RichiesteClienti() {
   const [inCorso, setInCorso] = useState<string | null>(null);
   const [vista, setVista] = useState<VistaRichiesta>('aperte');
   const [query, setQuery] = useState('');
+  /**
+   * ⭐ IL PERIODO (28/08/2026, Libro v1.9 §8-bis): quattro scorciatoie a
+   * selezione singola, «Sempre» come azzeramento. Filtra su `created_at` —
+   * QUANDO la richiesta è arrivata: è la data operativa con cui ci si chiede
+   * «quante richieste questo mese?» (`serve_entro` è una scadenza, e spesso
+   * manca). Confini in ora LOCALE, come su ordini: coi confini UTC una
+   * richiesta delle 23:30 del 31 finiva nel mese dopo.
+   */
+  const [periodo, setPeriodo] = useState<'tutti' | 'mese' | 'scorso' | 'trimestre' | 'anno'>('tutti');
   const [importando, setImportando] = useState(false);
   /**
    * ⭐ MODIFICA DELLA RICHIESTA (27/08/2026, richiesta dell'utente: «al click
@@ -207,10 +216,28 @@ export default function RichiesteClienti() {
     return c;
   }, [righe]);
 
+  /** I due estremi del periodo scelto, in ora locale (come su ordini). */
+  const finestra = useMemo(() => {
+    const ora = new Date();
+    const a = new Date(ora.getFullYear(), ora.getMonth(), ora.getDate() + 1); // domani a mezzanotte
+    if (periodo === 'mese') return { da: new Date(ora.getFullYear(), ora.getMonth(), 1), a };
+    if (periodo === 'scorso') {
+      // «Mese scorso» finisce dove comincia questo: fino a oggi sarebbero due mesi.
+      return { da: new Date(ora.getFullYear(), ora.getMonth() - 1, 1), a: new Date(ora.getFullYear(), ora.getMonth(), 1) };
+    }
+    if (periodo === 'trimestre') return { da: new Date(ora.getFullYear(), ora.getMonth() - 2, 1), a };
+    if (periodo === 'anno') return { da: new Date(ora.getFullYear(), 0, 1), a };
+    return null;
+  }, [periodo]);
+
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtrate = righe.filter((r) => {
       if (vistaDiRichiesta(r.stato) !== vista) return false;
+      if (finestra) {
+        const d = new Date(r.created_at);
+        if (isNaN(d.getTime()) || d < finestra.da || d >= finestra.a) return false;
+      }
       if (!q) return true;
       return [r.cliente, r.descrizione, r.nota, r.proforma_numero, r.preventivo_numero]
         .filter(Boolean)
@@ -229,7 +256,7 @@ export default function RichiesteClienti() {
       if (!b.serve_entro) return -1;
       return a.serve_entro < b.serve_entro ? -1 : 1;
     });
-  }, [righe, vista, query]);
+  }, [righe, vista, query, finestra]);
 
   /**
    * Chiede il PREVENTIVO a FINANCE: l'offerta da mandare al cliente, che poi
@@ -622,6 +649,25 @@ export default function RichiesteClienti() {
               <Text style={[styles.chipTxt, vista === v.v && styles.chipTxtOn]}>
                 {v.label} ({conteggi[v.v]})
               </Text>
+            </Pressable>
+          ))}
+        </RigaChips>
+        {/* ⭐ IL PERIODO (Libro v1.9 §8-bis): filtra su quando la richiesta è
+            ARRIVATA (`created_at`) — vedi il commento sullo stato più su. */}
+        <RigaChips style={styles.chipsRiga}>
+          {([
+            { v: 'tutti', l: 'Sempre' },
+            { v: 'mese', l: 'Questo mese' },
+            { v: 'scorso', l: 'Mese scorso' },
+            { v: 'trimestre', l: 'Trimestre' },
+            { v: 'anno', l: 'Anno' },
+          ] as const).map((p) => (
+            <Pressable
+              key={p.v}
+              style={[styles.chip, periodo === p.v && styles.chipOn]}
+              onPress={() => setPeriodo(p.v)}
+            >
+              <Text style={[styles.chipTxt, periodo === p.v && styles.chipTxtOn]}>{p.l}</Text>
             </Pressable>
           ))}
         </RigaChips>

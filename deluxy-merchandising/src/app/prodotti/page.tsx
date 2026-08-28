@@ -24,7 +24,13 @@ export default async function ProdottiPage({
   // è un campo della scheda prodotto, è una proprietà del venduto.
   const brand = await brandCorrente();
   const where: Record<string, unknown> = { ...filtroProdotti(brand) };
-  if (sp.q) where.OR = [{ nome: { contains: sp.q } }, { codice: { contains: sp.q } }];
+  // La ricerca non distingue le maiuscole (Libro UX&UI v1.9 §8-bis): «torta»
+  // deve trovare anche «Torta», come già fa l'anagrafica.
+  if (sp.q)
+    where.OR = [
+      { nome: { contains: sp.q, mode: "insensitive" } },
+      { codice: { contains: sp.q, mode: "insensitive" } },
+    ];
   if (sp.collezione) where.collezioneId = sp.collezione;
   if (sp.categoria) where.categoria = sp.categoria;
   if (sp.fase) where.fase = sp.fase;

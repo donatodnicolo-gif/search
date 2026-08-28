@@ -81,7 +81,9 @@ export default async function PaginaCampagne({
       ...(stato ? { stato } : { stato: { notIn: [...STATI_CAMPAGNA_IGNORATE] } }),
       ...(canale ? { canale } : {}),
       ...(brand ? { brand } : {}),
-      ...(q ? { nome: { contains: q } } : {}),
+      // La ricerca ignora le maiuscole (Libro v1.9 §8-bis): su Postgres
+      // `contains` da solo è case-sensitive, e «brand» non trovava «Brand».
+      ...(q ? { nome: { contains: q, mode: "insensitive" as const } } : {}),
     },
     include: {
       metriche: { where: { data: { gte: giorni30, lt: finePeriodo } } },
@@ -104,7 +106,8 @@ export default async function PaginaCampagne({
       stato: { notIn: [...STATI_CAMPAGNA_VIVE] },
       ...(canale ? { canale } : {}),
       ...(brand ? { brand } : {}),
-      ...(q ? { nome: { contains: q } } : {}),
+      // Stessa ricerca dell'elenco vivo: anche qui senza maiuscole.
+      ...(q ? { nome: { contains: q, mode: "insensitive" as const } } : {}),
     },
     include: {
       metriche: { select: { spesa: true, ricavi: true, data: true } },

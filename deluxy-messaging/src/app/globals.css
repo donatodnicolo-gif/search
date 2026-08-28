@@ -6030,3 +6030,9 @@ button.bottone.secondario.ai-spenta {
    da nessuna parte è peggio di niente. */
 .tabella-wrap tbody tr.riga-link { cursor: pointer; }
 .tabella-wrap tbody tr.riga-link:hover { background: var(--fill-hover); }
+
+/* ---------- Le scorciatoie di periodo (Libro UX&UI v1.9 §8-bis) ---------- */
+/* Le chips di periodo usano le pillole già dell'app (`stato-pill`): qui c'è
+   solo la variante «azzera» — tratteggiata come nelle altre app, dice «questa
+   non aggiunge un filtro, lo toglie». Vedi ChipsPeriodo.tsx. */
+.stato-pill.azzera { border-style: dashed; }

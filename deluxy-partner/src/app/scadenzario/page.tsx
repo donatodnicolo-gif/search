@@ -18,6 +18,7 @@ export default async function Scadenzario({
   searchParams: Promise<{
     sollecito?: string;
     q?: string;
+    periodo?: string;
     sort?: string; dir?: string; // fatture da incassare
     sortB?: string; dirB?: string; // bonifici
     sortC?: string; dirC?: string; // commissioni
@@ -30,6 +31,31 @@ export default async function Scadenzario({
   const cerca = (...campi: (string | null | undefined)[]) =>
     !q || campi.some((c) => (c ?? "").toLowerCase().includes(q));
 
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis): un parametro solo. Sul
+  // sospeso il periodo si applica alla data GIUSTA di ogni blocco: la
+  // SCADENZA per le fatture da incassare (quando vanno incassate), il MESE di
+  // competenza per bonifici e commissioni. Senza chip si vede tutto il
+  // sospeso, che per uno scadenzario è il default giusto.
+  const inizioMese = (n: number) => new Date(oggi.getFullYear(), oggi.getMonth() - n, 1);
+  const periodo =
+    sp.periodo === "mese" ? { da: inizioMese(0), a: inizioMese(-1) }
+    : sp.periodo === "scorso" ? { da: inizioMese(1), a: inizioMese(0) }
+    : sp.periodo === "trimestre" ? { da: inizioMese(2), a: inizioMese(-1) }
+    : sp.periodo === "anno" ? { da: new Date(oggi.getFullYear(), 0, 1), a: new Date(oggi.getFullYear() + 1, 0, 1) }
+    : null;
+  // Con una chip attiva le fatture SENZA scadenza restano fuori: il filtro è
+  // proprio «cosa scade nel periodo».
+  const inPeriodoData = (d: Date | null) => !periodo || (!!d && d >= periodo.da && d < periodo.a);
+  const mesiPeriodo = periodo
+    ? new Set(
+        Array.from({ length: 12 }, (_, i) => i + 1).filter((m) => {
+          const primo = new Date(anno, m - 1, 1);
+          return primo >= periodo.da && primo < periodo.a;
+        })
+      )
+    : null;
+  const inPeriodoMese = (m: number) => !mesiPeriodo || mesiPeriodo.has(m);
+
   // Letture indipendenti in parallelo (una sola andata e ritorno verso il DB)
   const [aperteRaw, tutti] = await Promise.all([
     prisma.fatturaServizio.findMany({
@@ -39,8 +65,10 @@ export default async function Scadenzario({
     }),
     riepilogoTutti(anno),
   ]);
-  const aperte = aperteRaw.filter((f) =>
-    cerca(f.partner.nome, f.partner.ragioneSociale, f.partner.gruppo, f.numero, f.tipologia.nome, f.descrizione)
+  const aperte = aperteRaw.filter(
+    (f) =>
+      cerca(f.partner.nome, f.partner.ragioneSociale, f.partner.gruppo, f.numero, f.tipologia.nome, f.descrizione) &&
+      inPeriodoData(f.scadenza)
   );
   const scadute = aperte.filter((f) => f.scadenza && f.scadenza < oggi);
 
@@ -82,7 +110,7 @@ export default async function Scadenzario({
         .filter((m) => m.riepilogo.daBonificare >= 0.01)
         .map((m) => ({ partner: t.partner, mese: m.mese, r: m.riepilogo }))
     )
-    .filter((x) => cerca(x.partner.nome, x.partner.ragioneSociale, x.partner.iban));
+    .filter((x) => cerca(x.partner.nome, x.partner.ragioneSociale, x.partner.iban) && inPeriodoMese(x.mese));
 
   type B = (typeof bonificiTutti)[number];
   const campiB: Record<string, (b: B) => string | number | null> = {
@@ -103,7 +131,7 @@ export default async function Scadenzario({
         .filter((m) => m.riepilogo.vendite > 0 && !m.saldo?.commFattEmessa)
         .map((m) => ({ partner: t.partner, mese: m.mese, r: m.riepilogo }))
     )
-    .filter((x) => cerca(x.partner.nome, x.partner.ragioneSociale));
+    .filter((x) => cerca(x.partner.nome, x.partner.ragioneSociale) && inPeriodoMese(x.mese));
 
   type C = (typeof commTutte)[number];
   const campiC: Record<string, (c: C) => string | number | null> = {
@@ -152,6 +180,31 @@ export default async function Scadenzario({
       </div>
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+        {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): link GET, un solo
+            parametro. Sono FUORI dal form: il submit della ricerca le azzera
+            da solo. Filtrano scadenze e competenze, i totali dell'aging in
+            fondo restano sull'intero portafoglio. */}
+        <div className="filters riga-chips-scorri" style={{ marginBottom: 10 }}>
+          {([
+            { v: "mese", l: "Mese in corso" },
+            { v: "scorso", l: "Mese scorso" },
+            { v: "trimestre", l: "Trimestre" },
+            { v: "anno", l: "Anno" },
+          ] as const).map((p) => (
+            <Link
+              key={p.v}
+              href={`/scadenzario?periodo=${p.v}${sp.q ? `&q=${encodeURIComponent(sp.q)}` : ""}`}
+              className={`chip-link${sp.periodo === p.v ? " attiva" : ""}`}
+            >
+              {p.l}
+            </Link>
+          ))}
+          {periodo ? (
+            <Link href={`/scadenzario${sp.q ? `?q=${encodeURIComponent(sp.q)}` : ""}`} className="chip-link azzera">
+              Tutto il sospeso
+            </Link>
+          ) : null}
+        </div>
         <form className="filters" method="get">
           <input
             type="search"
@@ -297,9 +350,9 @@ export default async function Scadenzario({
         {fatture.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">✓</div>
-            <div className="empty-title">{q ? "Nessun risultato" : "Tutto incassato"}</div>
+            <div className="empty-title">{q || periodo ? "Nessun risultato" : "Tutto incassato"}</div>
             <div className="empty-text">
-              {q ? "Nessuna fattura aperta corrisponde alla ricerca." : "Non ci sono fatture servizi aperte."}
+              {q || periodo ? "Nessuna fattura aperta corrisponde a ricerca o periodo." : "Non ci sono fatture servizi aperte."}
             </div>
           </div>
         ) : (
@@ -385,9 +438,9 @@ export default async function Scadenzario({
         {bonificiPendenti.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">✓</div>
-            <div className="empty-title">{q ? "Nessun risultato" : "Nessun bonifico pendente"}</div>
+            <div className="empty-title">{q || periodo ? "Nessun risultato" : "Nessun bonifico pendente"}</div>
             <div className="empty-text">
-              {q ? "Nessun bonifico pendente corrisponde alla ricerca." : "Tutti i dovuti ai partner risultano saldati."}
+              {q || periodo ? "Nessun bonifico pendente corrisponde a ricerca o periodo." : "Tutti i dovuti ai partner risultano saldati."}
             </div>
           </div>
         ) : (
@@ -427,10 +480,10 @@ export default async function Scadenzario({
         {commDaEmettere.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">✓</div>
-            <div className="empty-title">{q ? "Nessun risultato" : "Nessuna fattura commissioni in sospeso"}</div>
+            <div className="empty-title">{q || periodo ? "Nessun risultato" : "Nessuna fattura commissioni in sospeso"}</div>
             <div className="empty-text">
-              {q
-                ? "Nessuna commissione da emettere corrisponde alla ricerca."
+              {q || periodo
+                ? "Nessuna commissione da emettere corrisponde a ricerca o periodo."
                 : "Tutte le vendite del periodo hanno la fattura commissioni emessa."}
             </div>
           </div>

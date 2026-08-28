@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
+import { intervalloPeriodo, periodoValido } from '@/lib/periodo'
 import {
   controllaImporto,
   rimborsoImpegna,
@@ -29,6 +30,10 @@ export async function GET(req: NextRequest) {
   // `aperti` = da approvare o approvati ma non ancora pagati: la vista di lavoro.
   if (stato === 'aperti') dove.stato = { in: ['richiesto', 'approvato'] }
   else if (stato) dove.stato = stato
+  // La scorciatoia di periodo (§8-bis), sulla DATA DELLA RICHIESTA.
+  // ⚠️ Sta QUI e non nel browser: l'elenco è tagliato a 300.
+  const intervallo = intervalloPeriodo(periodoValido(p.get('periodo')))
+  if (intervallo) dove.creatoIl = { gte: intervallo.da, lt: intervallo.a }
   if (q) {
     const testo: Prisma.StringFilter = { contains: q, mode: 'insensitive' }
     dove.OR = [

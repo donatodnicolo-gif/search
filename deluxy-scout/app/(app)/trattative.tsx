@@ -112,6 +112,13 @@ export default function Trattative() {
   const [cittaFiltro, setCittaFiltro] = useState<string | null>(null);
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
   const [accountFiltro, setAccountFiltro] = useState<string | null>(null);
+  // ⚠️ NIENTE scorciatoie di periodo qui (valutato 28/08/2026, Libro v1.9
+  // §8-bis): una trattativa aperta non «appartiene» a un mese — è viva finché
+  // non si chiude — e le due date candidate mentono entrambe: `created_at`
+  // MANCA sulle trattative pre-migr. 0039 e su quelle da HubSpot/registro
+  // (un filtro le nasconderebbe in silenzio), `chiusa_il` esiste solo per
+  // vinte e perse. Il tempo qui lo governano già le viste e la scadenza del
+  // follow-up.
   const [formAperto, setFormAperto] = useState(false);
   const [editDeal, setEditDeal] = useState<TrattativaConLuogo | null>(null);
 

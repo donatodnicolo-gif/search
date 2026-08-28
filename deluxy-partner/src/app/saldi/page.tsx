@@ -77,6 +77,9 @@ export default async function SaldiPage({
       </div>
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+        {/* Niente chips di periodo (Libro v1.9 §8-bis): una chiusura è UN mese
+            per costruzione — mese/anno qui sono strutturali, non un filtro, e
+            «Trimestre/Anno» non hanno un significato su questa pagina. */}
         <form className="filters" method="get">
           {/* Ricerca sempre visibile; mese/anno/solo dietro «Filtri (N)» sotto
               la soglia mobile (Libro v1.2 §8): N conta solo i valori fuori dal

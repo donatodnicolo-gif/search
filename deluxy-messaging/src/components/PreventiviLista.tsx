@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { nomeStato } from '@/lib/preventivi-stati'
+import { ChipsPeriodo } from './ChipsPeriodo'
+import { nelPeriodo, type Periodo } from '@/lib/periodo'
 
 // I PREVENTIVI, a colonne per marchio come la bacheca degli ordini.
 //
@@ -96,6 +98,13 @@ export function PreventiviLista() {
   const [caricato, setCaricato] = useState(false)
   const [stato, setStato] = useState('aperti')
   const [marchio, setMarchio] = useState('')
+  // La ricerca (Libro v1.9 §8-bis): la fa il SERVER (`/api/preventivi?q=`, che
+  // esisteva già senza casella), con la solita attesa per non chiamare a ogni
+  // tasto. Il periodo invece si filtra in memoria, sulla DATA DI APERTURA del
+  // preventivo (`creatoIl`): le righe arrivano già tutte (tetto 300).
+  const [q, setQ] = useState('')
+  const [qCercata, setQCercata] = useState('')
+  const [periodo, setPeriodo] = useState<Periodo>('')
   const [formAperto, setFormAperto] = useState(false)
   const [bozza, setBozza] = useState(VUOTO)
   const [prezzoDi, setPrezzoDi] = useState('')
@@ -109,6 +118,7 @@ export function PreventiviLista() {
     try {
       const p = new URLSearchParams({ stato })
       if (marchio) p.set('negozio', marchio)
+      if (qCercata) p.set('q', qCercata)
       const res = await fetch(`/api/preventivi?${p}`, { cache: 'no-store' })
       const d = (await res.json().catch(() => ({}))) as {
         preventivi?: Preventivo[]
@@ -128,11 +138,16 @@ export function PreventiviLista() {
     } finally {
       setCaricato(true)
     }
-  }, [stato, marchio])
+  }, [stato, marchio, qCercata])
 
   useEffect(() => {
     void carica()
   }, [carica])
+
+  useEffect(() => {
+    const t = setTimeout(() => setQCercata(q.trim()), 300)
+    return () => clearTimeout(t)
+  }, [q])
 
   async function salvaNuovo() {
     setErrore('')
@@ -215,6 +230,10 @@ export function PreventiviLista() {
   }
 
   const daMostrare = colonne.filter((c) => !marchio || c.negozioId === marchio)
+  // Il periodo, in memoria: sulla data di apertura del preventivo.
+  // ⚠️ I contatori delle testate di colonna arrivano dal server e raccontano
+  // l'archivio, non il periodo scelto: contano gli aperti, come sempre.
+  const visibili = periodo ? preventivi.filter((p) => nelPeriodo(p.creatoIl, periodo)) : preventivi
 
   return (
     <main>
@@ -254,6 +273,22 @@ export function PreventiviLista() {
           <div className="kpi-etichetta">In attesa di risposta</div>
         </div>
       </div>
+
+      {/* La ricerca (Libro v1.9 §8-bis): come si riconosce un preventivo —
+          il cliente, il contatto, la richiesta o la città. */}
+      <div className="barra-ricerca">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Cerca per cliente, email, telefono, richiesta o città…"
+          aria-label="Cerca preventivi"
+        />
+      </div>
+
+      {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): sulla data di apertura
+          del preventivo. */}
+      <ChipsPeriodo valore={periodo} cambia={setPeriodo} campo="la data di apertura del preventivo" />
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         {[
@@ -363,6 +398,8 @@ export function PreventiviLista() {
 
       {!caricato ? (
         <p className="colonna-vuota">Carico…</p>
+      ) : visibili.length === 0 && (qCercata || periodo) ? (
+        <p className="colonna-vuota">Nessun preventivo corrisponde ai filtri.</p>
       ) : preventivi.length === 0 && stato === 'aperti' ? (
         <p className="colonna-vuota">
           Nessun preventivo aperto. Quando un cliente chiede un prezzo, aprilo qui: è l&apos;unico
@@ -371,7 +408,7 @@ export function PreventiviLista() {
       ) : (
         <div className="colonne-brand">
           {daMostrare.map((c) => {
-            const suoi = preventivi.filter((p) => p.negozioId === c.negozioId)
+            const suoi = visibili.filter((p) => p.negozioId === c.negozioId)
             return (
               <div className="colonna" key={c.negozioId || 'senza'}>
                 <div className="colonna-testata">

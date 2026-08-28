@@ -1,7 +1,9 @@
 import { Badge } from "@/components/Badge";
+import { ChipsPeriodo } from "@/components/ChipsPeriodo";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_ENTITA_REGISTRO, formattaDataOra } from "@/lib/dominio";
+import { intervalloScorciatoia } from "@/lib/periodo";
 
 export const dynamic = "force-dynamic";
 
@@ -19,14 +21,27 @@ const COLORE_TIPO: Record<string, string> = {
 export default async function PaginaStorico({
   searchParams,
 }: {
-  searchParams: Promise<{ entita?: string; q?: string }>;
+  searchParams: Promise<{ entita?: string; q?: string; periodo?: string }>;
 }) {
-  const { entita, q } = await searchParams;
+  const { entita, q, periodo } = await searchParams;
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis) si applicano a `creatoIl`:
+  // quando la modifica è stata registrata, l'unica data che il registro ha.
+  const intervallo = intervalloScorciatoia(periodo);
   const [eventi, entitaDisponibili] = await Promise.all([
     prisma.registroEvento.findMany({
       where: {
         ...(entita ? { entita } : {}),
-        ...(q ? { OR: [{ titolo: { contains: q } }, { dettaglio: { contains: q } }] } : {}),
+        ...(intervallo ? { creatoIl: { gte: intervallo.da, lt: intervallo.a } } : {}),
+        // La ricerca ignora le maiuscole (`mode: "insensitive"`): su Postgres
+        // `contains` da solo è case-sensitive.
+        ...(q
+          ? {
+              OR: [
+                { titolo: { contains: q, mode: "insensitive" as const } },
+                { dettaglio: { contains: q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
       },
       orderBy: { creatoIl: "desc" },
       take: 300,
@@ -48,6 +63,16 @@ export default async function PaginaStorico({
             </p>
           </div>
         </div>
+
+        {/* Le scorciatoie di periodo su `creatoIl`. Il form qui sotto non ha
+            un campo `periodo`: il suo submit le azzera da solo. */}
+        <ChipsPeriodo
+          base="/storico"
+          periodo={periodo}
+          altriFiltri={new URLSearchParams(
+            Object.entries({ entita, q }).filter(([, v]) => v) as [string, string][]
+          ).toString()}
+        />
 
         <form className="filtri" method="get">
           <input type="search" name="q" placeholder="Cerca nello storico…" defaultValue={q ?? ""} />

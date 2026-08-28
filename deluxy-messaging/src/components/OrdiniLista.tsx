@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ZonaFiltri } from '@/components/ZonaFiltri'
+import { ChipsPeriodo } from '@/components/ChipsPeriodo'
+import type { Periodo } from '@/lib/periodo'
 import { CHIUSURA, GESTIONI, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import {
   TIPI_CLIENTE,
@@ -1056,6 +1058,12 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   const [urgenza, setUrgenza] = useState({ oggi: 0, domani: 0, scaduteRecenti: 0 })
   // Vista di lavoro: di default si mostrano solo gli ordini non ancora gestiti.
   const [filtroGestione, setFiltroGestione] = useState(globale ? '' : 'aperti')
+  // La scorciatoia di periodo (Libro v1.9 §8-bis), sulla DATA DELL'ORDINE
+  // (`data`, quella di Shopify — non la consegna e non `creatoIl`, che è quando
+  // è comparso da noi). ⚠️ Filtra il SERVER, come «Solo nuovi» e per lo stesso
+  // motivo: la lista è tagliata a 200 e filtrare a valle mostrerebbe solo i
+  // 200 già scelti dall'ordinamento.
+  const [periodo, setPeriodo] = useState<Periodo>('')
 
   // Ordinamento della tabella. Vuoto = per URGENZA, che è il modo giusto di
   // guardare la lista di lavoro (vedi src/lib/urgenza.ts) e resta il default.
@@ -1074,6 +1082,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
       if (filtroTipo) p.set('tipoCliente', filtroTipo)
       if (filtroPresa) p.set('presa', filtroPresa)
       if (soloNuovi) p.set('nuovi', 'si')
+      if (periodo) p.set('periodo', periodo)
       if (ordina) {
         p.set('ordina', ordina)
         p.set('verso', verso)
@@ -1143,6 +1152,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
     verso,
     filtroPresa,
     soloNuovi,
+    periodo,
   ])
 
   /**
@@ -1393,7 +1403,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
     filtroTipo ||
     filtroGestione !== 'aperti' ||
     filtroPresa ||
-    soloNuovi
+    soloNuovi ||
+    periodo
   )
 
   // Da che tipo di cliente arrivano gli ordini mostrati, dal più frequente.
@@ -1633,6 +1644,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
               setFiltroPresa('')
               setSoloNuovi(false)
               setFiltroGestione('aperti')
+              setPeriodo('')
             }}
           >
             Azzera
@@ -1647,6 +1659,10 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         </button>
       </div>
 
+      {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): sulla data dell'ordine.
+          Riga a parte rispetto ai passi qui sotto: quella risponde a «a che
+          punto», questa a «di quando». */}
+      <ChipsPeriodo valore={periodo} cambia={setPeriodo} campo="la data dell'ordine" />
 
       {/* ── A che punto sono: la riga dei passi ──
           I filtri lunghi qui sopra rispondono a «quali ordini», questa riga a

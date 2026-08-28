@@ -98,3 +98,30 @@ export function variazione(ora: number, prima: number): number | null {
   if (!prima) return null;
   return ((ora - prima) / prima) * 100;
 }
+
+// Le SCORCIATOIE DI PERIODO del Libro UX&UI v1.9 §8-bis: UN parametro
+// (`?periodo=mese|scorso|trimestre|anno`) per le pagine-elenco che non hanno
+// il selettore completo (quello, `SceltaPeriodo`, resta sulle pagine di
+// performance col suo `preset` e le date libere).
+//
+// ⚠️ La semantica è quella del Libro, non quella di `risolviPeriodo`:
+// «trimestre» = ultimi 3 mesi COMPRESO il corrente (dal 1° di due mesi fa a
+// oggi), non il trimestre solare. «mese» = mese corrente, «scorso» = mese
+// precedente intero, «anno» = anno solare corrente. `a` è ESCLUSIVA, come in
+// `Periodo`: le query usano `lt`.
+export function intervalloScorciatoia(periodo?: string): { da: Date; a: Date } | null {
+  const oggi = mezzanotte(new Date());
+  const domani = new Date(oggi.getTime() + GIORNO);
+  if (periodo === "mese")
+    return { da: new Date(oggi.getFullYear(), oggi.getMonth(), 1), a: domani };
+  if (periodo === "scorso")
+    return {
+      da: new Date(oggi.getFullYear(), oggi.getMonth() - 1, 1),
+      a: new Date(oggi.getFullYear(), oggi.getMonth(), 1),
+    };
+  if (periodo === "trimestre")
+    return { da: new Date(oggi.getFullYear(), oggi.getMonth() - 2, 1), a: domani };
+  if (periodo === "anno")
+    return { da: new Date(oggi.getFullYear(), 0, 1), a: domani };
+  return null;
+}

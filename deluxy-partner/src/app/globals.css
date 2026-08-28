@@ -621,3 +621,29 @@ input:focus, select:focus, textarea:focus {
    tengono l'hover leggero di serie. */
 tbody tr.riga-link { cursor: pointer; }
 tbody tr.riga-link:hover { background: var(--fill); }
+
+/* Le scorciatoie di periodo (Libro UX&UI v1.9 §8-bis): pillole-link a
+   selezione singola sopra i filtri; «attiva» = ink pieno. */
+.chip-link {
+  display: inline-flex; align-items: center;
+  padding: 7px 14px; border-radius: var(--radius-pill);
+  border: 1px solid var(--hairline-strong); background: var(--surface);
+  font-size: 13px; font-weight: 600; color: var(--text-secondary);
+  text-decoration: none; white-space: nowrap;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+.chip-link:hover { background: var(--fill); color: var(--text); }
+.chip-link.attiva { background: var(--ink); border-color: var(--ink); color: #fff; }
+.chip-link.azzera { border-style: dashed; }
+
+/* Gruppo di chip su mobile: una riga che scorre (Libro v1.3 par.8.9). */
+@media (max-width: 900px) {
+  .riga-chips-scorri {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .riga-chips-scorri::-webkit-scrollbar { display: none; }
+  .riga-chips-scorri > * { flex: 0 0 auto; }
+}

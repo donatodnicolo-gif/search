@@ -8,6 +8,8 @@ import { calcolaMargine, frasiMargine, pct } from '@/lib/margine'
 import { CellaCopiabile } from './CellaCopiabile'
 import { ScegliOrdine, type OrdineTrovato } from './ScegliOrdine'
 import { linkOrdine } from '@/lib/link-ordine'
+import { ChipsPeriodo } from './ChipsPeriodo'
+import { nelPeriodo, type Periodo } from '@/lib/periodo'
 import {
   METODI,
   cosaManca,
@@ -76,6 +78,13 @@ const ORIGINI: Record<string, string> = {
 export function RichiediPagamento() {
   const [richieste, setRichieste] = useState<Richiesta[]>([])
   const [caricato, setCaricato] = useState(false)
+  // Ricerca e periodo sull'elenco (Libro v1.9 §8-bis): si filtra IN MEMORIA
+  // sulle righe caricate — il server manda le ultime 200 richieste, che è
+  // anche l'orizzonte della tabella. La ricerca è sui campi con cui si
+  // riconosce la riga (intestatario, causale, ordine, riferimento); il
+  // periodo è sulla DATA DELLA RICHIESTA (`creatoIl`).
+  const [cerca, setCerca] = useState('')
+  const [periodo, setPeriodo] = useState<Periodo>('')
 
   // campi del modulo
   const [iban, setIban] = useState('')
@@ -830,6 +839,18 @@ export function RichiediPagamento() {
     }
   }
 
+  // Il filtro in memoria sull'elenco: periodo sulla data della richiesta,
+  // ricerca sui campi con cui si riconosce la riga.
+  const cercato = cerca.trim().toLowerCase()
+  const richiesteVisibili = richieste.filter((r) => {
+    if (!nelPeriodo(r.creatoIl, periodo)) return false
+    if (!cercato) return true
+    return [r.intestatario, r.causale, r.ordineNumero, r.riferimentoPagamento, r.iban]
+      .join(' ')
+      .toLowerCase()
+      .includes(cercato)
+  })
+
   return (
     <main>
       <div className="page-head">
@@ -1440,10 +1461,30 @@ export function RichiediPagamento() {
           </p>
         )}
       </div>
+      {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): sulla data della
+          richiesta di pagamento. */}
+      <ChipsPeriodo valore={periodo} cambia={setPeriodo} campo="la data della richiesta" />
+
+      {/* La ricerca sull'elenco (Libro v1.9 §8-bis): come si riconosce una
+          richiesta — l'intestatario, la causale, l'ordine o il riferimento. */}
+      <div className="barra-ricerca">
+        <input
+          type="search"
+          value={cerca}
+          onChange={(e) => setCerca(e.target.value)}
+          placeholder="Cerca per intestatario, causale, ordine o riferimento…"
+          aria-label="Cerca richieste di pagamento"
+        />
+      </div>
+
       {!caricato ? (
         <div className="vuoto">Carico…</div>
-      ) : richieste.length === 0 ? (
-        <div className="vuoto">Nessuna richiesta salvata.</div>
+      ) : richiesteVisibili.length === 0 ? (
+        <div className="vuoto">
+          {cercato || periodo
+            ? 'Nessuna richiesta corrisponde ai filtri.'
+            : 'Nessuna richiesta salvata.'}
+        </div>
       ) : (
         <div className="tabella-wrap">
           <table>
@@ -1462,7 +1503,7 @@ export function RichiediPagamento() {
               </tr>
             </thead>
             <tbody>
-              {richieste.map((r) => (
+              {richiesteVisibili.map((r) => (
                 <tr
                   key={r.id}
                   className={[r.pagataIl ? 'riga-pagata' : '', r.id === richiestaDaUrl ? 'riga-cercata' : '']

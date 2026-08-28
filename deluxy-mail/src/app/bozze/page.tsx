@@ -4,19 +4,24 @@ import { htmlAPlain, sembraHtml } from '@/lib/htmlMail'
 import { ripulisciAnteprima } from '@/lib/citato'
 import { ListaBozze, type RigaBozzaDati } from '@/components/ListaBozze'
 import { RicercaMail } from '@/components/RicercaMail'
+import { ChipsPeriodo } from '@/components/ChipsPeriodo'
+import { intervalloPeriodo } from '@/lib/periodo'
 import { CondizioniRicerca } from '@/components/CondizioniRicerca'
 import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 type Props = {
-  searchParams: Promise<{ q?: string; a?: string; dal?: string; al?: string; dove?: string }>
+  searchParams: Promise<{ q?: string; a?: string; dal?: string; al?: string; dove?: string; periodo?: string }>
 }
 
 export default async function Bozze({ searchParams }: Props) {
   const u = await richiediUtente()
-  const { q: qGrezzo, a, dal, al, dove } = await searchParams
+  const { q: qGrezzo, a, dal, al, dove, periodo } = await searchParams
   const q = (qGrezzo ?? '').trim()
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis) sull'ULTIMA MODIFICA
+  // (`aggiornataIl`): è la data che si vede sulla riga, la stessa dei dal/al.
+  const intervallo = intervalloPeriodo(periodo)
   // Le condizioni che hanno senso su una bozza: a chi è indirizzata, quando
   // l'hai toccata l'ultima volta, e dove cercare le parole. Niente «da» (sei
   // tu), niente allegati né sezioni: una bozza non ne ha.
@@ -43,6 +48,7 @@ export default async function Bozze({ searchParams }: Props) {
     // Il periodo guarda l'ultima modifica: è la data che vedi sulla riga.
     ...(cond.dal ? [{ aggiornataIl: { gte: new Date(`${cond.dal}T00:00:00`) } }] : []),
     ...(cond.al ? [{ aggiornataIl: { lte: new Date(`${cond.al}T23:59:59`) } }] : []),
+    ...(intervallo ? [{ aggiornataIl: { gte: intervallo.gte, lt: intervallo.lt } }] : []),
   ]
 
   const bozze = await db.bozza.findMany({
@@ -98,6 +104,13 @@ export default async function Bozze({ searchParams }: Props) {
       </div>
 
       <div style={{ marginBottom: 16 }}>
+        {/* Chips fuori dal form: ricerca e condizioni ripartono senza
+            `periodo` e lo azzerano da sole (Libro v1.9 §8-bis). */}
+        <ChipsPeriodo
+          base="/bozze"
+          periodo={periodo}
+          altri={{ q: q || undefined, a: cond.a || undefined, dal: cond.dal || undefined, al: cond.al || undefined, dove: cond.dove || undefined }}
+        />
         <RicercaMail
           iniziale={q}
           base="/bozze"

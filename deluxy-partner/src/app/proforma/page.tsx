@@ -11,10 +11,27 @@ export const dynamic = "force-dynamic";
 export default async function ProFormaListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; tipo?: string; stato?: string; partnerId?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ anno?: string; tipo?: string; stato?: string; partnerId?: string; q?: string; periodo?: string; sort?: string; dir?: string }>;
 }) {
   const sp = await searchParams;
   const anno = sp.anno ? parseInt(sp.anno) : ANNO_CORRENTE;
+  const q = sp.q?.trim();
+  // Se si cerca un numero puro si cerca il progressivo del documento
+  // («3» → PF 3/2026), non un pezzo di testo.
+  const numeroCercato = q && /^\d+$/.test(q) ? parseInt(q) : null;
+
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis): un parametro solo,
+  // tradotto in un intervallo sulla DATA di emissione del documento. Con una
+  // chip attiva il perimetro annuale cede il passo (il trimestre può
+  // scavallare l'anno).
+  const oggi = new Date();
+  const inizioMese = (n: number) => new Date(oggi.getFullYear(), oggi.getMonth() - n, 1);
+  const intervalloPeriodo =
+    sp.periodo === "mese" ? { gte: inizioMese(0) }
+    : sp.periodo === "scorso" ? { gte: inizioMese(1), lt: inizioMese(0) }
+    : sp.periodo === "trimestre" ? { gte: inizioMese(2) }
+    : sp.periodo === "anno" ? { gte: new Date(oggi.getFullYear(), 0, 1), lt: new Date(oggi.getFullYear() + 1, 0, 1) }
+    : null;
   // Due documenti, una schermata sola: `tipo` sceglie quale serie si guarda.
   // Il default resta la pro-forma, che è ciò che questa pagina ha sempre
   // mostrato. ⚠️ Mescolarle avrebbe fatto leggere stati sbagliati: «accettato»
@@ -28,10 +45,21 @@ export default async function ProFormaListPage({
     prisma.partner.findMany({ orderBy: { nome: "asc" } }),
     prisma.proForma.findMany({
       where: {
-        anno,
+        ...(intervalloPeriodo ? { data: intervalloPeriodo } : { anno }),
         tipo,
         ...(sp.stato ? { stato: sp.stato } : {}),
         ...(sp.partnerId ? { partnerId: sp.partnerId } : {}),
+        // La ricerca (Libro v1.9 §8-bis): come si riconosce il documento —
+        // il partner, l'oggetto o il progressivo.
+        ...(q
+          ? {
+              OR: [
+                { partner: { nome: { contains: q, mode: "insensitive" as const } } },
+                { oggetto: { contains: q, mode: "insensitive" as const } },
+                ...(numeroCercato != null ? [{ numero: numeroCercato }] : []),
+              ],
+            }
+          : {}),
       },
       include: { partner: true, righe: { orderBy: { ordine: "asc" } } },
       orderBy: [{ numero: "desc" }],
@@ -83,7 +111,7 @@ export default async function ProFormaListPage({
 
       <div className="kpi-grid">
         <div className="kpi">
-          <div className="kpi-label">Emesse nel {anno}</div>
+          <div className="kpi-label">Emesse {intervalloPeriodo ? "nel periodo" : `nel ${anno}`}</div>
           <div className="kpi-value">{euro(attive.reduce((a, p) => a + p.totali.totale, 0))}</div>
           <div className="kpi-sub">{attive.length} {preventivi ? "preventivi" : "pro-forma"} (esclusi gli annullati)</div>
         </div>
@@ -102,7 +130,38 @@ export default async function ProFormaListPage({
       </div>
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+        {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): link GET, un solo
+            parametro, sulla data di EMISSIONE. Sono FUORI dal form: il submit
+            (che rimanda l'anno) le azzera da solo. */}
+        <div className="filters riga-chips-scorri" style={{ marginBottom: 10 }}>
+          {([
+            { v: "mese", l: "Mese in corso" },
+            { v: "scorso", l: "Mese scorso" },
+            { v: "trimestre", l: "Trimestre" },
+            { v: "anno", l: "Anno" },
+          ] as const).map((p) => (
+            <Link
+              key={p.v}
+              href={`/proforma?periodo=${p.v}${preventivi ? "&tipo=preventivo" : ""}${sp.stato ? `&stato=${sp.stato}` : ""}${sp.partnerId ? `&partnerId=${sp.partnerId}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+              className={`chip-link${sp.periodo === p.v ? " attiva" : ""}`}
+            >
+              {p.l}
+            </Link>
+          ))}
+          {intervalloPeriodo ? (
+            <Link href={`/proforma${preventivi ? "?tipo=preventivo" : ""}`} className="chip-link azzera">
+              Tutto l&apos;anno
+            </Link>
+          ) : null}
+        </div>
         <form className="filters" method="get">
+          {/* La ricerca (Libro v1.9 §8-bis): partner, oggetto o progressivo. */}
+          <input
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Cerca per partner, oggetto o numero…"
+          />
           <select name="stato" defaultValue={sp.stato ?? ""}>
             <option value="">Tutti gli stati</option>
             {Object.entries(STATI).map(([k, v]) => (

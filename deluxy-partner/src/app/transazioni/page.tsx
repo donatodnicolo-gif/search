@@ -29,9 +29,24 @@ export const dynamic = "force-dynamic";
 export default async function TransazioniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ import?: string; nuove?: string; doppioni?: string; scartate?: string; iban?: string; errore?: string; cerca?: string; qonto?: string; conti?: string; totali?: string; estesa?: string }>;
+  searchParams: Promise<{ import?: string; nuove?: string; doppioni?: string; scartate?: string; iban?: string; errore?: string; cerca?: string; qonto?: string; conti?: string; totali?: string; estesa?: string; periodo?: string }>;
 }) {
   const sp = await searchParams;
+
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis): un parametro solo,
+  // tradotto in un intervallo sulla DATA del movimento bancario. Vale per
+  // tutte e tre le liste (da lavorare, registrate, ignorate); gli aggregati
+  // di controllo (periodo estratto, attesi mancanti) restano sull'intero
+  // archivio.
+  const oggiPeriodo = new Date();
+  const inizioMese = (n: number) => new Date(oggiPeriodo.getFullYear(), oggiPeriodo.getMonth() - n, 1);
+  const intervalloPeriodo =
+    sp.periodo === "mese" ? { gte: inizioMese(0) }
+    : sp.periodo === "scorso" ? { gte: inizioMese(1), lt: inizioMese(0) }
+    : sp.periodo === "trimestre" ? { gte: inizioMese(2) }
+    : sp.periodo === "anno" ? { gte: new Date(oggiPeriodo.getFullYear(), 0, 1) }
+    : null;
+  const filtroPeriodo = intervalloPeriodo ? { data: intervalloPeriodo } : {};
 
   // Ricerca "morbida" tradotta in SQL: ogni termine deve comparire in
   // descrizione/controparte/esito (o combaciare con l'importo). Prima si
@@ -74,7 +89,7 @@ export default async function TransazioniPage({
     estesa || termini.length > 0
       ? {}
       : { OR: [{ importo: { gte: SOGLIA_PROBABILI } }, { importo: { lte: -SOGLIA_PROBABILI } }] };
-  const whereNuove = { stato: "nuova", ...filtroProbabili, ...filtroRicerca };
+  const whereNuove = { stato: "nuova", ...filtroProbabili, ...filtroRicerca, ...filtroPeriodo };
   const MAX_NUOVE = 600;
 
   const [nuoveRec, nuoveTotali, nuoveInTutto, registrate, ignorate, totaleTransazioni, estremi, importi, partners, fattureAperte, tutti, associazioniRec, qonto, ultimaSyncRow] =
@@ -86,14 +101,14 @@ export default async function TransazioniPage({
       }),
       prisma.transazioneBancaria.count({ where: whereNuove }),
       // totale delle "da lavorare" senza il filtro probabilità (per l'avviso)
-      prisma.transazioneBancaria.count({ where: { stato: "nuova", ...filtroRicerca } }),
+      prisma.transazioneBancaria.count({ where: { stato: "nuova", ...filtroRicerca, ...filtroPeriodo } }),
       prisma.transazioneBancaria.findMany({
-        where: { stato: "registrata", ...filtroRicerca },
+        where: { stato: "registrata", ...filtroRicerca, ...filtroPeriodo },
         orderBy: { data: "desc" },
         take: 300,
       }),
       prisma.transazioneBancaria.findMany({
-        where: { stato: "ignorata", ...filtroRicerca },
+        where: { stato: "ignorata", ...filtroRicerca, ...filtroPeriodo },
         orderBy: { data: "desc" },
         take: 300,
       }),
@@ -266,6 +281,33 @@ export default async function TransazioniPage({
 
       {totaleTransazioni > 0 && (
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): link GET, un solo
+              parametro. Sono FUORI dal form: il submit della ricerca le azzera
+              da solo. Conservano ricerca ed estensione. */}
+          <div className="filters riga-chips-scorri" style={{ marginBottom: 10 }}>
+            {([
+              { v: "mese", l: "Mese in corso" },
+              { v: "scorso", l: "Mese scorso" },
+              { v: "trimestre", l: "Trimestre" },
+              { v: "anno", l: "Anno" },
+            ] as const).map((p) => (
+              <Link
+                key={p.v}
+                href={`/transazioni?periodo=${p.v}${query ? `&cerca=${encodeURIComponent(query)}` : ""}${estesa ? "&estesa=1" : ""}`}
+                className={`chip-link${sp.periodo === p.v ? " attiva" : ""}`}
+              >
+                {p.l}
+              </Link>
+            ))}
+            {intervalloPeriodo ? (
+              <Link
+                href={`/transazioni${query ? `?cerca=${encodeURIComponent(query)}` : estesa ? "?estesa=1" : ""}`}
+                className="chip-link azzera"
+              >
+                Tutto lo storico
+              </Link>
+            ) : null}
+          </div>
           <form method="get" className="filters" style={{ width: "100%" }}>
             <input
               type="search"

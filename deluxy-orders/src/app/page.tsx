@@ -21,6 +21,7 @@ import { daQuando, daQuandoLeggibile } from "@/lib/sessione";
 import { anniConOrdini } from "@/lib/analisi";
 import { sincronizza, segnaOrdiniVisti } from "./actions";
 import { RigaLink, SchedaLink } from "@/components/RigaLink";
+import { ChipsPeriodo } from "@/components/ChipsPeriodo";
 
 export const dynamic = "force-dynamic";
 
@@ -190,7 +191,7 @@ export default async function ElencoOrdini({
       {/* Ricerca in evidenza: una sola casella che cerca ovunque */}
       <form className="ricerca" method="get">
         {/* conserva i filtri attivi mentre si cerca */}
-        {["brand", "anno", "stato", "categoria", "app", "etichetta", "citta", "paese", "cittaMittente", "paeseMittente", "urgenza", "canale", "estero"].map((k) =>
+        {["brand", "anno", "periodo", "stato", "categoria", "app", "etichetta", "citta", "paese", "cittaMittente", "paeseMittente", "urgenza", "canale", "estero"].map((k) =>
           sp[k] ? <input key={k} type="hidden" name={k} value={sp[k]} /> : null,
         )}
         <span className="ricerca-icona" aria-hidden="true">
@@ -223,6 +224,12 @@ export default async function ElencoOrdini({
           per «{sp.q}»
         </p>
       )}
+
+      {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): link GET che
+          conservano ricerca e filtri, FUORI dal form — il submit del form le
+          azzera da solo (l'anno scelto a mano nel select vince). Il taglio è
+          sulla data dell'ORDINE, come il filtro anno (vedi whereOrdini). */}
+      <ChipsPeriodo attivo={sp.periodo} href={(v) => conFiltro({ periodo: v, page: "" })} azzera="Tutti i periodi" />
 
       {/* Filtri — su telefono i 12 select vivono dietro «Filtri (N)» (Libro
           v1.2 §8, ZonaFiltri: prima era un checkbox hack, vietato dal Libro

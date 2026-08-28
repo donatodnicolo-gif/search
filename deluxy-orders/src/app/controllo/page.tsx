@@ -12,7 +12,9 @@ import {
   valutaQuota,
 } from "@/lib/controllo";
 import { riepilogoMovimenti, configurazioneFinance } from "@/lib/movimenti";
+import { intervalloScorciatoia, nomeIntervallo } from "@/lib/analisi";
 import { AbbinaMovimento } from "@/components/AbbinaMovimento";
+import { ChipsPeriodo } from "@/components/ChipsPeriodo";
 import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { LinkPagamento } from "@/components/LinkPagamento";
 import {
@@ -64,14 +66,31 @@ export default async function Controllo({
   const dal = finestra ? new Date(Date.now() - finestra * 86_400_000) : null;
   const brand = sp.brand?.trim() || null;
   const stato = sp.stato?.trim() || null;
+  const q = sp.q?.trim() || null;
   const pagina = Math.max(1, Number(sp.page ?? "1") || 1);
+
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis), sulla data dell'ORDINE
+  // (`Ordine.data`): quando una chip è attiva vince sulla finestra a giorni,
+  // che è l'altro modo di dire «quando» e resta nel select.
+  const scorciatoia = intervalloScorciatoia(sp.periodo?.trim());
 
   // La base: ordini del periodo, annullati esclusi (un ordine annullato non ha
   // un incasso da cercare; se è stato pagato comunque, il costo resta e si vede
   // nei margini).
   const dove = {
-    ...(dal ? { data: { gte: dal } } : {}),
+    ...(scorciatoia ? { data: scorciatoia } : dal ? { data: { gte: dal } } : {}),
     ...(brand ? { brand } : {}),
+    // La ricerca (Libro v1.9 §8-bis): come l'operatore riconosce l'ordine —
+    // il numero, il cliente o la sua email.
+    ...(q
+      ? {
+          OR: [
+            { numero: { contains: q, mode: "insensitive" as const } },
+            { clienteNome: { contains: q, mode: "insensitive" as const } },
+            { clienteEmail: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
     annullatoIl: null,
   };
 
@@ -288,7 +307,14 @@ export default async function Controllo({
       {/* ---- Incasso ---- */}
       <div className="scheda">
         <div className="scheda-titolo">
-          Incassato {finestra ? `(ultimi ${finestra} giorni)` : "(tutto lo storico)"}
+          {/* Il titolo dice il periodo VERO del conto: la chip attiva, se c'è,
+              altrimenti la finestra a giorni. */}
+          Incassato{" "}
+          {scorciatoia
+            ? `(${nomeIntervallo(scorciatoia.gte, scorciatoia.lt)})`
+            : finestra
+              ? `(ultimi ${finestra} giorni)`
+              : "(tutto lo storico)"}
           {brand ? ` · ${brand}` : ""}
         </div>
         <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
@@ -388,8 +414,20 @@ export default async function Controllo({
         </p>
       </div>
 
+      {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): link GET che
+          conservano ricerca e filtri, FUORI dal form — il submit del form le
+          azzera da solo (la finestra a giorni scelta nel select vince). */}
+      <ChipsPeriodo attivo={sp.periodo} href={(v) => link({ periodo: v, page: "" })} azzera="Torna alla finestra" />
+
       {/* ---- Filtri ---- */}
       <form className="filtri" method="get">
+        {/* La ricerca (Libro v1.9 §8-bis): il numero, il cliente o l'email. */}
+        <input
+          type="search"
+          name="q"
+          defaultValue={q ?? ""}
+          placeholder="Cerca per numero ordine, cliente o email…"
+        />
         {/* I select vivono dietro «Filtri (N)» sotto la soglia mobile (Libro
             v1.2 §8): la finestra conta solo fuori dal default (90 giorni). */}
         <ZonaFiltri attivi={(finestra !== 90 ? 1 : 0) + (brand ? 1 : 0) + (stato ? 1 : 0)}>

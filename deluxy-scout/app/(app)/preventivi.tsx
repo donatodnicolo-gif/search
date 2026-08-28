@@ -14,7 +14,7 @@ import { useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { avvisa, conferma } from '@/lib/dialoghi';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { Chip, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { CampoData } from '@/components/CampoData';
 import { SceltaFornitore, type FornitoreScelto } from '@/components/SceltaFornitore';
 import { salvaNelListino } from '@/lib/forniture';
@@ -61,6 +61,15 @@ export default function Preventivi() {
   const [errore, setErrore] = useState<string | null>(null);
   const [aperto, setAperto] = useState<string | null>(null);
   const [soloAperti, setSoloAperti] = useState(true);
+  /**
+   * ⭐ RICERCA E PERIODO (28/08/2026, Libro v1.9 §8-bis): l'elenco dei lavori
+   * aveva solo aperti/chiusi — un lavoro si ritrovava scorrendo. La ricerca
+   * guarda come lo si riconosce (titolo, cliente, fornitori dei preventivi);
+   * il periodo filtra su `created_at` — QUANDO il lavoro è stato aperto —
+   * con confini in ora LOCALE (stessa trappola già pagata su ordini).
+   */
+  const [query, setQuery] = useState('');
+  const [periodo, setPeriodo] = useState<'tutti' | 'mese' | 'scorso' | 'trimestre' | 'anno'>('tutti');
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -87,7 +96,35 @@ export default function Preventivi() {
     }, [carica]),
   );
 
-  const visibili = soloAperti ? lavori.filter((l) => l.stato === 'aperto') : lavori;
+  /** I due estremi del periodo scelto, in ora locale. */
+  const finestra = useMemo(() => {
+    const ora = new Date();
+    const a = new Date(ora.getFullYear(), ora.getMonth(), ora.getDate() + 1); // domani a mezzanotte
+    if (periodo === 'mese') return { da: new Date(ora.getFullYear(), ora.getMonth(), 1), a };
+    if (periodo === 'scorso') {
+      // «Mese scorso» finisce dove comincia questo: fino a oggi sarebbero due mesi.
+      return { da: new Date(ora.getFullYear(), ora.getMonth() - 1, 1), a: new Date(ora.getFullYear(), ora.getMonth(), 1) };
+    }
+    if (periodo === 'trimestre') return { da: new Date(ora.getFullYear(), ora.getMonth() - 2, 1), a };
+    if (periodo === 'anno') return { da: new Date(ora.getFullYear(), 0, 1), a };
+    return null;
+  }, [periodo]);
+
+  const visibili = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return lavori.filter((l) => {
+      if (soloAperti && l.stato !== 'aperto') return false;
+      if (finestra) {
+        const d = new Date(l.created_at);
+        if (isNaN(d.getTime()) || d < finestra.da || d >= finestra.a) return false;
+      }
+      if (!q) return true;
+      // Anche i fornitori: «quel lavoro dove aveva quotato Rossi» si cerca così.
+      return [l.titolo, l.descrizione, l.place_nome, l.linea, ...l.preventivi.map((p) => p.fornitore)]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    });
+  }, [lavori, soloAperti, query, finestra]);
 
   return (
     <ScrollView
@@ -117,12 +154,46 @@ export default function Preventivi() {
         </Pressable>
       </View>
 
+      {/* Le tre gambe del Libro v1.9 §8-bis: ricerca, stato (qui sopra) e periodo. */}
+      <TextInput
+        style={styles.search}
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Cerca per titolo, cliente, fornitore…"
+        placeholderTextColor={colors.grigio}
+        autoCapitalize="none"
+        clearButtonMode="while-editing"
+      />
+      {/* ⭐ IL PERIODO: filtra su quando il lavoro è stato APERTO
+          (`created_at`) — vedi il commento sullo stato più su. */}
+      <RigaChips style={styles.chipsRiga}>
+        {([
+          { v: 'tutti', l: 'Sempre' },
+          { v: 'mese', l: 'Questo mese' },
+          { v: 'scorso', l: 'Mese scorso' },
+          { v: 'trimestre', l: 'Trimestre' },
+          { v: 'anno', l: 'Anno' },
+        ] as const).map((p) => (
+          <Chip key={p.v} label={p.l} on={periodo === p.v} onPress={() => setPeriodo(p.v)} />
+        ))}
+      </RigaChips>
+
       {!visibili.length && !errore ? (
         <EmptyState
           loading={loading}
           icona="calculator-outline"
-          titolo={soloAperti ? 'Nessun lavoro aperto' : 'Nessun lavoro'}
-          aiuto="Quando un cliente chiede qualcosa fuori standard, aprilo qui sopra e aggiungi i preventivi che ti fanno i fornitori."
+          titolo={
+            query.trim() || periodo !== 'tutti'
+              ? 'Nessun lavoro con questi filtri'
+              : soloAperti
+                ? 'Nessun lavoro aperto'
+                : 'Nessun lavoro'
+          }
+          aiuto={
+            query.trim() || periodo !== 'tutti'
+              ? 'Allarga la ricerca o il periodo: il lavoro potrebbe essere lì.'
+              : 'Quando un cliente chiede qualcosa fuori standard, aprilo qui sopra e aggiungi i preventivi che ti fanno i fornitori.'
+          }
         />
       ) : null}
 
@@ -1296,6 +1367,10 @@ const styles = StyleSheet.create({
   titoloSez: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
   filtroRiga: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg, gap: spacing.sm },
   filtroTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12.5 },
+  // Ricerca e periodo dell'elenco (Libro v1.9 §8-bis): stessi tratti delle
+  // schermate sorelle (richieste-clienti), per non avere due grafie.
+  search: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: 12, paddingVertical: 10, color: colors.testo, fontSize: 14 },
+  chipsRiga: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   form: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 6 },
   formTitolo: { color: colors.navy, fontWeight: '800', fontSize: 16 },
   label: { color: colors.navy, fontWeight: '700', fontSize: 13, marginTop: spacing.sm },

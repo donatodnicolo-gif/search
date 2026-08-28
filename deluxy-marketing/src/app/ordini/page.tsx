@@ -1,6 +1,8 @@
+import { ChipsPeriodo } from "@/components/ChipsPeriodo";
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
+import { intervalloScorciatoia } from "@/lib/periodo";
 import {
   BRANDS,
   COLORE_BRAND,
@@ -39,21 +41,32 @@ function canaleOrdine(origine: string | null, utmSource: string | null): { nome:
 export default async function PaginaOrdini({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; da?: string; a?: string; canale?: string; q?: string }>;
+  searchParams: Promise<{ brand?: string; da?: string; a?: string; canale?: string; q?: string; periodo?: string }>;
 }) {
   const p = await searchParams;
-  const da = p.da ? new Date(p.da) : new Date(Date.now() - 30 * 86_400_000);
-  const a = p.a ? new Date(p.a) : new Date();
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis) si applicano alla DATA
+  // DELL'ORDINE (`data`). La scorciatoia vince sulle caselle da/a: chi la
+  // clicca sta chiedendo proprio quella finestra. `intervallo.a` è esclusiva.
+  const intervallo = intervalloScorciatoia(p.periodo);
+  const da = intervallo ? intervallo.da : p.da ? new Date(p.da) : new Date(Date.now() - 30 * 86_400_000);
+  const a = intervallo ? intervallo.a : p.a ? new Date(p.a) : new Date();
 
   const ordini = await prisma.ordine.findMany({
     where: {
-      data: { gte: da, lte: a },
+      data: intervallo ? { gte: da, lt: a } : { gte: da, lte: a },
       ...(p.brand ? { brand: p.brand } : {}),
       ...(p.q
         ? // ⚠️ Non più per NOME del cliente: quel campo non vive più qui (è di
           // Deluxy Orders). Restano numero e città, che sono i due modi con cui
           // un ordine si cerca davvero da una schermata di marketing.
-          { OR: [{ numero: { contains: p.q } }, { citta: { contains: p.q } }] }
+          // Senza maiuscole (`mode: "insensitive"`): su Postgres `contains`
+          // da solo è case-sensitive, e «milano» non trovava «Milano».
+          {
+            OR: [
+              { numero: { contains: p.q, mode: "insensitive" as const } },
+              { citta: { contains: p.q, mode: "insensitive" as const } },
+            ],
+          }
         : {}),
     },
     orderBy: { data: "desc" },
@@ -136,6 +149,18 @@ export default async function PaginaOrdini({
           </>
         )}
 
+        {/* Le scorciatoie di periodo sulla data dell'ordine. Il form qui sotto
+            non ha un campo `periodo`: il suo submit (con le sue date da/a) le
+            azzera da solo. «Tutte le date» qui riporta al default: ultimi 30
+            giorni — la pagina un periodo lo ha sempre. */}
+        <ChipsPeriodo
+          base="/ordini"
+          periodo={p.periodo}
+          altriFiltri={new URLSearchParams(
+            Object.entries({ brand: p.brand, q: p.q }).filter(([, v]) => v) as [string, string][]
+          ).toString()}
+        />
+
         <form className="filtri" method="get">
           <input type="search" name="q" placeholder="Numero, cliente o città…" defaultValue={p.q ?? ""} />
           <select name="brand" defaultValue={p.brand ?? ""}>
@@ -144,8 +169,15 @@ export default async function PaginaOrdini({
               <option key={b} value={b}>{ETICHETTA_BRAND[b]}</option>
             ))}
           </select>
+          {/* Le caselle mostrano SEMPRE le date che si stanno guardando, anche
+              quando arrivano da una pillola. `a` è esclusiva con la pillola:
+              la casella mostra l'ultimo giorno COMPRESO. */}
           <input type="date" name="da" defaultValue={da.toISOString().slice(0, 10)} />
-          <input type="date" name="a" defaultValue={a.toISOString().slice(0, 10)} />
+          <input
+            type="date"
+            name="a"
+            defaultValue={(intervallo ? new Date(a.getTime() - 86_400_000) : a).toISOString().slice(0, 10)}
+          />
           <button className="btn small" type="submit">Filtra</button>
         </form>
 

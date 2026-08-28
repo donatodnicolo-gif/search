@@ -16,7 +16,19 @@ export default async function Bacheca({
 }) {
   const sp = await searchParams;
   const brand = sp.brand?.trim() || undefined;
+  const q = sp.q?.trim() || undefined;
   const filtroBrand = brand ? { brand } : {};
+  // La ricerca (Libro v1.9 §8-bis): come l'operatore riconosce la card in
+  // bacheca — il numero dell'ordine, il cliente o il destinatario.
+  const filtroRicerca = q
+    ? {
+        OR: [
+          { numero: { contains: q, mode: "insensitive" as const } },
+          { clienteNome: { contains: q, mode: "insensitive" as const } },
+          { spedizioneNome: { contains: q, mode: "insensitive" as const } },
+        ],
+      }
+    : {};
 
   const [stati, negozi] = await Promise.all([
     statiOrdinati(),
@@ -28,9 +40,9 @@ export default async function Bacheca({
   const colonne = await Promise.all(
     stati.map(async (s) => {
       const [conta, ordini] = await Promise.all([
-        prisma.ordine.count({ where: { statoId: s.id, ...filtroBrand } }),
+        prisma.ordine.count({ where: { statoId: s.id, ...filtroBrand, ...filtroRicerca } }),
         prisma.ordine.findMany({
-          where: { statoId: s.id, ...filtroBrand },
+          where: { statoId: s.id, ...filtroBrand, ...filtroRicerca },
           orderBy: { data: "desc" },
           take: PER_COLONNA,
           select: { id: true, numero: true, brand: true, totale: true, valuta: true, clienteNome: true, spedizioneNome: true, citta: true, statoId: true, assegnatoApp: true },
@@ -40,11 +52,11 @@ export default async function Bacheca({
     }),
   );
 
-  const contaSenza = await prisma.ordine.count({ where: { statoId: null, ...filtroBrand } });
+  const contaSenza = await prisma.ordine.count({ where: { statoId: null, ...filtroBrand, ...filtroRicerca } });
   const senzaStato =
     contaSenza > 0
       ? await prisma.ordine.findMany({
-          where: { statoId: null, ...filtroBrand },
+          where: { statoId: null, ...filtroBrand, ...filtroRicerca },
           orderBy: { data: "desc" },
           take: PER_COLONNA,
           select: { id: true, numero: true, brand: true, totale: true, valuta: true, clienteNome: true, spedizioneNome: true, citta: true, statoId: true, assegnatoApp: true },
@@ -58,12 +70,22 @@ export default async function Bacheca({
           <h1 className="page-title">Bacheca</h1>
           <p className="page-sub">Gli ordini per stato della pipeline. Sposta un ordine cambiandone lo stato.</p>
         </div>
-        <form method="get">
+        <form method="get" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {/* La ricerca (Libro v1.9 §8-bis): il numero, il cliente o il
+              destinatario, con lo stesso vestito del select accanto. */}
+          <input
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Cerca numero, cliente, destinatario…"
+            style={{ font: "inherit", padding: "8px 12px", borderRadius: "var(--radius-m)", background: "var(--fill)", border: "1px solid transparent", minWidth: 180 }}
+          />
           <select name="brand" defaultValue={brand ?? ""} style={{ font: "inherit", padding: "8px 12px", borderRadius: "var(--radius-m)", background: "var(--fill)", border: "1px solid transparent" }}>
             <option value="">Tutti i brand</option>
             {negozi.map((n) => <option key={n.id} value={n.brand}>{n.brand}</option>)}
           </select>
-          <button className="btn btn-secondario small" type="submit" style={{ marginLeft: 8 }}>Filtra</button>
+          <button className="btn btn-secondario small" type="submit">Filtra</button>
+          {(q || brand) && <Link className="btn btn-secondario small" href="/bacheca">Azzera</Link>}
         </form>
       </div>
 

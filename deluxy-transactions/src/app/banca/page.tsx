@@ -13,9 +13,14 @@ export const dynamic = "force-dynamic";
 // Il conto visto dall'app: saldo e ultime uscite, con accanto la richiesta
 // Deluxy riconosciuta. Questa pagina non muove niente e non cambia niente: è la
 // risposta alla domanda «il denaro è uscito davvero?».
-export default async function Banca() {
+export default async function Banca({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; periodo?: string }>;
+}) {
   const operatore = await operatoreCorrente();
   if (!operatore) redirect("/login");
+  const sp = await searchParams;
 
   if (!(await qontoConfigurato())) {
     return (
@@ -53,14 +58,46 @@ export default async function Banca() {
     );
   }
 
-  const dal = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const uscite = await movimenti({ contoId: conto.dati.id, dal, soloUscite: true });
+  // Le scorciatoie di periodo (Libro UX&UI v1.9 §8-bis): un parametro solo.
+  // Il periodo si applica alla DATA CONTABILE del movimento (`settled_at`):
+  // è la data con cui la banca lo registra, quella che qui si legge in tabella.
+  // Senza scorciatoia si tengono gli ultimi 30 giorni, com'era prima.
+  const PERIODI = ["mese", "scorso", "trimestre", "anno"] as const;
+  const periodo = PERIODI.includes(sp.periodo as (typeof PERIODI)[number]) ? sp.periodo! : "";
+  const oggi = new Date();
+  const inizioMese = (n: number) => new Date(oggi.getFullYear(), oggi.getMonth() - n, 1);
+  const dal =
+    periodo === "mese" ? inizioMese(0)
+    : periodo === "scorso" ? inizioMese(1)
+    : periodo === "trimestre" ? inizioMese(2) // ultimi 3 mesi incluso il corrente
+    : periodo === "anno" ? new Date(oggi.getFullYear(), 0, 1)
+    : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const al = periodo === "scorso" ? inizioMese(0) : undefined;
+  const ETICHETTA_PERIODO: Record<string, string> = {
+    mese: "del mese in corso",
+    scorso: "del mese scorso",
+    trimestre: "degli ultimi 3 mesi",
+    anno: "dell'anno in corso",
+  };
+  const etichettaUscite = ETICHETTA_PERIODO[periodo] ?? "degli ultimi 30 giorni";
+
+  const uscite = await movimenti({ contoId: conto.dati.id, dal, al, soloUscite: true });
   const richieste = await prisma.richiesta.findMany({
-    where: { creataIl: { gte: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000) } },
+    // La finestra delle richieste deve coprire il periodo mostrato: con «anno»
+    // i 120 giorni di prima lascerebbero i movimenti vecchi senza abbinamento.
+    where: { creataIl: { gte: new Date(Math.min(dal.getTime(), Date.now() - 120 * 24 * 60 * 60 * 1000)) } },
     select: { id: true, riferimento: true, stato: true, importoCent: true },
   });
   const righe = uscite.ok ? abbina(uscite.dati, richieste) : [];
-  const nonRiconosciute = righe.filter((r) => !r.richiesta).length;
+  // La ricerca (Libro v1.9 §8-bis): beneficiario, causale o riferimento della
+  // richiesta abbinata. In memoria: le righe arrivano già tutte dalla banca.
+  const cerca = (sp.q ?? "").trim().toLowerCase();
+  const visibili = cerca
+    ? righe.filter((r) =>
+        `${r.descrizione ?? ""} ${r.causale ?? ""} ${r.richiesta?.riferimento ?? ""}`.toLowerCase().includes(cerca)
+      )
+    : righe;
+  const nonRiconosciute = visibili.filter((r) => !r.richiesta).length;
 
   return (
     <main className="main">
@@ -121,19 +158,48 @@ export default async function Banca() {
       </div>
 
       <div className="scheda">
-        <div className="scheda-titolo">Uscite degli ultimi 30 giorni</div>
+        <div className="scheda-titolo">Uscite {etichettaUscite}</div>
+        {/* Le scorciatoie di periodo (Libro UX&UI v1.9 §8-bis): link GET fuori
+            dal form — il submit del form non porta `periodo` e le azzera. */}
+        <div className="filtri riga-chips-scorri" style={{ marginBottom: 10 }}>
+          {([
+            { v: "mese", l: "Mese in corso" },
+            { v: "scorso", l: "Mese scorso" },
+            { v: "trimestre", l: "Trimestre" },
+            { v: "anno", l: "Anno" },
+          ] as const).map((p) => (
+            <a
+              key={p.v}
+              href={`/banca?periodo=${p.v}${sp.q ? `&q=${encodeURIComponent(sp.q)}` : ""}`}
+              className={`chip-link${periodo === p.v ? " attiva" : ""}`}
+            >
+              {p.l}
+            </a>
+          ))}
+          {periodo && (
+            <a href={`/banca${sp.q ? `?q=${encodeURIComponent(sp.q)}` : ""}`} className="chip-link azzera">
+              Ultimi 30 giorni
+            </a>
+          )}
+        </div>
+        <form className="filtri" method="get" style={{ marginBottom: 10 }}>
+          {/* La ricerca (Libro v1.9 §8-bis): beneficiario, causale o TRX-…. */}
+          <input type="search" name="q" defaultValue={sp.q ?? ""} placeholder="Cerca per beneficiario, causale o riferimento…" />
+          <button className="btn" type="submit">Cerca</button>
+        </form>
         {!uscite.ok ? (
           <div className="avviso-errore">{uscite.errore}</div>
         ) : (
           <p className="firma-nota">
-            {righe.length} uscite · {nonRiconosciute} senza una richiesta Deluxy riconosciuta. Il riconoscimento cerca il
+            {visibili.length}
+            {cerca ? ` su ${righe.length}` : ""} uscite · {nonRiconosciute} senza una richiesta Deluxy riconosciuta. Il riconoscimento cerca il
             riferimento (TRX-…) nella causale del movimento: non si indovina per importo, perché due bonifici uguali
             nello stesso giorno sono normali e sbagliare vorrebbe dire dare per pagata una richiesta che non lo è.
           </p>
         )}
       </div>
 
-      {uscite.ok && righe.length > 0 && (
+      {uscite.ok && visibili.length > 0 && (
         <div className="tabella-wrap">
           <table>
             <thead>
@@ -146,7 +212,7 @@ export default async function Banca() {
               </tr>
             </thead>
             <tbody>
-              {righe.map((r) => (
+              {visibili.map((r) => (
                 <tr key={r.movimentoId}>
                   <td className="cella-muta">{r.data ? quando(new Date(r.data)) : "—"}</td>
                   <td>{r.descrizione || "—"}</td>

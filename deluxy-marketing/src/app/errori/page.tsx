@@ -1,21 +1,48 @@
+import { ChipsPeriodo } from "@/components/ChipsPeriodo";
 import { Sidebar } from "@/components/Sidebar";
 import { chiudiIncidente, creaIncidente } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { formattaData, STATI_CAMPAGNA_IGNORATE } from "@/lib/dominio";
+import { intervalloScorciatoia } from "@/lib/periodo";
 
 export const dynamic = "force-dynamic";
 
 // Storico Errori ERR-* (00.5): registro append-only degli incidenti.
 // Prima di ogni modifica L1-L3 si consulta; una voce APERTA = freeze.
-export default async function PaginaErrori() {
-  const [incidenti, campagne] = await Promise.all([
+export default async function PaginaErrori({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; periodo?: string }>;
+}) {
+  const { q, periodo } = await searchParams;
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis) si applicano ad `apertoIl`:
+  // quando l'incidente è stato aperto — il codice ERR-* segue quella data.
+  const intervallo = intervalloScorciatoia(periodo);
+  const [incidenti, tuttiAperti, campagne] = await Promise.all([
     prisma.incidente.findMany({
+      where: {
+        ...(intervallo ? { apertoIl: { gte: intervallo.da, lt: intervallo.a } } : {}),
+        // La ricerca (Libro v1.9 §8-bis): come ci si ricorda di un incidente —
+        // il codice ERR-* o una parola del titolo. Senza maiuscole.
+        ...(q
+          ? {
+              OR: [
+                { codice: { contains: q, mode: "insensitive" as const } },
+                { titolo: { contains: q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { apertoIl: "desc" },
       include: { campagna: { select: { id: true, nome: true } } },
     }),
+    // ⚠️ Il banner dei freeze si calcola su TUTTA la tabella, non sull'elenco
+    // filtrato: un incidente aperto tre mesi fa blocca ancora, e filtrando
+    // «Mese in corso» sparirebbe proprio l'avviso che deve fermare la mano.
+    prisma.incidente.findMany({ where: { stato: "aperto" }, select: { codice: true } }),
     prisma.campagna.findMany({ where: { stato: { notIn: [...STATI_CAMPAGNA_IGNORATE] } }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
   ]);
-  const aperti = incidenti.filter((i) => i.stato === "aperto");
+  const aperti = tuttiAperti;
 
   const SEZIONI: { campo: "contesto" | "timeline" | "impatto" | "cause" | "erroriProcesso" | "rimedi"; nome: string }[] = [
     { campo: "contesto", nome: "Contesto" },
@@ -49,6 +76,23 @@ export default async function PaginaErrori() {
               campagne collegate sono in freeze finché non si chiudono con verdetto.
             </span>
           </div>
+        )}
+
+        {/* Le scorciatoie di periodo su `apertoIl`. Il form qui sotto non ha
+            un campo `periodo`: il suo submit le azzera da solo. */}
+        <ChipsPeriodo
+          base="/errori"
+          periodo={periodo}
+          altriFiltri={q ? new URLSearchParams({ q }).toString() : ""}
+        />
+
+        <form className="filtri" method="get">
+          <input type="search" name="q" placeholder="Cerca per codice ERR-* o titolo…" defaultValue={q ?? ""} />
+          <button className="btn small" type="submit">Cerca</button>
+        </form>
+
+        {incidenti.length === 0 && (q || periodo) && (
+          <div className="vuoto">Nessun incidente trovato con questi filtri.</div>
         )}
 
         {incidenti.map((i) => (

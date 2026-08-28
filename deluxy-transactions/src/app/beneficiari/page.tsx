@@ -12,15 +12,36 @@ import { ModuloBeneficiario } from "@/components/ModuloBeneficiario";
 
 export const dynamic = "force-dynamic";
 
-export default async function Beneficiari() {
+export default async function Beneficiari({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const operatore = await operatoreCorrente();
   if (!operatore) redirect("/login");
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim();
 
-  const beneficiari = await prisma.beneficiario.findMany({ orderBy: [{ nomeNorm: "asc" }, { creatoIl: "asc" }] });
+  // La ricerca (Libro v1.9 §8-bis): il nome o l'IBAN, i due modi in cui si
+  // riconosce una coordinata. Niente scorciatoie di periodo: questa è una
+  // rubrica, non un archivio datato.
+  const beneficiari = await prisma.beneficiario.findMany({
+    where: q
+      ? {
+          OR: [
+            { nome: { contains: q, mode: "insensitive" } },
+            { iban: { contains: q.replace(/\s/g, "").toUpperCase() } },
+          ],
+        }
+      : {},
+    orderBy: [{ nomeNorm: "asc" }, { creatoIl: "asc" }],
+  });
 
-  // Nomi con più di un IBAN: sono le righe da guardare per prime.
-  const conteggi = new Map<string, number>();
-  for (const b of beneficiari) conteggi.set(b.nomeNorm, (conteggi.get(b.nomeNorm) ?? 0) + 1);
+  // Nomi con più di un IBAN: sono le righe da guardare per prime. Il conteggio
+  // si fa su TUTTA la rubrica, non sulle righe filtrate: cercando un IBAN si
+  // vede una riga sola, ma l'avviso «questo nome ha N IBAN» deve restare vero.
+  const gruppi = await prisma.beneficiario.groupBy({ by: ["nomeNorm"], _count: true });
+  const conteggi = new Map<string, number>(gruppi.map((g) => [g.nomeNorm, g._count]));
 
   return (
     <main className="main">
@@ -40,8 +61,17 @@ export default async function Beneficiari() {
         </div>
       )}
 
+      <form className="filtri" method="get">
+        <input type="search" name="q" defaultValue={q} placeholder="Cerca per nome o IBAN…" />
+        <button className="btn" type="submit">Cerca</button>
+      </form>
+
       {beneficiari.length === 0 ? (
-        <div className="vuoto">La rubrica si riempie da sola: ogni richiesta ci aggiunge il suo beneficiario.</div>
+        <div className="vuoto">
+          {q
+            ? "Nessun beneficiario per questa ricerca."
+            : "La rubrica si riempie da sola: ogni richiesta ci aggiunge il suo beneficiario."}
+        </div>
       ) : (
         <div className="tabella-wrap">
           <table>

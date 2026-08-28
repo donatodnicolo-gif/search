@@ -17,10 +17,33 @@ export const dynamic = "force-dynamic";
 // operativa — «chi sta lavorando male?» — e per questo l'ordine è dal peggiore
 // al migliore, con i mai valutati in fondo: un partner senza giudizi non è un
 // partner scarso, e messo in cima sembrerebbe il problema più grave.
-export default async function Affiliati() {
+export default async function Affiliati({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const sp = await searchParams;
+  const q = sp.q?.trim() || "";
+
   const [righe, ultimiReclami] = await Promise.all([
     prisma.partner.findMany({
-      where: { attivo: true, interessi: { hasSome: [...INTERESSI_AFFILIAZIONE] } },
+      where: {
+        attivo: true,
+        interessi: { hasSome: [...INTERESSI_AFFILIAZIONE] },
+        // La ricerca (Libro v1.9 §8-bis): come si riconosce un affiliato nella
+        // pagella — il nome, la città o la provincia. Restringe la pagella;
+        // gli «ultimi reclami» restano interi, perché rispondono a un'altra
+        // domanda («cosa sta succedendo»), non alla ricerca.
+        ...(q
+          ? {
+              OR: [
+                { nome: { contains: q, mode: "insensitive" as const } },
+                { citta: { contains: q, mode: "insensitive" as const } },
+                { provincia: { contains: q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
+      },
       select: {
         id: true,
         nome: true,
@@ -83,6 +106,20 @@ export default async function Affiliati() {
           </div>
         </div>
 
+        {/* La ricerca (Libro v1.9 §8-bis). Niente scorciatoie di periodo: è un
+            registro (la pagella di chi serve le consegne), non un elenco
+            datato — l'unica lista con le date, gli ultimi reclami, è già una
+            finestra fissa sugli ultimi 15. */}
+        <form className="filtri" method="get">
+          <input
+            type="search"
+            name="q"
+            placeholder="Cerca per nome, città o provincia…"
+            defaultValue={q}
+          />
+          <button className="btn btn-secondario" type="submit">Filtra</button>
+        </form>
+
         <div className="dash-grid" style={{ marginBottom: 20 }}>
           <div className="scheda">
             <div className="scheda-titolo">Affiliati e re-seller</div>
@@ -113,7 +150,9 @@ export default async function Affiliati() {
           </h2>
           {valutazioni.length === 0 ? (
             <p className="testo-guida" style={{ margin: 0 }}>
-              Nessuna anagrafica con linea Affiliazioni o Re-seller.
+              {q
+                ? `Nessun affiliato o re-seller che corrisponda a «${q}». Prova ad allargare o azzerare la ricerca.`
+                : "Nessuna anagrafica con linea Affiliazioni o Re-seller."}
             </p>
           ) : (
             <div className="tabella-wrap" style={{ boxShadow: "none", border: "1px solid var(--hairline)" }}>

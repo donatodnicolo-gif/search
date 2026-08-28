@@ -4,6 +4,8 @@ import { richiediUtente } from '@/lib/sessione'
 import { raggruppa } from '@/lib/thread'
 import { nomiPerGruppi, chiaviPerNome } from '@/lib/nomiThread'
 import { RicercaMail } from '@/components/RicercaMail'
+import { ChipsPeriodo } from '@/components/ChipsPeriodo'
+import { intervalloPeriodo } from '@/lib/periodo'
 import { CondizioniRicerca } from '@/components/CondizioniRicerca'
 import { CercaServer } from '@/components/CercaServer'
 import { ListaInviati, type RigaInviata } from '@/components/ListaInviati'
@@ -20,12 +22,17 @@ type Props = {
     allegati?: string
     dove?: string
     sezione?: string
+    periodo?: string
   }>
 }
 
 export default async function PostaInviata({ searchParams }: Props) {
-  const { q: qGrezzo, a, dal, al, allegati, dove, sezione } = await searchParams
+  const { q: qGrezzo, a, dal, al, allegati, dove, sezione, periodo } = await searchParams
   const q = (qGrezzo ?? '').trim()
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis) sulla DATA D'INVIO (`data`).
+  // Convivono in AND con dal/al scritti a mano nelle condizioni; applicare una
+  // condizione riparte senza `periodo`, quindi le date a mano vincono.
+  const intervallo = intervalloPeriodo(periodo)
   // Le stesse condizioni della posta in arrivo, meno «da»: qui il mittente sei
   // sempre tu, e un campo che non filtra niente è peggio che non averlo.
   const cond = {
@@ -52,6 +59,7 @@ export default async function PostaInviata({ searchParams }: Props) {
         cestinato: false,
         // Casella attiva (multi-account): solo gli inviati da quella.
         ...(accountAttivo ? { accountId: accountAttivo } : {}),
+        ...(intervallo ? { data: { gte: intervallo.gte, lt: intervallo.lt } } : {}),
         // Parole e condizioni si sommano in AND: «preventivo» nell'oggetto E a
         // Martina E di settembre. Ogni pezzo può stare anche da solo.
         ...(ricerca
@@ -191,6 +199,13 @@ export default async function PostaInviata({ searchParams }: Props) {
       </div>
 
       <div style={{ marginBottom: 16 }}>
+        {/* Chips fuori dal form: ricerca e condizioni ripartono senza
+            `periodo` e lo azzerano da sole (Libro v1.9 §8-bis). */}
+        <ChipsPeriodo
+          base="/inviata"
+          periodo={periodo}
+          altri={{ q: q || undefined, a: cond.a || undefined, dal: cond.dal || undefined, al: cond.al || undefined, allegati, dove: cond.dove || undefined, sezione: cond.sezione || undefined }}
+        />
         <RicercaMail iniziale={q} base="/inviata" placeholder="Cerca negli inviati (destinatario, oggetto, testo)…" />
         <CondizioniRicerca
           valori={{ q, a: cond.a, dal: cond.dal, al: cond.al, allegati, dove: cond.dove, sezione: cond.sezione }}
@@ -205,13 +220,17 @@ export default async function PostaInviata({ searchParams }: Props) {
       <div className="card tight">
         {messaggi.length === 0 ? (
           <div className="empty">
-            <div className="empty-icon">{ricerca ? '⌕' : '↗'}</div>
+            {/* Col periodo attivo «Non hai ancora inviato niente» sarebbe una
+                bugia: gli inviati ci sono, non in QUESTO periodo. */}
+            <div className="empty-icon">{ricerca || intervallo ? '⌕' : '↗'}</div>
             <div className="empty-title">
-              {ricerca ? 'Nessun inviato trovato' : 'Non hai ancora inviato niente'}
+              {ricerca || intervallo ? 'Nessun inviato trovato' : 'Non hai ancora inviato niente'}
             </div>
             <p className="empty-text">
-              {ricerca
-                ? `Nessuna mail inviata corrisponde a «${q}».`
+              {ricerca || intervallo
+                ? ricerca
+                  ? `Nessuna mail inviata corrisponde a «${q}».`
+                  : 'Nessuna mail inviata nel periodo scelto.'
                 : 'Qui compaiono le risposte e gli inoltri che parti da AI Mail. Quello che hai mandato da altri programmi resta nella tua casella, non qui.'}
             </p>
           </div>

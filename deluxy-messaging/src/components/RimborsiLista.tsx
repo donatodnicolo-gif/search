@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { ChipsPeriodo } from './ChipsPeriodo'
+import type { Periodo } from '@/lib/periodo'
 import {
   STATI_RIMBORSO,
   avvisoPagamento,
@@ -74,6 +76,9 @@ export function RimborsiLista({ prefill }: { prefill?: PrefillRimborso }) {
   const [q, setQ] = useState('')
   const [qCercata, setQCercata] = useState('')
   const [filtroStato, setFiltroStato] = useState('aperti')
+  // La scorciatoia di periodo (Libro v1.9 §8-bis), sulla DATA DELLA RICHIESTA
+  // (`creatoIl`). ⚠️ Filtra il SERVER: l'elenco è tagliato a 300.
+  const [periodo, setPeriodo] = useState<Periodo>('')
 
   // Riga in cui si sta scrivendo l'esito prima di segnare "rimborsato".
   const [esitoDi, setEsitoDi] = useState('')
@@ -84,6 +89,7 @@ export function RimborsiLista({ prefill }: { prefill?: PrefillRimborso }) {
       const p = new URLSearchParams()
       if (qCercata) p.set('q', qCercata)
       if (filtroStato) p.set('stato', filtroStato)
+      if (periodo) p.set('periodo', periodo)
       const res = await fetch('/api/rimborsi?' + p.toString())
       if (!res.ok) return
       const d = (await res.json()) as {
@@ -99,7 +105,7 @@ export function RimborsiLista({ prefill }: { prefill?: PrefillRimborso }) {
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, filtroStato])
+  }, [qCercata, filtroStato, periodo])
 
   useEffect(() => {
     const t = setTimeout(() => setQCercata(q.trim()), 300)
@@ -190,7 +196,7 @@ export function RimborsiLista({ prefill }: { prefill?: PrefillRimborso }) {
   const daApprovare = perStato['richiesto']?.conteggio ?? 0
   const approvati = perStato['approvato']?.conteggio ?? 0
   const eseguiti = perStato['eseguito'] ?? { conteggio: 0, importo: 0 }
-  const filtriAttivi = !!(qCercata || filtroStato !== 'aperti')
+  const filtriAttivi = !!(qCercata || periodo || filtroStato !== 'aperti')
 
   // Quanto resta rimborsabile sull'ordine in bozza (solo indicativo: il tetto
   // vero lo ricontrolla il server, che vede anche le altre richieste).
@@ -343,6 +349,10 @@ export function RimborsiLista({ prefill }: { prefill?: PrefillRimborso }) {
         </div>
       ) : null}
 
+      {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): sulla data della
+          richiesta di rimborso. */}
+      <ChipsPeriodo valore={periodo} cambia={setPeriodo} campo="la data della richiesta" />
+
       <div className="barra-ricerca">
         <input
           type="search"
@@ -370,6 +380,7 @@ export function RimborsiLista({ prefill }: { prefill?: PrefillRimborso }) {
             onClick={() => {
               setQ('')
               setFiltroStato('aperti')
+              setPeriodo('')
             }}
           >
             Azzera

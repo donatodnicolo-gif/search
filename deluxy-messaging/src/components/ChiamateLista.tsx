@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { ChipsPeriodo } from './ChipsPeriodo'
+import { nelPeriodo, type Periodo } from '@/lib/periodo'
 
 // LE CHIAMATE RICEVUTE.
 //
@@ -83,6 +85,13 @@ export function ChiamateLista() {
   const [caricato, setCaricato] = useState(false)
   const [soloAperte, setSoloAperte] = useState(true)
   const [marchio, setMarchio] = useState('')
+  // Ricerca e periodo (Libro v1.9 §8-bis). La ricerca filtra in memoria le
+  // chiamate caricate; il periodo è su QUANDO HA SQUILLATO il telefono
+  // (`quando`). ⚠️ Con una chip accesa si chiede al server la finestra a un
+  // anno (`giorni=366`) invece dei 30 giorni di serie: una chip «Anno» sopra
+  // una finestra di un mese mostrerebbe un anno con i buchi.
+  const [q, setQ] = useState('')
+  const [periodo, setPeriodo] = useState<Periodo>('')
   const [notifica, setNotifica] = useState('')
   const [esitoDi, setEsitoDi] = useState('')
   const [testoEsito, setTestoEsito] = useState('')
@@ -95,6 +104,7 @@ export function ChiamateLista() {
       const p = new URLSearchParams()
       if (soloAperte) p.set('aperte', '1')
       if (marchio) p.set('negozio', marchio)
+      if (periodo) p.set('giorni', '366')
       const res = await fetch(`/api/chiamate?${p}`, { cache: 'no-store' })
       const d = (await res.json().catch(() => ({}))) as {
         chiamate?: Chiamata[]
@@ -109,7 +119,7 @@ export function ChiamateLista() {
     } finally {
       setCaricato(true)
     }
-  }, [soloAperte, marchio])
+  }, [soloAperte, marchio, periodo])
 
   useEffect(() => {
     void carica()
@@ -156,6 +166,18 @@ export function ChiamateLista() {
       setErrore('Numero non salvato: problema di rete.')
     }
   }
+
+  // Il filtro in memoria: periodo su `quando`, ricerca sui campi con cui si
+  // riconosce la chiamata.
+  const cercato = q.trim().toLowerCase()
+  const visibili = chiamate.filter((c) => {
+    if (!nelPeriodo(c.quando, periodo)) return false
+    if (!cercato) return true
+    return [c.numero, c.chiamante, c.clienteNome, c.ordineNumero, c.negozioNome, c.oggetto]
+      .join(' ')
+      .toLowerCase()
+      .includes(cercato)
+  })
 
   return (
     <main>
@@ -205,6 +227,22 @@ export function ChiamateLista() {
         ))}
       </div>
 
+      {/* La ricerca (Libro v1.9 §8-bis): come si riconosce una chiamata — il
+          numero, chi era, l'ordine o il marchio. Filtra le chiamate caricate. */}
+      <div className="barra-ricerca">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Cerca per numero, cliente, ordine o marchio…"
+          aria-label="Cerca chiamate"
+        />
+      </div>
+
+      {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): su quando ha squillato
+          il telefono. */}
+      <ChipsPeriodo valore={periodo} cambia={setPeriodo} campo="la data della chiamata" />
+
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
         <button
           className={`btn ${soloAperte ? '' : 'btn-secondario'} small`}
@@ -216,7 +254,9 @@ export function ChiamateLista() {
           className={`btn ${soloAperte ? 'btn-secondario' : ''} small`}
           onClick={() => setSoloAperte(false)}
         >
-          Tutte (30 giorni)
+          {/* ⚠️ Con una chip di periodo accesa la finestra non è più di 30
+              giorni: scriverlo mentirebbe. */}
+          {periodo ? 'Tutte' : 'Tutte (30 giorni)'}
         </button>
         {marchio ? (
           <button className="btn btn-secondario small" onClick={() => setMarchio('')}>
@@ -227,13 +267,17 @@ export function ChiamateLista() {
 
       {!caricato ? (
         <p className="colonna-vuota">Carico…</p>
-      ) : chiamate.length === 0 ? (
+      ) : visibili.length === 0 ? (
         <p className="colonna-vuota">
-          {soloAperte ? 'Nessuno da richiamare.' : 'Nessuna chiamata registrata.'}
+          {cercato || periodo
+            ? 'Nessuna chiamata corrisponde ai filtri.'
+            : soloAperte
+              ? 'Nessuno da richiamare.'
+              : 'Nessuna chiamata registrata.'}
         </p>
       ) : (
         <div className="card" style={{ padding: 0 }}>
-          {chiamate.map((c) => (
+          {visibili.map((c) => (
             <div key={c.id} className="chiamata">
               {/* ⚠️ Ora e marchio sulla STESSA riga: sono due parole corte, e su
                   un telefono ogni blocco che si prende una riga sua costa 20px

@@ -261,13 +261,16 @@ export type MovimentoQonto = {
   emitted_at?: string;
 };
 
-export async function movimenti(opzioni: { contoId: string; dal?: Date; soloUscite?: boolean }): Promise<
+export async function movimenti(opzioni: { contoId: string; dal?: Date; al?: Date; soloUscite?: boolean }): Promise<
   EsitoChiamata<MovimentoQonto[]>
 > {
   const q = new URLSearchParams({ bank_account_id: opzioni.contoId, per_page: "100", sort_by: "settled_at:desc" });
   q.append("status[]", "completed");
   if (opzioni.soloUscite) q.set("side", "debit");
   if (opzioni.dal) q.set("settled_at_from", opzioni.dal.toISOString());
+  // Il limite destro serve per «mese scorso», che finisce dove inizia il mese
+  // in corso: si passa la mezzanotte del primo del mese dopo.
+  if (opzioni.al) q.set("settled_at_to", opzioni.al.toISOString());
   const r = await chiama<{ transactions?: MovimentoQonto[] }>(`/transactions?${q.toString()}`);
   if (!r.ok) return r;
   return { ok: true, dati: r.dati?.transactions ?? [] };

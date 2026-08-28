@@ -16,13 +16,28 @@ const PER_PAGINA = 50;
 export default async function Elenco({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; q?: string; pagina?: string }>;
+  searchParams: Promise<{ stato?: string; q?: string; periodo?: string; pagina?: string }>;
 }) {
   if (!(await operatoreCorrente())) redirect("/login");
   const sp = await searchParams;
   const stato = sp.stato && STATI.includes(sp.stato as (typeof STATI)[number]) ? sp.stato : "";
   const q = (sp.q ?? "").trim();
   const pagina = Math.max(1, Number(sp.pagina ?? 1) || 1);
+
+  // Le scorciatoie di periodo (Libro UX&UI v1.9 §8-bis): un parametro solo.
+  // Il periodo si applica alla data di CREAZIONE della richiesta (`creataIl`):
+  // è la data che ogni riga ha di sicuro — quella di pagamento ce l'hanno solo
+  // le richieste arrivate in fondo.
+  const PERIODI = ["mese", "scorso", "trimestre", "anno"] as const;
+  const periodo = PERIODI.includes(sp.periodo as (typeof PERIODI)[number]) ? sp.periodo! : "";
+  const oggi = new Date();
+  const inizioMese = (n: number) => new Date(oggi.getFullYear(), oggi.getMonth() - n, 1);
+  const intervallo =
+    periodo === "mese" ? { gte: inizioMese(0) }
+    : periodo === "scorso" ? { gte: inizioMese(1), lt: inizioMese(0) }
+    : periodo === "trimestre" ? { gte: inizioMese(2) } // ultimi 3 mesi incluso il corrente
+    : periodo === "anno" ? { gte: new Date(oggi.getFullYear(), 0, 1) }
+    : null;
 
   const dove = {
     ...(stato ? { stato } : {}),
@@ -36,6 +51,7 @@ export default async function Elenco({
           ],
         }
       : {}),
+    ...(intervallo ? { creataIl: intervallo } : {}),
   };
 
   const [totale, righe] = await Promise.all([
@@ -59,6 +75,30 @@ export default async function Elenco({
         <a className="btn btn-secondario" href="/richieste/nuova">
           Nuova richiesta
         </a>
+      </div>
+
+      {/* Le scorciatoie di periodo (Libro UX&UI v1.9 §8-bis): link GET fuori
+          dal form — il submit del form non porta `periodo` e le azzera da solo. */}
+      <div className="filtri riga-chips-scorri" style={{ marginBottom: 10 }}>
+        {([
+          { v: "mese", l: "Mese in corso" },
+          { v: "scorso", l: "Mese scorso" },
+          { v: "trimestre", l: "Trimestre" },
+          { v: "anno", l: "Anno" },
+        ] as const).map((p) => (
+          <a
+            key={p.v}
+            href={`/richieste?periodo=${p.v}${stato ? `&stato=${stato}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+            className={`chip-link${periodo === p.v ? " attiva" : ""}`}
+          >
+            {p.l}
+          </a>
+        ))}
+        {periodo && (
+          <a href={`/richieste${stato || q ? `?${new URLSearchParams({ ...(stato ? { stato } : {}), ...(q ? { q } : {}) })}` : ""}`} className="chip-link azzera">
+            Tutte le date
+          </a>
+        )}
       </div>
 
       <form className="filtri" method="get">
@@ -126,12 +166,12 @@ export default async function Elenco({
           </span>
           <nav>
             {pagina > 1 && (
-              <a className="btn btn-secondario small" href={`/richieste?stato=${stato}&q=${encodeURIComponent(q)}&pagina=${pagina - 1}`}>
+              <a className="btn btn-secondario small" href={`/richieste?stato=${stato}&q=${encodeURIComponent(q)}&periodo=${periodo}&pagina=${pagina - 1}`}>
                 Precedente
               </a>
             )}
             {pagina < pagine && (
-              <a className="btn btn-secondario small" href={`/richieste?stato=${stato}&q=${encodeURIComponent(q)}&pagina=${pagina + 1}`}>
+              <a className="btn btn-secondario small" href={`/richieste?stato=${stato}&q=${encodeURIComponent(q)}&periodo=${periodo}&pagina=${pagina + 1}`}>
                 Successiva
               </a>
             )}

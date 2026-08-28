@@ -34,7 +34,7 @@ function dataIt(d: Date | null) {
 export default async function UtentiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; errore?: string; nome?: string }>;
+  searchParams: Promise<{ ok?: string; errore?: string; nome?: string; q?: string }>;
 }) {
   const sessione = await richiediAdmin();
   const sp = await searchParams;
@@ -67,6 +67,16 @@ export default async function UtentiPage({
 
   // Il nome può arrivare precompilato dal bottone "Crea account" dell'organico.
   const nomePrecompilato = typeof sp.nome === "string" ? sp.nome : "";
+
+  // La ricerca (Libro v1.9 §8-bis): nome o email, insensibile alle maiuscole.
+  // Si filtra QUI e non nella query: la lista intera serve comunque sopra, a
+  // dire chi dell'organico ha già un account — filtrata nel database, una
+  // ricerca avrebbe fatto sparire account che esistono. Niente scorciatoie di
+  // periodo: è un registro di utenti, non un elenco datato.
+  const q = sp.q?.trim().toLowerCase() ?? "";
+  const visibili = q
+    ? utenti.filter((u) => u.nome.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+    : utenti;
 
   return (
     <main className="main">
@@ -127,7 +137,28 @@ export default async function UtentiPage({
       </div>
       <OrganicoBudgets organico={organico} accountDi={accountDi} />
 
-      <div className="section-label">{utenti.length} utenti</div>
+      <div className="section-label">
+        {q ? `${visibili.length} di ${utenti.length} utenti` : `${utenti.length} utenti`}
+      </div>
+      {/* La ricerca resta nell'URL (GET): il link si condivide e il filtro
+          sopravvive alle azioni della pagina. */}
+      <form className="cerca-app" method="get">
+        <input
+          type="search"
+          name="q"
+          defaultValue={sp.q ?? ""}
+          placeholder="Cerca per nome o email…"
+          aria-label="Cerca fra gli utenti"
+        />
+        <button className="btn" type="submit">Cerca</button>
+      </form>
+      {visibili.length === 0 ? (
+        <div className="vuoto">
+          {q
+            ? <>Nessun utente con «{sp.q?.trim()}». Prova con una parola del nome o dell&apos;email.</>
+            : "Nessun utente ancora."}
+        </div>
+      ) : (
       <div className="card" style={{ padding: "20px 12px" }}>
         {/* Sotto i ~768px la tabella misura più della card: senza questo
             contenitore le colonne Stato, Ultimo accesso e il comando «Modifica»
@@ -144,7 +175,7 @@ export default async function UtentiPage({
             </tr>
           </thead>
           <tbody>
-            {utenti.map((u) => (
+            {visibili.map((u) => (
               <RigaUtente
                 key={u.id}
                 utente={{
@@ -172,6 +203,7 @@ export default async function UtentiPage({
         </table>
         </div>
       </div>
+      )}
     </main>
   );
 }

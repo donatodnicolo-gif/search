@@ -9,6 +9,7 @@ import { ultimoImportOrders } from '@/lib/orders'
 import { ordiniConMessaggi } from '@/lib/messaggi-ordine'
 import { chiamateDegliOrdini } from '@/lib/chiamate'
 import { inizioDomani, inizioOggi, limiteCalde } from '@/lib/urgenza'
+import { intervalloPeriodo, periodoValido } from '@/lib/periodo'
 
 export const dynamic = 'force-dynamic'
 
@@ -156,6 +157,7 @@ async function ordiniOrdinati(
 //   rimborsi "nascondi" = fuori gli ordini con una richiesta di rimborso viva
 //   presa    "miei" | "liberi" (chi se ne sta occupando)
 //   nuovi    "si" = solo quelli entrati nelle ultime ORE_APPENA_ARRIVATO ore
+//   periodo  mese | scorso | trimestre | anno (scorciatoie §8-bis, su `data`)
 // Torna anche se Google è collegato (per abilitare i bottoni "Salva contatto").
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams
@@ -223,6 +225,14 @@ export async function GET(req: NextRequest) {
   if (soloNuovi) {
     dove.creatoIl = { gte: new Date(Date.now() - ORE_APPENA_ARRIVATO * 3600 * 1000) }
   }
+
+  // ── La scorciatoia di periodo (Libro v1.9 §8-bis) ──
+  //
+  // Sulla DATA DELL'ORDINE (`data`, quella di Shopify) — non su `creatoIl`,
+  // che è quando l'ordine è comparso da noi. ⚠️ Sta QUI e non nel browser, per
+  // lo stesso motivo di «Solo nuovi»: la lista è tagliata a 200.
+  const intervallo = intervalloPeriodo(periodoValido(p.get('periodo')))
+  if (intervallo) dove.data = { gte: intervallo.da, lt: intervallo.a }
 
   if (contatto === 'si') dove.contattoSalvato = true
   if (contatto === 'no') dove.contattoSalvato = false

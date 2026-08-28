@@ -7,6 +7,9 @@ import { ChiudiTutteAttivita } from '@/components/ChiudiTutteAttivita'
 import { DecidiSpamRiga } from '@/components/DecidiSpamRiga'
 import { BottoneEsegui } from '@/components/BottoneEsegui'
 import { NuovaAttivita } from '@/components/NuovaAttivita'
+import { RicercaMail } from '@/components/RicercaMail'
+import { ChipsPeriodo } from '@/components/ChipsPeriodo'
+import { intervalloPeriodo } from '@/lib/periodo'
 import { coloreDiPriorita, priorita as livello, FUSO } from '@/lib/format'
 import { richiediUtente } from '@/lib/sessione'
 import { raggruppa } from '@/lib/thread'
@@ -29,7 +32,18 @@ export const dynamic = 'force-dynamic'
  * chiama qui come si chiama là — applicato alle sole mail citate dalle attività
  * aperte: sono poche, quindi non costa niente.
  */
-export default async function Attivita() {
+export default async function Attivita({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; periodo?: string }>
+}) {
+  const { q: qGrezzo, periodo } = await searchParams
+  const q = (qGrezzo ?? '').trim()
+  const ricerca = q.length >= 2
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis) sulla DATA DI CREAZIONE
+  // (`creataIl`): è la data che la riga mostra («creata il …»). Valgono per
+  // le attività APERTE; le «fatte di recente» restano le ultime 20 comunque.
+  const intervallo = intervalloPeriodo(periodo)
   const u = await richiediUtente()
   const campiMessaggio = {
     id: true,
@@ -47,7 +61,24 @@ export default async function Attivita() {
 
   const [daFare, fatte] = await Promise.all([
     db.attivita.findMany({
-      where: { utenteId: u.id, fatta: false },
+      where: {
+        utenteId: u.id,
+        fatta: false,
+        ...(intervallo ? { creataIl: { gte: intervallo.gte, lt: intervallo.lt } } : {}),
+        // La ricerca (Libro v1.9 §8-bis): come si riconosce una cosa da fare —
+        // cosa chiede (titolo/dettaglio) o chi l'ha fatta nascere.
+        ...(ricerca
+          ? {
+              OR: [
+                { titolo: { contains: q, mode: 'insensitive' as const } },
+                { dettaglio: { contains: q, mode: 'insensitive' as const } },
+                { messaggio: { oggetto: { contains: q, mode: 'insensitive' as const } } },
+                { messaggio: { mittente: { contains: q, mode: 'insensitive' as const } } },
+                { messaggio: { mittenteNome: { contains: q, mode: 'insensitive' as const } } },
+              ],
+            }
+          : {}),
+      },
       // Le più recenti in cima: ordine per data di creazione, discendente.
       orderBy: { creataIl: 'desc' },
       include: { messaggio: { select: campiMessaggio } },
@@ -152,13 +183,32 @@ export default async function Attivita() {
 
       <NuovaAttivita />
 
+      <div style={{ margin: '12px 0 16px' }}>
+        {/* Chips fuori dal form: un nuovo submit della ricerca riparte senza
+            `periodo` e lo azzera da solo (Libro v1.9 §8-bis). */}
+        <ChipsPeriodo base="/attivita" periodo={periodo} altri={{ q: ricerca ? q : undefined }} />
+        <RicercaMail
+          iniziale={ricerca ? q : ''}
+          base="/attivita"
+          placeholder="Cerca fra le attività (cosa chiede, mittente, oggetto)…"
+        />
+      </div>
+
       {daFare.length === 0 ? (
         <div className="card tight">
           <div className="empty">
-            <div className="empty-icon">✓</div>
-            <div className="empty-title">Non hai attività aperte</div>
+            {/* Filtrando, «Non hai attività aperte» sarebbe una bugia: le
+                attività ci sono, non rispondono a QUESTA domanda. */}
+            <div className="empty-icon">{ricerca || intervallo ? '⌕' : '✓'}</div>
+            <div className="empty-title">
+              {ricerca || intervallo ? 'Nessuna attività trovata' : 'Non hai attività aperte'}
+            </div>
             <p className="empty-text">
-              Quando una mail ti chiede qualcosa, l’attività compare qui da sola.
+              {ricerca
+                ? `Nessuna attività aperta corrisponde a «${q}».`
+                : intervallo
+                  ? 'Nessuna attività aperta creata nel periodo scelto.'
+                  : 'Quando una mail ti chiede qualcosa, l’attività compare qui da sola.'}
             </p>
           </div>
         </div>

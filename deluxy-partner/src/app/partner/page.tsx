@@ -195,6 +195,29 @@ export default async function PartnerList({
     return `/partner?${qs.toString()}`;
   };
 
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis): qui il periodo vive GIÀ nei
+  // select «Da/A mese» — le chips scrivono gli stessi dal/al (una fonte sola,
+  // niente secondo parametro da tenere allineato). Si applicano alla competenza
+  // mensile di vendite e fatture dell'anno in corso; la pagina è annuale, quindi
+  // «Anno» coincide con l'azzeramento (tutto l'anno) e a inizio anno i mesi che
+  // scavallerebbero si stringono al perimetro dell'anno.
+  const linkPeriodo = (d?: number, a?: number) => {
+    const qs = new URLSearchParams();
+    for (const [k, val] of Object.entries(sp)) {
+      if (val && !["dal", "al", "importFatto", "importErrore"].includes(k)) qs.set(k, val);
+    }
+    if (d) qs.set("dal", String(d));
+    if (a) qs.set("al", String(a));
+    const s = qs.toString();
+    return s ? `/partner?${s}` : "/partner";
+  };
+  const mOggi = new Date().getMonth() + 1;
+  const chipsPeriodo = [
+    { l: "Mese in corso", d: mOggi, a: mOggi },
+    { l: "Mese scorso", d: Math.max(1, mOggi - 1), a: Math.max(1, mOggi - 1) },
+    { l: "Trimestre", d: Math.max(1, mOggi - 2), a: mOggi },
+  ];
+
   type T = (typeof tutti)[number];
   const campi: Record<string, (t: T) => string | number | null> = {
     nome: (t) => t.partner.nome,
@@ -242,6 +265,23 @@ export default async function PartnerList({
       </Suspense>
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+        {/* Chips fuori dal form: il submit riscrive dal/al dai select e le
+            «spegne» da solo. In gennaio «Mese in corso» e «Trimestre»
+            coincidono: caso limite accettato. */}
+        <div className="filters riga-chips-scorri" style={{ marginBottom: 10 }}>
+          {chipsPeriodo.map((c) => (
+            <Link
+              key={c.l}
+              href={linkPeriodo(c.d, c.a)}
+              className={`chip-link${dal === c.d && al === c.a ? " attiva" : ""}`}
+            >
+              {c.l}
+            </Link>
+          ))}
+          <Link href={linkPeriodo()} className={`chip-link${periodoRidotto ? " azzera" : " attiva"}`}>
+            Anno
+          </Link>
+        </div>
         <form className="filters" method="get">
           <input type="text" name="q" placeholder="Cerca partner…" defaultValue={sp.q ?? ""} />
           {/* I select vivono dietro «Filtri (N)» sotto la soglia mobile (Libro

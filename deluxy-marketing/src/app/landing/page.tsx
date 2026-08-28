@@ -42,7 +42,16 @@ export default async function PaginaLanding({
     where: {
       ...(brand ? { brand } : {}),
       ...(stato ? { stato } : {}),
-      ...(q ? { OR: [{ url: { contains: q } }, { scopo: { contains: q } }] } : {}),
+      // La ricerca ignora le maiuscole (`mode: "insensitive"`): su Postgres
+      // `contains` da solo è case-sensitive.
+      ...(q
+        ? {
+            OR: [
+              { url: { contains: q, mode: "insensitive" as const } },
+              { scopo: { contains: q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
     },
     orderBy: { url: "asc" },
     include: {

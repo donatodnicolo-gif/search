@@ -15,26 +15,37 @@ export const dynamic = "force-dynamic";
 export default async function FornitoriPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; ordina?: string }>;
+  searchParams: Promise<{ vista?: string; ordina?: string; q?: string }>;
 }) {
   const sp = await searchParams;
   const brand = await brandCorrente();
   const vista = sp.vista === "categoria" ? "categoria" : "";
   const ordina = sp.ordina ?? "venduto";
+  const cerca = (sp.q ?? "").trim();
   const per: ChiaveRaggruppamento = vista === "categoria" ? "fornitore-tipo" : "fornitore";
 
   const where = { ...filtroProdotti(brand) } as Record<string, unknown>;
   const gruppi = await calcolaGruppi({ where, brand, per, ordina });
+
+  // La ricerca (Libro UX&UI v1.9 §8-bis): sul nome del fornitore, in memoria —
+  // i gruppi sono già calcolati e sono decine, non migliaia. I totali qui sotto
+  // restano sull'insieme intero: la ricerca restringe la tabella, non i conti.
+  // Niente scorciatoie di periodo: è un registro anagrafico, il venduto ha già
+  // la sua finestra fissa (90 giorni).
+  const visibili = cerca
+    ? gruppi.filter((g) => g.etichetta.toLowerCase().includes(cerca.toLowerCase()))
+    : gruppi;
 
   const conFornitore = gruppi.filter((g) => !g.etichetta.startsWith("—"));
   const prodottiTotali = gruppi.reduce((s, g) => s + g.prodotti, 0);
   const ricavoTotale = gruppi.reduce((s, g) => s + g.ricavo, 0);
   const senzaFornitore = gruppi.find((g) => g.etichetta === "— senza fornitore —");
 
-  const link = (v: string, o: string) => {
+  const link = (v: string, o: string, conRicerca = true) => {
     const q = new URLSearchParams();
     if (v) q.set("vista", v);
     if (o !== "venduto") q.set("ordina", o);
+    if (cerca && conRicerca) q.set("q", cerca);
     const s = q.toString();
     return s ? `/fornitori?${s}` : "/fornitori";
   };
@@ -66,6 +77,27 @@ export default async function FornitoriPage({
           </a>
         </div>
 
+        {/* La ricerca (Libro v1.9 §8-bis): form GET, così il filtro sta
+            nell'indirizzo. Vista e ordinamento viaggiano nascosti e non si
+            perdono al submit. */}
+        <form method="get" className="filtri">
+          {vista && <input type="hidden" name="vista" value={vista} />}
+          {ordina !== "venduto" && <input type="hidden" name="ordina" value={ordina} />}
+          <input
+            type="search"
+            name="q"
+            defaultValue={cerca}
+            placeholder="Cerca un fornitore…"
+            aria-label="Cerca un fornitore"
+          />
+          <button className="btn btn-secondario" type="submit">Cerca</button>
+          {cerca && (
+            <span className="page-sub" style={{ margin: 0, alignSelf: "center" }}>
+              {visibili.length} su {gruppi.length} · <a href={link(vista, ordina, false)}>azzera</a>
+            </span>
+          )}
+        </form>
+
         <p className="page-sub" style={{ margin: "12px 0" }}>
           {conFornitore.length} {vista === "categoria" ? "combinazioni" : "fornitori"} · {prodottiTotali} prodotti ·
           venduto 90gg {euro(ricavoTotale)}
@@ -78,11 +110,13 @@ export default async function FornitoriPage({
           ) : null}
         </p>
 
-        {gruppi.length === 0 ? (
-          <div className="vuoto">Nessun prodotto in questo ambito.</div>
+        {visibili.length === 0 ? (
+          <div className="vuoto">
+            {cerca ? "Nessun fornitore per questa ricerca." : "Nessun prodotto in questo ambito."}
+          </div>
         ) : (
           <TabellaGruppi
-            gruppi={gruppi}
+            gruppi={visibili}
             titoloColonna="Fornitore"
             ordina={ordina}
             linkOrdine={(o) => link(vista, o)}

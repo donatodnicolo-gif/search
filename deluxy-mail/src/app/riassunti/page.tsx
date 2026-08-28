@@ -3,11 +3,13 @@ import { db } from '@/lib/db'
 import { richiediUtente } from '@/lib/sessione'
 import { dataBreve } from '@/lib/format'
 import { RicercaMail } from '@/components/RicercaMail'
+import { ChipsPeriodo } from '@/components/ChipsPeriodo'
+import { intervalloPeriodo } from '@/lib/periodo'
 import { chiaviPerNome } from '@/lib/nomiThread'
 
 export const dynamic = 'force-dynamic'
 
-type Props = { searchParams: Promise<{ q?: string }> }
+type Props = { searchParams: Promise<{ q?: string; periodo?: string }> }
 
 // La forma salvata del riassunto (compatibile coi vecchi: inSospeso può essere
 // una semplice stringa invece di un oggetto).
@@ -24,9 +26,12 @@ type Vista = {
  */
 export default async function Riassunti({ searchParams }: Props) {
   const u = await richiediUtente()
-  const { q: qGrezzo } = await searchParams
+  const { q: qGrezzo, periodo } = await searchParams
   const q = (qGrezzo ?? '').trim()
   const ricerca = q.length >= 2
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis) sulla DATA DI GENERAZIONE
+  // del riassunto (`generatoIl`): è la data che la riga mostra.
+  const intervallo = intervalloPeriodo(periodo)
 
   let riassunti: {
     id: string
@@ -56,6 +61,7 @@ export default async function Riassunti({ searchParams }: Props) {
     riassunti = await db.riassuntoThread.findMany({
       where: {
         utenteId: u.id,
+        ...(intervallo ? { generatoIl: { gte: intervallo.gte, lt: intervallo.lt } } : {}),
         ...(ricerca
           ? {
               OR: [
@@ -98,6 +104,9 @@ export default async function Riassunti({ searchParams }: Props) {
       </div>
 
       <div style={{ marginBottom: 16 }}>
+        {/* Chips fuori dal form: un nuovo submit della ricerca riparte senza
+            `periodo` e lo azzera da solo (Libro v1.9 §8-bis). */}
+        <ChipsPeriodo base="/riassunti" periodo={periodo} altri={{ q: ricerca ? q : undefined }} />
         <RicercaMail
           iniziale={ricerca ? q : ''}
           base="/riassunti"
@@ -108,12 +117,18 @@ export default async function Riassunti({ searchParams }: Props) {
       <div className="card tight">
         {riassunti.length === 0 ? (
           <div className="empty">
-            <div className="empty-icon">{ricerca ? '⌕' : '✦'}</div>
-            <div className="empty-title">{ricerca ? 'Nessun riassunto trovato' : 'Ancora nessun riassunto'}</div>
+            {/* Col periodo attivo «Ancora nessun riassunto» sarebbe una bugia:
+                i riassunti ci sono, non in QUESTO periodo. */}
+            <div className="empty-icon">{ricerca || intervallo ? '⌕' : '✦'}</div>
+            <div className="empty-title">
+              {ricerca || intervallo ? 'Nessun riassunto trovato' : 'Ancora nessun riassunto'}
+            </div>
             <p className="empty-text">
               {ricerca
                 ? `Nessun riassunto corrisponde a «${q}».`
-                : 'Apri una conversazione con più messaggi e premi “Riassumi la conversazione”: il quadro dell’AI verrà salvato qui, con il link al thread.'}
+                : intervallo
+                  ? 'Nessun riassunto generato nel periodo scelto.'
+                  : 'Apri una conversazione con più messaggi e premi “Riassumi la conversazione”: il quadro dell’AI verrà salvato qui, con il link al thread.'}
             </p>
           </div>
         ) : (

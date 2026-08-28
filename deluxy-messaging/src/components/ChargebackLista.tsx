@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { valuta as valutaProve, type ProveOrdine } from '@/lib/prove-chargeback'
+import { ChipsPeriodo } from './ChipsPeriodo'
+import { nelPeriodo, type Periodo } from '@/lib/periodo'
 
 // Le contestazioni di pagamento, e la risposta alla banca.
 //
@@ -70,6 +72,13 @@ export function ChargebackLista() {
   const [aperti, setAperti] = useState(0)
   const [soldiAperti, setSoldiAperti] = useState(0)
   const [tutti, setTutti] = useState(false)
+  // Ricerca e periodo (Libro v1.9 §8-bis): qui si filtra IN MEMORIA — le
+  // contestazioni sono poche (il server ne manda al più 50) e arrivano già
+  // tutte. La ricerca è sui campi con cui si riconosce la riga: ordine,
+  // negozio, motivo, codice della rete. Il periodo è sulla DATA DI APERTURA
+  // della contestazione (`iniziatoIl`).
+  const [q, setQ] = useState('')
+  const [periodo, setPeriodo] = useState<Periodo>('')
   const [caricato, setCaricato] = useState(false)
   const [aggiornando, setAggiornando] = useState(false)
   const [errore, setErrore] = useState('')
@@ -171,6 +180,26 @@ export function ChargebackLista() {
     }
   }
 
+  // Il filtro in memoria: ricerca sui campi con cui si riconosce la riga
+  // (anche il motivo TRADOTTO: chi cerca scrive «frode», non `fraudulent`) e
+  // periodo sulla data di apertura.
+  const cercato = q.trim().toLowerCase()
+  const visibili = righe.filter((c) => {
+    if (!nelPeriodo(c.iniziatoIl, periodo)) return false
+    if (!cercato) return true
+    return [
+      c.ordineNumero,
+      c.negozioNome,
+      c.motivo,
+      NOMI_MOTIVO[c.motivo] ?? '',
+      c.codiceRete,
+      NOMI_STATO[c.stato] ?? c.stato,
+    ]
+      .join(' ')
+      .toLowerCase()
+      .includes(cercato)
+  })
+
   return (
     <>
       <div className="testa-pagina">
@@ -205,11 +234,31 @@ export function ChargebackLista() {
       {avviso ? <div className="avviso-ok">{avviso}</div> : null}
       {errore ? <div className="avviso-errore">{errore}</div> : null}
 
+      {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): sulla data di apertura
+          della contestazione. */}
+      <ChipsPeriodo valore={periodo} cambia={setPeriodo} campo="la data di apertura della contestazione" />
+
+      {/* La ricerca (Libro v1.9 §8-bis): come si riconosce una contestazione —
+          l'ordine, il negozio, il motivo o il codice della rete. */}
+      <div className="barra-ricerca">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Cerca per ordine, negozio, motivo o codice…"
+          aria-label="Cerca contestazioni"
+        />
+      </div>
+
       {!caricato ? (
         <p className="descrizione">Carico…</p>
-      ) : righe.length === 0 ? (
+      ) : visibili.length === 0 ? (
         <p className="colonna-vuota">
-          {tutti ? 'Nessuna contestazione.' : 'Nessuna contestazione aperta. '}
+          {q.trim() || periodo
+            ? 'Nessuna contestazione corrisponde ai filtri.'
+            : tutti
+              ? 'Nessuna contestazione.'
+              : 'Nessuna contestazione aperta. '}
         </p>
       ) : (
         <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
@@ -226,7 +275,7 @@ export function ChargebackLista() {
               </tr>
             </thead>
             <tbody>
-              {righe.map((c) => {
+              {visibili.map((c) => {
                 const q = quantoManca(c.scadenzaProve)
                 return (
                   <tr key={c.id}>

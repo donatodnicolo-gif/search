@@ -84,7 +84,9 @@ export default async function PaginaKeywords({
   const keyword = await prisma.copyAnnuncio.findMany({
     where: {
       tipo: "keyword",
-      ...(p.q ? { testo: { contains: p.q } } : {}),
+      // La ricerca ignora le maiuscole (Libro v1.9 §8-bis): su Postgres
+      // `contains` da solo è case-sensitive.
+      ...(p.q ? { testo: { contains: p.q, mode: "insensitive" as const } } : {}),
       ...(p.campagna ? { campagna: p.campagna } : {}),
     },
   });

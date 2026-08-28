@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { inizioGiornoItaliano } from "./analisi";
+import { inizioGiornoItaliano, intervalloScorciatoia } from "./analisi";
 import { chiaveCliente } from "./tipologia-cliente";
 import { CANALI_PAGATI } from "./marketing";
 import { prisma } from "./db";
@@ -199,6 +199,14 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
     const inizioDopo = inizioGiornoItaliano(`${anno + 1}-01-01`);
     if (inizioAnno && inizioDopo) and.push({ data: { gte: inizioAnno, lt: inizioDopo } });
   }
+
+  // Le SCORCIATOIE DI PERIODO (Libro UX&UI v1.9 §8-bis): un parametro solo
+  // (`periodo=mese|scorso|trimestre|anno`) tradotto in un intervallo a confini
+  // italiani. La data è quella dell'ORDINE su Shopify (`Ordine.data`), la
+  // stessa dell'anno e di `da`/`a`: «mese in corso» = ordinato questo mese.
+  // Sta in `AND` per convivere con gli altri tagli invece di sovrascriverli.
+  const scorciatoia = intervalloScorciatoia(p.get("periodo")?.trim());
+  if (scorciatoia) and.push({ data: scorciatoia });
 
   const da = p.get("da")?.trim();
   const a = p.get("a")?.trim();

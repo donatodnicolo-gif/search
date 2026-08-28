@@ -15,14 +15,42 @@ const PER_PAGINA = 100;
 export default async function Registro({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; pagina?: string }>;
+  searchParams: Promise<{ tipo?: string; q?: string; periodo?: string; pagina?: string }>;
 }) {
   if (!(await operatoreCorrente())) redirect("/login");
   const sp = await searchParams;
   const tipo = (sp.tipo ?? "").trim();
+  const q = (sp.q ?? "").trim();
   const pagina = Math.max(1, Number(sp.pagina ?? 1) || 1);
 
-  const dove = tipo ? { tipo: { startsWith: tipo } } : {};
+  // Le scorciatoie di periodo (Libro UX&UI v1.9 §8-bis): un parametro solo.
+  // Il periodo si applica alla data di SCRITTURA dell'evento (`creatoIl`):
+  // il registro è in sola aggiunta, quella data non cambia mai.
+  const PERIODI = ["mese", "scorso", "trimestre", "anno"] as const;
+  const periodo = PERIODI.includes(sp.periodo as (typeof PERIODI)[number]) ? sp.periodo! : "";
+  const oggi = new Date();
+  const inizioMese = (n: number) => new Date(oggi.getFullYear(), oggi.getMonth() - n, 1);
+  const intervallo =
+    periodo === "mese" ? { gte: inizioMese(0) }
+    : periodo === "scorso" ? { gte: inizioMese(1), lt: inizioMese(0) }
+    : periodo === "trimestre" ? { gte: inizioMese(2) } // ultimi 3 mesi incluso il corrente
+    : periodo === "anno" ? { gte: new Date(oggi.getFullYear(), 0, 1) }
+    : null;
+
+  const dove = {
+    ...(tipo ? { tipo: { startsWith: tipo } } : {}),
+    // La ricerca (Libro v1.9 §8-bis): come si riconosce un evento — chi l'ha
+    // fatto (attore) o cosa dice (dettagli). Il tipo ha già il suo filtro.
+    ...(q
+      ? {
+          OR: [
+            { attore: { contains: q, mode: "insensitive" as const } },
+            { dettagli: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+    ...(intervallo ? { creatoIl: intervallo } : {}),
+  };
   const [totale, eventi, catena, tipi] = await Promise.all([
     prisma.evento.count({ where: dove }),
     prisma.evento.findMany({
@@ -59,7 +87,33 @@ export default async function Registro({
         )}
       </div>
 
+      {/* Le scorciatoie di periodo (Libro UX&UI v1.9 §8-bis): link GET fuori
+          dal form — il submit del form non porta `periodo` e le azzera da solo. */}
+      <div className="filtri riga-chips-scorri" style={{ marginBottom: 10 }}>
+        {([
+          { v: "mese", l: "Mese in corso" },
+          { v: "scorso", l: "Mese scorso" },
+          { v: "trimestre", l: "Trimestre" },
+          { v: "anno", l: "Anno" },
+        ] as const).map((p) => (
+          <a
+            key={p.v}
+            href={`/registro?periodo=${p.v}${tipo ? `&tipo=${encodeURIComponent(tipo)}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+            className={`chip-link${periodo === p.v ? " attiva" : ""}`}
+          >
+            {p.l}
+          </a>
+        ))}
+        {periodo && (
+          <a href={`/registro${tipo || q ? `?${new URLSearchParams({ ...(tipo ? { tipo } : {}), ...(q ? { q } : {}) })}` : ""}`} className="chip-link azzera">
+            Tutte le date
+          </a>
+        )}
+      </div>
+
       <form className="filtri" method="get">
+        {/* La ricerca (Libro v1.9 §8-bis): attore o contenuto dei dettagli. */}
+        <input type="search" name="q" defaultValue={q} placeholder="Cerca per attore o dettagli…" />
         <select name="tipo" defaultValue={tipo}>
           <option value="">Tutti i tipi</option>
           {tipi.map((t) => (
@@ -119,12 +173,12 @@ export default async function Registro({
           </span>
           <nav>
             {pagina > 1 && (
-              <a className="btn btn-secondario small" href={`/registro?tipo=${tipo}&pagina=${pagina - 1}`}>
+              <a className="btn btn-secondario small" href={`/registro?tipo=${tipo}&q=${encodeURIComponent(q)}&periodo=${periodo}&pagina=${pagina - 1}`}>
                 Precedente
               </a>
             )}
             {pagina < pagine && (
-              <a className="btn btn-secondario small" href={`/registro?tipo=${tipo}&pagina=${pagina + 1}`}>
+              <a className="btn btn-secondario small" href={`/registro?tipo=${tipo}&q=${encodeURIComponent(q)}&periodo=${periodo}&pagina=${pagina + 1}`}>
                 Successiva
               </a>
             )}

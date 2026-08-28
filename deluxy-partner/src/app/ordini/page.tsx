@@ -25,14 +25,32 @@ export const dynamic = "force-dynamic";
 export default async function OrdiniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sync?: string; nuovi?: string; agg?: string; errori?: string; negozio?: string; stato?: string; cat?: string; periodo?: string; auto?: string; diff?: string; amb?: string; costi?: string; fuori?: string; impl?: string }>;
+  searchParams: Promise<{ sync?: string; nuovi?: string; agg?: string; errori?: string; negozio?: string; stato?: string; cat?: string; periodo?: string; q?: string; auto?: string; diff?: string; amb?: string; costi?: string; fuori?: string; impl?: string }>;
 }) {
   const sp = await searchParams;
+  const q = sp.q?.trim();
 
-  // Periodo per KPI ed elenco (giorni; 0 = tutto lo storico). Default 90.
-  const giorniPeriodo = sp.periodo != null ? parseInt(sp.periodo) : 90;
+  // Periodo per KPI ed elenco: UN parametro solo (Libro v1.9 §8-bis) che
+  // accetta due forme — i giorni del select (0 = tutto lo storico, default 90)
+  // oppure le scorciatoie mese|scorso|trimestre|anno, tradotte in un
+  // intervallo sulla DATA dell'ordine (trimestre = ultimi 3 mesi incluso il
+  // corrente, anno = anno solare).
+  const oggi = new Date();
+  const inizioMese = (n: number) => new Date(oggi.getFullYear(), oggi.getMonth() - n, 1);
+  const SCORCIATOIE: Record<string, { intervallo: { gte: Date; lt?: Date }; label: string }> = {
+    mese: { intervallo: { gte: inizioMese(0) }, label: "mese in corso" },
+    scorso: { intervallo: { gte: inizioMese(1), lt: inizioMese(0) }, label: "mese scorso" },
+    trimestre: { intervallo: { gte: inizioMese(2) }, label: "ultimi 3 mesi" },
+    anno: { intervallo: { gte: new Date(oggi.getFullYear(), 0, 1) }, label: `anno ${oggi.getFullYear()}` },
+  };
+  const scorciatoia = sp.periodo && SCORCIATOIE[sp.periodo] ? sp.periodo : null;
+  const giorniPeriodo = sp.periodo != null && !scorciatoia ? parseInt(sp.periodo) : 90;
   const dalPeriodo = Number.isFinite(giorniPeriodo) && giorniPeriodo > 0 ? new Date(Date.now() - giorniPeriodo * 86400000) : null;
-  const wherePeriodo = dalPeriodo ? { data: { gte: dalPeriodo } } : {};
+  const wherePeriodo = scorciatoia
+    ? { data: SCORCIATOIE[scorciatoia].intervallo }
+    : dalPeriodo
+      ? { data: { gte: dalPeriodo } }
+      : {};
   const whereNegozio = sp.negozio ? { negozioId: sp.negozio } : {};
 
   const [negozi, ordiniRaw, ordiniPeriodo] = await Promise.all([
@@ -43,6 +61,18 @@ export default async function OrdiniPage({
         ...wherePeriodo,
         ...(sp.stato ? { statoRicon: sp.stato } : {}),
         ...(sp.cat ? { categoriaPagamento: sp.cat } : {}),
+        // La ricerca (Libro v1.9 §8-bis): come l'operatore riconosce l'ordine —
+        // il numero o il cliente. Filtra solo l'ELENCO: le % di incasso qui
+        // sopra restano metriche del periodo intero.
+        ...(q
+          ? {
+              OR: [
+                { nome: { contains: q, mode: "insensitive" as const } },
+                { clienteNome: { contains: q, mode: "insensitive" as const } },
+                { clienteEmail: { contains: q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
       },
       orderBy: [{ data: "desc" }],
       take: 400,
@@ -183,7 +213,7 @@ export default async function OrdiniPage({
       })()}
 
       <h2 className="section-title" style={{ marginTop: 0 }}>
-        Incasso {dalPeriodo ? `(ultimi ${giorniPeriodo} giorni)` : "(tutto lo storico)"}
+        Incasso {scorciatoia ? `(${SCORCIATOIE[scorciatoia].label})` : dalPeriodo ? `(ultimi ${giorniPeriodo} giorni)` : "(tutto lo storico)"}
         {sp.negozio && <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}> · {nomeNegozio(sp.negozio)}</span>}
       </h2>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -280,12 +310,42 @@ export default async function OrdiniPage({
       </div>
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+        {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): link GET sullo stesso
+            parametro `periodo` del select (una forma in giorni, una a
+            scorciatoia). Sono FUORI dal form: il submit riscrive il periodo dal
+            select e le azzera da solo. */}
+        <div className="filters riga-chips-scorri" style={{ marginBottom: 10 }}>
+          {([
+            { v: "mese", l: "Mese in corso" },
+            { v: "scorso", l: "Mese scorso" },
+            { v: "trimestre", l: "Trimestre" },
+            { v: "anno", l: "Anno" },
+          ] as const).map((p) => (
+            <Link
+              key={p.v}
+              href={`/ordini?periodo=${p.v}${sp.negozio ? `&negozio=${sp.negozio}` : ""}${sp.cat ? `&cat=${sp.cat}` : ""}${sp.stato ? `&stato=${sp.stato}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+              className={`chip-link${scorciatoia === p.v ? " attiva" : ""}`}
+            >
+              {p.l}
+            </Link>
+          ))}
+          {scorciatoia ? (
+            <Link href="/ordini" className="chip-link azzera">Ultimi 90 giorni</Link>
+          ) : null}
+        </div>
         <form className="filters" method="get">
+          {/* La ricerca (Libro v1.9 §8-bis): il numero d'ordine o il cliente. */}
+          <input
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Cerca per n° ordine o cliente…"
+          />
           {/* I select vivono dietro «Filtri (N)» sotto la soglia mobile (Libro
               v1.2 §8): il periodo conta solo fuori dal default (90 giorni). */}
           <ZonaFiltri
             attivi={
-              (giorniPeriodo !== 90 ? 1 : 0) +
+              (scorciatoia || giorniPeriodo !== 90 ? 1 : 0) +
               [sp.negozio, sp.cat, sp.stato].filter(Boolean).length
             }
           >

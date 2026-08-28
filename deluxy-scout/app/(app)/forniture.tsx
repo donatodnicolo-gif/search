@@ -63,6 +63,10 @@ export default function Forniture() {
   const [query, setQuery] = useState('');
   const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
   const [mostraSpente, setMostraSpente] = useState(false);
+  // ⚠️ NIENTE scorciatoie di periodo qui (valutato 28/08/2026, Libro v1.9
+  // §8-bis): una fornitura è un'offerta a CATALOGO — vale finché è accesa,
+  // non «appartiene» a un mese. L'unica data che ha è quella di inserimento,
+  // che non è operativa; il vivo/morto lo dice già il filtro accese/spente.
 
   const carica = useCallback(async () => {
     setLoading(true);

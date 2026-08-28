@@ -75,11 +75,12 @@ function Sparkline({ v, mesiChiusi, meseAperto }: { v: number[]; mesiChiusi: num
 export default async function RicorrentiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string; filtro?: string }>;
+  searchParams: Promise<{ periodo?: string; filtro?: string; q?: string }>;
 }) {
   const sp = await searchParams;
   const periodo = PERIODI.find((p) => p.key === sp.periodo) ?? PERIODI[0];
   const filtro = FILTRI.find((f) => f.key === sp.filtro) ?? FILTRI[0];
+  const q = sp.q?.trim() ?? "";
 
   const [res, categorie] = await Promise.all([
     fetchSpeseBanca({ anno: ANNO_CORRENTE, dal: periodo.dal, al: periodo.al }),
@@ -117,8 +118,16 @@ export default async function RicorrentiPage({
   const piccoli = attivi.filter((v) => v.mediaMese < SOTTO);
   const cessati = r.voci.filter((v) => v.stato === "forse-cessato");
 
-  const elenco =
+  const perFiltro =
     filtro.key === "canoni" ? canoni : filtro.key === "piccoli" ? piccoli : filtro.key === "cessati" ? cessati : r.voci;
+  // La ricerca (Libro v1.9 §8-bis): sul nome della controparte, l'unico campo
+  // con cui la si riconosce. Restringe SOLO la tabella: i KPI raccontano la
+  // fotografia intera, e una ricerca non deve farli sembrare cambiati.
+  // I dati sono già tutti in memoria (arrivano aggregati da Finance), quindi
+  // il confronto insensibile alle maiuscole si fa qui, non in una query.
+  const elenco = q
+    ? perFiltro.filter((v) => v.controparte.toLowerCase().includes(q.toLowerCase()))
+    : perFiltro;
 
   const annuo = (vs: CostoRicorrente[]) => vs.reduce((s, v) => s + (v.annuoAQuestoRitmo ?? 0), 0);
 
@@ -145,7 +154,7 @@ export default async function RicorrentiPage({
             {PERIODI.map((p) => (
               <Link
                 key={p.key}
-                href={`/ricorrenti?periodo=${p.key}${filtro.key === "tutti" ? "" : `&filtro=${filtro.key}`}`}
+                href={`/ricorrenti?periodo=${p.key}${filtro.key === "tutti" ? "" : `&filtro=${filtro.key}`}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
                 className={p.key === periodo.key ? "on" : ""}
               >
                 {p.label}
@@ -196,11 +205,29 @@ export default async function RicorrentiPage({
             </div>
           </div>
 
+          {/* La ricerca (Libro v1.9 §8-bis): il periodo qui NON prende le
+              chips standard (mese/trimestre/anno) — anno e semestri sono il
+              periodo strutturale della pagina, legato ai mesi chiusi che il
+              riconoscimento dei ricorrenti richiede. Il submit conserva
+              periodo e filtro nei campi nascosti. */}
+          <form method="get" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+            {periodo.key !== "anno" && <input type="hidden" name="periodo" value={periodo.key} />}
+            {filtro.key !== "tutti" && <input type="hidden" name="filtro" value={filtro.key} />}
+            <input
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="Cerca una controparte…"
+              style={{ flex: "1 1 260px", maxWidth: 420 }}
+            />
+            <button className="btn secondary" type="submit">Cerca</button>
+          </form>
+
           <div className="chips" style={{ marginBottom: 16 }}>
             {FILTRI.map((f) => (
               <Link
                 key={f.key}
-                href={`/ricorrenti?periodo=${periodo.key}&filtro=${f.key}`}
+                href={`/ricorrenti?periodo=${periodo.key}&filtro=${f.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
                 className={`chip${f.key === filtro.key ? " on" : ""}`}
               >
                 {f.label}
@@ -283,7 +310,7 @@ export default async function RicorrentiPage({
                   {elenco.length === 0 && (
                     <tr>
                       <td colSpan={8} className="muted" style={{ padding: 24, textAlign: "center" }}>
-                        Nessuna voce con questo filtro.
+                        {q ? <>Nessuna controparte che contenga «{q}» con questo filtro.</> : "Nessuna voce con questo filtro."}
                       </td>
                     </tr>
                   )}

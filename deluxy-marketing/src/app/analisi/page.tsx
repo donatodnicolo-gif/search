@@ -1,5 +1,7 @@
 import { Badge } from "@/components/Badge";
+import { ChipsPeriodo } from "@/components/ChipsPeriodo";
 import { COLORE_VERDETTO, ETICHETTA_VERDETTO, mappaAnalisiStoriche, schedaDi, type VerdettoScheda } from "@/lib/scheda-analisi";
+import { intervalloScorciatoia } from "@/lib/periodo";
 import { BottoneSync } from "@/components/BottoneSync";
 import { RigaLink } from "@/components/RigaLink";
 import { Sidebar } from "@/components/Sidebar";
@@ -22,15 +24,29 @@ export const dynamic = "force-dynamic";
 export default async function PaginaAnalisi({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; tipo?: string; canale?: string; q?: string }>;
+  searchParams: Promise<{ brand?: string; tipo?: string; canale?: string; q?: string; periodo?: string }>;
 }) {
-  const { brand, tipo, canale, q } = await searchParams;
+  const { brand, tipo, canale, q, periodo } = await searchParams;
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis) si applicano alla DATA
+  // DELL'ANALISI (`dataAnalisi`): è la data con cui la pagina ragiona ovunque,
+  // dall'ordinamento alle schede.
+  const intervallo = intervalloScorciatoia(periodo);
   const analisi = await prisma.analisi.findMany({
     where: {
       ...(brand ? { brand } : {}),
       ...(tipo ? { tipo } : {}),
       ...(canale ? { canale } : {}),
-      ...(q ? { OR: [{ titolo: { contains: q } }, { sintesi: { contains: q } }] } : {}),
+      ...(intervallo ? { dataAnalisi: { gte: intervallo.da, lt: intervallo.a } } : {}),
+      // La ricerca ignora le maiuscole (`mode: "insensitive"`): su Postgres
+      // `contains` da solo è case-sensitive, e «google» non trovava «Google».
+      ...(q
+        ? {
+            OR: [
+              { titolo: { contains: q, mode: "insensitive" as const } },
+              { sintesi: { contains: q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
     },
     orderBy: { dataAnalisi: "desc" },
     include: { _count: { select: { azioni: true } } },
@@ -84,6 +100,16 @@ export default async function PaginaAnalisi({
             <a className="btn" href="/analisi/nuova">Deposita analisi</a>
           </div>
         </div>
+
+        {/* Le scorciatoie di periodo su `dataAnalisi`. Il form qui sotto non
+            ha un campo `periodo`: il suo submit le azzera da solo. */}
+        <ChipsPeriodo
+          base="/analisi"
+          periodo={periodo}
+          altriFiltri={new URLSearchParams(
+            Object.entries({ brand, tipo, canale, q }).filter(([, v]) => v) as [string, string][]
+          ).toString()}
+        />
 
         <form className="filtri" method="get">
           <input type="search" name="q" placeholder="Cerca nel titolo o nella sintesi…" defaultValue={q ?? ""} />

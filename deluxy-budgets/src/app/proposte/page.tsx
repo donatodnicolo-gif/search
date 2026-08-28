@@ -14,7 +14,14 @@ const BADGE: Record<string, string> = {
   RESPINTA: "red",
 };
 
-export default async function Proposte() {
+export default async function Proposte({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const sp = await searchParams;
+  const q = sp.q?.trim();
+
   // ⚠️⚠️ **UN NON-ADMIN VEDE SOLO LE SUE** (buco chiuso il 27/08/2026).
   //
   // Questa query non filtrava per autore e la pagina non leggeva **mai** la
@@ -32,6 +39,20 @@ export default async function Proposte() {
       // Le proposte vecchie hanno `inviataDaUid` nullo: per un non-admin
       // restano invisibili, che è il verso giusto in cui sbagliare.
       ...(chi.admin ? {} : { inviataDaUid: chi.uid ?? "—nessuno—" }),
+      // La ricerca (Libro v1.9 §8-bis): come si riconosce una proposta — chi
+      // l'ha mandata, con che ruolo, o una parola delle note. L'ambito è uno
+      // slug: si cerca com'è scritto (es. «deluxy»), l'etichetta bella nasce
+      // solo dopo la query.
+      ...(q
+        ? {
+            OR: [
+              { autore: { contains: q, mode: "insensitive" as const } },
+              { ruolo: { contains: q, mode: "insensitive" as const } },
+              { note: { contains: q, mode: "insensitive" as const } },
+              { ambitoSlug: { contains: q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
     },
     orderBy: { createdAt: "desc" },
   });
@@ -76,13 +97,33 @@ export default async function Proposte() {
         </div>
       </div>
 
+      {/* La ricerca (Libro v1.9 §8-bis). Niente scorciatoie di periodo: la
+          pagina è già inchiodata all'anno di budget (ANNO_CORRENTE), che è il
+          suo periodo strutturale — un «mese scorso» qui non vuol dire niente. */}
+      <form method="get" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <input
+          type="search"
+          name="q"
+          defaultValue={q ?? ""}
+          placeholder="Cerca per autore, ruolo, ambito o note…"
+          style={{ flex: "1 1 260px", maxWidth: 420 }}
+        />
+        <button className="btn secondary" type="submit">Cerca</button>
+      </form>
+
       {proposte.length === 0 ? (
         <div className="card empty">
           <div className="empty-icon">✍︎</div>
-          <div className="empty-title">Nessuna proposta ancora</div>
+          <div className="empty-title">{q ? "Nessuna proposta trovata" : "Nessuna proposta ancora"}</div>
           <div className="empty-text">
-            Le proposte dei Responsabili compariranno qui.{" "}
-            <Link href="/proposte/nuova" style={{ color: "var(--blue)" }}>Invia la prima proposta</Link>.
+            {q ? (
+              <>Nessuna proposta corrisponde a «{q}». <Link href="/proposte" style={{ color: "var(--blue)" }}>Azzera la ricerca</Link>.</>
+            ) : (
+              <>
+                Le proposte dei Responsabili compariranno qui.{" "}
+                <Link href="/proposte/nuova" style={{ color: "var(--blue)" }}>Invia la prima proposta</Link>.
+              </>
+            )}
           </div>
         </div>
       ) : (

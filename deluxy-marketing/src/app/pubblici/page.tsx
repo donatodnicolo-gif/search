@@ -46,7 +46,16 @@ export default async function PaginaPubblici({
       ...(p.piattaforma ? { piattaforma: p.piattaforma } : {}),
       ...(p.brand ? { brand: p.brand } : {}),
       ...(p.stato ? { stato: p.stato } : {}),
-      ...(p.q ? { OR: [{ nome: { contains: p.q } }, { note: { contains: p.q } }] } : {}),
+      // La ricerca ignora le maiuscole (`mode: "insensitive"`): su Postgres
+      // `contains` da solo è case-sensitive.
+      ...(p.q
+        ? {
+            OR: [
+              { nome: { contains: p.q, mode: "insensitive" as const } },
+              { note: { contains: p.q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
     },
     orderBy: [{ piattaforma: "asc" }, { nome: "asc" }],
     include: { misure: { orderBy: { data: "desc" }, take: 2 } },

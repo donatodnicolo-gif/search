@@ -34,7 +34,7 @@ import {
   type TrattativaConLuogo,
 } from '@/lib/db';
 import { confermaPagamentoProforma, creaProformaDaRichiesta } from '@/lib/partner';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { Chip, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 
 const LABEL: Record<StatoPagamento, string> = {
   inviata: 'Inviata',
@@ -75,6 +75,18 @@ export default function Pagamenti() {
   const [formAperto, setFormAperto] = useState(false);
   const [espansa, setEspansa] = useState<string | null>(null);
   const [storicoAperto, setStoricoAperto] = useState(false);
+  /**
+   * ⭐ RICERCA, STATO E PERIODO (28/08/2026, Libro v1.9 §8-bis): questo elenco
+   * non aveva NESSUNA delle tre gambe — a venti richieste si scorreva a
+   * occhio. La ricerca guarda come si riconosce una richiesta (cliente,
+   * causale, riferimento pro-forma, e per l'admin il nome di chi l'ha fatta);
+   * il periodo filtra su `created_at` — QUANDO l'incasso è stato chiesto, la
+   * data con cui ci si domanda «quanto ho chiesto questo mese?». Confini in
+   * ora LOCALE (stessa trappola già pagata su ordini).
+   */
+  const [ricerca, setRicerca] = useState('');
+  const [statoFiltro, setStatoFiltro] = useState<StatoPagamento | null>(null);
+  const [periodo, setPeriodo] = useState<'tutti' | 'mese' | 'scorso' | 'trimestre' | 'anno'>('tutti');
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -98,13 +110,44 @@ export default function Pagamenti() {
     return { daIncassare, incassato };
   }, [righe]);
 
+  /** I due estremi del periodo scelto, in ora locale. */
+  const finestra = useMemo(() => {
+    const ora = new Date();
+    const a = new Date(ora.getFullYear(), ora.getMonth(), ora.getDate() + 1); // domani a mezzanotte
+    if (periodo === 'mese') return { da: new Date(ora.getFullYear(), ora.getMonth(), 1), a };
+    if (periodo === 'scorso') {
+      // «Mese scorso» finisce dove comincia questo: fino a oggi sarebbero due mesi.
+      return { da: new Date(ora.getFullYear(), ora.getMonth() - 1, 1), a: new Date(ora.getFullYear(), ora.getMonth(), 1) };
+    }
+    if (periodo === 'trimestre') return { da: new Date(ora.getFullYear(), ora.getMonth() - 2, 1), a };
+    if (periodo === 'anno') return { da: new Date(ora.getFullYear(), 0, 1), a };
+    return null;
+  }, [periodo]);
+
+  // Ricerca e periodo valgono anche per lo Storico: una richiesta annullata
+  // si va a ripescare proprio cercandola. Il filtro di stato invece agisce
+  // solo sulle attive — le annullate hanno già la loro sezione.
+  const filtrate = useMemo(() => {
+    const q = ricerca.trim().toLowerCase();
+    return righe.filter((r) => {
+      if (finestra) {
+        const d = new Date(r.created_at);
+        if (isNaN(d.getTime()) || d < finestra.da || d >= finestra.a) return false;
+      }
+      if (!q) return true;
+      return [r.cliente, r.causale, r.proforma_numero, r.owner_nome]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    });
+  }, [righe, ricerca, finestra]);
+
   // Le annullate escono dalla lista operativa e finiscono nello Storico in fondo.
   const { attive, annullate } = useMemo(
     () => ({
-      attive: righe.filter((r) => r.stato !== 'annullata'),
-      annullate: righe.filter((r) => r.stato === 'annullata'),
+      attive: filtrate.filter((r) => r.stato !== 'annullata' && (!statoFiltro || r.stato === statoFiltro)),
+      annullate: filtrate.filter((r) => r.stato === 'annullata'),
     }),
-    [righe],
+    [filtrate, statoFiltro],
   );
 
   return (
@@ -115,6 +158,35 @@ export default function Pagamenti() {
           {righe.length} richieste · {eur(tot.daIncassare)} da incassare · {eur(tot.incassato)} incassati
           {admin ? ' · vedi anche quelle del team' : ''}
         </Text>
+        {/* Le tre gambe del Libro v1.9 §8-bis: ricerca, stato, periodo. */}
+        <TextInput
+          style={styles.search}
+          value={ricerca}
+          onChangeText={setRicerca}
+          placeholder="Cerca per cliente, causale, pro-forma…"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          clearButtonMode="while-editing"
+        />
+        <RigaChips style={styles.filtriRiga}>
+          <Chip label="Tutte" on={!statoFiltro} onPress={() => setStatoFiltro(null)} />
+          {STATI.filter((s) => s !== 'annullata').map((s) => (
+            <Chip key={s} label={LABEL[s]} on={statoFiltro === s} onPress={() => setStatoFiltro((c) => (c === s ? null : s))} />
+          ))}
+        </RigaChips>
+        {/* ⭐ IL PERIODO: filtra su quando l'incasso è stato CHIESTO
+            (`created_at`) — vedi il commento sullo stato più su. */}
+        <RigaChips style={styles.filtriRiga}>
+          {([
+            { v: 'tutti', l: 'Sempre' },
+            { v: 'mese', l: 'Questo mese' },
+            { v: 'scorso', l: 'Mese scorso' },
+            { v: 'trimestre', l: 'Trimestre' },
+            { v: 'anno', l: 'Anno' },
+          ] as const).map((p) => (
+            <Chip key={p.v} label={p.l} on={periodo === p.v} onPress={() => setPeriodo(p.v)} />
+          ))}
+        </RigaChips>
       </View>
 
       <ScrollView
@@ -131,7 +203,13 @@ export default function Pagamenti() {
           />
         ) : null}
         {!loading && righe.length > 0 && attive.length === 0 ? (
-          <Text style={styles.notaVuota}>Nessuna richiesta attiva: sono tutte nello Storico qui sotto.</Text>
+          // ⚠️ Il vuoto deve dire il PERCHÉ giusto: con un filtro addosso non è
+          // vero che «sono tutte nello Storico».
+          <Text style={styles.notaVuota}>
+            {ricerca.trim() || statoFiltro || periodo !== 'tutti'
+              ? 'Nessuna richiesta con questi filtri: allarga la ricerca, lo stato o il periodo.'
+              : 'Nessuna richiesta attiva: sono tutte nello Storico qui sotto.'}
+          </Text>
         ) : null}
         {attive.map((r) => (
           <RigaPagamento
@@ -648,8 +726,12 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  head: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro },
+  head: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro, gap: spacing.sm },
   sub: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.lg },
+  // Ricerca e filtri dell'elenco (Libro v1.9 §8-bis): stessi tratti di
+  // richieste-clienti, per non avere due grafie della stessa cosa.
+  search: { marginHorizontal: spacing.lg, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: 12, paddingVertical: 10, color: colors.testo, fontSize: 14 },
+  filtriRiga: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: spacing.lg },
   list: { padding: spacing.lg, paddingBottom: 96, gap: spacing.sm },
   notaVuota: { color: colors.grigio, fontSize: 13, textAlign: 'center', marginVertical: spacing.sm },
   hint: { color: colors.grigio, fontSize: 11 },

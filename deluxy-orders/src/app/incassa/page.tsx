@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { euro, dataBreve } from "@/lib/ordini";
+import { intervalloScorciatoia } from "@/lib/analisi";
 import { negoziPronti } from "@/lib/incassa";
+import { ChipsPeriodo } from "@/components/ChipsPeriodo";
 import { ModuloIncasso } from "@/components/ModuloIncasso";
 import { RigaLinkIncasso } from "@/components/RigaLinkIncasso";
 import { creaLink, aggiornaStatoLink, annullaLink, rileggiPermessi } from "./actions";
@@ -21,11 +23,51 @@ const STATI: Record<string, { nome: string; colore: string }> = {
   annullato: { nome: "Annullato", colore: "var(--text-tertiary)" },
 };
 
-export default async function Incassa() {
+export default async function Incassa({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const sp = await searchParams;
+  const q = sp.q?.trim() || undefined;
+  // Le scorciatoie di periodo (Libro v1.9 §8-bis): qui la data è quella di
+  // CREAZIONE del link (`LinkIncasso.creatoIl`) — è l'unica che il record ha
+  // finché il cliente non paga, ed è come l'operatore se lo ricorda.
+  const scorciatoia = intervalloScorciatoia(sp.periodo?.trim());
+
   const [negozi, link] = await Promise.all([
     negoziPronti(),
-    prisma.linkIncasso.findMany({ orderBy: { creatoIl: "desc" }, take: 100 }),
+    prisma.linkIncasso.findMany({
+      where: {
+        ...(scorciatoia ? { creatoIl: scorciatoia } : {}),
+        // La ricerca (Libro v1.9 §8-bis): come si riconosce un link — il
+        // numero della bozza, la descrizione o il cliente.
+        ...(q
+          ? {
+              OR: [
+                { nome: { contains: q, mode: "insensitive" as const } },
+                { descrizione: { contains: q, mode: "insensitive" as const } },
+                { clienteNome: { contains: q, mode: "insensitive" as const } },
+                { clienteEmail: { contains: q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { creatoIl: "desc" },
+      take: 100,
+    }),
   ]);
+
+  // I link delle chip conservano la ricerca; `href("")` toglie il periodo.
+  function conFiltro(extra: Record<string, string>): string {
+    const p = new URLSearchParams(sp);
+    for (const [k, v] of Object.entries(extra)) {
+      if (v) p.set(k, v);
+      else p.delete(k);
+    }
+    const qs = p.toString();
+    return `/incassa${qs ? `?${qs}` : ""}`;
+  }
 
   const pronti = negozi.filter((n) => n.pronto === true);
   const nonPronti = negozi.filter((n) => n.pronto === false);
@@ -79,6 +121,24 @@ export default async function Incassa() {
       )}
 
       <ModuloIncasso negozi={negozi.map((n) => ({ nome: n.brand, pronto: n.pronto }))} crea={creaLink} />
+
+      {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): link GET fuori dal
+          form — il submit della ricerca le azzera da solo. */}
+      <ChipsPeriodo attivo={sp.periodo} href={(v) => conFiltro({ periodo: v })} azzera="Tutti i link" />
+
+      {/* La ricerca (Libro v1.9 §8-bis): bozza, descrizione o cliente. */}
+      <form className="filtri" method="get">
+        <input
+          type="search"
+          name="q"
+          defaultValue={q ?? ""}
+          placeholder="Cerca per bozza, descrizione o cliente…"
+        />
+        <button className="btn btn-secondario small" type="submit">Cerca</button>
+        {(q || sp.periodo) && (
+          <Link className="btn btn-secondario small" href="/incassa">Azzera</Link>
+        )}
+      </form>
 
       <div className="scheda">
         <div className="scheda-titolo">
@@ -140,7 +200,7 @@ export default async function Incassa() {
               {link.length === 0 && (
                 <tr>
                   <td colSpan={7} className="cella-muta">
-                    Nessun link creato finora.
+                    {q || sp.periodo ? "Nessun link per questa ricerca o periodo." : "Nessun link creato finora."}
                   </td>
                 </tr>
               )}

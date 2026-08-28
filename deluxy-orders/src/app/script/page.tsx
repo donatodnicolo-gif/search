@@ -11,8 +11,27 @@ export const dynamic = "force-dynamic";
 // Gli script: i testi che si mandano ai clienti, scritti una volta e riusati
 // dalle automazioni. Stanno per conto loro perché un testo che parla ai clienti
 // si rilegge, si corregge e lo fa correggere anche a qualcun altro.
-export default async function Script() {
+export default async function Script({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const sp = await searchParams;
+  const q = sp.q?.trim() || undefined;
+
   const script = await prisma.script.findMany({
+    // La ricerca (Libro v1.9 §8-bis): come si riconosce uno script — il nome,
+    // a cosa serve o una frase del testo. Niente scorciatoie di periodo: è un
+    // catalogo di copioni, non un registro di fatti datati.
+    where: q
+      ? {
+          OR: [
+            { nome: { contains: q, mode: "insensitive" as const } },
+            { descrizione: { contains: q, mode: "insensitive" as const } },
+            { testo: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : undefined,
     orderBy: { creatoIl: "desc" },
     include: { _count: { select: { automazioni: true } } },
   });
@@ -31,8 +50,20 @@ export default async function Script() {
         <Link className="btn btn-secondario" href="/automazioni">Automazioni</Link>
       </div>
 
+      {/* La ricerca (Libro v1.9 §8-bis): il nome, l'uso o una frase del testo. */}
+      <form className="filtri" method="get">
+        <input
+          type="search"
+          name="q"
+          defaultValue={q ?? ""}
+          placeholder="Cerca per nome, uso o testo…"
+        />
+        <button className="btn btn-secondario small" type="submit">Cerca</button>
+        {q && <Link className="btn btn-secondario small" href="/script">Azzera</Link>}
+      </form>
+
       {script.length === 0 ? (
-        <div className="vuoto">Nessuno script. Scrivine uno qui sotto.</div>
+        <div className="vuoto">{q ? `Nessuno script per «${q}».` : "Nessuno script. Scrivine uno qui sotto."}</div>
       ) : (
         <div className="tabella-wrap">
           <table>

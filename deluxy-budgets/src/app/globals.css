@@ -361,3 +361,15 @@ input.errata { border-color: var(--red); background: rgba(215, 0, 21, 0.07); }
    righe che portano a un dettaglio — totali e sottorighe restano com'erano. */
 tr.riga-link { cursor: pointer; }
 tbody tr.riga-link:hover { background: var(--fill); }
+/* La ricerca negli elenchi (v1.9 §8-bis): il campo `type="search"` non stava
+   nella lista dei selettori dei form (riga ~197) e sarebbe rimasto nudo. */
+input[type="search"] {
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  padding: 9px 12px;
+  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease);
+}

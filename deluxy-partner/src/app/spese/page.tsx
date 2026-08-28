@@ -23,9 +23,10 @@ export const maxDuration = 60;
 export default async function SpesePage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; dal?: string; al?: string; cat?: string; tipo?: string; solo?: string; errore?: string; applicate?: string; restano?: string; riclassificate?: string; svuotate?: string; ai?: string; saltate?: string }>;
+  searchParams: Promise<{ anno?: string; dal?: string; al?: string; q?: string; cat?: string; tipo?: string; solo?: string; errore?: string; applicate?: string; restano?: string; riclassificate?: string; svuotate?: string; ai?: string; saltate?: string }>;
 }) {
   const sp = await searchParams;
+  const q = sp.q?.trim();
   const anno = parseInt(sp.anno ?? "") || ANNO_CORRENTE;
   const dal = Math.min(12, Math.max(1, parseInt(sp.dal ?? "1") || 1));
   const al = Math.min(12, Math.max(dal, parseInt(sp.al ?? "12") || 12));
@@ -40,6 +41,7 @@ export default async function SpesePage({
   // scelto non si perde mai per strada.
   const conFiltro = (cambi: Record<string, string | null>) => {
     const p = new URLSearchParams({ anno: String(anno), dal: String(dal), al: String(al) });
+    if (q) p.set("q", q);
     if (sp.cat) p.set("cat", sp.cat);
     if (tipo) p.set("tipo", tipo);
     if (sp.solo) p.set("solo", sp.solo);
@@ -75,6 +77,17 @@ export default async function SpesePage({
             ...(tipo ? { categoriaTipoPL: tipo } : {}),
           }),
       ...(sp.solo === "ai" ? { categoriaDa: "ai" } : {}),
+      // La ricerca (Libro v1.9 §8-bis): come l'operatore riconosce l'uscita —
+      // la controparte o la causale. Filtra solo l'ELENCO: totali e copertura
+      // restano calcolati su tutto il periodo.
+      ...(q
+        ? {
+            OR: [
+              { controparte: { contains: q, mode: "insensitive" as const } },
+              { descrizione: { contains: q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
     },
     orderBy: [{ data: "desc" }],
     take: 400,
@@ -412,7 +425,54 @@ export default async function SpesePage({
       )}
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+        {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): qui il periodo vive
+            GIÀ in anno+dal/al — le chips scrivono gli stessi tre parametri
+            (una fonte sola), sulla DATA del movimento bancario. «Mese scorso»
+            a gennaio scavalla sull'anno prima; il trimestre invece si stringe
+            al perimetro dell'anno (tre parametri non possono scavallare).
+            Sono FUORI dal form: il submit riscrive anno/dal/al dai campi. */}
+        {(() => {
+          const oggiChip = new Date();
+          const mC = oggiChip.getMonth() + 1;
+          const annoC = oggiChip.getFullYear();
+          const chips = [
+            { l: "Mese in corso", a: annoC, d: mC, f: mC },
+            mC === 1
+              ? { l: "Mese scorso", a: annoC - 1, d: 12, f: 12 }
+              : { l: "Mese scorso", a: annoC, d: mC - 1, f: mC - 1 },
+            { l: "Trimestre", a: annoC, d: Math.max(1, mC - 2), f: mC },
+            { l: "Anno", a: annoC, d: 1, f: 12 },
+          ];
+          const linkChip = (c: (typeof chips)[number]) => {
+            const p = new URLSearchParams({ anno: String(c.a), dal: String(c.d), al: String(c.f) });
+            if (q) p.set("q", q);
+            if (sp.cat) p.set("cat", sp.cat);
+            if (tipo) p.set("tipo", tipo);
+            if (sp.solo) p.set("solo", sp.solo);
+            return `/spese?${p.toString()}`;
+          };
+          return (
+            <div className="filters riga-chips-scorri" style={{ marginBottom: 10 }}>
+              {chips.map((c) => (
+                <Link
+                  key={c.l}
+                  href={linkChip(c)}
+                  className={`chip-link${anno === c.a && dal === c.d && al === c.f ? " attiva" : ""}`}
+                >
+                  {c.l}
+                </Link>
+              ))}
+            </div>
+          );
+        })()}
         <form className="filters" method="get">
+          {/* La ricerca (Libro v1.9 §8-bis): la controparte o la causale. */}
+          <input
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Cerca per controparte o causale…"
+          />
           {/* I campi vivono dietro «Filtri (N)» sotto la soglia mobile (Libro
               v1.2 §8): N conta solo i filtri fuori dal loro default. */}
           <ZonaFiltri
@@ -455,7 +515,7 @@ export default async function SpesePage({
           cima calcolato su tutto il periodo, sopra una lista che mostra una
           fetta sola, altrimenti si legge come se i due numeri parlassero della
           stessa cosa. */}
-      {(sp.cat || tipo || sp.solo) && uscite.length > 0 && (
+      {(sp.cat || tipo || sp.solo || q) && uscite.length > 0 && (
         <div className="card" style={{ padding: 12, marginBottom: 12, borderLeft: "3px solid var(--blue)", fontSize: 13 }}>
           Elenco filtrato:{" "}
           <strong>
@@ -466,12 +526,13 @@ export default async function SpesePage({
                 : [
                     sp.cat ? `categoria «${categorie.find((c) => c.id === sp.cat)?.nome ?? sp.cat}»` : null,
                     tipo ? `voce di P&L «${TIPI_PL[tipo]?.label ?? tipo}»` : null,
+                    q ? `ricerca «${q}»` : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
           </strong>{" "}
           — {uscite.length} {uscite.length === 1 ? "movimento" : "movimenti"} su {tutte.length} del periodo.{" "}
-          <Link href={conFiltro({ cat: null, tipo: null, solo: null })} style={{ fontWeight: 600 }}>
+          <Link href={conFiltro({ cat: null, tipo: null, solo: null, q: null })} style={{ fontWeight: 600 }}>
             Mostra tutte →
           </Link>
           <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
