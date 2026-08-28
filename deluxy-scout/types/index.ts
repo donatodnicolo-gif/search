@@ -477,6 +477,11 @@ export interface Ordine {
   valore_unitario?: number | null;
   quantita?: number | null;
   unita?: 'pezzi' | 'giorni' | 'ore' | null;
+  /** Dichiarazione esplicita: nessun costo di fornitura (migr. 0105), es. una
+   *  quota di affiliazione. ⚠️ Non è «costo sconosciuto»: quello resta il
+   *  margine «—». Qui il costo è dichiarato inesistente, quindi margine =
+   *  valore − altri costi; una fornitura vera registrata dopo vince sul flag. */
+  senza_fornitura?: boolean;
   altri_costi?: number | null;
   altri_costi_nota?: string | null;
   /** I documenti di FINANCE: solo il riferimento, mai una copia degli importi. */

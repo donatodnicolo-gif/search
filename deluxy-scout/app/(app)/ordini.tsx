@@ -330,13 +330,38 @@ export default function Ordini() {
    * il margine di quell'ordine è un numero inventato.
    */
   const haFornitura = useCallback(
-    (o: OrdineConLuogo) => lavori.some((l) => l.ordine_id === o.id && l.preventivi.length > 0),
+    // ⚠️ «Senza fornitura» (migr. 0105) soddisfa l'obbligo: è la dichiarazione
+    // esplicita che quest'ordine non ha costi di fornitura (es. una quota di
+    // affiliazione) — l'alternativa era inventarsi un fornitore finto per
+    // aggirare il vincolo, che è peggio del vincolo.
+    (o: OrdineConLuogo) =>
+      Boolean(o.senza_fornitura) || lavori.some((l) => l.ordine_id === o.id && l.preventivi.length > 0),
     [lavori],
+  );
+  /**
+   * Il costo dell'ordine è DEFINITIVO? Tre casi, in ordine di forza:
+   * fornitura registrata (decide `costiPerOrdine`), dichiarato senza fornitura
+   * (il costo è zero per dichiarazione, non per dimenticanza), nessuno dei due
+   * (il margine resta una stima o un «—»). ⚠️ Se esistono preventivi veri,
+   * VINCONO sul flag: un costo reale batte una dichiarazione vecchia.
+   */
+  const costoDefinitivo = useCallback(
+    (o: OrdineConLuogo): boolean => {
+      const c = costi.get(o.id);
+      return c ? c.definitivo : Boolean(o.senza_fornitura);
+    },
+    [costi],
   );
   const margineDi = useCallback(
     (o: OrdineConLuogo): number | null => {
+      if (o.valore == null) return null;
       const c = costi.get(o.id);
-      if (!c || o.valore == null) return null;
+      // Senza preventivi il margine resta «—»… salvo dichiarazione esplicita:
+      // lì il costo di fornitura È zero, e il margine è valore − altri costi.
+      if (!c) {
+        if (!o.senza_fornitura) return null;
+        return Math.round((o.valore - (o.altri_costi ?? 0)) * 100) / 100;
+      }
       return Math.round((o.valore - c.costo - (o.altri_costi ?? 0)) * 100) / 100;
     },
     [costi],
@@ -358,13 +383,11 @@ export default function Ordini() {
       // sarebbe il numero che si guarda per primo e quello che si scopre falso
       // per ultimo — e la sua base (quali ordini) non si vedrebbe.
       margineRealizzato: validi
-        .filter((o) => o.stato === 'incassato' && (costi.get(o.id)?.definitivo ?? false))
+        .filter((o) => o.stato === 'incassato' && costoDefinitivo(o))
         .reduce((s, o) => s + (margineDi(o) ?? 0), 0),
-      quantiRealizzati: validi.filter(
-        (o) => o.stato === 'incassato' && (costi.get(o.id)?.definitivo ?? false),
-      ).length,
+      quantiRealizzati: validi.filter((o) => o.stato === 'incassato' && costoDefinitivo(o)).length,
     };
-  }, [ordini, costi, margineDi]);
+  }, [ordini, costoDefinitivo, margineDi]);
 
   const colonne: ColonnaTabella<OrdineConLuogo>[] = [
     {
@@ -484,9 +507,25 @@ export default function Ordini() {
       width: 120,
       destra: true,
       numerica: true,
-      valore: (o) => costi.get(o.id)?.costo ?? null,
+      valore: (o) => costi.get(o.id)?.costo ?? (o.senza_fornitura ? 0 : null),
       cella: (o) => {
         const c = costi.get(o.id);
+        // ⚠️ «Senza fornitura» NON è «—»: il trattino dice «non lo so», qui il
+        // costo è dichiarato inesistente — e la differenza è tutto il flag.
+        if (!c && o.senza_fornitura) {
+          return (
+            <View
+              style={{ alignItems: 'flex-end' }}
+              {...({ title: 'Dichiarato senza costi di fornitura (es. quota di affiliazione)' } as any)}
+            >
+              <Text style={styles.tabValore}>{importoBreve(0)}</Text>
+              <Text style={styles.tabStima} numberOfLines={1}>senza fornitura</Text>
+              {o.altri_costi != null ? (
+                <Text style={styles.tabStima} numberOfLines={1}>+ {importoBreve(o.altri_costi)} altri</Text>
+              ) : null}
+            </View>
+          );
+        }
         if (!c) return <Text style={styles.tabData}>—</Text>;
         return (
           <View
@@ -538,7 +577,7 @@ export default function Ordini() {
          * realizzato vorrebbe dire mettere in cassa un margine che può ancora
          * cambiare.
          */
-        const realizzato = o.stato === 'incassato' && (costi.get(o.id)?.definitivo ?? false);
+        const realizzato = o.stato === 'incassato' && costoDefinitivo(o);
         return (
           <View
             style={{ alignItems: 'flex-end' }}
@@ -1439,7 +1478,7 @@ export default function Ordini() {
     if (!haFornitura(o)) {
       avvisa(
         'Manca la fornitura',
-        'Prima di chiudere bisogna dire chi ha fornito e a quanto: senza, il ricavo entra nei conti e il suo costo no.\n\nSi scrive dalla modifica dell\'ordine, sezione «Fornitura».',
+        'Prima di chiudere bisogna dire chi ha fornito e a quanto: senza, il ricavo entra nei conti e il suo costo no.\n\nSi scrive dalla modifica dell\'ordine, sezione «Fornitura» — e se quest\'ordine non ha costi di fornitura (es. una quota di affiliazione), lì c\'è la spunta «Senza fornitura».',
       );
       return;
     }
@@ -1486,7 +1525,7 @@ export default function Ordini() {
     if (stato === 'incassato' && !haFornitura(o)) {
       avvisa(
         'Manca la fornitura',
-        'Prima di segnare incassato bisogna dire chi ha fornito e a quanto: senza, il ricavo entra nei conti e il suo costo no — e il margine di questo ordine è un numero inventato.\n\nSi scrive dalla modifica dell\'ordine, sezione «Fornitura».',
+        'Prima di segnare incassato bisogna dire chi ha fornito e a quanto: senza, il ricavo entra nei conti e il suo costo no — e il margine di questo ordine è un numero inventato.\n\nSi scrive dalla modifica dell\'ordine, sezione «Fornitura» — e se quest\'ordine non ha costi di fornitura (es. una quota di affiliazione), lì c\'è la spunta «Senza fornitura».',
       );
       return;
     }
@@ -2820,6 +2859,35 @@ function BloccoFornitura({
   const [listino, setListino] = useState<Fornitura[]>([]);
   const [cercaListino, setCercaListino] = useState('');
   const [caricoListino, setCaricoListino] = useState(false);
+  /**
+   * ⭐ «SENZA FORNITURA» (migr. 0105, richiesta dell'utente 28/08/2026:
+   * «inserisci un flag Senza Fornitura per le fatture che non hanno costi,
+   * esempio affiliazioni»). La dichiarazione esplicita che quest'ordine non ha
+   * costi di fornitura: soddisfa l'obbligo prima di chiudere/incassare e rende
+   * il margine = valore − altri costi.
+   *
+   * ⚠️ Si scrive SUBITO sul database (non al salvataggio del foglio): il
+   * divieto di incassare legge l'ordine, non la bozza del form — una spunta
+   * rimasta solo a schermo lascerebbe il bottone «Incassato» spento senza un
+   * perché. Ottimistica con rollback, come le altre azioni di stato.
+   */
+  const [senzaForn, setSenzaForn] = useState(Boolean(ordine.senza_fornitura));
+  const [salvoFlag, setSalvoFlag] = useState(false);
+  async function toggleSenzaFornitura() {
+    if (salvoFlag) return;
+    const nuovo = !senzaForn;
+    setSenzaForn(nuovo);
+    setSalvoFlag(true);
+    try {
+      await aggiornaOrdine(ordine.id, { senza_fornitura: nuovo });
+      onCambiato();
+    } catch (e: any) {
+      setSenzaForn(!nuovo);
+      avvisa('Non salvato', String(e?.message ?? e));
+    } finally {
+      setSalvoFlag(false);
+    }
+  }
 
   useEffect(() => {
     if (!apri || listino.length || caricoListino) return;
@@ -2888,6 +2956,12 @@ function BloccoFornitura({
           provenienza: `da un ordine di ${ordine.place_nome ?? ordine.cliente}`,
         }).catch(() => undefined);
       }
+      // ⚠️ Una fornitura VERA smentisce il «senza fornitura»: il flag si
+      // spegne da solo, se no l'ordine direbbe due cose opposte insieme.
+      if (senzaForn) {
+        setSenzaForn(false);
+        await aggiornaOrdine(ordine.id, { senza_fornitura: false }).catch(() => undefined);
+      }
       setChi(null);
       setQuanto('');
       setCosa('');
@@ -2941,6 +3015,11 @@ function BloccoFornitura({
             {righe.length === 1 ? 'fornitore' : 'fornitori'}. Il margine lo sottrae.
           </Text>
         </View>
+      ) : senzaForn ? (
+        <Text style={styles.campoAiuto}>
+          Ordine dichiarato senza fornitura: nessun costo da registrare, il margine è il valore (meno gli
+          eventuali altri costi). Si può chiudere e incassare.
+        </Text>
       ) : (
         // ⚠️ Non è un vuoto qualsiasi: senza fornitura l'ordine non si può
         // chiudere, ed è meglio saperlo adesso che davanti al bottone spento.
@@ -2949,6 +3028,27 @@ function BloccoFornitura({
           entra nei conti e il suo costo no.
         </Text>
       )}
+
+      {/* La spunta vive solo finché non ci sono fornitori: con una riga vera
+          la dichiarazione non ha più senso (e i costi reali comunque vincono). */}
+      {righe.length === 0 ? (
+        <Pressable
+          style={[styles.spuntaRiga, salvoFlag && { opacity: 0.5 }]}
+          disabled={salvoFlag}
+          onPress={toggleSenzaFornitura}
+          accessibilityLabel="Senza fornitura"
+          {...({ title: 'Quest’ordine non ha costi di fornitura (es. quota di affiliazione)' } as any)}
+        >
+          <Ionicons
+            name={senzaForn ? 'checkbox' : 'square-outline'}
+            size={19}
+            color={senzaForn ? colors.navy : colors.grigio}
+          />
+          <Text style={styles.spuntaTxt}>
+            Senza fornitura — quest&apos;ordine non ha costi di fornitura (es. quota di affiliazione).
+          </Text>
+        </Pressable>
+      ) : null}
 
       {apri ? (
         <View style={styles.fornForm}>
