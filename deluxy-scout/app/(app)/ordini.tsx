@@ -265,7 +265,7 @@ export default function Ordini() {
    * dieci, e li toglie al nome del cliente — che è il dato per cui si guarda la
    * riga. Finché la funzione non si usa, la tabella resta quella di prima.
    */
-  const conAltriCosti = useMemo(() => dati.some((o) => o.altri_costi != null), [dati]);
+
   /**
    * ⚠️ E LA SOGLIA SI ALZA CON LE COLONNE. 1280 era la misura giusta per
    * NOVE; con «Sito» diventano dieci e con «Altri costi» undici, e alla stessa
@@ -277,7 +277,14 @@ export default function Ordini() {
    * — sito compreso, o la richiesta «metti anche in tabella di che sito è»
    * sarebbe stata esaudita solo su uno schermo grande.
    */
-  const aTabella = width >= (conAltriCosti ? 1633 : 1533);
+  /**
+   * ⚠️ SOGLIA UNICA E PIÙ BASSA (28/08/2026). Otto colonne + azioni:
+   * 92+80+120+92+74+84+96 = 638 di fisse, 353 di azioni, ~180 minimi al
+   * cliente, ~40 di spazi → la tabella respira già a 1240. Prima, con
+   * tredici colonne, serviva un 1633 che quasi nessuno schermo ha — e sotto
+   * soglia le fisse si schiacciavano in briciole.
+   */
+  const aTabella = width >= 1240;
   /**
    * Sopra questa misura ci stanno TUTTE le colonne, canale compreso: misurato
    * nel DOM, a 1649 al nome del cliente restano 209px invece dei 111 che
@@ -285,7 +292,7 @@ export default function Ordini() {
    * salite di 48 con le icone grandi del 28/08). Non è una soglia di stile: è il punto
    * in cui rimettere una colonna smette di togliere spazio al dato principale.
    */
-  const tutteLeColonne = width >= 1793;
+
 
   /**
    * Quanto ci costa ciascun ordine: dai lavori collegati alla sua trattativa
@@ -383,6 +390,17 @@ export default function Ordini() {
               ⚠️ Quando manca non si scrive niente: un ordine senza proprietario
               è un fatto (nato da un import o da un cron), e attribuirlo a chi
               guarda sarebbe la bugia più comoda. */}
+          {/* ⚠️ SITO e CANALE stanno QUI, non in due colonne (28/08/2026,
+              segnalazione dell'utente: «la tabella è ancora un disastro»).
+              Con TREDICI colonne le fisse venivano schiacciate in briciole —
+              «W…», «Ang ol…» — e ogni icona nuova peggiorava. Sono contesto
+              del cliente: una riga sotto il nome costa zero larghezza e si
+              legge nello stesso sguardo. Niente è stato tolto: è stato
+              AVVICINATO. */}
+          <Text style={styles.seguitoDa} numberOfLines={1}>
+            {brandDi(o)}
+            {o.canale ? ` · ${LABEL_CANALE[o.canale] ?? o.canale}` : ''}
+          </Text>
           {o.owner_nome ? <Text style={styles.seguitoDa}>Seguito da {o.owner_nome}</Text> : null}
           {/* ⚠️ Il riferimento sta sulla RIGA, non solo nel foglio: è il numero
               che si copia nel DDT della consegna, e chi lo cerca sta guardando
@@ -434,48 +452,11 @@ export default function Ordini() {
     },
     { chiave: 'linea', label: 'Linea', width: 92, righe: 2, valore: (o) => o.linea ?? null },
     /**
-     * ⭐ DI CHE SITO È (27/08/2026, richiesta dell'utente: «metti anche in
-     * tabella di che sito è»). Prima si scriveva solo quando NON era deluxy.it
-     * — e siccome sono quasi tutti deluxy.it, non si vedeva mai. Decide
-     * l'intestazione del documento: saperlo a colpo d'occhio evita di emettere
-     * una pro-forma con il logo dell'insegna sbagliata.
+     * ⚠️ SITO, CANALE e FORNITORE non sono più colonne (28/08/2026): il sito
+     * e il canale vivono sotto il nome del cliente, il fornitore dentro la
+     * colonna del costo — dov'è la cifra di cui è l'autore. Con tredici
+     * colonne le fisse si schiacciavano in briciole.
      */
-    {
-      chiave: 'sito',
-      label: 'Sito',
-      width: 84,
-      valore: (o) => brandDi(o),
-      cella: (o) => <Text style={styles.sitoTxt} numberOfLines={1}>{brandDi(o)}</Text>,
-    },
-    /**
-     * ⚠️ IL CANALE C'È SEMPRE (27/08/2026, richiesta dell'utente: «nella
-     * tabella indica anche il canale da chi arriva»). L'avevo fatto sparire
-     * sotto i 1620 per far posto al nome del cliente: era una scelta mia, e
-     * l'utente ha detto che quella colonna la vuole. Lo spazio si trova
-     * altrove — è per questo che «Linea» e «Fornitore» hanno una misura fissa.
-     *
-     * ⚠️ Si mostra l'ETICHETTA, non il valore grezzo: nel database c'è `mail`,
-     * a schermo va «Mail». E il valore grezzo resta come ripiego, così una riga
-     * vecchia con un canale fuori elenco si legge com'è invece di sparire.
-     */
-    {
-      chiave: 'canale',
-      label: 'Canale',
-      width: 78,
-      valore: (o) => (o.canale ? LABEL_CANALE[o.canale] ?? o.canale : null),
-    },
-    /**
-     * QUANTO CI COSTA, accanto a quanto lo vendiamo (richiesta dell'utente).
-     * Il fornitore e il suo preventivo vengono dai lavori collegati alla
-     * trattativa: quello SCELTO se c'è, altrimenti il più basso ricevuto.
-     */
-    {
-      chiave: 'fornitore',
-      label: 'Fornitore',
-      width: 96,
-      righe: 2,
-      valore: (o) => costi.get(o.id)?.fornitore ?? null,
-    },
     /**
      * ⚠️ L'ORDINE DELLE COLONNE DEL DENARO È QUELLO CHIESTO DALL'UTENTE
      * (27/08/2026): valore → preventivo → altri costi → margine → % margine.
@@ -498,7 +479,7 @@ export default function Ordini() {
     {
       chiave: 'costo',
       label: 'Preventivo',
-      width: 88,
+      width: 120,
       destra: true,
       numerica: true,
       valore: (o) => costi.get(o.id)?.costo ?? null,
@@ -509,44 +490,21 @@ export default function Ordini() {
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={styles.tabValore}>{importoBreve(c.costo)}</Text>
             {/* ⚠️ «Scelto» o «il più basso» non sono la stessa cosa: il primo
-                è una decisione presa, il secondo una stima che può cambiare. */}
-            <Text style={styles.tabStima}>{c.definitivo ? 'scelto' : 'il più basso'}</Text>
+                è una decisione presa, il secondo una stima che può cambiare.
+                E il FORNITORE sta qui, accanto alla sua cifra. */}
+            <Text style={styles.tabStima} numberOfLines={1}>
+              {c.fornitore ? `${c.fornitore} · ` : ''}{c.definitivo ? 'scelto' : 'il più basso'}
+            </Text>
+            {o.altri_costi != null ? (
+              <Text style={styles.tabStima} numberOfLines={1}>+ {importoBreve(o.altri_costi)} altri</Text>
+            ) : null}
           </View>
         );
       },
     },
-    /**
-     * ⭐ ALTRI COSTI (27/08/2026, richiesta dell'utente: «metti una colonna
-     * altri costi sui costi che ci possono essere collegati»).
-     *
-     * Quelli che non passano da un preventivo fornitore: trasporto, una persona
-     * in più, il noleggio, il materiale comprato al volo. Finché non si contano,
-     * il margine è più alto di quello vero. Si scrivono dalla modifica
-     * dell'ordine, insieme alla nota che dice di cosa sono fatti.
-     */
-    ...(conAltriCosti
-      ? ([
-      {
-        chiave: 'altri',
-        label: 'Altri costi',
-        width: 88,
-        destra: true,
-        numerica: true,
-        valore: (o) => o.altri_costi ?? null,
-        cella: (o) =>
-          o.altri_costi == null ? (
-            <Text style={styles.tabData}>—</Text>
-          ) : (
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.tabValore}>{importoBreve(o.altri_costi)}</Text>
-              {o.altri_costi_nota ? (
-                <Text style={styles.tabStima} numberOfLines={1}>{o.altri_costi_nota}</Text>
-              ) : null}
-            </View>
-          ),
-      },
-        ] as ColonnaTabella<OrdineConLuogo>[])
-      : []),
+    // Gli ALTRI COSTI non hanno più una colonna condizionale: stanno sotto il
+    // preventivo («+ € X altri»), nel margine c'erano già. Una colonna che
+    // appare e scompare a seconda dei dati cambiava la soglia della tabella.
     {
       chiave: 'margine',
       label: 'Margine',
@@ -1650,9 +1608,11 @@ export default function Ordini() {
                 return {
                   cliente: `Totale · ${righe.length} ordini`,
                   valore: importoBreve(valore),
-                  fornitore: conCosto.length ? `su ${conCosto.length} di ${righe.length}` : 'nessun preventivo',
-                  costo: conCosto.length ? importoBreve(costo) : '—',
-                  altri: conCosto.length && altri ? importoBreve(altri) : '—',
+                  // ⚠️ Il conto della base e gli altri costi stanno nella
+                  // COLONNA DEL COSTO, che è dove quei numeri vivono ora.
+                  costo: conCosto.length
+                    ? `${importoBreve(costo + altri)} su ${conCosto.length} di ${righe.length}`
+                    : 'nessun preventivo',
                   margine: conCosto.length ? importoBreve(margine) : '—',
                   // ⚠️ La percentuale del TOTALE si calcola sul valore degli ordini
                   // che hanno un costo (`conCosto`), non su tutti: dividere il
@@ -3250,7 +3210,6 @@ const styles = StyleSheet.create({
   linkRegistro: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
   linkRegistroTxt: { color: colors.navy, fontWeight: '700', fontSize: 12.5 },
   seguitoDa: { color: colors.grigio, fontSize: 11, lineHeight: 15 },
-  sitoTxt: { color: colors.testoSoft, fontSize: 11.5, fontWeight: '600' },
   brandTxt: { color: colors.goldStrong, fontSize: 10.5, fontWeight: '700' },
   riepilogoMobile: { paddingBottom: 8 },
   riepilogoTxt: { color: colors.testoSoft, fontSize: 12.5, fontWeight: '700' },
