@@ -1,6 +1,6 @@
 # Il Libro UX&UI Deluxy
 
-**Versione 1.6 — 28 agosto 2026** · *1.6: la riga di tabella si apre col click quando il record ha un dettaglio (§8).* · *1.1: il drawer di menu si apre sempre da sinistra (§2). 1.2: la zona filtri di un elenco — tetto di 2 righe a pannello chiuso, fasce a breakpoint, eccedenza dietro «Filtri (N)» (§8; giuria: architetto + ostile). 1.3: su mobile i gruppi di chip scorrono su UNA riga (decisione utente; §8 punto 9). 1.4: le notifiche in-app — toast + pallino giallo + numero, il sistema del Customer Service promosso a canone (§7). 1.5: il ritorno al punto esatto — «← Indietro» esplicito su ogni dettaglio, che ripristina filtri/pagina/scroll (§2).*
+**Versione 1.8 — 28 agosto 2026** · *1.8: le azioni a icona — icona ≥18-19px, bersaglio ≥28px desktop / 44 touch, e il tooltip che dice cosa fa (§3).* · *1.7: le modali stanno DENTRO la viewport (max-height + corpo scorrevole + piede sticky) e la ✕ è obbligatoria (§9).* · *1.6: la riga di tabella si apre col click quando il record ha un dettaglio (§8).* · *1.1: il drawer di menu si apre sempre da sinistra (§2). 1.2: la zona filtri di un elenco — tetto di 2 righe a pannello chiuso, fasce a breakpoint, eccedenza dietro «Filtri (N)» (§8; giuria: architetto + ostile). 1.3: su mobile i gruppi di chip scorrono su UNA riga (decisione utente; §8 punto 9). 1.4: le notifiche in-app — toast + pallino giallo + numero, il sistema del Customer Service promosso a canone (§7). 1.5: il ritorno al punto esatto — «← Indietro» esplicito su ogni dettaglio, che ripristina filtri/pagina/scroll (§2).*
 
 Il canone dei **pattern di interfaccia** di tutte le app Deluxy: menù, bottoni, form, tabelle, stati, feedback, conferme, finestre, mobile. D'ora in poi **ogni elemento di interfaccia, in ogni app esistente e nuova, si costruisce attingendo da qui** — non dal gusto del momento e non copiando un'altra app a caso.
 
@@ -53,6 +53,8 @@ Le regole su cui **tutte** le fonti convergono e che nessun capitolo può contra
 - Lo swipe-da-bordo del drawer si disattiva sulle schermate a gesto pieno (mappa).
 
 ## 3. Bottoni e azioni
+
+**Le azioni a ICONA** *(v1.8, 28/08/2026 — regola dell'utente, dalla colonna azioni di Scout/Ordini)*: un comando reso a sola icona **(a)** ha l'icona ad **almeno 18-19px** dentro un bersaglio ≥ 28px su desktop (≥ `--touch-min` 44px su touch, legge 4) — un'icona da 15px in una cornice da 27 non si legge e non si becca; **(b)** **dice cosa fa al passaggio del mouse**: `title` su web (RN-web lo inoltra), `accessibilityLabel` sempre — la stessa parola che avrebbe avuto da bottone testuale, mai un'icona muta; **(c)** se lo spazio non basta per icone leggibili, si tolgono pixel alla cornice o si sale di soglia — mai scendere sotto la taglia leggibile. Riferimento: Scout `AzioniRiga.tsx` (38px, title, aria).
 
 **API unica delle classi** (riferimenti: Finance `globals.css:176-191`, Mail `globals.css:211-226`):
 
@@ -196,7 +198,8 @@ Vale per web e React Native. La regola madre è un **numero falsificabile**:
 
 **Canone web** (riferimento: sistema Mail, `globals.css:1014-1107`):
 - scrim `--scrim` (un valore solo — oggi ne circolano tre), pannello `surface` + `radius-l` + **`shadow-float`**, max ~560px, max-height con **scroll dentro il contenitore** (mai nei figli: la cicatrice di Scout — 4 fogli su 11 col Salva fuori schermo — dice perché questa responsabilità si centralizza);
-- **titolo sticky con la ✕ sempre visibile** (in un dialogo lungo, la chiusura non finisce mai sotto la piega);
+- *(v1.7, 28/08/2026 — segnalazione utente sulla modale «Aggiungi sede» di Anagrafiche, più alta dello schermo col Salva irraggiungibile)* **la misura di collaudo, falsificabile**: `max-height: min(92dvh, …)`, corpo con `overflow-y: auto`, **piede con le azioni sticky in fondo** (Salva/Annulla visibili anche a corpo scorrato) — e **a 375×812 E a 1366×768 il bottone di conferma si raggiunge senza scrollare la PAGINA**. Una modale che sfora la viewport è un bug, non un contenuto lungo;
+- **titolo sticky con la ✕ sempre visibile** (in un dialogo lungo, la chiusura non finisce mai sotto la piega); **la ✕ è OBBLIGATORIA su ogni modale**, non un'opzione di stile;
 - **tre vie di chiusura**: ✕, click sullo scrim, **Esc** (con stack: chiude prima il figlio poi il padre);
 - `role="dialog"` + `aria-modal` + **focus trap** + ritorno del focus al trigger (ARIA APG — oggi 0 modali su 10 app lo fanno: obbligo del Libro);
 - **su mobile diventa foglio dal basso** (radius solo in alto, `padding-bottom` con safe-area);
