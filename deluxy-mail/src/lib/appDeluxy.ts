@@ -760,13 +760,17 @@ const AZIONI: AzioneApp[] = [
     // che si pianta. Per riportarla su Scout serve ripubblicare quella
     // funzione con la verifica JWT spenta (`--no-verify-jwt`, come le
     // sorelle): è un comando, e vuole il token di deploy di Supabase.
-    id: 'finance.proforma',
-    app: 'Finance',
+    // ⚠️ 28/08/2026: la funzione proforma di Scout ora accetta la chiave d'app
+    // (ripubblicata con --no-verify-jwt), quindi la pro-forma torna a passare da
+    // SCOUT, che sceglie la CARTA INTESTATA del brand sul server. Chiamando
+    // Finance dritto usciva con l'intestazione predefinita.
+    id: 'commerciale.proforma',
+    app: 'Commerciale',
     nome: 'Crea pro-forma',
     scrive: true,
     dalRiassunto:
       'i servizi e gli importi sono stati CONCORDATI con un partner e si può passare a fatturare (non quando i prezzi sono ancora in discussione)',
-    descrizione: 'Prepara una pro-forma (o un preventivo) per il partner in Deluxy Finance.',
+    descrizione: 'Prepara una pro-forma (o un preventivo) col brand giusto, via Commerciale.',
     colore: 'gold',
     guida:
       'La mail riguarda servizi/importi da fatturare a un partner. partner = nome dell’azienda. Ogni riga: descrizione del servizio, quantità (1 se non detta), prezzo unitario SOLO se scritto nella mail (altrimenti null: lo completa l’utente).',
@@ -822,11 +826,12 @@ const AZIONI: AzioneApp[] = [
       // fallire l'invio con un errore che arriva dall'altra app.
       const tipo = String(dati.tipo ?? '').trim().toLowerCase() === 'preventivo' ? 'preventivo' : undefined
       return chiama(
-        `${FINANCE_URL}/api/proforma`,
+        `${COMMERCIALE_URL}/proforma`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-Key': ctx.chiave, 'X-App': 'deluxy-mail' },
+          headers: { 'Content-Type': 'application/json', 'x-api-key': ctx.chiave },
           body: JSON.stringify({
+            azione: 'crea',
             partner: dati.partner,
             tipo,
             oggetto: dati.oggetto || undefined,
@@ -852,8 +857,8 @@ const AZIONI: AzioneApp[] = [
             }
           }
           if (status === 401 || status === 403)
-            return { ok: false, messaggio: 'Chiave Finance non valida: controllala in Impostazioni App.' }
-          return { ok: false, messaggio: testoErrore(risposta, `Finance ha risposto ${status}.`) }
+            return { ok: false, messaggio: 'Chiave Commerciale non valida: controllala in Impostazioni App.' }
+          return { ok: false, messaggio: testoErrore(risposta, `Commerciale ha risposto ${status}.`) }
         }
       )
     },

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useId, useEffect, useState, useTransition } from 'react'
 import { useSpostabile } from './useSpostabile'
 import { useRouter } from 'next/navigation'
 import {
@@ -112,6 +112,63 @@ function CampoMulti({
           {o.etichetta}
         </button>
       ))}
+    </div>
+  )
+}
+
+/**
+ * Ricerca di un'azienda su TUTTA Anagrafiche, dal pannello dei candidati.
+ * Scrivi due lettere, scegli, e il dialogo rimanda con quel nome (onScegli).
+ * Respiro di 300ms come nel campo con ricerca.
+ */
+function RicercaAzienda({ onScegli, disabilitato }: { onScegli: (nome: string, email?: string) => void; disabilitato?: boolean }) {
+  const [q, setQ] = useState('')
+  const [voci, setVoci] = useState<{ valore: string; email?: string; nota?: string }[]>([])
+  const [cercando, setCercando] = useState(false)
+  const idLista = useId()
+  useEffect(() => {
+    const testo = q.trim()
+    if (testo.length < 2) {
+      setVoci([])
+      return
+    }
+    let vivo = true
+    setCercando(true)
+    const t = setTimeout(() => {
+      vociAnagraficheApp(testo)
+        .then((v) => vivo && setVoci(v))
+        .catch(() => {})
+        .finally(() => vivo && setCercando(false))
+    }, 300)
+    return () => {
+      vivo = false
+      clearTimeout(t)
+    }
+  }, [q])
+  const scegli = (testo: string) => {
+    const v = voci.find((x) => x.valore.trim().toLowerCase() === testo.trim().toLowerCase())
+    if (v) onScegli(v.valore, v.email)
+    else setQ(testo)
+  }
+  return (
+    <div style={{ marginTop: 12 }}>
+      <label className="field-label">Non è nessuno di questi? Cerca in Anagrafiche</label>
+      <input
+        type="text"
+        list={idLista}
+        value={q}
+        disabled={disabilitato}
+        placeholder="scrivi due lettere e scegli l’azienda"
+        onChange={(e) => scegli(e.target.value)}
+      />
+      <datalist id={idLista}>
+        {voci.map((v) => (
+          <option key={v.valore} value={v.valore}>
+            {v.nota ?? ''}
+          </option>
+        ))}
+      </datalist>
+      {cercando && <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>cerco…</p>}
     </div>
   )
 }
@@ -538,16 +595,19 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const invia = (correzione?: { campo: string; valore: string }) =>
+  const invia = (correzione?: { campo: string; valore: string } | { campo: string; valore: string }[]) =>
     start(async () => {
       if (!messaggioId || !proposta?.azione) return
       // ⚠️ `dati` è la STRINGA json del riquadro, non un oggetto: la correzione
-      // si applica sul contenuto, non con uno spread.
+      // si applica sul contenuto, non con uno spread. Può essere UNA o PIÙ:
+      // scegliendo un'azienda dalla ricerca si cambiano insieme il nome, l'id
+      // (che decade) e — se vuoto — il contatto.
       let daMandare = dati
       if (correzione) {
+        const corr = Array.isArray(correzione) ? correzione : [correzione]
         try {
           const o = JSON.parse(dati || '{}')
-          o[correzione.campo] = correzione.valore
+          for (const c of corr) o[c.campo] = c.valore
           daMandare = JSON.stringify(o, null, 2)
           setDati(daMandare)
         } catch {
@@ -570,6 +630,28 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
     if (!campo) return
     setEsito(null)
     invia({ campo, valore })
+  }
+
+  /**
+   * Scegliendo un'azienda dalla ricerca di Anagrafiche nel pannello dei
+   * candidati: si rimanda col NOME esatto (e, se il contatto è vuoto, l'email
+   * dell'azienda), azzerando l'id — così Commerciale la riaggancia o, se è
+   * nuova, offre di crearla. Non si resta prigionieri degli 8 candidati.
+   */
+  const cercaERimanda = (nome: string, email?: string) => {
+    setEsito(null)
+    let contattoVuoto = true
+    try {
+      const o = JSON.parse(dati || '{}')
+      contattoVuoto = !(typeof o.contattoEmail === 'string' && o.contattoEmail.includes('@'))
+    } catch {
+      /* json rotto: si tratta come vuoto */
+    }
+    invia([
+      { campo: 'negozio', valore: nome },
+      { campo: 'negozioId', valore: '' },
+      ...(email && contattoVuoto ? [{ campo: 'contattoEmail', valore: email }] : []),
+    ])
   }
 
   function chiudi() {
@@ -705,6 +787,15 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
                     Apri l’app
                   </a>
                 </>
+              )}
+            {/* ⚠️ Cerca in TUTTA Anagrafiche dal pannello dei candidati: se
+                nessuno degli 8 è quello giusto e non lo si vuole creare, lo si
+                trova qui e si rimanda col nome esatto. Solo per il negozio. */}
+            {!esito.ok &&
+              esito.scelte &&
+              esito.scelte.length > 0 &&
+              (esito.campoScelta === 'negozio' || esito.campoScelta === 'negozioId') && (
+                <RicercaAzienda onScegli={cercaERimanda} disabilitato={inCorso} />
               )}
             {/* Più record combaciano: si sceglie qui, non nell'altra app. */}
             {!esito.ok && esito.scelte && esito.scelte.length > 0 && (
