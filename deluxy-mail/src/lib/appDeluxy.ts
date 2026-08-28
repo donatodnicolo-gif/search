@@ -741,24 +741,29 @@ const AZIONI: AzioneApp[] = [
     },
   },
   {
-    // ⚠️⚠️ ERA `finance.proforma`, e chiamava FINANCE dritto (27/08/2026).
-    // Adesso passa da SCOUT, che è il proxy ufficiale verso FINANCE per questi
-    // documenti — e non è un dettaglio di percorso: è Scout a scegliere la
-    // CARTA INTESTATA del brand, sul server. Chiamando Finance direttamente,
-    // le pro-forma nate da una mail uscivano con l'intestazione predefinita,
-    // non con quella dell'azienda che stava emettendo.
-    // ⚠️ L'id è cambiato: le pro-forma create prima restano in archivio con
-    // l'id vecchio e non compaiono più fra le «già fatte» del riassunto. È il
-    // prezzo del trasloco, ed è preferibile a un id che dice Finance mentre
-    // chiama Scout.
-    id: 'commerciale.proforma',
-    app: 'Commerciale',
+    // ⚠️⚠️ TORNATA A CHIAMARE FINANCE, dopo un giro da Scout durato poche ore
+    // (27/08/2026). Il passaggio da Scout ha una ragione buona — è Scout a
+    // scegliere la CARTA INTESTATA del brand, mentre Finance da solo usa
+    // l'intestazione generale — ma NON FUNZIONA, e il motivo non è nel codice:
+    // la funzione `proforma` di Scout è pubblicata con la verifica JWT
+    // ACCESA, quindi il cancello di Supabase rifiuta la chiamata PRIMA di
+    // entrare nella funzione. Provato: le sorelle `preventivi` e `trattativa`
+    // rispondono col messaggio della funzione («Chiave API non valida»),
+    // `proforma` risponde col messaggio del gateway
+    // («UNAUTHORIZED_NO_AUTH_HEADER»). Non è la chiave: è che AI Mail non ha e
+    // non può avere un token utente di Scout.
+    // ⚠️ Si ripristina la strada che funziona invece di lasciare un bottone
+    // che si pianta. Per riportarla su Scout serve ripubblicare quella
+    // funzione con la verifica JWT spenta (`--no-verify-jwt`, come le
+    // sorelle): è un comando, e vuole il token di deploy di Supabase.
+    id: 'finance.proforma',
+    app: 'Finance',
     nome: 'Crea pro-forma',
     scrive: true,
     dalRiassunto:
       'i servizi e gli importi sono stati CONCORDATI con un partner e si può passare a fatturare (non quando i prezzi sono ancora in discussione)',
-    descrizione: 'Prepara una pro-forma (o un preventivo) per il partner, con la carta intestata del brand.',
-    colore: 'green',
+    descrizione: 'Prepara una pro-forma (o un preventivo) per il partner in Deluxy Finance.',
+    colore: 'gold',
     guida:
       'La mail riguarda servizi/importi da fatturare a un partner. partner = nome dell’azienda. Ogni riga: descrizione del servizio, quantità (1 se non detta), prezzo unitario SOLO se scritto nella mail (altrimenti null: lo completa l’utente).',
     // ⚠️ `righe` non è qui di proposito: è un elenco di oggetti, e la tabella
@@ -813,12 +818,11 @@ const AZIONI: AzioneApp[] = [
       // fallire l'invio con un errore che arriva dall'altra app.
       const tipo = String(dati.tipo ?? '').trim().toLowerCase() === 'preventivo' ? 'preventivo' : undefined
       return chiama(
-        `${COMMERCIALE_URL}/proforma`,
+        `${FINANCE_URL}/api/proforma`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': ctx.chiave },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': ctx.chiave, 'X-App': 'deluxy-mail' },
           body: JSON.stringify({
-            azione: 'crea',
             partner: dati.partner,
             tipo,
             oggetto: dati.oggetto || undefined,
@@ -844,8 +848,8 @@ const AZIONI: AzioneApp[] = [
             }
           }
           if (status === 401 || status === 403)
-            return { ok: false, messaggio: 'Chiave Commerciale non valida: controllala in Impostazioni App.' }
-          return { ok: false, messaggio: testoErrore(risposta, `Commerciale ha risposto ${status}.`) }
+            return { ok: false, messaggio: 'Chiave Finance non valida: controllala in Impostazioni App.' }
+          return { ok: false, messaggio: testoErrore(risposta, `Finance ha risposto ${status}.`) }
         }
       )
     },
