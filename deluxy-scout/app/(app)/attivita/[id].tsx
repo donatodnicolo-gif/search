@@ -7,7 +7,7 @@ import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing, touchMin } from '@/lib/theme';
 import { COLORE_A_RISCHIO, COLORE_PERSO, LABEL_A_RISCHIO, LABEL_LIVELLO, LABEL_PERSO, aRischio, coloreLivello, ePerso, livelloDi } from '@/lib/livelli';
 import { StatusBadge } from '@/components/ui';
-import { aggiornaNascosto, aggiornaPlace, completaTask, eliminaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati } from '@/lib/db';
+import { aggiornaNascosto, aggiornaPlace, archiviaContatto, completaTask, eliminaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati } from '@/lib/db';
 import { useAuth } from '@/lib/auth';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import {
@@ -320,6 +320,37 @@ export default function SchedaAttivita() {
     () => contatti.find((c) => c.email && !c.archiviato)?.email ?? null,
     [contatti],
   );
+  // La scheda mostra solo i contatti ATTIVI: un contatto archiviato (da qui,
+  // dalla Rubrica o perché il referente non lavora più il negozio) non deve
+  // ricomparire in scheda come se niente fosse. Gli archiviati si ripristinano
+  // dalla Rubrica, dove esiste la vista apposta.
+  const contattiAttivi = useMemo(() => contatti.filter((c) => !c.archiviato), [contatti]);
+  const nContattiArchiviati = contatti.length - contattiAttivi.length;
+
+  // Archivia un contatto dalla scheda: stessa strada della Rubrica
+  // (archiviaContatto scrive su Scout e comunica l'archiviazione al registro
+  // Anagrafiche, best-effort). ⚠️ La cancellazione fatta SOLO su Anagrafiche
+  // non arriva qui: la rubrica è di Scout, e da qui si chiude il cerchio.
+  function archiviaContattoScheda(c: Contact) {
+    conferma(
+      'Archiviare il contatto?',
+      `«${c.nome}» esce dalla scheda e dall'elenco attivo della Rubrica (da lì si può ripristinare). Se il negozio è nel registro, l'archiviazione viene comunicata anche ad Anagrafiche.`,
+      async () => {
+        const prima = contatti;
+        setContatti((cur) => cur.map((x) => (x.id === c.id ? { ...x, archiviato: true } : x)));
+        try {
+          await archiviaContatto(
+            { ...c, place_nome: place?.nome ?? null, place_zona: place?.zona ?? null },
+            true,
+          );
+        } catch (e: any) {
+          setContatti(prima);
+          avvisa('Contatto non archiviato', e?.message ?? 'Riprova fra poco.');
+        }
+      },
+      { testoConferma: 'Archivia' },
+    );
+  }
 
   const ricaricaTask = useCallback(async () => {
     if (!id) return;
@@ -731,7 +762,7 @@ export default function SchedaAttivita() {
         <EntitaCard anagraficaId={place.anagrafiche_id} nomeNegozio={place.nome} />
 
         {/* Ultime mail ricevute dai contatti del negozio (da AI Mail). */}
-        <MailContattoCard emails={contatti.map((c) => c.email ?? '').filter(Boolean)} />
+        <MailContattoCard emails={contattiAttivi.map((c) => c.email ?? '').filter(Boolean)} />
 
         <View style={styles.interesseHead}>
           <Text style={styles.interesseLbl}>Tipologia di interesse — scegline una o più</Text>
@@ -796,26 +827,43 @@ export default function SchedaAttivita() {
         ) : null}
 
         <Sezione titolo="Contatti">
-          {contatti.length === 0 ? (
+          {contattiAttivi.length === 0 ? (
             <View>
               <Text style={styles.vuoto}>Nessun contatto registrato.</Text>
               <Text style={styles.vuotoAiuto}>Aggiungilo qui sotto, oppure cercalo su HubSpot.</Text>
             </View>
           ) : (
-            contatti.map((c) => (
+            contattiAttivi.map((c) => (
               <View key={c.id} style={styles.contatto}>
-                <Text style={styles.contattoNome}>
-                  {c.nome} {c.is_decisore ? <Ionicons name="star" size={13} color={colors.oro} /> : null}
-                </Text>
-                {c.ruolo ? <Text style={styles.meta}>{c.ruolo}</Text> : null}
-                {c.telefono ? (
-                  <Text style={styles.link} onPress={() => Linking.openURL(`tel:${c.telefono}`)}>
-                    {c.telefono}
+                <View style={styles.contattoInfo}>
+                  <Text style={styles.contattoNome}>
+                    {c.nome} {c.is_decisore ? <Ionicons name="star" size={13} color={colors.oro} /> : null}
                   </Text>
-                ) : null}
+                  {c.ruolo ? <Text style={styles.meta}>{c.ruolo}</Text> : null}
+                  {c.telefono ? (
+                    <Text style={styles.link} onPress={() => Linking.openURL(`tel:${c.telefono}`)}>
+                      <Ionicons name="call-outline" size={13} color={colors.testoSoft} /> {c.telefono}
+                    </Text>
+                  ) : null}
+                </View>
+                <Pressable
+                  style={styles.btnArchivia}
+                  hitSlop={6}
+                  onPress={() => archiviaContattoScheda(c)}
+                  accessibilityLabel={`Archivia ${c.nome}`}
+                  {...({ title: 'Archivia contatto' } as any)}
+                >
+                  <Ionicons name="archive-outline" size={17} color={colors.grigio} />
+                </Pressable>
               </View>
             ))
           )}
+          {nContattiArchiviati > 0 ? (
+            <Text style={styles.vuotoAiuto}>
+              {nContattiArchiviati === 1 ? '1 contatto archiviato' : `${nContattiArchiviati} contatti archiviati`} — si
+              ripristina dalla Rubrica.
+            </Text>
+          ) : null}
           {/* Conciliazione intelligente con HubSpot */}
           <Pressable
             style={[styles.btnAI, matchLoading && { opacity: 0.6 }]}
@@ -827,7 +875,7 @@ export default function SchedaAttivita() {
                 'Cerco su HubSpot…'
               ) : (
                 <>
-                  <Ionicons name="search-outline" size={15} color={colors.goldStrong} /> Trova contatti su HubSpot
+                  <Ionicons name="search-outline" size={15} color={colors.testoSoft} /> Trova contatti su HubSpot
                 </>
               )}
             </Text>
@@ -1071,42 +1119,14 @@ const styles = StyleSheet.create({
   btnEliminaTxt: { color: colors.errore, fontWeight: '700', fontSize: 13.5 },
   nome: { fontSize: 24, fontWeight: '900', color: colors.navy, marginTop: spacing.sm },
   meta: { color: colors.testoSoft, fontSize: 14, marginTop: 2 },
-  // Azione primaria DS: pillola nera (ink), mai oro.
-  btnVisita: {
-    backgroundColor: colors.ink,
-    borderRadius: radius.pill,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  btnVisitaTxt: { color: colors.bianco, fontWeight: '600', fontSize: 17 },
-  azioniRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
-  btnTask: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1.5,
-    borderColor: colors.grigioChiaro,
-    backgroundColor: colors.bianco,
-    borderRadius: radius.m,
-    paddingHorizontal: spacing.lg,
-  },
-  btnTaskTxt: { color: colors.navy, fontWeight: '800', fontSize: 15 },
-  btnNaviga: {
-    borderWidth: 1.5,
-    borderColor: colors.navy,
-    borderRadius: radius.m,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  btnNavigaTxt: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   sezione: { marginTop: spacing.xxl },
+  // Etichetta di sezione secondo il DS (token `label`): 11px, maiuscolo
+  // sobrio, colore terziario. L'oro è un accento, non un colore di titolo.
   sezioneTitolo: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.oro,
-    letterSpacing: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.testoSoft,
+    letterSpacing: 0.6,
     marginBottom: spacing.sm,
     textTransform: 'uppercase',
   },
@@ -1114,10 +1134,10 @@ const styles = StyleSheet.create({
   vuotoAiuto: { color: colors.grigio, fontSize: 12.5, marginTop: 2 },
   interesseHead: { marginTop: spacing.xxl, marginBottom: spacing.sm, gap: 2 },
   interesseLbl: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.oro,
-    letterSpacing: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.testoSoft,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
   interesseNota: { fontSize: 12, color: colors.grigio, fontStyle: 'italic' },
@@ -1130,25 +1150,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   btnSalvaLineeTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
+  // Bottoni secondari secondo il DS: sempre a pillola, sfondo `fill`, testo
+  // scuro. Niente rettangoli bordati e niente bottoni color oro.
   btnSecondario: {
-    borderWidth: 1.5,
-    borderColor: colors.navy,
-    borderRadius: radius.m,
+    backgroundColor: colors.fill,
+    borderRadius: radius.pill,
     paddingVertical: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: spacing.xs,
+    minHeight: touchMin,
   },
-  btnSecondarioTxt: { color: colors.navy, fontWeight: '800' },
+  btnSecondarioTxt: { color: colors.testo, fontWeight: '600' },
   btnAI: {
-    backgroundColor: colors.goldSoft,
-    borderWidth: 1,
-    borderColor: colors.oro,
-    borderRadius: radius.m,
+    backgroundColor: colors.fill,
+    borderRadius: radius.pill,
     paddingVertical: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: spacing.sm,
+    minHeight: touchMin,
   },
-  btnAITxt: { color: colors.goldStrong, fontWeight: '800' },
+  btnAITxt: { color: colors.testo, fontWeight: '600' },
   aiBox: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
@@ -1193,7 +1216,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fill,
   },
   aiDup: { color: colors.attenzione, fontSize: 12, fontWeight: '600', marginTop: spacing.xs },
-  contatto: { backgroundColor: colors.bianco, borderRadius: radius.s, padding: spacing.sm, marginBottom: spacing.sm },
+  contatto: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.s,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  contattoInfo: { flex: 1 },
+  btnArchivia: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.fill,
+  },
   contattoNome: { fontWeight: '800', color: colors.navy },
   dupBox: { marginTop: spacing.lg, backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.attenzione, padding: spacing.lg, gap: 6 },
   dupTitolo: { color: colors.attenzione, fontWeight: '800', fontSize: 13, letterSpacing: 0.3 },
@@ -1211,7 +1253,7 @@ const styles = StyleSheet.create({
   taskTitolo: { fontWeight: '700', color: colors.testo, fontSize: 14 },
   taskFatto: { textDecorationLine: 'line-through', color: colors.grigio },
   taskMeta: { color: colors.testoSoft, fontSize: 12, marginTop: 2 },
-  link: { color: colors.oro, fontWeight: '700', marginTop: 2 },
+  link: { color: colors.testo, fontWeight: '600', marginTop: 2 },
   deal: { backgroundColor: colors.bianco, borderRadius: radius.s, padding: spacing.sm, marginBottom: spacing.sm },
   dealLinea: { fontWeight: '800', color: colors.navy },
   visita: { backgroundColor: colors.bianco, borderRadius: radius.s, padding: spacing.sm, marginBottom: spacing.sm },

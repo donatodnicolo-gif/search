@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
   checkin: { color: colors.testoSoft, fontWeight: '600', marginBottom: spacing.sm },
-  label: { color: colors.oro, fontWeight: '800', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginTop: spacing.xxl, marginBottom: 6 },
+  label: { color: colors.testoSoft, fontWeight: '700', fontSize: 11, letterSpacing: 0.6, textTransform: 'uppercase', marginTop: spacing.xxl, marginBottom: 6 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
