@@ -1,0 +1,635 @@
+<title>Manuale Deluxy Anagrafiche</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  /* ===== Palette: il linguaggio Apple dell'app (F5F5F7, superfici bianche,
+     hairline, oro solo accento). Onoriamo il design system del repo. ===== */
+  :root {
+    --ground: #F1F1F4;
+    --surface: #FFFFFF;
+    --surface-2: #FBFBFD;
+    --ink: #1D1D1F;
+    --ink-2: #55555A;
+    --ink-3: #86868B;
+    --hair: rgba(0,0,0,0.10);
+    --hair-strong: rgba(0,0,0,0.16);
+    --gold: #9C7C2E;
+    --gold-soft: rgba(184,150,62,0.13);
+    --blue: #2C6ECB;
+    --green: #1F8A54;
+    --amber: #B5791A;
+    --red: #C0392B;
+    --purple: #6A4FA3;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.06);
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, Helvetica, Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --maxw: 74ch;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --ground: #0C0C0D;
+      --surface: #161618;
+      --surface-2: #1D1D20;
+      --ink: #F2F2F4;
+      --ink-2: #B4B4BA;
+      --ink-3: #86868B;
+      --hair: rgba(255,255,255,0.12);
+      --hair-strong: rgba(255,255,255,0.20);
+      --gold: #D4B15F;
+      --gold-soft: rgba(212,177,95,0.16);
+      --blue: #6BA2F0;
+      --green: #5CC58C;
+      --amber: #E0A94A;
+      --red: #E8776B;
+      --purple: #A98FDB;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0C0C0D;
+    --surface: #161618;
+    --surface-2: #1D1D20;
+    --ink: #F2F2F4;
+    --ink-2: #B4B4BA;
+    --ink-3: #86868B;
+    --hair: rgba(255,255,255,0.12);
+    --hair-strong: rgba(255,255,255,0.20);
+    --gold: #D4B15F;
+    --gold-soft: rgba(212,177,95,0.16);
+    --blue: #6BA2F0;
+    --green: #5CC58C;
+    --amber: #E0A94A;
+    --red: #E8776B;
+    --purple: #A98FDB;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ===== Shell: spina di lettura + rail di navigazione ===== */
+  .shell { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  @media (min-width: 1000px) {
+    .withnav { display: grid; grid-template-columns: 232px minmax(0,1fr); gap: 48px; align-items: start; }
+  }
+  nav.toc {
+    position: sticky; top: 0; align-self: start;
+    max-height: 100vh; overflow-y: auto;
+    padding: 28px 0 40px;
+    font-size: 13.5px;
+    display: none;
+  }
+  @media (min-width: 1000px) { nav.toc { display: block; } }
+  nav.toc .toc-label {
+    font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--ink-3); margin: 0 0 12px 12px; font-weight: 600;
+  }
+  nav.toc a {
+    display: block; padding: 5px 12px; color: var(--ink-2);
+    text-decoration: none; border-left: 2px solid transparent; line-height: 1.35;
+  }
+  nav.toc a .n { color: var(--gold); font-family: var(--mono); font-size: 11.5px; margin-right: 8px; }
+  nav.toc a:hover { color: var(--ink); }
+  nav.toc a.active { color: var(--ink); border-left-color: var(--gold); font-weight: 500; }
+
+  main { padding-bottom: 96px; min-width: 0; }
+  section.chapter { padding: 40px 0; border-top: 1px solid var(--hair); scroll-margin-top: 16px; }
+  section.chapter:first-of-type { border-top: none; }
+
+  .prose { max-width: var(--maxw); }
+  p { margin: 0 0 16px; color: var(--ink-2); }
+  p strong, li strong { color: var(--ink); font-weight: 600; }
+  .lead { font-size: 19px; color: var(--ink); line-height: 1.55; }
+
+  h1, h2, h3 { color: var(--ink); text-wrap: balance; letter-spacing: -0.02em; line-height: 1.12; }
+  h2 { font-size: clamp(26px, 4vw, 34px); margin: 0 0 8px; }
+  h3 { font-size: 19px; letter-spacing: -0.01em; margin: 30px 0 10px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 12px; font-weight: 500;
+    letter-spacing: 0.02em; color: var(--gold); margin: 0 0 14px;
+  }
+  .eyebrow .num {
+    font-variant-numeric: tabular-nums;
+    border: 1px solid var(--gold); border-radius: 5px; padding: 1px 6px;
+  }
+  a.inline { color: var(--blue); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--blue) 35%, transparent); }
+  a.inline:hover { border-bottom-color: var(--blue); }
+  code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--gold-soft); color: var(--ink);
+    padding: 1px 6px; border-radius: 5px; white-space: nowrap;
+  }
+
+  /* ===== Hero ===== */
+  header.hero { padding: 72px 0 8px; max-width: 60ch; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-2);
+    border: 1px solid var(--hair-strong); border-radius: 999px;
+    padding: 6px 14px; margin-bottom: 26px; background: var(--surface);
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent); }
+  .hero h1 { font-size: clamp(38px, 7vw, 62px); letter-spacing: -0.035em; margin: 0 0 22px; }
+  .hero h1 .gold { color: var(--gold); }
+  .hero .lead { font-size: clamp(18px, 2.4vw, 22px); color: var(--ink-2); }
+  .hero .lead b { color: var(--ink); font-weight: 600; }
+  .metastrip {
+    display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 34px 0 8px;
+    font-size: 13.5px; color: var(--ink-3); font-family: var(--mono);
+  }
+  .metastrip b { color: var(--ink-2); font-weight: 500; }
+
+  /* ===== Callout: la regola fondante ===== */
+  .rule-card {
+    background: var(--surface); border: 1px solid var(--hair);
+    border-radius: 16px; padding: 28px 30px; box-shadow: var(--shadow);
+    margin: 28px 0; position: relative; overflow: hidden;
+  }
+  .rule-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--gold); }
+  .rule-card .k {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--gold); margin: 0 0 10px;
+  }
+  .rule-card .big { font-size: 22px; color: var(--ink); line-height: 1.4; letter-spacing: -0.015em; margin: 0; }
+  .rule-card .big b { font-weight: 700; }
+
+  /* ===== Cards / grid ===== */
+  .card {
+    background: var(--surface); border: 1px solid var(--hair);
+    border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow);
+  }
+  .grid { display: grid; gap: 16px; }
+  @media (min-width: 620px) { .grid.two { grid-template-columns: 1fr 1fr; } }
+  .callbox {
+    background: var(--surface-2); border: 1px solid var(--hair); border-radius: 12px;
+    padding: 16px 18px; margin: 20px 0; font-size: 15px; color: var(--ink-2);
+  }
+  .callbox.warn { border-left: 3px solid var(--amber); }
+  .callbox .h { display: block; color: var(--ink); font-weight: 600; margin-bottom: 4px; font-size: 14px; }
+
+  ul.clean { list-style: none; padding: 0; margin: 0 0 16px; max-width: var(--maxw); }
+  ul.clean li { position: relative; padding: 7px 0 7px 26px; color: var(--ink-2); border-bottom: 1px solid var(--hair); }
+  ul.clean li:last-child { border-bottom: none; }
+  ul.clean li::before { content: ""; position: absolute; left: 4px; top: 15px; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+
+  /* ===== Chain diagram (negozio → società → entità) ===== */
+  .chain { margin: 26px 0 12px; }
+  .chain-row { display: grid; gap: 14px; }
+  @media (min-width: 720px) { .chain-row { grid-template-columns: repeat(3, 1fr); } }
+  .level {
+    background: var(--surface); border: 1px solid var(--hair); border-radius: 14px;
+    padding: 20px; box-shadow: var(--shadow); position: relative;
+  }
+  .level .tag { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); letter-spacing: 0.04em; text-transform: uppercase; }
+  .level h4 { margin: 6px 0 4px; font-size: 20px; letter-spacing: -0.02em; color: var(--ink); }
+  .level .role { font-size: 14px; color: var(--ink-2); margin: 0 0 12px; min-height: 40px; }
+  .level .model { font-family: var(--mono); font-size: 12px; color: var(--gold); background: var(--gold-soft); border-radius: 6px; padding: 4px 8px; display: inline-block; }
+  .level .arrow { display: none; }
+  @media (min-width: 720px) {
+    .level:not(:last-child) .arrow {
+      display: block; position: absolute; right: -12px; top: 50%; transform: translateY(-50%);
+      z-index: 2; color: var(--gold); font-family: var(--mono); font-size: 20px;
+    }
+  }
+  .chain-eg {
+    margin-top: 16px; font-size: 14.5px; color: var(--ink-2);
+    background: var(--surface-2); border: 1px solid var(--hair); border-radius: 12px; padding: 16px 18px;
+  }
+  .chain-eg b { color: var(--ink); }
+  .num-gold { font-family: var(--mono); color: var(--gold); font-variant-numeric: tabular-nums; }
+
+  /* ===== State pills (le cinque dimensioni) ===== */
+  .dim { margin: 18px 0; }
+  .dim .dh { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dim .dh .name { font-weight: 600; color: var(--ink); font-size: 16px; }
+  .dim .dh .field { font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); }
+  .dim .dd { font-size: 14.5px; color: var(--ink-2); margin: 0 0 10px; max-width: var(--maxw); }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--hair-strong); border-radius: 999px;
+    padding: 5px 12px 5px 10px; font-size: 13px; color: var(--ink-2); background: var(--surface);
+  }
+  .pill .d { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+  .pill.b .d { background: var(--blue); } .pill.g .d { background: var(--green); }
+  .pill.a .d { background: var(--amber); } .pill.r .d { background: var(--red); }
+  .pill.p .d { background: var(--purple); } .pill.k .d { background: var(--ink); }
+
+  /* ===== Flow: chi scrive / chi legge ===== */
+  .flow { display: grid; gap: 16px; margin: 24px 0; }
+  @media (min-width: 760px) { .flow { grid-template-columns: 1fr 1fr; } }
+  .flow .col { background: var(--surface); border: 1px solid var(--hair); border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow); }
+  .flow .col h4 { margin: 0 0 4px; font-size: 17px; letter-spacing: -0.01em; }
+  .flow .col .sub { font-size: 13px; color: var(--ink-3); margin: 0 0 16px; }
+  .app-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--hair); font-size: 14px; }
+  .app-row:first-of-type { border-top: none; }
+  .app-row .nm { font-family: var(--mono); font-size: 13px; color: var(--ink); flex: 1; }
+  .scope { font-size: 11px; font-family: var(--mono); padding: 2px 7px; border-radius: 5px; border: 1px solid var(--hair-strong); color: var(--ink-2); white-space: nowrap; }
+  .scope.w { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, var(--hair-strong)); }
+  .scope.r { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, var(--hair-strong)); }
+
+  /* ===== Sezioni dell'app (cards griglia) ===== */
+  .sections-grid { display: grid; gap: 14px; margin-top: 20px; }
+  @media (min-width: 640px) { .sections-grid { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 940px) { .sections-grid { grid-template-columns: 1fr 1fr 1fr; } }
+  .sec {
+    background: var(--surface); border: 1px solid var(--hair); border-radius: 12px;
+    padding: 18px; box-shadow: var(--shadow);
+  }
+  .sec .rt { font-family: var(--mono); font-size: 12px; color: var(--gold); }
+  .sec h4 { margin: 6px 0 6px; font-size: 16px; letter-spacing: -0.01em; }
+  .sec p { font-size: 13.5px; margin: 0; color: var(--ink-2); line-height: 1.5; }
+  .group-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-3); margin: 26px 0 2px; font-weight: 600;
+  }
+
+  /* ===== API table ===== */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--hair); border-radius: 12px; margin: 20px 0; box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 14px; background: var(--surface); }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hair); vertical-align: top; }
+  thead th { font-size: 11.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; background: var(--surface-2); }
+  tbody tr:last-child td { border-bottom: none; }
+  td .m { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .verb { font-family: var(--mono); font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 5px; }
+  .verb.get { color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); }
+  .verb.post { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+  .verb.patch { color: var(--amber); background: color-mix(in srgb, var(--amber) 14%, transparent); }
+
+  /* ===== Regole d'oro ===== */
+  .golden { display: grid; gap: 14px; margin-top: 20px; }
+  @media (min-width: 720px) { .golden { grid-template-columns: 1fr 1fr; } }
+  .gold-item { background: var(--surface); border: 1px solid var(--hair); border-radius: 12px; padding: 18px 20px; box-shadow: var(--shadow); }
+  .gold-item h4 { margin: 0 0 6px; font-size: 15.5px; color: var(--ink); letter-spacing: -0.01em; }
+  .gold-item p { font-size: 13.5px; margin: 0; }
+
+  /* ===== Meta: come si tiene aggiornato ===== */
+  .meta-card { background: var(--ink); color: #fff; border-radius: 16px; padding: 32px 34px; margin: 8px 0 0; }
+  :root[data-theme="dark"] .meta-card, :root:not([data-theme="light"]) .meta-card { border: 1px solid var(--hair-strong); }
+  .meta-card h3 { color: #fff; margin: 0 0 14px; }
+  .meta-card p { color: rgba(255,255,255,0.72); }
+  .meta-card p strong { color: #fff; }
+  .meta-card code { background: rgba(255,255,255,0.14); color: #fff; }
+  .meta-steps { counter-reset: st; list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 12px; }
+  .meta-steps li { counter-increment: st; position: relative; padding-left: 42px; color: rgba(255,255,255,0.82); font-size: 15px; }
+  .meta-steps li::before {
+    content: counter(st); position: absolute; left: 0; top: -2px;
+    width: 28px; height: 28px; border-radius: 8px; background: var(--gold); color: #1D1D1F;
+    display: grid; place-items: center; font-family: var(--mono); font-weight: 600; font-size: 14px;
+  }
+
+  footer { border-top: 1px solid var(--hair); padding: 30px 0 60px; color: var(--ink-3); font-size: 13px; }
+  footer .mono { font-family: var(--mono); }
+</style>
+
+<header class="hero shell">
+  <div class="badge"><span class="dot"></span> deluxy-anagrafiche &nbsp;·&nbsp; live &nbsp;·&nbsp; porta 3060</div>
+  <h1>Il registro dove ogni azienda ha <span class="gold">una casa sola</span>.</h1>
+  <p class="lead">Deluxy Anagrafiche è l'<b>anagrafica centrale</b> dei partner e prospect B2B di tutto l'ecosistema: fioristi, pasticcerie, boutique, fornitori. Tutte le altre app — consegne, fatture, customer service, prospezione — <b>leggono di qui</b>, e chi possiede un dato è l'unico che lo scrive.</p>
+  <div class="metastrip">
+    <span><b>~1.100</b> anagrafiche vive</span>
+    <span><b>13</b> sezioni</span>
+    <span><b>10</b> app collegate via API</span>
+    <span><b>Next.js</b> + Prisma + Postgres</span>
+  </div>
+</header>
+
+<div class="shell withnav">
+  <nav class="toc" aria-label="Indice">
+    <p class="toc-label">In questo manuale</p>
+    <a href="#cos-e"><span class="n">00</span>Cos'è, in una riga</a>
+    <a href="#catena"><span class="n">01</span>La catena a tre livelli</a>
+    <a href="#stati"><span class="n">02</span>Le cinque dimensioni</a>
+    <a href="#golden-record"><span class="n">03</span>Golden record e merge</a>
+    <a href="#chi"><span class="n">04</span>Chi scrive, chi legge</a>
+    <a href="#sezioni"><span class="n">05</span>Le sezioni dell'app</a>
+    <a href="#api"><span class="n">06</span>Le API</a>
+    <a href="#regole"><span class="n">07</span>Le regole d'oro</a>
+    <a href="#aggiornare"><span class="n">08</span>Tenere aggiornato questo manuale</a>
+  </nav>
+
+  <main>
+    <section class="chapter" id="cos-e">
+      <p class="eyebrow"><span class="num">00</span> Il punto di partenza</p>
+      <h2>Cos'è, in una riga</h2>
+      <div class="prose">
+        <p class="lead">È il <strong>libro mastro delle aziende</strong> con cui Deluxy lavora. Ogni fioraio che riceve un ordine, ogni boutique cliente, ogni fornitore che paghiamo: la sua identità — nome, sede, referenti, dati fiscali, stato del rapporto — vive qui, e da qui la leggono tutte le altre app.</p>
+        <div class="rule-card">
+          <p class="k">La regola fondante</p>
+          <p class="big"><b>Ogni dato ha una casa sola.</b> Chi lo possiede è l'unico che lo scrive; gli altri lo leggono via API. Mai copie, mai lo stesso numero scritto in due posti — perché due copie, prima o poi, dicono due cose diverse.</p>
+        </div>
+        <p>Questo spiega quasi tutto il resto: perché il fatturato non sta qui ma in FINANCE, perché il registro non decide chi consegna, perché una scrittura sbagliata da un'app non può cancellare quello che ha deciso una persona. Ogni sezione di questo manuale è un pezzo di quella regola.</p>
+      </div>
+    </section>
+
+    <section class="chapter" id="catena">
+      <p class="eyebrow"><span class="num">01</span> Il modello mentale</p>
+      <h2>La catena a tre livelli</h2>
+      <div class="prose">
+        <p>La cosa più importante da capire il primo giorno: <strong>«azienda» non è una cosa sola.</strong> Un cliente come CHANEL è tre negozi, che fatturano con società diverse, ma commercialmente è un cliente solo. Il registro tiene i tre livelli separati e collegati.</p>
+      </div>
+      <div class="chain">
+        <div class="chain-row">
+          <div class="level">
+            <span class="tag">Livello 1 · dove</span>
+            <h4>Il negozio</h4>
+            <p class="role">Il luogo fisico: dove si consegna, chi si visita. Ogni sede è un'anagrafica autonoma.</p>
+            <span class="model">Partner</span>
+            <span class="arrow">→</span>
+          </div>
+          <div class="level">
+            <span class="tag">Livello 2 · chi fattura</span>
+            <h4>La società</h4>
+            <p class="role">Chi emette la fattura e a chi esce il bonifico. La partita IVA è la sua identità.</p>
+            <span class="model">SoggettoFiscale</span>
+            <span class="arrow">→</span>
+          </div>
+          <div class="level">
+            <span class="tag">Livello 3 · il cliente</span>
+            <h4>L'entità</h4>
+            <p class="role">Il cliente come lo intende chi vende, sopra le sue società. La assegna una persona.</p>
+            <span class="model">GruppoAziendale</span>
+          </div>
+        </div>
+        <div class="chain-eg">
+          <b>Esempio vero.</b> In FINANCE «CHANEL» sono <b>tre schede</b> — Milano, Roma, Firenze — per <span class="num-gold">138.595 €</span> di fatturato. Chiedendo il totale per singola anagrafica se ne vedevano solo <span class="num-gold">85.994 €</span>, perché una delle tre non era agganciata: il numero tornava, ed era sbagliato del <b>38%</b>. La catena serve esattamente a questo — sommare un cliente in tutte le sue società senza perderne pezzi.
+        </div>
+      </div>
+      <div class="callbox warn">
+        <span class="h">Un negozio senza società non ha entità</span>
+        Appartiene al gruppo <em>attraverso</em> la sua società. Un prospect senza partita IVA sta al livello 1 e basta: è un limite voluto, non una dimenticanza.
+      </div>
+    </section>
+
+    <section class="chapter" id="stati">
+      <p class="eyebrow"><span class="num">02</span> Come si descrive un'azienda</p>
+      <h2>Le cinque dimensioni di stato</h2>
+      <div class="prose">
+        <p>La stessa azienda può essere <strong>cliente e fornitore insieme</strong>, essere «attiva» commercialmente ma «in ritardo» sui pagamenti. Per questo non c'è uno stato solo, ce ne sono cinque, indipendenti — e ognuna risponde a una domanda diversa.</p>
+      </div>
+
+      <div class="dim">
+        <div class="dh"><span class="name">Commerciale</span><span class="field">stato</span></div>
+        <p class="dd">A che punto è del funnel di vendita. «Attivo» = è un cliente vero. È condiviso con Deluxy Scout: un'azienda ha un solo stato commerciale da qualunque app la si guardi.</p>
+        <div class="pills">
+          <span class="pill"><span class="d"></span>Selezionato</span>
+          <span class="pill b"><span class="d"></span>Lead</span>
+          <span class="pill b"><span class="d"></span>Prospect</span>
+          <span class="pill a"><span class="d"></span>In trattativa</span>
+          <span class="pill g"><span class="d"></span>Cliente</span>
+          <span class="pill"><span class="d"></span>Dormiente</span>
+        </div>
+      </div>
+
+      <div class="dim">
+        <div class="dh"><span class="name">Livello</span><span class="field">livello</span></div>
+        <p class="dd">Com'è messo il contatto <em>dentro</em> quello stato: sta aspettando una risposta? va ricontattato? È «il momento» del rapporto, non il gradino del funnel.</p>
+        <div class="pills">
+          <span class="pill b"><span class="d"></span>In contatto</span>
+          <span class="pill a"><span class="d"></span>In attesa</span>
+          <span class="pill a"><span class="d"></span>Da ricontattare</span>
+          <span class="pill g"><span class="d"></span>Attivo</span>
+          <span class="pill r"><span class="d"></span>A rischio</span>
+          <span class="pill"><span class="d"></span>Non interessato</span>
+        </div>
+      </div>
+
+      <div class="dim">
+        <div class="dh"><span class="name">Finanziario</span><span class="field">statoFinanziario</span></div>
+        <p class="dd">Come paga, se possiamo lavorarci a credito. Lo calcola FINANCE dai movimenti reali, non lo si mette a mano.</p>
+        <div class="pills">
+          <span class="pill"><span class="d"></span>Da verificare</span>
+          <span class="pill g"><span class="d"></span>Regolare</span>
+          <span class="pill a"><span class="d"></span>In ritardo</span>
+          <span class="pill r"><span class="d"></span>Insoluto</span>
+          <span class="pill a"><span class="d"></span>Piano di rientro</span>
+          <span class="pill r"><span class="d"></span>Bloccato</span>
+        </div>
+      </div>
+
+      <div class="dim">
+        <div class="dh"><span class="name">Analisi</span><span class="field">statoAnalisi</span></div>
+        <p class="dd">Il perimetro di analisi, catalogo di FINANCE («cliente per l'anno»). Vuoto = mai analizzata.</p>
+        <div class="pills">
+          <span class="pill g"><span class="d"></span>P.P. (pari perimetro)</span>
+          <span class="pill b"><span class="d"></span>Nuovo</span>
+          <span class="pill"><span class="d"></span>Dismesso</span>
+        </div>
+      </div>
+
+      <div class="dim">
+        <div class="dh"><span class="name">Fornitore</span><span class="field">statoFornitore</span></div>
+        <p class="dd">Ci fornisce? e com'è andata. Vuoto = non è un nostro fornitore. I primi tre sono una <strong>scala</strong>: dalle app si può solo <strong>salire</strong>, mai retrocedere. «Da evitare» è un veto a parte.</p>
+        <div class="pills">
+          <span class="pill"><span class="d"></span>Segnalato</span>
+          <span class="pill b"><span class="d"></span>Da provare</span>
+          <span class="pill g"><span class="d"></span>Abituale</span>
+          <span class="pill r"><span class="d"></span>Da evitare</span>
+        </div>
+      </div>
+
+      <div class="callbox">
+        <span class="h">Perché cinque e non una</span>
+        «Cliente» e «Fornitore» convivono perché la stessa azienda può comprarci <em>e</em> venderci. «Attivo» commerciale («è un cliente») e «Attivo» di livello («il rapporto è vivo») sono due fatti veri insieme: separarli evita di dover scegliere fra due verità.
+      </div>
+    </section>
+
+    <section class="chapter" id="golden-record">
+      <p class="eyebrow"><span class="num">03</span> Come entra un dato</p>
+      <h2>Golden record e regole di fusione</h2>
+      <div class="prose">
+        <p>Il registro è il <strong>golden record</strong>: ogni scrittura in arrivo da un'altra app non <em>sostituisce</em> il dato, lo <strong>fonde</strong> secondo regole per campo. Ogni campo appartiene a una di due famiglie.</p>
+      </div>
+      <div class="grid two">
+        <div class="card">
+          <h3 style="margin-top:0">Campi curati dal team</h3>
+          <p style="font-size:14.5px">Stato commerciale, interessi, account. Le scritture esterne <strong>non li toccano</strong>: li decide una persona dalla UI. Un'app che li manda li vede finire «in revisione», non applicati.</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">Campi fattuali</h3>
+          <p style="font-size:14.5px">Indirizzo, telefono, dati fiscali, i tre stati non commerciali. Vince <strong>il più fresco</strong> (data <code>asOf</code>) o, a pari data, <strong>la fonte più autorevole</strong>.</p>
+        </div>
+      </div>
+      <h3>La scala di fiducia delle fonti</h3>
+      <p class="prose" style="font-size:14.5px">Quando due app scrivono lo stesso campo con la stessa data, vince chi sta più in alto. La UI del registro ha sempre l'ultima parola.</p>
+      <ul class="clean">
+        <li><strong>UI del registro (100)</strong> — una persona, dal registro: batte tutti</li>
+        <li><strong>Piattaforma consegne (80)</strong> — la verità operativa e di fatturazione</li>
+        <li><strong>FINANCE (70)</strong> — fisco, incassi, stato finanziario</li>
+        <li><strong>Scout (60)</strong> — rilevato sul campo</li>
+        <li><strong>Fornitori · HubSpot · ricerca (55–30)</strong> — via via meno autorevoli</li>
+      </ul>
+      <div class="callbox warn">
+        <span class="h">Chi sei lo dice la chiave, non il messaggio</span>
+        Un'app non può dichiararsi «UI» nel corpo della richiesta per rubare la fiducia 100: l'identità viene dalla <strong>chiave API</strong>, che è un segreto. Ed è come l'identità si risolve, in cascata: riferimento esterno → id di piattaforma → partita IVA/codice fiscale (sulla società) → nome + città.
+      </div>
+    </section>
+
+    <section class="chapter" id="chi">
+      <p class="eyebrow"><span class="num">04</span> L'ecosistema</p>
+      <h2>Chi scrive e chi legge</h2>
+      <div class="prose">
+        <p>Ogni app parla col registro con una <strong>chiave API</strong> che ha permessi precisi. La lettura di base (nome, sede, stati) è aperta a ogni chiave; ma <strong>i dati bancari e le persone hanno un ambito a parte</strong>, e la scrittura è divisa per mestiere.</p>
+      </div>
+      <div class="flow">
+        <div class="col">
+          <h4>Scrivono</h4>
+          <p class="sub">Ognuna sul pezzo che possiede</p>
+          <div class="app-row"><span class="nm">deluxy-platform</span><span class="scope w">scrittura piena</span></div>
+          <div class="app-row"><span class="nm">deluxy-partner · FINANCE</span><span class="scope w">scrittura piena</span></div>
+          <div class="app-row"><span class="nm">deluxy-scout</span><span class="scope w">upsert partner</span></div>
+          <div class="app-row"><span class="nm">deluxy-messaging · CS</span><span class="scope w">upsert partner</span></div>
+          <div class="app-row"><span class="nm">ricerca fornitori</span><span class="scope w">segnala</span></div>
+        </div>
+        <div class="col">
+          <h4>Leggono</h4>
+          <p class="sub">Due ambiti proteggono i dati sensibili</p>
+          <div class="app-row"><span class="nm">Base: aziende, stati</span><span class="scope r">ogni chiave</span></div>
+          <div class="app-row"><span class="nm">Dati finanziari · IBAN</span><span class="scope r">solo FINANCE</span></div>
+          <div class="app-row"><span class="nm">Persone · referenti, valet</span><span class="scope r">4 app</span></div>
+          <div class="app-row"><span class="nm">Entità e gruppi</span><span class="scope r">ogni chiave</span></div>
+          <div class="app-row"><span class="nm">Il fatturato</span><span class="scope">→ sta in FINANCE</span></div>
+        </div>
+      </div>
+      <div class="callbox">
+        <span class="h">Il fatturato non abita qui</span>
+        Il registro tiene gli <em>agganci</em> — quali società, quali negozi compongono un'entità. Gli <em>importi</em> li possiede FINANCE, il custode dei risultati. Un fatturato ricopiato nel registro invecchierebbe senza che nessuno se ne accorga.
+      </div>
+    </section>
+
+    <section class="chapter" id="sezioni">
+      <p class="eyebrow"><span class="num">05</span> Muoversi nell'app</p>
+      <h2>Le sezioni</h2>
+      <div class="prose">
+        <p>La barra laterale raggruppa 13 sezioni. Ecco cosa fa ognuna, dal registro quotidiano agli strumenti di manutenzione dei dati.</p>
+      </div>
+
+      <p class="group-label">Il registro</p>
+      <div class="sections-grid">
+        <div class="sec"><span class="rt">/</span><h4>Aziende</h4><p>L'elenco di tutte le anagrafiche, con ricerca, filtri per città e scorciatoie di periodo. Le sedi con la stessa insegna si raggruppano da sole.</p></div>
+        <div class="sec"><span class="rt">/dashboard</span><h4>Dashboard</h4><p>La visione d'insieme: conteggi per stato, categoria, dimensione. Da dove si parte per capire «come stiamo».</p></div>
+        <div class="sec"><span class="rt">/gruppi</span><h4>Entità commerciali</h4><p>Il terzo livello della catena: i clienti sopra le loro società. Da qui si vede quali negozi e quali società compongono ogni entità.</p></div>
+      </div>
+
+      <p class="group-label">Le persone e le popolazioni</p>
+      <div class="sections-grid">
+        <div class="sec"><span class="rt">/contatti</span><h4>Contatti</h4><p>La rubrica dei referenti: una persona per sede, spostabile fra sedi, pescabile dalla rubrica Google.</p></div>
+        <div class="sec"><span class="rt">/consumers</span><h4>Consumers</h4><p>Le <em>persone</em> che comprano su Shopify (oltre 10.000), lette da Orders. Un'altra popolazione: qui «cliente» vuol dire chi compra, non chi lavora per noi.</p></div>
+        <div class="sec"><span class="rt">/valet</span><h4>Valet</h4><p>Le persone che consegnano. L'identità sta qui; paghe e turni restano nella piattaforma consegne.</p></div>
+        <div class="sec"><span class="rt">/affiliati</span><h4>Affiliati e re-seller</h4><p>La pagella di chi serve le consegne D2C: i giudizi interni (mai recensioni pubbliche) arrivano dai reclami del Customer Service.</p></div>
+      </div>
+
+      <p class="group-label">Identità e riconciliazione dati</p>
+      <div class="sections-grid">
+        <div class="sec"><span class="rt">/identita-aziende</span><h4>Identità aziende</h4><p>Il cruscotto unico da cui si governa l'identità: allineamento con HubSpot, aggancio degli id delle app, smistamento dei contatti.</p></div>
+        <div class="sec"><span class="rt">/match</span><h4>Richieste di aggancio</h4><p>Lo storico di quando un'app chiede «questa azienda è già nel registro?». Da qui una persona conferma i casi incerti.</p></div>
+        <div class="sec"><span class="rt">/riconciliazione</span><h4>Riconciliazione referenti</h4><p>Assegna i contatti finiti sotto un'anagrafica «Da classificare» all'azienda giusta.</p></div>
+        <div class="sec"><span class="rt">/riconciliazioni</span><h4>Riconciliazioni dati</h4><p>Dove il tracker Excel e il registro dicono cose diverse sullo stesso campo: non sceglie una regola, decide una persona.</p></div>
+        <div class="sec"><span class="rt">/sync-hubspot</span><h4>Sync HubSpot</h4><p>Riconciliazione e import dal CRM HubSpot: aziende e contatti che arrivano dal marketing.</p></div>
+      </div>
+
+      <p class="group-label">Impostazioni</p>
+      <div class="sections-grid">
+        <div class="sec"><span class="rt">/chiavi</span><h4>Chiavi API</h4><p>Si creano, sospendono e rigenerano le chiavi con cui le altre app leggono e scrivono. Ogni chiave ha i suoi ambiti — inclusi i due di lettura per dati finanziari e persone.</p></div>
+      </div>
+    </section>
+
+    <section class="chapter" id="api">
+      <p class="eyebrow"><span class="num">06</span> Come parlano le altre app</p>
+      <h2>Le API</h2>
+      <div class="prose">
+        <p>Tutto passa da <code>/api/v1</code>, con la chiave nell'header <code>x-api-key</code>. Nel database c'è solo l'impronta della chiave, mai il valore. Ecco le rotte principali.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Rotta</th><th>Metodo</th><th>A cosa serve</th></tr></thead>
+          <tbody>
+            <tr><td><span class="m">/partners</span></td><td><span class="verb get">GET</span> <span class="verb post">POST</span></td><td>Elenco con filtri, e upsert-merge di un'anagrafica (crea o fonde secondo le regole).</td></tr>
+            <tr><td><span class="m">/partners/:id</span></td><td><span class="verb get">GET</span> <span class="verb patch">PATCH</span></td><td>Legge o aggiorna una singola anagrafica. Risolve anche gli id esterni, nel sistema della chiave.</td></tr>
+            <tr><td><span class="m">/partners/match</span></td><td><span class="verb get">GET</span></td><td>«Questa azienda è già nel registro?» Risolve per partita IVA, codice fiscale o nome+città, e risponde con il match sicuro o i candidati.</td></tr>
+            <tr><td><span class="m">/partners/unisci</span></td><td><span class="verb post">POST</span></td><td>Fonde due anagrafiche doppie: la destinazione vince, la sorgente si archivia. Con <code>prova</code> dice cosa farebbe senza scrivere.</td></tr>
+            <tr><td><span class="m">/gruppi</span> · <span class="m">/gruppi/:id</span></td><td><span class="verb get">GET</span></td><td>Le entità commerciali, con dentro società e negozi: gli agganci per sommare il fatturato di un cliente.</td></tr>
+            <tr><td><span class="m">/feedback</span></td><td><span class="verb get">GET</span> <span class="verb post">POST</span></td><td>I giudizi interni sulle consegne D2C (voto ricavato dalla gravità del reclamo).</td></tr>
+            <tr><td><span class="m">/referenti/archivia</span></td><td><span class="verb post">POST</span></td><td>Archivia o ripristina un referente, senza toccare il resto dell'anagrafica.</td></tr>
+            <tr><td><span class="m">/valet</span> · <span class="m">/valet/:id</span></td><td><span class="verb get">GET</span></td><td>L'anagrafica dei valet — sola lettura, e solo per le chiavi con l'ambito «persone».</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="chapter" id="regole">
+      <p class="eyebrow"><span class="num">07</span> Ciò che l'esperienza ha insegnato</p>
+      <h2>Le regole d'oro</h2>
+      <div class="prose">
+        <p>Ognuna nasce da un errore vero, trovato in produzione. Sono le difese che rendono il registro affidabile — vale la pena conoscerle prima di scriverci contro.</p>
+      </div>
+      <div class="golden">
+        <div class="gold-item"><h4>Un solo risultato non è un'identità</h4><p>Una ricerca larga trova, non afferma. Un aggancio automatico si fa solo se il nome regge davvero il confronto — altrimenti decide una persona.</p></div>
+        <div class="gold-item"><h4>La forma giuridica non identifica</h4><p>«Battistella S.R.L.» e «Fioreria Battistella» sono la stessa azienda; «Rossi SRL» e «Rossi SAS» no. Due società diverse non si fondono mai da sole.</p></div>
+        <div class="gold-item"><h4>Il fornitore può solo avanzare</h4><p>Un negozio «abituale» risalvato da un'app non torna «da provare»: lo stato di un rapporto sale dalle app, scende solo per mano di una persona.</p></div>
+        <div class="gold-item"><h4>Chi paghiamo si protegge</h4><p>IBAN, intestatario e dati di fatturazione escono solo alle chiavi che devono vederli. Col registro usato per i fornitori, è la superficie da frode del bonifico.</p></div>
+        <div class="gold-item"><h4>«Non permesso» ≠ «non c'è»</h4><p>A chi non ha l'ambito, un campo protetto torna vuoto <em>dichiaratamente</em> — mai come «assente», che manderebbe un'app a ricreare un dato che esiste già.</p></div>
+        <div class="gold-item"><h4>Il verso del denaro non si deduce</h4><p>Meglio «non indicato» che un dato sbagliato: una variabile senza dati si esclude, non vale zero. I giudizi senza feedback sono «da valutare», mai voto basso.</p></div>
+      </div>
+    </section>
+
+    <section class="chapter" id="aggiornare">
+      <p class="eyebrow"><span class="num">08</span> La regola del manuale</p>
+      <h2>Tenere aggiornato questo manuale</h2>
+      <div class="prose">
+        <p>Da qui in avanti, <strong>ogni funzionalità nuova o modificata entra in questo manuale</strong>, nello stesso momento in cui entra nel codice. Il file vive nel repo e si ri-pubblica: la guida visiva che stai leggendo <em>è</em> il file.</p>
+      </div>
+      <div class="meta-card">
+        <h3>Il flusso, ogni volta che cambia una funzionalità</h3>
+        <p>Il manuale è un file solo — <code>docs/manuale-funzionalita.html</code> — dentro <code>deluxy-anagrafiche</code>. È versionato con il codice e ri-pubblicato come artifact. Una fonte sola, sempre allineata.</p>
+        <ol class="meta-steps">
+          <li>Aggiungi o cambi una funzionalità nel codice.</li>
+          <li>Nello <strong>stesso commit</strong>, aggiorni la sezione corrispondente di <code>docs/manuale-funzionalita.html</code>.</li>
+          <li>Ri-pubblichi il file: la guida visiva si aggiorna allo stesso indirizzo.</li>
+          <li>Se la modifica cambia una regola o una difesa, la annoti anche fra le <strong>regole d'oro</strong>.</li>
+        </ol>
+      </div>
+      <div class="callbox" style="margin-top:24px">
+        <span class="h">Perché un file solo, e non due documenti</span>
+        Due copie di una spiegazione, come due copie di un dato, prima o poi divergono. Vale qui la stessa regola fondante dell'app: <strong>una casa sola</strong>. Il file HTML è insieme il testo che si versiona e la guida che si legge.
+      </div>
+    </section>
+
+    <footer>
+      <p class="mono">Deluxy Anagrafiche · manuale delle funzionalità · deluxy-anagrafiche.vercel.app</p>
+      <p>Fonte di verità: <span class="mono">docs/manuale-funzionalita.html</span>. Da aggiornare a ogni commit che cambia comportamento. Per il dettaglio tecnico vedi <span class="mono">HANDOFF.md</span> e <span class="mono">README.md</span>.</p>
+    </footer>
+  </main>
+</div>
+
+<script>
+  // Evidenzia nell'indice la sezione a schermo. Puro miglioramento progressivo.
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+    var map = {};
+    links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (l) { l.classList.remove('active'); });
+          if (map[e.target.id]) map[e.target.id].classList.add('active');
+        }
+      });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    document.querySelectorAll('section.chapter').forEach(function (s) { obs.observe(s); });
+  })();
+</script>

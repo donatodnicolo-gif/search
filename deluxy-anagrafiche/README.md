@@ -1,5 +1,14 @@
 # Deluxy Anagrafiche
 
+> 📘 **Manuale delle funzionalità (guida visiva)**: [`docs/manuale-funzionalita.html`](docs/manuale-funzionalita.html).
+> È la spiegazione, per una persona nuova, di come funziona tutta l'app: la catena a tre livelli
+> (negozio → società → entità), le cinque dimensioni di stato, chi scrive e chi legge, le sezioni e le API.
+> ⚠️ **REGOLA (28/08/2026): ogni funzionalità aggiunta o modificata va inserita in questo manuale, nello
+> stesso commit del codice.** Il file è versionato e si ri-pubblica come artifact (una fonte sola, sempre
+> allineata — vale la regola fondante dell'app: una casa sola). Guida live:
+> https://claude.ai/code/artifact/72828c77-e40a-4dfd-9311-73a1c0736b09
+
+
 Registro centralizzato delle anagrafiche partner e prospect B2B: la **fonte di verità
 unica** a cui accedono tutte le app dell'ecosistema Deluxy.
 
