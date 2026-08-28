@@ -15,7 +15,13 @@ export default async function ModificaPartner({ params }: { params: Promise<{ id
   if (!partner) notFound();
 
   // Denominazione legale dal registro (fonte di verità): mostrata in sola lettura
-  const anagrafica = await risolviAnagrafica(partner.nome, partner.anagraficaId);
+  // dal form E riusata dalla card qui sotto (una sola chiamata al registro).
+  // Il registro a freddo è lento (~3,5 s): la risolvo IN PARALLELO ai suggerimenti
+  // di gruppo invece che in fila, così la pagina non somma le due attese.
+  const [anagrafica, gruppi] = await Promise.all([
+    risolviAnagrafica(partner.nome, partner.anagraficaId),
+    suggerimentiGruppi(),
+  ]);
 
   const action = updatePartner.bind(null, id);
 
@@ -34,7 +40,7 @@ export default async function ModificaPartner({ params }: { params: Promise<{ id
         </div>
       </div>
       <PartnerForm
-        gruppi={await suggerimentiGruppi()}
+        gruppi={gruppi}
         partner={partner}
         action={action}
         submitLabel="Salva modifiche"
@@ -50,7 +56,13 @@ export default async function ModificaPartner({ params }: { params: Promise<{ id
           configurazione finanziaria locale di questo partner. Qui sotto il record del registro com'è adesso.
         </p>
       </div>
-      <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} partnerId={partner.id} />
+      <AnagraficaCard
+        nomePartner={partner.nome}
+        anagraficaId={partner.anagraficaId}
+        partnerId={partner.id}
+        anagraficaRisolta={anagrafica}
+        giaRisolta
+      />
     </>
   );
 }

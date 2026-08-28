@@ -42,13 +42,23 @@ export async function AnagraficaCard({
   nomePartner,
   anagraficaId,
   partnerId,
+  anagraficaRisolta,
+  giaRisolta = false,
 }: {
   nomePartner: string;
   anagraficaId?: string | null;
   partnerId?: string;
+  // Chi ha già risolto l'anagrafica (es. la pagina /modifica, che la legge per
+  // il form) può passarla qui per evitare una SECONDA chiamata al registro — a
+  // freddo sono ~3,5 s l'una: due in fila rendevano la pagina lentissima.
+  anagraficaRisolta?: Anagrafica | null;
+  giaRisolta?: boolean;
 }) {
-  // Collegato per id = join affidabile; altrimenti ripiego sul match per nome
-  const anagrafica: Anagrafica | null = await risolviAnagrafica(nomePartner, anagraficaId);
+  // Collegato per id = join affidabile; altrimenti ripiego sul match per nome.
+  // Se il chiamante l'ha già risolta, si riusa (nessuna chiamata in più).
+  const anagrafica: Anagrafica | null = giaRisolta
+    ? anagraficaRisolta ?? null
+    : await risolviAnagrafica(nomePartner, anagraficaId);
   // Aggancio manuale: quando i nomi non combaciano (es. «DR VRANJES gennaio» qui
   // e «Dr. Vranjes» nel registro) l'automatismo non trova nulla e creare
   // l'anagrafica farebbe un doppione: qui si incolla id o link della scheda.
