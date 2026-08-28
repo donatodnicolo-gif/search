@@ -37,6 +37,16 @@ async function salvaAzienda(fd: FormData) {
   await salvaImpostazione(CHIAVI.aziendaIndirizzo, String(fd.get("aziendaIndirizzo") ?? ""));
   await salvaImpostazione(CHIAVI.aziendaPiva, String(fd.get("aziendaPiva") ?? ""));
   await salvaImpostazione(CHIAVI.aziendaContatti, String(fd.get("aziendaContatti") ?? ""));
+  // Coordinate per il pagamento: l'IBAN si valida (uno sbagliato sul documento
+  // manda i soldi nel vuoto). Gli altri campi sono liberi.
+  const docIban = String(fd.get("aziendaIban") ?? "").replace(/\s/g, "").toUpperCase();
+  if (docIban && !ibanValido(docIban)) {
+    redirect("/impostazioni?errore=iban");
+  }
+  await salvaImpostazione(CHIAVI.aziendaModalitaPagamento, String(fd.get("aziendaModalitaPagamento") ?? ""));
+  await salvaImpostazione(CHIAVI.aziendaIban, docIban);
+  await salvaImpostazione(CHIAVI.aziendaIntestatario, String(fd.get("aziendaIntestatario") ?? ""));
+  await salvaImpostazione(CHIAVI.aziendaBanca, String(fd.get("aziendaBanca") ?? ""));
   await registra({ azione: "Modificata l'intestazione dei documenti (pro-forma)", categoria: "impostazioni" });
   revalidatePath("/impostazioni");
   redirect("/impostazioni?salvato=1");
@@ -222,10 +232,26 @@ export default async function ImpostazioniPage({
             <label className="field-label">Contatti (email · telefono)</label>
             <input type="text" name="aziendaContatti" defaultValue={imp[CHIAVI.aziendaContatti] ?? ""} placeholder="es. amministrazione@deluxy.it · +39 02 0000000" />
           </div>
+          <div>
+            <label className="field-label">Modalità di pagamento</label>
+            <input type="text" name="aziendaModalitaPagamento" defaultValue={imp[CHIAVI.aziendaModalitaPagamento] ?? ""} placeholder="es. Bonifico bancario" />
+          </div>
+          <div>
+            <label className="field-label">IBAN per l'incasso</label>
+            <input type="text" name="aziendaIban" defaultValue={imp[CHIAVI.aziendaIban] ?? ""} placeholder="es. IT60 X054 2811 1010 0000 0123 456" />
+          </div>
+          <div>
+            <label className="field-label">Intestatario del conto</label>
+            <input type="text" name="aziendaIntestatario" defaultValue={imp[CHIAVI.aziendaIntestatario] ?? ""} placeholder="es. Deluxy S.r.l." />
+          </div>
+          <div>
+            <label className="field-label">Banca</label>
+            <input type="text" name="aziendaBanca" defaultValue={imp[CHIAVI.aziendaBanca] ?? ""} placeholder="es. Intesa Sanpaolo" />
+          </div>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 14 }}>
-          Questi dati compaiono nell&apos;intestazione delle fatture pro-forma generate dalla sezione
-          &laquo;Pro-forma&raquo;.
+          Questi dati compaiono sui documenti pro-forma: l&apos;intestazione in alto e le
+          <strong> coordinate per il pagamento</strong> in calce (dove il cliente salda).
         </p>
         <div className="form-footer">
           <button type="submit" className="btn primary">Salva intestazione</button>

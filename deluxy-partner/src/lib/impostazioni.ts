@@ -10,6 +10,11 @@ export const CHIAVI = {
   aziendaIndirizzo: "azienda.indirizzo",
   aziendaPiva: "azienda.piva",
   aziendaContatti: "azienda.contatti",
+  // Coordinate per il pagamento mostrate sul documento (dove il cliente salda)
+  aziendaModalitaPagamento: "azienda.modalitaPagamento",
+  aziendaIban: "azienda.iban",
+  aziendaIntestatario: "azienda.intestatario",
+  aziendaBanca: "azienda.banca",
   // SMTP per invio solleciti (es. casella Register.it del dominio)
   smtpHost: "smtp.host",
   smtpPort: "smtp.port",

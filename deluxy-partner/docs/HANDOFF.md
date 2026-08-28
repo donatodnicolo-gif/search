@@ -62,6 +62,10 @@
 > - **Annulla dalla bozza**: prima una bozza si poteva solo eliminare; ora c è **«Annulla»** (→ stato annullata, numero conservato, ripristinabile), accanto a Invia/Modifica.
 > - **Richiedi pagamento — «Fattura collegata» è una RICERCA** (non più campo libero): `CercaFatturaEmessa` cerca fra **tutte le fatture emesse** su FIC per ragione sociale, numero, importo (lordo) e P.IVA (`ficCercaEmesse` in `fic.ts`), e riempie il riferimento con «n. N — cliente — importo». Scelta dell utente: cerca fra le fatture EMESSE (non le fatture d acquisto).
 
+> ### 28/08/2026 — pro-forma: le coordinate per il pagamento (IBAN d incasso)
+>
+> Chiesto: indicare sulle pro-forma il conto dove si salda. Il documento AVEVA gia il blocco «Pagamento» (IBAN/banca/intestatario) ma era VUOTO perche nessun IBAN era configurato (ne `sepa.ordinante.iban` ne altro). Aggiunti in Impostazioni → «Intestazione documenti» i campi **Modalita di pagamento, IBAN per l incasso (validato), Intestatario del conto, Banca** (chiavi `azienda.modalitaPagamento/iban/intestatario/banca`), letti dalla fallback di `intestazioneDaMostrare`. Compilandoli, il blocco in calce alla pro-forma li mostra. ⚠️ Per le FATTURE vere (su Fatture in Cloud) l IBAN viene dal metodo di pagamento/conto configurato SU FIC — non da FINANCE.
+
 > ### 28/08/2026 — Emetti fattura: crea il cliente su FIC dai dati del registro
 >
 > Chiesto dall utente: se la P.IVA non trova un cliente FIC, poterlo creare. Fatto: quando `suggerisciClienteFic` non propone nessuno ma il partner ha i dati fiscali nel registro, il select propone **«➕ Crea nuovo cliente dal registro — ragione sociale — P.IVA»** (preselezionato). All emissione l azione costruisce un `FicEntity` dai dati di Anagrafiche (ragione sociale, P.IVA, C.F., indirizzo, citta, provincia, SDI, PEC, email) e FIC **crea il cliente al volo** mentre emette la fattura. Se SDI o PEC mancano, `ficCreaFattura` lo dice (fattura elettronica non emettibile) e si completano nel registro. Nuova nota anche per il caso «proposto per P.IVA».
