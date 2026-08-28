@@ -18,7 +18,7 @@
 
 | Data | App | Segnalazione | Fonte |
 |---|---|---|---|
-| 27/08 | search-supplier | Propagare i token v1.4 (inline in `index.html:9-22`, si sviluppa su `main`: da fare in una sessione su quel branch) | custode |
+| 28/08 | search-supplier | Restano deferiti dalla passata su `main`: badge senza dot (emoji), empty-state con icona/titolo, emoji→SVG, chip come `<div>` — tutti toccano il JS che genera l'HTML | custode |
 | 27/08 | Scout | Migrazione COMPLETA di `lib/theme.ts` ai token DS (rinominando le chiavi in collisione `spacing.md` 16≠12 — mai swap secco). Fatta la parte ADDITIVA sicura (token nuovi + hex→token); lo swap dell'import resta | custode |
 | 27/08 | scoutwt/DS | Allineare la copia del DS in `scoutwt/deluxy-design-system` alla v1.4 (oggi 1.3) — bassa priorità: le app hanno già la loro copia dei token a v1.4 | custode |
 | 27/08 | Calendario | Un errore DB reso dentro `.vuoto` (page.tsx:187) = «fallimento = lista vuota» (Libro cap.6, legge 9): serve una card d'errore con «Riprova» | passata UX |
@@ -41,7 +41,7 @@ Alcune app hanno DUE copie (repo `app/` e `scoutwt/`, stesso repo GitHub, branch
 
 ## Deploy in produzione (28/08, «push tutto live»)
 
-Deployate e verificate (target production, aliased): **Hub, Finance, Customer Service, Anagrafiche, AI Mail, Piattaforma (delivery→app.deluxy.it), CRM, Tasks, Personale, Calendario, Scout** (Scout via `bash scripts/deploy-web.sh`, verifica post-deploy ✓). Fondo/Acquisti non deployati (non su Vercel). search-supplier resta da fare su `main`.
+Deployate e verificate (target production, aliased): **Hub, Finance, Customer Service, Anagrafiche, AI Mail, Piattaforma (delivery→app.deluxy.it), CRM, Tasks, Personale, Calendario, Scout** (Scout via `bash scripts/deploy-web.sh`, verifica post-deploy ✓). Fondo/Acquisti non deployati (non su Vercel). **search-supplier** adeguata su `main` (worktree `.claude/worktrees/search-main`, token v1.4 + InfoWindow + card errore) e pushata: il push su `main` ha fatto partire il deploy di produzione `search-deluxy` (Vercel git-integration) — verificato Ready. **12 app live in tutto.**
 
 ## Decise
 
