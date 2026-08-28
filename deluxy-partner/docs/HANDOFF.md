@@ -62,6 +62,10 @@
 > - **Annulla dalla bozza**: prima una bozza si poteva solo eliminare; ora c è **«Annulla»** (→ stato annullata, numero conservato, ripristinabile), accanto a Invia/Modifica.
 > - **Richiedi pagamento — «Fattura collegata» è una RICERCA** (non più campo libero): `CercaFatturaEmessa` cerca fra **tutte le fatture emesse** su FIC per ragione sociale, numero, importo (lordo) e P.IVA (`ficCercaEmesse` in `fic.ts`), e riempie il riferimento con «n. N — cliente — importo». Scelta dell utente: cerca fra le fatture EMESSE (non le fatture d acquisto).
 
+> ### 28/08/2026 — Emetti fattura: crea il cliente su FIC dai dati del registro
+>
+> Chiesto dall utente: se la P.IVA non trova un cliente FIC, poterlo creare. Fatto: quando `suggerisciClienteFic` non propone nessuno ma il partner ha i dati fiscali nel registro, il select propone **«➕ Crea nuovo cliente dal registro — ragione sociale — P.IVA»** (preselezionato). All emissione l azione costruisce un `FicEntity` dai dati di Anagrafiche (ragione sociale, P.IVA, C.F., indirizzo, citta, provincia, SDI, PEC, email) e FIC **crea il cliente al volo** mentre emette la fattura. Se SDI o PEC mancano, `ficCreaFattura` lo dice (fattura elettronica non emettibile) e si completano nel registro. Nuova nota anche per il caso «proposto per P.IVA».
+
 > ### 28/08/2026 — ricerca fattura collegata, intestatario per P.IVA, dettaglio richiesta
 >
 > - **Richiedi pagamento — «Fattura collegata»**: campo di **testo libero con suggerimenti** (`CercaFatturaEmessa`). Mentre scrivi, se il testo combacia con una fattura EMESSA compaiono i risultati (ragione sociale, numero, importo, P.IVA) e con un clic riempi il riferimento; l'importo è marcato **«IVA incl.»** (è `amount_gross`). ⚠️ Le **fatture d'acquisto (fornitori) NON sono cercabili**: la connessione FIC risponde **403 «No permission»** su `received_documents` — servirebbe ri-autorizzare FIC con lo scope acquisti. Per quelle il riferimento si scrive a mano (per questo il campo resta a testo libero).

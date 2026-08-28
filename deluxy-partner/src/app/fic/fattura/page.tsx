@@ -41,6 +41,28 @@ async function emetti(origine: string, id: string, fd: FormData) {
   } else if (clienteVal.startsWith("nome:")) {
     const nome = clienteVal.slice(5);
     entity = (await ficEntityUltimaFattura(nome)) ?? { name: nome };
+  } else if (clienteVal === "registro:") {
+    // Crea al volo il cliente su FIC dai dati del REGISTRO Anagrafiche: FIC
+    // accetta un'entity coi dati fiscali e la registra emettendo la fattura.
+    // I dati mancanti (P.IVA, SDI/PEC) li intercetta ficCreaFattura, dicendo
+    // QUALE manca e dove aggiungerlo — non si emette una fattura fiscale monca.
+    const anagId = String(fd.get("anagraficaId") ?? "").trim();
+    const a = anagId ? await anagraficaPerId(anagId, 6000) : null;
+    if (!a) {
+      redirect(`${back}&errore=${encodeURIComponent("Non ho i dati del registro per creare il cliente: scegline uno esistente o riprova.")}`);
+    }
+    entity = {
+      name: a.ragioneSociale || a.nome,
+      vat_number: a.pIva,
+      tax_code: a.codiceFiscale,
+      address_street: a.indirizzo,
+      address_city: a.citta,
+      address_province: a.provincia,
+      country: "Italia",
+      certified_email: a.datiFinanziari?.pec ?? null,
+      ei_code: a.datiFinanziari?.codiceSdi ?? null,
+      email: a.email,
+    };
   }
   if (!clienteId && !entity) {
     redirect(`${back}&errore=${encodeURIComponent("Scegli il cliente su Fatture in Cloud.")}`);
@@ -197,6 +219,11 @@ export default async function EmettiFatturaPage({
   const scelta = await suggerisciClienteFic({ id: partnerId, nome: partnerNome, piva: pivaPartner }, clienti);
   const suggerito = scelta.cliente;
   const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
+  // Se nessun cliente FIC combacia ma il partner ha i dati fiscali nel registro,
+  // si può crearne uno nuovo su FIC da quei dati (opzione «registro:»).
+  const nomeRegistro = anagPartner ? (anagPartner.ragioneSociale || anagPartner.nome) : null;
+  const puoCreareDaRegistro = Boolean(anagPartner?.pIva && nomeRegistro);
+  const nuovoDaRegistro = !suggerito && puoCreareDaRegistro;
 
   return (
     <>
@@ -233,8 +260,12 @@ export default async function EmettiFatturaPage({
           <div className="form-grid">
             <div>
               <label className="field-label">Cliente su Fatture in Cloud <span className="req">*</span></label>
-              <select name="cliente" required defaultValue={suggerito?.valore ?? ""}>
+              <input type="hidden" name="anagraficaId" value={partnerAnagraficaId ?? ""} />
+              <select name="cliente" required defaultValue={suggerito?.valore ?? (nuovoDaRegistro ? "registro:" : "")}>
                 <option value="" disabled>Seleziona cliente…</option>
+                {puoCreareDaRegistro && (
+                  <option value="registro:">➕ Crea nuovo cliente dal registro — {nomeRegistro} — P.IVA {anagPartner?.pIva}</option>
+                )}
                 {clienti.map((c) => (
                   <option key={c.valore} value={c.valore}>
                     {c.nome}
@@ -253,6 +284,17 @@ export default async function EmettiFatturaPage({
               ) : scelta.da === "storico" ? (
                 <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
                   Intestatario delle fatture già emesse a &laquo;{partnerNome}&raquo;: &laquo;{scelta.ficNome}&raquo;.
+                </p>
+              ) : scelta.da === "piva" ? (
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                  Preso per <strong style={{ color: "var(--text)" }}>P.IVA</strong> dal registro: su Fatture in Cloud
+                  &laquo;{scelta.ficNome}&raquo; ha la stessa partita IVA del partner.
+                </p>
+              ) : nuovoDaRegistro ? (
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                  Nessun cliente su Fatture in Cloud con la P.IVA di &laquo;{partnerNome}&raquo;: alla conferma
+                  ne verrà <strong style={{ color: "var(--text)" }}>creato uno nuovo</strong> coi dati del registro
+                  (ragione sociale, P.IVA, indirizzo, SDI/PEC). Se SDI o PEC mancano, completali nel registro.
                 </p>
               ) : suggerito ? (
                 <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
