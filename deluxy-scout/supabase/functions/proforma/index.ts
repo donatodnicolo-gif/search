@@ -8,6 +8,109 @@ import { chiaveHub } from '../_shared/chiavi.ts';
 import { chiaveIngressoValida } from '../_shared/chiaveIn.ts';
 
 const BASE = Deno.env.get('PARTNER_URL') ?? 'https://deluxy-partner.vercel.app';
+/** Il registro delle aziende: la casa dell'anagrafica (Standard Deluxy §7). */
+const ANAGRAFICHE = Deno.env.get('ANAGRAFICHE_URL') ?? 'https://deluxy-anagrafiche.vercel.app';
+
+/**
+ * Il nome ridotto all'osso per confrontarlo: minuscolo, senza punteggiatura e
+ * senza la forma societaria.
+ *
+ * ⚠️ Serve perché «Vivo Concerti» e «Vivo Concerti SRL» sono la stessa azienda
+ * e nessuno dei due è scritto sbagliato: uno è come lo chiama chi vende,
+ * l'altro come è iscritto. Senza questa riduzione la creazione automatica non
+ * scatterebbe mai proprio nei casi per cui esiste.
+ */
+function nomeRidotto(v: string): string {
+  return String(v ?? '')
+    .toLowerCase()
+    .replace(/[.,'`"]/g, ' ')
+    .replace(/\b(s\s*r\s*l|srls|s\s*p\s*a|s\s*n\s*c|s\s*a\s*s|sc|ss|societa|soc)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * ⭐ IL CLIENTE CHE IN FINANCE NON C'È ANCORA (28/08/2026, richiesta
+ * dell'utente: «se non esiste crea tu in finance usando i dati di
+ * anagrafiche»).
+ *
+ * FINANCE risponde «Partner non trovato» e la fattura si ferma. Il dato però
+ * esiste: sta nel REGISTRO, che è la casa delle anagrafiche. Qui lo si legge di
+ * là e si crea la scheda in FINANCE con `POST /api/v1/partners` — la rotta che
+ * esiste apposta per questo ed è idempotente.
+ *
+ * ⚠️ **Si crea SOLO su una corrispondenza ESATTA e UNICA.** Se nel registro ci
+ * sono due «Rossi» o nessuno che si chiami davvero così, non si sceglie il più
+ * somigliante: si torna il 404 col motivo. Una scheda cliente creata sull'ipotesi
+ * sbagliata è una fattura intestata all'azienda sbagliata, e quella non si
+ * corregge con un annulla.
+ *
+ * ⚠️ **Torna il NOME UFFICIALE**, che è quello con cui la scheda nasce in
+ * FINANCE: riprovare col nome scritto sull'ordine («Vivo Concerti») darebbe di
+ * nuovo 404 sulla scheda appena creata («Vivo Concerti SRL»).
+ *
+ * ⚠️ **Il referente amministrativo si copia solo se è DICHIARATO tale** nel
+ * registro. Dedurlo dal primo contatto in elenco vorrebbe dire mandare i
+ * solleciti a chi capita.
+ */
+async function creaPartnerDaRegistro(
+  nomeCercato: string,
+  headersFinance: Record<string, string>,
+): Promise<{ nome: string } | { motivo: string }> {
+  const cercato = nomeRidotto(nomeCercato);
+  if (!cercato) return { motivo: 'il nome del cliente è vuoto' };
+
+  const chiave = await chiaveHub('ANAGRAFICHE_API_KEY');
+  if (!chiave) return { motivo: 'la chiave del registro Anagrafiche non è configurata' };
+
+  let elenco: any[] = [];
+  try {
+    const q = new URLSearchParams({ q: nomeCercato, perPage: '10' });
+    const r = await fetch(`${ANAGRAFICHE}/api/v1/partners?${q.toString()}`, {
+      headers: { 'x-api-key': chiave, 'X-App': 'deluxy-scout' },
+    });
+    if (!r.ok) return { motivo: `il registro Anagrafiche ha risposto ${r.status}` };
+    elenco = (await r.json())?.dati ?? [];
+  } catch (e) {
+    return { motivo: `il registro Anagrafiche non risponde (${String((e as any)?.message ?? e).slice(0, 120)})` };
+  }
+
+  const esatti = elenco.filter(
+    (a) => nomeRidotto(a?.nome ?? '') === cercato || nomeRidotto(a?.ragioneSociale ?? '') === cercato,
+  );
+  if (!esatti.length) {
+    return {
+      motivo: elenco.length
+        ? `nel registro non c'è un'azienda che si chiami esattamente così (le più simili: ${elenco.slice(0, 3).map((a) => a.nome).join(', ')})`
+        : "non c'è nemmeno nel registro Anagrafiche",
+    };
+  }
+  if (esatti.length > 1) {
+    return { motivo: `nel registro ce ne sono ${esatti.length} con questo nome: va scelto a mano` };
+  }
+
+  const a = esatti[0];
+  const amm = (a?.contatti ?? []).find((c: any) => /ammin|contab/i.test(String(c?.ruolo ?? '')));
+  const res = await fetch(`${BASE}/api/v1/partners`, {
+    method: 'POST',
+    headers: headersFinance,
+    body: JSON.stringify({
+      anagraficaId: a.id,
+      nome: a.nome,
+      ragioneSociale: a.ragioneSociale ?? undefined,
+      categoria: a.categoria ?? undefined,
+      citta: a.citta ?? undefined,
+      email: a.email ?? undefined,
+      telefono: a.telefono ?? undefined,
+      ...(amm ? { ammNome: amm.nome ?? undefined, ammEmail: amm.email ?? undefined, ammTelefono: amm.telefono ?? undefined } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    return { motivo: `FINANCE non ha accettato la scheda (${res.status}: ${t.slice(0, 160)})` };
+  }
+  return { nome: String(a.nome) };
+}
 
 // NB: il client web invia anche `apikey` (e supabase-js aggiunge `x-client-info`):
 // se non sono elencati qui il preflight fallisce e il browser dà "Failed to fetch".
@@ -124,32 +227,79 @@ Deno.serve(async (req) => {
 
     let res: Response;
     if (body.azione === 'crea') {
-      res = await fetch(`${BASE}/api/proforma`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          partner: body.partner,
-          // ⭐ 26/08/2026 — i documenti di FINANCE sono DUE: `preventivo`
-          // (l'offerta che il cliente accetta) e `proforma` (la richiesta di
-          // pagamento). Senza `tipo` si crea una pro-forma, come sempre.
-          tipo: body.tipo === 'preventivo' ? 'preventivo' : undefined,
-          oggetto: body.oggetto ?? undefined,
-          scadenza: body.scadenza ?? undefined,
-          validoFino: body.validoFino ?? undefined,
-          note: body.note ?? undefined,
-          // ⭐ 27/08/2026 — con quale INTESTAZIONE: FINANCE tiene un template
-          // per brand (logo, dati societari, coordinate di pagamento). Si passa
-          // il brand per nome; senza, di là si usa il predefinito.
-          brand: body.brand ?? undefined,
-          // ⚠️ L'intestazione la possiede Scout e la RISOLVE QUI, dal
-          // template del brand. Quella eventualmente mandata dal client si
-          // IGNORA: di là viene congelata sul documento, quindi accettarla
-          // dal chiamante voleva dire lasciargli scegliere l'IBAN su cui il
-          // cliente bonifica.
-          intestazione: await intestazioneDelBrand(admin, body.brand),
-          righe: body.righe,
-        }),
-      });
+      // ⚠️ L'intestazione si risolve UNA volta sola: serve identica anche al
+      // secondo tentativo, e rifarla vorrebbe dire due letture del template
+      // per un documento solo.
+      const intestazione = await intestazioneDelBrand(admin, body.brand);
+      /** Lo stesso documento, con il nome del cliente che si vuole provare. */
+      const emetti = (partner: string) =>
+        fetch(`${BASE}/api/proforma`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            partner,
+            // ⭐ 26/08/2026 — i documenti di FINANCE sono DUE: `preventivo`
+            // (l'offerta che il cliente accetta) e `proforma` (la richiesta di
+            // pagamento). Senza `tipo` si crea una pro-forma, come sempre.
+            tipo: body.tipo === 'preventivo' ? 'preventivo' : undefined,
+            oggetto: body.oggetto ?? undefined,
+            scadenza: body.scadenza ?? undefined,
+            validoFino: body.validoFino ?? undefined,
+            note: body.note ?? undefined,
+            // ⭐ 27/08/2026 — con quale INTESTAZIONE: FINANCE tiene un template
+            // per brand (logo, dati societari, coordinate di pagamento). Si passa
+            // il brand per nome; senza, di là si usa il predefinito.
+            brand: body.brand ?? undefined,
+            // ⚠️ L'intestazione la possiede Scout e la RISOLVE QUI, dal
+            // template del brand. Quella eventualmente mandata dal client si
+            // IGNORA: di là viene congelata sul documento, quindi accettarla
+            // dal chiamante voleva dire lasciargli scegliere l'IBAN su cui il
+            // cliente bonifica.
+            intestazione,
+            righe: body.righe,
+          }),
+        });
+
+      res = await emetti(String(body.partner ?? ''));
+
+      /**
+       * ⭐ IL CLIENTE CHE IN FINANCE NON C'È: lo si crea dal registro e si
+       * riprova UNA volta (28/08/2026, richiesta dell'utente: «se non esiste
+       * crea tu in finance usando i dati di anagrafiche»).
+       *
+       * ⚠️ Un solo ritentativo, e solo su «Partner non trovato»: se il
+       * secondo tentativo fallisce si torna il suo errore. Riprovare in un
+       * ciclo su una rotta che SCRIVE è il modo di emettere tre documenti
+       * per una vendita sola.
+       */
+      if (res.status === 404) {
+        const primo = await res.text();
+        if (primo.includes('Partner non trovato')) {
+          const esito = await creaPartnerDaRegistro(String(body.partner ?? ''), headers);
+          if ('nome' in esito) {
+            res = await emetti(esito.nome);
+          } else {
+            // ⚠️ Si dice PERCHÉ non è stato creato, e si tengono i candidati
+            // che FINANCE aveva proposto: «non trovato» e basta rimanda a
+            // cercare a mano senza sapere dove.
+            let originale: Record<string, unknown> = {};
+            try {
+              originale = JSON.parse(primo);
+            } catch {
+              // risposta non JSON: si tiene solo il motivo
+            }
+            return json(
+              {
+                ...originale,
+                errore: `Il cliente in FINANCE non c'è e non l'ho potuto creare: ${esito.motivo}.`,
+              },
+              404,
+            );
+          }
+        } else {
+          return new Response(primo, { status: 404, headers: { 'Content-Type': 'application/json', ...cors } });
+        }
+      }
     } else if (body.azione === 'conferma') {
       res = await fetch(`${BASE}/api/proforma`, {
         method: 'PATCH',
