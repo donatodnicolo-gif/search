@@ -25,6 +25,7 @@ import { CreateDeliveryDto } from '../deliveries/dto/create-delivery.dto';
 import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { FinanceService } from '../finance/finance.module';
+import { RichiesteModule, RichiesteService, CreaRichiestaDto } from '../richieste/richieste.module';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IL CANALE APP-TO-APP della piattaforma (standard Deluxy §4.3 e §7).
@@ -904,7 +905,10 @@ export class AppApiService {
 @Public() // fuori dal JWT utente: l'autenticazione è la chiave del guard
 @UseGuards(AppApiKeyGuard)
 export class AppApiController {
-  constructor(private readonly service: AppApiService) {}
+  constructor(
+    private readonly service: AppApiService,
+    private readonly richieste: RichiesteService,
+  ) {}
 
   @Get('vendite')
   @ApiOperation({
@@ -953,6 +957,40 @@ export class AppApiController {
     return this.service.consegne({
       aggiornateDa, dal, al, stato, partnerId, limit: Number(limit) || 200,
     });
+  }
+
+  // ============================================================
+  // RICHIESTE TESTUALI (28/08/2026, chiesto dall'utente)
+  // ------------------------------------------------------------
+  // ⚠️ Serve una chiave con SCRITTURA, come per creare una consegna: una
+  // richiesta finisce in una lista che qualcuno deve leggere, e riempire quella
+  // lista è una scrittura anche se non nasce ancora niente.
+  //
+  // ⚠️ Ma NON crea una consegna: crea una DOMANDA. È la differenza fra
+  // `POST /app/consegne` (l'app sa già tutto e la consegna nasce) e questa
+  // (l'app sa a parole, e decide una persona).
+  // ============================================================
+  @Post('richieste')
+  @ApiOperation({
+    summary:
+      "Manda una richiesta di consegna in forma TESTUALE: finisce nella sezione Richieste, dove l'ufficio la legge e decide. Non crea nessuna consegna.",
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app CON scrittura' })
+  @UseGuards(ScritturaRichiestaGuard)
+  creaRichiesta(@Body() dto: CreaRichiestaDto, @Req() req: any) {
+    return this.richieste.crea(dto, req.appChiave.nome ?? 'app sconosciuta');
+  }
+
+  @Get('richieste/:riferimento')
+  @ApiOperation({
+    summary: "Esito di una richiesta, cercato per il riferimento di chi la manda (stato, note, consegna nata)",
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app' })
+  esitoRichiesta(@Param('riferimento') riferimento: string, @Req() req: any) {
+    // ⚠️ Si cerca dentro l'ORIGINE della chiave che chiede: un'app non deve
+    // poter leggere le richieste mandate da un'altra indovinandone il
+    // riferimento — e i riferimenti sono numeri d'ordine, cioè indovinabili.
+    return this.richieste.perRiferimento(req.appChiave.nome ?? '', riferimento);
   }
 
   @Post('consegne')
@@ -1004,7 +1042,7 @@ export class AppApiController {
 @Module({
   // ⚠️ Serve DeliveriesModule: la creazione dal canale app passa dalla stessa
   // strada del form, non da una scorciatoia.
-  imports: [DeliveriesModule],
+  imports: [DeliveriesModule, RichiesteModule],
   controllers: [AppApiController],
   providers: [AppApiKeyGuard, AppApiService],
 })

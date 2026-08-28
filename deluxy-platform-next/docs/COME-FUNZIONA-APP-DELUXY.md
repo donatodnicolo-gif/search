@@ -478,6 +478,37 @@ Tutte le **formule di prezzo** sono centralizzate nel modulo **`api/src/calculat
 - **Convenzioni note**: il valet è "expert" (es. `/api/experts/delivery/experts`); i codici piattaforma vendita sono `shopifysale`, `cakesales`, `businesssales`, `flowerssales`, `deluxyexperiencesales`, `deluxydotcomsales`; gli stati consegna sono `created`, `assigned`, `delivering`, `inPreparation`, `accepted`, `requestCancellation` (+`delivered`, `notDelivered`, `cancelled` in storico); i tipi servizio sono `sales`, `hourlyrate`, `fixedprice`, `corporate`, `warehouseservice`.
 - **API key partner** (WooCommerce) generabile in autonomia dalla scheda partner; garantisce l'accesso alle API di invio ordini.
 
+### Richieste (`/richieste`) **[NUOVO 28/08/2026]**
+
+**Operatività → Richieste**, per **Admin** e **Operation** — e il **Customer Service** è un Operation (`operationRole = customer_service`), quindi è già dentro senza un ruolo nuovo.
+
+È la **posta in arrivo delle domande di consegna** scritte a parole dalle altre app di Deluxy. Chi manda — il Customer Service da una chat, Scout da una visita, un fornitore al telefono — **non compila un modulo di venti campi che non ha sotto mano**: scrive quello che sa, e qui una persona legge e decide.
+
+⚠️ **Una richiesta non è una consegna: è una domanda.** Nasce *nuova* e diventa una consegna **solo quando qualcuno la accetta**. Farla diventare consegna da sola vorrebbe dire mandare un valet su un indirizzo che nessuno ha riletto — e il giro dei valet costa denaro vero.
+
+**Come arriva.** Sul canale app-to-app, con una chiave di **scrittura**:
+
+```
+POST /api/v1/app/richieste       x-api-key: <chiave con scrittura>
+{ "testo": "…", "riferimento": "ORD-1234", "contatto": "marta@…" }
+```
+
+- Una chiave di **sola lettura viene rifiutata** (`401`): mandare richieste è scrivere.
+- L'**origine** registrata è il **nome della chiave**, non un'etichetta generica: fra un mese si deve poter capire con chi parlare.
+- **Idempotente sul riferimento**: la stessa app che ritenta lo stesso `riferimento` **non crea un doppione**, si rilegge quella che c'è già (`giaEsistente: true`). Chi manda ritenta spesso — un timeout, un cron che ripassa — e due richieste identiche in lista sono due persone che lavorano la stessa cosa.
+- Il testo sotto i **10 caratteri** è rifiutato: «ok» non è una richiesta, è una chiamata partita per sbaglio.
+- L'esito si rilegge con `GET /api/v1/app/richieste/:riferimento`, e **solo dentro la propria origine**: un'altra app non legge le richieste altrui indovinandone il riferimento.
+
+**Cosa si fa in pagina.**
+
+- Filtri a pillola per stato — *Nuove* (col **pallino rosso** di quante nessuno ha ancora guardato), *In lavorazione*, *Accettate*, *Rifiutate*, *Tutte*.
+- Il **testo si mostra com'è arrivato**, a capo compresi: è la fonte, e riformattarlo vorrebbe dire interpretarlo prima che lo legga una persona.
+- **Crea consegna** porta al modulo della consegna col testo **già dentro il pannello «Compila con l'AI»**, aperto: l'AI *propone* i campi, che restano tutti correggibili prima di salvare. Salvata la consegna, la richiesta diventa **accettata** e le resta **collegato il numero** della consegna nata.
+- **Prendi in carico** la mette *in lavorazione*: chi altro apre la pagina sa che ci sta già lavorando qualcuno.
+- **Rifiuta** chiede un **motivo obbligatorio** — lo pretende anche il server: chi ha mandato la richiesta legge l'esito, e un «no» muto si trasforma in una seconda richiesta identica.
+- Su accettata e rifiutata resta scritto **chi ha deciso e quando**.
+- **Registra a mano** serve quando la richiesta arriva al telefono e non da un'app: l'origine diventa `manuale · <email di chi l'ha registrata>`.
+
 ### Chiavi delle app (`/api-keys`) **[NUOVO 28/08/2026]**
 
 **Configurazione → Chiavi delle app**, solo **Admin**: le chiavi con cui le *altre app di Deluxy* (Orders, Budgets, Customer Service, Scout…) chiamano questa piattaforma sul canale `/api/v1/app/*`, presentandosi con l'intestazione `x-api-key`.

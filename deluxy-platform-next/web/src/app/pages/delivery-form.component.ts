@@ -574,6 +574,16 @@ export class DeliveryFormComponent implements AfterViewInit {
   readonly mapsMancante = signal(false);
 
   // ── COMPILA CON L'AI ───────────────────────────────────────────────────────
+  /**
+   * LA RICHIESTA da cui si arriva (`/deliveries/new?richiesta=<id>`).
+   *
+   * ⚠️ Serve a due cose: precaricare il TESTO nel pannello dell'AI, e — al
+   * salvataggio — COLLEGARE la consegna nata alla richiesta e segnarla
+   * accettata. Senza il collegamento, chi l'ha mandata non saprebbe mai che
+   * fine ha fatto, e la richiesta resterebbe in lista a sembrare da fare.
+   */
+  readonly daRichiesta = signal<string | null>(null);
+
   /** La chiave c'e'? Lo dice il server con un si'/no, mai col valore. */
   readonly aiPossibile = signal(false);
   readonly aiAperto = signal(false);
@@ -716,6 +726,24 @@ export class DeliveryFormComponent implements AfterViewInit {
     // L'indirizzo appena messo deve far scattare la provincia e i partner
     // abilitati, come se l'avesse scritto una persona.
     if (p.destinatarioIndirizzo) this.onAddressChange();
+  }
+
+  /**
+   * Segna ACCETTATA la richiesta da cui si è arrivati, collegandole la consegna.
+   *
+   * ⚠️ Non blocca niente se fallisce: la consegna è già nata, ed è quella che
+   * conta. Un errore qui lascerebbe la richiesta aperta — fastidioso — ma
+   * fermare o annullare la consegna per una nota sarebbe molto peggio.
+   */
+  private chiudiRichiesta(nata: { id?: string } | null | undefined): void {
+    const rich = this.daRichiesta();
+    if (!rich) return;
+    this.http
+      .patch(`${environment.apiUrl}/richieste/${rich}`, {
+        stato: 'accettata',
+        ...(nata?.id ? { deliveryId: nata.id } : {}),
+      })
+      .subscribe({ next: () => undefined, error: () => undefined });
   }
 
   /** Solo l'admin può inserire la chiave: agli altri l'avviso non servirebbe. */
@@ -961,6 +989,26 @@ export class DeliveryFormComponent implements AfterViewInit {
         next: (d) => this.prefill(d),
         error: (err) =>
           this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')),
+      });
+    }
+
+    // ⭐ 28/08: si arriva dalla sezione RICHIESTE. Si carica il testo nel
+    // pannello dell'AI e lo si APRE: chi ha cliccato «crea consegna» da una
+    // richiesta non deve andare a cercare dove incollarla.
+    //
+    // ⚠️ Il testo si mette e basta: NON si chiama l'AI da soli. Ogni lettura
+    // costa, e chi apre il modulo potrebbe voler compilare a mano — il bottone
+    // ce l'ha lì.
+    const idRichiesta = this.route.snapshot.queryParamMap.get('richiesta');
+    if (idRichiesta && !idModifica) {
+      this.daRichiesta.set(idRichiesta);
+      this.http.get<{ testo: string }>(`${api}/richieste/${idRichiesta}`).subscribe({
+        next: (r) => {
+          if (!r?.testo) return;
+          this.aiTesto = r.testo;
+          this.aiAperto.set(true);
+        },
+        error: () => undefined,
       });
     }
 
@@ -1540,10 +1588,11 @@ export class DeliveryFormComponent implements AfterViewInit {
       : this.http.post(`${environment.apiUrl}/deliveries`, payload);
 
     req.subscribe({
-      next: () => {
+      next: (nata: any) => {
         // In modifica si torna al dettaglio; in creazione alla lista (o si resta per duplicare)
         if (id) { this.router.navigate(['/deliveries', id]); return; }
         if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+        this.chiudiRichiesta(nata);
         this.router.navigate(['/deliveries']);
       },
       error: (err) => {

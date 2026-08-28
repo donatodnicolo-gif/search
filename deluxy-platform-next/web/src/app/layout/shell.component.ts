@@ -36,6 +36,7 @@ const ICONS: Record<string, string> = {
   chart: '<path d="M4.5 19.5h15M7 16v-4.5M12 16V7M17 16v-6.5"/>',
   badge: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4V2.8A.8.8 0 0 1 9.8 2h4.4a.8.8 0 0 1 .8.8V4"/><circle cx="12" cy="10.5" r="2.2"/><path d="M8.5 17c.4-1.8 1.8-2.7 3.5-2.7s3.1.9 3.5 2.7"/>',
   folder: '<path d="M3.5 7.5a2 2 0 0 1 2-2h3l2 2.2h6a2 2 0 0 1 2 2v6.3a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2Z"/>',
+  inbox: '<path d="M3.5 13h4l1.2 2.2h6.6L16.5 13h4M3.5 13 6 5.2h12L20.5 13v5a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18z"/>',
   key: '<circle cx="8" cy="12" r="3.2"/><path d="M11.2 12H21M18 12v3M15 12v2"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M12 4.5V2.8M12 21.2v-1.7M19.5 12h1.7M2.8 12h1.7M17.3 6.7l1.2-1.2M5.5 18.5l1.2-1.2M17.3 17.3l1.2 1.2M5.5 5.5l1.2 1.2"/>',
 };
@@ -90,6 +91,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: 'nav.section.configurazione',
     items: [
+      { label: 'nav.richieste', path: '/richieste', icon: 'inbox', roles: ['ADMIN', 'OPERATION'] },
       { label: 'nav.modelliSms', path: '/sms-templates', icon: 'message', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
       { label: 'nav.disponibilita', path: '/availability', icon: 'calendar', roles: ['VALET'] },
       { label: 'nav.province', path: '/provinces', icon: 'map', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },

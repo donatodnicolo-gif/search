@@ -70,9 +70,97 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 28 agosto 2026 — rotellina di avanzamento sui ricorrenti; prima: lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 28 agosto 2026 — sezione **RICHIESTE** (le altre app chiedono consegne a parole, 19 prove su 19); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### 📥 28/08/2026 — RICHIESTE: le altre app chiedono una consegna A PAROLE, e una persona decide
+
+Chiesto dall'utente: *«crea una sezione RICHIESTE per admin, operation e cs dove
+arrivano da altre app richieste di inserimento di servizi di consegna in modo
+testuale»*.
+
+**Il punto è che il testo arriva così com'è scritto.** Chi manda — il Customer
+Service da una chat, Scout da una visita, un fornitore al telefono — non ha
+sotto mano i venti campi del modulo consegna: scrive quello che sa, e qui una
+persona legge e decide.
+
+⚠️ **Una richiesta NON è una consegna: è una domanda.** Nasce `nuova` e diventa
+una consegna solo quando qualcuno la **accetta**. Farla diventare consegna da
+sola vorrebbe dire far entrare nel giro dei valet un testo che nessuno ha
+riletto — e quel giro costa denaro vero. La prova n° 6 lo verifica: dopo un
+`POST` il `deliveryId` resta `null`.
+
+**Chi la vede:** `@Roles(ADMIN, OPERATION)`. ⚠️ Il **Customer Service non è un
+ruolo a parte**: è un OPERATION con `operationRole = 'customer_service'`, quindi
+è già dentro senza inventarne uno nuovo. (Misurato: `operationRole` oggi **non
+filtra nessuna rotta né voce di menu** — 13 `operation` e 3 `project_manager` in
+banca dati, zero `customer_service`; provare un OPERATION prova anche il CS, e
+l'utente OPERATION trovato dalla prova è proprio `cs@deluxy.it`.)
+
+**Cosa è stato costruito**
+
+- `api/prisma/schema.prisma` → modello **`RichiestaConsegna`** (migrazione
+  `20260828100000_richieste_consegna`, **applicata**): `testo`, `origine`,
+  `riferimento`, `contatto`, `stato`, `deliveryId`, `note`, `decisaDa`,
+  `decisaIl`.
+- `api/src/richieste/richieste.module.ts` → le rotte d'ufficio `GET /richieste`
+  (con **contatore delle nuove**), `GET /richieste/:id`, `POST /richieste` (a
+  mano, origine `manuale · <email>`), `PATCH /richieste/:id`.
+- `api/src/app-api/app-api.module.ts` → il canale app-to-app:
+  `POST /api/v1/app/richieste` dietro **`ScritturaRichiestaGuard`** e
+  `GET /api/v1/app/richieste/:riferimento`, che cerca **solo dentro l'origine
+  della chiave che chiede**.
+- `web/src/app/pages/richieste.component.ts` + rotta `/richieste` + voce di menu
+  in Operatività, con **pallino rosso** sul filtro «Nuove».
+- Il modulo consegna legge `?richiesta=<id>`, mette il testo nel pannello
+  **«Compila con l'AI»** e lo apre; al salvataggio segna la richiesta
+  **accettata** e le collega la consegna nata.
+
+**Le regole che ho dovuto mettere, e perché**
+
+- **Idempotenza sul `riferimento`**: chi manda ritenta spesso (un timeout, un
+  cron che ripassa). Due richieste identiche in lista sono due persone che
+  lavorano la stessa cosa. Si ritorna quella che c'è già con
+  `giaEsistente: true` — non un `409`, che farebbe ritentare ancora.
+- **Rifiutare senza motivo è vietato** (`400`): chi ha mandato la richiesta
+  legge l'esito, e un «no» muto si trasforma in una seconda richiesta identica.
+- **Testo sotto i 10 caratteri rifiutato**: «ok» non è una richiesta.
+- **L'origine è il NOME della chiave**, non un'etichetta generica: fra un mese
+  si deve poter capire con chi parlare.
+- **Il testo si mostra com'è arrivato**, a capo compresi: riformattarlo
+  vorrebbe dire interpretarlo prima che lo legga una persona.
+- **Non si chiama l'AI da soli** aprendo il modulo: il testo si mette e basta.
+  Ogni lettura costa, e chi apre potrebbe voler compilare a mano.
+
+**Prove — `api/scripts/prova-richieste.tmp.mjs`, 19 su 19 passate** (server
+locale sul database vero, due chiavi usa-e-getta poi cancellate). ⚠️ Le prove
+che contano sono quelle che dimostrano un **divieto**:
+
+| prova | esito |
+|---|---|
+| chiave di **sola lettura** rifiutata in scrittura | ✅ 401 |
+| senza chiave | ✅ 401 |
+| testo di 2 caratteri | ✅ 400 |
+| creazione, stato `nuova`, `giaEsistente:false` | ✅ 201 |
+| l'origine è il nome della chiave | ✅ |
+| **ritentando lo stesso riferimento nessun doppione** | ✅ 1 riga sola |
+| **una richiesta NON crea una consegna** | ✅ `deliveryId=null` |
+| chi ha mandato rilegge l'esito | ✅ 200 |
+| **un'altra app non la legge indovinando il riferimento** | ✅ 404 |
+| un **VALET** non vede le richieste | ✅ 403 |
+| un **PARTNER** non vede le richieste | ✅ 403 |
+| un **OPERATION** (quindi il CS) le vede | ✅ 200 (`cs@deluxy.it`) |
+| l'admin la trova fra le nuove, contatore ≥ 1 | ✅ 200 |
+| rifiuto senza motivo | ✅ 400 |
+| stato inventato (`archiviata`) | ✅ 400 |
+| consegna inesistente da collegare | ✅ 400 |
+| accettata e collegata, il mittente legge il **numero** (#17431) | ✅ |
+| resta scritto **chi** ha deciso | ✅ `admin@deluxy.it` |
+
+⚠️ **Da fare quando un'app vorrà mandarne**: serve una chiave **con scrittura**
+(`/api-keys` → *lettura e scrittura*). Oggi **nessuna app manda richieste**: la
+sezione è pronta e vuota, e si popola a mano finché non le si collega qualcuno.
 
 ### 🔄 28/08/2026 — La rotellina accanto ai ricorrenti finché le consegne non sono tutte create
 

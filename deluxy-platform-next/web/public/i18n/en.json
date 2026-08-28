@@ -46,7 +46,8 @@
     "serviziRicorrenti": "Recurring services",
     "preventivi": "Quotes",
     "serviziDeluxy": "Deluxy services",
-    "chiaviApp": "App keys"
+    "chiaviApp": "App keys",
+    "richieste": "Requests"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -2181,5 +2182,38 @@
     "confirmRigenera": "Regenerate the key for \"{{nome}}\"? The old one stops working IMMEDIATELY: the app must be updated.",
     "confirmElimina": "Delete the key for \"{{nome}}\"? This cannot be undone, and that app stops calling.",
     "nota": "The key itself is shown once, right after generating it: only its fingerprint is stored. If you lose it, regenerate it."
+  },
+  "richieste": {
+    "title": "Requests",
+    "caption": "Delivery requests coming from the other apps, written in plain words. Read and decide them here.",
+    "new": "Add by hand",
+    "registra": "Save the request",
+    "registrata": "Request saved: you’ll find it among the new ones.",
+    "f": {
+      "testo": "The request, as it arrived",
+      "testoPh": "E.g. tomorrow early morning pick up at Casati, via Verdi 3, deliver to the Grand Hotel by 9, ask for Marta",
+      "riferimento": "Sender’s reference",
+      "riferimentoPh": "Order number, conversation id…",
+      "contatto": "Who to reply to",
+      "contattoPh": "Email or phone"
+    },
+    "stato": {
+      "tutte": "All",
+      "nuova": "New",
+      "in_lavorazione": "In progress",
+      "accettata": "Accepted",
+      "rifiutata": "Rejected"
+    },
+    "contatto": "Contact",
+    "nota": "Note",
+    "natacome": "It became delivery",
+    "decisaDa": "Decided by {{chi}}",
+    "creaConsegna": "Create delivery",
+    "prendiInCarico": "Take it on",
+    "rifiuta": "Reject",
+    "motivoRifiuto": "Why are you rejecting it? Whoever sent it will read this note.",
+    "motivoServe": "A reason is required: a silent “no” turns into a second identical request.",
+    "emptyTitle": "No requests",
+    "emptyHint": "When another app sends a delivery request, it shows up here."
   }
 }

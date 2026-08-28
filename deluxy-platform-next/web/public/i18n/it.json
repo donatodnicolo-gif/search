@@ -46,7 +46,8 @@
     "serviziRicorrenti": "Servizi ricorrenti",
     "preventivi": "Preventivi",
     "serviziDeluxy": "Servizi Deluxy",
-    "chiaviApp": "Chiavi delle app"
+    "chiaviApp": "Chiavi delle app",
+    "richieste": "Richieste"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -2181,5 +2182,38 @@
     "confirmRigenera": "Rigeneri la chiave di «{{nome}}»? Quella vecchia smette di funzionare SUBITO: l'app va aggiornata.",
     "confirmElimina": "Elimini la chiave di «{{nome}}»? Non si torna indietro, e quell'app smette di chiamare.",
     "nota": "La chiave in chiaro si vede una volta sola, appena generata: in archivio resta solo la sua impronta. Se la perdi, rigenerala."
+  },
+  "richieste": {
+    "title": "Richieste",
+    "caption": "Le richieste di consegna arrivate dalle altre app, scritte a parole. Qui si leggono e si decidono.",
+    "new": "Registra a mano",
+    "registra": "Registra la richiesta",
+    "registrata": "Richiesta registrata: la trovi fra le nuove.",
+    "f": {
+      "testo": "La richiesta, com’è arrivata",
+      "testoPh": "Es: domani mattina presto ritiro da Casati in via Verdi 3 e consegna al Grand Hotel entro le 9, chiedere di Marta",
+      "riferimento": "Riferimento di chi manda",
+      "riferimentoPh": "Numero ordine, id conversazione…",
+      "contatto": "A chi rispondere",
+      "contattoPh": "Email o telefono"
+    },
+    "stato": {
+      "tutte": "Tutte",
+      "nuova": "Nuove",
+      "in_lavorazione": "In lavorazione",
+      "accettata": "Accettate",
+      "rifiutata": "Rifiutate"
+    },
+    "contatto": "Contatto",
+    "nota": "Nota",
+    "natacome": "È diventata la consegna",
+    "decisaDa": "Decisa da {{chi}}",
+    "creaConsegna": "Crea consegna",
+    "prendiInCarico": "Prendi in carico",
+    "rifiuta": "Rifiuta",
+    "motivoRifiuto": "Perché la rifiuti? Chi l’ha mandata leggerà questa nota.",
+    "motivoServe": "Serve un motivo: un «no» muto si trasforma in una seconda richiesta identica.",
+    "emptyTitle": "Nessuna richiesta",
+    "emptyHint": "Quando un’altra app manda una richiesta di consegna, compare qui."
   }
 }

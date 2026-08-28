@@ -1070,6 +1070,8 @@ model Delivery {
   notes              String?
   internalNotes      String? // visibili solo ad admin/operation/valet
   /// Nata da un SERVIZIO RICORRENTE: quale (e la coppia servizio+data non si rigenera).
+  /// Le richieste testuali da cui questa consegna e` nata.
+  richieste  RichiestaConsegna[]
   recurringServiceId String?
   recurringService   RecurringService? @relation(fields: [recurringServiceId], references: [id], onDelete: SetNull)
   ddtNumber          String?
@@ -1810,4 +1812,45 @@ model TentativoAccesso {
   quando    DateTime @default(now())
 
   @@index([chiave, quando])
+}
+
+/// RICHIESTE DI CONSEGNA ARRIVATE DALLE ALTRE APP (28/08/2026, chiesto
+/// dall'utente): «una sezione RICHIESTE dove arrivano da altre app richieste di
+/// inserimento di servizi di consegna in modo TESTUALE».
+///
+/// Il punto è che il testo arriva **così com'è scritto**: chi lo manda (il
+/// Customer Service, Scout, un fornitore) non deve compilare un modulo con
+/// venti campi — scrive quello che sa, e qui qualcuno lo legge e decide.
+///
+/// ⚠️ Una richiesta NON è una consegna: è una domanda. Nasce `nuova` e diventa
+/// una consegna solo quando una persona la accetta. Farla diventare consegna da
+/// sola vorrebbe dire far entrare nel giro dei valet un testo che nessuno ha
+/// letto.
+model RichiestaConsegna {
+  id        String   @id @default(cuid())
+  /// Il testo come è arrivato. Non si riscrive mai: è la fonte.
+  testo     String
+  /// Chi l'ha mandata: il nome della chiave app, oppure «manuale».
+  origine   String
+  /// Il riferimento che usa CHI LA MANDA (numero ordine, id conversazione…),
+  /// per poter richiedere l'esito senza tenersi il nostro id.
+  riferimento String?
+  /// A chi rispondere, se serve chiedere un chiarimento.
+  contatto  String?
+  /// nuova | in_lavorazione | accettata | rifiutata
+  stato     String   @default("nuova")
+  /// La consegna nata da questa richiesta, quando è stata accettata.
+  deliveryId String?
+  delivery   Delivery? @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+  /// Perché è stata rifiutata, o che cosa si è deciso. Lo legge anche chi
+  /// l'ha mandata: un rifiuto senza motivo si trasforma in una seconda
+  /// richiesta identica.
+  note      String?
+  decisaDa  String?
+  decisaIl  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stato, createdAt])
+  @@index([origine, riferimento])
 }

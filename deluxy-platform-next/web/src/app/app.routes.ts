@@ -373,6 +373,15 @@ export const routes: Routes = [
           ),
       },
       // ---- Utenti e accessi (solo admin) ----
+      // Le RICHIESTE testuali dalle altre app. Il Customer Service e' un
+      // OPERATION (operationRole = customer_service), quindi e' gia' compreso.
+      {
+        path: 'richieste',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION'], title: 'Richieste' },
+        loadComponent: () =>
+          import('./pages/richieste.component').then((m) => m.RichiesteComponent),
+      },
       // Le chiavi con cui le altre app chiamano questa. Solo ADMIN: una chiave
       // app scavalca i ruoli dell'applicazione.
       {
