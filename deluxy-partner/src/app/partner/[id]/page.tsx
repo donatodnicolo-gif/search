@@ -13,7 +13,8 @@ import { feeDaTariffe } from "@/lib/fee";
 import { transactionsConfigurato } from "@/lib/transactions";
 import { fattureFicDelPartner } from "@/lib/fic-partner";
 import { scollegaFatturaCommissioni } from "@/lib/fic-actions";
-import { scollegaMovimentoAttribuito, escludiMovimentoDaPartner } from "@/lib/movimenti-partner-actions";
+import { scollegaMovimentoAttribuito, escludiMovimentoDaPartner, ripristinaMovimentoEscluso } from "@/lib/movimenti-partner-actions";
+import { BottoneInvio } from "@/components/BottoneInvio";
 import { CollegaFatturaCommissioni } from "@/components/CollegaFatturaCommissioni";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
@@ -98,6 +99,15 @@ export default async function PartnerDetail({
     take: 10,
     select: { id: true, data: true, importo: true, descrizione: true, controparte: true, stato: true, partnerId: true },
   });
+  // I movimenti esclusi a mano da questa scheda (per l'undo): dettagli dei soli
+  // id esclusi, così si possono rimettere fra i candidati.
+  const movimentiEsclusi = esclusiIds.length
+    ? await prisma.transazioneBancaria.findMany({
+        where: { id: { in: esclusiIds } },
+        orderBy: [{ data: "desc" }],
+        select: { id: true, data: true, importo: true, descrizione: true, controparte: true },
+      })
+    : [];
   // Le fatture FIC intestate a questo partner: servono a proporre quale
   // collegare come «fattura commissioni» di un mese. Si caricano una volta per
   // scheda (non per riga) e non fanno mai fallire la pagina: se FIC è giù,
@@ -406,6 +416,42 @@ export default async function PartnerDetail({
               <Link href={`/movimenti?q=${encodeURIComponent(partner.nome)}`}>Cerca «{partner.nome}» in tutti i movimenti →</Link>
             </p>
           </>
+        )}
+        {movimentiEsclusi.length > 0 && (
+          <details style={{ borderTop: "1px solid var(--hairline)" }}>
+            <summary style={{ cursor: "pointer", fontSize: 12.5, color: "var(--text-secondary)", padding: "10px 20px" }}>
+              Movimenti esclusi da questa scheda ({movimentiEsclusi.length}) — omonimi nascosti a mano
+            </summary>
+            <div className="table-wrap">
+              <table>
+                <tbody>
+                  {movimentiEsclusi.map((m) => (
+                    <tr key={m.id}>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        <Link href={`/movimenti/${m.id}`}>{dataIt(m.data)}</Link>
+                      </td>
+                      <td style={{ maxWidth: 380 }}>
+                        <Link href={`/movimenti/${m.id}`} style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={m.descrizione}>
+                          {m.descrizione}
+                        </Link>
+                        {m.controparte && <div className="muted" style={{ fontSize: 12 }}>{m.controparte}</div>}
+                      </td>
+                      <td className={`num ${m.importo > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
+                        {m.importo > 0 ? "+" : "−"}{euro(Math.abs(m.importo))}
+                      </td>
+                      <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
+                        <form action={ripristinaMovimentoEscluso.bind(null, id, m.id)} style={{ display: "inline" }}>
+                          <BottoneInvio className="btn small secondary" inCorso="Ripristino…" title="Rimette questo movimento fra i candidati per nome di questa scheda">
+                            Ripristina
+                          </BottoneInvio>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
         )}
       </div>
 

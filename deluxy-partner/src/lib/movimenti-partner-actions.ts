@@ -59,3 +59,18 @@ export async function escludiMovimentoDaPartner(partnerId: string, movimentoId: 
   });
   revalidatePath(`/partner/${partnerId}`, "layout");
 }
+
+// Annulla un'esclusione: il movimento torna a comparire fra i candidati per
+// nome di questa scheda. Toglie solo la riga di esclusione, non tocca il
+// movimento.
+export async function ripristinaMovimentoEscluso(partnerId: string, movimentoId: string) {
+  await prisma.$executeRaw`
+    DELETE FROM "public"."EsclusioneMovimentoPartner"
+    WHERE "movimentoId" = ${movimentoId} AND "partnerId" = ${partnerId};`;
+  await registra({
+    azione: `Esclusione movimento annullata`,
+    categoria: "transazioni", entita: "partner", entitaId: partnerId,
+    dettaglio: `Movimento ${movimentoId} torna fra i candidati per nome della scheda`,
+  });
+  revalidatePath(`/partner/${partnerId}`, "layout");
+}
