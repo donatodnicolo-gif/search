@@ -555,6 +555,12 @@
         </label>
         <div class="hint" style="margin-top:4px">Ogni scheda mostra una foto di copertina; cliccandola si aprono tutte le foto del negozio. <b>Ogni foto scaricata è una richiesta Google a pagamento</b>: nella lista si carica solo la copertina delle schede che l'operatore vede davvero, le altre partono solo aprendo la galleria. Togli la spunta per spegnere del tutto le foto.</div>
       </div>
+      <div>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer">
+          <input id="cfg_cache" type="checkbox" style="width:auto; margin:0"> Riusa le ricerche già fatte (cache 48h, risparmia Google)
+        </label>
+        <div class="hint" style="margin-top:4px">Se la <b>stessa ricerca</b> (indirizzo + categoria) è già stata fatta da <b>chiunque</b> nelle ultime 48 ore, l'app ripropone i <b>risultati salvati</b> senza richiamare Google (e senza rispendere). In cima compare «risultati salvati il …» e un pulsante <b>«🔄 Forza su Google»</b> per rifarla aggiornata. NB: sui risultati salvati la <b>mappa</b> e l'<b>«aperto ora»</b> sono congelati al momento del salvataggio — per averli aggiornati usa «Forza su Google».</div>
+      </div>
       <div class="fgrid fgrid-2">
         <div>
           <label>Registro anagrafiche — URL</label>
@@ -877,6 +883,7 @@
         </div>
         <!-- azioni mappa -->
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px">
+          <button class="btn-dl" id="forzaGoogle" type="button" style="display:none">🔄 Forza su Google</button>
           <button class="btn-dl" id="openGmaps" type="button">🗺️ Vedi tutti su Google Maps</button>
           <button class="btn-dl" id="toggleMap" type="button" style="margin-left:auto">🗺️ Mostra sulla mappa</button>
         </div>
@@ -1334,6 +1341,7 @@ function applyConfig(){
   $('#cfg_kw_fioraio').value = CONFIG.kwFioraio || '';
   $('#cfg_kw_pasticceria').value = CONFIG.kwPasticceria || '';
   $('#cfg_foto').checked = fotoAttive();
+  $('#cfg_cache').checked = String(CONFIG.cacheRicerca||'0')==='1';
   $('#cfg_mappa').value = CONFIG.mappaTipi || '';
   $('#cfg_pagine').value = String(paginePerRicerca());
   $('#cfg_anag_url').value = CONFIG.anagUrl || '';
@@ -1488,6 +1496,7 @@ async function saveConfig(){
                  kwFioraio: $('#cfg_kw_fioraio').value.trim(),
                  kwPasticceria: $('#cfg_kw_pasticceria').value.trim(),
                  mostraFoto: $('#cfg_foto').checked ? '1' : '0',
+                 cacheRicerca: $('#cfg_cache').checked ? '1' : '0',
                  mappaTipi: $('#cfg_mappa').value.trim(),
                  pagineRicerca: $('#cfg_pagine').value,
                  anagUrl: $('#cfg_anag_url').value.trim(), anagKey: $('#cfg_anag_key').value.trim(),
@@ -4066,10 +4075,54 @@ function resetSearch(){
 $('#resetSearch').addEventListener('click', resetSearch);
 
 /* ------------------ flusso principale ------------------ */
-$('#go').addEventListener('click', run);
+$('#go').addEventListener('click', ()=>run());   // niente evento come argomento (sarebbe "force")
 $('#address').addEventListener('keydown', e=>{ if(e.key==='Enter' && !pacAperto()) run(); });
+$('#forzaGoogle') && $('#forzaGoogle').addEventListener('click', ()=>run(true));
 
-async function run(){
+/* ---- Cache condivisa delle ricerche (48h): se accesa, la STESSA ricerca fatta da
+   chiunque nelle ultime 48h ripropone i risultati salvati senza richiamare Google. ---- */
+function cacheRicercaOn(){ return String(CONFIG.cacheRicerca||'0')==='1'; }
+function cacheKeyRicerca(address, catsSet){
+  const base = normName(address) + '|' + [...catsSet].sort().join(',');   // stesso indirizzo + stessa categoria
+  let h = 5381; for(let i=0;i<base.length;i++){ h = ((h*33) ^ base.charCodeAt(i)) >>> 0; }
+  return 'r' + h.toString(36);
+}
+function mostraForza(on){ const b = $('#forzaGoogle'); if(b) b.style.display = on ? '' : 'none'; }
+async function leggiRicercaCache(key){
+  const r = await apiFetch('/api/ricerca?key=' + encodeURIComponent(key));
+  if(!r.ok) return null;
+  const j = await r.json().catch(()=>null);
+  return (j && j.hit && j.payload) ? Object.assign({ salvatoIl: j.salvatoIl }, j.payload) : null;
+}
+async function salvaRicercaCache(key){
+  try{
+    const pids = [...resultsEl.querySelectorAll('.shop[data-sid]')].map(el=>el.dataset.sid).filter(Boolean);
+    const cardData = {}, fotos = {};
+    pids.forEach(p=>{ if(CARD_DATA[p]) cardData[p] = CARD_DATA[p]; if(PLACE_FOTOS[p]) fotos[p] = PLACE_FOTOS[p]; });
+    const payload = { html: resultsEl.innerHTML, cardData, fotos };
+    await apiFetch('/api/ricerca', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ key, salvatoIl: new Date().toISOString(), payload }) });
+  }catch(e){ /* la cache è best effort: se non salva, la ricerca funziona lo stesso */ }
+}
+function renderDaCache(cached){
+  resultsEl.innerHTML = cached.html || '';
+  Object.assign(CARD_DATA, cached.cardData || {});
+  Object.assign(PLACE_FOTOS, cached.fotos || {});
+  // mappa e «aperto ora» sono congelati al salvataggio → niente mappa sui risultati salvati
+  mapPoints = []; resetMap();
+  $('#noResults').style.display = 'none';
+  $('#resultTools').style.display = 'block';
+  $('#toggleMap').style.display = 'none';
+  $('#mapWrap').style.display = 'none';
+  mostraForza(true);
+  applySort(); applyStars(); applyArchive();
+  if(orderLoaded){ resultsShown = true; setOrderCollapsed(true); }
+  let qtxt = '';
+  try{ if(cached.salvatoIl) qtxt = ' il ' + new Date(cached.salvatoIl).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }catch(e){}
+  setStatus('💾 Risultati SALVATI' + qtxt + ' — nessuna richiesta a Google. Premi «🔄 Forza su Google» per rifarla aggiornata (mappa e «aperto ora» inclusi).');
+}
+
+async function run(force){
   const key = (CONFIG.googleKey||'').trim();
   const address = $('#address').value.trim();
 
@@ -4083,6 +4136,14 @@ async function run(){
   if(!new URLSearchParams(location.search).get('ordine')){
     rememberSearch({ indirizzo: address,
       categoria: cats.size===1 ? (cats.has('pasticceria') ? 'pasticcerie' : 'fiorai') : '' });
+  }
+
+  // CACHE 48h condivisa: se accesa e non si forza, riproponi i risultati salvati (niente Google)
+  const ckey = cacheKeyRicerca(address, cats);
+  if(cacheRicercaOn() && !force){
+    setStatus('Controllo i risultati salvati…');
+    try{ const cached = await leggiRicercaCache(ckey); if(cached){ renderDaCache(cached); return; } }
+    catch(e){ /* cache non raggiungibile: si prosegue con Google */ }
   }
 
   $('#go').disabled = true;
@@ -4138,6 +4199,9 @@ async function run(){
 
     lastSearchCtx.found = found;   // base da UNIRE quando si estende (non si sostituisce)
     await renderResults(found, geo, origin, service, {});
+    // salva in cache (48h condivisa) per le prossime volte — dopo un attimo, così
+    // cattura anche email/Instagram trovati sui siti (arrivano subito dopo il render)
+    if(cacheRicercaOn()){ setTimeout(()=>salvaRicercaCache(ckey), 4500); }
   }catch(err){
     console.error(err);
     setStatus(err.message || 'Errore imprevisto.', true);
@@ -4275,6 +4339,7 @@ async function renderResults(found, geo, origin, service, opts){
 
   applySort();   // ordina secondo la scelta dell'operatore e applica i filtri
   $('#resultTools').style.display = 'block';           // filtri + bottone mappa sopra i risultati
+  mostraForza(false);                                  // risultati freschi da Google: niente «Forza»
   $('#toggleMap').style.display = mapPoints.length ? '' : 'none';
   showExtendFooter(extended);                          // «estendi» anche in fondo alla lista
   // con un ordine caricato, comprimi la scheda ordine in riepilogo (meno scroll, focus sui negozi)
