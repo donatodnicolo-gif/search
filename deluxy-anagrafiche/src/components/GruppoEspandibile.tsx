@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 // Riga di un'insegna madre nell'elenco: il triangolino apre e chiude le sue
 // sedi, che restano righe complete (stato, interessi, azioni sono le loro).
@@ -12,6 +13,7 @@ export function GruppoEspandibile({
   celle: ReactNode;
   sedi: { id: string; celle: ReactNode }[];
 }) {
+  const router = useRouter();
   const [aperto, setAperto] = useState(false);
 
   return (
@@ -33,7 +35,17 @@ export function GruppoEspandibile({
       </tr>
       {aperto &&
         sedi.map((s) => (
-          <tr key={s.id} className="riga-sede">
+          // La riga si apre col click (Libro v1.6 §8): ogni sede è un record
+          // con la sua scheda. La testata del gruppo sopra invece non ce l'ha,
+          // e per questo non riceve né click né cursore.
+          <tr
+            key={s.id}
+            className="riga-sede riga-link"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("a,button,input,select,label,details")) return;
+              router.push(`/partner/${s.id}`);
+            }}
+          >
             <td className="cella-espandi" />
             {s.celle}
           </tr>

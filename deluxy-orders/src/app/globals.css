@@ -1549,3 +1549,16 @@ a.periodo-opz:hover { background: var(--fill); color: var(--text); }
     align-items: stretch;
   }
 }
+
+/* ---------- Libro UX&UI: aggiunte in coda (28/08/2026) ---------- */
+/* «Il ritorno al punto esatto» (v1.5 §2): il bottone Indietro dei dettagli.
+   È un bottone, non un link: usa la history per riportare filtri e scroll. */
+.torna-indietro { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); background: none; border: 0; cursor: pointer; padding: 6px 0; }
+.torna-indietro:hover { color: var(--text); }
+/* «La riga si apre col click» (v1.6 §8): pointer e hover marcato SOLO sulle
+   righe che portano a un dettaglio — le altre tengono l'hover leggero di base. */
+tr.riga-link { cursor: pointer; }
+tbody tr.riga-link:hover { background: var(--fill-hover); }
+/* La card della vista per brand, quando apre l'ordine */
+.scheda-link { cursor: pointer; }
+.scheda-link:hover { background: var(--fill); }

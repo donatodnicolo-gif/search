@@ -5920,3 +5920,28 @@ button.bottone.secondario.ai-spenta {
      il bordo: la corsia non scorrerebbe mai. */
   .riga-chips-scorri > * { flex: 0 0 auto; }
 }
+
+/* ---------- «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2) ---------- */
+/* Il bottone «← Indietro» in testa alle pagine di dettaglio: discreto come
+   un link, torna alla vista di prima via history (vedi TornaIndietro.tsx). */
+.torna-indietro {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 6px 0;
+}
+.torna-indietro:hover { color: var(--text); }
+
+/* ---------- «La riga si apre col click» (Libro UX&UI v1.6 §8) ---------- */
+/* Solo le righe che portano a un dettaglio: cursore e hover marcato. Le
+   righe senza scheda non lo ricevono — un cursore che promette e non porta
+   da nessuna parte è peggio di niente. */
+.tabella-wrap tbody tr.riga-link { cursor: pointer; }
+.tabella-wrap tbody tr.riga-link:hover { background: var(--fill-hover); }

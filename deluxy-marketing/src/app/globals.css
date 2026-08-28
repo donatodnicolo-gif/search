@@ -1593,3 +1593,22 @@ html { scroll-behavior: smooth; }
     align-items: stretch;
   }
 }
+
+/* --- «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2) ---
+   Il bottone Indietro delle pagine di dettaglio: veste come i link `.ritorno`
+   che ha sostituito, ma torna con la history (conserva querystring e scroll)
+   e ripiega sull'elenco solo arrivando da fuori. */
+.torna-indietro {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 13.5px; font-weight: 500; color: var(--blue);
+  background: none; border: 0; cursor: pointer;
+  padding: 0; margin-bottom: 14px;
+}
+.torna-indietro:hover { text-decoration: underline; }
+.torna-indietro:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* --- «La riga si apre col click» (Libro UX&UI v1.6 §8) ---
+   Le righe che portano a un dettaglio mostrano la mano; l'hover sul fill
+   c'è già per tutte le righe (tbody tr:hover), quindi qui basta il cursore.
+   Un record senza dettaglio non riceve la classe, e resta com'è. */
+tr.riga-link { cursor: pointer; }

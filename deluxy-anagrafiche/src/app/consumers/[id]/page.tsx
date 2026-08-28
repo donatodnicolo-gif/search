@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { prisma } from "@/lib/db";
 import { attivita, coloreSegmento, coloreTipologia, nomeSegmento, nomeTipologia } from "@/lib/consumers";
 
@@ -36,7 +37,7 @@ export default async function SchedaConsumer({ params }: { params: Promise<{ id:
     <div className="layout">
       <Sidebar consumersAttivi />
       <main className="main">
-        <a className="link-indietro" href="/consumers">← Consumers</a>
+        <TornaIndietro fallback="/consumers" label="Consumers" />
 
         <div className="page-head">
           <div>

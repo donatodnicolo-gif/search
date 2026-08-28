@@ -17,6 +17,7 @@ import { caricaAnno } from "@/lib/calc";
 import { caricaConsuntivo, type ConsuntivoPeriodo } from "@/lib/consuntivo";
 import { eur, MESI, pct } from "@/lib/format";
 import { variazione } from "@/lib/periodo";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 
@@ -131,7 +132,8 @@ export default async function MeseConsuntivoPage({
       <div className="page-head">
         <div>
           <p className="page-caption" style={{ margin: 0 }}>
-            <Link href={indietro} style={{ color: "var(--blue)" }}>← Consuntivo {anno}</Link>
+            {/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2) */}
+            <TornaIndietro fallback={indietro} label={`Consuntivo ${anno}`} />
           </p>
           <h1 className="page-title">
             {nomeMese} {anno}

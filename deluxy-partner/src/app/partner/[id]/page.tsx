@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ConfermaElimina } from "@/components/ConfermaElimina";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -48,7 +49,7 @@ export default async function PartnerDetail({
 
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
-  const [{ mesi, rolling }, prec, tariffe, fattureAperte, extra, analisi] = await Promise.all([
+  const [{ mesi, rolling }, prec, tariffe, fattureAperte, extra, analisi, ultimiMovimenti] = await Promise.all([
     riepilogoPartner(id, anno),
     riepilogoPartner(id, annoPrec),
     prisma.tariffaPartner.findMany({ where: { partnerId: id }, orderBy: [{ dalAnno: "desc" }, { dalMese: "desc" }] }),
@@ -58,6 +59,16 @@ export default async function PartnerDetail({
     }),
     prisma.extraSaldo.findMany({ where: { partnerId: id, anno }, orderBy: { createdAt: "asc" } }),
     analisiPartner(id),
+    // Gli ultimi 10 movimenti bancari ATTRIBUITI a questo partner (partnerId).
+    // Solo quelli riconciliati/attribuiti: abbinare per nome mostrerebbe anche
+    // gli omonimi (es. due «Paolo» diversi), che è proprio il falso positivo
+    // che la riconciliazione segnala come «importo diverso dagli attesi».
+    prisma.transazioneBancaria.findMany({
+      where: { partnerId: id },
+      orderBy: [{ data: "desc" }, { id: "desc" }],
+      take: 10,
+      select: { id: true, data: true, importo: true, descrizione: true, controparte: true, stato: true, fonte: true },
+    }),
   ]);
   // Le fatture FIC intestate a questo partner: servono a proporre quale
   // collegare come «fattura commissioni» di un mese. Si caricano una volta per
@@ -103,9 +114,7 @@ export default async function PartnerDetail({
 
   return (
     <>
-      <Link href="/partner" className="btn secondary small" style={{ marginBottom: 10 }}>
-        ← Tutti i partner
-      </Link>
+      <TornaIndietro fallback="/partner" label="Partner" />
       <div className="page-head">
         <div>
           <h1 className="page-title">{partner.nome}</h1>
@@ -280,6 +289,57 @@ export default async function PartnerDetail({
       >
         <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} partnerId={partner.id} />
       </Suspense>
+
+      <h2 className="section-title">Ultimi movimenti bancari</h2>
+      <div className="card tight" style={{ marginBottom: 24 }}>
+        {ultimiMovimenti.length === 0 ? (
+          <p className="muted" style={{ fontSize: 13.5, padding: "16px 20px", margin: 0 }}>
+            Nessun movimento bancario è ancora attribuito a questo partner. I movimenti compaiono qui quando
+            vengono riconciliati in <Link href="/transazioni">Import &amp; riconciliazione</Link>.
+          </p>
+        ) : (
+          <>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Data</th><th>Movimento</th><th>Stato</th><th className="num">Importo</th></tr>
+                </thead>
+                <tbody>
+                  {ultimiMovimenti.map((m) => (
+                    <tr key={m.id}>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        <Link href={`/movimenti/${m.id}`}>{dataIt(m.data)}</Link>
+                      </td>
+                      <td style={{ maxWidth: 380 }}>
+                        <Link href={`/movimenti/${m.id}`} style={{ fontWeight: 500, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={m.descrizione}>
+                          {m.descrizione}
+                        </Link>
+                        {m.controparte && <div className="muted" style={{ fontSize: 12 }}>{m.controparte}</div>}
+                      </td>
+                      <td style={{ fontSize: 12.5 }}>
+                        {m.stato === "registrata" ? (
+                          <span className="badge green"><span className="dot" />registrata</span>
+                        ) : m.stato === "ignorata" ? (
+                          <span className="badge neutral"><span className="dot" />ignorata</span>
+                        ) : (
+                          <span className="badge orange"><span className="dot" />da lavorare</span>
+                        )}
+                      </td>
+                      <td className={`num ${m.importo > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
+                        {m.importo > 0 ? "+" : "−"}{euro(Math.abs(m.importo))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="muted" style={{ fontSize: 12, padding: "10px 20px", margin: 0 }}>
+              Solo i movimenti attribuiti a questo partner in riconciliazione.{" "}
+              <Link href={`/movimenti?q=${encodeURIComponent(partner.nome)}`}>Cerca «{partner.nome}» in tutti i movimenti →</Link>
+            </p>
+          </>
+        )}
+      </div>
 
       {aiMailConfigurata() && (
         <Suspense
@@ -675,7 +735,8 @@ export default async function PartnerDetail({
                       <tr style={{ background: "var(--bg)" }}>
                         <td className="muted">Da incassare dal partner</td>
                         <td colSpan={2}>
-                          Fatture non saldate {euro(r.serviziNonPagati)}
+                          Fatture non saldate {euro(r.serviziNonPagatiNetto)}{" "}
+                          <span className="muted">+IVA → {euro(r.serviziNonPagati)}</span>
                           {r.bonificoRicevuto > 0 && <> − acconti ricevuti {euro(r.bonificoRicevuto)}</>}
                         </td>
                         <td>

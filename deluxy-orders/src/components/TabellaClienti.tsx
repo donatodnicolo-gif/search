@@ -12,6 +12,7 @@ import {
   nomeSegmento,
   nomeTipologia,
 } from "@/lib/segmenti";
+import { RigaLink } from "@/components/RigaLink";
 
 // La tabella dei clienti, con i tag della classificazione e lo stato della
 // privacy. La usano sia «Clienti» sia il dettaglio di una lista: le colonne
@@ -163,7 +164,9 @@ export function TabellaClienti({
         </thead>
         <tbody>
           {clienti.map((c) => (
-            <tr key={c.chiave}>
+            // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la riga
+            // apre la scheda; il link sul nome resta per la tastiera.
+            <RigaLink href={`/clienti/${codificaChiave(c.chiave)}`} key={c.chiave} className="riga-link">
               <td>
                 <Link href={`/clienti/${codificaChiave(c.chiave)}`} className="cella-nome">
                   {c.nome ?? c.email ?? c.telefono ?? "—"}
@@ -203,7 +206,7 @@ export function TabellaClienti({
                 {dataBreve(c.ultimoOrdine)}
                 <div className="cella-sub">{giorniFa(c.giorni)}</div>
               </td>
-            </tr>
+            </RigaLink>
           ))}
         </tbody>
       </table>

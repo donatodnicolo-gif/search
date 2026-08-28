@@ -5,6 +5,7 @@ import { AttiviDaRegistro } from "@/components/AttiviDaRegistro";
 import { MESI, nomeMese } from "@/lib/calc";
 import { euro, pctIt } from "@/lib/format";
 import { ThSort, ordina } from "@/components/ThSort";
+import { RigaLink } from "@/components/RigaLink";
 import { BadgeCredito } from "@/components/BadgeCredito";
 import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { schedeTutti, schedaVuota, GRAVITA } from "@/lib/stato-credito";
@@ -344,7 +345,9 @@ export default async function PartnerList({
             </thead>
             <tbody>
               {filtered.map((t) => (
-                <tr key={t.partner.id}>
+                // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
+                // riga porta alla scheda, non solo il nome in blu.
+                <RigaLink key={t.partner.id} href={`/partner/${t.partner.id}`} className="riga-link">
                   <td><Link href={`/partner/${t.partner.id}`} style={{ fontWeight: 500 }}>{t.partner.nome}</Link></td>
                   <td>{t.partner.categoria ?? "—"}</td>
                   <td>{t.partner.citta ?? "—"}</td>
@@ -366,7 +369,7 @@ export default async function PartnerList({
                   <td className={`num ${Math.abs(vista(t.partner.id).residuo) < 0.01 ? "" : vista(t.partner.id).residuo > 0 ? "pos" : "neg"}`}>
                     {euro(vista(t.partner.id).residuo)}
                   </td>
-                </tr>
+                </RigaLink>
               ))}
               {(() => {
                 const somma = (fn: (t: T) => number) => filtered.reduce((a, t) => a + fn(t), 0);

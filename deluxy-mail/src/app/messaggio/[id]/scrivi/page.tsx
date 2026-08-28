@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { accountPerRisposta, caselleIndirizzate, modoValido, preparaRisposta, TITOLI } from '@/lib/rispondi'
@@ -10,6 +9,7 @@ import { htmlDiMessaggio } from '@/lib/htmlServer'
 import { righeThread } from '@/lib/sync'
 import { anteprimaPulita } from '@/lib/citato'
 import { ConversazioneMentreScrivi } from '@/components/ConversazioneMentreScrivi'
+import { TornaIndietro } from '@/components/TornaIndietro'
 
 export const dynamic = 'force-dynamic'
 // L'invio gira qui dentro: inoltrando, gli allegati si riprendono dalla casella
@@ -128,9 +128,10 @@ export default async function Scrivi({ params, searchParams }: Props) {
     <>
       <div className="page-head">
         <div>
-          <Link href={`/messaggio/${id}`} className="btn secondary small">
-            ← Torna al messaggio
-          </Link>
+          {/* «Il ritorno al punto esatto» (Libro v1.5 §2): il messaggio si
+              riapre com'era (vista ampia, ancore); da un link diretto si
+              ripiega sulla sua pagina. */}
+          <TornaIndietro fallback={`/messaggio/${id}`} label="Torna al messaggio" />
           <h1 className="page-title" style={{ marginTop: 14 }}>
             {TITOLI[modo]}
           </h1>

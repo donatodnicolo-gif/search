@@ -351,3 +351,13 @@ input.errata { border-color: var(--red); background: rgba(215, 0, 21, 0.07); }
 .scost { font-size: 10.5px; font-style: italic; font-weight: 400; line-height: 1.3; margin-top: 1px; }
 .scost.pos { color: var(--green); }
 .scost.neg { color: var(--red); }
+
+/* ---------- Libro UX&UI: aggiunte in coda (28/08/2026) ---------- */
+/* «Il ritorno al punto esatto» (v1.5 §2): il bottone Indietro dei dettagli.
+   È un bottone, non un link: usa la history per riportare filtri e scroll. */
+.torna-indietro { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); background: none; border: 0; cursor: pointer; padding: 6px 0; }
+.torna-indietro:hover { color: var(--text); }
+/* «La riga si apre col click» (v1.6 §8): pointer e hover col fill SOLO sulle
+   righe che portano a un dettaglio — totali e sottorighe restano com'erano. */
+tr.riga-link { cursor: pointer; }
+tbody tr.riga-link:hover { background: var(--fill); }

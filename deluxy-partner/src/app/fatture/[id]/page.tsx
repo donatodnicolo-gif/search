@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { ivato, residuoFattura, incassatoFattura, parzialmenteIncassata, nomeMese, MESI } from "@/lib/calc";
 import { updateFattura, segnaFatturaPagata, deleteFattura, incassaFatturaParziale } from "@/lib/actions";
+import { ficUrlFattura } from "@/lib/fic";
 import { ScadenzaRapida } from "@/components/ScadenzaRapida";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +29,10 @@ export default async function FatturaDetail({
   ]);
   if (!fattura) notFound();
 
+  // Link «apri in Fatture in Cloud»: solo se la fattura ha un numero (quindi è
+  // stata emessa lì). Non fatale: se FIC è giù o non risolve, il link non c'è.
+  const urlFic = fattura.numero ? await ficUrlFattura(fattura.numero, fattura.anno) : null;
+
   const oggi = new Date();
   const scaduta = !fattura.pagata && fattura.scadenza && fattura.scadenza < oggi;
   const action = updateFattura.bind(null, id);
@@ -41,9 +47,7 @@ export default async function FatturaDetail({
     <>
       <div className="page-head">
         <div>
-          <Link href="/fatture" className="btn secondary small" style={{ marginBottom: 10 }}>
-            ← Torna alle fatture
-          </Link>
+          <TornaIndietro fallback="/fatture" label="Fatture" />
           <h1 className="page-title">Fattura {fattura.numero ?? "s.n."}</h1>
           <p className="page-caption">
             <Link href={`/partner/${fattura.partnerId}`} style={{ color: "var(--blue)" }}>
@@ -75,6 +79,17 @@ export default async function FatturaDetail({
             >
               Emetti su FIC…
             </Link>
+          )}
+          {urlFic && (
+            <a
+              href={urlFic}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn secondary small"
+              title="Apri questa fattura nell'app di Fatture in Cloud (in una nuova scheda)"
+            >
+              Apri in Fatture in Cloud ↗
+            </a>
           )}
         </div>
       </div>

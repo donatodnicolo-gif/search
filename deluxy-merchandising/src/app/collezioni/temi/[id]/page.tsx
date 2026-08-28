@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { Badge } from "@/components/Badge";
 import { Miniatura } from "@/components/Miniatura";
 import { prisma } from "@/lib/db";
@@ -88,7 +89,9 @@ export default async function TemaPage({
     <div className="layout">
       <Sidebar attiva="collezioni" />
       <main className="main" style={{ maxWidth: 980 }}>
-        <a className="ritorno" href="/collezioni/temi">← Temi</a>
+        {/* «Il ritorno al punto esatto» (Libro v1.5 §2): la history conserva
+            i filtri dell'elenco; l'URL nudo è solo il ripiego da link diretto. */}
+        <TornaIndietro fallback="/collezioni/temi" label="Temi" />
         <div className="page-head">
           <div>
             <h1 className="page-title">{t.nome}</h1>

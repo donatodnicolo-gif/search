@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { ANNO_CORRENTE } from "@/lib/calc";
 import { eur } from "@/lib/format";
 import { chiGuarda } from "@/lib/chi-guarda";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -106,7 +107,9 @@ export default async function Proposte() {
               </thead>
               <tbody>
                 {proposte.map((p) => (
-                  <tr key={p.id}>
+                  // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
+                  // riga apre la proposta; link e bottone dentro restano loro.
+                  <RigaLink href={`/proposte/${p.id}`} key={p.id} className="riga-link">
                     <td style={{ fontWeight: 500 }}>
                       <Link href={`/proposte/${p.id}`} style={{ color: "var(--blue)" }}>{p.autore}</Link>
                     </td>
@@ -135,7 +138,7 @@ export default async function Proposte() {
                             : "Apri"}
                       </Link>
                     </td>
-                  </tr>
+                  </RigaLink>
                 ))}
               </tbody>
             </table>

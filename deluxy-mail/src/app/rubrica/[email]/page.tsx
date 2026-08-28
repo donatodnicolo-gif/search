@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { ripulisciAnteprima } from '@/lib/citato'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
@@ -13,6 +12,7 @@ import { datiContattoAI } from '@/lib/contattiAI'
 import { EditorIstruzioni } from '@/components/EditorIstruzioni'
 import { partnerPerEmail } from '@/lib/anagrafiche'
 import { AnagraficheContatto } from '@/components/AnagraficheContatto'
+import { TornaIndietro } from '@/components/TornaIndietro'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // il quadro AI del contatto gira qui
@@ -105,9 +105,9 @@ export default async function Contatto({ params }: Props) {
     <>
       <div className="page-head">
         <div>
-          <Link href="/rubrica" className="btn secondary small" style={{ marginBottom: 14 }}>
-            ← Contatti
-          </Link>
+          {/* «Il ritorno al punto esatto» (Libro v1.5 §2): la rubrica si
+              riapre con la ricerca e lo scroll di prima, non dall'URL nudo. */}
+          <TornaIndietro fallback="/rubrica" label="Contatti" />
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <span className="avatar" style={{ width: 44, height: 44, fontSize: 15 }}>
               {iniziali(nome, email)}

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { CostruttorePassi } from "@/components/CostruttorePassi";
 import { prisma } from "@/lib/db";
 import { corrisponde, parsePassi } from "@/lib/regole-ordine";
@@ -73,7 +74,9 @@ export default async function RegolaPage({
     <div className="layout">
       <Sidebar attiva="visual" />
       <main className="main" style={{ maxWidth: 980 }}>
-        <a className="ritorno" href="/visual/regole">← Regole d&apos;ordine</a>
+        {/* «Il ritorno al punto esatto» (Libro v1.5 §2): la history conserva
+            i filtri dell'elenco; l'URL nudo è solo il ripiego da link diretto. */}
+        <TornaIndietro fallback="/visual/regole" label="Regole d'ordine" />
         <div className="page-head">
           <div>
             <h1 className="page-title">{r.nome}</h1>

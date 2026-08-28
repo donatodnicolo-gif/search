@@ -6,6 +6,7 @@ import { VisteSalvate } from "@/components/VisteSalvate";
 import { destinazionePredefinita } from "@/lib/viste";
 import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
+import { RigaLink } from "@/components/RigaLink";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
 import { mer, numeriBrand, numeriPerCanale, quotaPagato, roasPiattaforma, scostamentoAttribuzione } from "@/lib/brand-dati";
@@ -485,7 +486,9 @@ export default async function PaginaBrand({
                           const r = roas(ric, spesa);
                           const lead = c.tipoConversione === "lead";
                           return (
-                            <tr key={c.id}>
+                            // «La riga si apre col click» (Libro v1.6 §8):
+                            // tutta la riga porta alla campagna.
+                            <RigaLink key={c.id} href={`/campagne/${c.id}`} className="riga-link">
                               <td style={{ maxWidth: 230 }}>
                                 <a href={`/campagne/${c.id}`} className="cella-nome">{c.nome}</a>
                                 {(c.classe === "traino" || lead) && (
@@ -531,7 +534,7 @@ export default async function PaginaBrand({
                               <td className="num" style={{ fontWeight: 600, color: lead ? "var(--text-tertiary)" : r != null ? (r >= be ? "var(--green)" : "var(--red)") : undefined }}>
                                 {lead ? "n/d" : r != null ? `${r.toFixed(1).replace(".", ",")}×` : "—"}
                               </td>
-                            </tr>
+                            </RigaLink>
                           );
                         })}
                     </tbody>

@@ -8,6 +8,7 @@ import { sigilloRichiesta } from "@/lib/audit";
 import { BadgeRischio, BadgeStato, Firme, quando } from "@/components/Etichette";
 import { ModuloFirma } from "@/components/ModuloFirma";
 import { ModuloChiusura } from "@/components/ModuloChiusura";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 // Dettaglio di una richiesta: tutto quello che serve per decidere, in una
 // schermata sola, con i motivi di rischio in evidenza e la storia sotto.
@@ -73,9 +74,7 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
 
   return (
     <main className="main">
-      <a className="ritorno" href="/">
-        ← Torna alla coda
-      </a>
+      <TornaIndietro fallback="/" label="Coda pagamenti" />
       <div className="page-head">
         <div>
           <h1 className="page-title">{r.riferimento}</h1>

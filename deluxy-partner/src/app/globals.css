@@ -576,3 +576,20 @@ input:focus, select:focus, textarea:focus {
   font-weight: 600;
   cursor: pointer;
 }
+
+/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2): il bottone che riporta
+   alla stessa vista di prima. Discreto: sta sopra il titolo, non compete con
+   le azioni della pagina. */
+.torna-indietro {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 13px; font-weight: 600;
+  color: var(--text-secondary); background: none; border: 0;
+  cursor: pointer; padding: 6px 0; margin-bottom: 10px;
+}
+.torna-indietro:hover { color: var(--text); }
+
+/* «La riga si apre col click» (Libro UX&UI v1.6 §8): il pointer e il fondo
+   pieno al passaggio SOLO sulle righe che portano a un dettaglio; le altre
+   tengono l'hover leggero di serie. */
+tbody tr.riga-link { cursor: pointer; }
+tbody tr.riga-link:hover { background: var(--fill); }

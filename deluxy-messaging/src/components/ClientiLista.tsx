@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 // Stessa grafica della pagina Clienti di Deluxy Orders (page-head, KPI, ricerca
 // a pillola, pillole di ordinamento, tabella): le due app sono gemelle e
@@ -39,6 +40,7 @@ function euro(v: number): string {
 }
 
 export function ClientiLista() {
+  const router = useRouter()
   const [clienti, setClienti] = useState<ClienteDto[]>([])
   const [totale, setTotale] = useState(0)
   const [inRubrica, setInRubrica] = useState(0)
@@ -440,8 +442,32 @@ export function ClientiLista() {
                 </tr>
               </thead>
               <tbody>
-                {clienti.map((c) => (
-                  <tr key={c.chiave} className={scelti.includes(c.chiave) ? 'riga-scelta' : ''}>
+                {clienti.map((c) => {
+                  // «La riga si apre col click» (Libro v1.6 §8): tutta la riga
+                  // porta alla scheda — ma SOLO se il cliente ne ha una (serve
+                  // un'email o un telefono: senza, la scheda non si apre e la
+                  // riga non deve promettere niente). La casella da spuntare e
+                  // i bottoni dentro la riga restano loro: il click su
+                  // a/button/input/select/label non naviga.
+                  const hrefScheda =
+                    c.email || c.telefono
+                      ? `/clienti/scheda?email=${encodeURIComponent(c.email)}&telefono=${encodeURIComponent(c.telefono)}`
+                      : null
+                  return (
+                  <tr
+                    key={c.chiave}
+                    className={[scelti.includes(c.chiave) ? 'riga-scelta' : '', hrefScheda ? 'riga-link' : '']
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={
+                      hrefScheda
+                        ? (e) => {
+                            if ((e.target as HTMLElement).closest('a,button,input,select,label')) return
+                            router.push(hrefScheda)
+                          }
+                        : undefined
+                    }
+                  >
                     <td>
                       <span className="cella-scelta">
                         <input
@@ -459,11 +485,11 @@ export function ClientiLista() {
                     </td>
                     <td>
                       {/* Il nome apre la SCHEDA: ordini passati, reclami,
-                          rimborsi, messaggi. Link e non riga cliccabile,
-                          perché la riga contiene già una casella da spuntare e
-                          due bottoni — cliccare per sbagliare sarebbe la norma.
-                          La chiave passa in query string: contiene @ e +, che
-                          in un pezzo di percorso si incastrano. */}
+                          rimborsi, messaggi. Il link resta anche ora che la
+                          riga intera naviga (Libro v1.6 §8): da tastiera ci si
+                          arriva solo da qui. La chiave passa in query string:
+                          contiene @ e +, che in un pezzo di percorso si
+                          incastrano. */}
                       <a
                         className="cella-nome link-scheda"
                         href={`/clienti/scheda?email=${encodeURIComponent(c.email)}&telefono=${encodeURIComponent(c.telefono)}`}
@@ -546,7 +572,8 @@ export function ClientiLista() {
                       ) : null}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

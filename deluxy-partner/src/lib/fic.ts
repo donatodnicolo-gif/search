@@ -992,6 +992,26 @@ export async function ficIdDaNumero(numero: string, annoFallback?: number): Prom
   return r.data.length === 1 ? r.data[0].id : null;
 }
 
+// Link per APRIRE la fattura nell'app web di Fatture in Cloud. FIC non
+// restituisce l'URL della UI dalle API, ma la sua app scopa il documento per id
+// dentro l'azienda a cui si è loggati: `/invoices-view/<id>`. Serve prima
+// risolvere l'id dal numero (una chiamata di rete). Torna null se FIC non è
+// collegato o il numero non trova UN solo documento — così chi chiama non mette
+// un link che porta a una pagina vuota. Non lancia: un link mancante non deve
+// far fallire la scheda.
+export async function ficUrlFattura(numero: string | null, anno?: number): Promise<string | null> {
+  if (!numero) return null;
+  try {
+    const { collegato } = await ficStato();
+    if (!collegato) return null;
+    const id = await ficIdDaNumero(numero, anno);
+    if (!id) return null;
+    return `https://secure.fattureincloud.it/invoices-view/${id}`;
+  } catch {
+    return null;
+  }
+}
+
 // A CHI era intestata una fattura già emessa, dato il numero interno
 // ("460/2026"). Se l'app ha già fatturato le commissioni a un partner,
 // l'intestatario di quella fattura è un FATTO: non una somiglianza di nomi.

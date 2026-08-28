@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BarraQuota } from "@/components/Grafico";
 import { RiquadroSeo } from "@/components/RiquadroSeo";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { prisma } from "@/lib/db";
 import { dataIt } from "@/lib/fuso";
 import { linkAdmin, linkSito } from "@/lib/link-shopify";
@@ -148,9 +149,9 @@ export default async function CollezioneShopifyPage({
     <div className="layout">
       <Sidebar attiva="collezioni" />
       <main className="main">
-        <Link href="/collezioni" className="ritorno">
-          ← Collezioni
-        </Link>
+        {/* «Il ritorno al punto esatto» (Libro v1.5 §2): la history conserva
+            i filtri dell'elenco; l'URL nudo è solo il ripiego da link diretto. */}
+        <TornaIndietro fallback="/collezioni" label="Collezioni" />
         <div className="page-head">
           <div>
             <div className="prodotto-codice">

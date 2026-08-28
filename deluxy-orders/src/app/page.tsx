@@ -20,6 +20,7 @@ import { margineOrdine } from "@/lib/controllo";
 import { daQuando, daQuandoLeggibile } from "@/lib/sessione";
 import { anniConOrdini } from "@/lib/analisi";
 import { sincronizza, segnaOrdiniVisti } from "./actions";
+import { RigaLink, SchedaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -342,7 +343,9 @@ export default async function ElencoOrdini({
                   <div className="colonna-vuota">Nessun ordine</div>
                 ) : (
                   suoi.map((o) => (
-                    <div className={`card-ordine card-brand${o.annullatoIl ? " ordine-annullato" : ""}`} key={o.id}>
+                    // «La riga si apre col click» (Libro UX&UI v1.6 §8): la
+                    // card intera apre l'ordine; i comandi dentro restano suoi.
+                    <SchedaLink href={`/ordini/${o.id}`} className={`card-ordine card-brand scheda-link${o.annullatoIl ? " ordine-annullato" : ""}`} key={o.id}>
                       <div className="card-testa">
                         <Link href={`/ordini/${o.id}`} className="card-numero">
                           {o.numero}
@@ -453,7 +456,7 @@ export default async function ElencoOrdini({
                           ))}
                         </div>
                       )}
-                    </div>
+                    </SchedaLink>
                   ))
                 )}
                 {conta > suoi.length && (
@@ -497,7 +500,9 @@ export default async function ElencoOrdini({
               </thead>
               <tbody>
                 {ordini.map((o) => (
-                  <tr key={o.id} className={`riga-brand${o.annullatoIl ? " ordine-annullato" : ""}`} style={{ ["--brand" as string]: coloreBrand(colori, o.brand) }}>
+                  // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
+                  // riga porta al dettaglio, il link sul numero resta per la tastiera.
+                  <RigaLink href={`/ordini/${o.id}`} key={o.id} className={`riga-brand riga-link${o.annullatoIl ? " ordine-annullato" : ""}`} style={{ ["--brand" as string]: coloreBrand(colori, o.brand) }}>
                     <td>
                       <Link href={`/ordini/${o.id}`} className="cella-nome">
                         {o.numero}
@@ -598,7 +603,7 @@ export default async function ElencoOrdini({
                         Cerca
                       </a>
                     </td>
-                  </tr>
+                  </RigaLink>
                 ))}
               </tbody>
             </table>

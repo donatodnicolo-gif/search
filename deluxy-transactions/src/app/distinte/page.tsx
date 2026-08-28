@@ -6,6 +6,7 @@ import { formattaIban } from "@/lib/iban";
 import { leggiRegole } from "@/lib/impostazioni";
 import { quando } from "@/components/Etichette";
 import { ModuloDistinta } from "@/components/ModuloDistinta";
+import { VoceCliccabile } from "@/components/VoceCliccabile";
 
 // Distinte SEPA: si selezionano le richieste approvate e si genera il file da
 // caricare in banca. L'app non parla con nessuna banca — vedi src/lib/sepa.ts.
@@ -69,7 +70,9 @@ export default async function Distinte() {
         ) : (
           <ul className="storia">
             {lotti.map((l) => (
-              <li key={l.id}>
+              // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
+              // voce porta alla distinta, non solo il riferimento in blu.
+              <VoceCliccabile key={l.id} href={`/distinte/${l.id}`}>
                 <span className="storia-data">{quando(l.creatoIl)}</span>
                 <span>
                   <a href={`/distinte/${l.id}`} className="cella-nome">
@@ -79,7 +82,7 @@ export default async function Distinte() {
                   <span className="importo">{euro(l.richieste.reduce((s, r) => s + r.importoCent, 0))}</span> · {l.stato}
                 </span>
                 <span className="storia-autore">{l.creatoDa}</span>
-              </li>
+              </VoceCliccabile>
             ))}
           </ul>
         )}

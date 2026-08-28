@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/Badge";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { aggiungiFeedback, cambiaStatoAzione, chiudiAzioneConPaperTrail, esitoVerificaAzione } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
@@ -45,7 +46,9 @@ export default async function SchedaAzione({ params }: { params: Promise<{ id: s
     <div className="layout">
       <Sidebar attiva="azioni" />
       <main className="main">
-        <a className="ritorno" href="/azioni">← Azioni</a>
+        {/* «Il ritorno al punto esatto» (Libro v1.5 §2): la history conserva
+            i filtri dell'elenco; l'URL nudo è solo il ripiego da link diretto. */}
+        <TornaIndietro fallback="/azioni" etichetta="← Azioni" className="torna-indietro" />
         <div className="page-head">
           <div>
             <h1 className="page-title">{azione.titolo}</h1>

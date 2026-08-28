@@ -1,4 +1,5 @@
 import { Badge } from "@/components/Badge";
+import { RigaLink } from "@/components/RigaLink";
 import { formattaEuro, formattaNumero } from "@/lib/dominio";
 import {
   ETICHETTA_TIPO_GRUPPO,
@@ -54,7 +55,10 @@ export function TabellaGruppi({
             const quota = quote?.get(g.id) ?? null;
             const statoGruppo = presentazioneStatoGruppo(g.stato, g.statoPiattaforma);
             return (
-              <tr key={g.id}>
+              // «La riga si apre col click» (Libro v1.6 §8): tutta la riga
+              // porta al gruppo; il link alla campagna dentro la riga resta
+              // suo (la guardia del click lo lascia passare).
+              <RigaLink key={g.id} href={`/gruppi/${g.id}`} className="riga-link">
                 <td style={{ maxWidth: 320 }}>
                   <a className="cella-nome" href={`/gruppi/${g.id}`}>{g.nome}</a>
                   <div className="cella-sub">
@@ -102,7 +106,7 @@ export function TabellaGruppi({
                 <td className="num" style={{ color: lettura.colore, fontWeight: 600 }} title={lettura.spiega}>
                   {lettura.testo}
                 </td>
-              </tr>
+              </RigaLink>
             );
           })}
         </tbody>

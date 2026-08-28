@@ -4,6 +4,7 @@ import { dataBreve } from "@/lib/ordini";
 import { CANALI, nomeCanale } from "@/lib/segmenti";
 import { variabiliScript, variabiliCitate } from "@/lib/automazioni";
 import { creaScript } from "@/app/actions";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,9 @@ export default async function Script() {
               {script.map((s) => {
                 const dichiarate = variabiliScript(s.variabili);
                 return (
-                  <tr key={s.id}>
+                  // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
+                  // riga apre la scheda; il link sul nome resta per la tastiera.
+                  <RigaLink href={`/script/${s.id}`} key={s.id} className="riga-link">
                     <td>
                       <Link href={`/script/${s.id}`} className="cella-nome">{s.nome}</Link>
                       {s.descrizione && <div className="cella-sub">{s.descrizione}</div>}
@@ -78,7 +81,7 @@ export default async function Script() {
                         {s.attivo ? "attivo" : "sospeso"}
                       </span>
                     </td>
-                  </tr>
+                  </RigaLink>
                 );
               })}
             </tbody>

@@ -9,6 +9,7 @@ import { QUOTA_STIMATA } from "@/lib/venduto";
 import { quotaDeluxyAnno } from "@/lib/quota";
 import { costoPremi, misuraPremi } from "@/lib/premi";
 import { prisma } from "@/lib/db";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -633,7 +634,9 @@ export default async function ContoEconomico({
               {dati.maisons.map((m) => {
                 const pl = contoEconomico(dati, livello, m.slug, qD2C);
                 return (
-                  <tr key={m.id}>
+                  // «La riga si apre col click» (Libro UX&UI v1.6 §8): la riga
+                  // apre la maison; il totale sotto non ha dettaglio e resta tr.
+                  <RigaLink href={`/maison/${m.slug}`} key={m.id} className="riga-link">
                     <td>
                       <Link href={`/maison/${m.slug}`} style={{ fontWeight: 600 }}>{m.nome}</Link>
                     </td>
@@ -646,7 +649,7 @@ export default async function ContoEconomico({
                       {eur(pl.ebitda)}
                     </td>
                     <td className="num muted">{pct(pl.ebitdaPct)}</td>
-                  </tr>
+                  </RigaLink>
                 );
               })}
               <tr className="tot">

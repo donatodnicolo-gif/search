@@ -7,6 +7,7 @@ import { BottoneEsegui } from '@/components/BottoneEsegui'
 import { DecidiSpamRiga } from '@/components/DecidiSpamRiga'
 import { ChecklistArchivio } from '@/components/ChecklistArchivio'
 import { richiediUtente } from '@/lib/sessione'
+import { TornaIndietro } from '@/components/TornaIndietro'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // l'Assistente AI (riassunto periodo) gira qui
@@ -42,9 +43,9 @@ export default async function Rapporto({ params }: Props) {
     <>
       <div className="page-head">
         <div>
-          <Link href="/" className="btn secondary small" style={{ marginBottom: 14 }}>
-            ← Posta in arrivo
-          </Link>
+          {/* «Il ritorno al punto esatto» (Libro v1.5 §2): si torna alla
+              posta com'era, non all'URL nudo dell'elenco. */}
+          <TornaIndietro fallback="/" label="Posta in arrivo" />
           <h1 className="page-title">{TITOLI[rapporto.periodo] ?? 'Assistente'}</h1>
           <p className="page-caption">
             {rapporto.messaggiVisti} messaggi letti il{' '}

@@ -1229,3 +1229,21 @@ details.conferma-x[open] > summary.btn-pericolo { color: #fff; opacity: .85; }
   display: inline-block; padding: 2px 9px; border-radius: 999px;
   background: var(--fill); font-size: 12px; color: var(--text);
 }
+
+/* --- «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2) ---
+   Il bottone Indietro delle pagine di dettaglio: veste come i link `.ritorno`
+   che ha sostituito, ma torna con la history (conserva querystring e scroll)
+   e ripiega sull'elenco solo arrivando da fuori. */
+.torna-indietro {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 13.5px; font-weight: 500; color: var(--blue);
+  background: none; border: 0; cursor: pointer;
+  padding: 0; margin-bottom: 14px;
+}
+.torna-indietro:hover { text-decoration: underline; }
+.torna-indietro:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* «La riga si apre col click» (Libro v1.6 §8): anche le etichette (checkbox
+   di selezione) dentro una riga cliccabile restano loro — come i bottoni e i
+   campi già alzati sopra il link steso. */
+.riga-cliccabile label { position: relative; z-index: 1; }

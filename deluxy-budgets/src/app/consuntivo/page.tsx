@@ -10,6 +10,7 @@ import { economiaD2C, economiaDeiMesi } from "@/lib/economia-d2c";
 import { fatturatoDaVenduto, raggruppa, sommaMesi } from "@/lib/venduto";
 import { misuraQuota } from "@/lib/quota";
 import { ricavoD2C, ricavoDeiMesi, MARGINE_FORNITORI } from "@/lib/ricavo-d2c";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -805,8 +806,12 @@ export default async function ConsuntivoPage({
                   {righePL.map((r) => {
                     const forte = r.tipo === "totale";
                     const scost = r.cons - r.budget;
-                    return (
-                      <tr key={r.label} className={r.label === "EBITDA" ? "tot" : undefined}>
+                    // «La riga si apre col click» (Libro UX&UI v1.6 §8): solo
+                    // le righe con un dettaglio (`r.apre`) navigano con tutta
+                    // la riga; totali ed EBITDA restano righe normali, senza
+                    // pointer né hover. Il link sul nome resta per la tastiera.
+                    const celle = (
+                      <>
                         <td style={{ fontWeight: forte ? 600 : 400, paddingLeft: r.dettaglio ? 26 : undefined }}>
                           {r.dettaglio && <span className="muted" style={{ marginRight: 6 }}>└</span>}
                           {/* Le righe che hanno un dettaglio si aprono: da un
@@ -861,7 +866,18 @@ export default async function ConsuntivoPage({
                           <td className={`num ${buono(r) ? "pos" : "neg"}`}>{scost >= 0 ? "+" : ""}{eur(scost)}</td>
                         )}
                         <td className="num muted">{r.budget > 0 ? pct((r.cons / r.budget) * 100, 0) : "—"}</td>
-                      </tr>
+                      </>
+                    );
+                    return r.apre ? (
+                      <RigaLink
+                        key={r.label}
+                        href={`/consuntivo/${r.apre}?periodo=${periodo.key}&stato=${stato}&anno=${anno}`}
+                        className="riga-link"
+                      >
+                        {celle}
+                      </RigaLink>
+                    ) : (
+                      <tr key={r.label} className={r.label === "EBITDA" ? "tot" : undefined}>{celle}</tr>
                     );
                   })}
                 </tbody>

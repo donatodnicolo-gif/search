@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { notFound } from "next/navigation";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
@@ -82,9 +83,7 @@ export default async function DettaglioPeriodo({
     <>
       <div className="page-head">
         <div>
-          <Link href="/analisi" className="btn secondary small" style={{ marginBottom: 10 }}>
-            ← Torna all&apos;analisi
-          </Link>
+          <TornaIndietro fallback="/analisi" label="Analisi" />
           <h1 className="page-title">
             {etichetta}
             {scaduto && (

@@ -117,8 +117,23 @@ async function processaUno(item: QueuedVisit): Promise<void> {
   const visita = await inserisciVisita({ ...item.payload, foto_url: fotoUrl });
 
   // 3. aggiorna stato place in base all'esito
+  //
+  // ⚠️ ANCHE QUI NON SI LANCIA (giuria performance 28/08): la chiusura del
+  // 27/08 aveva protetto solo il passo 4, ma questo passo era rimasto fuori
+  // da ogni try/catch — se falliva (rete che cade a metà, RLS, timeout),
+  // l'item restava in coda e il retry ripartiva dal passo 1: un'altra foto su
+  // Storage e un'ALTRA visita su Supabase, in silenzio. La visita a questo
+  // punto è già salva: se lo stato del negozio non si aggiorna ora, si
+  // riallinea alla prossima visita o a mano — un duplicato invece resta per
+  // sempre nei conteggi. (La chiusura piena — client_id UUID unique su
+  // `visits` + upsert — è una modifica di schema: registrata in
+  // SEGNALAZIONI-PERFORMANCE, si concorda.)
   if (visita.esito && statoDaEsito[visita.esito]) {
-    await aggiornaStatoPlace(visita.place_id, statoDaEsito[visita.esito]);
+    try {
+      await aggiornaStatoPlace(visita.place_id, statoDaEsito[visita.esito]);
+    } catch {
+      /* la visita è salva: lo stato del negozio si riallinea al giro dopo */
+    }
   }
 
   // 4. sync HubSpot (solo se configurata). Se non c'è, la visita resta su Supabase

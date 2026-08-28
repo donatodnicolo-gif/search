@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { FormValet } from "@/components/FormValet";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { aggiornaValet } from "@/lib/azioni-valet";
 import { prisma } from "@/lib/db";
 import { nomeCompleto } from "@/lib/valet";
@@ -23,7 +24,7 @@ export default async function ModificaValet({
     <div className="layout">
       <Sidebar valetAttivo />
       <main className="main">
-        <a className="ritorno" href={`/valet/${v.id}`}>← Scheda di {nomeCompleto(v)}</a>
+        <TornaIndietro fallback={`/valet/${v.id}`} label={`Scheda di ${nomeCompleto(v)}`} />
 
         <div className="page-head">
           <div>

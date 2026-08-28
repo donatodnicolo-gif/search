@@ -49,6 +49,7 @@ import { leggiChiaviApp } from '@/lib/chiaviApp'
 import { AppSuMessaggio } from '@/components/AppSuMessaggio'
 import { BottoneApp } from '@/components/BottoneApp'
 import { leggiEventoProposto } from '@/lib/eventoProposto'
+import { TornaIndietro } from '@/components/TornaIndietro'
 import { PropostaEvento } from '@/components/PropostaEvento'
 import { EliminaEvento } from '@/components/EliminaEvento'
 
@@ -257,9 +258,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     <>
       <div className="page-head testa-mail">
         <div className="naviga-testa">
-          <Link href="/" className="btn secondary small">
-            ← Posta in arrivo
-          </Link>
+          {/* «Il ritorno al punto esatto» (Libro v1.5 §2): si torna alla
+              STESSA posta di prima (filtri e scroll compresi), non all'URL
+              nudo dell'elenco. */}
+          <TornaIndietro fallback="/" label="Posta in arrivo" />
           {/* Scorrere la posta senza tornare in elenco a ogni mail. */}
           <NavigaMessaggi precedente={vicine.precedente} successivo={vicine.successivo} />
         </div>

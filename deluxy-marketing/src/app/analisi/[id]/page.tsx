@@ -3,6 +3,8 @@ import { Badge } from "@/components/Badge";
 import { Icona } from "@/components/Icona";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
+import { RigaLink } from "@/components/RigaLink";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { accodaAzioneScheda, elaboraSchedaAnalisi, riconciliaSchedaAnalisi, rispondiAzioneScheda } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
@@ -353,7 +355,9 @@ export default async function SchedaAnalisi({
     <div className="layout">
       <Sidebar attiva="analisi" brandAttivo={analisi.brand} canaleAttivo={analisi.canale ?? undefined} />
       <main className="main">
-        <a className="ritorno" href="/analisi">← Analisi</a>
+        {/* «Il ritorno al punto esatto» (Libro v1.5 §2): la history conserva
+            i filtri dell'elenco; l'URL nudo è solo il ripiego da link diretto. */}
+        <TornaIndietro fallback="/analisi" etichetta="← Analisi" className="torna-indietro" />
 
         {/* Neutro, non allarmato: una storica non è un errore — è un
             documento vero del suo tempo, superato da uno più recente. */}
@@ -642,8 +646,9 @@ export default async function SchedaAnalisi({
                           </tr>
                         </thead>
                         <tbody>
+                          {/* «La riga si apre col click» (Libro v1.6 §8). */}
                           {analisi.azioni.map((a) => (
-                            <tr key={a.id}>
+                            <RigaLink key={a.id} href={`/azioni/${a.id}`} className="riga-link">
                               <td><a href={`/azioni/${a.id}`} className="cella-nome">{a.titolo}</a></td>
                               <td>
                                 <Badge testo={ETICHETTA_STATO_AZIONE[a.stato] ?? a.stato} colore={COLORE_STATO_AZIONE[a.stato] ?? "var(--text-tertiary)"} />
@@ -651,7 +656,7 @@ export default async function SchedaAnalisi({
                               <td>
                                 <Scadenza data={a.scadenza} chiusa={!STATI_AZIONE_APERTI.includes(a.stato)} />
                               </td>
-                            </tr>
+                            </RigaLink>
                           ))}
                         </tbody>
                       </table>
@@ -768,8 +773,9 @@ export default async function SchedaAnalisi({
                           </tr>
                         </thead>
                         <tbody>
+                          {/* «La riga si apre col click» (Libro v1.6 §8). */}
                           {analisi.azioni.map((a) => (
-                            <tr key={a.id}>
+                            <RigaLink key={a.id} href={`/azioni/${a.id}`} className="riga-link">
                               <td><a href={`/azioni/${a.id}`} className="cella-nome">{a.titolo}</a></td>
                               <td>
                                 <Badge testo={ETICHETTA_STATO_AZIONE[a.stato] ?? a.stato} colore={COLORE_STATO_AZIONE[a.stato] ?? "var(--text-tertiary)"} />
@@ -777,7 +783,7 @@ export default async function SchedaAnalisi({
                               <td>
                                 <Scadenza data={a.scadenza} chiusa={!STATI_AZIONE_APERTI.includes(a.stato)} />
                               </td>
-                            </tr>
+                            </RigaLink>
                           ))}
                         </tbody>
                       </table>

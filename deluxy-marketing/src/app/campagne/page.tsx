@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AncoraggioHash } from "@/components/AncoraggioHash";
 import { Icona } from "@/components/Icona";
+import { RigaLink } from "@/components/RigaLink";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { Sidebar } from "@/components/Sidebar";
 import { VisteSalvate } from "@/components/VisteSalvate";
@@ -548,7 +549,9 @@ export default async function PaginaCampagne({
                       null
                     );
                     return (
-                      <tr key={c.id}>
+                      // «La riga si apre col click» (Libro v1.6 §8): tutta la
+                      // riga porta alla campagna, non solo il nome.
+                      <RigaLink key={c.id} href={`/campagne/${c.id}`} className="riga-link">
                         <td style={{ maxWidth: 320 }}>
                           <a className="cella-nome" href={`/campagne/${c.id}`} title={c.nomeVisibile ? c.nome : undefined}>
                             {nomeCampagna(c)}
@@ -568,7 +571,7 @@ export default async function PaginaCampagne({
                         <td className="num">{ri > 0 ? formattaEuro(ri) : "—"}</td>
                         <td className="num">{r != null ? `${r.toFixed(1).replace(".", ",")}×` : "—"}</td>
                         <td className="cella-muta">{ultimo ? formattaData(ultimo) : "mai partita"}</td>
-                      </tr>
+                      </RigaLink>
                     );
                   })}
                 </tbody>

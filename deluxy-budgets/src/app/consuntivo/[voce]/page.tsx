@@ -5,6 +5,7 @@ import { dettaglioConsuntivo, VOCI_CONSUNTIVO } from "@/lib/consuntivo-dettaglio
 import { caricaCategorie } from "@/lib/cfo";
 import { DettaglioVoce } from "@/components/DettaglioVoce";
 import { eur } from "@/lib/format";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,10 @@ export default async function VoceConsuntivoPage({
       <div className="page-head">
         <div>
           <p className="page-caption" style={{ margin: 0 }}>
-            <Link href={indietro} style={{ color: "var(--blue)" }}>← Consuntivo {etichetta} {anno}</Link>
+            {/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2): la history
+                riporta a periodo, stato e scroll di prima; l'URL ricostruito
+                resta come ripiego per chi arriva da un link diretto. */}
+            <TornaIndietro fallback={indietro} label={`Consuntivo ${etichetta} ${anno}`} />
           </p>
           <h1 className="page-title">
             {d.nome}

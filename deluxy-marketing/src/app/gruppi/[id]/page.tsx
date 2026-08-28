@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { AncoraggioHash } from "@/components/AncoraggioHash";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { DettaglioKeyword } from "@/components/DettaglioKeyword";
 import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
@@ -638,10 +639,15 @@ export default async function SchedaGruppo({
       <Sidebar attiva="gruppi" brandAttivo={gruppo.brand} />
       <main className="main">
         {/* Si arriva quasi sempre da una campagna, non dall elenco: tornare
-            all elenco fa ripartire la ricerca da capo. La campagna madre e il
-            ritorno naturale, l elenco resta a fianco. */}
+            all elenco fa ripartire la ricerca da capo. «Il ritorno al punto
+            esatto» (Libro v1.5 §2): la history riporta alla vista di prima,
+            la campagna madre resta il ripiego; l elenco resta a fianco. */}
         <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-          <a className="ritorno" href={`/campagne/${gruppo.campagnaId}`}>← {gruppo.campagna.nome}</a>
+          <TornaIndietro
+            fallback={`/campagne/${gruppo.campagnaId}`}
+            etichetta={`← ${gruppo.campagna.nome}`}
+            className="torna-indietro"
+          />
           <a className="ritorno" href="/gruppi" style={{ opacity: .7, marginLeft: "auto" }}>
             Tutti i gruppi
           </a>

@@ -5,6 +5,7 @@ import { caricaAnno, FONTI, nomeFonte, venditeApplicate } from "@/lib/calc";
 import { eur, MESI } from "@/lib/format";
 import { DecisioneProposta } from "@/components/DecisioneProposta";
 import { chiGuarda } from "@/lib/chi-guarda";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +117,12 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
     <>
       <div className="page-head">
         <div>
+          <p className="page-caption" style={{ margin: 0 }}>
+            {/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2). Il bottone
+                «Tutte le proposte» nelle azioni resta: qui si torna al punto
+                esatto, quello porta comunque all'elenco. */}
+            <TornaIndietro fallback="/proposte" label="Tutte le proposte" />
+          </p>
           <h1 className="page-title">Proposta di {p.autore}</h1>
           <p className="page-caption">
             {p.ruolo} · {ambito} · budget {p.year} · <strong>{nomeFonte(p.fonte)}</strong> · inviata il{" "}

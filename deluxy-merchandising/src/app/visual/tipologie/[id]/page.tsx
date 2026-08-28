@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { SelettoreCriteri } from "@/components/SelettoreCriteri";
 import { SelettoreRegole } from "@/components/SelettoreRegole";
 import { prisma } from "@/lib/db";
@@ -79,7 +80,9 @@ export default async function SchedaTipologiaPage({ params }: { params: Promise<
     <div className="layout">
       <Sidebar attiva="visual" />
       <main className="main" style={{ maxWidth: 1000 }}>
-        <a className="ritorno" href="/visual/tipologie">← Tipologie</a>
+        {/* «Il ritorno al punto esatto» (Libro v1.5 §2): la history conserva
+            i filtri dell'elenco; l'URL nudo è solo il ripiego da link diretto. */}
+        <TornaIndietro fallback="/visual/tipologie" label="Tipologie" />
         <div className="page-head">
           <div>
             <h1 className="page-title">{t.nome}</h1>

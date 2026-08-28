@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ConfermaElimina } from "@/components/ConfermaElimina";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt, pctIt } from "@/lib/format";
@@ -53,13 +54,10 @@ export default async function ProFormaDetail({
     <>
       <div className="page-head no-print">
         <div>
-          <Link
-            href={preventivo ? "/proforma?tipo=preventivo" : "/proforma"}
-            className="btn secondary small"
-            style={{ marginBottom: 10 }}
-          >
-            ← {preventivo ? "Tutti i preventivi" : "Tutte le pro-forma"}
-          </Link>
+          <TornaIndietro
+            fallback={preventivo ? "/proforma?tipo=preventivo" : "/proforma"}
+            label={preventivo ? "Preventivi" : "Pro-forma"}
+          />
           <h1 className="page-title">{preventivo ? "Preventivo" : "Pro-forma"} {rif}</h1>
           <p className="page-caption">
             {pf.partner.nome} · {euro(tot.totale)} IVA inclusa

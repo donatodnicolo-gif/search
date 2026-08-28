@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataBreve, consegnaBreve } from "@/lib/ordini";
 import { cercaFornitori } from "@/lib/fornitori";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,8 @@ export default async function FornitoriOrdine({
 
   return (
     <main className="main">
-      <Link href={`/ordini/${ordine.id}`} className="ritorno">← Torna all&apos;ordine {ordine.numero}</Link>
+      {/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2) */}
+      <TornaIndietro fallback={`/ordini/${ordine.id}`} label={`Ordine ${ordine.numero}`} />
 
       <div className="page-head">
         <div>

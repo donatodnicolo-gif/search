@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ConfermaElimina } from "@/components/ConfermaElimina";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
@@ -107,7 +108,7 @@ export default async function OrdineDetail({
     <>
       <div className="page-head">
         <div>
-          <Link href="/ordini" className="btn secondary small" style={{ marginBottom: 10 }}>← Tutti gli ordini</Link>
+          <TornaIndietro fallback="/ordini" label="Ordini" />
           <h1 className="page-title">Ordine {ordine.nome}</h1>
           <p className="page-caption">
             {ordine.negozio.brand} · {dataIt(ordine.data)} · {ordine.clienteNome ?? "cliente n/d"}

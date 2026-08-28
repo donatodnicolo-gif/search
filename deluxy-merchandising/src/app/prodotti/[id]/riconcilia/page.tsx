@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { unisciAzione } from "@/lib/azioni-riconciliazione";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/dominio";
@@ -43,6 +44,9 @@ export default async function RiconciliaPage({
     <div className="layout">
       <Sidebar attiva="prodotti" />
       <main className="main">
+        {/* «Il ritorno al punto esatto» (Libro v1.5 §2): si arriva sempre
+            dalla scheda del prodotto, e la history ci riporta lì com'era. */}
+        <TornaIndietro fallback={`/prodotti/${id}`} label="Scheda prodotto" />
         <div className="page-head">
           <div>
             <h1 className="page-title">Riconcilia «{prodotto.nome}»</h1>
@@ -118,13 +122,16 @@ export default async function RiconciliaPage({
                   </tr>
                 </thead>
                 <tbody>
+                  {/* «La riga si apre col click» (Libro v1.6 §8): tutta la
+                      riga porta alla scheda; la spunta e i controlli restano
+                      loro (stanno sopra il link steso). */}
                   {proposte.map((c) => (
-                    <tr key={c.id}>
+                    <tr key={c.id} className="riga-cliccabile">
                       <td>
                         <input type="checkbox" name="assorbito" value={c.id} aria-label={`Unisci ${c.nome}`} />
                       </td>
                       <td>
-                        <Link href={`/prodotti/${c.id}`} className="cella-nome">
+                        <Link href={`/prodotti/${c.id}`} className="cella-nome link-riga">
                           {c.nome}
                         </Link>
                         <div className="cella-sub">{c.codice}</div>

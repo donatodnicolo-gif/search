@@ -4,6 +4,7 @@ import { profiloCliente } from '@/lib/cliente-valore'
 import { nomeTipoCliente, coloreTipoCliente } from '@/lib/clienti-tipo'
 import { linguaCliente, nomeLingua } from '@/lib/lingua'
 import { LetturaCliente } from '@/components/LetturaCliente'
+import { TornaIndietro } from '@/components/TornaIndietro'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,6 +56,11 @@ export default async function PaginaSchedaCliente({
     <main>
       <div className="page-head">
         <div>
+          {/* «Il ritorno al punto esatto» (Libro v1.5 §2): qui si arriva sia
+              dall'elenco Clienti sia dal dettaglio di un ordine, e si torna
+              ESATTAMENTE lì (filtri e scroll compresi) via history; da un
+              link diretto si ripiega sull'elenco. */}
+          <TornaIndietro fallback="/clienti" label="Indietro" />
           <h1 className="page-title">{scheda.nome || scheda.email || scheda.telefono}</h1>
           <p className="page-sub">
             {scheda.email ? <>{scheda.email} · </> : null}

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { prisma } from "@/lib/db";
 import { dataIt, dataOraIt } from "@/lib/fuso";
 import { euro } from "@/lib/dominio";
@@ -333,7 +334,9 @@ export default async function CurazioneCollezionePage({
     <div className="layout">
       <Sidebar attiva="visual" />
       <main className="main" style={{ maxWidth: 920 }}>
-        <a className="ritorno" href="/visual">← Visual merchandising</a>
+        {/* «Il ritorno al punto esatto» (Libro v1.5 §2): la history conserva
+            i filtri dell'elenco; l'URL nudo è solo il ripiego da link diretto. */}
+        <TornaIndietro fallback="/visual" label="Visual merchandising" />
         <div className="page-head">
           <div>
             <div className="prodotto-codice">
@@ -676,10 +679,12 @@ export default async function CurazioneCollezionePage({
                       {anteprima.slice(0, MAX_ANTEPRIMA).map((p) => {
                         const salto = p.da - p.a; // positivo = sale
                         return (
-                          <tr key={p.prodottoId}>
+                          // «La riga si apre col click» (Libro v1.6 §8):
+                          // tutta la riga porta alla scheda del prodotto.
+                          <tr key={p.prodottoId} className="riga-cliccabile">
                             <td className="num">{p.a + 1}</td>
                             <td>
-                              <a href={`/prodotti/${p.prodottoId}`} className="cella-nome">{p.nome}</a>
+                              <a href={`/prodotti/${p.prodottoId}`} className="cella-nome link-riga">{p.nome}</a>
                               <div className="cella-sub">{p.codice}</div>
                             </td>
                             <td className="num">{p.prezzoVendita > 0 ? euro(p.prezzoVendita) : "—"}</td>

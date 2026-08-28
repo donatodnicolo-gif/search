@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { nomeRubricaDefault } from "@/lib/rubrica";
 import { aggiornaContatto, eliminaContatto } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
@@ -67,7 +68,7 @@ export default async function SchedaContatto({ params }: { params: Promise<{ id:
     <div className="layout">
       <Sidebar contattiAttiva />
       <main className="main">
-        <a className="ritorno" href="/contatti">← Torna ai contatti</a>
+        <TornaIndietro fallback="/contatti" label="Contatti" />
 
         <div className="page-head">
           <div>

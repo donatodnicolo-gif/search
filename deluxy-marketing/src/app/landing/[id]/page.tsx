@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/Badge";
 import { ScorecardLanding } from "@/components/ScorecardLanding";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { aggiungiMetricaLanding, cambiaStatoLanding } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
@@ -35,7 +36,9 @@ export default async function SchedaLanding({ params }: { params: Promise<{ id: 
     <div className="layout">
       <Sidebar attiva="landing" />
       <main className="main">
-        <a className="ritorno" href="/landing">← Landing page</a>
+        {/* «Il ritorno al punto esatto» (Libro v1.5 §2): la history conserva
+            i filtri dell'elenco; l'URL nudo è solo il ripiego da link diretto. */}
+        <TornaIndietro fallback="/landing" etichetta="← Landing page" className="torna-indietro" />
         <div className="page-head">
           <div>
             <h1 className="page-title" style={{ overflowWrap: "anywhere", fontSize: 24 }}>{landing.url}</h1>

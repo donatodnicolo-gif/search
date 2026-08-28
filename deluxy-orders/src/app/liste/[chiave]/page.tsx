@@ -7,6 +7,7 @@ import { FAMIGLIE, LISTE, lista } from "@/lib/segmenti";
 import { TabellaClienti } from "@/components/TabellaClienti";
 import { FiltriTaglio } from "@/components/FiltriTaglio";
 import { ZonaFiltri } from "@/components/ZonaFiltri";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 
@@ -84,7 +85,8 @@ export default async function DettaglioLista({
 
   return (
     <main className="main">
-      <Link href="/liste" className="ritorno">← Tutte le liste</Link>
+      {/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2) */}
+      <TornaIndietro fallback="/liste" label="Tutte le liste" />
 
       <div className="page-head">
         <div>

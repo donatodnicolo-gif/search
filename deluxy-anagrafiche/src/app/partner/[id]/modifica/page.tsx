@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { RubricaNelModulo } from "@/components/RubricaNelModulo";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { CATEGORIE, isCategoria } from "@/lib/categorie";
 import { aggiornaPartner } from "@/lib/azioni";
 import { getOpzioniAccount } from "@/lib/commerciali";
@@ -97,7 +98,7 @@ export default async function Modifica({
     <div className="layout">
       <Sidebar categoriaAttiva={p.categoria} />
       <main className="main">
-        <a className="ritorno" href={`/partner/${p.id}`}>← Scheda di {p.nome}</a>
+        <TornaIndietro fallback={`/partner/${p.id}`} label={`Scheda di ${p.nome}`} />
 
         <div className="page-head">
           <div>

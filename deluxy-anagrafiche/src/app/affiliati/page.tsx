@@ -1,3 +1,4 @@
+import { RigaLink } from "@/components/RigaLink";
 import { Sidebar } from "@/components/Sidebar";
 import { StelleD2C } from "@/components/StelleD2C";
 import { prisma } from "@/lib/db";
@@ -129,7 +130,9 @@ export default async function Affiliati() {
                 </thead>
                 <tbody>
                   {valutazioni.map(({ r, v }) => (
-                    <tr key={r.id}>
+                    // La riga si apre col click (Libro v1.6 §8): tutta la
+                    // riga porta alla scheda, i link dentro restano loro.
+                    <RigaLink key={r.id} href={`/partner/${r.id}`} className="riga-link">
                       <td>
                         <a href={`/partner/${r.id}`}>
                           <div className="cella-nome">{r.nome}</div>
@@ -147,7 +150,7 @@ export default async function Affiliati() {
                       </td>
                       <td className="cella-muta">{v.feedback || "—"}</td>
                       <td className="cella-muta">{data(v.ultimoFeedback)}</td>
-                    </tr>
+                    </RigaLink>
                   ))}
                 </tbody>
               </table>

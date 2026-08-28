@@ -6,6 +6,7 @@ import { ANNO_CORRENTE } from "@/lib/queries";
 import { categorieDaBudgets, budgetsConfigurato, contaRegole, TIPI_PL } from "@/lib/categorie-spesa";
 import { impostaCategoriaSpesa, applicaRegoleCategorie, riclassificaTutteLeSpese, proponiCategorieAI } from "@/lib/spese-actions";
 import { CategoriaSpesa } from "@/components/CategoriaSpesa";
+import { RigaLink } from "@/components/RigaLink";
 import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { BottoneAI } from "@/components/BottoneAI";
 
@@ -498,7 +499,10 @@ export default async function SpesePage({
               </thead>
               <tbody>
                 {uscite.map((t) => (
-                  <tr key={t.id}>
+                  // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
+                  // riga apre la scheda del movimento; la tendina della
+                  // categoria resta sua.
+                  <RigaLink key={t.id} href={`/spese/${t.id}`} className="riga-link">
                     <td style={{ whiteSpace: "nowrap" }}>{dataIt(t.data)}</td>
                     {/* La causale qui è troncata per forza: il movimento intero
                         — causale completa, IBAN, file di provenienza, storia
@@ -539,7 +543,7 @@ export default async function SpesePage({
                         <span className="muted">—</span>
                       )}
                     </td>
-                  </tr>
+                  </RigaLink>
                 ))}
               </tbody>
             </table>

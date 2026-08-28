@@ -782,15 +782,20 @@ async function idPaginati(tabella: string): Promise<Set<string>> {
  * @param ordine   colonna di ordinamento: serve a rendere i blocchi STABILI —
  *                 senza, due blocchi possono ripetere e saltare righe.
  */
-async function tutteLeRighe<T = any>(tabella: string, colonne: string, ordine: string): Promise<T[]> {
+async function tutteLeRighe<T = any>(
+  tabella: string,
+  colonne: string,
+  ordine: string,
+  // Filtri aggiuntivi sulla query (es. q => q.is('annullata_il', null)):
+  // servono per portare qui anche le letture filtrate senza perdere il where.
+  filtra?: (q: any) => any,
+): Promise<T[]> {
   const BLOCCO = 1000;
   const righe: T[] = [];
   for (let da = 0; ; da += BLOCCO) {
-    const { data, error } = await supabase
-      .from(tabella)
-      .select(colonne)
-      .order(ordine)
-      .range(da, da + BLOCCO - 1);
+    let query = supabase.from(tabella).select(colonne);
+    if (filtra) query = filtra(query);
+    const { data, error } = await query.order(ordine).range(da, da + BLOCCO - 1);
     if (error) throw error;
     const blocco = (data ?? []) as T[];
     righe.push(...blocco);
@@ -866,16 +871,19 @@ export async function fetchDealPlace(placeId: string): Promise<Deal[]> {
 }
 
 export async function fetchAllVisits(): Promise<Visit[]> {
-  const { data, error } = await supabase.from('visits').select('*').order('data', { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as Visit[];
+  // ⚠️ Paginata con tutteLeRighe (giuria performance 28/08): PostgREST tronca
+  // a 1000 righe CON UN 200 — le visite crescono più in fretta dei negozi, e
+  // la Dashboard avrebbe mostrato conteggi sbagliati senza dirlo. L'ordine
+  // «più recenti prima» del vecchio contratto si rimette qui sotto.
+  const righe = await tutteLeRighe<Visit>('visits', '*', 'id');
+  righe.sort((a, b) => String(b.data ?? '').localeCompare(String(a.data ?? '')));
+  return righe;
 }
 
 export async function fetchAllDeals(): Promise<Deal[]> {
   // Come sopra: le annullate non entrano nei conti di nessuna schermata.
-  const { data, error } = await supabase.from('deals').select('*').is('annullata_il', null);
-  if (error) throw error;
-  return (data ?? []) as Deal[];
+  // ⚠️ Paginata (giuria 28/08): il tetto delle 1000 righe qui falsava i conti.
+  return tutteLeRighe<Deal>('deals', '*', 'id', (q) => q.is('annullata_il', null));
 }
 
 // ── Storico visite (per giorno, con account, negozio e via) ─────────────────────
@@ -1106,10 +1114,15 @@ export async function fetchTutteTrattative(
   };
 
   // 1. Trattative native Scout.
-  let qDeals = supabase.from('deals').select('*, places(nome, zona, anagrafiche_account)');
-  if (!includiAnnullate) qDeals = qDeals.is('annullata_il', null);
-  const { data: scout, error } = await qDeals;
-  if (error) throw error;
+  // ⚠️ Paginata (giuria performance 28/08): il tetto delle 1000 righe di
+  // PostgREST qui avrebbe fatto sparire trattative da Dashboard/Trattative/
+  // Oggi/Calendario senza nessun errore.
+  const scout = await tutteLeRighe<any>(
+    'deals',
+    '*, places(nome, zona, anagrafiche_account)',
+    'id',
+    includiAnnullate ? undefined : (q) => q.is('annullata_il', null),
+  );
   const scoutRows: TrattativaConLuogo[] = (scout ?? []).map((r: any) =>
     arricchisci(
       {
@@ -1465,11 +1478,11 @@ export interface OrdineConLuogo extends Ordine {
 }
 
 export async function fetchOrdini(): Promise<OrdineConLuogo[]> {
-  const { data, error } = await supabase
-    .from('ordini')
-    .select('*, places(nome, anagrafiche_id)')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
+  // ⚠️ Paginata (giuria performance 28/08): oltre i 1000 ordini PostgREST
+  // avrebbe troncato CON UN 200, e la pagina Ordini (margini compresi)
+  // avrebbe raccontato numeri sbagliati senza dirlo.
+  const data = await tutteLeRighe<any>('ordini', '*, places(nome, anagrafiche_id)', 'id');
+  data.sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
   const righe: OrdineConLuogo[] = (data ?? []).map((r: any) => ({
     ...r,
     place_nome: r.places?.nome ?? null,

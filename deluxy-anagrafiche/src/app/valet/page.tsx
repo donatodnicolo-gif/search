@@ -1,3 +1,4 @@
+import { RigaLink } from "@/components/RigaLink";
 import { Sidebar } from "@/components/Sidebar";
 import { Vuoto } from "@/components/Vuoto";
 import { ZonaFiltri } from "@/components/ZonaFiltri";
@@ -109,7 +110,9 @@ export default async function Valet({
               </thead>
               <tbody>
                 {righe.map((v) => (
-                  <tr key={v.id}>
+                  // La riga si apre col click (Libro v1.6 §8): tutta la riga
+                  // porta alla scheda, i link dentro restano loro.
+                  <RigaLink key={v.id} href={`/valet/${v.id}`} className="riga-link">
                     <td>
                       <a href={`/valet/${v.id}`}>
                         <div className="cella-nome">{nomeCompleto(v)}</div>
@@ -140,7 +143,7 @@ export default async function Valet({
                         </span>
                       </span>
                     </td>
-                  </tr>
+                  </RigaLink>
                 ))}
               </tbody>
             </table>

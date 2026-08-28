@@ -74,6 +74,7 @@ export type RiepilogoMese = {
   serviziNetto: number; // imponibile fatture servizi
   serviziIvato: number;
   serviziNonPagati: number; // RESIDUO da incassare delle fatture non saldate (IVATO − incassi parziali)
+  serviziNonPagatiNetto: number; // lo stesso residuo al NETTO dell'IVA (per mostrare «imponibile +IVA → ivato»)
   vendite: number; // incasso lordo vendite come vendor
   commissioni: number; // netto IVA
   dovutoVendite: number; // dovuto al partner (netto commissioni ivate)
@@ -103,6 +104,12 @@ export function riepilogoMese(
   // Residuo da incassare: conta solo la parte NON ancora incassata delle fatture
   // aperte (con i saldi parziali, non tutto il totale IVATO).
   const serviziNonPagati = fatture.reduce((a, f) => a + residuoFattura(f), 0);
+  // Il netto del residuo: si scorpora l'IVA fattura per fattura, così le
+  // aliquote diverse restano corrette (residuo / (1 + aliquota)).
+  const serviziNonPagatiNetto = fatture.reduce(
+    (a, f) => a + residuoFattura(f) / (1 + f.aliquotaIva / 100),
+    0
+  );
   const venditeTot = vendite.reduce((a, v) => a + v.incassoLordo, 0);
   const commissioniTot = vendite.reduce((a, v) => a + commissione(v), 0);
   const dovutoVenditeTot = vendite.reduce((a, v) => a + dovutoVendita(v), 0);
@@ -132,6 +139,7 @@ export function riepilogoMese(
     serviziNetto,
     serviziIvato,
     serviziNonPagati,
+    serviziNonPagatiNetto,
     vendite: venditeTot,
     commissioni: commissioniTot,
     dovutoVendite: dovutoVenditeTot,

@@ -5,6 +5,7 @@ import {
 } from "@/lib/calc";
 import { caricaVenduto, sommaMesi } from "@/lib/venduto";
 import { eur, MESI, pct } from "@/lib/format";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -243,7 +244,10 @@ export default async function MaisonIndex({
             <tbody>
               {righe.map((r) => (
                 <Fragment key={r.m.id}>
-                  <tr style={{ fontWeight: 600 }}>
+                  {/* «La riga si apre col click» (Libro UX&UI v1.6 §8): la riga
+                      del brand apre la maison; le sottorighe per canale non
+                      hanno un dettaglio e restano righe normali. */}
+                  <RigaLink href={`/maison/${r.m.slug}?livello=${livello}`} className="riga-link" style={{ fontWeight: 600 }}>
                     <td>
                       <Link href={`/maison/${r.m.slug}?livello=${livello}`} style={{ color: "var(--blue)" }}>
                         {r.m.nome}
@@ -253,7 +257,7 @@ export default async function MaisonIndex({
                       <td className={`num ${v === 0 ? "muted" : ""}`} key={i}>{v === 0 ? "—" : eur(v)}</td>
                     ))}
                     <td className="num">{eur(r.t.totale * molt)}</td>
-                  </tr>
+                  </RigaLink>
                   {r.perCanale
                     .filter((c) => c.totale > 0)
                     .map((c) => (
@@ -562,7 +566,8 @@ export default async function MaisonIndex({
                         const incompleto = r.mesiSenzaBudget.length > 0;
                         const quota = r.budgetD2C > 0 && !incompleto ? (reale / r.budgetD2C) * 100 : null;
                         return (
-                          <tr key={r.m.id}>
+                          // «La riga si apre col click» (Libro UX&UI v1.6 §8)
+                          <RigaLink href={`/maison/${r.m.slug}?livello=${livello}`} key={r.m.id} className="riga-link">
                             <td style={{ fontWeight: 500 }}>
                               <Link href={`/maison/${r.m.slug}?livello=${livello}`} style={{ color: "var(--blue)" }}>
                                 {r.m.nome}
@@ -610,7 +615,7 @@ export default async function MaisonIndex({
                                 </div>
                               )}
                             </td>
-                          </tr>
+                          </RigaLink>
                         );
                       })}
                     </tbody>

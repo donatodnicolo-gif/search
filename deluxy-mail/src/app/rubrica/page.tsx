@@ -6,6 +6,7 @@ import { dataBreve } from '@/lib/format'
 import { CercaContatti } from '@/components/CercaContatti'
 import { BottoneAI } from '@/components/BottoneAI'
 import { richiediUtente } from '@/lib/sessione'
+import { RigaLink } from '@/components/RigaLink'
 
 export const dynamic = 'force-dynamic'
 
@@ -99,7 +100,11 @@ export default async function Rubrica({ searchParams }: Props) {
               </thead>
               <tbody>
                 {contatti.map((c) => (
-                  <tr key={c.email} className="row-link">
+                  // «La riga si apre col click» (Libro v1.6 §8): la classe
+                  // row-link mostrava già il cursore, ma navigava solo il link
+                  // sul nome. Ora tutta la riga apre la scheda; alias e AI
+                  // dentro la riga restano cliccabili senza navigare.
+                  <RigaLink key={c.email} href={`/rubrica/${encodeURIComponent(c.email)}`} className="row-link">
                     <td>
                       <Link
                         href={`/rubrica/${encodeURIComponent(c.email)}`}
@@ -131,7 +136,7 @@ export default async function Rubrica({ searchParams }: Props) {
                     <td className="num">
                       <BottoneAI email={c.email} aggiornatoIl={analizzatoIl.get(c.email) ?? null} />
                     </td>
-                  </tr>
+                  </RigaLink>
                 ))}
               </tbody>
             </table>

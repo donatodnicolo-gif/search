@@ -726,3 +726,19 @@ input[type=checkbox] { accent-color: var(--ink); width: 15px; height: 15px; }
   font-size: 13.5px; color: var(--text-secondary);
 }
 .pallino { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex: 0 0 auto; }
+
+/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2): il bottone che riporta
+   alla stessa vista di prima. Discreto come il vecchio link .ritorno, ma è un
+   bottone perché usa la history, non un URL cablato. */
+.torna-indietro {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 13px; font-weight: 600;
+  color: var(--text-secondary); background: none; border: 0;
+  cursor: pointer; padding: 6px 0; margin-bottom: 10px;
+}
+.torna-indietro:hover { color: var(--text); }
+
+/* «La riga si apre col click» (Libro UX&UI v1.6 §8) sulle liste che non sono
+   tabelle: il pointer e il fondo al passaggio SOLO sulle voci che navigano. */
+li.voce-cliccabile { cursor: pointer; border-radius: 6px; }
+li.voce-cliccabile:hover { background: var(--fill); }

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { DalNegozio } from "@/components/DalNegozio";
 import { RiquadroSeo } from "@/components/RiquadroSeo";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { Badge } from "@/components/Badge";
 import { tipologiaRisposta } from "@/lib/risposta-bisogno";
 import { BarraMargine } from "@/components/BarraMargine";
@@ -105,7 +106,9 @@ export default async function ProdottoPage({
     <div className="layout">
       <Sidebar attiva="prodotti" />
       <main className="main">
-        <a className="ritorno" href="/prodotti">← Prodotti</a>
+        {/* «Il ritorno al punto esatto» (Libro v1.5 §2): la history conserva
+            i filtri dell'elenco; l'URL nudo è solo il ripiego da link diretto. */}
+        <TornaIndietro fallback="/prodotti" label="Prodotti" />
 
         <div className="prodotto-hero">
           <div className="prodotto-foto">
@@ -233,10 +236,13 @@ export default async function ProdottoPage({
                       </tr>
                     </thead>
                     <tbody>
+                      {/* «La riga si apre col click» (Libro v1.6 §8): tutta la
+                          riga porta al componente; il campo quantità e Salva
+                          restano loro (stanno sopra il link steso). */}
                       {contiComposto.righe.map((r) => (
-                        <tr key={r.componente.id}>
+                        <tr key={r.componente.id} className="riga-cliccabile">
                           <td>
-                            <a href={`/prodotti/${r.componente.id}`} className="cella-nome">
+                            <a href={`/prodotti/${r.componente.id}`} className="cella-nome link-riga">
                               {r.componente.nome}
                             </a>
                             <div className="cella-sub">{r.componente.codice}</div>

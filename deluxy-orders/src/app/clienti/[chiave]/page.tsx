@@ -18,6 +18,8 @@ import { PillAttivita, PillPrivacy, PillSegmento, PillTipologia, giorniFa } from
 import { impostaPrivacyCliente, impostaTipologiaCliente, riepilogaClienteAI } from "@/app/actions";
 import { aiConfigurata } from "@/lib/ai";
 import { MAX_ORDINI } from "@/lib/clienti-ai";
+import { TornaIndietro } from "@/components/TornaIndietro";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -84,7 +86,8 @@ export default async function SchedaCliente({
 
   return (
     <main className="main">
-      <Link href="/clienti" className="ritorno">← Tutti i clienti</Link>
+      {/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2) */}
+      <TornaIndietro fallback="/clienti" label="Tutti i clienti" />
 
       {sp.esito && <div className="avviso-ok">{sp.esito}</div>}
       {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
@@ -417,7 +420,9 @@ export default async function SchedaCliente({
             </thead>
             <tbody>
               {ordini.map((o) => (
-                <tr key={o.id} className="riga-brand" style={{ ["--brand" as string]: coloreBrand(colori, o.brand) }}>
+                // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
+                // riga apre l'ordine; il link sul numero resta per la tastiera.
+                <RigaLink href={`/ordini/${o.id}`} key={o.id} className="riga-brand riga-link" style={{ ["--brand" as string]: coloreBrand(colori, o.brand) }}>
                   <td>
                     <Link href={`/ordini/${o.id}`} className="cella-nome">{o.numero}</Link>
                     <div className="cella-sub cella-brand"><span className="brand-dot" />{o.brand}</div>
@@ -428,7 +433,7 @@ export default async function SchedaCliente({
                   <td>
                     <CambiaStatoSelect ordineId={o.id} statoAttualeId={o.statoId} stati={statiOpt} compatto />
                   </td>
-                </tr>
+                </RigaLink>
               ))}
             </tbody>
           </table>

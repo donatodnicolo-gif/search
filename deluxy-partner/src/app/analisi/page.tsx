@@ -3,6 +3,7 @@ import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro } from "@/lib/format";
 import { qontoConfigurato, qontoOrganizzazione } from "@/lib/qonto";
 import { costruisciAnalisi, sommaVoci, CHIAVE_SENZA_SCADENZA } from "@/lib/analisi";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -140,7 +141,9 @@ export default async function AnalisiPage() {
                 const scaduto = r.passato && daIncassare >= 0.01;
                 const pctMese = pct(incassato + pagato, incassato + daIncassare + pagato + daPagare);
                 return (
-                  <tr key={r.chiave}>
+                  // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
+                  // riga apre il periodo; l'anteprima (details) resta sua.
+                  <RigaLink key={r.chiave} href={`/analisi/${r.chiave}`} className="riga-link">
                     <td style={{ fontWeight: 600 }}>
                       <Link href={`/analisi/${r.chiave}`} title={`Apri il dettaglio di ${r.etichetta}`}>
                         {r.etichetta}
@@ -214,7 +217,7 @@ export default async function AnalisiPage() {
                         {euro(cumulato)}
                       </td>
                     )}
-                  </tr>
+                  </RigaLink>
                 );
               })}
               <tr style={{ background: "var(--bg)", fontWeight: 600 }}>

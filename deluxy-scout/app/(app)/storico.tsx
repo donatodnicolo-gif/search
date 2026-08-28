@@ -1,9 +1,9 @@
 // Andamento → Storico: le visite fatte, per GIORNO, con l'account (venditore), il
 // negozio e la via. Filtri per account e città.
 import { useCallback, useMemo, useState } from 'react';
-import { SectionList, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, SectionList, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import type { EsitoVisita } from '@/types';
 import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { Tabella, type ColonnaTabella } from '@/components/Tabella';
@@ -208,7 +208,11 @@ export default function Storico() {
                 colonne={colonne}
                 chiaveRiga={(v) => v.id}
                 ordineIniziale={{ campo: 'ora', verso: 'desc' }}
-              
+                // La riga apre il dettaglio della visita (Libro UX&UI §8: se il
+                // record HA una schermata di dettaglio, il tap ovunque la apre).
+                onRiga={(v) => router.push(`/(app)/visita-dettaglio/${v.id}`)}
+                labelRiga={(v) => `Apri la visita da ${v.place_nome}`}
+
             totali={(righe) => ({
               negozio: `Totale · ${righe.length} ${righe.length === 1 ? 'visita' : 'visite'}`,
             })}
@@ -216,7 +220,14 @@ export default function Storico() {
             );
           }
           return (
-          <View style={styles.riga}>
+          // La scheda intera apre il dettaglio della visita (Libro UX&UI §8):
+          // stessa destinazione della riga di tabella su schermo largo.
+          <Pressable
+            style={styles.riga}
+            onPress={() => router.push(`/(app)/visita-dettaglio/${item.id}`)}
+            accessibilityRole="button"
+            accessibilityLabel={`Apri la visita da ${item.place_nome}`}
+          >
             <View style={styles.icona}>
               <Ionicons name="location-outline" size={16} color={colors.goldStrong} />
             </View>
@@ -243,7 +254,8 @@ export default function Storico() {
                 <Text style={styles.ora}>{oraDi(item.data)}</Text>
               </View>
             </View>
-          </View>
+            <Ionicons name="chevron-forward" size={15} color={colors.grigio} />
+          </Pressable>
           );
         }}
         ListEmptyComponent={

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { cambiaStatoValet, impostaArchiviatoValet } from "@/lib/azioni-valet";
 import { prisma } from "@/lib/db";
 import { eAzione, etichettaCampo, etichettaOrigine } from "@/lib/log-modifiche";
@@ -57,7 +58,7 @@ export default async function SchedaValet({
     <div className="layout">
       <Sidebar valetAttivo />
       <main className="main">
-        <a className="ritorno" href="/valet">← Tutti i valet</a>
+        <TornaIndietro fallback="/valet" label="Tutti i valet" />
 
         {sp.esistente === "1" && (
           <div className="avviso-ok">

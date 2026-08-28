@@ -2053,3 +2053,21 @@ mark.ricerca-hit {
   }
   .menu-voce, .menu-azioni .btn { min-height: 42px; font-size: 15px; }
 }
+
+/* ---------- «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2) ---------- */
+/* Il bottone «← Indietro» in testa alle pagine di dettaglio: discreto come
+   un link, torna alla vista di prima via history (vedi TornaIndietro.tsx). */
+.torna-indietro {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 6px 0;
+}
+.torna-indietro:hover { color: var(--text); }

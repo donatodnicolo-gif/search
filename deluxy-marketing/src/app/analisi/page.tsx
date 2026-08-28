@@ -1,6 +1,7 @@
 import { Badge } from "@/components/Badge";
 import { COLORE_VERDETTO, ETICHETTA_VERDETTO, mappaAnalisiStoriche, schedaDi, type VerdettoScheda } from "@/lib/scheda-analisi";
 import { BottoneSync } from "@/components/BottoneSync";
+import { RigaLink } from "@/components/RigaLink";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import {
@@ -191,8 +192,10 @@ export default async function PaginaAnalisi({
                 </tr>
               </thead>
               <tbody>
+                {/* «La riga si apre col click» (Libro v1.6 §8): tutta la riga
+                    porta alla scheda dell'analisi, non solo il titolo. */}
                 {analisi.map((an) => (
-                  <tr key={an.id}>
+                  <RigaLink key={an.id} href={`/analisi/${an.id}`} className="riga-link">
                     <td className="cella-muta">
                       {formattaData(an.dataAnalisi)}
                       {storiche.has(an.id) && <div style={{ marginTop: 3 }}>{pillolaStorica(an.id)}</div>}
@@ -220,7 +223,7 @@ export default async function PaginaAnalisi({
                       )}
                     </td>
                     <td className="num">{an._count.azioni || "—"}</td>
-                  </tr>
+                  </RigaLink>
                 ))}
               </tbody>
             </table>

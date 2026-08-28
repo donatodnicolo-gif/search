@@ -9,6 +9,7 @@ import {
   variabiliSconosciute,
 } from "@/lib/automazioni";
 import { aggiornaScript, eliminaScript } from "@/app/actions";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,8 @@ export default async function SchedaScript({
 
   return (
     <main className="main">
-      <Link href="/script" className="ritorno">← Tutti gli script</Link>
+      {/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2) */}
+      <TornaIndietro fallback="/script" label="Tutti gli script" />
 
       <div className="page-head">
         <div>

@@ -9,6 +9,7 @@ import {
 import { eur, pct } from "@/lib/format";
 import { caricaVenduto } from "@/lib/venduto";
 import { BudgetMaison } from "@/components/BudgetMaison";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 
@@ -128,6 +129,11 @@ export default async function MaisonDetail({
     <>
       <div className="page-head">
         <div>
+          <p className="page-caption" style={{ margin: 0 }}>
+            {/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2): prima non
+                c'era nessun modo di tornare all'elenco senza la sidebar. */}
+            <TornaIndietro fallback="/maison" label="Tutte le maison" />
+          </p>
           <h1 className="page-title">{maison.nome}</h1>
           <p className="page-caption">
             Budget {dati.year} per canale. Livello mostrato:{" "}

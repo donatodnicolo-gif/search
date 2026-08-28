@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { segnaSalvatiInRubrica } from "@/lib/azioni";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
 import {
@@ -18,6 +19,7 @@ const ETICHETTA_FONTE: Record<string, string> = { hubspot: "HubSpot", ui: "Regis
 type Esito = { fase: "lavoro" | "presente" | "aggiunto" | "errore"; testo: string };
 
 export function TabellaContattiGoogle({ contatti }: { contatti: RigaContatto[] }) {
+  const router = useRouter();
   const [esiti, setEsiti] = useState<Record<string, Esito>>({});
   const set = (id: string, e: Esito) => setEsiti((s) => ({ ...s, [id]: e }));
 
@@ -62,7 +64,17 @@ export function TabellaContattiGoogle({ contatti }: { contatti: RigaContatto[] }
             {contatti.map((c) => {
               const e = esiti[c.id];
               return (
-                <tr key={c.id}>
+                // La riga si apre col click (Libro v1.6 §8): tutta la riga
+                // porta alla scheda del contatto; i click su link e bottoni
+                // dentro la riga (HubSpot, tel:, Salva in Google) non navigano.
+                <tr
+                  key={c.id}
+                  className="riga-link"
+                  onClick={(ev) => {
+                    if ((ev.target as HTMLElement).closest("a,button,input,select,label,details")) return;
+                    router.push(`/contatti/${c.id}`);
+                  }}
+                >
                   <td>
                     <span style={{ display: "inline-flex", gap: 6, alignItems: "baseline" }}>
                       <a href={`/contatti/${c.id}`} title="Apri e modifica il contatto">

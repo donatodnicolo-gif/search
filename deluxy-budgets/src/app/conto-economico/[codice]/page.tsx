@@ -7,6 +7,7 @@ import { dettaglioVoce } from "@/lib/bilancio-dettaglio";
 import { caricaCategorie } from "@/lib/cfo";
 import { DettaglioVoce } from "@/components/DettaglioVoce";
 import { eur } from "@/lib/format";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,8 @@ export default async function VoceBilancioPage({
       <div className="page-head">
         <div>
           <p className="page-caption" style={{ margin: 0 }}>
-            <Link href={`/conto-economico?anno=${anno}`} style={{ color: "var(--blue)" }}>← Conto economico {anno}</Link>
+            {/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2) */}
+            <TornaIndietro fallback={`/conto-economico?anno=${anno}`} label={`Conto economico ${anno}`} />
           </p>
           <h1 className="page-title">{codice === "ESCLUSA" ? "" : `${codice} · `}{d.nome}</h1>
           <p className="page-caption">

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { dataBreve } from "@/lib/ordini";
 import { CANALI, LISTE, lista, nomeCanale } from "@/lib/segmenti";
 import { creaAutomazione } from "@/app/actions";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +66,9 @@ export default async function Automazioni() {
             </thead>
             <tbody>
               {automazioni.map((a) => (
-                <tr key={a.id}>
+                // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
+                // riga apre la scheda; il link sul nome resta per la tastiera.
+                <RigaLink href={`/automazioni/${a.id}`} key={a.id} className="riga-link">
                   <td>
                     <Link href={`/automazioni/${a.id}`} className="cella-nome">{a.nome}</Link>
                     {a.descrizione && <div className="cella-sub">{a.descrizione}</div>}
@@ -88,7 +91,7 @@ export default async function Automazioni() {
                       {a.attiva ? "attiva" : "in preparazione"}
                     </span>
                   </td>
-                </tr>
+                </RigaLink>
               ))}
             </tbody>
           </table>

@@ -6,6 +6,7 @@ import { formattaIban } from "@/lib/iban";
 import { quando } from "@/components/Etichette";
 import { segnaLottoPagato } from "@/app/actions";
 import { ModuloSblocco } from "@/components/ModuloSblocco";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { eIlPagatore, emailPagatore, sbloccoAttivo } from "@/lib/sblocco";
 import { qontoConfigurato } from "@/lib/qonto";
 import { leggiRegole } from "@/lib/impostazioni";
@@ -43,9 +44,7 @@ export default async function Distinta({ params }: { params: Promise<{ id: strin
 
   return (
     <main className="main">
-      <a className="ritorno" href="/distinte">
-        ← Torna alle distinte
-      </a>
+      <TornaIndietro fallback="/distinte" label="Distinte" />
       <div className="page-head">
         <div>
           <h1 className="page-title">{l.riferimento}</h1>

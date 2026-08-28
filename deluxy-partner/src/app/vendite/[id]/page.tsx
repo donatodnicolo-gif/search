@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ConfermaElimina } from "@/components/ConfermaElimina";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/format";
@@ -31,9 +32,7 @@ export default async function VenditaDetail({
     <>
       <div className="page-head">
         <div>
-          <Link href={`/partner/${vendita.partnerId}#mese-${vendita.mese}`} className="btn secondary small" style={{ marginBottom: 10 }}>
-            ← Torna alla scheda partner
-          </Link>
+          <TornaIndietro fallback={`/partner/${vendita.partnerId}#mese-${vendita.mese}`} label="Scheda partner" />
           <h1 className="page-title">Vendita come vendor</h1>
           <p className="page-caption">
             <Link href={`/partner/${vendita.partnerId}`} style={{ color: "var(--blue)" }}>{vendita.partner.nome}</Link>

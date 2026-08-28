@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { RigaLink } from "@/components/RigaLink";
 import { Sidebar } from "@/components/Sidebar";
 import { Vuoto } from "@/components/Vuoto";
 import { ZonaFiltri } from "@/components/ZonaFiltri";
@@ -192,7 +193,9 @@ export default async function Consumers({
                 {righe.map((c) => {
                   const att = attivita(c.giorniDallUltimo);
                   return (
-                    <tr key={c.id}>
+                    // La riga si apre col click (Libro v1.6 §8): tutta la
+                    // riga porta alla scheda, i link dentro restano loro.
+                    <RigaLink key={c.id} href={`/consumers/${c.id}`} className="riga-link">
                       <td>
                         <a href={`/consumers/${c.id}`}>
                           <div className="cella-nome">{c.nome ?? c.email ?? c.telefono ?? "—"}</div>
@@ -244,7 +247,7 @@ export default async function Consumers({
                           "—"
                         )}
                       </td>
-                    </tr>
+                    </RigaLink>
                   );
                 })}
               </tbody>

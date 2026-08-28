@@ -1165,3 +1165,19 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hairline);
 }
 .modale-piede .testo-guida { flex: 1; min-width: 140px; }
+
+/* ---------- Libro UX&UI v1.5 §2 + v1.6 §8 ---------- */
+/* «Il ritorno al punto esatto»: il bottone Indietro in testa alle schede.
+   Stesso posto e stesso peso del vecchio link .ritorno, ma passa dalla
+   history (conserva querystring e scroll dell'elenco). */
+.torna-indietro {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 13.5px; font-weight: 500;
+  color: var(--blue); background: none; border: 0; cursor: pointer;
+  padding: 0; margin-bottom: 14px;
+}
+.torna-indietro:hover { color: var(--text); }
+
+/* «La riga si apre col click»: solo le righe che portano a una scheda hanno
+   il cursore a manina (l'hover al 5% è già la regola generale delle tabelle). */
+.riga-link { cursor: pointer; }

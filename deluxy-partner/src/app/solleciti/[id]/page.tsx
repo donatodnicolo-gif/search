@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -95,13 +96,12 @@ export default async function SollecitoPage({
     <>
       <div className="page-head">
         <div>
-          <Link
-            href={daPartner ? `/partner/${fattura.partnerId}` : daDashboard ? "/" : "/scadenzario"}
-            className="btn secondary small"
-            style={{ marginBottom: 10 }}
-          >
-            ← {daPartner ? "Torna alla scheda partner" : daDashboard ? "Torna alla dashboard" : "Torna allo scadenzario"}
-          </Link>
+          {/* Il ripiego resta sensibile alla provenienza (?da=...): se la
+              history è vuota si torna comunque nel posto giusto. */}
+          <TornaIndietro
+            fallback={daPartner ? `/partner/${fattura.partnerId}` : daDashboard ? "/" : "/scadenzario"}
+            label={daPartner ? "Scheda partner" : daDashboard ? "Dashboard" : "Scadenzario"}
+          />
           <h1 className="page-title">Sollecito di pagamento</h1>
           <p className="page-caption">
             {fattura.partner.nome} — fatt. {fattura.numero ?? "s.n."} · {euro(ivato(fattura))} IVA incl.

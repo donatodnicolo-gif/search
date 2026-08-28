@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
@@ -56,9 +57,7 @@ export default async function MovimentoSpesa({ params }: { params: Promise<{ id:
     <>
       <div className="page-head">
         <div>
-          <Link href="/spese" className="btn secondary small" style={{ marginBottom: 10 }}>
-            ← Torna alle spese
-          </Link>
+          <TornaIndietro fallback="/spese" label="Spese" />
           <h1 className="page-title">{t.controparte ?? "Movimento senza controparte"}</h1>
           <p className="page-caption">
             {uscita ? "Uscita" : "Entrata"} di <strong>{euro(Math.abs(t.importo))}</strong> del{" "}

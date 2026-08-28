@@ -11,6 +11,7 @@ import { SalvaRubricaAuto } from "@/components/SalvaRubricaAuto";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { SelettoreStatoAzienda } from "@/components/SelettoreStatoAzienda";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { FasciaD2C, StelleD2C } from "@/components/StelleD2C";
 import {
   assegnaGruppo,
@@ -251,9 +252,10 @@ export default async function Dettaglio({
     <div className="layout">
       <Sidebar categoriaAttiva={p.categoria} />
       <main className="main">
-      <a className="ritorno" href={`/?categoria=${encodeURIComponent(p.categoria)}`}>
-        ← Tutte le anagrafiche {p.categoria.toLowerCase()}
-      </a>
+      <TornaIndietro
+        fallback={`/?categoria=${encodeURIComponent(p.categoria)}`}
+        label={`Tutte le anagrafiche ${p.categoria.toLowerCase()}`}
+      />
 
       <div className="page-head">
         <div>

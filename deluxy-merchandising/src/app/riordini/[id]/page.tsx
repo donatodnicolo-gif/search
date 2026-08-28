@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/Badge";
 import { Sidebar } from "@/components/Sidebar";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { cambiaQuantita, cambiaStatoPiano, eliminaPiano, eliminaRigaPiano } from "@/lib/azioni-vendite";
 import { prisma } from "@/lib/db";
 import { euro, iso } from "@/lib/dominio";
@@ -37,9 +38,9 @@ export default async function PianoPage({ params }: { params: Promise<{ id: stri
     <div className="layout">
       <Sidebar attiva="riordini" />
       <main className="main">
-        <Link href="/riordini" className="ritorno">
-          ← Ipotesi di ordinativo
-        </Link>
+        {/* «Il ritorno al punto esatto» (Libro v1.5 §2): la history conserva
+            i filtri dell'elenco; l'URL nudo è solo il ripiego da link diretto. */}
+        <TornaIndietro fallback="/riordini" label="Ipotesi di ordinativo" />
         <div className="page-head">
           <div>
             <h1 className="page-title">{piano.nome}</h1>
@@ -124,10 +125,14 @@ export default async function PianoPage({ params }: { params: Promise<{ id: stri
                 const salva = cambiaQuantita.bind(null, r.id, piano.id);
                 const rimuovi = eliminaRigaPiano.bind(null, r.id, piano.id);
                 return (
-                  <tr key={r.id}>
+                  // «La riga si apre col click» (Libro v1.6 §8): la riga porta
+                  // alla scheda del prodotto; quantità e bottoni restano loro.
+                  // Una riga senza prodotto collegato non ha dettaglio: niente
+                  // classe, niente mano.
+                  <tr key={r.id} className={r.prodottoId ? "riga-cliccabile" : undefined}>
                     <td>
                       {r.prodottoId ? (
-                        <Link href={`/prodotti/${r.prodottoId}`} className="cella-nome">
+                        <Link href={`/prodotti/${r.prodottoId}`} className="cella-nome link-riga">
                           {r.descrizione}
                         </Link>
                       ) : (

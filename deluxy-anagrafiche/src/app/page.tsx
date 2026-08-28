@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { GruppoEspandibile } from "@/components/GruppoEspandibile";
 import { MenuInteressi } from "@/components/MenuInteressi";
+import { RigaLink } from "@/components/RigaLink";
 import { MenuStato } from "@/components/MenuStato";
 import { Vuoto } from "@/components/Vuoto";
 import { ZonaFiltri } from "@/components/ZonaFiltri";
@@ -553,7 +554,9 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
               </thead>
               <tbody>
                 {novita.map((p) => (
-                  <tr key={p.id}>
+                  // La riga si apre col click (Libro v1.6 §8): tutta la riga
+                  // porta alla scheda, i controlli dentro restano loro.
+                  <RigaLink key={p.id} href={`/partner/${p.id}`} className="riga-link">
                     <td>
                       <a href={`/partner/${p.id}`}>
                         <div className="cella-nome">{p.nome}</div>
@@ -582,7 +585,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                       {dataIt(p.creatoIl)}
                       <span className="cella-fonte"> · {FONTI[p.fonte] ?? p.fonte}</span>
                     </td>
-                  </tr>
+                  </RigaLink>
                 ))}
               </tbody>
             </table>
@@ -626,10 +629,12 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     sedi={g.membri.map((m) => ({ id: m.id, celle: <Celle p={m} sede /> }))}
                   />
                 ) : (
-                  <tr key={g.membri[0].id}>
+                  // La riga si apre col click (Libro v1.6 §8); la testata di
+                  // un gruppo invece non ha una scheda sua e resta com'è.
+                  <RigaLink key={g.membri[0].id} href={`/partner/${g.membri[0].id}`} className="riga-link">
                     <td className="cella-espandi" />
                     <Celle p={g.membri[0]} />
-                  </tr>
+                  </RigaLink>
                 ),
               )}
             </tbody>

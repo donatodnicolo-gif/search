@@ -17,6 +17,7 @@ import { RiconciliaModale } from "@/components/RiconciliaModale";
 import { ZonaFiltri } from "@/components/ZonaFiltri";
 import { BottoneAggiornaOrdini } from "@/components/BottoneAggiornaOrdini";
 import { GestioneOrdine } from "@/components/GestioneOrdine";
+import { RigaLink } from "@/components/RigaLink";
 import { ordersConfigurato } from "@/lib/ordini-registro";
 
 export const dynamic = "force-dynamic";
@@ -335,7 +336,9 @@ export default async function OrdiniPage({
               <tbody>
                 {ordiniRaw.map((o) => {
                   return (
-                    <tr key={o.id}>
+                    // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta
+                    // la riga apre l'ordine; azioni e modali dentro restano loro.
+                    <RigaLink key={o.id} href={`/ordini/${o.id}`} className="riga-link">
                       <td style={{ fontWeight: 500 }}>
                         <Link href={`/ordini/${o.id}`} style={{ color: "var(--blue)" }} title="Vedi la transazione corrispondente">
                           {o.nome}
@@ -428,7 +431,7 @@ export default async function OrdiniPage({
                           </span>
                         )}
                       </td>
-                    </tr>
+                    </RigaLink>
                   );
                 })}
               </tbody>

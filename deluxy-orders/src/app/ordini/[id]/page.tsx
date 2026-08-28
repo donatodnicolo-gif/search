@@ -19,6 +19,7 @@ import { ordinali } from "@/lib/repeater";
 import { canale } from "@/lib/marketing";
 import { etichettaLavorazioneCs } from "@/lib/customer-service";
 import { PillRepeater, TagLuoghi, PillUrgenza } from "@/components/Provenienza";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +72,9 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
 
   return (
     <main className="main">
-      <Link href="/" className="ritorno">← Tutti gli ordini</Link>
+      {/* «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2): si torna alla
+          stessa vista di prima — filtri, pagina e scroll compresi. */}
+      <TornaIndietro fallback="/" label="Tutti gli ordini" />
 
       {/* Un ordine annullato va detto prima di ogni altra cosa: non si deduce
           dallo stato del pagamento, che può restare "pagato". */}

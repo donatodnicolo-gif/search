@@ -7,6 +7,7 @@ import { euro, dataIt } from "@/lib/format";
 import { nomeMese, MESI, ivato } from "@/lib/calc";
 import { segnaFatturaPagata, deleteFattura } from "@/lib/actions";
 import { ThSort, ordina } from "@/components/ThSort";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -130,7 +131,9 @@ export default async function FatturePage({
               </thead>
               <tbody>
                 {fatture.map((f) => (
-                  <tr key={f.id}>
+                  // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
+                  // riga apre il record; i link e i bottoni dentro restano loro.
+                  <RigaLink key={f.id} href={`/fatture/${f.id}`} className="riga-link">
                     <td><Link href={`/partner/${f.partnerId}`} style={{ fontWeight: 500 }}>{f.partner.nome}</Link></td>
                     <td>{nomeMese(f.mese)}</td>
                     <td>{f.tipologia.nome}</td>
@@ -168,7 +171,7 @@ export default async function FatturePage({
                         />
                       </form>
                     </td>
-                  </tr>
+                  </RigaLink>
                 ))}
               </tbody>
             </table>

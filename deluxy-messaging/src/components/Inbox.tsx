@@ -793,16 +793,24 @@ export function Inbox({
   }, [selezionataId, traduzioneAuto, daTradurre, traduciArrivati])
 
   // Polling: elenco ogni 5s, thread aperto ogni 4s.
+  // ⚠️ Scheda nascosta: NON si chiede niente (Libro PERFORMANCE legge 9 —
+  // stessa guardia che Sidebar, Novita e AiutoLaterale hanno già). Un'inbox
+  // dimenticata in background martellava ~900 richieste l'ora sul cluster
+  // condiviso; al ritorno della scheda si aggiorna subito.
   useEffect(() => {
-    const t = setInterval(aggiornaConversazioni, 5000)
-    return () => clearInterval(t)
+    const giro = () => { if (!document.hidden) aggiornaConversazioni() }
+    const t = setInterval(giro, 5000)
+    document.addEventListener('visibilitychange', giro)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', giro) }
   }, [aggiornaConversazioni])
 
   useEffect(() => {
     if (!selezionataId) return
     caricaMessaggi(selezionataId)
-    const t = setInterval(() => caricaMessaggi(selezionataId), 4000)
-    return () => clearInterval(t)
+    const giro = () => { if (!document.hidden) caricaMessaggi(selezionataId) }
+    const t = setInterval(giro, 4000)
+    document.addEventListener('visibilitychange', giro)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', giro) }
   }, [selezionataId, caricaMessaggi])
 
   // ⚠️ Le chat si aprono in fondo, le MAIL no.

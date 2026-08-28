@@ -252,20 +252,30 @@ export async function creaDistinta(_stato: unknown, fd: FormData): Promise<{ err
   const richieste = await prisma.richiesta.findMany({ where: { id: { in: ids }, stato: "approvata", lottoId: null } });
   if (richieste.length === 0) return { errore: "Nessuna delle richieste selezionate è approvata e libera." };
 
+  // ⚠️ IN UNA TRANSAZIONE (Libro PERFORMANCE legge 6, giuria 28/08): prima il
+  // lotto nasceva e POI le richieste venivano agganciate — se il secondo passo
+  // falliva restava una distinta VUOTA nel registro dei pagamenti, con le
+  // richieste «approvate e libere» pronte a rientrare in un'altra. Dentro la
+  // stessa transazione sta anche il numero LOTTO-AAAA-NNNN: generato fuori,
+  // due operatori simultanei prendevano lo stesso e uno vedeva un 500 secco
+  // sul vincolo unique. Stesso modello di lib/richieste.ts (esito pagamento).
   const anno = new Date().getFullYear();
-  const ultimo = await prisma.lotto.findFirst({
-    where: { riferimento: { startsWith: `LOTTO-${anno}-` } },
-    orderBy: { riferimento: "desc" },
-    select: { riferimento: true },
+  const lotto = await prisma.$transaction(async (tx) => {
+    const ultimo = await tx.lotto.findFirst({
+      where: { riferimento: { startsWith: `LOTTO-${anno}-` } },
+      orderBy: { riferimento: "desc" },
+      select: { riferimento: true },
+    });
+    const n = ultimo ? Number(ultimo.riferimento.slice(`LOTTO-${anno}-`.length)) + 1 : 1;
+    const riferimento = `LOTTO-${anno}-${String(n).padStart(4, "0")}`;
+    const creato = await tx.lotto.create({ data: { riferimento, creatoDa: operatore.email } });
+    await tx.richiesta.updateMany({
+      where: { id: { in: richieste.map((r) => r.id) } },
+      data: { lottoId: creato.id, stato: "in_lotto" },
+    });
+    return creato;
   });
-  const n = ultimo ? Number(ultimo.riferimento.slice(`LOTTO-${anno}-`.length)) + 1 : 1;
-  const riferimento = `LOTTO-${anno}-${String(n).padStart(4, "0")}`;
-
-  const lotto = await prisma.lotto.create({ data: { riferimento, creatoDa: operatore.email } });
-  await prisma.richiesta.updateMany({
-    where: { id: { in: richieste.map((r) => r.id) } },
-    data: { lottoId: lotto.id, stato: "in_lotto" },
-  });
+  const riferimento = lotto.riferimento;
   await registra(
     "lotto.creato",
     operatore.email,
@@ -285,8 +295,13 @@ export async function segnaLottoPagato(fd: FormData): Promise<void> {
   const lotto = await prisma.lotto.findUnique({ where: { id }, include: { richieste: true } });
   if (!lotto || lotto.stato === "pagato") return;
   const adesso = new Date();
-  await prisma.lotto.update({ where: { id }, data: { stato: "pagato", pagatoIl: adesso } });
-  await prisma.richiesta.updateMany({ where: { lottoId: id }, data: { stato: "pagata", pagataIl: adesso } });
+  // ⚠️ IN UNA TRANSAZIONE (giuria 28/08): se l'aggiornamento delle richieste
+  // falliva dopo quello del lotto, la distinta diceva «pagato» e le sue
+  // richieste «in lotto» — il bonifico risultava fatto e non fatto insieme.
+  await prisma.$transaction([
+    prisma.lotto.update({ where: { id }, data: { stato: "pagato", pagatoIl: adesso } }),
+    prisma.richiesta.updateMany({ where: { lottoId: id }, data: { stato: "pagata", pagataIl: adesso } }),
+  ]);
   await registra("lotto.pagato", operatore.email, { riferimento: lotto.riferimento }, { ip: await ipRichiesta() });
   for (const r of lotto.richieste) notificaOrigine(r.id).catch(() => {});
   revalidatePath("/distinte");

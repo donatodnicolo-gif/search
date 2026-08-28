@@ -4,6 +4,7 @@ import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
 import { totaliProForma, rifProForma, statiDi } from "@/lib/proforma";
 import { ThSort, ordina } from "@/components/ThSort";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -150,7 +151,8 @@ export default async function ProFormaListPage({
                 {proforme.map((p) => {
                   const st = STATI[p.stato] ?? STATI.bozza;
                   return (
-                    <tr key={p.id}>
+                    // «La riga si apre col click» (Libro UX&UI v1.6 §8).
+                    <RigaLink key={p.id} href={`/proforma/${p.id}`} className="riga-link">
                       <td>
                         <Link href={`/proforma/${p.id}`} style={{ color: "var(--blue)", fontWeight: 500 }}>
                           {rifProForma(p)}
@@ -173,7 +175,7 @@ export default async function ProFormaListPage({
                       <td style={{ whiteSpace: "nowrap" }}>
                         <Link href={`/proforma/${p.id}`} className="btn small secondary">Apri</Link>
                       </td>
-                    </tr>
+                    </RigaLink>
                   );
                 })}
               </tbody>
