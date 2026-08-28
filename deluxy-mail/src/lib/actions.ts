@@ -240,7 +240,17 @@ export async function segnaLetto(id: string, letto: boolean) {
  */
 export async function smaltisciEProssimo(
   id: string,
-  azione: 'cestina' | 'archivia'
+  azione: 'cestina' | 'archivia',
+  /**
+   * Solo QUESTA mail, non tutta la conversazione.
+   *
+   * ⚠️ Il comportamento di sempre (tutto il thread) resta il valore
+   * predefinito perché lo usano anche gli ELENCHI, dove una riga È una
+   * conversazione: là smaltire una mail sola farebbe ricomparire la riga col
+   * messaggio precedente. Chi ha la mail APERTA davanti sta guardando una
+   * mail, non una riga, e adesso sceglie (chiesto il 27/08/2026).
+   */
+  soloQuesta = false
 ): Promise<{ ok: boolean; prossimo: string | null; messaggio: string }> {
   const utenteId = await uid()
   const m = await db.messaggio.findFirst({
@@ -254,7 +264,7 @@ export async function smaltisciEProssimo(
   // ⚠️ In elenco una riga È un thread: smaltire dev'essere del thread, o le
   // altre mail restano e la riga ricompare col messaggio precedente (stessa
   // classe già corretta 3 volte). Si espande agli id della conversazione.
-  const idsThreadSet = [...(await idsThread(utenteId, id))]
+  const idsThreadSet = soloQuesta ? [] : [...(await idsThread(utenteId, id))]
   const tutti = idsThreadSet.length ? idsThreadSet : [id]
 
   const attivo = await accountAttivoId(utenteId)

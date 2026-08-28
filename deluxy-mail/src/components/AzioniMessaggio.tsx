@@ -26,6 +26,8 @@ type Props = {
   sezioneId: string | null
   sezioni: { id: string; nome: string }[]
   mittente: string
+  /** Quante mail ha la conversazione: sotto le due non si chiede niente. */
+  nelThread?: number
 }
 
 /**
@@ -45,6 +47,7 @@ export function AzioniMessaggio({
   sezioneId,
   sezioni,
   mittente,
+  nelThread = 1,
 }: Props) {
   // Lo stato «letta» si tiene anche qui: aprendo la mail viene segnata letta
   // subito dopo il render (SegnaLettaAllApertura), e senza questo il bottone
@@ -60,6 +63,9 @@ export function AzioniMessaggio({
     window.addEventListener(EVENTO_LETTA, su)
     return () => window.removeEventListener(EVENTO_LETTA, su)
   }, [id])
+
+  // Cestinando una conversazione: quale delle due cose si voleva davvero.
+  const [chiediCestina, setChiediCestina] = useState(false)
 
   // Dopo "Archivia": si chiede se rendere l'archiviazione permanente (regola).
   const [chiediSempre, setChiediSempre] = useState(false)
@@ -160,29 +166,82 @@ export function AzioniMessaggio({
           </button>
         )}
 
-        {/* ⚠️⚠️ Questo bottone cestina TUTTA LA CONVERSAZIONE, non «la mail»:
-            `smaltisciEProssimo` espande agli id del thread, esattamente come
-            «Cestina tutta la conversazione». Il titolo diceva «la mail resta
-            sul server» al singolare mentre su un thread da otto ne spostava
-            otto — e non mostrava nessun esito, perché navigava via subito.
-            ⚠️ NIENTE conferma qui: è il bottone della scorciatoia `Canc`, e
-            una domanda in mezzo spezzerebbe il flusso da tastiera che è la
-            ragione per cui esiste. Si dice la verità prima (nel titolo) e
-            dopo (con l’avviso, che ora porta il numero). */}
-        <button
-          className="btn secondary small"
-          disabled={inCorso}
-          title="Sposta nel cestino TUTTA la conversazione e apre la mail successiva. Sulla casella le mail restano (tasto Canc)"
-          onClick={() =>
-            startTransition(async () => {
-              const r = await smaltisciEProssimo(id, 'cestina')
-              mettiFlash(r.messaggio, r.ok ? 'ok' : 'errore')
-              router.push(r.prossimo ? `/messaggio/${r.prossimo}` : '/')
-            })
-          }
-        >
-          Cestina <kbd className="tasto">Canc</kbd>
-        </button>
+        {/* ⚠️⚠️ Questo bottone cestinava TUTTA LA CONVERSAZIONE, e basta.
+            Il commento di prima diceva che una conferma avrebbe spezzato il
+            flusso da tastiera, e per un po' è stata la scelta giusta: si
+            diceva la verità nel titolo e nell'avviso dopo.
+            Non bastava. Su una conversazione da 67 messaggi l'avviso arrivava
+            a cose fatte — «Nel cestino: 11 messaggi» — e chi voleva buttare
+            UNA mail ne aveva buttate undici (segnalato il 27/08/2026). Un
+            avviso che descrive un danno non è un rimedio.
+            ⚠️ La domanda compare SOLO se c'è davvero una scelta da fare (più
+            di una mail nella conversazione): su una mail sola sarebbe un
+            ostacolo senza motivo, e il tasto `Canc` continua a funzionare
+            come sempre.
+            ⚠️ Il primo bottone, quello che si prende il fuoco, è «Solo
+            questa»: di due strade è quella che si disfa più facilmente. */}
+        {chiediCestina ? (
+          <span className="azioni-esito">
+            <span>Cestino tutta la conversazione ({nelThread}) o solo questa mail?</span>
+            <button
+              type="button"
+              className="btn primary small"
+              autoFocus
+              disabled={inCorso}
+              onClick={() =>
+                startTransition(async () => {
+                  setChiediCestina(false)
+                  const r = await smaltisciEProssimo(id, 'cestina', true)
+                  mettiFlash(r.messaggio, r.ok ? 'ok' : 'errore')
+                  router.push(r.prossimo ? `/messaggio/${r.prossimo}` : '/')
+                })
+              }
+            >
+              Solo questa
+            </button>
+            <button
+              type="button"
+              className="btn secondary small"
+              disabled={inCorso}
+              onClick={() =>
+                startTransition(async () => {
+                  setChiediCestina(false)
+                  const r = await smaltisciEProssimo(id, 'cestina')
+                  mettiFlash(r.messaggio, r.ok ? 'ok' : 'errore')
+                  router.push(r.prossimo ? `/messaggio/${r.prossimo}` : '/')
+                })
+              }
+            >
+              Tutta la conversazione ({nelThread})
+            </button>
+            <button type="button" className="azione-riga" onClick={() => setChiediCestina(false)}>
+              Annulla
+            </button>
+          </span>
+        ) : (
+          <button
+            className="btn secondary small"
+            disabled={inCorso}
+            title={
+              nelThread > 1
+                ? `Questa mail fa parte di una conversazione da ${nelThread}: chiede se cestinare solo questa o tutte (tasto Canc)`
+                : 'Sposta la mail nel cestino e apre la successiva. Sulla casella la mail resta (tasto Canc)'
+            }
+            onClick={() => {
+              if (nelThread > 1) {
+                setChiediCestina(true)
+                return
+              }
+              startTransition(async () => {
+                const r = await smaltisciEProssimo(id, 'cestina', true)
+                mettiFlash(r.messaggio, r.ok ? 'ok' : 'errore')
+                router.push(r.prossimo ? `/messaggio/${r.prossimo}` : '/')
+              })
+            }}
+          >
+            Cestina <kbd className="tasto">Canc</kbd>
+          </button>
+        )}
       </div>
 
       {/* TUTTO IL RESTO, dietro «⋯ Altro». */}

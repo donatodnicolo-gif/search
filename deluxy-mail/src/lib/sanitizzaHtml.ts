@@ -20,6 +20,66 @@ function immagineInLineaSicura(attr: string, schema: string, resto: string): boo
   return /^\s*image\/(png|jpe?g|gif|webp|bmp|avif|x-icon)\s*;\s*base64\s*,/i.test(resto)
 }
 
+/**
+ * Un indirizzo web scritto NUDO nel testo, senza il tag che lo rende un link.
+ *
+ * ⚠️ Si ferma prima della punteggiatura finale: in «vai su https://x.it/a.»
+ * il punto è della frase, non dell'indirizzo, e includendolo il link porta a
+ * una pagina che non esiste. Stessa cosa per la parentesi chiusa in
+ * «(vedi https://x.it/a)».
+ */
+const URL_NUDO = /https?:\/\/[^\s<>"']+/gi
+/** La coda che non fa parte dell'indirizzo. */
+const CODA = /[.,;:!?)\]}'"]+$/
+
+/**
+ * Rende cliccabili gli indirizzi scritti NUDI dentro una mail HTML.
+ *
+ * ⚠️ PERCHÉ SERVE. Molti mittenti (Typeform, i sistemi di notifica, chiunque
+ * generi la mail da un modello di testo) mettono l'indirizzo nel corpo senza
+ * avvolgerlo in un `<a>`: nel loro HTML è testo. I client di posta lo
+ * riconoscono e lo rendono cliccabile; qui restava testo morto, e per aprirlo
+ * bisognava selezionarlo e copiarlo a mano — mentre due righe più sotto i
+ * «qui» scritti come veri link funzionavano (segnalato il 27/08/2026).
+ *
+ * ⚠️⚠️ SI CAMMINA SUI PEZZI, non si fa una sostituzione globale sull'HTML.
+ * Un `replace` su tutto il documento entrerebbe DENTRO gli attributi
+ * (`href="https://…"` diventerebbe un link dentro un link) e dentro i blocchi
+ * `<style>`. Qui l'HTML si spezza in tag e testo, e si tocca solo il testo —
+ * e nemmeno quello, se siamo dentro un `<a>` che il mittente ha già messo.
+ */
+export function collegaUrlNudi(html: string): string {
+  if (!html) return html
+  const pezzi = html.split(/(<[^>]*>)/)
+  let dentroLink = 0
+  let dentroCodice = 0
+  return pezzi
+    .map((p) => {
+      if (p.startsWith('<')) {
+        const t = p.toLowerCase()
+        if (/^<a\b/.test(t)) dentroLink++
+        else if (/^<\/a\b/.test(t)) dentroLink = Math.max(0, dentroLink - 1)
+        // `style`/`script`/`textarea`: dentro non c'è testo da leggere, c'è
+        // codice. `script` il sanificatore l'ha già tolto, ma questa funzione
+        // dev'essere sicura anche da sola.
+        else if (/^<(style|script|textarea)\b/.test(t)) dentroCodice++
+        else if (/^<\/(style|script|textarea)\b/.test(t)) dentroCodice = Math.max(0, dentroCodice - 1)
+        return p
+      }
+      if (!p || dentroLink > 0 || dentroCodice > 0) return p
+      return p.replace(URL_NUDO, (grezzo) => {
+        const coda = grezzo.match(CODA)?.[0] ?? ''
+        const indirizzo = coda ? grezzo.slice(0, grezzo.length - coda.length) : grezzo
+        if (!indirizzo) return grezzo
+        // ⚠️ `target="_blank"` con `rel="noopener noreferrer"`: la pagina che
+        // si apre non deve poter toccare quella da cui è partita, e non deve
+        // sapere da dove arriva. Una mail è testo di uno sconosciuto.
+        return `<a href="${indirizzo}" target="_blank" rel="noopener noreferrer">${indirizzo}</a>${coda}`
+      })
+    })
+    .join('')
+}
+
 export function sanitizzaHtml(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, '')

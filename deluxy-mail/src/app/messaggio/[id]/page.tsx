@@ -23,7 +23,7 @@ import { RiassuntoConversazione } from '@/components/RiassuntoConversazione'
 import { BottoneContattoAI } from '@/components/BottoneContattoAI'
 import { BottoneNonSpam } from '@/components/BottoneNonSpam'
 import { AgganciaMail } from '@/components/AgganciaMail'
-import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
+import { collegaUrlNudi, sanitizzaHtml } from '@/lib/sanitizzaHtml'
 import { richiediUtente } from '@/lib/sessione'
 import { messaggiThread, membriThread, righeThread, leggiRiassuntoThread } from '@/lib/sync'
 import { TraduzioneAllApertura } from '@/components/TraduzioneAllApertura'
@@ -272,6 +272,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           sezioneId={messaggio.sezioneId}
           sezioni={sezioni.map((s) => ({ id: s.id, nome: s.nome }))}
           mittente={messaggio.mittente}
+          // Quante mail ha la conversazione: serve al bottone Cestina per sapere
+          // se c e una scelta da proporre, e per dire il numero vero nella
+          // domanda invece di un generico «tutte».
+          nelThread={conversazione.length}
         />
       </div>
 
@@ -567,7 +571,11 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         )}
 
         <CorpoMessaggio
-          html={messaggio.corpoHtml ? sanitizzaHtml(messaggio.corpoHtml) : null}
+          // ⚠️ `collegaUrlNudi` solo QUI, dove la mail si LEGGE: non dentro
+          // `sanitizzaHtml`, che serve anche a preparare la citazione di una
+          // risposta e l'editor. Là aggiungere link non richiesti cambierebbe
+          // il testo che poi si spedisce.
+          html={messaggio.corpoHtml ? collegaUrlNudi(sanitizzaHtml(messaggio.corpoHtml)) : null}
           testo={messaggio.corpoTesto}
           tradotto={corpoTradotto}
           lingua={lingua}
