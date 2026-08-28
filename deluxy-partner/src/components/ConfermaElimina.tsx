@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useFormStatus } from "react-dom";
 
 // Conferma narrativa in linea per le azioni distruttive (Libro UX cap. 7).
 // Finance muove denaro: nessuna cancellazione deve partire al primo click.
@@ -17,6 +18,7 @@ export function ConfermaElimina({
   classeConferma = "btn small danger-solid",
   title,
   trigger,
+  inCorso,
 }: {
   // Verbo dell'azione, stampato sul bottone e in testa alla domanda.
   verbo?: string;
@@ -33,6 +35,9 @@ export function ConfermaElimina({
   // conviene un'icona (cestino) al posto della parola, ma la domanda di conferma
   // resta narrativa col nome dell'oggetto.
   trigger?: ReactNode;
+  // Testo mentre l'azione gira (server action, spesso con una chiamata a
+  // un'altra app: il registro Anagrafiche ci mette secondi). Nessun click muto.
+  inCorso?: string;
 }) {
   const [aperto, setAperto] = useState(false);
 
@@ -55,14 +60,42 @@ export function ConfermaElimina({
       <span className="conferma-elimina-testo">
         {verbo} {oggetto}? {conseguenza}
       </span>
-      <span className="conferma-elimina-azioni">
-        <button type="submit" className={classeConferma}>
-          {verbo}
-        </button>
-        <button type="button" className="btn small secondary" onClick={() => setAperto(false)}>
+      <AzioniConferma verbo={verbo} classeConferma={classeConferma} inCorso={inCorso} annulla={() => setAperto(false)} />
+    </span>
+  );
+}
+
+// Il click di conferma è un submit di server action che spesso redirige o parla
+// col registro: mentre gira, il bottone lo DICE e si blocca, e «Annulla»
+// sparisce (non si annulla a metà). `useFormStatus` vede il form genitore.
+function AzioniConferma({
+  verbo,
+  classeConferma,
+  inCorso,
+  annulla,
+}: {
+  verbo: string;
+  classeConferma: string;
+  inCorso?: string;
+  annulla: () => void;
+}) {
+  const { pending } = useFormStatus();
+  return (
+    <span className="conferma-elimina-azioni">
+      <button
+        type="submit"
+        className={classeConferma}
+        disabled={pending}
+        aria-busy={pending}
+        style={pending ? { opacity: 0.75, cursor: "progress" } : undefined}
+      >
+        {pending ? inCorso ?? "Attendo…" : verbo}
+      </button>
+      {!pending && (
+        <button type="button" className="btn small secondary" onClick={annulla}>
           Annulla
         </button>
-      </span>
+      )}
     </span>
   );
 }

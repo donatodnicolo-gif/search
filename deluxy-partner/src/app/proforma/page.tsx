@@ -253,6 +253,7 @@ export default async function ProFormaListPage({
                               <ConfermaElimina
                                 className="btn small icon danger"
                                 trigger={IconaCestino}
+                                inCorso="Elimino…"
                                 verbo="Elimina"
                                 oggetto={p.stato === "bozza" ? `la bozza ${rifProForma(p)}` : `la pro-forma ${rifProForma(p)}`}
                                 conseguenza="Non è stata emessa su Fatture in Cloud: sparisce solo questo documento, non c'è nessuna fattura da toccare."

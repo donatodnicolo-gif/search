@@ -1,6 +1,7 @@
 import { risolviAnagrafica, urlAnagrafiche, type Anagrafica } from "@/lib/anagrafiche";
 import { collegaAnagraficaEsistente, scollegaAnagrafica, disconosciECreaAnagrafica } from "@/lib/riconciliazione-actions";
 import { ConfermaElimina } from "@/components/ConfermaElimina";
+import { BottoneInvio } from "@/components/BottoneInvio";
 
 // Etichetta e colore badge per gli stati del registro (vedi deluxy-anagrafiche)
 const STATI: Record<string, { etichetta: string; classe: string }> = {
@@ -62,9 +63,9 @@ export async function AnagraficaCard({
         placeholder="Incolla qui l'id o il link della scheda in Anagrafiche"
         style={{ flex: "1 1 320px", fontSize: 12.5, padding: "6px 8px" }}
       />
-      <button className="btn small primary" type="submit" title="Collega questo partner a un'anagrafica già presente nel registro">
+      <BottoneInvio className="btn small primary" inCorso="Collego…" title="Collega questo partner a un'anagrafica già presente nel registro">
         Collega anagrafica
-      </button>
+      </BottoneInvio>
     </form>
   );
 
@@ -92,6 +93,7 @@ export async function AnagraficaCard({
                   <ConfermaElimina
                     className="btn small primary"
                     classeConferma="btn small primary"
+                    inCorso="Creo nel registro…"
                     trigger="Crea una nuova anagrafica"
                     verbo="Crea la scheda nel registro"
                     oggetto="per questo partner"
@@ -121,9 +123,9 @@ export async function AnagraficaCard({
                 </a>
                 {partnerId && anagraficaId && (
                   <form action={scollegaAnagrafica.bind(null, partnerId)} style={{ display: "inline" }}>
-                    <button className="btn small secondary" type="submit" title="Rimuove solo il collegamento: i dati nel registro restano">
+                    <BottoneInvio className="btn small secondary" inCorso="Scollego…" title="Rimuove solo il collegamento: i dati nel registro restano">
                       Scollega
-                    </button>
+                    </BottoneInvio>
                   </form>
                 )}
                 {partnerId && (
@@ -131,6 +133,7 @@ export async function AnagraficaCard({
                     <ConfermaElimina
                       className="btn small secondary"
                       classeConferma="btn small primary"
+                      inCorso="Creo nel registro…"
                       trigger="Non è questa scheda"
                       verbo="Crea una scheda nuova"
                       oggetto="e disconosci questa"
@@ -152,12 +155,13 @@ export async function AnagraficaCard({
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
                   <form action={collegaAnagraficaEsistente.bind(null, partnerId)} style={{ display: "inline" }}>
                     <input type="hidden" name="anagraficaRif" value={anagrafica.id} />
-                    <button className="btn small primary" type="submit">Collega questa anagrafica</button>
+                    <BottoneInvio className="btn small primary" inCorso="Collego…">Collega questa anagrafica</BottoneInvio>
                   </form>
                   <form action={disconosciECreaAnagrafica.bind(null, partnerId, anagrafica.id)} style={{ display: "inline" }}>
                     <ConfermaElimina
                       className="btn small secondary"
                       classeConferma="btn small primary"
+                      inCorso="Creo nel registro…"
                       trigger="Non è lei — crea nuova"
                       verbo="Crea una scheda nuova"
                       oggetto="invece di collegare questa"

@@ -357,6 +357,7 @@ export default async function ProFormaDetail({
             <form action={deleteProForma.bind(null, id)} style={{ marginLeft: "auto" }}>
               <ConfermaElimina
                 verbo="Elimina"
+                inCorso="Elimino…"
                 oggetto={pf.stato === "bozza" ? "questa bozza" : `la pro-forma ${rif}`}
                 conseguenza="Non è stata emessa su Fatture in Cloud, quindi non c'è nessuna fattura da toccare: sparisce solo questo documento."
               />
