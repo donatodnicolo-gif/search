@@ -69,6 +69,7 @@ export async function Topbar({ sessione }: { sessione: Sessione }) {
         </span>
 
         <span className="gruppo">
+        <NavLink href="/scarica" title="Installa le app sul telefono">Installa</NavLink>
         <NavLink href="/profilo">{sessione.nome}</NavLink>
         <form action={esci}>
           <button type="submit" className="btn">

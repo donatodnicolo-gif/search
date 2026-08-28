@@ -52,5 +52,12 @@ export async function middleware(req: NextRequest) {
 export const config = {
   // "api" è escluso: le route API si autenticano da sole (token di servizio),
   // non con il cookie di sessione — il middleware le reindirizzerebbe al login.
-  matcher: ["/((?!api|login|_next/static|_next/image|favicon.ico).*)"],
+  //
+  // Esclusi anche i file della PWA (manifest, service worker, icone): devono
+  // essere raggiungibili SENZA sessione, altrimenti il browser riceve la pagina
+  // di login al posto del file e l'app non si installa. Non sono segreti: sono
+  // fatti apposta per essere pubblici.
+  matcher: [
+    "/((?!api|login|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icon-192.png|icon-512.png|icon-512-maskable.png|apple-touch-icon.png).*)",
+  ],
 };
