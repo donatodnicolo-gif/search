@@ -198,11 +198,29 @@ export default function DaCompletare() {
       chiave: 'nome',
       label: 'Negozio',
       flex: 1.2,
-      valore: (d) => d.place_nome ?? d.linea ?? 'Trattativa',
+      /**
+       * ⚠️ IL RIPIEGO ERA LA LINEA, e faceva sparire il cliente (27/08/2026,
+       * domanda dell'utente: «questo da fare da dove arriva?»).
+       *
+       * Trentanove righe su quaranta scrivevano «Affiliazioni», perche' quelle
+       * trattative arrivano da HubSpot e NON hanno un negozio agganciato in
+       * Scout: il ripiego stampava il nome della linea come se fosse il nome
+       * del cliente. Ma il nome dell'affare ce l'ha — «Affiliazione I Fiori di
+       * Sonia» — e quello va letto per primo.
+       *
+       * L'ordine dei ripieghi e' quello della SPECIFICITA': il negozio
+       * agganciato, poi il nome dell'affare, e la linea solo come ultima
+       * spiaggia — perche' una linea non identifica niente.
+       */
+      valore: (d) => d.place_nome ?? d.titolo ?? d.linea ?? 'Trattativa',
       cella: (d) => (
-        <Text style={styles.tabNome} numberOfLines={2}>
-          {d.place_nome ?? d.linea ?? 'Trattativa'}
-        </Text>
+        <View style={{ gap: 2 }}>
+          <Text style={styles.tabNome} numberOfLines={2}>
+            {d.place_nome ?? d.titolo ?? d.linea ?? 'Trattativa'}
+          </Text>
+          {/* La linea resta visibile, ma come quello che e': un'etichetta. */}
+          {d.linea ? <Text style={styles.tabSotto}>{d.linea}</Text> : null}
+        </View>
       ),
     },
     { chiave: 'owner', label: 'Assegnato a', flex: 0.8, valore: (d) => d.owner_nome ?? 'Non attribuito' },
@@ -450,6 +468,7 @@ const styles = StyleSheet.create({
   sub: { color: colors.testoSoft, fontSize: 13 },
   tabNomeRiga: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tabNome: { flex: 1, minWidth: 0, color: colors.navy, fontWeight: '700', fontSize: 14 },
+  tabSotto: { color: colors.grigio, fontSize: 11.5, lineHeight: 15 },
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   tabRitardo: { color: colors.errore, fontWeight: '700' },
   list: { padding: spacing.md, gap: 10 },

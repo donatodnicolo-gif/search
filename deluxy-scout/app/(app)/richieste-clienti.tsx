@@ -1128,13 +1128,6 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
           conti per linea.
         </Text>
 
-        <Text style={styles.campoLabel}>Linea di business</Text>
-        <View style={styles.chips}>
-          {LINEE_ATTIVE.map((l) => (
-            <Chip key={l} label={l} on={linea === l} onPress={() => setLinea(linea === l ? null : l)} />
-          ))}
-        </View>
-
         <Text style={styles.campoLabel}>Tipologia (per il budget)</Text>
         <View style={styles.chips}>
           {TIPOLOGIE.map((t) => (
@@ -1300,6 +1293,17 @@ function ModificaRichiesta({
             <Chip key={c} label={LABEL_CANALE_RICHIESTA[c]} on={canale === c} onPress={() => setCanale(c)} />
           ))}
         </View>
+
+        <Text style={styles.campoLabel}>Linea di business</Text>
+        <View style={styles.chips}>
+          {LINEE_ATTIVE.map((l) => (
+            <Chip key={l} label={l} on={linea === l} onPress={() => setLinea(linea === l ? null : l)} />
+          ))}
+        </View>
+        <Text style={styles.nota}>
+          Su quale linea si vende. Viaggia nell&apos;ordine che nasce da qui: senza, l&apos;ordine resta fuori dai
+          conti per linea.
+        </Text>
 
         <Text style={styles.campoLabel}>Tipologia (per il budget)</Text>
         <View style={styles.chips}>
