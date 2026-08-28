@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { ToggleSidebar } from "@/components/ToggleSidebar";
+import { Novita } from "@/components/Novita";
+import { SessioneScaduta } from "@/components/SessioneScaduta";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { contaClienti } from "@/lib/clienti";
@@ -68,6 +70,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Sidebar conteggi={c} />
           {children}
         </div>
+        {/* I riquadri «è appena successo» (ordini nuovi dalla sync Shopify) e
+            la fascia «sessione scaduta». Libro UX&UI v1.4 §7. */}
+        <Novita />
+        <SessioneScaduta />
       </body>
     </html>
   );

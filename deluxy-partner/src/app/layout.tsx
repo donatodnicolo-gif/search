@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
+import { SessioneScaduta } from "@/components/SessioneScaduta";
 import { SESSION_COOKIE, sessioneCorrente } from "@/lib/auth";
 
 // Il nome dell'app è FINANCE: è così che la chiamano in azienda e negli altri
@@ -49,6 +50,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {children}
           </main>
         </div>
+        {/* La fascia «sessione scaduta»: resta invisibile finché il poller dei
+            pallini (Sidebar) non se ne accorge. Libro UX&UI v1.4 §7. */}
+        <SessioneScaduta />
       </body>
     </html>
   );

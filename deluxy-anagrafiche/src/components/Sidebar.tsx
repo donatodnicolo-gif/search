@@ -20,6 +20,7 @@ import {
 } from "@/lib/stati";
 import { IconaCategoria } from "./IconaCategoria";
 import { SbSezione } from "./SbSezione";
+import { VoceNovita } from "./PalliniNav";
 
 // Sidebar di navigazione: tipologie, stati e interessi filtrano l'elenco;
 // "Aziende" mostra tutto. I conteggi considerano solo le anagrafiche
@@ -187,6 +188,10 @@ export async function Sidebar({
             <span className="sb-icona"><IconaCategoria categoria="CONSUMERS" /></span>
             <span className="sb-nome">Consumers</span>
             <span className="sb-count">{consumers}</span>
+            {/* Pallino giallo (Libro §7): qui dice «Orders ha rinfrescato la
+                fotografia da quando hai guardato». Il numero resta quello di
+                popolazione qui sopra: non è lavoro che aspetta. */}
+            <VoceNovita href="/consumers" />
           </a>
           {/* Le ENTITÀ commerciali: il cliente sopra le sue società di
               fatturazione. Sta qui perché è una popolazione come le altre —
@@ -352,12 +357,18 @@ export async function Sidebar({
           <a className={`sb-item${matchAttivo ? " attiva" : ""}`} href="/match">
             <span className="sb-icona"><IconaCategoria categoria="MATCH" /></span>
             <span className="sb-nome">Richieste di aggancio</span>
+            {/* ⚠️ IL NUMERO E IL PALLINO DICONO COSE DIVERSE (Libro §7): il
+                numero — il sb-count che questa sidebar scrive già dal server —
+                è quanto lavoro c'è; il pallino è «è arrivato qualcosa da
+                quando hai guardato». Coesistono, non si sostituiscono. */}
             {daRisolvere > 0 && <span className="sb-count">{daRisolvere}</span>}
+            <VoceNovita href="/match" />
           </a>
           <a className={`sb-item${riconciliazioneAttiva ? " attiva" : ""}`} href="/riconciliazione">
             <span className="sb-icona"><IconaCategoria categoria="MATCH" /></span>
             <span className="sb-nome">Riconciliazione referenti</span>
             {daRiconciliare > 0 && <span className="sb-count">{daRiconciliare}</span>}
+            <VoceNovita href="/riconciliazione" />
           </a>
           {/* Nome esteso in tutte e due le voci: «Riconciliazione» da sola non
               distingueva l'assegnazione dei referenti dalla scelta fra due
@@ -366,6 +377,7 @@ export async function Sidebar({
             <span className="sb-icona"><IconaCategoria categoria="MATCH" /></span>
             <span className="sb-nome">Riconciliazioni dati</span>
             {disaccordi > 0 && <span className="sb-count">{disaccordi}</span>}
+            <VoceNovita href="/riconciliazioni" />
           </a>
         </SbSezione>
 

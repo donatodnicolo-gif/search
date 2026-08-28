@@ -39,6 +39,29 @@ export async function middleware(req: NextRequest) {
   // cancello davanti per sbaglio.
   if (pathname === "/api/health") return NextResponse.next();
 
+  // /api/novita/* — endpoint interni della UI (pallini del menu e riquadri
+  // novità, Libro UX&UI v1.4 §7): stessa sessione a cookie della UI, niente
+  // CORS, niente chiavi API. ⚠️ Sta PRIMA del ramo /api generico, che lascia
+  // passare senza sessione (le /api/v1 si autenticano da sole con la chiave):
+  // senza questo ramo la rotta nascerebbe pubblica. Risponde 401 JSON e non un
+  // redirect: chi chiama è un `fetch`, e un redirect seguito in silenzio
+  // diventa «pagina di login con stato 200» (trappola nota).
+  if (pathname.startsWith("/api/novita")) {
+    const password = process.env.ORDERS_APP_PASSWORD;
+    if (!password) {
+      // Come per la UI: in locale aperto, in produzione l'assenza CHIUDE.
+      if (process.env.VERCEL) {
+        return NextResponse.json({ errore: "Configurazione mancante" }, { status: 503 });
+      }
+      return NextResponse.next();
+    }
+    const cookie = req.cookies.get(SESSION_COOKIE)?.value;
+    if (!cookie || cookie !== (await sessionToken(password))) {
+      return NextResponse.json({ errore: "Non autenticato" }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/api")) {
     if (req.method === "OPTIONS") {
       return new NextResponse(null, { status: 204, headers: CORS_HEADERS });

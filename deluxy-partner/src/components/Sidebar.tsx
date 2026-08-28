@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { decidiPallini, type Visto } from "@/lib/pallini";
+import { avvisaSessioneScaduta } from "./SessioneScaduta";
 
 // Una voce di menu può avere sottovoci (es. Fatture → Servizi / Pro-forma):
 // il gruppo si apre da solo quando sei dentro una delle sue pagine.
@@ -221,6 +223,10 @@ export function Sidebar({
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
+  // Pallino «è arrivato qualcosa» + numero «quanto lavoro c'è» sulle voci che
+  // ricevono cose dall'esterno (Libro UX&UI v1.4 §7, sistema del CS).
+  const { accesi, carichi } = usaPallini(pathname);
+
   // stato persistito: la preferenza sopravvive alla navigazione e al reload
   useEffect(() => {
     setChiusa(localStorage.getItem("sidebar-chiusa") === "1");
@@ -277,6 +283,30 @@ export function Sidebar({
                 >
                   {it.icon}
                   <span className="solo-estesa">{it.label}</span>
+                  {/* ⚠️ Il pallino sta in FONDO alla riga, non davanti al nome:
+                      le voci devono restare allineate. E IL NUMERO E IL PALLINO
+                      DICONO COSE DIVERSE: il numero è quanto lavoro c'è, il
+                      pallino è «è arrivato qualcosa da quando hai guardato».
+                      `solo-estesa`: a sidebar chiusa resta solo l'icona. */}
+                  {carichi[it.href]?.quanti ? (
+                    <span
+                      className={`sb-quanti solo-estesa${carichi[it.href]?.urgente ? " urgente" : ""}`}
+                      title={
+                        carichi[it.href]?.urgente
+                          ? `${carichi[it.href]?.quanti} da fare, e qualcuna scade entro una settimana`
+                          : `${carichi[it.href]?.quanti} da fare`
+                      }
+                    >
+                      {carichi[it.href]!.quanti}
+                    </span>
+                  ) : null}
+                  {accesi.has(it.href) ? (
+                    <span
+                      className="sb-pallino solo-estesa"
+                      title="È arrivato qualcosa di nuovo da quando l'hai guardata"
+                      aria-label="novità"
+                    />
+                  ) : null}
                 </Link>
                 {figli.length > 0 && !chiusa && (
                   <div className="nav-figli">
@@ -340,4 +370,95 @@ export function Sidebar({
       </div>
     </aside>
   );
+}
+
+// ── IL PALLINO GIALLO: «qui è arrivato qualcosa» ──
+// Libro UX&UI v1.4 §7 (sistema del Customer Service, `usaPallini` di
+// deluxy-messaging/Sidebar.tsx portato qui).
+//
+// ⚠️⚠️ NON SI CONFRONTANO OROLOGI. Il server dice, per ogni sezione, la data
+// della cosa più recente **che c'è**; qui ci si ricorda **l'ultima già vista**
+// e si accende il pallino se la prima è più avanti. Se invece si segnasse
+// «visto» con `Date.now()` del browser, un computer avanti di un minuto
+// avrebbe il pallino sempre acceso e uno indietro non l'avrebbe mai.
+//
+// ⚠️ «Visto» è una cosa del browser di quella persona, e sta in `localStorage`:
+// tenerlo sul server vorrebbe dire una tabella in più per un pallino, e
+// «l'ho guardato io» non è un fatto dell'azienda.
+const CHIAVE_VISTO = "finance-sezioni-viste";
+// ⚠️ Novanta secondi: il giro gira su ogni pagina, per ogni persona.
+// L'immediatezza non è del pallino (Libro §7, budget del poll).
+const RESPIRO = 90000;
+
+type Carico = { ultimo: string; quanti: number; urgente: boolean };
+
+function usaPallini(path: string): { accesi: Set<string>; carichi: Record<string, Carico> } {
+  const [accesi, setAccesi] = useState<Set<string>>(new Set());
+  const [carichi, setCarichi] = useState<Record<string, Carico>>({});
+
+  const guarda = useCallback(async () => {
+    // Sul login non c'è sessione: bussare produrrebbe solo la fascia
+    // «sessione scaduta» sulla pagina in cui si sta per entrare.
+    if (path.startsWith("/login")) return;
+    try {
+      const res = await fetch("/api/novita/sezioni", { cache: "no-store" });
+      // ⚠️ Sessione scaduta: la rotta non risponde 401 ma un redirect verso
+      // /login che `fetch` segue da solo, tornando HTML con stato 200. Si
+      // guardano il redirect e il tipo di contenuto, o si continuerebbe a
+      // bussare a una porta chiusa.
+      const ct = res.headers.get("content-type") ?? "";
+      if (res.status === 401 || res.redirected || !ct.includes("application/json")) {
+        // ⚠️⚠️ QUESTO È IL PUNTO CHE SE NE ACCORGE SEMPRE: la barra laterale
+        // c'è su ogni pagina e chiede i carichi a intervalli, quindi qualunque
+        // schermata si stia guardando la fascia compare entro un giro.
+        avvisaSessioneScaduta();
+        return;
+      }
+      if (!res.ok) return; // un errore del server non è una sessione scaduta
+      const d = (await res.json()) as { sezioni: Record<string, Carico> };
+      setCarichi(d.sezioni);
+      let visto: Visto = {};
+      let mai = false;
+      try {
+        const grezzo = localStorage.getItem(CHIAVE_VISTO);
+        if (grezzo) visto = JSON.parse(grezzo) as Visto;
+        else mai = true;
+      } catch {
+        // finestra privata o dati bloccati: si fa come la prima volta, cioè
+        // niente pallini. Meglio muti che tutti accesi.
+        mai = true;
+      }
+      // La regola sta in src/lib/pallini.ts, che si prova con dei casi
+      // (scripts/prova-pallini.mts).
+      const esito = decidiPallini(d.sezioni, visto, path, mai);
+      try {
+        localStorage.setItem(CHIAVE_VISTO, JSON.stringify(esito.visto));
+      } catch {
+        // niente da ricordare: i pallini valgono per questa pagina e basta
+      }
+      setAccesi(new Set(esito.accesi));
+    } catch {
+      // rete assente: i pallini restano come stanno
+    }
+  }, [path]);
+
+  useEffect(() => {
+    // ⚠️ Si guarda a ogni cambio di pagina, non solo a tempo: entrando in una
+    // sezione il suo pallino deve spegnersi subito, non dopo un minuto.
+    void guarda();
+    const t = setInterval(() => {
+      // Scheda nascosta: non si chiede niente. Al ritorno si chiede subito.
+      if (!document.hidden) void guarda();
+    }, RESPIRO);
+    const alRitorno = () => {
+      if (!document.hidden) void guarda();
+    };
+    document.addEventListener("visibilitychange", alRitorno);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", alRitorno);
+    };
+  }, [guarda]);
+
+  return { accesi, carichi };
 }

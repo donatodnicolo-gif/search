@@ -1,6 +1,7 @@
 import { conteggiSidebar } from "@/lib/conteggi-sidebar";
 import { BRANDS, COLORE_BRAND, ETICHETTA_BRAND, STATI_AZIONE_APERTI, STATI_CAMPAGNA_VIVE } from "@/lib/dominio";
 import { Icona } from "./Icona";
+import { VoceNovita } from "./PalliniNav";
 import { SbSezione } from "./SbSezione";
 import { TornaIndietro } from "./TornaIndietro";
 
@@ -35,11 +36,16 @@ export async function Sidebar({
   const conta = (per: Record<string, number>, canale: string) => per[canale] ?? 0;
   const aperteDi = (brand: string) => aperteBrand[brand] ?? 0;
 
-  const voce = (id: VoceSidebar, href: string, icona: string, nome: string, count?: number) => (
+  const voce = (id: VoceSidebar, href: string, icona: string, nome: string, count?: number, novita = false) => (
     <a className={`sb-item${attiva === id && !canaleAttivo ? " attiva" : ""}`} href={href}>
       <span className="sb-icona"><Icona nome={icona} /></span>
       <span className="sb-nome">{nome}</span>
       {count != null && count !== 0 && <span className="sb-count">{count}</span>}
+      {/* Pallino giallo «è arrivato qualcosa da quando hai guardato» (Libro
+          UX&UI v1.4 §7) sulle voci con arrivi esterni. Il numero e il pallino
+          dicono cose diverse: il sb-count qui sopra è quanto c'è, il pallino
+          è il segnalibro personale. */}
+      {novita && <VoceNovita href={href} />}
     </a>
   );
 
@@ -80,7 +86,7 @@ export async function Sidebar({
           {/* Si chiamava "Coda su Google" ed era vero a meta: nella stessa coda
               ci sono anche le operazioni Meta, che uno script di Google non
               eseguira mai. Il nome della voce segue quello della pagina. */}
-          {voce("operazioni", "/operazioni", "azioni", "Operazioni", nOperazioni)}
+          {voce("operazioni", "/operazioni", "azioni", "Operazioni", nOperazioni, true)}
           {voce("errori", "/errori", "audit", "Incidenti aperti", nErroriAperti)}
         </SbSezione>
 
@@ -145,7 +151,7 @@ export async function Sidebar({
         </SbSezione>
 
         <SbSezione titolo="Da sapere">
-          {voce("analisi", "/analisi", "analisi", "Analisi", nAnalisi)}
+          {voce("analisi", "/analisi", "analisi", "Analisi", nAnalisi, true)}
           {voce("audit", "/audit", "audit", "Audit", nAudit)}
           {voce("ai", "/ai", "analisi", "Lettura AI")}
           {voce("memoria", "/memoria", "analisi", "Memoria condivisa")}

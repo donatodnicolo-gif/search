@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ScrimSidebar } from "@/components/ScrimSidebar";
+import { SessioneScaduta } from "@/components/SessioneScaduta";
 import { ToggleSidebar } from "@/components/ToggleSidebar";
 import "./globals.css";
 
@@ -37,6 +38,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </header>
         {children}
         <ScrimSidebar />
+        {/* La fascia «sessione scaduta»: resta invisibile finché il poller dei
+            pallini (PalliniNav) non se ne accorge. Libro UX&UI v1.4 §7. */}
+        <SessioneScaduta />
       </body>
     </html>
   );

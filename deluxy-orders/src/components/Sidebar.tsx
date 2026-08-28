@@ -1,6 +1,9 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { decidiPallini, type Visto } from "@/lib/pallini";
+import { avvisaSessioneScaduta } from "./SessioneScaduta";
 
 // Menu laterale. Client component solo per evidenziare la voce attiva
 // (usePathname); i conteggi arrivano dal layout (server).
@@ -10,6 +13,12 @@ export function Sidebar({
   conteggi: { ordini: number; daClassificare: number; clienti: number; liste: number; automazioni: number; script: number; eventi: number; daRiconciliare: number };
 }) {
   const path = usePathname();
+
+  // Pallino giallo «è arrivato qualcosa da quando hai guardato» sulle voci con
+  // arrivi esterni (Libro UX&UI v1.4 §7, sistema del CS). ⚠️ I NUMERI restano
+  // quelli del layout (sb-count, ricalcolati a ogni navigazione): il pallino è
+  // un segnalibro personale, non un altro conteggio.
+  const accesi = usaPallini(path);
 
   // Le voci raggruppate per COSA SI STA FACENDO, non per come è fatta l'app.
   // Tre mestieri diversi, che di solito fanno persone diverse in momenti
@@ -78,6 +87,15 @@ export function Sidebar({
                 <span className="sb-icona">{v.icona}</span>
                 <span className="sb-nome">{v.nome}</span>
                 {v.count != null && <span className="sb-count">{v.count.toLocaleString("it-IT")}</span>}
+                {/* ⚠️ In FONDO alla riga, mai davanti al nome: le voci devono
+                    restare allineate (Libro §7). */}
+                {accesi.has(v.href) ? (
+                  <span
+                    className="sb-pallino"
+                    title="È arrivato qualcosa di nuovo da quando l'hai guardata"
+                    aria-label="novità"
+                  />
+                ) : null}
               </a>
             );
           })}
@@ -179,3 +197,92 @@ const iconaImpostazioni = (
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
 );
+
+// ── IL PALLINO GIALLO: «qui è arrivato qualcosa» ──
+// Libro UX&UI v1.4 §7 (sistema del Customer Service, `usaPallini` di
+// deluxy-messaging/Sidebar.tsx portato qui).
+//
+// ⚠️⚠️ NON SI CONFRONTANO OROLOGI. Il server dice, per ogni sezione, la data
+// della cosa più recente **che c'è**; qui ci si ricorda **l'ultima già vista**
+// e si accende il pallino se la prima è più avanti. Se invece si segnasse
+// «visto» con `Date.now()` del browser, un computer avanti di un minuto
+// avrebbe il pallino sempre acceso e uno indietro non l'avrebbe mai.
+//
+// ⚠️ «Visto» è una cosa del browser di quella persona, e sta in `localStorage`:
+// tenerlo sul server vorrebbe dire una tabella in più per un pallino, e
+// «l'ho guardato io» non è un fatto dell'azienda. (Il cookie `orders_visto_fino`
+// è un'ALTRA cosa: segna gli ordini nuovi DENTRO la tabella, non nel menu.)
+const CHIAVE_VISTO = "orders-sezioni-viste";
+// ⚠️ Novanta secondi: il giro gira su ogni pagina, per ogni persona.
+// L'immediatezza è dei riquadri in basso a destra (25 s), non del pallino.
+const RESPIRO = 90000;
+
+type Carico = { ultimo: string; quanti: number; urgente: boolean };
+
+function usaPallini(path: string): Set<string> {
+  const [accesi, setAccesi] = useState<Set<string>>(new Set());
+
+  const guarda = useCallback(async () => {
+    // Sul login non c'è sessione: bussare produrrebbe solo la fascia
+    // «sessione scaduta» sulla pagina in cui si sta per entrare.
+    if (path.startsWith("/login")) return;
+    try {
+      const res = await fetch("/api/novita/sezioni", { cache: "no-store" });
+      // ⚠️ Sessione scaduta: il ramo /api/novita del middleware risponde 401;
+      // se un giorno finisse dietro un redirect, `fetch` lo seguirebbe
+      // tornando la pagina di login con stato 200: tre spie, non una.
+      const ct = res.headers.get("content-type") ?? "";
+      if (res.status === 401 || res.redirected || !ct.includes("application/json")) {
+        // ⚠️⚠️ QUESTO È IL PUNTO CHE SE NE ACCORGE SEMPRE: la barra laterale
+        // c'è su ogni pagina e chiede a intervalli, quindi qualunque schermata
+        // si stia guardando la fascia compare entro un giro.
+        avvisaSessioneScaduta();
+        return;
+      }
+      if (!res.ok) return; // un errore del server non è una sessione scaduta
+      const d = (await res.json()) as { sezioni: Record<string, Carico> };
+      let visto: Visto = {};
+      let mai = false;
+      try {
+        const grezzo = localStorage.getItem(CHIAVE_VISTO);
+        if (grezzo) visto = JSON.parse(grezzo) as Visto;
+        else mai = true;
+      } catch {
+        // finestra privata o dati bloccati: come la prima volta, cioè niente
+        // pallini. Meglio muti che tutti accesi.
+        mai = true;
+      }
+      // La regola sta in src/lib/pallini.ts, che si prova con dei casi
+      // (scripts/prova-pallini.mts).
+      const esito = decidiPallini(d.sezioni, visto, path, mai);
+      try {
+        localStorage.setItem(CHIAVE_VISTO, JSON.stringify(esito.visto));
+      } catch {
+        // niente da ricordare: i pallini valgono per questa pagina e basta
+      }
+      setAccesi(new Set(esito.accesi));
+    } catch {
+      // rete assente: i pallini restano come stanno
+    }
+  }, [path]);
+
+  useEffect(() => {
+    // ⚠️ Si guarda a ogni caricamento di pagina (che qui, con la navigazione a
+    // ricaricamento pieno, è anche ogni cambio pagina), poi a tempo.
+    void guarda();
+    const t = setInterval(() => {
+      // Scheda nascosta: non si chiede niente. Al ritorno si chiede subito.
+      if (!document.hidden) void guarda();
+    }, RESPIRO);
+    const alRitorno = () => {
+      if (!document.hidden) void guarda();
+    };
+    document.addEventListener("visibilitychange", alRitorno);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", alRitorno);
+    };
+  }, [guarda]);
+
+  return accesi;
+}

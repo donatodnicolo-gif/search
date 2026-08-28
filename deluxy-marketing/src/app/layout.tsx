@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Novita } from "@/components/Novita";
+import { SessioneScaduta } from "@/components/SessioneScaduta";
 import { TabelleOrdinabili } from "@/components/TabelleOrdinabili";
 import { ToggleSidebar } from "@/components/ToggleSidebar";
 import "./globals.css";
@@ -37,6 +39,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         {/* Rende ordinabile ogni tabella dell app: monta una volta, vale ovunque */}
         <TabelleOrdinabili />
+        {/* I riquadri «è appena successo» (analisi nuove dal Drive) e la
+            fascia «sessione scaduta». Libro UX&UI v1.4 §7. */}
+        <Novita />
+        <SessioneScaduta />
       </body>
     </html>
   );
