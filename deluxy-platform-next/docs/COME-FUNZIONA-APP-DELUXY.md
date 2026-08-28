@@ -132,6 +132,17 @@ Menu principale: **CONSEGNE · ACTIVITIES · PARTNER · VALET · UTENTI · PRODO
 - Sezioni: Dati di consegna e ritiro (stato, data, fascia oraria, ora ritiro, consegna flessibile, valet) · Scelta del servizio (partner, nome/tipo servizio, prezzo, plus/minus al prezzo) · Informazioni destinatario e mittente (cognome/nome, SMS telefonici, indirizzo, citofono, telefono, email; cognome/nome/telefono mittente) · Gestione dell'ordine (pagamento alla consegna, contanti da incassare, prova e reso del prodotto, prodotto, immagine, quantità, variante) · Receipt info (nome di chi ha ricevuto, ricevuta) · Documentazione e note (numero DDT, file DDT, note, PERSONALIZZAZIONE, note interne) · Storico consegna (log con data/ora: inserita, partita, effettuata).
 - Visibilità per ruolo: Partner vede valet/mezzo/telefono ma non note interne né costi consegna dei propri servizi; Valet vede note e note interne; Admin/Operation vedono tutto + logs. Nessuno vede l'indirizzo di ritiro nelle colonne della lista.
 
+#### Dettaglio consegna: il denaro di una VENDITA **[NUOVO 28/08/2026]**
+
+Sulle consegne con modello **Vendita**, il campo prezzo **non è quello che prende il partner**: è la **quota trattenuta da Deluxy**. Con l'etichetta «Prezzo» accanto al valore dei prodotti si legge come l'incasso del fornitore, ed è un errore già commesso.
+
+- L'etichetta diventa «**Quota Deluxy**» quando il modello è Vendita.
+- Compare la riga «**Incasso del partner**» = valore della merce − quota, con la **stessa formula della Fatturazione** (`dovutoAlPartner` in `invoices.module.ts`): non una seconda versione dello stesso numero.
+- La riga **non compare** se manca uno dei due valori — al valet i soldi del partner non arrivano dal server, e uno «0 €» al posto di un dato assente si leggerebbe come «non prende niente».
+- Esempio reale, consegna #62455: valore prodotti **44,63 €**, quota Deluxy **8,93 €** (20%, la fee di MALI'A), **incasso del partner 35,70 €**.
+
+⬜ **Aperto**: il partner, guardando la propria consegna, non vede questo blocco (tutto il riquadro dei costi è nascosto ai partner). Il suo incasso è suo — se debba vederlo è una decisione da prendere.
+
 #### Form "Nuova consegna" (`/consegne/nuovo`) — campi completi
 
 Data consegna\* · Indirizzo destinatario · Partner · Servizio\* · Fascia oraria consegna (+flag flessibile) · Fascia oraria ritiro\* (+flag flessibile) · Prodotto, quantità, prezzo flessibile · Vendita Deluxy · Valet · Valet Servizio · Stato consegna · Stato del pagamento · SMS telefonici · Pagamento alla consegna (+prezzo contanti) · Prova e reso del prodotto · Customer esistente (CHOOSE EXISTING CUSTOMER) o SAVE CUSTOMER · Cognome/Nome destinatario\* · Citofono\* · Telefono/Email destinatario · Cognome/Nome/Telefono mittente · DA FATTURARE (indirizzo di ritiro, prezzo, plus prezzo) · DA PAGARE (valet salario, plus/minus) · Numero DDT + file DDT · Note · PERSONALIZZAZIONE · Note interne · CODICE DI CONSEGNA RICHIESTO.

@@ -72,9 +72,65 @@
 
 **📕 MANUALE DI FUNZIONALITÀ (28/08/2026, deciso dall'utente): [`docs/guida-visiva.html`](guida-visiva.html) → artifact https://claude.ai/code/artifact/17c9fcad-6a0e-4da7-982f-fb546431d1d1** — la guida visiva per chi arriva nuovo. ⚠️ **Ogni funzionalità aggiunta o modificata va scritta lì, nello stesso commit, e ripubblicata allo STESSO indirizzo** (`Artifact` con lo stesso `file_path`, o con `url` da un'altra sessione: un indirizzo nuovo lascia in mano all'utente un link che invecchia). NON sostituisce `COME-FUNZIONA-APP-DELUXY.md`: quello è il riferimento campo per campo, la guida è l'orientamento. Regola in [REGOLE-DI-LAVORO.md §0-bis](REGOLE-DI-LAVORO.md).
 
-**Ultimo aggiornamento:** 28 agosto 2026 — ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 28 agosto 2026 — 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + «Incasso del partner» nel dettaglio consegna; ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### 🔴 28/08/2026 — IL VALET È PAGATO DUE VOLTE SULLE COPPIE CORPORATE (553,91 €), e «Prezzo» su una vendita non era il prezzo
+
+**Due cose, nate dalla stessa domanda dell'utente** («impossibile che per MALI'A
+venga solo 8,926, dammi il dettaglio»). Aveva ragione su entrambe.
+
+#### 🔴 APERTO — la paga doppia. Sono soldi veri, la decisione è dell'utente.
+
+Una coppia corporate è **UN viaggio solo** scritto su **due righe**. Misurato
+(`api/scripts/verifica-doppia-paga-corporate.mjs`):
+
+- **tutte e 110 le coppie** hanno `payable = true` **su entrambe le righe** (idem `billable`);
+- `SalariesService.DA_PAGARE` filtra proprio su `payable: true` e **non esclude la riga gemella**;
+- **101 coppie su 110** hanno lo **stesso valet** su tutte e due;
+- provato sul conto vero: **85 righe gemelle entrano negli stipendi, per 553,91 €**.
+
+| valet | € dalle righe gemelle |
+|---|---:|
+| Vittorio Acampora | 258,65 € (su 1.084,01 € totali: 31 righe su 97) |
+| Stefano Omini | 182,71 € |
+| Gianluca Martel | 39,84 € |
+| RENATO CASSOLI | 35,43 € |
+| GABRIELE SALAZAR | 18,64 € |
+| Kiyomi Kurihara | 18,64 € |
+
+⚠️ **Non toccato di proposito**: riguarda soldi già usciti, e se la riga gemella
+non debba pagare — o quale delle due debba farlo — è una decisione di business.
+Se si decide di correggere, la strada pulita è `payable = false` **sulla riga di
+vendita** delle coppie (non un filtro nel calcolo: un flag si vede in scheda, un
+filtro nascosto no).
+
+#### ✅ FATTO — «Prezzo» su una vendita non è quello che prende il partner
+
+Su una VENDITA il campo `price` è **la quota che tratteniamo NOI**. Con
+l'etichetta «Prezzo» accanto al valore dei prodotti si legge come l'incasso del
+fornitore — ci sono cascato io per primo, dicendo che MALI'A prendeva 8,93 €
+quando ne prende **35,70**.
+
+Nel **dettaglio consegna** (`web/src/app/pages/delivery-detail.component.ts`):
+l'etichetta diventa «**Quota Deluxy**» quando il modello è VENDITA, e compare la
+riga «**Incasso del partner**» = valore merce − quota. ⭐ **Stessa formula della
+Fatturazione** (`dovutoAlPartner`), non una seconda versione dello stesso
+numero. La riga **non compare** se manca un valore: al valet i soldi del partner
+non arrivano dal server, e uno «0 €» al posto di un dato assente si leggerebbe
+come «non prende niente».
+
+⚠️ **Backtick nel template, quarta volta**: i commenti che avevo scritto dentro
+il `template` contenevano `price` e `dovutoAlPartner` fra backtick, e il
+literal si chiudeva lì. Nei commenti del template si scrive **senza backtick**.
+
+⬜ **Aperto**: il **partner** non vede questo blocco (tutto il riquadro costi è
+nascosto ai partner). Il suo incasso è suo — se debba vederlo è una decisione
+dell'utente.
+
+Build di produzione pulita, deploy `delivery-ny1jh4je2`, etichette verificate
+live su `/i18n/it.json`.
 
 ### ⭐ 28/08/2026 — L'ORDINE AZIENDALE È DAVVERO DUE CONSEGNE: la mia smentita del 24/08 era sbagliata
 

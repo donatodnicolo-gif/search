@@ -645,7 +645,10 @@
       "delivery": "Consegna",
       "plusMinus": "Plus/minus",
       "openDelivery": "Apri la consegna"
-    }
+    },
+    "requestPay": "Richiedi pagamento",
+    "requestSent": "Richiesta inviata a Transactions",
+    "trx": "Transactions"
   },
   "receipts": {
     "title": "Ricevute",
@@ -1820,7 +1823,9 @@
     "noAttachments": "Nessun allegato per questa consegna.",
     "receipt": "Foto della consegna",
     "sign": "Firma di chi ha ricevuto",
-    "fileOnLegacy": "File sul sistema originario: non raggiungibile da qui."
+    "fileOnLegacy": "File sul sistema originario: non raggiungibile da qui.",
+    "quotaDeluxy": "Quota Deluxy",
+    "partnerIncome": "Incasso del partner"
   },
   "confirmDelivery": {
     "title": "Conferma consegna #{{code}}",

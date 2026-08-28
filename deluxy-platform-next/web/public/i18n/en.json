@@ -645,7 +645,10 @@
       "delivery": "Delivery",
       "plusMinus": "Plus/minus",
       "openDelivery": "Open the delivery"
-    }
+    },
+    "requestPay": "Request payment",
+    "requestSent": "Request sent to Transactions",
+    "trx": "Transactions"
   },
   "receipts": {
     "title": "Receipts",
@@ -1820,7 +1823,9 @@
     "noAttachments": "No attachments for this delivery.",
     "receipt": "Delivery photo",
     "sign": "Recipient signature",
-    "fileOnLegacy": "File on the original system: not reachable from here."
+    "fileOnLegacy": "File on the original system: not reachable from here.",
+    "quotaDeluxy": "Deluxy’s cut",
+    "partnerIncome": "Partner’s income"
   },
   "confirmDelivery": {
     "title": "Confirm delivery #{{code}}",
