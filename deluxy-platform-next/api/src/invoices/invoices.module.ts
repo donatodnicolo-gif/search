@@ -22,6 +22,7 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiSecurity, ApiTags } from '@ne
 import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { InvoiceStatus, Role } from '../common/enums';
 import { IVA, conIva } from '../common/iva';
+import { valoreProdotti as calcolaValoreProdotti } from '../common/valore-prodotti';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
 
@@ -141,9 +142,10 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
   // della Finanza, decisa dall'utente il 25-26/08): senza, il venduto usciva
   // zero e al partner non risultava dovuto niente. E' il listino di oggi, non
   // la fotografia di quel giorno.
-  const valoreProdotti = (d.products ?? []).reduce(
-    (s, p) => s + (p.price ?? p.productVariant?.publicPrice ?? p.product?.publicPrice ?? p.product?.price ?? 0) * (p.quantity ?? 1), 0,
-  );
+  // La formula sta in `common/valore-prodotti.ts`: dal 28/08 la usa anche il
+  // dettaglio consegna, per dire al partner quanto incassa. Due copie
+  // avrebbero fatto litigare la scheda con la fattura.
+  const valoreProdotti = calcolaValoreProdotti(d.products as any);
   const vendita = (d.serviceType?.pricingModel ?? '') === 'VENDITA';
   /**
    * Cio' che incassiamo per conto del partner e gli dobbiamo girare.

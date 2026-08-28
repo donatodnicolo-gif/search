@@ -101,9 +101,37 @@
 
 **📕 MANUALE DI FUNZIONALITÀ (28/08/2026, deciso dall'utente): [`docs/guida-visiva.html`](guida-visiva.html) → artifact https://claude.ai/code/artifact/17c9fcad-6a0e-4da7-982f-fb546431d1d1** — la guida visiva per chi arriva nuovo. ⚠️ **Ogni funzionalità aggiunta o modificata va scritta lì, nello stesso commit, e ripubblicata allo STESSO indirizzo** (`Artifact` con lo stesso `file_path`, o con `url` da un'altra sessione: un indirizzo nuovo lascia in mano all'utente un link che invecchia). NON sostituisce `COME-FUNZIONA-APP-DELUXY.md`: quello è il riferimento campo per campo, la guida è l'orientamento. Regola in [REGOLE-DI-LAVORO.md §0-bis](REGOLE-DI-LAVORO.md).
 
-**Ultimo aggiornamento:** 28 agosto 2026 — 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 28 agosto 2026 — 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### 🔬 28/08/2026 — RIVERIFICA SUL DATABASE ORIGINALE: la mia tabella era sbagliata, e ne è uscito un difetto mio
+
+**L’utente**: «son dati completamente sballati, ricontrolla database originale e riverifica uno a uno». Aveva ragione. Riverificato campo per campo sui CSV in `legacy/tabelle/` (`api/scripts/verifica-corporate-vs-legacy.mjs`).
+
+**Cosa avevo sbagliato nella tabella**
+
+1. **«merce 44,63 €» sulla riga di Casati.** Falso: nel legacy `productValue` di #62454 è **59,52**. Il 44,63 è quello di MALI’A. Avevo sommato io le righe di prodotto — che sono il **costo dal fornitore**, non il prezzo a Casati.
+2. **«Fee a listino 25 — mai applicata».** Fuorviante: **è applicata nei dati**, 59,52 × 0,75 = 44,64 = il costo. È vero solo che il *ricalcolo* in fatturazione non la userebbe.
+3. **«Fatturata: sì» per MALI’A** senza dire che nel legacy è **no**: la piattaforma ha generato fatture dopo l’import.
+4. **«Servizio valet: Consegna Standard».** Preso dal listino attuale, non dalla consegna: lì c’è `expertServiceId 256` → servizio **3, che nel legacy non esiste**.
+5. **Il listino 6 €/km 0,20 come spiegazione della paga.** I 15,10 sono **0,90 €/km fuori città × 16,78 km**; col listino urbano sarebbero 9,36.
+
+**Confronto su tutto l’archivio** (61.404 consegne importate): `price` diverso su **1** (#22820), `productValue` su **3**, `billable`/`payable` su **0**, `invoiced` su **19.502** — ma quelle sono **fatture generate dopo** l’import, il CSV è una fotografia. Le 3 righe divergenti **non sono errori d’import**: corrette in piattaforma il 26/08 (#62821/62822 dallo script dei prezzi flessibili, che ha portato la riga da 150 a 80 leggendo `flexiblePrice` dal legacy).
+
+#### 🔴 IL DIFETTO CHE NE È USCITO, ed era MIO, di stamattina
+
+Il riquadro «Il conto di questa vendita» leggeva **`Delivery.productValue`**. Ma quel campo **non è la somma delle righe di prodotto**, e la **fattura si fa sulle righe**. Misurato: su **13.507 vendite, 1.417 (10,5%)** hanno i due valori diversi, per **90.265 €** di scarto. Il partner avrebbe letto un incasso che la sua fattura smentisce.
+
+**Sistemato**: la formula del valore merce vive ora in **`api/src/common/valore-prodotti.ts`** — con la cascata dei ripieghi (riga → variante → prezzo pubblico → prezzo base) — e la usano **sia la fatturazione sia il dettaglio consegna**. Aggiunto `publicPrice` del prodotto al `DELIVERY_INCLUDE`, che mancava: senza, la cascata saltava un gradino. Quando il valore non è calcolabile il riquadro **non compare**: mostrare il numero del campo direbbe un incasso che la fattura nega.
+
+**Prove**: `api/scripts/prova-conto-uguale-a-fattura.mjs` — su 12 vendite scelte **proprio fra le divergenti**, 8 mostrano il valore delle righe, 4 non mostrano niente (giusto), **0 usano il campo vecchio**; la #62455 resta 44,63 / 8,93 / 33,74. Più `prova-conto-vendita.mjs` 8/8 sui ruoli. Deploy `delivery-kiqtu4vzw`.
+
+#### ⬜ Aperti, misurati, non toccati
+
+- 🔴 **553,91 €** di paga doppia sulle coppie corporate (85 righe gemelle).
+- 🔴 **Il listino dei valet è agganciato a servizi inventati dall’import**: **244 righe su 247** puntano a `ServiceType` con `legacyId 9000xx`, e le righe **non conservano il loro id legacy** — il legame col database originale è perso. Su Acampora: legacy `expert-service 256` → servizio 3 (inesistente) salary 6, e `257` → servizio 5 «Servizio Consegna Standard» (prezzo fisso) salary **10**; in piattaforma diventano «Consegna Standard» 6 e «**Servizio a Ora**» 10 — il 10 è passato da un servizio a prezzo fisso a uno **a ora**. Va verificato su tutti prima di toccare le paghe.
+- ⚠️ **Non posso entrare su app.deluxy.it**: nessuna credenziale.
 
 ### 🔴 28/08/2026 — IL VALET È PAGATO DUE VOLTE SULLE COPPIE CORPORATE (553,91 €), e «Prezzo» su una vendita non era il prezzo
 

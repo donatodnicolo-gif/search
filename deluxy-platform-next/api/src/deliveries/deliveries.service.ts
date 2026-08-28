@@ -27,6 +27,7 @@ import {
 import { ambitoTeamLeader, filtroDaAmbito } from '../common/team-leader';
 import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
 import { conIva, soloIva } from '../common/iva';
+import { valoreProdotti } from '../common/valore-prodotti';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.module';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
@@ -130,7 +131,7 @@ const DELIVERY_INCLUDE = {
   // prodotto base (110) fa sembrare sbagliato un numero giusto.
   products: {
     include: {
-      product: { select: { id: true, name: true, price: true } },
+      product: { select: { id: true, name: true, price: true, publicPrice: true } },
       productVariant: { select: { id: true, name: true, price: true, publicPrice: true } },
     },
   },
@@ -546,7 +547,7 @@ export class DeliveriesService {
    */
   private economiaVendita(d: {
     price?: number | null;
-    productValue?: number | null;
+    products?: unknown;
     serviceType?: { pricingModel?: string | null } | null;
   }): {
     incasso: number;
@@ -557,11 +558,15 @@ export class DeliveriesService {
     dovutoNetto: number;
   } | null {
     if (d.serviceType?.pricingModel !== 'VENDITA') return null;
-    const valore = d.productValue;
+    // ⚠️ NON `productValue`: quel campo diverge dalla somma delle righe su
+    // 1.417 vendite su 13.507 (90.265 € di scarto, misurato il 28/08/2026), e
+    // la FATTURA si fa sulle righe. Usando il campo, la scheda avrebbe detto
+    // al partner un incasso che la sua fattura smentisce.
+    const valore = valoreProdotti(d.products as any);
     const quota = d.price;
-    // Senza uno dei due il conto non si fa: un ripiego a zero direbbe al
-    // partner che non prende niente, che è peggio di non dire niente.
-    if (valore == null || quota == null) return null;
+    // Senza il valore o senza la quota il conto non si fa: un ripiego a zero
+    // direbbe al partner che non prende niente, ed è peggio di non dire niente.
+    if (!valore || quota == null) return null;
     const q2 = (n: number) => Math.round(n * 100) / 100;
     return {
       incasso: q2(valore),

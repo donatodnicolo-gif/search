@@ -151,6 +151,7 @@ Sulle consegne con modello **Vendita**, il campo prezzo **non è quello che pren
 | **Totale a te dovuto** | **33,74 €** |
 
 - Il conto lo fa il **server** (`DeliveriesService.economiaVendita`), non la pagina: l'aliquota vive in **`api/src/common/iva.ts`** — spostata lì dalla fatturazione, perché due copie della stessa aliquota sono il modo in cui due schermate iniziano a dire due numeri diversi.
+- ⚠️ **Il valore della merce si somma dalle righe di prodotto, NON dal campo `productValue`.** Misurato il 28/08/2026: su **13.507 vendite, 1.417 (10,5%)** hanno il campo diverso dalla somma delle righe, per **90.265 €** di scarto — e divergono anche nel database originario. La **fattura si fa sulle righe**, quindi la formula vive in un posto solo (`api/src/common/valore-prodotti.ts`) e la usano sia la fatturazione sia la scheda. Se il valore non è calcolabile il riquadro **non compare**: mostrare il numero del campo direbbe al partner un incasso che la sua fattura smentisce.
 - ⚠️ **La Fatturazione mostra 35,70 € per la stessa consegna** ed è giusto: quello è il dovuto **prima** dell'IVA sulla nostra commissione. Sono due numeri diversi, non un disaccordo — la scheda lo **scrive sotto al conto**, perché due importi diversi senza spiegazione fanno dubitare di entrambi.
 - Al **valet** il campo **non arriva affatto** (`economiaVendita` è fra i `SOLDI_DEL_PARTNER`); un **altro partner** non vede nemmeno la consegna. Provato: `api/scripts/prova-conto-vendita.mjs`, 8 prove su 8.
 
