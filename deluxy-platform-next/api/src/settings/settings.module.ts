@@ -59,6 +59,12 @@ export const SETTING_KEYS = [
   // ricopiata (Standard §7: cache TTL breve si', tabelle-copia no).
   'lineeUrl',
   'lineeApiKey',
+  // Deluxy Transactions (28/08/2026): il collettore unico dei pagamenti.
+  // Chiave e segreto HMAC con cui la piattaforma CHIEDE i pagamenti dei valet
+  // e verifica gli esiti che tornano sul webhook. Le env hanno la precedenza.
+  'transactionsUrl',
+  'transactionsApiKey',
+  'transactionsHmacSecret',
 ] as const;
 
 @Injectable()

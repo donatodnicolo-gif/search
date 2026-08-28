@@ -19,7 +19,8 @@ const server = express();
 let bootstrapped: Promise<void> | null = null;
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
+  // rawBody: serve al webhook di Deluxy Transactions (HMAC sul corpo grezzo).
+  const app = await NestFactory.create(AppModule, new ExpressAdapter(server), { rawBody: true });
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.init();

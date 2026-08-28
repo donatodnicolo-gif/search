@@ -1523,6 +1523,14 @@ model Salary {
   sentAt         DateTime?
   approvedAt     DateTime?
   paidAt         DateTime?
+  /// Richiesta di pagamento inoltrata a Deluxy Transactions (28/08/2026):
+  /// riferimento TRX-…, specchio dell'esito notificato (rileggibile live con
+  /// GET ?aggiornateDa= — NON è una verità locale), quando è partita, e
+  /// l'ultimo errore d'invio. PAID arriva dal webhook, non si dichiara più.
+  richiestaRif   String?
+  richiestaStato String?
+  richiestaIl    DateTime?
+  richiestaEsito String?
   /// Le consegne pagate da questo stipendio, una riga ciascuna.
   ///
   /// Prima lo stipendio era un totale e basta: non si sapeva quali consegne
@@ -1597,6 +1605,12 @@ model Payment {
   amount      Float
   description String?
   status      String   @default("REQUESTED")
+  /// Richiesta a Deluxy Transactions per rimborsi/reclami approvati (specchio
+  /// dell'esito notificato, come su Salary).
+  richiestaRif   String?
+  richiestaStato String?
+  richiestaIl    DateTime?
+  richiestaEsito String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

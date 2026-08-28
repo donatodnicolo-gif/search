@@ -6,7 +6,9 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // rawBody: il webhook di Deluxy Transactions verifica l'HMAC sul corpo
+  // GREZZO — il JSON riserializzato non combacerebbe mai con la firma.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
 
   app.setGlobalPrefix('api/v1');
   // File caricati (es. ricevute firmate) serviti staticamente da /uploads.

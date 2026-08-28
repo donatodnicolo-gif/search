@@ -56,6 +56,11 @@ interface Salary {
   documentType: string;
   status: string;
   archived: boolean;
+  // Richiesta di pagamento inoltrata a Deluxy Transactions (specchio
+  // dell'esito notificato: PAID lo scrive il webhook, non un bottone).
+  richiestaRif?: string | null;
+  richiestaStato?: string | null;
+  richiestaEsito?: string | null;
   valet?: { id: string; firstName: string; lastName: string; hasVat: boolean };
   receipts?: { id: string; signed: boolean }[];
   claims?: { id: string; amount: number; status: string }[];
@@ -378,6 +383,12 @@ const NEXT: Record<string, { next: string; key: string }> = {
                   </td>
                 }
                 <td class="row-actions">
+                  @if (canRequestPay(s)) {
+                    <button class="link-btn" [disabled]="busy() === s.id" (click)="requestPay(s)">{{ 'salaries.requestPay' | translate }}</button>
+                  }
+                  @if (s.richiestaRif && !isPaid(s)) {
+                    <span class="muted" [title]="s.richiestaEsito || ''">{{ s.richiestaRif }} · {{ s.richiestaStato || '…' }}</span>
+                  }
                   @if (canManage() && view() === 'active' && next(s.status); as n) {
                     <button class="link-btn" [disabled]="busy() === s.id" (click)="advance(s, n.next)">{{ ('salaries.action.' + n.key) | translate }}</button>
                   }
@@ -558,6 +569,25 @@ export class SalariesListComponent {
   canManage(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION';
+  }
+
+  /** «Richiedi pagamento» a Deluxy Transactions: solo ADMIN (come l'API),
+   *  solo su APPROVED, e non se una richiesta è già in piedi — una richiesta
+   *  rifiutata o annullata là si può rifare. */
+  canRequestPay(s: Salary): boolean {
+    if (this.auth.user()?.role !== 'ADMIN') return false;
+    if (s.status !== 'APPROVED') return false;
+    if (!s.richiestaRif) return true;
+    return s.richiestaStato === 'annullata' || s.richiestaStato === 'rifiutata';
+  }
+
+  requestPay(s: Salary): void {
+    this.error.set(null);
+    this.busy.set(s.id);
+    this.http.post(`${environment.apiUrl}/salaries/${s.id}/richiedi-pagamento`, {}).subscribe({
+      next: () => { this.busy.set(null); this.banner.set(this.translate.instant('salaries.requestSent')); this.load(); },
+      error: (err) => { this.busy.set(null); this.error.set(err?.error?.message ?? 'Errore nell\'invio della richiesta'); },
+    });
   }
 
   constructor() {

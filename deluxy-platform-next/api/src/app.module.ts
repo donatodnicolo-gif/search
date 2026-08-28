@@ -8,6 +8,7 @@ import { RichiesteModule } from './richieste/richieste.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
+import { TransactionsModule } from './transactions/transactions.module';
 import { CategoriesModule } from './categories/categories.module';
 import { CustomersModule } from './customers/customers.module';
 import { DeliveriesModule } from './deliveries/deliveries.module';
@@ -77,6 +78,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     CalculationsModule,
     FinanceModule,
     WoocommerceModule,
+    TransactionsModule,
   ],
   providers: [
     // Guard globali: JWT su tutto (tranne @Public), poi controllo ruoli
