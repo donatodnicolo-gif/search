@@ -23,6 +23,22 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 27/08 (sera) — Sei richieste dell utente, in fila
+
+| Cosa | Dove | Nota |
+|---|---|---|
+| **La finestra APP si trascina** | `useSpostabile.ts` (nuovo), `InvioAppDialog`, CSS | Chiede partita IVA/PEC/codice destinatario, che stanno nella mail SOTTO. Limiti: resta sempre un pezzo a schermo, in alto ci si ferma al bordo (se la maniglia esce non si riprende); doppio clic = torna al centro; niente su telefono; lo spostamento non si conserva |
+| **Interessi a pastiglie** | tipo `multi` in `CampoAzione`, `CampoMulti` | I nove valori erano scritti nell aiuto: un elenco travestito da campo libero, e chi sbagliava una maiuscola se lo vedeva scartare in silenzio da `interessiCanonici` |
+| **Il riassunto dice cosa hai GIÀ fatto** | `messaggio/[id]/page.tsx`, `RiassuntoConversazione` | Il filtro c era, ma girava solo alla GENERAZIONE: misurato, riassunto delle 15:25:02 e trattativa aperta alle 15:26:29. Ora si legge al RENDER, su tutta la conversazione, e solo per le azioni che `scrive` (una verifica si rifà quando si vuole) |
+| **Pro-forma da Scout** | `commerciale.proforma`, edge `proforma` | Era `finance.proforma` e chiamava Finance dritto: la carta intestata la sceglie SCOUT sul server, quindi uscivano con quella predefinita invece che con quella del brand. La funzione edge ora accetta anche `x-api-key` (come `preventivi`): AI Mail una sessione utente di Scout non ce l ha |
+| **Emetti fattura** | `POST /api/fattura` in FINANCE + `finance.fattura` | ⚠️ Non è `/api/proforma`: là esce una BOZZA, qui una fattura elettronica vera. Difese: doppione (stesso partner+importo entro 30 min → 409, si forza con `forza:true`), prezzi a zero/negativi rifiutati, cliente ripreso dall ultima fattura e MAI inventato, errore di FIC riportato com è. NON sta in `dalRiassunto`: una fattura non si suggerisce |
+| **Cestina chiede quale** | `AzioniMessaggio`, `smaltisciEProssimo(…, soloQuesta)` | Buttava tutta la conversazione: su uno scambio da 67 l avviso arrivava a cose fatte. Ora chiede, con **«Solo questa» per primo**; la domanda compare solo se c è più di una mail. Il default del parametro resta il thread perché lo usano gli ELENCHI, dove una riga È una conversazione |
+| **Link nudi cliccabili** | `collegaUrlNudi` in `sanitizzaHtml.ts` | Si cammina sui pezzi (tag/testo): una sostituzione globale entrerebbe negli attributi e negli `<style>`. La punteggiatura finale resta fuori. Solo dove la mail si LEGGE, non in `sanitizzaHtml` (serve anche alla citazione di una risposta). 11 prove |
+
+⚠️ **Trappola ripetuta, e presa dal vivo**: `/api/fattura` deployata rispondeva **307** invece di 401 — non era nelle eccezioni del middleware di Finance. `api/fatture` non copre `api/fattura` perché l ancoraggio `(?:/|$)` è voluto.
+
+---
+
 ### 27/08 — VERIFICA OSTILE delle tre novità: 8 difetti veri, corretti
 
 Due agenti col mandato di **demolire** quello che avevo appena pubblicato (assenza; tendina
