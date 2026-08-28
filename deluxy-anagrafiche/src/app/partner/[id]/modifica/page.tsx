@@ -8,7 +8,7 @@ import { aggiornaPartner } from "@/lib/azioni";
 import { getOpzioniAccount } from "@/lib/commerciali";
 import { DESCRIZIONI_TIPO_LUOGO, ETICHETTE_TIPO_LUOGO, TIPI_LUOGO } from "@/lib/luoghi";
 import { prisma } from "@/lib/db";
-import { leggiSoggetto } from "@/lib/soggetto-fiscale";
+import { INCLUDE_CAPOGRUPPO, leggiFatturazione } from "@/lib/fatturazione";
 
 export const dynamic = "force-dynamic";
 
@@ -53,11 +53,7 @@ export default async function Modifica({
   const sp = await searchParams;
   const p = await prisma.partner.findUnique({
     where: { id },
-    include: {
-      contatti: true,
-      capogruppo: { select: { nome: true } },
-      soggettoFiscale: { include: { gruppo: { select: { id: true, nome: true } } } },
-    },
+    include: { contatti: true, capogruppo: true },
   });
   if (!p) notFound();
 
@@ -68,29 +64,8 @@ export default async function Modifica({
   // Chi può seguire l'anagrafica: il team commerciale arriva da Budgets.
   const opzioniAccount = await getOpzioniAccount(p.account);
 
-  // ⚠️ Fatturazione della SOCIETÀ collegata a questa sede: si compila una
-  // volta e vale per tutte le sedi che fatturano con quella società — non per
-  // tutte quelle che hanno la stessa insegna, che possono essere due società.
-  const fin = leggiSoggetto(p);
-  const haSedi = await prisma.partner.count({
-    where: {
-      attivo: true,
-      NOT: { id: p.id },
-      OR: [
-        { nome: { equals: (p.capogruppo?.nome ?? p.nome).trim(), mode: "insensitive" } },
-        { capogruppoId: p.id },
-      ],
-    },
-  });
-
-  // ⚠️ Quante sedi fattura DAVVERO questa società. È un'altra domanda da
-  // «quante sedi ha l'insegna»: fino al 27/08/2026 qui si prometteva che il
-  // salvataggio valeva «per tutte le sedi dell'insegna», e infatti i valori
-  // venivano ricopiati su tutte — anche su quelle che fatturano con un'altra
-  // società. Adesso vale per le sedi collegate a QUESTO soggetto, e basta.
-  const sediDelSoggetto = p.soggettoFiscaleId
-    ? await prisma.partner.count({ where: { attivo: true, soggettoFiscaleId: p.soggettoFiscaleId } })
-    : 0;
+  // La fatturazione di CHI FATTURA questa azienda (la sua se paga da sé).
+  const fin = leggiFatturazione(p);
 
   // Referenti esistenti più due righe vuote per aggiungerne
   const righe = [...p.contatti, ...Array.from({ length: 2 }, () => null)];
@@ -187,30 +162,19 @@ export default async function Modifica({
             <h2 className="scheda-titolo">
               Dati finanziari <span className="scheda-sub">fatturazione e pagamenti</span>
             </h2>
-            <p className="testo-guida" style={{ marginTop: 0 }}>
-              {sediDelSoggetto > 1 ? (
-                <>
-                  Sono i dati di <strong>{fin.ragioneSociale}</strong>, la società che fattura questa
-                  sede: salvandoli valgono per tutte e {sediDelSoggetto} le sedi che fattura.{" "}
-                  {haSedi + 1 > sediDelSoggetto && (
-                    <>
-                      ⚠️ L&apos;insegna ha {haSedi + 1} sedi in tutto: le altre fatturano con una
-                      società diversa e <strong>non</strong> vengono toccate.
-                    </>
-                  )}
-                </>
-              ) : fin.id ? (
-                <>
-                  Sono i dati di <strong>{fin.ragioneSociale}</strong>, la società che fattura questa
-                  sede. Nessun&apos;altra sede è collegata a questa società.
-                </>
-              ) : (
-                <>
-                  Questa sede non ha ancora una società di fatturazione. Salvando la P. IVA ne nasce
-                  una — o, se quella P. IVA è già nel registro, la sede si collega a quella.
-                </>
-              )}
-            </p>
+            {/* Chi paga: da sé (dati qui sotto) o la capogruppo (usa i suoi). */}
+            <div className="campo-modulo" style={{ marginTop: 0 }}>
+              <label htmlFor="pagaDaSe">Chi fattura questa azienda</label>
+              <select id="pagaDaSe" name="pagaDaSe" defaultValue={p.pagaDaSe === false ? "no" : "si"}>
+                <option value="si">Paga da sé — ha la sua P. IVA e IBAN</option>
+                <option value="no">Paga la capogruppo — usa la fatturazione del capogruppo</option>
+              </select>
+              <p className="testo-guida">
+                {p.capogruppo
+                  ? `Se «paga la capogruppo», la fatturazione è quella di ${p.capogruppo.nome} e i campi qui sotto restano vuoti.`
+                  : "«Paga la capogruppo» ha effetto solo se questa azienda è dentro un capogruppo (si assegna dalla scheda)."}
+              </p>
+            </div>
             <div className="modulo">
               <Campo etichetta="PEC" nome="pec">
                 <input id="pec" name="pec" type="email" defaultValue={fin.pec ?? ""} />

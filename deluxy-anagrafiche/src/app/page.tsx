@@ -81,10 +81,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
 
   const where: Prisma.PartnerWhereInput = { attivo: !inArchivio };
   if (filtri.q) where.AND = whereRicerca(filtri.q);
-  // Le sedi di un gruppo non compaiono come righe a sé: stanno annidate sotto
-  // l'insegna madre. Durante una ricerca invece l'elenco torna piatto, così
-  // una sede resta comunque trovabile per nome.
-  if (!filtri.q) where.capogruppoId = null;
+  // Lista piatta: ogni azienda è una riga. Il raggruppamento (capogruppo) ha
+  // la sua pagina; qui le anagrafiche con lo STESSO NOME si mostrano insieme.
   if (filtri.categoria) where.categoria = filtri.categoria;
   if (filtri.citta) where.citta = filtri.citta;
   if (filtri.stato) where.stato = filtri.stato;
@@ -129,11 +127,6 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
         // loro sedi — voleva dire trascinarsi nomi, email, note e id HubSpot
         // che nessuna colonna mostra.
         contatti: { select: { telefono: true }, where: { telefono: { not: null } }, take: 1 },
-        sedi: {
-          where: { attivo: !inArchivio },
-          include: { contatti: { select: { telefono: true }, where: { telefono: { not: null } }, take: 1 } },
-          orderBy: { nome: "asc" },
-        },
       },
       // Nome come criterio secondario per un ordine stabile a parità di valore;
       // per "Ultimo contatto" i record senza data vanno in fondo
@@ -249,7 +242,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
 
   // Le celle di una riga dell'elenco: identiche per un'insegna madre e per una
   // sua sede (ogni sede ha stato, interessi e azioni propri).
-  type RigaPartner = (typeof partner)[number]["sedi"][number];
+  type RigaPartner = (typeof partner)[number];
   const Celle = ({ p, sede }: { p: RigaPartner; sede?: boolean }) => (
     <>
       <td>
@@ -395,7 +388,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
   for (const p of partner) {
     const chiave = p.nome.trim().toUpperCase();
     const i = indiceGruppo.get(chiave);
-    const conSedi = [p, ...p.sedi].filter((m) => !gia.has(m.id));
+    const conSedi = [p].filter((m) => !gia.has(m.id));
     for (const m of conSedi) gia.add(m.id);
     if (!conSedi.length) continue;
     if (i === undefined) {

@@ -2,38 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 
-// GET /api/v1/gruppi — le ENTITÀ commerciali del registro.
+// GET /api/v1/gruppi — i CAPOGRUPPO del registro.
 //
-// L'entità è il cliente come lo intende chi vende, SOPRA le sue società di
-// fatturazione: «CHANEL» sono tre società che emettono fatture separate ma
-// commercialmente sono un cliente solo. La catena è
-// **negozio → società → entità**.
+// Un capogruppo ha dentro AZIENDE (28/08/2026, modello semplice richiesto
+// dall'utente). È l'unico raggruppamento: ha sostituito società/entità/insegna,
+// che confondevano. ⚠️ Sola lettura: il capogruppo lo assegna una PERSONA.
 //
-// ⚠️ Sola lettura di proposito. Il gruppo lo assegna una PERSONA dal registro:
-// non si deduce dal nome (dedurlo unirebbe le cinque «PASTICCERIA …», che sono
-// aziende diverse) e non lo scrive nessuna app. Aprirlo in scrittura vorrebbe
-// dire ritrovarsi tre entità per lo stesso cliente, scritte da tre app.
-//
-// ⚠️⚠️ Qui NON ci sono importi, e non ce ne devono essere: il fatturato lo
-// possiede FINANCE. Questa rotta dà gli AGGANCI — quali società e quali
-// anagrafiche compongono l'entità — perché chi ha i soldi possa sommarli.
+// ⚠️ Niente importi: il fatturato lo possiede FINANCE. Qui ci sono gli AGGANCI
+// (quali aziende compongono il capogruppo) perché chi ha i soldi possa sommarli.
 export async function GET(req: NextRequest) {
   const client = await autentica(req);
   if (client instanceof NextResponse) return client;
 
   const q = req.nextUrl.searchParams.get("q")?.trim();
-  // ⚠️ Un elenco senza tetto è un'estrazione di massa che aspetta solo di
-  // crescere: oggi i gruppi sono pochi, e proprio per questo il tetto si mette
-  // adesso, quando non si nota.
   const take = Math.min(Number(req.nextUrl.searchParams.get("take") ?? 200) || 200, 200);
-  const gruppi = await prisma.gruppoAziendale.findMany({
+  const gruppi = await prisma.capogruppo.findMany({
     where: q ? { nome: { contains: q, mode: "insensitive" } } : undefined,
     orderBy: { nome: "asc" },
     take,
     include: {
-      societa: {
-        select: { id: true, ragioneSociale: true, pIva: true, _count: { select: { sedi: true } } },
-        orderBy: { ragioneSociale: "asc" },
+      aziende: {
+        where: { attivo: true },
+        select: { id: true, nome: true, citta: true, pagaDaSe: true },
+        orderBy: { nome: "asc" },
       },
     },
   });
@@ -44,11 +35,13 @@ export async function GET(req: NextRequest) {
       id: g.id,
       nome: g.nome,
       note: g.note,
-      societa: g.societa.map((s) => ({
-        id: s.id,
-        ragioneSociale: s.ragioneSociale,
-        pIva: s.pIva,
-        sedi: s._count.sedi,
+      // La capogruppo fattura per le aziende che «pagano la capogruppo».
+      pIva: g.pIva,
+      aziende: g.aziende.map((a) => ({
+        id: a.id,
+        nome: a.nome,
+        citta: a.citta,
+        pagaDaSe: a.pagaDaSe,
       })),
     })),
   });

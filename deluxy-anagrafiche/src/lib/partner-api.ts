@@ -1,13 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { valutazioneD2C } from "./feedback-d2c";
-import { CAMPI_SOGGETTO, leggiSoggetto } from "./soggetto-fiscale";
-import type { DatiSoggetto } from "./soggetto-fiscale";
+import { CAMPI_FISCALI, INCLUDE_CAPOGRUPPO, leggiFatturazione } from "./fatturazione";
 
-// ⚠️ Una scrittura porta insieme i campi del LUOGO e quelli della SOCIETÀ, e
-// arriva piatta com'è sempre arrivata: è `separaDati()` a dividerli prima di
-// toccare il database. Il tipo lo dice, così nessuno prova a passarla intera
-// a un `partner.create`.
-export type DatiScrittura = Prisma.PartnerUncheckedCreateInput & DatiSoggetto;
+// La fatturazione è tornata SULL'AZIENDA (28/08/2026): i campi fiscali sono
+// campi normali del Partner, quindi una scrittura è un semplice create/update.
+export type DatiScrittura = Prisma.PartnerUncheckedCreateInput;
 import { isLivello, isStato, isStatoFinanziario, isStatoFornitore, normalizzaStatoAnalisi } from "./stati";
 
 // Campi scalari accettati in scrittura dalle API (POST/PATCH).
@@ -79,7 +76,7 @@ export function validaPartner(
   // esattamente ciò che ha letto.
   if (body.datiFinanziari && typeof body.datiFinanziari === "object") {
     const nidi = body.datiFinanziari as Record<string, unknown>;
-    for (const campo of CAMPI_SOGGETTO) {
+    for (const campo of CAMPI_FISCALI) {
       if (campo in nidi && !(campo in body)) body = { ...body, [campo]: nidi[campo] };
     }
   }
@@ -177,7 +174,7 @@ export function validaPartner(
 }
 
 type PartnerConContatti = Prisma.PartnerGetPayload<{
-  include: { contatti: true; soggettoFiscale: true };
+  include: { contatti: true; capogruppo: true };
 }> & {
   riferimenti?: { sistema: string; idEsterno: string }[];
 };
@@ -190,7 +187,7 @@ export function serializzaPartner(
   p: PartnerConContatti,
   opzioni: { vedeDatiFinanziari?: boolean; vedePersone?: boolean } = {},
 ) {
-  const sog = leggiSoggetto(p);
+  const fat = leggiFatturazione(p);
   const vede = opzioni.vedeDatiFinanziari === true;
   const vedePersone = opzioni.vedePersone === true;
   return {
@@ -222,24 +219,15 @@ export function serializzaPartner(
     indirizzo: p.indirizzo,
     email: p.email,
     telefono: p.telefono,
-    // ⚠️ P.IVA, codice fiscale e fatturazione sono della SOCIETÀ che emette la
-    // fattura, non del negozio: si leggono dal soggetto fiscale collegato.
-    // La forma della risposta è quella di sempre, così nessuna app cambia.
-    //
-    // ⚠️⚠️ Vuoto vuol dire «questa sede non è collegata a nessun soggetto»,
-    // non «non ha fatturazione». Prima del 27/08/2026 al suo posto compariva
-    // la fatturazione di un'ALTRA sede della stessa insegna, che è una
-    // risposta peggiore del silenzio: si scriveva un IBAN non suo.
-    pIva: sog.pIva,
-    codiceFiscale: sog.codiceFiscale,
-    // Id e ragione sociale di chi fattura: servono a chi deve emettere o
-    // pagare un documento, e a capire quali sedi condividono la stessa società.
-    soggettoFiscale: sog.id ? { id: sog.id, ragioneSociale: sog.ragioneSociale } : null,
-    // L'ENTITÀ commerciale sopra la società: «CHANEL» sono tre società che
-    // fatturano separatamente ma sono un cliente solo. ⚠️ Vuoto vuol dire «non
-    // è in nessun gruppo»: il gruppo lo assegna una persona nel registro, non
-    // si deduce dal nome (le cinque «PASTICCERIA …» non sono un'entità).
-    gruppo: sog.gruppo,
+    // ⚠️ P.IVA, codice fiscale e fatturazione sono di CHI FATTURA questa azienda:
+    // i suoi campi se «paga da sé», quelli della capogruppo se «paga la
+    // capogruppo». La forma della risposta è quella di sempre, così nessuna app
+    // cambia. ⚠️⚠️ Vuoto = «non lo sappiamo», non «zero».
+    pIva: fat.pIva,
+    codiceFiscale: fat.codiceFiscale,
+    // Chi paga: da sé o la capogruppo. E il capogruppo a cui appartiene.
+    pagaDaSe: fat.pagaDaSe,
+    capogruppo: fat.capogruppo,
     // ⚠️ IBAN, intestatario del conto, PEC, SDI e contatto amministrativo escono
     // SOLO alle chiavi con l'ambito «Dati finanziari». Fino al 27/08/2026 li
     // vedeva qualsiasi chiave attiva: col registro usato anche per i FORNITORI
@@ -250,22 +238,22 @@ export function serializzaPartner(
     // di campi vuoti: «non ti è permesso vederlo» e «non c'è» sono due risposte
     // diverse, e confonderle manda un'app a creare un dato che esiste già.
     datiFinanziari: !vede ? null : {
-      pec: sog.pec,
-      codiceSdi: sog.codiceSdi,
-      iban: sog.iban,
-      intestatarioConto: sog.intestatarioConto,
-      banca: sog.banca,
-      metodoPagamento: sog.metodoPagamento,
-      condizioniPagamento: sog.condizioniPagamento,
+      pec: fat.pec,
+      codiceSdi: fat.codiceSdi,
+      iban: fat.iban,
+      intestatarioConto: fat.intestatarioConto,
+      banca: fat.banca,
+      metodoPagamento: fat.metodoPagamento,
+      condizioniPagamento: fat.condizioniPagamento,
       // Se valorizzato: paga la centrale indicata, non la singola sede.
-      gruppoPagamento: sog.gruppoPagamento,
-      noteAmministrative: sog.noteAmministrative,
-      amministrazioneNome: sog.amministrazioneNome,
-      amministrazioneTelefono: sog.amministrazioneTelefono,
-      amministrazioneEmail: sog.amministrazioneEmail,
+      gruppoPagamento: fat.gruppoPagamento,
+      noteAmministrative: fat.noteAmministrative,
+      amministrazioneNome: fat.amministrazioneNome,
+      amministrazioneTelefono: fat.amministrazioneTelefono,
+      amministrazioneEmail: fat.amministrazioneEmail,
       // Chi li ha scritti e quando (asOf), così le app capiscono se il registro
       // ha una versione più fresca della loro.
-      aggiornamenti: sog.aggiornamenti,
+      aggiornamenti: fat.aggiornamenti,
     },
     account: p.account,
     ultimaVisita: p.ultimaVisita,

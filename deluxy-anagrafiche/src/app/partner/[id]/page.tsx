@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
 import { AggiungiReferente } from "@/components/AggiungiReferente";
-import { AggiungiSede } from "@/components/AggiungiSede";
 import { ReferentiDallaRubrica } from "@/components/ReferentiDallaRubrica";
 import { UnisciAnagrafiche } from "@/components/UnisciAnagrafiche";
 import { FormFeedbackD2C } from "@/components/FormFeedbackD2C";
-import { GestioneGruppo } from "@/components/GestioneGruppo";
 import type { RigaContatto } from "@/components/google-rubrica";
 import { MenuInteressi } from "@/components/MenuInteressi";
 import { SalvaRubricaAuto } from "@/components/SalvaRubricaAuto";
@@ -33,7 +31,7 @@ import {
 import { linkContattoHubspot } from "@/lib/hubspot-link";
 import { eAzione, etichettaCampo, etichettaOrigine } from "@/lib/log-modifiche";
 import { COLORE_TIPO_LUOGO, etichettaTipoLuogo, isTipoLuogo } from "@/lib/luoghi";
-import { leggiSoggetto } from "@/lib/soggetto-fiscale";
+import { leggiFatturazione } from "@/lib/fatturazione";
 import { eAffiliatoReseller } from "@/lib/interessi";
 import { getLinee } from "@/lib/linee";
 import { ETICHETTE_STATO, isStato, nomeEventoStato } from "@/lib/stati";
@@ -63,104 +61,34 @@ export default async function Dettaglio({
     where: { id },
     include: {
       contatti: { where: { archiviato: false } },
-      // Ultimi giudizi interni: la pagella (media) sta sul record, qui servono
-      // i singoli feedback per capire *perché* quel voto.
       feedbackD2C: { orderBy: { dataFeedback: "desc" }, take: 30 },
       passaggi: { orderBy: { creatoIl: "desc" } },
-      // Log delle modifiche: campo per campo, chi e quando. Gli ultimi 120 —
-      // oltre non si legge, e la scheda non deve caricarsi un archivio.
       modifiche: { orderBy: { creatoIl: "desc" }, take: 120 },
-      capogruppo: { select: { id: true, nome: true, citta: true } },
-      // Chi fattura questa sede: la società, non il negozio — e l'entità di cui
-      // quella società fa parte.
-      soggettoFiscale: { include: { gruppo: { select: { id: true, nome: true } } } },
-      sedi: {
-        where: { attivo: true },
-        select: {
-          id: true,
-          nome: true,
-          citta: true,
-          // Due sedi possono stare nella stessa città: a distinguerle è il nome
-          // della sede, e in mancanza l'indirizzo.
-          sede: true,
-          tipoLuogo: true,
-          indirizzo: true,
-          stato: true,
-          categoria: true,
-          contatti: { select: { id: true } },
-        },
-        orderBy: [{ citta: "asc" }, { indirizzo: "asc" }],
-      },
+      // Il capogruppo a cui l'azienda appartiene, con la sua fatturazione (per
+      // le aziende che «pagano la capogruppo»).
+      capogruppo: true,
     },
   });
   if (!p) notFound();
 
-  // ⚠️ PRESTAZIONI: tutto quello che serve DOPO aver letto l'anagrafica va in
-  // un solo giro. Erano quattro await in fila (fatturazione dell'insegna,
-  // altri luoghi, distribuzione dei voti, linee): quattro andate-e-ritorno
-  // verso Francoforte, ~250 ms l'una, su una pagina che si riapre a ogni
-  // cambio di stato.
-  const haSedi = p.sedi.length > 0 || Boolean(p.capogruppo);
-  // Le anagrafiche con la STESSA INSEGNA (stesso nome) sono già lo stesso
-  // gruppo, anche senza legame manuale: è così che le mostra l'elenco ed è così
-  // che condividono la fatturazione. Sulla scheda però non si vedevano, e chi
-  // guardava una sede pensava di doverle collegare a mano — cercando di dare a
-  // un'anagrafica due insegne, che il modello non permette e non deve.
-  const nomeInsegna = (p.capogruppo?.nome ?? p.nome).trim();
-  // ⚠️ La fatturazione è di CHI FATTURA, non dell'insegna: si legge dal
-  // soggetto collegato. Prima si prendeva «il primo valore compilato fra le
-  // sedi con lo stesso nome», che su un'insegna con due società mostrava —
-  // e faceva salvare — l'IBAN dell'altra.
-  const fin = leggiSoggetto(p);
-  // Quante sedi fattura questa società: dirlo è ciò che distingue «la
-  // fatturazione di questo negozio» da «la fatturazione condivisa».
-  const sediDelSoggetto = fin.id
-    ? await prisma.partner.count({ where: { attivo: true, soggettoFiscaleId: fin.id } })
-    : 0;
-  // I gruppi già in uso, per suggerirli invece di farli riscrivere: «Chanel» e
-  // «CHANEL» scritti a mano due volte sarebbero due entità che non si sommano.
-  const gruppiEsistenti = fin.id
-    ? await prisma.gruppoAziendale.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } })
-    : [];
-  const [altriLuoghi, perVoto, linee, stessaInsegna] = await Promise.all([
-    // Gli altri luoghi della stessa insegna: servono per spostare un referente
-    // sulla sede dove lavora davvero. Da una sede si vedono la madre e le
-    // sorelle; dalla madre, le sue sedi.
-    p.capogruppo
-    ? prisma.partner.findMany({
-        where: {
-          attivo: true,
-          NOT: { id: p.id },
-          OR: [{ id: p.capogruppo.id }, { capogruppoId: p.capogruppo.id }],
-        },
-        select: { id: true, nome: true, citta: true, sede: true, indirizzo: true },
-        orderBy: [{ citta: "asc" }, { indirizzo: "asc" }],
-      })
-    : Promise.resolve(
-        p.sedi.map((s) => ({ id: s.id, nome: s.nome, citta: s.citta, sede: s.sede, indirizzo: s.indirizzo })),
-      ),
-    // La distribuzione delle stelle conta TUTTI i feedback, non solo i 30 elencati.
+  // Chi fattura questa azienda: la sua se paga da sé, la capogruppo se la paga lei.
+  const fin = leggiFatturazione(p);
+  const [altriLuoghi, perVoto, linee, capogruppiEsistenti] = await Promise.all([
+    p.capogruppoId
+      ? prisma.partner.findMany({
+          where: { attivo: true, capogruppoId: p.capogruppoId, NOT: { id: p.id } },
+          select: { id: true, nome: true, citta: true, sede: true, indirizzo: true },
+          orderBy: [{ citta: "asc" }, { nome: "asc" }],
+        })
+      : Promise.resolve(
+          [] as { id: string; nome: string; citta: string | null; sede: string | null; indirizzo: string | null }[],
+        ),
     prisma.feedbackD2C.groupBy({ by: ["voto"], where: { partnerId: p.id }, _count: { _all: true } }),
     getLinee(),
-    prisma.partner.findMany({
-      where: {
-        attivo: true,
-        NOT: { id: p.id },
-        nome: { equals: nomeInsegna, mode: "insensitive" },
-        capogruppoId: null,
-        ...(p.capogruppo ? { NOT: [{ id: p.id }, { id: p.capogruppo.id }] } : {}),
-      },
-      select: { id: true, nome: true, sede: true, citta: true, indirizzo: true, stato: true },
-      orderBy: [{ citta: "asc" }],
-    }),
+    prisma.capogruppo.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
   ]);
-  // Tutti gli ALTRI luoghi della stessa insegna, comunque siano legati: le sedi
-  // formali, la madre e le sorelle quando questa è una sede, e le anagrafiche
-  // con lo stesso nome che stanno insieme senza legame manuale. Deduplicati:
-  // una stessa anagrafica può arrivare da due strade.
-  const luoghiInsegna = [...p.sedi, ...(p.capogruppo ? altriLuoghi : []), ...stessaInsegna].filter(
-    (x, i, tutti) => tutti.findIndex((y) => y.id === x.id) === i,
-  );
+  const luoghiInsegna = altriLuoghi;
+  const haSedi = Boolean(p.capogruppo);
   const etichettaLuogo = (l: { nome: string; citta: string | null; sede: string | null; indirizzo: string | null }) =>
     [l.sede, l.citta, l.sede ? null : l.indirizzo].filter(Boolean).join(" · ") || l.nome;
 
@@ -295,23 +223,8 @@ export default async function Dettaglio({
                 ☎ Salva in rubrica
               </a>
             )}
-            {/* Una sede non può avere sedi proprie: il gruppo è a un livello */}
-            {p.attivo && !p.capogruppo && (
-              <AggiungiSede
-                madreId={p.id}
-                nome={p.nome}
-                citta={p.citta}
-                provincia={p.provincia}
-                ragioneSociale={p.ragioneSociale}
-                categoria={p.categoria}
-                telefono={p.telefono}
-                email={p.email}
-                compatto
-              />
-            )}
-            {p.attivo && !p.capogruppo && p.sedi.length === 0 && (
-              <GestioneGruppo partnerId={p.id} nome={p.nome} />
-            )}
+            {/* Il raggruppamento è nella sezione «Capogruppo» sotto: si assegna
+                l'azienda a un capogruppo per nome. */}
             {/* I doppioni non si raggruppano, si uniscono: due schede della
                 stessa azienda vogliono dire due stati e due valutazioni. */}
             {p.attivo && <UnisciAnagrafiche partnerId={p.id} nome={p.nome} />}
@@ -372,22 +285,40 @@ export default async function Dettaglio({
 
       {righeRubrica.length > 0 && <SalvaRubricaAuto contatti={righeRubrica} />}
 
-      {p.capogruppo && (
-        <section className="scheda" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <p style={{ margin: 0, fontSize: 13.5 }}>
-            Sede del gruppo{" "}
-            <a href={`/partner/${p.capogruppo.id}`}>
-              <strong>{p.capogruppo.nome}</strong>
-            </a>
-            {p.capogruppo.citta && <span className="cella-fonte"> · {p.capogruppo.citta}</span>}
-          </p>
-          <form action={raggruppaSotto.bind(null, p.id, null)}>
-            <button type="submit" className="btn btn-secondario" style={{ fontSize: 12.5, padding: "6px 14px" }}>
-              Togli dal gruppo
+      {/* CAPOGRUPPO: l'unico raggruppamento del registro. Un capogruppo ha
+          dentro aziende; qui si dice a quale appartiene questa e la si sposta. */}
+      <section className="scheda" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <p style={{ margin: 0, fontSize: 13.5 }}>
+          {p.capogruppo ? (
+            <>
+              Fa parte del capogruppo <strong>{p.capogruppo.nome}</strong>{" "}
+              <a href="/gruppi" className="cella-fonte">vedi il capogruppo</a>
+            </>
+          ) : (
+            <span className="testo-guida">Non fa parte di nessun capogruppo.</span>
+          )}
+        </p>
+        {p.attivo && (
+          <form action={assegnaGruppo.bind(null, p.id)} className="sposta-referente" style={{ margin: 0 }}>
+            <input
+              name="gruppo"
+              defaultValue={p.capogruppo?.nome ?? ""}
+              placeholder="Capogruppo (vuoto per togliere)"
+              list="capogruppi-esistenti"
+              style={{ minWidth: 200 }}
+              aria-label="Capogruppo di questa azienda"
+            />
+            <datalist id="capogruppi-esistenti">
+              {capogruppiEsistenti.map((g) => (
+                <option key={g.id} value={g.nome} />
+              ))}
+            </datalist>
+            <button type="submit" className="btn-archivia" title="Metti l'azienda in questo capogruppo">
+              →
             </button>
           </form>
-        </section>
-      )}
+        )}
+      </section>
 
       <section className="scheda">
         <h2 className="scheda-titolo">Anagrafica</h2>
@@ -555,66 +486,24 @@ export default async function Dettaglio({
         <h2 className="scheda-titolo">
           Dati finanziari{" "}
           <span className="scheda-sub">
-            {fin.id
-              ? `fattura ${fin.ragioneSociale}${sediDelSoggetto > 1 ? ` · e altre ${sediDelSoggetto - 1} sedi` : ""}`
-              : "fatturazione e pagamenti"}
+            {fin.pagaDaSe ? "paga da sé" : fin.capogruppo ? `paga la capogruppo ${fin.capogruppo.nome}` : "fatturazione e pagamenti"}
           </span>
         </h2>
-        {/* ⚠️ Chi fattura questo negozio è una SOCIETÀ, e un'insegna può averne
-            più d'una. Fino al 27/08/2026 qui compariva «condivisi con le sedi
-            dell'insegna» e i valori venivano ricopiati su tutte: bastavano due
-            società perché una sede mostrasse — e facesse salvare — l'IBAN
-            dell'altra. Adesso o c'è una società collegata, e si dice quale, o
-            non c'è niente: il silenzio è una risposta migliore del dato di un
-            altro. */}
-        {!fin.id && (
-          <p className="testo-guida" style={{ margin: "0 0 12px" }}>
-            Nessuna società di fatturazione collegata a questa sede. Si crea
-            compilando P. IVA e dati di fatturazione con ✎ Modifica: se quella
-            P. IVA è già di una società del registro, la sede ci si collega
-            invece di crearne una gemella.
+        {/* ⚠️ La fatturazione mostrata è di CHI FATTURA: la sua se «paga da
+            sé», quella della capogruppo se la paga lei. Si cambia da ✎ Modifica
+            (interruttore «paga da sé / paga la capogruppo»). */}
+        {fin.dallaCapogruppo && (
+          <p className="avviso-pagamento">
+            Questa azienda <strong>paga la capogruppo {fin.capogruppo?.nome}</strong>: la
+            fatturazione qui sotto è la sua. Per cambiarla, si modifica il capogruppo.
           </p>
-        )}
-        {/* L'ENTITÀ: «CHANEL» sono tre società che fatturano separatamente ma
-            commercialmente sono un cliente solo. Sta qui perché è una domanda
-            sulla fatturazione — «a chi appartiene chi mi emette fattura» — e
-            perché il gesto ha senso solo se una società c'è.
-            ⚠️ Si assegna a mano: dedurre il gruppo dal nome unirebbe le cinque
-            «PASTICCERIA …» del registro, che sono aziende diverse fra loro. */}
-        {fin.id && (
-          <form action={assegnaGruppo.bind(null, p.id)} className="sposta-referente" style={{ margin: "0 0 12px" }}>
-            <label htmlFor="gruppo-entita" className="testo-guida" style={{ margin: 0 }}>
-              Entità commerciale
-            </label>
-            <input
-              id="gruppo-entita"
-              name="gruppo"
-              defaultValue={fin.gruppo?.nome ?? ""}
-              placeholder="es. CHANEL — vuoto per toglierla"
-              list="gruppi-esistenti"
-              style={{ minWidth: 220 }}
-            />
-            <datalist id="gruppi-esistenti">
-              {gruppiEsistenti.map((g) => (
-                <option key={g.id} value={g.nome} />
-              ))}
-            </datalist>
-            <button type="submit" className="btn-archivia" title="Metti la società che fattura questa sede in questa entità">
-              →
-            </button>
-            {fin.gruppo && (
-              <a href="/gruppi" className="testo-guida" style={{ margin: 0 }}>
-                vedi l&apos;entità
-              </a>
-            )}
-          </form>
         )}
         {/* Il gruppo di pagamento è una risposta a «chi paga»: quando c'è, va
             letta prima dell'IBAN, non cercata in mezzo agli altri campi. */}
         {fin.gruppoPagamento && (
           <p className="avviso-pagamento">
             <strong>Pagamento centralizzato:</strong> paga <strong>{fin.gruppoPagamento}</strong> per
-            tutte le sedi di <strong>{fin.ragioneSociale}</strong> — quelle sedi non si fatturano
+            tutte le aziende del capogruppo — non si fatturano
             separatamente.
           </p>
         )}
@@ -649,98 +538,20 @@ export default async function Dettaglio({
         )}
       </section>
 
-      {/* La sezione c'è anche a zero sedi: è da qui che si aggiunge la seconda
-          boutique in città, e senza il riquadro non si saprebbe che si può. */}
-      {(luoghiInsegna.length > 0 || (p.attivo && !p.capogruppo)) && (
+      {luoghiInsegna.length > 0 && (
         <section className="scheda">
-          <div className="testata-sezione">
-            <h2 className="scheda-titolo" style={{ marginBottom: 0 }}>
-              Sedi{" "}
-              <span className="scheda-sub">
-                {luoghiInsegna.length > 0
-                  ? `${luoghiInsegna.length + 1} luoghi in tutto, questa compresa`
-                  : "un solo luogo: questa anagrafica"}
+          <h2 className="scheda-titolo">
+            Altre aziende del capogruppo{" "}
+            <span className="scheda-sub">{luoghiInsegna.length} oltre a questa</span>
+          </h2>
+          <p className="testo-guida" style={{ marginTop: 0 }}>
+            {luoghiInsegna.map((x, i) => (
+              <span key={x.id}>
+                {i > 0 && " · "}
+                <a href={`/partner/${x.id}`}>{etichettaLuogo(x)}</a>
               </span>
-            </h2>
-            {p.attivo && !p.capogruppo && (
-              <AggiungiSede
-                madreId={p.id}
-                nome={p.nome}
-                citta={p.citta}
-                provincia={p.provincia}
-                ragioneSociale={p.ragioneSociale}
-                categoria={p.categoria}
-                telefono={p.telefono}
-                email={p.email}
-                compatto
-              />
-            )}
-          </div>
-          {luoghiInsegna.length > 0 && (
-            <p className="avviso-pagamento">
-              <strong>Gli altri luoghi di questa insegna:</strong>{" "}
-              {luoghiInsegna.map((x, i) => (
-                <span key={x.id}>
-                  {i > 0 && ", "}
-                  <a href={"/partner/" + x.id}>
-                    {[x.sede, x.citta].filter(Boolean).join(" · ") || x.nome}
-                  </a>
-                </span>
-              ))}
-              . Sono tutte la stessa insegna: l&apos;elenco le mostra come un gruppo solo e
-              condividono i dati di fatturazione. Quelle che <strong>portano lo stesso nome stanno
-              insieme da sé</strong>, senza collegarle a mano — il legame manuale serve solo quando
-              l&apos;insegna è scritta in modo diverso.
-            </p>
-          )}
-          {p.sedi.length === 0 ? (
-            <p className="testo-guida" style={{ margin: 0 }}>
-              Se l&apos;insegna ha più luoghi — anche due indirizzi nella stessa città — aggiungili con
-              <strong> ＋ Sedi di questa</strong>: ognuno resta un&apos;anagrafica a sé per stato,
-              referenti e feedback, mentre fatturazione e gruppo di pagamento restano quelli della
-              società.
-            </p>
-          ) : (
-            <div className="tabella-wrap" style={{ boxShadow: "none", border: "1px solid var(--hairline)" }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Sede</th>
-                    <th>Tipo</th>
-                    <th>Città</th>
-                    <th>Indirizzo</th>
-                    <th>Stato commerciale</th>
-                    <th>Referenti</th>
-                    <th aria-label="Azioni"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.sedi.map((s) => (
-                    <tr key={s.id}>
-                      <td>
-                        <a href={`/partner/${s.id}`}>
-                          <div className="cella-nome">{s.sede ?? s.nome}</div>
-                          <div className="cella-sub">{s.sede ? s.nome : s.categoria}</div>
-                        </a>
-                      </td>
-                      <td className="cella-muta">{etichettaTipoLuogo(s.tipoLuogo) ?? "—"}</td>
-                      <td className="cella-muta">{s.citta ?? "—"}</td>
-                      <td className="cella-muta">{s.indirizzo ?? "—"}</td>
-                      <td className="cella-muta">{nomeStato(s.stato)}</td>
-                      <td className="cella-muta">{s.contatti.length}</td>
-                      <td>
-                        <form action={raggruppaSotto.bind(null, s.id, null)}>
-                          <button type="submit" className="btn-archivia" title="Togli questa sede dal gruppo">
-                            ✕
-                          </button>
-                        </form>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+            ))}
+          </p>
         </section>
       )}
 

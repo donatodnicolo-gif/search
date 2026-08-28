@@ -2,20 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { segnalaClienteAFinance } from "@/lib/finance";
-import { salvaDatiSoggetto, separaDati } from "@/lib/soggetto-fiscale";
 import { diffCampi, registraModifiche } from "@/lib/log-modifiche";
 import { sistemaDellaChiave, mergeContatti } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, PREFISSO_FORNITORE } from "@/lib/stati";
 import { ARCHIVIATA, registraPassaggio } from "@/lib/storico";
 
-// ⚠️ La società E l'entità a cui appartiene: chi legge un'anagrafica per
-// fatturare vuole sapere anche di quale gruppo fa parte.
-const INCLUDE = {
-  contatti: true,
-  riferimenti: true,
-  soggettoFiscale: { include: { gruppo: { select: { id: true, nome: true } } } },
-} as const;
+const INCLUDE = { contatti: true, riferimenti: true, capogruppo: true } as const;
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -75,25 +68,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     contattiWrite = { create: ops.create, update: ops.update };
   }
 
-  // ⚠️ Ciò che è della SOCIETÀ (P.IVA, IBAN, fatturazione) va scritto sulla
-  // società, non sul negozio: si separa prima di toccare l'anagrafica.
-  const separati = separaDati(dati);
+  // I campi fiscali sono campi dell'azienda: si scrivono diretti.
   await prisma.partner.update({
     where: { id },
-    data: {
-      ...separati.sede,
-      ...(contattiWrite ? { contatti: contattiWrite } : {}),
-    },
+    data: { ...dati, ...(contattiWrite ? { contatti: contattiWrite } : {}) },
   });
-  // Chi ha scritto quel campo e quando: è ciò che le altre app leggono in
-  // `datiFinanziari.aggiornamenti` per sapere se il registro è più fresco di loro.
-  await salvaDatiSoggetto(
-    id,
-    separati.soggetto,
-    Object.fromEntries(Object.keys(separati.soggetto).map((c) => [c, { sistema: client.nome }])),
-  );
   const aggiornato = (await prisma.partner.findUnique({ where: { id }, include: INCLUDE }))!;
-  await registraModifiche(id, { origine: client.nome }, diffCampi(esistente, separati.sede));
+  await registraModifiche(id, { origine: client.nome }, diffCampi(esistente, dati));
   if (dati.stato) {
     await registraPassaggio(id, esistente.stato, aggiornato.stato, client.nome);
     if (aggiornato.stato === "attivo" && esistente.stato !== "attivo") {

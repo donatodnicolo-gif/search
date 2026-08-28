@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { leggiSoggetto } from "./soggetto-fiscale";
+import { INCLUDE_CAPOGRUPPO, leggiFatturazione } from "./fatturazione";
 
 // Quando un'azienda diventa ATTIVA nel registro è un cliente vero: da lì in poi
 // le si fanno fatture, si incassa e la si paga — cose che vivono in FINANCE
@@ -48,18 +48,14 @@ export async function creaPartnerInFinance(partnerId: string): Promise<Esito> {
 
   const p = await prisma.partner.findUnique({
     where: { id: partnerId },
-    include: {
-      capogruppo: { select: { nome: true } },
-      soggettoFiscale: { include: { gruppo: { select: { id: true, nome: true } } } },
-    },
+    include: INCLUDE_CAPOGRUPPO,
   });
   if (!p) return { ok: false, motivo: "errore", dettaglio: "anagrafica non trovata" };
 
-  // ⚠️ I dati di fatturazione sono della SOCIETÀ collegata a questa sede, non
-  // dell'insegna: due negozi con la stessa insegna possono fatturare con due
-  // società diverse, e mandare a FINANCE quella dell'altro negozio vuol dire
-  // fatturare — o pagare — il soggetto sbagliato.
-  const fin = leggiSoggetto(p);
+  // La fatturazione di CHI FATTURA questa azienda: la sua se paga da sé, quella
+  // della capogruppo se la paga lei. Mandare a FINANCE quella sbagliata vuol
+  // dire fatturare — o pagare — il soggetto sbagliato.
+  const fin = leggiFatturazione(p);
 
   const corpo = {
     anagraficaId: p.id,
@@ -68,7 +64,7 @@ export async function creaPartnerInFinance(partnerId: string): Promise<Esito> {
     // due schede diverse e unirle vorrebbe dire fatturare la sede sbagliata.
     nome: [p.nome, p.citta].filter(Boolean).join(" "),
     // La ragione sociale che conta per fatturare è quella di CHI FATTURA.
-    ragioneSociale: fin.ragioneSociale ?? p.ragioneSociale,
+    ragioneSociale: fin.dallaCapogruppo ? (fin.capogruppo?.nome ?? p.ragioneSociale) : p.ragioneSociale,
     categoria: p.categoria,
     citta: p.citta,
     email: p.email,

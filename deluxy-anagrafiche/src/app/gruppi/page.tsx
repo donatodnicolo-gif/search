@@ -23,91 +23,77 @@ export const dynamic = "force-dynamic";
 // negozi), e chi ha i soldi li somma. Un fatturato ricopiato qui invecchierebbe
 // senza che nessuno se ne accorga.
 export default async function Gruppi() {
-  const gruppi = await prisma.gruppoAziendale.findMany({
+  const capogruppi = await prisma.capogruppo.findMany({
     orderBy: { nome: "asc" },
     include: {
-      societa: {
-        orderBy: { ragioneSociale: "asc" },
-        include: {
-          sedi: {
-            where: { attivo: true },
-            select: { id: true, nome: true, citta: true, sede: true },
-            orderBy: [{ citta: "asc" }, { nome: "asc" }],
-          },
-        },
+      aziende: {
+        where: { attivo: true },
+        select: { id: true, nome: true, citta: true, sede: true, pagaDaSe: true },
+        orderBy: [{ citta: "asc" }, { nome: "asc" }],
       },
     },
   });
-  // Le società che non stanno in nessuna entità: non è un errore (la maggior
-  // parte dei clienti è una società sola), ma è da qui che si parte per
-  // costruirne una — e vederle conta quanto vedere i gruppi.
-  const sciolte = await prisma.soggettoFiscale.count({ where: { gruppoId: null } });
 
   return (
     <div className="layout">
-      <Sidebar gruppiAttivi gruppi={gruppi.length} />
+      <Sidebar gruppiAttivi gruppi={capogruppi.length} />
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Entità commerciali</h1>
+            <h1 className="page-title">Capogruppo</h1>
             <p className="page-sub">
-              Il cliente come lo intende chi vende, sopra le sue società di fatturazione: la catena è
-              negozio → società → entità. Serve quando si fattura a una ragione sociale ma si vuole
-              sapere quanto vale il cliente <em>in tutte</em> le sue società.
+              Un capogruppo ha dentro le sue aziende. Ognuna <strong>paga da sé</strong> (ha la sua
+              P.&nbsp;IVA e il suo IBAN) oppure <strong>paga la capogruppo</strong> (usa la
+              fatturazione del gruppo). È l&apos;unico raggruppamento del registro.
             </p>
           </div>
         </div>
 
         <p className="testo-guida">
-          {gruppi.length === 0
-            ? "Nessuna entità ancora. Si crea dalla scheda di un'anagrafica, nel riquadro Dati finanziari: scrivi il nome dell'entità e la società che fattura quella sede ci entra."
-            : `${gruppi.length} entità · ${sciolte} società non in nessuna entità (è normale: la maggior parte dei clienti è una società sola).`}
+          {capogruppi.length === 0
+            ? "Nessun capogruppo ancora. Si crea dalla scheda di un'azienda, nel riquadro Capogruppo: scrivi il nome del gruppo e l'azienda ci entra."
+            : `${capogruppi.length} capogruppo. La maggior parte delle aziende non sta in nessun capogruppo, ed è normale: un capogruppo serve solo quando un cliente ha più aziende.`}
         </p>
 
-        {gruppi.map((g) => {
-          const negozi = g.societa.reduce((n, s) => n + s.sedi.length, 0);
+        {capogruppi.map((g) => {
+          const centrale = g.aziende.filter((a) => !a.pagaDaSe).length;
           return (
             <section className="scheda" key={g.id}>
               <h2 className="scheda-titolo">
                 {g.nome}{" "}
                 <span className="scheda-sub">
-                  {g.societa.length} societ{g.societa.length === 1 ? "à" : "à"} · {negozi} negoz
-                  {negozi === 1 ? "io" : "i"}
+                  {g.aziende.length} aziend{g.aziende.length === 1 ? "a" : "e"}
+                  {centrale > 0 ? ` · ${centrale} paga${centrale === 1 ? "" : "no"} la capogruppo` : ""}
                 </span>
               </h2>
               {g.note && <p className="testo-guida">{g.note}</p>}
-              {g.societa.map((s) => (
-                <div key={s.id} style={{ marginBottom: 12 }}>
-                  <p style={{ margin: "0 0 4px", fontWeight: 600 }}>
-                    {s.ragioneSociale}{" "}
-                    <span className="testo-guida" style={{ fontWeight: 400 }}>
-                      {s.pIva ? `P. IVA ${s.pIva}` : "— senza P. IVA"}
+              {g.pIva && (
+                <p className="testo-guida" style={{ marginTop: 0 }}>
+                  Fattura lei per chi «paga la capogruppo» — P.&nbsp;IVA {g.pIva}.
+                </p>
+              )}
+              {g.aziende.length === 0 ? (
+                <p className="testo-guida" style={{ margin: 0 }}>Nessuna azienda ancora.</p>
+              ) : (
+                <p className="testo-guida" style={{ margin: 0 }}>
+                  {g.aziende.map((a, i) => (
+                    <span key={a.id}>
+                      {i > 0 && " · "}
+                      <Link href={`/partner/${a.id}`}>
+                        {a.nome}
+                        {a.sede ? ` (${a.sede})` : ""}
+                        {a.citta ? ` — ${a.citta}` : ""}
+                      </Link>
+                      {!a.pagaDaSe && <span className="cella-fonte"> · paga la capogruppo</span>}
                     </span>
-                  </p>
-                  {s.sedi.length === 0 ? (
-                    <p className="testo-guida" style={{ margin: 0 }}>
-                      Nessun negozio collegato a questa società.
-                    </p>
-                  ) : (
-                    <p className="testo-guida" style={{ margin: 0 }}>
-                      {s.sedi.map((p, i) => (
-                        <span key={p.id}>
-                          {i > 0 && " · "}
-                          <Link href={`/partner/${p.id}`}>
-                            {p.nome}
-                            {p.sede ? ` (${p.sede})` : ""}
-                            {p.citta ? ` — ${p.citta}` : ""}
-                          </Link>
-                        </span>
-                      ))}
-                    </p>
-                  )}
-                </div>
-              ))}
+                  ))}
+                </p>
+              )}
             </section>
           );
         })}
       </main>
+
     </div>
   );
 }

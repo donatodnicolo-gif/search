@@ -8,7 +8,7 @@ import { isCategoria } from "./categorie";
 import { prisma } from "./db";
 import { MOTIVI_FEEDBACK, normalizzaVoto, ricalcolaValutazioneD2C } from "./feedback-d2c";
 import { segnalaClienteAFinance } from "./finance";
-import { CAMPI_SOGGETTO, assegnaGruppoASoggetto, salvaDatiSoggetto } from "./soggetto-fiscale";
+import { assegnaCapogruppo } from "./fatturazione";
 import { diffCampi, registraModifica, registraModifiche } from "./log-modifiche";
 import {
   PREFISSO_ANALISI,
@@ -254,17 +254,6 @@ export async function creaPartner(fd: FormData) {
       contatti: contatti.length ? { create: contatti } : undefined,
     },
   });
-  // ⚠️ La P.IVA identifica la SOCIETÀ, non il negozio: se il form la porta,
-  // nasce (o si ritrova, quando quella P.IVA c'è già) il soggetto fiscale e
-  // l'anagrafica ci si collega. Senza P.IVA non si crea niente.
-  await salvaDatiSoggetto(
-    creato.id,
-    { pIva: testo("pIva") },
-    { pIva: { sistema: "ui" } },
-    // Dalla UI l'aggancio a una società esistente è voluto: lo sta facendo una
-    // persona che ha davanti la scheda. Dalle API no — vedi salvaDatiSoggetto.
-    { agganciaPerPIva: true },
-  );
   await registraModifica(creato.id, { origine: "ui" }, { campo: "creata", a: `${nome}${citta ? ` · ${citta}` : ""}` });
   // Avvisa l'app commerciale: da lì il partner dev'essere lavorabile subito,
   // senza aspettare un import. Best-effort — se Scout non risponde il partner
@@ -465,6 +454,21 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
       account: testo("account"),
       note: testo("note"),
       ultimaVisita: ultimaVisita ? new Date(ultimaVisita) : null,
+      pagaDaSe: fd.get("pagaDaSe") !== "no",
+      pIva: testo("pIva"),
+      codiceFiscale: testo("codiceFiscale"),
+      pec: testo("pec"),
+      codiceSdi: maiuscolo("codiceSdi"),
+      iban: testo("iban")?.replace(/s+/g, "").toUpperCase() ?? null,
+      intestatarioConto: testo("intestatarioConto"),
+      banca: testo("banca"),
+      metodoPagamento: testo("metodoPagamento"),
+      condizioniPagamento: testo("condizioniPagamento"),
+      gruppoPagamento: testo("gruppoPagamento"),
+      noteAmministrative: testo("noteAmministrative"),
+      amministrazioneNome: testo("amministrazioneNome"),
+      amministrazioneTelefono: testo("amministrazioneTelefono"),
+      amministrazioneEmail: testo("amministrazioneEmail"),
       contatti: {
         ...(daAggiornare.length
           ? { update: daAggiornare.map((c) => ({ where: { id: c.id }, data: c.dati })) }
@@ -501,31 +505,6 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
       da: [prima?.nome, prima?.ruolo, prima?.telefono].filter(Boolean).join(" · ") || id,
     });
   }
-  // ⚠️ La fatturazione è della SOCIETÀ, non del negozio: si scrive sul
-  // soggetto fiscale collegato — e se la sede non ne ha ancora uno, nasce qui.
-  // Non c'è più niente da propagare alle altre sedi, perché non c'è più niente
-  // di copiato: le sedi della stessa società guardano lo stesso record.
-  await salvaDatiSoggetto(
-    partnerId,
-    {
-      pIva: testo("pIva"),
-      codiceFiscale: testo("codiceFiscale"),
-    pec: testo("pec"),
-    codiceSdi: maiuscolo("codiceSdi"),
-    iban: testo("iban")?.replace(/\s+/g, "").toUpperCase() ?? null,
-    intestatarioConto: testo("intestatarioConto"),
-    banca: testo("banca"),
-    metodoPagamento: testo("metodoPagamento"),
-    condizioniPagamento: testo("condizioniPagamento"),
-    gruppoPagamento: testo("gruppoPagamento"),
-    noteAmministrative: testo("noteAmministrative"),
-    amministrazioneNome: testo("amministrazioneNome"),
-    amministrazioneTelefono: testo("amministrazioneTelefono"),
-    amministrazioneEmail: testo("amministrazioneEmail"),
-    },
-    Object.fromEntries(CAMPI_SOGGETTO.map((c) => [c, { sistema: "ui" }])),
-    { agganciaPerPIva: true },
-  );
   revalidatePath("/");
   revalidatePath(`/partner/${partnerId}`);
   redirect(`/partner/${partnerId}`);
@@ -773,214 +752,27 @@ export async function staccaContatto(contattoId: string) {
   revalidatePath("/");
 }
 
-// Raggruppa un'anagrafica sotto un'insegna madre (es. la sede di Milano sotto
-// BOTTEGA VENETA). Niente cicli: la madre non può essere una sede della figlia,
-// e chi ha già delle sedi non può diventare a sua volta una sede (un livello).
+// Mette (o toglie) un'azienda in un CAPOGRUPPO. `capogruppoId` è l'id del
+// capogruppo, o null per toglierla. È il gesto di raggruppamento del registro.
 export async function raggruppaSotto(partnerId: string, capogruppoId: string | null) {
-  if (capogruppoId) {
-    if (capogruppoId === partnerId) return;
-    const [madre, figlia] = await Promise.all([
-      prisma.partner.findUnique({ where: { id: capogruppoId }, select: { capogruppoId: true } }),
-      prisma.partner.count({ where: { capogruppoId: partnerId } }),
-    ]);
-    if (!madre) return;
-    // la madre è già una sede di qualcun altro, oppure questa ha già sedi proprie
-    if (madre.capogruppoId || figlia > 0) return;
-  }
-  const [prima, madreNuova] = await Promise.all([
+  const [prima, capo] = await Promise.all([
     prisma.partner.findUnique({
       where: { id: partnerId },
-      select: { nome: true, citta: true, capogruppo: { select: { id: true, nome: true } } },
+      select: { nome: true, capogruppo: { select: { id: true, nome: true } } },
     }),
     capogruppoId
-      ? prisma.partner.findUnique({ where: { id: capogruppoId }, select: { nome: true } })
+      ? prisma.capogruppo.findUnique({ where: { id: capogruppoId }, select: { nome: true } })
       : Promise.resolve(null),
   ]);
   await prisma.partner.update({ where: { id: partnerId }, data: { capogruppoId } });
-  const sede = [prima?.nome, prima?.citta].filter(Boolean).join(" · ");
   await registraModifica(partnerId, { origine: "ui" }, {
-    campo: "capogruppoId",
+    campo: "capogruppo",
     da: prima?.capogruppo?.nome,
-    a: madreNuova?.nome,
+    a: capo?.nome,
   });
-  // Anche sulla scheda della madre: è lì che si guarda l'elenco delle sedi.
-  if (capogruppoId) {
-    await registraModifica(capogruppoId, { origine: "ui", entita: "sede" }, { campo: "sede_collegata", a: sede });
-  }
-  if (prima?.capogruppo?.id && prima.capogruppo.id !== capogruppoId) {
-    await registraModifica(prima.capogruppo.id, { origine: "ui", entita: "sede" }, {
-      campo: "sede_sganciata",
-      da: sede,
-    });
-  }
   revalidatePath(`/partner/${partnerId}`);
-  if (capogruppoId) revalidatePath(`/partner/${capogruppoId}`);
+  revalidatePath("/gruppi");
   revalidatePath("/");
-}
-
-// Aggiunge una sede a un'insegna: crea una nuova anagrafica già collegata alla
-// madre. Serve per le insegne con più luoghi — anche **due negozi nella stessa
-// città**, che è il caso che il duplicato-guard di `creaPartner` bloccherebbe:
-// qui a distinguerli è l'indirizzo, non la città.
-// La sede eredita categoria, stati e interessi della madre (è la stessa
-// azienda) e, via `propagaDatiFinanziari`, tutta la fatturazione — gruppo di
-// pagamento compreso.
-export async function aggiungiSede(
-  madreId: string,
-  fd: FormData,
-): Promise<{ ok: true; id: string } | { ok: false; errore: string }> {
-  const testo = (k: string) => String(fd.get(k) ?? "").trim() || null;
-  const maiuscolo = (k: string) => testo(k)?.toUpperCase() ?? null;
-
-  const madre = await prisma.partner.findUnique({ where: { id: madreId } });
-  if (!madre) return { ok: false, errore: "Insegna non trovata." };
-  if (!madre.attivo) return { ok: false, errore: "L'insegna è archiviata: ripristinala prima di aggiungere sedi." };
-  // Il gruppo è a un livello solo: una sede non può avere sedi proprie.
-  if (madre.capogruppoId) {
-    return { ok: false, errore: "Questa anagrafica è già una sede: aggiungi le altre sedi dall'insegna madre." };
-  }
-
-  const nome = testo("nome") ?? madre.nome;
-  const citta = maiuscolo("citta") ?? madre.citta;
-  const indirizzo = testo("indirizzo");
-
-  const gemella = await prisma.partner.findFirst({
-    where: {
-      attivo: true,
-      nome: { equals: nome, mode: "insensitive" },
-      ...(citta ? { citta: { equals: citta, mode: "insensitive" } } : { citta: null }),
-      ...(indirizzo ? { indirizzo: { equals: indirizzo, mode: "insensitive" } } : { indirizzo: null }),
-    },
-    select: { id: true },
-  });
-  if (gemella) {
-    return {
-      ok: false,
-      errore: indirizzo
-        ? "Esiste già una sede con questo nome, città e indirizzo."
-        : "Esiste già una sede con questo nome e città: scrivi l'indirizzo per distinguerla.",
-    };
-  }
-
-  const sede = await prisma.partner.create({
-    data: {
-      nome,
-      categoria: madre.categoria,
-      stato: madre.stato,
-      statoFinanziario: madre.statoFinanziario,
-      statoAnalisi: madre.statoAnalisi,
-      statoFornitore: madre.statoFornitore,
-      interessi: madre.interessi,
-      citta,
-      provincia: maiuscolo("provincia") ?? madre.provincia,
-      regione: maiuscolo("regione") ?? madre.regione,
-      sede: testo("sede"),
-      tipoLuogo: testo("tipoLuogo"),
-      indirizzo,
-      ragioneSociale: madre.ragioneSociale,
-      email: testo("email"),
-      telefono: testo("telefono"),
-      account: madre.account,
-      capogruppoId: madre.id,
-      // ⚠️ La sede nuova punta alla stessa società della madre: è un
-      // riferimento, non una copia. Prima i dati fiscali le venivano RICOPIATI
-      // addosso, e da lì in poi due sedi con società diverse si sovrascrivevano.
-      soggettoFiscaleId: madre.soggettoFiscaleId,
-      fonte: "ui",
-    },
-  });
-  const etichettaSede = [nome, citta, indirizzo].filter(Boolean).join(" · ");
-  await registraModifica(madre.id, { origine: "ui", entita: "sede" }, {
-    campo: "sede_creata",
-    a: etichettaSede,
-  });
-  await registraModifica(sede.id, { origine: "ui" }, {
-    campo: "creata",
-    a: `${etichettaSede} — come sede di ${madre.nome}`,
-  });
-  revalidatePath(`/partner/${madre.id}`);
-  revalidatePath("/");
-  return { ok: true, id: sede.id };
-}
-
-// Collega PIÙ anagrafiche esistenti come sedi della stessa insegna, in un
-// gesto solo. Una alla volta voleva dire riaprire la modale, ricercare e
-// ricliccare per ogni negozio: con quattro «Dr. Vranjes» sparsi è il lavoro che
-// non si fa mai, e il gruppo resta a metà.
-// Ogni candidata viene comunque controllata da sé: quelle che non si possono
-// collegare non fermano le altre, e si torna indietro col motivo di ognuna.
-export async function collegaSedi(
-  madreId: string,
-  sedeIds: string[],
-): Promise<{ ok: true; collegate: number; scartate: { nome: string; motivo: string }[] } | { ok: false; errore: string }> {
-  const ids = [...new Set(sedeIds.filter(Boolean))].filter((id) => id !== madreId);
-  if (!ids.length) return { ok: false, errore: "Nessuna anagrafica selezionata." };
-
-  const madre = await prisma.partner.findUnique({
-    where: { id: madreId },
-    select: { id: true, nome: true, capogruppoId: true },
-  });
-  if (!madre) return { ok: false, errore: "Insegna non trovata." };
-  if (madre.capogruppoId) {
-    return { ok: false, errore: "Questa anagrafica è già una sede: collega le altre dall'insegna madre." };
-  }
-
-  const candidate = await prisma.partner.findMany({
-    where: { id: { in: ids } },
-    select: { id: true, nome: true, citta: true, capogruppoId: true, _count: { select: { sedi: true } } },
-  });
-
-  const daCollegare: string[] = [];
-  const scartate: { nome: string; motivo: string }[] = [];
-  for (const c of candidate) {
-    // I gruppi restano a un livello: chi ha già sedi proprie non può diventare
-    // sede di qualcun altro, se no si crea una catena che nessuna vista sa
-    // disegnare.
-    if (c._count.sedi > 0) {
-      scartate.push({ nome: c.nome, motivo: "ha già sedi proprie" });
-      continue;
-    }
-    if (c.capogruppoId === madreId) {
-      scartate.push({ nome: c.nome, motivo: "era già una sede di questa insegna" });
-      continue;
-    }
-    daCollegare.push(c.id);
-  }
-
-  if (daCollegare.length) {
-    await prisma.partner.updateMany({
-      where: { id: { in: daCollegare } },
-      data: { capogruppoId: madreId },
-    });
-    // ⚠️ Raggruppare sotto un'insegna NON decide chi fattura: si eredita la
-    // società della madre solo per le sedi che non ne hanno una propria. Chi
-    // ce l'ha se la tiene — è esattamente il caso dell'insegna che fattura con
-    // più società, che il vecchio modello schiacciava su una sola.
-    const madreSoggetto = await prisma.partner.findUnique({
-      where: { id: madreId },
-      select: { soggettoFiscaleId: true },
-    });
-    if (madreSoggetto?.soggettoFiscaleId) {
-      await prisma.partner.updateMany({
-        where: { id: { in: daCollegare }, soggettoFiscaleId: null },
-        data: { soggettoFiscaleId: madreSoggetto.soggettoFiscaleId },
-      });
-    }
-    after(async () => {
-      for (const c of candidate.filter((x) => daCollegare.includes(x.id))) {
-        await registraModifica(madreId, { origine: "ui", entita: "sede" }, {
-          campo: "sede_collegata",
-          a: [c.nome, c.citta].filter(Boolean).join(" · "),
-        });
-        await registraModifica(c.id, { origine: "ui" }, { campo: "capogruppoId", a: madre.nome });
-      }
-    });
-  }
-
-  for (const id of daCollegare) revalidatePath(`/partner/${id}`);
-  revalidatePath(`/partner/${madreId}`);
-  revalidatePath("/");
-  return { ok: true, collegate: daCollegare.length, scartate };
 }
 
 // Unisce due anagrafiche che sono la stessa azienda scritta in due modi
@@ -1283,23 +1075,18 @@ export async function riapriRiconciliazione(id: string) {
 // ⚠️⚠️ Non è il gruppo di PAGAMENTO: quello risponde a «chi paga» e vive fra i
 // dati finanziari. Chi paga può essere un'amministrazione unica che non
 // coincide con chi compra.
+// Assegna l'azienda a un capogruppo per NOME (nasce se non c'è), o la toglie.
 export async function assegnaGruppo(partnerId: string, fd: FormData) {
   const nome = String(fd.get("gruppo") ?? "").trim();
   const p = await prisma.partner.findUnique({
     where: { id: partnerId },
-    include: { soggettoFiscale: { include: { gruppo: { select: { nome: true } } } } },
+    include: { capogruppo: { select: { nome: true } } },
   });
-  // Senza società non c'è niente da raggruppare: l'entità raggruppa chi
-  // fattura, e questa sede non fattura con nessuno.
-  if (!p?.soggettoFiscaleId) return;
-
-  const prima = p.soggettoFiscale?.gruppo?.nome ?? "";
-  const esito = await assegnaGruppoASoggetto(p.soggettoFiscaleId, nome || null);
-  const dopo = esito.ok ? (esito.gruppo?.nome ?? "") : prima;
+  const prima = p?.capogruppo?.nome ?? "";
+  const esito = await assegnaCapogruppo(partnerId, nome || null);
+  const dopo = esito.ok ? (esito.capogruppo?.nome ?? "") : prima;
   if (prima !== dopo) {
-    // Lo storico è della sede che si stava guardando: è da lì che il gesto è
-    // partito, ed è lì che chi indaga andrà a cercarlo.
-    await registraModifica(partnerId, { origine: "ui" }, { campo: "gruppo", da: prima, a: dopo });
+    await registraModifica(partnerId, { origine: "ui" }, { campo: "capogruppo", da: prima, a: dopo });
   }
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/gruppi");

@@ -16,109 +16,120 @@ datasource db {
 }
 
 model Partner {
-  id                  String               @id @default(cuid())
-  nome                String // insegna / nome prospect
-  ragioneSociale      String?
+  id                      String               @id @default(cuid())
+  nome                    String // insegna / nome prospect
+  ragioneSociale          String?
   // Categoria libera normalizzata in maiuscolo: BOUTIQUE, FIORISTA, PASTICCERIA,
   // RISTORANTE, CATERING, GIFTING, CONCIERGE, ...
-  categoria           String               @default("ALTRO")
-  tipoProspect        String? // valore grezzo "TIPO PROSPECT" del tracker Excel
+  categoria               String               @default("ALTRO")
+  tipoProspect            String? // valore grezzo "TIPO PROSPECT" del tracker Excel
   // Stato COMMERCIALE (a che punto del funnel siamo): selezionato | lead |
   // prospect | in_trattativa | attivo (= partner) | a_rischio |
   // non_interessato | dismesso — vedi src/lib/stati.ts
-  stato               String               @default("prospect")
+  stato                   String               @default("prospect")
   // LIVELLO del contatto dentro quello stato: in_contatto | in_attesa |
   // da_ricontattare. Vuoto = non indicato. Dal 31/07/2026: erano stati
   // commerciali, ma dicevano il MOMENTO del contatto, non il gradino del
   // funnel, e obbligavano a scegliere fra due cose vere insieme.
-  livello             String?
+  livello                 String?
   // Stato FINANZIARIO (come paga l'azienda, dimensione dell'amministrazione):
   // da_verificare | regolare | in_ritardo | insoluto | piano_di_rientro | bloccato
-  statoFinanziario    String               @default("da_verificare")
+  statoFinanziario        String               @default("da_verificare")
   // Stato ANALISI (perimetro dell'anno, catalogo di FINANCE/deluxy-partner
   // `clienteAnno`): pp (pari perimetro) | nuovo | dismesso. Vuoto = non analizzata.
-  statoAnalisi        String?
+  statoAnalisi            String?
   // Stato FORNITORE (il rapporto di fornitura, richiesto il 24/08/2026): dice
   // se quest'azienda ci FORNISCE e a che punto siamo con lei — da_provare |
   // abituale | da_evitare. Vuoto = non è un nostro fornitore. È una dimensione
   // a parte, non uno stato commerciale: la stessa azienda può comprarci
   // (stato "attivo" = Cliente) E fornirci, e metterli nella stessa lista
   // obbligherebbe a scegliere fra due cose vere insieme.
-  statoFornitore      String?
-  citta               String?
-  provincia           String?
-  regione             String?
+  statoFornitore          String?
+  citta                   String?
+  provincia               String?
+  regione                 String?
   // Come si chiama QUESTA sede dentro l'insegna: «Montenapoleone», «Corso
   // Vercelli», «Flagship», «Outlet». Le sedi di un gruppo hanno tutte lo stesso
   // `nome`, quindi senza questa etichetta si distinguono solo dall'indirizzo —
   // e chi non ce l'ha resta una riga muta in mezzo alle sorelle.
-  sede                String?
+  sede                    String?
   // Che cosa E questo luogo: sede | negozio | showroom | magazzino | altro
   // (catalogo in src/lib/luoghi.ts). Dimensione diversa dal gruppo: il gruppo
   // dice DI CHI e l anagrafica, questo dice CHE RUOLO ha il luogo. Vuoto = non
   // indicato; non si deduce dall indirizzo ne dall essere capogruppo, perche
   // la sede legale puo benissimo non essere l anagrafica madre.
-  tipoLuogo           String?
-  indirizzo           String?
-  email               String?
-  telefono            String?
-  account             String? // commerciale che segue l'anagrafica (ELEONORA, GAIA, ...)
-  ultimaVisita        DateTime?
-  // — CHI FATTURA questa sede —
-  // Il soggetto fiscale e' la SOCIETA' che emette la fattura e a cui esce il
-  // bonifico; questo record e' il LUOGO (negozio, sede) in cui si lavora. Un
-  // gruppo puo' avere piu' societa' di fatturazione e dieci negozi: N sedi
-  // -> 1 soggetto.
-  //
-  // ⚠️ Prima del 27/08/2026 i dati fiscali stavano qui, sulla sede, e venivano
-  // RICOPIATI su tutte le sedi della stessa insegna: un'insegna con due
-  // societa' si sovrascriveva da sola, IBAN compreso. Le colonne qui sotto
-  // sono quel modello, e restano solo finche' la migrazione non e' verificata.
-  soggettoFiscaleId   String?
-  soggettoFiscale     SoggettoFiscale?     @relation(fields: [soggettoFiscaleId], references: [id], onDelete: SetNull)
+  tipoLuogo               String?
+  indirizzo               String?
+  email                   String?
+  telefono                String?
+  account                 String? // commerciale che segue l'anagrafica (ELEONORA, GAIA, ...)
+  ultimaVisita            DateTime?
+  // — CHI FATTURA (28/08/2026) —
+  // Modello semplice, richiesto dall'utente: un CAPOGRUPPO ha dentro AZIENDE, e
+  // ognuna «paga da sé» oppure «paga la capogruppo».
+  //   pagaDaSe = true  → la fatturazione è QUESTA (i campi qui sotto)
+  //   pagaDaSe = false → si fattura la CAPOGRUPPO (i campi stanno su di lei)
+  pagaDaSe                Boolean              @default(true)
+  // Fatturazione propria (usata quando pagaDaSe): P.IVA è l'identità.
+  pIva                    String?
+  codiceFiscale           String?
+  pec                     String?
+  codiceSdi               String?
+  iban                    String?
+  intestatarioConto       String?
+  banca                   String?
+  metodoPagamento         String?
+  condizioniPagamento     String?
+  gruppoPagamento         String?
+  noteAmministrative      String?
+  amministrazioneNome     String?
+  amministrazioneTelefono String?
+  amministrazioneEmail    String?
+  // ⚠️ RETE fino al 27/08→28/08: il vecchio soggetto fiscale resta nel DB (non
+  // letto dal codice) finché la migrazione non è verificata in produzione.
+  soggettoFiscaleId       String?
+  soggettoFiscale         SoggettoFiscale?     @relation(fields: [soggettoFiscaleId], references: [id], onDelete: SetNull)
   // Tipologie di interesse commerciale (multi-scelta, catalogo in src/lib/interessi.ts)
-  interessi           String[]             @default([])
+  interessi               String[]             @default([])
   // — Valutazione D2C (come lavora il partner sulle consegne D2C) —
   // Media dei feedback INTERNI (li scrive Deluxy, non il cliente finale).
   // Aggregati ricalcolati a ogni feedback (src/lib/feedback-d2c.ts): media dei
   // voti su scala 1–5, quanti feedback l'hanno prodotta, l'ultimo ricevuto e
   // quando è stata ricalcolata. `votoD2C` null = NESSUN feedback: si legge
   // «da valutare», mai zero (un partner senza feedback non è un partner scarso).
-  votoD2C             Float?
-  numeroFeedbackD2C   Int                  @default(0)
-  ultimoFeedbackD2C   DateTime?
-  votoD2CAggiornatoIl DateTime?
-  feedbackD2C         FeedbackD2C[]
-  note                String?
-  contattiRaw         String? // blocco contatti originale dell'Excel (testo libero)
+  votoD2C                 Float?
+  numeroFeedbackD2C       Int                  @default(0)
+  ultimoFeedbackD2C       DateTime?
+  votoD2CAggiornatoIl     DateTime?
+  feedbackD2C             FeedbackD2C[]
+  note                    String?
+  contattiRaw             String? // blocco contatti originale dell'Excel (testo libero)
   // Extra specifici del foglio di provenienza (stime, fee, ...), JSON serializzato
-  datiExtra           String?
-  contatti            Contatto[]
-  passaggi            PassaggioStato[]
-  modifiche           Modifica[]
-  riferimenti         RiferimentoEsterno[]
-  riconciliazioni     Riconciliazione[]
+  datiExtra               String?
+  contatti                Contatto[]
+  passaggi                PassaggioStato[]
+  modifiche               Modifica[]
+  riferimenti             RiferimentoEsterno[]
+  riconciliazioni         Riconciliazione[]
   // Le persone (B2C) che comprano da noi e che sono la stessa realta di questa
   // azienda: nasce dall aggancio per email o telefono coi clienti di Orders.
-  consumers           Consumer[]
-  // Gruppo aziendale: un'insegna madre (es. BOTTEGA VENETA) con le sue sedi
-  // (Milano, Roma). Ogni sede resta un'anagrafica autonoma con i propri
-  // referenti, stato e azioni; la madre le raggruppa e basta.
-  capogruppoId        String?
-  capogruppo          Partner?             @relation("Gruppo", fields: [capogruppoId], references: [id], onDelete: SetNull)
-  sedi                Partner[]            @relation("Gruppo")
+  consumers               Consumer[]
+  // Il CAPOGRUPPO a cui questa azienda appartiene (o null se indipendente).
+  // Un capogruppo ha dentro N aziende; è l'unico raggruppamento del registro.
+  capogruppoId            String?
+  capogruppo              Capogruppo?          @relation(fields: [capogruppoId], references: [id], onDelete: SetNull)
   // Collegamento con la piattaforma consegne: id del Partner su app.deluxy.it
-  platformId          String?              @unique
+  platformId              String?              @unique
   // Riconciliazione manuale con HubSpot: id della company nel CRM
-  hubspotId           String?              @unique
+  hubspotId               String?              @unique
   // Provenienza per campo dei valori fattuali: { campo: { sistema, asOf } }.
   // Alimenta il merge "vince il più fresco / la sorgente più autorevole".
-  provenienza         Json?
+  provenienza             Json?
   // excel | platform | manuale | ui | hubspot | <nome sorgente API>
-  fonte               String               @default("manuale")
-  attivo              Boolean              @default(true)
-  creatoIl            DateTime             @default(now())
-  aggiornatoIl        DateTime             @updatedAt
+  fonte                   String               @default("manuale")
+  attivo                  Boolean              @default(true)
+  creatoIl                DateTime             @default(now())
+  aggiornatoIl            DateTime             @updatedAt
 
   @@index([categoria])
   @@index([stato])
@@ -484,14 +495,14 @@ model Consumer {
 /// Qui il dato ha una casa sola e le sedi ci puntano: due societa' = due
 /// soggetti, e nessuna delle due tocca l'altra.
 model SoggettoFiscale {
-  id                      String           @id @default(cuid())
+  id                      String      @id @default(cuid())
   // Come si chiama la societa' negli atti: e' l'unico campo obbligatorio,
   // perche' un soggetto senza nome non si puo' ne' fatturare ne' pagare.
   ragioneSociale          String
   // ⚠️ L'identita' fiscale: due soggetti con la stessa P.IVA sono lo stesso
   // soggetto. Unique (in Postgres i NULL non collidono, e la maggior parte
   // delle anagrafiche la P.IVA non ce l'ha ancora).
-  pIva                    String?          @unique
+  pIva                    String?     @unique
   codiceFiscale           String?
   pec                     String?
   codiceSdi               String? // codice destinatario per la fatturazione elettronica
@@ -519,12 +530,12 @@ model SoggettoFiscale {
   // che fatturano separatamente ma commercialmente sono UN cliente. Il gruppo
   // sta sopra la SOCIETA', non sopra il negozio: negozio -> societa' -> entita'.
   gruppoId                String?
-  gruppo                  GruppoAziendale? @relation(fields: [gruppoId], references: [id], onDelete: SetNull)
+  gruppo                  Capogruppo? @relation(fields: [gruppoId], references: [id], onDelete: SetNull)
   // Le sedi che questo soggetto fattura.
   sedi                    Partner[]
-  fonte                   String           @default("manuale")
-  creatoIl                DateTime         @default(now())
-  aggiornatoIl            DateTime         @updatedAt
+  fonte                   String      @default("manuale")
+  creatoIl                DateTime    @default(now())
+  aggiornatoIl            DateTime    @updatedAt
 
   @@index([ragioneSociale])
 }
@@ -552,13 +563,40 @@ model SoggettoFiscale {
 /// senza societa' (un prospect senza P.IVA) non ha gruppo: e' un limite
 /// dichiarato, non una svista — attaccarlo anche direttamente vorrebbe dire due
 /// strade per lo stesso fatto, e prima o poi due risposte diverse.
-model GruppoAziendale {
-  id           String            @id @default(cuid())
-  // Come si chiama l'entita' per chi vende: «CHANEL», «GRUPPO ARMANI». Unico:
-  // due gruppi con lo stesso nome sono lo stesso gruppo scritto due volte.
-  nome         String            @unique
-  note         String?
-  societa      SoggettoFiscale[]
-  creatoIl     DateTime          @default(now())
-  aggiornatoIl DateTime          @updatedAt
+/// IL CAPOGRUPPO: l'unico raggruppamento del registro (28/08/2026). Ha dentro
+/// AZIENDE (Partner). Tiene la fatturazione PER LE AZIENDE CHE «pagano la
+/// capogruppo» (pagaDaSe=false); quelle che pagano da sé hanno la loro.
+///
+/// ⚠️ @@map: la tabella nel DB resta "GruppoAziendale" (era l'entità), così non
+/// serve rinominarla sul cluster condiviso — cambia solo il nome nel codice.
+model Capogruppo {
+  id                      String            @id @default(cuid())
+  // Come si chiama il gruppo: «CHANEL», «MONCLER». Unico.
+  nome                    String            @unique
+  note                    String?
+  // Fatturazione della capogruppo (per chi la paga tramite lei). Vuota = la
+  // capogruppo non fattura per nessuno, raggruppa e basta.
+  pIva                    String?
+  codiceFiscale           String?
+  pec                     String?
+  codiceSdi               String?
+  iban                    String?
+  intestatarioConto       String?
+  banca                   String?
+  metodoPagamento         String?
+  condizioniPagamento     String?
+  gruppoPagamento         String?
+  noteAmministrative      String?
+  amministrazioneNome     String?
+  amministrazioneTelefono String?
+  amministrazioneEmail    String?
+  provenienza             Json?
+  // Le aziende dentro il capogruppo.
+  aziende                 Partner[]
+  // RETE: il vecchio legame entità→società resta finché non si ripulisce.
+  societa                 SoggettoFiscale[]
+  creatoIl                DateTime          @default(now())
+  aggiornatoIl            DateTime          @updatedAt
+
+  @@map("GruppoAziendale")
 }
