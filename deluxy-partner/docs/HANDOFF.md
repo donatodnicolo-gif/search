@@ -1,5 +1,27 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 💸 **28/08/2026 — Collettore unico: lettura AI e prove da Transactions.**
+> Transactions è ora il collettore di TUTTE le richieste di pagamento
+> dell'ecosistema (CS, Scout, piattaforma valet, Finance) — Finance era già a
+> norma; qui sono arrivati i pezzi nuovi del contratto:
+> - **`/richiedi-pagamento` ha «Leggi con l'AI»**: incolla il messaggio del
+>   fornitore o lo screenshot → `POST /api/estrai-pagamento` (proxy verso il
+>   motore centrale `POST /api/v1/estrai` di Transactions) riempie
+>   beneficiario/IBAN/importo/causale; l'esito è PROPOSTO, il mod-97 decide,
+>   la persona rilegge e invia.
+> - **La scheda `/richiedi-pagamento/[id]` mostra gli allegati di
+>   Transactions** (dettaglio live via GET firmata): la PROVA del pagamento
+>   vive di là — si scarica dal proxy `/api/prova-pagamento/<TRX>/<id>`
+>   (sha256 verificato), non se ne tiene copia (Standard §7: riferimento, non
+>   copia).
+> - Client esteso in `src/lib/transactions.ts`: `estraiPagamentoTransactions`,
+>   `dettaglioRichiestaTransactions`, `scaricaAllegatoTransactions`.
+> - Dal 28/08 il webhook di Transactions porta anche `metodo` e `allegati[]`
+>   (metadati): il receiver esistente li ignora senza rompersi; il pull di
+>   recupero è `GET /api/v1/richieste?aggiornateDa=` (da usare se una
+>   richiesta sembra ferma). La vecchia coda inbound `richiestePagamentoIn`
+>   resta morta (rimossa il 26/07): il CS ora manda TUTTO a Transactions.
+
 > 📘 **MANUALE VIVO — [docs/MANUALE-FINANCE.html](MANUALE-FINANCE.html)** (guida visiva per chi è nuovo: cosa fa l'app, il giro del denaro, da dove arrivano i dati; artifact: https://claude.ai/code/artifact/b7168d1f-636e-4d65-8875-da758503e682).
 > ⚠️ **REGOLA (28/08/2026, chiesta dall'utente): ogni nuova funzione o modifica di comportamento va scritta ANCHE nel manuale, nello stesso momento in cui entra in app.** Il file HTML vive nel repo; dopo averlo aggiornato, ripubblicalo come artifact sullo stesso URL (passa quell'URL come `url` all'strumento Artifact) così il link resta stabile.
 

@@ -239,3 +239,99 @@ export const STATI_RICHIESTA: Record<string, { label: string; badge: string }> =
 export function etichettaRichiesta(stato: string | null | undefined) {
   return STATI_RICHIESTA[stato ?? ""] ?? { label: "Pagamento in attesa", badge: "orange" };
 }
+
+// ── Estensioni del 28/08/2026 (collettore unico) ────────────────────────────
+
+export type EstrattoAi = {
+  dati: { iban: string; intestatario: string; importo: number; valuta: string; causale: string };
+  ibanValido: boolean;
+  ibanPaese: string;
+  fornitore: string;
+};
+
+/** Lettura AI di una richiesta di pagamento (testo o screenshot) col motore
+ *  centrale di Transactions. L'esito PROPONE: riempie il modulo, la persona
+ *  rilegge e salva — mai una scrittura automatica. */
+export async function estraiPagamentoTransactions(input: {
+  testo?: string;
+  immagine?: { dati: string; tipo: string };
+}): Promise<{ ok: true; esito: EstrattoAi } | { ok: false; errore: string }> {
+  try {
+    const { stato, dati } = await chiamataFirmata("POST", "/api/v1/estrai", input);
+    if (stato !== 200 || !dati) {
+      return { ok: false, errore: String(dati?.errore ?? `Transactions ha risposto ${stato}`) };
+    }
+    return { ok: true, esito: dati as unknown as EstrattoAi };
+  } catch (e) {
+    return { ok: false, errore: e instanceof Error ? e.message : "errore" };
+  }
+}
+
+export type AllegatoTransactions = {
+  id: string;
+  ruolo: string; // "richiesta" | "prova"
+  nome: string;
+  tipo: string;
+  byte: number;
+  sha256: string;
+};
+
+/** Il dettaglio live di una richiesta su Transactions (con gli allegati:
+ *  la PROVA del pagamento vive di là, qui si elenca e si scarica). */
+export async function dettaglioRichiestaTransactions(
+  riferimento: string
+): Promise<{ stato: string; pagatoCon: string | null; allegati: AllegatoTransactions[] } | null> {
+  try {
+    const { stato, dati } = await chiamataFirmata("GET", `/api/v1/richieste/${encodeURIComponent(riferimento)}`);
+    if (stato !== 200 || !dati) return null;
+    return {
+      stato: String(dati.stato ?? ""),
+      pagatoCon: (dati.pagatoCon as string | null) ?? null,
+      allegati: Array.isArray(dati.allegati) ? (dati.allegati as AllegatoTransactions[]) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Scarica un allegato (byte) da Transactions, verificando lo sha256 atteso. */
+export async function scaricaAllegatoTransactions(
+  riferimento: string,
+  allegatoId: string,
+  sha256Atteso?: string
+): Promise<{ ok: true; dati: Buffer; tipo: string; nome: string } | { ok: false; errore: string }> {
+  const apiKey = chiave("TRANSACTIONS_API_KEY");
+  const segreto = env("TRANSACTIONS_HMAC_SECRET");
+  if (!apiKey || !segreto) return { ok: false, errore: "Transactions non configurata." };
+  const percorso = `/api/v1/richieste/${encodeURIComponent(riferimento)}/allegati/${encodeURIComponent(allegatoId)}`;
+  const timestamp = String(Date.now());
+  const nonce = randomUUID();
+  const impronta = createHash("sha256").update("").digest("hex");
+  const firma = createHmac("sha256", segreto).update(["GET", percorso, timestamp, nonce, impronta].join("\n")).digest("hex");
+  try {
+    const res = await fetch(`${baseUrl()}${percorso}`, {
+      headers: {
+        "x-api-key": apiKey,
+        "x-deluxy-timestamp": timestamp,
+        "x-deluxy-nonce": nonce,
+        "x-deluxy-signature": `sha256=${firma}`,
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return { ok: false, errore: `Transactions ha risposto ${res.status}.` };
+    const dati = Buffer.from(await res.arrayBuffer());
+    const vero = createHash("sha256").update(dati).digest("hex");
+    if (sha256Atteso && vero !== sha256Atteso) {
+      return { ok: false, errore: "Il file scaricato non corrisponde allo sha256 annunciato: scartato." };
+    }
+    const disp = res.headers.get("content-disposition") ?? "";
+    return {
+      ok: true,
+      dati,
+      tipo: res.headers.get("content-type") ?? "application/octet-stream",
+      nome: /filename="([^"]+)"/.exec(disp)?.[1] ?? "prova-pagamento",
+    };
+  } catch (e) {
+    return { ok: false, errore: e instanceof Error ? e.message : "errore" };
+  }
+}

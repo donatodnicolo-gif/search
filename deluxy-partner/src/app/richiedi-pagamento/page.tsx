@@ -8,6 +8,7 @@ import { creaRichiestaPagamento } from "@/lib/richieste-actions";
 import { BottoneInvio } from "@/components/BottoneInvio";
 import { SceltaBeneficiario } from "@/components/SceltaBeneficiario";
 import { CercaFatturaEmessa } from "@/components/CercaFatturaEmessa";
+import { LetturaAiPagamento } from "@/components/LetturaAiPagamento";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,7 @@ export default async function RichiediPagamentoPage({
       )}
 
       <h2 className="section-title" style={{ marginTop: 0 }}>Nuova richiesta</h2>
+      {attiva && <LetturaAiPagamento />}
       <div className="card" style={{ marginBottom: 20 }}>
         <form action={creaRichiestaPagamento}>
           <div className="form-grid">

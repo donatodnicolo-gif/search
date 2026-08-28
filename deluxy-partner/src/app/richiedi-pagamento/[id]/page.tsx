@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
-import { STATI_RICHIESTA } from "@/lib/transactions";
+import { dettaglioRichiestaTransactions, STATI_RICHIESTA, transactionsConfigurato } from "@/lib/transactions";
 import { TIPI_PL } from "@/lib/categorie-spesa";
 import { TornaIndietro } from "@/components/TornaIndietro";
 
@@ -34,6 +34,11 @@ export default async function RichiestaDettaglio({ params }: { params: Promise<{
   if (!r) notFound();
 
   const st = STATI_RICHIESTA[r.stato] ?? { label: r.stato === "errore" ? "Non inviata" : r.stato, badge: r.stato === "errore" ? "red" : "neutral" };
+
+  // La PROVA del pagamento vive in Transactions (una casa sola): qui si
+  // elenca live e si scarica dal proxy. Se Transactions non risponde, la
+  // scheda resta completa — solo senza la sezione allegati.
+  const vivo = r.riferimento && transactionsConfigurato() ? await dettaglioRichiestaTransactions(r.riferimento) : null;
 
   return (
     <>
@@ -116,6 +121,31 @@ export default async function RichiestaDettaglio({ params }: { params: Promise<{
           </a>
         </div>
       </div>
+
+      {vivo && vivo.allegati.length > 0 && (
+        <>
+          <h2 className="section-title">Allegati su Transactions</h2>
+          <div className="card" style={{ marginBottom: 24 }}>
+            {vivo.allegati.map((a) => (
+              <Riga key={a.id} etichetta={a.ruolo === "prova" ? "Prova del pagamento" : "Documento della richiesta"}>
+                <a href={`/api/prova-pagamento/${r.riferimento}/${a.id}`} style={{ color: "var(--blue)" }}>
+                  📎 {a.nome}
+                </a>{" "}
+                <span className="muted" style={{ fontSize: 12 }}>({Math.round(a.byte / 1000)} KB)</span>
+              </Riga>
+            ))}
+            <p className="muted" style={{ fontSize: 12.5, marginTop: 10, marginBottom: 0 }}>
+              La prova vive in Transactions: qui la si legge, non se ne tiene una copia.
+            </p>
+          </div>
+        </>
+      )}
+      {vivo && r.stato === "pagata" && vivo.allegati.every((a) => a.ruolo !== "prova") && (
+        <p className="muted" style={{ fontSize: 12.5 }}>
+          Pagata, ma su Transactions non c&apos;è ancora una prova allegata
+          {vivo.pagatoCon === "fuori_app" ? " (pagata fuori dall'app: c'è la parola di chi l'ha registrata)" : ""}.
+        </p>
+      )}
     </>
   );
 }
