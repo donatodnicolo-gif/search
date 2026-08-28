@@ -161,6 +161,13 @@ const comeAdmin = { authorization: `Bearer ${token(admin)}` };
     `stato ${r.stato}, daLeggere=${r.j?.daLeggere}`,
   );
 }
+// 10-bis. La rotta che usa il MODULO CONSEGNA quando si arriva da «Crea
+// consegna»: se torna vuota, il pannello dell'AI si apre senza testo e il
+// difetto e' muto — si vede solo provandola.
+{
+  const r = await chiama('GET', `/richieste/${id}`, null, comeAdmin);
+  ok('il modulo consegna rilegge la richiesta per id', r.stato === 200 && r.j?.testo === TESTO, `stato ${r.stato}, testo=${(r.j?.testo ?? '').slice(0, 20)}…`);
+}
 // 11. Rifiutare SENZA MOTIVO si rifiuta.
 {
   const r = await chiama('PATCH', `/richieste/${id}`, { stato: 'rifiutata' }, comeAdmin);

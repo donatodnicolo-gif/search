@@ -70,7 +70,7 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 28 agosto 2026 — sezione **RICHIESTE** (le altre app chiedono consegne a parole, 19 prove su 19); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 28 agosto 2026 — sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
 
@@ -133,7 +133,7 @@ l'utente OPERATION trovato dalla prova è proprio `cs@deluxy.it`.)
 - **Non si chiama l'AI da soli** aprendo il modulo: il testo si mette e basta.
   Ogni lettura costa, e chi apre potrebbe voler compilare a mano.
 
-**Prove — `api/scripts/prova-richieste.tmp.mjs`, 19 su 19 passate** (server
+**Prove — `api/scripts/prova-richieste.mjs`, 20 su 20 passate** (server
 locale sul database vero, due chiavi usa-e-getta poi cancellate). ⚠️ Le prove
 che contano sono quelle che dimostrano un **divieto**:
 
@@ -152,6 +152,7 @@ che contano sono quelle che dimostrano un **divieto**:
 | un **PARTNER** non vede le richieste | ✅ 403 |
 | un **OPERATION** (quindi il CS) le vede | ✅ 200 (`cs@deluxy.it`) |
 | l'admin la trova fra le nuove, contatore ≥ 1 | ✅ 200 |
+| **il modulo consegna rilegge la richiesta per id** | ✅ 200 col testo giusto |
 | rifiuto senza motivo | ✅ 400 |
 | stato inventato (`archiviata`) | ✅ 400 |
 | consegna inesistente da collegare | ✅ 400 |
