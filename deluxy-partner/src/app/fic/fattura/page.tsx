@@ -54,7 +54,10 @@ async function emetti(origine: string, id: string, fd: FormData) {
     entity = {
       name: a.ragioneSociale || a.nome,
       vat_number: a.pIva,
-      tax_code: a.codiceFiscale,
+      // Un azienda italiana ha il codice fiscale UGUALE alla P.IVA: se il
+      // registro non ha un CF a parte, si usa la P.IVA — altrimenti FIC rifiuta
+      // la fattura elettronica chiedendo il codice fiscale del cliente.
+      tax_code: a.codiceFiscale || a.pIva,
       address_street: a.indirizzo,
       address_city: a.citta,
       address_province: a.provincia,

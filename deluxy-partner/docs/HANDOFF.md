@@ -62,6 +62,10 @@
 > - **Annulla dalla bozza**: prima una bozza si poteva solo eliminare; ora c è **«Annulla»** (→ stato annullata, numero conservato, ripristinabile), accanto a Invia/Modifica.
 > - **Richiedi pagamento — «Fattura collegata» è una RICERCA** (non più campo libero): `CercaFatturaEmessa` cerca fra **tutte le fatture emesse** su FIC per ragione sociale, numero, importo (lordo) e P.IVA (`ficCercaEmesse` in `fic.ts`), e riempie il riferimento con «n. N — cliente — importo». Scelta dell utente: cerca fra le fatture EMESSE (non le fatture d acquisto).
 
+> ### 28/08/2026 — Emetti fattura: il codice fiscale del cliente = P.IVA (aziende IT)
+>
+> Segnalato: creando il cliente dal registro, FIC rifiutava la fattura chiedendo «codice fiscale del cliente · PEC del cliente» pur essendoci P.IVA + SDI. Vero difetto: per un AZIENDA ITALIANA il codice fiscale COINCIDE con la P.IVA, e il registro spesso ha solo la P.IVA. Ora l entity manda `tax_code = codiceFiscale || pIva`, così FIC ha P.IVA + CF + SDI e non chiede più nulla (P.IVA + Codice Destinatario SONO sufficienti; CF=P.IVA per le aziende, la PEC non serve se c è lo SDI). ⚠️ Per un soggetto ESTERO (Kft. ungherese) CF≠P.IVA e valgono altre regole (esterometro): caso limite non coperto.
+
 > ### 28/08/2026 — pro-forma: le coordinate per il pagamento (IBAN d incasso)
 >
 > Chiesto: indicare sulle pro-forma il conto dove si salda. Il documento AVEVA gia il blocco «Pagamento» (IBAN/banca/intestatario) ma era VUOTO perche nessun IBAN era configurato (ne `sepa.ordinante.iban` ne altro). Aggiunti in Impostazioni → «Intestazione documenti» i campi **Modalita di pagamento, IBAN per l incasso (validato), Intestatario del conto, Banca** (chiavi `azienda.modalitaPagamento/iban/intestatario/banca`), letti dalla fallback di `intestazioneDaMostrare`. Compilandoli, il blocco in calce alla pro-forma li mostra. ⚠️ Per le FATTURE vere (su Fatture in Cloud) l IBAN viene dal metodo di pagamento/conto configurato SU FIC — non da FINANCE.
