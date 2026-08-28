@@ -21,6 +21,12 @@ function baseUrl(): string {
   return ((process.env.TRANSACTIONS_URL ?? '').trim() || BASE_DEFAULT).replace(/\/$/, '')
 }
 
+/** Dove Transactions ci manda gli esiti. Solo https, altrimenti niente. */
+function urlNotifica(): string {
+  const app = (process.env.APP_URL ?? '').trim().replace(/\/$/, '')
+  return /^https:\/\//i.test(app) ? `${app}/api/pagamenti/notifica` : ''
+}
+
 /** Vero quando il canale a norma è pronto: con le tre variabili impostate il
  *  «Paga» va a Transactions; senza, si ripiega sul vecchio canale Finance
  *  (vedi partner.ts) invece di bloccare i pagamenti a metà del trasloco. */
@@ -81,10 +87,15 @@ export async function richiediPagamentoFornitore(d: {
   importo: number
   beneficiario: string
   iban: string
+  /** iban | link | paypal | carta | altro — dal 28/08 Transactions li accetta tutti. */
+  metodo?: string
+  /** Il «come si paga» quando non è un IBAN (link, indirizzo PayPal, nota). */
+  riferimentoPagamento?: string
   causale?: string
   note?: string
 }): Promise<EsitoTransactions> {
   const riferimentoEsterno = `cs-${d.riferimento}`
+  const metodo = (d.metodo || 'iban').trim()
   try {
     const { stato, dati } = await chiamataFirmata(
       'POST',
@@ -92,11 +103,18 @@ export async function richiediPagamentoFornitore(d: {
       {
         importo: d.importo.toFixed(2),
         beneficiario: d.beneficiario.slice(0, 120),
-        iban: d.iban.replace(/\s+/g, '').toUpperCase(),
+        metodo,
+        ...(metodo === 'iban'
+          ? { iban: d.iban.replace(/\s+/g, '').toUpperCase() }
+          : { riferimentoPagamento: (d.riferimentoPagamento ?? '').trim() }),
         causale: (d.causale || `Fornitore ordine — ${d.beneficiario}`).slice(0, 140), // limite SEPA
         categoria: 'fornitore',
         ...(d.note ? { note: d.note } : {}),
         riferimentoEsterno,
+        // L'esito (approvata/pagata/annullata, con gli allegati-prova) torna
+        // qui: è quello che dal 28/08 aggiorna la riga DA SOLO. Solo se l'app
+        // sa dove abita: senza APP_URL https il campo non parte.
+        ...(urlNotifica() ? { urlNotifica: urlNotifica() } : {}),
       },
       riferimentoEsterno
     )
@@ -112,6 +130,77 @@ export async function richiediPagamentoFornitore(d: {
     return { ok: false, errore: `Transactions ha risposto ${stato}${msg ? `: ${String(msg)}` : ''}` }
   } catch (e) {
     return { ok: false, errore: `Transactions non raggiungibile: ${(e as Error).message}` }
+  }
+}
+
+// ── Il verso di RITORNO: gli esiti che Transactions ci manda ──
+
+/**
+ * Verifica la firma di una notifica in arrivo da Transactions. Fail-closed
+ * per costruzione (modello deluxy-partner): senza segreto non si verifica
+ * niente e non ci si fida di niente; la finestra è ±5 minuti sul timestamp
+ * dell'header — ogni ritentativo arriva RIFIRMATO fresco, quindi la finestra
+ * non va allargata.
+ */
+export function notificaAutentica(corpoGrezzo: string, headers: Headers): boolean {
+  const segreto = (process.env.TRANSACTIONS_HMAC_SECRET ?? '').trim()
+  if (!segreto) return false
+  const timestamp = (headers.get('x-deluxy-timestamp') ?? '').trim()
+  const firma = (headers.get('x-deluxy-signature') ?? '').replace(/^sha256=/i, '').trim()
+  if (!timestamp || !firma) return false
+  const ts = Number(timestamp)
+  if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > 5 * 60_000) return false
+  const impronta = createHash('sha256').update(corpoGrezzo).digest('hex')
+  const attesa = createHmac('sha256', segreto).update(`${timestamp}\n${impronta}`).digest('hex')
+  if (attesa.length !== firma.length) return false
+  let diff = 0
+  for (let i = 0; i < attesa.length; i++) diff |= attesa.charCodeAt(i) ^ firma.charCodeAt(i)
+  return diff === 0
+}
+
+/**
+ * Scarica un allegato (la PROVA del pagamento) da Transactions, con firma.
+ * Verifica lo sha256 annunciato: una copia sostituita non passa.
+ */
+export async function scaricaAllegatoTransactions(
+  riferimentoTrx: string,
+  allegatoId: string,
+  sha256Atteso?: string
+): Promise<{ ok: true; dati: Buffer; tipo: string; nome: string } | { ok: false; errore: string }> {
+  const apiKey = (process.env.TRANSACTIONS_API_KEY ?? '').trim()
+  const segreto = (process.env.TRANSACTIONS_HMAC_SECRET ?? '').trim()
+  if (!apiKey || !segreto) return { ok: false, errore: 'Transactions non configurata.' }
+
+  const percorso = `/api/v1/richieste/${encodeURIComponent(riferimentoTrx)}/allegati/${encodeURIComponent(allegatoId)}`
+  const timestamp = String(Date.now())
+  const nonce = randomUUID()
+  const impronta = createHash('sha256').update('').digest('hex')
+  const firma = createHmac('sha256', segreto)
+    .update(['GET', percorso, timestamp, nonce, impronta].join('\n'))
+    .digest('hex')
+  try {
+    const res = await fetch(`${baseUrl()}${percorso}`, {
+      headers: {
+        'x-api-key': apiKey,
+        'x-deluxy-timestamp': timestamp,
+        'x-deluxy-nonce': nonce,
+        'x-deluxy-signature': `sha256=${firma}`,
+      },
+      signal: AbortSignal.timeout(15000),
+      cache: 'no-store',
+    })
+    if (!res.ok) return { ok: false, errore: `Transactions ha risposto ${res.status}.` }
+    const dati = Buffer.from(await res.arrayBuffer())
+    const veroSha = createHash('sha256').update(dati).digest('hex')
+    if (sha256Atteso && veroSha !== sha256Atteso) {
+      return { ok: false, errore: 'Il file scaricato non corrisponde allo sha256 annunciato: scartato.' }
+    }
+    const tipo = res.headers.get('content-type') ?? 'application/octet-stream'
+    const disp = res.headers.get('content-disposition') ?? ''
+    const nome = /filename="([^"]+)"/.exec(disp)?.[1] ?? 'prova-pagamento'
+    return { ok: true, dati, tipo, nome }
+  } catch (e) {
+    return { ok: false, errore: (e as Error).message }
   }
 }
 

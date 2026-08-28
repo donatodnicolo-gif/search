@@ -418,6 +418,10 @@ export async function POST(req: NextRequest) {
       importo: richiesta.importo,
       beneficiario: richiesta.intestatario,
       iban: richiesta.iban,
+      // Dal 28/08 Transactions accetta anche i metodi non-IBAN: si manda il
+      // metodo com'è, e il «come si paga» viaggia con la richiesta.
+      metodo: richiesta.metodo,
+      riferimentoPagamento: richiesta.riferimentoPagamento,
       bic: richiesta.bic,
       causale: richiesta.causale,
       contatto: richiesta.contatto,

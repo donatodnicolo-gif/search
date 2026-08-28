@@ -75,7 +75,13 @@ export const config = {
   // ⚠️ Chi mette un file nuovo in `public/` deve aggiungerlo qui: oggi ce n'è
   // uno solo (`widget.js`), e un file statico che nasce dietro al login non dà
   // nessun errore — semplicemente non si carica dove serve.
+  // ⚠️ `api/pagamenti/notifica` è il webhook degli esiti di Deluxy
+  // Transactions (28/08/2026): si autentica con la firma HMAC dentro la
+  // rotta, come i webhook Meta. Senza l'esclusione, Transactions riceverebbe
+  // l'HTML del login con 200 e crederebbe la notifica consegnata (stessa
+  // lezione di deluxy-partner). Ancorato: vale solo per quel percorso esatto,
+  // il resto di /api/pagamenti resta dietro la sessione.
   matcher: [
-    '/((?!(?:login|registrati|widget|widget\\.js|chat|api/widget|api/webhooks|api/cron|api/health|_next/static|_next/image|favicon\\.ico)(?:/|$)).*)',
+    '/((?!(?:login|registrati|widget|widget\\.js|chat|api/widget|api/webhooks|api/cron|api/health|api/pagamenti/notifica|_next/static|_next/image|favicon\\.ico)(?:/|$)).*)',
   ],
 }

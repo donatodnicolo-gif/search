@@ -1,5 +1,46 @@
 # Handoff — Deluxy Customer Service
 
+## 28/08/2026 (11) — gli esiti dei pagamenti arrivano da Transactions (collettore unico)
+
+Decisione utente: Transactions raccoglie TUTTE le richieste di pagamento
+dell'ecosistema; per il CS «rimane lo stesso, solo che esiti e allegati
+arrivano da Transactions». Costruito e deployato:
+
+- **`src/lib/effetti-pagata.ts`** — gli effetti del «pagata» (ordine →
+  attesa_consegna, riconciliazione, avviso fornitore, registro anagrafiche)
+  estratti dal PATCH `/api/pagamenti/[id]`: ora sono UNA strada sola, la
+  stessa per il bottone e per il webhook. Il PATCH è stato rifattorizzato per
+  chiamarla (risposta identica a prima).
+- **`POST /api/pagamenti/notifica`** — il webhook degli esiti da Transactions:
+  firma HMAC verificata PRIMA del corpo (fail-closed, 503 senza segreto,
+  finestra ±5′ sul timestamp dell'header: i ritentativi arrivano rifirmati),
+  **escluso dal middleware** (ancorato, solo quel percorso), 200 subito e
+  lavoro pesante in `after()`, **idempotente** (pagata già scritta = nessun
+  secondo avviso). Su `stato=pagata`: pagataIl/pagataDaNome «Deluxy
+  Transactions»/pagatoCon `app`, scarica la PROVA con GET firmata e **sha256
+  verificato** (mai da URL nel payload: base URL configurato) e la salva nei
+  campi ricevuta esistenti → graffetta identica a prima. Deroga §7.3.4
+  dichiarata: la copia dei byte è ammessa perché la prova è immutabile;
+  misura di completezza = «pagate da Transactions con prova là ∧ ricevuta
+  assente qui» (da contare, non da ultima data).
+- **Client `transactions.ts`**: manda anche `metodo`+`riferimentoPagamento`
+  (Transactions ora accetta link/paypal/carta/altro) e `urlNotifica`
+  (`APP_URL/api/pagamenti/notifica`); nuove `notificaAutentica()` e
+  `scaricaAllegatoTransactions()`.
+- **`partner.ts`**: spento il ripiego morto verso Finance — quella coda
+  (`POST /api/richieste-pagamento`) non esiste più dal 26/07 (commit
+  `97b53692` di deluxy-partner): il fallback colpiva un 404 credendosi una
+  rete di sicurezza.
+- **Canale acceso in produzione**: chiave `deluxy-messaging` NUOVA emessa in
+  Transactions (la trx_CLl3bYu_ del 26/07, mai usata, è stata revocata),
+  `TRANSACTIONS_API_KEY`/`TRANSACTIONS_HMAC_SECRET` su Vercel; l'urlNotifica
+  di default sta sulla CHIAVE lato Transactions.
+- Manuale aggiornato (§07 Novità). ⚠️ Il pull di recupero
+  `GET /api/v1/richieste?aggiornateDa=` esiste lato Transactions: un cron di
+  riconciliazione qui NON è ancora stato aggiunto (il webhook ritenta 3 volte
+  e si rilancia a mano da là) — se si vedono righe ferme su `in_attesa` che
+  là risultano decise, è il pezzo da costruire.
+
 ## 27/08/2026 (10) — tre segnalazioni, un guasto solo; e i pagamenti di Shopify
 
 ### ⚠️⚠️ Il guasto: la sessione moriva e l'app non lo diceva

@@ -2,14 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
 import { verificaIban } from '@/lib/iban'
-import { avvisaFornitorePagato } from '@/lib/avvisa-pagamento'
-import { comunicaStatoAOrders } from '@/lib/orders'
-import { riconciliaDaPagamento, type EsitoRiconciliazione } from '@/lib/riconcilia'
-import { STATI_DA_SPOSTARE_SE_PAGATO } from '@/lib/riconciliazione'
-import {
-  segnalaFornitorePagatoAlRegistro,
-  type EsitoRegistroFornitore,
-} from '@/lib/registro-fornitori'
+import { effettiPagata } from '@/lib/effetti-pagata'
 import {
   cosaManca,
   metodoValido,
@@ -99,216 +92,28 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
     const pagata = await db.richiestaPagamento.update({ where: { id }, data: dati })
 
-    // ⚠️ L'ESITO NON RESTA MUTO. Un automatismo che sposta l'ordine — o che
-    // decide di NON spostarlo — e non lo dice a chi ha premuto il bottone è un
-    // esito che vive solo nel codice: chi guarda non può distinguere «spostato»
-    // da «non l'ho toccato». Questi due valori tornano al client e la pagina
-    // Pagamenti li scrive.
-    let statoOrdine: '' | 'attesa_consegna' | 'numero-ambiguo' = ''
-    let versoOrders = ''
-
-    // ── L'ORDINE ESCE DA «IN PAGAMENTO» ──
-    //
-    // ⚠️ Segnalato dall'utente: un ordine con il pagamento fatto continuava a
-    // dire «In pagamento», cioè lo stato di quando lo si stava pagando. Quel
-    // passo è finito, e il successivo nel loro flusso è «attesa consegna».
-    //
-    // ⚠️⚠️ NON SOLO da `in_pagamento`. Chiesto dall'utente il 26/08/2026 — «se è
-    // pagato in automatico metti in attesa di consegna» — su un ordine reale,
-    // #2799: pagato il 25/08, il giorno dopo diceva ancora «Comunicazione con
-    // cliente». Quello stato l'app se lo scrive DA SOLA quando qualcuno preme
-    // WhatsApp, Email o Chiama: bastava una telefonata al cliente perché il
-    // pagamento non spostasse più niente, e l'ordine restasse in bacheca a
-    // chiedere lavoro a un collega su una cosa già chiusa.
-    //
-    // Gli stati sono in `STATI_DA_SPOSTARE_SE_PAGATO`: da iniziare, ricerca
-    // fornitore, in pagamento, comunicazione. Restano fuori `attesa_consegna`
-    // (è la destinazione), `gestito` (è la fine: un automatismo non riapre un
-    // ordine che una persona ha chiuso) e `in_app` (dice CHI se ne occupa — la
-    // piattaforma consegne — non a che punto siamo).
-    //
-    // ⚠️ Togliendo il segno «pagata» l'ordine NON torna indietro: era già stato
-    // spostato a mano da qualcuno, forse, e riportarlo a «in pagamento»
-    // cancellerebbe una decisione di una persona per disfare un clic.
-    //
-    // ⚠️ Il NUMERO com'è scritto e senza cancelletto: le richieste di pagamento
-    // lo salvano con il `#`, gli ordini pure — ma un giorno che così non fosse,
-    // un confronto esatto smetterebbe di trovare l'ordine SENZA dirlo a nessuno.
-    if (pagata.ordineNumero) {
-      try {
-        const nudo = pagata.ordineNumero.replace('#', '')
-        // ⚠️ Si LEGGONO prima: `updateMany` non torna le righe toccate, e senza
-        // il numero e il gid non si può dire a Orders che cosa è cambiato.
-        const daSpostare = await db.ordine.findMany({
-          where: {
-            numero: { in: [nudo, `#${nudo}`] },
-            gestione: { in: STATI_DA_SPOSTARE_SE_PAGATO },
-          },
-          select: { id: true, numero: true, shopifyId: true },
-        })
-        // ⚠️⚠️ SE IL NUMERO NON È UN'IDENTITÀ, NON SI TOCCA NIENTE. La richiesta
-        // di pagamento porta solo il NUMERO dell'ordine — non il negozio, non
-        // l'id — e lo stesso numero può appartenere a due ordini di due negozi
-        // diversi. Spostarli entrambi vorrebbe dire il falso su uno; sceglierne
-        // uno vorrebbe dire indovinare quale. Si lascia il lavoro a una persona,
-        // che ha il bottone «Allinea lo stato» nella Riconciliazione.
-        // Contati il 26/08/2026 su 1.371 ordini e 3 negozi: **zero** numeri
-        // ripetuti — ma in Deluxy Orders, che di negozi ne ha quattro, #2799
-        // esiste già su più di uno.
-        const ordiniPerNumero = await db.ordine.count({ where: { numero: { in: [nudo, `#${nudo}`] } } })
-        const quando = new Date()
-        if (ordiniPerNumero > 1) {
-          // ⚠️ Non si tocca niente, MA LO SI DICE: un salto silenzioso è
-          // indistinguibile da uno spostamento riuscito.
-          statoOrdine = 'numero-ambiguo'
-        } else if (daSpostare.length) {
-          // ⚠️⚠️ IL FILTRO DI STATO STA ANCHE QUI, non solo nella lettura sopra.
-          // Fra la lettura e la scrittura passano due query, e in quel momento lo
-          // stato può cambiare: il cron della piattaforma gira ogni 15 minuti, il
-          // cron degli ordini quattro volte l'ora e può scrivere `gestito` sui
-          // rimborsati, e un collega può premere «Gestito» dalla bacheca. Con il
-          // solo `id` nel `where`, questa riga riaprirebbe un ordine appena
-          // chiuso da una persona — esattamente ciò che la regola vieta.
-          const spostati = await db.ordine.updateMany({
-            where: {
-              id: { in: daSpostare.map((o) => o.id) },
-              gestione: { in: STATI_DA_SPOSTARE_SE_PAGATO },
-            },
-            // ⚠️ Anche CHI: l'etichetta a schermo dice «segnato da …», e
-            // lasciarci il nome di chi aveva messo lo stato di prima con la data
-            // di adesso racconterebbe una cosa mai successa. L'ha causato chi ha
-            // premuto «Pagata».
-            data: {
-              gestione: 'attesa_consegna',
-              gestioneIl: quando,
-              gestioneDaId: io.id,
-              gestioneDaNome: io.nome,
-            },
-          })
-          // ── E LO SA ANCHE ORDERS ──
-          //
-          // ⚠️⚠️ Uno stato che cambia SOLO QUI è uno stato che le altre app non
-          // vedono: il Customer Service è il decisore dell'evasione (Standard
-          // §7.2) e Orders mostra `csGestione` accanto alla sua pipeline. Il
-          // cambio a mano glielo diceva già; questo, che avviene da solo, no —
-          // e in Orders l'ordine sarebbe rimasto «in pagamento» finché qualcuno
-          // non lo toccava a mano. Un automatismo che aggiorna una schermata
-          // sola è peggio di nessun automatismo: due app dicono due cose e
-          // nessuno sa quale vale.
-          //
-          // ⚠️ Best-effort, come nel cambio a mano: se Orders non risponde il
-          // pagamento resta registrato e lo stato resta cambiato qui.
-          // ⚠️ Solo se la riga è stata toccata DAVVERO: se nel frattempo lo
-          // stato era cambiato, `updateMany` non scrive e dire a Orders «attesa
-          // consegna» significherebbe mandargli uno stato che qui non esiste.
-          if (spostati.count > 0) {
-            for (const o of daSpostare) {
-              const e = await comunicaStatoAOrders(o.numero, o.shopifyId, 'attesa_consegna', io.nome, quando)
-              if (!e.ok) versoOrders = e.messaggio
-            }
-            statoOrdine = 'attesa_consegna'
-          }
-        }
-      } catch {
-        // lo stato è un contorno: il pagamento resta registrato
-      }
-    }
-
-    // ── L'ORDINE IMPARA CHI L'HA PREPARATO, DA SOLO ──
-    //
-    // ⚠️⚠️ Se il pagamento nasce QUI DENTRO, nel momento in cui si preme
-    // «Pagata» sappiamo già tutto: a chi stiamo dando i soldi, quanto, e per
-    // quale ordine. Chiedere poi un secondo clic su un'altra pagina vuol dire
-    // far rifare a mano una cosa già decisa — ed è esattamente il motivo per
-    // cui, misurato il 24/08, c'erano 8 pagamenti fatti e ZERO ordini che
-    // sapessero chi li aveva preparati: nessuno fa un lavoro che sembra già
-    // fatto.
-    //
-    // ⚠️⚠️ «Automatico» NON vuol dire «senza controlli». `riconciliaDaPagamento`
-    // è la STESSA funzione del bottone a mano, e i suoi rifiuti valgono identici
-    // qui: un pagamento che assomiglia a un rimborso al cliente, un fornitore
-    // diverso già scritto, un costo che non torna — non si toccano. Quello che
-    // non passa resta nella pagina Riconciliazione, che così diventa l'elenco
-    // delle **eccezioni** invece della coda di tutto il lavoro.
-    //
-    // ⚠️ Prima dell'avviso, di proposito: l'avviso legge i recapiti
-    // dall'ORDINE, e su un ordine senza fornitore fallirebbe con «non so a chi
-    // scrivere» anche quando il fornitore lo conosciamo benissimo.
-    let riconciliato: EsitoRiconciliazione | null = null
-    try {
-      riconciliato = await riconciliaDaPagamento(id, io, 'auto')
-    } catch {
-      // ⚠️ Non fa fallire il pagamento: il denaro è uscito comunque, e perdere
-      // quel fatto per colpa di un contorno sarebbe il peggiore dei due errori.
-      riconciliato = null
-    }
-
-    // ── L'AVVISO AL FORNITORE, DA SOLO ──
-    //
-    // ⚠️ Chiesto esplicitamente: «l'avviso del pagamento è automatico». Parte
-    // solo perché una persona ha premuto «Pagata» — è la differenza fra
-    // «automatico» e «da solo».
-    //
-    // ⚠️⚠️ Un fallimento qui NON fa fallire la registrazione del pagamento: il
-    // denaro è uscito comunque, e perdere quel fatto perché un messaggio non è
-    // partito sarebbe il peggiore dei due errori. L'esito si scrive e si mostra.
-    let avviso: { canale: string; errore: string } = { canale: '', errore: '' }
-    try {
-      avviso = await avvisaFornitorePagato(id)
-    } catch (e) {
-      avviso = { canale: '', errore: e instanceof Error ? e.message : 'errore' }
-    }
-    const conAvviso = await db.richiestaPagamento.update({
+    // ⚠️ L'ESITO NON RESTA MUTO. Gli effetti (ordine spostato, riconciliazione,
+    // avviso al fornitore, registro anagrafiche) sono in `effettiPagata()` —
+    // UNA strada sola, la stessa che percorre il webhook di Transactions
+    // (28/08/2026) — e ognuno restituisce il suo esito, che la pagina scrive.
+    // Le ragioni e i casi reali di ogni blocco stanno lì.
+    const effetti = await effettiPagata(id, { id: io.id, nome: io.nome })
+    const conAvviso = await db.richiestaPagamento.findUnique({
       where: { id },
-      data: {
-        avvisoIl: new Date(),
-        avvisoCanale: avviso.canale,
-        avvisoEsito: avviso.errore,
-      },
       select: { avvisoIl: true, avvisoCanale: true, avvisoEsito: true },
     })
 
-    // ── IL FORNITORE PAGATO ENTRA NEL REGISTRO, DA SOLO ──
-    //
-    // ⚠️ Chiesto dall'utente il 24/08/2026: «se viene pagato un fornitore
-    // aggiungilo direttamente in anagrafica se non già esistente». Il registro
-    // (deluxy-anagrafiche) fa l'upsert-merge e resta il proprietario del dato.
-    //
-    // ⚠️ NON quando il pagamento è un rimborso al cliente: quel beneficiario
-    // non è un fornitore, e il registro dei partner non è il posto suo. È lo
-    // stesso verdetto della riconciliazione, non un secondo controllo.
-    //
-    // ⚠️ Un fallimento qui NON fa fallire il pagamento (stesso contratto
-    // dell'avviso): l'esito si restituisce e basta.
-    let registro: EsitoRegistroFornitore | null = null
-    if (riconciliato?.verdetto === 'rimborso-al-cliente') {
-      registro = {
-        ok: false,
-        esito: 'rimborso',
-        messaggio: 'Sembra un rimborso al cliente: non è un fornitore, il registro non si tocca.',
-      }
-    } else {
-      try {
-        registro = await segnalaFornitorePagatoAlRegistro(id)
-      } catch (e) {
-        registro = {
-          ok: false,
-          esito: 'errore',
-          messaggio: e instanceof Error ? e.message : 'errore',
-        }
-      }
-    }
-
     return NextResponse.json({
       richiesta: { ...pagata, ...conAvviso },
-      avviso,
-      riconciliato,
-      registro,
+      avviso: effetti.avviso,
+      riconciliato: effetti.riconciliato,
+      registro: effetti.registro,
       // ⚠️ Cos'è successo all'ORDINE: la pagina lo scrive. '' = non c'era un
       // ordine collegato, o era già avanti.
-      ordine: { stato: statoOrdine, orders: versoOrders },
+      ordine: { stato: effetti.statoOrdine, orders: effetti.versoOrders },
     })
   }
+
 
   // ── CORREGGERE ──
   //
