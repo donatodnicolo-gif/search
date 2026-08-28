@@ -23,6 +23,37 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 28/08 — Prestazioni: aprire una mail vecchia con allegati (3 connessioni IMAP -> 1)
+
+Segnalato: 14 allegati, mail lenta a caricare. Il corpo dal DB e istantaneo; il ritardo
+erano i due «Carico dal server». Misurato sul codice: una mail VECCHIA con allegati apriva
+fino a **3 connessioni IMAP** in fila (`strutturaMessaggio` + `scaricaParte` per l HTML,
+`leggiAllegati` per l elenco), e la struttura del messaggio veniva chiesta due volte. Su
+register.it (`securemail`) la stretta di mano e la parte lenta.
+
+Ora **una connessione sola**: `htmlEStrutturaImap` (`imap.ts`) chiede la struttura una
+volta, cammina l albero una volta raccogliendo insieme allegati + parte HTML, e (se serve)
+scarica l HTML nella stessa connessione. `htmlEAllegatiDalServer` (`htmlServer.ts`) decodifica
+e risolve la cartella. `corpoEAllegatiDalServer` (`actions.ts`) e l azione unica.
+`dalServerCondiviso` (`lib/dalServer.ts`, NUOVO) e una Map di promesse in volo: `CorpoMessaggio`
+e `AllegatiMessaggio` si montano insieme e CONDIVIDONO una chiamata sola.
+
+⚠️ Verificato da **performance-ostile** (6 reggono / 0 demoliti / 2 «regge ma»):
+- guadagno **connessioni 3->1 certo**; tempo percepito **~2x garantito**, fino a 3x solo se
+  le due vecchie azioni erano serializzate — **da misurare sul cronometro**, non promesso;
+- deduplica lato client: regge perche i due componenti montano nello stesso tick React; nel
+  caso peggiore degrada a 2 connessioni (mai peggio, mai corruzione);
+- preservato byte per byte: scelta della parte HTML, regola/conteggio allegati, `n.part || 1`,
+  cartella cestino/spam. Logout nel `finally`, nessun leak.
+- ⭐ **bonus**: il vecchio `leggiHtmlMessaggio` faceva `include account` SENZA `sezione`, quindi
+  per una mail in SPAM cercava l impaginato in INBOX; il percorso unico lo corregge.
+
+🔴 Aperto (igiene, non urgente): `leggiHtmlMessaggio` ed `elencoAllegati` in `actions.ts` sono
+ora **codice morto** (nessuno le importa) — da togliere in un secondo giro. E manca la misura
+PRIMA/DOPO in ms sullo stesso messaggio-tipo dello stesso account register.it.
+
+---
+
 ### 27/08 (sera) — Sei richieste dell utente, in fila
 
 | Cosa | Dove | Nota |
