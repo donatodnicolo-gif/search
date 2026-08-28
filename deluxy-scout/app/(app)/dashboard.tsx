@@ -33,7 +33,7 @@ import { AssistenteCard } from '@/components/AssistenteCard';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { PERIODO_DEFAULT, inPeriodo, labelPeriodo, type Periodo } from '@/lib/periodo';
 import { PeriodoSelector } from '@/components/PeriodoSelector';
-import { PageIntro } from '@/components/ui';
+import { PageIntro, RigaChips } from '@/components/ui';
 import { StatCard } from '@/components/StatCard';
 import { SyncBadge } from '@/components/SyncBadge';
 
@@ -369,11 +369,9 @@ function FiltroRiga({ label, children }: { label: string; children: ReactNode })
   return (
     <View style={styles.filtroRiga}>
       <Text style={styles.filtroLabel}>{label}</Text>
-      {/* A capo invece che in scorrimento orizzontale: sul telefono le ultime
-          voci restavano tagliate fuori dallo schermo senza modo di accorgersene. */}
-      <View style={styles.filtroChips}>
-        {children}
-      </View>
+      {/* Su mobile la riga scorre in orizzontale (Libro v1.3 §8.9, decisione
+          utente); su desktop va a capo. */}
+      <RigaChips style={styles.filtroChips}>{children}</RigaChips>
     </View>
   );
 }

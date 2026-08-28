@@ -17,6 +17,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, Vi
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
+import { RigaChips } from '@/components/ui';
 import { PROVINCE, siglaProvincia, type Provincia } from '@/lib/province';
 import { frecciaOrdine, ordinaRighe, useOrdinamento } from '@/lib/ordinamento';
 import { fetchTuttiPartner } from '@/lib/anagrafiche';
@@ -247,11 +248,12 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
       {/* Periodo del VENDUTO. ⚠️ Vale solo per l'ultima colonna: fornitori e
           «in lavorazione» vengono dal registro, che non ha una dimensione
           temporale — cambiando periodo restano uguali, ed è giusto così. */}
-      <View style={styles.filtri}>
+      {/* Su mobile la riga scorre (Libro v1.3 §8.9); su desktop va a capo. */}
+      <RigaChips style={styles.filtri}>
         {(['mese', 'trimestre', 'anno', 'anno-scorso', 'tutto'] as Periodo[]).map((p) => (
           <Chip key={p} label={ETICHETTA_PERIODO[p]} on={periodo === p} onPress={() => setPeriodo(p)} />
         ))}
-      </View>
+      </RigaChips>
       <Text style={styles.notaPeriodo}>
         Il periodo vale per il <Text style={styles.forte}>venduto</Text>: fornitori e «in lav.» vengono
         dal registro e non cambiano.

@@ -32,7 +32,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, shadow, spacing, touchMin, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { leggiImportoPositivo, scriviImporto } from '@/lib/importi';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { CampoData } from '@/components/CampoData';
 import { Tabella, dataBreve, importoBreve, type ColonnaTabella } from '@/components/Tabella';
@@ -611,8 +611,8 @@ export default function RichiesteClienti() {
           autoCapitalize="none"
           clearButtonMode="while-editing"
         />
-        {/* A capo, non in scroll orizzontale (Libro v1.2 §8). */}
-        <View style={[styles.chipsRiga, { flexWrap: 'wrap' }]}>
+        {/* Su mobile la riga scorre (Libro v1.3 §8.9); su desktop va a capo. */}
+        <RigaChips style={styles.chipsRiga}>
           {VISTE_RICHIESTA.map((v) => (
             <Pressable
               key={v.v}
@@ -624,7 +624,7 @@ export default function RichiesteClienti() {
               </Text>
             </Pressable>
           ))}
-        </View>
+        </RigaChips>
 
         {errore ? (
           <Text style={styles.errore}>

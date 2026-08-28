@@ -321,7 +321,11 @@ export function ClientiLista() {
         ) : null}
       </div>
 
-      <div className="filtri">
+      {/* Su mobile le pillole scorrono su UNA riga (Libro §8.9): qui dentro ci
+          sono solo chip di filtro e le loro etichette («Ordina per», «Rubrica»,
+          che fanno da separatori fra i gruppi) — la ricerca sta nella barra
+          sopra e resta fuori dalla corsia. */}
+      <div className="filtri riga-chips-scorri">
         <span className="etichetta-ordina">Ordina per</span>
         {ORDINAMENTI.map((o) => (
           <button

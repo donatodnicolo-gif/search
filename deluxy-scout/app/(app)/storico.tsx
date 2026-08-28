@@ -7,7 +7,7 @@ import { useFocusEffect } from 'expo-router';
 import type { EsitoVisita } from '@/types';
 import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { Tabella, type ColonnaTabella } from '@/components/Tabella';
-import { EmptyState, PageIntro } from '@/components/ui';
+import { EmptyState, PageIntro, RigaChips } from '@/components/ui';
 import { fetchStorico, type VisitaStorico } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { PERIODO_DEFAULT, inPeriodo, type Periodo } from '@/lib/periodo';
@@ -260,7 +260,7 @@ function Gruppo({ titolo, valori, attivo, onTap }: { titolo: string; valori: str
   return (
     <View style={styles.gruppo}>
       <Text style={styles.gruppoTitolo}>{titolo}</Text>
-      <View style={styles.chips}>
+      <RigaChips style={styles.chips}>
         {valori.map((v) => {
           const on = attivo === v;
           return (
@@ -269,7 +269,7 @@ function Gruppo({ titolo, valori, attivo, onTap }: { titolo: string; valori: str
             </Text>
           );
         })}
-      </View>
+      </RigaChips>
     </View>
   );
 }

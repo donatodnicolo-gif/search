@@ -2,7 +2,16 @@
 // (deluxy-design-system/DESIGN-SYSTEM.md §3 Componenti e §4 Pattern).
 // Ogni schermata compone questi pezzi invece di ridefinirli in locale.
 import type { ComponentProps, ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, shadow, spacing, touchMin } from '@/lib/theme';
 
@@ -259,6 +268,36 @@ const stiliConto = StyleSheet.create({
 });
 
 /**
+ * La riga di un GRUPPO di chip (Libro UX&UI v1.3 §8 punto 9, decisione utente
+ * del 28/08/2026): sotto la soglia mobile sta su UNA riga e SCORRE in
+ * orizzontale (il wrap faceva crescere la zona filtri in verticale); dalla
+ * soglia in su i chip vanno a capo come prima.
+ *
+ * ⚠️ Le due guardie della regola: nella corsia che scorre stanno SOLO chip —
+ * «Filtri (N)», «Azzera» e le azioni restano fuori, sempre visibili; e niente
+ * scroll indicator (l'ultima chip che sbuca dal bordo è l'indizio che c'è
+ * altro).
+ */
+export function RigaChips({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const { width } = useWindowDimensions();
+  if (width < 900) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        // il nowrap sta DOPO lo style del chiamante: molti passano la loro
+        // riga storica con flexWrap:'wrap', che qui deve perdere
+        contentContainerStyle={[stiliChip.riga, style, { flexWrap: 'nowrap' }]}
+      >
+        {children}
+      </ScrollView>
+    );
+  }
+  return <View style={[stiliChip.riga, style]}>{children}</View>;
+}
+
+/**
  * Chip di filtro a selezione SINGOLA (Libro UX&UI v1.2 §8). La stessa forma
  * era stata ricopiata in locale da dieci schermate (`{ label, on, onPress }`
  * quasi identico ovunque): questa è la copia che resta, le altre si tolgono
@@ -305,7 +344,7 @@ export function GruppoScelta<T extends string>({
   return (
     <View style={stiliChip.gruppo}>
       {titolo ? <Text style={stiliChip.titolo}>{titolo}</Text> : null}
-      <View style={stiliChip.riga}>
+      <RigaChips>
         {senzaTutti ? null : (
           <Chip label={etichettaTutti} on={valore === null} onPress={() => onChange(null)} />
         )}
@@ -317,7 +356,7 @@ export function GruppoScelta<T extends string>({
             onPress={() => onChange(senzaTutti ? o.v : valore === o.v ? null : o.v)}
           />
         ))}
-      </View>
+      </RigaChips>
     </View>
   );
 }

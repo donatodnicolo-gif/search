@@ -200,7 +200,11 @@ export default async function Dashboard({
               come vanno le campagne. Fonte documentale: cartella Drive “ADV DELUXY SRL”.
             </p>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {/* alignItems esplicito: col default (stretch) «Deposita analisi»
+              veniva stirato all'altezza di BottoneSync (bottone + riga di
+              esito) e la pillola diventava un ovale (segnalazione utente
+              28/08, trappola flex nota). */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
             <BottoneSync />
             <a className="btn" href="/analisi/nuova">Deposita analisi</a>
           </div>

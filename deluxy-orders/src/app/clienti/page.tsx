@@ -154,8 +154,9 @@ export default async function Clienti({
             href={(chiave, valore) => conFiltro({ [chiave]: valore, page: "" })}
           />
 
-          {/* Tag: segmento di valore */}
-          <div className="filtri">
+          {/* Tag: segmento di valore. Su mobile ogni gruppo scorre su UNA riga
+              (Libro §8.9, quando la zona è aperta): dentro solo pillole. */}
+          <div className="filtri riga-chips-scorri">
             <span className="etichetta-ordina">Segmento</span>
             <Link className={`stato-pill${!filtro ? " attuale" : ""}`} href={conFiltro({ lista: "", page: "" })}>
               <span className="stato-label">Tutti</span>
@@ -169,7 +170,7 @@ export default async function Clienti({
           </div>
 
           {/* Tag: tipologia di cliente */}
-          <div className="filtri">
+          <div className="filtri riga-chips-scorri">
             <span className="etichetta-ordina">Tipologia</span>
             {perTipologia.map((l) => (
               <Link key={l.chiave} className={`stato-pill${filtro === l.chiave ? " attuale" : ""}`} href={conFiltro({ lista: l.chiave, page: "" })}>
@@ -183,7 +184,7 @@ export default async function Clienti({
           </div>
 
           {/* Privacy: chi si può contattare davvero */}
-          <div className="filtri">
+          <div className="filtri riga-chips-scorri">
             <span className="etichetta-ordina">Privacy</span>
             {perPrivacy.map((l) => (
               <Link key={l.chiave} className={`stato-pill${filtro === l.chiave ? " attuale" : ""}`} href={conFiltro({ lista: l.chiave, page: "" })}>

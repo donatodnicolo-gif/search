@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, touchMin, contenutoCentrato, contenutoExtraLargo } from '@/lib/theme';
 import { leggiImporto, scriviImporto } from '@/lib/importi';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
@@ -1128,25 +1128,25 @@ export default function Ordini() {
           risultati={dati.length}
         >
           {lineePresenti.length ? (
-            <View style={styles.chips}>
+            <RigaChips style={styles.chips}>
               <Text style={styles.gruppoTitolo}>Interessi</Text>
               <Chip label="Tutti" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
               {lineePresenti.map((l) => (
                 <Chip key={l} label={l} on={lineaFiltro === l} onPress={() => setLineaFiltro((c) => (c === l ? null : l))} />
               ))}
-            </View>
+            </RigaChips>
           ) : null}
           {/* ⭐ IL PERIODO (27/08/2026): quattro scorciatoie, non un
               calendario. La domanda vera e quella di tutti i giorni — «come sta
               andando questo mese?» — e per farsela non si deve scegliere due
               date. */}
-          <View style={styles.chips}>
+          <RigaChips style={styles.chips}>
             <Text style={styles.gruppoTitolo}>Pratica</Text>
             <Chip label="Tutti" on={chiusura === 'tutti'} onPress={() => setChiusura('tutti')} />
             <Chip label="Da chiudere" on={chiusura === 'aperti'} onPress={() => setChiusura('aperti')} />
             <Chip label="Chiusi" on={chiusura === 'chiusi'} onPress={() => setChiusura('chiusi')} />
-          </View>
-          <View style={styles.chips}>
+          </RigaChips>
+          <RigaChips style={styles.chips}>
             <Text style={styles.gruppoTitolo}>Periodo</Text>
             {([
               { v: 'tutti', l: 'Sempre' },
@@ -1157,7 +1157,7 @@ export default function Ordini() {
             ] as const).map((o) => (
               <Chip key={o.v} label={o.l} on={periodo === o.v} onPress={() => setPeriodo(o.v)} />
             ))}
-          </View>
+          </RigaChips>
         </PannelloFiltri>
       </View>
 

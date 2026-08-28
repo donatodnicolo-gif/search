@@ -4,6 +4,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '@/lib/theme';
 import { CampoData } from '@/components/CampoData';
+import { RigaChips } from '@/components/ui';
 import { OPZIONI_PERIODO, type Periodo } from '@/lib/periodo';
 
 export function PeriodoSelector({
@@ -18,7 +19,8 @@ export function PeriodoSelector({
   return (
     <View style={styles.wrap}>
       <Text style={styles.titolo}>{titolo}</Text>
-      <View style={styles.chips}>
+      {/* Su mobile la riga scorre (Libro v1.3 §8.9); su desktop va a capo. */}
+      <RigaChips style={styles.chips}>
         {OPZIONI_PERIODO.map((o) => {
           const on = periodo.tipo === o.tipo;
           return (
@@ -32,7 +34,7 @@ export function PeriodoSelector({
             </Text>
           );
         })}
-      </View>
+      </RigaChips>
       {periodo.tipo === 'custom' ? (
         <View style={styles.customRow}>
           <View style={styles.campo}>

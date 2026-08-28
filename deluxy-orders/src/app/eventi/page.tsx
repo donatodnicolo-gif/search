@@ -165,7 +165,8 @@ export default async function Eventi({
           display:none globale di M7 le nascondeva del tutto sul telefono,
           senza sostituto. N conta la vista fuori dal default «prossimi». */}
       <ZonaFiltri attivi={vista !== "prossimi" ? 1 : 0}>
-        <div className="filtri">
+        {/* Su mobile il gruppo scorre su UNA riga (Libro §8.9). */}
+        <div className="filtri riga-chips-scorri">
           <span className="etichetta-ordina">Vista</span>
           {viste.map((v) => (
             <Link key={v.chiave} className={`stato-pill${vista === v.chiave ? " attuale" : ""}`} href={conFiltro({ vista: v.chiave, page: "" })}>

@@ -2,6 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, touchMin } from '@/lib/theme';
+import { RigaChips } from './ui';
 
 /**
  * Contenitore dei filtri di una lista, richiudibile (Libro UX&UI v1.2 §8:
@@ -58,7 +59,13 @@ export function PannelloFiltri({
   return (
     <View style={styles.wrap}>
       <View style={[styles.barra, dentroUnBloccoSpaziato && { paddingHorizontal: 0 }]}>
-        {primaria}
+        {/* La primaria vive in una corsia propria: su mobile scorre (Libro
+            v1.3 §8.9) mentre «Filtri (N)» e «Azzera» restano fissi fuori. */}
+        {primaria != null ? (
+          <View style={styles.corsiaPrimaria}>
+            <RigaChips>{primaria}</RigaChips>
+          </View>
+        ) : null}
         <Pressable
           onPress={() => setAperto((v) => !v)}
           style={[styles.bottone, attivi > 0 && styles.bottoneAttivo]}
@@ -102,6 +109,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
+  // La corsia prende lo spazio che resta accanto al bottone; minWidth 0
+  // permette allo ScrollView interno di stringersi invece di spingere fuori
+  // «Filtri (N)».
+  corsiaPrimaria: { flexGrow: 1, flexShrink: 1, minWidth: 0 },
   bottone: {
     flexDirection: 'row',
     alignItems: 'center',

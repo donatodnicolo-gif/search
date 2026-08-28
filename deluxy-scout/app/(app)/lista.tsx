@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { Filters, filtriVuoti, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
-import { ContoRighe, EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { ContoRighe, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { aRischio, coloreLivello, COLORE_A_RISCHIO, COLORE_PERSO, ePerso, inLavorazione, LABEL_A_RISCHIO, LABEL_LIVELLO, LABEL_PERSO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 import { VisitaModal } from '@/components/VisitaModal';
@@ -308,7 +308,7 @@ export default function Lista() {
             />
             <ContoRighe mostrati={dati.length} totale={totaleVista} nome="negozi" />
             {mostraChip ? (
-              <View style={styles.livelli}>
+              <RigaChips style={styles.livelli}>
                 <ChipLivello label="Tutti" on={!livello} onPress={() => setLivello(null)} />
                 {chipLivelli.map((l) => (
                   <ChipLivello
@@ -319,7 +319,7 @@ export default function Lista() {
                     onPress={() => setLivello((c) => (c === l ? null : l))}
                   />
                 ))}
-              </View>
+              </RigaChips>
             ) : null}
             {/* Prima la ricerca, poi il bottone dei filtri: stesso ordine di
                 Clienti, Affiliazioni, Trattative e Rubrica. */}

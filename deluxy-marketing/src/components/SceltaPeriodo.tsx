@@ -60,7 +60,8 @@ export function SceltaPeriodo({
   return (
     <section className="scheda" style={{ paddingBottom: 14 }}>
       <div className="scheda-titolo">Periodo</div>
-      <div className="pill-scelta" style={{ marginBottom: 12 }}>
+      {/* Su mobile la riga di pillole scorre in orizzontale (Libro v1.3 §8.9). */}
+      <div className="pill-scelta riga-chips-scorri" style={{ marginBottom: 12 }}>
         {PRESET_PERIODO.filter((x) => x.chiave !== "libero").map((x) => (
           <a
             key={x.chiave}

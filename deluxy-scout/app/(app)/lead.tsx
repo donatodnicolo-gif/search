@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, touchMin, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { Tabella, dataBreve, type ColonnaTabella } from '@/components/Tabella';
-import { EmptyState, PageIntro } from '@/components/ui';
+import { EmptyState, PageIntro, RigaChips } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { LeadCard } from '@/components/LeadCard';
 import { QualificaLeadModal } from '@/components/QualificaLeadModal';
@@ -457,7 +457,7 @@ export default function LeadWeb() {
           </Text>
         </Pressable>
         {esitoAuto ? <Text style={styles.esitoAuto}>{esitoAuto}</Text> : null}
-        <View style={styles.chips}>
+        <RigaChips style={styles.chips}>
           {[
             { v: 'nuovo', label: `Nuovi${nNuovi ? ` (${nNuovi})` : ''}` },
             { v: 'qualificato', label: 'Qualificati' },
@@ -467,7 +467,7 @@ export default function LeadWeb() {
               <Text style={[styles.chipTxt, statoFiltro === c.v && styles.chipTxtOn]}>{c.label}</Text>
             </Pressable>
           ))}
-        </View>
+        </RigaChips>
       </View>
 
       <FlatList

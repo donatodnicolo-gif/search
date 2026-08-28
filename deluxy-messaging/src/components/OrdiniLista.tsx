@@ -1657,7 +1657,10 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
           una seconda: premendo qui la tendina segue, e viceversa. Due comandi
           che raccontano stati diversi sono il modo più rapido per non fidarsi
           più di nessuno dei due. */}
-      <div className="filtri-passi">
+      {/* Su mobile la riga dei passi scorre di lato su UNA riga (Libro §8.9):
+          qui dentro ci sono solo chip di filtro (gli stacchi sono separatori
+          fra chip), quindi tutta la riga può stare in corsia. */}
+      <div className="filtri-passi riga-chips-scorri">
         <button
           className={soloNuovi ? 'bottone mini' : 'bottone secondario mini'}
           onClick={() => setSoloNuovi(!soloNuovi)}

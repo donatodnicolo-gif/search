@@ -76,7 +76,9 @@ export default async function PaginaAnalisi({
               revisioni di creativi e landing, report settimanali.
             </p>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {/* alignItems esplicito: col default (stretch) la pillola si stirava
+              all'altezza di BottoneSync e diventava un ovale (28/08). */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
             <BottoneSync />
             <a className="btn" href="/analisi/nuova">Deposita analisi</a>
           </div>

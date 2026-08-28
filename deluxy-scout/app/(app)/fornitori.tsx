@@ -19,7 +19,7 @@ import { avvisa } from '@/lib/dialoghi';
 import { CardElenco } from '@/components/CardElenco';
 import { Tabella, dataBreve, type ColonnaTabella } from '@/components/Tabella';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { COLORE_VISITA } from '@/lib/statoVisita';
 
 const LABEL_FORNITORE: Record<string, string> = {
@@ -220,7 +220,7 @@ export default function Fornitori() {
       </View>
 
       {statiPresenti.length > 1 ? (
-        <View style={styles.chips}>
+        <RigaChips style={styles.chips}>
           <Chip label={`Tutti (${partner.length})`} on={!statoFiltro} onPress={() => setStatoFiltro(null)} />
           {statiPresenti.map((s) => (
             <Chip
@@ -230,7 +230,7 @@ export default function Fornitori() {
               onPress={() => setStatoFiltro((c) => (c === s ? null : s))}
             />
           ))}
-        </View>
+        </RigaChips>
       ) : null}
 
       {errore ? (

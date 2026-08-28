@@ -5901,3 +5901,22 @@ button.bottone.secondario.ai-spenta {
   background: #f5f5f7;
   color: #c93400;
 }
+
+/* Gruppo di chip su mobile: una riga che scorre (Libro v1.3 §8.9).
+   Si AGGIUNGE al contenitore flex delle chip: sopra la soglia resta il wrap,
+   sotto la riga scorre di lato. Due guardie del Libro: la scrollbar si
+   nasconde (l'ultima chip che «sbuca» dal bordo è l'indizio che c'è altro),
+   e nella corsia stanno SOLO chip di filtro — ricerca e bottoni d'azione
+   restano fuori, sempre visibili. */
+@media (max-width: 800px) {
+  .riga-chips-scorri {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .riga-chips-scorri::-webkit-scrollbar { display: none; }
+  /* Senza questo le chip si STRINGONO (flex-shrink) invece di sfilare oltre
+     il bordo: la corsia non scorrerebbe mai. */
+  .riga-chips-scorri > * { flex: 0 0 auto; }
+}

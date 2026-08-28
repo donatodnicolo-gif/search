@@ -124,9 +124,10 @@ export default async function DettaglioLista({
           categoria) vivono dietro «Filtri (N)» (Libro v1.2 §8) — prima il
           display:none globale di M7 li nascondeva del tutto sul telefono. */}
       <ZonaFiltri attivi={(taglio.brand ? 1 : 0) + (taglio.categoria ? 1 : 0)}>
-        {/* Le altre liste della stessa famiglia: si passa dall'una all'altra */}
+        {/* Le altre liste della stessa famiglia: si passa dall'una all'altra.
+            Su mobile il gruppo scorre su UNA riga (Libro §8.9). */}
         {famiglia && (
-          <div className="filtri">
+          <div className="filtri riga-chips-scorri">
             <span className="etichetta-ordina">{famiglia.nome}</span>
             {sorelle.map((s) => (
               <Link key={s.chiave} className={`stato-pill${s.chiave === l.chiave ? " attuale" : ""}`} href={`/liste/${s.chiave}`}>

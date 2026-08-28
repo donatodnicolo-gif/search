@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing, contenutoLargo } from '@/lib/theme';
 import { Tabella, type ColonnaTabella } from '@/components/Tabella';
 import { AddressSearch } from '@/components/AddressSearch';
-import { EmptyState, StatusBadge } from '@/components/ui';
+import { EmptyState, RigaChips, StatusBadge } from '@/components/ui';
 import type { StatoAffiliazione } from '@/types';
 import { scopriNegozi, type FiltroScoperta } from '@/lib/discover';
 import { aggiornaStarred, assicuraPlace } from '@/lib/db';
@@ -250,8 +250,8 @@ export function RicercaAffiliazioni({
             </Pressable>
           </View>
         ) : null}
-        {/* A capo, non in scroll orizzontale (Libro v1.2 §8). */}
-        <View style={[styles.chips, { flexDirection: 'row', flexWrap: 'wrap' }]}>
+        {/* Su mobile la riga scorre (Libro v1.3 §8.9); su desktop va a capo. */}
+        <RigaChips style={styles.chips}>
           <Text style={styles.etichetta}>Cosa</Text>
           {COSA.map((c) => (
             <Chip
@@ -264,8 +264,8 @@ export function RicercaAffiliazioni({
               }}
             />
           ))}
-        </View>
-        <View style={[styles.chips, { flexDirection: 'row', flexWrap: 'wrap' }]}>
+        </RigaChips>
+        <RigaChips style={styles.chips}>
           <Text style={styles.etichetta}>Raggio</Text>
           <Chip
             label="Tutta la città"
@@ -292,7 +292,7 @@ export function RicercaAffiliazioni({
               }}
             />
           ))}
-        </View>
+        </RigaChips>
         {indirizzo ? (
           <Text style={styles.zona} numberOfLines={1}>
             <Ionicons name="location-outline" size={12} color={colors.testoSoft} /> {indirizzo}

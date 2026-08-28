@@ -451,6 +451,17 @@ p.cella-sub { max-width: 72ch; }
 }
 .pill-opt .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .pill-opt:hover:not(:disabled) { background: var(--fill); color: var(--text); }
+/* Gruppo di chip su mobile: una riga che scorre (Libro UX&UI v1.3 §8.9);
+   niente scrollbar, l'ultima pillola che sbuca dice che c'è altro. */
+@media (max-width: 800px) {
+  .riga-chips-scorri {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .riga-chips-scorri::-webkit-scrollbar { display: none; }
+}
 .pill-opt.attuale { background: var(--fill); border-color: transparent; font-weight: 600; color: var(--text); cursor: default; }
 
 .due-colonne { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; align-items: start; }

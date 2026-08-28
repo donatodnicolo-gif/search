@@ -23,7 +23,9 @@ export function FiltriTaglio({
 }) {
   return (
     <>
-      <div className="filtri">
+      {/* Su mobile ogni gruppo scorre su UNA riga (Libro §8.9): dentro ci sono
+          solo pillole di filtro e l'etichetta del gruppo. */}
+      <div className="filtri riga-chips-scorri">
         <span className="etichetta-ordina">Brand</span>
         <Link className={`stato-pill${!brandScelto ? " attuale" : ""}`} href={href("brand", "")}>
           <span className="stato-label">Tutti</span>
@@ -40,7 +42,7 @@ export function FiltriTaglio({
         ))}
       </div>
 
-      <div className="filtri">
+      <div className="filtri riga-chips-scorri">
         <span className="etichetta-ordina">Categoria</span>
         <Link className={`stato-pill${!categoriaScelta ? " attuale" : ""}`} href={href("categoria", "")}>
           <span className="stato-label">Tutte</span>

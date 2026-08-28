@@ -41,7 +41,7 @@ import { emettiProformaPerOrdine, raccontaEsito } from '@/lib/documenti';
 import { env } from '@/lib/env';
 import { CANALI, MOTIVI_PERSO, canonizzaLinee, type CanaleTrattativa, type Contact, type DealStage, type MotivoPerso, type StatoAffiliazione } from '@/types';
 import { LineaSelector } from '@/components/LineaSelector';
-import { Card, EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { Card, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
@@ -402,12 +402,12 @@ export default function Trattative() {
               non in scroll orizzontale (Libro v1.2 §8: le ultime chip uscivano
               dallo schermo senza modo di accorgersene). */}
           {vista === 'aperte' && fasiApertePresenti.length > 1 ? (
-            <View style={[styles.sottoFiltri, { flexWrap: 'wrap' }]}>
+            <RigaChips style={styles.sottoFiltri}>
               <FiltroChip label="Tutte" on={faseFiltro === 'tutte'} onPress={() => setFaseFiltro('tutte')} />
               {fasiApertePresenti.map((f) => (
                 <FiltroChip key={f} label={labelFase[f]} on={faseFiltro === f} onPress={() => setFaseFiltro(f)} />
               ))}
-            </View>
+            </RigaChips>
           ) : null}
           <Text style={styles.sub}>
             {filtrate.length} trattative · valore € {totale.toLocaleString('it-IT')}
@@ -429,7 +429,7 @@ export default function Trattative() {
                 linee a capo mangiava mezza schermata. Il conteggio (N) sul
                 bottone la tiene comunque visibile quando è attiva. */}
             {lineePresenti.length ? (
-              <View style={styles.filtri}>
+              <RigaChips style={styles.filtri}>
                 <Text style={styles.filtroEtichetta}>Tipologia</Text>
                 <FiltroChip label="Tutte" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
                 {lineePresenti.map((l) => (
@@ -440,10 +440,10 @@ export default function Trattative() {
                     onPress={() => setLineaFiltro((c) => (c === l ? null : l))}
                   />
                 ))}
-              </View>
+              </RigaChips>
             ) : null}
             {/* Città: le tre principali + "Altre", come in Target, Clienti e Rubrica. */}
-            <View style={styles.filtri}>
+            <RigaChips style={styles.filtri}>
               <Text style={styles.filtroEtichetta}>Città</Text>
               {(OPZIONI_CITTA as unknown as string[]).map((c) => (
                 <FiltroChip
@@ -453,9 +453,9 @@ export default function Trattative() {
                   onPress={() => setCittaFiltro(c === 'Tutte' ? null : c)}
                 />
               ))}
-            </View>
+            </RigaChips>
             {accountPresenti.length ? (
-              <View style={styles.filtri}>
+              <RigaChips style={styles.filtri}>
                 <Text style={styles.filtroEtichetta}>Account</Text>
                 <FiltroChip label="Tutti" on={!accountFiltro} onPress={() => setAccountFiltro(null)} />
                 {accountPresenti.map((a) => (
@@ -466,7 +466,7 @@ export default function Trattative() {
                     onPress={() => setAccountFiltro((c) => (c === a ? null : a))}
                   />
                 ))}
-              </View>
+              </RigaChips>
             ) : null}
           </PannelloFiltri>
         </View>

@@ -9,6 +9,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, touchMin } from '@/lib/theme';
+import { RigaChips } from './ui';
 
 export function GruppoFiltro({
   titolo,
@@ -45,7 +46,8 @@ export function GruppoFiltro({
             righe, il conto a colpo d'occhio serve. */}
         {scelti.size > 0 ? <Text style={styles.conto}>{scelti.size}</Text> : null}
       </View>
-      <View style={styles.chips}>
+      {/* Su mobile la riga scorre in orizzontale (Libro v1.3 §8.9). */}
+      <RigaChips style={styles.chips}>
         {/* «Tutti» non è un valore fra gli altri: è il modo di svuotare il
             gruppo. Senza, per tornare a vedere tutto bisognerebbe ricordarsi
             cosa si era spuntato e rispegnerlo una voce per volta. */}
@@ -71,7 +73,7 @@ export function GruppoFiltro({
             </Pressable>
           );
         })}
-      </View>
+      </RigaChips>
     </View>
   );
 }

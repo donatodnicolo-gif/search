@@ -27,7 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
 import { leggiImportoPositivo } from '@/lib/importi';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { Foglio } from '@/components/Foglio';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { avvisa, conferma } from '@/lib/dialoghi';
@@ -224,10 +224,9 @@ export default function Forniture() {
           clearButtonMode="while-editing"
         />
 
-        {/* A capo, non in scroll orizzontale (Libro v1.2 §8: le ultime chip
-            uscivano dallo schermo senza modo di accorgersene). */}
+        {/* Su mobile la riga scorre (Libro v1.3 §8.9); su desktop va a capo. */}
         {lineePresenti.length ? (
-          <View style={[styles.chips, { flexWrap: 'wrap' }]}>
+          <RigaChips style={styles.chips}>
             <Pressable style={[styles.chip, !lineaFiltro && styles.chipOn]} onPress={() => setLineaFiltro(null)}>
               <Text style={[styles.chipTxt, !lineaFiltro && styles.chipTxtOn]}>Tutte</Text>
             </Pressable>
@@ -240,7 +239,7 @@ export default function Forniture() {
                 <Text style={[styles.chipTxt, lineaFiltro === l && styles.chipTxtOn]}>{l}</Text>
               </Pressable>
             ))}
-          </View>
+          </RigaChips>
         ) : null}
 
         {spente ? (
