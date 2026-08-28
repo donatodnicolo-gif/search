@@ -18,11 +18,7 @@
 
 | Data | App | Segnalazione | Fonte |
 |---|---|---|---|
-| 28/08 | search-supplier | Restano deferiti dalla passata su `main`: badge senza dot (emoji), empty-state con icona/titolo, emoji→SVG, chip come `<div>` — tutti toccano il JS che genera l'HTML | custode |
-| 27/08 | Scout | Migrazione COMPLETA di `lib/theme.ts` ai token DS (rinominando le chiavi in collisione `spacing.md` 16≠12 — mai swap secco). Fatta la parte ADDITIVA sicura (token nuovi + hex→token); lo swap dell'import resta | custode |
-| 27/08 | scoutwt/DS | Allineare la copia del DS in `scoutwt/deluxy-design-system` alla v1.4 (oggi 1.3) — bassa priorità: le app hanno già la loro copia dei token a v1.4 | custode |
-| 27/08 | Calendario | Un errore DB reso dentro `.vuoto` (page.tsx:187) = «fallimento = lista vuota» (Libro cap.6, legge 9): serve una card d'errore con «Riprova» | passata UX |
-| 27/08 | Anagrafiche | Drawer mobile: aggiungere focus-trap + ritorno del focus; ridurre il padding pagina mobile (40/24) | passata UX |
+| 28/08 | Anagrafiche | Il fix drawer (focus-trap) e il padding mobile sono committati e pushati su scout-ui ma **NON ancora deployati**: il `vercel deploy --prod` è stato bloccato dal classifier della sessione — lanciarlo dall'utente da `scoutwt/deluxy-anagrafiche` | custode |
 
 ## ⚠️ Copie vive vs stale (scoperto il 28/08 durante «push tutto live»)
 
@@ -47,6 +43,12 @@ Deployate e verificate (target production, aliased): **Hub, Finance, Customer Se
 
 | Data | App | Segnalazione | Esito |
 |---|---|---|---|
+| 28/08 | **tutte** | «Tutti i menù drawer devono essere a sinistra» (utente, con screenshot del Hub che scivolava da destra) | **Regola nuova del Libro v1.1 (§2)**: drawer di menu sempre da sinistra (`left:0`, chiuso `translateX(-100%)`, `border-right`). Censimento: l'unico fuori regola era il **Hub** (corretto su scoutwt e deployato); Anagrafiche, AI Mail, CS, Orders, Transactions, piattaforma già a sinistra |
+| 28/08 | **search-supplier** | Deferiti della passata su `main`: badge senza dot, empty-state, emoji→SVG, chip `<div>` | Chiusi (commit `c81349d1`, push su main = deploy): badge alla formula con `.bdot` (~14 siti), chip categorie `<button>` + `font:inherit`, `#resultsEmpty` icona SVG e `#noResults` con icona+titolo, icone funzionali → costanti `ICO` SVG (tel/wa/mail/archivio/Shopify/foto/utente/cerca) e dot su chip apertura. **Restano di proposito** le emoji nei punti a `textContent` (bottoni «📋 Copia» coi toggle, `<option>`, riga di stato, ST_TIPO passato da `esc()`) e nei testi: lì l'HTML non renderizza o è contenuto (Libro §icone). Sintassi JS + DOM verificati in locale |
+| 28/08 | **Scout** | Migrazione COMPLETA di `lib/theme.ts` ai token DS | Chiusa (commit `61ce9bde`, deploy web verificato ✓): chiavi in collisione rinominate in 76 file PRIMA dello swap (spacing md16/lg24/xl32 → lg/xxl/xxxl DS; radius sm/md/lg → s/m/l, valori identici), poi `theme.ts` attinge da `lib/ds.ts` (copia locale del DS v1.4 — Metro non importa fuori root). tsc pulito, zero residui |
+| 28/08 | **scoutwt/DS** | Copia DS ferma alla 1.3 | Allineata alla v1.4 + copiati Libro UX&UI (v1.1) e Libro Sicurezza. I registri SEGNALAZIONI restano SOLO in `app/` (registro unico vivo, niente seconda copia che invecchia) |
+| 28/08 | **Calendario** | Errore DB dentro `.vuoto` | Card d'errore `red-soft` con titolo + «Riprova» (link alla stessa URL); il messaggio da sviluppatore «Imposta DATABASE_URL…» ora va in `console.error` (Libro cap.6, legge 9 lo vieta all'utente). Build ✓, **deployato in produzione**; commit solo locale (repo GitHub ancora mancante) |
+| 28/08 | **Anagrafiche** | Drawer mobile senza focus-trap; padding mobile 40/24 | `ScrimSidebar` ora intrappola Tab nella sidebar a drawer aperto (≤800px) e restituisce il focus all'hamburger alla chiusura (MutationObserver su `data-sidebar-chiusa`); `.main` su mobile 20/16. tsc ✓, pushato — deploy da lanciare (riga «In attesa») |
 | 27/08 | tutte | Nasce il Libro UX&UI: ~140 divergenze censite su 10 app, giuria a 3 lenti + revisione ostile | Libro v1.0 + DS v1.4 + piano P0/P1/P2 (Libro, Appendice B) |
 | 27/08 | 10 app web | Copie `tokens.css` ferme alla v1.0 | Propagata la v1.4 + token v1.4 in `platform-next/web/styles.css` |
 | 27/08 | **Hub** | Adeguamento P0/P1/P2 | focus oro, tabella sticky, empty-state, conferma elimina utente, loading+SubmitButton, asterischi rossi, login raggruppato, responsive; **+ drawer laterale mobile** (hamburger+scrim). tsc+build ✓, pushato |

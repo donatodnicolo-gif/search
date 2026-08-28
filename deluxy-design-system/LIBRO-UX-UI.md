@@ -1,6 +1,6 @@
 # Il Libro UX&UI Deluxy
 
-**Versione 1.0 — 27 agosto 2026**
+**Versione 1.1 — 28 agosto 2026** · *1.1: il drawer di menu si apre sempre da sinistra (§2).*
 
 Il canone dei **pattern di interfaccia** di tutte le app Deluxy: menù, bottoni, form, tabelle, stati, feedback, conferme, finestre, mobile. D'ora in poi **ogni elemento di interfaccia, in ogni app esistente e nuova, si costruisce attingendo da qui** — non dal gusto del momento e non copiando un'altra app a caso.
 
@@ -45,6 +45,7 @@ Le regole su cui **tutte** le fonti convergono e che nessun capitolo può contra
 
 - **App a uso mobile primario** (Scout; la piattaforma lato valet): **tab bar in basso, 3–5 voci** (HIG e Material 3 identici), icona + etichetta sempre, item ≥ 48px, indicatore attivo a due segnali. Le 4 destinazioni quotidiane in barra; la quinta è **«Menu»** e apre il drawer con tutto il resto. Riferimento: `scoutwt/deluxy-scout/components/BarraMobile.tsx` (in flusso, non absolute: i FAB non ci finiscono sotto).
 - **App desktop-first consultate da telefono**: drawer off-canvas con topbar vetro 56px (hamburger + logo + titolo), scrim `--scrim`, chiusura al tap fuori e a ogni navigazione. Riferimenti: `search-supplier` e `deluxy-platform-next/web` (shell).
+- **Il drawer di menu si apre sempre da SINISTRA** (deciso dall'utente il 28/08/2026, su segnalazione del Hub che scivolava da destra): il drawer è la sidebar che su mobile si nasconde, e la sidebar sta a sinistra — il lato non cambia col viewport. Pannello `left:0`, chiuso `translateX(-100%)`, bordo `border-right`. Vale per ogni app; i pannelli non-di-menu (dettagli, carrelli) non sono coperti da questa regola.
 - **Le tab sono destinazioni, mai azioni**; `backBehavior="history"` (il back torna dove eri, non alla home).
 - **Soglia unica largo/stretto: 900px**, dichiarata come **costante documentata in UN punto per app** (i breakpoint non sono tokenizzabili in CSS puro). Le app nuove nascono a 900. **Deroga annotata**: la piattaforma consegne resta a 800 (soglia tarata in 6 punti coordinati con la trasformazione tabelle→schede) finché non migra in un colpo solo e verificato — il divieto vero è avere N copie del numero, non il numero.
 - ⚠️ **Un hamburger che non mostra nulla è un guasto bloccante**: la navigazione mobile deve ESISTERE (oggi Anagrafiche a 375px non ne ha una — P0).
