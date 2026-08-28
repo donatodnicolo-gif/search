@@ -1,6 +1,6 @@
 # Da dove partire — guida per una sessione nuova
 
-**Aggiornato: 24 luglio 2026.** Se apri una sessione su questo repo e non sai da
+**Aggiornato: 27 agosto 2026** (porte e copie doppie ri-misurate). Se apri una sessione su questo repo e non sai da
 che parte cominciare, **questo è il primo file da leggere**. Dice, per ogni
 progetto: cos'è, dove sta, su che porta gira, dov'è in produzione, **quale
 documento leggere per primo** e le trappole già note.
@@ -63,6 +63,41 @@ ricorrenze, eventi con inviti, mail personalizzate via AI Mail), LIVE su
 **3200 personale** — organico/HR (funzioni, mansioni, organigramma, inquadramenti,
 retribuzioni), LIVE su [deluxy-personale.vercel.app](https://deluxy-personale.vercel.app),
 leggi per primo `deluxy-personale/README.md` in `app/`.
+
+### ⚠️ Le app che stanno in DUE cartelle (misurato il 27/08/2026)
+
+`deluxy-hub`, `deluxy-partner`, `deluxy-anagrafiche` e `deluxy-mail` esistono
+sia in `scoutwt\` sia in `app\`. **Il lavoro specifico recente sta in
+`scoutwt\`**: le copie in `app\` ricevono solo i commit trasversali (quelli che
+toccano tutte le app insieme). Prima di metterci le mani, non fidarti di questa
+riga — **guarda**:
+
+```bash
+cd C:\Users\nicol\scoutwt && git log -1 --date=short --format="%ad %s" -- <app>
+```
+
+```bash
+cd C:\Users\nicol\app && git log -1 --date=short --format="%ad %s" -- <app>
+```
+
+Lavorare sulla copia sbagliata non dà nessun errore: si scopre quando il deploy
+non contiene quello che avevi appena scritto.
+
+### Le app che stanno SOLO in `C:\Users\nicol\app`
+
+| Progetto | Cos'è | Porta | Produzione |
+|---|---|---|---|
+| `deluxy-tasks` | attività condivise fra le app, via API | 3090 | sì (da `main`) |
+| `deluxy-acquisti` | richieste d'acquisto con approvazione, estrazione AI | 3100 | sì |
+| `deluxy-calendario` | calendario condiviso | 3110 | sì — ⚠️ unica app **senza repo GitHub** |
+| `deluxy-fondo` | fondo cassa | 3180 | sì |
+| `deluxy-crm` | il libro dei clienti D2C (clienteling) | 3190 | [deluxy-crm.vercel.app](https://deluxy-crm.vercel.app) |
+| `deluxy-personale` | organico e dati HR | 3200 | [deluxy-personale.vercel.app](https://deluxy-personale.vercel.app) |
+
+⚠️ **La radice di `app\` è collegata al progetto Vercel di Tasks**: un
+`vercel deploy` lanciato dalla cartella sbagliata pubblica Tasks al posto della
+tua app. Si deploya sempre **dalla cartella dell'app**.
+
 
 ---
 
