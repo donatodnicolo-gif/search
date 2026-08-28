@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { inviaNuovaMail, salvaMinuta, chiediAReneMailNuova } from '@/lib/actions'
 import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
-import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
+import { CampoDestinatari, dominioControparteDa, dominioDi, type ContattoRubrica } from './CampoDestinatari'
 import { AgganciaCompose, type ScelraAggancio } from './AgganciaCompose'
 import { TestiPronti } from './TestiPronti'
 import { mettiFlash } from './Flash'
@@ -34,6 +34,21 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
   const [a, setA] = useState(iniziale.a)
   // Da quale casella parte (multi-account): predefinita l'attiva.
   const [daAccount, setDaAccount] = useState(accountId ?? caselle[0]?.id ?? '')
+
+  // ⚠️ I domini di casa si ricavano dalle etichette delle caselle («Nome
+  // <indirizzo>»): sono già qui e non serve chiederli al server. Servono a
+  // mettere il TEAM in cima ai suggerimenti dei destinatari.
+  const nostriDomini = useMemo(
+    () => [
+      ...new Set(
+        caselle
+          .map((c) => dominioDi((c.etichetta.match(/<([^<>]+)>/) ?? [])[1] ?? c.etichetta))
+          .filter(Boolean)
+      ),
+    ],
+    [caselle]
+  )
+  const dominioControparte = useMemo(() => dominioControparteDa(a), [a])
   const [cc, setCc] = useState(iniziale.cc)
   const [oggetto, setOggetto] = useState(iniziale.oggetto)
   const [corpo, setCorpo] = useState(iniziale.corpo)
@@ -292,6 +307,8 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
             value={a}
             onChange={setA}
             contatti={contatti}
+            nostriDomini={nostriDomini}
+            dominioControparte={dominioControparte}
             placeholder="Nome o email (dalla rubrica)"
             autoFocus
           />
@@ -299,7 +316,13 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
 
         <div className="full">
           <label className="field-label">Cc</label>
-          <CampoDestinatari value={cc} onChange={setCc} contatti={contatti} />
+          <CampoDestinatari
+            value={cc}
+            onChange={setCc}
+            contatti={contatti}
+            nostriDomini={nostriDomini}
+            dominioControparte={dominioControparte}
+          />
         </div>
 
         <div className="full">

@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { inviaMessaggio, salvaMinuta, chiediARene } from '@/lib/actions'
 import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
-import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
+import { CampoDestinatari, dominioControparteDa, dominioDi, type ContattoRubrica } from './CampoDestinatari'
 import { AgganciaCompose, type ScelraAggancio } from './AgganciaCompose'
 import { mettiFlash, mostraFlash } from './Flash'
 import { useBozzaAuto } from './useBozzaAuto'
@@ -68,6 +68,17 @@ export function Composizione({
   // Da quale casella parte. Vale solo quando c'è più di una candidata.
   const [daSceltaId, setDaSceltaId] = useState(daId)
   const sceltaMultipla = daScelte.length > 1
+
+  // ⚠️ I domini di CASA si ricavano dalle caselle dell'utente: sono già qui
+  // (servono alla tendina «Da»), e non c'è bisogno di chiederli al server una
+  // seconda volta. Con una casella sola l'elenco ha comunque il suo dominio.
+  const nostriDomini = useMemo(
+    () => [...new Set(daScelte.map((c) => dominioDi(c.email)).filter(Boolean))],
+    [daScelte]
+  )
+  // La controparte è chi sta nel campo «A»: i suoi colleghi sono i secondi
+  // candidati più probabili, soprattutto quando si aggiunge qualcuno in Cc.
+  const dominioControparte = useMemo(() => dominioControparteDa(a), [a])
   const [oggetto, setOggetto] = useState(iniziale.oggetto)
   const [corpo, setCorpo] = useState(iniziale.corpo)
   const [allegati, setAllegati] = useState<File[]>([])
@@ -400,6 +411,8 @@ export function Composizione({
             value={a}
             onChange={setA}
             contatti={contatti}
+            nostriDomini={nostriDomini}
+            dominioControparte={dominioControparte}
             placeholder={modo === 'inoltra' ? 'A chi lo inoltri? (scrivi un nome per cercarlo in rubrica)' : 'Nome o email (dalla rubrica)'}
             autoFocus={modo === 'inoltra'}
           />
@@ -409,7 +422,13 @@ export function Composizione({
             in "rispondi a tutti"/inoltro e non si poteva aggiungere nessuno. */}
         <div className="full">
           <label className="field-label">Cc</label>
-          <CampoDestinatari value={cc} onChange={setCc} contatti={contatti} />
+          <CampoDestinatari
+            value={cc}
+            onChange={setCc}
+            contatti={contatti}
+            nostriDomini={nostriDomini}
+            dominioControparte={dominioControparte}
+          />
         </div>
 
         <div className="full">
