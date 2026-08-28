@@ -2953,6 +2953,13 @@ export async function leggiImpostazione(chiave: string): Promise<string | null> 
   return data?.valore ?? null;
 }
 
+/** Più impostazioni in UNA query: per l'intestazione servono nove chiavi. */
+export async function leggiImpostazioni(chiavi: string[]): Promise<Record<string, string>> {
+  const { data, error } = await supabase.from('impostazioni').select('chiave, valore').in('chiave', chiavi);
+  if (error) return {};
+  return Object.fromEntries((data ?? []).map((r: any) => [r.chiave, r.valore ?? '']));
+}
+
 export async function salvaImpostazione(chiave: string, valore: string): Promise<void> {
   const { data: u } = await supabase.auth.getUser();
   const { error } = await supabase.from('impostazioni').upsert(

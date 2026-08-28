@@ -1,166 +1,196 @@
-// LA COPIA STAMPABILE DELLA PRO-FORMA, dentro Scout.
+// IL PDF DELLA PRO-FORMA, generato e SCARICATO da Scout.
 //
-// Richiesta dell'utente (28/08/2026): «consenti il download direttamente da
-// app di questa pro-forma senza aprire finance».
+// Richiesta dell'utente (28/08/2026), in due tempi: «consenti il download
+// direttamente da app senza aprire finance» e poi, davanti al dialogo di
+// stampa: «con download del file, non la stampa come ora». Quindi niente
+// print(): un file .pdf vero, che finisce nei Download col suo nome.
 //
-// ⚠️ **Il documento vive su FINANCE** (numerazione, righe, intestazione
-// congelata) e la sua pagina è dietro login — verificato: /proforma/<id>
-// risponde 307 verso /login. Da qui non si può «scaricare il suo PDF», perché
-// un PDF non esiste: anche su FINANCE si stampa dal browser. Quindi Scout fa
-// la stessa cosa: chiede i DATI del documento all'API (righe, totali, date) e
-// li impagina con il template del brand — che è SUO (template_documento) — in
-// una finestra pronta per «Salva come PDF».
+// ⚠️ **Il documento vive su FINANCE** (numerazione, righe): da lì arrivano i
+// DATI via API. L'intestazione viene dal template del brand (template di
+// Scout); se non ce n'è — al 28/08 la tabella era VUOTA, ed è per questo che
+// la prima copia è uscita con il solo «Deluxy Srl» — si ripiega sui dati
+// aziendali delle Impostazioni di Scout (ragione sociale, indirizzo, P.IVA,
+// IBAN), che sono dati veri, non inventati.
 //
-// ⚠️ Il template usato è quello di OGGI, non la fotografia congelata al
-// momento dell'emissione (l'API non la espone): se l'intestazione è cambiata
-// dopo, la copia può differire dal documento che il cliente ha ricevuto. Per
-// questo in fondo c'è scritto che è una copia emessa da Scout.
+// ⚠️ jsPDF si carica SOLO al clic (import dinamico): sono ~350 KB che non
+// devono pesare su chi apre l'elenco ordini e non scarica niente.
 import type { IntestazioneDocumento } from '@/lib/template-documento';
 import type { DocumentoProforma } from '@/lib/partner';
 
-const esc = (v: unknown) =>
-  String(v ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
 const euro = (n: number | null | undefined) =>
-  n == null ? '—' : '€ ' + Number(n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  n == null
+    ? '—'
+    : '€ ' +
+      Number(n)
+        .toFixed(2)
+        .replace('.', ',')
+        .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+const dataIt = (iso: string | null | undefined) => {
+  if (!iso) return '';
+  const [a, m, g] = iso.split('-');
+  return g && m && a ? `${g}/${m}/${a}` : iso;
+};
 
 /**
- * Apre la stampa del documento impaginato. Solo web.
- *
- * ⚠️ NIENTE window.open (28/08/2026, segnalazione dell'utente: finestra
- * about:blank VUOTA più l'avviso di pop-up bloccato, insieme). Il primo
- * tentativo apriva la finestra con `noopener` — che per definizione NON
- * restituisce la maniglia: la finestra nasceva, il codice riceveva null, non
- * poteva scriverci dentro (pagina bianca) e credeva pure che fosse stata
- * bloccata. Due bugie da una riga.
- *
- * La strada giusta non ha pop-up: un IFRAME invisibile nella stessa pagina,
- * il documento dentro, e `print()` sul suo contenuto. Nessun blocker può
- * intrommettersi, e il dialogo di stampa (con «Salva come PDF») si apre
- * direttamente.
+ * Genera il PDF e lo fa scaricare. Torna il nome del file, o lancia con un
+ * messaggio leggibile: chi chiama lo mostra, un download che non parte in
+ * silenzio insegna a non premere il bottone.
  */
-export function stampaProforma(doc: DocumentoProforma, int: Partial<IntestazioneDocumento> | null): boolean {
-  if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+export async function scaricaPdfProforma(
+  doc: DocumentoProforma,
+  int: Partial<IntestazioneDocumento> | null,
+): Promise<string> {
+  const { jsPDF } = await import('jspdf');
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
 
-  const righeHtml = (doc.righe ?? [])
-    .map(
-      (r) => `<tr>
-        <td>${esc(r.descrizione)}</td>
-        <td class="num">${r.quantita ?? 1}</td>
-        <td class="num">${euro(r.prezzoUnitario)}</td>
-        <td class="num">${r.aliquotaIva ?? 22}%</td>
-        <td class="num">${euro(r.importo)}</td>
-      </tr>`,
-    )
-    .join('');
+  const L = 18; // margine sinistro
+  const R = 192; // bordo destro utile
+  let y = 20;
 
-  const titolo = doc.tipo === 'preventivo' ? 'Preventivo' : 'Pro-forma';
-  const html = `<!doctype html><html lang="it"><head><meta charset="utf-8">
-<title>${esc(doc.riferimento)} · ${esc(doc.partner?.nome ?? '')}</title>
-<style>
-  body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;color:#111318;margin:40px auto;max-width:760px;font-size:14px;line-height:1.5}
-  header{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;border-bottom:1px solid #ddd;padding-bottom:18px}
-  img.logo{max-height:64px;max-width:200px;object-fit:contain}
-  h1{font-size:22px;margin:24px 0 2px}
-  .rif{color:#6E6E73}
-  .blocco{margin-top:18px}
-  .etich{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#96782E}
-  table{width:100%;border-collapse:collapse;margin-top:20px}
-  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6E6E73;text-align:left;border-bottom:1px solid #ccc;padding:6px 8px}
-  td{border-bottom:1px solid #eee;padding:8px}
-  .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  .totali{margin-top:14px;margin-left:auto;width:280px}
-  .totali div{display:flex;justify-content:space-between;padding:3px 8px}
-  .totali .tot{font-weight:800;border-top:1px solid #111318;margin-top:4px;padding-top:7px}
-  footer{margin-top:36px;color:#6E6E73;font-size:12px;border-top:1px solid #eee;padding-top:12px}
-  .nota-copia{margin-top:18px;font-size:11px;color:#8E8E93}
-  @media print{ .no-print{display:none} body{margin:10mm} }
-  .no-print{position:fixed;top:12px;right:12px;background:#111318;color:#fff;border:0;border-radius:999px;padding:10px 18px;font-weight:700;cursor:pointer}
-</style></head><body>
-<header>
-  <div>
-    ${int?.logoDataUrl ? `<img class="logo" src="${esc(int.logoDataUrl)}" alt="">` : ''}
-    <div style="font-weight:700;margin-top:6px">${esc(int?.ragioneSociale ?? 'Deluxy Srl')}</div>
-    <div>${esc(int?.indirizzo ?? '')}</div>
-    <div>${int?.piva ? 'P.IVA ' + esc(int.piva) : ''}${int?.rea ? ' · REA ' + esc(int.rea) : ''}</div>
-    <div>${esc(int?.contatti ?? '')}</div>
-  </div>
-  <div style="text-align:right">
-    <div class="etich">${esc(titolo)}</div>
-    <div style="font-size:20px;font-weight:800">${esc(doc.riferimento)}</div>
-    <div class="rif">del ${esc(doc.data ?? '')}</div>
-    ${doc.scadenza ? `<div class="rif">scadenza ${esc(doc.scadenza)}</div>` : ''}
-  </div>
-</header>
-
-<div class="blocco">
-  <div class="etich">Intestata a</div>
-  <div style="font-weight:700;font-size:16px">${esc(doc.partner?.nome ?? '')}</div>
-</div>
-
-${doc.oggetto ? `<div class="blocco"><div class="etich">Oggetto</div><div>${esc(doc.oggetto)}</div></div>` : ''}
-
-<table>
-  <thead><tr><th>Descrizione</th><th class="num">Qtà</th><th class="num">Prezzo</th><th class="num">IVA</th><th class="num">Importo</th></tr></thead>
-  <tbody>${righeHtml}</tbody>
-</table>
-
-<div class="totali">
-  <div><span>Imponibile</span><span class="num">${euro(doc.imponibile)}</span></div>
-  <div><span>IVA</span><span class="num">${euro(doc.iva)}</span></div>
-  <div class="tot"><span>Totale</span><span class="num">${euro(doc.totale)}</span></div>
-</div>
-
-${
-  int?.iban
-    ? `<div class="blocco"><div class="etich">Pagamento</div>
-       <div>${esc(int.modalitaPagamento ?? 'Bonifico bancario')}</div>
-       <div>IBAN ${esc(int.iban)}${int.banca ? ' · ' + esc(int.banca) : ''}${int.bic ? ' · BIC ' + esc(int.bic) : ''}</div>
-       ${int.intestatarioConto ? `<div>Intestato a ${esc(int.intestatarioConto)}</div>` : ''}</div>`
-    : ''
-}
-
-${doc.note ? `<div class="blocco"><div class="etich">Note</div><div>${esc(doc.note)}</div></div>` : ''}
-${int?.disclaimer ? `<footer>${esc(int.disclaimer)}</footer>` : ''}
-<div class="nota-copia">Copia emessa da Deluxy Scout con l'intestazione attuale del brand — il documento originale vive su Deluxy Partner (FINANCE).</div>
-</body></html>`;
-
-  const frame = document.createElement('iframe');
-  // Fuori dallo schermo, non display:none: alcuni browser non stampano un
-  // frame che non è mai stato disegnato.
-  frame.style.position = 'fixed';
-  frame.style.right = '0';
-  frame.style.bottom = '0';
-  frame.style.width = '0';
-  frame.style.height = '0';
-  frame.style.border = '0';
-  frame.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(frame);
-
-  const fdoc = frame.contentDocument ?? frame.contentWindow?.document;
-  if (!fdoc || !frame.contentWindow) {
-    frame.remove();
-    return false;
+  // ── Testata: logo + azienda a sinistra, titolo e numero a destra ─────────
+  if (int?.logoDataUrl) {
+    try {
+      // Il logo è un data URI del template: 38×14 mm massimi, proporzioni sue.
+      const props = pdf.getImageProperties(int.logoDataUrl);
+      const maxW = 38;
+      const maxH = 14;
+      const scala = Math.min(maxW / props.width, maxH / props.height);
+      pdf.addImage(int.logoDataUrl, L, y - 5, props.width * scala, props.height * scala);
+      y += props.height * scala + 2;
+    } catch {
+      // logo illeggibile: il documento esce lo stesso, senza
+    }
   }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
+  pdf.setFont('helvetica', 'bold').setFontSize(11);
+  pdf.text(int?.ragioneSociale || 'Deluxy Srl', L, y);
+  pdf.setFont('helvetica', 'normal').setFontSize(9).setTextColor(110);
+  if (int?.indirizzo) pdf.text(int.indirizzo, L, (y += 4.5));
+  const rigaFiscale = [int?.piva ? `P.IVA ${int.piva}` : '', int?.rea ? `REA ${int.rea}` : '']
+    .filter(Boolean)
+    .join(' · ');
+  if (rigaFiscale) pdf.text(rigaFiscale, L, (y += 4.5));
+  if (int?.contatti) pdf.text(int.contatti, L, (y += 4.5));
 
-  const finestra = frame.contentWindow;
-  // ⚠️ La pulizia va DOPO la stampa: togliere il frame mentre il dialogo è
-  // aperto stamperebbe una pagina vuota su alcuni browser. `afterprint` è il
-  // segnale giusto; il timeout lungo è la rete di sicurezza se non arriva.
-  const pulisci = () => frame.remove();
-  finestra.addEventListener('afterprint', pulisci, { once: true });
-  setTimeout(pulisci, 120_000);
-  // Un attimo perché il logo (data URI) e i font si assestino nel frame.
-  setTimeout(() => {
-    finestra.focus();
-    finestra.print();
-  }, 150);
-  return true;
+  const titolo = doc.tipo === 'preventivo' ? 'PREVENTIVO' : 'PRO-FORMA';
+  pdf.setFont('helvetica', 'bold').setFontSize(9).setTextColor(150, 120, 46);
+  pdf.text(titolo, R, 15, { align: 'right' });
+  pdf.setFontSize(16).setTextColor(17, 19, 24);
+  pdf.text(doc.riferimento, R, 22, { align: 'right' });
+  pdf.setFont('helvetica', 'normal').setFontSize(9).setTextColor(110);
+  pdf.text(`del ${dataIt(doc.data)}`, R, 27, { align: 'right' });
+  if (doc.scadenza) pdf.text(`scadenza ${dataIt(doc.scadenza)}`, R, 31.5, { align: 'right' });
+
+  y = Math.max(y, 34) + 8;
+  pdf.setDrawColor(220).line(L, y, R, y);
+  y += 8;
+
+  // ── Intestata a / oggetto ────────────────────────────────────────────────
+  pdf.setFont('helvetica', 'bold').setFontSize(8).setTextColor(150, 120, 46);
+  pdf.text('INTESTATA A', L, y);
+  pdf.setFontSize(12).setTextColor(17, 19, 24);
+  pdf.text(doc.partner?.nome ?? '', L, (y += 5.5));
+  if (doc.oggetto) {
+    pdf.setFontSize(8).setTextColor(150, 120, 46);
+    pdf.text('OGGETTO', L, (y += 8));
+    pdf.setFont('helvetica', 'normal').setFontSize(10).setTextColor(17, 19, 24);
+    const righeOgg = pdf.splitTextToSize(doc.oggetto, R - L);
+    pdf.text(righeOgg, L, (y += 5));
+    y += (righeOgg.length - 1) * 4.5;
+  }
+  y += 9;
+
+  // ── La tabella delle righe ───────────────────────────────────────────────
+  // Colonne fisse da destra, la descrizione prende il resto e va a capo.
+  const cImporto = R;
+  const cIva = R - 26;
+  const cPrezzo = R - 38;
+  const cQta = R - 62;
+  const wDescr = cQta - 12 - L;
+
+  pdf.setFont('helvetica', 'bold').setFontSize(8).setTextColor(110);
+  pdf.text('DESCRIZIONE', L, y);
+  pdf.text('QTÀ', cQta, y, { align: 'right' });
+  pdf.text('PREZZO', cPrezzo + 10, y, { align: 'right' });
+  pdf.text('IVA', cIva + 6, y, { align: 'right' });
+  pdf.text('IMPORTO', cImporto, y, { align: 'right' });
+  y += 2;
+  pdf.setDrawColor(190).line(L, y, R, y);
+  y += 6;
+
+  pdf.setFont('helvetica', 'normal').setFontSize(10).setTextColor(17, 19, 24);
+  for (const r of doc.righe ?? []) {
+    const righeDescr = pdf.splitTextToSize(r.descrizione ?? '', wDescr);
+    pdf.text(righeDescr, L, y);
+    pdf.text(String(r.quantita ?? 1), cQta, y, { align: 'right' });
+    pdf.text(euro(r.prezzoUnitario), cPrezzo + 10, y, { align: 'right' });
+    pdf.text(`${r.aliquotaIva ?? 22}%`, cIva + 6, y, { align: 'right' });
+    pdf.text(euro(r.importo), cImporto, y, { align: 'right' });
+    y += righeDescr.length * 4.8 + 3;
+    pdf.setDrawColor(235).line(L, y - 2.2, R, y - 2.2);
+    // ⚠️ Fine pagina: si continua su una nuova, non si stringe. Un documento
+    // compresso per farci stare tutto è illeggibile proprio dove conta.
+    if (y > 258) {
+      pdf.addPage();
+      y = 20;
+    }
+  }
+
+  // ── I totali, incolonnati a destra ───────────────────────────────────────
+  y += 4;
+  const lTot = R - 70;
+  pdf.setFontSize(10).setTextColor(80);
+  pdf.text('Imponibile', lTot, y);
+  pdf.text(euro(doc.imponibile), R, y, { align: 'right' });
+  pdf.text('IVA', lTot, (y += 5.5));
+  pdf.text(euro(doc.iva), R, y, { align: 'right' });
+  pdf.setDrawColor(17, 19, 24).line(lTot, (y += 3), R, y);
+  pdf.setFont('helvetica', 'bold').setFontSize(11).setTextColor(17, 19, 24);
+  pdf.text('Totale', lTot, (y += 6));
+  pdf.text(euro(doc.totale), R, y, { align: 'right' });
+  y += 11;
+
+  // ── Pagamento (se l'intestazione porta l'IBAN) ───────────────────────────
+  if (int?.iban) {
+    pdf.setFontSize(8).setTextColor(150, 120, 46);
+    pdf.text('PAGAMENTO', L, y);
+    pdf.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(17, 19, 24);
+    pdf.text(int.modalitaPagamento || 'Bonifico bancario', L, (y += 4.8));
+    pdf.text(
+      `IBAN ${int.iban}${int.banca ? ' · ' + int.banca : ''}${int.bic ? ' · BIC ' + int.bic : ''}`,
+      L,
+      (y += 4.8),
+    );
+    if (int.intestatarioConto) pdf.text(`Intestato a ${int.intestatarioConto}`, L, (y += 4.8));
+    y += 8;
+  }
+
+  if (doc.note) {
+    pdf.setFont('helvetica', 'bold').setFontSize(8).setTextColor(150, 120, 46);
+    pdf.text('NOTE', L, y);
+    pdf.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(17, 19, 24);
+    const righeNote = pdf.splitTextToSize(doc.note, R - L);
+    pdf.text(righeNote, L, (y += 4.8));
+    y += righeNote.length * 4.4 + 5;
+  }
+
+  if (int?.disclaimer) {
+    pdf.setFont('helvetica', 'normal').setFontSize(8).setTextColor(110);
+    const righeDisc = pdf.splitTextToSize(int.disclaimer, R - L);
+    pdf.text(righeDisc, L, y);
+    y += righeDisc.length * 3.8 + 4;
+  }
+
+  pdf.setFontSize(7.5).setTextColor(150);
+  pdf.text(
+    'Documento emesso da Deluxy Scout — l’originale vive su Deluxy Partner (FINANCE).',
+    L,
+    Math.min(y + 4, 288),
+  );
+
+  // Il nome dice documento e cliente: «PF 12-2026 · Vivo Concerti SRL.pdf»
+  // si ritrova nei Download anche fra un mese.
+  const nome = `${doc.riferimento.replace(/\//g, '-')} · ${doc.partner?.nome ?? 'cliente'}.pdf`;
+  pdf.save(nome);
+  return nome;
 }

@@ -11,9 +11,9 @@ import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
-import { aggiornaOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, duplicaOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
+import { aggiornaOrdine, chiediEvasione, chiudiOrdine, collegaDocumentoAOrdine, duplicaOrdine, fetchOrdini, leggiImpostazioni, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
 import { cercaFatture, chiediFatturaPerOrdine, documentoProforma, type FatturaInElenco } from '@/lib/partner';
-import { stampaProforma } from '@/lib/stampa';
+import { scaricaPdfProforma } from '@/lib/stampa';
 import { fetchTemplate, type TemplateDocumento } from '@/lib/template-documento';
 import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
@@ -995,30 +995,50 @@ export default function Ordini() {
         documentoProforma(o.proforma_numero),
         fetchTemplate().catch(() => [] as TemplateDocumento[]),
       ]);
-      // Il template del brand dell'ordine; senza, il predefinito. La copia lo
-      // dichiara in calce: l'intestazione è quella di OGGI, non la fotografia.
+      // Il template del brand dell'ordine; senza, il predefinito; senza
+      // NESSUN template — al 28/08 la tabella era VUOTA, ed è per questo che
+      // la prima copia è uscita col solo «Deluxy Srl» — si ripiega sui dati
+      // aziendali delle Impostazioni: veri, non inventati.
       const marca = brandDi(o);
       const t =
-        templates.find((x) => x.attivo && (x.brand ?? '') === marca) ??
+        templates.find((x) => x.attivo && (x.brand ?? '').trim().toLowerCase() === marca.trim().toLowerCase()) ??
         templates.find((x) => x.predefinito) ??
+        templates.find((x) => x.attivo) ??
         null;
-      const aperta = stampaProforma(doc, t ? {
-        ragioneSociale: t.ragione_sociale,
-        indirizzo: t.indirizzo ?? '',
-        piva: t.piva ?? '',
-        rea: t.rea ?? '',
-        contatti: t.contatti ?? '',
-        logoDataUrl: t.logo_data_url ?? '',
-        iban: t.iban ?? '',
-        intestatarioConto: t.intestatario_conto ?? '',
-        modalitaPagamento: t.modalita_pagamento ?? '',
-        banca: t.banca ?? '',
-        bic: t.bic ?? '',
-        disclaimer: t.disclaimer ?? '',
-      } : null);
-      if (!aperta) {
-        avvisa('Stampa non partita', 'Non sono riuscito a preparare il documento in questa pagina: ricarica e riprova.');
+      let intestazione;
+      if (t) {
+        intestazione = {
+          ragioneSociale: t.ragione_sociale,
+          indirizzo: t.indirizzo ?? '',
+          piva: t.piva ?? '',
+          rea: t.rea ?? '',
+          contatti: t.contatti ?? '',
+          logoDataUrl: t.logo_data_url ?? '',
+          iban: t.iban ?? '',
+          intestatarioConto: t.intestatario_conto ?? '',
+          modalitaPagamento: t.modalita_pagamento ?? '',
+          banca: t.banca ?? '',
+          bic: t.bic ?? '',
+          disclaimer: t.disclaimer ?? '',
+        };
+      } else {
+        const imp = await leggiImpostazioni([
+          'azienda.ragione_sociale', 'azienda.indirizzo', 'azienda.cap_citta', 'azienda.piva',
+          'azienda.pec', 'banca.iban', 'banca.intestatario', 'banca.istituto', 'banca.bic',
+        ]);
+        intestazione = {
+          ragioneSociale: imp['azienda.ragione_sociale'] || 'Deluxy Srl',
+          indirizzo: [imp['azienda.indirizzo'], imp['azienda.cap_citta']].filter(Boolean).join(' · '),
+          piva: imp['azienda.piva'] || '',
+          contatti: imp['azienda.pec'] ? `PEC ${imp['azienda.pec']}` : '',
+          iban: imp['banca.iban'] || '',
+          intestatarioConto: imp['banca.intestatario'] || '',
+          banca: imp['banca.istituto'] || '',
+          bic: imp['banca.bic'] || '',
+        };
       }
+      const nomeFile = await scaricaPdfProforma(doc, intestazione);
+      avvisa('Pro-forma scaricata', `${nomeFile} è nei tuoi Download.`);
     } catch (e: any) {
       avvisa('Pro-forma non scaricata', String(e?.message ?? e));
     } finally {
