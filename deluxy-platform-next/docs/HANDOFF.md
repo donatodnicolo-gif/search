@@ -70,9 +70,54 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**Ultimo aggiornamento:** 28 agosto 2026 — sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 28 agosto 2026 — tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### 🧾 28/08/2026 — La tabella partner non si allunga più, i bottoni del registro dicono cosa fanno, e la scheda mostra le ultime consegne
+
+Tre richieste dell'utente, con screenshot. Registrate in
+[SEGNALAZIONI-UX.md](../../deluxy-design-system/SEGNALAZIONI-UX.md).
+
+**① La colonna Province allungava le righe.** In cella si mostrano al massimo
+**6** voci, poi una coda «+N» (pillola senza sfondo, il resto nel `title`).
+⚠️ **Non è cliccabile di proposito**: la riga intera apre il dettaglio (Libro
+§8), e un bersaglio che fa un'altra cosa dentro una riga che naviga apre la
+scheda sbagliata. **Misurato sui 289 partner veri**: province per partner
+mediana **1**, p75 **12** (91 partner ne hanno esattamente 12), **massimo 107**
+per due di loro. Stesso tetto sulle **categorie** (fino a 18 nomi in fila).
+
+**② I bottoni del «Registro Anagrafiche» dicevano una parola per tre gesti.**
+«Invia al registro» valeva sia per CREARE una scheda che non c'è, sia per
+COLLEGARNE una che c'è, sia per RISCRIVERE su una già collegata. Ora l'etichetta
+segue lo stato del confronto: **Crea nel registro** · **Collega al registro** ·
+**Aggiorna il registro**; nel caso **ambiguo** il bottone resta visibile ma
+**spento**, col motivo — il server rifiuterebbe comunque (più schede possibili,
+per non crearne un'altra), e un bottone che può solo fallire è peggio di uno
+spento che spiega. «Aggiorna» (secondario) → «**Ricontrolla il registro**».
+
+**③ Le ultime 10 consegne nella scheda del partner.** Numero, data,
+destinatario, servizio, valet, stato — col colore preso dalla **mappa unica**
+`core/stati-consegna.ts` (ricopiarlo qui rifarebbe il difetto delle cinque
+copie). Riga cliccabile. Si chiede con `GET /deliveries?partnerId=…&view=tutte&
+pageSize=10`: **nessuna rotta nuova**, e il filtro di ruolo del server vale
+com'è.
+
+⚠️ **Il bottone «Vedi tutte» avrebbe mentito.** L'elenco consegne **non leggeva
+`partnerId` dall'indirizzo** e metteva la data di OGGI per default: il link
+avrebbe portato alle consegne di oggi di TUTTI. Aggiunti quindi all'elenco:
+
+- filtro `?partnerId=` con **chip rimovibile che scrive il nome del partner**
+  (Libro §5: un elenco ridotto deve dire da cosa è ridotto — senza, la pagina
+  sembrerebbe avere pochissime consegne);
+- arrivando da un partner **il giorno non si mette**: si guarda una storia, e
+  «oggi» direbbe «nessuna consegna» a un partner che ne ha migliaia;
+- terza vista «**Tutti gli stati**» — ⚠️ *non* «Tutte»: a mezzo centimetro c'è
+  già un «Tutte» che vuol dire «tutti i GIORNI», e due «Tutte» vicine con
+  significati diversi sono peggio di nessuna linguetta.
+
+Typecheck e build di produzione puliti; deploy `delivery-q6db6x7m5`, etichette
+verificate live su `/i18n/it.json`.
 
 ### 📥 28/08/2026 — RICHIESTE: le altre app chiedono una consegna A PAROLE, e una persona decide
 

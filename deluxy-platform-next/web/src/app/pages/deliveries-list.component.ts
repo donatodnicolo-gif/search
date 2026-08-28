@@ -47,7 +47,26 @@ const SERVICE_ICONS: Record<string, string> = {
             [class.active]="vista === 'storico'"
             (click)="cambiaVista('storico')"
           >{{ 'deliveries.view.history' | translate }}</button>
+          <!-- ⚠️ «Tutte» c'è perché arrivando dalla scheda di un partner né
+               «attive» né «storico» rispondono alla domanda («tutto quello che
+               ha chiesto»). Senza una linguetta accesa la pagina sembrerebbe
+               rotta: una vista deve sempre dirsi. -->
+          <button
+            type="button"
+            class="quick-tab"
+            [class.active]="vista === 'tutte'"
+            (click)="cambiaVista('tutte')"
+          >{{ 'deliveries.view.allStates' | translate }}</button>
         </div>
+        @if (partnerFiltro()) {
+          <!-- ⚠️ Un elenco ridotto deve dire da COSA (Libro §5): senza questo
+               chip la pagina sembrerebbe avere pochissime consegne. -->
+          <button type="button" class="chip-filtro" (click)="togliFiltroPartner()"
+                  [title]="'deliveries.partnerFilter.remove' | translate">
+            {{ 'deliveries.partnerFilter.label' | translate:{ nome: partnerNome() ?? '…' } }}
+            <span class="x" aria-hidden="true">×</span>
+          </button>
+        }
         <select class="field" [(ngModel)]="statusFilter" (ngModelChange)="reload()">
           <option value="">{{ 'deliveries.allStatuses' | translate }}</option>
           @for (key of statusKeys; track key) {
@@ -483,6 +502,13 @@ const SERVICE_ICONS: Record<string, string> = {
         padding: 2px;
         gap: 2px;
       }
+      /* Chip del filtro partner: si legge come un filtro attivo, e la × dice
+         che si toglie. */
+      .chip-filtro { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--separator);
+        background: var(--fill); color: var(--text); border-radius: 980px; padding: 5px 10px;
+        font-size: 12.5px; font-weight: 550; cursor: pointer; }
+      .chip-filtro .x { font-size: 15px; line-height: 1; color: var(--text-secondary); }
+      .chip-filtro:hover .x { color: var(--red, #d70015); }
       .quick-tabs.vista { background: var(--surface-sunken, #e4e4e8); }
       .intervallo { display: flex; align-items: flex-end; gap: 8px; }
       .intervallo label { display: flex; flex-direction: column; gap: 3px; }
@@ -654,6 +680,10 @@ const SERVICE_ICONS: Record<string, string> = {
         -webkit-backdrop-filter: blur(2px);
         backdrop-filter: blur(2px);
       }
+      /* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9): il pannello ha
+         un tetto e scorre LUI; titolo (con la ✕) e piede azioni sono sticky.
+         Collaudo: a 375×812 e a 1366×768 il bottone di conferma si raggiunge
+         senza scrollare la pagina. */
       .modal {
         position: fixed;
         z-index: 90;
@@ -661,10 +691,15 @@ const SERVICE_ICONS: Record<string, string> = {
         left: 50%;
         transform: translate(-50%, -50%);
         width: min(440px, 92vw);
-        max-height: 80vh;
+        max-height: min(92dvh, calc(100dvh - 40px));
         overflow-y: auto;
-        padding: 22px 24px;
+        padding: 0 24px;
         box-shadow: var(--shadow-float);
+      }
+      /* Le finestre senza piede (es. cambio stato) chiudono con l'ultimo
+         figlio: il respiro in basso lo mette lui. */
+      .modal > :last-child:not(.modal-actions) {
+        margin-bottom: 20px;
       }
       /* X di chiusura: le finestre si chiudevano solo dal fondo o cliccando
          fuori, e con l'elenco valet lungo il bottone Annulla restava sotto. */
@@ -687,10 +722,11 @@ const SERVICE_ICONS: Record<string, string> = {
       .modal-close {
         position: sticky;
         float: right;
-        top: -6px;
-        margin: -8px -8px 0 0;
+        top: 12px;
+        margin: 0 -8px 0 0;
+        z-index: 3;
         border: 0;
-        background: transparent;
+        background: var(--surface);
         font-size: 26px;
         line-height: 1;
         color: var(--text-tertiary);
@@ -699,8 +735,15 @@ const SERVICE_ICONS: Record<string, string> = {
         border-radius: 999px;
       }
       .modal-close:hover { background: var(--surface-sunken, #ececef); color: var(--text-primary); }
+      /* Titolo sticky: in un elenco lungo la testata resta in vista insieme
+         alla ✕ (Libro v1.7 §9). */
       .modal h2 {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--surface);
         margin: 0 0 4px;
+        padding: 20px 30px 6px 0;
         font-size: 17px;
         font-weight: 600;
         letter-spacing: -0.015em;
@@ -727,11 +770,19 @@ const SERVICE_ICONS: Record<string, string> = {
         font-size: 13px;
         margin-bottom: 12px;
       }
+      /* Piede sticky in fondo al pannello scorrevole: Annulla/Salva restano
+         sempre in vista anche a corpo scorrato (Libro v1.7 §9). */
       .modal-actions {
         display: flex;
         justify-content: flex-end;
         gap: 10px;
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        background: var(--surface);
         margin-top: 18px;
+        padding: 12px 0 18px;
+        border-top: 1px solid var(--hairline);
       }
       .valet-list {
         list-style: none;
@@ -1233,14 +1284,32 @@ export class DeliveriesListComponent {
    * in `DELIVERY_CLOSED_STATUSES`: qui si manda solo il nome della vista, così
    * le due parti non possono discordare.
    */
-  vista: 'attive' | 'storico' = 'attive';
+  vista: 'attive' | 'storico' | 'tutte' = 'attive';
 
-  cambiaVista(v: 'attive' | 'storico'): void {
+  /**
+   * Filtro PARTNER, che arriva solo dall'indirizzo (`?partnerId=`).
+   *
+   * ⚠️ Non c'è un menu a tendina apposta: si entra qui dalla scheda di un
+   * partner, con «Vedi tutte». Serviva perché senza questo filtro quel bottone
+   * avrebbe portato alle consegne di OGGI di TUTTI — un link che promette una
+   * cosa e ne mostra un'altra.
+   *
+   * ⚠️ Il nome del partner si tiene per SCRIVERLO in pagina: una lista ridotta
+   * senza dire perché è la cosa che fa dubitare dei numeri (Libro §5).
+   */
+  readonly partnerFiltro = signal<string | null>(null);
+  readonly partnerNome = signal<string | null>(null);
+
+  cambiaVista(v: 'attive' | 'storico' | 'tutte'): void {
     if (this.vista === v) return;
     this.vista = v;
-    // Entrambe le viste partono da OGGI: cambiando tab si resta sullo stesso
-    // giorno, e per guardare indietro ci sono il tab "Tutte" e il calendario.
-    this.dateFilter = this.oggi();
+    // Le due viste storiche partono da OGGI: cambiando tab si resta sullo
+    // stesso giorno, e per guardare indietro ci sono il tab "Tutte" (dei
+    // giorni) e il calendario.
+    // ⚠️ Con «tutti gli stati» — e sempre col filtro partner addosso — il
+    // giorno NON si rimette: si e' li' per guardare una storia, e «oggi»
+    // svuoterebbe la pagina nell'istante in cui la si apre.
+    this.dateFilter = v === 'tutte' || this.partnerFiltro() ? '' : this.oggi();
     this.statusFilter = '';
     this.reload();
   }
@@ -1266,12 +1335,23 @@ export class DeliveriesListComponent {
     // (o col tasto indietro) i filtri arrivano nell'indirizzo, e la lista si
     // riapre sul giorno che si stava guardando invece che su oggi.
     const p = this.route.snapshot.queryParamMap;
+    const qPartner = p.get('partnerId');
+    if (qPartner) {
+      this.partnerFiltro.set(qPartner);
+      this.chiediNomePartner(qPartner);
+    }
     const qDate = p.get('date');
-    this.dateFilter = qDate ?? this.oggi();
+    // ⚠️ Col filtro partner il giorno NON si mette di default: si arriva qui
+    // per vedere la sua storia, e con «oggi» addosso la pagina direbbe quasi
+    // sempre «nessuna consegna» a un partner che ne ha migliaia.
+    this.dateFilter = qDate ?? (qPartner ? '' : this.oggi());
     this.dateTo = p.get('dateTo') ?? '';
     this.statusFilter = p.get('status') ?? '';
     const v = p.get('view');
-    if (v === 'attive' || v === 'storico') this.vista = v;
+    if (v === 'attive' || v === 'storico' || v === 'tutte') this.vista = v;
+    // Arrivando dalla scheda di un partner senza vista dichiarata si guarda
+    // TUTTO quello che ha chiesto: «attive» ne mostrerebbe una fetta.
+    else if (qPartner) this.vista = 'tutte';
     this.query = p.get('q') ?? '';
     const pag = Number(p.get('page'));
     if (Number.isInteger(pag) && pag > 1) this.page.set(pag);
@@ -1326,6 +1406,7 @@ export class DeliveriesListComponent {
         view: this.vista,
         q: this.query.trim() || null,
         page: this.page() > 1 ? this.page() : null,
+        partnerId: this.partnerFiltro(),
       },
       replaceUrl: true,
     });
@@ -1486,6 +1567,21 @@ export class DeliveriesListComponent {
     this.reload();
   }
 
+  /** Il nome, per scriverlo nel chip: l'id da solo non dice niente a nessuno. */
+  private chiediNomePartner(id: string): void {
+    this.http.get<{ insegna: string }>(`${environment.apiUrl}/partners/${id}`).subscribe({
+      next: (p) => this.partnerNome.set(p?.insegna ?? null),
+      error: () => this.partnerNome.set(null),
+    });
+  }
+
+  togliFiltroPartner(): void {
+    this.partnerFiltro.set(null);
+    this.partnerNome.set(null);
+    this.page.set(1);
+    this.load();
+  }
+
   load(): void {
     this.loading.set(true);
     this.error.set(null);
@@ -1507,6 +1603,8 @@ export class DeliveriesListComponent {
       params = params.set('dateTo', this.dateTo);
     }
     if (this.query.trim()) params = params.set('q', this.query.trim());
+    const partner = this.partnerFiltro();
+    if (partner) params = params.set('partnerId', partner);
     // ⭐ La vista si RICORDA (27/08, chiesto dall'utente): tornando indietro da
     // una consegna si deve rivedere il giorno che si stava guardando, non
     // ripartire da oggi. Si scrive nell'indirizzo — così vale anche per il

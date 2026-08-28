@@ -6,6 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
+import { STATO_CONSEGNA_COLORE, STATO_CONSEGNA_COLORE_DEFAULT } from '../core/stati-consegna';
 import { DeliveryRuleFormComponent } from './delivery-rule-form.component';
 
 interface PartnerDetail {
@@ -38,6 +39,18 @@ interface PartnerDetail {
     price?: number; pricePerItem?: number | null; extraKmPrice?: number;
   }[];
   openingHours?: { dayOfWeek: number; openTime?: string | null; closeTime?: string | null; closed?: boolean }[];
+}
+
+/** Una riga del blocco «ultime consegne»: solo quello che si mostra. */
+interface ConsegnaRecente {
+  id: string;
+  code: number;
+  date: string;
+  status: string;
+  recipientFirstName?: string | null;
+  recipientLastName?: string | null;
+  serviceType?: { name: string } | null;
+  valet?: { firstName: string; lastName: string } | null;
 }
 
 interface CarnetRule {
@@ -83,12 +96,17 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           <span class="pill" [class.on]="p.active">
             {{ (p.active ? 'common.active' : 'common.inactive') | translate }}
           </span>
-          @if (canSeeCalendar()) {
-            <a class="btn btn-secondary edit" [routerLink]="['/calendar']" [queryParams]="{ partnerId: p.id }">{{ 'nav.calendario' | translate }}</a>
-          }
-          @if (canEdit()) {
-            <a class="btn btn-secondary edit" [routerLink]="['/partners', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
-          }
+          <!-- Le azioni stanno INSIEME (28/08, segnalazione utente: coi due
+               margin-left auto i bottoni finivano sparpagliati e «Modifica»
+               sotto le bandierine fisse della lingua). -->
+          <span class="azioni">
+            @if (canSeeCalendar()) {
+              <a class="btn btn-secondary" [routerLink]="['/calendar']" [queryParams]="{ partnerId: p.id }">{{ 'nav.calendario' | translate }}</a>
+            }
+            @if (canEdit()) {
+              <a class="btn btn-secondary" [routerLink]="['/partners', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
+            }
+          </span>
         </div>
       }
     </div>
@@ -203,16 +221,27 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                   </div>
                   <p class="hint">{{ 'partnerAnagrafica.pullHint' | translate }}</p>
                 }
+                <!-- ⚠️ I bottoni DICONO che cosa faranno, e cambiano con lo
+                     stato del confronto: «Invia al registro» valeva sia per
+                     creare una scheda che non c'e', sia per riscrivere su una
+                     che c'e' gia' — due gesti diversi sotto la stessa parola.
+                     Nel caso AMBIGUO il bottone resta visibile ma spento: il
+                     server rifiuterebbe comunque (piu' record possibili, per
+                     non crearne un altro), e un bottone che puo' solo fallire
+                     e' peggio di uno spento che dice perche'. -->
                 <div class="azioni">
-                  <button type="button" class="btn btn-primary" [disabled]="sincronizzando()" (click)="sincronizza()">
-                    {{ (sincronizzando() ? 'common.saving' : 'partnerAnagrafica.push') | translate }}
+                  <button type="button" class="btn btn-primary"
+                          [disabled]="sincronizzando() || a.stato === 'ambiguo'"
+                          [title]="a.stato === 'ambiguo' ? ('partnerAnagrafica.pushBlocked' | translate) : ''"
+                          (click)="sincronizza()">
+                    {{ (sincronizzando() ? 'common.saving' : etichettaInvio(a.stato)) | translate }}
                   </button>
                   <button type="button" class="btn btn-secondary" [disabled]="cercando()" (click)="confronta()">
-                    {{ 'common.refresh' | translate }}
+                    {{ (cercando() ? 'common.loading' : 'partnerAnagrafica.recheck') | translate }}
                   </button>
                   @if (esitoSync(); as e) { <span class="esito" [class.ok]="e.ok">{{ e.messaggio }}</span> }
                 </div>
-                <p class="hint">{{ 'partnerAnagrafica.pushHint' | translate }}</p>
+                <p class="hint">{{ spiegazioneInvio(a.stato) | translate }}</p>
               }
               }
             }
@@ -381,6 +410,60 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
               <p class="notes">{{ p.notes }}</p>
             </section>
           }
+
+          <!-- Le ultime consegne CHIESTE da questo partner.
+               ⚠️ Non è una lista da consultare: sono dieci righe per capire a
+               colpo d'occhio che cosa chiede e come sta andando. Chi vuole
+               cercare, filtrare o scorrere va nell'elenco consegne — il link
+               è qui sotto, già filtrato su questo partner. -->
+          <section class="card block span-2">
+            <div class="sec-head">
+              <h2>{{ 'partnerDetail.ultimeConsegne.title' | translate }}</h2>
+              <a class="btn btn-secondary sm" [routerLink]="['/deliveries']"
+                 [queryParams]="{ partnerId: p.id }">
+                {{ 'partnerDetail.ultimeConsegne.all' | translate }}
+              </a>
+            </div>
+            @if (consegneInCorso()) {
+              <p class="muted">{{ 'common.loading' | translate }}</p>
+            } @else if (!ultimeConsegne().length) {
+              <p class="muted">{{ 'partnerDetail.ultimeConsegne.none' | translate }}</p>
+            } @else {
+              <div class="table-wrap">
+                <table class="mini consegne">
+                  <thead><tr>
+                    <th>#</th>
+                    <th>{{ 'deliveries.col.date' | translate }}</th>
+                    <th>{{ 'deliveries.col.recipient' | translate }}</th>
+                    <th>{{ 'deliveries.col.service' | translate }}</th>
+                    <th>{{ 'deliveries.col.valet' | translate }}</th>
+                    <th>{{ 'deliveries.col.status' | translate }}</th>
+                  </tr></thead>
+                  <tbody>
+                    @for (c of ultimeConsegne(); track c.id) {
+                      <tr class="row-link" tabindex="0"
+                          (click)="apriConsegna(c.id)" (keydown.enter)="apriConsegna(c.id)">
+                        <td class="mono">#{{ c.code }}</td>
+                        <td>{{ c.date | date: 'd/M/yy' }}</td>
+                        <td>{{ nomeDestinatario(c) }}</td>
+                        <td class="muted">{{ c.serviceType?.name || '—' }}</td>
+                        <td class="muted">{{ nomeValet(c) }}</td>
+                        <td>
+                          <!-- Il colore viene dalla mappa UNICA degli stati
+                               (core/stati-consegna.ts): ricopiarlo qui
+                               rifarebbe il difetto delle cinque copie. -->
+                          <span class="stato-chip">
+                            <span class="dot" [style.background]="coloreStato(c.status)"></span>
+                            {{ 'status.delivery.' + c.status | translate }}
+                          </span>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </section>
         </div>
       }
     }
@@ -427,9 +510,13 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .form-head { margin-bottom: 24px; }
       .back { appearance: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer; font-size: 13px; color: var(--text-secondary); }
       .back:hover { color: var(--text); }
-      .title-row { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+      /* padding-right: le bandierine della lingua sono FISSE in alto a destra
+         (shell, z-index 45): la riga del titolo lascia loro il posto, o
+         l'ultimo bottone ci finisce sotto (segnalazione utente 28/08). */
+      .title-row { display: flex; align-items: center; gap: 14px; margin-top: 6px; padding-right: 96px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
-      .edit { margin-left: auto; text-decoration: none; }
+      .azioni { margin-left: auto; display: inline-flex; gap: 10px; }
+      .azioni .btn { text-decoration: none; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 980px; }
       .block { padding: 22px 24px; }
       .block h2 { margin: 0 0 14px; font-size: 16px; font-weight: 600; letter-spacing: -0.015em; }
@@ -438,6 +525,12 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       dt { color: var(--text-tertiary); }
       dd { margin: 0; }
       .muted { color: var(--text-tertiary); font-size: 13.5px; margin: 0; }
+      /* Le ultime consegne: righe basse, si legge a colpo d'occhio. */
+      .consegne td { padding: 7px 8px; white-space: nowrap; }
+      .consegne .row-link { cursor: pointer; }
+      .consegne .row-link:hover { background: var(--fill); }
+      .stato-chip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+      .stato-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
       .notes { margin: 0; font-size: 13.5px; white-space: pre-wrap; }
       .chips { display: flex; flex-wrap: wrap; gap: 8px; }
       .hours { display: flex; flex-direction: column; gap: 6px; }
@@ -629,6 +722,33 @@ export class PartnerDetailComponent {
     });
   }
 
+  /**
+   * Che cosa farà davvero il bottone, detto sul bottone.
+   *
+   * ⚠️ Sotto «Invia al registro» c'erano tre gesti diversi: CREARE una scheda
+   * che non esiste, COLLEGARE una che esiste ma non è nostra, RISCRIVERE su
+   * una già collegata. Chi legge deve sapere quale dei tre sta per fare —
+   * creare per sbaglio un doppione nel registro è già successo (23/08).
+   */
+  etichettaInvio(stato: string): string {
+    switch (stato) {
+      case 'collegato': return 'partnerAnagrafica.pushUpdate';
+      case 'trovato-non-collegato': return 'partnerAnagrafica.pushLink';
+      case 'ambiguo': return 'partnerAnagrafica.pushAmbiguous';
+      default: return 'partnerAnagrafica.pushCreate';
+    }
+  }
+
+  /** La riga sotto i bottoni: conseguenza del gesto, non descrizione generica. */
+  spiegazioneInvio(stato: string): string {
+    switch (stato) {
+      case 'collegato': return 'partnerAnagrafica.pushUpdateHint';
+      case 'trovato-non-collegato': return 'partnerAnagrafica.pushLinkHint';
+      case 'ambiguo': return 'partnerAnagrafica.pushBlocked';
+      default: return 'partnerAnagrafica.pushCreateHint';
+    }
+  }
+
   /** Manda il partner al registro e ATTENDE l'esito, poi rilegge il confronto. */
   sincronizza(): void {
     const p = this.partner();
@@ -683,7 +803,12 @@ export class PartnerDetailComponent {
   onRuleSaved(): void {
     this.ruleFormOpen.set(false);
     const id = this.partner()?.id;
-    if (id) this.loadCarnet(id);
+    if (id) {
+      this.loadCarnet(id);
+      this.caricaConsegne(id);
+    } else {
+      this.consegneInCorso.set(false);
+    }
   }
 
   private loadCarnet(id: string): void {
@@ -792,6 +917,62 @@ export class PartnerDetailComponent {
       if (!h || (!h.closed && !h.openTime && !h.closeTime)) return [];
       return [{ key: d.key, closed: !!h.closed, openTime: h.openTime ?? '', closeTime: h.closeTime ?? '' }];
     });
+  }
+
+  /**
+   * Quante consegne recenti si mostrano nella scheda del partner.
+   *
+   * ⚠️ Dieci, non «le ultime»: la scheda deve dire come sta andando, non
+   * diventare un secondo elenco consegne. Il bottone accanto al titolo porta
+   * all'elenco vero, già filtrato su questo partner.
+   */
+  private static readonly QUANTE_CONSEGNE = 10;
+
+  readonly ultimeConsegne = signal<ConsegnaRecente[]>([]);
+  readonly consegneInCorso = signal(true);
+
+  /**
+   * Le ultime consegne di questo partner.
+   *
+   * ⚠️ `view: 'tutte'` di proposito: il valore predefinito dell'elenco è
+   * «attive», e su un partner che non ha lavoro in corso la scheda direbbe
+   * «nessuna consegna» avendone migliaia chiuse. L'ordinamento predefinito
+   * del server è già data decrescente.
+   *
+   * ⚠️ Best-effort come il carnet: se fallisce, il resto della scheda si
+   * carica lo stesso — ma il blocco lo dice, non resta a «caricamento».
+   */
+  private caricaConsegne(partnerId: string): void {
+    this.http
+      .get<{ items: ConsegnaRecente[] }>(`${environment.apiUrl}/deliveries`, {
+        params: {
+          partnerId,
+          view: 'tutte',
+          pageSize: String(PartnerDetailComponent.QUANTE_CONSEGNE),
+          page: '1',
+        },
+      })
+      .subscribe({
+        next: (r) => { this.ultimeConsegne.set(r?.items ?? []); this.consegneInCorso.set(false); },
+        error: () => { this.ultimeConsegne.set([]); this.consegneInCorso.set(false); },
+      });
+  }
+
+  apriConsegna(id: string): void {
+    this.router.navigate(['/deliveries', id]);
+  }
+
+  nomeDestinatario(c: ConsegnaRecente): string {
+    return [c.recipientFirstName, c.recipientLastName].filter(Boolean).join(' ') || '—';
+  }
+
+  nomeValet(c: ConsegnaRecente): string {
+    return c.valet ? [c.valet.firstName, c.valet.lastName].filter(Boolean).join(' ') : '—';
+  }
+
+  /** Il colore viene dalla mappa unica, mai riscritto qui (Libro cap. 5). */
+  coloreStato(stato: string): string {
+    return STATO_CONSEGNA_COLORE[stato] ?? STATO_CONSEGNA_COLORE_DEFAULT;
   }
 
   /** Rilegge il partner dal server: serve dopo un import dal registro. */

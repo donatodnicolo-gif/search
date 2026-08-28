@@ -216,6 +216,12 @@ Filtri pagamento: metodo (**Bank Transfer / Credit Card / Direct Debit Mandate**
 
 > **Note tecniche (da entità `partner.entity.ts`):** il campo NOME* corrisponde a `businessName` (l'insegna) mentre AZIENDA è un campo separato `agency` (ragione sociale). Indirizzo, `city`, `latitude`/`longitude` vengono geocodificati automaticamente. Oltre ai valori per-servizio esistono anche `kmIncluded` ed `extraOutSideCityKmPrice` **a livello di partner** (soglia KM inclusi e prezzo extra fuori città globali). Le 3 notifiche sono `sendSms` / `receiveWhatsappMsg` / `receiveEmailMsg`.
 
+#### Nel nuovo ambiente: cosa cambia nella lista e nella scheda **[NUOVO 28/08/2026]**
+
+- **La lista non si allunga più per le province.** In cella si mostrano al massimo **6** voci e poi una coda «**+ altre N**» (l'elenco nascosto compare passandoci sopra). Misurato sui 289 partner: la mediana ne ha 1, il 75° percentile **12**, e due partner ne hanno **107** — senza tetto quelle righe erano alte il triplo delle altre. Stesso tetto sulle **categorie**. La coda **non è cliccabile**: la riga intera apre il dettaglio, e l'elenco completo sta lì.
+- **Scheda partner → «Ultime consegne»**, in fondo: le **10** più recenti (numero, data, destinatario, servizio, valet, stato col colore della legenda). La riga apre la consegna. «**Vedi tutte**» porta all'elenco consegne **filtrato su questo partner**, con un chip che scrive il nome del partner e si toglie con un click, senza filtro sul giorno e con la vista «**Tutti gli stati**».
+- **Scheda partner → «Registro Anagrafiche»**: i bottoni dicono che cosa faranno, perché sotto un'unica parola c'erano tre gesti diversi — «**Crea nel registro**» (la scheda non c'è), «**Collega al registro**» (c'è ma non è collegata), «**Aggiorna il registro**» (già collegate). Se nel registro ci sono **più schede possibili** il bottone resta visibile ma **spento**, col motivo: crearne un'altra sarebbe un doppione. «**Ricontrolla il registro**» rifà solo il confronto.
+
 #### Sottosezioni Partner
 
 - **Fatturazione** (`/partner/fattura`): selezione partner + GENERA FATTURA, STORICO, ESPORTA. Riepiloga la fatturazione del partner (visibile solo Admin; il partner la vede se abilitato).

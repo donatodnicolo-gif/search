@@ -737,7 +737,8 @@
     "suspectDate": "Date outside the plausible range: it was already like this in the original database (year typo); it has not been corrected so as not to invent a value.",
     "view": {
       "active": "In progress",
-      "history": "History"
+      "history": "History",
+      "allStates": "All statuses"
     },
     "status": {
       "title": "Change status",
@@ -763,6 +764,10 @@
       "done": "Done on {{n}} deliveries.",
       "partial": "Done on {{n}} deliveries; {{k}} failed. The first one says: {{perche}}",
       "confirmDelete": "Delete {{n}} deliveries? This cannot be undone."
+    },
+    "partnerFilter": {
+      "label": "Partner: {{nome}}",
+      "remove": "Remove the partner filter"
     }
   },
   "partners": {
@@ -792,7 +797,8 @@
       "matchableHint": "Exists in the registry with the same VAT or email, but is not linked yet.",
       "showDiffs": "Show the {{n}} differences",
       "hideDiffs": "Hide differences"
-    }
+    },
+    "altre": "+ {{n}} more"
   },
   "valets": {
     "title": "Valets",
@@ -1001,6 +1007,11 @@
       "used": "Used",
       "today": "Today",
       "perDay": "per day"
+    },
+    "ultimeConsegne": {
+      "title": "Latest deliveries",
+      "all": "See all",
+      "none": "This partner hasn’t requested any delivery yet."
     }
   },
   "finance": {
@@ -1925,7 +1936,16 @@
     "pullHint": "Pulls only the ticked fields into the platform. Rows where the registry is empty cannot be ticked: an empty value never overwrites a real one. Yellow rows are trade name and address — the registry holds the company, this page the outlet, so they start unticked.",
     "riskyField": "The registry holds the company, this page the outlet: tick only if you know you need it.",
     "emptyThere": "This field is empty in the registry: nothing to pull.",
-    "writtenBy": "in the registry from {{sistema}}, on {{quando}}"
+    "writtenBy": "in the registry from {{sistema}}, on {{quando}}",
+    "pushCreate": "Create in the registry",
+    "pushCreateHint": "It isn’t in the registry: a new record is created from this page, and stays linked.",
+    "pushLink": "Link to the registry",
+    "pushLinkHint": "The registry record already exists: it gets linked to this partner and the fields above are overwritten with ours.",
+    "pushUpdate": "Update the registry",
+    "pushUpdateHint": "Already linked: the platform fields are written over the registry ones.",
+    "pushAmbiguous": "Link to the registry",
+    "pushBlocked": "The registry holds several possible records: pick one by hand, so another isn’t created.",
+    "recheck": "Re-check the registry"
   },
   "sales": {
     "title": "Sales",

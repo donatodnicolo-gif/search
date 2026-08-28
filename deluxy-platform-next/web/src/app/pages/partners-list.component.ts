@@ -107,12 +107,22 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
                 <td class="muted">{{ p.email }}</td>
                 <td>{{ p.phone || '—' }}</td>
                 <td>
-                  @for (pp of (p.provinces || []); track pp.province.id) {
+                  @for (pp of primeProvince(p); track pp.province.id) {
                     <span class="pill pill-neutral">{{ pp.province.code }}</span>
                   } @empty { <span class="muted">—</span> }
+                  @if (altreProvince(p); as quante) {
+                    <span class="pill pill-neutral coda" [title]="restoProvince(p)">
+                      {{ 'partners.altre' | translate: { n: quante } }}
+                    </span>
+                  }
                 </td>
                 <td class="muted small">
-                  {{ (p.categories || []).length ? namesOf(p) : '—' }}
+                  {{ (p.categories || []).length ? namesOf(p) : '—' }}<!--
+               -->@if (altreCategorie(p); as quante) {
+                    <span class="pill pill-neutral coda" [title]="restoCategorie(p)">
+                      {{ 'partners.altre' | translate: { n: quante } }}
+                    </span>
+                  }
                 </td>
                 <td>
                   <app-status-select
@@ -176,6 +186,9 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
       .pill-ok { background: rgba(36,138,61,.12); color: #1a7f37; }
       .pill-warn { background: rgba(184,150,62,.16); color: #8a6d1f; }
       .pill-neutral { background: var(--fill); color: var(--text-secondary); }
+      /* La coda «+N»: stessa forma delle altre ma senza sfondo, cosi' non si
+         legge come una voce in piu'. Il cursore dice che c'e' un tooltip. */
+      .pill.coda { background: transparent; border: 1px solid var(--separator); cursor: help; margin-left: 2px; }
       .s-active { background: rgba(36,138,61,0.12); color: var(--green); }
       .s-inactive { background: rgba(255,149,0,0.12); color: #b25000; }
       .s-blocked { background: rgba(215,0,21,0.09); color: var(--red); }
@@ -302,8 +315,57 @@ export class PartnersListComponent {
       });
   }
 
+  /**
+   * Quante voci si mostrano in una cella prima di riassumere il resto in «+N».
+   *
+   * ⚠️ Il numero non è arbitrario: misurato sui 289 partner veri, le province
+   * per partner sono 1 nella mediana ma **12 al 75° percentile** (91 partner
+   * ne hanno esattamente 12) e **107 per due di loro**. Senza tetto quelle
+   * righe diventano alte il triplo delle altre e la tabella non si scorre più.
+   * Sei sta su una riga sola a qualunque larghezza utile.
+   */
+  private static readonly TETTO_CELLA = 6;
+
+  primeProvince(p: Partner) {
+    return (p.provinces || []).slice(0, PartnersListComponent.TETTO_CELLA);
+  }
+
+  /** Quante ne restano fuori; 0 diventa falsy e la coda non compare. */
+  altreProvince(p: Partner): number {
+    return Math.max(0, (p.provinces || []).length - PartnersListComponent.TETTO_CELLA);
+  }
+
+  /**
+   * L'elenco di quelle nascoste, per il tooltip.
+   *
+   * ⚠️ Il «+N» non è cliccabile di proposito: la riga intera apre il dettaglio
+   * (Libro §8), e un bersaglio che fa un'altra cosa dentro una riga che
+   * naviga è il modo per aprire la scheda sbagliata. Chi vuole l'elenco
+   * completo lo trova nel dettaglio; qui basta sapere che c'è dell'altro.
+   */
+  restoProvince(p: Partner): string {
+    return (p.provinces || [])
+      .slice(PartnersListComponent.TETTO_CELLA)
+      .map((x) => x.province.code)
+      .join(' · ');
+  }
+
   namesOf(p: Partner): string {
-    return (p.categories || []).map((c) => c.category.name).join(', ');
+    return (p.categories || [])
+      .slice(0, PartnersListComponent.TETTO_CELLA)
+      .map((c) => c.category.name)
+      .join(', ');
+  }
+
+  altreCategorie(p: Partner): number {
+    return Math.max(0, (p.categories || []).length - PartnersListComponent.TETTO_CELLA);
+  }
+
+  restoCategorie(p: Partner): string {
+    return (p.categories || [])
+      .slice(PartnersListComponent.TETTO_CELLA)
+      .map((c) => c.category.name)
+      .join(' · ');
   }
 
   /** Opzioni stato pagamento (attivo | inattivo | bloccato). */

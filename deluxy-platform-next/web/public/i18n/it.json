@@ -737,7 +737,8 @@
     "suspectDate": "Data fuori dall’intervallo plausibile: era già così nel database originario (errore di battitura sull’anno), non è stata corretta per non inventare un valore.",
     "view": {
       "active": "In lavorazione",
-      "history": "Storico"
+      "history": "Storico",
+      "allStates": "Tutti gli stati"
     },
     "status": {
       "title": "Cambia stato",
@@ -763,6 +764,10 @@
       "done": "Fatto su {{n}} consegne.",
       "partial": "Fatto su {{n}} consegne; {{k}} non sono riuscite. La prima dice: {{perche}}",
       "confirmDelete": "Elimini {{n}} consegne? Non si torna indietro."
+    },
+    "partnerFilter": {
+      "label": "Partner: {{nome}}",
+      "remove": "Togli il filtro partner"
     }
   },
   "partners": {
@@ -792,7 +797,8 @@
       "matchableHint": "Esiste nel registro con la stessa P.IVA o email, ma non è ancora collegato.",
       "showDiffs": "Mostra le {{n}} differenze",
       "hideDiffs": "Nascondi le differenze"
-    }
+    },
+    "altre": "+ altre {{n}}"
   },
   "valets": {
     "title": "Valet",
@@ -1001,6 +1007,11 @@
       "used": "Usate",
       "today": "Oggi",
       "perDay": "al giorno"
+    },
+    "ultimeConsegne": {
+      "title": "Ultime consegne",
+      "all": "Vedi tutte",
+      "none": "Questo partner non ha ancora chiesto consegne."
     }
   },
   "finance": {
@@ -1925,7 +1936,16 @@
     "pullHint": "Prende nella piattaforma solo i campi spuntati. Le righe dove il registro è vuoto non si possono spuntare: un vuoto non sovrascrive mai un valore. Le righe in giallo sono insegna e indirizzo — nel registro c’è l’azienda, qui il punto vendita, quindi non partono spuntate.",
     "riskyField": "Nel registro c’è l’azienda, qui il punto vendita: spuntalo solo se sai che serve.",
     "emptyThere": "Nel registro questo campo è vuoto: non c’è niente da prendere.",
-    "writtenBy": "nel registro da {{sistema}}, il {{quando}}"
+    "writtenBy": "nel registro da {{sistema}}, il {{quando}}",
+    "pushCreate": "Crea nel registro",
+    "pushCreateHint": "Nel registro non c’è: si crea una scheda nuova con i dati di questa pagina, e resta collegata.",
+    "pushLink": "Collega al registro",
+    "pushLinkHint": "La scheda nel registro esiste già: si collega a questo partner e i campi qui sopra vengono riscritti con i nostri.",
+    "pushUpdate": "Aggiorna il registro",
+    "pushUpdateHint": "Già collegati: si riscrivono nel registro i campi della piattaforma.",
+    "pushAmbiguous": "Collega al registro",
+    "pushBlocked": "Nel registro ci sono più schede possibili: sceglierne una a mano, per non crearne un’altra.",
+    "recheck": "Ricontrolla il registro"
   },
   "sales": {
     "title": "Vendite",
