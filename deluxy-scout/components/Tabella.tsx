@@ -110,6 +110,10 @@ export function Tabella<T>({
             style={stileCol(c)}
             disabled={c.fissa}
             onPress={() => ordinaPer(c.chiave)}
+            // ⚠️ Il passaggio del mouse SPIEGA (28/08/2026, richiesta
+            // dell'utente): un'intestazione cliccabile che non dice cosa fa
+            // si scopre solo cliccandola per sbaglio.
+            {...({ title: c.fissa ? undefined : `Ordina per ${c.label}` } as any)}
           >
             <Text style={[styles.th, c.destra && styles.thDestra, ordine.campo === c.chiave && styles.thOn]}>
               {c.label}
@@ -125,6 +129,7 @@ export function Tabella<T>({
           key={chiaveRiga(r)}
           style={({ hovered }: any) => [styles.riga, hovered && onRiga && styles.rigaHover]}
           onPress={onRiga ? () => onRiga(r) : undefined}
+          {...({ title: onRiga && labelRiga ? labelRiga(r) : undefined } as any)}
           disabled={!onRiga}
           accessibilityRole={onRiga ? 'button' : undefined}
           accessibilityLabel={onRiga ? labelRiga?.(r) : undefined}

@@ -350,12 +350,15 @@ export function RigaChips({ children, style }: { children: ReactNode; style?: St
  * quasi identico ovunque): questa è la copia che resta, le altre si tolgono
  * man mano che le schermate passano al pattern nuovo.
  */
-export function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+export function Chip({ label, on, onPress, title }: { label: string; on: boolean; onPress: () => void; title?: string }) {
   return (
     // «tutto risponde» (Libro cap.3): la pillola reagisce alla pressione.
+    // `title` = la spiegazione al passaggio del mouse (28/08/2026): la pillola
+    // dice COSA mostra, non solo come si chiama.
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [stiliChip.chip, on && stiliChip.chipOn, pressed && { opacity: 0.6 }]}
+      {...({ title } as any)}
     >
       <Text style={[stiliChip.txt, on && stiliChip.txtOn]} numberOfLines={1}>
         {label}

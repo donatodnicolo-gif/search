@@ -286,7 +286,7 @@ export default function Ordini() {
    * tredici colonne, serviva un 1633 che quasi nessuno schermo ha — e sotto
    * soglia le fisse si schiacciavano in briciole.
    */
-  const aTabella = width >= 1240;
+  const aTabella = width >= 1205;
   /**
    * Sopra questa misura ci stanno TUTTE le colonne, canale compreso: misurato
    * nel DOM, a 1649 al nome del cliente restano 209px invece dei 111 che
@@ -489,7 +489,14 @@ export default function Ordini() {
         const c = costi.get(o.id);
         if (!c) return <Text style={styles.tabData}>—</Text>;
         return (
-          <View style={{ alignItems: 'flex-end' }}>
+          <View
+            style={{ alignItems: 'flex-end' }}
+            {...({
+              title: c.definitivo
+                ? 'Scelto: la fornitura è decisa — questo è il costo vero'
+                : 'Il più basso fra i preventivi ricevuti: una stima, può cambiare',
+            } as any)}
+          >
             <Text style={styles.tabValore}>{importoBreve(c.costo)}</Text>
             {/* ⚠️ «Scelto» o «il più basso» non sono la stessa cosa: il primo
                 è una decisione presa, il secondo una stima che può cambiare.
@@ -533,7 +540,14 @@ export default function Ordini() {
          */
         const realizzato = o.stato === 'incassato' && (costi.get(o.id)?.definitivo ?? false);
         return (
-          <View style={{ alignItems: 'flex-end' }}>
+          <View
+            style={{ alignItems: 'flex-end' }}
+            {...({
+              title: realizzato
+                ? 'Realizzato: ordine incassato E fornitura scelta — il margine è un fatto'
+                : 'Stimato: manca l’incasso o il fornitore è ancora «il più basso» — può cambiare',
+            } as any)}
+          >
             <Text style={[styles.tabValore, m < 0 && styles.margineNegativo]}>{importoBreve(m)}</Text>
             <Text style={[styles.tabStima, m < 0 && styles.margineNegativo]}>
               {realizzato ? 'realizzato' : 'stimato'}
@@ -596,7 +610,19 @@ export default function Ordini() {
       width: 96,
       valore: (o) => statoPratica(o).label,
       cella: (o) => (
-        <View style={{ gap: 2, alignItems: 'flex-start' }}>
+        <View
+          style={{ gap: 2, alignItems: 'flex-start' }}
+          {...({
+            title:
+              statoPratica(o).label === 'Bozza'
+                ? 'Bozza: pratica aperta, il numero SCOUT arriva alla chiusura'
+                : statoPratica(o).label === 'Chiuso'
+                  ? 'Chiuso: pratica finita con documento — l’incasso è a parte'
+                  : statoPratica(o).label === 'Incassato'
+                    ? 'Incassato: i soldi sono arrivati'
+                    : 'Annullato: la pratica non è successa',
+          } as any)}
+        >
           <StatusBadge small label={statoPratica(o).label} colore={statoPratica(o).colore} />
           {/* «Chiuso» senza soldi: si dice che l'incasso manca, o la scala a
               quattro parole nasconderebbe proprio la cosa da fare. */}
@@ -664,10 +690,14 @@ export default function Ordini() {
        * 1697→1732.
        *
        * ⚠️ 28/08/2026, sera: DUPLICA è la decima, e sta su TUTTI gli ordini.
-       * 10×33 = 330, più nove spazi da 2 = 348, più 5 = 353. Soglie +35:
-       * 1572→1607, 1472→1507, 1732→1767.
+       * 10×33 = 330, più nove spazi da 2 = 348, più 5 = 353.
+       *
+       * ⚠️ 28/08/2026, notte: la FATTURA è tornata UN'icona sola (vuota =
+       * chiedi, oro = scarica): l'icona download separata è sparita. Massimo
+       * nove icone insieme: 9×33 = 297, più otto spazi da 2 = 313, più 5 =
+       * 318 — e la soglia della tabella scende con lei (1240→1205).
        */
-      width: 353,
+      width: 318,
       fissa: true,
       valore: () => null,
       cella: (o) => (
@@ -736,21 +766,33 @@ export default function Ordini() {
           >
             <Ionicons name="copy-outline" size={19} color={colors.navy} />
           </Pressable>
-          {/* ⭐ SCARICA LA FATTURA: c'è solo quando una fattura c'è davvero.
-              Un'icona sempre presente che a volte non fa niente insegna a non
-              premerla. */}
-          {o.fattura_numero ? (
+          {/* ⭐ FATTURA: SEMPRE LA STESSA ICONA, il colore dice lo stato
+              (28/08/2026, richiesta dell'utente: «al posto di cambiarla con
+              download metti sempre la stessa icona ma colorata»). Vuota e blu
+              = chiedila; piena e oro = c'è, e il tocco la SCARICA. La regola è
+              quella di portafoglio e furgone: un concetto, un simbolo — il
+              colore racconta. */}
+          {o.stato !== 'annullato' ? (
             <Pressable
               style={styles.iconaAzione}
               hitSlop={8}
               onPress={(e: any) => {
                 e?.stopPropagation?.();
-                scaricaFattura(o);
+                if (o.fattura_numero) scaricaFattura(o);
+                else chiediFattura(o);
               }}
-              accessibilityLabel={`Scarica la fattura ${o.fattura_numero}`}
-              {...({ title: `Scarica la fattura ${o.fattura_numero} (PDF)` } as any)}
+              accessibilityLabel={o.fattura_numero ? `Scarica la fattura ${o.fattura_numero}` : 'Chiedi la fattura a FINANCE'}
+              {...({
+                title: o.fattura_numero
+                  ? `Fattura ${o.fattura_numero} emessa — tocca per scaricare il PDF`
+                  : 'FATTURA — chiedi il documento fiscale a FINANCE (non è l’incasso)',
+              } as any)}
             >
-              <Ionicons name="download-outline" size={19} color={colors.navy} />
+              <Ionicons
+                name={o.fattura_numero ? 'receipt' : 'receipt-outline'}
+                size={19}
+                color={o.fattura_numero ? colors.goldStrong : colors.navy}
+              />
             </Pressable>
           ) : null}
           {o.chiuso_il ? (
@@ -777,21 +819,8 @@ export default function Ordini() {
           ) : null}
           {o.stato === 'da_incassare' ? (
             <>
-              {/* FATTURA: il lavoro è finito, si chiede il documento a
-                  FINANCE. Non è «incassato» — i soldi arrivano dopo. */}
-              {!o.fattura_numero ? (
-                <Pressable
-                  style={[styles.iconaAzione, inCorso === o.id && { opacity: 0.5 }]}
-                  disabled={inCorso === o.id}
-                  onPress={(e: any) => { e?.stopPropagation?.(); chiediFattura(o); }}
-                  accessibilityLabel="Chiedi la fattura a FINANCE"
-                  {...({ title: 'FATTURA — chiedi il documento fiscale a FINANCE (non è l’incasso)' } as any)}
-                >
-                  {/* La stessa icona della pillola «Fattura»: un concetto, un
-                      simbolo — ovunque compaia. */}
-                  <Ionicons name="receipt-outline" size={19} color={colors.navy} />
-                </Pressable>
-              ) : null}
+              {/* La fattura vive nell'icona UNICA più a sinistra (vuota =
+                  chiedi, oro = scarica): qui non si ripete. */}
               {/* ⭐ LA PRO-FORMA CHE NON C'È (27/08/2026). Ogni ordine nasce
                   con la sua pro-forma, ma se FINANCE non risponde — o se il
                   cliente là non esiste ancora — l'ordine resta senza. Prima
@@ -806,7 +835,9 @@ export default function Ordini() {
                   accessibilityLabel="Emetti la pro-forma"
                   {...({ title: 'PRO-FORMA — emettila su FINANCE e agganciala a questo ordine' } as any)}
                 >
-                  {/* La stessa icona della pillola «Pro-forma». */}
+                  {/* La stessa icona della pillola «Pro-forma». Quando la PF
+                      c'è, quest'icona non compare: c'è la pillola che scarica
+                      — e la fattura ha già la sua icona unica. */}
                   <Ionicons name="document-text-outline" size={19} color={colors.navy} />
                 </Pressable>
               ) : null}
@@ -1508,10 +1539,9 @@ export default function Ordini() {
                   [
                     ['checkmark-circle-outline', 'Chiudi la pratica', 'piena e oro = chiusa; il tocco riapre'],
                     ['cash-outline', 'Segna incassato', 'i soldi sono arrivati (bottone nero)'],
-                    ['receipt-outline', 'Chiedi la fattura', 'il documento fiscale, da FINANCE'],
+                    ['receipt-outline', 'Fattura', 'vuota = chiedila a FINANCE; piena e oro = tocca per scaricare il PDF'],
                     ['document-text-outline', 'Emetti la pro-forma', 'la richiesta di pagamento'],
                     ['wallet-outline', 'Chiedi un acconto', 'piena e oro = già richiesto'],
-                    ['download-outline', 'Scarica la fattura', 'PDF da Fatture in Cloud'],
                     ['car-outline', 'Richiedi l’evasione', 'piena e oro = già richiesta; solo a pratica chiusa'],
                     ['copy-outline', 'Duplica come bozza', 'per rifare un ordine sbagliato'],
                     ['create-outline', 'Modifica l’ordine', 'valore, cliente, fornitura, pro-forma'],
@@ -1539,9 +1569,23 @@ export default function Ordini() {
           dentroUnBloccoSpaziato
           primaria={
             <>
-              <Chip label="Tutti" on={!statoFiltro} onPress={() => setStatoFiltro(null)} />
+              <Chip label="Tutti" title="Tutti gli ordini, in qualunque stato" on={!statoFiltro} onPress={() => setStatoFiltro(null)} />
               {FILTRI_PRATICA.map((s) => (
-                <Chip key={s.valore} label={s.chip} on={statoFiltro === s.valore} onPress={() => setStatoFiltro((c) => (c === s.valore ? null : s.valore))} />
+                <Chip
+                  key={s.valore}
+                  label={s.chip}
+                  title={
+                    s.valore === 'Bozza'
+                      ? 'Pratiche ancora aperte: senza numero e senza documento'
+                      : s.valore === 'Chiuso'
+                        ? 'Pratiche finite (con documento), soldi ancora da incassare'
+                        : s.valore === 'Incassato'
+                          ? 'I soldi sono arrivati'
+                          : 'Ordini annullati: la pratica non è successa'
+                  }
+                  on={statoFiltro === s.valore}
+                  onPress={() => setStatoFiltro((c) => (c === s.valore ? null : s.valore))}
+                />
               ))}
             </>
           }
@@ -2257,10 +2301,11 @@ export default function Ordini() {
   );
 }
 
-function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+function Chip({ label, on, onPress, title }: { label: string; on: boolean; onPress: () => void; title?: string }) {
   return (
     // «tutto risponde» (Libro UX cap.3): la pillola reagisce alla pressione.
     <Pressable onPress={onPress} style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && { opacity: 0.6 }]}>
+      {...({ title } as any)}
       <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{label}</Text>
     </Pressable>
   );
