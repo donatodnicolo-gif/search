@@ -62,12 +62,17 @@ function configurata(): boolean {
   return Boolean(env("ANAGRAFICHE_API_KEY"));
 }
 
-async function chiamata(percorso: string): Promise<unknown | null> {
+async function chiamata(percorso: string, timeoutMs = 3000): Promise<unknown | null> {
   if (!configurata()) return null;
   try {
     const res = await fetch(`${urlAnagrafiche()}${percorso}`, {
       headers: { "x-api-key": chiave("ANAGRAFICHE_API_KEY")! },
-      signal: AbortSignal.timeout(3000),
+      // ⚠️ Il registro è su un'altra Vercel: a FREDDO la prima chiamata può
+      // sfiorare i 3,5 s (misurato). Con 3 s secchi la pro-forma perdeva i dati
+      // fiscali del cliente in produzione (P.IVA/indirizzo vuoti) pur essendo
+      // nel registro. Il timeout ora lo sceglie chi chiama: 3 s per le ricerche
+      // interattive, di più per le letture che DEVONO riuscire (documenti).
+      signal: AbortSignal.timeout(timeoutMs),
       cache: "no-store",
     });
     if (!res.ok) return null;
@@ -79,8 +84,8 @@ async function chiamata(percorso: string): Promise<unknown | null> {
 
 // Risolve l'anagrafica dall'id del registro (join affidabile una volta
 // collegato l'`anagraficaId`). È la "lingua comune di id" tra le app.
-export async function anagraficaPerId(id: string): Promise<Anagrafica | null> {
-  return (await chiamata(`/api/v1/partners/${encodeURIComponent(id)}`)) as Anagrafica | null;
+export async function anagraficaPerId(id: string, timeoutMs = 3000): Promise<Anagrafica | null> {
+  return (await chiamata(`/api/v1/partners/${encodeURIComponent(id)}`, timeoutMs)) as Anagrafica | null;
 }
 
 // Cerca l'anagrafica per nome: match esatto (case-insensitive) se c'è,

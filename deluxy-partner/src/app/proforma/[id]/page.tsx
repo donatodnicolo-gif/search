@@ -9,6 +9,7 @@ import { cambiaStatoProForma, deleteProForma } from "@/lib/proforma-actions";
 import { StampaButton } from "@/components/StampaButton";
 import { intestazioneDaMostrare } from "@/lib/intestazione";
 import { anagraficaPerId } from "@/lib/anagrafiche";
+import { ficUrlFattura } from "@/lib/fic";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,7 @@ export default async function ProFormaDetail({
   // sociale, indirizzo, P.IVA, C.F., SDI e PEC — che sono la casa di quel dato.
   // Il partner FINANCE non li tiene (per questo il documento li mostrava vuoti).
   // Non fatale: se il registro è giù, restano i pochi campi del partner.
-  const anag = pf.partner.anagraficaId ? await anagraficaPerId(pf.partner.anagraficaId) : null;
+  const anag = pf.partner.anagraficaId ? await anagraficaPerId(pf.partner.anagraficaId, 8000) : null;
   const cliente = {
     nome: pf.partner.ragioneSociale || anag?.ragioneSociale || pf.partner.nome,
     insegna: null as string | null,
@@ -59,6 +60,12 @@ export default async function ProFormaDetail({
   };
   // Mostra l'insegna sotto la ragione sociale solo se è davvero un'altra cosa.
   if (pf.partner.nome && pf.partner.nome !== cliente.nome) cliente.insegna = pf.partner.nome;
+  // Se la pro-forma è «fatturata» con un numero, il link per aprirla su FIC;
+  // se è «fatturata» SENZA numero è una fatturata finta, e va sbloccata.
+  const urlFicFattura =
+    pf.stato === "fatturata" && pf.fatturaNumero
+      ? await ficUrlFattura(pf.fatturaNumero, new Date(pf.data).getFullYear())
+      : null;
   // Se l'indirizzo contiene già la città (es. «… 20143 Milano»), non ripeterla.
   const cittaSeparata =
     cliente.citta && !(cliente.indirizzo ?? "").toLowerCase().includes(cliente.citta.toLowerCase())
@@ -296,12 +303,34 @@ export default async function ProFormaDetail({
           )}
           {pf.stato === "fatturata" && (
             <>
-              <span style={{ fontSize: 13.5, color: "var(--text-secondary)" }}>
-                Confermata{pf.fatturataIl ? ` il ${dataIt(pf.fatturataIl)}` : ""}
-                {pf.fatturaNumero ? ` — fattura n. ${pf.fatturaNumero}` : ""}.
-              </span>
+              {pf.fatturaNumero ? (
+                <>
+                  <span style={{ fontSize: 13.5, color: "var(--text-secondary)" }}>
+                    Fatturata{pf.fatturataIl ? ` il ${dataIt(pf.fatturataIl)}` : ""} — fattura n. {pf.fatturaNumero}.
+                  </span>
+                  {urlFicFattura && (
+                    <a href={urlFicFattura} target="_blank" rel="noopener noreferrer" className="btn secondary">
+                      Apri in Fatture in Cloud ↗
+                    </a>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* «Fatturata» SENZA numero: non è una fattura vera. Non un
+                      vicolo cieco: da qui si emette davvero, o si corregge. */}
+                  <span style={{ fontSize: 13.5, color: "var(--orange)" }}>
+                    ⚠️ Segnata «fatturata» ma <strong>senza fattura collegata</strong>: nessun numero e nessun documento su Fatture in Cloud.
+                  </span>
+                  <Link href={`/fic/fattura?proforma=${id}`} className="btn primary" title="Crea la fattura vera su Fatture in Cloud dalle righe di questa pro-forma">
+                    Emetti la fattura vera su FIC…
+                  </Link>
+                  <form action={cambiaStatoProForma.bind(null, id, "bozza", undefined)} style={{ display: "inline" }}>
+                    <button className="btn secondary" type="submit" title="Riportala in bozza per correggerla prima di emetterla">Riporta in bozza</button>
+                  </form>
+                </>
+              )}
               <form action={cambiaStatoProForma.bind(null, id, "inviata", undefined)} style={{ display: "inline", marginLeft: "auto" }}>
-                <button className="btn small secondary" type="submit">Riapri (torna a inviata)</button>
+                <button className="btn small secondary" type="submit" title="Torna a «inviata» senza toccare altro">Riapri</button>
               </form>
             </>
           )}

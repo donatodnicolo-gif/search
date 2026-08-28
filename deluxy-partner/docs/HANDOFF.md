@@ -22,9 +22,9 @@
 > ⚠️ **Fix**: il link «Apri in Fatture in Cloud» che avevo messo sulla scheda fattura usava `invoices-view/<id>`; il path giusto (già usato dal Registro fatture) è **`invoices/view/<id>`** — corretto in `ficUrlFattura` (`fic.ts`).
 > ⚠️ Questo commit è DOPO lo schema di richiedi-pagamento: va live con lo stesso deploy, quindi aspetta anch'esso le due ALTER (vedi blocco sopra).
 
-> ### 28/08/2026 — richiedi-pagamento (ricerca beneficiario + flag fornitura) e guard «fatturata» ⚠️ MIGRAZIONE DA APPLICARE
+> ### 28/08/2026 — richiedi-pagamento (ricerca beneficiario + flag fornitura) e guard «fatturata» ✅ MIGRAZIONE APPLICATA E DEPLOYATA
 >
-> Tre cose approvate dall'utente («tutti»). ⚠️⚠️ **La 3 aggiunge due colonne al Postgres CONDIVISO** e **non è ancora applicata**: la mia ALTER è stata bloccata dal classificatore di sicurezza dell'auto-mode. **Finché le colonne non esistono, NON deployare**: il client Prisma rigenerato le seleziona su ogni query di `RichiestaPagamento` e la pagina andrebbe in errore. Codice committato e in attesa.
+> Tre cose approvate dall'utente («tutti»). ✅ **Le due colonne (`fornitura`, `fatturaFornitoreRif`) sono state applicate** su `public."RichiestaPagamento"` il 28/08 (la prima ALTER era stata bloccata dal classificatore auto-mode; l'utente ha poi detto «fai tutto tu» e l'ho eseguita) e **tutto è in produzione**. Verificato: il client Prisma legge le colonne, health 200. Le ALTER sotto restano documentate perché idempotenti (rilanciarle non fa danni).
 >
 > **SQL da eseguire (Supabase → SQL editor), idempotente:**
 > ```sql
@@ -36,6 +36,12 @@
 > **1. Ricerca beneficiario, non tendina** (`richiedi-pagamento`): via la tendina dei 17 partner FINANCE con IBAN; al suo posto `SceltaBeneficiario` (client) che **cerca fra i fornitori del registro Anagrafiche** (`cercaBeneficiari` → `/api/v1/partners?q=`), e riempie beneficiario + IBAN (con l'intestatario del conto quando c'è). Restano scrivibili a mano. Nessuna modifica di schema.
 > **2. Flag fornitura + fattura** (`richiedi-pagamento`): checkbox «È il pagamento di una fornitura (costo di prodotto)» + campo «Fattura del fornitore (rif.)». Si salvano su `RichiestaPagamento.fornitura` / `fatturaFornitoreRif` e viaggiano nella nota a Transactions. Perché Budgets lo legga come **COGS** serve scegliere una categoria di costo del prodotto (il testo lo dice): Budgets classifica per categoria sul movimento, il flag è la marcatura + il riferimento fattura per tracciarlo. Badge «fornitura · fatt. N» in elenco.
 > **3. Guard «fatturata»** (`proforma-actions.ts`): marcare una pro-forma «fatturata» ora **esige il numero** della fattura definitiva e, se FIC è collegato, **verifica che quel numero esista davvero** su Fatture in Cloud (`ficIdDaNumero`); altrimenti rifiuta con un messaggio (`erroreStato`). Chiude il caso PF 2/2026 «fatturata» senza numero e senza documento. FIC irraggiungibile → non blocca (il numero c'è) ma non finge di aver verificato.
+
+> ### 28/08/2026 — perché in PRODUZIONE la pro-forma non mostrava i dati (timeout) e lo sblocco del vicolo cieco «fatturata»
+>
+> Segnalato: in produzione la pro-forma mostrava «Vivo Concerti SRL / Milano / email» e il banner «manca P.IVA», **pur essendo la P.IVA nel registro**. Causa **misurata**: la prima chiamata (a freddo) all'API di Anagrafiche — che è su un'altra Vercel — impiega **3,48 s**, oltre il **timeout di 3 s** di `chiamata()`; `anagraficaPerId` tornava `null` e i campi fiscali sparivano. In locale non si vedeva perché l'API era calda (~1,8 s). Fix: `chiamata()` e `anagraficaPerId()` prendono un `timeoutMs` (default 3 s per le ricerche interattive); la **pro-forma legge con 8 s**, perché è una lettura che DEVE riuscire.
+>
+> **Vicolo cieco «fatturata» sbloccato.** Una pro-forma marcata «fatturata» **senza numero** (fatturata finta) offriva solo «Riapri» — non si poteva né correggere né fatturare da lì. Ora quello stato mostra: ⚠️ «Segnata fatturata ma senza fattura collegata» + **«Emetti la fattura vera su FIC…»** (→ `/fic/fattura?proforma=<id>`, che crea il documento e ci scrive il numero vero) + **«Riporta in bozza»** per correggerla. Se invece il numero c'è, compare **«Apri in Fatture in Cloud ↗»**. Il caso PF 2/2026 e cmtcro90o…: ora mostrano P.IVA 10188790967 e i due tasti per procedere.
 
 > ### 28/08/2026 — la pro-forma prende i dati fiscali del cliente da ANAGRAFICHE; e «fatturata» non garantisce la fattura
 >
