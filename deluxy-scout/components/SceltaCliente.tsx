@@ -35,7 +35,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, touchMin } from '@/lib/theme';
-import { cercaNegozi, importaDalRegistro, type NegozioTrovato } from '@/lib/db';
+import { allineaNomeDalRegistro, cercaNegozi, importaDalRegistro, type NegozioTrovato } from '@/lib/db';
 import { cercaNelRegistro, type PartnerRegistro } from '@/lib/anagrafiche';
 import { geocodeIndirizzo } from '@/lib/geocode';
 
@@ -60,6 +60,10 @@ export function SceltaCliente({
   const [trovati, setTrovati] = useState<NegozioTrovato[]>([]);
   /** Le aziende del registro che in Scout non ci sono ancora. */
   const [dalRegistro, setDalRegistro] = useState<PartnerRegistro[]>([]);
+  /** placeId → nome NUOVO nel registro, quando i due divergono (28/08/2026,
+   *  segnalazione dell'utente: HAVI rinominata HAVI LOGISTICS nel registro,
+   *  e qui si continuava a vedere la copia vecchia). */
+  const [rinominati, setRinominati] = useState<Map<string, string>>(new Map());
   const [cercando, setCercando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   /** Chi si sta importando adesso: l'attesa va mostrata, l'import fa due
@@ -92,6 +96,19 @@ export function SceltaCliente({
           if (mio !== ultima.current) return;
           const inScout = negozi.status === 'fulfilled' ? negozi.value : [];
           setTrovati(inScout);
+          // ⚠️ Il nome del REGISTRO vince: places.nome è una copia fatta
+          // all'import, e un'azienda rinominata di là qui restava col nome
+          // vecchio. Dove l'id coincide e i nomi no, si mostra quello nuovo —
+          // e sceglierla lo scrive anche sul negozio.
+          const regPerId = new Map(
+            (registro.status === 'fulfilled' ? registro.value : []).map((r) => [r.id, r]),
+          );
+          const nuovi = new Map<string, string>();
+          for (const n of inScout) {
+            const r = n.anagrafiche_id ? regPerId.get(n.anagrafiche_id) : undefined;
+            if (r && r.nome && r.nome !== n.nome) nuovi.set(n.id, r.nome);
+          }
+          setRinominati(nuovi);
           const giaPresi = new Set(inScout.map((n) => n.anagrafiche_id).filter(Boolean) as string[]);
           setDalRegistro(
             registro.status === 'fulfilled'
@@ -158,7 +175,11 @@ export function SceltaCliente({
   }
 
   function scegli(n: NegozioTrovato) {
-    onScegli({ nome: n.nome, placeId: n.id, anagraficheId: n.anagrafiche_id });
+    const nomeRegistro = rinominati.get(n.id);
+    // Se il registro ha un nome più fresco, vince — sull'ordine E sul negozio.
+    // L'allineamento del negozio è best effort: l'ordine ha già il nome giusto.
+    if (nomeRegistro) void allineaNomeDalRegistro(n.id, nomeRegistro);
+    onScegli({ nome: nomeRegistro ?? n.nome, placeId: n.id, anagraficheId: n.anagrafiche_id });
     setAperto(false);
     setQ('');
     setTrovati([]);
@@ -200,7 +221,14 @@ export function SceltaCliente({
       {trovati.map((n) => (
         <Pressable key={n.id} style={styles.riga} onPress={() => scegli(n)}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.rigaNome} numberOfLines={1}>{n.nome}</Text>
+            <Text style={styles.rigaNome} numberOfLines={1}>{rinominati.get(n.id) ?? n.nome}</Text>
+            {rinominati.get(n.id) ? (
+              // ⚠️ Si DICE cos'è successo: un nome diverso da quello che si è
+              // appena cercato, senza spiegazione, sembra il negozio sbagliato.
+              <Text style={styles.rigaMeta} numberOfLines={1}>
+                in Scout era «{n.nome}» — rinominato nel registro; scegliendolo si aggiorna
+              </Text>
+            ) : null}
             {n.indirizzo || n.zona ? (
               <Text style={styles.rigaMeta} numberOfLines={1}>
                 {[n.indirizzo, n.zona].filter(Boolean).join(' · ')}

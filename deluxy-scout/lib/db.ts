@@ -2439,7 +2439,25 @@ export async function importaDalRegistro(p: {
     return (data as Place) ?? null;
   };
   const gia = await esistente();
-  if (gia) return gia;
+  if (gia) {
+    // ⚠️ IL NOME È DEL REGISTRO (28/08/2026, segnalazione dell'utente: «in
+    // anagrafiche è già stato cambiato il nome, come mai non lo trova
+    // ancora?»). `places.nome` è una copia fatta all'import e nessuno la
+    // aggiornava: HAVI era diventata HAVI LOGISTICS nel registro e qui
+    // restava HAVI per sempre. Quando la riga si ritrova e il registro dice
+    // un nome diverso, il nome si ALLINEA — è una riparazione, non una
+    // scelta.
+    if (p.nome && gia.nome !== p.nome) {
+      const { data: agg } = await supabase
+        .from('places')
+        .update({ nome: p.nome })
+        .eq('id', gia.id)
+        .select('*')
+        .single();
+      if (agg) return agg as Place;
+    }
+    return gia;
+  }
 
   const { data, error } = await supabase
     .from('places')
@@ -2470,6 +2488,21 @@ export async function importaDalRegistro(p: {
     throw error;
   }
   return data as Place;
+}
+
+/**
+ * Allinea il nome di un negozio a quello del REGISTRO (che del nome è la
+ * casa). Best effort: se fallisce, l'azione principale di chi chiama non deve
+ * fallire con lui — il nome giusto è comunque già sull'ordine.
+ */
+export async function allineaNomeDalRegistro(placeId: string, nome: string): Promise<void> {
+  const pulito = nome.trim();
+  if (!pulito) return;
+  try {
+    await supabase.from('places').update({ nome: pulito }).eq('id', placeId);
+  } catch {
+    // vedi sopra
+  }
 }
 
 /** Gli id del registro già presi in carico: servono a non riproporli. */
