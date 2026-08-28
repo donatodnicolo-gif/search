@@ -1608,7 +1608,7 @@ export async function creaOrdineDaDeal(deal: {
 export async function aggiornaOrdine(
   id: string,
   patch: Partial<
-    Pick<Ordine, 'stato' | 'incassato_il' | 'chiuso_il' | 'valore' | 'valore_unitario' | 'quantita' | 'unita' | 'owner' | 'owner_scelto' | 'descrizione' | 'cliente' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota'>
+    Pick<Ordine, 'stato' | 'incassato_il' | 'chiuso_il' | 'valore' | 'valore_unitario' | 'quantita' | 'unita' | 'owner' | 'owner_scelto' | 'descrizione' | 'cliente' | 'place_id' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('ordini').update(patch).eq('id', id);
@@ -2509,6 +2509,40 @@ export async function registraVisitaRapida(
   }
 }
 
+/** Un negozio trovato dalla ricerca, con quel poco che serve a riconoscerlo. */
+export interface NegozioTrovato {
+  id: string;
+  nome: string;
+  indirizzo: string | null;
+  zona: string | null;
+  anagrafiche_id: string | null;
+}
+
+/**
+ * ⭐ CERCA UN NEGOZIO PER NOME (28/08/2026, richiesta dell'utente: «dai
+ * possibilità di cercare un altro cliente»).
+ *
+ * ⚠️ La ricerca la fa il DATABASE, non il browser. I negozi sono 1.813:
+ * scaricarli tutti per filtrarli a schermo vorrebbe dire tre pagine di dati
+ * ogni volta che si apre un ordine, per mostrarne sei.
+ *
+ * ⚠️ I caratteri jolly di LIKE si NEUTRALIZZANO: un nome che contiene «%»
+ * cercherebbe qualunque cosa, e «_» qualunque carattere — chi scrive un nome
+ * non sta scrivendo un modello.
+ */
+export async function cercaNegozi(q: string, max = 8): Promise<NegozioTrovato[]> {
+  const t = q.trim();
+  if (t.length < 2) return [];
+  const sicuro = t.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const { data, error } = await supabase
+    .from('places')
+    .select('id, nome, indirizzo, zona, anagrafiche_id')
+    .ilike('nome', `%${sicuro}%`)
+    .order('nome')
+    .limit(max);
+  if (error) throw error;
+  return (data ?? []) as NegozioTrovato[];
+}
 /** Attività segnate come "da completare" (visita registrata senza dettagli). */
 export async function fetchDaCompletare(): Promise<Place[]> {
   const { data, error } = await supabase

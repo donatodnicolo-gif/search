@@ -17,6 +17,7 @@ import { emettiProformaPerOrdine } from '@/lib/documenti';
 import { costiPerOrdine, fetchLavori, type LavoroConPreventivi } from '@/lib/preventivi';
 import { aggiornaFornitura, aggiungiFornitura, forniturePerOrdine, rimuoviFornitura, type RigaFornitura } from '@/lib/fornitura';
 import { SceltaFornitore, type FornitoreScelto } from '@/components/SceltaFornitore';
+import { SceltaCliente } from '@/components/SceltaCliente';
 import { fetchForniture, salvaNelListino, type Fornitura } from '@/lib/forniture';
 import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
@@ -107,6 +108,9 @@ export default function Ordini() {
   const [evasionePer, setEvasionePer] = useState<OrdineConLuogo | null>(null);
   const [bozza, setBozza] = useState<{
     cliente: string;
+    /** Il negozio a cui l'ordine è legato: si può CAMBIARE (28/08/2026). */
+    placeId: string | null;
+    placeAnagraficheId: string | null;
     descrizione: string;
     valore: string;
     linea: string | null;
@@ -239,14 +243,15 @@ export default function Ordini() {
    * — sito compreso, o la richiesta «metti anche in tabella di che sito è»
    * sarebbe stata esaudita solo su uno schermo grande.
    */
-  const aTabella = width >= (conAltriCosti ? 1489 : 1389);
+  const aTabella = width >= (conAltriCosti ? 1537 : 1437);
   /**
    * Sopra questa misura ci stanno TUTTE le colonne, canale compreso: misurato
    * nel DOM, a 1649 al nome del cliente restano 209px invece dei 111 che
-   * avrebbe con la stessa tabella a 1489. Non è una soglia di stile: è il punto
+   * avrebbe con la stessa tabella a 1489 (misura del 27/08; le soglie sono poi
+   * salite di 48 con le icone grandi del 28/08). Non è una soglia di stile: è il punto
    * in cui rimettere una colonna smette di togliere spazio al dato principale.
    */
-  const tutteLeColonne = width >= 1649;
+  const tutteLeColonne = width >= 1697;
 
   /**
    * Quanto ci costa ciascun ordine: dai lavori collegati alla sua trattativa
@@ -611,8 +616,13 @@ export default function Ordini() {
        * (1460→1489, 1360→1389, 1620→1649): allargare una colonna senza alzare
        * la soglia stringe tutte le altre proprio alla larghezza in cui la
        * tabella era già al limite.
+       *
+       * ⚠️ 28/08/2026 sera, regola dell'utente (Libro v1.8): «icone troppo
+       * piccole» — cornici 27→33 (icona 19 + 7 di padding per lato). Conto
+       * rifatto: 8×33 = 264, più sette spazi da 2 = 278, più 5 di margine =
+       * 283. Le soglie salgono di altri 48: 1489→1537, 1389→1437, 1649→1697.
        */
-      width: 235,
+      width: 283,
       fissa: true,
       valore: () => null,
       cella: (o) => (
@@ -644,7 +654,7 @@ export default function Ordini() {
             >
               <Ionicons
                 name={o.chiuso_il ? 'lock-open-outline' : 'lock-closed-outline'}
-                size={16}
+                size={19}
                 color={o.chiuso_il ? colors.goldStrong : colors.grigio}
               />
             </Pressable>
@@ -679,7 +689,7 @@ export default function Ordini() {
             >
               <Ionicons
                 name={o.evasione_richiesta_il ? 'car' : 'car-outline'}
-                size={17}
+                size={19}
                 color={o.evasione_richiesta_il ? colors.goldStrong : colors.navy}
               />
             </Pressable>
@@ -696,7 +706,7 @@ export default function Ordini() {
                   accessibilityLabel="Chiedi la fattura a FINANCE"
                   {...({ title: 'Fattura — chiedi il documento a FINANCE (non è l’incasso)' } as any)}
                 >
-                  <Ionicons name="document-text-outline" size={17} color={colors.navy} />
+                  <Ionicons name="document-text-outline" size={19} color={colors.navy} />
                 </Pressable>
               ) : null}
               {/* ⭐ LA PRO-FORMA CHE NON C'È (27/08/2026). Ogni ordine nasce
@@ -713,7 +723,7 @@ export default function Ordini() {
                   accessibilityLabel="Emetti la pro-forma"
                   {...({ title: 'Pro-forma — emettila su FINANCE e agganciala a questo ordine' } as any)}
                 >
-                  <Ionicons name="receipt-outline" size={17} color={colors.navy} />
+                  <Ionicons name="receipt-outline" size={19} color={colors.navy} />
                 </Pressable>
               ) : null}
               <Pressable
@@ -722,7 +732,7 @@ export default function Ordini() {
                 accessibilityLabel="Chiedi un acconto"
                 {...({ title: 'Acconto — chiedine uno in percentuale' } as any)}
               >
-                <Ionicons name="wallet-outline" size={17} color={colors.navy} />
+                <Ionicons name="wallet-outline" size={19} color={colors.navy} />
               </Pressable>
               {/* L'azione di tutti i giorni resta l'unica PIENA: si trova
                   a colpo d'occhio anche fra sei icone. */}
@@ -732,7 +742,7 @@ export default function Ordini() {
                 accessibilityLabel="Segna incassato"
                 {...({ title: 'Incassato — i soldi sono arrivati' } as any)}
               >
-                <Ionicons name="checkmark" size={17} color={colors.bianco} />
+                <Ionicons name="checkmark" size={19} color={colors.bianco} />
               </Pressable>
               <Pressable
                 style={styles.iconaAzione}
@@ -741,7 +751,7 @@ export default function Ordini() {
                 accessibilityLabel="Modifica l'ordine"
                 {...({ title: "Modifica l'ordine" } as any)}
               >
-                <Ionicons name="create-outline" size={16} color={colors.grigio} />
+                <Ionicons name="create-outline" size={19} color={colors.grigio} />
               </Pressable>
               <Pressable
                 style={styles.iconaAzione}
@@ -750,7 +760,7 @@ export default function Ordini() {
                 accessibilityLabel="Annulla l'ordine"
                 {...({ title: "Annulla l'ordine" } as any)}
               >
-                <Ionicons name="close-circle-outline" size={16} color={colors.grigio} />
+                <Ionicons name="close-circle-outline" size={19} color={colors.grigio} />
               </Pressable>
             </>
           ) : (
@@ -761,7 +771,7 @@ export default function Ordini() {
                 accessibilityLabel="Riporta a da incassare"
                 {...({ title: 'Riportalo fra quelli da incassare' } as any)}
               >
-                <Ionicons name="arrow-undo-outline" size={17} color={colors.navy} />
+                <Ionicons name="arrow-undo-outline" size={19} color={colors.navy} />
               </Pressable>
               {/* ⚠️ Anche un ordine incassato o annullato si corregge: un nome
                   sbagliato resta sbagliato nei conti dell'anno. */}
@@ -772,7 +782,7 @@ export default function Ordini() {
                 accessibilityLabel="Modifica l'ordine"
                 {...({ title: "Modifica l'ordine" } as any)}
               >
-                <Ionicons name="create-outline" size={16} color={colors.grigio} />
+                <Ionicons name="create-outline" size={19} color={colors.grigio} />
               </Pressable>
             </>
           )}
@@ -925,6 +935,8 @@ export default function Ordini() {
     setModificaPer(o);
     setBozza({
       cliente: o.cliente ?? '',
+      placeId: o.place_id ?? null,
+      placeAnagraficheId: o.place_anagrafiche_id ?? null,
       descrizione: o.descrizione ?? '',
       // ⚠️ La virgola italiana: si scrive «1.250,50», non «1250.50».
       valore: scriviImporto(o.valore),
@@ -961,6 +973,10 @@ export default function Ordini() {
     }
     const patch: Parameters<typeof aggiornaOrdine>[1] = {};
     if (nome !== (modificaPer.cliente ?? '')) patch.cliente = nome;
+    // ⚠️ Il LEGAME col negozio viaggia solo se è cambiato davvero: mandarlo
+    // sempre riscriverebbe la colonna a ogni salvataggio, e un giorno con il
+    // valore sbagliato di una bozza rimasta indietro.
+    if ((bozza.placeId ?? null) !== (modificaPer.place_id ?? null)) patch.place_id = bozza.placeId ?? null;
     const descr = bozza.descrizione.trim() || null;
     if (descr !== (modificaPer.descrizione ?? null)) patch.descrizione = descr;
     /**
@@ -1546,13 +1562,40 @@ export default function Ordini() {
             placeholder="Chi compra"
             placeholderTextColor={colors.grigio}
           />
-          {/* ⚠️ Il nome del NEGOZIO non si tocca da qui: appartiene alla sua
-              scheda, e riscriverlo sull'ordine farebbe due nomi diversi per la
-              stessa attività. Qui si corregge solo come si chiama sull'ordine. */}
-          {modificaPer.place_nome ? (
+          {/* ⭐ CAMBIARE CLIENTE (28/08/2026, richiesta dell'utente: «dai
+              possibilità di cercare un altro cliente»).
+
+              ⚠️ Restano due cose diverse, e la distinzione vale: il NOME del
+              negozio appartiene alla sua scheda (riscriverlo qui farebbe due
+              nomi per la stessa attività), ma il LEGAME appartiene all'ordine —
+              e un ordine attaccato al cliente sbagliato, fino a ieri, non si
+              correggeva da nessuna parte. */}
+          <SceltaCliente
+            attuale={{
+              nome: bozza.cliente,
+              placeId: bozza.placeId,
+              anagraficheId: bozza.placeAnagraficheId,
+            }}
+            onScegli={(c) =>
+              setBozza({
+                ...bozza,
+                // Il nome segue il negozio: lasciare quello vecchio su un
+                // legame nuovo farebbe una riga che dice un'azienda e ne indica
+                // un'altra.
+                cliente: c.nome,
+                placeId: c.placeId,
+                placeAnagraficheId: c.anagraficheId,
+              })
+            }
+          />
+          {modificaPer.place_nome || bozza.placeId ? (
             <View style={styles.rigaNegozio}>
               <Text style={[styles.campoAiuto, { flex: 1 }]}>
-                Negozio collegato: {modificaPer.place_nome} — si cambia dalla sua scheda, non da qui.
+                {bozza.placeId === modificaPer.place_id
+                  ? `Negozio collegato: ${modificaPer.place_nome}`
+                  : bozza.placeId
+                    ? `Nuovo negozio: ${bozza.cliente} — si applica al salvataggio`
+                    : 'Nessun negozio collegato — si applica al salvataggio'}
               </Text>
               {/* ⭐ 27/08/2026, richiesta dell'utente: «metti link per aprire i
                   dati del cliente in anagrafica». La domanda che segue «chi è
@@ -1561,10 +1604,10 @@ export default function Ordini() {
                   nome e lo si cercava a mano.
                   ⚠️ Compare solo se il negozio È nel registro: un link che
                   porta a una scheda inesistente fa credere che il dato ci sia. */}
-              {urlSchedaRegistro(modificaPer.place_anagrafiche_id) ? (
+              {urlSchedaRegistro(bozza.placeAnagraficheId) ? (
                 <Pressable
                   style={styles.linkRegistro}
-                  onPress={() => Linking.openURL(urlSchedaRegistro(modificaPer.place_anagrafiche_id)!)}
+                  onPress={() => Linking.openURL(urlSchedaRegistro(bozza.placeAnagraficheId)!)}
                   accessibilityLabel="Apri la scheda del cliente in Anagrafiche"
                 >
                   <Ionicons name="open-outline" size={14} color={colors.navy} />
@@ -2855,9 +2898,12 @@ const styles = StyleSheet.create({
   // ⚠️ Cornice da 5, non da 7 (27/08/2026): con l'undicesima colonna servivano
   // pixel, e la regola è quella detta dall'utente — si stringe la cornice dei
   // bottoni, non il loro numero. Le azioni restano SEI.
-  iconaAzione: { padding: 5, borderRadius: radius.s },
+  // ⚠️ 28/08/2026, regola dell'utente (Libro v1.8 §3): le icone erano 16-17px
+  // in cornici da 27 — «troppo piccole». Ora 19px in cornici da 33 (7 di
+  // padding per lato): più leggibili e più facili da beccare col mouse.
+  iconaAzione: { padding: 7, borderRadius: radius.s },
   // L'azione di tutti i giorni: l'unica piena, si trova a colpo d'occhio.
-  iconaPiena: { padding: 5, borderRadius: radius.s, backgroundColor: colors.ink },
+  iconaPiena: { padding: 7, borderRadius: radius.s, backgroundColor: colors.ink },
   // Le sei azioni su UNA riga, senza andare a capo: la colonna è dimensionata
   // su di loro, quindi il wrap non serve più — ed era lui a far cambiare posto
   // al bottone principale da una riga all'altra.

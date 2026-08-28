@@ -82,6 +82,20 @@ che era stato mandato ricompare precompilato, e resta scritto sull'ordine
 (`evasione_dati`) — cosi alla domanda «che indirizzo avevamo mandato?» non si
 risponde «guarda nella posta».
 
+## Cambiare il cliente di un ordine
+
+Nel foglio dell ordine, sotto il nome, «Cerca un altro cliente» cerca i negozi
+per nome e ricollega l ordine a un altro. La ricerca la fa il database (i
+negozi sono 1.813: scaricarli tutti per filtrarli a schermo sarebbero tre
+pagine di dati a ogni apertura), con un fiato di attesa per non chiamare a
+ogni lettera.
+
+Restano due cose diverse: il NOME del negozio appartiene alla sua scheda, il
+LEGAME appartiene all ordine. Scegliere un negozio riscrive anche il nome
+sull ordine — lasciare quello vecchio farebbe una riga che dice un azienda e
+ne indica un altra. Si puo anche togliere il legame e tenere il solo nome: gli
+ordini nati da una richiesta a voce esistono.
+
 ## Dove finisce ogni euro (misurato, non dedotto)
 
 Deluxy Budgets si costruisce il conto economico da **tre fonti**, e nessuna di
