@@ -40,6 +40,14 @@ export function ModuloChiave() {
           <label htmlFor="k-tetto-g">Tetto giornaliero (€)</label>
           <input id="k-tetto-g" name="tettoGiornaliero" inputMode="decimal" placeholder="vuoto = nessun tetto" />
         </div>
+        <div className="campo-modulo largo">
+          <label htmlFor="k-url">Webhook degli esiti (https, facoltativo)</label>
+          <input id="k-url" name="urlNotifica" placeholder="https://app.esempio.com/api/pagamenti/notifica" spellCheck={false} />
+          <small className="nota-campo">
+            Dove mandare gli esiti (approvata, pagata, annullata…). Vale come default per ogni richiesta di questa app; una
+            richiesta può indicarne un altro solo sullo stesso host.
+          </small>
+        </div>
         <div className="azioni-modulo campo-modulo largo">
           <button className="btn" type="submit" disabled={inCorso}>
             {inCorso ? "Creo…" : "Crea la chiave"}

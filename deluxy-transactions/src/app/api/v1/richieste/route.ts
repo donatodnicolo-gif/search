@@ -70,6 +70,18 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const stato = url.searchParams.get("stato");
   const riferimentoEsterno = url.searchParams.get("riferimentoEsterno");
+  // Pull di recupero (Standard §7.3.5): il webhook è un avviso, questo è il
+  // canale con cui l'app di origine RITIRA i cambi che le sono sfuggiti —
+  // «dammi tutto ciò che è cambiato da <istante>», annullate e rifiutate
+  // comprese. Chi tiene uno specchio locale lo riconcilia da qui, nel cron.
+  const aggiornateDaGrezzo = url.searchParams.get("aggiornateDa");
+  let aggiornateDa: Date | null = null;
+  if (aggiornateDaGrezzo) {
+    aggiornateDa = new Date(aggiornateDaGrezzo);
+    if (Number.isNaN(aggiornateDa.getTime())) {
+      return erroreApi(400, "aggiornateDa non è una data valida (ISO 8601).");
+    }
+  }
   const limite = Math.min(200, Math.max(1, Number(url.searchParams.get("limite") ?? 50)));
 
   // Un'app vede solo le proprie richieste: nessuna può ispezionare quelle altrui.
@@ -78,8 +90,11 @@ export async function GET(req: NextRequest) {
       chiaveApiId: cliente.id,
       ...(stato ? { stato } : {}),
       ...(riferimentoEsterno ? { riferimentoEsterno } : {}),
+      ...(aggiornateDa ? { aggiornataIl: { gt: aggiornateDa } } : {}),
     },
-    orderBy: { creataIl: "desc" },
+    // Col pull incrementale l'ordine è quello dei cambiamenti, dal più vecchio:
+    // il chiamante avanza il suo segnalibro all'ultima riga ricevuta.
+    orderBy: aggiornateDa ? { aggiornataIl: "asc" } : { creataIl: "desc" },
     take: limite,
   });
 
@@ -93,12 +108,15 @@ export async function GET(req: NextRequest) {
       importoCent: r.importoCent,
       valuta: r.valuta,
       beneficiario: r.beneficiario,
+      metodo: r.metodo,
       // L'IBAN completo non torna indietro: l'app di origine l'ha già, e un
       // registro di risposte non deve diventare una lista di coordinate.
       iban: ibanMascherato(r.iban),
       causale: r.causale,
       rischio: r.rischio,
+      pagatoCon: r.pagatoCon ?? null,
       creataIl: r.creataIl.toISOString(),
+      aggiornataIl: r.aggiornataIl.toISOString(),
       decisaIl: r.decisaIl?.toISOString() ?? null,
       pagataIl: r.pagataIl?.toISOString() ?? null,
     })),

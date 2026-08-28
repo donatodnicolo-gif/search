@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/db";
 import { autentica, erroreApi, ipChiamante, rispostaApi } from "@/lib/api-auth";
 import { annulla } from "@/lib/richieste";
+import { notificaOrigine } from "@/lib/webhook";
 
 // POST /api/v1/richieste/<id o riferimento>/annulla
 // L'app di origine ritira la richiesta (ordine cancellato, importo sbagliato).
@@ -30,5 +32,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   const esito = await annulla(r.id, auth.cliente.nome, motivo, ipChiamante(req));
   if (!esito.ok) return erroreApi(409, esito.errore);
+  // Anche l'annullo chiesto via API passa dal canale degli esiti: il webhook è
+  // l'unico punto di sincronizzazione del ricevente, e un cambio di stato che
+  // non ci passa diventa uno specchio divergente.
+  after(() => notificaOrigine(r.id, { motivo: motivo || "annullata dall'app di origine" }));
   return rispostaApi({ stato: esito.stato, messaggio: esito.messaggio });
 }

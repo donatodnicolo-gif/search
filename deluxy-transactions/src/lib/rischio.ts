@@ -10,24 +10,33 @@ import type { Regole } from "./impostazioni";
 export type Valutazione = { punteggio: number; motivi: string[] };
 
 export async function valutaRischio(
-  dati: { importoCent: number; iban: string; beneficiario: string; causale: string; origine: string },
+  dati: { importoCent: number; iban: string; metodo?: string; beneficiario: string; causale: string; origine: string },
   regole: Regole,
 ): Promise<Valutazione> {
   const motivi: string[] = [];
   let punti = 0;
+  const metodo = dati.metodo || "iban";
+  const conIban = metodo === "iban";
   const iban = normalizzaIban(dati.iban);
   const nomeNorm = normalizzaNome(dati.beneficiario);
 
-  // 1. IBAN formalmente sbagliato: da qui non si va avanti.
-  if (!ibanValido(iban)) {
-    punti += 60;
-    motivi.push("IBAN non supera il controllo di checksum");
-  }
+  if (conIban) {
+    // 1. IBAN formalmente sbagliato: da qui non si va avanti.
+    if (!ibanValido(iban)) {
+      punti += 60;
+      motivi.push("IBAN non supera il controllo di checksum");
+    }
 
-  // 2. Fuori area SEPA: bonifico più costoso, più lento e meno tracciabile.
-  if (!ibanSepa(iban)) {
-    punti += 20;
-    motivi.push(`IBAN fuori area SEPA (${iban.slice(0, 2) || "?"})`);
+    // 2. Fuori area SEPA: bonifico più costoso, più lento e meno tracciabile.
+    if (!ibanSepa(iban)) {
+      punti += 20;
+      motivi.push(`IBAN fuori area SEPA (${iban.slice(0, 2) || "?"})`);
+    }
+  } else {
+    // 1-bis. Un metodo senza IBAN non passa da nessuno dei controlli bancari
+    // (rubrica fidata, VoP): la verifica è tutta sull'operatore che paga.
+    punti += 15;
+    motivi.push(`metodo «${metodo}»: nessun controllo bancario possibile, verifica a mano`);
   }
 
   // 3. Il beneficiario è nuovo? Primo pagamento a qualcuno è sempre il momento
@@ -37,10 +46,10 @@ export async function valutaRischio(
   try {
     const stessoNome = await prisma.beneficiario.findMany({ where: { nomeNorm } });
     beneficiarioNoto = stessoNome.length > 0;
-    if (beneficiarioNoto && !stessoNome.some((b) => b.iban === iban)) {
+    if (conIban && beneficiarioNoto && !stessoNome.some((b) => b.iban === iban)) {
       cambioIban = true;
     }
-    if (regole.soloBeneficiariVerificati && !stessoNome.some((b) => b.iban === iban && b.verificato)) {
+    if (conIban && regole.soloBeneficiariVerificati && !stessoNome.some((b) => b.iban === iban && b.verificato)) {
       punti += 25;
       motivi.push("beneficiario non presente fra quelli verificati");
     }

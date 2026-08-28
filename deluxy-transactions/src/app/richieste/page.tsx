@@ -16,13 +16,20 @@ const PER_PAGINA = 50;
 export default async function Elenco({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; q?: string; periodo?: string; pagina?: string }>;
+  searchParams: Promise<{ stato?: string; q?: string; periodo?: string; pagina?: string; origine?: string }>;
 }) {
   if (!(await operatoreCorrente())) redirect("/login");
   const sp = await searchParams;
   const stato = sp.stato && STATI.includes(sp.stato as (typeof STATI)[number]) ? sp.stato : "";
   const q = (sp.q ?? "").trim();
   const pagina = Math.max(1, Number(sp.pagina ?? 1) || 1);
+
+  // Filtro per app di origine: col collettore unico (CS, Scout, Finance,
+  // Piattaforma) «di chi è questa coda» diventa la prima domanda dell'archivio.
+  const origini = (
+    await prisma.richiesta.findMany({ distinct: ["origine"], select: { origine: true }, orderBy: { origine: "asc" } })
+  ).map((r) => r.origine);
+  const origine = origini.includes(sp.origine ?? "") ? sp.origine! : "";
 
   // Le scorciatoie di periodo (Libro UX&UI v1.9 §8-bis): un parametro solo.
   // Il periodo si applica alla data di CREAZIONE della richiesta (`creataIl`):
@@ -41,6 +48,7 @@ export default async function Elenco({
 
   const dove = {
     ...(stato ? { stato } : {}),
+    ...(origine ? { origine } : {}),
     ...(q
       ? {
           OR: [
@@ -111,6 +119,14 @@ export default async function Elenco({
             </option>
           ))}
         </select>
+        <select name="origine" defaultValue={origine}>
+          <option value="">Tutte le app</option>
+          {origini.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
         <button className="btn" type="submit">
           Filtra
         </button>
@@ -143,7 +159,7 @@ export default async function Elenco({
                   </td>
                   <td>
                     <div>{r.beneficiario}</div>
-                    <div className="cella-sub iban">{formattaIban(r.iban)}</div>
+                    <div className="cella-sub iban">{r.metodo === "iban" ? formattaIban(r.iban) : r.metodo}</div>
                   </td>
                   <td className="cella-num importo">{euro(r.importoCent)}</td>
                   <td className="cella-muta">{r.origine}</td>

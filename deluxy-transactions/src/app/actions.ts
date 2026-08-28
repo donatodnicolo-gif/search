@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { prisma } from "@/lib/db";
 import { cifra, sha256, tokenCasuale, hashPassword } from "@/lib/crypto";
 import { generaSegretoTotp } from "@/lib/totp";
@@ -87,7 +88,9 @@ export async function decidiRichiesta(_stato: unknown, fd: FormData): Promise<{ 
   if (!esito.ok) return { errore: esito.errore };
 
   // La notifica all'app di origine non deve poter far fallire l'approvazione.
-  notificaOrigine(id).catch(() => {});
+  // In after(): una promise lasciata fluttuare su Vercel può morire con la
+  // risposta; l'outbox scrive comunque la riga e il cron riprova.
+  after(() => notificaOrigine(id));
 
   revalidatePath("/");
   revalidatePath("/richieste");
@@ -127,7 +130,7 @@ export async function chiudiRichiesta(_stato: unknown, fd: FormData): Promise<{ 
   // L'app che ha chiesto il pagamento va avvisata: per Finance «pagata fuori»
   // chiude il mese, «annullata» rimette il dovuto in coda. Se il webhook non
   // parte, la chiusura resta comunque valida qui — è un avviso, non la verità.
-  notificaOrigine(id, { motivo }).catch(() => {});
+  after(() => notificaOrigine(id, { motivo }));
 
   revalidatePath("/");
   revalidatePath("/richieste");
@@ -160,8 +163,10 @@ export async function nuovaRichiestaManuale(_stato: unknown, fd: FormData): Prom
     {
       importo: testo(fd, "importo"),
       beneficiario: testo(fd, "beneficiario"),
+      metodo: testo(fd, "metodo") || "iban",
       iban: testo(fd, "iban"),
       bic: testo(fd, "bic"),
+      riferimentoPagamento: testo(fd, "riferimentoPagamento"),
       causale: testo(fd, "causale"),
       note: testo(fd, "note"),
       categoria: testo(fd, "categoria"),
@@ -175,6 +180,61 @@ export async function nuovaRichiestaManuale(_stato: unknown, fd: FormData): Prom
   return {
     ok: `Richiesta ${esito.richiesta.riferimento} creata. La dovrà approvare un altro operatore: chi crea non firma.`,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Allegati e notifiche
+// ---------------------------------------------------------------------------
+
+// L'operatore allega un documento alla richiesta: la «prova» del pagamento
+// (ricevuta del bonifico, screenshot del portale) o un documento a corredo.
+// La prova ha senso solo su una richiesta pagata o in chiusura: caricarla è il
+// gesto che completa il «pagata fuori dall'app».
+export async function caricaAllegatoManuale(_stato: unknown, fd: FormData): Promise<{ errore?: string; ok?: string }> {
+  const operatore = await esigiOperatore();
+  if (operatore.ruolo === "osservatore") return { errore: "Il ruolo osservatore non carica allegati." };
+
+  const richiestaId = testo(fd, "richiestaId");
+  const ruolo = testo(fd, "ruolo") === "prova" ? "prova" : "richiesta";
+  const file = fd.get("file");
+  if (!(file instanceof File) || file.size === 0) return { errore: "Scegli un file (immagine o PDF)." };
+
+  const { salvaAllegato, TETTO_ALLEGATO } = await import("@/lib/allegati");
+  if (file.size > TETTO_ALLEGATO) {
+    return { errore: `File troppo grande: il limite è ${Math.round(TETTO_ALLEGATO / 1000)} KB.` };
+  }
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const esito = await salvaAllegato({
+    richiestaId,
+    ruolo,
+    nome: file.name,
+    buffer,
+    caricatoDa: operatore.email,
+    ip: await ipRichiesta(),
+  });
+  if (!esito.ok) return { errore: esito.errore };
+
+  // Una prova nuova su una richiesta già chiusa va rispedita a chi aspetta:
+  // il webhook porta i metadati dell'allegato, i byte si scaricano firmati.
+  if (ruolo === "prova") after(() => notificaOrigine(richiestaId));
+
+  revalidatePath(`/richieste/${richiestaId}`);
+  return {
+    ok: esito.ripetuto
+      ? `${esito.allegato.nome} era già allegato (stesso contenuto).`
+      : `${esito.allegato.nome} allegato${ruolo === "prova" ? " come prova del pagamento" : ""}.`,
+  };
+}
+
+/** Rilancio manuale di una notifica fallita, dal dettaglio della richiesta. */
+export async function rilanciaNotificaAzione(fd: FormData): Promise<void> {
+  const operatore = await esigiOperatore();
+  if (operatore.ruolo === "osservatore") return;
+  const id = testo(fd, "notificaId");
+  const richiestaId = testo(fd, "richiestaId");
+  const { rilanciaNotifica } = await import("@/lib/webhook");
+  await rilanciaNotifica(id);
+  revalidatePath(`/richieste/${richiestaId}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -248,9 +308,15 @@ export async function creaDistinta(_stato: unknown, fd: FormData): Promise<{ err
   if (problema) return { errore: problema };
 
   // Solo richieste davvero approvate e non già in distinta: il filtro è qui,
-  // non nella pagina, perché è qui che conta.
-  const richieste = await prisma.richiesta.findMany({ where: { id: { in: ids }, stato: "approvata", lottoId: null } });
-  if (richieste.length === 0) return { errore: "Nessuna delle richieste selezionate è approvata e libera." };
+  // non nella pagina, perché è qui che conta. E solo metodo "iban": un link o
+  // un PayPal in una distinta SEPA sarebbero uno stato senza prova — quelle
+  // richieste si chiudono a mano con «pagata fuori dall'app».
+  const richieste = await prisma.richiesta.findMany({
+    where: { id: { in: ids }, stato: "approvata", lottoId: null, metodo: "iban" },
+  });
+  if (richieste.length === 0) {
+    return { errore: "Nessuna delle richieste selezionate è approvata, libera e pagabile con bonifico (le non-IBAN si chiudono a mano)." };
+  }
 
   // ⚠️ IN UNA TRANSAZIONE (Libro PERFORMANCE legge 6, giuria 28/08): prima il
   // lotto nasceva e POI le richieste venivano agganciate — se il secondo passo
@@ -282,7 +348,9 @@ export async function creaDistinta(_stato: unknown, fd: FormData): Promise<{ err
     { riferimento, richieste: richieste.map((r) => r.riferimento), totaleCent: richieste.reduce((s, r) => s + r.importoCent, 0) },
     { ip: await ipRichiesta() },
   );
-  for (const r of richieste) notificaOrigine(r.id).catch(() => {});
+  after(async () => {
+    for (const r of richieste) await notificaOrigine(r.id);
+  });
 
   revalidatePath("/distinte");
   redirect(`/distinte/${lotto.id}`);
@@ -303,7 +371,9 @@ export async function segnaLottoPagato(fd: FormData): Promise<void> {
     prisma.richiesta.updateMany({ where: { lottoId: id }, data: { stato: "pagata", pagataIl: adesso } }),
   ]);
   await registra("lotto.pagato", operatore.email, { riferimento: lotto.riferimento }, { ip: await ipRichiesta() });
-  for (const r of lotto.richieste) notificaOrigine(r.id).catch(() => {});
+  after(async () => {
+    for (const r of lotto.richieste) await notificaOrigine(r.id);
+  });
   revalidatePath("/distinte");
   revalidatePath(`/distinte/${id}`);
 }
@@ -568,6 +638,13 @@ export async function creaChiaveApi(
   const tettoRichiesta = aCentesimi(testo(fd, "tettoRichiesta")) ?? 0;
   const tettoGiornaliero = aCentesimi(testo(fd, "tettoGiornaliero")) ?? 0;
 
+  // Webhook di default dell'app: dove mandare gli esiti. Solo https; è anche
+  // l'ancora dell'override per-richiesta (stesso host, difesa SSRF).
+  const urlNotifica = testo(fd, "urlNotifica");
+  if (urlNotifica && !/^https:\/\/[^\s]+$/i.test(urlNotifica)) {
+    return { errore: "L'indirizzo di notifica deve cominciare con https://." };
+  }
+
   await prisma.chiaveApi.create({
     data: {
       nome,
@@ -577,6 +654,7 @@ export async function creaChiaveApi(
       tettoRichiesta,
       tettoGiornaliero,
       ipConsentiti: testo(fd, "ipConsentiti"),
+      urlNotifica,
     },
   });
   await registra("chiave.creata", operatore.email, { nome, tettoRichiesta, tettoGiornaliero }, { ip: await ipRichiesta() });

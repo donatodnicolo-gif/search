@@ -1,10 +1,11 @@
 import { prisma } from "./db";
-import { registra, sigilloRichiesta } from "./audit";
+import { registra, sigilloDellaRiga, sigilloRichiestaV2 } from "./audit";
 import { ibanValido, normalizzaIban, normalizzaNome, bicValido } from "./iban";
 import { aCentesimi } from "./denaro";
 import { valutaRischio } from "./rischio";
 import { leggiRegole, type Regole } from "./impostazioni";
 import { METODI_FUORI } from "./metodi-fuori";
+import { metodoAutomatizzabile, numeroDiCartaNelTesto, validaMetodo } from "./metodi";
 
 // Creazione e cambi di stato delle richieste di pagamento.
 //
@@ -73,8 +74,10 @@ async function prossimoRiferimento(): Promise<string> {
 export type DatiRichiesta = {
   importo: unknown;
   beneficiario?: unknown;
+  metodo?: unknown;
   iban?: unknown;
   bic?: unknown;
+  riferimentoPagamento?: unknown;
   causale?: unknown;
   note?: unknown;
   categoria?: unknown;
@@ -117,11 +120,22 @@ export async function creaRichiesta(
     return { ok: false, stato: 400, errore: "Beneficiario obbligatorio." };
   }
 
+  // Metodo: "iban" è il default e l'unico automatizzabile; gli altri (link,
+  // paypal, carta, altro) sono richieste che si chiudono a mano. Le regole
+  // (Luhn anti-carta, link https, riferimento obbligatorio) vivono QUI, sul
+  // server: valgono per la UI e per qualunque chiamante API allo stesso modo.
+  const metodo = testo(dati.metodo) || "iban";
+  const riferimentoPagamento = testo(dati.riferimentoPagamento);
   const iban = normalizzaIban(testo(dati.iban));
-  if (!iban) return { ok: false, stato: 400, errore: "IBAN obbligatorio." };
-  if (!ibanValido(iban)) {
+  const erroreMetodo = validaMetodo(metodo, { iban, riferimentoPagamento });
+  if (erroreMetodo) return { ok: false, stato: 400, errore: erroreMetodo };
+
+  if (metodo === "iban" && !ibanValido(iban)) {
     return { ok: false, stato: 400, errore: "IBAN non valido: il controllo di checksum non torna." };
   }
+  // Con un metodo diverso dal bonifico l'IBAN non c'entra: si scarta quello che
+  // arriva, non si conserva un dato che nessun percorso userà.
+  const ibanFinale = metodo === "iban" ? iban : "";
 
   const bic = testo(dati.bic).replace(/\s/g, "").toUpperCase();
   if (bic && !bicValido(bic)) return { ok: false, stato: 400, errore: "BIC non valido." };
@@ -130,6 +144,10 @@ export async function creaRichiesta(
   if (!causale) return { ok: false, stato: 400, errore: "Causale obbligatoria: senza non si ricostruisce il pagamento." };
   if (causale.length > 140) {
     return { ok: false, stato: 400, errore: "Causale troppo lunga: il limite SEPA è 140 caratteri." };
+  }
+  // Un numero di carta non deve stare da nessuna parte, nemmeno nelle note.
+  if (numeroDiCartaNelTesto(testo(dati.note)) || numeroDiCartaNelTesto(causale)) {
+    return { ok: false, stato: 400, errore: "Nel testo c'è quello che sembra un numero di carta: non si registra mai." };
   }
 
   // Tetti: prima quello della chiave, poi quello assoluto dell'azienda.
@@ -174,13 +192,43 @@ export async function creaRichiesta(
   }
 
   const valutazione = await valutaRischio(
-    { importoCent, iban, beneficiario, causale, origine: contesto.origine },
+    { importoCent, iban: ibanFinale, metodo, beneficiario, causale, origine: contesto.origine },
     regole,
   );
 
   const doppiaFirma =
     (regole.sogliaDoppiaFirma > 0 && importoCent >= regole.sogliaDoppiaFirma) ||
     valutazione.punteggio >= regole.sogliaRischioDoppiaFirma;
+
+  // Webhook: l'override per-richiesta è ammesso solo verso lo STESSO host
+  // dell'indirizzo di default della chiave — il corpo di una POST non deve
+  // poter dirottare gli esiti (con dentro importi e beneficiari) verso un
+  // dominio scelto da chi ha rubato una chiave.
+  let urlNotifica = testo(dati.urlNotifica) || null;
+  if (urlNotifica) {
+    if (!/^https:\/\//i.test(urlNotifica)) {
+      return { ok: false, stato: 400, errore: "urlNotifica deve cominciare con https://." };
+    }
+    if (contesto.chiaveApiId) {
+      const chiave = await prisma.chiaveApi.findUnique({
+        where: { id: contesto.chiaveApiId },
+        select: { urlNotifica: true },
+      });
+      if (chiave?.urlNotifica) {
+        try {
+          if (new URL(urlNotifica).host !== new URL(chiave.urlNotifica).host) {
+            return {
+              ok: false,
+              stato: 400,
+              errore: "urlNotifica deve stare sullo stesso host dell'indirizzo di notifica registrato per questa chiave.",
+            };
+          }
+        } catch {
+          return { ok: false, stato: 400, errore: "urlNotifica non è un indirizzo valido." };
+        }
+      }
+    }
+  }
 
   const riferimento = await prossimoRiferimento();
   const scadenza = dati.scadenza ? new Date(String(dati.scadenza)) : null;
@@ -195,8 +243,10 @@ export async function creaRichiesta(
       valuta: "EUR",
       beneficiario,
       beneficiarioNorm: normalizzaNome(beneficiario),
-      iban,
+      metodo,
+      iban: ibanFinale,
       bic: bic || null,
+      riferimentoPagamento: riferimentoPagamento || null,
       causale,
       note: testo(dati.note) || null,
       categoria: testo(dati.categoria) || null,
@@ -205,31 +255,43 @@ export async function creaRichiesta(
       rischio: valutazione.punteggio,
       motiviRischio: valutazione.motivi.join("|"),
       doppiaFirma,
-      urlNotifica: testo(dati.urlNotifica) || null,
-      sigillo: sigilloRichiesta({ riferimento, importoCent, valuta: "EUR", iban, beneficiario, causale }),
+      urlNotifica,
+      sigillo: sigilloRichiestaV2({
+        riferimento,
+        importoCent,
+        valuta: "EUR",
+        iban: ibanFinale,
+        beneficiario,
+        causale,
+        metodo,
+        riferimentoPagamento: riferimentoPagamento || null,
+      }),
+      sigilloV: 2,
     },
   });
 
   // La rubrica impara: il beneficiario entra come «non verificato». La spunta
-  // la mette una persona, non l'app.
-  await prisma.beneficiario
-    .upsert({
-      where: { nomeNorm_iban: { nomeNorm: normalizzaNome(beneficiario), iban } },
-      update: {},
-      create: {
-        nome: beneficiario,
-        nomeNorm: normalizzaNome(beneficiario),
-        iban,
-        bic: bic || null,
-        paese: iban.slice(0, 2),
-      },
-    })
-    .catch(() => {});
+  // la mette una persona, non l'app. Solo per i bonifici: la rubrica è di IBAN.
+  if (metodo === "iban") {
+    await prisma.beneficiario
+      .upsert({
+        where: { nomeNorm_iban: { nomeNorm: normalizzaNome(beneficiario), iban: ibanFinale } },
+        update: {},
+        create: {
+          nome: beneficiario,
+          nomeNorm: normalizzaNome(beneficiario),
+          iban: ibanFinale,
+          bic: bic || null,
+          paese: ibanFinale.slice(0, 2),
+        },
+      })
+      .catch(() => {});
+  }
 
   await registra(
     "richiesta.creata",
     contesto.attore,
-    { riferimento, importoCent, beneficiario, rischio: valutazione.punteggio, doppiaFirma },
+    { riferimento, importoCent, beneficiario, metodo, rischio: valutazione.punteggio, doppiaFirma },
     { richiestaId: richiesta.id, ip: contesto.ip },
   );
 
@@ -273,8 +335,9 @@ export async function decidi(
     return { ok: false, errore: `La richiesta è «${ETICHETTE[r.stato] ?? r.stato}»: non si decide più.` };
   }
 
-  // Il sigillo: se importo o IBAN sono cambiati fuori dall'app, si blocca tutto.
-  const atteso = sigilloRichiesta(r);
+  // Il sigillo: se importo, IBAN o riferimento di pagamento sono cambiati
+  // fuori dall'app, si blocca tutto.
+  const atteso = sigilloDellaRiga(r);
   if (atteso !== r.sigillo) {
     await registra("sicurezza.allarme", operatore.email, { messaggio: "sigillo non corrispondente", riferimento: r.riferimento }, { richiestaId: r.id, ip });
     return { ok: false, errore: "I dati della richiesta non corrispondono al sigillo: bloccata per sicurezza." };
@@ -387,7 +450,7 @@ export async function chiudiFuoriDallApp(
 
   // Il sigillo vale qui come sull'approvazione: se importo o IBAN sono stati
   // toccati fuori dall'app, non si scrive «pagata» su niente.
-  if (sigilloRichiesta(r) !== r.sigillo) {
+  if (sigilloDellaRiga(r) !== r.sigillo) {
     await registra(
       "sicurezza.allarme",
       operatore.email,

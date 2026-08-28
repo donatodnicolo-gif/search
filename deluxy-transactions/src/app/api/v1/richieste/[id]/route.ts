@@ -16,7 +16,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
   const r = await prisma.richiesta.findFirst({
     where: { chiaveApiId: auth.cliente.id, OR: [{ id }, { riferimento: id }] },
-    include: { approvazioni: { select: { esito: true, creataIl: true } } },
+    include: {
+      approvazioni: { select: { esito: true, creataIl: true } },
+      allegati: { select: { id: true, ruolo: true, nome: true, tipo: true, byte: true, sha256: true, creatoIl: true } },
+    },
   });
   if (!r) return erroreApi(404, "Richiesta non trovata per questa chiave.");
 
@@ -28,6 +31,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     importoCent: r.importoCent,
     valuta: r.valuta,
     beneficiario: r.beneficiario,
+    metodo: r.metodo,
     iban: ibanMascherato(r.iban),
     causale: r.causale,
     rischio: r.rischio,
@@ -36,7 +40,20 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     // operatori restano dentro Transactions.
     firmeRaccolte: r.approvazioni.filter((a) => a.esito === "approvata").length,
     firmeNecessarie: r.doppiaFirma ? 2 : 1,
+    pagatoCon: r.pagatoCon ?? null,
+    // Metadati degli allegati (documento a corredo o prova del pagamento):
+    // i byte si scaricano da /api/v1/richieste/<rif>/allegati/<id>.
+    allegati: r.allegati.map((a) => ({
+      id: a.id,
+      ruolo: a.ruolo,
+      nome: a.nome,
+      tipo: a.tipo,
+      byte: a.byte,
+      sha256: a.sha256,
+      creatoIl: a.creatoIl.toISOString(),
+    })),
     creataIl: r.creataIl.toISOString(),
+    aggiornataIl: r.aggiornataIl.toISOString(),
     decisaIl: r.decisaIl?.toISOString() ?? null,
     pagataIl: r.pagataIl?.toISOString() ?? null,
   });

@@ -11,7 +11,75 @@
 > di accettare una richiesta (oggi nessuno lo fa), `GET /api/health` costante,
 > credenziali Qonto nella cassaforte del Hub, l'IBAN reale via da questo file.
 
-Aggiornato: **24 agosto 2026** (architettura); fotografia del 17 agosto
+Aggiornato: **28 agosto 2026** (collettore unico); fotografia del 17 agosto
+
+## 28/08/2026 — Transactions diventa il COLLETTORE UNICO delle richieste di pagamento
+
+**Decisione dell'utente**: tutte le richieste di pagamento dell'ecosistema
+confluiscono qui — Customer Service (fornitori degli ordini), Scout (fornitori
+degli eventi), Finance (partner e richieste libere), Piattaforma consegne
+(compensi valet). L'app passa da «raccoglie per l'esecuzione automatica» a
+«raccoglie TUTTO: l'IBAN si esegue da qui (distinta/Qonto), il resto si chiude
+a mano». Architettura passata da una giuria di tre lenti (dati §7, sicurezza,
+performance): tre «approvo con modifiche», tutte recepite.
+
+Cosa è stato costruito (tutto deployato, build verde):
+
+- **Metodo di pagamento richiesto dal chiamante**: `Richiesta.metodo`
+  (`iban|link|paypal|carta|altro`, default iban) + `riferimentoPagamento` (il
+  «come si paga» quando non è un IBAN). Regole SERVER-side in `creaRichiesta`
+  (`src/lib/metodi.ts`): Luhn anti-numero-di-carta, link solo http/https,
+  riferimento obbligatorio. I non-IBAN **non entrano mai** in distinta/Qonto
+  (filtro in `creaDistinta` e in `pagamento-banca`): si chiudono solo con
+  «pagata fuori dall'app».
+- **Sigillo v2** (`sigilloV`, `audit.ts: sigilloRichiestaV2/sigilloDellaRiga`):
+  copre anche metodo+riferimentoPagamento — senza, il riferimento di pagamento
+  sarebbe stato l'unico campo di pagamento modificabile dal DB senza allarme.
+  Le righe vecchie restano v1 (il versionamento evita di invalidare la coda).
+- **Allegati** (`Allegato` + `AllegatoDati`, `src/lib/allegati.ts`): ruolo
+  `richiesta` (documento a corredo, caricabile anche via API dal chiamante) e
+  `prova` (SOLO operatori: la prova non la scrive l'accusato). Magic bytes
+  verificati, tetto 1,5 MB, max 5 per richiesta, sha256 dei byte per verifica
+  end-to-end e dedup. Byte in tabella separata dai metadati. ⚠️ **Interim
+  dichiarato**: byte nel DB; oltre 500 MB complessivi o 2.000 allegati →
+  object storage (Vercel Blob).
+- **Esiti affidabili**: outbox `NotificaInvio` + `after()` per il primo colpo
+  + cron `/api/cron/notifiche` (*/5 min, CRON_SECRET) per i ritentativi (30 s,
+  5 min), **rifirmati con timestamp fresco**; dopo 3 tentativi «fallita» col
+  bottone «Riprova adesso» nel dettaglio. Il webhook ora parte ANCHE dopo il
+  bonifico Qonto (prima era l'unico esito muto) e dopo l'annullo via API.
+  Payload esteso: `metodo`, `allegati[]` (metadati+sha256, mai i byte).
+  `ChiaveApi.urlNotifica` = webhook di default per-app; l'override
+  per-richiesta è vincolato allo stesso host (difesa SSRF).
+- **Pull di recupero** (§7.3.5): `GET /api/v1/richieste?aggiornateDa=<ISO>`
+  su `Richiesta.aggiornataIl` — il webhook è un avviso, questo è il canale con
+  cui il chiamante ritira i cambi persi. Chi tiene uno specchio locale
+  (Scout, Salary della piattaforma) DEVE riconciliare da qui nel suo cron.
+- **Lettura AI centralizzata**: `POST /api/v1/estrai` (firmata, rate limit
+  dedicato 10/min FAIL-CLOSED) e `POST /api/estrai` (UI) — da testo o
+  screenshot escono importo/IBAN/intestatario/causale PROPOSTI; il mod-97
+  decide, l'esito non scrive mai nulla da solo (regola di Libro). Motore in
+  `src/lib/ai-estrai.ts` (fetch puro, gpt-4o-mini testo / gpt-4o immagini /
+  claude riserva; chiavi SOLO da env — `OPENAI_API_KEY` impostata su Vercel
+  il 28/08). Il CS tiene il suo motore: deviazione dichiarata, convergenza da
+  fare quando si toccherà quel file.
+- **UI**: modulo manuale con metodo + lettura AI; dettaglio con metodo,
+  allegati (upload prova/documento), esiti delle notifiche col rilancio;
+  archivio con filtro per app di origine; coda con metodo sulla riga.
+- **Vocabolario `categoria`** (giuria, «due tassonomie»): `categoria` è
+  l'imputazione di spesa (`fornitore`, `partner`, `valet`, categoria Budgets);
+  il TIPO di app è `origine`. Mai usare categoria per capire chi chiama.
+
+**Correzione a questo documento**: più sotto si dice che Finance ha la coda
+`richiestePagamentoIn` e che le due code coesistono — **non è più vero**: la
+coda inbound di Finance è stata creata e rimossa lo stesso 26/07 (commit
+`97b53692`). Il fallback del CS verso `POST /api/richieste-pagamento` di
+Finance oggi colpirebbe un 404: da spegnere (fatto nel giro CS del 28/08).
+
+**Restano da fare** (fotografia 17/08 sempre valida): la coda ferma coi
+6.656 € — i muri sono operativi (beneficiari fidati Qonto, nomi VoP), non di
+codice; revocare le 3 chiavi inerti del 26/07; il confronto nome+IBAN con
+Anagrafiche alla creazione.
 
 ## Fotografia del 17/08/2026 (letta dal database e dall'API di Qonto)
 

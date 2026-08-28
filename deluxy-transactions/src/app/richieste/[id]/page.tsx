@@ -4,11 +4,14 @@ import { operatoreCorrente } from "@/lib/sessione";
 import { euro, importoDaIncollare } from "@/lib/denaro";
 import { formattaIban, ibanSepa } from "@/lib/iban";
 import { chiudibileAMano, motiviDa } from "@/lib/richieste";
-import { sigilloRichiesta } from "@/lib/audit";
+import { sigilloDellaRiga } from "@/lib/audit";
+import { METODI } from "@/lib/metodi";
 import { BadgeRischio, BadgeStato, Firme, quando } from "@/components/Etichette";
 import { ModuloFirma } from "@/components/ModuloFirma";
 import { ModuloChiusura } from "@/components/ModuloChiusura";
+import { ModuloAllegato } from "@/components/ModuloAllegato";
 import { TornaIndietro } from "@/components/TornaIndietro";
+import { rilanciaNotificaAzione } from "@/app/actions";
 
 // Dettaglio di una richiesta: tutto quello che serve per decidere, in una
 // schermata sola, con i motivi di rischio in evidenza e la storia sotto.
@@ -26,16 +29,20 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
       approvazioni: { include: { operatore: { select: { nome: true, email: true } } }, orderBy: { creataIl: "asc" } },
       eventi: { orderBy: { seq: "asc" } },
       lotto: true,
+      // SOLO i metadati: i byte restano nella loro tabella.
+      allegati: { orderBy: { creatoIl: "asc" } },
+      notifiche: { orderBy: { creataIl: "desc" }, take: 10 },
     },
   });
   if (!r) notFound();
+  const conIban = r.metodo === "iban";
 
   const motivi = motiviDa(r.motiviRischio);
   const firme = r.approvazioni.filter((a) => a.esito === "approvata").length;
   const necessarie = r.doppiaFirma ? 2 : 1;
   const giaVotato = r.approvazioni.some((a) => a.operatoreId === operatore.id);
   const decidibile = r.stato === "in_attesa" || r.stato === "sospesa";
-  const sigilloOk = sigilloRichiesta(r) === r.sigillo;
+  const sigilloOk = sigilloDellaRiga(r) === r.sigillo;
 
   // Chiusura a mano: si può finché la partita è aperta e la distinta — se ce
   // n'è una — non è ancora andata in banca.
@@ -47,7 +54,11 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
   // accettano: IBAN senza spazi, importo senza simbolo e senza separatore di
   // migliaia.
   const daCopiare = [
-    { etichetta: "IBAN", mostra: formattaIban(r.iban), copia: r.iban, mono: true },
+    ...(conIban
+      ? [{ etichetta: "IBAN", mostra: formattaIban(r.iban), copia: r.iban, mono: true }]
+      : r.riferimentoPagamento
+        ? [{ etichetta: METODI[r.metodo] ?? r.metodo, mostra: r.riferimentoPagamento, copia: r.riferimentoPagamento, mono: true }]
+        : []),
     { etichetta: "Intestatario", mostra: r.beneficiario, copia: r.beneficiario },
     { etichetta: "Importo", mostra: euro(r.importoCent), copia: importoDaIncollare(r.importoCent), mono: true },
     { etichetta: "Causale", mostra: r.causale, copia: r.causale },
@@ -105,17 +116,30 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
             <dd>{r.beneficiario}</dd>
           </div>
           <div className="campo">
-            <dt>IBAN</dt>
-            <dd className="iban">{formattaIban(r.iban)}</dd>
+            <dt>Metodo</dt>
+            <dd>{METODI[r.metodo] ?? r.metodo}</dd>
           </div>
-          <div className="campo">
-            <dt>BIC</dt>
-            <dd>{r.bic ?? "—"}</dd>
-          </div>
-          <div className="campo">
-            <dt>Area</dt>
-            <dd>{ibanSepa(r.iban) ? "SEPA" : "fuori SEPA"}</dd>
-          </div>
+          {conIban ? (
+            <>
+              <div className="campo">
+                <dt>IBAN</dt>
+                <dd className="iban">{formattaIban(r.iban)}</dd>
+              </div>
+              <div className="campo">
+                <dt>BIC</dt>
+                <dd>{r.bic ?? "—"}</dd>
+              </div>
+              <div className="campo">
+                <dt>Area</dt>
+                <dd>{ibanSepa(r.iban) ? "SEPA" : "fuori SEPA"}</dd>
+              </div>
+            </>
+          ) : (
+            <div className="campo campo-largo">
+              <dt>Riferimento di pagamento</dt>
+              <dd className="iban">{r.riferimentoPagamento ?? "—"}</dd>
+            </div>
+          )}
           <div className="campo campo-largo">
             <dt>Causale</dt>
             <dd>{r.causale}</dd>
@@ -218,6 +242,65 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
               <dd>{dettagliFuori.motivo ?? "—"}</dd>
             </div>
           </div>
+        </div>
+      )}
+
+      <div className="scheda">
+        <div className="scheda-titolo">Allegati</div>
+        {r.allegati.length === 0 ? (
+          <p className="testo-guida">
+            Nessun allegato. {r.stato === "pagata" ? "Una richiesta pagata senza prova ha solo la parola di chi l'ha registrata: allega la ricevuta." : "Qui si allegano il documento della richiesta e, a pagamento fatto, la prova."}
+          </p>
+        ) : (
+          <ul className="storia">
+            {r.allegati.map((a) => (
+              <li key={a.id}>
+                <span className="storia-data">{quando(a.creatoIl)}</span>
+                <span>
+                  <a href={`/api/allegati/${a.id}`}>📎 {a.nome}</a>{" "}
+                  <span className="testo-guida">
+                    ({a.ruolo === "prova" ? "prova del pagamento" : "documento della richiesta"} · {Math.round(a.byte / 1000)} KB)
+                  </span>
+                </span>
+                <span className="storia-autore">{a.caricatoDa}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {operatore.ruolo !== "osservatore" && (
+          <ModuloAllegato richiestaId={r.id} ruolo={r.stato === "pagata" || r.stato === "in_lotto" || r.stato === "approvata" ? "prova" : "richiesta"} />
+        )}
+      </div>
+
+      {r.notifiche.length > 0 && (
+        <div className="scheda">
+          <div className="scheda-titolo">Esiti verso {r.origine}</div>
+          <ul className="storia">
+            {r.notifiche.map((n) => (
+              <li key={n.id}>
+                <span className="storia-data">{quando(n.creataIl)}</span>
+                <span>
+                  {n.stato === "inviata" && <>notifica consegnata ({n.ultimoEsito ?? "ok"})</>}
+                  {n.stato === "da_inviare" && <>in attesa di ritentare ({n.tentativi} {n.tentativi === 1 ? "tentativo" : "tentativi"}{n.ultimoEsito ? ` · ${n.ultimoEsito}` : ""})</>}
+                  {n.stato === "fallita" && (
+                    <>
+                      <strong>non consegnata</strong> dopo {n.tentativi} tentativi ({n.ultimoEsito ?? "?"}){" "}
+                      {operatore.ruolo !== "osservatore" && (
+                        <form action={rilanciaNotificaAzione} style={{ display: "inline" }}>
+                          <input type="hidden" name="notificaId" value={n.id} />
+                          <input type="hidden" name="richiestaId" value={r.id} />
+                          <button className="btn secondario" type="submit" style={{ marginLeft: 8 }}>
+                            Riprova adesso
+                          </button>
+                        </form>
+                      )}
+                    </>
+                  )}
+                </span>
+                <span className="storia-autore">{n.inviataIl ? quando(n.inviataIl) : ""}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

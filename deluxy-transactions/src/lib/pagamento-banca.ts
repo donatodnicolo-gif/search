@@ -1,5 +1,6 @@
 import { prisma } from "./db";
-import { registra, sigilloRichiesta } from "./audit";
+import { registra, sigilloDellaRiga } from "./audit";
+import { notificaOrigine } from "./webhook";
 import { euro } from "./denaro";
 import { leggiRegole } from "./impostazioni";
 import { normalizzaIban } from "./iban";
@@ -63,12 +64,14 @@ export async function pagaLottoConQonto(
   if (lotto.stato === "pagato") return { ...vuoto, errore: "Distinta già pagata." };
   if (lotto.stato === "annullato") return { ...vuoto, errore: "Distinta annullata." };
 
-  const daPagare = lotto.richieste.filter((r) => r.stato === "in_lotto" && !r.qontoTransferId);
+  // Solo bonifici: un metodo diverso da "iban" non deve nemmeno poter arrivare
+  // qui (la distinta li rifiuta a monte), ma il filtro si ripete dove conta.
+  const daPagare = lotto.richieste.filter((r) => r.stato === "in_lotto" && !r.qontoTransferId && r.metodo === "iban");
   if (daPagare.length === 0) return { ...vuoto, errore: "Non c'è niente da pagare in questa distinta." };
 
   // 3. Il sigillo: nessuna riga toccata fuori dall'app.
   for (const r of daPagare) {
-    if (sigilloRichiesta(r) !== r.sigillo) {
+    if (sigilloDellaRiga(r) !== r.sigillo) {
       await registra(
         "sicurezza.allarme",
         operatore.email,
@@ -199,6 +202,10 @@ export async function pagaLottoConQonto(
       { riferimento: r.riferimento, importoCent: r.importoCent, tramite: "qonto", transferId: bonifico.dati.id },
       { ip, richiestaId: r.id },
     );
+    // L'app che ha chiesto il pagamento va avvisata ANCHE qui: era l'unico
+    // esito che non partiva mai (giuria 28/08) — proprio il pagamento più
+    // «vero». L'outbox non solleva: un webhook giù non ferma i bonifici.
+    await notificaOrigine(r.id);
     esito.pagate.push({ riferimento: r.riferimento, importoCent: r.importoCent, transferId: bonifico.dati.id });
   }
 

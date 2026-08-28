@@ -94,6 +94,11 @@ model ChiaveApi {
   tettoGiornaliero Int    @default(0)
   // Elenco di IP consentiti separati da virgola. Vuoto = nessun filtro.
   ipConsentiti  String    @default("")
+  // Webhook di default dell'app: dove mandare gli esiti se la singola richiesta
+  // non ne indica uno. L'override per-richiesta è ammesso solo sullo STESSO
+  // host di questo indirizzo (difesa SSRF: il corpo di una POST non può
+  // dirottare gli esiti verso un dominio qualsiasi).
+  urlNotifica   String    @default("")
   attiva        Boolean   @default(true)
   scadeIl       DateTime?
   ultimoUso     DateTime?
@@ -183,10 +188,22 @@ model Richiesta {
 
   beneficiario  String
   beneficiarioNorm String
+  // Come si vuole pagare. "iban" è l'unico metodo che le vie automatiche
+  // (distinta SEPA, Qonto) sanno eseguire; gli altri (link, paypal, carta,
+  // altro) si chiudono SOLO a mano con «pagata fuori dall'app».
+  metodo        String   @default("iban") // iban | link | paypal | carta | altro
+  // IBAN vuoto ("") quando il metodo non è "iban".
   iban          String
   bic           String?
+  // Il «come si paga» quando non è un IBAN: il link, l'indirizzo PayPal, la
+  // nota per la carta. In chiaro: l'operatore deve leggerlo per pagare. La sua
+  // integrità la difende il sigillo (v2), come per l'IBAN.
+  riferimentoPagamento String?
   causale       String
   note          String?
+  // Imputazione di spesa dichiarata dal chiamante (vocabolario in docs/API.md:
+  // "fornitore", "partner", "valet", o una categoria di Budgets). NON è il tipo
+  // di app: quello è `origine`.
   categoria     String?
   scadenza      DateTime?
 
@@ -199,13 +216,20 @@ model Richiesta {
 
   // Sigillo: SHA-256 dei campi che contano (importo, iban, beneficiario,
   // causale). Se qualcuno tocca la riga nel database, non torna più.
+  // v1 = formula storica; v2 aggiunge metodo + riferimentoPagamento (senza il
+  // versionamento, cambiare la formula avrebbe invalidato tutte le righe in coda).
   sigillo       String
+  sigilloV      Int      @default(1)
 
   lottoId       String?
   lotto         Lotto?   @relation(fields: [lottoId], references: [id])
 
-  urlNotifica   String? // webhook firmato verso l'app di origine
+  urlNotifica   String? // webhook firmato verso l'app di origine (override per-richiesta)
   creataIl      DateTime @default(now())
+  // Ultimo cambiamento visibile da fuori: è la colonna del pull di recupero
+  // (`GET /api/v1/richieste?aggiornateDa=`) — il webhook è un avviso, la fonte
+  // espone i cambi che i lettori devono poter ritirare (Standard §7.3.5).
+  aggiornataIl  DateTime @default(now()) @updatedAt
   decisaIl      DateTime?
   pagataIl      DateTime?
 
@@ -219,12 +243,82 @@ model Richiesta {
 
   approvazioni Approvazione[]
   eventi       Evento[]
+  allegati     Allegato[]
+  notifiche    NotificaInvio[]
 
   @@unique([origine, riferimentoEsterno])
   @@index([stato, creataIl])
   @@index([beneficiarioNorm])
   @@index([iban])
   @@index([lottoId])
+  @@index([chiaveApiId, aggiornataIl])
+}
+
+// ---------------------------------------------------------------------------
+// Allegati — documenti a corredo e prove di pagamento
+// ---------------------------------------------------------------------------
+
+// I metadati stanno qui; i byte in AllegatoDati, in una tabella a parte, così
+// nessun elenco può tirarli giù per sbaglio. I byte vivono nel database come
+// interim DICHIARATO (il cluster è condiviso: soglia scritta in docs/API.md —
+// oltre 500 MB complessivi o 2.000 allegati si migra a object storage).
+model Allegato {
+  id          String    @id @default(cuid())
+  richiestaId String
+  richiesta   Richiesta @relation(fields: [richiestaId], references: [id])
+  // "richiesta" = documento a corredo (fattura, screenshot della richiesta),
+  //   caricabile anche dall'app chiamante via API.
+  // "prova" = prova del pagamento eseguito: la scrive SOLO un operatore di
+  //   quest'app (chi paga), mai l'app che ha chiesto il pagamento — altrimenti
+  //   la prova la scriverebbe l'accusato.
+  ruolo       String    @default("richiesta")
+  nome        String
+  tipo        String // MIME dalla whitelist, verificato sui magic bytes
+  byte        Int
+  sha256      String // impronta dei byte: verifica end-to-end e dedup
+  caricatoDa  String // email operatore o nome dell'app
+  creatoIl    DateTime  @default(now())
+
+  dati AllegatoDati?
+
+  @@unique([richiestaId, sha256])
+  @@index([richiestaId])
+}
+
+// SOLO i byte (base64). Si legge esclusivamente al download, mai negli elenchi.
+model AllegatoDati {
+  allegatoId String   @id
+  allegato   Allegato @relation(fields: [allegatoId], references: [id], onDelete: Cascade)
+  dati       String   @db.Text // base64 senza prefisso
+}
+
+// ---------------------------------------------------------------------------
+// Notifiche in uscita — outbox transazionale
+// ---------------------------------------------------------------------------
+
+// Ogni cambio di stato che l'app di origine deve sapere diventa una riga qui,
+// scritta insieme al cambio. Il primo tentativo parte subito; i successivi li
+// fa il cron (ogni tentativo si RIFIRMA con timestamp fresco, altrimenti
+// morirebbe sulla finestra ±5 minuti del ricevente). Dopo 3 tentativi la riga
+// resta «fallita» e si rilancia a mano dal dettaglio della richiesta; il
+// paracadute vero è il pull `?aggiornateDa=` del chiamante.
+model NotificaInvio {
+  id            String    @id @default(cuid())
+  richiestaId   String
+  richiesta     Richiesta @relation(fields: [richiestaId], references: [id])
+  evento        String    @default("richiesta.stato")
+  // Il motivo (rifiuto/annullo/chiusura) viaggia col payload, che però si
+  // costruisce al momento dell'invio leggendo lo stato corrente.
+  motivo        String?
+  stato         String    @default("da_inviare") // da_inviare | inviata | fallita
+  tentativi     Int       @default(0)
+  ultimoEsito   String? // "200", "timeout", "ECONNREFUSED"… mai il payload
+  prossimoTentativo DateTime?
+  creataIl      DateTime  @default(now())
+  inviataIl     DateTime?
+
+  @@index([stato, prossimoTentativo])
+  @@index([richiestaId])
 }
 
 model Approvazione {

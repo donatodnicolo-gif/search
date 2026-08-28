@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { euro, importoDaIncollare } from "@/lib/denaro";
 import { formattaIban } from "@/lib/iban";
 import { motiviDa } from "@/lib/richieste";
+import { METODI } from "@/lib/metodi";
 import { BadgeRischio, BadgeStato, Firme, quando } from "@/components/Etichette";
 import { ChiusuraRapida } from "@/components/ChiusuraRapida";
 import { RigaCliccabile } from "@/components/RigaCliccabile";
@@ -145,7 +146,9 @@ export default async function Coda({
                     </td>
                     <td>
                       <div>{r.beneficiario}</div>
-                      <div className="cella-sub iban">{formattaIban(r.iban)}</div>
+                      <div className="cella-sub iban">
+                        {r.metodo === "iban" ? formattaIban(r.iban) : `${METODI[r.metodo] ?? r.metodo} · si paga a mano`}
+                      </div>
                       {motivi.length > 0 && <BadgeRischio punteggio={r.rischio} />}
                     </td>
                     <td className="cella-num importo">{euro(r.importoCent)}</td>
@@ -168,7 +171,11 @@ export default async function Coda({
                           richiedeCodice={operatore.totpAttivo}
                           oggi={oggi}
                           daCopiare={[
-                            { etichetta: "IBAN", mostra: formattaIban(r.iban), copia: r.iban, mono: true },
+                            ...(r.metodo === "iban"
+                              ? [{ etichetta: "IBAN", mostra: formattaIban(r.iban), copia: r.iban, mono: true }]
+                              : r.riferimentoPagamento
+                                ? [{ etichetta: METODI[r.metodo] ?? r.metodo, mostra: r.riferimentoPagamento, copia: r.riferimentoPagamento, mono: true }]
+                                : []),
                             { etichetta: "Intestatario", mostra: r.beneficiario, copia: r.beneficiario },
                             {
                               etichetta: "Importo",
