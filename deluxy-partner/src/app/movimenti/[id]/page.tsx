@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { TIPI_PL } from "@/lib/categorie-spesa";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 
@@ -53,9 +54,9 @@ export default async function MovimentoDettaglio({ params }: { params: Promise<{
 
   return (
     <>
-      <Link href="/movimenti" className="btn secondary small" style={{ marginBottom: 10 }}>
-        ← Tutti i movimenti
-      </Link>
+      <div style={{ marginBottom: 10 }}>
+        <TornaIndietro fallback="/movimenti" label="Tutti i movimenti" />
+      </div>
       <div className="page-head">
         <div>
           <h1 className="page-title">{t.controparte ?? "Movimento senza controparte"}</h1>
