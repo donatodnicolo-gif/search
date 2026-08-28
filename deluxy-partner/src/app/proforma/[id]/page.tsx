@@ -264,6 +264,10 @@ export default async function ProFormaDetail({
           {pf.stato === "bozza" && (
             <>
               <Link href={`/proforma/${id}/invia`} className="btn primary">Invia al partner…</Link>
+              {/* Si puo fatturare anche direttamente da una bozza, senza passare
+                  prima per «inviata»: FIC crea la fattura dalle righe e la pro-forma
+                  diventa «fatturata». */}
+              <Link href={`/fic/fattura?proforma=${id}`} className="btn secondary" title="Crea la fattura vera su Fatture in Cloud dalle righe di questa pro-forma">Emetti fattura su FIC…</Link>
               <Link href={`/proforma/${id}/modifica`} className="btn secondary">Modifica</Link>
               <form action={cambiaStatoProForma.bind(null, id, "annullata", undefined)} style={{ display: "inline" }}>
                 <button className="btn secondary" type="submit" title="Annulla la pro-forma: il numero resta assegnato, si può ripristinare">Annulla</button>
