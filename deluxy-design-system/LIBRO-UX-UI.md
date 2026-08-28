@@ -1,6 +1,6 @@
 # Il Libro UX&UI Deluxy
 
-**Versione 1.3 — 28 agosto 2026** · *1.1: il drawer di menu si apre sempre da sinistra (§2). 1.2: la zona filtri di un elenco — tetto di 2 righe a pannello chiuso, fasce a breakpoint, eccedenza dietro «Filtri (N)» (§8; giuria: architetto + ostile). 1.3: su mobile i gruppi di chip scorrono su UNA riga (decisione utente; §8 punto 9) — il wrap resta su desktop, le azioni mai nella corsia.*
+**Versione 1.6 — 28 agosto 2026** · *1.6: la riga di tabella si apre col click quando il record ha un dettaglio (§8).* · *1.1: il drawer di menu si apre sempre da sinistra (§2). 1.2: la zona filtri di un elenco — tetto di 2 righe a pannello chiuso, fasce a breakpoint, eccedenza dietro «Filtri (N)» (§8; giuria: architetto + ostile). 1.3: su mobile i gruppi di chip scorrono su UNA riga (decisione utente; §8 punto 9). 1.4: le notifiche in-app — toast + pallino giallo + numero, il sistema del Customer Service promosso a canone (§7). 1.5: il ritorno al punto esatto — «← Indietro» esplicito su ogni dettaglio, che ripristina filtri/pagina/scroll (§2).*
 
 Il canone dei **pattern di interfaccia** di tutte le app Deluxy: menù, bottoni, form, tabelle, stati, feedback, conferme, finestre, mobile. D'ora in poi **ogni elemento di interfaccia, in ogni app esistente e nuova, si costruisce attingendo da qui** — non dal gusto del momento e non copiando un'altra app a caso.
 
@@ -47,6 +47,7 @@ Le regole su cui **tutte** le fonti convergono e che nessun capitolo può contra
 - **App desktop-first consultate da telefono**: drawer off-canvas con topbar vetro 56px (hamburger + logo + titolo), scrim `--scrim`, chiusura al tap fuori e a ogni navigazione. Riferimenti: `search-supplier` e `deluxy-platform-next/web` (shell).
 - **Il drawer di menu si apre sempre da SINISTRA** (deciso dall'utente il 28/08/2026, su segnalazione del Hub che scivolava da destra): il drawer è la sidebar che su mobile si nasconde, e la sidebar sta a sinistra — il lato non cambia col viewport. Pannello `left:0`, chiuso `translateX(-100%)`, bordo `border-right`. Vale per ogni app; i pannelli non-di-menu (dettagli, carrelli) non sono coperti da questa regola.
 - **Le tab sono destinazioni, mai azioni**; `backBehavior="history"` (il back torna dove eri, non alla home).
+- **Il ritorno al punto esatto** *(v1.5, 28/08/2026 — regola dell'utente)*: ogni vista di dettaglio raggiunta da un elenco ha un **bottone «← Indietro» esplicito e visibile in alto** (il back del browser non basta come unico gesto), e tornare indietro riporta **alla STESSA vista di prima: stessi filtri, stessa pagina, stesso scroll** — mai all'elenco azzerato. Le due gambe della regola: (a) lo stato dell'elenco vive **nell'URL** (già canone §8: querystring + debounce), così la history lo conserva da sola; (b) il bottone usa la **history** quando si arriva da dentro l'app (`history.back()`, che ripristina querystring e scroll) e ripiega sul link all'elenco solo arrivando da fuori (link diretto, refresh). Un «← Torna a X» cablato sull'URL nudo dell'elenco è FUORI canone: butta i filtri di chi l'aveva filtrato. Web: componente `TornaIndietro` (client, `history.length > 1 → back()`, altrimenti `push(fallback)`); RN/Expo: `router.back()` (lo stack conserva lo stato della schermata precedente); Angular: `Location.back()` con lo stesso ripiego. L'etichetta dice DOVE si torna quando il ripiego è attivo («← Ordini»), o un semplice «← Indietro» quando è la history a decidere.
 - **Soglia unica largo/stretto: 900px**, dichiarata come **costante documentata in UN punto per app** (i breakpoint non sono tokenizzabili in CSS puro). Le app nuove nascono a 900. **Deroga annotata**: la piattaforma consegne resta a 800 (soglia tarata in 6 punti coordinati con la trasformazione tabelle→schede) finché non migra in un colpo solo e verificato — il divieto vero è avere N copie del numero, non il numero.
 - ⚠️ **Un hamburger che non mostra nulla è un guasto bloccante**: la navigazione mobile deve ESISTERE (oggi Anagrafiche a 375px non ne ha una — P0).
 - Lo swipe-da-bordo del drawer si disattiva sulle schermate a gesto pieno (mappa).
@@ -123,7 +124,21 @@ Componente unico consigliato per i primi tre stati (una card, cambia icona/tono)
 |---|---|---|
 | **Nota contestuale** accanto al bottone, verde, auto-dismiss ~4 s | esito di un'azione il cui bersaglio resta in vista | Tasks `.nota-ok` |
 | **Flash** in alto al centro, 4 s, `role="status"`, sopravvive alla navigazione | esito di un'azione che attraversa un cambio di vista | Mail `Flash.tsx` (il tono è un parametro OBBLIGATORIO: un fallimento non può uscire verde «per costruzione») |
-| **Avvisi (toast) in basso a destra** | ciò che succede *intorno* (nuovo messaggio, nuovo ordine) — mai esiti di azioni tue | DS §Avvisi (v1.1) |
+| **Avvisi (toast) in basso a destra** | ciò che succede *intorno* (nuovo messaggio, nuovo ordine) — mai esiti di azioni tue | DS §Avvisi (v1.1); implementazione: Customer Service `Novita.tsx` |
+
+**Le NOTIFICHE IN-APP — il sistema canonico** *(v1.4, 28/08/2026 — promosso dall'utente: «il sistema del Customer Service è eccezionale, implementalo per tutte le app»)*. Tre segnali, tre significati, MAI confusi (riferimento: CS `Sidebar.tsx` + `lib/pallini.ts` + `api/novita/sezioni`):
+
+1. **Il toast in basso a destra** = *è appena successo* (arrivi dall'esterno; sparisce in ~9 s; poll leggero ~25 s).
+2. **Il pallino giallo sulla voce di nav** (`--gold`, 8px, in FONDO alla riga — mai davanti al nome, o le voci ballano) = *è arrivato qualcosa da quando HAI guardato*: resta acceso finché non entri nella sezione. È un segnalibro personale.
+3. **Il numero sulla voce** (`sb-quanti`, con variante `urgente`) = *quanto lavoro c'è*. Numero e pallino coesistono perché dicono cose diverse: venti pratiche ferme da ieri = numero senza pallino; una novità già presa da un collega = pallino senza numero.
+
+Le regole che rendono il sistema onesto:
+- **Mai confrontare orologi**: il server dichiara la data della cosa più recente per sezione; il client ricorda in `localStorage` l'ultima GIÀ VISTA e accende il pallino se le due differiscono. Mai `Date.now()` del browser come «visto» (un orologio avanti = pallino sempre acceso; indietro = mai).
+- «L'ho guardato io» è un fatto del browser di quella persona, **non dell'azienda**: niente tabella server per il visto.
+- **Budget del poll**: il giro pesante (date+conteggi per sezione) ogni ~90 s + a ogni cambio pagina + al ritorno della scheda; **mai con la scheda nascosta** (`document.hidden`). L'immediatezza è del toast, non del pallino.
+- **Il poller è la sentinella della sessione**: gira su ogni pagina, quindi è LUI che si accorge della sessione scaduta (redirect al login seguito da `fetch` = 200 con HTML: si controllano `res.redirected` e il content-type) e mostra la fascia di riaccesso.
+- La regola di accensione vive in **una funzione pura con le sue prove** (`lib/pallini.ts`), mai sparsa nel componente.
+- Rete assente o storage bloccato → **muti, mai tutti accesi**.
 
 **Gli errori non passano MAI da un toast**: banner/card persistente presso il contesto, finché non è risolto (Polaris). Anche l'attuale «toast errore 9 s» di Mail migra a banner.
 
@@ -155,6 +170,8 @@ Riferimenti: Mail `EliminaSezione`/`SvuotaCestino`, Anagrafiche `Riconcilia`. Pe
 - `—` = **non applicabile** (non ha senso qui);
 - «non disponibile» (testo esplicito) = il dato esiste al mondo ma non l'abbiamo;
 - **`cella-manca`** (arancione corsivo, da Anagrafiche) = **dovrebbe esserci e non c'è**: una coda di lavoro visibile, non un buco silenzioso.
+
+**La riga si apre col click** *(v1.6, 28/08/2026 — regola dell'utente)*: quando un record della tabella HA una vista di dettaglio, **il click in un punto qualsiasi della riga la apre** — non solo un piccolo link sul nome. Le app dove la riga già naviga restano come sono. Le guardie: **le azioni dentro la riga non fanno partire la navigazione** (`stopPropagation` sul contenitore azioni, o il click-riga controlla `closest('a,button,input,select,label')`); la riga cliccabile **si dichiara** (cursor pointer + hover `--fill`); resta un **link vero da tastiera** (il nome resta `<a>`, o la riga ha `role="link"` + Enter); su mobile vale la SCHEDA intera. Un record senza dettaglio non finge: nessun pointer, nessun hover da link. Insieme alla v1.5, il giro completo è: click sulla riga → dettaglio → «← Indietro» → stessa vista di prima.
 
 **Mobile — la tabella non si strizza**: sotto la soglia, **diventa schede**. Web: utility `tabelle-a-schede` della piattaforma (etichette lette dai `th` già tradotti → `data-label`, MutationObserver; 27 liste sistemate senza toccare una pagina — da estrarre nel layer condiviso). React Native: la tabella **non si monta**, si montano le card (`Scout/Tabella.tsx` + `CardElenco`). Lo scroll orizzontale come UNICA risposta mobile è vietato. Sulla scheda, il pallino di stato si porta il nome (cap. 5).
 
