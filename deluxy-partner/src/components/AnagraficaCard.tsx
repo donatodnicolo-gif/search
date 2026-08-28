@@ -1,5 +1,6 @@
 import { risolviAnagrafica, urlAnagrafiche, type Anagrafica } from "@/lib/anagrafiche";
-import { collegaAnagraficaEsistente, scollegaAnagrafica } from "@/lib/riconciliazione-actions";
+import { collegaAnagraficaEsistente, scollegaAnagrafica, disconosciECreaAnagrafica } from "@/lib/riconciliazione-actions";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
 
 // Etichetta e colore badge per gli stati del registro (vedi deluxy-anagrafiche)
 const STATI: Record<string, { etichetta: string; classe: string }> = {
@@ -82,6 +83,23 @@ export async function AnagraficaCard({
               e incolla qui sotto il suo link: le due schede restano collegate per sempre, senza creare doppioni.
             </p>
             {formCollega}
+            {partnerId && (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--hairline)" }}>
+                <p className="muted" style={{ fontSize: 12.5, margin: "0 0 8px" }}>
+                  Se nel registro <strong>non esiste ancora</strong>, creala qui: nasce coi dati di questo partner e resta collegata.
+                </p>
+                <form action={disconosciECreaAnagrafica.bind(null, partnerId, undefined)} style={{ display: "inline" }}>
+                  <ConfermaElimina
+                    className="btn small primary"
+                    classeConferma="btn small primary"
+                    trigger="Crea una nuova anagrafica"
+                    verbo="Crea la scheda nel registro"
+                    oggetto="per questo partner"
+                    conseguenza="Nasce nel registro Anagrafiche coi dati di questo partner (nome, città, P.IVA, IBAN, contatti) e viene collegata."
+                  />
+                </form>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -108,6 +126,18 @@ export async function AnagraficaCard({
                     </button>
                   </form>
                 )}
+                {partnerId && (
+                  <form action={disconosciECreaAnagrafica.bind(null, partnerId, anagrafica.id)} style={{ display: "inline" }}>
+                    <ConfermaElimina
+                      className="btn small secondary"
+                      classeConferma="btn small primary"
+                      trigger="Non è questa scheda"
+                      verbo="Crea una scheda nuova"
+                      oggetto="e disconosci questa"
+                      conseguenza="La scheda mostrata resta intatta nel registro; questo partner viene staccato e collegato a una scheda nuova, creata coi suoi dati."
+                    />
+                  </form>
+                )}
               </span>
             </div>
 
@@ -119,10 +149,22 @@ export async function AnagraficaCard({
                 <p className="muted" style={{ fontSize: 12.5, margin: "8px 0 0" }}>
                   Se è la scheda giusta, collegala: l&apos;abbinamento resta stabile anche se un nome cambia.
                 </p>
-                <form action={collegaAnagraficaEsistente.bind(null, partnerId)} style={{ marginTop: 8 }}>
-                  <input type="hidden" name="anagraficaRif" value={anagrafica.id} />
-                  <button className="btn small primary" type="submit">Collega questa anagrafica</button>
-                </form>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
+                  <form action={collegaAnagraficaEsistente.bind(null, partnerId)} style={{ display: "inline" }}>
+                    <input type="hidden" name="anagraficaRif" value={anagrafica.id} />
+                    <button className="btn small primary" type="submit">Collega questa anagrafica</button>
+                  </form>
+                  <form action={disconosciECreaAnagrafica.bind(null, partnerId, anagrafica.id)} style={{ display: "inline" }}>
+                    <ConfermaElimina
+                      className="btn small secondary"
+                      classeConferma="btn small primary"
+                      trigger="Non è lei — crea nuova"
+                      verbo="Crea una scheda nuova"
+                      oggetto="invece di collegare questa"
+                      conseguenza="Questa corrispondenza per nome è un omonimo: resta intatta nel registro; a questo partner viene collegata una scheda nuova, creata coi suoi dati."
+                    />
+                  </form>
+                </div>
               </div>
             )}
             <div className="info-grid">

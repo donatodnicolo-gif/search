@@ -14,6 +14,7 @@ export function ConfermaElimina({
   oggetto,
   conseguenza,
   className = "btn small danger",
+  classeConferma = "btn small danger-solid",
   title,
   trigger,
 }: {
@@ -24,6 +25,9 @@ export function ConfermaElimina({
   // Cosa succede dopo: «si perde dal registro», «i movimenti futuri torneranno da riconoscere».
   conseguenza: string;
   className?: string;
+  // Colore del bottone di conferma (il secondo click). Rosso pieno per le
+  // cancellazioni; per un'azione COSTRUTTIVA (es. «crea») si passa un primario.
+  classeConferma?: string;
   title?: string;
   // Contenuto del bottone chiuso: se assente si mostra il verbo. In un elenco
   // conviene un'icona (cestino) al posto della parola, ma la domanda di conferma
@@ -52,7 +56,7 @@ export function ConfermaElimina({
         {verbo} {oggetto}? {conseguenza}
       </span>
       <span className="conferma-elimina-azioni">
-        <button type="submit" className="btn small danger-solid">
+        <button type="submit" className={classeConferma}>
           {verbo}
         </button>
         <button type="button" className="btn small secondary" onClick={() => setAperto(false)}>

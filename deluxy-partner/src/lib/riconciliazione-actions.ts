@@ -288,6 +288,71 @@ export async function collegaAnagraficaEsistente(partnerId: string, fd: FormData
   redirect(`/partner/${partnerId}?anag=${encodeURIComponent(`Collegato a «${anagrafica!.nome}» nel registro`)}`);
 }
 
+// «Non è questa la scheda»: disconosce l'abbinamento (sbagliato) col registro e
+// crea per QUESTO partner un record nuovo, che poi collega.
+//
+// Caso vero: la riconciliazione automatica aggancia un OMONIMO (persona vs
+// azienda, stessa insegna in un'altra città) e da lì «Collega» cementerebbe
+// l'errore, mentre «Scollega» lascia solo tornare lo stesso omonimo. Qui si
+// taglia e si semina un record col nome/ragione sociale/città/categoria di
+// questo partner e la sua copia operativa (P.IVA, C.F., IBAN, contatti amm.).
+//
+// ⚠️ Il registro fa upsert per nome+città: se esiste già una scheda uguale
+// potrebbe RIAGGANCIARE proprio quella che stiamo disconoscendo. Non lo si può
+// forzare da qui (il registro è di un'altra app), quindi si CONTROLLA l'id
+// tornato: se è quello da evitare, non è nato niente di nuovo e lo si dice —
+// meglio una scheda a mano nel registro che un finto successo.
+export async function disconosciECreaAnagrafica(partnerId: string, idDaEvitare?: string) {
+  const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
+  const esci = (m: string) => redirect(`/partner/${partnerId}?anag=${encodeURIComponent(m)}`);
+  if (!partner) esci("Partner non trovato.");
+  const p = partner!;
+
+  const res = await creaAnagrafica({
+    nome: p.nome,
+    ragioneSociale: p.ragioneSociale,
+    citta: p.citta,
+    categoria: p.categoria,
+    idEsterno: p.id,
+    campi: {
+      ...(p.pIva ? { pIva: p.pIva } : {}),
+      ...(p.codiceFiscale ? { codiceFiscale: p.codiceFiscale } : {}),
+      ...(p.email ? { email: p.email } : {}),
+      ...(p.telefono ? { telefono: p.telefono } : {}),
+      ...(p.iban ? { iban: p.iban } : {}),
+      ...(p.intestatarioConto ? { intestatarioConto: p.intestatarioConto } : {}),
+      ...(p.ammNome ? { amministrazioneNome: p.ammNome } : {}),
+      ...(p.ammEmail ? { amministrazioneEmail: p.ammEmail } : {}),
+      ...(p.ammTelefono ? { amministrazioneTelefono: p.ammTelefono } : {}),
+    },
+  });
+  if (!res.ok) esci(`Il registro non ha creato la scheda: ${res.errore}`);
+  const creato = res as { ok: true; id: string; esito: string };
+
+  // Guardia: il registro ha ridato la stessa scheda che volevamo lasciare.
+  if (idDaEvitare && creato.id === idDaEvitare) {
+    esci(
+      "Il registro ha ritrovato la STESSA scheda (le schede si uniscono per nome e città). " +
+        "Per averne una distinta: differenzia il nome o la città di questo partner, oppure crea la scheda a mano in Anagrafiche e incollala qui.",
+    );
+  }
+
+  await prisma.partner.update({ where: { id: p.id }, data: { anagraficaId: creato.id } });
+  await prisma.riconciliazioneAnagrafica.upsert({
+    where: { ficNome: p.nome },
+    create: { ficNome: p.nome, partnerId: p.id, anagraficaId: creato.id, stato: "confermata", esito: `${creato.esito} (disconosciuto e ricreato)` },
+    update: { partnerId: p.id, anagraficaId: creato.id, stato: "confermata", esito: `${creato.esito} (disconosciuto e ricreato)` },
+  });
+  await registra({
+    azione: `Anagrafica disconosciuta e ricreata per «${p.nome}»`,
+    categoria: "anagrafiche", entita: "partner", entitaId: p.id, partner: p.nome,
+    dettaglio: idDaEvitare ? `Lasciata la scheda ${idDaEvitare}, collegata la nuova ${creato.id}` : `Collegata la nuova scheda ${creato.id}`,
+  });
+  revalidatePath(`/partner/${partnerId}`, "layout");
+  revalidatePath("/registrazioni/riconciliazione", "layout");
+  redirect(`/partner/${partnerId}?anag=${encodeURIComponent(`Creata una nuova anagrafica per questo partner e collegata (${creato.esito}).`)}`);
+}
+
 // Toglie il collegamento col registro (per correggere un abbinamento sbagliato).
 // Non tocca i dati nel registro: rimuove solo il riferimento su questo partner.
 export async function scollegaAnagrafica(partnerId: string) {
