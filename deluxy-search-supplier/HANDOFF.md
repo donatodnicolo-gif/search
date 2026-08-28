@@ -26,6 +26,12 @@
 > Orders). Restano dall'audit: `api/health`, `vercel.json` con `fra1`,
 > segreti nelle env coi nomi standard invece che nel blob Redis.
 
+> 📘 **MANUALE DI FUNZIONALITÀ (per le persone)**: [docs/COME-FUNZIONA-SEARCH.html](docs/COME-FUNZIONA-SEARCH.html)
+> — guida visiva di come funziona tutto, per chi entra nuovo; pubblicata anche come **Artifact a URL fisso**
+> (https://claude.ai/code/artifact/e4c8bca9-a225-4d84-8133-8acb5446f946). **REGOLA (utente 27/08): ogni
+> funzionalità nuova o cambiata va aggiornata anche lì**, nello stesso commit (e ripubblicata allo stesso
+> indirizzo Artifact). `AI_SPEC.md` resta la scheda tecnica per gli sviluppatori.
+
 Per riprendere il lavoro su quest'app da una nuova sessione Claude. **Leggere prima
 [AI_SPEC.md](AI_SPEC.md)**: è la scheda tecnica completa e aggiornata; questo file dice
 solo dove siamo e come si lavora.

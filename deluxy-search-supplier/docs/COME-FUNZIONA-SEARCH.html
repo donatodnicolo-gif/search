@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manuale · Trova Fiorai</title>
+<style>
+  /* ---- Deluxy design system (stile Apple): sistema tipografico, oro come accento ---- */
+  :root{
+    --bg:#F5F5F7; --surface:#FFFFFF; --surface-2:#FBFBFD;
+    --ink:#1D1D1F; --text:#1D1D1F; --text-2:#6E6E73; --text-3:#8A8A8E;
+    --hair:rgba(0,0,0,.10); --hair-strong:rgba(0,0,0,.16);
+    --gold:#B8963E; --gold-strong:#9A7B2E; --gold-soft:rgba(184,150,62,.12);
+    --green:#248A3D; --green-soft:rgba(36,138,61,.12);
+    --blue:#0071E3; --blue-soft:rgba(0,113,227,.10);
+    --red:#C0392B; --red-soft:rgba(192,57,43,.10);
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+    --radius:18px; --radius-s:12px; --pill:999px;
+    --maxw:920px;
+  }
+  :root:not([data-theme="light"]){ }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#000000; --surface:#1C1C1E; --surface-2:#161618;
+      --ink:#F5F5F7; --text:#F5F5F7; --text-2:#A1A1A6; --text-3:#8A8A8E;
+      --hair:rgba(255,255,255,.12); --hair-strong:rgba(255,255,255,.20);
+      --gold:#D8B45A; --gold-strong:#E4C778; --gold-soft:rgba(216,180,90,.14);
+      --green:#41C463; --green-soft:rgba(65,196,99,.16);
+      --blue:#409CFF; --blue-soft:rgba(64,156,255,.16);
+      --red:#FF6B5E; --red-soft:rgba(255,107,94,.16);
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#000000; --surface:#1C1C1E; --surface-2:#161618;
+    --ink:#F5F5F7; --text:#F5F5F7; --text-2:#A1A1A6; --text-3:#8A8A8E;
+    --hair:rgba(255,255,255,.12); --hair-strong:rgba(255,255,255,.20);
+    --gold:#D8B45A; --gold-strong:#E4C778; --gold-soft:rgba(216,180,90,.14);
+    --green:#41C463; --green-soft:rgba(65,196,99,.16);
+    --blue:#409CFF; --blue-soft:rgba(64,156,255,.16);
+    --red:#FF6B5E; --red-soft:rgba(255,107,94,.16);
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.5);
+  }
+
+  *{ box-sizing:border-box }
+  html{ scroll-behavior:smooth }
+  @media (prefers-reduced-motion: reduce){ html{ scroll-behavior:auto } }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  a{ color:var(--gold-strong); text-underline-offset:3px }
+
+  .wrap{ max-width:var(--maxw); margin:0 auto; padding:0 22px }
+  .layout{ max-width:1240px; margin:0 auto; padding:0 22px; display:grid; grid-template-columns:1fr; gap:0 }
+  @media(min-width:1040px){
+    .layout{ grid-template-columns:230px minmax(0,1fr); gap:48px; align-items:start }
+    .toc{ position:sticky; top:24px }
+  }
+
+  /* header */
+  header.hero{ padding:64px 0 30px }
+  .eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--gold-strong); font-weight:700; margin-bottom:16px }
+  .eyebrow .dot{ width:7px; height:7px; border-radius:50%; background:var(--gold) }
+  h1{ font-size:clamp(34px,6vw,52px); line-height:1.05; letter-spacing:-.03em; font-weight:800; margin:0 0 14px; text-wrap:balance }
+  .lede{ font-size:clamp(18px,2.4vw,22px); color:var(--text-2); max-width:60ch; margin:0; text-wrap:pretty }
+  .brandline{ margin-top:22px; display:flex; flex-wrap:wrap; gap:8px }
+  .brandline .b{ font-size:13px; color:var(--text-2); background:var(--surface); border:1px solid var(--hair);
+    padding:6px 12px; border-radius:var(--pill); box-shadow:var(--shadow) }
+
+  /* table of contents */
+  .toc nav{ display:flex; flex-direction:column; gap:2px; font-size:14.5px }
+  .toc a{ color:var(--text-2); text-decoration:none; padding:7px 12px; border-radius:10px; border-left:2px solid transparent }
+  .toc a:hover{ color:var(--text); background:var(--surface); border-left-color:var(--gold) }
+  .toc .tt{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-3); font-weight:700; padding:10px 12px 4px }
+  @media(max-width:1039px){ .toc{ display:none } }
+
+  section{ padding:26px 0; border-top:1px solid var(--hair) }
+  section:first-of-type{ border-top:0 }
+  h2{ font-size:clamp(24px,3.4vw,30px); letter-spacing:-.02em; font-weight:800; margin:0 0 6px; text-wrap:balance; scroll-margin-top:20px }
+  h2 .num{ color:var(--gold); font-variant-numeric:tabular-nums; margin-right:12px; font-weight:700 }
+  .sub{ color:var(--text-2); margin:0 0 22px; max-width:64ch }
+  h3{ font-size:18px; letter-spacing:-.01em; font-weight:700; margin:0 0 6px }
+  p{ margin:0 0 14px; max-width:66ch }
+  strong{ font-weight:700 }
+
+  .card{ background:var(--surface); border:1px solid var(--hair); border-radius:var(--radius); padding:22px; box-shadow:var(--shadow) }
+  .grid{ display:grid; gap:16px }
+  @media(min-width:640px){ .g2{ grid-template-columns:1fr 1fr } .g3{ grid-template-columns:repeat(3,1fr) } }
+
+  /* i 4 passi */
+  .steps{ display:grid; gap:16px; counter-reset:step }
+  @media(min-width:760px){ .steps{ grid-template-columns:repeat(2,1fr) } }
+  .step{ position:relative; background:var(--surface); border:1px solid var(--hair); border-radius:var(--radius);
+    padding:22px 22px 22px 22px; box-shadow:var(--shadow) }
+  .step .n{ width:34px; height:34px; border-radius:50%; background:var(--ink); color:var(--bg);
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px; margin-bottom:12px;
+    font-variant-numeric:tabular-nums }
+  .step h3{ margin-bottom:8px }
+  .step p{ color:var(--text-2); margin-bottom:0; font-size:15.5px }
+  .step .btn{ display:inline-block; margin-top:12px; font-size:13px; font-weight:600; color:var(--text);
+    background:var(--gold-soft); border:1px solid var(--hair); padding:5px 11px; border-radius:var(--pill) }
+
+  /* elenco sezioni app */
+  .feat{ background:var(--surface); border:1px solid var(--hair); border-radius:var(--radius-s); padding:16px 18px; box-shadow:var(--shadow) }
+  .feat h3{ display:flex; align-items:center; gap:10px; font-size:16px }
+  .feat .ic{ font-size:20px; line-height:1 }
+  .feat p{ color:var(--text-2); font-size:14.5px; margin:6px 0 0 }
+
+  /* legenda badge */
+  .legend{ display:grid; gap:10px }
+  @media(min-width:640px){ .legend{ grid-template-columns:1fr 1fr } }
+  .lg{ display:flex; gap:12px; align-items:flex-start; background:var(--surface); border:1px solid var(--hair);
+    border-radius:var(--radius-s); padding:12px 14px; box-shadow:var(--shadow) }
+  .lg .b{ flex:0 0 auto }
+  .lg .t{ font-size:14.5px; color:var(--text-2) }
+  .lg .t b{ color:var(--text) }
+  .badge{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; padding:4px 11px;
+    border-radius:var(--pill); border:1px solid var(--hair); white-space:nowrap }
+  .badge i{ width:7px; height:7px; border-radius:50%; background:currentColor; display:inline-block }
+  .badge.gold{ color:var(--gold-strong); background:var(--gold-soft); border-color:transparent }
+  .badge.green{ color:var(--green); background:var(--green-soft); border-color:transparent }
+  .badge.blue{ color:var(--blue); background:var(--blue-soft); border-color:transparent }
+  .badge.red{ color:var(--red); background:var(--red-soft); border-color:transparent }
+  .badge.plain{ color:var(--text-2); background:var(--surface-2) }
+  .pillbtn{ display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600; padding:8px 14px; border-radius:var(--pill) }
+  .pillbtn.ink{ background:var(--ink); color:var(--bg) }
+  .pillbtn.wa{ background:var(--green); color:#fff }
+  .pillbtn.ghost{ background:var(--surface-2); color:var(--text); border:1px solid var(--hair) }
+
+  /* diagramma dati */
+  .flow{ display:grid; gap:16px; align-items:center }
+  @media(min-width:820px){ .flow{ grid-template-columns:1fr 92px 1fr } }
+  .sources{ display:grid; gap:12px }
+  .src{ display:flex; gap:12px; align-items:flex-start; background:var(--surface); border:1px solid var(--hair);
+    border-radius:var(--radius-s); padding:14px 16px; box-shadow:var(--shadow) }
+  .src .ic{ font-size:22px; flex:0 0 auto }
+  .src h4{ margin:0 0 3px; font-size:15px; letter-spacing:-.01em }
+  .src p{ margin:0; font-size:13.5px; color:var(--text-2) }
+  .arrow{ display:flex; align-items:center; justify-content:center; color:var(--text-3) }
+  .arrow svg{ width:100%; height:40px }
+  @media(max-width:819px){ .arrow{ transform:rotate(90deg); height:34px } }
+  .appnode{ background:var(--ink); color:var(--bg); border-radius:var(--radius); padding:26px 20px; text-align:center; box-shadow:var(--shadow) }
+  .appnode{ color:var(--bg) }   /* testo = colore dello sfondo pagina, che contrasta con --ink in ENTRAMBI i temi */
+  .appnode .k{ font-size:12px; letter-spacing:.12em; text-transform:uppercase; opacity:.65; font-weight:700 }
+  .appnode .big{ font-size:21px; font-weight:800; letter-spacing:-.02em; margin-top:6px }
+  .appnode p{ color:var(--bg); opacity:.72; font-size:13.5px; margin:10px 0 0 }
+
+  /* callout */
+  .note{ border-left:3px solid var(--gold); background:var(--gold-soft); border-radius:0 var(--radius-s) var(--radius-s) 0;
+    padding:14px 18px; margin:16px 0 0 }
+  .note.blue{ border-left-color:var(--blue); background:var(--blue-soft) }
+  .note p{ margin:0; font-size:15px }
+  .note .h{ font-weight:700; display:block; margin-bottom:3px }
+
+  ul.clean{ margin:0; padding:0; list-style:none; display:grid; gap:10px }
+  ul.clean li{ position:relative; padding-left:26px; color:var(--text-2); font-size:15.5px }
+  ul.clean li::before{ content:""; position:absolute; left:6px; top:10px; width:7px; height:7px; border-radius:50%; background:var(--gold) }
+  ul.clean li b{ color:var(--text) }
+
+  .kv{ display:grid; gap:0 }
+  .kv .row{ display:grid; grid-template-columns:180px 1fr; gap:16px; padding:12px 0; border-top:1px solid var(--hair) }
+  .kv .row:first-child{ border-top:0 }
+  .kv .k{ font-weight:700; font-size:15px }
+  .kv .v{ color:var(--text-2); font-size:15px }
+  @media(max-width:560px){ .kv .row{ grid-template-columns:1fr; gap:2px } }
+
+  footer{ padding:40px 0 64px; color:var(--text-3); font-size:13.5px; border-top:1px solid var(--hair); margin-top:20px }
+  code{ font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.9em; background:var(--surface-2);
+    border:1px solid var(--hair); border-radius:6px; padding:1px 6px }
+  .theme-toggle{ position:fixed; top:16px; right:16px; z-index:10; width:40px; height:40px; border-radius:50%;
+    background:var(--surface); border:1px solid var(--hair); box-shadow:var(--shadow); color:var(--text);
+    cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center }
+  .theme-toggle:focus-visible{ outline:2px solid var(--gold); outline-offset:2px }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeBtn" title="Cambia tema" aria-label="Cambia tema">◐</button>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow"><span class="dot"></span>Manuale operativo · Deluxy</span>
+    <h1>Trova Fiorai &amp; Pasticcerie</h1>
+    <p class="lede">L'app che trova il <strong>fioraio o pasticcere giusto vicino a dove va consegnato l'ordine</strong> e gli manda la richiesta — via WhatsApp o email, con la foto del prodotto. Questa guida spiega tutto a chi non l'ha mai usata.</p>
+    <div class="brandline">
+      <span class="b">deluxy.it</span>
+      <span class="b">deluxyflowers.com</span>
+      <span class="b">cakedesign.me</span>
+      <span class="b">business.deluxy.it</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="toc">
+    <nav>
+      <span class="tt">In breve</span>
+      <a href="#idea">L'idea in una frase</a>
+      <a href="#giro">Il giro in 4 passi</a>
+      <span class="tt">Nel dettaglio</span>
+      <a href="#sezioni">Le sezioni dell'app</a>
+      <a href="#scheda">Leggere una scheda</a>
+      <a href="#azioni">Le azioni su un negozio</a>
+      <a href="#dati">Da dove arrivano i dati</a>
+      <a href="#comodita">Comodità</a>
+      <span class="tt">Per l'admin</span>
+      <a href="#impostazioni">Impostazioni</a>
+      <a href="#manutenzione">Chi aggiorna il manuale</a>
+    </nav>
+  </aside>
+
+  <main>
+    <section id="idea">
+      <h2>L'idea in una frase</h2>
+      <p class="sub">Deluxy vende fiori e torte online. Quando arriva un ordine, non lo prepariamo noi: lo affidiamo a un <strong>fioraio o pasticcere locale</strong> vicino a chi riceve. Questa app serve a <strong>trovare quel negozio e a scrivergli</strong>.</p>
+      <div class="card">
+        <p style="margin:0; font-size:18px"><strong>Ordine ricevuto</strong> → l'app trova i negozi più vicini alla consegna → l'operatore <strong>sceglie</strong> e gli invia la richiesta con la foto → <strong>segna</strong> chi ha contattato. Tutto qui.</p>
+      </div>
+    </section>
+
+    <section id="giro">
+      <h2>Il giro in 4 passi</h2>
+      <p class="sub">È l'unico percorso da imparare. Le quattro tappe si fanno sempre nello stesso ordine, nella vista principale <strong>«Smistamento»</strong>.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="n">1</div>
+          <h3>Recupera l'ordine</h3>
+          <p>Scegli il <b>sito</b> (es. deluxyflowers.com), scrivi il <b>numero ordine</b> e premi <b>«Compila ordine»</b>. Arrivano da soli destinatario, indirizzo, prodotto, <b>foto</b> e bigliettino. Se un ordine non c'è ancora, puoi <b>«Compila a mano»</b>.</p>
+          <span class="btn">✍️ Compila ordine</span>
+        </div>
+        <div class="step">
+          <div class="n">2</div>
+          <h3>Trova i negozi in zona</h3>
+          <p>Premi <b>«Trova fiorai»</b> (usa l'indirizzo dell'ordine) oppure scrivi un indirizzo e premi <b>«Cerca in zona»</b>. Appaiono i negozi più vicini, ordinati per distanza. <b>In cima</b> compaiono quelli che <b>abbiamo già</b> nel registro.</p>
+          <span class="btn">🔎 Cerca in zona</span>
+        </div>
+        <div class="step">
+          <div class="n">3</div>
+          <h3>Scegli e invia la richiesta</h3>
+          <p>Sulla scheda del negozio: <b>«Invia richiesta su WhatsApp»</b> (verde) o <b>«Invia via email»</b>. Il messaggio è <b>già scritto nella lingua del negozio</b>, con la foto e la firma. Su WhatsApp la foto si incolla con Ctrl+V; via email va <b>in allegato</b>.</p>
+          <span class="btn">📤 Invia richiesta</span>
+        </div>
+        <div class="step">
+          <div class="n">4</div>
+          <h3>Tieni traccia</h3>
+          <p>Metti la <b>⭐ stella</b> a chi hai contattato, <b>🗄️ archivia</b> chi scarti. Lo stato della ricerca (<i>non iniziata / in corso / trovato</i>) è <b>condiviso con gli altri operatori</b>: si vede subito chi è già stato sentito.</p>
+          <span class="btn">⭐ Segna contattato</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="sezioni">
+      <h2>Le sezioni dell'app</h2>
+      <p class="sub">Si passa da una all'altra dal menu a sinistra (su telefono: il pulsante ☰ in alto).</p>
+      <div class="grid g2">
+        <div class="feat"><h3><span class="ic">📦</span> Smistamento</h3><p>La vista principale: recupera l'ordine e trova/contatta il negozio. È qui che si lavora ogni giorno.</p></div>
+        <div class="feat"><h3><span class="ic">📇</span> Contatti</h3><p>Tutti i <b>partner e fornitori</b> del registro Anagrafiche, raggruppati per provincia. Per cercare un negozio che già conosciamo.</p></div>
+        <div class="feat"><h3><span class="ic">🗺️</span> Province</h3><p>I venditori di fiori e torte (re-seller attivi o prospect) provincia per provincia, con quante ne abbiamo dove.</p></div>
+        <div class="feat"><h3><span class="ic">🗄️</span> Archiviati</h3><p>Tutti i negozi che gli operatori hanno nascosto dai risultati, per provincia. Si possono ripristinare.</p></div>
+        <div class="feat"><h3><span class="ic">🕑</span> Storico richieste</h3><p>Cosa ha fatto l'app nel tempo: richieste inviate, contatti salvati, segnalazioni — con chi e quando. Da qui si <b>riapre</b> una ricerca.</p></div>
+        <div class="feat"><h3><span class="ic">⚙️</span> Impostazioni</h3><p>Solo per l'amministratore: chiavi, negozi collegati, utenze operatori. Vedi <a href="#impostazioni">più sotto</a>.</p></div>
+      </div>
+    </section>
+
+    <section id="scheda">
+      <h2>Leggere una scheda negozio</h2>
+      <p class="sub">Ogni negozio è una scheda. Questi sono i segnali da riconoscere a colpo d'occhio.</p>
+      <div class="legend">
+        <div class="lg"><span class="b"><span class="badge gold"><i></i>Partner Deluxy</span></span><span class="t"><b>È già nostro.</b> Sale in cima ai risultati. Dal registro Anagrafiche.</span></div>
+        <div class="lg"><span class="b"><span class="badge blue"><i></i>Prospect</span></span><span class="t"><b>Contatto già segnalato</b>, non ancora attivo. Anche lui in cima.</span></div>
+        <div class="lg"><span class="b"><span class="badge green"><i></i>WhatsApp probabile</span></span><span class="t">Numero di <b>cellulare</b>: molto probabilmente ha WhatsApp.</span></div>
+        <div class="lg"><span class="b"><span class="badge plain"><i></i>fisso · WhatsApp raro</span></span><span class="t">Numero <b>fisso</b>: meglio chiamare o scrivere via email.</span></div>
+        <div class="lg"><span class="b"><span class="badge green"><i></i>Aperto ora</span></span><span class="t">Aperto adesso, secondo gli orari di Google. (Rosso = chiuso.)</span></div>
+        <div class="lg"><span class="b"><span class="badge plain">🚗 2,4 km · 6 min</span></span><span class="t"><b>Distanza in auto</b> dalla consegna (non in linea d'aria).</span></div>
+        <div class="lg"><span class="b"><span class="badge plain">📷 10 foto</span></span><span class="t">Foto del negozio da Google: cliccale per vederle tutte.</span></div>
+        <div class="lg"><span class="b"><span class="badge gold">🔗 riconciliata</span></span><span class="t">La scheda di Google è stata <b>agganciata</b> al nostro contatto del registro.</span></div>
+      </div>
+      <div class="note"><p><span class="h">⭐ e 🗄️ in alto a destra</span>La <b>stella</b> segna «l'ho contattato» (condivisa con gli altri operatori); l'icona <b>archivia</b> nasconde il negozio dai risultati. Sono reversibili.</p></div>
+    </section>
+
+    <section id="azioni">
+      <h2>Le azioni su un negozio</h2>
+      <p class="sub">In fondo a ogni scheda ci sono i pulsanti. Ecco cosa fa ciascuno.</p>
+      <div class="grid g2">
+        <div class="card">
+          <h3 style="margin-bottom:12px"><span class="pillbtn wa">📤 WhatsApp</span></h3>
+          <p style="margin:0; color:var(--text-2); font-size:15px">Apre WhatsApp con il <b>messaggio già scritto</b> nella lingua del negozio. La foto del prodotto è pronta negli appunti: dopo aver inviato il testo, premi <b>Ctrl+V</b> per allegarla.</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:12px"><span class="pillbtn ink">📧 Invia via email</span></h3>
+          <p style="margin:0; color:var(--text-2); font-size:15px">Apre un <b>pop-up</b> con la mail già pronta e la <b>foto in allegato</b>. Parte dalla <b>casella vera</b> dell'operatore (passa da AI Mail), e la copia finisce negli «Inviati».</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:12px"><span class="pillbtn ghost">💾 Salva in rubrica + registro</span></h3>
+          <p style="margin:0; color:var(--text-2); font-size:15px">Salva il contatto nei <b>Contatti Google</b> <i>e</i> crea il fornitore in <b>Anagrafiche</b> come «<b>Da provare</b>». Così la prossima volta compare già in cima.</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:12px"><span class="pillbtn ghost">📣 Segnala</span> &nbsp; <span class="pillbtn ghost">🔗 Riconcilia</span></h3>
+          <p style="margin:0; color:var(--text-2); font-size:15px"><b>Segnala</b>: propone il negozio al registro (diventa un prospect). <b>Riconcilia</b>: dice «questa scheda di Google è lo stesso negozio che abbiamo già nel registro», e li unisce.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="dati">
+      <h2>Da dove arrivano i dati</h2>
+      <p class="sub">L'app non inventa nulla e non ha un suo archivio: <strong>chiede a quattro sistemi Deluxy</strong>, ognuno responsabile di una cosa sola.</p>
+      <div class="flow">
+        <div class="sources">
+          <div class="src"><span class="ic">🧾</span><div><h4>Orders</h4><p>Gli ordini: destinatario, indirizzo, prodotto, <b>foto</b>, bigliettino. L'app <b>non</b> si collega da sola a Shopify — passa da qui.</p></div></div>
+          <div class="src"><span class="ic">🗺️</span><div><h4>Google Maps / Places</h4><p>I negozi in zona: nome, distanza, telefono, orari, foto.</p></div></div>
+          <div class="src"><span class="ic">📇</span><div><h4>Anagrafiche</h4><p>Il registro: chi è già nostro <b>partner o fornitore</b>. Salvare qui = compare in cima.</p></div></div>
+          <div class="src"><span class="ic">✉️</span><div><h4>AI Mail</h4><p>L'invio delle email dalla casella vera dell'operatore.</p></div></div>
+        </div>
+        <div class="arrow" aria-hidden="true">
+          <svg viewBox="0 0 92 40" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h78"/><path d="M74 12l10 8-10 8"/></svg>
+        </div>
+        <div class="appnode">
+          <div class="k">Questa app</div>
+          <div class="big">Trova Fiorai</div>
+          <p>Mette insieme i quattro e li mostra all'operatore. Ogni dato ha una casa sola: l'app la interroga, non la copia.</p>
+        </div>
+      </div>
+      <div class="note blue"><p><span class="h">Perché è importante</span>Se una foto o un indirizzo è sbagliato, si corregge <b>nel sistema che lo possiede</b> (Orders per l'ordine, Anagrafiche per il fornitore), non qui. L'app rispecchia sempre la verità di quei sistemi.</p></div>
+    </section>
+
+    <section id="comodita">
+      <h2>Comodità che fanno risparmiare tempo (e soldi)</h2>
+      <ul class="clean">
+        <li><b>Lingua automatica.</b> Il messaggio al negozio è scritto nella lingua del paese di consegna (italiano, inglese, francese, tedesco, spagnolo), con la firma «grazie mille» tradotta.</li>
+        <li><b>La foto giusta.</b> Nel messaggio va la <b>tipologia</b> del prodotto («un Bouquet… come da foto») più la foto reale in allegato — non il nome commerciale, che al fiorista non dice nulla.</li>
+        <li><b>Ricerche riusate (cache 48 h).</b> Se la stessa ricerca (indirizzo + categoria) è già stata fatta da chiunque nelle ultime 48 ore, l'app ripropone i <b>risultati salvati</b> senza rispendere su Google. Il pulsante <b>«🔄 Forza su Google»</b> la rifà aggiornata. <i>(Si accende dalle Impostazioni.)</i></li>
+        <li><b>Fornitori nostri sempre in cima.</b> Dopo ogni ricerca l'app controlla nel registro chi abbiamo in quella zona — anche all'estero, per città — e li mette sopra i risultati di Google.</li>
+        <li><b>Allarga la ricerca.</b> Se in zona non c'è nessuno, «Estendi» allarga l'area a scatti; «Aggiungi negozio per nome» pesca uno specifico che Google non ha fatto uscire.</li>
+      </ul>
+    </section>
+
+    <section id="impostazioni">
+      <h2>Impostazioni (per l'amministratore)</h2>
+      <p class="sub">Solo chi entra col <strong>pass code principale</strong> vede e salva le Impostazioni. Gli operatori entrano con la propria email e password e usano l'app, senza toccare le chiavi.</p>
+      <div class="card kv">
+        <div class="row"><div class="k">Chiave Google</div><div class="v">Fa funzionare la mappa e la ricerca dei negozi. Senza, l'app non cerca.</div></div>
+        <div class="row"><div class="k">Orders</div><div class="v">URL + chiave di lettura: gli ordini si leggono da lì (foto e bigliettino compresi).</div></div>
+        <div class="row"><div class="k">Anagrafiche</div><div class="v">Chiave di <b>lettura</b> (per vedere partner/fornitori in cima) e di <b>scrittura</b> (per «Segnala» e «Salva in registro»).</div></div>
+        <div class="row"><div class="k">AI Mail</div><div class="v">Casella mittente + token: abilitano l'invio email con allegato.</div></div>
+        <div class="row"><div class="k">Utenze dell'app</div><div class="v">Gli operatori: email + password personale. Ogni azione compare nello Storico col loro nome.</div></div>
+        <div class="row"><div class="k">Interruttori</div><div class="v">Foto dei negozi (a pagamento) e <b>cache 48 h</b> delle ricerche: si accendono/spengono qui.</div></div>
+        <div class="row"><div class="k">Chiavi API</div><div class="v">Per far usare le API dell'app a un'AI o a un'integrazione, senza email e password.</div></div>
+      </div>
+      <div class="note"><p><span class="h">Le chiavi non escono mai dal server</span>Token e chiavi segrete restano lato server: il browser non le vede. Nelle Impostazioni compare solo «•••• salvata».</p></div>
+    </section>
+
+    <section id="manutenzione">
+      <h2>Chi aggiorna questo manuale</h2>
+      <p class="sub">Questo è il <strong>manuale di funzionalità</strong> dell'app: la fonte di verità di cosa fa, in parole per chiunque.</p>
+      <div class="note"><p><span class="h">Regola fissa</span>Ogni volta che si <b>aggiunge o cambia una funzionalità</b>, si aggiorna anche questo manuale (<code>docs/COME-FUNZIONA-SEARCH.html</code>) nello stesso momento — così chi entra nuovo trova sempre il quadro giusto. La scheda tecnica per gli sviluppatori resta <code>AI_SPEC.md</code>; questo file è la versione in chiaro per le persone.</p></div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    Deluxy · Trova Fiorai &amp; Pasticcerie — manuale operativo. Ultimo aggiornamento: 27/08/2026.
+    Dati da Orders, Google Places, Anagrafiche e AI Mail. Nessun dato inviato a servizi esterni oltre a questi.
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var btn = document.getElementById('themeBtn');
+    function cur(){ return document.documentElement.getAttribute('data-theme')
+      || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
+    btn.addEventListener('click', function(){
+      var next = cur() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try{ localStorage.setItem('manuale-theme', next); }catch(e){}
+    });
+    try{ var s = localStorage.getItem('manuale-theme'); if(s) document.documentElement.setAttribute('data-theme', s); }catch(e){}
+  })();
+</script>
+</body>
+</html>
