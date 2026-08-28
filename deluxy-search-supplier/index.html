@@ -422,13 +422,27 @@
     /* riepilogo ordine: foto sopra, prezzi sotto (già 1 colonna) con un po' meno padding */
     .deal{ padding:16px; gap:14px }
     .content{ padding:16px 16px 28px }
-    /* pillole filtro: si dimensionano al testo e vanno a capo (niente testo tagliato) */
+    /* pillole filtro: si dimensionano al testo, non si stringono (in corsia sfilano oltre il bordo) */
     #waFilter .wchip, #openFilter .wchip,
     #waFilterResults .wchip, #openFilterResults .wchip, #rateFilterResults .wchip{ flex:0 0 auto; min-width:0; padding:9px 13px }
-    #waFilterResults label{ margin-left:0 !important }
-    /* i GRUPPI di pillole vanno a capo, altrimenti l'ultima chip esce dallo schermo
-       (verificato dal vivo: form ricerca #waFilter, Province #pvCat/#pvRuolo, Contatti #ctCat/#ctTipo) */
-    #waFilter, #openFilter, #pvCat, #pvRuolo, #ctCat, #ctTipo{ flex-wrap:wrap }
+    /* i GRUPPI di pillole stanno su UNA riga e scorrono di lato (Libro v1.3 §8.9):
+       il wrap li faceva crescere in verticale. La scrollbar si nasconde — l'ultima
+       chip che «sbuca» dal bordo è l'indizio che c'è altro; ricerca, select e
+       bottoni d'azione restano FUORI dalla corsia (sono fratelli dei gruppi).
+       !important su flex-wrap: #waFilterResults ha flex-wrap:wrap inline. */
+    #waFilter, #openFilter, #waFilterResults, #openFilterResults, #rateFilterResults,
+    #pvCat, #pvRuolo, #ctCat, #ctTipo, .catbtns{
+      flex-wrap:nowrap !important; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch }
+    #waFilter::-webkit-scrollbar, #openFilter::-webkit-scrollbar, #waFilterResults::-webkit-scrollbar,
+    #openFilterResults::-webkit-scrollbar, #rateFilterResults::-webkit-scrollbar, #pvCat::-webkit-scrollbar,
+    #pvRuolo::-webkit-scrollbar, #ctCat::-webkit-scrollbar, #ctTipo::-webkit-scrollbar, .catbtns::-webkit-scrollbar{ display:none }
+    /* Dentro #waFilterResults vive anche il select «Risultati» (HTML intoccabile):
+       un select non può scorrere via con le chip — resta inchiodato al bordo
+       destro della corsia, col fondo pagina sotto per coprire le chip che passano. */
+    #waFilterResults label{ position:sticky; right:0; background:var(--bg); padding-left:6px }
+    /* anche le .chip (flex:1, min-width:130px di base) in corsia si dimensionano
+       al testo: senza, si stringerebbero a 130px e il testo andrebbe a capo */
+    #pvCat .chip, #pvRuolo .chip, #ctCat .chip, #ctTipo .chip, .catbtns .chip{ flex:0 0 auto; min-width:0 }
     /* stella e archivia: bersagli più larghi e distanziati (si toccano col pollice) */
     .star-btn, .arch-btn{ width:40px; height:40px }
     .shop .head > div{ gap:8px !important }
