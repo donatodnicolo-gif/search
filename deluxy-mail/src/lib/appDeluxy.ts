@@ -20,6 +20,10 @@ const FINANCE_URL = (process.env.FINANCE_URL || 'https://deluxy-partner.vercel.a
 const FORNITORI_URL = (process.env.FORNITORI_URL || 'https://search-deluxy.vercel.app').replace(/\/$/, '')
 const COMMERCIALE_URL = (process.env.COMMERCIALE_URL || 'https://fdsziebgkljfsugqqbqd.supabase.co/functions/v1').replace(/\/$/, '')
 
+/** Il valore della scelta «＋ Crea questo negozio»: non è un id, `esegui` lo
+ *  traduce in `crea='si'`. */
+const SENTINELLA_CREA_NEGOZIO = '__crea_negozio__'
+
 /** Qual è la chiave (fra quelle di ChiaviApp) che serve a ciascuna app. */
 export const CHIAVE_DI_APP: Record<string, NomeChiaveApp> = {
   Anagrafiche: 'anagrafiche',
@@ -1192,6 +1196,8 @@ const AZIONI: AzioneApp[] = [
       )
     },
   },
+  // Valore fittizio della scelta «＋ Crea questo negozio» in fondo ai
+  // candidati: non è un id vero, e `esegui` lo traduce in `crea='si'`.
   {
     id: 'commerciale.trattativa',
     app: 'Commerciale',
@@ -1208,7 +1214,19 @@ const AZIONI: AzioneApp[] = [
     guida:
       'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = le linee commerciali (UNA O PIÙ) fra i valori ammessi, se lo scambio le nomina; se nessuna, null. valoreAtteso = il totale se è scritto (se ti è dato il RIASSUNTO della conversazione, le sue «Cifre e prezzi» sono importi copiati dalle mail: il «totale complessivo» che c’è lì è scritto a tutti gli effetti); se un totale non c’è ma nello scambio ci sono PREZZI e QUANTITÀ scritti, CALCOLA la stima (es. coffee break 18 €/persona × 45 persone = 810) usando SOLO numeri scritti — mai inventare i numeri di partenza; se non c’è niente da cui calcolare, null. oggetto = per cosa è la trattativa, in poche parole e senza la data (es. «Catering per la visita della proprietà»). dataEvento = il giorno del servizio/evento in formato AAAA-MM-GG, SOLO se la mail lo dice; se il giorno è scritto senza anno («3 settembre») prendi l’anno dalla data della mail; se non c’è una data, null — mai inventarla. fase = deducila dallo scambio scegliendo fra i valori ammessi: hanno appena chiesto = "primo contatto"; si discute di dettagli e condizioni = "in trattativa"; abbiamo GIÀ mandato il preventivo/proposta = "preventivo"; hanno accettato = "chiusa vinta"; hanno rifiutato = "chiusa persa"; se non è chiaro, null. scadenza = la data del follow-up (AAAA-MM-GG) SOLO se la mail la dice (un termine scritto: «ti risponderò entro venerdì», «serve conferma entro il 30»): se non è scritta lascia null, la propone il codice dalla data dell’evento. nextAction = la prossima azione da fare, in una frase. contattoEmail = l’email della PERSONA DI RIFERIMENTO del negozio, se è scritta da qualche parte nello scambio — anche dentro il testo di una mail interna («ho sentito la referente Roberta Sireno, roberta.sireno@havi.com»); MAI un indirizzo di un nostro dominio (quelli siamo noi), mai inventata; se non c’è, null e la mette il codice.',
     campi: [
-      { nome: 'negozio', etichetta: 'Negozio', obbligatorio: true, aiuto: 'Commerciale lo cerca fra i suoi negozi.' },
+      {
+        nome: 'negozio',
+        etichetta: 'Negozio',
+        obbligatorio: true,
+        // ⚠️ Cerca in TUTTO il registro di Anagrafiche mentre scrivi (non solo
+        // fra i negozi che Commerciale conosce già): scegliendo un'azienda si
+        // prende il nome esatto e — se ce l'ha — l'email del contatto. L'id di
+        // Anagrafiche NON è quello di Commerciale, quindi non si scrive come
+        // `negozioId`: il negozio in Commerciale lo risolve la sua funzione.
+        ricerca: 'anagrafiche',
+        campoEmail: 'contattoEmail',
+        aiuto: 'Scrivi due lettere: cerca in Anagrafiche. Commerciale poi lo aggancia (o lo crea).',
+      },
       {
         nome: 'contattoEmail',
         etichetta: 'Contatto (email)',
@@ -1372,7 +1390,12 @@ const AZIONI: AzioneApp[] = [
       // NOME non è un'identità — «HAVI» in Scout sono due posti con lo stesso
       // nome e zona diversa, e rimandare il nome esatto faceva ripetere lo
       // stesso «più negozi corrispondono» all'infinito (26/08/2026).
-      const negozioId = typeof dati.negozioId === 'string' && dati.negozioId.trim() ? dati.negozioId.trim() : undefined
+      // ⚠️ La scelta «＋ Crea» in fondo ai candidati manda questa sentinella
+      // come `negozioId`: qui si traduce in `crea='si'` e si toglie l'id
+      // finto, o Commerciale lo cercherebbe e non lo troverebbe.
+      const scelto = typeof dati.negozioId === 'string' ? dati.negozioId.trim() : ''
+      const vuoleCreare = scelto === SENTINELLA_CREA_NEGOZIO || dati.crea === 'si'
+      const negozioId = scelto && scelto !== SENTINELLA_CREA_NEGOZIO ? scelto : undefined
       // Le linee scelte, ripulite: il campo `multi` torna un array, ma una
       // bozza vecchia o l'AI potrebbero dare ancora una stringa sola.
       const linee = (
@@ -1390,7 +1413,7 @@ const AZIONI: AzioneApp[] = [
         negozioId,
         oggetto,
         contattoEmail,
-        ...(dati.crea === 'si' ? { crea: 'si' } : {}),
+        ...(vuoleCreare ? { crea: 'si' } : {}),
         // ⚠️ Si manda `linee` (l'array) E `linea` (la prima): Scout ha la
         // colonna `linee` da riempire, ma la vecchia versione della sua
         // funzione legge ancora `linea` singola — così finché non la si
@@ -1485,8 +1508,19 @@ const AZIONI: AzioneApp[] = [
                       ? 'Se è un contatto nuovo, crealo col bottone qui sotto; se invece in Commerciale ha un altro nome, correggi «Negozio» e riprova.'
                       : 'Se la mail non lo nomina, il nome qui sopra è ricavato dal dominio di chi scrive: correggi «Negozio» con il nome che ha in Commerciale e riprova.'
                   }`,
+              // ⚠️ Con candidati E `puoiCreare`, in fondo si aggiunge «crea»:
+              // così se nessuno dei somiglianti è quello giusto non si resta
+              // bloccati (il negozio nuovo non esisteva nel CRM). Solo quando
+              // si sceglie per id (`perId`), o la sentinella finirebbe nel
+              // campo del nome.
               ...(scelte.length
-                ? { scelte, campoScelta: perId ? 'negozioId' : 'negozio' }
+                ? {
+                    scelte:
+                      puoiCreare && perId
+                        ? [...scelte, { valore: SENTINELLA_CREA_NEGOZIO, etichetta: `＋ Nessuno di questi: crea «${negozio}»` }]
+                        : scelte,
+                    campoScelta: perId ? 'negozioId' : 'negozio',
+                  }
                 : puoiCreare
                   ? {
                       scelte: [{ valore: 'si', etichetta: `＋ Crea «${negozio}» nel CRM e apri la trattativa` }],

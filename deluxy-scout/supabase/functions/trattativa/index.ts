@@ -174,9 +174,14 @@ Deno.serve(async (req) => {
             ? `Più negozi corrispondono a «${negozio}»: apri la trattativa dall'app scegliendo quello giusto.`
             : `Nessun negozio corrispondente a «${negozio}» nel CRM commerciale.`,
           candidati: lista.slice(0, 8).map((p: any) => ({ id: p.id, nome: p.nome, zona: p.zona })),
-          // Solo quando non c'è NESSUN candidato: con dei candidati in lista la
-          // strada giusta è scegliere, non creare un quasi-doppione.
-          ...(lista.length === 0 ? { puoiCreare: true } : {}),
+          // ⚠️ `puoiCreare` SEMPRE quando nessun candidato corrisponde al nome
+          // intero (28/08/2026): prima era solo con lista vuota, e un negozio
+          // NUOVO il cui nome comincia come altri («Fiori la primavera» accanto
+          // a «Fiori da Elena», «Fiori d'amore»…) restava un vicolo cieco — la
+          // ricerca trovava i somiglianti, quindi non offriva di crearlo, ma
+          // nessuno era quello giusto. I candidati restano in cima (meglio
+          // sceglierne uno che duplicare); «crea» è la via d'uscita in fondo.
+          puoiCreare: true,
         },
         404,
       );
