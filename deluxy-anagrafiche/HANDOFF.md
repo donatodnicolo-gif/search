@@ -1298,3 +1298,32 @@ verificati build, typecheck, proxy, cablaggio.
 **Da valutare a parte (schema condiviso)**: salvare `place_id`/lat/lng/CAP —
 colonne nuove sul Postgres condiviso, vanno concordate (Standard §7), non servono
 al riempimento testuale.
+
+## 28/08/2026 — ARCHITETTURA SEMPLIFICATA: capogruppo + aziende
+
+Il modello a tre livelli (negozio → società → entità) + la vecchia insegna è
+stato **sostituito da uno solo**: il **capogruppo** con dentro le **aziende**,
+ognuna «paga da sé» o «paga la capogruppo». Richiesta dell'utente («semplifica
+al massimo»), perché tre raggruppamenti che usavano «sede»/«gruppo»
+confondevano.
+
+- Modello `Capogruppo` (ex `GruppoAziendale`, `@@map`): aziende dentro + la
+  fatturazione per chi «paga la capogruppo». `Partner`: `pagaDaSe`, i campi
+  fiscali tornano campi del Partner, `capogruppoId` → Capogruppo.
+- `src/lib/fatturazione.ts` sostituisce `soggetto-fiscale.ts`;
+  `leggiFatturazione(p)` dà la fatturazione propria o della capogruppo. La forma
+  API (`datiFinanziari`) NON cambia; in più `pagaDaSe` e `capogruppo`.
+- Migrazione `scripts/migra-capogruppo.mts` (--prova/--scrivi): 72 pagano da sé,
+  5 capogruppo. Parità 228 valori, 0 persi. `SoggettoFiscale` tenuto come RETE.
+- Scheda, modifica, /gruppi (ora «Capogruppo»), lista principale (piatta)
+  riscritte. `AggiungiSede` e `GestioneGruppo` rimossi: il raggruppamento è un
+  solo campo «Capogruppo» sulla scheda; il «paga da sé/paga la capogruppo» è
+  un select nel form Modifica.
+- Provato a schermo e live: BRIONI paga la capogruppo, SO'FLEUR paga da sé,
+  pagina Capogruppo coi 5 gruppi. Commit `36964d74`.
+
+**Da fare quando si ripulisce**: cancellare `SoggettoFiscale` + le colonne
+fiscali/`soggettoFiscaleId` congelate, dopo che il nuovo è stato usato in
+produzione (come per le colonne del 27/08). ⚠️ Manca il gesto «aggiungi
+un'azienda a un capogruppo» (prima era il modale «aggiungi sede»): oggi si crea
+col form Nuovo e si assegna il capogruppo.
