@@ -946,6 +946,17 @@ export default function Ordini() {
             return;
           }
           await carica();
+          // ⚠️ Anche la SCHEDA APERTA si aggiorna (28/08/2026, segnalazione
+          // dell'utente: «aggiornando pro-forma poi qui rimane il nome della
+          // vecchia»). `carica()` rinfresca la lista sotto, ma `modificaPer` è
+          // la fotografia scattata all'apertura del foglio: senza questa riga
+          // il bottone continuava a offrire di aggiornare un documento che
+          // era appena stato sostituito.
+          setModificaPer((cur) =>
+            cur && cur.id === o.id
+              ? { ...cur, proforma_numero: esito.riferimento, proforma_url: esito.url ?? cur.proforma_url }
+              : cur,
+          );
           avvisa('Pro-forma aggiornata', `Ora l'ordine porta la ${esito.riferimento}. La vecchia ${o.proforma_numero ?? ''} resta su FINANCE.`);
         } catch (e: any) {
           avvisa('Pro-forma non aggiornata', String(e?.message ?? e));
