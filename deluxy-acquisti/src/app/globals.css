@@ -153,13 +153,32 @@ input, select, textarea, button { font: inherit; color: inherit; }
   position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,0.28); backdrop-filter: blur(2px); padding: 20px;
 }
+/* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9, segnalazione utente:
+   una modale più alta dello schermo rendeva il Salva irraggiungibile).
+   Il pannello ha un tetto e scorre LUI; testata (con la ✕) e piede (con le
+   azioni) sono sticky. Collaudo: a 375×812 e a 1366×768 il bottone di
+   conferma si raggiunge senza scrollare la pagina. */
 .modal {
-  width: 560px; max-width: 100%; max-height: 90vh; overflow: auto;
+  width: 560px; max-width: 100%;
+  max-height: min(92dvh, calc(100dvh - 40px));
+  overflow-y: auto;
   background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-float); padding: 24px 24px 20px;
+  box-shadow: var(--shadow-float); padding: 0 24px;
+}
+.modal-testata {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface);
+  padding: 22px 0 12px; margin-bottom: 14px;
+  border-bottom: 1px solid var(--hairline);
 }
 .modal h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
-.modal .sub { font-size: 13px; color: var(--text-secondary); margin-top: 3px; margin-bottom: 16px; }
+.modal .sub { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+.modal-chiudi {
+  border: 0; background: transparent; cursor: pointer;
+  color: var(--text-tertiary); font-size: 15px; padding: 4px 7px; border-radius: var(--radius-s);
+}
+.modal-chiudi:hover { background: var(--fill); color: var(--text); }
 .campo { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
 .campo label { font-size: 12.5px; color: var(--text-secondary); font-weight: 500; }
 .campo input, .campo select, .campo textarea {
@@ -172,7 +191,14 @@ input, select, textarea, button { font: inherit; color: inherit; }
 .campo textarea { min-height: 70px; resize: vertical; }
 .riga { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .riga-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-.modal-azioni { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+/* Piede sticky in fondo al pannello scorrevole: il Salva resta sempre in
+   vista anche a corpo scorrato (Libro v1.7 §9). */
+.modal-azioni {
+  display: flex; justify-content: flex-end; gap: 10px;
+  position: sticky; bottom: 0; z-index: 2;
+  background: var(--surface);
+  margin-top: 16px; padding: 12px 0 18px; border-top: 1px solid var(--hairline);
+}
 .errore { color: var(--red); font-size: 13px; margin-top: 6px; }
 
 /* ---------- Vuoto ---------- */

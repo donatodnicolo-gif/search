@@ -194,6 +194,9 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
     @if (fotoAperta(); as f) {
       <div class="overlay" (click)="fotoAperta.set(null)"></div>
       <div class="modal card foto-modal" (click)="fotoAperta.set(null)">
+        <!-- ✕ obbligatoria su ogni modale (Libro v1.7 §9): stesso handler
+             del clic sulla foto. -->
+        <button type="button" class="modal-close foto-close" (click)="fotoAperta.set(null)" [attr.aria-label]="'common.close' | translate">×</button>
         <img [src]="f" alt="" />
       </div>
     }
@@ -202,7 +205,7 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
     @if (rispostaPer(); as r) {
       <div class="overlay" (click)="rispostaPer.set(null)"></div>
       <div class="modal card" role="dialog" aria-modal="true">
-        <button type="button" class="modal-close" (click)="rispostaPer.set(null)">×</button>
+        <button type="button" class="modal-close" (click)="rispostaPer.set(null)" [attr.aria-label]="'common.close' | translate">×</button>
         <h2>{{ r.partner?.insegna }}</h2>
         <p class="modal-sub">{{ r.description }}</p>
         <div class="r-meta muted" style="margin-bottom: 12px;">
@@ -278,11 +281,22 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
       .error-card { background: rgba(215, 0, 21, 0.06); border: 1px solid rgba(215, 0, 21, 0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin: 12px 0; }
       .ok-card { background: rgba(36, 138, 61, 0.08); border: 1px solid rgba(36, 138, 61, 0.2); color: var(--green); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
       .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 90; }
-      .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; width: min(560px, calc(100vw - 32px)); max-height: 85vh; overflow-y: auto; padding: 22px 24px; }
-      .modal h2 { margin: 0 0 4px; font-size: 19px; }
+      /* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9): il pannello ha
+         un tetto e scorre LUI; titolo con la ✕ sticky e piede azioni sticky.
+         Collaudo: a 375×812 e a 1366×768 il Salva si raggiunge senza
+         scrollare la pagina. */
+      .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; width: min(560px, calc(100vw - 32px)); max-height: min(92dvh, calc(100dvh - 40px)); overflow-y: auto; padding: 0 24px; }
+      .modal h2 { position: sticky; top: 0; z-index: 2; background: var(--surface); margin: 0 0 4px; padding: 20px 30px 6px 0; font-size: 19px; }
       .modal-sub { margin: 0 0 10px; color: var(--text-secondary); font-size: 13.5px; }
-      .modal-close { position: absolute; top: 10px; right: 14px; border: none; background: none; font-size: 22px; color: var(--text-tertiary); cursor: pointer; }
+      /* La ✕ era absolute e scorreva via col corpo: sticky resta in vista. */
+      .modal-close { position: sticky; float: right; top: 12px; margin: 0 -6px 0 0; z-index: 3; border: none; background: var(--surface); border-radius: 999px; font-size: 22px; line-height: 1; padding: 2px 8px; color: var(--text-tertiary); cursor: pointer; }
+      .modal-close:hover { background: var(--fill); color: var(--text); }
+      /* Piede sticky: il Salva resta in vista anche a corpo scorrato. */
+      .modal .actions { position: sticky; bottom: 0; z-index: 2; background: var(--surface); margin-top: 14px; padding: 12px 0 18px; border-top: 1px solid var(--hairline); }
       .foto-modal { padding: 8px; width: auto; max-width: min(92vw, 720px); cursor: zoom-out; }
+      /* Nella finestra della foto (che non scorre) la ✕ torna absolute,
+         sopra l'immagine (la ✕ è obbligatoria su ogni modale, Libro §9). */
+      .foto-close { position: absolute; float: none; top: 8px; right: 12px; margin: 0; background: rgba(255, 255, 255, 0.85); }
       .foto-modal img { display: block; max-width: 100%; max-height: 78vh; border-radius: 10px; }
       @media (max-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } }
       @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }

@@ -152,17 +152,23 @@ function emptyForm(): RuleForm {
       .btn-icon { border: none; background: none; cursor: pointer; font-size: 15px; padding: 4px 7px; border-radius: var(--radius-s); color: var(--text-secondary); }
       .btn-icon:hover { background: var(--fill); color: var(--text); }
       .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 40; }
-      .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 620px; max-width: 94vw; max-height: 90vh; overflow-y: auto; background: var(--surface); border-radius: var(--radius-l); box-shadow: var(--shadow-float); z-index: 41; }
-      .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--hairline); }
+      /* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9): il pannello ha
+         un tetto e scorre LUI; testata (con la ✕) e piede (col Salva) sono
+         sticky. Collaudo: a 375×812 e a 1366×768 il Salva si raggiunge senza
+         scrollare la pagina. */
+      .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 620px; max-width: 94vw; max-height: min(92dvh, calc(100dvh - 40px)); overflow-y: auto; background: var(--surface); border-radius: var(--radius-l); box-shadow: var(--shadow-float); z-index: 41; }
+      .modal-head { display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 2; background: var(--surface); padding: 18px 22px; border-bottom: 1px solid var(--hairline); }
       .modal-head h2 { font-size: 18px; }
-      .modal-body { display: flex; flex-direction: column; gap: 14px; padding: 20px 22px; }
+      .modal-body { display: flex; flex-direction: column; gap: 14px; padding: 20px 22px 0; }
       .fld { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
       .fld.inline { flex-direction: row; align-items: center; gap: 10px; }
       .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
       .field.sm { width: 90px; } .field.multi { min-height: 96px; }
       .rule-block { display: flex; align-items: center; gap: 16px; padding: 10px 12px; border: 1px solid var(--hairline); border-radius: var(--radius-m); }
       .toggles-row { display: flex; gap: 20px; flex-wrap: wrap; }
-      .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding-top: 8px; }
+      /* Piede sticky in fondo al pannello scorrevole: Annulla/Salva sempre
+         in vista anche a form scorrato (Libro v1.7 §9). */
+      .modal-foot { display: flex; justify-content: flex-end; gap: 10px; position: sticky; bottom: 0; z-index: 2; background: var(--surface); margin: 0 -22px; padding: 12px 22px 18px; border-top: 1px solid var(--hairline); }
       .error-inline { color: var(--red); font-size: 13px; }
       @media (max-width: 560px) { .row2 { grid-template-columns: 1fr; } }
     `,

@@ -83,7 +83,7 @@ interface CustomerDetail {
       .form-head { margin-bottom: 24px; }
       .back { appearance: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer; font-size: 13px; color: var(--text-secondary); }
       .back:hover { color: var(--text); }
-      .title-row { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+      .title-row { display: flex; align-items: center; gap: 14px; margin-top: 6px; padding-right: 96px; /* spazio per le bandierine fisse della lingua (28/08) */ }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .edit { margin-left: auto; text-decoration: none; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 900px; }

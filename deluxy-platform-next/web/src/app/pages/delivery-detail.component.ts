@@ -333,8 +333,13 @@ interface DeliveryDetail {
 
     @if (assignOpen()) {
       <div class="overlay" (click)="assignOpen.set(false)"></div>
-      <div class="dialog card">
-        <h2>{{ 'deliveries.assign.title' | translate }}</h2>
+      <div class="dialog card" role="dialog" aria-modal="true">
+        <!-- Testata sticky con la ✕ obbligatoria (Libro v1.7 §9): prima la
+             finestra si chiudeva solo dal fondo o cliccando fuori. -->
+        <header class="dialog-head">
+          <h2>{{ 'deliveries.assign.title' | translate }}</h2>
+          <button type="button" class="modal-close" (click)="assignOpen.set(false)" [attr.aria-label]="'common.close' | translate">×</button>
+        </header>
         @if (delivery(); as d) {
           <p class="muted">{{ 'deliveries.assign.forDelivery' | translate: { code: d.code } }}
             @if (assignProvince(); as p) { <span class="tag">{{ p.name }}</span> }
@@ -389,13 +394,23 @@ interface DeliveryDetail {
       .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink, #1d1d1f); color: #fff; padding: 10px 20px; border-radius: 980px; font-size: 13.5px; z-index: 60; box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
       .toast.err { background: var(--red); }
       .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 50; }
-      .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51; width: min(440px, 92vw); padding: 24px 26px; }
-      .dialog h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }
+      /* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9): il pannello ha
+         un tetto e scorre LUI (prima era senza max-height: con l'elenco valet
+         lungo l'Annulla finiva sotto lo schermo). Testata con la ✕ e piede
+         azioni sticky. Collaudo: a 375×812 e a 1366×768 il bottone di
+         conferma si raggiunge senza scrollare la pagina. */
+      .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51; width: min(440px, 92vw); max-height: min(92dvh, calc(100dvh - 40px)); overflow-y: auto; padding: 0 26px; }
+      .dialog-head { position: sticky; top: 0; z-index: 2; background: var(--surface); display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 20px 0 10px; margin: 0 0 6px; border-bottom: 1px solid var(--hairline); }
+      .dialog h2 { margin: 0; font-size: 18px; font-weight: 600; }
+      .modal-close { border: 0; background: transparent; font-size: 22px; line-height: 1; color: var(--text-tertiary); cursor: pointer; padding: 2px 8px; border-radius: 999px; }
+      .modal-close:hover { background: var(--fill); color: var(--text); }
       .tag { margin-left: 6px; font-size: 11px; background: rgba(0,113,227,0.1); color: var(--blue); border-radius: 980px; padding: 2px 8px; }
       .tag.warn { background: rgba(215,0,21,0.08); color: var(--red); }
-      .valet-list { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+      /* Lo scroll sta nel contenitore, mai nei figli (Libro §9): via il
+         max-height interno alla lista. */
+      .valet-list { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
       .valet-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--hairline); font-size: 14px; }
-      .dialog-foot { display: flex; justify-content: flex-end; margin-top: 16px; }
+      .dialog-foot { display: flex; justify-content: flex-end; position: sticky; bottom: 0; z-index: 2; background: var(--surface); margin-top: 16px; padding: 12px 0 18px; border-top: 1px solid var(--hairline); }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 980px; }
       .block { padding: 22px 24px; }
       .block h2 { margin: 0 0 14px; font-size: 16px; font-weight: 600; letter-spacing: -0.015em; }

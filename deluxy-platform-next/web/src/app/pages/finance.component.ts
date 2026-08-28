@@ -511,8 +511,12 @@ interface Summary {
       .link-id { appearance: none; border: 0; background: none; font: inherit; color: var(--blue, #0071e3); cursor: pointer; padding: 0; }
       .link-id:hover { text-decoration: underline; }
       .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.28); z-index: 50; }
-      .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51; width: min(560px, 94vw); max-height: 84vh; overflow-y: auto; padding: 22px 26px; }
-      .dlg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; }
+      /* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9): il pannello ha
+         un tetto e scorre LUI; la testata con la ✕ è sticky, così la chiusura
+         non finisce mai sotto la piega. Collaudo: a 375×812 e a 1366×768 la ✕
+         resta raggiungibile senza scrollare la pagina. */
+      .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51; width: min(560px, 94vw); max-height: min(92dvh, calc(100dvh - 40px)); overflow-y: auto; padding: 0 26px 22px; }
+      .dlg-head { display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 2; background: var(--surface); padding: 18px 0 12px; border-bottom: 1px solid var(--hairline); margin-bottom: 14px; gap: 10px; }
       .dlg-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
       .dlg-brand { margin-left: 8px; font-size: 12px; font-weight: 550; color: var(--text-secondary); background: var(--fill); border-radius: 980px; padding: 3px 10px; }
       .dlg-azioni { display: flex; align-items: center; gap: 8px; }
