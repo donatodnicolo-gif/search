@@ -2304,8 +2304,13 @@ export default function Ordini() {
 function Chip({ label, on, onPress, title }: { label: string; on: boolean; onPress: () => void; title?: string }) {
   return (
     // «tutto risponde» (Libro UX cap.3): la pillola reagisce alla pressione.
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && { opacity: 0.6 }]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && { opacity: 0.6 }]}
+      // Il tooltip va FRA LE PROP: come figlio, React rifiuta lo spread —
+      // ed è esattamente l'errore che ha fermato la build (28/08/2026).
       {...({ title } as any)}
+    >
       <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{label}</Text>
     </Pressable>
   );
