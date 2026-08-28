@@ -1,4 +1,5 @@
 import { MEZZI, STATI_VALET, ETICHETTE_STATO_VALET } from "@/lib/valet";
+import { RicercaIndirizzo } from "@/components/RicercaIndirizzo";
 
 // Form dell'anagrafica valet, uno solo per "Nuovo" e "Modifica": i campi sono
 // gli stessi e tenerli in due copie voleva dire vederli divergere.
@@ -52,6 +53,7 @@ export function FormValet({
             <label htmlFor="email">Email</label>
             <input id="email" name="email" type="email" defaultValue={v?.email ?? ""} />
           </div>
+          <RicercaIndirizzo />
           <div className="campo-modulo largo">
             <label htmlFor="indirizzo">Indirizzo</label>
             <input id="indirizzo" name="indirizzo" defaultValue={v?.indirizzo ?? ""} />

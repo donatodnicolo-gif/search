@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { RicercaIndirizzo } from "@/components/RicercaIndirizzo";
 import { aggiungiSede, collegaSedi } from "@/lib/azioni";
 import { ETICHETTE_TIPO_LUOGO, TIPI_LUOGO } from "@/lib/luoghi";
 
@@ -176,6 +177,7 @@ export function AggiungiSede({
                     </select>
                     <p className="testo-guida">Un luogo nuovo di solito è un negozio; la sede è una sola.</p>
                   </div>
+                  <RicercaIndirizzo idIndirizzo="sede-indirizzo" idCitta="sede-citta" idProvincia="sede-provincia" />
                   <div className="campo-modulo">
                     <label htmlFor="sede-citta">Città</label>
                     <input id="sede-citta" name="citta" defaultValue={citta ?? ""} />

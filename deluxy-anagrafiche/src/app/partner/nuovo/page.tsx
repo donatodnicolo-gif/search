@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/Sidebar";
+import { RicercaIndirizzo } from "@/components/RicercaIndirizzo";
 import { CATEGORIE, isCategoria } from "@/lib/categorie";
 import { creaPartner } from "@/lib/azioni";
 import { getCommerciali } from "@/lib/commerciali";
@@ -127,6 +128,7 @@ export default async function Nuovo({
                 </select>
               </Campo>
               <Campo etichetta="Ragione sociale" nome="ragioneSociale" />
+              <RicercaIndirizzo />
               <Campo etichetta="Città" nome="citta" />
               <Campo etichetta="Provincia" nome="provincia" />
               <Campo etichetta="Regione" nome="regione" />

@@ -1258,3 +1258,43 @@ Handoff+doc aggiornati a ogni commit; commit spesso e verificati; niente segreti
 1 sessione per cartella; conferma azioni esterne; push; riportare l'esito reale. Dopo modifiche
 UI, far verificare all'utente. Ogni feature va confrontata con la fonte di verità funzionale
 (`deluxy-platform-next/docs/COME-FUNZIONA-APP-DELUXY.md`).
+
+## 28/08/2026 — Riempimento indirizzi con Maps (autocomplete nei form)
+
+Richiesta dell'utente: «tutti gli indirizzi devono essere sincronizzati con maps
+per il riempimento». Ambito deciso con l'utente: **solo autofill quando si scrive**
+(niente backfill dei ~1100 esistenti). Chiave: **riuso quella di Scout**.
+
+**Fatto**:
+- **Proxy server-side** `src/app/api/interno/indirizzo/route.ts` — dietro il cookie
+  di sessione (prefisso `/api/interno`, già protetto dal middleware), chiave
+  `GOOGLE_GEOCODING_KEY` come segreto server, MAI nel browser (pattern di Scout
+  `supabase/functions/geocode`). Due modi: `?q=` → suggerimenti, `?place_id=` →
+  campi STRUTTURATI (indirizzo=via+civico, città, provincia, + regione/CAP/lat/lng
+  non usati). ⚠️ Niente `country:it` (il registro ha indirizzi esteri). ⚠️ Provincia
+  accettata solo se è una sigla di 2 lettere (Google a volte torna «Città
+  Metropolitana di…»): meglio vuota che sbagliata. INERTE senza chiave (503).
+- **Componente** `src/components/RicercaIndirizzo.tsx` — barra di ricerca DEDICATA
+  sopra i campi (non autocomplete sul campo Indirizzo), scrive nei tre input
+  uncontrolled via DOM. Nota di provenienza di sola sessione; se la scelta cambia
+  una città/provincia già diversa, lo dice. Stili in `globals.css` (`.ricerca-indirizzo`,
+  focus oro, righe ≥44px).
+- **Cablato nei 4 form**: nuovo, modifica, AggiungiSede (ids `sede-*`), FormValet.
+- **Manuale** aggiornato (`docs/manuale-funzionalita.html`).
+
+**Deciso dal custode `architetto-ux`** (pattern nuovo). ⚠️ **DA PORTARE NEL LIBRO
+UX&UI**: voce §4-bis «Campi con suggerimenti (combobox) e autocomplete indirizzi»,
+v1.11 — il testo completo è nel verdetto dell'architetto. Il 28/08 il
+`deluxy-design-system/` NON è stato toccato perché **un'altra sessione ci lavorava**;
+le due copie del Libro vanno allineate insieme.
+
+**RESTA (prerequisito utente)**: mettere `GOOGLE_GEOCODING_KEY` (la stessa di Scout)
+nell'env di anagrafiche — `npx vercel env add GOOGLE_GEOCODING_KEY production` e nel
+`.env` locale. Finché manca, la barra dice «Completamento Maps non attivo» e il form
+si compila a mano. **Verifica a schermo del click completo NON fatta**: manca la
+chiave (dell'utente) e il dev server locale era occupato da un'altra sessione;
+verificati build, typecheck, proxy, cablaggio.
+
+**Da valutare a parte (schema condiviso)**: salvare `place_id`/lat/lng/CAP —
+colonne nuove sul Postgres condiviso, vanno concordate (Standard §7), non servono
+al riempimento testuale.

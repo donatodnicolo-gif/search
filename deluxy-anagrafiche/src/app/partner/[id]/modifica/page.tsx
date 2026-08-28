@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { RubricaNelModulo } from "@/components/RubricaNelModulo";
 import { Sidebar } from "@/components/Sidebar";
+import { RicercaIndirizzo } from "@/components/RicercaIndirizzo";
 import { TornaIndietro } from "@/components/TornaIndietro";
 import { CATEGORIE, isCategoria } from "@/lib/categorie";
 import { aggiornaPartner } from "@/lib/azioni";
@@ -124,6 +125,7 @@ export default async function Modifica({
                 </select>
               </Campo>
               <Campo etichetta="Ragione sociale" nome="ragioneSociale" valore={p.ragioneSociale} />
+              <RicercaIndirizzo />
               <Campo etichetta="Città" nome="citta" valore={p.citta} />
               <Campo etichetta="Provincia" nome="provincia" valore={p.provincia} />
               <Campo etichetta="Regione" nome="regione" valore={p.regione} />
