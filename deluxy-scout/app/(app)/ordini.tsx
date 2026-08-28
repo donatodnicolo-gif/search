@@ -1213,7 +1213,7 @@ export default function Ordini() {
   function duplica(o: OrdineConLuogo) {
     conferma(
       "Duplicare l'ordine?",
-      `${o.riferimento ?? o.cliente}: nasce una copia in BOZZA con cliente, valore e linea. Non si copiano numero, documenti, fornitura ed evasione — la copia si completa e si chiude come un ordine nuovo.`,
+      `${o.riferimento ?? o.cliente}: nasce una copia in BOZZA con cliente, valore, linea e FORNITURA (fornitori e prezzi compresi). Non si copiano numero, documenti ed evasione — la copia si chiude come un ordine nuovo.`,
       async () => {
         setInCorso(o.id);
         try {

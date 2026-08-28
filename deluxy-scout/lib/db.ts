@@ -1621,8 +1621,16 @@ export async function creaOrdineDaDeal(deal: {
  *    significherebbe due ordini che dicono di essere la stessa vendita;
  *  - documenti (pro-forma, fatture): appartengono all'originale, anche se
  *    annullato — la copia chiede i suoi;
- *  - fornitura ed evasione: vanno rifatte sulla copia, e la chiusura le
- *    pretende comunque.
+ *  - evasione: la consegna si richiede per la copia, con le sue date.
+ *
+ * ⭐ LA FORNITURA SI COPIA (28/08/2026, correzione dell'utente: «nella
+ * duplicazione non ha preso i dati dei fornitori invece deve farlo»).
+ * Si copiano i lavori che l'originale vede come suoi — agganciati all'ordine,
+ * alla sua trattativa o alla sua richiesta: le stesse TRE strade con cui
+ * `costiPerOrdine` gli attribuisce il costo — e ogni lavoro copiato nasce
+ * agganciato ALLA COPIA con i suoi preventivi (stati compresi: lo «scelto»
+ * resta scelto). Senza, la copia nasceva senza costo e senza margine, e non si
+ * poteva chiudere prima di ribattere a mano una fornitura già scritta.
  */
 export async function duplicaOrdine(o: Ordine): Promise<{ id: string }> {
   const { data: u } = await supabase.auth.getUser();
@@ -1650,7 +1658,63 @@ export async function duplicaOrdine(o: Ordine): Promise<{ id: string }> {
     .select('id')
     .single();
   if (error) throw error;
-  return { id: data.id as string };
+  const nuovoId = data.id as string;
+
+  // ── La fornitura dell'originale, dalle tre strade del costo ────────────
+  const condizioni = [
+    `ordine_id.eq.${o.id}`,
+    ...(o.deal_id ? [`deal_id.eq.${o.deal_id}`] : []),
+    ...(o.richiesta_id ? [`richiesta_id.eq.${o.richiesta_id}`] : []),
+  ].join(',');
+  const { data: lavori, error: eLav } = await supabase
+    .from('lavori')
+    .select('*, preventivi(*)')
+    .or(condizioni);
+  if (eLav) {
+    // ⚠️ La copia ESISTE già: si dice cosa manca invece di fingere un
+    // fallimento totale — e chi legge sa che la fornitura va rifatta a mano.
+    throw new Error(`Ordine duplicato, ma la fornitura non si è potuta leggere: ${eLav.message}`);
+  }
+  for (const l of lavori ?? []) {
+    const { data: lavoroNuovo, error: eIns } = await supabase
+      .from('lavori')
+      .insert({
+        titolo: l.titolo,
+        descrizione: l.descrizione ?? null,
+        place_id: l.place_id ?? null,
+        linea: l.linea ?? null,
+        serve_entro: l.serve_entro ?? null,
+        stato: l.stato ?? 'aperto',
+        note: l.note ?? null,
+        // La copia appartiene SOLO all'ordine nuovo: portarsi dietro anche il
+        // legame con la trattativa farebbe contare il costo due volte là.
+        ordine_id: nuovoId,
+      })
+      .select('id')
+      .single();
+    if (eIns) throw new Error(`Ordine duplicato, ma una fornitura non si è copiata: ${eIns.message}`);
+    for (const p of (l as any).preventivi ?? []) {
+      const { error: ePrev } = await supabase.from('preventivi').insert({
+        lavoro_id: lavoroNuovo.id as string,
+        fornitore: p.fornitore,
+        fornitore_place_id: p.fornitore_place_id ?? null,
+        fornitore_anagrafiche_id: p.fornitore_anagrafiche_id ?? null,
+        fornitore_email: p.fornitore_email ?? null,
+        importo: p.importo ?? null,
+        prezzo_unitario: p.prezzo_unitario ?? null,
+        quantita: p.quantita ?? null,
+        unita: p.unita ?? null,
+        tempi: p.tempi ?? null,
+        note: p.note ?? null,
+        // Lo stato viaggia con la copia: lo «scelto» resta la fornitura vera.
+        stato: p.stato ?? 'richiesto',
+        origine: 'duplicazione',
+      });
+      if (ePrev) throw new Error(`Ordine duplicato, ma un preventivo non si è copiato: ${ePrev.message}`);
+    }
+  }
+
+  return { id: nuovoId };
 }
 
 /**
