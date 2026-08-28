@@ -3,6 +3,35 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
+> 💸 **28/08/2026 — I COMPENSI VALET DIVENTANO RICHIESTE A DELUXY TRANSACTIONS
+> (collettore unico dei pagamenti, decisione utente + giuria a tre lenti).**
+> Nuovo modulo `api/src/transactions/transactions.module.ts`:
+> - `POST /api/v1/salaries/:id/richiedi-pagamento` (**@Roles(ADMIN) esplicito**
+>   — il RolesGuard è allow-by-default): uno stipendio **APPROVED** (ricevuta
+>   firmata) parte come richiesta firmata HMAC verso Transactions
+>   (`riferimentoEsterno=salary-<id>`, idempotente; importo = `netAmount`;
+>   **IBAN letto server-side da `Valet.iban` e verificato mod-97** — se manca o
+>   è rotto si dice e non parte niente; categoria `valet`). Specchio su Salary:
+>   `richiestaRif/richiestaStato/richiestaIl/richiestaEsito` (NON verità:
+>   il pull di recupero è `GET /api/v1/richieste?aggiornateDa=` lato Transactions).
+> - `POST /api/v1/payments/:id/richiedi-pagamento`: idem per rimborsi/reclami
+>   APPROVED (`payment-<id>`).
+> - `POST /api/v1/transactions/esito` (`@Public` + **HMAC fail-closed sul corpo
+>   GREZZO** — `rawBody: true` acceso in main.ts e vercel.ts): su `pagata`
+>   scrive **PAID in transazione atomica e idempotente** (`updateMany` con
+>   filtro `status != PAID` + `Payment` storico creato SOLO se `count === 1` —
+>   chiuso il buco del doppio `Payment` di `updateStatus`, giuria 28/08).
+> - Config: `transactionsUrl/ApiKey/HmacSecret` in AppSetting (env in
+>   precedenza). Chiave emessa in Transactions (`deluxy-platform`, tetti
+>   10k/50k, urlNotifica sul webhook qui sopra); env installate sul progetto
+>   Vercel `delivery` il 28/08.
+> - UI Stipendi: bottone **«Richiedi pagamento»** (solo ADMIN, solo APPROVED,
+>   ripetibile se là è annullata/rifiutata) + riferimento TRX ed esito sulla
+>   riga. Il bottone manuale «Segna pagato» resta per i pagamenti fuori canale.
+> ⚠️ Restano: il pull di recupero `?aggiornateDa=` in un cron qui (oggi
+> l'esito arriva solo dal webhook, che Transactions ritenta 3 volte);
+> estendere il giro ai `Payment` in UI (il bottone c'è solo via API).
+
 > ✅ **27/08/2026 — SMISTAMENTO AUTOMATICO ACCESO (proposte a partner VERI).**
 > Su decisione dell'utente il cron `*/15 * * * *` → `/api/v1/cron/smistamento`
 > (`OrdersSyncService.sincronizza({applica:true})`, finestra 3 giorni,
@@ -72,7 +101,7 @@
 
 **📕 MANUALE DI FUNZIONALITÀ (28/08/2026, deciso dall'utente): [`docs/guida-visiva.html`](guida-visiva.html) → artifact https://claude.ai/code/artifact/17c9fcad-6a0e-4da7-982f-fb546431d1d1** — la guida visiva per chi arriva nuovo. ⚠️ **Ogni funzionalità aggiunta o modificata va scritta lì, nello stesso commit, e ripubblicata allo STESSO indirizzo** (`Artifact` con lo stesso `file_path`, o con `url` da un'altra sessione: un indirizzo nuovo lascia in mano all'utente un link che invecchia). NON sostituisce `COME-FUNZIONA-APP-DELUXY.md`: quello è il riferimento campo per campo, la guida è l'orientamento. Regola in [REGOLE-DI-LAVORO.md §0-bis](REGOLE-DI-LAVORO.md).
 
-**Ultimo aggiornamento:** 28 agosto 2026 — 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + «Incasso del partner» nel dettaglio consegna; ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 28 agosto 2026 — 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
 
@@ -106,6 +135,39 @@ Se si decide di correggere, la strada pulita è `payable = false` **sulla riga d
 vendita** delle coppie (non un filtro nel calcolo: un flag si vede in scheda, un
 filtro nascosto no).
 
+#### ✅ FATTO — il conto della vendita, che vede ANCHE IL PARTNER
+
+**Deciso dall'utente** (28/08, dopo che gliel'avevo posta come domanda aperta):
+*«per i servizi vendita il partner deve vedere il proprio incasso, nostra
+commissione e totale a lui dovuto (dovuto − (nostra fee + IVA))»*.
+
+Riquadro nuovo nel dettaglio consegna, **fuori** dal blocco costi nascosto ai
+partner. Consegna #62455:
+
+| | |
+|---|---:|
+| Il tuo incasso (valore merce) | 44,63 € |
+| Commissione Deluxy (8,93 + IVA 1,96) | −10,89 € |
+| **Totale a te dovuto** | **33,74 €** |
+
+- Il conto lo fa il **server**: `DeliveriesService.economiaVendita()`.
+- ⭐ **L'aliquota IVA è stata spostata in `api/src/common/iva.ts`** (era dentro
+  `invoices.module.ts`): ora la leggono sia la fatturazione sia il dettaglio
+  consegna. Calcolarla nel frontend avrebbe scritto il 22% in un secondo posto.
+- ⚠️ **La Fatturazione mostra 35,70 € sulla stessa consegna, ed è giusto**:
+  quello è il dovuto **prima** dell'IVA sulla nostra commissione. Sono due
+  numeri diversi, non un disaccordo — la scheda lo **scrive sotto al conto**,
+  perché due importi diversi senza spiegazione fanno dubitare di entrambi.
+- Al **valet** il campo **non arriva** (`economiaVendita` è fra i
+  `SOLDI_DEL_PARTNER`): assente dalla risposta, non nascosto in pagina.
+
+**Prove: 8 su 8** (`api/scripts/prova-conto-vendita.mjs`, server locale sul
+database vero): admin vede il conto e i numeri sono quelli attesi al centesimo;
+**il partner della consegna lo vede** (`info.maliamilano@gmail.com`) e continua a
+**non** vedere la paga del valet; **un altro partner non vede nemmeno la
+consegna** (404); **il valet non riceve il campo** né il prezzo del partner; su
+una consegna non di vendita il conto **non c'è**.
+
 #### ✅ FATTO — «Prezzo» su una vendita non è quello che prende il partner
 
 Su una VENDITA il campo `price` è **la quota che tratteniamo NOI**. Con
@@ -124,10 +186,6 @@ come «non prende niente».
 ⚠️ **Backtick nel template, quarta volta**: i commenti che avevo scritto dentro
 il `template` contenevano `price` e `dovutoAlPartner` fra backtick, e il
 literal si chiudeva lì. Nei commenti del template si scrive **senza backtick**.
-
-⬜ **Aperto**: il **partner** non vede questo blocco (tutto il riquadro costi è
-nascosto ai partner). Il suo incasso è suo — se debba vederlo è una decisione
-dell'utente.
 
 Build di produzione pulita, deploy `delivery-ny1jh4je2`, etichette verificate
 live su `/i18n/it.json`.

@@ -1825,7 +1825,14 @@
     "sign": "Firma di chi ha ricevuto",
     "fileOnLegacy": "File sul sistema originario: non raggiungibile da qui.",
     "quotaDeluxy": "Quota Deluxy",
-    "partnerIncome": "Incasso del partner"
+    "saleAccount": {
+      "title": "Il conto di questa vendita",
+      "income": "Il tuo incasso",
+      "commission": "Commissione Deluxy",
+      "vat": "IVA",
+      "due": "Totale a te dovuto",
+      "note": "Prima dell’IVA sulla commissione il dovuto è {{lordo}} €: è il numero che compare in Fatturazione."
+    }
   },
   "confirmDelivery": {
     "title": "Conferma consegna #{{code}}",

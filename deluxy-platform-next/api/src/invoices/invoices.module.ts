@@ -21,6 +21,7 @@ import type { Response as RispostaHttp } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { InvoiceStatus, Role } from '../common/enums';
+import { IVA, conIva } from '../common/iva';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
 
@@ -234,10 +235,9 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
  */
 export const SOGLIA_ARRETRATO = new Date('2026-07-01T00:00:00.000Z');
 
-/** Aliquota IVA e conversione imponibile → totale: una regola sola per tutti. */
-
-const IVA = 22;
-const conIva = (n: number) => Math.round(n * (1 + IVA / 100) * 100) / 100;
+// L'aliquota e la conversione vivono in `common/iva.ts`: dal 28/08 le legge
+// anche il dettaglio consegna, e due copie della stessa aliquota sono il modo
+// in cui due schermate iniziano a dire due numeri diversi.
 
 /**
  * «id1,id2,id3» da una query → ['id1','id2','id3'].

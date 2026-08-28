@@ -1825,7 +1825,14 @@
     "sign": "Recipient signature",
     "fileOnLegacy": "File on the original system: not reachable from here.",
     "quotaDeluxy": "Deluxy’s cut",
-    "partnerIncome": "Partner’s income"
+    "saleAccount": {
+      "title": "This sale, in figures",
+      "income": "Your income",
+      "commission": "Deluxy commission",
+      "vat": "VAT",
+      "due": "Total owed to you",
+      "note": "Before VAT on the commission the amount owed is {{lordo}} € — that is the figure shown in Billing."
+    }
   },
   "confirmDelivery": {
     "title": "Confirm delivery #{{code}}",

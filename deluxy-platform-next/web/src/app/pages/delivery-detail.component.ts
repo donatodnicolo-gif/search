@@ -63,6 +63,15 @@ interface DeliveryDetail {
   price?: number;
   additionalPrice?: number;
   productValue?: number;
+  /** Il conto di una vendita: lo calcola il SERVER, coi suoi centesimi. */
+  economiaVendita?: {
+    incasso: number;
+    commissione: number;
+    ivaCommissione: number;
+    commissioneConIva: number;
+    dovutoLordo: number;
+    dovutoNetto: number;
+  } | null;
   deliveryPrice?: number;
   valetSalary?: number;
   valetAdditionalPrice?: number;
@@ -148,7 +157,8 @@ interface DeliveryDetail {
             @if (d.distanceKm != null) {
               <dt>{{ 'deliveryDetail.distance' | translate }}</dt><dd>{{ d.distanceKm }} km</dd>
             }
-            <!-- Costi: nascosti al partner -->
+            <!-- Costi nostri: nascosti al partner. Il conto della VENDITA
+                 invece e' suo, e sta nel riquadro qui sotto. -->
             @if (!isPartner()) {
               <!-- ⚠️ In una VENDITA il campo «price» NON e' il prezzo: e' la QUOTA CHE
                    TRATTIENE DELUXY sul venduto. Chiamarlo «Prezzo» accanto al
@@ -165,19 +175,52 @@ interface DeliveryDetail {
                    ⚠️ Niente «Prezzo consegna» qui (l'utente, 26/08): quello che
                    il cliente paga per la consegna vive nei MARGINI, non qui. -->
               <dt>{{ 'deliveryDetail.productValue' | translate }}</dt><dd>{{ d.productValue != null ? d.productValue + ' €' : '—' }}</dd>
-              <!-- Su una vendita il denaro va nell'altro verso: incassiamo dal
-                   cliente e DOBBIAMO il resto al partner. E' la stessa formula
-                   della Fatturazione (dovutoAlPartner), non una seconda
-                   versione: valore della merce meno la nostra quota. -->
-              @if (incassoPartner(d); as incasso) {
-                <dt>{{ 'deliveryDetail.partnerIncome' | translate }}</dt>
-                <dd class="incasso">{{ incasso.toFixed(2) }} €</dd>
-              }
+
               <dt>{{ 'deliveryDetail.valetSalary' | translate }}</dt><dd>{{ d.valetSalary != null ? d.valetSalary + ' €' : '—' }}</dd>
               <dt>{{ 'deliveryDetail.valetAdditionalPrice' | translate }}</dt><dd>{{ d.valetAdditionalPrice != null ? d.valetAdditionalPrice + ' €' : '—' }}</dd>
             }
           </dl>
         </section>
+
+        <!-- IL CONTO DELLA VENDITA — deciso dall'utente il 28/08/2026:
+             «per i servizi vendita il partner deve vedere il proprio incasso,
+             nostra commissione e totale a lui dovuto».
+
+             ⚠️ Sta FUORI dal riquadro dei costi, che ai partner e' nascosto:
+             quei soldi sono i suoi, e nasconderglieli lo obbligava a chiedere
+             a noi quanto prende. Al VALET non arriva: il server non manda
+             nemmeno il campo (economiaVendita e' fra i SOLDI_DEL_PARTNER).
+
+             ⚠️ I numeri li fa il SERVER. L'aliquota IVA vive in un posto solo
+             (api/src/common/iva.ts) e la legge anche la Fatturazione: farla
+             qui vorrebbe dire scriverla in due punti. -->
+        @if (d.economiaVendita; as v) {
+          <section class="card block conto-vendita">
+            <h2>{{ 'deliveryDetail.saleAccount.title' | translate }}</h2>
+            <dl>
+              <dt>{{ 'deliveryDetail.saleAccount.income' | translate }}</dt>
+              <dd>{{ v.incasso.toFixed(2) }} €</dd>
+
+              <dt>{{ 'deliveryDetail.saleAccount.commission' | translate }}</dt>
+              <dd>
+                −{{ v.commissioneConIva.toFixed(2) }} €
+                <span class="scomposto">
+                  {{ v.commissione.toFixed(2) }} € + {{ 'deliveryDetail.saleAccount.vat' | translate }} {{ v.ivaCommissione.toFixed(2) }} €
+                </span>
+              </dd>
+
+              <dt class="forte">{{ 'deliveryDetail.saleAccount.due' | translate }}</dt>
+              <dd class="forte">{{ v.dovutoNetto.toFixed(2) }} €</dd>
+            </dl>
+            <!-- ⚠️ La Fatturazione mostra il DOVUTO LORDO (valore − quota), che
+                 e' un altro numero: sopra c'e' ancora l'IVA della nostra
+                 commissione. Se non si dicesse, le due schermate sembrerebbero
+                 in disaccordo sullo stesso importo. -->
+            <p class="nota-conto">
+              {{ 'deliveryDetail.saleAccount.note' | translate: { lordo: v.dovutoLordo.toFixed(2) } }}
+            </p>
+          </section>
+        }
 
         <!-- Destinatario e mittente -->
         <section class="card block">
@@ -435,6 +478,11 @@ interface DeliveryDetail {
       /* L'unico numero del blocco che descrive denaro che ESCE da noi: si
          stacca, se no si legge come un costo in piu' del partner. */
       dd.incasso { color: var(--blue); font-weight: 600; }
+      /* Il conto della vendita: la riga che conta si stacca, le altre no. */
+      .conto-vendita dt.forte, .conto-vendita dd.forte { font-weight: 650; color: var(--text); }
+      .conto-vendita dd.forte { font-size: 15.5px; }
+      .conto-vendita .scomposto { display: block; color: var(--text-tertiary); font-size: 12px; }
+      .nota-conto { margin: 12px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
       .mt { margin-top: 14px; }
       .muted { color: var(--text-tertiary); font-size: 13.5px; margin: 0; }
       .tag { margin-left: 6px; font-size: 11px; background: rgba(0,113,227,0.1); color: var(--blue); border-radius: 980px; padding: 2px 8px; }
@@ -549,22 +597,6 @@ export class DeliveryDetailComponent {
   /** Una vendita: il caso in cui `price` e' la NOSTRA quota, non il prezzo. */
   venditaAlPartner(d: { serviceType?: { pricingModel?: string } | null }): boolean {
     return d.serviceType?.pricingModel === 'VENDITA';
-  }
-
-  /**
-   * Quanto incassa il PARTNER su una vendita: valore della merce meno la
-   * quota che tratteniamo noi. È la stessa formula della Fatturazione
-   * (`dovutoAlPartner` in `invoices.module.ts`), non una seconda versione.
-   *
-   * ⚠️ Torna null — e la riga non compare — quando manca uno dei due numeri:
-   * al valet il denaro del partner non arriva proprio, e uno «0 €» al posto
-   * di un dato assente si legge come «non prende niente».
-   */
-  incassoPartner(d: { serviceType?: { pricingModel?: string } | null; price?: number; productValue?: number }): number | null {
-    if (!this.venditaAlPartner(d)) return null;
-    if (d.productValue == null || d.price == null) return null;
-    const resto = Math.round((d.productValue - d.price) * 100) / 100;
-    return resto > 0 ? resto : null;
   }
 
   prezzoRiga(p: DeliveryProductRow): number | null {

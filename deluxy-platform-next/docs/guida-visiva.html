@@ -836,17 +836,40 @@
           </table>
         </div>
 
-        <div class="avviso" style="margin-top:18px">
-          <h3>Su una vendita, «Prezzo» non è quello che prende il partner</h3>
+        <h3 style="margin-top:30px; font-size:19px">Il conto di una vendita, come lo vede il partner</h3>
+        <p style="margin-top:6px">
+          Sulle consegne di tipo <b>Vendita</b> il campo del prezzo è <b>la quota che
+          tratteniamo noi</b>, non l'incasso del fornitore: per questo la scheda adesso lo
+          chiama «<b>Quota Deluxy</b>». E sotto c'è il conto per esteso, che <b>vede anche
+          il partner</b> — sono soldi suoi, e prima doveva chiedere a noi quanto prendeva.
+        </p>
+
+        <div class="avvolgi" style="margin-top:14px">
+          <table>
+            <thead><tr><th>La consegna #62455</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>Il tuo incasso <span style="color:var(--text-3)">— il valore della merce</span></td><td class="num">44,63&nbsp;€</td></tr>
+              <tr><td>Commissione Deluxy <span style="color:var(--text-3)">— 8,93 € + IVA 1,96 €</span></td><td class="num">−10,89&nbsp;€</td></tr>
+              <tr><td><b>Totale a te dovuto</b></td><td class="num"><b>33,74&nbsp;€</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="avviso calmo" style="margin-top:14px">
+          <h3>Perché la Fatturazione dice 35,70 e qui c'è scritto 33,74</h3>
           <p>
-            Sulle consegne di tipo <b>Vendita</b> il campo del prezzo è <b>la quota che
-            tratteniamo noi</b>, non l'incasso del fornitore. Su una merce da 44,63 € con
-            fee al 20% quel campo dice <b>8,93</b>, ma al partner ne dobbiamo <b>35,70</b>.
-            Per questo la scheda della consegna adesso scrive «<b>Quota Deluxy</b>» al posto
-            di «Prezzo», e aggiunge la riga «<b>Incasso del partner</b>». Al valet quella
-            riga non compare: i soldi del partner non gli arrivano nemmeno dal server.
+            Sono due numeri diversi, non un disaccordo. La Fatturazione mostra il dovuto
+            <b>prima dell'IVA sulla nostra commissione</b> (44,63 − 8,93 = 35,70); qui c'è
+            quello che il partner incassa davvero, commissione <b>e sua IVA</b> già tolte.
+            La scheda lo scrive sotto al conto, perché due schermate che mostrano importi
+            diversi senza dire perché fanno dubitare di entrambe.
           </p>
         </div>
+
+        <p style="margin-top:14px">
+          Al <b>valet</b> quel conto non arriva: non è nascosto in pagina, il server non
+          manda proprio il campo. Un altro partner non vede nemmeno la consegna.
+        </p>
 
         <div class="avviso" style="margin-top:10px">
           <h3>Vendita e consegna vanno in direzioni opposte</h3>

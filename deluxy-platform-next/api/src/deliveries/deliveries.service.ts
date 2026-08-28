@@ -26,6 +26,7 @@ import {
 } from '../common/list-query';
 import { ambitoTeamLeader, filtroDaAmbito } from '../common/team-leader';
 import { DeliveryListQueryDto } from './dto/delivery-list-query.dto';
+import { conIva, soloIva } from '../common/iva';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.module';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
@@ -518,7 +519,58 @@ export class DeliveriesService {
       evento: l.type === 'legacy_update' ? eventoDelLog(l.createdAt) : null,
     }));
 
-    return this.soloIMieiSoldi(this.hideInternalNotes({ ...delivery, logs }, user), user);
+    return this.soloIMieiSoldi(
+      this.hideInternalNotes({ ...delivery, logs, economiaVendita: this.economiaVendita(delivery) }, user),
+      user,
+    );
+  }
+
+  /**
+   * IL CONTO DI UNA VENDITA VISTO DAL PARTNER (28/08/2026, deciso dall'utente:
+   * «per i servizi vendita il partner deve vedere il proprio incasso, nostra
+   * commissione e totale a lui dovuto»).
+   *
+   * ⚠️ Su una vendita `price` NON è quello che prende il partner: è la QUOTA
+   * CHE TRATTENIAMO NOI. Il partner incassa il valore della merce, noi gli
+   * fatturiamo la commissione più IVA, e quello che gli resta è la differenza.
+   *
+   * ⚠️ Il conto lo fa il SERVER, non la pagina: l'aliquota vive in
+   * `common/iva.ts` e la legge anche la fatturazione. Calcolarla nel frontend
+   * vorrebbe dire scrivere il 22% in un secondo posto, e il giorno che cambia
+   * due schermate direbbero due numeri diversi.
+   *
+   * ⚠️ `dovutoLordo` è lo stesso numero che la Fatturazione chiama
+   * `dovutoAlPartner` (valore − quota): si tiene, ma NON è quello che il
+   * partner incassa davvero — sopra c'è ancora l'IVA della nostra commissione.
+   * Mostrarli senza distinguerli è il modo per far litigare due schermate.
+   */
+  private economiaVendita(d: {
+    price?: number | null;
+    productValue?: number | null;
+    serviceType?: { pricingModel?: string | null } | null;
+  }): {
+    incasso: number;
+    commissione: number;
+    ivaCommissione: number;
+    commissioneConIva: number;
+    dovutoLordo: number;
+    dovutoNetto: number;
+  } | null {
+    if (d.serviceType?.pricingModel !== 'VENDITA') return null;
+    const valore = d.productValue;
+    const quota = d.price;
+    // Senza uno dei due il conto non si fa: un ripiego a zero direbbe al
+    // partner che non prende niente, che è peggio di non dire niente.
+    if (valore == null || quota == null) return null;
+    const q2 = (n: number) => Math.round(n * 100) / 100;
+    return {
+      incasso: q2(valore),
+      commissione: q2(quota),
+      ivaCommissione: soloIva(quota),
+      commissioneConIva: conIva(quota),
+      dovutoLordo: q2(valore - quota),
+      dovutoNetto: q2(valore - conIva(quota)),
+    };
   }
 
 
@@ -1237,6 +1289,8 @@ export class DeliveriesService {
     'extraOutOfCity',
     'billable',
     'invoiced',
+    // Il conto della vendita e' fra noi e il partner: al valet non riguarda.
+    'economiaVendita',
   ] as const;
 
   /**
