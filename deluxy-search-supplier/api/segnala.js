@@ -63,6 +63,12 @@ export default async function handler(req, res) {
       idEsterno: body.idEsterno ? String(body.idEsterno) : undefined,
       asOf: quando || undefined,
       ultimaVisita: quando || undefined,
+      // Rapporto di FORNITURA: nasce «da provare» (lo scrive la ricerca fornitori —
+      // è la dimensione che il registro si aspetta da noi, `statoFornitore`). Il ciclo
+      // è segnalato → da_provare → abituale: sarà il Customer Service, dopo un pagamento,
+      // a promuoverlo ad «abituale». `da_evitare` è una bocciatura del team che il registro
+      // non lascia ribaltare da qui (regola di merge del registro).
+      statoFornitore: 'da_provare',
     };
 
     const cr = await fetch(base + '/api/v1/partners', {

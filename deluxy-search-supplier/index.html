@@ -2074,7 +2074,10 @@ function attivaAutocompleteIndirizzo(){
     if(!p || !p.geometry || !p.geometry.location) return;
     if(p.formatted_address) inp.value = p.formatted_address;
     addrAutoGeo = { text: inp.value.trim(), geo: geoDaResult(p) };
-    run();
+    localStorage.setItem('addr', inp.value.trim());
+    // NON lanciare la ricerca da solo: scegliere un indirizzo prepara solo la
+    // geocodifica (riusata da run()), la ricerca parte quando l'operatore preme
+    // «Cerca in zona». (Chiesto dall'utente: niente ricerche automatiche a sorpresa.)
   });
 }
 // col menu dei suggerimenti aperto, Enter sceglie il suggerimento: non deve lanciare run()
