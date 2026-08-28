@@ -166,7 +166,11 @@ export default function TaskScreen() {
       ordineIniziale={{ campo: 'scadenza', verso: 'asc' }}
       onRiga={(t) => setModal(t)}
       labelRiga={(t) => `Modifica «${t.titolo}»`}
-    />
+    
+            totali={(righe) => ({
+              titolo: `Totale · ${righe.length} ${righe.length === 1 ? 'task' : 'task'}`,
+            })}
+          />
   );
 
   return (

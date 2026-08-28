@@ -231,6 +231,45 @@ export function TabellaTrattative({
           </Pressable>
         );
       })}
+
+      {/* ⭐ I TOTALI IN FONDO (27/08/2026, richiesta dell'utente: «in tutte le
+          tabelle dell'app assicurati ci siano i totali alla fine»).
+
+          ⚠️ Stessa griglia delle righe — stessi stili di colonna, stesso spazio
+          finale per le azioni — o i numeri finiscono sotto la colonna sbagliata,
+          che è il modo più veloce di far leggere un valore per un altro.
+
+          ⚠️ Somma le righe MOSTRATE, non tutte: un totale che comprende anche
+          ciò che il filtro ha tolto direbbe un numero che non corrisponde a
+          niente di visibile. E si dice su quante righe è fatto. */}
+      {ordinate.length ? (
+        <View style={[styles.riga, styles.rigaTotali]}>
+          <Text style={[styles.cellaTotale, styles.colNegozio]} numberOfLines={1}>
+            Totale · {ordinate.length} {ordinate.length === 1 ? 'trattativa' : 'trattative'}
+          </Text>
+          <View style={styles.colLinea} />
+          <View style={styles.colTag} />
+          <View style={styles.colFase} />
+          <Text style={[styles.cellaTotale, styles.colDx, { textAlign: 'right' }]} numberOfLines={1}>
+            {(() => {
+              const somma = ordinate.reduce((t, d) => t + (d.valore_atteso ?? 0), 0);
+              const senza = ordinate.filter((d) => d.valore_atteso == null).length;
+              // ⚠️ Chi non ha un valore si DICHIARA: sommare zero al posto di
+              // «non lo so» fa un totale più basso del vero e nessuno lo sa.
+              return somma ? `€ ${somma.toLocaleString('it-IT')}` : '—';
+            })()}
+          </Text>
+          <View style={styles.colData} />
+          <View style={styles.colData} />
+          <Text style={[styles.cellaTotaleNota, styles.colAzione]} numberOfLines={1}>
+            {(() => {
+              const senza = ordinate.filter((d) => d.valore_atteso == null).length;
+              return senza ? `${senza} senza valore` : '';
+            })()}
+          </Text>
+          <View style={styles.colAzioni} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -290,6 +329,16 @@ const styles = StyleSheet.create({
   // ⚠️ Il bersaglio è il PADDING, non hitSlop: react-native-web lo scarta in
   // silenzio, quindi sul sito queste icone erano bersagli da 15px.
   iconaAzione: { padding: 8, borderRadius: radius.s },
+  // La riga dei totali: chiusa da una linea più marcata e senza bordo sotto,
+  // così si legge come la fine dell'elenco e non come un'altra riga.
+  rigaTotali: {
+    backgroundColor: colors.sfondo,
+    borderBottomWidth: 0,
+    borderTopWidth: 1,
+    borderTopColor: colors.grigioChiaro,
+  },
+  cellaTotale: { color: colors.testo, fontWeight: '800', fontSize: 13, fontVariant: ['tabular-nums'] },
+  cellaTotaleNota: { color: colors.grigio, fontSize: 12 },
   colAzioni: { width: 84, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   cellaScaduta: { color: colors.errore, fontWeight: '700' },
 });

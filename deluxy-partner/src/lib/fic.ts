@@ -30,8 +30,20 @@ export const FIC_REDIRECT_URI = "https://deluxy-partner.vercel.app";
 // che aveva al momento del consenso. Finché non si rifà il collegamento
 // (Impostazioni → Fatture in Cloud → ricollega), `ficNoteCredito` continua a
 // prendere 403 — e lo dice con parole sue invece di sembrare «zero note».
+// ⚠️ LE RICEVUTE VANNO NELLO SCOPE, o non esistono (27/08/2026, richiesta
+// dell'utente: «metti come opzione RICEVUTA invece che fattura»).
+//
+// È la STESSA trappola delle note di credito, misurata due giorni fa: senza il
+// permesso, `type=receipt` risponde 403 NO_PERMISSION — e un dato che
+// l'integrazione non ha il permesso di vedere non risulta mancante, risulta
+// inesistente. Chi cerca una ricevuta leggerebbe «non c'è» e ne emetterebbe
+// una seconda.
+//
+// ⚠️ Aggiungere lo scope NON BASTA: il token già emesso porta i permessi di
+// quando è stato creato. Serve rifare il collegamento a Fatture in Cloud da
+// Impostazioni, altrimenti qui cambia una stringa e non cambia niente.
 export const FIC_SCOPES =
-  "entity.clients:a issued_documents.invoices:a issued_documents.credit_notes:r";
+  "entity.clients:a issued_documents.invoices:a issued_documents.credit_notes:r issued_documents.receipts:r";
 
 async function leggi(chiavi: string[]): Promise<Record<string, string>> {
   const righe = await prisma.impostazione.findMany({ where: { chiave: { in: chiavi } } });
@@ -260,6 +272,10 @@ export async function ficFatture(opts?: {
   anno?: number;
   q?: string;
   maxPagine?: number;
+  /** Che documento: fattura (default) o ricevuta. ⚠️ La ricevuta richiede lo
+   *  scope `issued_documents.receipts`: senza, FIC risponde 403 e l'elenco
+   *  torna VUOTO — che si legge come «non c'è», non come «non posso vedere». */
+  tipo?: "invoice" | "receipt";
 }): Promise<FicFattura[]> {
   const { companyId } = await ficStato();
   if (!companyId) throw new Error("Fatture in Cloud non collegato.");
@@ -304,7 +320,7 @@ export async function ficFatture(opts?: {
       }[];
       last_page?: number;
     }>(
-      `/c/${companyId}/issued_documents?type=invoice&fields=${fields}&sort=-date,-number&per_page=50&page=${page}${query}`
+      `/c/${companyId}/issued_documents?type=${opts?.tipo ?? "invoice"}&fields=${fields}&sort=-date,-number&per_page=50&page=${page}${query}`
     );
     for (const d of r.data) {
       const anno = (d.date ?? "").slice(0, 4);

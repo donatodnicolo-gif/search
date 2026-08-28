@@ -115,7 +115,7 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       // strumenti»). Avevo scelto Forniture pensando a chi cerca da dove esce
       // un'intestazione sbagliata; ma non è una cosa che si vende, è
       // configurazione — e si tocca una volta ogni tanto, come le altre qui.
-      { name: 'template-documenti', label: 'Template pro-forma', icon: 'document-text-outline', soloAdmin: true },
+      { name: 'template-documenti', label: 'Template documenti', icon: 'document-text-outline', soloAdmin: true },
       { name: 'rubrica', label: 'Rubrica', icon: 'people-outline' },
       { name: 'script', label: 'Script', icon: 'mail-outline' },
       { name: 'sequenze', label: 'Sequenze', icon: 'git-branch-outline' },
@@ -434,7 +434,7 @@ export default function AppLayout() {
         <Drawer.Screen name="sequenze" options={{ title: 'Sequenze' }} />
         <Drawer.Screen name="preventivi" options={{ title: 'Preventivi fornitori' }} />
         <Drawer.Screen name="forniture" options={{ title: 'Forniture' }} />
-        <Drawer.Screen name="template-documenti" options={{ title: 'Template pro-forma' }} />
+        <Drawer.Screen name="template-documenti" options={{ title: 'Template documenti' }} />
         <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
         <Drawer.Screen name="fornitori" options={{ title: 'Fornitori' }} />
         <Drawer.Screen name="richieste-clienti" options={{ title: 'Richieste Clienti' }} />

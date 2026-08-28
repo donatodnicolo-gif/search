@@ -1273,10 +1273,9 @@ export async function aggiornaDeal(
       | 'chiusa_il'
       // ⭐ CHI LA PORTA AVANTI (27/08/2026, richiesta dell'utente: «manca la
       // possibilità di segnalare chi sta portando avanti la trattativa»).
-      // ⚠️ Non è un'etichetta: la policy `deals_write` ammette
-      // `owner = auth.uid() or owner is null`, quindi passarla a un collega
-      // toglie a te il diritto di modificarla — ed è proprio quello che
-      // «l'ha presa in mano lui» vuol dire.
+      // ⚠️ Passarla a un collega FALLIVA fino alla migr. 0093: la policy
+      // rifiutava la riga nuova perché l'owner non era più il tuo. Il campo
+      // poteva scrivere solo il proprio nome, cioè non serviva a niente.
       | 'owner'
     >
   >,

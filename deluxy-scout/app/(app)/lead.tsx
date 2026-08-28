@@ -498,7 +498,11 @@ export default function LeadWeb() {
                   if (l.messaggio || l.mail_ref || l.mail_id) apriMessaggio(l);
                 }}
                 labelRiga={(l) => `Leggi la richiesta di ${analizzaMessaggioLead(l.nome, l.messaggio).persona || l.nome}`}
-              />
+              
+            totali={(righe) => ({
+              nome: `Totale · ${righe.length} ${righe.length === 1 ? 'richiesta' : 'richieste'}`,
+            })}
+          />
             );
           }
           const lead = item as Lead;

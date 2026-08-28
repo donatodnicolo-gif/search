@@ -208,7 +208,11 @@ export default function Storico() {
                 colonne={colonne}
                 chiaveRiga={(v) => v.id}
                 ordineIniziale={{ campo: 'ora', verso: 'desc' }}
-              />
+              
+            totali={(righe) => ({
+              negozio: `Totale · ${righe.length} ${righe.length === 1 ? 'visita' : 'visite'}`,
+            })}
+          />
             );
           }
           return (

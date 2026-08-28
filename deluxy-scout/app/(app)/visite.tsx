@@ -317,7 +317,11 @@ export default function Visite() {
                   labelRiga={(p) => `Completa la visita da ${p.nome}`}
                   azioni={(p) => azioniPotenziale(p, { bozza: true })}
                   larghezzaAzioni={278}
-                />
+                
+            totali={(righe) => ({
+              negozio: `Totale · ${righe.length} ${righe.length === 1 ? 'visita' : 'visite'}`,
+            })}
+          />
               );
             }
             const visiteRighe = righe as (Riga & { tipo: 'visita' })[];

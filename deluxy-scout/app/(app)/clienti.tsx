@@ -305,7 +305,11 @@ export default function Clienti() {
               labelRiga={(c) => (inScelta ? `Scegli ${c.nome}` : `Apri la scheda di ${c.nome}`)}
               azioni={inScelta ? undefined : azioniDi}
               larghezzaAzioni={230}
-            />
+            
+            totali={(righe) => ({
+              nome: `Totale · ${righe.length} ${righe.length === 1 ? 'cliente' : 'clienti'}`,
+            })}
+          />
           ) : (
             // Stessa scheda dei Prospect: la forma sta in components/CardElenco.tsx.
             <CardElenco

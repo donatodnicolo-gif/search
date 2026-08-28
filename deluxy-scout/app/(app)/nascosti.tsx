@@ -110,6 +110,9 @@ export default function Nascosti() {
               }
               chiaveRiga={(p) => p.id}
               ordineIniziale={{ campo: 'nome', verso: 'asc' }}
+              totali={(righe) => ({
+                nome: `Totale · ${righe.length} ${righe.length === 1 ? 'negozio' : 'negozi'} nascosti`,
+              })}
             />
           ) : (
             (() => {

@@ -26,7 +26,17 @@
 import { supabase } from '@/lib/supabase';
 import { BRAND_DEFAULT } from '@/types';
 
+/** Che documento intesta un template (migr. 0094). ⚠️ Cambia la dicitura di
+ *  legge in calce, non i dati societari: quelli sono gli stessi per tutti. */
+export type TipoTemplate = 'proforma' | 'ricevuta' | 'fattura';
+export const TIPI_TEMPLATE: { v: TipoTemplate; label: string }[] = [
+  { v: 'proforma', label: 'Pro-forma' },
+  { v: 'ricevuta', label: 'Ricevuta' },
+  { v: 'fattura', label: 'Fattura' },
+];
+
 export interface TemplateDocumento {
+  tipo: TipoTemplate;
   id: string;
   nome: string;
   brand: string | null;

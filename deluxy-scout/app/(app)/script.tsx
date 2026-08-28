@@ -164,7 +164,11 @@ export default function Script() {
                 colonne={colonne}
                 chiaveRiga={(s) => s.id}
                 ordineIniziale={{ campo: 'titolo', verso: 'asc' }}
-              />
+              
+            totali={(righe) => ({
+              titolo: `Totale · ${righe.length} ${righe.length === 1 ? 'script' : 'script'}`,
+            })}
+          />
             );
           }
           const s = item as ScriptEmail;

@@ -212,6 +212,8 @@ export async function cercaFatture(q: {
   importo?: number | null;
   numero?: string | null;
   anno?: number | null;
+  /** `invoice` (default) o `receipt`: due elenchi diversi su FIC. */
+  tipo?: 'invoice' | 'receipt';
 }): Promise<{ ok: boolean; fatture: FatturaInElenco[]; errore?: string; nota?: string | null }> {
   try {
     const r = await chiama<{ trovate: number; fatture: FatturaInElenco[]; nota?: string | null }>({
@@ -220,6 +222,7 @@ export async function cercaFatture(q: {
       importo: q.importo ?? undefined,
       numero: q.numero ?? undefined,
       anno: q.anno ?? undefined,
+      tipo: q.tipo ?? undefined,
     });
     return { ok: true, fatture: r?.fatture ?? [], nota: r?.nota ?? null };
   } catch (e: any) {

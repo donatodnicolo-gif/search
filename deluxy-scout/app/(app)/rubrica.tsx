@@ -342,7 +342,11 @@ export default function Rubrica() {
               colonne={colonne}
               chiaveRiga={(c) => c.id}
               ordineIniziale={{ campo: 'nome', verso: 'asc' }}
-            />
+            
+            totali={(righe) => ({
+              nome: `Totale · ${righe.length} ${righe.length === 1 ? 'contatto' : 'contatti'}`,
+            })}
+          />
           ) : (
             <Contatto
               contatto={item as ContattoConLuogo}

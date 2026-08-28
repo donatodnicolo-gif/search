@@ -268,6 +268,10 @@ export default function Forniture() {
             ordineIniziale={{ campo: 'fornitore', verso: 'asc' }}
             onRiga={(f) => setModifica(f)}
             labelRiga={(f) => `Modifica ${f.titolo} di ${f.fornitore}`}
+          
+            totali={(righe) => ({
+              fornitore: `Totale · ${righe.length} ${righe.length === 1 ? 'fornitura' : 'forniture'}`,
+            })}
           />
         ) : (
           dati.map((f) => (

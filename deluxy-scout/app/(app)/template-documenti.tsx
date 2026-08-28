@@ -33,6 +33,8 @@ import { isAdmin } from '@/lib/admin';
 import { BRAND, BRAND_DEFAULT } from '@/types';
 import { leggiDatiAzienda, type DatiAzienda } from '@/lib/db';
 import {
+  TIPI_TEMPLATE,
+  type TipoTemplate,
   eliminaTemplate,
   fetchTemplate,
   rendiPredefinito,
@@ -44,6 +46,14 @@ import {
  * La formula che rende la pro-forma quello che è: un documento che NON è una
  * fattura. ⚠️ Senza, il cliente può registrarla in contabilità e detrarne l'IVA.
  */
+/**
+ * ⚠️ LA DICITURA È DELLA PRO-FORMA, non di ogni documento (27/08/2026).
+ *
+ * Su una RICEVUTA scriverla sarebbe falso: una ricevuta è un documento valido,
+ * non un preavviso. Metterla di default su tutto avrebbe fatto uscire ricevute
+ * che negano se stesse — ed è il tipo di errore che un cliente non segnala, si
+ * limita a non pagare finché non capisce.
+ */
 const DISCLAIMER_STANDARD =
   "Il presente documento non costituisce fattura ai sensi dell'art. 21 del D.P.R. 633/72 e successive " +
   'modifiche e non genera esigibilità di imposta per il prestatore. La fattura definitiva verrà emessa ' +
@@ -54,6 +64,7 @@ const LOGO_MAX_BYTE = 512 * 1024;
 
 type Bozza = {
   nome: string;
+  tipo: TipoTemplate;
   brand: string;
   ragione_sociale: string;
   indirizzo: string;
@@ -75,6 +86,7 @@ type Bozza = {
 
 const VUOTA: Bozza = {
   nome: '',
+  tipo: 'proforma',
   brand: BRAND_DEFAULT,
   ragione_sociale: '',
   indirizzo: '',
@@ -207,6 +219,7 @@ export default function TemplateDocumenti() {
       t
         ? {
             nome: t.nome,
+            tipo: t.tipo ?? 'proforma',
             brand: t.brand ?? '',
             ragione_sociale: t.ragione_sociale,
             indirizzo: t.indirizzo ?? '',
@@ -413,6 +426,37 @@ export default function TemplateDocumenti() {
             placeholder="es. Deluxy Flowers"
             placeholderTextColor={colors.grigio}
           />
+
+          {/* ⭐ CHE DOCUMENTO INTESTA (27/08/2026, richiesta dell utente:
+              «rinomina template pro-forma in generico template e consenti di
+              creare anche ricevute»). ⚠️ Cambia la dicitura di legge in calce,
+              non i dati societari: quelli sono gli stessi per tutti. */}
+          <Text style={styles.label}>Tipo di documento</Text>
+          <View style={styles.chips}>
+            {TIPI_TEMPLATE.map((t) => (
+              <Pressable
+                key={t.v}
+                style={[styles.chip, bozza.tipo === t.v && styles.chipOn]}
+                onPress={() =>
+                  setBozza({
+                    ...bozza,
+                    tipo: t.v,
+                    // La formula «questo non è una fattura» vale SOLO sulla
+                    // pro-forma: lasciarla su una ricevuta la farebbe negare se
+                    // stessa. Si toglie passando di tipo, e si rimette tornando.
+                    disclaimer:
+                      t.v === 'proforma'
+                        ? bozza.disclaimer || DISCLAIMER_STANDARD
+                        : bozza.disclaimer === DISCLAIMER_STANDARD
+                          ? ''
+                          : bozza.disclaimer,
+                  })
+                }
+              >
+                <Text style={[styles.chipTxt, bozza.tipo === t.v && styles.chipTxtOn]}>{t.label}</Text>
+              </Pressable>
+            ))}
+          </View>
 
           <Text style={styles.label}>Brand</Text>
           <View style={styles.chips}>

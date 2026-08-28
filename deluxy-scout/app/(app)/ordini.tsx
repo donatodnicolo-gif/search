@@ -1783,6 +1783,15 @@ function ChiusuraOrdine({
    * importo. Chiedere due certezze per trovarne una vuol dire non trovare mai
    * niente. Il campo è uno, e cambia significato col criterio scelto.
    */
+  /**
+   * ⭐ FATTURA o RICEVUTA (27/08/2026, richiesta dell'utente: «metti come
+   * opzione RICEVUTA invece che fattura»).
+   *
+   * ⚠️ Non è un'etichetta: su Fatture in Cloud sono DUE ELENCHI diversi, e
+   * cercare una ricevuta fra le fatture non la trova — il vuoto poi si legge
+   * come «non esiste» e si finisce per emetterne una seconda.
+   */
+  const [documento, setDocumento] = useState<'invoice' | 'receipt'>('invoice');
   const [criterio, setCriterio] = useState<'cliente' | 'importo' | 'numero'>('cliente');
   const [q, setQ] = useState(ordine.place_nome ?? ordine.cliente);
   const [elenco, setElenco] = useState<FatturaInElenco[] | null>(null);
@@ -1822,13 +1831,13 @@ function ChiusuraOrdine({
       // numero passava da una rotta diversa che guardava un'ALTRA tabella —
       // quella delle fatture ai partner — e rispondeva «non trovata» su una
       // fattura che esisteva.
-      const r = await cercaFatture(
+      const base =
         criterio === 'importo'
           ? { importo: imp }
           : criterio === 'numero'
             ? { numero: testo }
-            : { cliente: testo },
-      );
+            : { cliente: testo };
+      const r = await cercaFatture({ ...base, tipo: documento });
       if (!r.ok) setErroreRicerca(r.errore ?? 'Ricerca non riuscita.');
       else setElenco(r.fatture);
     } finally {
@@ -1995,7 +2004,27 @@ function ChiusuraOrdine({
       ) : null}
 
       <>
-          <Text style={styles.campoLabel}>Cerca la fattura su FINANCE</Text>
+          <Text style={styles.campoLabel}>Che documento cerchi</Text>
+          <View style={styles.chipsForm}>
+            {([
+              { v: 'invoice', l: 'Fattura' },
+              { v: 'receipt', l: 'Ricevuta' },
+            ] as const).map((o) => (
+              <Pressable
+                key={o.v}
+                style={[styles.chip, documento === o.v && styles.chipOn]}
+                onPress={() => {
+                  setDocumento(o.v);
+                  setElenco(null);
+                  setErroreRicerca(null);
+                }}
+              >
+                <Text style={[styles.chipTxt, documento === o.v && styles.chipTxtOn]}>{o.l}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.campoLabel}>Come cercarlo</Text>
           <View style={styles.chipsForm}>
             {([
               { v: 'cliente', l: 'Per ragione sociale' },
@@ -2142,7 +2171,7 @@ function ChiusuraOrdine({
               documento è un ricavo senza carta: la scorciatoia l'avevo messa io,
               e una scorciatoia che si può prendere si prende. */}
           <Text style={styles.campoAiuto}>
-            Un ordine non si chiude senza fattura: senza documento resta un ricavo senza carta.
+            Un ordine non si chiude senza documento — fattura o ricevuta: senza, resta un ricavo senza carta.
           </Text>
       </>
     </Foglio>

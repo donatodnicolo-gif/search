@@ -651,6 +651,17 @@ export default function RichiesteClienti() {
             labelRiga={(r) => `Modifica la richiesta di ${r.cliente}`}
             azioni={azioniDi}
             larghezzaAzioni={252}
+          
+            totali={(righe) => ({
+              cliente: `Totale · ${righe.length} ${righe.length === 1 ? 'richiesta' : 'richieste'}`,
+              importo: (() => {
+                const tot = righe.reduce((a, r: any) => a + (r.importo ?? 0), 0);
+                const senza = righe.filter((r: any) => r.importo == null).length;
+                // ⚠️ Chi non ha importo si DICHIARA: contarlo zero fa un totale
+                // più basso del vero e nessuno se ne accorge.
+                return tot ? `${importoBreve(tot)}${senza ? ` · ${senza} senza importo` : ''}` : '—';
+              })(),
+            })}
           />
         ) : (
           dati.map((r) => (

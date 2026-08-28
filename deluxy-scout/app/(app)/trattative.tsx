@@ -1173,8 +1173,8 @@ function TrattativaModal({
               ))}
             </View>
             <Text style={styles.sub}>
-              ⚠️ Passandola a un collega non potrai più modificarla tu: è quello che «l&apos;ha presa in mano
-              lui» vuol dire.
+              Resta modificabile da tutti: in Scout la squadra è una sola. Il nome dice CHI la sta seguendo, e
+              serve ai conti per venditore.
             </Text>
 
             {/* Canale di acquisizione: quale attività l'ha generata */}

@@ -47,6 +47,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  /**
+   * ⚠️ FATTURA o RICEVUTA (27/08/2026). Sono due documenti diversi e vivono in
+   * due elenchi diversi su Fatture in Cloud: cercare una ricevuta fra le
+   * fatture non la trova, e il vuoto si legge come «non esiste».
+   */
+  const tipo = (req.nextUrl.searchParams.get("tipo") ?? "invoice") === "receipt" ? "receipt" : "invoice";
   const cliente = (req.nextUrl.searchParams.get("cliente") ?? "").trim();
   const numero = (req.nextUrl.searchParams.get("numero") ?? "").trim();
   const importoTxt = (req.nextUrl.searchParams.get("importo") ?? "").trim();
@@ -67,7 +73,7 @@ export async function GET(req: NextRequest) {
 
     if (cliente || numero) {
       // FIC cerca da sé su nome cliente e numero.
-      trovate = await ficFatture({ q: cliente || numero, maxPagine: 4 });
+      trovate = await ficFatture({ q: cliente || numero, maxPagine: 4, tipo });
       ricerca = cliente ? { per: "cliente", cliente } : { per: "numero", numero };
     } else {
       // Per importo si scorrono gli ultimi anni e si confronta qui: FIC non ha
@@ -75,7 +81,7 @@ export async function GET(req: NextRequest) {
       // sapere dove si è guardato si legge come «non esiste».
       const anno = new Date().getFullYear();
       const anni = Array.from({ length: ANNI_INDIETRO + 1 }, (_, i) => anno - i);
-      const tutte = (await Promise.all(anni.map((a) => ficFatture({ anno: a, maxPagine: 6 })))).flat();
+      const tutte = (await Promise.all(anni.map((a) => ficFatture({ anno: a, maxPagine: 6, tipo })))).flat();
       trovate = tutte.filter(
         (f) =>
           Math.abs(f.totale - importo!) <= TOLLERANZA ||
@@ -111,6 +117,7 @@ export async function GET(req: NextRequest) {
       ricerca,
       nota,
       fonte: "Fatture in Cloud",
+      tipo,
       troncato: fatture.length > 25,
       fatture: fatture.slice(0, 25),
     });
@@ -118,8 +125,17 @@ export async function GET(req: NextRequest) {
     // ⚠️ «Fatture in Cloud non collegato» è una risposta, non un guasto
     // dell'app: va detta per intero, o chi la legge cerca il problema dove non
     // c'è.
+    const msg = String((e as Error)?.message ?? e);
     return NextResponse.json(
-      { errore: String((e as Error)?.message ?? e), fonte: "Fatture in Cloud" },
+      {
+        // ⚠️ Il 403 sulle ricevute NON è «non ci sono ricevute»: è «non ho il
+        // permesso di vederle». Detto com'è, o si emette un doppione.
+        errore: /403|NO_PERMISSION/i.test(msg) && tipo === "receipt"
+          ? "Fatture in Cloud non concede ancora l'accesso alle RICEVUTE: va rifatto il collegamento da Impostazioni dopo l'aggiunta dello scope."
+          : msg,
+        fonte: "Fatture in Cloud",
+        tipo,
+      },
       { status: 502 },
     );
   }

@@ -318,7 +318,11 @@ export default function Sequenze() {
           colonne={colonneCoda}
           chiaveRiga={(c) => c.iscrizione.id}
           ordineIniziale={{ campo: 'quando', verso: 'desc' }}
-        />
+        
+            totali={(righe) => ({
+              nome: `Totale · ${righe.length} ${righe.length === 1 ? 'sequenza' : 'sequenze'}`,
+            })}
+          />
       ) : null}
       {aTabella ? null : coda.map((c) => (
         <View key={c.iscrizione.id} style={[styles.card, c.ritardo > 0 && styles.cardTardi]}>

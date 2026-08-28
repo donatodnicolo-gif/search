@@ -264,7 +264,11 @@ export default function Fornitori() {
           ordineIniziale={{ campo: 'nome', verso: 'asc' }}
           azioni={azioniDi}
           larghezzaAzioni={186}
-        />
+        
+            totali={(righe) => ({
+              nome: `Totale · ${righe.length} ${righe.length === 1 ? 'fornitore' : 'fornitori'}`,
+            })}
+          />
       ) : (
         dati.map((p) => {
           const preso = presi.has(p.id);

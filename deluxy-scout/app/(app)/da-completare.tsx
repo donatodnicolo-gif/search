@@ -305,7 +305,11 @@ export default function DaCompletare() {
                   ordineIniziale={{ campo: 'quando', verso: 'desc' }}
                   onRiga={(r) => router.push(`/(app)/attivita/${r.place.id}`)}
                   labelRiga={(r) => `Apri la scheda di ${r.place.nome}`}
-                />
+                
+            totali={(righe) => ({
+              nome: `Totale · ${righe.length} ${righe.length === 1 ? 'riga' : 'righe'}`,
+            })}
+          />
               );
             }
             if (righe[0].tipo === 'followup') {

@@ -371,7 +371,11 @@ export default function Lista() {
               labelRiga={(p) => `Apri la scheda di ${p.nome}`}
               azioni={azioniDi}
               larghezzaAzioni={374}
-            />
+            
+            totali={(righe) => ({
+              nome: `Totale · ${righe.length} ${righe.length === 1 ? 'negozio' : 'negozi'}`,
+            })}
+          />
           ) : (
             <Riga
               place={item as Place}

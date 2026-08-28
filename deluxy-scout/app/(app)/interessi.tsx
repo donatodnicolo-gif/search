@@ -236,7 +236,11 @@ export default function Interessi() {
                     labelRiga={(p) => `Apri la scheda di ${p.nome}`}
                     azioni={azioniDi}
                     larghezzaAzioni={326}
-                  />
+                  
+            totali={(righe) => ({
+              nome: `Totale · ${righe.length} ${righe.length === 1 ? 'negozio' : 'negozi'}`,
+            })}
+          />
                 ) : (
                   elencoAperto.map((p) => {
                     const visita = statoVisita(p, conBozza.has(p.id), visitati.has(p.id));
