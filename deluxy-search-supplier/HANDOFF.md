@@ -1,4 +1,17 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 27/08/2026)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 28/08/2026)
+
+> **28/08/2026 — chiusi i punti UX deferiti dal Libro (registro SEGNALAZIONI-UX)**: badge alla
+> formula piena (pillola + dot `.bdot` currentColor + tinta -soft, niente più emoji 🤝📋🟢🔴🗂🔗
+> nei badge, ~12 siti JS); chip categorie da `<div>` a `<button type="button">` (stessa classe
+> `.chip`, aggiunto `font:inherit` alla regola condivisa); empty-state `#resultsEmpty` con icona
+> SVG (fiore) e `#noResults` con icona+titolo «Nessun negozio trovato»; **emoji → SVG** sulle
+> icone funzionali: costanti `ICO` (tel, wa, mail, arch, shop, foto, user, search — stroke 1.7
+> stile SF) usate nei link 📞/💬/✉️, bottoni archivia, «Apri su Shopify», pillola foto, chip
+> filtri (dot verdi/rossi per aperto/chiuso). ⚠️ Restano DI PROPOSITO le emoji nei punti a
+> `textContent` (bottoni «📋 Copia» coi toggle «✅ Copiato», `<option>` del select anagrafiche,
+> riga di stato `setStatus`, ST_TIPO dello Storico che passa da `esc()`) e nei testi/messaggi:
+> lì l'HTML non renderizza o è contenuto testuale (ammesso dal Libro §icone). Verificato in
+> locale (5511): sintassi JS ok, console pulita, chip/dot/empty presenti nel DOM.
 
 > 🏛️ **ARCHITETTURA DEI DATI (OBBLIGATORIA, 24/08/2026)** — Standard Deluxy §7
 > (`C:\Users\nicol\scoutwt\deluxy-standard\STANDARD-DELUXY.md`). Il ruolo di

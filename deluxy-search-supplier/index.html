@@ -102,7 +102,7 @@
   .searchbar{margin-top:14px}
   .catbtns{display:flex; gap:8px; flex-wrap:wrap}
   .chip,.wchip{flex:1; min-width:130px; text-align:center; padding:11px; border-radius:var(--radius-pill); cursor:pointer;
-        border:1px solid var(--hairline-strong); background:var(--surface); color:var(--text-secondary); font-weight:600;
+        border:1px solid var(--hairline-strong); background:var(--surface); color:var(--text-secondary); font:inherit; font-weight:600;
         user-select:none; transition:.15s var(--ease)}
   .chip.active,.wchip.active{color:#fff; background:var(--ink); border-color:transparent}
   /* .wchip = stessa pillola di .chip ma SENZA i listener globali delle categorie */
@@ -128,6 +128,8 @@
   .shop h3{margin:0; font-size:19px; font-weight:600; letter-spacing:-.02em; line-height:1.25}
   .badge{font-size:11px; padding:4px 10px; border-radius:var(--radius-pill); background:var(--fill);
         color:var(--text-secondary); white-space:nowrap; display:inline-flex; align-items:center; gap:5px}
+  /* dot della formula badge (Libro §6): pillola + dot currentColor + tinta -soft */
+  .bdot{display:inline-block; width:7px; height:7px; border-radius:50%; background:currentColor; flex:0 0 auto}
   .dist{font-weight:600; color:var(--text)}
   .meta{color:var(--text-secondary); font-size:13px; margin:8px 0 12px}
   .stars{color:var(--gold)}
@@ -501,11 +503,11 @@
       </div>
       <div class="fgrid fgrid-2">
         <div>
-          <label>Parole chiave Google — 🌸 Fiorai</label>
+          <label>Parole chiave Google — Fiorai</label>
           <input id="cfg_kw_fioraio" type="text" placeholder='vuoto = "fiorista fioraio" (per lingua)'>
         </div>
         <div>
-          <label>Parole chiave Google — 🍰 Pasticcerie</label>
+          <label>Parole chiave Google — Pasticcerie</label>
           <input id="cfg_kw_pasticceria" type="text" placeholder='vuoto = "pasticceria" (per lingua)'>
         </div>
       </div>
@@ -596,7 +598,7 @@
         <div class="hint">Le integrazioni chiamano le API con l'header <code>x-api-key</code> al posto di email+password; nello Storico compaiono come <b>chiave:&lt;nome&gt;</b>. Il segreto è salvato hashato: se lo perdi, revoca e genera una chiave nuova. Salvate e revocate subito (non serve «Salva impostazioni»).</div>
       </div>
       <div>
-        <label style="font-size:13px; color:var(--text); font-weight:600">🛍️ Negozi Shopify</label>
+        <label style="font-size:13px; color:var(--text); font-weight:600"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M6 7h12l1 14H5L6 7z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg> Negozi Shopify</label>
         <div id="storeRows" class="grid" style="margin-top:8px"></div>
         <div class="hint">Il <b>token Shopify resta sul server</b>, non arriva mai al browser. Lascia il token vuoto per non modificarlo.
           Token: Shopify Admin → <i>Sviluppa app</i> → <i>Installa</i> → <i>Token di accesso Admin API</i> (inizia con <code>shpat_</code>).</div>
@@ -636,7 +638,7 @@
     <!-- dettagli ordine (editabili) -->
     <div class="orderbox" id="orderBox" style="display:none">
       <button class="btn-dl" id="collapseOrder" type="button" style="display:none; margin-bottom:12px">▲ Comprimi ordine (mostra solo il riepilogo)</button>
-      <div class="ordertitle"><span class="tag" id="ordTag">ordine</span><span id="ordMeta" class="sub" style="margin:0"></span><a class="btn-dl" id="shopifyLink" href="#" target="_blank" rel="noopener" style="display:none; text-decoration:none; margin-left:auto">🛍️ Apri su Shopify</a></div>
+      <div class="ordertitle"><span class="tag" id="ordTag">ordine</span><span id="ordMeta" class="sub" style="margin:0"></span><a class="btn-dl" id="shopifyLink" href="#" target="_blank" rel="noopener" style="display:none; text-decoration:none; margin-left:auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M6 7h12l1 14H5L6 7z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg> Apri su Shopify</a></div>
 
       <!-- riepilogo: foto pronta da scaricare + prezzi -->
       <div class="deal">
@@ -709,7 +711,7 @@
 
       <!-- messaggio pronto da copiare (WhatsApp / email) -->
       <div class="msgbox" style="margin-top:16px">
-        <label>💬 Messaggio per il negozio — si aggiorna dai campi qui sopra, puoi modificarlo</label>
+        <label><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.7 7.4L3 20l1.1-5.2A8.5 8.5 0 1 1 21 11.5z"/></svg> Messaggio per il negozio — si aggiorna dai campi qui sopra, puoi modificarlo</label>
         <textarea id="ord_msg" rows="5" spellcheck="false"></textarea>
         <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap">
           <button class="btn-dl" id="copyMsg" type="button">📋 Copia messaggio</button>
@@ -728,7 +730,7 @@
         </div>
         <div class="hint" id="statoHint" style="margin-top:6px">Passa da solo a «In corso» al primo WhatsApp/email inviato. La ⭐ sulle schede segna i fornitori già contattati (visibile a tutti gli operatori).</div>
       </div>
-      <button class="btn" id="findFlorists" style="margin-top:16px">🔎 Trova fiorai vicino alla consegna</button>
+      <button class="btn" id="findFlorists" style="margin-top:16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" style="vertical-align:-2px" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/></svg> Trova fiorai vicino alla consegna</button>
       <div class="order-flag">Poi scegli un fiorario qui sotto e premi «Invia richiesta ordine» sulla sua scheda.</div>
     </div>
 
@@ -768,8 +770,8 @@
     <div style="margin:14px 0 4px">
       <label>Cosa cerchi</label>
       <div class="catbtns">
-        <div class="chip active" data-cat="fioraio">🌸 Fiorai</div>
-        <div class="chip active" data-cat="pasticceria">🍰 Pasticcerie</div>
+        <button type="button" class="chip active" data-cat="fioraio"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="vertical-align:-2px" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4M6 6l2.8 2.8M15.2 15.2 18 18M18 6l-2.8 2.8M8.8 15.2 6 18"/></svg> Fiorai</button>
+        <button type="button" class="chip active" data-cat="pasticceria"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M6.5 11h11l-1.4 9.5H7.9L6.5 11z"/><path d="M6.5 11a5.5 5.5 0 0 1 11 0"/><path d="M12 5.5V3"/></svg> Pasticcerie</button>
       </div>
     </div>
 
@@ -777,8 +779,8 @@
       <label>WhatsApp</label>
       <div id="waFilter" style="display:flex; gap:6px">
         <button class="wchip active" data-wa="tutti" type="button">Tutti</button>
-        <button class="wchip" data-wa="con" type="button">📱 Con WhatsApp</button>
-        <button class="wchip" data-wa="senza" type="button">☎️ Senza WhatsApp</button>
+        <button class="wchip" data-wa="con" type="button">Con WhatsApp</button>
+        <button class="wchip" data-wa="senza" type="button">Senza WhatsApp</button>
       </div>
       <div class="hint" style="margin-top:4px">«Con» = cellulari (WhatsApp probabile); «Senza» = fissi o senza numero. Le schede del registro restano sempre visibili.</div>
     </div>
@@ -787,15 +789,15 @@
       <label>Apertura</label>
       <div id="openFilter" style="display:flex; gap:6px">
         <button class="wchip active" data-open="tutti" type="button">Tutti</button>
-        <button class="wchip" data-open="aperti" type="button">🟢 Aperti ora</button>
-        <button class="wchip" data-open="chiusi" type="button">🔴 Chiusi ora</button>
+        <button class="wchip" data-open="aperti" type="button"><span class="bdot" style="background:var(--green); vertical-align:1px"></span> Aperti ora</button>
+        <button class="wchip" data-open="chiusi" type="button"><span class="bdot" style="background:var(--red); vertical-align:1px"></span> Chiusi ora</button>
       </div>
       <div class="hint" style="margin-top:4px">In base agli orari di Google. I negozi senza orari pubblicati e le schede del registro restano sempre visibili.</div>
     </div>
 
     <div style="margin-top:14px; display:flex; gap:10px">
-      <button class="btn" id="go" style="flex:2">🔎 Cerca in zona</button>
-      <button id="resetSearch" type="button" title="Svuota ordine, indirizzo, filtri e risultati" style="flex:1; min-width:120px; border:1px solid var(--hairline-strong); background:var(--fill); color:var(--text); border-radius:var(--radius-pill); padding:13px 18px; font-size:14px; font-weight:600; cursor:pointer">🔄 Azzera</button>
+      <button class="btn" id="go" style="flex:2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" style="vertical-align:-2px" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/></svg> Cerca in zona</button>
+      <button id="resetSearch" type="button" title="Svuota ordine, indirizzo, filtri e risultati" style="flex:1; min-width:120px; border:1px solid var(--hairline-strong); background:var(--fill); color:var(--text); border-radius:var(--radius-pill); padding:13px 18px; font-size:14px; font-weight:600; cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v5h-5"/></svg> Azzera</button>
     </div>
   </div>
 
@@ -806,15 +808,17 @@
 
       <!-- stato vuoto: prima di una ricerca la colonna dei risultati non è più bianca -->
       <div id="resultsEmpty" style="display:none; margin:22px 0; padding:40px 20px; text-align:center">
-        <div style="width:56px; height:56px; margin:0 auto 14px; border-radius:16px; background:var(--gold-soft); display:flex; align-items:center; justify-content:center; font-size:26px">🌸</div>
+        <div style="width:56px; height:56px; margin:0 auto 14px; border-radius:16px; background:var(--gold-soft); display:flex; align-items:center; justify-content:center; color:var(--gold-strong)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4M6 6l2.8 2.8M15.2 15.2 18 18M18 6l-2.8 2.8M8.8 15.2 6 18"/></svg></div>
         <div style="font-size:17px; font-weight:600; letter-spacing:-.01em; color:var(--text)">I fornitori appariranno qui</div>
         <div class="hint" style="max-width:360px; margin:6px auto 0">Recupera un ordine o scrivi un indirizzo di consegna, poi premi «Trova fiorai» o «Cerca in zona»: i negozi più vicini compaiono in questa colonna.</div>
       </div>
 
       <!-- nessun risultato: proposta di allargare la ricerca a un'area più ampia -->
-      <div id="noResults" style="display:none; margin:12px 0; padding:16px; background:var(--fill); border:1px solid var(--hairline); border-radius:var(--radius-l); text-align:center">
+      <div id="noResults" style="display:none; margin:12px 0; padding:24px 16px; background:var(--fill); border:1px solid var(--hairline); border-radius:var(--radius-l); text-align:center">
+        <div style="width:44px; height:44px; margin:0 auto 10px; border-radius:12px; background:var(--gold-soft); display:flex; align-items:center; justify-content:center; color:var(--gold-strong)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/></svg></div>
+        <div style="font-size:16px; font-weight:600; letter-spacing:-.01em; color:var(--text); margin-bottom:4px">Nessun negozio trovato</div>
         <div class="hint" id="noResultsMsg" style="margin:0 0 12px">Nessun negozio trovato in zona.</div>
-        <button class="btn" id="extendBtn" type="button" style="width:auto; padding:12px 20px">🔎 Estendi la ricerca a un'area più ampia</button>
+        <button class="btn" id="extendBtn" type="button" style="width:auto; padding:12px 20px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" style="vertical-align:-2px" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/></svg> Estendi la ricerca a un'area più ampia</button>
       </div>
 
       <!-- strumenti risultati: filtri WhatsApp/apertura + vista mappa (gemelli del form) -->
@@ -822,8 +826,8 @@
         <!-- filtro WhatsApp -->
         <div id="waFilterResults" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
           <button class="wchip active" data-wa="tutti" type="button">Tutti</button>
-          <button class="wchip" data-wa="con" type="button">📱 Con WhatsApp</button>
-          <button class="wchip" data-wa="senza" type="button">☎️ Senza WhatsApp</button>
+          <button class="wchip" data-wa="con" type="button">Con WhatsApp</button>
+          <button class="wchip" data-wa="senza" type="button">Senza WhatsApp</button>
           <label style="margin-left:auto; display:flex; align-items:center; gap:6px; margin-bottom:0; white-space:nowrap">Risultati
             <select id="limitResults" style="width:auto"></select>
           </label>
@@ -832,12 +836,12 @@
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px">
           <div id="openFilterResults" style="display:flex; gap:6px">
             <button class="wchip active" data-open="tutti" type="button">Tutti</button>
-            <button class="wchip" data-open="aperti" type="button">🟢 Aperti ora</button>
-            <button class="wchip" data-open="chiusi" type="button">🔴 Chiusi ora</button>
+            <button class="wchip" data-open="aperti" type="button"><span class="bdot" style="background:var(--green); vertical-align:1px"></span> Aperti ora</button>
+            <button class="wchip" data-open="chiusi" type="button"><span class="bdot" style="background:var(--red); vertical-align:1px"></span> Chiusi ora</button>
           </div>
           <div id="rateFilterResults" style="display:flex; gap:6px">
             <button class="wchip active" data-rate="tutti" type="button">Tutte</button>
-            <button class="wchip" data-rate="4plus" type="button">⭐ 4+ stelle</button>
+            <button class="wchip" data-rate="4plus" type="button">★ 4+ stelle</button>
           </div>
           <label style="margin-left:auto; display:flex; align-items:center; gap:6px; margin-bottom:0; white-space:nowrap">Ordina
             <select id="sortResults" style="width:auto"></select>
@@ -869,7 +873,7 @@
       <!-- in fondo alla lista: allarga la ricerca a un'area più ampia (anche con risultati) -->
       <div id="extendMore" style="display:none; margin:16px 0 4px; padding:16px; background:var(--fill); border:1px solid var(--hairline); border-radius:var(--radius-l); text-align:center">
         <div class="hint" id="extendMoreMsg" style="margin:0 0 12px">Non trovi il fornitore giusto? Puoi cercare in un'area più ampia.</div>
-        <button class="btn" id="extendMoreBtn" type="button" style="width:auto; padding:12px 20px">🔎 Estendi la ricerca (~40 km)</button>
+        <button class="btn" id="extendMoreBtn" type="button" style="width:auto; padding:12px 20px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" style="vertical-align:-2px" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/></svg> Estendi la ricerca (~40 km)</button>
       </div>
     </div><!-- /col-right -->
     </div><!-- /cols -->
@@ -883,13 +887,13 @@
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px">
         <div class="chips" id="ctTipo" style="display:flex; gap:6px">
           <button class="chip active" data-tipo="tutti" type="button">Tutti</button>
-          <button class="chip" data-tipo="partner" type="button">🤝 Partner</button>
-          <button class="chip" data-tipo="fornitore" type="button">📋 Fornitori</button>
+          <button class="chip" data-tipo="partner" type="button">Partner</button>
+          <button class="chip" data-tipo="fornitore" type="button">Fornitori</button>
         </div>
         <div class="chips" id="ctCat" style="display:flex; gap:6px">
           <button class="chip active" data-cat="tutte" type="button">Tutte le categorie</button>
-          <button class="chip" data-cat="FIORISTA" type="button">🌸 Fiorai</button>
-          <button class="chip" data-cat="PASTICCERIA" type="button">🎂 Pasticcerie</button>
+          <button class="chip" data-cat="FIORISTA" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="vertical-align:-2px" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4M6 6l2.8 2.8M15.2 15.2 18 18M18 6l-2.8 2.8M8.8 15.2 6 18"/></svg> Fiorai</button>
+          <button class="chip" data-cat="PASTICCERIA" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M6.5 11h11l-1.4 9.5H7.9L6.5 11z"/><path d="M6.5 11a5.5 5.5 0 0 1 11 0"/><path d="M12 5.5V3"/></svg> Pasticcerie</button>
         </div>
         <input id="ctSearch" type="text" placeholder="Cerca nome, città…" style="flex:1; min-width:160px">
       </div>
@@ -905,17 +909,17 @@
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px">
         <div class="chips" id="pvCat" style="display:flex; gap:6px">
           <button class="chip active" data-cat="tutte" type="button">Fiori + Torte</button>
-          <button class="chip" data-cat="FIORISTA" type="button">🌸 Fiori</button>
-          <button class="chip" data-cat="PASTICCERIA" type="button">🎂 Torte</button>
+          <button class="chip" data-cat="FIORISTA" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="vertical-align:-2px" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4M6 6l2.8 2.8M15.2 15.2 18 18M18 6l-2.8 2.8M8.8 15.2 6 18"/></svg> Fiori</button>
+          <button class="chip" data-cat="PASTICCERIA" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M6.5 11h11l-1.4 9.5H7.9L6.5 11z"/><path d="M6.5 11a5.5 5.5 0 0 1 11 0"/><path d="M12 5.5V3"/></svg> Torte</button>
         </div>
         <div class="chips" id="pvRuolo" style="display:flex; gap:6px">
           <button class="chip active" data-ruolo="tutti" type="button">Tutti</button>
-          <button class="chip" data-ruolo="attivo" type="button">🤝 Re-seller attivi</button>
-          <button class="chip" data-ruolo="prospect" type="button">📋 Prospect</button>
+          <button class="chip" data-ruolo="attivo" type="button">Re-seller attivi</button>
+          <button class="chip" data-ruolo="prospect" type="button">Prospect</button>
         </div>
         <input id="pvSearch" type="text" placeholder="Cerca provincia, nome…" style="flex:1; min-width:160px">
       </div>
-      <div class="hint" style="margin:0 0 4px">Solo <b>venditori di fiori e torte</b> che sono <b>re-seller/affiliati attivi</b> (🤝) o <b>prospect</b> (📋), dal registro anagrafiche. Le province con più re-seller attivi sono in cima.</div>
+      <div class="hint" style="margin:0 0 4px">Solo <b>venditori di fiori e torte</b> che sono <b>re-seller/affiliati attivi</b> o <b>prospect</b>, dal registro anagrafiche. Le province con più re-seller attivi sono in cima.</div>
       <div id="provinceBody"><div class="hint">Carico le province…</div></div>
     </div>
 
@@ -1016,6 +1020,19 @@ try{
   updateEmptyState();
 }catch(e){ /* se MutationObserver non c'è, lo stato vuoto resta nascosto: nessun danno */ }
 const cats = new Set(['fioraio','pasticceria']);
+// Icone SVG dei comandi (Libro UX&UI: mai emoji come icona funzionale — stroke 1.7, stile SF).
+// Le emoji restano SOLO nel contenuto testuale (messaggi ai fornitori, hint).
+const _ico = (paths, size) => `<svg width="${size||13}" height="${size||13}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true">${paths}</svg>`;
+const ICO = {
+  tel:  _ico('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z"/>'),
+  wa:   _ico('<path d="M21 11.5a8.5 8.5 0 0 1-12.7 7.4L3 20l1.1-5.2A8.5 8.5 0 1 1 21 11.5z"/>'),
+  mail: _ico('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>'),
+  arch: _ico('<path d="M3 5h18v4H3z"/><path d="M5 9v10h14V9"/><path d="M10 13h4"/>'),
+  shop: _ico('<path d="M6 7h12l1 14H5L6 7z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/>'),
+  foto: _ico('<path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'),
+  user: _ico('<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>'),
+  search: _ico('<circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/>', 14),
+};
 // su mobile i link WhatsApp usano wa.me → si apre l'app WhatsApp del telefono
 const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 function waChatUrl(digits, text){
@@ -1704,21 +1721,21 @@ function ctCard(p, opts){
   const hasWa = digits.length >= 8;
   const c = [];
   const telP = telConPrefisso(p.telefono, p.provincia);
-  if(p.telefono) c.push(`<a class="tel" href="tel:${esc(telP)}">📞 ${esc(telP)}</a>`);
-  if(hasWa)      c.push(`<a class="wa" href="${waChatUrl(digits)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
-  if(p.email)    c.push(`<a class="mail" href="mailto:${esc(p.email)}">✉️ ${esc(p.email)}</a>`);
+  if(p.telefono) c.push(`<a class="tel" href="tel:${esc(telP)}">${ICO.tel} ${esc(telP)}</a>`);
+  if(hasWa)      c.push(`<a class="wa" href="${waChatUrl(digits)}" target="_blank" rel="noopener">${ICO.wa} ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+  if(p.email)    c.push(`<a class="mail" href="mailto:${esc(p.email)}">${ICO.mail} ${esc(p.email)}</a>`);
   if(!c.length)  c.push('<span class="none">Nessun contatto nel registro</span>');
   const refs = (p.contatti||[]).map(ct=>{
     const chi = [ct.nome, ct.ruolo].filter(Boolean).join(' · ');
     const bits = [];
-    if(ct.telefono){ const t = telConPrefisso(ct.telefono, p.provincia); bits.push(`<a class="tel" href="tel:${esc(t)}">📞 ${esc(t)}</a>`); }
-    if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">✉️ ${esc(ct.email)}</a>`);
+    if(ct.telefono){ const t = telConPrefisso(ct.telefono, p.provincia); bits.push(`<a class="tel" href="tel:${esc(t)}">${ICO.tel} ${esc(t)}</a>`); }
+    if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">${ICO.mail} ${esc(ct.email)}</a>`);
     if(!chi && !bits.length) return '';
-    return `<div class="ct-ref">👤 ${esc(chi||'referente')} ${bits.length?'<div class="contacts" style="margin-top:4px">'+bits.join('')+'</div>':''}</div>`;
+    return `<div class="ct-ref">${ICO.user} ${esc(chi||'referente')} ${bits.length?'<div class="contacts" style="margin-top:4px">'+bits.join('')+'</div>':''}</div>`;
   }).join('');
   const badge = partner
-    ? '<span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)">🤝 Partner</span>'
-    : `<span class="badge" style="color:var(--blue); background:rgba(0,113,227,.08)">📋 ${esc(statoLabel(p))}</span>`;
+    ? '<span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)"><i class="bdot"></i>Partner</span>'
+    : `<span class="badge" style="color:var(--blue); background:rgba(0,113,227,.08)"><i class="bdot"></i>${esc(statoLabel(p))}</span>`;
   const luogo = [p.indirizzo, p.citta].filter(Boolean).join(' · ');
   // riga tag (solo dove richiesto, es. Province): ruolo re-seller/vendor + tipologia prodotto
   const metaPills = opts.showRuolo
@@ -1727,7 +1744,7 @@ function ctCard(p, opts){
   return `<div class="ct-card">
     <div class="top">
       <div>
-        <h4>${partner?'🤝':'📋'} ${esc(p.nome||'—')}</h4>
+        <h4>${esc(p.nome||'—')}</h4>
         <div class="cat">${esc(CT_CAT[String(p.categoria||'').toUpperCase()] || p.categoria || '')}</div>
       </div>
       ${badge}
@@ -1771,9 +1788,9 @@ function pvDatiExtra(p){ let d=p.datiExtra; if(typeof d==='string'){ try{ d=JSON
 function ruoloPills(p){
   if(isAttivoReseller(p)){
     const prog = pvDatiExtra(p).tipologiaPartnershipAttiva || '';
-    return `<span class="pv-chip pv-attivo">🤝 Re-seller attivo${prog?' · '+esc(prog):''}</span>`;
+    return `<span class="pv-chip pv-attivo"><i class="bdot" style="margin-right:4px; vertical-align:1px"></i>Re-seller attivo${prog?' · '+esc(prog):''}</span>`;
   }
-  if(isProspectP(p)) return '<span class="pv-chip pv-prospect">📋 Prospect</span>';
+  if(isProspectP(p)) return '<span class="pv-chip pv-prospect"><i class="bdot" style="margin-right:4px; vertical-align:1px"></i>Prospect</span>';
   return '';
 }
 const pvFiltro = { cat:'tutte', q:'', ruolo:'tutti' };
@@ -1836,8 +1853,8 @@ function renderProvince(){
       .sort((a,b)=>{ const r = rank(a)-rank(b); return r || String(a.nome||'').localeCompare(String(b.nome||'')); })
       .map(p=>ctCard(p, {showRuolo:true})).join('');
     const chips = [
-      x.nAtt ? `<span class="pv-chip pv-attivo">🤝 ${x.nAtt} re-seller</span>` : '',
-      x.nPro ? `<span class="pv-chip pv-prospect">📋 ${x.nPro} prospect</span>` : ''
+      x.nAtt ? `<span class="pv-chip pv-attivo"><i class="bdot" style="margin-right:4px; vertical-align:1px"></i>${x.nAtt} re-seller</span>` : '',
+      x.nPro ? `<span class="pv-chip pv-prospect"><i class="bdot" style="margin-right:4px; vertical-align:1px"></i>${x.nPro} prospect</span>` : ''
     ].filter(Boolean).join('');
     return `<details class="prov-group" open>
       <summary class="prov-head">
@@ -1891,7 +1908,7 @@ function renderArchiviati(){
       const luogo = [a.citta, a.categoria].filter(Boolean).join(' · ');
       const ord = (a.ordine && a.ordine!=='generale') ? ' · ordine '+esc(a.ordine) : '';
       return `<div class="arch-row">
-        <span class="arch-name">🗄️ ${esc(a.nome||a.id)}${luogo?' <span style="color:var(--text-tertiary); font-weight:400">· '+esc(luogo)+'</span>':''}<span style="color:var(--text-tertiary); font-weight:400">${ord}</span></span>
+        <span class="arch-name">${ICO.arch} ${esc(a.nome||a.id)}${luogo?' <span style="color:var(--text-tertiary); font-weight:400">· '+esc(luogo)+'</span>':''}<span style="color:var(--text-tertiary); font-weight:400">${ord}</span></span>
         <button class="btn-dl ar-restore" type="button" data-sid="${esc(a.id)}" data-ordine="${esc(a.ordine||'')}">↩ Togli da archiviati</button>
       </div>`;
     }).join('');
@@ -2111,9 +2128,9 @@ function registryCard(p){
   const hasWa = waDigits.length >= 8;
   const c = [];
   const telP = telConPrefisso(p.telefono, p.provincia);
-  if(p.telefono) c.push(`<a class="tel" href="tel:${esc(telP)}">📞 ${esc(telP)}</a>`);
-  if(hasWa) c.push(`<a class="wa" href="${waChatUrl(waDigits)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
-  if(p.email) c.push(`<a class="mail" href="mailto:${esc(p.email)}">✉️ ${esc(p.email)}</a>`);
+  if(p.telefono) c.push(`<a class="tel" href="tel:${esc(telP)}">${ICO.tel} ${esc(telP)}</a>`);
+  if(hasWa) c.push(`<a class="wa" href="${waChatUrl(waDigits)}" target="_blank" rel="noopener">${ICO.wa} ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+  if(p.email) c.push(`<a class="mail" href="mailto:${esc(p.email)}">${ICO.mail} ${esc(p.email)}</a>`);
   if(!c.length) c.push('<span class="none">Nessun contatto nel registro</span>');
   const luogo = [p.indirizzo, p.citta, p.provincia?('('+p.provincia+')'):''].filter(Boolean).join(' · ');
   // referenti (persone di contatto) dal registro: anche i loro numeri hanno
@@ -2125,18 +2142,18 @@ function registryCard(p){
     const chi = [ct.nome, ct.ruolo].filter(Boolean).join(' · ');
     if(ct.telefono){
       const tRef = telConPrefisso(ct.telefono, p.provincia);
-      bits.push(`<a class="tel" href="tel:${esc(tRef)}">📞 ${esc(tRef)}</a>`);
+      bits.push(`<a class="tel" href="tel:${esc(tRef)}">${ICO.tel} ${esc(tRef)}</a>`);
       const d = String(ct.telefono).replace(/[^\d]/g,'');
       const wd = d ? (d.length<=10 && d[0]==='3' ? '39'+d : d) : '';
       if(wd.length>=8 && !giaTel.has(wd.slice(-9))){
         giaTel.add(wd.slice(-9));
-        bits.push(`<a class="wa" href="${waChatUrl(wd)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+        bits.push(`<a class="wa" href="${waChatUrl(wd)}" target="_blank" rel="noopener">${ICO.wa} ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
         sendRefs.push(`<button class="sendorder" data-phone="${wd}" data-lang="it">📤 Invia richiesta ordine su WhatsApp${IS_MOBILE?'':' Web'}${chi?' — '+esc(chi):''}</button>`);
       }
     }
-    if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">✉️ ${esc(ct.email)}</a>`);
+    if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">${ICO.mail} ${esc(ct.email)}</a>`);
     if(!bits.length && !chi) return '';
-    return `<div class="meta" style="margin:8px 0 4px">👤 ${esc(chi||'referente')}</div>${bits.length?`<div class="contacts">${bits.join('')}</div>`:''}`;
+    return `<div class="meta" style="margin:8px 0 4px">${ICO.user} ${esc(chi||'referente')}</div>${bits.length?`<div class="contacts">${bits.join('')}</div>`:''}`;
   }).join('');
   const el = document.createElement('div');
   el.className = 'shop registry' + (isPartner ? ' partner' : '');
@@ -2144,11 +2161,11 @@ function registryCard(p){
   el.dataset.sid = 'anag:' + (p.id || p.nome);
   el.innerHTML = `
     <div class="head">
-      <h3>${isPartner?'🤝':'📋'} ${esc(p.nome)}</h3>
+      <h3>${esc(p.nome)}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
         <button type="button" class="star-btn" data-sid="${esc(el.dataset.sid)}" title="Segna come contattato">☆</button>
-        <button type="button" class="arch-btn" title="Nascondi / archivia questo risultato">🗄️</button>
-        <span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>
+        <button type="button" class="arch-btn" title="Nascondi / archivia questo risultato" aria-label="Archivia">${ICO.arch}</button>
+        <span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}"><i class="bdot"></i>${isPartner?'Partner Deluxy':statoLabel(p)}</span>
       </div>
     </div>
     <div class="meta">${esc(p.categoria||'')}${luogo?' · '+esc(luogo):''}${p.note?'<br>📝 '+esc(String(p.note).slice(0,180)):''}</div>
@@ -2209,9 +2226,9 @@ async function annotaOrariRegistro(list, cards, service, origin){
             if(st===google.maps.places.PlacesServiceStatus.OK && d){
               let open; try{ open = d.opening_hours && d.opening_hours.isOpen && d.opening_hours.isOpen(); }catch(e){ open = undefined; }
               card.dataset.open = (open===true)?'open':(open===false)?'closed':'unknown';
-              const badge = (open===true)?'<span class="badge badge-open" style="color:var(--green); background:var(--green-soft)">🟢 Aperto ora</span>'
-                          : (open===false)?'<span class="badge badge-open" style="color:var(--red); background:var(--red-soft)">🔴 Chiuso ora</span>'
-                          : (d.business_status==='OPERATIONAL' ? '<span class="badge badge-open">orari non disponibili</span>' : '');
+              const badge = (open===true)?'<span class="badge badge-open" style="color:var(--green); background:var(--green-soft)"><i class="bdot"></i>Aperto ora</span>'
+                          : (open===false)?'<span class="badge badge-open" style="color:var(--red); background:var(--red-soft)"><i class="bdot"></i>Chiuso ora</span>'
+                          : (d.business_status==='OPERATIONAL' ? '<span class="badge badge-open"><i class="bdot"></i>orari non disponibili</span>' : '');
               const col = card.querySelector('.head > div');
               if(badge && col && !card.querySelector('.badge-open')) col.insertAdjacentHTML('beforeend', badge);
               // foto di copertina anche qui, sotto la riga dei dati del registro
@@ -2355,7 +2372,7 @@ function fotoCoverHtml(fotos, sid, nome){
   const n = fotos.length;
   return `<div class="shopfoto" data-sid="${esc(sid||'')}" title="Apri le foto">
       <img loading="lazy" src="${esc(fotos[0].thumb)}" alt="Foto di ${esc(nome||'negozio')}">
-      ${n>1 ? `<span class="count">📷 ${n} foto</span>` : '<span class="count">📷 Google Maps</span>'}
+      ${n>1 ? `<span class="count">${ICO.foto} ${n} foto</span>` : `<span class="count">${ICO.foto} Google Maps</span>`}
     </div>`;
 }
 /* lightbox: cliccando la copertina si aprono SUBITO tutte le foto di quel negozio
@@ -3418,8 +3435,8 @@ function enrichCardWithRegistry(card, p){
     if(d.length < 8 || giaTel.has(d.slice(-9))) return;
     giaTel.add(d.slice(-9));
     const telV = telConPrefisso(tel, p.provincia);
-    rows.push(`<a class="tel" href="tel:${esc(telV)}">📞 ${esc(telV)}${chi?' · '+esc(chi):''}</a>`
-            + `<a class="wa" href="${waChatUrl(d)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+    rows.push(`<a class="tel" href="tel:${esc(telV)}">${ICO.tel} ${esc(telV)}${chi?' · '+esc(chi):''}</a>`
+            + `<a class="wa" href="${waChatUrl(d)}" target="_blank" rel="noopener">${ICO.wa} ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
     sendRows.push(`<button class="sendorder" data-phone="${d}" data-lang="${card.dataset.lang||'it'}">📤 Invia richiesta su WhatsApp — numero del registro${chi?' ('+esc(chi)+')':''}</button>`);
   };
   addTel(p.telefono, '');
@@ -3429,14 +3446,14 @@ function enrichCardWithRegistry(card, p){
   const addMail = em=>{
     if(!em || giaMail.has(String(em).toLowerCase())) return;
     giaMail.add(String(em).toLowerCase());
-    rows.push(`<a class="mail" href="mailto:${esc(em)}">✉️ ${esc(em)}</a>`);
+    rows.push(`<a class="mail" href="mailto:${esc(em)}">${ICO.mail} ${esc(em)}</a>`);
     if(!card.querySelector('.sendemail')) sendRows.push(`<button class="sendemail" data-email="${esc(em)}">📧 Invia richiesta via email — dal registro</button>`);
   };
   addMail(p.email);
   (p.contatti||[]).forEach(ct=> addMail(ct.email));
   if(!rows.length) return;
   contacts.insertAdjacentHTML('afterend',
-    `<div class="contacts" style="margin-top:8px"><span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)">🗂 dal registro</span>${rows.join('')}</div>${sendRows.join('')}`);
+    `<div class="contacts" style="margin-top:8px"><span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)"><i class="bdot"></i>dal registro</span>${rows.join('')}</div>${sendRows.join('')}`);
 }
 // «Usato per ordini recenti»: cerca nello Storico le richieste ordine già inviate
 // a questo negozio (match per nome normalizzato o per numero, ultime 9 cifre)
@@ -3560,7 +3577,7 @@ async function eseguiRiconcilia(btn){
     if(rb){ rb.disabled = true; rb.textContent = '🔗 Riconciliato'; }
     const col = card.querySelector('.head > div');
     if(col && !card.querySelector('.badge-recon')) col.insertAdjacentHTML('afterbegin',
-      '<span class="badge badge-recon" style="color:var(--green); background:var(--green-soft)">🔗 nel registro</span>');
+      '<span class="badge badge-recon" style="color:var(--green); background:var(--green-soft)"><i class="bdot"></i>nel registro</span>');
     logEvento({ tipo:'segnalazione', esito:'riconciliato con «'+(scelto.nome||partnerId)+'» (registro)', negozio: negozioDaScheda(card) });
     // contatti del registro sulla scheda (telefono → WhatsApp diretto, email, referenti)
     enrichCardWithRegistry(card, j.partner || scelto);
@@ -3659,7 +3676,7 @@ async function loadStorico(){
           <div class="st-det">${det.map(esc).join(' · ')}${contatti ? '<br>'+esc(contatti) : ''}</div>
           ${riapri}
         </div>
-        <span class="st-user">👤 ${esc(e.utente||'?')}</span>
+        <span class="st-user">${ICO.user} ${esc(e.utente||'?')}</span>
       </div>`;
     }).join('');
   }catch(err){
@@ -3739,11 +3756,11 @@ function applyArchive(){
   if(!ids.length){ box.style.display='none'; box.innerHTML=''; syncMapMarkers(); return; }
   const rows = ids.map(id=>{
     const nome = (arch[id] && arch[id].nome) || id;
-    return `<div class="arch-row"><span class="arch-name">🗄️ ${esc(nome)}</span>
+    return `<div class="arch-row"><span class="arch-name">${ICO.arch} ${esc(nome)}</span>
       <button class="btn-dl arch-restore" type="button" data-sid="${esc(id)}">↩ Ripristina</button></div>`;
   }).join('');
   box.style.display='block';
-  box.innerHTML = `<details class="archived-details"><summary>🗄️ Archiviati (${ids.length}) — nascosti dalla lista</summary>
+  box.innerHTML = `<details class="archived-details"><summary>${ICO.arch} Archiviati (${ids.length}) — nascosti dalla lista</summary>
     <div class="arch-list">${rows}</div></details>`;
   syncMapMarkers();
 }
@@ -3809,19 +3826,19 @@ function shopCard(d, cat, dist, pid){
   const cc = (d.address_components||[]).find(x=>x.types.includes('country'));
   const shopLang = COUNTRY_LANG[cc && cc.short_name] || currentLang || 'it';
   const kind  = phoneKind(phone, intl);
-  const waBadge = kind==='mobile' ? '<span class="badge" style="color:var(--green); background:var(--green-soft)">📱 WhatsApp probabile</span>'
-                : kind==='fixed'  ? '<span class="badge" style="color:var(--orange); background:var(--orange-soft)">☎️ fisso · WhatsApp raro</span>'
+  const waBadge = kind==='mobile' ? '<span class="badge" style="color:var(--green); background:var(--green-soft)"><i class="bdot"></i>WhatsApp probabile</span>'
+                : kind==='fixed'  ? '<span class="badge" style="color:var(--orange); background:var(--orange-soft)"><i class="bdot"></i>fisso · WhatsApp raro</span>'
                 : (hasWa ? '<span class="badge">WhatsApp da verificare</span>' : '');
   let open; try { open = d.opening_hours?.isOpen?.(); } catch(e) { open = undefined; }
-  const openBadge = (open===true)?'<span class="badge" style="color:var(--green); background:var(--green-soft)">🟢 Aperto ora</span>'
-                  : (open===false)?'<span class="badge" style="color:var(--red); background:var(--red-soft)">🔴 Chiuso ora</span>'
-                  : (d.business_status==='OPERATIONAL'?'<span class="badge">orari non disponibili</span>':'');
+  const openBadge = (open===true)?'<span class="badge" style="color:var(--green); background:var(--green-soft)"><i class="bdot"></i>Aperto ora</span>'
+                  : (open===false)?'<span class="badge" style="color:var(--red); background:var(--red-soft)"><i class="bdot"></i>Chiuso ora</span>'
+                  : (d.business_status==='OPERATIONAL'?'<span class="badge"><i class="bdot"></i>orari non disponibili</span>':'');
   // distanza STRADALE (in auto) se disponibile, altrimenti linea d'aria
   const distBadge = dist.driveText ? `🚗 ${dist.driveText}${dist.durText?' · '+dist.durText:''}`
                   : (dist.straight!=null ? distanceStr(dist.straight)+' (in linea d\'aria)' : '');
   // recensioni recenti da Google
   const reviewsHtml = (d.reviews && d.reviews.length) ? `
-    <details class="reviews"><summary>⭐ Recensioni recenti (${d.reviews.length})</summary>
+    <details class="reviews"><summary>★ Recensioni recenti (${d.reviews.length})</summary>
       ${d.reviews.slice(0,3).map(r=>`
         <div class="review">
           <div class="rv-head"><span class="stars">${'★'.repeat(Math.round(r.rating||0))}</span> <b>${esc(r.author_name||'')}</b> <span class="rv-time">${esc(r.relative_time_description||'')}</span></div>
@@ -3830,8 +3847,8 @@ function shopCard(d, cat, dist, pid){
     </details>` : '';
 
   const c = [];
-  if(phone) c.push(`<a class="tel" href="tel:${intl||phone}">📞 ${intl||phone}</a>`);
-  if(waChat) c.push(`<a class="wa" href="${waChat}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
+  if(phone) c.push(`<a class="tel" href="tel:${intl||phone}">${ICO.tel} ${intl||phone}</a>`);
+  if(waChat) c.push(`<a class="wa" href="${waChat}" target="_blank" rel="noopener">${ICO.wa} ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
   if(d.website) c.push(`<a class="web" href="${d.website}" target="_blank" rel="noopener">🌐 Sito</a>`);
   if(d.url)     c.push(`<a class="map" href="${d.url}" target="_blank" rel="noopener">🗺️ Maps</a>`);
   if(!phone && !d.website) c.push(`<span class="none">Nessun contatto pubblicato</span>`);
@@ -3862,7 +3879,7 @@ function shopCard(d, cat, dist, pid){
       <h3>${meta.emoji} ${d.name}</h3>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
         <button type="button" class="star-btn" data-sid="${esc(el.dataset.sid)}" title="Segna come contattato">☆</button>
-        <button type="button" class="arch-btn" title="Nascondi / archivia questo risultato">🗄️</button>
+        <button type="button" class="arch-btn" title="Nascondi / archivia questo risultato" aria-label="Archivia">${ICO.arch}</button>
         <span class="badge dist">${distBadge}</span>
         ${openBadge}
         ${waBadge}
@@ -3905,13 +3922,13 @@ function renderOrderSummary(){
   const address = $('#ord_address').value.trim(), date = $('#ord_date').value.trim(), time = $('#ord_time').value.trim();
   const prod = $('#ord_items').value.trim(), variant = $('#ord_variant').value.trim(), qty = $('#ord_qty').value.trim();
   const statoBadge = statoRicerca.stato==='in corso' ? '<span class="badge" style="color:var(--blue); background:var(--blue-soft)">🔵 ricerca in corso</span>'
-                   : statoRicerca.stato==='trovato' ? '<span class="badge" style="color:var(--green); background:var(--green-soft)">🟢 fornitore trovato</span>' : '';
+                   : statoRicerca.stato==='trovato' ? '<span class="badge" style="color:var(--green); background:var(--green-soft)"><i class="bdot"></i>fornitore trovato</span>' : '';
   const row = (lbl,val)=> val ? `<div><span class="lbl">${lbl}:</span> ${esc(val)}</div>` : '';
   $('#orderSummary').innerHTML = `
     <div class="os-head">
       <div class="os-title">📦 ${esc($('#ordTag').textContent||'Ordine')} ${statoBadge}</div>
       <div style="display:flex; gap:8px; flex-wrap:wrap">
-        ${urlShopify ? `<a class="btn-dl" href="${esc(urlShopify)}" target="_blank" rel="noopener" style="text-decoration:none">🛍️ Apri su Shopify</a>` : ''}
+        ${urlShopify ? `<a class="btn-dl" href="${esc(urlShopify)}" target="_blank" rel="noopener" style="text-decoration:none">${ICO.shop} Apri su Shopify</a>` : ''}
         <button class="btn-dl" id="editOrder" type="button">✏️ Modifica ordine</button>
       </div>
     </div>
@@ -3940,7 +3957,7 @@ function renderOrderSummary(){
       </div>`:''}
     </div>
     <div class="os-msg">
-      <label>💬 Messaggio per il negozio</label>
+      <label><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.7 7.4L3 20l1.1-5.2A8.5 8.5 0 1 1 21 11.5z"/></svg> Messaggio per il negozio</label>
       <textarea readonly rows="4">${esc($('#ord_msg').value)}</textarea>
       <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap">
         <button class="btn-dl" id="copyMsgSummary" type="button">📋 Copia messaggio</button>
@@ -4158,8 +4175,8 @@ async function renderResults(found, geo, origin, service, opts){
       const col = cardEl.querySelector('.head > div');
       const riconc = (p.riferimenti||[]).some(r=>r.sistema==='deluxy-suppliers' && r.idEsterno===cardEl.dataset.sid);
       if(col) col.insertAdjacentHTML('afterbegin',
-        `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>`
-        + (riconc ? '<span class="badge" style="color:var(--green); background:var(--green-soft)">🔗 riconciliata</span>' : ''));
+        `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}"><i class="bdot"></i>${isPartner?'Partner Deluxy':statoLabel(p)}</span>`
+        + (riconc ? '<span class="badge" style="color:var(--green); background:var(--green-soft)"><i class="bdot"></i>riconciliata</span>' : ''));
       // già censito: inutile segnalarlo di nuovo al commerciale
       const rep = cardEl.querySelector('.reportshop');
       if(rep){ rep.disabled = true; rep.textContent = 'ℹ️ Già nel registro · '+statoLabel(p); }
@@ -4189,7 +4206,7 @@ async function renderResults(found, geo, origin, service, opts){
   // con un ordine caricato, comprimi la scheda ordine in riepilogo (meno scroll, focus sui negozi)
   if(orderLoaded){ resultsShown = true; setOrderCollapsed(true); }
   const address = $('#address').value.trim();
-  const extNote = extended ? ' · 🔎 area allargata (~40 km)' : '';
+  const extNote = extended ? ' · area allargata (~40 km)' : '';
   const langNote = ' · lingua messaggio: '+(LANG_NAME[currentLang]||currentLang);
   const distNote = lastDriveSource==='Google' ? ' · 🚗 distanza stradale'
                  : lastDriveSource==='OSRM'   ? ' · 🚗 distanza stradale (OSM)'
@@ -4220,7 +4237,7 @@ async function renderResults(found, geo, origin, service, opts){
       slot.innerHTML = '<span class="loading">✉️ cerco email e Instagram…</span>';
       const { emails, instagram } = await scrapeContacts(website, proxy);
       const parts = [];
-      if(emails && emails.length){ withEmail++; parts.push(...emails.map(e=>`<a class="mail" href="mailto:${e}">✉️ ${e}</a>`));
+      if(emails && emails.length){ withEmail++; parts.push(...emails.map(e=>`<a class="mail" href="mailto:${e}">${ICO.mail} ${e}</a>`));
         if(pid && CARD_DATA[pid]) CARD_DATA[pid].email = emails[0]; }
       if(instagram){ withIg++; parts.push(`<a class="insta" href="https://ig.me/m/${instagram.handle}" target="_blank" rel="noopener">📷 DM @${instagram.handle}</a>`); }
       if(parts.length){
@@ -4334,7 +4351,8 @@ function showExtendFooter(extended){
     ? (atMax ? `Ricerca allargata al massimo (~${km} km dalla consegna).`
              : `Ricerca allargata a ~${km} km dalla consegna. Puoi allargare ancora.`)
     : 'Non trovi il fornitore giusto? Allarga la ricerca di 10 km alla volta.';
-  $('#extendMoreBtn').textContent = extended ? '🔎 Allarga di altri 10 km' : '🔎 Estendi la ricerca (+10 km)';
+  // innerHTML e non textContent: la label porta l'icona SVG (markup costante, niente dati utente)
+  $('#extendMoreBtn').innerHTML = `${ICO.search} ` + (extended ? 'Allarga di altri 10 km' : 'Estendi la ricerca (+10 km)');
   $('#extendMoreBtn').style.display = atMax ? 'none' : '';
   $('#extendMore').style.display = 'block';
 }
@@ -4384,8 +4402,8 @@ function buildMap(){
     // clic sul segnaposto: NON salta al record, apre una tendina coi dettagli dell'attività
     marker.addListener('click', ()=>{
       const emoji = CAT_META[p.cat] ? CAT_META[p.cat].emoji : '📍';
-      const stato = p.open==='open' ? '<span style="color:var(--green)">🟢 Aperto ora</span>'
-                  : p.open==='closed' ? '<span style="color:var(--red)">🔴 Chiuso ora</span>' : '';
+      const stato = p.open==='open' ? '<span style="color:var(--green)"><i class="bdot" style="margin-right:4px; vertical-align:1px"></i>Aperto ora</span>'
+                  : p.open==='closed' ? '<span style="color:var(--red)"><i class="bdot" style="margin-right:4px; vertical-align:1px"></i>Chiuso ora</span>' : '';
       const rating = p.rating ? `<span style="color:var(--gold)">★</span> ${Number(p.rating).toFixed(1)}${p.ratingTotal?` (${p.ratingTotal})`:''}` : '';
       const riga2 = [rating, p.distText, stato].filter(Boolean).join(' · ');
       const A = 'style="text-decoration:none; color:var(--blue); font-weight:600; white-space:nowrap"';
