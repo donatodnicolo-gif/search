@@ -5,14 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Trova Fiorai & Pasticcerie — Contatti verificati</title>
 <style>
-  /* Deluxy Design System v1.0 — token */
+  /* Deluxy Design System v1.4 — token */
   :root{
     --bg:#f5f5f7; --surface:#fff; --surface-translucent:rgba(255,255,255,.72);
-    --text:#1d1d1f; --text-secondary:#6e6e73; --text-tertiary:#86868b;
+    --surface-sunken:#ececef; --on-ink:#fff;
+    --text:#1d1d1f; --text-secondary:#6e6e73; --text-tertiary:#86868b; --grey:#8a8a8e;
     --hairline:rgba(0,0,0,.08); --hairline-strong:rgba(0,0,0,.14);
     --fill:rgba(120,120,128,.08); --fill-hover:rgba(120,120,128,.14); --fill-active:rgba(120,120,128,.2);
     --ink:#111318; --ink-hover:#2a2d35; --gold:#b8963e; --gold-strong:#a07f2c; --gold-soft:rgba(184,150,62,.12);
     --blue:#0071e3; --green:#248a3d; --orange:#c93400; --red:#d70015; --purple:#6d3fc4;
+    --blue-soft:rgba(0,113,227,.10); --green-soft:rgba(36,138,61,.11); --orange-soft:rgba(201,52,0,.10);
+    --red-soft:rgba(215,0,21,.09); --purple-soft:rgba(109,63,196,.10);
+    --scrim:rgba(0,0,0,.32); --touch-min:44px;
+    --logo-dark-a:#1d1f26; --logo-dark-b:#3a3d47;
     --radius-s:8px; --radius-m:12px; --radius-l:18px; --radius-xl:24px; --radius-pill:980px;
     --shadow-card:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.05);
     --shadow-float:0 4px 12px rgba(0,0,0,.08),0 24px 60px rgba(0,0,0,.12);
@@ -109,6 +114,9 @@
   .btn:disabled{opacity:.55; cursor:not-allowed}
   .status{margin:16px 0; min-height:20px; font-size:14px; color:var(--text-secondary); text-align:center}
   .status.err{color:var(--red)}
+  /* errore di caricamento come card (canone DS): tinta red-soft + bordo rosso ~15% + testo pieno */
+  .status.err.err-card{background:var(--red-soft); border:1px solid rgba(215,0,21,.15);
+        border-radius:var(--radius-m); padding:14px 16px; text-align:left}
   .results{display:grid; gap:14px; margin-top:8px}
   .shop{background:var(--surface); border:1px solid var(--hairline); border-radius:var(--radius-l);
         padding:20px; box-shadow:var(--shadow-card)}
@@ -265,8 +273,8 @@
   .price-propose .price-value{color:var(--gold-strong)}
   .price-margin .price-value{font-size:17px; color:var(--text-secondary)}
   .price-tag{font-size:11px; font-weight:600; padding:3px 8px; border-radius:var(--radius-pill); white-space:nowrap}
-  .price-tag.exact{background:rgba(36,138,61,.1); color:var(--green)}
-  .price-tag.est{background:rgba(201,52,0,.1); color:var(--orange)}
+  .price-tag.exact{background:var(--green-soft); color:var(--green)}
+  .price-tag.est{background:var(--orange-soft); color:var(--orange)}
   .rawattrs{margin-top:12px}
   .rawattrs summary{cursor:pointer; color:var(--text-secondary); font-size:13px}
   .rawattrs table{width:100%; border-collapse:collapse; margin-top:8px; font-size:13px}
@@ -301,9 +309,9 @@
   .stato-pill:active{transform:scale(.97)}
   .stato-pill .dot{width:8px; height:8px; border-radius:50%; background:var(--text-tertiary)}
   .stato-pill.active[data-stato="non iniziata"]{background:var(--fill-active); color:var(--text); border-color:transparent}
-  .stato-pill.active[data-stato="in corso"]{background:rgba(0,113,227,.1); color:var(--blue); border-color:rgba(0,113,227,.25)}
+  .stato-pill.active[data-stato="in corso"]{background:var(--blue-soft); color:var(--blue); border-color:rgba(0,113,227,.25)}
   .stato-pill.active[data-stato="in corso"] .dot{background:var(--blue)}
-  .stato-pill.active[data-stato="trovato"]{background:rgba(36,138,61,.1); color:var(--green); border-color:rgba(36,138,61,.25)}
+  .stato-pill.active[data-stato="trovato"]{background:var(--green-soft); color:var(--green); border-color:rgba(36,138,61,.25)}
   .stato-pill.active[data-stato="trovato"] .dot{background:var(--green)}
   .sendorder{margin-top:10px; width:100%; border:0; border-radius:var(--radius-pill); padding:12px; font-weight:600; cursor:pointer;
         background:var(--green); color:#fff; font-size:14px; transition:filter .15s var(--ease), transform .15s var(--ease)}
@@ -411,7 +419,7 @@
     .ct-card .top{ flex-direction:column; align-items:stretch; gap:8px }
     /* riepilogo ordine: foto sopra, prezzi sotto (già 1 colonna) con un po' meno padding */
     .deal{ padding:16px; gap:14px }
-    .content{ padding:16px 12px 28px }
+    .content{ padding:16px 16px 28px }
     /* pillole filtro: si dimensionano al testo e vanno a capo (niente testo tagliato) */
     #waFilter .wchip, #openFilter .wchip,
     #waFilterResults .wchip, #openFilterResults .wchip, #rateFilterResults .wchip{ flex:0 0 auto; min-width:0; padding:9px 13px }
@@ -1642,7 +1650,7 @@ async function loadContatti(force){
     ctData = res.list;
     renderContatti();
   }catch(err){
-    body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>';
+    body.innerHTML = '<div class="status err err-card" style="text-align:left">❌ '+esc(err.message)+'</div>';
   }
 }
 function ctIsPartner(p){ return isPartnerAttivo(p); }
@@ -1784,7 +1792,7 @@ async function loadProvince(force){
     ctData = res.list;
     renderProvince();
   }catch(err){
-    body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>';
+    body.innerHTML = '<div class="status err err-card" style="text-align:left">❌ '+esc(err.message)+'</div>';
   }
 }
 function renderProvince(){
@@ -1864,7 +1872,7 @@ async function loadArchiviati(force){
     if(!r.ok) throw new Error(j.error || ('Errore '+r.status));
     arData = j.archiviati || [];
     renderArchiviati();
-  }catch(err){ body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>'; }
+  }catch(err){ body.innerHTML = '<div class="status err err-card" style="text-align:left">❌ '+esc(err.message)+'</div>'; }
 }
 function renderArchiviati(){
   const body = $('#archiviatiBody');
@@ -2201,8 +2209,8 @@ async function annotaOrariRegistro(list, cards, service, origin){
             if(st===google.maps.places.PlacesServiceStatus.OK && d){
               let open; try{ open = d.opening_hours && d.opening_hours.isOpen && d.opening_hours.isOpen(); }catch(e){ open = undefined; }
               card.dataset.open = (open===true)?'open':(open===false)?'closed':'unknown';
-              const badge = (open===true)?'<span class="badge badge-open" style="color:var(--green); background:rgba(36,138,61,.1)">🟢 Aperto ora</span>'
-                          : (open===false)?'<span class="badge badge-open" style="color:var(--red); background:rgba(215,0,21,.1)">🔴 Chiuso ora</span>'
+              const badge = (open===true)?'<span class="badge badge-open" style="color:var(--green); background:var(--green-soft)">🟢 Aperto ora</span>'
+                          : (open===false)?'<span class="badge badge-open" style="color:var(--red); background:var(--red-soft)">🔴 Chiuso ora</span>'
                           : (d.business_status==='OPERATIONAL' ? '<span class="badge badge-open">orari non disponibili</span>' : '');
               const col = card.querySelector('.head > div');
               if(badge && col && !card.querySelector('.badge-open')) col.insertAdjacentHTML('beforeend', badge);
@@ -3552,7 +3560,7 @@ async function eseguiRiconcilia(btn){
     if(rb){ rb.disabled = true; rb.textContent = '🔗 Riconciliato'; }
     const col = card.querySelector('.head > div');
     if(col && !card.querySelector('.badge-recon')) col.insertAdjacentHTML('afterbegin',
-      '<span class="badge badge-recon" style="color:var(--green); background:rgba(36,138,61,.1)">🔗 nel registro</span>');
+      '<span class="badge badge-recon" style="color:var(--green); background:var(--green-soft)">🔗 nel registro</span>');
     logEvento({ tipo:'segnalazione', esito:'riconciliato con «'+(scelto.nome||partnerId)+'» (registro)', negozio: negozioDaScheda(card) });
     // contatti del registro sulla scheda (telefono → WhatsApp diretto, email, referenti)
     enrichCardWithRegistry(card, j.partner || scelto);
@@ -3655,7 +3663,7 @@ async function loadStorico(){
       </div>`;
     }).join('');
   }catch(err){
-    body.innerHTML = '<div class="status err" style="text-align:left">❌ '+esc(err.message)+'</div>';
+    body.innerHTML = '<div class="status err err-card" style="text-align:left">❌ '+esc(err.message)+'</div>';
   }
 }
 
@@ -3801,12 +3809,12 @@ function shopCard(d, cat, dist, pid){
   const cc = (d.address_components||[]).find(x=>x.types.includes('country'));
   const shopLang = COUNTRY_LANG[cc && cc.short_name] || currentLang || 'it';
   const kind  = phoneKind(phone, intl);
-  const waBadge = kind==='mobile' ? '<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">📱 WhatsApp probabile</span>'
-                : kind==='fixed'  ? '<span class="badge" style="color:var(--orange); background:rgba(201,52,0,.1)">☎️ fisso · WhatsApp raro</span>'
+  const waBadge = kind==='mobile' ? '<span class="badge" style="color:var(--green); background:var(--green-soft)">📱 WhatsApp probabile</span>'
+                : kind==='fixed'  ? '<span class="badge" style="color:var(--orange); background:var(--orange-soft)">☎️ fisso · WhatsApp raro</span>'
                 : (hasWa ? '<span class="badge">WhatsApp da verificare</span>' : '');
   let open; try { open = d.opening_hours?.isOpen?.(); } catch(e) { open = undefined; }
-  const openBadge = (open===true)?'<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">🟢 Aperto ora</span>'
-                  : (open===false)?'<span class="badge" style="color:var(--red); background:rgba(215,0,21,.1)">🔴 Chiuso ora</span>'
+  const openBadge = (open===true)?'<span class="badge" style="color:var(--green); background:var(--green-soft)">🟢 Aperto ora</span>'
+                  : (open===false)?'<span class="badge" style="color:var(--red); background:var(--red-soft)">🔴 Chiuso ora</span>'
                   : (d.business_status==='OPERATIONAL'?'<span class="badge">orari non disponibili</span>':'');
   // distanza STRADALE (in auto) se disponibile, altrimenti linea d'aria
   const distBadge = dist.driveText ? `🚗 ${dist.driveText}${dist.durText?' · '+dist.durText:''}`
@@ -3896,8 +3904,8 @@ function renderOrderSummary(){
   const recipient = $('#ord_recipient').value.trim(), phone = $('#ord_phone').value.trim();
   const address = $('#ord_address').value.trim(), date = $('#ord_date').value.trim(), time = $('#ord_time').value.trim();
   const prod = $('#ord_items').value.trim(), variant = $('#ord_variant').value.trim(), qty = $('#ord_qty').value.trim();
-  const statoBadge = statoRicerca.stato==='in corso' ? '<span class="badge" style="color:var(--blue); background:rgba(0,113,227,.1)">🔵 ricerca in corso</span>'
-                   : statoRicerca.stato==='trovato' ? '<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">🟢 fornitore trovato</span>' : '';
+  const statoBadge = statoRicerca.stato==='in corso' ? '<span class="badge" style="color:var(--blue); background:var(--blue-soft)">🔵 ricerca in corso</span>'
+                   : statoRicerca.stato==='trovato' ? '<span class="badge" style="color:var(--green); background:var(--green-soft)">🟢 fornitore trovato</span>' : '';
   const row = (lbl,val)=> val ? `<div><span class="lbl">${lbl}:</span> ${esc(val)}</div>` : '';
   $('#orderSummary').innerHTML = `
     <div class="os-head">
@@ -4151,7 +4159,7 @@ async function renderResults(found, geo, origin, service, opts){
       const riconc = (p.riferimenti||[]).some(r=>r.sistema==='deluxy-suppliers' && r.idEsterno===cardEl.dataset.sid);
       if(col) col.insertAdjacentHTML('afterbegin',
         `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}">${isPartner?'🤝 Partner Deluxy':'📋 '+statoLabel(p)}</span>`
-        + (riconc ? '<span class="badge" style="color:var(--green); background:rgba(36,138,61,.1)">🔗 riconciliata</span>' : ''));
+        + (riconc ? '<span class="badge" style="color:var(--green); background:var(--green-soft)">🔗 riconciliata</span>' : ''));
       // già censito: inutile segnalarlo di nuovo al commerciale
       const rep = cardEl.querySelector('.reportshop');
       if(rep){ rep.disabled = true; rep.textContent = 'ℹ️ Già nel registro · '+statoLabel(p); }
@@ -4376,23 +4384,23 @@ function buildMap(){
     // clic sul segnaposto: NON salta al record, apre una tendina coi dettagli dell'attività
     marker.addListener('click', ()=>{
       const emoji = CAT_META[p.cat] ? CAT_META[p.cat].emoji : '📍';
-      const stato = p.open==='open' ? '<span style="color:#248a3d">🟢 Aperto ora</span>'
-                  : p.open==='closed' ? '<span style="color:#d70015">🔴 Chiuso ora</span>' : '';
-      const rating = p.rating ? `<span style="color:#b8963e">★</span> ${Number(p.rating).toFixed(1)}${p.ratingTotal?` (${p.ratingTotal})`:''}` : '';
+      const stato = p.open==='open' ? '<span style="color:var(--green)">🟢 Aperto ora</span>'
+                  : p.open==='closed' ? '<span style="color:var(--red)">🔴 Chiuso ora</span>' : '';
+      const rating = p.rating ? `<span style="color:var(--gold)">★</span> ${Number(p.rating).toFixed(1)}${p.ratingTotal?` (${p.ratingTotal})`:''}` : '';
       const riga2 = [rating, p.distText, stato].filter(Boolean).join(' · ');
-      const A = 'style="text-decoration:none; color:#0071e3; font-weight:600; white-space:nowrap"';
+      const A = 'style="text-decoration:none; color:var(--blue); font-weight:600; white-space:nowrap"';
       const links = [];
       if(p.phone)    links.push(`<a href="tel:${esc(p.phone)}" ${A}>📞 Chiama</a>`);
       if(p.waDigits) links.push(`<a href="${waChatUrl(p.waDigits)}" target="_blank" rel="noopener" ${A}>💬 WhatsApp</a>`);
       if(p.url)      links.push(`<a href="${esc(p.url)}" target="_blank" rel="noopener" ${A}>🗺️ Maps</a>`);
       mapState.info.setContent(
-        `<div style="font-family:-apple-system,Segoe UI,sans-serif; max-width:250px; line-height:1.45; color:#1d1d1f">
+        `<div style="font-family:-apple-system,Segoe UI,sans-serif; max-width:250px; line-height:1.45; color:var(--text)">
            ${p.foto?`<img src="${esc(p.foto)}" alt="" style="display:block; width:100%; height:104px; object-fit:cover; border-radius:10px; margin-bottom:6px">`:''}
            <div style="font-weight:600; margin-bottom:2px">${emoji} ${esc(p.name)}</div>
-           ${p.address?`<div style="font-size:12px; color:#555">${esc(p.address)}</div>`:''}
+           ${p.address?`<div style="font-size:12px; color:var(--text-secondary)">${esc(p.address)}</div>`:''}
            ${riga2?`<div style="font-size:12px; margin-top:3px">${riga2}</div>`:''}
            ${links.length?`<div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; font-size:12px">${links.join('')}</div>`:''}
-           <div style="margin-top:8px; font-size:12px"><a href="#" onclick="focusCard('${esc(p.sid)}');return false" style="text-decoration:none; color:#6e6e73">Vedi la scheda completa ↓</a></div>
+           <div style="margin-top:8px; font-size:12px"><a href="#" onclick="focusCard('${esc(p.sid)}');return false" style="text-decoration:none; color:var(--text-secondary)">Vedi la scheda completa ↓</a></div>
          </div>`);
       mapState.info.open(mapState.map, marker);
     });
