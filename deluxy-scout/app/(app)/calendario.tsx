@@ -224,12 +224,13 @@ export default function Calendario() {
     <View style={styles.container}>
       <PageIntro testo="Gli appuntamenti con una scadenza: task e follow-up delle trattative. Tocca un giorno per vederne l'elenco." />
       <View style={styles.head}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtri}>
+        {/* A capo, non in scroll orizzontale (Libro v1.2 §8). */}
+        <View style={[styles.filtri, { flexWrap: 'wrap' }]}>
           <Chip label="Tutti" on={venditore === 'tutti'} onPress={() => setVenditore('tutti')} />
           {venditori.map((v) => (
             <Chip key={v} label={v} on={venditore === v} onPress={() => setVenditore(v)} />
           ))}
-        </ScrollView>
+        </View>
       </View>
 
       <ScrollView

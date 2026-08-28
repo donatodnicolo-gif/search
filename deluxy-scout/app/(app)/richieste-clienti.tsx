@@ -611,7 +611,8 @@ export default function RichiesteClienti() {
           autoCapitalize="none"
           clearButtonMode="while-editing"
         />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRiga}>
+        {/* A capo, non in scroll orizzontale (Libro v1.2 §8). */}
+        <View style={[styles.chipsRiga, { flexWrap: 'wrap' }]}>
           {VISTE_RICHIESTA.map((v) => (
             <Pressable
               key={v.v}
@@ -623,7 +624,7 @@ export default function RichiesteClienti() {
               </Text>
             </Pressable>
           ))}
-        </ScrollView>
+        </View>
 
         {errore ? (
           <Text style={styles.errore}>

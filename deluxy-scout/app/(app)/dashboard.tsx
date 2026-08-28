@@ -14,6 +14,7 @@ import {
   type TrattativaConLuogo,
 } from '@/lib/db';
 import { contaInCoda, flushCoda } from '@/lib/syncQueue';
+import { PannelloFiltri } from '@/components/PannelloFiltri';
 import {
   chiusePerse,
   coperturaZone,
@@ -182,7 +183,6 @@ export default function Dashboard() {
   );
   const valLineaBar = useMemo(() => valorePerLinea(dealsF), [dealsF]);
 
-  const filtriAttivi = zona !== 'tutte' || venditore !== 'tutti' || linea !== 'tutte' || fase !== 'tutte';
   const periodoLabel = labelPeriodo(periodo);
 
   return (
@@ -201,23 +201,30 @@ export default function Dashboard() {
       {/* Eleonor: sintesi AI in cima alla Dashboard. */}
       <AssistenteCard trattative={dealsF} />
 
-      {/* ── Filtri ── */}
+      {/* ── Filtri — Libro v1.2 §8 (28/08): cinque gruppi sempre aperti erano
+          più di una schermata di telefono prima del primo numero. Ora stanno
+          tutti dietro «Filtri (N)», chiuso di default: la Dashboard si apre
+          sui numeri, non sui filtri. Il periodo conta nel numero sul bottone
+          come gli altri (se non è il default, la base dei numeri è ristretta
+          e va detto). ── */}
+      <PannelloFiltri
+        dentroUnBloccoSpaziato
+        attivi={
+          (zona !== 'tutte' ? 1 : 0) +
+          (venditore !== 'tutti' ? 1 : 0) +
+          (linea !== 'tutte' ? 1 : 0) +
+          (fase !== 'tutte' ? 1 : 0) +
+          (periodo.tipo !== PERIODO_DEFAULT.tipo ? 1 : 0)
+        }
+        onAzzera={() => {
+          setZona('tutte');
+          setVenditore('tutti');
+          setLinea('tutte');
+          setFase('tutte');
+          setPeriodo(PERIODO_DEFAULT);
+        }}
+      >
       <View style={styles.filtri}>
-        <View style={styles.filtriHead}>
-          <Text style={styles.filtriTitolo}>Filtri</Text>
-          {filtriAttivi ? (
-            <Pressable
-              onPress={() => {
-                setZona('tutte');
-                setVenditore('tutti');
-                setLinea('tutte');
-                setFase('tutte');
-              }}
-            >
-              <Text style={styles.azzera}>Azzera</Text>
-            </Pressable>
-          ) : null}
-        </View>
         <PeriodoSelector titolo="Periodo (prospezione)" periodo={periodo} onChange={setPeriodo} />
         <FiltroRiga label="Città">
           {OPZIONI_CITTA.map((z) => (
@@ -250,6 +257,7 @@ export default function Dashboard() {
           ))}
         </FiltroRiga>
       </View>
+      </PannelloFiltri>
 
       {/* ── Andamento: colpo d'occhio diviso Prospezione / Trattative ── */}
       <Text style={styles.sezioneTitolo}>Andamento</Text>

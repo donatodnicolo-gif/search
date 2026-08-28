@@ -9,6 +9,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, touchMin, contenutoCentrato, contenutoExtraLargo } from '@/lib/theme';
 import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { PannelloFiltri } from '@/components/PannelloFiltri';
 import { Tabella, importoBreve, type ColonnaTabella } from '@/components/Tabella';
 import { aggiornaOrdine, collegaDocumentoAOrdine, fetchOrdini, inserisciRichiestaPagamento, type OrdineConLuogo } from '@/lib/db';
 import { cercaFatture, chiediFatturaPerOrdine, type FatturaInElenco } from '@/lib/partner';
@@ -1103,43 +1104,61 @@ export default function Ordini() {
             </>
           ) : null}
         </Text>
-        <View style={styles.chips}>
-          <Chip label="Tutti" on={!statoFiltro} onPress={() => setStatoFiltro(null)} />
-          {STATI.map((s) => (
-            <Chip key={s.valore} label={s.label} on={statoFiltro === s.valore} onPress={() => setStatoFiltro((c) => (c === s.valore ? null : s.valore))} />
-          ))}
-        </View>
-        {lineePresenti.length ? (
+        {/* Zona filtri al Libro v1.2 §8 (28/08, segnalazione utente: 4 gruppi
+            sempre aperti ≈ 300px, il 37-40% di un telefono). La dimensione
+            PRIMARIA — lo stato dell'incasso, quella che si cambia più volte al
+            giorno — resta fuori come riga a sé; Interessi, Pratica e Periodo
+            sono l'eccedenza e stanno dietro «Filtri (N)», chiuso di default. */}
+        <PannelloFiltri
+          dentroUnBloccoSpaziato
+          primaria={
+            <>
+              <Chip label="Tutti" on={!statoFiltro} onPress={() => setStatoFiltro(null)} />
+              {STATI.map((s) => (
+                <Chip key={s.valore} label={s.label} on={statoFiltro === s.valore} onPress={() => setStatoFiltro((c) => (c === s.valore ? null : s.valore))} />
+              ))}
+            </>
+          }
+          attivi={(lineaFiltro ? 1 : 0) + (chiusura !== 'tutti' ? 1 : 0) + (periodo !== 'tutti' ? 1 : 0)}
+          onAzzera={() => {
+            setLineaFiltro(null);
+            setChiusura('tutti');
+            setPeriodo('tutti');
+          }}
+          risultati={dati.length}
+        >
+          {lineePresenti.length ? (
+            <View style={styles.chips}>
+              <Text style={styles.gruppoTitolo}>Interessi</Text>
+              <Chip label="Tutti" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
+              {lineePresenti.map((l) => (
+                <Chip key={l} label={l} on={lineaFiltro === l} onPress={() => setLineaFiltro((c) => (c === l ? null : l))} />
+              ))}
+            </View>
+          ) : null}
+          {/* ⭐ IL PERIODO (27/08/2026): quattro scorciatoie, non un
+              calendario. La domanda vera e quella di tutti i giorni — «come sta
+              andando questo mese?» — e per farsela non si deve scegliere due
+              date. */}
           <View style={styles.chips}>
-            <Text style={styles.gruppoTitolo}>Interessi</Text>
-            <Chip label="Tutti" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
-            {lineePresenti.map((l) => (
-              <Chip key={l} label={l} on={lineaFiltro === l} onPress={() => setLineaFiltro((c) => (c === l ? null : l))} />
+            <Text style={styles.gruppoTitolo}>Pratica</Text>
+            <Chip label="Tutti" on={chiusura === 'tutti'} onPress={() => setChiusura('tutti')} />
+            <Chip label="Da chiudere" on={chiusura === 'aperti'} onPress={() => setChiusura('aperti')} />
+            <Chip label="Chiusi" on={chiusura === 'chiusi'} onPress={() => setChiusura('chiusi')} />
+          </View>
+          <View style={styles.chips}>
+            <Text style={styles.gruppoTitolo}>Periodo</Text>
+            {([
+              { v: 'tutti', l: 'Sempre' },
+              { v: 'mese', l: 'Questo mese' },
+              { v: 'scorso', l: 'Mese scorso' },
+              { v: 'trimestre', l: 'Trimestre' },
+              { v: 'anno', l: 'Anno' },
+            ] as const).map((o) => (
+              <Chip key={o.v} label={o.l} on={periodo === o.v} onPress={() => setPeriodo(o.v)} />
             ))}
           </View>
-        ) : null}
-        {/* ⭐ IL PERIODO (27/08/2026): quattro scorciatoie, non un
-            calendario. La domanda vera e quella di tutti i giorni — «come sta
-            andando questo mese?» — e per farsela non si deve scegliere due
-            date. */}
-        <View style={styles.chips}>
-          <Text style={styles.gruppoTitolo}>Pratica</Text>
-          <Chip label="Tutti" on={chiusura === 'tutti'} onPress={() => setChiusura('tutti')} />
-          <Chip label="Da chiudere" on={chiusura === 'aperti'} onPress={() => setChiusura('aperti')} />
-          <Chip label="Chiusi" on={chiusura === 'chiusi'} onPress={() => setChiusura('chiusi')} />
-        </View>
-        <View style={styles.chips}>
-          <Text style={styles.gruppoTitolo}>Periodo</Text>
-          {([
-            { v: 'tutti', l: 'Sempre' },
-            { v: 'mese', l: 'Questo mese' },
-            { v: 'scorso', l: 'Mese scorso' },
-            { v: 'trimestre', l: 'Trimestre' },
-            { v: 'anno', l: 'Anno' },
-          ] as const).map((o) => (
-            <Chip key={o.v} label={o.l} on={periodo === o.v} onPress={() => setPeriodo(o.v)} />
-          ))}
-        </View>
+        </PannelloFiltri>
       </View>
 
       <FlatList

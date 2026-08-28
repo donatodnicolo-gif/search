@@ -250,7 +250,8 @@ export function RicercaAffiliazioni({
             </Pressable>
           </View>
         ) : null}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        {/* A capo, non in scroll orizzontale (Libro v1.2 §8). */}
+        <View style={[styles.chips, { flexDirection: 'row', flexWrap: 'wrap' }]}>
           <Text style={styles.etichetta}>Cosa</Text>
           {COSA.map((c) => (
             <Chip
@@ -263,8 +264,8 @@ export function RicercaAffiliazioni({
               }}
             />
           ))}
-        </ScrollView>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        </View>
+        <View style={[styles.chips, { flexDirection: 'row', flexWrap: 'wrap' }]}>
           <Text style={styles.etichetta}>Raggio</Text>
           <Chip
             label="Tutta la città"
@@ -291,7 +292,7 @@ export function RicercaAffiliazioni({
               }}
             />
           ))}
-        </ScrollView>
+        </View>
         {indirizzo ? (
           <Text style={styles.zona} numberOfLines={1}>
             <Ionicons name="location-outline" size={12} color={colors.testoSoft} /> {indirizzo}

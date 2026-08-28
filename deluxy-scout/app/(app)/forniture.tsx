@@ -224,8 +224,10 @@ export default function Forniture() {
           clearButtonMode="while-editing"
         />
 
+        {/* A capo, non in scroll orizzontale (Libro v1.2 §8: le ultime chip
+            uscivano dallo schermo senza modo di accorgersene). */}
         {lineePresenti.length ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          <View style={[styles.chips, { flexWrap: 'wrap' }]}>
             <Pressable style={[styles.chip, !lineaFiltro && styles.chipOn]} onPress={() => setLineaFiltro(null)}>
               <Text style={[styles.chipTxt, !lineaFiltro && styles.chipTxtOn]}>Tutte</Text>
             </Pressable>
@@ -238,7 +240,7 @@ export default function Forniture() {
                 <Text style={[styles.chipTxt, lineaFiltro === l && styles.chipTxtOn]}>{l}</Text>
               </Pressable>
             ))}
-          </ScrollView>
+          </View>
         ) : null}
 
         {spente ? (

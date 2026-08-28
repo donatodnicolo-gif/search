@@ -257,3 +257,85 @@ const stiliConto = StyleSheet.create({
   riga: { color: colors.testoSoft, fontSize: 12.5, fontWeight: '700' },
   nota: { color: colors.goldStrong, fontWeight: '700' },
 });
+
+/**
+ * Chip di filtro a selezione SINGOLA (Libro UX&UI v1.2 §8). La stessa forma
+ * era stata ricopiata in locale da dieci schermate (`{ label, on, onPress }`
+ * quasi identico ovunque): questa è la copia che resta, le altre si tolgono
+ * man mano che le schermate passano al pattern nuovo.
+ */
+export function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+  return (
+    // «tutto risponde» (Libro cap.3): la pillola reagisce alla pressione.
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [stiliChip.chip, on && stiliChip.chipOn, pressed && { opacity: 0.6 }]}
+    >
+      <Text style={[stiliChip.txt, on && stiliChip.txtOn]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/**
+ * Gruppo di chip a selezione singola con «Tutti» in testa: la riga della
+ * dimensione primaria fuori dal pannello, o un gruppo esclusivo dentro
+ * (stato di un flusso, periodo, aperto/chiuso — Libro v1.2 §8 punto 4).
+ * Le pillole vanno a capo, mai in scroll orizzontale.
+ *
+ * `valore === null` = «Tutti». Con `senzaTutti` (per i gruppi che DEVONO
+ * avere sempre un valore, es. il periodo) la pillola «Tutti» non compare.
+ */
+export function GruppoScelta<T extends string>({
+  titolo,
+  opzioni,
+  valore,
+  onChange,
+  etichettaTutti = 'Tutti',
+  senzaTutti,
+}: {
+  titolo?: string;
+  opzioni: { v: T; l: string }[];
+  valore: T | null;
+  onChange: (v: T | null) => void;
+  etichettaTutti?: string;
+  senzaTutti?: boolean;
+}) {
+  return (
+    <View style={stiliChip.gruppo}>
+      {titolo ? <Text style={stiliChip.titolo}>{titolo}</Text> : null}
+      <View style={stiliChip.riga}>
+        {senzaTutti ? null : (
+          <Chip label={etichettaTutti} on={valore === null} onPress={() => onChange(null)} />
+        )}
+        {opzioni.map((o) => (
+          <Chip
+            key={o.v}
+            label={o.l}
+            on={valore === o.v}
+            onPress={() => onChange(senzaTutti ? o.v : valore === o.v ? null : o.v)}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const stiliChip = StyleSheet.create({
+  gruppo: { gap: 6 },
+  titolo: { color: colors.testoSoft, fontSize: 12, fontWeight: '700' },
+  riga: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
+  chip: {
+    minHeight: touchMin,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    backgroundColor: colors.bianco,
+  },
+  chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  txt: { color: colors.testo, fontSize: 13, fontWeight: '600' },
+  txtOn: { color: colors.onInk },
+});

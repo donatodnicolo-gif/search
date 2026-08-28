@@ -398,41 +398,16 @@ export default function Trattative() {
               </Pressable>
             ))}
           </View>
-          {/* I sotto-stati: sono di «Aperte», e solo lì compaiono. */}
+          {/* I sotto-stati: sono di «Aperte», e solo lì compaiono. A capo,
+              non in scroll orizzontale (Libro v1.2 §8: le ultime chip uscivano
+              dallo schermo senza modo di accorgersene). */}
           {vista === 'aperte' && fasiApertePresenti.length > 1 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.sottoFiltri}
-              keyboardShouldPersistTaps="handled"
-            >
+            <View style={[styles.sottoFiltri, { flexWrap: 'wrap' }]}>
               <FiltroChip label="Tutte" on={faseFiltro === 'tutte'} onPress={() => setFaseFiltro('tutte')} />
               {fasiApertePresenti.map((f) => (
                 <FiltroChip key={f} label={labelFase[f]} on={faseFiltro === f} onPress={() => setFaseFiltro(f)} />
               ))}
-            </ScrollView>
-          ) : null}
-          {/* La TIPOLOGIA (l'interesse) subito visibile, anche da telefono:
-              richiesta dell'utente. Scorre in orizzontale invece di andare a
-              capo, così non mangia mezza schermata quando le linee sono nove. */}
-          {lineePresenti.length ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.sottoFiltri}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Text style={styles.filtroEtichetta}>Tipologia</Text>
-              <FiltroChip label="Tutte" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
-              {lineePresenti.map((l) => (
-                <FiltroChip
-                  key={l}
-                  label={l}
-                  on={lineaFiltro === l}
-                  onPress={() => setLineaFiltro((c) => (c === l ? null : l))}
-                />
-              ))}
-            </ScrollView>
+            </View>
           ) : null}
           <Text style={styles.sub}>
             {filtrate.length} trattative · valore € {totale.toLocaleString('it-IT')}
@@ -448,9 +423,25 @@ export default function Trattative() {
           />
           {/* Dietro un bottone: 4 righe di filtri aperte occupavano piu di
               una schermata prima della prima trattativa. */}
-          <PannelloFiltri attivi={nFiltriAttivi} onAzzera={azzeraFiltri}>
-            {/* ⚠️ Le fasi e la tipologia NON stanno più qui: sono salite sopra,
-                sempre a schermo. Qui restano i tagli che si usano di rado. */}
+          <PannelloFiltri attivi={nFiltriAttivi} onAzzera={azzeraFiltri} risultati={filtrate.length}>
+            {/* La TIPOLOGIA torna QUI (Libro v1.2 §8, 28/08): la riga «sempre a
+                vista» era diventata uno scroll orizzontale vietato, e con nove
+                linee a capo mangiava mezza schermata. Il conteggio (N) sul
+                bottone la tiene comunque visibile quando è attiva. */}
+            {lineePresenti.length ? (
+              <View style={styles.filtri}>
+                <Text style={styles.filtroEtichetta}>Tipologia</Text>
+                <FiltroChip label="Tutte" on={!lineaFiltro} onPress={() => setLineaFiltro(null)} />
+                {lineePresenti.map((l) => (
+                  <FiltroChip
+                    key={l}
+                    label={l}
+                    on={lineaFiltro === l}
+                    onPress={() => setLineaFiltro((c) => (c === l ? null : l))}
+                  />
+                ))}
+              </View>
+            ) : null}
             {/* Città: le tre principali + "Altre", come in Target, Clienti e Rubrica. */}
             <View style={styles.filtri}>
               <Text style={styles.filtroEtichetta}>Città</Text>

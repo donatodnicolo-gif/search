@@ -4,25 +4,50 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, touchMin } from '@/lib/theme';
 
 /**
- * Contenitore dei filtri di una lista, richiudibile.
+ * Contenitore dei filtri di una lista, richiudibile (Libro UX&UI v1.2 §8:
+ * il pannello contiene l'ECCEDENZA della zona filtri; la dimensione primaria
+ * sta FUORI, come riga a sé, sopra o accanto a questo bottone).
  *
  * I filtri vanno a capo (in orizzontale restavano tagliati fuori schermo), ma
  * così sul telefono occupavano più di una schermata intera prima della prima
  * riga: la sezione diventava inutilizzabile. Qui stanno dietro un bottone.
  *
- * Di default: **chiusi sul telefono**, aperti da 900px in su (dove c'è spazio
- * e la sidebar è già permanente). Il numero di filtri attivi è sempre visibile
- * sul bottone, così non si resta con una lista filtrata senza capire perché.
+ * **Chiuso di default su ogni viewport, anche desktop** (scelta utente): la
+ * lista si vede subito, i filtri si aprono quando servono. Il numero di filtri
+ * attivi è sempre visibile sul bottone, così non si resta con una lista
+ * filtrata senza capire perché.
  */
 export function PannelloFiltri({
   attivi = 0,
   onAzzera,
+  risultati,
+  dentroUnBloccoSpaziato,
+  primaria,
   children,
 }: {
   /** Quanti filtri sono attualmente applicati (0 = nessuno). */
   attivi?: number;
   /** Se passato, compare "Azzera" accanto al bottone quando c'è almeno un filtro. */
   onAzzera?: () => void;
+  /**
+   * Quante righe mostra la lista col filtro corrente. A pannello APERTO il
+   * bottone diventa «Mostra N risultati»: il pannello inline copre la lista e
+   * senza questo numero non si vede l'effetto del filtro mentre lo si imposta.
+   * ⚠️ Passare la STESSA fonte del ContoRighe, mai un secondo calcolo.
+   */
+  risultati?: number;
+  /**
+   * Quando il pannello sta già dentro un contenitore col suo padding
+   * (es. la testata di Ordini). ⚠️ Senza, il rientro si SOMMA — stessa
+   * trappola documentata su PageIntro.
+   */
+  dentroUnBloccoSpaziato?: boolean;
+  /**
+   * La DIMENSIONE PRIMARIA della zona filtri (Libro v1.2 §8): i suoi chip
+   * si rendono nella STESSA riga del bottone «Filtri (N)» e vanno a capo
+   * insieme — una riga sola invece di due impilate.
+   */
+  primaria?: ReactNode;
   children: ReactNode;
 }) {
   // Chiusi sempre, anche su desktop (scelta utente): la lista si vede subito e
@@ -32,7 +57,8 @@ export function PannelloFiltri({
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.barra}>
+      <View style={[styles.barra, dentroUnBloccoSpaziato && { paddingHorizontal: 0 }]}>
+        {primaria}
         <Pressable
           onPress={() => setAperto((v) => !v)}
           style={[styles.bottone, attivi > 0 && styles.bottoneAttivo]}
@@ -44,7 +70,9 @@ export function PannelloFiltri({
             color={attivi > 0 ? colors.bianco : colors.testo}
           />
           <Text style={[styles.bottoneTxt, attivi > 0 && styles.bottoneTxtAttivo]}>
-            Filtri{attivi > 0 ? ` (${attivi})` : ''}
+            {aperto && risultati != null
+              ? `Mostra ${risultati} risultat${risultati === 1 ? 'o' : 'i'}`
+              : `Filtri${attivi > 0 ? ` (${attivi})` : ''}`}
           </Text>
           <Ionicons
             name={aperto ? 'chevron-up' : 'chevron-down'}
@@ -68,6 +96,7 @@ const styles = StyleSheet.create({
   wrap: { width: '100%' },
   barra: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,

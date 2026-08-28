@@ -12,6 +12,7 @@ import { fetchStorico, type VisitaStorico } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { PERIODO_DEFAULT, inPeriodo, type Periodo } from '@/lib/periodo';
 import { PeriodoSelector } from '@/components/PeriodoSelector';
+import { PannelloFiltri } from '@/components/PannelloFiltri';
 
 const LABEL_ESITO: Record<EsitoVisita, string> = {
   interessato: 'Interessato',
@@ -160,16 +161,32 @@ export default function Storico() {
       <View style={styles.head}>
         <PageIntro testo="Lo storico delle visite: per giorno, con il venditore, il negozio e la via. Usa i filtri per account o città." />
         <Text style={styles.sub}>{totale} visite{accountFiltro || cittaFiltro ? ' (filtrate)' : ''}</Text>
-        <View style={styles.filtri}>
-          <PeriodoSelector periodo={periodo} onChange={setPeriodo} />
-          <Gruppo titolo="Account" valori={accountPresenti} attivo={accountFiltro} onTap={(v) => setAccountFiltro((c) => (c === v ? null : v))} />
-          <Gruppo
-            titolo="Città"
-            valori={OPZIONI_CITTA as unknown as string[]}
-            attivo={cittaFiltro ?? 'Tutte'}
-            onTap={(v) => setCittaFiltro(v === 'Tutte' ? null : (c) => (c === v ? null : v))}
-          />
-        </View>
+        {/* Libro v1.2 §8 (28/08): tre gruppi sempre aperti erano l'eccedenza —
+            ora stanno dietro «Filtri (N)», chiuso di default. */}
+        <PannelloFiltri
+          attivi={
+            (periodo.tipo !== PERIODO_DEFAULT.tipo ? 1 : 0) +
+            (accountFiltro ? 1 : 0) +
+            (cittaFiltro ? 1 : 0)
+          }
+          onAzzera={() => {
+            setPeriodo(PERIODO_DEFAULT);
+            setAccountFiltro(null);
+            setCittaFiltro(null);
+          }}
+          risultati={totale}
+        >
+          <View style={styles.filtri}>
+            <PeriodoSelector periodo={periodo} onChange={setPeriodo} />
+            <Gruppo titolo="Account" valori={accountPresenti} attivo={accountFiltro} onTap={(v) => setAccountFiltro((c) => (c === v ? null : v))} />
+            <Gruppo
+              titolo="Città"
+              valori={OPZIONI_CITTA as unknown as string[]}
+              attivo={cittaFiltro ?? 'Tutte'}
+              onTap={(v) => setCittaFiltro(v === 'Tutte' ? null : (c) => (c === v ? null : v))}
+            />
+          </View>
+        </PannelloFiltri>
       </View>
 
       <SectionList
