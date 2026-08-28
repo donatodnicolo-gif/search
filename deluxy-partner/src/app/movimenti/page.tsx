@@ -201,11 +201,13 @@ export default async function MovimentiPage({
             <tbody>
               {righe.map((tx) => (
                 <tr key={tx.id}>
-                  <td style={{ whiteSpace: "nowrap" }}>{dataIt(tx.data)}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <Link href={`/movimenti/${tx.id}`}>{dataIt(tx.data)}</Link>
+                  </td>
                   <td style={{ maxWidth: 420 }}>
-                    <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={tx.descrizione}>
+                    <Link href={`/movimenti/${tx.id}`} style={{ fontWeight: 500, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={tx.descrizione}>
                       {tx.descrizione}
-                    </div>
+                    </Link>
                     {tx.controparte && <div className="muted" style={{ fontSize: 12 }}>{tx.controparte}</div>}
                     {tx.categoriaNome && <div className="muted" style={{ fontSize: 11.5 }}>· {tx.categoriaNome}</div>}
                   </td>
