@@ -108,15 +108,25 @@ REGOLE:
 
 // ---------------------------------------------------------------------------
 
-async function chiaviDiLista(chiave: string): Promise<Set<string>> {
+// ⚠️ Le liste di ESCLUSIONE non possono essere «quasi giuste» (giuria
+// performance 28/08): prima, un errore di rete faceva `break` e l'esclusione
+// usciva VUOTA in silenzio — e la nota diceva perfino «Nessuno da escludere».
+// Con «non-contattare» questo vuol dire scrivere a chi ha chiesto di non
+// essere contattato. Ora la lettura o è COMPLETA o è un errore dichiarato:
+// niente terza via.
+async function chiaviDiLista(
+  chiave: string,
+): Promise<{ ok: true; chiavi: Set<string> } | { ok: false; errore: string }> {
   const fuori = new Set<string>();
   for (let page = 1; page <= MAX_PAGINE_BASE; page++) {
     const r = await clientiDiLista(chiave, { page, limit: 500 });
-    if (!r.ok) break;
+    if (!r.ok) return { ok: false, errore: `lettura di «${chiave}» fallita: ${r.errore}` };
     for (const c of r.dati.clienti) fuori.add(c.cliente);
-    if (page >= r.dati.pagine) break;
+    if (page >= r.dati.pagine) return { ok: true, chiavi: fuori };
   }
-  return fuori;
+  // Usciti dal ciclo senza aver visto l'ultima pagina = lista più grande del
+  // tetto: per un'esclusione è un troncamento che falsifica, non un risparmio.
+  return { ok: false, errore: `la lista «${chiave}» supera le ${MAX_PAGINE_BASE * 500} righe: lettura troncata` };
 }
 
 export async function eseguiCriteri(
@@ -158,18 +168,24 @@ export async function eseguiCriteri(
   }
 
   // 2. Le esclusioni: quelle chieste, più «non-contattare» SEMPRE.
+  // ⚠️ BLOCCANTI: se un'esclusione non si legge per intero, la generazione
+  // FALLISCE — mai una lista parziale che sembra completa.
   const daEscludere = new Set<string>([...(criteri.escludiListe ?? []), "non-contattare"]);
   let esclusi = 0;
   for (const chiave of daEscludere) {
-    const set = await chiaviDiLista(chiave);
-    for (const k of set) if (base.delete(k)) esclusi++;
+    const esito = await chiaviDiLista(chiave);
+    if (!esito.ok) return { ok: false, errore: `Esclusione non affidabile — ${esito.errore}. Lista NON generata.` };
+    for (const k of esito.chiavi) if (base.delete(k)) esclusi++;
   }
   if (esclusi) note.push(`Esclusi ${esclusi} clienti (${[...daEscludere].map((l) => `«${l}»`).join(", ")}).`);
   else note.push(`Nessuno da escludere («non-contattare» controllata comunque).`);
 
-  // 3. Il consenso esplicito, se chiesto.
+  // 3. Il consenso esplicito, se chiesto. Stessa regola: o completo o errore
+  // (un consenso letto a metà terrebbe dentro chi non l'ha dato).
   if (criteri.soloConsensoEmail) {
-    const consenso = await chiaviDiLista("consenso-email");
+    const esitoConsenso = await chiaviDiLista("consenso-email");
+    if (!esitoConsenso.ok) return { ok: false, errore: `Consenso non verificabile — ${esitoConsenso.errore}. Lista NON generata.` };
+    const consenso = esitoConsenso.chiavi;
     const prima = base.size;
     for (const k of [...base.keys()]) if (!consenso.has(k)) base.delete(k);
     note.push(`Tenuti solo i ${base.size} con consenso email esplicito (erano ${prima}).`);

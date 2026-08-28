@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { configurazioneMail } from "@/lib/mail";
 import { inviaMailALista } from "@/lib/actions";
 import { sostituisciVariabili } from "@/lib/variabili";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 // Un giro di invii (fino a 150 mail, una per volta) può durare minuti.
@@ -64,7 +65,7 @@ export default async function MailAllaLista({
             alla volta, dalla casella aziendale.
           </p>
         </div>
-        <a className="btn ghost" href={`/liste/${id}`}>← Lista</a>
+        <TornaIndietro fallback={`/liste/${id}`} label="Lista" />
       </div>
 
       {sp.esito === "ok" ? <div className="ok-card">{sp.dettaglio ?? "Fatto."}</div> : null}

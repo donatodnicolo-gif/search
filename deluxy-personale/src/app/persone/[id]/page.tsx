@@ -36,6 +36,7 @@ import {
   segnaPrincipale,
 } from "@/lib/azioni";
 import { FormConferma } from "@/components/FormConferma";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 // La scheda della persona: dati, mansioni, inquadramento e retribuzione come
 // STORIA (il corrente è l'ultima decorrenza non futura, calcolato in
@@ -121,9 +122,7 @@ export default async function SchedaPersona({
               attiva
             </span>
           )}
-          <a className="btn ghost" href="/">
-            Torna all&apos;elenco
-          </a>
+          <TornaIndietro fallback="/" label="Persone" />
         </div>
       </div>
 

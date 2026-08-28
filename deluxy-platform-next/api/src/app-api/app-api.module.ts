@@ -828,6 +828,32 @@ export class AppApiService {
     if (!dto.partnerId) {
       throw new BadRequestException('partnerId obbligatorio: dal canale app non c\'è un partner sottinteso.');
     }
+    // ⚠️ IDEMPOTENZA (Libro PERFORMANCE, legge 6; giuria 28/08/2026): un retry
+    // di rete del chiamante (timeout, 502) NON deve creare una seconda
+    // consegna vera — con paga valet e notifiche. Se il chiamante manda un
+    // riferimento, lo stesso riferimento dalla stessa chiave risponde con la
+    // consegna già creata, come fa sales.ingest su (source, externalOrderId).
+    // Finché Delivery non ha una colonna dedicata (migrazione sul DB CONDIVISO:
+    // si concorda, non si improvvisa), il riferimento vive nel registro della
+    // consegna con un marcatore cercabile — il canale è a basso volume e la
+    // ricerca sul log regge; la colonna vera è annotata nel registro
+    // SEGNALAZIONI-PERFORMANCE.
+    const riferimento = dto.riferimentoEsterno?.trim();
+    const marcatore = riferimento ? `[rif:${nomeChiave}:${riferimento}]` : null;
+    if (marcatore) {
+      const gia = await this.prisma.deliveryLog.findFirst({
+        where: { type: 'created', message: { contains: marcatore } },
+        orderBy: { createdAt: 'desc' },
+        select: { deliveryId: true },
+      });
+      if (gia) {
+        const esistente = await this.prisma.delivery.findFirst({
+          where: { id: gia.deliveryId, deletedAt: null },
+          select: { code: true },
+        });
+        if (esistente) return this.consegnaPerNumero(esistente.code);
+      }
+    }
     const utenteApp: JwtUser = {
       sub: `app:${nomeChiave}`,
       email: `${nomeChiave}@app.deluxy`,
@@ -841,7 +867,7 @@ export class AppApiService {
       data: {
         deliveryId: creata.id,
         type: 'created',
-        message: `Consegna creata dal canale app-to-app dalla chiave «${nomeChiave}».`,
+        message: `Consegna creata dal canale app-to-app dalla chiave «${nomeChiave}».${marcatore ? ` ${marcatore}` : ''}`,
       },
     });
     // Si risponde nello STESSO formato della lettura: chi crea e poi rilegge

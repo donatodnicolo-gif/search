@@ -79,6 +79,14 @@ export class CreateDeliveryDto {
   @IsString()
   partnerId?: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Riferimento del chiamante (es. id ordine del sistema che chiama): rende la creazione dal canale app IDEMPOTENTE — lo stesso riferimento dalla stessa chiave non crea una seconda consegna (Libro PERFORMANCE, legge 6)',
+  })
+  @IsOptional()
+  @IsString()
+  riferimentoEsterno?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

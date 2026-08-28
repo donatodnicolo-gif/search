@@ -1,8 +1,8 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
@@ -76,7 +76,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
   imports: [DatePipe, FormsModule, RouterLink, TranslatePipe, DeliveryRuleFormComponent],
   template: `
     <div class="form-head">
-      <a routerLink="/partners" class="back">← {{ 'partners.title' | translate }}</a>
+      <button type="button" class="back" (click)="indietro()">← {{ 'partners.title' | translate }}</button>
       @if (partner(); as p) {
         <div class="title-row">
           <h1>{{ p.insegna }}</h1>
@@ -425,7 +425,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .reg { color: var(--text-secondary); }
       .hint.ok { color: #1a7f37; }
       .form-head { margin-bottom: 24px; }
-      .back { font-size: 13px; color: var(--text-secondary); }
+      .back { appearance: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer; font-size: 13px; color: var(--text-secondary); }
       .back:hover { color: var(--text); }
       .title-row { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
@@ -482,6 +482,18 @@ export class PartnerDetailComponent {
   private readonly translate = inject(TranslateService);
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
+  private readonly location = inject(Location);
+  private readonly router = inject(Router);
+
+  /**
+   * «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2): arrivando da dentro
+   * l'app si torna con la history (che conserva filtri, pagina e scroll);
+   * da fuori (link diretto, refresh) si ripiega sull'elenco.
+   */
+  indietro(): void {
+    if (window.history.length > 1) this.location.back();
+    else this.router.navigate(['/partners']);
+  }
 
   // ---- Riconciliazione col registro Anagrafiche ----
   readonly anagrafica = signal<{

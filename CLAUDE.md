@@ -61,6 +61,14 @@ Prima di lavorare, leggere **[deluxy-platform-next/docs/REGOLE-DI-LAVORO.md](del
 - Se serve un componente o token nuovo: aggiungerlo prima al design system (con bump di versione), poi usarlo nell'app.
 - Implementazione di riferimento: `deluxy-platform-next/web/`.
 
+## Performance e integrità (obbligatorio per ogni app)
+
+**Tutte le app seguono il Libro PERFORMANCE**: [deluxy-design-system/LIBRO-PERFORMANCE.md](deluxy-design-system/LIBRO-PERFORMANCE.md) (le 10 leggi + capitoli: misurare, query e indici, rendering, liste, mobile, payload/cache, scritture e idempotenza, migrazioni sul DB condiviso, bundle). Ogni elemento nuovo di un'app — query, lista, pagina, cache, scrittura — attinge da lì. I riferimenti sono Core Web Vitals/RAIL, le guide Next.js/React Native, la pratica Postgres/Prisma (EXPLAIN, indici CONCURRENTLY, keyset) e il canone Stripe per l'idempotenza.
+
+- **Le performance hanno un custode (28/08/2026)**: punti lenti e proposte di ottimizzazione, in QUALSIASI app, non si risolvono in autonomia — si registrano in [deluxy-design-system/SEGNALAZIONI-PERFORMANCE.md](deluxy-design-system/SEGNALAZIONI-PERFORMANCE.md) CON LA MISURA (ms/KB/query), o si interpella `architetto-performance`. Ogni segnalazione e ogni toppa passa PRIMA dall'agente `performance-ostile` (un'accusa sopravvive solo con la misura; una proposta solo se non tocca l'integrità dei dati). Ogni ottimizzazione applicata riporta il numero PRIMA e DOPO.
+- **La velocità non compra mai l'integrità**: niente take che troncano in silenzio, niente cache senza TTL+invalidazione dichiarati, niente copie di dati altrui (Standard §7), scritture composte in transazione, scritture raggiungibili da retry idempotenti.
+- ⚠️ **Indici e schema del Postgres condiviso (14 app)**: mai in autonomia — proposta nel registro, poi `CREATE INDEX CONCURRENTLY` concordato.
+
 ## Piattaforma Deluxy (app.deluxy.it)
 
 > ⚠️ **Versione unica della piattaforma.** `deluxy-platform-next/` ha **una sola versione valida**, allineata su `main`, `deluxy-scout` e `scout-ui` (19/07/2026). Prima di lavorarci fare **sempre** `git pull`. **Non ripescare né copiare file di questa cartella da branch, worktree, cartelle o zip più vecchi** (es. `C:\Users\nicol\scoutwt\deluxy-platform-next`, `deluxy-platform-next.zip`): contengono copie obsolete che hanno già causato lavoro perso. In caso di dubbio la versione buona è quella su **`main`**.

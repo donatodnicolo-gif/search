@@ -4,6 +4,7 @@ import { numeriWA, numeroWhatsApp } from "@/lib/whatsapp";
 import { inviaWhatsAppALista } from "@/lib/actions";
 import { sostituisciVariabili } from "@/lib/variabili";
 import WaAssistito from "@/components/WaAssistito";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -57,7 +58,7 @@ export default async function WhatsAppAllaLista({
             {senzaNumero ? ` (${senzaNumero} senza numero o senza prefisso)` : ""}. Ogni messaggio parte personalizzato.
           </p>
         </div>
-        <a className="btn ghost" href={`/liste/${id}`}>← Lista</a>
+        <TornaIndietro fallback={`/liste/${id}`} label="Lista" />
       </div>
 
       {sp.dettaglio ? <div className="ok-card">{sp.dettaglio}</div> : null}

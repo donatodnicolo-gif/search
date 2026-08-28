@@ -9,6 +9,7 @@ import {
   rimuoviBenefit,
 } from "@/lib/azioni";
 import { FormConferma } from "@/components/FormConferma";
+import { RigaLink } from "@/components/RigaLink";
 
 // La tabella dei benefit: una riga per persona attiva, una colonna per tipo
 // (buoni pasto, cellulare, PC, auto…). Il VOCABOLARIO dei tipi lo governa
@@ -123,7 +124,8 @@ export default async function PaginaBenefit({
                 const valoriDichiarati = p.benefit.filter((b) => b.valoreMensile != null);
                 const valorePersona = valoriDichiarati.reduce((s, b) => s + Number(b.valoreMensile), 0);
                 return (
-                  <tr key={p.id}>
+                  // La riga è la persona: tutta la riga apre la sua scheda (Libro §8).
+                  <RigaLink key={p.id} href={`/persone/${p.id}`}>
                     <td>
                       <a className="link-nome" href={`/persone/${p.id}`}>
                         {p.nome}
@@ -181,7 +183,7 @@ export default async function PaginaBenefit({
                         <span className="cella-vuota">{p.benefit.length > 0 ? "non dichiarato" : "—"}</span>
                       )}
                     </td>
-                  </tr>
+                  </RigaLink>
                 );
               })}
               {conValore.length > 0 && (

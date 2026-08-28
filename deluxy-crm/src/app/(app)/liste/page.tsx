@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { creaListaAI } from "@/lib/actions";
 import { dataIt } from "@/lib/etichette";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 // La generazione legge il brief con l'AI e poi scarica i clienti da Orders a
@@ -59,7 +60,8 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
                   </thead>
                   <tbody>
                     {liste.map((l) => (
-                      <tr key={l.id}>
+                      // La riga è la lista: tutta la riga la apre (Libro §8).
+                      <RigaLink key={l.id} href={`/liste/${l.id}`}>
                         <td>
                           <a href={`/liste/${l.id}`}>
                             <div className="cella-principale">{l.nome}</div>
@@ -68,7 +70,7 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
                         </td>
                         <td className="num">{l._count.membri}</td>
                         <td className="secondario piccolo">{dataIt(l.generataIl, true)}</td>
-                      </tr>
+                      </RigaLink>
                     ))}
                   </tbody>
                 </table>

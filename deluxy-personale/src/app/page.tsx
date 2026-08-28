@@ -9,6 +9,7 @@ import {
   prossimaDecorrenza,
   statoScadenza,
 } from "@/lib/organico";
+import { RigaLink } from "@/components/RigaLink";
 
 // Elenco dell'organico con i numeri che contano in testa. Il costo azienda si
 // somma SOLO su chi ha i contributi dichiarati: chi manca viene contato e
@@ -206,7 +207,8 @@ export default async function PaginaPersone({
             </thead>
             <tbody>
               {righe.map(({ p, compenso, compensoFuturo, inquadramento, inquadramentoFuturo, costo, principale, scadenza }) => (
-                <tr key={p.id}>
+                // La riga è la persona: tutta la riga apre la sua scheda (Libro §8).
+                <RigaLink key={p.id} href={`/persone/${p.id}`}>
                   <td>
                     <a className="link-nome" href={`/persone/${p.id}`}>
                       {p.nome}
@@ -283,7 +285,7 @@ export default async function PaginaPersone({
                   <td className="num">
                     {costo != null ? euro(costo) : <span className="cella-vuota">non calcolabile</span>}
                   </td>
-                </tr>
+                </RigaLink>
               ))}
             </tbody>
           </table>

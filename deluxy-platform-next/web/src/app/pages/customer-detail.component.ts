@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { DatePipe } from '@angular/common';
+import { DatePipe, Location } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -24,7 +24,7 @@ interface CustomerDetail {
   imports: [RouterLink, DatePipe, TranslatePipe],
   template: `
     <div class="form-head">
-      <a routerLink="/customers" class="back">← {{ 'customers.title' | translate }}</a>
+      <button type="button" class="back" (click)="indietro()">← {{ 'customers.title' | translate }}</button>
       @if (customer(); as c) {
         <div class="title-row">
           <h1>{{ c.firstName }} {{ c.lastName }}</h1>
@@ -81,7 +81,7 @@ interface CustomerDetail {
   styles: [
     `
       .form-head { margin-bottom: 24px; }
-      .back { font-size: 13px; color: var(--text-secondary); }
+      .back { appearance: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer; font-size: 13px; color: var(--text-secondary); }
       .back:hover { color: var(--text); }
       .title-row { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
@@ -109,6 +109,17 @@ export class CustomerDetailComponent {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
+
+  /**
+   * «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2): arrivando da dentro
+   * l'app si torna con la history (che conserva filtri, pagina e scroll);
+   * da fuori (link diretto, refresh) si ripiega sull'elenco.
+   */
+  indietro(): void {
+    if (window.history.length > 1) this.location.back();
+    else this.router.navigate(['/customers']);
+  }
 
   readonly customer = signal<CustomerDetail | null>(null);
   readonly loading = signal(true);

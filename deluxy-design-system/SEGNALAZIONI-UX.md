@@ -20,6 +20,8 @@
 |---|---|---|---|
 | 28/08 | Scout | Deferiti dalla passata filtri: `storico.tsx` ha ancora il `Gruppo` locale (duplicato di GruppoFiltro, chip `<Text onPress>` sotto i 44px) dentro il pannello; le 10 copie locali di `Chip` si sostituiscono col `Chip` di `ui.tsx` man mano che si toccano le schermate | custode |
 | 28/08 | search-supplier | Col metro del Libro v1.2 §8: i filtri gemelli sopra i risultati (`#resultTools`, 3-4 righe dopo una ricerca) andrebbero misurati a 375px contro il tetto delle 2 righe — non è l'offensore del caso (compaiono solo a risultati presenti e wrappano), ma va verificato | custode |
+| 28/08 | tutte | **Regola utente → Libro v1.5 (§2) «il ritorno al punto esatto»**: ogni dettaglio ha «← Indietro» esplicito che ripristina la vista precedente (filtri/pagina/scroll, via history con ripiego sull'elenco). Implementazione in corso a ondate (prima app/, poi scoutwt) | utente |
+| 28/08 | tutte | **Regola utente → Libro v1.4 (§7) «notifiche in-app»** (pallino giallo + numero + toast del CS): implementata su Tasks/CRM/Acquisti/Calendario (tsc ✓) e in corso su Anagrafiche/Finance/Orders/Marketing; commit e deploy alla chiusura dell'ondata | utente |
 
 ## Decisa il 28/08/2026 — struttura di una sidebar densa (FINANCE, poi Libro)
 

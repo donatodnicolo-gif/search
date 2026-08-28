@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { dataIt, statoEvento } from "@/lib/etichette";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,8 @@ export default async function Eventi() {
     const confermati = e.inviti.filter((i) => i.stato === "confermato").length;
     const invitati = e.inviti.filter((i) => i.stato !== "da_invitare").length;
     return (
-      <tr key={e.id}>
+      // La riga è l'evento: tutta la riga lo apre (Libro §8).
+      <RigaLink key={e.id} href={`/eventi/${e.id}`}>
         <td>
           <a href={`/eventi/${e.id}`}>
             <div className="cella-principale">{e.titolo}</div>
@@ -40,7 +42,7 @@ export default async function Eventi() {
           {confermati}
           {e.capienza ? <span className="terziario"> / {e.capienza}</span> : null}
         </td>
-      </tr>
+      </RigaLink>
     );
   };
 

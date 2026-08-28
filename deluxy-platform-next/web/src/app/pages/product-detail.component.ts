@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
-import { DatePipe } from '@angular/common';
+import { DatePipe, Location } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { PRODUCT_PLATFORMS } from '../core/models';
@@ -46,7 +46,7 @@ interface ProductDetail {
   imports: [RouterLink, TranslatePipe, DatePipe],
   template: `
     <div class="form-head">
-      <a routerLink="/products" class="back">← {{ 'products.title' | translate }}</a>
+      <button type="button" class="back" (click)="indietro()">← {{ 'products.title' | translate }}</button>
       @if (product(); as p) {
         <div class="title-row">
           <h1>{{ p.name }}</h1>
@@ -177,7 +177,7 @@ interface ProductDetail {
   styles: [
     `
       .form-head { margin-bottom: 24px; }
-      .back { font-size: 13px; color: var(--text-secondary); }
+      .back { appearance: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer; font-size: 13px; color: var(--text-secondary); }
       .back:hover { color: var(--text); }
       .title-row { display: flex; align-items: center; gap: 14px; margin-top: 6px; flex-wrap: wrap; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
@@ -214,6 +214,18 @@ export class ProductDetailComponent {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly translate = inject(TranslateService);
+  private readonly location = inject(Location);
+  private readonly router = inject(Router);
+
+  /**
+   * «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2): arrivando da dentro
+   * l'app si torna con la history (che conserva filtri, pagina e scroll);
+   * da fuori (link diretto, refresh) si ripiega sull'elenco.
+   */
+  indietro(): void {
+    if (window.history.length > 1) this.location.back();
+    else this.router.navigate(['/products']);
+  }
 
   readonly product = signal<ProductDetail | null>(null);
   readonly loading = signal(true);

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { Novita } from "@/components/Novita";
+import { PalliniNav } from "@/components/PalliniNav";
 import { TopbarLink } from "@/components/TopbarLink";
 import { SESSION_COOKIE } from "@/lib/auth";
 import "./globals.css";
@@ -27,6 +29,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </a>
           <nav className="topbar-nav">
+            {/* La voce «Attività» porta numero e pallino delle novità (Libro
+                UX&UI §7): il numero è quanto lavoro c'è, il pallino è «è
+                arrivato qualcosa da quando hai guardato». */}
+            <PalliniNav />
             <TopbarLink href="/chiavi">Chiavi delle app</TopbarLink>
             {conSessione && (
               <form action="/api/logout" method="post">
@@ -38,6 +44,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </nav>
         </header>
         {children}
+        {/* Riquadri in basso a destra: le attività che ARRIVANO dalle altre app
+            via API. Nel layout perché devono avvisare da qualunque pagina. */}
+        <Novita />
       </body>
     </html>
   );

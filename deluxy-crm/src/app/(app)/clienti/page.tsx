@@ -1,5 +1,6 @@
 import { catalogoListe, elencoClienti } from "@/lib/orders";
 import { dataIt, euro, segmento } from "@/lib/etichette";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -122,7 +123,8 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
                   {elenco.dati.clienti.map((c) => {
                     const seg = segmento(c.segmento);
                     return (
-                      <tr key={c.cliente}>
+                      // La riga è il cliente: tutta la riga apre la sua scheda (Libro §8).
+                      <RigaLink key={c.cliente} href={`/clienti/${c.cliente}`}>
                         <td>
                           <a href={`/clienti/${c.cliente}`}>
                             <div className="cella-principale">{c.nome ?? c.email ?? c.telefono ?? "—"}</div>
@@ -146,7 +148,7 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
                           ) : null}
                         </td>
                         <td className="secondario piccolo">{c.brand.join(", ") || "—"}</td>
-                      </tr>
+                      </RigaLink>
                     );
                   })}
                 </tbody>

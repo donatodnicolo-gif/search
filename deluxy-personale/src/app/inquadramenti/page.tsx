@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { dataIt } from "@/lib/formato";
 import { inquadramentoCorrente, nomeTipoContratto, prossimaDecorrenza, statoScadenza } from "@/lib/organico";
+import { RigaLink } from "@/components/RigaLink";
 
 // Il quadro contrattuale delle persone attive: tipo, CCNL, livello, qualifica,
 // part-time e scadenze. Le scadenze vicine stanno in testa: sono la cosa da
@@ -95,7 +96,8 @@ export default async function PaginaInquadramenti() {
             </thead>
             <tbody>
               {righe.map(({ p, inq, scadenza, futuro }) => (
-                <tr key={p.id}>
+                // La riga è la persona: tutta la riga apre la sua scheda (Libro §8).
+                <RigaLink key={p.id} href={`/persone/${p.id}`}>
                   <td>
                     <a className="link-nome" href={`/persone/${p.id}`}>
                       {p.nome}
@@ -140,7 +142,7 @@ export default async function PaginaInquadramenti() {
                       nessun inquadramento registrato
                     </td>
                   )}
-                </tr>
+                </RigaLink>
               ))}
             </tbody>
           </table>

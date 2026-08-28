@@ -1,6 +1,7 @@
 import { ordiniCliente, schedaCliente } from "@/lib/orders";
 import { negoziCS, type NegozioCS } from "@/lib/nuovo-ordine";
 import FormNuovoOrdine from "@/components/FormNuovoOrdine";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import { euro, segmento } from "@/lib/etichette";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export default async function NuovoOrdinePerCliente({ params }: { params: Promis
           <div>
             <h1 className="page-title">Nuovo ordine</h1>
           </div>
-          <a className="btn ghost" href="/clienti">← Libro clienti</a>
+          <TornaIndietro fallback="/clienti" label="Libro clienti" />
         </div>
         <div className="errore-card">{scheda.errore}</div>
       </>
@@ -84,7 +85,7 @@ export default async function NuovoOrdinePerCliente({ params }: { params: Promis
             </span>
           </p>
         </div>
-        <a className="btn ghost" href={`/clienti/${encodeURIComponent(codice)}`}>← Scheda cliente</a>
+        <TornaIndietro fallback={`/clienti/${encodeURIComponent(codice)}`} label="Scheda cliente" />
       </div>
 
       {!negozi.ok ? (

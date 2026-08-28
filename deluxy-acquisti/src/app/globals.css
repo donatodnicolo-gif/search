@@ -177,3 +177,199 @@ input, select, textarea, button { font: inherit; color: inherit; }
 
 /* ---------- Vuoto ---------- */
 .vuoto { text-align: center; color: var(--text-tertiary); font-size: 14px; padding: 60px 20px; }
+
+/* ── NOTIFICHE IN-APP (Libro UX&UI §7; riferimento: Customer Service) ── */
+
+/* Il gruppo a destra della topbar: la voce «Richieste» e l'identità. */
+.topbar-nav { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+
+/* La voce di navigazione a pillola, come nelle app sorelle (Tasks, Calendario). */
+.topbar-link {
+  font-size: 13px; color: var(--text-secondary);
+  text-decoration: none; border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill); padding: 6px 14px;
+  background: transparent; cursor: pointer; font-family: inherit;
+  transition: border-color 150ms var(--ease), color 150ms var(--ease), background 150ms var(--ease);
+}
+.topbar-link:hover { border-color: var(--hairline-strong); color: var(--text); }
+.topbar-link[aria-current="page"] {
+  background: var(--fill-active); color: var(--text); font-weight: 600;
+  border-color: transparent;
+}
+/* La voce con numero e pallino resta una riga sola, allineata al centro. */
+.topbar-link.con-pallini { display: inline-flex; align-items: center; gap: 7px; }
+
+/* Il pallino giallo: «è arrivato qualcosa da quando hai guardato». */
+.sb-pallino {
+  margin-left: auto;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  /* Un alone chiaro: sulla voce attiva, che ha lo sfondo pieno, un pallino
+     senza stacco si confonde con il testo. */
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
+
+/* Il numero sulla voce: quanto lavoro c'è lì dentro.
+   ⚠️ Neutro, non colorato: il colore è riservato a ciò che ha una SCADENZA. */
+.sb-quanti {
+  margin-left: auto;
+  flex: none;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+/* ⚠️ Rosso solo dove il tempo scade da solo: se sono rossi tutti, non è rosso
+   nessuno. */
+.sb-quanti.urgente {
+  background: rgba(215, 0, 21, 0.12);
+  color: var(--red);
+}
+/* Col numero accanto, il pallino non deve più spingersi da solo a destra. */
+.sb-quanti + .sb-pallino { margin-left: 0; }
+
+/* La fascia «Sessione scaduta»: la vede qualunque pagina, perché la barra c'è
+   ovunque e i suoi giri di chiamate se ne accorgono sempre. */
+.fascia-sessione {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 70;
+  padding: 9px 16px;
+  background: var(--ink, #1d1d1f);
+  color: #fff;
+  font-size: 13px;
+  text-align: center;
+}
+.fascia-sessione a { color: #fff; font-weight: 600; text-decoration: underline; }
+
+/* ── I RIQUADRI IN BASSO A DESTRA: cosa è appena successo ── */
+.novita-pila {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 55;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 8px;
+  /* ⚠️ Il contenitore non deve mangiarsi i clic della pagina sotto: prende il
+     mouse solo dove c'è davvero un riquadro. */
+  pointer-events: none;
+  max-width: min(360px, calc(100vw - 32px));
+}
+.novita-pila > * { pointer-events: auto; }
+
+.novita {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+  animation: novita-entra 180ms var(--ease);
+}
+@keyframes novita-entra {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Chi ha chiesto meno movimento non lo riceve. */
+@media (prefers-reduced-motion: reduce) {
+  .novita { animation: none; }
+}
+
+/* ⚠️ Una riga di colore a sinistra e non un riquadro colorato: il pieno
+   colorato griderebbe quanto un errore, e questi non sono errori. */
+.novita-attenzione { border-left: 3px solid var(--orange); }
+
+.novita-corpo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 4px 11px 13px;
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.novita-corpo:hover { background: var(--fill); }
+
+.novita-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+.novita-testo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.novita-testo strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  /* ⚠️ Anche il titolo a una riga sola: un nome lungo manderebbe il riquadro a
+     tre righe. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.novita-dettaglio {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.novita-ora {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+
+.novita-chiudi {
+  flex: none;
+  width: 30px;
+  background: none;
+  border: none;
+  border-left: 1px solid var(--hairline);
+  color: var(--text-tertiary);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.novita-chiudi:hover { background: var(--fill); color: var(--text); }
+
+/* ⚠️ Sul telefono i riquadri prendono la larghezza: a 360px fissi, su uno
+   schermo da 375, resterebbero incollati al bordo con l'ora tagliata. */
+@media (max-width: 640px) {
+  .novita-pila {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    max-width: none;
+    align-items: stretch;
+  }
+}

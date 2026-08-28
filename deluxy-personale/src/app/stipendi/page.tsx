@@ -8,6 +8,7 @@ import {
   nomeMotivoCompenso,
   prossimaDecorrenza,
 } from "@/lib/organico";
+import { RigaLink } from "@/components/RigaLink";
 
 // Il quadro delle retribuzioni CORRENTI delle persone attive. I totali sommano
 // solo ciò che c'è, e dichiarano chi manca: un totale che ingloba zeri
@@ -130,7 +131,8 @@ export default async function PaginaStipendi() {
             </thead>
             <tbody>
               {righe.map(({ p, compenso, autonomo, costo, futuro }) => (
-                <tr key={p.id}>
+                // La riga è la persona: tutta la riga apre la sua scheda (Libro §8).
+                <RigaLink key={p.id} href={`/persone/${p.id}`}>
                   <td>
                     <a className="link-nome" href={`/persone/${p.id}`}>
                       {p.nome}
@@ -185,7 +187,7 @@ export default async function PaginaStipendi() {
                       nessuna retribuzione registrata
                     </td>
                   )}
-                </tr>
+                </RigaLink>
               ))}
               {conRal.length > 0 && (
                 <tr className="riga-totale">

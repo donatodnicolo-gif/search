@@ -4,6 +4,8 @@ import { elencoClienti } from "@/lib/orders";
 import { aggiungiInvitato, cambiaStatoEvento, cambiaStatoInvito, rimuoviInvito, salvaEvento } from "@/lib/actions";
 import { aOraItaliana } from "@/lib/ore";
 import { dataIt, euro, segmento, statoEvento, statoInvito } from "@/lib/etichette";
+import { TornaIndietro } from "@/components/TornaIndietro";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +62,7 @@ export default async function DettaglioEvento({
               <button className="btn ghost" type="submit">Segna concluso</button>
             </form>
           ) : null}
-          <a className="btn ghost" href="/eventi">← Eventi</a>
+          <TornaIndietro fallback="/eventi" label="Eventi" />
         </div>
       </div>
 
@@ -116,7 +118,8 @@ export default async function DettaglioEvento({
                     {evento.inviti.map((i) => {
                       const sti = statoInvito(i.stato);
                       return (
-                        <tr key={i.id}>
+                        // La riga è l'invitato: tutta la riga apre la sua scheda (Libro §8).
+                        <RigaLink key={i.id} href={`/clienti/${i.chiaveCliente}`}>
                           <td>
                             <a href={`/clienti/${i.chiaveCliente}`}>
                               <div className="cella-principale">{i.nomeCliente || i.emailCliente || "—"}</div>
@@ -181,7 +184,7 @@ export default async function DettaglioEvento({
                               </form>
                             </div>
                           </td>
-                        </tr>
+                        </RigaLink>
                       );
                     })}
                   </tbody>

@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
+import { Location } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
@@ -50,7 +51,7 @@ interface ValetDetail {
   imports: [RouterLink, TranslatePipe],
   template: `
     <div class="form-head">
-      <a routerLink="/valets" class="back">← {{ 'valets.title' | translate }}</a>
+      <button type="button" class="back" (click)="indietro()">← {{ 'valets.title' | translate }}</button>
       @if (valet(); as v) {
         <div class="title-row">
           <h1>{{ v.firstName }} {{ v.lastName }}</h1>
@@ -192,7 +193,7 @@ interface ValetDetail {
   styles: [
     `
       .form-head { margin-bottom: 24px; }
-      .back { font-size: 13px; color: var(--text-secondary); }
+      .back { appearance: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer; font-size: 13px; color: var(--text-secondary); }
       .back:hover { color: var(--text); }
       .title-row { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
@@ -229,6 +230,18 @@ export class ValetDetailComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
   private readonly translate = inject(TranslateService);
+  private readonly location = inject(Location);
+  private readonly router = inject(Router);
+
+  /**
+   * «Il ritorno al punto esatto» (Libro UX&UI v1.5 §2): arrivando da dentro
+   * l'app si torna con la history (che conserva filtri, pagina e scroll);
+   * da fuori (link diretto, refresh) si ripiega sull'elenco.
+   */
+  indietro(): void {
+    if (window.history.length > 1) this.location.back();
+    else this.router.navigate(['/valets']);
+  }
 
   readonly valet = signal<ValetDetail | null>(null);
   readonly loading = signal(true);

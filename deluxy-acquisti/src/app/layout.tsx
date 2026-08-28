@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Identita } from "@/components/Identita";
+import { Novita } from "@/components/Novita";
+import { PalliniNav } from "@/components/PalliniNav";
 
 export const metadata: Metadata = {
   title: "Deluxy Acquisti",
@@ -20,9 +22,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="brand-sub">Acquisti, richieste e pagamenti</div>
             </div>
           </a>
-          <Identita />
+          <nav className="topbar-nav">
+            {/* La voce «Richieste» porta numero e pallino delle novità (Libro
+                UX&UI §7): il numero è quante aspettano una decisione, il
+                pallino è «è arrivato qualcosa da quando hai guardato». */}
+            <PalliniNav />
+            <Identita />
+          </nav>
         </header>
         {children}
+        {/* Riquadri in basso a destra: le richieste che ARRIVANO da colleghi o
+            altre app. Nel layout perché devono avvisare da qualunque pagina. */}
+        <Novita />
       </body>
     </html>
   );

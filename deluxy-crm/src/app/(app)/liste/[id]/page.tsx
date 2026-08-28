@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { eliminaLista, rigeneraLista, rimuoviMembro } from "@/lib/actions";
 import { dataIt, euro, segmento } from "@/lib/etichette";
+import { TornaIndietro } from "@/components/TornaIndietro";
+import { RigaLink } from "@/components/RigaLink";
 
 export const dynamic = "force-dynamic";
 // La rigenerazione riscarica i clienti da Orders: stesso respiro della creazione.
@@ -41,7 +43,7 @@ export default async function DettaglioLista({
           </p>
         </div>
         <div className="azioni">
-          <a className="btn ghost" href="/liste">← Liste</a>
+          <TornaIndietro fallback="/liste" label="Liste" />
           <a className="btn ghost" href={`/liste/${id}/whatsapp`}>WhatsApp alla lista</a>
           <a className="btn" href={`/liste/${id}/mail`}>Mail alla lista</a>
         </div>
@@ -69,7 +71,8 @@ export default async function DettaglioLista({
                 {lista.membri.map((m) => {
                   const seg = segmento(m.segmento);
                   return (
-                    <tr key={m.id}>
+                    // La riga è il cliente: tutta la riga apre la sua scheda (Libro §8).
+                    <RigaLink key={m.id} href={`/clienti/${encodeURIComponent(m.chiaveCliente)}`}>
                       <td>
                         <a href={`/clienti/${encodeURIComponent(m.chiaveCliente)}`}>
                           <div className="cella-principale">{m.nome || m.email || m.telefono || "—"}</div>
@@ -93,7 +96,7 @@ export default async function DettaglioLista({
                           <button className="btn rosso mini" type="submit">Togli</button>
                         </form>
                       </td>
-                    </tr>
+                    </RigaLink>
                   );
                 })}
               </tbody>

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { ordiniCliente, ricorrenze, schedaCliente } from "@/lib/orders";
 import { aggiungiRicorrenza, registraAttivita } from "@/lib/actions";
+import { TornaIndietro } from "@/components/TornaIndietro";
 import {
   dataIt,
   euro,
@@ -57,7 +58,7 @@ export default async function Scheda({
             <h1 className="page-title">Cliente</h1>
             <p className="page-sub">La scheda non si può aprire.</p>
           </div>
-          <a className="btn ghost" href="/clienti">← Torna al libro clienti</a>
+          <TornaIndietro fallback="/clienti" label="Libro clienti" />
         </div>
         <div className="errore-card">{scheda.errore}</div>
       </>
@@ -97,6 +98,7 @@ export default async function Scheda({
 
   return (
     <>
+      <TornaIndietro fallback="/clienti" label="Libro clienti" />
       <div className="intestazione">
         <div>
           <h1 className="page-title">{nomeMostrato}</h1>
