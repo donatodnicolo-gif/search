@@ -12,6 +12,7 @@ import {
 } from '@/lib/riconciliazione'
 import { riconciliaDaPagamento } from '@/lib/riconcilia'
 import { comunicaStatoAOrders } from '@/lib/orders'
+import { fornitoriDaCollegare, ricontrollaNelRegistro } from '@/lib/fornitori-da-collegare'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -164,6 +165,9 @@ export async function GET() {
   return NextResponse.json({
     righe,
     notaRegistro,
+    // ⚠️ I fornitori che il registro non riesce a riconoscere: erano fermi
+    // senza che niente in quest app lo dicesse. Vedi fornitori-da-collegare.ts.
+    daCollegare: await fornitoriDaCollegare(),
   })
 }
 
@@ -181,6 +185,15 @@ export async function POST(req: NextRequest) {
   const corpo = (await req.json().catch(() => ({}))) as {
     richiestaId?: string
     azione?: string
+  }
+  // ⚠️ Il ricontrollo è una TERZA azione e non un ramo delle altre due: chiede
+  // al registro chi è quel fornitore e non tocca nessun ordine.
+  if (corpo.azione === 'ricontrolla-registro') {
+    if (!corpo.richiestaId) {
+      return NextResponse.json({ errore: 'Manca la richiesta.' }, { status: 400 })
+    }
+    const e = await ricontrollaNelRegistro(corpo.richiestaId)
+    return NextResponse.json({ ok: e.ok, esito: e.esito, messaggio: e.messaggio })
   }
   const azione = corpo.azione === 'allinea-stato' ? 'allinea-stato' : 'registra'
   if (!corpo.richiestaId) {

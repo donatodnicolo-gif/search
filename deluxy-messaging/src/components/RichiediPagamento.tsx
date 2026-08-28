@@ -1584,6 +1584,45 @@ export function RichiediPagamento() {
                     )}
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
+                    {/* ── LA GRAFFETTA, PRIMA DI TUTTO IL RESTO ──
+                        ⚠️⚠️ Chiesto dall'utente il 27/08/2026: su una riga
+                        pagata la graffetta è la prima cosa. Stava in fondo,
+                        dopo tre bollini di stato, e la si trovava solo se la si
+                        cercava — mentre la domanda che si fa davanti a un
+                        pagamento fatto è una sola: «c'è la prova?».
+                        ⚠️⚠️ E si vede ANCHE QUANDO MANCA, spenta. Misurato:
+                        **12 pagamenti su 28 sono pagati senza ricevuta** — fra
+                        cui uno da 450 €. Mostrando la graffetta solo quando c'è,
+                        una riga senza prova è indistinguibile da una riga che
+                        non l'ha ancora caricata: l'assenza non si vede, e
+                        quello che non si vede non lo carica nessuno. */}
+                    {r.pagataIl ? (
+                      r.ricevutaNome ? (
+                        <a
+                          className="badge"
+                          style={{ marginRight: 6 }}
+                          href={`/api/pagamenti/${r.id}/ricevuta`}
+                          download
+                          title={`Scarica la ricevuta: ${r.ricevutaNome}`}
+                          aria-label={`Scarica la ricevuta: ${r.ricevutaNome}`}
+                        >
+                          📎
+                        </a>
+                      ) : (
+                        // ⚠️ Non è un bottone: da qui la ricevuta si carica dal
+                        // pop-up «Pagata», e un comando che apre un'altra
+                        // schermata dentro una tabella è un gesto in più senza
+                        // guadagno. Qui si DICE che manca, e basta.
+                        <span
+                          className="badge"
+                          style={{ marginRight: 6, opacity: 0.45 }}
+                          title="Pagata, ma senza ricevuta allegata: si carica dal pop-up «Pagata»."
+                          aria-label="Pagata senza ricevuta"
+                        >
+                          📎
+                        </span>
+                      )
+                    ) : null}
                     {/* ⚠️ «Pagata» viene PRIMA dello stato di Partner: è il
                         fatto che conta — il denaro è uscito — mentre l'altro
                         dice solo a che punto è la pratica. */}
@@ -1617,8 +1656,18 @@ export function RichiediPagamento() {
                         fornitore che dice di non aver ricevuto niente, o al
                         commercialista — bisognava ricaricarla, e nessuno la
                         ricaricava. Una prova che non si può tirare fuori è
-                        archiviata solo per modo di dire. */}
-                    {r.ricevutaNome ? (
+                        archiviata solo per modo di dire.
+                        ⚠️ Una graffetta e non la parola «ricevuta»: in una riga
+                        che ha già tre bollini di stato, un'etichetta in più si
+                        legge come un altro stato invece che come una cosa da
+                        cliccare. Il nome del file resta nel titolo e in
+                        aria-label, per chi usa un lettore di schermo.
+                        ⚠️ Su una riga PAGATA la graffetta sta già in testa alla
+                        cella (vedi sopra): qui resta solo per le richieste
+                        ancora da pagare, che una ricevuta possono averla lo
+                        stesso — un acconto, un bonifico partito prima che
+                        qualcuno segnasse «Pagata». */}
+                    {!r.pagataIl && r.ricevutaNome ? (
                       <a
                         className="badge"
                         style={{ marginLeft: 4 }}
@@ -1627,14 +1676,6 @@ export function RichiediPagamento() {
                         title={`Scarica la ricevuta: ${r.ricevutaNome}`}
                         aria-label={`Scarica la ricevuta: ${r.ricevutaNome}`}
                       >
-                        {/* ⚠️ Una graffetta e non la parola «ricevuta»: in una
-                            riga che ha già tre bollini di stato, un'etichetta in
-                            più si legge come un altro stato invece che come una
-                            cosa da cliccare. La graffetta dice «qui c'è un
-                            allegato» senza aggiungere una parola da leggere.
-                            ⚠️ Il nome del file resta nel titolo e in
-                            aria-label: chi usa un lettore di schermo, e chi
-                            passa col mouse, deve sapere che cosa scarica. */}
                         📎
                       </a>
                     ) : null}

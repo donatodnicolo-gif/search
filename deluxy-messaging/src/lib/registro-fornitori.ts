@@ -46,6 +46,29 @@ export type EsitoRegistroFornitore = {
   messaggio: string
 }
 
+/**
+ * Scrive sulla richiesta com'è andata col registro.
+ *
+ * ⚠️⚠️ Prima l'esito tornava a chi aveva chiamato e finiva lì: il browser di chi
+ * stava salvando lo mostrava per due secondi, e poi non lo sapeva più nessuno.
+ * Misurato il 27/08/2026 su 26 fornitori pagati: **due erano AMBIGUI** — il
+ * registro dice «somiglia a più anagrafiche», noi giustamente non scriviamo, e
+ * quei due restavano fermi senza che niente in quest'app lo dicesse.
+ *
+ * ⚠️ Non solleva mai: è un contorno di un contorno, e chi ci chiama ha appena
+ * registrato un'uscita di denaro.
+ */
+async function segnaEsito(richiestaId: string, e: EsitoRegistroFornitore): Promise<void> {
+  try {
+    await db.richiestaPagamento.updateMany({
+      where: { id: richiestaId },
+      data: { registroEsito: e.esito, registroMessaggio: e.messaggio, registroIl: new Date() },
+    })
+  } catch {
+    // se non si scrive, il pagamento vale comunque
+  }
+}
+
 export async function segnalaFornitorePagatoAlRegistro(
   richiestaId: string,
   /**
@@ -83,6 +106,21 @@ export async function segnalaFornitorePagatoAlRegistro(
    * buona è già andata al salvataggio — ma se **quella** è fallita (registro
    * irraggiungibile, match ambiguo) i dati di Maps non tornano da soli.
    */
+  daMaps?: DettaglioMaps | null
+): Promise<EsitoRegistroFornitore> {
+  // ⚠️⚠️ Un guscio, e non un `segnaEsito` sparso nei rami: questa funzione esce
+  // in SETTE punti diversi (non trovata, non pagata, senza nome, chiave
+  // mancante, match fallito, ambiguo, errore di rete) e quello dimenticato
+  // sarebbe proprio quello che non si vede mai. Qui l'esito si scrive UNA
+  // volta, per costruzione, qualunque strada abbia preso.
+  const esito = await calcola(richiestaId, pretendiPagata, daMaps)
+  await segnaEsito(richiestaId, esito)
+  return esito
+}
+
+async function calcola(
+  richiestaId: string,
+  pretendiPagata: boolean,
   daMaps?: DettaglioMaps | null
 ): Promise<EsitoRegistroFornitore> {
   const r = await db.richiestaPagamento.findUnique({

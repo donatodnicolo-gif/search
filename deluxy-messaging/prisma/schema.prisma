@@ -238,6 +238,26 @@ model RichiestaPagamento {
   avvisoIl     DateTime?
   avvisoCanale String    @default("") // whatsapp | email
   avvisoEsito  String    @default("") @db.Text // vuoto = riuscito
+
+  // ── COM'È ANDATA COL REGISTRO ANAGRAFICHE ──
+  //
+  // ⚠️⚠️ Prima non si salvava da nessuna parte: l'esito tornava al browser di
+  // chi stava salvando e finiva lì. Misurato il 27/08/2026 su 26 fornitori
+  // pagati: 24 erano in registro, 0 mancavano e **2 erano AMBIGUI** — il
+  // registro risponde «somiglia a più anagrafiche» e noi giustamente non
+  // scriviamo, perché creare a caso vuol dire fabbricare un doppione. Ma quei
+  // due restavano fermi **senza che niente in questa app lo dicesse**: né una
+  // riga, né un conteggio, né un posto dove andarli a cercare.
+  //
+  // ⚠️ Ora l'esito si scrive, e la Riconciliazione lo propone a una persona —
+  // che è il posto dove in quest'app si sciolgono le ambiguità.
+  //
+  // `creato` · `aggiornato` · `ambiguo` · `errore` · `non-configurato` ·
+  // `senza-nome`. Vuoto = non si è mai provato (le righe più vecchie).
+  registroEsito     String    @default("")
+  /** La riga che spiega: «somiglia a più anagrafiche», il motivo dell'errore… */
+  registroMessaggio String    @default("") @db.Text
+  registroIl        DateTime?
   creatoIl     DateTime  @default(now())
 
   @@index([creatoIl])

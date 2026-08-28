@@ -5,6 +5,7 @@ import { ibanAccorciato } from '@/lib/cerca-fornitore'
 import { euro, pct } from '@/lib/margine'
 import { daFare, valoreSospeso, type Riga } from '@/lib/riconciliazione'
 import { linkOrdine } from '@/lib/link-ordine'
+import type { FornitoreDaCollegare } from '@/lib/fornitori-da-collegare'
 
 // RIMETTERE INSIEME QUELLO CHE SAPPIAMO GIÀ.
 //
@@ -46,6 +47,10 @@ export function Riconciliazione() {
   const [lavoro, setLavoro] = useState('')
   const [errore, setErrore] = useState('')
   const [fatte, setFatte] = useState<Record<string, string>>({})
+  /** I fornitori che il registro Anagrafiche non riesce a riconoscere. */
+  const [daCollegare, setDaCollegare] = useState<FornitoreDaCollegare[]>([])
+  const [ricontrollo, setRicontrollo] = useState('')
+  const [esitiRicontrollo, setEsitiRicontrollo] = useState<Record<string, string>>({})
 
   const carica = useCallback(async () => {
     try {
@@ -54,9 +59,14 @@ export function Riconciliazione() {
         setErrore('Non sono riuscito a leggere i pagamenti.')
         return
       }
-      const d = (await res.json()) as { righe: Riga[]; notaRegistro: string }
+      const d = (await res.json()) as {
+        righe: Riga[]
+        notaRegistro: string
+        daCollegare?: FornitoreDaCollegare[]
+      }
       setRighe(d.righe)
       setNota(d.notaRegistro || '')
+      setDaCollegare(d.daCollegare ?? [])
     } catch {
       setErrore('Rete assente.')
     } finally {
@@ -226,6 +236,31 @@ export function Riconciliazione() {
     )
   }
 
+  /**
+   * Richiede al registro chi è questo fornitore, adesso.
+   *
+   * ⚠️ L esito si mostra SEMPRE, anche quando è ancora «ambiguo»: premere un
+   * bottone e non vedere succedere niente fa premere di nuovo, e la seconda
+   * volta si pensa che l app sia rotta.
+   */
+  async function ricontrolla(f: FornitoreDaCollegare) {
+    setRicontrollo(f.chiave)
+    try {
+      const res = await fetch('/api/riconciliazione', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ azione: 'ricontrolla-registro', richiestaId: f.richiestaId }),
+      })
+      const d = (await res.json().catch(() => ({}))) as { messaggio?: string; errore?: string }
+      setEsitiRicontrollo((e) => ({ ...e, [f.chiave]: d.messaggio || d.errore || 'Non è riuscito.' }))
+      await carica()
+    } catch {
+      setEsitiRicontrollo((e) => ({ ...e, [f.chiave]: 'Rete assente: riprova.' }))
+    } finally {
+      setRicontrollo('')
+    }
+  }
+
   return (
     <main>
       <div className="page-head">
@@ -248,6 +283,13 @@ export function Riconciliazione() {
         // a creare un doppione di un fornitore che abbiamo già.
         <div className="avviso-errore">{nota}</div>
       ) : null}
+
+      <DaCollegare
+        elenco={daCollegare}
+        onRicontrolla={ricontrolla}
+        inCorso={ricontrollo}
+        esiti={esitiRicontrollo}
+      />
       {errore ? <div className="avviso-errore">{errore}</div> : null}
 
       {!caricato ? (
@@ -290,5 +332,110 @@ export function Riconciliazione() {
         </>
       )}
     </main>
+  )
+}
+
+/**
+ * I FORNITORI CHE IL REGISTRO NON SA CHI SONO.
+ *
+ * ⚠️⚠️ Chiesto dall'utente il 27/08/2026: «proponi alla riconciliazione». A ogni
+ * pagamento l'app chiede al registro Anagrafiche chi è quel fornitore, e quasi
+ * sempre lo aggancia. Ma qualche volta risponde «somiglia a più anagrafiche», e
+ * allora noi **non scriviamo di proposito** — creare a caso vuol dire fabbricare
+ * un doppione dentro il golden record di tutte le app.
+ *
+ * ⚠️ Fin lì è giusto. Il difetto era che **da qui non lo sapeva nessuno**:
+ * l'esito tornava al browser di chi stava salvando e finiva lì. Misurato su 26
+ * fornitori pagati: 24 in registro, 0 mancanti, **2 ambigui e fermi** senza una
+ * riga che lo dicesse.
+ *
+ * ⚠️ Sta in questa pagina e non in una sua perché è lo stesso mestiere: qui si
+ * PROPONE e una persona decide.
+ */
+function DaCollegare({
+  elenco,
+  onRicontrolla,
+  inCorso,
+  esiti,
+}: {
+  elenco: FornitoreDaCollegare[]
+  onRicontrolla: (f: FornitoreDaCollegare) => void
+  inCorso: string
+  esiti: Record<string, string>
+}) {
+  // ⚠️ Quando non c'è niente da collegare la sezione SPARISCE: una riga «tutto
+  // a posto» su una pagina già lunga è rumore che si impara a saltare, e il
+  // giorno che compare qualcosa si salta anche quello.
+  if (!elenco.length) return null
+
+  const totale = elenco.reduce((s, f) => s + f.totale, 0)
+  return (
+    <section className="card" style={{ marginBottom: 18 }}>
+      <h2 style={{ marginTop: 0, fontSize: 15 }}>
+        Il registro non sa chi sono ({elenco.length})
+      </h2>
+      <p className="cella-sub" style={{ marginTop: 0 }}>
+        Li abbiamo pagati — <strong>{euro(totale)}</strong> in tutto — ma il registro Anagrafiche
+        non riesce a riconoscerli, e <strong>di proposito non scriviamo</strong>: creare a caso
+        vuol dire fabbricare un doppione. Li collega una persona dalla pagina <em>Match</em> del
+        registro; qui c&apos;è il bottone per richiederlo dopo averlo fatto.
+      </p>
+      {elenco.map((f) => (
+        <div className="riquadro-fornitore" key={f.chiave}>
+          <div className="riga-titolo-fornitore">
+            <span className="cella-nome">{f.nome}</span>
+            {/* ⚠️ «Mai provato» NON è «ambiguo»: sono due cose diverse e
+                mescolarle direbbe che sappiamo una cosa che non sappiamo. Le
+                righe più vecchie della colonna non hanno un esito, e va detto
+                così invece di dedurne uno. */}
+            <span
+              className="badge"
+              style={{ color: f.esito === 'ambiguo' ? 'var(--orange, #B8963E)' : undefined }}
+            >
+              {f.esito === 'ambiguo'
+                ? 'somiglia a più anagrafiche'
+                : f.esito === 'errore'
+                  ? 'il registro non ha risposto'
+                  : f.esito === 'non-configurato'
+                    ? 'registro non collegato'
+                    : f.esito === 'senza-nome'
+                      ? 'senza nome'
+                      : 'mai provato'}
+            </span>
+          </div>
+          <div className="cella-sub">
+            {[
+              `${euro(f.totale)} in ${f.pagamenti} ${f.pagamenti === 1 ? 'pagamento' : 'pagamenti'}`,
+              f.ordini.length ? f.ordini.slice(0, 4).join(', ') : '',
+              f.provatoIl ? `provato il ${new Date(f.provatoIl).toLocaleDateString('it-IT')}` : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </div>
+          {f.messaggio ? <div className="cella-sub">{f.messaggio}</div> : null}
+          {esiti[f.chiave] ? <div className="cella-sub"><strong>{esiti[f.chiave]}</strong></div> : null}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-secondario small"
+              disabled={inCorso === f.chiave}
+              onClick={() => onRicontrolla(f)}
+            >
+              {inCorso === f.chiave ? 'Chiedo al registro…' : 'Richiedi al registro'}
+            </button>
+            {/* ⚠️ Il link porta alla pagina Match del registro CON IL NOME già
+                cercato: chi ci arriva ha in mano il pezzo che serve, invece di
+                doverlo ricopiare da qui a mano. */}
+            <a
+              className="btn btn-secondario small"
+              href={`https://deluxy-anagrafiche.vercel.app/match?q=${encodeURIComponent(f.nome)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Aprilo in Anagrafiche
+            </a>
+          </div>
+        </div>
+      ))}
+    </section>
   )
 }
