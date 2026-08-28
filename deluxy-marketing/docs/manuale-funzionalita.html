@@ -1,0 +1,413 @@
+<title>Deluxy Marketing · Guida</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  :root{
+    --ground:#F3F1EC; --surface:#FFFFFF; --surface-2:#FAF8F3; --sunken:#EFEBE2;
+    --ink:#1C1B18; --muted:#6E6A61; --faint:#96918663; --hairline:#E7E2D8;
+    --gold:#A9863A; --gold-ink:#8A6C29; --gold-soft:rgba(169,134,58,.12);
+    --green:#2E7A4E; --amber:#A96A16; --red:#B23A26; --blue:#2C6AA6;
+    --b-flowers:#C65C82; --b-gifts:#A9863A; --b-cake:#7E5BB6;
+    --shadow:0 1px 2px rgba(28,27,24,.05), 0 6px 22px -12px rgba(28,27,24,.18);
+    --shadow-soft:0 1px 2px rgba(28,27,24,.04);
+    --serif:"Fraunces",Georgia,serif;
+    --sans:"Hanken Grotesk",-apple-system,system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+    --maxw:1140px; --read:66ch;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --ground:#151412; --surface:#201E1A; --surface-2:#262320; --sunken:#100F0D;
+    --ink:#F0ECE3; --muted:#A6A196; --faint:#5c574d55; --hairline:#332F29;
+    --gold:#D2AF60; --gold-ink:#E4C77E; --gold-soft:rgba(210,175,96,.14);
+    --green:#5BB07E; --amber:#D29A48; --red:#E0745C; --blue:#6BA6DA;
+    --b-flowers:#E086A6; --b-gifts:#D2AF60; --b-cake:#A98BE0;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+    --shadow-soft:0 1px 2px rgba(0,0,0,.25);
+  }}
+  :root[data-theme="dark"]{
+    --ground:#151412; --surface:#201E1A; --surface-2:#262320; --sunken:#100F0D;
+    --ink:#F0ECE3; --muted:#A6A196; --faint:#5c574d55; --hairline:#332F29;
+    --gold:#D2AF60; --gold-ink:#E4C77E; --gold-soft:rgba(210,175,96,.14);
+    --green:#5BB07E; --amber:#D29A48; --red:#E0745C; --blue:#6BA6DA;
+    --b-flowers:#E086A6; --b-gifts:#D2AF60; --b-cake:#A98BE0;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+    --shadow-soft:0 1px 2px rgba(0,0,0,.25);
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} *{animation:none!important;transition:none!important} }
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:var(--sans); font-size:17px; line-height:1.68;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 clamp(18px,4vw,40px)}
+  a{color:var(--blue); text-decoration:none}
+  a:hover{text-decoration:underline}
+  :focus-visible{outline:2px solid var(--gold); outline-offset:3px; border-radius:4px}
+  h1,h2,h3{font-family:var(--serif); font-weight:500; text-wrap:balance; letter-spacing:-.01em; line-height:1.12; margin:0}
+  code,.mono{font-family:var(--mono); font-size:.86em; background:var(--gold-soft); color:var(--gold-ink); padding:.08em .4em; border-radius:5px}
+  .eyebrow{font-size:.72rem; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--gold-ink); font-family:var(--sans)}
+  .tnum{font-variant-numeric:tabular-nums}
+
+  /* ---- top bar ---- */
+  .topbar{position:sticky; top:0; z-index:50; background:color-mix(in srgb, var(--ground) 86%, transparent); backdrop-filter:saturate(1.2) blur(10px); border-bottom:1px solid var(--hairline)}
+  .topbar .wrap{display:flex; align-items:center; gap:14px; height:60px}
+  .brandmark{display:flex; align-items:center; gap:11px; font-weight:600; letter-spacing:-.01em}
+  .brandmark .dot{width:11px; height:11px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 4px var(--gold-soft)}
+  .brandmark small{display:block; font-size:.68rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-top:1px}
+  .topnav{margin-left:auto; display:flex; gap:4px}
+  .topnav a{font-size:.82rem; color:var(--muted); padding:7px 11px; border-radius:999px; font-weight:500}
+  .topnav a:hover{color:var(--ink); background:var(--surface-2); text-decoration:none}
+  @media (max-width:820px){ .topnav{display:none} }
+  .toggle{margin-left:6px; width:38px; height:38px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink); cursor:pointer; font-size:15px; display:grid; place-items:center; flex:0 0 auto}
+  .toggle:hover{background:var(--surface-2)}
+
+  /* ---- hero ---- */
+  .hero{padding:clamp(52px,9vw,104px) 0 clamp(30px,5vw,54px)}
+  .hero .eyebrow{margin-bottom:20px; opacity:0; animation:rise .7s .05s forwards}
+  .hero h1{font-size:clamp(2.5rem,6.4vw,4.6rem); font-weight:400; max-width:16ch; opacity:0; animation:rise .7s .12s forwards}
+  .hero h1 em{font-style:italic; color:var(--gold-ink)}
+  .hero .lede{margin:26px 0 0; font-size:clamp(1.12rem,2.1vw,1.34rem); line-height:1.6; color:var(--muted); max-width:60ch; opacity:0; animation:rise .7s .22s forwards}
+  .hero .lede b{color:var(--ink); font-weight:600}
+  @keyframes rise{to{opacity:1; transform:none} from{opacity:0; transform:translateY(14px)}}
+
+  .brandrow{display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:34px; opacity:0; animation:rise .7s .32s forwards}
+  .brandrow span{display:inline-flex; align-items:center; gap:9px; font-size:.94rem; color:var(--muted)}
+  .brandrow b{color:var(--ink); font-weight:600}
+  .bdot{width:9px; height:9px; border-radius:50%; flex:0 0 auto}
+
+  /* ---- section frame ---- */
+  section{padding:clamp(40px,6vw,76px) 0; border-top:1px solid var(--hairline)}
+  .sec-head{display:flex; align-items:baseline; gap:16px; margin-bottom:34px; flex-wrap:wrap}
+  .sec-head h2{font-size:clamp(1.7rem,3.4vw,2.5rem)}
+  .sec-head .n{font-family:var(--mono); font-size:.8rem; color:var(--gold-ink); font-weight:500; padding-top:.5em}
+  .sec-head p{margin:0; color:var(--muted); max-width:var(--read); flex:1 1 320px; min-width:0}
+
+  .prose{max-width:var(--read)}
+  .prose p{margin:0 0 1.1em}
+
+  /* ---- flow diagram ---- */
+  .flow{display:grid; gap:16px}
+  .flow-band{background:var(--surface); border:1px solid var(--hairline); border-radius:18px; box-shadow:var(--shadow-soft); padding:20px 20px 22px; position:relative}
+  .flow-band > .tag{position:absolute; top:-10px; left:20px; background:var(--ground); padding:0 10px; font-size:.7rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; color:var(--muted)}
+  .flow-band.spine{border-color:color-mix(in srgb,var(--gold) 40%, var(--hairline)); box-shadow:var(--shadow)}
+  .flow-band.spine > .tag{color:var(--gold-ink)}
+  .chips{display:flex; flex-wrap:wrap; gap:10px}
+  .chip{display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--hairline); border-radius:12px; padding:11px 14px; min-width:0; flex:1 1 190px}
+  .chip .ic{width:30px; height:30px; border-radius:9px; display:grid; place-items:center; flex:0 0 auto; background:var(--gold-soft); color:var(--gold-ink); font-family:var(--mono); font-weight:600; font-size:.9rem}
+  .chip .t{min-width:0}
+  .chip .t b{display:block; font-weight:600; font-size:.95rem; letter-spacing:-.01em}
+  .chip .t span{display:block; font-size:.8rem; color:var(--muted); line-height:1.4}
+  .flow-arrow{justify-self:center; color:var(--faint); color:var(--muted); font-size:1.2rem; line-height:1; opacity:.6}
+  .owns{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-top:4px}
+  .owns li{list-style:none; font-size:.9rem; padding:8px 12px; background:var(--surface-2); border-radius:9px; border:1px solid var(--hairline); display:flex; align-items:center; gap:8px}
+  .owns li::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--gold); flex:0 0 auto}
+  .sidereads{display:flex; flex-wrap:wrap; gap:12px; margin-top:14px}
+  .sideread{flex:1 1 240px; background:var(--surface); border:1px dashed var(--hairline); border-radius:14px; padding:14px 16px}
+  .sideread b{font-weight:600; letter-spacing:-.01em}
+  .sideread span{display:block; font-size:.85rem; color:var(--muted); margin-top:2px}
+  .sideread .who{font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; color:var(--gold-ink); font-weight:700}
+
+  /* ---- numbered steps ---- */
+  .steps{display:grid; gap:2px; counter-reset:s}
+  .step{display:grid; grid-template-columns:auto 1fr; gap:20px; padding:22px 4px; border-bottom:1px solid var(--hairline); align-items:start}
+  .step:last-child{border-bottom:0}
+  .step .num{counter-increment:s; font-family:var(--serif); font-size:2rem; font-weight:500; color:var(--gold-ink); line-height:1; width:2.2ch; text-align:right; font-variant-numeric:tabular-nums}
+  .step .num::before{content:counter(s)}
+  .step h3{font-family:var(--sans); font-weight:600; font-size:1.08rem; letter-spacing:-.01em; margin-bottom:4px}
+  .step p{margin:0; color:var(--muted); max-width:64ch}
+  .step p b{color:var(--ink); font-weight:600}
+
+  /* ---- app map ---- */
+  .mapgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(255px,1fr)); gap:16px}
+  .mapcard{background:var(--surface); border:1px solid var(--hairline); border-radius:16px; padding:20px; box-shadow:var(--shadow-soft); transition:transform .16s ease, box-shadow .16s ease}
+  .mapcard:hover{transform:translateY(-3px); box-shadow:var(--shadow)}
+  .mapcard h3{font-family:var(--sans); font-weight:700; font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-ink); margin-bottom:12px; display:flex; align-items:center; gap:9px}
+  .mapcard h3::before{content:""; width:7px; height:7px; border-radius:2px; background:var(--gold)}
+  .mapcard ul{margin:0; padding:0; list-style:none; display:grid; gap:9px}
+  .mapcard li{font-size:.92rem; line-height:1.4}
+  .mapcard li b{font-weight:600; letter-spacing:-.01em}
+  .mapcard li span{color:var(--muted); font-size:.86rem}
+
+  /* ---- rules ---- */
+  .rules{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px}
+  .rule{background:var(--surface); border:1px solid var(--hairline); border-left:3px solid var(--amber); border-radius:12px; padding:16px 18px}
+  .rule b{display:block; font-weight:600; margin-bottom:3px; letter-spacing:-.01em}
+  .rule span{font-size:.9rem; color:var(--muted)}
+  .rule.ok{border-left-color:var(--green)}
+  .rule.crit{border-left-color:var(--red)}
+
+  /* ---- glossary ---- */
+  .gloss{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:2px 34px}
+  .gloss dt{font-weight:600; font-family:var(--sans); letter-spacing:-.01em; margin-top:16px; display:flex; align-items:center; gap:8px}
+  .gloss dt .k{width:6px;height:6px;border-radius:50%;background:var(--gold)}
+  .gloss dd{margin:2px 0 0; color:var(--muted); font-size:.94rem}
+
+  /* ---- changelog ---- */
+  .log{border:1px solid var(--hairline); border-radius:16px; overflow:hidden; background:var(--surface)}
+  .log-row{display:grid; grid-template-columns:112px 1fr; gap:18px; padding:16px 20px; border-bottom:1px solid var(--hairline)}
+  .log-row:last-child{border-bottom:0}
+  .log-row time{font-family:var(--mono); font-size:.82rem; color:var(--gold-ink); padding-top:1px}
+  .log-row .d b{font-weight:600; letter-spacing:-.01em}
+  .log-row .d span{display:block; color:var(--muted); font-size:.86rem; margin-top:2px}
+  @media (max-width:560px){ .log-row{grid-template-columns:1fr; gap:4px} }
+
+  /* ---- callout ---- */
+  .callout{background:var(--gold-soft); border:1px solid color-mix(in srgb,var(--gold) 30%,transparent); border-radius:14px; padding:18px 20px; display:flex; gap:14px; align-items:flex-start; margin-top:26px}
+  .callout .m{font-family:var(--serif); font-size:1.3rem; color:var(--gold-ink); line-height:1; flex:0 0 auto; margin-top:2px}
+  .callout p{margin:0; font-size:.95rem}
+  .callout b{font-weight:600}
+
+  footer{border-top:1px solid var(--hairline); padding:34px 0 56px; color:var(--muted); font-size:.86rem}
+  footer .wrap{display:flex; flex-wrap:wrap; gap:8px 20px; align-items:baseline}
+  footer b{color:var(--ink); font-weight:600}
+</style>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="brandmark">
+      <span class="dot" aria-hidden="true"></span>
+      <span>Deluxy Marketing<small>Guida per chi arriva</small></span>
+    </div>
+    <nav class="topnav" aria-label="Sezioni">
+      <a href="#cosa">Cos'è</a>
+      <a href="#giro">Il giro</a>
+      <a href="#mappa">La mappa</a>
+      <a href="#regole">Regole d'oro</a>
+      <a href="#glossario">Glossario</a>
+      <a href="#registro">Registro</a>
+    </nav>
+    <button class="toggle" id="themeBtn" type="button" aria-label="Cambia tema">◐</button>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section class="hero" style="border-top:0" id="top">
+      <p class="eyebrow">Il manuale delle funzionalità</p>
+      <h1>La memoria e il <em>comando</em> della pubblicità.</h1>
+      <p class="lede">Deluxy Marketing è il posto unico dove si <b>legge com'è andata</b> l'advertising e si <b>decide cosa cambiare</b>. Non tocca le consegne né i clienti: tiene tutto ciò che riguarda le campagne su Google e Meta, per i tre brand di Deluxy.</p>
+      <div class="brandrow">
+        <span><i class="bdot" style="background:var(--b-flowers)"></i><b>Deluxy Flowers</b>&nbsp;· deluxyflowers.com</span>
+        <span><i class="bdot" style="background:var(--b-gifts)"></i><b>Deluxy Gifts</b>&nbsp;· deluxy.it</span>
+        <span><i class="bdot" style="background:var(--b-cake)"></i><b>Cake Design</b>&nbsp;· cakedesign.me</span>
+      </div>
+    </section>
+  </div>
+
+  <div class="wrap">
+    <section id="cosa">
+      <div class="sec-head">
+        <span class="n">01</span>
+        <h2>Cosa possiede, cosa legge dagli altri</h2>
+        <p>La regola fondante di tutto l'ecosistema Deluxy: <b>ogni dato ha una casa sola</b>. Chi lo possiede è l'unico a scriverlo; gli altri lo leggono. Questa app possiede la pubblicità.</p>
+      </div>
+
+      <div class="flow">
+        <div class="flow-band">
+          <span class="tag">Da dove arrivano i dati</span>
+          <div class="chips">
+            <div class="chip"><span class="ic">G</span><span class="t"><b>Google Ads</b><span>Uno Script dentro ogni conto spinge i dati, ogni notte</span></span></div>
+            <div class="chip"><span class="ic">M</span><span class="t"><b>Meta</b><span>È l'app che va a prenderli, ogni ora</span></span></div>
+            <div class="chip"><span class="ic">T</span><span class="t"><b>TikTok</b><span>Pronto nel codice, non ancora collegato</span></span></div>
+            <div class="chip"><span class="ic">O</span><span class="t"><b>Ordini</b><span>Da Deluxy Orders, ogni 3 ore</span></span></div>
+          </div>
+        </div>
+
+        <div class="flow-arrow" aria-hidden="true">▼</div>
+
+        <div class="flow-band spine">
+          <span class="tag">Deluxy Marketing possiede</span>
+          <ul class="owns">
+            <li>Campagne e gruppi</li>
+            <li>Keyword</li>
+            <li>Parole escluse</li>
+            <li>Testi e asset</li>
+            <li>Località</li>
+            <li>Landing</li>
+            <li>Coda operazioni</li>
+            <li>Indice Drive</li>
+            <li>La spesa ADV</li>
+          </ul>
+          <div class="sidereads">
+            <div class="sideread"><span class="who">Legge da Orders</span><b>Il venduto</b><span>Gli incassi veri di Shopify, per mettere la spesa accanto al ricavo.</span></div>
+            <div class="sideread"><span class="who">Legge da Budgets</span><b>Il tetto ADV</b><span>Quanto si può spendere (<code>advConsentito</code>), non quanto è pubblicato.</span></div>
+            <div class="sideread"><span class="who">Non è sua</span><b>Margine e clienti</b><span>Il margine è di Budgets, i clienti del CRM. Qui non si toccano.</span></div>
+          </div>
+        </div>
+
+        <div class="flow-arrow" aria-hidden="true">▼</div>
+
+        <div class="flow-band">
+          <span class="tag">Come cambiano le campagne</span>
+          <div class="chips">
+            <div class="chip"><span class="ic">1</span><span class="t"><b>Operazione in coda</b><span>Con l'avviso del change control</span></span></div>
+            <div class="chip"><span class="ic">2</span><span class="t"><b>Una persona approva</b><span>Niente si esegue senza</span></span></div>
+            <div class="chip"><span class="ic">3</span><span class="t"><b>Esecuzione</b><span>Google: lo Script · Meta: l'app, quando premi</span></span></div>
+            <div class="chip"><span class="ic">4</span><span class="t"><b>Esito riletto</b><span>Confermato o smentito, sulla riga</span></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <span class="m" aria-hidden="true">✦</span>
+        <p>Gli Script di Google girano <b>dentro</b> l'account e non si avviano da fuori: se uno smette di partire, l'app mostra ancora gli ultimi numeri — che <b>sembrano</b> aggiornati. Per questo la Dashboard ha in cima «Ultima corsa dei connettori»: oltre 24 ore c'è qualcosa da guardare, oltre 48 è fermo.</p>
+      </div>
+    </section>
+
+    <section id="giro">
+      <div class="sec-head">
+        <span class="n">02</span>
+        <h2>Il giro operativo, in sei passi</h2>
+        <p>È il cuore dell'app. Un'analisi non resta un documento: diventa una decisione tracciata dall'inizio alla fine, e ogni passo lascia un segno.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>Un'analisi viene depositata</h3><p>A mano, via API o pescata da Drive. L'app la rielabora in una <b>scheda grafica</b>: verdetto (ok / attenzione / critico), KPI e <i>findings</i>.</p></div></div>
+        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>Dai findings nascono le azioni</h3><p>Ogni cosa da fare diventa un'<b>azione</b> con priorità, responsabile e scadenza. Le trovi in «Da fare».</p></div></div>
+        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>Un'azione entra in coda come operazione</h3><p>Con l'<b>avviso del change control</b> — per esempio «budget oltre il 30% in un colpo». L'avviso resta sulla riga per chi approverà.</p></div></div>
+        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>Una persona la approva</h3><p>O la rimanda, o la annulla. <b>Niente si esegue senza questo passaggio</b>: è la differenza fra un suggerimento e un comando.</p></div></div>
+        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>L'esecuzione, dove vive il motore</h3><p>Su <b>Google</b> la fa lo Script dentro il conto, al giro successivo. Su <b>Meta</b> la fa l'app <b>quando premi «Esegui»</b>: non c'è un automatismo, ed è una scelta.</p></div></div>
+        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>L'esito viene riletto</h3><p>La piattaforma si ricontrolla e scrive sulla riga: <b>confermato rileggendo</b> o smentito. Un'operazione <b>fallita resta ferma</b> finché qualcuno non la rimette in coda o la annulla.</p></div></div>
+      </div>
+    </section>
+
+    <section id="mappa">
+      <div class="sec-head">
+        <span class="n">03</span>
+        <h2>La mappa dell'app</h2>
+        <p>Il menu è ordinato come il lavoro: prima cosa fare adesso, poi su cosa lavorare, poi com'è andata, poi il piano e i controlli.</p>
+      </div>
+      <div class="mapgrid">
+        <div class="mapcard"><h3>Adesso</h3><ul>
+          <li><b>Dashboard</b> <span>— KPI per brand, connettori, decisioni ferme</span></li>
+          <li><b>Da fare</b> <span>— le azioni aperte</span></li>
+          <li><b>Operazioni</b> <span>— la coda con approvazione</span></li>
+          <li><b>Incidenti aperti</b> <span>— gli ERR-* con freeze</span></li>
+        </ul></div>
+        <div class="mapcard"><h3>Campagne</h3><ul>
+          <li><b>Tutte le campagne</b> <span>— una colonna per brand</span></li>
+          <li><b>Landing page</b> <span>— stato e performance</span></li>
+          <li><b>Quante ce n'erano</b> <span>— il censimento storico, rimosse comprese</span></li>
+        </ul></div>
+        <div class="mapcard"><h3>Google Ads</h3><ul>
+          <li><b>Campagne · Gruppi · Keywords</b></li>
+          <li><b>Parole cercate</b> <span>— dove vanno i soldi davvero</span></li>
+          <li><b>Regole e liste di esclusione</b></li>
+          <li><b>Copy &amp; annunci · Estensioni</b></li>
+        </ul></div>
+        <div class="mapcard"><h3>Meta</h3><ul>
+          <li><b>Campagne Meta</b></li>
+          <li><b>Pubblici</b></li>
+          <li><b>Test &amp; AIDA</b> <span>— i test pianificabili in anticipo</span></li>
+        </ul></div>
+        <div class="mapcard"><h3>Com'è andata</h3><ul>
+          <li><b>Analisi periodo · Trend vendite</b></li>
+          <li><b>Ritorno e tracciamento</b></li>
+          <li><b>MKT vs 2025</b> <span>— delta sull'anno prima</span></li>
+          <li><b>Ordini · Analisi per offerta</b></li>
+        </ul></div>
+        <div class="mapcard"><h3>Piano</h3><ul>
+          <li><b>Budget ADV · Budget vendite</b></li>
+          <li><b>Occasioni</b> <span>— con task T-21 / T-14 / T+7</span></li>
+          <li><b>Cadenze</b> <span>— ricorrenze</span></li>
+        </ul></div>
+        <div class="mapcard"><h3>Da sapere</h3><ul>
+          <li><b>Analisi · Audit · Lettura AI</b></li>
+          <li><b>Memoria condivisa</b> <span>— append-only</span></li>
+          <li><b>Documenti Drive</b> <span>— l'indice</span></li>
+        </ul></div>
+        <div class="mapcard"><h3>I dati tengono?</h3><ul>
+          <li><b>Dati in arrivo</b> <span>— ogni consegna, da chi e quando</span></li>
+          <li><b>Incongruenze · Storico modifiche</b></li>
+          <li><b>Impostazioni</b> <span>— token, chiavi, connettori</span></li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="regole">
+      <div class="sec-head">
+        <span class="n">04</span>
+        <h2>Le cinque regole d'oro</h2>
+        <p>Cinque cose che, se le sai il primo giorno, ti risparmiano l'errore più comune di chi arriva.</p>
+      </div>
+      <div class="rules">
+        <div class="rule crit"><b>«Approvata» non è «eseguita»</b><span>Su Meta serve premere «Esegui». Un'operazione approvata è una decisione in attesa di una mano.</span></div>
+        <div class="rule crit"><b>«Accodata» non è «successa»</b><span>Guarda l'esito sulla riga. Le operazioni fallite restano ferme finché qualcuno non interviene.</span></div>
+        <div class="rule"><b>I numeri Meta sono in quarantena</b><span>Stati e cifre Meta dell'app non valgono nei checkpoint finché non sono validati contro Ads Manager.</span></div>
+        <div class="rule ok"><b>Gli allarmi sono in Dashboard</b><span>Connettore fermo, budget sforato, operazione ferma: stanno in cima apposta, non nascosti in una pagina di servizio.</span></div>
+        <div class="rule ok"><b>Ogni numero ha una casa sola</b><span>La spesa è di questa app, il venduto è di Orders, il tetto è di Budgets, i clienti non sono qui.</span></div>
+      </div>
+    </section>
+
+    <section id="glossario">
+      <div class="sec-head">
+        <span class="n">05</span>
+        <h2>Le parole che ricorrono</h2>
+        <p>Il vocabolario interno che troverai ovunque, nelle schede e nelle istruzioni dei progetti.</p>
+      </div>
+      <dl class="gloss">
+        <dt><span class="k"></span>Traino</dt><dd>Una campagna che porta gran parte del valore. Non si tocca alla leggera: ha un change control a livelli (L0 libere → L3 mai in diretta).</dd>
+        <dt><span class="k"></span>Break-even ROAS</dt><dd>1 ÷ margine. Sotto quel ROAS la campagna perde. Sul supplemento estero il break-even è misto.</dd>
+        <dt><span class="k"></span>ROAS vs MER/ROS</dt><dd>ROAS = ricavi ÷ spesa di <i>una</i> campagna. MER/ROS = vendite totali ÷ spesa totale di <i>un brand</i>: dice se l'insieme rende.</dd>
+        <dt><span class="k"></span>Negativa / parola esclusa</dt><dd>Una parola per cui NON vogliamo comparire. L'app ne tiene il censimento e le riaggancia ogni notte.</dd>
+        <dt><span class="k"></span>Il ponte</dt><dd>Il meccanismo che ogni sera deposita su Drive l'APPEND delle azioni eseguite e i RISULTATI per brand.</dd>
+        <dt><span class="k"></span>Scheda analisi</dt><dd>Un'analisi grezza rielaborata in verdetto + KPI + findings, con un bottone per accodare le azioni.</dd>
+        <dt><span class="k"></span>Censimento storico</dt><dd>L'inventario delle campagne per anno, comprese le rimosse che nessun giro quotidiano racconta.</dd>
+        <dt><span class="k"></span>Valet / guanto bianco</dt><dd>Il claim del servizio di consegna a mano: esclusiva di deluxy.it, a pagamento e solo in alcune città. Nel copy non si dice mai «gratis» né «ovunque».</dd>
+      </dl>
+
+      <div class="callout">
+        <span class="m" aria-hidden="true">✦</span>
+        <p><b>Sotto il cofano.</b> Next.js 15 + Prisma sulla porta 3130, Postgres condiviso con 13 app (schema <code>marketing</code>), API <code>/api/v1/*</code> a chiave con permesso di sola lettura o scrittura, cron su Vercel, interfaccia dietro una password. Deploy dalla CLI. Il dettaglio tecnico è in <b>HANDOFF.md</b> e <b>README.md</b>.</p>
+      </div>
+    </section>
+
+    <section id="registro">
+      <div class="sec-head">
+        <span class="n">06</span>
+        <h2>Registro delle funzionalità</h2>
+        <p>La più recente in cima. <b>Ogni funzionalità nuova o modificata si scrive qui</b>, nel manuale, nello stesso momento in cui viene fatta.</p>
+      </div>
+      <div class="log">
+        <div class="log-row"><time>27 ago 2026</time><div class="d"><b>Guida TikTok</b><span>Le istruzioni per collegarlo: nel codice è tutto pronto, mancano solo token e advertiser id.</span></div></div>
+        <div class="log-row"><time>27 ago 2026</time><div class="d"><b>Revisione di sicurezza</b><span>~120 prove dall'esterno, zero buchi. Chiuse quattro debolezze reali, refutate quattro accuse.</span></div></div>
+        <div class="log-row"><time>27 ago 2026</time><div class="d"><b>Revisione UX/UI a tre agenti</b><span>Sul telefono le pagine non scorrono più di lato, bersagli da 44px; su desktop le intestazioni restano a vista.</span></div></div>
+        <div class="log-row"><time>27 ago 2026</time><div class="d"><b>Censimento storico delle campagne</b><span>Quali e quante campagne sono esistite negli anni, comprese le rimosse. Pagina «Quante ce n'erano».</span></div></div>
+        <div class="log-row"><time>27 ago 2026</time><div class="d"><b>«Decisioni prese e non ancora eseguite» in Dashboard</b><span>Le operazioni approvate ferme e le fallite ora si vedono dalla prima schermata.</span></div></div>
+        <div class="log-row"><time>25 ago 2026</time><div class="d"><b>Le analisi di Drive diventano schede grafiche</b><span>Verdetto, KPI e findings, con il bottone per accodare le azioni.</span></div></div>
+        <div class="log-row"><time>25 ago 2026</time><div class="d"><b>L'indice di Drive si allinea da solo</b><span>Un cron alle 06:10 rilegge la cartella ADV: niente più sincronizzazioni a mano.</span></div></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Deluxy Marketing · <b>Manuale delle funzionalità</b></span>
+    <span>Reso da <code>docs/MANUALE-FUNZIONALITA.md</code></span>
+    <span>Aggiornato il 27 agosto 2026</span>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var btn=document.getElementById('themeBtn');
+    var root=document.documentElement;
+    function cur(){
+      var s=root.getAttribute('data-theme');
+      if(s) return s;
+      return window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+    }
+    btn.addEventListener('click',function(){
+      var next=cur()==='dark'?'light':'dark';
+      root.setAttribute('data-theme',next);
+      try{localStorage.setItem('dm-theme',next);}catch(e){}
+    });
+    try{var saved=localStorage.getItem('dm-theme'); if(saved) root.setAttribute('data-theme',saved);}catch(e){}
+  })();
+</script>

@@ -58,6 +58,18 @@ Variabili in `.env` (mai committato):
 - `DRIVE_ADV_DIR` — radice locale della cartella ufficiale
   (default `G:\Il mio Drive\ADV DELUXY SRL`).
 
+## Manuale delle funzionalità (obbligatorio tenerlo aggiornato)
+
+Il **cosa fa l'app**, pagina per pagina, vive in
+[docs/MANUALE-FUNZIONALITA.md](docs/MANUALE-FUNZIONALITA.md); la sua resa visiva
+per chi arriva nuovo è [docs/manuale-funzionalita.html](docs/manuale-funzionalita.html)
+(pubblicata come artifact).
+
+⚠️ **Ogni funzionalità nuova o modificata si scrive nel manuale, nello STESSO
+commit** che la introduce, con una riga nel *Registro delle funzionalità* in
+fondo. Poi si ripubblica la guida visiva (Artifact, stesso file). È la stessa
+disciplina dello handoff: un manuale che invecchia inganna chi si fida.
+
 ## Sezioni
 
 - **Dashboard / Analisi / Audit / Azioni / Campagne** — il ciclo operativo: analisi depositate

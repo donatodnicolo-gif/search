@@ -16,6 +16,11 @@
 > · la versione dello script la dichiara **un conto solo su tre** (Flowers).
 > · 🆕 c'è il **censimento storico** delle campagne: fatto su Meta (89 campagne,
 >   60.574 €, 22 mai viste dall'app), **da fare su Google** incollando lo script.
+> · 🆕 **MANUALE DELLE FUNZIONALITÀ** (`docs/MANUALE-FUNZIONALITA.md` +
+>   guida visiva `docs/manuale-funzionalita.html`, pubblicata come artifact):
+>   il «cosa fa l'app» pagina per pagina. ⚠️ REGOLA: ogni funzionalità nuova o
+>   cambiata si scrive lì nello stesso commit, con una riga nel Registro in
+>   fondo, e si ripubblica la guida.
 > · 🆕 **revisione di SICUREZZA**: ~120 prove dall'esterno, **zero buchi**
 >   (401/403/307 dove serve). Quattro correzioni: la GET che faceva scrivere una
 >   chiave di sola lettura, la traversata di percorso via `fileDrive`, l'OAuth
