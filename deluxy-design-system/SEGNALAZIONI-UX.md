@@ -21,6 +21,18 @@
 | 28/08 | Scout | Deferiti dalla passata filtri: `storico.tsx` ha ancora il `Gruppo` locale (duplicato di GruppoFiltro, chip `<Text onPress>` sotto i 44px) dentro il pannello; le 10 copie locali di `Chip` si sostituiscono col `Chip` di `ui.tsx` man mano che si toccano le schermate | custode |
 | 28/08 | search-supplier | Col metro del Libro v1.2 §8: i filtri gemelli sopra i risultati (`#resultTools`, 3-4 righe dopo una ricerca) andrebbero misurati a 375px contro il tetto delle 2 righe — non è l'offensore del caso (compaiono solo a risultati presenti e wrappano), ma va verificato | custode |
 
+## Decisa il 28/08/2026 — struttura di una sidebar densa (FINANCE, poi Libro)
+
+Nata dal riordino del menu di **FINANCE** (`deluxy-partner`, 19→20 voci), valutato da una giuria (Controller + Treasury + `architetto-ux` con Apple HIG, Material 3, Fluent, NN/g). Il caso non era coperto dal Libro §1 (che dà la sidebar canonica ma non il numero di sezioni, il criterio d'ordine, le sezioni monovoce, la leggibilità a icone, i nomi ambigui). **Regola nuova, vale per tutte le app** — da portare nel Libro §1 al prossimo bump:
+
+- **≤ 6-7 sezioni di primo livello, < 8 voci per sezione, un solo livello** (niente sottovoci per alleggerire una densità che a 3-4 voci/sezione non esiste). Fonti: NN/g (mediana 7 categorie top), Fluent NavigationView.
+- **Ordine per FREQUENZA d'uso**, non per flusso di processo (il flusso è per i wizard): Dashboard in cima, Configurazione in fondo, posizione **stabile** nel tempo (memoria muscolare degli esperti).
+- **Un'etichetta di sezione si paga solo se raggruppa ≥ 2 voci**: le sezioni monovoce si accorpano.
+- **In modalità ridotta** (solo icone) il raggruppamento sopravvive con **separatore/spaziatura**, ogni icona ha **tooltip** e **icona univoca** (l'icona È l'etichetta).
+- **Due voci con nomi quasi uguali** si **rinominano** perché ciascuna si spieghi da sé (o si annidano se padre/figlio), e **mai la stessa icona**.
+
+Applicato su FINANCE: 7→6 sezioni, accorpate «Rete» e «Ordini Shopify» (monovoce), rinominata la coppia «Servizi a fatturazione»/«Fatture» → «Fatturazione servizi»/«Registro fatture» con icone diverse, tolti i 2 doppioni d'icona, aggiunto il separatore hairline fra i gruppi a barra ridotta. **Misura**: n. sezioni ≤ 7, voci/sezione < 8, livelli = 1, zero sezioni monovoce, zero icone duplicate.
+
 ## ⚠️ Copie vive vs stale (scoperto il 28/08 durante «push tutto live»)
 
 Alcune app hanno DUE copie (repo `app/` e `scoutwt/`, stesso repo GitHub, branch diversi). La copia VIVA è quella col progetto Vercel pinnato (`.vercel/project.json`):
