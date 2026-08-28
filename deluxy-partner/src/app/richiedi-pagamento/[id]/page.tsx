@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { STATI_RICHIESTA } from "@/lib/transactions";
 import { TIPI_PL } from "@/lib/categorie-spesa";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 export const dynamic = "force-dynamic";
 
@@ -36,9 +37,9 @@ export default async function RichiestaDettaglio({ params }: { params: Promise<{
 
   return (
     <>
-      <Link href="/richiedi-pagamento" className="btn secondary small" style={{ marginBottom: 10 }}>
-        ← Tutte le richieste
-      </Link>
+      <div style={{ marginBottom: 10 }}>
+        <TornaIndietro fallback="/richiedi-pagamento" label="Tutte le richieste" />
+      </div>
       <div className="page-head">
         <div>
           <h1 className="page-title">{r.beneficiario}</h1>
