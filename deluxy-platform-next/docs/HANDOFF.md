@@ -101,9 +101,40 @@
 
 **📕 MANUALE DI FUNZIONALITÀ (28/08/2026, deciso dall'utente): [`docs/guida-visiva.html`](guida-visiva.html) → artifact https://claude.ai/code/artifact/17c9fcad-6a0e-4da7-982f-fb546431d1d1** — la guida visiva per chi arriva nuovo. ⚠️ **Ogni funzionalità aggiunta o modificata va scritta lì, nello stesso commit, e ripubblicata allo STESSO indirizzo** (`Artifact` con lo stesso `file_path`, o con `url` da un'altra sessione: un indirizzo nuovo lascia in mano all'utente un link che invecchia). NON sostituisce `COME-FUNZIONA-APP-DELUXY.md`: quello è il riferimento campo per campo, la guida è l'orientamento. Regola in [REGOLE-DI-LAVORO.md §0-bis](REGOLE-DI-LAVORO.md).
 
-**Ultimo aggiornamento:** 28 agosto 2026 — 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 28 agosto 2026 — ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### ✅ 28/08/2026 — SISTEMATO: la paga doppia è chiusa, e il listino valet era a posto (mio falso allarme)
+
+Chiesto dall’utente: «sistema tutto».
+
+#### ✅ Paga doppia sulle coppie corporate — CHIUSA
+
+⭐ **Nessuno stipendio era ancora stato emesso (0 su 0)**: quei soldi erano **da pagare**, non già pagati. È il fatto che ha reso la correzione sicura.
+
+`api/scripts/correggi-paga-doppia-corporate.mjs --applica` (prova a vuoto di default, backup in `scripts/backup-paga-doppia-corporate.json`): **50 righe di VENDITA** portate a `payable = false`, ognuna con una **riga nel registro della consegna** che dice perché e su quale numero resta la paga. Valevano **553,91 €** sulle 34 già in uno stato che entra nello stipendio.
+
+- Si spegne la riga di **vendita**, non l’aziendale: è l’aziendale a portare i **chilometri**, da cui la paga si ricalcola; sulla gemella la distanza è vuota.
+- Solo dove il valet è **lo stesso** su entrambe (101 coppie su 110): se sono due persone, sono due viaggi.
+- ⚠️ Un **flag sulla consegna**, non un filtro nel calcolo: il flag si vede aprendo la consegna, un filtro nascosto lo troverebbe solo chi legge il codice.
+- Lo script di verifica ora tiene conto di `payable`, se no continuerebbe ad accusare un difetto già corretto. Controprova: **0 coppie, 0,00 €**.
+
+#### 🟢 Listino valet — ERA UN MIO FALSO ALLARME
+
+⚠️⚠️ **I valet hanno un catalogo di servizi tutto loro — `tabella-38` — e i due cataloghi riusano gli stessi numeri**: l’id 5 è «Servizio Consegna Standard» (prezzo fisso) fra i **partner** e «Servizio a Ora» fra i **valet**. Leggendo `service.csv` per spiegare la paga di un valet, il primo audit ha dichiarato **107 righe sbagliate che erano tutte giuste**. È la stessa trappola del Corporate, nello stesso giorno.
+
+Rifatto sul catalogo giusto (`api/scripts/audit-listino-valet.mjs`): **240 righe su 240, modello di prezzo corretto, 0 divergenze.**
+
+#### ✅ Le paghe verificate sul database originale
+
+`api/scripts/verifica-paghe-vs-legacy.mjs`:
+
+| controllo | esito |
+|---|---|
+| listino valet (importo + € per km) | ✅ **240 / 240 identiche** |
+| tariffa fuori città | ✅ **285 / 285 uguali** |
+| paga scritta sulla consegna | 460 diverse su 61.404 — **tutte spiegate**: 88 da un backup di script, 372 con una nota nel registro, **0 senza spiegazione** |
 
 ### 🔬 28/08/2026 — RIVERIFICA SUL DATABASE ORIGINALE: la mia tabella era sbagliata, e ne è uscito un difetto mio
 
@@ -129,8 +160,8 @@ Il riquadro «Il conto di questa vendita» leggeva **`Delivery.productValue`**. 
 
 #### ⬜ Aperti, misurati, non toccati
 
-- 🔴 **553,91 €** di paga doppia sulle coppie corporate (85 righe gemelle).
-- 🔴 **Il listino dei valet è agganciato a servizi inventati dall’import**: **244 righe su 247** puntano a `ServiceType` con `legacyId 9000xx`, e le righe **non conservano il loro id legacy** — il legame col database originale è perso. Su Acampora: legacy `expert-service 256` → servizio 3 (inesistente) salary 6, e `257` → servizio 5 «Servizio Consegna Standard» (prezzo fisso) salary **10**; in piattaforma diventano «Consegna Standard» 6 e «**Servizio a Ora**» 10 — il 10 è passato da un servizio a prezzo fisso a uno **a ora**. Va verificato su tutti prima di toccare le paghe.
+- ✅ **CHIUSA** la paga doppia (553,91 €): vedi la voce del 28/08 qui sopra.
+- ✅ **RIENTRATO** l’allarme sul listino valet: era mio, leggevo il catalogo dei partner. 240/240 corrette.
 - ⚠️ **Non posso entrare su app.deluxy.it**: nessuna credenziale.
 
 ### 🔴 28/08/2026 — IL VALET È PAGATO DUE VOLTE SULLE COPPIE CORPORATE (553,91 €), e «Prezzo» su una vendita non era il prezzo

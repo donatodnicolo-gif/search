@@ -1,0 +1,402 @@
+[
+ {
+  "venId": "cmt5zzyog0ibwi63c6kgyauvn",
+  "venCode": 62455,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62454,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzyoi0ibyi63cf6tyacng",
+  "venCode": 62457,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62456,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzyos0icci63cvtdv2gmr",
+  "venCode": 62471,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62470,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzyoq0icai63cfc19xzn3",
+  "venCode": 62469,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62468,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzyop0ic8i63chxa8do9r",
+  "venCode": 62467,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62466,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzyon0ic6i63c1dtak4po",
+  "venCode": 62465,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62464,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzyof0ibui63cgkfudnho",
+  "venCode": 62453,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62452,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzyoj0ic0i63c17ryhkxn",
+  "venCode": 62459,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62458,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzyom0ic4i63c411rruos",
+  "venCode": 62463,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62462,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzyok0ic2i63cwmwuqshw",
+  "venCode": 62461,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62460,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzym30i80i63c73cvetgn",
+  "venCode": 62315,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62314,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzym10i7yi63ctnkpvqoa",
+  "venCode": 62313,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62312,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzym00i7wi63c17kjlt2k",
+  "venCode": 62311,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62310,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzylz0i7ui63c1l55qlzs",
+  "venCode": 62309,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62308,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzylx0i7si63c5we2yu6p",
+  "venCode": 62307,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62306,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzylv0i7qi63cilkkpfpj",
+  "venCode": 62305,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 62304,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzx2u0hsgi63cgnhzb1lc",
+  "venCode": 61753,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 61752,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzx2t0hsci63cutsxqh2s",
+  "venCode": 61749,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 61748,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzw6e0hkdi63c752a041x",
+  "venCode": 61462,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 61461,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzw6b0hkbi63c6q7o7w37",
+  "venCode": 61460,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 61459,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzw690hk5i63c03u5h0t2",
+  "venCode": 61454,
+  "payableVecchio": true,
+  "pagaVendita": 16.78,
+  "corpCode": 61453,
+  "pagaAziendale": 16.78
+ },
+ {
+  "venId": "cmt5zzv0c0hazi63c2r7w93hu",
+  "venCode": 61123,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 61122,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzv0b0haxi63cxhysl9o3",
+  "venCode": 61121,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 61120,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzuxj0h5li63cxj77r3qy",
+  "venCode": 60929,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 60928,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzuxg0h5hi63cqvhkmw9l",
+  "venCode": 60925,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 60924,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzuxh0h5ji63c55v8ge9l",
+  "venCode": 60927,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 60926,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzttj0gqzi63ct8dp8g7e",
+  "venCode": 60403,
+  "payableVecchio": true,
+  "pagaVendita": 15.1,
+  "corpCode": 60402,
+  "pagaAziendale": 15.1
+ },
+ {
+  "venId": "cmt5zzttf0gqri63cry47ukz4",
+  "venCode": 60395,
+  "payableVecchio": true,
+  "pagaVendita": 16.78,
+  "corpCode": 60394,
+  "pagaAziendale": 16.78
+ },
+ {
+  "venId": "cmt5zzszc0ggzi63c8br1p2y9",
+  "venCode": 60043,
+  "payableVecchio": true,
+  "pagaVendita": 13.28,
+  "corpCode": 60042,
+  "pagaAziendale": 13.28
+ },
+ {
+  "venId": "cmt5zzszb0ggxi63c823cixep",
+  "venCode": 60041,
+  "payableVecchio": true,
+  "pagaVendita": 16.78,
+  "corpCode": 60040,
+  "pagaAziendale": 14.76
+ },
+ {
+  "venId": "cmt5zzsza0ggvi63cnser2l7e",
+  "venCode": 60039,
+  "payableVecchio": true,
+  "pagaVendita": 13.28,
+  "corpCode": 60038,
+  "pagaAziendale": 13.28
+ },
+ {
+  "venId": "cmt5zzsza0ggti63cu9vyoj29",
+  "venCode": 60037,
+  "payableVecchio": true,
+  "pagaVendita": 13.28,
+  "corpCode": 60036,
+  "pagaAziendale": 13.28
+ },
+ {
+  "venId": "cmt5zzszd0gh1i63cmvldep7c",
+  "venCode": 60045,
+  "payableVecchio": true,
+  "pagaVendita": 14.76,
+  "corpCode": 60044,
+  "pagaAziendale": 14.76
+ },
+ {
+  "venId": "cmt5zzrtb0fwsi63cnp94xn73",
+  "venCode": 59315,
+  "payableVecchio": true,
+  "pagaVendita": 17.05,
+  "corpCode": 59314,
+  "pagaAziendale": 17.05
+ },
+ {
+  "venId": "cmt5zzrt80fwii63ci0qtg9tg",
+  "venCode": 59305,
+  "payableVecchio": true,
+  "pagaVendita": 18.64,
+  "corpCode": 59304,
+  "pagaAziendale": 18.64
+ },
+ {
+  "venId": "cmt5zzrt50fwci63cbnd2er5x",
+  "venCode": 59299,
+  "payableVecchio": true,
+  "pagaVendita": 18.64,
+  "corpCode": 59298,
+  "pagaAziendale": 18.64
+ },
+ {
+  "venId": "cmt5zzrt50fw9i63c2dl9ct3c",
+  "venCode": 59296,
+  "payableVecchio": true,
+  "pagaVendita": 18.64,
+  "corpCode": 59295,
+  "pagaAziendale": 18.64
+ },
+ {
+  "venId": "cmt5zzrt40fw6i63cn1pr0bt1",
+  "venCode": 59293,
+  "payableVecchio": true,
+  "pagaVendita": 18.64,
+  "corpCode": 59292,
+  "pagaAziendale": 18.64
+ },
+ {
+  "venId": "cmt5zzqqn0fhbi63cxf37r1gm",
+  "venCode": 58755,
+  "payableVecchio": true,
+  "pagaVendita": 18.65,
+  "corpCode": 58754,
+  "pagaAziendale": 18.65
+ },
+ {
+  "venId": "cmt5zzqqn0fh9i63cq56n5c17",
+  "venCode": 58753,
+  "payableVecchio": true,
+  "pagaVendita": 18.64,
+  "corpCode": 58752,
+  "pagaAziendale": 18.64
+ },
+ {
+  "venId": "cmt5zzqqm0fh7i63cxpka1fh0",
+  "venCode": 58751,
+  "payableVecchio": true,
+  "pagaVendita": 18.94,
+  "corpCode": 58750,
+  "pagaAziendale": 18.94
+ },
+ {
+  "venId": "cmt5zzqqk0fh3i63c06herdtu",
+  "venCode": 58747,
+  "payableVecchio": true,
+  "pagaVendita": 18.65,
+  "corpCode": 58746,
+  "pagaAziendale": 18.65
+ },
+ {
+  "venId": "cmt5zzo0g0ew7i63cqs2zorgt",
+  "venCode": 57993,
+  "payableVecchio": true,
+  "pagaVendita": 18.65,
+  "corpCode": 57992,
+  "pagaAziendale": 18.65
+ },
+ {
+  "venId": "cmt5zzmw10elli63c3j33w9ag",
+  "venCode": 57611,
+  "payableVecchio": true,
+  "pagaVendita": 18.65,
+  "corpCode": 57610,
+  "pagaAziendale": 18.65
+ },
+ {
+  "venId": "cmt5zzmvw0eldi63c2jzvhjsv",
+  "venCode": 57603,
+  "payableVecchio": true,
+  "pagaVendita": 18.64,
+  "corpCode": 57602,
+  "pagaAziendale": 18.64
+ },
+ {
+  "venId": "cmt5zzmvu0elai63cl0a96lji",
+  "venCode": 57600,
+  "payableVecchio": true,
+  "pagaVendita": 18.64,
+  "corpCode": 57599,
+  "pagaAziendale": 18.64
+ },
+ {
+  "venId": "cmt5zzmvs0el8i63cfl03lpdl",
+  "venCode": 57598,
+  "payableVecchio": true,
+  "pagaVendita": 18.64,
+  "corpCode": 57597,
+  "pagaAziendale": 18.64
+ },
+ {
+  "venId": "cmt5zzlge0dwji63cn9ii5dbg",
+  "venCode": 56705,
+  "payableVecchio": true,
+  "pagaVendita": 18.64,
+  "corpCode": 56704,
+  "pagaAziendale": 18.64
+ },
+ {
+  "venId": "cmt5zzlgb0dwhi63cbrvzq8fh",
+  "venCode": 56703,
+  "payableVecchio": true,
+  "pagaVendita": 18.64,
+  "corpCode": 56702,
+  "pagaAziendale": 18.64
+ },
+ {
+  "venId": "cmt5zzk440drti63cs6ic2kyr",
+  "venCode": 56532,
+  "payableVecchio": true,
+  "pagaVendita": 15.52,
+  "corpCode": 56531,
+  "pagaAziendale": 15.52
+ }
+]

@@ -27,7 +27,10 @@ const esempi = [];
 for (const x of r) {
   if (x.corp_valet && x.corp_valet === x.ven_valet) stessoValet++;
   const a = Number(x.corp_paga ?? 0), b = Number(x.ven_paga ?? 0);
-  if (a > 0 && b > 0) {
+  // ⚠️ Conta solo se la gemella e PAGABILE: dal 28/08 le 50 coppie col doppio
+  // importo hanno payable=false sulla riga di vendita, e senza questo filtro
+  // lo script continuerebbe ad accusare un difetto gia corretto.
+  if (a > 0 && b > 0 && x.ven_pay) {
     entrambePagate++;
     if (PAGABILI.includes(x.corp_stato) && PAGABILI.includes(x.ven_stato)) {
       entrambePagabili++;

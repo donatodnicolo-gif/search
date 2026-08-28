@@ -133,6 +133,27 @@ Menu principale: **CONSEGNE · ACTIVITIES · PARTNER · VALET · UTENTI · PRODO
 - Sezioni: Dati di consegna e ritiro (stato, data, fascia oraria, ora ritiro, consegna flessibile, valet) · Scelta del servizio (partner, nome/tipo servizio, prezzo, plus/minus al prezzo) · Informazioni destinatario e mittente (cognome/nome, SMS telefonici, indirizzo, citofono, telefono, email; cognome/nome/telefono mittente) · Gestione dell'ordine (pagamento alla consegna, contanti da incassare, prova e reso del prodotto, prodotto, immagine, quantità, variante) · Receipt info (nome di chi ha ricevuto, ricevuta) · Documentazione e note (numero DDT, file DDT, note, PERSONALIZZAZIONE, note interne) · Storico consegna (log con data/ora: inserita, partita, effettuata).
 - Visibilità per ruolo: Partner vede valet/mezzo/telefono ma non note interne né costi consegna dei propri servizi; Valet vede note e note interne; Admin/Operation vedono tutto + logs. Nessuno vede l'indirizzo di ritiro nelle colonne della lista.
 
+#### Ordine aziendale: due righe, un viaggio, una paga **[NUOVO 28/08/2026]**
+
+Un ordine aziendale nasce come **due consegne gemelle** (la riga aziendale di chi ordina e quella di vendita di chi fornisce), ma il valet fa **un viaggio solo**. Fino al 28/08 tutte e due portavano `payable = true` e la stessa paga, e il calcolo degli stipendi non escludeva la gemella.
+
+- **Corretto**: sulle **50 coppie** con lo stesso valet e la paga su entrambe, la riga di **vendita** è ora `payable = false`. Valeva **553,91 €** di doppio pagamento sulle 34 già in uno stato che entra nello stipendio.
+- Si spegne la riga di vendita e non quella aziendale perché è **l'aziendale a portare i chilometri**, da cui la paga si ricalcola; sulla gemella la distanza è vuota.
+- ⚠️ Si usa un **flag sulla consegna**, non un filtro dentro il calcolo: il flag si vede aprendo la consegna e nel suo registro c'è scritto il motivo. Un filtro nascosto lo troverebbe solo chi legge il codice.
+- Nessuno stipendio era ancora stato emesso (0 su 0): la correzione tocca quanto si pagherà, non quanto è stato pagato. Backup in `api/scripts/backup-paga-doppia-corporate.json`, script `correggi-paga-doppia-corporate.mjs` (prova a vuoto di default).
+
+#### Le paghe dei valet, verificate sul database originale **[NUOVO 28/08/2026]**
+
+`api/scripts/verifica-paghe-vs-legacy.mjs`:
+
+| controllo | esito |
+|---|---|
+| listino dei valet (importo + € per km) | ✅ **240 righe su 240 identiche** |
+| tariffa fuori città | ✅ **285 valet su 285 uguali** |
+| paga scritta sulla consegna | 460 diverse su 61.404 — **tutte spiegate**: 88 da un backup di script, 372 con una nota nel registro della consegna, **0 senza spiegazione** |
+
+⚠️ **I valet hanno un catalogo di servizi tutto loro** (`tabella-38` nel legacy), separato da quello dei partner (`service.csv`), **e i due riusano gli stessi numeri**: l'id 5 è «Servizio Consegna Standard» a prezzo fisso fra i partner e «Servizio a Ora» fra i valet. Leggere il catalogo sbagliato produce un'accusa coerente e falsa — è successo, e il primo audit aveva dichiarato 107 righe sbagliate che erano tutte giuste.
+
 #### Dettaglio consegna: il denaro di una VENDITA **[NUOVO 28/08/2026]**
 
 Sulle consegne con modello **Vendita**, il campo prezzo **non è quello che prende il partner**: è la **quota trattenuta da Deluxy**. Con l'etichetta «Prezzo» accanto al valore dei prodotti si legge come l'incasso del fornitore, ed è un errore già commesso.
