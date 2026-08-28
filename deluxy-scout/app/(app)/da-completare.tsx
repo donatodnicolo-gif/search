@@ -369,7 +369,7 @@ export default function DaCompletare() {
           <EmptyState
             icona="checkmark-done-outline"
             titolo="Niente da fare"
-            aiuto="Quando una visita chiede un seguito o resta da completare, la trovi in questa coda."
+            aiuto="Qui finiscono i richiami dopo una visita, i task aperti e le visite da completare."
             loading={loading}
           />
         }

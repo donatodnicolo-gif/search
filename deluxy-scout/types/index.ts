@@ -523,10 +523,16 @@ export interface Task {
   scadenza: string | null; // YYYY-MM-DD
   completata: boolean;
   place_id: string | null;
+  /** Il CONTATTO a cui il task si riferisce — chi chiamare o scrivere (migr. 0100).
+   *  ⚠️ È un riferimento, non un nome copiato: «Sentire Marco» non dice quale
+   *  Marco né porta il suo numero. */
+  contatto_id?: string | null;
   creato_da: string | null; // chi ha creato il task (owner = a chi è assegnato)
   created_at: string;
   completata_at: string | null;
   place_nome?: string | null; // nome del negozio collegato (join, opzionale)
+  /** Il contatto risolto (join): nome, ruolo e recapiti per poterlo chiamare. */
+  contatto?: { id: string; nome: string; ruolo: string | null; telefono: string | null; email: string | null } | null;
   owner_nome?: string | null; // nome dell'assegnatario (risolto)
   creato_da_nome?: string | null; // nome del creatore (risolto)
 }
