@@ -57,6 +57,12 @@ export async function middleware(req: NextRequest) {
 export const config = {
   // tutto tranne login, callback OAuth, API pubblica di verifica (auth a chiave),
   // asset statici e file pubblici
+  // ⚠️⚠️ `api/fattura` (emissione su Fatture in Cloud) va elencata QUI o la
+  // rotta non gira nemmeno: il middleware la rimanda al login con un 307, e
+  // chi chiama vede un redirect al posto della risposta. Non basta che
+  // `api/fatture` sia gia esclusa — l ancoraggio `(?:/|$)` fa si che
+  // `fatture` NON copra `fattura`, ed e voluto (vedi il commento sotto).
+  // La chiave si controlla dentro la rotta, come per tutte le altre.
   matcher: [
     // `api/pagamenti/notifica` è il webhook di Deluxy Transactions: si autentica
     // da sé con la firma HMAC. Dentro il middleware riceverebbe un redirect al
@@ -75,6 +81,6 @@ export const config = {
     // l'abbia deciso. Oggi non esiste una rotta in quella condizione: si ancora
     // adesso, che non costa niente, per non scoprirlo il giorno in cui
     // qualcuno aggiunge il file.
-    "/((?!login(?:/|$)|api/health(?:/|$)|api/sso(?:/|$)|api/fic/callback(?:/|$)|api/shopify/callback(?:/|$)|api/verifiche(?:/|$)|api/fatture(?:/|$)|api/proforma(?:/|$)|api/tipologie(?:/|$)|api/incassi(?:/|$)|api/tasks(?:/|$)|api/riepilogo-finanziario(?:/|$)|api/clienti(?:/|$)|api/spese(?:/|$)|api/vendor(?:/|$)|api/pagamenti/notifica(?:/|$)|api/cron(?:/|$)|api/v1(?:/|$)|_next/static(?:/|$)|_next/image(?:/|$)|favicon\.ico$).*)",
+    "/((?!login(?:/|$)|api/health(?:/|$)|api/sso(?:/|$)|api/fic/callback(?:/|$)|api/shopify/callback(?:/|$)|api/verifiche(?:/|$)|api/fatture(?:/|$)|api/fattura(?:/|$)|api/proforma(?:/|$)|api/tipologie(?:/|$)|api/incassi(?:/|$)|api/tasks(?:/|$)|api/riepilogo-finanziario(?:/|$)|api/clienti(?:/|$)|api/spese(?:/|$)|api/vendor(?:/|$)|api/pagamenti/notifica(?:/|$)|api/cron(?:/|$)|api/v1(?:/|$)|_next/static(?:/|$)|_next/image(?:/|$)|favicon\.ico$).*)",
   ],
 };
