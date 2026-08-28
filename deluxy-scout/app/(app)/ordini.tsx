@@ -2592,15 +2592,25 @@ function RichiestaEvasione({
         cosa: cosa.trim(),
         note: note.trim(),
       });
-      // ⚠️ Si dice A CHI è andata, e si dice quando è andata a tutti perché
-      // l'indirizzo delle consegne non è impostato: «mandata» senza dire dove
-      // farebbe credere che sia arrivata a chi di dovere.
-      avvisa(
-        'Richiesta mandata',
-        esito.ripiego
-          ? `È andata a tutta la squadra: non c'è ancora un indirizzo delle consegne impostato (impostazione «mail.casella_consegne»).`
-          : `È andata a ${esito.a.join(', ')}.`,
-      );
+      // ⚠️ Si dice DOVE è arrivata davvero. «Mandata» e basta farebbe credere
+      // che sia nella sezione Richieste della piattaforma anche quando è
+      // partita una mail perché la piattaforma non l'ha presa — e nessuno
+      // andrebbe a inserirla a mano.
+      if (esito.canale === 'piattaforma') {
+        avvisa(
+          esito.giaEsistente ? 'Richiesta già in coda' : 'Richiesta mandata',
+          esito.giaEsistente
+            ? `Per ${ordine.riferimento} c'era già una richiesta nella sezione Richieste della piattaforma: è la stessa, non se ne crea una seconda.`
+            : `È nella sezione Richieste della piattaforma: l'ufficio la legge e inserisce il servizio.`,
+        );
+      } else {
+        avvisa(
+          'Mandata per mail, non alla piattaforma',
+          `La piattaforma non l'ha presa (${esito.motivoRipiego ?? 'motivo non riportato'}), quindi è partita una mail${
+            esito.ripiego ? ' a tutta la squadra, perché non c\'è un indirizzo delle consegne impostato' : ` a ${esito.a.join(', ')}`
+          }. Va inserita a mano.`,
+        );
+      }
       onFatto();
     } catch (e: any) {
       avvisa('Richiesta non partita', String(e?.message ?? e));

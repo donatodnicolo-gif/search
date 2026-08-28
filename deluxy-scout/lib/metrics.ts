@@ -363,9 +363,36 @@ export function valorePerLinea(deals: Deal[]): BarDatum[] {
     .sort((a, b) => b.value - a.value);
 }
 
+/**
+ * ⭐⭐ IL FOLLOW-UP È UN IMPEGNO CON UNA DATA (28/08/2026).
+ *
+ * La regola chiedeva solo: linea Affiliazioni/Re-seller e trattativa aperta.
+ * In «Da fare» questo faceva **39 righe**, e contate una per una il 28/08
+ * erano:
+ *
+ *   29  trattative aperte copiate da HubSpot
+ *    9  partner del registro Anagrafiche in stato «in trattativa»
+ *    1  trattativa vera di Scout (Balloon Planet)
+ *
+ * ⚠️ **Le prime due sorgenti non possono avere né un responsabile né una
+ * scadenza**: `fetchTutteTrattative` le costruisce con `owner: null` e
+ * `scadenza: null` scritti nel codice. Erano trentotto righe «Non attribuito
+ * · Senza scadenza» che nessuno poteva prendere in carico e che non
+ * scadevano mai — una LISTA travestita da coda di lavoro, dentro una pagina
+ * che promette «richiami in scadenza».
+ *
+ * Da qui la scadenza è **obbligatoria**: entra chi si è dato una data. Le
+ * altre non spariscono — restano dove sono sempre state, in Trattative — e
+ * rientrano qui il giorno in cui qualcuno una data gliela dà.
+ */
 export function followupAffiliazioni<T extends Deal>(deals: T[]): T[] {
   const linee = ['Affiliazioni', 'Re-seller'];
   return deals.filter(
-    (d) => d.linea && linee.includes(d.linea) && d.fase !== 'closedwon' && d.fase !== 'closedlost',
+    (d) =>
+      d.linea &&
+      linee.includes(d.linea) &&
+      d.fase !== 'closedwon' &&
+      d.fase !== 'closedlost' &&
+      !!d.scadenza,
   );
 }

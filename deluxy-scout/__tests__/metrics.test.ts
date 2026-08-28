@@ -16,7 +16,9 @@ function deal(p: Partial<Deal>): Deal {
     fase: p.fase ?? 'appointmentscheduled',
     valore_atteso: p.valore_atteso ?? null,
     next_action: null,
-    scadenza: null,
+    // ⚠️ La fabbrica IGNORAVA la scadenza passata: qualunque caso di prova la
+    // riceveva null, e un test sulle scadenze non poteva che dire il falso.
+    scadenza: p.scadenza ?? null,
     owner: null,
     hubspot_deal_id: null,
   };
@@ -91,15 +93,26 @@ describe('liste recupero/follow-up', () => {
     expect(chiusePerse(deals)).toHaveLength(1);
   });
 
-  it('followupAffiliazioni filtra Affiliazioni/Re-seller aperti', () => {
+  it('followupAffiliazioni filtra Affiliazioni/Re-seller aperti CON scadenza', () => {
     const deals = [
-      deal({ linea: 'Re-seller', fase: 'appointmentscheduled' }),
-      deal({ linea: 'Affiliazioni', fase: 'closedwon' }), // chiuso, escluso
-      deal({ linea: 'Consegne', fase: 'appointmentscheduled' }), // linea diversa
+      deal({ linea: 'Re-seller', fase: 'appointmentscheduled', scadenza: '2026-09-01' }),
+      deal({ linea: 'Affiliazioni', fase: 'closedwon', scadenza: '2026-09-01' }), // chiuso, escluso
+      deal({ linea: 'Consegne', fase: 'appointmentscheduled', scadenza: '2026-09-01' }), // linea diversa
     ];
     const out = followupAffiliazioni(deals);
     expect(out).toHaveLength(1);
     expect(out[0].linea).toBe('Re-seller');
+  });
+
+  // ⚠️ Il caso che il 28/08/2026 riempiva «Da fare» di 38 righe morte: aperte,
+  // della linea giusta, ma senza data — e senza responsabile, perché HubSpot e
+  // il registro le costruiscono con owner e scadenza nulli per costruzione.
+  it('followupAffiliazioni ESCLUDE chi non ha una scadenza', () => {
+    const deals = [
+      deal({ linea: 'Affiliazioni', fase: 'appointmentscheduled', scadenza: null }),
+      deal({ linea: 'Re-seller', fase: 'decisionmakerboughtin', scadenza: null }),
+    ];
+    expect(followupAffiliazioni(deals)).toHaveLength(0);
   });
 });
 

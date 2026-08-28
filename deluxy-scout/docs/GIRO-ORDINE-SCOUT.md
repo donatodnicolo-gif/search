@@ -53,7 +53,18 @@ fascia oraria, citofono, telefono, ritiro, cosa e note. Alla conferma parte
 `[EVASIONE SCOUT001]` alle consegne, dalla casella dell'azienda, con dentro il
 numero da scrivere nel DDT.
 
-⚠️ **Non crea la consegna sulla piattaforma, e non e un ripiego provvisorio.**
+Arriva in **Richieste** sulla piattaforma (POST /app/richieste): la sezione
+che admin, operation e Customer Service leggono. Il riferimento e SCOUT00N e
+la rotta e idempotente su quello — rimandare la stessa evasione non crea una
+seconda riga in lista.
+
+⚠️ **Se la piattaforma non la prende si ripiega sulla mail, e si dice perche.**
+Serve una chiave app CON SCRITTURA: finche in cassaforte c e l IBAN al posto
+della chiave, la strada vera e la mail — e sia il messaggio a schermo sia la
+mail lo dicono, cosi qualcuno la inserisce a mano invece di credere che sia
+gia in coda.
+
+⚠️ **Non crea la consegna, e non e un ripiego provvisorio.**
 La rotta esiste (`POST /app/consegne`, chiave con scrittura) ma pretende dati
 che Scout non ha: il tipo di servizio del catalogo e il partner. Sono scelte
 che chi inserisce fa guardando, e indovinarle qui vuol dire far partire un

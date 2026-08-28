@@ -1645,7 +1645,7 @@ export async function chiediEvasione(
     cosa?: string;
     note?: string;
   },
-): Promise<{ ripiego: boolean; a: string[] }> {
+): Promise<{ canale: 'piattaforma' | 'mail'; giaEsistente: boolean; ripiego: boolean; a: string[]; motivoRipiego: string | null }> {
   const url = `${env.supabaseUrl().replace(/[/]$/, '')}/functions/v1/richiesta-evasione`;
   const { data: sess } = await supabase.auth.getSession();
   const token = sess.session?.access_token;
@@ -1662,7 +1662,13 @@ export async function chiediEvasione(
   if (!res.ok || !esito?.sent) {
     throw new Error(String(esito?.error ?? esito?.reason ?? 'La richiesta non è partita.'));
   }
-  return { ripiego: !!esito.ripiego, a: Array.isArray(esito.a) ? esito.a : [] };
+  return {
+    canale: esito.canale === 'piattaforma' ? 'piattaforma' : 'mail',
+    giaEsistente: !!esito.giaEsistente,
+    ripiego: !!esito.ripiego,
+    a: Array.isArray(esito.a) ? esito.a : [],
+    motivoRipiego: esito.motivoRipiego ?? null,
+  };
 }
 
 // ── Lead web (coda di qualificazione prima della trattativa) ──────────────────
