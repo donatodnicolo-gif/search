@@ -84,11 +84,20 @@ risponde «guarda nella posta».
 
 ## Cambiare il cliente di un ordine
 
-Nel foglio dell ordine, sotto il nome, «Cerca un altro cliente» cerca i negozi
-per nome e ricollega l ordine a un altro. La ricerca la fa il database (i
-negozi sono 1.813: scaricarli tutti per filtrarli a schermo sarebbero tre
-pagine di dati a ogni apertura), con un fiato di attesa per non chiamare a
-ogni lettera.
+Nel foglio dell ordine, sotto il nome, «Cerca un altro cliente» cerca in DUE
+posti e ricollega l ordine: prima fra i negozi di Scout, poi nel registro
+Anagrafiche. La ricerca la fa il database (i negozi sono 1.813: scaricarli
+tutti per filtrarli a schermo sarebbero tre pagine di dati a ogni apertura),
+con un fiato di attesa per non chiamare a ogni lettera.
+
+⚠️ Cercare solo in Scout rispondeva «Nessun negozio con questo nome» a clienti
+che esistono eccome: segnalato il 28/08/2026 su «Vivo Concerti», che nel
+registro c e (Milano, attivo) e fra i negozi di Scout no. Scegliendo
+un azienda del registro, Scout la fa nascere come negozio
+(importaDalRegistro, idempotente sull id del registro) e poi la collega:
+l ordine punta a una riga di places, e senza quella riga il legame non
+esisterebbe. La posizione e best effort — meglio un negozio senza puntina che
+un ordine che non si riesce ad attribuire.
 
 Restano due cose diverse: il NOME del negozio appartiene alla sua scheda, il
 LEGAME appartiene all ordine. Scegliere un negozio riscrive anche il nome
