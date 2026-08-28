@@ -5,6 +5,7 @@ import { categorieDaBudgets, TIPI_PL } from "@/lib/categorie-spesa";
 import { transactionsConfigurato, STATI_RICHIESTA } from "@/lib/transactions";
 import { creaRichiestaPagamento } from "@/lib/richieste-actions";
 import { BottoneInvio } from "@/components/BottoneInvio";
+import { SceltaBeneficiario } from "@/components/SceltaBeneficiario";
 
 export const dynamic = "force-dynamic";
 
@@ -29,17 +30,11 @@ export default async function RichiediPagamentoPage({
   const sp = await searchParams;
   const attiva = transactionsConfigurato();
 
-  const [esitoCat, partners, richieste] = await Promise.all([
+  const [esitoCat, richieste] = await Promise.all([
     categorieDaBudgets(),
-    prisma.partner.findMany({
-      where: { attivo: true },
-      orderBy: { nome: "asc" },
-      select: { id: true, nome: true, iban: true },
-    }),
     prisma.richiestaPagamento.findMany({ orderBy: { createdAt: "desc" }, take: 60 }),
   ]);
   const categorie = esitoCat.ok ? esitoCat.categorie : [];
-  const conIban = partners.filter((p) => (p.iban ?? "").trim());
 
   const inAttesa = richieste.filter((r) => r.stato === "in_attesa" || r.stato === "sospesa");
   const totInAttesa = inAttesa.reduce((a, r) => a + r.importo, 0);
@@ -94,28 +89,7 @@ export default async function RichiediPagamentoPage({
       <div className="card" style={{ marginBottom: 20 }}>
         <form action={creaRichiestaPagamento}>
           <div className="form-grid">
-            <div className="full">
-              <label className="field-label">Partner (facoltativo)</label>
-              {/* Scegliendo il partner, beneficiario e IBAN si prendono
-                  dall'anagrafica: ricopiarli a mano è il modo più facile per
-                  mandare i soldi all'IBAN sbagliato. */}
-              <select name="partnerId" defaultValue="">
-                <option value="">— beneficiario libero (scrivo io sotto) —</option>
-                {conIban.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-              </select>
-              <span className="muted" style={{ fontSize: 12 }}>
-                Scegliendone uno, beneficiario e IBAN si prendono dall&apos;anagrafica e i campi qui sotto si ignorano.
-                In elenco solo i {conIban.length} partner con IBAN.
-              </span>
-            </div>
-            <div>
-              <label className="field-label">Beneficiario</label>
-              <input type="text" name="beneficiario" placeholder="A chi va pagato" />
-            </div>
-            <div>
-              <label className="field-label">IBAN</label>
-              <input type="text" name="iban" placeholder="IT60 X054 2811 1010 0000 0123 456" />
-            </div>
+            <SceltaBeneficiario />
             <div>
               <label className="field-label">Importo € <span className="req">*</span></label>
               <input type="text" name="importo" required inputMode="decimal" placeholder="1.234,56" />
@@ -146,6 +120,20 @@ export default async function RichiediPagamentoPage({
               <span className="muted" style={{ fontSize: 12 }}>
                 È quello che si legge in banca: massimo 140 caratteri (limite SEPA).
               </span>
+            </div>
+            <div className="full">
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5, cursor: "pointer" }}>
+                <input type="checkbox" name="fornitura" style={{ width: 16, height: 16 }} />
+                È il pagamento di una <strong>fornitura</strong> (costo di prodotto)
+              </label>
+              <div style={{ marginTop: 8 }}>
+                <label className="field-label">Fattura del fornitore (rif.)</label>
+                <input type="text" name="fatturaFornitoreRif" placeholder="es. 44/2026 del 12/08 — SDI/PEC se serve" />
+                <span className="muted" style={{ fontSize: 12 }}>
+                  Il riferimento della fattura a cui il pagamento si riferisce. Con la fornitura scegli sopra una
+                  <strong> categoria di costo del prodotto (COGS)</strong>: così Budgets lo legge come costo di prodotto e non come spesa generica.
+                </span>
+              </div>
             </div>
             <div className="full">
               <label className="field-label">Note interne</label>
@@ -200,7 +188,16 @@ export default async function RichiediPagamentoPage({
                         {r.iban.slice(0, 6)}••••{r.iban.slice(-4)}
                       </div>
                     </td>
-                    <td style={{ fontSize: 12.5, maxWidth: 280 }}>{r.causale}</td>
+                    <td style={{ fontSize: 12.5, maxWidth: 280 }}>
+                      {r.causale}
+                      {r.fornitura && (
+                        <div style={{ marginTop: 3 }}>
+                          <span className="badge gold" style={{ fontSize: 11 }}>
+                            <span className="dot" />fornitura{r.fatturaFornitoreRif ? ` · fatt. ${r.fatturaFornitoreRif}` : ""}
+                          </span>
+                        </div>
+                      )}
+                    </td>
                     <td style={{ fontSize: 12 }}>
                       {r.categoriaNome ? (
                         <span className={`badge ${TIPI_PL[r.categoriaTipoPL ?? ""]?.badge ?? "neutral"}`}>

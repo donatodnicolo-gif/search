@@ -6,7 +6,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { registra } from "./registro";
+import { ficStato, ficIdDaNumero } from "./fic";
 
+// eDiNext: gli errori di redirect/notFound di Next NON vanno inghiottiti.
+function eDiNext(e: unknown): boolean {
+  return typeof (e as { digest?: unknown })?.digest === "string" &&
+    /^(NEXT_REDIRECT|NEXT_NOT_FOUND)/.test(String((e as { digest?: unknown }).digest));
+}
+const s2 = s;
 function s(fd: FormData, k: string): string | null {
   const v = fd.get(k);
   if (v == null) return null;
@@ -121,12 +128,41 @@ export async function cambiaStatoProForma(id: string, stato: string, fd?: FormDa
   if (!["bozza", "inviata", "fatturata", "annullata"].includes(stato)) {
     throw new Error("Stato non valido");
   }
+
+  // ⚠️ 28/08/2026 — «fatturata» non è più un flag a vuoto. Prima si poteva
+  // marcare fatturata SENZA numero e senza che la fattura esistesse davvero
+  // (caso reale: PF 2/2026 «fatturata» ma niente in Fatture in Cloud). Ora:
+  //  1. il numero della fattura definitiva è OBBLIGATORIO;
+  //  2. se FIC è collegato, si verifica che quel numero esista davvero là —
+  //     altrimenti lo stato è una bugia che si scopre a valle.
+  let numeroFattura: string | null = null;
+  if (stato === "fatturata") {
+    numeroFattura = (fd ? s2(fd, "fatturaNumero") : null)?.trim() || null;
+    if (!numeroFattura) {
+      redirect(`/proforma/${id}?erroreStato=${encodeURIComponent("Per segnare «fatturata» serve il numero della fattura definitiva.")}`);
+    }
+    const anno = new Date().getFullYear();
+    try {
+      const { collegato } = await ficStato();
+      if (collegato) {
+        const idFic = await ficIdDaNumero(numeroFattura, anno);
+        if (!idFic) {
+          redirect(`/proforma/${id}?erroreStato=${encodeURIComponent(`La fattura «${numeroFattura}» non risulta in Fatture in Cloud: controlla il numero o emettila prima.`)}`);
+        }
+      }
+    } catch (e) {
+      if (eDiNext(e)) throw e;
+      // FIC irraggiungibile: non blocco (il numero c'è), ma non fingo di aver verificato.
+      console.warn("[proforma] verifica FIC non riuscita, procedo col solo numero:", (e as Error).message);
+    }
+  }
+
   const ora = new Date();
   const pf = await prisma.proForma.update({
     where: { id },
     data:
       stato === "fatturata"
-        ? { stato, fatturataIl: ora, fatturaNumero: fd ? s(fd, "fatturaNumero") : null, annullataIl: null }
+        ? { stato, fatturataIl: ora, fatturaNumero: numeroFattura, annullataIl: null }
         : stato === "annullata"
           ? { stato, annullataIl: ora }
           : stato === "inviata"

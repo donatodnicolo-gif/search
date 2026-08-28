@@ -96,6 +96,37 @@ export async function cercaAnagrafica(nome: string): Promise<Anagrafica | null> 
   return dati.length === 1 ? dati[0] : null;
 }
 
+// Cerca beneficiari nel registro per la richiesta di pagamento: torna una lista
+// corta (nome, ragione sociale, città, P.IVA e — dove c'è — IBAN e intestatario
+// del conto), così chi compila la richiesta pesca il fornitore invece di
+// ricopiare a mano beneficiario e IBAN. Non fatale: registro giù → lista vuota.
+export type BeneficiarioRegistro = {
+  id: string;
+  nome: string;
+  ragioneSociale: string | null;
+  citta: string | null;
+  pIva: string | null;
+  iban: string | null;
+  intestatarioConto: string | null;
+};
+export async function cercaBeneficiariRegistro(q: string): Promise<BeneficiarioRegistro[]> {
+  const query = q.trim();
+  if (query.length < 2) return [];
+  const risposta = (await chiamata(
+    `/api/v1/partners?q=${encodeURIComponent(query)}&perPage=8`,
+  )) as { dati?: Anagrafica[] } | null;
+  const dati = risposta?.dati ?? [];
+  return dati.map((a) => ({
+    id: a.id,
+    nome: a.nome,
+    ragioneSociale: a.ragioneSociale,
+    citta: a.citta,
+    pIva: a.pIva,
+    iban: a.datiFinanziari?.iban ?? null,
+    intestatarioConto: a.datiFinanziari?.intestatarioConto ?? null,
+  }));
+}
+
 // Sceglie, fra i contatti del registro, quello amministrativo: prima chi ha un
 // ruolo di amministrazione/contabilità, poi il primo con una email (serve per
 // mandargli solleciti e pro-forma).

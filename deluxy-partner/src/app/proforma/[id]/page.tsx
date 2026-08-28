@@ -19,7 +19,7 @@ export default async function ProFormaDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ salvato?: string; inviata?: string; fic?: string }>;
+  searchParams: Promise<{ salvato?: string; inviata?: string; fic?: string; erroreStato?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -105,6 +105,11 @@ export default async function ProFormaDetail({
         </div>
       </div>
 
+      {sp.erroreStato && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.2)", background: "rgba(215,0,21,0.06)" }}>
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{decodeURIComponent(sp.erroreStato)}</span>
+        </div>
+      )}
       {sp.salvato && (
         <div className="card no-print" style={{ padding: 14, marginBottom: 16 }}>
           <span className="badge green"><span className="dot" />Pro-forma salvata</span>

@@ -142,6 +142,11 @@ model RichiestaPagamento {
   categoriaId    String? // id della categoria in Budgets
   categoriaNome  String? // etichetta al momento della richiesta
   categoriaTipoPL String? // COGS | ADV | PERSONALE | STRUTTURA | ESCLUSA
+  // ⚠️ 28/08/2026 — pagamento di una FORNITURA (costo di prodotto). Il flag e il
+  // riferimento alla fattura del fornitore servono a far capire a Budgets che
+  // questa uscita è un COGS, non una spesa qualunque. Additive, nullable/default.
+  fornitura       Boolean   @default(false)
+  fatturaFornitoreRif String? // n° (e data) della fattura del fornitore a cui il pagamento si riferisce
   note           String?
   scadenza       DateTime?
   partnerId      String? // se il beneficiario è un partner in anagrafica

@@ -16,6 +16,21 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 28/08/2026 — richiedi-pagamento (ricerca beneficiario + flag fornitura) e guard «fatturata» ⚠️ MIGRAZIONE DA APPLICARE
+>
+> Tre cose approvate dall'utente («tutti»). ⚠️⚠️ **La 3 aggiunge due colonne al Postgres CONDIVISO** e **non è ancora applicata**: la mia ALTER è stata bloccata dal classificatore di sicurezza dell'auto-mode. **Finché le colonne non esistono, NON deployare**: il client Prisma rigenerato le seleziona su ogni query di `RichiestaPagamento` e la pagina andrebbe in errore. Codice committato e in attesa.
+>
+> **SQL da eseguire (Supabase → SQL editor), idempotente:**
+> ```sql
+> ALTER TABLE "public"."RichiestaPagamento" ADD COLUMN IF NOT EXISTS "fornitura" BOOLEAN NOT NULL DEFAULT false;
+> ALTER TABLE "public"."RichiestaPagamento" ADD COLUMN IF NOT EXISTS "fatturaFornitoreRif" TEXT;
+> ```
+> (⚠️ qualificare `public`: nello stesso cluster c'è anche `messaging.RichiestaPagamento` di un'altra app.) Dopo l'ALTER: deploy.
+>
+> **1. Ricerca beneficiario, non tendina** (`richiedi-pagamento`): via la tendina dei 17 partner FINANCE con IBAN; al suo posto `SceltaBeneficiario` (client) che **cerca fra i fornitori del registro Anagrafiche** (`cercaBeneficiari` → `/api/v1/partners?q=`), e riempie beneficiario + IBAN (con l'intestatario del conto quando c'è). Restano scrivibili a mano. Nessuna modifica di schema.
+> **2. Flag fornitura + fattura** (`richiedi-pagamento`): checkbox «È il pagamento di una fornitura (costo di prodotto)» + campo «Fattura del fornitore (rif.)». Si salvano su `RichiestaPagamento.fornitura` / `fatturaFornitoreRif` e viaggiano nella nota a Transactions. Perché Budgets lo legga come **COGS** serve scegliere una categoria di costo del prodotto (il testo lo dice): Budgets classifica per categoria sul movimento, il flag è la marcatura + il riferimento fattura per tracciarlo. Badge «fornitura · fatt. N» in elenco.
+> **3. Guard «fatturata»** (`proforma-actions.ts`): marcare una pro-forma «fatturata» ora **esige il numero** della fattura definitiva e, se FIC è collegato, **verifica che quel numero esista davvero** su Fatture in Cloud (`ficIdDaNumero`); altrimenti rifiuta con un messaggio (`erroreStato`). Chiude il caso PF 2/2026 «fatturata» senza numero e senza documento. FIC irraggiungibile → non blocca (il numero c'è) ma non finge di aver verificato.
+
 > ### 28/08/2026 — la pro-forma prende i dati fiscali del cliente da ANAGRAFICHE; e «fatturata» non garantisce la fattura
 >
 > **Pro-forma — dati fiscali del cliente dal registro** (segnalato: «mancano tutti i dati anagrafici per una fatturazione che sono già in Anagrafiche»). Il blocco «Spettabile» leggeva solo dal `Partner` FINANCE (nome, città, email) — che i campi fiscali non li tiene. Ora, se il partner è collegato al registro (`anagraficaId`), `/proforma/[id]` legge da **Anagrafiche** ragione sociale, **indirizzo, P.IVA, C.F., Cod. SDI, PEC** via `anagraficaPerId()` (già esistente, non fatale: se il registro è giù restano i pochi campi del partner). Provato su **PF 2/2026 (Vivo Concerti SRL)**: ora mostra **P.IVA 10188790967** e **Piazza Fernanda Pivano 9, 20143 Milano**, che l'API restituisce e prima non comparivano. Un riquadro (solo in-app, non nel documento) dice cosa manca ancora per una fattura vera — qui **Cod. SDI o PEC**, ancora vuoti in Anagrafiche.

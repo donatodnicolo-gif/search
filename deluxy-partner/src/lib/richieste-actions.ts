@@ -9,6 +9,7 @@ import { euro } from "./format";
 import { SESSION_COOKIE, sessioneCorrente } from "./auth";
 import { richiediPagamentoLibero, transactionsConfigurato } from "./transactions";
 import { categorieDaBudgets } from "./categorie-spesa";
+import { cercaBeneficiariRegistro, type BeneficiarioRegistro } from "./anagrafiche";
 
 // Sezione «Richiedi pagamento»: chiedere il pagamento di una spesa qualsiasi.
 //
@@ -19,6 +20,16 @@ import { categorieDaBudgets } from "./categorie-spesa";
 function torna(chiave: string, valore: string): never {
   revalidatePath("/richiedi-pagamento");
   redirect(`/richiedi-pagamento?${chiave}=${encodeURIComponent(valore)}`);
+}
+
+// Ricerca beneficiari nel registro Anagrafiche, chiamata dal campo di ricerca
+// della nuova richiesta (client). È sola lettura e non fatale.
+export async function cercaBeneficiari(q: string): Promise<BeneficiarioRegistro[]> {
+  try {
+    return await cercaBeneficiariRegistro(q);
+  } catch {
+    return [];
+  }
 }
 
 /** IBAN: controllo di forma + resto di 97 (ISO 13616). Lo si fa QUI e non solo
@@ -71,6 +82,8 @@ export async function creaRichiestaPagamento(fd: FormData) {
   const note = String(fd.get("note") ?? "").trim() || null;
   const scadenza = String(fd.get("scadenza") ?? "").trim() || null;
   const categoriaId = String(fd.get("categoria") ?? "").trim() || null;
+  const fornitura = String(fd.get("fornitura") ?? "") === "on";
+  const fatturaFornitoreRif = String(fd.get("fatturaFornitoreRif") ?? "").trim() || null;
 
   if (!beneficiario) torna("errore", "Manca il beneficiario: a chi va pagato?");
   if (!ibanValido(iban)) torna("errore", "IBAN non valido: ricontrollalo (il codice di controllo non torna).");
@@ -102,6 +115,7 @@ export async function creaRichiestaPagamento(fd: FormData) {
       beneficiario, iban, importo, causale, note,
       scadenza: scadenza ? new Date(scadenza) : null,
       categoriaId, categoriaNome, categoriaTipoPL,
+      fornitura, fatturaFornitoreRif,
       partnerId, partnerNome, richiedente,
       stato: "bozza",
     },
@@ -111,7 +125,12 @@ export async function creaRichiestaPagamento(fd: FormData) {
     idRichiesta: riga.id,
     beneficiario, iban, importo, causale,
     categoria: categoriaNome,
-    note: [note, categoriaNome ? `Categoria di costo: ${categoriaNome}` : null].filter(Boolean).join(" · ") || null,
+    note: [
+      note,
+      fornitura ? "Pagamento di una fornitura (costo prodotto)" : null,
+      fatturaFornitoreRif ? `Fattura fornitore ${fatturaFornitoreRif}` : null,
+      categoriaNome ? `Categoria di costo: ${categoriaNome}` : null,
+    ].filter(Boolean).join(" · ") || null,
     scadenza,
   });
 
