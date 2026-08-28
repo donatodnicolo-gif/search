@@ -36,7 +36,7 @@ type Props = {
  * ⚠️ Prima erano quindici comandi tutti uguali, in fila («veramente troppo
  * incasinato», 25/08/2026) — e comprimere non bastava: quindici pillole
  * identiche restano quindici pillole. In vista restano le quattro cose che si
- * fanno di continuo — Rispondi, Inoltra, Archivia, Cestina — e TUTTO il resto
+ * fanno di continuo — Rispondi, A tutti, Inoltra, Cestina — e TUTTO il resto
  * sta dietro «⋯ Altro», a un clic: nessuna azione tolta (regola di casa),
  * cambia solo quante ne gridano contemporaneamente.
  */
@@ -116,6 +116,21 @@ export function AzioniMessaggio({
         >
           Rispondi <kbd className="tasto">R</kbd>
         </Link>
+        {/* ⚠️ «A tutti» sta IN VISTA, non sotto «⋯ Altro» (chiesto il
+            27/08/2026). Su questa posta la maggior parte degli scambi ha più
+            di due persone dentro — clienti, colleghi in copia, il fornitore —
+            e rispondere al solo mittente taglia fuori gli altri senza che
+            nessuno se ne accorga finché non è partita. Un’azione che si usa
+            di continuo non sta dietro un menù.
+            ⚠️ Al suo posto, sotto «Altro», è finita ARCHIVIA: è una cosa che
+            si fa a fine pratica, una volta, e non merita la prima fila. */}
+        <Link
+          href={`/messaggio/${id}/scrivi?modo=tutti`}
+          className="btn secondary small"
+          title="Rispondi a tutti i destinatari, non solo al mittente (tasto T)"
+        >
+          A tutti <kbd className="tasto">T</kbd>
+        </Link>
         <Link
           href={`/messaggio/${id}/scrivi?modo=inoltra`}
           className="btn secondary small"
@@ -124,47 +139,6 @@ export function AzioniMessaggio({
           Inoltra <kbd className="tasto">I</kbd>
         </Link>
 
-        {!archiviato && !chiediSempre && (
-          <button
-            className="btn secondary small"
-            disabled={inCorso}
-            title="Togli dalla posta in arrivo, resta negli Archiviati (tasto E)"
-            onClick={() =>
-              // Archivia subito (SENZA refresh, così la domanda resta), poi
-              // chiedi se per sempre restando qui. Archivia TUTTA la
-              // conversazione: in elenco una riga è un thread.
-              startTransition(async () => {
-                const r = await archiviaThreadSenzaAggiornare(id)
-                // ⚠️ Un segno che è successo qualcosa: sul telefono si toccava
-                // «Archivia», il bottone spariva, e basta — nessun avviso,
-                // nessun aggiornamento. Chi non vede niente riprova.
-                mostraFlash(r?.messaggio ?? 'Archiviata.', r && r.ok === false ? 'errore' : 'ok')
-                setChiediSempre(true)
-              })
-            }
-          >
-            Archivia <kbd className="tasto">E</kbd>
-          </button>
-        )}
-
-        {/* ⚠️ L'archivio non è una porta a senso unico: archiviata la mail, al
-            posto di «Archivia» compare il modo di tornare indietro. */}
-        {archiviato && (
-          <button
-            className="btn secondary small"
-            disabled={inCorso}
-            title="Rimetti questa conversazione in Posta in arrivo"
-            onClick={() =>
-              esegui(async () => {
-                const r = await disarchiviaThread(id)
-                mostraFlash(r.messaggio, r.ok ? 'ok' : 'errore')
-                router.refresh()
-              })
-            }
-          >
-            Togli dall’archivio
-          </button>
-        )}
 
         {/* ⚠️⚠️ Questo bottone cestinava TUTTA LA CONVERSAZIONE, e basta.
             Il commento di prima diceva che una conferma avrebbe spezzato il
@@ -251,7 +225,7 @@ export function AzioniMessaggio({
           className="btn secondary small"
           aria-haspopup="menu"
           aria-expanded={menu}
-          title="Le altre azioni: rispondi a tutti, delega, sezione, aggancia, spam…"
+          title="Le altre azioni: archivia, delega, sezione, aggancia, spam…"
           onClick={() => setMenu((v) => !v)}
         >
           ⋯ Altro
@@ -259,14 +233,62 @@ export function AzioniMessaggio({
 
         {menu && (
           <div className="menu-azioni" role="menu">
-            <Link
-              href={`/messaggio/${id}/scrivi?modo=tutti`}
-              className="menu-voce"
-              role="menuitem"
-              onClick={() => setMenu(false)}
-            >
-              Rispondi a tutti <kbd className="tasto">T</kbd>
-            </Link>
+            {/* ⚠️ ARCHIVIA è scesa qui dalla prima fila (27/08/2026): è una
+                cosa che si fa a fine pratica, una volta, mentre «A tutti»
+                serve a ogni risposta. Il tasto E continua a funzionare: la
+                scorciatoia non dipende dal fatto che il bottone sia in vista.
+                ⚠️ Il menù si chiude PRIMA di partire: la domanda «Sempre da
+                questo mittente?» compare sotto la barra, e con il menù
+                ancora aperto ci finirebbe sotto. */}
+            {!archiviato && !chiediSempre && (
+              <button
+                type="button"
+                className="menu-voce"
+                role="menuitem"
+                disabled={inCorso}
+                title="Togli dalla posta in arrivo, resta negli Archiviati (tasto E)"
+                onClick={() => {
+                  setMenu(false)
+                  // Archivia subito (SENZA refresh, così la domanda resta),
+                  // poi chiedi se per sempre restando qui. Archivia TUTTA la
+                  // conversazione: in elenco una riga è un thread.
+                  startTransition(async () => {
+                    const r = await archiviaThreadSenzaAggiornare(id)
+                    // ⚠️ Un segno che è successo qualcosa: sul telefono si
+                    // toccava «Archivia», il bottone spariva, e basta —
+                    // nessun avviso, nessun aggiornamento. Chi non vede
+                    // niente riprova.
+                    mostraFlash(r?.messaggio ?? 'Archiviata.', r && r.ok === false ? 'errore' : 'ok')
+                    setChiediSempre(true)
+                  })
+                }}
+              >
+                Archivia <kbd className="tasto">E</kbd>
+              </button>
+            )}
+
+            {/* ⚠️ L'archivio non è una porta a senso unico: archiviata la
+                mail, al posto di «Archivia» compare il modo di tornare
+                indietro. */}
+            {archiviato && (
+              <button
+                type="button"
+                className="menu-voce"
+                role="menuitem"
+                disabled={inCorso}
+                title="Rimetti questa conversazione in Posta in arrivo"
+                onClick={() => {
+                  setMenu(false)
+                  esegui(async () => {
+                    const r = await disarchiviaThread(id)
+                    mostraFlash(r.messaggio, r.ok ? 'ok' : 'errore')
+                    router.refresh()
+                  })
+                }}
+              >
+                Togli dall’archivio
+              </button>
+            )}
             <span onClick={() => setMenu(false)}>
               <DelegaReneBottone id={id} variante="bottone" />
             </span>
