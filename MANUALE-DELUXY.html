@@ -641,9 +641,9 @@
       <line x1="450" y1="192" x2="450" y2="128" stroke="var(--money)" stroke-width="2" marker-end="url(#fd-money)"/>
       <text x="482" y="166" text-anchor="middle" font-size="11" fill="var(--money)">esce</text>
 
-      <text x="140" y="222" font-size="12.5" fill="currentColor" font-weight="600">Chi chiede un pagamento:</text>
-      <text x="140" y="242" font-size="12" fill="var(--muted)">Finance (saldi partner), Piattaforma</text>
-      <text x="140" y="260" font-size="12" fill="var(--muted)">(paghe valet), CS (rimborsi reclami)…</text>
+      <text x="140" y="222" font-size="12.5" fill="currentColor" font-weight="600">Chi chiede un pagamento (28/08: tutti):</text>
+      <text x="140" y="242" font-size="12" fill="var(--muted)">CS (fornitori ordini) · Scout (fornitori eventi)</text>
+      <text x="140" y="260" font-size="12" fill="var(--muted)">Finance (partner, spese) · Piattaforma (valet)</text>
       <line x1="300" y1="236" x2="336" y2="236" stroke="currentColor" stroke-width="1.6" marker-end="url(#fd-ink)"/>
 
       <!-- budgets -->
@@ -660,8 +660,12 @@
     </svg>
     <figcaption>
       Il punto più importante per chi arriva: <b>nessuna app paga da sola</b>. Qualunque cosa
-      debba uscire — la paga di un valet, il saldo di un partner, il rimborso di un reclamo —
-      diventa una richiesta a Transactions, dove una persona autorizza con doppia firma.
+      debba uscire — la paga di un valet, il saldo di un partner, il fornitore di un ordine o
+      di un evento — diventa una richiesta a Transactions, dove una persona autorizza con
+      doppia firma. Dal 28/08/2026 Transactions è il <b>collettore unico</b>: accetta anche i
+      metodi non-bancari (link, PayPal, carta — che si pagano a mano e si chiudono come
+      «pagata fuori»), legge le richieste con l'AI, e restituisce alle app l'esito <b>con la
+      prova del pagamento allegata</b>.
     </figcaption>
   </figure>
 </section>
@@ -729,6 +733,8 @@
   <div class="table-scroll registro"><table>
     <thead><tr><th>Quando</th><th>Dove</th><th>Cosa cambia</th></tr></thead>
     <tbody>
+      <tr><td>28/08/2026</td><td>Transactions + 4 app</td>
+        <td><b>Transactions diventa il collettore unico delle richieste di pagamento.</b> Tutte le richieste dell'ecosistema convergono lì: Customer Service (fornitori degli ordini), Scout (nuova schermata <b>Vendita → Paga fornitori</b> per i fornitori degli eventi), FINANCE (partner e spese), Piattaforma consegne (bottone <b>Richiedi pagamento</b> sugli stipendi valet approvati). Le richieste possono avere qualsiasi metodo (bonifico, link, PayPal, carta, altro): il bonifico si esegue da Transactions (distinta/Qonto), gli altri si chiudono a mano come «pagata fuori». Ovunque c'è la <b>lettura AI</b> (incolla il testo o lo screenshot della richiesta: importo/IBAN/intestatario proposti, il checksum decide, la persona rilegge). L'<b>esito torna da solo</b> alle app (webhook firmato con ritentativi + pull di recupero) <b>con gli allegati</b>: la prova del pagamento si carica in Transactions e chi ha chiesto la scarica — nel CS la graffetta si accende da sola.</td></tr>
       <tr><td>28/08/2026</td><td>Manuale</td>
         <td>Nasce questo manuale, con la regola del registro: da oggi ogni funzionalità nuova o modificata si annota qui.</td></tr>
       <tr><td>28/08/2026</td><td>Finance</td>
