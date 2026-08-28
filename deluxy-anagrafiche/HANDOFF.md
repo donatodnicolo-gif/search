@@ -1327,3 +1327,14 @@ fiscali/`soggettoFiscaleId` congelate, dopo che il nuovo è stato usato in
 produzione (come per le colonne del 27/08). ⚠️ Manca il gesto «aggiungi
 un'azienda a un capogruppo» (prima era il modale «aggiungi sede»): oggi si crea
 col form Nuovo e si assegna il capogruppo.
+
+## 28/08/2026 — Rubrica Google: non risalva chi è già salvato
+
+Bug: aprendo la scheda di un cliente, il salvataggio automatico in rubrica
+(`SalvaRubricaAuto`) riceveva TUTTI i referenti, anche quelli con
+`salvatoInRubricaIl` impostato → li ri-provava, e per farlo chiedeva di nuovo il
+token Google (la scelta account riaperta a vuoto). Caso: TIFFANY, Valeria Savino
+già salvata, box «Nuovo cliente → rubrica Google» ricompariva.
+Fix: `daSalvareInRubrica = p.contatti.filter(c => !c.salvatoInRubricaIl)`; se
+sono tutti salvati il box non compare e il bottone dice «☎ In rubrica».
+Provato a schermo: box assente, nessuna chiamata Google. Commit sopra.
