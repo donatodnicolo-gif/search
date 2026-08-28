@@ -711,6 +711,9 @@ export async function ficCreaFattura(opts: {
   visibleSubject?: string;
   data?: Date;
   scadenza?: Date | null;
+  // Anticipo (acconto): se importo > 0 la fattura nasce con DUE scadenze —
+  // l'acconto alla sua data, il saldo alla scadenza. Importo lordo (IVA inclusa).
+  anticipo?: { importo: number; scadenza?: Date | null } | null;
   metodoPagamentoId?: number;
 }): Promise<{ id: number; numero: string }> {
   if (!opts.clienteId && !opts.entity) {
@@ -782,6 +785,23 @@ export async function ficCreaFattura(opts: {
     );
   }
 
+  // Le scadenze mandate a FIC. Sempre "not_paid": senza payments_list FIC
+  // crea il documento gia saldato. Con un anticipo valido (0 < acconto < totale)
+  // due righe: acconto e saldo; altrimenti una sola.
+  const scadSaldo = opts.scadenza ? iso(opts.scadenza) : dataDoc;
+  const costruisciScadenze = () => {
+    const acc = opts.anticipo?.importo ?? 0;
+    const tot = +totale.toFixed(2);
+    if (acc > 0.005 && acc < tot - 0.005) {
+      const dataAcc = opts.anticipo?.scadenza ? iso(opts.anticipo.scadenza) : dataDoc;
+      return [
+        { amount: +acc.toFixed(2), due_date: dataAcc, status: "not_paid" as const },
+        { amount: +(tot - acc).toFixed(2), due_date: scadSaldo, status: "not_paid" as const },
+      ];
+    }
+    return [{ amount: tot, due_date: scadSaldo, status: "not_paid" as const }];
+  };
+
   const r = await ficFetch<{ data: { id: number; number: number; numeration: string | null; date: string } }>(
     `/c/${companyId}/issued_documents`,
     {
@@ -809,9 +829,7 @@ export async function ficCreaFattura(opts: {
           // Fatture in Cloud crea il documento come già saldato (amount_due = 0) e
           // comparirebbe "Saldata" appena creato. Se non c'è una scadenza esplicita,
           // usiamo la data documento (da incassare subito).
-          payments_list: [
-            { amount: +totale.toFixed(2), due_date: opts.scadenza ? iso(opts.scadenza) : dataDoc, status: "not_paid" },
-          ],
+          payments_list: costruisciScadenze(),
         },
       }),
     }

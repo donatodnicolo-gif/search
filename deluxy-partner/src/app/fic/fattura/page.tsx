@@ -48,6 +48,13 @@ async function emetti(origine: string, id: string, fd: FormData) {
   const oggetto = String(fd.get("oggetto") ?? "").trim();
   const scadenzaTxt = String(fd.get("scadenza") ?? "").trim();
   const scadenza = scadenzaTxt ? new Date(scadenzaTxt + "T00:00:00.000Z") : null;
+  // Anticipo (facoltativo): importo lordo dell'acconto e la sua scadenza.
+  const anticipoImp = parseFloat(String(fd.get("anticipo") ?? "").replace(",", "."));
+  const anticipoScadTxt = String(fd.get("anticipoScadenza") ?? "").trim();
+  const anticipo =
+    Number.isFinite(anticipoImp) && anticipoImp > 0
+      ? { importo: anticipoImp, scadenza: anticipoScadTxt ? new Date(anticipoScadTxt + "T00:00:00.000Z") : null }
+      : null;
 
   let righe: RigaFattura[];
   let partnerId: string;
@@ -80,7 +87,7 @@ async function emetti(origine: string, id: string, fd: FormData) {
   let numero: string;
   try {
     const metodoPagamentoId = Number(fd.get("metodoPagamento")) || undefined;
-    const res = await ficCreaFattura({ clienteId, entity, righe, visibleSubject: oggetto, scadenza, metodoPagamentoId });
+    const res = await ficCreaFattura({ clienteId, entity, righe, visibleSubject: oggetto, scadenza, anticipo, metodoPagamentoId });
     numero = res.numero;
   } catch (e) {
     redirect(`${back}&errore=${encodeURIComponent((e as Error).message)}`);
@@ -246,6 +253,15 @@ export default async function EmettiFatturaPage({
             <div>
               <label className="field-label">Scadenza pagamento</label>
               <input type="date" name="scadenza" defaultValue={iso(scadenzaDefault)} />
+            </div>
+            <div>
+              <label className="field-label">Anticipo € <span className="muted" style={{ fontWeight: 400 }}>(facoltativo)</span></label>
+              <input type="text" name="anticipo" inputMode="decimal" placeholder="es. 1.000,00 — IVA inclusa" />
+              <span className="muted" style={{ fontSize: 11.5 }}>Se lo indichi, la fattura nasce con due scadenze: l’acconto e il saldo.</span>
+            </div>
+            <div>
+              <label className="field-label">Scadenza dell’anticipo</label>
+              <input type="date" name="anticipoScadenza" defaultValue={iso(new Date())} />
             </div>
             <div>
               {/* Obbligatorio su una fattura ELETTRONICA: e la ModalitaPagamento
