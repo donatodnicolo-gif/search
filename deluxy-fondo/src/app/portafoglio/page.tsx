@@ -8,6 +8,13 @@
  *
  * Le simulazioni non entrano in nessun totale reale. È la distinzione che un foglio di
  * calcolo perde per prima, e da lì in poi non si sa più cosa si possiede.
+ *
+ * ⚠️ NIENTE ricerca né scorciatoie di periodo su questi elenchi (valutato
+ * 28/08/2026, Libro v1.9 §8-bis): l'universo dei titoli è una manciata di
+ * righe fisse (TITOLI_TUTTI), non un registro che cresce — si abbraccia con
+ * un'occhiata, e una posizione non «appartiene» a un mese: è lo stato di OGGI,
+ * rivalutato ogni giorno. Il tempo, dove conta, è già nelle serie storiche
+ * della pagina Dati.
  */
 
 import { costruisciPortafoglio } from "@/lib/portafoglio";

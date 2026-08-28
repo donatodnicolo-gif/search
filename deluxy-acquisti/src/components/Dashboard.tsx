@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CardRichiesta } from "./CardRichiesta";
 import { CardAcquisto } from "./CardAcquisto";
 import { NuovaRichiesta } from "./NuovaRichiesta";
@@ -65,6 +65,35 @@ export function Dashboard({
 
   const listaRichieste = ai?.ambito === "richieste" && ai.richieste ? ai.richieste : richieste;
   const listaAcquisti = ai?.ambito === "acquisti" && ai.acquisti ? ai.acquisti : acquisti;
+
+  // Le SCORCIATOIE DI PERIODO (Libro v1.9 §8-bis): quattro chip a selezione
+  // singola, «Sempre» come azzeramento. Filtrano gli ACQUISTI sulla
+  // `dataOrdine` — quando l'ordine è stato fatto, la data con cui si ragiona
+  // sugli acquisti. Le richieste non hanno una data operativa equivalente
+  // (la loro `creataIl` è burocrazia, non spesa): il periodo vale solo per la
+  // scheda Acquisti. Confini in ora locale; «mese scorso» finisce dove
+  // comincia questo.
+  const [periodo, setPeriodo] = useState<"tutti" | "mese" | "scorso" | "trimestre" | "anno">("tutti");
+  const finestra = useMemo(() => {
+    const ora = new Date();
+    const domani = new Date(ora.getFullYear(), ora.getMonth(), ora.getDate() + 1);
+    if (periodo === "mese") return { da: new Date(ora.getFullYear(), ora.getMonth(), 1), a: domani };
+    if (periodo === "scorso")
+      return { da: new Date(ora.getFullYear(), ora.getMonth() - 1, 1), a: new Date(ora.getFullYear(), ora.getMonth(), 1) };
+    if (periodo === "trimestre") return { da: new Date(ora.getFullYear(), ora.getMonth() - 2, 1), a: domani };
+    if (periodo === "anno") return { da: new Date(ora.getFullYear(), 0, 1), a: domani };
+    return null;
+  }, [periodo]);
+  const acquistiFiltrati = useMemo(
+    () =>
+      finestra
+        ? listaAcquisti.filter((a) => {
+            const d = new Date(a.dataOrdine);
+            return !isNaN(d.getTime()) && d >= finestra.da && d < finestra.a;
+          })
+        : listaAcquisti,
+    [listaAcquisti, finestra],
+  );
 
   return (
     <div className="wrap">
@@ -135,9 +164,29 @@ export function Dashboard({
           Richieste <span className="conta">{listaRichieste.length}</span>
         </button>
         <button className={`tab ${tab === "acquisti" ? "attivo" : ""}`} onClick={() => setTab("acquisti")}>
-          Acquisti <span className="conta">{listaAcquisti.length}</span>
+          Acquisti <span className="conta">{acquistiFiltrati.length}</span>
         </button>
       </div>
+
+      {tab === "acquisti" && (
+        <div className="chips-periodo">
+          {([
+            { v: "tutti", l: "Sempre" },
+            { v: "mese", l: "Mese in corso" },
+            { v: "scorso", l: "Mese scorso" },
+            { v: "trimestre", l: "Trimestre" },
+            { v: "anno", l: "Anno" },
+          ] as const).map((p) => (
+            <button
+              key={p.v}
+              className={`chip${periodo === p.v ? " attivo" : ""}`}
+              onClick={() => setPeriodo(p.v)}
+            >
+              {p.l}
+            </button>
+          ))}
+        </div>
+      )}
 
       {tab === "richieste" ? (
         <div className="lista">
@@ -149,10 +198,12 @@ export function Dashboard({
         </div>
       ) : (
         <div className="lista">
-          {listaAcquisti.length === 0 ? (
-            <div className="vuoto">Nessun acquisto{ai ? " per questa ricerca" : ""}.</div>
+          {acquistiFiltrati.length === 0 ? (
+            <div className="vuoto">
+              Nessun acquisto{ai ? " per questa ricerca" : periodo !== "tutti" ? " nel periodo scelto" : ""}.
+            </div>
           ) : (
-            listaAcquisti.map((a) => <CardAcquisto key={a.id} a={a} />)
+            acquistiFiltrati.map((a) => <CardAcquisto key={a.id} a={a} />)
           )}
         </div>
       )}

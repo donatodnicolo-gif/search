@@ -114,6 +114,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
         <div class="quick">
           <button type="button" class="quick-tab" (click)="periodoRapido(0)">{{ 'salaries.filter.thisMonth' | translate }}</button>
           <button type="button" class="quick-tab" (click)="periodoRapido(-1)">{{ 'salaries.filter.lastMonth' | translate }}</button>
+          <!-- Le 4 scorciatoie canoniche complete (Libro v1.9 §8-bis): mancavano Trimestre e Anno. -->
+          <button type="button" class="quick-tab" (click)="periodoRapido(-3)">{{ 'salaries.filter.quarter' | translate }}</button>
+          <button type="button" class="quick-tab" (click)="periodoRapido(-12)">{{ 'salaries.filter.thisYear' | translate }}</button>
         </div>
       </div>
       <label class="f cerca">
@@ -657,15 +660,26 @@ export class SalariesListComponent {
   }
 
   /** Un filtro e' cambiato: si ricarica dopo una pausa, non a ogni tasto. */
-  /** Il mese a un click: `0` = in corso (fino a oggi), `-1` = scorso, in ora locale. */
+  /** Il mese a un click: `0` = in corso (fino a oggi), `-1` = scorso, in ora
+   *  locale. `-3` = trimestre (il mese in corso + i due prima) e `-12` = anno
+   *  in corso: le 4 scorciatoie canoniche del Libro v1.9 §8-bis. Filtrano
+   *  sulle DATE DELLE CONSEGNE pagate (dal/al), come i due campi liberi. */
   periodoRapido(scarto: number): void {
     const oggi = new Date();
     const g = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const primo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto, 1);
-    const ultimo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto + 1, 0);
-    this.dal = g(primo);
-    this.al = g(scarto === 0 ? oggi : ultimo);
+    if (scarto === -12) {
+      this.dal = `${oggi.getFullYear()}-01-01`;
+      this.al = g(oggi);
+    } else if (scarto === -3) {
+      this.dal = g(new Date(oggi.getFullYear(), oggi.getMonth() - 2, 1));
+      this.al = g(oggi);
+    } else {
+      const primo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto, 1);
+      const ultimo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto + 1, 0);
+      this.dal = g(primo);
+      this.al = g(scarto === 0 ? oggi : ultimo);
+    }
     this.filtroCambiato();
   }
 

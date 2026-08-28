@@ -41,7 +41,7 @@ function toUI(t: TaskConLivelli): TaskUI {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; q?: string; utente?: string; sistema?: string; archiviate?: string }>;
+  searchParams: Promise<{ stato?: string; q?: string; utente?: string; sistema?: string; archiviate?: string; periodo?: string }>;
 }) {
   const sp = await searchParams;
 
@@ -59,6 +59,23 @@ export default async function Home({
   const where: Prisma.TaskWhereInput = { attiva: !vistaArchiviate };
   if (sp.q?.trim()) where.AND = whereRicerca(sp.q.trim());
   if (sp.sistema?.trim()) where.sistema = sp.sistema.trim();
+
+  // Le SCORCIATOIE DI PERIODO (Libro v1.9 §8-bis): un parametro solo
+  // (`periodo`), sulla SCADENZA — la data con cui si ragiona sulle attività.
+  // ⚠️ Con un periodo attivo le attività SENZA scadenza restano fuori: è il
+  // senso del filtro («cosa scade questo mese?»), non una dimenticanza.
+  // Confini in ora locale; «mese scorso» finisce dove comincia questo.
+  {
+    const ora = new Date();
+    const domani = new Date(ora.getFullYear(), ora.getMonth(), ora.getDate() + 1);
+    const finestra =
+      sp.periodo === "mese" ? { da: new Date(ora.getFullYear(), ora.getMonth(), 1), a: domani }
+      : sp.periodo === "scorso" ? { da: new Date(ora.getFullYear(), ora.getMonth() - 1, 1), a: new Date(ora.getFullYear(), ora.getMonth(), 1) }
+      : sp.periodo === "trimestre" ? { da: new Date(ora.getFullYear(), ora.getMonth() - 2, 1), a: domani }
+      : sp.periodo === "anno" ? { da: new Date(ora.getFullYear(), 0, 1), a: domani }
+      : null;
+    if (finestra) where.scadenza = { gte: finestra.da, lt: finestra.a };
+  }
   if (!vistaArchiviate) {
     if (sp.stato) where.stato = sp.stato;
     else where.stato = { notIn: [...STATI_CHIUSI] }; // default "Da fare"

@@ -25,12 +25,27 @@ export default async function PaginaPersone({
   const sp = await searchParams;
   const filtroStato = sp.stato === "cessati" ? "cessato" : sp.stato === "tutti" ? null : "attivo";
 
+  // ⚠️ NIENTE scorciatoie di periodo qui (valutato 28/08/2026, Libro v1.9
+  // §8-bis): l'organico non è un registro di movimenti — una persona non
+  // «appartiene» a un mese, c'è o non c'è. Le tre gambe della regola si
+  // chiudono con ricerca + stato + funzione; il tempo, dove conta (contratti
+  // in scadenza), è già un KPI in testa.
+
   const [persone, funzioni] = await Promise.all([
     prisma.persona.findMany({
       where: {
         ...(filtroStato ? { stato: filtroStato } : {}),
         ...(sp.funzione ? { funzioneId: sp.funzione } : {}),
-        ...(sp.q ? { nome: { contains: sp.q, mode: "insensitive" as const } } : {}),
+        // La ricerca (Libro v1.9 §8-bis): come si riconosce la persona — il
+        // nome o il ruolo scritto sul cartellino.
+        ...(sp.q
+          ? {
+              OR: [
+                { nome: { contains: sp.q, mode: "insensitive" as const } },
+                { ruolo: { contains: sp.q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
       },
       include: {
         funzione: true,
@@ -148,7 +163,7 @@ export default async function PaginaPersone({
             type="text"
             name="q"
             defaultValue={sp.q ?? ""}
-            placeholder="Cerca per nome…"
+            placeholder="Cerca per nome o ruolo…"
             style={{ borderRadius: "var(--radius-pill)", maxWidth: 280 }}
           />
         </form>

@@ -9,6 +9,13 @@ type Params = { q?: string; lista?: string; ordina?: string; verso?: string; pag
 // IL LIBRO CLIENTI — ogni riga è una persona, non un ordine. Tutto arriva
 // dal registro di Deluxy Orders (chiave email → telefono → nome): il CRM non
 // tiene una copia dei clienti, la legge.
+//
+// ⚠️ NIENTE scorciatoie di periodo qui (valutato 28/08/2026, Libro v1.9
+// §8-bis): l'elenco arriva da Orders già PAGINATO (50 alla volta) e l'API non
+// accetta un filtro sull'ultimo ordine — filtrare la pagina in locale
+// mostrerebbe «i clienti recenti fra questi 50», non i clienti recenti (la
+// trappola dell'OR largo col take). La recency è già espressa dalle liste
+// (Nuovi, Da riattivare, Persi), che Orders calcola su TUTTI i clienti.
 export default async function Clienti({ searchParams }: { searchParams: Promise<Params> }) {
   const sp = await searchParams;
   const q = sp.q?.trim() || undefined;

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // La rigenerazione riscarica i clienti da Orders: stesso respiro della creazione.
 export const maxDuration = 300;
 
-type Query = { esito?: string; errore?: string; dettaglio?: string };
+type Query = { esito?: string; errore?: string; dettaglio?: string; q?: string };
 
 // DETTAGLIO LISTA — chi c'è dentro e perché. Il brief e la spiegazione
 // dell'AI restano attaccati alla lista: una selezione che non sa dire come è
@@ -32,6 +32,20 @@ export default async function DettaglioLista({
   const conEmail = lista.membri.filter((m) => m.email).length;
   const conTelefono = lista.membri.filter((m) => m.telefono).length;
 
+  // La ricerca (Libro v1.9 §8-bis): come si riconosce il cliente — nome,
+  // email, telefono o città. I membri sono già tutti in memoria: si filtra
+  // qui, senza rifare la query.
+  // ⚠️ Il PERIODO qui non ha senso: la lista è una selezione generata dai
+  // criteri del brief (la recency di `ultimoOrdine` è un criterio della
+  // lista, non un filtro di navigazione) — le scorciatoie di periodo vivono
+  // sugli elenchi con date operative, non su una fotografia.
+  const q = sp.q?.trim().toLowerCase() || undefined;
+  const membri = q
+    ? lista.membri.filter((m) =>
+        [m.nome, m.email, m.telefono, m.citta].some((v) => v?.toLowerCase().includes(q)),
+      )
+    : lista.membri;
+
   return (
     <>
       <div className="intestazione">
@@ -52,6 +66,20 @@ export default async function DettaglioLista({
       {sp.esito === "ok" ? <div className="ok-card">{sp.dettaglio ?? "Fatto."}</div> : null}
       {sp.errore ? <div className="errore-card">{sp.errore}</div> : null}
 
+      <div className="filtri">
+        <form method="get" action={`/liste/${id}`}>
+          <input
+            type="search"
+            name="q"
+            placeholder="Cerca nome, email, telefono o città…"
+            defaultValue={sp.q ?? ""}
+            style={{ width: 280 }}
+          />
+          <button className="btn ghost" type="submit">Cerca</button>
+          {q ? <span className="secondario piccolo">{membri.length} su {lista.membri.length}</span> : null}
+        </form>
+      </div>
+
       <div className="griglia" style={{ gridTemplateColumns: "minmax(0, 1.7fr) minmax(0, 1fr)", alignItems: "start" }}>
         <div className="card tabella-card">
           <div className="tabella-scroll">
@@ -68,7 +96,14 @@ export default async function DettaglioLista({
                 </tr>
               </thead>
               <tbody>
-                {lista.membri.map((m) => {
+                {membri.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="secondario" style={{ textAlign: "center", padding: 24 }}>
+                      Nessun membro corrisponde alla ricerca.
+                    </td>
+                  </tr>
+                ) : null}
+                {membri.map((m) => {
                   const seg = segmento(m.segmento);
                   return (
                     // La riga è il cliente: tutta la riga apre la sua scheda (Libro §8).

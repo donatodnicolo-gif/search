@@ -14,6 +14,7 @@ export function Filtri({ sistemi = [] }: { sistemi?: string[] }) {
   const statoAttivo = sp.get("stato") ?? "";
   const sistemaAttivo = sp.get("sistema") ?? "";
   const archiviate = sp.get("archiviate") === "1";
+  const periodoAttivo = sp.get("periodo") ?? "";
   const [q, setQ] = useState(sp.get("q") ?? "");
 
   // Debounce della ricerca sull'URL
@@ -94,6 +95,23 @@ export function Filtri({ sistemi = [] }: { sistemi?: string[] }) {
           ))}
         </select>
       )}
+      {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): un parametro solo
+          (`periodo`), sulla SCADENZA. «Sempre» è l'azzeramento. */}
+      {([
+        { v: "", l: "Sempre" },
+        { v: "mese", l: "Mese in corso" },
+        { v: "scorso", l: "Mese scorso" },
+        { v: "trimestre", l: "Trimestre" },
+        { v: "anno", l: "Anno" },
+      ] as const).map((p) => (
+        <button
+          key={p.v || "sempre"}
+          className={`chip${periodoAttivo === p.v ? " attivo" : ""}`}
+          onClick={() => setParam("periodo", p.v)}
+        >
+          {p.l}
+        </button>
+      ))}
       </div>
       <input
         className="cerca"

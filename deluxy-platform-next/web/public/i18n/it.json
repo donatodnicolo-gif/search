@@ -518,6 +518,7 @@
       "quick": "Periodo rapido",
       "thisMonth": "Mese in corso",
       "lastMonth": "Mese scorso",
+      "quarter": "Trimestre",
       "thisYear": "Anno in corso",
       "services": "Tipologie di servizio"
     },
@@ -597,6 +598,8 @@
       "period": "Periodo",
       "thisMonth": "Questo mese",
       "lastMonth": "Mese scorso",
+      "quarter": "Trimestre",
+      "thisYear": "Anno",
       "from": "Dal",
       "to": "Al",
       "allStatuses": "Tutti gli stati",
@@ -732,7 +735,11 @@
     "quick": {
       "today": "Oggi",
       "tomorrow": "Domani",
-      "all": "Tutte"
+      "all": "Tutte",
+      "month": "Mese in corso",
+      "lastMonth": "Mese scorso",
+      "quarter": "Trimestre",
+      "year": "Anno"
     },
     "suspectDate": "Data fuori dall’intervallo plausibile: era già così nel database originario (errore di battitura sull’anno), non è stata corretta per non inventare un valore.",
     "view": {

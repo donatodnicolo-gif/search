@@ -130,6 +130,8 @@ const NEXT: Record<string, { next: string; key: string }> = {
         <div class="quick-tabs">
           <button type="button" class="quick-tab" (click)="periodoRapido(0)">{{ 'invoices.filter.thisMonth' | translate }}</button>
           <button type="button" class="quick-tab" (click)="periodoRapido(-1)">{{ 'invoices.filter.lastMonth' | translate }}</button>
+          <!-- Il Trimestre completa le 4 scorciatoie canoniche (Libro v1.9 §8-bis). -->
+          <button type="button" class="quick-tab" (click)="periodoRapido(-3)">{{ 'invoices.filter.quarter' | translate }}</button>
           <button type="button" class="quick-tab" (click)="periodoRapido(-12)">{{ 'invoices.filter.thisYear' | translate }}</button>
         </div>
       </div>
@@ -592,6 +594,10 @@ export class InvoicesListComponent {
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     if (scarto === -12) {
       this.dal = `${oggi.getFullYear()}-01-01`;
+      this.al = g(oggi);
+    } else if (scarto === -3) {
+      // Trimestre (Libro v1.9 §8-bis): il mese in corso + i due prima.
+      this.dal = g(new Date(oggi.getFullYear(), oggi.getMonth() - 2, 1));
       this.al = g(oggi);
     } else {
       const primo = new Date(oggi.getFullYear(), oggi.getMonth() + scarto, 1);

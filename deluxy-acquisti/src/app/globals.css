@@ -399,3 +399,20 @@ input, select, textarea, button { font: inherit; color: inherit; }
     align-items: stretch;
   }
 }
+
+/* Le scorciatoie di periodo dell'elenco acquisti (Libro UX&UI v1.9 §8-bis):
+   chip a pillola a selezione singola, «Sempre» come azzeramento. Su mobile la
+   riga scorre su UNA riga (Libro v1.3 §8.9) invece di andare a capo. */
+.chips-periodo { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 2px; }
+.chips-periodo .chip {
+  padding: 6px 13px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  color: var(--text-secondary); background: var(--surface);
+  border: 1px solid var(--hairline); cursor: pointer;
+}
+.chips-periodo .chip:hover { background: var(--fill); color: var(--text); }
+.chips-periodo .chip.attivo { background: var(--ink); border-color: var(--ink); color: #fff; }
+@media (max-width: 640px) {
+  .chips-periodo { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .chips-periodo::-webkit-scrollbar { display: none; }
+  .chips-periodo .chip { flex: 0 0 auto; }
+}

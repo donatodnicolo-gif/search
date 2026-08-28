@@ -18,6 +18,7 @@
 
 | Data | App | Segnalazione | Fonte |
 |---|---|---|---|
+| 28/08 | tutte | Utente (da Finance/fatture, senza ricerca né periodo rapido): **Libro v1.9 §8-bis** — ogni elenco ha ricerca + filtri principali + scorciatoie di periodo (mese in corso · scorso · trimestre · anno). Riferimento fatto su /fatture; passata su tutte le app in corso (2 agenti) | utente |
 | 28/08 | Scout | Deferiti dalla passata filtri: `storico.tsx` ha ancora il `Gruppo` locale (duplicato di GruppoFiltro, chip `<Text onPress>` sotto i 44px) dentro il pannello; le 10 copie locali di `Chip` si sostituiscono col `Chip` di `ui.tsx` man mano che si toccano le schermate | custode |
 | 28/08 | search-supplier | Col metro del Libro v1.2 §8: i filtri gemelli sopra i risultati (`#resultTools`, 3-4 righe dopo una ricerca) andrebbero misurati a 375px contro il tetto delle 2 righe — non è l'offensore del caso (compaiono solo a risultati presenti e wrappano), ma va verificato | custode |
 

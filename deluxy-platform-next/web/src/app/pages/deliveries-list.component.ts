@@ -95,6 +95,19 @@ const SERVICE_ICONS: Record<string, string> = {
             (click)="vaiA('')"
           >{{ 'deliveries.quick.all' | translate }}</button>
         </div>
+        <!-- Le 4 scorciatoie canoniche di periodo (Libro v1.9 §8-bis), accanto
+             a Oggi/Domani/Tutte: riempiono il Dal–Al qui sotto, che resta la
+             via avanzata per le date libere. «Tutte» è l'azzeramento. -->
+        <div class="quick-tabs">
+          @for (p of PERIODI; track p) {
+            <button
+              type="button"
+              class="quick-tab"
+              [class.active]="periodoAttivo(p)"
+              (click)="vaiAPeriodo(p)"
+            >{{ 'deliveries.quick.' + p | translate }}</button>
+          }
+        </div>
         <div class="intervallo">
           <label class="dal"><span>{{ 'deliveries.filter.from' | translate }}</span>
             <input class="field" type="date" [(ngModel)]="dateFilter" (ngModelChange)="reload()" />
@@ -1275,6 +1288,47 @@ export class DeliveriesListComponent {
 
   azzeraIntervallo(): void {
     this.dateTo = '';
+    this.reload();
+  }
+
+  /**
+   * Le 4 scorciatoie canoniche di periodo (Libro v1.9 §8-bis). Filtrano sulla
+   * DATA DELLA CONSEGNA (la stessa di Oggi/Domani e del Dal–Al): riempiono i
+   * due campi dell'intervallo, che il backend già capisce — così lo stato
+   * resta nell'URL con gli stessi parametri di sempre, e le date libere
+   * restano l'opzione avanzata.
+   *
+   * Mesi di CALENDARIO, non finestre mobili: le consegne si programmano in
+   * avanti, e «mese in corso» deve mostrare anche quelle di domani.
+   */
+  readonly PERIODI = ['month', 'lastMonth', 'quarter', 'year'] as const;
+
+  private rangePeriodo(p: 'month' | 'lastMonth' | 'quarter' | 'year'): { da: string; a: string } {
+    const ora = new Date();
+    const ymd = (d: Date) => {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+    // `new Date(y, m+1, 0)` è l'ultimo giorno del mese m: il «giorno zero»
+    // del mese dopo. `dateTo` è incluso per tutta la giornata.
+    const ultimo = (y: number, m: number) => new Date(y, m + 1, 0);
+    if (p === 'month') return { da: ymd(new Date(ora.getFullYear(), ora.getMonth(), 1)), a: ymd(ultimo(ora.getFullYear(), ora.getMonth())) };
+    if (p === 'lastMonth') return { da: ymd(new Date(ora.getFullYear(), ora.getMonth() - 1, 1)), a: ymd(ultimo(ora.getFullYear(), ora.getMonth() - 1)) };
+    if (p === 'quarter') return { da: ymd(new Date(ora.getFullYear(), ora.getMonth() - 2, 1)), a: ymd(ultimo(ora.getFullYear(), ora.getMonth())) };
+    return { da: ymd(new Date(ora.getFullYear(), 0, 1)), a: ymd(new Date(ora.getFullYear(), 11, 31)) };
+  }
+
+  /** Attiva quando i due campi dicono ESATTAMENTE quel periodo: niente stato
+   *  in più da tenere allineato coi campi data. */
+  periodoAttivo(p: 'month' | 'lastMonth' | 'quarter' | 'year'): boolean {
+    const r = this.rangePeriodo(p);
+    return this.dateFilter === r.da && this.dateTo === r.a;
+  }
+
+  vaiAPeriodo(p: 'month' | 'lastMonth' | 'quarter' | 'year'): void {
+    const r = this.rangePeriodo(p);
+    this.dateFilter = r.da;
+    this.dateTo = r.a;
     this.reload();
   }
 

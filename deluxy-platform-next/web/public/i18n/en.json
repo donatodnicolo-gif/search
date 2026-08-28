@@ -518,6 +518,7 @@
       "quick": "Quick period",
       "thisMonth": "This month",
       "lastMonth": "Last month",
+      "quarter": "Quarter",
       "thisYear": "This year",
       "services": "Service types"
     },
@@ -597,6 +598,8 @@
       "period": "Period",
       "thisMonth": "This month",
       "lastMonth": "Last month",
+      "quarter": "Quarter",
+      "thisYear": "Year",
       "from": "From",
       "to": "To",
       "allStatuses": "All statuses",
@@ -732,7 +735,11 @@
     "quick": {
       "today": "Today",
       "tomorrow": "Tomorrow",
-      "all": "All"
+      "all": "All",
+      "month": "This month",
+      "lastMonth": "Last month",
+      "quarter": "Quarter",
+      "year": "Year"
     },
     "suspectDate": "Date outside the plausible range: it was already like this in the original database (year typo); it has not been corrected so as not to invent a value.",
     "view": {

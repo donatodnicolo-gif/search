@@ -7,8 +7,42 @@ export const dynamic = "force-dynamic";
 // EVENTI — le occasioni speciali Deluxy (cene, anteprime, presentazioni) con
 // la loro lista invitati. Gli eventi con una data finiscono anche nel Deluxy
 // Calendario, l'agenda di tutte le app.
-export default async function Eventi() {
+export default async function Eventi({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; periodo?: string }>;
+}) {
+  const sp = await searchParams;
+  const q = sp.q?.trim() || undefined;
+
+  // Le SCORCIATOIE DI PERIODO (Libro v1.9 §8-bis): un parametro solo, non
+  // quattro date. Il periodo filtra su `dataInizio` — QUANDO l'evento si
+  // tiene, non quando è stato creato: è la data con cui l'operatore lo
+  // ricorda. Confini in ora locale, «mese scorso» finisce dove comincia
+  // questo.
+  const ora = new Date();
+  const domani = new Date(ora.getFullYear(), ora.getMonth(), ora.getDate() + 1);
+  const finestra: { da: Date; a: Date } | null =
+    sp.periodo === "mese" ? { da: new Date(ora.getFullYear(), ora.getMonth(), 1), a: domani }
+    : sp.periodo === "scorso" ? { da: new Date(ora.getFullYear(), ora.getMonth() - 1, 1), a: new Date(ora.getFullYear(), ora.getMonth(), 1) }
+    : sp.periodo === "trimestre" ? { da: new Date(ora.getFullYear(), ora.getMonth() - 2, 1), a: domani }
+    : sp.periodo === "anno" ? { da: new Date(ora.getFullYear(), 0, 1), a: domani }
+    : null;
+
   const eventi = await prisma.evento.findMany({
+    where: {
+      // La ricerca (Libro v1.9 §8-bis): come l'operatore riconosce l'evento —
+      // il titolo o il luogo.
+      ...(q
+        ? {
+            OR: [
+              { titolo: { contains: q, mode: "insensitive" as const } },
+              { luogo: { contains: q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+      ...(finestra ? { dataInizio: { gte: finestra.da, lt: finestra.a } } : {}),
+    },
     orderBy: { dataInizio: "desc" },
     include: { inviti: { select: { stato: true } } },
   });
@@ -61,6 +95,43 @@ export default async function Eventi() {
         </div>
       </div>
 
+      <div className="filtri">
+        <form method="get" action="/eventi">
+          {/* La ricerca (Libro v1.9 §8-bis): il titolo o il luogo dell'evento.
+              Il periodo scelto resta anche dopo il submit. */}
+          {sp.periodo ? <input type="hidden" name="periodo" value={sp.periodo} /> : null}
+          <input
+            type="search"
+            name="q"
+            placeholder="Cerca titolo o luogo…"
+            defaultValue={q ?? ""}
+            style={{ width: 280 }}
+          />
+          <button className="btn ghost" type="submit">Cerca</button>
+        </form>
+        {/* Le scorciatoie di periodo (Libro v1.9 §8-bis): link GET, un solo
+            parametro (`periodo`), sulla data in cui l'evento SI TIENE. */}
+        <div className="riga-chips-scorri">
+          {([
+            { v: "mese", l: "Mese in corso" },
+            { v: "scorso", l: "Mese scorso" },
+            { v: "trimestre", l: "Trimestre" },
+            { v: "anno", l: "Anno" },
+          ] as const).map((p) => (
+            <a
+              key={p.v}
+              className={`filtro-pillola${sp.periodo === p.v ? " attivo" : ""}`}
+              href={`/eventi?periodo=${p.v}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+            >
+              {p.l}
+            </a>
+          ))}
+          {sp.periodo || q ? (
+            <a className="filtro-pillola" href="/eventi">Sempre</a>
+          ) : null}
+        </div>
+      </div>
+
       {eventi.length === 0 ? (
         <div className="card vuoto">
           <div className="quadratino">
@@ -68,11 +139,22 @@ export default async function Eventi() {
               <path d="M7 4h10l-3.6 6.2a5 5 0 1 1-2.8 0zM12 16v4.5M8.5 20.5h7" />
             </svg>
           </div>
-          <h3>Nessun evento, per ora</h3>
-          <p>Una cena riservata, un&apos;anteprima, un brindisi: il primo evento si crea in un minuto.</p>
-          <p style={{ marginTop: 12 }}>
-            <a className="btn" href="/eventi/nuovo">Crea il primo evento</a>
-          </p>
+          {/* Un elenco filtrato che non trova niente NON dice «non ci sono
+              eventi»: dice che la ricerca o il periodo non hanno riscontri. */}
+          {q || sp.periodo ? (
+            <>
+              <h3>Nessun evento trovato</h3>
+              <p>Prova con un&apos;altra ricerca, o allarga il periodo.</p>
+            </>
+          ) : (
+            <>
+              <h3>Nessun evento, per ora</h3>
+              <p>Una cena riservata, un&apos;anteprima, un brindisi: il primo evento si crea in un minuto.</p>
+              <p style={{ marginTop: 12 }}>
+                <a className="btn" href="/eventi/nuovo">Crea il primo evento</a>
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <>
