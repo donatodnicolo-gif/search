@@ -1206,7 +1206,7 @@ const AZIONI: AzioneApp[] = [
     descrizione: 'Apre una nuova trattativa nel CRM commerciale per il negozio.',
     colore: 'green',
     guida:
-      'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = la linea commerciale (es. Affiliazioni, Consegne, Eventi) se citata, altrimenti null. valoreAtteso = il totale se è scritto (se ti è dato il RIASSUNTO della conversazione, le sue «Cifre e prezzi» sono importi copiati dalle mail: il «totale complessivo» che c’è lì è scritto a tutti gli effetti); se un totale non c’è ma nello scambio ci sono PREZZI e QUANTITÀ scritti, CALCOLA la stima (es. coffee break 18 €/persona × 45 persone = 810) usando SOLO numeri scritti — mai inventare i numeri di partenza; se non c’è niente da cui calcolare, null. oggetto = per cosa è la trattativa, in poche parole e senza la data (es. «Catering per la visita della proprietà»). dataEvento = il giorno del servizio/evento in formato AAAA-MM-GG, SOLO se la mail lo dice; se il giorno è scritto senza anno («3 settembre») prendi l’anno dalla data della mail; se non c’è una data, null — mai inventarla. fase = deducila dallo scambio scegliendo fra i valori ammessi: hanno appena chiesto = "primo contatto"; si discute di dettagli e condizioni = "in trattativa"; abbiamo GIÀ mandato il preventivo/proposta = "preventivo"; hanno accettato = "chiusa vinta"; hanno rifiutato = "chiusa persa"; se non è chiaro, null. scadenza = la data del follow-up (AAAA-MM-GG) SOLO se la mail la dice (un termine scritto: «ti risponderò entro venerdì», «serve conferma entro il 30»): se non è scritta lascia null, la propone il codice dalla data dell’evento. nextAction = la prossima azione da fare, in una frase. contattoEmail = l’email della PERSONA DI RIFERIMENTO del negozio, se è scritta da qualche parte nello scambio — anche dentro il testo di una mail interna («ho sentito la referente Roberta Sireno, roberta.sireno@havi.com»); MAI un indirizzo di un nostro dominio (quelli siamo noi), mai inventata; se non c’è, null e la mette il codice.',
+      'La mail riguarda un’opportunità commerciale con un NEGOZIO/attività. negozio = nome dell’attività (come per la proforma). linea = le linee commerciali (UNA O PIÙ) fra i valori ammessi, se lo scambio le nomina; se nessuna, null. valoreAtteso = il totale se è scritto (se ti è dato il RIASSUNTO della conversazione, le sue «Cifre e prezzi» sono importi copiati dalle mail: il «totale complessivo» che c’è lì è scritto a tutti gli effetti); se un totale non c’è ma nello scambio ci sono PREZZI e QUANTITÀ scritti, CALCOLA la stima (es. coffee break 18 €/persona × 45 persone = 810) usando SOLO numeri scritti — mai inventare i numeri di partenza; se non c’è niente da cui calcolare, null. oggetto = per cosa è la trattativa, in poche parole e senza la data (es. «Catering per la visita della proprietà»). dataEvento = il giorno del servizio/evento in formato AAAA-MM-GG, SOLO se la mail lo dice; se il giorno è scritto senza anno («3 settembre») prendi l’anno dalla data della mail; se non c’è una data, null — mai inventarla. fase = deducila dallo scambio scegliendo fra i valori ammessi: hanno appena chiesto = "primo contatto"; si discute di dettagli e condizioni = "in trattativa"; abbiamo GIÀ mandato il preventivo/proposta = "preventivo"; hanno accettato = "chiusa vinta"; hanno rifiutato = "chiusa persa"; se non è chiaro, null. scadenza = la data del follow-up (AAAA-MM-GG) SOLO se la mail la dice (un termine scritto: «ti risponderò entro venerdì», «serve conferma entro il 30»): se non è scritta lascia null, la propone il codice dalla data dell’evento. nextAction = la prossima azione da fare, in una frase. contattoEmail = l’email della PERSONA DI RIFERIMENTO del negozio, se è scritta da qualche parte nello scambio — anche dentro il testo di una mail interna («ho sentito la referente Roberta Sireno, roberta.sireno@havi.com»); MAI un indirizzo di un nostro dominio (quelli siamo noi), mai inventata; se non c’è, null e la mette il codice.',
     campi: [
       { nome: 'negozio', etichetta: 'Negozio', obbligatorio: true, aiuto: 'Commerciale lo cerca fra i suoi negozi.' },
       {
@@ -1215,7 +1215,16 @@ const AZIONI: AzioneApp[] = [
         tipo: 'email',
         aiuto: 'Si aggancia al negozio in Scout (o si crea, se manca). Dopo l’invio si può registrare anche in Anagrafiche.',
       },
-      { nome: 'linea', etichetta: 'Linea commerciale', aiuto: 'Es. Affiliazioni, Consegne, Eventi' },
+      {
+        // ⚠️ Le linee sono un elenco chiuso (le stesse degli «interessi» in
+        // Anagrafiche): erano da scrivere a mano, e una linea scritta storta
+        // non serve a niente. Pastiglie, e se ne può scegliere più d'una — una
+        // trattativa può toccare più linee (es. Affiliazioni + Eventi).
+        nome: 'linea',
+        etichetta: 'Linea commerciale',
+        tipo: 'multi',
+        opzioni: INTERESSI_LINEE.map((i) => ({ valore: i, etichetta: i })),
+      },
       {
         nome: 'oggetto',
         etichetta: 'Oggetto',
@@ -1271,7 +1280,11 @@ const AZIONI: AzioneApp[] = [
           type: ['string', 'null'],
           description: 'Email del referente del negozio se è scritta nello scambio; mai un nostro indirizzo. Altrimenti null: la mette il codice.',
         },
-        linea: { type: ['string', 'null'], description: 'Linea commerciale (es. Affiliazioni).' },
+        linea: {
+          type: ['array', 'null'],
+          items: { type: 'string', enum: [...INTERESSI_LINEE] },
+          description: 'Una o più linee commerciali fra i valori ammessi, se citate; altrimenti null.',
+        },
         oggetto: { type: ['string', 'null'], description: 'Per cosa è la trattativa, in poche parole e senza la data.' },
         dataEvento: {
           type: ['string', 'null'],
@@ -1360,6 +1373,17 @@ const AZIONI: AzioneApp[] = [
       // nome e zona diversa, e rimandare il nome esatto faceva ripetere lo
       // stesso «più negozi corrispondono» all'infinito (26/08/2026).
       const negozioId = typeof dati.negozioId === 'string' && dati.negozioId.trim() ? dati.negozioId.trim() : undefined
+      // Le linee scelte, ripulite: il campo `multi` torna un array, ma una
+      // bozza vecchia o l'AI potrebbero dare ancora una stringa sola.
+      const linee = (
+        Array.isArray(dati.linea)
+          ? (dati.linea as unknown[]).map(String)
+          : typeof dati.linea === 'string' && dati.linea.trim()
+            ? [dati.linea]
+            : []
+      )
+        .map((x) => x.trim())
+        .filter(Boolean)
       const body: Record<string, unknown> = {
         azione: 'apri',
         negozio,
@@ -1367,7 +1391,11 @@ const AZIONI: AzioneApp[] = [
         oggetto,
         contattoEmail,
         ...(dati.crea === 'si' ? { crea: 'si' } : {}),
-        linea: dati.linea || undefined,
+        // ⚠️ Si manda `linee` (l'array) E `linea` (la prima): Scout ha la
+        // colonna `linee` da riempire, ma la vecchia versione della sua
+        // funzione legge ancora `linea` singola — così finché non la si
+        // ripubblica arriva almeno la prima, invece di niente.
+        ...(linee.length ? { linee, linea: linee[0] } : {}),
         valoreAtteso: valore.valore ?? undefined,
         fase: dati.fase || undefined,
         scadenza: dati.scadenza || undefined,

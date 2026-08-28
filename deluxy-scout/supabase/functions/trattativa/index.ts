@@ -243,7 +243,16 @@ Deno.serve(async (req) => {
 
     // 3. Apri la trattativa.
     const valore = typeof body.valoreAtteso === 'number' && isFinite(body.valoreAtteso) ? body.valoreAtteso : null;
-    const linea = typeof body.linea === 'string' && body.linea.trim() ? body.linea.trim() : null;
+    // ⚠️ Ora la trattativa può avere PIÙ linee: AI Mail manda `linee`
+    // (array). Si tiene `linea` singola per la colonna omonima (= la prima),
+    // e `linee` per l'array. Se arriva solo la vecchia `linea` singola,
+    // `linee` la avvolge — nessun chiamante vecchio si rompe.
+    const lineeIn = Array.isArray(body.linee)
+      ? body.linee.filter((x: unknown): x is string => typeof x === 'string' && x.trim() !== '').map((x: string) => x.trim())
+      : [];
+    const lineaSingola = typeof body.linea === 'string' && body.linea.trim() ? body.linea.trim() : null;
+    const linea = lineeIn[0] ?? lineaSingola;
+    const linee = lineeIn.length ? lineeIn : (linea ? [linea] : null);
     const scadenza = typeof body.scadenza === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.scadenza) ? body.scadenza : null;
     const nextAction = typeof body.nextAction === 'string' && body.nextAction.trim() ? body.nextAction.trim() : null;
     const oggetto = typeof body.oggetto === 'string' && body.oggetto.trim() ? body.oggetto.trim() : null;
@@ -253,7 +262,7 @@ Deno.serve(async (req) => {
       .insert({
         place_id: scelto.id,
         linea,
-        linee: linea ? [linea] : null,
+        linee,
         fase: normalizzaFase(body.fase),
         valore_atteso: valore,
         next_action: nextAction,
