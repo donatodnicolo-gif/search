@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     marginBottom: spacing.xs,
   },
   linkAzione: { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -392,9 +392,9 @@ const styles = StyleSheet.create({
   // contenitore, se no scorrerebbe via proprio mentre si sceglie.
   barra: {
     position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    bottom: spacing.md,
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
@@ -421,10 +421,10 @@ const styles = StyleSheet.create({
   barraBtnOff: { opacity: 0.4 },
   barraBtnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13.5 },
   search: {
-    backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md,
-    marginHorizontal: spacing.md, marginBottom: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 10, fontSize: 15, color: colors.testo,
+    backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m,
+    marginHorizontal: spacing.lg, marginBottom: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: 10, fontSize: 15, color: colors.testo,
   },
-  filtri: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm },
+  filtri: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm },
   gruppo: { marginBottom: 2 },
   gruppoTesta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
   gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700' },
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
   chipTxtOn: { color: colors.bianco },
-  list: { padding: spacing.md, gap: spacing.sm },
+  list: { padding: spacing.lg, gap: spacing.sm },
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   tabBadges: { gap: 4, alignItems: 'flex-start' },
   // Spazio in fondo quando c'è la barra galleggiante: senza, coprirebbe
@@ -454,16 +454,16 @@ const styles = StyleSheet.create({
   listConBarra: { paddingBottom: 88 },
   // Annulla il padding del contenitore della lista: i figli della testata hanno
   // gia' i propri margini e la riga dei filtri deve restare da bordo a bordo.
-  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
+  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.sm },
   card: {
     gap: spacing.sm,
-    backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md,
+    backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg,
   },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   // minWidth: 0 serve perche' un figlio flex non scenda sotto il suo contenuto
   // e schiacci il nome del negozio.
   cardTesto: { flex: 1, minWidth: 0 },
-  iconaBox: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
+  iconaBox: { width: 40, height: 40, borderRadius: radius.s, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
   nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   meta: { color: colors.testoSoft, fontSize: 13, marginTop: 1 },
   account: { color: colors.grigio, fontSize: 12, marginTop: 2 },

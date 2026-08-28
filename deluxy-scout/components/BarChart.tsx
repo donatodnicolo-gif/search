@@ -75,11 +75,11 @@ export function BarChart({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderRadius: radius.m,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
   },
   titolo: { fontSize: 15, fontWeight: '800', color: colors.navy, marginBottom: spacing.sm },
-  vuoto: { color: colors.grigio, fontStyle: 'italic', paddingVertical: spacing.lg, textAlign: 'center' },
+  vuoto: { color: colors.grigio, fontStyle: 'italic', paddingVertical: spacing.xxl, textAlign: 'center' },
 });

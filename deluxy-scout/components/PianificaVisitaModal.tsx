@@ -107,10 +107,10 @@ export function PianificaVisitaModal({
               min={fraGiorni(0)}
               onChange={(e: any) => setGiorno(e.target.value)}
               style={{
-                marginTop: spacing.md,
+                marginTop: spacing.lg,
                 padding: 12,
                 fontSize: 15,
-                borderRadius: radius.md,
+                borderRadius: radius.m,
                 border: `1px solid ${colors.grigioChiaro}`,
                 background: colors.bianco,
                 color: colors.testo,
@@ -159,10 +159,10 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipTxt: { color: colors.testo, fontWeight: '600', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
-  scelto: { color: colors.testo, fontWeight: '700', fontSize: 13.5, marginTop: spacing.md },
+  scelto: { color: colors.testo, fontWeight: '700', fontSize: 13.5, marginTop: spacing.lg },
   errore: { color: colors.errore, fontWeight: '600', marginTop: spacing.sm },
-  azioni: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
-  btn: { flex: 1, borderRadius: radius.md, paddingVertical: 15, alignItems: 'center' },
+  azioni: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xxl },
+  btn: { flex: 1, borderRadius: radius.m, paddingVertical: 15, alignItems: 'center' },
   btnSec: { backgroundColor: colors.fill },
   btnSecTxt: { color: colors.testo, fontWeight: '600' },
   spento: { opacity: 0.4 },

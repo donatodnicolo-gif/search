@@ -2324,12 +2324,12 @@ const styles = StyleSheet.create({
   fattRiga: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingVertical: 8, paddingHorizontal: 10,
-    borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco,
+    borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco,
   },
   fattRigaPresa: { borderColor: colors.navy, backgroundColor: colors.sfondo },
   sommaRiga: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.md, borderWidth: 1,
+    paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.m, borderWidth: 1,
   },
   sommaOk: { borderColor: '#2F7D46', backgroundColor: colors.bianco },
   sommaNo: { borderColor: colors.attenzione, backgroundColor: colors.bianco },
@@ -2345,7 +2345,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 7,
     paddingHorizontal: 9,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     backgroundColor: colors.bianco,
@@ -2358,7 +2358,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 8,
     paddingHorizontal: 10,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     backgroundColor: colors.bianco,
@@ -2370,7 +2370,7 @@ const styles = StyleSheet.create({
   fornForm: {
     gap: 6,
     padding: 10,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     backgroundColor: colors.sfondo,
@@ -2383,7 +2383,7 @@ const styles = StyleSheet.create({
   btnFornAnnulla: { paddingVertical: 10, paddingHorizontal: 14, minHeight: touchMin, justifyContent: 'center' },
   btnFornAnnullaTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13.5 },
   container: { flex: 1, backgroundColor: colors.sfondo },
-  head: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.sfondo },
+  head: { padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.sfondo },
   sub: { color: colors.testoSoft, fontSize: 13 },
   subForte: { color: colors.navy, fontWeight: '800' },
   subNota: { color: colors.grigio, fontWeight: '400' },
@@ -2393,8 +2393,8 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
   chipTxtOn: { color: colors.bianco },
-  list: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl },
-  card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 8 },
+  list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxxl },
+  card: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 8 },
   cardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   descr: { color: colors.testoSoft, fontSize: 12.5, fontStyle: 'italic', marginTop: 1 },
@@ -2419,9 +2419,9 @@ const styles = StyleSheet.create({
   // ⚠️ Cornice da 5, non da 7 (27/08/2026): con l'undicesima colonna servivano
   // pixel, e la regola è quella detta dall'utente — si stringe la cornice dei
   // bottoni, non il loro numero. Le azioni restano SEI.
-  iconaAzione: { padding: 5, borderRadius: radius.sm },
+  iconaAzione: { padding: 5, borderRadius: radius.s },
   // L'azione di tutti i giorni: l'unica piena, si trova a colpo d'occhio.
-  iconaPiena: { padding: 5, borderRadius: radius.sm, backgroundColor: colors.ink },
+  iconaPiena: { padding: 5, borderRadius: radius.s, backgroundColor: colors.ink },
   // Le sei azioni su UNA riga, senza andare a capo: la colonna è dimensionata
   // su di loro, quindi il wrap non serve più — ed era lui a far cambiare posto
   // al bottone principale da una riga all'altra.
@@ -2439,12 +2439,12 @@ const styles = StyleSheet.create({
   percChipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   percTxt: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
   percTxtOn: { color: colors.bianco },
-  percInput: { width: 70, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 8, color: colors.testo, fontSize: 14, textAlign: 'center' },
+  percInput: { width: 70, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: 10, paddingVertical: 8, color: colors.testo, fontSize: 14, textAlign: 'center' },
   percCalcolo: { color: colors.testoSoft, fontSize: 13, marginTop: 4 },
   btnLargo: { marginTop: 8, paddingVertical: 12 },
   // Il form di modifica dentro il foglio (DS §Campi).
   campoLabel: { color: colors.navy, fontWeight: '700', fontSize: 13, marginTop: spacing.sm },
-  campo: { borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, backgroundColor: colors.bianco, paddingHorizontal: 12, paddingVertical: 9, color: colors.testo, fontSize: 14, marginTop: 4 },
+  campo: { borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, backgroundColor: colors.bianco, paddingHorizontal: 12, paddingVertical: 9, color: colors.testo, fontSize: 14, marginTop: 4 },
   campoAlto: { minHeight: 64, textAlignVertical: 'top' },
   campoAiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18, marginTop: 4 },
   chipsForm: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
@@ -2458,7 +2458,7 @@ const styles = StyleSheet.create({
   btnGhost: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7, minHeight: touchMin },
   btnGhostTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
   // Errore di caricamento (Libro UX cap.6): card rossa con «Riprova».
-  erroreCard: { backgroundColor: colors.erroreSoft, borderWidth: 1, borderColor: colors.errore, borderRadius: radius.lg, padding: spacing.md, gap: 8 },
+  erroreCard: { backgroundColor: colors.erroreSoft, borderWidth: 1, borderColor: colors.errore, borderRadius: radius.l, padding: spacing.lg, gap: 8 },
   erroreTesta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   erroreTitolo: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   erroreTxt: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },

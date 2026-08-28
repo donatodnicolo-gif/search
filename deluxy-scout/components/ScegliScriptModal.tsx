@@ -99,7 +99,7 @@ export function ScegliScriptModal({
       onClose={onClose}
     >
           {script === null ? (
-            <ActivityIndicator color={colors.oro} style={{ marginVertical: spacing.md }} />
+            <ActivityIndicator color={colors.oro} style={{ marginVertical: spacing.lg }} />
           ) : (
             <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ gap: 8 }}>
               {script.length === 0 ? (
@@ -168,8 +168,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderRadius: radius.m,
+    padding: spacing.lg,
   },
   rigaTitolo: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   rigaMeta: { color: colors.testoSoft, fontSize: 12.5, marginTop: 1 },

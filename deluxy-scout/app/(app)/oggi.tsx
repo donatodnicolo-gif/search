@@ -775,7 +775,7 @@ function Canale({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.lg },
   testata: { gap: 2, paddingTop: 2 },
   data: { color: colors.testoSoft, fontSize: 13, textTransform: 'capitalize' },
   titolo: { color: colors.navy, fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
@@ -783,7 +783,7 @@ const styles = StyleSheet.create({
   kpi: {
     flex: 1,
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     alignItems: 'center',
@@ -795,10 +795,10 @@ const styles = StyleSheet.create({
   canaleNota: { color: colors.testoSoft, fontSize: 11.5, marginTop: -2, marginBottom: 2 },
   canale: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    padding: spacing.md,
+    padding: spacing.lg,
     gap: 8,
   },
   canaleHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -821,11 +821,11 @@ const styles = StyleSheet.create({
   // che apre la scheda del negozio — mancarla porta da un'altra parte.
   chiudiRichiamo: { padding: 10 },
   kpiPremuta: { backgroundColor: colors.fill },
-  velo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: spacing.md },
+  velo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: spacing.lg },
   foglio: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.lg,
-    padding: spacing.md,
+    borderRadius: radius.l,
+    padding: spacing.lg,
     maxHeight: '80%',
     alignSelf: 'center',
     width: '100%',

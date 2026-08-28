@@ -156,8 +156,8 @@ const styles = StyleSheet.create({
     color: colors.testoSoft,
     fontSize: 13.5,
     lineHeight: 19,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
     // ⚠️ Un tetto alla MISURA della riga, non alla larghezza del blocco: dentro
     // il contenitore delle tabelle l'intro arrivava a 1148px — una riga sola da
     // 141 caratteri — e su Trattative, dove la lista non ha cap, cresceva col
@@ -173,18 +173,18 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.lg,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    padding: spacing.md,
+    padding: spacing.lg,
     ...shadow.card,
   },
-  loading: { textAlign: 'center', color: colors.grigio, paddingVertical: spacing.xl, fontSize: 14 },
-  empty: { alignItems: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, gap: 6 },
+  loading: { textAlign: 'center', color: colors.grigio, paddingVertical: spacing.xxxl, fontSize: 14 },
+  empty: { alignItems: 'center', paddingVertical: spacing.xxxl, paddingHorizontal: spacing.xxl, gap: 6 },
   emptyIcona: {
     width: 44,
     height: 44,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     backgroundColor: colors.goldSoft,
     alignItems: 'center',
     justifyContent: 'center',

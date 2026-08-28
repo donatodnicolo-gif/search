@@ -108,17 +108,17 @@ export function AddressSearch({
 
 const styles = StyleSheet.create({
   // zIndex alto così la tendina copre la mappa/lista sottostante.
-  wrap: { position: 'relative', zIndex: 20, margin: spacing.md, marginBottom: spacing.sm },
+  wrap: { position: 'relative', zIndex: 20, margin: spacing.lg, marginBottom: spacing.sm },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.bianco,
     borderWidth: 1.5,
     borderColor: colors.navy,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     paddingRight: spacing.sm,
   },
-  input: { flex: 1, paddingHorizontal: spacing.md, paddingVertical: 11, fontSize: 15, color: colors.testo },
+  input: { flex: 1, paddingHorizontal: spacing.lg, paddingVertical: 11, fontSize: 15, color: colors.testo },
   side: { paddingHorizontal: spacing.xs },
   errore: { color: colors.errore, fontSize: 13, marginTop: spacing.xs, fontWeight: '600' },
   dropdown: {
@@ -128,12 +128,12 @@ const styles = StyleSheet.create({
     right: 0,
     marginTop: 4,
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     overflow: 'hidden',
     ...shadow.float,
   },
-  pred: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro },
+  pred: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro },
   predTxt: { color: colors.navy, fontSize: 14 },
 });

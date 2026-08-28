@@ -181,7 +181,7 @@ function quando(iso: string, oggi: Date = new Date()): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.xs },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.xs },
   cards: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
   sezione: {
     fontSize: 11,
@@ -189,15 +189,15 @@ const styles = StyleSheet.create({
     color: colors.testoSoft,
     letterSpacing: 0.7,
     textTransform: 'uppercase',
-    marginTop: spacing.lg,
+    marginTop: spacing.xxl,
     marginBottom: spacing.sm,
   },
   vuoto: { color: colors.grigio, fontStyle: 'italic' },
 
   vCard: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.lg,
-    padding: spacing.md,
+    borderRadius: radius.l,
+    padding: spacing.lg,
     marginBottom: spacing.sm,
     ...shadow.card,
   },
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   vHeadRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   vNome: { flexShrink: 1, color: colors.navy, fontWeight: '800', fontSize: 17, letterSpacing: -0.3 },
   vUltima: { color: colors.testoSoft, fontSize: 12, fontWeight: '600' },
-  vStats: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+  vStats: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },
   metric: { minWidth: 64 },
   metricVal: { color: colors.navy, fontWeight: '800', fontSize: 20 },
   metricValForte: { color: colors.oro },

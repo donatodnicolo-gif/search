@@ -192,7 +192,7 @@ const stiliDestra = { alignItems: 'flex-end' as const };
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.lg,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     overflow: 'hidden',

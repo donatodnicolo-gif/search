@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sfondo,
     borderBottomWidth: 1,
     borderBottomColor: colors.grigioChiaro,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
   sub: { color: colors.testoSoft, fontSize: 13 },
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   tabSotto: { color: colors.grigio, fontSize: 11.5, lineHeight: 15 },
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   tabRitardo: { color: colors.errore, fontWeight: '700' },
-  list: { padding: spacing.md, gap: 10 },
+  list: { padding: spacing.lg, gap: 10 },
   sezione: {
     color: colors.testoSoft,
     fontWeight: '600',
@@ -486,12 +486,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: colors.bianco,
-    borderRadius: radius.lg,
+    borderRadius: radius.l,
     paddingVertical: 12,
     paddingHorizontal: 14,
     ...shadow.card,
   },
-  icona: { width: 46, height: 46, borderRadius: radius.md, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
+  icona: { width: 46, height: 46, borderRadius: radius.m, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1, minWidth: 0, gap: 3 },
   // Il badge "In ritardo" scende sotto quando il nome non ci sta: prima si
   // spartivano la riga e del negozio restava solo "Moncler…".

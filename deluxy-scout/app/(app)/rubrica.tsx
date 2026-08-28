@@ -462,11 +462,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    marginHorizontal: spacing.md,
+    borderRadius: radius.m,
+    marginHorizontal: spacing.lg,
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 10,
     fontSize: 15,
     color: colors.testo,
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   // Barra filtri (stato + interessi)
   // Gruppi impilati e chip che vanno a capo, come in Clienti: in riga i gruppi
   // sforavano lo schermo e meta' degli interessi non si vedeva.
-  filtri: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm },
+  filtri: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm },
   gruppo: { marginBottom: 2 },
   gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', marginBottom: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
   chipTxtOn: { color: colors.bianco },
   // Toggle rapidi
-  toggleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: 6 },
+  toggleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: 6 },
   toggle: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -509,14 +509,14 @@ const styles = StyleSheet.create({
   toggleTxtOn: { color: colors.bianco },
   azzera: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 6 },
   azzeraTxt: { color: colors.testoSoft, fontSize: 13, fontWeight: '600' },
-  conteggio: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
-  list: { padding: spacing.md, gap: spacing.sm },
+  conteggio: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  list: { padding: spacing.lg, gap: spacing.sm },
   // Annulla il padding del contenitore attorno alla testata.
-  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
+  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.sm },
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderRadius: radius.m,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     gap: 4,
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
   azione: {
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.sm,
+    borderRadius: radius.s,
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
   },

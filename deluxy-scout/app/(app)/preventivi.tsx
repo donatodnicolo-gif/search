@@ -1290,13 +1290,13 @@ function CercaNegozio({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 96 },
-  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md },
-  errore: { color: colors.errore, fontWeight: '600', fontSize: 13, backgroundColor: colors.bianco, borderRadius: radius.md, padding: spacing.md },
+  list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 96 },
+  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg },
+  errore: { color: colors.errore, fontWeight: '600', fontSize: 13, backgroundColor: colors.bianco, borderRadius: radius.m, padding: spacing.lg },
   titoloSez: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
-  filtroRiga: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md, gap: spacing.sm },
+  filtroRiga: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg, gap: spacing.sm },
   filtroTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12.5 },
-  form: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 6 },
+  form: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 6 },
   formTitolo: { color: colors.navy, fontWeight: '800', fontSize: 16 },
   label: { color: colors.navy, fontWeight: '700', fontSize: 13, marginTop: spacing.sm },
   // Spiega perché un campo è vuoto o cosa manca: si legge come una frase, non
@@ -1305,14 +1305,14 @@ const styles = StyleSheet.create({
   prevForm: { gap: 4, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.grigioChiaro },
   spuntaRiga: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 8 },
   spuntaTxt: { flex: 1, color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
-  dealScelta: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.goldSoft, borderRadius: radius.md, padding: 10, marginTop: 4 },
+  dealScelta: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.goldSoft, borderRadius: radius.m, padding: 10, marginTop: 4 },
   dealSceltaNome: { color: colors.testo, fontWeight: '800', fontSize: 14 },
-  dealRiga: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, padding: 10 },
+  dealRiga: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, padding: 10 },
   dealRigaNome: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
   avvisoTrattativa: { color: colors.errore, fontSize: 12, lineHeight: 17, marginTop: 4 },
   input: {
-    backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md,
-    paddingHorizontal: spacing.md, paddingVertical: 10, fontSize: 14, color: colors.testo,
+    backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m,
+    paddingHorizontal: spacing.lg, paddingVertical: 10, fontSize: 14, color: colors.testo,
   },
   area: { minHeight: 74, textAlignVertical: 'top' },
   riga2: { flexDirection: 'row', gap: spacing.sm },
@@ -1325,8 +1325,8 @@ const styles = StyleSheet.create({
   // arriva ai bordi e il colore dell'hover copre tutta la scheda invece di
   // lasciare una cornice bianca intorno. `overflow: hidden` perché quel colore
   // deve fermarsi agli angoli arrotondati.
-  card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, overflow: 'hidden' },
-  cardSommario: { padding: spacing.md, gap: 5 },
+  card: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, overflow: 'hidden' },
+  cardSommario: { padding: spacing.lg, gap: 5 },
   cardSommarioHover: { backgroundColor: colors.fill },
   cardTesta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardNome: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 15 },
@@ -1334,9 +1334,9 @@ const styles = StyleSheet.create({
   riassunto: { color: colors.testo, fontSize: 13, fontWeight: '600' },
   // Il padding se lo porta da sé, ora che la card non ne ha più; il filo in
   // alto arriva da bordo a bordo e divide il riepilogo dal dettaglio.
-  dettaglio: { gap: 8, borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
+  dettaglio: { gap: 8, borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
   descrizione: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
-  prev: { backgroundColor: colors.sfondo, borderRadius: radius.md, padding: spacing.sm, gap: 4, borderWidth: 1, borderColor: 'transparent' },
+  prev: { backgroundColor: colors.sfondo, borderRadius: radius.m, padding: spacing.sm, gap: 4, borderWidth: 1, borderColor: 'transparent' },
   prevScelto: { borderColor: colors.successo, backgroundColor: colors.successoSoft },
   prevScartato: { opacity: 0.55 },
   prevTesta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1349,17 +1349,17 @@ const styles = StyleSheet.create({
   prevDiff: { color: colors.attenzione, fontWeight: '700', fontSize: 11.5 },
   prevMeta: { color: colors.testoSoft, fontSize: 12 },
   prevFonte: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  prevAzioni: { flexDirection: 'row', gap: spacing.md, marginTop: 2 },
+  prevAzioni: { flexDirection: 'row', gap: spacing.lg, marginTop: 2 },
   // ⚠️ Il bersaglio è il PADDING, non hitSlop: react-native-web scarta
   // hitSlop, quindi «Scegli questo» ed «Elimina» erano alti quanto la riga di
   // testo (~15px). Il padding vale su web e su telefono.
   prevAzione: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, color: colors.testo, fontWeight: '700', fontSize: 12.5 },
-  aggiungi: { gap: 8, backgroundColor: colors.sfondo, borderRadius: radius.md, padding: spacing.sm },
+  aggiungi: { gap: 8, backgroundColor: colors.sfondo, borderRadius: radius.m, padding: spacing.sm },
   aggiungiTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
   aggiungiNota: { color: colors.grigio, fontSize: 11.5, lineHeight: 16 },
-  sceltoRiga: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.fill, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  sceltoRiga: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.fill, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 10 },
   sceltoNome: { flex: 1, color: colors.testo, fontWeight: '700', fontSize: 14 },
-  esito: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 9 },
+  esito: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 9 },
   esitoNome: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
   esitoMeta: { color: colors.testoSoft, fontSize: 12 },
   azioni: { flexDirection: 'row', gap: spacing.sm, marginTop: 4, flexWrap: 'wrap' },

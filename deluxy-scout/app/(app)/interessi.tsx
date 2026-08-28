@@ -289,14 +289,14 @@ export default function Interessi() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 96 },
-  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md },
+  list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 96 },
+  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg },
   gruppo: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    padding: spacing.md,
+    padding: spacing.lg,
     gap: spacing.sm,
   },
   // «Da assegnare» non è una linea: è lavoro arretrato, e si vede.
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingVertical: 8,
     paddingHorizontal: 4,
-    borderRadius: radius.sm,
+    borderRadius: radius.s,
     backgroundColor: colors.sfondo,
     borderWidth: 1,
     borderColor: 'transparent',

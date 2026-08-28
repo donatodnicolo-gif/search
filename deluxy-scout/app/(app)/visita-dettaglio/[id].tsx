@@ -92,14 +92,14 @@ function Campo({ label, valore, evidenzia }: { label: string; valore: string | n
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  content: { padding: spacing.md, paddingBottom: spacing.xl },
-  err: { padding: spacing.lg, color: colors.errore },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  err: { padding: spacing.xxl, color: colors.errore },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   data: { fontSize: 15, fontWeight: '800', color: colors.navy },
   pendingTxt: { color: colors.attenzione, fontWeight: '700', marginTop: spacing.xs },
-  campo: { marginTop: spacing.md },
-  label: { color: colors.oro, fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, marginTop: spacing.md },
+  campo: { marginTop: spacing.lg },
+  label: { color: colors.oro, fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, marginTop: spacing.lg },
   valore: { color: colors.testo, fontSize: 15, lineHeight: 21 },
   valoreEvidenza: { fontWeight: '800', color: colors.navy },
-  foto: { width: '100%', height: 220, borderRadius: radius.md, marginTop: spacing.xs, backgroundColor: colors.grigioChiaro },
+  foto: { width: '100%', height: 220, borderRadius: radius.m, marginTop: spacing.xs, backgroundColor: colors.grigioChiaro },
 });

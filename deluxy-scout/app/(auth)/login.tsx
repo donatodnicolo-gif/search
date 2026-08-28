@@ -88,7 +88,7 @@ function traduciErrore(msg: string): string {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.sfondo },
-  container: { flex: 1, justifyContent: 'center', padding: spacing.lg },
+  container: { flex: 1, justifyContent: 'center', padding: spacing.xxl },
   card: {
     backgroundColor: colors.bianco,
     // Card-firma del login: radius 24 (DS §4, Libro UX cap.11), non 18.
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.hairline,
-    padding: spacing.xl,
+    padding: spacing.xxxl,
     alignItems: 'center',
     ...shadow.float,
   },
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   logoD: {
     color: colors.oro,
@@ -117,27 +117,27 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
   logo: { color: colors.testo, fontSize: 26, fontWeight: '700', letterSpacing: 4 },
-  sub: { color: colors.testoSoft, marginTop: spacing.xs, fontSize: 14, marginBottom: spacing.lg },
+  sub: { color: colors.testoSoft, marginTop: spacing.xs, fontSize: 14, marginBottom: spacing.xxl },
   group: {
     alignSelf: 'stretch',
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.hairlineStrong,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     overflow: 'hidden',
   },
-  input: { paddingHorizontal: spacing.md, paddingVertical: 14, fontSize: 16, color: colors.testo },
-  divisore: { height: 1, backgroundColor: colors.hairline, marginLeft: spacing.md },
-  errore: { color: colors.errore, marginTop: spacing.md, fontWeight: '600', alignSelf: 'stretch' },
+  input: { paddingHorizontal: spacing.lg, paddingVertical: 14, fontSize: 16, color: colors.testo },
+  divisore: { height: 1, backgroundColor: colors.hairline, marginLeft: spacing.lg },
+  errore: { color: colors.errore, marginTop: spacing.lg, fontWeight: '600', alignSelf: 'stretch' },
   btn: {
     alignSelf: 'stretch',
     backgroundColor: colors.ink,
     borderRadius: radius.pill,
     paddingVertical: 15,
     alignItems: 'center',
-    marginTop: spacing.lg,
+    marginTop: spacing.xxl,
   },
   btnDisabled: { opacity: 0.55 },
   btnTxt: { color: colors.bianco, fontWeight: '600', fontSize: 17 },
-  footnote: { color: colors.grigio, fontSize: 12, marginTop: spacing.lg },
+  footnote: { color: colors.grigio, fontSize: 12, marginTop: spacing.xxl },
 });

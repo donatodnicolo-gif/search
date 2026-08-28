@@ -60,7 +60,7 @@ export function RichTextEditor({ valueHtml, onChangeHtml, placeholder, minHeight
   }
 
   return (
-    <div style={{ border: `1px solid ${colors.grigioChiaro}`, borderRadius: radius.md, background: colors.bianco, overflow: 'visible' }}>
+    <div style={{ border: `1px solid ${colors.grigioChiaro}`, borderRadius: radius.m, background: colors.bianco, overflow: 'visible' }}>
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: 6, borderBottom: `1px solid ${colors.grigioChiaro}`, flexWrap: 'wrap', position: 'relative' }}>
         <button type="button" title="Grassetto" style={{ ...BTN, fontWeight: 800 }} onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('bold')}>B</button>
@@ -82,7 +82,7 @@ export function RichTextEditor({ valueHtml, onChangeHtml, placeholder, minHeight
           [ Variabile ]
         </button>
         {menuVar ? (
-          <div style={{ position: 'absolute', top: 40, right: 6, background: colors.bianco, border: `1px solid ${colors.grigioChiaro}`, borderRadius: radius.md, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 20, minWidth: 220, padding: 6 }}>
+          <div style={{ position: 'absolute', top: 40, right: 6, background: colors.bianco, border: `1px solid ${colors.grigioChiaro}`, borderRadius: radius.m, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 20, minWidth: 220, padding: 6 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: colors.testoSoft, padding: '4px 8px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Del contatto</div>
             {VARIABILI_CONTATTO.map((v) => (
               <button key={v.chiave} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => inserisciVariabile(v.chiave)}
@@ -108,7 +108,7 @@ export function RichTextEditor({ valueHtml, onChangeHtml, placeholder, minHeight
         data-placeholder={placeholder}
         style={{
           minHeight,
-          padding: spacing.md,
+          padding: spacing.lg,
           fontSize: 15,
           lineHeight: 1.5,
           color: colors.testo,

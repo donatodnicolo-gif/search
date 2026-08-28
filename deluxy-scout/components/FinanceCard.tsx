@@ -114,7 +114,7 @@ export function FinanceCard({ nomeCliente, mostra }: { nomeCliente: string; most
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.bianco, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 8 },
+  card: { backgroundColor: colors.bianco, borderRadius: radius.l, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 8 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   titolo: { color: colors.testo, fontWeight: '700', fontSize: 15, letterSpacing: -0.2 },
   kpiRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing.sm },

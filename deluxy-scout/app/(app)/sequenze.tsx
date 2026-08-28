@@ -618,16 +618,16 @@ function AggiungiPasso({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 96 },
-  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md },
-  errore: { color: colors.errore, fontWeight: '600', fontSize: 13, backgroundColor: colors.bianco, borderRadius: radius.md, padding: spacing.md },
-  titoloSez: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', marginTop: spacing.md },
+  list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 96 },
+  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg },
+  errore: { color: colors.errore, fontWeight: '600', fontSize: 13, backgroundColor: colors.bianco, borderRadius: radius.m, padding: spacing.lg },
+  titoloSez: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', marginTop: spacing.lg },
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   tabRitardo: { color: colors.errore, fontWeight: '700', fontSize: 12.5, textAlign: 'right' },
   tabOggi: { color: colors.successo, fontWeight: '700', fontSize: 12.5, textAlign: 'right' },
   tabAzioni: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end' },
   vuotoRiga: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
-  card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 6 },
+  card: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 6 },
   // In ritardo: si vede prima di leggere. Una sequenza dimenticata da dieci
   // giorni va guardata prima di una di oggi.
   cardTardi: { borderColor: colors.attenzione, backgroundColor: '#FFFDF5' },
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   rosso: { color: colors.errore },
   off: { opacity: 0.45 },
   nuovaRiga: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
-  input: { flex: 1, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10, fontSize: 14, color: colors.testo },
+  input: { flex: 1, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 10, fontSize: 14, color: colors.testo },
   dettaglio: { gap: 8, marginTop: 6, borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: spacing.sm },
   passo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   passoOrdine: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.ink, color: colors.bianco, textAlign: 'center', lineHeight: 22, fontSize: 11, fontWeight: '800', overflow: 'hidden' },
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
   hint: { color: colors.testoSoft, fontSize: 12, lineHeight: 17 },
   hintForte: { color: colors.testo, fontWeight: '700' },
   avvisoVar: { color: colors.errore, fontSize: 12, lineHeight: 17, fontWeight: '600' },
-  aggiungi: { gap: 8, backgroundColor: colors.sfondo, borderRadius: radius.md, padding: spacing.sm },
+  aggiungi: { gap: 8, backgroundColor: colors.sfondo, borderRadius: radius.m, padding: spacing.sm },
   aggiungiTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6, maxWidth: 220 },
@@ -666,6 +666,6 @@ const styles = StyleSheet.create({
   giorniRiga: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   giorniEt: { color: colors.testoSoft, fontSize: 13 },
   giorniNota: { color: colors.testoSoft, fontSize: 12.5, flex: 1 },
-  giorniInput: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.sm, paddingHorizontal: 10, paddingVertical: 6, width: 56, textAlign: 'center', fontSize: 14, color: colors.testo },
+  giorniInput: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.s, paddingHorizontal: 10, paddingVertical: 6, width: 56, textAlign: 'center', fontSize: 14, color: colors.testo },
   nota: { color: colors.testoSoft, fontSize: 12, lineHeight: 17, marginTop: spacing.sm },
 });

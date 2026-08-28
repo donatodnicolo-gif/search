@@ -550,7 +550,7 @@ function Riga({
 }
 
 const styles = StyleSheet.create({
-  livelli: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  livelli: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   rigaBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   rigaAzione: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   rigaAzioneTxt: { color: colors.bianco, fontWeight: '700', fontSize: 12 },
@@ -564,23 +564,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    marginHorizontal: spacing.md,
+    borderRadius: radius.m,
+    marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 10,
     fontSize: 15,
     color: colors.testo,
   },
-  list: { padding: spacing.md, gap: spacing.sm },
+  list: { padding: spacing.lg, gap: spacing.sm },
   // L'header sta dentro il contenitore della lista, che ha gia' il suo padding:
   // qui lo si annulla perche' intro, chip e filtri hanno gia' i propri margini
   // (e la barra dei filtri deve restare larga da bordo a bordo).
-  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md },
+  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg },
   riga: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderRadius: radius.m,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     gap: 6,
@@ -620,8 +620,8 @@ const styles = StyleSheet.create({
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
   fab: {
     position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.lg,
+    right: spacing.xxl,
+    bottom: spacing.xxl,
     width: 56,
     height: 56,
     borderRadius: 28,

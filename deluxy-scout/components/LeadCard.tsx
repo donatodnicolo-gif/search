@@ -146,10 +146,10 @@ const styles = StyleSheet.create({
   // DS §Card: surface + hairline + radius-l + shadow-card.
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.lg,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.hairline,
-    padding: spacing.md,
+    padding: spacing.lg,
     gap: 8,
     ...shadow.card,
   },

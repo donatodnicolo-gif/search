@@ -399,15 +399,15 @@ export default function Visite() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 96 },
+  list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 96 },
   // Errore di caricamento (Libro UX cap.6): card rossa con «Riprova».
-  erroreCard: { backgroundColor: colors.erroreSoft, borderWidth: 1, borderColor: colors.errore, borderRadius: radius.lg, padding: spacing.md, gap: 8 },
+  erroreCard: { backgroundColor: colors.erroreSoft, borderWidth: 1, borderColor: colors.errore, borderRadius: radius.l, padding: spacing.lg, gap: 8 },
   erroreTesta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   erroreTitolo: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   erroreTxt: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
   btnRiprova: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 16, minHeight: touchMin },
   btnRiprovaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13.5 },
-  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
+  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.sm },
   sezione: { color: colors.testoSoft, fontSize: 11.5, fontWeight: '800', letterSpacing: 0.4, marginTop: spacing.sm, marginBottom: 4 },
   nota: { color: colors.grigio, fontSize: 12.5, fontStyle: 'italic' },
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },

@@ -466,7 +466,7 @@ export default function AppLayout() {
 }
 
 const styles = StyleSheet.create({
-  headerBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  headerBtn: { paddingHorizontal: spacing.lg, paddingVertical: spacing.xs },
   drawerRoot: { flex: 1, backgroundColor: colors.bianco },
   scroll: { paddingTop: 0, paddingBottom: spacing.sm },
   // Sezioni del menu (etichetta MAIUSCOLA DS + voci).
@@ -477,12 +477,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.7,
     textTransform: 'uppercase',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     marginBottom: 4,
   },
   // Testata premibile della sezione richiudibile: il titolo tiene il suo
   // padding, la freccia sta a destra.
-  sezioneTesta: { flexDirection: 'row', alignItems: 'center', paddingRight: spacing.md },
+  sezioneTesta: { flexDirection: 'row', alignItems: 'center', paddingRight: spacing.lg },
   sezioneTitoloFlex: { flex: 1 },
   sezioneConto: {
     color: colors.testoSoft,
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   // Voce: riga icona + testo con spazio corretto. Rail = solo icona centrata.
-  voce: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.md, marginHorizontal: 8, marginVertical: 1 },
+  voce: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.m, marginHorizontal: 8, marginVertical: 1 },
   voceEspansa: { gap: spacing.sm, paddingHorizontal: 12, paddingVertical: 10 },
   voceRail: { justifyContent: 'center', paddingVertical: 11, marginHorizontal: 10 },
   voceOn: { backgroundColor: colors.fillActive },
@@ -501,22 +501,22 @@ const styles = StyleSheet.create({
   railDivider: { height: 1, backgroundColor: colors.grigioChiaro, marginHorizontal: 14, marginBottom: 4, marginTop: 2 },
   // Preferiti annidati sotto "Mappa": rientrati, con filo verticale a sinistra.
   prefWrap: { marginLeft: 24, marginRight: 8, borderLeftWidth: 1, borderLeftColor: colors.grigioChiaro, paddingLeft: 6, marginBottom: 2 },
-  prefRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 6, borderRadius: radius.sm },
+  prefRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 6, borderRadius: radius.s },
   prefTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7, minWidth: 0 },
   prefLabel: { flex: 1, fontSize: 13, fontWeight: '600', color: colors.testoSoft, letterSpacing: -0.1 },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
     marginBottom: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.grigioChiaro,
   },
   brandRail: { justifyContent: 'center', paddingHorizontal: 0, gap: 4 },
-  collassaBtn: { padding: 6, borderRadius: radius.sm },
+  collassaBtn: { padding: 6, borderRadius: radius.s },
   logoQuad: {
     width: 42,
     height: 42,
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.grigioChiaro,
@@ -552,5 +552,5 @@ const styles = StyleSheet.create({
   avatarTxt: { color: colors.goldStrong, fontWeight: '800', fontSize: 13 },
   utenteNome: { color: colors.testo, fontWeight: '600', fontSize: 13.5, textTransform: 'capitalize' },
   utenteRuolo: { color: colors.testoSoft, fontSize: 11.5 },
-  logoutBtn: { padding: 8, borderRadius: radius.sm },
+  logoutBtn: { padding: 8, borderRadius: radius.s },
 });

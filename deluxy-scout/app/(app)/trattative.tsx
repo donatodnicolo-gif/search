@@ -1339,7 +1339,7 @@ const styles = StyleSheet.create({
   // prop in silenzio, quindi sul sito queste icone-azione erano larghe quanto
   // il glifo (16px). Il padding vale su web e su telefono, e fa anche da
   // distanza fra due icone adiacenti — una delle quali cancella per sempre.
-  iconaAzione: { padding: 8, borderRadius: radius.sm },
+  iconaAzione: { padding: 8, borderRadius: radius.s },
   head: {
     backgroundColor: colors.sfondo,
     borderBottomWidth: 1,
@@ -1350,7 +1350,7 @@ const styles = StyleSheet.create({
   viste: {
     flexDirection: 'row',
     gap: 6,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     marginBottom: spacing.xs,
   },
   vista: {
@@ -1369,18 +1369,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xs,
   },
-  sub: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.md, marginBottom: spacing.xs },
+  sub: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.lg, marginBottom: spacing.xs },
   search: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    marginHorizontal: spacing.md,
+    borderRadius: radius.m,
+    marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 10,
     fontSize: 15,
     color: colors.testo,
@@ -1388,7 +1388,7 @@ const styles = StyleSheet.create({
   // I filtri vanno a capo invece di scorrere in orizzontale: sul telefono lo
   // scorrimento non si vedeva e le voci restavano tagliate a meta' parola
   // ("Food Suppli…"), quindi non si scoprivano nemmeno.
-  filtri: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  filtri: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   filtroChip: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
@@ -1400,12 +1400,12 @@ const styles = StyleSheet.create({
   filtroChipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   filtroChipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   filtroChipTxtOn: { color: colors.bianco },
-  list: { padding: spacing.md, paddingBottom: 96 },
+  list: { padding: spacing.lg, paddingBottom: 96 },
   // Annulla il padding del contenitore attorno alla testata (i figli hanno gia'
   // i propri margini e la barra dei filtri va da bordo a bordo).
-  headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
+  headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.sm },
   // Assistente AI
-  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
+  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xxxl, fontStyle: 'italic' },
   // Header di gruppo chiaro (DS: nessun header colorato), tap → scheda negozio.
   sezioneHead: {
     flexDirection: 'row',
@@ -1414,10 +1414,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
+    borderRadius: radius.s,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
     marginBottom: spacing.xs,
   },
   sezioneTitolo: { flex: 1, color: colors.testo, fontWeight: '700', fontSize: 15, letterSpacing: -0.2 },
@@ -1435,8 +1435,8 @@ const styles = StyleSheet.create({
   },
   deal: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderRadius: radius.m,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     marginBottom: spacing.xs,
@@ -1478,8 +1478,8 @@ const styles = StyleSheet.create({
   // FAB
   fab: {
     position: 'absolute',
-    right: spacing.md,
-    bottom: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.xxl,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -1500,8 +1500,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
+    borderRadius: radius.m,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 10,
     fontSize: 15,
     color: colors.testo,
@@ -1513,8 +1513,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
+    borderRadius: radius.m,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 10,
     marginTop: 6,
   },
@@ -1527,15 +1527,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.oro,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
+    borderRadius: radius.m,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 10,
   },
   placeSelNome: { fontWeight: '800', color: colors.testo, fontSize: 15 },
   placeSelInd: { color: colors.testoSoft, fontSize: 12 },
   contattiBox: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     padding: spacing.sm,
@@ -1572,7 +1572,7 @@ const styles = StyleSheet.create({
   salva: {
     backgroundColor: colors.navy,
     borderRadius: radius.pill,
-    marginHorizontal: spacing.md,
+    marginHorizontal: spacing.lg,
     marginTop: spacing.sm,
     paddingVertical: 15,
     alignItems: 'center',
@@ -1586,7 +1586,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
     paddingVertical: 10,
     borderRadius: radius.pill,
     borderWidth: 1,

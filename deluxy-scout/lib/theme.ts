@@ -1,120 +1,71 @@
-// Palette e token di stile Deluxy Scout — allineati al **Deluxy Design System v1.0**
-// (deluxy-design-system/tokens/theme.ts). Stile Apple: sfondi neutri, testo scuro,
-// UN accento oro usato poco, azioni primarie NERE (ink). I nomi storici (navy/oro/…)
-// restano per compatibilità con le schermate, ma i valori sono quelli del DS.
+// Palette e token di stile Deluxy Scout — MIGRAZIONE COMPLETA al **Deluxy Design
+// System v1.4** (28/08/2026): i valori vengono da lib/ds.ts (copia locale di
+// deluxy-design-system/tokens/theme.ts), qui restano solo gli ALIAS storici
+// (navy/oro/…) e i cataloghi semantici dell'app. Le chiavi in collisione sono
+// state RINOMINATE nelle schermate prima dello swap (Libro UX&UI, cap. 12):
+// spacing locale md16/lg24/xl32 → DS lg/xxl/xxxl; radius sm/md/lg → DS s/m/l.
 import type { DealStage, Priorita, StatoAffiliazione, StatoPlace } from '@/types';
+import {
+  colors as ds,
+  motion,
+  radius,
+  shadow,
+  spacing,
+  touchMin,
+  typography,
+} from './ds';
+
+export { motion, radius, shadow, spacing, touchMin, typography };
 
 export const colors = {
   // Superfici
-  sfondo: '#F5F5F7', // bg pagina (mai bianco pieno)
-  bianco: '#FFFFFF', // surface
-  surfaceTranslucent: 'rgba(255, 255, 255, 0.72)', // barre/overlay in vetro (DS)
+  sfondo: ds.bg, // bg pagina (mai bianco pieno)
+  bianco: ds.surface,
+  surfaceTranslucent: ds.surfaceTranslucent, // barre/overlay in vetro
   // Testo
-  testo: '#1D1D1F', // text
-  testoSoft: '#6E6E73', // text-secondary
-  grigio: '#86868B', // text-tertiary
-  grigioChiaro: '#E3E3E6', // hairline (solido, per bordi)
+  testo: ds.text,
+  testoSoft: ds.textSecondary,
+  grigio: ds.textTertiary,
+  grigioChiaro: '#E3E3E6', // hairline SOLIDO per bordi: non esiste nel DS (le hairline DS sono in alpha)
   // Brand scuro = azioni primarie (ink). "navy" resta come alias per le schermate.
-  navy: '#111318',
-  ink: '#111318',
-  inkHover: '#2A2D35',
+  navy: ds.ink,
+  ink: ds.ink,
+  inkHover: ds.inkHover,
   // Accento oro (icone attive, focus, stelle, badge brand) — usato con parsimonia.
-  oro: '#B8963E',
-  gold: '#B8963E',
-  goldStrong: '#A07F2C',
-  goldSoft: 'rgba(184, 150, 62, 0.12)',
+  oro: ds.gold,
+  gold: ds.gold,
+  goldStrong: ds.goldStrong,
+  goldSoft: ds.goldSoft,
   // Bordi e riempimenti neutri
-  hairline: 'rgba(0, 0, 0, 0.08)',
-  hairlineStrong: 'rgba(0, 0, 0, 0.14)',
-  fill: 'rgba(120, 120, 128, 0.08)',
-  fillHover: 'rgba(120, 120, 128, 0.14)',
-  fillActive: 'rgba(120, 120, 128, 0.20)',
-  // Semantici (solo per stati/feedback)
-  successo: '#248A3D', // green
-  attenzione: '#C93400', // orange
-  errore: '#D70015', // red
-  blue: '#0071E3',
-  purple: '#6D3FC4',
-  // ─── Token AGGIUNTI dal DS v1.4 (28/08/2026, allineamento UX) ──────────────
-  // Tinte «-soft» dei semantici: sfondo dei badge a pillola (testo = colore pieno,
-  // sfondo = 9–12%). Nomi DS + alias italiani coerenti coi semantici locali.
-  blueSoft: 'rgba(0, 113, 227, 0.10)',
-  greenSoft: 'rgba(36, 138, 61, 0.11)',
-  orangeSoft: 'rgba(201, 52, 0, 0.10)',
-  redSoft: 'rgba(215, 0, 21, 0.09)',
-  purpleSoft: 'rgba(109, 63, 196, 0.10)',
-  successoSoft: 'rgba(36, 138, 61, 0.11)',
-  attenzioneSoft: 'rgba(201, 52, 0, 0.10)',
-  erroreSoft: 'rgba(215, 0, 21, 0.09)',
-  goldSoftStrong: 'rgba(184, 150, 62, 0.20)',
+  hairline: ds.hairline,
+  hairlineStrong: ds.hairlineStrong,
+  fill: ds.fill,
+  fillHover: ds.fillHover,
+  fillActive: ds.fillActive,
+  // Semantici (solo per stati/feedback) — alias italiani dei nomi DS
+  successo: ds.green,
+  attenzione: ds.orange,
+  errore: ds.red,
+  blue: ds.blue,
+  purple: ds.purple,
+  // Tinte «-soft» dei semantici: sfondo dei badge a pillola (testo = colore pieno)
+  blueSoft: ds.blueSoft,
+  greenSoft: ds.greenSoft,
+  orangeSoft: ds.orangeSoft,
+  redSoft: ds.redSoft,
+  purpleSoft: ds.purpleSoft,
+  successoSoft: ds.greenSoft,
+  attenzioneSoft: ds.orangeSoft,
+  erroreSoft: ds.redSoft,
+  goldSoftStrong: 'rgba(184, 150, 62, 0.20)', // oro al 20%: locale, non nel DS
   // Testo/icone su superfici scure (ink/oro).
-  onInk: '#FFFFFF',
+  onInk: ds.onInk,
   // Stato neutro/terminato (annullata, archiviata, bozza). Distinto da `grigio`,
   // che è il text-tertiary: qui è il grigio-STATO del DS (`grey`).
-  grey: '#8A8A8E',
-} as const;
-
-// Bersaglio minimo su touch (HIG 44pt / Material 48dp): min-height/area di ogni
-// elemento interattivo. DS v1.4. ADDITIVO: usalo sui bersagli piccoli.
-export const touchMin = 44;
-
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-} as const;
-
-export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 18,
-  xl: 24, // card hero/login (DS)
-  pill: 980, // valore canonico DS
-} as const;
-
-// I sette ruoli tipografici del DS v1.4 (titleXl…label). ADDITIVO: le 44 schermate
-// storiche hanno dimensioni e pesi hardcoded; questi token sono a disposizione per
-// il codice nuovo e per le correzioni mirate, senza riscrivere ciò che già va.
-export const typography = {
-  titleXl: { fontSize: 32, fontWeight: '600' as const, letterSpacing: -0.8 },
-  titleL: { fontSize: 24, fontWeight: '600' as const, letterSpacing: -0.5 },
-  titleM: { fontSize: 19, fontWeight: '600' as const, letterSpacing: -0.38 },
-  body: { fontSize: 15, fontWeight: '400' as const },
-  bodyS: { fontSize: 14, fontWeight: '400' as const },
-  caption: { fontSize: 13, fontWeight: '400' as const },
-  label: {
-    fontSize: 11,
-    fontWeight: '600' as const,
-    letterSpacing: 0.66,
-    textTransform: 'uppercase' as const,
-  },
-} as const;
-
-// Motion del DS v1.4: durata e scala della pressione. Da usare sui Pressable
-// nuovi (oggi 461 senza stato pressed — vedi Libro UX cap. 3).
-export const motion = {
-  durationPress: 150,
-  pressScale: 0.97,
-} as const;
-
-// Due sole ombre (DS): card e float. Morbide, mai dure.
-export const shadow = {
-  card: {
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  float: {
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
-  },
+  grey: ds.grey,
+  // Nuovi dal DS v1.4, disponibili alle schermate
+  surfaceSunken: ds.surfaceSunken,
+  scrim: ds.scrim,
 } as const;
 
 // Colore per priorità: P1 oro (accento) / P2 ink / P3 grigio.

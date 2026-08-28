@@ -24,8 +24,8 @@ export function BoxIpotesi({
 const styles = StyleSheet.create({
   box: {
     backgroundColor: colors.navy,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderRadius: radius.m,
+    padding: spacing.lg,
     borderLeftWidth: 4,
     borderLeftColor: colors.oro,
   },

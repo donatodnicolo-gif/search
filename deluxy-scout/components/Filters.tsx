@@ -145,5 +145,5 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
 }
 
 const styles = StyleSheet.create({
-  row: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm },
+  row: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm },
 });

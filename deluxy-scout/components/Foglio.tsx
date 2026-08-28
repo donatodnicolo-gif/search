@@ -77,23 +77,23 @@ export function Foglio({
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
   overlayBasso: { justifyContent: 'flex-end' },
-  overlayCentro: { justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
+  overlayCentro: { justifyContent: 'center', alignItems: 'center', padding: spacing.xxl },
   // ⚠️ Il padding sta nel CORPO, non nel foglio: se stesse qui, scorrendo il
   // contenuto si vedrebbe il bordo inferiore staccarsi dal testo.
-  foglio: { backgroundColor: colors.bianco, paddingHorizontal: spacing.md, paddingTop: spacing.md, gap: 8 },
+  foglio: { backgroundColor: colors.bianco, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: 8 },
   // `flexShrink: 1` è ciò che fa rispettare il tetto d'altezza al corpo:
   // senza, la View cresce col contenuto e lo scroll non si attiva mai.
   corpo: { flexShrink: 1 },
-  corpoDentro: { gap: 8, paddingBottom: spacing.md },
+  corpoDentro: { gap: 8, paddingBottom: spacing.lg },
   foglioBasso: {
     width: '100%',
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    borderTopLeftRadius: radius.l,
+    borderTopRightRadius: radius.l,
     maxHeight: '88%',
   },
   foglioCentro: {
     width: '100%',
-    borderRadius: radius.lg,
+    borderRadius: radius.l,
     maxHeight: '86%',
     ...shadow.float,
   },
@@ -101,5 +101,5 @@ const styles = StyleSheet.create({
   titolo: { color: colors.navy, fontWeight: '700', fontSize: 19, letterSpacing: -0.3 },
   sottotitolo: { color: colors.testoSoft, fontSize: 13, lineHeight: 18, marginTop: 3 },
   // Tocco comodo anche col mouse: la × in un quadratino che si vede all'hover.
-  chiudi: { padding: 4, borderRadius: radius.sm },
+  chiudi: { padding: 4, borderRadius: radius.s },
 });

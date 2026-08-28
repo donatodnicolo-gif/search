@@ -126,7 +126,7 @@ export default function Profilo() {
         <Text style={styles.cardLabel}>ACCOUNT</Text>
         <Text style={styles.email}>{email}</Text>
         <Text style={styles.meta}>Venditore Deluxy Scout</Text>
-        <Text style={[styles.cardLabel, { marginTop: spacing.md }]}>IL TUO NOME</Text>
+        <Text style={[styles.cardLabel, { marginTop: spacing.lg }]}>IL TUO NOME</Text>
         <View style={styles.nomeRow}>
           <TextInput
             style={styles.nomeInput}
@@ -249,13 +249,13 @@ export default function Profilo() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.lg },
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    padding: spacing.md,
+    padding: spacing.lg,
   },
   cardLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '600', letterSpacing: 0.7, marginBottom: spacing.sm },
   email: { fontSize: 18, fontWeight: '800', color: colors.navy },
@@ -271,17 +271,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sfondo,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
+    borderRadius: radius.m,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 10,
     fontSize: 16,
     color: colors.testo,
   },
-  nomeBtn: { backgroundColor: colors.ink, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 12 },
-  btn: { backgroundColor: colors.navy, borderRadius: radius.md, paddingVertical: 13, alignItems: 'center', marginTop: spacing.sm },
+  nomeBtn: { backgroundColor: colors.ink, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 12 },
+  btn: { backgroundColor: colors.navy, borderRadius: radius.m, paddingVertical: 13, alignItems: 'center', marginTop: spacing.sm },
   btnOff: { opacity: 0.5 },
   btnTxt: { color: colors.bianco, fontWeight: '800' },
   versione: { textAlign: 'center', color: colors.grigio, fontSize: 12 },
-  logout: { alignItems: 'center', paddingVertical: spacing.md },
+  logout: { alignItems: 'center', paddingVertical: spacing.lg },
   logoutTxt: { color: colors.errore, fontWeight: '800' },
 });

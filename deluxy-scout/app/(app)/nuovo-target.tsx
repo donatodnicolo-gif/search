@@ -243,7 +243,7 @@ export default function NuovoTarget() {
           </View>
 
           {ipotesi ? (
-            <View style={{ marginTop: spacing.md }}>
+            <View style={{ marginTop: spacing.lg }}>
               <View style={styles.prioRow}>
                 <Text style={styles.label}>Priorità automatica</Text>
                 <PriorityBadge priorita={ipotesi.priorita} small />
@@ -300,15 +300,15 @@ export default function NuovoTarget() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  content: { padding: spacing.md, paddingBottom: spacing.xl },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
   checkin: { color: colors.testoSoft, fontWeight: '600', marginBottom: spacing.sm },
-  label: { color: colors.oro, fontWeight: '800', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginTop: spacing.lg, marginBottom: 6 },
+  label: { color: colors.oro, fontWeight: '800', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginTop: spacing.xxl, marginBottom: 6 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
+    borderRadius: radius.m,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 12,
     fontSize: 16,
     color: colors.testo,
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFDF5',
     borderWidth: 1,
     borderColor: '#E8D9A8',
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     padding: spacing.sm,
     fontSize: 12.5,
     lineHeight: 18,
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   chipTxtOn: { color: colors.bianco },
   prioRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
   salva: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xxl,
     backgroundColor: colors.ink,
     borderRadius: radius.pill,
     paddingVertical: 16,

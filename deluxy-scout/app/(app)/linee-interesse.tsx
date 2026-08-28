@@ -502,7 +502,7 @@ function EditorModal({ editor, onClose, onSalvato }: { editor: Editor; onClose: 
 }
 
 const styles = StyleSheet.create({
-  barraSotto: { position: 'absolute', right: spacing.lg, bottom: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  barraSotto: { position: 'absolute', right: spacing.xxl, bottom: spacing.xxl, flexDirection: 'row', alignItems: 'center', gap: 8 },
   fabGhost: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 9,
     paddingHorizontal: 10,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     backgroundColor: colors.bianco,
@@ -537,11 +537,11 @@ const styles = StyleSheet.create({
   btnSalvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
   btnOff: { opacity: 0.45 },
   container: { flex: 1, backgroundColor: colors.sfondo },
-  list: { padding: spacing.md, paddingBottom: 96, gap: spacing.sm },
-  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xl, fontStyle: 'italic' },
-  card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 8 },
+  list: { padding: spacing.lg, paddingBottom: 96, gap: spacing.sm },
+  vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xxxl, fontStyle: 'italic' },
+  card: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 8 },
   rigaLinea: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  iconaBox: { width: 34, height: 34, borderRadius: radius.sm, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
+  iconaBox: { width: 34, height: 34, borderRadius: radius.s, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
   nome: { color: colors.testo, fontWeight: '800', fontSize: 15 },
   pitch: { color: colors.testoSoft, fontSize: 12 },
   azioneBtn: { padding: 2 },
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
   },
   fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
   label: { fontSize: 12, fontWeight: '700', color: colors.testoSoft, marginTop: 4 },
-  input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 11, fontSize: 15, color: colors.testo },
+  input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 11, fontSize: 15, color: colors.testo },
   attivaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4 },
   attivaTitolo: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   attivaNota: { color: colors.grigio, fontSize: 12, lineHeight: 16 },

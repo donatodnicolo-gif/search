@@ -20,5 +20,5 @@ export default function Province() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  list: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
+  list: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.lg },
 });

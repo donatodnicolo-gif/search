@@ -97,10 +97,10 @@ export function AssistenteCard({ trattative, contesto = '' }: { trattative: Trat
 const styles = StyleSheet.create({
   aiCard: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.lg,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    padding: spacing.md,
+    padding: spacing.lg,
     marginBottom: spacing.sm,
     gap: 8,
   },

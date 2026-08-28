@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexBasis: '47%',
     minHeight: 64,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',

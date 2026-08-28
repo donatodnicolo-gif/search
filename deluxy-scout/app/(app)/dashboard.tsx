@@ -264,13 +264,13 @@ export default function Dashboard() {
       </View>
 
       {/* ── PROSPEZIONE (filtrata per periodo) ── */}
-      <Text style={[styles.sezioneTitolo, { marginTop: spacing.lg }]}>Prospezione</Text>
+      <Text style={[styles.sezioneTitolo, { marginTop: spacing.xxl }]}>Prospezione</Text>
       <View style={styles.cards}>
         <StatCard label={`Visite (${periodoLabel})`} valore={visitsF.length} sub={`${visiteUltimi7Giorni(visitsF)} negli ultimi 7 gg`} accent />
         <StatCard label="Da ricontattare" valore={richiami.length} sub={inRitardo ? `${inRitardo} in ritardo` : undefined} />
       </View>
       <BarChart titolo="Visite per settimana" data={visitePerSettimana(visitsF)} height={130} />
-      <View style={{ height: spacing.md }} />
+      <View style={{ height: spacing.lg }} />
       <Sezione titolo="Copertura zone">
         {cop.length === 0 ? (
           <Text style={styles.vuoto}>Nessuna zona ancora: assegna una zona alle attività per vedere la copertura.</Text>
@@ -290,7 +290,7 @@ export default function Dashboard() {
       </Sezione>
 
       {/* ── TRATTATIVE (stato attuale della pipeline) ── */}
-      <Text style={[styles.sezioneTitolo, { marginTop: spacing.lg }]}>Trattative</Text>
+      <Text style={[styles.sezioneTitolo, { marginTop: spacing.xxl }]}>Trattative</Text>
       <Text style={styles.notaSnapshot}>Stato attuale della pipeline (non dipende dal periodo).</Text>
       <View style={styles.cards}>
         <StatCard label="Pipeline aperto" valore={eur(val.aperto)} sub={`${val.nAperti} trattative`} accent />
@@ -299,7 +299,7 @@ export default function Dashboard() {
         <StatCard label="Perso" valore={eur(val.perso)} sub={`${val.nPersi} chiuse`} />
       </View>
       <BarChart titolo="Trattative per stato" data={faseBar} height={130} />
-      <View style={{ height: spacing.md }} />
+      <View style={{ height: spacing.lg }} />
       <BarChart titolo="Valore atteso per linea (€)" data={valLineaBar} height={130} />
 
       <Sezione titolo={`Chiuse perse da recuperare (${perse.length})`}>
@@ -380,9 +380,9 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.sm },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.sm },
   cards: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
-  sezione: { marginTop: spacing.lg },
+  sezione: { marginTop: spacing.xxl },
   sezioneTitolo: { fontSize: 11, fontWeight: '600', color: colors.testoSoft, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: spacing.sm },
   notaSnapshot: { color: colors.grigio, fontSize: 12, fontStyle: 'italic', marginTop: -4, marginBottom: spacing.sm },
   vuoto: { color: colors.grigio, fontStyle: 'italic' },
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   // Filtri
   filtri: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     padding: spacing.sm,
@@ -427,14 +427,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
     backgroundColor: colors.bianco,
-    borderRadius: radius.sm,
-    padding: spacing.md,
+    borderRadius: radius.s,
+    padding: spacing.lg,
     marginBottom: spacing.sm,
   },
   dealLinea: { flex: 1, fontWeight: '800', color: colors.navy },
   meta: { color: colors.testoSoft },
-  btnNurt: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 8 },
+  btnNurt: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: 8 },
   btnNurtTxt: { color: colors.bianco, fontWeight: '800', fontSize: 13 },
-  logout: { marginTop: spacing.xl, alignItems: 'center', paddingVertical: spacing.md },
+  logout: { marginTop: spacing.xxxl, alignItems: 'center', paddingVertical: spacing.lg },
   logoutTxt: { color: colors.errore, fontWeight: '800' },
 });

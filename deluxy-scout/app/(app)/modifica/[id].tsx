@@ -248,16 +248,16 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  content: { padding: spacing.md, paddingBottom: spacing.xl },
-  err: { padding: spacing.lg, color: colors.errore },
-  label: { color: colors.oro, fontWeight: '800', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginTop: spacing.lg, marginBottom: 6 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  err: { padding: spacing.xxl, color: colors.errore },
+  label: { color: colors.oro, fontWeight: '800', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginTop: spacing.xxl, marginBottom: 6 },
   hint: { color: colors.grigio, fontSize: 12, marginTop: -2, marginBottom: 8 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
+    borderRadius: radius.m,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 12,
     fontSize: 16,
     color: colors.testo,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
   salva: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xxl,
     backgroundColor: colors.ink,
     borderRadius: radius.pill,
     paddingVertical: 16,

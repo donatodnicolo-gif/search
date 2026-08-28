@@ -613,14 +613,14 @@ export default function TemplateDocumenti() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 40 },
+  list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 },
   errore: { color: colors.errore, fontSize: 12.5, lineHeight: 18 },
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    padding: spacing.md,
+    padding: spacing.lg,
     gap: 10,
   },
   cardTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     backgroundColor: colors.bianco,
     paddingHorizontal: 12,
     paddingVertical: 9,

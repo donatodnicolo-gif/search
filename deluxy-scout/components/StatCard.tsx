@@ -24,8 +24,8 @@ export function StatCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderRadius: radius.m,
+    padding: spacing.lg,
     flexGrow: 1,
     flexBasis: '47%',
     borderWidth: 1,

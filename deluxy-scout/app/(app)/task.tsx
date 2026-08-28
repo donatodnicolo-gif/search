@@ -206,7 +206,7 @@ export default function TaskScreen() {
 
         {fatti.length > 0 ? (
           <>
-            <Text style={[styles.sezione, { marginTop: spacing.lg }]}>Completati ({fatti.length})</Text>
+            <Text style={[styles.sezione, { marginTop: spacing.xxl }]}>Completati ({fatti.length})</Text>
             {aTabella
               ? tabellaDi(fatti)
               : fatti.map((t) => (
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sfondo,
     borderBottomWidth: 1,
     borderBottomColor: colors.grigioChiaro,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
   toggle: { flexDirection: 'row', backgroundColor: colors.grigioChiaro, borderRadius: radius.pill, padding: 3, alignSelf: 'flex-start' },
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   segOn: { backgroundColor: colors.bianco },
   segTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   segTxtOn: { color: colors.testo },
-  content: { padding: spacing.md, paddingBottom: 96, gap: spacing.sm },
+  content: { padding: spacing.lg, paddingBottom: 96, gap: spacing.sm },
   sezione: {
     color: colors.testoSoft,
     fontWeight: '600',
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     paddingVertical: 11,
@@ -352,8 +352,8 @@ const styles = StyleSheet.create({
   del: { width: 24, alignItems: 'flex-end' },
   fab: {
     position: 'absolute',
-    right: spacing.md,
-    bottom: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.xxl,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

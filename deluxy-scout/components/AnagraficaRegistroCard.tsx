@@ -145,11 +145,11 @@ export function AnagraficaRegistroCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    padding: spacing.md,
-    marginTop: spacing.md,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
     gap: 8,
   },
   cardCompatta: { borderWidth: 0, backgroundColor: 'transparent', padding: 0, marginTop: spacing.sm, gap: 6 },

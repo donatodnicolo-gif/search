@@ -147,7 +147,7 @@ export function MailContattoCard({ emails }: { emails: string[] }) {
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.bianco, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 8, marginTop: spacing.md },
+  card: { backgroundColor: colors.bianco, borderRadius: radius.l, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 8, marginTop: spacing.lg },
   head: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   titolo: { color: colors.testo, fontWeight: '700', fontSize: 15, letterSpacing: -0.2 },
   riga: { borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: 8, gap: 2 },

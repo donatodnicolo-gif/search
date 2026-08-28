@@ -238,7 +238,7 @@ export function TabellaTrattative({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.lg,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     overflow: 'hidden',
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   // sempre nello stesso punto — con tre icone o con nessuna.
   // ⚠️ Il bersaglio è il PADDING, non hitSlop: react-native-web lo scarta in
   // silenzio, quindi sul sito queste icone erano bersagli da 15px.
-  iconaAzione: { padding: 8, borderRadius: radius.sm },
+  iconaAzione: { padding: 8, borderRadius: radius.s },
   colAzioni: { width: 84, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   cellaScaduta: { color: colors.errore, fontWeight: '700' },
 });

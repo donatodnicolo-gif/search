@@ -131,10 +131,10 @@ const styles = StyleSheet.create({
   card: {
     gap: spacing.sm,
     backgroundColor: colors.bianco,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    padding: spacing.md,
+    padding: spacing.lg,
   },
   // Scelta multipla: bordo scuro e sfondo appena tinto. Non solo la casella —
   // scorrendo un elenco lungo si deve capire cos'è dentro senza rileggere ogni
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   iconaBox: {
     width: 40,
     height: 40,
-    borderRadius: radius.sm,
+    borderRadius: radius.s,
     backgroundColor: colors.goldSoft,
     // Trasparente di default: c'è solo quando il riquadro prende un colore che
     // significa qualcosa (semaforo della visita).

@@ -662,7 +662,7 @@ function FocusPill({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
-  caption: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
+  caption: { paddingHorizontal: spacing.xxl, paddingBottom: spacing.xs },
   capRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   capTxt: { color: colors.testoSoft, fontSize: 13 },
   capAggiorna: { color: colors.oro, fontSize: 13, fontWeight: '700' },
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
   },
 
   btnCerca: {
-    marginHorizontal: spacing.md,
+    marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
     backgroundColor: colors.ink,
     borderRadius: radius.pill,
@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
   },
   btnCercaOff: { opacity: 0.55 },
   btnCercaTxt: { color: colors.bianco, fontWeight: '600', fontSize: 15 },
-  cercaRow: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.sm, marginHorizontal: spacing.md, marginBottom: spacing.sm },
+  cercaRow: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.sm, marginHorizontal: spacing.lg, marginBottom: spacing.sm },
   btnPreferito: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
   btnPreferitoTxt: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   btnPreferitoOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   btnPreferitoTxtOn: { color: colors.bianco },
-  subRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.md, paddingTop: 6, gap: 6, alignItems: 'center' },
+  subRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.lg, paddingTop: 6, gap: 6, alignItems: 'center' },
   subChip: {
     alignSelf: 'center',
     backgroundColor: colors.bianco,
@@ -713,10 +713,10 @@ const styles = StyleSheet.create({
   subTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 12 },
   subTxtOn: { color: colors.bianco },
   focusBar: { paddingBottom: spacing.xs },
-  focusLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', paddingHorizontal: spacing.md, marginBottom: 4 },
+  focusLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', paddingHorizontal: spacing.lg, marginBottom: 4 },
   // A capo invece che in scorrimento orizzontale: le ultime linee di vendita
   // restavano fuori schermo sul telefono ("Regali aziendali" si vedeva "R…").
-  focusRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.md, gap: 6 },
+  focusRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.lg, gap: 6 },
   focusPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -732,17 +732,17 @@ const styles = StyleSheet.create({
   focusPillTxt: { color: colors.testo, fontWeight: '600', fontSize: 13 },
   focusPillTxtOn: { color: colors.bianco },
 
-  lista: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: 96, gap: 10 },
+  lista: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: 96, gap: 10 },
   // Annulla il padding laterale dell'elenco attorno alla testata: linee,
   // conteggio e filtri hanno gia' i propri margini.
-  headerScroll: { marginHorizontal: -spacing.md },
+  headerScroll: { marginHorizontal: -spacing.lg },
 
   card: {
     flexDirection: 'column',
     alignItems: 'stretch',
     gap: 8,
     backgroundColor: colors.bianco,
-    borderRadius: radius.lg,
+    borderRadius: radius.l,
     paddingVertical: 12,
     paddingHorizontal: 12,
     ...shadow.card,
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
   icona: {
     width: 46,
     height: 46,
-    borderRadius: radius.md,
+    borderRadius: radius.m,
     backgroundColor: colors.goldSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -798,26 +798,26 @@ const styles = StyleSheet.create({
 
   dock: {
     position: 'absolute',
-    bottom: spacing.md,
-    left: spacing.md,
-    right: spacing.md,
+    bottom: spacing.lg,
+    left: spacing.lg,
+    right: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.lg,
-    paddingLeft: spacing.lg,
+    borderRadius: radius.l,
+    paddingLeft: spacing.xxl,
     paddingRight: 6,
     paddingVertical: 6,
     ...shadow.float,
   },
   dockTxt: { color: colors.navy, fontWeight: '700', fontSize: 14, flexShrink: 1 },
   dockAzioni: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  btnNaviga: { backgroundColor: colors.fill, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 11 },
+  btnNaviga: { backgroundColor: colors.fill, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: 11 },
   btnNavigaTxt: { color: colors.testo, fontWeight: '600' },
-  btnGiro: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 11 },
+  btnGiro: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: 11 },
   btnGiroOn: { backgroundColor: colors.fillActive },
   btnGiroTxt: { color: colors.bianco, fontWeight: '800' },
   btnGiroTxtOn: { color: colors.testo },
