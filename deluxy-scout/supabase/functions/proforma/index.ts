@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
       // può somigliare a quello di un altro cliente.
       const p = new URLSearchParams();
       if (body.cliente) p.set('cliente', String(body.cliente));
+      if (body.numero) p.set('numero', String(body.numero));
       if (body.importo != null) p.set('importo', String(body.importo));
       if (body.anno) p.set('anno', String(body.anno));
       res = await fetch(`${BASE}/api/v1/fatture-cerca?${p.toString()}`, { headers });

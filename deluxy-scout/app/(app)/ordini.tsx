@@ -21,6 +21,7 @@ import { Foglio } from '@/components/Foglio';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { BRAND, brandDi, CANALI, LABEL_CANALE, LINEE_ATTIVE } from '@/types';
 import { urlSchedaRegistro } from '@/lib/anagrafiche';
+import { fetchProfiles } from '@/lib/db';
 
 // Colori di stato dai token semantici del DS (Libro UX cap.5): arancione = attende
 // un'azione, verde = concluso bene, rosso/neutro = terminato. Prima erano hex
@@ -112,7 +113,25 @@ export default function Ordini() {
     altriCostiNota: string;
     unita: 'pezzi' | 'giorni' | 'ore' | null;
     quanti: string;
+    owner: string | null;
   } | null>(null);
+  /**
+   * ⭐ CHI HA SEGUITO L'ORDINE (27/08/2026, richiesta dell'utente: «manca la
+   * scelta di chi ha seguito l'ordine»).
+   *
+   * ⚠️ I venditori si leggono dai PROFILI, non da una lista scritta qui: una
+   * lista di nomi nel codice non vede chi entra domani.
+   */
+  const [venditori, setVenditori] = useState<{ id: string; nome: string | null; email: string | null }[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    fetchProfiles()
+      .then((r) => vivo && setVenditori(r))
+      .catch(() => vivo && setVenditori([]));
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -863,6 +882,7 @@ export default function Ordini() {
       altriCostiNota: o.altri_costi_nota ?? '',
       unita: o.unita ?? null,
       quanti: o.quantita != null ? String(o.quantita) : '',
+      owner: o.owner ?? null,
     });
   }
 
@@ -906,6 +926,12 @@ export default function Ordini() {
     if (unitario !== (modificaPer.valore_unitario ?? null)) patch.valore_unitario = unitario;
     if ((aUnita ? q : null) !== (modificaPer.quantita ?? null)) patch.quantita = aUnita ? q : null;
     if ((aUnita ? bozza.unita : null) !== (modificaPer.unita ?? null)) patch.unita = aUnita ? bozza.unita : null;
+    // ⚠️ Scegliendo qui si segna anche che la scelta è DI UNA PERSONA: da quel
+    // momento vince su quella della trattativa (migr. 0091).
+    if ((bozza.owner ?? null) !== (modificaPer.owner ?? null)) {
+      patch.owner = bozza.owner;
+      patch.owner_scelto = true;
+    }
     if ((bozza.linea ?? null) !== (modificaPer.linea ?? null)) patch.linea = bozza.linea;
     if ((bozza.canale ?? null) !== (modificaPer.canale ?? null))
       patch.canale = bozza.canale as OrdineConLuogo['canale'];
@@ -1546,6 +1572,25 @@ export default function Ordini() {
               stesso dato con due nomi — «Sito» di là, «Brand della pro-forma»
               di qua — è un dato che si cerca e non si trova: chi voleva
               cambiare il sito di un ordine non riconosceva questo campo. */}
+          <Text style={styles.campoLabel}>Chi ha seguito l&apos;ordine</Text>
+          <View style={styles.chipsForm}>
+            {venditori.map((v) => (
+              <Pressable
+                key={v.id}
+                style={[styles.chip, bozza.owner === v.id && styles.chipOn]}
+                onPress={() => setBozza({ ...bozza, owner: bozza.owner === v.id ? null : v.id })}
+              >
+                <Text style={[styles.chipTxt, bozza.owner === v.id && styles.chipTxtOn]}>
+                  {v.nome?.trim() || v.email || v.id.slice(0, 6)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.campoAiuto}>
+            Finché non lo scegli qui, vale chi ha seguito la trattativa da cui l&apos;ordine è nato. Scegliendolo,
+            comanda questa scelta.
+          </Text>
+
           <Text style={styles.campoLabel}>Sito (decide l&apos;intestazione del documento)</Text>
           <View style={styles.chipsForm}>
             {BRAND.map((b) => (
@@ -1716,17 +1761,22 @@ function ChiusuraOrdine({
     setTrovata(null);
     setErroreRicerca(null);
     try {
-      if (criterio === 'numero') {
-        setTrovata(await cercaFattura(testo));
-        return;
-      }
       const imp = criterio === 'importo' ? leggiImporto(testo) : null;
       if (criterio === 'importo' && imp == null) {
         setErroreRicerca(`«${testo}» non è un importo. Scrivilo come 2.720,00.`);
         return;
       }
+      // ⚠️ Tutti e tre i criteri passano dalla stessa strada: le fatture stanno
+      // su Fatture in Cloud, che cerca da se' su nome e numero. Prima il
+      // numero passava da una rotta diversa che guardava un'ALTRA tabella —
+      // quella delle fatture ai partner — e rispondeva «non trovata» su una
+      // fattura che esisteva.
       const r = await cercaFatture(
-        criterio === 'importo' ? { importo: imp } : { cliente: testo },
+        criterio === 'importo'
+          ? { importo: imp }
+          : criterio === 'numero'
+            ? { numero: testo }
+            : { cliente: testo },
       );
       if (!r.ok) setErroreRicerca(r.errore ?? 'Ricerca non riuscita.');
       else setElenco(r.fatture);

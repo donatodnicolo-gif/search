@@ -1476,17 +1476,24 @@ export async function fetchOrdini(): Promise<OrdineConLuogo[]> {
       // niente trattative leggibili: vale il proprietario dell'ordine
     }
   }
-  const ids = [
-    ...new Set([
-      ...righe.map((r) => (r.deal_id ? ownerDelDeal.get(r.deal_id) : null) ?? (r as any).owner).filter(Boolean),
-    ]),
-  ] as string[];
+  /**
+   * ⚠️ UNA SCELTA FATTA A MANO VINCE SEMPRE (migr. 0091). La regola «comanda la
+   * trattativa» serve a rimediare al default della colonna — chi ha premuto il
+   * bottone — non a schiacciare chi ha deciso apposta: senza questo controllo,
+   * cambiare il proprietario dell'ordine e salvare faceva ricomparire il nome
+   * di prima, e un campo che non fa niente è peggio di un campo che non c'è.
+   */
+  const chiSegue = (r: OrdineConLuogo) =>
+    r.owner_scelto
+      ? (r as any).owner
+      : (r.deal_id ? ownerDelDeal.get(r.deal_id) : null) ?? (r as any).owner;
+  const ids = [...new Set(righe.map(chiSegue).filter(Boolean))] as string[];
   if (ids.length) {
     try {
       const profili = await fetchProfiles();
       const nome = new Map(profili.map((p) => [p.id, nomeDaProfilo(p)]));
       for (const r of righe) {
-        const chi = (r.deal_id ? ownerDelDeal.get(r.deal_id) : null) ?? ((r as any).owner as string | null);
+        const chi = chiSegue(r) as string | null;
         if (chi) r.owner_nome = nome.get(chi) ?? null;
       }
     } catch {
@@ -1559,7 +1566,7 @@ export async function creaOrdineDaDeal(deal: {
 export async function aggiornaOrdine(
   id: string,
   patch: Partial<
-    Pick<Ordine, 'stato' | 'incassato_il' | 'chiuso_il' | 'valore' | 'valore_unitario' | 'quantita' | 'unita' | 'descrizione' | 'cliente' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota'>
+    Pick<Ordine, 'stato' | 'incassato_il' | 'chiuso_il' | 'valore' | 'valore_unitario' | 'quantita' | 'unita' | 'owner' | 'owner_scelto' | 'descrizione' | 'cliente' | 'linea' | 'canale' | 'brand' | 'altri_costi' | 'altri_costi_nota'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('ordini').update(patch).eq('id', id);

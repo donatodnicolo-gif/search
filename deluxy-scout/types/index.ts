@@ -432,6 +432,10 @@ export interface Ordine {
    *  dei soldi: si può incassare un acconto e chiudere dopo, o chiudere e
    *  incassare a 60 giorni. */
   chiuso_il?: string | null;
+  /** ⚠️ `owner` (già dichiarato sotto) vale come «chi segue» SOLO se
+   *  `owner_scelto`: altrimenti è il default della colonna — chi ha creato
+   *  l'ordine — e comanda il proprietario della trattativa (migr. 0091). */
+  owner_scelto?: boolean;
   /** Gli INGREDIENTI del valore, quando si vende a unità (migr. 0090).
    *  ⚠️ `valore` resta il totale: margine, conti dell'anno e pro-forma leggono
    *  quello. Questi lo spiegano e permettono di rifarlo. */

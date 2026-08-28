@@ -210,16 +210,18 @@ export interface FatturaInElenco {
 export async function cercaFatture(q: {
   cliente?: string | null;
   importo?: number | null;
+  numero?: string | null;
   anno?: number | null;
-}): Promise<{ ok: boolean; fatture: FatturaInElenco[]; errore?: string }> {
+}): Promise<{ ok: boolean; fatture: FatturaInElenco[]; errore?: string; nota?: string | null }> {
   try {
-    const r = await chiama<{ trovate: number; fatture: FatturaInElenco[] }>({
+    const r = await chiama<{ trovate: number; fatture: FatturaInElenco[]; nota?: string | null }>({
       azione: 'cerca_fatture',
       cliente: q.cliente ?? undefined,
       importo: q.importo ?? undefined,
+      numero: q.numero ?? undefined,
       anno: q.anno ?? undefined,
     });
-    return { ok: true, fatture: r?.fatture ?? [] };
+    return { ok: true, fatture: r?.fatture ?? [], nota: r?.nota ?? null };
   } catch (e: any) {
     const m = String(e?.message ?? e);
     // Il 404 della rotta assente va detto per quello che è: FINANCE non è
