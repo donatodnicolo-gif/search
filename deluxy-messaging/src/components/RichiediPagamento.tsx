@@ -860,8 +860,9 @@ export function RichiediPagamento() {
             Le coordinate del fornitore <strong>da pagare</strong>. Puoi scriverle a mano oppure
             farle leggere all&apos;AI da un messaggio o da un&apos;immagine: l&apos;IBAN viene
             sempre <strong>verificato</strong> col codice di controllo, e se non torna te lo dico.
-            La richiesta parte poi verso Deluxy Partner, che approva e paga — da qui non esce
-            denaro.
+            La richiesta parte poi verso <strong>Deluxy Transactions</strong>, dove una persona
+            la autorizza e paga — da qui non esce denaro. Quando di là il pagamento è fatto,
+            la riga passa a «pagata» da sola, con la ricevuta.
           </p>
         </div>
       </div>

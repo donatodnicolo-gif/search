@@ -410,7 +410,8 @@ export async function POST(req: NextRequest) {
     registro = null
   }
 
-  // Inoltro a Deluxy Partner, che approva e paga. Un fallimento qui non annulla
+  // Inoltro a Deluxy Transactions, dove una persona approva e paga (il canale
+  // Finance non esiste più dal 26/07). Un fallimento qui non annulla
   // il salvataggio: la richiesta resta e si può rimandare.
   let invio: { ok: boolean; messaggio: string } | null = null
   if (c.inviaAPartner !== false) {
