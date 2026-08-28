@@ -16,6 +16,12 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 28/08/2026 — la pro-forma prende i dati fiscali del cliente da ANAGRAFICHE; e «fatturata» non garantisce la fattura
+>
+> **Pro-forma — dati fiscali del cliente dal registro** (segnalato: «mancano tutti i dati anagrafici per una fatturazione che sono già in Anagrafiche»). Il blocco «Spettabile» leggeva solo dal `Partner` FINANCE (nome, città, email) — che i campi fiscali non li tiene. Ora, se il partner è collegato al registro (`anagraficaId`), `/proforma/[id]` legge da **Anagrafiche** ragione sociale, **indirizzo, P.IVA, C.F., Cod. SDI, PEC** via `anagraficaPerId()` (già esistente, non fatale: se il registro è giù restano i pochi campi del partner). Provato su **PF 2/2026 (Vivo Concerti SRL)**: ora mostra **P.IVA 10188790967** e **Piazza Fernanda Pivano 9, 20143 Milano**, che l'API restituisce e prima non comparivano. Un riquadro (solo in-app, non nel documento) dice cosa manca ancora per una fattura vera — qui **Cod. SDI o PEC**, ancora vuoti in Anagrafiche.
+>
+> 🔴 **«Fatturata» non vuol dire che la fattura esista.** Sempre PF 2/2026: stato `fatturata` (28/08) ma `fatturaNumero` **NULL**, e in **Fatture in Cloud NON c'è nessuna fattura** per Vivo Concerti — verificato via API FIC per nome e per P.IVA (0 risultati; FIC risponde e restituisce altre fatture, quindi non è un errore di query). Il passaggio a «fatturata» è un cambio di stato a mano (`cambiaStatoProForma`, `proforma-actions.ts`) che accetta un numero **facoltativo** e non verifica niente: si può marcare fatturata senza numero e senza documento. Da decidere: numero obbligatorio e/o verifica su FIC che quel numero esista. NON fatto (cambio di comportamento da concordare).
+
 > ### 28/08/2026 (sera) — quattro rifiniture sulle schede (movimento, fattura, partner)
 >
 > - **`/movimenti/[id]` — scheda del movimento**: al click su una riga di `/movimenti` si apre il dettaglio — causale per intero, IBAN controparte, fonte (Qonto/File), stato in riconciliazione + esito, partner collegato, categoria in sola lettura (link a `/spese/[id]` per cambiarla se è un'uscita) e gli altri movimenti della stessa controparte. È la scheda «cos'è il movimento», distinta da `/spese/[id]` = «che costo è».
