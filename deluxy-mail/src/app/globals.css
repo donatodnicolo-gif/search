@@ -1508,6 +1508,18 @@ mark.ricerca-hit {
   border-radius: var(--radius-pill); padding: 4px 6px 4px 12px;
   font-size: 12.5px;
 }
+/* Il nome di un allegato IN USCITA e cliccabile: lo apre in una scheda per
+   controllarlo prima di spedire. Reset del bottone + aspetto da link.
+   ⚠️ Nome diverso da `.allegato-nome` (riga sopra), che veste gli allegati
+   RICEVUTI: stesso oggetto, due significati, due classi. */
+.allegato-apri {
+  border: none; background: none; padding: 0; cursor: pointer;
+  font: inherit; color: var(--text); text-align: left;
+  text-decoration: underline; text-decoration-color: var(--hairline-strong);
+  text-underline-offset: 2px; max-width: 260px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.allegato-apri:hover { color: var(--gold-strong); text-decoration-color: currentColor; }
 .allegato-x {
   border: none; background: none; cursor: pointer; color: var(--text-tertiary);
   font-size: 16px; line-height: 1; padding: 0 4px;

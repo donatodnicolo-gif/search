@@ -1,6 +1,23 @@
 'use client'
 
-/** Selezione degli allegati: aggiungi file, li vedi elencati, li togli. */
+/**
+ * Apre un allegato che si sta ancora SCRIVENDO (non è mai partito).
+ *
+ * ⚠️ È un oggetto `File` del browser: non c'è niente da chiedere al server, si
+ * fabbrica un indirizzo temporaneo dal file in memoria e lo si apre in una
+ * scheda nuova. Il browser decide da sé — un PDF lo mostra, un'immagine la
+ * apre, il resto lo scarica.
+ * ⚠️ L'indirizzo temporaneo si REVOCA dopo un minuto: se lo si revocasse
+ * subito, la scheda appena aperta non farebbe in tempo a leggerlo; se non lo
+ * si revocasse mai, il file resterebbe in memoria finché non chiudi tutto.
+ */
+function apri(f: File) {
+  const url = URL.createObjectURL(f)
+  window.open(url, '_blank', 'noopener,noreferrer')
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+/** Selezione degli allegati: aggiungi file, li apri, li togli. */
 export function Allegati({
   files,
   onChange,
@@ -35,7 +52,18 @@ export function Allegati({
         <div className="allegati-lista">
           {files.map((f, i) => (
             <span key={i} className="allegato-chip">
-              {f.name} <span className="muted">({(f.size / 1024).toFixed(0)} KB)</span>
+              {/* ⚠️ Il NOME apre il file: prima si potevano solo aggiungere e
+                  togliere, e per controllare di allegare la fattura giusta
+                  bisognava mandarla e riaprirla dall'inviata. */}
+              <button
+                type="button"
+                className="allegato-apri"
+                title="Apri per controllare"
+                onClick={() => apri(f)}
+              >
+                {f.name}
+              </button>
+              <span className="muted">({(f.size / 1024).toFixed(0)} KB)</span>
               <button
                 type="button"
                 className="allegato-x"
