@@ -92,11 +92,15 @@ export default async function Dettaglio({
   const etichettaLuogo = (l: { nome: string; citta: string | null; sede: string | null; indirizzo: string | null }) =>
     [l.sede, l.citta, l.sede ? null : l.indirizzo].filter(Boolean).join(" · ") || l.nome;
 
-  // Appena diventata cliente: i referenti vanno in rubrica Google in automatico
+  // Appena diventata cliente: i referenti vanno in rubrica Google in automatico.
+  // ⚠️ SOLO quelli NON ancora salvati (`salvatoInRubricaIl` vuoto): un referente
+  // gia' in rubrica non si risalva, se no il flusso chiede di nuovo il token
+  // Google (la scelta account) per un lavoro gia' fatto.
   const affiliatoReseller = eAffiliatoReseller(p.interessi);
+  const daSalvareInRubrica = p.contatti.filter((c) => !c.salvatoInRubricaIl);
   const righeRubrica: RigaContatto[] =
     rubrica === "1" && p.stato === "attivo"
-      ? p.contatti.map((c) => ({
+      ? daSalvareInRubrica.map((c) => ({
           id: c.id,
           nome: c.nome,
           ruolo: c.ruolo,
@@ -218,11 +222,16 @@ export default async function Dettaglio({
             </a>
             {/* Innesco manuale del salvataggio referenti in rubrica Google:
                 utile per i clienti diventati Attivi fuori dalla UI (Excel/API). */}
-            {p.stato === "attivo" && p.contatti.length > 0 && (
-              <a className="btn btn-secondario" href={`/partner/${p.id}?rubrica=1`} style={{ fontSize: 12.5, padding: "6px 14px" }}>
-                ☎ Salva in rubrica
-              </a>
-            )}
+            {p.stato === "attivo" && p.contatti.length > 0 &&
+              (daSalvareInRubrica.length > 0 ? (
+                <a className="btn btn-secondario" href={`/partner/${p.id}?rubrica=1`} style={{ fontSize: 12.5, padding: "6px 14px" }}>
+                  ☎ Salva in rubrica{daSalvareInRubrica.length < p.contatti.length ? ` (${daSalvareInRubrica.length})` : ""}
+                </a>
+              ) : (
+                <span className="cella-fonte" style={{ fontSize: 12.5, padding: "6px 4px" }} title="Tutti i referenti sono già in rubrica Google">
+                  ☎ In rubrica
+                </span>
+              ))}
             {/* Il raggruppamento è nella sezione «Capogruppo» sotto: si assegna
                 l'azienda a un capogruppo per nome. */}
             {/* I doppioni non si raggruppano, si uniscono: due schede della
