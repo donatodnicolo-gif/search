@@ -74,12 +74,35 @@ export default async function FattureCloudPage({
   // si linka un cliente sbagliato). Se non combacia, il nome resta testo.
   const norm = (x: string) => x.toLowerCase().replace(/[.,]/g, "").replace(/\s+/g, " ").trim();
   const partnersFin = await prisma.partner.findMany({ select: { id: true, nome: true, ragioneSociale: true } });
-  const idPerNome = new Map();
+  const idPerNome = new Map<string, string>();
+  const voci: { norm: string; id: string }[] = [];
   for (const p of partnersFin) {
-    if (p.nome) idPerNome.set(norm(p.nome), p.id);
-    if (p.ragioneSociale) idPerNome.set(norm(p.ragioneSociale), p.id);
+    for (const n of [p.nome, p.ragioneSociale]) {
+      if (!n) continue;
+      const nn = norm(n);
+      idPerNome.set(nn, p.id);
+      voci.push({ norm: nn, id: p.id });
+    }
   }
-  const partnerIdDi = (cliente: string) => idPerNome.get(norm(cliente)) ?? null;
+  // Aggancio del cliente FIC (una stringa) al partner FINANCE. Prima l'esatto;
+  // se non c'è, un PREFISSO — la stessa azienda scritta più corta o più lunga
+  // («TIFFANY & CO.» vs «TIFFANY & CO. ITALIA S.P.A.»). ⚠️ Due paletti contro
+  // il falso aggancio: la parte in comune dev'essere lunga (≥ 8, così un nome
+  // generico corto tipo «tiffany» da solo non pesca), e deve risolvere a UN
+  // solo partner (se due partner condividono il prefisso è ambiguo → niente
+  // link, come per l'omonimia dei movimenti).
+  const partnerIdDi = (cliente: string): string | null => {
+    const c = norm(cliente);
+    const esatto = idPerNome.get(c);
+    if (esatto) return esatto;
+    if (c.length < 8) return null;
+    const ids = new Set(
+      voci
+        .filter((v) => v.norm.length >= 8 && (v.norm.startsWith(c) || c.startsWith(v.norm)))
+        .map((v) => v.id)
+    );
+    return ids.size === 1 ? [...ids][0] : null;
+  };
 
   const totImponibile = fatture.reduce((a, f) => a + f.imponibile, 0);
   const totLordo = fatture.reduce((a, f) => a + f.totale, 0);
