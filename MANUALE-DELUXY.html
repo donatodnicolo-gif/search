@@ -1,0 +1,780 @@
+<title>Manuale Deluxy</title>
+<style>
+  :root {
+    --bg: #F5F5F7;
+    --surface: #FFFFFF;
+    --ink: #1D1D1F;
+    --muted: #6E6E73;
+    --hairline: rgba(0, 0, 0, 0.09);
+    --gold: #B8963E;
+    --gold-ink: #8A6F2C;
+    --gold-soft: rgba(184, 150, 62, 0.10);
+    --money: #3E8E5A;
+    --money-soft: rgba(62, 142, 90, 0.10);
+    --warn-soft: rgba(184, 90, 62, 0.08);
+    --warn-ink: #A05A3E;
+    --code-bg: rgba(0, 0, 0, 0.045);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131315;
+      --surface: #1D1D20;
+      --ink: #F5F5F7;
+      --muted: #98989D;
+      --hairline: rgba(255, 255, 255, 0.12);
+      --gold: #C9A85C;
+      --gold-ink: #D9BC78;
+      --gold-soft: rgba(201, 168, 92, 0.13);
+      --money: #5DBE85;
+      --money-soft: rgba(93, 190, 133, 0.12);
+      --warn-soft: rgba(217, 140, 110, 0.10);
+      --warn-ink: #D99C7E;
+      --code-bg: rgba(255, 255, 255, 0.07);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131315;
+    --surface: #1D1D20;
+    --ink: #F5F5F7;
+    --muted: #98989D;
+    --hairline: rgba(255, 255, 255, 0.12);
+    --gold: #C9A85C;
+    --gold-ink: #D9BC78;
+    --gold-soft: rgba(201, 168, 92, 0.13);
+    --money: #5DBE85;
+    --money-soft: rgba(93, 190, 133, 0.12);
+    --warn-soft: rgba(217, 140, 110, 0.10);
+    --warn-ink: #D99C7E;
+    --code-bg: rgba(255, 255, 255, 0.07);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px 96px; }
+
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 0.86em;
+    background: var(--code-bg);
+    border-radius: 5px;
+    padding: 0.1em 0.4em;
+  }
+
+  /* ---------- testata ---------- */
+  header { padding: 72px 0 20px; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px;
+    font-weight: 600; color: var(--gold-ink); margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(38px, 6vw, 56px); font-weight: 700;
+    letter-spacing: -0.03em; line-height: 1.06; margin: 0 0 16px;
+    text-wrap: balance;
+  }
+  .lede { font-size: 19px; color: var(--muted); max-width: 62ch; margin: 0; }
+  .meta { margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .meta span { border: 1px solid var(--hairline); border-radius: 999px; padding: 4px 12px; background: var(--surface); }
+
+  nav.toc { display: flex; gap: 8px; flex-wrap: wrap; margin: 28px 0 8px; }
+  nav.toc a {
+    text-decoration: none; color: var(--ink); font-size: 13.5px; font-weight: 500;
+    border: 1px solid var(--hairline); background: var(--surface);
+    border-radius: 999px; padding: 6px 14px;
+  }
+  nav.toc a:hover, nav.toc a:focus-visible { border-color: var(--gold); outline: none; }
+
+  /* ---------- capitoli ---------- */
+  section { margin-top: 64px; }
+  .chapter {
+    display: flex; align-items: baseline; gap: 14px; margin: 0 0 6px;
+  }
+  .chapter .num {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 14px; color: var(--gold-ink); font-weight: 600;
+  }
+  h2 {
+    font-size: clamp(24px, 3.4vw, 32px); font-weight: 700;
+    letter-spacing: -0.022em; margin: 0; text-wrap: balance;
+  }
+  .chapter-lede { color: var(--muted); max-width: 68ch; margin: 6px 0 24px; }
+  h3 { font-size: 19px; font-weight: 650; letter-spacing: -0.015em; margin: 32px 0 8px; }
+
+  p { max-width: 70ch; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 16px; padding: 22px 26px;
+  }
+  .card + .card { margin-top: 14px; }
+
+  .callout {
+    border-left: 3px solid var(--gold); background: var(--gold-soft);
+    border-radius: 0 12px 12px 0; padding: 14px 20px; max-width: 72ch;
+  }
+  .callout.warn { border-left-color: var(--warn-ink); background: var(--warn-soft); }
+  .callout p { margin: 0; }
+  .callout p + p { margin-top: 8px; }
+
+  figure { margin: 26px 0; }
+  figure svg { max-width: 100%; height: auto; display: block; }
+  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 10px; max-width: 70ch; }
+  .fig-scroll { overflow-x: auto; }
+  .fig-scroll svg { min-width: 700px; }
+
+  /* ---------- tabelle ---------- */
+  .table-scroll { overflow-x: auto; border: 1px solid var(--hairline); border-radius: 14px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th {
+    text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); font-weight: 600; padding: 12px 16px;
+    border-bottom: 1px solid var(--hairline); white-space: nowrap;
+  }
+  td { padding: 11px 16px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.app { font-weight: 600; white-space: nowrap; }
+  td.porta { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .zona {
+    margin: 30px 0 10px; font-size: 13px; font-weight: 650;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold-ink);
+  }
+  .zona:first-of-type { margin-top: 0; }
+  td a { color: inherit; text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 3px; }
+  td a:hover { text-decoration-color: var(--gold); }
+
+  .possiede { color: var(--muted); font-size: 13.5px; }
+  .possiede b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- glossario ---------- */
+  dl.gloss { display: grid; grid-template-columns: max-content 1fr; gap: 10px 26px; margin: 0; }
+  dl.gloss dt { font-weight: 650; white-space: nowrap; }
+  dl.gloss dd { margin: 0; color: var(--muted); max-width: 62ch; }
+  @media (max-width: 620px) {
+    dl.gloss { grid-template-columns: 1fr; gap: 2px; }
+    dl.gloss dd { margin-bottom: 12px; }
+  }
+
+  /* ---------- registro ---------- */
+  .registro td:first-child { white-space: nowrap; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 13px; color: var(--muted); }
+  .registro td:nth-child(2) { white-space: nowrap; font-weight: 600; }
+
+  ul { padding-left: 20px; max-width: 68ch; }
+  li { margin: 6px 0; }
+  li::marker { color: var(--gold); }
+
+  footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--hairline); font-size: 13px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Deluxy · guida per chi arriva</p>
+  <h1>Come funziona Deluxy, tutto insieme</h1>
+  <p class="lede">
+    Deluxy vende fiori e torte di lusso, e li consegna con una rete di fioristi, pasticcerie e
+    valet. Attorno a questo lavoro girano circa venti applicazioni. Questa pagina spiega
+    che cosa fa ciascuna, come si passano i dati e dove va a finire il denaro —
+    partendo da zero.
+  </p>
+  <div class="meta">
+    <span>Aggiornato il 28/08/2026</span>
+    <span>Fonte: repo <code>scoutwt</code> / <code>app</code></span>
+    <span>Il registro delle novità è al capitolo 7</span>
+  </div>
+  <nav class="toc" aria-label="Capitoli">
+    <a href="#azienda">1 · L'azienda</a>
+    <a href="#mappa">2 · La mappa delle app</a>
+    <a href="#casa">3 · La regola dei dati</a>
+    <a href="#ordine">4 · Il giro dell'ordine</a>
+    <a href="#denaro">5 · Il giro del denaro</a>
+    <a href="#regole">6 · Le regole della casa</a>
+    <a href="#registro">7 · Registro delle novità</a>
+    <a href="#glossario">8 · Glossario</a>
+  </nav>
+</header>
+
+<!-- ============================================================ -->
+<section id="azienda">
+  <div class="chapter"><span class="num">01</span><h2>L'azienda, in una pagina</h2></div>
+  <p class="chapter-lede">Prima delle app, il mestiere. Tutto il resto ha senso solo se questo è chiaro.</p>
+
+  <div class="card">
+    <p><b>Cosa si vende.</b> Composizioni floreali e torte di fascia alta, su tre siti
+    (le <b>maison</b>): <code>deluxy.it</code>, <code>deluxyflowers.com</code> e
+    <code>cakedesign.me</code>. Questo è il canale <b>D2C</b> — il cliente finale che compra online.
+    Accanto c'è il <b>B2B</b>: hotel, uffici, boutique del lusso che ordinano forniture,
+    eventi e consegne ricorrenti.</p>
+
+    <p><b>Come si consegna.</b> Deluxy non ha un magazzino centrale: l'ordine viene preparato da un
+    <b>partner</b> — un fiorista o una pasticceria della zona — e arriva al cliente o
+    <b>consegnato dal partner stesso</b>, oppure ritirato e portato da un <b>valet</b> Deluxy.
+    Le consegne viaggiano su tre fasce orarie (8–12, 12–16, 16–20), con ordine entro le 16
+    per la consegna in giornata.</p>
+
+    <p style="margin-bottom:0"><b>Come si guadagna.</b> Sul D2C il cliente paga il sito; al partner va una
+    <b>quota</b> concordata (di norma il 60–80% a seconda della provincia), e la differenza —
+    meno il costo della consegna e la pubblicità — è il margine di Deluxy. Sul B2B si emette
+    fattura. Ogni numero di questo paragrafo vive in un'app precisa: i prossimi capitoli dicono quale.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="mappa">
+  <div class="chapter"><span class="num">02</span><h2>La mappa delle app</h2></div>
+  <p class="chapter-lede">
+    Si entra da un'unica porta, il <b>Hub</b>: un login, e ognuno vede solo le app del proprio
+    ruolo. Dietro la porta, le app si dividono in quattro territori.
+  </p>
+
+  <figure class="fig-scroll">
+    <svg viewBox="0 0 880 470" role="img" aria-label="Mappa dell'ecosistema: il Hub come porta d'ingresso, sotto quattro territori — vendita, operazioni, denaro, persone e partner — con il filo dell'ordine che va dalla vendita alle operazioni e il filo del denaro che scende verso le app del denaro.">
+      <defs>
+        <marker id="fr-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/>
+        </marker>
+        <marker id="fr-money" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--money)"/>
+        </marker>
+      </defs>
+
+      <!-- Hub -->
+      <rect x="20" y="16" width="840" height="58" rx="14" fill="var(--gold-soft)" stroke="var(--gold)" stroke-width="1.4"/>
+      <text x="440" y="40" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">Deluxy Hub — la porta d'ingresso</text>
+      <text x="440" y="60" text-anchor="middle" font-size="12" fill="var(--muted)">un solo login · ruoli: admin, partner, commerciale · ognuno vede solo le sue app</text>
+
+      <!-- zone: vendita -->
+      <rect x="20" y="104" width="410" height="150" rx="14" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="40" y="132" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--gold-ink)">VENDITA E CLIENTI</text>
+      <text x="40" y="158" font-size="13.5" font-weight="600" fill="currentColor">Siti Shopify · Orders · CRM</text>
+      <text x="40" y="180" font-size="13.5" font-weight="600" fill="currentColor">Merchandising · Marketing</text>
+      <text x="40" y="208" font-size="12" fill="var(--muted)">dove nasce l'ordine, chi sono i clienti,</text>
+      <text x="40" y="226" font-size="12" fill="var(--muted)">che prodotti e che pubblicità</text>
+
+      <!-- zone: operazioni -->
+      <rect x="450" y="104" width="410" height="150" rx="14" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="470" y="132" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--gold-ink)">OPERAZIONI</text>
+      <text x="470" y="158" font-size="13.5" font-weight="600" fill="currentColor">Customer Service · Piattaforma consegne</text>
+      <text x="470" y="180" font-size="13.5" font-weight="600" fill="currentColor">Search · AI Mail · Scripts · Tasks · Calendario</text>
+      <text x="470" y="208" font-size="12" fill="var(--muted)">come l'ordine viene evaso: chi lo prepara,</text>
+      <text x="470" y="226" font-size="12" fill="var(--muted)">chi lo porta, chi risponde al cliente</text>
+
+      <!-- zone: denaro -->
+      <rect x="20" y="292" width="410" height="150" rx="14" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="40" y="320" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--money)">DENARO</text>
+      <text x="40" y="346" font-size="13.5" font-weight="600" fill="currentColor">Finance · Transactions · Budgets</text>
+      <text x="40" y="368" font-size="13.5" font-weight="600" fill="currentColor">Fondo · Acquisti</text>
+      <text x="40" y="396" font-size="12" fill="var(--muted)">fatture, banca, pagamenti in uscita,</text>
+      <text x="40" y="414" font-size="12" fill="var(--muted)">budget e conto economico</text>
+
+      <!-- zone: persone -->
+      <rect x="450" y="292" width="410" height="150" rx="14" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="470" y="320" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--gold-ink)">PERSONE E PARTNER</text>
+      <text x="470" y="346" font-size="13.5" font-weight="600" fill="currentColor">Anagrafiche · Personale · Scout</text>
+      <text x="470" y="374" font-size="12" fill="var(--muted)">il registro dei partner B2B, l'organico,</text>
+      <text x="470" y="392" font-size="12" fill="var(--muted)">la prospezione di partner nuovi</text>
+
+      <!-- fili -->
+      <line x1="430" y1="179" x2="446" y2="179" stroke="var(--gold)" stroke-width="2" marker-end="url(#fr-gold)"/>
+      <text x="438" y="168" text-anchor="middle" font-size="11" fill="var(--gold-ink)">l'ordine</text>
+      <line x1="470" y1="254" x2="330" y2="288" stroke="var(--money)" stroke-width="2" marker-end="url(#fr-money)"/>
+      <text x="418" y="278" text-anchor="middle" font-size="11" fill="var(--money)">il denaro</text>
+    </svg>
+    <figcaption>
+      I due fili che attraversano tutto: <b style="color:var(--gold-ink)">l'ordine</b> (capitolo 4)
+      va dalla vendita alle operazioni; <b style="color:var(--money)">il denaro</b> (capitolo 5)
+      scende da ogni territorio verso le app del denaro.
+    </figcaption>
+  </figure>
+
+  <h3>Le app, una per una</h3>
+  <p>La colonna «di cosa è la casa» è la più importante: è il dato di cui quell'app è
+  l'unica proprietaria (capitolo 3).</p>
+
+  <p class="zona">Vendita e clienti</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>App</th><th>Cosa fa</th><th>Di cosa è la casa</th><th>Porta</th></tr></thead>
+    <tbody>
+      <tr><td class="app"><a href="https://deluxy-orders.vercel.app">Orders</a></td>
+        <td>Il registro di tutti gli ordini dei siti Shopify: incassi, stato, evasione.</td>
+        <td class="possiede"><b>Il ricavo D2C e il margine</b> di ogni ordine — la formula del margine vive solo qui.</td>
+        <td class="porta">3150</td></tr>
+      <tr><td class="app"><a href="https://deluxy-crm.vercel.app">CRM</a></td>
+        <td>Il libro dei clienti D2C, stile clienteling: scheda a 360°, ricorrenze, eventi, mail personalizzate.</td>
+        <td class="possiede"><b>La relazione col cliente finale</b> (le vendite le legge da Orders).</td>
+        <td class="porta">3190</td></tr>
+      <tr><td class="app">Siti Shopify</td>
+        <td>I tre negozi delle maison più i temi (<code>sviluppi-siti-deluxy</code>). Regole di consegna per brand.</td>
+        <td class="possiede"><b>Il carrello e il pagamento</b> del cliente.</td>
+        <td class="porta">—</td></tr>
+      <tr><td class="app"><a href="https://deluxy-merchandising.vercel.app">Merchandising</a></td>
+        <td>Il prodotto a 360°: collezioni, costi, trend di vendita, ipotesi di ordinativo, pubblicazione su Shopify.</td>
+        <td class="possiede"><b>Il catalogo e l'assortimento</b>: cosa si vende e su quale sito.</td>
+        <td class="porta">3120</td></tr>
+      <tr><td class="app"><a href="https://deluxy-marketing.vercel.app">Marketing</a></td>
+        <td>La memoria della pubblicità: campagne Google/Meta, spesa, MER per brand.</td>
+        <td class="possiede"><b>Le campagne e la loro spesa</b> (il totale vero di cassa resta la banca).</td>
+        <td class="porta">3130</td></tr>
+    </tbody>
+  </table></div>
+
+  <p class="zona">Operazioni</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>App</th><th>Cosa fa</th><th>Di cosa è la casa</th><th>Porta</th></tr></thead>
+    <tbody>
+      <tr><td class="app"><a href="https://deluxy-messaging.vercel.app">Customer Service</a></td>
+        <td>Gli ordini da lavorare, i reclami, l'inbox unificata WhatsApp/Messenger/Instagram, i pagamenti dei reclami.</td>
+        <td class="possiede"><b>La decisione di gestione</b>: come si evade un ordine, a chi, a che costo — per mano o per regola.</td>
+        <td class="porta">3140</td></tr>
+      <tr><td class="app"><a href="https://app.deluxy.it">Piattaforma consegne</a></td>
+        <td>Il canale del fornitore-partner: incarichi proposti e accettati, esecuzione col valet, tracking, paghe dei valet, sezione Richieste.</td>
+        <td class="possiede"><b>L'incarico e la consegna</b>: chi la fa, quando, quanto costa (ritenute comprese) — e l'offerta del fornitore (prodotto <code>UNICO</code>).</td>
+        <td class="porta">web</td></tr>
+      <tr><td class="app"><a href="https://search-deluxy.vercel.app">Search</a></td>
+        <td>Trova fiorai e pasticcerie in una zona e smista gli ordini via WhatsApp/Email.</td>
+        <td class="possiede"><b>Niente</b> — è un motore di scoperta, non una fonte di verità.</td>
+        <td class="porta">web</td></tr>
+      <tr><td class="app"><a href="https://deluxy-mail.vercel.app">AI Mail</a></td>
+        <td>La posta: legge le caselle, smista con l'AI, prepara bozze; le altre app inviano da qui via API.</td>
+        <td class="possiede"><b>Le caselle e l'invio</b> — un solo punto da cui parte ogni mail.</td>
+        <td class="porta">3070</td></tr>
+      <tr><td class="app"><a href="https://deluxy-scripts.vercel.app">Scripts</a></td>
+        <td>I testi pronti (vendita, inviti, presentazioni) con variabili, letti dalle altre app via API. «Script» = copione, non codice.</td>
+        <td class="possiede"><b>I testi commerciali</b> approvati.</td>
+        <td class="porta">3170</td></tr>
+      <tr><td class="app">Tasks</td>
+        <td>Attività condivise fra le app, via API.</td>
+        <td class="possiede"><b>Le attività</b> e il loro stato.</td>
+        <td class="porta">3090</td></tr>
+      <tr><td class="app">Calendario</td>
+        <td>Calendario condiviso.</td>
+        <td class="possiede"><b>Gli appuntamenti</b>.</td>
+        <td class="porta">3110</td></tr>
+    </tbody>
+  </table></div>
+
+  <p class="zona">Denaro</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>App</th><th>Cosa fa</th><th>Di cosa è la casa</th><th>Porta</th></tr></thead>
+    <tbody>
+      <tr><td class="app"><a href="https://deluxy-partner.vercel.app">Finance</a></td>
+        <td>Fatture (via Fatture in Cloud), saldi dei partner, movimenti bancari Qonto con classificazione, estratto conto unico, pro-forma.</td>
+        <td class="possiede"><b>Il fatturato B2B, i saldi partner e la banca classificata</b>.</td>
+        <td class="porta">3040</td></tr>
+      <tr><td class="app"><a href="https://deluxy-transactions.vercel.app">Transactions</a></td>
+        <td>L'<b>unica uscita del denaro</b>: le app chiedono un pagamento, qui si autorizza con doppia firma e si genera la distinta SEPA.</td>
+        <td class="possiede"><b>L'autorizzazione a pagare</b>. Nessun'altra app fa uscire un euro.</td>
+        <td class="porta">3160</td></tr>
+      <tr><td class="app"><a href="https://deluxy-budgets.vercel.app">Budgets</a></td>
+        <td>Il budget dell'anno su 3 livelli (raggiungibile / sfidante / irraggiungibile), il conto economico consuntivo, i premi, le proposte dei responsabili.</td>
+        <td class="possiede"><b>Il budget e il P&amp;L</b> — i consuntivi li legge dai proprietari: Orders, Finance, Marketing, Piattaforma.</td>
+        <td class="porta">3080</td></tr>
+      <tr><td class="app">Fondo</td>
+        <td>Il fondo cassa.</td>
+        <td class="possiede"><b>La cassa contante</b>.</td>
+        <td class="porta">3180</td></tr>
+      <tr><td class="app">Acquisti</td>
+        <td>Richieste d'acquisto con approvazione, estrazione AI dei documenti.</td>
+        <td class="possiede"><b>La richiesta d'acquisto</b> e il suo iter.</td>
+        <td class="porta">3100</td></tr>
+    </tbody>
+  </table></div>
+
+  <p class="zona">Persone e partner</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>App</th><th>Cosa fa</th><th>Di cosa è la casa</th><th>Porta</th></tr></thead>
+    <tbody>
+      <tr><td class="app"><a href="https://deluxy-hub.vercel.app">Hub</a></td>
+        <td>Il portale: login unico, catalogo delle app per ruolo, cassaforte delle chiavi, presenze.</td>
+        <td class="possiede"><b>Gli utenti e i ruoli</b> d'accesso.</td>
+        <td class="porta">3050</td></tr>
+      <tr><td class="app"><a href="https://deluxy-anagrafiche.vercel.app">Anagrafiche</a></td>
+        <td>Il registro dei partner e prospect B2B: dati fiscali, sedi, contatti — il «golden record».</td>
+        <td class="possiede"><b>L'anagrafica B2B</b>. Scrive solo la Piattaforma; tutte le altre leggono.</td>
+        <td class="porta">3060</td></tr>
+      <tr><td class="app"><a href="https://deluxy-personale.vercel.app">Personale</a></td>
+        <td>Organico e dati HR: funzioni, mansioni, organigramma, inquadramenti, retribuzioni.</td>
+        <td class="possiede"><b>Le persone e le retribuzioni</b> (i compensi escono solo con permesso esplicito).</td>
+        <td class="porta">3200</td></tr>
+      <tr><td class="app"><a href="https://deluxy-scout.vercel.app">Scout</a></td>
+        <td>App mobile di prospezione: trovare e trattare partner nuovi; le richieste web dai siti diventano trattative.</td>
+        <td class="possiede"><b>La pipeline commerciale</b> (le trattative; il ricavo, alla vittoria, va a Orders).</td>
+        <td class="porta">mobile</td></tr>
+    </tbody>
+  </table></div>
+
+  <p class="zona">Fondamenta (non sono app: sono le regole)</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Cosa</th><th>A cosa serve</th></tr></thead>
+    <tbody>
+      <tr><td class="app">Design System</td><td>Token e componenti comuni + il <b>Libro UX&amp;UI</b>: come si fa ogni elemento di interfaccia, uguale in tutte le app.</td></tr>
+      <tr><td class="app">Standard Deluxy</td><td>Le regole tecniche, in particolare il §7: l'architettura dei dati del capitolo 3.</td></tr>
+      <tr><td class="app">Libro Sicurezza / Libro Performance</td><td>Le leggi di sicurezza (12) e di velocità (10) valide per ogni app, ciascuna con un custode.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="casa">
+  <div class="chapter"><span class="num">03</span><h2>La regola che tiene tutto insieme: ogni dato ha una casa sola</h2></div>
+  <p class="chapter-lede">
+    Venti app sullo stesso database Postgres potrebbero diventare un groviglio. Non lo sono per
+    una regola sola, scritta nello Standard Deluxy §7.
+  </p>
+
+  <div class="callout">
+    <p><b>Chi possiede un dato è l'unico che lo scrive. Tutti gli altri lo leggono
+    chiedendolo a lui</b>, via <code>/api/v1</code> con una chiave dedicata — mai frugando
+    direttamente nel suo schema, mai tenendosene una copia.</p>
+  </div>
+
+  <figure class="fig-scroll">
+    <svg viewBox="0 0 860 250" role="img" aria-label="L'app proprietaria scrive nel proprio schema del database condiviso; un'altra app legge chiedendo alla proprietaria via API con chiave; la query diretta sullo schema altrui è vietata.">
+      <defs>
+        <marker id="fc-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+        <marker id="fc-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/>
+        </marker>
+      </defs>
+
+      <!-- proprietaria -->
+      <rect x="30" y="40" width="220" height="72" rx="12" fill="var(--gold-soft)" stroke="var(--gold)" stroke-width="1.4"/>
+      <text x="140" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">App proprietaria</text>
+      <text x="140" y="92" text-anchor="middle" font-size="12" fill="var(--muted)">es. Orders per il margine</text>
+
+      <!-- db -->
+      <rect x="330" y="40" width="200" height="72" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="430" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Postgres condiviso</text>
+      <text x="430" y="92" text-anchor="middle" font-size="12" fill="var(--muted)">uno schema per app</text>
+
+      <!-- altra app -->
+      <rect x="610" y="40" width="220" height="72" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="720" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Qualsiasi altra app</text>
+      <text x="720" y="92" text-anchor="middle" font-size="12" fill="var(--muted)">es. Budgets per il consuntivo</text>
+
+      <!-- scrive -->
+      <line x1="250" y1="76" x2="326" y2="76" stroke="currentColor" stroke-width="1.6" marker-end="url(#fc-ink)"/>
+      <text x="288" y="64" text-anchor="middle" font-size="12" fill="var(--muted)">scrive (solo lei)</text>
+
+      <!-- legge via API -->
+      <path d="M 610 60 C 480 8, 280 8, 148 36" fill="none" stroke="var(--gold)" stroke-width="2" marker-end="url(#fc-gold)"/>
+      <text x="380" y="26" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--gold-ink)">GET /api/v1 · chiave con permesso preciso, revocabile</text>
+
+      <!-- vietata -->
+      <line x1="640" y1="112" x2="530" y2="150" stroke="currentColor" stroke-width="1.6" stroke-dasharray="6 5" opacity="0.6"/>
+      <line x1="524" y1="130" x2="500" y2="172" stroke="var(--warn-ink)" stroke-width="2.4"/>
+      <line x1="500" y1="130" x2="524" y2="172" stroke="var(--warn-ink)" stroke-width="2.4"/>
+      <text x="640" y="172" font-size="12.5" fill="var(--warn-ink)" font-weight="600">query diretta sullo schema altrui: mai</text>
+      <text x="640" y="192" font-size="12" fill="var(--muted)">e mai tabelle-copia, mai regole economiche ricopiate</text>
+    </svg>
+    <figcaption>
+      La conseguenza pratica: se un numero è sbagliato, si sa sempre <b>dove</b> andare a
+      correggerlo — nella casa di quel dato, una sola volta. E se due app mostrano due numeri
+      diversi per la stessa cosa, una delle due lo sta ricopiando: è quello il difetto.
+    </figcaption>
+  </figure>
+
+  <ul>
+    <li><b>Regole economiche mai ricopiate.</b> Quota partner, margine, fee, IVA: si chiedono al
+      proprietario ogni volta. Una regola copiata in due posti prima o poi diverge.</li>
+    <li><b>Cache sì, copie no.</b> Tenere in cache una risposta per 60 secondi va bene;
+      tenersi una tabella-fotocopia dei dati altrui no.</li>
+    <li><b>Le chiavi hanno un nome.</b> Ogni app che legge da un'altra usa una chiave emessa
+      per lei, con un permesso preciso, revocabile da sola.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="ordine">
+  <div class="chapter"><span class="num">04</span><h2>Il giro dell'ordine</h2></div>
+  <p class="chapter-lede">
+    Dal clic del cliente al fiore consegnato. Il registro è Orders; la decisione è del
+    Customer Service; l'esecuzione passa per tre strade.
+  </p>
+
+  <figure class="fig-scroll">
+    <svg viewBox="0 0 920 430" role="img" aria-label="Il cliente ordina sul sito; l'ordine entra in Orders; il Customer Service decide fra tre strade: fornitore in chat, consegna con incarico in piattaforma e valet, o accettazione automatica per i prodotti unici; ogni strada riporta l'esito a Orders, che calcola il margine.">
+      <defs>
+        <marker id="fo-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+        <marker id="fo-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/>
+        </marker>
+      </defs>
+
+      <!-- riga alta -->
+      <rect x="20" y="30" width="130" height="60" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="85" y="56" text-anchor="middle" font-size="13.5" font-weight="700" fill="currentColor">Cliente</text>
+      <text x="85" y="76" text-anchor="middle" font-size="11.5" fill="var(--muted)">compra sul sito</text>
+
+      <rect x="210" y="30" width="150" height="60" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="285" y="56" text-anchor="middle" font-size="13.5" font-weight="700" fill="currentColor">Sito Shopify</text>
+      <text x="285" y="76" text-anchor="middle" font-size="11.5" fill="var(--muted)">una delle 3 maison</text>
+
+      <rect x="420" y="30" width="160" height="60" rx="12" fill="var(--gold-soft)" stroke="var(--gold)" stroke-width="1.4"/>
+      <text x="500" y="56" text-anchor="middle" font-size="13.5" font-weight="700" fill="currentColor">Orders</text>
+      <text x="500" y="76" text-anchor="middle" font-size="11.5" fill="var(--muted)">il registro: incasso, stato</text>
+
+      <rect x="640" y="30" width="180" height="60" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="730" y="56" text-anchor="middle" font-size="13.5" font-weight="700" fill="currentColor">Customer Service</text>
+      <text x="730" y="76" text-anchor="middle" font-size="11.5" fill="var(--muted)">decide: per mano o per regola</text>
+
+      <line x1="150" y1="60" x2="206" y2="60" stroke="currentColor" stroke-width="1.6" marker-end="url(#fo-ink)"/>
+      <line x1="360" y1="60" x2="416" y2="60" stroke="currentColor" stroke-width="1.6" marker-end="url(#fo-ink)"/>
+      <text x="388" y="48" text-anchor="middle" font-size="11" fill="var(--muted)">sync</text>
+      <line x1="580" y1="60" x2="636" y2="60" stroke="currentColor" stroke-width="1.6" marker-end="url(#fo-ink)"/>
+      <text x="608" y="48" text-anchor="middle" font-size="11" fill="var(--muted)">ogni 15′</text>
+
+      <!-- tre strade -->
+      <line x1="730" y1="90" x2="160" y2="146" stroke="currentColor" stroke-width="1.4" marker-end="url(#fo-ink)"/>
+      <line x1="730" y1="90" x2="460" y2="146" stroke="currentColor" stroke-width="1.4" marker-end="url(#fo-ink)"/>
+      <line x1="730" y1="90" x2="762" y2="146" stroke="currentColor" stroke-width="1.4" marker-end="url(#fo-ink)"/>
+
+      <rect x="20" y="150" width="270" height="96" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="40" y="176" font-size="12" font-weight="700" letter-spacing="1" fill="var(--gold-ink)">STRADA A · FORNITORE IN CHAT</text>
+      <text x="40" y="198" font-size="12.5" fill="currentColor">Il CS accorda un fiorista su WhatsApp:</text>
+      <text x="40" y="216" font-size="12.5" fill="currentColor">prepara e consegna lui. Nessun account,</text>
+      <text x="40" y="234" font-size="12.5" fill="currentColor">l'esito si annota a mano.</text>
+
+      <rect x="320" y="150" width="280" height="96" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="340" y="176" font-size="12" font-weight="700" letter-spacing="1" fill="var(--gold-ink)">STRADA B · CONSEGNA NOSTRA</text>
+      <text x="340" y="198" font-size="12.5" fill="currentColor">Incarico in Piattaforma: il partner</text>
+      <text x="340" y="216" font-size="12.5" fill="currentColor">accetta dal suo account, un valet</text>
+      <text x="340" y="234" font-size="12.5" fill="currentColor">ritira e consegna, col tracking.</text>
+
+      <rect x="630" y="150" width="270" height="96" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="650" y="176" font-size="12" font-weight="700" letter-spacing="1" fill="var(--gold-ink)">STRADA C · AUTOMATICA (UNICO)</text>
+      <text x="650" y="198" font-size="12.5" fill="currentColor">Prodotto di UN solo fornitore: l'incarico</text>
+      <text x="650" y="216" font-size="12.5" fill="currentColor">parte da solo al proprietario, che accetta</text>
+      <text x="650" y="234" font-size="12.5" fill="currentColor">o rifiuta. Rifiuto → coda umana.</text>
+
+      <!-- convergenza -->
+      <line x1="155" y1="246" x2="404" y2="306" stroke="var(--gold)" stroke-width="2" marker-end="url(#fo-gold)"/>
+      <line x1="460" y1="246" x2="460" y2="302" stroke="var(--gold)" stroke-width="2" marker-end="url(#fo-gold)"/>
+      <line x1="765" y1="246" x2="516" y2="306" stroke="var(--gold)" stroke-width="2" marker-end="url(#fo-gold)"/>
+
+      <rect x="260" y="310" width="400" height="66" rx="12" fill="var(--gold-soft)" stroke="var(--gold)" stroke-width="1.4"/>
+      <text x="460" y="336" text-anchor="middle" font-size="13.5" font-weight="700" fill="currentColor">L'esito torna a Orders</text>
+      <text x="460" y="358" text-anchor="middle" font-size="12" fill="var(--muted)">costo del fornitore, costo consegna, consegnato quando e da chi</text>
+
+      <text x="460" y="408" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--gold-ink)">margine = incasso − costo fornitore − costo consegna (+ fee) · calcolato SOLO in Orders</text>
+    </svg>
+    <figcaption>
+      Il Customer Service governa anche l'automatismo: può riservarsi un ordine
+      (<code>smistamento = manuale</code>) o interrompere un incarico già proposto. Le due app non
+      si parlano mai direttamente: <b>il punto d'incontro è sempre il registro</b>, Orders.
+    </figcaption>
+  </figure>
+
+  <ul>
+    <li><b>Chi prepara non è sempre chi consegna.</b> Il partner prepara sempre; la consegna è
+      sua (strada A, o «consegna del produttore») oppure di un valet Deluxy (strada B).</li>
+    <li><b>Il prodotto UNICO</b> è un'offerta che un solo fornitore carica dal suo account in
+      Piattaforma, col suo prezzo. Se l'ordine contiene un UNICO, l'incarico parte da solo:
+      nessun operatore in mezzo.</li>
+    <li><b>Se manca un ingrediente, il margine è «non calcolabile»</b> — mai zero. Un numero
+      che sembra basso è un allarme; un numero inventato è un danno.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="denaro">
+  <div class="chapter"><span class="num">05</span><h2>Il giro del denaro</h2></div>
+  <p class="chapter-lede">
+    Tutto ciò che entra e che esce passa dalla banca (Qonto). Le app si dividono i compiti:
+    Finance la fotografa e la spiega, Transactions è l'unico rubinetto in uscita,
+    Budgets la confronta col piano.
+  </p>
+
+  <figure class="fig-scroll">
+    <svg viewBox="0 0 920 380" role="img" aria-label="Gli incassi dei siti e le fatture B2B arrivano in banca; Finance sincronizza e classifica i movimenti e possiede fatture e saldi; ogni pagamento in uscita passa da Transactions con doppia firma; Budgets legge i consuntivi da Orders, Finance, Marketing e Piattaforma per il conto economico.">
+      <defs>
+        <marker id="fd-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+        <marker id="fd-money" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--money)"/>
+        </marker>
+      </defs>
+
+      <!-- entrate -->
+      <rect x="20" y="24" width="220" height="56" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="130" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">Incassi D2C</text>
+      <text x="130" y="66" text-anchor="middle" font-size="11.5" fill="var(--muted)">Shopify / Stripe, dai 3 siti</text>
+
+      <rect x="20" y="100" width="220" height="56" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="130" y="124" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">Fatture B2B</text>
+      <text x="130" y="142" text-anchor="middle" font-size="11.5" fill="var(--muted)">emesse da Finance su Fatture in Cloud</text>
+
+      <!-- banca -->
+      <rect x="340" y="58" width="220" height="66" rx="12" fill="var(--money-soft)" stroke="var(--money)" stroke-width="1.4"/>
+      <text x="450" y="86" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Banca (Qonto)</text>
+      <text x="450" y="106" text-anchor="middle" font-size="11.5" fill="var(--muted)">l'unica verità di cassa</text>
+
+      <line x1="240" y1="52" x2="336" y2="80" stroke="var(--money)" stroke-width="2" marker-end="url(#fd-money)"/>
+      <line x1="240" y1="128" x2="336" y2="102" stroke="var(--money)" stroke-width="2" marker-end="url(#fd-money)"/>
+      <text x="288" y="46" text-anchor="middle" font-size="11" fill="var(--money)">entra</text>
+      <text x="288" y="134" text-anchor="middle" font-size="11" fill="var(--money)">incasso</text>
+
+      <!-- finance -->
+      <rect x="660" y="58" width="240" height="66" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="780" y="82" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Finance</text>
+      <text x="780" y="102" text-anchor="middle" font-size="11.5" fill="var(--muted)">movimenti classificati · fatture · saldi partner</text>
+
+      <line x1="560" y1="91" x2="656" y2="91" stroke="currentColor" stroke-width="1.6" marker-end="url(#fd-ink)"/>
+      <text x="608" y="79" text-anchor="middle" font-size="11" fill="var(--muted)">sync + classificazione</text>
+
+      <!-- uscite -->
+      <rect x="340" y="196" width="220" height="80" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
+      <text x="450" y="222" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Transactions</text>
+      <text x="450" y="242" text-anchor="middle" font-size="11.5" fill="var(--muted)">l'unica uscita del denaro</text>
+      <text x="450" y="260" text-anchor="middle" font-size="11.5" fill="var(--muted)">doppia firma · distinte SEPA</text>
+
+      <line x1="450" y1="192" x2="450" y2="128" stroke="var(--money)" stroke-width="2" marker-end="url(#fd-money)"/>
+      <text x="482" y="166" text-anchor="middle" font-size="11" fill="var(--money)">esce</text>
+
+      <text x="140" y="222" font-size="12.5" fill="currentColor" font-weight="600">Chi chiede un pagamento:</text>
+      <text x="140" y="242" font-size="12" fill="var(--muted)">Finance (saldi partner), Piattaforma</text>
+      <text x="140" y="260" font-size="12" fill="var(--muted)">(paghe valet), CS (rimborsi reclami)…</text>
+      <line x1="300" y1="236" x2="336" y2="236" stroke="currentColor" stroke-width="1.6" marker-end="url(#fd-ink)"/>
+
+      <!-- budgets -->
+      <rect x="660" y="196" width="240" height="80" rx="12" fill="var(--gold-soft)" stroke="var(--gold)" stroke-width="1.4"/>
+      <text x="780" y="224" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Budgets</text>
+      <text x="780" y="244" text-anchor="middle" font-size="11.5" fill="var(--muted)">budget vs consuntivo · conto economico</text>
+      <text x="780" y="262" text-anchor="middle" font-size="11.5" fill="var(--muted)">tre livelli: raggiungibile / sfidante / oltre</text>
+
+      <line x1="780" y1="128" x2="780" y2="192" stroke="currentColor" stroke-width="1.6" marker-end="url(#fd-ink)"/>
+      <text x="800" y="166" font-size="11" fill="var(--muted)">fatturato, categorie</text>
+
+      <text x="450" y="330" text-anchor="middle" font-size="12.5" fill="var(--muted)">A Budgets arrivano anche: <tspan font-weight="600" fill="currentColor">ricavo e margine e-commerce da Orders</tspan> · <tspan font-weight="600" fill="currentColor">spesa ADV da Marketing</tspan></text>
+      <text x="450" y="352" text-anchor="middle" font-size="12.5" fill="var(--muted)"><tspan font-weight="600" fill="currentColor">costo consegne (ritenute comprese) dalla Piattaforma</tspan> — ognuno dal suo proprietario, mai ricopiato</text>
+    </svg>
+    <figcaption>
+      Il punto più importante per chi arriva: <b>nessuna app paga da sola</b>. Qualunque cosa
+      debba uscire — la paga di un valet, il saldo di un partner, il rimborso di un reclamo —
+      diventa una richiesta a Transactions, dove una persona autorizza con doppia firma.
+    </figcaption>
+  </figure>
+</section>
+
+<!-- ============================================================ -->
+<section id="regole">
+  <div class="chapter"><span class="num">06</span><h2>Le regole della casa</h2></div>
+  <p class="chapter-lede">
+    Tre libri e tre custodi tengono le venti app coerenti fra loro. Non sono burocrazia:
+    sono il motivo per cui le app si somigliano e i difetti non si correggono due volte.
+  </p>
+
+  <div class="card">
+    <h3 style="margin-top:0">Un solo aspetto, un solo libro, un solo custode</h3>
+    <ul>
+      <li><b>Interfaccia</b> → il <b>Libro UX&amp;UI</b> del design system. Stile della casa:
+        sfondo grigio chiaro, superfici bianche con bordi sottili, bottoni a pillola neri,
+        oro solo come accento. Un difetto di layout non si corregge da soli: si registra
+        nel libro delle segnalazioni e il custode decide se è una correzione locale o una
+        regola nuova per tutte le app.</li>
+      <li><b>Sicurezza</b> → il <b>Libro della Sicurezza</b> (12 leggi: sessioni, password,
+        chiavi con permesso preciso, «vietato salvo permesso», segreti mai nei file).
+        Ogni segnalazione passa prima da un revisore ostile che prova a smontarla:
+        sopravvive solo ciò che ha un percorso di sfruttamento reale.</li>
+      <li><b>Velocità</b> → il <b>Libro Performance</b> (10 leggi). Un'accusa di lentezza vale
+        solo con la misura (millisecondi, kilobyte, query); un'ottimizzazione solo se non
+        tocca l'integrità dei dati.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Le abitudini di lavoro che valgono ovunque</h3>
+    <ul>
+      <li><b>Ogni app ha un documento di stato</b> (handoff o README) che dice cosa è fatto e
+        cosa manca: si aggiorna a ogni cambio di comportamento, nello stesso commit.</li>
+      <li><b>L'esito si riporta com'è</b>: se un test fallisce o un passo è saltato, si scrive,
+        con l'output vero.</li>
+      <li><b>Le azioni irreversibili si confermano prima</b>: deploy, invii, cancellazioni.</li>
+      <li><b>I segreti non stanno mai nei file</b>: vivono nelle variabili d'ambiente e nella
+        cassaforte del Hub.</li>
+      <li><b>E da oggi: ogni funzionalità nuova o modificata si registra in questo manuale</b>
+        (capitolo 7).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="registro">
+  <div class="chapter"><span class="num">07</span><h2>Registro delle novità</h2></div>
+  <p class="chapter-lede">
+    Questo manuale è vivo. Ogni volta che una funzionalità viene aggiunta o cambiata in
+    un'app, qui si aggiunge una riga — così chi arriva trova sempre lo stato vero.
+  </p>
+
+  <div class="callout">
+    <p><b>La regola (decisa il 28/08/2026):</b> chi introduce o modifica una funzionalità
+    aggiunge una riga a questa tabella <b>nello stesso giro di lavoro</b>, e se il cambiamento
+    tocca i capitoli sopra (una app nuova, un flusso diverso, una regola nuova) aggiorna anche
+    quelli. Una riga dice: quando, dove, cosa cambia <i>per chi usa l'app</i>.</p>
+    <p>Il file sorgente è <code>MANUALE-DELUXY.html</code> nella radice del repo
+    <code>scoutwt</code>: si modifica lì e si ripubblica questa pagina (stesso indirizzo).</p>
+  </div>
+
+  <h3>Le novità</h3>
+  <div class="table-scroll registro"><table>
+    <thead><tr><th>Quando</th><th>Dove</th><th>Cosa cambia</th></tr></thead>
+    <tbody>
+      <tr><td>28/08/2026</td><td>Manuale</td>
+        <td>Nasce questo manuale, con la regola del registro: da oggi ogni funzionalità nuova o modificata si annota qui.</td></tr>
+      <tr><td>28/08/2026</td><td>Finance</td>
+        <td>Nuova pagina <b>Note di credito</b> (da Fatture → Note di credito): mostra le note emesse su Fatture in Cloud e quanto varrebbe detrarle dal fatturato. ⚠️ Richiede di rifare il collegamento a Fatture in Cloud (permesso nuovo); finché non si fa, i ricavi restano al lordo degli storni.</td></tr>
+      <tr><td>27/08/2026</td><td>Budgets</td>
+        <td>Giro di sicurezza: i compensi da <code>/api/v1/team</code> escono solo con chiave emessa (prima bastava la chiave condivisa); le proposte di budget sono visibili solo a chi le ha inviate (o all'admin) e l'autore lo assegna il server; freno sui tentativi di accesso; intestazioni di sicurezza.</td></tr>
+      <tr><td>27/08/2026</td><td>Budgets</td>
+        <td>Sentinella sui mesi chiusi: se una correzione in Piattaforma cambia il costo consegne di un mese già chiuso, la variazione compare in «Da fare» con data e cifra — il numero resta giusto, ma il cambiamento si vede.</td></tr>
+      <tr><td>27/08/2026</td><td>Piattaforma</td>
+        <td>Smistamento automatico acceso: ogni 15 minuti gli ordini idonei (prodotto UNICO o provincia con partner) diventano incarichi proposti ai partner veri. Il CS può riservarsi un ordine o interrompere un incarico.</td></tr>
+      <tr><td>26/08/2026</td><td>Budgets</td>
+        <td>Il costo delle consegne nel conto economico arriva dalla Piattaforma (ritenute d'acconto comprese, anche per le non consegnate — si pagano), non più dalla banca.</td></tr>
+      <tr><td>28/08/2026</td><td>Finance</td>
+        <td>Riclassificati 275 movimenti bancari: 80.528 € di paghe valet erano contati come «girato ai partner» — ora sono costo consegne, e la banca combacia con la Piattaforma allo 0,6%.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="glossario">
+  <div class="chapter"><span class="num">08</span><h2>Glossario</h2></div>
+  <p class="chapter-lede">Le parole interne che si incontrano ovunque, nelle app e nel codice.</p>
+
+  <div class="card">
+    <dl class="gloss">
+      <dt>Maison</dt><dd>Uno dei tre brand di vendita: Deluxy.it, Deluxyflowers.com, CakeDesign.me.</dd>
+      <dt>Partner</dt><dd>Il fiorista o la pasticceria che prepara (e a volte consegna) l'ordine. La sua anagrafica vive in Anagrafiche, il suo saldo in Finance.</dd>
+      <dt>Valet</dt><dd>Chi ritira dal partner e consegna al cliente per conto di Deluxy. La sua paga (e l'eventuale ritenuta) vive nella Piattaforma.</dd>
+      <dt>Quota partner</dt><dd>La percentuale dell'incasso D2C che spetta al partner (varia per provincia e categoria; la regola vive in Orders). Il bonifico al partner non è un costo: è la sua parte.</dd>
+      <dt>Plus</dt><dd>Un extra pattuito sulla consegna che entra nella paga del valet.</dd>
+      <dt>Fee</dt><dd>Quanto la Piattaforma addebita al partner per la consegna fatta da noi.</dd>
+      <dt>UNICO</dt><dd>Prodotto che esiste da un solo fornitore, caricato da lui in Piattaforma col suo prezzo: l'ordine che lo contiene va in automatico a lui.</dd>
+      <dt>Incarico</dt><dd>La proposta di lavoro al partner in Piattaforma: proposto → accettato (o rifiutato/scaduto → coda umana).</dd>
+      <dt>Ritenuta d'acconto</dt><dd>Trattenuta fiscale sulla paga dei valet senza partita IVA, versata da Deluxy in aggiunta al bonifico. Entra nel costo consegne.</dd>
+      <dt>Golden record</dt><dd>La scheda anagrafica «vera» di un partner in Anagrafiche, ricomposta campo per campo dalle fonti.</dd>
+      <dt>Trattativa</dt><dd>Una negoziazione commerciale in Scout (prezzo fuori listino, contratto, evento). Un riordino a condizioni note non apre una trattativa: è un ordine.</dd>
+      <dt>Consuntivo</dt><dd>Quello che è successo davvero (vendite, spese), contrapposto al budget. In Budgets i consuntivi arrivano sempre dai proprietari dei dati.</dd>
+      <dt>Mese chiuso</dt><dd>Mese passato del conto economico: i suoi numeri restano ricalcolabili dalle fonti, ma ogni variazione viene segnalata.</dd>
+      <dt>Handoff</dt><dd>Il documento di stato di un'app: cosa è fatto, cosa manca, come si riprende il lavoro.</dd>
+    </dl>
+  </div>
+</section>
+
+<footer>
+  <p>Manuale Deluxy · sorgente <code>MANUALE-DELUXY.html</code> nella radice del repo <code>scoutwt</code> ·
+  per il contesto completo da sviluppatore: <code>DA-DOVE-PARTIRE.md</code> e <code>DOSSIER-DELUXY.md</code>, stessa cartella.</p>
+</footer>
+
+</div>
