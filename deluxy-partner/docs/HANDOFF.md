@@ -16,6 +16,13 @@
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17, 21, 24, 25 e 26/08/2026)
 
+> ### 28/08/2026 (sera) — quattro rifiniture sulle schede (movimento, fattura, partner)
+>
+> - **`/movimenti/[id]` — scheda del movimento**: al click su una riga di `/movimenti` si apre il dettaglio — causale per intero, IBAN controparte, fonte (Qonto/File), stato in riconciliazione + esito, partner collegato, categoria in sola lettura (link a `/spese/[id]` per cambiarla se è un'uscita) e gli altri movimenti della stessa controparte. È la scheda «cos'è il movimento», distinta da `/spese/[id]` = «che costo è».
+> - **Scheda partner — riga «Da incassare»**: «Fatture non saldate» ora mostra **imponibile +IVA → ivato**, come le righe delle singole fatture sopra. Il residuo era già IVA-inclusa; ho aggiunto `serviziNonPagatiNetto` in `calc.ts` (scorporo dell'IVA fattura per fattura, così le aliquote diverse restano giuste) e lo mostro come netto, con «+IVA →» verso il totale.
+> - **Scheda partner — «Ultimi movimenti bancari»**: nuova sezione con gli ultimi 10 movimenti. Mostra i **certi** (attribuiti al partner, `partnerId`) **più** i **candidati per nome** — movimenti non ancora attribuiti la cui controparte contiene un token forte del nome (via `tokenPartner`, che scarta forme societarie/città/mesi). ⚠️ I candidati sono marcati **«per nome — da confermare»**, non spacciati per certi, e i movimenti già attribuiti a un ALTRO partner non entrano: è la difesa contro il falso positivo da omonimia (un partner «… PAOLO» che pescherebbe un altro Paolo). Senza i candidati la sezione era vuota proprio dove serviva (ZEGNA: 0 attribuiti, 2 col nome).
+> - **Scheda fattura — «Apri in Fatture in Cloud ↗»**: quando la fattura ha un numero (quindi è emessa su FIC), un link apre il documento nell'app web di FIC. `ficUrlFattura` (in `fic.ts`) risolve l'id dal numero (`ficIdDaNumero`, chiamata già usata, non fatale) e compone `https://secure.fattureincloud.it/invoices-view/<id>`. ⚠️ FIC **non documenta** la rotta della sua UI: è il formato dei link di condivisione, verificato che risolve l'id reale (457/2026 → 536548138) ma da confermare che apra la vista giusta al primo uso. Nessun link se FIC è giù o il numero non trova UN solo documento.
+
 > ### 28/08/2026 — menu riordinato (giuria di 3 esperti), estratto conto UNICO, e Qonto si sincronizza all'apertura
 >
 > Chiesto dall'utente: «riordina tutto il menù… funzionale a una gestione amministrativa efficiente, valutando con una giuria che fa lo stesso lavoro per una multinazionale; aggiungi una sezione con TUTTE le transazioni sommando Qonto + Excel»; poi «fai partire la sync Qonto ogni volta che si apre la pagina delle transazioni».

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { riepilogoPartner, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, commissione, dovutoVendita, ivato, residuoFattura, incassatoFattura, parzialmenteIncassata, MESI } from "@/lib/calc";
+import { tokenPartner } from "@/lib/riconciliazione";
 import { segnaFatturaPagata, segnaFatturaCompensata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { transactionsConfigurato } from "@/lib/transactions";
@@ -49,7 +50,7 @@ export default async function PartnerDetail({
 
   const anno = ANNO_CORRENTE;
   const annoPrec = anno - 1;
-  const [{ mesi, rolling }, prec, tariffe, fattureAperte, extra, analisi, ultimiMovimenti] = await Promise.all([
+  const [{ mesi, rolling }, prec, tariffe, fattureAperte, extra, analisi] = await Promise.all([
     riepilogoPartner(id, anno),
     riepilogoPartner(id, annoPrec),
     prisma.tariffaPartner.findMany({ where: { partnerId: id }, orderBy: [{ dalAnno: "desc" }, { dalMese: "desc" }] }),
@@ -59,17 +60,31 @@ export default async function PartnerDetail({
     }),
     prisma.extraSaldo.findMany({ where: { partnerId: id, anno }, orderBy: { createdAt: "asc" } }),
     analisiPartner(id),
-    // Gli ultimi 10 movimenti bancari ATTRIBUITI a questo partner (partnerId).
-    // Solo quelli riconciliati/attribuiti: abbinare per nome mostrerebbe anche
-    // gli omonimi (es. due «Paolo» diversi), che è proprio il falso positivo
-    // che la riconciliazione segnala come «importo diverso dagli attesi».
-    prisma.transazioneBancaria.findMany({
-      where: { partnerId: id },
-      orderBy: [{ data: "desc" }, { id: "desc" }],
-      take: 10,
-      select: { id: true, data: true, importo: true, descrizione: true, controparte: true, stato: true, fonte: true },
-    }),
+    analisiPartner(id),
   ]);
+
+  // Ultimi 10 movimenti bancari della scheda: i CERTI (attribuiti a questo
+  // partner in riconciliazione, `partnerId`) più i CANDIDATI per nome — movimenti
+  // non ancora attribuiti a nessuno la cui controparte contiene un token forte
+  // del nome partner. Il token lo dà lo stesso tokenizer della riconciliazione,
+  // che scarta forme societarie, città e mesi; restano l'insegna e i cognomi.
+  // ⚠️ Un nome comune (un partner «… PAOLO») può ancora pescare un omonimo: per
+  // questo i candidati sono marcati «per nome — da confermare», non spacciati
+  // per certi. I movimenti già attribuiti a un ALTRO partner non entrano.
+  const tokenNome = tokenPartner(partner.nome);
+  const ultimiMovimenti = await prisma.transazioneBancaria.findMany({
+    where: {
+      OR: [
+        { partnerId: id },
+        ...(tokenNome.length
+          ? [{ partnerId: null, OR: tokenNome.map((t) => ({ controparte: { contains: t, mode: "insensitive" as const } })) }]
+          : []),
+      ],
+    },
+    orderBy: [{ data: "desc" }, { id: "desc" }],
+    take: 10,
+    select: { id: true, data: true, importo: true, descrizione: true, controparte: true, stato: true, partnerId: true },
+  });
   // Le fatture FIC intestate a questo partner: servono a proporre quale
   // collegare come «fattura commissioni» di un mese. Si caricano una volta per
   // scheda (non per riga) e non fanno mai fallire la pagina: se FIC è giù,
@@ -294,8 +309,9 @@ export default async function PartnerDetail({
       <div className="card tight" style={{ marginBottom: 24 }}>
         {ultimiMovimenti.length === 0 ? (
           <p className="muted" style={{ fontSize: 13.5, padding: "16px 20px", margin: 0 }}>
-            Nessun movimento bancario è ancora attribuito a questo partner. I movimenti compaiono qui quando
-            vengono riconciliati in <Link href="/transazioni">Import &amp; riconciliazione</Link>.
+            Nessun movimento bancario per questo partner: né attribuito in riconciliazione, né con questo
+            nome nella controparte. Compaiono qui appena arrivano da <Link href="/movimenti">Movimenti</Link> o
+            si riconciliano in <Link href="/transazioni">Import &amp; riconciliazione</Link>.
           </p>
         ) : (
           <>
@@ -317,12 +333,18 @@ export default async function PartnerDetail({
                         {m.controparte && <div className="muted" style={{ fontSize: 12 }}>{m.controparte}</div>}
                       </td>
                       <td style={{ fontSize: 12.5 }}>
-                        {m.stato === "registrata" ? (
-                          <span className="badge green"><span className="dot" />registrata</span>
-                        ) : m.stato === "ignorata" ? (
-                          <span className="badge neutral"><span className="dot" />ignorata</span>
+                        {m.partnerId === id ? (
+                          m.stato === "registrata" ? (
+                            <span className="badge green"><span className="dot" />registrata</span>
+                          ) : m.stato === "ignorata" ? (
+                            <span className="badge neutral"><span className="dot" />ignorata</span>
+                          ) : (
+                            <span className="badge orange"><span className="dot" />da lavorare</span>
+                          )
                         ) : (
-                          <span className="badge orange"><span className="dot" />da lavorare</span>
+                          <span className="badge neutral" title="Non ancora attribuito a questo partner: abbinato solo per nome della controparte. Conferma in riconciliazione.">
+                            <span className="dot" />per nome — da confermare
+                          </span>
                         )}
                       </td>
                       <td className={`num ${m.importo > 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
@@ -334,7 +356,9 @@ export default async function PartnerDetail({
               </table>
             </div>
             <p className="muted" style={{ fontSize: 12, padding: "10px 20px", margin: 0 }}>
-              Solo i movimenti attribuiti a questo partner in riconciliazione.{" "}
+              I movimenti <strong>attribuiti</strong> a questo partner in riconciliazione, più quelli
+              non ancora attribuiti che ne portano il nome nella controparte (marcati «per nome — da
+              confermare»).{" "}
               <Link href={`/movimenti?q=${encodeURIComponent(partner.nome)}`}>Cerca «{partner.nome}» in tutti i movimenti →</Link>
             </p>
           </>
