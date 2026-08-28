@@ -5,6 +5,16 @@ import { euro, dataIt } from "@/lib/format";
 import { totaliProForma, rifProForma, statiDi, statoDocumento } from "@/lib/proforma";
 import { ThSort, ordina } from "@/components/ThSort";
 import { RigaLink } from "@/components/RigaLink";
+import { ConfermaElimina } from "@/components/ConfermaElimina";
+import { deleteProForma } from "@/lib/proforma-actions";
+
+// Cestino a filo (design system: niente emoji come icone strutturali).
+const IconaCestino = (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
+    <path d="M10 11v6M14 11v6" />
+  </svg>
+);
 
 export const dynamic = "force-dynamic";
 
@@ -236,7 +246,20 @@ export default async function ProFormaListPage({
                         </span>
                       </td>
                       <td style={{ whiteSpace: "nowrap" }}>
-                        <Link href={`/proforma/${p.id}`} className="btn small secondary">Apri</Link>
+                        <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                          <Link href={`/proforma/${p.id}`} className="btn small secondary">Apri</Link>
+                          {!(p.stato === "fatturata" && p.fatturaNumero) && (
+                            <form action={deleteProForma.bind(null, p.id)} style={{ display: "inline" }}>
+                              <ConfermaElimina
+                                className="btn small icon danger"
+                                trigger={IconaCestino}
+                                verbo="Elimina"
+                                oggetto={p.stato === "bozza" ? `la bozza ${rifProForma(p)}` : `la pro-forma ${rifProForma(p)}`}
+                                conseguenza="Non è stata emessa su Fatture in Cloud: sparisce solo questo documento, non c'è nessuna fattura da toccare."
+                              />
+                            </form>
+                          )}
+                        </span>
                       </td>
                     </RigaLink>
                   );

@@ -214,6 +214,10 @@ td.neg { color: var(--red); }
 .btn.danger-solid { background: var(--red); color: var(--on-ink); }
 .btn.danger-solid:hover { background: #b3000f; }
 .btn.small { padding: 5px 13px; font-size: 12.5px; }
+/* Bottone di sola icona (es. cestino in elenco): quadrato, glifo centrato. */
+.btn.icon { padding: 5px; gap: 0; line-height: 0; }
+.btn.icon.small { padding: 5px; }
+.btn.danger.icon:hover { background: var(--red-soft); }
 
 /* Conferma narrativa in linea (componente ConfermaElimina, Libro cap. 7):
    nome dell'oggetto + conseguenza + bottone rosso col verbo. Va a capo da

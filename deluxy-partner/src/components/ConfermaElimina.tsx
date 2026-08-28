@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 // Conferma narrativa in linea per le azioni distruttive (Libro UX cap. 7).
 // Finance muove denaro: nessuna cancellazione deve partire al primo click.
@@ -15,6 +15,7 @@ export function ConfermaElimina({
   conseguenza,
   className = "btn small danger",
   title,
+  trigger,
 }: {
   // Verbo dell'azione, stampato sul bottone e in testa alla domanda.
   verbo?: string;
@@ -24,13 +25,23 @@ export function ConfermaElimina({
   conseguenza: string;
   className?: string;
   title?: string;
+  // Contenuto del bottone chiuso: se assente si mostra il verbo. In un elenco
+  // conviene un'icona (cestino) al posto della parola, ma la domanda di conferma
+  // resta narrativa col nome dell'oggetto.
+  trigger?: ReactNode;
 }) {
   const [aperto, setAperto] = useState(false);
 
   if (!aperto) {
     return (
-      <button type="button" className={className} title={title} onClick={() => setAperto(true)}>
-        {verbo}
+      <button
+        type="button"
+        className={className}
+        title={title ?? `${verbo} ${oggetto}`}
+        aria-label={`${verbo} ${oggetto}`}
+        onClick={() => setAperto(true)}
+      >
+        {trigger ?? verbo}
       </button>
     );
   }

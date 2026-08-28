@@ -84,6 +84,12 @@ export async function intestazioneDaMostrare(
   const disclaimerDefault = preventivo ? DISCLAIMER_PREVENTIVO : DISCLAIMER_PROFORMA;
   if (i) return { ...i, disclaimer: i.disclaimer || disclaimerDefault, fonte: "documento" };
   const imp = await leggiImpostazioni();
+  // L'IBAN su cui il cliente salda è uno solo. Se non è stato messo nei campi
+  // dedicati del documento (azienda.iban…), si usa quello già configurato per i
+  // bonifici SEPA (sepa.ordinante.*) — così le coordinate compaiono sul foglio
+  // senza doverle riscrivere due volte.
+  const iban = imp[CHIAVI.aziendaIban] || imp[CHIAVI.ordinanteIban] || "";
+  const intestatario = imp[CHIAVI.aziendaIntestatario] || imp[CHIAVI.ordinanteNome] || "";
   return {
     ragioneSociale: imp[CHIAVI.aziendaIntestazione] || "Deluxy",
     indirizzo: imp[CHIAVI.aziendaIndirizzo] || "",
@@ -92,13 +98,13 @@ export async function intestazioneDaMostrare(
     rea: "",
     contatti: imp[CHIAVI.aziendaContatti] || "",
     logoDataUrl: "",
-    iban: imp[CHIAVI.aziendaIban] || "",
-    intestatarioConto: imp[CHIAVI.aziendaIntestatario] || "",
-    modalitaPagamento: imp[CHIAVI.aziendaModalitaPagamento] || "",
+    iban,
+    intestatarioConto: intestatario,
+    modalitaPagamento: imp[CHIAVI.aziendaModalitaPagamento] || (iban ? "Bonifico bancario" : ""),
     sdi: "",
     pec: "",
     banca: imp[CHIAVI.aziendaBanca] || "",
-    bic: "",
+    bic: imp[CHIAVI.ordinanteBic] || "",
     disclaimer: disclaimerDefault,
     brand: "",
     fonte: "impostazioni",
