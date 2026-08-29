@@ -1,7 +1,8 @@
-import { risolviAnagrafica, urlAnagrafiche, type Anagrafica } from "@/lib/anagrafiche";
+import { risolviAnagrafica, anagraficaPerId, urlAnagrafiche, type Anagrafica } from "@/lib/anagrafiche";
 import { collegaAnagraficaEsistente, scollegaAnagrafica, disconosciECreaAnagrafica } from "@/lib/riconciliazione-actions";
 import { ConfermaElimina } from "@/components/ConfermaElimina";
 import { BottoneInvio } from "@/components/BottoneInvio";
+import { prisma } from "@/lib/db";
 
 // Etichetta e colore badge per gli stati del registro (vedi deluxy-anagrafiche)
 const STATI: Record<string, { etichetta: string; classe: string }> = {
@@ -59,6 +60,19 @@ export async function AnagraficaCard({
   const anagrafica: Anagrafica | null = giaRisolta
     ? anagraficaRisolta ?? null
     : await risolviAnagrafica(nomePartner, anagraficaId);
+  // ALTRI SOGGETTI FISCALI dello stesso partner: un partner commerciale può
+  // fatturare con PIÙ società (es. «Tiffany» = la S.p.A. italiana e l'entità
+  // olandese; «Martesana» = due S.r.l.). L'anagrafica sopra è la PRIMARIA; qui
+  // sotto si elencano le entità collegate (AnagraficaCollegata), risolte dal
+  // registro per mostrarne P.IVA/SDI. Poche righe: costo trascurabile.
+  const collegate = partnerId
+    ? await prisma.anagraficaCollegata.findMany({ where: { partnerId }, orderBy: { createdAt: "asc" } })
+    : [];
+  const entitaCollegate = collegate.length
+    ? await Promise.all(
+        collegate.map(async (c) => ({ c, reg: await anagraficaPerId(c.anagraficaId).catch(() => null) })),
+      )
+    : [];
   // Aggancio manuale: quando i nomi non combaciano (es. «DR VRANJES gennaio» qui
   // e «Dr. Vranjes» nel registro) l'automatismo non trova nulla e creare
   // l'anagrafica farebbe un doppione: qui si incolla id o link della scheda.
@@ -231,6 +245,40 @@ export async function AnagraficaCard({
           </>
         )}
       </div>
+
+      {entitaCollegate.length > 0 && (
+        <>
+          <h2 className="section-title">Altri soggetti fiscali di questo partner</h2>
+          <div className="card">
+            <p className="muted" style={{ fontSize: 12.5, margin: "0 0 6px" }}>
+              Stesso partner commerciale, più <strong>società di fatturazione</strong> (es. entità italiana ed estera, o
+              due S.r.l.). L&apos;anagrafica qui sopra è la primaria; ognuna di queste resta una scheda a sé nel registro.
+            </p>
+            {entitaCollegate.map(({ c, reg }) => (
+              <div
+                key={c.id}
+                style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", padding: "10px 0", borderBottom: "1px solid var(--hairline)" }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 500 }}>{reg?.ragioneSociale ?? reg?.nome ?? c.nome ?? "—"}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    {[
+                      reg?.pIva ? `P.IVA ${reg.pIva}` : null,
+                      reg?.datiFinanziari?.codiceSdi ? `SDI ${reg.datiFinanziari.codiceSdi}` : null,
+                      [reg?.citta ?? c.citta, reg?.provincia].filter(Boolean).join(" "),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "dati nel registro"}
+                  </div>
+                </div>
+                <a href={`${urlAnagrafiche()}/partner/${c.anagraficaId}`} target="_blank" rel="noopener noreferrer" className="btn small secondary">
+                  Apri nel registro ↗
+                </a>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </>
   );
 }
