@@ -47,7 +47,10 @@ export default async function TeamPage({
   // Dal 29/08 sera la card ha due viste (richiesta dell'utente: «scegliere se
   // consuntivo, con specifica del periodo, o tipologia di budget»):
   // BUDGET a uno dei tre livelli, oppure CONSUNTIVO di un periodo chiuso.
-  const vista = sp.vista === "consuntivo" ? "consuntivo" : "budget";
+  // **Il consuntivo e la vista predefinita** (29/08/2026): chi apre questa
+  // pagina chiede «come sta andando la squadra», non «cosa avevamo pianificato»
+  // — e il budget resta a un clic.
+  const vista = sp.vista === "budget" ? "budget" : "consuntivo";
   const livello = (LIVELLI.some((l) => l.key === sp.livello) ? sp.livello : "RAGGIUNGIBILE") as Livello;
   const periodoCard = PERIODI.find((p) => p.key === sp.periodo) ?? PERIODI[0];
 
