@@ -6036,3 +6036,16 @@ button.bottone.secondario.ai-spenta {
    solo la variante «azzera» — tratteggiata come nelle altre app, dice «questa
    non aggiunge un filtro, lo toglie». Vedi ChipsPeriodo.tsx. */
 .stato-pill.azzera { border-style: dashed; }
+
+/* ── LA RIGA CHE APRE IL DETTAGLIO (Libro UX&UI) ──
+ *
+ * ⚠️ Segnalato dall'utente il 27/08/2026 sulla tabella Partner: era l'unica
+ * dove il dettaglio si apriva solo dal bottone, e non da tutta la riga. Il
+ * cursore a mano e lo sfondo all'hover dicono che è cliccabile PRIMA di
+ * cliccarla — senza, la riga sembra inerte e nessuno ci prova. */
+tr.riga-click { cursor: pointer; }
+tr.riga-click:hover td { background: var(--fill); }
+tr.riga-click:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}

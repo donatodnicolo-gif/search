@@ -43,6 +43,59 @@ const STATI_FINANZIARI: Record<string, { nome: string; colore: string }> = {
  * referente con il numero. Guardando solo l'anagrafica il bottone sarebbe spento
  * per 37 partner su 41; con il ripiego sui referenti se ne contattano 38.
  */
+/**
+ * PERCHÉ QUESTA RIGA È COMPARSA, quando non è ovvio.
+ *
+ * ⚠️⚠️ Segnalato dall'utente il 27/08/2026: cercando «brescia» compariva
+ * «Solbiati Cioccolato · Milano», e cercando «vicenz» «Maryflor di Gerardi
+ * Vincenzo · Milano». Non è un errore: il registro cerca dentro **tutti** i
+ * campi — le note («Attivi su Milano e Brescia»), la ragione sociale
+ * («…Vicenzo», che contiene «vicenz») — e mostra la riga giusta. Ma la parola
+ * che ha fatto scattare il risultato sta in un campo che a schermo non si vede,
+ * quindi la riga sembra un falso positivo.
+ *
+ * La correzione non è restringere la ricerca — Solbiati consegna davvero a
+ * Brescia, e nasconderlo sarebbe peggio — ma **dire dove ha trovato la parola**.
+ *
+ * ⚠️ Si mostra SOLO quando la parola non è già nei campi visibili (nome, città,
+ * categoria): se compare lì, il perché è sotto gli occhi e una riga in più
+ * sarebbe rumore.
+ */
+function perchePerLaRicerca(p: Partner, q: string): string {
+  const parole = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (!parole.length) return ''
+  const visibile = [p.nome, p.citta, p.provincia, p.categoria].join(' ').toLowerCase()
+  // ⚠️ Se OGNI parola è già visibile, il perché è ovvio: niente riga.
+  if (parole.every((w) => visibile.includes(w))) return ''
+
+  // I campi nascosti, col nome che l'utente riconosce.
+  const campi: { et: string; testo: string }[] = [
+    { et: 'ragione sociale', testo: p.ragioneSociale },
+    { et: 'indirizzo', testo: p.indirizzo },
+    { et: 'note', testo: p.note },
+    { et: 'email', testo: p.email },
+    { et: 'telefono', testo: p.telefono },
+    ...p.contatti.map((c) => ({
+      et: 'referente',
+      testo: [c.nome, c.ruolo, c.email, c.telefono].filter(Boolean).join(' '),
+    })),
+  ]
+  // La parola non ancora vista: quella che spiega il match.
+  const chiave = parole.find((w) => !visibile.includes(w)) ?? parole[0]
+  for (const { et, testo } of campi) {
+    const t = (testo ?? '').trim()
+    const i = t.toLowerCase().indexOf(chiave)
+    if (i < 0) continue
+    // Un pezzetto attorno alla parola, non tutto il campo: la nota può essere
+    // lunga, e qui serve solo far vedere che «brescia» c'è davvero.
+    const da = Math.max(0, i - 24)
+    const a = Math.min(t.length, i + chiave.length + 24)
+    const estratto = (da > 0 ? '…' : '') + t.slice(da, a).trim() + (a < t.length ? '…' : '')
+    return `trovato in ${et}: ${estratto}`
+  }
+  return ''
+}
+
 function linkContatto(p: Partner): { url: string; come: string; chi: string } | null {
   const persona = p.contatti.find(
     (c) => (c.telefono ?? '').replace(/[^\d]/g, '').length >= 8 || c.email
@@ -257,12 +310,39 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
                 const c = linkContatto(p)
                 const fin = STATI_FINANZIARI[p.statoFinanziario]
                 const schedaAperta = aperto === p.id
+                const perche = qCercata ? perchePerLaRicerca(p, qCercata) : ''
                 return (
-                  <tr key={p.id}>
+                  // ⚠️⚠️ TUTTA LA RIGA APRE IL DETTAGLIO (Libro UX&UI): segnalato
+                  // dall'utente il 27/08/2026, era l'unica tabella dell'app dove
+                  // il dettaglio si apriva solo dal bottone. `role`/`tabIndex`/
+                  // Invio-Spazio perché una riga cliccabile deve esserlo anche
+                  // da tastiera, non solo col mouse.
+                  <tr
+                    key={p.id}
+                    className="riga-click"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={schedaAperta}
+                    onClick={() => setAperto(schedaAperta ? '' : p.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setAperto(schedaAperta ? '' : p.id)
+                      }
+                    }}
+                  >
                     <td>
                       <div className="cella-nome">{p.nome}</div>
                       {p.ragioneSociale && p.ragioneSociale !== p.nome ? (
                         <div className="cella-sub">{p.ragioneSociale}</div>
+                      ) : null}
+                      {/* ⚠️ Perché la riga è comparsa, quando la parola cercata
+                          non è nel nome né nella città: senza, un match sulle
+                          note sembra un errore. */}
+                      {perche ? (
+                        <div className="cella-sub" style={{ color: 'var(--gold, #B8963E)' }}>
+                          {perche}
+                        </div>
                       ) : null}
                       {schedaAperta ? (
                         <div className="cella-sub" style={{ marginTop: 6, lineHeight: 1.6 }}>
@@ -297,12 +377,17 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
                       )}
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
+                      {/* ⚠️ `stopPropagation`: scrivere al fornitore NON deve
+                          anche aprire il dettaglio della riga — è un'altra
+                          azione, e aprendo una scheda al volo sembrerebbe un
+                          clic andato storto. */}
                       <a
                         className="btn btn-secondario small"
                         href={c?.url ?? '#'}
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-disabled={!c}
+                        onClick={(e) => e.stopPropagation()}
                         style={c ? undefined : { opacity: 0.45, pointerEvents: 'none' }}
                         title={
                           c
@@ -312,9 +397,16 @@ export function PartnerLista({ dentroLaPagina = false }: { dentroLaPagina?: bool
                       >
                         {c ? `Scrivi su ${c.come}` : 'Nessun contatto'}
                       </a>{' '}
+                      {/* ⚠️ Il bottone resta (è l'indizio visibile che la riga
+                          si apre), ma ferma la propagazione: senza, il clic
+                          aprirebbe dalla riga e richiuderebbe dal bottone, e non
+                          succederebbe niente. */}
                       <button
                         className="btn btn-secondario small"
-                        onClick={() => setAperto(schedaAperta ? '' : p.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setAperto(schedaAperta ? '' : p.id)
+                        }}
                       >
                         {schedaAperta ? 'Chiudi' : 'Dettagli'}
                       </button>
