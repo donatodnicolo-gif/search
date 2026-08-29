@@ -21,7 +21,7 @@ import type { Response as RispostaHttp } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { InvoiceStatus, Role } from '../common/enums';
-import { IVA, conIva } from '../common/iva';
+import { IVA, conIva, soloIva } from '../common/iva';
 import { valoreProdotti as calcolaValoreProdotti } from '../common/valore-prodotti';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
@@ -640,6 +640,16 @@ export class InvoicesService {
     // quello che gli si gira. Non si ricalcola dalla percentuale — le
     // percentuali sono per servizio, e sommarle sarebbe una media inventata.
     const quotaDeluxy = Math.round((venduto - dovutoAlPartner) * 100) / 100;
+    // ⭐ DECISO dall.utente il 29/08/2026, confrontando il recap con la fattura
+    // che il legacy manda da anni: quello che il partner INCASSA davvero è il
+    // venduto meno la nostra quota E meno l.IVA su quella quota (che gli
+    // fatturiamo a parte). Sul giugno di Maryflor sono 5.192,96 € e non
+    // 5.495,20: i 302,24 di differenza sono esattamente l.IVA sulla commissione.
+    // ⚠️ `dovutoAlPartner` resta l.IMPONIBILE, perché è quello che va sui
+    // documenti della Fatturazione: qui si aggiunge il netto, non si riscrive
+    // il numero della fattura.
+    const ivaSuQuota = soloIva(quotaDeluxy);
+    const nettoAlPartner = Math.round((dovutoAlPartner - ivaSuQuota) * 100) / 100;
 
     // ⭐ 27/08 (chiesto dall'utente): i due conti separati, e la differenza.
     // ⚠️ Vanno in versi OPPOSTI e non si sommano: il primo è denaro che il
@@ -651,6 +661,9 @@ export class InvoicesService {
     const q2 = (n: number) => Math.round(n * 100) / 100;
     const imponibileServizi = q2(daPagamento.reduce((s, r) => s + r.amount, 0));
     const dovutoDaVendite = q2(daVendita.reduce((s, r) => s + r.dovuto, 0));
+    const quotaVendite = q2(daVendita.reduce((s, r) => s + (r.venduto - r.dovuto), 0));
+    const ivaQuotaVendite = soloIva(quotaVendite);
+    const nettoVendite = q2(dovutoDaVendite - ivaQuotaVendite);
     const riepilogo = {
       serviziAPagamento: {
         consegne: daPagamento.length,
@@ -661,12 +674,17 @@ export class InvoicesService {
       vendite: {
         consegne: daVendita.length,
         venduto: q2(daVendita.reduce((s, r) => s + r.venduto, 0)),
-        quotaDeluxy: q2(daVendita.reduce((s, r) => s + (r.venduto - r.dovuto), 0)),
+        quotaDeluxy: quotaVendite,
+        // L'IVA sulla nostra quota: gliela fatturiamo, quindi non gli arriva.
+        ivaSuQuota: ivaQuotaVendite,
         dovutoAlPartner: dovutoDaVendite,
+        nettoAlPartner: nettoVendite,
       },
       // Il saldo del periodo: quello che ci deve (servizi, IVA compresa) meno
       // quello che gli dobbiamo (le vendite girate). Positivo = incassiamo noi.
-      saldo: q2(conIva(imponibileServizi) - dovutoDaVendite),
+      // Si confronta col NETTO che gli arriva davvero (29/08): usare l'imponibile
+      // direbbe una differenza che nessuno dei due vedra' mai sul conto.
+      saldo: q2(conIva(imponibileServizi) - nettoVendite),
     };
 
     return {
@@ -685,7 +703,9 @@ export class InvoicesService {
         totalAmount: conIva(netAmount),
         venduto,
         quotaDeluxy,
+        ivaSuQuota,
         dovutoAlPartner,
+        nettoAlPartner,
       },
     };
   }
@@ -721,7 +741,8 @@ export class InvoicesService {
       <table class="totali">
         <tr><td>Valore venduto</td><td class="num">${eur(r.totali.venduto)}</td></tr>
         <tr><td>Quota Deluxy</td><td class="num">&minus;${eur(r.totali.quotaDeluxy)}</td></tr>
-        <tr class="finale"><td>Dovuto a voi</td><td class="num">${eur(r.totali.dovutoAlPartner)}</td></tr>
+        <tr><td>IVA ${IVA}% sulla quota</td><td class="num">&minus;${eur((r.totali as any).ivaSuQuota ?? 0)}</td></tr>
+        <tr class="finale"><td>Dovuto a voi</td><td class="num">${eur((r.totali as any).nettoAlPartner ?? r.totali.dovutoAlPartner)}</td></tr>
       </table>` : '';
 
     /**
@@ -732,7 +753,7 @@ export class InvoicesService {
      */
     const ri = (r as any).riepilogo as {
       serviziAPagamento: { consegne: number; imponibile: number; iva: number; totale: number };
-      vendite: { consegne: number; venduto: number; quotaDeluxy: number; dovutoAlPartner: number };
+      vendite: { consegne: number; venduto: number; quotaDeluxy: number; ivaSuQuota?: number; dovutoAlPartner: number; nettoAlPartner?: number };
       saldo: number;
     } | undefined;
     const blocccoRiepilogo = ri && (ri.serviziAPagamento.consegne || ri.vendite.consegne) ? `
@@ -745,7 +766,8 @@ export class InvoicesService {
         <tr class="titolo"><td colspan="2">Vendite che abbiamo realizzato per voi <span class="q">&mdash; ${ri.vendite.consegne} consegne</span></td></tr>
         <tr><td>Valore venduto</td><td class="num">${eur(ri.vendite.venduto)}</td></tr>
         <tr><td>Quota Deluxy</td><td class="num">&minus;${eur(ri.vendite.quotaDeluxy)}</td></tr>
-        <tr class="sub"><td>Che vi dobbiamo</td><td class="num">${eur(ri.vendite.dovutoAlPartner)}</td></tr>
+        <tr><td>IVA ${IVA}% sulla quota</td><td class="num">&minus;${eur(ri.vendite.ivaSuQuota ?? 0)}</td></tr>
+        <tr class="sub"><td>Che vi dobbiamo</td><td class="num">${eur(ri.vendite.nettoAlPartner ?? ri.vendite.dovutoAlPartner)}</td></tr>
         <tr class="finale"><td>Differenza${ri.saldo >= 0 ? ' &mdash; a nostro favore' : ' &mdash; a vostro favore'}</td><td class="num">${eur(Math.abs(ri.saldo))}</td></tr>
       </table>
       <p class="nota-riepilogo">La differenza è quello che ci dovete (IVA compresa) meno quello che vi dobbiamo. Non è una compensazione automatica: i due importi restano due documenti distinti.</p>` : '';

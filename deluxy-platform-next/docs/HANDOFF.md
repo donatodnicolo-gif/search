@@ -141,14 +141,16 @@ fatturazione, che non lo caricavano nemmeno.
 sono `invoiced = true` (arretrato marcato fino al 1° agosto), e il recap mostra
 il **da fatturare**. Per rivedere un mese già chiuso serve un'altra vista.
 
-🔴 **Resta una differenza di METODO sul totale finale, da decidere**: il legacy
-scrive «TOTALE DA INCASSARE = valore prodotto − (fee + IVA 22% sulla fee)» →
-su giugno **5.192,96 €**; la piattaforma scrive «Dovuto a voi = venduto −
-quota» → **5.495,20 €**. Sono **302,24 €** di differenza, che è esattamente
-l'IVA sulla nostra commissione. Non è un errore di calcolo — è la stessa
-doppia lettura già annotata il 28/08 (la Fatturazione dice il dovuto PRIMA
-dell'IVA, il «conto della vendita» nella scheda consegna lo dice DOPO) — ma il
-partner, sul recap, legge un numero diverso da quello a cui è abituato.
+✅ **IL TOTALE DEL RECAP È IL NETTO CHE ARRIVA — deciso dall'utente il 29/08:
+«deve leggere 5.192,96»**. Il recap ora detrae anche l'IVA sulla nostra quota
+(che gli fatturiamo a parte) e la mostra come riga sua: valore venduto → quota
+Deluxy → **IVA 22% sulla quota** → «Dovuto a voi». Su giugno: 6.869,00 −
+1.373,80 − 302,24 = **5.192,96 €**, identico alla fattura vecchia. Il saldo del
+riepilogo si confronta col netto, non più con l'imponibile.
+⚠️ **`dovutoAlPartner` resta l'IMPONIBILE** (626,40 su agosto) perché è quello
+che va sui documenti della Fatturazione: il netto è un campo NUOVO
+(`nettoAlPartner`, con `ivaSuQuota`), non una riscrittura del numero della
+fattura. Verificato live: agosto 783,00 − 156,60 − 34,45 = **591,95 €**.
 
 **Il recap nuovo è meglio del PDF vecchio, e non solo per l'aspetto**: quello
 del legacy ha 16 colonne, intestazioni in inglese maccheronico («SUM OF
