@@ -60,10 +60,10 @@
   .pv-chips{display:flex; gap:6px; flex-wrap:wrap; margin-left:auto}
   .pv-chip{font-size:12px; font-weight:600; padding:3px 10px; border-radius:var(--radius-pill); white-space:nowrap; display:inline-flex; align-items:center; gap:5px}
   .pv-chip.pv-part{color:var(--gold-strong); background:var(--gold-soft)}
-  .pv-chip.pv-open{color:var(--blue); background:rgba(0,113,227,.08)}
+  .pv-chip.pv-open{color:var(--blue); background:var(--blue-soft)}
   .pv-chip.pv-closed{color:var(--text-tertiary); background:var(--fill)}
   .pv-chip.pv-attivo{color:var(--gold-strong); background:var(--gold-soft)}
-  .pv-chip.pv-prospect{color:var(--blue); background:rgba(0,113,227,.08)}
+  .pv-chip.pv-prospect{color:var(--blue); background:var(--blue-soft)}
   .pv-chip.pv-prod{color:var(--text-secondary); background:var(--fill)}
   /* elenco contatti per provincia */
   .prov-group{margin-top:20px}
@@ -200,7 +200,7 @@
     #lbox .lb-grid img{height:130px}
   }
   /* pop-up «Invia richiesta via email» (AI Mail) */
-  #mailModal{position:fixed; inset:0; z-index:1300; background:rgba(0,0,0,.42); display:none;
+  #mailModal{position:fixed; inset:0; z-index:1300; background:var(--scrim); display:none;
     align-items:center; justify-content:center; padding:20px; backdrop-filter:saturate(140%) blur(3px)}
   #mailModal.on{display:flex}
   /* Il tetto è in dvh (Libro v1.7 §9): coi 90vh, su mobile con la barra del
@@ -209,11 +209,11 @@
      scorre (.mm-body). Collaudo: a 375×812 e a 1366×768 il bottone di
      conferma si raggiunge senza scrollare la pagina. */
   #mailModal .mm-card{background:var(--surface,#fff); border:1px solid var(--hairline,rgba(0,0,0,.08));
-    border-radius:var(--radius-l); box-shadow:var(--shadow-xl,0 24px 60px rgba(0,0,0,.28));
+    border-radius:var(--radius-l); box-shadow:var(--shadow-float);
     width:min(560px,100%); max-height:min(92dvh,calc(100dvh - 40px)); display:flex; flex-direction:column; overflow:hidden}
   #mailModal .mm-head{display:flex; align-items:center; justify-content:space-between; gap:12px;
     padding:16px 18px; border-bottom:1px solid var(--hairline,rgba(0,0,0,.08))}
-  #mailModal .mm-title{font-size:16px; font-weight:700; letter-spacing:-.01em}
+  #mailModal .mm-title{font-size:16px; font-weight:600; letter-spacing:-.01em}
   #mailModal .mm-x{background:transparent; border:0; font-size:18px; cursor:pointer; color:var(--text-secondary); padding:4px 8px; border-radius:var(--radius-pill)}
   #mailModal .mm-x:hover{background:var(--fill,rgba(0,0,0,.05))}
   #mailModal .mm-body{padding:16px 18px; overflow:auto}
@@ -415,9 +415,12 @@
     .sidebar{position:fixed; top:0; left:0; bottom:0; height:100dvh; width:264px; max-width:82vw; z-index:60;
       transform:translateX(-100%); transition:transform .28s var(--ease); box-shadow:var(--shadow-float)}
     .sidebar.open{transform:translateX(0)}
-    .app-overlay.open{display:block; position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.32)}
+    .app-overlay.open{display:block; position:fixed; inset:0; z-index:50; background:var(--scrim)}
     .content{padding:20px 16px 32px}
     .content .wrap, .page-head{max-width:100%}
+    /* iOS zooma sui campi < 16px al focus e non torna indietro (Libro UX §2.7):
+       su mobile i campi vanno a 16px (desktop resta 14px, corretto per i form) */
+    input,select,textarea, #mailModal .mm-body input, #mailModal .mm-body textarea{font-size:16px}
   }
   footer{ text-align:center; color:var(--text-tertiary); font-size:12px; padding:24px}
   /* --- mobile: intestazione schede impilata (titolo a piena larghezza, badge a capo sotto) --- */
@@ -1767,7 +1770,7 @@ function ctCard(p, opts){
   }).join('');
   const badge = partner
     ? '<span class="badge" style="color:var(--gold-strong); background:var(--gold-soft)"><i class="bdot"></i>Partner</span>'
-    : `<span class="badge" style="color:var(--blue); background:rgba(0,113,227,.08)"><i class="bdot"></i>${esc(statoLabel(p))}</span>`;
+    : `<span class="badge" style="color:var(--blue); background:var(--blue-soft)"><i class="bdot"></i>${esc(statoLabel(p))}</span>`;
   const luogo = [p.indirizzo, p.citta].filter(Boolean).join(' · ');
   // riga tag (solo dove richiesto, es. Province): ruolo re-seller/vendor + tipologia prodotto
   const metaPills = opts.showRuolo
@@ -2200,7 +2203,7 @@ function registryCard(p){
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end">
         <button type="button" class="star-btn" data-sid="${esc(el.dataset.sid)}" title="Segna come contattato">☆</button>
         <button type="button" class="arch-btn" title="Nascondi / archivia questo risultato" aria-label="Archivia">${ICO.arch}</button>
-        <span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}"><i class="bdot"></i>${isPartner?'Partner Deluxy':statoLabel(p)}</span>
+        <span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:var(--blue-soft)'}"><i class="bdot"></i>${isPartner?'Partner Deluxy':statoLabel(p)}</span>
       </div>
     </div>
     <div class="meta">${esc(p.categoria||'')}${luogo?' · '+esc(luogo):''}${p.note?'<br>📝 '+esc(String(p.note).slice(0,180)):''}</div>
@@ -4313,7 +4316,7 @@ async function renderResults(found, geo, origin, service, opts){
       const col = cardEl.querySelector('.head > div');
       const riconc = (p.riferimenti||[]).some(r=>r.sistema==='deluxy-suppliers' && r.idEsterno===cardEl.dataset.sid);
       if(col) col.insertAdjacentHTML('afterbegin',
-        `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:rgba(0,113,227,.08)'}"><i class="bdot"></i>${isPartner?'Partner Deluxy':statoLabel(p)}</span>`
+        `<span class="badge" style="${isPartner?'color:var(--gold-strong); background:var(--gold-soft)':'color:var(--blue); background:var(--blue-soft)'}"><i class="bdot"></i>${isPartner?'Partner Deluxy':statoLabel(p)}</span>`
         + (riconc ? '<span class="badge" style="color:var(--green); background:var(--green-soft)"><i class="bdot"></i>riconciliata</span>' : ''));
       // già censito: inutile segnalarlo di nuovo al commerciale
       const rep = cardEl.querySelector('.reportshop');
