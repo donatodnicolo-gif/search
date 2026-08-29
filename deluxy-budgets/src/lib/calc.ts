@@ -711,8 +711,12 @@ export type PLTeam = {
   teste: number;
 };
 
-export function contoEconomicoTeam(dati: DatiAnno, quotaD2C: QuotaD2C = 1): PLTeam[] {
-  const molt = moltiplicatore(dati, "RAGGIUNGIBILE");
+export function contoEconomicoTeam(
+  dati: DatiAnno,
+  quotaD2C: QuotaD2C = 1,
+  livello: Livello = "RAGGIUNGIBILE"
+): PLTeam[] {
+  const molt = moltiplicatore(dati, livello);
   const tot = dati.maisons.map(totaliMaison);
 
   // Ricavo dell'anno per tipologia, con la quota D2C applicata maison per
@@ -730,9 +734,42 @@ export function contoEconomicoTeam(dati: DatiAnno, quotaD2C: QuotaD2C = 1): PLTe
     return s + v * (1 - (l.marginePct ?? 0) / 100);
   }, 0);
 
+  return squadreSuRicavi(dati, ricaviPerServizio, ricaviCommerciale, cogsCommerciale, costoPersonaAnno);
+}
+
+// La stessa tabella, ma sul CONSUNTIVO di un periodo (richiesta dell'utente,
+// 29/08/2026: «scegliere se consuntivo, con specifica del periodo, o tipologia
+// di budget»). I ricavi sono quelli VERI di `caricaConsuntivo`
+// (`ricaviPerTipologia`: Finance per le tipologie, l'economia misurata per il
+// D2C — che quindi entra già alla presa Deluxy, come nel budget con la quota);
+// il COGS resta **dal margine per tipologia**, perché la banca conosce il
+// totale ma non sa dividerlo per ambito — la pagina lo dichiara, e nel
+// «risultato dopo la struttura» lo scarto con la banca ha una riga sua.
+// Il costo delle persone è quello dei MESI del periodo, non dell'anno.
+//
+// ⚠️ Le linee commerciali (`AMBITO_COMMERCIALE`) qui valgono zero: nel
+// consuntivo il loro fatturato entra dalle voci di Finance mappate sulle
+// tipologie, non hanno una riga propria. Anche questo si dichiara in pagina.
+export function contoEconomicoTeamConsuntivo(
+  dati: DatiAnno,
+  ricaviPerTipologia: Record<string, number>,
+  mesi: number[]
+): PLTeam[] {
+  return squadreSuRicavi(dati, ricaviPerTipologia, 0, 0, (p) =>
+    mesi.reduce((s, m) => s + costoPersonaMese(p, m), 0)
+  );
+}
+
+function squadreSuRicavi(
+  dati: DatiAnno,
+  ricaviPerServizio: Record<string, number>,
+  ricaviCommerciale: number,
+  cogsCommerciale: number,
+  costoPersona: (p: Persona) => number
+): PLTeam[] {
   return dati.team.map((t) => {
     const persone = personeDelTeam(dati, t.id);
-    const costoTeam = persone.reduce((s, p) => s + costoPersonaAnno(p), 0);
+    const costoTeam = persone.reduce((s, p) => s + costoPersona(p), 0);
     const base = { id: t.id, nome: t.nome, colore: t.colore, costoTeam, teste: persone.length };
 
     if (t.struttura) {

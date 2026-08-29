@@ -4,6 +4,39 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### 29/08/2026 (sera): il conto per team sceglie la vista — budget per livello o consuntivo per periodo — e chiude sul risultato
+
+Due richieste dell'utente sulla card «Conto economico per team» di `/team`, arrivate guardando la
+versione del mattino: «ho bisogno di scegliere se consuntivo (con specifica del periodo) o tipologia
+di budget» e «manca il risultato tenuto conto della struttura».
+
+- **La vista si sceglie** (segmented, parametri `?vista=&livello=&periodo=`): **Budget** a uno dei
+  tre livelli (Raggiungibile/Sfidante/Irraggiungibile — `contoEconomicoTeam` ora prende il
+  `livello`), oppure **Consuntivo** con le stesse scorciatoie di periodo del Consuntivo (YTD,
+  T1–T4, semestri), sempre intersecate coi **mesi chiusi** — il mese in corso è a metà e non è un
+  dato. Su mobile la fila dei selettori **scorre nella sua riga** (Libro v1.3), non manda in
+  overflow la pagina (misurato: 397px su 375 prima, 375 dopo).
+- **Il consuntivo per team** (`contoEconomicoTeamConsuntivo` in `calc.ts`): ricavi VERI da
+  `caricaConsuntivo.ricaviPerTipologia` (Finance per le tipologie, l'economia misurata per il D2C
+  — che quindi entra già alla presa Deluxy), costo delle persone **dei mesi del periodo**
+  (`costoPersonaMese`), COGS **dal margine per tipologia** perché la banca conosce il totale ma non
+  sa dividerlo per ambito — e lo scarto fra i due ha una riga sua, dichiarata. Le **linee
+  commerciali valgono zero** nel consuntivo (il loro fatturato entra dalle voci di Finance mappate
+  sulle tipologie): scritto in pagina. Se il consuntivo non arriva la card lo dice in rosso invece
+  di mostrare zeri.
+- **«Il risultato dopo la struttura»**: sotto la tabella, i costi comuni si tolgono **una volta
+  sola, sul totale** — mai ripartiti per squadra — riga per riga (contributi → margine degli ambiti
+  senza squadra → pubblicità → struttura → team di struttura → da dichiarare → persone senza team,
+  più lo scarto COGS nel consuntivo) fino al **Risultato**, che per costruzione è l'**EBITDA della
+  vista scelta**: nel budget quello del P&L al livello, nel consuntivo quello del Consuntivo sugli
+  stessi mesi. Le righe a zero si tolgono (togliendole il totale non cambia).
+- 🩸 **Un verso corretto guardando i numeri veri**: lo scarto COGS usciva positivo (la banca su
+  Gen–Lug ha visto ~35.000 € MENO del margine per tipologia) sotto un'etichetta che diceva
+  «oltre» — un numero giusto col nome sbagliato. L'etichetta ora segue il verso («oltre»/«sotto»).
+- 📌 Misurato in locale sui dati veri: budget Sfidante → contributi 642.555 €, risultato 174.149 €;
+  consuntivo Gen–Lug → Maison 166.996 €, Commerciale 19.475 €, risultato **21.777 €** (l'EBITDA
+  consuntivo del momento — si muove con le fonti, come tutto il consuntivo).
+
 ### 29/08/2026: il conto economico per team, con l'associazione ai ricavi
 
 Richiesta dell'utente: «consentimi di associare team con ricavi e budget (esempio maison
