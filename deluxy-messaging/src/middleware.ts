@@ -81,7 +81,10 @@ export const config = {
   // l'HTML del login con 200 e crederebbe la notifica consegnata (stessa
   // lezione di deluxy-partner). Ancorato: vale solo per quel percorso esatto,
   // il resto di /api/pagamenti resta dietro la sessione.
+  // ⚠️ `api/pagamenti/avvisa` (29/08): come /notifica — è Transactions che
+  // chiama, autenticata dalla firma HMAC dentro la rotta; senza l'esclusione
+  // riceverebbe l'HTML del login con 200. Ancorata: solo quel percorso esatto.
   matcher: [
-    '/((?!(?:login|registrati|widget|widget\\.js|chat|api/widget|api/webhooks|api/cron|api/health|api/pagamenti/notifica|_next/static|_next/image|favicon\\.ico)(?:/|$)).*)',
+    '/((?!(?:login|registrati|widget|widget\\.js|chat|api/widget|api/webhooks|api/cron|api/health|api/pagamenti/notifica|api/pagamenti/avvisa|_next/static|_next/image|favicon\\.ico)(?:/|$)).*)',
   ],
 }

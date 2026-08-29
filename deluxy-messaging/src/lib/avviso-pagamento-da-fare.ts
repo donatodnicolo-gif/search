@@ -135,48 +135,13 @@ export function testoAvviso(d: {
 }
 
 /**
- * Manda l'avviso. Non lancia mai: chi la chiama sta salvando una richiesta di
- * pagamento, e quella non deve fallire perché un avviso non è partito.
+ * L'INVIO vero e proprio: manda un testo al numero degli avvisi, scegliendo il
+ * mittente giusto e traducendo gli errori di Meta. Estratto (28/08) perché lo
+ * usano DUE strade: le richieste nate qui dentro, e — dal collettore unico —
+ * gli avvisi che Transactions manda per le richieste arrivate dalle ALTRE app
+ * (Scout, Finance, Piattaforma). Una strada sola, mai due copie.
  */
-export async function avvisaPagamentoDaFare(richiestaId: string): Promise<EsitoAvvisoInterno> {
-  const a = await numeroAvviso()
-  if (!a) {
-    // ⚠️ Nessun numero non è un errore: è l'avviso spento. Si dice com'è.
-    return { mandato: false, messaggio: '' }
-  }
-  const r = await db.richiestaPagamento.findUnique({
-    where: { id: richiestaId },
-    select: {
-      intestatario: true,
-      importo: true,
-      valuta: true,
-      ordineNumero: true,
-      causale: true,
-      pagataDaNome: true,
-      metodo: true,
-      iban: true,
-      riferimentoPagamento: true,
-    },
-  })
-  if (!r) return { mandato: false, messaggio: 'Richiesta non trovata.' }
-
-  // ⚠️ L'indirizzo pubblico viene da `APP_URL` (su Vercel c'è). Senza, il link
-  // resta vuoto e il messaggio dice dove andare a parole: costruirne uno con
-  // `localhost` dentro sarebbe peggio che non metterlo.
-  const base = (process.env.APP_URL ?? '').replace(/\/+$/, '')
-  const testo = testoAvviso({
-    chi: r.intestatario,
-    importo: r.importo,
-    valuta: r.valuta,
-    ordine: r.ordineNumero,
-    causale: r.causale,
-    da: r.pagataDaNome,
-    metodo: r.metodo,
-    iban: r.iban,
-    riferimento: r.riferimentoPagamento,
-    link: base ? `${base}/pagamenti?richiesta=${richiestaId}` : '',
-  })
-
+export async function inviaAvvisoInterno(a: string, testo: string): Promise<EsitoAvvisoInterno> {
   try {
     // ⚠️⚠️ Si sceglie il numero NOSTRO da cui quella persona ha scritto più di
     // recente: è l'unico che può avere la finestra aperta. Prendendone uno a
@@ -228,4 +193,50 @@ export async function avvisaPagamentoDaFare(richiestaId: string): Promise<EsitoA
   } catch (e) {
     return { mandato: false, messaggio: `Avviso non mandato: ${(e as Error).message}` }
   }
+}
+
+/**
+ * Manda l'avviso. Non lancia mai: chi la chiama sta salvando una richiesta di
+ * pagamento, e quella non deve fallire perché un avviso non è partito.
+ */
+export async function avvisaPagamentoDaFare(richiestaId: string): Promise<EsitoAvvisoInterno> {
+  const a = await numeroAvviso()
+  if (!a) {
+    // ⚠️ Nessun numero non è un errore: è l'avviso spento. Si dice com'è.
+    return { mandato: false, messaggio: '' }
+  }
+  const r = await db.richiestaPagamento.findUnique({
+    where: { id: richiestaId },
+    select: {
+      intestatario: true,
+      importo: true,
+      valuta: true,
+      ordineNumero: true,
+      causale: true,
+      pagataDaNome: true,
+      metodo: true,
+      iban: true,
+      riferimentoPagamento: true,
+    },
+  })
+  if (!r) return { mandato: false, messaggio: 'Richiesta non trovata.' }
+
+  // ⚠️ L'indirizzo pubblico viene da `APP_URL` (su Vercel c'è). Senza, il link
+  // resta vuoto e il messaggio dice dove andare a parole: costruirne uno con
+  // `localhost` dentro sarebbe peggio che non metterlo.
+  const base = (process.env.APP_URL ?? '').replace(/\/+$/, '')
+  const testo = testoAvviso({
+    chi: r.intestatario,
+    importo: r.importo,
+    valuta: r.valuta,
+    ordine: r.ordineNumero,
+    causale: r.causale,
+    da: r.pagataDaNome,
+    metodo: r.metodo,
+    iban: r.iban,
+    riferimento: r.riferimentoPagamento,
+    link: base ? `${base}/pagamenti?richiesta=${richiestaId}` : '',
+  })
+
+  return inviaAvvisoInterno(a, testo)
 }
