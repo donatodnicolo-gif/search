@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { chiediJson, frasePerEsito } from '@/lib/leggi-json'
+import { regolaConsegna } from '@/lib/regole-consegna'
 
 // Fare un ordine per un cliente al telefono, senza uscire dall'app.
 //
@@ -81,12 +82,22 @@ export function NuovoOrdine({
   const [rigaTitolo, setRigaTitolo] = useState('')
   const [rigaPrezzo, setRigaPrezzo] = useState('')
 
-  /** Le voci di spedizione che QUESTO negozio usa davvero. */
-  const [spedizioni, setSpedizioni] = useState<{ titolo: string; prezzo: number; usata: number }[]>(
-    []
-  )
   const [spedizioneTitolo, setSpedizioneTitolo] = useState('')
   const [spedizionePrezzo, setSpedizionePrezzo] = useState('0')
+  /**
+   * L'ultima spedizione messa da una REGOLA (marchio/città), in forma
+   * `titolo|prezzo`. Serve a distinguere «lo ha scelto la regola» da «lo ha
+   * scritto l'operatore»: se l'operatore cambia il prezzo a mano, la regola
+   * non deve più sovrascriverglielo al primo tasto della città.
+   */
+  const regolaMessa = useRef('')
+
+  /**
+   * Aggiungere l'IVA. ⚠️ Spenta di suo: su Deluxy e Flowers i prezzi sono IVA
+   * esclusa, quindi Shopify di suo la aggiungeva sopra al link — che è la cosa
+   * segnalata. Ora si aggiunge SOLO spuntando qui.
+   */
+  const [aggiungiIva, setAggiungiIva] = useState(false)
 
   /** I suggerimenti di Google Maps per l'indirizzo che si sta scrivendo. */
   const [indirizzi, setIndirizzi] = useState<{ id: string; testo: string; secondario: string }[]>(
@@ -158,14 +169,12 @@ export function NuovoOrdine({
     }
   }, [])
 
-  // ⚠️ Le spedizioni si rileggono a ogni cambio di negozio, e la più usata si
-  // mette da sola: «Consegna Deluxy» su un ordine Cake sarebbe una voce che
-  // quel marchio non ha mai fatturato.
+  // ⚠️ A ogni cambio di negozio si rileggono i metodi di pagamento, e come
+  // RIPIEGO la spedizione più usata da quel negozio: serve solo per i casi
+  // fuori regola (Deluxy in una città senza tariffa). Dove una regola c'è, la
+  // regola qui sopra la sovrascrive.
   useEffect(() => {
-    if (!negozioId) {
-      setSpedizioni([])
-      return
-    }
+    if (!negozioId) return
     // ⚠️ I metodi si rileggono a ogni cambio di negozio, come le spedizioni:
     // sono del negozio, non dell'azienda — «Bank Deposit» ce l'ha solo Cake.
     chiediJson<{ metodi?: { nome: string; usato: number }[] }>(
@@ -193,14 +202,39 @@ export function NuovoOrdine({
       .then((r) => (r.ok ? r.json() : { spedizioni: [] }))
       .then((d: { spedizioni?: { titolo: string; prezzo: number; usata: number }[] }) => {
         const s = d.spedizioni ?? []
-        setSpedizioni(s)
-        if (s.length) {
+        // ⚠️ Solo se una regola non ha già scritto: la regola vince sempre sul
+        // ripiego storico. `regolaMessa` vuoto = nessuna regola ha ancora deciso.
+        if (s.length && regolaMessa.current === '') {
           setSpedizioneTitolo(s[0].titolo)
           setSpedizionePrezzo(String(s[0].prezzo))
         }
       })
-      .catch(() => setSpedizioni([]))
+      .catch(() => {})
   }, [negozioId])
+
+  // ── LA REGOLA DI CONSEGNA, per marchio e città ──
+  //
+  // ⚠️⚠️ Chiesto dall'utente il 28/08/2026: Flowers gratuita, Cake 10 €, Deluxy
+  // a città (Milano 15 €, Roma/Firenze 25 €). Le regole stanno in
+  // `src/lib/regole-consegna.ts`, in un posto solo.
+  //
+  // ⚠️ La regola SCRIVE nei campi spedizione, ma non calpesta l'operatore: se
+  // lui ha cambiato a mano dopo che una regola aveva scritto, non gli si
+  // sovrascrive al primo tasto della città (`regolaMessa`).
+  const nomeNegozio = negozi.find((x) => x.id === negozioId)?.nome ?? ''
+  const regola = negozioId ? regolaConsegna(nomeNegozio, citta) : null
+  useEffect(() => {
+    if (!regola || !regola.certa) return
+    const attuale = `${spedizioneTitolo}|${spedizionePrezzo}`
+    // Applica se: non è mai stata messa una regola, oppure il campo è ancora
+    // quello che aveva messo l'ultima regola (cioè l'operatore non l'ha toccato).
+    const manoLibera = regolaMessa.current === '' || attuale === regolaMessa.current
+    if (!manoLibera) return
+    setSpedizioneTitolo(regola.titolo)
+    setSpedizionePrezzo(String(regola.prezzo))
+    regolaMessa.current = `${regola.titolo}|${regola.prezzo}`
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regola?.titolo, regola?.prezzo, regola?.certa])
 
   /** Cerca un cliente già registrato e, scegliendolo, riempie tutto. */
   const cercaCliente = useCallback(async () => {
@@ -369,6 +403,7 @@ export function NuovoOrdine({
           spedizione: { titolo: spedizioneTitolo, prezzo: Number(spedizionePrezzo) || 0 },
           pagamento,
           mezzoPagamento: mezzo,
+          aggiungiIva,
         }),
       })
       const d = (await res.json().catch(() => ({}))) as {
@@ -815,38 +850,53 @@ export function NuovoOrdine({
         <h2 style={{ marginTop: 0, fontSize: 15 }}>Consegna, biglietto e pagamento</h2>
         <div className="griglia-campi">
           <label className="campo" style={{ gridColumn: '1 / -1' }}>
-            {/* ⚠️ Le voci sono quelle che QUESTO negozio usa davvero, lette dai
-                suoi ordini recenti: «Consegna Deluxy» (25 €) è di Deluxy,
-                «Consegna Standard» (10 €) di Cake, «Consegna Sempre Gratuita»
-                di Flowers. Metterne una dell'altro marchio vuol dire fatturare
-                al cliente un servizio che quel marchio non fa. */}
+            {/* ⚠️⚠️ IL PREZZO LO DECIDE LA REGOLA (marchio/città), non la storia
+                degli ordini: Flowers gratuita, Cake 10 €, Deluxy a città
+                (Milano 15 €, Roma/Firenze 25 €). Vedi src/lib/regole-consegna.ts.
+                Resta modificabile a mano per i casi fuori regola. */}
             <span>Spedizione</span>
-            {spedizioni.length ? (
-              <select
-                value={`${spedizioneTitolo}|${spedizionePrezzo}`}
-                onChange={(e) => {
-                  const [tit, pre] = e.target.value.split('|')
-                  setSpedizioneTitolo(tit)
-                  setSpedizionePrezzo(pre)
-                }}
-              >
-                {spedizioni.map((s) => (
-                  <option key={`${s.titolo}|${s.prezzo}`} value={`${s.titolo}|${s.prezzo}`}>
-                    {s.titolo} — {soldi(s.prezzo)}
-                    {s.usata > 1 ? ` (usata ${s.usata} volte)` : ''}
-                  </option>
-                ))}
-                <option value="|0">Nessuna spedizione</option>
-              </select>
-            ) : (
+            <div style={{ display: 'flex', gap: 8 }}>
               <input
                 value={spedizioneTitolo}
                 onChange={(e) => setSpedizioneTitolo(e.target.value)}
-                placeholder={negozioId ? 'Leggo le spedizioni del negozio…' : 'Scegli prima il negozio'}
+                placeholder={negozioId ? 'Titolo della spedizione' : 'Scegli prima il negozio'}
+                style={{ flex: 1 }}
               />
-            )}
+              <input
+                value={spedizionePrezzo}
+                onChange={(e) => setSpedizionePrezzo(e.target.value.replace(',', '.'))}
+                inputMode="decimal"
+                aria-label="Prezzo della spedizione"
+                style={{ width: 90, textAlign: 'right' }}
+              />
+            </div>
+            {/* La regola che ha deciso il prezzo, o perché non ce n'è una. */}
+            {regola ? (
+              <span className="cella-sub" style={regola.certa ? { color: 'var(--gold, #B8963E)' } : undefined}>
+                {regola.certa
+                  ? `Regola applicata: ${regola.etichetta}`
+                  : regola.etichetta}
+              </span>
+            ) : null}
           </label>
         </div>
+
+        {/* ── L'IVA È UNA SCELTA ──
+            ⚠️⚠️ Segnalato dall'utente il 28/08/2026: sul link di pagamento
+            Shopify aggiungeva l'IVA da solo. Su Deluxy e Flowers i prezzi sono
+            IVA esclusa, quindi di suo l'imposta si somma sopra. Ora si aggiunge
+            SOLO spuntando qui — spenta, il totale del link è il prezzo
+            concordato e basta. */}
+        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', margin: '4px 0 2px' }}>
+          <input
+            type="checkbox"
+            checked={aggiungiIva}
+            onChange={(e) => setAggiungiIva(e.target.checked)}
+          />
+          <span>
+            <strong>Aggiungi l&apos;IVA</strong> sul totale — di suo il link non la aggiunge
+          </span>
+        </label>
         <label className="campo">
           <span>Biglietto (il messaggio per chi riceve)</span>
           <textarea rows={3} value={biglietto} onChange={(e) => setBiglietto(e.target.value)} />

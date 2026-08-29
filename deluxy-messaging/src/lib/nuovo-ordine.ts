@@ -187,6 +187,26 @@ export type DatiNuovoOrdine = {
   /** Con quale mezzo ha pagato: finisce nelle note dell'ordine. */
   mezzoPagamento: string
   /**
+   * Aggiungere l'IVA sopra al prezzo delle righe.
+   *
+   * ⚠️⚠️ Chiesto dall'utente il 28/08/2026: «quando mando un link di pagamento
+   * Shopify mi aggiunge l'IVA, deve essere un'opzione che seleziono io». Il
+   * motivo è nella configurazione dei negozi: Deluxy e Flowers hanno i prezzi
+   * **IVA esclusa** (`taxesIncluded=false`), quindi Shopify di suo calcola
+   * l'imposta **sopra** al prezzo e la somma al totale del link. Cake li ha IVA
+   * inclusa e non cambia.
+   *
+   * ⚠️ Di suo è **falso**: il comportamento normale del servizio clienti è NON
+   * aggiungere l'IVA (il prezzo concordato è quello). Quando serve la fattura
+   * con IVA si spunta la casella. Sotto si traduce in `taxExempt`, all'inverso:
+   * IVA non richiesta ⇒ `taxExempt: true` ⇒ Shopify non aggiunge niente.
+   *
+   * ⚠️ Opzionale, e assente = falso: gli altri chiamanti (riconsegna,
+   * preventivo, API v1) non devono aggiungere l'IVA se non la chiedono. Il
+   * verso sicuro è NON aggiungerla per sbaglio.
+   */
+  aggiungiIva?: boolean
+  /**
    * Chi lo sta creando.
    *
    * ⚠️ Shopify non lo saprà mai: la bozza è firmata dall'app, non dalla
@@ -242,6 +262,10 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
         ? [{ key: 'Fascia_Oraria_Consegna', value: d.consegna.fascia.trim() }]
         : []),
     ],
+    // ⚠️⚠️ L'IVA È UNA SCELTA. Su Deluxy e Flowers i prezzi sono IVA esclusa,
+    // quindi senza questo Shopify aggiunge l'imposta sopra al totale del link.
+    // `taxExempt: true` (quando l'IVA NON è richiesta) glielo impedisce.
+    taxExempt: !d.aggiungiIva,
     // Da dove arriva: serve a distinguerli dagli ordini fatti dal sito.
     tags: ['servizio-clienti'],
     lineItems: d.righe.map((r) =>

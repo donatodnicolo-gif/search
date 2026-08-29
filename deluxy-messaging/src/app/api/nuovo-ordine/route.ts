@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
     spedizione: { titolo: d.spedizione?.titolo ?? '', prezzo: d.spedizione?.prezzo ?? 0 },
     pagamento: d.pagamento === 'pagato' ? 'pagato' : 'link',
     mezzoPagamento: d.mezzoPagamento ?? '',
+    // ⚠️ Di suo l'IVA NON si aggiunge: solo se il modulo la chiede esplicitamente.
+    aggiungiIva: d.aggiungiIva === true,
     // Chi sta creando l'ordine: la sessione lo sa, Shopify no. Senza questo
     // la pagina «Operatori» non può dire quanti link di pagamento manda
     // ciascuno — e quel dato non si recupera dopo.
