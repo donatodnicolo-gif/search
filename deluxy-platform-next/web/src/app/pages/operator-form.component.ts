@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -13,7 +14,7 @@ import { OPERATION_ROLE_OPTIONS } from '../core/models';
   template: `
     <div class="form-head">
       <div>
-        <a routerLink="/operators" class="back">← {{ 'operatorForm.backToOperators' | translate }}</a>
+        <button type="button" class="back" (click)="indietro()">← {{ 'operatorForm.backToOperators' | translate }}</button>
         <h1>{{ (editId() ? 'operatorForm.editTitle' : 'operatorForm.title') | translate }}</h1>
         <p class="page-caption">{{ 'operatorForm.caption' | translate }}</p>
       </div>
@@ -24,11 +25,11 @@ import { OPERATION_ROLE_OPTIONS } from '../core/models';
         <header class="block-head"><h2>{{ 'operatorForm.general.title' | translate }}</h2>
           <span class="block-sub">{{ 'operatorForm.general.requiredNote' | translate }}</span></header>
         <div class="grid-2">
-          <label class="fld"><span>{{ 'operatorForm.general.lastName' | translate }}</span>
+          <label class="fld"><span class="req">{{ 'operatorForm.general.lastName' | translate }}</span>
             <input class="field" name="lastName" [(ngModel)]="model.lastName" required placeholder="Rossi" /></label>
-          <label class="fld"><span>{{ 'operatorForm.general.firstName' | translate }}</span>
+          <label class="fld"><span class="req">{{ 'operatorForm.general.firstName' | translate }}</span>
             <input class="field" name="firstName" [(ngModel)]="model.firstName" required placeholder="Giulia" /></label>
-          <label class="fld"><span>{{ 'operatorForm.general.email' | translate }}</span>
+          <label class="fld"><span class="req">{{ 'operatorForm.general.email' | translate }}</span>
             <input class="field" type="email" name="email" [(ngModel)]="model.email" required placeholder="operatore@deluxy.it" /></label>
           <label class="fld"><span>{{ 'operatorForm.general.phone' | translate }}</span>
             <input class="field" name="phone" [(ngModel)]="model.phone" placeholder="+39 …" /></label>
@@ -114,6 +115,16 @@ import { OPERATION_ROLE_OPTIONS } from '../core/models';
 export class OperatorFormComponent {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
+
+  /**
+   * Libro v1.5: si torna con la HISTORY quando si arriva da dentro (conserva
+   * filtri, pagina e scroll dell'elenco); il link nudo solo da fuori.
+   */
+  indietro(): void {
+    if (window.history.length > 1) this.location.back();
+    else this.router.navigate(['/operators']);
+  }
   private readonly route = inject(ActivatedRoute);
   private readonly translate = inject(TranslateService);
 

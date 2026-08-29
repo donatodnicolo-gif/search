@@ -530,3 +530,70 @@ input.field {
     padding: 11px 18px;
   }
 }
+
+/* ============================================================
+   ADEGUAMENTO AL LIBRO UX&UI — 28/08/2026 (passata su tutta l'app)
+   ------------------------------------------------------------
+   Regole GLOBALI perché valgono per ogni pagina: metterle nei
+   singoli componenti vorrebbe dire N copie che divergono.
+   ============================================================ */
+
+/* §3/§4 (WCAG 2.4.7): OGNI chip/bottone-pillola custom ha un focus
+   visibile. I componenti definiscono .chip ognuno per sé, ma il focus
+   è una legge, non uno stile: vive qui, una volta. */
+.chip:focus-visible,
+.quick-tab:focus-visible,
+.act:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Legge 4: bersagli ≥ 44px dove si tocca. Il padding cresce senza
+   muovere il layout del mouse. */
+@media (pointer: coarse) {
+  .chip, .quick-tab, .act, .icon-btn { min-height: var(--touch-min); }
+}
+
+/* §4 «Form lunghi»: la barra azioni STICKY. Quando la CTA cade oltre
+   una viewport, Salva e Annulla restano raggiungibili senza scrollare.
+   Il velo translucido fa da pavimento: senza, i campi si leggono
+   attraverso la barra e i bottoni sembrano galleggiare sui campi. */
+.actions.sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+  margin-top: 4px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--hairline);
+}
+
+/* §4 «Obbligatori»: l'asterisco rosso, una classe sola per tutte le
+   label. L'oro non marca obblighi. */
+.req::after {
+  content: ' *';
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* Il «← indietro» dei form, ora bottone (v1.5): stesso vestito del
+   vecchio link, una volta sola per tutte le pagine. */
+button.back {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+button.back:hover { color: var(--text); }
+button.back:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

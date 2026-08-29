@@ -51,22 +51,32 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
       </div>
     </div>
 
+
+    <!-- §8-bis del Libro: ogni elenco ha una ricerca. -->
+    <div class="cerca-riga">
+      <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
+             [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
+      @if (cerca.trim()) {
+        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: filtered().length, m: payments().length } }}</span>
+      }
+    </div>
+
     @if (showNew()) {
       <section class="card gen">
         <div class="grid">
           @if (canManage()) {
-            <label class="fld"><span>{{ 'payments.form.valet' | translate }} *</span>
+            <label class="fld"><span class="req">{{ 'payments.form.valet' | translate }}</span>
               <select class="field" [(ngModel)]="draft.valetId">
                 <option value="">{{ 'payments.form.pickValet' | translate }}</option>
                 @for (v of valets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
               </select></label>
           }
-          <label class="fld"><span>{{ 'payments.form.type' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'payments.form.type' | translate }}</span>
             <select class="field" [(ngModel)]="draft.type">
               <option value="REIMBURSEMENT">{{ 'payments.type.REIMBURSEMENT' | translate }}</option>
               <option value="CLAIM">{{ 'payments.type.CLAIM' | translate }}</option>
             </select></label>
-          <label class="fld"><span>{{ 'payments.form.amount' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'payments.form.amount' | translate }}</span>
             <input class="field num" type="number" step="0.01" min="0" [(ngModel)]="draft.amount" placeholder="0.00" /></label>
         </div>
         <label class="fld mt"><span>{{ 'payments.form.description' | translate }}</span>
@@ -165,6 +175,9 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
       @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+      .cerca-riga { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+      .cerca-riga .field { max-width: 340px; }
+      .conto-righe { font-size: 12.5px; color: var(--text-secondary); }
     `,
   ],
 })
@@ -193,12 +206,21 @@ export class PaymentsListComponent {
    * Metodo e non computed: `valetFilter` è una proprietà ngModel, non un
    * segnale — dentro un computed il cambio non veniva mai visto.
    */
+  /** §8-bis: la ricerca, per valet o descrizione. */
+  cerca = '';
+
   filtered(): Payment[] {
     const perValet = this.valetFilter
       ? this.payments().filter((p) => p.valetId === this.valetFilter)
       : this.payments();
     const storico = this.vista() === 'storico';
-    return perValet.filter((p) => (p.legacyId != null) === storico);
+    const q = this.cerca.trim().toLowerCase();
+    return perValet.filter((p) => {
+      if ((p.legacyId != null) !== storico) return false;
+      if (!q) return true;
+      return `${p.valet?.firstName ?? ''} ${p.valet?.lastName ?? ''}`.toLowerCase().includes(q)
+        || (p.description ?? '').toLowerCase().includes(q);
+    });
   }
 
   canManage(): boolean {

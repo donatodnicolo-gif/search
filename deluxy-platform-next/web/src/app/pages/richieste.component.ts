@@ -1,3 +1,4 @@
+import { ConfermaComponent } from '../shared/conferma.component';
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -35,7 +36,7 @@ interface Richiesta {
 @Component({
   selector: 'app-richieste',
   standalone: true,
-  imports: [FormsModule, DatePipe, TranslatePipe],
+  imports: [FormsModule, DatePipe, TranslatePipe, ConfermaComponent],
   template: `
     <div class="page-header">
       <div>
@@ -54,7 +55,7 @@ interface Richiesta {
     @if (formAperto()) {
       <section class="card modulo">
         <label class="fld">
-          <span>{{ 'richieste.f.testo' | translate }} *</span>
+          <span class="req">{{ 'richieste.f.testo' | translate }}</span>
           <textarea class="field" rows="3" [(ngModel)]="m.testo"
                     [placeholder]="'richieste.f.testoPh' | translate"></textarea>
         </label>
@@ -81,6 +82,16 @@ interface Richiesta {
       }
     </div>
 
+
+    <!-- §8-bis del Libro: ogni elenco ha una ricerca. Filtro client: la
+         lista è già tutta qui. -->
+    <div class="cerca-riga">
+      <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
+             [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
+      @if (cerca.trim()) {
+        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: richiesteVisibili().length, m: richieste().length } }}</span>
+      }
+    </div>
     @if (caricamento()) {
       <div class="card state-card">{{ 'common.loading' | translate }}</div>
     } @else if (!richieste().length) {
@@ -90,7 +101,7 @@ interface Richiesta {
       </div>
     } @else {
       <div class="elenco">
-        @for (r of richieste(); track r.id) {
+        @for (r of richiesteVisibili(); track r.id) {
           <article class="card richiesta" [class.nuova]="r.stato === 'nuova'">
             <header>
               <span class="badge" [class]="'badge ' + r.stato">
@@ -140,6 +151,11 @@ interface Richiesta {
         }
       </div>
     }
+    @if (confermaPendente(); as c) {
+      <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
+                    [conMotivo]="c.conMotivo ?? false" [motivoLabel]="c.motivoLabel ?? ''"
+                    (confermato)="eseguiConferma($event)" (annullato)="confermaPendente.set(null)" />
+    }
   `,
   styles: [
     `
@@ -182,10 +198,28 @@ interface Richiesta {
       .muted { color: var(--text-secondary); }
       .ok-card { padding: 12px 16px; margin-bottom: 12px; color: var(--success, #248a3d); }
       .error-card { background: rgba(215,0,21,.06); border: 1px solid rgba(215,0,21,.15); color: var(--red); padding: 14px 18px; border-radius: var(--radius-l); margin-bottom: 12px; }
+      .cerca-riga { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+      .cerca-riga .field { max-width: 340px; }
+      .conto-righe { font-size: 12.5px; color: var(--text-secondary); }
     `,
   ],
 })
 export class RichiesteComponent {
+
+  /**
+   * La conferma narrativa in attesa (Libro §7): al posto dei confirm() del
+   * browser. L'azione parte solo al click sul verbo.
+   */
+  readonly confermaPendente = signal<{
+    titolo: string; messaggio: string; verbo: string; tono: 'danger' | 'primary';
+    conMotivo?: boolean; motivoLabel?: string; azione: (motivo: string) => void;
+  } | null>(null);
+
+  eseguiConferma(motivo: string): void {
+    const c = this.confermaPendente();
+    this.confermaPendente.set(null);
+    c?.azione(motivo);
+  }
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly translate = inject(TranslateService);
@@ -194,6 +228,19 @@ export class RichiesteComponent {
   readonly FILTRI = ['nuova', 'in_lavorazione', 'accettata', 'rifiutata', 'tutte'] as const;
 
   readonly richieste = signal<Richiesta[]>([]);
+
+  /** §8-bis: la ricerca dentro il testo, l'origine e il riferimento. */
+  cerca = '';
+  richiesteVisibili(): Richiesta[] {
+    const q = this.cerca.trim().toLowerCase();
+    if (!q) return this.richieste();
+    return this.richieste().filter((r) =>
+      r.testo.toLowerCase().includes(q) ||
+      r.origine.toLowerCase().includes(q) ||
+      (r.riferimento ?? '').toLowerCase().includes(q) ||
+      (r.contatto ?? '').toLowerCase().includes(q));
+  }
+
   readonly daLeggere = signal(0);
   readonly caricamento = signal(true);
   readonly errore = signal<string | null>(null);
@@ -275,13 +322,19 @@ export class RichiesteComponent {
   }
 
   rifiuta(r: Richiesta): void {
-    // ⚠️ Il motivo è obbligatorio, e lo chiede il server: chi ha mandato la
-    // richiesta legge l'esito, e un «no» muto si trasforma in una seconda
-    // richiesta identica.
-    const motivo = prompt(this.translate.instant('richieste.motivoRifiuto'));
-    if (motivo === null) return;
-    if (!motivo.trim()) { this.errore.set(this.translate.instant('richieste.motivoServe')); return; }
-    this.decidi(r, { stato: 'rifiutata', note: motivo.trim() });
+    // ⚠️ Il motivo è obbligatorio, e lo chiede anche il server: chi ha mandato
+    // la richiesta legge l'esito, e un «no» muto si trasforma in una seconda
+    // richiesta identica. La finestra ha il campo del motivo (il vecchio
+    // prompt() del browser era fuori canone: Libro §7).
+    this.confermaPendente.set({
+      titolo: this.translate.instant('conferme.rifiutaRichiesta'),
+      messaggio: this.translate.instant('richieste.motivoRifiuto'),
+      verbo: this.translate.instant('richieste.rifiuta'),
+      tono: 'danger',
+      conMotivo: true,
+      motivoLabel: this.translate.instant('conferme.motivo'),
+      azione: (motivo) => this.decidi(r, { stato: 'rifiutata', note: motivo }),
+    });
   }
 
   private decidi(r: Richiesta, corpo: Record<string, unknown>): void {

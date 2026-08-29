@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -26,7 +27,7 @@ interface ValetServiceRow {
   template: `
     <div class="form-head">
       <div>
-        <a routerLink="/valets" class="back">← {{ 'valetForm.backToValets' | translate }}</a>
+        <button type="button" class="back" (click)="indietro()">← {{ 'valetForm.backToValets' | translate }}</button>
         <h1>{{ (editId() ? 'valetForm.editTitle' : 'valetForm.title') | translate }}</h1>
         <p class="page-caption">{{ 'valetForm.caption' | translate }}</p>
       </div>
@@ -40,11 +41,11 @@ interface ValetServiceRow {
           <span class="block-sub">{{ 'valetForm.requiredHint' | translate }}</span>
         </header>
         <div class="grid-2">
-          <label class="fld"><span>{{ 'valetForm.fields.lastName' | translate }}</span>
+          <label class="fld"><span class="req">{{ 'valetForm.fields.lastName' | translate }}</span>
             <input class="field" name="lastName" [(ngModel)]="model.lastName" required [attr.placeholder]="'valetForm.placeholders.lastName' | translate" /></label>
-          <label class="fld"><span>{{ 'valetForm.fields.firstName' | translate }}</span>
+          <label class="fld"><span class="req">{{ 'valetForm.fields.firstName' | translate }}</span>
             <input class="field" name="firstName" [(ngModel)]="model.firstName" required [attr.placeholder]="'valetForm.placeholders.firstName' | translate" /></label>
-          <label class="fld"><span>{{ 'valetForm.fields.email' | translate }}</span>
+          <label class="fld"><span class="req">{{ 'valetForm.fields.email' | translate }}</span>
             <input class="field" type="email" name="email" [(ngModel)]="model.email" required [attr.placeholder]="'valetForm.placeholders.email' | translate" /></label>
           <label class="fld"><span>{{ 'valetForm.fields.phone' | translate }}</span>
             <input class="field" name="phone" [(ngModel)]="model.phone" [attr.placeholder]="'valetForm.placeholders.phone' | translate" /></label>
@@ -238,7 +239,7 @@ interface ValetServiceRow {
       @if (justSaved()) { <div class="ok-card card" [innerHTML]="'valetForm.savedOk' | translate"></div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
-      <div class="actions">
+      <div class="actions sticky">
         <a routerLink="/valets" class="btn btn-secondary">{{ 'common.cancel' | translate }}</a>
         @if (!editId()) {
           <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'common.duplicate' | translate }}</button>
@@ -332,6 +333,16 @@ interface ValetServiceRow {
 export class ValetFormComponent {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
+
+  /**
+   * Libro v1.5: si torna con la HISTORY quando si arriva da dentro (conserva
+   * filtri, pagina e scroll dell'elenco); il link nudo solo da fuori.
+   */
+  indietro(): void {
+    if (window.history.length > 1) this.location.back();
+    else this.router.navigate(['/valets']);
+  }
   private readonly route = inject(ActivatedRoute);
   private readonly translate = inject(TranslateService);
 

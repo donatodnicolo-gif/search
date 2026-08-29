@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnInit, Output, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
@@ -79,7 +79,7 @@ function emptyForm(): RuleForm {
       </header>
       <form class="modal-body" (ngSubmit)="save()">
         <label class="fld">
-          <span>{{ 'deliveryRules.f.name' | translate }} *</span>
+          <span class="req">{{ 'deliveryRules.f.name' | translate }}</span>
           <input class="field" name="name" [(ngModel)]="model.name" required />
         </label>
 
@@ -151,7 +151,7 @@ function emptyForm(): RuleForm {
     `
       .btn-icon { border: none; background: none; cursor: pointer; font-size: 15px; padding: 4px 7px; border-radius: var(--radius-s); color: var(--text-secondary); }
       .btn-icon:hover { background: var(--fill); color: var(--text); }
-      .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 40; }
+      .overlay { position: fixed; inset: 0; background: var(--scrim); /* §9: UNO scrim, dal token */ z-index: 40; }
       /* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9): il pannello ha
          un tetto e scorre LUI; testata (con la ✕) e piede (col Salva) sono
          sticky. Collaudo: a 375×812 e a 1366×768 il Salva si raggiunge senza
@@ -230,6 +230,10 @@ export class DeliveryRuleFormComponent implements OnInit {
       this.model.partnerIds = [...this.model.partnerIds, this.lockPartnerId];
     }
   }
+
+  /** Esc chiude (§9: tre vie di chiusura). */
+  @HostListener('document:keydown.escape')
+  suEscape(): void { this.close(); }
 
   close(): void {
     this.closed.emit();

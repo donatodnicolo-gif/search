@@ -1,4 +1,5 @@
 import { HttpClient } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
 import { Component, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -22,7 +23,7 @@ interface RegolaValet {
 @Component({
   selector: 'app-valet-rules',
   standalone: true,
-  imports: [TranslatePipe, DecimalPipe],
+  imports: [FormsModule, TranslatePipe, DecimalPipe],
   template: `
     <div class="page-header">
       <div>
@@ -36,6 +37,16 @@ interface RegolaValet {
     } @else if (!regole().length) {
       <div class="card state-card"><span class="muted">—</span></div>
     } @else {
+
+    <!-- §8-bis del Libro: ogni elenco ha una ricerca. Filtro client: la
+         lista è già tutta qui. -->
+    <div class="cerca-riga">
+      <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
+             [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
+      @if (cerca.trim()) {
+        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: regoleVisibili().length, m: regole().length } }}</span>
+      }
+    </div>
       <div class="card table-wrap">
         <table>
           <thead>
@@ -48,7 +59,7 @@ interface RegolaValet {
             </tr>
           </thead>
           <tbody>
-            @for (r of regole(); track r.id) {
+            @for (r of regoleVisibili(); track r.id) {
               <tr>
                 <td class="strong">{{ r.name }}</td>
                 <td>{{ etichettaScaglioni(r) }}</td>
@@ -79,6 +90,9 @@ interface RegolaValet {
       .badge-off { background: var(--fill); color: var(--text-tertiary); }
       .badge-off .dot { background: var(--text-tertiary); }
       .state-card { display: flex; flex-direction: column; gap: 6px; padding: 28px; }
+      .cerca-riga { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+      .cerca-riga .field { max-width: 340px; }
+      .conto-righe { font-size: 12.5px; color: var(--text-secondary); }
     `,
   ],
 })
@@ -88,6 +102,17 @@ export class ValetRulesComponent {
   private readonly api = environment.apiUrl;
 
   readonly regole = signal<RegolaValet[]>([]);
+
+  /** §8-bis: la ricerca, per nome della regola o del valet dentro. */
+  cerca = '';
+  regoleVisibili(): RegolaValet[] {
+    const q = this.cerca.trim().toLowerCase();
+    if (!q) return this.regole();
+    return this.regole().filter((r) =>
+      r.name.toLowerCase().includes(q) ||
+      r.valets.some((v) => v.nome.toLowerCase().includes(q)));
+  }
+
   readonly loading = signal(true);
 
   constructor() {

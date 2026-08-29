@@ -261,7 +261,8 @@
     "saveError": "Error while saving",
     "comingSoon": "Coming soon",
     "close": "Close",
-    "remove": "Remove"
+    "remove": "Remove",
+    "retry": "Retry"
   },
   "enums": {
     "productType": {
@@ -1342,7 +1343,9 @@
     "provinces": {
       "title": "Served provinces",
       "subtitle": "The partner will only be selectable for deliveries in these provinces.",
-      "empty": "No province configured."
+      "empty": "No province configured.",
+      "cerca": "Search province…",
+      "scelte": "{{n}} provinces selected"
     },
     "services": {
       "title": "Enabled services",
@@ -1357,12 +1360,18 @@
       "kmIncludedPartner": "KM included (partner level)",
       "extraOutOfCityPartner": "Out-of-town extra (€, partner level)",
       "commissionPercent": "Fee commission (%)",
-      "warehouseHidden": "{{n}} warehouse service(s) on the price list are hidden: this partner has no active warehouse, so they cannot be used."
+      "warehouseHidden": "{{n}} warehouse service(s) on the price list are hidden: this partner has no active warehouse, so they cannot be used.",
+      "colPrice": "Price €",
+      "colKmIncluded": "Km included",
+      "colExtraKm": "€ per extra km",
+      "colOutOfCity": "€ out of town"
     },
     "categories": {
       "title": "Sold categories",
       "subtitle": "They determine priority and discounts by province.",
-      "empty": "No category configured."
+      "empty": "No category configured.",
+      "cerca": "Search category…",
+      "scelte": "{{n}} categories selected"
     },
     "openingHours": {
       "title": "Opening hours",
@@ -1832,6 +1841,9 @@
       "vat": "VAT",
       "due": "Total owed to you",
       "note": "Before VAT on the commission the amount owed is {{lordo}} € — that is the figure shown in Billing."
+    },
+    "foto": {
+      "apri": "See the product photo"
     }
   },
   "confirmDelivery": {
@@ -2254,5 +2266,23 @@
     "motivoServe": "A reason is required: a silent “no” turns into a second identical request.",
     "emptyTitle": "No requests",
     "emptyHint": "When another app sends a delivery request, it shows up here."
+  },
+  "conferme": {
+    "elimina": "Delete",
+    "rigenera": "Regenerate",
+    "invia": "Send",
+    "motivo": "The reason (the sender will read it)",
+    "rigeneraChiave": "Regenerate the key for “{{nome}}”?",
+    "eliminaChiave": "Delete the key for “{{nome}}”?",
+    "eliminaConsegne": "Delete {{n}} deliveries?",
+    "eliminaRegola": "Delete rule “{{nome}}”?",
+    "eliminaRegolaCorpo": "Linked deliveries are untouched; the rule will no longer apply.",
+    "eliminaRicorrente": "Delete the recurring service “{{nome}}”?",
+    "inviaRecap": "Send the recap to {{a}}?",
+    "rifiutaRichiesta": "Reject this request?"
+  },
+  "comune": {
+    "cercaPh": "Search…",
+    "contoRighe": "{{n}} of {{m}}"
   }
 }

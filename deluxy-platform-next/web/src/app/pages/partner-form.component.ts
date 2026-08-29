@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -46,7 +47,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
   template: `
     <div class="form-head">
       <div>
-        <a routerLink="/partners" class="back">← {{ 'partnerForm.backToPartners' | translate }}</a>
+        <button type="button" class="back" (click)="indietro()">← {{ 'partnerForm.backToPartners' | translate }}</button>
         <h1>{{ (editId() ? 'partnerForm.editTitle' : 'partnerForm.title') | translate }}</h1>
         <p class="page-caption">
           {{ 'partnerForm.caption' | translate }}
@@ -62,9 +63,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           <span class="block-sub">{{ 'partnerForm.general.requiredNote' | translate }}</span>
         </header>
         <div class="grid-2">
-          <label class="fld"><span>{{ 'partnerForm.general.insegna' | translate }}</span>
+          <label class="fld"><span class="req">{{ 'partnerForm.general.insegna' | translate }}</span>
             <input class="field" name="insegna" [(ngModel)]="model.insegna" required [attr.placeholder]="'partnerForm.general.insegnaPlaceholder' | translate" /></label>
-          <label class="fld"><span>{{ 'partnerForm.general.email' | translate }}</span>
+          <label class="fld"><span class="req">{{ 'partnerForm.general.email' | translate }}</span>
             <input class="field" type="email" name="email" [(ngModel)]="model.email" required [attr.placeholder]="'partnerForm.general.emailPlaceholder' | translate" /></label>
           <label class="fld"><span>{{ 'partnerForm.general.businessName' | translate }}</span>
             <input class="field" name="businessName" [(ngModel)]="model.businessName" [attr.placeholder]="'partnerForm.general.businessNamePlaceholder' | translate" /></label>
@@ -109,11 +110,21 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
         </header>
         @if (provinces().length === 0) { <p class="muted">{{ 'partnerForm.provinces.empty' | translate }}</p> }
         @else {
+          <!-- 107 province sono un muro di chip: si filtra scrivendo. Le
+               GIA' SCELTE restano visibili anche fuori filtro, se no
+               spuntarne una la fa "sparire" e sembra un errore. -->
+          <input class="field cerca-chip" type="search" [(ngModel)]="cercaProvincia" name="cercaProvincia"
+                 [attr.placeholder]="'partnerForm.provinces.cerca' | translate"
+                 [attr.aria-label]="'partnerForm.provinces.cerca' | translate" />
           <div class="chips">
-            @for (p of provinces(); track p.id) {
-              <button type="button" class="chip" [class.on]="selectedProvinces.has(p.id)" (click)="toggle(selectedProvinces, p.id)">{{ p.code }} · {{ p.name }}</button>
+            @for (p of provinceVisibili(); track p.id) {
+              <button type="button" class="chip" [class.on]="selectedProvinces.has(p.id)" (click)="toggle(selectedProvinces, p.id)"
+                      [attr.aria-pressed]="selectedProvinces.has(p.id)">{{ p.code }} · {{ p.name }}</button>
             }
           </div>
+          @if (selectedProvinces.size > 0) {
+            <p class="conto-scelte">{{ 'partnerForm.provinces.scelte' | translate: { n: selectedProvinces.size } }}</p>
+          }
         }
       </section>
 
@@ -124,16 +135,29 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           <span class="block-sub">{{ 'partnerForm.services.subtitle' | translate }}</span>
         </header>
         @if (serviceRows.length === 0) { <p class="muted">{{ 'partnerForm.services.empty' | translate }}</p> }
+        @if (serviceRows.length > 0) {
+          <!-- Legge 1 del Libro: il placeholder non e' una label. Le colonne
+               hanno un'intestazione che resta visibile anche a campo pieno:
+               quattro numeri affiancati senza nome erano indistinguibili. -->
+          <div class="svc-row svc-head" aria-hidden="true">
+            <span>{{ 'partnerForm.services.typePlaceholder' | translate }}</span>
+            <span>{{ 'partnerForm.services.colPrice' | translate }}</span>
+            <span>{{ 'partnerForm.services.colKmIncluded' | translate }}</span>
+            <span>{{ 'partnerForm.services.colExtraKm' | translate }}</span>
+            <span>{{ 'partnerForm.services.colOutOfCity' | translate }}</span>
+            <span></span>
+          </div>
+        }
         @for (row of serviceRows; track $index) {
           <div class="svc-row">
             <select class="field svc-type" [(ngModel)]="row.serviceTypeId" [name]="'svcType' + $index">
               <option value="">{{ 'partnerForm.services.typePlaceholder' | translate }}</option>
               @for (s of serviceTypes(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
             </select>
-            <input class="field num" type="number" step="0.01" [attr.placeholder]="'partnerForm.services.pricePlaceholder' | translate" [(ngModel)]="row.price" [name]="'svcPrice' + $index" />
-            <input class="field num" type="number" [attr.placeholder]="'partnerForm.services.kmIncludedPlaceholder' | translate" [(ngModel)]="row.includedKm" [name]="'svcKm' + $index" />
-            <input class="field num" type="number" step="0.01" [attr.placeholder]="'partnerForm.services.extraKmPlaceholder' | translate" [(ngModel)]="row.extraKmPrice" [name]="'svcKmP' + $index" />
-            <input class="field num" type="number" step="0.01" [attr.placeholder]="'partnerForm.services.extraOutOfCityPlaceholder' | translate" [(ngModel)]="row.extraOutOfCityPrice" [name]="'svcOut' + $index" />
+            <input class="field num" type="number" step="0.01" inputmode="decimal" [attr.aria-label]="'partnerForm.services.colPrice' | translate" [(ngModel)]="row.price" [name]="'svcPrice' + $index" />
+            <input class="field num" type="number" inputmode="numeric" [attr.aria-label]="'partnerForm.services.colKmIncluded' | translate" [(ngModel)]="row.includedKm" [name]="'svcKm' + $index" />
+            <input class="field num" type="number" step="0.01" inputmode="decimal" [attr.aria-label]="'partnerForm.services.colExtraKm' | translate" [(ngModel)]="row.extraKmPrice" [name]="'svcKmP' + $index" />
+            <input class="field num" type="number" step="0.01" inputmode="decimal" [attr.aria-label]="'partnerForm.services.colOutOfCity' | translate" [(ngModel)]="row.extraOutOfCityPrice" [name]="'svcOut' + $index" />
             <button type="button" class="icon-btn" (click)="removeService($index)" [title]="'partnerForm.general.remove' | translate">✕</button>
           </div>
         }
@@ -156,11 +180,18 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
         </header>
         @if (categories().length === 0) { <p class="muted">{{ 'partnerForm.categories.empty' | translate }}</p> }
         @else {
+          <input class="field cerca-chip" type="search" [(ngModel)]="cercaCategoria" name="cercaCategoria"
+                 [attr.placeholder]="'partnerForm.categories.cerca' | translate"
+                 [attr.aria-label]="'partnerForm.categories.cerca' | translate" />
           <div class="chips">
-            @for (c of categories(); track c.id) {
-              <button type="button" class="chip" [class.on]="selectedCategories.has(c.id)" (click)="toggle(selectedCategories, c.id)">{{ c.name }}</button>
+            @for (c of categorieVisibili(); track c.id) {
+              <button type="button" class="chip" [class.on]="selectedCategories.has(c.id)" (click)="toggle(selectedCategories, c.id)"
+                      [attr.aria-pressed]="selectedCategories.has(c.id)">{{ c.name }}</button>
             }
           </div>
+          @if (selectedCategories.size > 0) {
+            <p class="conto-scelte">{{ 'partnerForm.categories.scelte' | translate: { n: selectedCategories.size } }}</p>
+          }
         }
       </section>
 
@@ -274,10 +305,12 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           <textarea class="field" rows="3" name="notes" [(ngModel)]="model.notes"></textarea></label>
       </section>
 
-      @if (justSaved()) { <div class="ok-card card" [innerHTML]="'partnerForm.actions.savedNote' | translate"></div> }
-      @if (error()) { <div class="error-card card">{{ error() }}</div> }
+      @if (justSaved()) { <div class="ok-card card" role="status" [innerHTML]="'partnerForm.actions.savedNote' | translate"></div> }
+      @if (error()) { <div class="error-card card" role="alert">{{ error() }}</div> }
 
-      <div class="actions">
+      <!-- §4 del Libro: sette sezioni spingono la CTA oltre la viewport,
+           quindi la barra e' STICKY. -->
+      <div class="actions sticky">
         <a routerLink="/partners" class="btn btn-secondary">{{ 'partnerForm.actions.cancel' | translate }}</a>
         @if (!editId()) {
           <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'partnerForm.actions.duplicate' | translate }}</button>
@@ -291,7 +324,8 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
   styles: [
     `
       .form-head { margin-bottom: 24px; }
-      .back { font-size: 13px; color: var(--text-secondary); }
+      .back { font-size: 13px; color: var(--text-secondary); background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
+      .back:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
       .back:hover { color: var(--text); }
       h1 { margin: 6px 0 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
@@ -321,6 +355,10 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .chip:hover { background: var(--fill); }
       .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
       .svc-row { display: grid; grid-template-columns: 1.6fr repeat(4, 1fr) auto; gap: 8px; margin-bottom: 10px; align-items: center; }
+      .svc-head { margin-bottom: 2px; }
+      .svc-head span { font-size: 11.5px; font-weight: 550; color: var(--text-tertiary); }
+      .cerca-chip { max-width: 320px; margin-bottom: 12px; }
+      .conto-scelte { margin: 10px 0 0; font-size: 12.5px; color: var(--text-secondary); }
       .svc-row .num { text-align: right; }
       .pickup-list { margin-top: 12px; padding: 14px; background: var(--fill); border-radius: var(--radius-m); }
       .pickup-hint { display: block; font-size: 12.5px; color: var(--text-tertiary); margin-bottom: 10px; }
@@ -351,6 +389,7 @@ export class PartnerFormComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly translate = inject(TranslateService);
+  private readonly location = inject(Location);
 
   readonly provinces = signal<Province[]>([]);
   readonly categories = signal<Category[]>([]);
@@ -361,6 +400,40 @@ export class PartnerFormComponent {
 
   readonly selectedProvinces = new Set<string>();
   readonly selectedCategories = new Set<string>();
+
+  /** Il filtro delle chip: 107 province e 65 categorie sono un muro. */
+  cercaProvincia = '';
+  cercaCategoria = '';
+
+  /**
+   * Libro v1.5: si torna con la HISTORY quando si arriva da dentro l'app
+   * (che conserva filtri, pagina e scroll dell'elenco); il link nudo solo
+   * arrivando da fuori. Il vecchio «← Torna ai partner» cablato buttava i
+   * filtri di chi aveva filtrato.
+   */
+  indietro(): void {
+    if (window.history.length > 1) this.location.back();
+    else this.router.navigate(['/partners']);
+  }
+
+  /**
+   * Le chip visibili col filtro attivo. ⚠️ Le GIA' SCELTE restano sempre:
+   * se il filtro le nascondesse, spuntarne una la farebbe sparire dallo
+   * schermo e sembrerebbe un errore, non una scelta.
+   */
+  provinceVisibili(): Province[] {
+    const q = this.cercaProvincia.trim().toLowerCase();
+    if (!q) return this.provinces();
+    return this.provinces().filter(
+      (p) => this.selectedProvinces.has(p.id) || p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q),
+    );
+  }
+
+  categorieVisibili(): Category[] {
+    const q = this.cercaCategoria.trim().toLowerCase();
+    if (!q) return this.categories();
+    return this.categories().filter((c) => this.selectedCategories.has(c.id) || c.name.toLowerCase().includes(q));
+  }
   readonly paymentMethods = Object.entries(PAYMENT_METHOD_LABELS);
   readonly paymentStatuses = Object.entries(PAYMENT_STATUS_LABELS);
 

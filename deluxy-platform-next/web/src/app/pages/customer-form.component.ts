@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -14,7 +15,7 @@ import { Partner } from '../core/models';
   imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <div class="form-head">
-      <a routerLink="/customers" class="back">← {{ 'customers.title' | translate }}</a>
+      <button type="button" class="back" (click)="indietro()">← {{ 'customers.title' | translate }}</button>
       <h1>{{ (editId() ? 'customerForm.editTitle' : 'customerForm.title') | translate }}</h1>
       <p class="page-caption">{{ 'customerForm.caption' | translate }}</p>
     </div>
@@ -24,9 +25,9 @@ import { Partner } from '../core/models';
         <header class="block-head"><h2>{{ 'customerForm.section.general' | translate }}</h2>
           <span class="block-sub">{{ 'customerForm.requiredNote' | translate }}</span></header>
         <div class="grid-2">
-          <label class="fld"><span>{{ 'customers.col.lastName' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'customers.col.lastName' | translate }}</span>
             <input class="field" name="lastName" [(ngModel)]="model.lastName" required /></label>
-          <label class="fld"><span>{{ 'customers.col.firstName' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'customers.col.firstName' | translate }}</span>
             <input class="field" name="firstName" [(ngModel)]="model.firstName" required /></label>
           <label class="fld"><span>{{ 'customers.col.email' | translate }}</span>
             <input class="field" type="email" name="email" [(ngModel)]="model.email" /></label>
@@ -85,6 +86,16 @@ import { Partner } from '../core/models';
 export class CustomerFormComponent {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
+
+  /**
+   * Libro v1.5: si torna con la HISTORY quando si arriva da dentro (conserva
+   * filtri, pagina e scroll dell'elenco); il link nudo solo da fuori.
+   */
+  indietro(): void {
+    if (window.history.length > 1) this.location.back();
+    else this.router.navigate(['/customers']);
+  }
   private readonly route = inject(ActivatedRoute);
   private readonly translate = inject(TranslateService);
   private readonly auth = inject(AuthService);

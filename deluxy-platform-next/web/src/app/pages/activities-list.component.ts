@@ -76,6 +76,16 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
         <span class="muted">{{ 'activities.emptyHint' | translate }}</span>
       </div>
     } @else {
+
+    <!-- §8-bis del Libro: ogni elenco ha una ricerca. Filtro client: la
+         lista è già tutta qui. -->
+    <div class="cerca-riga">
+      <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
+             [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
+      @if (cerca.trim()) {
+        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: attivitaVisibili().length, m: attivita().length } }}</span>
+      }
+    </div>
       <div class="card table-wrap">
         <table>
           <thead>
@@ -90,7 +100,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
             </tr>
           </thead>
           <tbody>
-            @for (a of attivita(); track a.id) {
+            @for (a of attivitaVisibili(); track a.id) {
               <tr>
                 <td>
                   <span class="tipo" [class.ritiro]="a.type === 'PICKUP'">
@@ -167,6 +177,9 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .state-card .muted { color: var(--text-tertiary); font-size: 13.5px; }
       .mono { font-variant-numeric: tabular-nums; }
       .error-card { padding: 14px 16px; border-radius: var(--radius-m, 10px); background: rgba(215, 0, 21, 0.06); border: 1px solid rgba(215, 0, 21, 0.15); color: var(--red, #d70015); }
+      .cerca-riga { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+      .cerca-riga .field { max-width: 340px; }
+      .conto-righe { font-size: 12.5px; color: var(--text-secondary); }
     `,
   ],
 })
@@ -175,6 +188,19 @@ export class ActivitiesListComponent {
   private readonly auth = inject(AuthService);
 
   readonly attivita = signal<Activity[]>([]);
+
+  /** §8-bis: la ricerca. Si riconosce un'attività per consegna, valet, indirizzo. */
+  cerca = '';
+  attivitaVisibili(): Activity[] {
+    const q = this.cerca.trim().toLowerCase();
+    if (!q) return this.attivita();
+    return this.attivita().filter((a) =>
+      String(a.delivery?.code ?? '').includes(q) ||
+      (a.address ?? '').toLowerCase().includes(q) ||
+      (a.delivery?.recipientAddress ?? '').toLowerCase().includes(q) ||
+      `${a.valet?.firstName ?? ''} ${a.valet?.lastName ?? ''}`.toLowerCase().includes(q));
+  }
+
   readonly totale = signal(0);
   readonly mostrate = signal(0);
   readonly caricando = signal(true);

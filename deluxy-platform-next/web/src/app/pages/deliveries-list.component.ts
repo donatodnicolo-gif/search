@@ -1,3 +1,4 @@
+import { ConfermaComponent } from '../shared/conferma.component';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
@@ -23,7 +24,7 @@ const SERVICE_ICONS: Record<string, string> = {
 @Component({
   selector: 'app-deliveries-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, RouterLink, TranslatePipe, DeliveryMapComponent],
+  imports: [FormsModule, DatePipe, RouterLink, TranslatePipe, DeliveryMapComponent, ConfermaComponent],
   template: `
     <div class="page-header">
       <div>
@@ -478,6 +479,11 @@ const SERVICE_ICONS: Record<string, string> = {
           </div>
         }
       </div>
+    }
+    @if (confermaPendente(); as c) {
+      <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
+                    [conMotivo]="c.conMotivo ?? false" [motivoLabel]="c.motivoLabel ?? ''"
+                    (confermato)="eseguiConferma($event)" (annullato)="confermaPendente.set(null)" />
     }
   `,
   styles: [
@@ -1007,6 +1013,21 @@ const SERVICE_ICONS: Record<string, string> = {
   ],
 })
 export class DeliveriesListComponent {
+
+  /**
+   * La conferma narrativa in attesa (Libro §7): al posto dei confirm() del
+   * browser. L'azione parte solo al click sul verbo.
+   */
+  readonly confermaPendente = signal<{
+    titolo: string; messaggio: string; verbo: string; tono: 'danger' | 'primary';
+    conMotivo?: boolean; motivoLabel?: string; azione: (motivo: string) => void;
+  } | null>(null);
+
+  eseguiConferma(motivo: string): void {
+    const c = this.confermaPendente();
+    this.confermaPendente.set(null);
+    c?.azione(motivo);
+  }
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly sanitizer = inject(DomSanitizer);
@@ -1502,10 +1523,9 @@ export class DeliveriesListComponent {
     return this.selezione().size;
   }
 
-  private async eseguiDiMassa(percorso: string, corpo: Record<string, unknown>, conferma?: string): Promise<void> {
+  private async eseguiDiMassa(percorso: string, corpo: Record<string, unknown>): Promise<void> {
     const ids = [...this.selezione()];
     if (!ids.length) return;
-    if (conferma && !confirm(conferma)) return;
     this.inCorsoDiMassa.set(true);
     this.esitoDiMassa.set(null);
     this.actionError.set(null);
@@ -1552,11 +1572,14 @@ export class DeliveriesListComponent {
   }
 
   eliminaDiMassa(): void {
-    void this.eseguiDiMassa(
-      'elimina',
-      {},
-      this.translate.instant('deliveries.bulk.confirmDelete', { n: this.quanteScelte() }),
-    );
+    if (!this.quanteScelte()) return;
+    this.confermaPendente.set({
+      titolo: this.translate.instant('conferme.eliminaConsegne', { n: this.quanteScelte() }),
+      messaggio: this.translate.instant('deliveries.bulk.confirmDelete', { n: this.quanteScelte() }),
+      verbo: this.translate.instant('conferme.elimina'),
+      tono: 'danger',
+      azione: () => void this.eseguiDiMassa('elimina', {}),
+    });
   }
 
   /** Il pop-up «assegna» di massa ha bisogno dell'elenco valet come quello singolo. */

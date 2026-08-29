@@ -99,13 +99,27 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       }
     </div>
 
-    @if (caricando()) {
+    @if (erroreCarico(); as e) {
+      <div class="error-card" role="alert">{{ e }}
+        <button type="button" class="btn btn-secondary btn-riprova" (click)="ricarica()">{{ 'common.retry' | translate }}</button>
+      </div>
+    } @else if (caricando()) {
       <p class="muted">{{ 'common.loading' | translate }}</p>
     } @else if (!visibili().length) {
       <section class="card vuoto">
         <p>{{ 'sales.empty' | translate }}</p>
       </section>
     } @else {
+
+    <!-- §8-bis del Libro: ogni elenco ha una ricerca. -->
+    <div class="cerca-riga">
+      <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
+             [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
+      @if (cerca.trim()) {
+        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: visibili().length, m: vendite().length } }}</span>
+      }
+    </div>
+
       <div class="table-wrap card">
         <table class="table">
           <thead>
@@ -218,6 +232,10 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
       .mono { font-variant-numeric: tabular-nums; }
       .muted { color: var(--text-tertiary); }
+      .cerca-riga { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+      .cerca-riga .field { max-width: 340px; }
+      .conto-righe { font-size: 12.5px; color: var(--text-secondary); }
+      .btn-riprova { margin-left: 12px; }
     `,
   ],
 })
@@ -227,6 +245,7 @@ export class SalesListComponent {
 
   readonly vendite = signal<Sale[]>([]);
   readonly caricando = signal(true);
+  readonly erroreCarico = signal<string | null>(null);
   readonly tirando = signal(false);
   readonly inCorso = signal<string | null>(null);
   readonly esitoSync = signal<any>(null);
@@ -240,9 +259,22 @@ export class SalesListComponent {
 
   readonly canManage = computed(() => ['ADMIN', 'OPERATION'].includes(this.auth.user()?.role ?? ''));
 
+  /** §8-bis: la ricerca, per ordine, prodotto, partner o provincia. */
+  readonly cercaTesto = signal('');
+  get cerca(): string { return this.cercaTesto(); }
+  set cerca(v: string) { this.cercaTesto.set(v); }
+
   readonly visibili = computed(() => {
     const f = this.filtro();
-    return f === 'tutte' ? this.vendite() : this.vendite().filter((s) => s.status === f);
+    const base = f === 'tutte' ? this.vendite() : this.vendite().filter((s) => s.status === f);
+    const q = this.cercaTesto().trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((s) =>
+      (s.externalOrderId ?? '').toLowerCase().includes(q) ||
+      (s.product?.name ?? '').toLowerCase().includes(q) ||
+      (s.partner?.insegna ?? '').toLowerCase().includes(q) ||
+      (s.province?.code ?? '').toLowerCase().includes(q) ||
+      s.brand.toLowerCase().includes(q));
   });
 
   quante(chiave: string): number {
@@ -267,11 +299,19 @@ export class SalesListComponent {
 
   constructor() { this.carica(); }
 
+  ricarica(): void { this.carica(); }
+
   private carica(): void {
     this.caricando.set(true);
+    this.erroreCarico.set(null);
     this.http.get<Sale[]>(`${environment.apiUrl}/sales`).subscribe({
       next: (r) => { this.vendite.set(r ?? []); this.caricando.set(false); },
-      error: () => { this.vendite.set([]); this.caricando.set(false); },
+      // ⚠️ Legge 9 del Libro: un fallimento NON e' mai una lista vuota.
+      // Prima qui c'era vendite.set([]) — il guasto sembrava «zero vendite».
+      error: (e) => {
+        this.caricando.set(false);
+        this.erroreCarico.set(e?.error?.message ?? 'Caricamento non riuscito: riprova.');
+      },
     });
   }
 

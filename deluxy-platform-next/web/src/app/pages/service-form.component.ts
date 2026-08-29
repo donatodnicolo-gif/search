@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -13,7 +14,7 @@ import { SERVICE_PRICING_OPTIONS } from '../core/models';
   template: `
     <div class="form-head">
       <div>
-        <a routerLink="/services" class="back">← {{ 'serviceForm.backToServices' | translate }}</a>
+        <button type="button" class="back" (click)="indietro()">← {{ 'serviceForm.backToServices' | translate }}</button>
         <h1>{{ (editId() ? 'serviceForm.editTitle' : 'serviceForm.title') | translate }}</h1>
         <p class="page-caption">{{ 'serviceForm.caption' | translate }}</p>
       </div>
@@ -24,9 +25,9 @@ import { SERVICE_PRICING_OPTIONS } from '../core/models';
         <header class="block-head"><h2>{{ 'serviceForm.service.title' | translate }}</h2>
           <span class="block-sub">{{ 'serviceForm.service.requiredNote' | translate }}</span></header>
         <div class="grid-2">
-          <label class="fld"><span>{{ 'serviceForm.service.name' | translate }}</span>
+          <label class="fld"><span class="req">{{ 'serviceForm.service.name' | translate }}</span>
             <input class="field" name="name" [(ngModel)]="model.name" required [attr.placeholder]="'serviceForm.service.namePlaceholder' | translate" /></label>
-          <label class="fld"><span>{{ 'serviceForm.service.pricingModel' | translate }}</span>
+          <label class="fld"><span class="req">{{ 'serviceForm.service.pricingModel' | translate }}</span>
             <select class="field" name="pricingModel" [(ngModel)]="model.pricingModel" required>
               @for (t of pricingOptions; track t.value) { <option [value]="t.value">{{ 'enums.servicePricingLong.' + t.value | translate }}</option> }
             </select></label>
@@ -148,6 +149,16 @@ import { SERVICE_PRICING_OPTIONS } from '../core/models';
 export class ServiceFormComponent {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
+
+  /**
+   * Libro v1.5: si torna con la HISTORY quando si arriva da dentro (conserva
+   * filtri, pagina e scroll dell'elenco); il link nudo solo da fuori.
+   */
+  indietro(): void {
+    if (window.history.length > 1) this.location.back();
+    else this.router.navigate(['/services']);
+  }
   private readonly route = inject(ActivatedRoute);
   private readonly translate = inject(TranslateService);
 

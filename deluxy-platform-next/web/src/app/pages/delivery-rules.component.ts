@@ -1,4 +1,6 @@
+import { ConfermaComponent } from '../shared/conferma.component';
 import { HttpClient } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
 import { Component, inject, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -53,7 +55,7 @@ interface DeliveryRule {
 @Component({
   selector: 'app-delivery-rules',
   standalone: true,
-  imports: [TranslatePipe, DatePipe, DecimalPipe, DeliveryRuleFormComponent],
+  imports: [FormsModule, TranslatePipe, DatePipe, DecimalPipe, DeliveryRuleFormComponent, ConfermaComponent],
   template: `
     <div class="page-header">
       <div>
@@ -75,6 +77,15 @@ interface DeliveryRule {
         <span class="muted">{{ 'deliveryRules.emptyHint' | translate }}</span>
       </div>
     } @else {
+
+    <!-- §8-bis del Libro: ogni elenco ha una ricerca. -->
+    <div class="cerca-riga">
+      <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
+             [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
+      @if (cerca.trim()) {
+        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: regoleVisibili().length, m: rules().length } }}</span>
+      }
+    </div>
       <div class="card table-wrap">
         <table>
           <thead>
@@ -90,7 +101,7 @@ interface DeliveryRule {
             </tr>
           </thead>
           <tbody>
-            @for (r of rules(); track r.id) {
+            @for (r of regoleVisibili(); track r.id) {
               <tr>
                 <td class="strong">{{ r.name }}</td>
                 <td>
@@ -178,6 +189,11 @@ interface DeliveryRule {
         (closed)="close()"
       />
     }
+    @if (confermaPendente(); as c) {
+      <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
+                    [conMotivo]="c.conMotivo ?? false" [motivoLabel]="c.motivoLabel ?? ''"
+                    (confermato)="eseguiConferma($event)" (annullato)="confermaPendente.set(null)" />
+    }
   `,
   styles: [
     `
@@ -208,15 +224,43 @@ interface DeliveryRule {
       .btn-icon.danger:hover { background: rgba(215, 0, 21, 0.08); color: var(--red, #d70015); }
       .error-card { padding: 14px 16px; border-radius: var(--radius-m, 10px); background: rgba(215, 0, 21, 0.06); border: 1px solid rgba(215, 0, 21, 0.15); color: var(--red, #d70015); }
       .state-card .muted { display: block; margin-top: 4px; color: var(--text-tertiary); font-size: 13.5px; }
+      .cerca-riga { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+      .cerca-riga .field { max-width: 340px; }
+      .conto-righe { font-size: 12.5px; color: var(--text-secondary); }
     `,
   ],
 })
 export class DeliveryRulesComponent {
+
+  /**
+   * La conferma narrativa in attesa (Libro §7): al posto dei confirm() del
+   * browser. L'azione parte solo al click sul verbo.
+   */
+  readonly confermaPendente = signal<{
+    titolo: string; messaggio: string; verbo: string; tono: 'danger' | 'primary';
+    conMotivo?: boolean; motivoLabel?: string; azione: (motivo: string) => void;
+  } | null>(null);
+
+  eseguiConferma(motivo: string): void {
+    const c = this.confermaPendente();
+    this.confermaPendente.set(null);
+    c?.azione(motivo);
+  }
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly api = environment.apiUrl;
 
   readonly rules = signal<DeliveryRule[]>([]);
+
+  /** §8-bis: la ricerca, per nome della regola o partner collegato. */
+  cerca = '';
+  regoleVisibili(): DeliveryRule[] {
+    const q = this.cerca.trim().toLowerCase();
+    if (!q) return this.rules();
+    return this.rules().filter((r) =>
+      r.name.toLowerCase().includes(q) ||
+      (r.partners ?? []).some((p) => p.partner?.insegna?.toLowerCase().includes(q)));
+  }
 
   /** I nomi dei partner a cui la regola si applica (i primi 4, poi «+N»). */
   nomiPartner(r: DeliveryRule): string {
@@ -291,7 +335,16 @@ export class DeliveryRulesComponent {
   }
 
   remove(r: DeliveryRule): void {
-    if (!confirm(`Eliminare la regola "${r.name}"?`)) return;
+    this.confermaPendente.set({
+      titolo: this.translate.instant('conferme.eliminaRegola', { nome: r.name }),
+      messaggio: this.translate.instant('conferme.eliminaRegolaCorpo'),
+      verbo: this.translate.instant('conferme.elimina'),
+      tono: 'danger',
+      azione: () => this.rimuoviDavvero(r),
+    });
+  }
+
+  private rimuoviDavvero(r: DeliveryRule): void {
     this.http.delete(`${this.api}/delivery-rules/${r.id}`).subscribe({
       next: () => this.load(),
       error: () => this.error.set('Errore nella cancellazione'),

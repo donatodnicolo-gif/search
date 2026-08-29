@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -16,7 +17,7 @@ interface DiscountRow { provinceId: string; discountPercent: number | null; }
   template: `
     <div class="form-head">
       <div>
-        <a routerLink="/categories" class="back">← {{ 'categoryForm.backToCategories' | translate }}</a>
+        <button type="button" class="back" (click)="indietro()">← {{ 'categoryForm.backToCategories' | translate }}</button>
         <h1>{{ (editId() ? 'categoryForm.editTitle' : 'categoryForm.title') | translate }}</h1>
         <p class="page-caption">{{ 'categoryForm.caption' | translate }}</p>
       </div>
@@ -26,7 +27,7 @@ interface DiscountRow { provinceId: string; discountPercent: number | null; }
       <section class="card block">
         <header class="block-head"><h2>{{ 'categoryForm.info.title' | translate }}</h2></header>
         <div class="grid-2">
-          <label class="fld"><span>{{ 'categoryForm.info.name' | translate }}</span>
+          <label class="fld"><span class="req">{{ 'categoryForm.info.name' | translate }}</span>
             <input class="field" name="name" [(ngModel)]="model.name" required [attr.placeholder]="'categoryForm.info.namePlaceholder' | translate" /></label>
         </div>
         <label class="fld span-2 mt"><span>{{ 'categoryForm.info.notes' | translate }}</span>
@@ -118,6 +119,16 @@ interface DiscountRow { provinceId: string; discountPercent: number | null; }
 export class CategoryFormComponent {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
+
+  /**
+   * Libro v1.5: si torna con la HISTORY quando si arriva da dentro (conserva
+   * filtri, pagina e scroll dell'elenco); il link nudo solo da fuori.
+   */
+  indietro(): void {
+    if (window.history.length > 1) this.location.back();
+    else this.router.navigate(['/categories']);
+  }
   private readonly route = inject(ActivatedRoute);
   private readonly translate = inject(TranslateService);
 

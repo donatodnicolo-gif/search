@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, HostListener, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -93,7 +93,7 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
           <label class="fld"><span>{{ 'quotes.form.date' | translate }}</span>
             <input class="field" type="date" [(ngModel)]="draft.requestedFor" /></label>
         </div>
-        <label class="fld mt"><span>{{ 'quotes.form.description' | translate }} *</span>
+        <label class="fld mt"><span class="req">{{ 'quotes.form.description' | translate }}</span>
           <textarea class="field" rows="3" [(ngModel)]="draft.description"
             [attr.placeholder]="'quotes.form.descPlaceholder' | translate"></textarea></label>
         <div class="foto-riga mt">
@@ -149,6 +149,15 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
       }
     } @else {
       <!-- Ufficio: tutte le richieste (su mobile la tabella diventa schede) -->
+
+    <!-- §8-bis del Libro: ogni elenco ha una ricerca. -->
+    <div class="cerca-riga">
+      <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
+             [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
+      @if (cerca.trim()) {
+        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: richiesteVisibili().length, m: requests().length } }}</span>
+      }
+    </div>
       <div class="card table-wrap">
         <table>
           <thead>
@@ -164,7 +173,7 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
             </tr>
           </thead>
           <tbody>
-            @for (r of requests(); track r.id) {
+            @for (r of richiesteVisibili(); track r.id) {
               <tr>
                 <td>{{ r.createdAt | date: 'dd/MM/yy HH:mm' }}</td>
                 <td class="strong">{{ r.partner?.insegna }}</td>
@@ -280,7 +289,7 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
       .state-card { padding: 28px; color: var(--text-secondary); }
       .error-card { background: rgba(215, 0, 21, 0.06); border: 1px solid rgba(215, 0, 21, 0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin: 12px 0; }
       .ok-card { background: rgba(36, 138, 61, 0.08); border: 1px solid rgba(36, 138, 61, 0.2); color: var(--green); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
-      .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 90; }
+      .overlay { position: fixed; inset: 0; background: var(--scrim); z-index: 90; }
       /* ⚠️ LA MODALE STA DENTRO LA VIEWPORT (Libro v1.7 §9): il pannello ha
          un tetto e scorre LUI; titolo con la ✕ sticky e piede azioni sticky.
          Collaudo: a 375×812 e a 1366×768 il Salva si raggiunge senza
@@ -300,16 +309,37 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
       .foto-modal img { display: block; max-width: 100%; max-height: 78vh; border-radius: 10px; }
       @media (max-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } }
       @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
+      .cerca-riga { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+      .cerca-riga .field { max-width: 340px; }
+      .conto-righe { font-size: 12.5px; color: var(--text-secondary); }
     `,
   ],
 })
 export class QuotesComponent {
+  /** Esc chiude la finestra aperta (§9: tre vie di chiusura). */
+  @HostListener('document:keydown.escape')
+  suEscape(): void {
+    if (this.fotoAperta()) { this.fotoAperta.set(null); return; }
+    if (this.rispostaPer()) this.rispostaPer.set(null);
+  }
+
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
 
   readonly requests = signal<QuoteRequest[]>([]);
+
+  /** §8-bis: la ricerca, per partner, descrizione o città. */
+  cerca = '';
+  richiesteVisibili(): QuoteRequest[] {
+    const q = this.cerca.trim().toLowerCase();
+    if (!q) return this.requests();
+    return this.requests().filter((r) =>
+      (r.partner?.insegna ?? '').toLowerCase().includes(q) ||
+      r.description.toLowerCase().includes(q) ||
+      (r.city ?? '').toLowerCase().includes(q));
+  }
   readonly linee = signal<Linea[]>([]);
   readonly whatsapp = signal<string | null>(null);
   readonly loading = signal(true);

@@ -1,3 +1,4 @@
+import { ConfermaComponent } from '../shared/conferma.component';
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -37,7 +38,7 @@ interface Chiave {
 @Component({
   selector: 'app-api-keys',
   standalone: true,
-  imports: [FormsModule, DatePipe, TranslatePipe],
+  imports: [FormsModule, DatePipe, TranslatePipe, ConfermaComponent],
   template: `
     <div class="page-header">
       <div>
@@ -79,7 +80,7 @@ interface Chiave {
       <section class="card modulo">
         <div class="grid">
           <label class="fld">
-            <span>{{ 'apiKeys.f.nome' | translate }} *</span>
+            <span class="req">{{ 'apiKeys.f.nome' | translate }}</span>
             <input class="field" [(ngModel)]="m.nome" [placeholder]="'apiKeys.f.nomePh' | translate" />
             <span class="hint">{{ 'apiKeys.f.nomeHint' | translate }}</span>
           </label>
@@ -117,6 +118,16 @@ interface Chiave {
         <span class="muted">{{ 'apiKeys.emptyHint' | translate }}</span>
       </div>
     } @else {
+
+    <!-- §8-bis del Libro: ogni elenco ha una ricerca. Filtro client: la
+         lista è già tutta qui. -->
+    <div class="cerca-riga">
+      <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
+             [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
+      @if (cerca.trim()) {
+        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: chiaviVisibili().length, m: chiavi().length } }}</span>
+      }
+    </div>
       <div class="card table-wrap">
         <table>
           <thead>
@@ -130,7 +141,7 @@ interface Chiave {
             </tr>
           </thead>
           <tbody>
-            @for (k of chiavi(); track k.id) {
+            @for (k of chiaviVisibili(); track k.id) {
               <tr [class.spenta]="!k.attiva || k.scaduta">
                 <td>
                   <strong>{{ k.nome }}</strong>
@@ -182,6 +193,11 @@ interface Chiave {
 
       <p class="nota">{{ 'apiKeys.nota' | translate }}</p>
     }
+    @if (confermaPendente(); as c) {
+      <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
+                    [conMotivo]="c.conMotivo ?? false" [motivoLabel]="c.motivoLabel ?? ''"
+                    (confermato)="eseguiConferma($event)" (annullato)="confermaPendente.set(null)" />
+    }
   `,
   styles: [
     `
@@ -223,15 +239,45 @@ interface Chiave {
       .nota { margin-top: 16px; font-size: 12.5px; color: var(--text-tertiary); max-width: 760px; }
       .state-card { display: flex; flex-direction: column; gap: 6px; padding: 28px; }
       .error-card { background: rgba(215,0,21,.06); border: 1px solid rgba(215,0,21,.15); color: var(--red); padding: 14px 18px; border-radius: var(--radius-l); margin-bottom: 12px; }
+      .cerca-riga { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+      .cerca-riga .field { max-width: 340px; }
+      .conto-righe { font-size: 12.5px; color: var(--text-secondary); }
     `,
   ],
 })
 export class ApiKeysComponent {
+
+  /**
+   * La conferma narrativa in attesa (Libro §7): al posto dei confirm() del
+   * browser. L'azione parte solo al click sul verbo.
+   */
+  readonly confermaPendente = signal<{
+    titolo: string; messaggio: string; verbo: string; tono: 'danger' | 'primary';
+    conMotivo?: boolean; motivoLabel?: string; azione: (motivo: string) => void;
+  } | null>(null);
+
+  eseguiConferma(motivo: string): void {
+    const c = this.confermaPendente();
+    this.confermaPendente.set(null);
+    c?.azione(motivo);
+  }
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   readonly base = environment.apiUrl;
 
   readonly chiavi = signal<Chiave[]>([]);
+
+  /** §8-bis: la ricerca, per nome dell'app o per chi ha creato la chiave. */
+  cerca = '';
+  chiaviVisibili(): Chiave[] {
+    const q = this.cerca.trim().toLowerCase();
+    if (!q) return this.chiavi();
+    return this.chiavi().filter((k) =>
+      k.nome.toLowerCase().includes(q) ||
+      (k.note ?? '').toLowerCase().includes(q) ||
+      (k.creataDa ?? '').toLowerCase().includes(q));
+  }
+
   readonly caricamento = signal(true);
   readonly errore = signal<string | null>(null);
   readonly formAperto = signal(false);
@@ -300,7 +346,16 @@ export class ApiKeysComponent {
   }
 
   rigenera(k: Chiave): void {
-    if (!confirm(this.translate.instant('apiKeys.confirmRigenera', { nome: k.nome }))) return;
+    this.confermaPendente.set({
+      titolo: this.translate.instant('conferme.rigeneraChiave', { nome: k.nome }),
+      messaggio: this.translate.instant('apiKeys.confirmRigenera', { nome: k.nome }),
+      verbo: this.translate.instant('conferme.rigenera'),
+      tono: 'danger',
+      azione: () => this.rigeneraDavvero(k),
+    });
+  }
+
+  private rigeneraDavvero(k: Chiave): void {
     this.errore.set(null);
     this.http.post<{ nome: string; chiave: string; avviso: string }>(`${this.base}/chiavi-app/${k.id}/rigenera`, {}).subscribe({
       next: (r) => { this.copiata.set(false); this.appenaCreata.set(r); this.carica(); },
@@ -316,7 +371,16 @@ export class ApiKeysComponent {
   }
 
   elimina(k: Chiave): void {
-    if (!confirm(this.translate.instant('apiKeys.confirmElimina', { nome: k.nome }))) return;
+    this.confermaPendente.set({
+      titolo: this.translate.instant('conferme.eliminaChiave', { nome: k.nome }),
+      messaggio: this.translate.instant('apiKeys.confirmElimina', { nome: k.nome }),
+      verbo: this.translate.instant('conferme.elimina'),
+      tono: 'danger',
+      azione: () => this.eliminaDavvero(k),
+    });
+  }
+
+  private eliminaDavvero(k: Chiave): void {
     this.http.delete(`${this.base}/chiavi-app/${k.id}`).subscribe({
       next: () => this.carica(),
       error: (e) => this.errore.set(this.messaggio(e)),

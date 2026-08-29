@@ -1,3 +1,4 @@
+import { ConfermaComponent } from '../shared/conferma.component';
 import { HttpClient } from '@angular/common/http';
 import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -70,7 +71,7 @@ interface PartnerConServizi extends Rif {
 @Component({
   selector: 'app-recurring-services',
   standalone: true,
-  imports: [FormsModule, TranslatePipe, DatePipe, DecimalPipe],
+  imports: [FormsModule, TranslatePipe, DatePipe, DecimalPipe, ConfermaComponent],
   template: `
     <div class="page-header">
       <div>
@@ -93,16 +94,16 @@ interface PartnerConServizi extends Rif {
     @if (formOpen()) {
       <section class="card gen">
         <div class="grid">
-          <label class="fld"><span>{{ 'recurring.f.nome' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'recurring.f.nome' | translate }}</span>
             <input class="field" [(ngModel)]="m.nome" [placeholder]="'recurring.f.nomePh' | translate" /></label>
           @if (!isPartner()) {
-            <label class="fld"><span>{{ 'recurring.f.partner' | translate }} *</span>
+            <label class="fld"><span class="req">{{ 'recurring.f.partner' | translate }}</span>
               <select class="field" [(ngModel)]="m.partnerId" (ngModelChange)="cambiaPartner()">
                 <option value="">—</option>
                 @for (p of partners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
               </select></label>
           }
-          <label class="fld"><span>{{ 'recurring.f.service' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'recurring.f.service' | translate }}</span>
             <select class="field" [(ngModel)]="m.serviceTypeId" (ngModelChange)="ricalcolaFine()" [disabled]="!m.partnerId">
               <option value="">—</option>
               @for (s of serviziDelPartner(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
@@ -144,7 +145,7 @@ interface PartnerConServizi extends Rif {
             </div>
           } @else if (m.frequenza === 'MENSILE') {
             <label class="fld mese">
-              <span>{{ 'recurring.f.monthDays' | translate }} *</span>
+              <span class="req">{{ 'recurring.f.monthDays' | translate }}</span>
               <input class="field" [(ngModel)]="m.giorniMese" placeholder="1, 15" />
               <span class="hint">{{ 'recurring.f.monthDaysHint' | translate }}</span>
             </label>
@@ -158,7 +159,7 @@ interface PartnerConServizi extends Rif {
         </div>
 
         <div class="grid">
-          <label class="fld"><span>{{ 'recurring.f.from' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'recurring.f.from' | translate }}</span>
             <input class="field" type="time" step="900" [(ngModel)]="m.timeFrom" (ngModelChange)="ricalcolaFine()" /></label>
           @if (aOra()) {
             <!-- ⭐ 28/08 (chiesto dall'utente): per i servizi A ORA la fine non
@@ -166,16 +167,16 @@ interface PartnerConServizi extends Rif {
                  fascia dalle–alle sia il numero di ore, e le due potevano dire
                  cose diverse: 09:00–10:00 con «3 ore» non è un dato, è una
                  contraddizione che nessuno vede. -->
-            <label class="fld"><span>{{ 'recurring.f.oreQuante' | translate }} *</span>
+            <label class="fld"><span class="req">{{ 'recurring.f.oreQuante' | translate }}</span>
               <input class="field num" type="number" min="1" max="24" step="1"
                      [(ngModel)]="m.hours" (ngModelChange)="ricalcolaFine()" />
               <span class="hint">{{ 'recurring.f.oreHint' | translate: { fine: m.timeTo || '—' } }}</span></label>
           } @else {
-            <label class="fld"><span>{{ 'recurring.f.to' | translate }} *</span>
+            <label class="fld"><span class="req">{{ 'recurring.f.to' | translate }}</span>
               <input class="field" type="time" step="900" [(ngModel)]="m.timeTo" /></label>
           }
 
-          <label class="fld"><span>{{ 'recurring.f.start' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'recurring.f.start' | translate }}</span>
             <input class="field" type="date" [(ngModel)]="m.dataInizio" /></label>
           <label class="fld"><span>{{ 'recurring.f.end' | translate }}</span>
             <input class="field" type="date" [(ngModel)]="m.dataFine" /></label>
@@ -225,7 +226,7 @@ interface PartnerConServizi extends Rif {
                quello che si e' battuto a mano. Un ricorrente sbagliato sbaglia
                ogni giorno, non una volta. Senza la chiave in Impostazioni
                restano campi di testo normali, e lo si dice. -->
-          <label class="fld wide"><span>{{ 'recurring.f.address' | translate }} *</span>
+          <label class="fld wide"><span class="req">{{ 'recurring.f.address' | translate }}</span>
             <input #addrDest class="field" [(ngModel)]="m.recipientAddress" autocomplete="off" /></label>
           <label class="fld wide"><span>{{ 'recurring.f.pickup' | translate }}</span>
             <input #addrRitiro class="field" [(ngModel)]="m.pickupAddress" autocomplete="off" /></label>
@@ -324,6 +325,11 @@ interface PartnerConServizi extends Rif {
         </table>
       </div>
     }
+    @if (confermaPendente(); as c) {
+      <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
+                    [conMotivo]="c.conMotivo ?? false" [motivoLabel]="c.motivoLabel ?? ''"
+                    (confermato)="eseguiConferma($event)" (annullato)="confermaPendente.set(null)" />
+    }
   `,
   styles: [
     `
@@ -420,6 +426,21 @@ interface PartnerConServizi extends Rif {
   ],
 })
 export class RecurringServicesComponent implements AfterViewInit, OnDestroy {
+
+  /**
+   * La conferma narrativa in attesa (Libro §7): al posto dei confirm() del
+   * browser. L'azione parte solo al click sul verbo.
+   */
+  readonly confermaPendente = signal<{
+    titolo: string; messaggio: string; verbo: string; tono: 'danger' | 'primary';
+    conMotivo?: boolean; motivoLabel?: string; azione: (motivo: string) => void;
+  } | null>(null);
+
+  eseguiConferma(motivo: string): void {
+    const c = this.confermaPendente();
+    this.confermaPendente.set(null);
+    c?.azione(motivo);
+  }
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly zone = inject(NgZone);
@@ -935,7 +956,16 @@ export class RecurringServicesComponent implements AfterViewInit, OnDestroy {
   }
 
   elimina(r: Ricorrente): void {
-    if (!confirm(this.translate.instant('recurring.deleteConfirm', { nome: r.nome }))) return;
+    this.confermaPendente.set({
+      titolo: this.translate.instant('conferme.eliminaRicorrente', { nome: r.nome }),
+      messaggio: this.translate.instant('recurring.deleteConfirm', { nome: r.nome }),
+      verbo: this.translate.instant('conferme.elimina'),
+      tono: 'danger',
+      azione: () => this.eliminaDavvero(r),
+    });
+  }
+
+  private eliminaDavvero(r: Ricorrente): void {
     this.http.delete(`${this.api}/recurring-services/${r.id}`).subscribe({
       next: () => this.load(),
       error: (e) => this.error.set(e?.error?.message ?? 'Errore'),

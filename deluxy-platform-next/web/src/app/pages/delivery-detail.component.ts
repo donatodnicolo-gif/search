@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { DatePipe, Location } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
@@ -20,7 +20,7 @@ interface DeliveryProductRow {
   price?: number;
   flexiblePrice: boolean;
   variantName?: string | null;
-  product?: { id: string; name: string; price?: number };
+  product?: { id: string; name: string; price?: number; imageUrl?: string | null };
   productVariant?: { id: string; name: string; price?: number; publicPrice?: number } | null;
 }
 
@@ -257,7 +257,23 @@ interface DeliveryDetail {
               <tbody>
                 @for (p of d.products; track p.id) {
                   <tr>
-                    <td>{{ p.product?.name }}
+                    <td>
+                      @if (p.product?.imageUrl) {
+                        <!-- Il nome apre la FOTO. L'icona dice che c'e'
+                             qualcosa da vedere: un link invisibile non
+                             lo clicca nessuno. -->
+                        <button type="button" class="nome-foto" (click)="apriFoto(p)"
+                                [title]="'deliveryDetail.foto.apri' | translate">
+                          {{ p.product?.name }}
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                            <rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/>
+                            <circle cx="9" cy="10.3" r="1.6"/>
+                            <path d="M6 17.5l4.2-4.2 3 3 2.6-2.6 2.7 2.7"/>
+                          </svg>
+                        </button>
+                      } @else {
+                        {{ p.product?.name }}
+                      }
                       <!-- La variante non è un dettaglio: la Cappelliera base fa
                            110, la M ne fa 215 — senza la variante il prezzo
                            giusto sembra sbagliato. -->
@@ -420,6 +436,16 @@ interface DeliveryDetail {
         </div>
       </div>
     }
+    <!-- La foto del prodotto (§9: scrim unico, ✕ obbligatoria, Esc). -->
+    @if (fotoAperta(); as f) {
+      <div class="foto-scrim" (click)="chiudiFoto()" role="dialog" aria-modal="true" [attr.aria-label]="f.nome">
+        <figure class="foto-box" (click)="$event.stopPropagation()">
+          <button type="button" class="foto-x" (click)="chiudiFoto()" [attr.aria-label]="'common.close' | translate">✕</button>
+          <img [src]="f.url" [alt]="f.nome" />
+          <figcaption>{{ f.nome }}</figcaption>
+        </figure>
+      </div>
+    }
   `,
   styles: [
     `
@@ -478,6 +504,24 @@ interface DeliveryDetail {
       /* L'unico numero del blocco che descrive denaro che ESCE da noi: si
          stacca, se no si legge come un costo in piu' del partner. */
       dd.incasso { color: var(--blue); font-weight: 600; }
+      /* Il nome-prodotto che apre la foto: si dichiara (colore link +
+         icona), ma resta testo — niente sottolineatura, che promette
+         navigazione altrove (Libro §3). */
+      .nome-foto { display: inline-flex; align-items: center; gap: 6px; background: none; border: none;
+        padding: 0; font: inherit; color: var(--blue); cursor: pointer; text-align: left; }
+      .nome-foto svg { width: 17px; height: 17px; flex: 0 0 auto; opacity: 0.75; }
+      .nome-foto:hover { text-decoration: underline; text-underline-offset: 3px; }
+      .nome-foto:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+      .foto-scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 90;
+        display: grid; place-items: center; padding: 24px; }
+      .foto-box { position: relative; margin: 0; background: var(--surface); border-radius: var(--radius-l);
+        box-shadow: var(--shadow-float); padding: 14px; max-width: min(92vw, 560px); }
+      .foto-box img { display: block; max-width: 100%; max-height: min(70dvh, 560px); border-radius: var(--radius-m); margin: 0 auto; }
+      .foto-box figcaption { margin-top: 10px; font-size: 13.5px; text-align: center; color: var(--text-secondary); }
+      .foto-x { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border: none;
+        border-radius: 50%; background: var(--fill-hover); color: var(--text); cursor: pointer; font-size: 14px; }
+      .foto-x:hover { background: var(--fill-active); }
+      .foto-x:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
       /* Il conto della vendita: la riga che conta si stacca, le altre no. */
       .conto-vendita dt.forte, .conto-vendita dd.forte { font-weight: 650; color: var(--text); }
       .conto-vendita dd.forte { font-size: 15.5px; }
@@ -594,6 +638,25 @@ export class DeliveryDetailComponent {
    * scelta, e solo in ultimo il prodotto base — la Cappelliera base fa 110 ma
    * la M venduta qui ne fa 215.
    */
+  /** La foto aperta: nome + url. Null = chiusa. */
+  readonly fotoAperta = signal<{ nome: string; url: string } | null>(null);
+
+  apriFoto(p: DeliveryProductRow): void {
+    const url = p.product?.imageUrl;
+    if (!url) return;
+    this.fotoAperta.set({ nome: p.product?.name ?? '', url });
+  }
+
+  chiudiFoto(): void {
+    this.fotoAperta.set(null);
+  }
+
+  /** Esc chiude la foto anche senza focus dentro la finestra. */
+  @HostListener('document:keydown.escape')
+  suEscape(): void {
+    if (this.fotoAperta()) this.chiudiFoto();
+  }
+
   /** Una vendita: il caso in cui `price` e' la NOSTRA quota, non il prezzo. */
   venditaAlPartner(d: { serviceType?: { pricingModel?: string } | null }): boolean {
     return d.serviceType?.pricingModel === 'VENDITA';
@@ -688,6 +751,9 @@ export class DeliveryDetailComponent {
   private copy(text: string, msg: string): void {
     navigator.clipboard?.writeText(text).then(
       () => { this.banner.set(msg); setTimeout(() => this.banner.set(null), 2500); },
+      // DEROGA al divieto dei popup (§7): qui prompt() non chiede niente,
+      // MOSTRA il testo gia' selezionato quando la clipboard e' negata
+      // (http, permessi). L'alternativa sarebbe non far copiare affatto.
       () => { window.prompt(msg, text); },
     );
   }

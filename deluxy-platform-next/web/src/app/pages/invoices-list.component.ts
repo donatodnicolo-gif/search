@@ -1,3 +1,4 @@
+import { ConfermaComponent } from '../shared/conferma.component';
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -84,7 +85,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
 @Component({
   selector: 'app-invoices-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe],
+  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe, ConfermaComponent],
   template: `
     <div class="page-header">
       <div>
@@ -180,14 +181,14 @@ const NEXT: Record<string, { next: string; key: string }> = {
     @if (showGen() && view() === 'active') {
       <section class="card gen">
         <div class="grid">
-          <label class="fld"><span>{{ 'invoices.gen.partner' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'invoices.gen.partner' | translate }}</span>
             <select class="field" [(ngModel)]="genPartner">
               <option value="">{{ 'invoices.gen.pickPartner' | translate }}</option>
               @for (p of partners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
             </select></label>
-          <label class="fld"><span>{{ 'invoices.gen.from' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'invoices.gen.from' | translate }}</span>
             <input class="field" type="date" [(ngModel)]="genFrom" /></label>
-          <label class="fld"><span>{{ 'invoices.gen.to' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'invoices.gen.to' | translate }}</span>
             <input class="field" type="date" [(ngModel)]="genTo" /></label>
         </div>
         <p class="hint">{{ 'invoices.gen.hint' | translate }}</p>
@@ -421,6 +422,11 @@ const NEXT: Record<string, { next: string; key: string }> = {
         </table>
       </div>
     }
+    @if (confermaPendente(); as c) {
+      <app-conferma [titolo]="c.titolo" [messaggio]="c.messaggio" [verbo]="c.verbo" [tono]="c.tono"
+                    [conMotivo]="c.conMotivo ?? false" [motivoLabel]="c.motivoLabel ?? ''"
+                    (confermato)="eseguiConferma($event)" (annullato)="confermaPendente.set(null)" />
+    }
   `,
   styles: [
     `
@@ -494,6 +500,21 @@ const NEXT: Record<string, { next: string; key: string }> = {
   ],
 })
 export class InvoicesListComponent {
+
+  /**
+   * La conferma narrativa in attesa (Libro §7): al posto dei confirm() del
+   * browser. L'azione parte solo al click sul verbo.
+   */
+  readonly confermaPendente = signal<{
+    titolo: string; messaggio: string; verbo: string; tono: 'danger' | 'primary';
+    conMotivo?: boolean; motivoLabel?: string; azione: (motivo: string) => void;
+  } | null>(null);
+
+  eseguiConferma(motivo: string): void {
+    const c = this.confermaPendente();
+    this.confermaPendente.set(null);
+    c?.azione(motivo);
+  }
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly auth = inject(AuthService);
@@ -708,7 +729,16 @@ export class InvoicesListComponent {
    */
   inviaRecap(r: Pending): void {
     const quando = this.mese(r.mese);
-    if (!confirm(this.translate.instant('invoices.pending.sendConfirm', { partner: r.partner.insegna, mese: quando }))) return;
+    this.confermaPendente.set({
+      titolo: this.translate.instant('conferme.inviaRecap', { a: r.partner.insegna }),
+      messaggio: this.translate.instant('invoices.pending.sendConfirm', { partner: r.partner.insegna, mese: quando }),
+      verbo: this.translate.instant('conferme.invia'),
+      tono: 'primary',
+      azione: () => this.inviaRecapDavvero(r),
+    });
+  }
+
+  private inviaRecapDavvero(r: Pending): void {
     this.error.set(null);
     this.recapInCorso.set(r.chiave);
     this.http.post<{ a: string; righe: number }>(

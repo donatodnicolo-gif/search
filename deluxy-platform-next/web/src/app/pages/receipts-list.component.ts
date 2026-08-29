@@ -51,6 +51,16 @@ interface Receipt {
       <button class="tab" [class.on]="view() === 'storiche'" (click)="setView('storiche')">{{ 'receipts.tab.storiche' | translate }}</button>
     </div>
 
+
+    <!-- §8-bis del Libro: ogni elenco ha una ricerca. -->
+    <div class="cerca-riga">
+      <input class="field" type="search" [(ngModel)]="cerca" name="cerca"
+             [attr.placeholder]="'comune.cercaPh' | translate" [attr.aria-label]="'comune.cercaPh' | translate" />
+      @if (cerca.trim()) {
+        <span class="conto-righe">{{ 'comune.contoRighe' | translate: { n: visibili().length, m: receipts().length } }}</span>
+      }
+    </div>
+
     @if (banner(); as b) { <div class="ok-card card">{{ b }}</div> }
     @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
@@ -164,6 +174,9 @@ interface Receipt {
       .state-card { padding: 28px; color: var(--text-secondary); }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 12px 16px; border-radius: var(--radius-l); margin-bottom: 12px; }
+      .cerca-riga { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+      .cerca-riga .field { max-width: 340px; }
+      .conto-righe { font-size: 12.5px; color: var(--text-secondary); }
     `,
   ],
 })
@@ -184,12 +197,22 @@ export class ReceiptsListComponent {
   readonly busy = signal<string | null>(null);
   readonly view = signal<'pending' | 'signed' | 'storiche'>('pending');
 
+  /** §8-bis: la ricerca, per nome del valet o numero della ricevuta. */
+  readonly cercaTesto = signal('');
+  get cerca(): string { return this.cercaTesto(); }
+  set cerca(v: string) { this.cercaTesto.set(v); }
+
   /** Le righe della vista: le storiche (import, senza stipendio) stanno da sole. */
   readonly visibili = computed(() => {
     const v = this.view();
-    return this.receipts().filter((r) =>
-      v === 'storiche' ? !r.salary : r.salary && (v === 'signed' ? r.signed : !r.signed),
-    );
+    const q = this.cercaTesto().trim().toLowerCase();
+    return this.receipts().filter((r) => {
+      const vista = v === 'storiche' ? !r.salary : r.salary && (v === 'signed' ? r.signed : !r.signed);
+      if (!vista || !q) return vista;
+      const valet = r.salary?.valet ?? r.valet;
+      return `${valet?.firstName ?? ''} ${valet?.lastName ?? ''}`.toLowerCase().includes(q)
+        || (r.number ?? '').toLowerCase().includes(q);
+    });
   });
   readonly signFor = signal<string | null>(null);
   readonly pickedName = signal<string | null>(null);

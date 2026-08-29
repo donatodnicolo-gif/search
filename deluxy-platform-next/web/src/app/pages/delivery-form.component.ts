@@ -129,11 +129,11 @@ interface ProductRow {
              deduce la provincia, la provincia restringe i partner abilitati, e il
              partner scelto determina quali servizi ha davvero a listino. -->
         <div class="grid-2">
-          <label class="fld"><span>{{ 'deliveryForm.field.date' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'deliveryForm.field.date' | translate }}</span>
             <input class="field" type="date" name="date" [(ngModel)]="model.date" [min]="deliveryMinDate()" required />
             @if (selectedService()?.noticeDays) { <span class="slot-hint">{{ 'deliveryForm.hint.notice' | translate:{ days: selectedService()?.noticeDays, date: deliveryMinDate() } }}</span> }
           </label>
-          <label class="fld"><span>{{ 'deliveryForm.field.recipientAddress' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'deliveryForm.field.recipientAddress' | translate }}</span>
             <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
             @if (addressProvince()) { <span class="slot-hint">{{ 'deliveryForm.hint.provinceDetected' | translate:{ code: addressProvince()?.code } }}</span> }
             <!-- Un indirizzo ESTERO non e' un errore di provincia: la provincia
@@ -148,14 +148,14 @@ interface ProductRow {
               </span>
             }
           </label>
-          <label class="fld"><span>{{ 'deliveryForm.field.partner' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'deliveryForm.field.partner' | translate }}</span>
             <select class="field" name="partnerId" [(ngModel)]="model.partnerId" (ngModelChange)="onPartnerChange()" required>
               <option value="">{{ 'deliveryForm.placeholder.selectPartner' | translate }}</option>
               @for (p of partnerOptions(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
             </select>
             @if (addressProvince() && filteredPartners().length === 0) { <span class="slot-hint warn">{{ 'deliveryForm.hint.noPartners' | translate }}</span> }
           </label>
-          <label class="fld"><span>{{ 'deliveryForm.field.service' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'deliveryForm.field.service' | translate }}</span>
             <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" (ngModelChange)="onServiceChange()" required>
               <option value="">{{ 'deliveryForm.placeholder.selectService' | translate }}</option>
               @for (s of serviceOptions(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
@@ -202,13 +202,13 @@ interface ProductRow {
         <label class="toggle mt2"><input type="checkbox" name="pickupFlexible" [(ngModel)]="model.pickupFlexible" /><span>{{ 'deliveryForm.timing.pickupFlexible' | translate }}</span></label>
         @if (model.pickupFlexible) {
           <div class="grid-2 mt">
-            <label class="fld"><span>{{ 'deliveryForm.field.pickupFrom' | translate }} *</span>
+            <label class="fld"><span class="req">{{ 'deliveryForm.field.pickupFrom' | translate }}</span>
               <input class="field" type="time" step="900" name="pickupTimeFrom" [(ngModel)]="model.pickupTimeFrom" /></label>
-            <label class="fld"><span>{{ 'deliveryForm.field.pickupTo' | translate }} *</span>
+            <label class="fld"><span class="req">{{ 'deliveryForm.field.pickupTo' | translate }}</span>
               <input class="field" type="time" step="900" name="pickupTimeTo" [(ngModel)]="model.pickupTimeTo" /></label>
           </div>
         } @else {
-          <label class="fld mt" style="max-width:280px"><span>{{ 'deliveryForm.field.pickupTime' | translate }} * <em>{{ 'deliveryForm.timing.pickupSlotSize' | translate }}</em></span>
+          <label class="fld mt" style="max-width:280px"><span class="req">{{ 'deliveryForm.field.pickupTime' | translate }} <em>{{ 'deliveryForm.timing.pickupSlotSize' | translate }}</em></span>
             <select class="field" name="pickupTimeFrom" [(ngModel)]="model.pickupTimeFrom">
               <option value="">{{ 'deliveryForm.placeholder.selectTime' | translate }}</option>
               @for (t of pickupTimeOptions; track t) { <option [value]="t">{{ t }}</option> }
@@ -289,11 +289,11 @@ interface ProductRow {
           <label class="toggle mt"><input type="checkbox" name="saveCustomer" [(ngModel)]="model.saveCustomer" /><span>{{ 'deliveryForm.toggle.saveCustomer' | translate }}</span></label>
         }
         <div class="grid-2 mt">
-          <label class="fld"><span>{{ 'deliveryForm.field.recipientLastName' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'deliveryForm.field.recipientLastName' | translate }}</span>
             <input class="field" name="recipientLastName" [(ngModel)]="model.recipientLastName" required /></label>
-          <label class="fld"><span>{{ 'deliveryForm.field.recipientFirstName' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'deliveryForm.field.recipientFirstName' | translate }}</span>
             <input class="field" name="recipientFirstName" [(ngModel)]="model.recipientFirstName" required /></label>
-          <label class="fld"><span>{{ 'deliveryForm.field.intercom' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'deliveryForm.field.intercom' | translate }}</span>
             <input class="field" name="recipientIntercom" [(ngModel)]="model.recipientIntercom" /></label>
           <label class="fld"><span>{{ 'deliveryForm.field.recipientPhone' | translate }}</span>
             <input class="field" name="recipientPhone" [(ngModel)]="model.recipientPhone" placeholder="+39 …" /></label>
@@ -420,7 +420,7 @@ interface ProductRow {
                senza il brand il numero non identifica la vendita. Solo per le
                VENDITE, e li' e' OBBLIGATORIO quando c'e' un numero DDT. -->
           @if (isVendita()) {
-            <label class="fld"><span>{{ 'deliveryForm.field.ddtBrand' | translate }} *</span>
+            <label class="fld"><span class="req">{{ 'deliveryForm.field.ddtBrand' | translate }}</span>
               <select class="field" name="ddtBrand" [(ngModel)]="model.ddtBrand" [required]="!!model.ddtNumber.trim()">
                 <option value="">{{ 'deliveryForm.ddtBrandScegli' | translate }}</option>
                 @for (b of marchiDdt; track b) { <option [value]="b">{{ b }}</option> }
@@ -440,7 +440,7 @@ interface ProductRow {
       @if (justSaved()) { <div class="ok-card card">{{ 'deliveryForm.savedNotice.pre' | translate }} <strong>{{ 'deliveryForm.savedNotice.create' | translate }}</strong> {{ 'deliveryForm.savedNotice.or' | translate }} <strong>{{ 'common.duplicate' | translate }}</strong> {{ 'deliveryForm.savedNotice.post' | translate }}</div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
-      <div class="actions">
+      <div class="actions sticky">
         <a routerLink="/deliveries" class="btn btn-secondary">{{ 'common.cancel' | translate }}</a>
         @if (!editId()) {
           <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'common.duplicate' | translate }}</button>

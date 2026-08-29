@@ -131,7 +131,9 @@ const DELIVERY_INCLUDE = {
   // prodotto base (110) fa sembrare sbagliato un numero giusto.
   products: {
     include: {
-      product: { select: { id: true, name: true, price: true, publicPrice: true } },
+      // imageUrl: al click sul nome la scheda mostra la FOTO (28/08, parita'
+      // con l'app attuale chiesta dall'utente).
+      product: { select: { id: true, name: true, price: true, publicPrice: true, imageUrl: true } },
       productVariant: { select: { id: true, name: true, price: true, publicPrice: true } },
     },
   },

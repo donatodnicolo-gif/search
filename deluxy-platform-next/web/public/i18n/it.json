@@ -261,7 +261,8 @@
     "saveError": "Errore nel salvataggio",
     "comingSoon": "In arrivo",
     "close": "Chiudi",
-    "remove": "Togli"
+    "remove": "Togli",
+    "retry": "Riprova"
   },
   "enums": {
     "productType": {
@@ -1342,7 +1343,9 @@
     "provinces": {
       "title": "Province servite",
       "subtitle": "Il partner sarà selezionabile solo nelle consegne di queste province.",
-      "empty": "Nessuna provincia configurata."
+      "empty": "Nessuna provincia configurata.",
+      "cerca": "Cerca provincia…",
+      "scelte": "{{n}} province scelte"
     },
     "services": {
       "title": "Servizi abilitati",
@@ -1357,12 +1360,18 @@
       "kmIncludedPartner": "KM inclusi (a livello partner)",
       "extraOutOfCityPartner": "Extra fuori città (€, a livello partner)",
       "commissionPercent": "Commissione Fee (%)",
-      "warehouseHidden": "{{n}} servizio/i di magazzino a listino non sono mostrati: questo partner non ha il magazzino attivo, quindi non sono utilizzabili."
+      "warehouseHidden": "{{n}} servizio/i di magazzino a listino non sono mostrati: questo partner non ha il magazzino attivo, quindi non sono utilizzabili.",
+      "colPrice": "Prezzo €",
+      "colKmIncluded": "Km inclusi",
+      "colExtraKm": "€ per km extra",
+      "colOutOfCity": "€ fuori città"
     },
     "categories": {
       "title": "Categorie vendute",
       "subtitle": "Determinano priorità e sconti per provincia.",
-      "empty": "Nessuna categoria configurata."
+      "empty": "Nessuna categoria configurata.",
+      "cerca": "Cerca categoria…",
+      "scelte": "{{n}} categorie scelte"
     },
     "openingHours": {
       "title": "Orari di apertura",
@@ -1832,6 +1841,9 @@
       "vat": "IVA",
       "due": "Totale a te dovuto",
       "note": "Prima dell’IVA sulla commissione il dovuto è {{lordo}} €: è il numero che compare in Fatturazione."
+    },
+    "foto": {
+      "apri": "Vedi la foto del prodotto"
     }
   },
   "confirmDelivery": {
@@ -2254,5 +2266,23 @@
     "motivoServe": "Serve un motivo: un «no» muto si trasforma in una seconda richiesta identica.",
     "emptyTitle": "Nessuna richiesta",
     "emptyHint": "Quando un’altra app manda una richiesta di consegna, compare qui."
+  },
+  "conferme": {
+    "elimina": "Elimina",
+    "rigenera": "Rigenera",
+    "invia": "Invia",
+    "motivo": "Il motivo (lo legge chi ha mandato la richiesta)",
+    "rigeneraChiave": "Rigenero la chiave di «{{nome}}»?",
+    "eliminaChiave": "Elimino la chiave di «{{nome}}»?",
+    "eliminaConsegne": "Elimino {{n}} consegne?",
+    "eliminaRegola": "Elimino la regola «{{nome}}»?",
+    "eliminaRegolaCorpo": "Le consegne già collegate non si toccano; la regola non si applicherà più.",
+    "eliminaRicorrente": "Elimino il servizio ricorrente «{{nome}}»?",
+    "inviaRecap": "Mando il recap a {{a}}?",
+    "rifiutaRichiesta": "Rifiuto questa richiesta?"
+  },
+  "comune": {
+    "cercaPh": "Cerca…",
+    "contoRighe": "{{n}} di {{m}}"
   }
 }

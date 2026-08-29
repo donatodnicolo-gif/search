@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal, computed} from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -25,7 +26,7 @@ interface ImageRow { url: string; }
   template: `
     <div class="form-head">
       <div>
-        <a routerLink="/products" class="back">← {{ 'productForm.backToProducts' | translate }}</a>
+        <button type="button" class="back" (click)="indietro()">← {{ 'productForm.backToProducts' | translate }}</button>
         <h1>{{ (editId() ? 'productForm.editTitle' : 'productForm.title') | translate }}</h1>
         <p class="page-caption">{{ 'productForm.caption' | translate }}</p>
       </div>
@@ -37,9 +38,9 @@ interface ImageRow { url: string; }
         <header class="block-head"><h2>{{ 'productForm.section.details.title' | translate }}</h2>
           <span class="block-sub">{{ 'productForm.section.details.requiredNote' | translate }}</span></header>
         <div class="grid-2">
-          <label class="fld"><span>{{ 'productForm.field.name' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'productForm.field.name' | translate }}</span>
             <input class="field" name="name" [(ngModel)]="model.name" required [attr.placeholder]="'productForm.placeholder.name' | translate" /></label>
-          <label class="fld"><span>{{ 'productForm.field.category' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'productForm.field.category' | translate }}</span>
             <select class="field" name="categoryId" [(ngModel)]="model.categoryId" required>
               <option value="">{{ 'productForm.placeholder.selectCategory' | translate }}</option>
               @for (c of categories(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
@@ -57,13 +58,13 @@ interface ImageRow { url: string; }
             <input class="field" name="line" [(ngModel)]="model.line" /></label>
           <label class="fld"><span>{{ 'productForm.field.prepDays' | translate }}</span>
             <input class="field num" type="number" min="0" name="prepDays" [(ngModel)]="model.prepDays" /></label>
-          <label class="fld"><span>{{ 'productForm.field.price' | translate }} *</span>
+          <label class="fld"><span class="req">{{ 'productForm.field.price' | translate }}</span>
             <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price" required /></label>
           <label class="fld"><span>{{ 'productForm.field.publicPrice' | translate }}</span>
             <input class="field num" type="number" step="0.01" name="publicPrice" [(ngModel)]="model.publicPrice" /></label>
           <label class="fld span-2"><span>{{ 'productForm.field.imageUrl' | translate }}</span>
             <input class="field" name="imageUrl" [(ngModel)]="model.imageUrl" placeholder="https://…" /></label>
-          <label class="fld span-2"><span>{{ 'productForm.field.shortDesc' | translate }} * <em>{{ 'productForm.field.shortDescHint' | translate }}</em></span>
+          <label class="fld span-2"><span class="req">{{ 'productForm.field.shortDesc' | translate }} <em>{{ 'productForm.field.shortDescHint' | translate }}</em></span>
             <input class="field" name="shortDesc" maxlength="80" required [(ngModel)]="model.shortDesc" /></label>
           <label class="fld span-2"><span>{{ 'productForm.field.description' | translate }}</span>
             <textarea class="field" rows="3" name="description" [(ngModel)]="model.description"></textarea></label>
@@ -160,13 +161,13 @@ interface ImageRow { url: string; }
         <label class="toggle"><input type="checkbox" name="hasVariants" [(ngModel)]="model.hasVariants" /><span>{{ 'productForm.variants.hasVariants' | translate }}</span></label>
         @if (model.hasVariants) {
           <div class="sub-block">
-            <label class="fld"><span>{{ 'productForm.variants.optionTitle' | translate }} * <em>{{ 'productForm.variants.optionTitleHint' | translate }}</em></span>
+            <label class="fld"><span class="req">{{ 'productForm.variants.optionTitle' | translate }} <em>{{ 'productForm.variants.optionTitleHint' | translate }}</em></span>
               <input class="field" name="optionTitle" [(ngModel)]="model.optionTitle" [attr.placeholder]="'productForm.variants.optionTitlePlaceholder' | translate" /></label>
             <span class="sub-hint mt">{{ 'productForm.variants.listHint' | translate }}</span>
             @for (row of variantRows; track $index) {
               <div class="variant-card">
                 <div class="var-grid">
-                  <label class="fld sm"><span>{{ 'productForm.variants.name' | translate }} *</span>
+                  <label class="fld sm"><span class="req">{{ 'productForm.variants.name' | translate }}</span>
                     <input class="field" [(ngModel)]="row.name" [name]="'vname' + $index" [attr.placeholder]="'productForm.variants.namePlaceholder' | translate" /></label>
                   <label class="fld sm"><span>{{ 'productForm.variants.prepDays' | translate }}</span>
                     <input class="field num" type="number" min="0" [(ngModel)]="row.prepDays" [name]="'vprep' + $index" /></label>
@@ -211,7 +212,7 @@ interface ImageRow { url: string; }
       @if (justSaved()) { <div class="ok-card card">{{ 'productForm.saved.before' | translate }}<strong>{{ 'productForm.saved.create' | translate }}</strong>{{ 'productForm.saved.or' | translate }}<strong>{{ 'common.duplicate' | translate }}</strong>{{ 'productForm.saved.after' | translate }}</div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
-      <div class="actions">
+      <div class="actions sticky">
         <a routerLink="/products" class="btn btn-secondary">{{ 'common.cancel' | translate }}</a>
         @if (!editId()) {
           <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="submit(true)">{{ 'common.duplicate' | translate }}</button>
@@ -278,6 +279,16 @@ interface ImageRow { url: string; }
 export class ProductFormComponent {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
+
+  /**
+   * Libro v1.5: si torna con la HISTORY quando si arriva da dentro (conserva
+   * filtri, pagina e scroll dell'elenco); il link nudo solo da fuori.
+   */
+  indietro(): void {
+    if (window.history.length > 1) this.location.back();
+    else this.router.navigate(['/products']);
+  }
   private readonly route = inject(ActivatedRoute);
   private readonly translate = inject(TranslateService);
 
