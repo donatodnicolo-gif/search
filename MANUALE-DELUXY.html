@@ -733,6 +733,8 @@
   <div class="table-scroll registro"><table>
     <thead><tr><th>Quando</th><th>Dove</th><th>Cosa cambia</th></tr></thead>
     <tbody>
+      <tr><td>29/08/2026</td><td>Scout + Anagrafiche</td>
+        <td><b>Ordine chiuso = cliente attivo nel registro.</b> Alla chiusura di un ordine in Scout il negozio diventa cliente attivo anche su Anagrafiche (solo in salita, mai retrocessioni). Riparato il ponte che rendeva muto lo stato (chiave senza permesso «driver di prima parte»: ora la Edge usa la PATCH sancita) e allineati i 6 clienti con ordini già chiusi. Nelle Richieste clienti il cliente si cerca anche nel registro, come in Ordini.</td></tr>
       <tr><td>28/08/2026</td><td>Scout</td>
         <td><b>Ordini: spunta «Senza fornitura».</b> Gli ordini senza costi di fornitura (es. quote di affiliazione) si dichiarano tali dalla modifica dell'ordine: la spunta sblocca chiusura e incasso senza dover inventare un fornitore, e il margine diventa il valore meno gli altri costi (realizzato). Se poi si registra un fornitore vero, la spunta si spegne da sola.</td></tr>
       <tr><td>28/08/2026</td><td>Scout</td>
