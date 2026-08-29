@@ -15,6 +15,68 @@ import { registra } from "./registro";
 export type StatoRiga = "confermata" | "ignorata" | null;
 export type EsitoAzione = { stato: StatoRiga; ok: boolean; testo: string } | null;
 
+const normP = (s?: string | null) => (s || "").toUpperCase().replace(/[\s.]/g, "");
+
+// Indicizza una P.IVA sotto il partner (tabella FINANCE PartnerPivaEntita, via
+// SQL raw): serve al Registro fatture per agganciare il cliente per P.IVA.
+async function indicizzaPiva(partnerId: string, pIva?: string | null, nome?: string | null) {
+  const n = normP(pIva);
+  if (!n) return;
+  await prisma.$executeRaw`
+    INSERT INTO "public"."PartnerPivaEntita" ("partnerId","pIva","nome")
+    VALUES (${partnerId}, ${n}, ${nome ?? null})
+    ON CONFLICT ("pIva") DO UPDATE SET "partnerId" = EXCLUDED."partnerId";`.catch(() => 0);
+}
+
+// Sceglie SU QUALE anagrafica scrivere i dati di un cliente FIC, in base alla
+// sua P.IVA — così un partner con più soggetti fiscali non si sovrascrive:
+//  - P.IVA uguale al primario (o primario senza P.IVA, o cliente senza P.IVA) → primario;
+//  - P.IVA di un'entità già collegata → quella;
+//  - P.IVA nuova e diversa dal primario → CREA una nuova entità collegata.
+// Se la creazione fallisce NON ripiega sul primario (lo sovrascriverebbe con i
+// dati di un'altra società): torna un errore e non si scrive.
+async function targetAnagraficaPerPiva(
+  partnerId: string,
+  primarioId: string,
+  campi: CampiAnagrafica,
+): Promise<{ id: string; isPrimario: boolean; creata?: boolean; errore?: string }> {
+  const ficPiva = normP(campi.pIva);
+  if (!ficPiva) return { id: primarioId, isPrimario: true };
+
+  const prim = await anagraficaPerId(primarioId).catch(() => null);
+  const primPiva = normP(prim?.pIva);
+  if (!primPiva || primPiva === ficPiva) return { id: primarioId, isPrimario: true };
+
+  const collegate = await prisma.anagraficaCollegata.findMany({ where: { partnerId } });
+  for (const c of collegate) {
+    const reg = await anagraficaPerId(c.anagraficaId).catch(() => null);
+    if (normP(reg?.pIva) === ficPiva) return { id: c.anagraficaId, isPrimario: false };
+  }
+
+  // Nuova entità fiscale per questo partner: record a sé + collegamento, invece
+  // di scrivere sopra il primario (che è un'altra società).
+  const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { nome: true, categoria: true } });
+  const res = await creaAnagrafica({
+    nome: campi.ragioneSociale || `${partner?.nome ?? "Partner"} (${campi.pIva})`,
+    ragioneSociale: campi.ragioneSociale ?? null,
+    citta: campi.citta ?? null,
+    provincia: campi.provincia ?? null,
+    categoria: partner?.categoria ?? null,
+    idEsterno: `${partnerId}#${ficPiva}`,
+    campi,
+  });
+  if (!res.ok) {
+    return { id: primarioId, isPrimario: true, errore: `Non ho creato la seconda entità (${res.errore}): non scrivo sul primario per non sovrascriverlo.` };
+  }
+  if (res.id === primarioId) return { id: primarioId, isPrimario: true };
+  await prisma.anagraficaCollegata.upsert({
+    where: { anagraficaId: res.id },
+    create: { partnerId, anagraficaId: res.id, nome: campi.ragioneSociale ?? null, citta: campi.citta ?? null },
+    update: { partnerId, nome: campi.ragioneSociale ?? null, citta: campi.citta ?? null },
+  });
+  return { id: res.id, isPrimario: false, creata: true };
+}
+
 // Conferma / ignora / riapri SENZA ricostruire la pagina.
 //
 // Le tre azioni finivano tutte con `revalidatePath("/registrazioni/riconciliazione")`,
@@ -63,11 +125,19 @@ export async function azioneRiconciliazione(
       campi = {};
     }
   }
-  const res = await aggiornaAnagrafica(anagraficaId, campi);
+  // ⭐ Multi-entità: scrivo sull'anagrafica GIUSTA per P.IVA, non sempre sul
+  // primario — così due società dello stesso partner (es. Tiffany IT/NL,
+  // Martesana due S.r.l.) non si sovrascrivono a vicenda.
+  const target = await targetAnagraficaPerPiva(partnerId, anagraficaId, campi);
+  if (target.errore) return { stato: null, ok: false, testo: target.errore };
+  const res = await aggiornaAnagrafica(target.id, campi);
   const esito = res.ok ? "ok" : res.errore;
 
   if (res.ok) {
-    await prisma.partner.update({ where: { id: partnerId }, data: { anagraficaId } });
+    // Il partner.anagraficaId è il PRIMARIO: non lo si sposta su una entità
+    // secondaria. Si aggiorna solo se stiamo scrivendo sul primario.
+    if (target.isPrimario) await prisma.partner.update({ where: { id: partnerId }, data: { anagraficaId: target.id } });
+    await indicizzaPiva(partnerId, campi.pIva, campi.ragioneSociale);
     await allineaPartnerDaRegistro(partnerId).catch(() => null);
     revalidatePath(`/partner/${partnerId}`, "layout");
   }
@@ -77,14 +147,14 @@ export async function azioneRiconciliazione(
     create: {
       ficNome,
       partnerId,
-      anagraficaId,
+      anagraficaId: target.id,
       stato: res.ok ? "confermata" : "ignorata",
       campiInviati: Object.keys(campi).join(", ") || null,
       esito,
     },
     update: {
       partnerId,
-      anagraficaId,
+      anagraficaId: target.id,
       ...(res.ok ? { stato: "confermata" } : {}),
       campiInviati: Object.keys(campi).join(", ") || null,
       esito,
@@ -92,8 +162,13 @@ export async function azioneRiconciliazione(
   });
 
   const inviati = Object.keys(campi).join(", ");
+  const dove = target.creata
+    ? "Creata una seconda entità e inviati"
+    : target.isPrimario
+      ? "Inviati"
+      : "Inviati alla seconda entità";
   return res.ok
-    ? { stato: "confermata", ok: true, testo: `Inviati al registro: ${inviati || "nessun campo"}` }
+    ? { stato: "confermata", ok: true, testo: `${dove} al registro: ${inviati || "nessun campo"}` }
     : { stato: null, ok: false, testo: `Il registro ha rifiutato: ${res.errore}` };
 }
 
