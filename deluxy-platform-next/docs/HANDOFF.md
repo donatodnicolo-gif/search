@@ -104,7 +104,44 @@
 **Ultimo aggiornamento:** 28 agosto 2026 — 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
-### 🧾 29/08/2026 — IL RECAP CONFRONTATO CON LA FATTURA VECCHIA (Maryflor, giugno): la merce era gonfiata dal prezzo AL PUBBLICO
+### 💰 29/08/2026 — STIPENDI: il confronto di Acampora (giugno) torna, e salta fuori il listino valet ORFANO
+
+Chiesto dall'utente subito dopo il recap partner: stesso esercizio sugli
+stipendi, Acampora Vittorio, giugno 2026.
+
+**Tornano tutte le righe e tutti gli importi, tranne uno.** Il PDF del legacy
+elenca **15 consegne**; in piattaforma sono 16, e la sedicesima (#58936) è
+`cancelled` — **fuori da entrambi**, giusto.
+
+- **Il residuo da pagare è identico al centesimo: 77,18 €** (#58742 16,79 ·
+  #59314 17,05 · #59322 16,78 · #60046 13,28 · #60048 13,28).
+- Le altre 10 righe (49,00 €) non compaiono nel recap dell'app perché hanno
+  `paymentStatus = 'paid'`: **erano già state pagate** e l'import ha portato il
+  flag. Non è un numero che manca — il recap dell'app risponde a «quanto ti
+  devo ancora», il PDF a «ecco tutto giugno».
+- ⭐ **Sulla gemella corporate #59315 i due documenti concordano**: il legacy la
+  elenca con paga 17,05 ma la mette a **0 nel totale**, e la piattaforma la
+  tiene a `payable = false` dalla correzione del 28/08. Stessa conclusione per
+  vie diverse.
+- Sommando i **totali di riga** del PDF si ottiene **126,18 €**, cioè
+  77,18 (da pagare) + 49,00 (già pagate): i conti chiudono.
+
+🔴 **L'unica riga diversa, e il difetto che ci sta sotto: #58899, servizio A
+ORA del 1° giugno.** Il legacy paga **25,00 €** (2 ore × 12,50 di listino), la
+piattaforma terrebbe la **paga scritta, 20,00 €**. Il motivo non è una regola
+diversa: il `valetServiceId` di quella consegna **punta a un listino che non
+esiste in banca dati**, quindi non c'è niente da ricalcolare e si ripiega sul
+numero scritto.
+
+**Misurato su tutto l'archivio**: **4.202 consegne su 39.970 (10,5%) hanno un
+`valetServiceId` orfano**, e **3.064 sono ancora da pagare**. Su quelle la paga
+non è ricalcolabile: se il numero scritto è più basso del listino, il valet
+prende meno (qui 5 € su una sola consegna). È la faccia pratica dell'allarme
+già annotato il 28/08 — le righe `ValetService` non conservano il loro id
+legacy e il legame con l'originale si è perso in import. **Non toccato**: prima
+di riagganciare 4.202 consegne serve decidere con quale chiave, ed è una
+decisione dell'utente.
+
 
 L'utente ha mandato il PDF che i partner ricevono oggi dal legacy
 (`partner-invoice`, Maryflor, giugno 2026, 10 pagine) e ha chiesto se combacia.
