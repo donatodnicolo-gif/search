@@ -1,6 +1,6 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
-import type { AffiliazioneRow, Contact, Deal, EsitoVisita, FonteLead, Lead, Linea, Ordine, Place, Profilo, RichiestaCliente, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
+import type { AffiliazioneRow, Contact, Deal, EsitoVisita, FonteLead, Lead, Linea, Ordine, Pianificazione, Place, Profilo, RichiestaCliente, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
 import { LINEE_ATTIVE, canonizzaLinee, statoDaEsito, statoRegistroDaAffiliazione } from '@/types';
 import { env } from '@/lib/env';
 import { hubspotAttivo, syncVisita } from '@/lib/hubspot';
@@ -932,9 +932,75 @@ export async function fetchStorico(limite = 1000): Promise<VisitaStorico[]> {
 /** Profili utente (owner → nome/email), per la dashboard di Team. Tollerante:
  *  se la migrazione 0014 non è applicata, ritorna [] e la UI usa un nome di ripiego. */
 export async function fetchProfiles(): Promise<Profilo[]> {
+  // ⚠️ `responsabile` può non esistere se la 0106 non è applicata: si riprova
+  // senza, così la schermata Team non muore per una colonna in meno.
+  const conFlag = await supabase.from('profiles').select('id, email, nome, ultimo_accesso, responsabile');
+  if (!conFlag.error) return (conFlag.data ?? []) as Profilo[];
   const { data, error } = await supabase.from('profiles').select('id, email, nome, ultimo_accesso');
   if (error) return [];
   return (data ?? []) as Profilo[];
+}
+
+/**
+ * Il flag «responsabile commerciale» (migr. 0106): lo assegna l'admin dal Team.
+ * È CHI può scrivere la pianificazione per linea — la RLS della tabella
+ * `pianificazioni_commerciali` fa rispettare la stessa regola lato server.
+ */
+export async function aggiornaResponsabile(profileId: string, responsabile: boolean): Promise<void> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ responsabile })
+    .eq('id', profileId)
+    .select('id');
+  if (error) throw error;
+  // ⚠️ Una scrittura fermata dalla RLS NON è un errore: torna zero righe.
+  if (!data?.length) throw new Error('Solo l\'amministratore può assegnare il flag responsabile.');
+}
+
+/** Le righe di piano di un anno (12 mesi × linee). Lettura per tutti. */
+export async function fetchPianificazioni(anno: number): Promise<Pianificazione[]> {
+  const { data, error } = await supabase
+    .from('pianificazioni_commerciali')
+    .select('id, mese, linea, target_valore, obiettivo_conversione, nota, creato_da')
+    .gte('mese', `${anno}-01-01`)
+    .lt('mese', `${anno + 1}-01-01`);
+  if (error) throw error;
+  return (data ?? []) as Pianificazione[];
+}
+
+/**
+ * Scrive (o azzera) il piano di UNA linea in UN mese. Upsert su (mese, linea):
+ * il piano è condiviso e non fa doppioni. Con target e obiettivo entrambi
+ * vuoti la riga si CANCELLA: un piano vuoto non è un piano a zero.
+ */
+export async function salvaPianificazione(p: {
+  mese: string; // YYYY-MM-01
+  linea: string;
+  target_valore: number | null;
+  obiettivo_conversione: number | null;
+}): Promise<void> {
+  if (p.target_valore == null && p.obiettivo_conversione == null) {
+    const { error } = await supabase
+      .from('pianificazioni_commerciali')
+      .delete()
+      .eq('mese', p.mese)
+      .eq('linea', p.linea);
+    if (error) throw error;
+    return;
+  }
+  const { data: auth } = await supabase.auth.getUser();
+  const { error } = await supabase.from('pianificazioni_commerciali').upsert(
+    {
+      mese: p.mese,
+      linea: p.linea,
+      target_valore: p.target_valore,
+      obiettivo_conversione: p.obiettivo_conversione,
+      creato_da: auth?.user?.id ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'mese,linea' },
+  );
+  if (error) throw error;
 }
 
 /** Un singolo profilo (per la schermata del venditore / il proprio Profilo). */

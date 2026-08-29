@@ -38,6 +38,7 @@ import {
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { VisitaModal } from '@/components/VisitaModal';
+import { PianoCommerciale } from '@/components/PianoCommerciale';
 
 type Riga =
   | { tipo: 'richiamo'; richiamo: Richiamo }
@@ -348,7 +349,7 @@ export default function DaCompletare() {
     <View style={styles.container}>
       <View style={styles.head}>
         <Text style={styles.sub}>
-          Richiami, task aperti e visite da completare — la tua coda di lavoro.
+          Prima il piano — target e conversione per linea, mese per mese — poi la coda: richiami, task e visite.
         </Text>
         {/* ⚠️ Le pillole governano SOLO i task, e il titolo della sezione lo
             ripete («Task assegnati a me» / «Task di tutti»): richiami e visite
@@ -363,6 +364,11 @@ export default function DaCompletare() {
         </RigaChips>
       </View>
       <SectionList
+        // ⭐ IL CALENDARIO DEL PIANO STA IN TESTA (29/08/2026, richiesta
+        // dell'utente: «mostra in primis un calendario…»). Riferimento di
+        // COMPONENTE, non elemento: un elemento inline si rimonterebbe a ogni
+        // lettera scritta nella ricerca qui sopra, rifacendo le fetch.
+        ListHeaderComponent={PianoCommerciale}
         sections={sezioniVista}
         keyExtractor={(r: any, i) =>
           Array.isArray(r)

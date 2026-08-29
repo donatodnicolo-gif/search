@@ -46,22 +46,95 @@ a { color: inherit; text-decoration: none; }
 .brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; white-space: nowrap; }
 .brand-sub { font-size: 12px; color: var(--text-secondary); }
 
-/* Va a capo invece di sfondare: sotto i ~750px il blocco azioni misura piu'
-   della finestra e il browser rimpiccioliva TUTTA la pagina al 59%.
-   Le voci restano tutte: si stringe la cornice, non il loro numero. */
-.topbar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-/* I tre gruppi (chi sei · dove vai · esci) separati da una distanza, non da un segno */
-.topbar-actions .gruppo { display: flex; align-items: center; gap: 6px; }
-.topbar-actions .gruppo + .gruppo { margin-left: 8px; }
+/* La barra tiene a sinistra hamburger + logo, come tutte le app Deluxy: la
+   navigazione vive nella sidebar, non qui. */
+.topbar-sx { display: flex; align-items: center; }
+.toggle-sidebar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; margin-right: 12px;
+  border: 0; border-radius: var(--radius-s);
+  background: transparent; color: var(--text-secondary); cursor: pointer;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+@media (hover: hover) { .toggle-sidebar:hover { background: var(--fill); color: var(--text); } }
+.toggle-sidebar:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-/* Hamburger: nascosto sul desktop, compare solo su mobile (vedi @media 720). */
-.hamburger { display: none; }
+/* ---------- Guscio con sidebar (come le app sorelle) ---------- */
+.layout { display: flex; align-items: flex-start; min-height: calc(100vh - 63px); }
+
+.sidebar {
+  position: sticky; top: 63px;
+  flex: 0 0 244px;
+  height: calc(100vh - 63px);
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+  padding: 18px 12px 16px;
+  background: var(--surface-translucent);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-right: 1px solid var(--hairline);
+  transition: margin-left 240ms var(--ease), opacity 200ms var(--ease);
+}
+.sb-voci { flex: 1; }
+[data-sidebar-chiusa] .sidebar { margin-left: -244px; opacity: 0; pointer-events: none; }
+
+.sb-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-tertiary);
+  padding: 0 12px; margin: 18px 0 6px;
+}
+.sb-sezione:first-child > .sb-label { margin-top: 0; }
+.sb-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 8px 12px; border-radius: var(--radius-m);
+  font-size: 13.5px; color: var(--text);
+  transition: background 120ms var(--ease);
+}
+@media (hover: hover) { .sb-item:hover { background: var(--fill); } }
+.sb-item.attiva { background: var(--fill-active); font-weight: 600; }
+.sb-icona { display: flex; color: var(--text-secondary); flex: 0 0 auto; width: 17px; }
+.sb-item.attiva .sb-icona { color: var(--gold); }
+.sb-testo { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.sb-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-sub { font-size: 11.5px; font-weight: 400; color: var(--text-tertiary); }
+/* Il pallino di stato del cartellino: verde = dentro, grigio = fuori. Non è mai
+   solo — accanto c'è sempre lo stato in parole nella riga secondaria. */
+.sb-dot { display: block; width: 9px; height: 9px; border-radius: 50%; margin: 0 4px; background: var(--grey); }
+.sb-dot.verde { background: var(--green); }
+
+/* Identità e uscita, in fondo alla sidebar */
+.sidebar-footer {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+}
+.sf-utente { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 6px; border-radius: var(--radius-m); }
+@media (hover: hover) { .sf-utente:hover { background: var(--fill); } }
+.sf-avatar {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--gold-soft); color: var(--gold-strong);
+  font-size: 12.5px; font-weight: 600;
+}
+.sf-utente .sf-testo { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.sf-nome { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sf-ruolo { font-size: 11.5px; color: var(--text-tertiary); }
+.sf-esci {
+  flex: 0 0 auto; width: 34px; height: 34px; border: 0; border-radius: var(--radius-s);
+  background: transparent; color: var(--text-secondary); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+@media (hover: hover) { .sf-esci:hover { background: var(--red-soft); color: var(--red); } }
+.sf-esci:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Il velo dietro il cassetto mobile: mai su desktop. */
+.menu-backdrop { display: none; }
 
 /* ---------- Contenuto ---------- */
-/* 1240 e' la misura che apre la QUARTA colonna di tessere: 4x260 + 3x16 = 1088
-   di contenuto, e a 1080 ne restavano 1032 (mancavano 56px). Sopra i 1240 il
-   testo tornerebbe una riga troppo lunga da leggere. */
-.main { max-width: 1240px; margin: 0 auto; padding: 40px 24px 64px; }
+/* Dentro .layout il contenuto riempie lo spazio accanto alla sidebar; il
+   max-width tiene le righe leggibili e margin:auto lo centra in quello spazio. */
+.main { flex: 1; min-width: 0; max-width: 1180px; margin: 0 auto; padding: 40px 32px 64px; }
 
 .page-head { margin-bottom: 28px; }
 .page-title { font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
@@ -487,70 +560,39 @@ td {
   summary.btn { min-height: 44px; }
 }
 
-@media (max-width: 720px) {
-  /* La barra resta compatta: logo a sinistra, hamburger a destra. Le azioni
-     NON vanno piu' a capo: passano tutte in un drawer laterale a scomparsa. */
-  .topbar { flex-wrap: nowrap; padding: 10px 16px; gap: 8px; }
+@media (max-width: 800px) {
+  .topbar { padding: 10px 16px; }
   .brand-sub { display: none; }
   .main { padding: 24px 16px 48px; }
   .page-title { font-size: 26px; }
-
-  .hamburger {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px; height: 40px;
-    flex: 0 0 auto;
-    border: 0;
-    border-radius: var(--radius-s, 8px);
-    background: var(--fill);
-    color: var(--text);
-    cursor: pointer;
-    transition: background 150ms var(--ease), transform 150ms var(--ease);
-  }
-  @media (hover: hover) { .hamburger:hover { background: var(--fill-hover); } }
-  .hamburger:active { transform: scale(0.97); }
-  .hamburger:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-
-  /* Velo dietro il drawer: il token unico --scrim (v1.4). */
-  .menu-scrim {
-    position: fixed; inset: 0; z-index: 40;
-    background: var(--scrim);
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
-    animation: menu-fade 0.2s var(--ease);
-  }
-  @keyframes menu-fade { from { opacity: 0; } to { opacity: 1; } }
-
-  /* Le azioni: drawer che scivola da SINISTRA, come in tutte le app Deluxy
-     (regola del Libro §2, 28/08). Tutte le voci restano. */
-  .topbar-actions {
-    position: fixed; top: 0; left: 0; z-index: 50;
-    height: 100dvh; width: min(288px, 84vw);
-    flex-direction: column; align-items: stretch; flex-wrap: nowrap;
-    gap: 10px; padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
-    background: var(--surface);
-    box-shadow: var(--shadow-float);
-    border-right: 1px solid var(--hairline);
-    transform: translateX(-100%);
-    transition: transform 0.28s var(--ease);
-    overflow-y: auto;
-    justify-content: flex-start;
-  }
-  .topbar-actions.aperto { transform: translateX(0); }
-
-  /* Dentro il drawer i gruppi si impilano a piena larghezza. */
-  .topbar-actions .badge { align-self: flex-start; }
-  .topbar-actions .gruppo { flex-direction: column; align-items: stretch; gap: 6px; width: 100%; }
-  .topbar-actions .gruppo + .gruppo { margin-left: 0; margin-top: 4px; }
-  .topbar-actions form { width: 100%; }
-  .topbar-actions .btn,
-  .topbar-actions form .btn { width: 100%; justify-content: flex-start; padding: 10px 12px; font-size: 14px; }
   /* Due righe bastano dove la colonna e' una sola e la pagina e' gia' lunga */
   .app-desc { -webkit-line-clamp: 2; }
   .timbra-box { gap: 16px; }
   .timbra-box .btn { width: 100%; justify-content: center; }
+
+  /* La sidebar diventa un cassetto che scivola da SINISTRA (Libro §2), sopra il
+     contenuto, comandato dall'hamburger. La colonna a 244px non ci sta in riga:
+     qui e' fixed. Chiuso = fuori a sinistra; aperto con data-menu-aperto. */
+  .layout { display: block; }
+  .sidebar {
+    position: fixed; top: 63px; left: 0;
+    width: 268px; max-width: 84vw; height: calc(100vh - 63px);
+    z-index: 40; margin-left: 0; opacity: 1; pointer-events: auto;
+    transform: translateX(-100%);
+    transition: transform 220ms var(--ease);
+    box-shadow: var(--shadow-float);
+  }
+  :root[data-menu-aperto] .sidebar { transform: translateX(0); }
+  /* Su mobile il collasso da desktop non vale: la sidebar sta fuori schermo e
+     si apre col menu, non la si nasconde a metà. */
+  [data-sidebar-chiusa] .sidebar { margin-left: 0; opacity: 1; pointer-events: auto; }
+  :root[data-menu-aperto] .menu-backdrop {
+    display: block; position: fixed; inset: 63px 0 0 0;
+    background: var(--scrim); z-index: 35;
+    animation: menu-fade 160ms var(--ease);
+  }
 }
+@keyframes menu-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- Installa le app (/scarica) ---------- */
 .installa-hero, .scout-card {

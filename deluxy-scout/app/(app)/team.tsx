@@ -9,7 +9,8 @@ import type { Deal, Place, Profilo, Visit } from '@/types';
 import { colors, radius, shadow, spacing } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { fetchAllDeals, fetchAllVisits, fetchPlaces, fetchProfiles } from '@/lib/db';
+import { aggiornaResponsabile, fetchAllDeals, fetchAllVisits, fetchPlaces, fetchProfiles } from '@/lib/db';
+import { avvisa } from '@/lib/dialoghi';
 import { attivitaPerVenditore, nomeVenditore, visiteUltimi7Giorni, type StatVenditore } from '@/lib/metrics';
 import { CampoCerca, EmptyState, PageIntro } from '@/components/ui';
 import { StatCard } from '@/components/StatCard';
@@ -96,6 +97,42 @@ export default function Team() {
         <StatCard label="Trattative aperte" valore={deals.filter((d) => d.fase !== 'closedwon' && d.fase !== 'closedlost').length} />
         <StatCard label="Trattative vinte" valore={deals.filter((d) => d.fase === 'closedwon').length} />
       </View>
+
+      {/* ⭐ IL RESPONSABILE COMMERCIALE (29/08/2026, migr. 0106): chi ha il
+          flag scrive la pianificazione per linea (schermata Pianificazione).
+          Lo assegna l'admin da qui; la RLS fa rispettare la stessa regola sul
+          server. Ottimistico con rollback: una spunta sparita in silenzio
+          farebbe credere assegnato un flag che non c'è. */}
+      <Text style={styles.sezione}>Responsabile commerciale</Text>
+      <Text style={styles.notaFlag}>
+        Chi ha la bandierina scrive la pianificazione per linea (target e obiettivi di conversione, in
+        Pianificazione). Gli altri la leggono.
+      </Text>
+      {profili.map((p) => {
+        const on = Boolean(p.responsabile);
+        return (
+          <Pressable
+            key={p.id}
+            style={styles.flagRow}
+            onPress={() => {
+              setProfili((cur) => cur.map((x) => (x.id === p.id ? { ...x, responsabile: !on } : x)));
+              aggiornaResponsabile(p.id, !on).catch((e) => {
+                setProfili((cur) => cur.map((x) => (x.id === p.id ? { ...x, responsabile: on } : x)));
+                avvisa('Flag non salvato', String((e as Error)?.message ?? e));
+              });
+            }}
+            accessibilityLabel={`${on ? 'Togli' : 'Assegna'} il flag responsabile a ${p.nome || p.email}`}
+            accessibilityState={{ selected: on }}
+            {...({ title: on ? 'Togli il flag responsabile' : 'Assegna il flag responsabile' } as any)}
+          >
+            <Ionicons name={on ? 'flag' : 'flag-outline'} size={18} color={on ? colors.navy : colors.grigio} />
+            <Text style={[styles.flagNome, on && styles.flagNomeOn]} numberOfLines={1}>
+              {p.nome || p.email || p.id.slice(0, 8)}
+            </Text>
+            {on ? <Text style={styles.flagBadge}>responsabile</Text> : null}
+          </Pressable>
+        );
+      })}
 
       <Text style={styles.sezione}>Per venditore</Text>
       {venditori.length === 0 ? (
@@ -203,6 +240,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxl,
     marginBottom: spacing.sm,
   },
+  notaFlag: { color: colors.testoSoft, fontSize: 12.5, paddingHorizontal: spacing.lg, marginBottom: 8, lineHeight: 17 },
+  flagRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.l, paddingHorizontal: spacing.lg, paddingVertical: 11, marginHorizontal: spacing.lg, marginBottom: 6, minHeight: 44 },
+  flagNome: { flex: 1, minWidth: 0, color: colors.testo, fontWeight: '500', fontSize: 14 },
+  flagNomeOn: { fontWeight: '600', color: colors.navy },
+  flagBadge: { color: colors.testoSoft, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   vuoto: { color: colors.grigio, fontStyle: 'italic' },
 
   vCard: {

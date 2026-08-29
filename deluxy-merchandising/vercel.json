@@ -11,6 +11,18 @@
       "schedule": "37 6 * * *"
     },
     {
+      "path": "/api/cron/collezioni?negozio=Gifts",
+      "schedule": "10 3 * * *"
+    },
+    {
+      "path": "/api/cron/collezioni?negozio=Flowers",
+      "schedule": "35 3 * * *"
+    },
+    {
+      "path": "/api/cron/collezioni?negozio=Cake",
+      "schedule": "50 3 * * *"
+    },
+    {
       "path": "/api/cron/rotazioni",
       "schedule": "20 5 * * *"
     }

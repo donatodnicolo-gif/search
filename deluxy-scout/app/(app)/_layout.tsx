@@ -28,7 +28,7 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     titolo: 'Vendere oggi',
     voci: [
       { name: 'oggi', label: 'Oggi', icon: 'sunny-outline' },
-      { name: 'da-completare', label: 'Da fare', icon: 'time-outline' },
+      { name: 'da-completare', label: 'Pianificazione', icon: 'flag-outline' }, // 29/08: era «Da fare» — prima il piano, sotto la coda
     ],
   },
   {
@@ -418,7 +418,7 @@ export default function AppLayout() {
         <Drawer.Screen name="oggi" options={{ title: 'Oggi' }} />
         <Drawer.Screen name="task" options={{ title: 'I miei task' }} />
         <Drawer.Screen name="calendario" options={{ title: 'Calendario' }} />
-        <Drawer.Screen name="da-completare" options={{ title: 'Da fare' }} />
+        <Drawer.Screen name="da-completare" options={{ title: 'Pianificazione' }} />
         <Drawer.Screen name="mappa" options={{ title: 'Mappa' }} />
         <Drawer.Screen name="lista" options={{ title: 'Prospect e Lead' }} />
         <Drawer.Screen name="rubrica" options={{ title: 'Rubrica' }} />

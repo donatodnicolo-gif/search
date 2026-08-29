@@ -686,6 +686,25 @@ export interface Profilo {
   email: string | null;
   nome: string | null;
   ultimo_accesso?: string | null;
+  /** Responsabile commerciale (migr. 0106): l'unico — oltre all'admin — che
+   *  scrive la pianificazione per linea. Lo assegna l'admin dal Team. */
+  responsabile?: boolean;
+}
+
+/**
+ * Una riga della PIANIFICAZIONE COMMERCIALE (migr. 0106): un mese × una linea.
+ * `target_valore` = € attesi dagli ordini del mese; `obiettivo_conversione` =
+ * % trattative → ordini. Il piano è condiviso (unique mese+linea), lo scrive
+ * il responsabile; il reale si calcola dai dati, mai ricopiato qui.
+ */
+export interface Pianificazione {
+  id: string;
+  mese: string; // YYYY-MM-DD, primo giorno del mese
+  linea: string;
+  target_valore: number | null;
+  obiettivo_conversione: number | null;
+  nota: string | null;
+  creato_da: string | null;
 }
 
 export interface Linea {
