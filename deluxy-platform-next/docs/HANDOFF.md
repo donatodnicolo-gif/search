@@ -104,6 +104,62 @@
 **Ultimo aggiornamento:** 28 agosto 2026 — 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+### 🧾 29/08/2026 — IL RECAP CONFRONTATO CON LA FATTURA VECCHIA (Maryflor, giugno): la merce era gonfiata dal prezzo AL PUBBLICO
+
+L'utente ha mandato il PDF che i partner ricevono oggi dal legacy
+(`partner-invoice`, Maryflor, giugno 2026, 10 pagine) e ha chiesto se combacia.
+
+**Combaciano**: le **42 consegne su 42** (in piattaforma ce ne sono 44: le 2 in
+più sono `cancelled`, e il recap le esclude — giusto), e la **quota Deluxy al
+centesimo: 1.373,80 €**.
+
+**Non combaciava la merce**: PDF **6.869,00 €**, piattaforma **7.344,00 €**
+(+475 €, su 13 righe). ⚠️ **La causa**: `valoreProdotti` ripiegava, quando la
+riga non ha un prezzo scritto, sul **`publicPrice` della variante — il prezzo
+al CLIENTE** (la #58785: riga senza prezzo, variante SMI `price` 125 /
+`publicPrice` 150). Ma il valore che si deve al partner è il **suo** prezzo, e
+la prova è la fee: **la quota registrata è il 20% esatto di 125, non di 150**.
+
+**Sistemato** (`api/src/common/valore-prodotti.ts`): la cascata è ora
+riga → **variante `price`** → variante `publicPrice` → prodotto `price` →
+prodotto `publicPrice`. Aggiunto `price` della variante alle 3 `select` della
+fatturazione, che non lo caricavano nemmeno.
+
+- **Verificato prima di cambiare**: **nessuna** variante o prodotto ha
+  `price = 0` con `publicPrice > 0` — anteporre il prezzo partner non porta
+  zeri dove prima c'era un numero (404 righe di vendita senza prezzo scritto,
+  200 con pubblico ≠ partner).
+- **Impatto su tutto l'archivio**: il venduto scende di **6.560 € (−15,1%)**
+  sulle righe senza prezzo. Le fatture già emesse non si muovono (le
+  `InvoiceLine` sono salvate, non ricalcolate).
+- **Prova live dopo il deploy**: recap di **agosto** di Maryflor
+  808,00 → **783,00 €**, dovuto 651,40 → **626,40 €**, e la quota 156,60 torna
+  a essere il **20,0% esatto**. Giugno ricalcolato: **6.869,00 €**, identico al
+  PDF.
+
+⚠️ **Giugno dal recap dell'app esce VUOTO, ed è voluto**: quelle 42 consegne
+sono `invoiced = true` (arretrato marcato fino al 1° agosto), e il recap mostra
+il **da fatturare**. Per rivedere un mese già chiuso serve un'altra vista.
+
+🔴 **Resta una differenza di METODO sul totale finale, da decidere**: il legacy
+scrive «TOTALE DA INCASSARE = valore prodotto − (fee + IVA 22% sulla fee)» →
+su giugno **5.192,96 €**; la piattaforma scrive «Dovuto a voi = venduto −
+quota» → **5.495,20 €**. Sono **302,24 €** di differenza, che è esattamente
+l'IVA sulla nostra commissione. Non è un errore di calcolo — è la stessa
+doppia lettura già annotata il 28/08 (la Fatturazione dice il dovuto PRIMA
+dell'IVA, il «conto della vendita» nella scheda consegna lo dice DOPO) — ma il
+partner, sul recap, legge un numero diverso da quello a cui è abituato.
+
+**Il recap nuovo è meglio del PDF vecchio, e non solo per l'aspetto**: quello
+del legacy ha 16 colonne, intestazioni in inglese maccheronico («SUM OF
+SERVIZIO PREZZO (FIXED/HOURLY + PLUS PREZZO)») e soprattutto una colonna NOTE
+che riporta **nome, telefono e indirizzo del destinatario e il testo privato
+del biglietto** («Al nostro pollo, ti vogliamo bene!»): il fioraio riceve i
+dati personali dei clienti. Il nuovo è una pagina sola stampabile, con i due
+mondi separati (quello che ci dovete / quello che vi dobbiamo), la differenza
+dichiarata come **non** compensazione automatica, e in fondo la riga
+«Documento di riepilogo, non è una fattura. I nominativi dei destinatari non
+compaiono».
 
 ### 🎨 28/08/2026 — PASSATA UX SU TUTTA L'APP (Libro UX&UI), pagina per pagina
 

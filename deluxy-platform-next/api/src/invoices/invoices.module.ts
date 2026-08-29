@@ -84,7 +84,7 @@ export type ConsegnaDaPrezzare = {
   products?: {
     quantity?: number | null;
     price?: number | null;
-    productVariant?: { publicPrice?: number | null } | null;
+    productVariant?: { price?: number | null; publicPrice?: number | null } | null;
     product?: { publicPrice?: number | null; price?: number | null } | null;
   }[];
 };
@@ -371,7 +371,7 @@ export class InvoicesService {
     const prodotti = new Map<string, {
       quantity: number;
       price: number | null;
-      productVariant: { publicPrice: number | null } | null;
+      productVariant: { price: number | null; publicPrice: number | null } | null;
       product: { publicPrice: number | null; price: number | null } | null;
     }[]>();
     for (let i = 0; i < serveProdotti.length; i += 2000) {
@@ -379,7 +379,7 @@ export class InvoicesService {
         where: { deliveryId: { in: serveProdotti.slice(i, i + 2000) } },
         select: {
           deliveryId: true, quantity: true, price: true,
-          productVariant: { select: { publicPrice: true } },
+          productVariant: { select: { price: true, publicPrice: true } },
           product: { select: { publicPrice: true, price: true } },
         },
       })) {
@@ -586,7 +586,7 @@ export class InvoicesService {
         recipientAddress: true,
         province: { select: { code: true } },
         serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
-        products: { select: { quantity: true, price: true, productVariant: { select: { publicPrice: true } }, product: { select: { publicPrice: true, price: true } } } },
+        products: { select: { quantity: true, price: true, productVariant: { select: { price: true, publicPrice: true } }, product: { select: { publicPrice: true, price: true } } } },
         deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
       },
       orderBy: { date: 'asc' },
@@ -924,7 +924,7 @@ export class InvoicesService {
         recipientFirstName: true, recipientLastName: true, recipientAddress: true,
         serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
         deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
-        products: { select: { quantity: true, price: true, productVariant: { select: { publicPrice: true } }, product: { select: { publicPrice: true, price: true } } } },
+        products: { select: { quantity: true, price: true, productVariant: { select: { price: true, publicPrice: true } }, product: { select: { publicPrice: true, price: true } } } },
       },
       orderBy: { date: 'desc' },
       take: 500,
@@ -1014,7 +1014,7 @@ export class InvoicesService {
         serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
         // La regola carnet: sconto sulla fattura, o «non fatturare affatto».
         deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
-        products: { select: { quantity: true, price: true, productVariant: { select: { publicPrice: true } }, product: { select: { publicPrice: true, price: true } } } },
+        products: { select: { quantity: true, price: true, productVariant: { select: { price: true, publicPrice: true } }, product: { select: { publicPrice: true, price: true } } } },
       },
       orderBy: { date: 'asc' },
     });
