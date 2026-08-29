@@ -6,6 +6,12 @@
 //
 // La lettura AI (incolla il messaggio del fornitore, o fotografalo) PROPONE i
 // campi: chi salva è sempre la persona, dopo averli riletti.
+//
+// ⚠️ UI coi COMPONENTI DI CASA (allineata il 28/08 su richiesta utente, alla
+// schermata sorella «Pagamenti»): Btn, Card, Chip, FAB a pillola CON etichetta
+// (navy + shadow.float), etichette maiuscole sui campi come styles.label di
+// pagamenti.tsx. Niente stili-fotocopia: se un pezzo manca, si aggiunge in
+// components/ui, non qui.
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,8 +27,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
 import { Foglio } from '@/components/Foglio';
-import { Chip, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
-import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { Btn, Card, Chip, EmptyState, PageIntro, RigaChips, StatusBadge } from '@/components/ui';
+import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import { leggiImporto, scriviImporto } from '@/lib/importi';
 import { avvisa } from '@/lib/dialoghi';
 import {
@@ -235,7 +241,7 @@ export default function PagamentiFornitori() {
           />
         ) : (
           filtrate.map((r) => (
-            <View key={r.id} style={styles.card}>
+            <Card key={r.id} style={{ marginBottom: spacing.sm }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                 <Text style={styles.nome} numberOfLines={1}>{r.beneficiario}</Text>
                 <Text style={styles.importo}>{r.importo.toLocaleString('it-IT', { minimumFractionDigits: 2 })} €</Text>
@@ -258,32 +264,42 @@ export default function PagamentiFornitori() {
               {r.esito_invio ? <Text style={styles.errore}>{r.esito_invio}</Text> : null}
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
                 {!r.inviata_il || r.esito_invio ? (
-                  <Pressable style={styles.azione} disabled={inCorso === r.id} onPress={() => invia(r.id)}>
-                    {inCorso === r.id ? <ActivityIndicator size="small" /> : (
-                      <Text style={styles.azioneTxt}>{r.inviata_il ? 'Riprova invio' : 'Invia a Transactions'}</Text>
-                    )}
-                  </Pressable>
+                  inCorso === r.id ? (
+                    <ActivityIndicator size="small" />
+                  ) : (
+                    <Btn small label={r.inviata_il ? 'Riprova invio' : 'Invia a Transactions'} onPress={() => invia(r.id)} />
+                  )
                 ) : r.trx_stato !== 'pagata' ? (
-                  <Pressable style={styles.azioneSec} disabled={inCorso === r.id} onPress={() => aggiornaStato(r.id)}>
-                    {inCorso === r.id ? <ActivityIndicator size="small" /> : <Text style={styles.azioneSecTxt}>Aggiorna stato</Text>}
-                  </Pressable>
+                  inCorso === r.id ? (
+                    <ActivityIndicator size="small" />
+                  ) : (
+                    <Btn small tipo="secondario" label="Aggiorna stato" onPress={() => aggiornaStato(r.id)} />
+                  )
                 ) : null}
               </View>
-            </View>
+            </Card>
           ))
         )}
       </ScrollView>
 
-      <Pressable style={styles.fab} onPress={() => setFormAperto(true)} accessibilityLabel="Nuova richiesta di pagamento fornitore">
-        <Ionicons name="add" size={28} color={colors.bianco} />
+      {/* FAB a pillola CON etichetta, come la schermata sorella «Pagamenti»:
+          un cerchio muto con il + non dice cosa crea. */}
+      <Pressable
+        style={styles.fab}
+        onPress={() => setFormAperto(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Nuova richiesta di pagamento fornitore"
+      >
+        <Ionicons name="add" size={22} color={colors.bianco} />
+        <Text style={styles.fabTxt}>Paga fornitore</Text>
       </Pressable>
 
       {formAperto && (
         <Foglio titolo="Paga un fornitore" sottotitolo="La richiesta parte verso Transactions: di là una persona autorizza e paga." onClose={() => setFormAperto(false)}>
           <ScrollView keyboardShouldPersistTaps="handled">
-            <Text style={styles.etichetta}>Leggi con l’AI (facoltativo)</Text>
+            <Text style={styles.label}>Leggi con l’AI (facoltativo)</Text>
             <TextInput
-              style={[styles.campo, { minHeight: 64 }]}
+              style={[styles.input, { minHeight: 64 }]}
               multiline
               placeholder="Incolla il messaggio del fornitore con IBAN e importo…"
               placeholderTextColor={colors.grigio}
@@ -291,19 +307,19 @@ export default function PagamentiFornitori() {
               onChangeText={setTestoAi}
             />
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 8, alignItems: 'center' }}>
-              <Pressable style={styles.azioneSec} onPress={scegliFoto}>
-                <Text style={styles.azioneSecTxt}>{fotoAi ? 'Foto scelta ✓' : 'Foto della richiesta'}</Text>
-              </Pressable>
-              <Pressable style={styles.azione} disabled={leggo || (!testoAi.trim() && !fotoAi)} onPress={leggiConAi}>
-                {leggo ? <ActivityIndicator size="small" color={colors.bianco} /> : <Text style={styles.azioneTxt}>Leggi e riempi</Text>}
-              </Pressable>
+              <Btn small tipo="secondario" icona="image-outline" label={fotoAi ? 'Foto scelta ✓' : 'Foto della richiesta'} onPress={scegliFoto} />
+              {leggo ? (
+                <ActivityIndicator size="small" />
+              ) : (
+                <Btn small icona="sparkles-outline" label="Leggi e riempi" disabled={!testoAi.trim() && !fotoAi} onPress={leggiConAi} />
+              )}
             </View>
             {esitoLettura ? <Text style={[styles.mutato, { marginTop: 6 }]}>{esitoLettura}</Text> : null}
 
-            <Text style={styles.etichetta}>Beneficiario</Text>
-            <TextInput style={styles.campo} value={beneficiario} onChangeText={setBeneficiario} placeholder="Chi va pagato" placeholderTextColor={colors.grigio} />
+            <Text style={styles.label}>Beneficiario</Text>
+            <TextInput style={styles.input} value={beneficiario} onChangeText={setBeneficiario} placeholder="Chi va pagato" placeholderTextColor={colors.grigio} />
 
-            <Text style={styles.etichetta}>Come si paga</Text>
+            <Text style={styles.label}>Come si paga</Text>
             <RigaChips>
               {Object.entries(METODI_FORNITORE).map(([v, l]) => (
                 <Chip key={v} label={l} on={metodo === v} onPress={() => setMetodo(v)} />
@@ -311,28 +327,28 @@ export default function PagamentiFornitori() {
             </RigaChips>
             {metodo === 'iban' ? (
               <>
-                <Text style={styles.etichetta}>IBAN</Text>
-                <TextInput style={styles.campo} value={iban} onChangeText={setIban} autoCapitalize="characters" autoCorrect={false} placeholder="IT…" placeholderTextColor={colors.grigio} />
+                <Text style={styles.label}>IBAN</Text>
+                <TextInput style={styles.input} value={iban} onChangeText={setIban} autoCapitalize="characters" autoCorrect={false} placeholder="IT…" placeholderTextColor={colors.grigio} />
               </>
             ) : (
               <>
-                <Text style={styles.etichetta}>{metodo === 'carta' ? 'Nota sulla carta (MAI il numero)' : 'Riferimento di pagamento'}</Text>
-                <TextInput style={styles.campo} value={rifPagamento} onChangeText={setRifPagamento} autoCapitalize="none" autoCorrect={false} placeholder={metodo === 'link' ? 'https://…' : metodo === 'paypal' ? 'nome@esempio.com' : 'es. contanti alla consegna'} placeholderTextColor={colors.grigio} />
+                <Text style={styles.label}>{metodo === 'carta' ? 'Nota sulla carta (MAI il numero)' : 'Riferimento di pagamento'}</Text>
+                <TextInput style={styles.input} value={rifPagamento} onChangeText={setRifPagamento} autoCapitalize="none" autoCorrect={false} placeholder={metodo === 'link' ? 'https://…' : metodo === 'paypal' ? 'nome@esempio.com' : 'es. contanti alla consegna'} placeholderTextColor={colors.grigio} />
               </>
             )}
 
-            <Text style={styles.etichetta}>Importo (€)</Text>
-            <TextInput style={styles.campo} value={importo} onChangeText={setImporto} inputMode="decimal" placeholder="250,00" placeholderTextColor={colors.grigio} />
+            <Text style={styles.label}>Importo (€)</Text>
+            <TextInput style={styles.input} value={importo} onChangeText={setImporto} inputMode="decimal" placeholder="250,00" placeholderTextColor={colors.grigio} />
 
-            <Text style={styles.etichetta}>Causale</Text>
-            <TextInput style={styles.campo} value={causale} onChangeText={setCausale} maxLength={140} placeholder="Es. Allestimento evento SCOUT012 — acconto" placeholderTextColor={colors.grigio} />
+            <Text style={styles.label}>Causale</Text>
+            <TextInput style={styles.input} value={causale} onChangeText={setCausale} maxLength={140} placeholder="Es. Allestimento evento SCOUT012 — acconto" placeholderTextColor={colors.grigio} />
 
-            <Text style={styles.etichetta}>Note (facoltative)</Text>
-            <TextInput style={[styles.campo, { minHeight: 56 }]} multiline value={note} onChangeText={setNote} placeholderTextColor={colors.grigio} />
+            <Text style={styles.label}>Note (facoltative)</Text>
+            <TextInput style={[styles.input, { minHeight: 56 }]} multiline value={note} onChangeText={setNote} placeholderTextColor={colors.grigio} />
 
-            <Pressable style={[styles.azione, { marginTop: 16, alignSelf: 'flex-start' }]} disabled={salvo} onPress={salva}>
-              {salvo ? <ActivityIndicator size="small" color={colors.bianco} /> : <Text style={styles.azioneTxt}>Salva e invia</Text>}
-            </Pressable>
+            <View style={{ marginTop: spacing.lg, alignSelf: 'flex-start' }}>
+              {salvo ? <ActivityIndicator size="small" /> : <Btn label="Salva e invia" onPress={salva} />}
+            </View>
             <View style={{ height: 30 }} />
           </ScrollView>
         </Foglio>
@@ -342,58 +358,37 @@ export default function PagamentiFornitori() {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.bianco,
-    borderRadius: radius.m,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.grigioChiaro,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
   nome: { fontSize: 16, fontWeight: '600', color: colors.testo, flex: 1 },
   importo: { fontSize: 16, fontWeight: '700', color: colors.testo, fontVariant: ['tabular-nums'] },
   sub: { color: colors.testoSoft, marginTop: 2 },
   mutato: { color: colors.grigio, fontSize: 12.5 },
   errore: { color: colors.errore, fontSize: 12.5, marginTop: 6 },
-  azione: {
-    backgroundColor: colors.testo,
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  azioneTxt: { color: colors.bianco, fontWeight: '600', fontSize: 13.5 },
-  azioneSec: {
-    borderWidth: 1,
-    borderColor: colors.grigioChiaro,
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  azioneSecTxt: { color: colors.testo, fontWeight: '600', fontSize: 13.5 },
-  etichetta: { fontSize: 13, fontWeight: '600', color: colors.testoSoft, marginTop: 14, marginBottom: 6 },
-  campo: {
+  // Etichetta e campo IDENTICI alla schermata «Pagamenti» (styles.label/input):
+  // stessa maiuscola, stesso raggio, stessi token.
+  label: { fontSize: 11, fontWeight: '700', color: colors.grigio, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 14, marginBottom: 6 },
+  input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.s,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: radius.m,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 11,
+    fontSize: 15,
     color: colors.testo,
   },
   fab: {
     position: 'absolute',
-    right: 22,
-    bottom: 26,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.testo,
+    right: spacing.lg,
+    bottom: spacing.xxl,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
+    gap: 6,
+    backgroundColor: colors.navy,
+    borderRadius: radius.pill,
+    paddingLeft: 14,
+    paddingRight: 18,
+    paddingVertical: 12,
+    ...shadow.float,
   },
+  fabTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
 });
