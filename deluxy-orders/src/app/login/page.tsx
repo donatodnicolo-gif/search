@@ -62,6 +62,7 @@ export default async function LoginPage({
         {sp.errore && <div className="avviso-errore">Password non corretta.</div>}
         <form action={login} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <input
+            className="campo-login"
             type="password"
             name="password"
             placeholder="Password del team"
@@ -69,11 +70,12 @@ export default async function LoginPage({
             required
             style={{
               font: "inherit", fontSize: 15, color: "var(--text)", background: "var(--fill)",
-              border: "1px solid transparent", borderRadius: "var(--radius-m)", padding: "11px 14px", outline: "none",
+              border: "1px solid transparent", borderRadius: "var(--radius-m)", padding: "11px 14px",
             }}
           />
-          <button className="btn" type="submit" style={{ width: "100%", padding: "11px" }}>Entra</button>
+          <button className="btn primary" type="submit" style={{ width: "100%", padding: "11px" }}>Entra</button>
         </form>
+        <p className="login-firma">Consegne in guanti bianchi, dal 2019.</p>
       </div>
     </div>
   );
