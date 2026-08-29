@@ -2,39 +2,50 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
 
 <style>
+  /* Deluxy Design System (v1.4) — stesse scelte delle guide di Anagrafiche,
+     Hub, Orders: font di sistema, un solo mono, oro come unico accento. */
   :root{
-    --ground:#F3F1EC; --surface:#FFFFFF; --surface-2:#FAF8F3; --sunken:#EFEBE2;
-    --ink:#1C1B18; --muted:#6E6A61; --faint:#96918663; --hairline:#E7E2D8;
-    --gold:#A9863A; --gold-ink:#8A6C29; --gold-soft:rgba(169,134,58,.12);
-    --green:#2E7A4E; --amber:#A96A16; --red:#B23A26; --blue:#2C6AA6;
-    --b-flowers:#C65C82; --b-gifts:#A9863A; --b-cake:#7E5BB6;
-    --shadow:0 1px 2px rgba(28,27,24,.05), 0 6px 22px -12px rgba(28,27,24,.18);
-    --shadow-soft:0 1px 2px rgba(28,27,24,.04);
-    --serif:"Fraunces",Georgia,serif;
-    --sans:"Hanken Grotesk",-apple-system,system-ui,sans-serif;
-    --mono:"IBM Plex Mono",ui-monospace,monospace;
-    --maxw:1140px; --read:66ch;
+    --ground:#F5F5F7; --surface:#FFFFFF; --surface-2:#FBFBFD; --sunken:#ECECEF;
+    --ink:#1D1D1F; --ink-2:#55555A; --ink-3:#86868B;
+    --hair:rgba(0,0,0,.08); --hair-strong:rgba(0,0,0,.14); --fill:rgba(120,120,128,.08);
+    --gold:#9C7C2E; --gold-soft:rgba(184,150,62,.13);
+    --green:#248A3D; --green-soft:rgba(36,138,61,.11);
+    --amber:#A96A16; --orange:#C93400; --orange-soft:rgba(201,52,0,.10);
+    --red:#D70015; --blue:#0071E3;
+    --b-flowers:#C65C82; --b-gifts:#9C7C2E; --b-cake:#7E5BB6;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05);
+    --shadow-float:0 4px 12px rgba(0,0,0,.08), 0 24px 60px rgba(0,0,0,.12);
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --ease:cubic-bezier(.25,.1,.25,1); --radius-pill:980px;
+    --maxw:1120px; --read:66ch;
   }
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
-    --ground:#151412; --surface:#201E1A; --surface-2:#262320; --sunken:#100F0D;
-    --ink:#F0ECE3; --muted:#A6A196; --faint:#5c574d55; --hairline:#332F29;
-    --gold:#D2AF60; --gold-ink:#E4C77E; --gold-soft:rgba(210,175,96,.14);
-    --green:#5BB07E; --amber:#D29A48; --red:#E0745C; --blue:#6BA6DA;
-    --b-flowers:#E086A6; --b-gifts:#D2AF60; --b-cake:#A98BE0;
+    --ground:#0E0E10; --surface:#161618; --surface-2:#1D1D20; --sunken:#0A0A0B;
+    --ink:#F2F2F4; --ink-2:#B4B4BA; --ink-3:#86868B;
+    --hair:rgba(255,255,255,.10); --hair-strong:rgba(255,255,255,.16); --fill:rgba(120,120,128,.14);
+    --gold:#D4B15F; --gold-soft:rgba(212,177,95,.16);
+    --green:#4FB477; --green-soft:rgba(79,180,119,.15);
+    --amber:#D29A48; --orange:#F26430; --orange-soft:rgba(242,100,48,.14);
+    --red:#FF5A5F; --blue:#4C9AF0;
+    --b-flowers:#E086A6; --b-gifts:#D4B15F; --b-cake:#A98BE0;
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
-    --shadow-soft:0 1px 2px rgba(0,0,0,.25);
+    --shadow-float:0 6px 18px rgba(0,0,0,.4), 0 30px 70px -20px rgba(0,0,0,.7);
   }}
   :root[data-theme="dark"]{
-    --ground:#151412; --surface:#201E1A; --surface-2:#262320; --sunken:#100F0D;
-    --ink:#F0ECE3; --muted:#A6A196; --faint:#5c574d55; --hairline:#332F29;
-    --gold:#D2AF60; --gold-ink:#E4C77E; --gold-soft:rgba(210,175,96,.14);
-    --green:#5BB07E; --amber:#D29A48; --red:#E0745C; --blue:#6BA6DA;
-    --b-flowers:#E086A6; --b-gifts:#D2AF60; --b-cake:#A98BE0;
+    --ground:#0E0E10; --surface:#161618; --surface-2:#1D1D20; --sunken:#0A0A0B;
+    --ink:#F2F2F4; --ink-2:#B4B4BA; --ink-3:#86868B;
+    --hair:rgba(255,255,255,.10); --hair-strong:rgba(255,255,255,.16); --fill:rgba(120,120,128,.14);
+    --gold:#D4B15F; --gold-soft:rgba(212,177,95,.16);
+    --green:#4FB477; --green-soft:rgba(79,180,119,.15);
+    --amber:#D29A48; --orange:#F26430; --orange-soft:rgba(242,100,48,.14);
+    --red:#FF5A5F; --blue:#4C9AF0;
+    --b-flowers:#E086A6; --b-gifts:#D4B15F; --b-cake:#A98BE0;
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
-    --shadow-soft:0 1px 2px rgba(0,0,0,.25);
+    --shadow-float:0 6px 18px rgba(0,0,0,.4), 0 30px 70px -20px rgba(0,0,0,.7);
   }
 
   *{box-sizing:border-box}
@@ -42,128 +53,123 @@
   @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} *{animation:none!important;transition:none!important} }
   body{
     margin:0; background:var(--ground); color:var(--ink);
-    font-family:var(--sans); font-size:17px; line-height:1.68;
+    font-family:var(--sans); font-size:16px; line-height:1.6;
     -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
   }
   .wrap{max-width:var(--maxw); margin:0 auto; padding:0 clamp(18px,4vw,40px)}
   a{color:var(--blue); text-decoration:none}
   a:hover{text-decoration:underline}
-  :focus-visible{outline:2px solid var(--gold); outline-offset:3px; border-radius:4px}
-  h1,h2,h3{font-family:var(--serif); font-weight:500; text-wrap:balance; letter-spacing:-.01em; line-height:1.12; margin:0}
-  code,.mono{font-family:var(--mono); font-size:.86em; background:var(--gold-soft); color:var(--gold-ink); padding:.08em .4em; border-radius:5px}
-  .eyebrow{font-size:.72rem; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--gold-ink); font-family:var(--sans)}
+  :focus-visible{outline:2px solid var(--gold); outline-offset:3px; border-radius:6px}
+  h1,h2,h3{margin:0; font-weight:600; letter-spacing:-.022em; line-height:1.1; text-wrap:balance}
+  code,.mono{font-family:var(--mono); font-size:.85em; background:var(--gold-soft); color:var(--gold); padding:.1em .42em; border-radius:6px}
+  .eyebrow{font-family:var(--mono); font-size:.72rem; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--gold)}
   .tnum{font-variant-numeric:tabular-nums}
 
-  /* ---- top bar ---- */
-  .topbar{position:sticky; top:0; z-index:50; background:color-mix(in srgb, var(--ground) 86%, transparent); backdrop-filter:saturate(1.2) blur(10px); border-bottom:1px solid var(--hairline)}
-  .topbar .wrap{display:flex; align-items:center; gap:14px; height:60px}
-  .brandmark{display:flex; align-items:center; gap:11px; font-weight:600; letter-spacing:-.01em}
-  .brandmark .dot{width:11px; height:11px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 4px var(--gold-soft)}
-  .brandmark small{display:block; font-size:.68rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-top:1px}
-  .topnav{margin-left:auto; display:flex; gap:4px}
-  .topnav a{font-size:.82rem; color:var(--muted); padding:7px 11px; border-radius:999px; font-weight:500}
-  .topnav a:hover{color:var(--ink); background:var(--surface-2); text-decoration:none}
-  @media (max-width:820px){ .topnav{display:none} }
-  .toggle{margin-left:6px; width:38px; height:38px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink); cursor:pointer; font-size:15px; display:grid; place-items:center; flex:0 0 auto}
-  .toggle:hover{background:var(--surface-2)}
+  /* top bar */
+  .topbar{position:sticky; top:0; z-index:50; background:color-mix(in srgb, var(--ground) 84%, transparent); backdrop-filter:saturate(1.4) blur(12px); border-bottom:1px solid var(--hair)}
+  .topbar .wrap{display:flex; align-items:center; gap:14px; height:56px}
+  .brandmark{display:flex; align-items:center; gap:11px; font-weight:600; letter-spacing:-.01em; font-size:.98rem}
+  .brandmark .dot{width:10px; height:10px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 4px var(--gold-soft)}
+  .brandmark small{display:block; font-family:var(--mono); font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); font-weight:500; margin-top:1px}
+  .topnav{margin-left:auto; display:flex; gap:2px}
+  .topnav a{font-size:.82rem; color:var(--ink-2); padding:7px 11px; border-radius:var(--radius-pill,980px); font-weight:500}
+  .topnav a:hover{color:var(--ink); background:var(--fill); text-decoration:none}
+  @media (max-width:860px){ .topnav{display:none} }
+  .toggle{margin-left:6px; width:36px; height:36px; border-radius:980px; border:1px solid var(--hair-strong); background:var(--surface); color:var(--ink); cursor:pointer; font-size:14px; display:grid; place-items:center; flex:0 0 auto}
+  .toggle:hover{background:var(--fill)}
 
-  /* ---- hero ---- */
-  .hero{padding:clamp(52px,9vw,104px) 0 clamp(30px,5vw,54px)}
-  .hero .eyebrow{margin-bottom:20px; opacity:0; animation:rise .7s .05s forwards}
-  .hero h1{font-size:clamp(2.5rem,6.4vw,4.6rem); font-weight:400; max-width:16ch; opacity:0; animation:rise .7s .12s forwards}
-  .hero h1 em{font-style:italic; color:var(--gold-ink)}
-  .hero .lede{margin:26px 0 0; font-size:clamp(1.12rem,2.1vw,1.34rem); line-height:1.6; color:var(--muted); max-width:60ch; opacity:0; animation:rise .7s .22s forwards}
+  /* hero */
+  .hero{padding:clamp(48px,8vw,96px) 0 clamp(28px,5vw,48px)}
+  .hero .eyebrow{margin-bottom:18px; display:inline-block; opacity:0; animation:rise .6s .05s forwards}
+  .hero h1{font-size:clamp(2.1rem,5.6vw,3.7rem); max-width:17ch; opacity:0; animation:rise .6s .12s forwards}
+  .hero h1 em{font-style:normal; color:var(--gold)}
+  .hero .lede{margin:22px 0 0; font-size:clamp(1.05rem,1.9vw,1.24rem); line-height:1.55; color:var(--ink-2); max-width:60ch; opacity:0; animation:rise .6s .2s forwards}
   .hero .lede b{color:var(--ink); font-weight:600}
-  @keyframes rise{to{opacity:1; transform:none} from{opacity:0; transform:translateY(14px)}}
-
-  .brandrow{display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:34px; opacity:0; animation:rise .7s .32s forwards}
-  .brandrow span{display:inline-flex; align-items:center; gap:9px; font-size:.94rem; color:var(--muted)}
+  @keyframes rise{from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:none}}
+  .brandrow{display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:32px; opacity:0; animation:rise .6s .3s forwards}
+  .brandrow span{display:inline-flex; align-items:center; gap:9px; font-size:.92rem; color:var(--ink-2)}
   .brandrow b{color:var(--ink); font-weight:600}
   .bdot{width:9px; height:9px; border-radius:50%; flex:0 0 auto}
 
-  /* ---- section frame ---- */
-  section{padding:clamp(40px,6vw,76px) 0; border-top:1px solid var(--hairline)}
-  .sec-head{display:flex; align-items:baseline; gap:16px; margin-bottom:34px; flex-wrap:wrap}
-  .sec-head h2{font-size:clamp(1.7rem,3.4vw,2.5rem)}
-  .sec-head .n{font-family:var(--mono); font-size:.8rem; color:var(--gold-ink); font-weight:500; padding-top:.5em}
-  .sec-head p{margin:0; color:var(--muted); max-width:var(--read); flex:1 1 320px; min-width:0}
+  /* section frame */
+  section{padding:clamp(38px,6vw,72px) 0; border-top:1px solid var(--hair)}
+  .sec-head{display:flex; align-items:baseline; gap:16px; margin-bottom:32px; flex-wrap:wrap}
+  .sec-head h2{font-size:clamp(1.55rem,3.2vw,2.25rem)}
+  .sec-head .n{font-family:var(--mono); font-size:.78rem; color:var(--gold); font-weight:500; padding-top:.4em}
+  .sec-head p{margin:0; color:var(--ink-2); max-width:var(--read); flex:1 1 320px; min-width:0}
 
-  .prose{max-width:var(--read)}
-  .prose p{margin:0 0 1.1em}
-
-  /* ---- flow diagram ---- */
-  .flow{display:grid; gap:16px}
-  .flow-band{background:var(--surface); border:1px solid var(--hairline); border-radius:18px; box-shadow:var(--shadow-soft); padding:20px 20px 22px; position:relative}
-  .flow-band > .tag{position:absolute; top:-10px; left:20px; background:var(--ground); padding:0 10px; font-size:.7rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; color:var(--muted)}
-  .flow-band.spine{border-color:color-mix(in srgb,var(--gold) 40%, var(--hairline)); box-shadow:var(--shadow)}
-  .flow-band.spine > .tag{color:var(--gold-ink)}
+  /* flow diagram */
+  .flow{display:grid; gap:14px}
+  .flow-band{background:var(--surface); border:1px solid var(--hair); border-radius:18px; box-shadow:var(--shadow); padding:22px 20px 20px; position:relative}
+  .flow-band > .tag{position:absolute; top:-9px; left:18px; background:var(--ground); padding:0 10px; font-family:var(--mono); font-size:.66rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3)}
+  .flow-band.spine{border-color:color-mix(in srgb,var(--gold) 45%, var(--hair)); box-shadow:var(--shadow-float)}
+  .flow-band.spine > .tag{color:var(--gold)}
   .chips{display:flex; flex-wrap:wrap; gap:10px}
-  .chip{display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--hairline); border-radius:12px; padding:11px 14px; min-width:0; flex:1 1 190px}
-  .chip .ic{width:30px; height:30px; border-radius:9px; display:grid; place-items:center; flex:0 0 auto; background:var(--gold-soft); color:var(--gold-ink); font-family:var(--mono); font-weight:600; font-size:.9rem}
+  .chip{display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--hair); border-radius:12px; padding:11px 14px; min-width:0; flex:1 1 190px}
+  .chip .ic{width:28px; height:28px; border-radius:8px; display:grid; place-items:center; flex:0 0 auto; background:var(--gold-soft); color:var(--gold); font-family:var(--mono); font-weight:600; font-size:.82rem}
   .chip .t{min-width:0}
-  .chip .t b{display:block; font-weight:600; font-size:.95rem; letter-spacing:-.01em}
-  .chip .t span{display:block; font-size:.8rem; color:var(--muted); line-height:1.4}
-  .flow-arrow{justify-self:center; color:var(--faint); color:var(--muted); font-size:1.2rem; line-height:1; opacity:.6}
-  .owns{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-top:4px}
-  .owns li{list-style:none; font-size:.9rem; padding:8px 12px; background:var(--surface-2); border-radius:9px; border:1px solid var(--hairline); display:flex; align-items:center; gap:8px}
+  .chip .t b{display:block; font-weight:600; font-size:.93rem; letter-spacing:-.01em}
+  .chip .t span{display:block; font-size:.79rem; color:var(--ink-2); line-height:1.4}
+  .flow-arrow{justify-self:center; color:var(--ink-3); font-size:1.1rem; line-height:1; opacity:.55}
+  .owns{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin:2px 0 0; padding:0}
+  .owns li{list-style:none; font-size:.88rem; padding:8px 12px; background:var(--surface-2); border-radius:9px; border:1px solid var(--hair); display:flex; align-items:center; gap:8px}
   .owns li::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--gold); flex:0 0 auto}
   .sidereads{display:flex; flex-wrap:wrap; gap:12px; margin-top:14px}
-  .sideread{flex:1 1 240px; background:var(--surface); border:1px dashed var(--hairline); border-radius:14px; padding:14px 16px}
+  .sideread{flex:1 1 240px; background:var(--surface); border:1px dashed var(--hair-strong); border-radius:14px; padding:13px 16px}
   .sideread b{font-weight:600; letter-spacing:-.01em}
-  .sideread span{display:block; font-size:.85rem; color:var(--muted); margin-top:2px}
-  .sideread .who{font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; color:var(--gold-ink); font-weight:700}
+  .sideread span{display:block; font-size:.84rem; color:var(--ink-2); margin-top:2px}
+  .sideread .who{font-family:var(--mono); font-size:.64rem; text-transform:uppercase; letter-spacing:.08em; color:var(--gold); font-weight:600; margin-bottom:2px}
 
-  /* ---- numbered steps ---- */
-  .steps{display:grid; gap:2px; counter-reset:s}
-  .step{display:grid; grid-template-columns:auto 1fr; gap:20px; padding:22px 4px; border-bottom:1px solid var(--hairline); align-items:start}
+  /* numbered steps */
+  .steps{display:grid; gap:0}
+  .step{display:grid; grid-template-columns:auto 1fr; gap:20px; padding:20px 4px; border-bottom:1px solid var(--hair); align-items:start}
   .step:last-child{border-bottom:0}
-  .step .num{counter-increment:s; font-family:var(--serif); font-size:2rem; font-weight:500; color:var(--gold-ink); line-height:1; width:2.2ch; text-align:right; font-variant-numeric:tabular-nums}
-  .step .num::before{content:counter(s)}
-  .step h3{font-family:var(--sans); font-weight:600; font-size:1.08rem; letter-spacing:-.01em; margin-bottom:4px}
-  .step p{margin:0; color:var(--muted); max-width:64ch}
+  .step .num{font-family:var(--mono); font-size:1.05rem; font-weight:600; color:var(--gold); background:var(--gold-soft); width:34px; height:34px; border-radius:10px; display:grid; place-items:center; flex:0 0 auto; font-variant-numeric:tabular-nums}
+  .step h3{font-size:1.06rem; font-weight:600; letter-spacing:-.015em; margin-bottom:4px}
+  .step p{margin:0; color:var(--ink-2); max-width:64ch}
   .step p b{color:var(--ink); font-weight:600}
 
-  /* ---- app map ---- */
-  .mapgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(255px,1fr)); gap:16px}
-  .mapcard{background:var(--surface); border:1px solid var(--hairline); border-radius:16px; padding:20px; box-shadow:var(--shadow-soft); transition:transform .16s ease, box-shadow .16s ease}
-  .mapcard:hover{transform:translateY(-3px); box-shadow:var(--shadow)}
-  .mapcard h3{font-family:var(--sans); font-weight:700; font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-ink); margin-bottom:12px; display:flex; align-items:center; gap:9px}
+  /* app map */
+  .mapgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(255px,1fr)); gap:14px}
+  .mapcard{background:var(--surface); border:1px solid var(--hair); border-radius:16px; padding:20px; box-shadow:var(--shadow); transition:transform .16s var(--ease), box-shadow .16s var(--ease)}
+  .mapcard:hover{transform:translateY(-3px); box-shadow:var(--shadow-float)}
+  .mapcard h3{font-family:var(--mono); font-weight:600; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--gold); margin-bottom:12px; display:flex; align-items:center; gap:9px}
   .mapcard h3::before{content:""; width:7px; height:7px; border-radius:2px; background:var(--gold)}
   .mapcard ul{margin:0; padding:0; list-style:none; display:grid; gap:9px}
-  .mapcard li{font-size:.92rem; line-height:1.4}
+  .mapcard li{font-size:.9rem; line-height:1.4}
   .mapcard li b{font-weight:600; letter-spacing:-.01em}
-  .mapcard li span{color:var(--muted); font-size:.86rem}
+  .mapcard li span{color:var(--ink-2); font-size:.84rem}
 
-  /* ---- rules ---- */
+  /* rules */
   .rules{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px}
-  .rule{background:var(--surface); border:1px solid var(--hairline); border-left:3px solid var(--amber); border-radius:12px; padding:16px 18px}
+  .rule{background:var(--surface); border:1px solid var(--hair); border-left:3px solid var(--amber); border-radius:12px; padding:16px 18px}
   .rule b{display:block; font-weight:600; margin-bottom:3px; letter-spacing:-.01em}
-  .rule span{font-size:.9rem; color:var(--muted)}
+  .rule span{font-size:.89rem; color:var(--ink-2)}
   .rule.ok{border-left-color:var(--green)}
   .rule.crit{border-left-color:var(--red)}
 
-  /* ---- glossary ---- */
+  /* glossary */
   .gloss{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:2px 34px}
-  .gloss dt{font-weight:600; font-family:var(--sans); letter-spacing:-.01em; margin-top:16px; display:flex; align-items:center; gap:8px}
+  .gloss dt{font-weight:600; letter-spacing:-.01em; margin-top:16px; display:flex; align-items:center; gap:8px}
   .gloss dt .k{width:6px;height:6px;border-radius:50%;background:var(--gold)}
-  .gloss dd{margin:2px 0 0; color:var(--muted); font-size:.94rem}
+  .gloss dd{margin:2px 0 0; color:var(--ink-2); font-size:.92rem}
 
-  /* ---- changelog ---- */
-  .log{border:1px solid var(--hairline); border-radius:16px; overflow:hidden; background:var(--surface)}
-  .log-row{display:grid; grid-template-columns:112px 1fr; gap:18px; padding:16px 20px; border-bottom:1px solid var(--hairline)}
+  /* changelog */
+  .log{border:1px solid var(--hair); border-radius:16px; overflow:hidden; background:var(--surface); box-shadow:var(--shadow)}
+  .log-row{display:grid; grid-template-columns:120px 1fr; gap:18px; padding:15px 20px; border-bottom:1px solid var(--hair)}
   .log-row:last-child{border-bottom:0}
-  .log-row time{font-family:var(--mono); font-size:.82rem; color:var(--gold-ink); padding-top:1px}
+  .log-row time{font-family:var(--mono); font-size:.78rem; color:var(--gold); padding-top:1px}
   .log-row .d b{font-weight:600; letter-spacing:-.01em}
-  .log-row .d span{display:block; color:var(--muted); font-size:.86rem; margin-top:2px}
+  .log-row .d span{display:block; color:var(--ink-2); font-size:.85rem; margin-top:2px}
   @media (max-width:560px){ .log-row{grid-template-columns:1fr; gap:4px} }
 
-  /* ---- callout ---- */
-  .callout{background:var(--gold-soft); border:1px solid color-mix(in srgb,var(--gold) 30%,transparent); border-radius:14px; padding:18px 20px; display:flex; gap:14px; align-items:flex-start; margin-top:26px}
-  .callout .m{font-family:var(--serif); font-size:1.3rem; color:var(--gold-ink); line-height:1; flex:0 0 auto; margin-top:2px}
-  .callout p{margin:0; font-size:.95rem}
+  /* callout */
+  .callout{background:var(--gold-soft); border:1px solid color-mix(in srgb,var(--gold) 32%,transparent); border-radius:14px; padding:16px 20px; display:flex; gap:14px; align-items:flex-start; margin-top:26px}
+  .callout .m{color:var(--gold); font-size:1.1rem; line-height:1; flex:0 0 auto; margin-top:2px}
+  .callout p{margin:0; font-size:.93rem; color:var(--ink)}
   .callout b{font-weight:600}
 
-  footer{border-top:1px solid var(--hairline); padding:34px 0 56px; color:var(--muted); font-size:.86rem}
+  footer{border-top:1px solid var(--hair); padding:32px 0 52px; color:var(--ink-2); font-size:.85rem}
   footer .wrap{display:flex; flex-wrap:wrap; gap:8px 20px; align-items:baseline}
   footer b{color:var(--ink); font-weight:600}
 </style>
@@ -255,7 +261,7 @@
       </div>
 
       <div class="callout">
-        <span class="m" aria-hidden="true">✦</span>
+        <span class="m" aria-hidden="true">◆</span>
         <p>Gli Script di Google girano <b>dentro</b> l'account e non si avviano da fuori: se uno smette di partire, l'app mostra ancora gli ultimi numeri — che <b>sembrano</b> aggiornati. Per questo la Dashboard ha in cima «Ultima corsa dei connettori»: oltre 24 ore c'è qualcosa da guardare, oltre 48 è fermo.</p>
       </div>
     </section>
@@ -267,12 +273,12 @@
         <p>È il cuore dell'app. Un'analisi non resta un documento: diventa una decisione tracciata dall'inizio alla fine, e ogni passo lascia un segno.</p>
       </div>
       <div class="steps">
-        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>Un'analisi viene depositata</h3><p>A mano, via API o pescata da Drive. L'app la rielabora in una <b>scheda grafica</b>: verdetto (ok / attenzione / critico), KPI e <i>findings</i>.</p></div></div>
-        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>Dai findings nascono le azioni</h3><p>Ogni cosa da fare diventa un'<b>azione</b> con priorità, responsabile e scadenza. Le trovi in «Da fare».</p></div></div>
-        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>Un'azione entra in coda come operazione</h3><p>Con l'<b>avviso del change control</b> — per esempio «budget oltre il 30% in un colpo». L'avviso resta sulla riga per chi approverà.</p></div></div>
-        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>Una persona la approva</h3><p>O la rimanda, o la annulla. <b>Niente si esegue senza questo passaggio</b>: è la differenza fra un suggerimento e un comando.</p></div></div>
-        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>L'esecuzione, dove vive il motore</h3><p>Su <b>Google</b> la fa lo Script dentro il conto, al giro successivo. Su <b>Meta</b> la fa l'app <b>quando premi «Esegui»</b>: non c'è un automatismo, ed è una scelta.</p></div></div>
-        <div class="step"><div class="num" aria-hidden="true"></div><div><h3>L'esito viene riletto</h3><p>La piattaforma si ricontrolla e scrive sulla riga: <b>confermato rileggendo</b> o smentito. Un'operazione <b>fallita resta ferma</b> finché qualcuno non la rimette in coda o la annulla.</p></div></div>
+        <div class="step"><div class="num">1</div><div><h3>Un'analisi viene depositata</h3><p>A mano, via API o pescata da Drive. L'app la rielabora in una <b>scheda grafica</b>: verdetto (ok / attenzione / critico), KPI e <i>findings</i>.</p></div></div>
+        <div class="step"><div class="num">2</div><div><h3>Dai findings nascono le azioni</h3><p>Ogni cosa da fare diventa un'<b>azione</b> con priorità, responsabile e scadenza. Le trovi in «Da fare».</p></div></div>
+        <div class="step"><div class="num">3</div><div><h3>Un'azione entra in coda come operazione</h3><p>Con l'<b>avviso del change control</b> — per esempio «budget oltre il 30% in un colpo». L'avviso resta sulla riga per chi approverà.</p></div></div>
+        <div class="step"><div class="num">4</div><div><h3>Una persona la approva</h3><p>O la rimanda, o la annulla. <b>Niente si esegue senza questo passaggio</b>: è la differenza fra un suggerimento e un comando.</p></div></div>
+        <div class="step"><div class="num">5</div><div><h3>L'esecuzione, dove vive il motore</h3><p>Su <b>Google</b> la fa lo Script dentro il conto, al giro successivo. Su <b>Meta</b> la fa l'app <b>quando premi «Esegui»</b>: non c'è un automatismo, ed è una scelta.</p></div></div>
+        <div class="step"><div class="num">6</div><div><h3>L'esito viene riletto</h3><p>La piattaforma si ricontrolla e scrive sulla riga: <b>confermato rileggendo</b> o smentito. Un'operazione <b>fallita resta ferma</b> finché qualcuno non la rimette in coda o la annulla.</p></div></div>
       </div>
     </section>
 
@@ -362,7 +368,7 @@
       </dl>
 
       <div class="callout">
-        <span class="m" aria-hidden="true">✦</span>
+        <span class="m" aria-hidden="true">◆</span>
         <p><b>Sotto il cofano.</b> Next.js 15 + Prisma sulla porta 3130, Postgres condiviso con 13 app (schema <code>marketing</code>), API <code>/api/v1/*</code> a chiave con permesso di sola lettura o scrittura, cron su Vercel, interfaccia dietro una password. Deploy dalla CLI. Il dettaglio tecnico è in <b>HANDOFF.md</b> e <b>README.md</b>.</p>
       </div>
     </section>
@@ -374,13 +380,13 @@
         <p>La più recente in cima. <b>Ogni funzionalità nuova o modificata si scrive qui</b>, nel manuale, nello stesso momento in cui viene fatta.</p>
       </div>
       <div class="log">
+        <div class="log-row"><time>27 ago 2026</time><div class="d"><b>Guida allineata al Design System</b><span>Questa guida ora segue i token, i font di sistema e l'oro di casa, come le guide delle altre app.</span></div></div>
         <div class="log-row"><time>27 ago 2026</time><div class="d"><b>Guida TikTok</b><span>Le istruzioni per collegarlo: nel codice è tutto pronto, mancano solo token e advertiser id.</span></div></div>
         <div class="log-row"><time>27 ago 2026</time><div class="d"><b>Revisione di sicurezza</b><span>~120 prove dall'esterno, zero buchi. Chiuse quattro debolezze reali, refutate quattro accuse.</span></div></div>
         <div class="log-row"><time>27 ago 2026</time><div class="d"><b>Revisione UX/UI a tre agenti</b><span>Sul telefono le pagine non scorrono più di lato, bersagli da 44px; su desktop le intestazioni restano a vista.</span></div></div>
         <div class="log-row"><time>27 ago 2026</time><div class="d"><b>Censimento storico delle campagne</b><span>Quali e quante campagne sono esistite negli anni, comprese le rimosse. Pagina «Quante ce n'erano».</span></div></div>
         <div class="log-row"><time>27 ago 2026</time><div class="d"><b>«Decisioni prese e non ancora eseguite» in Dashboard</b><span>Le operazioni approvate ferme e le fallite ora si vedono dalla prima schermata.</span></div></div>
         <div class="log-row"><time>25 ago 2026</time><div class="d"><b>Le analisi di Drive diventano schede grafiche</b><span>Verdetto, KPI e findings, con il bottone per accodare le azioni.</span></div></div>
-        <div class="log-row"><time>25 ago 2026</time><div class="d"><b>L'indice di Drive si allinea da solo</b><span>Un cron alle 06:10 rilegge la cartella ADV: niente più sincronizzazioni a mano.</span></div></div>
       </div>
     </section>
   </div>
@@ -390,7 +396,7 @@
   <div class="wrap">
     <span>Deluxy Marketing · <b>Manuale delle funzionalità</b></span>
     <span>Reso da <code>docs/MANUALE-FUNZIONALITA.md</code></span>
-    <span>Aggiornato il 27 agosto 2026</span>
+    <span>Deluxy Design System v1.4</span>
   </div>
 </footer>
 

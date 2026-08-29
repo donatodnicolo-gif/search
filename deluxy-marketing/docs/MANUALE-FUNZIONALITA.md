@@ -167,6 +167,7 @@ qui nello stesso commit.**
 
 | Data | Funzionalità | Dove |
 |---|---|---|
+| 2026-08-27 | **Guida visiva allineata al Deluxy Design System** (font di sistema, token e oro di casa, come le guide di Anagrafiche/Hub/Orders) | `docs/manuale-funzionalita.html` |
 | 2026-08-27 | **Guida TikTok**: le istruzioni per collegarlo (mancano solo token e advertiser id) | `docs/COLLEGARE-TIKTOK.md` |
 | 2026-08-27 | **Revisione sicurezza**: `state` sull'OAuth Drive, guardia anti-traversata su `fileDrive`, la GET che faceva scrivere una chiave di sola lettura chiusa, freno sul login, tetto e forma su `limite`, traccia sulle chiavi API | più file |
 | 2026-08-27 | **Revisione UX/UI a tre agenti**: telefono senza scroll laterale, bersagli 44px, intestazioni sticky, prima colonna ancorata, «Annulla» distruttivo | `globals.css` + pagine |
