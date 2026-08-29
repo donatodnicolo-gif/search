@@ -23,6 +23,27 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 28/08 — Allineamento UX al Design System (architetto-ux)
+
+Verdetto: AI Mail è GIÀ in gran parte nel canone (fork di deluxy-partner, `tokens.css` =
+copia esatta DS v1.4). Fatti gli allineamenti a rischio zero in `globals.css` (valori a
+mano → token): colori semantici rosso/verde «di sistema iOS» → `--red`/`--green-soft`; tre
+scrim → `--scrim`; ~10 `999px` → `--radius-pill`; gradiente logo → `--logo-dark-a/b`; ombra
+menu → `--shadow-float`. Header del file: non più «Deluxy Partner v1.0».
+
+🔴 APERTI (NON fatti in autonomia — dal custode o giro dedicato):
+- **TABELLE → schede su mobile**: la divergenza strutturale più grande. Le pagine a tabella
+  (statistiche, utenti, clienti, rubrica) su telefono scrollano di lato invece di impilarsi
+  in card come nella piattaforma (`deluxy-platform-next/web/src/styles.css:419-505`, vuole
+  `data-label` sui `<th>`). Da fare PAGINA PER PAGINA, non con una sostituzione cieca nel
+  CSS condiviso. E il bug dell'header sticky in `.table-wrap` (manca `max-height`).
+- **segmented control** (`.vista-tabs`) su `--surface-sunken`, e il **velo del pannello Renè**
+  (`.pannello-velo` 0.18): da verificare col custode prima di cambiarli.
+- ⚠️ Il registro `SEGNALAZIONI-UX.md` del design system non è presente in questa copia:
+  questi punti vanno riportati lì quando/dove esiste.
+
+---
+
 ### 28/08 — Prestazioni: aprire una mail vecchia con allegati (3 connessioni IMAP -> 1)
 
 Segnalato: 14 allegati, mail lenta a caricare. Il corpo dal DB e istantaneo; il ritardo
