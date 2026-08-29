@@ -3,9 +3,10 @@
 import { useActionState } from "react";
 import { entra } from "@/app/actions";
 
-// Email + password + codice a 6 cifre. Il messaggio d'errore è sempre lo
-// stesso a prescindere da cosa è sbagliato: non deve servire a capire se
-// un'email esiste o se mancava solo il codice.
+// Email + password. Il messaggio d'errore è sempre lo stesso a prescindere da
+// cosa è sbagliato: non deve servire a capire se un'email esiste.
+// ⚠️ Il codice a 6 cifre all'ACCESSO è stato tolto su decisione dell'utente
+// (29/08/2026); resta su firme, chiusure e impostazioni sensibili.
 export function ModuloAccesso({ da }: { da: string }) {
   const [stato, azione, inCorso] = useActionState(entra, {} as { errore?: string });
 
@@ -21,15 +22,6 @@ export function ModuloAccesso({ da }: { da: string }) {
           placeholder="Password"
           autoComplete="current-password"
           required
-        />
-        <input
-          type="text"
-          name="codice"
-          placeholder="Codice a 6 cifre"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          pattern="[0-9]{6}"
         />
         <button className="btn" type="submit" disabled={inCorso} style={{ width: "100%", padding: 11 }}>
           {inCorso ? "Verifica…" : "Entra"}

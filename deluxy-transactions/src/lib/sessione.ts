@@ -95,11 +95,19 @@ export type EsitoAccesso =
   | { ok: false; errore: string };
 
 /**
- * Accesso: email + password + codice a 6 cifre. I tre controlli sono separati
- * ma il messaggio d'errore è sempre lo stesso, così non si scopre quali email
- * esistono né se la password era giusta e mancava solo il codice.
+ * Accesso: email + password. Il messaggio d'errore è sempre lo stesso, così
+ * non si scopre quali email esistono.
+ *
+ * ⚠️ Il codice a 6 cifre NON si chiede più QUI (deciso dall'utente il
+ * 29/08/2026: «per l'accesso elimina l'autenticazione a 6 cifre»). Il secondo
+ * fattore resta dove il denaro si muove davvero: su ogni firma
+ * (`decidiRichiesta`), sulle chiusure a mano, sul cambio del server di posta
+ * e del PIN — una sessione entrata con la sola password non basta comunque ad
+ * autorizzare un bonifico. Rischio accettato registrato in
+ * SEGNALAZIONI-SICUREZZA.md. Il parametro `codice` resta nella firma per non
+ * rompere i chiamanti, ma non viene più verificato all'ingresso.
  */
-export async function accedi(email: string, password: string, codice: string): Promise<EsitoAccesso> {
+export async function accedi(email: string, password: string, _codice: string): Promise<EsitoAccesso> {
   const generico = { ok: false as const, errore: "Credenziali non valide." };
   const ip = await ipRichiesta();
   const mail = email.trim().toLowerCase();
@@ -128,17 +136,6 @@ export async function accedi(email: string, password: string, codice: string): P
   };
 
   if (!passwordCorretta(password, o.passwordHash, o.passwordSalt)) return fallito("password errata");
-
-  if (o.totpAttivo) {
-    if (!o.totpSegreto) return fallito("secondo fattore non configurato");
-    let segreto: string;
-    try {
-      segreto = decifra(o.totpSegreto);
-    } catch {
-      return { ok: false, errore: "Secondo fattore non leggibile: TRANSACTIONS_ENC_KEY errata." };
-    }
-    if (!codiceTotpValido(segreto, codice)) return fallito("codice a 6 cifre errato");
-  }
 
   const idSessione = tokenCasuale(32);
   const h = await headers();
