@@ -3767,7 +3767,9 @@ async function loadStato(){
   }catch(e){ /* offline o errore: si resta con lo stato locale */ }
   renderStatoPills(); applyStars(); applyArchive();
 }
+let ultimoToccoStato = 0;   // ultimo cambio LOCALE (stella/archivia/stato): il sync live non lo sovrascrive a metà
 function saveStato(patch){
+  ultimoToccoStato = Date.now();
   const body = Object.assign({ ordine: ordineKey(), quando: new Date().toISOString() }, patch);
   apiFetch('/api/stato', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(()=>{});
 }
@@ -3809,6 +3811,21 @@ resultsEl.addEventListener('click', e=>{
   saveStato({ stella: { id: b.dataset.sid, nome: nomeDaScheda(card), on } });
   applyStars();
 });
+
+/* ------------------ SYNC LIVE dello stato (stelle/archiviati/stato) ------------------
+   Due operatori sullo stesso ordine si vedono le stelle a vicenda senza ricaricare:
+   si rilegge lo stato condiviso ogni ~15s quando la scheda è visibile e ci sono risultati,
+   e subito quando si torna sulla scheda del browser. Non sovrascrive un cambio locale
+   appena fatto (finestra di 4s), così non si «spegne» una stella cliccata un istante prima. */
+function liveStatoAttivo(){
+  return document.visibilityState === 'visible' && (orderLoaded || !!resultsEl.querySelector('.shop'));
+}
+function syncStatoLive(){
+  if(liveStatoAttivo() && Date.now() - ultimoToccoStato > 4000) loadStato();
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') syncStatoLive(); });
+window.addEventListener('focus', syncStatoLive);
+(function avviaLiveStato(){ const tick = ()=>{ syncStatoLive(); setTimeout(tick, 15000); }; setTimeout(tick, 15000); })();
 
 /* ------------------ ARCHIVIA / NASCONDI risultati ------------------
    Nascondere un risultato lo sposta nella sezione «Archiviati» (ripristinabile). Persistito
@@ -4446,6 +4463,9 @@ async function aggiungiPerNome(){
 async function extendSearch(){
   if(!lastSearchCtx){ run(); return; }
   const { service, origin, geo } = lastSearchCtx;
+  // id dei negozi GIÀ in lista: servono a riconoscere quali sono NUOVI dopo l'estensione,
+  // così ci si può portare lì invece di restare in cima (la lista viene ridisegnata da capo).
+  const oldIds = new Set((lastSearchCtx.found || []).map(f => f.place && f.place.place_id).filter(Boolean));
   extendRadius = Math.min(EXTEND_MAX, (extendRadius || 0) + EXTEND_STEP);
   const km = Math.round(extendRadius / 1000);
   $('#extendBtn').disabled = true; $('#extendMoreBtn').disabled = true;
@@ -4476,6 +4496,13 @@ async function extendSearch(){
     $('#noResults').style.display = 'none';
     setStatus(`Trovati ${found.length - prima} negozi in più entro ~${km} km.`);
     await renderResults(found, geo, origin, service, { extended:true });
+    // porta l'operatore AL PRIMO NUOVO negozio (per distanza stanno più in basso): senza,
+    // dopo il ridisegno della lista si resta in cima e sembra che la ricerca sia ripartita.
+    const nuoviIds = new Set(found.filter(f => !oldIds.has(f.place.place_id)).map(f => f.place.place_id));
+    // il primo nuovo VISIBILE (un filtro attivo, es. «Con WhatsApp», può nasconderne alcuni)
+    const primoNuovo = [...resultsEl.querySelectorAll('.shop[data-sid]')]
+      .find(el => nuoviIds.has(el.dataset.sid) && el.offsetParent !== null);
+    if(primoNuovo) primoNuovo.scrollIntoView({ behavior:'smooth', block:'start' });
   }catch(err){
     console.error(err);
     setStatus(err.message || 'Errore durante l\'estensione della ricerca.', true);
