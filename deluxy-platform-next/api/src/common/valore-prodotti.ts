@@ -36,7 +36,23 @@ export type RigaProdotto = {
   product?: { publicPrice?: number | null; price?: number | null } | null;
 };
 
-export function valoreProdotti(righe: RigaProdotto[] | null | undefined): number {
+/**
+ * ⚠️ Ultimo ripiego, DICHIARATO: se le righe sommano ZERO ma la consegna porta
+ * un `productValue`, vale quello. Misurato il 29/08/2026: **59 vendite
+ * (3.648 €)** hanno le righe a zero e il campo pieno — senza questo gradino la
+ * fattura direbbe al partner che non gli dobbiamo niente. Non è il campo che
+ * torna a comandare: comanda solo dove le righe non dicono nulla.
+ */
+export function valoreProdotti(
+  righe: RigaProdotto[] | null | undefined,
+  productValue?: number | null,
+): number {
+  const somma = sommaRighe(righe);
+  if (somma === 0 && (productValue ?? 0) > 0) return productValue as number;
+  return somma;
+}
+
+function sommaRighe(righe: RigaProdotto[] | null | undefined): number {
   return (righe ?? []).reduce(
     (s, p) =>
       s +

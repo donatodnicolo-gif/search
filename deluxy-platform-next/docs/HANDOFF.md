@@ -104,7 +104,62 @@
 **Ultimo aggiornamento:** 28 agosto 2026 — 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
-### 💰 29/08/2026 — STIPENDI: il confronto di Acampora (giugno) torna, e salta fuori il listino valet ORFANO
+### 🧮 29/08/2026 — FATTURAZIONE ALLINEATA IN TUTTA L'APP, e i listini valet orfani (riaggancio pronto, NON applicato)
+
+Chiesto dall'utente: «sistema tutto, sia fatturazione che stipendi, in tutta
+l'app». Censimento prima, poi le correzioni.
+
+**FATTURAZIONE — il valore merce ora è lo STESSO numero ovunque.**
+Erano tre letture diverse: la fatturazione e il dettaglio consegna usavano
+`valoreProdotti`, il **canale app-to-app mandava alle altre app il campo
+`productValue` grezzo** (`app-api`, `economiaPartner.valoreProdotti`), la
+Finanza legge il campo di proposito (là serve «quanto abbiamo dato al partner»,
+ed è scritto). Ora il canale app usa **la stessa funzione** e affianca il campo
+come `valoreProdottiCampo`, per chi confronta col legacy.
+
+- ⚠️ **Ultimo ripiego DICHIARATO, nuovo**: se le righe sommano **zero** ma la
+  consegna porta un `productValue`, vale quello. Misurato: **59 vendite
+  (3.648 €)** hanno le righe a zero e il campo pieno — **4 ancora da fatturare
+  (171 €)**. Senza questo gradino la fattura direbbe al partner che non gli
+  dobbiamo niente. Le tre `select` della fatturazione ora caricano
+  `productValue`, che prima non arrivava nemmeno.
+- **Le divergenze residue non sono di formula**: campo ≠ righe su 1.067 vendite
+  (erano 1.417 con la cascata vecchia), e **1.039 hanno TUTTI i prezzi scritti
+  sulle righe** — quindi è il dato del legacy a essere incoerente, non il
+  calcolo. Lo scarto netto è sceso a **−5.198 €** (era +90.265 € con il
+  ripiego sul prezzo al pubblico).
+- Verificato dopo il deploy: il recap di agosto di Maryflor resta
+  **783,00 / 156,60 / 34,45 / 591,95** — il ripiego non ha effetti collaterali.
+
+**STIPENDI — trovata la causa dei listini «orfani», e il riaggancio è pronto.**
+Le 4.202 consegne che puntano a un listino inesistente cercano **4 soli id**
+(`expert-service` 12, 13, 256, 257 del legacy). Quelle 4 righe **esistono
+nell'originale e non sono cancellate**: il listino corrispondente in
+piattaforma **c'è** (Cassoli e Acampora hanno «Consegna Standard» 6 € e
+«Servizio a Ora» 10 €/h), ma è stato **ricreato da un import successivo senza
+conservare il `legacyId`** — 236 righe su 247 ce l'hanno, e proprio queste no.
+
+`api/scripts/riaggancia-listini-valet.mjs` (prova a vuoto di default, scrive
+con `--applica`, backup in `scripts/backup-listini-valet.json`) riaggancia per
+la chiave dell'originale: `delivery.expertServiceId` → riga di `expert-service`
+(expertId + serviceId) → listino di QUEL valet per QUEL servizio del catalogo
+**valet** (`ServiceType` con `legacyId` 900000+n).
+⚠️ **Non** per `ValetService.legacyId` (mancante) né per il `serviceTypeId`
+della consegna, che è il servizio del **partner**: due tassonomie che riusano
+gli stessi numeri.
+
+- **Prova a vuoto: 4.185 riagganciabili su 4.202**, di cui **3.056 ancora da
+  pagare**. Le 17 scartate avrebbero preso il listino di un **altro valet**:
+  meglio orfane che agganciate a caso.
+- **Effetto misurato prima di scrivere**: il riaggancio **non tocca gli
+  importi** (vale la regola di casa: la paga scritta sulla consegna vince), ma
+  fa entrare negli stipendi **5 consegne non consegnate con listino a ora, per
+  50,00 €** — nella direzione giusta, il valet il viaggio l'ha fatto.
+- 🔴 **NON APPLICATO**: la scrittura su 4.185 righe è stata **bloccata dal
+  classificatore di sicurezza** della sessione. Lo script è pronto e provato:
+  serve il via libera dell'utente (o una regola di permesso) per lanciarlo con
+  `--applica`.
+
 
 Chiesto dall'utente subito dopo il recap partner: stesso esercizio sugli
 stipendi, Acampora Vittorio, giugno 2026.

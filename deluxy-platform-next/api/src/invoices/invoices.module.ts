@@ -75,6 +75,8 @@ export class WebhookApiKeyGuard implements CanActivate {
  */
 export type ConsegnaDaPrezzare = {
   price?: number | null;
+  /** Ultimo ripiego del valore merce, dove le righe non dicono niente. */
+  productValue?: number | null;
   additionalPrice?: number | null;
   hours?: number | null;
   distanceKm?: number | null;
@@ -145,7 +147,7 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
   // La formula sta in `common/valore-prodotti.ts`: dal 28/08 la usa anche il
   // dettaglio consegna, per dire al partner quanto incassa. Due copie
   // avrebbero fatto litigare la scheda con la fattura.
-  const valoreProdotti = calcolaValoreProdotti(d.products as any);
+  const valoreProdotti = calcolaValoreProdotti(d.products as any, d.productValue);
   const vendita = (d.serviceType?.pricingModel ?? '') === 'VENDITA';
   /**
    * Cio' che incassiamo per conto del partner e gli dobbiamo girare.
@@ -354,7 +356,7 @@ export class InvoicesService {
       where,
       select: {
         id: true, partnerId: true, serviceTypeId: true, date: true,
-        price: true, additionalPrice: true, hours: true,
+        price: true, additionalPrice: true, hours: true, productValue: true,
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
         deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
@@ -577,7 +579,7 @@ export class InvoicesService {
       },
       select: {
         id: true, code: true, date: true, serviceTypeId: true,
-        price: true, additionalPrice: true, hours: true,
+        price: true, additionalPrice: true, hours: true, productValue: true,
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         deliveryTimeFrom: true, deliveryTimeTo: true,
         // L'INDIRIZZO del destinatario entra nel recap su decisione
@@ -941,7 +943,7 @@ export class InvoicesService {
       select: {
         id: true, code: true, date: true, status: true, serviceTypeId: true, partnerId: true,
 
-        price: true, additionalPrice: true, hours: true,
+        price: true, additionalPrice: true, hours: true, productValue: true,
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         recipientFirstName: true, recipientLastName: true, recipientAddress: true,
         serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },

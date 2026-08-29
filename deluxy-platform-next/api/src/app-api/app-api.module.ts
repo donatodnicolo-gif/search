@@ -26,6 +26,7 @@ import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { FinanceService } from '../finance/finance.module';
 import { RichiesteModule, RichiesteService, CreaRichiestaDto } from '../richieste/richieste.module';
+import { valoreProdotti } from '../common/valore-prodotti';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IL CANALE APP-TO-APP della piattaforma (standard Deluxy §4.3 e §7).
@@ -580,8 +581,8 @@ export class AppApiService {
     products: {
       select: {
         quantity: true, price: true,
-        product: { select: { name: true } },
-        productVariant: { select: { name: true } },
+        product: { select: { name: true, price: true, publicPrice: true } },
+        productVariant: { select: { name: true, price: true, publicPrice: true } },
       },
     },
   } as const;
@@ -680,7 +681,14 @@ export class AppApiService {
         prezzoTotale: r2(prezzoPartner),
         feePercent,
         fee: feePercent > 0 ? r2((feePercent / 100) * prezzoPartner) : 0,
-        valoreProdotti: d.productValue ?? null,
+        // ⚠️ NON il campo "productValue": quello diverge dalla somma delle
+        // righe, e la fattura si fa sulle righe. Dal 29/08 la formula sta in
+        // common/valore-prodotti.ts e la usano la fatturazione, il dettaglio
+        // consegna e questo canale: tre copie sarebbero tre numeri diversi
+        // nelle app che ci leggono. Il campo resta esposto a parte come
+        // "valoreProdottiCampo", per chi confronta col legacy.
+        valoreProdotti: r2(valoreProdotti(d.products as any, d.productValue)) || (d.productValue ?? null),
+        valoreProdottiCampo: d.productValue ?? null,
         prezzoConsegnaCliente: d.deliveryPrice ?? null,
         daFatturare: d.billable, giaFatturata: d.invoiced,
       },

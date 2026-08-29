@@ -564,7 +564,7 @@ export class DeliveriesService {
     // 1.417 vendite su 13.507 (90.265 € di scarto, misurato il 28/08/2026), e
     // la FATTURA si fa sulle righe. Usando il campo, la scheda avrebbe detto
     // al partner un incasso che la sua fattura smentisce.
-    const valore = valoreProdotti(d.products as any);
+    const valore = valoreProdotti(d.products as any, (d as any).productValue);
     const quota = d.price;
     // Senza il valore o senza la quota il conto non si fa: un ripiego a zero
     // direbbe al partner che non prende niente, ed è peggio di non dire niente.
