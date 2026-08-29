@@ -1753,6 +1753,48 @@ export async function aggiornaOrdine(
 export async function chiudiOrdine(id: string): Promise<void> {
   await aggiornaOrdine(id, { chiuso_il: new Date().toISOString() });
   void annunciaOrdine(id);
+  // ⭐ Un ordine chiuso è una vendita vera: il negozio diventa CLIENTE ATTIVO,
+  // qui e nel registro (richiesta dell'utente, 29/08/2026). Best-effort come
+  // l'annuncio: la chiusura non deve fallire perché il registro non risponde.
+  void promuoviClienteDaOrdine(id);
+}
+
+/**
+ * Promuove il negozio di un ordine chiuso a cliente attivo — in Scout
+ * (`stato = cliente`, `stato_affiliazione = attivo`) e nel registro
+ * Anagrafiche (via `sincronizzaPlaceRegistro`, che manda lo stato con asOf).
+ *
+ * ⚠️ SOLO SALIRE ([[trappola-stato-che-puo-retrocedere]]): questa funzione
+ * scrive un solo valore, il più alto, e parte solo dalla chiusura di un
+ * ordine — il segnale commerciale più forte che esista. Vale anche da
+ * `dismesso`: un cliente che ricompra è tornato attivo, non è un errore.
+ * Non esiste il percorso inverso: riaprire o annullare un ordine non tocca
+ * lo stato del negozio.
+ */
+async function promuoviClienteDaOrdine(ordineId: string): Promise<void> {
+  try {
+    const { data: o } = await supabase.from('ordini').select('place_id').eq('id', ordineId).maybeSingle();
+    const placeId = o?.place_id;
+    if (!placeId) return; // ordine senza negozio agganciato: niente da promuovere
+    const { data: p } = await supabase
+      .from('places')
+      .select('stato, stato_affiliazione')
+      .eq('id', placeId)
+      .maybeSingle();
+    if (!p) return;
+    if (p.stato !== 'cliente' || p.stato_affiliazione !== 'attivo') {
+      const { error } = await supabase
+        .from('places')
+        .update({ stato: 'cliente', stato_affiliazione: 'attivo' })
+        .eq('id', placeId);
+      if (error) return; // best-effort: il prossimo ordine chiuso riproverà
+    }
+    // Anche se in Scout era già cliente, il registro può essere indietro:
+    // la sincronizzazione è idempotente e porta lo stato con la data di oggi.
+    await sincronizzaPlaceRegistro(placeId);
+  } catch {
+    /* best-effort: la chiusura dell'ordine resta valida */
+  }
 }
 
 /**
@@ -3276,7 +3318,7 @@ export async function leadDiventaRichiesta(leadId: string, richiestaId: string, 
 
 export async function aggiornaRichiestaCliente(
   id: string,
-  campi: Partial<Pick<RichiestaCliente, 'cliente' | 'descrizione' | 'importo' | 'canale' | 'linea' | 'tipologia' | 'stato' | 'serve_entro' | 'nota'>>,
+  campi: Partial<Pick<RichiestaCliente, 'cliente' | 'place_id' | 'descrizione' | 'importo' | 'canale' | 'linea' | 'tipologia' | 'stato' | 'serve_entro' | 'nota'>>,
 ): Promise<void> {
   const { data, error } = await supabase.from('richieste_cliente').update(campi).eq('id', id).select('id');
   if (error) throw error;

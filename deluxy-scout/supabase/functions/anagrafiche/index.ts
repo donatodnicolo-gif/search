@@ -210,11 +210,38 @@ Deno.serve(async (req) => {
           return null;
         }
       })();
+      // ⚠️ LO STATO PUÒ NON ESSERE PASSATO (scoperto il 29/08/2026, caso «La
+      // Primavera»): il POST del registro applica `stato` solo alle chiavi col
+      // permesso «driver di prima parte», e la chiave nella cassaforte di
+      // Scout è quella di scrittura piena SENZA quel permesso (la chiave
+      // partner dedicata non ha più una copia in chiaro valida da nessuna
+      // parte — il secret della Edge non corrisponde a nessuna chiave del
+      // registro). La scrittura piena però può fare la PATCH, che è la via
+      // sancita dal contratto del registro: se il POST ha ignorato lo stato,
+      // lo si scrive con una PATCH mirata. Best-effort: il resto della
+      // sincronizzazione vale comunque.
+      let statoScritto = dati?.stato ?? null;
+      if (payload.stato && dati?.id && dati?.stato !== payload.stato) {
+        try {
+          const patch = await fetch(`${BASE}/api/v1/partners/${dati.id}`, {
+            method: 'PATCH',
+            headers: { 'x-api-key': partnerKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stato: payload.stato }),
+          });
+          if (patch.ok) {
+            const pj = await patch.json().catch(() => null);
+            statoScritto = pj?.stato ?? statoScritto;
+          }
+        } catch {
+          /* best-effort: l'upsert è già andato */
+        }
+      }
       return json({
         ok: true,
         esito: dati?.esito ?? null,
         id: dati?.id ?? null,
         nome: dati?.nome ?? null,
+        stato: statoScritto,
       });
     }
 

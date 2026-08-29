@@ -39,7 +39,6 @@ import { Tabella, dataBreve, importoBreve, type ColonnaTabella } from '@/compone
 import { avvisa, conferma } from '@/lib/dialoghi';
 import {
   aggiornaRichiestaCliente,
-  cercaPlaces,
   collegaDocumentoAOrdine,
   collegaPreventivoARichiesta,
   creaOrdineDaRichiesta,
@@ -49,8 +48,8 @@ import {
   creaRichiestaCliente,
   eliminaRichiestaCliente,
   fetchRichiesteCliente,
-  type PlaceLite,
 } from '@/lib/db';
+import { SceltaCliente } from '@/components/SceltaCliente';
 import { creaPreventivoDaRichiesta, creaProformaDaRichiesta, esitoPreventivo } from '@/lib/partner';
 import { emettiProformaPerOrdine, raccontaEsito } from '@/lib/documenti';
 import { cercaNellaMiaCasella, fetchCorpoMail, importaRichiesteDaMail, type MiaMail } from '@/lib/mail';
@@ -762,9 +761,15 @@ export default function RichiesteClienti() {
 
 // ── Il form: cliente, cosa chiede, quanto (se già si sa) ─────────────────────
 function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCreata: () => void }) {
-  const [ricerca, setRicerca] = useState('');
-  const [risultati, setRisultati] = useState<PlaceLite[]>([]);
-  const [scelto, setScelto] = useState<PlaceLite | null>(null);
+  /**
+   * ⭐ Il cliente si cerca in Scout E NEL REGISTRO (29/08/2026, richiesta
+   * dell'utente: «permetti anche qui la ricerca del cliente su anagrafiche»).
+   * Stesso componente e stesso pattern di Ordini: il nome è un campo suo, il
+   * LEGAME lo fa `SceltaCliente` — che cerca in tutti e due i posti e importa
+   * dal registro chi in Scout non c'è ancora.
+   */
+  const [placeId, setPlaceId] = useState<string | null>(null);
+  const [anagraficheId, setAnagraficheId] = useState<string | null>(null);
   // ⚠️ Il nome resta scrivibile anche senza aggancio: un cliente può non essere
   // ancora in Scout, e bloccare l'inserimento su questo vorrebbe dire perdere
   // la richiesta (o inventare una scheda per far contento il form).
@@ -849,7 +854,6 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
     if (!nota.trim()) setNota(`Ha scritto ${[m.da, m.email].filter(Boolean).join(' · ')}`);
     if (!cliente.trim()) {
       setCliente(m.da);
-      setRicerca(m.da);
     }
     // Il testo INTERO, non l'anteprima: è quello che si legge nella scheda, e
     // due righe di anteprima non dicono cosa il cliente ha chiesto.
@@ -885,31 +889,12 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
     if (!descrizione.trim()) setDescrizione((info.testo || l.messaggio || '').trim().slice(0, 500));
     // Il nome NON si sovrascrive se c'è già un cliente scelto: chi scrive è
     // una persona, il cliente è l'azienda — e l'azienda vince.
-    if (!scelto && !cliente.trim()) {
+    if (!placeId && !cliente.trim()) {
       setCliente(info.persona || l.nome);
-      setRicerca(info.persona || l.nome);
     }
     const chi = [info.persona || l.nome, info.email || l.contatto].filter(Boolean).join(' · ');
     if (!nota.trim() && chi) setNota(`Ha scritto ${chi}`);
   }
-
-  useEffect(() => {
-    let vivo = true;
-    const q = ricerca.trim();
-    if (q.length < 2) {
-      setRisultati([]);
-      return;
-    }
-    const t = setTimeout(() => {
-      cercaPlaces(q, 8)
-        .then((r) => vivo && setRisultati(r))
-        .catch(() => vivo && setRisultati([]));
-    }, 250);
-    return () => {
-      vivo = false;
-      clearTimeout(t);
-    };
-  }, [ricerca]);
 
   const valido = cliente.trim().length > 0 && descrizione.trim().length > 0;
 
@@ -919,7 +904,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
     setErrore(null);
     try {
       const creata = await creaRichiestaCliente({
-        place_id: scelto?.id ?? null,
+        place_id: placeId,
         cliente: cliente.trim(),
         descrizione: descrizione.trim(),
         importo: leggiImporto(importo),
@@ -937,7 +922,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
       });
       // E la mail esce dalla coda, ricordando cosa ha generato. Best-effort:
       // la richiesta è già salvata, ed è il pezzo che conta.
-      if (daMail) await leadDiventaRichiesta(daMail.id, creata.id, scelto?.id ?? null);
+      if (daMail) await leadDiventaRichiesta(daMail.id, creata.id, placeId);
       onCreata();
     } catch (e: any) {
       setErrore(String(e?.message ?? e));
@@ -1084,71 +1069,32 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
         )}
 
         <Text style={styles.campoLabel}>Cliente</Text>
-        {scelto ? (
-          <View style={styles.sceltoRiga}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sceltoNome} numberOfLines={2}>
-                {scelto.nome}
-              </Text>
-              {scelto.indirizzo ? (
-                <Text style={styles.sceltoInd} numberOfLines={1}>
-                  {scelto.indirizzo}
-                </Text>
-              ) : null}
-            </View>
-            <Pressable
-              onPress={() => {
-                setScelto(null);
-                setRicerca('');
-              }}
-              hitSlop={8}
-              accessibilityLabel="Cambia cliente"
-            >
-              <Ionicons name="swap-horizontal" size={20} color={colors.oro} />
-            </Pressable>
-          </View>
-        ) : (
-          <>
-            <TextInput
-              style={styles.input}
-              value={ricerca}
-              onChangeText={(v) => {
-                setRicerca(v);
-                setCliente(v);
-              }}
-              placeholder="Cerca fra i clienti, o scrivi il nome…"
-              placeholderTextColor={colors.grigio}
-              autoFocus
-            />
-            {risultati.map((p) => (
-              <Pressable
-                key={p.id}
-                style={styles.risultato}
-                onPress={() => {
-                  setScelto(p);
-                  setCliente(p.nome);
-                }}
-              >
-                <Ionicons name="storefront-outline" size={15} color={colors.navy} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.risultatoNome} numberOfLines={1}>
-                    {p.nome}
-                  </Text>
-                  {p.indirizzo ? (
-                    <Text style={styles.risultatoInd} numberOfLines={1}>
-                      {p.indirizzo}
-                    </Text>
-                  ) : null}
-                </View>
-              </Pressable>
-            ))}
-            {ricerca.trim().length >= 2 && !risultati.length ? (
-              <Text style={styles.nota}>
-                Nessun cliente con questo nome in Scout: la richiesta si salva lo stesso col nome scritto qui sopra.
-              </Text>
-            ) : null}
-          </>
-        )}
+        <TextInput
+          style={styles.input}
+          value={cliente}
+          onChangeText={setCliente}
+          placeholder="Nome del cliente"
+          placeholderTextColor={colors.grigio}
+        />
+        {/* La ricerca guarda in Scout E nel registro Anagrafiche (stesso
+            componente di Ordini): chi è solo nel registro si importa e si
+            collega in un tocco. Senza collegamento la richiesta vale lo
+            stesso, col solo nome. */}
+        <SceltaCliente
+          attuale={{ nome: cliente, placeId, anagraficheId }}
+          onScegli={(c) => {
+            setCliente(c.nome);
+            setPlaceId(c.placeId);
+            setAnagraficheId(c.anagraficheId);
+          }}
+        />
+        {placeId ? (
+          <Text style={styles.nota}>Collegata al cliente «{cliente}» di Scout.</Text>
+        ) : cliente.trim().length >= 2 ? (
+          <Text style={styles.nota}>
+            Nessun cliente collegato: la richiesta si salva lo stesso col nome scritto qui sopra.
+          </Text>
+        ) : null}
 
         <Text style={styles.campoLabel}>Cosa chiede</Text>
         <TextInput
@@ -1244,6 +1190,12 @@ function ModificaRichiesta({
   onSalvata: () => void;
 }) {
   const [cliente, setCliente] = useState(r.cliente);
+  // ⭐ Anche in modifica il cliente si CERCA — in Scout e nel registro
+  // Anagrafiche (29/08/2026, richiesta dell'utente). Il legame è della
+  // richiesta e si applica al salvataggio; l'id del registro serve solo al
+  // pannello (link e import) e non si conserva sulla riga.
+  const [placeId, setPlaceId] = useState<string | null>(r.place_id);
+  const [anagraficheId, setAnagraficheId] = useState<string | null>(null);
   const [descrizione, setDescrizione] = useState(r.descrizione);
   const [importo, setImporto] = useState(scriviImporto(r.importo));
   const [canale, setCanale] = useState<CanaleRichiesta>(r.canale);
@@ -1276,6 +1228,7 @@ function ModificaRichiesta({
     try {
       await aggiornaRichiestaCliente(r.id, {
         cliente: cliente.trim(),
+        place_id: placeId,
         descrizione: descrizione.trim(),
         importo: valore,
         canale,
@@ -1322,11 +1275,25 @@ function ModificaRichiesta({
           placeholder="Nome del cliente"
           placeholderTextColor={colors.grigio}
         />
-        {r.place_id ? (
+        {/* Il legame si CAMBIA cercando in Scout e nel registro Anagrafiche
+            (stesso componente di Ordini); il nome della scheda del negozio si
+            corregge di là, qui vale solo per questa richiesta. */}
+        <SceltaCliente
+          attuale={{ nome: cliente, placeId, anagraficheId }}
+          onScegli={(c) => {
+            setCliente(c.nome);
+            setPlaceId(c.placeId);
+            setAnagraficheId(c.anagraficheId);
+          }}
+        />
+        {placeId ? (
           <Text style={styles.nota}>
-            Collegata a un cliente di Scout: il nome della sua scheda si cambia di là, qui solo come si chiama su
-            questa richiesta.
+            {placeId === r.place_id
+              ? 'Collegata a un cliente di Scout: il nome della sua scheda si cambia di là, qui solo come si chiama su questa richiesta.'
+              : 'Nuovo collegamento — si applica al salvataggio.'}
           </Text>
+        ) : r.place_id ? (
+          <Text style={styles.nota}>Il collegamento al cliente viene tolto al salvataggio.</Text>
         ) : null}
 
         <Text style={styles.campoLabel}>Cosa chiede</Text>
