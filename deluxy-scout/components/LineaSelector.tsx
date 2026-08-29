@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: radius.pill,
   },
-  chipOn: { backgroundColor: colors.oro, borderColor: colors.oro },
+  chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   txt: { color: colors.testo, fontWeight: '600', fontSize: 13 },
-  txtOn: { color: colors.bianco, fontWeight: '800' },
+  txtOn: { color: colors.bianco, fontWeight: '700' },
 });

@@ -305,7 +305,7 @@ export function RicercaAffiliazioni({
 
       {loading ? (
         <View style={styles.centro}>
-          <ActivityIndicator color={colors.oro} />
+          <ActivityIndicator color={colors.navy} />
           <Text style={styles.attesa}>Cerco negozi in zona…</Text>
         </View>
       ) : errore ? (
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   head: { gap: 6, paddingBottom: spacing.sm },
   cercaRow: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.lg, alignItems: 'stretch' },
   btnCerca: { flex: 1, backgroundColor: colors.ink, borderRadius: radius.pill, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
-  btnCercaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
+  btnCercaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
   btnOff: { opacity: 0.6 },
   btnSalva: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.bianco, borderWidth: 1.5, borderColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: 14 },
   btnSalvaOn: { backgroundColor: colors.navy, borderColor: colors.navy },
@@ -417,12 +417,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.bianco,
-    borderRadius: radius.m,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     padding: spacing.lg,
   },
-  nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
+  nome: { color: colors.navy, fontWeight: '700', fontSize: 15 },
   meta: { color: colors.testoSoft, fontSize: 12.5, marginTop: 1 },
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   tabMeta: { color: colors.testoSoft, fontSize: 12.5, fontVariant: ['tabular-nums'] },

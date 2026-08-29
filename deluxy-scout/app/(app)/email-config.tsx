@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   introForte: { color: colors.testo, fontWeight: '700' },
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.m,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     padding: spacing.lg,

@@ -84,7 +84,7 @@ export function IscriviSequenzaModal({
           {errore ? <Text style={styles.errore}>{errore}</Text> : null}
 
           {sequenze === null ? (
-            <ActivityIndicator color={colors.oro} style={{ marginVertical: spacing.lg }} />
+            <ActivityIndicator color={colors.navy} style={{ marginVertical: spacing.lg }} />
           ) : sequenze.length === 0 && !errore ? (
             <View style={styles.vuoto}>
               <Text style={styles.vuotoTxt}>
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   rigaSalvo: { opacity: 0.6 },
-  rigaNome: { color: colors.navy, fontWeight: '800', fontSize: 14.5 },
+  rigaNome: { color: colors.navy, fontWeight: '700', fontSize: 14.5 },
   rigaPassi: { color: colors.testoSoft, fontSize: 12, lineHeight: 16, marginTop: 2 },
   btnPri: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 18, paddingVertical: 11 },
   btnPriTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },

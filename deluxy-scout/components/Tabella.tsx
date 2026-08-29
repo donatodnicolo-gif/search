@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.hairline,
   },
   intesta: { backgroundColor: colors.sfondo, paddingVertical: 8 },
-  rigaHover: { backgroundColor: 'rgba(120,120,128,0.05)' },
+  rigaHover: { backgroundColor: colors.fill },
   th: { color: colors.grigio, fontSize: 12, fontWeight: '500' },
   thDestra: { textAlign: 'right' },
   thOn: { color: colors.testo, fontWeight: '700' },
@@ -237,6 +237,6 @@ const styles = StyleSheet.create({
   // La riga dei totali: chiusa da una linea più marcata e senza il bordo
   // sotto, così si legge come la fine dell'elenco e non come un'altra riga.
   rigaTotali: { backgroundColor: colors.sfondo, borderBottomWidth: 0, borderTopWidth: 1, borderTopColor: colors.grigioChiaro },
-  cellaTotale: { color: colors.testo, fontWeight: '800', fontSize: 13 },
+  cellaTotale: { color: colors.testo, fontWeight: '700', fontSize: 13 },
   azioni: { alignItems: 'flex-end' },
 });

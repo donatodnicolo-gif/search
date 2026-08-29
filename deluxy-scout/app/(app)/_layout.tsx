@@ -182,9 +182,10 @@ function VoceMenu({
     <Pressable
       onPress={onPress}
       accessibilityLabel={voce.label}
+      accessibilityState={{ selected: focused }}
       style={[styles.voce, espansa ? styles.voceEspansa : styles.voceRail, focused && styles.voceOn]}
     >
-      <Ionicons name={voce.icon} size={20} color={focused ? colors.oro : colors.testoSoft} />
+      <Ionicons name={voce.icon} size={19} color={focused ? colors.oro : colors.testoSoft} />
       {espansa ? (
         <Text style={[styles.voceLabel, focused && styles.voceLabelOn]} numberOfLines={1}>
           {voce.label}
@@ -500,8 +501,10 @@ const styles = StyleSheet.create({
   voceEspansa: { gap: spacing.sm, paddingHorizontal: 12, paddingVertical: 10 },
   voceRail: { justifyContent: 'center', paddingVertical: 11, marginHorizontal: 10 },
   voceOn: { backgroundColor: colors.fillActive },
-  voceLabel: { fontSize: 14, fontWeight: '600', color: colors.testoSoft, letterSpacing: -0.1 },
-  voceLabelOn: { color: colors.oro, fontWeight: '700' },
+  voceLabel: { fontSize: 13.5, fontWeight: '500', color: colors.testoSoft, letterSpacing: -0.1 },
+  // Attiva = sfondo fill-active + ICONA oro + peso 600: la label resta testo
+  // (DS §sidebar; la label oro raddoppiava l'accento e usciva dal canone).
+  voceLabelOn: { color: colors.testo, fontWeight: '600' },
   railDivider: { height: 1, backgroundColor: colors.grigioChiaro, marginHorizontal: 14, marginBottom: 4, marginTop: 2 },
   // Preferiti annidati sotto "Mappa": rientrati, con filo verticale a sinistra.
   prefWrap: { marginLeft: 24, marginRight: 8, borderLeftWidth: 1, borderLeftColor: colors.grigioChiaro, paddingLeft: 6, marginBottom: 2 },
@@ -553,7 +556,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarTxt: { color: colors.goldStrong, fontWeight: '800', fontSize: 13 },
+  avatarTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 13 },
   utenteNome: { color: colors.testo, fontWeight: '600', fontSize: 13.5, textTransform: 'capitalize' },
   utenteRuolo: { color: colors.testoSoft, fontSize: 11.5 },
   logoutBtn: { padding: 8, borderRadius: radius.s },

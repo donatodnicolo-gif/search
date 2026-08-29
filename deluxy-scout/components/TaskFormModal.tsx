@@ -125,7 +125,7 @@ export function TaskFormModal({
     <Foglio titolo={inModifica ? 'Modifica task' : 'Nuovo task'} onClose={onClose} bloccaSfondo>
           {placeNome ? (
             <Text numberOfLines={3} style={styles.negozio}>
-              <Ionicons name="storefront-outline" size={13} color={colors.oro} /> {placeNome}
+              <Ionicons name="storefront-outline" size={13} color={colors.testoSoft} /> {placeNome}
             </Text>
           ) : null}
 
@@ -246,7 +246,7 @@ export function TaskFormModal({
 }
 
 const styles = StyleSheet.create({
-  negozio: { color: colors.goldStrong, fontWeight: '700', fontSize: 13 },
+  negozio: { color: colors.testoSoft, fontWeight: '600', fontSize: 13 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.testo,
   },
-  label: { fontSize: 11, fontWeight: '800', color: colors.grigio, textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: 11, fontWeight: '700', color: colors.grigio, textTransform: 'uppercase', letterSpacing: 0.5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
     backgroundColor: colors.bianco,
@@ -273,5 +273,5 @@ const styles = StyleSheet.create({
   chipTxtOn: { color: colors.bianco },
   btn: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   btnOff: { opacity: 0.4 },
-  btnTxt: { color: colors.bianco, fontWeight: '800', fontSize: 15 },
+  btnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 15 },
 });

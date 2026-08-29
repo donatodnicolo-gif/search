@@ -131,7 +131,7 @@ export default function LineeInteresse() {
           <View key={l.id} style={styles.card}>
             <View style={styles.rigaLinea}>
               <View style={styles.iconaBox}>
-                <Ionicons name={(l.icona as any) || 'pricetag-outline'} size={18} color={colors.goldStrong} />
+                <Ionicons name={(l.icona as any) || 'pricetag-outline'} size={18} color={colors.testoSoft} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.nome} numberOfLines={1}>{l.nome}</Text>
@@ -151,7 +151,7 @@ export default function LineeInteresse() {
                 <StatusBadge
                   small
                   label={l.in_vetrina ? 'In vetrina' : 'Fuori vetrina'}
-                  colore={l.in_vetrina ? colors.goldStrong : colors.grigio}
+                  colore={l.in_vetrina ? colors.navy : colors.grigio}
                 />
               </Pressable>
               <Pressable style={styles.azioneBtn} hitSlop={6} onPress={() => setEditor({ modo: 'modifica', linea: l })} accessibilityLabel="Modifica linea">
@@ -182,7 +182,7 @@ export default function LineeInteresse() {
             ) : null}
 
             <Pressable style={styles.aggiungiSotto} onPress={() => setEditor({ modo: 'nuova-sotto', parentId: l.id, parentNome: l.nome })}>
-              <Ionicons name="add" size={16} color={colors.goldStrong} />
+              <Ionicons name="add" size={16} color={colors.testoSoft} />
               <Text style={styles.aggiungiSottoTxt}>Aggiungi sottolinea</Text>
             </Pressable>
           </View>
@@ -507,7 +507,7 @@ function EditorModal({ editor, onClose, onSalvato }: { editor: Editor; onClose: 
                 chiederne un preventivo. Spegnila per i servizi interni.
               </Text>
             </View>
-            <Switch value={inVetrina} onValueChange={setInVetrina} trackColor={{ true: colors.goldStrong }} />
+            <Switch value={inVetrina} onValueChange={setInVetrina} trackColor={{ true: colors.ink }} />
           </View>
           {errore ? <Text style={styles.errore}>{errore}</Text> : null}
           <Pressable style={[styles.salva, salvando && styles.salvaOff]} onPress={salva} disabled={salvando}>
@@ -550,15 +550,15 @@ const styles = StyleSheet.create({
   catNome: { color: colors.testo, fontSize: 14, fontWeight: '700' },
   catMeta: { color: colors.grigio, fontSize: 11.5, lineHeight: 16, marginTop: 1 },
   btnSalva: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingVertical: 12, alignItems: 'center', marginTop: 6 },
-  btnSalvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
+  btnSalvaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
   btnOff: { opacity: 0.45 },
   container: { flex: 1, backgroundColor: colors.sfondo },
   list: { padding: spacing.lg, paddingBottom: 96, gap: spacing.sm },
   vuoto: { textAlign: 'center', color: colors.grigio, marginTop: spacing.xxxl, fontStyle: 'italic' },
-  card: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 8 },
+  card: { backgroundColor: colors.bianco, borderRadius: radius.l, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 8 },
   rigaLinea: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  iconaBox: { width: 34, height: 34, borderRadius: radius.s, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
-  nome: { color: colors.testo, fontWeight: '800', fontSize: 15 },
+  iconaBox: { width: 34, height: 34, borderRadius: radius.s, backgroundColor: colors.fill, alignItems: 'center', justifyContent: 'center' },
+  nome: { color: colors.testo, fontWeight: '700', fontSize: 15 },
   pitch: { color: colors.testoSoft, fontSize: 12 },
   azioneBtn: { padding: 2 },
   sottoWrap: { gap: 4, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: colors.grigioChiaro, marginLeft: 8 },
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
   sottoNome: { flex: 1, color: colors.testo, fontSize: 13.5, fontWeight: '600' },
   sottoStandby: { color: colors.grigio, fontSize: 11, fontStyle: 'italic' },
   aggiungiSotto: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },
-  aggiungiSottoTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 13 },
+  aggiungiSottoTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
   // ⚠️ NON è più assoluto: da quando sta dentro `barraSotto` — che è lei ad
   // essere ancorata in basso a destra — un secondo `position:'absolute'` qui
   // lo avrebbe riposizionato DENTRO la barra, cioè sopra l'altro bottone.
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.navy, borderRadius: radius.pill, paddingLeft: 14, paddingRight: 18, paddingVertical: 12,
     shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4,
   },
-  fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
+  fabTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
   label: { fontSize: 12, fontWeight: '700', color: colors.testoSoft, marginTop: 4 },
   input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 11, fontSize: 15, color: colors.testo },
   attivaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4 },
@@ -584,5 +584,5 @@ const styles = StyleSheet.create({
   errore: { color: colors.errore, fontSize: 13 },
   salva: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   salvaOff: { opacity: 0.5 },
-  salvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 15 },
+  salvaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 15 },
 });

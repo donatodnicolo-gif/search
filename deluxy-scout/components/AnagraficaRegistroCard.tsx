@@ -59,7 +59,7 @@ export function AnagraficaRegistroCard({
       <View style={[styles.card, compatta && styles.cardCompatta]}>
         <View style={styles.headRow}>
           {compatta ? null : <Text style={styles.titolo}>Anagrafica dal registro</Text>}
-          <ActivityIndicator size="small" color={colors.oro} />
+          <ActivityIndicator size="small" color={colors.navy} />
         </View>
       </View>
     );
@@ -145,7 +145,7 @@ export function AnagraficaRegistroCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.m,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     padding: spacing.lg,
@@ -154,18 +154,18 @@ const styles = StyleSheet.create({
   },
   cardCompatta: { borderWidth: 0, backgroundColor: 'transparent', padding: 0, marginTop: spacing.sm, gap: 6 },
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  titolo: { fontSize: 12, fontWeight: '800', color: colors.oro, letterSpacing: 0.6, textTransform: 'uppercase' },
+  titolo: { fontSize: 11, fontWeight: '700', color: colors.testoSoft, letterSpacing: 0.6, textTransform: 'uppercase' },
   probabile: { fontSize: 11, color: colors.grigio, fontStyle: 'italic' },
   vuoto: { color: colors.grigio, fontStyle: 'italic', fontSize: 13 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.sfondo, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 3 },
   dot: { width: 7, height: 7, borderRadius: 4 },
-  badgeTxt: { fontWeight: '800', fontSize: 12 },
+  badgeTxt: { fontWeight: '700', fontSize: 12 },
   categoria: { color: colors.testoSoft, fontWeight: '700', fontSize: 12 },
   account: { color: colors.grigio, fontSize: 12 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
-  chipTxt: { color: colors.goldStrong, fontWeight: '800', fontSize: 12 },
+  chip: { backgroundColor: colors.fill, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
+  chipTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 12 },
   notaInteressi: { color: colors.grigio, fontSize: 12, fontStyle: 'italic' },
   recapiti: { gap: 2 },
   recapito: { color: colors.testoSoft, fontSize: 13 },

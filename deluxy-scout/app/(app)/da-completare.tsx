@@ -580,7 +580,7 @@ function RigaFollowup({ d, onPress }: { d: TrattativaConLuogo; onPress: () => vo
             size={13}
             color={sc.ritardo ? colors.errore : colors.testoSoft}
           />
-          <Text style={[styles.meta, sc.ritardo && { color: colors.errore, fontWeight: '800' }]} numberOfLines={1}>
+          <Text style={[styles.meta, sc.ritardo && { color: colors.errore, fontWeight: '700' }]} numberOfLines={1}>
             {sc.data ? `${sc.data} · ${sc.txt}` : sc.txt}
           </Text>
         </View>
@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     ...shadow.card,
   },
-  icona: { width: 46, height: 46, borderRadius: radius.m, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
+  icona: { width: 46, height: 46, borderRadius: radius.m, backgroundColor: colors.fill, alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1, minWidth: 0, gap: 3 },
   // Il badge "In ritardo" scende sotto quando il nome non ci sta: prima si
   // spartivano la riga e del negozio restava solo "Moncler…".
@@ -660,5 +660,5 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
   metaSep: { color: colors.grigioChiaro, fontSize: 13 },
   nota: { color: colors.grigio, fontSize: 12, fontStyle: 'italic' },
-  freccia: { color: colors.oro, fontWeight: '800', fontSize: 14 },
+  freccia: { color: colors.testoSoft, fontWeight: '600', fontSize: 14 },
 });

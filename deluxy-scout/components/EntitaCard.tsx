@@ -157,7 +157,7 @@ export function EntitaCard({
 function Intestazione({ nome }: { nome?: string | null }) {
   return (
     <View style={styles.head}>
-      <Ionicons name="business-outline" size={16} color={colors.goldStrong} />
+      <Ionicons name="business-outline" size={16} color={colors.testoSoft} />
       <Text style={styles.titolo}>Entità{nome ? ` · ${nome}` : ''}</Text>
     </View>
   );
@@ -174,16 +174,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   head: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  titolo: { color: colors.testo, fontWeight: '800', fontSize: 14 },
+  titolo: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   totaleBox: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 4 },
   totaleLbl: { color: colors.grigio, fontSize: 12, fontWeight: '700' },
-  totaleVal: { color: colors.grigio, fontSize: 14, fontWeight: '800' },
+  totaleVal: { color: colors.grigio, fontSize: 14, fontWeight: '700' },
   nota: { color: colors.grigio, fontSize: 11.5, lineHeight: 16 },
   errore: { color: colors.errore, fontSize: 12, marginTop: 4 },
   sezione: {
     color: colors.grigio,
     fontSize: 10.5,
-    fontWeight: '800',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
     marginTop: 8,

@@ -77,7 +77,7 @@ export function SceltaContatto({
   if (!aperto) {
     return scelto ? (
       <View style={styles.sceltoRiga}>
-        <Ionicons name="person-outline" size={14} color={colors.goldStrong} />
+        <Ionicons name="person-outline" size={14} color={colors.testoSoft} />
         <View style={{ flex: 1 }}>
           <Text style={styles.sceltoNome} numberOfLines={1}>
             {scelto.nome}
@@ -145,7 +145,7 @@ export function SceltaContatto({
               {[c.place_nome, c.telefono, c.email].filter(Boolean).join(' · ') || 'nessun recapito'}
             </Text>
           </View>
-          {c.id === scelto?.id ? <Ionicons name="checkmark" size={16} color={colors.goldStrong} /> : null}
+          {c.id === scelto?.id ? <Ionicons name="checkmark" size={16} color={colors.successo} /> : null}
         </Pressable>
       ))}
     </View>

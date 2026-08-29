@@ -30,7 +30,7 @@ const ESITO_COLORE: Record<string, string> = {
   interessato: colors.successo,
   da_richiamare: colors.attenzione,
   non_target: colors.grigio,
-  chiuso: colors.oro,
+  chiuso: colors.successo, // concluso bene = green, mai oro (Libro §5)
 };
 
 export default function VenditoreDettaglio() {
@@ -127,7 +127,7 @@ export default function VenditoreDettaglio() {
                     setModificaNome(true);
                   }}
                 >
-                  <Ionicons name="create-outline" size={20} color={colors.oro} />
+                  <Ionicons name="create-outline" size={20} color={colors.testoSoft} />
                 </Pressable>
               ) : null}
             </View>
@@ -176,7 +176,7 @@ function GiornoCard({
       <View style={styles.kpiRow}>
         {g.interessati ? <Kpi label="interessati" n={g.interessati} colore={colors.successo} /> : null}
         {g.daRichiamare ? <Kpi label="da richiamare" n={g.daRichiamare} colore={colors.attenzione} /> : null}
-        {g.chiusi ? <Kpi label="chiusi" n={g.chiusi} colore={colors.oro} /> : null}
+        {g.chiusi ? <Kpi label="chiusi" n={g.chiusi} colore={colors.successo} /> : null}
         {g.nonTarget ? <Kpi label="non target" n={g.nonTarget} colore={colors.grigio} /> : null}
         {g.contatti ? <Kpi label="contatti" n={g.contatti} colore={colors.navy} /> : null}
       </View>
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     borderColor: colors.grigioChiaro,
   },
   nomeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  nome: { flexShrink: 1, color: colors.navy, fontWeight: '900', fontSize: 22, letterSpacing: -0.4 },
+  nome: { flexShrink: 1, color: colors.navy, fontWeight: '600', fontSize: 22, letterSpacing: -0.5 },
   email: { color: colors.testoSoft, fontSize: 13, marginTop: 2 },
   editRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
   editInput: {
@@ -275,11 +275,11 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   giornoHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: spacing.sm },
-  giornoData: { color: colors.navy, fontWeight: '800', fontSize: 16, textTransform: 'capitalize' },
+  giornoData: { color: colors.navy, fontWeight: '700', fontSize: 16, textTransform: 'capitalize' },
   giornoTot: { color: colors.testoSoft, fontSize: 13, fontWeight: '600' },
   kpiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg, marginBottom: spacing.sm },
   kpi: { minWidth: 56 },
-  kpiN: { fontWeight: '800', fontSize: 18 },
+  kpiN: { fontWeight: '700', fontSize: 18 },
   kpiL: { color: colors.testoSoft, fontSize: 11, fontWeight: '600' },
 
   visita: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 9, borderTopWidth: 1, borderTopColor: colors.grigioChiaro },

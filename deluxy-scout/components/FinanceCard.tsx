@@ -45,7 +45,7 @@ export function FinanceCard({ nomeCliente, mostra }: { nomeCliente: string; most
     return (
       <View style={styles.card}>
         <View style={styles.head}>
-          <Ionicons name="trending-up-outline" size={16} color={colors.goldStrong} />
+          <Ionicons name="trending-up-outline" size={16} color={colors.testoSoft} />
           <Text style={styles.titolo}>Finance</Text>
         </View>
         <ActivityIndicator color={colors.testoSoft} size="small" style={{ alignSelf: 'flex-start', marginTop: 4 }} />
@@ -62,7 +62,7 @@ export function FinanceCard({ nomeCliente, mostra }: { nomeCliente: string; most
   return (
     <View style={styles.card}>
       <View style={styles.head}>
-        <Ionicons name={daFic ? 'document-text-outline' : 'trending-up-outline'} size={16} color={colors.goldStrong} />
+        <Ionicons name={daFic ? 'document-text-outline' : 'trending-up-outline'} size={16} color={colors.testoSoft} />
         <Text style={styles.titolo}>{daFic ? 'Fatture in Cloud' : 'Finance'}{r?.anno ? ` · ${r.anno}` : ''}</Text>
       </View>
 
@@ -119,19 +119,19 @@ const styles = StyleSheet.create({
   titolo: { color: colors.testo, fontWeight: '700', fontSize: 15, letterSpacing: -0.2 },
   kpiRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing.sm },
   kpiLabel: { color: colors.testoSoft, fontSize: 12, fontWeight: '600' },
-  kpiValore: { color: colors.testo, fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginTop: 1 },
+  kpiValore: { color: colors.testo, fontSize: 22, fontWeight: '700', letterSpacing: -0.5, marginTop: 1 },
   varBox: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  varTxt: { fontWeight: '800', fontSize: 14 },
+  varTxt: { fontWeight: '700', fontSize: 14 },
   varNota: { color: colors.grigio, fontSize: 11, marginLeft: 2 },
   chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 76, marginTop: 4 },
   barCol: { flex: 1, alignItems: 'center', gap: 3 },
   barTrack: { flex: 1, width: '100%', justifyContent: 'flex-end', backgroundColor: colors.sfondo, borderRadius: 4, overflow: 'hidden' },
-  bar: { width: '100%', backgroundColor: colors.gold, borderRadius: 4, minHeight: 2 },
+  bar: { width: '100%', backgroundColor: colors.navy, borderRadius: 4, minHeight: 2 },
   barLabel: { color: colors.grigio, fontSize: 9, fontWeight: '600' },
   nota: { color: colors.grigio, fontSize: 11, fontStyle: 'italic' },
   anniBox: { borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: 6, gap: 3 },
   annoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   annoLbl: { color: colors.testoSoft, fontWeight: '700', fontSize: 13, width: 44 },
-  annoVal: { color: colors.testo, fontWeight: '800', fontSize: 13, flex: 1 },
+  annoVal: { color: colors.testo, fontWeight: '700', fontSize: 13, flex: 1 },
   annoNota: { color: colors.grigio, fontSize: 11 },
 });

@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   scelto: { color: colors.testo, fontWeight: '700', fontSize: 13.5, marginTop: spacing.lg },
   errore: { color: colors.errore, fontWeight: '600', marginTop: spacing.sm },
   azioni: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xxl },
-  btn: { flex: 1, borderRadius: radius.m, paddingVertical: 15, alignItems: 'center' },
+  btn: { flex: 1, borderRadius: radius.pill, paddingVertical: 15, alignItems: 'center' },
   btnSec: { backgroundColor: colors.fill },
   btnSecTxt: { color: colors.testo, fontWeight: '600' },
   spento: { opacity: 0.4 },

@@ -723,7 +723,7 @@ function Card({
 
       {/* Dati LIVE dal registro Anagrafiche (stato, interessi, referenti) — on demand. */}
       <Pressable style={styles.statoRow} onPress={() => setApriRegistro((v) => !v)}>
-        <Ionicons name="library-outline" size={15} color={colors.oro} />
+        <Ionicons name="library-outline" size={15} color={colors.testoSoft} />
         <Text style={styles.statoTxt}>Registro Anagrafiche</Text>
         <Ionicons name={apriRegistro ? 'chevron-up' : 'chevron-down'} size={15} color={colors.grigio} />
       </Pressable>
@@ -763,7 +763,7 @@ const styles = StyleSheet.create({
   },
   // Selezionato: tinta appena accennata + filo oro a sinistra, non un blocco
   // di colore che copre la riga.
-  trSel: { backgroundColor: colors.goldSoft, borderLeftWidth: 3, borderLeftColor: colors.gold },
+  trSel: { backgroundColor: colors.fillActive, borderLeftWidth: 3, borderLeftColor: colors.ink }, // selezione = fill-active, la stella resta l'accento
   tr: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: 11 },
   trHover: { backgroundColor: colors.fill },
   tfoot: {
@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
   telTab: { color: colors.testo, fontSize: 13, fontVariant: ['tabular-nums'] },
   cellaVuota: { color: colors.grigio, fontSize: 13 },
   tdStato: { flex: 1.5, minWidth: 122, flexDirection: 'row', alignItems: 'center' },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 4 },
   pillTxt: { fontSize: 12, fontWeight: '600', maxWidth: 108 },
   // Le date a destra e con cifre a larghezza fissa: incolonnate si confrontano
   // con l'occhio, non leggendole una per una.
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
   tdAzioni: { width: 88, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
   btnChiamaTab: {
     backgroundColor: colors.ink,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     width: 26,
     height: 26,
     alignItems: 'center',
@@ -853,12 +853,12 @@ const styles = StyleSheet.create({
   headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.sm },
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.m,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     padding: spacing.lg,
   },
-  cardSel: { borderColor: colors.oro, backgroundColor: colors.goldSoft },
+  cardSel: { borderColor: colors.ink, backgroundColor: colors.fillActive },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   selBtn: {
     width: 38,
@@ -870,8 +870,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 1,
   },
-  selBtnOn: { backgroundColor: colors.oro, borderColor: colors.oro },
-  nome: { fontSize: 16, fontWeight: '800', color: colors.navy },
+  selBtnOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  nome: { fontSize: 16, fontWeight: '700', color: colors.navy },
   meta: { color: colors.testoSoft, fontSize: 13 },
   metaLeggero: { color: colors.grigio, fontSize: 12 },
   tel: { color: colors.successo, fontSize: 14, fontWeight: '700', marginTop: 3 },

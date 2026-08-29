@@ -236,7 +236,7 @@ export function SceltaCliente({
             ) : null}
           </View>
           {n.id === attuale.placeId ? (
-            <Ionicons name="checkmark" size={16} color={colors.goldStrong} />
+            <Ionicons name="checkmark" size={16} color={colors.successo} />
           ) : null}
         </Pressable>
       ))}
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   },
   gruppo: {
     color: colors.grigio,
-    fontWeight: '800',
+    fontWeight: '700',
     fontSize: 10.5,
     textTransform: 'uppercase',
     letterSpacing: 0.4,

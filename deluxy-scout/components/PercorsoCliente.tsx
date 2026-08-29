@@ -46,7 +46,7 @@ export function PercorsoCliente({
           const fatto = i < corrente; // tappa superata
           const attivo = i === corrente; // tappa attuale
           const cliente = attivo && i === 3;
-          const coloreDot = cliente ? colors.successo : attivo ? colors.gold : fatto ? colors.ink : colors.grigioChiaro;
+          const coloreDot = cliente ? colors.successo : attivo ? colors.ink : fatto ? colors.ink : colors.grigioChiaro;
           return (
             <View key={t} style={styles.step}>
               <View style={styles.dotWrap}>
@@ -92,14 +92,14 @@ const styles = StyleSheet.create({
   dotAttivo: {
     borderWidth: 2,
     borderColor: colors.bianco,
-    shadowColor: colors.gold,
+    shadowColor: colors.ink,
     shadowOpacity: 0.5,
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 0 },
     elevation: 2,
   },
   label: { fontSize: 10.5, color: colors.grigio, marginTop: 4, fontWeight: '600' },
-  labelAttivo: { color: colors.testo, fontWeight: '800' },
+  labelAttivo: { color: colors.testo, fontWeight: '700' },
   labelFatto: { color: colors.testoSoft },
   stadioTxt: { fontSize: 11, color: colors.testoSoft, fontWeight: '700', marginTop: 4, alignSelf: 'center' },
   persoRow: {

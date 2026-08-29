@@ -25,7 +25,9 @@ export function BarraMobile() {
   return (
     <View style={[styles.barra, { paddingBottom: Math.max(insets.bottom, 4) }]}>
       {VOCI.map((v) => {
-        const attiva = pathname === v.rotta;
+        // Prefisso, non uguaglianza: dentro un dettaglio raggiunto da una tab
+        // l'indicatore attivo non si spegne (Libro §2).
+        const attiva = pathname === v.rotta || pathname.startsWith(`${v.rotta}/`);
         return (
           <Pressable
             key={v.rotta}
@@ -33,6 +35,7 @@ export function BarraMobile() {
             onPress={() => router.navigate(v.rotta as any)}
             accessibilityRole="button"
             accessibilityLabel={v.label}
+            accessibilityState={{ selected: attiva }}
           >
             <Ionicons name={v.icon} size={22} color={attiva ? colors.oro : colors.testoSoft} />
             <Text style={[styles.label, attiva && styles.labelOn]} numberOfLines={1}>{v.label}</Text>
@@ -58,6 +61,7 @@ const styles = StyleSheet.create({
   },
   // Tocco da 44pt e passa: tutta la colonna è premibile, non solo l'icona.
   voce: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 4 },
-  label: { fontSize: 10.5, fontWeight: '600', color: colors.testoSoft },
-  labelOn: { color: colors.oro, fontWeight: '700' },
+  label: { fontSize: 11.5, fontWeight: '500', color: colors.testoSoft },
+  // Attiva = icona oro + peso: la label resta testo (DS: oro solo accento).
+  labelOn: { color: colors.testo, fontWeight: '600' },
 });

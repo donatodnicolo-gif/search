@@ -1087,7 +1087,7 @@ function TrattativaModal({
                     }}
                     hitSlop={8}
                   >
-                    <Ionicons name="swap-horizontal" size={20} color={colors.oro} />
+                    <Ionicons name="swap-horizontal" size={20} color={colors.testoSoft} />
                   </Pressable>
                 ) : null}
               </View>
@@ -1358,7 +1358,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 9,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     backgroundColor: colors.fill,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
@@ -1444,17 +1444,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dealHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  dealLinea: { flex: 1, fontWeight: '800', color: colors.navy, fontSize: 15 },
-  dealValore: { color: colors.goldStrong, fontWeight: '800', fontSize: 15 },
+  dealLinea: { flex: 1, fontWeight: '700', color: colors.navy, fontSize: 15 },
+  dealValore: { color: colors.navy, fontWeight: '700', fontSize: 15 },
   dealValoreVuoto: { color: colors.grigio, fontWeight: '600', fontSize: 12 },
   dealMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   lineaTag: {
-    backgroundColor: colors.goldSoft,
+    backgroundColor: colors.fill,
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 3,
   },
-  lineaTagTxt: { color: colors.goldStrong, fontWeight: '800', fontSize: 12 },
+  lineaTagTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 12 },
   regBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1465,7 +1465,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   regDot: { width: 7, height: 7, borderRadius: 4 },
-  regTxt: { fontWeight: '800', fontSize: 12 },
+  regTxt: { fontWeight: '700', fontSize: 12 },
   hs: { color: colors.successo, fontWeight: '700', fontSize: 12 },
   origine: { color: colors.grigio, fontWeight: '600', fontSize: 12 },
   nextAction: { color: colors.testoSoft, fontSize: 13 },
@@ -1491,12 +1491,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     ...shadow.float,
   },
-  fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
+  fabTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
 
   // Modal / sheet
   // Il padding esterno lo dà il Foglio: qui resta solo il ritmo fra i campi.
   sheetBody: { gap: spacing.xs, paddingBottom: spacing.sm },
-  campoLabel: { fontSize: 12, fontWeight: '800', color: colors.testoSoft, marginTop: spacing.sm, marginBottom: 4 },
+  campoLabel: { fontSize: 12, fontWeight: '700', color: colors.testoSoft, marginTop: spacing.sm, marginBottom: 4 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
@@ -1527,12 +1527,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.bianco,
     borderWidth: 1,
-    borderColor: colors.oro,
+    borderColor: colors.grigioChiaro,
     borderRadius: radius.m,
     paddingHorizontal: spacing.lg,
     paddingVertical: 10,
   },
-  placeSelNome: { fontWeight: '800', color: colors.testo, fontSize: 15 },
+  placeSelNome: { fontWeight: '700', color: colors.testo, fontSize: 15 },
   placeSelInd: { color: colors.testoSoft, fontSize: 12 },
   contattiBox: {
     backgroundColor: colors.bianco,
@@ -1543,7 +1543,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     gap: 2,
   },
-  contattiTitolo: { fontSize: 12, fontWeight: '800', color: colors.testoSoft, marginBottom: 2 },
+  contattiTitolo: { fontSize: 12, fontWeight: '700', color: colors.testoSoft, marginBottom: 2 },
   contattoRiga: { fontSize: 13, color: colors.testo },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
@@ -1560,7 +1560,7 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
-  scadenzaSel: { color: colors.goldStrong, fontWeight: '700', fontSize: 12, marginTop: 4 },
+  scadenzaSel: { color: colors.testoSoft, fontWeight: '600', fontSize: 12, marginTop: 4 },
   dataScaduta: { color: colors.errore, fontWeight: '700' },
   notaRegistro: {
     color: colors.testoSoft,
@@ -1579,7 +1579,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   salvaDisabled: { opacity: 0.4 },
-  salvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 16 },
+  salvaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 16 },
   // Elimina: in fondo al form e defilato — è distruttivo, non deve competere
   // col bottone di salvataggio.
   elimina: {
@@ -1591,7 +1591,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: 'rgba(179,38,30,0.35)',
+    borderColor: colors.erroreSoft,
   },
   eliminaTxt: { color: colors.errore, fontWeight: '700', fontSize: 14 },
 });

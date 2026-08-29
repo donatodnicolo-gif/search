@@ -243,7 +243,7 @@ interface VenditaSceglibile {
 }
 const ETICHETTA_VENDITA: Record<TipoVendita, { label: string; icona: any; colore: string }> = {
   trattativa: { label: 'Trattativa', icona: 'briefcase-outline', colore: colors.navy },
-  richiesta: { label: 'Richiesta', icona: 'chatbubble-ellipses-outline', colore: colors.goldStrong },
+  richiesta: { label: 'Richiesta', icona: 'chatbubble-ellipses-outline', colore: colors.testoSoft }, // categoria, non stato: neutra (Libro §5)
   ordine: { label: 'Ordine', icona: 'receipt-outline', colore: colors.successo },
 };
 
@@ -531,7 +531,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
             setCliente(null);
           }}
         >
-          <Ionicons name={ETICHETTA_VENDITA[venditaScelta.tipo].icona} size={16} color={colors.goldStrong} />
+          <Ionicons name={ETICHETTA_VENDITA[venditaScelta.tipo].icona} size={16} color={colors.testoSoft} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.dealSceltaNome} numberOfLines={1}>
               {venditaScelta.cliente}
@@ -540,7 +540,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
               {ETICHETTA_VENDITA[venditaScelta.tipo].label} · {venditaScelta.dettaglio}
             </Text>
           </View>
-          <Ionicons name="swap-horizontal" size={18} color={colors.oro} />
+          <Ionicons name="swap-horizontal" size={18} color={colors.testoSoft} />
         </Pressable>
       ) : caricoDeal ? (
         <Text style={styles.aiuto}>Carico trattative, richieste clienti e ordini…</Text>
@@ -688,7 +688,7 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
               {contoUnitario ? (
                 <Text style={styles.aiuto}>
                   {scriviImporto(contoUnitario.unitario)} × {contoUnitario.quanti} ={' '}
-                  <Text style={{ fontWeight: '800' }}>€ {scriviImporto(contoUnitario.totale)}</Text> — è questo
+                  <Text style={{ fontWeight: '700' }}>€ {scriviImporto(contoUnitario.totale)}</Text> — è questo
                   che finisce nel confronto e nel margine.
                 </Text>
               ) : (
@@ -1172,7 +1172,7 @@ function NuovoPreventivo({ lavoroId, onFatto }: { lavoroId: string; onFatto: () 
       <Text style={styles.label}>Chi fa il prezzo *</Text>
       {daRegistro ? (
         <Pressable style={styles.dealScelta} onPress={() => setDaRegistro(null)}>
-          <Ionicons name="business-outline" size={16} color={colors.goldStrong} />
+          <Ionicons name="business-outline" size={16} color={colors.testoSoft} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.dealSceltaNome} numberOfLines={1}>{daRegistro.nome}</Text>
             <Text style={styles.aiuto} numberOfLines={1}>
@@ -1181,7 +1181,7 @@ function NuovoPreventivo({ lavoroId, onFatto }: { lavoroId: string; onFatto: () 
                 .join(' · ') || 'Dal registro Anagrafiche'}
             </Text>
           </View>
-          <Ionicons name="swap-horizontal" size={18} color={colors.oro} />
+          <Ionicons name="swap-horizontal" size={18} color={colors.testoSoft} />
         </Pressable>
       ) : (
         <>
@@ -1290,7 +1290,7 @@ function NuovoPreventivo({ lavoroId, onFatto }: { lavoroId: string; onFatto: () 
           {conto ? (
             <Text style={styles.aggiungiNota}>
               {scriviImporto(conto.unitario)} × {conto.quanti} ={' '}
-              <Text style={{ fontWeight: '800' }}>€ {scriviImporto(conto.totale)}</Text> — è questo che entra nel
+              <Text style={{ fontWeight: '700' }}>€ {scriviImporto(conto.totale)}</Text> — è questo che entra nel
               confronto e nel margine.
             </Text>
           ) : (
@@ -1364,15 +1364,15 @@ const styles = StyleSheet.create({
   list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 96 },
   headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg },
   errore: { color: colors.errore, fontWeight: '600', fontSize: 13, backgroundColor: colors.bianco, borderRadius: radius.m, padding: spacing.lg },
-  titoloSez: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
+  titoloSez: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
   filtroRiga: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg, gap: spacing.sm },
-  filtroTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12.5 },
+  filtroTxt: { color: colors.navy, fontWeight: '600', fontSize: 12.5 },
   // Ricerca e periodo dell'elenco (Libro v1.9 §8-bis): stessi tratti delle
   // schermate sorelle (richieste-clienti), per non avere due grafie.
   search: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: 12, paddingVertical: 10, color: colors.testo, fontSize: 14 },
   chipsRiga: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   form: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 6 },
-  formTitolo: { color: colors.navy, fontWeight: '800', fontSize: 16 },
+  formTitolo: { color: colors.navy, fontWeight: '700', fontSize: 16 },
   label: { color: colors.navy, fontWeight: '700', fontSize: 13, marginTop: spacing.sm },
   // Spiega perché un campo è vuoto o cosa manca: si legge come una frase, non
   // come un errore.
@@ -1380,8 +1380,8 @@ const styles = StyleSheet.create({
   prevForm: { gap: 4, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.grigioChiaro },
   spuntaRiga: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 8 },
   spuntaTxt: { flex: 1, color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
-  dealScelta: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.goldSoft, borderRadius: radius.m, padding: 10, marginTop: 4 },
-  dealSceltaNome: { color: colors.testo, fontWeight: '800', fontSize: 14 },
+  dealScelta: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.fillActive, borderRadius: radius.m, padding: 10, marginTop: 4 },
+  dealSceltaNome: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   dealRiga: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, padding: 10 },
   dealRigaNome: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
   avvisoTrattativa: { color: colors.errore, fontSize: 12, lineHeight: 17, marginTop: 4 },
@@ -1400,11 +1400,11 @@ const styles = StyleSheet.create({
   // arriva ai bordi e il colore dell'hover copre tutta la scheda invece di
   // lasciare una cornice bianca intorno. `overflow: hidden` perché quel colore
   // deve fermarsi agli angoli arrotondati.
-  card: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, overflow: 'hidden' },
+  card: { backgroundColor: colors.bianco, borderRadius: radius.l, borderWidth: 1, borderColor: colors.grigioChiaro, overflow: 'hidden' },
   cardSommario: { padding: spacing.lg, gap: 5 },
   cardSommarioHover: { backgroundColor: colors.fill },
   cardTesta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  cardNome: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 15 },
+  cardNome: { flex: 1, color: colors.navy, fontWeight: '700', fontSize: 15 },
   cardMeta: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 17 },
   riassunto: { color: colors.testo, fontSize: 13, fontWeight: '600' },
   // Il padding se lo porta da sé, ora che la card non ne ha più; il filo in
@@ -1415,9 +1415,9 @@ const styles = StyleSheet.create({
   prevScelto: { borderColor: colors.successo, backgroundColor: colors.successoSoft },
   prevScartato: { opacity: 0.55 },
   prevTesta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  prevFornitore: { flex: 1, color: colors.testo, fontWeight: '800', fontSize: 14 },
+  prevFornitore: { flex: 1, color: colors.testo, fontWeight: '700', fontSize: 14 },
   prevRiga: { flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' },
-  prevImporto: { color: colors.navy, fontWeight: '800', fontSize: 16 },
+  prevImporto: { color: colors.navy, fontWeight: '700', fontSize: 16 },
   prevBasso: { color: colors.successo, fontWeight: '700', fontSize: 11.5 },
   // «+€X» = quanto costa in più del più basso: token semantico d'attenzione,
   // non l'amber Material di prima (#B7791F, palette-ombra). L'oro non è uno stato.
@@ -1430,7 +1430,7 @@ const styles = StyleSheet.create({
   // testo (~15px). Il padding vale su web e su telefono.
   prevAzione: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, color: colors.testo, fontWeight: '700', fontSize: 12.5 },
   aggiungi: { gap: 8, backgroundColor: colors.sfondo, borderRadius: radius.m, padding: spacing.sm },
-  aggiungiTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
+  aggiungiTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
   aggiungiNota: { color: colors.grigio, fontSize: 11.5, lineHeight: 16 },
   sceltoRiga: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.fill, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 10 },
   sceltoNome: { flex: 1, color: colors.testo, fontWeight: '700', fontSize: 14 },

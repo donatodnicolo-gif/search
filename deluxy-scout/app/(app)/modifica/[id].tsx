@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
   err: { padding: spacing.xxl, color: colors.errore },
-  label: { color: colors.testoSoft, fontWeight: '700', fontSize: 11, letterSpacing: 0.6, textTransform: 'uppercase', marginTop: spacing.xxl, marginBottom: 6 },
+  label: { color: colors.testoSoft, fontWeight: '500', fontSize: 12.5, marginTop: spacing.xxl, marginBottom: 6 },
   hint: { color: colors.grigio, fontSize: 12, marginTop: -2, marginBottom: 8 },
   input: {
     backgroundColor: colors.bianco,

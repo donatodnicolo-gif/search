@@ -214,7 +214,7 @@ export function SegnalazioniCS() {
         presi.has(p.id) ? (
           <StatusBadge small label="Già in lista" colore={COLORE_VISITA.fatta} />
         ) : (
-          <StatusBadge small label="Da prendere" colore={colors.oro} />
+          <StatusBadge small label="Da prendere" colore={colors.attenzione} />
         ),
     },
   ];
@@ -281,7 +281,7 @@ export function SegnalazioniCS() {
                 preso ? (
                   <StatusBadge small label="Già in lista" colore={COLORE_VISITA.fatta} />
                 ) : (
-                  <StatusBadge small label="Da prendere" colore={colors.oro} />
+                  <StatusBadge small label="Da prendere" colore={colors.attenzione} />
                 )
               }
               extra={

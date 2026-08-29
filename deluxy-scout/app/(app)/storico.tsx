@@ -237,7 +237,7 @@ export default function Storico() {
             accessibilityLabel={`Apri la visita da ${item.place_nome}`}
           >
             <View style={styles.icona}>
-              <Ionicons name="location-outline" size={16} color={colors.goldStrong} />
+              <Ionicons name="location-outline" size={16} color={colors.testoSoft} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text numberOfLines={3} style={styles.negozio}>{item.place_nome}</Text>
@@ -310,18 +310,18 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy, color: colors.bianco },
   list: { padding: spacing.lg, gap: spacing.sm },
   giornoHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.sm, marginBottom: 4 },
-  giornoTitolo: { color: colors.testo, fontWeight: '800', fontSize: 14, letterSpacing: -0.2, textTransform: 'capitalize' },
+  giornoTitolo: { color: colors.testo, fontWeight: '700', fontSize: 14, letterSpacing: -0.2, textTransform: 'capitalize' },
   giornoConta: { color: colors.grigio, fontSize: 12, fontWeight: '700' },
-  riga: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, marginBottom: spacing.sm },
-  icona: { width: 34, height: 34, borderRadius: radius.s, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
-  negozio: { color: colors.navy, fontWeight: '800', fontSize: 15 },
+  riga: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.bianco, borderRadius: radius.l, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, marginBottom: spacing.sm },
+  icona: { width: 34, height: 34, borderRadius: radius.s, backgroundColor: colors.fill, alignItems: 'center', justifyContent: 'center' },
+  negozio: { color: colors.navy, fontWeight: '700', fontSize: 15 },
   via: { color: colors.testoSoft, fontSize: 13, marginTop: 1 },
   metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   accountTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.sfondo, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 },
   accountTxt: { color: colors.testoSoft, fontSize: 12, fontWeight: '700' },
   esitoTag: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dot: { width: 7, height: 7, borderRadius: 4 },
-  esitoTxt: { fontWeight: '800', fontSize: 12 },
+  esitoTxt: { fontWeight: '700', fontSize: 12 },
   ora: { color: colors.grigio, fontSize: 12, marginLeft: 'auto' },
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   tabOra: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },

@@ -24,7 +24,7 @@ const ESITO_COLORE: Record<string, string> = {
   interessato: colors.successo,
   da_richiamare: colors.attenzione,
   non_target: colors.grigio,
-  chiuso: colors.oro,
+  chiuso: colors.successo, // concluso bene = green, mai oro (Libro §5)
 };
 
 export default function Team() {
@@ -214,12 +214,12 @@ const styles = StyleSheet.create({
   },
   vHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm, gap: spacing.sm },
   vHeadRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  vNome: { flexShrink: 1, color: colors.navy, fontWeight: '800', fontSize: 17, letterSpacing: -0.3 },
+  vNome: { flexShrink: 1, color: colors.navy, fontWeight: '700', fontSize: 17, letterSpacing: -0.3 },
   vUltima: { color: colors.testoSoft, fontSize: 12, fontWeight: '600' },
   vStats: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },
   metric: { minWidth: 64 },
-  metricVal: { color: colors.navy, fontWeight: '800', fontSize: 20 },
-  metricValForte: { color: colors.oro },
+  metricVal: { color: colors.navy, fontWeight: '700', fontSize: 20 },
+  metricValForte: { color: colors.navy },
   metricLbl: { color: colors.testoSoft, fontSize: 11, fontWeight: '600' },
 
   feedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 8 },

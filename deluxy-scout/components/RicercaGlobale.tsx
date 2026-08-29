@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   gruppo: {
     color: colors.testoSoft,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     marginTop: 8,

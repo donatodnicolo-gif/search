@@ -90,7 +90,7 @@ export function MailContattoCard({ emails }: { emails: string[] }) {
   return (
     <View style={styles.card}>
       <View style={styles.head}>
-        <Ionicons name="mail-outline" size={16} color={colors.goldStrong} />
+        <Ionicons name="mail-outline" size={16} color={colors.testoSoft} />
         <Text style={styles.titolo}>Mail{msg.length ? ` · ${msg.length}` : ''}</Text>
       </View>
 
@@ -155,11 +155,11 @@ const styles = StyleSheet.create({
   mittente: { flex: 1, color: colors.testo, fontWeight: '700', fontSize: 13 },
   data: { color: colors.grigio, fontSize: 12 },
   oggetto: { color: colors.testoSoft, fontSize: 13.5 },
-  nonLetto: { color: colors.testo, fontWeight: '800' },
+  nonLetto: { color: colors.testo, fontWeight: '700' },
   anteprima: { color: colors.grigio, fontSize: 12.5 },
   serverRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 4 },
   vuoto: { color: colors.grigio, fontSize: 13, fontStyle: 'italic' },
-  btnAltri: { alignSelf: 'flex-start', marginTop: 4, borderWidth: 1.5, borderColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7 },
+  btnAltri: { alignSelf: 'flex-start', marginTop: 4, borderWidth: 0, backgroundColor: colors.fill, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7 },
   btnAltriTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
   nota: { color: colors.grigio, fontSize: 11, fontStyle: 'italic' },
 });

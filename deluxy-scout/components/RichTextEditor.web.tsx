@@ -75,7 +75,7 @@ export function RichTextEditor({ valueHtml, onChangeHtml, placeholder, minHeight
         <button
           type="button"
           title="Inserisci variabile"
-          style={{ ...BTN, width: 'auto', paddingLeft: 8, paddingRight: 8, fontWeight: 600, color: colors.goldStrong }}
+          style={{ ...BTN, width: 'auto', paddingLeft: 8, paddingRight: 8, fontWeight: 600, color: colors.navy }}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => setMenuVar((v) => !v)}
         >
@@ -87,7 +87,7 @@ export function RichTextEditor({ valueHtml, onChangeHtml, placeholder, minHeight
             {VARIABILI_CONTATTO.map((v) => (
               <button key={v.chiave} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => inserisciVariabile(v.chiave)}
                 style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', background: 'transparent', cursor: 'pointer', padding: '7px 8px', borderRadius: 6, fontSize: 13, color: colors.testo }}>
-                <b style={{ color: colors.goldStrong }}>[{v.chiave}]</b> — {v.label}
+                <b style={{ color: colors.navy }}>[{v.chiave}]</b> — {v.label}
               </button>
             ))}
             <div style={{ height: 1, background: colors.grigioChiaro, margin: '4px 0' }} />
@@ -116,7 +116,7 @@ export function RichTextEditor({ valueHtml, onChangeHtml, placeholder, minHeight
           fontFamily: 'var(--font-sans)',
         }}
       />
-      <style>{`[contenteditable][data-placeholder]:empty:before{content:attr(data-placeholder);color:${colors.grigio};} [contenteditable] a{color:${colors.goldStrong};}`}</style>
+      <style>{`[contenteditable][data-placeholder]:empty:before{content:attr(data-placeholder);color:${colors.grigio};} [contenteditable] a{color:${colors.navy};}`}</style>
     </div>
   );
 }

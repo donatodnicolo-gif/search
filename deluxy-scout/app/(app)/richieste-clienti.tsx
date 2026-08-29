@@ -105,7 +105,7 @@ function vistaDiRichiesta(s: StatoRichiestaCliente): VistaRichiesta {
 }
 
 const COLORE_STATO: Record<StatoRichiestaCliente, string> = {
-  nuova: colors.oro,
+  nuova: colors.attenzione, // «attende un'azione» = orange, mai oro (Libro §5)
   // Il preventivo è FUORI: la palla è del cliente, e si vede a colpo d'occhio
   // che non è più roba da lavorare ma da sollecitare.
   preventivo_inviato: colors.blue,
@@ -1426,14 +1426,14 @@ const styles = StyleSheet.create({
   // Schede (telefono)
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.m,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     padding: spacing.lg,
     gap: 8,
   },
   cardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  nome: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 15 },
+  nome: { flex: 1, color: colors.navy, fontWeight: '700', fontSize: 15 },
   descrizione: { color: colors.testo, fontSize: 13.5, lineHeight: 18 },
   meta: { color: colors.testoSoft, fontSize: 12.5 },
   // Tabella (desktop)
@@ -1454,12 +1454,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.goldSoft,
+    backgroundColor: colors.fill,
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  pfChipTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12 },
+  pfChipTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 12 },
   // Form
   campoLabel: { color: colors.testoSoft, fontSize: 12, fontWeight: '700', marginTop: 4 },
   input: {
@@ -1501,7 +1501,7 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
   chipTxtOn: { color: colors.bianco },
   btnSalva: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingVertical: 12, alignItems: 'center', marginTop: 6 },
-  btnSalvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
+  btnSalvaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
   fab: {
     position: 'absolute',
     right: spacing.xxl,

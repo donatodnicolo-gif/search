@@ -176,7 +176,7 @@ export default function Calendario() {
                       {evs && evs.length > 3 ? <Text style={[styles.cellPiu, isSel && { color: colors.bianco }]}>+{evs.length - 3}</Text> : null}
                     </View>
                   ) : evs ? (
-                    <View style={[styles.pallino, { backgroundColor: isSel ? colors.bianco : scaduto ? colors.errore : colors.oro }]}>
+                    <View style={[styles.pallino, { backgroundColor: isSel ? colors.bianco : scaduto ? colors.errore : colors.navy }]}>
                       <Text style={[styles.pallinoTxt, { color: isSel ? colors.navy : colors.bianco }]}>{evs.length}</Text>
                     </View>
                   ) : null}
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
 
   meseRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
   meseSx: { gap: 1 },
-  meseTxt: { fontSize: 22, fontWeight: '800', color: colors.testo, letterSpacing: -0.4 },
+  meseTxt: { fontSize: 22, fontWeight: '600', color: colors.testo, letterSpacing: -0.4 },
   meseSub: { fontSize: 12, color: colors.testoSoft, fontWeight: '600' },
   navGruppo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   oggiBtn: { backgroundColor: colors.fill, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7, marginRight: 2 },
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   calCard: { backgroundColor: colors.bianco, borderRadius: radius.l, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.sm },
   calCardWide: { padding: spacing.lg, ...shadow.card },
   grigliaHead: { flexDirection: 'row' },
-  giornoSet: { flex: 1, textAlign: 'center', color: colors.grigio, fontWeight: '800', fontSize: 11, paddingBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 },
+  giornoSet: { flex: 1, textAlign: 'center', color: colors.grigio, fontWeight: '700', fontSize: 11, paddingBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 },
   griglia: { flexDirection: 'row', flexWrap: 'wrap' },
   cella: { width: `${100 / 7}%`, padding: 2 },
   cellaSquare: { aspectRatio: 1 },
@@ -396,19 +396,19 @@ const styles = StyleSheet.create({
   cellaSel: { backgroundColor: colors.navy, borderColor: colors.navy },
   cellaOggi: { borderWidth: 1.5, borderColor: colors.oro },
   cellaNum: { color: colors.testo, fontWeight: '600', fontSize: 14 },
-  cellaNumSel: { color: colors.bianco, fontWeight: '800' },
-  cellaNumOggi: { color: colors.goldStrong, fontWeight: '800' },
+  cellaNumSel: { color: colors.bianco, fontWeight: '700' },
+  cellaNumOggi: { color: colors.goldStrong, fontWeight: '700' },
   // Chip evento dentro la cella (desktop)
   cellEventi: { gap: 2 },
   cellChip: { borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
-  cellChipTask: { backgroundColor: 'rgba(17,19,24,0.08)' },
-  cellChipDeal: { backgroundColor: colors.goldSoft },
-  cellChipScaduto: { backgroundColor: 'rgba(215,0,21,0.10)' },
+  cellChipTask: { backgroundColor: colors.fill },
+  cellChipDeal: { backgroundColor: colors.fill },
+  cellChipScaduto: { backgroundColor: colors.erroreSoft },
   cellChipTxt: { fontSize: 11, fontWeight: '600', color: colors.testo },
   cellPiu: { fontSize: 10, fontWeight: '700', color: colors.testoSoft, paddingLeft: 3 },
   // Pallino conteggio (mobile)
   pallino: { minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
-  pallinoTxt: { fontSize: 10, fontWeight: '900' },
+  pallinoTxt: { fontSize: 10, fontWeight: '700' },
 
   giornoSelTitolo: { marginTop: spacing.lg, marginBottom: spacing.sm, fontWeight: '700', color: colors.testo, fontSize: 16, textTransform: 'capitalize', letterSpacing: -0.2 },
   vuotoBox: { alignItems: 'center', gap: 8, paddingVertical: spacing.xxxl, paddingHorizontal: spacing.lg },
@@ -427,10 +427,10 @@ const styles = StyleSheet.create({
   },
   tipoIcona: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   tipoTask: { backgroundColor: colors.navy },
-  tipoDeal: { backgroundColor: colors.oro },
+  tipoDeal: { backgroundColor: colors.navy },
   eTitolo: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   eMeta: { color: colors.testoSoft, fontSize: 12 },
-  eOwner: { color: colors.goldStrong, fontWeight: '800', fontSize: 12, maxWidth: 110 },
+  eOwner: { color: colors.testoSoft, fontWeight: '600', fontSize: 12, maxWidth: 110 },
   fab: {
     position: 'absolute',
     right: spacing.lg,
@@ -445,8 +445,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     ...shadow.float,
   },
-  fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
-  label: { fontSize: 11, fontWeight: '800', color: colors.grigio, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
+  fabTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
+  label: { fontSize: 12.5, fontWeight: '500', color: colors.testoSoft, marginTop: 4 },
   cambiaBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, marginTop: 6 },
   cambiaTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   cambiaNota: { color: colors.grigio, fontSize: 12, lineHeight: 16, textAlign: 'center' },
@@ -461,11 +461,11 @@ const styles = StyleSheet.create({
     minHeight: 54,
   },
   copiaBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.navy, borderRadius: radius.pill, paddingVertical: 12 },
-  copiaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
+  copiaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
   istruzioni: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 4, marginTop: 4 },
-  istrTitolo: { fontWeight: '800', color: colors.testo, fontSize: 13, marginBottom: 2 },
+  istrTitolo: { fontWeight: '700', color: colors.testo, fontSize: 13, marginBottom: 2 },
   istr: { color: colors.testoSoft, fontSize: 13, lineHeight: 19 },
-  b: { fontWeight: '800', color: colors.testo },
+  b: { fontWeight: '700', color: colors.testo },
   avvisoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
   avviso: { flex: 1, color: colors.testoSoft, fontSize: 12, fontStyle: 'italic' },
 });

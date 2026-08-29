@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   btnRiprova: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 16, minHeight: touchMin },
   btnRiprovaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13.5 },
   headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.sm },
-  sezione: { color: colors.testoSoft, fontSize: 11.5, fontWeight: '800', letterSpacing: 0.4, marginTop: spacing.sm, marginBottom: 4 },
+  sezione: { color: colors.testoSoft, fontSize: 11.5, fontWeight: '700', letterSpacing: 0.4, marginTop: spacing.sm, marginBottom: 4 },
   nota: { color: colors.grigio, fontSize: 12.5, fontStyle: 'italic' },
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   tabData: { color: colors.testoSoft, fontSize: 12.5, fontVariant: ['tabular-nums'] },

@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     padding: spacing.xxxl,
     backgroundColor: colors.sfondo,
   },
-  mapPlaceholderTitolo: { fontSize: 18, fontWeight: '800', color: colors.navy, marginBottom: spacing.sm },
+  mapPlaceholderTitolo: { fontSize: 18, fontWeight: '700', color: colors.navy, marginBottom: spacing.sm },
   mapPlaceholderTxt: { fontSize: 14, color: colors.testoSoft, textAlign: 'center', lineHeight: 20 },
   pin: {
     width: 28,
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pinStato: { color: colors.bianco, fontSize: 13, fontWeight: '900' },
+  pinStato: { color: colors.bianco, fontSize: 13, fontWeight: '700' },
   footer: {
     position: 'absolute',
     bottom: spacing.xxl,
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   conteggio: { color: colors.navy, fontWeight: '700', fontSize: 13 },
   conteggioBtn: { paddingVertical: 6, paddingRight: spacing.sm },
   btnGiro: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: 10 },
-  btnGiroTxt: { color: colors.bianco, fontWeight: '800' },
+  btnGiroTxt: { color: colors.bianco, fontWeight: '700' },
   footerAzioni: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   // Azione primaria DS: pillola nera (ink), mai oro.
   btnNaviga: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: 10 },
@@ -297,8 +297,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.grigioChiaro,
   },
-  pannelloTitolo: { color: colors.navy, fontWeight: '900', fontSize: 15 },
-  pannelloNota: { color: colors.oro, fontWeight: '700', fontSize: 12 },
+  pannelloTitolo: { color: colors.navy, fontWeight: '600', fontSize: 15 },
+  pannelloNota: { color: colors.testoSoft, fontWeight: '600', fontSize: 12 },
   pannelloLista: { paddingHorizontal: spacing.sm },
   tappa: {
     flexDirection: 'row',
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     width: 22,
     textAlign: 'center',
     color: colors.navy,
-    fontWeight: '900',
+    fontWeight: '700',
     fontSize: 15,
   },
   tappaInfo: { flex: 1 },

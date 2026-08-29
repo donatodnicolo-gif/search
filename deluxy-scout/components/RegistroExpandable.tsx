@@ -20,7 +20,7 @@ export function RegistroExpandable({ nome, citta }: { nome: string; citta?: stri
           setApri((v) => !v);
         }}
       >
-        <Ionicons name="library-outline" size={15} color={colors.oro} />
+        <Ionicons name="library-outline" size={15} color={colors.testoSoft} />
         <Text style={styles.txt}>Registro Anagrafiche</Text>
         <Ionicons name={apri ? 'chevron-up' : 'chevron-down'} size={15} color={colors.grigio} />
       </Pressable>

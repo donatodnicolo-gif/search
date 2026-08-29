@@ -504,14 +504,14 @@ function NuovaFornituraModal({
         <Text style={styles.campoLabel}>Fornitore *</Text>
         {scelto ? (
           <Pressable style={styles.sceltoRiga} onPress={() => setScelto(null)}>
-            <Ionicons name="business-outline" size={16} color={colors.goldStrong} />
+            <Ionicons name="business-outline" size={16} color={colors.testoSoft} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.sceltoNome} numberOfLines={1}>{scelto.nome}</Text>
               <Text style={styles.nota} numberOfLines={1}>
                 {[scelto.citta, scelto.categoria].filter(Boolean).join(' · ') || 'Dal registro Anagrafiche'}
               </Text>
             </View>
-            <Ionicons name="swap-horizontal" size={18} color={colors.oro} />
+            <Ionicons name="swap-horizontal" size={18} color={colors.testoSoft} />
           </Pressable>
         ) : (
           <>
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
   filtroTxt: { color: colors.testo, fontSize: 13, fontWeight: '600' },
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.m,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     padding: 12,
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
   },
   cardSpenta: { opacity: 0.6 },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  cardFornitore: { color: colors.testo, fontWeight: '800', fontSize: 14.5, flex: 1 },
+  cardFornitore: { color: colors.testo, fontWeight: '700', fontSize: 14.5, flex: 1 },
   cardTitolo: { color: colors.testo, fontSize: 13.5 },
   cardMeta: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
   cellaPrezzo: { color: colors.testo, fontSize: 13 },
@@ -739,11 +739,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.goldSoft,
+    backgroundColor: colors.fill,
     borderRadius: radius.m,
     padding: 10,
   },
-  sceltoNome: { color: colors.testo, fontWeight: '800', fontSize: 14 },
+  sceltoNome: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   nota: { color: colors.testoSoft, fontSize: 12, lineHeight: 17 },
   salva: {
     backgroundColor: colors.ink,

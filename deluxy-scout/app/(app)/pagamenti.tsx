@@ -350,7 +350,7 @@ function RigaPagamento({
             }}
             accessibilityLabel={`Apri pro-forma ${r.proforma_numero} su Deluxy Partner`}
           >
-            <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
+            <Ionicons name="document-text-outline" size={11} color={colors.testoSoft} />
             <Text style={styles.pfChipTxt}>{r.proforma_numero}</Text>
           </Pressable>
         ) : null}
@@ -565,7 +565,7 @@ function NuovaRichiestaModal({ onClose, onCreata }: { onClose: () => void; onCre
                   </Text>
                 </View>
                 <Pressable onPress={() => setScelta(null)} hitSlop={8}>
-                  <Ionicons name="swap-horizontal" size={20} color={colors.oro} />
+                  <Ionicons name="swap-horizontal" size={20} color={colors.testoSoft} />
                 </Pressable>
               </View>
             ) : (
@@ -747,11 +747,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.m,
   },
   storicoTitolo: { flex: 1, color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
-  card: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 6 },
+  card: { backgroundColor: colors.bianco, borderRadius: radius.l, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 6 },
   cardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  cliente: { fontWeight: '800', color: colors.navy, fontSize: 15 },
+  cliente: { fontWeight: '700', color: colors.navy, fontSize: 15 },
   causale: { color: colors.testoSoft, fontSize: 13 },
-  importo: { color: colors.oro, fontWeight: '900', fontSize: 16 },
+  importo: { color: colors.navy, fontWeight: '700', fontSize: 16 },
   incassatoParz: { color: colors.successo, fontSize: 11, fontWeight: '700' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   meta: { color: colors.testoSoft, fontSize: 12, fontWeight: '600' },
@@ -763,32 +763,32 @@ const styles = StyleSheet.create({
   incassoRow: { flexDirection: 'row', gap: 8 },
   incassoInput: { flex: 1, backgroundColor: colors.sfondo, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 9, fontSize: 15, color: colors.testo },
   incassoBtn: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingHorizontal: 18, justifyContent: 'center' },
-  incassoBtnTxt: { color: colors.bianco, fontWeight: '800', fontSize: 13 },
+  incassoBtnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13 },
   fab: {
     position: 'absolute', right: spacing.lg, bottom: spacing.xxl, flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: colors.navy, borderRadius: radius.pill, paddingLeft: 14, paddingRight: 18, paddingVertical: 12,
     ...shadow.float,
   },
-  fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
-  label: { fontSize: 11, fontWeight: '800', color: colors.grigio, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
+  fabTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
+  label: { fontSize: 12.5, fontWeight: '500', color: colors.testoSoft, marginTop: 4 },
   input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 11, fontSize: 15, color: colors.testo },
   risultato: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 9 },
   risNome: { fontWeight: '700', color: colors.testo, fontSize: 14 },
   risMeta: { color: colors.testoSoft, fontSize: 12 },
   notaLibero: { color: colors.grigio, fontSize: 12, fontStyle: 'italic', marginTop: 2 },
-  scelta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.oro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 10 },
-  sceltaNome: { fontWeight: '800', color: colors.testo, fontSize: 15 },
+  scelta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 10 },
+  sceltaNome: { fontWeight: '700', color: colors.testo, fontSize: 15 },
   sceltaMeta: { color: colors.testoSoft, fontSize: 12 },
   pfChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.goldSoft,
+    backgroundColor: colors.fill,
     borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  pfChipTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 11 },
+  pfChipTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 11 },
   proformaRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
   errore: { color: colors.errore, fontSize: 13 },
   // Editor rate
   rateHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
-  aggiungiRata: { color: colors.oro, fontWeight: '800', fontSize: 13 },
+  aggiungiRata: { color: colors.navy, fontWeight: '600', fontSize: 13 },
   rataRow: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, padding: 10, gap: 8 },
   rataTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rataEtich: { flex: 1, backgroundColor: colors.sfondo, borderRadius: radius.s, paddingHorizontal: 8, paddingVertical: 7, fontSize: 13, color: colors.testo },
@@ -823,15 +823,15 @@ const styles = StyleSheet.create({
   modoTxtOn: { color: colors.bianco },
   rataVal: { width: 76, backgroundColor: colors.sfondo, borderRadius: radius.s, paddingHorizontal: 8, paddingVertical: 7, fontSize: 13, color: colors.testo, textAlign: 'right' },
   rataBottom: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rataCalc: { color: colors.goldStrong, fontWeight: '800', fontSize: 13, marginLeft: 'auto' },
+  rataCalc: { color: colors.testoSoft, fontWeight: '600', fontSize: 13, marginLeft: 'auto' },
   chipMini: { backgroundColor: colors.sfondo, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 4 },
   // Monitoraggio rate
   rataMon: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
   rataMonNome: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   rataMonPagata: { color: colors.grigio, textDecorationLine: 'line-through' },
   rataMonScad: { color: colors.testoSoft, fontSize: 12 },
-  rataMonImp: { color: colors.oro, fontWeight: '800', fontSize: 14 },
+  rataMonImp: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   salva: { backgroundColor: colors.navy, borderRadius: radius.pill, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   salvaOff: { opacity: 0.4 },
-  salvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 15 },
+  salvaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 15 },
 });

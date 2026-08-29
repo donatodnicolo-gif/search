@@ -88,7 +88,7 @@ export function CardElenco({
             // a dire cosa significa (e non tutti lo distinguono).
             {...(titoloIcona ? { title: titoloIcona } : {})}
           >
-            <Ionicons name={icona} size={20} color={coloreIcona ?? colors.goldStrong} />
+            <Ionicons name={icona} size={20} color={coloreIcona ?? colors.testoSoft} />
           </View>
         )}
         <View style={styles.cardTesto}>
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   card: {
     gap: spacing.sm,
     backgroundColor: colors.bianco,
-    borderRadius: radius.m,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     padding: spacing.lg,
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radius.s,
-    backgroundColor: colors.goldSoft,
+    backgroundColor: colors.fill,
     // Trasparente di default: c'è solo quando il riquadro prende un colore che
     // significa qualcosa (semaforo della visita).
     borderWidth: 1,
@@ -158,12 +158,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
+  nome: { color: colors.navy, fontWeight: '600', fontSize: 15 },
   meta: { color: colors.testoSoft, fontSize: 13, marginTop: 1 },
   account: { color: colors.grigio, fontSize: 12, marginTop: 2 },
   lineeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
-  lineaTag: { backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
-  lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 11 },
+  lineaTag: { backgroundColor: colors.fill, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  lineaTagTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 11 },
   lineaAltri: { color: colors.testoSoft, fontWeight: '700', fontSize: 11, alignSelf: 'center' },
   badgeCol: { alignItems: 'flex-end', gap: 4 },
 });

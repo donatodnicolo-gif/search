@@ -610,7 +610,7 @@ export default function Oggi() {
         >
           {daRiprendere.slice(0, 5).map((t) => (
             <Pressable key={t.id} style={styles.riga} onPress={() => router.push('/(app)/trattative')}>
-              <Ionicons name="refresh-outline" size={16} color={colors.goldStrong} />
+              <Ionicons name="refresh-outline" size={16} color={colors.testoSoft} />
               <View style={{ flex: 1 }}>
                 <Text numberOfLines={3} style={styles.rigaTitolo}>{t.place_nome ?? 'Trattativa'}</Text>
                 <Text style={styles.rigaSotto} numberOfLines={1}>
@@ -645,7 +645,7 @@ export default function Oggi() {
 
       {/* Assistente email */}
       <Pressable style={[styles.promemoria, inviando && { opacity: 0.5 }]} disabled={inviando} onPress={promemoria}>
-        <Ionicons name="mail-unread-outline" size={16} color={colors.goldStrong} />
+        <Ionicons name="mail-unread-outline" size={16} color={colors.testoSoft} />
         <Text style={styles.promemoriaTxt}>Inviami il riepilogo via email</Text>
       </Pressable>
     </ScrollView>
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.lg },
   testata: { gap: 2, paddingTop: 2 },
   data: { color: colors.testoSoft, fontSize: 13, textTransform: 'capitalize' },
-  titolo: { color: colors.navy, fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
+  titolo: { color: colors.navy, fontSize: 20, fontWeight: '600', letterSpacing: -0.5 },
   kpiRow: { flexDirection: 'row', gap: spacing.sm },
   kpi: {
     flex: 1,
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: 2,
   },
-  kpiValore: { color: colors.navy, fontWeight: '800', fontSize: 15 },
+  kpiValore: { color: colors.navy, fontWeight: '700', fontSize: 15 },
   kpiLabel: { color: colors.testoSoft, fontSize: 10.5, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
   canaleNota: { color: colors.testoSoft, fontSize: 11.5, marginTop: -2, marginBottom: 2 },
   canale: {
@@ -802,12 +802,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   canaleHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  canaleTitolo: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 14, letterSpacing: -0.2 },
+  canaleTitolo: { flex: 1, color: colors.navy, fontWeight: '700', fontSize: 14, letterSpacing: -0.2 },
   canaleConteggio: {
     color: colors.navy,
-    fontWeight: '800',
+    fontWeight: '700',
     fontSize: 12,
-    backgroundColor: colors.goldSoft,
+    backgroundColor: colors.fill,
     borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
   // che apre la scheda del negozio — mancarla porta da un'altra parte.
   chiudiRichiamo: { padding: 10 },
   kpiPremuta: { backgroundColor: colors.fill },
-  velo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: spacing.lg },
+  velo: { flex: 1, backgroundColor: colors.scrim, justifyContent: 'center', padding: spacing.lg },
   foglio: {
     backgroundColor: colors.bianco,
     borderRadius: radius.l,
@@ -832,7 +832,7 @@ const styles = StyleSheet.create({
     maxWidth: 560,
   },
   foglioTesta: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  foglioTitolo: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 16, letterSpacing: -0.3 },
+  foglioTitolo: { flex: 1, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.3 },
   foglioConto: { color: colors.testoSoft, fontSize: 12, marginTop: 2, marginBottom: spacing.sm },
   // ⚠️ `flexShrink: 1` come nel Foglio canonico (Libro v1.7 §9): senza, la
   // ScrollView si dimensiona sul contenuto e SFORA il tetto dell'80% del
@@ -851,12 +851,12 @@ const styles = StyleSheet.create({
   foglioTesto: { flex: 1, minWidth: 0 },
   foglioNome: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   foglioMeta: { color: colors.testoSoft, fontSize: 12, marginTop: 1 },
-  foglioValore: { color: colors.navy, fontWeight: '800', fontSize: 13 },
+  foglioValore: { color: colors.navy, fontWeight: '700', fontSize: 13 },
   foglioCta: { paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.hairline, marginTop: 2 },
-  ritardo: { color: colors.errore, fontWeight: '800' },
+  ritardo: { color: colors.errore, fontWeight: '700' },
   dot: { width: 8, height: 8, borderRadius: 4 },
   vuoto: { color: colors.grigio, fontStyle: 'italic', fontSize: 13 },
-  link: { color: colors.goldStrong, fontWeight: '700', fontSize: 13, paddingTop: 2 },
+  link: { color: colors.navy, fontWeight: '700', fontSize: 13, paddingTop: 2 },
   promemoria: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.sm },
-  promemoriaTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 13 },
+  promemoriaTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
 });

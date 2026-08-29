@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro },
   search: { flex: 1, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 9, fontSize: 14, color: colors.testo },
   selTutti: { paddingHorizontal: 6 },
-  selTuttiTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12.5 },
+  selTuttiTxt: { color: colors.navy, fontWeight: '700', fontSize: 12.5 },
   adHoc: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -572,14 +572,14 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   adHocTxt: { flex: 1, color: colors.testo, fontSize: 13.5 },
-  adHocMail: { fontWeight: '800' },
+  adHocMail: { fontWeight: '700' },
   list: { padding: spacing.lg, paddingBottom: 96, gap: 6 },
   // Intestazione della schermata: dice a che punto sei e cosa succede dopo.
   intro: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm, gap: 4 },
-  introPasso: { color: colors.goldStrong, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
+  introPasso: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' },
   introTesto: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
   // Separatore fra «i contatti del negozio» e il resto della rubrica.
-  gruppoLista: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', marginTop: spacing.sm, marginBottom: 2 },
+  gruppoLista: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase', marginTop: spacing.sm, marginBottom: 2 },
   riga: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, paddingVertical: 10, paddingHorizontal: 12 },
   // I contatti del negozio di partenza hanno il bordo marcato: si distinguono
   // dal resto della rubrica anche scorrendo in fretta.
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
     padding: spacing.xxl,
     marginTop: spacing.sm,
   },
-  nessunoTitolo: { color: colors.navy, fontWeight: '800', fontSize: 15, textAlign: 'center' },
+  nessunoTitolo: { color: colors.navy, fontWeight: '700', fontSize: 15, textAlign: 'center' },
   nessunoTesto: { color: colors.testoSoft, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   nessunoBtn: {
     flexDirection: 'row',
@@ -611,10 +611,10 @@ const styles = StyleSheet.create({
   rigaTesta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   rigaNome: { color: colors.testo, fontWeight: '700', fontSize: 14, flexShrink: 1 },
   tagDecisore: {
-    color: colors.bianco,
-    backgroundColor: colors.goldStrong,
+    color: colors.goldStrong,
+    backgroundColor: colors.goldSoft,
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.4,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
   input: { backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 11, fontSize: 15, color: colors.testo },
   hint: { color: colors.grigio, fontSize: 12, marginTop: 4 },
   varRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  varChiave: { color: colors.goldStrong, fontWeight: '800', fontSize: 13, minWidth: 90 },
+  varChiave: { color: colors.navy, fontWeight: '700', fontSize: 13, minWidth: 90 },
   varInput: { flex: 1, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.m, paddingHorizontal: spacing.lg, paddingVertical: 9, fontSize: 14, color: colors.testo },
   anteprima: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, marginTop: spacing.sm, gap: 4 },
   anteprimaLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },

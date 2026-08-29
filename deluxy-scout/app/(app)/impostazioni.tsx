@@ -555,9 +555,9 @@ export default function Impostazioni() {
             <Ionicons
               name={esito.ok ? 'checkmark-circle-outline' : 'alert-circle-outline'}
               size={16}
-              color={esito.ok ? '#2F7D46' : colors.errore}
+              color={esito.ok ? colors.successo : colors.errore}
             />
-            <Text style={[styles.esitoTxt, { color: esito.ok ? '#2F7D46' : colors.errore }]}>{esito.testo}</Text>
+            <Text style={[styles.esitoTxt, { color: esito.ok ? colors.successo : colors.errore }]}>{esito.testo}</Text>
           </View>
         ) : null}
       </View>
@@ -937,9 +937,9 @@ function SezioneAppCollegate() {
                     <Ionicons
                       name={esitoProva.ok ? 'checkmark-circle-outline' : 'alert-circle-outline'}
                       size={16}
-                      color={esitoProva.ok ? '#2F7D46' : colors.errore}
+                      color={esitoProva.ok ? colors.successo : colors.errore}
                     />
-                    <Text style={[styles.esitoTxt, { color: esitoProva.ok ? '#2F7D46' : colors.errore }]}>
+                    <Text style={[styles.esitoTxt, { color: esitoProva.ok ? colors.successo : colors.errore }]}>
                       {esitoProva.testo}
                     </Text>
                   </View>
@@ -966,7 +966,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     backgroundColor: colors.bianco,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
@@ -989,7 +989,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxxl },
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.m,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     padding: spacing.lg,
@@ -998,9 +998,9 @@ const styles = StyleSheet.create({
   // Una sotto-sezione dentro la stessa card: stessa forma dell'etichetta, con
   // l'aria sopra che la stacca dal campo precedente.
   sottoSezione: { marginTop: spacing.lg },
-  cardLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  cardLabel: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', letterSpacing: 0.6 },
   aiuto: { color: colors.testoSoft, fontSize: 13 },
-  campoLabel: { color: colors.testoSoft, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
+  campoLabel: { color: colors.testoSoft, fontSize: 12.5, fontWeight: '500', marginTop: 4 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
@@ -1034,8 +1034,8 @@ const styles = StyleSheet.create({
   },
   btnGhostTxt: { color: colors.navy, fontWeight: '700', fontSize: 13 },
   esito: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, borderRadius: radius.m, padding: 10, marginTop: 4 },
-  esitoOk: { backgroundColor: '#EAF6EE' },
-  esitoKo: { backgroundColor: '#FBEAE8' },
+  esitoOk: { backgroundColor: colors.successoSoft },
+  esitoKo: { backgroundColor: colors.erroreSoft },
   esitoTxt: { flex: 1, fontSize: 13, fontWeight: '600' },
   piede: { color: colors.grigio, fontSize: 12, paddingHorizontal: 4 },
 
@@ -1045,10 +1045,10 @@ const styles = StyleSheet.create({
   appNome: { color: colors.testo, fontWeight: '700', fontSize: 14.5 },
   appAiuto: { color: colors.testoSoft, fontSize: 12, marginTop: 1 },
   appStato: { borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 3 },
-  appStatoOk: { backgroundColor: 'rgba(47,125,70,0.12)' },
+  appStatoOk: { backgroundColor: colors.successoSoft },
   appStatoNo: { backgroundColor: colors.sfondo },
   appStatoTxt: { fontSize: 11, fontWeight: '700' },
-  appStatoTxtOk: { color: '#2F7D46' },
+  appStatoTxtOk: { color: colors.successo },
   appStatoTxtNo: { color: colors.grigio },
   appForm: { gap: 6, marginTop: 8 },
   // Il segreto mostrato una volta: monospazio e selezionabile, perché il gesto

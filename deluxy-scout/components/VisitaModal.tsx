@@ -185,7 +185,7 @@ export function VisitaModal({
             </View>
             <View style={styles.switchRow}>
               <Text style={styles.switchLbl}>È il decisore</Text>
-              <Switch value={decisore} onValueChange={setDecisore} trackColor={{ true: colors.oro }} />
+              <Switch value={decisore} onValueChange={setDecisore} trackColor={{ true: colors.ink }} />
             </View>
 
             <Text style={styles.sezione}>Note visita</Text>
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   aggancio: { color: colors.testoSoft, fontSize: 13, fontStyle: 'italic', marginBottom: spacing.sm },
   hint: { color: colors.testoSoft, fontSize: 12, marginTop: -spacing.xs },
   body: { paddingBottom: spacing.lg, gap: spacing.sm },
-  sezione: { color: colors.oro, fontWeight: '800', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginTop: spacing.sm },
+  sezione: { color: colors.testoSoft, fontWeight: '700', fontSize: 11, letterSpacing: 0.6, textTransform: 'uppercase', marginTop: spacing.sm },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   errore: { color: colors.errore, fontWeight: '600', marginTop: spacing.sm },
   bozza: { color: colors.testoSoft, fontSize: 12, marginTop: spacing.xs, textAlign: 'center' },
   azioni: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  btn: { flex: 1, borderRadius: radius.m, paddingVertical: 15, alignItems: 'center' },
+  btn: { flex: 1, borderRadius: radius.pill, paddingVertical: 15, alignItems: 'center' },
   btnSec: { backgroundColor: colors.fill, borderWidth: 0 },
   btnSecTxt: { color: colors.testo, fontWeight: '600' },
   btnPri: { backgroundColor: colors.ink },

@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     color: colors.bianco,
     backgroundColor: colors.navy,
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     minWidth: 16,
     textAlign: 'center',
     paddingHorizontal: 5,

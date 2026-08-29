@@ -423,9 +423,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.xs },
   err: { padding: spacing.xxl, color: colors.errore },
-  nome: { fontSize: 22, fontWeight: '900', color: colors.navy },
+  nome: { fontSize: 22, fontWeight: '600', color: colors.navy, letterSpacing: -0.5 },
   checkin: { color: colors.testoSoft, marginBottom: spacing.sm, fontWeight: '600' },
-  label: { color: colors.navy, fontWeight: '800', fontSize: 14, marginTop: spacing.lg, marginBottom: 6 },
+  label: { color: colors.navy, fontWeight: '700', fontSize: 14, marginTop: spacing.lg, marginBottom: 6 },
   obbligatorio: { color: colors.errore, fontWeight: '700', fontSize: 12 },
   quando: {
     flexDirection: 'row',
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   taskTesta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
-  taskTitolo: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 14, minWidth: 120 },
+  taskTitolo: { flex: 1, color: colors.navy, fontWeight: '700', fontSize: 14, minWidth: 120 },
   btnTask: {
     flexDirection: 'row',
     alignItems: 'center',

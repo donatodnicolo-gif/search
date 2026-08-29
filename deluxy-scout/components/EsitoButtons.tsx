@@ -14,7 +14,7 @@ const OPZIONI: { key: EsitoVisita; label: string; effetto: string; colore: strin
   { key: 'interessato', label: 'Interessato', effetto: 'resta da lavorare', colore: colors.successo },
   { key: 'da_richiamare', label: 'Da richiamare', effetto: 'resta da lavorare', colore: colors.attenzione },
   { key: 'non_target', label: 'Non target', effetto: 'lo chiude come PERSO', colore: colors.grigio },
-  { key: 'chiuso', label: 'Chiuso', effetto: 'lo porta a CLIENTE', colore: colors.oro },
+  { key: 'chiuso', label: 'Chiuso', effetto: 'lo porta a CLIENTE', colore: colors.successo },
 ];
 
 /** Selettore esito a bottoni grandi (uso con una mano). */
@@ -58,13 +58,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexBasis: '47%',
     minHeight: 64,
-    borderRadius: radius.m,
-    borderWidth: 2,
+    borderRadius: radius.l,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
   },
-  txt: { fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  txt: { fontSize: 16, fontWeight: '700', textAlign: 'center' },
   txtOn: { color: colors.bianco },
   effetto: { fontSize: 11, fontWeight: '600', marginTop: 3, textAlign: 'center', opacity: 0.85 },
   effettoOn: { color: colors.bianco },

@@ -77,7 +77,7 @@ export default function NuovoContatto() {
             <Switch
               value={isDecisore}
               onValueChange={setIsDecisore}
-              trackColor={{ true: colors.oro, false: colors.grigioChiaro }}
+              trackColor={{ true: colors.ink, false: colors.grigioChiaro }}
               thumbColor={colors.bianco}
             />
           </View>
@@ -94,7 +94,7 @@ export default function NuovoContatto() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
-  label: { color: colors.navy, fontWeight: '800', fontSize: 14, marginTop: spacing.lg, marginBottom: 6 },
+  label: { color: colors.navy, fontWeight: '700', fontSize: 14, marginTop: spacing.lg, marginBottom: 6 },
   input: {
     backgroundColor: colors.bianco,
     borderWidth: 1,

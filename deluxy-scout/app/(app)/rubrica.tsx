@@ -433,14 +433,14 @@ function Contatto({
         {c.telefono ? (
           <Pressable style={styles.azione} onPress={() => Linking.openURL(`tel:${c.telefono}`)}>
             <Text style={styles.azioneTxt}>
-              <Ionicons name="call-outline" size={13} color={colors.oro} /> {c.telefono}
+              <Ionicons name="call-outline" size={13} color={colors.testoSoft} /> {c.telefono}
             </Text>
           </Pressable>
         ) : null}
         {c.email ? (
           <Pressable style={styles.azione} onPress={() => Linking.openURL(`mailto:${c.email}`)}>
             <Text style={styles.azioneTxt}>
-              <Ionicons name="mail-outline" size={13} color={colors.oro} /> {c.email}
+              <Ionicons name="mail-outline" size={13} color={colors.testoSoft} /> {c.email}
             </Text>
           </Pressable>
         ) : null}
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   headerScroll: { marginHorizontal: -spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.sm },
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.m,
+    borderRadius: radius.l,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
@@ -527,28 +527,28 @@ const styles = StyleSheet.create({
   },
   cardArchiviato: { opacity: 0.6 },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  nome: { flex: 1, fontSize: 16, fontWeight: '800', color: colors.navy },
+  nome: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.navy },
   archiviaBtn: { padding: 2 },
   archiviatoTag: { color: colors.grigio, fontSize: 11, fontStyle: 'italic', marginTop: 2 },
   meta: { color: colors.testoSoft, fontSize: 13 },
   negozio: { color: colors.navy, fontSize: 14, fontWeight: '600', marginTop: 2 },
   lineaTag: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.goldSoft,
+    backgroundColor: colors.fill,
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 3,
     marginTop: 2,
   },
-  lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12 },
+  lineaTagTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 12 },
   percorso: { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.grigioChiaro },
   azioni: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
   azione: {
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
-    borderRadius: radius.s,
+    borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
   },
-  azioneTxt: { color: colors.oro, fontWeight: '700', fontSize: 13 },
+  azioneTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
 });

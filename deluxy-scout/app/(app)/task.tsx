@@ -305,8 +305,8 @@ function RigaTask({
           {t.place_nome ? (
             <>
               <Text style={styles.metaSep}>·</Text>
-              <Ionicons name="storefront-outline" size={12} color={colors.oro} />
-              <Text numberOfLines={3} style={[styles.meta, { color: colors.goldStrong }]}>{t.place_nome}</Text>
+              <Ionicons name="storefront-outline" size={12} color={colors.testoSoft} />
+              <Text numberOfLines={3} style={[styles.meta, { color: colors.testoSoft }]}>{t.place_nome}</Text>
             </>
           ) : null}
         </View>
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
   metaSep: { color: colors.grigioChiaro, fontSize: 12 },
   meta: { color: colors.testoSoft, fontSize: 12, fontWeight: '600' },
-  metaRitardo: { color: colors.errore, fontWeight: '800' },
+  metaRitardo: { color: colors.errore, fontWeight: '700' },
   tabTitolo: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   tabMuto: { color: colors.grigio, fontSize: 12.5 },
   tabData: { color: colors.testoSoft, fontSize: 12.5, textAlign: 'right', fontVariant: ['tabular-nums'] },
@@ -378,5 +378,5 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     ...shadow.float,
   },
-  fabTxt: { color: colors.bianco, fontWeight: '800', fontSize: 14 },
+  fabTxt: { color: colors.bianco, fontWeight: '700', fontSize: 14 },
 });

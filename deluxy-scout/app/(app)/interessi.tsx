@@ -196,7 +196,7 @@ export default function Interessi() {
               <Ionicons
                 name={daAssegnare ? 'help-circle-outline' : 'pricetag-outline'}
                 size={16}
-                color={daAssegnare ? colors.attenzione : colors.goldStrong}
+                color={daAssegnare ? colors.attenzione : colors.testoSoft}
               />
               <Text style={styles.gruppoNome} numberOfLines={2}>
                 {g.linea}
@@ -314,10 +314,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   // «Da assegnare» non è una linea: è lavoro arretrato, e si vede.
-  gruppoManca: { borderColor: colors.attenzione, backgroundColor: '#FFFDF5' },
+  gruppoManca: { borderColor: colors.attenzione, backgroundColor: colors.goldSoft },
   gruppoTesta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  gruppoNome: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 15 },
-  gruppoTot: { color: colors.testoSoft, fontWeight: '800', fontSize: 13 },
+  gruppoNome: { flex: 1, color: colors.navy, fontWeight: '700', fontSize: 15 },
+  gruppoTot: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
   colonne: { flexDirection: 'row', gap: 6 },
   cella: {
     flex: 1,
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   },
   cellaOn: { backgroundColor: colors.bianco, borderColor: colors.ink },
   cellaVuota: { opacity: 0.55 },
-  cellaNum: { color: colors.navy, fontWeight: '800', fontSize: 18 },
+  cellaNum: { color: colors.navy, fontWeight: '700', fontSize: 18 },
   cellaNumOn: { color: colors.ink },
   cellaNumVuoto: { color: colors.grigio, fontSize: 15 },
   cellaEt: { flexDirection: 'row', alignItems: 'center', gap: 3, minWidth: 0 },
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   elencoTitolo: {
     color: colors.testoSoft,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },

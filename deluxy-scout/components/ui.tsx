@@ -231,7 +231,8 @@ const styles = StyleSheet.create({
   btnSmall: { paddingHorizontal: 14, paddingVertical: 7 },
   btnTxt: { fontSize: 14.5, fontWeight: '600' },
   btnTxtSmall: { fontSize: 13 },
-  link: { color: colors.goldStrong, fontWeight: '600', fontSize: 13, paddingVertical: 4 },
+  // Il «Vedi tutto ›» è navigazione, non brand: testo scuro (DS: oro solo accento).
+  link: { color: colors.testo, fontWeight: '600', fontSize: 13, paddingVertical: 4 },
 });
 
 /**
@@ -265,7 +266,7 @@ export function ContoRighe({
 
 const stiliConto = StyleSheet.create({
   riga: { color: colors.testoSoft, fontSize: 12.5, fontWeight: '700' },
-  nota: { color: colors.goldStrong, fontWeight: '700' },
+  nota: { color: colors.testoSoft, fontWeight: '600' },
 });
 
 /**

@@ -66,7 +66,7 @@ function statoPratica(o: { stato: string; chiuso_il?: string | null }): { label:
   if (o.stato === 'annullato') return { label: 'Annullato', colore: colors.grigio };
   if (o.stato === 'incassato') return { label: 'Incassato', colore: colors.successo };
   if (o.chiuso_il) return { label: 'Chiuso', colore: colors.testo };
-  return { label: 'Bozza', colore: colors.goldStrong };
+  return { label: 'Bozza', colore: colors.grigio }; // bozza = inerte/neutro (Libro §5)
 }
 const coloreStatoOrdine = Object.fromEntries(STATI.map((s) => [s.valore, s.colore]));
 
@@ -468,7 +468,7 @@ export default function Ordini() {
               accessibilityLabel={`Scarica la pro-forma ${o.proforma_numero}`}
               {...({ title: 'Scarica la pro-forma (stampa da Scout) — non è la fattura' } as any)}
             >
-              <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
+              <Ionicons name="document-text-outline" size={11} color={colors.testoSoft} />
               <Text style={styles.docChipTxt}>Pro-forma {o.proforma_numero}</Text>
             </Pressable>
           ) : null}
@@ -732,7 +732,7 @@ export default function Ordini() {
        * 10×33 = 330, più nove spazi da 2 = 348, più 5 = 353.
        *
        * ⚠️ 28/08/2026, notte: la FATTURA è tornata UN'icona sola (vuota =
-       * chiedi, oro = scarica): l'icona download separata è sparita. Massimo
+       * chiedi, verde = scarica): l'icona download separata è sparita. Massimo
        * nove icone insieme: 9×33 = 297, più otto spazi da 2 = 313, più 5 =
        * 318 — e la soglia della tabella scende con lei (1240→1205).
        */
@@ -770,10 +770,10 @@ export default function Ordini() {
                 /* ⭐ LA CHIUSURA È LA V (28/08/2026, richiesta dell'utente:
                     «la chiusura dell'ordine sarebbe più chiara con la V»).
                     Il lucchetto diceva «bloccato», non «finito». Vuota = da
-                    chiudere; piena e oro = chiusa (e il tocco riapre). */
+                    chiudere; piena e verde = chiusa (e il tocco riapre). */
                 name={o.chiuso_il ? 'checkmark-circle' : 'checkmark-circle-outline'}
                 size={19}
-                color={o.chiuso_il ? colors.goldStrong : colors.navy}
+                color={o.chiuso_il ? colors.successo : colors.navy}
               />
             </Pressable>
           ) : null}
@@ -808,7 +808,7 @@ export default function Ordini() {
           {/* ⭐ FATTURA: SEMPRE LA STESSA ICONA, il colore dice lo stato
               (28/08/2026, richiesta dell'utente: «al posto di cambiarla con
               download metti sempre la stessa icona ma colorata»). Vuota e blu
-              = chiedila; piena e oro = c'è, e il tocco la SCARICA. La regola è
+              = chiedila; piena e verde = c'è, e il tocco la SCARICA. La regola è
               quella di portafoglio e furgone: un concetto, un simbolo — il
               colore racconta. */}
           {o.stato !== 'annullato' ? (
@@ -830,7 +830,7 @@ export default function Ordini() {
               <Ionicons
                 name={o.fattura_numero ? 'receipt' : 'receipt-outline'}
                 size={19}
-                color={o.fattura_numero ? colors.goldStrong : colors.navy}
+                color={o.fattura_numero ? colors.successo : colors.navy}
               />
             </Pressable>
           ) : null}
@@ -852,14 +852,14 @@ export default function Ordini() {
               <Ionicons
                 name={o.evasione_richiesta_il ? 'car' : 'car-outline'}
                 size={19}
-                color={o.evasione_richiesta_il ? colors.goldStrong : colors.navy}
+                color={o.evasione_richiesta_il ? colors.successo : colors.navy}
               />
             </Pressable>
           ) : null}
           {o.stato === 'da_incassare' ? (
             <>
               {/* La fattura vive nell'icona UNICA più a sinistra (vuota =
-                  chiedi, oro = scarica): qui non si ripete. */}
+                  chiedi, verde = scarica): qui non si ripete. */}
               {/* ⭐ LA PRO-FORMA CHE NON C'È (27/08/2026). Ogni ordine nasce
                   con la sua pro-forma, ma se FINANCE non risponde — o se il
                   cliente là non esiste ancora — l'ordine resta senza. Prima
@@ -891,12 +891,12 @@ export default function Ordini() {
                 } as any)}
               >
                 {/* ⭐ ACCESA quando l'acconto è stato chiesto (28/08/2026,
-                    richiesta dell'utente): piena e oro — è uno stato, non un
+                    richiesta dell'utente): piena e verde — è uno stato, non un
                     invito, come il lucchetto della pratica chiusa. */}
                 <Ionicons
                   name={o.acconto_richiesto_il ? 'wallet' : 'wallet-outline'}
                   size={19}
-                  color={o.acconto_richiesto_il ? colors.goldStrong : colors.navy}
+                  color={o.acconto_richiesto_il ? colors.successo : colors.navy}
                 />
               </Pressable>
               {/* L'azione di tutti i giorni resta l'unica PIENA: si trova
@@ -1576,12 +1576,12 @@ export default function Ordini() {
               <View style={styles.legenda}>
                 {(
                   [
-                    ['checkmark-circle-outline', 'Chiudi la pratica', 'piena e oro = chiusa; il tocco riapre'],
+                    ['checkmark-circle-outline', 'Chiudi la pratica', 'piena e verde = chiusa; il tocco riapre'],
                     ['cash-outline', 'Segna incassato', 'i soldi sono arrivati (bottone nero)'],
-                    ['receipt-outline', 'Fattura', 'vuota = chiedila a FINANCE; piena e oro = tocca per scaricare il PDF'],
+                    ['receipt-outline', 'Fattura', 'vuota = chiedila a FINANCE; piena e verde = tocca per scaricare il PDF'],
                     ['document-text-outline', 'Emetti la pro-forma', 'la richiesta di pagamento'],
-                    ['wallet-outline', 'Chiedi un acconto', 'piena e oro = già richiesto'],
-                    ['car-outline', 'Richiedi l’evasione', 'piena e oro = già richiesta; solo a pratica chiusa'],
+                    ['wallet-outline', 'Chiedi un acconto', 'piena e verde = già richiesto'],
+                    ['car-outline', 'Richiedi l’evasione', 'piena e verde = già richiesta; solo a pratica chiusa'],
                     ['copy-outline', 'Duplica come bozza', 'per rifare un ordine sbagliato'],
                     ['create-outline', 'Modifica l’ordine', 'valore, cliente, fornitura, pro-forma'],
                     ['close-circle-outline', 'Annulla l’ordine', 'la pratica non è successa'],
@@ -1856,7 +1856,7 @@ export default function Ordini() {
                       onPress={() => scaricaProforma(o)}
                       accessibilityLabel={`Scarica la pro-forma ${o.proforma_numero}`}
                     >
-                      <Ionicons name="document-text-outline" size={11} color={colors.goldStrong} />
+                      <Ionicons name="document-text-outline" size={11} color={colors.testoSoft} />
                       <Text style={styles.docChipTxt}>Pro-forma {o.proforma_numero}</Text>
                     </Pressable>
                   ) : null}
@@ -1914,7 +1914,7 @@ export default function Ordini() {
                             <Ionicons
                               name={o.evasione_richiesta_il ? 'car' : 'car-outline'}
                               size={15}
-                              color={o.evasione_richiesta_il ? colors.goldStrong : colors.navy}
+                              color={o.evasione_richiesta_il ? colors.successo : colors.navy}
                             />
                             <Text style={styles.btnGhostTxt}>
                               {o.evasione_richiesta_il ? 'Evasione chiesta' : 'Evasione'}
@@ -2157,7 +2157,7 @@ export default function Ordini() {
                 return (
                   <Text style={styles.campoAiuto}>
                     {scriviImporto(u)} × {q} ={' '}
-                    <Text style={{ fontWeight: '800' }}>€ {scriviImporto(Math.round(u * q * 100) / 100)}</Text> — è
+                    <Text style={{ fontWeight: '700' }}>€ {scriviImporto(Math.round(u * q * 100) / 100)}</Text> — è
                     questo che finisce nel margine e sul documento.
                   </Text>
                 );
@@ -2748,9 +2748,9 @@ function ChiusuraOrdine({
                     <Ionicons
                       name={quadra ? 'checkmark-circle-outline' : 'alert-circle-outline'}
                       size={16}
-                      color={quadra ? '#2F7D46' : colors.attenzione}
+                      color={quadra ? colors.successo : colors.attenzione}
                     />
-                    <Text style={[styles.sommaTxt, { color: quadra ? '#2F7D46' : colors.attenzione }]}>
+                    <Text style={[styles.sommaTxt, { color: quadra ? colors.successo : colors.attenzione }]}>
                       {scelte.length} {scelte.length === 1 ? 'fattura' : 'fatture'} ·{' '}
                       {importoBreve(sommaImponibile)} imponibile ({importoBreve(sommaTotale)} con IVA)
                       {atteso == null
@@ -3346,7 +3346,7 @@ const styles = StyleSheet.create({
   // Bersaglio touch ≥44px (Libro UX cap.10 §1 / WCAG) sui bottoni e chip di
   // questa pagina, che reimplementa gli stili in locale invece di usare `Btn`.
   btnCerca: { backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 16, minHeight: touchMin, justifyContent: 'center' },
-  btnCercaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 13 },
+  btnCercaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13 },
   btnGhostLargo: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco,
@@ -3363,7 +3363,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.m, borderWidth: 1,
   },
-  sommaOk: { borderColor: '#2F7D46', backgroundColor: colors.bianco },
+  sommaOk: { borderColor: colors.successo, backgroundColor: colors.bianco },
   sommaNo: { borderColor: colors.attenzione, backgroundColor: colors.bianco },
   sommaTxt: { flex: 1, fontSize: 12.5, lineHeight: 17, fontWeight: '600' },
   fattNumero: { color: colors.testo, fontSize: 13.5, fontWeight: '700' },
@@ -3397,7 +3397,7 @@ const styles = StyleSheet.create({
   },
   fornNome: { color: colors.testo, fontSize: 14, fontWeight: '700' },
   fornNota: { color: colors.grigio, fontSize: 12, lineHeight: 16, marginTop: 1 },
-  fornPrezzo: { color: colors.testo, fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  fornPrezzo: { color: colors.testo, fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
   fornVuoto: { color: colors.attenzione, fontSize: 12.5, lineHeight: 18 },
   fornForm: {
     gap: 6,
@@ -3411,13 +3411,13 @@ const styles = StyleSheet.create({
   btnFornAggiungi: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, marginTop: 2 },
   btnFornAggiungiTxt: { color: colors.navy, fontWeight: '700', fontSize: 13.5 },
   btnFornSalva: { flex: 1, backgroundColor: colors.ink, borderRadius: radius.pill, paddingVertical: 10, minHeight: touchMin, alignItems: 'center', justifyContent: 'center' },
-  btnFornSalvaTxt: { color: colors.bianco, fontWeight: '800', fontSize: 13.5 },
+  btnFornSalvaTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13.5 },
   btnFornAnnulla: { paddingVertical: 10, paddingHorizontal: 14, minHeight: touchMin, justifyContent: 'center' },
   btnFornAnnullaTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13.5 },
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: { padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.sfondo },
   sub: { color: colors.testoSoft, fontSize: 13 },
-  subForte: { color: colors.navy, fontWeight: '800' },
+  subForte: { color: colors.navy, fontWeight: '700' },
   subNota: { color: colors.grigio, fontWeight: '400' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   gruppoTitolo: { color: colors.testoSoft, fontSize: 12, fontWeight: '700', marginRight: 2 },
@@ -3426,11 +3426,11 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
   chipTxtOn: { color: colors.bianco },
   list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxxl },
-  card: { backgroundColor: colors.bianco, borderRadius: radius.m, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 8 },
+  card: { backgroundColor: colors.bianco, borderRadius: radius.l, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.lg, gap: 8 },
   cardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  nome: { color: colors.navy, fontWeight: '800', fontSize: 15 },
+  nome: { color: colors.navy, fontWeight: '700', fontSize: 15 },
   descr: { color: colors.testoSoft, fontSize: 12.5, fontStyle: 'italic', marginTop: 1 },
-  valore: { color: colors.navy, fontWeight: '800', fontSize: 15 },
+  valore: { color: colors.navy, fontWeight: '700', fontSize: 15 },
   tabNome: { color: colors.navy, fontWeight: '700', fontSize: 14 },
   tabStima: { color: colors.grigio, fontSize: 10.5 },
   margineNegativo: { color: colors.errore },
@@ -3444,7 +3444,7 @@ const styles = StyleSheet.create({
   linkRegistro: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
   linkRegistroTxt: { color: colors.navy, fontWeight: '700', fontSize: 12.5 },
   seguitoDa: { color: colors.grigio, fontSize: 11, lineHeight: 15 },
-  brandTxt: { color: colors.goldStrong, fontSize: 10.5, fontWeight: '700' },
+  brandTxt: { color: colors.testoSoft, fontSize: 10.5, fontWeight: '600' },
   riepilogoMobile: { paddingBottom: 8 },
   riepilogoTxt: { color: colors.testoSoft, fontSize: 12.5, fontWeight: '700' },
   // ⚠️ Cornice da 5, non da 7 (27/08/2026): con l'undicesima colonna servivano
@@ -3491,8 +3491,8 @@ const styles = StyleSheet.create({
   rifChipGrande: { paddingHorizontal: 9, paddingVertical: 4, gap: 5 },
   rifChipTxt: { color: colors.grigio, fontWeight: '700', fontSize: 10, fontVariant: ['tabular-nums'] },
   rifChipTxtGrande: { fontSize: 12.5, color: colors.testo },
-  docChip: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 3 },
-  docChipTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 10.5 },
+  docChip: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.fill, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 3 },
+  docChipTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 10.5 },
   // La fattura è piena e scura, la pro-forma è chiara: si distinguono di
   // spalle, senza leggere il numero.
   docChipFattura: { backgroundColor: colors.ink, borderWidth: 0 },

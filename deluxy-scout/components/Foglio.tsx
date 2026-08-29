@@ -75,7 +75,7 @@ export function Foglio({
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
+  overlay: { flex: 1, backgroundColor: colors.scrim },
   overlayBasso: { justifyContent: 'flex-end' },
   overlayCentro: { justifyContent: 'center', alignItems: 'center', padding: spacing.xxl },
   // ⚠️ Il padding sta nel CORPO, non nel foglio: se stesse qui, scorrendo il

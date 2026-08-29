@@ -29,7 +29,7 @@ export function AssistenteCard({ trattative, contesto = '' }: { trattative: Trat
     <View style={styles.aiCard}>
       <View style={styles.aiHead}>
         <View style={styles.aiTitoloRow}>
-          <Ionicons name="sparkles-outline" size={16} color={colors.goldStrong} />
+          <Ionicons name="sparkles-outline" size={16} color={colors.testoSoft} />
           <Text style={styles.aiTitolo}>Eleonor</Text>
         </View>
         <Pressable style={styles.aiBtn} onPress={genera} disabled={stato === 'loading'}>
@@ -69,7 +69,7 @@ export function AssistenteCard({ trattative, contesto = '' }: { trattative: Trat
                 <Text style={styles.aiSezione}>Azioni prioritarie</Text>
                 {r.azioni.map((a, i) => (
                   <View key={i} style={styles.aiVoce}>
-                    <Ionicons name="arrow-forward" size={13} color={colors.goldStrong} style={{ marginTop: 2 }} />
+                    <Ionicons name="arrow-forward" size={13} color={colors.testoSoft} style={{ marginTop: 2 }} />
                     <Text style={styles.aiVoceTxt}>{a}</Text>
                   </View>
                 ))}

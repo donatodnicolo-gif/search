@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.hairline,
   },
   intesta: { backgroundColor: colors.sfondo, paddingVertical: 8 },
-  rigaHover: { backgroundColor: 'rgba(120,120,128,0.05)' },
+  rigaHover: { backgroundColor: colors.fill },
   th: { color: colors.grigio, fontSize: 12, fontWeight: '500' },
   thOn: { color: colors.testo, fontWeight: '700' },
   colNegozio: { flex: 1.3, minWidth: 0 },
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.grigioChiaro,
   },
-  cellaTotale: { color: colors.testo, fontWeight: '800', fontSize: 13, fontVariant: ['tabular-nums'] },
+  cellaTotale: { color: colors.testo, fontWeight: '700', fontSize: 13, fontVariant: ['tabular-nums'] },
   cellaTotaleNota: { color: colors.grigio, fontSize: 12 },
   // 3 cornici da 35 (icona 19 + 8 di padding per lato) + 2 gap da 8 + margine:
   // icone grandi e col tooltip (Libro v1.8 §3, 28/08/2026).

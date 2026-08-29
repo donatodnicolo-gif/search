@@ -81,14 +81,14 @@ export function SceltaFornitore({
   if (valore) {
     return (
       <Pressable style={styles.scelto} onPress={() => onScegli(null)}>
-        <Ionicons name="business-outline" size={16} color={colors.goldStrong} />
+        <Ionicons name="business-outline" size={16} color={colors.testoSoft} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.sceltoNome} numberOfLines={1}>{valore.nome}</Text>
           <Text style={styles.aiuto} numberOfLines={1}>
             {valore.anagraficheId ? 'Dal registro Anagrafiche' : 'Nome scritto a mano: nessun legame col registro'}
           </Text>
         </View>
-        <Ionicons name="swap-horizontal" size={18} color={colors.oro} />
+        <Ionicons name="swap-horizontal" size={18} color={colors.testoSoft} />
       </Pressable>
     );
   }
@@ -186,10 +186,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: radius.m,
     borderWidth: 1,
-    borderColor: colors.goldSoft,
+    borderColor: colors.grigioChiaro,
     backgroundColor: colors.bianco,
   },
-  sceltoNome: { color: colors.testo, fontSize: 14.5, fontWeight: '800' },
+  sceltoNome: { color: colors.testo, fontSize: 14.5, fontWeight: '700' },
   aiuto: { color: colors.grigio, fontSize: 12, lineHeight: 16 },
   libero: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
   liberoTxt: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 17, flex: 1 },

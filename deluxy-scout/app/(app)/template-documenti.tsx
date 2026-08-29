@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
   errore: { color: colors.errore, fontSize: 12.5, lineHeight: 18 },
   card: {
     backgroundColor: colors.bianco,
-    borderRadius: radius.m,
+    borderRadius: radius.l,
     borderWidth: 1,
     borderColor: colors.grigioChiaro,
     padding: spacing.lg,
@@ -693,10 +693,10 @@ const styles = StyleSheet.create({
   },
   logoVuotoTxt: { color: colors.grigio, fontSize: 10.5 },
   logoRiga: { flexDirection: 'row', gap: 12, alignItems: 'center', marginTop: 4 },
-  nome: { color: colors.navy, fontWeight: '800', fontSize: 15.5 },
+  nome: { color: colors.navy, fontWeight: '700', fontSize: 15.5 },
   meta: { color: colors.testoSoft, fontSize: 12.5, marginTop: 2 },
-  badgePre: { backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 3 },
-  badgePreTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 10.5 },
+  badgePre: { backgroundColor: colors.fill, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 3 },
+  badgePreTxt: { color: colors.testoSoft, fontWeight: '600', fontSize: 10.5 },
   azioni: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   btnMini: {
     borderWidth: 1,

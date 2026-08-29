@@ -99,7 +99,7 @@ export function ScegliScriptModal({
       onClose={onClose}
     >
           {script === null ? (
-            <ActivityIndicator color={colors.oro} style={{ marginVertical: spacing.lg }} />
+            <ActivityIndicator color={colors.navy} style={{ marginVertical: spacing.lg }} />
           ) : (
             // View e non ScrollView: il tetto e lo scroll li dà il corpo del
             // Foglio — due ScrollView annidate sullo stesso asse sono vietate

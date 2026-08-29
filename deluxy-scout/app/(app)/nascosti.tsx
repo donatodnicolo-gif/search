@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     ...shadow.card,
   },
-  icona: { width: 46, height: 46, borderRadius: radius.m, backgroundColor: colors.goldSoft, alignItems: 'center', justifyContent: 'center' },
+  icona: { width: 46, height: 46, borderRadius: radius.m, backgroundColor: colors.fill, alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1, gap: 3 },
   titoloRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   nome: { flexShrink: 1, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },
