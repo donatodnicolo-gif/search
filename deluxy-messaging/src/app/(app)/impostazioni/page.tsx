@@ -7,6 +7,7 @@ import { statoGoogle } from '@/lib/contatti'
 import { lingueLette } from '@/lib/lingua-testo'
 import { TESTO_DI_RISERVA } from '@/lib/primo-contatto'
 import { copertura } from '@/lib/ai-fuori-turno'
+import { transactionsConfigurata } from '@/lib/transactions'
 import { salvaECollegaGoogle, salvaImpostazioni } from './actions'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
 import { CampoSegreto } from '@/components/CampoSegreto'
@@ -24,6 +25,9 @@ export default async function PaginaImpostazioni({
   // segreti sono impostati — anche a chi poi non potrebbe salvarla.
   await soloAmministratore()
   const { salvato, okGoogle, erroreGoogle } = await searchParams
+  // Il canale dei pagamenti si legge dall'ambiente, non dal database: la
+  // scheda qui sotto mostra lo stato senza chiedere segreti.
+  const canaleTransactions = transactionsConfigurata()
   // ⚠️ Quante ore alla settimana la griglia dei turni lascia scoperte: è il
   // numero che dice quanto lavoro si sta consegnando all'AI accendendo
   // l'interruttore qui sotto. Vedi `copertura()`.
@@ -289,21 +293,29 @@ export default async function PaginaImpostazioni({
           </div>
 
           <div className="card">
-            <h2>Deluxy Partner (pagamenti)</h2>
+            <h2>Deluxy Transactions (pagamenti)</h2>
             <p className="descrizione">
-              Le richieste di pagamento vengono inoltrate a Partner, che le approva e le paga.
-              L&apos;invio è idempotente: rimandare la stessa richiesta non la duplica. Serve un
-              importo maggiore di zero.
+              Dal 28/08/2026 le richieste di pagamento vanno a <strong>Deluxy Transactions</strong>,
+              l&apos;unica app da cui esce denaro: là una persona le autorizza e paga, e l&apos;esito —
+              con la ricevuta — torna qui da solo. L&apos;invio è idempotente: rimandare la stessa
+              richiesta non la duplica. Il vecchio canale verso Deluxy Partner non esiste più.
             </p>
-            <label className="campo">
-              <span>URL dell&apos;app Partner</span>
-              <input
-                name="partnerUrl"
-                defaultValue={config.partnerUrl}
-                placeholder="https://deluxy-partner.vercel.app"
-              />
-            </label>
-            <CampoSegreto nome="partnerApiKey" etichetta="Chiave API" valore={config.partnerApiKey} />
+            {/* ⚠️ Le credenziali NON si incollano qui di proposito: muovono denaro
+                e vivono SOLO nell'ambiente del server (TRANSACTIONS_API_KEY /
+                TRANSACTIONS_HMAC_SECRET su Vercel), mai nel database. Questa
+                scheda mostra lo stato, non chiede segreti. */}
+            {canaleTransactions ? (
+              <p className="descrizione" style={{ color: 'var(--verde, #248A3D)', fontWeight: 600 }}>
+                ✓ Canale collegato: le richieste partono verso Transactions e gli esiti tornano sul
+                webhook di questa app.
+              </p>
+            ) : (
+              <p className="descrizione" style={{ color: 'var(--rosso, #D70015)', fontWeight: 600 }}>
+                Canale non configurato: mancano TRANSACTIONS_API_KEY e TRANSACTIONS_HMAC_SECRET
+                nell&apos;ambiente del server. Finché mancano, il «Paga» salva la richiesta ma non la
+                invia.
+              </p>
+            )}
           </div>
 
           <div className="card">
