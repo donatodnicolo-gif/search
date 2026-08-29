@@ -220,6 +220,13 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const [chiusa, setChiusa] = useState(false);
+  // Drawer su mobile: distinto dal collasso-a-icone desktop (`chiusa`). Si apre
+  // dall'hamburger della topbar e si richiude a ogni navigazione e al tocco sul
+  // velo (Libro UX&UI §2).
+  const [apertaMobile, setApertaMobile] = useState(false);
+  useEffect(() => {
+    setApertaMobile(false);
+  }, [pathname]);
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
@@ -239,10 +246,29 @@ export function Sidebar({
   };
 
   return (
-    // La larghezza è governata dal CSS (.sidebar / .sidebar.chiusa): uno style
-    // inline qui vinceva sulla media query a 900px e teneva la barra a 250px
-    // anche a 375px, coprendo mezzo schermo sul telefono.
-    <aside className={`sidebar${chiusa ? " chiusa" : ""}`}>
+    <>
+    {/* Topbar mobile (solo sotto soglia, governata dal CSS): hamburger + logo.
+        Su desktop non c'è (il brand vive nella sidebar, modello AI Mail). */}
+    <header className="topbar-mobile">
+      <button
+        type="button"
+        className="topbar-hamburger"
+        onClick={() => setApertaMobile((v) => !v)}
+        aria-label={apertaMobile ? "Chiudi il menu" : "Apri il menu"}
+        aria-expanded={apertaMobile}
+      >
+        <svg viewBox="0 0 24 24" {...stroke} style={{ width: 20, height: 20 }}>
+          {apertaMobile ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+        </svg>
+      </button>
+      <div className="brand-logo" style={{ width: 30, height: 30, fontSize: 18, borderRadius: 8 }}>D</div>
+      <div className="brand-name">Finance</div>
+    </header>
+
+    {/* La larghezza è governata dal CSS (.sidebar / .sidebar.chiusa): uno style
+        inline qui vinceva sulla media query a 900px e teneva la barra a 250px
+        anche a 375px, coprendo mezzo schermo sul telefono. */}
+    <aside className={`sidebar${chiusa ? " chiusa" : ""}${apertaMobile ? " aperta-mobile" : ""}`}>
       <button
         type="button"
         className="sidebar-toggle"
@@ -279,6 +305,7 @@ export function Sidebar({
                 <Link
                   href={figli[0]?.href ?? it.href}
                   className={`nav-item${(figli.length ? apertoGruppo : isActive(it.href)) ? " active" : ""}`}
+                  aria-current={(figli.length ? apertoGruppo : isActive(it.href)) ? "page" : undefined}
                   title={chiusa ? it.label : undefined}
                 >
                   {it.icon}
@@ -353,7 +380,9 @@ export function Sidebar({
         {/* GET, non una server action: il ruolo «sola lettura» non può fare
             POST (li blocca il middleware) e restava l'unico che non poteva
             uscire. Vedi src/app/api/esci/route.ts. */}
-        <form action="/api/esci" method="get" className="solo-estesa">
+        {/* Il logout NON è `solo-estesa`: da sidebar collassata (sole icone)
+            deve restare — logo e logout non spariscono mai (Libro §1). */}
+        <form action="/api/esci" method="get">
           <button
             type="submit"
             className="sidebar-toggle"
@@ -369,6 +398,15 @@ export function Sidebar({
         </form>
       </div>
     </aside>
+
+    {/* Velo dietro il drawer: appare solo col drawer aperto (CSS sotto soglia),
+        e al tocco lo richiude. */}
+    <div
+      className={`scrim-sidebar${apertaMobile ? " aperto" : ""}`}
+      onClick={() => setApertaMobile(false)}
+      aria-hidden="true"
+    />
+    </>
   );
 }
 

@@ -37,7 +37,7 @@ a { color: inherit; text-decoration: none; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 4px 10px 18px; }
 .brand-logo {
   width: 38px; height: 38px; border-radius: 10px;
-  background: linear-gradient(145deg, #1d1f26, #3a3d47);
+  background: linear-gradient(145deg, var(--logo-dark-a), var(--logo-dark-b));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   color: var(--gold);
   font-family: var(--font-logo);
@@ -82,7 +82,9 @@ a { color: inherit; text-decoration: none; }
 .sidebar.chiusa .solo-estesa { display: none; }
 .sidebar.chiusa .brand { justify-content: center; padding-left: 0; padding-right: 0; }
 .sidebar.chiusa .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
-.sidebar.chiusa .sidebar-footer { justify-content: center; }
+/* Da collassata restano avatar E logout (il logout non sparisce mai): impilati
+   in verticale ci stanno nei 68px senza sbordare. */
+.sidebar.chiusa .sidebar-footer { flex-direction: column; align-items: center; gap: 10px; }
 /* In modalità ridotta le etichette di sezione spariscono (solo-estesa): senza
    un separatore i gruppi collasserebbero in un elenco unico. Un hairline tiene
    il raggruppamento visibile — regola UX per la sidebar a icone. */
@@ -183,11 +185,11 @@ td.neg { color: var(--red); }
   font-size: 12px; font-weight: 500; white-space: nowrap;
 }
 .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.badge.green { background: rgba(36, 138, 61, 0.11); color: var(--green); }
-.badge.orange { background: rgba(201, 52, 0, 0.1); color: var(--orange); }
-.badge.blue { background: rgba(0, 113, 227, 0.1); color: var(--blue); }
-.badge.red { background: rgba(215, 0, 21, 0.09); color: var(--red); }
-.badge.purple { background: rgba(109, 63, 196, 0.1); color: var(--purple); }
+.badge.green { background: var(--green-soft); color: var(--green); }
+.badge.orange { background: var(--orange-soft); color: var(--orange); }
+.badge.blue { background: var(--blue-soft); color: var(--blue); }
+.badge.red { background: var(--red-soft); color: var(--red); }
+.badge.purple { background: var(--purple-soft); color: var(--purple); }
 .badge.gold { background: var(--gold-soft); color: var(--gold-strong); }
 .badge.neutral { background: var(--fill); color: var(--text-secondary); }
 
@@ -343,17 +345,65 @@ input:focus, select:focus, textarea:focus {
 .note-details summary .note-azione { color: var(--blue); }
 .note-details[open] summary .note-azione { display: none; }
 
+/* ————— Navigazione su mobile: drawer da sinistra + topbar (Libro UX&UI §2,
+   decisione utente 28/08: app desktop-first da telefono = drawer off-canvas +
+   topbar vetro con hamburger + velo). Prima era una fascia orizzontale che
+   andava a capo: ~20 voci sempre visibili spingevano il contenuto in fondo. */
+.topbar-mobile { display: none; }
+.scrim-sidebar { display: none; }
+
 @media (max-width: 900px) {
   .shell { flex-direction: column; }
-  /* flex: 0 0 auto azzera il flex-basis 250px della base (che in colonna
-     diventerebbe altezza fissa): la fascia mobile è larga quanto lo schermo e
-     alta quanto le voci. */
-  .sidebar, .sidebar.chiusa { width: 100%; flex: 0 0 auto; height: auto; position: static; flex-direction: row; flex-wrap: wrap; padding: 12px 16px; }
-  /* su mobile la sidebar è una fascia che si dispone in riga: niente scroll
-     interno, le sezioni tornano figlie dirette e vanno a capo da sole */
-  .sidebar-nav { display: contents; }
-  .sidebar-footer { display: none; }
-  .main { padding: 20px 16px 40px; }
+
+  /* Topbar vetro fissa in alto: hamburger + logo. */
+  .topbar-mobile {
+    display: flex; align-items: center; gap: 10px;
+    position: fixed; top: 0; left: 0; right: 0; height: 56px; z-index: 60;
+    padding: 0 12px;
+    background: var(--surface-translucent);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .topbar-hamburger {
+    width: 40px; height: 40px; border-radius: var(--radius-m);
+    border: none; background: transparent; color: var(--text);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: background 150ms var(--ease);
+  }
+  .topbar-hamburger:hover { background: var(--fill-hover); }
+  .topbar-hamburger:active { transform: scale(0.94); }
+
+  /* La sidebar diventa un drawer off-canvas da SINISTRA. Chiuso = fuori
+     schermo; l'hamburger lo fa scorrere dentro, il velo lo richiude. */
+  .sidebar, .sidebar.chiusa {
+    position: fixed; top: 56px; left: 0;
+    height: calc(100vh - 56px);
+    width: 264px; flex: 0 0 264px; padding: 16px 12px;
+    transform: translateX(-100%);
+    transition: transform 240ms var(--ease);
+    box-shadow: var(--shadow-float);
+    z-index: 55; overflow-y: auto;
+  }
+  .sidebar.aperta-mobile { transform: translateX(0); }
+  /* Nel drawer si vede tutto, anche se la preferenza desktop era «ridotta a
+     icone»: etichette, footer e allineamento a sinistra tornano. */
+  .sidebar.chiusa .solo-estesa { display: revert; }
+  .sidebar.chiusa .nav-item { justify-content: flex-start; padding: 8px 10px; }
+  .sidebar.chiusa .brand { justify-content: flex-start; padding: 4px 10px 18px; }
+  .sidebar.chiusa .sidebar-footer { flex-direction: row; align-items: center; justify-content: flex-start; }
+  .sidebar.chiusa .nav-section { border-top: none; padding-top: 0; margin-top: 14px; }
+  .sidebar-footer { display: flex; }
+  /* la freccia di collasso desktop non serve nel drawer */
+  .sidebar > .sidebar-toggle { display: none; }
+
+  .scrim-sidebar.aperto {
+    display: block;
+    position: fixed; inset: 56px 0 0 0; z-index: 50;
+    background: var(--scrim);
+  }
+
+  .main { padding: 76px 16px 40px; }
 }
 
 /* ————— Popup / modale ————— */

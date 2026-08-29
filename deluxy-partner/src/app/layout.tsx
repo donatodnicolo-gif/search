@@ -37,11 +37,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   gap: 8,
                   padding: "8px 14px",
                   marginBottom: 18,
-                  borderRadius: 10,
-                  background: "rgba(201,52,0,0.08)",
-                  border: "1px solid rgba(201,52,0,0.18)",
+                  borderRadius: "var(--radius-m)",
+                  background: "var(--orange-soft)",
+                  border: "1px solid var(--orange-soft)",
                   fontSize: 13,
-                  color: "var(--orange, #c93400)",
+                  color: "var(--orange)",
                 }}
               >
                 🔒 <strong>Sola lettura</strong> — puoi consultare tutto ma non modificare nulla.
