@@ -55,6 +55,123 @@ async function graphql<T>(n: Negozio, t: string, query: string, variables?: unkn
   return (await res.json()) as T
 }
 
+// ── LE TARIFFE DI CONSEGNA, CALCOLATE DAL SITO ──
+//
+// ⚠️⚠️ Chiesto dall'utente il 28/08/2026: «i valori delle consegne saranno
+// aggiornati con le impostazioni del sito? Dovresti prendere tutto da lì». E ha
+// ragione, per due motivi provati:
+//  1. È la regola Deluxy (Standard §7): le regole economiche NON si ricopiano,
+//     si leggono dal proprietario. I prezzi di consegna sono di Shopify.
+//  2. Scriverli a mano li sbaglia. Misurato il 28/08/2026: la prima versione
+//     aveva Milano 15, Roma/Firenze 25 (giusti) — ma il sito Deluxy ha OTTO
+//     zone, e **Bergamo costa 80 €**, un numero che a mano non avrei mai messo.
+//
+// ⚠️ Non si rifà il calcolo delle zone: lo fa **`draftOrderCalculate`**, che è
+// il motore vero del sito. Gli si passa il carrello e l'indirizzo, e torna
+// esattamente le tariffe che il cliente vedrebbe alla cassa — col nome giusto
+// («Deluxy delivery», «Always Free Shipping»). Se domani cambiano un prezzo sul
+// sito, qui cambia da solo, senza toccare niente.
+
+export type TariffaConsegna = {
+  /** Il nome della tariffa, come sul sito: «Deluxy delivery», «Standard Delivery». */
+  titolo: string
+  prezzo: number
+  valuta: string
+}
+
+export type EsitoTariffe =
+  | { stato: 'ok'; tariffe: TariffaConsegna[] }
+  | { stato: 'senza-negozio' }
+  | { stato: 'errore'; messaggio: string }
+
+/**
+ * Le tariffe di consegna che Shopify offre per QUESTO carrello e QUESTO
+ * indirizzo. Vuoto (`tariffe: []`) è una risposta vera: il sito non consegna là.
+ *
+ * ⚠️ Serve l'indirizzo (almeno la provincia o il paese) e almeno una riga: la
+ * tariffa dipende dalla zona **e** dal subtotale (certe zone sono gratis oltre
+ * una soglia). Senza carrello Shopify non può calcolarla.
+ */
+export async function tariffeConsegna(
+  negozioId: string,
+  indirizzo: { citta: string; cap: string; provincia: string; paese: string },
+  righe: { variantId?: string; titolo?: string; prezzo?: number; quantita: number }[]
+): Promise<EsitoTariffe> {
+  const n = await negozio(negozioId)
+  if (!n) return { stato: 'senza-negozio' }
+  const t = await token(n)
+  if (!t) return { stato: 'errore', messaggio: 'Shopify non ha dato un token per questo negozio.' }
+  if (!righe.length) return { stato: 'ok', tariffe: [] }
+
+  const input = {
+    lineItems: righe.map((r) =>
+      r.variantId
+        ? { variantId: r.variantId, quantity: Math.max(1, r.quantita) }
+        : {
+            title: (r.titolo ?? 'Prodotto').trim() || 'Prodotto',
+            originalUnitPriceWithCurrency: {
+              amount: String(Math.max(0, r.prezzo ?? 0)),
+              currencyCode: 'EUR',
+            },
+            quantity: Math.max(1, r.quantita),
+            requiresShipping: true,
+          }
+    ),
+    shippingAddress: {
+      // ⚠️ Un indirizzo minimo basta al calcolo: la zona la decidono provincia e
+      // paese. Nome e via sono di comodo perché Shopify vuole un indirizzo.
+      address1: indirizzo.citta.trim() ? 'Consegna' : 'Consegna',
+      city: indirizzo.citta.trim() || undefined,
+      zip: indirizzo.cap.trim() || undefined,
+      provinceCode: indirizzo.provincia.trim() || undefined,
+      countryCode: (indirizzo.paese.trim() || 'IT').toUpperCase(),
+      firstName: 'Cliente',
+      lastName: '.',
+    },
+  }
+
+  const d = await graphql<{
+    data?: {
+      draftOrderCalculate?: {
+        calculatedDraftOrder?: {
+          availableShippingRates?: { title?: string; price?: { amount?: string; currencyCode?: string } }[]
+        } | null
+        userErrors?: { message: string }[]
+      }
+    }
+    errors?: { message: string }[]
+  }>(
+    n,
+    t,
+    `mutation Calcola($input: DraftOrderInput!) {
+      draftOrderCalculate(input: $input) {
+        calculatedDraftOrder {
+          availableShippingRates { title price { amount currencyCode } }
+        }
+        userErrors { message }
+      }
+    }`,
+    { input }
+  )
+  const errore =
+    d.errors?.[0]?.message || d.data?.draftOrderCalculate?.userErrors?.[0]?.message
+  if (errore) return { stato: 'errore', messaggio: errore }
+
+  const rates = d.data?.draftOrderCalculate?.calculatedDraftOrder?.availableShippingRates ?? []
+  return {
+    stato: 'ok',
+    tariffe: rates
+      .map((r) => ({
+        titolo: (r.title ?? '').trim() || 'Consegna',
+        prezzo: Number(r.price?.amount ?? 0) || 0,
+        valuta: r.price?.currencyCode || 'EUR',
+      }))
+      // La più economica davanti: è quella che il sito propone per prima e che
+      // si sceglie nove volte su dieci.
+      .sort((a, b) => a.prezzo - b.prezzo),
+  }
+}
+
 export type ProdottoTrovato = {
   variantId: string
   titolo: string

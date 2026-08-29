@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chiediJson, frasePerEsito } from '@/lib/leggi-json'
-import { regolaConsegna } from '@/lib/regole-consegna'
 
 // Fare un ordine per un cliente al telefono, senza uscire dall'app.
 //
@@ -85,12 +84,17 @@ export function NuovoOrdine({
   const [spedizioneTitolo, setSpedizioneTitolo] = useState('')
   const [spedizionePrezzo, setSpedizionePrezzo] = useState('0')
   /**
-   * L'ultima spedizione messa da una REGOLA (marchio/città), in forma
-   * `titolo|prezzo`. Serve a distinguere «lo ha scelto la regola» da «lo ha
-   * scritto l'operatore»: se l'operatore cambia il prezzo a mano, la regola
-   * non deve più sovrascriverglielo al primo tasto della città.
+   * Le tariffe di consegna calcolate da Shopify per questo indirizzo e questo
+   * carrello: sono quelle del SITO, non scritte a mano.
    */
-  const regolaMessa = useRef('')
+  const [tariffe, setTariffe] = useState<{ titolo: string; prezzo: number }[]>([])
+  const [tariffeStato, setTariffeStato] = useState<'idle' | 'carico' | 'ok' | 'errore'>('idle')
+  const [tariffeNota, setTariffeNota] = useState('')
+  /**
+   * L'ultima tariffa messa in automatico, in forma `titolo|prezzo`: se
+   * l'operatore la cambia a mano, il ricalcolo non gliela sovrascrive.
+   */
+  const tariffaMessa = useRef('')
 
   /**
    * Aggiungere l'IVA. ⚠️ Spenta di suo: su Deluxy e Flowers i prezzi sono IVA
@@ -169,14 +173,10 @@ export function NuovoOrdine({
     }
   }, [])
 
-  // ⚠️ A ogni cambio di negozio si rileggono i metodi di pagamento, e come
-  // RIPIEGO la spedizione più usata da quel negozio: serve solo per i casi
-  // fuori regola (Deluxy in una città senza tariffa). Dove una regola c'è, la
-  // regola qui sopra la sovrascrive.
+  // ⚠️ I metodi di pagamento si rileggono a ogni cambio di negozio: sono del
+  // negozio, non dell'azienda — «Bank Deposit» ce l'ha solo Cake.
   useEffect(() => {
     if (!negozioId) return
-    // ⚠️ I metodi si rileggono a ogni cambio di negozio, come le spedizioni:
-    // sono del negozio, non dell'azienda — «Bank Deposit» ce l'ha solo Cake.
     chiediJson<{ metodi?: { nome: string; usato: number }[] }>(
       '/api/nuovo-ordine/pagamenti?negozio=' + encodeURIComponent(negozioId)
     ).then((e) => {
@@ -198,43 +198,85 @@ export function NuovoOrdine({
       )
       if (m.length) setMezzo(m[0].nome)
     })
-    fetch('/api/nuovo-ordine/spedizioni?negozio=' + encodeURIComponent(negozioId))
-      .then((r) => (r.ok ? r.json() : { spedizioni: [] }))
-      .then((d: { spedizioni?: { titolo: string; prezzo: number; usata: number }[] }) => {
-        const s = d.spedizioni ?? []
-        // ⚠️ Solo se una regola non ha già scritto: la regola vince sempre sul
-        // ripiego storico. `regolaMessa` vuoto = nessuna regola ha ancora deciso.
-        if (s.length && regolaMessa.current === '') {
-          setSpedizioneTitolo(s[0].titolo)
-          setSpedizionePrezzo(String(s[0].prezzo))
-        }
-      })
-      .catch(() => {})
   }, [negozioId])
 
-  // ── LA REGOLA DI CONSEGNA, per marchio e città ──
+  // ── LA SPEDIZIONE LA CALCOLA SHOPIFY, DAL SITO ──
   //
-  // ⚠️⚠️ Chiesto dall'utente il 28/08/2026: Flowers gratuita, Cake 10 €, Deluxy
-  // a città (Milano 15 €, Roma/Firenze 25 €). Le regole stanno in
-  // `src/lib/regole-consegna.ts`, in un posto solo.
+  // ⚠️⚠️ Chiesto dall'utente il 28/08/2026: «i valori delle consegne saranno
+  // aggiornati con le impostazioni del sito? Dovresti prendere tutto da lì». Sì:
+  // qui non c'è nessun prezzo scritto a mano. Si chiede a `draftOrderCalculate`
+  // le tariffe che il sito offre per QUESTO indirizzo e QUESTO carrello — le
+  // stesse che il cliente vedrebbe alla cassa, col nome giusto. Se domani
+  // cambiano un prezzo sul sito, qui cambia da solo.
   //
-  // ⚠️ La regola SCRIVE nei campi spedizione, ma non calpesta l'operatore: se
-  // lui ha cambiato a mano dopo che una regola aveva scritto, non gli si
-  // sovrascrive al primo tasto della città (`regolaMessa`).
-  const nomeNegozio = negozi.find((x) => x.id === negozioId)?.nome ?? ''
-  const regola = negozioId ? regolaConsegna(nomeNegozio, citta) : null
+  // ⚠️ La tariffa dipende dalla zona E dal subtotale: si ricalcola quando cambia
+  // il negozio, l'indirizzo o il carrello. Con un'attesa, per non chiamare
+  // Shopify a ogni tasto.
+  const cartSig = righe
+    .map((r) => `${r.variantId ?? r.titolo}:${r.prezzo}:${r.quantita}`)
+    .join('|')
   useEffect(() => {
-    if (!regola || !regola.certa) return
-    const attuale = `${spedizioneTitolo}|${spedizionePrezzo}`
-    // Applica se: non è mai stata messa una regola, oppure il campo è ancora
-    // quello che aveva messo l'ultima regola (cioè l'operatore non l'ha toccato).
-    const manoLibera = regolaMessa.current === '' || attuale === regolaMessa.current
-    if (!manoLibera) return
-    setSpedizioneTitolo(regola.titolo)
-    setSpedizionePrezzo(String(regola.prezzo))
-    regolaMessa.current = `${regola.titolo}|${regola.prezzo}`
+    // Senza negozio, senza carrello o senza un pezzo d'indirizzo che dica la
+    // zona (provincia, città o paese) Shopify non può calcolare: si aspetta.
+    if (!negozioId || !righe.length || !(provincia.trim() || citta.trim() || paese.trim())) {
+      setTariffe([])
+      setTariffeStato('idle')
+      setTariffeNota('')
+      return
+    }
+    let vivo = true
+    setTariffeStato('carico')
+    const t = setTimeout(async () => {
+      const e = await chiediJson<{ tariffe?: { titolo: string; prezzo: number }[]; errore?: string }>(
+        '/api/nuovo-ordine/tariffe',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            negozioId,
+            indirizzo: { citta, cap, provincia, paese },
+            righe: righe.map((r) => ({
+              variantId: r.variantId,
+              titolo: r.variantId ? undefined : r.titolo,
+              prezzo: r.variantId ? undefined : r.prezzo,
+              quantita: r.quantita,
+            })),
+          }),
+        }
+      )
+      if (!vivo) return
+      if (e.stato !== 'ok') {
+        setTariffe([])
+        setTariffeStato('errore')
+        setTariffeNota(frasePerEsito(e))
+        return
+      }
+      const list = e.dati.tariffe ?? []
+      setTariffe(list)
+      setTariffeStato('ok')
+      setTariffeNota(
+        list.length
+          ? ''
+          : // ⚠️ Vuoto è una risposta VERA: il sito non ha una tariffa per questa
+            // consegna (una provincia fuori dalle zone). Non si inventa un prezzo.
+            'Il sito non ha una tariffa per questo indirizzo: scegli tu la spedizione, o lasciala a zero.'
+      )
+      // ⚠️ Si mette la più economica in automatico, ma solo se l'operatore non
+      // ha già cambiato a mano: la sua scelta vince sul ricalcolo.
+      const attuale = `${spedizioneTitolo}|${spedizionePrezzo}`
+      const manoLibera = tariffaMessa.current === '' || attuale === tariffaMessa.current
+      if (list.length && manoLibera) {
+        setSpedizioneTitolo(list[0].titolo)
+        setSpedizionePrezzo(String(list[0].prezzo))
+        tariffaMessa.current = `${list[0].titolo}|${list[0].prezzo}`
+      }
+    }, 450)
+    return () => {
+      vivo = false
+      clearTimeout(t)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regola?.titolo, regola?.prezzo, regola?.certa])
+  }, [negozioId, provincia, citta, cap, paese, cartSig])
 
   /** Cerca un cliente già registrato e, scegliendolo, riempie tutto. */
   const cercaCliente = useCallback(async () => {
@@ -850,33 +892,62 @@ export function NuovoOrdine({
         <h2 style={{ marginTop: 0, fontSize: 15 }}>Consegna, biglietto e pagamento</h2>
         <div className="griglia-campi">
           <label className="campo" style={{ gridColumn: '1 / -1' }}>
-            {/* ⚠️⚠️ IL PREZZO LO DECIDE LA REGOLA (marchio/città), non la storia
-                degli ordini: Flowers gratuita, Cake 10 €, Deluxy a città
-                (Milano 15 €, Roma/Firenze 25 €). Vedi src/lib/regole-consegna.ts.
-                Resta modificabile a mano per i casi fuori regola. */}
+            {/* ⚠️⚠️ IL PREZZO LO CALCOLA IL SITO. Le tariffe qui sotto sono
+                quelle che Shopify offre per questo indirizzo e questo carrello
+                (`draftOrderCalculate`), col nome del sito. Se domani cambiano un
+                prezzo sul sito, cambia qui da solo. Le zone Deluxy sono otto —
+                Bergamo costa 80 € — quindi scriverle a mano le sbaglierebbe. */}
             <span>Spedizione</span>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                value={spedizioneTitolo}
-                onChange={(e) => setSpedizioneTitolo(e.target.value)}
-                placeholder={negozioId ? 'Titolo della spedizione' : 'Scegli prima il negozio'}
-                style={{ flex: 1 }}
-              />
-              <input
-                value={spedizionePrezzo}
-                onChange={(e) => setSpedizionePrezzo(e.target.value.replace(',', '.'))}
-                inputMode="decimal"
-                aria-label="Prezzo della spedizione"
-                style={{ width: 90, textAlign: 'right' }}
-              />
-            </div>
-            {/* La regola che ha deciso il prezzo, o perché non ce n'è una. */}
-            {regola ? (
-              <span className="cella-sub" style={regola.certa ? { color: 'var(--gold, #B8963E)' } : undefined}>
-                {regola.certa
-                  ? `Regola applicata: ${regola.etichetta}`
-                  : regola.etichetta}
+            {/* La tariffa scelta, con la tendina delle alternative del sito
+                quando ce n'è più d'una. */}
+            {tariffe.length ? (
+              <select
+                value={`${spedizioneTitolo}|${spedizionePrezzo}`}
+                onChange={(e) => {
+                  const [tit, pre] = e.target.value.split('|')
+                  setSpedizioneTitolo(tit)
+                  setSpedizionePrezzo(pre)
+                  // ⚠️ Scegliendo a mano dalla tendina, il ricalcolo non deve
+                  // ributtarci sopra la più economica: si segna come scelta.
+                  tariffaMessa.current = e.target.value
+                }}
+              >
+                {tariffe.map((s) => (
+                  <option key={`${s.titolo}|${s.prezzo}`} value={`${s.titolo}|${s.prezzo}`}>
+                    {s.titolo} — {soldi(s.prezzo)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              // Nessuna tariffa dal sito (o carrello/indirizzo non ancora
+              // completi): campi a mano, per l'operatore.
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={spedizioneTitolo}
+                  onChange={(e) => setSpedizioneTitolo(e.target.value)}
+                  placeholder="Titolo della spedizione"
+                  style={{ flex: 1 }}
+                />
+                <input
+                  value={spedizionePrezzo}
+                  onChange={(e) => setSpedizionePrezzo(e.target.value.replace(',', '.'))}
+                  inputMode="decimal"
+                  aria-label="Prezzo della spedizione"
+                  style={{ width: 90, textAlign: 'right' }}
+                />
+              </div>
+            )}
+            {/* Cosa sta succedendo col calcolo. */}
+            {tariffeStato === 'carico' ? (
+              <span className="cella-sub">Calcolo la spedizione dal sito…</span>
+            ) : tariffeStato === 'ok' && tariffe.length ? (
+              <span className="cella-sub" style={{ color: 'var(--gold, #B8963E)' }}>
+                Tariffe del sito per {citta.trim() || provincia.trim() || 'questo indirizzo'}
               </span>
+            ) : tariffeNota ? (
+              <span className="cella-sub">{tariffeNota}</span>
+            ) : !negozioId ? (
+              <span className="cella-sub">Scegli il negozio e l&apos;indirizzo per calcolare la spedizione.</span>
             ) : null}
           </label>
         </div>
