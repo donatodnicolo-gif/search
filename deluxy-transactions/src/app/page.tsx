@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function Coda({
   searchParams,
 }: {
-  searchParams: Promise<{ chiuso?: string; esito?: string }>;
+  searchParams: Promise<{ chiuso?: string; esito?: string; q?: string; periodo?: string }>;
 }) {
   const operatore = await operatoreCorrente();
   if (!operatore) redirect("/login");
@@ -33,9 +33,41 @@ export default async function Coda({
   const chiuso = /^[A-Z0-9-]{3,30}$/.test(sp.chiuso ?? "") ? sp.chiuso! : "";
   const esitoChiusura = sp.esito === "pagata_fuori" || sp.esito === "annullata" ? sp.esito : "";
 
+  // Ricerca + scorciatoie di periodo (Libro UX&UI §8-bis; set chiesto
+  // dall'utente per la coda: Oggi · Ultimi 7 giorni · Mese · Trimestre ·
+  // Anno). Il periodo si applica alla data di ARRIVO della richiesta
+  // (`creataIl`): è la domanda che si fa davanti alla coda — «cosa è arrivato
+  // oggi?». Chips come link GET fuori dal form, un parametro solo.
+  const q = (sp.q ?? "").trim();
+  const PERIODI = ["oggi", "7g", "mese", "trimestre", "anno"] as const;
+  const periodo = PERIODI.includes(sp.periodo as (typeof PERIODI)[number]) ? sp.periodo! : "";
+  const adesso = new Date();
+  const inizioOggi = new Date(adesso.getFullYear(), adesso.getMonth(), adesso.getDate());
+  const intervallo =
+    periodo === "oggi" ? { gte: inizioOggi }
+    : periodo === "7g" ? { gte: new Date(inizioOggi.getTime() - 6 * 24 * 60 * 60 * 1000) }
+    : periodo === "mese" ? { gte: new Date(adesso.getFullYear(), adesso.getMonth(), 1) }
+    : periodo === "trimestre" ? { gte: new Date(adesso.getFullYear(), adesso.getMonth() - 2, 1) }
+    : periodo === "anno" ? { gte: new Date(adesso.getFullYear(), 0, 1) }
+    : null;
+
   const [richieste, approvate, pagateOggi, regole] = await Promise.all([
     prisma.richiesta.findMany({
-      where: { stato: { in: ["in_attesa", "sospesa"] } },
+      where: {
+        stato: { in: ["in_attesa", "sospesa"] },
+        ...(q
+          ? {
+              OR: [
+                { riferimento: { contains: q, mode: "insensitive" as const } },
+                { beneficiario: { contains: q, mode: "insensitive" as const } },
+                { causale: { contains: q, mode: "insensitive" as const } },
+                { origine: { contains: q, mode: "insensitive" as const } },
+                { iban: { contains: q.replace(/\s/g, "").toUpperCase() } },
+              ],
+            }
+          : {}),
+        ...(intervallo ? { creataIl: intervallo } : {}),
+      },
       orderBy: [{ rischio: "desc" }, { creataIl: "asc" }],
       include: { approvazioni: { select: { esito: true, operatoreId: true } } },
       take: 200,
@@ -95,6 +127,45 @@ export default async function Coda({
         </div>
       )}
 
+      {/* Le scorciatoie di periodo (Libro §8-bis): link GET fuori dal form,
+          così il submit della ricerca non le azzera e viceversa. */}
+      <div className="filtri riga-chips-scorri" style={{ marginBottom: 10 }}>
+        {([
+          { v: "oggi", l: "Oggi" },
+          { v: "7g", l: "Ultimi 7 giorni" },
+          { v: "mese", l: "Mese in corso" },
+          { v: "trimestre", l: "Trimestre" },
+          { v: "anno", l: "Anno" },
+        ] as const).map((p) => (
+          <a
+            key={p.v}
+            href={`/?periodo=${p.v}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+            className={`chip-link${periodo === p.v ? " attiva" : ""}`}
+          >
+            {p.l}
+          </a>
+        ))}
+        {periodo && (
+          <a href={`/${q ? `?q=${encodeURIComponent(q)}` : ""}`} className="chip-link azzera">
+            Tutte le date
+          </a>
+        )}
+      </div>
+
+      <form className="filtri" method="get" style={{ marginBottom: 14 }}>
+        {/* Il periodo scelto sopravvive al submit della ricerca. */}
+        {periodo && <input type="hidden" name="periodo" value={periodo} />}
+        <input type="search" name="q" defaultValue={q} placeholder="Riferimento, beneficiario, causale, IBAN, app…" />
+        <button className="btn" type="submit">
+          Cerca
+        </button>
+        {q && (
+          <a className="btn btn-secondario" href={periodo ? `/?periodo=${periodo}` : "/"}>
+            Azzera
+          </a>
+        )}
+      </form>
+
       <div className="kpi-riga">
         <div className="kpi">
           <div className="kpi-valore">{richieste.length}</div>
@@ -115,7 +186,11 @@ export default async function Coda({
       </div>
 
       {richieste.length === 0 ? (
-        <div className="vuoto">Nessuna richiesta in attesa. Tutto autorizzato.</div>
+        // ⚠️ Con un filtro attivo «tutto autorizzato» sarebbe una bugia: il
+        // vuoto dice se è il filtro o se è davvero finito il lavoro.
+        <div className="vuoto">
+          {q || periodo ? "Nessuna richiesta in attesa con questi filtri." : "Nessuna richiesta in attesa. Tutto autorizzato."}
+        </div>
       ) : (
         <div className="tabella-wrap">
           <table>
