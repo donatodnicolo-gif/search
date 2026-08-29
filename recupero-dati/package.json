@@ -1,0 +1,23 @@
+{
+  "name": "recupero-dati",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Recupero dati da chiavette USB, schede SD, dischi esterni e telefoni (best-effort). Motore di carving proprietario + integrazione PhotoRec/TestDisk.",
+  "main": "electron/main.js",
+  "bin": {
+    "recupero-dati": "src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "cli": "node src/cli.js",
+    "test": "node test/run-tests.cjs",
+    "make-test-image": "node test/make-image.cjs",
+    "electron": "electron ."
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}

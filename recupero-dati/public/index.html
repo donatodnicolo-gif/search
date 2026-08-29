@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recupero Dati</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="head">
+      <div>
+        <h1>Recupero Dati</h1>
+        <p class="sub">Ripesca i file persi da chiavette USB, schede SD, dischi esterni e — per quel che si puo' — dai telefoni.</p>
+      </div>
+      <button id="refresh" class="btn btn-ghost">Aggiorna</button>
+    </header>
+
+    <section class="note">
+      <strong>Cosa e' davvero possibile.</strong> Su chiavette/SD/dischi il recupero funziona finche' i byte non sono stati riscritti.
+      I file <em>sovrascritti</em>, gli SSD/flash con TRIM e le formattazioni recenti sono in genere irrecuperabili — nessun programma serio li riporta indietro.
+      I <em>telefoni</em> non espongono il disco al PC (sono cifrati): si copiano solo i file presenti, niente recupero profondo senza root/jailbreak.
+      <br>Il recupero e' <strong>solo lettura</strong>: non tocchiamo mai il dispositivo. I file recuperati vanno in <em>un'altra</em> cartella.
+    </section>
+
+    <!-- STEP 0: cerca tra i file esistenti -->
+    <section class="card">
+      <div class="card-h"><span class="step">0</span><h2>Prima controlla: il file esiste ancora?</h2></div>
+      <p class="muted small">Spesso il file "perso" vive ancora da un'altra parte (altra cartella, altra unita', Cestino, copie di OneDrive/Dropbox). Cerca per nome prima di fare il recupero profondo — bastano pochi secondi.</p>
+      <div class="searchbar">
+        <input id="searchName" class="input" type="text" placeholder="Parte del nome, es. WA0011 oppure 20240314" />
+        <button id="searchBtn" class="btn btn-primary">Cerca</button>
+        <button id="searchStop" class="btn btn-ghost hidden">Ferma</button>
+      </div>
+      <div id="searchStatus" class="muted small hidden"></div>
+      <div id="searchResults" class="res-list search-list hidden"></div>
+    </section>
+
+    <!-- STEP 1: dispositivo -->
+    <section class="card">
+      <div class="card-h"><span class="step">1</span><h2>Scegli da dove recuperare</h2></div>
+      <div id="devices" class="devices"><p class="muted">Cerco i dispositivi…</p></div>
+
+      <details class="manual">
+        <summary>Oppure: percorso manuale (file immagine <code>.img/.dd</code> o device <code>\\.\PhysicalDrive1</code>)</summary>
+        <input id="manual" class="input" type="text" placeholder="Es. C:\percorso\immagine.img  oppure  \\.\PhysicalDrive1" />
+        <button id="pickManual" class="btn btn-ghost">Usa questo</button>
+      </details>
+
+      <div id="selected" class="selected hidden"></div>
+    </section>
+
+    <!-- STEP 2: opzioni -->
+    <section class="card">
+      <div class="card-h"><span class="step">2</span><h2>Dove salvare e come cercare</h2></div>
+      <label class="field">
+        <span>Cartella di destinazione <small>(mai sulla stessa unita' da recuperare)</small></span>
+        <input id="outDir" class="input" type="text" />
+      </label>
+      <div class="opts">
+        <label class="radio"><input type="radio" name="mode" value="auto" checked /> <b>Completo</b> <small>nomi + carving</small></label>
+        <label class="radio"><input type="radio" name="mode" value="filesystem" /> <b>Solo con i nomi</b> <small>piu' veloce</small></label>
+        <label class="radio"><input type="radio" name="mode" value="carve" /> <b>Solo carving</b> <small>anche formattati</small></label>
+        <label class="check"><input type="checkbox" id="live" /> includi anche i file <b>non</b> cancellati</label>
+      </div>
+      <div class="pr" id="prBox"></div>
+    </section>
+
+    <!-- STEP 3: avvio -->
+    <section class="card">
+      <div class="card-h"><span class="step">3</span><h2>Avvia il recupero</h2></div>
+      <div class="actions">
+        <button id="start" class="btn btn-primary" disabled>Avvia recupero</button>
+        <button id="stop" class="btn btn-ghost hidden">Ferma</button>
+        <button id="openOut" class="btn btn-ghost hidden">Apri cartella</button>
+      </div>
+
+      <div id="progress" class="progress hidden">
+        <div class="phase" id="phase">In preparazione…</div>
+        <div class="bar"><div class="bar-fill" id="bar"></div></div>
+        <div class="stats"><span id="pct">0%</span> · <span id="found">0</span> file trovati</div>
+      </div>
+
+      <div id="results" class="results hidden">
+        <div class="res-h">
+          <div class="counts" id="counts"></div>
+        </div>
+        <div id="liveCheck" class="livecheck hidden">
+          <button id="liveCheckBtn" class="btn btn-ghost">Controlla se questi file esistono ancora altrove</button>
+          <div id="liveCheckOut" class="muted small"></div>
+        </div>
+        <div class="res-list" id="resList"></div>
+      </div>
+    </section>
+
+    <footer class="foot">Tutto in locale, sola lettura. Per leggere i dischi grezzi serve avviare come <b>amministratore</b>.</footer>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
