@@ -52,7 +52,13 @@ export type TeamBudget = {
   colore: string | null;
   ordine: number;
   note: string | null;
+  // Ruolo economico (29/08/2026): vedi il commento sul modello Prisma.
+  struttura: boolean;
+  ambiti: string[] | null; // slug di tipologia e/o "COMMERCIALE"; null = non dichiarato
 };
+
+/** Il valore speciale che associa un team alle linee del team commerciale. */
+export const AMBITO_COMMERCIALE = "COMMERCIALE";
 
 // **Da dove nasce un pezzo di budget.** Non è un'etichetta descrittiva: decide
 // che cosa un consolidamento sovrascrive. Ogni squadra scrive solo la propria
@@ -284,6 +290,8 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       colore: t.colore,
       ordine: t.ordine,
       note: t.note,
+      struttura: t.struttura,
+      ambiti: leggiAmbiti(t.ambiti),
     })),
     tipologie: tipologie.map((t) => ({
       id: t.id,
@@ -311,6 +319,21 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       };
     }),
   };
+}
+
+// Gli ambiti di un team, dal JSON a database. Un JSON rotto vale «non
+// dichiarato», mai «struttura»: il difetto si vede in pagina invece di
+// spostare in silenzio un team fra i costi comuni.
+export function leggiAmbiti(json: string | null): string[] | null {
+  if (!json) return null;
+  try {
+    const v = JSON.parse(json);
+    if (!Array.isArray(v)) return null;
+    const puliti = v.filter((x): x is string => typeof x === "string" && x.trim() !== "");
+    return puliti.length ? puliti : null;
+  } catch {
+    return null;
+  }
 }
 
 export function leggiMesi(json: string): number[] {
@@ -650,6 +673,98 @@ export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: st
     ricaviCommerciale,
     lineeSenzaMargine: maisonSlug ? 0 : dati.linee.filter((l) => l.marginePct === null).length,
   };
+}
+
+// ─── Conto economico per TEAM (29/08/2026, richiesta dell'utente) ──────────
+//
+// «Consentimi di associare team con ricavi e budget (esempio maison con D2C) o
+// indica se il team è un team di struttura, e stima così il conto economico per
+// team: se sono associati a linee di ricavo non si tolgono i costi di
+// struttura, ma sì i costi di servizio e prodotto.»
+//
+// La regola, per esteso:
+//  · team di RICAVO → ricavi degli ambiti associati − costo di prodotto e
+//    servizio di quegli ambiti (il COGS, dal margine per tipologia — la stessa
+//    formula del P&L) − il costo delle SUE persone = **contributo**. Niente
+//    struttura, niente pubblicità, niente costi degli altri team: quelli si
+//    pagano col contributo, e sottrarli qui vorrebbe dire ripartirli con un
+//    criterio che nessuno ha deciso.
+//  · team di STRUTTURA → è lui il costo comune: solo il costo, nessun ricavo.
+//  · team NON DICHIARATO → si dice, e basta: trattarlo come struttura in
+//    silenzio sposterebbe il suo costo da una riga all'altra senza che nessuno
+//    l'abbia scelto.
+//
+// I numeri sono il **budget al livello raggiungibile** (lo stesso zoccolo del
+// resto dell'app), col D2C convertito alla quota Deluxy come nel P&L: il
+// venduto pieno confronterebbe una provvigione con un prezzo di vendita.
+export type PLTeam = {
+  id: string;
+  nome: string;
+  colore: string | null;
+  tipo: "ricavo" | "struttura" | "da-dichiarare";
+  ambiti: string[]; // slug (vuoto per struttura/da-dichiarare)
+  ricavi: number;
+  cogs: number;
+  margineLordo: number;
+  costoTeam: number;
+  contributo: number;
+  teste: number;
+};
+
+export function contoEconomicoTeam(dati: DatiAnno, quotaD2C: QuotaD2C = 1): PLTeam[] {
+  const molt = moltiplicatore(dati, "RAGGIUNGIBILE");
+  const tot = dati.maisons.map(totaliMaison);
+
+  // Ricavo dell'anno per tipologia, con la quota D2C applicata maison per
+  // maison — identico a come lo fa contoEconomico, per non avere due verità.
+  const ricaviPerServizio: Record<string, number> = {};
+  tot.forEach((t, i) => {
+    for (const [slug, v] of Object.entries(t.perServizio)) {
+      const conv = slug === SLUG_D2C ? frazioneQuotaD2C(quotaD2C, dati.maisons[i].slug) : 1;
+      ricaviPerServizio[slug] = (ricaviPerServizio[slug] ?? 0) + v * molt * conv;
+    }
+  });
+  const ricaviCommerciale = dati.linee.reduce((s, l) => s + l.mesi.reduce((a, b) => a + b, 0), 0) * molt;
+  const cogsCommerciale = dati.linee.reduce((s, l) => {
+    const v = l.mesi.reduce((a, b) => a + b, 0) * molt;
+    return s + v * (1 - (l.marginePct ?? 0) / 100);
+  }, 0);
+
+  return dati.team.map((t) => {
+    const persone = personeDelTeam(dati, t.id);
+    const costoTeam = persone.reduce((s, p) => s + costoPersonaAnno(p), 0);
+    const base = { id: t.id, nome: t.nome, colore: t.colore, costoTeam, teste: persone.length };
+
+    if (t.struttura) {
+      return { ...base, tipo: "struttura" as const, ambiti: [], ricavi: 0, cogs: 0, margineLordo: 0, contributo: -costoTeam };
+    }
+    if (!t.ambiti) {
+      return { ...base, tipo: "da-dichiarare" as const, ambiti: [], ricavi: 0, cogs: 0, margineLordo: 0, contributo: -costoTeam };
+    }
+
+    let ricavi = 0;
+    let cogs = 0;
+    for (const slug of t.ambiti) {
+      if (slug === AMBITO_COMMERCIALE) {
+        ricavi += ricaviCommerciale;
+        cogs += cogsCommerciale;
+      } else {
+        const r = ricaviPerServizio[slug] ?? 0;
+        ricavi += r;
+        cogs += r * (1 - margineDi(dati, slug) / 100);
+      }
+    }
+    const margineLordo = ricavi - cogs;
+    return {
+      ...base,
+      tipo: "ricavo" as const,
+      ambiti: t.ambiti,
+      ricavi,
+      cogs,
+      margineLordo,
+      contributo: margineLordo - costoTeam,
+    };
+  });
 }
 
 export type PLMese = {

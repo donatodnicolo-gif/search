@@ -4,6 +4,31 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### 29/08/2026: il conto economico per team, con l'associazione ai ricavi
+
+Richiesta dell'utente: «consentimi di associare team con ricavi e budget (esempio maison
+con D2C) o indica se il team è un team di struttura, e stima così nella stessa pagina il
+conto economico per team (se sono associati a linee di ricavo non si tolgono i costi di
+struttura ma invece sì i costi di servizio e prodotto)».
+
+- **Modello**: `Team.struttura` (boolean) + `Team.ambiti` (JSON di slug tipologia +
+  `COMMERCIALE` per le linee). **Tre stati, non due**: struttura, ricavo, e **non
+  dichiarato** — che si dice in pagina, non si tratta come struttura in silenzio.
+- **Calcolo**: `contoEconomicoTeam` in `src/lib/calc.ts`, accanto a `contoEconomico` e con
+  gli stessi ingredienti (livello raggiungibile, quota Deluxy sul D2C, margine per
+  tipologia): contributo = ricavi degli ambiti − COGS − costo delle persone del team.
+  **Di proposito non si tolgono** struttura, pubblicità e team di struttura: si pagano col
+  contributo di tutte le squadre, e ripartirli qui sceglierebbe un criterio che nessuno ha
+  deciso. Per questo la somma dei contributi NON è l'EBITDA, e la pagina lo scrive.
+- **UI**: in `/team` la card «Conto economico per team»; nell'editor del team il campo
+  «Ruolo economico» (radio struttura/ricavi + checkbox degli ambiti). La rotta `/api/team`
+  valida gli ambiti contro le tipologie vere: uno slug inventato non si salva, perché
+  sommerebbe zero per sempre senza distinguersi da un ambito vuoto.
+- **Verificato sui dati veri** (script a mano, poi rimosso): Maison→D2C contributo
+  211.601 € (ricavi 301.039, COGS 0 — giusto così: D2C ha margine 100% a database perché
+  con la quota Deluxy il costo prodotto è già tolto dal ricavo); Commerciale→Eventi+B2B+
+  Linee contributo 231.620 €; Operation resta «da dichiarare».
+
 ### 27/08/2026: una passata di sicurezza, con due agenti ostili a smontarla
 
 Dieci sospetti su accesso e permessi, ognuno **passato a un revisore ostile col mandato di demolirlo** prima di toccare una riga. Esito: **1 confermata, 7 ridimensionate, 2 smentite**. Vale la pena leggere anche le smentite, perché dicono che cosa NON è un problema qui.

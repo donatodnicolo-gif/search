@@ -16,7 +16,13 @@ type TeamConOrganico = {
   note: string | null;
   persone: PersonaTeam[];
   costo: number;
+  // Ruolo economico (29/08/2026): "struttura" | ambiti scelti | non dichiarato.
+  struttura: boolean;
+  ambiti: string[] | null;
 };
+
+/** Un ambito selezionabile: una tipologia di servizio, o le linee commerciali. */
+export type AmbitoScelta = { slug: string; nome: string };
 
 const COLORI = [
   { key: "neutral", label: "Grigio" },
@@ -27,14 +33,27 @@ const COLORI = [
   { key: "orange", label: "Arancio" },
 ];
 
-const VUOTO = { id: "", nome: "", responsabile: "", colore: "neutral", ordine: 0, note: "" };
+const VUOTO = {
+  id: "",
+  nome: "",
+  responsabile: "",
+  colore: "neutral",
+  ordine: 0,
+  note: "",
+  // "ricavo" | "struttura" — con "ricavo" e nessun ambito spuntato il team
+  // resta «da dichiarare», che è lo stato vero: nessun silenzio.
+  ruolo: "ricavo" as "ricavo" | "struttura",
+  ambiti: [] as string[],
+};
 
 export function TeamEditor({
   team,
   senzaTeam,
+  ambitiDisponibili,
 }: {
   team: TeamConOrganico[];
   senzaTeam: PersonaTeam[];
+  ambitiDisponibili: AmbitoScelta[];
 }) {
   const router = useRouter();
   const [form, setForm] = useState<typeof VUOTO | null>(null);
@@ -59,6 +78,8 @@ export function TeamEditor({
         ...form,
         responsabile: form.responsabile || null,
         note: form.note || null,
+        struttura: form.ruolo === "struttura",
+        ambiti: form.ruolo === "struttura" ? [] : form.ambiti,
       }),
     });
     setSalvo(false);
@@ -155,6 +176,8 @@ export function TeamEditor({
                       nome: t.nome,
                       responsabile: t.responsabile ?? "",
                       colore: t.colore ?? "neutral",
+                      ruolo: t.struttura ? ("struttura" as const) : ("ricavo" as const),
+                      ambiti: t.ambiti ?? [],
                       ordine: t.ordine,
                       note: t.note ?? "",
                     });
@@ -302,6 +325,63 @@ export function TeamEditor({
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
                 placeholder="Es. copre D2C e lead generation B2B"
               />
+            </div>
+            {/* Ruolo economico (29/08/2026): decide come il team entra nel
+                conto economico per team qui sopra. */}
+            <div className="full">
+              <label className="field-label">Ruolo economico</label>
+              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center", minHeight: 36 }}>
+                <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 14, cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="ruolo-economico"
+                    checked={form.ruolo === "ricavo"}
+                    onChange={() => setForm({ ...form, ruolo: "ricavo" })}
+                  />
+                  Associato a ricavi
+                </label>
+                <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 14, cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="ruolo-economico"
+                    checked={form.ruolo === "struttura"}
+                    onChange={() => setForm({ ...form, ruolo: "struttura" })}
+                  />
+                  Team di struttura
+                </label>
+              </div>
+              {form.ruolo === "ricavo" ? (
+                <>
+                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 8 }}>
+                    {ambitiDisponibili.map((a) => (
+                      <label key={a.slug} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 14, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={form.ambiti.includes(a.slug)}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              ambiti: e.target.checked
+                                ? [...form.ambiti, a.slug]
+                                : form.ambiti.filter((s) => s !== a.slug),
+                            })
+                          }
+                        />
+                        {a.nome}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="muted" style={{ fontSize: 12, marginTop: 6, marginBottom: 0 }}>
+                    Al team si attribuiscono i ricavi degli ambiti scelti, al netto dei costi di
+                    prodotto e servizio. Nessun ambito spuntato = ruolo ancora da dichiarare.
+                  </p>
+                </>
+              ) : (
+                <p className="muted" style={{ fontSize: 12, marginTop: 6, marginBottom: 0 }}>
+                  Il costo di un team di struttura è un costo comune: nel conto per team compare
+                  solo il costo, nessun ricavo gli si attribuisce.
+                </p>
+              )}
             </div>
           </div>
           <div className="form-footer">

@@ -208,6 +208,18 @@ model Team {
   colore        String? // badge: green | gold | blue | purple | orange | neutral
   ordine        Int          @default(0)
   note          String?
+  // Il RUOLO ECONOMICO del team (29/08/2026, richiesta dell'utente): serve al
+  // conto economico per team in /team. Tre stati, non due:
+  //   struttura=true            → team di STRUTTURA: il suo costo e' un costo
+  //                               comune, nessun ricavo gli si attribuisce
+  //   ambiti=["D2C", ...]       → team di RICAVO: gli si attribuiscono i ricavi
+  //                               degli ambiti scelti (slug di TipologiaServizio,
+  //                               piu' il valore speciale "COMMERCIALE" per le
+  //                               linee del team commerciale)
+  //   struttura=false e ambiti=null → NON ANCORA DICHIARATO: la pagina lo dice,
+  //                               non lo tratta come struttura in silenzio
+  struttura     Boolean      @default(false)
+  ambiti        String? // JSON: array di slug
   persone       Dipendente[]
 }
 
