@@ -17,3 +17,11 @@ deluxy-platform-next/legacy/*
 
 # deluxy-calendario vive nel SUO repo (github.com/donatodnicolo-gif/deluxy-calendario): qui si ignora
 /deluxy-calendario/
+
+# Esportazioni di dati reali (paghe, banca, margini, valet, ritiri): MAI su repo pubblico
+/*.csv
+# File temporanei/di lavoro e archivi: mai committati
+*.tmp.mjs
+deluxy-platform-next.zip
+# Progetto personale di recupero dati: fuori dal repo
+/recupero-dati/
