@@ -1,5 +1,111 @@
 # Handoff — Deluxy Customer Service
 
+## 29/08/2026 (12) — «Hanno già preparato ordini per noi» adesso FILTRA
+
+Segnalazione dell'utente, su un ordine di cioccolatini a **Roma**, guardando la
+scheda ordine di `deluxy-messaging.vercel.app`:
+
+> «qui devono apparire solo quelli collegati a quella provincia» ·
+> «bliss cake è su milano» · «e poi due sono legati ai fiori»
+
+A schermo c'erano sei righe: una pasticceria di Milano, quattro fiorai e un
+negozio di palloncini. **Sei telefonate sbagliate su sei.**
+
+### Perché non filtrava, e perché adesso si può
+
+⚠️⚠️ Non era un filtro rotto: **il filtro non c'era**, ed era una scelta scritta
+nei commenti del 27/08 — filtrare avrebbe svuotato l'elenco, perché la provincia
+di una consegna passata si ricava dalla città e `siglaProvincia` risponde solo
+sui capoluoghi. **Misurato oggi sui dati veri**: 49 ordini con fornitore, 47
+fornitori distinti, la provincia si ricava da **12 ordini su 49**; `indirizzo` è
+vuoto su tutti (resta in Orders, per non tenerne due copie), `fornitoreCitta` è
+vuoto su **47 su 47**, `fornitoreId` (registro) su **47 su 47**.
+
+Quello che rende il filtro possibile sono **tre dati che c'erano e non si
+guardavano**:
+
+1. **il negozio dell'ordine** (`negozioNome`: Cake → pasticceria, FLowers →
+   fioraio) e **il nome del fornitore** → che mestiere fa
+   (`mestierePerFornitore`, in `src/lib/fornitori-zona.ts`). ⚠️ Il nome viene
+   PRIMA del negozio: «Bianchi Fiorista Como» ha preparato un ordine del negozio
+   Cake — il negozio dice che ordine era, il nome dice che mestiere fa.
+   ⚠️ Parole apposta diverse da quelle del prodotto: i nostri si chiamano
+   «SO'FLEUR», «Malus Flowers Crete», «Blumen Kocher». E «rose» NON c'è: «ROSE
+   CAKE DI ZORZ ALESSANDRO» è una pasticceria.
+2. **il paese** della consegna (`paese`, su ogni ordine): chi ha lavorato solo
+   in Francia o in Germania, su una consegna in Italia, è altrove **per certo** —
+   senza doverne indovinare la provincia. Da solo riconosce Cannes, Algiers,
+   Toronto, Ludwigsburg, Budens.
+3. **i comuni della provincia, letti dal registro Anagrafiche** nella STESSA
+   richiesta (`esito.fornitori.map(f => f.citta)`): se in provincia di RM il
+   registro ha una pasticceria a **Valmontone**, allora Valmontone è in provincia
+   di RM. Letto, non indovinato, e costa zero.
+
+### ⚠️⚠️ La correzione che conta: «altrove» diceva il falso
+
+Prima bastava avere una città qualunque per essere dichiarato altrove:
+
+```ts
+if (f.province.length || f.citta.length) return 1   // ← diceva il falso
+```
+
+Chi ha consegnato solo a **Valmontone** finiva «altrove» su un ordine a **Roma**.
+Finché l'elenco ordinava soltanto, la bugia costava una posizione; **da quando
+filtra, costa la riga**. Adesso «altrove» si dice con due prove sole (una sua
+provincia ricavata che non è questa, oppure solo paesi esteri) e tutto il resto è
+`vicinanza: 0` = **non lo sappiamo**, che non si scarta.
+
+### Che cosa si vede adesso
+
+- `perQuestaConsegna()` in `src/lib/nostri-fornitori.ts` torna quattro cose:
+  `inZona` (da mostrare), `senzaLuogo` (lavorano con noi, non si sa dove),
+  `altrove` e `altroMestiere` (**quanti** sono usciti, e perché).
+- La sezione mostra `inZona`; `senzaLuogo` sta dietro al bottone «Altri N
+  lavorano con noi, non sappiamo dove» (e si apre da sola se `inZona` è vuoto,
+  altrimenti la sezione utile sparirebbe). Sotto, una riga dice quanti sono
+  fuori e per quale dei due motivi. ⚠️ Un elenco che si accorcia in silenzio fa
+  credere che quei fornitori non esistano: è lo stesso errore che nascondeva
+  Passiflora.
+- Il filtro del mestiere si applica **solo quando lo si sa da tutte e due le
+  parti**: fornitore senza mestiere noto resta, ordine senza mestiere noto non
+  toglie niente.
+
+**Verifica**: `tsc` 0, `next build` 0, e
+`npx tsx scripts/prova-nostri-fornitori.mts` — **21 prove, tutte passate**, sui
+dati veri. Il caso segnalato, misurato: su Roma + pasticceria si passa da 47
+righe a **5**, nessun fioraio, niente Bliss Cake; 5 tolti come «altrove», 37 come
+«altro mestiere». ⚠️ `inZona` resta **0** finché il registro non risponde coi
+comuni: nell'app vera Valmontone rientra, nella prova (che non chiama il
+registro) no — la prova lo verifica passando i comuni a mano.
+
+⚠️ **Da guardare più avanti**: Nembro, Nonantola, jesolo restano «non sappiamo
+dove» perché in quelle province il registro non ha nessuno. L'unico modo per
+chiuderla del tutto è una tavola comune→provincia (ISTAT), che serve anche alla
+piattaforma consegne (31.987 consegne senza provincia): **non inventarla a
+memoria**.
+
+## Le sei tappe non scritte (28/08 sera → 29/08)
+
+⚠️ Fra la tappa (11) e questa, l'handoff è rimasto indietro di sei commit. In
+breve, dal più vecchio:
+
+- `5908da4d` **Paga fornitore**: il testo diceva ancora «Deluxy Partner» mentre
+  la richiesta va a Transactions, e l'esito torna da solo con la ricevuta.
+- `98261ed3` **Partner**: la riga si apre col clic (non solo il bottone) e dice
+  **perché** è comparsa quando la parola cercata sta in un campo nascosto.
+- `be9629dd` **Avviso WhatsApp per OGNI richiesta di pagamento del collettore**
+  (chiesto dall'utente il 29/08): rotta `POST /api/pagamenti/avvisa`, la chiama
+  Transactions quando una richiesta nasce in Scout, Finance o Piattaforma.
+- `6719324e` **Impostazioni, scheda pagamenti**: dice la verità — canale
+  Transactions con lo stato letto dall'ambiente, via la configurazione del canale
+  Partner ormai morto.
+- `29b2a2cf` **Nuovo ordine**: l'IVA è una casella da spuntare (spenta di suo).
+- `3aa1415f` **Le tariffe di consegna le calcola il SITO** (rotta
+  `/api/nuovo-ordine/tariffe`): le regole scritte a mano la mattina stessa
+  (`regole-consegna.ts`) sono state buttate il pomeriggio — le tariffe non si
+  ricopiano, si chiedono a Shopify.
+
+
 ## 28/08/2026 (11) — gli esiti dei pagamenti arrivano da Transactions (collettore unico)
 
 Decisione utente: Transactions raccoglie TUTTE le richieste di pagamento

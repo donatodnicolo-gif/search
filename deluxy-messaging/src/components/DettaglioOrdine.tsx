@@ -63,11 +63,27 @@ type NostroFornitoreDto = {
   /**
    * Ha già consegnato in QUESTA zona? Lo decide la rotta (`quantoCentra`).
    * ⚠️ È **sottostimato**: la provincia si ricava dalla città di consegna e
-   * `siglaProvincia` risponde solo quando è certa — 18 fornitori su 22 non ne
-   * danno nessuna. Quindi `false` vuol dire «non risulta», non «di sicuro no».
+   * `siglaProvincia` risponde solo quando è certa — 12 ordini su 49 ne danno
+   * una. Quindi `false` vuol dire «non risulta», non «di sicuro no».
    */
   inZona?: boolean
 }
+
+/**
+ * I nostri fornitori divisi per quello che sappiamo di loro, come li manda la
+ * rotta. ⚠️ Dal 29/08/2026 non è più una lista sola: `inZona` sono quelli da
+ * mostrare, `senzaLuogo` quelli di cui non si ricava dove consegnano, e i due
+ * numeri dicono quanti sono stati tolti e perché — un elenco accorciato senza
+ * dire il motivo fa credere che quei fornitori non esistano.
+ */
+type NostriDto = {
+  inZona: NostroFornitoreDto[]
+  senzaLuogo: NostroFornitoreDto[]
+  altrove: number
+  altroMestiere: number
+}
+
+const NOSTRI_VUOTI: NostriDto = { inZona: [], senzaLuogo: [], altrove: 0, altroMestiere: 0 }
 
 type Riga = {
   titolo: string
@@ -350,7 +366,9 @@ export function DettaglioOrdine({
   const [esitoInterruzione, setEsitoInterruzione] = useState('')
   /** I fornitori che risultano dai NOSTRI ordini: si vedono anche se il
    *  registro non sa dove stiano. */
-  const [nostri, setNostri] = useState<NostroFornitoreDto[]>([])
+  const [nostri, setNostri] = useState<NostriDto>(NOSTRI_VUOTI)
+  /** Ha chiesto di vedere anche quelli di cui non sappiamo dove consegnano. */
+  const [nostriTutti, setNostriTutti] = useState(false)
   // ⚠️ «Dai a lui» sulla riga di un fornitore in zona: il modulo qui sopra si
   // apre già pieno. Senza, chi ha appena telefonato dovrebbe ricopiare a mano
   // nome, città e telefono che ha davanti agli occhi — e non lo farebbe.
@@ -771,6 +789,10 @@ export function DettaglioOrdine({
       // ⚠️ La città serve a mettere in cima chi ha GIÀ consegnato lì: è il
       // segnale più forte che abbiamo su chi può farlo di nuovo.
       if (spedizione?.citta) p.set('citta', spedizione.citta)
+      // ⚠️ Il PAESE: è quello che permette di dire «questo consegna altrove»
+      // senza indovinare una provincia — metà dei nostri ha lavorato solo
+      // all'estero (Cannes, Algiers, Toronto, Ludwigsburg).
+      if (spedizione?.paese) p.set('paese', spedizione.paese)
       if (mestiere) p.set('mestiere', mestiere)
       // ⚠️ Il PRODOTTO: su «Deluxy», che vende di tutto, il negozio non dice il
       // mestiere e l'elenco mostrava pasticcerie e fiorai insieme.
@@ -783,7 +805,7 @@ export function DettaglioOrdine({
       const res = await fetch('/api/fornitori-zona?' + p.toString())
       const d = (await res.json().catch(() => ({}))) as {
         fornitori?: FornitoreZona[]
-        nostri?: NostroFornitoreDto[]
+        nostri?: NostriDto
         provincia?: string
         mestiere?: string
         daDove?: string
@@ -792,7 +814,8 @@ export function DettaglioOrdine({
       }
       if (!vivo) return
       setZona(d.fornitori ?? [])
-      setNostri(d.nostri ?? [])
+      setNostri(d.nostri ?? NOSTRI_VUOTI)
+      setNostriTutti(false)
       setZonaProvincia(d.provincia ?? '')
       setZonaMestiere(d.mestiere ?? '')
       setZonaDaDove(d.daDove ?? '')
@@ -2010,62 +2033,97 @@ export function DettaglioOrdine({
                     ⚠️ Le città scritte accanto sono quelle di CONSEGNA, non
                     l'indirizzo del fornitore: dove abbia il negozio non lo
                     sappiamo, e non lo si scrive come se lo sapessimo. */}
-                {zonaCaricata && nostri.length > 0 ? (
+                {zonaCaricata && (nostri.inZona.length > 0 || nostri.senzaLuogo.length > 0) ? (
                   <div style={{ marginTop: 14 }}>
                     <div className="cella-nome" style={{ marginBottom: 4 }}>
                       Hanno già preparato ordini per noi
                     </div>
-                    {/* ⚠️⚠️ QUESTA RIGA DICEVA IL FALSO, ed è la segnalazione
-                        dell'utente del 27/08/2026: il pannello si intitola
-                        «Fornitori in provincia di VI» e qui sotto comparivano
-                        Cannes, Tricesimo, Bosa, Macerata Campania, Algiers.
-                        Non è un filtro rotto: **questo elenco non filtra per
-                        provincia, ordina soltanto** — e quando in quella zona
-                        non ha lavorato nessuno pareggiano tutti, quindi si
-                        vedono i sei più recenti, che sono ovunque.
-                        ⚠️ Filtrare per davvero sarebbe peggio: l'elenco
-                        sarebbe vuoto quasi sempre, e la cosa utile — «lì non
-                        abbiamo nessuno, ma questi lavorano con noi» —
-                        sparirebbe. Si dice invece com'è, prima dell'elenco. */}
-                    {nostri.some((f) => f.inZona) ? (
+                    {/* ⚠️⚠️ FINO AL 29/08/2026 QUI NON C'ERA NESSUN FILTRO: la
+                        lista ORDINAVA soltanto, e quando in quella zona non
+                        aveva lavorato nessuno pareggiavano tutti — quindi si
+                        vedevano i sei più recenti, che sono ovunque. Su un
+                        ordine di cioccolatini a Roma l'utente ha visto un
+                        pasticcere di Milano, quattro fiorai e un negozio di
+                        palloncini: «qui devono apparire solo quelli collegati a
+                        quella provincia».
+                        ⚠️ Il motivo per cui prima non si filtrava era vero
+                        (l'elenco sarebbe rimasto vuoto quasi sempre) e non si
+                        risolve togliendo righe alla cieca: chi consegna per
+                        certo altrove esce, chi NON SI SA dove consegna resta
+                        qui sotto, contato e apribile. */}
+                    {nostri.inZona.length > 0 ? (
                       <p className="cella-sub" style={{ marginTop: 0 }}>
-                        Dai nostri ordini, non dal registro: in cima chi ha già consegnato in
-                        questa zona.
+                        Dai nostri ordini, non dal registro: solo chi ha già consegnato in questa
+                        zona.
                       </p>
                     ) : (
                       <p className="cella-sub" style={{ marginTop: 0 }}>
                         <strong>
-                          Nessuno dei nostri ha mai consegnato in provincia di{' '}
+                          Nessuno dei nostri risulta aver consegnato in provincia di{' '}
                           {zonaProvincia || spedizione.provincia || 'questa'}.
                         </strong>{' '}
-                        Questi hanno lavorato altrove: non sono una proposta per la zona, sono
-                        gente che ci conosce e a cui si può chiedere.
+                        Questi lavorano con noi e non si sa dove consegnano: non sono una
+                        proposta per la zona, sono gente a cui si può chiedere.
                       </p>
                     )}
                     <ul className="elenco-nostri-fornitori">
-                      {nostri.slice(0, 6).map((f) => (
-                        <li key={f.nome}>
-                          <span className="cella-nome">{f.nome}</span>{' '}
-                          <span className="cella-sub">{riassuntoLavoro(f.lavoro)}</span>
-                          {/* ⚠️ La riga dice DOVE, con l'etichetta giusta: le
-                              città sono quelle di CONSEGNA, non l'indirizzo del
-                              fornitore — dove abbia il negozio non lo sappiamo e
-                              non lo si scrive come se lo sapessimo. */}
-                          {f.citta.length ? (
-                            <span className="cella-sub">
-                              {' '}
-                              · {f.inZona ? 'ha consegnato qui:' : 'ha consegnato a'}{' '}
-                              {f.citta.slice(0, 3).join(', ')}
-                            </span>
-                          ) : (
-                            // ⚠️ «Non sappiamo dove» NON è «altrove»: sui suoi
-                            // ordini non c'è nessuna città, e dirlo evita che
-                            // qualcuno lo scarti credendo che sia lontano.
-                            <span className="cella-sub"> · non sappiamo dove ha consegnato</span>
-                          )}
-                        </li>
-                      ))}
+                      {(nostriTutti || nostri.inZona.length === 0
+                        ? [...nostri.inZona, ...nostri.senzaLuogo]
+                        : nostri.inZona
+                      )
+                        .slice(0, 6)
+                        .map((f) => (
+                          <li key={f.nome}>
+                            <span className="cella-nome">{f.nome}</span>{' '}
+                            <span className="cella-sub">{riassuntoLavoro(f.lavoro)}</span>
+                            {/* ⚠️ La riga dice DOVE, con l'etichetta giusta: le
+                                città sono quelle di CONSEGNA, non l'indirizzo del
+                                fornitore — dove abbia il negozio non lo sappiamo e
+                                non lo si scrive come se lo sapessimo. */}
+                            {f.citta.length ? (
+                              <span className="cella-sub">
+                                {' '}
+                                · {f.inZona ? 'ha consegnato qui:' : 'ha consegnato a'}{' '}
+                                {f.citta.slice(0, 3).join(', ')}
+                              </span>
+                            ) : (
+                              // ⚠️ «Non sappiamo dove» NON è «altrove»: sui suoi
+                              // ordini non c'è nessuna città, e dirlo evita che
+                              // qualcuno lo scarti credendo che sia lontano.
+                              <span className="cella-sub"> · non sappiamo dove ha consegnato</span>
+                            )}
+                          </li>
+                        ))}
                     </ul>
+                    {/* ⚠️⚠️ CHI È STATO TOLTO SI DICE. Un elenco che si accorcia
+                        in silenzio fa credere che quei fornitori non esistano —
+                        ed è lo stesso errore che nascondeva Passiflora. Qui la
+                        riga dice quanti e perché, e quelli di cui non si sa dove
+                        consegnano si aprono con un clic: non sono stati
+                        scartati, sono stati messi da parte. */}
+                    {!nostriTutti && nostri.inZona.length > 0 && nostri.senzaLuogo.length > 0 ? (
+                      <button
+                        className="bottone secondario mini"
+                        style={{ marginTop: 8 }}
+                        onClick={() => setNostriTutti(true)}
+                      >
+                        Altri {nostri.senzaLuogo.length} lavorano con noi, non sappiamo dove
+                      </button>
+                    ) : null}
+                    {nostri.altrove > 0 || nostri.altroMestiere > 0 ? (
+                      <p className="cella-sub" style={{ marginTop: 6 }}>
+                        Fuori dall&apos;elenco:{' '}
+                        {[
+                          nostri.altrove > 0 ? `${nostri.altrove} consegnano altrove` : '',
+                          nostri.altroMestiere > 0
+                            ? `${nostri.altroMestiere} fanno l'altro mestiere`
+                            : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                        .
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
                 {!zonaCaricata ? (

@@ -90,6 +90,62 @@ export function mestierePerProdotto(testo: string): Mestiere | null {
 }
 
 /**
+ * Le parole che, nel NOME DI UN FORNITORE, dicono che mestiere fa.
+ *
+ * ⚠️ Sono diverse da quelle del prodotto, e non è una svista: un prodotto si
+ * chiama «bouquet di rose», un fornitore si chiama «SO'FLEUR», «Malus Flowers
+ * Crete», «JAN MORODER FLEURES», «Blumen Kocher». Le parole italiane da sole
+ * riconoscerebbero metà dei nostri, che lavorano in mezza Europa.
+ *
+ * ⚠️ «rose» NON c'è: «ROSE CAKE DI ZORZ ALESSANDRO» è una pasticceria, e una
+ * parola di troppo qui non fa rumore — nasconde il fornitore giusto.
+ */
+const PAROLE_NOME: Record<Mestiere, string[]> = {
+  pasticceria: [
+    'pasticc', 'cake', 'dolc', 'cioccolat', 'gelat', 'torte', 'torta', 'pastry',
+    'patisser', 'konditor', 'bakery', 'panific', 'forno', 'praline', 'macaron',
+  ],
+  fioraio: [
+    'fior', 'fleur', 'flower', 'blumen', 'floreal', 'floral', 'petali', 'orchid',
+    'bouquet', 'garden', 'piante', 'peonia', 'giardin', 'vivaio',
+  ],
+}
+
+/**
+ * Che mestiere fa un fornitore NOSTRO, cioè uno che risulta dai nostri ordini.
+ *
+ * ⚠️⚠️ Serve perché di questi fornitori il registro non sa niente: quasi tutti
+ * sono entrati pagandoli, senza città e senza categoria (misurato il
+ * 29/08/2026: **0 su 47** ha un id del registro). Senza mestiere, su un ordine
+ * di cioccolatini comparivano quattro fiorai — segnalato dall'utente.
+ *
+ * Due segnali, in quest'ordine:
+ *  1. il suo NOME, che parla di lui;
+ *  2. il NEGOZIO degli ordini che ha preparato (Cake → pasticceria,
+ *     Flowers → fioraio), quando il nome non dice niente.
+ *
+ * ⚠️ Il nome viene PRIMA del negozio, e non è pignoleria: «Bianchi Fiorista
+ * Como» ha preparato un ordine del negozio Cake. Il negozio dice che ordine
+ * era, il nome dice che mestiere fa — e la domanda qui è la seconda.
+ *
+ * ⚠️ Se i due segnali dicono cose diverse *dentro lo stesso segnale* (un nome
+ * che cita fiori e torte, due negozi opposti) si torna `null`: non si sa. E
+ * chi non si sa **non si scarta** — si mostra, come i punteggi senza dati.
+ */
+export function mestierePerFornitore(nome: string, negozi: string[] = []): Mestiere | null {
+  const n = (nome || '').toLowerCase()
+  if (n.trim()) {
+    const dolci = PAROLE_NOME.pasticceria.some((p) => n.includes(p))
+    const fiori = PAROLE_NOME.fioraio.some((p) => n.includes(p))
+    if (dolci && !fiori) return 'pasticceria'
+    if (fiori && !dolci) return 'fioraio'
+    // Tutti e due, o nessuno dei due: decide il negozio (sotto).
+  }
+  const daiNegozi = new Set(negozi.map((x) => mestierePerNegozio(x)).filter(Boolean) as Mestiere[])
+  return daiNegozi.size === 1 ? [...daiNegozi][0] : null
+}
+
+/**
  * Gli stati che NON si propongono mai.
  *
  * ⚠️ Tutti gli altri sì, prospect compresi — ed è la correzione di un errore
