@@ -133,6 +133,19 @@ Menu principale: **CONSEGNE · ACTIVITIES · PARTNER · VALET · UTENTI · PRODO
 - Sezioni: Dati di consegna e ritiro (stato, data, fascia oraria, ora ritiro, consegna flessibile, valet) · Scelta del servizio (partner, nome/tipo servizio, prezzo, plus/minus al prezzo) · Informazioni destinatario e mittente (cognome/nome, SMS telefonici, indirizzo, citofono, telefono, email; cognome/nome/telefono mittente) · Gestione dell'ordine (pagamento alla consegna, contanti da incassare, prova e reso del prodotto, prodotto, immagine, quantità, variante) · Receipt info (nome di chi ha ricevuto, ricevuta) · Documentazione e note (numero DDT, file DDT, note, PERSONALIZZAZIONE, note interne) · Storico consegna (log con data/ora: inserita, partita, effettuata).
 - Visibilità per ruolo: Partner vede valet/mezzo/telefono ma non note interne né costi consegna dei propri servizi; Valet vede note e note interne; Admin/Operation vedono tutto + logs. Nessuno vede l'indirizzo di ritiro nelle colonne della lista.
 
+#### Passata UX su tutta l'app (Libro UX&UI) **[NUOVO 28/08/2026]**
+
+Chiesta dall'utente sul modulo partner («pessima UX&UI... allinea e migliora la ux di tutta l'app»). Censimento con misure, poi le correzioni, tutte verificate in produzione:
+
+- **Modulo partner** (la pagina segnalata): le righe-servizio avevano solo placeholder come label (viola la legge 1 del Libro) → **intestazioni di colonna** vere; **asterischi rossi** sugli obbligatori; **barra Salva/Annulla sticky** (7 sezioni spingevano la CTA oltre la viewport); **ricerca dentro le chip** di province (107) e categorie (65), con le già scelte sempre visibili; back a norma v1.5.
+- **Tutti gli 8 form**: back con la **history** (il «← Torna a X» cablato buttava i filtri dell'elenco), asterischi rossi, barra sticky sui 4 form lunghi.
+- **§7 — via i popup del browser**: gli 8 `confirm()`/`prompt()` sono diventati **conferme narrative** (componente unico `shared/conferma.component.ts`: nome dell'oggetto, conseguenze, verbo sul bottone rosso, ✕/Esc/scrim, fuoco su Annulla). Il rifiuto di una richiesta ha il campo del motivo nella finestra.
+- **§8-bis — ricerca su ogni elenco**: aggiunta a 9 pagine che non l'avevano (attività, chiavi app, regole carnet, regole valet, pagamenti, ricevute, preventivi, richieste, vendite), con conteggio «N di M» a filtro attivo.
+- **Legge 9** — Vendite: il fallimento del caricamento mostrava una **lista vuota**; ora card d'errore con «Riprova».
+- **§9** — finestre: scrim dal token unico, **Esc** anche su regole-carnet e preventivi.
+- **Dettaglio consegna — foto del prodotto**: il **nome del prodotto si clicca e apre la foto** (parità con l'app attuale; 10.579 prodotti su 22.952 la hanno). Chi non ha foto resta testo, senza fingere. ⚠️ La CSP bloccava le immagini di `app.deluxy.it`: aggiunto l'host a `img-src`.
+- Globali: `:focus-visible` oro su chip/tab/azioni, bersagli ≥44px su touch.
+
 #### Ordine aziendale: due righe, un viaggio, una paga **[NUOVO 28/08/2026]**
 
 Un ordine aziendale nasce come **due consegne gemelle** (la riga aziendale di chi ordina e quella di vendita di chi fornisce), ma il valet fa **un viaggio solo**. Fino al 28/08 tutte e due portavano `payable = true` e la stessa paga, e il calcolo degli stipendi non escludeva la gemella.

@@ -101,9 +101,47 @@
 
 **📕 MANUALE DI FUNZIONALITÀ (28/08/2026, deciso dall'utente): [`docs/guida-visiva.html`](guida-visiva.html) → artifact https://claude.ai/code/artifact/17c9fcad-6a0e-4da7-982f-fb546431d1d1** — la guida visiva per chi arriva nuovo. ⚠️ **Ogni funzionalità aggiunta o modificata va scritta lì, nello stesso commit, e ripubblicata allo STESSO indirizzo** (`Artifact` con lo stesso `file_path`, o con `url` da un'altra sessione: un indirizzo nuovo lascia in mano all'utente un link che invecchia). NON sostituisce `COME-FUNZIONA-APP-DELUXY.md`: quello è il riferimento campo per campo, la guida è l'orientamento. Regola in [REGOLE-DI-LAVORO.md §0-bis](REGOLE-DI-LAVORO.md).
 
-**Ultimo aggiornamento:** 28 agosto 2026 — ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 28 agosto 2026 — 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+### 🎨 28/08/2026 — PASSATA UX SU TUTTA L'APP (Libro UX&UI), pagina per pagina
+
+L'utente, sul modulo partner: «pessima UX&UI — in base alle regole dell'architetto
+allinea e migliora la ux di tutta l'app, rivedi ogni pagina prima di essere certo».
+
+**Censimento prima, correzioni poi** (tutte verificate live su delivery-mbekasuig):
+
+| violazione del Libro | dove | esito |
+|---|---|---|
+| Legge 1: placeholder come label | righe-servizio di partner-form (e valet-form) | intestazioni di colonna vere + aria-label |
+| §4: niente asterisco rosso | 5 form (altri 6 con l'asterisco letterale nero) | classe `.req` globale, tutti rossi |
+| §4: CTA oltre la viewport | 4 form lunghi | `.actions.sticky` globale |
+| v1.5: back cablato all'URL nudo | 7 form | `indietro()` con history + ripiego |
+| §7: confirm()/prompt() del browser | 8 punti | **`shared/conferma.component.ts`** — conferma narrativa unica (nome, conseguenze, verbo rosso, ✕/Esc, fuoco su Annulla; `conMotivo` per il rifiuto richieste) |
+| §8-bis: elenco senza ricerca | 9 pagine | ricerca client + «N di M» |
+| Legge 9: fallimento = lista vuota | sales-list | card errore + Riprova |
+| §9: scrim hardcodato, Esc assente | rule-form, quotes | token `--scrim` + HostListener Esc |
+| WCAG 2.4.7: focus invisibile sulle chip | 10 componenti | regola globale `.chip:focus-visible` |
+
+**Più la parità chiesta a metà giro**: nel dettaglio consegna il **nome del
+prodotto apre la FOTO** (lightbox §9: scrim, ✕, Esc; l'API ora manda
+`imageUrl`). ⚠️ **La mia CSP bloccava le immagini**: `img-src` non ammetteva
+`app.deluxy.it`, dove vivono 4.992 foto su 5.000 (campione). Aggiunto l'host —
+verificato live sull'header.
+
+⚠️ Trappola dello sweep: il mio primo grep diceva «9 liste senza ricerca» anche
+per liste che la avevano con un binding diverso — il censimento va riverificato
+sul codice prima di correggere (2 falsi positivi evitati).
+
+**Verifica live** (admin del seed su delivery-mbekasuig): barra sticky
+`position: sticky` ✓, filtro province 107→3 chip scrivendo «mil» (le scelte
+restano) ✓, intestazioni colonne servizi ✓, 2 asterischi rossi `rgb(215,0,21)` ✓,
+back a bottone ✓, foto: finestra+✕+Esc ✓ (l'immagine carica con la CSP nuova,
+verificata sull'header di produzione).
+
+**Deroga annotata**: il `window.prompt` in `delivery-detail.copy()` resta — non
+chiede, MOSTRA il testo da copiare quando la clipboard è negata.
 
 ### ✅ 28/08/2026 — SISTEMATO: la paga doppia è chiusa, e il listino valet era a posto (mio falso allarme)
 
