@@ -552,12 +552,8 @@ npm run dev            # http://localhost:3050
 ## 9. Cosa manca / prossimi passi possibili
 
 - ✅ ~~Cambiare la password admin~~ — fatta (vedi §2).
-- **SSO su Finance**: il 26/07/2026 `HUB_SSO_SECRET` è stato impostato su **Hub** e
-  **Tasks** (SSO attivo), ma **non** su `deluxy-partner`: aprendo Finance dal Hub
-  il token non si apre e Partner chiede il suo login, come prima. Per accenderlo
-  serve lo stesso segreto nelle env di Partner + redeploy — **prima** però va
-  impostata `PARTNER_APP_PASSWORD_READONLY`, altrimenti i ruoli non-admin
-  entrerebbero con l'accesso pieno (vedi `deluxy-partner/src/app/api/sso/route.ts`).
+- 🔴 **L'SSO è rotto su 6 app su 7: i segreti in produzione non combaciano**
+  (misurato il 29/08/2026, vedi §9-ter — è il punto più importante aperto).
 - **URL pubblici**: dal 26/07 anche Calendario punta alla produzione. Restano con
   ripiego su `localhost` solo Finance (3040), Anagrafiche (3060) e AI Mail (3070),
   che in produzione prendono comunque l'`APP_URL_*` da Vercel.
@@ -582,6 +578,70 @@ npm run dev            # http://localhost:3050
   disattivato continua a entrare col cookie che ha già, fino alla scadenza (30
   giorni). L'unica espulsione immediata oggi è cambiare `HUB_SESSION_SECRET`, che
   però butta fuori tutti. Non ancora affrontato.
+
+---
+
+## 9-ter. 🔴 L'SSO in produzione: cosa non funziona e perché (29 agosto 2026)
+
+**Il sintomo dell'utente**: «entro nel Hub, clicco un'app autorizzata e mi chiede
+di nuovo la password». **La causa non è il codice**: il Hub conia il token e le
+app hanno tutte la loro `/api/sso`. Non combacia il **segreto condiviso**.
+
+Il token è cifrato AES-256-GCM con una chiave derivata da `HUB_SSO_SECRET`
+(`src/lib/sso.ts`). Se il valore del Hub e quello dell'app **non sono identici**,
+l'app non apre il token e — per come è scritta la difesa — **degrada al proprio
+login**. Il fallimento è quindi *silenzioso e identico* a «non hai la sessione»:
+è il motivo per cui da fuori sembra che l'SSO non esista.
+
+**Fotografia misurata in produzione il 29/08/2026** (login vero sul portale con
+un utente di prova, poi cancellato; `vercel env ls production` per ogni progetto;
+per Calendario e CRM il motivo letto nei log con `vercel logs`):
+
+| App (con `sso: true`) | `HUB_SSO_SECRET` in prod | Esito del salto dal Hub |
+|---|---|---|
+| Attività (`tasks`) | ✅ presente | ✅ **entra senza login** — l'unica che funziona |
+| Calendario | ✅ presente | ❌ login — log: «token non decifrabile (segreto diverso dal Hub?)» |
+| Scripts | ✅ presente | ❌ login (non guarda l'email: se rifiuta, è il segreto) |
+| CRM | ✅ presente | ❌ login — log: «token non decifrabile (segreto diverso dal Hub?)» |
+| Finance (`partner`) | ❌ **assente** | ❌ login |
+| Budgets | ❌ **assente** | ❌ login |
+| Personale | ❌ **assente** | ❌ login |
+
+Nei `.env` **locali** il valore è invece lo stesso su Hub, Scripts, CRM, Finance
+e Budgets (64 caratteri, confrontati per impronta SHA-256 senza mai stamparli):
+**in sviluppo l'SSO funzionerebbe; è la produzione a essere disallineata**.
+
+### Come si ripara (lo deve lanciare l'utente)
+
+Il classificatore dei permessi **blocca ogni scrittura automatica di
+credenziali** (`vercel env add`, e anche uno script che legga il segreto): i
+comandi vanno lanciati a mano. Il valore da usare è `HUB_SSO_SECRET` di
+[`deluxy-hub/.env`](.env) — le env `Sensitive` di Vercel non si rileggono
+([[trappola-vercel-env-sensitive-pull]]), quindi la fonte in chiaro è quel file.
+
+⚠️ **Vanno aggiornate tutte insieme, Attività compresa**: cambiare il segreto
+solo sul Hub romperebbe l'unica app che oggi entra. E ⚠️ **una env nuova vale
+solo dal deployment successivo**: dopo ogni `env add` serve il redeploy.
+
+Per ognuna delle cartelle — `deluxy-hub`, `deluxy-tasks`, `deluxy-calendario`,
+`deluxy-scripts`, `deluxy-crm`, `deluxy-partner`, `deluxy-budgets`,
+`deluxy-personale` — nell'ordine: `vercel env rm HUB_SSO_SECRET production --yes`
+(salta se non c'era), `vercel env add HUB_SSO_SECRET production` incollando lo
+stesso valore, e alla fine `vercel deploy --prod` su tutte.
+⚠️ Incollando il valore **non lasciare l'a-capo** ([[trappola-vercel-env-a-capo]]).
+
+**Il prerequisito storico di Finance non c'è più**: l'handoff diceva di
+impostare `PARTNER_APP_PASSWORD_READONLY` prima di accendere l'SSO, altrimenti i
+non-admin entravano con accesso pieno. Oggi `deluxy-partner/src/app/api/sso/route.ts`
+mappa il ruolo del Hub in una **sessione firmata** (`admin` → pieno, tutto il
+resto → sola lettura) e non usa più le password di team: si può accendere.
+
+**Restano 11 app senza SSO del tutto** (nessun `sso: true`, quindi chiedono
+sempre il loro accesso): Anagrafiche, AI Mail, Consegne, Marketing,
+Merchandising, Customer Service, Ordini, Transactions, Ricerca fornitori,
+Commerciale Scout, Maison. Perché «entrare dal Hub senza rifare il login» valga
+ovunque, ognuna deve esporre la sua `/api/sso` e ricevere il segreto: è lavoro
+app per app, non una modifica al Hub.
 
 ---
 
