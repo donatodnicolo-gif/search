@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/db";
+import { avvisaCsNuovaRichiesta } from "@/lib/avvisi";
 import {
   autentica,
   controllaIdempotenza,
@@ -46,6 +48,32 @@ export async function POST(req: NextRequest) {
   });
 
   if (!esito.ok) return erroreApi(esito.stato, esito.errore);
+
+  // «È arrivata una richiesta»: l'avviso WhatsApp parte via Customer Service
+  // (l'unica app col telefono collegato), solo per le richieste NUOVE delle
+  // altre app — quelle del CS si avvisano già da sole. Best-effort in after():
+  // non tocca la risposta, non fallisce mai la creazione.
+  if (!esito.ripetuta) {
+    const idNuova = esito.richiesta.id;
+    after(async () => {
+      const r = await prisma.richiesta.findUnique({
+        where: { id: idNuova },
+        select: {
+          id: true,
+          riferimento: true,
+          origine: true,
+          importoCent: true,
+          valuta: true,
+          beneficiario: true,
+          metodo: true,
+          iban: true,
+          riferimentoPagamento: true,
+          causale: true,
+        },
+      });
+      if (r) await avvisaCsNuovaRichiesta(r);
+    });
+  }
 
   const risposta = {
     riferimento: esito.richiesta.riferimento,
