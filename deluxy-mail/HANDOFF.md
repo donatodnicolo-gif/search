@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **27 agosto 2026**.
+> Documento di ripartenza. Aggiornato: **29 agosto 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -41,6 +41,49 @@ menu → `--shadow-float`. Header del file: non più «Deluxy Partner v1.0».
   (`.pannello-velo` 0.18): da verificare col custode prima di cambiarli.
 - ⚠️ Il registro `SEGNALAZIONI-UX.md` del design system non è presente in questa copia:
   questi punti vanno riportati lì quando/dove esiste.
+
+---
+
+### 28/08 (giornata) — Le Edge di Scout ripubblicate, e sette richieste
+
+> Sezione scritta il 29/08 a copertura dei commit `0b830237` → `4cdda436` (28/08
+> 12:22–18:41), che erano rimasti senza racconto qui. Il dettaglio pieno sta nei
+> messaggi di commit.
+
+**La saga della pro-forma, in tre atti.** (1) Il 27/08 sera era passata su Scout per la
+carta intestata del brand. (2) `468455c3`: «si è bloccato tutto» — la Edge `proforma` era
+pubblicata con **verifica JWT accesa**, quindi il **gateway** Supabase rifiutava PRIMA di
+entrare nella funzione (`{"code":"UNAUTHORIZED_NO_AUTH_HEADER"}`; le sorelle `preventivi`
+e `trattativa` rispondono con l'errore del NOSTRO codice). Ripristinata la strada Finance
+(funzionante, intestazione generica). (3) `4cdda436`: Edge **ripubblicate con
+`--no-verify-jwt`** e pro-forma di nuovo su Scout, con la carta del brand.
+⚠️ Regola che resta: ogni Edge di Scout chiamata da un'app (che una sessione utente non
+ce l'ha) va pubblicata senza verifica JWT, e l'errore del gateway si riconosce dal `code`.
+
+**Apri trattativa, fuori dal recinto di Commerciale:**
+- `02cdf14c` — il campo negozio cerca in **tutta Anagrafiche** mentre scrivi; si mandano
+  nome esatto + email (⚠️ l'id di Anagrafiche NON è quello di Commerciale: il negozio lo
+  risolve la funzione di Scout). E il vicolo cieco è sbloccato: con candidati simili ma
+  nessuno giusto, Scout ora risponde `puoiCreare` e AI Mail aggiunge in fondo
+  «+ Nessuno di questi: crea …».
+- `4cdda436` — nel pannello «più negozi corrispondono» c'è anche una **ricerca** su tutta
+  Anagrafiche; `invia` applica più correzioni insieme (nome + id che decade + contatto).
+- `9ba614a6` — **linea commerciale a pastiglie multi-scelta** (le stesse linee degli
+  interessi di Anagrafiche). Scout ha già la colonna `linee` (array): AI Mail manda
+  `linee` + `linea` (la prima) per compatibilità con la Edge vecchia.
+
+**Il resto:**
+- `0b830237` — **«A tutti» in prima fila** (Rispondi | A tutti | Inoltra | Cestina),
+  Archivia sotto «Altro»; nel menu, Archivia chiude il menu prima di partire (la domanda
+  «Sempre da questo mittente?» comparirebbe sotto il menu aperto). Il tasto `E` invariato.
+- `bd81e84c` — **suggeriti destinatari in tre gruppi**: team (domini delle proprie
+  caselle, ricavati dalla tendina «Da»), colleghi della controparte (stesso dominio del
+  PRIMO indirizzo in A), il resto; ordinati per nome, e chi non ha nome per indirizzo.
+- `00704ca2` — **gli allegati in uscita si aprono** (nome cliccabile → `createObjectURL`,
+  revoca dopo 1 minuto). Classe `.allegato-apri`, non `.allegato-nome` (quella è dei
+  ricevuti). Vale ovunque si scriva (componente `Allegati` condiviso).
+- `a1a2f867` — **guida visiva** `docs/GUIDA-VISIVA.html` (anche Artifact): è il manuale
+  vivo; ogni feature nuova va annotata nel suo «Registro delle novità».
 
 ---
 
