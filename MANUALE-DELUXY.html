@@ -1,174 +1,163 @@
 <title>Manuale Deluxy</title>
 <style>
+  /* Deluxy Design System v1.4 — token da tokens/tokens.css, valori identici.
+     Le app Deluxy sono SOLO chiare: niente tema scuro, di proposito (allineamento
+     28/08/2026, richiesto dall'utente). Tutti i colori sono dichiarati espliciti
+     così la pagina regge su qualunque sfondo dell'host. */
   :root {
-    --bg: #F5F5F7;
-    --surface: #FFFFFF;
-    --ink: #1D1D1F;
-    --muted: #6E6E73;
-    --hairline: rgba(0, 0, 0, 0.09);
-    --gold: #B8963E;
-    --gold-ink: #8A6F2C;
-    --gold-soft: rgba(184, 150, 62, 0.10);
-    --money: #3E8E5A;
-    --money-soft: rgba(62, 142, 90, 0.10);
-    --warn-soft: rgba(184, 90, 62, 0.08);
-    --warn-ink: #A05A3E;
-    --code-bg: rgba(0, 0, 0, 0.045);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #131315;
-      --surface: #1D1D20;
-      --ink: #F5F5F7;
-      --muted: #98989D;
-      --hairline: rgba(255, 255, 255, 0.12);
-      --gold: #C9A85C;
-      --gold-ink: #D9BC78;
-      --gold-soft: rgba(201, 168, 92, 0.13);
-      --money: #5DBE85;
-      --money-soft: rgba(93, 190, 133, 0.12);
-      --warn-soft: rgba(217, 140, 110, 0.10);
-      --warn-ink: #D99C7E;
-      --code-bg: rgba(255, 255, 255, 0.07);
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #131315;
-    --surface: #1D1D20;
-    --ink: #F5F5F7;
-    --muted: #98989D;
-    --hairline: rgba(255, 255, 255, 0.12);
-    --gold: #C9A85C;
-    --gold-ink: #D9BC78;
-    --gold-soft: rgba(201, 168, 92, 0.13);
-    --money: #5DBE85;
-    --money-soft: rgba(93, 190, 133, 0.12);
-    --warn-soft: rgba(217, 140, 110, 0.10);
-    --warn-ink: #D99C7E;
-    --code-bg: rgba(255, 255, 255, 0.07);
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface-sunken: #ececef;
+    --text: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --text-tertiary: #86868b;
+    --hairline: rgba(0, 0, 0, 0.08);
+    --fill: rgba(120, 120, 128, 0.08);
+    --ink: #111318;
+    --gold: #b8963e;
+    --gold-strong: #a07f2c;
+    --gold-soft: rgba(184, 150, 62, 0.12);
+    --green: #248a3d;
+    --green-soft: rgba(36, 138, 61, 0.11);
+    --orange: #c93400;
+    --orange-soft: rgba(201, 52, 0, 0.1);
+    --radius-s: 8px;
+    --radius-m: 12px;
+    --radius-l: 18px;
+    --radius-pill: 980px;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.05);
+    --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+      'Segoe UI Variable', 'Segoe UI', system-ui, Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
   }
 
   * { box-sizing: border-box; }
   body {
     background: var(--bg);
-    color: var(--ink);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    line-height: 1.6;
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.47;
     margin: 0;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
+  ::selection { background: rgba(184, 150, 62, 0.25); }
   .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px 96px; }
 
   code, .mono {
-    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 0.86em;
-    background: var(--code-bg);
+    background: var(--surface-sunken);
     border-radius: 5px;
     padding: 0.1em 0.4em;
   }
 
-  /* ---------- testata ---------- */
-  header { padding: 72px 0 20px; }
+  /* ---------- testata (pattern «Pagina»: titolo 32px + caption grigia) ---------- */
+  header { padding: 56px 0 16px; }
   .eyebrow {
-    text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px;
-    font-weight: 600; color: var(--gold-ink); margin: 0 0 14px;
+    text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px;
+    font-weight: 600; color: var(--text-tertiary); margin: 0 0 10px;
   }
   h1 {
-    font-size: clamp(38px, 6vw, 56px); font-weight: 700;
-    letter-spacing: -0.03em; line-height: 1.06; margin: 0 0 16px;
+    font-size: 32px; font-weight: 600;
+    letter-spacing: -0.025em; line-height: 1.15; margin: 0 0 8px;
     text-wrap: balance;
   }
-  .lede { font-size: 19px; color: var(--muted); max-width: 62ch; margin: 0; }
-  .meta { margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
-  .meta span { border: 1px solid var(--hairline); border-radius: 999px; padding: 4px 12px; background: var(--surface); }
+  .lede { font-size: 15px; color: var(--text-secondary); max-width: 64ch; margin: 0; }
+  .meta { margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-secondary); }
+  .meta span { border: 1px solid var(--hairline); border-radius: var(--radius-pill); padding: 4px 12px; background: var(--surface); }
 
-  nav.toc { display: flex; gap: 8px; flex-wrap: wrap; margin: 28px 0 8px; }
+  nav.toc { display: flex; gap: 8px; flex-wrap: wrap; margin: 24px 0 8px; }
   nav.toc a {
-    text-decoration: none; color: var(--ink); font-size: 13.5px; font-weight: 500;
+    text-decoration: none; color: var(--text); font-size: 13.5px; font-weight: 500;
     border: 1px solid var(--hairline); background: var(--surface);
-    border-radius: 999px; padding: 6px 14px;
+    border-radius: var(--radius-pill); padding: 6px 14px; min-height: 32px;
   }
-  nav.toc a:hover, nav.toc a:focus-visible { border-color: var(--gold); outline: none; }
+  nav.toc a:hover { background: var(--fill); }
+  nav.toc a:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 
   /* ---------- capitoli ---------- */
-  section { margin-top: 64px; }
-  .chapter {
-    display: flex; align-items: baseline; gap: 14px; margin: 0 0 6px;
-  }
+  section { margin-top: 56px; }
+  .chapter { display: flex; align-items: baseline; gap: 12px; margin: 0 0 4px; }
   .chapter .num {
-    font-family: ui-monospace, "SF Mono", Consolas, monospace;
-    font-size: 14px; color: var(--gold-ink); font-weight: 600;
+    font-family: var(--font-mono);
+    font-size: 13px; color: var(--gold-strong); font-weight: 600;
   }
-  h2 {
-    font-size: clamp(24px, 3.4vw, 32px); font-weight: 700;
-    letter-spacing: -0.022em; margin: 0; text-wrap: balance;
-  }
-  .chapter-lede { color: var(--muted); max-width: 68ch; margin: 6px 0 24px; }
-  h3 { font-size: 19px; font-weight: 650; letter-spacing: -0.015em; margin: 32px 0 8px; }
+  h2 { font-size: 24px; font-weight: 600; letter-spacing: -0.022em; margin: 0; text-wrap: balance; }
+  .chapter-lede { color: var(--text-secondary); font-size: 14px; max-width: 68ch; margin: 4px 0 20px; }
+  h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; margin: 30px 0 8px; }
 
   p { max-width: 70ch; }
 
   .card {
     background: var(--surface); border: 1px solid var(--hairline);
-    border-radius: 16px; padding: 22px 26px;
+    border-radius: var(--radius-l); box-shadow: var(--shadow-card);
+    padding: 20px 24px;
   }
   .card + .card { margin-top: 14px; }
 
   .callout {
     border-left: 3px solid var(--gold); background: var(--gold-soft);
-    border-radius: 0 12px 12px 0; padding: 14px 20px; max-width: 72ch;
+    border-radius: 0 var(--radius-m) var(--radius-m) 0; padding: 14px 20px; max-width: 72ch;
   }
-  .callout.warn { border-left-color: var(--warn-ink); background: var(--warn-soft); }
+  .callout.warn { border-left-color: var(--orange); background: var(--orange-soft); }
   .callout p { margin: 0; }
   .callout p + p { margin-top: 8px; }
 
-  figure { margin: 26px 0; }
+  figure { margin: 24px 0; }
   figure svg { max-width: 100%; height: auto; display: block; }
-  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 10px; max-width: 70ch; }
+  figcaption { font-size: 13px; color: var(--text-secondary); margin-top: 10px; max-width: 70ch; }
   .fig-scroll { overflow-x: auto; }
   .fig-scroll svg { min-width: 700px; }
 
-  /* ---------- tabelle ---------- */
-  .table-scroll { overflow-x: auto; border: 1px solid var(--hairline); border-radius: 14px; background: var(--surface); }
-  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  /* ---------- tabelle (DS: dentro una card; intestazioni 12px grigie peso 500,
+     niente maiuscolo; hover di riga; ultima riga senza bordo) ---------- */
+  .table-scroll {
+    overflow-x: auto; border: 1px solid var(--hairline);
+    border-radius: var(--radius-l); background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
   th {
-    text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--muted); font-weight: 600; padding: 12px 16px;
+    text-align: left; font-size: 12px;
+    color: var(--text-tertiary); font-weight: 500; padding: 12px 16px;
     border-bottom: 1px solid var(--hairline); white-space: nowrap;
   }
   td { padding: 11px 16px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  tbody tr:hover td { background: rgba(120, 120, 128, 0.05); }
   tr:last-child td { border-bottom: none; }
   td.app { font-weight: 600; white-space: nowrap; }
-  td.porta { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 13px; color: var(--muted); white-space: nowrap; }
+  td.porta { font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .zona {
-    margin: 30px 0 10px; font-size: 13px; font-weight: 650;
-    text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold-ink);
+    margin: 28px 0 10px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary);
   }
   .zona:first-of-type { margin-top: 0; }
   td a { color: inherit; text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 3px; }
   td a:hover { text-decoration-color: var(--gold); }
 
-  .possiede { color: var(--muted); font-size: 13.5px; }
-  .possiede b { color: var(--ink); font-weight: 600; }
+  .possiede { color: var(--text-secondary); font-size: 13.5px; }
+  .possiede b { color: var(--text); font-weight: 600; }
 
   /* ---------- glossario ---------- */
   dl.gloss { display: grid; grid-template-columns: max-content 1fr; gap: 10px 26px; margin: 0; }
-  dl.gloss dt { font-weight: 650; white-space: nowrap; }
-  dl.gloss dd { margin: 0; color: var(--muted); max-width: 62ch; }
+  dl.gloss dt { font-weight: 600; white-space: nowrap; }
+  dl.gloss dd { margin: 0; color: var(--text-secondary); max-width: 62ch; }
   @media (max-width: 620px) {
     dl.gloss { grid-template-columns: 1fr; gap: 2px; }
     dl.gloss dd { margin-bottom: 12px; }
   }
 
   /* ---------- registro ---------- */
-  .registro td:first-child { white-space: nowrap; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 13px; color: var(--muted); }
+  .registro td:first-child { white-space: nowrap; font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
   .registro td:nth-child(2) { white-space: nowrap; font-weight: 600; }
 
   ul { padding-left: 20px; max-width: 68ch; }
   li { margin: 6px 0; }
   li::marker { color: var(--gold); }
 
-  footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--hairline); font-size: 13px; color: var(--muted); }
+  footer { margin-top: 72px; padding-top: 22px; border-top: 1px solid var(--hairline); font-size: 12.5px; color: var(--text-secondary); }
 </style>
 
 <div class="wrap">
@@ -183,7 +172,7 @@
     partendo da zero.
   </p>
   <div class="meta">
-    <span>Aggiornato il 28/08/2026</span>
+    <span>Aggiornato il 29/08/2026</span>
     <span>Fonte: repo <code>scoutwt</code> / <code>app</code></span>
     <span>Il registro delle novità è al capitolo 7</span>
   </div>
@@ -238,56 +227,56 @@
         <marker id="fr-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/>
         </marker>
-        <marker id="fr-money" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--money)"/>
+        <marker id="fr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--green)"/>
         </marker>
       </defs>
 
       <!-- Hub -->
       <rect x="20" y="16" width="840" height="58" rx="14" fill="var(--gold-soft)" stroke="var(--gold)" stroke-width="1.4"/>
       <text x="440" y="40" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">Deluxy Hub — la porta d'ingresso</text>
-      <text x="440" y="60" text-anchor="middle" font-size="12" fill="var(--muted)">un solo login · ruoli: admin, partner, commerciale · ognuno vede solo le sue app</text>
+      <text x="440" y="60" text-anchor="middle" font-size="12" fill="var(--text-secondary)">un solo login · ruoli: admin, partner, commerciale · ognuno vede solo le sue app</text>
 
       <!-- zone: vendita -->
       <rect x="20" y="104" width="410" height="150" rx="14" fill="var(--surface)" stroke="var(--hairline)"/>
-      <text x="40" y="132" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--gold-ink)">VENDITA E CLIENTI</text>
+      <text x="40" y="132" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--gold-strong)">VENDITA E CLIENTI</text>
       <text x="40" y="158" font-size="13.5" font-weight="600" fill="currentColor">Siti Shopify · Orders · CRM</text>
       <text x="40" y="180" font-size="13.5" font-weight="600" fill="currentColor">Merchandising · Marketing</text>
-      <text x="40" y="208" font-size="12" fill="var(--muted)">dove nasce l'ordine, chi sono i clienti,</text>
-      <text x="40" y="226" font-size="12" fill="var(--muted)">che prodotti e che pubblicità</text>
+      <text x="40" y="208" font-size="12" fill="var(--text-secondary)">dove nasce l'ordine, chi sono i clienti,</text>
+      <text x="40" y="226" font-size="12" fill="var(--text-secondary)">che prodotti e che pubblicità</text>
 
       <!-- zone: operazioni -->
       <rect x="450" y="104" width="410" height="150" rx="14" fill="var(--surface)" stroke="var(--hairline)"/>
-      <text x="470" y="132" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--gold-ink)">OPERAZIONI</text>
+      <text x="470" y="132" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--gold-strong)">OPERAZIONI</text>
       <text x="470" y="158" font-size="13.5" font-weight="600" fill="currentColor">Customer Service · Piattaforma consegne</text>
       <text x="470" y="180" font-size="13.5" font-weight="600" fill="currentColor">Search · AI Mail · Scripts · Tasks · Calendario</text>
-      <text x="470" y="208" font-size="12" fill="var(--muted)">come l'ordine viene evaso: chi lo prepara,</text>
-      <text x="470" y="226" font-size="12" fill="var(--muted)">chi lo porta, chi risponde al cliente</text>
+      <text x="470" y="208" font-size="12" fill="var(--text-secondary)">come l'ordine viene evaso: chi lo prepara,</text>
+      <text x="470" y="226" font-size="12" fill="var(--text-secondary)">chi lo porta, chi risponde al cliente</text>
 
       <!-- zone: denaro -->
       <rect x="20" y="292" width="410" height="150" rx="14" fill="var(--surface)" stroke="var(--hairline)"/>
-      <text x="40" y="320" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--money)">DENARO</text>
+      <text x="40" y="320" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--green)">DENARO</text>
       <text x="40" y="346" font-size="13.5" font-weight="600" fill="currentColor">Finance · Transactions · Budgets</text>
       <text x="40" y="368" font-size="13.5" font-weight="600" fill="currentColor">Fondo · Acquisti</text>
-      <text x="40" y="396" font-size="12" fill="var(--muted)">fatture, banca, pagamenti in uscita,</text>
-      <text x="40" y="414" font-size="12" fill="var(--muted)">budget e conto economico</text>
+      <text x="40" y="396" font-size="12" fill="var(--text-secondary)">fatture, banca, pagamenti in uscita,</text>
+      <text x="40" y="414" font-size="12" fill="var(--text-secondary)">budget e conto economico</text>
 
       <!-- zone: persone -->
       <rect x="450" y="292" width="410" height="150" rx="14" fill="var(--surface)" stroke="var(--hairline)"/>
-      <text x="470" y="320" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--gold-ink)">PERSONE E PARTNER</text>
+      <text x="470" y="320" font-size="12" font-weight="700" letter-spacing="1.5" fill="var(--gold-strong)">PERSONE E PARTNER</text>
       <text x="470" y="346" font-size="13.5" font-weight="600" fill="currentColor">Anagrafiche · Personale · Scout</text>
-      <text x="470" y="374" font-size="12" fill="var(--muted)">il registro dei partner B2B, l'organico,</text>
-      <text x="470" y="392" font-size="12" fill="var(--muted)">la prospezione di partner nuovi</text>
+      <text x="470" y="374" font-size="12" fill="var(--text-secondary)">il registro dei partner B2B, l'organico,</text>
+      <text x="470" y="392" font-size="12" fill="var(--text-secondary)">la prospezione di partner nuovi</text>
 
       <!-- fili -->
       <line x1="430" y1="179" x2="446" y2="179" stroke="var(--gold)" stroke-width="2" marker-end="url(#fr-gold)"/>
-      <text x="438" y="168" text-anchor="middle" font-size="11" fill="var(--gold-ink)">l'ordine</text>
-      <line x1="470" y1="254" x2="330" y2="288" stroke="var(--money)" stroke-width="2" marker-end="url(#fr-money)"/>
-      <text x="418" y="278" text-anchor="middle" font-size="11" fill="var(--money)">il denaro</text>
+      <text x="438" y="168" text-anchor="middle" font-size="11" fill="var(--gold-strong)">l'ordine</text>
+      <line x1="470" y1="254" x2="330" y2="288" stroke="var(--green)" stroke-width="2" marker-end="url(#fr-green)"/>
+      <text x="418" y="278" text-anchor="middle" font-size="11" fill="var(--green)">il denaro</text>
     </svg>
     <figcaption>
-      I due fili che attraversano tutto: <b style="color:var(--gold-ink)">l'ordine</b> (capitolo 4)
-      va dalla vendita alle operazioni; <b style="color:var(--money)">il denaro</b> (capitolo 5)
+      I due fili che attraversano tutto: <b style="color:var(--gold-strong)">l'ordine</b> (capitolo 4)
+      va dalla vendita alle operazioni; <b style="color:var(--green)">il denaro</b> (capitolo 5)
       scende da ogni territorio verso le app del denaro.
     </figcaption>
   </figure>
@@ -447,32 +436,32 @@
       <!-- proprietaria -->
       <rect x="30" y="40" width="220" height="72" rx="12" fill="var(--gold-soft)" stroke="var(--gold)" stroke-width="1.4"/>
       <text x="140" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">App proprietaria</text>
-      <text x="140" y="92" text-anchor="middle" font-size="12" fill="var(--muted)">es. Orders per il margine</text>
+      <text x="140" y="92" text-anchor="middle" font-size="12" fill="var(--text-secondary)">es. Orders per il margine</text>
 
       <!-- db -->
       <rect x="330" y="40" width="200" height="72" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
       <text x="430" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Postgres condiviso</text>
-      <text x="430" y="92" text-anchor="middle" font-size="12" fill="var(--muted)">uno schema per app</text>
+      <text x="430" y="92" text-anchor="middle" font-size="12" fill="var(--text-secondary)">uno schema per app</text>
 
       <!-- altra app -->
       <rect x="610" y="40" width="220" height="72" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
       <text x="720" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Qualsiasi altra app</text>
-      <text x="720" y="92" text-anchor="middle" font-size="12" fill="var(--muted)">es. Budgets per il consuntivo</text>
+      <text x="720" y="92" text-anchor="middle" font-size="12" fill="var(--text-secondary)">es. Budgets per il consuntivo</text>
 
       <!-- scrive -->
       <line x1="250" y1="76" x2="326" y2="76" stroke="currentColor" stroke-width="1.6" marker-end="url(#fc-ink)"/>
-      <text x="288" y="64" text-anchor="middle" font-size="12" fill="var(--muted)">scrive (solo lei)</text>
+      <text x="288" y="64" text-anchor="middle" font-size="12" fill="var(--text-secondary)">scrive (solo lei)</text>
 
       <!-- legge via API -->
       <path d="M 610 60 C 480 8, 280 8, 148 36" fill="none" stroke="var(--gold)" stroke-width="2" marker-end="url(#fc-gold)"/>
-      <text x="380" y="26" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--gold-ink)">GET /api/v1 · chiave con permesso preciso, revocabile</text>
+      <text x="380" y="26" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--gold-strong)">GET /api/v1 · chiave con permesso preciso, revocabile</text>
 
       <!-- vietata -->
       <line x1="640" y1="112" x2="530" y2="150" stroke="currentColor" stroke-width="1.6" stroke-dasharray="6 5" opacity="0.6"/>
-      <line x1="524" y1="130" x2="500" y2="172" stroke="var(--warn-ink)" stroke-width="2.4"/>
-      <line x1="500" y1="130" x2="524" y2="172" stroke="var(--warn-ink)" stroke-width="2.4"/>
-      <text x="640" y="172" font-size="12.5" fill="var(--warn-ink)" font-weight="600">query diretta sullo schema altrui: mai</text>
-      <text x="640" y="192" font-size="12" fill="var(--muted)">e mai tabelle-copia, mai regole economiche ricopiate</text>
+      <line x1="524" y1="130" x2="500" y2="172" stroke="var(--orange)" stroke-width="2.4"/>
+      <line x1="500" y1="130" x2="524" y2="172" stroke="var(--orange)" stroke-width="2.4"/>
+      <text x="640" y="172" font-size="12.5" fill="var(--orange)" font-weight="600">query diretta sullo schema altrui: mai</text>
+      <text x="640" y="192" font-size="12" fill="var(--text-secondary)">e mai tabelle-copia, mai regole economiche ricopiate</text>
     </svg>
     <figcaption>
       La conseguenza pratica: se un numero è sbagliato, si sa sempre <b>dove</b> andare a
@@ -513,25 +502,25 @@
       <!-- riga alta -->
       <rect x="20" y="30" width="130" height="60" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
       <text x="85" y="56" text-anchor="middle" font-size="13.5" font-weight="700" fill="currentColor">Cliente</text>
-      <text x="85" y="76" text-anchor="middle" font-size="11.5" fill="var(--muted)">compra sul sito</text>
+      <text x="85" y="76" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">compra sul sito</text>
 
       <rect x="210" y="30" width="150" height="60" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
       <text x="285" y="56" text-anchor="middle" font-size="13.5" font-weight="700" fill="currentColor">Sito Shopify</text>
-      <text x="285" y="76" text-anchor="middle" font-size="11.5" fill="var(--muted)">una delle 3 maison</text>
+      <text x="285" y="76" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">una delle 3 maison</text>
 
       <rect x="420" y="30" width="160" height="60" rx="12" fill="var(--gold-soft)" stroke="var(--gold)" stroke-width="1.4"/>
       <text x="500" y="56" text-anchor="middle" font-size="13.5" font-weight="700" fill="currentColor">Orders</text>
-      <text x="500" y="76" text-anchor="middle" font-size="11.5" fill="var(--muted)">il registro: incasso, stato</text>
+      <text x="500" y="76" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">il registro: incasso, stato</text>
 
       <rect x="640" y="30" width="180" height="60" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
       <text x="730" y="56" text-anchor="middle" font-size="13.5" font-weight="700" fill="currentColor">Customer Service</text>
-      <text x="730" y="76" text-anchor="middle" font-size="11.5" fill="var(--muted)">decide: per mano o per regola</text>
+      <text x="730" y="76" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">decide: per mano o per regola</text>
 
       <line x1="150" y1="60" x2="206" y2="60" stroke="currentColor" stroke-width="1.6" marker-end="url(#fo-ink)"/>
       <line x1="360" y1="60" x2="416" y2="60" stroke="currentColor" stroke-width="1.6" marker-end="url(#fo-ink)"/>
-      <text x="388" y="48" text-anchor="middle" font-size="11" fill="var(--muted)">sync</text>
+      <text x="388" y="48" text-anchor="middle" font-size="11" fill="var(--text-secondary)">sync</text>
       <line x1="580" y1="60" x2="636" y2="60" stroke="currentColor" stroke-width="1.6" marker-end="url(#fo-ink)"/>
-      <text x="608" y="48" text-anchor="middle" font-size="11" fill="var(--muted)">ogni 15′</text>
+      <text x="608" y="48" text-anchor="middle" font-size="11" fill="var(--text-secondary)">ogni 15′</text>
 
       <!-- tre strade -->
       <line x1="730" y1="90" x2="160" y2="146" stroke="currentColor" stroke-width="1.4" marker-end="url(#fo-ink)"/>
@@ -539,19 +528,19 @@
       <line x1="730" y1="90" x2="762" y2="146" stroke="currentColor" stroke-width="1.4" marker-end="url(#fo-ink)"/>
 
       <rect x="20" y="150" width="270" height="96" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
-      <text x="40" y="176" font-size="12" font-weight="700" letter-spacing="1" fill="var(--gold-ink)">STRADA A · FORNITORE IN CHAT</text>
+      <text x="40" y="176" font-size="12" font-weight="700" letter-spacing="1" fill="var(--gold-strong)">STRADA A · FORNITORE IN CHAT</text>
       <text x="40" y="198" font-size="12.5" fill="currentColor">Il CS accorda un fiorista su WhatsApp:</text>
       <text x="40" y="216" font-size="12.5" fill="currentColor">prepara e consegna lui. Nessun account,</text>
       <text x="40" y="234" font-size="12.5" fill="currentColor">l'esito si annota a mano.</text>
 
       <rect x="320" y="150" width="280" height="96" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
-      <text x="340" y="176" font-size="12" font-weight="700" letter-spacing="1" fill="var(--gold-ink)">STRADA B · CONSEGNA NOSTRA</text>
+      <text x="340" y="176" font-size="12" font-weight="700" letter-spacing="1" fill="var(--gold-strong)">STRADA B · CONSEGNA NOSTRA</text>
       <text x="340" y="198" font-size="12.5" fill="currentColor">Incarico in Piattaforma: il partner</text>
       <text x="340" y="216" font-size="12.5" fill="currentColor">accetta dal suo account, un valet</text>
       <text x="340" y="234" font-size="12.5" fill="currentColor">ritira e consegna, col tracking.</text>
 
       <rect x="630" y="150" width="270" height="96" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
-      <text x="650" y="176" font-size="12" font-weight="700" letter-spacing="1" fill="var(--gold-ink)">STRADA C · AUTOMATICA (UNICO)</text>
+      <text x="650" y="176" font-size="12" font-weight="700" letter-spacing="1" fill="var(--gold-strong)">STRADA C · AUTOMATICA (UNICO)</text>
       <text x="650" y="198" font-size="12.5" fill="currentColor">Prodotto di UN solo fornitore: l'incarico</text>
       <text x="650" y="216" font-size="12.5" fill="currentColor">parte da solo al proprietario, che accetta</text>
       <text x="650" y="234" font-size="12.5" fill="currentColor">o rifiuta. Rifiuto → coda umana.</text>
@@ -563,9 +552,9 @@
 
       <rect x="260" y="310" width="400" height="66" rx="12" fill="var(--gold-soft)" stroke="var(--gold)" stroke-width="1.4"/>
       <text x="460" y="336" text-anchor="middle" font-size="13.5" font-weight="700" fill="currentColor">L'esito torna a Orders</text>
-      <text x="460" y="358" text-anchor="middle" font-size="12" fill="var(--muted)">costo del fornitore, costo consegna, consegnato quando e da chi</text>
+      <text x="460" y="358" text-anchor="middle" font-size="12" fill="var(--text-secondary)">costo del fornitore, costo consegna, consegnato quando e da chi</text>
 
-      <text x="460" y="408" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--gold-ink)">margine = incasso − costo fornitore − costo consegna (+ fee) · calcolato SOLO in Orders</text>
+      <text x="460" y="408" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--gold-strong)">margine = incasso − costo fornitore − costo consegna (+ fee) · calcolato SOLO in Orders</text>
     </svg>
     <figcaption>
       Il Customer Service governa anche l'automatismo: può riservarsi un ordine
@@ -600,63 +589,63 @@
         <marker id="fd-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
         </marker>
-        <marker id="fd-money" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--money)"/>
+        <marker id="fd-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--green)"/>
         </marker>
       </defs>
 
       <!-- entrate -->
       <rect x="20" y="24" width="220" height="56" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
       <text x="130" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">Incassi D2C</text>
-      <text x="130" y="66" text-anchor="middle" font-size="11.5" fill="var(--muted)">Shopify / Stripe, dai 3 siti</text>
+      <text x="130" y="66" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">Shopify / Stripe, dai 3 siti</text>
 
       <rect x="20" y="100" width="220" height="56" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
       <text x="130" y="124" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">Fatture B2B</text>
-      <text x="130" y="142" text-anchor="middle" font-size="11.5" fill="var(--muted)">emesse da Finance su Fatture in Cloud</text>
+      <text x="130" y="142" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">emesse da Finance su Fatture in Cloud</text>
 
       <!-- banca -->
-      <rect x="340" y="58" width="220" height="66" rx="12" fill="var(--money-soft)" stroke="var(--money)" stroke-width="1.4"/>
+      <rect x="340" y="58" width="220" height="66" rx="12" fill="var(--green-soft)" stroke="var(--green)" stroke-width="1.4"/>
       <text x="450" y="86" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Banca (Qonto)</text>
-      <text x="450" y="106" text-anchor="middle" font-size="11.5" fill="var(--muted)">l'unica verità di cassa</text>
+      <text x="450" y="106" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">l'unica verità di cassa</text>
 
-      <line x1="240" y1="52" x2="336" y2="80" stroke="var(--money)" stroke-width="2" marker-end="url(#fd-money)"/>
-      <line x1="240" y1="128" x2="336" y2="102" stroke="var(--money)" stroke-width="2" marker-end="url(#fd-money)"/>
-      <text x="288" y="46" text-anchor="middle" font-size="11" fill="var(--money)">entra</text>
-      <text x="288" y="134" text-anchor="middle" font-size="11" fill="var(--money)">incasso</text>
+      <line x1="240" y1="52" x2="336" y2="80" stroke="var(--green)" stroke-width="2" marker-end="url(#fd-green)"/>
+      <line x1="240" y1="128" x2="336" y2="102" stroke="var(--green)" stroke-width="2" marker-end="url(#fd-green)"/>
+      <text x="288" y="46" text-anchor="middle" font-size="11" fill="var(--green)">entra</text>
+      <text x="288" y="134" text-anchor="middle" font-size="11" fill="var(--green)">incasso</text>
 
       <!-- finance -->
       <rect x="660" y="58" width="240" height="66" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
       <text x="780" y="82" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Finance</text>
-      <text x="780" y="102" text-anchor="middle" font-size="11.5" fill="var(--muted)">movimenti classificati · fatture · saldi partner</text>
+      <text x="780" y="102" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">movimenti classificati · fatture · saldi partner</text>
 
       <line x1="560" y1="91" x2="656" y2="91" stroke="currentColor" stroke-width="1.6" marker-end="url(#fd-ink)"/>
-      <text x="608" y="79" text-anchor="middle" font-size="11" fill="var(--muted)">sync + classificazione</text>
+      <text x="608" y="79" text-anchor="middle" font-size="11" fill="var(--text-secondary)">sync + classificazione</text>
 
       <!-- uscite -->
       <rect x="340" y="196" width="220" height="80" rx="12" fill="var(--surface)" stroke="var(--hairline)"/>
       <text x="450" y="222" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Transactions</text>
-      <text x="450" y="242" text-anchor="middle" font-size="11.5" fill="var(--muted)">l'unica uscita del denaro</text>
-      <text x="450" y="260" text-anchor="middle" font-size="11.5" fill="var(--muted)">doppia firma · distinte SEPA</text>
+      <text x="450" y="242" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">l'unica uscita del denaro</text>
+      <text x="450" y="260" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">doppia firma · distinte SEPA</text>
 
-      <line x1="450" y1="192" x2="450" y2="128" stroke="var(--money)" stroke-width="2" marker-end="url(#fd-money)"/>
-      <text x="482" y="166" text-anchor="middle" font-size="11" fill="var(--money)">esce</text>
+      <line x1="450" y1="192" x2="450" y2="128" stroke="var(--green)" stroke-width="2" marker-end="url(#fd-green)"/>
+      <text x="482" y="166" text-anchor="middle" font-size="11" fill="var(--green)">esce</text>
 
       <text x="140" y="222" font-size="12.5" fill="currentColor" font-weight="600">Chi chiede un pagamento (28/08: tutti):</text>
-      <text x="140" y="242" font-size="12" fill="var(--muted)">CS (fornitori ordini) · Scout (fornitori eventi)</text>
-      <text x="140" y="260" font-size="12" fill="var(--muted)">Finance (partner, spese) · Piattaforma (valet)</text>
+      <text x="140" y="242" font-size="12" fill="var(--text-secondary)">CS (fornitori ordini) · Scout (fornitori eventi)</text>
+      <text x="140" y="260" font-size="12" fill="var(--text-secondary)">Finance (partner, spese) · Piattaforma (valet)</text>
       <line x1="300" y1="236" x2="336" y2="236" stroke="currentColor" stroke-width="1.6" marker-end="url(#fd-ink)"/>
 
       <!-- budgets -->
       <rect x="660" y="196" width="240" height="80" rx="12" fill="var(--gold-soft)" stroke="var(--gold)" stroke-width="1.4"/>
       <text x="780" y="224" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Budgets</text>
-      <text x="780" y="244" text-anchor="middle" font-size="11.5" fill="var(--muted)">budget vs consuntivo · conto economico</text>
-      <text x="780" y="262" text-anchor="middle" font-size="11.5" fill="var(--muted)">tre livelli: raggiungibile / sfidante / oltre</text>
+      <text x="780" y="244" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">budget vs consuntivo · conto economico</text>
+      <text x="780" y="262" text-anchor="middle" font-size="11.5" fill="var(--text-secondary)">tre livelli: raggiungibile / sfidante / oltre</text>
 
       <line x1="780" y1="128" x2="780" y2="192" stroke="currentColor" stroke-width="1.6" marker-end="url(#fd-ink)"/>
-      <text x="800" y="166" font-size="11" fill="var(--muted)">fatturato, categorie</text>
+      <text x="800" y="166" font-size="11" fill="var(--text-secondary)">fatturato, categorie</text>
 
-      <text x="450" y="330" text-anchor="middle" font-size="12.5" fill="var(--muted)">A Budgets arrivano anche: <tspan font-weight="600" fill="currentColor">ricavo e margine e-commerce da Orders</tspan> · <tspan font-weight="600" fill="currentColor">spesa ADV da Marketing</tspan></text>
-      <text x="450" y="352" text-anchor="middle" font-size="12.5" fill="var(--muted)"><tspan font-weight="600" fill="currentColor">costo consegne (ritenute comprese) dalla Piattaforma</tspan> — ognuno dal suo proprietario, mai ricopiato</text>
+      <text x="450" y="330" text-anchor="middle" font-size="12.5" fill="var(--text-secondary)">A Budgets arrivano anche: <tspan font-weight="600" fill="currentColor">ricavo e margine e-commerce da Orders</tspan> · <tspan font-weight="600" fill="currentColor">spesa ADV da Marketing</tspan></text>
+      <text x="450" y="352" text-anchor="middle" font-size="12.5" fill="var(--text-secondary)"><tspan font-weight="600" fill="currentColor">costo consegne (ritenute comprese) dalla Piattaforma</tspan> — ognuno dal suo proprietario, mai ricopiato</text>
     </svg>
     <figcaption>
       Il punto più importante per chi arriva: <b>nessuna app paga da sola</b>. Qualunque cosa
@@ -741,6 +730,8 @@
         <td><b>La scheda negozio archivia i contatti e torna a norma di design.</b> Ogni contatto della scheda ha il bottone «Archivia» (esce dalla scheda e dalla Rubrica attiva; se il negozio è nel registro, l'archiviazione arriva anche ad Anagrafiche). Attenzione al verso: cancellare un referente SOLO su Anagrafiche non lo toglie da Scout — la rubrica è di Scout e si chiude da lì. La scheda mostra solo i contatti attivi e conta gli archiviati. Layout allineato al design system: titoli di sezione sobri, bottoni a pillola, via i bottoni color oro.</td></tr>
       <tr><td>28/08/2026</td><td>Transactions + 4 app</td>
         <td><b>Transactions diventa il collettore unico delle richieste di pagamento.</b> Tutte le richieste dell'ecosistema convergono lì: Customer Service (fornitori degli ordini), Scout (nuova schermata <b>Vendita → Paga fornitori</b> per i fornitori degli eventi), FINANCE (partner e spese), Piattaforma consegne (bottone <b>Richiedi pagamento</b> sugli stipendi valet approvati). Le richieste possono avere qualsiasi metodo (bonifico, link, PayPal, carta, altro): il bonifico si esegue da Transactions (distinta/Qonto), gli altri si chiudono a mano come «pagata fuori». Ovunque c'è la <b>lettura AI</b> (incolla il testo o lo screenshot della richiesta: importo/IBAN/intestatario proposti, il checksum decide, la persona rilegge). L'<b>esito torna da solo</b> alle app (webhook firmato con ritentativi + pull di recupero) <b>con gli allegati</b>: la prova del pagamento si carica in Transactions e chi ha chiesto la scarica — nel CS la graffetta si accende da sola.</td></tr>
+      <tr><td>28/08/2026</td><td>Manuale</td>
+        <td>La pagina segue ora i token veri del design system v1.4: titoli, tabelle, card e colori identici alle app. E come le app, è solo chiara.</td></tr>
       <tr><td>28/08/2026</td><td>Manuale</td>
         <td>Nasce questo manuale, con la regola del registro: da oggi ogni funzionalità nuova o modificata si annota qui.</td></tr>
       <tr><td>28/08/2026</td><td>Finance</td>
