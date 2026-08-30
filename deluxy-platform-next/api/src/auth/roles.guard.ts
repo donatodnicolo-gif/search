@@ -23,7 +23,21 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!requiredRoles || requiredRoles.length === 0) return true;
+    // ⚠️ 29/08/2026 — SI NEGA PER DEFAULT. Prima qui c'era `return true`: una
+    // rotta senza @Roles nasceva aperta a chiunque avesse fatto il login, e
+    // bastava dimenticare il decoratore. È così che `GET /service-types`
+    // faceva leggere ai valet il listino che pagano i partner (trovato il
+    // 29/08 provando con un token valet vero).
+    //
+    // Adesso il permesso va scritto sempre: @Roles(...) per i ruoli, o
+    // @Autenticato() quando davvero possono tutti — che è una dichiarazione,
+    // non una dimenticanza. Le rotte fuori dal login (webhook, cron, tracking
+    // pubblico) restano @Public e non arrivano nemmeno qui.
+    if (!requiredRoles || requiredRoles.length === 0) {
+      throw new ForbiddenException(
+        'Rotta senza permessi dichiarati: va marcata con @Roles(...) o @Autenticato().',
+      );
+    }
 
     const { user } = context.switchToHttp().getRequest();
     if (!user || !requiredRoles.includes(user.role)) {

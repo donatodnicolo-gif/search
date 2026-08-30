@@ -85,7 +85,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { CurrentUser, JwtUser } from '../common/decorators';
+import { Roles, CurrentUser, JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
@@ -1138,6 +1138,7 @@ export class FinanceController {
     return v !== 'false' && v !== '0';
   }
 
+  @Roles(Role.ADMIN)
   @Get('corrispettivi')
   @ApiOperation({
     summary: 'Corrispettivi delle consegne a buon fine di tipo VENDITA (solo admin)',
@@ -1179,6 +1180,7 @@ export class FinanceController {
     });
   }
 
+  @Roles(Role.ADMIN)
   @Get('economia-vendite')
   @ApiOperation({
     summary: "L'economia di ogni vendita per ordine Shopify (primo margine, fee, margine finale) — per la spinta verso Orders",
@@ -1189,6 +1191,7 @@ export class FinanceController {
     return Object.fromEntries(mappa);
   }
 
+  @Roles(Role.ADMIN)
   @Get('summary')
   @ApiOperation({ summary: 'Totali del periodo (solo admin)' })
   @ApiQuery({ name: 'from', required: false })

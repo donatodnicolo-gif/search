@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CurrentUser, JwtUser, Public } from '../common/decorators';
+import { Autenticato, CurrentUser, JwtUser, Public } from '../common/decorators';
 import { AuthService } from './auth.service';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { LoginDto } from './dto/login.dto';
@@ -40,6 +40,7 @@ export class AuthController {
     return this.authService.acceptInvite(dto);
   }
 
+  @Autenticato()
   @Get('me')
   @ApiBearerAuth()
   @ApiOperation({ summary: "Profilo dell'utente autenticato" })

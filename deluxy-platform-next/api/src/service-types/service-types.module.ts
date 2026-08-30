@@ -12,7 +12,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CurrentUser, JwtUser, Roles } from '../common/decorators';
+import { Roles, Autenticato, CurrentUser, JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -157,6 +157,7 @@ function senzaPrezzi<T>(dati: T, user?: { role?: string }): T {
 export class ServiceTypesController {
   constructor(private readonly serviceTypesService: ServiceTypesService) {}
 
+  @Autenticato()
   @Get()
   @ApiOperation({ summary: 'Lista tipi di servizio (filtrabile per scope: partner | valet)' })
   async findAll(@CurrentUser() user: JwtUser, @Query('scope') scope?: string) {
@@ -166,12 +167,14 @@ export class ServiceTypesController {
     return senzaPrezzi(dati, user);
   }
 
+  @Autenticato()
   @Get(':id')
   @ApiOperation({ summary: 'Dettaglio tipo di servizio' })
   async findOne(@CurrentUser() user: JwtUser, @Param('id') id: string) {
     return senzaPrezzi(await this.serviceTypesService.findOne(id), user);
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION)
   @Put(':id')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Aggiorna tipo di servizio' })

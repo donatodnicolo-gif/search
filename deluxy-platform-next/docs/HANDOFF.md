@@ -104,7 +104,54 @@
 **Ultimo aggiornamento:** 28 agosto 2026 — 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
-### 🔒 29/08/2026 — IL VALET NON VEDE PIÙ IL LISTINO DEI PARTNER (provato con un token vero)
+### 🔐 29/08/2026 — IL GUARD ORA NEGA PER DEFAULT (il difetto di fondo è chiuso)
+
+Deciso dall'utente subito dopo la falla di `/service-types`: non basta tappare
+il buco, va tolta la ragione per cui i buchi nascono. Il `RolesGuard` faceva
+`if (!requiredRoles) return true` — **una rotta senza `@Roles` nasceva aperta a
+chiunque avesse fatto il login**, e bastava dimenticare il decoratore.
+
+**Come è stato fatto, nell'ordine che permette di sapere chi ha rotto cosa:**
+
+1. **Censimento** di tutte le 186 rotte (script che legge i decoratori, anche
+   quelli sulla CLASSE — ⚠️ la prima versione li ignorava e dava 121 «scoperte»
+   invece di 38: un censimento sbagliato avrebbe fatto «correggere» rotte già
+   a posto e ignorare quelle vere).
+2. **Permessi espliciti su 35 rotte** in 7 file (categories, provinces,
+   service-types, finance, notifications, saved-views, deliveries), con i
+   ruoli scelti uno per uno: le azioni di massa e le cancellazioni ad
+   ADMIN/OPERATION, `POST /deliveries` anche al PARTNER, `PATCH /:id/status`
+   anche al VALET (è lui che segna consegnato), gli elenchi a tutti.
+3. **Nuovo decoratore `@Autenticato()`** (`common/decorators.ts`) per «qualsiasi
+   ruolo, purché abbia fatto il login»: dove il permesso è davvero di tutti,
+   ora è una **dichiarazione** e non una dimenticanza. I dati restano filtrati
+   per ruolo dentro i servizi: il decoratore dice chi può bussare, non che cosa
+   si porta via.
+4. **Poi** il guard: senza permessi dichiarati risponde 403 con un messaggio
+   che dice cosa manca («va marcata con @Roles(...) o @Autenticato()»).
+
+**Due rotte sono state trovate rotte DALLA prova, non dal codice**, e questo è
+il motivo per cui l'ordine conta: `GET /auth/me` e `GET /settings/public`
+davano **403 a tutti** (la prima è quella con cui il frontend sa chi sei: senza
+di lei non entra nessuno). Marcate `@Autenticato()`.
+
+**Verifica finale, in produzione:**
+
+- **tutte le 51 rotte GET provate con un token ADMIN: nessun 403.**
+- I tre ruoli sulle rotte comuni (auth/me, settings/public, deliveries,
+  categories, provinces, service-types, notifications, saved-views): **200 per
+  admin, partner e valet**.
+- Le riservate restano riservate: finance 403 a partner e valet, partners e
+  products 403 al valet, invoices/pending 403 al valet, salaries 403 al partner.
+- **L'app aperta nel browser come admin**: pagina Consegne con 11 righe, 28
+  voci di menu, **zero errori** — e le 22 chiamate che il frontend fa davvero
+  rispondono tutte 200.
+
+⚠️ **Quello che questo cambio NON fa**: non filtra i dati, filtra l'accesso.
+Il filtro dei campi (il valet che non vede i soldi del partner) resta dove era,
+in `soloIMieiSoldi` e in `senzaPrezzi`. Le due difese sono indipendenti e
+servono entrambe.
+
 
 Chiesto dall'utente: «assicurati al 100% che i valet, a parte la propria paga,
 non vedano nessuna informazione sui prezzi pagati ai partner». Non dedotto dal

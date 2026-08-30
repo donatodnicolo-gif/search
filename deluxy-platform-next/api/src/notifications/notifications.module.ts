@@ -27,7 +27,7 @@ import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagg
 import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import webpush from 'web-push';
-import { CurrentUser, JwtUser } from '../common/decorators';
+import { Autenticato, CurrentUser, JwtUser } from '../common/decorators';
 import { NotificationType, Role, UserStatus } from '../common/enums';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
@@ -266,42 +266,49 @@ export class NotificationsService {
 export class NotificationsController {
   constructor(private readonly service: NotificationsService) {}
 
+  @Autenticato()
   @Get()
   @ApiOperation({ summary: 'Storico notifiche dell utente (piu recenti prima)' })
   list(@CurrentUser() user: JwtUser, @Query() dto: ListNotificationsDto) {
     return this.service.list(user, dto);
   }
 
+  @Autenticato()
   @Get('count')
   @ApiOperation({ summary: 'Numero di notifiche non lette (contatore header)' })
   count(@CurrentUser() user: JwtUser) {
     return this.service.unreadCount(user);
   }
 
+  @Autenticato()
   @Get('vapid-public-key')
   @ApiOperation({ summary: 'Chiave pubblica VAPID per iscriversi al Web Push' })
   vapidKey() {
     return { publicKey: this.service.vapidPublicKey };
   }
 
+  @Autenticato()
   @Post('subscribe')
   @ApiOperation({ summary: 'Registra questo browser per il Web Push' })
   subscribe(@CurrentUser() user: JwtUser, @Body() dto: SubscribeDto) {
     return this.service.subscribe(user, dto);
   }
 
+  @Autenticato()
   @Delete('subscribe')
   @ApiOperation({ summary: 'Disiscrive questo browser dal Web Push' })
   unsubscribe(@CurrentUser() user: JwtUser, @Body('endpoint') endpoint: string) {
     return this.service.unsubscribe(endpoint, user);
   }
 
+  @Autenticato()
   @Post(':id/read')
   @ApiOperation({ summary: 'Segna una notifica come letta' })
   markRead(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.service.markRead(id, user);
   }
 
+  @Autenticato()
   @Post('read-all')
   @ApiOperation({ summary: 'Segna tutte le notifiche come lette' })
   markAllRead(@CurrentUser() user: JwtUser) {

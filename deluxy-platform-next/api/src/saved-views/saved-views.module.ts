@@ -21,7 +21,7 @@ import {
   PartialType,
 } from '@nestjs/swagger';
 import { IsBoolean, IsIn, IsObject, IsOptional, IsString } from 'class-validator';
-import { CurrentUser, JwtUser } from '../common/decorators';
+import { Autenticato, CurrentUser, JwtUser } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Sezioni che supportano le viste rapide. */
@@ -141,18 +141,21 @@ function safeParse(json: string): Record<string, unknown> {
 export class SavedViewsController {
   constructor(private readonly service: SavedViewsService) {}
 
+  @Autenticato()
   @Get()
   @ApiOperation({ summary: 'Viste rapide dell utente (+ quelle condivise) per una sezione' })
   findAll(@CurrentUser() user: JwtUser, @Query('section') section?: string) {
     return this.service.findAll(user, section);
   }
 
+  @Autenticato()
   @Post()
   @ApiOperation({ summary: 'Salva una vista rapida' })
   create(@CurrentUser() user: JwtUser, @Body() dto: CreateSavedViewDto) {
     return this.service.create(user, dto);
   }
 
+  @Autenticato()
   @Put(':id')
   @ApiOperation({ summary: 'Aggiorna una vista (solo il creatore)' })
   update(
@@ -163,6 +166,7 @@ export class SavedViewsController {
     return this.service.update(id, user, dto);
   }
 
+  @Autenticato()
   @Delete(':id')
   @ApiOperation({ summary: 'Elimina una vista (solo il creatore)' })
   remove(@Param('id') id: string, @CurrentUser() user: JwtUser) {

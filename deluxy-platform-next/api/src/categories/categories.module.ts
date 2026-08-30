@@ -29,7 +29,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { Roles } from '../common/decorators';
+import { Roles, Autenticato } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -213,12 +213,14 @@ export class CategoriesService {
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
+  @Autenticato()
   @Get()
   @ApiOperation({ summary: 'Lista categorie con campi e sconti per provincia' })
   findAll(@Query('archived') archived?: string) {
     return this.categoriesService.findAll(archived === 'true' || archived === '1');
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION)
   @Patch(':id/archive')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Archivia o ripristina una categoria: i prodotti che ce l hanno non cambiano' })
@@ -239,6 +241,7 @@ export class CategoriesController {
     return this.categoriesService.findOne(id);
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION)
   @Post()
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Crea categoria (con campi extra e sconti provincia)' })

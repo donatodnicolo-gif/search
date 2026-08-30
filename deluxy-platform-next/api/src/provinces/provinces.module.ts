@@ -8,7 +8,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Roles } from '../common/decorators';
+import { Roles, Autenticato } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -38,12 +38,14 @@ export class ProvincesService {
 export class ProvincesController {
   constructor(private readonly provincesService: ProvincesService) {}
 
+  @Autenticato()
   @Get()
   @ApiOperation({ summary: 'Province e citta' })
   findAll() {
     return this.provincesService.findAll();
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION)
   @Post()
   @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER)
   @ApiOperation({ summary: 'Crea provincia' })

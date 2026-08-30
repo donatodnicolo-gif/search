@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
+import { Roles, Autenticato, CurrentUser, JwtUser, Public } from '../common/decorators';
 import { Role } from '../common/enums';
 import { DeliveriesService } from './deliveries.service';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
@@ -31,6 +31,7 @@ import {
 export class DeliveriesController {
   constructor(private readonly deliveriesService: DeliveriesService) {}
 
+  @Autenticato()
   @Get()
   @ApiOperation({
     summary:
@@ -41,6 +42,7 @@ export class DeliveriesController {
   }
 
   // NB: dichiarate PRIMA di :id, altrimenti verrebbero catturate dalla route param.
+  @Autenticato()
   @Get('calendar')
   @ApiOperation({ summary: 'Conteggio consegne per giorno (calendario), filtrato per ruolo' })
   @ApiQuery({ name: 'from', required: false })
@@ -57,6 +59,7 @@ export class DeliveriesController {
     return this.deliveriesService.calendar(user, from, to, partnerId, valetId);
   }
 
+  @Autenticato()
   @Get('map')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Punti mappa delle consegne (con coordinate), filtrabili come la lista' })
@@ -72,12 +75,14 @@ export class DeliveriesController {
     return this.deliveriesService.geocodeMissing(limit ? Number(limit) : 50);
   }
 
+  @Autenticato()
   @Get(':id')
   @ApiOperation({ summary: 'Dettaglio consegna con attivita e log' })
   findOne(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.deliveriesService.findOne(id, user);
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
   @Post()
   @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
   @ApiOperation({ summary: 'Crea consegna (genera attivita ritiro+consegna e log)' })
@@ -98,6 +103,7 @@ export class DeliveriesController {
     return this.deliveriesService.update(id, dto, user);
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION, Role.VALET)
   @Patch(':id/status')
   @ApiOperation({ summary: 'Cambio stato (con log automatico)' })
   updateStatus(
@@ -108,6 +114,7 @@ export class DeliveriesController {
     return this.deliveriesService.updateStatus(id, dto.status, user);
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
   @Get(':id/tracking-link')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Token del link pubblico di monitoraggio (lo crea se assente)' })
@@ -141,6 +148,7 @@ export class DeliveriesController {
   // perde. Un «fatto» generico su venti consegne, con tre andate male, sarebbe
   // una bugia comoda.
   // ============================================================
+  @Roles(Role.ADMIN, Role.OPERATION)
   @Patch('massa/stato')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Cambia lo stato di più consegne insieme' })
@@ -150,6 +158,7 @@ export class DeliveriesController {
     );
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION)
   @Patch('massa/assegna')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Assegna lo stesso valet a più consegne insieme' })
@@ -159,6 +168,7 @@ export class DeliveriesController {
     );
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION)
   @Patch('massa/plus-valet')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Scrive lo stesso plus/minus valet su più consegne insieme' })
@@ -168,6 +178,7 @@ export class DeliveriesController {
     );
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION)
   @Patch('massa/elimina')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Elimina più consegne insieme (solo admin)' })
@@ -199,6 +210,7 @@ export class DeliveriesController {
     };
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION)
   @Patch(':id/assign')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Assegna valet (calcola paga dal matching servizio/salario)' })
@@ -210,6 +222,7 @@ export class DeliveriesController {
     return this.deliveriesService.assignValet(id, dto.valetId, user);
   }
 
+  @Roles(Role.ADMIN, Role.OPERATION)
   @Delete(':id')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Elimina consegna' })

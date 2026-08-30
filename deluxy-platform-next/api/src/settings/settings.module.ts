@@ -8,7 +8,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Roles } from '../common/decorators';
+import { Autenticato, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -294,6 +294,7 @@ export class SettingsController {
     return this.service.provaOrders();
   }
 
+  @Autenticato()
   @Get('public')
   @ApiOperation({ summary: 'Impostazioni pubbliche per il client (solo la chiave browser Maps)' })
   async publicSettings() {
