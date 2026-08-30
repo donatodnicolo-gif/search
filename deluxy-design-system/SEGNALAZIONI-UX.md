@@ -366,3 +366,28 @@ veloce anche con l'etichetta accanto. Criterio di accettazione da usare al posto
 due icone adiacenti devono differire per **classe di silhouette** (chiuso/aperto,
 incorniciato/libero, curvo/spigoloso), non per numero di forme, e il confronto si fa **a 19px
 affiancate nel loro ordine reale**, non ingrandite e isolate.
+
+## Hub — §8 v1.6 attuata sui cartellini: il dettaglio si apre dalla riga (30/08/2026)
+
+**Segnalazione dell'utente**: «non rispetta regola del dettaglio al click» (tabella «Le
+timbrature di tutti», Gestione cartellini). **Confermata**: il dettaglio si apriva solo dal
+comando «Timbrature» in fondo alla riga.
+
+**Attuata** con un componente client (`RigaPersona.tsx`), con tutte e quattro le guardie del §8
+v1.6: `closest("a,button,input,select,label")` perché le azioni dentro la riga non facciano
+partire l'apertura; riga dichiarata (pointer + hover + filo oro da aperta); comando da tastiera
+con `aria-expanded`/`aria-controls`; e **chi non ha dettaglio non finge** (niente pointer, la
+cella dice «nessun dato»). In più il dettaglio è passato dall'ultima colonna a una riga con
+`colSpan` a tutta larghezza. Verificato in produzione con click reale.
+
+### Trappola di verifica da mettere a canone (vale per ogni app React)
+
+**Un click sintetico non innesca l'idratazione pigra.** Verificando dal pannello con
+`element.click()` (`isTrusted: false`) su una pagina appena caricata, sembrava che nulla
+funzionasse: riga che non si apre, ricerca della home che non filtra, **orologio del cartellino
+fermo su `--:--:--`**. Nessuno dei tre era un guasto: React idrata su interazione, e un evento
+non fidato non fa scattare il replay. Con un **click vero** (o dopo una navigazione interna)
+tutto risponde — misurato: orologio 08:05:35 → 08:05:37, riga aperta al primo colpo.
+⚠️ Chi verifica un'interazione deve usare il click del driver (o navigare prima), altrimenti
+apre segnalazioni per difetti che non esistono. È parente della trappola della transizione
+misurata senza focus (voce precedente).
