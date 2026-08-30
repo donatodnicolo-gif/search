@@ -520,6 +520,29 @@ td {
    tinta neutrale a 5%). */
 .tabella-scroll tbody tr:hover { background: rgba(120, 120, 128, 0.05); }
 
+/* ---------- Riga che si apre col click (Libro §8 v1.6) ---------- */
+/* Il dettaglio di un record non si apre solo da un comando piccolo in fondo:
+   si apre cliccando la riga. Perché sia vero va anche DETTO — il dito e il
+   puntatore devono vedere che quella riga è viva (pointer + sfondo all’hover).
+   Chi non ha dettaglio non finge: nessuno dei due segnali. */
+.riga-persona.apribile { cursor: pointer; }
+.riga-persona.aperta > td { background: var(--fill); }
+.riga-persona.aperta > td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
+
+/* Il dettaglio sta sotto, a tutta larghezza: nell’ultima colonna era un
+   riquadro stretto schiacciato accanto ai numeri. */
+.riga-dettaglio > td { padding: 0 12px 16px; background: var(--fill); }
+.riga-dettaglio:hover > td { background: var(--fill); } /* non è una riga-record: non reagisce come tale */
+.dettaglio-persona { min-width: 320px; }
+
+/* La freccia dice da sola se è aperto o chiuso, accanto alla parola. */
+.chevron {
+  width: 8px; height: 8px; margin-right: 8px;
+  border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor;
+  transform: rotate(-45deg); transition: transform 160ms var(--ease);
+}
+.chevron.giu { transform: rotate(45deg); }
+
 /* ---------- Spunte delle app ---------- */
 /* Spuntata e non spuntata erano identiche (stesso sfondo, stesso bordo, stesso
    peso): distingueva solo la casella nativa da 13px. Su una pagina di PERMESSI

@@ -5,6 +5,7 @@ import { richiediDesktop } from "@/lib/solo-desktop";
 import { approvaAssenza, mandaPresenze, respingiAssenza } from "@/lib/cartellino-actions";
 import { rapportoPresenze, riepilogoMese } from "@/lib/presenze";
 import { statoPosta } from "@/lib/posta";
+import { RigaPersona } from "./RigaPersona";
 import {
   STATO_INFO,
   TIPO_INFO,
@@ -213,72 +214,57 @@ export default async function GestioneCartellinoPage({
           </thead>
           <tbody>
             {riepilogo.righe.map((r) => (
-              <tr key={r.utenteId}>
-                <td>
-                  <div style={{ fontWeight: 500 }}>{r.nome}</div>
-                  <div style={{ fontSize: 12.5, color: "var(--text-tertiary)" }}>{r.email}</div>
-                </td>
-                <td style={{ fontVariantNumeric: "tabular-nums" }}>
-                  {formattaDurata(r.minuti)}
-                  {r.dentroOra && <span className="nota-riga">turno aperto ora</span>}
-                </td>
-                <td>{r.giornate.length || "—"}</td>
-                <td>{r.giorniAssenza || "—"}</td>
-                <td>
-                  {/* Il dettaglio giorno per giorno è già in memoria: si apre e si
-                      chiude senza ricaricare né interrogare di nuovo il database. */}
-                  <details>
-                    <summary
-                      className="btn ghost"
-                      style={{ listStyle: "none", display: "inline-flex" }}
-                    >
-                      Timbrature
-                    </summary>
-                    {r.giornate.length === 0 && r.assenze.length === 0 ? (
-                      <p className="nota">Nessuna timbratura e nessuna assenza in questo mese.</p>
-                    ) : (
-                      <div style={{ marginTop: 10, minWidth: 320 }}>
-                        {r.giornate.map((g) => (
-                          <div key={g.giorno} className="riga-giorno">
-                            <span className="riga-giorno-data">{dataBreve(g.data)}</span>
-                            <span>
-                              {g.turni.map((t, i) => (
-                                <span key={i} className="marca">
-                                  {oraDi(t.entrata)} → {t.uscita ? oraDi(t.uscita) : "in corso"}
-                                </span>
-                              ))}
-                              {g.conManuali && (
-                                <span className="nota-riga">
-                                  righe inserite a mano
-                                  {g.motivi.length > 0 && `: ${g.motivi.join("; ")}`}
-                                </span>
-                              )}
-                            </span>
-                            <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                              {formattaDurata(g.minuti)}
-                            </span>
-                          </div>
+              <RigaPersona
+                key={r.utenteId}
+                nome={r.nome}
+                email={r.email}
+                ore={formattaDurata(r.minuti)}
+                notaOre={r.dentroOra ? "turno aperto ora" : null}
+                giorniTimbrati={r.giornate.length}
+                giorniAssenza={r.giorniAssenza}
+                haDettaglio={r.giornate.length > 0 || r.assenze.length > 0}
+              >
+                {/* Il dettaglio giorno per giorno è già in memoria: si apre e si
+                    chiude senza ricaricare né interrogare di nuovo il database. */}
+                <div className="dettaglio-persona">
+                  {r.giornate.map((g) => (
+                    <div key={g.giorno} className="riga-giorno">
+                      <span className="riga-giorno-data">{dataBreve(g.data)}</span>
+                      <span>
+                        {g.turni.map((t, i) => (
+                          <span key={i} className="marca">
+                            {oraDi(t.entrata)} → {t.uscita ? oraDi(t.uscita) : "in corso"}
+                          </span>
                         ))}
-                        {r.assenze.map((a, i) => (
-                          <div key={i} className="riga-giorno">
-                            <span className="riga-giorno-data">
-                              {TIPO_INFO[a.tipo as TipoAssenza]?.etichetta ?? a.tipo}
-                            </span>
-                            <span>
-                              {intervalloEsteso(a.dal, a.al)}
-                              {a.motivo && <span className="nota-riga">{a.motivo}</span>}
-                            </span>
-                            <span className={STATO_INFO[a.stato as StatoAssenza]?.classe ?? "badge"}>
-                              <span className="dot" />
-                              {STATO_INFO[a.stato as StatoAssenza]?.etichetta ?? a.stato}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </details>
-                </td>
-              </tr>
+                        {g.conManuali && (
+                          <span className="nota-riga">
+                            righe inserite a mano
+                            {g.motivi.length > 0 && `: ${g.motivi.join("; ")}`}
+                          </span>
+                        )}
+                      </span>
+                      <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                        {formattaDurata(g.minuti)}
+                      </span>
+                    </div>
+                  ))}
+                  {r.assenze.map((a, i) => (
+                    <div key={i} className="riga-giorno">
+                      <span className="riga-giorno-data">
+                        {TIPO_INFO[a.tipo as TipoAssenza]?.etichetta ?? a.tipo}
+                      </span>
+                      <span>
+                        {intervalloEsteso(a.dal, a.al)}
+                        {a.motivo && <span className="nota-riga">{a.motivo}</span>}
+                      </span>
+                      <span className={STATO_INFO[a.stato as StatoAssenza]?.classe ?? "badge"}>
+                        <span className="dot" />
+                        {STATO_INFO[a.stato as StatoAssenza]?.etichetta ?? a.stato}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </RigaPersona>
             ))}
           </tbody>
         </table>
