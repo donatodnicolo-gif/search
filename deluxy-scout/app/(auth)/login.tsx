@@ -70,7 +70,7 @@ export default function Login() {
             onPress={onLogin}
             disabled={loading}
           >
-            <Text style={styles.btnTxt}>{loading ? 'Accesso…' : 'Accedi'}</Text>
+            <Text style={styles.btnTxt}>{loading ? 'Accesso…' : 'Entra'}</Text>
           </Pressable>
 
           <Text style={styles.footnote}>Consegne in guanti bianchi, dal 2019.</Text>
