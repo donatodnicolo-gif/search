@@ -3,19 +3,45 @@
 // della casella vera — il rapporto al commercialista resta consultabile dove
 // si consulta tutta la posta.
 //
-// Serve MAIL_API_KEY (il Token API di AI Mail: Impostazioni App → «Token API
-// di AI Mail», valore unico per tutte le app) e MAIL_UTENTE (l'email della
-// casella da cui si spedisce). Senza, la pagina lo dichiara e non spedisce.
+// Servono MAIL_API_KEY (il Token API di AI Mail) e MAIL_UTENTE (la casella da
+// cui si spedisce). ⭐ Dal 30/08/2026 NON si cercano solo fra le variabili
+// d'ambiente: si leggono con `credenziale()`, che guarda prima l'ambiente e poi
+// la **cassaforte del Hub** (progetto `personale`). Così la chiave si incolla
+// una volta sola, dove la si ruota, invece che in una variabile per ogni app.
+
+import { credenziale, type Origine } from "./credenziali";
 
 const MAIL_URL_PREDEFINITO = "https://deluxy-mail.vercel.app";
 
 export type EsitoInvio = { ok: true } | { ok: false; errore: string };
 
-export function postaConfigurata(): { pronta: boolean; manca: string[] } {
+// Tre stati distinti, non un booleano: «la cassaforte non risponde» non è «la
+// chiave non c'è», e mandano l'operatore a fare due cose diverse.
+export type StatoPosta =
+  | { pronta: true; origine: Origine }
+  | { pronta: false; motivo: "assente"; manca: string[] }
+  | { pronta: false; motivo: "cassaforte"; dettaglio: string };
+
+export async function postaConfigurata(): Promise<StatoPosta> {
+  const [chiave, utente] = await Promise.all([
+    credenziale("MAIL_API_KEY"),
+    credenziale("MAIL_UTENTE"),
+  ]);
+
+  for (const esito of [chiave, utente]) {
+    if (esito.stato === "cassaforte-irraggiungibile") {
+      return { pronta: false, motivo: "cassaforte", dettaglio: esito.motivo };
+    }
+  }
+
   const manca: string[] = [];
-  if (!process.env.MAIL_API_KEY) manca.push("MAIL_API_KEY");
-  if (!process.env.MAIL_UTENTE) manca.push("MAIL_UTENTE");
-  return { pronta: manca.length === 0, manca };
+  if (chiave.stato !== "trovata") manca.push("il token di AI Mail");
+  if (utente.stato !== "trovata") manca.push("la casella da cui spedire");
+  if (manca.length > 0) return { pronta: false, motivo: "assente", manca };
+
+  // La fonte risolta si dichiara: serve a smascherare il valore fantasma (una
+  // variabile d'ambiente residua che vince su una cassaforte appena aggiornata).
+  return { pronta: true, origine: (chiave as { origine: Origine }).origine };
 }
 
 export async function inviaMail(dati: {
@@ -24,21 +50,26 @@ export async function inviaMail(dati: {
   corpo: string;
   corpoHtml?: string;
 }): Promise<EsitoInvio> {
-  const config = postaConfigurata();
-  if (!config.pronta) {
-    return {
-      ok: false,
-      errore: `Invio non configurato: manca ${config.manca.join(" e ")}. Il token si copia da AI Mail → Impostazioni App → «Token API di AI Mail».`,
-    };
+  const [chiave, utente] = await Promise.all([
+    credenziale("MAIL_API_KEY"),
+    credenziale("MAIL_UTENTE"),
+  ]);
+  if (chiave.stato !== "trovata" || utente.stato !== "trovata") {
+    const dettaglio =
+      chiave.stato === "cassaforte-irraggiungibile"
+        ? chiave.motivo
+        : "il token di AI Mail non è impostato, né qui né nella cassaforte del Hub.";
+    return { ok: false, errore: `La mail non è partita: ${dettaglio}` };
   }
+
   const base = (process.env.MAIL_URL || MAIL_URL_PREDEFINITO).replace(/\/$/, "");
 
   try {
     const risposta = await fetch(`${base}/api/v1/invia`, {
       method: "POST",
       headers: {
-        "x-api-key": process.env.MAIL_API_KEY!,
-        "x-utente": process.env.MAIL_UTENTE!,
+        "x-api-key": chiave.valore,
+        "x-utente": utente.valore,
         "content-type": "application/json",
       },
       body: JSON.stringify({

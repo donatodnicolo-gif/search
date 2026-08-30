@@ -192,7 +192,7 @@ export default async function PaginaBenefit({
                   <td data-piena="" colSpan={tipi.length + 1}>
                     Totale valori dichiarati ({conValore.length} benefit su {totaleAssegnati})
                   </td>
-                  <td data-label="Nome" className="num">{euro(totaleValore)}/mese</td>
+                  <td className="num">{euro(totaleValore)}/mese</td>
                 </tr>
               )}
             </tbody>

@@ -10,6 +10,8 @@
 // - Serve BUDGETS_WRITE_KEY (chiave emessa da Budgets con scope scrittura);
 //   senza, si crea solo qui e lo si dice.
 
+import { credenziale } from "./credenziali";
+
 const BUDGETS_URL_PREDEFINITO = "https://deluxy-budgets.vercel.app";
 
 export type EsitoBudgets = { ok: boolean; messaggio: string };
@@ -19,13 +21,18 @@ export async function proponiPersonaABudgets(persona: {
   ruolo?: string;
   team?: string | null;
 }): Promise<EsitoBudgets> {
-  const chiave = process.env.BUDGETS_WRITE_KEY;
-  if (!chiave) {
+  // La chiave si cerca prima nell'ambiente, poi nella cassaforte del Hub.
+  const esito = await credenziale("BUDGETS_WRITE_KEY");
+  if (esito.stato !== "trovata") {
     return {
       ok: false,
-      messaggio: "BUDGETS_WRITE_KEY non impostata: la persona esiste solo qui.",
+      messaggio:
+        esito.stato === "cassaforte-irraggiungibile"
+          ? `La persona esiste solo qui: ${esito.motivo}`
+          : "La chiave di scrittura di Budgets non è impostata: la persona esiste solo qui.",
     };
   }
+  const chiave = esito.valore;
   const base = process.env.BUDGETS_URL || BUDGETS_URL_PREDEFINITO;
 
   try {

@@ -195,12 +195,12 @@ export default async function PaginaStipendi() {
                     Totale ({conRal.length} person{conRal.length === 1 ? "a" : "e"}
                     {senzaRal.length > 0 ? `, ${senzaRal.length} escluse` : ""})
                   </td>
-                  <td data-label="Nome" className="num">{euro(totaleRal)}</td>
-                  <td data-label="Funzione" className="num" />
-                  <td data-label="Dal" className="num" />
-                  <td data-label="Motivo" className="num" />
-                  <td data-label="RAL / compenso" className="num" />
-                  <td data-label="Mensilità" className="num">{conCosto.length > 0 ? euro(totaleCosto) : "—"}</td>
+                  <td data-label="RAL / compenso" className="num">{euro(totaleRal)}</td>
+                  <td data-label="Mensilità" className="num" />
+                  <td data-label="Lordo mensile" className="num" />
+                  <td data-label="Netto mensile" className="num" />
+                  <td data-label="Contributi / oneri" className="num" />
+                  <td data-label="Costo azienda" className="num">{conCosto.length > 0 ? euro(totaleCosto) : "—"}</td>
                 </tr>
               )}
             </tbody>

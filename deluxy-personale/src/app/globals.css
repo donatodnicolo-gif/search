@@ -594,3 +594,8 @@ details.modifica-inline > .form-inline {
   }
   .tabella-card .riga-totale td { font-weight: 600; }
 }
+
+/* Le voci senza sezione stanno in fondo, staccate da una spaziatura: il
+   raggruppamento sopravvive senza un'etichetta che introduca una voce sola
+   (regola del custode, 28/08/2026). */
+.nav-staccate { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--hairline); }

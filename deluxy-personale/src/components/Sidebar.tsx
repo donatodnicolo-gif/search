@@ -87,11 +87,15 @@ const SEZIONI: { nome: string; voci: Voce[] }[] = [
       { href: "/cartellini", nome: "Cartellini", icona: ICONE.cartellini },
     ],
   },
-  {
-    nome: "Configurazione",
-    voci: [{ href: "/chiavi", nome: "Chiavi delle app", icona: ICONE.chiavi }],
-  },
 ];
+
+// «Un'etichetta di sezione si paga solo se raggruppa ≥ 2 voci: le sezioni
+// monovoce si accorpano» (regola decisa dal custode il 28/08/2026 sul menu di
+// FINANCE, valida per tutte le app). «Configurazione» ne aveva UNA — l'etichetta
+// costava una riga di intestazione per introdurre una voce sola. Resta in fondo,
+// staccata dalle altre da una spaziatura: il raggruppamento sopravvive senza
+// che nessuna voce sparisca dal menu.
+const VOCI_IN_FONDO: Voce[] = [{ href: "/chiavi", nome: "Chiavi delle app", icona: ICONE.chiavi }];
 
 export function Sidebar({ nome, ruolo, conLogout }: { nome: string; ruolo: string; conLogout: boolean }) {
   const pathname = usePathname();
@@ -175,6 +179,20 @@ export function Sidebar({ nome, ruolo, conLogout }: { nome: string; ruolo: strin
           ))}
         </div>
       ))}
+
+      <div className="nav-staccate">
+        {VOCI_IN_FONDO.map((voce) => (
+          <a
+            key={voce.href}
+            href={voce.href}
+            aria-current={attiva(voce.href) ? "page" : undefined}
+            className={`nav-voce${attiva(voce.href) ? " attiva" : ""}`}
+          >
+            {voce.icona}
+            {voce.nome}
+          </a>
+        ))}
+      </div>
 
       <div className="sidebar-fondo">
         <div className="avatar">{iniziali}</div>

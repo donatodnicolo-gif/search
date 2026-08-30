@@ -49,7 +49,7 @@ export default async function PaginaCartellini({
   const presenze = hubConfigurato()
     ? await presenzeDalHub(mese)
     : ({ ok: false, messaggio: "HUB_KEYS_TOKEN non impostato: senza token del Hub i cartellini non si leggono." } as const);
-  const posta = postaConfigurata();
+  const posta = await postaConfigurata();
   const destinatarioPredefinito = process.env.COMMERCIALISTA_EMAIL ?? "";
 
   return (
@@ -184,8 +184,8 @@ export default async function PaginaCartellini({
                 ))}
                 <tr className="riga-totale">
                   <td data-piena="" colSpan={2}>Totale</td>
-                  <td data-label="Nome" className="num">{ore(presenze.dati.riepilogo.totaleMinuti)}</td>
-                  <td data-label="Email" className="num">{presenze.dati.riepilogo.righe.reduce((s, r) => s + r.giornate.length, 0)}</td>
+                  <td data-label="Ore" className="num">{ore(presenze.dati.riepilogo.totaleMinuti)}</td>
+                  <td data-label="Giornate timbrate" className="num">{presenze.dati.riepilogo.righe.reduce((s, r) => s + r.giornate.length, 0)}</td>
                   <td data-piena="" colSpan={2} />
                 </tr>
               </tbody>
@@ -209,9 +209,9 @@ export default async function PaginaCartellini({
                 L&apos;invio delle mail non è ancora acceso: lo attiva un amministratore. Intanto il
                 rapporto si legge qui sotto e si può copiare.
                 <div className="guasto-dettaglio">
-                  Per accenderlo serve {posta.manca.join(" e ")}: il token si copia da AI Mail →
-                  Impostazioni App → «Token API di AI Mail»; MAIL_UTENTE è l&apos;email della casella
-                  da cui spedire.
+                  {posta.motivo === "cassaforte"
+                    ? `La cassaforte del Hub, dove sta il token di AI Mail, non è raggiungibile: ${posta.dettaglio}`
+                    : `Per accenderlo manca ${posta.manca.join(" e ")}. Si incolla UNA volta nella cassaforte del Hub (Chiavi → progetto «personale», nome MAIL_API_KEY): il valore si copia da AI Mail → Impostazioni App → «Token API di AI Mail».`}
                 </div>
               </div>
             )}
