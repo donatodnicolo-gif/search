@@ -104,7 +104,47 @@
 **Ultimo aggiornamento:** 28 agosto 2026 — 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
-### 📦 29/08/2026 — I 14.952 FILE DEL LEGACY SONO IN CASA (100%), e i dati senza modello anche
+### 🔄 30/08/2026 — RIALLINEAMENTO col nuovo export del legacy: censimento, delta, e la COLLISIONE DEI NUMERI
+
+L'utente ha riesportato l'intero database del legacy («localhost (1).csv»,
+220 MB, tutte le tabelle in un CSV solo — diviso con `dividi-export-unico.mjs`
+in `legacy-2026-08-30/tabelle/`, il primo export resta intatto per confronto).
+Regole date: verificare da zero le associazioni CHIEDENDO prima di modificare;
+caricare in autonomia solo consegne e servizi mancanti.
+
+**Censimento** (`scripts/censimento-riallineamento.mjs`, sola lettura):
+export 62.581 consegne · tracciato identico (114 colonne) · cataloghi servizi
+INVARIATI (0 nuovi, partner e valet) · listini invariati (240/528) · nuovi:
+74 utenti, 65 clienti, 102 prodotti, 1 ricevuta valet.
+
+**Import del delta** (`scripts/prepara-delta-riallineamento.mjs` costruisce
+`tabelle-delta/` con le SOLE righe nuove — l'import di casa AGGIORNA per
+legacyId e sull'export pieno avrebbe sovrascritto le correzioni di piattaforma
+e RIPRISTINATO i dati personali dei 3.584 utenti estinti):
+✅ caricati 74 utenti, 63 clienti (2 senza nome: saltati), ~95 prodotti,
+112+92 tentate consegne, 129 righe prodotto. Le 541 consegne che il primo
+import scartò (401 senza partner, 197 senza data) restano fuori di proposito.
+
+⚠️⚠️ **LA SCOPERTA GROSSA: legacy e piattaforma battono LA STESSA
+NUMERAZIONE.** `Delivery.code` è @unique e nasce come max(code)+1; il legacy
+continua a creare consegne con id 63043, 63044… e i servizi RICORRENTI della
+piattaforma hanno occupato gli stessi numeri. **Le 92 consegne nuove del
+legacy hanno TUTTE il code già preso da una consegna di piattaforma (91 nate
+dai ricorrenti)**: `createMany … skipDuplicates` le ha scartate IN SILENZIO
+dicendo «scritte 92» (il contatore conta il blocco, non gli inserted).
+🔴 APERTO, decisione dell'utente: con che numero entrano le 92 (numero nuovo
+qui tenendo il legacyId? rinumerare i ricorrenti? offset?) — e finché il
+legacy resta vivo la collisione CONTINUA a prodursi.
+
+⚠️ Un'ALTRA SESSIONE aveva già importato 112 consegne del nuovo export
+(oggi, fino alle 16:50) prima che i ricorrenti occupassero quei numeri.
+
+**Divergenze sugli esistenti (contate, NON toccate — decisione utente):**
+status 1.229 · paga valet 550 · valet assegnato 62 · price 6 ·
+productValue 6 · partner 1 · invoiced 19.500 (quest'ultima è l'arretrato
+marcato qui, attesa). Più: 1 riga prodotto nuova su una consegna esistente
+(#62207 legacy) e 1 consegna senza partner (63096).
+
 
 Chiesto dall'utente in vista dello spegnimento di `app.deluxy.it`: «porta tutti
 i dati qui, ma per ora l'altra app deve restare perfettamente funzionante».
