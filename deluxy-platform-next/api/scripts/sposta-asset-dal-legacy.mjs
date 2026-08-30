@@ -37,7 +37,11 @@ const COLONNE = [
 const riga = fs.readFileSync('C:/Users/nicol/app/deluxy-tasks/.env', 'utf8')
   .split(/\r?\n/).find((l) => l.startsWith('DATABASE_URL='));
 const u = new URL(riga.slice('DATABASE_URL='.length).trim().replace(/^"|"$/g, ''));
-process.env.DATABASE_URL = `postgresql://${u.username}:${u.password}@${u.hostname}:${u.port || 5432}/postgres?schema=platform&pgbouncer=true`;
+// ⚠️ 29/08/2026 — La 5432 DIRETTA, non il pooler: con un update per file il
+// pooler in transaction mode è caduto a metà corsa (P1001 dopo ~4.000 file) e
+// lo script è morto uscendo con codice 0 — un esito 0 non prova che il lavoro
+// sia finito, si conta.
+process.env.DATABASE_URL = `postgresql://${u.username}:${u.password}@${u.hostname}:5432/postgres?schema=platform`;
 const prisma = new PrismaClient();
 
 const pat = (fs.readFileSync('C:/Users/nicol/scoutwt/deluxy-scout/.env', 'utf8')
@@ -78,6 +82,19 @@ for (const { tabella, colonna } of COLONNE) {
 
   // a lotti, con un po' di concorrenza: 15.000 file uno alla volta sono ore
   const LOTTO = 8;
+  // Gli indirizzi si scrivono a BLOCCHI (una query ogni 100 file) invece di
+  // un update per file: è ciò che aveva messo in ginocchio la connessione.
+  let daScrivere = [];
+  const scarica = async () => {
+    if (!daScrivere.length) return;
+    const valori = daScrivere.map((x, k) => k === 0 ? `($${k * 2 + 1}::text, $${k * 2 + 2}::text)` : `($${k * 2 + 1}, $${k * 2 + 2})`).join(',');
+    const parametri = daScrivere.flatMap((x) => [x.id, x.url]);
+    await prisma.$executeRawUnsafe(
+      `UPDATE platform."${tabella}" AS t SET "${colonna}" = v.url
+       FROM (VALUES ${valori}) AS v(id, url) WHERE t.id = v.id`, ...parametri);
+    scritti += daScrivere.length;
+    daScrivere = [];
+  };
   for (let i = 0; i < righe.length; i += LOTTO) {
     await Promise.all(righe.slice(i, i + LOTTO).map(async (r) => {
       const url = String(r.url);
@@ -89,7 +106,8 @@ for (const { tabella, colonna } of COLONNE) {
         const c = await fetch(`${BASE}/storage/v1/object/info/public/${BUCKET}/${percorso}`);
         if (c.ok) gia++;
         else {
-          const file = await fetch(url);
+          let file = await fetch(url);
+          if (!file.ok && file.status >= 500) file = await fetch(url); // un secondo tentativo
           if (!file.ok) { falliti++; errori.push(`${percorso}: legacy ${file.status}`); return; }
           const buf = Buffer.from(await file.arrayBuffer());
           const up = await fetch(dest, {
@@ -100,13 +118,13 @@ for (const { tabella, colonna } of COLONNE) {
           if (!up.ok) { falliti++; errori.push(`${percorso}: storage ${up.status} ${(await up.text()).slice(0, 60)}`); return; }
           caricati++;
         }
-        await prisma.$executeRawUnsafe(
-          `UPDATE platform."${tabella}" SET "${colonna}" = $1 WHERE id = $2`, nuovoUrl(url), r.id);
-        scritti++;
+        daScrivere.push({ id: r.id, url: nuovoUrl(url) });
       } catch (e) { falliti++; errori.push(`${percorso}: ${String(e.message).slice(0, 60)}`); }
     }));
+    if (daScrivere.length >= 100) await scarica();
     if ((i + LOTTO) % 400 === 0) console.log(`   ...${Math.min(i + LOTTO, righe.length)}/${righe.length} (caricati ${caricati}, già ${gia}, falliti ${falliti})`);
   }
+  await scarica();
 }
 
 console.log('\n--- esito ---');
