@@ -148,6 +148,61 @@ Corretto in questo giro, con la misura prima → dopo:
 - **`aria-current="page"`** sulla voce attiva del menu; nomi accessibili sui
   filtri; `.card-sub` col tetto di 640px come `.page-sub`.
 
+### Il menu, riordinato dal custode (30/08/2026)
+
+- **«Amministrazione» → «Contratti e paghe»**: questa stessa app propone «Amministrazione»
+  come esempio di FUNZIONE aziendale, quindi una parola sola significava una sezione del
+  menu e un reparto. Il nome nuovo dice anche perché le quattro voci stanno insieme:
+  contratto → ore e assenze → stipendio → benefit è una catena sola verso quanto una
+  persona costa e quanto le arriva.
+- **Cartellini in testa alla sezione, Benefit ultima.** Cartellini è l'unica voce con
+  cadenza garantita e una controparte esterna (il commercialista, ogni mese, per le buste
+  paga); le altre si aprono a domanda. ⚠️ **Falsificatore dichiarato**: se in 60 giorni di
+  log `/stipendi` supera `/cartellini`, le due si scambiano di posto.
+- **La sezione monovoce «Configurazione» è sparita**: «Chiavi delle app» resta, staccata in
+  fondo da una spaziatura. Nessuna voce è stata tolta dal menu.
+- **L'icona di «Funzioni e mansioni»** non è più una griglia 2×2 — è il glifo universale di
+  «tutte le app» (App Library di iOS, `apps` di Material) e a 19px era il vicino più
+  somigliante dell'organigramma, che le sta appena sopra. Ora è un elenco puntato: l'unica
+  silhouette senza contorno chiuso fra le otto.
+- **Il KPI «Contratti in scadenza» è un link** a `/inquadramenti`: dichiarava un allarme e
+  non portava da nessuna parte.
+- **Confermati e NON toccati**: la sezione Organico e il suo ordine interno; i nomi
+  «Funzioni e mansioni» / «Inquadramenti» (catalogo impersonale contro quadro per persona:
+  due assi indipendenti, l'albero nasce da `responsabileId`, le funzioni da
+  Funzione→Mansione→Attività) e «Stipendi» / «Benefit». Un riordino si paga in memoria
+  muscolare: si muove solo ciò che si sa motivare.
+
+### Le chiavi delle altre app: cassaforte del Hub (30/08/2026)
+
+Le credenziali che questa app USA per chiamare le altre — `MAIL_API_KEY`, `MAIL_UTENTE`,
+`BUDGETS_WRITE_KEY` — **non abitano qui**: si incollano nella cassaforte del Hub
+(`/chiavi` → progetto `personale`), dove sono cifrate AES-256-GCM, e
+`src/lib/credenziali.ts` le legge con lo STESSO `HUB_KEYS_TOKEN` che già serviva per i
+cartellini. Verdetto del custode della sicurezza: un secondo deposito qui sarebbe una
+tabella-copia di un segreto altrui, e la rotazione avrebbe due posti dove fallire
+(Standard §7). Da tenere presente la differenza con la tabella `ApiKey` di quest'app: le
+chiavi in USCITA si **verificano** (basta l'hash), queste in ENTRATA si **usano** (il
+valore dev'essere recuperabile) — due meccanismi diversi, che non si mescolano.
+
+- ⭐ **`process.env` VINCE sulla cassaforte**, sempre: se il Hub è giù o il token è
+  revocato, l'unica leva d'emergenza non deve dipendere dal sistema guasto. La fonte
+  risolta viaggia nel ritorno (`origine: "ambiente" | "cassaforte"`), mai dedotta da una
+  catena di ripieghi anonima.
+- **Tre stati distinti**: `trovata` · `assente` · `cassaforte-irraggiungibile`.
+  Collassarli manderebbe l'operatore a incollare di nuovo una chiave che c'è già, mentre il
+  problema è il token del Hub.
+- **Il valore non si rilegge mai** dall'interfaccia, nemmeno da admin: rileggerlo non serve
+  a nessuna operazione (si incolla, non si rilegge) e trasformerebbe una sessione admin nel
+  possesso delle chiavi del parco.
+- **Restano variabili d'ambiente**: `DATABASE_URL`, `PERSONALE_SESSION_SECRET`,
+  `PERSONALE_APP_PASSWORD`, `HUB_URL`, `HUB_KEYS_TOKEN` e 🔴 `HUB_SSO_SECRET` — quest'ultimo
+  perché serve sulla rotta SSO, che è **anonima**: prenderlo dalla cassaforte significherebbe
+  farsi dare dal Hub il segreto con cui si verifica ciò che il Hub afferma, e trasformare
+  ogni visita anonima in una chiamata di rete.
+- `COMMERCIALISTA_EMAIL` **non è un segreto** ma un dato HR («a chi si manda il
+  cartellino»): la sua casa è questa app.
+
 ### Deroghe di questa app (Libro §12)
 
 - **Niente scorciatoie di periodo sull'elenco Persone** (§8-bis lettera c):
