@@ -265,6 +265,12 @@ fee 55.123, su **3.314 ordini di 3.488**; lordo scoperto 12.737 €, dichiarato)
 delle consegne dalla finestra sbagliata** — la banca ne vedeva 29.561 € su 102.080 € veri. Sotto,
 «Il costo delle consegne viene dalla PIATTAFORMA».
 
+⏩ **E il giorno dopo questa riga si è mossa ancora**: con la riclassificazione del 27/08 in Finance
+il consuntivo Gen–Lug diventa costo del venduto **138.963 €**, ADV **99.046 €**, **EBITDA
+11.357 €**. La tabella qui sopra resta com'era misurata il 26/08 notte — si tiene la fotografia
+datata invece di riscriverla, perché è così che si capisce **cosa** ha mosso il numero. Sotto, «La
+riclassificazione in Finance ha dato un nome ai ~38.400 €».
+
 ✅ **Cosa è stato riverificato la notte del 26/08, e cosa è cambiato.** Rimisurando con le funzioni
 delle pagine, **il consuntivo combacia all'euro** con la tabella della sera (ricavi 442.739, D2C
 236.654, EBITDA 78.998, copertura 3.314/3.488) e **la quota non si è mossa** (39,3%, 40,9/36,2/35,7).
@@ -409,6 +415,57 @@ parte può stare in categorie che nel costo del venduto ci sono **già** — «D
 contata due volte: non è misurabile da qui (in banca quei movimenti non dicono di essere consegne) e
 si chiude classificandoli nel CFO, non con una formula.
 
+> ✅ **CHIUSO IL GIORNO DOPO, e questo paragrafo resta solo per la storia** (aggiunto il 30/08/2026,
+> rileggendo l'handoff): i ~38.400 € un nome ce l'hanno. Vedi «La riclassificazione in Finance ha
+> dato un nome ai ~38.400 €» qui sotto. Resta aperta solo la coda — 228 movimenti orfani di regola
+> e il residuo di «Da classificare», da rimisurare.
+
+### ✅ La riclassificazione in Finance ha dato un nome ai ~38.400 € (27/08/2026)
+
+Il paragrafo qui sopra è del 26/08 **notte**; il 27/08 la passata di riclassificazione in Finance
+(275 movimenti, lanciata da riga di comando riusando il motore delle regole dell'app perché la
+server action del bottone «↻ Riclassifica tutto» da fuori non si chiama) ha spostato proprio quei
+bonifici:
+
+| da → a | movimenti | importo (tutti gli anni) |
+| --- | ---: | ---: |
+| Partner che eseguono gli ordini → **Consegne (valet e corrieri)** | 223 | 201.581 € |
+| Partner → Stipendi dei dipendenti | 30 | 39.605 € |
+| Stipendi → Amministratore e collaboratori | 6 | 4.785 € |
+| **Stipendi → Consegne** | 4 | 3.400 € |
+| Pubblicità → ADV ribaltata al cliente | 12 | 2.142 € |
+
+⭐⭐ **Il riscontro, e non era previsto.** La categoria di banca «Consegne (valet e corrieri)» su
+Gen–Lug passa da **29.561 € a 97.876 €**, contro i **98.507 €** che dice la piattaforma consegne:
+**scarto 631 €, lo 0,6%**. Due fonti indipendenti — la banca classificata e il conto della
+piattaforma — che arrivano allo stesso numero senza essersi mai parlate. Era esattamente la
+diagnosi scritta sopra: *una regola di banca lavora sul nome della controparte e non sa distinguere
+un valet da un fioraio*; erano quasi tutti sotto «Partner che eseguono gli ordini».
+
+📌 **Effetto sul consuntivo Gen–Lug**: costo del venduto **142.536 → 138.963 €**, pubblicità
+**100.350 → 99.046 €** (Blu Logistica fuori: è ADV ribaltata al cliente), **EBITDA 6.479 →
+11.357 €**. «Girato ai partner» 447.445 → 358.723 €.
+
+⚠️ **Lo 0,6% non è una quadratura, e leggerlo così sarebbe l'errore di sempre**: le due fonti hanno
+**basi diverse** — la piattaforma è **competenza** (le consegne fatte, coi 34.112 € ancora da
+pagare), la banca è **cassa** (e nel 2026 paga anche arretrati del 2025). Che si incontrino a 631 €
+è un indizio forte, non una prova: sono due grandezze che si somigliano, non la stessa.
+
+🔴 **Cosa resta aperto davvero** (nessuna delle due si chiude dal codice):
+1. **228 movimenti per 176.891 €** (tutti 2025 e prima) hanno una categoria che **nessuna regola di
+   Budgets giustifica più**. Non li ha resi orfani questa passata: lo erano già. Finché stanno così
+   il bottone «↻ Riclassifica tutto» di Finance è **una mina**, perché la passata vera *toglie* la
+   categoria dove nessuna regola risponde. O si scrivono le regole che li riconoscono, o si accetta
+   di perderli — ed è una decisione, non un bug.
+2. **Il residuo di «Da classificare» va rimisurato**: dopo la passata è l'unico posto da cui può
+   ancora arrivare un doppio conteggio, perché `sostituzioneConsegne()` toglie **una riga sola** e
+   quella categoria è di tipo COGS. Il numero del 26/08 (12.563 € su Gen–Lug) è di **prima** della
+   riclassificazione e non vale più.
+
+⚠️ **I numeri di questa sezione sono del 27/08 e non sono stati rimisurati il 30/08** (la prova a
+vuoto è stata bloccata dal classificatore dell'ambiente). Come tutto il resto dell'handoff: si
+rimisurano prima di crederci, la ricetta è qui sotto.
+
 ### Come si rimisura (due minuti, e va fatto prima di credere alla tabella)
 
 Da `deluxy-budgets/`, con uno script temporaneo e `npx tsx@4 --env-file=.env tuoscript.mts`:
@@ -471,6 +528,16 @@ Budgets **emette le sue chiavi API** con scope e revoca.
    avrà la sua chiave emessa, quella condivisa si può togliere.
 7. ❓ **Affiliazioni è passata da 100.000 a 96.000 €** durante la sessione del 23/08 (agosto 4.000 →
    0). Non risulta da nessuna scrittura dell'assistente: probabilmente una modifica dell'utente.
+8. 🔴 **228 movimenti per 176.891 €** (tutti 2025 e prima) hanno una categoria che **nessuna regola
+   di Budgets giustifica più** — scoperto il 27/08 riclassificando in Finance, dove la passata è
+   stata **deviata di proposito** per non spogliarli. Finché stanno così il bottone «↻ Riclassifica
+   tutto» di Finance è una mina: la passata vera *toglie* la categoria dove nessuna regola risponde.
+   O si scrivono le regole che li riconoscono, o si accetta di perderli.
+9. ⚠️ **Il residuo di «Da classificare» va rimisurato** dopo la riclassificazione del 27/08: è
+   l'unico posto da cui può ancora arrivare un doppio conteggio sulle consegne (categoria di tipo
+   COGS, e `sostituzioneConsegne()` toglie una riga sola). I 12.563 € del 26/08 sono di prima.
+   ✅ Il grosso — i ~38.400 € di consegne classificate altrove — **è chiuso**: vedi la sezione del
+   27/08 più sopra.
 
 ## Cosa fa (v1)
 
