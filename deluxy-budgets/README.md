@@ -27,6 +27,37 @@ risultati commerciali del mese sono ancora fermi a 160 €». Le due risposte:
   ordini-mese --project-ref fdsziebgkljfsugqqbqd --no-verify-jwt` — al deploy la pagina si accende
   da sola, senza ripubblicare Budgets.
 
+### 30/08/2026 (notte): il commerciale del mese in corso è VIVO — i servizi dalla piattaforma
+
+Richiesta dell'utente («non solo il costo, devi prendere anche i ricavi delle consegne per i
+servizi fatti — servizi prezzo fisso e servizi orari»), arrivata guardando i Risultati commerciali
+di agosto fermi a **160 €**: quelli sono le fatture di Finance, che sul mese aperto sono indietro
+per costruzione.
+
+- **Rotta nuova sulla piattaforma**: `GET /api/v1/app/ricavi-servizi` (deploy `delivery-laer4aepn`,
+  verificata live: 401 senza chiave, 404 su una rotta finta) — i servizi **PREZZO_FISSO e A_ORA**
+  col lavoro fatto (gli stessi tre stati del costo: delivered/approved/not_delivered), valorizzati
+  dal **listino** partner (`price` + plus/minus), per mese, modello e servizio; `billable=false`
+  contato a zero e dichiarato.
+- ⭐ **Niente doppi conteggi, PER COSTRUZIONE**: la rotta esclude le consegne `VENDITA` — e
+  l'economia D2C (le fee che Budgets misura da Orders) si calcola SOLO su quelle
+  (`orders-sync.module.ts`, filtro `pricingModel: 'VENDITA'`). Due insiemi disgiunti per contratto,
+  non per fortuna.
+- **In `/aggiornato`**, quando il periodo contiene il mese in corso: blocco «In corso · servizi
+  della piattaforma» — per servizio, del solo mese (il client con `mese` chiede `dal/al` di quel
+  mese, così anche le righe sono del mese), col totale. Misurato ad agosto: **424 servizi,
+  8.159 €** contro i 160 € fatturati. ⚠️ **NON si somma a Finance**, ed è scritto in pagina: la
+  fattura di questi servizi, quando arriva, entra nella tabella sopra — questo è l'anticipo,
+  quello è il registro.
+- **Scout**: il blocco gemello «ordini chiusi in Scout» è pronto (client + pagina, commit
+  `d6c1a62f`) ma la Edge `ordini-mese` **aspetta il deploy**: la CLI Supabase qui non è
+  autenticata. Comando (dopo `npx supabase login`, da `deluxy-scout/`):
+  `npx supabase functions deploy ordini-mese --project-ref fdsziebgkljfsugqqbqd --no-verify-jwt`.
+  Finché non c'è, il blocco semplicemente non compare (404 → `ok:false`).
+- ⚠️ **Registro della piattaforma**: la rotta andrebbe scritta anche in
+  `deluxy-platform-next/docs/guida-visiva.html`, ma quel file ha modifiche non committate di
+  un'altra sessione — la riga è rimandata per non mischiare i lavori, e sta segnata qui.
+
 ### 30/08/2026 (sera): la tabella maison chiude sul contributo, e le 26 regole sono A DATABASE
 
 - **Le 26 regole degli orfani sono SCRITTE** (l'utente ha detto «fai tu», e stavolta lo script è
