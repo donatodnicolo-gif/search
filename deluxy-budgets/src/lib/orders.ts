@@ -100,6 +100,33 @@ export async function fetchRicaviD2C(anno: number, fino?: string): Promise<Ricav
   }
 }
 
+// Le vendite di un **intervallo di date** qualsiasi (per la vista «questa
+// settimana» di /aggiornato, 30/08/2026). Orders accetta `da`/`a` (esclusiva),
+// quindi la settimana è esatta al giorno — a differenza di banca e Finance,
+// che hanno solo il mese: è il motivo per cui la vista settimanale mostra SOLO
+// le vendite, e lo dichiara.
+export async function fetchRicaviIntervallo(da: string, a: string): Promise<RicaviResult> {
+  const key = await chiave("ORDERS_API_KEY");
+  if (!key) {
+    return { ok: false, configurato: false, errore: "Chiave Orders non configurata (ORDERS_API_KEY)." };
+  }
+  try {
+    const qs = new URLSearchParams({ anno: da.slice(0, 4), da, a });
+    const res = await fetch(`${BASE}/api/v1/ricavi?${qs.toString()}`, {
+      headers: { "x-api-key": key, "X-App": "deluxy-budgets" },
+      next: { revalidate: RIVALIDA },
+    });
+    if (!res.ok) return { ok: false, configurato: true, errore: `Orders ha risposto ${res.status}.` };
+    const dati = (await res.json()) as Ricavi;
+    if (!Array.isArray(dati?.brand)) {
+      return { ok: false, configurato: true, errore: "Risposta di Orders non riconosciuta." };
+    }
+    return { ok: true, dati };
+  } catch {
+    return { ok: false, configurato: true, errore: "Orders non raggiungibile: riprova più tardi." };
+  }
+}
+
 // ---- L'IVA non si scorpora ----
 // Il totale Shopify è IVA inclusa e **si usa così com'è**: il budget D2C di
 // Deluxy è scritto sulla stessa base. Una prima versione lo scorporava (22% di

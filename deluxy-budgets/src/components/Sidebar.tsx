@@ -154,6 +154,10 @@ const nav: AreaNav[] = [
     gruppi: [
       {
         items: [
+          // ⭐ L'apertura è «Aggiornato» (utente, 30/08/2026): chi apre chiede
+          // come stanno andando le cose, non cosa manca da scrivere. «Da fare»
+          // resta subito sotto.
+          { href: "/aggiornato", label: "Aggiornato", icon: icons.consuntivo },
           { href: "/da-fare", label: "Da fare", icon: icons.dashboard },
           { href: "/budget", label: "Budget", icon: icons.maison },
           // ⭐ 27/08/2026, richiesta dell utente: «ho bisogno che da menu possa
@@ -214,7 +218,7 @@ export function Sidebar({ ruolo = "admin", nome = null }: { ruolo?: "admin" | "l
   const migliore = tutti
     .filter((h) => pathname === h || pathname.startsWith(`${h}/`))
     .sort((a, b) => b.length - a.length)[0];
-  const isActive = (href: string) => (pathname === "/" ? href === "/consuntivo" : migliore === href);
+  const isActive = (href: string) => (pathname === "/" ? href === "/aggiornato" : migliore === href);
 
   return (
     <aside className="sidebar">

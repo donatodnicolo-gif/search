@@ -14,11 +14,11 @@ export const AREE: Record<Area, { label: string; sub: string; badge: string }> =
 // Le rotte "consuntivo": il venduto dei negozi (Orders), il fatturato reale
 // (Finance + quota del venduto) e i costi reali (banca, CFO). Tutto il resto è
 // pianificazione; le impostazioni a parte.
-const CONSUNTIVO = ["/venduto", "/consuntivo", "/cfo", "/ricorrenti", "/competenza", "/conto-economico"];
+const CONSUNTIVO = ["/aggiornato", "/venduto", "/consuntivo", "/cfo", "/ricorrenti", "/competenza", "/conto-economico"];
 const CONFIG = ["/impostazioni", "/impostazioni/chiavi", "/impostazioni/accesso"];
 
 export function areaDi(pathname: string): Area {
-  // La radice rimanda al consuntivo (src/app/page.tsx): l'etichetta deve dire
+  // La radice rimanda ad Aggiornato (src/app/page.tsx): l'etichetta deve dire
   // subito "Dati reali", non "Pianificazione" per una frazione di secondo.
   if (pathname === "/") return "consuntivo";
   if (CONSUNTIVO.some((p) => pathname === p || pathname.startsWith(p + "/"))) return "consuntivo";

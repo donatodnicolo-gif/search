@@ -4,6 +4,50 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### 30/08/2026 (pomeriggio): l'app si apre su «Aggiornato», e il conto economico si apre su tutti gli anni
+
+Tre richieste dell'utente nello stesso giro, più le regole per i 228 orfani.
+
+**1. La pagina d'apertura è «Aggiornato»** (`/aggiornato`): «all'apertura invece che da fare tieni
+aggiornato per questa settimana, mese, mese scorso, trimestre, anno. Su come stanno andando le
+cose: vendite, margini, conto economico, risultati maison e risultati commerciali».
+
+- **Cinque viste** (`?p=settimana|mese|mese-scorso|trimestre|anno`). ⚠️ **La settimana ha un passo
+  diverso, ed è dichiarato**: le vendite arrivano da Orders con l'intervallo di date esatto
+  (`fetchRicaviIntervallo`, nuova in `orders.ts` — il paragone è con gli **stessi giorni** della
+  settimana scorsa, non con la settimana intera), ma banca e Finance hanno solo il MESE: margini e
+  conto economico settimanali **non esistono**, e la vista lo scrive invece di mostrare numeri del
+  mese sotto il titolo «settimana».
+- Le viste mensili usano la macchina del consuntivo (`caricaConsuntivo` sui mesi del periodo): KPI
+  (vendite, margine lordo, EBITDA), conto economico riga per riga, **risultati maison** (venduto
+  dei negozi contro il **budget D2C** degli stessi mesi — stessa coppia di `/maison`, NON l'intero
+  budget della maison che dentro ha anche Eventi e B2B; chi non ha negozio mostra «—», un mese a
+  budget zero non fa percentuale: è la trappola dell'«866%»), **risultati commerciali** (fatturato
+  per tipologia da Finance; le linee non collegate restano «n.d.», dichiarato).
+- «Da fare» resta nel menu, subito sotto. Verificata a schermo su tutte le viste (anteprima dietro
+  il login) e a 375px: la fila delle viste scorre nella sua riga (Libro v1.3) — serviva
+  `minWidth: 0` sul contenitore flex, senza cui l'overflow saliva alla pagina (misurato: 404px su
+  375, poi 375). 🩸 E una classe sbagliata trovata guardando, non compilando: avevo scritto
+  `table-scroll` (che è la classe del MANUALE html), nell'app è **`table-wrap`** — il typecheck
+  passava e le tabelle sfondavano.
+
+**2. `/conto-economico` apre tutti gli anni leggibili**: il selettore era fermo a
+`ANNO_CORRENTE−3`; ora parte dal **2021** (la banca parte dal 23/11/2020: il 2020 ha cinque
+settimane, non un esercizio — stessa scelta del Consuntivo).
+
+**3. Le regole per i 228 orfani sono pronte in `scripts/regole-orfani.mts`** (26 regole a
+«contiene»), con le conferme dell'utente: calcagni cristian = consegne come Di Marco; Madami =
+colazioni come Martesana (partner); Ciardo = dipendente; Rossella = prestito (resta ESCLUSA);
+**Marcopolo era un partner** (via da «Materiali per gli ordini»); **Green Click e Zoè = agenzie
+media** (via da «Consulenti esterni», verso Pubblicità). ✅ **Simulate prima col motore vero di
+Finance**: cambiano esattamente i 228 orfani e nessun altro dei 13.626 movimenti. 🔴 La scrittura a
+database è stata **bloccata dall'ambiente**: lancia l'utente
+`npx tsx@4 --env-file=.env scripts/regole-orfani.mts`, poi «↻ Riclassifica tutto» in Finance.
+
+**E il separatore delle migliaia c'è anche a quattro cifre** (segnalazione dell'utente: «5976» in
+colonna con «10.860»): l'italiano di CLDR non separa i numeri di quattro cifre, aggiunto
+`useGrouping: "always"` in `format.ts` e nei 39 punti che formattano sul posto.
+
 ### 30/08/2026: il menù riordinato — il premio non sta più sopra il risultato
 
 Richiesta dell'utente: «rivedi il menù in modo logico». Non sono state aggiunte né tolte voci (il

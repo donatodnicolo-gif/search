@@ -16,7 +16,13 @@ export default async function ContoEconomicoPage({
   searchParams: Promise<{ anno?: string }>;
 }) {
   const sp = await searchParams;
-  const ANNI = [ANNO_CORRENTE - 3, ANNO_CORRENTE - 2, ANNO_CORRENTE - 1, ANNO_CORRENTE];
+  // TUTTI gli anni di cui un conto economico si può fare (utente, 30/08/2026):
+  // la banca parte dal 23/11/2020, quindi il primo esercizio leggibile è il
+  // 2021 — il 2020 ha cinque settimane di movimenti, non un anno (stessa
+  // scelta del Consuntivo, `PRIMO_ANNO` in src/lib/periodo.ts). Prima il
+  // selettore si fermava a ANNO_CORRENTE−3 e il 2021–2022 non si apriva.
+  const PRIMO_ANNO = 2021;
+  const ANNI = Array.from({ length: ANNO_CORRENTE - PRIMO_ANNO + 1 }, (_, i) => PRIMO_ANNO + i);
   const anno = ANNI.includes(Number(sp.anno)) ? Number(sp.anno) : ANNO_CORRENTE - 1;
 
   const valori = await caricaBilancio(anno);
