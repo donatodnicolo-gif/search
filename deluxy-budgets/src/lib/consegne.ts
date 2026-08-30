@@ -357,17 +357,30 @@ export type RicaviServizi = {
 };
 
 export async function fetchRicaviServizi(anno: number, mese?: number): Promise<RicaviServizi> {
+  // Con `mese` si chiede SOLO quel mese: così anche `perServizio` è del mese,
+  // e chi disegna una sezione «in corso ad agosto» non mostra righe dell'anno.
+  const qs = mese
+    ? `dal=${anno}-${String(mese).padStart(2, "0")}-01&al=${mese === 12 ? `${anno + 1}-01-01` : `${anno}-${String(mese + 1).padStart(2, "0")}-01`}`
+    : `anno=${anno}`;
+  return ricaviServizi(qs);
+}
+
+/**
+ * Lo stesso conto su un intervallo QUALSIASI di giorni (`al` escluso): serve
+ * alla vista «Questa settimana», dove i servizi sono l'unico ricavo
+ * commerciale che il giorno lo sa davvero — le fatture di Finance sono mensili.
+ */
+export async function fetchRicaviServiziIntervallo(dal: string, al: string): Promise<RicaviServizi> {
+  return ricaviServizi(`dal=${dal}&al=${al}`);
+}
+
+async function ricaviServizi(qs: string): Promise<RicaviServizi> {
   const vuoto = (errore: string): RicaviServizi => ({
     ok: false, errore, totali: { n: 0, ricavo: 0, nonFatturabili: 0 }, mesi: [], perServizio: [],
   });
   const url = (process.env.PLATFORM_URL ?? "https://deluxy-delivery.vercel.app").trim().replace(/\/$/, "");
   const k = ((await chiave("PLATFORM_API_KEY")) ?? "").trim().replace(/^﻿/, "");
   if (!k) return vuoto("PLATFORM_API_KEY non configurata");
-  // Con `mese` si chiede SOLO quel mese: così anche `perServizio` è del mese,
-  // e chi disegna una sezione «in corso ad agosto» non mostra righe dell'anno.
-  const qs = mese
-    ? `dal=${anno}-${String(mese).padStart(2, "0")}-01&al=${mese === 12 ? `${anno + 1}-01-01` : `${anno}-${String(mese + 1).padStart(2, "0")}-01`}`
-    : `anno=${anno}`;
   try {
     const r = await fetch(`${url}/api/v1/app/ricavi-servizi?${qs}`, {
       headers: { "x-api-key": k },

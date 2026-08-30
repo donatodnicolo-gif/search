@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { caricaAnno, ANNO_CORRENTE } from "@/lib/calc";
 import { caricaConsuntivo, SLUG_D2C } from "@/lib/consuntivo";
 import { raggruppa, sommaMesi } from "@/lib/venduto";
 import { abbinaMaison, fetchRicaviD2C, fetchRicaviIntervallo } from "@/lib/orders";
 import { fetchSpesaPerBrand } from "@/lib/marketing";
 import { fetchOrdiniChiusiMese } from "@/lib/scout";
-import { fetchRicaviServizi } from "@/lib/consegne";
+import { fetchRicaviServizi, fetchRicaviServiziIntervallo } from "@/lib/consegne";
 import { eur, pct, MESI } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -85,9 +86,14 @@ export default async function AggiornatoPage({
     const stessoPuntoPrec = new Date(domani);
     stessoPuntoPrec.setUTCDate(domani.getUTCDate() - 7);
 
-    const [sett, settPrec] = await Promise.all([
+    const [sett, settPrec, serviziSett] = await Promise.all([
       fetchRicaviIntervallo(iso(lun), iso(domani)),
       fetchRicaviIntervallo(iso(lunPrec), iso(stessoPuntoPrec)),
+      // I SERVIZI della piattaforma sono l'unico ricavo commerciale che il
+      // giorno lo sa davvero (30/08, domanda dell'utente: «in questa settimana
+      // perché non compaiono i ricavi commerciali?»): le fatture di Finance
+      // hanno il passo del mese, le consegne no.
+      fetchRicaviServiziIntervallo(iso(lun), iso(domani)),
     ]);
 
     const giorni = Math.round((domani.getTime() - lun.getTime()) / 86400000);
@@ -130,11 +136,54 @@ export default async function AggiornatoPage({
             </div>
           </>
         )}
+        {/* ⚠️ Se in questi giorni risulta ZERO non è (di solito) zero lavoro:
+            il perimetro conta le consegne arrivate a uno stato FINALE
+            (consegnata/approvata), e quelle degli ultimi giorni ci arrivano
+            dopo, alla conferma. Misurato il 30/08: 22–24 Ago aveva già 24
+            servizi, dal 24 in poi zero — poi si riempiono da soli. Si dice,
+            invece di nascondere il blocco e far credere che manchi la fonte. */}
+        {serviziSett.ok && serviziSett.totali.n === 0 && (
+          <p className="page-caption" style={{ marginTop: 16 }}>
+            <strong>Servizi della piattaforma</strong>: in questi giorni nessun servizio è ancora{" "}
+            <strong>confermato</strong> — le consegne della settimana sono in lavorazione e contano da
+            quando risultano consegnate o approvate. Compariranno qui (e nel mese) man mano.
+          </p>
+        )}
+        {serviziSett.ok && serviziSett.totali.n > 0 && (
+          <>
+            <h2 className="section-title" style={{ marginTop: 24 }}>Servizi della piattaforma · questa settimana</h2>
+            <div className="table-wrap">
+              <table>
+                <tbody>
+                  {serviziSett.perServizio.filter((s) => s.n > 0).slice(0, 10).map((s) => (
+                    <tr key={s.nome}>
+                      <td>{s.nome}</td>
+                      <td className="num" style={{ color: "var(--text-tertiary)" }}>{s.modello === "A_ORA" ? "a ore" : "prezzo fisso"}</td>
+                      <td className="num" style={{ color: "var(--text-tertiary)" }}>{s.n} {s.n === 1 ? "servizio" : "servizi"}</td>
+                      <td className="num">{eur(s.ricavo)}</td>
+                    </tr>
+                  ))}
+                  <tr className="tot">
+                    <td style={{ fontWeight: 600 }}>Totale</td>
+                    <td />
+                    <td className="num" style={{ fontWeight: 600 }}>{serviziSett.totali.n} {serviziSett.totali.n === 1 ? "servizio" : "servizi"}</td>
+                    <td className="num" style={{ fontWeight: 600 }}>{eur(serviziSett.totali.ricavo)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="page-caption" style={{ marginTop: 8 }}>
+              Servizi a prezzo fisso e a ore col lavoro fatto in questi {giorni} {giorni === 1 ? "giorno" : "giorni"},
+              dal listino della piattaforma consegne. Il fatturato resta quello di Finance, a passo mensile.
+            </p>
+          </>
+        )}
         <p className="page-caption" style={{ marginTop: 16 }}>
-          La settimana mostra <strong>solo le vendite</strong>: Orders sa il giorno di ogni ordine, ma la
-          banca e Finance hanno il passo del <strong>mese</strong> — margini e conto economico della
-          settimana non esistono, e mostrarli «del mese» qui sotto farebbe credere che siano suoi. Si
-          leggono da <Link href="/aggiornato?p=mese" style={{ color: "var(--blue)" }}>Questo mese</Link> in su.
+          La settimana mostra <strong>le vendite e i servizi della piattaforma</strong>, le due fonti che
+          sanno il giorno. La banca e Finance hanno il passo del <strong>mese</strong> — margini e conto
+          economico della settimana non esistono, e mostrarli «del mese» qui sotto farebbe credere che
+          siano suoi. Si leggono da{" "}
+          <Link href="/aggiornato?p=mese" style={{ color: "var(--blue)" }}>Questo mese</Link> in su.
         </p>
       </>
     );
@@ -369,17 +418,40 @@ export default async function AggiornatoPage({
                 <td className="num">{eur(r.importo)}</td>
               </tr>
             ))}
-            <tr className="tot">
-              <td style={{ fontWeight: 600 }}>Totale</td>
-              <td className="num" style={{ fontWeight: 600 }}>{eur(righeC.reduce((s, r) => s + r.importo, 0))}</td>
-            </tr>
+            {/* I SERVIZI della piattaforma come riga della stessa tabella
+                (richiesta utente 30/08): il lavoro del mese in corso, dal
+                listino, che la fattura non ha ancora raggiunto. Entra nel
+                totale perché è ricavo commerciale del periodo — con
+                l'avvertenza sotto: quando la fattura arriva, il valore migra
+                nella sua tipologia. */}
+            {(() => {
+              const meseSrv = serviziAnno?.ok ? serviziAnno.mesi.find((m) => m.mese === meseInCorso) : null;
+              const srv = meseSrv && meseSrv.n > 0 ? meseSrv.ricavo : null;
+              const totale = righeC.reduce((s, r) => s + r.importo, 0) + (srv ?? 0);
+              return (
+                <>
+                  {srv !== null && (
+                    <tr>
+                      <td>Servizi app (piattaforma · {MESI[meseInCorso - 1]} in corso)</td>
+                      <td className="num">{eur(srv)}</td>
+                    </tr>
+                  )}
+                  <tr className="tot">
+                    <td style={{ fontWeight: 600 }}>Totale</td>
+                    <td className="num" style={{ fontWeight: 600 }}>{eur(totale)}</td>
+                  </tr>
+                </>
+              );
+            })()}
           </tbody>
         </table>
       </div>
       <p className="page-caption" style={{ marginTop: 8 }}>
-        È il fatturato che Finance misura per tipologia (il D2C sta già nel conto economico sopra). Le{" "}
-        <strong>linee commerciali</strong> non collegate alle voci di Finance restano fuori: il loro
-        consuntivo è «n.d.», non zero — si collegano da{" "}
+        È il fatturato che Finance misura per tipologia (il D2C sta già nel conto economico sopra), più
+        la riga <strong>Servizi app</strong>: il lavoro del mese in corso dal listino della piattaforma,
+        che la fattura non ha ancora raggiunto — quando arriva, quel valore migra nella sua tipologia
+        (il dettaglio è nella tabella sotto). Le <strong>linee commerciali</strong> non collegate alle
+        voci di Finance restano fuori: il loro consuntivo è «n.d.», non zero — si collegano da{" "}
         <Link href="/commerciale" style={{ color: "var(--blue)" }}>/commerciale</Link>.
       </p>
 
@@ -398,16 +470,37 @@ export default async function AggiornatoPage({
             <div className="table-wrap">
               <table>
                 <tbody>
-                  {serviziAnno!.perServizio.filter((s) => s.n > 0).slice(0, 12).map((s) => (
-                    <tr key={s.nome}>
-                      <td>{s.nome}</td>
-                      <td className="num" style={{ color: "var(--text-tertiary)" }}>
-                        {s.modello === "A_ORA" ? "a ore" : "prezzo fisso"}
-                      </td>
-                      <td className="num" style={{ color: "var(--text-tertiary)" }}>{s.n} {s.n === 1 ? "servizio" : "servizi"}</td>
-                      <td className="num">{eur(s.ricavo)}</td>
-                    </tr>
-                  ))}
+                  {/* Raggruppati per TIPOLOGIA di servizio (richiesta utente
+                      30/08), col subtotale di ciascuna: prima la tipologia che
+                      vale di più. */}
+                  {(["PREZZO_FISSO", "A_ORA"] as const)
+                    .map((mod) => {
+                      const righe = serviziAnno!.perServizio.filter((s) => s.n > 0 && s.modello === mod);
+                      const sub = righe.reduce((a, s) => ({ n: a.n + s.n, ricavo: a.ricavo + s.ricavo }), { n: 0, ricavo: 0 });
+                      return { mod, righe, sub };
+                    })
+                    .filter((g) => g.righe.length > 0)
+                    .sort((a, b) => b.sub.ricavo - a.sub.ricavo)
+                    .map((g) => (
+                      <Fragment key={g.mod}>
+                        {g.righe.slice(0, 10).map((s) => (
+                          <tr key={s.nome}>
+                            <td>{s.nome}</td>
+                            <td className="num" style={{ color: "var(--text-tertiary)" }}>
+                              {g.mod === "A_ORA" ? "a ore" : "prezzo fisso"}
+                            </td>
+                            <td className="num" style={{ color: "var(--text-tertiary)" }}>{s.n} {s.n === 1 ? "servizio" : "servizi"}</td>
+                            <td className="num">{eur(s.ricavo)}</td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td style={{ fontWeight: 600 }}>Servizi {g.mod === "A_ORA" ? "a ore" : "a prezzo fisso"}</td>
+                          <td />
+                          <td className="num" style={{ fontWeight: 600 }}>{g.sub.n} {g.sub.n === 1 ? "servizio" : "servizi"}</td>
+                          <td className="num" style={{ fontWeight: 600 }}>{eur(g.sub.ricavo)}</td>
+                        </tr>
+                      </Fragment>
+                    ))}
                   <tr className="tot">
                     <td style={{ fontWeight: 600 }}>Totale</td>
                     <td />
