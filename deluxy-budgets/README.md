@@ -587,7 +587,18 @@ Budgets **emette le sue chiavi API** con scope e revoca.
 
 ### Cosa aspetta una decisione
 
-1. 🔴 **Il budget D2C di Deluxy.it è a zero da gennaio a giugno**, contro **453.396 €** venduti
+1. ✅ ~~Il budget D2C di Deluxy.it è a zero da gennaio a giugno~~ — **CHIUSO il 30/08/2026**
+   («budget metti uguale a consuntivo», decisione dell'utente): le **6 caselle** Gen–Giu sono state
+   riempite col **venduto vero** di ciascun mese da Orders — 49.948 / 86.427 / 67.944 / 55.536 /
+   63.712 / 50.576 = **374.143 €**, `fonte = "iniziale"` (una proposta futura le sostituisce come
+   ogni budget). Script versionato `scripts/budget-da-consuntivo.mts` coi tre paletti: solo mesi
+   CHIUSI, solo caselle a zero su tutte le fonti (nessuna sovrascrittura), mai il mese in corso.
+   Verificato dopo: nessun mese chiuso a zero sulle tre maison con negozio; in `/aggiornato`
+   Deluxy.it segna 474.143 € di budget Gen–Ago e realizzato **97%**, totale 106%. ⚠️ **Effetto
+   voluto sul P&L a budget**: i ricavi dell'anno salgono di ~374k lordi (sei mesi di piano che
+   prima non esistevano) — su quei mesi budget = reale, quindi realizzato 100% per costruzione.
+   Il testo originale del punto resta qui sotto per la storia:
+   *Il budget D2C di Deluxy.it è a zero da gennaio a giugno*, contro **453.396 €** venduti
    davvero nell'anno. Non si aggiusta dal codice: sono sei mesi di budget da scrivere, e finché
    mancano ogni percentuale di realizzazione del periodo è illeggibile.
    ⭐ **Dal 24/08 `/maison` non ne fa più una percentuale**: con dei mesi vuoti in mezzo «realizzato»
