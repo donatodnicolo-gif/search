@@ -117,6 +117,23 @@ const icons = {
       <path d="M19 12a7 7 0 0 0-.14-1.4l2-1.55-2-3.46-2.35.95a7 7 0 0 0-2.42-1.4L13.7 2.6h-3.4l-.39 2.54a7 7 0 0 0-2.42 1.4l-2.35-.95-2 3.46 2 1.55A7 7 0 0 0 5 12c0 .48.05.94.14 1.4l-2 1.55 2 3.46 2.35-.95a7 7 0 0 0 2.42 1.4l.39 2.54h3.4l.39-2.54a7 7 0 0 0 2.42-1.4l2.35.95 2-3.46-2-1.55c.09-.46.14-.92.14-1.4z" />
     </svg>
   ),
+  // ⭐ Due icone nate il 30/08/2026 per una ragione precisa: «Chiavi» usava
+  // quella del CFO (un riquadro con spunta) e «Accesso» **la stessa del
+  // trofeo dei premi**. Il custode UX ha deciso il 28/08 che due voci non
+  // portano mai la stessa icona — a barra ridotta l'icona È l'etichetta, e un
+  // trofeo su «Accesso» faceva sembrare la voce una costola dei premi.
+  chiave: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <circle cx="7.5" cy="12" r="3.5" />
+      <path d="M11 12h9M17 12v3M20 12v2.5" />
+    </svg>
+  ),
+  accesso: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M14 3.5H6.5a1.5 1.5 0 0 0-1.5 1.5v14a1.5 1.5 0 0 0 1.5 1.5H14" />
+      <path d="M10.5 12H20M16.5 8.5 20 12l-3.5 3.5" />
+    </svg>
+  ),
 };
 
 // Due aree nette: BUDGET (pianificazione) e CONSUNTIVO (dati reali), più la
@@ -147,8 +164,13 @@ const nav: AreaNav[] = [
           // pagina vuol dire non guardarla. Due voci, non venti.
           { href: "/dipendenti", label: "Personale", icon: icons.dipendenti },
           { href: "/team", label: "Team", icon: icons.team },
-          { href: "/premi", label: "Target e premi", icon: icons.premi },
+          // ⭐ **L'ordine dice come si legge il gruppo** (30/08/2026): prima
+          // quello che si SCRIVE (il budget, le persone, le squadre), poi il
+          // **conto economico** che ne esce, e per ultimi i **premi** — che si
+          // misurano su quel risultato. Prima erano invertiti, cioè il premio
+          // stava sopra il numero che lo fa scattare.
           { href: "/pl", label: "Conto economico", icon: icons.pl },
+          { href: "/premi", label: "Target e premi", icon: icons.premi },
         ],
       },
     ],
@@ -160,8 +182,8 @@ const nav: AreaNav[] = [
       {
         items: [
           { href: "/impostazioni", label: "Scenari e costi", icon: icons.impostazioni },
-          { href: "/impostazioni/chiavi", label: "Chiavi", icon: icons.cfo },
-          { href: "/impostazioni/accesso", label: "Accesso", icon: icons.premi },
+          { href: "/impostazioni/chiavi", label: "Chiavi", icon: icons.chiave },
+          { href: "/impostazioni/accesso", label: "Accesso", icon: icons.accesso },
         ],
       },
     ],

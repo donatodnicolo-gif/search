@@ -4,6 +4,32 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### 30/08/2026: il menù riordinato — il premio non sta più sopra il risultato
+
+Richiesta dell'utente: «rivedi il menù in modo logico». Non sono state aggiunte né tolte voci (il
+principio del 24/08 — *quattro voci, non ventitré* — resta): sono cambiati **l'ordine e due icone**.
+
+- **«Conto economico» passa PRIMA di «Target e premi»**. Prima l'ordine era Budget → Personale →
+  Team → **Target e premi** → **Conto economico**, cioè il premio sopra il numero che lo fa
+  scattare. Adesso il gruppo «Lavoro» si legge come si lavora: quello che si **scrive** (Budget,
+  Personale, Team) → il **conto economico** che ne esce → i **premi**, che su quel risultato si
+  misurano.
+- 🔴 **Due voci portavano la stessa icona**: «Target e premi» e «Accesso» usavano entrambe
+  `icons.premi`, il trofeo. Viola la regola decisa dal custode UX il 28/08 (*mai la stessa icona*,
+  misura: zero icone duplicate) — e a barra ridotta, dove **l'icona è l'etichetta**, «Accesso»
+  sembrava una costola dei premi. Aggiunte due icone nuove: `chiave` per «Chiavi» (che usava quella
+  del CFO, un riquadro con spunta) e `accesso` (porta con freccia).
+- ⚠️ **Quello che NON è stato fatto, e perché.** Avevo pensato a una terza sezione «Risultati» con
+  dentro «Conto economico»: sbagliato, e l'ha detto il codice — quella voce punta a **`/pl`**, che è
+  il conto economico **a budget** (`areaDi()` in `src/lib/aree.ts` lo classifica «budget», non
+  «consuntivo»). Metterlo fra i risultati avrebbe promesso dati reali a chi guarda un piano.
+- ❓ **Resta aperto**: «Scenari e costi» sta in «Configurazione» ma non è un'impostazione dell'app —
+  sono livelli di scenario, costi e margini, cioè **input del calcolo**. Segnalato al custode in
+  `deluxy-design-system/SEGNALAZIONI-UX.md` (30/08), non deciso qui.
+- ✅ Verificato a schermo, non solo col typecheck: `npx tsc --noEmit` pulito e la sidebar guardata
+  davvero, con la tecnica dell'anteprima dietro il login (pagina temporanea sotto `/login`, poi
+  rimossa — `git status` controllato prima del commit).
+
 ### 29/08/2026 (sera): il conto per team sceglie la vista — budget per livello o consuntivo per periodo — e chiude sul risultato
 
 Due richieste dell'utente sulla card «Conto economico per team» di `/team`, arrivate guardando la
