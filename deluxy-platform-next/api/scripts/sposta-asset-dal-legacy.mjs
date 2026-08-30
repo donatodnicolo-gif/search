@@ -21,7 +21,16 @@ const APPLICA = process.argv.includes('--applica');
 const LIMITE = Number((process.argv.find((a) => a.startsWith('--limite=')) ?? '').split('=')[1] || 0);
 const PROGETTO = 'zegbztfxisqeowngvgvh';
 const BUCKET = 'legacy';
-const LEGACY = 'https://app.deluxy.it/api/assets/';
+// ⚠️ 29/08/2026 — Il legacy scrive gli indirizzi in DUE forme, e la seconda è
+// la più comune: 5.173 foto prodotto su 5.440 hanno un "/./" in mezzo
+// (`/api/./assets/`). Con un prefisso solo lo script le saltava **in
+// silenzio** — non caricate e nemmeno contate fra i falliti: la corsa diceva
+// «0 falliti» avendo lasciato indietro i tre quarti del lavoro.
+const PREFISSI = [
+  'https://app.deluxy.it/api/assets/',
+  'https://app.deluxy.it/api/./assets/',
+];
+const prefissoDi = (url) => PREFISSI.find((x) => url.startsWith(x)) ?? null;
 
 // le colonne che portano un indirizzo del legacy, censite sul database
 const COLONNE = [
@@ -67,9 +76,32 @@ if (APPLICA) {
   console.log('bucket:', res.status === 200 ? 'creato' : `${res.status} ${esito.slice(0, 80)}`);
 }
 
-const nuovoUrl = (vecchio) => `${BASE}/storage/v1/object/public/${BUCKET}/${vecchio.slice(LEGACY.length)}`;
+const nuovoUrl = (vecchio) => `${BASE}/storage/v1/object/public/${BUCKET}/${vecchio.slice((prefissoDi(vecchio) ?? '').length)}`;
 
-let daFare = 0, gia = 0, caricati = 0, falliti = 0, scritti = 0;
+
+/**
+ * Un tentativo solo non basta: sotto carico il legacy risponde in 1-2 s e
+ * qualche richiesta cade per strada. Misurato il 29/08: 64 fallimenti su 1.200
+ * file, e riprovandoli a mano scendevano a zero — erano cadute temporanee, non
+ * file mancanti. Tre tentativi con attesa crescente; quello che fallisce anche
+ * al terzo è un problema vero e va nell'elenco.
+ */
+async function conTentativi(cosa, quante = 3) {
+  let ultimo;
+  for (let t = 1; t <= quante; t++) {
+    try {
+      const r = await cosa();
+      if (r.ok) return r;
+      ultimo = `HTTP ${r.status}`;
+      // un 404 non migliora riprovando: il file non c'è
+      if (r.status === 404) return r;
+    } catch (e) { ultimo = String(e.message).slice(0, 60); }
+    await new Promise((r) => setTimeout(r, t * 700));
+  }
+  return { ok: false, status: 0, motivo: ultimo, headers: { get: () => null } };
+}
+let daFare = 0, gia = 0, caricati = 0, falliti = 0, scritti = 0, saltati = 0;
+const forme = new Set();
 const errori = [];
 
 for (const { tabella, colonna } of COLONNE) {
@@ -98,8 +130,11 @@ for (const { tabella, colonna } of COLONNE) {
   for (let i = 0; i < righe.length; i += LOTTO) {
     await Promise.all(righe.slice(i, i + LOTTO).map(async (r) => {
       const url = String(r.url);
-      if (!url.startsWith(LEGACY)) return;
-      const percorso = url.slice(LEGACY.length);
+      const prefisso = prefissoDi(url);
+      // Una forma che non conosciamo si DICE, non si salta: era così che tre
+      // quarti dei file restavano indietro senza comparire da nessuna parte.
+      if (!prefisso) { saltati++; forme.add(url.slice(0, 46)); return; }
+      const percorso = url.slice(prefisso.length);
       const dest = `${BASE}/storage/v1/object/${BUCKET}/${percorso}`;
       try {
         // già in casa? (idempotenza)
@@ -110,11 +145,12 @@ for (const { tabella, colonna } of COLONNE) {
           if (!file.ok && file.status >= 500) file = await fetch(url); // un secondo tentativo
           if (!file.ok) { falliti++; errori.push(`${percorso}: legacy ${file.status}`); return; }
           const buf = Buffer.from(await file.arrayBuffer());
-          const up = await fetch(dest, {
+          const tipo = file.headers.get('content-type') ?? 'application/octet-stream';
+          const up = await conTentativi(() => fetch(dest, {
             method: 'POST',
-            headers: { ...H, 'Content-Type': file.headers.get('content-type') ?? 'application/octet-stream', 'x-upsert': 'true' },
+            headers: { ...H, 'Content-Type': tipo, 'x-upsert': 'true' },
             body: buf,
-          });
+          }));
           if (!up.ok) { falliti++; errori.push(`${percorso}: storage ${up.status} ${(await up.text()).slice(0, 60)}`); return; }
           caricati++;
         }
@@ -132,7 +168,8 @@ console.log('riferimenti trovati:', daFare);
 if (!APPLICA) {
   console.log('PROVA A VUOTO: niente scaricato, niente scritto. Usa --applica (e --limite=N per un assaggio).');
 } else {
-  console.log('caricati:', caricati, '| già in casa:', gia, '| indirizzi riscritti:', scritti, '| falliti:', falliti);
+  console.log('caricati:', caricati, '| già in casa:', gia, '| indirizzi riscritti:', scritti, '| falliti:', falliti, '| SALTATI (forma sconosciuta):', saltati);
+  if (forme.size) console.log('forme non riconosciute:', [...forme].slice(0, 5).join(' | '));
   if (errori.length) {
     fs.writeFileSync('scripts/errori-asset-legacy.txt', errori.join('\n'));
     console.log('primi errori:', errori.slice(0, 5).join(' | '));
