@@ -43,7 +43,7 @@ export default async function PaginaLogin({
             <input name="password" type="password" required autoComplete="current-password" />
           </label>
           <button className="bottone" style={{ width: '100%', justifyContent: 'center' }}>
-            Accedi
+            Entra
           </button>
         </form>
 
