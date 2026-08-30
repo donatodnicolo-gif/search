@@ -51,6 +51,44 @@ export async function fetchLineeScout(opts: { soloAttive?: boolean } = {}): Prom
   }
 }
 
+// ---- Gli ordini CHIUSI di un mese (Edge `ordini-mese`, 30/08/2026) ----
+//
+// Il numero vivo del mese in corso: sul mese aperto le fatture di Finance sono
+// indietro per costruzione, gli ordini che Scout ha già chiuso no. ⚠️ Un
+// ordine chiuso ha già una fattura: quando Finance la sincronizza lo stesso
+// valore compare anche lì — questi numeri si mostrano ACCANTO a Finance, mai
+// sommati. Se la Edge non è ancora deployata la risposta è un 404: si torna
+// `ok: false` e chi chiama semplicemente non mostra il blocco.
+export type OrdiniMeseScout = {
+  ok: boolean;
+  errore?: string;
+  n: number;
+  valore: number;
+  senzaValore: number;
+  perLinea: { linea: string; n: number; valore: number }[];
+};
+
+export async function fetchOrdiniChiusiMese(anno: number, mese: number): Promise<OrdiniMeseScout> {
+  const vuoto: OrdiniMeseScout = { ok: false, n: 0, valore: 0, senzaValore: 0, perLinea: [] };
+  const key = await chiave("LINEE_API_KEY");
+  if (!key) return { ...vuoto, errore: "Chiave Scout (LINEE_API_KEY) non trovata." };
+  const url = `${URL_LINEE.replace(/\/linee$/, "/ordini-mese")}?anno=${anno}&mese=${mese}`;
+  try {
+    const res = await fetch(url, {
+      headers: { "x-api-key": key },
+      next: { revalidate: RIVALIDA },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return { ...vuoto, errore: `Scout ha risposto ${res.status}.` };
+    const dati = (await res.json()) as { ok?: boolean; chiusi?: OrdiniMeseScout };
+    if (!dati?.ok || !dati.chiusi) return { ...vuoto, errore: "Risposta di Scout non riconosciuta." };
+    const { n, valore, senzaValore, perLinea } = dati.chiusi;
+    return { ok: true, n, valore, senzaValore, perLinea };
+  } catch {
+    return { ...vuoto, errore: "Scout non raggiungibile." };
+  }
+}
+
 // Nome normalizzato per agganciare le linee di Scout ai target di budget
 // (che vengono da una fonte diversa): minuscole, senza accenti né doppi spazi.
 export function normalizzaNome(s: string): string {

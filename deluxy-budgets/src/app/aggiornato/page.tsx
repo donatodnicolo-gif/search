@@ -4,6 +4,7 @@ import { caricaConsuntivo, SLUG_D2C } from "@/lib/consuntivo";
 import { raggruppa, sommaMesi } from "@/lib/venduto";
 import { abbinaMaison, fetchRicaviD2C, fetchRicaviIntervallo } from "@/lib/orders";
 import { fetchSpesaPerBrand } from "@/lib/marketing";
+import { fetchOrdiniChiusiMese } from "@/lib/scout";
 import { eur, pct, MESI } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -151,7 +152,7 @@ export default async function AggiornatoPage({
     );
   }
 
-  const [cons, ricaviRes, advBrand] = await Promise.all([
+  const [cons, ricaviRes, advBrand, scoutMese] = await Promise.all([
     caricaConsuntivo(dati, mesi),
     fetchRicaviD2C(dati.year),
     // La pubblicità PER BRAND la sa solo Marketing (la banca ha il totale ma
@@ -159,6 +160,11 @@ export default async function AggiornatoPage({
     // esistenti hanno speso» (le eliminate spariscono): per brand è l'unica
     // misura che c'è, e la si usa dichiarandola.
     fetchSpesaPerBrand(dati.year, mesi),
+    // Il numero VIVO del commerciale sul mese in corso: gli ordini che Scout
+    // ha già chiuso. Solo quando il periodo contiene il mese aperto — sui mesi
+    // chiusi la verità sono le fatture di Finance. Se la Edge non risponde il
+    // blocco semplicemente non compare.
+    parziale ? fetchOrdiniChiusiMese(dati.year, meseInCorso) : Promise.resolve(null),
   ]);
   const venduto = raggruppa(ricaviRes, dati.maisons);
 
@@ -371,6 +377,44 @@ export default async function AggiornatoPage({
         consuntivo è «n.d.», non zero — si collegano da{" "}
         <Link href="/commerciale" style={{ color: "var(--blue)" }}>/commerciale</Link>.
       </p>
+
+      {/* Il numero VIVO del mese in corso: Finance vede le fatture, che sul
+          mese aperto sono indietro per costruzione — Scout sa già cosa ha
+          chiuso. ⚠️ Le due misure NON si sommano (un ordine chiuso ha già una
+          fattura: quando Finance la sincronizza, lo stesso valore compare
+          sopra), quindi il blocco sta sotto, separato e dichiarato. */}
+      {scoutMese?.ok && (
+        <>
+          <h2 className="section-title" style={{ marginTop: 24 }}>
+            In corso a {MESI[meseInCorso - 1]} · ordini chiusi in Scout
+          </h2>
+          <div className="table-wrap">
+            <table>
+              <tbody>
+                {scoutMese.perLinea.map((l) => (
+                  <tr key={l.linea}>
+                    <td>{l.linea}</td>
+                    <td className="num">{l.n} {l.n === 1 ? "ordine" : "ordini"}</td>
+                    <td className="num">{eur(l.valore)}</td>
+                  </tr>
+                ))}
+                <tr className="tot">
+                  <td style={{ fontWeight: 600 }}>Totale</td>
+                  <td className="num" style={{ fontWeight: 600 }}>{scoutMese.n} {scoutMese.n === 1 ? "ordine" : "ordini"}</td>
+                  <td className="num" style={{ fontWeight: 600 }}>{eur(scoutMese.valore)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="page-caption" style={{ marginTop: 8 }}>
+            Ordini con la pratica <strong>chiusa</strong> in Scout a {MESI[meseInCorso - 1]} (fornitura
+            registrata, fattura emessa o agganciata){scoutMese.senzaValore > 0 ? ` — ${scoutMese.senzaValore} a valore zero, contati` : ""}.{" "}
+            <strong>Non si sommano al fatturato di Finance qui sopra</strong>: la fattura di un ordine
+            chiuso, quando Finance la sincronizza, entra in quella tabella — questo è l&apos;anticipo,
+            quello è il registro.
+          </p>
+        </>
+      )}
     </>
   );
 }

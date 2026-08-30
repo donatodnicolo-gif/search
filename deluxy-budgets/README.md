@@ -4,6 +4,29 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### 30/08/2026 (sera, seconda passata): il commerciale del mese in corso arriva da Scout — manca solo il deploy della Edge
+
+Domanda dell'utente: «stai prendendo da app delivery i dati delle consegne per il mese in corso? i
+risultati commerciali del mese sono ancora fermi a 160 €». Le due risposte:
+
+- **Consegne dalla piattaforma: SÌ, anche sul mese in corso.** `caricaConsuntivo` sostituisce la
+  riga di banca col conto della piattaforma su tutti i mesi del periodo, mese aperto compreso
+  (competenza, dichiarata). I 160 € sono un'altra cosa: sono le **fatture** B2B che Finance ha per
+  agosto — sul mese aperto il fatturato è indietro per costruzione.
+- **Il numero vivo ora c'è, da Scout**: nuova Edge Function
+  `deluxy-scout/supabase/functions/ordini-mese/` (auth come `linee`: LINEE_API_KEY o chiave
+  d'ingresso; sola lettura; aggregato per linea, niente clienti) + client
+  `fetchOrdiniChiusiMese` in `src/lib/scout.ts` + blocco «**In corso a <mese> · ordini chiusi in
+  Scout**» in `/aggiornato`, solo quando il periodo contiene il mese aperto. ⚠️ **Non si somma a
+  Finance, e la pagina lo scrive**: un ordine chiuso in Scout ha già una fattura (è la definizione
+  di `chiuso_il`) — quando Finance la sincronizza, lo stesso valore compare nella tabella sopra.
+  Questo è l'anticipo, quello è il registro.
+- 🔴 **La Edge NON è deployata**: la CLI di Supabase qui non è autenticata (`supabase login` mai
+  fatto su questa macchina). Il blocco degrada in silenzio (404 → non compare, verificato a
+  schermo). Per accenderlo: `cd deluxy-scout && npx supabase login && npx supabase functions deploy
+  ordini-mese --project-ref fdsziebgkljfsugqqbqd --no-verify-jwt` — al deploy la pagina si accende
+  da sola, senza ripubblicare Budgets.
+
 ### 30/08/2026 (sera): la tabella maison chiude sul contributo, e le 26 regole sono A DATABASE
 
 - **Le 26 regole degli orfani sono SCRITTE** (l'utente ha detto «fai tu», e stavolta lo script è
