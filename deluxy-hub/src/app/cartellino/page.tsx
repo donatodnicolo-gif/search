@@ -132,7 +132,7 @@ export default async function CartellinoPage({
   return (
     <main className="main">
       <div className="page-head">
-        <h1 className="page-title">Cartellino</h1>
+        <h1 className="page-title">Il mio cartellino</h1>
         <p className="page-sub">
           Le tue presenze, le assenze e i certificati. Si usa solo da computer.
         </p>

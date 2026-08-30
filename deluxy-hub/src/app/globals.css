@@ -583,6 +583,10 @@ td {
     box-shadow: var(--shadow-float);
   }
   :root[data-menu-aperto] .sidebar { transform: translateX(0); }
+  /* Nel cassetto si tocca col dito, non si punta col mouse: le voci passano da
+     33px alla taglia minima di legge (§4 del Libro, --touch-min 44px). Sopra
+     questa soglia la sidebar è una colonna da mouse e resta compatta. */
+  .sb-item { min-height: 44px; }
   /* Su mobile il collasso da desktop non vale: la sidebar sta fuori schermo e
      si apre col menu, non la si nasconde a metà. */
   [data-sidebar-chiusa] .sidebar { margin-left: 0; opacity: 1; pointer-events: auto; }

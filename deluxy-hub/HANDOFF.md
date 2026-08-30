@@ -1,7 +1,7 @@
 # Deluxy Hub — Handoff per ripartire
 
 > Documento per una nuova sessione (anche altro account Claude) che riprende il
-> lavoro sul portale. Aggiornato: **27 agosto 2026**.
+> lavoro sul portale. Aggiornato: **30 agosto 2026**.
 > Leggi anche [README.md](README.md) (dettagli completi) e la memoria del progetto.
 
 > ⚠️ **La cartella di lavoro è `C:\Users\nicol\scoutwt\deluxy-hub` (branch
@@ -144,6 +144,8 @@ Dato salvato: `Utente.appAbilitate String[]` (id delle app), vedi
 | [`src/lib/dispositivo.ts`](src/lib/dispositivo.ts) · [`solo-desktop.ts`](src/lib/solo-desktop.ts) | riconoscimento telefono/tablet e guardia `richiediDesktop()` |
 | [`src/app/cartellino`](src/app/cartellino) | il proprio cartellino, `gestione` (admin), `certificato/[id]` (download), `solo-desktop` (spiegazione) |
 | [`src/app/api/presenze/route.ts`](src/app/api/presenze/route.ts) | `GET /api/presenze?mese=YYYY-MM` — il cartellino del mese per le altre app (vedi §5-ter, in fondo) |
+| [`src/components/Sidebar.tsx`](src/components/Sidebar.tsx) | il menu laterale: tre gruppi (Portale, Presenze, Amministrazione), voce attiva da `usePathname`, stato del cartellino in parole (vedi §5-quinquies) |
+| [`src/components/ToggleSidebar.tsx`](src/components/ToggleSidebar.tsx) | il bottone del menu: su desktop collassa la colonna (preferenza in localStorage), sotto 800px apre il cassetto da sinistra |
 | [`scripts/emetti-token.mjs`](scripts/emetti-token.mjs) | emette un token di servizio da riga di comando (stessa cosa di `/chiavi` → Token di servizio) |
 
 ---

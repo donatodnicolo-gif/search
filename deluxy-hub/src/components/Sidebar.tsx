@@ -34,33 +34,46 @@ export function Sidebar({
       titolo: "Portale",
       voci: [
         { href: "/", nome: "Le app", icona: iGriglia, esatta: true },
-        { href: "/scarica", nome: "Installa", icona: iScarica },
+        // Il nome è quello della pagina: «Installa» da solo faceva pensare a
+        // installare il Hub, mentre quella pagina spiega come portarsi sul
+        // telefono TUTTE le app Deluxy (Libro, legge 11: stesso nome ovunque).
+        { href: "/scarica", nome: "Installa le app", icona: iScarica },
       ],
     },
     {
-      titolo: "Presenza",
+      // Le presenze stanno tutte qui: le proprie e quelle del team. Prima
+      // «Gestione cartellino» era in fondo ad Amministrazione, lontana dalla
+      // stessa materia: chi cercava le ore del team le trovava in mezzo a
+      // chiavi e servizi. Una materia, un posto solo.
+      titolo: "Presenze",
       voci: [
         {
           href: "/cartellino",
-          nome: "Cartellino",
+          // «Di chi» è il cartellino: conta, ora che le voci sono due.
+          nome: "Il mio cartellino",
           esatta: true,
-          // Lo stato è nell'icona (pallino verde/neutro) MA sempre anche in
+          // Lo stato è nel pallino (verde/neutro) MA sempre anche in
           // parole nella riga sotto (§5/WCAG: il colore da solo non basta), con
-          // l'ora d'ingresso, che è l'informazione che conta.
+          // l’ora d’ingresso, che è l’informazione che conta.
           icona: <span className={`sb-dot ${cartellino.dentro ? "verde" : "neutro"}`} aria-hidden="true" />,
           sub: cartellino.dentro ? (cartellino.da ? `Dentro dalle ${cartellino.da}` : "Dentro") : "Fuori",
         },
+        ...(admin
+          ? [{ href: "/cartellino/gestione", nome: "Gestione cartellini", icona: iGestione }]
+          : []),
       ],
     },
     ...(admin
       ? [
           {
+            // Amministrazione = il governo dell’impianto: le persone che
+            // entrano, i segreti, la salute dei servizi. Le presenze non sono
+            // impianto e infatti stanno sopra, con le loro.
             titolo: "Amministrazione",
             voci: [
               { href: "/utenti", nome: "Utenti", icona: iUtenti },
               { href: "/chiavi", nome: "Chiavi", icona: iChiavi },
               { href: "/stato", nome: "Stato servizi", icona: iStato },
-              { href: "/cartellino/gestione", nome: "Gestione cartellino", icona: iGestione },
             ],
           },
         ]
