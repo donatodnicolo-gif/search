@@ -1868,3 +1868,31 @@ model RichiestaConsegna {
   @@index([stato, createdAt])
   @@index([origine, riferimento])
 }
+
+// ------------------------------------------------------------
+// ARCHIVIO DEL DATABASE ORIGINALE (29/08/2026).
+//
+// ⚠️ Non è una casa: è un ARCHIVIO. Serve a portare qui, prima di spegnere
+// `app.deluxy.it`, anche i dati del legacy che in piattaforma non hanno un
+// modello proprio — reclami sulle consegne, promemoria dei partner, email in
+// ingresso, storico delle notifiche, collegamenti prodotti↔collezioni. Restano
+// leggibili e ricercabili finché qualcuno non decide se meritano un modello
+// vero; nel frattempo nessuno li perde.
+//
+// La riga è la riga del CSV originale, senza interpretazioni: `dati` è il
+// record così com'era. Interpretarlo adesso vorrebbe dire decidere per il
+// futuro con la fretta di oggi.
+// ------------------------------------------------------------
+model LegacyArchive {
+  id        String   @id @default(cuid())
+  /// Nome della tabella nel database originale (senza .csv).
+  tabella   String
+  /// `id` della riga originale, dove c'è: rende l'import ripetibile.
+  legacyId  String?
+  /// Il record originale, campo per campo.
+  dati      Json
+  createdAt DateTime @default(now())
+
+  @@unique([tabella, legacyId])
+  @@index([tabella])
+}

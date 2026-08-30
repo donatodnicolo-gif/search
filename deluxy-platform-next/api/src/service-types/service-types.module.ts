@@ -12,7 +12,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Roles } from '../common/decorators';
+import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -127,6 +127,30 @@ export class ServiceTypesService {
   }
 }
 
+/**
+ * I PREZZI DI UN SERVIZIO SONO UN FATTO FRA NOI E IL PARTNER.
+ *
+ * ⚠️ 29/08/2026 — Provato con un token VALET vero: `GET /service-types`
+ * rispondeva 200 con `basePrice` e `perPiecePrice` di tutti i servizi. Il
+ * RolesGuard è allow-by-default, quindi una rotta senza `@Roles` è aperta a
+ * chiunque sia autenticato: il valet leggeva il listino che pagano i partner.
+ *
+ * Il nome del servizio gli serve (deve sapere che lavoro fa), il prezzo no.
+ */
+const PREZZI_DEL_PARTNER = ['basePrice', 'perPiecePrice', 'transportPrice', 'deliveryPrice'] as const;
+
+function senzaPrezzi<T>(dati: T, user?: { role?: string }): T {
+  if (user?.role !== 'VALET') return dati;
+  const pulisci = (x: Record<string, unknown>) => {
+    const copia = { ...x };
+    for (const c of PREZZI_DEL_PARTNER) delete copia[c];
+    return copia;
+  };
+  return (Array.isArray(dati)
+    ? dati.map((x) => pulisci(x as Record<string, unknown>))
+    : pulisci(dati as Record<string, unknown>)) as T;
+}
+
 @ApiTags('service-types')
 @ApiBearerAuth()
 @Controller('service-types')
@@ -135,16 +159,17 @@ export class ServiceTypesController {
 
   @Get()
   @ApiOperation({ summary: 'Lista tipi di servizio (filtrabile per scope: partner | valet)' })
-  findAll(@Query('scope') scope?: string) {
-    return scope
-      ? this.serviceTypesService.findByScope(scope)
-      : this.serviceTypesService.findAll();
+  async findAll(@CurrentUser() user: JwtUser, @Query('scope') scope?: string) {
+    const dati = scope
+      ? await this.serviceTypesService.findByScope(scope)
+      : await this.serviceTypesService.findAll();
+    return senzaPrezzi(dati, user);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Dettaglio tipo di servizio' })
-  findOne(@Param('id') id: string) {
-    return this.serviceTypesService.findOne(id);
+  async findOne(@CurrentUser() user: JwtUser, @Param('id') id: string) {
+    return senzaPrezzi(await this.serviceTypesService.findOne(id), user);
   }
 
   @Put(':id')

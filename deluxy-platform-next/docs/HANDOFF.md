@@ -104,7 +104,57 @@
 **Ultimo aggiornamento:** 28 agosto 2026 — 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
-### 🧮 29/08/2026 — FATTURAZIONE ALLINEATA IN TUTTA L'APP, e i listini valet orfani (riaggancio pronto, NON applicato)
+### 🔒 29/08/2026 — IL VALET NON VEDE PIÙ IL LISTINO DEI PARTNER (provato con un token vero)
+
+Chiesto dall'utente: «assicurati al 100% che i valet, a parte la propria paga,
+non vedano nessuna informazione sui prezzi pagati ai partner». Non dedotto dal
+codice: **provato con un utente VALET vero**, rotta per rotta, in produzione.
+
+**La falla trovata: `GET /service-types` rispondeva 200 con `basePrice` e
+`perPiecePrice` di tutti i servizi** — il listino che pagano i partner. La causa
+è quella già nota: il `RolesGuard` è **allow-by-default** (`if (!requiredRoles)
+return true`), quindi una rotta senza `@Roles` è aperta a chiunque sia
+autenticato. `service-types` non ne aveva.
+
+**Sistemato**: le due GET passano da `senzaPrezzi()`, che per il ruolo VALET
+toglie `basePrice`, `perPiecePrice`, `transportPrice`, `deliveryPrice`. Il
+**nome** del servizio resta: il valet deve sapere che lavoro fa, non quanto lo
+paga il partner. Verificato live sulla stessa rotta: il valet non li riceve
+più, l'admin sì.
+
+**Il resto era già chiuso, e adesso è verificato invece che supposto**:
+
+| rotta | valet |
+|---|---|
+| products · partners · invoices · invoices/pending | 403 |
+| delivery-rules · delivery-rules/valet · sales | 403 |
+| recurring-services · finance/* · quotes · richieste | 403 |
+| customers · operations · users · valets · settings | 403 |
+| service-types | 200, **senza prezzi** |
+| categories · provinces · activities · payments · receipts · settings/public | 200, nessun dato economico |
+| consegna di un ALTRO valet | **404** |
+
+**E sulla consegna SUA** (prestata per la prova al valet di verifica, poi
+restituita): nessuno dei campi proibiti — `price`, `additionalPrice`,
+`deliveryPrice`, `flexiblePrice`, `billable`, `invoiced`, `extraKm`,
+`extraOutOfCity`, `economiaVendita`, `invoiceLines` — e **le righe prodotto
+senza alcun prezzo**. Restano i suoi: `valetSalary`, `valetAdditionalPrice`,
+`hours`, il contrassegno da incassare.
+
+⚠️ `POST /calculations/preview` è `@Public()` ma è una **calcolatrice pura**:
+applica una formula ai numeri che le passi, non legge il database. Chi la
+chiama deve già sapere i numeri, quindi non è una fuga — annotato per non
+riaprire il caso ogni volta.
+
+🔴 **Resta aperto il difetto di fondo**: finché il guard è allow-by-default,
+ogni rotta nuova che qualcuno dimentica di marcare nasce aperta. La correzione
+strutturale (negare per default, con `@Public`/`@Roles` espliciti ovunque) è
+ancora da fare ed è nell'elenco degli aperti dal 27/08.
+
+**Utente di prova**: `prova.valet@deluxy.it`, agganciato a un valet
+**inattivo e segnaposto** creato apposta (PROVA VERIFICA) — non entra in
+stipendi né conteggi. Da sospendere quando non serve più.
+
 
 Chiesto dall'utente: «sistema tutto, sia fatturazione che stipendi, in tutta
 l'app». Censimento prima, poi le correzioni.
