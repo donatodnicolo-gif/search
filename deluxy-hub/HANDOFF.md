@@ -411,6 +411,66 @@ pannello del browser non componeva i frame e ogni `getBoundingClientRect`
 tornava 0 — la stessa condizione dichiarata dai revisori. Da rifare quando il
 pannello e' a schermo.
 
+## 5-septies. Il menu laterale e la riga che si apre (30 agosto 2026)
+
+### Il menu, in tre gruppi
+
+Il menu di sinistra elenca gli **strumenti del portale**, non le 19 app (quelle
+sono le tessere della home). Riordino chiesto dall’utente, registrato in
+`deluxy-design-system/SEGNALAZIONI-UX.md`:
+
+| Gruppo | Voci | Chi |
+|---|---|---|
+| **Portale** | Le app (`/`) · Installa le app (`/scarica`) | tutti |
+| **Presenze** | Il mio cartellino (`/cartellino`, con «Dentro dalle …»/«Fuori» sotto il nome) · Gestione cartellini (`/cartellino/gestione`) | la seconda solo admin |
+| **Amministrazione** | Utenti · Chiavi · Stato servizi | solo admin |
+
+**Perché**: prima «Gestione cartellino» stava in fondo ad Amministrazione, dopo
+Chiavi e Stato servizi — la stessa materia spezzata in due gruppi lontani. E due
+voci si chiamavano diversamente dalla pagina che aprivano («Installa» → «Installa
+le app»; «Gestione cartellino» → «Gestione cartellini»), contro la legge 11 del
+Libro. Nessuna voce è stata tolta.
+
+**Da non rompere:** «Il mio cartellino» ha `esatta: true` (senza, si accenderebbe
+anche stando sulla gestione: una pagina, una voce attiva sola, con
+`aria-current="page"`); nel cassetto mobile le voci sono alte **44px**
+(`min-height` nella media query ≤800px — col dito 33px non bastano, legge 4);
+il nome nel menu è il titolo della pagina, cambiando l’uno si cambia l’altro.
+
+⚠️ **Aperto per il custode UX — due soglie mobile nella stessa app**: il guscio
+(cassetto CSS e `suTelefono()` di `ToggleSidebar`) commuta a **800px**, form e
+bottoni a **900px**. Il Libro §2 ne vuole una sola per app: o si porta il guscio a
+900, o si annota la deroga nel README. Non toccato in autonomia.
+
+### La tabella dei cartellini: il dettaglio si apre dalla riga
+
+In «Gestione cartellini» → «Le timbrature di tutti» il dettaglio di una persona
+si apre **cliccando la riga in un punto qualsiasi** (Libro §8 v1.6; prima solo dal
+comando «Timbrature» in fondo). Componente
+[`RigaPersona.tsx`](src/app/cartellino/gestione/RigaPersona.tsx), client.
+
+**Le guardie sono la regola, non decorazioni:**
+- le **azioni dentro la riga non aprono il dettaglio**
+  (`closest("a,button,input,select,label")`): senza, il bottone farebbe due
+  scatti e si richiuderebbe da sé;
+- la riga cliccabile **si dichiara** (pointer, sfondo all’hover, filo oro quando
+  è aperta) e chi **non ha dettaglio non finge**: niente pointer, e al posto del
+  bottone la cella dice «nessun dato»;
+- resta un comando **da tastiera**, con `aria-expanded` e `aria-controls`; la
+  `<tr>` non è un secondo punto di tabulazione (sarebbe un doppione muto);
+- il dettaglio sta in una **seconda riga con `colSpan`**, a tutta larghezza:
+  nell’ultima colonna era un riquadro schiacciato accanto ai numeri.
+
+⚠️ **Verificando, ricordare che l’idratazione di React è PIGRA.** Un click
+sintetico da console (`element.click()`, `isTrusted:false`) su una pagina appena
+caricata **non la innesca**, e sembra che l’app sia morta: orologio del cartellino
+fermo su `--:--:--`, ricerca della home che non filtra, riga che non si apre.
+Non è un guasto. Con un **click vero** — o dopo una navigazione interna — tutto
+risponde: provato in produzione il 30/08 (click reale → riga aperta; orologio
+08:05:35 → 08:05:37).
+
+---
+
 ## 5-sexies. Revisione di sicurezza (27 agosto 2026)
 
 Tre pentester (esterno su produzione, interno sul codice, e un ostile che ha
