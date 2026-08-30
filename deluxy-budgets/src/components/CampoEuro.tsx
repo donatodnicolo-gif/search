@@ -54,7 +54,7 @@ export function formatta(grezzo: string): string {
   if (!grezzo) return "";
   const [intero, decimale] = grezzo.split(",");
   const senzaZeriIniziali = intero.replace(/^0+(?=\d)/, "");
-  const conPunti = senzaZeriIniziali ? Number(senzaZeriIniziali).toLocaleString("it-IT") : "0";
+  const conPunti = senzaZeriIniziali ? Number(senzaZeriIniziali).toLocaleString("it-IT", { useGrouping: "always" }) : "0";
   return `${decimale === undefined ? conPunti : `${conPunti},${decimale}`} €`;
 }
 

@@ -6,7 +6,7 @@ import { eur, MESI } from "@/lib/format";
 
 // Punti percentuali, con al più un decimale: `150 − 100` fa 50, ma `113,4 − 100`
 // in virgola mobile fa 13,399999999999999 e a schermo sarebbe illeggibile.
-const punti = (v: number) => v.toLocaleString("it-IT", { maximumFractionDigits: 1 });
+const punti = (v: number) => v.toLocaleString("it-IT", { useGrouping: "always", maximumFractionDigits: 1 });
 
 type MeseSpesa = {
   month: number;
@@ -231,7 +231,7 @@ export function SpeseEditor({
     if (attese <= 0) return null; // e senza vendite non esiste per niente
     return attese / adv;
   };
-  const volte = (v: number) => `${v.toLocaleString("it-IT", { maximumFractionDigits: 1 })}×`;
+  const volte = (v: number) => `${v.toLocaleString("it-IT", { useGrouping: "always", maximumFractionDigits: 1 })}×`;
 
   const consentito = (m: MaisonSpese, percentuale: (key: string) => number, filtro?: (x: MeseSpesa) => boolean) =>
     m.mesi.filter((x) => (filtro ? filtro(x) : true)).reduce((s, x) => s + importoMese(m, x, percentuale), 0);

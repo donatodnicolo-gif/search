@@ -133,7 +133,7 @@ export default async function VendutoPage({
               <div className="kpi-label">Venduto — {p.etichettaPeriodo} {p.anno}</div>
               <div className="kpi-value">{eur(totale)}</div>
               <div className="kpi-sub">
-                {vend.ordini.toLocaleString("it-IT")} ordini · {vend.negozi} negozi · IVA inclusa
+                {vend.ordini.toLocaleString("it-IT", { useGrouping: "always" })} ordini · {vend.negozi} negozi · IVA inclusa
               </div>
               {totalePrec !== null && (
                 <div className="kpi-sub">
@@ -233,7 +233,7 @@ export default async function VendutoPage({
           <p className="page-caption" style={{ marginTop: 12 }}>
             Dal registro ordini{" "}
             <a href="https://deluxy-orders.vercel.app" style={{ color: "var(--blue)" }}>Orders</a>{" "}
-            ({vend.ordini.toLocaleString("it-IT")} ordini nel {p.anno}): totale Shopify così com&apos;è, IVA e
+            ({vend.ordini.toLocaleString("it-IT", { useGrouping: "always" })} ordini nel {p.anno}): totale Shopify così com&apos;è, IVA e
             spedizione incluse — la stessa base su cui è scritto il budget D2C.{" "}
             {p.parziale && (
               <>

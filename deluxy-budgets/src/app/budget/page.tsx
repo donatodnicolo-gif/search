@@ -100,7 +100,7 @@ export default async function Budget() {
     {
       titolo: "Margini",
       href: "/margini",
-      valore: dati.tipologie.map((t) => `${t.nome} ${t.marginePct.toLocaleString("it-IT")}%`).join(" · "),
+      valore: dati.tipologie.map((t) => `${t.nome} ${t.marginePct.toLocaleString("it-IT", { useGrouping: "always" })}%`).join(" · "),
       descrizione: "Il margine per tipologia di servizio e per linea: da qui esce il costo del venduto del conto economico.",
       daFare: tipologieSenzaMargine > 0 ? `${tipologieSenzaMargine} tipologie a margine zero` : null,
     },

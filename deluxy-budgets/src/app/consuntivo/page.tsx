@@ -993,7 +993,7 @@ export default async function ConsuntivoPage({
                 <strong>Il costo delle consegne non viene più dalla banca</strong>: lo dà la{" "}
                 <strong>piattaforma consegne</strong>, che è la sua casa —{" "}
                 <strong>{eur(consegne.conto.costo)}</strong> su{" "}
-                {consegne.conto.consegne.toLocaleString("it-IT")} consegne, di cui{" "}
+                {consegne.conto.consegne.toLocaleString("it-IT", { useGrouping: "always" })} consegne, di cui{" "}
                 <strong>{eur(consegne.conto.ritenute)}</strong> di <strong>ritenuta d&apos;acconto</strong> dei valet
                 senza partita IVA — la versa Deluxy all&apos;erario <em>in più</em> rispetto al bonifico, quindi è
                 costo, non una trattenuta. In banca la stessa voce ne vedeva <strong>{eur(consegne.inBanca)}</strong>,{" "}

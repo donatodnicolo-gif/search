@@ -137,7 +137,7 @@ export default async function MaisonDetail({
           <h1 className="page-title">{maison.nome}</h1>
           <p className="page-caption">
             Budget {dati.year} per canale. Livello mostrato:{" "}
-            {LIVELLI.find((l) => l.key === livello)?.label} (×{molt.toLocaleString("it-IT")}).
+            {LIVELLI.find((l) => l.key === livello)?.label} (×{molt.toLocaleString("it-IT", { useGrouping: "always" })}).
           </p>
         </div>
         <div className="page-actions">

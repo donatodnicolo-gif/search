@@ -153,7 +153,7 @@ export async function dettaglioVoce(anno: number, codice: string): Promise<Detta
     }
     if (residuo > 0) {
       avvisi.push(
-        `${Math.round(residuo).toLocaleString("it-IT")} € sono finiti qui senza che nessuna regola lo dicesse: li ha raccolti la categoria predefinita. Sono elencati sotto e si possono assegnare una a una.`
+        `${Math.round(residuo).toLocaleString("it-IT", { useGrouping: "always" })} € sono finiti qui senza che nessuna regola lo dicesse: li ha raccolti la categoria predefinita. Sono elencati sotto e si possono assegnare una a una.`
       );
     }
     return { ...base, origine: "banca", totale, categorie: cats, avvisi };
@@ -189,7 +189,7 @@ export async function dettaglioVoce(anno: number, codice: string): Promise<Detta
       righe.push({
         nome: "Vendite ecommerce — quota che resta a Deluxy",
         importo: fatturatoDaVenduto(venduto, quota),
-        fonte: `venduto ${Math.round(venduto).toLocaleString("it-IT")} € dal registro ordini × ${quota.percentuale}% (${quota.spiegazione})`,
+        fonte: `venduto ${Math.round(venduto).toLocaleString("it-IT", { useGrouping: "always" })} € dal registro ordini × ${quota.percentuale}% (${quota.spiegazione})`,
         dove: "/venduto",
       });
       if (!quota.misurata) {

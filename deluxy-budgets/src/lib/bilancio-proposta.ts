@@ -147,7 +147,7 @@ export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta
 
   if (cons.nonCategorizzato > 0) {
     avvisi.push(
-      `In banca ci sono ${Math.round(cons.nonCategorizzato).toLocaleString("it-IT")} € di uscite non ancora categorizzate nel CFO: non entrano in nessuna proposta, quindi i costi qui sotto sono sottostimati di almeno quella cifra.`
+      `In banca ci sono ${Math.round(cons.nonCategorizzato).toLocaleString("it-IT", { useGrouping: "always" })} € di uscite non ancora categorizzate nel CFO: non entrano in nessuna proposta, quindi i costi qui sotto sono sottostimati di almeno quella cifra.`
     );
   }
 
@@ -156,7 +156,7 @@ export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta
   // sono caduti nella categoria di default. Un bilancio si difende voce per voce.
   if (cons.senzaRegola > 0) {
     avvisi.push(
-      `${Math.round(cons.senzaRegola).toLocaleString("it-IT")} € di uscite non sono riconosciute da nessuna regola: entrano nei totali, ma nella voce in cui sono cadute per difetto. Il conto quadra, la sua ripartizione no.`
+      `${Math.round(cons.senzaRegola).toLocaleString("it-IT", { useGrouping: "always" })} € di uscite non sono riconosciute da nessuna regola: entrano nei totali, ma nella voce in cui sono cadute per difetto. Il conto quadra, la sua ripartizione no.`
     );
   }
 

@@ -57,8 +57,8 @@ function notaStruttura(s: DatiAnno["struttura"]): string {
   const ultimo = s.mesiChiusi[s.mesiChiusi.length - 1] ?? 0;
   const restanti = 12 - s.mesiChiusi.length;
   return (
-    `consuntivo Gen–${MESI[ultimo - 1]} (${Math.round(s.uscito).toLocaleString("it-IT")} €) ` +
-    `+ la media di ${Math.round(s.media).toLocaleString("it-IT")} €/mese sui ${restanti} mesi che restano`
+    `consuntivo Gen–${MESI[ultimo - 1]} (${Math.round(s.uscito).toLocaleString("it-IT", { useGrouping: "always" })} €) ` +
+    `+ la media di ${Math.round(s.media).toLocaleString("it-IT", { useGrouping: "always" })} €/mese sui ${restanti} mesi che restano`
   );
 }
 
@@ -213,7 +213,7 @@ export default async function ContoEconomico({
   const RIGHE: Riga[] = [
     ...dati.tipologie.map((t) => ({
       label: `Ricavi ${t.nome}`,
-      nota: `margine ${t.marginePct.toLocaleString("it-IT")}%`,
+      nota: `margine ${t.marginePct.toLocaleString("it-IT", { useGrouping: "always" })}%`,
       valore: (pl: PL) => pl.ricaviPerServizio[t.slug] ?? 0,
       cons: (c: ConsuntivoPeriodo) => c.ricaviPerTipologia[t.slug] ?? 0,
     })),
@@ -314,7 +314,7 @@ export default async function ContoEconomico({
         <div className="kpi">
           <div className="kpi-label">Ricavi ({LIVELLI.find((l) => l.key === livello)?.label})</div>
           <div className="kpi-value">{eur(plScelto.ricavi)}</div>
-          <div className="kpi-sub">×{plScelto.moltiplicatore.toLocaleString("it-IT")} sul pubblicato</div>
+          <div className="kpi-sub">×{plScelto.moltiplicatore.toLocaleString("it-IT", { useGrouping: "always" })} sul pubblicato</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">EBITDA</div>

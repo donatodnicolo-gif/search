@@ -247,10 +247,10 @@ export function stimaImposte(input: {
       "**Interessi passivi**: qui sono dedotti per intero, ma l'art. 96 TUIR li ammette entro il 30% del ROL. Con molti oneri finanziari l'imponibile vero è più alto.",
       input.perditePregresse === undefined
         ? "**Perdite pregresse: non comunicate.** Una perdita fiscale di anni passati abbatte questo imponibile fino all'80%, senza limiti di tempo. Finché il campo nel conto economico è vuoto, l'IRES stimata è un **massimo**. Deluxy ha chiuso il 2024 in perdita civilistica, quindi è probabile che qualcosa ci sia."
-        : `**Perdite pregresse**: ${Math.round(perditeUsate).toLocaleString("it-IT")} € usati sui ${Math.round(perditeDisponibili).toLocaleString("it-IT")} € comunicati (tetto dell'80% dell'imponibile, art. 84 TUIR); ne restano ${Math.round(perditeResidue).toLocaleString("it-IT")} € per gli anni prossimi.`,
+        : `**Perdite pregresse**: ${Math.round(perditeUsate).toLocaleString("it-IT", { useGrouping: "always" })} € usati sui ${Math.round(perditeDisponibili).toLocaleString("it-IT", { useGrouping: "always" })} € comunicati (tetto dell'80% dell'imponibile, art. 84 TUIR); ne restano ${Math.round(perditeResidue).toLocaleString("it-IT", { useGrouping: "always" })} € per gli anni prossimi.`,
       input.ammortamentiIndeducibili === undefined
         ? "**Ammortamenti eccedenti: non comunicati.** La parte di B10 che supera i coefficienti fiscali è una variazione in aumento, e il gestionale non la può vedere: gli ammortamenti in banca non passano. Il campo è nel conto economico."
-        : `**Ammortamenti eccedenti i coefficienti**: ${Math.round(variazioneAmmortamenti).toLocaleString("it-IT")} € sommati all'imponibile, comunicati dal commercialista.`,
+        : `**Ammortamenti eccedenti i coefficienti**: ${Math.round(variazioneAmmortamenti).toLocaleString("it-IT", { useGrouping: "always" })} € sommati all'imponibile, comunicati dal commercialista.`,
       "**ACE e crediti d'imposta** (ricerca, formazione, beni strumentali) riducono ulteriormente il conto e non sono nei dati.",
       "**Deducibilità per cassa**: il compenso dell'amministratore si deduce solo se pagato nell'anno; qui vale il criterio del bilancio.",
       "**Rappresentanza**: oltre al 75% c'è il tetto dell'1,5% dei ricavi, non applicato in questa stima.",

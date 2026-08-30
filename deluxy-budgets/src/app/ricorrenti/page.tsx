@@ -25,7 +25,7 @@ const FILTRI = [
 const SOTTO = 500;
 
 const eur = (n: number | null | undefined) =>
-  n == null ? "—" : Math.round(n).toLocaleString("it-IT") + " €";
+  n == null ? "—" : Math.round(n).toLocaleString("it-IT", { useGrouping: "always" }) + " €";
 
 // Tre lettere, non una: con le iniziali «G F M A M G L A S O N D» gennaio e
 // giugno sono la stessa lettera, e «A in corso» non si capisce che è agosto.

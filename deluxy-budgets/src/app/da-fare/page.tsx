@@ -84,10 +84,10 @@ export default async function DaFare() {
     const somma = m.mesi.reduce((s, x) => s + x.advPercent, 0);
     if (Math.abs(somma - 100) <= 0.5) continue;
     voci.push({
-      titolo: `${m.nome}: le quote pubblicitarie fanno ${somma.toLocaleString("it-IT", { maximumFractionDigits: 1 })}% invece di 100%`,
+      titolo: `${m.nome}: le quote pubblicitarie fanno ${somma.toLocaleString("it-IT", { useGrouping: "always", maximumFractionDigits: 1 })}% invece di 100%`,
       dettaglio:
         somma < 100
-          ? `${(100 - somma).toLocaleString("it-IT", { maximumFractionDigits: 1 })} punti di budget pubblicitario non sono assegnati a nessun mese.`
+          ? `${(100 - somma).toLocaleString("it-IT", { useGrouping: "always", maximumFractionDigits: 1 })} punti di budget pubblicitario non sono assegnati a nessun mese.`
           : `Si sta impegnando pubblicità oltre il monte dell'anno.`,
       href: "/spese",
       azione: "Sistema le quote",
@@ -169,7 +169,7 @@ export default async function DaFare() {
         <div className="kpi">
           <div className="kpi-label">EBITDA a budget</div>
           <div className={`kpi-value ${pl.ebitda >= 0 ? "pos" : "neg"}`}>{eur(pl.ebitda)}</div>
-          <div className="kpi-sub" title={q.spiegazione}>quota D2C {q.percentuale.toLocaleString("it-IT", { maximumFractionDigits: 1 })}% · {q.etichetta ?? (q.misurata ? "misurata" : "stimata")}</div>
+          <div className="kpi-sub" title={q.spiegazione}>quota D2C {q.percentuale.toLocaleString("it-IT", { useGrouping: "always", maximumFractionDigits: 1 })}% · {q.etichetta ?? (q.misurata ? "misurata" : "stimata")}</div>
         </div>
       </div>
 

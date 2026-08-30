@@ -95,7 +95,7 @@ export function DecisioneProposta({
 
   async function consolida() {
     const avviso = perde.length
-      ? `\n\nATTENZIONE: ${perde.length} caselle scendono, per ${Math.round(persi).toLocaleString("it-IT")} € di budget in meno.`
+      ? `\n\nATTENZIONE: ${perde.length} caselle scendono, per ${Math.round(persi).toLocaleString("it-IT", { useGrouping: "always" })} € di budget in meno.`
       : "";
     if (!confirm(`Scrivere ${quante} (${righe.length} caselle) nel budget ufficiale? Sovrascrive quello che c'è adesso.${avviso}`)) return;
     setBusy(true);

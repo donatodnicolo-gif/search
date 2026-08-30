@@ -67,7 +67,7 @@ export function quotaMisurata(
   return {
     percentuale: Math.round(quota * 10) / 10,
     misurata: true,
-    spiegazione: `misurata sui dati: venduto ${Math.round(venduto).toLocaleString("it-IT")} € meno ${Math.round(pagatoAiPartner).toLocaleString("it-IT")} € girati ai partner`,
+    spiegazione: `misurata sui dati: venduto ${Math.round(venduto).toLocaleString("it-IT", { useGrouping: "always" })} € meno ${Math.round(pagatoAiPartner).toLocaleString("it-IT", { useGrouping: "always" })} € girati ai partner`,
   };
 }
 

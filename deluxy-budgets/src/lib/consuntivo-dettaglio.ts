@@ -122,7 +122,7 @@ export async function dettaglioConsuntivo(
     const residuo = cats.reduce((s, c) => s + c.residuo, 0);
     if (residuo > 0) {
       avvisi.push(
-        `${Math.round(residuo).toLocaleString("it-IT")} € di questa riga sono arrivati qui senza che nessuna regola lo dicesse: li raccoglie la categoria predefinita. Sono elencati in fondo e si assegnano una a una.`
+        `${Math.round(residuo).toLocaleString("it-IT", { useGrouping: "always" })} € di questa riga sono arrivati qui senza che nessuna regola lo dicesse: li raccoglie la categoria predefinita. Sono elencati in fondo e si assegnano una a una.`
       );
     }
     avvisi.push(
@@ -173,7 +173,7 @@ export async function dettaglioConsuntivo(
       const usciteBanca = banca.reduce((s, c) => s + c.uscite, 0);
       if (usciteBanca > 0) {
         avvisi.push(
-          `Dal conto, nello stesso periodo, sono usciti **${Math.round(usciteBanca).toLocaleString("it-IT")} €** in categorie di personale (${banca.map((c) => `${c.nome} ${Math.round(c.uscite).toLocaleString("it-IT")} €`).join(", ")}) contro i ${Math.round(totale).toLocaleString("it-IT")} € del roster. Le uscite di banca **non entrano in questo totale**: sommarle sarebbe contare due volte le stesse persone. La differenza si legge come scarto fra pianificato e pagato — comprese tredicesime e compensi che nel roster non ci sono.`
+          `Dal conto, nello stesso periodo, sono usciti **${Math.round(usciteBanca).toLocaleString("it-IT", { useGrouping: "always" })} €** in categorie di personale (${banca.map((c) => `${c.nome} ${Math.round(c.uscite).toLocaleString("it-IT", { useGrouping: "always" })} €`).join(", ")}) contro i ${Math.round(totale).toLocaleString("it-IT", { useGrouping: "always" })} € del roster. Le uscite di banca **non entrano in questo totale**: sommarle sarebbe contare due volte le stesse persone. La differenza si legge come scarto fra pianificato e pagato — comprese tredicesime e compensi che nel roster non ci sono.`
         );
       }
     }
@@ -216,7 +216,7 @@ export async function dettaglioConsuntivo(
       if (nonMappate.length > 0) {
         avvisi.push(
           `**Fuori da questo totale**: ${nonMappate
-            .map((t) => `«${t.nome}» ${Math.round(t.importo).toLocaleString("it-IT")} €`)
+            .map((t) => `«${t.nome}» ${Math.round(t.importo).toLocaleString("it-IT", { useGrouping: "always" })} €`)
             .join(", ")} — sono tipologie fatturate in Finance che non sono mappate su nessuna voce di budget, quindi non entrano nei ricavi di nessuno. Si agganciano in **Margini**, campo «Voci in Finance».`
         );
       }
@@ -264,14 +264,14 @@ export async function dettaglioConsuntivo(
           nome: `Ecommerce · ${b.nome}`,
           importo: ricavoDelNegozio(v),
           fonte: daVendor
-            ? `venduto ${Math.round(v).toLocaleString("it-IT")} € — quota del ricavo ecommerce misurato sulle fee dei vendor, ripartita sul venduto`
-            : `venduto ${Math.round(v).toLocaleString("it-IT")} € × ${quota.percentuale}% che resta a Deluxy (${quota.misurata ? "misurato" : "stimato"})`,
+            ? `venduto ${Math.round(v).toLocaleString("it-IT", { useGrouping: "always" })} € — quota del ricavo ecommerce misurato sulle fee dei vendor, ripartita sul venduto`
+            : `venduto ${Math.round(v).toLocaleString("it-IT", { useGrouping: "always" })} € × ${quota.percentuale}% che resta a Deluxy (${quota.misurata ? "misurato" : "stimato"})`,
           dove: "/venduto",
         });
       }
       if (daVendor) {
         avvisi.push(
-          `Il ricavo dell'ecommerce è **misurato**: ${Math.round(d2cPeriodo!.fee).toLocaleString("it-IT")} € di fee fatturate ai partner vendor, più il margine sugli ordini comprati dai fornitori. La divisione **per negozio** invece è una ripartizione sul venduto: le fee si conoscono per partner e per mese, non per negozio.` +
+          `Il ricavo dell'ecommerce è **misurato**: ${Math.round(d2cPeriodo!.fee).toLocaleString("it-IT", { useGrouping: "always" })} € di fee fatturate ai partner vendor, più il margine sugli ordini comprati dai fornitori. La divisione **per negozio** invece è una ripartizione sul venduto: le fee si conoscono per partner e per mese, non per negozio.` +
             (d2cPeriodo!.nonCaricati.length > 0
               ? ` Mesi con le vendite dei partner non ancora caricate in Finance, quindi fuori dalla misura: ${d2cPeriodo!.nonCaricati.join(", ")}.`
               : "")
@@ -283,7 +283,7 @@ export async function dettaglioConsuntivo(
         const e = vend.esclusi;
         if (e) {
           avvisi.push(
-            `**Gli ordini annullati e rimborsati non sono qui dentro**: il registro li esclude — ${e.annullati?.ordini ?? 0} annullati per ${Math.round(e.annullati?.lordo ?? 0).toLocaleString("it-IT")} € e ${e.rimborsati?.ordini ?? 0} rimborsati per ${Math.round(e.rimborsati?.lordo ?? 0).toLocaleString("it-IT")} € sul ${anno}. I **rimborsi parziali** invece restano contati per intero (${e.parzialmenteRimborsati?.ordini ?? 0} ordini): l'importo reso non esiste nel registro, e questo gonfia i ricavi di quanto è stato restituito.`
+            `**Gli ordini annullati e rimborsati non sono qui dentro**: il registro li esclude — ${e.annullati?.ordini ?? 0} annullati per ${Math.round(e.annullati?.lordo ?? 0).toLocaleString("it-IT", { useGrouping: "always" })} € e ${e.rimborsati?.ordini ?? 0} rimborsati per ${Math.round(e.rimborsati?.lordo ?? 0).toLocaleString("it-IT", { useGrouping: "always" })} € sul ${anno}. I **rimborsi parziali** invece restano contati per intero (${e.parzialmenteRimborsati?.ordini ?? 0} ordini): l'importo reso non esiste nel registro, e questo gonfia i ricavi di quanto è stato restituito.`
           );
         }
       }
