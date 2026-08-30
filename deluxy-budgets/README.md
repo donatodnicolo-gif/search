@@ -4,6 +4,29 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### 30/08/2026 (sera): la tabella maison chiude sul contributo, e le 26 regole sono A DATABASE
+
+- **Le 26 regole degli orfani sono SCRITTE** (l'utente ha detto «fai tu», e stavolta lo script è
+  passato): `scripts/regole-orfani.mts` eseguito, 26 scritte, 0 saltate. **La riclassifica invece
+  no**: la replica CLI della passata è stata bloccata dall'ambiente anche con l'autorizzazione. La
+  prova a vuoto però ha misurato che ora il bottone è innocuo: **13.608 invariate, 18 da cambiare
+  (Green Click + Zoè → Pubblicità 7.921 €, Marcopolo → Partner 2.926 €), 0 DA SVUOTARE**. Resta un
+  click dell'utente: «↻ Riclassifica tutto» in `/spese` di Finance (verificato nel registro di
+  Finance che al 30/08 mattina NON era ancora stato premuto).
+- **La tabella «Risultati maison» di `/aggiornato` diventa un mini conto economico** (richiesta:
+  «mostra totali e metti anche costi»): colonne Ricavo Deluxy (fee + primo margine dalla
+  piattaforma — il costo prodotti è già tolto con la quota), Pubblicità (per brand da Marketing,
+  con la riserva delle campagne eliminate scritta in pagina) e **Contributo = ricavo − ADV**, più
+  la riga **Totale** (il budget totale compare solo se nessuna riga ha mesi scoperti). Struttura e
+  personale NON si ripartiscono per brand: si tolgono una volta sola, nel conto economico sopra —
+  stessa scelta del conto per team. Anche «Risultati commerciali» ha il totale.
+- ⚠️ **I ricavi commerciali del mese in corso arrivano SOLO da Finance** (fatture per tipologia),
+  quindi sul mese aperto Eventi/B2B sono indietro per costruzione. La proposta dell'utente — mese
+  in corso da piattaforma consegne e ordini chiusi di Scout, mese chiuso da Finance — è annotata
+  in «Cosa aspetta una decisione»: per Scout serve una API/Edge nuova (oggi Budgets legge solo le
+  linee), e le fee della piattaforma sono GIÀ dentro il ricavo D2C misurato — riportarle fra i
+  commerciali le conterebbe due volte.
+
 ### 30/08/2026 (pomeriggio): l'app si apre su «Aggiornato», e il conto economico si apre su tutti gli anni
 
 Tre richieste dell'utente nello stesso giro, più le regole per i 228 orfani.
@@ -598,6 +621,15 @@ Budgets **emette le sue chiavi API** con scope e revoca.
    avrà la sua chiave emessa, quella condivisa si può togliere.
 7. ❓ **Affiliazioni è passata da 100.000 a 96.000 €** durante la sessione del 23/08 (agosto 4.000 →
    0). Non risulta da nessuna scrittura dell'assistente: probabilmente una modifica dell'utente.
+7-bis. 💡 **Ricavi commerciali del mese in corso da Scout e piattaforma** (proposta dell'utente,
+   30/08): oggi in `/aggiornato` e nel consuntivo i ricavi per tipologia vengono SOLO dalle fatture
+   di Finance, quindi sul mese aperto Eventi/B2B sono indietro per costruzione. L'idea: mese in
+   corso → ordini chiusi di Scout (serve una API/Edge nuova: oggi Budgets legge solo le linee) e
+   consegne della piattaforma; mese chiuso → Finance. ⚠️ Due cose da decidere prima di costruire:
+   le **fee della piattaforma sono già dentro il ricavo D2C misurato** (contarle fra i commerciali
+   è un doppio conteggio — semmai entrano le Consegne Corporate, se la piattaforma le distingue), e
+   il passaggio di consegna fra le fonti al giro del mese va dichiarato in pagina, non cucito in
+   silenzio.
 8. 🔴 **228 movimenti per 176.891 €** (tutti 2025 e prima) hanno una categoria che **nessuna regola
    di Budgets giustifica più** — scoperto il 27/08 riclassificando in Finance, dove la passata è
    stata **deviata di proposito** per non spogliarli. Finché stanno così il bottone «↻ Riclassifica

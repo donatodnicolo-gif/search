@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { caricaAnno, ANNO_CORRENTE } from "@/lib/calc";
 import { caricaConsuntivo, SLUG_D2C } from "@/lib/consuntivo";
-import { caricaVenduto, sommaMesi } from "@/lib/venduto";
-import { fetchRicaviIntervallo } from "@/lib/orders";
+import { raggruppa, sommaMesi } from "@/lib/venduto";
+import { abbinaMaison, fetchRicaviD2C, fetchRicaviIntervallo } from "@/lib/orders";
+import { fetchSpesaPerBrand } from "@/lib/marketing";
 import { eur, pct, MESI } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -150,10 +151,29 @@ export default async function AggiornatoPage({
     );
   }
 
-  const [cons, venduto] = await Promise.all([
+  const [cons, ricaviRes, advBrand] = await Promise.all([
     caricaConsuntivo(dati, mesi),
-    caricaVenduto(dati.year, dati.maisons),
+    fetchRicaviD2C(dati.year),
+    // La pubblicità PER BRAND la sa solo Marketing (la banca ha il totale ma
+    // non il brand). ⚠️ Il suo totale è «quello che le campagne ancora
+    // esistenti hanno speso» (le eliminate spariscono): per brand è l'unica
+    // misura che c'è, e la si usa dichiarandola.
+    fetchSpesaPerBrand(dati.year, mesi),
   ]);
+  const venduto = raggruppa(ricaviRes, dati.maisons);
+
+  // Il ricavo Deluxy misurato per brand: fee + primo margine scritti dalla
+  // piattaforma sugli ordini (economia della vendita, 26/08). Per brand e per
+  // i mesi del periodo; se Orders non porta i campi il numero non si inventa.
+  const ricavoDeluxy = new Map<string, number>();
+  if (ricaviRes.ok) {
+    for (const b of ricaviRes.dati.brand) {
+      const slug = abbinaMaison(b.brand, dati.maisons);
+      if (!slug || !b.feeMese || !b.primoMargineMese) continue;
+      const v = sommaMesi(b.feeMese, mesi) + sommaMesi(b.primoMargineMese, mesi);
+      ricavoDeluxy.set(slug, (ricavoDeluxy.get(slug) ?? 0) + v);
+    }
+  }
 
   // Risultati maison: il venduto dei NEGOZI contro il budget **D2C** degli
   // stessi mesi — stessa coppia di /maison: il venduto ecommerce si confronta
@@ -161,6 +181,13 @@ export default async function AggiornatoPage({
   // Eventi e B2B). Chi un negozio non ce l'ha (B2B, Experience) mostra «—»,
   // non uno zero che sembrerebbe un crollo. E un mese a budget zero non fa
   // percentuale: è la trappola dell'«866%» (/maison, 24/08).
+  //
+  // Le colonne di costo (30/08, richiesta «metti anche costi così da vedere
+  // conto economico»): per una maison i costi misurabili sono DUE — il costo
+  // prodotti è già dentro il «ricavo Deluxy» (con la quota il prodotto è già
+  // tolto), e la pubblicità è quella per brand di Marketing. Contributo =
+  // ricavo Deluxy − pubblicità. Struttura e personale NON si ripartiscono per
+  // brand: si tolgono una volta sola, nel conto economico qui sopra.
   const righeM = dati.maisons.map((m) => {
     const mesiNegozio = venduto.perMaison.get(m.slug);
     const vend = mesiNegozio ? sommaMesi(mesiNegozio, mesi) : null;
@@ -170,9 +197,22 @@ export default async function AggiornatoPage({
     });
     const budget = budgetMesi.reduce((s, v) => s + v, 0);
     const mesiSenzaBudget = mesi.filter((_, i) => (budgetMesi[i] ?? 0) === 0);
-    return { nome: m.nome, vend, budget, mesiSenzaBudget };
+    const ricavo = ricavoDeluxy.get(m.slug) ?? null;
+    const advMesi = advBrand.ok ? advBrand.perMaison.get(m.slug) : undefined;
+    const adv = advMesi ? mesi.reduce((s, mm) => s + (advMesi[mm - 1] ?? 0), 0) : null;
+    const contributo = ricavo !== null && adv !== null ? ricavo - adv : null;
+    return { nome: m.nome, vend, budget, mesiSenzaBudget, ricavo, adv, contributo };
   }).filter((r) => r.vend !== null || r.budget > 0);
   const vendTot = righeM.reduce((s, r) => s + (r.vend ?? 0), 0);
+  // I totali di colonna: il budget totale ha senso solo se NESSUNA riga ha
+  // mesi scoperti — sommare budget bucati direbbe un «realizzato» gonfiato.
+  const budgetCompleto = righeM.every((r) => r.mesiSenzaBudget.length === 0);
+  const tot = {
+    budget: righeM.reduce((s, r) => s + r.budget, 0),
+    ricavo: righeM.some((r) => r.ricavo !== null) ? righeM.reduce((s, r) => s + (r.ricavo ?? 0), 0) : null,
+    adv: righeM.some((r) => r.adv !== null) ? righeM.reduce((s, r) => s + (r.adv ?? 0), 0) : null,
+    contributo: righeM.some((r) => r.contributo !== null) ? righeM.reduce((s, r) => s + (r.contributo ?? 0), 0) : null,
+  };
 
   // Risultati commerciali: il fatturato per tipologia che Finance misura
   // (Eventi, B2B, …). Il D2C sta già nel conto economico qui sopra; le linee
@@ -244,10 +284,20 @@ export default async function AggiornatoPage({
         </table>
       </div>
 
-      <h2 className="section-title" style={{ marginTop: 24 }}>Risultati maison · venduto dei negozi contro budget D2C</h2>
+      <h2 className="section-title" style={{ marginTop: 24 }}>Risultati maison · dal venduto al contributo</h2>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Maison</th><th className="num">Venduto</th><th className="num">Budget D2C {etichettaMesi}</th><th className="num">Realizzato</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Maison</th>
+              <th className="num">Venduto</th>
+              <th className="num">Budget D2C {etichettaMesi}</th>
+              <th className="num">Realizzato</th>
+              <th className="num">Ricavo Deluxy</th>
+              <th className="num">Pubblicità</th>
+              <th className="num">Contributo</th>
+            </tr>
+          </thead>
           <tbody>
             {righeM.map((r) => (
               <tr key={r.nome}>
@@ -264,11 +314,39 @@ export default async function AggiornatoPage({
                     ? pct((r.vend / r.budget) * 100, 0)
                     : "—"}
                 </td>
+                <td className="num">{r.ricavo !== null ? eur(r.ricavo) : "—"}</td>
+                <td className="num">{r.adv !== null ? `− ${eur(r.adv)}` : "—"}</td>
+                <td className={`num ${r.contributo !== null ? (r.contributo >= 0 ? "pos" : "neg") : ""}`} style={{ fontWeight: 600 }}>
+                  {r.contributo !== null ? eur(r.contributo) : "—"}
+                </td>
               </tr>
             ))}
+            <tr className="tot">
+              <td style={{ fontWeight: 600 }}>Totale</td>
+              <td className="num" style={{ fontWeight: 600 }}>{venduto.ok ? eur(vendTot) : "—"}</td>
+              <td className="num" style={{ fontWeight: 600 }}>
+                {budgetCompleto ? eur(tot.budget) : <span style={{ color: "var(--text-tertiary)", fontWeight: 400 }}>incompleto</span>}
+              </td>
+              <td className="num" style={{ fontWeight: 600 }}>
+                {venduto.ok && budgetCompleto && tot.budget > 0 ? pct((vendTot / tot.budget) * 100, 0) : "—"}
+              </td>
+              <td className="num" style={{ fontWeight: 600 }}>{tot.ricavo !== null ? eur(tot.ricavo) : "—"}</td>
+              <td className="num" style={{ fontWeight: 600 }}>{tot.adv !== null ? `− ${eur(tot.adv)}` : "—"}</td>
+              <td className={`num ${tot.contributo !== null ? (tot.contributo >= 0 ? "pos" : "neg") : ""}`} style={{ fontWeight: 600 }}>
+                {tot.contributo !== null ? eur(tot.contributo) : "—"}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
+      <p className="page-caption" style={{ marginTop: 8 }}>
+        <strong>Ricavo Deluxy</strong> = fee + primo margine scritti dalla piattaforma sugli ordini
+        (il costo prodotti è già tolto: con la quota, quello che resta è di Deluxy).{" "}
+        <strong>Pubblicità</strong> = campagne per brand da Marketing (le campagne eliminate non ci
+        sono: il totale vero di cassa resta la banca, nel conto economico sopra).{" "}
+        <strong>Contributo</strong> = ricavo − pubblicità: struttura e personale non si ripartiscono
+        per brand — si tolgono una volta sola, sul totale.
+      </p>
 
       <h2 className="section-title" style={{ marginTop: 24 }}>Risultati commerciali · fatturato per tipologia</h2>
       <div className="table-wrap">
@@ -280,6 +358,10 @@ export default async function AggiornatoPage({
                 <td className="num">{eur(r.importo)}</td>
               </tr>
             ))}
+            <tr className="tot">
+              <td style={{ fontWeight: 600 }}>Totale</td>
+              <td className="num" style={{ fontWeight: 600 }}>{eur(righeC.reduce((s, r) => s + r.importo, 0))}</td>
+            </tr>
           </tbody>
         </table>
       </div>
