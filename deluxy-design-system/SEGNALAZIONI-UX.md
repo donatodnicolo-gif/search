@@ -134,3 +134,153 @@ Verifica della regola su 20 app (6 audit paralleli sul codice delle copie VIVE).
 | 27/08 | **Anagrafiche** (scoutwt) | Adeguamento | focus oro, badge alla formula, th sticky, asterischi rossi, empty+loading, **navigazione mobile (drawer)**. tsc+build ✓. scoutwt pushato |
 | 27/08 | **Scout** (scoutwt) | Adeguamento conservativo | StatusBar bug, palette-ombra badge→token semantici, bersagli 44px, oro→stato, login radius; token additivi (no swap). tsc ✓. scoutwt pushato **+ deploy web in produzione** (deluxy-scout.vercel.app) |
 | 27/08 | **CRM · Personale · Acquisti · Calendario** | Passata UX | focus oro, :focus-visible, asterischi rossi, loading, badge/titolo dove divergevano; molte già conformi post-token. tsc ✓ (build ✓ Acquisti). Le prime 3 pushate; Calendario gitignorata (locale) |
+
+## Passata integrale su PERSONALE (29/08/2026) — 7 esami + 3 revisioni ostili
+
+Nata da una segnalazione dell'utente: «la tabella di deluxy-personale.vercel.app non rispetta
+l'architetto su come devono essere tutte le tabelle». Metodo: il custode ha emesso il verdetto sulle
+tabelle; 6 agenti (ux-desktop ×3, ux-mobile ×3) hanno esaminato **11 pagine** sul dev server;
+le **49 accuse** raccolte sono passate da 3 revisioni `ux-ostile` (layout · form ed esiti · coerenza).
+
+**Esito: 26 accuse reggono, 5 cadono, 18 ridimensionate.**
+
+### ⚠️ Trappola di misura scoperta dagli ostili (vale per ogni futuro esame browser)
+
+Col pannello del browser nascosto, `innerWidth` è **0** e Next non completa lo swap del boundary
+Suspense: il contenuto resta in un `div#S:0` **figlio diretto di `<body>`**. Chi si limita a togliere
+`hidden` misura su tutta la larghezza della finestra invece che dentro `.contenuto` — **ogni misura
+orizzontale esce gonfiata**. La via giusta è `$RV($RB)`, che riloca nel contenitore vero. Verificato:
+i sei accusatori l'avevano usata (numeri coincidenti entro 1-3px su 9 misure indipendenti).
+Il «Caricamento…» che si vede è **cold start del dev server, non un guasto dell'app**.
+
+### Confermate — con danno reale all'utente
+
+1. **La ricerca dà risultati sbagliati con l'aria di essere giusti**: ricerca e «Filtra» sono due
+   `<form>` separati e il secondo porta la `q` **dell'URL**, non quella digitata. Da `/?q=Edoardo`,
+   digitando «Luca» e cliccando «Filtra» si torna a Edoardo con una lista coerente e plausibile.
+   La ricerca funziona solo con Invio, che nessuna etichetta annuncia.
+2. **I KPI mentono a un click**: sono calcolati sull'insieme filtrato ma le etichette parlano
+   dell'azienda — `/?stato=cessati` dichiara «Persone attive 0» e «nessun compenso con contributi
+   dichiarati» mentre i dati ci sono. Prova che non è deliberato: il KPI «Funzioni» esce da una
+   query separata e NON segue il filtro (la riga è un miscuglio, non un riepilogo del filtrato).
+3. **Un errore di validazione cancella il lavoro**: `conErrore` fa `redirect(?err=)` senza i campi.
+   Scrivendo una RAL come «28.500 €», sulla scheda persona si perdono 6 campi e il messaggio compare
+   a **3353px (4,1 schermate)** dal campo colpevole. La capacità di conservarli esiste già ed è usata
+   solo nel giro dell'omonimia.
+4. **Una mail al commercialista parte con un click**, destinatario precompilato, senza passo di
+   conferma (l'anteprima del testo c'è: manca il passo).
+5. **Un refresh ripropone «Rapporto inviato»**: l'esito vive in `?nota=` e non viene ripulito.
+6. **«Crea la persona» resta muto fino a 4 secondi** (dietro c'è la proposta a Budgets, timeout 4000 ms):
+   nessun `useFormStatus`, nessun disabled — l'utente ri-clicca.
+7. **Mobile — la sidebar non diventa drawer**: 278px (34% di 812) su ogni pagina, con le 8 voci su
+   8 `top` e 3 colonne diverse, una orfana in mezzo: griglia rotta dal `flex-wrap`.
+8. **Mobile — le 7 tabelle non diventano schede**: 51-61% fuori schermo; su una scheda persona il
+   bottone «Elimina» sta a 668px dentro una finestra da 291.
+9. **Mobile — 27 bersagli su 27 sotto i 44px**; `--touch-min` è definito e mai consumato; input a
+   14px (zoom iOS a ogni tocco).
+10. **Mobile — la CTA sotto la tastiera con lo scroll esaurito** (`/persone/nuova`: bottone a 808,
+    visibili 586, `maxScroll` finito).
+11. **La prima riga dell'elenco a 1165px** su una piega di 812. ⚠️ Causa mal attribuita dagli
+    accusatori: non è la zona filtri (124px) ma la sidebar (278) e i 4 KPI impilati (501).
+12. **Desktop 1366×768 — 35px su 50 di ogni «Costo azienda» tagliati** su 11 righe: la colonna
+    Contratto è larga 232px per il badge «Stage / tirocinio dal 01/09/2026» in `white-space: nowrap`.
+13. **Le intestazioni non si fermano**: `th` non sticky e wrapper senza `max-height` (th a top −302).
+14. **25 campi su 25 con label non associate** su /funzioni, **16 senza alcun nome accessibile**.
+15. **L'oro dice sia «inviato» sia «non configurato»** sulla stessa pagina (il canone del successo
+    è la nota verde: la citazione giusta è §7, non §5).
+16. **Sul login 9 link focalizzabili prima della password** (il layout monta la sidebar sotto l'overlay).
+17. Minori confermati: `aria-current` assente; select dei filtri senza nome accessibile; tre `✎` muti;
+    CTA di /cartellini attiva mentre la pagina dichiara l'invio spento; messaggi con nomi di variabili
+    d'ambiente e «Il Hub risponde 500»; «Torna all'elenco» cablato che butta i filtri; il segreto della
+    chiave senza «Copia»/«Ho finito»; `/chiavi` con un `inCorso` condiviso che fa annunciare «Creo…»
+    al bottone sbagliato durante una revoca; scheda persona da 6,4 schermate con 6 primari neri;
+    15 celle (non 24) marcate «non applicabile» dove sono «da compilare»; `.card-sub` senza tetto.
+
+### Cadute (accuse demolite)
+
+- **Indentazione dell'organigramma** (41px/livello «senza tetto»): l'albero vero è profondo **2**, la
+  scheda più stretta misura 939px. Il livello 6 proiettato non esiste.
+- **«4 bottoni primari per vista» su /funzioni**: sono 4 form indipendenti in 4 card. La legge 2
+  governa le primarie che competono nella stessa decisione.
+- **L'oro sulla «mansione principale»**: il §5 dice il contrario dell'accusa — l'oro-identità resta.
+- **Le tinte `-soft` hardcodate**: scarto di 0,01 di alpha = **2 valori su 255**, invisibile, e i
+  token del repo sono byte-identici alla fonte. Igiene, non difetto.
+- **La footnote del login**: la frase prescritta c'è; l'aggiunta sull'Hub è aiuto, non nota tecnica.
+- **Sub-accuse cadute dentro accuse vere**: «le chip vanno a capo» (non wrappano: stanno su una riga
+  a 205px di 341); «`.btn.mini` 28,4px» sulla home (lì è 39px, stirato dal form); «l'esito fuori
+  schermo su /chiavi» (con 2 chiavi la pagina è alta esattamente quanto la viewport);
+  «sei Salva identici» sulla scheda (sono sei verbi diversi e giusti); «senza riepilogo di cosa parte»
+  su /cartellini (l'anteprima c'è); «fabbricabile dall'URL» (l'app è dietro login: si inganna solo sé).
+
+### Due contraddizioni DEL LIBRO da arbitrare (non sono difetti dell'app)
+
+- **§3 vs §10.1 sul bottone piccolo**: `.btn.mini` misura 28,4px, ma il `.btn.small` **del Libro**
+  («5×13, 12.5px») produce **28,4px identici**, e §3 v1.8 fissa il minimo desktop a ≥28px mentre
+  §10.1 dice ≥32px. L'app implementa alla lettera il canone e veniva accusata di averlo fatto.
+  **Da decidere una volta per tutte: se si alza `.btn.small`, cambiano TUTTE le app.**
+- **La riga dei totali in `<tfoot>`**: il custode la propone come voce nuova (§8 v1.11), ma nel
+  metro vigente (v1.10) `tfoot` non è nominato. Finché non è promulgata, l'app non viola nulla.
+
+### Tensioni fra le correzioni (chi tocca una deve guardare l'altra)
+
+- La **conferma che attutisce la × a 0px dal nome** su /funzioni è lo stesso `window.confirm` che
+  un'altra accusa chiede di rimuovere: chi migra le conferme deve prima separare quei due bersagli.
+- La **`max-height`** chiesta per le intestazioni sticky mette una scrollbar verticale nella stessa
+  card che ha già 49px di eccedenza orizzontale: **prima si stringe la colonna Contratto**.
+- **Rendere cliccabile tutta la scheda dell'organigramma** aggrava il rischio dell'altra accusa
+  (la tendina «riporta a» che salva subito all'onChange, a ~700px dal nome).
+- La utility `tabelle-a-schede` della piattaforma **non si copia alla cieca**: quest'app ha **8 celle
+  con `colSpan`** in 4 tabelle (totali e stati vuoti), che un porting per indice etichetterebbe male.
+- Il **cookie flash** al posto della querystring **non regge in RSC** (un Server Component non può
+  cancellare un cookie durante il render): la via è PRG + `history.replaceState` da client.
+
+### Buco di parco (non di questa app)
+
+`.cella-manca` — la terza gamba della tripletta delle celle vuote del §8 — **non esiste in nessun
+file dell'intero repo `app/`**. È un'adozione mai fatta, non una sciatteria di Personale.
+
+---
+
+## Hub — il menu laterale riordinato per materia (30/08/2026, richiesta dell'utente)
+
+**Richiesta**: «rivedi menù laterale in modo logico» (screenshot del Hub allegato in chat).
+**Fatto**: riordino applicato e verificato in locale, desktop 1440 e telefono 375.
+
+Cosa non tornava, e la regola dietro ogni correzione:
+
+1. **La stessa materia stava in due gruppi lontani.** «Cartellino» era sotto PRESENZA,
+   «Gestione cartellino» in fondo ad AMMINISTRAZIONE, dopo Utenti/Chiavi/Stato: chi cercava
+   le ore del team le trovava in mezzo a segreti e servizi. Ora le presenze stanno **tutte**
+   nel gruppo *Presenze* («Il mio cartellino» + «Gestione cartellini»), e *Amministrazione*
+   resta il governo dell'impianto (chi entra, i segreti, la salute delle app).
+2. **Il nome nel menu diverso dal titolo della pagina** (legge 11: stessa entità, stesso nome
+   ovunque): «Installa» apriva una pagina intitolata «Installa le app» — e per giunta faceva
+   pensare a installare *il Hub*, mentre quella pagina parla di portarsi sul telefono **tutte**
+   le app Deluxy. Ora la voce si chiama come la pagina. Stessa cosa per «Gestione cartellino»
+   → «Gestione cartellini».
+3. **«Cartellino» → «Il mio cartellino»**: ora che le due voci sono adiacenti, la cosa da dire
+   è *di chi* sono le ore. Allineato anche il titolo della pagina.
+4. **Bersagli sotto soglia nel cassetto mobile** (legge 4): a 375px le voci misuravano **33px**,
+   sotto i 44 di `--touch-min`. Aggiunto `min-height: 44px` alle voci dentro la media query del
+   cassetto (≤800px), dove si tocca col dito; sopra quella soglia la sidebar è una colonna da
+   mouse e resta compatta a 33px. Verificato: 33 → 44/47px, desktop invariato.
+
+Nessuna voce è stata tolta (regola dell'utente: si stringe la cornice, non il numero dei comandi).
+
+### Da arbitrare — due soglie mobile nella stessa app (§2 chiede UNA soglia)
+
+Il Hub ne ha due: il guscio (sidebar→cassetto, e il JS `suTelefono()` di `ToggleSidebar`)
+commuta a **800px**, mentre form e bottoni a **900px**. Sono coerenti tra loro a coppie e
+nessuna delle due è rotta, ma il Libro §2 vuole una soglia sola dichiarata in un punto per app.
+Non toccata in autonomia: allinearle significa spostare il guscio di tutte le pagine.
+**Decisione del custode richiesta**: portare il guscio a 900 (canone) o annotare la deroga
+nel README del Hub.
+
+### Trappola di misura incontrata (vale per chi verifica, non per l'app)
+
+Il cassetto mobile sembrava **non aprirsi**: con `data-menu-aperto` presente e la regola giusta
+nel foglio, il `transform` calcolato restava `translateX(-100%)`. Non era un difetto dell'app:
+il pannello browser **non aveva il focus** e la **transizione CSS non avanzava**, così la misura
+leggeva il fotogramma iniziale. Togliendo la transizione il valore corretto compare subito.
+⚠️ Misurando una proprietà **in transizione** in un pannello senza focus si legge il valore di
+partenza: neutralizzare la transizione prima di misurare, o misurare una proprietà non animata.
