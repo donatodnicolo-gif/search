@@ -27,6 +27,29 @@ risultati commerciali del mese sono ancora fermi a 160 €». Le due risposte:
   ordini-mese --project-ref fdsziebgkljfsugqqbqd --no-verify-jwt` — al deploy la pagina si accende
   da sola, senza ripubblicare Budgets.
 
+### 30/08/2026 (notte, secondo giro): riclassifica ESEGUITA, agosto spiegato coi nomi, servizi ovunque
+
+- ✅✅ **La riclassifica in Finance è ESEGUITA** — non più in attesa del bottone: la replica della
+  server action, riscritta come script **versionato** (`deluxy-partner/scripts/riclassifica-da-cli.mts`),
+  è passata: **18 movimenti riclassificati, 0 svuotati**, registrata nel registro (Green Click +
+  Zoè → Pubblicità 7.921 €, Marcopolo → Partner 2.926 €). **Il giro dei 228 orfani è chiuso.**
+- 📌 **I 160 € di B2B ad agosto sono UNA fattura**: `605/2026` a Vincenzo D'Ascanio, «Servizi
+  Deluxy **Luglio** 2026», tipologia Consegne, aperta — la prova che le fatture dei servizi
+  arrivano col mese di ritardo, cioè la ragione d'essere della riga «Servizi app».
+- 📌 **Il COGS di agosto (41.523 € su 21.970 di ricavi) è spiegato all'euro**: banca COGS 45.403 −
+  9.950 (riga consegne banca, sostituita) + 6.070 (consegne piattaforma) = 41.523. Dentro i 45.403
+  c'è **«Da classificare» per 35.205 € — 159 controparti, tutto residuo senza regola**: il singolo
+  più grosso è **FINOTTI MATTEO, 17.325 €** (da identificare), il resto è una coda di **fiorai
+  pagati online** che col criterio del 29/07 sono quasi tutti girato ai partner (ESCLUSA), non
+  COGS. 🔴 **L'EBITDA −42k di agosto è in gran parte un artefatto di classificazione**: si chiude
+  scrivendo le regole nel CFO man mano che i movimenti freschi arrivano.
+- 🎨 **`/aggiornato`**: servizi raggruppati **per tipologia** (a ore / prezzo fisso, coi
+  subtotali); il totale entra nei Risultati commerciali come riga **«Servizi app»** (dentro il
+  totale, con l'avvertenza che alla fattura il valore migra nella sua tipologia); la **vista
+  settimana mostra i servizi** — e quando nei giorni risulta zero **lo dice**: il perimetro conta
+  le consegne a stato finale, e quelle degli ultimi giorni si confermano dopo (misurato: 22–24 Ago
+  24 servizi, dal 24 in poi zero).
+
 ### 30/08/2026 (notte): il commerciale del mese in corso è VIVO — i servizi dalla piattaforma
 
 Richiesta dell'utente («non solo il costo, devi prendere anche i ricavi delle consegne per i
