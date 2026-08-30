@@ -1,0 +1,5 @@
+img/products/22298117-b6a7-4ffa-bd68-d59e17467ef7.png: fetch failed
+img/products/4a139cfd-9bc1-4c4e-9bae-e4ac3e930cf2.png: fetch failed
+img/products/dc16e83e-5d0c-45e0-b9f3-cd98196100e8.jpg: fetch failed
+img/products/c9bf1e66-fa79-4b56-90ba-1196510fd8fc.jpg: fetch failed
+delivery/receipts/FB8A59E4-D6FB-43EC-9819-B7983EF1E6B3-FB3J.jpeg: fetch failed

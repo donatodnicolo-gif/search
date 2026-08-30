@@ -104,7 +104,59 @@
 **Ultimo aggiornamento:** 28 agosto 2026 — 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
-### 🔐 29/08/2026 — IL GUARD ORA NEGA PER DEFAULT (il difetto di fondo è chiuso)
+### 📦 29/08/2026 — I 14.952 FILE DEL LEGACY SONO IN CASA (100%), e i dati senza modello anche
+
+Chiesto dall'utente in vista dello spegnimento di `app.deluxy.it`: «porta tutti
+i dati qui, ma per ora l'altra app deve restare perfettamente funzionante».
+
+**FILE — 14.952 su 14.952, zero residui.** Copiati (non spostati) su Supabase
+Storage, bucket pubblico `legacy`, e riscritti gli indirizzi nel database:
+9.729 foto prodotto, 4.166 foto di consegna, 559 PDF di fattura, 455 ricevute
+dei valet, 38 firme, 5 loghi partner. **Verifica finale**: nessun riferimento a
+`app.deluxy.it` in NESSUNA colonna di testo dello schema (controllate tutte,
+non solo le sette note), e un campione per tipo risponde 200 col suo
+content-type (jpeg, pdf, png). Il vecchio gestionale risponde ancora: si è
+copiato, non spostato.
+
+**Tre difetti trovati facendola girare, non leggendola:**
+
+1. ⚠️⚠️ **Il legacy scrive gli indirizzi in DUE forme**, e la più comune ha un
+   `/./` in mezzo (`/api/./assets/`): **5.173 foto su 5.440**. Con un prefisso
+   solo lo script le saltava **in silenzio** — non caricate e nemmeno contate
+   fra i falliti: la corsa diceva «0 falliti» avendo lasciato indietro i tre
+   quarti del lavoro. Ora riconosce entrambe, e una forma sconosciuta si
+   **dichiara** (`SALTATI (forma sconosciuta): N`) invece di sparire.
+2. **Sotto carico il legacy risponde in 1-2 s e qualche richiesta cade**: 64
+   fallimenti su 1.200. Verificato che non fossero file mancanti (12 su 12
+   ripresi a mano tornavano 200), quindi tre tentativi con attesa crescente —
+   il 404 no, lì il file davvero non c'è. Sulla prova: 0 falliti su 75.
+3. **P1001, il pooler chiude la connessione** sotto migliaia di scritture. Due
+   corse cadute a metà. Rimedio: update a **blocchi** invece di uno per file
+   (commit `1fbd2b32`, da un'altra sessione sullo stesso script) e un **ciclo
+   che riprende**: lo script è idempotente, quindi ripartire costa solo il
+   tempo di rileggere l'elenco. Esito: giro 1 → 8.969 riscritti, 5 falliti;
+   giro 2 → i 5 recuperati, **0 rimasti**.
+
+**DATI SENZA MODELLO — 21.694 righe in `LegacyArchive`.** Quello che nel
+vecchio database non ha una casa qui: 19.211 notifiche storiche, 1.083
+promemoria partner, **422 reclami sulle consegne**, 377 collegamenti
+prodotti↔collezioni, **363 email in ingresso**, 55 fatture partner e le minori.
+La riga originale campo per campo, senza interpretarla: interpretarla adesso
+vorrebbe dire decidere per il futuro con la fretta di oggi. Verificato che si
+rilegga (un reclamo del 5/09/2025 esce col suo testo).
+
+**CSP**: `img-src` ammette ora anche lo storage — senza, le foto migrate
+sarebbero sparite dalle pagine pur essendo state copiate. Verificato
+sull'header di produzione.
+
+🟢 **Da qui in poi il dominio si può spostare**: di là non è rimasto niente che
+qui non ci sia. I due passi restano da fare a mano e su decisione dell'utente:
+aggiungere `app.deluxy.it` al progetto Vercel `delivery`, e su register.it
+sostituire il record A (`74.208.248.54`) con un CNAME verso
+`cname.vercel-dns.com` (TTL 300, abbassato qualche ora prima).
+⚠️ Dopo lo spostamento il vecchio gestionale non sarà più raggiungibile: se
+serve ancora a qualcuno, dargli prima un nome suo (es. `vecchio.deluxy.it`).
+
 
 Deciso dall'utente subito dopo la falla di `/service-types`: non basta tappare
 il buco, va tolta la ragione per cui i buchi nascono. Il `RolesGuard` faceva
