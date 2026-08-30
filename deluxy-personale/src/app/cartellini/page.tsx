@@ -2,6 +2,8 @@ import { inviaReportPresenze } from "@/lib/azioni";
 import { dataIt } from "@/lib/formato";
 import { hubConfigurato, presenzeDalHub, type RigaPresenzeHub } from "@/lib/presenze-hub";
 import { postaConfigurata } from "@/lib/posta";
+import { NotaEsito } from "@/components/NotaEsito";
+import { BottoneInvio } from "@/components/BottoneInvio";
 
 // I cartellini del mese, letti dal Hub (che li possiede: là si timbra), con
 // l'invio del rapporto al commercialista per le buste paga. Il rapporto lo
@@ -77,13 +79,24 @@ export default async function PaginaCartellini({
       </div>
 
       {sp.err && <div className="avviso-errore">{sp.err}</div>}
-      {sp.nota && <div className="avviso-nota">{sp.nota}</div>}
+      {sp.nota && <NotaEsito testo={sp.nota} />}
 
       {!presenze.ok ? (
-        <div className="card vuoto">
-          <div className="vuoto-icona">🕐</div>
+        // Un guasto non porta il vestito dello stato vuoto: cornice rossa e una
+        // via di ripresa (Libro §6.3). Il dettaglio tecnico resta, ma in seconda
+        // riga — la prima la legge chi amministra l'organico, non chi ha scritto
+        // il codice.
+        <div className="card guasto">
           <div className="vuoto-titolo">Cartellini non raggiungibili</div>
-          <div className="vuoto-testo">{presenze.messaggio}</div>
+          <div className="vuoto-testo">
+            Il Hub non ha risposto, quindi le timbrature di questo mese non si possono leggere.
+          </div>
+          <div className="guasto-dettaglio">{presenze.messaggio}</div>
+          <div style={{ marginTop: 14 }}>
+            <a className="btn" href={`/cartellini?mese=${mese}`}>
+              Riprova
+            </a>
+          </div>
         </div>
       ) : (
         <>
@@ -122,14 +135,19 @@ export default async function PaginaCartellini({
               <tbody>
                 {presenze.dati.riepilogo.righe.map((r) => (
                   <tr key={r.email}>
-                    <td>
-                      <span className="link-nome">{r.nome}</span>
+                    <td data-label="Nome">
+                      {/* Niente `link-nome` qui: le righe arrivano dal Hub per
+                          email e non tutte hanno una scheda in questa app — un
+                          nome che si sottolinea promette una navigazione che non
+                          c'è (Libro §3 e §8 v1.6: «un record senza dettaglio non
+                          finge»). */}
+                      <span style={{ fontWeight: 550 }}>{r.nome}</span>
                     </td>
-                    <td style={{ color: "var(--text-secondary)" }}>{r.email}</td>
-                    <td className="num">{ore(r.minuti)}</td>
-                    <td className="num">{r.giornate.length}</td>
-                    <td>{etichettaAssenze(r)}</td>
-                    <td>
+                    <td data-label="Email" style={{ color: "var(--text-secondary)" }}>{r.email}</td>
+                    <td data-label="Ore" className="num">{ore(r.minuti)}</td>
+                    <td data-label="Giornate timbrate" className="num">{r.giornate.length}</td>
+                    <td data-label="Assenze">{etichettaAssenze(r)}</td>
+                    <td data-label="Dettaglio">
                       {r.giornate.length === 0 && r.assenze.length === 0 ? (
                         <span className="cella-vuota">—</span>
                       ) : (
@@ -165,10 +183,10 @@ export default async function PaginaCartellini({
                   </tr>
                 ))}
                 <tr className="riga-totale">
-                  <td colSpan={2}>Totale</td>
-                  <td className="num">{ore(presenze.dati.riepilogo.totaleMinuti)}</td>
-                  <td className="num">{presenze.dati.riepilogo.righe.reduce((s, r) => s + r.giornate.length, 0)}</td>
-                  <td colSpan={2} />
+                  <td data-piena="" colSpan={2}>Totale</td>
+                  <td data-label="Nome" className="num">{ore(presenze.dati.riepilogo.totaleMinuti)}</td>
+                  <td data-label="Email" className="num">{presenze.dati.riepilogo.righe.reduce((s, r) => s + r.giornate.length, 0)}</td>
+                  <td data-piena="" colSpan={2} />
                 </tr>
               </tbody>
             </table>
@@ -188,9 +206,13 @@ export default async function PaginaCartellini({
 
             {!posta.pronta && (
               <div className="avviso-nota">
-                Invio non ancora configurato: manca {posta.manca.join(" e ")} nelle variabili di
-                questa app. Il token si copia da AI Mail → Impostazioni App → «Token API di AI
-                Mail»; MAIL_UTENTE è l&apos;email della casella da cui spedire.
+                L&apos;invio delle mail non è ancora acceso: lo attiva un amministratore. Intanto il
+                rapporto si legge qui sotto e si può copiare.
+                <div className="guasto-dettaglio">
+                  Per accenderlo serve {posta.manca.join(" e ")}: il token si copia da AI Mail →
+                  Impostazioni App → «Token API di AI Mail»; MAIL_UTENTE è l&apos;email della casella
+                  da cui spedire.
+                </div>
               </div>
             )}
 
@@ -210,9 +232,15 @@ export default async function PaginaCartellini({
                 <label>Nota in testa al rapporto (facoltativa)</label>
                 <input type="text" name="nota" placeholder="Es. per le buste paga di {mese}: straordinari già inclusi" />
               </div>
-              <button className="btn" type="submit">
-                Invia il rapporto
-              </button>
+              {/* Una mail non si ritira: la conferma nomina destinatario e mese
+                  (Libro, legge 7). E finché manca la chiave, il bottone è spento
+                  invece di far compilare due campi per niente (§4). */}
+              <BottoneInvio
+                etichetta="Invia il rapporto"
+                inCorso="Invio…"
+                disabilitato={!posta.pronta}
+                conferma={`Mando il rapporto presenze di ${presenze.dati.riepilogo.etichettaMese} a {destinatario}? Parte subito dalla casella aziendale e non si può richiamare.`}
+              />
             </form>
 
             <details className="modifica-inline" style={{ marginTop: 12 }}>

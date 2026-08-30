@@ -31,7 +31,12 @@ export default async function PaginaPersone({
   // chiudono con ricerca + stato + funzione; il tempo, dove conta (contratti
   // in scadenza), è già un KPI in testa.
 
-  const [persone, funzioni] = await Promise.all([
+  // ⭐ I KPI di testa parlano dell'AZIENDA, non della lista filtrata (verificato
+  // il 29/08/2026: cliccando «Cessate» la pagina dichiarava «Persone attive 0» e
+  // «nessun compenso con contributi dichiarati» mentre i dati c'erano). Quindi
+  // si leggono da una query PROPRIA, senza filtri — l'organico è di una decina
+  // di righe, costa nulla — e la lista filtrata dichiara sé stessa col «N di M».
+  const [persone, funzioni, tuttoOrganico] = await Promise.all([
     prisma.persona.findMany({
       where: {
         ...(filtroStato ? { stato: filtroStato } : {}),
@@ -57,9 +62,9 @@ export default async function PaginaPersone({
       orderBy: { nome: "asc" },
     }),
     prisma.funzione.findMany({ where: { attiva: true }, orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
+    prisma.persona.findMany({ include: { compensi: true, inquadramenti: true } }),
   ]);
 
-  const attive = persone.filter((p) => p.stato === "attivo");
   const righe = persone.map((p) => {
     const compenso = compensoCorrente(p.compensi);
     const inquadramento = inquadramentoCorrente(p.inquadramenti);
@@ -79,10 +84,25 @@ export default async function PaginaPersone({
     };
   });
 
-  const righeAttive = righe.filter((r) => r.p.stato === "attivo");
-  const conCosto = righeAttive.filter((r) => r.costo != null);
+  // I numeri di testa: sempre sull'organico intero (vedi il commento sopra).
+  const organicoAttivo = tuttoOrganico.filter((p) => p.stato === "attivo");
+  const costiAttivi = organicoAttivo.map((p) => {
+    const compenso = compensoCorrente(p.compensi);
+    const inquadramento = inquadramentoCorrente(p.inquadramenti);
+    const autonomo = eAutonomo((inquadramento ?? prossimaDecorrenza(p.inquadramenti))?.tipoContratto);
+    return {
+      costo: costoAziendaAnnuo(compenso, { autonomo }),
+      scadenza: inquadramento ? statoScadenza(inquadramento.scadenza) : null,
+    };
+  });
+  const conCosto = costiAttivi.filter((r) => r.costo != null);
   const costoTotale = conCosto.reduce((somma, r) => somma + (r.costo ?? 0), 0);
-  const inScadenza = righeAttive.filter((r) => r.scadenza === "in_scadenza" || r.scadenza === "scaduto").length;
+  const inScadenza = costiAttivi.filter((r) => r.scadenza === "in_scadenza" || r.scadenza === "scaduto").length;
+  const cessateInOrganico = tuttoOrganico.length - organicoAttivo.length;
+
+  // «N di M · filtro attivo» (Libro §8 punto 5): UNA fonte sola, sopra la lista.
+  const filtroAttivo = Boolean(sp.q || sp.funzione || filtroStato !== "attivo");
+  const nomeFunzioneFiltrata = sp.funzione ? funzioni.find((f) => f.id === sp.funzione)?.nome : null;
 
   const linkStato = (chiave: string) => {
     const parametri = new URLSearchParams();
@@ -114,12 +134,8 @@ export default async function PaginaPersone({
       <div className="kpi-riga">
         <div className="kpi">
           <div className="kpi-nome">Persone attive</div>
-          <div className="kpi-valore">{attive.length}</div>
-          <div className="kpi-nota">
-            {persone.length - attive.length > 0 && filtroStato === null
-              ? `${persone.length - attive.length} cessate`
-              : " "}
-          </div>
+          <div className="kpi-valore">{organicoAttivo.length}</div>
+          <div className="kpi-nota">{cessateInOrganico > 0 ? `${cessateInOrganico} cessate` : " "}</div>
         </div>
         <div className="kpi">
           <div className="kpi-nome">Funzioni</div>
@@ -132,8 +148,8 @@ export default async function PaginaPersone({
           <div className="kpi-nota">
             {conCosto.length === 0
               ? "nessun compenso con contributi dichiarati"
-              : conCosto.length < righeAttive.length
-                ? `su ${conCosto.length} persone: ${righeAttive.length - conCosto.length} senza dati`
+              : conCosto.length < organicoAttivo.length
+                ? `su ${conCosto.length} persone: ${organicoAttivo.length - conCosto.length} senza dati`
                 : conCosto.length === 1
                   ? "l'unica persona attiva"
                   : `tutte le ${conCosto.length} persone attive`}
@@ -156,24 +172,25 @@ export default async function PaginaPersone({
         <a className={`chip${filtroStato === null ? " attivo" : ""}`} href={linkStato("tutti")}>
           Tutte
         </a>
-        <form action="/" style={{ display: "flex", gap: 8, flex: 1, minWidth: 200 }}>
+        {/* ⭐ UN SOLO form GET (Libro §8 punto 7). Prima erano due: quello del
+            bottone «Filtra» portava la `q` DELL'URL, non quella digitata — chi
+            scriveva un nome e cliccava il bottone visibile otteneva la ricerca
+            precedente, con l'aria di essere quella giusta (29/08/2026). */}
+        <form className="filtri-form" action="/">
           {sp.stato && <input type="hidden" name="stato" value={sp.stato} />}
-          {sp.funzione && <input type="hidden" name="funzione" value={sp.funzione} />}
           <input
             type="text"
             name="q"
             defaultValue={sp.q ?? ""}
+            aria-label="Cerca una persona"
             placeholder="Cerca per nome o ruolo…"
             style={{ borderRadius: "var(--radius-pill)", maxWidth: 280 }}
           />
-        </form>
-        {funzioni.length > 0 && (
-          <form action="/" style={{ display: "inline-flex" }}>
-            {sp.stato && <input type="hidden" name="stato" value={sp.stato} />}
-            {sp.q && <input type="hidden" name="q" value={sp.q} />}
+          {funzioni.length > 0 && (
             <select
               name="funzione"
               defaultValue={sp.funzione ?? ""}
+              aria-label="Filtra per funzione"
               style={{ borderRadius: "var(--radius-pill)", width: "auto" }}
             >
               <option value="">Tutte le funzioni</option>
@@ -183,26 +200,50 @@ export default async function PaginaPersone({
                 </option>
               ))}
             </select>
-            <button className="btn ghost mini" style={{ marginLeft: 8 }} type="submit">
-              Filtra
-            </button>
-          </form>
-        )}
+          )}
+          <button className="btn ghost mini" type="submit">
+            Filtra
+          </button>
+          {filtroAttivo && (
+            <a className="btn ghost mini" href="/">
+              Azzera
+            </a>
+          )}
+        </form>
       </div>
+
+      {/* «N di M · filtro attivo» (Libro §8 punto 5): la lista dichiara perché
+          è ridotta, così i KPI di testa restano quelli dell'azienda. */}
+      {filtroAttivo && (
+        <div className="conto-righe">
+          {righe.length} di {tuttoOrganico.length}
+          {filtroStato === "attivo" ? " · solo attive" : filtroStato === "cessato" ? " · solo cessate" : ""}
+          {nomeFunzioneFiltrata ? ` · ${nomeFunzioneFiltrata}` : ""}
+          {sp.q ? ` · «${sp.q}»` : ""}
+        </div>
+      )}
 
       {righe.length === 0 ? (
         <div className="card vuoto">
           <div className="vuoto-icona">👤</div>
-          <div className="vuoto-titolo">Nessuna persona qui</div>
+          <div className="vuoto-titolo">{filtroAttivo ? "Nessuna persona con questi filtri" : "Nessuna persona qui"}</div>
           <div className="vuoto-testo">
-            {sp.q || sp.funzione
-              ? "Con questi filtri non c'è nessuno: prova ad allargarli."
+            {filtroAttivo
+              ? `0 di ${tuttoOrganico.length}: nessuno risponde a questi filtri.`
               : "Comincia aggiungendo le persone dell'organico."}
           </div>
           <div style={{ marginTop: 14 }}>
-            <a className="btn" href="/persone/nuova">
-              Nuova persona
-            </a>
+            {/* Il vuoto DA FILTRO offre l'uscita dal filtro, non la creazione di
+                una persona che con ogni probabilità esiste già (Libro §6.2). */}
+            {filtroAttivo ? (
+              <a className="btn" href="/">
+                Azzera i filtri
+              </a>
+            ) : (
+              <a className="btn" href="/persone/nuova">
+                Nuova persona
+              </a>
+            )}
           </div>
         </div>
       ) : (
@@ -224,15 +265,15 @@ export default async function PaginaPersone({
               {righe.map(({ p, compenso, compensoFuturo, inquadramento, inquadramentoFuturo, costo, principale, scadenza }) => (
                 // La riga è la persona: tutta la riga apre la sua scheda (Libro §8).
                 <RigaLink key={p.id} href={`/persone/${p.id}`}>
-                  <td>
+                  <td data-label="Nome">
                     <a className="link-nome" href={`/persone/${p.id}`}>
                       {p.nome}
                     </a>
                     <div className="sotto-nome">{p.ruolo || " "}</div>
                   </td>
-                  <td>{p.funzione?.nome ?? <span className="cella-vuota">—</span>}</td>
-                  <td>{principale ?? <span className="cella-vuota">—</span>}</td>
-                  <td>
+                  <td data-label="Funzione">{p.funzione?.nome ?? <span className="cella-vuota">—</span>}</td>
+                  <td data-label="Mansione principale">{principale ?? <span className="cella-vuota">—</span>}</td>
+                  <td data-label="Contratto">
                     {p.stato === "cessato" ? (
                       <span className="badge rosso">
                         <span className="dot" />
@@ -259,10 +300,16 @@ export default async function PaginaPersone({
                         )}
                       </span>
                     ) : inquadramentoFuturo ? (
-                      <span className="badge blu">
-                        <span className="dot" />
-                        {nomeTipoContratto(inquadramentoFuturo.tipoContratto)} dal{" "}
-                        {dataIt(inquadramentoFuturo.decorrenza)}
+                      // Due pillole invece di una lunga: «Stage / tirocinio dal
+                      // 01/09/2026» in `nowrap` teneva la colonna a 232px e
+                      // spingeva «Costo azienda» fuori dalla card a 1366×768
+                      // (misurato 29/08/2026: 35px su 50 di ogni importo tagliati).
+                      <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
+                        <span className="badge blu">
+                          <span className="dot" />
+                          {nomeTipoContratto(inquadramentoFuturo.tipoContratto)}
+                        </span>
+                        <span className="badge">dal {dataIt(inquadramentoFuturo.decorrenza)}</span>
                       </span>
                     ) : (
                       <span className="badge">
@@ -271,8 +318,8 @@ export default async function PaginaPersone({
                       </span>
                     )}
                   </td>
-                  <td>{dataIt(p.dataAssunzione)}</td>
-                  <td>
+                  <td data-label="Dal">{dataIt(p.dataAssunzione)}</td>
+                  <td data-label="Benefit">
                     {p.benefit.length === 0 ? (
                       <span className="cella-vuota">—</span>
                     ) : (
@@ -286,7 +333,7 @@ export default async function PaginaPersone({
                       ))
                     )}
                   </td>
-                  <td className="num">
+                  <td data-label="RAL / compenso" className="num">
                     {compenso ? (
                       euro(Number(compenso.ral))
                     ) : compensoFuturo ? (
@@ -297,7 +344,7 @@ export default async function PaginaPersone({
                       <span className="cella-vuota">—</span>
                     )}
                   </td>
-                  <td className="num">
+                  <td data-label="Costo azienda" className="num">
                     {costo != null ? euro(costo) : <span className="cella-vuota">non calcolabile</span>}
                   </td>
                 </RigaLink>

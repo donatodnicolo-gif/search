@@ -133,29 +133,29 @@ export default async function PaginaStipendi() {
               {righe.map(({ p, compenso, autonomo, costo, futuro }) => (
                 // La riga è la persona: tutta la riga apre la sua scheda (Libro §8).
                 <RigaLink key={p.id} href={`/persone/${p.id}`}>
-                  <td>
+                  <td data-label="Nome">
                     <a className="link-nome" href={`/persone/${p.id}`}>
                       {p.nome}
                     </a>
                     <div className="sotto-nome">{p.ruolo || " "}</div>
                   </td>
-                  <td>{p.funzione?.nome ?? <span className="cella-vuota">—</span>}</td>
+                  <td data-label="Funzione">{p.funzione?.nome ?? <span className="cella-vuota">—</span>}</td>
                   {compenso ? (
                     <>
-                      <td>{dataIt(compenso.decorrenza)}</td>
-                      <td>{nomeMotivoCompenso(compenso.motivo)}</td>
-                      <td className="num">{euro(Number(compenso.ral))}</td>
-                      <td className="num">
+                      <td data-label="Dal">{dataIt(compenso.decorrenza)}</td>
+                      <td data-label="Motivo">{nomeMotivoCompenso(compenso.motivo)}</td>
+                      <td data-label="RAL / compenso" className="num">{euro(Number(compenso.ral))}</td>
+                      <td data-label="Mensilità" className="num">
                         {autonomo ? <span className="cella-vuota">—</span> : compenso.mensilita}
                       </td>
-                      <td className="num">
+                      <td data-label="Lordo mensile" className="num">
                         {autonomo ? (
                           <span className="cella-vuota">—</span>
                         ) : (
                           euro(Number(compenso.ral) / compenso.mensilita)
                         )}
                       </td>
-                      <td className="num">
+                      <td data-label="Netto mensile" className="num">
                         {autonomo ? (
                           <span className="cella-vuota">—</span>
                         ) : compenso.nettoMensile != null ? (
@@ -164,26 +164,26 @@ export default async function PaginaStipendi() {
                           <span className="cella-vuota">non indicato</span>
                         )}
                       </td>
-                      <td className="num">
+                      <td data-label="Contributi / oneri" className="num">
                         {compenso.contributiPct != null ? (
                           `${numero(Number(compenso.contributiPct))}%`
                         ) : (
                           <span className="cella-vuota">{autonomo ? "nessuno" : "—"}</span>
                         )}
                       </td>
-                      <td className="num">
+                      <td data-label="Costo azienda" className="num">
                         {costo != null ? euro(costo) : <span className="cella-vuota">non calcolabile</span>}
                       </td>
                     </>
                   ) : futuro ? (
-                    <td colSpan={8}>
+                    <td data-piena="" colSpan={8}>
                       <span className="badge blu">
                         <span className="dot" />
                         RAL {euro(Number(futuro.ral))} · decorre dal {dataIt(futuro.decorrenza)}
                       </span>
                     </td>
                   ) : (
-                    <td colSpan={8} className="cella-vuota">
+                    <td data-piena="" colSpan={8} className="cella-vuota">
                       nessuna retribuzione registrata
                     </td>
                   )}
@@ -191,16 +191,16 @@ export default async function PaginaStipendi() {
               ))}
               {conRal.length > 0 && (
                 <tr className="riga-totale">
-                  <td colSpan={4}>
+                  <td data-piena="" colSpan={4}>
                     Totale ({conRal.length} person{conRal.length === 1 ? "a" : "e"}
                     {senzaRal.length > 0 ? `, ${senzaRal.length} escluse` : ""})
                   </td>
-                  <td className="num">{euro(totaleRal)}</td>
-                  <td className="num" />
-                  <td className="num" />
-                  <td className="num" />
-                  <td className="num" />
-                  <td className="num">{conCosto.length > 0 ? euro(totaleCosto) : "—"}</td>
+                  <td data-label="Nome" className="num">{euro(totaleRal)}</td>
+                  <td data-label="Funzione" className="num" />
+                  <td data-label="Dal" className="num" />
+                  <td data-label="Motivo" className="num" />
+                  <td data-label="RAL / compenso" className="num" />
+                  <td data-label="Mensilità" className="num">{conCosto.length > 0 ? euro(totaleCosto) : "—"}</td>
                 </tr>
               )}
             </tbody>

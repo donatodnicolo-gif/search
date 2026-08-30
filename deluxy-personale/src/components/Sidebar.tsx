@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 // Sidebar del gestionale (Design System §3 Navigazione): sezioni con etichetta
 // maiuscola, voce attiva con sfondo pieno e icona oro, utente in basso.
@@ -94,6 +95,23 @@ const SEZIONI: { nome: string; voci: Voce[] }[] = [
 
 export function Sidebar({ nome, ruolo, conLogout }: { nome: string; ruolo: string; conLogout: boolean }) {
   const pathname = usePathname();
+  const [aperto, setAperto] = useState(false);
+
+  // Chiusura con Esc, come ogni pannello sovrapposto (Libro §9).
+  useEffect(() => {
+    if (!aperto) return;
+    const suEsc = (e: KeyboardEvent) => { if (e.key === "Escape") setAperto(false); };
+    document.addEventListener("keydown", suEsc);
+    return () => document.removeEventListener("keydown", suEsc);
+  }, [aperto]);
+
+  // Il drawer si chiude appena si cambia pagina.
+  useEffect(() => { setAperto(false); }, [pathname]);
+
+  // Sul login il guscio non si monta: montato, metteva 9 link focalizzabili
+  // PRIMA del campo password, coperti dall'overlay ma raggiungibili col Tab e
+  // letti per intero dallo screen reader (misurato il 29/08/2026).
+  if (pathname === "/login") return null;
   const attiva = (href: string) =>
     href === "/" ? pathname === "/" || pathname.startsWith("/persone") : pathname.startsWith(href);
 
@@ -106,7 +124,31 @@ export function Sidebar({ nome, ruolo, conLogout }: { nome: string; ruolo: strin
       .join("") || "D";
 
   return (
-    <aside className="sidebar">
+    <>
+      {/* Sotto i 900px il menu è un drawer da SINISTRA con topbar da 56px
+          (Libro §2). Prima si sdraiava in flusso e mangiava 278px — il 34% della
+          prima schermata — su ogni pagina, con le 8 voci sparse su tre colonne
+          disallineate (misurato il 29/08/2026). */}
+      <header className="topbar">
+        <button
+          type="button"
+          className="topbar-menu"
+          aria-label="Apri il menu"
+          aria-expanded={aperto}
+          aria-controls="menu-principale"
+          onClick={() => setAperto(true)}
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" {...S}>
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+        <div className="brand-logo">D</div>
+        <div className="brand-name">Deluxy Personale</div>
+      </header>
+
+      {aperto && <div className="scrim" onClick={() => setAperto(false)} />}
+
+      <aside id="menu-principale" className={`sidebar${aperto ? " aperta" : ""}`}>
       <a className="brand" href="/">
         <div className="brand-logo">D</div>
         <div>
@@ -119,7 +161,14 @@ export function Sidebar({ nome, ruolo, conLogout }: { nome: string; ruolo: strin
         <div key={sezione.nome}>
           <div className="nav-sezione">{sezione.nome}</div>
           {sezione.voci.map((voce) => (
-            <a key={voce.href} href={voce.href} className={`nav-voce${attiva(voce.href) ? " attiva" : ""}`}>
+            <a
+              key={voce.href}
+              href={voce.href}
+              // Terzo segnale della voce attiva, oltre a sfondo e peso: senza,
+              // chi naviga con lo screen reader non sa dove si trova (Libro §1).
+              aria-current={attiva(voce.href) ? "page" : undefined}
+              className={`nav-voce${attiva(voce.href) ? " attiva" : ""}`}
+            >
               {voce.icona}
               {voce.nome}
             </a>
@@ -142,6 +191,7 @@ export function Sidebar({ nome, ruolo, conLogout }: { nome: string; ruolo: strin
           </a>
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

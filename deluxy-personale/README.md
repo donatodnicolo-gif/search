@@ -9,9 +9,9 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
 
 - Porta di sviluppo: **3200** · Schema Postgres: **`personale`** (cluster condiviso)
 - Produzione: **https://deluxy-personale.vercel.app** (Vercel, region `fra1`)
-- UI: Deluxy Design System v1.0 (sidebar da gestionale, token in `src/app/tokens.css`)
+- UI: Deluxy Design System v1.4 + Libro UX&UI v1.10 (sidebar da gestionale, token in `src/app/tokens.css`)
 
-## Dove siamo (26/08/2026)
+## Dove siamo (29/08/2026)
 
 - ✅ App completa e in produzione: Persone (elenco + KPI), scheda persona
   (dati, mansioni, **mansionario personale**, storico inquadramenti, storico
@@ -77,6 +77,107 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
   giro): chi finisce prima di dicembre ha la **scadenza** all'ultimo giorno
   dell'ultimo mese; chi arriva a dicembre resta senza scadenza (lì finisce il
   roster, non per forza il contratto).
+
+## Passata UX del 29/08/2026 (7 esami + 3 revisioni ostili)
+
+Nata da una segnalazione dell'utente sulle tabelle. Il custode del layout ha
+emesso il verdetto, sei agenti hanno esaminato le 11 pagine sul dev server, e le
+49 accuse raccolte sono passate da tre revisioni `ux-ostile`: **26 reggono, 5
+cadono, 18 ridimensionate**. Il registro completo — comprese quelle CADUTE, che
+non vanno «ricorrette» per sbaglio — è in
+[`deluxy-design-system/SEGNALAZIONI-UX.md`](../deluxy-design-system/SEGNALAZIONI-UX.md).
+
+Corretto in questo giro, con la misura prima → dopo:
+
+- ⭐ **La ricerca dava risultati sbagliati con l'aria di essere giusti**: la
+  casella e il bottone «Filtra» erano due `<form>` distinti, e il secondo
+  portava la `q` **dell'URL** invece di quella digitata. Da `/?q=Edoardo`,
+  scrivendo «Luca» e cliccando il bottone si tornava a Edoardo con una lista
+  coerente e plausibile. Ora è **un solo form** (verificato sul vivo: la stessa
+  sequenza dà «Luca Salso», URL `?q=Luca`).
+- ⭐ **I KPI di testa mentivano a un click**: erano calcolati sulla lista
+  filtrata, quindi `/?stato=cessati` dichiarava «Persone attive 0» e «nessun
+  compenso con contributi dichiarati» mentre i dati c'erano. Ora hanno una query
+  propria, senza filtri (8 attive · 3 cessate anche col filtro addosso), e la
+  lista dichiara sé stessa con **«N di M · filtro attivo»** sopra la tabella.
+- **Le intestazioni non si fermavano**: scorrendo, il primo `th` finiva a
+  top −302 e si leggevano otto colonne senza nome. Ora `th` sticky + `max-height`
+  sul contenitore (misurato dopo: scarto **0** dopo 300px di scorrimento).
+- **A 1366×768 «Costo azienda» era tagliata**: 35px su 50 di ogni importo fuori
+  dalla card, su 11 righe, perché il badge «Stage / tirocinio dal 01/09/2026» in
+  `nowrap` teneva la colonna Contratto a 232px. Ora sono due pillole che vanno a
+  capo: **eccedenza orizzontale 0**, l'importo sta dentro con 16px di margine.
+  ⚠️ Ordine obbligato: la colonna si stringe PRIMA di mettere la `max-height`,
+  o la card si ritrova due barre di scorrimento annidate.
+- **Su mobile la tabella diventa schede** (Libro §8: lo scorrimento orizzontale
+  come unica risposta è vietato). Prima a 375px si leggeva il 32% della riga.
+  Le etichette sono **statiche nel markup** (`data-label` sui `<td>`), non
+  scritte da JavaScript: si vedono nell'HTML servito dal server. ⚠️ Le 8 celle
+  con `colSpan` (totali e avvisi) sono marcate `data-piena` e restano a piena
+  larghezza: la utility della piattaforma, che mappa per indice, le avrebbe
+  etichettate con la colonna sbagliata.
+- **Il menu mobile è un drawer da sinistra** con topbar da 56px, scrim, Esc e
+  chiusura al cambio pagina. Prima si sdraiava in flusso e mangiava 278px — il
+  34% della prima schermata — su ogni pagina. Effetto misurato sulla home a
+  375×812: la prima riga dell'elenco passa da **1165px a 655px**, cioè entra
+  nella prima schermata come vuole la misura di collaudo del §8.
+- **Bersagli e campi su touch**: blocco `@media (pointer: coarse)` che porta a
+  44px bottoni, chip, voci di menu, la × di rimozione e le caselle di spunta
+  (prima 27 elementi su 27 erano sotto la soglia, e `--touch-min` era definito e
+  mai usato); input a 16px sotto i 900px, contro lo zoom di Safari iOS.
+- **La CTA di un form lungo non finisce più sotto la tastiera**: `.form-azioni`
+  sticky in basso con `safe-area-inset-bottom`.
+- **L'esito non si ripropone a un refresh**: `?nota=` viene mostrata una volta e
+  ripulita dall'URL con `replaceState`. Prima un F5 su `/cartellini` ripeteva
+  «Rapporto inviato a …» senza che nulla fosse partito. ⚠️ La via del «cookie
+  flash» non regge in RSC: un Server Component non può cancellare un cookie
+  durante il render.
+- **L'invio al commercialista chiede conferma** e nomina destinatario e mese
+  (una mail non si ritira); il bottone è **spento** finché manca la chiave, e
+  mostra «Invio…» mentre lavora. Stesso trattamento a «Crea la persona», che
+  dietro fa una chiamata a Budgets con timeout di 4 secondi.
+- **Il guasto dei cartellini ha un vestito suo** (cornice rossa + «Riprova»),
+  non più quello dello stato vuoto; e il messaggio parla italiano, col nome
+  della variabile relegato in seconda riga.
+- **L'oro non è più un esito**: gli esiti riusciti usano `.nota-ok` verde,
+  l'oro resta alla cautela.
+- **Login**: label vera sopra il campo, spazio riservato al messaggio (l'errore
+  spostava il bottone di 29px mentre il dito stava per premerlo), e il guscio
+  non si monta più su `/login` — montato, metteva 9 link focalizzabili prima
+  della password.
+- **`aria-current="page"`** sulla voce attiva del menu; nomi accessibili sui
+  filtri; `.card-sub` col tetto di 640px come `.page-sub`.
+
+### Deroghe di questa app (Libro §12)
+
+- **Niente scorciatoie di periodo sull'elenco Persone** (§8-bis lettera c):
+  l'organico non è un registro di movimenti — una persona non «appartiene» a un
+  mese, c'è o non c'è. Le altre due gambe della regola (ricerca e filtri) ci
+  sono; il tempo, dove conta, è il KPI «Contratti in scadenza». *(Deciso il
+  28/08/2026, motivazione anche in `src/app/page.tsx`.)*
+- **Su `/cartellini` il periodo sono le frecce ← mese →**, non le chip
+  `Mese · Trimestre · Anno`: è un registro mensile chiuso, il trimestre non ha
+  significato. *(29/08/2026, su parere del custode.)*
+- **Nomi delle classi in italiano** (`.btn.mini`, `.pericolo`, `.ghost` invece di
+  `.small`, `.danger`, `.secondary`): il Libro §12 vieta i rinomini di massa
+  nelle app esistenti — si migra al confine.
+
+### Aperto, in attesa di arbitrato del custode
+
+- **`.btn.mini` è alto 28,4px**: il §10.1 chiede ≥32px su desktop, ma il
+  `.btn.small` **del Libro** («5×13, 12.5px») produce 28,4px identici e il §3
+  v1.8 fissa il minimo desktop a ≥28px. **Le due regole del Libro si
+  contraddicono**: la decisione vale per tutte le app, non si prende qui.
+- **La riga dei totali in `<tfoot>`**: proposta del custode come voce nuova
+  (§8 v1.11). Nel metro vigente (v1.10) `tfoot` non è nominato, quindi resta
+  com'è finché non è promulgata.
+- **Ordinamento dal click sull'intestazione** (§8): assente. L'ostile l'ha
+  declassato — 5-11 righe già ordinate per nome, danno operativo nullo — ma
+  diventa dovuto appena l'organico supera le ~30 persone.
+- **Ricerca e filtri su `/stipendi`, `/inquadramenti`, `/benefit`** (§8-bis):
+  assenti. Stessa ragione: la regola si giustifica a 200 righe, qui ce ne sono 5-8.
+- **`.cella-manca`** (terza gamba della tripletta delle celle vuote, §8): non
+  esiste in **nessuna app del repo**. È un'adozione mai fatta a livello di parco.
 
 ## Le regole che l'app rispetta
 

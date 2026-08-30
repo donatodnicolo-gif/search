@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { creaPersona, ricongiungiPersona } from "@/lib/azioni";
 import { MODALITA_LAVORO, nomeTipoContratto, inquadramentoCorrente } from "@/lib/organico";
+import { BottoneInvio } from "@/components/BottoneInvio";
+import { TornaIndietro } from "@/components/TornaIndietro";
 
 // La creazione NON duplica in silenzio: se esiste già un'omonima, l'azione
 // rimanda qui con i dati compilati e si sceglie — aggiornare/ricongiungere la
@@ -62,9 +64,9 @@ export default async function PaginaNuovaPersona({
           </p>
         </div>
         <div className="page-azioni">
-          <a className="btn ghost" href="/">
-            Torna all&apos;elenco
-          </a>
+          {/* «Torna all'elenco» cablato sull'URL nudo buttava i filtri di chi
+              era arrivato da una lista filtrata (Libro §2 v1.5). */}
+          <TornaIndietro fallback="/" label="Persone" />
         </div>
       </div>
 
@@ -181,9 +183,9 @@ export default async function PaginaNuovaPersona({
           </div>
         </div>
         <div className="form-azioni">
-          <button type="submit" className="btn">
-            Crea la persona
-          </button>
+          {/* Ordine del Libro §4: [Annulla secondario] [Verbo primario]. */}
+          <TornaIndietro fallback="/" label="Annulla" />
+          <BottoneInvio etichetta="Crea la persona" inCorso="Creo…" />
         </div>
       </form>
     </>

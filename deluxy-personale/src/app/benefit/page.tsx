@@ -10,6 +10,7 @@ import {
 } from "@/lib/azioni";
 import { FormConferma } from "@/components/FormConferma";
 import { RigaLink } from "@/components/RigaLink";
+import { NotaEsito } from "@/components/NotaEsito";
 
 // La tabella dei benefit: una riga per persona attiva, una colonna per tipo
 // (buoni pasto, cellulare, PC, auto…). Il VOCABOLARIO dei tipi lo governa
@@ -59,7 +60,7 @@ export default async function PaginaBenefit({
       </div>
 
       {sp.err && <div className="avviso-errore">{sp.err}</div>}
-      {sp.nota && <div className="avviso-nota">{sp.nota}</div>}
+      {sp.nota && <NotaEsito testo={sp.nota} />}
 
       <div className="kpi-riga">
         <div className="kpi">
@@ -126,7 +127,7 @@ export default async function PaginaBenefit({
                 return (
                   // La riga è la persona: tutta la riga apre la sua scheda (Libro §8).
                   <RigaLink key={p.id} href={`/persone/${p.id}`}>
-                    <td>
+                    <td data-label="Nome">
                       <a className="link-nome" href={`/persone/${p.id}`}>
                         {p.nome}
                       </a>
@@ -169,7 +170,7 @@ export default async function PaginaBenefit({
                         </td>
                       );
                     })}
-                    <td className="num">
+                    <td data-label="Valore mensile" className="num">
                       {valoriDichiarati.length > 0 ? (
                         <>
                           {euro(valorePersona)}
@@ -188,10 +189,10 @@ export default async function PaginaBenefit({
               })}
               {conValore.length > 0 && (
                 <tr className="riga-totale">
-                  <td colSpan={tipi.length + 1}>
+                  <td data-piena="" colSpan={tipi.length + 1}>
                     Totale valori dichiarati ({conValore.length} benefit su {totaleAssegnati})
                   </td>
-                  <td className="num">{euro(totaleValore)}/mese</td>
+                  <td data-label="Nome" className="num">{euro(totaleValore)}/mese</td>
                 </tr>
               )}
             </tbody>

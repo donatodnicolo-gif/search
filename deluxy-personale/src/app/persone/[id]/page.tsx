@@ -37,6 +37,7 @@ import {
 } from "@/lib/azioni";
 import { FormConferma } from "@/components/FormConferma";
 import { TornaIndietro } from "@/components/TornaIndietro";
+import { NotaEsito } from "@/components/NotaEsito";
 
 // La scheda della persona: dati, mansioni, inquadramento e retribuzione come
 // STORIA (il corrente è l'ultima decorrenza non futura, calcolato in
@@ -127,7 +128,7 @@ export default async function SchedaPersona({
       </div>
 
       {sp.err && <div className="avviso-errore">{sp.err}</div>}
-      {sp.nota && <div className="avviso-nota">{sp.nota}</div>}
+      {sp.nota && <NotaEsito testo={sp.nota} />}
 
       {/* ---------- Dati ---------- */}
       <form action={aggiornaPersona} className="card">
@@ -487,14 +488,14 @@ export default async function SchedaPersona({
               <tbody>
                 {persona.inquadramenti.map((i) => (
                   <tr key={i.id}>
-                    <td>{dataIt(i.decorrenza)}</td>
-                    <td>{nomeTipoContratto(i.tipoContratto)}</td>
-                    <td>{i.ccnl || <span className="cella-vuota">—</span>}</td>
-                    <td>{i.livello || <span className="cella-vuota">—</span>}</td>
-                    <td>{i.qualifica || <span className="cella-vuota">—</span>}</td>
-                    <td className="num">{i.partTimePct < 100 ? `${i.partTimePct}%` : "tempo pieno"}</td>
-                    <td>{dataIt(i.scadenza)}</td>
-                    <td style={{ maxWidth: 220 }}>{i.note || <span className="cella-vuota">—</span>}</td>
+                    <td data-label="Decorrenza">{dataIt(i.decorrenza)}</td>
+                    <td data-label="Contratto">{nomeTipoContratto(i.tipoContratto)}</td>
+                    <td data-label="CCNL">{i.ccnl || <span className="cella-vuota">—</span>}</td>
+                    <td data-label="Livello">{i.livello || <span className="cella-vuota">—</span>}</td>
+                    <td data-label="Qualifica">{i.qualifica || <span className="cella-vuota">—</span>}</td>
+                    <td data-label="Part-time" className="num">{i.partTimePct < 100 ? `${i.partTimePct}%` : "tempo pieno"}</td>
+                    <td data-label="Scadenza">{dataIt(i.scadenza)}</td>
+                    <td data-label="Note" style={{ maxWidth: 220 }}>{i.note || <span className="cella-vuota">—</span>}</td>
                     <td className="num">
                       <FormConferma
                         azione={eliminaInquadramento}
@@ -614,13 +615,13 @@ export default async function SchedaPersona({
                   const costoRiga = costoAziendaAnnuo(c, { autonomo });
                   return (
                     <tr key={c.id}>
-                      <td>{dataIt(c.decorrenza)}</td>
-                      <td>{nomeMotivoCompenso(c.motivo)}</td>
+                      <td data-label="Decorrenza">{dataIt(c.decorrenza)}</td>
+                      <td data-label="Motivo">{nomeMotivoCompenso(c.motivo)}</td>
                       <td className="num">{euro(Number(c.ral))}</td>
-                      <td className="num">
+                      <td data-label="Mensilità" className="num">
                         {autonomo ? <span className="cella-vuota">—</span> : c.mensilita}
                       </td>
-                      <td className="num">
+                      <td data-label="Netto mensile" className="num">
                         {autonomo ? (
                           <span className="cella-vuota">—</span>
                         ) : c.nettoMensile != null ? (
@@ -636,10 +637,10 @@ export default async function SchedaPersona({
                           <span className="cella-vuota">{autonomo ? "nessuno" : "—"}</span>
                         )}
                       </td>
-                      <td className="num">
+                      <td data-label="Costo azienda" className="num">
                         {costoRiga != null ? euro(costoRiga) : <span className="cella-vuota">non calcolabile</span>}
                       </td>
-                      <td style={{ maxWidth: 180 }}>{c.benefit || <span className="cella-vuota">—</span>}</td>
+                      <td data-label="Benefit" style={{ maxWidth: 180 }}>{c.benefit || <span className="cella-vuota">—</span>}</td>
                       <td className="num">
                         <FormConferma
                           azione={eliminaCompenso}

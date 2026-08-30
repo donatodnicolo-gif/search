@@ -98,22 +98,22 @@ export default async function PaginaInquadramenti() {
               {righe.map(({ p, inq, scadenza, futuro }) => (
                 // La riga è la persona: tutta la riga apre la sua scheda (Libro §8).
                 <RigaLink key={p.id} href={`/persone/${p.id}`}>
-                  <td>
+                  <td data-label="Nome">
                     <a className="link-nome" href={`/persone/${p.id}`}>
                       {p.nome}
                     </a>
                     <div className="sotto-nome">{p.ruolo || " "}</div>
                   </td>
-                  <td>{p.funzione?.nome ?? <span className="cella-vuota">—</span>}</td>
+                  <td data-label="Funzione">{p.funzione?.nome ?? <span className="cella-vuota">—</span>}</td>
                   {inq ? (
                     <>
-                      <td>{nomeTipoContratto(inq.tipoContratto)}</td>
-                      <td>{inq.ccnl || <span className="cella-vuota">—</span>}</td>
-                      <td>{inq.livello || <span className="cella-vuota">—</span>}</td>
-                      <td>{inq.qualifica || <span className="cella-vuota">—</span>}</td>
-                      <td className="num">{inq.partTimePct < 100 ? `${inq.partTimePct}%` : "pieno"}</td>
-                      <td>{dataIt(inq.decorrenza)}</td>
-                      <td>
+                      <td data-label="Contratto">{nomeTipoContratto(inq.tipoContratto)}</td>
+                      <td data-label="CCNL">{inq.ccnl || <span className="cella-vuota">—</span>}</td>
+                      <td data-label="Livello">{inq.livello || <span className="cella-vuota">—</span>}</td>
+                      <td data-label="Qualifica">{inq.qualifica || <span className="cella-vuota">—</span>}</td>
+                      <td data-label="Part-time" className="num">{inq.partTimePct < 100 ? `${inq.partTimePct}%` : "pieno"}</td>
+                      <td data-label="Decorrenza">{dataIt(inq.decorrenza)}</td>
+                      <td data-label="Scadenza">
                         {inq.scadenza ? (
                           <span
                             className={`badge ${
@@ -129,7 +129,7 @@ export default async function PaginaInquadramenti() {
                       </td>
                     </>
                   ) : futuro ? (
-                    <td colSpan={7}>
+                    <td data-piena="" colSpan={7}>
                       <span className="badge blu">
                         <span className="dot" />
                         {nomeTipoContratto(futuro.tipoContratto)}
@@ -138,7 +138,7 @@ export default async function PaginaInquadramenti() {
                       </span>
                     </td>
                   ) : (
-                    <td colSpan={7} className="cella-vuota">
+                    <td data-piena="" colSpan={7} className="cella-vuota">
                       nessun inquadramento registrato
                     </td>
                   )}

@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { authAttiva, creaSessione, DURATA_SESSIONE_S, SESSION_COOKIE } from "@/lib/auth";
+import { BottoneInvio } from "@/components/BottoneInvio";
 
 // Login con la PASSWORD DELL'APP (PERSONALE_APP_PASSWORD), come le altre app
 // Deluxy. Dal Hub si entra anche senza password via /api/sso. Il confronto è a
@@ -53,21 +54,32 @@ export default async function LoginPage({
           Organico, mansioni, inquadramenti e retribuzioni.
         </p>
         <form action={login}>
-          <input
-            type="password"
-            name="password"
-            required
-            autoFocus
-            placeholder="Password dell'app"
-            autoComplete="current-password"
-            style={{ textAlign: "center" }}
+          {/* La label sta sopra il campo e resta visibile: il placeholder
+              spariva appena si digitava (legge 1 del Libro). */}
+          <label className="campo" style={{ textAlign: "left" }}>
+            <span>Password dell&apos;app</span>
+            <input
+              type="password"
+              name="password"
+              required
+              autoFocus
+              autoComplete="current-password"
+              style={{ textAlign: "center" }}
+            />
+          </label>
+          {/* Spazio riservato al messaggio: senza, l'errore spostava il bottone
+              di 29px proprio mentre il dito stava per premerlo (§11). */}
+          <p
+            role="alert"
+            style={{ color: "var(--red)", fontSize: 13, marginTop: 10, minHeight: 19 }}
+          >
+            {sp.errore ? "Password non corretta." : " "}
+          </p>
+          <BottoneInvio
+            etichetta="Entra"
+            inCorso="Entro…"
+            classe="btn login-cta"
           />
-          {sp.errore && (
-            <p style={{ color: "var(--red)", fontSize: 13, marginTop: 10 }}>Password non corretta.</p>
-          )}
-          <button type="submit" className="btn" style={{ width: "100%", marginTop: 16, padding: "12px 18px" }}>
-            Entra
-          </button>
         </form>
         <p style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 26 }}>
           Dal Deluxy Hub si entra senza password. Consegne in guanti bianchi, dal 2019.
