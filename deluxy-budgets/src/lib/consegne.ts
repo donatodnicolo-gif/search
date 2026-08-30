@@ -338,3 +338,47 @@ export function rigaBancaConsegne<T extends { categoria: { nome: string } | null
  * nulla, invece di lasciar credere di averlo fatto.
  */
 export const CATEGORIA_CONSEGNE_BANCA = "Consegne (valet e corrieri)";
+
+// ---- I RICAVI dei servizi commerciali della piattaforma (30/08/2026) ----
+//
+// Richiesta dell'utente: «non solo il costo, devi prendere anche i ricavi
+// delle consegne per i servizi fatti — servizi prezzo fisso e servizi orari».
+// Rotta `GET /api/v1/app/ricavi-servizi`: il LISTINO dei servizi PREZZO_FISSO
+// e A_ORA col lavoro fatto, per mese e per servizio. ⚠️ Non è il fatturato
+// (quello resta Finance): è il numero VIVO del mese in corso, e chi lo mostra
+// accanto a Finance NON lo somma — la fattura di questi servizi, quando
+// arriva, entra di là.
+export type RicaviServizi = {
+  ok: boolean;
+  errore?: string;
+  totali: { n: number; ricavo: number; nonFatturabili: number };
+  mesi: { mese: number; n: number; ricavo: number; nonFatturabili: number }[];
+  perServizio: { nome: string; modello: string; n: number; ricavo: number; nonFatturabili: number }[];
+};
+
+export async function fetchRicaviServizi(anno: number, mese?: number): Promise<RicaviServizi> {
+  const vuoto = (errore: string): RicaviServizi => ({
+    ok: false, errore, totali: { n: 0, ricavo: 0, nonFatturabili: 0 }, mesi: [], perServizio: [],
+  });
+  const url = (process.env.PLATFORM_URL ?? "https://deluxy-delivery.vercel.app").trim().replace(/\/$/, "");
+  const k = ((await chiave("PLATFORM_API_KEY")) ?? "").trim().replace(/^﻿/, "");
+  if (!k) return vuoto("PLATFORM_API_KEY non configurata");
+  // Con `mese` si chiede SOLO quel mese: così anche `perServizio` è del mese,
+  // e chi disegna una sezione «in corso ad agosto» non mostra righe dell'anno.
+  const qs = mese
+    ? `dal=${anno}-${String(mese).padStart(2, "0")}-01&al=${mese === 12 ? `${anno + 1}-01-01` : `${anno}-${String(mese + 1).padStart(2, "0")}-01`}`
+    : `anno=${anno}`;
+  try {
+    const r = await fetch(`${url}/api/v1/app/ricavi-servizi?${qs}`, {
+      headers: { "x-api-key": k },
+      next: { revalidate: RIVALIDA },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) return vuoto(`la piattaforma ha risposto ${r.status}`);
+    const d = (await r.json()) as Partial<RicaviServizi>;
+    if (!d?.ok || !Array.isArray(d.mesi)) return vuoto("risposta non riconosciuta");
+    return { ok: true, totali: d.totali!, mesi: d.mesi, perServizio: d.perServizio ?? [] };
+  } catch {
+    return vuoto("piattaforma non raggiungibile");
+  }
+}

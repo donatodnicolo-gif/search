@@ -5,6 +5,7 @@ import { raggruppa, sommaMesi } from "@/lib/venduto";
 import { abbinaMaison, fetchRicaviD2C, fetchRicaviIntervallo } from "@/lib/orders";
 import { fetchSpesaPerBrand } from "@/lib/marketing";
 import { fetchOrdiniChiusiMese } from "@/lib/scout";
+import { fetchRicaviServizi } from "@/lib/consegne";
 import { eur, pct, MESI } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -152,7 +153,7 @@ export default async function AggiornatoPage({
     );
   }
 
-  const [cons, ricaviRes, advBrand, scoutMese] = await Promise.all([
+  const [cons, ricaviRes, advBrand, scoutMese, serviziAnno] = await Promise.all([
     caricaConsuntivo(dati, mesi),
     fetchRicaviD2C(dati.year),
     // La pubblicità PER BRAND la sa solo Marketing (la banca ha il totale ma
@@ -165,6 +166,10 @@ export default async function AggiornatoPage({
     // chiusi la verità sono le fatture di Finance. Se la Edge non risponde il
     // blocco semplicemente non compare.
     parziale ? fetchOrdiniChiusiMese(dati.year, meseInCorso) : Promise.resolve(null),
+    // I SERVIZI della piattaforma (prezzo fisso e a ore): l'altro numero vivo
+    // del commerciale — il lavoro fatto nel mese, dal listino, prima che la
+    // fattura arrivi in Finance.
+    parziale ? fetchRicaviServizi(dati.year, meseInCorso) : Promise.resolve(null),
   ]);
   const venduto = raggruppa(ricaviRes, dati.maisons);
 
@@ -377,6 +382,53 @@ export default async function AggiornatoPage({
         consuntivo è «n.d.», non zero — si collegano da{" "}
         <Link href="/commerciale" style={{ color: "var(--blue)" }}>/commerciale</Link>.
       </p>
+
+      {/* I SERVIZI della piattaforma sul mese in corso (prezzo fisso e a ore):
+          il lavoro fatto, dal listino, prima che la fattura arrivi in Finance.
+          ⚠️ NON si somma alla tabella di Finance: quando la fattura del
+          servizio arriva, entra di là — questo è l'anticipo. */}
+      {(() => {
+        const meseSrv = serviziAnno?.ok ? serviziAnno.mesi.find((m) => m.mese === meseInCorso) : null;
+        if (!meseSrv || meseSrv.n === 0) return null;
+        return (
+          <>
+            <h2 className="section-title" style={{ marginTop: 24 }}>
+              In corso a {MESI[meseInCorso - 1]} · servizi della piattaforma
+            </h2>
+            <div className="table-wrap">
+              <table>
+                <tbody>
+                  {serviziAnno!.perServizio.filter((s) => s.n > 0).slice(0, 12).map((s) => (
+                    <tr key={s.nome}>
+                      <td>{s.nome}</td>
+                      <td className="num" style={{ color: "var(--text-tertiary)" }}>
+                        {s.modello === "A_ORA" ? "a ore" : "prezzo fisso"}
+                      </td>
+                      <td className="num" style={{ color: "var(--text-tertiary)" }}>{s.n} {s.n === 1 ? "servizio" : "servizi"}</td>
+                      <td className="num">{eur(s.ricavo)}</td>
+                    </tr>
+                  ))}
+                  <tr className="tot">
+                    <td style={{ fontWeight: 600 }}>Totale</td>
+                    <td />
+                    <td className="num" style={{ fontWeight: 600 }}>{meseSrv.n} {meseSrv.n === 1 ? "servizio" : "servizi"}</td>
+                    <td className="num" style={{ fontWeight: 600 }}>{eur(meseSrv.ricavo)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="page-caption" style={{ marginTop: 8 }}>
+              Servizi <strong>a prezzo fisso e a ore</strong> col lavoro fatto, valorizzati dal{" "}
+              <strong>listino</strong> della piattaforma consegne
+              {meseSrv.nonFatturabili > 0 ? ` (${meseSrv.nonFatturabili} non fatturabili, contati a zero)` : ""}.{" "}
+              <strong>Non si sommano al fatturato di Finance</strong>: la fattura di questi servizi,
+              quando arriva, entra nella tabella sopra — questo è il numero vivo del mese, quello è
+              il registro. Le consegne degli ordini D2C restano fuori: il loro ricavo è la fee, già
+              dentro il conto economico.
+            </p>
+          </>
+        );
+      })()}
 
       {/* Il numero VIVO del mese in corso: Finance vede le fatture, che sul
           mese aperto sono indietro per costruzione — Scout sa già cosa ha
