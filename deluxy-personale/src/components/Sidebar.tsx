@@ -27,12 +27,17 @@ const ICONE = {
       <path d="M12 7.6v4M6 16.4v-2.5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2.5" />
     </svg>
   ),
+  // Era una griglia 2×2 di quadrati: è il glifo universale di «tutte le app»
+  // (App Library di iOS, `apps` di Material), quindi diceva la cosa sbagliata —
+  // e a 19px era il vicino più somigliante dell'organigramma, che le sta appena
+  // sopra. Un elenco puntato è l'unica silhouette SENZA contorno chiuso fra le
+  // otto: «albero = chi comanda, elenco = cosa si fa». (Custode, 30/08/2026.)
   funzioni: (
     <svg viewBox="0 0 24 24" {...S}>
-      <rect x="3.5" y="3.5" width="7.4" height="7.4" rx="1.8" />
-      <rect x="13.1" y="3.5" width="7.4" height="7.4" rx="1.8" />
-      <rect x="3.5" y="13.1" width="7.4" height="7.4" rx="1.8" />
-      <rect x="13.1" y="13.1" width="7.4" height="7.4" rx="1.8" />
+      <circle cx="5.2" cy="6.5" r="1.3" />
+      <circle cx="5.2" cy="12" r="1.3" />
+      <circle cx="5.2" cy="17.5" r="1.3" />
+      <path d="M9.6 6.5h10M9.6 12h10M9.6 17.5h10" />
     </svg>
   ),
   stipendi: (
@@ -79,12 +84,25 @@ const SEZIONI: { nome: string; voci: Voce[] }[] = [
     ],
   },
   {
-    nome: "Amministrazione",
+    // ⚠️ Non si chiama più «Amministrazione»: questa stessa app propone
+    // «Amministrazione» come esempio di FUNZIONE aziendale (funzioni/page.tsx:73),
+    // quindi la stessa parola significava una sezione del menu e un reparto.
+    // «Contratti e paghe» dice anche perché le quattro voci stanno insieme: il
+    // cartellino non è un tema a sé, è l'ingresso della busta paga — contratto →
+    // ore e assenze → stipendio → benefit è una catena sola verso quanto una
+    // persona costa e quanto le arriva. (Custode del layout, 30/08/2026.)
+    nome: "Contratti e paghe",
     voci: [
-      { href: "/stipendi", nome: "Stipendi", icona: ICONE.stipendi },
-      { href: "/benefit", nome: "Benefit", icona: ICONE.benefit },
-      { href: "/inquadramenti", nome: "Inquadramenti", icona: ICONE.inquadramenti },
+      // Cartellini in testa: è l'unica voce con cadenza garantita e una
+      // controparte esterna (il commercialista, ogni mese, per le buste paga).
+      // Le altre tre si aprono a domanda. Falsificatore dichiarato: se in 60
+      // giorni di log /stipendi supera /cartellini, le due si scambiano.
       { href: "/cartellini", nome: "Cartellini", icona: ICONE.cartellini },
+      { href: "/stipendi", nome: "Stipendi", icona: ICONE.stipendi },
+      { href: "/inquadramenti", nome: "Inquadramenti", icona: ICONE.inquadramenti },
+      // Ultima: un cellulare o un'auto cambiano mano poche volte l'anno, e i
+      // benefit si assegnano anche dalla scheda della persona.
+      { href: "/benefit", nome: "Benefit", icona: ICONE.benefit },
     ],
   },
 ];

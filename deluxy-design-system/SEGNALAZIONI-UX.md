@@ -20,6 +20,8 @@
 |---|---|---|---|
 | 28/08 | Scout | Deferiti dalla passata filtri: `storico.tsx` ha ancora il `Gruppo` locale (duplicato di GruppoFiltro, chip `<Text onPress>` sotto i 44px) dentro il pannello; le 10 copie locali di `Chip` si sostituiscono col `Chip` di `ui.tsx` man mano che si toccano le schermate | custode |
 | 28/08 | search-supplier | Col metro del Libro v1.2 §8: i filtri gemelli sopra i risultati (`#resultTools`, 3-4 righe dopo una ricerca) andrebbero misurati a 375px contro il tetto delle 2 righe — non è l'offensore del caso (compaiono solo a risultati presenti e wrappano), ma va verificato | custode |
+| 30/08 | Budgets | `Sidebar.tsx` · **due voci con la stessa icona**: «Target e premi» e «Accesso» usano entrambe `icons.premi` (il trofeo) — nello screenshot dell'utente «Accesso» ha un trofeo. Viola la regola decisa il 28/08 («mai la stessa icona», misura: zero icone duplicate). In più «Chiavi» usa `icons.cfo`, che disegna un riquadro con spunta: l'icona non è l'etichetta. Nel set non esistono icone chiave/lucchetto: vanno aggiunte | utente (richiesta «rivedi il menù in modo logico») |
+| 30/08 | Budgets | `Sidebar.tsx` · **ordine del gruppo «Lavoro»**: «Conto economico» — la lettura quotidiana — è l'ultima voce, sotto «Target e premi» che si apre di rado. Col criterio deciso il 28/08 (ordine per **frequenza** d'uso, non per flusso) andrebbe più in alto. Da decidere anche se «Scenari e costi» resti in «Configurazione»: non è un'impostazione dell'app ma un **input del calcolo** (livelli di scenario, costi, margini) che entra nel conto economico — caso non coperto dalla regola del 28/08 | utente (richiesta «rivedi il menù in modo logico») |
 
 ## Decisa il 28/08/2026 — struttura di una sidebar densa (FINANCE, poi Libro)
 
@@ -284,3 +286,83 @@ il pannello browser **non aveva il focus** e la **transizione CSS non avanzava**
 leggeva il fotogramma iniziale. Togliendo la transizione il valore corretto compare subito.
 ⚠️ Misurando una proprietà **in transizione** in un pannello senza focus si legge il valore di
 partenza: neutralizzare la transizione prima di misurare, o misurare una proprietà non animata.
+
+## Decisa il 30/08/2026 — riordino del menu di PERSONALE, e tre regole nuove per tutte le app
+
+Richiesta dell'utente («l'organizzazione del menù» di `deluxy-personale`), gemella di
+quella su Budgets già in attesa. Il custode ha letto le 8 pagine — non i nomi — prima di
+decidere. **Applicato sull'app** (commit di Personale del 30/08):
+
+| Prima | Dopo | Perché |
+|---|---|---|
+| Sezione «Configurazione» con **1 voce** | accorpata: «Chiavi delle app» in fondo, staccata da una spaziatura, senza etichetta | regola del 28/08 (le sezioni monovoce si accorpano) |
+| Sezione «**Amministrazione**» | «**Contratti e paghe**» | vedi regola B: l'app propone «Amministrazione» come esempio di FUNZIONE aziendale (`funzioni/page.tsx:73`) — la stessa parola era una sezione del menu e un reparto |
+| Stipendi · Benefit · Inquadramenti · Cartellini | **Cartellini** · Stipendi · Inquadramenti · **Benefit** | Cartellini è l'unica voce con cadenza garantita e controparte esterna (il commercialista, ogni mese); Benefit ha la cadenza più bassa e una seconda via di scrittura sulla scheda |
+| Icona «Funzioni» = griglia 2×2 | elenco puntato senza cornice | la griglia 2×2 è il glifo universale di «tutte le app» (App Library iOS, `apps` di Material): diceva la cosa sbagliata, ed era il vicino più somigliante dell'organigramma che le sta sopra |
+| KPI «Contratti in scadenza» **non cliccabile** | link a `/inquadramenti` | dichiarava un allarme e non portava da nessuna parte: si doveva scendere nel menu e indovinare sotto quale voce |
+
+**Confermato e NON toccato** (perché un riordino si paga in memoria muscolare): la sezione
+Organico e il suo ordine interno; i nomi «Funzioni e mansioni» / «Inquadramenti» (nessuna
+sovrapposizione: catalogo impersonale vs quadro per persona, e per un HR «inquadramento» è
+il termine esatto); «Stipendi» / «Benefit» (denaro in busta vs beni in natura). Organigramma
+e Funzioni restano **due voci**: due assi indipendenti — l'albero nasce da
+`Persona.responsabileId`, le funzioni da `Funzione → Mansione → Attività`, e una persona può
+stare in Operations e riportare a qualcuno di Commerciale.
+
+**Scostamento accettato e dichiarato**: «Stipendi» è stretto per i consulenti P.IVA, che nel
+roster ci sono. Non rinominato a «Retribuzioni» perché la pagina gestisce già il caso al suo
+interno (KPI «Monte lordi annui (RAL e compensi)», e la card che diventa «Compenso» per gli
+autonomi): perdere la parola più cercata del menu per una precisione già presente nella
+pagina è un cattivo scambio.
+
+⚠️ **Precondizione dichiarata dal custode**: promuovere Cartellini in testa alla sezione
+mette in evidenza un lavoro che oggi non si chiude, perché `MAIL_API_KEY` manca e l'invio al
+commercialista è spento. Dal 30/08 la chiave si incolla nella **cassaforte del Hub**
+(progetto `personale`) e Personale la legge: fino ad allora la pagina lo dichiara e tiene il
+bottone spento.
+
+### Tre regole NUOVE proposte per il Libro §1 (valgono per tutte le app)
+
+**A — L'ordine per frequenza quando la frequenza NON è misurata.**
+Quasi nessuna app Deluxy ha conteggi per rotta, quindi «ordinare per frequenza» (regola del
+28/08) diventa il gusto di chi scrive. Se mancano i conteggi, l'ordine si fonda su tre
+osservabili **dichiarati nel commit**: (a) cadenza del dato sottostante, (b) numero di link
+in entrata da altre pagine, (c) esistenza di un appuntamento esterno con scadenza. A
+frequenza ignota o pari, **la voce con cadenza garantita e controparte esterna sta sopra la
+voce consultata a piacere** (una chiusura mensile saltata costa denaro, una consultazione
+rimandata no). Chi ordina scrive anche il **falsificatore**: quale misura ribalterebbe la
+scelta. *Un riordino senza falsificatore non si applica.*
+*App toccate:* tutte quelle con sidebar e senza analitiche — Personale, **Budgets** (richiesta
+gemella in attesa), Anagrafiche, Tasks, Fondo, CRM, Marketing.
+
+**B — L'etichetta di sezione non usa una parola che l'app usa già come DATO.**
+Un'etichetta di sezione non può coincidere con un valore di dominio (uno stato, un reparto,
+una categoria che l'utente digita o sceglie). Se coincide, si rinomina la sezione, mai il
+dato. *Perché:* NN/g, ogni categoria ha un'identità unica — un utente che scrive
+«Amministrazione» come nome di funzione e poi la legge in maiuscolo nel menu non sa se il
+menu parla di lei. *Misura:* grep delle etichette di sezione contro i vocabolari dell'app
+(enum, placeholder, valori seed) → **zero coincidenze**.
+*App toccate:* Personale (caso di partenza); da verificare su **Finance** e **Anagrafiche**,
+dove sezioni e stati condividono lo stesso lessico.
+
+**C — Si raggruppa per SCOPO dell'operatore, mai per proprietario del dato.**
+Le sezioni si formano su cosa l'operatore sta facendo. Il proprietario del dato
+(Standard §7), l'app di provenienza e la tabella di origine **non entrano mai** nel
+raggruppamento: se una voce legge da un'altra app, sta dove il lavoro la mette. *Perché:* con
+14 app che si leggono a vicenda via `/api/v1` il rischio è sistematico — menu che riflettono
+l'architettura invece del mestiere. Caso concreto: Cartellini legge dal Hub, ha una
+popolazione diversa (righe per email) e zero link alla scheda persona, eppure sta con le
+paghe, perché chi lavora pensa «cartellino → busta paga». *Misura:* per ogni sezione si
+scrive in una riga lo scopo che la lega; se la riga suona come «i dati che stanno in X», la
+sezione è sbagliata.
+*App toccate:* tutte quelle che leggono dati altrui in una pagina propria — Personale, Budgets,
+CRM, Customer Service, la piattaforma consegne.
+
+**D — Chiarimento alla regola del 28/08 (non è una regola nuova).** «Tooltip e separatore in
+modalità ridotta» vale **solo se una barra ridotta esiste**. Dove l'etichetta è sempre
+visibile non si aggiungono `title` sulle voci (doppiano l'etichetta per lo screen reader).
+Resta invece valido l'obbligo di **icona univoca**: l'icona è il bersaglio della scansione
+veloce anche con l'etichetta accanto. Criterio di accettazione da usare al posto dell'occhio:
+due icone adiacenti devono differire per **classe di silhouette** (chiuso/aperto,
+incorniciato/libero, curvo/spigoloso), non per numero di forme, e il confronto si fa **a 19px
+affiancate nel loro ordine reale**, non ingrandite e isolate.

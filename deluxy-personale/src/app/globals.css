@@ -599,3 +599,9 @@ details.modifica-inline > .form-inline {
    raggruppamento sopravvive senza un'etichetta che introduca una voce sola
    (regola del custode, 28/08/2026). */
 .nav-staccate { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+
+/* Un KPI che porta da qualche parte si dichiara: cursore, hover e focus visibile
+   come ogni altro link (il numero da solo non promette niente). */
+.kpi-link { display: block; transition: background 120ms var(--ease), border-color 120ms var(--ease); }
+.kpi-link:hover { background: var(--fill); border-color: var(--hairline-strong, var(--hairline)); }
+.kpi-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }

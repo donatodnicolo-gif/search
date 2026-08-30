@@ -155,11 +155,17 @@ export default async function PaginaPersone({
                   : `tutte le ${conCosto.length} persone attive`}
           </div>
         </div>
-        <div className="kpi">
+        {/* Il KPI dichiarava un allarme e non portava da nessuna parte: chi lo
+            leggeva doveva scendere nel menu e indovinare che «Contratti in
+            scadenza» si apre sotto «Inquadramenti». Ora è un link — un click
+            risparmiato ogni volta che il numero è sopra zero (custode, 30/08/2026). */}
+        <a className="kpi kpi-link" href="/inquadramenti">
           <div className="kpi-nome">Contratti in scadenza</div>
           <div className="kpi-valore">{inScadenza}</div>
-          <div className="kpi-nota">{inScadenza > 0 ? "entro 60 giorni o già scaduti" : " "}</div>
-        </div>
+          <div className="kpi-nota">
+            {inScadenza > 0 ? "entro 60 giorni o già scaduti" : "vedi gli inquadramenti"}
+          </div>
+        </a>
       </div>
 
       <div className="filtri">
