@@ -468,6 +468,95 @@ export class AppApiService {
     };
   }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // I RICAVI DEI SERVIZI COMMERCIALI (30/08/2026, chiesto dall'utente: «non
+  // solo il costo, devi prendere anche i ricavi delle consegne per i servizi
+  // fatti — servizi prezzo fisso e servizi orari»).
+  //
+  // `costi-consegne` risponde alla domanda «quanto ci sono costate»; questa
+  // risponde a «quanto abbiamo da fatturare per i SERVIZI venduti» — i lavori
+  // a PREZZO_FISSO e A_ORA, che sono ricavi commerciali. Le consegne VENDITA
+  // restano fuori di proposito: il loro ricavo è la fee sull'ordine D2C, che
+  // Budgets misura già da Orders — contarle anche qui sarebbe un doppio.
+  //
+  // ⚠️ È il LISTINO (`price` + plus/minus del partner), non una fattura: il
+  // registro del fatturato resta Finance. Serve a chi vuole il numero VIVO del
+  // mese in corso, prima che le fatture arrivino — e chi lo mostra accanto a
+  // Finance non deve sommarli.
+  // ───────────────────────────────────────────────────────────────────────────
+  static readonly MODELLI_SERVIZIO = ['PREZZO_FISSO', 'A_ORA'];
+
+  async ricaviServizi(dal?: string, al?: string) {
+    const daData = dal ? new Date(`${dal}T00:00:00+01:00`) : null;
+    const aData = al ? new Date(`${al}T00:00:00+01:00`) : null;
+    if ((dal && Number.isNaN(daData?.getTime())) || (al && Number.isNaN(aData?.getTime()))) {
+      throw new NotFoundException('dal/al devono essere date ISO (AAAA-MM-GG).');
+    }
+
+    const consegne = await this.prisma.delivery.findMany({
+      where: {
+        deletedAt: null,
+        // Gli stessi tre stati del costo: il lavoro fatto. Annullate e
+        // invalidate sono viaggi mai partiti, e non si fatturano.
+        status: { in: ['delivered', 'approved', 'not_delivered'] },
+        serviceType: { pricingModel: { in: AppApiService.MODELLI_SERVIZIO } },
+        ...(daData || aData
+          ? { date: { ...(daData ? { gte: daData } : {}), ...(aData ? { lt: aData } : {}) } }
+          : {}),
+      },
+      select: {
+        date: true,
+        billable: true,
+        price: true,
+        additionalPrice: true,
+        serviceType: { select: { name: true, code: true, pricingModel: true } },
+      },
+    });
+
+    type Conto = { n: number; ricavo: number; nonFatturabili: number };
+    const vuoto = (): Conto => ({ n: 0, ricavo: 0, nonFatturabili: 0 });
+    const mesi: Conto[] = Array.from({ length: 12 }, vuoto);
+    const perServizio = new Map<string, Conto & { nome: string; modello: string }>();
+    const perModello = new Map<string, Conto>();
+    const tot = vuoto();
+
+    for (const d of consegne) {
+      // `billable=false` non si scarta: si conta a ricavo zero e si dichiara.
+      // Un servizio fatto e non fatturabile è una decisione, non un buco.
+      const ricavo = d.billable === false ? 0 : (d.price ?? 0) + (d.additionalPrice ?? 0);
+      const mese =
+        Number(
+          new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', month: 'numeric' }).format(d.date),
+        ) - 1;
+      const chiaveSrv = d.serviceType?.code ?? '(senza servizio)';
+      let srv = perServizio.get(chiaveSrv);
+      if (!srv) {
+        srv = { ...vuoto(), nome: d.serviceType?.name ?? '(senza servizio)', modello: d.serviceType?.pricingModel ?? '?' };
+        perServizio.set(chiaveSrv, srv);
+      }
+      const mod = perModello.get(srv.modello) ?? vuoto();
+      for (const c of [mesi[mese], srv, mod, tot]) {
+        c.n++;
+        c.ricavo += ricavo;
+        if (d.billable === false) c.nonFatturabili++;
+      }
+      perModello.set(srv.modello, mod);
+    }
+
+    const arr = (c: Conto) => ({ n: c.n, ricavo: Math.round(c.ricavo * 100) / 100, nonFatturabili: c.nonFatturabili });
+    return {
+      ok: true,
+      regola:
+        'Servizi a PREZZO_FISSO e A_ORA con lavoro fatto (delivered/approved/not_delivered), ricavo dal listino partner (price + plus/minus), billable=false contato a zero e dichiarato. Le consegne VENDITA restano fuori: il loro ricavo è la fee D2C, misurata da Orders. Non è il fatturato: quello lo dice Finance.',
+      totali: arr(tot),
+      mesi: mesi.map((c, i) => ({ mese: i + 1, ...arr(c) })),
+      perModello: [...perModello].map(([modello, c]) => ({ modello, ...arr(c) })),
+      perServizio: [...perServizio.values()]
+        .map((s) => ({ nome: s.nome, modello: s.modello, ...arr(s) }))
+        .sort((a, b) => b.ricavo - a.ricavo),
+    };
+  }
+
   /** Lo stato di una vendita smistata, per il riferimento esterno. */
   async venditaByRef(source: string, externalOrderId: string) {
     const s = await this.prisma.sale.findFirst({
@@ -972,6 +1061,21 @@ export class AppApiController {
       if (Number.isFinite(y)) return this.service.costiConsegne(`${y}-01-01`, `${y + 1}-01-01`);
     }
     return this.service.costiConsegne(dal, al);
+  }
+
+  @Get('ricavi-servizi')
+  @ApiOperation({
+    summary:
+      'Ricavi da LISTINO dei servizi commerciali (PREZZO_FISSO e A_ORA) per mese, modello e servizio — il numero vivo del mese in corso; il fatturato resta Finance. Lo legge Deluxy Budgets',
+  })
+  @ApiHeader({ name: 'x-api-key', description: 'Chiave app (scripts/crea-chiave-app.mjs)' })
+  ricaviServizi(@Query('dal') dal?: string, @Query('al') al?: string, @Query('anno') anno?: string) {
+    // `anno` come in costi-consegne: la scorciatoia si traduce qui, una strada sola.
+    if (anno && !dal && !al) {
+      const y = Number(anno);
+      if (Number.isFinite(y)) return this.service.ricaviServizi(`${y}-01-01`, `${y + 1}-01-01`);
+    }
+    return this.service.ricaviServizi(dal, al);
   }
 
   @Get('consegne')
