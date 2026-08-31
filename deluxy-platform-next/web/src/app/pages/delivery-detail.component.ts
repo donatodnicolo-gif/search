@@ -257,7 +257,17 @@ interface DeliveryDetail {
             <h2>{{ 'deliveryDetail.saleAccount.title' | translate }}</h2>
             <dl>
               <dt>{{ 'deliveryDetail.saleAccount.income' | translate }}</dt>
-              <dd>{{ v.incasso.toFixed(2) }} €</dd>
+              <dd>{{ v.incasso.toFixed(2) }} €
+                <!-- Scomposizione prezzo × quantità: rende visibile come nasce
+                     l'incasso (e salta all'occhio un «24 × 144» sbagliato). -->
+                @if (d.products?.length) {
+                  <span class="scomposto righe-prezzo">
+                    @for (p of d.products; track p.id) {
+                      <span class="riga-prezzo">{{ p.product?.name }}{{ (p.variantName || p.productVariant?.name) ? ' (' + (p.variantName || p.productVariant?.name) + ')' : '' }}: {{ (prezzoRiga(p) ?? 0).toFixed(2) }} € × {{ p.quantity }} = {{ ((prezzoRiga(p) ?? 0) * (p.quantity ?? 1)).toFixed(2) }} €</span>
+                    }
+                  </span>
+                }
+              </dd>
 
               <dt>{{ 'deliveryDetail.saleAccount.commission' | translate }}</dt>
               <dd>
@@ -749,6 +759,8 @@ interface DeliveryDetail {
       .conto-vendita dt.forte, .conto-vendita dd.forte { font-weight: 650; color: var(--text); }
       .conto-vendita dd.forte { font-size: 15.5px; }
       .conto-vendita .scomposto { display: block; color: var(--text-tertiary); font-size: 12px; }
+      .righe-prezzo { margin-top: 3px; }
+      .righe-prezzo .riga-prezzo { display: block; font-variant-numeric: tabular-nums; }
       .nota-conto { margin: 12px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
       .mt { margin-top: 14px; }
       .muted { color: var(--text-tertiary); font-size: 13.5px; margin: 0; }
