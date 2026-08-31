@@ -86,6 +86,20 @@ export default async function ChiaviPage({
   );
   const posta = await statoPosta();
 
+  // I valori già salvati si ripresentano nel modulo — tranne la password, che
+  // non torna MAI a schermo: un campo vuoto accanto a una configurazione che
+  // esiste fa credere di non aver salvato, ed è il motivo per cui si finisce a
+  // riscrivere tutto ogni volta. La password resta vuota apposta: lasciandola
+  // così non viene toccata.
+  const postaSalvata: Record<string, string> = {};
+  for (const c of chiavi.filter((x) => x.progetto === "hub" && x.nome !== "SMTP_PASS")) {
+    try {
+      postaSalvata[c.nome] = decifra(c.valoreCifrato);
+    } catch {
+      // riga cifrata con un altro segreto: si tratta come assente
+    }
+  }
+
   return (
     <main className="main">
       <div className="page-head">
@@ -140,23 +154,26 @@ export default async function ChiaviPage({
             >
               <label className="campo" style={{ marginBottom: 0 }}>
                 <span>Server di posta in uscita</span>
-                <input name="host" placeholder="authsmtp.tuodominio.it" autoComplete="off" spellCheck={false} />
+                <input name="host" defaultValue={postaSalvata.SMTP_HOST ?? ""} placeholder="authsmtp.tuodominio.it" autoComplete="off" spellCheck={false} />
               </label>
               <label className="campo" style={{ marginBottom: 0 }}>
                 <span>Porta</span>
-                <input name="porta" defaultValue="465" inputMode="numeric" />
+                <input name="porta" defaultValue={postaSalvata.SMTP_PORT ?? "465"} inputMode="numeric" />
               </label>
               <label className="campo" style={{ marginBottom: 0 }}>
                 <span>Casella (nome utente)</span>
-                <input name="utente" type="email" placeholder="noreply@tuodominio.it" autoComplete="off" />
+                <input name="utente" type="email" defaultValue={postaSalvata.SMTP_USER ?? ""} placeholder="noreply@tuodominio.it" autoComplete="off" />
               </label>
               <label className="campo" style={{ marginBottom: 0 }}>
-                <span>Password della casella</span>
+                <span>
+                  Password della casella
+                  {chiavi.some((c) => c.progetto === "hub" && c.nome === "SMTP_PASS") && " (salvata: riscrivila solo per cambiarla)"}
+                </span>
                 <input name="password" type="password" autoComplete="new-password" />
               </label>
               <label className="campo" style={{ marginBottom: 0, gridColumn: "1 / -1" }}>
                 <span>Mittente mostrato (vuoto = la casella qui sopra)</span>
-                <input name="mittente" type="email" placeholder="noreply@tuodominio.it" autoComplete="off" />
+                <input name="mittente" type="email" defaultValue={postaSalvata.SMTP_FROM ?? ""} placeholder="noreply@tuodominio.it" autoComplete="off" />
               </label>
               <button type="submit" className="btn primary" style={{ justifyContent: "center", padding: "10px 18px", gridColumn: "1 / -1" }}>
                 Salva la posta
