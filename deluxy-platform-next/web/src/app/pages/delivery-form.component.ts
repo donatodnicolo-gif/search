@@ -4,7 +4,10 @@ import {
   AfterViewInit,
   Component,
   ElementRef,
+  EventEmitter,
+  Input,
   NgZone,
+  Output,
   ViewChild,
   computed,
   inject,
@@ -655,6 +658,8 @@ export class DeliveryFormComponent implements AfterViewInit {
 
   /** Torna da dove si e' arrivati; se la storia e' vuota (link diretto), alla lista. */
   indietro(): void {
+    // Nel pop-up «indietro» chiude il modale, non naviga.
+    if (this.modale()) { this.chiuso.emit(false); return; }
     if (history.length > 1) this.location.back();
     else this.router.navigate(['/deliveries']);
   }
@@ -860,6 +865,82 @@ export class DeliveryFormComponent implements AfterViewInit {
    * della richiesta: un errore qui non ferma la consegna, che è già nata.
    */
   readonly daVendita = signal<string | null>(null);
+
+  /**
+   * MODALITÀ POP-UP (31/08): il form vive dentro un modale (es. «Inserisci» da
+   * una vendita) invece che come pagina. L'id vendita arriva come @Input; al
+   * salvataggio non si naviga, si emette `chiuso` e il genitore chiude.
+   */
+  readonly modale = signal(false);
+  @Output() chiuso = new EventEmitter<boolean>(); // true = salvata, false = annullata
+  @Input() set venditaModale(id: string | null) {
+    if (!id) return;
+    this.modale.set(true);
+    this.caricaVendita(id);
+  }
+
+  /** Carica e riversa nel form una vendita (pagina o pop-up). */
+  private caricaVendita(idVendita: string): void {
+    const api = environment.apiUrl;
+    this.daVendita.set(idVendita);
+    this.http.get<any>(`${api}/sales/${idVendita}`).subscribe({
+      next: (v) => {
+        if (!v) return;
+        const m = this.model as Record<string, unknown>;
+        if (v.partnerId) { m['partnerId'] = v.partnerId; this.partnerSel.set(v.partnerId); }
+        if (v.serviceTypeId) m['serviceTypeId'] = v.serviceTypeId;
+        // Se i servizi sono già arrivati, forza il tipo vendita adesso;
+        // altrimenti ci pensa il loro callback.
+        this.forzaServizioVendita();
+        if (v.recipientFirstName) m['recipientFirstName'] = v.recipientFirstName;
+        if (v.recipientLastName) m['recipientLastName'] = v.recipientLastName;
+        if (v.recipientPhone) m['recipientPhone'] = v.recipientPhone;
+        if (v.recipientAddress) { m['recipientAddress'] = v.recipientAddress; this.onAddressChange(); }
+        if (v.deliveryDate) m['date'] = String(v.deliveryDate).slice(0, 10);
+        // Numero DDT = numero dell'ordine (leggibile, es. 2824; se manca, l'id
+        // esterno). Il brand accompagna il numero (lo stesso numero esiste su
+        // negozi diversi).
+        const numeroOrdine = v.externalOrderNumber ?? v.externalOrderId;
+        if (numeroOrdine) m['ddtNumber'] = String(numeroOrdine);
+        if (v.brand) m['ddtBrand'] = v.brand;
+        if (v.productId) {
+          this.productRows = [{ productId: v.productId, productVariantId: v.productVariantId ?? null,
+            quantity: 1, price: null, flexiblePrice: false } as ProductRow];
+          this.http.get<Product>(`${api}/products/${v.productId}`).subscribe({
+            next: (p) => { if (p?.id) this.products.set(this.unisciProdotti(this.products(), [p])); },
+            error: () => undefined,
+          });
+        }
+      },
+      error: () => undefined,
+    });
+
+    // Arricchimento dall'ORDINE dietro la vendita (mittente, TUTTE le righe,
+    // contrassegno): sta in Deluxy Orders, non nella vendita. Best-effort.
+    this.http.get<any>(`${api}/sales/${idVendita}/ordine`).subscribe({
+      next: (o) => {
+        if (!o?.disponibile) return;
+        const m = this.model as Record<string, unknown>;
+        if (o.mittenteFirstName) m['senderFirstName'] = o.mittenteFirstName;
+        if (o.mittenteLastName) m['senderLastName'] = o.mittenteLastName;
+        if (o.contrassegno) this.model.paymentOnDelivery = true;
+        const righe = (o.prodotti ?? []).filter((p: any) => p.productId);
+        if (righe.length) {
+          this.productRows = righe.map((p: any) => ({
+            productId: p.productId, productVariantId: p.productVariantId ?? null,
+            quantity: p.quantita ?? 1, price: null, flexiblePrice: false,
+          } as ProductRow));
+          for (const p of righe) {
+            this.http.get<Product>(`${api}/products/${p.productId}`).subscribe({
+              next: (prod) => { if (prod?.id) this.products.set(this.unisciProdotti(this.products(), [prod])); },
+              error: () => undefined,
+            });
+          }
+        }
+      },
+      error: () => undefined,
+    });
+  }
 
   private chiudiVendita(nata: { id?: string } | null | undefined): void {
     const vendita = this.daVendita();
@@ -1143,71 +1224,10 @@ export class DeliveryFormComponent implements AfterViewInit {
     // «Inserisci» dalla pagina Vendite (31/08): il form si apre coi dati
     // dell'ordine della vendita. Solo i campi che la vendita HA: quelli che
     // mancano restano da compilare — meglio vuoto che dedotto.
+    // Dalla pagina: `?vendita=`. Dal POP-UP: l'id arriva come @Input
+    // (`venditaModale`) e il caricamento parte dal suo setter.
     const idVendita = this.route.snapshot.queryParamMap.get('vendita');
-    if (idVendita && !idModifica) {
-      this.daVendita.set(idVendita);
-      this.http.get<any>(`${api}/sales/${idVendita}`).subscribe({
-        next: (v) => {
-          if (!v) return;
-          const m = this.model as Record<string, unknown>;
-          if (v.partnerId) { m['partnerId'] = v.partnerId; this.partnerSel.set(v.partnerId); }
-          if (v.serviceTypeId) m['serviceTypeId'] = v.serviceTypeId;
-          // Se i servizi sono già arrivati, forza il tipo vendita adesso;
-          // altrimenti ci pensa il loro callback.
-          this.forzaServizioVendita();
-          if (v.recipientFirstName) m['recipientFirstName'] = v.recipientFirstName;
-          if (v.recipientLastName) m['recipientLastName'] = v.recipientLastName;
-          if (v.recipientPhone) m['recipientPhone'] = v.recipientPhone;
-          if (v.recipientAddress) { m['recipientAddress'] = v.recipientAddress; this.onAddressChange(); }
-          if (v.deliveryDate) m['date'] = String(v.deliveryDate).slice(0, 10);
-          // Numero DDT = numero dell'ordine (quello leggibile, es. 2824; se
-          // manca, l'id esterno). Il brand accompagna il numero: lo stesso
-          // numero esiste su negozi diversi (31/08, richiesta utente).
-          const numeroOrdine = v.externalOrderNumber ?? v.externalOrderId;
-          if (numeroOrdine) m['ddtNumber'] = String(numeroOrdine);
-          if (v.brand) m['ddtBrand'] = v.brand;
-          if (v.productId) {
-            this.productRows = [{ productId: v.productId, productVariantId: v.productVariantId ?? null,
-              quantity: 1, price: null, flexiblePrice: false } as ProductRow];
-            // il prodotto puo' non stare nei primi 500 della tendina: si va a prendere
-            this.http.get<Product>(`${api}/products/${v.productId}`).subscribe({
-              next: (p) => { if (p?.id) this.products.set(this.unisciProdotti(this.products(), [p])); },
-              error: () => undefined,
-            });
-          }
-        },
-        error: () => undefined,
-      });
-
-      // Arricchimento dall'ORDINE dietro la vendita (mittente, TUTTE le righe,
-      // contrassegno): sta in Deluxy Orders, non nella vendita. Best-effort:
-      // se non arriva, il form resta con quel che la vendita aveva già.
-      this.http.get<any>(`${api}/sales/${idVendita}/ordine`).subscribe({
-        next: (o) => {
-          if (!o?.disponibile) return;
-          const m = this.model as Record<string, unknown>;
-          if (o.mittenteFirstName) m['senderFirstName'] = o.mittenteFirstName;
-          if (o.mittenteLastName) m['senderLastName'] = o.mittenteLastName;
-          // Contrassegno = pagamento alla consegna.
-          if (o.contrassegno) this.model.paymentOnDelivery = true;
-          // Più righe: sostituiscono la riga singola precompilata dalla vendita.
-          const righe = (o.prodotti ?? []).filter((p: any) => p.productId);
-          if (righe.length) {
-            this.productRows = righe.map((p: any) => ({
-              productId: p.productId, productVariantId: p.productVariantId ?? null,
-              quantity: p.quantita ?? 1, price: null, flexiblePrice: false,
-            } as ProductRow));
-            for (const p of righe) {
-              this.http.get<Product>(`${api}/products/${p.productId}`).subscribe({
-                next: (prod) => { if (prod?.id) this.products.set(this.unisciProdotti(this.products(), [prod])); },
-                error: () => undefined,
-              });
-            }
-          }
-        },
-        error: () => undefined,
-      });
-    }
+    if (idVendita && !idModifica) this.caricaVendita(idVendita);
 
     const idRichiesta = this.route.snapshot.queryParamMap.get('richiesta');
     if (idRichiesta && !idModifica) {
@@ -1946,6 +1966,8 @@ export class DeliveryFormComponent implements AfterViewInit {
         if (duplicate) { this.saving.set(false); this.justSaved.set(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
         this.chiudiRichiesta(nata);
         this.chiudiVendita(nata);
+        // Nel pop-up non si naviga: il genitore chiude e ricarica.
+        if (this.modale()) { this.saving.set(false); this.chiuso.emit(true); return; }
         this.router.navigate(['/deliveries']);
       },
       error: (err) => {

@@ -2157,7 +2157,8 @@
         "prodotto-sconosciuto": "prodotto non in catalogo",
         "errore": "errori"
       }
-    }
+    },
+    "inseritaOk": "Consegna inserita; la vendita è passata in storico."
   },
   "activities": {
     "title": "Attività",

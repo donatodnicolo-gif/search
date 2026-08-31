@@ -3,9 +3,10 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
+import { DeliveryFormComponent } from './delivery-form.component';
 
 interface Sale {
   id: string;
@@ -43,7 +44,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
 @Component({
   selector: 'app-sales-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe],
+  imports: [FormsModule, DatePipe, DecimalPipe, TranslatePipe, DeliveryFormComponent],
   template: `
     <div class="page-header">
       <div>
@@ -195,10 +196,38 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
     }
     }
     @if (messaggio(); as m) { <p class="esito" [class.ok]="m.ok">{{ m.testo }}</p> }
+
+    <!-- POP-UP «Inserisci da vendita»: il form consegna, precompilato, dentro
+         un modale invece di cambiare pagina (31/08). -->
+    @if (inserisciVendita(); as vid) {
+      <div class="ins-overlay" (click)="chiudiInserimento(false)"></div>
+      <div class="ins-modal" role="dialog" aria-modal="true">
+        <header class="ins-head">
+          <h2>{{ 'sales.inserisci' | translate }}</h2>
+          <button type="button" class="ins-x" (click)="chiudiInserimento(false)" [attr.aria-label]="'common.close' | translate">×</button>
+        </header>
+        <div class="ins-body">
+          <app-delivery-form [venditaModale]="vid" (chiuso)="chiudiInserimento($event)" />
+        </div>
+      </div>
+    }
   `,
   styles: [
     `
       .head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+      /* Pop-up inserimento consegna */
+      .ins-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 90;
+        backdrop-filter: blur(2px); }
+      .ins-modal { position: fixed; z-index: 91; top: 3vh; left: 50%; transform: translateX(-50%);
+        width: min(920px, 94vw); max-height: 94vh; display: flex; flex-direction: column;
+        background: var(--surface, #fff); border-radius: 20px; overflow: hidden;
+        box-shadow: 0 24px 60px rgba(0,0,0,0.28); }
+      .ins-head { display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 20px; border-bottom: 1px solid var(--hairline, rgba(0,0,0,0.08)); flex: 0 0 auto; }
+      .ins-head h2 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+      .ins-x { border: none; background: var(--fill, #f0f0f2); width: 30px; height: 30px; border-radius: 50%;
+        font-size: 18px; line-height: 1; cursor: pointer; color: var(--text-secondary, #555); }
+      .ins-body { overflow-y: auto; padding: 4px 6px 12px; flex: 1 1 auto; }
       .sync { padding: 16px 18px; margin-bottom: 16px; }
       .sync .titolo { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; margin: 0 0 10px; }
       .sync .ko { color: var(--danger, #d70015); margin: 0; font-size: 13.5px; }
@@ -268,6 +297,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
 export class SalesListComponent {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
+  private readonly translate = inject(TranslateService);
 
   readonly vendite = signal<Sale[]>([]);
   readonly caricando = signal(true);
@@ -389,19 +419,32 @@ export class SalesListComponent {
    * e apre il form consegna coi suoi dati. La vendita si chiude (accettata,
    * con la consegna agganciata) solo quando il form salva.
    */
+  /** La vendita per cui è aperto il pop-up di inserimento consegna. */
+  readonly inserisciVendita = signal<string | null>(null);
+
   inserisci(s: Sale): void {
     this.inCorso.set(s.id);
     this.messaggio.set(null);
     this.http.post(`${environment.apiUrl}/sales/${s.id}/inserisci`, {}).subscribe({
       next: () => {
         this.inCorso.set(null);
-        this.router.navigate(['/deliveries/new'], { queryParams: { vendita: s.id } });
+        // Pop-up (31/08) invece di cambiare pagina: il form si apre col vendita.
+        this.inserisciVendita.set(s.id);
       },
       error: (err) => {
         this.inCorso.set(null);
         this.messaggio.set({ ok: false, testo: err?.error?.message ?? 'Errore nella presa in mano' });
       },
     });
+  }
+
+  /** Chiude il pop-up; se ha salvato, la vendita è in storico: si ricarica. */
+  chiudiInserimento(salvata: boolean): void {
+    this.inserisciVendita.set(null);
+    if (salvata) {
+      this.messaggio.set({ ok: true, testo: this.translate.instant('sales.inseritaOk') });
+      this.carica();
+    }
   }
 
   private rispondi(s: Sale, azione: 'accetta' | 'rifiuta'): void {

@@ -2157,7 +2157,8 @@
         "prodotto-sconosciuto": "product not in catalogue",
         "errore": "errors"
       }
-    }
+    },
+    "inseritaOk": "Delivery created; the sale moved to history."
   },
   "activities": {
     "title": "Activities",
