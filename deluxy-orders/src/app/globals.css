@@ -895,6 +895,20 @@ th.num { text-align: right; }
   display: inline-flex; align-items: center; gap: 5px;
   color: inherit;
   transition: color 120ms var(--ease);
+  /* Serve sia sui link (pagine server) sia sui BOTTONI (tabelle client, dove
+     l'ordinamento sta nello stato): senza l'azzeramento un bottone si
+     porta dietro bordo, sfondo e font del browser dentro l'intestazione. */
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+/* Il Libro chiede il focus visibile oro sulle righe e i comandi di tabella. */
+.th-ordina:focus-visible {
+  outline: 2px solid var(--gold-strong);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 .th-ordina:hover { color: var(--text); }
 .th-ordina.attiva { color: var(--text); }

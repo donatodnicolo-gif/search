@@ -43,6 +43,22 @@ export function ChiaviApi({
   sospendi: (fd: FormData) => Promise<void>;
 }) {
   const [nome, setNome] = useState("");
+  // Ordinamento locale: questa tabella è dentro Impostazioni, e un parametro
+  // nell'indirizzo ricaricherebbe l'intera pagina per riordinare cinque righe.
+  const [ordina, setOrdina] = useState<string>("creata");
+  const [verso, setVerso] = useState<"asc" | "desc">("desc");
+  function ordinaPer(colonna: string, numerica?: boolean) {
+    if (ordina === colonna) setVerso(verso === "asc" ? "desc" : "asc");
+    else { setOrdina(colonna); setVerso(numerica ? "desc" : "asc"); }
+  }
+  const Th = ({ chiave, nome: etichetta, numerica }: { chiave: string; nome: string; numerica?: boolean }) => (
+    <th aria-sort={ordina === chiave ? (verso === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" className={`th-ordina${ordina === chiave ? " attiva" : ""}`} onClick={() => ordinaPer(chiave, numerica)}>
+        {etichetta}
+        <span className="th-freccia" aria-hidden="true">{ordina === chiave ? (verso === "asc" ? "↑" : "↓") : "↕"}</span>
+      </button>
+    </th>
+  );
   const [scrittura, setScrittura] = useState(false);
   const [nata, setNata] = useState<{ nome: string; chiave: string; rigenerata: boolean } | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
@@ -122,16 +138,33 @@ export function ChiaviApi({
           <table>
             <thead>
               <tr>
-                <th>Nome app</th>
-                <th>Permesso</th>
-                <th>Creata</th>
-                <th>Ultimo uso</th>
-                <th>Stato</th>
+                <Th chiave="nome" nome="Nome app" />
+                <Th chiave="permesso" nome="Permesso" />
+                <Th chiave="creata" nome="Creata" numerica />
+                <Th chiave="uso" nome="Ultimo uso" numerica />
+                <Th chiave="stato" nome="Stato" />
                 <th />
               </tr>
             </thead>
             <tbody>
-              {chiavi.map((k) => (
+              {[...chiavi].sort((a, b) => {
+                const valore = (k: typeof a): string | number => {
+                  switch (ordina) {
+                    case "nome": return k.nome.toLowerCase();
+                    case "permesso": return k.scrittura ? 1 : 0;
+                    // Le date arrivano già formattate per la lettura: si
+                    // confrontano come testo, che per «gg mmm aa» non basta —
+                    // quindi si ordina per l'id, che cresce col tempo.
+                    case "creata": return k.id;
+                    case "uso": return k.ultimoUso ?? "";
+                    case "stato": return k.attiva ? 0 : 1;
+                    default: return k.id;
+                  }
+                };
+                const x = valore(a), y = valore(b);
+                const c = typeof x === "string" && typeof y === "string" ? x.localeCompare(y, "it") : Number(x) - Number(y);
+                return verso === "asc" ? c : -c;
+              }).map((k) => (
                 <tr key={k.id}>
                   <td className="cella-nome">{k.nome}</td>
                   <td className="cella-muta">{k.scrittura ? "lettura + scrittura" : "sola lettura"}</td>

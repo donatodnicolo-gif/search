@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ordinamentoDa } from "@/components/ThOrdina";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { dataBreve } from "@/lib/ordini";
@@ -31,6 +32,7 @@ export default async function SchedaAutomazione({
 }) {
   const { id } = await params;
   const sp = await searchParams;
+  const ord = ordinamentoDa(sp, { prefisso: "msg", predefinito: "preparato" });
   const a = await prisma.automazione.findUnique({ where: { id }, include: { scriptUsato: true } });
   if (!a) notFound();
 
@@ -299,16 +301,24 @@ export default async function SchedaAutomazione({
               <table>
                 <thead>
                   <tr>
-                    <th>Cliente</th>
-                    <th>Destinatario</th>
-                    <th>Messaggio</th>
-                    <th>Stato</th>
-                    <th>Preparato</th>
+                    {ord.th("cliente", "Cliente")}
+                    {ord.th("destinatario", "Destinatario")}
+                    {ord.th("messaggio", "Messaggio")}
+                    {ord.th("stato", "Stato")}
+                    {ord.th("preparato", "Preparato", true)}
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {messaggi.map((m) => (
+                  {[...messaggi].sort(ord.confronta((m) => {
+                    switch (ord.ordina) {
+                      case "cliente": return (m.nome || "").toLowerCase();
+                      case "destinatario": return m.destinatario.toLowerCase();
+                      case "messaggio": return m.testo.toLowerCase();
+                      case "stato": return m.stato;
+                      default: return m.preparatoIl.getTime();
+                    }
+                  })).map((m) => (
                     <tr key={m.id}>
                       <td className="cella-nome">{m.nome || "—"}</td>
                       <td className="cella-muta">{m.destinatario}</td>

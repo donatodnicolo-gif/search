@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { CATEGORIE, coloreCategoria, nomeCategoria } from "@/lib/categorie";
+import { ordinamentoDa } from "@/components/ThOrdina";
 import { riepilogoCategorie, titoliNonClassificati } from "@/lib/categorie-ai";
 import { aiConfigurata, modelloAI } from "@/lib/ai";
 import { chiediCategorieAI, confermaCategoriaProdotto, impostaCategoriaProdotto } from "@/app/actions";
@@ -19,6 +20,10 @@ export default async function Categorie({
   searchParams: Promise<Record<string, string>>;
 }) {
   const sp = await searchParams;
+  // Due tabelle, due ordinamenti separati: con un parametro solo si
+  // muoverebbero insieme.
+  const ordProposte = ordinamentoDa(sp, { prefisso: "prop", predefinito: "righe" });
+  const ordDaFare = ordinamentoDa(sp, { prefisso: "fare", predefinito: "righe" });
 
   const [riepilogo, proposte, daFare] = await Promise.all([
     riepilogoCategorie(),
@@ -111,16 +116,24 @@ export default async function Categorie({
             <table>
               <thead>
                 <tr>
-                  <th>Prodotto</th>
-                  <th>Categoria</th>
-                  <th>Da dove</th>
-                  <th>Perché</th>
-                  <th className="num">Righe</th>
+                  {ordProposte.th("titolo", "Prodotto")}
+                  {ordProposte.th("categoria", "Categoria")}
+                  {ordProposte.th("dadove", "Da dove")}
+                  {ordProposte.th("perche", "Perché")}
+                  {ordProposte.th("righe", "Righe", true)}
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {proposte.map((p) => (
+                {[...proposte].sort(ordProposte.confronta((p) => {
+                  switch (ordProposte.ordina) {
+                    case "titolo": return p.titolo.toLowerCase();
+                    case "categoria": return p.categoria;
+                    case "dadove": return p.origine;
+                    case "perche": return (p.motivo ?? "").toLowerCase();
+                    default: return p.righe;
+                  }
+                })).map((p) => (
                   <tr key={p.id}>
                     <td className="cella-nome">{p.titolo}</td>
                     <td>
@@ -175,15 +188,22 @@ export default async function Categorie({
             <table>
               <thead>
                 <tr>
-                  <th>Prodotto</th>
-                  <th>Negozio</th>
-                  <th className="num">Prezzo medio</th>
-                  <th className="num">Righe</th>
+                  {ordDaFare.th("titolo", "Prodotto")}
+                  {ordDaFare.th("brand", "Negozio")}
+                  {ordDaFare.th("prezzo", "Prezzo medio", true)}
+                  {ordDaFare.th("righe", "Righe", true)}
                   <th>Decidi tu</th>
                 </tr>
               </thead>
               <tbody>
-                {daFare.map((t) => (
+                {[...daFare].sort(ordDaFare.confronta((t) => {
+                  switch (ordDaFare.ordina) {
+                    case "titolo": return t.titolo.toLowerCase();
+                    case "brand": return t.brand.toLowerCase();
+                    case "prezzo": return t.prezzoMedio || 0;
+                    default: return t.righe;
+                  }
+                })).map((t) => (
                   <tr key={t.titolo}>
                     <td className="cella-nome">{t.titolo}</td>
                     <td className="cella-muta">{t.brand}</td>

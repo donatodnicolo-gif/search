@@ -20,6 +20,7 @@ import { aiConfigurata } from "@/lib/ai";
 import { MAX_ORDINI } from "@/lib/clienti-ai";
 import { TornaIndietro } from "@/components/TornaIndietro";
 import { RigaLink } from "@/components/RigaLink";
+import { ordinamentoDa } from "@/components/ThOrdina";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,8 @@ export default async function SchedaCliente({
 }) {
   const { chiave: codice } = await params;
   const sp = await searchParams;
+  const ordEventi = ordinamentoDa(sp, { prefisso: "ric", predefinito: "volte" });
+  const ordOrdini = ordinamentoDa(sp, { prefisso: "ord", predefinito: "data" });
   const chiave = decodificaChiave(codice);
   const where = whereOrdiniCliente(chiave);
 
@@ -345,11 +348,23 @@ export default async function SchedaCliente({
             <table>
               <thead>
                 <tr>
-                  <th>Quando</th><th>Per chi</th><th>Tipo</th><th className="num">Volte</th><th>Anni</th>
+                  {ordEventi.th("quando", "Quando")}
+                  {ordEventi.th("perchi", "Per chi")}
+                  {ordEventi.th("tipo", "Tipo")}
+                  {ordEventi.th("volte", "Volte", true)}
+                  {ordEventi.th("anni", "Anni", true)}
                 </tr>
               </thead>
               <tbody>
-                {eventi.map((e) => {
+                {[...eventi].sort(ordEventi.confronta((e) => {
+                  switch (ordEventi.ordina) {
+                    case "quando": return e.mese * 100 + e.giorno;
+                    case "perchi": return (e.titolo || e.destinatario || "").toLowerCase();
+                    case "tipo": return e.tipo;
+                    case "anni": return e.ultimoAnno ?? 0;
+                    default: return e.ricorrenze;
+                  }
+                })).map((e) => {
                   const fra = fraQuantiGiorni(e.giorno, e.mese);
                   return (
                     <tr key={e.id}>
@@ -415,11 +430,23 @@ export default async function SchedaCliente({
           <table>
             <thead>
               <tr>
-                <th>Ordine</th><th>Data</th><th className="num">Totale</th><th>Pagamento</th><th>Stato</th>
+                {ordOrdini.th("numero", "Ordine")}
+                {ordOrdini.th("data", "Data", true)}
+                {ordOrdini.th("totale", "Totale", true)}
+                {ordOrdini.th("pagamento", "Pagamento")}
+                {ordOrdini.th("stato", "Stato")}
               </tr>
             </thead>
             <tbody>
-              {ordini.map((o) => (
+              {[...ordini].sort(ordOrdini.confronta((o) => {
+                switch (ordOrdini.ordina) {
+                  case "numero": return o.numero;
+                  case "totale": return o.totale;
+                  case "pagamento": return o.financialStatus ?? "";
+                  case "stato": return o.stato?.nome ?? "";
+                  default: return o.data.getTime();
+                }
+              })).map((o) => (
                 // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
                 // riga apre l'ordine; il link sul numero resta per la tastiera.
                 <RigaLink href={`/ordini/${o.id}`} key={o.id} className="riga-brand riga-link" style={{ ["--brand" as string]: coloreBrand(colori, o.brand) }}>

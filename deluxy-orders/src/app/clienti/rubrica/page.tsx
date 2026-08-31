@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { anteprima } from "@/lib/rubrica";
 import { codificaChiave } from "@/lib/clienti";
 import { RigaLink } from "@/components/RigaLink";
+import { ordinamentoDa } from "@/components/ThOrdina";
 import { googleConfigurato } from "@/lib/google";
 import { salvaRubrica } from "@/app/actions";
 
@@ -18,6 +19,7 @@ export default async function Rubrica({
   searchParams: Promise<Record<string, string>>;
 }) {
   const sp = await searchParams;
+  const ord = ordinamentoDa(sp, { predefinito: "nome" });
   const limite = Math.min(2000, Math.max(1, Number(sp.limite ?? "50") || 50));
   const minimoOrdini = Math.max(1, Number(sp.minimoOrdini ?? "2") || 2);
   const dal = sp.dal || "";
@@ -133,10 +135,22 @@ export default async function Rubrica({
               <div className="tabella-wrap">
                 <table>
                   <thead>
-                    <tr><th>Nome in rubrica</th><th>Telefono</th><th>Cosa succede</th></tr>
+                    <tr>
+                      {ord.th("nome", "Nome in rubrica")}
+                      {ord.th("telefono", "Telefono")}
+                      {ord.th("azione", "Cosa succede")}
+                    </tr>
                   </thead>
                   <tbody>
-                    {voci.slice(0, 100).map((v) => (
+                    {/* Ordinare PRIMA di tagliare a 100: altrimenti si vedono
+                        le prime 100 dell'ordine originale, riordinate. */}
+                    {[...voci].sort(ord.confronta((v) => {
+                      switch (ord.ordina) {
+                        case "telefono": return v.telefono ?? "";
+                        case "azione": return v.azione;
+                        default: return v.nome.toLowerCase();
+                      }
+                    })).slice(0, 100).map((v) => (
                       <RigaLink key={v.chiave} href={`/clienti/${codificaChiave(v.chiave)}`} className="riga-link">
                         <td><Link href={`/clienti/${codificaChiave(v.chiave)}`} className="cella-nome">{v.nome}</Link></td>
                         <td className="cella-muta">{v.telefono ?? "—"}</td>

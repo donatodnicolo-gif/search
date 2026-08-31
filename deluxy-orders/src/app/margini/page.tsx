@@ -30,7 +30,7 @@ import {
   type Margine,
 } from "@/lib/margini";
 import { ALIQUOTA_IVA, margineAttesoPct, quotaFornitore } from "@/lib/controllo";
-import { ThOrdina, hrefOrdinamento, type VersoOrdinamento } from "@/components/ThOrdina";
+import { ThOrdina, hrefOrdinamento, ordinamentoDa, type VersoOrdinamento } from "@/components/ThOrdina";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +122,7 @@ export default async function Margini({
   // ORDINAMENTO (Libro UX&UI §8): la colonna si sceglie dall'indirizzo, così
   // resta condivisibile e sopravvive al «← Indietro». Predefinito: il margine
   // dal più alto — la domanda con cui si apre questa pagina.
+  const ordCoda = ordinamentoDa(sp, { prefisso: "coda", predefinito: "inpiu" });
   const ordina = String(sp.ordina ?? "margine");
   const verso: VersoOrdinamento = sp.verso === "asc" ? "asc" : "desc";
   const valoreDi = (r: { etichetta: string; k: Margine }): string | number => {
@@ -420,17 +421,28 @@ export default async function Margini({
           <table>
             <thead>
               <tr>
-                <th>Ordine</th>
-                <th>Data</th>
-                <th>Fornitore</th>
-                <th className="num">Valore</th>
-                <th className="num">Pagato</th>
-                <th className="num">Quota pagata</th>
-                <th className="num">In più</th>
+                {ordCoda.th("numero", "Ordine")}
+                {ordCoda.th("data", "Data", true)}
+                {ordCoda.th("fornitore", "Fornitore")}
+                {ordCoda.th("valore", "Valore", true)}
+                {ordCoda.th("pagato", "Pagato", true)}
+                {ordCoda.th("quota", "Quota pagata", true)}
+                {ordCoda.th("inpiu", "In più", true)}
               </tr>
             </thead>
             <tbody>
-              {coda.map((o) => (
+              {[...coda].sort(ordCoda.confronta((o) => {
+                const pagatoPct = o.totale > 0 ? ((o.costoFornitore ?? 0) / o.totale) * 100 : 0;
+                switch (ordCoda.ordina) {
+                  case "numero": return o.numero;
+                  case "data": return o.data.getTime();
+                  case "fornitore": return (o.costoFornitoreNome ?? "").toLowerCase();
+                  case "valore": return o.totale;
+                  case "pagato": return o.costoFornitore ?? 0;
+                  case "quota": return pagatoPct;
+                  default: return (o.costoFornitore ?? 0) - o.totale * (quota / 100);
+                }
+              })).map((o) => (
                 <tr key={o.id}>
                   <td>
                     <Link href={`/ordini/${o.id}`} className="cella-nome">
