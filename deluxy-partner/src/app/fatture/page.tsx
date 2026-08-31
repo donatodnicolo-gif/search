@@ -92,6 +92,12 @@ export default async function FatturePage({
               finché il collegamento non viene rinnovato l'app non ha nemmeno il
               permesso di leggerle. Il collegamento sta qui perché una pagina che
               nessuno può raggiungere non corregge niente. */}
+          {/* Il varco verso FIC (31/08/2026): le fatture emesse su Fatture in
+              Cloud fuori dal giro dei servizi entravano qui solo a mano — 36
+              per 15.216 € sono rimaste invisibili ad agosto. Niente conteggio
+              nel bottone: servirebbe una chiamata a FIC (1–3 s) a ogni apertura
+              di questa lista, e il numero vive nella pagina stessa. */}
+          <Link href="/fatture/da-fic" className="btn">Da Fatture in Cloud</Link>
           <Link href="/fatture/note-credito" className="btn">Note di credito</Link>
           <Link href="/fatture/nuova" className="btn primary">+ Nuova fattura</Link>
         </div>

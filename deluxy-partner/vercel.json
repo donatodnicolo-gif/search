@@ -13,6 +13,10 @@
     {
       "path": "/api/cron/anagrafiche",
       "schedule": "45 5 * * *"
+    },
+    {
+      "path": "/api/cron/fic",
+      "schedule": "15 6 * * *"
     }
   ]
 }
