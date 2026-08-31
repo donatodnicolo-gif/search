@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RigaLink } from "@/components/RigaLink";
 import { prisma } from "@/lib/db";
 import { euro, dataBreve } from "@/lib/ordini";
 import { brandConColore } from "@/lib/brand";
@@ -489,7 +490,7 @@ export default async function Controllo({
               const gestione = GESTIONI_INCASSO[o.gestioneIncasso] ?? GESTIONI_INCASSO.riconciliazione;
               const st = STATI_INCASSO[o.statoIncasso] ?? STATI_INCASSO.da_riconciliare;
               return (
-                <tr key={o.id} className="riga-brand" style={{ ["--brand" as string]: colori.get(o.brand) ?? "#b8963e" }}>
+                <RigaLink key={o.id} href={`/ordini/${o.id}`} className="riga-brand riga-link" style={{ ["--brand" as string]: colori.get(o.brand) ?? "#b8963e" }}>
                   <td>
                     <Link href={`/ordini/${o.id}`} className="cella-nome">
                       {o.numero}
@@ -619,7 +620,7 @@ export default async function Controllo({
                       )}
                     </div>
                   </td>
-                </tr>
+                </RigaLink>
               );
             })}
             {elenco.length === 0 && (

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RigaLink } from "@/components/RigaLink";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/ordini";
 import { codificaChiave } from "@/lib/clienti";
@@ -200,7 +201,7 @@ export default async function Eventi({
               </thead>
               <tbody>
                 {mostrati.map((e) => (
-                  <tr key={e.id}>
+                  <RigaLink key={e.id} href={`/clienti/${codificaChiave(e.chiave)}`} className="riga-link">
                     <td>
                       <span className="cella-nome">{dataEvento(e.giorno, e.mese)}</span>
                       <div className={`cella-sub${e.fra <= 14 ? " evento-vicino" : ""}`}>{quandoLeggibile(e.fra)}</div>
@@ -210,6 +211,7 @@ export default async function Eventi({
                       {e.citta && <div className="cella-sub">{e.citta}</div>}
                     </td>
                     <td className="cella-muta">
+                      {/* Il link resta: è l'accesso da tastiera (Libro §8 v1.6). */}
                       <Link href={`/clienti/${codificaChiave(e.chiave)}`}>{e.chiave}</Link>
                     </td>
                     <td>
@@ -250,7 +252,7 @@ export default async function Eventi({
                         {nomeStatoEvento(e.stato)}
                       </div>
                     </td>
-                  </tr>
+                  </RigaLink>
                 ))}
               </tbody>
             </table>

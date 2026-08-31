@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { anteprima } from "@/lib/rubrica";
+import { codificaChiave } from "@/lib/clienti";
+import { RigaLink } from "@/components/RigaLink";
 import { googleConfigurato } from "@/lib/google";
 import { salvaRubrica } from "@/app/actions";
 
@@ -135,8 +137,8 @@ export default async function Rubrica({
                   </thead>
                   <tbody>
                     {voci.slice(0, 100).map((v) => (
-                      <tr key={v.chiave}>
-                        <td className="cella-nome">{v.nome}</td>
+                      <RigaLink key={v.chiave} href={`/clienti/${codificaChiave(v.chiave)}`} className="riga-link">
+                        <td><Link href={`/clienti/${codificaChiave(v.chiave)}`} className="cella-nome">{v.nome}</Link></td>
                         <td className="cella-muta">{v.telefono ?? "—"}</td>
                         <td>
                           <span className={`badge${v.azione === "creare" ? "" : " neutro"}`} style={{ color: v.azione === "creare" ? "var(--green)" : undefined }}>
@@ -150,7 +152,7 @@ export default async function Rubrica({
                                   : "senza telefono"}
                           </span>
                         </td>
-                      </tr>
+                      </RigaLink>
                     ))}
                   </tbody>
                 </table>

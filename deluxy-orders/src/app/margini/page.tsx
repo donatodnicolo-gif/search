@@ -27,8 +27,10 @@ import {
   misure,
   perDimensione,
   sopraQuota,
+  type Margine,
 } from "@/lib/margini";
 import { ALIQUOTA_IVA, margineAttesoPct, quotaFornitore } from "@/lib/controllo";
+import { ThOrdina, hrefOrdinamento, type VersoOrdinamento } from "@/components/ThOrdina";
 
 export const dynamic = "force-dynamic";
 
@@ -117,10 +119,31 @@ export default async function Margini({
   // Le righe della dimensione: solo quelle che hanno un costo misurato, perché
   // una riga senza costo non ha un margine da mostrare — avrebbe margine 0 e
   // sembrerebbe una perdita secca.
+  // ORDINAMENTO (Libro UX&UI §8): la colonna si sceglie dall'indirizzo, così
+  // resta condivisibile e sopravvive al «← Indietro». Predefinito: il margine
+  // dal più alto — la domanda con cui si apre questa pagina.
+  const ordina = String(sp.ordina ?? "margine");
+  const verso: VersoOrdinamento = sp.verso === "asc" ? "asc" : "desc";
+  const valoreDi = (r: { etichetta: string; k: Margine }): string | number => {
+    switch (ordina) {
+      case "etichetta": return r.etichetta.toLowerCase();
+      case "pct": return r.k.pctMargine;
+      case "venduto": return r.k.lordoConCosto;
+      case "costo": return r.k.costo;
+      case "costoPct": return r.k.costoMedioPct;
+      case "misurato": return r.k.ordiniConCosto;
+      case "sopraQuota": return r.k.sopraQuota;
+      default: return r.k.margine;
+    }
+  };
   const righe = righeDim
     .map((r) => ({ etichetta: r.etichetta, k: calcola(r, quota) }))
     .filter((r) => r.k.ordiniConCosto > 0)
-    .sort((a, b) => b.k.margine - a.k.margine);
+    .sort((a, b) => {
+      const x = valoreDi(a), y = valoreDi(b);
+      const c = typeof x === "string" && typeof y === "string" ? x.localeCompare(y, "it") : Number(x) - Number(y);
+      return verso === "asc" ? c : -c;
+    });
   const senzaMisura = righeDim.filter((r) => r.ordiniConCosto === 0);
   const mostrate = righe.slice(0, MAX_RIGHE);
 
@@ -322,14 +345,26 @@ export default async function Margini({
           <table>
             <thead>
               <tr>
-                <th>{dim.nome}</th>
-                <th className="num">Margine</th>
-                <th className="num">Margine %</th>
-                <th className="num">Venduto misurato</th>
-                <th className="num">Costo</th>
-                <th className="num">Costo %</th>
-                <th className="num">Misurato su</th>
-                <th className="num">Sopra quota</th>
+                {[
+                  { chiave: "etichetta", nome: dim.nome },
+                  { chiave: "margine", nome: "Margine", numerica: true },
+                  { chiave: "pct", nome: "Margine %", numerica: true },
+                  { chiave: "venduto", nome: "Venduto misurato", numerica: true },
+                  { chiave: "costo", nome: "Costo", numerica: true },
+                  { chiave: "costoPct", nome: "Costo %", numerica: true },
+                  { chiave: "misurato", nome: "Misurato su", numerica: true },
+                  { chiave: "sopraQuota", nome: "Sopra quota", numerica: true },
+                ].map((c) => (
+                  <ThOrdina
+                    key={c.chiave}
+                    chiave={c.chiave}
+                    nome={c.nome}
+                    ordina={ordina}
+                    verso={verso}
+                    numerica={c.numerica}
+                    href={hrefOrdinamento(sp, c.chiave, ordina, verso, c.numerica)}
+                  />
+                ))}
               </tr>
             </thead>
             <tbody>
