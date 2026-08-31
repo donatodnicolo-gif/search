@@ -75,6 +75,8 @@ interface DeliveryDetail {
   } | null;
   deliveryPrice?: number;
   valetSalary?: number;
+  /** Costo valet calcolato dal listino quando valetSalary non è congelato (admin/op). */
+  valetSalaryDalListino?: number | null;
   valetAdditionalPrice?: number;
   distanceKm?: number;
   latitude?: number;
@@ -204,7 +206,10 @@ interface DeliveryDetail {
                    il cliente paga per la consegna vive nei MARGINI, non qui. -->
               <dt>{{ 'deliveryDetail.productValue' | translate }}</dt><dd>{{ d.productValue != null ? d.productValue + ' €' : '—' }}</dd>
 
-              <dt>{{ 'deliveryDetail.valetSalary' | translate }}</dt><dd>{{ d.valetSalary != null ? d.valetSalary + ' €' : '—' }}</dd>
+              <dt>{{ 'deliveryDetail.valetSalary' | translate }}</dt>
+              <dd>@if (d.valetSalary != null) { {{ d.valetSalary }} € }
+                  @else if (d.valetSalaryDalListino != null) { {{ d.valetSalaryDalListino }} € <span class="muted">({{ 'deliveryDetail.fromListino' | translate }})</span> }
+                  @else { — }</dd>
               <dt>{{ 'deliveryDetail.valetAdditionalPrice' | translate }}</dt><dd>{{ d.valetAdditionalPrice != null ? d.valetAdditionalPrice + ' €' : '—' }}</dd>
             }
           </dl>

@@ -529,8 +529,29 @@ export class DeliveriesService {
         }))
       : [];
 
+    // COSTO VALET DAL LISTINO (31/08, utente): se la consegna non ha una paga
+    // congelata (valetSalary) ma ha un valet, admin/operation vedono comunque
+    // il costo, calcolato dal listino del valet PER TIPO DI PREZZO — la stessa
+    // regola di Stipendi (il servizio esatto può non essere a listino: si
+    // sceglie fisso/ora). Così il dettaglio non mostra più «—» a vuoto.
+    let valetSalaryDalListino: number | null = null;
+    if (['ADMIN', 'OPERATION'].includes(user.role) && delivery.valetId && (delivery.valetSalary ?? null) == null) {
+      const listini = await this.prisma.valetService.findMany({
+        where: { valetId: delivery.valetId },
+        include: { serviceType: { select: { pricingModel: true, minHours: true } } },
+      });
+      const tipo = delivery.serviceType?.pricingModel === 'A_ORA' ? 'A_ORA' : 'PREZZO_FISSO';
+      const l = listini.find((x) => x.serviceType?.pricingModel === tipo && (x.salary ?? 0) > 0)
+        ?? listini.find((x) => x.serviceType?.pricingModel === tipo);
+      if (l) {
+        const ore = tipo === 'A_ORA'
+          ? Math.max((delivery as any).hours ?? 1, l.serviceType?.minHours ?? 1) : 1;
+        valetSalaryDalListino = Math.round((l.salary ?? 0) * ore * 100) / 100;
+      }
+    }
+
     return this.soloIMieiSoldi(
-      this.hideInternalNotes({ ...delivery, logs, economiaVendita: this.economiaVendita(delivery) }, user),
+      this.hideInternalNotes({ ...delivery, logs, valetSalaryDalListino, economiaVendita: this.economiaVendita(delivery) }, user),
       user,
     );
   }

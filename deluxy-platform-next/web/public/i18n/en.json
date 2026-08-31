@@ -737,7 +737,8 @@
       "status": "Status",
       "price": "Price",
       "delivery": "Delivery",
-      "actions": "Actions"
+      "actions": "Actions",
+      "pickupAddress": "Pickup (address)"
     },
     "legend": "Legend",
     "actions": {
@@ -1821,7 +1822,11 @@
       "deliveredTitle": "Delivery #{{code}} delivered",
       "notDeliveredTitle": "Delivery #{{code}} not delivered",
       "aChi": "Who received it?",
-      "tipo": { "recipient": "Recipient", "concierge": "Concierge / doorman", "other": "Other" },
+      "tipo": {
+        "recipient": "Recipient",
+        "concierge": "Concierge / doorman",
+        "other": "Other"
+      },
       "nomePh": "Name of the person who received it (optional)",
       "firma": "Receiver's signature",
       "firmaHint": "Have them sign here with a finger, right on the phone.",
@@ -1831,7 +1836,13 @@
       "ddtRemove": "Remove photo",
       "confirmDelivered": "Confirm: delivered",
       "motivo": "Why wasn't it delivered?",
-      "motivi": { "assente": "Recipient absent", "indirizzo": "Wrong or unfindable address", "rifiutata": "Recipient refused", "chiuso": "Closed or unreachable", "altro": "Other" },
+      "motivi": {
+        "assente": "Recipient absent",
+        "indirizzo": "Wrong or unfindable address",
+        "rifiutata": "Recipient refused",
+        "chiuso": "Closed or unreachable",
+        "altro": "Other"
+      },
       "dettaglioPh": "Add a detail (required if you choose \"Other\")",
       "motivoObbligatorio": "Pick a reason or write what happened.",
       "confirmNotDelivered": "Confirm: not delivered"
@@ -1905,7 +1916,8 @@
     },
     "foto": {
       "apri": "See the product photo"
-    }
+    },
+    "fromListino": "from price list"
   },
   "confirmDelivery": {
     "title": "Confirm delivery #{{code}}",
@@ -2136,31 +2148,17 @@
     }
   },
   "availability": {
-    "title": "Availability",
-    "caption": "Who is working today: partners and valets, with their time windows.",
-    "partner": "Partners",
-    "valet": "Valets",
-    "search": "Search",
-    "searchPh": "Partner or valet name",
-    "city": "City",
-    "allCities": "All cities",
-    "cityHint": "Records without a city in the registry are excluded by this filter.",
-    "onlyOpen": "Only those available",
-    "closed": "closed",
-    "none": "Nobody matches these filters.",
-    "noSource": "not stated",
-    "declared": "{{n}} stated something for this day",
-    "unknown": "{{n}} with no information",
-    "origin": {
-      "giorno": "this day",
-      "eccezione": "exception",
-      "settimanale": "usual",
-      "non-indicata": "—",
-      "giornoHint": "Stated their windows for this exact day.",
-      "eccezioneHint": "Closure or special hours marked for this day.",
-      "settimanaleHint": "Nothing stated for this day: these are the usual hours for this weekday.",
-      "non-indicataHint": "No source says anything: we do not know whether they work. That is not the same as knowing they do not."
-    }
+    "title": "My availability",
+    "caption": "Mark the days you are unavailable, or your time slots. By default you are available.",
+    "available": "Available",
+    "notAvailable": "Unavailable",
+    "defaultAvailable": "Available (default)",
+    "from": "From",
+    "to": "To",
+    "slotHint": "Leave empty for the whole day.",
+    "notePh": "Note (optional)",
+    "reset": "Back to default",
+    "error": "Error while saving."
   },
   "recurring": {
     "title": "Recurring services",

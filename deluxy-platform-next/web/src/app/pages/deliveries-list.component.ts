@@ -289,6 +289,9 @@ interface PropostaVendita {
                 {{ 'deliveries.col.recipient' | translate }}<span class="sort-ind">{{ sortIndicator('recipientLastName') }}</span>
               </th>
               <th>{{ 'deliveries.col.address' | translate }}</th>
+              <!-- Indirizzo di RITIRO, visibile a TUTTI (31/08): è il punto di
+                   partenza, non un dato del cliente. -->
+              <th>{{ 'deliveries.col.pickupAddress' | translate }}</th>
               <th class="sortable" (click)="sortBy('deliveryTimeFrom')">
                 {{ 'deliveries.col.delivery' | translate }}<span class="sort-ind">{{ sortIndicator('deliveryTimeFrom') }}</span>
               </th>
@@ -365,6 +368,7 @@ interface PropostaVendita {
                   <td>{{ d.recipientFirstName }} {{ d.recipientLastName }}@if (d.recipientIntercom) { <span class="muted"> · {{ d.recipientIntercom }}</span> }</td>
                 }
                 <td class="muted">{{ (isValetRuolo() && !destinatarioVisibile(d)) ? '' : d.recipientAddress }}</td>
+                <td class="muted">{{ d.pickupAddress || '—' }}</td>
                 <td>
                   @if (d.deliveryTimeFrom) {
                     {{ d.deliveryTimeFrom }}@if (d.deliveryTimeTo) {–{{ d.deliveryTimeTo }}}

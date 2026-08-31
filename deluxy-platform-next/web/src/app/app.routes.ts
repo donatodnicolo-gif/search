@@ -485,16 +485,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/provinces-list.component').then((m) => m.ProvincesListComponent),
       },
-      // ---- Route stub: sezioni in migrazione ----
-      ...[
-        { path: 'availability', title: 'Disponibilita', roles: ['VALET'] },
-      ].map((stub) => ({
-        path: stub.path,
+      // Disponibilità del valet: imposta i giorni/fasce in cui è disponibile.
+      {
+        path: 'availability',
         canActivate: [roleGuard],
-        data: { roles: stub.roles, title: stub.title },
+        data: { roles: ['VALET'], title: 'Disponibilità' },
         loadComponent: () =>
-          import('./pages/stub.component').then((m) => m.StubComponent),
-      })),
+          import('./pages/valet-availability.component').then((m) => m.ValetAvailabilityComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

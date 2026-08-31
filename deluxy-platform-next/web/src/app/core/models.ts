@@ -34,6 +34,7 @@ export interface Delivery {
   deliveryTimeTo?: string;
   deliveryFlexible?: boolean;
   pickupTimeFrom?: string;
+  pickupAddress?: string | null;
   pickupTimeTo?: string;
   pickupFlexible: boolean;
   recipientFirstName: string;

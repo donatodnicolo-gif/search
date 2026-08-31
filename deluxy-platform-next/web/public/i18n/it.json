@@ -737,7 +737,8 @@
       "status": "Stato",
       "price": "Prezzo",
       "delivery": "Consegna",
-      "actions": "Azioni"
+      "actions": "Azioni",
+      "pickupAddress": "Ritiro (indirizzo)"
     },
     "legend": "Legenda",
     "actions": {
@@ -1821,7 +1822,11 @@
       "deliveredTitle": "Consegna #{{code}} consegnata",
       "notDeliveredTitle": "Consegna #{{code}} non consegnata",
       "aChi": "A chi è stata consegnata?",
-      "tipo": { "recipient": "Destinatario", "concierge": "Custode / portineria", "other": "Altro" },
+      "tipo": {
+        "recipient": "Destinatario",
+        "concierge": "Custode / portineria",
+        "other": "Altro"
+      },
       "nomePh": "Nome di chi ha ritirato (facoltativo)",
       "firma": "Firma di chi ritira",
       "firmaHint": "Fai firmare qui col dito, direttamente sul telefono.",
@@ -1831,7 +1836,13 @@
       "ddtRemove": "Togli la foto",
       "confirmDelivered": "Conferma: consegnata",
       "motivo": "Perché non è stata consegnata?",
-      "motivi": { "assente": "Destinatario assente", "indirizzo": "Indirizzo errato o introvabile", "rifiutata": "Il destinatario ha rifiutato", "chiuso": "Chiuso o non raggiungibile", "altro": "Altro" },
+      "motivi": {
+        "assente": "Destinatario assente",
+        "indirizzo": "Indirizzo errato o introvabile",
+        "rifiutata": "Il destinatario ha rifiutato",
+        "chiuso": "Chiuso o non raggiungibile",
+        "altro": "Altro"
+      },
       "dettaglioPh": "Aggiungi un dettaglio (obbligatorio se scegli «Altro»)",
       "motivoObbligatorio": "Scegli un motivo o scrivi cosa è successo.",
       "confirmNotDelivered": "Conferma: non consegnata"
@@ -1905,7 +1916,8 @@
     },
     "foto": {
       "apri": "Vedi la foto del prodotto"
-    }
+    },
+    "fromListino": "dal listino"
   },
   "confirmDelivery": {
     "title": "Conferma consegna #{{code}}",
@@ -2136,31 +2148,17 @@
     }
   },
   "availability": {
-    "title": "Disponibilità",
-    "caption": "Chi lavora oggi: partner e valet, con le loro fasce.",
-    "partner": "Partner",
-    "valet": "Valet",
-    "search": "Cerca",
-    "searchPh": "Nome partner o valet",
-    "city": "Città",
-    "allCities": "Tutte le città",
-    "cityHint": "Chi non dichiara la città nell'anagrafica resta fuori dal filtro.",
-    "onlyOpen": "Solo chi è disponibile",
-    "closed": "chiuso",
-    "none": "Nessuno con questi filtri.",
-    "noSource": "non indicata",
-    "declared": "{{n}} hanno dichiarato per questo giorno",
-    "unknown": "{{n}} senza indicazione",
-    "origin": {
-      "giorno": "del giorno",
-      "eccezione": "eccezione",
-      "settimanale": "di solito",
-      "non-indicata": "—",
-      "giornoHint": "Ha dichiarato le fasce proprio per questo giorno.",
-      "eccezioneHint": "Chiusura o orario speciale segnato per questo giorno.",
-      "settimanaleHint": "Non ha detto niente per questo giorno: è l'orario che tiene di solito in questo giorno della settimana.",
-      "non-indicataHint": "Nessuna fonte dice niente: non sappiamo se lavora. Non è la stessa cosa che sapere che non lavora."
-    }
+    "title": "Le mie disponibilità",
+    "caption": "Segna i giorni in cui non sei disponibile, o le tue fasce orarie. Di norma risulti disponibile.",
+    "available": "Disponibile",
+    "notAvailable": "Non disponibile",
+    "defaultAvailable": "Disponibile (predefinito)",
+    "from": "Dalle",
+    "to": "Alle",
+    "slotHint": "Lascia vuoto per «tutto il giorno».",
+    "notePh": "Nota (facoltativa)",
+    "reset": "Torna al predefinito",
+    "error": "Errore nel salvataggio."
   },
   "recurring": {
     "title": "Servizi ricorrenti",
