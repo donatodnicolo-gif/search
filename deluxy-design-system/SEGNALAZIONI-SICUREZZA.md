@@ -38,3 +38,44 @@
 | 27/08 | tutte | Nasce il Libro della Sicurezza: analisi di 13 app (7 agenti), giuria a 3 lenti (esterno/insider/mobile-applicabilità), revisione ostile che ha verificato ogni buco sul codice (11 confermati, 5 ridimensionati) → Libro v1.0 + piano di rimedio (Appendice B) |
 | 27/08 | Personale | RIDIMENSIONATO: il gate di ruolo mancante sull'UI `/stipendi` NON è raggiungibile oggi (nessun emettitore SSO nel parco, il login a password dà admin). Il buco reale è l'API `?compensi=1`. Il gate UI resta debito latente, da chiudere PRIMA di introdurre un SSO che conii token non-admin |
 | 27/08 | piattaforma | RIDIMENSIONATO: RolesGuard allow-by-default apre agli AUTENTICATI, non agli anonimi (debito latente); token conferma=monitoraggio gravità BASSA (guardia stati già presente). Difese già forti: identità riletta dal DB con revoca immediata, mass-assignment chiusa nel service, lockout login su DB |
+
+---
+
+## Hub — recupero password dal login (30/08/2026, richiesta dell'utente)
+
+**Cosa c'era prima**: nessun recupero. Chi dimenticava la password doveva chiedere a un
+amministratore, che gliela reimpostava da `/utenti`. **Cosa c'è ora**: «Password dimenticata?»
+in fondo al login → link per email → nuova password.
+
+**È una superficie nuova e pubblica** (chi la usa non è loggato, per definizione): le due rotte
+sono escluse dal middleware, quindi ogni difesa vive dentro le azioni. Come è stata costruita,
+punto per punto del Libro:
+
+| Regola | Come | Verificato |
+|---|---|---|
+| Token non leggibile a riposo | 32 byte casuali; a DB solo lo **SHA-256** (come `TokenApi`) | tabella `TokenReset`: in chiaro non c'è |
+| Monouso + scadenza | `usatoIl` + `scadeIl` a **60 minuti**; al consumo si bruciano **tutti** gli altri link non usati della persona | riuso dello stesso link → «Link non più valido» |
+| Niente user-enumeration (§14) | risposta **identica** per email sconosciuta, account disattivato, freno scattato o mail partita | provate email inesistente ed esistente: stessa pagina |
+| Revoca sessioni (§1) | il cambio password sposta `sessioniValideDa`: ogni cookie emesso prima muore | `sessioniValideDa` valorizzata; vecchia password non entra più |
+| Freno (§2, §14) | **su database** (non in-memory: su serverless non conterebbe): 3/ora per persona, 10/ora per IP | 4ª richiesta in un'ora → nessun token creato |
+| Password NIST (§2) | min **12**, blocklist dei valori comuni, vietato nome/email dentro; **nessuna** regola di composizione | i tre rifiuti provati uno per uno |
+| Atomicità | password + revoca + token bruciato in **una transazione** | — |
+| PII | dell'IP si salva **solo l'hash** (sale = segreto dell'app): serve a contare, non a identificare | — |
+
+### Due cose che restano aperte (decida il custode)
+
+1. **Timing residuo sull'invio SMTP.** La risposta è identica nel testo, ma quando l'email
+   esiste l'azione attende l'invio SMTP: un osservatore attento potrebbe distinguere i due casi
+   dal tempo di risposta. Chiuderlo del tutto richiede una coda (invio fuori dalla richiesta) —
+   non c'è oggi nel Hub. Rischio basso ma **reale**: va deciso se accettarlo per iscritto o
+   mettere una coda.
+2. **Il lockout sul LOGIN continua a non esserci** — è la priorità che il Libro §2 assegna al
+   Hub («oggi pubblico senza alcun freno: è credential-stuffing sull'email admin che apre la
+   porta della suite»). Il freno appena scritto vale **solo** per il recupero. La tabella
+   `TokenReset` mostra però che il contatore su DB è pratica già in casa: lo stesso schema
+   (per-email e per-IP, conteggio **prima** dell'hash) si applica a `accedi`.
+
+**Prerequisito operativo**: la posta del Hub **non è configurata** (né env né cassaforte,
+verificato il 30/08). Finché non lo è, il link non parte e la pagina lo dichiara invece di far
+aspettare un'email che non arriverà. Si accende da `/chiavi`, progetto `hub`, con
+`SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` — senza toccare Vercel e senza redeploy.
