@@ -709,6 +709,16 @@ export class SalesService {
       return null;
     }
 
+    // ⭐ RITIRO = INDIRIZZO DEL PARTNER (regola utente 31/08/2026). Una consegna
+    // nata dallo smistamento di una vendita partiva senza indirizzo di ritiro:
+    // il valet non sapeva DOVE ritirare. Il ritiro di default è la sede del
+    // partner della vendita, come nel form manuale.
+    const partnerVendita = await this.prisma.partner.findUnique({
+      where: { id: vendita.partnerId },
+      select: { address: true },
+    });
+    const indirizzoRitiro = partnerVendita?.address?.trim() || null;
+
     // ⭐ L'ECONOMIA DELLA VENDITA, che prima non veniva scritta affatto.
     //
     // Su una vendita il cliente paga il pubblico, e col partner vale:
@@ -743,6 +753,7 @@ export class SalesService {
         recipientLastName: vendita.recipientLastName,
         recipientAddress: vendita.recipientAddress,
         recipientPhone: vendita.recipientPhone,
+        pickupAddress: indirizzoRitiro,
         price: quotaNostra,
         productValue: valoreProdotti,
         ddtNumber: numeroDdt,

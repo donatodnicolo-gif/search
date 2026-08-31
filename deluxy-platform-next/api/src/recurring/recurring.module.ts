@@ -742,7 +742,13 @@ export class RecurringService_ {
         dataInizio: { lte: tetto },
         OR: [{ dataFine: null }, { dataFine: { gte: primo } }],
       },
-      include: { serviceType: { select: { pricingModel: true } }, varianti: true },
+      include: {
+        serviceType: { select: { pricingModel: true } },
+        varianti: true,
+        // Ritiro di default = sede del partner (regola 31/08): un ricorrente
+        // senza `pickupAddress` proprio non deve generare consegne senza ritiro.
+        partner: { select: { address: true } },
+      },
     });
 
     /**
@@ -913,7 +919,7 @@ export class RecurringService_ {
             status: f.valetId ? 'assigned' : 'created',
             deliveryTimeFrom: f.timeFrom,
             deliveryTimeTo: f.timeTo,
-            pickupAddress: r.pickupAddress,
+            pickupAddress: r.pickupAddress?.trim() || r.partner?.address?.trim() || null,
             recipientFirstName: r.recipientFirstName ?? r.nome,
             recipientLastName: r.recipientLastName ?? '',
             recipientAddress: r.recipientAddress,

@@ -741,6 +741,19 @@ export class DeliveriesService {
       dto.pickupAddress = inCitta.pickupAddress;
       dto.distanceKm = undefined;
     }
+    // ⭐ RITIRO DI DEFAULT = INDIRIZZO DEL PARTNER (regola utente 31/08/2026).
+    // Ogni consegna deve nascere con un ritiro: fin qui lo scriveva solo il
+    // form manuale (`applicaRitiroPartner`), e le vie automatiche — vendita,
+    // Customer Service (/app/consegne), Scout — lo lasciavano vuoto («quelle
+    // di oggi» senza indirizzo di ritiro). Un ritiro esplicito o la forzatura
+    // «in città» vincono; solo il vuoto si riempie con la sede del partner.
+    if (!dto.pickupAddress?.trim()) {
+      const p = await this.prisma.partner.findUnique({
+        where: { id: partnerId },
+        select: { address: true },
+      });
+      if (p?.address?.trim()) dto.pickupAddress = p.address;
+    }
 
     const hours = dto.hours ?? 1;
     let price = partnerService?.price ?? serviceType.basePrice ?? 0;
