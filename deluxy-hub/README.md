@@ -307,5 +307,13 @@ eliminato: sul database resta solo l'admin. Confermato anche: login admin (vede
 tutto), redirect a `/login` per home, `/utenti` e con cookie falsificato,
 isolamento schema `hub` con le tabelle di Partner intatte.
 
-**Manca** — Consegne non ha un indirizzo pubblico (segnaposto admin). Nessun
-recupero password autonomo (lo reimposta un admin da `/utenti`).
+**Manca** — Consegne non ha un indirizzo pubblico (segnaposto admin).
+
+**Recupero password (30/08/2026)** — dal login, «Password dimenticata?»: si riceve
+per email un link **monouso** che dura **un’ora**, e scegliere la password nuova
+**chiude tutte le sessioni** aperte con quell’account. La pagina risponde sempre
+allo stesso modo, anche per un indirizzo che non esiste (non si rivela chi ha un
+account). Freno su database: 3 richieste l’ora a persona, 10 per indirizzo IP.
+⚠️ Perché il link parta serve la **posta configurata** (`/chiavi`, progetto
+`hub`): finché manca, la pagina lo dichiara e la password la reimposta un admin
+da `/utenti`. Dettagli e cose da non rompere in [HANDOFF.md](HANDOFF.md) §5-octies.

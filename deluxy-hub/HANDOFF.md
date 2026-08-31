@@ -543,6 +543,51 @@ solida (scrypt, HMAC a tempo costante, token per hash).
 - ⚠️ **Finestra di 1 secondo** nella revoca (il troncamento al secondo, necessario per non auto-invalidare il cookie riemesso): una sessione emessa nello stesso secondo del cambio password sopravvive. L'ostile stesso la dice «praticamente irrilevante». Costo del compromesso.
 - ✅ **Le altre 5 correzioni: CHIUSE, nessuna regressione dura** — login anonimo senza query sprecata, `cache()` request-scoped (niente leak fra utenti), certificati e header reggono.
 
+## 5-octies. Recupero password dal login (30 agosto 2026)
+
+Dal login c'è **«Password dimenticata?»**: si chiede il link, arriva per email, e
+il link porta alla scelta della password nuova. Prima non c'era: l'unica strada
+era chiedere a un amministratore (che resta, ed è il ripiego quando la posta non
+è configurata).
+
+**File**: [`src/lib/recupero-password.ts`](src/lib/recupero-password.ts) (regole e
+token), [`src/lib/recupero-actions.ts`](src/lib/recupero-actions.ts) (le due
+azioni pubbliche), `src/app/password-dimenticata/`, `src/app/reimposta-password/`,
+[`src/app/login/CorniceAccesso.tsx`](src/app/login/CorniceAccesso.tsx) (il vestito
+condiviso delle tre schermate). Tabella `TokenReset` nello schema `hub`.
+
+### Sette cose da non rompere
+
+1. **A database non c'è mai il token in chiaro**, solo il suo SHA-256. Il valore
+   in chiaro esiste per il tempo di finire dentro l'email.
+2. **La risposta è sempre la stessa**: email sconosciuta, account disattivato,
+   freno scattato o email partita davvero non si distinguono. Il portale è la
+   porta della suite: un «questo indirizzo non risulta» regala l'organico.
+3. **Il token è monouso e dura un'ora**; usarne uno brucia anche tutti gli altri
+   link non ancora usati di quella persona.
+4. **Cambiare la password chiude tutte le sessioni** (`sessioniValideDa`): se
+   qualcuno era entrato con la vecchia password o con un cookie rubato, esce.
+5. **Il freno vive su DATABASE** (3/ora a persona, 10/ora per IP): in memoria non
+   conterebbe nulla, con più istanze serverless. Dell'IP si salva solo l'hash.
+6. **Password: min 12, blocklist, niente nome/email dentro**, nessuna regola di
+   composizione (NIST 800-63B: la lunghezza batte i simboli).
+7. **Le due rotte sono escluse dal middleware** (chi le apre non ha sessione):
+   se qualcuno le rimette dentro il matcher, il recupero smette di funzionare.
+
+⚠️ **Prerequisito: la posta non è configurata** (verificato il 30/08: né env né
+cassaforte). Finché manca, il link non parte — e la pagina lo **dichiara** invece
+di far aspettare un'email che non arriverà. Si accende da `/chiavi` → progetto
+`hub` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (più `SMTP_PORT`/`SMTP_FROM` se
+diversi dai default): effetto immediato, senza redeploy.
+
+⚠️ **Aperto, per il custode della sicurezza**: il **lockout sul login** continua a
+mancare (il Libro §2 lo dà come priorità del Hub). Il freno scritto qui vale solo
+per il recupero; lo stesso contatore su DB va applicato ad `accedi`. E resta un
+canale sottile di timing: quando l'email esiste, l'azione attende l'invio SMTP.
+Entrambi registrati in `deluxy-design-system/SEGNALAZIONI-SICUREZZA.md`.
+
+---
+
 ## 6. Deploy e ambiente (Vercel)
 
 - Progetto: **`deluxy/deluxy-hub`** (CLI già autenticata come `donatodnicolo-gif`).
@@ -626,7 +671,7 @@ npm run dev            # http://localhost:3050
   diversi dai default) nella cassaforte `/chiavi` sotto il progetto `hub`, oppure
   come variabili d'ambiente su Vercel. Finché mancano, la pagina lo dichiara e
   non prova a spedire.
-- **Nessun recupero password autonomo**: lo reimposta un admin da `/utenti`.
+- ✅ ~~Nessun recupero password autonomo~~ — fatto il 30/08 (§5-octies): serve però la posta configurata, altrimenti il link non parte.
 - **Creare gli utenti veri** del team da `/utenti` (finora esiste solo l'admin).
   Dal 24/08 la pagina mostra squadre e persone lette da Budgets con «Crea
   account» precompilato (§5-quater); la chiave di Budgets **c'è** dalla stessa
