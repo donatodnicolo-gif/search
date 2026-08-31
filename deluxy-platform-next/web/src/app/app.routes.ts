@@ -390,6 +390,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/richieste.component').then((m) => m.RichiesteComponent),
       },
+      {
+        // Segnalazioni: l'ufficio le apre su partner/valet; partner e valet
+        // vedono e aprono le proprie (reclami).
+        path: 'segnalazioni',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'], title: 'Segnalazioni' },
+        loadComponent: () =>
+          import('./pages/segnalazioni.component').then((m) => m.SegnalazioniComponent),
+      },
       // Le chiavi con cui le altre app chiamano questa. Solo ADMIN: una chiave
       // app scavalca i ruoli dell'applicazione.
       {

@@ -57,7 +57,8 @@
     "preventivi": "Quotes",
     "serviziDeluxy": "Deluxy services",
     "chiaviApp": "App keys",
-    "richieste": "Requests"
+    "richieste": "Requests",
+    "segnalazioni": "Reports"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -2350,5 +2351,34 @@
   "comune": {
     "cercaPh": "Search…",
     "contoRighe": "{{n}} of {{m}}"
+  },
+  "segnalazioni": {
+    "title": "Reports",
+    "captionOffice": "Open reports about partners or valets; complaints arrive here too.",
+    "captionMine": "Your reports and complaints.",
+    "new": "New",
+    "send": "Send",
+    "onPartner": "About partner",
+    "onValet": "About valet",
+    "subject": "Subject",
+    "text": "Text",
+    "textRequired": "Text is required.",
+    "error": "Error.",
+    "all": "All",
+    "empty": "No reports.",
+    "answer": "Answer",
+    "answerPh": "Write an answer…",
+    "take": "Take",
+    "close": "Close",
+    "reopen": "Reopen",
+    "stato": {
+      "aperta": "Open",
+      "in_lavorazione": "In progress",
+      "chiusa": "Closed"
+    },
+    "tipo": {
+      "reclamo": "Complaint",
+      "segnalazione": "Report"
+    }
   }
 }

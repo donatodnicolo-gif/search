@@ -57,7 +57,8 @@
     "preventivi": "Preventivi",
     "serviziDeluxy": "Servizi Deluxy",
     "chiaviApp": "Chiavi delle app",
-    "richieste": "Richieste"
+    "richieste": "Richieste",
+    "segnalazioni": "Segnalazioni"
   },
   "partnerHome": {
     "eyebrow": "Deluxy Luxury Delivery",
@@ -2350,5 +2351,34 @@
   "comune": {
     "cercaPh": "Cerca…",
     "contoRighe": "{{n}} di {{m}}"
+  },
+  "segnalazioni": {
+    "title": "Segnalazioni",
+    "captionOffice": "Apri segnalazioni su partner o valet; qui arrivano anche i reclami.",
+    "captionMine": "Le tue segnalazioni e i tuoi reclami.",
+    "new": "Nuova",
+    "send": "Invia",
+    "onPartner": "Su partner",
+    "onValet": "Su valet",
+    "subject": "Oggetto",
+    "text": "Testo",
+    "textRequired": "Il testo è obbligatorio.",
+    "error": "Errore.",
+    "all": "Tutte",
+    "empty": "Nessuna segnalazione.",
+    "answer": "Risposta",
+    "answerPh": "Scrivi una risposta…",
+    "take": "Prendi in carico",
+    "close": "Chiudi",
+    "reopen": "Riapri",
+    "stato": {
+      "aperta": "Aperta",
+      "in_lavorazione": "In lavorazione",
+      "chiusa": "Chiusa"
+    },
+    "tipo": {
+      "reclamo": "Reclamo",
+      "segnalazione": "Segnalazione"
+    }
   }
 }

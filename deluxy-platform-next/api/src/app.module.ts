@@ -5,6 +5,7 @@ import { ActivitiesModule } from './activities/activities.module';
 import { AppApiModule } from './app-api/app-api.module';
 import { ChiaviAppModule } from './app-api/chiavi.module';
 import { RichiesteModule } from './richieste/richieste.module';
+import { SegnalazioniModule } from './segnalazioni/segnalazioni.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
@@ -53,6 +54,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     AppApiModule,
     ChiaviAppModule,
     RichiesteModule,
+    SegnalazioniModule,
     ProductsModule,
     CategoriesModule,
     CustomersModule,

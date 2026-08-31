@@ -1911,3 +1911,36 @@ model LegacyArchive {
   @@unique([tabella, legacyId])
   @@index([tabella])
 }
+
+// ============================================================
+// SEGNALAZIONI (31/08/2026, chiesto dall'utente): un posto solo dove
+// l'ufficio (admin/operation) apre segnalazioni su un partner o un valet, e
+// dove confluiscono i reclami aperti dai partner e dai valet. Non tocca i
+// modelli Partner/Valet: tiene solo i loro id (i nomi si leggono a parte).
+// ============================================================
+model Segnalazione {
+  id             String    @id @default(cuid())
+  /// reclamo (aperto da partner/valet) | segnalazione (aperta dall'ufficio)
+  tipo           String    @default("segnalazione")
+  /// Su CHI: uno dei due, o nessuno (segnalazione generica).
+  partnerId      String?
+  valetId        String?
+  /// Eventuale consegna collegata.
+  deliveryId     String?
+  /// Chi l'ha aperta.
+  apertaDaUserId String?
+  apertaDaRuolo  String?
+  apertaDaNome   String?
+  oggetto        String?
+  testo          String
+  /// aperta | in_lavorazione | chiusa
+  stato          String    @default("aperta")
+  risposta       String?
+  chiusaIl       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([stato])
+  @@index([partnerId])
+  @@index([valetId])
+}

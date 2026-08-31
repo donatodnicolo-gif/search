@@ -61,6 +61,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       // 31/08 (utente): «Richieste» sta in Operatività — è lavoro quotidiano
       // dell'ufficio, non configurazione.
       { label: 'nav.richieste', path: '/richieste', icon: 'inbox', roles: ['ADMIN', 'OPERATION'] },
+      { label: 'nav.segnalazioni', path: '/segnalazioni', icon: 'message', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
       { label: 'nav.disponibilitaGiorno', path: '/availability-board', icon: 'calendar', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
     ],
   },
