@@ -406,7 +406,7 @@ interface DeliveryDetail {
 
         <!-- Storico consegna: solo admin/operation -->
         @if (canSeeLogs()) {
-          <section class="card block span-2">
+          <section class="card block span-2 registro">
             <h2>{{ 'deliveryDetail.section.history' | translate }}</h2>
             @if (d.logs?.length) {
               <ul class="logs">

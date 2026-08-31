@@ -647,3 +647,32 @@ button.back:focus-visible {
   }
   .quick-tabs > *, .quick > * { flex: 0 0 auto; }
 }
+
+/* ============================================================
+   STAMPA — «una sola pagina» (regola dell'utente, 31/08/2026).
+   Si toglie tutta la cornice dell'app (menu, barra, azioni) e si
+   comprime il contenuto: margini, ombre e spaziature spariscono, il
+   corpo si rimpicciolisce, ogni card evita di spezzarsi a metà. La
+   scheda consegna essenziale sta così in un foglio A4.
+   ============================================================ */
+@media print {
+  @page { size: A4 portrait; margin: 8mm; }
+  html, body { background: #fff !important; }
+  .topbar, .sidebar, app-language-switcher, .actions-bar, .valet-azioni,
+  .back, .form-head .back, .no-print, .toast, .overlay, .dialog, .modal { display: none !important; }
+  .content, main.content, main { padding: 0 !important; margin: 0 !important; }
+  /* Corpo più compatto per far stare tutto in una pagina. */
+  body { font-size: 11px !important; line-height: 1.3 !important; }
+  h1 { font-size: 17px !important; margin: 0 0 6px !important; }
+  h2 { font-size: 13px !important; margin: 0 0 4px !important; }
+  section { padding-top: 8px !important; }
+  .card, .block { box-shadow: none !important; border: 1px solid #ddd !important;
+    break-inside: avoid; page-break-inside: avoid; padding: 10px 12px !important; }
+  .grid { gap: 8px !important; }
+  dl { margin: 0 !important; }
+  dt, dd { padding: 1px 0 !important; }
+  /* Il REGISTRO (log) può essere lunghissimo: in stampa non serve, si toglie
+     per stare in una pagina. La scheda è il documento, non lo storico. */
+  .registro, .logs, .log-list, .timeline { display: none !important; }
+  a[href]:after { content: '' !important; } /* niente URL stampati dietro i link */
+}
