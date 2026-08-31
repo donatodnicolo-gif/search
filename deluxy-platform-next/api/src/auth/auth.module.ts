@@ -1,3 +1,4 @@
+import { SettingsModule } from '../settings/settings.module';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
@@ -5,6 +6,7 @@ import { AuthService } from './auth.service';
 
 @Module({
   imports: [
+    SettingsModule,
     // registerAsync: il segreto viene letto DOPO il caricamento del .env
     // (ConfigModule), non a import-time.
     JwtModule.registerAsync({

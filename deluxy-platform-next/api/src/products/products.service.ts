@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtUser } from '../common/decorators';
 import { ProductType, Role } from '../common/enums';
+import { perimetroProdottiPartner } from '../common/perimetro-prodotti';
 import {
   PagedResult,
   buildOrderBy,
@@ -62,18 +63,12 @@ export class ProductsService {
 
   /**
    * Lista prodotti con ricerca globale, ordinamento e paginazione.
-   * Il partner vede i propri prodotti + quelli visibili agli altri partner.
+   * Il partner vede solo il proprio perimetro (common/perimetro-prodotti.ts:
+   * i suoi + senza partner + «visibile ad altri partner» + partnerLinks).
    */
   async findAll(user: JwtUser, query: ProductListQueryDto): Promise<PagedResult<unknown>> {
     const roleScope =
-      user.role === Role.PARTNER
-        ? {
-            OR: [
-              { partnerId: user.partnerId ?? '-' },
-              { visibleToOtherPartners: true },
-            ],
-          }
-        : {};
+      user.role === Role.PARTNER ? perimetroProdottiPartner(user) : {};
     // Archivio: sezione separata da `active`. Di default si vedono i NON
     // archiviati (compresi i disattivati, che restano visibili).
     // I filtri Sì/No entrano solo se qualcuno li ha chiesti: un `undefined`
@@ -119,15 +114,13 @@ export class ProductsService {
 
   /**
    * Il dettaglio di un prodotto — solo se è nel perimetro di chi chiede.
-   *
-   * ⚠️ Stesso `OR` di `findAll`: il catalogo comune (`partnerId: null`) più i
-   * propri. Era l'unica rotta del modulo senza controllo di proprietà, e non
-   * riceveva nemmeno l'utente.
+   * STESSO perimetro della lista (perimetroPartner): un prodotto che compare
+   * in lista deve aprirsi, uno che non compare non deve aprirsi per id.
    */
   async findOne(id: string, user?: JwtUser) {
     const dove: any = { id };
     if (user?.role === Role.PARTNER) {
-      dove.OR = [{ partnerId: null }, { partnerId: user.partnerId ?? '-' }];
+      dove.OR = perimetroProdottiPartner(user).OR;
     }
     const product = await this.prisma.product.findFirst({
       where: dove,

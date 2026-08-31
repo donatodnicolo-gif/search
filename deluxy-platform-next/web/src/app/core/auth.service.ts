@@ -37,6 +37,11 @@ export class AuthService {
       );
   }
 
+  /** «Password dimenticata»: la risposta è identica esista o no l'account. */
+  passwordDimenticata(email: string) {
+    return this.http.post<{ ok: true }>(`${environment.apiUrl}/auth/password-dimenticata`, { email });
+  }
+
   /** Imposta la sessione da una risposta di login (usato anche dall'accettazione invito). */
   setSession(res: LoginResponse): void {
     localStorage.setItem(TOKEN_KEY, res.accessToken);

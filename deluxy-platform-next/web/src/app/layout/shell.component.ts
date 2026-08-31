@@ -48,7 +48,10 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       // ⚠️ Solo PARTNER: e' la SUA vetrina («Che cosa ti serve?»), non una
       // pagina dell'ufficio. Ad ADMIN e OPERATION compariva come prima voce di
       // menu e li portava su una pagina rivolta a se stessi.
-      { label: 'nav.serviziDeluxy', path: '/home', icon: 'store', roles: ['PARTNER'] },
+      // 31/08: NASCOSTA per ora (deciso dall'utente): la prima schermata torna
+      // a essere Consegne. La rotta /home esiste ancora: per riaccenderla
+      // basta togliere il commento qui e il redirect del login.
+      // { label: 'nav.serviziDeluxy', path: '/home', icon: 'store', roles: ['PARTNER'] },
       { label: 'nav.consegne', path: '/deliveries', icon: 'box', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },
       { label: 'nav.serviziRicorrenti', path: '/recurring-services', icon: 'rules', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
       { label: 'nav.calendario', path: '/calendar', icon: 'calendar', roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'] },

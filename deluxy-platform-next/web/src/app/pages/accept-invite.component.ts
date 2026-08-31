@@ -22,15 +22,16 @@ import { LoginResponse } from '../core/models';
           <h1>{{ 'acceptInvite.invalidTitle' | translate }}</h1>
           <p class="muted">{{ invalid() }}</p>
         } @else {
-          <h1>{{ 'acceptInvite.title' | translate }}</h1>
-          <p class="muted">{{ 'acceptInvite.welcome' | translate:{ name: fullName() } }} ({{ email() }})</p>
+          <!-- Stesso flusso per invito e reset password, testi diversi. -->
+          <h1>{{ (reset() ? 'acceptInvite.resetTitle' : 'acceptInvite.title') | translate }}</h1>
+          <p class="muted">{{ (reset() ? 'acceptInvite.resetWelcome' : 'acceptInvite.welcome') | translate:{ name: fullName() } }} ({{ email() }})</p>
           <label class="fld"><span>{{ 'acceptInvite.password' | translate }}</span>
             <input class="field" type="password" [(ngModel)]="password" autocomplete="new-password" /></label>
           <label class="fld"><span>{{ 'acceptInvite.confirm' | translate }}</span>
             <input class="field" type="password" [(ngModel)]="confirm" autocomplete="new-password" /></label>
           @if (error()) { <div class="error-card">{{ error() }}</div> }
           <button class="btn btn-primary full" [disabled]="saving()" (click)="submit()">
-            {{ saving() ? ('common.saving' | translate) : ('acceptInvite.submit' | translate) }}
+            {{ saving() ? ('common.saving' | translate) : ((reset() ? 'acceptInvite.resetSubmit' : 'acceptInvite.submit') | translate) }}
           </button>
         }
       </div>
@@ -61,6 +62,7 @@ export class AcceptInviteComponent {
   readonly invalid = signal<string | null>(null);
   readonly email = signal('');
   readonly fullName = signal('');
+  readonly reset = signal(false);
   readonly error = signal<string | null>(null);
   readonly saving = signal(false);
 
@@ -68,12 +70,13 @@ export class AcceptInviteComponent {
   confirm = '';
 
   constructor() {
-    this.http.get<{ email: string; firstName: string; lastName: string }>(
+    this.http.get<{ email: string; firstName: string; lastName: string; reset?: boolean }>(
       `${environment.apiUrl}/auth/invite/${this.token}`,
     ).subscribe({
       next: (r) => {
         this.email.set(r.email);
         this.fullName.set(`${r.firstName} ${r.lastName}`.trim());
+        this.reset.set(r.reset === true);
         this.loading.set(false);
       },
       error: (err) => {

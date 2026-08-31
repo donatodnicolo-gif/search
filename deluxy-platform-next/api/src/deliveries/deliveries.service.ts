@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { JwtUser } from '../common/decorators';
+import { perimetroProdottiPartner } from '../common/perimetro-prodotti';
 import { tariffaAllaData } from '../common/tariffe-valet';
 import {
   ActivityType,
@@ -591,7 +592,21 @@ export class DeliveriesService {
    */
   private async fotografaProdotti(
     righe: { productId: string; quantity?: number; price?: number; flexiblePrice?: boolean; fieldValues?: string; productVariantId?: string }[],
+    user?: JwtUser,
   ) {
+    // ⚠️ Il perimetro vale anche in SCRITTURA (regola dell'utente 31/08):
+    // il filtro nella sola lettura si aggira passando l'id a mano — un
+    // partner metteva in consegna il prodotto di un altro. Stessa regola
+    // della lista prodotti (common/perimetro-prodotti.ts).
+    if (user?.role === Role.PARTNER) {
+      const ammessi = await this.prisma.product.count({
+        where: { id: { in: righe.map((r) => r.productId) }, ...perimetroProdottiPartner(user) },
+      });
+      const idUnici = new Set(righe.map((r) => r.productId)).size;
+      if (ammessi < idUnici) {
+        throw new BadRequestException('Uno dei prodotti non è nel tuo catalogo.');
+      }
+    }
     const prodotti = new Map(
       (await this.prisma.product.findMany({
         where: { id: { in: righe.map((r) => r.productId) } },
@@ -738,7 +753,7 @@ export class DeliveriesService {
         status: dto.status ?? (dto.valetId ? DeliveryStatus.ASSIGNED : DeliveryStatus.CREATED),
         products: products?.length
           ? {
-              create: await this.fotografaProdotti(products as any),
+              create: await this.fotografaProdotti(products as any, user),
             }
           : undefined,
         pickups: pickups?.length ? { create: pickups } : undefined,
@@ -864,7 +879,7 @@ export class DeliveriesService {
           ? {
               products: {
                 deleteMany: {},
-                create: await this.fotografaProdotti(products as any),
+                create: await this.fotografaProdotti(products as any, user),
               },
             }
           : {}),

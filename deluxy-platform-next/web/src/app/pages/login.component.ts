@@ -50,12 +50,70 @@ import { LanguageSwitcherComponent } from '../layout/language-switcher.component
           {{ (loading() ? 'login.submitting' : 'login.submit') | translate }}
         </button>
 
+        <!-- Recupero password: il pannello sostituisce i campi, non un'altra
+             pagina — chi ha dimenticato la password è già nel posto giusto. -->
+        @if (!recupero()) {
+          <button type="button" class="link-recupero" (click)="recupero.set(true)">
+            {{ 'login.forgot' | translate }}
+          </button>
+        } @else {
+          <div class="recupero-box">
+            @if (!recuperoInviato()) {
+              <p class="recupero-testo">{{ 'login.forgotHint' | translate }}</p>
+              <input
+                name="emailRecupero"
+                type="email"
+                [(ngModel)]="emailRecupero"
+                autocomplete="username"
+                [placeholder]="'login.email' | translate"
+                aria-label="Email"
+              />
+              <div class="recupero-azioni">
+                <button type="button" class="secondario" (click)="recupero.set(false)">
+                  {{ 'common.cancel' | translate }}
+                </button>
+                <button type="button" [disabled]="recuperoInCorso()" (click)="chiediRecupero()">
+                  {{ (recuperoInCorso() ? 'login.submitting' : 'login.forgotSend') | translate }}
+                </button>
+              </div>
+            } @else {
+              <!-- Messaggio identico esista o no l'account: non si rivela nulla. -->
+              <p class="recupero-testo ok">{{ 'login.forgotDone' | translate }}</p>
+            }
+          </div>
+        }
+
         <p class="footnote">{{ 'app.tagline' | translate }}</p>
       </form>
     </div>
   `,
   styles: [
     `
+      .link-recupero {
+        margin-top: 14px;
+        border: none;
+        background: none;
+        font: inherit;
+        font-size: 13px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .link-recupero:hover { color: var(--text); }
+      .recupero-box {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid var(--hairline);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        text-align: left;
+      }
+      .recupero-testo { margin: 0; font-size: 13px; color: var(--text-secondary); }
+      .recupero-testo.ok { color: var(--green); }
+      .recupero-azioni { display: flex; gap: 8px; justify-content: flex-end; }
+      .recupero-azioni .secondario { background: var(--fill); color: var(--text); }
       .login-page {
         min-height: 100vh;
         display: flex;
@@ -191,17 +249,33 @@ export class LoginComponent {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
+  /** Recupero password: pannello aperto, invio in corso, richiesta mandata. */
+  emailRecupero = '';
+  readonly recupero = signal(false);
+  readonly recuperoInCorso = signal(false);
+  readonly recuperoInviato = signal(false);
+
+  chiediRecupero(): void {
+    const email = this.emailRecupero.trim();
+    if (!email) return;
+    this.recuperoInCorso.set(true);
+    this.auth.passwordDimenticata(email).subscribe({
+      // La risposta è identica esista o no l'account: qui si mostra SEMPRE
+      // lo stesso messaggio, anche su errore di rete — nessun canale laterale.
+      next: () => { this.recuperoInCorso.set(false); this.recuperoInviato.set(true); },
+      error: () => { this.recuperoInCorso.set(false); this.recuperoInviato.set(true); },
+    });
+  }
+
   submit(): void {
     if (!this.email || !this.password) return;
     this.loading.set(true);
     this.error.set(null);
     this.auth.login(this.email, this.password).subscribe({
-      // Il PARTNER atterra sulla vetrina dei servizi richiedibili (deciso
-      // dall'utente il 27/08); gli altri sulle consegne come sempre.
-      next: () =>
-        this.router.navigate([
-          this.auth.user()?.role === 'PARTNER' ? '/home' : '/deliveries',
-        ]),
+      // 31/08: la vetrina /home e' NASCOSTA per ora (deciso dall'utente) —
+      // tutti atterrano sulle consegne. La rotta /home resta raggiungibile
+      // a mano per il PARTNER, solo non e' piu' la prima schermata.
+      next: () => this.router.navigate(['/deliveries']),
       error: (err) => {
         this.loading.set(false);
         this.error.set(

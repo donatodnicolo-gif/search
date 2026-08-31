@@ -8,7 +8,11 @@
     "email": "Email",
     "password": "Password",
     "submit": "Entra",
-    "submitting": "Accesso in corso…"
+    "submitting": "Accesso in corso…",
+    "forgot": "Password dimenticata?",
+    "forgotHint": "Scrivi la tua email: se corrisponde a un account ti mandiamo un link per scegliere una password nuova.",
+    "forgotSend": "Mandami il link",
+    "forgotDone": "Fatto. Se l'email corrisponde a un account, riceverai a breve un link valido 2 ore. Controlla anche lo spam."
   },
   "nav": {
     "section": {
@@ -151,7 +155,10 @@
     "welcome": "Ciao {{name}}, crea la password per accedere",
     "password": "Password (min. 8 caratteri)",
     "confirm": "Conferma password",
-    "submit": "Attiva account ed entra"
+    "submit": "Attiva account ed entra",
+    "resetTitle": "Scegli una password nuova",
+    "resetWelcome": "Ciao {{name}}, imposta la nuova password del tuo account",
+    "resetSubmit": "Cambia password ed entra"
   },
   "settings": {
     "title": "Impostazioni",
@@ -262,7 +269,8 @@
     "comingSoon": "In arrivo",
     "close": "Chiudi",
     "remove": "Togli",
-    "retry": "Riprova"
+    "retry": "Riprova",
+    "of": "di"
   },
   "enums": {
     "productType": {
@@ -809,7 +817,10 @@
       "showDiffs": "Mostra le {{n}} differenze",
       "hideDiffs": "Nascondi le differenze"
     },
-    "altre": "+ altre {{n}}"
+    "altre": "+ altre {{n}}",
+    "statoAttivi": "Attivi",
+    "statoTutti": "Tutti",
+    "emptyAttivi": "Nessuno dei {{n}} partner in archivio è attivo: passa a «Tutti» per vederli."
   },
   "valets": {
     "title": "Valet",

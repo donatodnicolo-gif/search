@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
+import { SettingsService } from '../settings/settings.module';
 import { createHash } from 'node:crypto';
 import { JwtUser } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
@@ -19,6 +21,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly settings: SettingsService,
   ) {}
 
   // ============================================================
@@ -166,39 +169,109 @@ export class AuthService {
     return user;
   }
 
-  /** Dati minimi dell'invito (pagina pubblica di accettazione): a chi è rivolto. */
+
+  /**
+   * «Password dimenticata»: genera un token di reimpostazione e lo manda per
+   * mail via AI Mail. Riusa il MECCANISMO dell'invito (stesso token, stessa
+   * pagina /invite/:token che fa scegliere la password): un secondo canale di
+   * reset sarebbe una seconda superficie da difendere.
+   *
+   * ⚠️ La risposta è SEMPRE la stessa, esista o no l'account: dire «email non
+   * trovata» regalerebbe l'elenco degli account validi. Per lo stesso motivo
+   * l'invio della mail non può far fallire la rotta.
+   *
+   * ⚠️ Passa dallo stesso freno del login (tentativoAccesso): senza, questa
+   * rotta pubblica sarebbe un generatore gratuito di mail verso chiunque.
+   */
+  async richiediRecupero(email: string, ip?: string): Promise<{ ok: true }> {
+    const falliti = await this.quantiFallimenti(email, ip);
+    if (falliti.perEmail >= AuthService.TENTATIVI_MAX || falliti.perIp >= AuthService.TENTATIVI_MAX_IP) {
+      return { ok: true }; // frenato in silenzio: la risposta non cambia
+    }
+    this.segnaFallimento(email, ip); // ogni richiesta conta verso il freno
+    const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (!user || user.status !== 'active') return { ok: true };
+
+    const token = randomBytes(24).toString('hex');
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { inviteToken: token, inviteTokenExpiresAt: new Date(Date.now() + 2 * 3600_000) },
+    });
+
+    // Invio via AI Mail (stesso contratto del recap: POST /api/v1/invia).
+    try {
+      const url = ((await this.settings.get('mailUrl')) ?? process.env.MAIL_URL ?? 'https://deluxy-mail.vercel.app').replace(/\/+$/, '');
+      const chiave = (await this.settings.get('mailApiKey')) ?? process.env.MAIL_API_KEY ?? '';
+      const utente = (await this.settings.get('mailUtente')) ?? process.env.MAIL_UTENTE ?? '';
+      if (!chiave || !utente) throw new Error('AI Mail non configurata (mailApiKey/mailUtente)');
+      const link = `https://app.deluxy.it/invite/${token}`;
+      const corpo = [
+        `Ciao ${user.firstName ?? ''},`,
+        '',
+        'qualcuno (speriamo tu) ha chiesto di reimpostare la password del tuo accesso Deluxy.',
+        `Per scegliere una password nuova apri questo indirizzo entro 2 ore: ${link}`,
+        '',
+        'Se non sei stato tu, ignora questa mail: la password attuale resta valida.',
+      ].join('\n');
+      const res = await fetch(`${url}/api/v1/invia`, {
+        method: 'POST',
+        headers: { 'x-api-key': chiave, 'x-utente': utente, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ a: user.email, oggetto: 'Reimposta la tua password Deluxy', corpo }),
+      });
+      if (!res.ok) throw new Error(`AI Mail risponde ${res.status}`);
+    } catch (err) {
+      // Non si rivela niente al chiamante; l'avaria si legge nei log del server.
+      console.error('recupero-password: invio mail fallito:', (err as Error).message);
+    }
+    return { ok: true };
+  }
+
+  /**
+   * Dati minimi del link (pagina pubblica): a chi è rivolto e se è un INVITO
+   * (utente mai attivato) o un RESET della password (utente già attivo, dal
+   * «password dimenticata»). Il flusso è lo stesso, il testo in pagina no.
+   */
   async inviteInfo(token: string) {
     const user = await this.prisma.user.findUnique({ where: { inviteToken: token } });
-    if (!user || user.status !== 'invited') {
+    if (!user || !['invited', 'active'].includes(user.status)) {
       throw new NotFoundException('Invito non valido');
     }
     if (user.inviteTokenExpiresAt && user.inviteTokenExpiresAt < new Date()) {
-      throw new BadRequestException('Invito scaduto: chiedi un nuovo invito.');
+      throw new BadRequestException('Link scaduto: chiedine uno nuovo.');
     }
-    return { email: user.email, firstName: user.firstName, lastName: user.lastName };
+    return {
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      reset: user.status === 'active',
+    };
   }
 
   /** L'utente sceglie la password dal link di invito: attiva l'account e lo logga. */
   async acceptInvite(dto: AcceptInviteDto) {
     const user = await this.prisma.user.findUnique({ where: { inviteToken: dto.token } });
-    if (!user || user.status !== 'invited') {
+    if (!user || !['invited', 'active'].includes(user.status)) {
       throw new BadRequestException('Invito non valido o già usato');
     }
     if (user.inviteTokenExpiresAt && user.inviteTokenExpiresAt < new Date()) {
-      throw new BadRequestException('Invito scaduto: chiedi un nuovo invito.');
+      throw new BadRequestException('Link scaduto: chiedine uno nuovo.');
     }
+    const eraReset = user.status === 'active';
     const updated = await this.prisma.user.update({
       where: { id: user.id },
       data: {
         passwordHash: await bcrypt.hash(dto.password, 10),
         status: 'active',
-        activatedAt: new Date(),
+        // Il reset non deve riscrivere la data di PRIMA attivazione.
+        activatedAt: user.activatedAt ?? new Date(),
         inviteToken: null,
         inviteTokenExpiresAt: null,
       },
     });
     await this.prisma.userEvent.create({
-      data: { userId: user.id, action: 'activated', note: 'Invito accettato' },
+      data: eraReset
+        ? { userId: user.id, action: 'password-reset', note: 'Password reimpostata dal link «password dimenticata»' }
+        : { userId: user.id, action: 'activated', note: 'Invito accettato' },
     });
     const payload = {
       sub: updated.id,

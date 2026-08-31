@@ -8,7 +8,11 @@
     "email": "Email",
     "password": "Password",
     "submit": "Sign in",
-    "submitting": "Signing in…"
+    "submitting": "Signing in…",
+    "forgot": "Forgot password?",
+    "forgotHint": "Enter your email: if it matches an account we'll send you a link to choose a new password.",
+    "forgotSend": "Send me the link",
+    "forgotDone": "Done. If the email matches an account, you'll shortly receive a link valid for 2 hours. Check your spam folder too."
   },
   "nav": {
     "section": {
@@ -151,7 +155,10 @@
     "welcome": "Hi {{name}}, create your password to sign in",
     "password": "Password (min. 8 characters)",
     "confirm": "Confirm password",
-    "submit": "Activate account and sign in"
+    "submit": "Activate account and sign in",
+    "resetTitle": "Choose a new password",
+    "resetWelcome": "Hi {{name}}, set the new password for your account",
+    "resetSubmit": "Change password and sign in"
   },
   "settings": {
     "title": "Settings",
@@ -262,7 +269,8 @@
     "comingSoon": "Coming soon",
     "close": "Close",
     "remove": "Remove",
-    "retry": "Retry"
+    "retry": "Retry",
+    "of": "of"
   },
   "enums": {
     "productType": {
@@ -809,7 +817,10 @@
       "showDiffs": "Show the {{n}} differences",
       "hideDiffs": "Hide differences"
     },
-    "altre": "+ {{n}} more"
+    "altre": "+ {{n}} more",
+    "statoAttivi": "Active",
+    "statoTutti": "All",
+    "emptyAttivi": "None of the {{n}} partners on file is active: switch to “All” to see them."
   },
   "valets": {
     "title": "Valets",

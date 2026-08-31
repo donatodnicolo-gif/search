@@ -99,11 +99,52 @@
 > scrittura Anagrafiche via dai settings (mascherare subito), `/api/health`
 > vero, `regions: ["fra1"]` dichiarata, `.vercelignore`.
 
-**📕 MANUALE DI FUNZIONALITÀ (28/08/2026, deciso dall'utente): [`docs/guida-visiva.html`](guida-visiva.html) → artifact https://claude.ai/code/artifact/17c9fcad-6a0e-4da7-982f-fb546431d1d1** — la guida visiva per chi arriva nuovo. ⚠️ **Ogni funzionalità aggiunta o modificata va scritta lì, nello stesso commit, e ripubblicata allo STESSO indirizzo** (`Artifact` con lo stesso `file_path`, o con `url` da un'altra sessione: un indirizzo nuovo lascia in mano all'utente un link che invecchia). NON sostituisce `COME-FUNZIONA-APP-DELUXY.md`: quello è il riferimento campo per campo, la guida è l'orientamento. Regola in [REGOLE-DI-LAVORO.md §0-bis](REGOLE-DI-LAVORO.md).
+**📕 MANUALE DI FUNZIONALITÀ (28/08/2026, deciso dall'utente): [`docs/guida-visiva.html`](guida-visiva.html) → artifact https://claude.ai/code/artifact/cd3c9488-3404-4f95-be49-ef35ccdffa71** — la guida visiva per chi arriva nuovo. ⚠️ **Ogni funzionalità aggiunta o modificata va scritta lì, nello stesso commit, e ripubblicata allo STESSO indirizzo** (`Artifact` con lo stesso `file_path`, o con `url` da un'altra sessione: un indirizzo nuovo lascia in mano all'utente un link che invecchia). NON sostituisce `COME-FUNZIONA-APP-DELUXY.md`: quello è il riferimento campo per campo, la guida è l'orientamento. Regola in [REGOLE-DI-LAVORO.md §0-bis](REGOLE-DI-LAVORO.md).
 
-**Ultimo aggiornamento:** 28 agosto 2026 — 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
+**Ultimo aggiornamento:** 31 agosto 2026 — 🔑 **recupero password** («password dimenticata» → mail con link, stesso flusso dell'invito, E2E verificato in prod); 🙈 vetrina `/home` nascosta (prima schermata: Consegne); 🧭 **perimetro prodotti del partner** (suoi + senza-partner + visibili + partnerLinks, in lettura E in scrittura consegne — prima la scrittura non filtrava); prima ancora (sezioni sotto): legacy SPENTO e riallineamento chiuso, dominio app.deluxy.it vivo. Il resto del riassunto del 28/08: 🎨 **passata UX su tutta l'app** (Libro: conferme narrative, ricerca ovunque, form a norma, foto prodotto nel dettaglio); ✅ **paga doppia chiusa** (50 righe a `payable=false`, 553,91 €) e listino valet verificato 240/240 (il mio allarme era falso); 🔬 riverifica sul database originale (la mia tabella era sbagliata) e **valore merce dalle righe, non da `productValue`** (1.417 vendite, 90.265 € di scarto); 🔴 **paga doppia sulle coppie corporate: 553,91 €** (aperto, decisione dell'utente) + il **conto della vendita visibile al partner** (incasso, commissione+IVA, dovuto netto); ⭐ corretta la voce **Aziendale/Corporate**: la replica in due consegne è VERA (misuravo `parentDeliveryId` invece di `legacyCorrespondDeliveryId`); manuale di funzionalità (guida visiva) pubblicato; tabella partner con coda «+N», bottoni del registro che dicono cosa fanno, ultime 10 consegne nella scheda partner; prima: sezione **RICHIESTE** (le altre app chiedono consegne a parole, 20 prove su 20); prima: rotellina di avanzamento sui ricorrenti, lotti da 150 (93 ms a consegna, misurati), ore calcolate, ambito del team leader, provincia mai scritta, chiavi app dall'app, sicurezza a 4 agenti. Restano aperti: negare-per-default sul guard, SCOPE per rotta sulle chiavi app, token di conferma separato da quello di monitoraggio, 31.987 consegne importate senza provincia.
 **Branch di lavoro:** `piattaforma-ricerca-insensitive` (su `main` sta search-supplier) · **Deploy: SOLO da CLI** — il repo è scollegato da Vercel (`vercel git disconnect`) perché i build da git rubavano l'alias · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+### 🔑 31/08/2026 — Recupero password + vetrina nascosta + perimetro prodotti del partner
+
+**Recupero password (chiesto urgente dall'utente)** — VERIFICATO E2E in produzione:
+- API: `@Public POST /auth/password-dimenticata` → `richiediRecupero()` in
+  `auth.service.ts`. Riusa il MECCANISMO dell'invito (stesso token, stessa
+  pagina `/invite/:token`): `inviteInfo`/`acceptInvite` ora accettano anche
+  utenti `active` e rispondono `reset: true` (la pagina cambia i testi:
+  «Scegli una password nuova»). Risposta SEMPRE `{ok:true}`, esista o no
+  l'account; passa dallo stesso freno del login (`tentativoAccesso`, ogni
+  richiesta conta); mail via AI Mail (`mailUrl`/`mailApiKey`/`mailUtente` in
+  AppSetting — verificati presenti in prod); link valido 2 ore; il reset non
+  riscrive `activatedAt`; evento `password-reset` nel registro utente.
+- Web: link «Password dimenticata?» sotto il bottone del login apre un
+  pannello nella stessa card (email → conferma generica). i18n `login.forgot*`
+  e `acceptInvite.reset*` in it/en.
+- E2E provato su prova.valet: richiesta→token→info(reset:true)→cambio
+  password→login ok→link riusato 404→evento scritto. La mail di prova è
+  partita anche verso `donatod.nicolo@gmail.com` (casella dell'utente).
+- ⚠️ Trappola scoperta: la rotta del controller e l'estensione agli utenti
+  `active` erano state PERSE prima del riassunto di sessione (il primo deploy
+  dava 404): riscritte e riverificate. Il deploy si fa dalla RADICE `app/`
+  (il progetto `delivery` ha Root Directory `deluxy-platform-next`; da dentro
+  la cartella fallisce con «Root Directory does not exist»).
+
+**Vetrina `/home` NASCOSTA (deciso dall'utente 31/08)**: la prima schermata
+torna Consegne per tutti; la voce di menu «Servizi Deluxy» è commentata in
+`shell.component.ts`, il redirect del login è `/deliveries` per tutti. La
+rotta `/home` esiste ancora: per riaccendere basta scommentare la voce e il
+redirect.
+
+**Perimetro prodotti del PARTNER (regola dell'utente 31/08)**: un partner
+vede e USA solo — i suoi, i senza-partner, i «visibile ad altri partner», e
+quelli dove è venditore aggiuntivo (partnerLinks). UNA casa:
+`common/perimetro-prodotti.ts`. Prima lista e dettaglio usavano due OR
+diversi (lista senza i senza-partner, dettaglio senza i «visibili») e la
+SCRITTURA delle consegne non filtrava affatto: un partner poteva mettere in
+consegna il prodotto di un altro passando l'id (`fotografaProdotti` ora
+rifiuta con 400 «Uno dei prodotti non è nel tuo catalogo»). Verificato in
+prod con token PARTNER vero: lista 320=320 col DB, dettaglio altrui 404,
+consegna con prodotto altrui 400, col proprio 201 (consegna di prova rimossa).
+
 ### 🏁 31/08/2026 — IL LEGACY È SPENTO: applicate le sue ultime modifiche, riallineamento CHIUSO
 
 L'utente: «ora sei viva solo tu come app, dobbiamo importare tutto al più

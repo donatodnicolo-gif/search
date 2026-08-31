@@ -26,6 +26,22 @@ export class AuthController {
   }
 
   @Public()
+  @Post('password-dimenticata')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Richiede il link di reimpostazione password (risposta sempre uguale)' })
+  passwordDimenticata(
+    @Body() dto: { email?: string },
+    @Req() req: { ip?: string; headers?: Record<string, string | string[] | undefined> },
+  ) {
+    // Stessa estrazione dell'IP del login: dietro Vercel il vero indirizzo
+    // sta in x-forwarded-for, req.ip vedrebbe il proxy.
+    const inoltrato = String(req?.headers?.['x-forwarded-for'] ?? '').split(',')[0].trim();
+    const email = String(dto?.email ?? '').trim();
+    if (!email) return { ok: true }; // risposta identica anche senza email
+    return this.authService.richiediRecupero(email, inoltrato || req?.ip);
+  }
+
+  @Public()
   @Get('invite/:token')
   @ApiOperation({ summary: 'Dati dell invito (pagina pubblica di accettazione)' })
   inviteInfo(@Param('token') token: string) {

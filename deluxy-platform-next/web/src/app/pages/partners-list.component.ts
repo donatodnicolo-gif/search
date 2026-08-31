@@ -17,9 +17,27 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
     <div class="page-header">
       <div>
         <h1>{{ 'partners.title' | translate }}</h1>
-        <p class="page-caption">{{ partners().length }} {{ 'partners.caption' | translate }}</p>
+        <!-- «N di M»: col filtro sugli attivi acceso di default, il totale va
+             DETTO o i non attivi sembrano spariti dalla rete (Libro §8-bis). -->
+        <p class="page-caption">
+          @if (filtered().length !== partners().length) {
+            {{ filtered().length }} {{ 'common.of' | translate }} {{ partners().length }} {{ 'partners.caption' | translate }}
+          } @else {
+            {{ partners().length }} {{ 'partners.caption' | translate }}
+          }
+        </p>
       </div>
       <div class="head-actions">
+        <!-- Stato: filtro a scelta singola con «Tutti» (Libro §8 punto 4);
+             attivi di default per decisione dell'utente (29/08/2026). -->
+        <div class="quick" role="group" [attr.aria-label]="'partners.col.status' | translate">
+          <button type="button" class="quick-tab" [class.active]="stato() === 'attivi'" (click)="stato.set('attivi')">
+            {{ 'partners.statoAttivi' | translate }} ({{ attiviTotali() }})
+          </button>
+          <button type="button" class="quick-tab" [class.active]="stato() === 'tutti'" (click)="stato.set('tutti')">
+            {{ 'partners.statoTutti' | translate }} ({{ partners().length }})
+          </button>
+        </div>
         <input
           class="field"
           name="q"
@@ -82,7 +100,14 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
     } @else if (filtered().length === 0) {
       <div class="card state-card">
         <strong>{{ 'partners.emptyTitle' | translate }}</strong>
-        <span class="muted">{{ 'partners.emptyHint' | translate }}</span>
+        <!-- Se i partner esistono ma sono tutti fuori dal filtro «Attivi», il
+             vuoto va spiegato: un elenco vuoto senza motivo si legge come
+             «non ce ne sono» (trappola del default che nasconde). -->
+        @if (stato() === 'attivi' && partners().length) {
+          <span class="muted">{{ 'partners.emptyAttivi' | translate:{ n: partners().length } }}</span>
+        } @else {
+          <span class="muted">{{ 'partners.emptyHint' | translate }}</span>
+        }
       </div>
     } @else {
       <div class="card table-wrap">
@@ -165,8 +190,11 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
       .page-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
-      .head-actions { display: flex; gap: 10px; align-items: center; }
+      .head-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .head-actions .btn { text-decoration: none; }
+      .quick { display: inline-flex; background: var(--fill, #f5f5f7); border-radius: 980px; padding: 2px; }
+      .quick-tab { border: 0; background: none; border-radius: 980px; padding: 6px 14px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text-secondary); cursor: pointer; }
+      .quick-tab.active { background: #fff; color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
       .riepilogo { display: flex; align-items: center; gap: 10px; padding: 12px 16px; margin-bottom: 14px; flex-wrap: wrap; }
       .table-wrap { overflow-x: auto; }
       table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -250,7 +278,17 @@ export class PartnersListComponent {
     'insegna',
   );
 
-  readonly filtered = computed(() => this.table.view(this.partners()));
+  /**
+   * Filtro di stato: «Attivi» di default (decisione dell'utente, 29/08/2026) —
+   * la lista serve a lavorare con la rete di oggi. I non attivi non spariscono:
+   * il tab «Tutti» porta il conteggio, e la caption dice «N di M».
+   */
+  readonly stato = signal<'attivi' | 'tutti'>('attivi');
+  readonly attiviTotali = computed(() => this.partners().filter((p) => p.active).length);
+
+  readonly filtered = computed(() =>
+    this.table.view(this.stato() === 'attivi' ? this.partners().filter((p) => p.active) : this.partners()),
+  );
 
   readonly importing = signal(false);
   readonly importResult = signal<string | null>(null);
