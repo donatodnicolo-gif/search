@@ -446,6 +446,7 @@ model Ordine {
    * /**
    * /**
    * /**
+   * /**
    * L'ultimo link di pagamento per una RICONSEGNA di quest'ordine.
    * ⚠️⚠️ Si tiene, e non è un vezzo: senza, chiudendo il pop-up il link
    * spariva e per riaverlo bisognava premere di nuovo «Crea il link» — cioè
@@ -2163,4 +2164,73 @@ model Preventivo {
   @@index([negozioId, stato])
   @@index([cifre])
   @@index([conversazioneId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RICHIESTA DI FATTURA su un ordine
+//
+// Il caso vero: il cliente chiede la fattura — al telefono, in chat, dopo aver
+// comprato. Finora quella richiesta viveva in una conversazione e i dati
+// fiscali si copiavano in un messaggio: chi emette la fattura doveva andarseli
+// a cercare, e metà delle volte mancava il codice destinatario.
+//
+// ⚠️⚠️ QUI NON SI EMETTE NIENTE. La fattura elettronica esce da FINANCE /
+// Fatture in Cloud, prende un numero nella numerazione dell'anno e parte verso
+// lo SDI: non si annulla con un clic, si annulla con una nota di credito.
+// Questa tabella tiene la RICHIESTA e i DATI FISCALI del cliente — che oggi non
+// stanno da nessuna parte — e lo stato: chiesta, emessa, o non dovuta.
+//
+// ⚠️ I dati fiscali NON si deducono dall'ordine: l'indirizzo di spedizione è
+// del destinatario (è un regalo), e la ragione sociale non è il nome di chi
+// compra. Si chiedono, e finché non ci sono la riga resta incompleta e lo dice.
+// ─────────────────────────────────────────────────────────────────────────────
+model RichiestaFattura {
+  id           String @id @default(cuid())
+  /// L'ordine di cui si chiede la fattura. Uno solo: due fatture per lo stesso
+  /// ordine sono un problema fiscale, non una comodità.
+  ordineId     String @unique
+  ordineNumero String @default("")
+  negozioId    String @default("")
+
+  /// `privato` (serve il codice fiscale) | `azienda` (serve P.IVA + SDI o PEC).
+  /// ⚠️ Non è un dettaglio anagrafico: cambia quali campi sono obbligatori
+  /// perché lo SDI scarta una fattura elettronica senza il recapito giusto.
+  tipo String @default("privato")
+
+  /// Intestazione: ragione sociale per l'azienda, nome e cognome per il privato.
+  intestazione  String @default("")
+  partitaIva    String @default("")
+  codiceFiscale String @default("")
+  /// Il codice destinatario a 7 caratteri, oppure la PEC: ne basta uno, ma uno
+  /// dei due deve esserci per un'azienda.
+  codiceSdi     String @default("")
+  pec           String @default("")
+  email         String @default("")
+
+  /// L'indirizzo DI FATTURAZIONE. ⚠️ Non quello di consegna: la fattura va a chi
+  /// paga, la consegna a chi riceve, e da noi sono quasi sempre due persone.
+  indirizzo String @default("")
+  cap       String @default("")
+  citta     String @default("")
+  provincia String @default("")
+  paese     String @default("IT")
+
+  note String @default("") @db.Text
+
+  /// `chiesta` → `emessa` | `non_dovuta`.
+  /// ⚠️ «non dovuta» è uno stato e non una cancellazione: se il cliente cambia
+  /// idea o la fattura c'era già, la richiesta resta scritta — altrimenti fra un
+  /// mese nessuno sa perché quell'ordine non ne ha una.
+  stato String @default("chiesta")
+
+  numeroFattura String    @default("")
+  emessaIl      DateTime?
+  emessaDaNome  String    @default("")
+
+  chiestaDaNome String   @default("")
+  creatoIl      DateTime @default(now())
+  aggiornatoIl  DateTime @updatedAt
+
+  @@index([stato, creatoIl])
+  @@index([negozioId, stato])
 }

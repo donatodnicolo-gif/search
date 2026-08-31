@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { MessaggiOrdine } from './MessaggiOrdine'
 import { MandaInApp } from './MandaInApp'
+import { RichiediFattura } from './RichiediFattura'
 import { FornitoreOrdine, type FornitoreProposto } from './FornitoreOrdine'
 import { DiarioOrdine } from './DiarioOrdine'
 import { CHIUSURA, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
@@ -1784,6 +1785,20 @@ export function DettaglioOrdine({
                 <div style={{ marginTop: 12 }}>
                   <MandaInApp ordineId={ordine.id} onFatto={() => void carica()} />
                 </div>
+              ) : null}
+
+              {/* ── LA FATTURA ──
+                  ⚠️ SEMPRE, in qualunque stato sia l'ordine: il cliente la
+                  chiede quando gli pare — al telefono, tre giorni dopo, a
+                  consegna avvenuta. Legarla allo stato di lavorazione vorrebbe
+                  dire non poterla registrare proprio nel caso più frequente,
+                  cioè a cose fatte. */}
+              {ordine.id ? (
+                <RichiediFattura
+                  ordineId={ordine.id}
+                  clienteNome={ordine.clienteNome}
+                  email={ordine.email}
+                />
               ) : null}
 
               {/* TUTTE le azioni dell'ordine stanno qui. Sulla scheda ne sono
