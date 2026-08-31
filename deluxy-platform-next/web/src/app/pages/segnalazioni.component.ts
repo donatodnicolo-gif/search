@@ -74,6 +74,11 @@ interface Rif { id: string; nome: string }
       </section>
     }
 
+    <label class="cerca">
+      <input class="field" type="search" [ngModel]="ricerca()" (ngModelChange)="ricerca.set($event)"
+             [placeholder]="'segnalazioni.searchPh' | translate" />
+    </label>
+
     <div class="tabs">
       @for (s of ['', 'aperta', 'in_lavorazione', 'chiusa']; track s) {
         <button class="tab" [class.on]="filtro() === s" (click)="filtro.set(s); carica()">
@@ -90,10 +95,10 @@ interface Rif { id: string; nome: string }
     </div>
 
     @if (caricando()) { <p class="muted">{{ 'common.loading' | translate }}</p> }
-    @else if (!lista().length) { <div class="card state-card">{{ 'segnalazioni.empty' | translate }}</div> }
+    @else if (!listaFiltrata().length) { <div class="card state-card">{{ 'segnalazioni.empty' | translate }}</div> }
     @else {
       <div class="lista">
-        @for (s of lista(); track s.id) {
+        @for (s of listaFiltrata(); track s.id) {
           <div class="card seg" [class.chiusa]="s.stato === 'chiusa'">
             <div class="testa">
               <span class="pill" [class]="'st-' + s.stato">{{ 'segnalazioni.stato.' + s.stato | translate }}</span>
@@ -139,6 +144,8 @@ interface Rif { id: string; nome: string }
       .fld.span-2 { grid-column: 1 / -1; }
       .fld > span { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
       .azioni { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+      .cerca { display: block; margin-bottom: 12px; }
+      .cerca .field { width: 100%; max-width: 420px; }
       .tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
       .tabs.tipi { margin-top: -6px; }
       .tabs.tipi .tab { font-size: 13px; }
@@ -183,6 +190,15 @@ export class SegnalazioniComponent {
   readonly filtro = signal('');
   readonly filtroTipo = signal('');
   readonly lista = signal<Segn[]>([]);
+  /** Ricerca testo (Libro UX&UI §8-bis: ogni elenco ha la ricerca). */
+  readonly ricerca = signal('');
+  readonly listaFiltrata = computed(() => {
+    const q = this.ricerca().toLowerCase().trim();
+    if (!q) return this.lista();
+    return this.lista().filter((s) =>
+      [s.oggetto, s.testo, s.partnerNome, s.valetNome, s.risposta]
+        .some((v) => (v ?? '').toLowerCase().includes(q)));
+  });
   readonly partners = signal<Rif[]>([]);
   readonly valets = signal<Rif[]>([]);
   risposte: Record<string, string> = {};

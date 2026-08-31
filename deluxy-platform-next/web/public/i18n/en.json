@@ -2446,6 +2446,7 @@
     },
     "tuttiTipi": "All types",
     "ricevuta": "View receipt",
-    "apriConsegna": "Open delivery"
+    "apriConsegna": "Open delivery",
+    "searchPh": "Search by text, partner or valet…"
   }
 }

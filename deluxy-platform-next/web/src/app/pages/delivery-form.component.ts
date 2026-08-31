@@ -1249,7 +1249,13 @@ export class DeliveryFormComponent implements AfterViewInit {
       this.model.partnerId = this.auth.user()?.partnerId ?? '';
       this.partnerSel.set(this.model.partnerId);
     } else {
-      this.http.get<Partner[]>(`${api}/partners`).subscribe((d) => this.partners.set(d));
+      this.http.get<Partner[]>(`${api}/partners`).subscribe((d) => {
+        this.partners.set(d);
+        // Partner già scelto (prefill da vendita o modifica): il ritiro di
+        // default è il suo indirizzo, ora che la lista è arrivata. In MODIFICA
+        // no: si rispetta l'indirizzo già salvato.
+        if (this.model.partnerId && !this.editId()) this.applicaRitiroPartner();
+      });
     }
     this.http.get<ServiceType[]>(`${api}/service-types`).subscribe((d) => {
       // ⚠️ Non si SOSTITUISCE la lista: il prefill può averci già messo il
@@ -1425,6 +1431,7 @@ export class DeliveryFormComponent implements AfterViewInit {
   /** Cambiando partner, un servizio non più a listino va tolto. */
   onPartnerChange(): void {
     this.partnerSel.set(this.model.partnerId);
+    this.applicaRitiroPartner();
     const suoi = this.servizioDelPartner();
     if (this.model.serviceTypeId && suoi.length
       && !suoi.some((s) => s.id === this.model.serviceTypeId)) {
@@ -1434,6 +1441,23 @@ export class DeliveryFormComponent implements AfterViewInit {
     }
     // Stesso servizio ma altro partner = altro listino: si ricalcola anche qui.
     this.proponiPrezzoDiListino();
+  }
+
+  /** Traccia l'indirizzo di ritiro messo in automatico dal partner. */
+  private ritiroAuto = '';
+  /**
+   * Il RITIRO di default è l'indirizzo del PARTNER (chi spedisce), 31/08. Si
+   * imposta solo se il campo è vuoto o conteneva ancora l'indirizzo del partner
+   * precedente — un ritiro scritto a mano non si tocca.
+   */
+  private applicaRitiroPartner(): void {
+    const partner = this.partners().find((x) => x.id === this.model.partnerId);
+    const addr = (partner?.address ?? '').trim();
+    if (!addr) return;
+    if (!this.model.pickupAddress || this.model.pickupAddress === this.ritiroAuto) {
+      this.model.pickupAddress = addr;
+      this.ritiroAuto = addr;
+    }
   }
 
   /** Valet filtrati per provincia dell'indirizzo. */
