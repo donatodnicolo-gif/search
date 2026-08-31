@@ -580,6 +580,29 @@ di far aspettare un'email che non arriverà. Si accende da `/chiavi` → progett
 `hub` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (più `SMTP_PORT`/`SMTP_FROM` se
 diversi dai default): effetto immediato, senza redeploy.
 
+### I parametri di register.it per la posta del Hub (verificati il 30/08/2026)
+
+La posta di **deluxy.it è gestita da register.it** (record MX: `mail.register.it`).
+Parametri **misurati**, non copiati da una guida:
+
+| Voce | Valore | Come è stato verificato |
+|---|---|---|
+| `SMTP_HOST` | **`authsmtp.deluxy.it`** | risolve su `authsmtp.register.it` → 81.88.48.66 (lo stesso host di `authsmtp.securemail.pro`) |
+| `SMTP_PORT` | **`465`** | il server risponde `220 … cmsmtp authsmtp ESMTP server ready` su 465 (TLS diretto), 587 e 25 |
+| `SMTP_USER` | l'**indirizzo email completo** della casella | lo dà register.it, non è deducibile |
+| `SMTP_PASS` | la password di **quella casella** | idem |
+| `SMTP_FROM` | l'indirizzo che comparirà come mittente (se vuoto = `SMTP_USER`) | scelta di chi configura |
+
+Il codice tratta la **465 come TLS diretto** (`secure: porta === 465`) e la 587 come
+STARTTLS: sono entrambe buone, la 465 è quella consigliata da register.it.
+
+🔴 **I valori si inseriscono SOLO dalla pagina `/chiavi` in produzione** (progetto
+`hub`), mai con uno script da questa macchina. Non è una preferenza: la
+cassaforte cifra con il segreto **di produzione**, e il `.env` locale ne ha uno
+**diverso** — misurato il 30/08 provando a decifrare le sei righe esistenti:
+**nessuna** si apre con il segreto locale. Una riga scritta da qui finirebbe nel
+database illeggibile per l'app, e il guasto si vedrebbe solo al primo invio.
+
 ⚠️ **Aperto, per il custode della sicurezza**: il **lockout sul login** continua a
 mancare (il Libro §2 lo dà come priorità del Hub). Il freno scritto qui vale solo
 per il recupero; lo stesso contatore su DB va applicato ad `accedi`. E resta un
