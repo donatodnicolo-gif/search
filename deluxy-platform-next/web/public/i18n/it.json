@@ -157,9 +157,9 @@
       "archive": "Archivia",
       "copy": "Copia",
       "deletePartner": "Elimina partner",
-      "restorePartner": "Ripristina partner",
+      "restorePartner": "Ricrea partner",
       "deleteValet": "Elimina valet",
-      "restoreValet": "Ripristina valet"
+      "restoreValet": "Ricrea valet"
     }
   },
   "acceptInvite": {
