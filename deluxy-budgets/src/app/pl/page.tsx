@@ -1,11 +1,11 @@
 import Link from "next/link";
 import {
   ANNO_CORRENTE, caricaAnno, contoEconomico, contoEconomicoMensile, frazioneQuotaD2C,
-  LIVELLI, type DatiAnno, type Livello, type PL,
+  LIVELLI, moltiplicatore, type DatiAnno, type Livello, type PL,
 } from "@/lib/calc";
 import { eur, MESI, pct } from "@/lib/format";
 import { caricaConsuntivo, type ConsuntivoPeriodo } from "@/lib/consuntivo";
-import { QUOTA_STIMATA } from "@/lib/venduto";
+import { caricaVenduto, QUOTA_STIMATA } from "@/lib/venduto";
 import { quotaDeluxyAnno } from "@/lib/quota";
 import { costoPremi, misuraPremi } from "@/lib/premi";
 import { prisma } from "@/lib/db";
@@ -210,7 +210,64 @@ export default async function ContoEconomico({
     nomiPersone
   ).filter((p) => p.costa);
 
+  // ---- IL PONTE DEL D2C (31/08/2026, richiesta utente: «mancano ancora i
+  // costi dei prodotti») ----
+  // Il D2C entra alla PRESA (fee + primo margine): il costo dei prodotti è
+  // già sceso prima della prima riga, e quindi non si vedeva da nessuna
+  // parte. Due righe memo lo fanno vedere: il venduto dei negozi e quello che
+  // non resta (prodotti, quota dei partner e IVA — il venduto è lordo IVA, la
+  // presa no). NON entrano nel totale ricavi: sono la spiegazione della riga
+  // D2C, non un ricavo in più.
+  const vendOrders = await caricaVenduto(dati.year, dati.maisons);
+  const vendutoChiusiOrders = vendOrders.ok
+    ? mesiChiusi.reduce((s, m) => s + (vendOrders.mese[m - 1] ?? 0), 0)
+    : null;
+  const vendD2C = (mesi: number[]) =>
+    dati.maisons.reduce(
+      (s, m) => s + mesi.reduce((a, mm) => a + (m.mesi.find((y) => y.month === mm)?.vendite["D2C"] ?? 0), 0),
+      0
+    );
+  const vendD2CBudgetChiusi = vendD2C(mesiChiusi);
+  const vendD2CBudgetAnno = vendD2C([1,2,3,4,5,6,7,8,9,10,11,12]);
+  const vendutoDi = (c: ConsuntivoPeriodo) =>
+    c === cons ? vendutoChiusiOrders : vendD2CBudgetChiusi;
+
+  // ---- IPOTESI SOTTO L EBITDA (31/08/2026, richiesta utente: «metti anche
+  // ipotesi ammortamento e tassazione con risultato netto finale») ----
+  // Gli ammortamenti non passano dalla banca: si riprendono dall ultimo
+  // bilancio vero (B10), come fa la proposta di bilancio — è una STIMA e la
+  // riga lo dice. Le imposte sono l ipotesi SEMPLICE (aliquote piene IRES 24%
+  // + IRAP 3,9% sull utile ante imposte, solo se positivo): la stima vera,
+  // con le deducibilità per categoria e le perdite pregresse, vive in /tasse.
+  const b10Riga = await prisma.voceBilancio.findFirst({
+    where: { codice: "B10", anno: { lt: dati.year }, importo: { gt: 0 } },
+    orderBy: { anno: "desc" },
+  });
+  const ammortamenti = b10Riga?.importo ?? 0;
+  const risNetto = (pl: PL) => pl.ebitda - (premiPerLivello.get(pl.livello) ?? 0);
+  const anteImposte = (pl: PL) => risNetto(pl) - ammortamenti;
+  const imposteIpotesi = (pl: PL) => {
+    const ante = anteImposte(pl);
+    return ante > 0 ? ante * ((24 + 3.9) / 100) : 0;
+  };
+
   const RIGHE: Riga[] = [
+    {
+      label: "Venduto dei negozi",
+      nota: "IVA inclusa, dal registro ordini — memo: non è un ricavo e non entra nel totale",
+      valore: (pl: PL) => vendD2CBudgetAnno * moltiplicatore(dati, pl.livello),
+      cons: (c: ConsuntivoPeriodo) => vendutoDi(c),
+    },
+    {
+      label: "Prodotti, partner e IVA",
+      tipo: "costo" as const,
+      nota: "venduto − ricavi D2C: il costo dei prodotti, la quota dei partner e l IVA sulle vendite",
+      valore: (pl: PL) => vendD2CBudgetAnno * moltiplicatore(dati, pl.livello) - (pl.ricaviPerServizio["D2C"] ?? 0),
+      cons: (c: ConsuntivoPeriodo) => {
+        const v = vendutoDi(c);
+        return v === null ? null : v - (c.ricaviPerTipologia["D2C"] ?? 0);
+      },
+    },
     ...dati.tipologie.map((t) => ({
       label: `Ricavi ${t.nome}`,
       nota: `margine ${t.marginePct.toLocaleString("it-IT", { useGrouping: "always" })}%`,
@@ -255,6 +312,28 @@ export default async function ContoEconomico({
         return { ...r, valore: (pl: PL) => pl.ebitda - (premiPerLivello.get(pl.livello) ?? 0) };
       return r;
     }),
+    {
+      label: "Ammortamenti (ipotesi)",
+      tipo: "costo" as const,
+      nota: b10Riga
+        ? `ripresi dal bilancio ${b10Riga.anno} (B10): non passano dalla banca — stima da confermare col commercialista`
+        : "nessun bilancio precedente caricato: ipotesi a zero",
+      valore: () => ammortamenti,
+      cons: () => null,
+    },
+    {
+      label: "Imposte (ipotesi)",
+      tipo: "costo" as const,
+      nota: "IRES 24% + IRAP 3,9% piene sull utile ante imposte, se positivo — la stima vera, con le deducibilità per categoria, è in /tasse",
+      valore: (pl: PL) => imposteIpotesi(pl),
+      cons: () => null,
+    },
+    {
+      label: "Risultato netto finale (ipotesi)",
+      tipo: "risultato" as const,
+      valore: (pl: PL) => anteImposte(pl) - imposteIpotesi(pl),
+      cons: () => null,
+    },
   ];
   const strutturaDaBanca = dati.struttura !== null;
   const mensile = contoEconomicoMensile(dati, livello, qD2C);
