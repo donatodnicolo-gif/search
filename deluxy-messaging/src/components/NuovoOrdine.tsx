@@ -75,6 +75,14 @@ export function NuovoOrdine({
   const [q, setQ] = useState('')
   const [prodotti, setProdotti] = useState<Prodotto[]>([])
   const [catalogoChiuso, setCatalogoChiuso] = useState(false)
+  /**
+   * L ultimo prodotto scelto dai risultati.
+   *
+   * ⚠️ Finche c e, i risultati non si mostrano: il clic ha fatto qualcosa e si
+   * vede. Si azzera anche a ogni ricerca nuova, o dopo aver scelto si
+   * cercherebbe a vuoto senza vedere niente.
+   */
+  const [scelto, setScelto] = useState<Prodotto | null>(null)
   const [cercando, setCercando] = useState(false)
   const [righe, setRighe] = useState<Riga[]>([])
 
@@ -345,6 +353,10 @@ export function NuovoOrdine({
       }
       setCatalogoChiuso(Boolean(d.senzaPermesso))
       setProdotti(d.prodotti ?? [])
+      // ⚠️ Una ricerca nuova toglie di mezzo la conferma di quella prima:
+      // altrimenti si cercherebbe qualcosa e non comparirebbe niente, con
+      // ancora scritto «scelto: …» del prodotto di prima.
+      setScelto(null)
     } finally {
       setCercando(false)
     }
@@ -957,14 +969,44 @@ export function NuovoOrdine({
           </div>
         ) : null}
 
-        {prodotti.length ? (
+        {/* ── QUELLO CHE HAI SCELTO ──
+            ⚠️⚠️ Chiesto dall'utente il 31/08/2026: «se clicco su un prodotto
+            chiudi la ricerca effettuata, fai capire il prodotto scelto».
+            Cercando «botticelli» escono TRENTA schede: cliccandone una, la
+            riga si aggiungeva in fondo — sotto trenta risultati — e a schermo
+            non cambiava niente. Chi lavora col cliente al telefono non ha modo
+            di sapere se il clic è andato a segno, e clicca due volte. */}
+        {scelto ? (
+          <div className="avviso-ok" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {scelto.immagine ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={scelto.immagine}
+                alt=""
+                style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }}
+              />
+            ) : null}
+            <span style={{ flex: 1, minWidth: 180 }}>
+              Scelto: <strong>{scelto.titolo}</strong>
+              {scelto.variante ? ` · ${scelto.variante}` : ''} · {soldi(scelto.prezzo)}
+            </span>
+            {/* ⚠️ I risultati non si BUTTANO, si nascondono: da una ricerca sola
+                si prendono spesso due prodotti (il bouquet e il palloncino), e
+                farla rifare ogni volta sarebbe un dispetto. */}
+            <button className="bottone secondario" onClick={() => setScelto(null)}>
+              Rivedi i risultati
+            </button>
+          </div>
+        ) : null}
+
+        {prodotti.length && !scelto ? (
           <div className="griglia-fornitori" style={{ marginBottom: 10 }}>
             {prodotti.map((p) => (
               <button
                 key={p.variantId}
                 className="card riga-cliccabile"
                 style={{ padding: 8, textAlign: 'left' }}
-                onClick={() =>
+                onClick={() => {
                   setRighe((r) => [
                     ...r,
                     {
@@ -976,7 +1018,9 @@ export function NuovoOrdine({
                       immagine: p.immagine,
                     },
                   ])
-                }
+                  // Chiude l'elenco e dice che cosa è stato preso.
+                  setScelto(p)
+                }}
               >
                 {/* ⚠️ La foto, non solo il nome: al telefono col cliente si
                     riconosce «quello con le peonie» in un colpo d'occhio, e i
