@@ -204,7 +204,7 @@ export function TaskFormModal({
                 dell'assegnatario: sono due persone diverse — CHI devo sentire e
                 CHI se ne occupa — e vicine si scambierebbero. */}
             <Text style={styles.label}>Contatto</Text>
-            <SceltaContatto scelto={contatto} onScegli={setContatto} />
+            <SceltaContatto scelto={contatto} onScegli={setContatto} placeId={placeId} />
 
             <Text style={styles.label}>Assegna a</Text>
             <View style={styles.chips}>

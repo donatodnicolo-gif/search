@@ -13,11 +13,28 @@
 //
 // ⚠️ **Gli archiviati restano fuori** (`cercaContatti`): assegnarsi un
 // promemoria per una persona che non lavora più lì è lavoro buttato.
+//
+// ⭐ **Quello che il contesto già sa non si chiede** (28/08/2026, segnalazione
+// dell'utente con screenshot: «ma il contatto è già quello giusto»). Aprendo un
+// task DAL negozio, la rubrica di quel negozio è già nota: farla cercare a mano
+// è la [trappola-campo-ereditato-mostrato-vuoto] — un campo mostrato vuoto per
+// un valore che l'app conosce. Qui valgono i tre regimi di quella regola:
+//   · **un solo contatto** → si PRECOMPILA col valore vero, con la nota che
+//     nomina la fonte («Il contatto del negozio»). L'errore è recuperabile: si
+//     vede, e si toglie con la ×;
+//   · **più contatti** → NON si sceglie per conto dell'utente (sarebbe un
+//     valore inventato), ma si mostrano pronti da toccare: la ricerca resta,
+//     non è più l'unica strada;
+//   · **nessuno** → la ricerca di sempre, in tutta la rubrica.
+//
+// ⚠️ La proposta si fa **una volta sola** (`proposto`): se l'utente toglie il
+// contatto con la ×, quello è un'affermazione — rimetterlo sarebbe discutere
+// con chi sta usando l'app.
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, touchMin } from '@/lib/theme';
-import { cercaContatti, type ContattoTrovato } from '@/lib/db';
+import { cercaContatti, fetchContatti, type ContattoTrovato } from '@/lib/db';
 
 export interface ContattoScelto {
   id: string;
@@ -30,17 +47,50 @@ export interface ContattoScelto {
 export function SceltaContatto({
   scelto,
   onScegli,
+  placeId,
 }: {
   scelto: ContattoScelto | null;
   onScegli: (c: ContattoScelto | null) => void;
+  /** Il negozio da cui nasce il task: la sua rubrica è già nota, e si usa. */
+  placeId?: string;
 }) {
   const [aperto, setAperto] = useState(false);
   const [q, setQ] = useState('');
   const [trovati, setTrovati] = useState<ContattoTrovato[]>([]);
   const [cercando, setCercando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  /** I contatti DI QUESTO negozio: le scelte pronte, quando sono più d'una. */
+  const [delNegozio, setDelNegozio] = useState<ContattoScelto[]>([]);
+  /** true = il contatto mostrato l'abbiamo proposto noi, e va detto da dove viene. */
+  const [proposta, setProposta] = useState(false);
   // La ricerca vecchia che torna dopo la nuova non deve sovrascriverla.
   const ultima = useRef(0);
+  // La proposta si fa una volta sola: togliere il contatto è una scelta.
+  const proposto = useRef(false);
+
+  useEffect(() => {
+    if (!placeId || proposto.current) return;
+    proposto.current = true;
+    fetchContatti(placeId)
+      .then((cs) => {
+        const vivi = cs
+          .filter((c) => !c.archiviato)
+          .map((c) => ({ id: c.id, nome: c.nome, ruolo: c.ruolo, telefono: c.telefono, email: c.email }));
+        setDelNegozio(vivi);
+        // Uno solo: è certo, si precompila. Più d'uno: sceglie l'utente fra
+        // quelli pronti — indovinare quale sarebbe scrivere un dato inventato.
+        if (!scelto && vivi.length === 1) {
+          onScegli(vivi[0]);
+          setProposta(true);
+        }
+      })
+      // Best-effort: se la rubrica del negozio non arriva resta la ricerca,
+      // che è la strada di prima. Un errore qui non deve bloccare il task.
+      .catch(() => setDelNegozio([]));
+    // Volutamente al montaggio: `scelto` qui è il valore iniziale (in modifica
+    // arriva dal task, e non si tocca).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeId]);
 
   useEffect(() => {
     if (!aperto) return;
@@ -75,28 +125,75 @@ export function SceltaContatto({
   }, [q, aperto]);
 
   if (!aperto) {
-    return scelto ? (
-      <View style={styles.sceltoRiga}>
-        <Ionicons name="person-outline" size={14} color={colors.testoSoft} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.sceltoNome} numberOfLines={1}>
-            {scelto.nome}
-            {scelto.ruolo ? <Text style={styles.sceltoRuolo}> · {scelto.ruolo}</Text> : null}
-          </Text>
-          {scelto.telefono || scelto.email ? (
-            <Text style={styles.sceltoMeta} numberOfLines={1}>
-              {[scelto.telefono, scelto.email].filter(Boolean).join(' · ')}
-            </Text>
+    if (scelto) {
+      return (
+        <View style={{ gap: 4 }}>
+          <View style={styles.sceltoRiga}>
+            <Ionicons name="person-outline" size={14} color={colors.testoSoft} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sceltoNome} numberOfLines={1}>
+                {scelto.nome}
+                {scelto.ruolo ? <Text style={styles.sceltoRuolo}> · {scelto.ruolo}</Text> : null}
+              </Text>
+              {scelto.telefono || scelto.email ? (
+                <Text style={styles.sceltoMeta} numberOfLines={1}>
+                  {[scelto.telefono, scelto.email].filter(Boolean).join(' · ')}
+                </Text>
+              ) : null}
+            </View>
+            <Pressable hitSlop={8} onPress={() => setAperto(true)} accessibilityLabel="Cambia il contatto">
+              <Ionicons name="search-outline" size={16} color={colors.navy} />
+            </Pressable>
+            <Pressable
+              hitSlop={8}
+              onPress={() => {
+                onScegli(null);
+                setProposta(false);
+              }}
+              accessibilityLabel="Togli il contatto"
+            >
+              <Ionicons name="close" size={16} color={colors.grigio} />
+            </Pressable>
+          </View>
+          {/* La fonte si NOMINA: un campo che si riempie da solo, senza dire da
+              dove viene, si scopre solo quando è già sbagliato. */}
+          {proposta ? (
+            <Text style={styles.fonte}>Il contatto del negozio — cambialo o toglilo se non è lui.</Text>
           ) : null}
         </View>
-        <Pressable hitSlop={8} onPress={() => setAperto(true)} accessibilityLabel="Cambia il contatto">
-          <Ionicons name="search-outline" size={16} color={colors.navy} />
-        </Pressable>
-        <Pressable hitSlop={8} onPress={() => onScegli(null)} accessibilityLabel="Togli il contatto">
-          <Ionicons name="close" size={16} color={colors.grigio} />
-        </Pressable>
-      </View>
-    ) : (
+      );
+    }
+    // Più contatti sul negozio: pronti da toccare, senza sceglierne uno noi.
+    if (delNegozio.length > 1) {
+      return (
+        <View style={{ gap: 4 }}>
+          <Text style={styles.fonte}>Del negozio:</Text>
+          <View style={styles.pronti}>
+            {delNegozio.map((c) => (
+              <Pressable
+                key={c.id}
+                style={styles.pronto}
+                onPress={() => {
+                  onScegli(c);
+                  setProposta(false);
+                }}
+              >
+                <Ionicons name="person-outline" size={13} color={colors.navy} />
+                <Text style={styles.prontoTxt} numberOfLines={1}>
+                  {c.nome}
+                  {c.ruolo ? <Text style={styles.sceltoRuolo}> · {c.ruolo}</Text> : null}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable style={styles.apri} onPress={() => setAperto(true)}>
+            <Ionicons name="search-outline" size={14} color={colors.navy} />
+            <Text style={styles.apriTxt}>Cerca un altro contatto</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return (
       <Pressable style={styles.apri} onPress={() => setAperto(true)}>
         <Ionicons name="person-add-outline" size={14} color={colors.navy} />
         <Text style={styles.apriTxt}>Collega un contatto</Text>
@@ -213,5 +310,20 @@ const styles = StyleSheet.create({
   rigaNome: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
   rigaMeta: { color: colors.grigio, fontSize: 11.5, marginTop: 1 },
   vuoto: { color: colors.grigio, fontSize: 12.5, marginTop: 8 },
+  fonte: { color: colors.grigio, fontSize: 11.5, fontWeight: '600' },
+  pronti: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  pronto: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    maxWidth: '100%',
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    backgroundColor: colors.bianco,
+  },
+  prontoTxt: { color: colors.testo, fontWeight: '700', fontSize: 12.5, flexShrink: 1 },
   errore: { color: colors.errore, fontSize: 12.5, marginTop: 8 },
 });
