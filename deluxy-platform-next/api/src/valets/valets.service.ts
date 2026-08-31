@@ -22,7 +22,23 @@ export class ValetsService {
     private readonly users: UsersService,
   ) {}
 
-  findAll() {
+  /**
+   * @param soloAssegnabili quando vero (team leader, ruolo VALET) torna una
+   * proiezione SICURA: id, nome, province e SOLO gli id-servizio — nessuna
+   * PAGA (`ValetService.price`), che è il costo nostro. Serve al team leader per
+   * assegnare (anche a se stesso) senza vedere quanto guadagnano i colleghi.
+   */
+  findAll(soloAssegnabili = false) {
+    if (soloAssegnabili) {
+      return this.prisma.valet.findMany({
+        orderBy: { lastName: 'asc' },
+        select: {
+          id: true, firstName: true, lastName: true, active: true, placeholder: true,
+          provinces: { select: { province: { select: { id: true, code: true, name: true } } } },
+          services: { select: { serviceTypeId: true } },
+        },
+      });
+    }
     return this.prisma.valet.findMany({
       include: VALET_INCLUDE,
       orderBy: { lastName: 'asc' },

@@ -20,11 +20,14 @@ import { ValetsService } from './valets.service';
 export class ValetsController {
   constructor(private readonly valetsService: ValetsService) {}
 
+  // Anche il VALET (team leader) può leggere la lista, ma in versione SICURA:
+  // gli serve per assegnare le consegne — anche a se stesso — senza vedere le
+  // paghe dei colleghi.
   @Get()
-  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER)
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.VALET)
   @ApiOperation({ summary: 'Lista valet' })
-  findAll() {
-    return this.valetsService.findAll();
+  findAll(@CurrentUser() user: JwtUser) {
+    return this.valetsService.findAll(user.role === Role.VALET);
   }
 
   @Get(':id')
