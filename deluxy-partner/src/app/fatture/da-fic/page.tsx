@@ -12,9 +12,10 @@ export const dynamic = "force-dynamic";
 // Qui arrivano solo quelle che il controllo automatico NON sa registrare da
 // solo: manca la scheda abbinata, o quel cliente non ha mai avuto una
 // tipologia decisa. La persona sceglie UNA volta — da lì in poi le fatture di
-// quel cliente le importa il cron. La competenza è il mese di emissione
-// (decisione dell'utente, 30/08) e non si sceglie da qui: si corregge
-// eventualmente dopo, dalla fattura.
+// quel cliente le importa il cron. La competenza è il MESE DEL SERVIZIO
+// nominato nella descrizione (regola utente 31/08), sennò quello di emissione;
+// non si sceglie da qui — si corregge eventualmente dopo, dalla fattura.
+// Da FIC arrivano anche scadenza e stato di incasso, nei campi nascosti.
 export default async function DaFicPage({
   searchParams,
 }: {
@@ -35,7 +36,7 @@ export default async function DaFicPage({
           <p className="page-caption">
             Fatture emesse su FIC e non ancora registrate qui. Le «sicure» (scheda e tipologia già
             viste) le importa da solo il controllo notturno; queste aspettano una scelta — che vale
-            anche per le prossime dello stesso cliente. Competenza = mese di emissione.
+            anche per le prossime dello stesso cliente. Competenza = mese del servizio (dalla descrizione), sennò emissione; scadenza e incasso arrivano da FIC.
           </p>
         </div>
         <Link href="/fatture" className="btn btn-secondary">← Fatture</Link>
@@ -101,6 +102,9 @@ export default async function DaFicPage({
                         <input type="hidden" name="imponibile" value={m.imponibile} />
                         <input type="hidden" name="aliquotaIva" value={m.aliquotaIva} />
                         <input type="hidden" name="data" value={m.data} />
+                        <input type="hidden" name="scadenza" value={m.scadenza ?? ""} />
+                        <input type="hidden" name="pagata" value={m.pagata ? "1" : ""} />
+                        <input type="hidden" name="dataPagamento" value={m.dataPagamento ?? ""} />
                         <input type="hidden" name="descrizione" value={m.descrizione ?? ""} />
                         <select name="partnerId" defaultValue={m.partnerId ?? ""} required style={{ maxWidth: 220 }}>
                           <option value="" disabled>

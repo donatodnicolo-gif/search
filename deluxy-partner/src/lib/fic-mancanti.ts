@@ -48,6 +48,11 @@ export type FatturaFicMancante = {
   partnerNome: string | null;
   tipologiaId: string | null;
   tipologiaNome: string | null;
+  // Lo stato del pagamento, letto dai pagamenti FIC: chi importa non deve
+  // ricontrollare a mano cosa risulta gia incassato.
+  scadenza: string | null;
+  pagata: boolean;
+  dataPagamento: string | null;
 };
 
 export type EsitoControlloFic =
@@ -73,8 +78,27 @@ type DocFic = {
   amount_gross?: number;
   subject?: string | null;
   visible_subject?: string | null;
+  next_due_date?: string | null;
+  payments_list?: { amount?: number; due_date?: string | null; status?: string | null; paid_date?: string | null }[] | null;
   entity?: { name?: string | null };
 };
+
+// Gli stessi stati «chiusi» di fic.ts (fatture-cerca): paid, settled, reversed.
+const PAGAMENTO_CHIUSO = new Set(["paid", "settled", "reversed"]);
+
+/** Scadenza, pagata e data di pagamento, lette dai pagamenti FIC. */
+function statoPagamento(d: DocFic): { scadenza: string | null; pagata: boolean; dataPagamento: string | null } {
+  const p = d.payments_list ?? [];
+  if (p.length === 0) return { scadenza: d.next_due_date ?? null, pagata: false, dataPagamento: null };
+  const pagata = p.every((x) => PAGAMENTO_CHIUSO.has(x.status ?? ""));
+  const scadenze = p.map((x) => x.due_date).filter(Boolean) as string[];
+  const pagateIl = p.map((x) => x.paid_date).filter(Boolean) as string[];
+  return {
+    scadenza: d.next_due_date ?? (scadenze.length ? scadenze.sort()[scadenze.length - 1] : null),
+    pagata,
+    dataPagamento: pagata && pagateIl.length ? pagateIl.sort()[pagateIl.length - 1] : null,
+  };
+}
 
 const MESI_NOMI = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
 /** Il mese che la descrizione nomina («Servizi Deluxy Luglio 2026» → 7), o null. */
@@ -96,7 +120,7 @@ export async function trovaFattureFicMancanti(giorni = 90): Promise<EsitoControl
   for (let page = 1; page <= 10; page++) {
     const r = await ficFetch<{ data?: DocFic[] }>(
       `/c/${stato.companyId}/issued_documents?type=invoice&q=${encodeURIComponent(`date >= '${da}'`)}` +
-        `&fields=id,number,numeration,date,amount_net,amount_gross,subject,visible_subject,entity&per_page=100&page=${page}&sort=-date`
+        `&fields=id,number,numeration,date,amount_net,amount_gross,subject,visible_subject,next_due_date,payments_list,entity&per_page=100&page=${page}&sort=-date`
     );
     const pagina = r.data ?? [];
     docs.push(...pagina);
@@ -195,6 +219,7 @@ export async function trovaFattureFicMancanti(giorni = 90): Promise<EsitoControl
       partnerNome: scheda?.nome ?? null,
       tipologiaId: tip?.id ?? null,
       tipologiaNome: tip?.nome ?? null,
+      ...statoPagamento(d),
     };
   });
 
@@ -230,6 +255,9 @@ export async function importaFattureFicSicure(origine: string, giorni = 90): Pro
         mese: m.mese,
         numero: m.numero,
         emissione: new Date(m.data),
+        scadenza: m.scadenza ? new Date(m.scadenza) : null,
+        pagata: m.pagata,
+        dataPagamento: m.dataPagamento ? new Date(m.dataPagamento) : null,
         imponibile: m.imponibile,
         aliquotaIva: m.aliquotaIva,
         descrizione: m.descrizione ?? "Importata da Fatture in Cloud",

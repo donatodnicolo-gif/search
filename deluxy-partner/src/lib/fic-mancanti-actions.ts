@@ -21,6 +21,9 @@ export async function registraFatturaFic(fd: FormData) {
   const imponibile = Number(fd.get("imponibile"));
   const aliquotaIva = Number(fd.get("aliquotaIva"));
   const emissione = String(fd.get("data") ?? "").trim();
+  const scadenza = String(fd.get("scadenza") ?? "").trim();
+  const pagata = String(fd.get("pagata") ?? "") === "1";
+  const dataPagamento = String(fd.get("dataPagamento") ?? "").trim();
   const descrizione = String(fd.get("descrizione") ?? "").trim() || null;
   if (!numero || !partnerId || !tipologiaId || !Number.isInteger(anno) || !Number.isInteger(mese) || !Number.isFinite(imponibile)) {
     redirect(`/fatture/da-fic?esito=incompleta`);
@@ -38,6 +41,9 @@ export async function registraFatturaFic(fd: FormData) {
       mese,
       numero,
       emissione: emissione ? new Date(emissione) : null,
+      scadenza: scadenza ? new Date(scadenza) : null,
+      pagata,
+      dataPagamento: dataPagamento ? new Date(dataPagamento) : null,
       imponibile,
       aliquotaIva: Number.isFinite(aliquotaIva) ? aliquotaIva : 22,
       descrizione: descrizione ?? "Registrata da Fatture in Cloud",
