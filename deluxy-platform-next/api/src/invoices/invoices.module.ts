@@ -1151,7 +1151,101 @@ export class InvoicesService {
       data: { invoiced: true },
     });
 
-    return { ...fattura, nonPrezzabili };
+    // ⭐ 31/08/2026 — LA BOZZA VA IN FINANCE. «Genera fattura» non tiene il
+    // documento in casa: consegna le righe a FINANCE (deluxy-partner) come
+    // PRO-FORMA, che compare in /fatture e una persona emette su FattureInCloud
+    // (Standard §7: l'emissione ha casa in FINANCE, non qui). Best-effort: se
+    // FINANCE non risponde la fattura interna resta e si può ritentare col
+    // bottone; l'esito torna al chiamante così la UI lo mostra.
+    const finance = await this.inviaBozzaAFinance(fattura.id).catch(
+      (e) => ({ ok: false, motivo: `errore interno: ${(e as Error).message}` }),
+    );
+
+    return { ...fattura, financeRef: (finance as any).riferimento ?? null, nonPrezzabili, finance };
+  }
+
+  /** Data breve gg/mm/aaaa per le righe e l'oggetto mandati a FINANCE. */
+  private gg(d: Date | string): string {
+    const x = new Date(d);
+    return `${String(x.getUTCDate()).padStart(2, '0')}/${String(x.getUTCMonth() + 1).padStart(2, '0')}/${x.getUTCFullYear()}`;
+  }
+
+  /** URL e chiave per parlare con FINANCE. L'ambiente comanda, le Impostazioni
+   *  sono il ripiego (Standard §5). La chiave ha scope «scrittura» in FINANCE. */
+  private async financeConfig(): Promise<{ url: string; key: string }> {
+    const url = (
+      process.env.FINANCE_API_URL ||
+      (await this.settings.get('financeUrl')) ||
+      'https://deluxy-partner.vercel.app'
+    ).replace(/\/+$/, '');
+    const key = (
+      process.env.FINANCE_API_KEY ||
+      (await this.settings.get('financeApiKey')) ||
+      ''
+    ).trim();
+    return { url, key };
+  }
+
+  /**
+   * Manda le righe di una fattura interna a FINANCE come BOZZA (pro-forma):
+   * compare in deluxy-partner/fatture, una persona la emette su FattureInCloud.
+   * Il partner si passa per NOME (insegna): FINANCE lo cerca così. Best-effort e
+   * parlante — ritorna l'esito, non lancia; idempotente (se già mandata non
+   * rimanda, salvo `forza`).
+   */
+  async inviaBozzaAFinance(
+    invoiceId: string,
+    forza = false,
+  ): Promise<{ ok: boolean; motivo: string; riferimento?: string; candidati?: string[] }> {
+    const fattura = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: { partner: { select: { insegna: true } }, lines: true },
+    });
+    if (!fattura) return { ok: false, motivo: 'Fattura non trovata' };
+    if (fattura.financeRef && !forza) {
+      return { ok: true, motivo: `Già in FINANCE come ${fattura.financeRef}`, riferimento: fattura.financeRef };
+    }
+    const partnerNome = fattura.partner?.insegna?.trim();
+    if (!partnerNome) {
+      return { ok: false, motivo: 'Il partner non ha insegna: FINANCE lo cerca per nome.' };
+    }
+    const { url, key } = await this.financeConfig();
+    if (!key) {
+      return { ok: false, motivo: 'Chiave FINANCE assente (env FINANCE_API_KEY o Impostazioni financeApiKey).' };
+    }
+    const righe = fattura.lines
+      .map((l) => ({
+        descrizione: ['Consegna', l.recipient, l.description, this.gg(l.date)]
+          .filter((s) => s && String(s).trim())
+          .join(' · '),
+        quantita: 1,
+        prezzoUnitario: Math.round(l.amount * 100) / 100,
+        aliquotaIva: fattura.vatRate ?? IVA,
+      }))
+      .filter((r) => r.prezzoUnitario > 0);
+    if (!righe.length) return { ok: false, motivo: 'Nessuna riga con importo positivo da mandare.' };
+    const oggetto = `Consegne Deluxy · ${this.gg(fattura.periodStart)} – ${this.gg(fattura.periodEnd)}`;
+    try {
+      const res = await fetch(`${url}/api/proforma`, {
+        method: 'POST',
+        headers: { 'X-API-Key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partner: partnerNome, oggetto, righe }),
+      });
+      const b = (await res.json().catch(() => ({}))) as {
+        errore?: string; riferimento?: string; id?: string; candidati?: string[];
+      };
+      if (!res.ok) {
+        return { ok: false, motivo: b.errore ?? `FINANCE risponde HTTP ${res.status}`, candidati: b.candidati };
+      }
+      const rif = b.riferimento ?? b.id ?? 'creata';
+      await this.prisma.invoice.update({
+        where: { id: invoiceId },
+        data: { financeRef: String(rif), financeSentAt: new Date() },
+      });
+      return { ok: true, motivo: 'Bozza creata in FINANCE', riferimento: String(rif) };
+    } catch (e) {
+      return { ok: false, motivo: `FINANCE non raggiungibile: ${(e as Error).message}` };
+    }
   }
 
   /** Avanzamento: DRAFT -> ISSUED (emessa: archivia in storico) -> PAID (pagata). */
@@ -1356,6 +1450,13 @@ export class InvoicesController {
   @ApiOperation({ summary: 'Riapre dallo storico (solo se non pagata): torna in bozza' })
   reopen(@Param('id') id: string) {
     return this.invoicesService.reopen(id);
+  }
+
+  @Post(':id/finance')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Manda (o rimanda) la fattura a FINANCE come bozza pro-forma da emettere' })
+  inviaAFinance(@Param('id') id: string, @Body() body: { forza?: boolean }) {
+    return this.invoicesService.inviaBozzaAFinance(id, body?.forza === true);
   }
 
   @Patch(':id/status')

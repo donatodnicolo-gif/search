@@ -27,6 +27,8 @@ interface Invoice {
   deliveriesCount: number;
   status: string;
   archived: boolean;
+  /** Riferimento alla bozza pro-forma creata in FINANCE (es. "PF 3/2026"). */
+  financeRef?: string | null;
   partner?: { id: string; insegna: string };
   lines?: InvoiceLine[];
 }
@@ -410,6 +412,13 @@ const NEXT: Record<string, { next: string; key: string }> = {
                       <button class="link-btn danger" [disabled]="busy() === i.id" (click)="reopen(i)">{{ 'invoices.action.reopen' | translate }}</button>
                     } @else { <span class="muted">✓</span> }
                   }
+                  @if (canManage()) {
+                    @if (i.financeRef) {
+                      <a class="fin-tag" href="https://deluxy-partner.vercel.app/fatture" target="_blank" rel="noopener" title="Bozza in FINANCE, pronta da emettere">📄 FINANCE · {{ i.financeRef }}</a>
+                    } @else {
+                      <button class="link-btn" [disabled]="busy() === i.id" (click)="mandaAFinance(i)">Manda a FINANCE</button>
+                    }
+                  }
                 </td>
               </tr>
               @if (expanded() === i.id) {
@@ -490,6 +499,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .link-btn { background: none; border: none; padding: 0; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
       .link-btn.danger { color: var(--red); }
       .link-btn:disabled { opacity: 0.5; cursor: default; }
+      .fin-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 980px; font-size: 12px; font-weight: 550; color: #B8963E; background: color-mix(in srgb, #B8963E 12%, transparent); text-decoration: none; white-space: nowrap; }
       .riepilogo { display: flex; gap: 32px; flex-wrap: wrap; padding: 16px 20px; margin-bottom: 12px; }
       .riepilogo > div { display: flex; flex-direction: column; gap: 2px; }
       .riepilogo .etichetta { font-size: 12px; color: var(--text-secondary); }
@@ -927,17 +937,45 @@ export class InvoicesListComponent {
       return;
     }
     this.generating.set(true);
-    this.http.post(`${environment.apiUrl}/invoices/generate`, {
+    this.http.post<{ finance?: { ok: boolean; motivo: string; riferimento?: string } }>(
+      `${environment.apiUrl}/invoices/generate`, {
       partnerId: this.genPartner, periodStart: this.genFrom, periodEnd: this.genTo,
     }).subscribe({
-      next: () => {
+      next: (res) => {
         this.generating.set(false);
         this.showGen.set(false);
         this.genPartner = ''; this.genFrom = ''; this.genTo = '';
-        this.banner.set(this.translate.instant('invoices.gen.done'));
+        // Esito FINANCE: la fattura è nata, ma il valore è la bozza in FINANCE.
+        // Se non è partita lo si dice, così si può ritentare col bottone.
+        const f = res?.finance;
+        this.banner.set(
+          f?.ok
+            ? `${this.translate.instant('invoices.gen.done')} · bozza in FINANCE (${f.riferimento})`
+            : `${this.translate.instant('invoices.gen.done')} · ⚠️ non mandata a FINANCE: ${f?.motivo ?? '—'}`,
+        );
         this.load();
       },
       error: (err) => { this.generating.set(false); this.genError.set(err?.error?.message ?? 'Errore'); },
+    });
+  }
+
+  /** Manda (o rimanda) una fattura a FINANCE come bozza pro-forma da emettere. */
+  mandaAFinance(i: Invoice): void {
+    this.error.set(null);
+    this.busy.set(i.id);
+    this.http.post<{ ok: boolean; motivo: string; riferimento?: string; candidati?: string[] }>(
+      `${environment.apiUrl}/invoices/${i.id}/finance`, {},
+    ).subscribe({
+      next: (r) => {
+        this.busy.set(null);
+        this.banner.set(
+          r.ok
+            ? `Bozza in FINANCE: ${r.riferimento}`
+            : `Non mandata a FINANCE: ${r.motivo}${r.candidati?.length ? ' — forse: ' + r.candidati.join(', ') : ''}`,
+        );
+        this.load();
+      },
+      error: (err) => { this.busy.set(null); this.error.set(err?.error?.message ?? 'Errore'); },
     });
   }
 

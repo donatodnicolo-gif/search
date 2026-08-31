@@ -75,6 +75,14 @@ export const SETTING_KEYS = [
   // precedenza; se il token è vuoto, non parte nessuna mail (fail-closed).
   'hubUrl',
   'hubPostaToken',
+  // FINANCE (deluxy-partner), 31/08/2026: «Genera fattura» consegna le righe a
+  // FINANCE come BOZZA pro-forma (POST /api/proforma), che compare in /fatture e
+  // una persona emette su FattureInCloud (Standard §7: l'emissione ha casa lì).
+  // Serve l'indirizzo di FINANCE e una chiave con scope «scrittura» (SEGRETO).
+  // Le env (FINANCE_API_URL / FINANCE_API_KEY) hanno la precedenza; senza chiave
+  // la bozza non parte e «Genera» lo dice (fail-closed, ritentabile).
+  'financeUrl',
+  'financeApiKey',
 ] as const;
 
 @Injectable()
