@@ -2437,6 +2437,8 @@
       "reclamo": "Complaint",
       "segnalazione": "Report",
       "rimborso": "Refund"
-    }
+    },
+    "tuttiTipi": "All types",
+    "ricevuta": "View receipt"
   }
 }

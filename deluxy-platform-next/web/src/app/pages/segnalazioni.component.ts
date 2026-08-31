@@ -10,6 +10,7 @@ interface Segn {
   id: string;
   tipo: string;
   importo?: number | null;
+  ricevutaUrl?: string | null;
   deliveryId?: string | null;
   partnerId?: string | null;
   valetId?: string | null;
@@ -80,6 +81,13 @@ interface Rif { id: string; nome: string }
         </button>
       }
     </div>
+    <div class="tabs tipi">
+      @for (t of ['', 'reclamo', 'rimborso', 'segnalazione']; track t) {
+        <button class="tab" [class.on]="filtroTipo() === t" (click)="filtroTipo.set(t); carica()">
+          {{ (t ? 'segnalazioni.tipo.' + t : 'segnalazioni.tuttiTipi') | translate }}
+        </button>
+      }
+    </div>
 
     @if (caricando()) { <p class="muted">{{ 'common.loading' | translate }}</p> }
     @else if (!lista().length) { <div class="card state-card">{{ 'segnalazioni.empty' | translate }}</div> }
@@ -99,6 +107,9 @@ interface Rif { id: string; nome: string }
             </div>
             @if (s.oggetto) { <p class="oggetto">{{ s.oggetto }}</p> }
             <p class="testo">{{ s.testo }}</p>
+            @if (s.ricevutaUrl) {
+              <a class="ricevuta" [href]="s.ricevutaUrl" target="_blank" rel="noopener">📎 {{ 'segnalazioni.ricevuta' | translate }}</a>
+            }
             @if (s.risposta) { <p class="risposta"><strong>{{ 'segnalazioni.answer' | translate }}:</strong> {{ s.risposta }}</p> }
             @if (isUfficio()) {
               <div class="gestione">
@@ -124,6 +135,8 @@ interface Rif { id: string; nome: string }
       .fld > span { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
       .azioni { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
       .tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+      .tabs.tipi { margin-top: -6px; }
+      .tabs.tipi .tab { font-size: 13px; }
       .tab { border: 0; background: transparent; border-radius: 999px; padding: 6px 14px; cursor: pointer; font: inherit; color: var(--text-secondary); }
       .tab.on { background: var(--ink); color: #fff; }
       .lista { display: flex; flex-direction: column; gap: 10px; }
@@ -138,7 +151,10 @@ interface Rif { id: string; nome: string }
       .badge-importo { background: color-mix(in srgb, var(--gold) 18%, white); color: var(--gold-ink, #7a5f18); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
       .data { margin-left: auto; color: var(--text-tertiary); }
       .oggetto { font-weight: 600; margin: 8px 0 2px; }
-      .testo { margin: 4px 0; }
+      .testo { margin: 4px 0; white-space: pre-line; }
+      .ricevuta { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 13px;
+        font-weight: 550; color: var(--blue, #0a84ff); text-decoration: none; }
+      .ricevuta:hover { text-decoration: underline; }
       .risposta { margin: 6px 0 0; padding: 8px 10px; background: var(--fill); border-radius: 10px; font-size: 13.5px; }
       .gestione { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
       .gestione .field { flex: 1 1 200px; }
@@ -157,6 +173,7 @@ export class SegnalazioniComponent {
   readonly errore = signal<string | null>(null);
   readonly nuovaAperta = signal(false);
   readonly filtro = signal('');
+  readonly filtroTipo = signal('');
   readonly lista = signal<Segn[]>([]);
   readonly partners = signal<Rif[]>([]);
   readonly valets = signal<Rif[]>([]);
@@ -181,7 +198,9 @@ export class SegnalazioniComponent {
 
   carica(): void {
     this.caricando.set(true);
-    const params: any = this.filtro() ? { stato: this.filtro() } : {};
+    const params: any = {};
+    if (this.filtro()) params.stato = this.filtro();
+    if (this.filtroTipo()) params.tipo = this.filtroTipo();
     this.http.get<Segn[]>(`${environment.apiUrl}/segnalazioni`, { params }).subscribe({
       next: (d) => { this.lista.set(d ?? []); this.caricando.set(false); },
       error: () => { this.lista.set([]); this.caricando.set(false); },

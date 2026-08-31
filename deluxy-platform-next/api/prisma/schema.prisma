@@ -1932,6 +1932,13 @@ model Segnalazione {
   tipo           String    @default("segnalazione")
   /// Importo richiesto, solo per i rimborsi. Null per reclami e segnalazioni.
   importo        Float?
+  /// Riferimento univoco alla riga legacy da cui è nata (es. "complaint:1",
+  /// "refund:1"): rende l'import dallo storico idempotente. Null per quelle
+  /// aperte nell'app.
+  legacyRef      String?   @unique
+  /// Ricevuta allegata (URL), tipicamente sui rimborsi: si mostra come link
+  /// cliccabile. Sui rimborsi storici è il link originale del vecchio sistema.
+  ricevutaUrl    String?
   /// Su CHI: uno dei due, o nessuno (segnalazione generica).
   partnerId      String?
   valetId        String?

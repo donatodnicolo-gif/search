@@ -41,13 +41,17 @@ export class SegnalazioniService {
     }));
   }
 
-  async lista(user: JwtUser, stato?: string) {
+  async lista(user: JwtUser, stato?: string, tipo?: string) {
     const where: any = {};
     if (stato) where.stato = stato;
+    if (tipo) where.tipo = tipo;
     // Partner/valet vedono SOLO le proprie.
     if (user.role === Role.PARTNER) where.partnerId = user.partnerId ?? '-';
     else if (user.role === Role.VALET) where.valetId = user.valetId ?? '-';
-    const righe = await this.prisma.segnalazione.findMany({ where, orderBy: { createdAt: 'desc' }, take: 500 });
+    // ⚠️ Con lo storico importato (1.100+ righe) un take basso NASCONDEVA in
+    // silenzio le più vecchie. Il tetto resta, ma alto abbastanza da coprire
+    // tutto lo storico attuale; se un domani cresce ancora, si pagina.
+    const righe = await this.prisma.segnalazione.findMany({ where, orderBy: { createdAt: 'desc' }, take: 3000 });
     return this.arricchisci(righe);
   }
 
@@ -102,8 +106,8 @@ export class SegnalazioniController {
 
   @Get()
   @ApiOperation({ summary: 'Elenco segnalazioni (partner/valet solo le proprie)' })
-  lista(@CurrentUser() user: JwtUser, @Query('stato') stato?: string) {
-    return this.service.lista(user, stato);
+  lista(@CurrentUser() user: JwtUser, @Query('stato') stato?: string, @Query('tipo') tipo?: string) {
+    return this.service.lista(user, stato, tipo);
   }
 
   @Post()
