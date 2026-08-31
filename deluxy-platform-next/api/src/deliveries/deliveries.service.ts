@@ -842,12 +842,77 @@ export class DeliveriesService {
       },
       include: DELIVERY_INCLUDE,
     });
+    // Notifica al PARTNER dell'inserimento, se ha abilitato la mail (31/08).
+    // Best-effort: non blocca la creazione.
+    void this.notificaInserimentoAlPartner(delivery);
+    // Se nasce GIÀ assegnata a un valet, avvisa anche lui.
+    if (delivery.valetId) void this.notificaAssegnazioneAlValet(delivery);
     // ⚠️ 27/08/2026 — Anche QUI. `soloIMieiSoldi` e `hideInternalNotes` erano
     // applicate solo su `findAll` e `findOne`: chiedendo l'annullamento di una
     // consegna, o salvandone una, il partner si riprendeva `valetSalary`,
     // `valetAdditionalPrice` e le note interne dalla risposta della SCRITTURA.
     // Una difesa messa solo sulle letture non è una difesa.
     return this.soloIMieiSoldi(this.hideInternalNotes(delivery, user), user);
+  }
+
+  /**
+   * NOTIFICHE VIA MAIL (31/08/2026, chiesto dall'utente): a chi ha abilitato la
+   * mail arriva l'avviso — al PARTNER quando gli si inserisce un servizio, al
+   * VALET quando gli si assegna — con il link ai dettagli. Passa da AI Mail,
+   * stesso contratto del recap; best-effort, non fa mai fallire la consegna.
+   */
+  private async inviaMail(a: string, oggetto: string, corpo: string): Promise<void> {
+    try {
+      if (!a) return;
+      const url = ((await this.settings.get('mailUrl')) ?? process.env.MAIL_URL ?? 'https://deluxy-mail.vercel.app').replace(/\/+$/, '');
+      const chiave = (await this.settings.get('mailApiKey')) ?? process.env.MAIL_API_KEY ?? '';
+      const utente = (await this.settings.get('mailUtente')) ?? process.env.MAIL_UTENTE ?? '';
+      if (!chiave || !utente) return; // AI Mail non configurata: si tace
+      const res = await fetch(`${url}/api/v1/invia`, {
+        method: 'POST',
+        headers: { 'x-api-key': chiave, 'x-utente': utente, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ a, oggetto, corpo }),
+      });
+      if (!res.ok) throw new Error(`AI Mail risponde ${res.status}`);
+    } catch (err) {
+      console.error('notifica-mail: invio fallito:', (err as Error).message);
+    }
+  }
+
+  private async notificaInserimentoAlPartner(delivery: { id: string; code: number; partnerId: string | null }): Promise<void> {
+    if (!delivery.partnerId) return;
+    const partner = await this.prisma.partner.findUnique({
+      where: { id: delivery.partnerId },
+      select: { email: true, insegna: true, mailNotifications: true },
+    });
+    if (!partner?.email || !partner.mailNotifications) return;
+    const link = `https://app.deluxy.it/deliveries/${delivery.id}`;
+    await this.inviaMail(
+      partner.email,
+      `Nuovo servizio Deluxy · consegna #${delivery.code}`,
+      [`Ciao ${partner.insegna ?? ''},`, '',
+       `ti abbiamo inserito una nuova consegna (#${delivery.code}).`,
+       `Vedi i dettagli qui: ${link}`, '',
+       'Deluxy'].join('\n'),
+    );
+  }
+
+  private async notificaAssegnazioneAlValet(delivery: { id: string; code: number; valetId: string | null }): Promise<void> {
+    if (!delivery.valetId) return;
+    const valet = await this.prisma.valet.findUnique({
+      where: { id: delivery.valetId },
+      select: { email: true, firstName: true, notifyByEmail: true },
+    });
+    if (!valet?.email || !valet.notifyByEmail) return;
+    const link = `https://app.deluxy.it/deliveries/${delivery.id}`;
+    await this.inviaMail(
+      valet.email,
+      `Nuova consegna assegnata · #${delivery.code}`,
+      [`Ciao ${valet.firstName ?? ''},`, '',
+       `ti è stata assegnata la consegna #${delivery.code}.`,
+       `Vedi i dettagli qui: ${link}`, '',
+       'Deluxy'].join('\n'),
+    );
   }
 
   async update(id: string, dto: UpdateDeliveryDto, user: JwtUser) {
@@ -1292,6 +1357,8 @@ export class DeliveriesService {
       },
       include: DELIVERY_INCLUDE,
     });
+    // Avvisa il valet dell'assegnazione, se ha la mail abilitata (31/08).
+    void this.notificaAssegnazioneAlValet(assegnata);
     // Questa e' dell'ufficio (`@Roles(ADMIN, OPERATION)`), ma passare dalla
     // stessa porta costa zero e toglie un'eccezione da ricordare.
     return this.soloIMieiSoldi(this.hideInternalNotes(assegnata, user), user);
