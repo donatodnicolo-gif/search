@@ -102,6 +102,20 @@ export default async function PaginaLogin({
           </button>
         </form>
 
+        {/* Non c'e' un link da mandare: questa app ha UNA password di squadra,
+            non account personali. Dirlo e' l'unica risposta onesta - un
+            «recupera password» qui potrebbe soltanto fingere. */}
+        <details style={{ marginTop: 14, textAlign: "left" }}>
+          <summary style={{ fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
+            Password dimenticata?
+          </summary>
+          <p style={{ fontSize: 13, color: "var(--text-tertiary)", marginTop: 8, lineHeight: 1.5 }}>
+            Qui si entra con una sola password, valida per tutto il team: non è legata a un
+            indirizzo email, quindi non esiste un link da mandarti. Chiedila a chi amministra
+            le app Deluxy.
+          </p>
+        </details>
+
         {sp.errore && (
           <p style={{ color: "var(--red)", fontSize: 13, marginTop: 14 }}>
             Password errata: riprova.

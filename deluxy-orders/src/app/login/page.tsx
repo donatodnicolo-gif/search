@@ -75,6 +75,20 @@ export default async function LoginPage({
           />
           <button className="btn primary" type="submit" style={{ width: "100%", padding: "11px" }}>Entra</button>
         </form>
+
+        {/* Non c'e' un link da mandare: questa app ha UNA password di squadra,
+            non account personali. Dirlo e' l'unica risposta onesta - un
+            «recupera password» qui potrebbe soltanto fingere. */}
+        <details style={{ marginTop: 14, textAlign: "left" }}>
+          <summary style={{ fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
+            Password dimenticata?
+          </summary>
+          <p style={{ fontSize: 13, color: "var(--text-tertiary)", marginTop: 8, lineHeight: 1.5 }}>
+            Qui si entra con una sola password, valida per tutto il team: non è legata a un
+            indirizzo email, quindi non esiste un link da mandarti. Chiedila a chi amministra
+            le app Deluxy.
+          </p>
+        </details>
         <p className="login-firma">Consegne in guanti bianchi, dal 2019.</p>
       </div>
     </div>
