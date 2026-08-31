@@ -816,7 +816,8 @@
     "partnerFilter": {
       "label": "Partner: {{nome}}",
       "remove": "Togli il filtro partner"
-    }
+    },
+    "ruleApplied": "Regola carnet applicata"
   },
   "partners": {
     "title": "Partner",
@@ -1949,7 +1950,8 @@
       "inviata": "Inviato all’ufficio. Lo trovi in Segnalazioni.",
       "manca": "Scrivi un motivo.",
       "importoManca": "Indica un importo valido."
-    }
+    },
+    "download": "Scarica"
   },
   "confirmDelivery": {
     "title": "Conferma consegna #{{code}}",
@@ -2443,6 +2445,7 @@
       "rimborso": "Rimborso"
     },
     "tuttiTipi": "Tutti i tipi",
-    "ricevuta": "Vedi ricevuta"
+    "ricevuta": "Vedi ricevuta",
+    "apriConsegna": "Apri consegna"
   }
 }

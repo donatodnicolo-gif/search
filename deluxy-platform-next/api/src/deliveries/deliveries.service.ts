@@ -55,6 +55,10 @@ const DELIVERY_LIST_SELECT = {
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
   serviceType: { select: { id: true, name: true, pricingModel: true, scope: true } },
+  // Regola carnet applicata: serve alla lista per segnalare le consegne che
+  // seguono una regola (prezzo azzerato / rettificato dal carnet).
+  deliveryRuleId: true,
+  deliveryRule: { select: { name: true } },
 } as const;
 
 /**

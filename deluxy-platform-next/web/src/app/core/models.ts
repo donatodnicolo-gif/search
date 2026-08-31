@@ -45,6 +45,9 @@ export interface Delivery {
   recipientIntercom?: string | null;
   /** Consegne da Fornitore: la consegna la fa il partner, non un valet. */
   deliveredByPartner?: boolean;
+  /** Regola carnet applicata (id + nome), se la consegna ne segue una. */
+  deliveryRuleId?: string | null;
+  deliveryRule?: { name: string } | null;
   paymentOnDelivery: boolean;
   paymentAmount?: number;
   price?: number;

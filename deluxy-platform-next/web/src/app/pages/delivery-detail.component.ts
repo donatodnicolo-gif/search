@@ -373,7 +373,10 @@ interface DeliveryDetail {
             <dt>{{ 'deliveryDetail.ddtFile' | translate }}</dt>
             <dd>
               @if (!d.ddtFile) { — }
-              @else if (eUrl(d.ddtFile)) {
+              @else if (d.ddtFile.startsWith('data:')) {
+                <!-- Foto caricata: il grezzo base64 non si mostra; sta negli Allegati. -->
+                <a [href]="d.ddtFile" [download]="nomeAllegato('ricevuta')">⤓ {{ 'deliveryDetail.download' | translate }}</a>
+              } @else if (eUrl(d.ddtFile)) {
                 <a [href]="d.ddtFile" target="_blank" rel="noopener">{{ d.ddtFile }}</a>
               } @else {
                 <!-- ⚠️ Nelle consegne importate ddtFile è solo un NOME DI FILE
@@ -402,16 +405,21 @@ interface DeliveryDetail {
             <div class="allegati">
               @if (d.receipt) {
                 <figure class="allegato">
-                  <a [href]="d.receipt" target="_blank" rel="noopener">
+                  <a [href]="d.receipt" [download]="nomeAllegato('ricevuta')"
+                     [attr.target]="d.receipt.startsWith('data:') ? null : '_blank'" rel="noopener">
                     <img [src]="d.receipt" [alt]="'deliveryDetail.receipt' | translate" />
+                  </a>
+                  <a class="scarica-btn" [href]="d.receipt" [download]="nomeAllegato('ricevuta')">
+                    ⤓ {{ 'deliveryDetail.download' | translate }}
                   </a>
                   <figcaption>{{ 'deliveryDetail.receipt' | translate }}</figcaption>
                 </figure>
               }
               @if (d.receiverSign) {
                 <figure class="allegato">
-                  @if (eUrl(d.receiverSign)) {
-                    <a [href]="d.receiverSign" target="_blank" rel="noopener">
+                  @if (scaricabile(d.receiverSign)) {
+                    <a [href]="d.receiverSign" [download]="nomeAllegato('firma')"
+                       [attr.target]="d.receiverSign.startsWith('data:') ? null : '_blank'" rel="noopener">
                       <img [src]="d.receiverSign" [alt]="'deliveryDetail.sign' | translate" />
                     </a>
                   } @else {
@@ -421,9 +429,17 @@ interface DeliveryDetail {
                 </figure>
               }
               @if (d.ddtFile) {
-                <figure class="allegato doc">
-                  @if (eUrl(d.ddtFile)) {
-                    <a [href]="d.ddtFile" target="_blank" rel="noopener">📄 {{ d.ddtFile }}</a>
+                <figure class="allegato">
+                  @if (scaricabile(d.ddtFile)) {
+                    <!-- La foto/ricevuta caricata dal valet: si vede e si SCARICA
+                         (partner, admin, operation). I data URL si scaricano da soli. -->
+                    <a [href]="d.ddtFile" [download]="nomeAllegato('ricevuta')"
+                       [attr.target]="d.ddtFile.startsWith('data:') ? null : '_blank'" rel="noopener">
+                      <img [src]="d.ddtFile" [alt]="'deliveryDetail.receipt' | translate" />
+                    </a>
+                    <a class="scarica-btn" [href]="d.ddtFile" [download]="nomeAllegato('ricevuta')">
+                      ⤓ {{ 'deliveryDetail.download' | translate }}
+                    </a>
                   } @else {
                     <span class="mono">📄 {{ d.ddtFile }}</span>
                     <span class="allegato-nota">{{ 'deliveryDetail.fileOnLegacy' | translate }}</span>
@@ -641,6 +657,9 @@ interface DeliveryDetail {
       .allegato figcaption { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; }
       .allegato.doc { max-width: none; }
       .allegato-nota { display: block; font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+      .scarica-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 13px;
+        font-weight: 550; color: var(--blue, #0a84ff); text-decoration: none; }
+      .scarica-btn:hover { text-decoration: underline; }
       .form-head { margin-bottom: 24px; }
       /* Era un un link finto (href javascript:void): nell.albero di accessibilita. un
          link senza destinazione. Ora e. un bottone, e questa regola gli toglie
@@ -770,6 +789,14 @@ export class DeliveryDetailComponent {
    */
   eUrl(v: string | undefined | null): boolean {
     return !!v && /^https?:\/\//i.test(v);
+  }
+  /** Mostrabile/scaricabile: un link http(s) o una foto caricata (data URL). */
+  scaricabile(v: string | undefined | null): boolean {
+    return !!v && /^(https?:|data:)/i.test(v);
+  }
+  /** Nome del file allo scaricamento (la consegna dà il numero). */
+  nomeAllegato(base: string): string {
+    return `${base}-consegna-${this.delivery()?.code ?? ''}.jpg`;
   }
 
   private readonly http = inject(HttpClient);

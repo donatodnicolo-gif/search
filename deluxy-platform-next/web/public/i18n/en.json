@@ -816,7 +816,8 @@
     "partnerFilter": {
       "label": "Partner: {{nome}}",
       "remove": "Remove the partner filter"
-    }
+    },
+    "ruleApplied": "Carnet rule applied"
   },
   "partners": {
     "title": "Partners",
@@ -1949,7 +1950,8 @@
       "inviata": "Sent to the office. You can find it in Reports.",
       "manca": "Write a reason.",
       "importoManca": "Enter a valid amount."
-    }
+    },
+    "download": "Download"
   },
   "confirmDelivery": {
     "title": "Confirm delivery #{{code}}",
@@ -2443,6 +2445,7 @@
       "rimborso": "Refund"
     },
     "tuttiTipi": "All types",
-    "ricevuta": "View receipt"
+    "ricevuta": "View receipt",
+    "apriConsegna": "Open delivery"
   }
 }

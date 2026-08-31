@@ -106,6 +106,11 @@ interface Rif { id: string; nome: string }
               <span class="data">{{ s.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
             </div>
             @if (s.oggetto) { <p class="oggetto">{{ s.oggetto }}</p> }
+            @if (s.deliveryId) {
+              <a class="apri-consegna" [href]="'/deliveries/' + s.deliveryId" target="_blank" rel="noopener">
+                ↗ {{ 'segnalazioni.apriConsegna' | translate }}
+              </a>
+            }
             <p class="testo">{{ s.testo }}</p>
             @if (s.ricevutaUrl) {
               <a class="ricevuta" [href]="s.ricevutaUrl" target="_blank" rel="noopener">📎 {{ 'segnalazioni.ricevuta' | translate }}</a>
@@ -155,6 +160,9 @@ interface Rif { id: string; nome: string }
       .ricevuta { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 13px;
         font-weight: 550; color: var(--blue, #0a84ff); text-decoration: none; }
       .ricevuta:hover { text-decoration: underline; }
+      .apri-consegna { display: inline-block; margin: 2px 0 4px; font-size: 13px; font-weight: 550;
+        color: var(--blue, #0a84ff); text-decoration: none; }
+      .apri-consegna:hover { text-decoration: underline; }
       .risposta { margin: 6px 0 0; padding: 8px 10px; background: var(--fill); border-radius: 10px; font-size: 13.5px; }
       .gestione { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
       .gestione .field { flex: 1 1 200px; }

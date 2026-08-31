@@ -344,7 +344,11 @@ interface PropostaVendita {
                     <span class="st-testo">{{ 'status.delivery.' + d.status | translate }}</span>
                   </button>
                 </td>
-                <td class="mono">{{ d.code }}</td>
+                <td class="mono">{{ d.code }}
+                  @if (d.deliveryRuleId) {
+                    <span class="regola-badge" [title]="(d.deliveryRule?.name || '') + ' — ' + ('deliveries.ruleApplied' | translate)">📋</span>
+                  }
+                </td>
                 <td>
                   {{ d.date | date: 'dd/MM/yyyy' }}
                   @if (dataSospetta(d.date)) {
@@ -813,6 +817,7 @@ interface PropostaVendita {
         padding-left: 14px;
         padding-right: 6px;
       }
+      .regola-badge { margin-left: 5px; font-size: 12px; cursor: help; vertical-align: middle; }
       .status-dot {
         display: inline-block;
         width: 10px;
