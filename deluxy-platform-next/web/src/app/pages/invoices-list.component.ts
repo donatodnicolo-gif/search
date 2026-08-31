@@ -63,6 +63,9 @@ interface PendingDelivery {
   id: string; code: number; date: string; status: string;
   /** null = non prezzabile: nessun prezzo sulla consegna, nessun listino. */
   amount: number | null;
+  /** Valore lordo dei prodotti venduti; netto che spetta al partner (solo vendite). */
+  venduto?: number | null;
+  dovutoAlPartner?: number | null;
   origine: 'consegna' | 'listino' | null;
   esclusaDaRegola: boolean;
   regola?: string | null;
@@ -297,6 +300,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
                           <th>{{ 'invoices.line.recipient' | translate }}</th>
                           <th>{{ 'invoices.pending.service' | translate }}</th>
                           <th class="num">{{ 'invoices.line.amount' | translate }}</th>
+                          <!-- Al partner: il valore lordo del prodotto è già in
+                               «Importo»; qui il NETTO che gli spetta (solo vendite). -->
+                          @if (isPartner()) { <th class="num">{{ 'invoices.line.net' | translate }}</th> }
                         </tr></thead>
                         <tbody>
                           @for (d of pendingDetail(); track d.id) {
@@ -310,10 +316,16 @@ const NEXT: Record<string, { next: string; key: string }> = {
                                 } @else if (d.amount === null) {
                                   <span class="rosso" [title]="'invoices.pending.unpricedRow' | translate">{{ 'invoices.pending.noPrice' | translate }}</span>
                                 } @else {
-                                  {{ d.amount | number: '1.2-2' }} €
+                                  {{ importoRiga(d) | number: '1.2-2' }} €
                                   @if (d.origine === 'listino') { <span class="ric" [title]="'invoices.pending.fromListinoHint' | translate">{{ 'invoices.pending.listino' | translate }}</span> }
                                 }
                               </td>
+                              @if (isPartner()) {
+                                <td class="num">
+                                  @if (nettoRiga(d); as netto) { <strong class="dovuto">{{ netto | number: '1.2-2' }} €</strong> }
+                                  @else { <span class="muted">—</span> }
+                                </td>
+                              }
                             </tr>
                           }
                         </tbody>
@@ -632,6 +644,22 @@ export class InvoicesListComponent {
   canManage(): boolean {
     const r = this.auth.user()?.role;
     return r === 'ADMIN' || r === 'OPERATION';
+  }
+  isPartner(): boolean { return this.auth.user()?.role === 'PARTNER'; }
+
+  /**
+   * L'importo mostrato in riga. Per il PARTNER, sulle VENDITE, è il valore
+   * LORDO del prodotto (quello che incassa dal cliente); sugli altri servizi
+   * resta l'importo che gli sarà fatturato. Per l'ufficio, invariato.
+   */
+  importoRiga(d: PendingDelivery): number | null {
+    if (this.isPartner() && d.pricingModel === 'VENDITA' && d.venduto != null) return d.venduto;
+    return d.amount;
+  }
+  /** Netto che spetta al partner: solo sulle vendite (quanto incassa netto). */
+  nettoRiga(d: PendingDelivery): number | null {
+    if (d.pricingModel !== 'VENDITA') return null;
+    return d.dovutoAlPartner && d.dovutoAlPartner > 0 ? d.dovutoAlPartner : null;
   }
 
   /** Il periodo a un click: `0` = mese in corso (fino a oggi), `-1` = scorso, `-12` = anno in corso. */

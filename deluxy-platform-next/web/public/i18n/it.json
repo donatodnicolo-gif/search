@@ -493,7 +493,8 @@
       "date": "Data",
       "recipient": "Destinatario",
       "description": "Indirizzo",
-      "amount": "Importo"
+      "amount": "Importo",
+      "net": "Netto"
     },
     "noLines": "Nessuna consegna da fatturare in questa fattura.",
     "action": {
@@ -1240,7 +1241,9 @@
       "internalNotes": "Note interne",
       "internalNotesRoles": "(admin / operation / valet)",
       "deliveryCodeRequired": "Codice di consegna richiesto",
-      "ddtBrand": "Brand del DDT"
+      "ddtBrand": "Brand del DDT",
+      "pickupAddress": "Indirizzo di ritiro",
+      "pickupAddressPh": "Se vuoto, ritiro dal partner"
     },
     "newProduct": {
       "title": "Nuovo prodotto",

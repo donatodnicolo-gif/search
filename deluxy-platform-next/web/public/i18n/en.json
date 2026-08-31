@@ -493,7 +493,8 @@
       "date": "Date",
       "recipient": "Recipient",
       "description": "Address",
-      "amount": "Amount"
+      "amount": "Amount",
+      "net": "Net"
     },
     "noLines": "No billable deliveries in this invoice.",
     "action": {
@@ -1240,7 +1241,9 @@
       "internalNotes": "Internal notes",
       "internalNotesRoles": "(admin / operation / valet)",
       "deliveryCodeRequired": "Delivery code required",
-      "ddtBrand": "DDT brand"
+      "ddtBrand": "DDT brand",
+      "pickupAddress": "Pickup address",
+      "pickupAddressPh": "If empty, pickup from the partner"
     },
     "newProduct": {
       "title": "New product",

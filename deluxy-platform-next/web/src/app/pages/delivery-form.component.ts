@@ -209,6 +209,13 @@ interface ProductRow {
         <header class="block-head"><h2>{{ 'deliveryForm.section.pickup.title' | translate }}</h2>
           <span class="block-sub">{{ 'deliveryForm.section.pickup.sub' | translate }}</span></header>
 
+        <!-- Indirizzo di ritiro: sempre visibile e modificabile, anche sulle
+             vendite (31/08, richiesta utente). Se vuoto, il ritiro è dal
+             partner. -->
+        <label class="fld"><span>{{ 'deliveryForm.field.pickupAddress' | translate }}</span>
+          <input class="field" name="pickupAddress" [(ngModel)]="model.pickupAddress"
+                 autocomplete="off" [placeholder]="'deliveryForm.field.pickupAddressPh' | translate" /></label>
+
         <!-- Ritiro -->
         <label class="toggle mt2"><input type="checkbox" name="pickupFlexible" [(ngModel)]="model.pickupFlexible" /><span>{{ 'deliveryForm.timing.pickupFlexible' | translate }}</span></label>
         @if (model.pickupFlexible) {
@@ -779,6 +786,22 @@ export class DeliveryFormComponent implements AfterViewInit {
   }
 
   /**
+   * Inserendo da una vendita, il servizio dev'essere di tipo «vendita». Se
+   * quello scelto non lo è (o manca), sceglie il primo servizio VENDITA. No-op
+   * finché la lista servizi non è arrivata: la richiama chi la carica.
+   */
+  private forzaServizioVendita(): void {
+    if (!this.daVendita() || !this.serviceTypes().length) return;
+    const attuale = this.serviceTypes().find((s) => s.id === this.model.serviceTypeId);
+    if (attuale && attuale.pricingModel === 'VENDITA') return;
+    const vend = this.serviceTypes().find((s) => s.pricingModel === 'VENDITA');
+    if (vend && this.model.serviceTypeId !== vend.id) {
+      this.model.serviceTypeId = vend.id;
+      this.onServiceChange();
+    }
+  }
+
+  /**
    * Riversa la proposta nel form.
    * ⚠️ Solo i campi che l'AI ha DAVVERO riempito: un `null` non azzera quello
    * che c'è già. È la trappola del form parziale — riempire con «niente» è
@@ -917,6 +940,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     deliveryTimeFrom: '',
     deliveryTimeTo: '',
     deliveryFlexible: false,
+    pickupAddress: '',
     pickupTimeFrom: '',
     pickupTimeTo: '',
     pickupFlexible: false,
@@ -1128,6 +1152,9 @@ export class DeliveryFormComponent implements AfterViewInit {
           const m = this.model as Record<string, unknown>;
           if (v.partnerId) { m['partnerId'] = v.partnerId; this.partnerSel.set(v.partnerId); }
           if (v.serviceTypeId) m['serviceTypeId'] = v.serviceTypeId;
+          // Se i servizi sono già arrivati, forza il tipo vendita adesso;
+          // altrimenti ci pensa il loro callback.
+          this.forzaServizioVendita();
           if (v.recipientFirstName) m['recipientFirstName'] = v.recipientFirstName;
           if (v.recipientLastName) m['recipientLastName'] = v.recipientLastName;
           if (v.recipientPhone) m['recipientPhone'] = v.recipientPhone;
@@ -1183,6 +1210,10 @@ export class DeliveryFormComponent implements AfterViewInit {
       // compariva «Seleziona prima un servizio» pur essendocene uno scelto, e
       // le fasce orarie non venivano generate. Appena la lista arriva si
       // riapplica, conservando gli orari salvati.
+      // Inserendo da una VENDITA il servizio dev'essere di tipo «vendita» di
+      // default (31/08). Le due chiamate (vendita e servizi) sono indipendenti:
+      // il default si applica in entrambe, chi arriva ultimo vince.
+      this.forzaServizioVendita();
       if (this.model.serviceTypeId) {
         const fascia = this.model.deliveryTimeFrom;
         const data = this.model.date;
@@ -1235,7 +1266,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     }
     for (const key of [
       'recipientAddress', 'partnerId', 'serviceTypeId', 'deliveryTimeFrom', 'deliveryTimeTo',
-      'pickupTimeFrom', 'pickupTimeTo', 'valetId', 'status', 'paymentStatus', 'customerId',
+      'pickupAddress', 'pickupTimeFrom', 'pickupTimeTo', 'valetId', 'status', 'paymentStatus', 'customerId',
       'recipientLastName', 'recipientFirstName', 'recipientIntercom', 'recipientPhone',
       'recipientEmail', 'senderLastName', 'senderFirstName', 'senderPhone', 'valetServiceId',
       'smsPhoneNo', 'flexiblePrice', 'ddtNumber', 'ddtBrand', 'ddtFile', 'notes', 'personalizeSaleNotes',
@@ -1795,7 +1826,7 @@ export class DeliveryFormComponent implements AfterViewInit {
       isFlexiblePrice: m.isFlexiblePrice,
     };
     for (const key of [
-      'valetId', 'valetServiceId', 'status', 'customerId',
+      'valetId', 'valetServiceId', 'status', 'customerId', 'pickupAddress',
       'recipientIntercom', 'recipientPhone', 'recipientEmail',
       'senderFirstName', 'senderLastName', 'senderPhone', 'smsPhoneNo', 'ddtNumber', 'ddtBrand', 'ddtFile',
       'flexiblePrice', 'notes', 'personalizeSaleNotes', 'internalNotes',

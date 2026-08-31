@@ -977,6 +977,10 @@ export class InvoicesService {
           service: d.serviceType?.name ?? '—',
           pricingModel: d.serviceType?.pricingModel ?? '—',
           amount: calcolo?.amount ?? null,
+          /// Valore LORDO dei prodotti venduti (per la colonna «Importo» del
+          /// partner) e NETTO che gli spetta (solo sulle vendite; 0 altrove).
+          venduto: calcolo?.venduto ?? null,
+          dovutoAlPartner: calcolo?.dovutoAlPartner ?? null,
           /// Da dove viene il numero: dalla consegna (deciso allora) o dal
           /// listino (ricalcolato ora). `null` = non prezzabile.
           origine: calcolo?.origine ?? null,
