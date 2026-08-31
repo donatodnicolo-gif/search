@@ -26,7 +26,7 @@ import { caricaCategorie, categoriaDi, ricostruisci } from "./cfo";
 import { fetchConsuntivo, fetchConsuntivoMensile, fetchSpeseBanca } from "./finance";
 import { normalizzaNome } from "./scout";
 import { fatturatoDaVenduto, QUOTA_STIMATA, quotaMisurata, raggruppa, sommaMesi, type Quota } from "./venduto";
-import { fetchRicaviD2C } from "./orders";
+import { commissioniIncassiMese, fetchRicaviD2C } from "./orders";
 import { economiaD2C, economiaDeiMesi } from "./economia-d2c";
 import { ricavoD2C, ricavoDeiMesi, MARGINE_FORNITORI } from "./ricavo-d2c";
 import { fetchSpesaAdv, type CoperturaAdv } from "./marketing";
@@ -75,6 +75,10 @@ export type ConsuntivoPeriodo = {
    * banca: si dichiara, perché le due cifre non sono confrontabili.
    */
   consegne: SostituzioneConsegne | null;
+  // Le commissioni d incasso (Stripe/Shopify) dentro il Costo per servizi del
+  // periodo: trattenute prima del bonifico, in banca non esistono. 0 = Orders
+  // non porta il dato (dichiarato in mancanti), non «nessuna commissione».
+  commissioniIncassi: number;
   // Uscite che **nessuna regola** riconosce, dovunque siano finite: oggi quasi
   // tutte dentro la categoria «Da classificare», quindi già contate nei costi.
   // `nonCategorizzato` dice «non entrano nel conto economico», questo dice
@@ -134,6 +138,7 @@ export async function caricaConsuntivo(
     ok: false, mancanti: [], mesi, ricavi: 0, ricaviPerTipologia: {}, vendutoEcommerce: 0,
     cogs: 0, adv: 0, struttura: 0, personale: 0, margineLordo: 0, ebitda: 0, nonCategorizzato: 0, senzaRegola: 0,
     consegne: null,
+    commissioniIncassi: 0,
     advMarketing: null, advCopertura: null, advCompetenza: { dentro: 0, fuori: 0 },
     quota: QUOTA_STIMATA, pagatoAiPartner: 0, d2c: null, economia: null,
     competenza: null,
@@ -298,6 +303,27 @@ export async function caricaConsuntivo(
     );
   }
 
+  // ---- Le COMMISSIONI D INCASSO nel Costo per servizi (31/08/2026) ----
+  // Decisione dell utente. Stripe e Shopify trattengono la commissione PRIMA
+  // di bonificare: in banca il costo non esiste (19.170 € sull anno contro
+  // 3.074 € di soli abbonamenti), e il primo margine NON la sconta
+  // (primoMargine = (pagato − prodotti) ÷ 1,22). Quindi o entra da qui, o non
+  // entra da nessuna parte. Si somma dalla copia di Orders, per mese, sui soli
+  // ordini col dato — ed e un AGGIUNTA, non una sostituzione: non c e nessuna
+  // riga di banca da togliere.
+  const commissioniMese = commissioniIncassiMese(ordini);
+  let commissioniIncassi = 0;
+  if (commissioniMese) {
+    for (const m of mesi) {
+      const c = commissioniMese[m - 1] ?? 0;
+      cogsMese[m - 1] = (cogsMese[m - 1] ?? 0) + c;
+      commissioniIncassi += c;
+    }
+    cogs += commissioniIncassi;
+  } else if (ordini.ok) {
+    mancanti.push("commissioni d incasso (Orders non porta il campo): il Costo per servizi le sottostima");
+  }
+
   // Le voci di budget che hanno una corrispondenza in Finance: servono a
   // filtrare il fatturato mensile con la stessa regola usata sul totale.
   const nomiMappati = new Set<string>();
@@ -424,6 +450,7 @@ export async function caricaConsuntivo(
     nonCategorizzato,
     senzaRegola,
     consegne: consegneEsposte,
+    commissioniIncassi,
     advMarketing,
     advCopertura,
     advCompetenza: { dentro: advDentro, fuori: advFuori },

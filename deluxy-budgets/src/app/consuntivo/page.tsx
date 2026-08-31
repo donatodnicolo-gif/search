@@ -5,7 +5,7 @@ import { caricaCategorie, ricostruisci } from "@/lib/cfo";
 import { fetchCostiConsegne, rigaBancaConsegne, sostituzioneConsegne } from "@/lib/consegne";
 import { eur, MESI, pct } from "@/lib/format";
 import { normalizzaNome } from "@/lib/scout";
-import { abbinaMaison, fetchRicaviD2C } from "@/lib/orders";
+import { abbinaMaison, commissioniIncassiMese, fetchRicaviD2C } from "@/lib/orders";
 import { economiaD2C, economiaDeiMesi } from "@/lib/economia-d2c";
 import { fatturatoDaVenduto, raggruppa, sommaMesi } from "@/lib/venduto";
 import { misuraQuota } from "@/lib/quota";
@@ -356,6 +356,20 @@ export default async function ConsuntivoPage({
   }
   costi.COGS += mesiPeriodo.reduce((s, m) => s + (deltaConsegne[m - 1] ?? 0), 0);
 
+  // Le COMMISSIONI D INCASSO (31/08/2026, decisione dell utente: vanno nel
+  // Costo per servizi). Stripe e Shopify le trattengono prima del bonifico:
+  // in banca non esistono e il primo margine non le sconta — o entrano da
+  // qui, o da nessuna parte. Stessa regola di caricaConsuntivo, chiamata due
+  // volte: la copia di Orders, per mese, sui soli ordini col dato.
+  const commissioniMese = commissioniIncassiMese(d2c);
+  const commissioniPeriodo = commissioniMese
+    ? mesiPeriodo.reduce((s, m) => s + (commissioniMese[m - 1] ?? 0), 0)
+    : 0;
+  if (commissioniMese) {
+    for (const m of mesiPeriodo) costiMese.COGS[m - 1] = (costiMese.COGS[m - 1] ?? 0) + (commissioniMese[m - 1] ?? 0);
+    costi.COGS += commissioniPeriodo;
+  }
+
   // ---- Quanto del periodo la banca copre DAVVERO ----
   // L'avviso sui dati parziali c'era solo per l'anno di confronto. Ma se si
   // guarda il 2025 come anno *scelto*, i costi vengono da luglio in poi — i
@@ -529,7 +543,7 @@ export default async function ConsuntivoPage({
     // Non è più «costo del venduto»: la quota del partner è già tolta a monte,
     // nel passaggio da venduto a fatturato. Quello che resta è il costo dei
     // servizi — quanto si paga ai valet per la consegna.
-    { label: "Costo per servizi", nota: "banca · valet e servizi", cons: costi.COGS, budget: B("cogs"), prec: costoPrec("COGS"), precParziale: bancaPrecParziale, tipo: "costo", apre: "cogs" },
+    { label: "Costo per servizi", nota: commissioniPeriodo > 0 ? `banca · valet e servizi · ${Math.round(commissioniPeriodo).toLocaleString("it-IT", { useGrouping: "always" })} € di commissioni d incasso (Stripe/Shopify, mai in banca)` : "banca · valet e servizi", cons: costi.COGS, budget: B("cogs"), prec: costoPrec("COGS"), precParziale: bancaPrecParziale, tipo: "costo", apre: "cogs" },
     { label: "Margine lordo", cons: margineLordoCons, budget: B("margineLordo"), prec: margineLordoPrec, tipo: "totale" },
     { label: "Spesa pubblicitaria (ADV)", nota: "banca · di cassa, slitta di circa un mese", cons: costi.ADV, budget: B("adv"), prec: costoPrec("ADV"), precParziale: bancaPrecParziale, tipo: "costo", apre: "adv" },
     {

@@ -35,7 +35,30 @@ export type RicaviBrand = {
   primoMargineMese?: number[];
   conEconomiaMese?: number[];
   lordoConEconomiaMese?: number[];
+  // Gli altri due ingredienti del margine (26/08 sera): il costo della
+  // consegna (copia della piattaforma, che resta la padrona del numero) e la
+  // COMMISSIONE D INCASSO (Stripe/Shopify: trattenuta prima del bonifico,
+  // quindi in banca non esiste).
+  costoConsegnaMese?: number[];
+  commissioneIncassiMese?: number[];
 };
+
+/**
+ * Le COMMISSIONI D INCASSO del periodo, per mese (31/08/2026, decisione
+ * dell utente: vanno nel Costo per servizi). Stripe e Shopify le trattengono
+ * PRIMA del bonifico: in banca non esistono (misurato: 19.170 € sull anno
+ * contro 3.074 € di soli abbonamenti in banca), quindi senza questa somma il
+ * conto economico non le vede da nessuna parte. Null = Orders non risponde o
+ * non porta il campo: il chiamante lo dichiara, non mette zero.
+ */
+export function commissioniIncassiMese(res: RicaviResult): number[] | null {
+  if (!res.ok) return null;
+  if (!res.dati.brand.some((b) => Array.isArray(b.commissioneIncassiMese))) return null;
+  const mesi = Array(12).fill(0) as number[];
+  for (const b of res.dati.brand)
+    for (let i = 0; i < 12; i++) mesi[i] += b.commissioneIncassiMese?.[i] ?? 0;
+  return mesi;
+}
 
 export type Ricavi = {
   anno: number;

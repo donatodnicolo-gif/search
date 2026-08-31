@@ -137,6 +137,8 @@ export default async function ContoEconomico({
           ebitda: somma("ebitda"),
           nonCategorizzato: 0,
           senzaRegola: 0,
+          // Il budget non prevede commissioni d incasso: a piano non esistono.
+          commissioniIncassi: 0,
           // Il budget non ha una riga consegne dalla piattaforma: e un fatto,
           // non una previsione. Null = «qui non si applica», non «zero».
           consegne: null,
