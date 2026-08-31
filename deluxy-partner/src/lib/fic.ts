@@ -42,8 +42,12 @@ export const FIC_REDIRECT_URI = "https://deluxy-partner.vercel.app";
 // ⚠️ Aggiungere lo scope NON BASTA: il token già emesso porta i permessi di
 // quando è stato creato. Serve rifare il collegamento a Fatture in Cloud da
 // Impostazioni, altrimenti qui cambia una stringa e non cambia niente.
+// ⚠️ Aggiungere uno scope NON basta: serve il RICONSENSO (Impostazioni → FIC,
+// rifare il collegamento). `received_documents` aggiunto il 31/08/2026 per
+// l'import degli ACQUISTI chiesto dall'utente — lo stesso riconsenso che
+// aspettano le note di credito dal 28/08.
 export const FIC_SCOPES =
-  "entity.clients:a issued_documents.invoices:a issued_documents.credit_notes:r issued_documents.receipts:r";
+  "entity.clients:a issued_documents.invoices:a issued_documents.credit_notes:r issued_documents.receipts:r received_documents:r";
 
 async function leggi(chiavi: string[]): Promise<Record<string, string>> {
   const righe = await prisma.impostazione.findMany({ where: { chiave: { in: chiavi } } });

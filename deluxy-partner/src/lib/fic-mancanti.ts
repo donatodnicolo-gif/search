@@ -20,9 +20,13 @@
 //    «Da Fatture in Cloud», dove una persona sceglie tipologia (e scheda)
 //    una volta — dalla successiva sono automatiche anche loro.
 //
-// ⚠️ La COMPETENZA è il MESE DI EMISSIONE (decisione dell'utente, 30/08:
-// «la competenza mettila in base al mese di emissione»). Chi la vuole diversa
-// la sposta dopo, dalla fattura.
+// ⚠️ La COMPETENZA è il MESE DEL SERVIZIO (decisione dell'utente, 31/08:
+// «devono essere tutte così», detto guardando le 136 del giro mensile —
+// «Servizi Deluxy Luglio» emessa ad agosto va a luglio). Il mese del servizio
+// lo dice la DESCRIZIONE della fattura: se nomina un mese, la competenza è
+// quella (con l'anno giusto: «dicembre» su una fattura di gennaio è l'anno
+// prima); se non lo nomina, resta il mese di emissione — meglio l'emissione
+// che un mese indovinato.
 //
 // ⚠️ L'IVA si ricava dai totali FIC (lordo/netto): una fattura esente esce 0%,
 // non 22% — inventare l'aliquota falserebbe l'ivato e quindi lo scaduto.
@@ -34,7 +38,7 @@ export type FatturaFicMancante = {
   numero: string; // es. "612/2026", come le registrate
   data: string; // ISO, giorno di emissione
   anno: number;
-  mese: number; // competenza = mese di emissione
+  mese: number; // competenza: mese del servizio (dalla descrizione) o di emissione
   cliente: string;
   imponibile: number;
   aliquotaIva: number;
@@ -68,8 +72,18 @@ type DocFic = {
   amount_net?: number;
   amount_gross?: number;
   subject?: string | null;
+  visible_subject?: string | null;
   entity?: { name?: string | null };
 };
+
+const MESI_NOMI = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+/** Il mese che la descrizione nomina («Servizi Deluxy Luglio 2026» → 7), o null. */
+export function meseNellaDescrizione(s: string | null | undefined): number | null {
+  if (!s) return null;
+  const t = s.toLowerCase();
+  for (let i = 0; i < 12; i++) if (t.includes(MESI_NOMI[i])) return i + 1;
+  return null;
+}
 
 export async function trovaFattureFicMancanti(giorni = 90): Promise<EsitoControlloFic> {
   const stato = await ficStato();
@@ -79,10 +93,10 @@ export async function trovaFattureFicMancanti(giorni = 90): Promise<EsitoControl
 
   const da = new Date(Date.now() - giorni * 86400000).toISOString().slice(0, 10);
   const docs: DocFic[] = [];
-  for (let page = 1; page <= 5; page++) {
+  for (let page = 1; page <= 10; page++) {
     const r = await ficFetch<{ data?: DocFic[] }>(
       `/c/${stato.companyId}/issued_documents?type=invoice&q=${encodeURIComponent(`date >= '${da}'`)}` +
-        `&fields=id,number,numeration,date,amount_net,amount_gross,subject,entity&per_page=100&page=${page}&sort=-date`
+        `&fields=id,number,numeration,date,amount_net,amount_gross,subject,visible_subject,entity&per_page=100&page=${page}&sort=-date`
     );
     const pagina = r.data ?? [];
     docs.push(...pagina);
@@ -160,16 +174,23 @@ export async function trovaFattureFicMancanti(giorni = 90): Promise<EsitoControl
     // L'aliquota dai totali, arrotondata al punto: 22,000001 è 22, e una
     // fattura esente resta 0 invece di diventare 22 per pigrizia.
     const aliquota = netto > 0 ? Math.round(((lordo - netto) / netto) * 100) : 0;
+    const oggetto = d.subject?.trim() || d.visible_subject?.trim() || null;
+    // La competenza: il mese che la descrizione NOMINA (regola dell'utente),
+    // sennò quello di emissione. «Dicembre» su una fattura di gennaio è l'anno
+    // prima.
+    const meseServizio = meseNellaDescrizione(oggetto);
+    const mese = meseServizio ?? meseDoc;
+    const anno = meseServizio && meseServizio > meseDoc ? annoDoc - 1 : annoDoc;
     return {
       ficId: d.id,
       numero: `${d.number}/${annoDoc}`,
       data: dataDoc,
-      anno: annoDoc,
-      mese: meseDoc,
+      anno,
+      mese,
       cliente: (d.entity?.name ?? "(senza nome)").trim(),
       imponibile: netto,
       aliquotaIva: aliquota,
-      descrizione: d.subject?.trim() || null,
+      descrizione: oggetto,
       partnerId: scheda?.id ?? null,
       partnerNome: scheda?.nome ?? null,
       tipologiaId: tip?.id ?? null,
@@ -189,8 +210,8 @@ export type EsitoImportFic =
  * imparata. Le altre non si toccano: le decide una persona da /fatture/da-fic.
  * Idempotente: il numero già registrato non si reimporta.
  */
-export async function importaFattureFicSicure(origine: string): Promise<EsitoImportFic> {
-  const esito = await trovaFattureFicMancanti();
+export async function importaFattureFicSicure(origine: string, giorni = 90): Promise<EsitoImportFic> {
+  const esito = await trovaFattureFicMancanti(giorni);
   if (!esito.ok) return { ok: false, errore: esito.errore };
 
   const sicure = esito.mancanti.filter((m) => m.partnerId && m.tipologiaId);
