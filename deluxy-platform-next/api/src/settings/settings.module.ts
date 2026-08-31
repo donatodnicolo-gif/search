@@ -145,6 +145,39 @@ export class SettingsService {
   }
 
   /**
+   * Manda un'email da AI Mail (`POST /api/v1/invia`) — LA STESSA VIA DEL RECAP
+   * ai partner, che è già configurata e funziona (regola utente 31/08: «la mail
+   * di recap esiste già, usa quella per le notifiche»). Config `mailUrl` +
+   * `mailApiKey` + `mailUtente` (env in precedenza). Ritorna un esito parlante
+   * (non lancia): lo usano le notifiche best-effort. `corpo` accetta HTML: le
+   * righe di testo si convertono in `<br>` così vanno a capo come nel recap.
+   */
+  async inviaViaAiMail(a: string, oggetto: string, testo: string): Promise<{ ok: boolean; motivo: string }> {
+    const url = ((await this.get('mailUrl')) || process.env.MAIL_URL || 'https://deluxy-mail.vercel.app').replace(/\/+$/, '');
+    const chiave = (await this.get('mailApiKey')) || process.env.MAIL_API_KEY || '';
+    const utente = (await this.get('mailUtente')) || process.env.MAIL_UTENTE || '';
+    if (!chiave || !utente) {
+      const manca = [!chiave && 'chiave', !utente && 'casella'].filter(Boolean).join(' e ');
+      return { ok: false, motivo: `AI Mail non configurato: manca la ${manca} (mailApiKey/mailUtente).` };
+    }
+    const corpo = testo.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+    try {
+      const res = await fetch(`${url}/api/v1/invia`, {
+        method: 'POST',
+        headers: { 'x-api-key': chiave, 'x-utente': utente, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ a, oggetto, corpo }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; errore?: string };
+      if (!res.ok || body.ok === false) {
+        return { ok: false, motivo: body.error ?? body.errore ?? `AI Mail risponde HTTP ${res.status}` };
+      }
+      return { ok: true, motivo: 'inviata' };
+    } catch (err) {
+      return { ok: false, motivo: `AI Mail non raggiungibile: ${(err as Error).message}` };
+    }
+  }
+
+  /**
    * Prova end-to-end della posta: manda un messaggio di test all'indirizzo
    * indicato (di norma quello dell'admin che sta configurando). Dice PERCHÉ non
    * funziona invece di un generico "non parte".

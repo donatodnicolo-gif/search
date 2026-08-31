@@ -953,11 +953,16 @@ export class DeliveriesService {
    */
   private async inviaMail(a: string, oggetto: string, corpo: string): Promise<void> {
     if (!a) return;
-    // Le notifiche via email passano dalla casella del HUB (Standard §7): la
-    // logica e la configurazione vivono in SettingsService, qui si delega.
-    // Best-effort: un invio fallito non fa mai fallire la consegna.
-    const esito = await this.settings.inviaViaHub(a, oggetto, corpo);
-    if (!esito.ok) console.error('notifica-mail: invio via Hub fallito:', esito.motivo);
+    // ⭐ 31/08/2026 (regola utente: «la mail di recap ai partner esiste già, usa
+    // quella per le notifiche»): le notifiche partono da AI Mail — la STESSA via
+    // del recap, già configurata e funzionante. La casella del Hub resta solo
+    // come ripiego se AI Mail non è configurato. Best-effort: un invio fallito
+    // non fa mai fallire la consegna.
+    const esito = await this.settings.inviaViaAiMail(a, oggetto, corpo);
+    if (esito.ok) return;
+    const hub = await this.settings.inviaViaHub(a, oggetto, corpo);
+    if (hub.ok) return;
+    console.error('notifica-mail: invio fallito (AI Mail:', esito.motivo, '| Hub:', hub.motivo, ')');
   }
 
   private async notificaInserimentoAlPartner(delivery: { id: string; code: number; partnerId: string | null }): Promise<void> {
