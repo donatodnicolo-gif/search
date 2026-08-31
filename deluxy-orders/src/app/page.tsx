@@ -17,6 +17,8 @@ import { URGENZE } from "@/lib/urgenza";
 import { SegnoCanale, PillRepeater, TagLuoghi, PillUrgenza, PillNuovo } from "@/components/Provenienza";
 import { etichettaLavorazioneCs } from "@/lib/customer-service";
 import { margineOrdine } from "@/lib/controllo";
+import { Prisma } from "@prisma/client";
+import { ordinamentoDa } from "@/components/ThOrdina";
 import { daQuando, daQuandoLeggibile } from "@/lib/sessione";
 import { anniConOrdini } from "@/lib/analisi";
 import { sincronizza, segnaOrdiniVisti } from "./actions";
@@ -41,6 +43,35 @@ export default async function ElencoOrdini({
   if (sp.nuovi === "si" && daQuandoSeiQui) params.set("nuoviDa", daQuandoSeiQui.toISOString());
   const where = whereOrdini(params);
   const pagina = Math.max(1, Number(sp.page ?? "1") || 1);
+  // ORDINAMENTO (Libro UX&UI §8). ⚠️ Va nella QUERY, non sull'array: l'elenco
+  // è paginato, e ordinare le righe già estratte riordinerebbe soltanto la
+  // pagina che si sta guardando — una tabella che sembra ordinata e non lo è.
+  // Le colonne calcolate a schermo (margine, destinazione, etichette) non sono
+  // ordinabili apposta: non esistono come colonna nel database, e fingere di
+  // ordinarle darebbe un ordine giusto solo dentro la pagina corrente.
+  const ordinamentiOrdini: Record<string, Prisma.OrdineOrderByWithRelationInput> = {
+    numero: { numero: "asc" },
+    data: { data: "desc" },
+    consegna: { dataConsegna: "desc" },
+    cliente: { clienteNome: "asc" },
+    totale: { totale: "desc" },
+    evasione: { evasione: "asc" },
+    pagamento: { financialStatus: "asc" },
+    stato: { statoId: "asc" },
+    fornitore: { costoFornitoreNome: "asc" },
+  };
+  const ord = ordinamentoDa(sp, { predefinito: "data" });
+  const ordina = String(sp.ordina ?? "data");
+  const verso: "asc" | "desc" = sp.verso === "asc" ? "asc" : "desc";
+  const colonna = ordinamentiOrdini[ordina] ?? ordinamentiOrdini.data;
+  const campoOrdine = Object.keys(colonna)[0] as keyof Prisma.OrdineOrderByWithRelationInput;
+  // ⚠️ Un secondo criterio SEMPRE: su una colonna con molti valori uguali
+  // (stato, evasione) senza spareggio l'ordine delle pagine non è stabile e
+  // la stessa riga può comparire due volte o sparire fra pagina 1 e 2.
+  const orderBy: Prisma.OrdineOrderByWithRelationInput[] = [
+    { [campoOrdine]: verso } as Prisma.OrdineOrderByWithRelationInput,
+    ...(campoOrdine === "data" ? [] : [{ data: "desc" } as Prisma.OrdineOrderByWithRelationInput]),
+  ];
   // Due viste: colonne per brand (predefinita) ed elenco in tabella.
   const vista = sp.vista === "elenco" ? "elenco" : "brand";
 
@@ -64,7 +95,7 @@ export default async function ElencoOrdini({
       ? prisma.ordine.findMany({
           where,
           include: { stato: true, etichette: true, negozio: { select: { brand: true } }, righe: { select: { id: true, titolo: true, quantita: true } } },
-          orderBy: { data: "desc" },
+          orderBy,
           skip: (pagina - 1) * PER_PAGINA,
           take: PER_PAGINA,
         })
@@ -492,14 +523,14 @@ export default async function ElencoOrdini({
             <table>
               <thead>
                 <tr>
-                  <th>Ordine</th>
-                  <th>Data</th>
-                  <th>Consegna</th>
-                  <th>Cliente</th>
-                  <th className="num">Totale</th>
-                  <th>Evasione</th>
-                  <th>Pagamento</th>
-                  <th>Stato</th>
+                  {ord.th("numero", "Ordine")}
+                  {ord.th("data", "Data", true)}
+                  {ord.th("consegna", "Consegna", true)}
+                  {ord.th("cliente", "Cliente")}
+                  {ord.th("totale", "Totale", true)}
+                  {ord.th("evasione", "Evasione")}
+                  {ord.th("pagamento", "Pagamento")}
+                  {ord.th("stato", "Stato")}
                   <th>Destinazione</th>
                   <th>Etichette</th>
                   <th>Fornitore</th>

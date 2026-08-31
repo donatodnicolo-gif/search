@@ -5,6 +5,7 @@ import { CANALI, nomeCanale } from "@/lib/segmenti";
 import { variabiliScript, variabiliCitate } from "@/lib/automazioni";
 import { creaScript } from "@/app/actions";
 import { RigaLink } from "@/components/RigaLink";
+import { ordinamentoDa } from "@/components/ThOrdina";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ export default async function Script({
   searchParams: Promise<Record<string, string>>;
 }) {
   const sp = await searchParams;
+  // L'elenco è completo (nessun tetto): qui l'ordinamento in memoria è esatto.
+  const ord = ordinamentoDa(sp, { predefinito: "creato" });
   const q = sp.q?.trim() || undefined;
 
   const script = await prisma.script.findMany({
@@ -69,16 +72,25 @@ export default async function Script({
           <table>
             <thead>
               <tr>
-                <th>Script</th>
-                <th>Canale</th>
-                <th>Variabili</th>
-                <th className="num">Usato da</th>
-                <th>Creato</th>
-                <th>Stato</th>
+                {ord.th("nome", "Script")}
+                {ord.th("canale", "Canale")}
+                {ord.th("variabili", "Variabili", true)}
+                {ord.th("usato", "Usato da", true)}
+                {ord.th("creato", "Creato", true)}
+                {ord.th("stato", "Stato")}
               </tr>
             </thead>
             <tbody>
-              {script.map((s) => {
+              {[...script].sort(ord.confronta((s) => {
+                switch (ord.ordina) {
+                  case "canale": return s.canale ?? "";
+                  case "variabili": return variabiliScript(s.variabili).length;
+                  case "usato": return s._count.automazioni;
+                  case "stato": return s.attivo ? 1 : 0;
+                  case "creato": return s.creatoIl.getTime();
+                  default: return s.nome.toLowerCase();
+                }
+              })).map((s) => {
                 const dichiarate = variabiliScript(s.variabili);
                 return (
                   // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la

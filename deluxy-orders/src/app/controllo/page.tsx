@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Prisma } from "@prisma/client";
 import { RigaLink } from "@/components/RigaLink";
+import { ordinamentoDa } from "@/components/ThOrdina";
 import { prisma } from "@/lib/db";
 import { euro, dataBreve } from "@/lib/ordini";
 import { brandConColore } from "@/lib/brand";
@@ -69,6 +71,28 @@ export default async function Controllo({
   const stato = sp.stato?.trim() || null;
   const q = sp.q?.trim() || null;
   const pagina = Math.max(1, Number(sp.page ?? "1") || 1);
+  // ORDINAMENTO nella QUERY (Libro §8): l'elenco è paginato, ordinare le righe
+  // già estratte riordinerebbe solo la pagina visibile. Il «Margine» non è
+  // ordinabile: non è una colonna del database — si calcola a schermo con
+  // margineOrdine(), e ordinarlo qui darebbe un ordine vero solo dentro la
+  // pagina corrente. Meglio nessun ordinamento che uno che mente.
+  const ord = ordinamentoDa(sp, { predefinito: "data" });
+  const colonneOrdine: Record<string, Prisma.OrdineOrderByWithRelationInput> = {
+    numero: { numero: "asc" },
+    data: { data: "desc" },
+    cliente: { clienteNome: "asc" },
+    pagamento: { categoriaPagamento: "asc" },
+    totale: { totale: "desc" },
+    costo: { costoFornitore: "desc" },
+    incasso: { statoIncasso: "asc" },
+  };
+  const campo = Object.keys(colonneOrdine[ord.ordina] ?? colonneOrdine.data)[0] as keyof Prisma.OrdineOrderByWithRelationInput;
+  // Spareggio sulla data: senza, le colonne con molti valori uguali danno
+  // pagine instabili (la stessa riga due volte, o mai).
+  const ordineQuery: Prisma.OrdineOrderByWithRelationInput[] = [
+    { [campo]: ord.verso } as Prisma.OrdineOrderByWithRelationInput,
+    ...(campo === "data" ? [] : [{ data: "desc" } as Prisma.OrdineOrderByWithRelationInput]),
+  ];
 
   // Le scorciatoie di periodo (Libro v1.9 §8-bis), sulla data dell'ORDINE
   // (`Ordine.data`): quando una chip è attiva vince sulla finestra a giorni,
@@ -113,7 +137,7 @@ export default async function Controllo({
     }),
     prisma.ordine.findMany({
       where: { ...dove, ...(stato ? { statoIncasso: stato } : {}) },
-      orderBy: { data: "desc" },
+      orderBy: ordineQuery,
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
       select: {
@@ -474,14 +498,15 @@ export default async function Controllo({
         <table>
           <thead>
             <tr>
-              <th>Ordine</th>
-              <th>Data</th>
-              <th>Cliente</th>
-              <th>Pagamento</th>
-              <th className="num">Totale</th>
-              <th className="num">Costo fornitore</th>
+              {ord.th("numero", "Ordine")}
+              {ord.th("data", "Data", true)}
+              {ord.th("cliente", "Cliente")}
+              {ord.th("pagamento", "Pagamento")}
+              {ord.th("totale", "Totale", true)}
+              {ord.th("costo", "Costo fornitore", true)}
+              {/* Calcolato a schermo: non è una colonna, non si ordina. */}
               <th className="num">Margine</th>
-              <th>Incasso</th>
+              {ord.th("incasso", "Incasso")}
             </tr>
           </thead>
           <tbody>

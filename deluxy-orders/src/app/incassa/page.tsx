@@ -5,7 +5,9 @@ import { intervalloScorciatoia } from "@/lib/analisi";
 import { negoziPronti } from "@/lib/incassa";
 import { ChipsPeriodo } from "@/components/ChipsPeriodo";
 import { ModuloIncasso } from "@/components/ModuloIncasso";
+import { Prisma } from "@prisma/client";
 import { RigaLinkIncasso } from "@/components/RigaLinkIncasso";
+import { ordinamentoDa } from "@/components/ThOrdina";
 import { creaLink, aggiornaStatoLink, annullaLink, rileggiPermessi } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +31,20 @@ export default async function Incassa({
   searchParams: Promise<Record<string, string>>;
 }) {
   const sp = await searchParams;
+  const ord = ordinamentoDa(sp, { predefinito: "creato" });
+  const colonne: Record<string, Prisma.LinkIncassoOrderByWithRelationInput> = {
+    nome: { nome: "asc" },
+    descrizione: { descrizione: "asc" },
+    cliente: { clienteNome: "asc" },
+    importo: { totale: "desc" },
+    stato: { stato: "asc" },
+    creato: { creatoIl: "desc" },
+  };
+  const campo = Object.keys(colonne[ord.ordina] ?? colonne.creato)[0] as keyof Prisma.LinkIncassoOrderByWithRelationInput;
+  const ordineQuery: Prisma.LinkIncassoOrderByWithRelationInput[] = [
+    { [campo]: ord.verso } as Prisma.LinkIncassoOrderByWithRelationInput,
+    ...(campo === "creatoIl" ? [] : [{ creatoIl: "desc" } as Prisma.LinkIncassoOrderByWithRelationInput]),
+  ];
   const q = sp.q?.trim() || undefined;
   // Le scorciatoie di periodo (Libro v1.9 §8-bis): qui la data è quella di
   // CREAZIONE del link (`LinkIncasso.creatoIl`) — è l'unica che il record ha
@@ -53,7 +69,10 @@ export default async function Incassa({
             }
           : {}),
       },
-      orderBy: { creatoIl: "desc" },
+      // ⚠️ L'ordinamento va QUI e non sull'array: col tetto di 100 righe,
+      // ordinare dopo riordinerebbe solo le prime 100 per data, non le prime
+      // 100 del criterio scelto.
+      orderBy: ordineQuery,
       take: 100,
     }),
   ]);
@@ -155,12 +174,12 @@ export default async function Incassa({
           <table>
             <thead>
               <tr>
-                <th>Bozza</th>
-                <th>Cosa</th>
-                <th>Cliente</th>
-                <th className="num">Importo</th>
-                <th>Stato</th>
-                <th>Creato</th>
+                {ord.th("nome", "Bozza")}
+                {ord.th("descrizione", "Cosa")}
+                {ord.th("cliente", "Cliente")}
+                {ord.th("importo", "Importo", true)}
+                {ord.th("stato", "Stato")}
+                {ord.th("creato", "Creato", true)}
                 <th />
               </tr>
             </thead>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RigaLink } from "@/components/RigaLink";
+import { ordinamentoDa } from "@/components/ThOrdina";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/ordini";
 import { codificaChiave } from "@/lib/clienti";
@@ -65,10 +66,27 @@ export default async function Eventi({
   // «In arrivo» si ordina per quanto manca, e quello si calcola qui: in SQL
   // sarebbe una data che cambia ogni giorno.
   const conQuando = tutti.map((e) => ({ ...e, fra: fraQuantiGiorni(e.giorno, e.mese) }));
-  const ordinati =
-    vista === "prossimi"
-      ? conQuando.filter((e) => e.fra <= 60).sort((a, b) => a.fra - b.fra)
-      : conQuando;
+  // ORDINAMENTO (Libro §8). Si applica DOPO il calcolo di «fra quanti giorni»
+  // e PRIMA di impaginare, così ordina tutto l'elenco e non la sola pagina.
+  // Il predefinito resta quello della vista: «in arrivo» ordina per vicinanza,
+  // che è il motivo per cui quella vista esiste.
+  const ord = ordinamentoDa(sp, { predefinito: vista === "prossimi" ? "quando" : "volte" });
+  const base = vista === "prossimi" ? conQuando.filter((e) => e.fra <= 60) : conQuando;
+  const ordinati = [...base].sort(
+    ord.confronta((e) => {
+      switch (ord.ordina) {
+        case "perchi": return (e.titolo || e.destinatario || "").toLowerCase();
+        case "cliente": return e.chiave.toLowerCase();
+        case "tipo": return e.tipo;
+        case "anni": return e.ultimoAnno ?? 0;
+        case "spesa": return e.ultimaSpesa ?? 0;
+        case "stato": return e.stato;
+        case "volte": return e.ricorrenze;
+        // «Quando» è la vicinanza, non la data: manca meno tempo = più in alto.
+        default: return e.fra;
+      }
+    }),
+  );
   const pagine = Math.max(1, Math.ceil(ordinati.length / PER_PAGINA));
   const mostrati = ordinati.slice((pagina - 1) * PER_PAGINA, pagina * PER_PAGINA);
 
@@ -189,14 +207,14 @@ export default async function Eventi({
             <table>
               <thead>
                 <tr>
-                  <th>Quando</th>
-                  <th>Per chi</th>
-                  <th>Cliente</th>
-                  <th>Tipo</th>
-                  <th className="num">Volte</th>
-                  <th>Anni</th>
-                  <th className="num">Ultima spesa</th>
-                  <th>Stato</th>
+                  {ord.th("quando", "Quando")}
+                  {ord.th("perchi", "Per chi")}
+                  {ord.th("cliente", "Cliente")}
+                  {ord.th("tipo", "Tipo")}
+                  {ord.th("volte", "Volte", true)}
+                  {ord.th("anni", "Anni", true)}
+                  {ord.th("spesa", "Ultima spesa", true)}
+                  {ord.th("stato", "Stato")}
                 </tr>
               </thead>
               <tbody>

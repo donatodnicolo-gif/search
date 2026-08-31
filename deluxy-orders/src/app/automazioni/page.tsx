@@ -4,13 +4,21 @@ import { dataBreve } from "@/lib/ordini";
 import { CANALI, LISTE, lista, nomeCanale } from "@/lib/segmenti";
 import { creaAutomazione } from "@/app/actions";
 import { RigaLink } from "@/components/RigaLink";
+import { ordinamentoDa } from "@/components/ThOrdina";
 
 export const dynamic = "force-dynamic";
 
 // Le automazioni: elenco e creazione. Il concetto sta tutto nella prima riga
 // della pagina, perché è quello che evita i guai — qui si PREPARANO i messaggi,
 // non si spediscono da soli.
-export default async function Automazioni() {
+export default async function Automazioni({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const sp = await searchParams;
+  // L'elenco è completo (nessun tetto): l'ordinamento in memoria è esatto.
+  const ord = ordinamentoDa(sp, { predefinito: "creato" });
   const automazioni = await prisma.automazione.findMany({
     orderBy: { creatoIl: "desc" },
     include: { _count: { select: { messaggi: true } }, scriptUsato: { select: { id: true, nome: true } } },
@@ -54,18 +62,30 @@ export default async function Automazioni() {
           <table>
             <thead>
               <tr>
-                <th>Automazione</th>
-                <th>Lista</th>
-                <th>Canale</th>
-                <th>Script</th>
-                <th className="num">Pronti</th>
-                <th className="num">Preparati in tutto</th>
-                <th>Ultimo giro</th>
-                <th>Stato</th>
+                {ord.th("nome", "Automazione")}
+                {ord.th("lista", "Lista")}
+                {ord.th("canale", "Canale")}
+                {ord.th("script", "Script")}
+                {ord.th("pronti", "Pronti", true)}
+                {ord.th("preparati", "Preparati in tutto", true)}
+                {ord.th("giro", "Ultimo giro", true)}
+                {ord.th("stato", "Stato")}
               </tr>
             </thead>
             <tbody>
-              {automazioni.map((a) => (
+              {[...automazioni].sort(ord.confronta((a) => {
+                switch (ord.ordina) {
+                  case "nome": return a.nome.toLowerCase();
+                  case "lista": return (lista(a.lista)?.nome ?? a.lista).toLowerCase();
+                  case "canale": return a.canale.toLowerCase();
+                  case "script": return (a.scriptUsato?.nome ?? "").toLowerCase();
+                  case "pronti": return perAutomazione.get(a.id) ?? 0;
+                  case "preparati": return a._count.messaggi;
+                  case "giro": return a.ultimoGiro ? a.ultimoGiro.getTime() : 0;
+                  case "stato": return a.attiva ? 1 : 0;
+                  default: return a.creatoIl.getTime();
+                }
+              })).map((a) => (
                 // «La riga si apre col click» (Libro UX&UI v1.6 §8): tutta la
                 // riga apre la scheda; il link sul nome resta per la tastiera.
                 <RigaLink href={`/automazioni/${a.id}`} key={a.id} className="riga-link">
