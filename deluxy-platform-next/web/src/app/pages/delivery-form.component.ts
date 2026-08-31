@@ -1178,6 +1178,35 @@ export class DeliveryFormComponent implements AfterViewInit {
         },
         error: () => undefined,
       });
+
+      // Arricchimento dall'ORDINE dietro la vendita (mittente, TUTTE le righe,
+      // contrassegno): sta in Deluxy Orders, non nella vendita. Best-effort:
+      // se non arriva, il form resta con quel che la vendita aveva già.
+      this.http.get<any>(`${api}/sales/${idVendita}/ordine`).subscribe({
+        next: (o) => {
+          if (!o?.disponibile) return;
+          const m = this.model as Record<string, unknown>;
+          if (o.mittenteFirstName) m['senderFirstName'] = o.mittenteFirstName;
+          if (o.mittenteLastName) m['senderLastName'] = o.mittenteLastName;
+          // Contrassegno = pagamento alla consegna.
+          if (o.contrassegno) this.model.paymentOnDelivery = true;
+          // Più righe: sostituiscono la riga singola precompilata dalla vendita.
+          const righe = (o.prodotti ?? []).filter((p: any) => p.productId);
+          if (righe.length) {
+            this.productRows = righe.map((p: any) => ({
+              productId: p.productId, productVariantId: p.productVariantId ?? null,
+              quantity: p.quantita ?? 1, price: null, flexiblePrice: false,
+            } as ProductRow));
+            for (const p of righe) {
+              this.http.get<Product>(`${api}/products/${p.productId}`).subscribe({
+                next: (prod) => { if (prod?.id) this.products.set(this.unisciProdotti(this.products(), [prod])); },
+                error: () => undefined,
+              });
+            }
+          }
+        },
+        error: () => undefined,
+      });
     }
 
     const idRichiesta = this.route.snapshot.queryParamMap.get('richiesta');

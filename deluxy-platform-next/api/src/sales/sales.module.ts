@@ -316,6 +316,78 @@ export class SalesService {
   }
 
   /**
+   * DETTAGLIO ORDINE dietro la vendita (per precompilare la consegna, 31/08).
+   *
+   * La vendita salva l'essenziale per lo smistamento; il RESTO (mittente, TUTTE
+   * le righe, il pagamento in contrassegno) vive nell'ordine originale di Deluxy
+   * Orders. Qui lo si legge al volo — nessuna copia in casa (Standard §7) — e si
+   * risolvono le righe agli id di piattaforma, pronte per il form.
+   *
+   * Best-effort: se Orders non è configurato o non risponde, `disponibile:false`
+   * e il form usa solo quel che la vendita ha già.
+   */
+  async dettaglioOrdine(id: string): Promise<{
+    disponibile: boolean;
+    mittenteFirstName?: string; mittenteLastName?: string;
+    contrassegno?: boolean;
+    prodotti?: { productId: string | null; productVariantId: string | null; nome: string | null; quantita: number; sku: string | null }[];
+  }> {
+    const sale = await this.prisma.sale.findUnique({
+      where: { id }, select: { externalOrderId: true },
+    });
+    if (!sale?.externalOrderId) return { disponibile: false };
+
+    const cfg = await this.prisma.appSetting.findMany({ where: { key: { in: ['ordersUrl', 'ordersApiKey'] } } });
+    const map = Object.fromEntries(cfg.map((r) => [r.key, r.value]));
+    const url = (map['ordersUrl'] || process.env.ORDERS_URL || '').replace(/\/+$/, '');
+    const chiave = map['ordersApiKey'] || process.env.ORDERS_API_KEY || '';
+    if (!url || !chiave) return { disponibile: false };
+
+    let ordine: any;
+    try {
+      const res = await fetch(
+        `${url}/api/v1/ordini/${encodeURIComponent(sale.externalOrderId)}?annullati=inclusi`,
+        { headers: { 'x-api-key': chiave } },
+      );
+      if (!res.ok) return { disponibile: false };
+      ordine = await res.json();
+    } catch {
+      return { disponibile: false };
+    }
+
+    // Mittente = chi ha ORDINATO (il committente del regalo), non il destinatario.
+    // Si divide sull'ULTIMO spazio: «Maria Teresa Rossi» = nome «Maria Teresa».
+    const nome = String(ordine?.mittente?.nome ?? ordine?.cliente?.nome ?? '').trim();
+    const taglio = nome.lastIndexOf(' ');
+    const mittenteFirstName = taglio > 0 ? nome.slice(0, taglio) : nome || undefined;
+    const mittenteLastName = taglio > 0 ? nome.slice(taglio + 1) : undefined;
+
+    // Contrassegno (pagamento alla consegna): categoria «contrassegno» di Orders.
+    const contrassegno =
+      String(ordine?.categoriaPagamento ?? ordine?.pagamento?.categoria ?? '').toLowerCase() === 'contrassegno';
+
+    // Tutte le righe dell'ordine, risolte a prodotto/variante di piattaforma via SKU.
+    const righe: any[] = Array.isArray(ordine?.righe) ? ordine.righe : [];
+    const prodotti: { productId: string | null; productVariantId: string | null; nome: string | null; quantita: number; sku: string | null }[] = [];
+    for (const r of righe) {
+      const sku = String(r?.sku ?? '').trim();
+      let productId: string | null = null;
+      let productVariantId: string | null = null;
+      if (sku) {
+        const v = await this.prisma.productVariant.findFirst({ where: { sku }, select: { id: true, productId: true } });
+        if (v) { productId = v.productId; productVariantId = v.id; }
+        else {
+          const p = await this.prisma.product.findFirst({ where: { sku }, select: { id: true } });
+          if (p) productId = p.id;
+        }
+      }
+      prodotti.push({ productId, productVariantId, nome: r?.titolo ?? null, quantita: Number(r?.quantita) || 1, sku: sku || null });
+    }
+
+    return { disponibile: true, mittenteFirstName, mittenteLastName, contrassegno, prodotti };
+  }
+
+  /**
    * L'ufficio PRENDE IN MANO la vendita (bottone «Inserisci», 31/08/2026):
    * ferma il giro automatico — se era proposta a un partner, la proposta
    * decade (accetta/rifiuta valgono solo su PROPOSTA) — e la consegna si
@@ -728,6 +800,13 @@ export class SalesController {
   @ApiOperation({ summary: 'Dettaglio vendita (per il prefill del form consegna)' })
   findOne(@Param('id') id: string) {
     return this.salesService.findOne(id);
+  }
+
+  @Get(':id/ordine')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Dettaglio ordine dietro la vendita (mittente, righe, contrassegno) per il prefill' })
+  dettaglioOrdine(@Param('id') id: string) {
+    return this.salesService.dettaglioOrdine(id);
   }
 
   @Post()
