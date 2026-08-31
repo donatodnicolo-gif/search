@@ -34,6 +34,8 @@ interface DeliveryDetail {
   paymentStatus: string;
   /** Consegne da Fornitore: la fa il partner, non un valet. */
   deliveredByPartner?: boolean;
+  /** Provincia salvata (geocodificata): per l'assegnazione, non ridotta dalla stringa. */
+  province?: { id: string; code: string; name: string } | null;
   deliveryTimeFrom?: string;
   deliveryTimeTo?: string;
   deliveryFlexible?: boolean;
@@ -858,10 +860,13 @@ export class DeliveryDetailComponent {
   readonly valets = signal<ValetRef[]>([]);
   private id = '';
 
-  /** Provincia dedotta dall'indirizzo del destinatario. */
+  /** Provincia della consegna: quella SALVATA (geocodificata) vince sulla
+   *  deduzione dalla stringa — «Piazza Duca d'Aosta» a Milano non è Aosta. */
   readonly assignProvince = computed(() => {
     const d = this.delivery();
-    return d ? detectProvince(d.recipientAddress, this.provinces()) : null;
+    if (!d) return null;
+    if (d.province?.code) return this.provinces().find((p) => p.code === d.province!.code) ?? ({ code: d.province.code, name: d.province.name } as Province);
+    return detectProvince(d.recipientAddress, this.provinces());
   });
   /**
    * Solo i valet ATTIVI (niente sospesi, niente segnaposto dell'import) che

@@ -55,6 +55,11 @@ const DELIVERY_LIST_SELECT = {
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
   serviceType: { select: { id: true, name: true, pricingModel: true, scope: true } },
+  // ⚠️ La PROVINCIA SALVATA (geocodificata dal server): l'assegnazione la usa
+  // per filtrare i valet. Ri-dedurla dalla stringa dell'indirizzo lato client
+  // sbaglia — «Piazza Duca d'Aosta» a Milano veniva letta come provincia AOSTA
+  // e non compariva nessun valet.
+  province: { select: { id: true, code: true, name: true } },
   // Regola carnet applicata: serve alla lista per segnalare le consegne che
   // seguono una regola (prezzo azzerato / rettificato dal carnet).
   deliveryRuleId: true,
@@ -131,6 +136,8 @@ const DELIVERY_INCLUDE = {
   partner: { select: { id: true, insegna: true } },
   valet: { select: { id: true, firstName: true, lastName: true } },
   serviceType: { select: { id: true, name: true, pricingModel: true } },
+  // Provincia salvata: l'assegnazione la usa senza ri-dedurla dalla stringa.
+  province: { select: { id: true, code: true, name: true } },
   customer: { select: { id: true, firstName: true, lastName: true } },
   // ⚠️ Serve anche la VARIANTE: la riga di consegna può puntare a una taglia
   // (es. Cappelliera M: partner 215, pubblico 300) e mostrarle il prezzo del
