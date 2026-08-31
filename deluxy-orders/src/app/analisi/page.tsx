@@ -30,7 +30,9 @@ import {
   DIMENSIONI,
   serie,
   variazione,
+  type Kpi,
 } from "@/lib/analisi";
+import { ThOrdina, hrefOrdinamento, type VersoOrdinamento } from "@/components/ThOrdina";
 
 export const dynamic = "force-dynamic";
 
@@ -182,13 +184,41 @@ export default async function Analisi({
   // «Firenze non c'è più» è esattamente la notizia che si sta cercando.
   const primaPerEtichetta = new Map(dimPrima.map((r) => [r.etichetta, r]));
   const etichette = [...new Set([...dimOra.map((r) => r.etichetta), ...dimPrima.map((r) => r.etichetta)])];
+  const ordina = String(sp.ordina ?? "lordo");
+  const verso: VersoOrdinamento = sp.verso === "asc" ? "asc" : "desc";
+  // ⚠️ Qui l'ordinamento decide anche CHI ENTRA: la dimensione è tagliata a
+  // MAX_RIGHE_DIMENSIONE, quindi cambiare colonna cambia il campione, non solo
+  // l'ordine. La nota sotto la tabella lo dice già.
+  const valoreOrdinamento = (r: { etichetta: string; ora: Kpi }): string | number => {
+    switch (ordina) {
+      case "etichetta": return etichettaDimensione(dim.chiave, r.etichetta).toLowerCase();
+      case "ordini": return r.ora.ordini;
+      case "scontrino": return r.ora.scontrinoMedio;
+      case "upt": return r.ora.upt;
+      case "prezzoMedio": return r.ora.prezzoMedio;
+      case "pezzi": return r.ora.pezzi;
+      case "clienti": return r.ora.clienti;
+      case "nuovi": return r.ora.quotaPrimi;
+      case "annullati": return r.ora.quotaAnnullati;
+      case "rimborsi": return r.ora.quotaRimborsati;
+      default: return r.ora.lordo;
+    }
+  };
   const righeDimTutte = etichette
     .map((etichetta) => ({
       etichetta,
       ora: kpi(dimOra.find((r) => r.etichetta === etichetta) ?? ZERO_METRICHE),
       prima: kpi(primaPerEtichetta.get(etichetta) ?? ZERO_METRICHE),
     }))
-    .sort((a, b) => b.ora.lordo - a.ora.lordo || b.prima.lordo - a.prima.lordo);
+    .sort((a, b) => {
+      // ORDINAMENTO dall'indirizzo (Libro UX&UI §8). Predefinito: il venduto
+      // dal più alto, col periodo precedente a spareggio.
+      const x = valoreOrdinamento(a), y = valoreOrdinamento(b);
+      const c = typeof x === "string" && typeof y === "string"
+        ? x.localeCompare(y, "it")
+        : Number(x) - Number(y) || b.prima.lordo - a.prima.lordo;
+      return verso === "asc" ? c : -c;
+    });
   const righeDim = righeDimTutte.slice(0, MAX_RIGHE_DIMENSIONE);
   const lordoDim = righeDimTutte.reduce((s, r) => s + r.ora.lordo, 0);
 
@@ -524,18 +554,36 @@ export default async function Analisi({
           <table className="tabella-dimensione">
             <thead>
               <tr>
-                <th>{dim.nome}</th>
-                <th className="num">Venduto</th>
-                <th className="num">Quota</th>
-                <th className="num">Ordini</th>
-                <th className="num">Scontrino</th>
-                <th className="num">UPT</th>
-                <th className="num">Prezzo medio</th>
-                <th className="num">Pezzi</th>
-                <th className="num">Clienti</th>
-                <th className="num">Nuovi</th>
-                <th className="num">Annullati</th>
-                <th className="num">Rimborsi</th>
+                {[
+                  { chiave: "etichetta", nome: dim.nome },
+                  { chiave: "lordo", nome: "Venduto", numerica: true },
+                  { chiave: "", nome: "Quota", numerica: true },
+                  { chiave: "ordini", nome: "Ordini", numerica: true },
+                  { chiave: "scontrino", nome: "Scontrino", numerica: true },
+                  { chiave: "upt", nome: "UPT", numerica: true },
+                  { chiave: "prezzoMedio", nome: "Prezzo medio", numerica: true },
+                  { chiave: "pezzi", nome: "Pezzi", numerica: true },
+                  { chiave: "clienti", nome: "Clienti", numerica: true },
+                  { chiave: "nuovi", nome: "Nuovi", numerica: true },
+                  { chiave: "annullati", nome: "Annullati", numerica: true },
+                  { chiave: "rimborsi", nome: "Rimborsi", numerica: true },
+                ].map((c, i) =>
+                  // «Quota» è il venduto in percentuale: ordinarla darebbe lo
+                  // stesso ordine di «Venduto», quindi non finge di ordinare.
+                  c.chiave === "" ? (
+                    <th key={i} className="num">{c.nome}</th>
+                  ) : (
+                    <ThOrdina
+                      key={c.chiave}
+                      chiave={c.chiave}
+                      nome={c.nome}
+                      ordina={ordina}
+                      verso={verso}
+                      numerica={c.numerica}
+                      href={hrefOrdinamento(sp, c.chiave, ordina, verso, c.numerica)}
+                    />
+                  ),
+                )}
               </tr>
             </thead>
             <tbody>

@@ -82,3 +82,63 @@ export function ThOrdina({
     </th>
   );
 }
+
+/**
+ * L'ordinamento di UNA tabella, letto dall'indirizzo.
+ *
+ * Il `prefisso` serve alle pagine con PIÙ tabelle (Marketing ne ha quattro):
+ * senza, ordinare la prima riordinerebbe anche le altre tre, perché
+ * leggerebbero tutte lo stesso `?ordina=`. Con il prefisso ogni tabella ha il
+ * suo parametro (`?canali=venduto&canaliVerso=asc`) e le altre non si muovono.
+ *
+ * Torna anche `th()`, che costruisce l'intestazione già collegata: il punto di
+ * tutto questo è che una tabella diventi ordinabile in tre righe, non in venti
+ * — venti righe ripetute ventisei volte è il motivo per cui finora era
+ * ordinabile una tabella sola.
+ */
+export function ordinamentoDa(
+  sp: Record<string, string | undefined>,
+  opzioni: { prefisso?: string; predefinito: string } = { predefinito: "" },
+) {
+  const chiaveOrdina = opzioni.prefisso ? `${opzioni.prefisso}Ordina` : "ordina";
+  const chiaveVerso = opzioni.prefisso ? `${opzioni.prefisso}Verso` : "verso";
+  const ordina = String(sp[chiaveOrdina] ?? opzioni.predefinito);
+  const verso: VersoOrdinamento = sp[chiaveVerso] === "asc" ? "asc" : "desc";
+
+  /** Confronto pronto per `Array.sort`, dato il valore da confrontare. */
+  function confronta<T>(valore: (r: T) => string | number) {
+    return (a: T, b: T) => {
+      const x = valore(a), y = valore(b);
+      const c = typeof x === "string" && typeof y === "string"
+        ? x.localeCompare(y, "it")
+        : Number(x) - Number(y);
+      return verso === "asc" ? c : -c;
+    };
+  }
+
+  return {
+    ordina,
+    verso,
+    confronta,
+    /** L'intestazione ordinabile di una colonna, già collegata. */
+    th(chiave: string, nome: string, numerica?: boolean) {
+      const q = new URLSearchParams();
+      for (const [k, v] of Object.entries(sp)) {
+        if (v && k !== chiaveOrdina && k !== chiaveVerso && k !== "page") q.set(k, v);
+      }
+      q.set(chiaveOrdina, chiave);
+      q.set(chiaveVerso, ordina === chiave ? (verso === "asc" ? "desc" : "asc") : versoIniziale(numerica));
+      return (
+        <ThOrdina
+          key={chiave}
+          chiave={chiave}
+          nome={nome}
+          ordina={ordina}
+          verso={verso}
+          numerica={numerica}
+          href={`?${q.toString()}`}
+        />
+      );
+    },
+  };
+}

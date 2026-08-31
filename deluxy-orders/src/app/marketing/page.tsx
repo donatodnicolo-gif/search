@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { euro } from "@/lib/ordini";
+import { ordinamentoDa } from "@/components/ThOrdina";
 import { brandConColore } from "@/lib/brand";
 import { nomeCanale } from "@/lib/marketing";
 import { venditePerCanale } from "@/lib/canali";
@@ -103,6 +104,12 @@ export default async function Marketing({
   ]);
 
   const primaPerCanale = new Map(prima.canali.map((c) => [c.canale, c]));
+  // Ogni tabella di questa pagina ha il SUO ordinamento: sono quattro, e un
+  // parametro solo le farebbe muovere tutte insieme.
+  const ordCanali = ordinamentoDa(sp, { prefisso: "canali", predefinito: "lordo" });
+  const ordAcq = ordinamentoDa(sp, { prefisso: "acq", predefinito: "nuovi" });
+  const ordSorgenti = ordinamentoDa(sp, { prefisso: "sorg", predefinito: "lordo" });
+  const ordCampagne = ordinamentoDa(sp, { prefisso: "camp", predefinito: "lordo" });
   const totale = ora.totali.lordo;
   const pagati = ora.canali.filter((c) => c.pagato);
   const lordoPagato = pagati.reduce((s, c) => s + c.lordo, 0);
@@ -288,17 +295,27 @@ export default async function Marketing({
           <table>
             <thead>
               <tr>
-                <th>Canale</th>
-                <th className="num">Venduto</th>
+                {ordCanali.th("canale", "Canale")}
+                {ordCanali.th("lordo", "Venduto", true)}
+                {/* «Quota» è il venduto in percentuale: stesso ordine di Venduto. */}
                 <th className="num">Quota</th>
-                <th className="num">Ordini</th>
-                <th className="num">Scontrino</th>
-                <th className="num">Clienti nuovi</th>
-                <th className="num">Di ritorno</th>
+                {ordCanali.th("ordini", "Ordini", true)}
+                {ordCanali.th("scontrino", "Scontrino", true)}
+                {ordCanali.th("primi", "Clienti nuovi", true)}
+                {ordCanali.th("ritorno", "Di ritorno", true)}
               </tr>
             </thead>
             <tbody>
-              {ora.canali.map((c) => {
+              {[...ora.canali].sort(ordCanali.confronta((c) => {
+                switch (ordCanali.ordina) {
+                  case "canale": return c.nome.toLowerCase();
+                  case "ordini": return c.ordini;
+                  case "scontrino": return c.ordini ? c.lordo / c.ordini : 0;
+                  case "primi": return c.primi;
+                  case "ritorno": return c.daRepeater;
+                  default: return c.lordo;
+                }
+              })).map((c) => {
                 const p = primaPerCanale.get(c.canale);
                 const scontrino = c.ordini ? c.lordo / c.ordini : 0;
                 const scontrinoPrima = p?.ordini ? p.lordo / p.ordini : 0;
@@ -376,17 +393,27 @@ export default async function Marketing({
           <table>
             <thead>
               <tr>
-                <th>Canale</th>
-                <th className="num">Da clienti nuovi</th>
-                <th className="num">Scontrino nuovi</th>
-                <th className="num">Da clienti di ritorno</th>
-                <th className="num">Scontrino di ritorno</th>
-                <th className="num">Quota acquisizione</th>
+                {ordAcq.th("canale", "Canale")}
+                {ordAcq.th("nuovi", "Da clienti nuovi", true)}
+                {ordAcq.th("scontrinoNuovi", "Scontrino nuovi", true)}
+                {ordAcq.th("ritorno", "Da clienti di ritorno", true)}
+                {ordAcq.th("scontrinoRitorno", "Scontrino di ritorno", true)}
+                {ordAcq.th("quota", "Quota acquisizione", true)}
               </tr>
             </thead>
             <tbody>
               {[...ora.canali]
-                .sort((x, y) => y.lordoPrimi - x.lordoPrimi)
+                .sort(ordAcq.confronta((c) => {
+                  const conCliente = c.lordoPrimi + c.lordoDaRepeater;
+                  switch (ordAcq.ordina) {
+                    case "canale": return c.nome.toLowerCase();
+                    case "scontrinoNuovi": return c.primi ? c.lordoPrimi / c.primi : 0;
+                    case "ritorno": return c.lordoDaRepeater;
+                    case "scontrinoRitorno": return c.daRepeater ? c.lordoDaRepeater / c.daRepeater : 0;
+                    case "quota": return conCliente > 0 ? (c.lordoPrimi / conCliente) * 100 : 0;
+                    default: return c.lordoPrimi;
+                  }
+                }))
                 .map((c) => {
                   const p = primaPerCanale.get(c.canale);
                   const conCliente = c.lordoPrimi + c.lordoDaRepeater;
@@ -482,15 +509,26 @@ export default async function Marketing({
           <table>
             <thead>
               <tr>
-                <th>Strumento / sito</th>
-                <th>Canale</th>
-                <th className="num">Venduto</th>
-                <th className="num">Ordini</th>
-                <th className="num">Clienti nuovi</th>
+                {ordSorgenti.th("sorgente", "Strumento / sito")}
+                {ordSorgenti.th("canale", "Canale")}
+                {ordSorgenti.th("lordo", "Venduto", true)}
+                {ordSorgenti.th("ordini", "Ordini", true)}
+                {ordSorgenti.th("nuovi", "Clienti nuovi", true)}
               </tr>
             </thead>
             <tbody>
-              {ora.sorgenti.slice(0, MAX_SORGENTI).map((s) => (
+              {/* ⚠️ Si ordina PRIMA di tagliare a MAX_SORGENTI: tagliare e poi
+                  ordinare mostrerebbe le prime N per venduto riordinate, non le
+                  prime N del criterio scelto — una tabella che mente. */}
+              {[...ora.sorgenti].sort(ordSorgenti.confronta((s) => {
+                switch (ordSorgenti.ordina) {
+                  case "sorgente": return s.sorgente.toLowerCase();
+                  case "canale": return s.canale.toLowerCase();
+                  case "ordini": return s.ordini;
+                  case "nuovi": return s.ordini ? (s.primi / s.ordini) * 100 : 0;
+                  default: return s.lordo;
+                }
+              })).slice(0, MAX_SORGENTI).map((s) => (
                 <tr key={`${s.sorgente}-${s.canale}`}>
                   <td>{s.sorgente === "(non indicata)" ? "Nessun link tracciato" : s.sorgente}</td>
                   <td className="cella-muta">{s.canale === "sconosciuto" ? "—" : nomeCanale(s.canale)}</td>
@@ -521,15 +559,24 @@ export default async function Marketing({
           <table>
             <thead>
               <tr>
-                <th>Campagna</th>
-                <th>Canale</th>
-                <th className="num">Venduto</th>
-                <th className="num">Ordini</th>
-                <th className="num">Clienti nuovi</th>
+                {ordCampagne.th("campagna", "Campagna")}
+                {ordCampagne.th("canale", "Canale")}
+                {ordCampagne.th("lordo", "Venduto", true)}
+                {ordCampagne.th("ordini", "Ordini", true)}
+                {ordCampagne.th("nuovi", "Clienti nuovi", true)}
               </tr>
             </thead>
             <tbody>
-              {ora.campagne.slice(0, MAX_CAMPAGNE).map((c) => (
+              {/* Ordinare PRIMA di tagliare, come per le sorgenti. */}
+              {[...ora.campagne].sort(ordCampagne.confronta((c) => {
+                switch (ordCampagne.ordina) {
+                  case "campagna": return c.campagna.toLowerCase();
+                  case "canale": return c.canale.toLowerCase();
+                  case "ordini": return c.ordini;
+                  case "nuovi": return c.ordini ? (c.primi / c.ordini) * 100 : 0;
+                  default: return c.lordo;
+                }
+              })).slice(0, MAX_CAMPAGNE).map((c) => (
                 <tr key={`${c.campagna}-${c.canale}`}>
                   <td style={{ maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis" }}>{c.campagna}</td>
                   <td className="cella-muta">{c.canale === "sconosciuto" ? "—" : nomeCanale(c.canale)}</td>
